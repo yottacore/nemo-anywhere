@@ -2282,6 +2282,20 @@ sort_by_length (GMount *a, GMount *b)
     return b_len - a_len;
 }
 
+gboolean
+nemo_uri_is_at_or_under (const char *uri, const char *root)
+{
+	gsize root_len;
+
+	if (uri == NULL || root == NULL || !g_str_has_prefix (uri, root)) {
+		return FALSE;
+	}
+
+	root_len = strlen (root);
+	return root_len == 0 || root[root_len - 1] == '/' ||
+	       uri[root_len] == '\0' || uri[root_len] == '/';
+}
+
 GMount *
 nemo_get_mount_for_location_safe (GFile *location)
 {
@@ -2304,13 +2318,8 @@ nemo_get_mount_for_location_safe (GFile *location)
 
         /* Boundary-guarded: a bare prefix test would let a longer sibling
          * mount root (tried first by the descending-length sort) swallow a
-         * location that really sits under the true root. Require an exact
-         * match or a '/' at the boundary. A root uri already ending in '/'
-         * (e.g. file:///) matches by prefix alone. */
-        gsize root_len = strlen (mount_root_uri);
-        if (g_str_has_prefix (location_uri, mount_root_uri) &&
-            (root_len == 0 || mount_root_uri[root_len - 1] == '/' ||
-             location_uri[root_len] == '\0' || location_uri[root_len] == '/')) {
+         * location that really sits under the true root. */
+        if (nemo_uri_is_at_or_under (location_uri, mount_root_uri)) {
             // Add a ref for our match, as it will lose one when the list is freed.
             ret = g_object_ref (mount);
         }

@@ -1,12 +1,14 @@
 /* Exercises the app-owned metadata store: set/unset, GFileInfo overlay,
  * move re-keying (including directory descendants), and the on-disk
- * round trip. Runs against a throwaway config root. */
+ * round trip. Runs against a throwaway config root. First, before anything
+ * has loaded the store, a damaged file is found in its place. */
 
 #include <config.h>
 
 #include <stdlib.h>
 #include <string.h>
 #include <gio/gio.h>
+#include <glib/gstdio.h>
 
 #include <libnemo-private/nemo-metadata-store.h>
 
@@ -31,6 +33,46 @@ info_string (const char *uri, const char *key)
 	return result;
 }
 
+/* A file that does not parse holds every folder's view, zoom, sort and layout
+ * all the same. It used to leave an empty store that the next change wrote
+ * straight over it. It is set aside whole instead, and the next save starts a
+ * new file beside it. The warning it logs is expected. */
+static void
+test_damaged_file_set_aside (const char *tmpdir)
+{
+	const char *damaged = "{ \"file:///tmp/kept\": { \"nemo-icon-view-zoom\": ";
+	char *dir, *store_file, *aside, *contents = NULL, *value;
+
+	dir = g_build_filename (tmpdir, "nemo-anywhere", NULL);
+	store_file = g_build_filename (dir, "metadata.json", NULL);
+	aside = g_strconcat (store_file, ".bad", NULL);
+	check (g_mkdir_with_parents (dir, 0700) == 0);
+	check (g_file_set_contents (store_file, damaged, -1, NULL));
+
+	/* The first use loads it. */
+	nemo_metadata_store_set_string ("file:///tmp/new", "new-key", "n");
+	nemo_metadata_store_flush ();
+
+	check (g_file_get_contents (aside, &contents, NULL, NULL));
+	check (g_strcmp0 (contents, damaged) == 0);
+	g_free (contents);
+
+	contents = NULL;
+	check (g_file_get_contents (store_file, &contents, NULL, NULL));
+	check (contents != NULL && strstr (contents, "file:///tmp/new") != NULL);
+	g_free (contents);
+
+	value = info_string ("file:///tmp/new", "new-key");
+	check (g_strcmp0 (value, "n") == 0);
+	g_free (value);
+
+	nemo_metadata_store_set_string ("file:///tmp/new", "new-key", NULL);
+	g_remove (aside);
+	g_free (aside);
+	g_free (store_file);
+	g_free (dir);
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -42,6 +84,8 @@ main (int argc, char *argv[])
 
 	tmpdir = test_scratch_config_home ("nemo-metastore-test-XXXXXX");
 	g_assert (tmpdir != NULL);
+
+	test_damaged_file_set_aside (tmpdir);
 
 	/* set / read back */
 	nemo_metadata_store_set_string ("file:///tmp/a", "test-key", "hello");

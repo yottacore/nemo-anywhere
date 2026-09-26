@@ -238,6 +238,29 @@ test_ahead_held (NemoFile *made_now, NemoFile *made_before)
 	check (nemo_thumbnail_memory_bytes () > 0);
 }
 
+/* The limit offers sizes up to 64 GB. Read at the width of an int, 8 GB
+ * truncated to 0 and turned every thumbnail off, and 2 GB went negative and
+ * turned the limit off. The file here is a few hundred bytes, so a limit of one
+ * byte refuses it and 8 GB must not. It takes the store's answer first, since
+ * the limit only applies once the store is known to hold nothing. */
+static void
+test_size_limit (NemoFile *file)
+{
+	NemoThumbnailLoaded nothing = { 0 };
+
+	nemo_file_take_thumbnail (file, &nothing);
+	check (file->details->thumbnail == NULL && file->details->thumbnail_path == NULL);
+
+	nemo_config_set_int64 (nemo_preferences, NEMO_PREFERENCES_IMAGE_FILE_THUMBNAIL_LIMIT, 1);
+	check (!nemo_file_should_show_thumbnail (file));
+
+	nemo_config_set_int64 (nemo_preferences, NEMO_PREFERENCES_IMAGE_FILE_THUMBNAIL_LIMIT,
+			       G_GINT64_CONSTANT (8) * 1024 * 1024 * 1024);
+	check (nemo_file_should_show_thumbnail (file));
+
+	nemo_config_reset (nemo_preferences, NEMO_PREFERENCES_IMAGE_FILE_THUMBNAIL_LIMIT);
+}
+
 int
 main (int argc, char **argv)
 {
@@ -246,6 +269,7 @@ main (int argc, char **argv)
 	g_autofree char *uri = NULL;
 	NemoDirectory *directory;
 	NemoFile *files[4];
+	NemoFile *limited;
 	int client, i;
 
 	gtk_init_check (&argc, &argv);
@@ -264,7 +288,7 @@ main (int argc, char **argv)
 
 	dir = g_build_filename (tmp, "pictures", NULL);
 	check (g_mkdir (dir, 0755) == 0);
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < 5; i++) {
 		g_autofree char *name = g_strdup_printf ("shot-%d.png", i);
 		g_autofree char *path = g_build_filename (dir, name, NULL);
 
@@ -304,6 +328,14 @@ main (int argc, char **argv)
 	test_old_picture_kept (files[0]);
 	test_ahead (files[1], files[2]);
 	test_ahead_held (files[3], files[1]);
+
+	{
+		g_autofree char *name = g_strdup_printf ("%s/shot-4.png", uri);
+
+		limited = nemo_file_get_by_uri (name);
+		test_size_limit (limited);
+		nemo_file_unref (limited);
+	}
 
 	for (i = 0; i < 4; i++) {
 		nemo_file_unref (files[i]);

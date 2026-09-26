@@ -2,7 +2,9 @@
  * points XDG_DATA_DIRS and PATH at its own prefix itself. Proving that needs a
  * binary sitting in a prefix, so the test copies itself into one and runs the
  * copy: the child sets the environment up and prints what it got, the parent
- * checks it. POSIX only. */
+ * checks it. The data, translation and helper-program dirs are looked for the
+ * same way, beside the binary before the built-in path, so the copy reports
+ * those too. POSIX only. */
 
 #include <config.h>
 
@@ -24,6 +26,9 @@ report (void)
 
 	g_print ("XDG_DATA_DIRS=%s\n", g_getenv ("XDG_DATA_DIRS"));
 	g_print ("PATH=%s\n", g_getenv ("PATH"));
+	g_print ("DATA_DIR=%s\n", nemo_get_data_dir ());
+	g_print ("LOCALE_DIR=%s\n", nemo_get_locale_dir ());
+	g_print ("BIN_DIR=%s\n", nemo_get_bin_dir ());
 
 	return 0;
 }
@@ -47,6 +52,24 @@ value_of (const char *output, const char *var)
 	g_strfreev (lines);
 
 	return found;
+}
+
+/* The dir the child printed for var is want, however it is spelled. */
+static void
+check_resolves_to (const char *output, const char *var, const char *want)
+{
+	char *got = value_of (output, var);
+	char *got_canon = got != NULL ? g_canonicalize_filename (got, NULL) : NULL;
+	char *want_canon = g_canonicalize_filename (want, NULL);
+
+	if (g_strcmp0 (got_canon, want_canon) != 0) {
+		g_printerr ("FAIL %s=%s (wanted %s)\n", var, got != NULL ? got : "(none)", want);
+		failures++;
+	}
+
+	g_free (want_canon);
+	g_free (got_canon);
+	g_free (got);
 }
 
 /* Run the copy at exe with XDG_DATA_DIRS set to preset (NULL to unset it). */
@@ -86,6 +109,8 @@ main (int argc, char *argv[])
 	char *out;
 	char *dirs;
 	char *path;
+	char *data_dir;
+	char *locale_dir;
 
 	if (argc > 1 && strcmp (argv[1], "--report") == 0) {
 		return report ();
@@ -98,6 +123,12 @@ main (int argc, char *argv[])
 	share = g_build_filename (tmp, "share", NULL);
 	g_mkdir_with_parents (bin, 0755);
 	g_mkdir_with_parents (share, 0755);
+
+	/* What an install relocated to tmp carries. */
+	data_dir = g_build_filename (share, NEMO_APP_SLUG, NULL);
+	locale_dir = g_build_filename (share, "locale", NULL);
+	g_mkdir_with_parents (data_dir, 0755);
+	g_mkdir_with_parents (locale_dir, 0755);
 
 	self = nemo_get_exe_path ();
 	g_assert_nonnull (self);
@@ -120,6 +151,9 @@ main (int argc, char *argv[])
 	check (dirs != NULL && g_str_has_prefix (dirs, share));
 	check (dirs != NULL && strstr (dirs, "/usr/share") != NULL);
 	check (path != NULL && g_str_has_prefix (path, bin));
+	check_resolves_to (out, "DATA_DIR", data_dir);
+	check_resolves_to (out, "LOCALE_DIR", locale_dir);
+	check_resolves_to (out, "BIN_DIR", bin);
 	g_free (dirs);
 	g_free (path);
 	g_free (out);
@@ -146,6 +180,8 @@ main (int argc, char *argv[])
 		g_free (preset);
 	}
 
+	g_free (locale_dir);
+	g_free (data_dir);
 	g_free (exe);
 	g_free (self);
 	g_free (share);

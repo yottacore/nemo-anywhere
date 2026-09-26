@@ -1041,7 +1041,9 @@ emit_changed (const char *group, const char *key)
 	/* GSettings delivered "changed" on the main context and all 84 ported
 	 * handlers assume it - they touch widgets. File operations reach a set()
 	 * from worker threads (delete -> favorites -> set_strv), so hop when we
-	 * are not already there. */
+	 * are not already there. Always queued: g_main_context_invoke would run
+	 * the handler on the worker itself whenever the main thread is outside
+	 * the loop at that moment. */
 	if (config_thread == NULL || g_thread_self () == config_thread) {
 		emit_changed_now (group, key);
 		return;
@@ -1052,9 +1054,8 @@ emit_changed (const char *group, const char *key)
 
 		c->group = g_strdup (group);
 		c->key   = g_strdup (key);
-		g_main_context_invoke_full (NULL, G_PRIORITY_DEFAULT,
-		                            emit_changed_idle, c,
-		                            emit_changed_idle_free);
+		g_idle_add_full (G_PRIORITY_DEFAULT, emit_changed_idle, c,
+		                 emit_changed_idle_free);
 	}
 }
 
