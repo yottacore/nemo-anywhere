@@ -329,7 +329,10 @@ main (int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	g_print ("long-path enumeration: all checks passed%s\n",
-		 skipped ? " (deep folder skipped)" : "");
+	/* The long paths are what this test is for, so without them it has not run. */
+	if (skipped)
+		return 77;
+
+	g_print ("long-path enumeration: all checks passed\n");
 	return EXIT_SUCCESS;
 }

@@ -14,7 +14,8 @@
 ##	  noise to drown in, and a Title Case label pasted from upstream is caught
 ##	  wherever it sits. A missing python skips it the same way cppcheck does.
 ##	- Then the settings-handler check (cicd/utility/lint-pref-handlers.py), also
-##	  whole-tree, which pairs each disconnect with the connect it belongs to.
+##	  whole-tree, which pairs each disconnect with the connect it belongs to,
+##	  and the accelerator check (cicd/utility/lint-accels.py), whole-tree too.
 ##	- Runs the same everywhere bash + git + cppcheck exist (Linux host, MSYS2).
 ##	- Syntax: lint-c.bash [base-branch]
 
@@ -610,6 +611,427 @@ fCheckDigestAttrOrder(){
 }
 fCheckDigestAttrOrder
 
+## A test that cannot run exits 77, which meson counts as a skip. Three tests
+## said they were skipping and then exited 0, so the suite counted a pass for
+## something that never ran. Two shapes are caught: a skip message whose block
+## goes on to exit 0, and one that jumps to the end of a main with no way to
+## exit 77. A skip of one case that lets the rest run is not either shape.
+fCheckTestSkipExit(){
+	local bad
+
+	bad="$(awk '
+		function report(){ if (jumped != "" && !has77) print prev ":" jumped ": skips, then jumps to an end that never exits 77" }
+		FNR == 1 { if (NR > 1) report(); prev = FILENAME; inmain = 0; on = 0; has77 = 0; jumped = "" }
+		/(return|exit)[^;]*(77|TEST_SKIPPED)/ { has77 = 1 }
+		/^main *\(/ { inmain = 1; depth = 0 }
+		inmain {
+			line = $0
+			gsub(/"([^"\\]|\\.)*"/, "", line)
+			opens = gsub(/\{/, "", line); closes = gsub(/\}/, "", line)
+			if (!on && $0 ~ /(g_print|printf)/ && tolower($0) ~ /(skip|nothing to check)/) {
+				on = 1; at = FNR; lvl = depth; ok = 0; bad = 0; jumps = 0
+			}
+			if (on) {
+				if ($0 ~ /(return|exit)[^;]*(77|TEST_SKIPPED)/) ok = 1
+				if ($0 ~ /(return|exit)[ (]*(0|EXIT_SUCCESS)[ )]*;/) bad = 1
+				if ($0 ~ /goto /) jumps = 1
+			}
+			depth += opens - closes
+			if (on && depth < lvl) {
+				if (bad && !ok) print FILENAME ":" at ": skips, then exits 0"
+				if (jumps) jumped = jumped " " at
+				on = 0
+			}
+			if (/^}/) inmain = 0
+		}
+		END { report() }
+	' source/test/*.c)"
+
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: a test says it skips and exits 0 - a test that cannot run exits 77"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fCheckTestSkipExit
+
+## Scratch directories come from test_scratch_dir, which removes them at exit
+## and keeps two runs apart. One test made and removed its own by hand, and two
+## copies running at once destroyed each other's tree. test-scratch.c is the
+## helper; test-nemo-scratch.c needs one the helper has no claim on.
+fCheckTestScratchDirs(){
+	local bad
+
+	bad="$(grep -nE '(^|[^[:alnum:]_])(g_dir_make_tmp|g_mkdtemp|g_mkdtemp_full|mkdtemp)[[:space:]]*\(' source/test/*.c \
+		| grep -vE '^source/test/(test-scratch|test-nemo-scratch)\.c:' || true)"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: a test makes its own temporary directory - use test_scratch_dir"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fCheckTestScratchDirs
+
+## Only a trash or delete command in a window counts as asked for, which gets
+## the lighter confirmation. The guard used to read GTK's current event
+## instead, so a delete started from inside any unrelated handler was taken
+## for one a person asked for. The caller says so now, and the event only
+## names the trigger in the log.
+fCheckByUser(){
+	local allowed=' '
+	allowed+='source/src/nemo-view.c '				# trash, delete and empty trash commands
+	allowed+='source/src/nemo-tree-sidebar.c '		# trash and delete commands in the tree
+	allowed+='source/src/nemo-places-sidebar.c '		# empty trash command
+	allowed+='source/src/nemo-trash-bar.c '			# empty trash button
+	allowed+='source/src/nemo-mime-actions.c '			# move to trash button in the launcher dialog
+	allowed+='source/libnemo-private/nemo-archive.c '	# delete originals, ticked in the compress dialog; still asks
+	local file bad=""
+
+	while read -r file; do
+		[[ -z "$file" ]] && continue
+		[[ "$allowed" == *" ${file} "* ]] || bad+="${file} "
+	done <<< "$(grep -rlE 'nemo_file_operations_[a-z_]+_by_user[[:space:]]*\(' source --include='*.c' \
+		| grep -v -e '^source/test/' -e '^source/libnemo-private/nemo-file-operations\.c$' || true)"
+
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: a _by_user job started from a file not on the list in lint-c.bash: ${bad% }"
+		exit 2
+	fi
+
+	bad="$(awk '
+		FNR == 1 { fn = "" }
+		/^[a-zA-Z_][a-zA-Z0-9_]* *\(/ { fn = $1; sub(/\(.*/, "", fn); ev = 0; sets = 0 }
+		/gtk_get_current_event *\(/ { ev = 1 }
+		/->unattended *=[^=]/ { sets = 1 }
+		/^}/ {
+			if (fn != "" && ev && sets) print FILENAME ": " fn
+			fn = ""
+		}
+	' source/libnemo-private/*.c source/src/*.c)"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: unattended is decided from GTK's current event - the caller says whether a person asked"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fCheckByUser
+
+## A link to a share that is not answering costs about twenty seconds for each
+## question asked of it, and a folder waits on all of them. These three leave
+## anything on a share alone; without them a folder of such links took minutes
+## to list or to switch view.
+fCheckShareGates(){
+	local want src fn body
+
+	for want in nemo-directory-async.c:lacks_filesystem_info nemo-directory-async.c:lacks_mount nemo-file.c:file_is_cheap_to_read; do
+		src="source/libnemo-private/${want%%:*}"
+		fn="${want#*:}"
+		[[ -f "$src" ]] || continue
+		body="$(awk -v fn="$fn" '$0 ~ "^" fn " \\(" { on=1 } on { print } on && /^}/ { exit }' "$src")"
+		if ! grep -q -F 'nemo_file_is_on_a_share (file)' <<< "$body"; then
+			fEcho "FAIL: ${src}: ${fn} must leave files on a share alone (nemo_file_is_on_a_share)"
+			exit 2
+		fi
+	done
+}
+fCheckShareGates
+
+## Setting the list's bottom margin asks for another allocation. The size
+## handler set it on every one, which redrew the view at the frame rate - the
+## strobing scrollbar. Each set sits behind a check that the value moved.
+## Starting a folder load resets it once, which cannot loop.
+fCheckMarginGuard(){
+	local src='source/src/nemo-list-view.c'
+	local bad
+
+	[[ -f "$src" ]] || return 0
+
+	bad="$(awk '
+		/^[a-zA-Z_][a-zA-Z0-9_]* *\(/ { fn = $1; sub(/\(.*/, "", fn) }
+		/gtk_widget_set_margin_bottom *\(/ && fn != "nemo_list_view_begin_loading" {
+			if (prev !~ /gtk_widget_get_margin_bottom/ || prev !~ /!=/) print FNR ": " $0
+		}
+		/[^[:space:]]/ { prev = $0 }
+	' "$src")"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: ${src}: set the bottom margin only when it changes"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fCheckMarginGuard
+
+## On Windows every program nemo starts goes through nemo-launch-win32.c.
+## Anything started directly inherits the single-exe packer's hooks: programs
+## built on Chromium reported a crash on a cold start, and 32-bit ones never
+## ran. The other calls into the shell are on the list with their reasons.
+fCheckWinLaunch(){
+	local allowed=' '
+	allowed+='nemo-view-win32.c:nemo_view_win32_open_elevated '		# runas on our own exe, the only way to ask for elevation
+	allowed+='nemo-view-win32.c:nemo_view_win32_open_in_explorer '	# explore verb, for the item that says Explorer on it
+	allowed+='nemo-view-win32.c:explorer_select_by_command_line '	# names explorer.exe, but starts it through the broker
+	local bad
+
+	bad="$(find source \( -name '*.c' -o -name '*.h' \) -exec awk -v allowed="$allowed" '
+		FNR == 1 { fn = ""; base = FILENAME; sub(/.*\//, "", base) }
+		base == "nemo-launch-win32.c" { next }
+		/^[a-zA-Z_][a-zA-Z0-9_]* *\(/ { fn = $1; sub(/\(.*/, "", fn) }
+		/(^|[^A-Za-z0-9_])(CreateProcess[AW]?|ShellExecute(Ex)?[AW]?) *\(|"explorer\.exe"/ {
+			if (index(allowed, " " base ":" fn " ") == 0) print FILENAME ":" FNR ": " $0
+		}
+	' {} +)"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: a program started outside nemo-launch-win32.c, and not on the list in lint-c.bash"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fCheckWinLaunch
+
+## A right-click on a path button pops its menu inside the press. It used to
+## wait for the folder's attributes and pop up from their callback, which came
+## after the release with a stale event, so the menu opened and shut at once.
+fCheckLocationPopup(){
+	local src='source/src/nemo-view.c'
+	local last body
+
+	[[ -f "$src" ]] || return 0
+
+	last="$(awk '/^schedule_pop_up_location_context_menu \(/ { on=1 } on && /^}/ { print prev; exit } on && /[^[:space:]]/ { prev=$0 }' "$src")"
+	if ! grep -q -F 'real_pop_up_location_context_menu (view);' <<< "$last"; then
+		fEcho "FAIL: ${src}: schedule_pop_up_location_context_menu must end by popping the menu up"
+		exit 2
+	fi
+
+	body="$(awk '/^location_popup_file_attributes_ready \(/,/^}/' "$src")"
+	if grep -q -E 'pop_up[a-z_]* *\(' <<< "$body"; then
+		fEcho "FAIL: ${src}: location_popup_file_attributes_ready must not pop a menu up"
+		exit 2
+	fi
+}
+fCheckLocationPopup
+
+## On Windows a trash goes to the Recycle Bin through nemo_trash_win32_recycle
+## with the shell's confirmations off. g_file_trash leaves them on, so every
+## file was asked about twice, the second time from behind the progress window.
+fCheckWinTrash(){
+	local src='source/libnemo-private/nemo-file-operations.c'
+	local bad
+
+	[[ -f "$src" ]] || return 0
+
+	bad="$(awk '
+		/^#[[:space:]]*ifdef[[:space:]]+G_OS_WIN32/ { win = 1; recycled = 0; other = 0; next }
+		win && /^#[[:space:]]*else/ { other = 1; next }
+		win && /^#[[:space:]]*endif/ { win = 0; other = 0; next }
+		win && !other && /nemo_trash_win32_recycle *\(/ { recycled = 1 }
+		/(^|[^A-Za-z0-9_])g_file_trash(_async)? *\(/ && !(win && other && recycled) { print FNR ": " $0 }
+	' "$src")"
+	bad+="$(grep -rnE '(^|[^A-Za-z0-9_])g_file_trash(_async)?[[:space:]]*\(' source/src source/libnemo-private source/eel --include='*.c' \
+		| grep -v "^${src}:" || true)"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: g_file_trash outside the non-Windows branch after nemo_trash_win32_recycle"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fCheckWinTrash
+
+## An open view follows its default zoom and the default view. Nothing
+## watched them, so a changed default reached only folders opened after it.
+fCheckDefaultsFollowed(){
+	local want
+
+	for want in \
+		'source/src/nemo-list-view.c:"changed::" NEMO_PREFERENCES_LIST_VIEW_DEFAULT_ICON_SIZE' \
+		'source/src/nemo-icon-view.c:"changed::" NEMO_PREFERENCES_ICON_VIEW_DEFAULT_ICON_SIZE' \
+		'source/src/nemo-icon-view.c:"changed::" NEMO_PREFERENCES_ICON_VIEW_DEFAULT_IMAGE_ICON_SIZE' \
+		'source/src/nemo-icon-view.c:"changed::" NEMO_PREFERENCES_COMPACT_VIEW_DEFAULT_ICON_SIZE' \
+		'source/src/nemo-window.c:"changed::" NEMO_PREFERENCES_DEFAULT_FOLDER_VIEWER'; do
+		[[ -f "${want%%:*}" ]] || continue
+		if ! grep -q -F "${want#*:}" "${want%%:*}"; then
+			fEcho "FAIL: ${want%%:*}: must watch ${want#*:} so an open view follows it"
+			exit 2
+		fi
+	done
+}
+fCheckDefaultsFollowed
+
+## Window size and place were written only on a clean close, so a crash, or
+## the launcher replacing a running copy, lost them. A move or resize saves
+## them once it settles.
+fCheckGeometrySave(){
+	local src='source/src/nemo-window.c'
+	local body
+
+	[[ -f "$src" ]] || return 0
+
+	body="$(awk '/^nemo_window_configure_event \(/,/^}/' "$src")"
+	if ! grep -q -F 'wclass->configure_event = nemo_window_configure_event;' "$src" ||
+	   ! grep -q -F 'save_geometry_cb' <<< "$body"; then
+		fEcho "FAIL: ${src}: a move or resize must schedule the geometry save"
+		exit 2
+	fi
+}
+fCheckGeometrySave
+
+## A click on a place leaves the keyboard in the sidebar. Connecting a content
+## view grabbed the focus every time, so a place whose folder wanted another
+## view type took it away and one beside it did not.
+fCheckSidebarFocus(){
+	local src='source/src/nemo-window.c'
+	local body bad
+
+	[[ -f "$src" ]] || return 0
+
+	body="$(awk '/^nemo_window_connect_content_view \(/,/^}/' "$src")"
+	bad="$(awk '
+		/eel_gtk_focus_is_within \(window->details->places_sidebar\)/ { p = NR }
+		/eel_gtk_focus_is_within \(window->details->tree_sidebar\)/ { t = NR }
+		/(nemo_view|gtk_widget)_grab_focus *\(/ { if (!p || !t || NR - p > 4 || NR - t > 4) print }
+	' <<< "$body")"
+	if [[ -z "$body" || -n "$bad" ]]; then
+		fEcho "FAIL: ${src}: nemo_window_connect_content_view grabs the focus only while neither sidebar holds it"
+		[[ -n "$bad" ]] && printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fCheckSidebarFocus
+
+## A Windows-only test is left out of the build elsewhere and carries no stub
+## for the other platform. Some were built and reported a skip and some had
+## stubs never compiled, so a Linux run could not say what it had covered.
+fCheckWinTests(){
+	local build='source/test/meson.build'
+	local bad
+
+	[[ -f "$build" ]] || return 0
+
+	bad="$(awk '
+		function side(s){ return s ~ /not[[:space:]]+is_windows/ ? -1 : (s ~ /is_windows/ ? 1 : 0) }
+		/^[[:space:]]*if[[:space:]]/ { w[++n] = side($0); next }
+		/^[[:space:]]*elif[[:space:]]/ { w[n] = side($0); next }
+		/^[[:space:]]*else/ { w[n] = -w[n]; next }
+		/^[[:space:]]*endif/ { n--; next }
+		/test-[a-z0-9-]*win32[a-z0-9-]*\.c/ {
+			inwin = 0
+			for (i = 1; i <= n; i++) if (w[i] == 1) inwin = 1
+			if (!inwin) print FNR ": " $0
+		}
+	' "$build")"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: ${build}: a Windows-only test outside an if is_windows block"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+
+	bad="$(grep -nE '^#[[:space:]]*(if|ifdef|ifndef|elif).*G_OS_WIN32' source/test/test-*win32*.c || true)"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: a Windows-only test carries a stub for the other platform"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fCheckWinTests
+
+## Taking the focus off the path entry puts the buttons back, not only Escape.
+## Switching to another program does not, so a half-typed path survives it.
+fCheckEntryFocusOut(){
+	local src='source/src/nemo-window-pane.c'
+	local body
+
+	[[ -f "$src" ]] || return 0
+
+	if ! tr -d '\n' < "$src" | grep -q -E 'nemo_location_bar_get_entry \([^;]*"focus-out-event",[[:space:]]*G_CALLBACK \(toolbar_focus_out_callback\)'; then
+		fEcho "FAIL: ${src}: the path entry's focus-out-event must go to toolbar_focus_out_callback"
+		exit 2
+	fi
+
+	body="$(awk '/^toolbar_focus_out_callback \(/,/^}/' "$src")"
+	if ! grep -q -F 'g_signal_emit_by_name (pane->location_bar, "cancel")' <<< "$body"; then
+		fEcho "FAIL: ${src}: toolbar_focus_out_callback must put the buttons back"
+		exit 2
+	fi
+	if ! grep -q -F 'gtk_window_has_toplevel_focus' <<< "$body"; then
+		fEcho "FAIL: ${src}: toolbar_focus_out_callback must keep the entry when the whole window loses the focus"
+		exit 2
+	fi
+}
+fCheckEntryFocusOut
+
+## Same idea as fCheckStyleRemeasure, for the other two things that make every
+## remembered width wrong: a zoom changes the font and the icon, and a column
+## coming or going changes what the rest have to fit into.
+fCheckZoomRemeasure(){
+	local src='source/src/nemo-list-view.c'
+	local fn body
+
+	[[ -f "$src" ]] || return 0
+
+	for fn in nemo_list_view_set_icon_size apply_columns_settings; do
+		body="$(awk -v fn="$fn" '$0 ~ "^" fn " \\(" { on=1 } on { print } on && /^}/ { exit }' "$src")"
+		if ! grep -q -F 'remeasure_rows' <<< "$body"; then
+			fEcho "FAIL: ${src}: ${fn} must send the rows back to be measured"
+			exit 2
+		fi
+	done
+}
+fCheckZoomRemeasure
+
+## Nothing runs off inserted media, on any platform, and there is no option to
+## turn it on. The media bar offered to run the software types until the
+## autorun helper was removed, so those three stay refused there. The
+## translation catalogs keep upstream's strings until they are regenerated.
+fCheckNoAutorun(){
+	local src='source/src/nemo-window-manage-views.c'
+	local body type bad
+
+	if [[ -f "$src" ]]; then
+		body="$(awk '/^nemo_window_slot_show_x_content_bar \(/,/^}/' "$src")"
+		for type in software unix-software win32-software; do
+			if ! grep -q -F "\"x-content/${type}\"" <<< "$body"; then
+				fEcho "FAIL: ${src}: nemo_window_slot_show_x_content_bar must refuse x-content/${type}"
+				exit 2
+			fi
+		done
+	fi
+
+	bad="$(grep -rli 'autorun' source --exclude='*.po' --exclude='*.pot' || true)"
+	bad+="$(find source -iname '*autorun*' ! -name '*.po' ! -name '*.pot')"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: autorun is back under source/"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fCheckNoAutorun
+
+## View and layout state on a file is ours alone, so its keys carry the app
+## name; upstream Nemo reads the same files, and the two builds fought over the
+## view. Keys other file managers read too stay bare, or they stop sharing.
+fCheckMetadataSlug(){
+	local src='source/libnemo-private/nemo-metadata.h'
+	local bad
+
+	[[ -f "$src" ]] || return 0
+
+	bad="$(awk '
+		/^#define NEMO_METADATA_KEY_/ {
+			k = $2
+			if ((k ~ /_(ICON|LIST|COMPACT)_VIEW_/ || k == "NEMO_METADATA_KEY_DEFAULT_VIEW") && $3 != "NEMO_APP_SLUG")
+				print FNR ": " k " is ours and needs NEMO_APP_SLUG"
+			if (k ~ /_(LOCATION_BACKGROUND_[A-Z]+|ANNOTATION|CUSTOM_ICON|CUSTOM_ICON_NAME|EMBLEMS|ICON_SCALE)$/ && $0 ~ /NEMO_APP_SLUG/)
+				print FNR ": " k " is shared and must stay bare"
+		}
+	' "$src")"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: ${src}: metadata key naming"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fCheckMetadataSlug
+
 ## Under MSYS2, use the Windows git that made this checkout - the msys one has
 ## its own HOME/config, so its line-ending view marks every CRLF file modified.
 GIT=(git)
@@ -634,7 +1056,11 @@ if [[ -n "$PY" ]]; then
 	"$PY" cicd/utility/lint-demo-script.py .
 	## Whole-tree too: a disconnect aimed at the wrong preference group removes
 	## nothing and says nothing, and the handler then runs on a freed object.
+	"$PY" cicd/utility/lint-pref-handlers.py --self-test
 	"$PY" cicd/utility/lint-pref-handlers.py source
+	## A key claimed by two actions does whichever GTK merged first, and says
+	## nothing about it.
+	"$PY" cicd/utility/lint-accels.py source
 else
 	fEcho "WARNING: UI case SKIPPED: no python" >&2
 fi

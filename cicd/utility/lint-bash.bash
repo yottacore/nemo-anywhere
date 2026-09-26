@@ -42,6 +42,25 @@ fi
 mapfile -t files < <(git ls-files '*.bash' ':!:cicd/utility/n8git_backup-and-publish')
 files+=(cicd/hooks/pre-push utility/runfm)
 
+## A disable= above a script's first command covers the whole file, however
+## few lines it was meant for. Four scripts carried a block of them from a
+## shared template; eleven of the thirteen rules hid nothing and one hid two
+## dead variables. config.bash keeps its one: every name in it is read by
+## cicd.bash, so the whole file reads as write-only.
+fileWide="$(for f in "${files[@]}"; do
+	[[ "$f" == 'cicd/config.bash' ]] && continue
+	awk '
+		/^[[:space:]]*#[[:space:]]*shellcheck[[:space:]]+disable=/ { if (!cmd) print FILENAME ":" FNR ": " $0; next }
+		/^[[:space:]]*($|#)/ { next }
+		{ cmd = 1 }
+	' "$f"
+done)"
+if [[ -n "$fileWide" ]]; then
+	printf '%s\n' "$fileWide"
+	fEcho "FAILED: Bash lint: a shellcheck disable= covers a whole file - put it at the line that needs it"
+	exit 1
+fi
+
 fEcho "Bash lint (shellcheck) over ${#files[@]} script(s)..."
 shellcheck "${files[@]}"
 fEcho "OK: Bash lint: no findings"

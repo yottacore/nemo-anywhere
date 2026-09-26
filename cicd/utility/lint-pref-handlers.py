@@ -13,7 +13,12 @@
 # the groups it was connected to. Disconnect by id pairs the variable holding
 # the id with the group the connect that filled it used.
 #
+# --self-test runs the check over a made-up pair of files, one wrong and one
+# right, so a change that blinds it to a group or a spelling shows up here
+# rather than as a clean run over a tree that is not clean.
+#
 # Syntax: lint-pref-handlers.py [root]   (default: the repo's source/)
+#         lint-pref-handlers.py --self-test
 
 # Copyright (c) 2026 Bubbles
 # Licensed under The MIT License (MIT). Full text at:
@@ -22,6 +27,7 @@
 
 import re
 import sys
+import tempfile
 from pathlib import Path
 
 # The group names come from the header that declares them, so a new group is
@@ -51,8 +57,9 @@ def patterns(group):
         "connect_to_id": re.compile(
             r"(\w+)\s*=\s*g_signal_connect\w*\s*\(\s*(" + group + r")\s*,",
             re.DOTALL),
+        # The id is usually a struct member, as in self->handler.
         "disconnect_by_id": re.compile(
-            r"g_signal_handler_disconnect\s*\(\s*(" + group + r")\s*,\s*(\w+)\s*\)",
+            r"g_signal_handler_disconnect\s*\(\s*(" + group + r")\s*,\s*(?:\w+\s*(?:->|\.)\s*)*(\w+)\s*\)",
             re.DOTALL),
     }
 
@@ -98,7 +105,65 @@ def check_file(path, pats):
     return problems
 
 
+SELF_TEST_HEADER = """\
+extern NemoConfigGroup *nemo_preferences;
+extern NemoConfigGroup *nemo_window_state;
+"""
+
+# nemo_window_state is the group whose name does not end in "preferences".
+SELF_TEST_WRONG = """\
+static void
+thing_init (Thing *self)
+{
+\tg_signal_connect_swapped (nemo_window_state, "changed::sidebar-width",
+\t\t\t\t  G_CALLBACK (width_changed), self);
+\tself->handler = g_signal_connect (nemo_window_state, "changed::start-with-sidebar",
+\t\t\t\t\t  G_CALLBACK (sidebar_changed), self);
+}
+
+static void
+thing_finalize (Thing *self)
+{
+\tg_signal_handlers_disconnect_by_func (nemo_preferences, width_changed, self);
+\tg_signal_handler_disconnect (nemo_preferences, self->handler);
+}
+"""
+
+SELF_TEST_RIGHT = SELF_TEST_WRONG.replace("disconnect_by_func (nemo_preferences",
+                                          "disconnect_by_func (nemo_window_state")
+SELF_TEST_RIGHT = SELF_TEST_RIGHT.replace("handler_disconnect (nemo_preferences",
+                                          "handler_disconnect (nemo_window_state")
+
+
+def self_test():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / GROUPS_HEADER).parent.mkdir(parents=True)
+        (root / GROUPS_HEADER).write_text(SELF_TEST_HEADER)
+        (root / "wrong.c").write_text(SELF_TEST_WRONG)
+        (root / "right.c").write_text(SELF_TEST_RIGHT)
+
+        pats = patterns(groups_pattern(root))
+        wrong = check_file(root / "wrong.c", pats)
+        right = check_file(root / "right.c", pats)
+
+    failed = False
+    if len(wrong) != 2:
+        print(f"[ FAIL: self-test: expected both mismatches reported, got {len(wrong)}: {wrong} ]")
+        failed = True
+    if right:
+        print(f"[ FAIL: self-test: a matched pair was reported: {right} ]")
+        failed = True
+    if failed:
+        return 1
+    print("[ OK: settings handlers self-test ]")
+    return 0
+
+
 def main():
+    if sys.argv[1:] == ["--self-test"]:
+        return self_test()
+
     root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parents[2] / "source"
     if not root.is_dir():
         print(f"[ FAILED: {root} is not a directory ]")

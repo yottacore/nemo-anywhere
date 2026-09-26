@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-#  shellcheck disable=2086  ## 'Double quote to prevent globbing and word splitting.' (OK for the dep word-lists.)
-
 ##	- Purpose: Assemble a mingw-w64 GTK3 sysroot for cross-building the Windows target.
 ##	  Resolves the transitive dependency closure of a few root packages from the MSYS2
 ##	  pacman database, then downloads and unpacks each prebuilt package into the sysroot.
