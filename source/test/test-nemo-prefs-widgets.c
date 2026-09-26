@@ -52,6 +52,8 @@ static const char * const widget_ids[] = {
 	"file_cache_usage_label",
 	"file_cache_cleanup_button",
 	"file_cache_empty_button",
+	/* The delete test guard's own switch, grayed when the build forces it. */
+	"testguard_all_deletes_checkbutton",
 	"close_bar",
 	"close_button",
 	NULL

@@ -181,6 +181,11 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 
 #### Done - Bugs
 
+- ✅ A setting changed from a background job could run its change handlers on that job's thread, where they touch widgets.
+	- Opened: 20260926-150000. Closed: 20260926-160000.
+	- Cause: the hand-off to the main thread ran the handler on the spot whenever the main thread was outside its loop at that moment.
+	- Fixed: the change is always queued for the main thread.
+
 - ✅ Relative symlink bug:
 	- Opened: n/a
 	- Problem: When creating relative symlinks, the entire path is walked back up to root (via '../../' etc.), then back down.

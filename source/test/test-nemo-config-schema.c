@@ -3,7 +3,9 @@
  * validates against a schema that has never heard of the key. This walks both
  * and fails on any name, type, allowed set or default that does not line up.
  *
- * Takes the schema path as its one argument. */
+ * Takes the schema path as its one argument. The same walk then runs on a
+ * CRLF copy of it, since that is what a Windows checkout reads and a Linux run
+ * would otherwise never see. */
 
 #include <config.h>
 
@@ -13,6 +15,8 @@
 
 #include <libnemo-private/nemo-config.h>
 #include <libnemo-private/nemo-config-keys.h>
+
+#include "test-scratch.h"
 
 static int failures = 0;
 
@@ -167,22 +171,18 @@ join_list (const char *const *list)
 }
 #endif
 
-int
-main (int argc, char **argv)
+/* Every key in the table against the schema at path. */
+static void
+check_schema (const char *path)
 {
 	GHashTable *schema;
 	GHashTableIter iter;
 	gpointer name, value;
 	int i;
 
-	if (argc < 2) {
-		g_printerr ("usage: %s <schema.shcl>\n", argv[0]);
-		return EXIT_FAILURE;
-	}
-
-	schema = read_schema (argv[1]);
+	schema = read_schema (path);
 	if (schema == NULL) {
-		return EXIT_FAILURE;
+		return;
 	}
 
 	for (i = 0; nemo_config_keys[i].key != NULL; i++) {
@@ -252,6 +252,77 @@ main (int argc, char **argv)
 	}
 
 	g_hash_table_destroy (schema);
+}
+
+/* The schema with every line ending turned into CR LF, in a scratch dir. */
+static char *
+write_crlf_copy (const char *path)
+{
+	char *text = NULL;
+	char **lines;
+	char *joined;
+	char *dir;
+	char *copy = NULL;
+	int i;
+
+	if (!g_file_get_contents (path, &text, NULL, NULL)) {
+		fail ("could not read %s", path);
+		return NULL;
+	}
+
+	dir = test_scratch_dir ("nemo-config-schema-XXXXXX", NULL);
+	if (dir == NULL) {
+		fail ("could not make a scratch dir");
+		g_free (text);
+		return NULL;
+	}
+
+	/* The source may already be CRLF on a Windows checkout. */
+	lines = g_strsplit (text, "\n", -1);
+	for (i = 0; lines[i] != NULL; i++) {
+		gsize len = strlen (lines[i]);
+
+		if (len > 0 && lines[i][len - 1] == '\r') {
+			lines[i][len - 1] = '\0';
+		}
+	}
+	joined = g_strjoinv ("\r\n", lines);
+	copy = g_build_filename (dir, "crlf.schema.shcl", NULL);
+	if (!g_file_set_contents (copy, joined, -1, NULL)) {
+		fail ("could not write %s", copy);
+		g_clear_pointer (&copy, g_free);
+	}
+
+	g_free (joined);
+	g_strfreev (lines);
+	g_free (dir);
+	g_free (text);
+
+	return copy;
+}
+
+int
+main (int argc, char **argv)
+{
+	char *crlf;
+	int before;
+
+	if (argc < 2) {
+		g_printerr ("usage: %s <schema.shcl>\n", argv[0]);
+		return EXIT_FAILURE;
+	}
+
+	check_schema (argv[1]);
+
+	before = failures;
+	crlf = write_crlf_copy (argv[1]);
+	if (crlf != NULL) {
+		check_schema (crlf);
+		if (failures > before) {
+			g_printerr ("(the failures above are from the CRLF copy)\n");
+		}
+		g_free (crlf);
+	}
 
 	if (failures == 0)
 		g_print ("nemo-config-schema: key table and schema agree\n");

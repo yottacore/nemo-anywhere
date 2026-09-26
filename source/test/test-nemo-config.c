@@ -4,6 +4,7 @@
 
 #include <config.h>
 
+#include <locale.h>
 #include <stdlib.h>
 #include <string.h>
 #include <gio/gio.h>
@@ -16,6 +17,10 @@
 
 #include "test-scratch.h"
 #include "test-check.h"
+
+#ifdef __GLIBC__
+#include <malloc.h>
+#endif
 
 static char *
 read_file (void)
@@ -64,6 +69,39 @@ on_changed (NemoConfigGroup *group, const char *key, gpointer data)
 
 /* bind target */
 
+/* Iterate the main context until @count moves past @from, or about two
+   seconds pass. The file monitor is async. */
+static void
+wait_for_change (int *count, int from)
+{
+	int spins = 0;
+
+	while (*count == from && spins++ < 1000) {
+		g_main_context_iteration (NULL, FALSE);
+		g_usleep (2000);
+	}
+}
+
+/* Replace the settings file as an editor would, and wait for @group to say
+   @key changed. */
+static void
+rewrite_and_wait (NemoConfigGroup *group, const char *key, const char *text)
+{
+	char  *path = nemo_config_get_path ();
+	char  *detailed = g_strconcat ("changed::", key, NULL);
+	gulong id;
+
+	changed_count = 0;
+	id = g_signal_connect (group, detailed, G_CALLBACK (on_changed), NULL);
+	check (g_file_set_contents (path, text, -1, NULL));
+	wait_for_change (&changed_count, 0);
+	check (changed_count >= 1);
+	g_signal_handler_disconnect (group, id);
+
+	g_free (detailed);
+	g_free (path);
+}
+
 static void
 test_defaults (NemoConfigGroup *prefs, NemoConfigGroup *list_view)
 {
@@ -77,6 +115,38 @@ test_defaults (NemoConfigGroup *prefs, NemoConfigGroup *list_view)
 	cols = nemo_config_get_strv (list_view, "default-visible-columns");
 	check (g_strv_length (cols) > 0);
 	check (g_strcmp0 (cols[0], "name") == 0);
+	g_strfreev (cols);
+}
+
+/* Defaults chosen on purpose rather than inherited, so a change to the key
+ * table that quietly puts one back is caught. Media handling all starts off;
+ * a new install opens in list view with ISO dates, asks before a move to the
+ * trash, and shows owner, group and permissions where the platform has them.
+ * Reads the effective value on a root with nothing stored. */
+static void
+test_product_defaults (void)
+{
+	NemoConfigGroup *media = nemo_config_get_group ("media-handling");
+	NemoConfigGroup *prefs = nemo_config_get_group ("preferences");
+	NemoConfigGroup *list_view = nemo_config_get_group ("list-view");
+	char           **cols;
+
+	check (nemo_config_get_boolean (media, GNOME_DESKTOP_MEDIA_HANDLING_AUTOMOUNT) == FALSE);
+	check (nemo_config_get_boolean (media, GNOME_DESKTOP_MEDIA_HANDLING_AUTOMOUNT_OPEN) == FALSE);
+	check (nemo_config_get_boolean (prefs, NEMO_PREFERENCES_MEDIA_HANDLING_DETECT_CONTENT) == FALSE);
+
+	check (nemo_config_get_enum (prefs, NEMO_PREFERENCES_DEFAULT_FOLDER_VIEWER) ==
+	       NEMO_DEFAULT_FOLDER_VIEWER_LIST_VIEW);
+	check (nemo_config_get_enum (prefs, NEMO_PREFERENCES_DATE_FORMAT) == NEMO_DATE_FORMAT_ISO);
+	check (nemo_config_get_boolean (prefs, NEMO_PREFERENCES_CONFIRM_MOVE_TO_TRASH) == TRUE);
+
+	cols = nemo_config_get_strv (list_view, NEMO_PREFERENCES_LIST_VIEW_DEFAULT_VISIBLE_COLUMNS);
+	check (g_strv_contains ((const char *const *) cols, "owner"));
+#ifndef G_OS_WIN32
+	/* Windows has no group or mode bits to show. */
+	check (g_strv_contains ((const char *const *) cols, "group"));
+	check (g_strv_contains ((const char *const *) cols, "permissions"));
+#endif
 	g_strfreev (cols);
 }
 
@@ -432,6 +502,277 @@ test_oversized_file_refused (NemoConfigGroup *prefs)
 	g_free (path);
 }
 
+/* A key written twice by hand used to read as an empty list, which opened the
+ * list view with no columns at all. It falls back to the default instead, and
+ * so does a scalar. The warning it logs is expected. */
+static void
+test_duplicate_key_falls_back (NemoConfigGroup *prefs, NemoConfigGroup *list_view)
+{
+	char **cols;
+
+	rewrite_and_wait (list_view, "default-visible-columns",
+	                  "list-view:\n"
+	                  "\tdefault-visible-columns: name, size\n"
+	                  "\tdefault-visible-columns: type\n"
+	                  "preferences:\n"
+	                  "\tshow-hidden-files: true\n"
+	                  "\tshow-hidden-files: on\n");
+
+	cols = nemo_config_get_strv (list_view, "default-visible-columns");
+	check (g_strv_length (cols) > 1);
+	check (cols[0] != NULL && g_strcmp0 (cols[0], "name") == 0);
+	check (g_strv_contains ((const char *const *) cols, "owner"));
+	g_strfreev (cols);
+
+	check (nemo_config_get_boolean (prefs, "show-hidden-files") == FALSE);
+
+	nemo_config_reset (list_view, "default-visible-columns");
+	nemo_config_reset (prefs, "show-hidden-files");
+	nemo_config_flush ();
+}
+
+/* A change is saved a couple of seconds after it is made. An external edit
+ * arriving inside that window used to reload the file over it, so the change
+ * was lost. It is carried across the reload and saved with the rest. */
+static void
+test_pending_change_survives_reload (NemoConfigGroup *prefs, NemoConfigGroup *window_state)
+{
+	char *text;
+
+	nemo_config_flush ();
+	nemo_config_set_int (window_state, "sidebar-width", 555);
+
+	/* No flush: the change is still only in memory. */
+	rewrite_and_wait (prefs, "show-hidden-files",
+	                  "preferences:\n\tshow-hidden-files: true\n");
+
+	check (nemo_config_get_boolean (prefs, "show-hidden-files") == TRUE);
+	check (nemo_config_get_int (window_state, "sidebar-width") == 555);
+
+	nemo_config_flush ();
+	text = read_settings ();
+	check (strstr (text, "sidebar-width: 555") != NULL);
+	check (strstr (text, "show-hidden-files: true") != NULL);
+	g_free (text);
+
+	nemo_config_reset (window_state, "sidebar-width");
+	nemo_config_reset (prefs, "show-hidden-files");
+	nemo_config_flush ();
+}
+
+/* A count of its own: an earlier test leaves on_changed connected to the
+   same key. */
+static int      thread_changes;
+static GThread *changed_on;
+
+static void
+on_changed_note_thread (NemoConfigGroup *group, const char *key, gpointer data)
+{
+	thread_changes++;
+	changed_on = g_thread_self ();
+}
+
+static gpointer
+set_from_worker (gpointer data)
+{
+	nemo_config_set_boolean (data, "show-hidden-files", TRUE);
+	return NULL;
+}
+
+/* File operations set favorites from worker threads, and every handler touches
+ * widgets, so a change is always announced on the main thread. */
+static void
+test_changed_on_main_thread (NemoConfigGroup *prefs)
+{
+	GThread *worker;
+	gulong   id;
+
+	thread_changes = 0;
+	changed_on = NULL;
+	id = g_signal_connect (prefs, "changed::show-hidden-files",
+	                       G_CALLBACK (on_changed_note_thread), NULL);
+
+	worker = g_thread_new ("config-set", set_from_worker, prefs);
+	g_thread_join (worker);
+
+	/* Not delivered on the worker, and delivered once the main loop runs. */
+	check (thread_changes == 0);
+	wait_for_change (&thread_changes, 0);
+	check (thread_changes == 1);
+	check (changed_on == g_thread_self ());
+	check (nemo_config_get_boolean (prefs, "show-hidden-files") == TRUE);
+
+	g_signal_handler_disconnect (prefs, id);
+	nemo_config_reset (prefs, "show-hidden-files");
+	nemo_config_flush ();
+}
+
+/* Windows paths hold backslashes and spaces. Before SHCL 3 a backslash in bare
+ * text was an escape, so a UNC path read back doubled; each has to come back
+ * byte for byte after a save and a reload from the file. */
+static void
+test_backslash_paths_round_trip (NemoConfigGroup *prefs, NemoConfigGroup *window_state)
+{
+	const char *paths[] = { "C:\\Users\\x\\a b", "\\\\srv\\share\\d", "C:\\", NULL };
+	int         i;
+
+	for (i = 0; paths[i] != NULL; i++) {
+		char *text, *with_edit, *got, *want_width;
+
+		nemo_config_set_string (prefs, "bulk-rename-tool", paths[i]);
+		nemo_config_flush ();
+
+		/* The same file with one more line, so it is reloaded from disk. */
+		text = read_file ();
+		want_width = g_strdup_printf ("%d", 600 + i);
+		with_edit = g_strconcat (text, "\nwindow-state.sidebar-width: ", want_width, "\n", NULL);
+		rewrite_and_wait (window_state, "sidebar-width", with_edit);
+		check (nemo_config_get_int (window_state, "sidebar-width") == 600 + i);
+
+		got = nemo_config_get_string (prefs, "bulk-rename-tool");
+		if (g_strcmp0 (got, paths[i]) != 0) {
+			g_printerr ("FAIL %s:%d: %s came back as %s\n",
+			            __FILE__, __LINE__, paths[i], got);
+			failures++;
+		}
+
+		g_free (got);
+		g_free (with_edit);
+		g_free (want_width);
+		g_free (text);
+		nemo_config_reset (window_state, "sidebar-width");
+		nemo_config_flush ();
+	}
+
+	nemo_config_reset (prefs, "bulk-rename-tool");
+	nemo_config_flush ();
+}
+
+/* About 3 KB of text, different for each n. */
+static char *
+long_value (int n)
+{
+	GString *text = g_string_new (NULL);
+
+	while (text->len < 3000)
+		g_string_append_printf (text, "part-%d-%zu/", n, text->len);
+
+	return g_string_free (text, FALSE);
+}
+
+/* SHCL 2 handed every read out of an arena only a full reparse gave back, so
+ * the store rebuilt itself past 256 KB. SHCL 3 lets each read go once it is
+ * copied out. So reloads well past that size still read and still announce,
+ * and a long run of reads does not grow the heap by what it read. A hundred
+ * rewrites of 3 KB, since each one waits on the file monitor. */
+static void
+test_many_reloads (NemoConfigGroup *window_state)
+{
+	int i;
+	int wrong = 0;
+
+	for (i = 0; i < 100; i++) {
+		char *value = long_value (i);
+		char *text = g_strconcat ("window-state:\n\tgeometry: ", value, "\n", NULL);
+		char *got;
+
+		rewrite_and_wait (window_state, "geometry", text);
+		got = nemo_config_get_string (window_state, "geometry");
+		if (g_strcmp0 (got, value) != 0)
+			wrong++;
+
+		g_free (got);
+		g_free (text);
+		g_free (value);
+	}
+	check (wrong == 0);
+
+#ifdef __GLIBC__
+	{
+		NemoConfigGroup  *list_view = nemo_config_get_group ("list-view");
+		const char       *names[101];
+		char            **owned = g_new0 (char *, 101);
+		struct mallinfo2  before, after;
+		size_t            used_before, used_after;
+
+		/* A list read is where SHCL 3 still hands out arena memory. */
+		for (i = 0; i < 100; i++) {
+			owned[i] = g_strdup_printf ("column-%d", i);
+			names[i] = owned[i];
+		}
+		names[100] = NULL;
+		nemo_config_set_strv (list_view, "default-visible-columns", names);
+
+		before = mallinfo2 ();
+		for (i = 0; i < 20000; i++)
+			g_strfreev (nemo_config_get_strv (list_view, "default-visible-columns"));
+		after = mallinfo2 ();
+
+		/* 20000 reads of 100 entries is about 32 MB if nothing is given back. */
+		used_before = before.uordblks + before.hblkhd;
+		used_after = after.uordblks + after.hblkhd;
+		if (used_after > used_before && used_after - used_before > 4 * 1024 * 1024) {
+			g_printerr ("FAIL %s:%d: 20000 list reads grew the heap by %zu bytes\n",
+			            __FILE__, __LINE__, used_after - used_before);
+			failures++;
+		}
+
+		g_strfreev (owned);
+		nemo_config_reset (list_view, "default-visible-columns");
+	}
+#endif
+
+	nemo_config_reset (window_state, "geometry");
+	nemo_config_flush ();
+}
+
+/* SHCL spells a float with a dot whatever the locale. Under a comma-decimal
+ * locale every float read used to fail back to its default, and the file got
+ * the comma. Needs such a locale installed; without one this case is skipped
+ * and the rest of the test still runs. */
+static void
+test_float_under_comma_locale (void)
+{
+	static const char *const candidates[] = {
+		"de_DE.UTF-8", "de_DE.utf8", "de_DE", "fr_FR.UTF-8", "fr_FR.utf8",
+		"nl_NL.UTF-8", "ru_RU.UTF-8", "German_Germany.1252", "de-DE", NULL
+	};
+	NemoConfigGroup *cache = nemo_config_get_group ("file-cache");
+	char            *old = g_strdup (setlocale (LC_NUMERIC, NULL));
+	char            *text;
+	const char      *used = NULL;
+	int              i;
+
+	for (i = 0; candidates[i] != NULL && used == NULL; i++) {
+		if (setlocale (LC_NUMERIC, candidates[i]) != NULL &&
+		    strcmp (localeconv ()->decimal_point, ",") == 0)
+			used = candidates[i];
+	}
+
+	if (used == NULL) {
+		g_print ("SKIP: float under a comma-decimal locale: none installed\n");
+		setlocale (LC_NUMERIC, old);
+		g_free (old);
+		return;
+	}
+
+	nemo_config_set_double (cache, "max-size-gib", 1.5);
+	check (nemo_config_get_double (cache, "max-size-gib") == 1.5);
+	nemo_config_flush ();
+
+	text = read_settings ();
+	check (strstr (text, "max-size-gib: 1.5") != NULL);
+	g_free (text);
+
+	rewrite_and_wait (cache, "max-size-gib", "file-cache:\n\tmax-size-gib: 2.25\n");
+	check (nemo_config_get_double (cache, "max-size-gib") == 2.25);
+
+	setlocale (LC_NUMERIC, old);
+	g_free (old);
+	nemo_config_reset (cache, "max-size-gib");
+	nemo_config_flush ();
+}
+
 /* The accessors take an interned "group.key" held in key-table order rather
    than building the string per read, so a key added or moved out of step with
    that table would quietly read and write a neighbor's value. Give every key
@@ -558,6 +899,7 @@ main (int argc, char *argv[])
 	window_state = nemo_config_get_group ("window-state");
 
 	test_defaults (prefs, list_view);
+	test_product_defaults ();
 	test_scalars (prefs, window_state);
 	test_strv (list_view);
 	test_default_not_stored (prefs);
@@ -570,6 +912,12 @@ main (int argc, char *argv[])
 	test_unreadable_file_kept (prefs);
 	test_nul_survives_save (window_state);
 	test_oversized_file_refused (prefs);
+	test_duplicate_key_falls_back (prefs, list_view);
+	test_pending_change_survives_reload (prefs, window_state);
+	test_changed_on_main_thread (prefs);
+	test_backslash_paths_round_trip (prefs, window_state);
+	test_many_reloads (window_state);
+	test_float_under_comma_locale ();
 	test_keys_keep_their_own_values ();
 
 	nemo_config_shutdown ();

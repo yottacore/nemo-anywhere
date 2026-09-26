@@ -81,7 +81,8 @@ test('Config store test',
     include_directories: [ rootInclude, ],
     dependencies: [ gtk, nemo_private, test_scratch ],
   ),
-  args: []
+  args: [],
+  timeout: 90         # a hundred external rewrites, each waiting on the file monitor
 )
 
 test('Delete test guard arming test',
@@ -350,11 +351,29 @@ if not is_windows
   )
 endif
 
+test('Rename selection test',
+  executable('test-eel-rename-region',
+    [ 'test-eel-rename-region.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private ],
+  ),
+  args: []
+)
+
+test('Message dialog text test',
+  executable('test-eel-stock-dialogs',
+    [ 'test-eel-stock-dialogs.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private ],
+  ),
+  args: []
+)
+
 test('Terminal fallback test',
   executable('test-eel-terminal',
     [ 'test-eel-terminal.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
   ),
   args: []
 )
@@ -641,7 +660,7 @@ test('Appearance themes test',
   # The theme resource is linked into the app, not into libnemo-private, so a
   # test that checks it has to carry its own copy.
   executable('test-nemo-appearance',
-    [ 'test-nemo-appearance.c' ] + themeGresources,
+    [ 'test-nemo-appearance.c' ] + gresources + themeGresources,
     include_directories: [ rootInclude, ],
     dependencies: [ gtk, nemo_private, test_scratch ],
   ),
@@ -729,10 +748,33 @@ test('New process argv test',
 )
 
 if not is_windows
+  test('Clipboard drag collision test',
+    executable('test-nemo-clipboard',
+      [ 'test-nemo-clipboard.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: []
+  )
+endif
+
+if not is_windows
+  test('Desktop terminal setting test',
+    executable('test-nemo-desktop-terminal',
+      [ 'test-nemo-desktop-terminal.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: []
+  )
+endif
+
+if not is_windows
   test('Runtime environment test',
     executable('test-nemo-runtime-env',
       [ 'test-nemo-runtime-env.c' ],
       include_directories: [ rootInclude, ],
+      c_args: nemo_definitions,
       dependencies: [ gtk, nemo_private, test_scratch ],
     ),
     args: []
@@ -808,6 +850,15 @@ test('Owner columns test',
   args: []
 )
 
+test('Uri under another test',
+  executable('test-nemo-uri-under',
+    [ 'test-nemo-uri-under.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private ],
+  ),
+  args: []
+)
+
 test('Path forms test',
   executable('test-nemo-path-forms',
     [ 'test-nemo-path-forms.c' ],
@@ -821,7 +872,7 @@ test('Window title test',
   executable('test-nemo-window-title',
     [ 'test-nemo-window-title.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
   ),
   args: []
 )
@@ -1068,7 +1119,7 @@ test('Config schema drift test',
   executable('test-nemo-config-schema',
     [ 'test-nemo-config-schema.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
   ),
   args: [ meson.current_source_dir() / '..' / 'data' / 'nemo-anywhere.schema.shcl' ]
 )

@@ -65,6 +65,11 @@ gboolean nemo_is_home_directory                  (GFile *dir);
 gboolean nemo_is_home_directory_file             (GFile *dir,
 						      const char *filename);
 gboolean nemo_is_in_system_dir                   (GFile *location);
+/* TRUE when uri is root itself or lies under it. A bare prefix is not enough:
+   ".../ab" is not under ".../a". A root that already ends in '/' (file:///)
+   matches by prefix alone. */
+gboolean nemo_uri_is_at_or_under                 (const char *uri,
+						      const char *root);
 char *   nemo_get_gmc_desktop_directory          (void);
 
 gboolean nemo_should_use_templates_directory     (void);
