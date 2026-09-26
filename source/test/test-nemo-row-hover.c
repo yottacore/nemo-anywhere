@@ -227,6 +227,56 @@ test_tree_view (void)
 	g_object_unref (theme);
 }
 
+/* Row shading takes the setting first, then the theme's nemo_row_shading,
+   then a 6% wash of the text color. */
+static void
+test_shading (void)
+{
+	GtkCssProvider *theme;
+	GtkWidget *window, *tree_view;
+	GdkRGBA want, got;
+
+	theme = gtk_css_provider_new ();
+	gtk_css_provider_load_from_data (theme, "treeview.view { color: #204060; }", -1, NULL);
+	gtk_style_context_add_provider_for_screen (gdk_screen_get_default (),
+						   GTK_STYLE_PROVIDER (theme),
+						   GTK_STYLE_PROVIDER_PRIORITY_SETTINGS);
+
+	window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
+	tree_view = gtk_tree_view_new ();
+	gtk_container_add (GTK_CONTAINER (window), tree_view);
+
+	nemo_row_shading_pick (tree_view, &got);
+	gdk_rgba_parse (&want, "rgba(32,64,96,0.06)");
+	check (same_color (&got, &want));
+
+	gtk_css_provider_load_from_data (theme,
+		"@define-color nemo_row_shading rgba(0,128,0,0.1);"
+		"treeview.view { color: #204060; }", -1, NULL);
+	nemo_row_shading_pick (tree_view, &got);
+	gdk_rgba_parse (&want, "rgba(0,128,0,0.1)");
+	check (same_color (&got, &want));
+
+	nemo_config_set_string (nemo_list_view_preferences,
+				NEMO_PREFERENCES_LIST_VIEW_ROW_SHADING_COLOR, "rgba(255,0,0,0.2)");
+	nemo_row_shading_pick (tree_view, &got);
+	gdk_rgba_parse (&want, "rgba(255,0,0,0.2)");
+	check (same_color (&got, &want));
+
+	/* Not a color, so it is as if unset. */
+	nemo_config_set_string (nemo_list_view_preferences,
+				NEMO_PREFERENCES_LIST_VIEW_ROW_SHADING_COLOR, "not a color");
+	nemo_row_shading_pick (tree_view, &got);
+	gdk_rgba_parse (&want, "rgba(0,128,0,0.1)");
+	check (same_color (&got, &want));
+
+	nemo_config_reset (nemo_list_view_preferences, NEMO_PREFERENCES_LIST_VIEW_ROW_SHADING_COLOR);
+	gtk_widget_destroy (window);
+	gtk_style_context_remove_provider_for_screen (gdk_screen_get_default (),
+						      GTK_STYLE_PROVIDER (theme));
+	g_object_unref (theme);
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -246,6 +296,7 @@ main (int argc, char *argv[])
 
 	nemo_global_preferences_init ();
 	test_tree_view ();
+	test_shading ();
 
 	g_free (tmp);
 

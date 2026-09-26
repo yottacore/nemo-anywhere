@@ -433,7 +433,7 @@ expander_toggled (GObject       *expander,
 			int room, natural;
 
 			gdk_monitor_get_workarea (monitor, &area);
-			room = MAX (120, area.height - self->height_before - deco_height);
+			room = nemo_archive_options_room (area.height, self->height_before + deco_height);
 			gtk_widget_get_preferred_height (gtk_bin_get_child (GTK_BIN (scroll)), NULL, &natural);
 
 			/* A shown window only grows to its minimum, so the minimum is

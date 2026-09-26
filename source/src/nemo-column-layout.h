@@ -44,6 +44,36 @@ typedef struct {
 	gboolean grows;		/* takes a share of what is left past every max */
 } NemoColumnLayoutItem;
 
+/* The width classes in design.md's "List view column widths". Name and
+ * Location take what is left of the row. A fixed column holds a value that
+ * only varies in narrow bounds, like a date, and is always shown whole. The
+ * rest are minor: their width is a judgement made from the values seen. */
+typedef enum {
+	NEMO_COLUMN_KIND_PRIMARY,
+	NEMO_COLUMN_KIND_FIXED,
+	NEMO_COLUMN_KIND_MINOR
+} NemoColumnKind;
+
+/* What was measured for one column, in pixels. */
+typedef struct {
+	int fit;	/* the narrowest share of the values, at the fit percent */
+	int half;	/* the narrowest half of them */
+	int widest;	/* all of them */
+	int heading;	/* the heading, which no column is ever narrower than */
+} NemoColumnMeasure;
+
+/* The three widths for one column of the given kind. pad is the air after a
+ * value, ellipsis the width of one, and narrow the widest a minor column may
+ * be and still go without one. dragged is a width the user dragged the column
+ * to, or -1; a fixed column cannot be dragged. */
+void nemo_column_layout_item_for_kind (NemoColumnKind           kind,
+				       const NemoColumnMeasure *measure,
+				       int                      pad,
+				       int                      ellipsis,
+				       int                      narrow,
+				       int                      dragged,
+				       NemoColumnLayoutItem    *item);
+
 /* Writes n_items widths. They sum to available whenever the minimums allow it;
  * when they do not, each column is at its minimum and the row overflows. */
 void nemo_column_layout_distribute (const NemoColumnLayoutItem *items,

@@ -196,6 +196,14 @@ void     nemo_path_apply_display_separator (gchar *path);
 gchar   *nemo_location_get_display_name (GFile *location);
 gboolean nemo_path_input_is_allowed (const gchar *text);
 
+/* What a rename selects before anything is typed, in characters: the whole
+   name when whole is TRUE or rename-selects-whole-name is on, otherwise the
+   name without its extension. An end of -1 is the end of the name. */
+void     nemo_rename_region (const char *name,
+                             gboolean    whole,
+                             int        *start_offset,
+                             int        *end_offset);
+
 /* Browsing inside an archive needs the gvfs archive backend. Asked once at
    startup, so the menu item is either there for the whole run or never. */
 void     nemo_archive_mount_init (void);

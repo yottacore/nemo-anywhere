@@ -30,6 +30,7 @@
 #include "nemo-icon-container.h"
 
 #include "nemo-file.h"
+#include "nemo-file-utilities.h"
 #include "nemo-directory.h"
 #include "nemo-global-preferences.h"
 #include "nemo-icon-private.h"
@@ -7121,20 +7122,10 @@ nemo_icon_container_start_renaming_selected_item (NemoIconContainer *container,
 				     width, -1);
 	eel_editable_label_set_text (EEL_EDITABLE_LABEL (details->rename_widget),
 				     details->original_text);
-	if (select_all ||
-	    nemo_config_get_boolean (nemo_preferences,
-				     NEMO_PREFERENCES_RENAME_SELECTS_WHOLE_NAME)) {
-		start_offset = 0;
-		end_offset = -1;
-	} else {
-		/* if it is a directory it should select all of the text regardless of select_all option */
-		if (nemo_file_is_directory (NEMO_FILE (icon->data))) {
-			start_offset = 0;
-			end_offset = -1;
-		} else {
-			eel_filename_get_rename_region (details->original_text, &start_offset, &end_offset);
-		}
-	}
+	/* A folder's name is selected whole, whatever select_all says. */
+	nemo_rename_region (details->original_text,
+			    select_all || nemo_file_is_directory (NEMO_FILE (icon->data)),
+			    &start_offset, &end_offset);
 
 	gtk_widget_show (details->rename_widget);
 	gtk_widget_grab_focus (details->rename_widget);

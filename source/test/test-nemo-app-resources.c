@@ -35,6 +35,10 @@ main (int argc, char *argv[])
 	carries ("/org/nemo/appicons/24x24/emblems/emblem-note.png");
 	carries ("/org/nemo/appicons/48x48/emblems/emblem-note.png");
 
+	/* The shortcut and symlink emblems, which no theme carries. */
+	carries ("/org/nemo/appicons/scalable/emblems/nemo-emblem-shortcut.svg");
+	carries ("/org/nemo/appicons/scalable/emblems/nemo-emblem-symlink.svg");
+
 	/* What the info bar offers to open in the actions and scripts folders. */
 	carries ("/org/nemo/action-info.md");
 	carries ("/org/nemo/script-info.md");

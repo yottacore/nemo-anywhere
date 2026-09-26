@@ -3221,18 +3221,7 @@ nemo_view_display_selection_info (NemoView *view)
 		}
 
 		if (first_item_name == NULL) {
-			/* A search hit can be anywhere, so its name on its own does not say
-			   which file was found. */
-			if (showing_search) {
-				first_item_name = nemo_file_get_path (file);
-				if (first_item_name != NULL) {
-					nemo_path_apply_display_separator (first_item_name);
-				}
-			}
-
-			if (first_item_name == NULL) {
-				first_item_name = nemo_file_get_display_name (file);
-			}
+			first_item_name = nemo_file_get_status_name (file, showing_search);
 		}
 	}
 

@@ -37,6 +37,7 @@
 #include <eel/eel-glib-extensions.h>
 #include <eel/eel-stock-dialogs.h>
 #include <eel/eel-string.h>
+#include <eel/eel-vfs-extensions.h>
 #include <eel/eel-debug.h>
 #include <glib.h>
 #include <glib/gi18n.h>
@@ -2549,6 +2550,21 @@ nemo_path_get_other_separator (void)
 #else
     return G_DIR_SEPARATOR;
 #endif
+}
+
+void
+nemo_rename_region (const char *name,
+                    gboolean    whole,
+                    int        *start_offset,
+                    int        *end_offset)
+{
+    *start_offset = 0;
+    *end_offset = -1;
+
+    if (!whole &&
+        !nemo_config_get_boolean (nemo_preferences, NEMO_PREFERENCES_RENAME_SELECTS_WHOLE_NAME)) {
+        eel_filename_get_rename_region (name, start_offset, end_offset);
+    }
 }
 
 /* Rewrites in place - both separators are one ASCII byte, so nothing moves.

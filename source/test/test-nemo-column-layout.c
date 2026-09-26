@@ -286,6 +286,79 @@ check_fit (void)
 	check (ten[0] == 50 && ten[9] == 900);
 }
 
+/* One column's three widths from what was measured, by class, as design.md's
+   "List view column widths" sets them. Air 8, ellipsis 12, and a minor column
+   of 30 or less goes without an ellipsis. */
+#define PAD 8
+#define ELLIPSIS 12
+#define NARROW 30
+
+static NemoColumnLayoutItem
+item_for (NemoColumnKind kind, int fit, int half, int widest, int heading, int dragged)
+{
+	NemoColumnMeasure measure = { fit, half, widest, heading };
+	NemoColumnLayoutItem item;
+
+	nemo_column_layout_item_for_kind (kind, &measure, PAD, ELLIPSIS, NARROW, dragged, &item);
+	return item;
+}
+
+static gboolean
+item_is (NemoColumnLayoutItem item, int min, int fit, int max, gboolean grows)
+{
+	if (item.min_width == min && item.fit_width == fit && item.max_width == max &&
+	    item.grows == grows) {
+		return TRUE;
+	}
+	g_printerr ("  got %d/%d/%d grows %d, wanted %d/%d/%d grows %d\n",
+		    item.min_width, item.fit_width, item.max_width, item.grows,
+		    min, fit, max, grows);
+	return FALSE;
+}
+
+static void
+check_classes (void)
+{
+	/* Name: shows every value when there is room and takes a share of the
+	   rest; at least the fit share, with room for an ellipsis. */
+	check (item_is (item_for (NEMO_COLUMN_KIND_PRIMARY, 200, 120, 400, 40, -1),
+			200 + ELLIPSIS + PAD, 400 + PAD, 400 + PAD, TRUE));
+	/* Every value fits in the share, so no ellipsis is needed. */
+	check (item_is (item_for (NEMO_COLUMN_KIND_PRIMARY, 200, 120, 200, 40, -1),
+			200 + PAD, 200 + PAD, 200 + PAD, TRUE));
+	/* Short names get a short column: no fixed floor, only the heading. */
+	check (item_is (item_for (NEMO_COLUMN_KIND_PRIMARY, 10, 10, 10, 20, -1),
+			20, 20, 20, TRUE));
+
+	/* A minor column such as Type: half the values at least, the fit share
+	   by default, all of them at most, and never takes the surplus. */
+	check (item_is (item_for (NEMO_COLUMN_KIND_MINOR, 90, 60, 150, 30, -1),
+			60 + ELLIPSIS + PAD, 90 + PAD, 150 + PAD, FALSE));
+	/* Ext: too narrow for an ellipsis to leave anything to read. */
+	check (item_is (item_for (NEMO_COLUMN_KIND_MINOR, 24, 18, 28, 0, -1),
+			18 + PAD, 24 + PAD, 28 + PAD, FALSE));
+
+	/* A date: always whole, never more or less. */
+	check (item_is (item_for (NEMO_COLUMN_KIND_FIXED, 100, 100, 140, 30, -1),
+			140 + PAD, 140 + PAD, 140 + PAD, FALSE));
+
+	/* A drag pins primary and minor columns, and a fixed one ignores it. */
+	check (item_is (item_for (NEMO_COLUMN_KIND_PRIMARY, 200, 120, 400, 40, 333),
+			333, 333, 333, FALSE));
+	check (item_is (item_for (NEMO_COLUMN_KIND_MINOR, 90, 60, 150, 30, 77),
+			77, 77, 77, FALSE));
+	check (item_is (item_for (NEMO_COLUMN_KIND_FIXED, 100, 100, 140, 30, 77),
+			140 + PAD, 140 + PAD, 140 + PAD, FALSE));
+
+	/* The heading beats everything, a drag included. */
+	check (item_is (item_for (NEMO_COLUMN_KIND_MINOR, 90, 60, 150, 120, 77),
+			120, 120, 120, FALSE));
+	check (item_is (item_for (NEMO_COLUMN_KIND_FIXED, 40, 40, 40, 120, -1),
+			120, 120, 120, FALSE));
+	check (item_is (item_for (NEMO_COLUMN_KIND_MINOR, 90, 60, 150, 100, -1),
+			100, 100, 150 + PAD, FALSE));
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -301,6 +374,7 @@ main (int argc, char *argv[])
 	check_no_grower ();
 	check_primaries_share_the_surplus ();
 	check_fit ();
+	check_classes ();
 
 	if (failures > 0) {
 		g_printerr ("%d check(s) failed\n", failures);

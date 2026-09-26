@@ -28,6 +28,7 @@
 #include "nemo-file.h"
 #include "nemo-file-utilities.h"
 #include "nemo-global-preferences.h"
+#include "nemo-search-directory.h"
 
 /* Enough to cover the folders anyone moves between in a sitting. */
 #define REMEMBERED_MAX 512
@@ -110,6 +111,36 @@ nemo_image_folders_known (GFile *location, gboolean *mostly)
 
 	*mostly = answer == 2;
 	return TRUE;
+}
+
+gboolean
+nemo_image_folders_wants_icon_view (NemoFile *folder, const char *saved_view)
+{
+	NemoDirectory *directory;
+	gboolean wanted;
+
+	if (saved_view != NULL ||
+	    !nemo_config_get_boolean (nemo_icon_view_preferences,
+				      NEMO_PREFERENCES_ICON_VIEW_IMAGE_FOLDER_SWITCH)) {
+		return FALSE;
+	}
+
+	directory = nemo_directory_get_for_file (folder);
+	if (NEMO_IS_SEARCH_DIRECTORY (directory)) {
+		wanted = FALSE;
+	} else if (nemo_directory_are_all_files_seen (directory)) {
+		wanted = nemo_directory_is_mostly_images (directory);
+	} else {
+		GFile *location = nemo_file_get_location (folder);
+
+		if (!nemo_image_folders_known (location, &wanted)) {
+			wanted = FALSE;
+		}
+		g_object_unref (location);
+	}
+	nemo_directory_unref (directory);
+
+	return wanted;
 }
 
 typedef struct {

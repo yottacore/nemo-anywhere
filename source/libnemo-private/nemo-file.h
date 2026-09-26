@@ -193,6 +193,8 @@ void                    nemo_file_increment_thumbnail_try_count     (NemoFile   
 /* Basic attributes for file objects. */
 gboolean                nemo_file_contains_text                     (NemoFile                   *file);
 char *                  nemo_file_get_display_name                  (NemoFile                   *file);
+char *                  nemo_file_get_status_name                   (NemoFile                   *file,
+									 gboolean                    in_search);
 char *                  nemo_file_get_rename_name                   (NemoFile                   *file);
 char *                  nemo_file_get_edit_name                     (NemoFile                   *file);
 char *                  nemo_file_get_name                          (NemoFile                   *file);

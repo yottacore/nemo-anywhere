@@ -148,6 +148,13 @@ GdkDragAction		    nemo_drag_default_drop_action_for_uri_list     (GdkDragContex
 										const char			     *dropped_uri,
 										gchar				    **source_fs,
 										gboolean			     *can_delete_source);
+/* The same, from what the drag offers and suggests rather than the drag itself. */
+GdkDragAction		    nemo_drag_drop_action_for_uri_list		       (GdkDragAction			      actions,
+										GdkDragAction			      suggested,
+										const char			     *target_uri_string,
+										const char			     *dropped_uri,
+										gchar				    **source_fs,
+										gboolean			     *can_delete_source);
 gboolean		    nemo_drag_drag_data_get			(GtkWidget			      *widget,
 									 GdkDragContext			      *context,
 									 GtkSelectionData		      *selection_data,

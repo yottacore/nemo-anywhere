@@ -509,6 +509,68 @@ eel_gtk_get_treeview_row_text_at_pos (GtkTreeView *tree_view,
     return inside;
 }
 
+/* Escape in a list: nothing selected, and the cursor back on the first row
+   so the next arrow key starts over, with the view left where it was. */
+void
+eel_gtk_tree_view_forget_cursor (GtkTreeView *tree_view)
+{
+	GtkTreeSelection *selection = gtk_tree_view_get_selection (tree_view);
+	GtkTreeModel *model = gtk_tree_view_get_model (tree_view);
+	GtkAdjustment *vadjustment;
+	GtkTreePath *path;
+	gdouble scrolled;
+
+	if (model != NULL && gtk_tree_model_iter_n_children (model, NULL) > 0) {
+		/* Setting the cursor selects its row and scrolls to it. Neither is wanted. */
+		vadjustment = gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (tree_view));
+		scrolled = gtk_adjustment_get_value (vadjustment);
+		path = gtk_tree_path_new_first ();
+		gtk_tree_view_set_cursor (tree_view, path, NULL, FALSE);
+		gtk_tree_path_free (path);
+		gtk_adjustment_set_value (vadjustment, scrolled);
+	}
+
+	gtk_tree_selection_unselect_all (selection);
+}
+
+/* The whole value of a cell too narrow to show it, or NULL if it fits. Widths
+   come from the renderers rather than the column, because a column's own size
+   answer is its minimum and says nothing about text that can ellipsize. */
+gchar *
+eel_gtk_tree_view_column_clipped_text (GtkTreeViewColumn *column,
+                                       GtkTreeModel      *model,
+                                       GtkTreeIter       *iter)
+{
+	GList *cells, *l;
+	gchar *text = NULL;
+	gint wanted = 0;
+
+	gtk_tree_view_column_cell_set_cell_data (column, model, iter, FALSE, FALSE);
+
+	cells = gtk_cell_layout_get_cells (GTK_CELL_LAYOUT (column));
+	for (l = cells; l != NULL; l = l->next) {
+		GtkCellRenderer *cell = l->data;
+		gint minimum, natural;
+
+		gtk_cell_renderer_get_preferred_width (cell,
+						       gtk_tree_view_column_get_tree_view (column),
+						       &minimum, &natural);
+		wanted += natural;
+
+		if (text == NULL && GTK_IS_CELL_RENDERER_TEXT (cell)) {
+			g_object_get (cell, "text", &text, NULL);
+		}
+	}
+	g_list_free (cells);
+
+	if (text != NULL &&
+	    (*text == '\0' || wanted <= gtk_tree_view_column_get_width (column))) {
+		g_clear_pointer (&text, g_free);
+	}
+
+	return text;
+}
+
 gboolean
 eel_gtk_get_treeview_row_text_is_under_pointer (GtkTreeView *tree_view)
 {

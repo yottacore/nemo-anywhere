@@ -22,9 +22,10 @@
 
 /* Starting a rename selects the name without its extension, so typing
  * replaces "photo" and keeps ".jpg". The region is in characters, since the
- * entry it is handed to counts characters, not bytes. Whether the whole name
- * is selected instead is the caller's choice (rename-selects-whole-name); this
- * only covers the part the helper decides. */
+ * entry it is handed to counts characters, not bytes. By default F2 takes the
+ * whole name instead, extension and all (rename-selects-whole-name), and so
+ * does a folder whatever the setting says; nemo_rename_region makes that
+ * choice for both views. */
 
 #include <config.h>
 
@@ -32,7 +33,10 @@
 #include <glib.h>
 
 #include <eel/eel-vfs-extensions.h>
+#include <libnemo-private/nemo-file-utilities.h>
+#include <libnemo-private/nemo-global-preferences.h>
 
+#include "test-scratch.h"
 #include "test-check.h"
 
 static void
@@ -49,9 +53,44 @@ check_region (const char *name, int want_end)
 	}
 }
 
+static gboolean
+region_is (const char *name, gboolean whole, int want_start, int want_end)
+{
+	int start = -2, end = -2;
+
+	nemo_rename_region (name, whole, &start, &end);
+	if (start == want_start && end == want_end) {
+		return TRUE;
+	}
+	g_printerr ("  %s -> %d..%d, wanted %d..%d\n", name, start, end, want_start, want_end);
+	return FALSE;
+}
+
+static void
+check_setting (void)
+{
+	/* The default: F2 takes the whole name. */
+	check (region_is ("photo.jpg", FALSE, 0, -1));
+
+	nemo_config_set_boolean (nemo_preferences, NEMO_PREFERENCES_RENAME_SELECTS_WHOLE_NAME, FALSE);
+	check (region_is ("photo.jpg", FALSE, 0, 5));
+	check (region_is ("archive.tar.gz", FALSE, 0, 7));
+	/* A folder, or Rename with everything selected, still takes it all. */
+	check (region_is ("photo.jpg", TRUE, 0, -1));
+
+	nemo_config_set_boolean (nemo_preferences, NEMO_PREFERENCES_RENAME_SELECTS_WHOLE_NAME, TRUE);
+	check (region_is ("photo.jpg", FALSE, 0, -1));
+	check (region_is ("photo.jpg", TRUE, 0, -1));
+}
+
 int
 main (int argc, char *argv[])
 {
+	char *tmp;
+
+	tmp = test_scratch_config_home ("eel-rename-region-test-XXXXXX");
+	nemo_global_preferences_init ();
+
 	check_region ("photo.jpg", 5);
 	check_region ("noext", 5);
 
@@ -73,6 +112,9 @@ main (int argc, char *argv[])
 	check_region ("B\xc3\xbc" "cher.pdf", 6);
 	check_region ("\xe5\x86\x99\xe7\x9c\x9f.jpeg", 2);
 	check_region ("caf\xc3\xa9.tar.gz", 4);
+
+	check_setting ();
+	g_free (tmp);
 
 	if (failures == 0) {
 		g_print ("eel-rename-region: all checks passed\n");

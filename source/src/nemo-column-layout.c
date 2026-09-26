@@ -197,3 +197,55 @@ nemo_column_layout_fit (const int *values,
 
 	return fit;
 }
+
+void
+nemo_column_layout_item_for_kind (NemoColumnKind           kind,
+				  const NemoColumnMeasure *measure,
+				  int                      pad,
+				  int                      ellipsis,
+				  int                      narrow,
+				  int                      dragged,
+				  NemoColumnLayoutItem    *item)
+{
+	int fit = measure->fit;
+	int half = measure->half;
+	int widest = measure->widest;
+
+	item->grows = FALSE;
+
+	switch (kind) {
+	case NEMO_COLUMN_KIND_PRIMARY:
+		/* Every value when there is room, and past that a share of
+		   what is left. Short of room, the narrowest share of values,
+		   with space for the ellipsis the rest are cut to. */
+		item->max_width = widest + pad;
+		item->fit_width = item->max_width;
+		item->min_width = fit + (fit < widest ? ellipsis : 0) + pad;
+		item->grows = TRUE;
+		break;
+	case NEMO_COLUMN_KIND_MINOR:
+		item->max_width = widest + pad;
+		item->fit_width = fit + pad;
+		item->min_width = half + (half < widest && widest > narrow ? ellipsis : 0) + pad;
+		break;
+	case NEMO_COLUMN_KIND_FIXED:
+	default:
+		item->max_width = widest + pad;
+		item->fit_width = item->max_width;
+		item->min_width = item->max_width;
+		break;
+	}
+
+	/* A width dragged into place stands until the folder changes, or
+	   for good where a minor column's width is saved with the folder. */
+	if (kind != NEMO_COLUMN_KIND_FIXED && dragged >= 0) {
+		item->max_width = dragged;
+		item->fit_width = item->max_width;
+		item->min_width = item->max_width;
+		item->grows = FALSE;
+	}
+
+	item->min_width = MAX (measure->heading, item->min_width);
+	item->fit_width = MAX (item->min_width, item->fit_width);
+	item->max_width = MAX (item->fit_width, item->max_width);
+}
