@@ -18,6 +18,8 @@
 #include <libnemo-private/nemo-file-utilities.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-image-folders.h>
+#include <libnemo-private/nemo-query.h>
+#include <libnemo-private/nemo-search-directory.h>
 
 #include "test-scratch.h"
 #include "test-check.h"
@@ -168,6 +170,143 @@ look_ahead_at (const char *base, const char *name)
 	g_free (dir);
 }
 
+/* Whether a folder opens in icon view, asked of base/name while it is loaded,
+   with saved_view as the folder's own saved view. */
+static gboolean
+wants_icon_view (const char *base, const char *name, const char *saved_view)
+{
+	NemoDirectory *directory;
+	NemoFile *folder;
+	char *dir, *uri;
+	gboolean answer;
+	int client;
+
+	dir = g_build_filename (base, name, NULL);
+	uri = g_filename_to_uri (dir, NULL, NULL);
+	directory = nemo_directory_get_by_uri (uri);
+	folder = nemo_file_get_by_uri (uri);
+
+	nemo_directory_file_monitor_add (directory, &client, TRUE,
+					 NEMO_FILE_ATTRIBUTE_INFO, NULL, NULL);
+	check (wait_for_directory (directory));
+
+	answer = nemo_image_folders_wants_icon_view (folder, saved_view);
+
+	nemo_directory_file_monitor_remove (directory, &client);
+	nemo_file_unref (folder);
+	nemo_directory_unref (directory);
+	g_free (uri);
+	g_free (dir);
+
+	return answer;
+}
+
+/* The same, for a folder nobody has opened. */
+static gboolean
+wants_icon_view_unopened (const char *base, const char *name)
+{
+	char *path = g_build_filename (base, name, NULL);
+	GFile *location = g_file_new_for_path (path);
+	NemoFile *folder = nemo_file_get (location);
+	gboolean answer;
+
+	answer = nemo_image_folders_wants_icon_view (folder, NULL);
+
+	nemo_file_unref (folder);
+	g_object_unref (location);
+	g_free (path);
+	return answer;
+}
+
+/* The switch to icon view: on for a folder of pictures, off with the setting
+   off, never over a view the folder saved for itself, never for a search, and
+   before a folder is read only on what is remembered about it. */
+static void
+test_wants_icon_view (const char *base)
+{
+	char *pics = g_build_filename (base, "switch-pics", NULL);
+	char *docs = g_build_filename (base, "switch-docs", NULL);
+	char *noted, *search_uri, *pics_uri;
+	NemoDirectory *search;
+	NemoQuery *query;
+	gboolean searched = FALSE;
+	GList *hits, *l;
+	int client;
+	NemoFile *search_file;
+	GFile *location;
+	int i;
+
+	check (g_mkdir (pics, 0755) == 0);
+	check (g_mkdir (docs, 0755) == 0);
+	for (i = 0; i < 3; i++) {
+		write_image (pics, i);
+		write_text (docs, i);
+	}
+
+	check (wants_icon_view (base, "switch-pics", NULL));
+	check (!wants_icon_view (base, "switch-docs", NULL));
+	check (!wants_icon_view (base, "switch-pics", NEMO_LIST_VIEW_IID));
+
+	nemo_config_set_boolean (nemo_icon_view_preferences,
+				 NEMO_PREFERENCES_ICON_VIEW_IMAGE_FOLDER_SWITCH, FALSE);
+	check (!wants_icon_view (base, "switch-pics", NULL));
+	nemo_config_set_boolean (nemo_icon_view_preferences,
+				 NEMO_PREFERENCES_ICON_VIEW_IMAGE_FOLDER_SWITCH, TRUE);
+
+	noted = g_build_filename (base, "switch-noted", NULL);
+	location = g_file_new_for_path (noted);
+	nemo_image_folders_note (location, TRUE);
+	check (wants_icon_view_unopened (base, "switch-noted"));
+	check (!wants_icon_view_unopened (base, "switch-never-seen"));
+	g_object_unref (location);
+
+	/* A search stays as it is, even when every hit is a picture. */
+	pics_uri = g_filename_to_uri (pics, NULL, NULL);
+	query = nemo_query_new ();
+	nemo_query_set_location (query, pics_uri);
+	nemo_query_set_file_pattern (query, "shot");
+	search_uri = nemo_search_directory_generate_new_uri ();
+	search = nemo_directory_get_by_uri (search_uri);
+	check (NEMO_IS_SEARCH_DIRECTORY (search));
+	nemo_search_directory_set_query (NEMO_SEARCH_DIRECTORY (search), query);
+	g_signal_connect_swapped (search, "done-loading", G_CALLBACK (set_true), &searched);
+	nemo_directory_file_monitor_add (search, &client, TRUE,
+					 NEMO_FILE_ATTRIBUTE_INFO, NULL, NULL);
+	for (i = 0; i < 5000 && !searched; i++) {
+		g_main_context_iteration (NULL, FALSE);
+		g_usleep (2000);
+	}
+	check (searched);
+	/* Hits come in with only what the search itself read. The type is
+	   read the way the view reads it. */
+	hits = nemo_directory_get_file_list (search);
+	for (l = hits; l != NULL; l = l->next) {
+		nemo_file_invalidate_attributes (l->data, NEMO_FILE_ATTRIBUTE_INFO);
+		nemo_file_monitor_add (l->data, &client, NEMO_FILE_ATTRIBUTE_INFO);
+		for (i = 0; i < 5000 && !nemo_file_check_if_ready (l->data, NEMO_FILE_ATTRIBUTE_INFO); i++) {
+			g_main_context_iteration (NULL, FALSE);
+			g_usleep (2000);
+		}
+	}
+	check (nemo_directory_is_mostly_images (search));
+	search_file = nemo_directory_get_corresponding_file (search);
+	check (!nemo_image_folders_wants_icon_view (search_file, NULL));
+	for (l = hits; l != NULL; l = l->next) {
+		nemo_file_monitor_remove (l->data, &client);
+	}
+	nemo_file_list_free (hits);
+	nemo_directory_file_monitor_remove (search, &client);
+	nemo_file_unref (search_file);
+	nemo_directory_unref (search);
+	g_object_unref (query);
+	g_free (search_uri);
+	g_free (pics_uri);
+
+	g_free (noted);
+	g_free (docs);
+	g_free (pics);
+}
+
 int
 main (int argc, char **argv)
 {
@@ -251,6 +390,8 @@ main (int argc, char **argv)
 		g_free (pics);
 		g_free (ahead);
 	}
+
+	test_wants_icon_view (tmp);
 
 	nemo_config_set_int (nemo_icon_view_preferences,
 			     NEMO_PREFERENCES_ICON_VIEW_IMAGE_FOLDER_MIN_IMAGES, 3);

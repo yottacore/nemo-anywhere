@@ -14,6 +14,7 @@
 
 #include <libnemo-private/nemo-entry.h>
 #include "test-check.h"
+#include "test-scratch.h"
 
 static struct {
 	GtkWidget *menu;
@@ -198,6 +199,9 @@ main (int argc, char *argv[])
 {
 	GtkWidget *window, *entry;
 	guint bare, word, all;
+
+	/* A menu open in another test holds the pointer and keyboard. */
+	test_own_display (argc, argv, NULL);
 
 	if (!gtk_init_check (&argc, &argv)) {
 		g_print ("no display; skipping\n");

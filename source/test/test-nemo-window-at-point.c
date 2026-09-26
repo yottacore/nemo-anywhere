@@ -7,7 +7,6 @@
 #include <config.h>
 
 #include <stdlib.h>
-#include <unistd.h>
 #include <gtk/gtk.h>
 #include <gdk/gdkx.h>
 #include <X11/Xlib.h>
@@ -15,6 +14,7 @@
 
 #include "nemo-window-at-point.h"
 #include "test-check.h"
+#include "test-scratch.h"
 
 static GtkWidget *
 window_at (GtkWindowType type, int x, int y, int width, int height)
@@ -69,41 +69,6 @@ expect (Display *xdisplay, int x, int y, const guint64 *candidates, int n, int w
 	}
 }
 
-/* The suite shares one display, and another test's window on top of these
-   would be a right answer to the wrong question. So this one takes a display
-   of its own and comes back in. */
-static void
-ensure_own_display (int argc, char **argv)
-{
-	char *xvfb_run;
-	char **relaunch;
-	int i;
-
-	if (g_getenv ("NEMO_TEST_OWN_DISPLAY") != NULL) {
-		return;
-	}
-	xvfb_run = g_find_program_in_path ("xvfb-run");
-	if (xvfb_run == NULL) {
-		return;
-	}
-	g_setenv ("NEMO_TEST_OWN_DISPLAY", "1", TRUE);
-
-	relaunch = g_new0 (char *, argc + 5);
-	relaunch[0] = xvfb_run;
-	relaunch[1] = (char *) "-a";
-	relaunch[2] = (char *) "-s";
-	relaunch[3] = (char *) "-screen 0 640x480x24";
-	for (i = 0; i < argc; i++) {
-		relaunch[i + 4] = argv[i];
-	}
-
-	execv (xvfb_run, relaunch);
-
-	/* Only here if the exec failed; the shared display will have to do. */
-	g_free (relaunch);
-	g_free (xvfb_run);
-}
-
 int
 main (int argc, char **argv)
 {
@@ -113,7 +78,9 @@ main (int argc, char **argv)
 	guint64 candidates[3];
 	Window order[3];
 
-	ensure_own_display (argc, argv);
+	/* Another test's window on top of these would be a right answer to the
+	   wrong question. */
+	test_own_display (argc, argv, "640x480x24");
 
 	if (!gtk_init_check (&argc, &argv) || !GDK_IS_X11_DISPLAY (gdk_display_get_default ())) {
 		g_print ("SKIP: no X11 display\n");

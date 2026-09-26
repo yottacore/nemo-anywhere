@@ -57,6 +57,15 @@ test('Small file copy test',
   args: []
 )
 
+test('Drop action from another program test',
+  executable('test-nemo-drop-action',
+    [ 'test-nemo-drop-action.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
 test('Drag drop confirm test',
   executable('test-nemo-drag-confirm',
     [ 'test-nemo-drag-confirm.c' ],
@@ -286,6 +295,33 @@ test('Treeview hit test',
   args: []
 )
 
+test('Clipped cell text test',
+  executable('test-eel-clipped-cell',
+    [ 'test-eel-clipped-cell.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private ],
+  ),
+  args: []
+)
+
+test('Keyboard context menu test',
+  executable('test-eel-context-menu',
+    [ 'test-eel-context-menu.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
+test('Escape forgets the cursor test',
+  executable('test-eel-forget-cursor',
+    [ 'test-eel-forget-cursor.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private ],
+  ),
+  args: []
+)
+
 test('Focus guard test',
   executable('test-eel-focus-guard',
     [ 'test-eel-focus-guard.c' ],
@@ -317,7 +353,7 @@ test('Entry context menu test',
   executable('test-nemo-entry-menu',
     [ 'test-nemo-entry-menu.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
   ),
   args: []
 )
@@ -355,7 +391,7 @@ test('Rename selection test',
   executable('test-eel-rename-region',
     [ 'test-eel-rename-region.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
   ),
   args: []
 )
@@ -492,6 +528,16 @@ link_delete_job = executable('test-nemo-link-delete-job',
 test('Link delete leaves the target', link_delete_job, args: [ 'delete' ])
 test('Link move leaves the target', link_delete_job, args: [ 'move' ])
 
+# Carries the resource for the emblem art, as the next test does.
+test('Link emblems test',
+  executable('test-nemo-emblems',
+    [ 'test-nemo-emblems.c' ] + gresources,
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
 # Carries its own copy of the resource, for the reason the next test explains.
 test('App resources test',
   executable('test-nemo-app-resources',
@@ -509,6 +555,36 @@ test('Preferences widgets test',
     [ 'test-nemo-prefs-widgets.c' ] + gresources,
     include_directories: [ rootInclude, ],
     dependencies: [ gtk, nemo_private ],
+  ),
+  args: []
+)
+
+test('Preferences dialog test',
+  executable('test-nemo-prefs-dialog',
+    [ 'test-nemo-prefs-dialog.c', '../src/nemo-file-management-properties.c' ] + gresources,
+    include_directories: [ rootInclude, include_directories('../src') ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+    c_args: nemo_definitions,
+  ),
+  args: []
+)
+
+test('Search box Enter test',
+  executable('test-nemo-query-editor',
+    [ 'test-nemo-query-editor.c', '../src/nemo-query-editor.c' ] + gresources,
+    include_directories: [ rootInclude, include_directories('../src') ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+    c_args: nemo_definitions,
+  ),
+  args: []
+)
+
+test('Preferences Current tab test',
+  executable('test-nemo-prefs-current',
+    [ 'test-nemo-prefs-current.c', '../src/nemo-prefs-current-folder.c' ] + gresources,
+    include_directories: [ rootInclude, include_directories('../src') ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+    c_args: nemo_definitions,
   ),
   args: []
 )
@@ -737,6 +813,25 @@ test('Tree folders test',
   args: []
 )
 
+test('Status bar name test',
+  executable('test-nemo-status-name',
+    [ 'test-nemo-status-name.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
+test('Tab strip test',
+  executable('test-nemo-notebook',
+    [ 'test-nemo-notebook.c', '../src/nemo-notebook.c' ],
+    include_directories: [ rootInclude, include_directories('../src') ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+    c_args: nemo_definitions,
+  ),
+  args: []
+)
+
 test('New process argv test',
   executable('test-nemo-new-process',
     [ 'test-nemo-new-process.c', '../src/nemo-new-process.c' ],
@@ -806,7 +901,7 @@ if not is_windows
     executable('test-nemo-window-at-point',
       [ 'test-nemo-window-at-point.c', '../src/nemo-window-at-point.c' ],
       include_directories: [ rootInclude, include_directories('../src') ],
-      dependencies: [ gtk, x11 ],
+      dependencies: [ gtk, x11, test_scratch ],
     ),
     args: []
   )
@@ -900,6 +995,16 @@ test('Archive options test',
     [ 'test-nemo-archive.c' ],
     include_directories: [ rootInclude, ],
     dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
+test('Compress dialog height test',
+  executable('test-nemo-archive-dialog',
+    [ 'test-nemo-archive-dialog.c', '../src/nemo-archive-dialog.c' ],
+    include_directories: [ rootInclude, include_directories('../src') ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+    c_args: nemo_definitions,
   ),
   args: []
 )

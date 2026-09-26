@@ -697,11 +697,25 @@ nemo_drag_default_drop_action_for_uri_list (GdkDragContext *context,
 						gchar **source_fs,
 						gboolean *can_delete_source)
 {
+	return nemo_drag_drop_action_for_uri_list (gdk_drag_context_get_actions (context),
+						   gdk_drag_context_get_suggested_action (context),
+						   target_uri_string, dropped_uri,
+						   source_fs, can_delete_source);
+}
+
+GdkDragAction
+nemo_drag_drop_action_for_uri_list (GdkDragAction actions,
+				    GdkDragAction suggested,
+				    const char *target_uri_string,
+				    const char *dropped_uri,
+				    gchar **source_fs,
+				    gboolean *can_delete_source)
+{
 	GdkDragAction forced = 0;
 	NemoFile *target_file;
 	gboolean same_fs;
 
-	if (eel_uri_is_trash (target_uri_string) && (gdk_drag_context_get_actions (context) & GDK_ACTION_MOVE)) {
+	if (eel_uri_is_trash (target_uri_string) && (actions & GDK_ACTION_MOVE)) {
 		/* Only move to Trash */
 		return GDK_ACTION_MOVE;
 	}
@@ -715,7 +729,7 @@ nemo_drag_default_drop_action_for_uri_list (GdkDragContext *context,
 	}
 
 	if (dropped_uri == NULL || target_uri_string == NULL) {
-		return gdk_drag_context_get_suggested_action (context);
+		return suggested;
 	}
 
 	remember_source_filesystem (dropped_uri, source_fs, can_delete_source);
@@ -725,12 +739,11 @@ nemo_drag_default_drop_action_for_uri_list (GdkDragContext *context,
 
 	nemo_file_unref (target_file);
 
-	if (same_fs && *can_delete_source &&
-	    (gdk_drag_context_get_actions (context) & GDK_ACTION_MOVE)) {
+	if (same_fs && *can_delete_source && (actions & GDK_ACTION_MOVE)) {
 		return GDK_ACTION_MOVE;
 	}
 
-	return gdk_drag_context_get_suggested_action (context);
+	return suggested;
 }
 
 /* Encode a "x-special/gnome-icon-list" selection.

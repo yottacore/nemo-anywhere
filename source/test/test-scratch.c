@@ -275,3 +275,46 @@ test_scratch_config_home (const char *tmpl)
 
 	return dir;
 }
+
+void
+test_own_display (int argc, char **argv, const char *screen)
+{
+#ifndef G_OS_WIN32
+	char *xvfb_run;
+	char **relaunch;
+	int i, n = 0;
+
+	if (g_getenv ("NEMO_TEST_OWN_DISPLAY") != NULL) {
+		return;
+	}
+	xvfb_run = g_find_program_in_path ("xvfb-run");
+	if (xvfb_run == NULL) {
+		return;
+	}
+	g_setenv ("NEMO_TEST_OWN_DISPLAY", "1", TRUE);
+
+	relaunch = g_new0 (char *, argc + 5);
+	relaunch[n++] = xvfb_run;
+	relaunch[n++] = (char *) "-a";
+	if (screen != NULL) {
+		relaunch[n++] = (char *) "-s";
+		relaunch[n++] = g_strdup_printf ("-screen 0 %s", screen);
+	}
+	for (i = 0; i < argc; i++) {
+		relaunch[n++] = argv[i];
+	}
+
+	execv (xvfb_run, relaunch);
+
+	/* Only here if the exec failed; the shared display will have to do. */
+	if (screen != NULL) {
+		g_free (relaunch[3]);
+	}
+	g_free (relaunch);
+	g_free (xvfb_run);
+#else
+	(void) argc;
+	(void) argv;
+	(void) screen;
+#endif
+}

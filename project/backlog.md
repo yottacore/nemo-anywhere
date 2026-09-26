@@ -45,6 +45,10 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 
 ### Bugs
 
+- 🔘 The Preferences dialog and the action layout editor look up their text in upstream Nemo's translations.
+	- Opened: 20260926-173000
+	- Cause: both .glade files say `domain="nemo"`, which beats the program's own domain. With Nemo installed beside it, those two windows would use Nemo's catalog; without it, they are never translated.
+
 - 🔘 On Windows, moving a folder junction or a folder symlink ignores the link copy answer in three cases.
 	- Opened: 20260926-091948
 	- Reproduced: the Windows pipeline run on vm925w fails the new "Link copy job, every answer" test. Move with junctions made into symlinks, with folder links kept, and with folder links made into junctions each leave the wrong kind of link.

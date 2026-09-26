@@ -31,6 +31,12 @@ void  test_scratch_point_config_at (const char *dir);
    on first use, and so do we. */
 char *test_scratch_config_home    (const char *tmpl);
 
+/* The suite shares one display, so a test whose answer depends on what else
+   is on screen or who holds the pointer runs itself again under an X server
+   of its own. screen is xvfb-run's -screen value, or NULL for its default.
+   Returns only when there is nothing to do or the relaunch failed. */
+void  test_own_display (int argc, char **argv, const char *screen);
+
 /* Removes every directory made so far. Runs on its own at exit. */
 void  test_scratch_cleanup (void);
 

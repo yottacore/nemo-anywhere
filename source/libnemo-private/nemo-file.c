@@ -4719,6 +4719,27 @@ nemo_file_get_display_name (NemoFile *file)
 	return g_strdup (name);
 }
 
+/* How the status bar names a selected file. A search hit can be anywhere, so
+   its name on its own does not say which file was found. */
+char *
+nemo_file_get_status_name (NemoFile *file, gboolean in_search)
+{
+	char *name = NULL;
+
+	if (in_search) {
+		name = nemo_file_get_path (file);
+		if (name != NULL) {
+			nemo_path_apply_display_separator (name);
+		}
+	}
+
+	if (name == NULL) {
+		name = nemo_file_get_display_name (file);
+	}
+
+	return name;
+}
+
 char *
 nemo_file_get_edit_name (NemoFile *file)
 {

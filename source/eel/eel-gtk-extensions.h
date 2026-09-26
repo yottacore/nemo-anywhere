@@ -60,6 +60,10 @@ gboolean              eel_gtk_get_treeview_pointer_location           (GtkTreeVi
 gboolean              eel_gtk_get_treeview_row_text_at_pos           (GtkTreeView *tree_view,
                                                                        gint x, gint y);
 gboolean              eel_gtk_get_treeview_row_text_is_under_pointer  (GtkTreeView *tree_view);
+void                  eel_gtk_tree_view_forget_cursor                 (GtkTreeView *tree_view);
+gchar *               eel_gtk_tree_view_column_clipped_text          (GtkTreeViewColumn *column,
+                                                                       GtkTreeModel *model,
+                                                                       GtkTreeIter *iter);
 
 /* Focus */
 void                  eel_gtk_widget_refuse_focus                     (GtkWidget *widget);

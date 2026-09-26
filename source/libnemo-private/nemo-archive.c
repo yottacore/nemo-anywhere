@@ -706,6 +706,13 @@ nemo_archive_parse_size (const char *text,
 	return TRUE;
 }
 
+int
+nemo_archive_options_room (int work_height,
+			   int closed_height)
+{
+	return MAX (120, work_height - closed_height);
+}
+
 char *
 nemo_archive_format_size (guint64 bytes)
 {

@@ -542,22 +542,8 @@ static void
 forget_cursor (NemoListView *view)
 {
 	GtkTreeView *tree_view = view->details->tree_view;
-	GtkTreeSelection *selection = gtk_tree_view_get_selection (tree_view);
-	GtkAdjustment *vadjustment;
-	GtkTreePath *path;
-	gdouble scrolled;
 
-	if (gtk_tree_model_iter_n_children (GTK_TREE_MODEL (view->details->model), NULL) > 0) {
-		/* Setting the cursor selects its row and scrolls to it. Neither is wanted. */
-		vadjustment = gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (tree_view));
-		scrolled = gtk_adjustment_get_value (vadjustment);
-		path = gtk_tree_path_new_first ();
-		gtk_tree_view_set_cursor (tree_view, path, NULL, FALSE);
-		gtk_tree_path_free (path);
-		gtk_adjustment_set_value (vadjustment, scrolled);
-	}
-
-	gtk_tree_selection_unselect_all (selection);
+	eel_gtk_tree_view_forget_cursor (tree_view);
 
 	view->details->cursor_forgotten = TRUE;
 	gtk_style_context_add_class (gtk_widget_get_style_context (GTK_WIDGET (tree_view)),
@@ -1116,46 +1102,6 @@ motion_notify_callback (GtkWidget *widget,
     return GDK_EVENT_PROPAGATE;
 }
 
-/* The whole value of a cell too narrow to show it, or NULL if it fits. Widths
-   come from the renderers rather than the column, because a column's own size
-   answer is its minimum and says nothing about text that can ellipsize. */
-static gchar *
-ellipsized_cell_text (NemoListView *view,
-		      GtkTreeViewColumn *column,
-		      GtkTreeIter *iter)
-{
-	GList *cells, *l;
-	gchar *text = NULL;
-	gint wanted = 0;
-
-	gtk_tree_view_column_cell_set_cell_data (column,
-						 GTK_TREE_MODEL (view->details->model),
-						 iter, FALSE, FALSE);
-
-	cells = gtk_cell_layout_get_cells (GTK_CELL_LAYOUT (column));
-	for (l = cells; l != NULL; l = l->next) {
-		GtkCellRenderer *cell = l->data;
-		gint minimum, natural;
-
-		gtk_cell_renderer_get_preferred_width (cell,
-						       GTK_WIDGET (view->details->tree_view),
-						       &minimum, &natural);
-		wanted += natural;
-
-		if (text == NULL && GTK_IS_CELL_RENDERER_TEXT (cell)) {
-			g_object_get (cell, "text", &text, NULL);
-		}
-	}
-	g_list_free (cells);
-
-	if (text != NULL &&
-	    (*text == '\0' || wanted <= gtk_tree_view_column_get_width (column))) {
-		g_clear_pointer (&text, g_free);
-	}
-
-	return text;
-}
-
 static gboolean
 query_tooltip_callback (GtkWidget *widget,
                         gint x,
@@ -1192,7 +1138,9 @@ query_tooltip_callback (GtkWidget *widget,
                                        NULL, &column, NULL, NULL);
     }
     if (column != NULL) {
-        clipped = ellipsized_cell_text (list_view, column, &iter);
+        clipped = eel_gtk_tree_view_column_clipped_text (column,
+                                                         GTK_TREE_MODEL (list_view->details->model),
+                                                         &iter);
     }
 
     if (clipped != NULL) {
@@ -2841,32 +2789,13 @@ shade_row_cell_data_func (GtkTreeViewColumn *column,
     shade_row (view, renderer, model, iter);
 }
 
-/* The setting wins, then a nemo_row_shading color from the theme or the
- * user's gtk.css, then a faint wash of the text color, which reads on light
- * and dark themes alike. */
 static void
 row_shading_changed_callback (NemoListView *view)
 {
-    GtkStyleContext *context;
-    char *color_text;
-
     view->details->row_shading = nemo_config_get_boolean (nemo_list_view_preferences,
                                                           NEMO_PREFERENCES_LIST_VIEW_ROW_SHADING);
-
-    context = gtk_widget_get_style_context (GTK_WIDGET (view->details->tree_view));
-    color_text = nemo_config_get_string (nemo_list_view_preferences,
-                                         NEMO_PREFERENCES_LIST_VIEW_ROW_SHADING_COLOR);
-
-    if (color_text == NULL || !gdk_rgba_parse (&view->details->row_shading_color, color_text)) {
-        if (!gtk_style_context_lookup_color (context, "nemo_row_shading",
-                                             &view->details->row_shading_color)) {
-            gtk_style_context_get_color (context, gtk_style_context_get_state (context),
-                                         &view->details->row_shading_color);
-            view->details->row_shading_color.alpha = 0.06;
-        }
-    }
-
-    g_free (color_text);
+    nemo_row_shading_pick (GTK_WIDGET (view->details->tree_view),
+                           &view->details->row_shading_color);
     gtk_widget_queue_draw (GTK_WIDGET (view->details->tree_view));
 }
 
@@ -3406,30 +3335,20 @@ forget_samples (NemoListView *view)
 	view->details->laid_out_width = -1;
 }
 
-/* The width classes in design.md's "List view column widths". Name and
-   Location take what is left of the row. A fixed column holds a value that
-   only varies in narrow bounds, like a date, and is always shown whole. The
-   rest are minor: their width is a judgement made from the values seen. */
-typedef enum {
-	COLUMN_PRIMARY,
-	COLUMN_FIXED,
-	COLUMN_MINOR
-} ColumnClass;
-
-static ColumnClass
+static NemoColumnKind
 column_class (NemoListView      *view,
 	      GtkTreeViewColumn *column)
 {
 	if (column == view->details->file_name_column ||
 	    g_strcmp0 (column_id (column), "where") == 0) {
-		return COLUMN_PRIMARY;
+		return NEMO_COLUMN_KIND_PRIMARY;
 	}
 
 	if (g_object_get_data (G_OBJECT (column), "unbounded") != NULL) {
-		return COLUMN_MINOR;
+		return NEMO_COLUMN_KIND_MINOR;
 	}
 
-	return COLUMN_FIXED;
+	return NEMO_COLUMN_KIND_FIXED;
 }
 
 /* A dragged minor column is saved with the folder's settings, as
@@ -3492,7 +3411,7 @@ save_user_widths (NemoListView *view)
 	for (l = ids; l != NULL; l = l->next) {
 		GtkTreeViewColumn *column = g_hash_table_lookup (view->details->columns, l->data);
 
-		if (column == NULL || column_class (view, column) != COLUMN_MINOR) {
+		if (column == NULL || column_class (view, column) != NEMO_COLUMN_KIND_MINOR) {
 			continue;
 		}
 
@@ -3541,7 +3460,7 @@ user_widths_settled (gpointer user_data)
 	g_hash_table_iter_init (&iter, view->details->pending_user_widths);
 	while (g_hash_table_iter_next (&iter, &key, &value)) {
 		GtkTreeViewColumn *column = g_hash_table_lookup (view->details->columns, key);
-		ColumnClass class;
+		NemoColumnKind class;
 
 		if (column == NULL ||
 		    (others && column == view->details->file_name_column)) {
@@ -3549,13 +3468,13 @@ user_widths_settled (gpointer user_data)
 		}
 
 		class = column_class (view, column);
-		if (class == COLUMN_FIXED) {
+		if (class == NEMO_COLUMN_KIND_FIXED) {
 			continue;
 		}
 
 		g_hash_table_insert (view->details->user_widths, g_strdup (key), value);
 		changed = TRUE;
-		save = save || class == COLUMN_MINOR;
+		save = save || class == NEMO_COLUMN_KIND_MINOR;
 	}
 
 	g_hash_table_remove_all (view->details->pending_user_widths);
@@ -3935,65 +3854,29 @@ layout_columns (NemoListView *view,
 	for (l = all; l != NULL; l = l->next) {
 		GtkTreeViewColumn *column = l->data;
 		GtkWidget *button;
-		ColumnClass class;
+		NemoColumnMeasure measure = { 0, 0, 0, 0 };
 		gpointer dragged;
-		gint fit = 0;
-		gint half = 0;
-		gint widest = 0;
-		gint heading = 0;
 
 		if (!gtk_tree_view_column_get_visible (column)) {
 			continue;
 		}
 
 		columns[i] = column;
-		class = column_class (view, column);
 
-		samples_measure (samples_for (view, column), percent, &fit, &half, &widest);
+		samples_measure (samples_for (view, column), percent,
+				 &measure.fit, &measure.half, &measure.widest);
 
-		/* The heading is the least any column is, whatever else says. */
 		button = gtk_tree_view_column_get_button (column);
 		if (button != NULL) {
-			gtk_widget_get_preferred_width (button, NULL, &heading);
+			gtk_widget_get_preferred_width (button, NULL, &measure.heading);
 		}
 
-		switch (class) {
-		case COLUMN_PRIMARY:
-			/* Every value when there is room, and past that a share of
-			   what is left. Short of room, the narrowest share of values,
-			   with space for the ellipsis the rest are cut to. */
-			items[i].max_width = widest + pad;
-			items[i].fit_width = items[i].max_width;
-			items[i].min_width = fit + (fit < widest ? ellipsis : 0) + pad;
-			items[i].grows = TRUE;
-			break;
-		case COLUMN_MINOR:
-			items[i].max_width = widest + pad;
-			items[i].fit_width = fit + pad;
-			items[i].min_width = half + (half < widest && widest > narrow ? ellipsis : 0) + pad;
-			break;
-		case COLUMN_FIXED:
-		default:
-			items[i].max_width = widest + pad;
-			items[i].fit_width = items[i].max_width;
-			items[i].min_width = items[i].max_width;
-			break;
-		}
-
-		/* A width dragged into place stands until the folder changes, or
-		   for good where a minor column's width is saved with the folder. */
-		if (class != COLUMN_FIXED &&
-		    g_hash_table_lookup_extended (view->details->user_widths,
-						  column_id (column), NULL, &dragged)) {
-			items[i].max_width = GPOINTER_TO_INT (dragged);
-			items[i].fit_width = items[i].max_width;
-			items[i].min_width = items[i].max_width;
-			items[i].grows = FALSE;
-		}
-
-		items[i].min_width = MAX (heading, items[i].min_width);
-		items[i].fit_width = MAX (items[i].min_width, items[i].fit_width);
-		items[i].max_width = MAX (items[i].fit_width, items[i].max_width);
+		nemo_column_layout_item_for_kind (column_class (view, column), &measure,
+						  pad, ellipsis, narrow,
+						  g_hash_table_lookup_extended (view->details->user_widths,
+										column_id (column), NULL, &dragged)
+						  ? GPOINTER_TO_INT (dragged) : -1,
+						  &items[i]);
 
 		i++;
 	}
@@ -5719,17 +5602,10 @@ nemo_list_view_start_renaming_file (NemoView *view,
 
 	/* set cursor also triggers editing-started, where we save the editable widget */
 	if (list_view->details->editable_widget != NULL) {
-        int start_offset = 0;
-        int end_offset = -1;
+        int start_offset, end_offset;
 
-        /* 0..-1 is the whole name; the helper trims it back to the part before
-           the extension for anyone who has asked for that. */
-        if (!select_all &&
-            !nemo_config_get_boolean (nemo_preferences,
-                                      NEMO_PREFERENCES_RENAME_SELECTS_WHOLE_NAME)) {
-            eel_filename_get_rename_region (list_view->details->original_name,
-                           &start_offset, &end_offset);
-        }
+        nemo_rename_region (list_view->details->original_name, select_all,
+                            &start_offset, &end_offset);
 
 		gtk_editable_select_region (GTK_EDITABLE (list_view->details->editable_widget),
 					    start_offset, end_offset);

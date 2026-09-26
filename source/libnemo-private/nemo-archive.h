@@ -163,6 +163,12 @@ gboolean nemo_archive_parse_size (const char *text,
 				  guint64    *bytes);
 char    *nemo_archive_format_size (guint64 bytes);
 
+/* How tall the Compress dialog's options may grow before they scroll: what
+   the work area leaves under the closed dialog (frame included), and never
+   less than a strip that still shows a few rows. */
+int      nemo_archive_options_room (int work_height,
+				    int closed_height);
+
 /* Whether an archive written with these options can be read back at all, and
    so whether deleting the originals may be offered for it. A split set and an
    archive with its names encrypted both answer FALSE. */

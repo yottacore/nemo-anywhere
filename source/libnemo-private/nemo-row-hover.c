@@ -289,3 +289,28 @@ nemo_row_hover_attach (GtkWidget *tree_view)
 
 	row_hover_update (tree_view);
 }
+
+/* The setting wins, then a nemo_row_shading color from the theme or the
+ * user's gtk.css, then a faint wash of the text color, which reads on light
+ * and dark themes alike. */
+void
+nemo_row_shading_pick (GtkWidget *tree_view,
+		       GdkRGBA   *shading)
+{
+	GtkStyleContext *context;
+	char *color_text;
+
+	context = gtk_widget_get_style_context (tree_view);
+	color_text = nemo_config_get_string (nemo_list_view_preferences,
+					     NEMO_PREFERENCES_LIST_VIEW_ROW_SHADING_COLOR);
+
+	if (color_text == NULL || !gdk_rgba_parse (shading, color_text)) {
+		if (!gtk_style_context_lookup_color (context, "nemo_row_shading", shading)) {
+			gtk_style_context_get_color (context, gtk_style_context_get_state (context),
+						     shading);
+			shading->alpha = 0.06;
+		}
+	}
+
+	g_free (color_text);
+}

@@ -37,6 +37,11 @@ void nemo_row_hover_pick   (const GdkRGBA *base,
 /* Keeps a tree view's hover tint in step with its theme and the setting. */
 void nemo_row_hover_attach (GtkWidget *tree_view);
 
+/* The tint for every other row when rows are shaded, for this tree view's
+ * theme and the setting. */
+void nemo_row_shading_pick (GtkWidget *tree_view,
+			    GdkRGBA   *shading);
+
 G_END_DECLS
 
 #endif /* NEMO_ROW_HOVER_H */

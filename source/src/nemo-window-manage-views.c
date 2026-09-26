@@ -106,7 +106,6 @@ static void load_new_location                         (NemoWindowSlot         *s
 						       gboolean                    tell_new_content_view);
 static void location_has_really_changed               (NemoWindowSlot         *slot);
 static char *default_view_for_folder                  (NemoFile               *file);
-static gboolean folder_wants_image_view               (NemoFile               *file);
 static gboolean view_is_a_list                        (const char             *id);
 static void update_for_new_location                   (NemoWindowSlot         *slot);
 
@@ -907,7 +906,7 @@ got_file_info_for_view_selection_callback (NemoFile *file,
 
 			/* The switch after loading looks past the window's view, so
 			   when the answer is already known, do that now instead. */
-			if (view_is_a_list (view_id) && folder_wants_image_view (file)) {
+			if (view_is_a_list (view_id) && nemo_image_folders_wants_icon_view (file, NULL)) {
 				g_free (view_id);
 				view_id = g_strdup (NEMO_ICON_VIEW_IID);
 			}
@@ -1826,38 +1825,6 @@ nemo_window_slot_stop_loading (NemoWindowSlot *slot)
         cancel_location_change (slot);
 }
 
-/* A folder that is mostly images opens in icon view unless it has a view of its
- * own. Before its files are in, that is only known if it was seen lately or
- * counted ahead from the folder above it, and otherwise it is FALSE. */
-static gboolean
-folder_wants_image_view (NemoFile *file)
-{
-	NemoDirectory *directory;
-	gboolean wanted;
-
-	if (!nemo_config_get_boolean (nemo_icon_view_preferences,
-				      NEMO_PREFERENCES_ICON_VIEW_IMAGE_FOLDER_SWITCH)) {
-		return FALSE;
-	}
-
-	directory = nemo_directory_get_for_file (file);
-	if (NEMO_IS_SEARCH_DIRECTORY (directory)) {
-		wanted = FALSE;
-	} else if (nemo_directory_are_all_files_seen (directory)) {
-		wanted = nemo_directory_is_mostly_images (directory);
-	} else {
-		GFile *location = nemo_file_get_location (file);
-
-		if (!nemo_image_folders_known (location, &wanted)) {
-			wanted = FALSE;
-		}
-		g_object_unref (location);
-	}
-	nemo_directory_unref (directory);
-
-	return wanted;
-}
-
 static gboolean
 view_is_a_list (const char *id)
 {
@@ -1868,7 +1835,7 @@ view_is_a_list (const char *id)
 static char *
 default_view_for_folder (NemoFile *file)
 {
-	if (folder_wants_image_view (file)) {
+	if (nemo_image_folders_wants_icon_view (file, NULL)) {
 		return g_strdup (NEMO_ICON_VIEW_IID);
 	}
 
@@ -1998,7 +1965,7 @@ nemo_window_slot_check_image_view (NemoWindowSlot *slot)
 	saved_id = nemo_global_preferences_get_remember_folder_settings () ?
 		nemo_folder_settings_get (file, NEMO_METADATA_KEY_DEFAULT_VIEW, NULL) : NULL;
 
-	if (saved_id == NULL && folder_wants_image_view (file)) {
+	if (nemo_image_folders_wants_icon_view (file, saved_id)) {
 		switch_content_view (slot, NEMO_ICON_VIEW_IID, FALSE, FALSE);
 	}
 
