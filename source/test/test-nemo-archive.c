@@ -351,6 +351,18 @@ check_backends (void)
 	check (nemo_archive_pick_backend (NEMO_ARCHIVE_FORMAT_7Z, &options) !=
 	       NEMO_ARCHIVE_BACKEND_NONE);
 	nemo_archive_options_clear (&options);
+
+	/* A link 7z keeps on Windows comes back as junk anywhere but 7-Zip
+	   there, so it does not offer to keep them. */
+#ifdef G_OS_WIN32
+	check ((nemo_archive_backend_caps (NEMO_ARCHIVE_FORMAT_7Z, NEMO_ARCHIVE_BACKEND_7Z) &
+		NEMO_ARCHIVE_CAP_STORE_LINKS) == 0);
+	check ((nemo_archive_backend_caps (NEMO_ARCHIVE_FORMAT_ZIP, NEMO_ARCHIVE_BACKEND_7Z) &
+		NEMO_ARCHIVE_CAP_STORE_LINKS) == 0);
+#else
+	check ((nemo_archive_backend_caps (NEMO_ARCHIVE_FORMAT_7Z, NEMO_ARCHIVE_BACKEND_7Z) &
+		NEMO_ARCHIVE_CAP_STORE_LINKS) != 0);
+#endif
 }
 
 static void
@@ -456,6 +468,18 @@ check_commands (void)
 						   "7z", "/tmp/out.7z", names, skip);
 		check (has_arg (argv, "-x!a folder/linked"));
 		check (!has_arg (argv, "-snl"));
+		g_strfreev (argv);
+
+		/* Kept only where 7z claims it can keep them, which it does not
+		   on Windows. */
+		options.store_links = TRUE;
+		argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_7Z, options.format, &options,
+						   "7z", "/tmp/out.7z", names, NULL);
+#ifdef G_OS_WIN32
+		check (!has_arg (argv, "-snl"));
+#else
+		check (has_arg (argv, "-snl"));
+#endif
 		g_strfreev (argv);
 
 		nemo_archive_options_clear (&options);

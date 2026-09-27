@@ -1032,6 +1032,20 @@ fCheckMetadataSlug(){
 }
 fCheckMetadataSlug
 
+## A domain named in a UI file beats the one the code sets, and upstream's
+## "nemo" sent two windows to Nemo's catalog instead of ours.
+fCheckUiDomain(){
+	local bad
+
+	bad="$(grep -rn -E '<interface[^>]*domain=' source --include='*.glade' --include='*.ui' || true)"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: a UI file names its own translation domain; leave it to the code"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fCheckUiDomain
+
 ## Under MSYS2, use the Windows git that made this checkout - the msys one has
 ## its own HOME/config, so its line-ending view marks every CRLF file modified.
 GIT=(git)

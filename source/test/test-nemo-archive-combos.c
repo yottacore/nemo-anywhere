@@ -397,8 +397,11 @@ read_back (const char *path, GHashTable *found)
 		return READ_NO_NAMES;
 	}
 
-	while ((status = archive_read_next_header (a, &entry)) == ARCHIVE_OK ||
-	       status == ARCHIVE_WARN) {
+	/* libarchive 3.8 cannot decrypt a 7z, and answers FAILED for the header
+	   after an entry whose data it could not read. The rest is still there
+	   to list, so only FATAL ends the walk early. */
+	while ((status = archive_read_next_header (a, &entry)) != ARCHIVE_EOF &&
+	       status != ARCHIVE_FATAL) {
 		char *name;
 		gsize length;
 		char buffer[8192];

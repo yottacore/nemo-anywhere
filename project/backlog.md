@@ -7,68 +7,32 @@
 
 This is a product backlog just for pre-v1.0.0 release. After that, bugs, features, and enhancements will be managed in Github Issues.
 
+<!-- TOC ignore:true -->
+## Table of contents
+
 <!-- TOC -->
 
-- [Conventions](#conventions)
-- [Backlog](#backlog)
-	- [Bugs](#bugs)
-	- [Features and enhancements](#features-and-enhancements)
-	- [Done](#done)
-		- [Done - Bugs](#done---bugs)
-		- [Done - Features and enhancements](#done---features-and-enhancements)
-	- [Future and/or deferred](#future-andor-deferred)
-	- [Canceled](#canceled)
+- [Introduction](#introduction)
+- [New format](#new-format)
+- [Bugs](#bugs)
+- [Features and enhancements](#features-and-enhancements)
+- [Done](#done)
+	- [Done - Bugs](#done---bugs)
+	- [Done - Features and enhancements](#done---features-and-enhancements)
+- [Deferred](#deferred)
+- [Canceled](#canceled)
 
 <!-- /TOC -->
 
-## Conventions
+## Introduction
 
-In each section, items are listed approximately from newest to oldest. (Note: if adding/editing frequently, map clipboard or keyboard macro shortcuts to these icons, to go faster.)
+Going forward, new issues in the new template at the bottom of this file, will go in the '## New format' section only. No more status emojis, but will be sorted (top-down) by status, then severity|priority. Issues in the old format (with status emojis) won't be refactored, but will continue to be worked until moved to closed, canceled, or deferred sections, and emojis updated. (Eventually this will all be moved to nano-git-db anyway. This new template is an intermediate effort to make issues going forward more structured and importable.)
 
-Statii:
+## New format
 
-- 🔘 Not started
+## Bugs
 
-- 🛠️ Started, and/or partially complete
-
-- 🔬 Testing not started or finished
-
-- ✅ Complete
-
-- ✋ Defer
-
-- 🚫 Canceled
-
-Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` date once it is complete or canceled. Format is `YYYYmmDD-HHMMSS`. `Opened: n/a` means the open date is not known.
-
-## Backlog
-
-### Bugs
-
-- 🔘 On Windows, 7z with a password and no link options leaves files out of the archive.
-	- Opened: 20260926-210000
-	- Reproduced: the archive combinations test on vm925w. The archive holds `a.txt` and `big.bin` only, and the job says something could not go in and the originals were kept.
-	- Test case: `test-nemo-archive-combos` (fails on Windows).
-
-- 🔘 The Preferences dialog and the action layout editor look up their text in upstream Nemo's translations.
-	- Opened: 20260926-173000
-	- Cause: both .glade files say `domain="nemo"`, which beats the program's own domain. With Nemo installed beside it, those two windows would use Nemo's catalog; without it, they are never translated.
-	- Test case: none yet; the fix would be checked by reading the domain in the two .glade files.
-
-- 🔘 On Windows, moving a folder junction or a folder symlink ignores the link copy answer in three cases.
-	- Opened: 20260926-091948
-	- Reproduced: the Windows pipeline run on vm925w fails the new "Link copy job, every answer" test. Move with junctions made into symlinks, with folder links kept, and with folder links made into junctions each leave the wrong kind of link.
-	- Note: never run on Windows before this. Linux passes.
-	- Test case: `test-nemo-link-copy-job` (move cases 18, 20 and 21 fail on Windows).
-
-- 🔘 On Windows, the new archive option combinations test fails.
-	- Opened: 20260926-092051
-	- Reproduced: the Windows pipeline run on vm925w. The log keeps only the last lines, which do not show the failing case.
-	- Reproduced: with links kept, 7z on Windows stores the file link as a plain file and follows the folder link.
-	- Note: never run on Windows before this. Linux passes.
-	- Test case: `test-nemo-archive-combos` (fails on Windows).
-
-### Features and enhancements
+## Features and enhancements
 
 - 🔘 Take SHCL 3.0.0-beta.1 from its published release, once there is one, and run the config tests against it.
 	- Opened: 20260925-122815
@@ -209,18 +173,54 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Note: removing it touches about twenty files, mostly the icon view, so it wants its own pass and a look on screen after.
 	- Test case: none yet, not started.
 
-### Done
+## Done
 
-#### Done - Bugs
+### Done - Bugs
+
+- ✅ On Windows, 7z with a password and no link options left files out of the archive.
+	- Opened: 20260926-190245
+	- Closed: 20260926-195754
+	- Reproduced: the archive combinations test on vm925w. The archive read back as `a.txt` and `big.bin` only.
+	- Cause: the archive was whole. The test reads it back with libarchive, which cannot decrypt a 7z. From 3.8, which Windows has, the header after an entry it could not read answers "failed", and the test stopped there. Linux has 3.7.
+	- Fixed: the test reads on past a failed entry and stops only at the end or a fatal error.
+	- Swept: the product's own listing stops on the first failed header too. It reads headers only, with the password, and a short listing keeps the originals, so it fails safe. Left as is.
+	- Verified: the combinations test passes on vm925w, and failed there before.
+	- Test case: `test-nemo-archive-combos`.
+
+- ✅ The Preferences dialog and the action layout editor looked up their text in upstream Nemo's translations.
+	- Opened: 20260926-173000
+	- Closed: 20260926-195754
+	- Cause: both .glade files said `domain="nemo"`, which beats the program's own domain.
+	- Fixed: the attribute is gone. The layout editor names the domain on its builder, since Python's gettext domain is not the one GTK reads.
+	- Verified: the lint check fails with the attribute put back into a .glade file and passes without it.
+	- Test case: `fCheckUiDomain` in the C lint, over every .glade and .ui file.
+
+- ✅ On Windows, moving a folder junction or a folder symlink ignored the link copy answer in three cases.
+	- Opened: 20260926-091948
+	- Closed: 20260926-195754
+	- Cause: a move on one drive is a rename and never asks about links. The test gave an answer that changed each link's kind and expected the change.
+	- Decided: a move on one drive keeps every link as it is and asks nothing, as other file managers do. Only a move to another drive asks. design.md says so now.
+	- Fixed: the test expects every link to arrive as it was on a move, whatever the answer.
+	- Verified: the link copy job test passes on vm925w and on Linux.
+	- Test case: `test-nemo-link-copy-job` (the four move cases).
+
+- ✅ On Windows, the archive option combinations test failed.
+	- Opened: 20260926-092051
+	- Closed: 20260926-195754
+	- Reproduced: with links kept, 7z on Windows stored the file link as a plain file and followed the folder link.
+	- Cause: 7z on Windows was never told to keep links, on purpose, but still said it could. 7-Zip there keeps a link as raw Windows data, which libarchive reads back as a file of junk and an empty folder. libarchive is what extracts here.
+	- Fixed: on Windows 7z no longer offers to keep links, so the box is grayed for it and a linked folder not followed is left out, as with any writer that cannot keep one.
+	- Verified: the combinations test and the archive unit test pass on vm925w. The full native suite there is 132 passed, 9 skipped, none failed.
+	- Test case: `test-nemo-archive-combos`, and `check_backends` plus the 7z switch checks in `test-nemo-archive`.
 
 - ✅ A shortcut made off Windows that points at itself was opened again and again on Windows.
-	- Opened: 20260926-210000. Closed: 20260926-210000.
+	- Opened: 20260926-190245. Closed: 20260926-190245.
 	- Cause: the chain of shortcuts ended on the shortcut itself, and that was then opened as if it were the target.
 	- Fixed: a shortcut is never opened as the end of its own chain.
 	- Test case: `test-nemo-shortcut-win32` (the open decision), Windows only.
 
 - ✅ `install.ps1` did not give back the PATH it found on uninstall when it held empty entries.
-	- Opened: 20260926-200000. Closed: 20260926-200000.
+	- Opened: 20260926-175808. Closed: 20260926-175808.
 	- Cause: an install folded a doubled trailing `;` into one, and an uninstall dropped every empty entry.
 	- Fixed: both keep the value as found, apart from the install folder.
 	- Test case: `cicd/utility/test-install-path.ps1`.
@@ -2001,7 +2001,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Verified: every mapped name present in both the Linux and Windows icon themes.
 	- Test case: none, no check yet that each icon name exists in the icon themes.
 
-#### Done - Features and enhancements
+### Done - Features and enhancements
 
 - ✅ "Make link" dialog:
 	- Opened: 20260926-094941
@@ -4173,7 +4173,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Done: workflows and issue templates removed in the fork-setup commit.
 	- Test case: none, repo housekeeping.
 
-### Future and/or deferred
+## Deferred
 
 - ✋ Let the list view's row icons be any size, not just the seven preset sizes.
 	- Opened: 20260920-230000. Deferred: 20260921.
@@ -4219,7 +4219,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Need to think through the UX.
 	- Test case: none, deferred.
 
-### Canceled
+## Canceled
 
 - 🚫 Menu: "Snapshot ..."
 	- Only works if folders selected
@@ -4301,3 +4301,75 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Superseded by the column-width work: in find mode Name and Location split the row one-third/two-thirds, and an adjusted split is remembered.
 	- Note: This may contradict the latest canonical column-sizing definition in 'design.md' under the section "List view column widths", as of 20260916-113519.
 	- Test case: none, superseded by the column-width rules.
+
+## Reference
+
+<!-- New issue template
+
+Legacy statuses:
+
+- 🔘 Not started
+
+- 🛠️ Started, and/or partially complete
+
+- 🔬 Testing not started or finished
+
+- ✋ Defer
+
+- ✅ Complete
+
+- 🚫 Canceled
+
+New issue format:
+
+- Only use rows that you actually need or expect will be filled in. Always fill in the title, ID, Type, Status, Opened and Created by.
+
+- The ID is the local time to the hundredth of a second. Opened is when it was written down, which may differ. (Use a keyboard macro and possibly something like project 'zuid' to generate.)
+
+- Status values, in sort order: Started, Testing, Waiting on signoff, Stalled, Queued, Deferred, Done, Moot, Canceled. Testing means the fix is in and checks are running or still to run. Waiting on signoff means testing passed. Moot means something else changed and made it irrelevant. Canceled means it still applies but was decided against.
+
+- Rows marked [Bug] are for bugs only, and rows marked [Feature] for features and enhancements. Children are not nested. They sit at the top level and point back with Parent ID.
+
+Template:
+
+- Title
+	- ID: YYYYmmDDHHMMSSNN
+	- Type: [Bug|Feature|Enhancement|Task]
+	- Status: [Queued|Started|Stalled|Testing|Waiting on signoff|Moot|Canceled|Deferred|Done]
+	- Priority|Severity [Bug]: [Critical|High|Avg|Low]
+	- Opened: YYYYmmDD-HHMMSS
+	- Opened by:
+	- Assigned to:
+	- Parent ID: YYYYmmDDHHMMSSNN
+	- Prereq IDs:
+		- YYYYmmDDHHMMSSNN
+	- Related IDs:
+		- YYYYmmDDHHMMSSNN
+	- Target OS:
+	- Test environment:
+	- Version and build:
+	- Requirements  [Feature]:
+		- Hierarchical bulleted list.
+	- Steps to reproduce [Bug]:
+		- ...
+	- Incorrect behavior [Bug]:
+	- Expected behavior [Bug]:
+	- Reproduced [Bug]: [No, or when, where and how]
+	- Possible cause [Bug]:
+	- Actual cause [Bug]:
+		- ...
+	- Estimated effort: [High|Avg|Low]
+	- Actual effort: [High|Avg|Low]
+	- Progress log:
+		- YYYYmmDD-HHMMSS: Notable effort.
+	- Decisions:
+		- ...
+	- Actual fix [Bug]:
+	- Branch:
+	- Commit:
+	- Test case: [Reason not applicable, or CI test case #]
+	- Acceptance signoff:
+	- Superseded by ID: YYYYmmDDHHMMSSNN
+	- Closed: YYYYmmDD-HHMMSS
+
+-->
