@@ -28,17 +28,17 @@ src="/src/source"
 ## not run", and this is a crasher. Nothing else uses it.
 declare -i FUZZ_FIND_CODE=86
 
-## Each target and where its seeds live.
+## Each target's test ID, the target, and where its seeds live.
 targets=(
-	"fuzz-shcl|shcl"
-	"fuzz-dnd|dnd"
-	"fuzz-command-template|command-template"
-	"fuzz-xls|xls"
-	"fuzz-ppt|ppt"
-	"fuzz-doc|doc"
-	"fuzz-psd|psd"
-	"fuzz-raw|raw"
-	"fuzz-lnk|lnk"
+	"rh0808bb|fuzz-shcl|shcl"
+	"rh0808bc|fuzz-dnd|dnd"
+	"rh0808bd|fuzz-command-template|command-template"
+	"rhatwe0v|fuzz-xls|xls"
+	"rhatwe0w|fuzz-ppt|ppt"
+	"rhatwe0x|fuzz-doc|doc"
+	"rhe0xz33|fuzz-psd|psd"
+	"rhqmm0as|fuzz-raw|raw"
+	"rhmxm5aj|fuzz-lnk|lnk"
 )
 
 case "${1:-}" in
@@ -98,7 +98,8 @@ fi
 ## drags in the extension library, which has no business in a fuzzing build.
 ninjaTargets=()
 for entry in "${targets[@]}"; do
-	ninjaTargets+=("fuzz/${entry%%|*}")
+	rest="${entry#*|}"
+	ninjaTargets+=("fuzz/${rest%%|*}")
 done
 
 ninja -C "${build}" -j "${NEMO_TEST_JOBS:-2}" "${ninjaTargets[@]}"
@@ -115,8 +116,10 @@ declare -i found=0 num=0
 fStat(){ sed -n "s/^stat::${1}: *//p" "${2}" | tail -n 1; }
 
 for entry in "${targets[@]}"; do
-	name="${entry%%|*}"
-	seedName="${entry##*|}"
+	id="${entry%%|*}"
+	rest="${entry#*|}"
+	name="${rest%%|*}"
+	seedName="${rest##*|}"
 	seeds="${src}/fuzz/corpus/${seedName}"
 	bin="${build}/fuzz/${name}"
 	log="${logs}/${name}.log"
@@ -143,7 +146,7 @@ for entry in "${targets[@]}"; do
 	runs="$(fStat number_of_executed_units "${log}" || true)"
 	added="$(fStat new_units_added "${log}" || true)"
 	rss="$(fStat peak_rss_mb "${log}" || true)"
-	printf -v head '%d/%d %-24s' "${num}" "${#targets[@]}" "${name}"
+	printf -v head '%d/%d %s %-24s' "${num}" "${#targets[@]}" "${id}" "${name}"
 
 	if ((rc == 0)); then
 		echo "${head} OK      ${secs}s  ${runs:-?} runs  ${added:-?} new inputs  ${rss:-?} MB peak"

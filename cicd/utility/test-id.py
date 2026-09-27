@@ -6,7 +6,7 @@
 # 2000-01-01 00:00 UTC, in lower-case Crockford base 32, zero-padded to 8
 # digits. A meson test has it at the front of its name, so a failure in the log
 # already names it. A lint-c check and a test script carry it on a "Test ID:"
-# comment line.
+# comment line, and a fuzz target at the front of its entry in fuzz.bash.
 #
 # With no option, prints the ID for right now, for a new test.
 # --at TIME prints the one for an ISO time, when dating an older test.
@@ -73,6 +73,12 @@ def found_ids(root):
     for script in sorted(scripts):
         m = re.search(r'(?m)^##\s+(?:- )?Test ID: (\S+)$', script.read_text(encoding='utf-8-sig'))
         yield (m.group(1) if m else None), str(script.relative_to(root))
+
+    fuzz = root / 'cicd/linux/fuzz.bash'
+    for num, line in enumerate(fuzz.read_text(encoding='utf-8').splitlines(), 1):
+        m = re.match(r'\t"([^"|]*\|)?fuzz-[^"|]*\|[^"|]*"$', line)
+        if m:
+            yield (m.group(1)[:-1] if m.group(1) else None), f'{fuzz.relative_to(root)}:{num}'
 
 
 def check(root):
