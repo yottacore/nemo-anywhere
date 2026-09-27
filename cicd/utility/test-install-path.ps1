@@ -19,6 +19,7 @@
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+Write-Host "[ Test $((Select-String -LiteralPath $PSCommandPath -Pattern '^##\s+Test ID: (\S+)$').Matches[0].Groups[1].Value) $(Split-Path -Leaf $PSCommandPath) ]"
 
 $installer = Join-Path $PSScriptRoot "../../install.ps1"
 $tokens = $null

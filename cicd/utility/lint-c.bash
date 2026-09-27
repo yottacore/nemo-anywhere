@@ -32,6 +32,23 @@ cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 fEcho(){ echo "[ $* ]"; }
 
+## Each check prints its test ID, read from the "## Test ID:" line above it, so
+## the comment stays the only copy. A check fails by exiting, hence the trap.
+declare -A testIds=()
+while read -r fn tag; do testIds[$fn]="$tag"; done < <(awk '
+	/^##[[:space:]]+Test ID: / { id = $NF; next }
+	/^##/ { next }
+	/^fCheck[A-Za-z0-9_]+\(\)\{/ { fn = $0; sub(/\(\).*/, "", fn); if (id != "") print fn, id }
+	{ id = "" }' cicd/utility/lint-c.bash)
+curTest=""
+trap '[[ -n "$curTest" ]] && printf "%s %-22s FAIL\n" "${testIds[$curTest]:-?}" "${curTest#fCheck}"' EXIT
+fRun(){
+	curTest="$1"
+	"$1"
+	printf '%s %-22s OK\n' "${testIds[$1]:-?}" "${1#fCheck}"
+	curTest=""
+}
+
 ## Every delete in nemo-file-operations.c goes through file_delete_wrapper, so
 ## the delete guard sees it. Two calls in make_link_copy sat outside it until
 ## 20260917 and were reachable with no guard at all. Whole-tree, since the rule
@@ -50,7 +67,7 @@ fCheckDeleteWrapper(){
 		exit 2
 	fi
 }
-fCheckDeleteWrapper
+fRun fCheckDeleteWrapper
 
 ## G_FILE_COPY_OVERWRITE destroys the target inside glib, where there is nothing
 ## of ours to hook, so the test guard has to ask before the flag goes on. Both
@@ -77,7 +94,7 @@ fCheckOverwriteAsk(){
 		exit 2
 	fi
 }
-fCheckOverwriteAsk
+fRun fCheckOverwriteAsk
 
 ## Nothing may trash, delete or move a person's files unless it started in a
 ## window. Another program must have no way in: the bus exported CopyURIs,
@@ -104,7 +121,7 @@ fCheckBusMethods(){
 		exit 2
 	fi
 }
-fCheckBusMethods
+fRun fCheckBusMethods
 
 ## Application actions are exported on the bus too. Only quit.
 ## Test ID: rh3qr9y9
@@ -120,7 +137,7 @@ fCheckAppActions(){
 		exit 2
 	fi
 }
-fCheckAppActions
+fRun fCheckAppActions
 
 ## Who may start a trash, delete, empty trash or move job. Each file here is
 ## reached from something done in a window.
@@ -150,7 +167,7 @@ fCheckJobCallers(){
 		exit 2
 	fi
 }
-fCheckJobCallers
+fRun fCheckJobCallers
 
 ## Raw deletes outside the jobs. What is left only touches files the app made
 ## for itself.
@@ -180,7 +197,7 @@ fCheckRawDeletes(){
 		exit 2
 	fi
 }
-fCheckRawDeletes
+fRun fCheckRawDeletes
 
 ## A tree removal walks into a real folder only, never through a symlink or a
 ## junction. GIO calls a junction a folder on Windows even with NOFOLLOW, so the
@@ -216,7 +233,7 @@ fCheckTreeWalks(){
 		exit 2
 	fi
 }
-fCheckTreeWalks
+fRun fCheckTreeWalks
 
 ## Same rule for the suite, narrowed to the shape that can do the damage: a
 ## function that calls itself, lists a directory and removes what it finds.
@@ -251,7 +268,7 @@ fCheckTestTreeWalks(){
 		exit 2
 	fi
 }
-fCheckTestTreeWalks
+fRun fCheckTestTreeWalks
 
 ## Two test helpers that used to be copied instead of shared. The check macro
 ## was in the tree in two spellings across sixty-odd files, and twenty-odd
@@ -278,7 +295,7 @@ fCheckTestHelpers(){
 		exit 2
 	fi
 }
-fCheckTestHelpers
+fRun fCheckTestHelpers
 
 ## Row shading remembers which renderers it has already told they have no
 ## background, so it can skip saying it again on every redraw. That is only
@@ -305,7 +322,7 @@ fCheckCellPlain(){
 		exit 2
 	fi
 }
-fCheckCellPlain
+fRun fCheckCellPlain
 
 ## The list view works out every column width itself and hands out widths that
 ## come to exactly the row. An expanding column lets GTK add more on top, from a
@@ -323,7 +340,7 @@ fCheckColumnExpand(){
 		exit 2
 	fi
 }
-fCheckColumnExpand
+fRun fCheckColumnExpand
 
 ## Column samples only ever grow, so a file that leaves keeps its widths in
 ## every column but Name. That held a scrollbar on a folder with nothing left
@@ -348,7 +365,7 @@ fCheckStaleSamples(){
 		exit 2
 	fi
 }
-fCheckStaleSamples
+fRun fCheckStaleSamples
 
 ## The status bar count is read on a timer that starts with the first change
 ## of a burst, while the changes themselves go in on a shorter one. Files
@@ -367,7 +384,7 @@ fCheckStatusAfterChanges(){
 		exit 2
 	fi
 }
-fCheckStatusAfterChanges
+fRun fCheckStatusAfterChanges
 
 ## The list view runs in fixed-height mode, which halves what a big folder
 ## costs to load. GTK only allows it while every column sizes FIXED, and it
@@ -401,7 +418,7 @@ fCheckFixedHeight(){
 		exit 2
 	fi
 }
-fCheckFixedHeight
+fRun fCheckFixedHeight
 
 ## The measuring cache in the list view. Each rule below is what keeps a
 ## remembered width honest; without one the columns come out wrong or the
@@ -435,7 +452,7 @@ fCheckMeasureCache(){
 		exit 2
 	fi
 }
-fCheckMeasureCache
+fRun fCheckMeasureCache
 
 ## A theme change can bring a new font, which makes every remembered width
 ## wrong. The handler has to send the rows back to be measured - but only on a
@@ -460,7 +477,7 @@ fCheckStyleRemeasure(){
 		exit 2
 	fi
 }
-fCheckStyleRemeasure
+fRun fCheckStyleRemeasure
 
 ## The zoom slider is the last thing in the status bar, so it needs a margin of
 ## its own or the trough runs into the window edge.
@@ -475,7 +492,7 @@ fCheckSliderMargin(){
 		exit 2
 	fi
 }
-fCheckSliderMargin
+fRun fCheckSliderMargin
 
 ## An icon whose picture changes size has to be laid out again before the next
 ## paint, or its name jumps up under a short thumbnail and back down a frame later.
@@ -497,7 +514,7 @@ fCheckIconRelayout(){
 		exit 2
 	fi
 }
-fCheckIconRelayout
+fRun fCheckIconRelayout
 
 ## A transition on the path bar / location bar stack paints the bar going out
 ## while its resize can still be pending, which logs a GTK critical on a folder
@@ -514,7 +531,7 @@ fCheckToolbarStack(){
 		exit 2
 	fi
 }
-fCheckToolbarStack
+fRun fCheckToolbarStack
 
 ## Sizing a folder of images reads: either the folder's own image size, which is
 ## already stored, or the image default, which has to stay a default so the
@@ -540,7 +557,7 @@ fCheckImageDefault(){
 		exit 2
 	fi
 }
-fCheckImageDefault
+fRun fCheckImageDefault
 
 ## With per-folder settings off the window holds three icon sizes: plain and
 ## pictures for the icon view, and one for list view. Anything in the icon view
@@ -570,7 +587,7 @@ fCheckHeldIconSize(){
 		exit 2
 	fi
 }
-fCheckHeldIconSize
+fRun fCheckHeldIconSize
 
 ## Windows show the program's icon, set once as the default. Upstream set each
 ## window to its folder's icon, so a taskbar full of them showed generic folders
@@ -591,7 +608,7 @@ fCheckWindowIcon(){
 		exit 2
 	fi
 }
-fCheckWindowIcon
+fRun fCheckWindowIcon
 
 ## Every copy is its own process under one app id, so a session manager
 ## takes the first one to register and refuses the rest. Nothing here needs
@@ -606,7 +623,7 @@ fCheckNoSessionRegister(){
 		exit 2
 	fi
 }
-fCheckNoSessionRegister
+fRun fCheckNoSessionRegister
 
 ## A checksum is kept on a file in three attributes, and the order they are
 ## written in is the only thing standing between a torn write and a checksum
@@ -633,7 +650,7 @@ fCheckDigestAttrOrder(){
 		exit 2
 	fi
 }
-fCheckDigestAttrOrder
+fRun fCheckDigestAttrOrder
 
 ## A test that cannot run exits 77, which meson counts as a skip. Three tests
 ## said they were skipping and then exited 0, so the suite counted a pass for
@@ -678,7 +695,7 @@ fCheckTestSkipExit(){
 		exit 2
 	fi
 }
-fCheckTestSkipExit
+fRun fCheckTestSkipExit
 
 ## Scratch directories come from test_scratch_dir, which removes them at exit
 ## and keeps two runs apart. One test made and removed its own by hand, and two
@@ -696,7 +713,7 @@ fCheckTestScratchDirs(){
 		exit 2
 	fi
 }
-fCheckTestScratchDirs
+fRun fCheckTestScratchDirs
 
 ## Only a trash or delete command in a window counts as asked for, which gets
 ## the lighter confirmation. The guard used to read GTK's current event
@@ -741,7 +758,7 @@ fCheckByUser(){
 		exit 2
 	fi
 }
-fCheckByUser
+fRun fCheckByUser
 
 ## A link to a share that is not answering costs about twenty seconds for each
 ## question asked of it, and a folder waits on all of them. These three leave
@@ -762,7 +779,7 @@ fCheckShareGates(){
 		fi
 	done
 }
-fCheckShareGates
+fRun fCheckShareGates
 
 ## Setting the list's bottom margin asks for another allocation. The size
 ## handler set it on every one, which redrew the view at the frame rate - the
@@ -788,7 +805,7 @@ fCheckMarginGuard(){
 		exit 2
 	fi
 }
-fCheckMarginGuard
+fRun fCheckMarginGuard
 
 ## On Windows every program nemo starts goes through nemo-launch-win32.c.
 ## Anything started directly inherits the single-exe packer's hooks: programs
@@ -816,7 +833,7 @@ fCheckWinLaunch(){
 		exit 2
 	fi
 }
-fCheckWinLaunch
+fRun fCheckWinLaunch
 
 ## A right-click on a path button pops its menu inside the press. It used to
 ## wait for the folder's attributes and pop up from their callback, which came
@@ -840,7 +857,7 @@ fCheckLocationPopup(){
 		exit 2
 	fi
 }
-fCheckLocationPopup
+fRun fCheckLocationPopup
 
 ## On Windows a trash goes to the Recycle Bin through nemo_trash_win32_recycle
 ## with the shell's confirmations off. g_file_trash leaves them on, so every
@@ -867,7 +884,7 @@ fCheckWinTrash(){
 		exit 2
 	fi
 }
-fCheckWinTrash
+fRun fCheckWinTrash
 
 ## An open view follows its default zoom and the default view. Nothing
 ## watched them, so a changed default reached only folders opened after it.
@@ -888,7 +905,7 @@ fCheckDefaultsFollowed(){
 		fi
 	done
 }
-fCheckDefaultsFollowed
+fRun fCheckDefaultsFollowed
 
 ## Window size and place were written only on a clean close, so a crash, or
 ## the launcher replacing a running copy, lost them. A move or resize saves
@@ -907,7 +924,7 @@ fCheckGeometrySave(){
 		exit 2
 	fi
 }
-fCheckGeometrySave
+fRun fCheckGeometrySave
 
 ## A click on a place leaves the keyboard in the sidebar. Connecting a content
 ## view grabbed the focus every time, so a place whose folder wanted another
@@ -931,7 +948,7 @@ fCheckSidebarFocus(){
 		exit 2
 	fi
 }
-fCheckSidebarFocus
+fRun fCheckSidebarFocus
 
 ## A Windows-only test is left out of the build elsewhere and carries no stub
 ## for the other platform. Some were built and reported a skip and some had
@@ -968,7 +985,7 @@ fCheckWinTests(){
 		exit 2
 	fi
 }
-fCheckWinTests
+fRun fCheckWinTests
 
 ## Taking the focus off the path entry puts the buttons back, not only Escape.
 ## Switching to another program does not, so a half-typed path survives it.
@@ -994,7 +1011,7 @@ fCheckEntryFocusOut(){
 		exit 2
 	fi
 }
-fCheckEntryFocusOut
+fRun fCheckEntryFocusOut
 
 ## Same idea as fCheckStyleRemeasure, for the other two things that make every
 ## remembered width wrong: a zoom changes the font and the icon, and a column
@@ -1014,7 +1031,7 @@ fCheckZoomRemeasure(){
 		fi
 	done
 }
-fCheckZoomRemeasure
+fRun fCheckZoomRemeasure
 
 ## Nothing runs off inserted media, on any platform, and there is no option to
 ## turn it on. The media bar offered to run the software types until the
@@ -1043,7 +1060,7 @@ fCheckNoAutorun(){
 		exit 2
 	fi
 }
-fCheckNoAutorun
+fRun fCheckNoAutorun
 
 ## View and layout state on a file is ours alone, so its keys carry the app
 ## name; upstream Nemo reads the same files, and the two builds fought over the
@@ -1070,7 +1087,7 @@ fCheckMetadataSlug(){
 		exit 2
 	fi
 }
-fCheckMetadataSlug
+fRun fCheckMetadataSlug
 
 ## A domain named in a UI file beats the one the code sets, and upstream's
 ## "nemo" sent two windows to Nemo's catalog instead of ours.
@@ -1085,7 +1102,7 @@ fCheckUiDomain(){
 		exit 2
 	fi
 }
-fCheckUiDomain
+fRun fCheckUiDomain
 
 ## Under MSYS2, use the Windows git that made this checkout - the msys one has
 ## its own HOME/config, so its line-ending view marks every CRLF file modified.

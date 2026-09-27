@@ -31,6 +31,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+Write-Host "[ Test $((Select-String -LiteralPath $PSCommandPath -Pattern '^##\s+Test ID: (\S+)$').Matches[0].Groups[1].Value) $(Split-Path -Leaf $PSCommandPath) ]"
 
 if (-not $IsWindows) { Write-Host "[ GUI launch smoke skipped: Windows only ]"; exit 77 }
 if (-not (Test-Path -LiteralPath $Exe)) { Write-Host "[ GUI launch smoke skipped: no exe at ${Exe} ]"; exit 77 }
