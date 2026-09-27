@@ -101,7 +101,7 @@ smoke="$(docker exec "$CONTAINER" xvfb-run -a "${BUILD}/src/${SLUG}" --version)"
 fEcho_Clean "$smoke"
 ## The extension API lives in the exe in this build, and nothing else in the
 ## lane would notice if an extension could no longer reach it.
-docker exec "$CONTAINER" meson test -C "$BUILD" --no-rebuild "Extension load test" >/dev/null \
+docker exec "$CONTAINER" meson test -C "$BUILD" --no-rebuild "rh5f9h18 Extension load test" >/dev/null \
 	|| fDie "extension load test failed; see ${BUILD}/meson-logs/testlog.txt in ${CONTAINER}"
 
 fEcho_Clean ""

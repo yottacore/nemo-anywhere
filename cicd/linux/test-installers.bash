@@ -6,6 +6,7 @@
 ##	- A missing tarball or a missing pwsh skips that part with a note, exit 77
 ##	  when nothing could run.
 ##	- Syntax: cicd/linux/test-installers.bash
+##	- Test ID: rhqmz9n8
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:

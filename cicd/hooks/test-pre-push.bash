@@ -7,6 +7,7 @@
 ##	  against a throwaway repo, with a stand-in for the gate it calls.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/hooks/test-pre-push.bash
+##	- Test ID: rhtrxr80
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:
