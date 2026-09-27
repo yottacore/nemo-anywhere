@@ -1,8 +1,11 @@
 /* Two launches are two processes that both stay up, a crash in one leaves the
  * others running, and --quit takes every one of them down. Nothing on the bus
- * may copy, move, trash or delete. Needs the built
- * program (argv[1]) and a display; without a display it skips. The crash and
- * --quit halves need a session bus, and start one if the environment has none. */
+ * may copy, move, trash or delete, and an Open hint of any shape is taken
+ * without harm. --reset is refused while a copy runs, since that copy would
+ * write its settings straight back, and once none does it takes the settings
+ * file, bookmarks and their side file. Needs the built program (argv[1]) and a
+ * display; without a display it skips. The crash, --quit and --reset halves
+ * need a session bus, and start one if the environment has none. */
 
 #include <config.h>
 
@@ -31,6 +34,24 @@ launch (const char *exe, const char *arg)
 	}
 
 	return pid;
+}
+
+/* Runs to the end; the exit status, or -1 when it would not start. */
+static int
+run (const char *exe, const char *arg)
+{
+	char *argv[] = { (char *) exe, (char *) arg, NULL };
+	int status = -1;
+	GError *error = NULL;
+
+	if (!g_spawn_sync (NULL, argv, NULL, G_SPAWN_STDOUT_TO_DEV_NULL | G_SPAWN_STDERR_TO_DEV_NULL,
+			   NULL, NULL, NULL, NULL, &status, &error)) {
+		g_printerr ("spawn: %s\n", error->message);
+		g_error_free (error);
+		return -1;
+	}
+
+	return WIFEXITED (status) ? WEXITSTATUS (status) : -1;
 }
 
 static gboolean
@@ -143,6 +164,46 @@ introspect (GDBusConnection *bus, const char *unique, const char *path)
 	return xml;
 }
 
+/* The Open hint used to be split on "=" with no check, so one without took the
+   running copy down. */
+static void
+open_with_hint (GDBusConnection *bus, const char *unique, const char *folder, const char *hint)
+{
+	char *uri = g_filename_to_uri (folder, NULL, NULL);
+	const char *uris[] = { uri, NULL };
+	GVariant *reply;
+	GError *error = NULL;
+
+	reply = g_dbus_connection_call_sync (bus, unique, "/org/NemoAnywhere",
+					     "org.gtk.Application", "Open",
+					     g_variant_new_parsed ("(%^as, %s, @a{sv} {})", uris, hint),
+					     NULL, G_DBUS_CALL_FLAGS_NONE, 5000, NULL, &error);
+	if (reply == NULL) {
+		g_printerr ("FAIL Open with hint \"%s\": %s\n", hint, error->message);
+		failures++;
+		g_error_free (error);
+	} else {
+		g_variant_unref (reply);
+	}
+	g_free (uri);
+}
+
+static char *
+config_file (const char *root, const char *dir, const char *name)
+{
+	return g_build_filename (root, dir, name, NULL);
+}
+
+static void
+write_config_file (const char *path, const char *text)
+{
+	char *dir = g_path_get_dirname (path);
+
+	g_mkdir_with_parents (dir, 0700);
+	check (g_file_set_contents (path, text, -1, NULL));
+	g_free (dir);
+}
+
 static void
 ensure_session_bus (int argc, char *argv[])
 {
@@ -190,6 +251,7 @@ main (int argc, char *argv[])
 	GPid first, second, third = 0, quitter, doomed, survivor;
 	GDBusConnection *bus;
 	char *held = NULL, *owner = NULL;
+	char *settings, *bookmarks, *bookmark_metadata;
 
 	if (argc < 2) {
 		g_printerr ("usage: %s <nemo-anywhere>\n", argv[0]);
@@ -205,6 +267,9 @@ main (int argc, char *argv[])
 	ensure_session_bus (argc, argv);
 
 	tmp = test_scratch_config_home ("nemo-instances-test-XXXXXX");
+	settings = config_file (tmp, "nemo-anywhere", "settings.shcl");
+	bookmarks = config_file (tmp, "gtk-3.0", "bookmarks");
+	bookmark_metadata = config_file (tmp, "nemo-anywhere", "bookmark-metadata");
 
 	first = launch (exe, tmp);
 	second = launch (exe, tmp);
@@ -247,6 +312,24 @@ main (int argc, char *argv[])
 		}
 	}
 
+	{
+		const char *hints[] = { "no-equals-sign", "", "=", "EXISTING_WINDOW", NULL };
+		GPid holder = owner_pid (bus, held);
+		int i;
+
+		for (i = 0; hints[i] != NULL; i++) {
+			open_with_hint (bus, held, tmp, hints[i]);
+		}
+		g_usleep (2 * G_USEC_PER_SEC);
+		check (holder == first || holder == second);
+		check (alive (holder));
+	}
+
+	/* Refused, and says so, while a copy holds the settings in memory. */
+	write_config_file (settings, "hand.written: yes\n");
+	check (run (exe, "--reset") != 0);
+	check (g_file_test (settings, G_FILE_TEST_EXISTS));
+
 	/* Anything but one of ours and there is nothing safe to signal: pid 0 is
 	 * the whole process group, this test included. */
 	doomed = owner_pid (bus, held);
@@ -280,6 +363,15 @@ main (int argc, char *argv[])
 	check (wait_gone (survivor, 20));
 	check (wait_gone (third, 20));
 
+	/* With nothing running it goes ahead, hand-written lines and all. */
+	write_config_file (settings, "hand.written: yes\n");
+	write_config_file (bookmarks, "file:///tmp\n");
+	write_config_file (bookmark_metadata, "[file:///tmp]\nemblems=\n");
+	check (run (exe, "--reset") == 0);
+	check (!g_file_test (settings, G_FILE_TEST_EXISTS));
+	check (!g_file_test (bookmarks, G_FILE_TEST_EXISTS));
+	check (!g_file_test (bookmark_metadata, G_FILE_TEST_EXISTS));
+
 out:
 	g_clear_object (&bus);
 	g_free (held);
@@ -303,6 +395,9 @@ out:
 		g_spawn_close_pid (third);
 	}
 
+	g_free (bookmark_metadata);
+	g_free (bookmarks);
+	g_free (settings);
 	g_free (tmp);
 
 	if (failures == 0) {

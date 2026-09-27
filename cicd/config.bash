@@ -191,12 +191,15 @@ VERSION_MANIFEST="source/meson.build"
 ##     root beside its DLLs, which is the layout install.ps1 expects.
 ##   - Both installers then install, reinstall and uninstall the Linux tarball in
 ##     a scratch home, offline.
+##   - Every file the tarball, .deb and .rpm install has to carry the app's name,
+##     and the action layout editor's launcher has to work from a moved prefix.
 ## Deferred: BSD .pkg, macOS .pkg, AppImage, Flatpak - no toolchain here yet.
 PACKAGE_ENABLE=1
 PACKAGE_CMDS=(
 	"Linux .deb + .rpm|bash cicd/linux/package.bash"
 	"Windows .zip|bash cicd/win/pack-zip.bash"
 	"Installer check|bash cicd/linux/test-installers.bash"
+	"Prefix check|bash cicd/linux/test-prefix.bash"
 )
 
 

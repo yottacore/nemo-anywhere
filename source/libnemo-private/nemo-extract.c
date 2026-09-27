@@ -1610,6 +1610,10 @@ extract_one (ExtractJob *job,
 
 		base = g_object_ref (made);
 		g_hash_table_remove_all (job->dir_map);
+
+		/* The folder is ours, not the archive's, so a command backend
+		   may still take over when libarchive cannot read it. */
+		job->wrote_anything = FALSE;
 	} else {
 		base = g_object_ref (job->destination_dir);
 	}

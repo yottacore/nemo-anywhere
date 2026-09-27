@@ -8,6 +8,7 @@
 #include <string.h>
 #include <glib.h>
 #include <glib/gstdio.h>
+#include <gio/gio.h>
 #ifdef G_OS_WIN32
 #include <windows.h>
 #else
@@ -130,6 +131,11 @@ run_child (const char *how)
 	path = nemo_crash_report_path ();
 	g_print ("%s\n", path != NULL ? path : "none");
 	fflush (stdout);
+
+	/* A start that goes on to run normally: only the startup sweep. */
+	if (strcmp (how, "sweep") == 0) {
+		return 0;
+	}
 
 	if (strcmp (how, "abort") == 0) {
 		abort ();
@@ -341,6 +347,98 @@ written_to (const char *stderr_text)
 	return end != NULL ? g_strndup (start, (gsize) (end - start)) : g_strdup (start);
 }
 
+#define SWEEP_SEEDED 23
+#define SWEEP_KEPT 20
+
+static char *
+seeded_name (int i)
+{
+	/* Named in the opposite order to their times, since the name carries
+	   when a run started and the file time is when it crashed. */
+	return g_strdup_printf ("crash-20260101-000000-%d.txt", SWEEP_SEEDED - i);
+}
+
+/* A folder with more reports than are kept: at startup the oldest go, the
+   newest is announced once, and never again for the same report. */
+static void
+check_sweep (const char *self)
+{
+	g_autofree char *root = NULL;
+	g_autofree char *dir = NULL;
+	g_autofree char *seen = NULL;
+	g_autoptr (GError) error = NULL;
+	ChildResult result;
+	gint64 now = g_get_real_time () / G_USEC_PER_SEC;
+	int i;
+
+	root = test_scratch_dir ("nemo-crash-sweep-XXXXXX", &error);
+	if (root == NULL) {
+		g_printerr ("FAIL could not make a config root: %s\n", error->message);
+		failures++;
+		return;
+	}
+
+	/* The first start only says where reports go; there are none yet. */
+	result = run_crashing_child (self, root, "sweep", TRUE);
+	check (result.spawned && result.status == 0);
+	if (result.spawned && result.report_path[0] != '\0' &&
+	    strcmp (result.report_path, "none") != 0) {
+		dir = g_path_get_dirname (result.report_path);
+	}
+	check (result.stderr_text == NULL || strstr (result.stderr_text, "stopped unexpectedly") == NULL);
+	child_result_clear (&result);
+	check (dir != NULL);
+	if (dir == NULL) {
+		return;
+	}
+
+	g_mkdir_with_parents (dir, 0700);
+	for (i = 0; i < SWEEP_SEEDED; i++) {
+		g_autofree char *name = seeded_name (i);
+		g_autofree char *path = g_build_filename (dir, name, NULL);
+		g_autoptr (GFile) file = g_file_new_for_path (path);
+
+		check (g_file_set_contents (path, "report", -1, NULL));
+		/* An hour apart, the first seeded the oldest. */
+		check (g_file_set_attribute_uint64 (file, G_FILE_ATTRIBUTE_TIME_MODIFIED,
+						    (guint64) (now - (SWEEP_SEEDED - i) * 3600),
+						    G_FILE_QUERY_INFO_NONE, NULL, NULL));
+	}
+
+	result = run_crashing_child (self, root, "sweep", TRUE);
+	check (result.spawned && result.status == 0);
+	check (result.stderr_text != NULL && strstr (result.stderr_text, "stopped unexpectedly") != NULL);
+	child_result_clear (&result);
+
+	check (count_reports (dir) == SWEEP_KEPT);
+	for (i = 0; i < SWEEP_SEEDED; i++) {
+		g_autofree char *name = seeded_name (i);
+		g_autofree char *path = g_build_filename (dir, name, NULL);
+		gboolean kept = g_file_test (path, G_FILE_TEST_EXISTS);
+
+		if (kept != (i >= SWEEP_SEEDED - SWEEP_KEPT)) {
+			g_printerr ("FAIL %s was %s\n", name, kept ? "kept" : "dropped");
+			failures++;
+		}
+	}
+
+	/* The marker names the newest, which is the last seeded. */
+	{
+		g_autofree char *marker = g_build_filename (dir, "last-seen", NULL);
+		g_autofree char *newest = seeded_name (SWEEP_SEEDED - 1);
+
+		check (g_file_get_contents (marker, &seen, NULL, NULL));
+		check (g_strcmp0 (seen, newest) == 0);
+	}
+
+	/* Nothing new since, so the next start says nothing. */
+	result = run_crashing_child (self, root, "sweep", TRUE);
+	check (result.spawned && result.status == 0);
+	check (result.stderr_text == NULL || strstr (result.stderr_text, "stopped unexpectedly") == NULL);
+	child_result_clear (&result);
+	check (count_reports (dir) == SWEEP_KEPT);
+}
+
 #ifdef G_OS_WIN32
 #define FAULT_CAUSE "access violation"
 #define ABORT_CAUSE "aborted"
@@ -526,6 +624,8 @@ main (int argc, char *argv[])
 		check (crash_dir != NULL && count_reports (crash_dir) == before);
 	}
 	child_result_clear (&result);
+
+	check_sweep (argv[0]);
 
 	if (failures == 0) {
 		g_print ("crash reporter: all checks passed\n");

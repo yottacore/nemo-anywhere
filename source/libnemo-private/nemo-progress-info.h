@@ -86,5 +86,9 @@ void          nemo_progress_info_pulse_progress  (NemoProgressInfo *info);
 
 gdouble       nemo_progress_info_get_elapsed_time (NemoProgressInfo *info);
 
+/* How far along a list of operations is as one figure: the plain mean over the
+   ones not finished, 0 when there are none. */
+double        nemo_progress_info_mean_progress   (GList *infos);
+
 
 #endif /* NEMO_PROGRESS_INFO_H */

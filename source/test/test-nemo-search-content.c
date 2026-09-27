@@ -1,7 +1,12 @@
 /* Content search over a temp dir. On win32 GIO calls the extension the content
  * type (".txt"), so the old is_a("text/plain") test answered no for every file
  * and "Containing:" never found anything at all. Text with an extension GIO does
- * not know, and text with no extension, have to be found by their bytes. */
+ * not know, and text with no extension, have to be found by their bytes.
+ *
+ * Off Windows, two binary types also get a pair of search helpers each. The
+ * helper with the higher Priority runs first, and the next is only tried when
+ * that one cannot run at all: a helper that runs and finds nothing is the
+ * answer. */
 
 #include <config.h>
 
@@ -43,6 +48,41 @@ write_file (const char *dir, const char *name, const char *contents, gssize len)
 	g_free (path);
 }
 
+#ifndef G_OS_WIN32
+static void
+write_helper (const char *dir, const char *name, const char *mime,
+	      int priority, const char *exec)
+{
+	char *text = g_strdup_printf ("[Nemo Search Helper]\n"
+				      "TryExec=sh;\n"
+				      "Exec=%s\n"
+				      "MimeType=%s;\n"
+				      "Priority=%d\n", exec, mime, priority);
+
+	write_file (dir, name, text, -1);
+	g_free (text);
+}
+
+/* The GIF's helper that ranks first names a program that is not there; the
+   BMP's runs, and finds nothing. */
+static void
+write_helpers (const char *data_home)
+{
+	char *dir = g_build_filename (data_home, NEMO_APP_SLUG, "search-helpers", NULL);
+
+	g_mkdir_with_parents (dir, 0700);
+	write_helper (dir, "gif-first.nemo_search_helper", "image/gif", 200,
+		      "nemo-test-no-such-helper %s");
+	write_helper (dir, "gif-second.nemo_search_helper", "image/gif", 100,
+		      "sh -c 'echo the needle' %s");
+	write_helper (dir, "bmp-first.nemo_search_helper", "image/bmp", 200,
+		      "sh -c 'echo nothing here' %s");
+	write_helper (dir, "bmp-second.nemo_search_helper", "image/bmp", 100,
+		      "sh -c 'echo the needle' %s");
+	g_free (dir);
+}
+#endif
+
 static gboolean
 was_found (const char *name)
 {
@@ -65,6 +105,14 @@ main (int argc, char *argv[])
 	int               failures = 0;
 
 	char *scratch = test_scratch_config_home ("nemo-search-content-home-XXXXXX");
+#ifndef G_OS_WIN32
+	char *data_home = g_build_filename (scratch, "data", NULL);
+
+	/* Read before anything asks GLib for it, which caches the answer. */
+	g_setenv ("XDG_DATA_HOME", data_home, TRUE);
+	write_helpers (data_home);
+	g_free (data_home);
+#endif
 
 	gtk_init_check (&argc, &argv);
 	nemo_global_preferences_init ();
@@ -77,6 +125,11 @@ main (int argc, char *argv[])
 	write_file (dir, "other.txt", "nothing of interest\n", -1);
 	/* A PNG header, then the word - binary, so it must not be read as text. */
 	write_file (dir, "image.png", "\x89PNG\r\n\x1a\n\x00\x00\x00\x0dneedle", 21);
+#ifndef G_OS_WIN32
+	/* Neither holds the word; only a helper's output can. */
+	write_file (dir, "picture.gif", "GIF89a\x01\x00\x01\x00\x00\x00\x00;", 13);
+	write_file (dir, "picture.bmp", "BM\x3a\x00\x00\x00\x00\x00\x00\x00\x36\x00\x00\x00", 14);
+#endif
 
 	engine = nemo_search_engine_advanced_new ();
 	g_signal_connect (engine, "hits-added", G_CALLBACK (hits_added_cb), NULL);
@@ -120,6 +173,18 @@ main (int argc, char *argv[])
 		g_printerr ("FAIL: 'image.png' is binary and was searched anyway\n");
 		failures++;
 	}
+
+#ifndef G_OS_WIN32
+	if (!was_found ("picture.gif")) {
+		g_printerr ("FAIL: 'picture.gif' was not found through its second helper\n");
+		failures++;
+	}
+
+	if (was_found ("picture.bmp")) {
+		g_printerr ("FAIL: 'picture.bmp' was found by a helper ranked below one that ran\n");
+		failures++;
+	}
+#endif
 
 	g_object_unref (engine);
 	g_list_free_full (found, g_free);

@@ -2,10 +2,14 @@
  * the folder it unpacks into is inspected. Covers the two layouts, the paths an
  * archive can name, and the guard that keeps a hostile one from writing outside
  * the folder that was picked. Collisions are not covered here - every answer to
- * one comes from a dialog, and there is nobody to click it. */
+ * one comes from a dialog, and there is nobody to click it.
+ *
+ * Also a 7z split three ways, where the later volumes are what is selected: it
+ * unpacks once, from the first volume. Needs a 7z command to write it. */
 
 #include "test.h"
 
+#include <libnemo-private/nemo-dir-enum.h>
 #include <libnemo-private/nemo-extract.h>
 
 #include <archive.h>
@@ -99,19 +103,17 @@ write_test_zip (const char *path)
 }
 
 static void
-run_job (const char        *archive_path,
-	 const char        *destination,
-	 NemoExtractLayout  layout,
-	 GtkWidget         *window)
+run_job_on (GList             *archives,
+	    const char        *destination,
+	    NemoExtractLayout  layout,
+	    GtkWidget         *window)
 {
-	GList *archives = NULL;
 	GFile *dest;
 	guint timeout_id;
 
 	job_finished = FALSE;
 	job_succeeded = FALSE;
 
-	archives = g_list_prepend (archives, g_file_new_for_path (archive_path));
 	dest = g_file_new_for_path (destination);
 
 	nemo_extract_files (archives, dest, layout, GTK_WINDOW (window), extract_done, NULL);
@@ -125,8 +127,19 @@ run_job (const char        *archive_path,
 	check (job_finished);
 	check (job_succeeded);
 
-	g_list_free_full (archives, g_object_unref);
 	g_object_unref (dest);
+}
+
+static void
+run_job (const char        *archive_path,
+	 const char        *destination,
+	 NemoExtractLayout  layout,
+	 GtkWidget         *window)
+{
+	GList *archives = g_list_prepend (NULL, g_file_new_for_path (archive_path));
+
+	run_job_on (archives, destination, layout, window);
+	g_list_free_full (archives, g_object_unref);
 }
 
 static void
@@ -201,12 +214,174 @@ check_subfolder_layout (const char *tmp,
 	g_free (dest);
 }
 
+static char *
+find_seven_zip (void)
+{
+	static const char * const names[] = { "7z", "7zz", "7za", NULL };
+	char *found = NULL;
+	int i;
+
+	for (i = 0; names[i] != NULL && found == NULL; i++) {
+		found = g_find_program_in_path (names[i]);
+	}
+
+	return found;
+}
+
+/* Bytes that do not compress, so the volumes come out the size asked for. */
+static char *
+noise (gsize len, guint32 seed)
+{
+	GRand *rand = g_rand_new_with_seed (seed);
+	char *bytes = g_malloc (len);
+	gsize i;
+
+	for (i = 0; i < len; i++) {
+		bytes[i] = (char) g_rand_int_range (rand, 0, 256);
+	}
+	g_rand_free (rand);
+
+	return bytes;
+}
+
+static guint
+count_entries (const char *path)
+{
+	GFile *dir = g_file_new_for_path (path);
+	GFileEnumerator *children;
+	GFileInfo *info;
+	guint n = 0;
+
+	children = nemo_enumerate_children (dir, G_FILE_ATTRIBUTE_STANDARD_NAME,
+					    G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, NULL, NULL);
+	if (children != NULL) {
+		while ((info = g_file_enumerator_next_file (children, NULL, NULL)) != NULL) {
+			n++;
+			g_object_unref (info);
+		}
+		g_object_unref (children);
+	}
+	g_object_unref (dir);
+
+	return n;
+}
+
+/* Once from the first volume asks nothing. A second pass over the same volumes
+   would stop to ask about the folder the first one made, and with nobody to
+   answer, the run would sit there. */
+static gboolean
+refuse_dialogs (gpointer data)
+{
+	guint *asked = data;
+	GList *windows, *l;
+
+	windows = gtk_window_list_toplevels ();
+	for (l = windows; l != NULL; l = l->next) {
+		if (GTK_IS_DIALOG (l->data) && gtk_widget_get_mapped (l->data)) {
+			(*asked)++;
+			gtk_dialog_response (GTK_DIALOG (l->data), GTK_RESPONSE_DELETE_EVENT);
+		}
+	}
+	g_list_free (windows);
+
+	return G_SOURCE_CONTINUE;
+}
+
+#define SPLIT_PART_BYTES (40 * 1024)
+#define SPLIT_PARTS 3
+
+static void
+check_split_volumes (const char *tmp,
+		     GtkWidget  *window)
+{
+	char *seven = find_seven_zip ();
+	char *work, *source, *dest, *archive, *out = NULL, *err = NULL;
+	char *argv[] = { seven, (char *) "a", (char *) "-mx0", (char *) "-v50k",
+			 (char *) "split.7z", (char *) "split", NULL };
+	char *contents[SPLIT_PARTS];
+	GList *selected = NULL;
+	guint asked = 0, refuse_id;
+	int status = -1, i;
+
+	if (seven == NULL) {
+		g_printerr ("note: no 7z command here, split volumes not checked\n");
+		return;
+	}
+
+	work = g_build_filename (tmp, "volumes", NULL);
+	source = g_build_filename (work, "split", NULL);
+	dest = g_build_filename (tmp, "unsplit", NULL);
+	g_mkdir_with_parents (source, 0700);
+	g_mkdir_with_parents (dest, 0700);
+
+	for (i = 0; i < SPLIT_PARTS; i++) {
+		char *name = g_strdup_printf ("part%d.bin", i);
+		char *path = g_build_filename (source, name, NULL);
+
+		contents[i] = noise (SPLIT_PART_BYTES, (guint32) i + 1);
+		check (g_file_set_contents (path, contents[i], SPLIT_PART_BYTES, NULL));
+		g_free (path);
+		g_free (name);
+	}
+
+	check (g_spawn_sync (work, argv, NULL, G_SPAWN_DEFAULT, NULL, NULL,
+			     &out, &err, &status, NULL));
+	check (g_spawn_check_wait_status (status, NULL));
+
+	/* Three volumes and no fourth, or the case is not the one meant. */
+	for (i = 1; i <= SPLIT_PARTS + 1; i++) {
+		char *name = g_strdup_printf ("split.7z.%03d", i);
+
+		archive = g_build_filename (work, name, NULL);
+		check (g_file_test (archive, G_FILE_TEST_IS_REGULAR) == (i <= SPLIT_PARTS));
+		if (i >= 2 && i <= SPLIT_PARTS) {
+			selected = g_list_append (selected, g_file_new_for_path (archive));
+		}
+		g_free (archive);
+		g_free (name);
+	}
+
+	refuse_id = g_timeout_add (100, refuse_dialogs, &asked);
+	run_job_on (selected, dest, NEMO_EXTRACT_TO_SUBFOLDER, window);
+	g_source_remove (refuse_id);
+	check (asked == 0);
+
+	/* Once: one folder, named for the archive, holding every part whole. */
+	check (count_entries (dest) == 1);
+	for (i = 0; i < SPLIT_PARTS; i++) {
+		char *name = g_strdup_printf ("part%d.bin", i);
+		char *path = g_build_filename (dest, "split", "split", name, NULL);
+		char *got = NULL;
+		gsize len = 0;
+
+		check (g_file_get_contents (path, &got, &len, NULL));
+		check (len == SPLIT_PART_BYTES && got != NULL &&
+		       memcmp (got, contents[i], SPLIT_PART_BYTES) == 0);
+		g_free (got);
+		g_free (path);
+		g_free (name);
+		g_free (contents[i]);
+	}
+
+	g_list_free_full (selected, g_object_unref);
+	g_free (out);
+	g_free (err);
+	g_free (dest);
+	g_free (source);
+	g_free (work);
+	g_free (seven);
+}
+
 int
 main (int argc, char *argv[])
 {
 	GtkWidget *window;
 	char *tmp;
 	char *archive_path;
+
+	/* Unpacking through a command clears its staging folder afterwards, and
+	   the delete test guard would stop to ask about that. */
+	g_setenv ("NEMO_TESTGUARD_ALL_DELETES", "0", TRUE);
 
 	test_init (&argc, &argv);
 
@@ -221,6 +396,7 @@ main (int argc, char *argv[])
 
 	check_here_layout (tmp, archive_path, window);
 	check_subfolder_layout (tmp, archive_path, window);
+	check_split_volumes (tmp, window);
 
 	g_free (archive_path);
 	g_free (tmp);

@@ -1,17 +1,26 @@
 /* Compressing for real: a folder of items is handed to the job both ways -
  * everything into one archive, and one archive per item - and what reaches
  * disk is read back with libarchive. What goes in each archive is the point,
- * so the entry names are checked rather than just the file being there. */
+ * so the entry names are checked rather than just the file being there.
+ *
+ * Also a run cancelled partway, and one that fails on a source it cannot read:
+ * neither may leave a half-written archive, or a volume of one, behind. */
 
 #include "test.h"
 
 #include <libnemo-private/nemo-archive.h>
+#include <libnemo-private/nemo-dir-enum.h>
+#include <libnemo-private/nemo-progress-info.h>
+#include <libnemo-private/nemo-progress-info-manager.h>
 
 #include <archive.h>
 #include <archive_entry.h>
 #include <glib/gstdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifndef G_OS_WIN32
+#include <unistd.h>
+#endif
 
 #include "test-scratch.h"
 #include "test-check.h"
@@ -43,7 +52,7 @@ give_up (gpointer data)
 }
 
 static void
-wait_for_job (void)
+wait_for_end (void)
 {
 	guint timeout_id = g_timeout_add_seconds (ARCHIVE_TIMEOUT_SECONDS, give_up, NULL);
 
@@ -51,6 +60,12 @@ wait_for_job (void)
 	g_source_remove (timeout_id);
 
 	check (job_finished);
+}
+
+static void
+wait_for_job (void)
+{
+	wait_for_end ();
 	check (job_succeeded);
 }
 
@@ -526,6 +541,269 @@ check_verify (const char *tmp,
 	g_free (dir);
 }
 
+static guint
+count_entries (const char *path)
+{
+	GFile *dir = g_file_new_for_path (path);
+	GFileEnumerator *children;
+	GFileInfo *info;
+	guint n = 0;
+
+	children = nemo_enumerate_children (dir, G_FILE_ATTRIBUTE_STANDARD_NAME,
+					    G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, NULL, NULL);
+	if (children != NULL) {
+		while ((info = g_file_enumerator_next_file (children, NULL, NULL)) != NULL) {
+			g_printerr ("left behind: %s\n", g_file_info_get_name (info));
+			n++;
+			g_object_unref (info);
+		}
+		g_object_unref (children);
+	}
+	g_object_unref (dir);
+
+	return n;
+}
+
+/* An error the job reports is a dialog left open, which nobody here reads. */
+static void
+close_dialogs (void)
+{
+	GList *windows, *l;
+
+	windows = gtk_window_list_toplevels ();
+	for (l = windows; l != NULL; l = l->next) {
+		if (GTK_IS_DIALOG (l->data)) {
+			gtk_widget_destroy (l->data);
+		}
+	}
+	g_list_free (windows);
+}
+
+typedef struct {
+	NemoProgressInfoManager *manager;
+	const char *out_dir;
+	guint files;
+	gboolean cancelled;
+} CancelWatch;
+
+/* Cancels once that many files of the archive have something in them. */
+static gboolean
+cancel_once_written (gpointer data)
+{
+	CancelWatch *watch = data;
+	GFile *dir = g_file_new_for_path (watch->out_dir);
+	GFileEnumerator *children;
+	GFileInfo *info;
+	guint written = 0;
+	GList *l;
+
+	children = nemo_enumerate_children (dir, G_FILE_ATTRIBUTE_STANDARD_SIZE,
+					    G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, NULL, NULL);
+	if (children != NULL) {
+		while ((info = g_file_enumerator_next_file (children, NULL, NULL)) != NULL) {
+			if (g_file_info_get_size (info) > 0) {
+				written++;
+			}
+			g_object_unref (info);
+		}
+		g_object_unref (children);
+	}
+	g_object_unref (dir);
+
+	if (written < watch->files) {
+		return G_SOURCE_CONTINUE;
+	}
+
+	for (l = nemo_progress_info_manager_get_all_infos (watch->manager); l != NULL; l = l->next) {
+		nemo_progress_info_cancel (l->data);
+		watch->cancelled = TRUE;
+	}
+
+	return watch->cancelled ? G_SOURCE_REMOVE : G_SOURCE_CONTINUE;
+}
+
+/* Bytes that do not compress, so writing them takes long enough to stop. */
+static void
+write_noise (const char *dir,
+	     const char *name,
+	     gsize       len)
+{
+	char *path = g_build_filename (dir, name, NULL);
+	GRand *rand = g_rand_new_with_seed (7);
+	gsize n = len / sizeof (guint32);
+	guint32 *words = g_malloc (n * sizeof (guint32));
+	gsize i;
+
+	for (i = 0; i < n; i++) {
+		words[i] = g_rand_int (rand);
+	}
+	check (g_file_set_contents (path, (const char *) words, (gssize) len, NULL));
+
+	g_free (words);
+	g_rand_free (rand);
+	g_free (path);
+}
+
+#define NOISE_BYTES (48 * 1024 * 1024)
+
+static gint glib_warnings;
+
+/* A stopped writer used to set one GError over another, which GLib only warns
+   about. */
+static void
+count_glib_warning (const char     *domain,
+		    GLogLevelFlags  level,
+		    const char     *message,
+		    gpointer        data)
+{
+	g_atomic_int_inc (&glib_warnings);
+	g_log_default_handler (domain, level, message, data);
+}
+
+static void
+check_cancel (const char        *tmp,
+	      NemoArchiveFormat  format,
+	      guint64            split_size,
+	      GtkWidget         *window)
+{
+	static const char * const names[] = { "noise.bin", NULL };
+	char *source_dir = g_build_filename (tmp, "big", NULL);
+	char *out_dir = g_strdup_printf ("%s/cancel-%s%s", tmp, nemo_archive_format_id (format),
+					 split_size > 0 ? "-split" : "");
+	char *name = g_strdup_printf ("big%s", nemo_archive_format_extension (format));
+	char *path = g_build_filename (out_dir, name, NULL);
+	GFile *destination = g_file_new_for_path (path);
+	GList *sources;
+	NemoArchiveOptions options;
+	CancelWatch watch = { NULL, out_dir, 1, FALSE };
+	guint watch_id;
+
+	nemo_archive_options_init (&options);
+	options.format = format;
+	options.split_size = split_size;
+
+	if (nemo_archive_pick_backend (format, &options) == NEMO_ARCHIVE_BACKEND_NONE) {
+		g_printerr ("note: nothing here writes %s%s, its cancel not checked\n",
+			    nemo_archive_format_id (format), split_size > 0 ? " in volumes" : "");
+		nemo_archive_options_clear (&options);
+		goto out;
+	}
+
+	if (!g_file_test (source_dir, G_FILE_TEST_IS_DIR)) {
+		g_mkdir_with_parents (source_dir, 0700);
+		write_noise (source_dir, "noise.bin", NOISE_BYTES);
+	}
+	g_mkdir_with_parents (out_dir, 0700);
+	sources = sources_in (source_dir, names);
+
+	/* Split, it stops a few volumes in, so the cleanup has more than the
+	   first volume to find. */
+	if (split_size > 0) {
+		watch.files = 4;
+	}
+
+	watch.manager = nemo_progress_info_manager_new ();
+	watch_id = g_timeout_add (2, cancel_once_written, &watch);
+
+	job_finished = FALSE;
+	job_succeeded = TRUE;
+	nemo_archive_create (sources, destination, &options, GTK_WINDOW (window),
+			     archive_done, NULL);
+	wait_for_end ();
+
+	if (!watch.cancelled) {
+		g_source_remove (watch_id);
+	}
+
+	/* Stopped while writing, or this proves nothing about what is left. */
+	check (watch.cancelled);
+	check (!job_succeeded);
+	check (count_entries (out_dir) == 0);
+	close_dialogs ();
+
+	g_object_unref (watch.manager);
+	nemo_archive_options_clear (&options);
+	g_list_free_full (sources, g_object_unref);
+ out:
+	g_object_unref (destination);
+	g_free (path);
+	g_free (name);
+	g_free (out_dir);
+	g_free (source_dir);
+}
+
+#ifndef G_OS_WIN32
+/* A source that cannot be read fails the job, and the failure takes what was
+   written so far with it. */
+static void
+check_unreadable (const char *label,
+		  GList      *sources,
+		  const char *tmp,
+		  GtkWidget  *window)
+{
+	char *out_dir = g_strdup_printf ("%s/unreadable-%s", tmp, label);
+	char *path = g_build_filename (out_dir, "broken.zip", NULL);
+	GFile *destination = g_file_new_for_path (path);
+	NemoArchiveOptions options;
+
+	g_mkdir_with_parents (out_dir, 0700);
+	nemo_archive_options_init (&options);
+	options.format = NEMO_ARCHIVE_FORMAT_ZIP;
+
+	job_finished = FALSE;
+	job_succeeded = TRUE;
+	nemo_archive_create (sources, destination, &options, GTK_WINDOW (window),
+			     archive_done, NULL);
+	wait_for_end ();
+
+	check (!job_succeeded);
+	check (count_entries (out_dir) == 0);
+	close_dialogs ();
+
+	nemo_archive_options_clear (&options);
+	g_object_unref (destination);
+	g_free (path);
+	g_free (out_dir);
+}
+
+static void
+check_unreadable_sources (const char *tmp,
+			  GtkWidget  *window)
+{
+	static const char * const names[] = { "fine.txt", "locked.txt", NULL };
+	char *dir = g_build_filename (tmp, "unreadable", NULL);
+	char *locked = g_build_filename (dir, "locked.txt", NULL);
+	GList *sources;
+
+	/* Root reads a file whatever its mode says. */
+	if (geteuid () != 0) {
+		g_mkdir_with_parents (dir, 0700);
+		write_file (dir, "fine.txt", "fine");
+		write_file (dir, "locked.txt", "locked");
+		check (g_chmod (locked, 0) == 0);
+
+		sources = sources_in (dir, names);
+		check_unreadable ("mode", sources, tmp, window);
+		g_list_free_full (sources, g_object_unref);
+
+		g_chmod (locked, 0600);
+	} else {
+		g_printerr ("note: running as root, the unreadable file not checked\n");
+	}
+
+	/* A file that opens and then fails on the first read, for anyone:
+	   this process's own memory at address zero. */
+	if (g_file_test ("/proc/self/mem", G_FILE_TEST_EXISTS)) {
+		sources = g_list_prepend (NULL, g_file_new_for_path ("/proc/self/mem"));
+		check_unreadable ("read", sources, tmp, window);
+		g_list_free_full (sources, g_object_unref);
+	}
+
+	g_free (locked);
+	g_free (dir);
+}
+#endif
+
 int
 main (int argc, char *argv[])
 {
@@ -536,6 +814,7 @@ main (int argc, char *argv[])
 	char *sub_dir;
 	char *one_dir;
 	char *each_dir;
+	guint handler;
 
 	test_init (&argc, &argv);
 
@@ -560,6 +839,14 @@ main (int argc, char *argv[])
 	check_each_archive (source_dir, each_dir, names, window);
 	check_archive_of_archive (each_dir, window);
 	check_verify (tmp, window);
+	handler = g_log_set_handler ("GLib", G_LOG_LEVEL_WARNING, count_glib_warning, NULL);
+	check_cancel (tmp, NEMO_ARCHIVE_FORMAT_ZIP, 0, window);
+	check_cancel (tmp, NEMO_ARCHIVE_FORMAT_7Z, 1024 * 1024, window);
+	g_log_remove_handler ("GLib", handler);
+	check (g_atomic_int_get (&glib_warnings) == 0);
+#ifndef G_OS_WIN32
+	check_unreadable_sources (tmp, window);
+#endif
 
 	g_free (each_dir);
 	g_free (one_dir);
