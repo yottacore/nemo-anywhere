@@ -3,9 +3,10 @@
 # Test IDs.
 #
 # Every CI test carries an ID: the time it was written, as milliseconds since
-# 2000-01-01 00:00 UTC, in lower-case Crockford base 32. A meson test has it at
-# the front of its name, so a failure in the log already names it. A lint-c
-# check and a test script carry it on a "Test ID:" comment line.
+# 2000-01-01 00:00 UTC, in lower-case Crockford base 32, zero-padded to 8
+# digits. A meson test has it at the front of its name, so a failure in the log
+# already names it. A lint-c check and a test script carry it on a "Test ID:"
+# comment line.
 #
 # With no option, prints the ID for right now, for a new test.
 # --at TIME prints the one for an ISO time, when dating an older test.
@@ -35,7 +36,7 @@ def encode(when):
 	while ms:
 		ms, rem = divmod(ms, 32)
 		out = DIGITS[rem] + out
-	return out
+	return out.rjust(8, '0')
 
 
 def decode(text):
@@ -81,7 +82,7 @@ def check(root):
 	for tag, where in found_ids(root):
 		if tag is None:
 			print(f'FAIL: {where}: test has no ID (make one with cicd/utility/test-id.py)')
-		elif not re.fullmatch(f'[{DIGITS}]{{6,}}', tag) or decode(tag) > now:
+		elif not re.fullmatch(f'[{DIGITS}]{{8,}}', tag) or decode(tag) > now:
 			print(f'FAIL: {where}: "{tag}" is not a lower-case Crockford ID from the past')
 		elif tag in seen:
 			print(f'FAIL: {where}: ID {tag} is also used at {seen[tag]}')
