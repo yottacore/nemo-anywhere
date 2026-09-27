@@ -7,7 +7,8 @@
  * Checked every time: a row's answer reaches both the link that was picked
  * and the one inside the plain folder; a folder whose contents are copied
  * keeps the links inside it as links; a shortcut is only ever the shortcut
- * file; and a shortcut on its own brings up no question at all.
+ * file; and a shortcut on its own brings up no question at all. A move stays
+ * on one drive here, so it is a rename and every link keeps its kind.
  */
 
 #include "test.h"
