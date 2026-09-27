@@ -104,15 +104,23 @@ done
 ninja -C "${build}" -j "${NEMO_TEST_JOBS:-2}" "${ninjaTargets[@]}"
 
 findings="${build}/findings"
-mkdir -p "${findings}"
+logs="${build}/logs"
+mkdir -p "${findings}" "${logs}"
 
-declare -i found=0
+declare -i found=0 num=0
+
+## libFuzzer's own output runs to thousands of lines a target, so it goes to a
+## log and the console gets one line per target, the way meson reports a test.
+## The end of the log is shown only when something went wrong.
+fStat(){ sed -n "s/^stat::${1}: *//p" "${2}" | tail -n 1; }
 
 for entry in "${targets[@]}"; do
 	name="${entry%%|*}"
 	seedName="${entry##*|}"
 	seeds="${src}/fuzz/corpus/${seedName}"
 	bin="${build}/fuzz/${name}"
+	log="${logs}/${name}.log"
+	num=$((num + 1))
 
 	## libFuzzer writes back into the first corpus directory it is given, and the
 	## seeds are checked in, so it gets a copy to scribble on.
@@ -121,8 +129,6 @@ for entry in "${targets[@]}"; do
 	mkdir -p "${work}"
 	cp -- "${seeds}"/* "${work}/"
 
-	echo "[ fuzzing ${name} for ${secs}s ]"
-
 	## -error_exitcode makes a find unmistakable. Without it a crash and a bad
 	## argument both come back as 1, and the stage cannot tell which happened.
 	set +e
@@ -130,17 +136,24 @@ for entry in "${targets[@]}"; do
 		-max_total_time="${secs}" \
 		-error_exitcode="${FUZZ_FIND_CODE}" \
 		-artifact_prefix="${findings}/${name}-" \
-		-print_final_stats=1
+		-print_final_stats=1 >"${log}" 2>&1
 	rc=$?
 	set -e
 
+	runs="$(fStat number_of_executed_units "${log}" || true)"
+	added="$(fStat new_units_added "${log}" || true)"
+	rss="$(fStat peak_rss_mb "${log}" || true)"
+	printf -v head '%d/%d %-24s' "${num}" "${#targets[@]}" "${name}"
+
 	if ((rc == 0)); then
-		echo "[ ${name}: budget spent, nothing found ]"
+		echo "${head} OK      ${secs}s  ${runs:-?} runs  ${added:-?} new inputs  ${rss:-?} MB peak"
 	elif ((rc == FUZZ_FIND_CODE)); then
-		echo "[ ${name}: FOUND a crasher - see ${findings} ]" >&2
+		echo "${head} FOUND   crasher under ${findings}" >&2
+		tail -n 40 "${log}" >&2
 		found=$((found + 1))
 	else
-		echo "[ ${name}: exited ${rc}, which is neither a clean run nor a find ]" >&2
+		echo "${head} ERROR   exited ${rc}, which is neither a clean run nor a find" >&2
+		tail -n 40 "${log}" >&2
 		exit 1
 	fi
 done
