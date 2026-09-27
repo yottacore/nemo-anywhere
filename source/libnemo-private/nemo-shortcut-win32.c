@@ -634,6 +634,79 @@ out:
 	return ok;
 }
 
+static gboolean
+is_lnk (const char *path)
+{
+	gsize len = path != NULL ? strlen (path) : 0;
+
+	return len > 4 && g_ascii_strcasecmp (path + len - 4, ".lnk") == 0;
+}
+
+NemoShortcutOpen
+nemo_shortcut_win32_open_action (const char  *path,
+                                 char       **target_path)
+{
+#define SHORTCUT_MAX_HOPS 8
+	const char *current = path;
+	char *final = NULL;
+	GHashTable *seen;
+	gboolean by_shell = TRUE;
+	int hop;
+
+	g_return_val_if_fail (target_path != NULL, NEMO_SHORTCUT_OPEN_NOT_A_SHORTCUT);
+	*target_path = NULL;
+
+	if (!is_lnk (path)) {
+		return NEMO_SHORTCUT_OPEN_NOT_A_SHORTCUT;
+	}
+
+	/* Follow the whole chain here rather than one hop at a time: a
+	 * shortcut can point at another shortcut, and a.lnk -> a.lnk
+	 * recursed until the stack ran out. */
+	seen = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+	for (hop = 0; hop < SHORTCUT_MAX_HOPS && current != NULL; hop++) {
+		char *target = NULL;
+		gboolean hop_by_shell = TRUE;
+
+		if (!is_lnk (current)) {
+			break;
+		}
+		if (g_hash_table_contains (seen, current)) {
+			break;  /* already followed this one - a loop */
+		}
+		g_hash_table_insert (seen, g_strdup (current), NULL);
+		if (!nemo_shortcut_win32_read_target (current, &target, &hop_by_shell, NULL) ||
+		    target == NULL) {
+			g_free (target);
+			break;
+		}
+		by_shell = by_shell && hop_by_shell;
+
+		g_free (final);
+		final = target;
+		current = final;
+	}
+	g_hash_table_destroy (seen);
+
+	/* The shell cannot open a chain it could not read all of itself, so
+	 * a file at the end of one is opened here, as a folder is. Never a
+	 * shortcut, though: one that leads back to itself would be opened
+	 * here again, and again. */
+	if (final != NULL &&
+	    (g_file_test (final, G_FILE_TEST_IS_DIR) ||
+	     (!by_shell && !is_lnk (final) && g_file_test (final, G_FILE_TEST_EXISTS)))) {
+		*target_path = final;
+		return NEMO_SHORTCUT_OPEN_HERE;
+	}
+
+	/* Also the way a shortcut to a virtual item (Recycle Bin, a control
+	 * panel page) opens: it has no path to read, but the shell knows what to
+	 * do with it. */
+	g_free (final);
+	return NEMO_SHORTCUT_OPEN_BY_SHELL;
+#undef SHORTCUT_MAX_HOPS
+}
+
 gboolean
 nemo_shortcut_win32_launch (const char  *lnk_path,
                             GError     **error)

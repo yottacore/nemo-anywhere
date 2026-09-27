@@ -233,6 +233,13 @@ main (int argc, char *argv[])
 		g_free (tmp);
 		return 77;
 	}
+	/* A session with no monitor, such as a service session on Windows, has
+	   nothing to place a menu or size a dialog against. */
+	if (gdk_display_get_n_monitors (gdk_display_get_default ()) == 0) {
+		g_print ("SKIP: no monitor\n");
+		g_free (tmp);
+		return 77;
+	}
 
 	nemo_global_preferences_init ();
 

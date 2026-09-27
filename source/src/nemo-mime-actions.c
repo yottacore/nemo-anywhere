@@ -2310,7 +2310,6 @@ activation_start_mountables (ActivateParameters *parameters)
 static GList *
 resolve_win32_shortcuts (GList *files, gboolean *handled)
 {
-#define SHORTCUT_MAX_HOPS 8
 	GList *remaining = NULL;
 	GList *l;
 
@@ -2319,54 +2318,15 @@ resolve_win32_shortcuts (GList *files, gboolean *handled)
 	for (l = files; l != NULL; l = l->next) {
 		NemoFile *file = NEMO_FILE (l->data);
 		char *path = nemo_file_get_path (file);
-		char *current = path;
 		char *final = NULL;
-		GHashTable *seen;
-		gboolean by_shell = TRUE;
-		gsize len;
-		int hop;
+		NemoShortcutOpen action;
 
-		len = path != NULL ? strlen (path) : 0;
-		if (len <= 4 || g_ascii_strcasecmp (path + len - 4, ".lnk") != 0) {
+		action = path != NULL ? nemo_shortcut_win32_open_action (path, &final)
+				      : NEMO_SHORTCUT_OPEN_NOT_A_SHORTCUT;
+
+		if (action == NEMO_SHORTCUT_OPEN_NOT_A_SHORTCUT) {
 			remaining = g_list_prepend (remaining, nemo_file_ref (file));
-			g_free (path);
-			continue;
-		}
-
-		/* Follow the whole chain here rather than one hop at a time: a
-		 * shortcut can point at another shortcut, and a.lnk -> a.lnk
-		 * recursed until the stack ran out. */
-		seen = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
-		for (hop = 0; hop < SHORTCUT_MAX_HOPS && current != NULL; hop++) {
-			char *target = NULL;
-			gboolean hop_by_shell = TRUE;
-
-			len = strlen (current);
-			if (len <= 4 || g_ascii_strcasecmp (current + len - 4, ".lnk") != 0) {
-				break;
-			}
-			if (g_hash_table_contains (seen, current)) {
-				break;  /* already followed this one - a loop */
-			}
-			g_hash_table_insert (seen, g_strdup (current), NULL);
-			if (!nemo_shortcut_win32_read_target (current, &target, &hop_by_shell, NULL) ||
-			    target == NULL) {
-				g_free (target);
-				break;
-			}
-			by_shell = by_shell && hop_by_shell;
-
-			g_free (final);
-			final = target;
-			current = final;
-		}
-		g_hash_table_destroy (seen);
-
-		/* The shell cannot open a chain it could not read all of itself, so
-		 * a file at the end of one is opened here, as a folder is. */
-		if (final != NULL &&
-		    (g_file_test (final, G_FILE_TEST_IS_DIR) ||
-		     (!by_shell && g_file_test (final, G_FILE_TEST_EXISTS)))) {
+		} else if (action == NEMO_SHORTCUT_OPEN_HERE) {
 			char *uri = g_filename_to_uri (final, NULL, NULL);
 			NemoFile *tfile = uri ? nemo_file_get_by_uri (uri) : NULL;
 
@@ -2378,9 +2338,6 @@ resolve_win32_shortcuts (GList *files, gboolean *handled)
 				remaining = g_list_prepend (remaining, nemo_file_ref (file));
 			}
 		} else {
-			/* Also the way a shortcut to a virtual item (Recycle Bin, a
-			 * control panel page) opens: it has no path to read, but the
-			 * shell knows what to do with it. */
 			GError *error = NULL;
 
 			if (nemo_shortcut_win32_launch (path, &error)) {

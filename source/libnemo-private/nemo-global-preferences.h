@@ -340,6 +340,11 @@ gint nemo_global_preferences_get_tooltip_flags (void);
 gboolean nemo_global_preferences_should_load_plugin (const gchar *name, const gchar *key);
 gchar **nemo_global_preferences_get_fileroller_mimetypes (void);
 
+#ifdef G_OS_WIN32
+/* Ctrl+H on Windows: attribute-hidden files and dot-files both follow show. */
+void nemo_global_preferences_set_show_all_hidden (gboolean show);
+#endif
+
 extern NemoConfigGroup *nemo_preferences;
 extern NemoConfigGroup *nemo_icon_view_preferences;
 extern NemoConfigGroup *nemo_list_view_preferences;

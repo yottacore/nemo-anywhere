@@ -308,7 +308,7 @@ action_show_hidden_files_callback (GtkAction *action,
 		GtkActionGroup *group = nemo_window_get_main_action_group (window);
 		GtkAction      *dot = gtk_action_group_get_action (group, NEMO_ACTION_SHOW_DOT_FILES);
 
-		nemo_config_set_boolean (nemo_windows_preferences, NEMO_PREFERENCES_SHOW_DOT_FILES, on);
+		nemo_global_preferences_set_show_all_hidden (on);
 
 		g_signal_handlers_block_by_func (dot, action_show_dot_files_callback, window);
 		gtk_toggle_action_set_active (GTK_TOGGLE_ACTION (dot), on);

@@ -116,6 +116,12 @@ main (int argc, char *argv[])
 		g_print ("SKIP: no display\n");
 		return 77;
 	}
+	/* A session with no monitor, such as a service session on Windows, has
+	   nothing to place a menu or size a dialog against. */
+	if (gdk_display_get_n_monitors (gdk_display_get_default ()) == 0) {
+		g_print ("SKIP: no monitor\n");
+		return 77;
+	}
 
 	window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
 	gtk_window_set_default_size (GTK_WINDOW (window), 600, 400);

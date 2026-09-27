@@ -9,7 +9,8 @@
 ##		   0. remote sync   (fetch; fast-forward if safely behind; abort if diverged)
 ##		   1. lint          (check-only: cppcheck over the changed C files, shellcheck over the scripts)
 ##		   2. debug build   (meson setup -Dxmp=false + ninja, MSYS2 mingw64)
-##		   3. tests         (meson test suite, then a --version smoke of the built exe)
+##		   3. tests         (meson test suite, the installer's in-use check, then a
+##		                     --version smoke and a GUI launch smoke of the built exe)
 ##		   4. stage         (self-contained runtime bundle - the packer's input)
 ##		   5. packages      (portable single-exe via Enigma Virtual Box; NSIS later)
 ##		   6. dogfood       (drop the single exe into the synced app dir)
@@ -38,7 +39,7 @@
 ##		   -Quiet          quiet + unattended (implies -Yes); publish runs quiet too
 ##		   -Quick          skip the slow stages (reserved: none run here yet, so the
 ##		                   build, tests, pack and dogfood all still run)
-##		   -Gate           merge gate only: lint + build + tests + smoke, then exit (no stage/publish)
+##		   -Gate           merge gate only: lint + build + tests + smokes, then exit (no stage/publish)
 ##		   -NoSync         skip the remote sync check (stage 0)
 ##		   -NoFmt          skip the lint stage
 ##		   -NoBuild        skip the build + tests + stage stages
@@ -288,6 +289,15 @@ function fSmoke {
 	fEcho "OK: smoke: $out"
 }
 
+## The built exe opened on a scratch folder, its window found and left up a few
+## seconds, then ended. Over ssh the window is made but never shown, and the
+## script allows for that.
+function fGuiSmoke {
+	param([Parameter(Mandatory)][string]$Exe, [Parameter(Mandatory)][string]$RuntimeBin)
+	& pwsh -NoProfile -File (Join-Path $Root "cicd\win\gui-launch-smoke.ps1") -Exe $Exe -RuntimeBin $RuntimeBin
+	if ($LASTEXITCODE -ne 0) { fDie "GUI launch smoke failed (exit $LASTEXITCODE)" }
+}
+
 ## The meson suite against the debug build. The mingw64 shell has the GTK DLLs on
 ## PATH. A crash would otherwise stop the run behind a modal box.
 function fTests {
@@ -295,6 +305,10 @@ function fTests {
 	fMingw "NEMO_NO_CRASH_DIALOG=1 meson test -C $BuildRel --no-rebuild --num-processes $jobs --print-errorlogs"
 	if ($script:MingwRc -ne 0) { fDie "test suite failed (exit $($script:MingwRc))" }
 	fEcho "OK: test suite"
+	## The installer's in-use check needs a real process to find, so it runs
+	## here rather than beside the other script tests in lint.
+	& pwsh -NoProfile -File (Join-Path $Root "cicd\win\test-install-holders.ps1")
+	if ($LASTEXITCODE -ne 0) { fDie "install.ps1 in-use check failed (exit $LASTEXITCODE)" }
 }
 
 ## Path to the freshly built exe for the in-place smoke. The extension lib is folded
@@ -609,6 +623,7 @@ function fMain {
 		fTests
 		fSection "Gate 4/4  Smoke"
 		fSmoke -Exe (fPrepInPlaceSmoke) -RuntimeBin $MingwBin
+		fGuiSmoke -Exe (fPrepInPlaceSmoke) -RuntimeBin $MingwBin
 		fSection "$AppName gate: PASSED."
 		fEcho_Clean
 		return
@@ -631,7 +646,7 @@ function fMain {
 	fEcho_Clean "Remote sync .: $(if ($NoSync) { '(skipped)' } else { 'fetch + fast-forward check' })"
 	fEcho_Clean "Lint ........: $(if ($NoFmt) { '(skipped)' } else { 'cppcheck, check-only, changed C files' })"
 	fEcho_Clean "Build .......: $(if ($NoBuild) { '(skipped)' } else { 'meson + ninja, native mingw64' })"
-	fEcho_Clean "Tests .......: $(if ($NoBuild) { '(skipped)' } else { 'meson test suite + --version smoke' })"
+	fEcho_Clean "Tests .......: $(if ($NoBuild) { '(skipped)' } else { 'meson test suite + --version and GUI smokes' })"
 	fEcho_Clean "Packages ....: $(if ($NoPack -or $NoBuild) { '(skipped)' } else { 'portable single-exe (Enigma Virtual Box)' })"
 	fEcho_Clean "Signing .....: $(if ($NoSign) { '(skipped)' } elseif (fSignConfigured) { 'Authenticode (configured)' } else { '(none configured)' })"
 	fEcho_Clean "Dogfood .....: $(if ($NoDogfood -or $NoBuild -or $NoPack) { '(skipped)' } else { $DogfoodExe })"
@@ -696,6 +711,7 @@ function fMain {
 		fSection "3  Tests"
 		fTests
 		fSmoke -Exe (fPrepInPlaceSmoke) -RuntimeBin $MingwBin
+		fGuiSmoke -Exe (fPrepInPlaceSmoke) -RuntimeBin $MingwBin
 		fSection "4  Stage"
 		fStage
 	}
@@ -731,6 +747,8 @@ try {
 
 
 ##	History:
+##		- 2026-09-26: Stage 3 and the gate also run the installer's in-use check and
+##		  a GUI launch smoke of the built exe.
 ##		- 2026-09-15: The gate runs the meson suite too, between build and smoke.
 ##		- 2026-09-15: Stage 3 runs the meson suite ahead of the --version smoke.
 ##		- 2026-08-04: Optional Authenticode signing of the packed exe (stage 5, after
