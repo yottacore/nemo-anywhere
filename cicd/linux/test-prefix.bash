@@ -9,6 +9,7 @@
 ##	  name the program spawns it by.
 ##	- A missing tarball skips with exit 77.
 ##	- Syntax: cicd/linux/test-prefix.bash [tarball]
+##	- Test ID: rhtq57n5
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:

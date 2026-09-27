@@ -26,6 +26,7 @@
 ##	  default: the stale artifacts of an earlier run are not what a bare run
 ##	  should be judging.
 ##	- Syntax: check-win-build-flags.bash [--shipped] [path-to-exe]
+##	- Test ID: rh8vbs38
 
 ##	Copyright (c) 2026 Bubbles
 ##	Licensed under The MIT License (MIT). Full text at:

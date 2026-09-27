@@ -10,6 +10,7 @@
 ##	  lib is folded into the exe); GSETTINGS_SCHEMA_DIR -> a dir holding nemo's schema merged
 ##	  with the sysroot GTK schemas, compiled here (glib-compile-schemas output is
 ##	  arch-independent, so the Linux tool's result works for the wine build).
+##	- Test ID: rcdybfj0
 
 set -euo pipefail
 
