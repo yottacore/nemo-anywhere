@@ -1338,12 +1338,21 @@ sink_write (struct archive *a,
 	    size_t          length)
 {
 	StreamSink *sink = client_data;
+	GError *error = NULL;
 	gsize written = 0;
 
 	if (!g_output_stream_write_all (sink->stream, buffer, length, &written,
-					sink->cancellable, &sink->error)) {
+					sink->cancellable, &error)) {
 		archive_set_error (a, EIO, "%s",
-				   sink->error != NULL ? sink->error->message : "write failed");
+				   error != NULL ? error->message : "write failed");
+
+		/* libarchive writes again on its way out after a failure, such as
+		   a cancel. The first error is the one that says what happened. */
+		if (sink->error == NULL) {
+			sink->error = error;
+		} else {
+			g_clear_error (&error);
+		}
 		return -1;
 	}
 
@@ -2092,6 +2101,23 @@ nemo_archive_collapse_volume (GFile              *destination,
 	return g_object_ref (destination);
 }
 
+/* 7z keeps the first volume, and the one it is writing, as "<volume>.tmp" until
+   the whole run is done, so that is the name a stopped run leaves them under. */
+static GFile *
+unfinished_volume (GFile *file)
+{
+	GFile *parent = g_file_get_parent (file);
+	char *name = g_file_get_basename (file);
+	char *tmp_name = g_strconcat (name, ".tmp", NULL);
+	GFile *tmp = g_file_get_child (parent, tmp_name);
+
+	g_free (tmp_name);
+	g_free (name);
+	g_object_unref (parent);
+
+	return tmp;
+}
+
 /* Walks the volumes a split actually left on disk, stopping at the first gap in
    each digit width, since only one width was ever used. */
 static void
@@ -2106,6 +2132,7 @@ for_each_volume (GFile              *destination,
 
 		for (volume = 1; volume < 1000; volume++) {
 			GFile *file = volume_file (destination, backend, volume, digits);
+			GFile *unfinished;
 			gboolean there;
 
 			if (file == NULL) {
@@ -2116,6 +2143,13 @@ for_each_volume (GFile              *destination,
 			if (there) {
 				action (file);
 			}
+
+			unfinished = unfinished_volume (file);
+			if (g_file_query_exists (unfinished, NULL)) {
+				action (unfinished);
+				there = TRUE;
+			}
+			g_object_unref (unfinished);
 			g_object_unref (file);
 
 			if (!there) {

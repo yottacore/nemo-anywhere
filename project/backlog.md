@@ -185,6 +185,20 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 
 #### Done - Bugs
 
+- ✅ Extract to a folder failed on a split 7z with "The archive could not be read."
+	- Opened: 20260926-190000. Closed: 20260926-190000.
+	- Cause: making the folder counted as having written something, so the 7z program was never tried after the built-in reader gave up.
+	- Fixed: only files from the archive count.
+
+- ✅ A cancelled split 7z left its volumes behind.
+	- Opened: 20260926-190000. Closed: 20260926-190000.
+	- Cause: 7z names the volumes it has not finished `<volume>.tmp`, and the cleanup stopped at the first volume it could not find.
+	- Fixed: the cleanup also removes the unfinished names.
+
+- ✅ A cancelled zip logged a GLib warning about an error set twice.
+	- Opened: 20260926-190000. Closed: 20260926-190000.
+	- Fixed: only the first write error is kept.
+
 - ✅ A setting changed from a background job could run its change handlers on that job's thread, where they touch widgets.
 	- Opened: 20260926-150000. Closed: 20260926-160000.
 	- Cause: the hand-off to the main thread ran the handler on the spot whenever the main thread was outside its loop at that moment.

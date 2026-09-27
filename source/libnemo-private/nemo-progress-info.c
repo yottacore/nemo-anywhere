@@ -269,6 +269,27 @@ nemo_progress_info_get_progress (NemoProgressInfo *info)
 	return res;
 }
 
+/* A plain mean. The running form this replaced divided by the count on every
+   step, so with three or more operations the earlier ones were weighted down to
+   almost nothing and the bar under-reported. */
+double
+nemo_progress_info_mean_progress (GList *infos)
+{
+	GList *l;
+	double total = 0.0;
+	int n = 0;
+
+	for (l = infos; l != NULL; l = l->next) {
+		if (nemo_progress_info_get_is_finished (l->data)) {
+			continue;
+		}
+		total += nemo_progress_info_get_progress (l->data);
+		n++;
+	}
+
+	return n > 0 ? total / (double) n : 0.0;
+}
+
 void
 nemo_progress_info_cancel (NemoProgressInfo *info)
 {

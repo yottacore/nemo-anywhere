@@ -112,6 +112,24 @@ test('Guard pauses the job test',
   args: []
 )
 
+test('Job queue test',
+  executable('test-nemo-job-queue',
+    [ 'test-nemo-job-queue.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
+test('Cancelled drop leaves the files test',
+  executable('test-nemo-drop-cancel',
+    [ 'test-nemo-drop-cancel.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
 test('Empty trash asks test',
   executable('test-nemo-empty-trash',
     [ 'test-nemo-empty-trash.c' ],
@@ -363,6 +381,7 @@ test('Search content test',
     [ 'test-nemo-search-content.c' ],
     include_directories: [ rootInclude, ],
     dependencies: [ gtk, nemo_private, test_scratch ],
+    c_args: nemo_definitions,
   ),
   args: []
 )
@@ -526,6 +545,7 @@ link_delete_job = executable('test-nemo-link-delete-job',
 )
 
 test('Link delete leaves the target', link_delete_job, args: [ 'delete' ])
+test('Link delete, asked by the job', link_delete_job, args: [ 'delete-asked' ])
 test('Link move leaves the target', link_delete_job, args: [ 'move' ])
 
 # Carries the resource for the emblem art, as the next test does.
@@ -894,7 +914,8 @@ if not is_windows
       include_directories: [ rootInclude, ],
       dependencies: [ glib ],
     ),
-    args: [ nemo ],
+    args: [ nemo, meson.project_version(),
+            meson.current_source_dir() / '..' / 'build-number.py', py.full_path() ],
   )
 
   test('Window under the pointer test',
@@ -904,6 +925,25 @@ if not is_windows
       dependencies: [ gtk, x11, test_scratch ],
     ),
     args: []
+  )
+
+  test('Action programs in their own folder test',
+    executable('test-nemo-action-exec',
+      [ 'test-nemo-action-exec.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: []
+  )
+
+  test('Clean start test',
+    executable('test-nemo-startup-clean',
+      [ 'test-nemo-startup-clean.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, x11, test_scratch ],
+    ),
+    args: [ nemo ],
+    timeout: 120
   )
 
   test('Instances test',

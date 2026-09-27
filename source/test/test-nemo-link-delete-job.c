@@ -4,21 +4,29 @@
  * and without it the queue never starts a second job. test-nemo-link-copy-job.c
  * says why.
  *
- * Argument: "delete" (default) or "move". The move needs a second file system
- * so the job falls back to copy and delete, and asks for the contents. A move
- * takes the link anyway. On Windows it used to walk into a junction, which GIO
- * calls a folder, and move the contents out of the folder it pointed at.
+ * Argument: "delete" (default), "delete-asked" or "move". The move needs a
+ * second file system so the job falls back to copy and delete, and asks for the
+ * contents. A move takes the link anyway. On Windows it used to walk into a
+ * junction, which GIO calls a folder, and move the contents out of the folder
+ * it pointed at. "delete-asked" is the delete with the test guard off, so the
+ * job's own question comes up instead of the guard's.
+ *
+ * Every question that can remove files has to start on Cancel, so a stray
+ * Enter is never what removes them. That is checked on each one before it is
+ * answered.
  */
 
 #include "test.h"
 
 #include <libnemo-private/nemo-file-operations.h>
+#include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-link-copy.h>
 #ifdef G_OS_WIN32
 #include <windows.h>
 #include <libnemo-private/nemo-shortcut-win32.h>
 #endif
 
+#include <glib/gi18n.h>
 #include <glib/gstdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -54,6 +62,59 @@ give_up (gpointer data)
 	return G_SOURCE_REMOVE;
 }
 
+static int removal_questions;
+
+static gboolean
+is_label (const char *label, const char *want)
+{
+	return label != NULL && want != NULL && strcmp (label, want) == 0;
+}
+
+/* Delete, Move to Trash and Empty Trash, as the jobs spell them, and the test
+   guard, whose OK is a delete or a move going ahead. */
+static gboolean
+can_remove (GtkWidget *dialog, GList *buttons)
+{
+	GList *l;
+
+	if (g_strcmp0 (gtk_window_get_title (GTK_WINDOW (dialog)), "Delete/overwrite test guard") == 0) {
+		return TRUE;
+	}
+
+	for (l = buttons; l != NULL; l = l->next) {
+		const char *label = gtk_button_get_label (l->data);
+
+		if (is_label (label, GTK_STOCK_DELETE) ||
+		    is_label (label, _("Delete _all")) ||
+		    is_label (label, _("Move to _Trash")) ||
+		    is_label (label, _("Empty _Trash"))) {
+			return TRUE;
+		}
+	}
+
+	return FALSE;
+}
+
+static void
+check_starts_on_cancel (GtkWidget *dialog, GList *buttons)
+{
+	GtkWidget *start;
+	const char *label;
+
+	if (!can_remove (dialog, buttons)) {
+		return;
+	}
+	removal_questions++;
+
+	start = gtk_window_get_default_widget (GTK_WINDOW (dialog));
+	label = GTK_IS_BUTTON (start) ? gtk_button_get_label (GTK_BUTTON (start)) : NULL;
+	if (!is_label (label, GTK_STOCK_CANCEL) && !is_label (label, _("_Cancel"))) {
+		g_printerr ("FAIL a question that can remove files starts on %s\n",
+			    label != NULL ? label : "nothing");
+		failures++;
+	}
+}
+
 /* The go-ahead is the last button on every dialog these jobs put up. An error
    dialog gets its last button too, which is Skip, and says so on stderr. */
 static gboolean
@@ -79,6 +140,7 @@ answer_dialogs (gpointer data)
 
 		area = gtk_dialog_get_action_area (GTK_DIALOG (l->data));
 		buttons = gtk_container_get_children (GTK_CONTAINER (area));
+		check_starts_on_cancel (l->data, buttons);
 		if (buttons != NULL) {
 			gtk_button_clicked (GTK_BUTTON (g_list_last (buttons)->data));
 		}
@@ -301,12 +363,20 @@ int
 main (int argc, char *argv[])
 {
 	const char *how;
-	char *root, *outside, *sub, *precious, *deep;
+	char *config, *root, *outside, *sub, *precious, *deep;
 	int res;
 
-	test_init (&argc, &argv);
-
 	how = (argc > 1) ? argv[1] : "delete";
+
+	/* The guard's setting is read once, so this goes before anything asks.
+	   Its default is on. */
+	if (strcmp (how, "delete-asked") == 0) {
+		g_setenv ("NEMO_TESTGUARD_ALL_DELETES", "0", TRUE);
+	}
+
+	config = test_scratch_config_home ("nemo-link-delete-home-XXXXXX");
+	test_init (&argc, &argv);
+	nemo_global_preferences_init ();
 
 	root = test_scratch_dir ("nemo-link-delete-XXXXXX", NULL);
 	outside = g_build_filename (root, "outside", NULL);
@@ -323,11 +393,17 @@ main (int argc, char *argv[])
 		res = test_delete (root, outside, precious, deep);
 	}
 
+	/* Otherwise the start check above had nothing to look at. */
+	if (res == 0) {
+		check (removal_questions > 0);
+	}
+
 	g_free (deep);
 	g_free (precious);
 	g_free (sub);
 	g_free (outside);
 	g_free (root);
+	g_free (config);
 
 	if (failures > 0) {
 		g_printerr ("%d failure(s)\n", failures);
