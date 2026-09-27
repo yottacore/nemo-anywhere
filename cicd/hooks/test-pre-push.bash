@@ -15,6 +15,7 @@
 ##	SPDX-License-Identifier: MIT
 
 set -Eeuo pipefail
+echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURCE[0]}") ${BASH_SOURCE[0]##*/} ]"
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 hook="${here}/pre-push"

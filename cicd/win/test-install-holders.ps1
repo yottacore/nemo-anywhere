@@ -22,6 +22,7 @@
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+Write-Host "[ Test $((Select-String -LiteralPath $PSCommandPath -Pattern '^##\s+Test ID: (\S+)$').Matches[0].Groups[1].Value) $(Split-Path -Leaf $PSCommandPath) ]"
 
 if (-not $IsWindows) { Write-Host "[ install.ps1 in-use check skipped: Windows only ]"; exit 77 }
 

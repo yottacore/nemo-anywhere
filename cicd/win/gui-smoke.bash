@@ -13,6 +13,7 @@
 ##	- Test ID: rcdybfj0
 
 set -euo pipefail
+echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURCE[0]}") ${BASH_SOURCE[0]##*/} ]"
 
 ## No crash dumps: the workdir is the mounted repo and core_pattern is relative, so a
 ## wine/GTK crash would leave a root-owned core.<pid> the host user can't even delete.

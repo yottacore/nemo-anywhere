@@ -25,6 +25,7 @@ param()
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+Write-Host "[ Test $((Select-String -LiteralPath $PSCommandPath -Pattern '^##\s+Test ID: (\S+)$').Matches[0].Groups[1].Value) $(Split-Path -Leaf $PSCommandPath) ]"
 
 $launcher = Join-Path $PSScriptRoot "../../utility/n8runfm.ps1"
 $tokens = $null

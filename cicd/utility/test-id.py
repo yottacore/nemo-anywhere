@@ -6,7 +6,8 @@
 # 2000-01-01 00:00 UTC, in lower-case Crockford base 32, zero-padded to 8
 # digits. A meson test has it at the front of its name, so a failure in the log
 # already names it. A lint-c check and a test script carry it on a "Test ID:"
-# comment line, and a fuzz target at the front of its entry in fuzz.bash.
+# comment line, and read it back from there to print it when they run. A fuzz
+# target has it at the front of its entry in fuzz.bash.
 #
 # With no option, prints the ID for right now, for a new test.
 # --at TIME prints the one for an ISO time, when dating an older test.
