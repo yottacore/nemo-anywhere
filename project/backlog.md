@@ -45,19 +45,28 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 
 ### Bugs
 
+- 🔘 On Windows, 7z with a password and no link options leaves files out of the archive.
+	- Opened: 20260926-210000
+	- Reproduced: the archive combinations test on vm925w. The archive holds `a.txt` and `big.bin` only, and the job says something could not go in and the originals were kept.
+	- Test case: `test-nemo-archive-combos` (fails on Windows).
+
 - 🔘 The Preferences dialog and the action layout editor look up their text in upstream Nemo's translations.
 	- Opened: 20260926-173000
 	- Cause: both .glade files say `domain="nemo"`, which beats the program's own domain. With Nemo installed beside it, those two windows would use Nemo's catalog; without it, they are never translated.
+	- Test case: none yet; the fix would be checked by reading the domain in the two .glade files.
 
 - 🔘 On Windows, moving a folder junction or a folder symlink ignores the link copy answer in three cases.
 	- Opened: 20260926-091948
 	- Reproduced: the Windows pipeline run on vm925w fails the new "Link copy job, every answer" test. Move with junctions made into symlinks, with folder links kept, and with folder links made into junctions each leave the wrong kind of link.
 	- Note: never run on Windows before this. Linux passes.
+	- Test case: `test-nemo-link-copy-job` (move cases 18, 20 and 21 fail on Windows).
 
 - 🔘 On Windows, the new archive option combinations test fails.
 	- Opened: 20260926-092051
 	- Reproduced: the Windows pipeline run on vm925w. The log keeps only the last lines, which do not show the failing case.
+	- Reproduced: with links kept, 7z on Windows stores the file link as a plain file and follows the folder link.
 	- Note: never run on Windows before this. Linux passes.
+	- Test case: `test-nemo-archive-combos` (fails on Windows).
 
 ### Features and enhancements
 
@@ -65,6 +74,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Opened: 20260925-122815
 	- Note: the vendored header is from SHCL's `dev` branch, ahead of that tag.
 	- Done 20260925: moved to a newer `dev` copy, with the calls asked for here. Neither replaces the app's own code yet. Clearing a comment would also take a note written above a key, and the info block call misses a block that is no longer at the end of the file.
+	- Test case: none yet, not started.
 
 - **Stop here for a next release**.
 
@@ -73,11 +83,13 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- The delete test guard stays in as a preference setting. (But off in code.) The changelog and the release notes point it out, and say where to turn it off.
 	- Note: the changelog's vNEXT section is missing most of the work since beta2, such as Compress and Extract, the crash reporter, the delete protections and tab move.
 	- Note: `main` still has the installers from 20260804. Their stable channel asks for the latest stable release, which does not exist yet, so the README one-liners fail until this cut.
+	- Test case: none, release step.
 
 - 🔘 File uniqueness design: See [dedupe_and_thumbnails.md](design_docs/dedupe_and_thumbnails.md).
 	- Note: If the previous cache implementation is on-disk when the new version runs, delete it.
 		- This is OK since it's still beta. In the future for release versions, changes will require a migration.
 	- Opened: 20260925-063617 by JC.
+	- Test case: none, design only.
 
 - 🔘 Metadata-aware Nemo Anywhere:
 	- Opened: 20260923-144941
@@ -88,17 +100,20 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- 🔘 Allow adding, editing, and searching for tags.
 		- Store in the file database, and base64url 32-bit hashes of them in xattrs.
 	- And do all this with minimal slowdown!
+	- Test case: none yet, not started.
 
 - 🔘 A fractional display scale is only applied to text, so widgets, icons and spacing stay at the whole step below it.
 	- Opened: 20260821-150232
 	- Cause: the toolkit scales in whole numbers. At 150% the type is right and everything around it is a third too small.
 	- Probable fix: our own stylesheet, with padding, icon sizes and the like driven from the leftover fraction. Only do it once someone has looked at it on a scaled display.
+	- Test case: none yet, not started.
 
 - 🔘 Native renamer:
 	- Opened: 20260908-111526
 	- Robust rename that surpasses Thunar Renamer and Directory Opus in functionality, simplicity, and repeatability (e.g. saveable templates).
 	- For media types, be at least as robust as "CamHauler" (formerly "Rapid Photo Downloader Pro" and may get yet another rename), including move functionality.
 		- With an option to preserve restoration attributes in xattrs [e.g. original name, datetimes, etc.]
+	- Test case: none yet, not started.
 
 - 🔘 Feature: Find duplicate files and directories
 	- Opened: 20260908-111526
@@ -107,9 +122,11 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- And related, smart:
 		- Deduper for CoW systems. It never deletes, trashes, moves or hardlinks.
 	- Design: [dedupe_and_thumbnails.md](design_docs/dedupe_and_thumbnails.md).
+	- Test case: none yet, not started.
 
 - 🔘 Selectable metadata to include for media titles in icon mode. (E.g. px size, capture date, megapixel, framerate for video, Avg bitrate for audio and video, codec, etc.)
 	- Opened: 20260921-131506
+	- Test case: none yet, not started.
 
 - 🔬 Installers: architecture always detected, a version option, and a stable install that still works before any stable release exists.
 	- Opened: 20260919-131209
@@ -120,11 +137,13 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Done 20260925: `install.bash` checks it can write where a user install goes before asking, and a failed download says so in a sentence.
 	- Verified: both installers install, reinstall and uninstall the Linux tarball into a scratch home, in the pipeline's new installer check.
 	- Left: run both on Windows, in PowerShell 5.1 and 7.
+	- Test case: `cicd/linux/test-installers.bash`, `cicd/linux/test-install-download.bash`, `cicd/utility/test-install-path.ps1`, `cicd/win/test-install-holders.ps1`; PowerShell 5.1 is not covered.
 
 - 🔘 A Windows installer exe that installs, or updates an install already there.
 	- Opened: 20260919-132409
 	- Note: Windows has the portable exe and the zip today, and `install.ps1` for an install with a menu entry and PATH.
 	- Note: wants signing first, or it trips the same warnings the exe does.
+	- Test case: none yet, not started.
 
 - 🛠️ Real-Windows validation: the paths still not exercised there.
 	- Opened: 20260826-103001
@@ -137,26 +156,32 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Note: the Make link dialog, junctions and hardlinks made from it, and the junction job test have only been cross-built.
 	- Note: a link drop opening Make link, Ctrl+Shift+T, and folder shortcuts sorting with folders have only been cross-built.
 	- Note: ImageMagick thumbnails have not run on Windows. Things to see there: no console window flashes up, and the packed exe's file hooks, which every program it starts inherits, do not upset `magick.exe`.
+	- Test case: the Windows gate runs the suite natively, plus `cicd/win/gui-launch-smoke.ps1`; signing and the UAC prompt have none.
 
 - 🔘 Linux arm64 release build. Needs an arm64 GTK3 build environment; nothing cross-compiles it today, so the installers' arm64 path has nothing to fetch.
 	- Opened: 20260804-133646
 	- Note: if arm64 builds turn out much slower, they go behind an `--include-arm` flag rather than the `--no-arm` the engine has now.
+	- Test case: none yet, not started.
 
 - 🔘 Target: BSD
 	- Opened: 20260730-185314
+	- Test case: none yet, not started.
 
 - 🔘 Target: macOS
 	- Opened: 20260730-185314
+	- Test case: none yet, not started.
 
 - 🛠️ Windows: Need to figure out a way to do GUI testing and demo recording, without interrupting the live console session.
 	- Opened: 20260829-071437
 	- Note: GUI testing in a throwaway sandbox is done, and is under Done.
 	- Left: demo recording, and anything spanning a reboot (that still wants the Hyper-V guest).
+	- Test case: `cicd/win/gui-launch-smoke.ps1` for GUI launch; none for demo recording.
 
 - 🛠️ Enable the disabled pipeline stages as the build matures.
 	- Opened: 20260725-153058
 	- Done: the Windows cross build runs on every full run now, so the zip is never packed from an older exe. `--quick` skips it.
 	- Done: the demo recorder runs with `--demo`. The stage that refreshes the README images is still off.
+	- Test case: none, pipeline setup.
 
 - 🔘 Move the two side stores to SHCL: `metadata.json` -> `metadata.shcl` and `bookmark-metadata` -> `bookmark-metadata.shcl`. Separate files; neither is folded into `settings.shcl`.
 	- Opened: 20260905-112900
@@ -167,6 +192,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Note: no migration of the old files, the same call as for settings pre-1.0.
 	- Probable fix: then the action layout: `actions-tree.json` -> `actions-tree.shcl`. Each node becomes a section named by its uuid, children nested under a submenu, order by file position; the unused `position` field goes. The C side only reads (`nemo-action-manager.c`); the writer is the Python layout editor, which takes shcl's single-file Python binding the way the C side took the header. Its drag-and-drop payload is in-memory and uses the standard library, so it can stay as it is or move to the same format. Fix the pre-fork `~/.config/nemo/` path in the editor and its notes on the way.
 	- Note: with both done, json-glib leaves the build.
+	- Test case: none yet, not started.
 
 - 🔘 Windows code signing, and reducing AV false positives.
 	- Opened: 20260804-095855
@@ -175,34 +201,52 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Note: options weighed (Azure Artifact Signing, Certum open source, commercial cloud, reapplying) are in `cicd/win/signing.md`.
 	- Note: also sign the release `.zip` contents and, once it exists, the installer. Blocked on there being any signing identity at all.
 	- Note: submit any remaining AV false positives (VirusTotal to find the flagging engines, then vendor FP forms); keep the zip as the FP-free fallback.
+	- Test case: none yet, not started.
 
 - 🔘 Take out the rest of the Nemo desktop code.
 	- Opened: 20260917-191500
 	- Note: the desktop itself went long ago, but the icon view still carries a desktop mode, desktop orphans and desktop sort order, and `--no-desktop` is still accepted and ignored. None of it runs and none of it deletes anything.
 	- Note: removing it touches about twenty files, mostly the icon view, so it wants its own pass and a look on screen after.
+	- Test case: none yet, not started.
 
 ### Done
 
 #### Done - Bugs
 
+- ✅ A shortcut made off Windows that points at itself was opened again and again on Windows.
+	- Opened: 20260926-210000. Closed: 20260926-210000.
+	- Cause: the chain of shortcuts ended on the shortcut itself, and that was then opened as if it were the target.
+	- Fixed: a shortcut is never opened as the end of its own chain.
+	- Test case: `test-nemo-shortcut-win32` (the open decision), Windows only.
+
+- ✅ `install.ps1` did not give back the PATH it found on uninstall when it held empty entries.
+	- Opened: 20260926-200000. Closed: 20260926-200000.
+	- Cause: an install folded a doubled trailing `;` into one, and an uninstall dropped every empty entry.
+	- Fixed: both keep the value as found, apart from the install folder.
+	- Test case: `cicd/utility/test-install-path.ps1`.
+
 - ✅ Extract to a folder failed on a split 7z with "The archive could not be read."
 	- Opened: 20260926-190000. Closed: 20260926-190000.
 	- Cause: making the folder counted as having written something, so the 7z program was never tried after the built-in reader gave up.
 	- Fixed: only files from the archive count.
+	- Test case: `test-extract-job` (`check_split_volumes`), skips without 7z.
 
 - ✅ A cancelled split 7z left its volumes behind.
 	- Opened: 20260926-190000. Closed: 20260926-190000.
 	- Cause: 7z names the volumes it has not finished `<volume>.tmp`, and the cleanup stopped at the first volume it could not find.
 	- Fixed: the cleanup also removes the unfinished names.
+	- Test case: `test-archive-job` (`check_cancel`).
 
 - ✅ A cancelled zip logged a GLib warning about an error set twice.
 	- Opened: 20260926-190000. Closed: 20260926-190000.
 	- Fixed: only the first write error is kept.
+	- Test case: `test-archive-job` (`check_cancel`), which fails on any GLib warning.
 
 - ✅ A setting changed from a background job could run its change handlers on that job's thread, where they touch widgets.
 	- Opened: 20260926-150000. Closed: 20260926-160000.
 	- Cause: the hand-off to the main thread ran the handler on the spot whenever the main thread was outside its loop at that moment.
 	- Fixed: the change is always queued for the main thread.
+	- Test case: `test-nemo-config` (`test_changed_on_main_thread`).
 
 - ✅ Relative symlink bug:
 	- Opened: n/a
@@ -211,6 +255,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Closed: 20260925-152642
 	- Cause: both ends were resolved to their real paths first. Where a symlinked folder sat on either path, the real paths shared little or nothing, so the link climbed to the root.
 	- Fixed: both the paths as seen and the real paths are tried, and the shortest that still reaches the target wins. When only the climb works, as when the link sits inside a symlinked folder that leads elsewhere, it is kept.
+	- Test case: `test-nemo-link-copy` (`check_relative_spelling`); the symlinked-folder cases are POSIX only.
 
 - ✅ `install.ps1` never finished an install on Linux. It stopped at the step that clears the download's web mark, which only Windows has.
 	- Opened: 20260925-131500
@@ -218,18 +263,21 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Cause: pwsh on Linux has the cmdlet, but it throws there whatever it is told to do with errors. The earlier check only read the plan.
 	- Fixed: the step runs on Windows only.
 	- Verified: the new installer check fails on the old script and passes on the fixed one.
+	- Test case: `cicd/linux/test-installers.bash`, skips without pwsh.
 
 - ✅ The Windows exe on a release had no version in its name and no line in the checksums file.
 	- Opened: 20260925-122815
 	- Closed: 20260925-133000
 	- Fixed: from the next release it is `nemo-anywhere-<version>-windows-x86_64-portable.exe`, and the release workflow adds its line to the sums file.
 	- Note: not run yet. It runs on the next release tag.
+	- Test case: none, release workflow only; it runs on a release tag.
 
 - ✅ "Preparing" dialog appears, when viewing trash/delete/move debug dialog.
 	- Opened: 20260924-140642. Closed: 20260924-184032.
 	- Cause: a job's progress window comes up two seconds after the job starts, unless the job is paused. The job's own questions pause it, but the test guard asked without doing so.
 	- Fixed: the guard pauses the progress of the job that asked, while it waits for an answer.
 	- Swept: every other question asked from inside a job (conflicts, passwords, links, errors) already pauses.
+	- Test case: `test-nemo-guard-pause`.
 
 - ✅ A folder's modified date in the list stays old after a file is moved into it.
 	- Opened: 20260924-083500. Closed: 20260924-093600.
@@ -237,6 +285,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Cause: a file added to a folder, taken out or moved in only refreshed the folder's item count. Nothing watching the folder's parent reports its new date.
 	- Fixed: the folder's own details are read again along with the count. A removal from a folder that was never opened now refreshes it too, as an add already did.
 	- Swept: add, remove and move are the only places these notices go in. Renames, links and changes made by other programs all come through them.
+	- Test case: `test-nemo-folder-mtime`.
 
 - ✅ After every file in a folder was removed by another program, icon view's status bar still counted 4 items.
 	- Opened: 20260923. Closed: 20260923-161106.
@@ -246,6 +295,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Cause: the count was read on a timer that starts with the first change of a burst. The last few changes were still waiting to go in when it went off, and nothing counted again after.
 	- Fixed: the count is read again after each batch of changes goes in. Files added one at a time by another program were checked the same way.
 	- Swept: the view has one place that puts changes in, so there is no second site to cover.
+	- Test case: `fCheckStatusAfterChanges` in the C lint.
 
 - ✅ After deleting all the contents of a view, the horizontal scrollbar appears.
 	- And it still appears seemingly randomly (when not looking), even though the view has plenty of room in the rules for shrinking content.
@@ -253,10 +303,12 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Cause: column widths only ever grew while a folder was open. A file that left took its name with it and nothing else, so a wide size or type from a file already gone still held its column open. Enough of that and the least the columns could take was more than the view, so it scrolled with nothing on screen needing it. Emptying a folder is the plain case, and files coming and going in the background is the random one.
 	- Fixed: once files have left, a layout that would scroll measures the folder again from what is there. It only walks the folder in that case, so a big folder pays nothing while it fits.
 	- Still possible: a file whose size or type changes to something narrower keeps its old width until then too. Left alone, since it can only matter once a scrollbar would show, and then the next removal clears it.
+	- Test case: `fCheckStaleSamples` in the C lint.
 
 - ✅ With the tab bar set to show for a single tab, closing a tab down to one hid it anyway.
 	- Opened: 20260922. Closed: 20260922.
 	- Found while adding the Preferences checkbox. Closing a tab reset the tab bar from the tab count alone and skipped the setting.
+	- Test case: `test-nemo-notebook` (`test_visibility`).
 
 - ✅ Each change of folder logs a GTK critical: `gtk_widget_draw: assertion '!widget->priv->alloc_needed' failed`.
 	- Opened: 20260922-160500
@@ -264,12 +316,14 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Seen once per folder change, entering a folder of pictures from the address bar. Present before the thumbnail jump fix.
 	- The path bar and the address bar faded into each other. The fade paints the bar going out, and the address bar had just asked to be resized for its clear icon, so a paint before the next layout hit the critical. Upstream nemo logs it too.
 	- The two now swap with no fade.
+	- Test case: `fCheckToolbarStack` in the C lint.
 
 - ✅ Thumbnails "jump" up, then back down (and also in width), when entering an image folder.
 	- Opened: 20260922
 	- Closed: 20260922.
 	- A picture that came back shorter or wider than the type icon before it kept the old spot until the next full layout. Its name moved up under it, then dropped back down.
 	- An icon whose picture changes size is now laid out again before the next frame is drawn.
+	- Test case: `fCheckIconRelayout` in the C lint.
 
 - ✅ Scrolling down can still cause the last already cached thumbnails to render (e.g. if you scroll to the bottom soon after entering the folder), while none of the ones above (as judged by scrolling up) are not yet rendered in the file view.
 	- Opened: 20260922
@@ -278,6 +332,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- The pictures were made in order, but one never on screen was only kept in the store and read back once it scrolled in. So scrolling back up showed type icons for a moment.
 	- Each picture is now held as it is made or found, up to a new "Keep in memory" setting on the Preview page, 1 GiB by default. Past it, the pictures within two screens of the view are read back ahead, and the one drawn longest ago makes room.
 	- A folder that is left keeps its pictures for a minute, or until another folder of pictures is opened.
+	- Test case: `test-nemo-thumbnail-memory`, `test-nemo-thumbnail-hold` (`test_ahead`, `test_ahead_held`).
 
 - ✅ Thumbnail rendering is still trying to follow the thumbnails in the view.
 	- Opened: 20260921
@@ -290,6 +345,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- But can be multithreaded. E.g. use up to half of available cores for reading and rendering thumbnails, but still queue them in order - even if they might wind up rendering slightly out of order. But that's due to multithreading, not user activity.
 	- A folder of pictures on a local disk is now made top down in the order the view shows it. Scrolling cannot move a file up, and a thumbnail stored on an earlier visit waits its turn too. A new sort or zoom queues the folder again in its new order. Thumbnails start once the folder has finished loading, and up to half the processors make them.
 	- A folder that is not mostly pictures, or is on a share, is still only made as it comes into view. Each screenful goes top down.
+	- Test case: `test-nemo-thumbnail-order` (`test_scrolled_to_bottom`, `test_stored_waits_its_turn`).
 
 - ✅ Randomly crashes. (At least on Windows, and before the multiple-process work.) Sometimes just with a focus change.
 	- Opened: 20260903-130431
@@ -298,6 +354,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Note: a crash now leaves a report behind. That part is under Done.
 	- Left: an actual crash to read. Nothing is known about the cause yet.
 	- 20260921-180912: No longer reproducible.
+	- Test case: none, closed with no fix to pin.
 
 - ✅ Startup logs a dozen pairs of "invalid (NULL) pointer instance" / `g_signal_connect_data` criticals on this host. Harmless so far - the window comes up fine - and not tied to the release build; the day-to-day container build does the same thing here.
 	- Opened: 20260804-133646
@@ -310,24 +367,29 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Also seen, and not the same thing: with no display at all the default icon theme is NULL, and connecting to it logs the same pair once. Only one pair, and only where there is no screen, so it is not what the real session is doing.
 	- Left to find: what the real X session has that a private display does not. Needs one capture run from inside that session; the exact command is in the private notes.
 	- Captured inside the real session on 20260921, with the current build: no critical at all. Not with the session's own environment, not with criticals made fatal under a debugger, and none from any of the 28 menu launches in today's session log. Likely fixed along the way by the config and startup work, but nothing pins which change did it.
+	- Test case: `test-nemo-startup-clean` (`check_no_bus`), POSIX only; the cause was never found, so it guards the symptom.
 
 - ✅ Every copy past the first gets refused by the XFCE session manager, which logs a critical ("An object is already exported ... org_NemoAnywhere") and a failed waitpid for each one. All copies register as a session client under the same app id.
 	- Opened: 20260921-180500
 	- Closed: 20260921-182000
 	- Fixed: no copy registers now. It was carried over from upstream and nothing used it. Logout is still held off during a copy, since that asks the session manager directly.
 	- Note: a lint check fails if registering comes back.
+	- Test case: `fCheckNoSessionRegister` in the C lint.
 
 - ✅ Bug: When changing to list view after being in an image folder, the zoom level still doesn't reliably change back to defined.
 	- Created 20260921-170804 by JC. Closed: 20260921.
 	- With per-folder settings off, list view and icon view shared one held size on the window, and their sizes and defaults differ. Whichever view wrote it first decided what the other one opened at. List view holds its own size now.
+	- Test case: `fCheckHeldIconSize` in the C lint.
 
 - ✅ The Windows test box built with link-time optimization one job at a time, because its MSYS2 had no `make`. Installed there, and the Windows pipeline stops with the fix named if it is missing.
 	- Opened: 20260921. Closed: 20260921.
+	- Test case: `cicd/cicd-win.ps1` stops when MSYS2 has no `make`.
 
 - ✅ The Windows dogfood build was 18 days old. Only a run of the Windows pipeline by hand ever updated it.
 	- Opened: 20260921. Closed: 20260921.
 	- A full pipeline run now also builds, tests and packs on whichever Windows test box answers, and drops the exe into the synced app folder. It takes the shared lock on the box first. A quick run skips it.
 	- The first run found two more bugs, fixed with it. A Windows build dir could not update a library that had lost a source file. And a folder of pictures was never seen as one on Windows, since the type check there never matched an image.
+	- Test case: `test-nemo-image-folder` for the picture type check on Windows; the pipeline stage itself is setup.
 
 - ✅ Images view:
 	- Opened: 20260921-152951
@@ -344,6 +406,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- The picture default is 250% now.
 	- The flash is gone for any folder seen lately, and for the folders one level down from the one in front. The answer is kept in memory for the last 512 folders. When a folder finishes loading, its sub-folders are counted in the background, so opening one of them picks icon view first time. Shares, links and non-local folders are not counted ahead, and a big folder is judged on its first 1000 entries. The real count after loading still has the last word.
 	- A folder opened cold, from a bookmark or the command line with nothing known, still switches after loading. Nothing can be known about it sooner.
+	- Test case: `test-nemo-image-folder`, `fCheckHeldIconSize` and `fCheckImageDefault` in the C lint.
 
 - ✅ The About box license text says "or (at your option) any later version", but the project is GPL-2.0-only.
 	- Opened: 20260921. Closed: 20260921.
@@ -351,6 +414,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- The file headers inherited from upstream still say or-later. That is right for those files and they were left alone.
 	- The lint now fails if text the program shows offers a later version.
 	- The copyright lines and the top of the license text now match the README. The two links sit in the license text, since the copyright line cannot hold a link.
+	- Test case: `cicd/utility/lint-identity.bash`.
 
 - ✅ The "expand" Chevron next to folders should more reliably appear when a formerly empty folder gains content, especially after user-initiated actions (like drag and drop contents into a previously empty folder).
 	- Opened: 20260919-125440. Closed: 20260920.
@@ -360,6 +424,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Seen on screen in both panes: a folder copied into a folder that read as empty, which before left no expander on either side.
 	- Only an action the app itself took is covered. A folder changed by something else on the machine is not watched at all - opening it is still the only way that shows up - and that has not changed.
 	- New `test-nemo-list-expander`, and a case in `test-nemo-tree-folders`.
+	- Test case: `test-nemo-list-expander`, `test-nemo-tree-folders`.
 
 - ✅ A theme change does not send the list back to measure its columns.
 	- Opened: 20260920-234500. Closed: 20260920.
@@ -368,6 +433,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- The comparison is the point. That signal also fires for a widget state or a CSS class going on and off, and sending 50,000 rows back on each of those would cost more than the whole cache saves.
 	- Seen on screen at 17pt against the default: before the fix the Size column reads `7.7 ...` and Date modified `2021-02-1...` after the switch; after it, both are whole.
 	- `lint-c.bash` holds both halves - the handler has to remeasure, and it has to gate on what changed.
+	- Test case: `fCheckStyleRemeasure` in the C lint.
 
 - ✅ Half of what is left of a big folder load is measuring text for the column widths.
 	- Opened: 20260920-233000. Closed: 20260920.
@@ -378,6 +444,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Nothing about the view changed: the same shots across two window widths and three zoom levels, bold rows among them, come out pixel for pixel identical.
 	- `lint-c.bash` holds the three rules that keep a remembered width right: only a normal-weight cell may reuse one, they go when the rest of the samples go, and a column stops remembering at a ceiling.
 	- What is left of the measuring is the Name column, where nothing repeats by definition. Not filed - there is no obvious way to measure fewer names while the width rule counts every one of them.
+	- Test case: `fCheckMeasureCache` in the C lint.
 
 - ✅ Listing a large folder costs about 0.4 ms a file, and nothing in the list view accounts for it.
 	- Opened: 20260920-160000. Closed: 20260920.
@@ -387,6 +454,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Nothing about the view changed: the same shots at every zoom level, and a folder of images at thumbnail size, come out pixel for pixel identical.
 	- `lint-c.bash` pins the two together, since fixed-height mode is only safe while every column sizes FIXED and it fails quietly rather than loudly.
 	- design.md's speed table is remeasured, and what is left is its own item under Bugs.
+	- Test case: `fCheckFixedHeight` in the C lint.
 
 - ✅ Re-vendoring the themes would drop 53 icons.
 	- Opened: 20260920-230000. Closed: 20260920.
@@ -395,6 +463,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- The committed art was right all along. It was taken on a checkout where git wrote the aliases as text files instead of symlinks, which is the one shape the old code could read.
 	- Fixed: the index takes symlinks too, and a link that dangles is followed by name rather than by path. Qogir and Tela now regenerate byte for byte against what is committed. The self-test gained two checks covering it.
 	- Real upstream drift, now that it can be told apart, is three repos and nothing that matters: WhiteSur and Colloid produce identical output, and Adwaita's 139 files differ only in attribute order and path syntax from upstream re-running their own optimizer. Left alone rather than churned.
+	- Test case: `cicd/utility/vendor-themes.bash --self-test`.
 
 - ✅ Horizontal scrollbar frequently shows up when not needed.
 	- Opened: n/a. Closed: 20260920.
@@ -405,6 +474,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- The earlier attempt at this had the right suspicion and no effect: it laid the columns out again, which arrives at the same numbers, sets no width, and therefore leaves GTK holding the old one. That code is gone.
 	- Also why it never reproduced before: the old probes gave every file the same name, size and date, so no column could grow after the first row and the case could not arise.
 	- `lint-c.bash` now refuses any expanding column in the list view, so this cannot come back quietly.
+	- Test case: `fCheckColumnExpand` in the C lint.
 
 - ✅ A theme icon that exists only as a symlink is never found.
 	- Opened: 20260920-170000. Closed: 20260920.
@@ -414,6 +484,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- How many of the 180 names it was: none, today. Four themes have a `links/` directory - WhiteSur, Colloid, Tela and Qogir - and re-vendoring each one both ways gives byte-identical output. Every alias in them points at art the index already had under its own name.
 	- So the fix buys nothing on screen right now. It is worth keeping because the alias code can run at all now, and because an upstream that moves a name into `links/` alone would otherwise fall through to Adwaita with nothing to say so.
 	- Tela indexes 16,800 more candidates with this on and the run takes the same 3.4s, so the wider index costs nothing.
+	- Test case: `cicd/utility/vendor-themes.bash --self-test`.
 
 - ✅ Fourteen `catch { }` blocks in the PowerShell scripts swallow whatever went wrong.
 	- Opened: 20260920-190000. Closed: 20260920.
@@ -423,6 +494,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Left on purpose: the logger's own catch. There is nowhere to report a failed log line, since the console is gone on a shortcut click. Suppressed at that one function with a reason, not in the settings file.
 	- The rule is on in `PSScriptAnalyzerSettings.psd1` now, so a fresh empty catch fails the lint stage.
 	- Found on the way: reaching straight for `.Hash` off a call that may have failed throws under `Set-StrictMode -Version Latest`. The result is held first.
+	- Test case: `cicd/utility/lint-powershell.bash`, skips without pwsh.
 
 - ✅ Code review 20260919.
 	- Opened: 20260919-175254. Closed: 20260920.
@@ -433,91 +505,111 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 			- Effect: the shipped exe carries full debug information at 15.7 MB. The Linux release binary beside it is 3.0 MB. Every release tag so far has published one.
 			- Origin: predates the fork's first release lane. Neither earlier round looked at build flags. Confirmed.
 			- Fixed: both Windows lanes and the Linux release lane ask for a release build with symbols stripped. The cross exe went from 15.7 MB to 8.3 MB with no debug sections. A new check reads the flags back out of the exe.
+			- Test case: `cicd/utility/check-win-build-flags.bash`.
 		- ✅ Item 2. A permanent delete out of the trash can run with no dialog.
 			- Cause: the trash branch of the confirmation is the only one of the three that does not also ask when the count alone warrants it. Move-to-trash and direct delete both do.
 			- Effect: with confirmation off, a delete over a trash address started anywhere but a window goes through silently. The armed test guard hides this in current builds.
 			- Origin: the same gap as the Empty Trash one closed by `dbustrash` on 20260917, in the same file. A regression of that class rather than new ground. Confirmed.
 			- Fixed: the trash branch now asks when the count warrants it, the way its two siblings do. One function holds the decision, with a test over it.
+			- Test case: `test-nemo-delete-from-trash`.
 		- ✅ Item 3. A settings handler outlives the places sidebar.
 			- Cause: the handler is connected to the windows settings group and disconnected from the preferences group, which is a different group, so it is never removed.
 			- Effect: changing the path separator after a window closes calls into a freed sidebar. Live reload makes it reachable.
 			- Origin: introduced with the path separator work; the comment directly above the disconnect describes guarding against exactly this. Confirmed.
 			- Fixed: the handler disconnects from the group it was connected to. A new whole-tree check pairs every connect with its disconnect, reading the group names out of the header, and it found a third site this item did not name.
+			- Test case: `cicd/utility/lint-pref-handlers.py`.
 		- ✅ Item 4. A damaged spreadsheet can hang the content search helper.
 			- Cause: the shared-string loop trusts a count read from the file and tests its end against the whole stream rather than the current record, while the reader it calls stops advancing once the record runs out.
 			- Effect: a truncated workbook spins up to four billion empty passes. The helper is spawned per file, so one bad file in a folder ties up a core.
 			- Origin: written for the search helpers, never fuzzed. The three fuzz targets cover the settings file, the drag payload and command templates, not these parsers. Confirmed.
 			- Fixed: the loop has to make progress or it stops, with a truncated workbook in the fixtures. The record-end bound suggested above was not taken, because it drops strings split across continuation records.
+			- Test case: `test-nemo-search-helpers` (`test_xls_truncated_sst`), and the `fuzz-xls` target.
 	- ✅ Medium.
 		- ✅ Item 5. No build in the tree uses link-time optimization.
 			- Origin: never set up. Confirmed.
 			- Fixed: on the release lanes. It bought no size, so it stays for what it may buy later.
+			- Test case: none, build setting only.
 		- ✅ Item 6. The Bash linter runs nowhere.
 			- Cause: the lint stage runs the C and Python checkers only. Scripts carry suppression comments for a checker that is never invoked.
 			- Origin: the lint stage grew around the C checks. Confirmed.
 			- Fixed: `cicd/utility/lint.bash` is the lint stage now, and runs shellcheck over the project's own scripts beside the C checks. It is no longer gated on cppcheck, which used to take the whole stage down on a box without it. Fourteen findings fixed; four scripts still turn rules off file-wide, which is filed separately.
+			- Test case: `cicd/utility/lint.bash` runs `cicd/utility/lint-bash.bash`.
 		- ✅ Item 7. Four checks in the suite can never fail.
 			- Cause: one is written so its condition is always true; another compares two searches without first testing that either found anything, so the regression it guards would turn it green.
 			- Origin: spread across the suite's growth. Confirmed.
 			- Fixed: each now checks what its comment says. The link-copy one asks the file system instead of repeating a call it already made, and the network one compares host names, which is what its comment always claimed. The two Windows-only ones still need a run on a real box.
+			- Test case: none, fixes to tests.
 		- ✅ Item 8. Three tests report success when they could not run.
 			- Cause: they print that they are skipping and then fall through to a success exit rather than the skip exit. A fourth returns the skip code without first reporting failures it already counted.
 			- Origin: predates the rule being written down. Confirmed.
 			- Fixed: all four return 77 on the paths where they skip, and failures already counted are reported before the skip code. Two were watched both ways; the two Windows-only ones still owe that watch on a real box.
+			- Test case: `fCheckTestSkipExit` in the C lint.
 		- ✅ Item 9. One test builds and removes its own scratch tree.
 			- Cause: it is the only test that does not go through the shared helper, and it removes the tree twice by hand. Two runs at once destroy each other.
 			- Origin: written before the helper existed and never moved over. Confirmed.
 			- Fixed: it uses `test_scratch_dir` like the rest of the suite. Twelve copies at once over eight rounds: 24 of 96 failed before, none of 96 after.
+			- Test case: `fCheckTestScratchDirs` and `fCheckTestTreeWalks` in the C lint.
 		- ✅ Item 10. A test has the same settings-group mismatch as item 3.
 			- Effect: a later check in the same file fires the handler, which writes through a pointer into a frame that has returned.
 			- Origin: copied from the sidebar code it tests. Confirmed.
 			- Fixed with item 3, and covered by the same whole-tree check.
+			- Test case: `cicd/utility/lint-pref-handlers.py`.
 		- ✅ Item 11. List view row measurement and row shading both do far more work than they need to.
 			- Cause: measurement is hooked to row changes as well as row arrivals, so it re-runs every time a file's details fill in, rebuilding column and cell lists and reading two style properties each pass. Shading allocates a path and sets a property once per cell per redraw, including when shading is off.
 			- Effect: both sit under the per-file listing cost design.md already flags as the one to watch.
 			- Origin: measurement came with the column width work, shading with `ownerrows`. Confirmed by reading the hookup and the bodies, not measured.
 			- Fixed: the theme sizes and the column list are read once rather than per row, parity is worked out once per row rather than once per cell, and a renderer that already has no background is left alone. The rows look the same as before.
 			- Measured over 20,000 files. Listing did not move, at about 7.8 s of processor time either way. Paging through the folder went from 1.16 s to 1.01 s with shading off, which is the default, and did not move with it on. So the suspects here were real but small, and the listing cost is somewhere else.
+			- Test case: `fCheckCellPlain` in the C lint; the speed itself has no test.
 		- ✅ Item 12. The theme vendoring script forks per icon.
 			- Cause: the resolver is called through command substitution up to five times per icon across roughly 3,600 icons. The file's own note two hundred lines above says a substitution there is a fork and that this runs tens of thousands of times, and solves it that way for the scorer.
 			- Origin: the scorer was fixed, the resolver that calls it was not. Confirmed.
 			- Fixed: the resolver answers through a global and returns a status, the way the scorer already did. The link-stub test reads the head of the file itself instead of calling out three times, and the two `dirname` calls and the two branches picking a directory name are gone. That is about twelve forks an icon removed.
 			- New `--self-test` builds a small tree and checks resolution against it: plain name, symbolic name, context filter on and off, both alias forms, the hop limit and a missing name. It runs in the lint stage, since the build container has no git.
+			- Test case: `cicd/utility/vendor-themes.bash --self-test` for resolution; the speed itself has no test.
 		- ✅ Item 13. A maintainer's home path is baked into test fixtures.
 			- Cause: five lines of one Windows test use a real personal path where the rest of the suite uses a placeholder.
 			- Origin: written with a live path and never anonymized. Confirmed.
 			- Fixed: the five lines say `somebody`. A checked-in `.pyc` holding a build path went with them. New `lint-identity.bash` holds it.
 			- Left alone: this file names a real account in three closed items, which is prose rather than code, so the check does not read it.
+			- Test case: `cicd/utility/lint-identity.bash`.
 		- ✅ Item 14. Six application sources carry the wrong copyright marker.
 			- Cause: they use the form reserved for the shared helper scripts. Fifteen other first-party files carry no copyright line at all.
 			- Origin: the link and shortcut files were drafted as helpers. Confirmed.
 			- Fixed: all twenty-one carry the project's marker. The same identity check refuses the helper marker under `source/` and refuses any retired marker anywhere.
+			- Test case: `cicd/utility/lint-identity.bash`.
 	- ✅ Low.
 		- ✅ Item 15. The twelve first-party Python files indent with tabs, where the house style for that language is four spaces. Two of them hold hand-aligned tables that a mechanical conversion would damage.
 			- Fixed: leading tabs are four spaces, and a run of tab-aligned trailing comments is aligned with spaces instead. The two tables were never at risk - their alignment is relative to a single leading tab, so converting it shifts the whole block and nothing else.
 			- Tabs left in place: inside multi-line string bodies, where they are data, and in the `##` header block every script in the tree shares.
 			- Proof the conversion changed nothing: each file's parse tree was compared before and after, and the four files with tabs inside string literals were redone with those lines held back until it matched.
 			- Three findings that turned up with the checker are fixed too: a one-letter variable, a lambda where a def belongs, and two statements on one line.
+			- Test case: `cicd/utility/lint-python.bash`.
 		- ✅ Item 16. There is no configuration for the Python, PowerShell, Bash or C static checkers. The absent C formatter config is a settled decision and is not part of this.
 			- Python: `pyproject.toml` holds a narrow ruff config, and `cicd/utility/lint-python.bash` runs it in the lint stage. It warn-skips a box with no ruff, the way the Bash check does, and `RUFF_STRICT=1` makes the miss fatal. Inherited and generated Python is excluded, the same way `source/` is excluded from the Bash check.
 			- Bash: `.shellcheckrc` now holds the severity and the sourced-file handling the lint stage used to pass as flags, so an editor sees the same rules. Without it the lint stage reports seventeen findings, so it is doing real work.
 			- PowerShell: new `PSScriptAnalyzerSettings.psd1` and `cicd/utility/lint-powershell.bash`, sixth in the dispatcher. Five rules are off with a reason each; everything else is on. The one finding left is suppressed where it happens, not in the settings file.
 			- C: the two dozen cppcheck suppressions moved out of the command line into `.cppcheck-suppressions`, with the reason for each still beside it. The findings over a 98-file range are the same as before.
+			- Test case: none, the configs are the linters.
 		- ✅ Item 17. This file records how work was verified in fifteen places. Settled: the rule covers the public docs, so only these fifteen need the pass.
 			- Fixed: those lines now say what was checked and leave out how. design.md and the two style guides keep theirs, since describing the build and test rig is what those files are for.
 			- A check outside the repo holds it, called from the lint stage only when it is there, so a clone without the private tree still lints.
+			- Test case: a check kept outside the repo, run by the lint stage when present.
 		- ✅ Item 18. British spellings in comments and prose, including two identifiers.
 			- Fixed: about sixty comment and prose lines, plus the two sets of identifiers - the Windows splash colors and the launcher's status color. The release notes and the README are in it, which is where it was visible.
 			- Inherited lines are left as they are, here and in every check below: most of the tree came from upstream and spells things its own way.
 			- New `cicd/utility/lint-prose.bash` in the lint stage holds this, the banner rule from item 20, and the ASCII rule that goes with it.
+			- Test case: `cicd/utility/lint-prose.bash`.
 		- ✅ Item 19. Banned verbs in roughly sixty comment lines across C, scripts and Python.
 			- Fixed: sixty-six comment and prose lines, a README heading and its table of contents entry, and three test variables named after one of them.
 			- Held by the same check as item 17, outside the repo for the same reason.
+			- Test case: a check kept outside the repo, run by the lint stage when present.
 		- ✅ Item 20. Three competing banner-comment conventions in first-party C, and a prose block at the top of nearly every first-party file. One of those blocks restates a design.md rule that can drift from it.
 			- Fixed: forty-four banners in eleven files. The style guide has said "No banner dividers" all along, so the words stay as plain comments and the rules are gone. A fourth form turned up in the tests.
 			- The bullet-rule form was also the only non-ASCII in first-party C outside the copyright line, so the new check refuses that too.
 			- `nemo-column-layout.h` points at design.md now instead of restating fifteen lines of it.
 			- The other module blocks stay. They say why a file exists, which is what they are for; only the one that copied a rule was a problem.
+			- Test case: `cicd/utility/lint-prose.bash`.
 		- ✅ Item 21. Seventy-four smaller items, grouped so none is left unfiled: repeated work that a hoist would remove, allocation on paths that run per file or per row, duplication across the test suite that the shared helpers should absorb, dead parameters and unreachable branches, and naming that reaches for the same few words. Detail is in the private notes.
 			- Done, out of the test-duplication group: the eight hand-rolled tree removals. Seven of them removed the scratch directory the test had just made, which the helper already removes at exit, so they are simply gone. The eighth needed a removal part way through and goes through the helper now. That is 151 lines fewer.
 			- Done, the rest of the test-duplication group. The `check` macro was in sixty-seven files in two spellings and is now one header. Twenty-six tests set the same environment variables by hand to get a throwaway config root and now call one helper. The two 46-line blocks are two small headers. That is 819 lines fewer, and a new check refuses a fresh copy of either.
@@ -526,6 +618,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 			- Done, the naming: the profiler script carried the Bash `f` prefix into Python and is the only Python file here that did.
 			- Not done, with reasons. Two theme-root scans stay: one is startup, the other is opening the preferences dialog, and the only way to skip them is to cache the scan, which means a theme installed while running goes unseen. The per-key ancestor walk in the folder settings stays: it runs once per folder change, not per file. The metadata store keeps its one pass per moved file, since skipping it needs an index of every ancestor of every key, and the comment that read as a contradiction now says what the code does.
 			- Not done, and dropped: `out` and `result` as the name of the value a function returns, in eleven Windows files. Every one is a short function that declares it, fills it and returns it. That is the clearest use of the name, so there is nothing to fix.
+			- Test case: `fCheckTestHelpers` in the C lint for the test helpers; the hoists and dead code have none.
 
 - ✅ The Windows cross link compiles its LTO jobs one at a time.
 	- Opened: 20260919-203000
@@ -535,6 +628,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Cause: nothing to do with the thread count. gcc runs its link-time jobs by writing a makefile and calling `make`, and the cross container had no `make` in it. With none on the path it falls back to one job at a time and says so.
 	- Fixed: `make` is in the cross image and the running container. The exe link went from 34.2s to 9.9s, and the exe is byte for byte what the serial link produced, so nothing about the shipped artifact changed.
 	- The cross build now refuses a log that carries the fallback warning, and names the container to install it in. The other two containers already had `make`.
+	- Test case: `cicd/win/build-cross.bash` refuses a serial link.
 
 - ✅ The content search helpers have no fuzz target.
 	- Opened: 20260919-203000
@@ -543,6 +637,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Origin: raised while fixing the shared-string loop in the xls helper, which is the kind of fault a target would have found. Confirmed.
 	- Fixed: three new targets, one each for the workbook records, the presentation records and the Word piece table, with twenty seeds between them. They run under the fuzzer in the pipeline stage and replay their seeds as ordinary tests on every suite run.
 	- The zip-of-xml helper is deliberately left out. libgsf does the parsing there, so a target would be fuzzing libgsf.
+	- Test case: `fuzz-xls`, `fuzz-ppt`, `fuzz-doc`, run by `cicd/linux/fuzz.bash`, with seeds replayed in the suite.
 
 - ✅ A release build prints four warnings about unused functions and variables.
 	- Opened: 20260919-203000
@@ -550,6 +645,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- From `nemo-file.c` and `nemo-view.c`. Not new: the Linux release lane has always been a release build. The Windows lane only started showing them once it became one.
 	- All four exist only for a debug line, and a release build compiles those out. Three are a window handle the view fetched on every batch of files and on every selection change; that call, and a uri allocation beside it, now happen only when the debug flag is actually on. The fourth is a small function the compiler is now told may go unused.
 	- The cross build used to throw its whole log into `tail -1`, which is why nobody saw these. It reads the log now and refuses an unused-function or unused-variable warning, so this is caught on an ordinary pipeline run rather than at release time.
+	- Test case: `cicd/win/build-cross.bash` refuses unused-function and unused-variable warnings.
 
 - ✅ Two archive tests remove a tree without the symlink guard.
 	- Opened: 20260920-150000
@@ -559,6 +655,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Fixed: all eight are gone. Seven were removing the scratch directory the test made, which the helper already removes at exit under its own guard. The eighth calls the helper's new `test_scratch_remove_tree`, which refuses a path outside a directory this process made and takes a link as a link.
 	- New `test-scratch-guard`, POSIX only, builds a tree with a link pointing out of it and checks that what the link pointed at is still there afterwards. It goes red when both of the helper's guards are taken off; either one alone still holds.
 	- New rule in the C lint: a test may not define a function that calls itself, lists a directory and removes what it finds.
+	- Test case: `test-scratch-guard`, POSIX only, and `fCheckTestTreeWalks` in the C lint.
 
 - ✅ Four scripts turn a dozen shellcheck rules off for the whole file.
 	- Opened: 20260920-150000
@@ -568,6 +665,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- `config.bash` keeps one, the unused-variable rule: it is a settings file and cicd.bash reads every name in it, so the whole file looks write-only. The other three keep none. The three real findings are fixed - two quoted exit codes, and one deliberate word split that now says so at the line.
 	- What the blocks were hiding: two dead variables in `cicd.bash`. `quiet` was set by `-q` and never read, so `-q` was only ever an alias for `-y`; the publish step runs quiet either way. `abs_script` was computed and dropped.
 	- The narrowed check is the regression test - a dead variable in any of the four fails the lint stage now.
+	- Test case: `cicd/utility/lint-bash.bash` refuses a file-wide disable.
 
 - ✅ Archiving with rar: When "delete after confirm" was set, got an error message: "The original files were kend. The archive could not be read back."
 	- The archive seems to have been created correctly.
@@ -576,12 +674,14 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Cause: with "Encrypt the file names too" ticked, rar is run with `-hp` and 7-Zip with `-mhe=on`, and libarchive will not open either. It refuses before it reads a single name, whatever password it is handed. So the check could never pass and the originals were always kept, on an archive that was in fact fine.
 	- Fixed: `nemo_archive_can_verify` is the one place that decides whether an archive can be read back afterwards. The Compress dialog greys the delete box on it, the same way it already did for a split archive, and the job answers with a sentence that says what the trouble actually is.
 	- Rar with no password and rar with a password both read back and delete as they should; it is only the name encryption that cannot be checked.
+	- Test case: `test-archive-job` (`check_predicate`), `test-nemo-archive-combos`.
 
 - ✅ The settings-handler check cannot see one of the config groups.
 	- Opened: 20260919-203000
 	- Closed: 20260920-103000
 	- It matched group names ending in "preferences", so `nemo_window_state` was invisible to it and a mismatched disconnect there would have passed.
 	- It reads the group names out of `nemo-global-preferences.h` now, so a group added later is covered the day it is declared.
+	- Test case: `cicd/utility/lint-pref-handlers.py --self-test`.
 
 - ✅ "Mount archive" doesn't seem to do anything.
 	- Opened: 20260918-163716
@@ -589,6 +689,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- It was a Cinnamon action that ran `gnome-disk-image-mounter`. That only attaches disk images, so a zip or 7z did nothing.
 	- Now a built-in menu item beside the Extract items. It opens the archive through gvfs, which mounts it and shows its contents. The mount shows under Network with an eject button.
 	- Checked once at startup. With no gvfs archive support, which includes Windows, the item is not shown.
+	- Test case: `test-nemo-archive-mount` for the address; the mount itself needs gvfs.
 
 - ✅ Two tests fail on a native Windows build: the test guard arming test and the tree folders test.
 	- Opened: 20260918-213000
@@ -598,6 +699,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- The arming test looked for `/tmp/...` in text that Windows spells with backslashes. It now looks for each path the way the dialog writes it.
 	- The tree folders test hid its folder with a leading dot, which is not what hidden means on Windows. There it sets the hidden attribute instead.
 	- Both pass on b29w now, where they failed before.
+	- Test case: `test-nemo-delete-testguard`, `test-nemo-tree-folders`, both run by the Windows gate.
 
 - ✅ The search helper for zip-based documents (docx, odt, epub) checks the wrong thing after a read.
 	- Opened: 20260918-112900
@@ -605,6 +707,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- `nemo-mso-to-txt.c` tested the buffer it had just read into for NULL, which is never true, instead of what the read returned. The compiler warned about it on a fresh build.
 	- Done: it checks the read and stops at the first failure. The helpers now build with that warning as an error, which fails on the old code.
 	- Note: no damaged file could make the read fail. The zip reader underneath returns data even for a broken member, so the old check never changed what came out.
+	- Test case: the search helpers build with `-Werror=address`.
 
 - ✅ Nothing but a window may trash, delete, move or empty the trash. Other programs could still ask over the bus.
 	- Opened: 20260917-185500
@@ -613,12 +716,14 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Fixed: the interface is removed. Only the freedesktop one is left, and it shows folders and properties. The instances test now checks the bus has no way to copy, move or empty the trash. Its no-bus test is commented out, since what it tested is gone.
 	- Lint now keeps three lists: which files may start a trash, delete or move job, which bus methods exist, and which files may delete anything directly. The last only touches the app's own files.
 	- The rest of the Nemo desktop code, such as the icon view's desktop mode, is dead but deletes nothing. It is on the backlog.
+	- Test case: `fCheckBusMethods`, `fCheckAppActions`, `fCheckJobCallers` and `fCheckRawDeletes` in the C lint, `test-nemo-instances`.
 
 - ✅ Removing a template in Preferences deleted the file outright, with no question and nothing in the log.
 	- Opened: 20260917-185500
 	- Closed: 20260917-191500
 	- Found while checking every delete. It skipped the delete guard entirely.
 	- Fixed: it goes to the trash through the same job as any other, so it asks first and is logged. The lint list above catches a delete like it.
+	- Test case: `fCheckRawDeletes` and `fCheckJobCallers` in the C lint.
 
 - ✅ `--version` fails with "Cannot open display" when there is no display.
 	- Opened: 20260917-183048
@@ -626,6 +731,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- First seen 2026-09-07, still the case on 2026-09-17. Printing a version should need nothing but the binary.
 	- Cause: the toolkit's own options open the display while the command line is read, so the read failed before `--version` was looked at. `--about` did the same. `--help` was never affected.
 	- Fixed: with either flag the display is left alone. A `--display` given alongside is still honored when a window opens. New test runs both with no display.
+	- Test case: `test-nemo-cli-version`, POSIX only.
 
 - ✅ Another program could empty the trash with no question, once "Ask before deleting outright or emptying the Trash" was off.
 	- Opened: 20260917-181500
@@ -634,18 +740,21 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Masked for now, since the test guard is armed in every build and asks about every delete. It would have shown once that goes back to 0.
 	- Fixed: only the Empty Trash command in a window may skip the question, whether from the menu, the trash bar or the sidebar. The question says when a request came from somewhere else. Every empty trash writes a log line saying which it was. A lint rule keeps the bus handler off anything that counts as a person asking.
 	- Later the same day the bus method was removed outright, with the rest of that interface. See the item above.
+	- Test case: `test-nemo-empty-trash`, `fCheckBusMethods` in the C lint.
 
 - ✅ Preferences|Views: with "Remember per-folder settings" off, the Current tab still opens on a dead page.
 	- Opened: 20260917-233000
 	- Closed: 20260917-234500
 	- Graying the page out is not enough. GTK switches the page on a click whatever the page's own state is, so the tab took the click and showed an empty gray pane.
 	- Fixed: the tab label is greyed with the setting, and the notebook refuses the switch, by mouse or by keyboard. Turning the setting off while the Current tab is up drops back to Default.
+	- Test case: `test-nemo-prefs-current`.
 
 - ✅ Unselected tabs run together, so one cannot be told from the next.
 	- Opened: 20260917-233000
 	- Closed: 20260917-234500
 	- Most themes draw an unselected tab with no edge of any kind, so three open tabs read as one strip broken only by the close buttons. Nemo has the same problem.
 	- Fixed: a divider between any two adjacent tabs that are both unselected. It rides with the rest of the app styling, so it holds whatever theme is in use.
+	- Test case: none, look only, judged by eye.
 
 - ✅ Shift+Tab sometimes does not leave a notebook page.
 	- Opened: 20260917-143946
@@ -655,28 +764,33 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- The earlier guess about the notebook page switch was wrong. The page, its size and the tab order are all in order at the moment of the check.
 	- Fixed: the test asks for the keyboard before the check and skips rather than fails if it cannot have it. Eight copies on one display used to fail about one run in thirteen; 320 runs are now clean.
 	- The same ask fixed a quieter problem. With no window manager, which is how the suite runs, the test was skipping three runs in four while the suite still read as a pass, because its one focus request went out before the window was on screen.
+	- Test case: none, a fix to the test itself.
 
 - ✅ A split archive that fits in one volume is still named ".001".
 	- Opened: 20260917-213000
 	- Closed: 20260917-220000
 	- 7z numbers every volume it writes, the only one included, so splitting something small produced "name.7z.001" rather than "name.7z". rar does the same in its own spelling.
 	- Fixed: a split that came out as one volume is renamed back to the name that was asked for. A real split keeps its numbering, and a run that failed now clears its volumes instead of leaving them.
+	- Test case: `test-nemo-archive` (`check_volume_collapse`).
 
 - ✅ Extract is not offered on a split archive, since ".001" is not a suffix anything recognized.
 	- Opened: 20260917-213000
 	- Closed: 20260917-220000
 	- Fixed: a three-digit volume number is read past, so the format underneath decides as usual and the folder name comes out the same for every part. Selecting several parts unpacks once, from the first volume, whichever one was clicked.
+	- Test case: `test-nemo-extract`, `test-extract-job` (`check_split_volumes`), which skips without 7z.
 
 - ✅ Archive options: the default volume size is small, and opening Options walks the dialog down the screen.
 	- Opened: 20260917-213000
 	- Closed: 20260917-220000
 	- Fixed: the default volume size is 2 GiB. The dialog keeps its position on screen when Options opens or closes, and stays inside the work area.
 	- The size list is in binary units now, which is what the numbers always meant, and "GiB" can be typed as well as "GB".
+	- Test case: `test-nemo-archive`, `test-nemo-archive-settings` for the sizes; the dialog position needs a window manager.
 
 - ✅ Preferences|Views: the Forget and Copy settings buttons sit in the tab header, and the tabs crowd the checkbox above them.
 	- Opened: 20260917-210000
 	- Closed: 20260917-213000
 	- Fixed: each tab now carries its own buttons at the top right of its content, with margins. Default has Copy settings to Current; Current has Forget and Copy settings to Default beside the folder path. The label no longer changes with the tab, and Forget no longer appears and disappears. More room between Inherit view settings and the tabs.
+	- Test case: none, layout only, judged by eye.
 
 - ✅ The delete test guard never fires on a move, so nothing asks about the original that leaves or the target that gets written over.
 	- Opened: 20260917-200000
@@ -684,12 +798,14 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- A move on one filesystem is a single `g_file_move`, and an overwrite happens inside glib, so neither reaches the delete path the guard sits on.
 	- Fixed: a move job asks once up front, naming the destination and every source that is about to leave where it is. An overwrite asks per file, naming the target whose contents are lost and the source replacing it. Both were watched on screen, with Cancel leaving the files alone.
 	- `lint-c.bash` holds the rule that `G_FILE_COPY_OVERWRITE` cannot be set without the ask above it.
+	- Test case: `test-nemo-drop-cancel` (`check_move`), `fCheckOverwriteAsk` in the C lint.
 
 - ✅ `make_link_copy` deletes without going through the delete guard.
 	- Opened: 20260917-190000
 	- Closed: 20260917-193000
 	- The two `g_file_delete` calls in it, one for an overwritten destination and one for a moved-from link, skipped `file_delete_wrapper` and so never reached `nemo_delete_guard_check`. Every other delete in `nemo-file-operations.c` was already guarded. Found while wiring the delete test guard.
 	- Both go through the wrapper now. `lint-c.bash` holds the rule.
+	- Test case: `fCheckDeleteWrapper` in the C lint.
 
 - ✅ Turning hidden files off leaves a "Loading..." row under an open tree folder that holds only hidden folders.
 	- Opened: 20260917-060256
@@ -698,6 +814,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Found while testing the folders-only tree.
 	- One fix was tried and did not take. The cause is known; detail is in the private notes.
 	- Fixed: when hiding takes a folder's last sub-folder, the folder is now checked right then and loses its expander. The check in `test-nemo-tree-folders` is switched back on.
+	- Test case: `test-nemo-tree-folders`.
 
 - ✅ The tree pane keeps its width when the window is resized, instead of sharing the change in proportion.
 	- Opened: 20260916-210500
@@ -708,12 +825,14 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Tried and rejected: giving the tree the same `set_size_request` floor the places pane carries, on the theory that `shrink=FALSE` was clamping the divider to the tree's natural width. It made no difference, so it was taken back out rather than left in on a guess.
 	- Everything else on "Places and TreeView can both exist at the same time" works. This is the part left.
 	- Fixed: the position was set after GTK had already laid out the panes, so it never took. The divider is now set before the layout, and measured from where it was last placed, so a slow drag of the window edge moves it too. The split view divider gets the same treatment.
+	- Test case: `test-nemo-proportional-paned`, `test-nemo-pane-layout`.
 
 - ✅ On Windows the delete guard did not know home by its short 8.3 name, or by a path through a junction.
 	- Opened: 20260915-160031
 	- Closed: 20260915-161437
 	- The folder removal behind the guard also went into junctions, so clearing an extract's staging folder could delete what a junction inside it pointed at.
 	- Home and the folders above it are matched by file identity now, as they already were on Linux. A junction counts as a link, and is never walked.
+	- Test case: `test-nemo-delete-guard-win32`, Windows only.
 
 - ✅ "Focus" can never be on a column, nor a tab.
 	- Opened: 20260914-173549
@@ -722,6 +841,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Clicking a column heading left the keyboard on the heading, and clicking a tab left it on the tab. Closing the path entry left it on a path button. The arrow keys then did nothing to the file list.
 	- Headings and tabs never take the keyboard now. A click on either puts it in the file list, and so does closing the path entry.
 	- Tab and Shift+Tab go through the tab strip without stopping on it.
+	- Test case: `test-eel-focus-guard`.
 
 - ✅ A home folder was deleted again, with no dialog, soon after a copy of the app was opened by accident. The guards added after the first time were not enough.
 	- Opened: 20260914-110000
@@ -732,16 +852,19 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Every question that can remove files starts on Cancel.
 	- A delete key within a second of a window coming up or taking focus is ignored, since that is typing meant for another window.
 	- Each trash or delete line also goes to the system journal, which a rollback of home leaves alone.
+	- Test case: `test-nemo-delete-guard` (POSIX only), `test-nemo-delete-guard-win32` (Windows only), and `test-nemo-link-delete-job` in its `delete-asked` mode for Cancel first; the journal line is not checked.
 
 - ✅ Extracting could delete what a link inside the archive pointed at.
 	- Opened: n/a
 	- Closed: 20260914-121200
 	- Clearing the folder it extracts into, or a file being replaced, followed a link to a folder and emptied the folder at the other end. It asked nothing and logged nothing, so an archive holding a link to home could have taken home. A link is removed as a link now.
+	- Test case: `test-nemo-delete-guard` and `fCheckTreeWalks` in the C lint.
 
 - ✅ The unattended-delete guard reads GTK's current event, so a delete started from inside an unrelated event handler is recorded as one a person asked for.
 	- Opened: 20260914-102940
 	- Closed: 20260914-121200
 	- The caller says so now. Only the trash and delete commands in a window count as asked for, and undo, drops and anything else always ask. The event is kept for the log.
+	- Test case: `fCheckByUser` in the C lint, `test-nemo-delete-guard`, `test-nemo-empty-trash`.
 
 - ✅ Windows: When CTRL+L to the editable current path, CTRL+C doesn't copy the path to the clipboard (right-clicking the selected text and picking Copy does), and the context menu key does nothing on selected text.
 	- Opened: 20260903-130431
@@ -750,6 +873,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- The key half works on Windows: with the caret in the entry, with a word selected, and with the whole path selected. The menu that comes up is usable rather than merely present - Select All picked out of it selects the path.
 	- No cause was found for the key half, because it does not reproduce. The menu itself belongs to the toolkit; the only code of ours on the way to it is the entry's key handler, which passes the key through untouched.
 	- A regression check presses the menu key with the caret, with a word selected, and with the whole path selected, and fails if no menu arrives inside five seconds or if the menu that arrives has not noticed the selection. It goes red on the reported shape - the key swallowed only while something is selected. It needs a keymap that carries a menu key, and reports itself skipped where there is none.
+	- Test case: `test-nemo-clipboard-win32` for the copy (Windows only), `test-nemo-entry-menu` for the menu key.
 
 - ✅ When launching fresh on 'C:\opt\0-0\users\collierjr\0_links' in Windows, the view cannot be changed from list to icon (or compact) view. If you change folders, then the view can be changed.
 	- Opened: 20260908-011500
@@ -759,6 +883,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Measured both ways on a folder holding one link to a share that is not there: twenty-one seconds without the fix, none with it. That is the regression check, and it needs an address on the local subnet handed to it, since a name that resolves nowhere fails at once and proves nothing.
 	- Explains the rest of the report too: the answer is kept on each file once it arrives, so leaving the folder and coming back makes the swap instant.
 	- Also added: setting `NEMO_DEBUG_IO` logs which question the file-loading queue is waiting on and for how long. The calls are asynchronous, so timing the call itself shows nothing - the wait is in the answer, and that has now had to be worked out from scratch three times.
+	- Test case: `fCheckShareGates` in the C lint and `test-nemo-share-win32` (Windows only); the dead-share timing in `test-nemo-metadata-ready-win32` runs only with `NEMO_PROBE_DEAD_SHARE` set.
 
 - ✅ The action layout editor does not run.
 	- Opened: 20260908-000856
@@ -768,6 +893,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Fixed: it resolves its own prefix, uses the fork's config and data directories, and no longer needs the two Cinnamon libraries it imported. It comes up, lists the shipped actions, reorders them and saves where the action manager reads.
 	- The enable/disable checkboxes went with it. They read a GSettings key that no longer exists, and they duplicated Preferences > Actions, which already does the job. A switched-off action still shows grayed out here, read out of the config file.
 	- Not part of the Windows build: a /bin/sh launcher and a PyGObject script. The button that starts it is hidden there.
+	- Test case: `cicd/linux/test-prefix.bash`; the editor window itself is not driven.
 
 - ✅ Bottom scrollbar: missing when the view is tiny, still there after a resize when nothing overflows, flashing at every step of a resize, and now and then strobing along with the vertical one.
 	- Opened: 20260906-110200
@@ -793,6 +919,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Cause of the flashing: the columns were laid out after the tree view had drawn at the new width, so each step of a resize showed one frame at the old widths. The overlay scrollbar's margin was also set on every allocation, and setting it asks for another.
 	- Fixed: the columns are laid out for the width the view is about to get, before the tree view sees it, and the margin only moves when it has to. Widths follow the rule above; the share is `column-fit-percent` under list-view, default 90. Collapsing a subfolder gives back the width its rows asked for.
 	- Note: This contradicts the latest canonical column-sizing definition in 'design.md' under the section "List view column widths", as of 20260916-113519.
+	- Test case: `test-nemo-column-layout`, `fCheckMarginGuard` and `fCheckColumnExpand` in the C lint; the flash itself is judged by eye.
 
 - ✅ A running copy on Linux moved everything under the home folder to the trash, with nobody asking it to. The mounts under it cannot be trashed, so the "delete immediately?" question came up for each of those, and they went for good.
 	- Opened: 20260906-110342
@@ -800,6 +927,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Cause: not found. The app wrote nothing about a trash or delete job, and the rollback that brought the home folder back took its own log and every other record under home with it. Every trash path in the code starts from a selection, a drop, an undo or a menu; none runs on its own.
 	- Fixed what can be. Every trash and delete job now logs its count, folder, first item, window and the key, click or drop that asked for it. A job with no input event behind it (another program, another copy, a timer) always asks first, whatever the preference says, and the question says where it came from. A job of `confirm-many-items` or more (20 by default, 0 turns it off) asks even with confirmation off.
 	- The confirmation dialogs keep their usual default button. The dialog itself is the pause.
+	- Test case: `test-nemo-delete-guard` (`nemo_delete_guard_must_ask`), `fCheckJobCallers` and `fCheckBusMethods` in the C lint; the log line is not checked.
 
 - ✅ Plugins are duplicated.
 	- Opened: 20260905-112901
@@ -807,6 +935,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Cause: the same share folder reaches the data-dir list more than once. The prefix wrapper puts it on when a launcher already has, and on Windows GLib adds the exe's own share folder on top of the one in the environment. Every action file was then found once per copy.
 	- Fixed: the list is read through one place that drops repeats, and every scan that walks it (actions, search helpers, themes, thumbnailers) uses that. The wrapper also no longer adds a folder that is already there.
 	- The regression check feeds a list full of repeats and expects one of each, in order. It goes red with the fix backed out.
+	- Test case: `test-nemo-data-dirs`.
 
 - ✅ Windows: listing a drive root logs a batch of "GFileInfo created without standard::type" criticals.
 	- Opened: 20260902-190000
@@ -814,6 +943,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Cause: Windows will not stat a few of the files at the root of a drive - the page and swap files - so their entry comes back with no type on it at all. GLib now complains rather than answering when something asks for a missing attribute, and five places asked.
 	- Fixed: the type is read through one place that answers "unknown" for an entry that has none. The listing looks the same as before; the noise is gone.
 	- The regression check lists the drive root and fails on anything logged at warning level or worse. It goes red with the fix backed out.
+	- Test case: `test-nemo-directory-load-clean`, whose drive root case is Windows only.
 
 - ✅ Windows: file copy and paste to another program fails the same way "Copy path" did, and for the same reason.
 	- Opened: 20260830-153000
@@ -823,6 +953,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Fixed: a file cut or copy is now written out up front in the formats Windows expects, alongside nemo's own. Paste falls back to the Windows one when nemo's is absent, so a copy made in any program can be pasted, and a cut from one moves rather than copies.
 	- Fixed as well: only one program can have the clipboard open at a time, and on a busy machine something usually does for a moment. The call was failing outright every few tries, which read as an empty clipboard. Every use retries now. This affected the text copy too.
 	- Proved on a live remote session: a copy in nemo pasted into Explorer, a copy in Explorer pasted into nemo, a cut from either moving rather than copying, and the clipboard emptied after a cut is pasted. The regression check goes red with the fix backed out.
+	- Test case: `test-nemo-clipboard-win32` (`check_files`), Windows only.
 
 - ✅ Windows network browsing cannot be proved to report a missing network or a refused share.
 	- Opened: 20260804-230307
@@ -833,6 +964,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Also fixed: the browse and the lookup used to word the same failure differently, so a refused share came back reading as a missing one. One place decides now, and an answer nobody wrote a case for keeps the system's own words instead of being reworded.
 	- Proved on a throwaway machine with its network switched off: with the remote desktop provider present the one entry is listed and nothing is claimed; with it taken out of the order, so there really is nothing, the message appears. The same check goes red on that machine with the fix backed out.
 	- Also covered: every failure code's wording, and a server name that cannot exist, which is refused in about a second rather than opening as an empty folder.
+	- Test case: `test-nemo-network-win32`, Windows only.
 
 - ✅ Windows: opening a file from the released build breaks the program it opens in, unless that program is already running.
 	- Opened: 20260830-141048
@@ -848,6 +980,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Measured, packed and unpacked: the six ways of starting a program ourselves all come out hooked, both brokers come out clean, and opening a file from the packed build in a throwaway machine starts the program with the hooks absent.
 	- Unpacking to a real folder instead was considered and dropped - it breaks the dogfood launcher's one-file-per-build pool, and it swaps one thing security software dislikes for another.
 	- Left open: the slow cold start, which belongs to the packer and is unaffected by any of this.
+	- Test case: `fCheckWinLaunch` in the C lint and `test-nemo-launch-win32` (Windows only; the brokers run only with `NEMO_PROBE_LAUNCH` set).
 
 - ✅ Windows: the released build cannot open a file whose program is 32-bit. Nothing happens, and nothing is reported.
 	- Opened: 20260830-161500
@@ -855,6 +988,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Cause: the single-exe packer is set to leave programs of the other architecture alone, and in practice it stops them starting rather than letting them run unhooked. The call reports success, so nemo has nothing to report either.
 	- Measured: a 32-bit program started from a packed build never runs; the same command by hand runs fine. Allowing the other architecture does let it start, but then it carries the packer's hooks like everything else.
 	- Fixed by the item above: neither broker is subject to the packer's architecture setting, so a 32-bit program starts and runs unhooked.
+	- Test case: `fCheckWinLaunch` in the C lint and `test-nemo-launch-win32`, Windows only; a 32-bit program under the packed exe is not started.
 
 - ✅ Windows: a link pointing at a folder was drawn with a file icon instead of a folder icon.
 	- Opened: 20260830-141048
@@ -862,6 +996,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Cause: Windows reports no type at all for a link the listing does not follow, so the toolkit handed back its plain file icon. The folder icon comes off the type, so a folder link got the document one. Both a directory symlink and a junction were affected.
 	- Fixed: a link that is a folder is given the folder icon whatever the type came back as.
 	- Note: a new check pins the missing-type behavior the swap exists for, and holds a folder link to the folder icon.
+	- Test case: `test-nemo-link-info-win32`, Windows only.
 
 - ✅ "Copy path as" left the clipboard holding whatever was in it before, instead of the path.
 	- Opened: 20260830-141048
@@ -869,18 +1004,21 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Cause: the toolkit only advertises text on the Windows clipboard and hands it over when somebody asks for it. In a remote desktop session the redirector asks straight away, does not get an answer in time, and puts the client's own clipboard back - so the copy read as having done nothing. It affected the plain "Copy path" item too.
 	- Fixed: the text goes onto the clipboard up front, so there is nothing left to ask for.
 	- Note: a new check reads the clipboard the way another program would, with no message loop running.
+	- Test case: `test-nemo-clipboard-win32`, Windows only.
 
 - ✅ The context-menu key did not stand in for a right-click.
 	- Opened: 20260830-141048
 	- Closed: 20260830-151000
 	- Cause: the key did open the menu, but the menu placed itself at the mouse pointer - which, for a key press, can be anywhere, including another window or another monitor. It read as the key having done nothing.
 	- Fixed: a menu asked for from the keyboard sits against whatever holds the focus. Ctrl+F10 was going the same way and now does too.
+	- Test case: `test-eel-context-menu`.
 
 - ✅ Windows: a first start with a fresh roaming profile moved the local data folder into the settings folder.
 	- Opened: 20260829-081500
 	- Closed: 20260829-083500
 	- Cause: the move of an old-style settings folder into its roaming home fired on any folder found at the old place. On Windows that place is also where actions, scripts and search helpers are kept, so an ordinary data folder was carried off as if it were old settings.
 	- Fixed: only a folder holding a settings file is moved. The data folder stays where it is.
+	- Test case: `test-nemo-config-root`.
 
 - ✅ Startup warnings on Windows, and one warning per file in the first listing.
 	- Opened: 20260804-133646
@@ -889,12 +1027,14 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Fixed: the second signature - `g_file_get_child: assertion 'name != NULL'`, one per file listed. Cause: a file's name is not filled in until late in the same update that first applies its info, and the drive-root naming read it early, so every file in the first listing logged one. It also meant a drive root shown as a child kept the bare separator as its name until something refreshed it.
 	- Note: a regression check lists a folder and fails on anything logged at warning level or worse.
 	- Note: split from "Startup logs a dozen pairs", which stays open for the Linux host.
+	- Test case: `test-nemo-directory-load-clean`.
 
 - ✅ Often when right-clicking on the breadcrumb buttons, the menu closes immediately and has to be right-clicked again.
 	- Opened: 20260802-095853
 	- Closed: 20260828-164500
 	- Fixed: by the path-button menu work. The menu opens inside the press itself now, rather than after an attribute load that could finish late.
 	- Verified on Windows: eight right-clicks in a row, the menu up and staying up every time.
+	- Test case: `fCheckLocationPopup` in the C lint.
 
 - ✅ Dragging a file towards another application crashed the app, before it had even left the window.
 	- Opened: n/a
@@ -902,6 +1042,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Reproduced: nothing to do with the other application. Any drag that passed over the empty space below the last row did it, which a drag out of the window does on its way.
 	- Cause: the toolkit is asked which row sits under the pointer. Past the last row it answers "none" without filling in the row it was handed, and that leftover value was then read and released.
 	- Fixed: the row is only read when the toolkit really filled it in. A new check asks the same question at a position below the rows.
+	- Test case: `test-eel-treeview-hit`.
 
 - ✅ Search doesn't fully work.
 	- Opened: 20260826-103001
@@ -911,6 +1052,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Fixed: pressing Enter straight after typing did nothing, and left the box outlined in red. The check that decides whether a search may run at all is on a short delay, and Enter threw it away rather than waiting for it.
 	- Fixed: a search with only a "Containing:" pattern and no name crashed outright. Nothing typed in the name box means every name, which is what it now says.
 	- Note: left open as its own item - nothing that needs a helper program (documents, spreadsheets, PDFs) can be searched on Windows, because none of the helpers are packaged there.
+	- Test case: `test-nemo-search-content`, `test-nemo-query-editor`.
 
 - ✅ The settings schema shipped for `shcl check` is kept in step with the key table in the code by hand, and nothing notices when it drifts.
 	- Opened: 20260821-144459
@@ -919,6 +1061,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Reproduced: turned up while adding two settings at once.
 	- Fixed: a test walks both and fails on any name, type, allowed set or default that does not line up. It reads the real key table rather than the source text, so the macro-named keys and the per-platform ones are all covered.
 	- Note: it found 13 real mismatches on its first run: 8 settings the schema had never heard of, two archive command lines missing the thread count, the two list-view column lists missing the extension column, and the sidebar width. All corrected.
+	- Test case: `test-nemo-config-schema`.
 
 - ✅ A leftover helper from the install folder blocks uninstall and in-place upgrade, and the message blames the app.
 	- Opened: 20260818-155550
@@ -932,6 +1075,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- The check compared two spellings of the same folder and so found nothing. It long-forms the folder it was given but takes a running program's path as reported, and those two do not have to agree.
 		- If the swap failed anyway, for a reason no process scan can see, the failure came out as a raw runtime error. It now says which folder is stuck and what to do.
 	- Verified: the round trip is clean - install, run, close, upgrade over it, uninstall. The PATH comes back byte for byte and nothing is left behind.
+	- Test case: `cicd/win/test-install-holders.ps1`, Windows only.
 
 - ✅ The installer leaves the user PATH very slightly different from how it found it.
 	- Opened: 20260818-155550
@@ -939,6 +1083,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Cause: adding then removing the entry also drops a pre-existing trailing separator, so an install/uninstall round trip is not byte-identical. Harmless - an empty trailing entry means nothing - but it is a change nobody asked for.
 	- Fixed: both halves carry the trailing separator through, so what an uninstall writes back is what the install found.
 	- Verified against an empty PATH, one with a trailing separator and one without.
+	- Test case: `cicd/utility/test-install-path.ps1`.
 
 - ✅ Listing a folder whose path is past 260 characters quietly lists a different folder instead - whichever one the program happens to be running from.
 	- Opened: 20260821-150232
@@ -949,6 +1094,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- The walk is now done here on Windows once a path is long enough that the toolkit cannot be trusted with it. Everything shorter still goes straight to the toolkit, so the ordinary case is untouched.
 	- One entry point covers the lot: the file listing, search, copy, move, delete, the deep count and the archive scan all go through it.
 	- A folder 308 characters deep lists its real contents in the window now, with sizes, types and dates. New checks cover it both ways round.
+	- Test case: `test-nemo-dir-enum-win32`, Windows only.
 
 - ✅ Switching the path separator to `/` does not take effect until the folder is revisited.
 	- Opened: 20260826-103001
@@ -958,6 +1104,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Fixed: all three now refresh as soon as the setting changes. Verified on Linux against the full-path title, which lags the same way.
 	- Two more halves showed up on Windows, where the separator can really change. The breadcrumb was redrawing a step behind - it read the separator before the setting had been taken in. And the sidebar, which spells a drive root as `C:\`, was not redrawing at all.
 	- Both fixed. Title, breadcrumb, location bar and sidebar now all move together the moment the setting changes, with no navigation. A new check covers the ordering.
+	- Test case: `test-nemo-path-separator-win32` for the order handlers see the change in, Windows only; the refresh of title, breadcrumb and sidebar needs a full window.
 
 - ✅ "Show the full path in the title bar and tab bars" does nothing.
 	- Opened: 20260826-103001
@@ -965,6 +1112,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Note: on the Display page, under Windows and Tab Titles. Turning it on leaves the window title and the tabs showing the folder name only.
 	- Two causes. The title is only recomputed on a location or view change, so the setting did nothing until the next navigation. And the home folder answered "Home" before the setting was ever read, so in the one place most people would try it, it did nothing at all.
 	- Both fixed. The home folder now gives way to the setting, and the title, the tabs and the location widgets all refresh the moment it changes.
+	- Test case: `test-nemo-window-title` (`check_full_path_preference`); the live refresh needs a full window.
 
 - ✅ The first folder listed after launch is still slow when the start location is full of links.
 	- Opened: 20260828-083458
@@ -974,6 +1122,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Fixed: the preference for item counts already says "local only" by default, but a share is native as far as the toolkit is concerned, so nothing ever held it back. Both questions are now skipped for anything on a share, or any link pointing at one.
 	- Fixed: the mount question is skipped outright there. A share is not a mount on Windows, so the answer was never of use.
 	- Verified against a host that really was not answering: over a minute before, about three seconds after. The item count for such a folder now reads "--", which is what the preference has always meant.
+	- Test case: `fCheckShareGates` in the C lint and `test-nemo-share-win32` (Windows only).
 
 - ✅ The first folder listed after launch takes a very long time when the start location is full of links.
 	- Opened: 20260827-183930
@@ -984,6 +1133,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Windows puts the directory bit on the link itself, so the type still comes out right without the trip. The listing no longer follows them there, and the same folder now appears in about a second.
 	- Trade: a link to a file reports the link's own size rather than the target's, and a link whose target is gone no longer shows as broken until it is opened.
 	- The drive-root test was reading the real config while it ran, so it failed on any machine where the forward slash had been chosen. It gets its own throwaway config now.
+	- Test case: `test-nemo-share-win32` (dangling link case), Windows only.
 
 - ✅ Deleting to the trash puts the progress popup on top of the confirmation prompt.
 	- Opened: 20260827-183930
@@ -992,18 +1142,21 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Cause: the prompt was the Windows shell's, not ours. GLib's trash call leaves the shell confirmation switched on, so every file was asked about twice and the second dialog was not one we could place.
 	- Fixed: a delete goes to the Recycle Bin through the shell directly with the confirmations off, so our own prompt is the only one and nothing covers it. Verified on Windows end to end.
 	- Note: the trash test drops its private copy of the same code and calls the shipped one, and its timeout goes to ten minutes - a full recycle bin can take four and a half.
+	- Test case: `fCheckWinTrash` in the C lint and `test-nemo-trash-win32` (Windows only).
 
 - ✅ The Win32 argument quoting check depends on what is installed on the machine.
 	- Opened: 20260828-083458
 	- Closed: 20260828-090000
 	- Cause: it split `wt.exe` and expected the name back unchanged, but a box with Windows Terminal installed resolves it to a full path, so the check failed there and nowhere else.
 	- Fixed: it uses a name that cannot be on the path. The case where a program is found is still covered, by the check below it that looks one up first.
+	- Test case: none, the fix is to `test-nemo-view-win32` itself.
 
 - ✅ The config schema check goes red on a fresh Windows checkout.
 	- Opened: 20260828-083458
 	- Closed: 20260828-090000
 	- Cause: git checks the schema out with Windows line endings, and the check split it on newlines only, so every field name carried a stray carriage return and matched nothing. It then reported all 169 settings as missing from the schema.
 	- Note: the config parser itself was never affected - it treats a carriage return as whitespace. Only the check's own reader did.
+	- Test case: `test-nemo-config-schema`, which also reads a CRLF copy of the schema.
 
 - ✅ In dark mode the breadcrumb bar and the checked view buttons kept a light background, unreadable against everything around them.
 	- Opened: 20260819-124028
@@ -1011,18 +1164,21 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Cause: a bundled theme is loaded as a stylesheet of our own, but the theme *name* was left pointing at it. GTK cannot resolve a name it has never seen on disk, falls back to its packaged sheet, and drops the dark half while doing so - so the layer under ours was the light one. Anything our sheet did not itself paint showed it through.
 	- Fixed: the name now points at a theme GTK really has, so the base follows light/dark while our sheet sits on top. Verified against both the light and the dark base.
 	- Also fixed alongside: choosing a theme that cannot be found left the previous one on screen, so a bad name looked like nothing had happened.
+	- Test case: `test-nemo-appearance` (`test_dropin_applied`).
 
 - ✅ The three view buttons at the bottom left drew as broken-image placeholders.
 	- Opened: 20260819-124028
 	- Closed: 20260819-141014
 	- Cause: none of the app's own artwork was in the Windows bundle at all. Only the toolkit's icons were packaged, so every one of our own icon names missed - the location button in the toolbar was the same failure.
 	- Fixed: the app's artwork now rides inside the executable, the same way the bundled themes do. Costs no extra files, so nothing is added to startup time, and it works on every platform including a relocated install.
+	- Test case: `test-nemo-app-resources` for part of the bundled art; the view button icons themselves are not checked.
 
 - ✅ The theme picker offered "macOS" and "Windows 10" twice in dark mode, and one of each was the light theme.
 	- Opened: n/a
 	- Closed: 20260819-141014
 	- Cause: those two themes ship a dark sheet of their own upstream *and* have a separately drawn dark half that we also bundle, so both halves claimed dark.
 	- Fixed: where a light/dark pair is named, the pair wins and the redundant sheet is dropped. A theme that states which modes it suits is no longer second-guessed either, so a hand-dropped theme cannot bring the fault back.
+	- Test case: `test-nemo-appearance` (`test_named_pair_listed_once`).
 
 - ✅ On Windows a drive root is named `\` everywhere except the sidebar - the window title reads `\` and the breadcrumb reads `(C:) Windows` while the sidebar has `Windows (C:)`. Seen on this box browsing `C:\`.
 	- Opened: 20260818-142740
@@ -1031,6 +1187,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Three different sources were in play: the basename, which is `\` for every drive alike; the volume monitor, which says `(C:) Windows`; and the sidebar's own string.
 	- Fixed: a drive root is `C:\` everywhere - title, breadcrumb and sidebar all ask the same helper. The volume label moved to the sidebar tooltip, where it cannot be mistaken for the path.
 	- Verified on Windows: a new test covers the naming, including that the first folder inside a drive keeps its own name; and all three places agree.
+	- Test case: `test-nemo-drive-root-name`, Windows only.
 
 - ✅ "Set as default" in the Open With tab did nothing on Windows, and said nothing either.
 	- Opened: n/a
@@ -1038,12 +1195,14 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Cause: Windows keeps the per-user default behind a hash it will not let a program write, so the call fails outright - and the result was thrown away along with the error.
 	- Fixed: the failure is reported. The choice still cannot be made on Windows; the difference is the user is told rather than left thinking it worked.
 	- Verified on Windows: the underlying call refuses with "Setting default applications not supported yet". Looking a default up still works, but only by extension - asking by mime type answers nothing.
+	- Test case: `test-nemo-associations-win32` (`test_set_default`), Windows only.
 
 - ✅ The action layout editor never opens: the app spawns it as `nemo-action-layout-editor`, but the binary installs under the app slug as `nemo-anywhere-action-layout-editor`. One missed rename from the rebrand.
 	- Opened: 20260804-133646
 	- Closed: 20260818-103142
 	- Fixed: it is spawned under the app slug, out of the folder the app itself was started from, and a failure to start now says so instead of doing nothing.
 	- Also found and fixed alongside: the Restart button in extension settings was quitting and starting whichever upstream Nemo happened to be installed, not this app.
+	- Test case: `cicd/linux/test-prefix.bash`.
 
 - ✅ The Windows build shipped without its compiled-in resources, so it had no menu bar at all and every `.ui`, `.glade` and `.css` lookup failed.
 	- Opened: n/a
@@ -1052,6 +1211,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Nobody noticed because the app still starts and browses: the missing menu bar reads as a design choice, and the fallout was a wall of criticals that had been written off as noise.
 	- Fixed: on Windows the resources go straight into the executable. Linux keeps them in the shared library as before.
 	- Verified on Windows: the menu bar is back, and startup criticals went from 40 to 9 - none of the remainder about resources or widgets.
+	- Test case: `cicd/utility/check-win-build-flags.bash`, run on every Windows build.
 
 - ✅ The Windows executable was not marked long-path aware, so anything past the old 260-character limit was out of reach even with long paths switched on.
 	- Opened: 20260818-142740
@@ -1059,6 +1219,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Cause: the exe carried no application manifest, which is where that is declared.
 	- Fixed: the manifest arrived with the DPI work. Measured on a 427-character folder holding a 462-character file: without the manifest every call failed outright; with it, reading the file, asking for its details, testing that it exists and walking into the folder all work.
 	- Note: listing such a folder is still wrong, and worse than a failure - it is its own bug, still open.
+	- Test case: `test-nemo-dir-enum-win32`, which carries the same manifest, and `cicd/utility/check-win-build-flags.bash`; Windows only.
 
 - ✅ Code review 20260815.
 	- Opened: 20260815-154746
@@ -1070,41 +1231,50 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 			- Cause: the one place that does check compares the text as it was typed, so a `..` inside a bin item's path walks back out of the bin.
 			- Fixed: a path from a trash address is resolved to its real form and has to name something the recycle bin actually holds before it is read, moved or deleted.
 			- Verified on Windows: an address aimed at a file outside the bin, and one walked back out of the bin, are each refused for delete, move and read, and the file is left where it was.
+			- Test case: `test-nemo-trash-win32`, Windows only.
 
 		- ✅ Item 2. Reading dragged icon-list data can walk off the end of the buffer.
 			- Cause: one branch of the parser skips the length bookkeeping every other branch does, and its end-of-data guard tests something that can never be empty, so the scan runs past the buffer.
 			- Fixed: the length is kept up to date on that branch too, and the guard tests the data rather than the pointer.
 			- Note: inherited from upstream. Covered by a new check.
+			- Test case: `test-nemo-dnd`, POSIX only.
 
 		- ✅ Item 3. "Open in Terminal" crashes when no known terminal is installed.
 			- Cause: with nothing found the command prefix is left empty and used anyway. Likely on a minimal or KDE-only box, which is exactly the de-Cinnamon target.
 			- Fixed: with nothing found the caller declines instead of going ahead. Covered by a new check.
+			- Test case: `test-eel-terminal`.
 
 		- ✅ Item 4. Freeing an extension column object corrupts the heap.
 			- Cause: teardown frees memory the type system owns. Latent only because built columns are kept for the life of the process; any extension that discards one hits it.
 			- Fixed: it no longer frees what it does not own. Covered by a new check.
+			- Test case: `test-nemo-column`.
 
 		- ✅ Item 5. An unreadable settings file is treated as empty, and a queued save can then erase it.
 			- Cause: any read failure - a sync, antivirus or editor lock, or the delete half of someone else's non-atomic save - loads defaults into memory, and a save already queued then writes that near-empty document over the real file.
 			- Fixed: a failed read keeps what is already in memory. Only a file that is genuinely absent goes back to defaults. Covered by a new check.
+			- Test case: `test-nemo-config` (`test_unreadable_file_kept`).
 
 		- ✅ Item 6. A NUL byte anywhere in the settings file truncates it on the next save.
 			- Cause: the file is written by text length, which stops at the first NUL and drops every setting after it. The check that follows the write is fooled the same way, so the loss goes unnoticed.
 			- Fixed: the write and the check both count bytes. Covered by a new check.
+			- Test case: `test-nemo-config` (`test_nul_survives_save`).
 
 		- ✅ Item 7. The thumbnail enable-check reads the disabled-types list without its lock.
 			- Cause: one reader skips the lock the writers and the other reader take, so a settings change on another thread can free the list mid-read.
 			- Fixed: that reader takes the lock too, and the inner call now says it expects its caller to hold it.
 			- Note: a threading race, so there is no check that would fail reliably.
+			- Test case: none, a threading race with no reliable check.
 
 		- ✅ Item 8. Replacing a folder deletes through directory symlinks inside it.
 			- Cause: the recursive remove never checks what each child is, so a link to another folder is followed and its contents deleted, outside the folder that was agreed to.
 			- Fixed: only real folders are recursed into; everything else is removed as itself.
 			- Note: the premise has a check of its own. The code path itself sits behind a modal Replace dialog.
+			- Test case: `test-nemo-symlink-recurse` (POSIX only) for the premise, and `fCheckTreeWalks` in the C lint.
 
 		- ✅ Item 9. An invalid filename search pattern crashes the search.
 			- Cause: a pattern that fails to compile leaves nothing to match with, but the search runs anyway and then releases an uninitialised result for every file. Reachable by pressing Enter before the typing check catches up.
 			- Fixed: a pattern that will not compile matches nothing rather than running on. Covered by a new check.
+			- Test case: `test-nemo-search-regex`.
 
 		- ✅ Item 10. Restoring an item from the Windows trash drops its file extension.
 			- Cause: the original name is taken from the shell display name, which hides known extensions by default, and that shortened name is what restore writes.
@@ -1112,350 +1282,447 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 			- Verified on Windows: a recycled file is found under its full name, reports the original location it came from, and restores to it.
 			- Note: the cause does not reproduce on Windows 11. With "hide extensions for known file types" switched on, the recycle bin still reports full names, in this app and at any setting. So the repair is kept for older Windows rather than being needed here.
 			- Note: corrected while checking - it used to give up on any name containing a dot, so `report.2026.txt` would have been repaired to `report.2026`.
+			- Test case: `test-nemo-trash-win32`, Windows only.
 
 		- ✅ Item 11. Opening certain images can crash if the tab is closed first.
 			- Cause: the image-viewer sort path reads the tab it came from with no check, and that is cleared when the tab closes mid-open. This is the ordinary double-click-an-image path on Mint-family setups.
 			- Fixed: guarded. The image still opens, without the wrap-around through the rest of the folder.
 			- Note: an asynchronous path through the interface, so no check of its own.
+			- Test case: none, an asynchronous path through a full window.
 
 		- ✅ Item 12. The places sidebar keeps reacting to settings after it is destroyed.
 			- Cause: two preference handlers are left connected at teardown, so a later settings change - including a live edit of the settings file - fires on freed memory. Triggered by hiding the sidebar or switching to the tree sidebar.
 			- Fixed: both are disconnected at teardown.
+			- Test case: `cicd/utility/lint-pref-handlers.py` for a disconnect on the wrong group; a missing disconnect is not caught.
 
 		- ✅ Item 13. New Folder in the tree sidebar aborts the app when creation fails.
 			- Cause: the callback ignores the failure and passes nothing on, which aborts. A permission race or a dismissed error dialog triggers it.
 			- Fixed: it gives up on failure, the way the twin in the folder view already did.
+			- Test case: none, needs the tree sidebar in a full window.
 
 		- ✅ Item 14. Jumping more than one step forward corrupts the history lists.
 			- Cause: the transfer loop reads one list but edits the other two, so the back and forward lists end up sharing entries, and a later navigation frees ones still in use.
 			- Fixed: the entry is taken off the forward list and put on the back list, mirroring how going back already worked.
+			- Test case: none, needs a full window's history.
 
 		- ✅ Item 15. On Windows every file reports as changed on every refresh.
 			- Cause: the per-type icon is compared against the plain system icon, which never matches, so each refresh marks the whole folder changed and re-sorts, redraws and re-checks thumbnails, with a registry lookup per file on top.
 			- Fixed: the icon is judged on where it ends up rather than mid-update, so a refresh no longer reports every file as changed.
 			- Verified on Windows: five refreshes over real files of several types, with everything after the first sighting reporting nothing changed, and a real change still coming through.
+			- Test case: `test-nemo-file-win32-churn`, Windows only.
 
 		- ✅ Item 16. Sidebar rebuilds block the whole window on filesystem queries.
 			- Cause: free-space and drive-type checks run on the interface thread for every drive and mount, on every rebuild. A slow or hung mount freezes the window, and a mount change is often what triggers the rebuild.
 			- Fixed: the free-space answer is cached per sidebar, and the rebuild only ever reads the cache, so it never waits. A missing or stale entry starts a query off the interface thread that fills the cache and asks for one rebuild afterwards. A hung mount leaves one entry pending and blocks nothing.
+			- Test case: none, needs a live sidebar and a mount that hangs.
 	- ✅ Medium.
 		- ✅ Item 17. The code-signing password is passed on the command line, visible to other local processes.
 			- Fixed: the certificate is imported and signed by fingerprint, so the password never appears on a command line another process can read.
+			- Test case: none, pipeline signing step.
 
 		- ✅ Item 18. The Windows sysroot packages are downloaded and unpacked with no integrity check, and those libraries ship in the release.
 			- Cause: neither the database signature nor the per-package checksum is verified, though the checksum sits in data the fetcher already parses.
 			- Fixed: every package is checked against the checksum the database already carries, and a mismatch stops the build.
+			- Test case: none, pipeline setup; the build stops on a checksum mismatch.
 
 		- ✅ Item 19. A malformed D-Bus Open hint from any local process crashes the running app.
 			- Cause: a hint with no `=` in it yields nothing, and that is parsed without a check.
 			- Fixed: guarded.
+			- Test case: `test-nemo-instances` (Open hints with no `=`), POSIX only.
 
 		- ✅ Item 20. A pathological settings file can kill the app during parse.
 			- Cause: the file is read with no size cap, the parser keeps every decoded byte for the document's life, and a failed allocation ends the whole process from inside the library.
 			- Fixed: an 8 MiB read cap. An oversized file is refused and what is already in memory is kept. Covered by a new check.
+			- Test case: `test-nemo-config` (`test_oversized_file_refused`).
 
 		- ✅ Item 21. In the Windows pipeline, an abort between stash and pop strands the working changes, and a rerun can commit conflict markers.
 			- Fixed: a conflicting restore stops and says where the work is and how to get it back, instead of leaving a rerun to commit a half-merged tree.
+			- Test case: none, pipeline script.
 
 		- ✅ Item 22. In cicd.bash, a remote-sync stash-pop conflict aborts with no guidance and the stash still held.
 			- Note: the natural rerun with sync off then builds and publishes a tree missing the stashed changes.
 			- Fixed: same as above - it stops with the stash named and the two ways out spelled out.
+			- Test case: none, pipeline script.
 
 		- ✅ Item 23. The version-bump guard blocks the beta-to-final release push.
 			- Cause: version sort puts `1.0.0` before `1.0.0-beta2`, the reverse of release order, so cutting final over the current beta fails the guard. That exact transition is next.
 			- Fixed: a prerelease is made to sort below its release, the way the packaging script already did it.
+			- Test case: `cicd/hooks/test-pre-push.bash`.
 
 		- ✅ Item 24. Accessibility paste reads a freed stack value.
 			- Cause: a stack value is handed to a clipboard callback that runs after the function has returned.
 			- Fixed: it is allocated to last, and released in the callback.
+			- Test case: none, accessibility paste path in inherited code.
 
 		- ✅ Item 25. install.bash deletes the existing install before the replacement is in place.
 			- Cause: a cross-filesystem move that fails partway leaves nothing installed, and the temporary copy is then wiped on abort.
 			- Fixed: the replacement is staged beside the existing install and swapped in, with a rollback on failure, so the old one is only dropped once the new one is there.
+			- Test case: `cicd/linux/test-installers.bash` for install over an existing copy; a failed move across file systems is not forced.
 
 		- ✅ Item 26. install.ps1 can half-delete a running install.
 			- Cause: a process whose path cannot be read is treated as not running, so the delete goes ahead against a locked copy and throws partway.
 			- Fixed: the same stage-beside-then-swap as the bash installer, and the in-use check reads paths in a way that covers protected and cross-session processes.
 			- Note: Windows file-locking edge cases still want the real-Windows pass.
+			- Test case: `cicd/win/test-install-holders.ps1`, Windows only.
 
 		- ✅ Item 27. A partial extension crashes every location load.
 			- Cause: one provider dispatch skips the guard its siblings have, so an extension that leaves the function unset is called through nothing.
 			- Fixed: guarded, the way the column provider already was.
+			- Test case: none, needs an extension built to leave the function unset.
 
 		- ✅ Item 28. An action's exec condition decides on an uninitialized value when the spawn fails.
 			- Cause: a missing program or a parse error leaves the result unset, so menu visibility is decided by whatever happened to be on the stack.
 			- Fixed: the result is seeded, and a failed spawn answers no.
+			- Test case: `test-nemo-action-exec`.
 
 		- ✅ Item 29. Actions stored in a path with spaces run the wrong command.
 			- Cause: the action directory is put in front of the command unquoted, and the whole thing is then split on whitespace. Normal on Windows, and on Linux homes with spaces.
 			- Fixed: the directory and its separator are quoted as one word, which also settles the Windows separator.
+			- Test case: `test-nemo-action-exec`.
 
 		- ✅ Item 30. Any drag-and-drop clears a pending cut or copy.
 			- Cause: the collision check compares the dragged list against itself, so it always matches and always clears the clipboard.
 			- Fixed: it searches the clipboard instead.
+			- Test case: `test-nemo-clipboard`.
 
 		- ✅ Item 31. The settings-groups table is read from worker threads and grown on the main thread with no lock.
 			- Cause: a lazy insert can grow the table while a worker thread is reading it. A narrow window, but memory-unsafe.
 			- Fixed: the lookup and the insert are both under the lock. Announcing a change still happens outside it, so a handler can come back in.
+			- Test case: none, a threading race with no reliable check.
 
 		- ✅ Item 32. The favorites change-timer id is touched from worker threads without a lock.
 			- Cause: a worker can remove a timer the main thread has already reused, silently killing an unrelated one.
 			- Fixed: the timer is taken under the lock that already covers the rest of that structure.
+			- Test case: none, a threading race with no reliable check.
 
 		- ✅ Item 33. Two favorites with the same name in same-named parents collide.
 			- Cause: disambiguation appends only the parent's name, and the displayed name is the favorite's identity, so an operation on one can hit the other.
 			- Fixed: the parent path is used, shortened, with a counter behind it so the name is always unique.
+			- Test case: `test-nemo-favorites` (`test_dedup_display_names`).
 
 		- ✅ Item 34. Trashing a file drops favorites of unrelated sibling paths.
 			- Cause: the removal matches by raw prefix with no path boundary, so trashing `ab` also drops the favorite for `abc.txt`.
 			- Fixed: the match has to end on a separator or be exact.
+			- Test case: `test-nemo-uri-under`.
 
 		- ✅ Item 35. The mount lookup matches sibling paths by prefix.
 			- Cause: the same missing boundary check, so a path can be matched to the wrong mount and then called local when it is not.
 			- Fixed: the same boundary guard.
+			- Test case: `test-nemo-uri-under`.
 
 		- ✅ Item 36. Successful direct-save drops are reported as failed.
 			- Cause: the success branch repeats the test the fallback branch makes, so it can never run and a saved file is reported as a failed drop.
 			- Fixed: it tests for success.
+			- Test case: none, an X11 direct-save drop from another program.
 
 		- ✅ Item 37. A failed metadata save is silent and throws away the pending metadata.
 			- Cause: the write error is ignored and the data marked saved, so it is never written again and is lost on restart.
 			- Fixed: the write is checked, it is only marked saved when it worked, and a failure is reported.
+			- Test case: none, needs a write that fails on demand.
 
 		- ✅ Item 38. Large-zoom images render blurry on Windows.
 			- Cause: the can-load check misses the content-type conversion the rest of the code does, so the full-resolution path never runs.
 			- Fixed: the check converts the type first, so the full-resolution path runs.
 			- Verified on Windows: real images are accepted by the internal-thumbnail check and text is still refused.
 			- Note: the stored type for a `.png` on Windows really is ".png", which is why the conversion is needed at all.
+			- Test case: `test-nemo-thumbnail-win32`, Windows only.
 
 		- ✅ Item 39. A trashed folder whose status can't be read is shown as a healthy file.
 			- Cause: the fallback invents a regular-file entry without looking at the error, and an item deleted behind the app's back still lists as existing until the next full refresh.
 			- Fixed: a folder is shown as a folder, and something that has gone is no longer presented as readable.
 			- Verified on Windows: an item removed from the bin behind the backend's back comes back saying outright that it cannot be read.
 			- Note: the folder half is covered only by a live trashed folder listing as a folder. Forcing a folder that is present but unreadable was not attempted.
+			- Test case: `test-nemo-trash-win32` for an item gone from the bin, Windows only; a folder present but unreadable is not forced.
 
 		- ✅ Item 40. Freshly trashed items get a wrong parent until the next poll.
 			- Cause: the top-level check does not refresh on a miss, unlike the sibling lookup, so an item not yet seen is filed under a parent that is not in the bin at all.
 			- Fixed: the top-level check refreshes on a miss, like the sibling lookup.
 			- Verified on Windows: a freshly recycled file reports the bin root as its parent.
+			- Test case: `test-nemo-trash-win32`, Windows only.
 
 		- ✅ Item 41. The bookmarks window's no-selection guard never fires and can abort.
 			- Cause: an unsigned row number holds what should be a -1, so the guard is dead and an assert or a wrapped index is reachable.
 			- Fixed: the row number is signed, so the guard works.
+			- Test case: none, bookmarks window path in a full window.
 
 		- ✅ Item 42. A failed or empty drop on the .desktop launcher editor crashes.
 			- Cause: both drag handlers split the data and read the first piece with no length check.
 			- Fixed: an empty or failed drop is guarded in both.
+			- Test case: none, a drop onto the launcher editor.
 
 		- ✅ Item 43. Rename-pending activation relies on a garbage return value and leaks the selection each tick.
 			- Cause: a function that returns nothing is installed as a repeating timer, and the still-renaming early return does not free the selection it fetched.
 			- Fixed: a proper wrapper decides whether to repeat, and the selection is freed on that path.
+			- Test case: none, list view rename timer in a full window.
 
 		- ✅ Item 44. Two invalid search patterns warn fatally and show the wrong message.
 			- Cause: the content check is handed an error the filename check already set.
 			- Fixed: the error is cleared between the two.
+			- Test case: none, two invalid patterns in the search box are not checked.
 
 		- ✅ Item 45. Tree-sidebar Paste races a freed file and holds a stale view pointer.
 			- Cause: the clipboard request keeps no hold on the view, and an idle can free the target first. Paste from another program degrades to nothing, and a closed sidebar leaves a dangling pointer.
 			- Fixed: the view is held for the length of the request, and the reply guards against the target having gone.
+			- Test case: none, tree sidebar paste in a full window.
 
 		- ✅ Item 46. The script debug log reads a path after freeing it.
 			- Cause: the path is freed just before the line that prints it. Fires with the folder-view debug output turned on.
 			- Fixed: it is freed after.
+			- Test case: none, debug output only.
 
 		- ✅ Item 47. The failed-home fallback reopens the failing location instead of root.
 			- Cause: the root fallback is built and never used, so an unreadable home retries itself in a loop. The hardcoded root also resolves to the current drive on Windows.
 			- Fixed: it opens root, so an undisplayable home stops retrying.
+			- Test case: none, needs a home that cannot be shown, in a full window.
 
 		- ✅ Item 48. The Windows trash test writes past a buffer.
 			- Cause: a 64-bit length is written through a 32-bit pointer, so half of it is stack garbage that then sizes and indexes a buffer.
 			- Fixed: the length is taken at the right width.
 			- Note: the trash test used to report itself skipped on this box whatever it had done. It works the recycle bin directly now and reports a real result, so this code runs natively on every run.
+			- Test case: none, the fix is to `test-nemo-trash-win32` itself.
 
 		- ✅ Item 49. The dogfood launcher mangles pass-through arguments containing quotes or trailing backslashes.
 			- Cause: the launcher joins its arguments with a plain space and the target splits them again, so quotes, backslashes and even plainly spaced arguments were lost.
 			- Fixed: every argument is quoted the way the Windows runtime expects, and the shell round trip passes them through untouched.
 			- Verified on Linux: arguments carrying spaces, quotes and a trailing backslash all arrive as written.
+			- Test case: none, dogfood launcher only.
 
 		- ✅ Item 50. Typing a UNC path blocks the whole window on a network probe.
 			- Cause: the backslash-to-slash retry does its existence checks on the interface thread, so an unreachable host stalls for the whole network timeout before the location even opens.
 			- Fixed: input that is structurally a `\\host\share` skips the check and goes straight to the asynchronous load.
+			- Test case: none, needs a host that does not answer.
 
 		- ✅ Item 51. Failed thumbnails are re-decoded on every icon fetch.
 			- Cause: the app records a failure under its own name, which the system's failed flag never reads, so every failed file re-reads and re-decodes an image on each fetch. In list view that is once per row per draw.
 			- Fixed: the negative answer is cached per file, and cleared when the file changes so a changed file is tried again.
+			- Test case: none, needs a count of decodes for a failed thumbnail.
 
 		- ✅ Item 52. Content search buffers whole files into memory with no cap.
 			- Cause: each candidate text file is read whole, then copied again to check and strip, so a multi-gigabyte file can freeze the search or exhaust memory.
 			- Fixed: the per-file read is capped at 16 MB.
+			- Test case: none, needs a file of several gigabytes.
 
 		- ✅ Item 53. The list view rebuilds and rescales each icon on every row draw.
 			- Cause: the icon, its emblems and a fresh surface are assembled with no caching, and thumbnails are rescaled every time, so any redraw re-does the work for every visible row.
 			- Fixed: the rendered row is cached and reused across draws, and dropped when the file changes. Drag and cut highlighting still draw live.
+			- Test case: none, speed only.
 
 		- ✅ Item 54. The list view re-invalidates visible thumbnails on every scroll pause.
 			- Cause: an already-loaded flag is read and then ignored, so every visible file's thumbnail and extension details are re-read at each scroll settle.
 			- Fixed: the work happens once, when a row first comes into view, matching the icon view's twin.
+			- Test case: none, speed only.
 	- ✅ Low.
 		- Terse by design; file and mechanism are in the private detail notes. All confirmed on read, minor impact or rare paths, mostly inherited.
 		- ✅ Item 55. Vendored-theme staging uses a fixed temp path instead of a unique one (symlink race on a shared box).
 			- Fixed: staged under a unique temp directory that is cleaned up on exit.
+			- Test case: none, pipeline script.
 
 		- ✅ Item 56. One version parser in the push hook lacks the guard the others gained; correct only by token order today.
 			- Fixed: the guard is in, so it can no longer match the wrong field on the same line.
+			- Test case: none, pipeline hook.
 
 		- ✅ Item 57. The portable packer copies the app folder without recursion, silently dropping any subfolder's contents.
 			- Fixed: the copy recurses, so subfolders keep their contents.
+			- Test case: none, packer script.
 
 		- ✅ Item 58. The packer passes a single unquoted string as arguments, so an output path with spaces splits.
 			- Fixed: the argument is quoted, so a path with spaces stays one argument.
+			- Test case: none, packer script.
 
 		- ✅ Item 59. The packer's fixed grace-then-kill can truncate an exe still being written.
 			- Fixed: it waits for the output to stop growing rather than a fixed grace.
+			- Test case: none, packer script.
 
 		- ✅ Item 60. Hand-supplied negative-offset window geometry is computed off-screen and clamped to the primary monitor.
 			- Fixed: a negative position now places the window's far edge that far in from the screen edge, as it is meant to.
+			- Test case: none, only reached by hand-typed geometry.
 
 		- ✅ Item 61. Extension menu-item setters ref a null value, so a nullable field can't be cleared and an optional widget always warns.
 			- Fixed: an optional widget can be left unset, and a menu can be cleared.
+			- Test case: none, extension API setters with no caller in the tree.
 
 		- ✅ Item 62. The extension property-page dispose never chains up to the parent.
 			- Fixed: dispose chains up.
+			- Test case: none, extension API with no caller in the tree.
 
 		- ✅ Item 63. The settings flush reads and clears the save-timer id without the lock.
 			- Fixed: the timer is taken under the lock.
+			- Test case: none, a threading race with no reliable check.
 
 		- ✅ Item 64. A trashed-file timestamp is formatted and parsed with a type that truncates on 64-bit Windows.
 			- Fixed: the timestamp is written and read at full width, so the round-trip survives on 64-bit Windows.
 			- Verified on Windows: a freshly recycled file reports a deletion date of the right shape and in this century, which a truncated one would not be.
+			- Test case: `test-nemo-trash-win32`, Windows only.
 
 		- ✅ Item 65. An unreadable directory records a confirmed-empty file-type list instead of an unknown one.
 			- Fixed: an unreadable directory records an unknown type list rather than a confirmed-empty one.
+			- Test case: none, needs a folder that fails to list.
 
 		- ✅ Item 66. One removal helper dispatches to the changed path instead of the removed path.
 			- Fixed: it dispatches the removal.
+			- Test case: none, one caller in inherited code.
 
 		- ✅ Item 67. A file object leaks for each overwritten destination during a move.
 			- Fixed: the reference is released.
+			- Test case: none, leak only.
 
 		- ✅ Item 68. The drag URI array writes its null terminator one element past the allocation.
 			- Fixed: the array is one longer, so the terminator fits inside it.
+			- Test case: none, an allocation one short with no visible effect.
 
 		- ✅ Item 69. A failed filesystem query during a desktop drag unrefs a null.
 			- Fixed: guarded, and the drag falls back to no filesystem information.
+			- Test case: none, needs a failed query during a desktop drag.
 
 		- ✅ Item 70. A missing favorite name aborts the whole favorites listing rather than skipping the entry.
 			- Fixed: a missing entry is skipped rather than aborting the whole listing.
+			- Test case: `test-nemo-favorites` (`test_enumerator_skips_missing`).
 
 		- ✅ Item 71. Canceling a favorites listing mid-batch leaks the gathered entries.
 			- Fixed: the gathered entries are released on cancellation.
+			- Test case: none, leak only.
 
 		- ✅ Item 72. An empty favorites metadata entry reads past the split result.
 			- Fixed: guarded, so a malformed entry is kept rather than read past.
+			- Test case: none, a malformed stored entry in the vfs file.
 
 		- ✅ Item 73. The favorite-info free dereferences the struct before its null guard.
 			- Fixed: the guard comes first.
+			- Test case: none, null guard only.
 
 		- ✅ Item 74. Skip-all on a delete or directory copy does not mark the file skipped.
 			- Fixed: skip-all marks the file skipped, so the folder is not reported as fully removed.
+			- Test case: none, needs a dialog answered with Skip All.
 
 		- ✅ Item 75. The read-only-destination path frees a null error.
 			- Fixed: it no longer frees an error that was never set.
+			- Test case: none, error path only.
 
 		- ✅ Item 76. A D-Bus-initiated copy passes a null desktop location to an equality test.
 			- Fixed: guarded.
+			- Test case: none, the bus copy it guarded is gone.
 
 		- ✅ Item 77. The existing-ancestor walk unrefs a null for every missing level.
 			- Fixed: it no longer releases something it never got.
+			- Test case: none, null guard only.
 
 		- ✅ Item 78. A synthesized Windows file info with no icon makes the update ref a null icon.
 			- Fixed: guarded, so a synthesized entry with no icon is accepted.
+			- Test case: none, null guard only.
 
 		- ✅ Item 79. The job-queue finalize unrefs plain-malloc structs.
 			- Fixed: released the way it was allocated.
+			- Test case: none, nothing frees these today.
 
 		- ✅ Item 80. The duplicate-job guard compares a function against user data and never fires.
 			- Fixed: it compares the right thing, so a repeated job is caught.
+			- Test case: `test-nemo-job-queue`.
 
 		- ✅ Item 81. Launching by URI casts a possibly-null parent window for the scale factor.
 			- Fixed: guarded, with a sensible default when there is no parent window.
+			- Test case: none, null guard only.
 
 		- ✅ Item 82. Skip-folder setup dereferences a null path for a non-native search location.
 			- Fixed: guarded, so a location with no path is handled.
+			- Test case: none, null guard only.
 
 		- ✅ Item 83. The count-based recycle-bin monitor misses same-count changes.
 			- Fixed: the check now also watches total size, so a change that leaves the count the same is noticed.
 			- Verified on Windows: swapping one bin item for a much larger one is reported, while a quiet spell is not.
 			- Learned here: rewriting a bin item's backing file does not move the reported size - Windows answers with the size recorded when the item was recycled. An item leaving and a differently-sized one arriving does move it, which is the case the fix is for.
+			- Test case: `test-nemo-trash-win32` for the monitor, Windows only; the same-count case is not forced.
 
 		- ✅ Item 84. A static global for the connect-server result is clobbered by concurrent dialogs.
 			- Fixed: the result travels with the request, so two dialogs at once no longer clobber each other.
+			- Test case: none, needs two connect-server dialogs at once.
 
 		- ✅ Item 85. The desktop-item property page leaks the type string for other launcher kinds.
 			- Fixed: released.
+			- Test case: none, leak only.
 
 		- ✅ Item 86. The list-model drag binder leaks the per-row path string.
 			- Fixed: released.
+			- Test case: none, leak only.
 
 		- ✅ Item 87. A file-changed emission uses a stale iterator after bumping the model stamp.
 			- Fixed: the position is taken again after the model changes.
+			- Test case: none, a model stamp detail in inherited code.
 
 		- ✅ Item 88. Column-reorder leaks the column name array in search views.
 			- Fixed: the list owns its own copies and every one of them is released.
+			- Test case: none, leak only.
 
 		- ✅ Item 89. The unhandled-URI dialog leaks a file reference and tolerates null poorly.
 			- Fixed: released, and a file that is not in the cache is handled.
+			- Test case: none, leak only.
 
 		- ✅ Item 90. Launch dereferences the command line with no null check.
 			- Fixed: guarded, for a program with no command line of its own.
+			- Test case: none, null guard only.
 
 		- ✅ Item 91. Activation uses a weak parent-window pointer with no null guard for the screen and dialogs.
 			- Fixed: guarded, so activation survives the tab being closed under it.
+			- Test case: none, null guard only.
 
 		- ✅ Item 92. The pathbar leaks file objects on rename and at finalize.
 			- Fixed: released on rename and at teardown.
+			- Test case: none, leak only.
 
 		- ✅ Item 93. An unstored post-drop timeout can fire on a destroyed sidebar.
 			- Fixed: the timeout is kept and canceled when the sidebar goes.
+			- Test case: none, a timeout on a sidebar being destroyed.
 
 		- ✅ Item 94. Aggregate progress percentage uses a wrong recurrence for three or more concurrent operations.
 			- Fixed: a plain average, so three or more operations report correctly.
+			- Test case: `test-nemo-job-queue`.
 
 		- ✅ Item 95. The properties window leaks a pending key when one is already pending for the same files.
 			- Fixed: released.
+			- Test case: none, leak only.
 
 		- ✅ Item 96. The mount-content callback leaks its mount, cancellable and data when content detection is off.
 			- Fixed: released when nothing takes them on.
+			- Test case: none, leak only.
 
 		- ✅ Item 97. The copy test has no assertions and can pass before the async work appears.
 			- Fixed: it builds its own files, copies them, and checks the result.
+			- Test case: `test-nemo-copy`.
 
 		- ✅ Item 98. The editable-label test is not wired into any build, so it never runs.
 			- Removed: it was an interactive demo with no build wiring behind it.
+			- Test case: none, removed test.
 
 		- ✅ Item 99. The config test never makes warnings fatal, so its negative checks cannot fail.
 			- Fixed: an unexpected complaint now fails the run.
+			- Test case: `test-nemo-config`.
 
 		- ✅ Item 100. The favorites test never removes its temp directories.
 			- Fixed: the temp tree is removed.
+			- Test case: `test-nemo-favorites`.
 
 		- ✅ Item 102. The row-under-pointer helper leaks a tree path on every call (per drag-motion).
 			- Fixed: released.
+			- Test case: none, leak only.
 
 		- ✅ Item 103. The extension simple-button leaks a surface and can use an uninitialized size.
 			- Fixed: released, and the size is seeded so an unknown icon size cannot be read before it is set.
+			- Test case: none, extension API with no caller in the tree.
 
 		- ✅ Item 104. Every settings save leaks a full copy of the file into the parser arena.
 			- Fixed: the settings document is rebuilt from its own canonical form when it has handed out enough, so the memory comes back.
+			- Test case: none, memory use only.
 
 		- ✅ Item 105. A move leaks the source's parent object on every non-desktop move.
 			- Fixed: released.
+			- Test case: none, leak only.
 
 		- ✅ Item 107. Thumbnail creation falls back to a synchronous stat on the main thread.
 			- Fixed: the fallback lookup happens on the worker instead of the main loop.
+			- Test case: none, which thread does the lookup is not checked.
 
 		- ✅ Item 108. Every mouse-motion event rewrites the whole sidebar tree store.
 			- Fixed: only rows that actually change are touched.
+			- Test case: none, speed only.
 
 - ✅ Code review 20260804.
 	- Opened: 20260804-230307
@@ -1465,15 +1732,18 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- Cause: the settings layer stored the choice by number, but the dialog only ever supplied the name, leaving the number at zero. Whatever was picked, the first option was saved.
 		- Note: worst case was "Executable text files", where the first option is "run it" - so any visit to that setting quietly armed scripts to run on double click.
 		- Fixed: choices are now saved by name. Regression test added, and confirmed to fail before the fix.
+		- Test case: `test-nemo-config` (`test_enum_bind_by_nick`).
 
 	- ✅ Item 2. The settings file grew a duplicate comment line on every write.
 		- Cause: setting a comment appends a line rather than replacing one, and the comment was re-applied on every save.
 		- Note: the window size is saved shortly after every move or resize, so a session of dragging the window added dozens of identical lines, and they survived restarts.
 		- Fixed: the comment is written only when a setting first appears in the file.
+		- Test case: `test-nemo-config` (`test_comment_written_once`).
 
 	- ✅ Item 3. Hand-editing a setting that was already in the file did nothing until restart.
 		- Cause: the live-reload comparison could only see a setting appear or disappear, never change, so nothing was announced to the app.
 		- Fixed: the comparison now reads the values themselves.
+		- Test case: `test-nemo-config` (`test_external_edit`).
 
 	- ✅ Item 4. "Make Link" on Windows can destroy an existing file, and can crash.
 		- Cause: the shortcut is saved over whatever is already there instead of reporting the clash, so the usual "another link to..." renaming never happens.
@@ -1482,11 +1752,13 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- Fixed: a link dropped somewhere with no real folder behind it now says so instead of failing silently into a crash.
 		- Verified: a file sitting at the name a new shortcut would take survives, and the clash is reported.
 		- Note: the shortcut test was failing two checks before any of this, on a correct product - it compared a short-form temporary path against the long form the system reports. Fixed alongside.
+		- Test case: `test-nemo-shortcut-win32` for the shortcut round trip, Windows only; the clash refusal is not checked.
 
 	- ✅ Item 5. Repairing the thumbnail cache as an administrator can change ownership of unrelated files.
 		- Cause: the repair walks symbolic links instead of skipping them, and changes ownership of whatever they point at.
 		- Note: the app itself suggests running this with administrator rights, so an unprivileged process could aim it at system files.
 		- Fixed: the repair acts on the link itself instead of following it, so a link planted in the cache can no longer hand away the file it points at.
+		- Test case: none, the repair runs as root.
 
 	- ✅ Item 6. Favorites can hang the app or read freed memory.
 		- Cause: listing favorites can stop advancing and spin on one entry forever, leaking as it goes.
@@ -1501,6 +1773,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- Fixed: the inside-that-one test compares the right way round and stops at the end of the text.
 		- Verified: the listing always finishes, concurrent reads are safe, and a missing target is skipped rather than ending the listing.
 		- Note: settings written by older versions keep working - only the write order changed, and both are read.
+		- Test case: `test-nemo-favorites`.
 
 	- ✅ Item 7. Favorites and thumbnails keep working after the object they belong to is gone.
 		- Cause: both release a shared settings object they never owned.
@@ -1509,6 +1782,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- Fixed: teardown now cancels the queued callback and disconnects the change handlers before anything else goes.
 		- Fixed: the favorites file also stopped taking a hold on the settings it never gave back, and three error paths no longer walk away still holding a lock.
 		- Verified: the shared settings object outlives both, and a change after teardown reaches nothing.
+		- Test case: `test-nemo-favorites` (`test_borrowed_settings_group`, `test_no_callbacks_after_dispose`).
 
 	- ✅ Item 8. A stuck thumbnail helper is never given up on.
 		- Cause: there is no time limit on an external thumbnail program, so one hung file permanently costs a worker slot until restart.
@@ -1518,6 +1792,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- Fixed: the reload walk stops at the entry it removed instead of stepping off it.
 		- Fixed: a thumbnail is never asked for at zero pixels wide or tall, so a 5000x1 image thumbnails instead of failing.
 		- Verified: a hung helper gives up its slot inside the time limit, and a very thin image thumbnails. The freed-entry read is invisible at runtime, so it rests on reading the code.
+		- Test case: `test-nemo-thumbnail`.
 
 	- ✅ Item 9. Emptying the Windows trash fails whenever it holds a folder.
 		- Cause: trashed folders are reported as folders but refuse to list their contents, and the delete path needs to list them.
@@ -1527,6 +1802,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- Fixed: with that, a trashed folder can be opened and browsed rather than showing an error page. Its contents carry no original location or deletion date of their own, which is correct - only the folder was trashed.
 		- Verified on Windows against a real recycled folder. The old failures were "not a directory" on the listing and "directory not empty" on the delete.
 		- Note: a link or junction inside a trashed folder is deleted as the link it is, never followed out of the bin.
+		- Test case: `test-nemo-trash-win32`, Windows only.
 
 	- ✅ Item 10. Windows trash items can go missing, and restore can aim at the wrong place.
 		- Cause: items the shell describes in a form the code does not expect are skipped silently, while the item count still includes them.
@@ -1534,11 +1810,13 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- Note: only reproducible on real Windows. Belongs with the real-Windows validation pass.
 		- Fixed: an item the shell describes in an unexpected form is now reported rather than silently dropped, and the original location is read at full length so a restore aims at the right place.
 		- Note: written and cross-built here, exercised only under wine. Belongs to the real-Windows validation pass.
+		- Test case: `test-nemo-trash-win32`, Windows only; an item in an unexpected form is not forced.
 
 	- ✅ Item 11. The Windows trash monitor can freeze the app.
 		- Cause: it announces changes while still holding its own lock, so a listener that closes or opens a trash view deadlocks.
 		- Fixed: the announcement is made after the lock is released, so a listener that opens or closes a trash view cannot deadlock it.
 		- Note: written and cross-built here, exercised only under wine. Belongs to the real-Windows validation pass.
+		- Test case: none, needs a listener that opens a trash view mid-change.
 
 	- ✅ Item 12. Windows network browsing builds wrong addresses and cannot report a failure.
 		- Cause: a share's address is joined to its server without a separator, so shares get malformed addresses and two servers can collide.
@@ -1549,12 +1827,14 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- Verified on Windows: new test covers the address building - a share now sits under its server, and two server/share pairs that used to run together into one address stay apart.
 		- Also verified against real shares: this box serves four of its own, and the test now browses them for real - each comes back as a link to its UNC path, and each is opened to prove the link goes somewhere. The one that does not open is an empty optical drive, which the test names rather than counting against the backend.
 		- Still open: the no-network and access-denied halves. Both need a machine that fails in those specific ways, which this one does not.
+		- Test case: `test-nemo-network-win32`, Windows only.
 
 	- ✅ Item 13. Windows context-menu actions break on ordinary paths.
 		- Cause: "Open as Administrator" passes the folder unquoted, so anything with a space arrives as two separate locations.
 		- Cause: "Open in Terminal" at a drive root passes a trailing backslash that swallows the closing quote.
 		- Fixed: both paths quote properly, so a folder with spaces and a drive root each work.
 		- Verified on Windows: drive roots, UNC roots, spaces and embedded quotes all come out right. The two hand-offs themselves are not covered - one raises a UAC prompt and the other opens a console.
+		- Test case: `test-nemo-view-win32`, Windows only.
 
 	- ✅ Item 14. Opening a Windows shortcut can truncate its target or hang the app.
 		- Cause: targets past the old length limit are silently cut short and then opened, wrongly.
@@ -1562,47 +1842,57 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- Fixed: the target is read at full length, a chain of shortcuts is followed to its end with a loop guard, and a failed read leaves an error behind.
 		- Verified on Windows: new test creates and reads back a shortcut, including one aimed past the old length limit.
 		- Also found and fixed while checking it: Windows itself refuses to store a target that long, and we were not looking at the answer - so "Make Link" wrote a shortcut pointing at nothing and called it a success. It now refuses and says why, and leaves no file behind.
+		- Test case: `test-nemo-shortcut-win32`, Windows only.
 
 	- ✅ Item 15. A duplicated line in the settings file empties a list instead of falling back.
 		- Cause: an unreadable list is treated as a deliberately empty one. Only lists behave this way; single values fall back correctly.
 		- Note: a duplicated column list opens the list view with no columns at all. Hand-editing is a supported way to use this file, so this is easy to hit.
 		- Fixed: a setting listed twice, or holding the wrong kind of value, falls back to its default and says so instead of coming back empty.
+		- Test case: `test-nemo-config` (`test_duplicate_key_falls_back`).
 
 	- ✅ Item 16. An external edit arriving mid-change throws the change away.
 		- Cause: settings are written a couple of seconds after they are changed, and a file reload in that window replaces the pending change with no warning.
 		- Fixed: a change made in the app inside the save delay is carried across the reload instead of being replaced by what is still on disk.
+		- Test case: `test-nemo-config` (`test_pending_change_survives_reload`).
 
 	- ✅ Item 17. Settings changes can be announced from a background thread.
 		- Cause: deleting files updates favorites from a worker thread, and the change is announced on that same thread.
 		- Note: the previous settings system always announced on the main thread, which is what every listener assumes. Nothing fires today, so this is a trap for the next listener added.
 		- Fixed: change notifications are always delivered on the main thread, which is what every handler assumes.
+		- Test case: `test-nemo-config` (`test_changed_on_main_thread`).
 
 	- ✅ Item 18. A damaged per-folder settings file is discarded without a word, then overwritten.
 		- Cause: a parse failure leaves an empty store, and the next change writes that empty store over the file.
 		- Note: costs every folder's saved view, zoom, sort and layout. A failed save is likewise ignored.
 		- Fixed: an unreadable per-folder settings file is reported and kept aside, so the next change cannot overwrite the only copy.
+		- Test case: `test-nemo-metadata-store` (`test_damaged_file_set_aside`).
 
 	- ✅ Item 19. Setting the thumbnail size limit above two gigabytes breaks thumbnails.
 		- Cause: the limit is stored in a smaller number than the dialog offers, so the large choices wrap. Eight gigabytes turns every thumbnail off; two and four turn the limit off entirely.
 		- Fixed: the size limit is read at full width, so the large choices work instead of turning thumbnails off or on wholesale.
+		- Test case: `test-nemo-thumbnail-hold` (`test_size_limit`).
 
 	- ✅ Item 20. Opening a folder on an unresponsive drive freezes the whole window.
 		- Cause: the fallback added for unreadable folders asks for the listing in a way that blocks until the system gives up.
 		- Cause: it also treats any general failure as that same case, so a passing glitch is remembered as a made-up folder with no way to tell.
 		- Cause: a folder with many unreadable entries stops partway and shows an error over a half-listed folder.
 		- Fixed: the fallback for an unreadable folder no longer blocks the window, the skip allowance counts a run rather than a total, and a folder that could not be read is recorded as unknown rather than confirmed empty.
+		- Test case: `test-nemo-directory-load-clean` for a clean load; the fallback for a drive that does not answer is not checked.
 
 	- ✅ Item 21. Right-clicking a path segment can offer actions the folder will not allow.
 		- Cause: the menu is now built before the folder's details have loaded, and the unknown state reads as "everything is permitted", so Delete and New Folder appear on read-only places.
 		- Fixed: a path segment whose details have not loaded no longer offers actions the folder may not allow.
+		- Test case: none, needs a full window.
 
 	- ✅ Item 22. Changing the default zoom discards a zoom deliberately set in another tab.
 		- Cause: every open view reacts, not just the visible one, so background tabs lose their own setting.
 		- Fixed: only the folder in front of you gives up its pinned zoom when the default changes.
+		- Test case: none, needs several tabs in a full window.
 
 	- ✅ Item 23. The "treat root as a normal user" preference is read before settings are open.
 		- Cause: it is consulted while handling the command line, which happens first, so it is answered wrongly and then remembered.
 		- Fixed: the preference is no longer answered and remembered before settings are open.
+		- Test case: none, startup order of the full program.
 
 	- ✅ Item 24. Folder listing and file moves do more per-file work than they used to.
 		- Cause: every file now builds an address and takes a shared lock to check the per-folder store, where before there was a cheap early exit.
@@ -1610,20 +1900,24 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- Cause: on Windows the per-type icon is rebuilt for every file on every update, not just when the type changes.
 		- Cause: the store is rewritten whole on every save and never pruned.
 		- Fixed: an empty store costs nothing per file, a move only scans when there is something to re-key, and the Windows per-type icon is derived once per type instead of once per file.
+		- Test case: none, speed only.
 
 	- ✅ Item 25. Reading a setting costs more than it should, and text settings grow memory.
 		- Cause: every read searches the whole settings table from the start.
 		- Cause: reads of text, list and choice settings allocate inside the settings document and never give it back, and one of them runs on every icon the mouse passes over.
 		- Fixed: settings are looked up directly rather than searched from the start, and the memory the settings document hands out is reclaimed instead of growing for the life of the run.
+		- Test case: none, speed and memory only.
 
 	- ✅ Item 26. The Windows recycle bin is rescanned far more than needed.
 		- Cause: a full scan runs every few seconds for the life of the app, twice more on every look at the trash folder, and once more for every item not already known.
 		- Fixed: a look at the trash folder scans once instead of twice, and the periodic check notices a change that leaves the count the same.
+		- Test case: none, speed only.
 
 	- ✅ Item 27. The release checksums file can be written wrong.
 		- Cause: an empty release folder still writes a bogus line, and any artifact name with a space would be split in two.
 		- Note: this is the file both installers verify a download against.
 		- Fixed: null-separated, and it no longer runs the checksum tool at all when there is nothing to check.
+		- Test case: none, release script.
 
 	- ✅ Item 28. Assorted unsafe or non-portable paths in the pipeline and installer scripts.
 		- Fixed: the Windows installer no longer moves the new copy into place in a way that fails across drives after the old one is already gone.
@@ -1638,6 +1932,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- Fixed: the packaged launcher finds whichever library folder the build produced.
 		- Fixed: the publish helper splits the setting instead of running it.
 		- Fixed: both delete-and-replace paths check what they are pointing at first.
+		- Test case: none, pipeline and installer scripts.
 
 	- ✅ Item 29. Script style and speed debt.
 		- Fixed: the backup rotation, the dogfood pruning and the argument parsing all use builtins where they used to start a program per item.
@@ -1645,11 +1940,13 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- Fixed: the output helpers now live in one file that the helper scripts share, instead of each carrying its own lesser copy.
 		- Fixed: the Windows installer gained proper built-in help, so `Get-Help` and `-?` work.
 		- Note: the review said three scripts had diverged output helpers; only one actually had. The others define a single matching helper, which is fine.
+		- Test case: none, script cleanup.
 
 	- ✅ Item 30. A Windows-only test reports a pass when it did not run.
 		- Cause: the trash test exits successfully unless it detects the compatibility layer used for development, so on real Windows it silently skips.
 		- Note: that is exactly where items 9 and 10 would have been caught.
 		- Fixed: it reports a skip instead of a pass when it cannot run.
+		- Test case: none, the fix is to `test-nemo-trash-win32` itself.
 
 - ✅ Setting list view to 66% doesn't affect current list view. It should.
 	- Opened: 20260724-135703
@@ -1657,6 +1954,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Also, setting default view to List mode, should affect current view immediately as well.
 	- Cause: a folder stored its own view and zoom the first time it was opened, even when that just matched the default, so it was pinned to whatever the default was that day and later changes to the default never reached it. Nothing was watching the default view setting at all.
 	- Fixed: a setting that only matches the default is no longer stored, so folders keep following it. Changing a default now also applies to the folders already on screen, and folders you deliberately set to their own view or zoom keep it.
+	- Test case: `test-nemo-folder-settings`, `test-nemo-config` (`test_default_not_stored`), and `fCheckDefaultsFollowed` in the C lint.
 
 - ✅ Settings don't seem to be persisting.
 	- Opened: 20260724-091054
@@ -1664,6 +1962,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Verified: settings do persist, on both Linux and Windows. Checked the menus, the Settings dialog, per-folder view state, and window size, each set in one run and read back in the next.
 	- Cause: the Settings dialog was crashing the whole app at the time this was filed, so nothing set in that session was kept. That crash is fixed.
 	- Fixed as well: window size and position were only written when a window was closed cleanly, so a crash - or the wine launcher replacing the running copy - threw them away. They are now saved shortly after a move or resize settles.
+	- Test case: `test-nemo-config` (`test_persistence`) and `fCheckGeometrySave` in the C lint.
 
 - ✅ Windows via Wine: error message at startup. 'The folder contents could not be displayed.', 'Sorry, could not display all the contents of "<username>": Input/output error.' Mouse cursor also stuck at "busy spinner".
 	- Opened: n/a
@@ -1671,11 +1970,13 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Reproduced: opening a home folder containing a unix symlink.
 	- Cause: one unreadable child failed the whole folder listing. The aborted load also left the busy cursor on.
 	- Fixed: the unreadable child is skipped and the rest of the folder lists. The load completes and the cursor clears.
+	- Test case: none, only reachable under wine with a unix symlink in the folder.
 
 - ✅ Windows via Wine: cursor seems stuck on the "busy" mouse icon.
 	- Opened: n/a
 	- Closed: 20260725-153058
 	- Cause: same as the startup error above. The folder load never finished, so the busy cursor never cleared.
+	- Test case: none, same cause as the item above, only reachable under wine.
 
 - ✅ Icons don't match OG nemo.
 	- Opened: 20260724-091054
@@ -1683,12 +1984,14 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Cause: two gaps. Windows reports one generic icon for every file type, and the Windows dependency snapshot was missing its image-loader cache, so no symbolic (SVG) icons rendered.
 	- Fixed: per-type icons now derived from the file type on Windows. The loader cache is generated when the snapshot is built.
 	- Note: the app's own bundled PNG icons didn't resolve on Windows either. That was a separate item, since done.
+	- Test case: `test-nemo-file-win32-churn` (Windows only), and the loaders.cache check in `cicd/win/stage-native.bash` and `cicd/win/pack-zip.bash`.
 
 - ✅ Windows: dot-name folders don't say "Folder". Regular folders say "Program", not "Folder".
 	- Opened: 20260724-135703
 	- Closed: 20260725-153058
 	- Cause: folder type was guessed from the name whenever size read as zero, which every Windows folder does.
 	- Fixed: folders always report the folder type, never guessed.
+	- Test case: `test-nemo-file-win32-churn`, Windows only.
 
 - ✅ Portable fallbacks for the remaining Mint-flavored theme icon names.
 	- Opened: 20260719-190803
@@ -1696,6 +1999,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Cause: menus and toolbars referenced icon names only Mint themes ship. Pre-existing gap on non-Mint, cosmetic only.
 	- Fixed: all names mapped to standard freedesktop names (mostly a straight prefix strip; the non-standard ones got closest equivalents).
 	- Verified: every mapped name present in both the Linux and Windows icon themes.
+	- Test case: none, no check yet that each icon name exists in the icon themes.
 
 #### Done - Features and enhancements
 
@@ -1705,6 +2009,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- Done: the path row sits 12 pixels below the link type rows, which are 6 apart. That is the GNOME spacing between groups and within one.
 	- ✅ Shortcut flyover text: "On Windows, it's limited to programs that use the Windows shell library, such as Explorer.": -> "...such as Explorer (and Nemo Anywhere)."
 	- Closed: 20260926-095500
+	- Test case: none, spacing and wording only.
 
 - ✅ Link copy dialog:
 	- Opened: 20260925-163000
@@ -1715,11 +2020,13 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- Made true: links inside a followed folder are now kept as links where the destination allows. Before, they took the row's answer, and could be followed again.
 	- ✅ Tests for every combination of link copy choices.
 	- Closed: 20260925-175728
+	- Test case: `test-nemo-link-copy`, `test-nemo-link-copy-job`.
 
 - ✅ Tests for every combination of Make link choices.
 	- Opened: 20260925-163000
 	- Closed: 20260925-175728
 	- Done: every folder and file kind, both paths, every set of shortcut paths, for a file, a folder or both, made beside the originals and elsewhere.
+	- Test case: `test-nemo-make-link-job` in its `every` mode.
 
 - ✅ Tests for archive creation combinations, including delete after archive.
 	- Opened: 20260925-163000
@@ -1730,6 +2037,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- 7z and rar followed linked folders with that box off.
 		- rar's copy of a duplicate file failed the check before delete, so the originals were never removed.
 		- Compressing each item separately failed the whole job when one item was a linked folder that was not followed.
+	- Test case: `test-nemo-archive-combos`, for each format whose program is installed.
 
 - ✅ New menu item: "Edit link" (for all link types).
 	- Opened: n/a
@@ -1740,6 +2048,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Done: symlinks and junctions get a name and a target field; shortcuts get name, absolute, relative and portable path. An empty path is dropped. The shortcut's arguments, Start in and icon are kept.
 	- Note: hardlinks are left out. They have no target to change.
 	- Note: a changed shortcut loses its item ID list, so Explorer follows it through the portable path. Not yet tried on real Windows.
+	- Test case: `test-nemo-link-edit`, `test-nemo-lnk` (`test_set_paths`, POSIX only).
 
 - ✅ When copying symlinks, make it clear that the option "Symlink" is not creating a new one, but copying the existing link, or link's contents. E.g.
 	- Opened: n/a
@@ -1753,6 +2062,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- And so on for the other link types.
 	- Closed: 20260925-152642
 	- Done: "Copy link as-is", "Copy contents", "Copy as a junction" and "Copy as a symlink", and "Move" in place of "Copy" on a move. The note is gone; the move note stays, since it says why "Copy contents" is grayed.
+	- Test case: `test-nemo-link-copy`.
 
 - ✅ Pipeline pass, 20260925.
 	- Opened: 20260925-122815
@@ -1767,6 +2077,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Done: the demo video fades in and out, and the gif ends on three seconds of black so its loop point is plain. The demo's scenes are written out in plain words in `cicd/utility/demo-video/script.txt`.
 	- Decided against: a build number in the Windows version resource. Its fields are small numbers, and the build number is text.
 	- Decided against: renaming the dogfood launcher. `runfm` and `n8runfm.ps1` stay, since the desktop's file manager entry and habits use them.
+	- Test case: none, pipeline setup; the copyright line is in `test-nemo-cli-version` and the raw reader fuzz target runs in `cicd/linux/fuzz.bash`.
 
 - ✅ Move to SHCL 3.
 	- Opened: n/a
@@ -1775,6 +2086,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Keep: a comment is still only added when new, and raw reads still need a fence. SHCL 3 did not change either.
 	- Note: no settings are carried over from the old format while in beta. The file is simply started fresh.
 	- Done 20260925-113403: the settings file now ends with SHCL's info block, so a later release can tell which format wrote it before converting.
+	- Test case: `test-nemo-config` (`test_backslash_paths_round_trip`, `test_many_reloads`, `test_oversized_file_refused`), `test-nemo-config-catalog` (`test_older_banner_replaced`, `test_line_after_banner`).
 
 - ✅ Mouse cursor color change over the row underneath the cursor, needs to be a different color than "different shade of gray". Ideally something theme-based (per-OS), but adjusted to be more subtle if it's not. And not conflicting or confusable with actual current selected row color. And not confusable with alternating row colors. Whether using light or dark mode. And the most subtle-but-visible color difference of all the current row color differences. Possibly even a subtle text-only effect similar to SilkTerm's "scrim"?
 	- Opened: 20260919-125440. Closed: 20260924-195639.
@@ -1782,10 +2094,12 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Near white there is little room for color, so on a white row the tint is also a little darker. It still reads as pale blue.
 	- `row-hover-color` in the settings file overrides it.
 	- Not done: the text-only effect. It can be its own item if the tint is not enough.
+	- Test case: `test-nemo-row-hover` (`test_bundled_themes`, `test_gray_selection`, `test_tree_view`).
 
 - ✅ Dialogs should not have titles in the dialogs themselves. The titles belong on the window decoration.
 	- Opened: 20260924-184213. Closed: 20260924-193625.
 	- Note: every dialog with a heading of its own now has its title in the title bar. What is left are alerts, which by long habit have an empty title bar and a bold first line, usually a question such as "Replace file?". Those stay as they are: only title-style headings move.
+	- Test case: none, a layout convention with no code change of its own to pin.
 
 - ✅ Regenerate the animated gif:
 	- Use the updated URL at the end.
@@ -1794,16 +2108,19 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Opened: 20260924-184213. Closed: 20260924-191200.
 	- Done: the ending shows github.com/yottacore/nemo-anywhere. A folder that is mostly pictures opens at one and a half times instead of five, so all nine photos fit. The photos are public domain or CC0, from Wikimedia Commons.
 	- Note: the product default for such folders is still five times. That may be worth its own look.
+	- Test case: none, demo asset; `cicd/utility/lint-demo-script.py` checks its settings.
 
 - ✅ Valid shortcuts to folders sort with folders.
 	- Opened: 20260924-184213. Closed: 20260924-185919.
 	- Done: a shortcut sorts with the folders when it records a folder as its target, which is also what gives it the folder icon. Every platform.
 	- Note: "valid" is taken as a shortcut that reads and says folder. The target itself is not checked, since that can stall on a share that is not answering, so a shortcut whose folder is gone still sorts as a folder until opened.
 	- Verified: a test sorts a folder shortcut ahead of the files and a file shortcut among them.
+	- Test case: `test-nemo-lnk-sort`, POSIX only.
 
 - ✅ New tab: CTRL+Shift+T should work too.
 	- Opened: 20260924-184213. Closed: 20260924-185428.
 	- Done: with no folder selected it opens a new tab. With folders selected it opens them in new tabs, as it did before. A selected file used to open in its program; now it gets a new tab.
+	- Test case: `cicd/utility/lint-accels.py` (one action per key, NewTabAccel owns Ctrl+Shift+T).
 
 - ✅ Update to "Make a link" dialog:
 	- Move the title from the dialog, to the Window decoration.
@@ -1814,6 +2131,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Opened: 20260924-184213. Closed: 20260924-185000.
 	- Done: the first four in the linkdlg chunk, and Absolute now comes before Relative.
 	- Note: the "goes in" line comes back for a drop, which can be onto another folder.
+	- Test case: `test-nemo-link-copy` (`check_link_options`, `check_labels`); the row that keeps its space is look only.
 
 - ✅ Link names:
 	- If links are created next to their originals:
@@ -1824,11 +2142,13 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Done: the kind goes before the extension, "photo - symlink.jpg", so the link still opens as its type. A shortcut follows Explorer, "photo.jpg - shortcut.lnk". A junction is "folder - junction".
 	- Done: a link made in another folder keeps the original's name, with " 2" and on for a clash. It used to be "Link to ...".
 	- Verified: a test makes each kind beside its original, twice for the clash.
+	- Test case: `test-nemo-make-link-job` (`check_names`, `check_every`).
 
 - ✅ Dragging one or more files and dropping with "Alt" held, and user selects "Make link" - should open the new links dialog, rather than "Cancel/OK".
 	- Opened: 20260924-184213. Closed: 20260924-185000.
 	- Done: every link drop opens the Make link dialog, from the Alt menu ("Link here...") or with the link keys held, in any view or sidebar. The drop question leaves links out, since the dialog asks.
 	- Verified: both kinds of drop open the dialog, and the link is made in the drop folder.
+	- Test case: `test-nemo-drop-cancel` (`check_link`), `test-nemo-drag-confirm`.
 
 - ✅ Debug delete/move/etc:
 	- Opened: 20260924-170000
@@ -1837,6 +2157,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- Done: a checkbox at the end of Trash on the Behavior page. It is grayed out in a build with the guard forced on.
 	- ✅ Add brief text to the dialogs, explaining why it's there: Because we have a rule to use it for all pre-releases, but is not necessary for this release candidate, and can be disabled in settings.
 		- Done: the note sits under the headline in every guard dialog, and says where the checkbox is.
+	- Test case: `test-nemo-delete-testguard`, `test-nemo-prefs-widgets` for the checkbox; the note text is wording only.
 
 - ✅ Windows `.lnk` file support on macOS and Linux
 	- Opened: 20260924-104933
@@ -1896,6 +2217,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- Changed: the "Shortcut paths" row is gone. A shortcut always gets all three paths.
 		- Changed: the title is in the window's title bar, and the line saying where the links go is gone, since it is always the folder in view.
 		- Changed: the "Symlink path" row is hidden when no symlink comes out, but keeps its space so the dialog does not change size.
+	- Test case: `test-nemo-lnk` (parse, resolve, `test_follow`, `test_write`, `test_portable`, `test_icon`), `test-nemo-make-link-job`, `test-nemo-link-edit`, `test-nemo-link-copy`.
 
 - ✅ Allow moving tabs to other nemo-anywhere windows.
 	- Opened: 20260922. Closed: 20260924-095019.
@@ -1905,6 +2227,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Note: a drop needs to know which window is under the pointer, and Wayland does not say, so there a dropped tab always gets a new window. The menu works everywhere. A search tab cannot be moved, since the search only exists in its own window.
 	- Note: not tried on real Windows yet.
 	- Swept: a tab dragged out to a new window used to lose its view and selection, and keeps them now. With the one-process setting on, a drop on another window's tab bar still moves the tab itself, history and all.
+	- Test case: `test-nemo-tab-move`, `test-nemo-window-at-point`, `test-nemo-new-process`, `fCheckBusMethods` in the C lint.
 
 - ✅ Copying a tiny file makes a CoW clone of it, where a plain copy would do better.
 	- Opened: 20260923-114627. Closed: 20260924-100500.
@@ -1914,6 +2237,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Done: the limit is `performance.clone-min-kib` in the settings file, 0 to always clone and 1024 at most. Other platforms have nothing to skip, since only Linux clones on copy there.
 	- Note: an overwrite, a link copied as a link, or anything the plain copy cannot start goes the usual way, so conflicts and errors read the same as before.
 	- Swept: copy and paste, drag and drop, and new files made from a template all take the plain copy. A hard link inside an archive is still copied the usual way on extract, where a clone is the closer match. Bookmarks and favorites copy their own small files and were left alone.
+	- Test case: `test-nemo-small-copy` (`check_not_cloned`, `check_modes_and_links`).
 
 - ✅ Put the drag-move scene back in the demo once the delete test guard's compile-time arm is at 0.
 	- Opened: 20260919-161500. Closed: 20260924-083500.
@@ -1921,6 +2245,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- The demo lint fails if a drag goes back in while the guard is still at 1, so this cannot be forgotten.
 	- Note: unblocked 20260923. The compile-time arm is 0, and the demo turns the setting off. The lint now fails if a drag goes back in while any of the define, the demo's settings or the default would arm it.
 	- Done: the new archive from the Compress scene is dragged onto Invoices, the question asks, and Invoices is opened to show it there. Other scenes were trimmed to keep the gif under a minute; it is 58.9 seconds.
+	- Test case: none, demo content; `cicd/utility/lint-demo-script.py` fails if a drag goes back in while the guard would arm.
 
 - ✅ RE Delete/move test guard:
 	- ✅ Originally opened 20260917-125536:
@@ -1949,6 +2274,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 				- But the buttons get dedicated space at the bottom that can't be scrolled, nor pushed below the screen real-estate.
 		- Fixed: the paths and call stack sit in a scroll box, and the buttons have their own row under it. The dialog is only as big as its text, up to the caps above, and takes width before height. The headline wraps but keeps about 30 characters.
 		- Verified: capped at 480 by 540 on a 1920 by 1080 screen and 540 by 480 on the same screen turned portrait. On 1024 by 768 it goes a little past a quarter of the width to keep the headline readable.
+	- Test case: `test-nemo-delete-testguard` (default, variable and setting, `check_caps`), `test-nemo-drag-confirm` (`check_armed`).
 
 - ✅ For macOS, many actions that require CTRL+[something] in Linux or Windows, would more naturally be Command+[something] in macOS. (E.g. keyboard mod behavior in Finder.) Account for these combo key differences. But don't go overboard, e.g. don't require "Cmd+down arrow" to enter a folder. Keep the current keyboard behavior, just remap the sensible things from Ctrl to Cmd on macOS where it makes sense.
 	- Opened: 20260919-125440. Closed: 20260922.
@@ -1957,6 +2283,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- A few stay on Control on macOS, where Cmd already means something: showing hidden files (Cmd+H hides the app), make symlink (Cmd+M minimizes), the shortcuts window (Cmd+F1) and tab switching. Keyboard moves that keep the selection stay on Control too, as GTK's own lists do.
 	- Nothing changes on Linux or Windows. Unverified on a Mac until there is one to try it on.
 	- Not done: Ctrl+click for the context menu, the macOS habit. Its own item if wanted once a Mac build exists.
+	- Test case: `test-eel-primary-mask`, `cicd/utility/lint-accels.py` (Control only on the allow-list); unverified on a Mac.
 
 - ✅ Additional thumbnailer formats:
 	- Opened: 20260922-090733
@@ -1965,6 +2292,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Closed: 20260922.
 	- Raw files: a small reader of our own draws the JPEG preview each camera stores in the file, so nothing new is linked. DNG, CR2, CR3, NEF, ARW, RAF, RW2, ORF, PEF, SRW and most other TIFF based raws.
 	- jp2 and more: handed to ImageMagick when it is installed, one file per run in the background. That also covers HEIC, AVIF, EXR, DDS, TGA, FITS and the older raw containers, and any format on the list that a later ImageMagick learns. Nothing new is linked.
+	- Test case: `test-nemo-raw`, `test-nemo-magick`, and the raw fuzz target in `cicd/linux/fuzz.bash`.
 
 - ✅ Folder properties dialog:
 	- "Contents" and "Size" don't mean much. Better:
@@ -1981,6 +2309,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Largest first was left out. The size of each file comes with the listing, so the total is final the moment the listing is, and a second pass in size order would only make it later.
 	- With several items selected, a selected folder counts as one of the folders. A lone folder shows only what is inside it.
 	- The Help button is gone. It opened GNOME help pages, which this project does not have.
+	- Test case: `test-nemo-deep-counts`; the removed Help button and the layout are dialog only.
 
 - ✅ Change window title to path (with quotes if it has spaces), then "Nemo Anywhere". Formally:
 	`["][preceeding path/][folder]["] - Nemo Anywhere`
@@ -1988,21 +2317,25 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- The title now reads `Documents - Nemo Anywhere`, or `"My Documents" - Nemo Anywhere` with a space. With the full path shown it is the whole path in the same place, quoted if any part of it has a space.
 	- This reverses the order settled on 20260917 ("Nemo Anywhere - 'PATH'"). The folder first is the usual order for a window title, and a narrow taskbar button cuts from the end.
 	- The format test was updated to the new order rather than kept on the old one, and has new checks for the quotes.
+	- Test case: `test-nemo-window-title`.
 
 - ✅ New option in Preferences: "Always show at least one tab".
 	- Opened: 20260922. Closed: 20260922.
 	- The setting was already in the settings file. It now has a checkbox under Behavior, "Show the tab bar even with only one tab".
+	- Test case: `test-nemo-prefs-widgets` for the checkbox.
 
 - ✅ Anytime a new window is spawned from an existing window (e.g. Ctrl+N or dragging a second tab off the window to open it in a new one), it should be in its own process.
 	- Opened: 20260922. Closed: 20260922.
 	- Already the case since 20260905, with "Open each new window as its own process" on under Behavior, which is the default. Checked again for Ctrl+N and for a tab dragged off the window: each comes up as a new process.
 	- With the setting off, both stay in the one process, as before.
+	- Test case: `test-nemo-new-process`, `test-nemo-instances`; the choice made by the setting is not pinned.
 
 - ✅ Thumbnail scan progress bars:
 	- Currently wrong: The "displayed" bar goes to 100% quickly, based on what is currently shown, and changes upon scrolling.
 	- Fix to be correct: The displayed bar should use the total image count as the denominator, and should never be ahead of the "scanning" progress bar.
 	- Opened: 20260922. Closed: 20260922.
 	- The bottom bar counts every picture in the folder now, on screen or not, and never reads further along than the top one. In list view it follows the top bar.
+	- Test case: `test-nemo-thumbnail-jobs` (`test_rendered_never_ahead`).
 
 - ✅ Show two vertically stacked progress bars for thumbnail rendering, in the status bar:
 	- E.g.:
@@ -2012,6 +2345,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Opened: 20260922. Closed: 20260922.
 	- The top bar is how much of the current run of thumbnails is made. The bottom one is how many of the pictures on screen are drawn, in icon view. Hovering over either gives the counts.
 	- They come up only when a run lasts more than a moment, and go away shortly after it ends. The space stays reserved, so the status text does not jump sideways.
+	- Test case: `test-nemo-thumbnail-jobs` for the counts; when the bars show is look only.
 
 - ✅ Thumbnails:
 	- Opened: 20260921-172249
@@ -2022,16 +2356,19 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- ✅ For photo folders, render a whole folder from top-down (in order listed in the view), rather than on-demand.
 		- A folder of pictures on a local disk gets every thumbnail made once it loads, in view order, behind whatever is on screen. Ones not yet shown go into the cache without being held in memory.
 	- Created 20260921-170804 by JC. Closed: 20260921.
+	- Test case: `test-nemo-psd`, `test-nemo-thumbnail-hold`, `test-nemo-thumbnail-order`, `test-nemo-thumbnail-memory`.
 
 - ✅ Add a small "Close" button (alt+C) in the right side of an "always visible" bar at the bottom of the Preferences dialog. (Both Enter and Esc activates.) It should be independent of the scrollbar area.
 	- Opened: 20260921-172249
 	- Created 20260921-170804 by JC. Closed: 20260921.
 	- A bar under every page holds Close, outside the scrolling. Close is the default button, so Enter closes unless the focused control uses the key itself, and Escape closes too. On the Context menus page Alt+C also reaches the Copy box, so there it takes a second press.
+	- Test case: `test-nemo-prefs-dialog` (Close default, Escape), `test-nemo-prefs-widgets`.
 
 - ✅ The Compress dialog is taller than a 540px screen once Options is expanded, and its buttons fall off the bottom.
 	- Opened: 20260919-161500. Closed: 20260921.
 	- Found while writing the demo, at 960x540. The preferences dialog was checked down to 1024x600 and fits; this one was not.
 	- The options scroll when the screen is too short for them, so the buttons stay on screen. On a taller screen nothing changes.
+	- Test case: `test-nemo-archive-dialog`.
 
 - ✅ On Linux, the new nemo-anywhere icon is not shown for the desktop launcher. And the running program shows a generic "Folder" icon.
 	- Opened: 20260921-165228
@@ -2039,33 +2376,39 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- The app icons were still the old folder-and-submarine. The logo changed on 20260919 and the icons cut from it were never redone. They are now, the Windows exe icon too, and the lint fails if they drift from the logo again.
 	- Every window used to take the icon of the folder it showed, as upstream did. Windows now all show the program's icon.
 	- The dogfood menu entry picks up the new icon on the next dogfood run.
+	- Test case: `cicd/utility/gen-app-icon.py` check in the lint stage (skips without Pillow), `fCheckWindowIcon` in the C lint.
 
 - ✅ No step in CICD should consume more than 50% CPU.
 	- Opened: 20260921-165228
 	- Closed: 20260921.
 	- Job counts were already half the cores, but link-time optimization and rar run threads of their own past that. A full run now goes inside a user scope with a CPU quota of half the machine, and the three build containers carry the same cap.
 	- The Windows pipeline still only caps its job counts.
+	- Test case: none, pipeline setup.
 
 - ✅ New default "mostly images" icon size: 320.
 	- Opened: 20260921-165228
 	- Closed: 20260921.
 	- 500%, which is 320 pixels.
+	- Test case: none, a default value; the size math is in `test-nemo-icon-size`.
 
 - ✅ Remove Nemo authors from the actual Help|About|License button-expanded text. That text is only for the license title, link, and text.
 	- Opened: 20260921-153217
 	- Closed: 20260921.
 	- The contributors line is gone. The license text opens with the license and its link, and the upstream credit stays on the copyright line.
+	- Test case: none, wording only.
 
 - ✅ Include uptime for the current nemo-anywhere session, in the Help|About dialog.
 	- Opened: n/a. Closed: 20260921.
 	- The About box says "Running for 2 hours, 5 minutes." under the description. Every window is its own process by default, so this is how long that copy has been up.
 	- Days, hours and minutes, with any zero part left out. Under a minute reads "less than a minute".
+	- Test case: `test-nemo-uptime`.
 
 - ✅ Put archive extraction menu items nested into a "Extract ..." item.
 	- Opened: n/a. Closed: 20260921.
 	- The three extract items sit under one Extract submenu, in the right-click menu and the Edit menu. It shows only when every selected item is an archive, and the menu setting that hid the three items hides the submenu.
 	- Mount archive stays beside it rather than inside. It browses an archive, it does not unpack one.
 	- New test: every menu path a setting can hide has to be in the menu files. A wrong path used to fail with no sign.
+	- Test case: `test-nemo-menu-paths`.
 
 - ✅ Create a demo GIF at 50 fps (<60 seconds) and demo video (<3 minutes) at 60 fps. Use creation and script harness from project 'silkterm'.
 	- Opened: 20260804-230307. Closed: 20260919.
@@ -2076,6 +2419,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- It picks a free display rather than insisting on one number, after a sister project's recorder was found on the one this had claimed.
 	- `cicd.bash --demo` records it. Off by default and skipped on a quick run, since it takes about six minutes and only changes when the interface or the script does.
 	- Note: merged with an older item from 20260804 that asked for about twenty seconds. The lengths above win.
+	- Test case: none, demo production; `cicd/utility/lint-demo-script.py` checks its settings and what it shows.
 
 - ✅ Add a preference: Auto-switch to image thumbnail view for folders with mostly images.
 	- Opened: 20260921-131506
@@ -2085,6 +2429,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- The two limits are in the settings file: at least 2 images, and at least 50% of the files. Sub-folders are not counted.
 	- Going back to list view by hand in such a folder is saved on it and sticks. With per-folder settings off, the switch lasts for that visit, and the next folder opens in the window's own view.
 	- It only knows once the folder has loaded, so a folder can show in list view for a moment first.
+	- Test case: `test-nemo-image-folder` (`test_wants_icon_view`), `test-nemo-prefs-widgets`, `fCheckImageDefault` in the C lint.
 
 - ✅ SQLite icon cache issue reopened. More detail:
 	- Downsample the images in the database, to the largest size the user ever requested.
@@ -2154,6 +2499,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 			- Last process ID to complete it.
 			- Count of thumbnails removed.
 			- Process ID that currently wants to clean it.
+	- Test case: `test-nemo-cache-db`, `test-nemo-cache-prune`, `test-nemo-thumbnail-store`, `test-nemo-file-xattr` (`check_write_keeps_file_time`), `test-nemo-file-digest`.
 
 - ✅ Problem: Currently, thumbnails are made at 256px at the largest, so a big icon size shows one scaled up.
 	- Opened: 20260920-234500. Closed: 20260921.
@@ -2162,6 +2508,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Only worth anything alongside the bigger icon sizes, where a folder of images is meant to be shown at 320 or 640. Below that nothing is being lost.
 	- Touches the cache directory names, the size the factory is made with, and the test for whether a cached thumbnail is big enough to use.
 	- Note: This will be solved by the cache -> database feature.
+	- Test case: `test-nemo-thumbnail-store` (`check_size_step`).
 
 - ✅ Icon view:
 	- Opened: 20260919-083140. Closed: 20260920.
@@ -2181,6 +2528,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- Found while looking, and not part of this: the desktop range is five steps where everything else is seven, so clamping to the widest range puts the desktop outside its own table.
 	- ✅ The size slider is jammed too far to the right. Needs proper padding or margin.
 		- Done 20260920. It is the last thing packed into the status bar and had only the box's own 2px, so the trough ran into the window edge while the buttons at the other end sat clear of it. A 6px end margin evens the two up.
+	- Test case: `test-nemo-icon-size`, `test-nemo-folder-settings`, `test-nemo-image-folder`, `fCheckImageDefault`, `fCheckHeldIconSize` and `fCheckSliderMargin` in the C lint.
 
 - ✅ If "show full path in tabs and window" is enabled:
 	- Opened: 20260919-184409
@@ -2195,6 +2543,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- The tab in front is no longer held to the width cap, so it spells its path out whenever the row can spare it. The tabs behind stay capped and take the same step as each other, and they shorten until the one in front fits. It gives way only after they have nothing left.
 	- The order above wins over the one settled on 20260918, which put initials first. Folder names with an ellipsis in the middle now outrank them, so the initials form only turns up on a shallow path where an ellipsis would cost more than the folders it replaces.
 	- The window title had a flat 52-character cut. It measures the path against the window's own width now, less room for the icon and buttons, and works it out again on every resize. A title bar's real width cannot be read, so this is a guess, but it tells a path that obviously fits from one that does not.
+	- Test case: `test-nemo-path-forms` (`nemo_path_forms_fit`, `nemo_path_form_for_width`).
 
 - ✅ Archive:
 	- ✅ Remember previous settings except for "delete" and password, across sessions.
@@ -2205,17 +2554,20 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Done: with the delete box ticked and a password set, the password has to be typed a second time before anything starts. Getting it wrong says so and lets another go; canceling puts the Compress dialog back with everything still filled in.
 	- `nemo_archive_should_confirm_password` is the one place that decides, next to `nemo_archive_can_verify` which decides whether the delete box is offered at all. New `test-nemo-archive-settings` covers the decision, the defaults and a restart.
 	- Confirmed end to end: settings written and read back over two runs, the confirm dialog, a wrong password, canceling out of it, and a right one going through.
+	- Test case: `test-nemo-archive-settings`.
 
 - ✅ design.md regrouped: Overview, Architecture, Features, Quality, Building, Delivery, then Open questions.
 	- Opened: 20260919-131209
 	- Closed: 20260919-132409
 	- Done: sections with several topics got sub-sections, such as settings, file operations, the interface and each platform. No text was dropped.
 	- Done: two stale lines fixed. The Windows gate runs the suite, and the Windows build is native rather than in a container.
+	- Test case: none, docs only.
 
 - ✅ README: what is new since Nemo, where the beta stands, and install commands without the option list.
 	- Opened: 20260919-131209
 	- Closed: 20260919-132409
 	- Done: the archive dialogs, column widths, row shading, side panes, tabs, link handling, content search and the Windows features are listed. The status says the beta is about polish, and names the delete guard and the unsigned exe as the rough edges.
+	- Test case: none, docs only.
 
 - ✅ Pipeline: host lint tool pinned, remote git through gitsby, and build boxes made on first use.
 	- Opened: 20260919-131209
@@ -2223,6 +2575,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Done: cppcheck is pinned in `config.bash`, and drift warns. Fetch and pull go through `gitsby raw git` where it is installed.
 	- Done: `nemo-build` and `nemo-winbuild` are made from their Dockerfiles when missing. A fresh clone's gate used to skip every stage with a warning.
 	- Verified: the pin warned when set wrong. A throwaway container made from scratch ran a command, and a throwaway cross container built all 402 targets. The image builds themselves were not rerun.
+	- Test case: none, pipeline setup.
 
 - ✅ Row visualization enhancement:
 	- Opened: n/a
@@ -2235,17 +2588,20 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- And when the user hits "Esc", not only is there (correctly) no indication of where the "cursor" is, it also actually gets "forgotten", so that cursor movement after that starts over at the top. (Similar to entering a new folder for the first time.)
 	- Done. Escape now clears the selection and the cursor, in both the list and the icon views. A second Escape puts nothing back. The next arrow key starts at the top, and a Shift+click starts a new range.
 	- The outline stays in every other case. It is the only sign of the cursor after Ctrl+arrow, which moves it without selecting.
+	- Test case: `test-eel-forget-cursor` for the list view; the icon view half needs a full view.
 
 - ✅ Owner name and Owner - name columns on Windows.
 	- Opened: 20260918-175048
 	- Closed: 20260918-184500
 	- GIO leaves the display name empty there, so both columns are left out on Windows for now. The account's full name would have to be looked up by us.
 	- Done. Both columns are offered on Windows now, off by default. The name is the local account's full name, looked up once per account. A domain account, a service or a file on a share shows none.
+	- Test case: `test-nemo-owner-columns` (`check_windows_lookup`), Windows only.
 
 - ✅ Add an option under "Behavior" to include extension on rename (on by default).
 	- Opened: 20260918-181654
 	- Closed: 20260918-182200
 	- The setting was already there, file-only. It now has a checkbox under Behavior, right after the one for click-twice renames. Off selects just the part before the extension.
+	- Test case: `test-eel-rename-region`, `test-nemo-prefs-widgets`.
 
 - ✅ Change to username columns (two new columns):
 	- Opened: 20260908-133001
@@ -2255,6 +2611,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Owner - Name (i.e. "[Owner] - [Owner Name]")
 	- Done. The two new columns are left out on Windows, where there is no display name to show. That part is a new open item.
 	- An empty display name no longer shows as a stray " - " after the user name.
+	- Test case: `test-nemo-owner-columns` (`check_case`).
 
 - ✅ Optional alternating row shading
 	- Opened: 20260908-133001
@@ -2263,6 +2620,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Complementary to, and non-visually-conflicting with "selected" or "under-mouse highlighted" colors.
 	- Themable, customizable.
 	- Done. A checkbox on the Display page, under List view, off by default. The theme or gtk.css can set `nemo_row_shading`, and `row-shading-color` in the settings file overrides it.
+	- Test case: `test-nemo-row-hover` (`test_shading`), `fCheckCellPlain` in the C lint.
 
 - ✅ When the full path is shown on tabs, and tabs won't all fit in the tab bar:
 	- Opened: 20260918-170700
@@ -2272,11 +2630,13 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- The widest tab gives up a step first. A path wider than a tab may ever get starts shortened even with room to spare.
 	- This replaces the fixed 52-character cut on tabs only. The window title still uses it.
 	- Superseded 20260920 by the item above it: initials no longer come first, and the tab in front is no longer capped.
+	- Test case: `test-nemo-path-forms`.
 
 - ✅ If preferences is too small to show everything, make the scrollbar always visible.
 	- Opened: 20260918-163716
 	- Closed: 20260918-170628
 	- Every scrolled area in the dialog, the page list included, now uses a normal scrollbar. It shows whenever something does not fit, and not otherwise.
+	- Test case: `test-nemo-prefs-dialog` (no overlay scrolling).
 
 - ✅ Hi-DPI testing: Make sure preferences dialog box fits on the screen. (Or shrink and use scrollbars if not.)
 	- Opened: 20260918-152452
@@ -2284,6 +2644,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Checked on Linux at nine screen sizes and scales, from 1920x1080 down to 1024x600 at 2x, and with text alone scaled to 125%, 150% and 200%, which is what Windows does.
 	- It already fits every time. The dialog is capped at nine tenths of the screen, and both the page list and the page scroll once it is that tight.
 	- No change made. The scrollbars stay hidden until the mouse moves over them, which at 2x can make the page list look cut off when it is not.
+	- Test case: `test-nemo-prefs-dialog` (size cap and text scale).
 
 - ✅ Make extra sure that deleting symlinks, junctions, and [.desktop, and .lnk] files only delete or trash the links, and NEVER the contents inside (e.g. never the contents inside a Windows junction). A strict "Don't follow" policy, no matter where they are encountered in a tree to be deleted, and not a user setting that can be changed.
 	- Opened: 20260908-021923 by JC.
@@ -2294,6 +2655,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Fixed: one check for "a real folder, not a link", used by every walk that removes things. The delete job asks it too, before it would ever walk into something that would not delete on its own. Lint fails any new walk that does not ask.
 	- Tests: a new test runs the real delete and move jobs on a folder holding a folder link, a file link and a shortcut, and checks the target survives. A new Recycle Bin case covers the junction, and failed on the old code on b29w. `.desktop` and `.lnk` files were already removed as plain files.
 	- Not tested yet: a move of a junction to another drive. b29w has one drive. vm925w has two, so the move test runs there when it is back up.
+	- Test case: `test-nemo-link-delete-job`, `test-nemo-delete-from-trash`, `test-nemo-trash-win32` (`test_junction_in_bin`, Windows only), `fCheckTreeWalks` in the C lint.
 
 - ✅ Cut the Linux drop down toward a single file.
 	- Opened: 20260908-000856
@@ -2302,18 +2664,21 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Done: the release build folds the extension library into the program, which exports the same API to extensions. The `lib/` folder is gone from the drop.
 	- Done: the compiled resources moved into the program on every platform. They were most of the old library's size.
 	- A default build still makes the shared library, for anyone building extensions against it. A new test loads a stand-in extension against either kind of build.
+	- Test case: `test-nemo-extension-load`, `test-nemo-app-resources`.
 
 - ✅ Fill the gaps in design.md.
 	- Opened: 20260908-133615
 	- Closed: 20260917-183048
 	- Missing: a status and revision block, the non-functional requirements (startup time, memory, listing speed on a large folder), a security section, what the program logs and how to turn it up, and any diagram at all.
 	- Done: all five. The speed and memory figures are measured, not targets; no budget is set yet. Writing the security part turned up the empty trash bug under Done - Bugs.
+	- Test case: none, docs only.
 
 - ✅ Write the public UI and UX style guide.
 	- Opened: 20260908-133615
 	- Closed: 20260917-182027
 	- `project/style-guide_code.md` covers the code. Nothing yet covers dialog layout, sentence case, when a prompt is warranted, keyboard behavior or icon use, all of which the lint gate half-enforces already without saying why.
 	- Done: `project/style-guide_ui.md`. It collects the rules the closed items settled one at a time, with the reason for each, and says which of them a check enforces. Linked from the README and the code guide.
+	- Test case: none, docs only.
 
 - ✅ Archive dialog: Add an option - off by default - to delete what contents were archived, once archive is successfully created, and contents verified by relative pathname and file sizes.
 	- Opened: n/a
@@ -2323,6 +2688,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Anything the walk had to pass over - a dangling link, a linked folder the options said not to follow, a socket - means the archive was never offered all of it, so nothing is deleted whatever does read back.
 	- What passes goes through the ordinary trash-or-delete, so it asks again and goes to the trash rather than being gone for good.
 	- New checks in the archive job test cover the clean case and each way one can come up short. The accept and the refusal were both confirmed, including an encrypted archive.
+	- Test case: `test-archive-job` (`check_predicate`, `check_verify`).
 
 - ✅ Put in the title, not just the path, but "Nemo Anywhere - 'PATH'".
 	- Opened: n/a
@@ -2330,6 +2696,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- The window title now reads `Nemo Anywhere - 'Documents'`, or the whole path in the quotes when "Show the full path in the title bar and tab bars" is on. The tabs are unchanged, since the window around them already says the program name.
 	- The old title was the folder alone, plus a "- File browser" suffix on the spatial-mode branch. That suffix said what the program name says better, so both branches collapsed into one.
 	- Confirmed in both preference states, with a regression test on the format.
+	- Test case: `test-nemo-window-title`.
 
 - ✅ Update so (or validate) that List view column widths follow 'design.md's "List view column widths" section. Column width design has been updated several times, and this 'design.md' will be treated as the canonical, precise, complete, conflict-free definition from now on.
 	- Opened: 20260908-133001
@@ -2347,6 +2714,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- Per-folder view state already persists as file metadata - visible columns, column order, sort column and direction, zoom, view type. Column widths are the one thing not stored, so that key has to be added.
 	- Note 20260917: "Remember per-folder settings" is built, so this is no longer blocked.
 	- Done: the three classes, the row split and the drag rules match the section. Ext counts as a minor column rather than a fixed one, every column gets a character of air on its right, and Name and Location share what is left of the row instead of Location taking it all.
+	- Test case: `test-nemo-column-layout` (`check_fit`, `check_primaries_share_the_surplus`, `check_classes`), `test-nemo-folder-settings`, `fCheckColumnExpand` in the C lint; which class a column is still lives in the view.
 
 - ✅ Changes to Preferences|Views:
 	- Opened: 20260916-120139
@@ -2379,11 +2747,13 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- "Ignore per-folder view preferences" is gone from Behavior. The two replaced lines in an old settings file are not read.
 		- Opening a folder saves nothing. Only a real change does.
 		- Changing a default no longer drops the zoom of a folder that remembers its own. It still does while remembering is off. This changes the fix for item 22 of the 20260804 review, which predates the Current tab.
+	- Test case: `test-nemo-folder-settings`, `test-nemo-prefs-widgets`.
 
 - ✅ State in README.md that Nemo Anywhere is "opinionated" and not trying to be a "solve every problem" tool. It does one thing very very well: Manage files, period. With far more useful "file management" features that Nemo has natively without platform-dependent third-party programs, plugins, and extensions.
 	- Opened: 20260908-111526
 	- Closed: 20260917-073027
 	- Added as a paragraph under "Why" in the README.
+	- Test case: none, docs only.
 
 - ✅ The tree view shows folders only, and a folder with no sub-folders has no expander. From "Changes to Preferences|Views".
 	- Opened: 20260916-120249
@@ -2392,6 +2762,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Folders in view are checked in the background, one at a time, for any sub-folder. Shares are skipped and keep their expander until opened.
 	- No "(Empty)" row any more. Opening a folder that turns out to have nothing to show removes its expander.
 	- Left: turning hidden files off with such a folder open. Filed under Bugs.
+	- Test case: `test-nemo-tree-folders`.
 
 - ✅ Places and TreeView can both exist at the same time.
 	- Opened: 20260916-113649
@@ -2410,6 +2781,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Done: both panes show at once, each with its own remembered width. Places holds its width when the window is resized. The tree opens at twice the places width. The two buttons are back on the bottom-left as independent on/off toggles, with "Show contents only"/"Full view" beside them, and the View menu entries are toggles now rather than a radio pair.
 	- Left: the tree does not share a resize in proportion with the content panes. Filed as a bug under Bugs. Fixed since.
 	- Fixed on closing: resizing the window saved the scaled tree width as the remembered one, so a narrow window shrank the tree in every later window too. Only a drag of the divider saves it now.
+	- Test case: `test-nemo-pane-layout`, `test-nemo-proportional-paned` (`check_only_a_drag_is_placed`); the two separate toggles need a full window.
 
 - ✅ Focus can never remain on the "Places" pane, after clicking on a place. Focus moves to the main content pane after changing to the place.
 	- Opened: n/a
@@ -2417,6 +2789,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- It depended on the folder. A place whose folder wants a different view type lost the focus, and one that reuses the view kept it, since only a new view is connected to the window.
 	- Connecting a content view always grabbed the focus. It now leaves it alone while the sidebar holds it, so the keyboard stays on the place that was clicked.
 	- Startup still puts the focus on the view, where the sidebar has not taken it yet. The tree view was never affected, which is why it already behaved.
+	- Test case: `test-eel-focus-guard`, `fCheckSidebarFocus` in the C lint.
 
 - ✅ Fuzz the parsers that read untrusted input.
 	- Opened: 20260908-133615
@@ -2427,6 +2800,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- The replay tests carry AddressSanitizer themselves. Without it they passed clean with a known over-read put back, which made them worth nothing; with it the drag payload test catches it.
 	- A time budget running out is a pass. A find exits on a code of its own and leaves the input behind, so the two can never be mistaken for each other.
 	- Left out of `--quick` and out of the pre-push gate. A box with no clang skips the stage with a warning rather than failing the run.
+	- Test case: The fuzz corpus tests in `source/fuzz`, and `cicd/linux/fuzz.bash` for the timed search.
 
 - ✅ Make the crash reporter better.
 	- Opened: 20260909-171500
@@ -2446,6 +2820,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- Linux reports one now, and a check covers it.
 	- Every case now passes on a real Windows box too, stack overflow included.
 		- The check itself had never passed there. It read the report path with the line ending still on it.
+	- Test case: `test-nemo-crash`.
 
 - ✅ Run the test suite in the Windows pipeline.
 	- Opened: 20260909-145927
@@ -2455,18 +2830,21 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- The cross build is not a stand-in. Run against the emulator the same suite gives six failures and a timeout, and the keyboard and parts of the shell do not behave there, so a green run would prove nothing and a red one would say nothing either.
 	- The full Windows pipeline and the gate both run the suite before the smoke test now, and both pass on a Windows box.
 	- Four tests need a monitor, and skip when there is none, as over ssh.
+	- Test case: none, pipeline setup.
 
 - ✅ The standard .desktop launcher should be titled "Nemo Anywhere", not "File Manager".
 	- Opened: 20260914-173549
 	- Closed: 20260915-152159
 	- The launchers this project installs already say Nemo Anywhere. The man page still named the Cinnamon file manager, and now names this one.
 	- The "File Manager" menu entry on the XFCE box is the desktop's own launcher for whatever file manager is preferred, which is set to the dogfood launcher. It is not a file from this project, and it is left alone.
+	- Test case: none, wording only.
 
 - ✅ Searching through a search folder has no test.
 	- Opened: 20260909-152800
 	- Closed: 20260915-150724
 	- Note: the demo that was removed drove one, but it asserted nothing, so no coverage was lost. Split from "Run the test suite in the Linux pipeline".
 	- A new check runs a search through a search folder the way a window does. It covers the hits, a reload that starts the list over, and hidden files following the preference.
+	- Test case: `test-nemo-search-folder`.
 
 - ✅ Pick one way to leave Windows-only tests out of the Linux build.
 	- Opened: 20260909-154342
@@ -2474,6 +2852,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Today eighteen are left out of the build entirely, three are built and report a skip, and eight carry a stub for the other platform, of which five are never compiled.
 	- Note: split from "Run the test suite in the Linux pipeline".
 	- A Windows-only test is left out of the build on other platforms, and carries no stub. The three built-and-skipped ones are left out now, and the stubs are gone. The Linux suite reads 53 passed and none skipped.
+	- Test case: `fCheckWinTests` in the C lint.
 
 - ✅ Tests leave their scratch directories behind.
 	- Opened: 20260909-160500
@@ -2482,11 +2861,13 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Wants one shared cleanup the tests can call, not a recursive delete copied into each of them.
 	- Every test makes its scratch directories through one helper, which removes them when the test exits. It only removes a directory it made, and never follows a link out of one.
 	- The Linux test run gets a temp directory of its own and fails if a test leaves anything in it.
+	- Test case: `test-nemo-scratch`, `test-scratch-guard`, the leftover check in `cicd/linux/run-tests.bash`, `fCheckTestHelpers` and `fCheckTestTreeWalks` in the C lint.
 
 - ✅ Don't run CICD trigger on commit to dev.
 	- Opened: 20260914-182719
 	- Closed: 20260915-132239
 	- A push to dev no longer runs the gate. Only a push to main does. A chunk is built and tested before it is merged to dev, and a full run's own publish only repeated the checks it had just made.
+	- Test case: none, pipeline setup.
 
 - ✅ Run the test suite in the Linux pipeline.
 	- Opened: 20260909-112701
@@ -2500,12 +2881,14 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- What replaced them. Filename search covers recursion on and off, and a pattern that matches nothing, which still has to come back or the view sits on a spinner. Directory monitoring covers the first listing, a file that appears afterwards, and a forced reload finishing rather than merely starting.
 	- Three Windows-only tests had been reporting a pass on Linux while doing nothing at all. They report themselves skipped now, which is why the count reads 49 passed and 3 skipped rather than 52 passed.
 	- Note: the Windows lane and two leftovers from this pass are filed as open items.
+	- Test case: none, pipeline setup; its new tests are `test-nemo-search-engine` and `test-nemo-directory-monitor`.
 
 - ✅ A crash leaves a report behind.
 	- Opened: 20260903-130431
 	- Closed: 20260909-090725
 	- Done: a crash now writes a report next to the settings file, under `crash/`. It carries the version, what killed it, and the stack. The same text goes to stderr, which is what a launcher log keeps, and on Windows a message box says where the file is, since a windowed build has no stderr. The next start notes a report was left behind, and the oldest are dropped so the folder cannot grow forever.
 	- Note: split from "Randomly crashes", which stays open until a report shows the cause.
+	- Test case: `test-nemo-crash` (`check_sweep` for the startup note and the oldest dropped).
 
 - ✅ Menu entries and shortcuts that keep working, and one sync path spelling per platform.
 	- Opened: 20260908-013000
@@ -2521,6 +2904,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- A shortcut or menu entry now records the wrapper's deploy-managed path rather than whatever a PATH lookup returns. On one box PATH reached the file through two chained links, and the shortcut kept that spelling; both boxes name the plain path now.
 	- The wsl copy of the bash wrapper is deployed along with the linux and macos ones. Nothing was keeping it in step and it had fallen a revision behind.
 	- A full sweep of both Windows boxes and this one found no stray versions or launchers left to move or trash. The only stale copies remaining sit inside a scheduled local mirror frozen at 20260903, which other tooling owns.
+	- Test case: none, launcher setup on the dev boxes.
 
 - ✅ Cut the Linux drop from 102 files to 44.
 	- Opened: 20260908-000856
@@ -2535,6 +2919,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Left as files, deliberately: actions, search helpers and the settings schema. All three are drop-in folders a user adds to or edits, and Preferences has a button that opens two of them.
 	- Done: the eight Cinnamon-only actions ship disabled. They call cinnamon-settings, the desktop editor or org.Cinnamon over the bus, and are still listed in Preferences > Actions for anyone running Cinnamon.
 	- Note: split from "Cut the Linux drop down toward a single file", which stays open for the static extension library.
+	- Test case: `test-nemo-runtime-env`, `test-nemo-extensions-list`, `test-nemo-app-resources`, `test-nemo-startup-clean` (`check_activation_file`).
 
 - ✅ One dogfood location per platform, and a launcher pool that keeps its history.
 	- Opened: 20260907-203000
@@ -2545,6 +2930,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- A build already held is recognized by its bytes rather than its date, so a stamp the sync layer rounded no longer costs a re-copy.
 	- `runfm` is the name to type or put in a `.desktop` file, on every platform. The masters live in `utility/`; stage 7 copies them out to the synced util dirs.
 	- The menu entry now runs the launcher rather than a dated copy of the app, so a menu click picks up a new build the same way a shell launch does. Its icon comes from the newest version.
+	- Test case: `cicd/utility/test-runfm-pool.ps1`.
 
 - ✅ Add default user-tunable settings as comments to config file.
 	- Opened: n/a
@@ -2553,6 +2939,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Notes were rewritten to say only what a user would see, and dropped entirely where the key name already says it - which is about half of them. The list in the code and the shipped schema are checked against each other so the two cannot drift.
 	- Left off the list: keys the app writes back itself, such as a window size, a sidebar width or the last state of a search toggle. Setting one by hand only gets it overwritten.
 	- Two keys that nothing had read since the fork were dropped.
+	- Test case: `test-nemo-config-catalog`, `test-nemo-config-schema`.
 
 - ✅ Better thumbnail cache management. Database plus background pruning.
 	- Opened: 20260826-103001
@@ -2561,6 +2948,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Two settings on the Preview page: how long an unused thumbnail is kept, and how big the cache may get. Either can be turned off.
 	- No database. The cache is the shared one every file manager on a Linux desktop uses, and a private store would have cost that sharing and added a dependency to three build environments. Growth was the complaint; sweeping fixes it. Reasoning is in design.md.
 	- Another program's failure records are left alone.
+	- Test case: `test-nemo-cache-prune` for the file cache that replaced this sweep.
 
 - ✅ Change to search mode column sizing:
 	- Opened: 20260905-133614
@@ -2572,23 +2960,27 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Done 20260905. Search results now leave the rest of the row empty rather than stretching Name across it. When the two do not both fit they give in proportion to what they asked for, and neither ends more than twice the width of the other unless the narrower one did not want the extra.
 	- Dragging either column still pins the split, as before, and the pair then fills the row again. Clearing `search.name-location-split` in the settings file goes back to fitting the contents.
 	- Note: This may contradict the latest canonical column-sizing definition in 'design.md' under the section "List view column widths", as of 20260916-113519.
+	- Test case: none, replaced by the column width rules, which `test-nemo-column-layout` covers.
 
 - ✅ Need a better icon for "recursive" in search mode. (It currently looks like "press this for enter".)
 	- Opened: 20260905-112901
 	- Closed: 20260905-114812
 	- Done 20260905. A folder with a branch line down into a smaller folder, the usual "include subfolders" shape, in the same flat style as the group-by-folder toggle beside it. Mirrored for right-to-left.
+	- Test case: none, icon art.
 
 - ✅ New process for each window. A crash in one shouldn't affect all others. And different versions (e.g. from n8runfm.ps1) should be able to run at once.
 	- Opened: 20260722-172504
 	- Closed: 20260905-102753
 	- Done 20260905. Every launch and, by default, every new window is its own process. A command-line launch never joins a running copy, so two versions run side by side. `--quit` and Close All Windows still reach every copy.
 	- A setting under Behavior puts new windows back inside one process. The trade: a tab cannot move to a window in another process, and on Windows a new window takes the packed exe's start-up time.
+	- Test case: `test-nemo-instances`, `fCheckNoSessionRegister` in the C lint.
 
 - ✅ Wire the Linux release lane into the pipeline engine itself, rather than leaving it a script to remember to run by hand.
 	- Opened: 20260804-133646
 	- Closed: 20260904-161518
 	- Done: the lane runs as stage 5. `RELEASE_COLLECT=0` keeps the engine's collector out of the artifact dir, since release.bash already writes the tarball and the sums there itself.
 	- The release smoke check had been failing since the version string gained a build number, so every release since then repackaged an older tarball. It matches on a prefix now.
+	- Test case: none, pipeline setup.
 
 - ✅ Dogfood the Linux build from the pipeline. It had never been set up, so the launcher was serving a build from July.
 	- Opened: 20260904-160000
@@ -2596,6 +2988,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Stage 7 understands a relocatable prefix, not just a single binary: the fixed install puts the tree beside the bin dir and points the name on PATH into it, and the rotating copy is the whole tree under a dated name.
 	- The dated name carries the build's own mtime rather than the run clock, so the pipeline's copy and the launcher's copy of one build agree and neither re-fetches it.
 	- Note: superseded on 20260907 by "One dogfood location per platform": the pipeline publishes one drop and writes no dated copies at all, so the second and third bullets here describe how it used to work.
+	- Test case: none, pipeline setup.
 
 - ✅ Search options: Flat [ ]  Hierarchical [ ]
 	- Opened: 20260819-141014
@@ -2603,6 +2996,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Read as a display mode, not another scope switch - the search bar already has a toggle for recursing into subfolders.
 	- Done 20260903. A toggle beside the recurse one groups results under the folder holding them, labeled with the path under the folder searched. Flat is still the default.
 	- Grouped drops the Location column, since the row above every match already says where it is. Switching either way is instant and does not run the search again.
+	- Test case: `test-nemo-search-group`.
 
 - ✅ Confirm mouse-movement-based actions that don't already ask for some kind of confirmation. (E.g. drag and drop to a new folder)
 	- Opened: 20260730-112038
@@ -2610,23 +3004,27 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Note: a major enhancement to call out in README, e.g.: "Helps prevent one of the biggest pain points with GUI file managers: Accidental file & folder moves, sometimes without realizing it."
 	- Done 20260903. A drop now names what it is about to do and where, and waits for an answer. Two settings under Behavior: moves ask by default, copies and links do not.
 	- Covers every drop that moves files: the file list, the icon view, both sidebars, the path bar and the tabs. A drop on the Trash still asks under its own setting, not twice.
+	- Test case: `test-nemo-drag-confirm` for the rule; not that every drop place asks it.
 
 - ✅ Allow moving tabs to other windows.
 	- Opened: 20260722-172504
 	- Closed: 20260903-160000
 	- Already worked, and was checked rather than written: a tab dragged onto another window's tab strip moves there, and one dropped on the desktop opens a window of its own.
 	- What made it look broken is that a window showing a single tab has no strip to drop onto. Turning the new "always show a tab" option on gives it one.
+	- Test case: `test-nemo-tab-move`, `test-nemo-window-at-point`.
 
 - ✅ Option to always show a tab.
 	- Opened: 20260722-172504
 	- Closed: 20260903-160000
 	- `preferences.always-show-tabs` in the settings file, off by default. The other tab options live there too rather than in the preferences dialog.
+	- Test case: `test-nemo-notebook` (`test_visibility`).
 
 - ✅ Tabs shouldn't take up the whole space, only what's needed for title (and a reasonable minimum width).
 	- Opened: 20260723-133832
 	- Closed: 20260903-160000
 	- A tab is now as wide as its own title, between `preferences.tab-width-min-percent` (10) and `tab-width-max-percent` (25), both percentages of the tab strip.
 	- Tabs used to be set to expand, which is why three of them split the width evenly whatever they were called.
+	- Test case: `test-nemo-notebook` (`test_widths`), `test-nemo-path-forms`.
 
 - ✅ Use the new program icon (`assets/logo.png`).
 	- Opened: 20260902-193009
@@ -2638,6 +3036,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- ✅ n8runfm launcher. A dogfood copy now registers itself: the launcher writes a menu entry pointing at the stamped copy it is about to start, with the program icon taken from the copy's own art. Rewritten on each launch, since the copy is dated and moves.
 		- ✅ Dogfood portion of CICD scripts. Nothing to do there. The launcher is what knows which stamped copy is current, so registration belongs to it, and the pipeline's own dogfood stage is disabled on Linux anyway.
 	- Note: the window icon itself follows the folder being viewed, by design, so the program icon shows in the launcher and the switcher rather than in the title bar.
+	- Test case: none, icon art; `fCheckWindowIcon` in the C lint keeps the window icon.
 
 - ✅ Path button bar returns to buttons any time the path defocuses, not just on Escape.
 	- Opened: 20260802-011216
@@ -2645,6 +3044,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Clicking into the file list, the sidebar or anywhere else puts the buttons back.
 	- Switching to another program does not, so a half-typed path survives the trip.
 	- No effect when the entry is the permanent choice in preferences.
+	- Test case: `fCheckEntryFocusOut` in the C lint.
 
 - ✅ Escape in the folder pane clears the selection, and Escape again puts it back.
 	- Opened: 20260802-011216
@@ -2653,17 +3053,20 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- A rename or a stretch in progress still gets Escape first.
 	- What was put aside is dropped on leaving the folder, so Escape in a new one has nothing to restore.
 	- Since 20260919, Escape no longer puts anything back. See "Row visualization enhancement".
+	- Test case: `test-eel-forget-cursor` for the list view; the icon view half needs a full view.
 
 - ✅ In find mode the status bar shows the whole path rather than just the name.
 	- Opened: 20260730-112038
 	- Closed: 20260903-120000
 	- Only for search results, where a name on its own does not say which file was found. Ordinary folders still show the name.
+	- Test case: `test-nemo-status-name`.
 
 - ✅ A value too long for its column gets a mouseover tooltip with the whole value.
 	- Opened: 20260730-112038
 	- Closed: 20260903-120000
 	- Any column, not just the name.
 	- Shown whatever the item tooltip preference says, since it is about reading what is already on screen.
+	- Test case: `test-eel-clipped-cell`.
 
 - ✅ Always operate on whole rows in list view.
 	- Opened: 20260826-103001
@@ -2671,17 +3074,20 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- A click anywhere in a row now belongs to that row. Right-clicking past the end of the name used to clear the selection and give the background menu.
 	- The only background left is the space below every row, which still deselects and gives the background menu.
 	- Right-clicking a row outside the current selection selects it first, then opens its menu.
+	- Test case: `test-eel-treeview-hit` for where a row ends; not the list view's own click handling.
 
 - ✅ Better program icon, for both file .exe and running program. (All supported platforms.)
 	- Opened: 20260831-164337
 	- Closed: 20260902-195000
 	- Answered by the new logo, which "Use the new program icon" puts in place everywhere. Reopen if the art itself should change again.
+	- Test case: none, icon art.
 
 - ✅ Right-clicking the breadcrumb button for the folder being viewed should offer the same items as right-clicking the empty list background.
 	- Opened: 20260826-103001
 	- Closed: 20260902-194500
 	- Only that one button. The ancestor buttons keep the shorter menu, which is what they had.
 	- The two menus were compared side by side and match item for item; the parent button still gives the shorter one.
+	- Test case: none, needs a full window; not worth building one for this.
 
 - ✅ Windows: GUI testing in a throwaway sandbox, without touching the live console session.
 	- Opened: 20260829-071437
@@ -2692,12 +3098,14 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- `-Dir` takes a whole flattened build instead of the packed exe, so a rebuild can be looked at without packing first. That is the form to use while working.
 	- First run inside is clean: the app came up with its menus, icons and columns, and the first-run bookmark seeding worked on a profile that had never seen it.
 	- Note: split from "Windows: Need to figure out a way to do GUI testing and demo recording", which stays open for demo recording and anything that spans a reboot.
+	- Test case: none, test tooling.
 
 - ✅ The "Open with" submenu names programs by their file name.
 	- Opened: 20260902-190000
 	- Closed: 20260902-191500
 	- It read "Code.exe" and "VSCodium.exe" where the menu item above it already said "Open with VSCodium". The list comes from the toolkit, which has no name for a program beyond the file it found.
 	- Fixed: every entry is now named the way the default one already was, from the program's own description, falling back to the file name for a program that carries none. The list sorts by what it shows, so the order matches too.
+	- Test case: `test-nemo-associations-win32` (`test_names`), Windows only.
 
 - ✅ "Open With": Opening two text files in VSCodium, should open them in the same editor instance. (E.g. as it works when doing so from nemo-anywhere on Linux, or from Explorer on Windows.)
 	- Opened: 20260831-164337
@@ -2707,6 +3115,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Two things went wrong because of it. In the packed build the editor came up with a blank window, because a program started as our child inherits the packing, and it also inherited nemo's own environment rather than the user's.
 	- Fixed: anything with a command line behind it is now started the same way, whichever list it came from. A store app is the one kind that has none, and still goes the old way.
 	- Checked in both builds: the editor is started by the desktop rather than by nemo, comes up normally, and both files open in the one window.
+	- Test case: `test-nemo-associations-win32` (`test_command_for_app`), Windows only, and `fCheckWinLaunch` in the C lint.
 
 - ✅ Copying and pasting objects that includes symlinks or junctions, should open up an option dialog. (All OSes.)
 	- Opened: 20260831-164337
@@ -2721,6 +3130,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- The kind of a Windows link comes from the reparse tag. Nothing else tells a junction from a folder symlink, and it also keeps cloud placeholders and store app aliases - which are reparse points too - from being read as links.
 	- A link keeps its own spelling, so a relative one still points where it pointed. Asking for a junction is the exception: those can only name a full path, so a relative target is resolved first.
 	- A link now counts as one item in the copy rather than a folder to walk into, which is what POSIX always did and Windows never did.
+	- Test case: `test-nemo-link-copy`, `test-nemo-link-copy-job`.
 
 - ✅ Drag and drop a file to a program should work. (E.g. a '.md' or '.txt' file to VSCodium or Notepad.)
 	- Opened: 20260831-164337
@@ -2731,6 +3141,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- A move out to another program now removes the original, unless that program moved it itself or the drop came back into nemo. Control copies and shift moves, the way Windows does it.
 	- Drops coming the other way, from another file manager into nemo, copy and move too. They always copied before: nothing is known about a file dragged in from elsewhere, so nemo could not tell whether it was on the same drive and fell back to copying every time.
 	- Checked against Directory Opus in both directions, and between two nemo windows: a plain drag moves within a drive, control copies, shift moves.
+	- Test case: `test-nemo-dnd-win32` (Windows only), `test-nemo-drop-action`; removing the original after a move out needs a real drop.
 
 - ✅ Move all Windows-related options to a "Windows" preferences pane; and in the config file, to a grouped section.
 	- Opened: 20260831-164337
@@ -2740,6 +3151,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- "Shortcuts" stayed on Display: .desktop launchers hide their extension too, so it is not a Windows-only setting.
 	- Hidden files is a new group with two switches, for the native hidden attribute and for dot names. Both stay on the View menu on Windows, where Show Hidden Files moves the pair together; elsewhere the menu keeps the one meaning it has always had.
 	- Config keys moved to a `windows` group: path-separator, allow-slash-input, show-dot-files, use-search-index, associations, terminal-candidates. Existing settings files lose those values, which is accepted before 1.0.
+	- Test case: `test-nemo-config-schema`, `test-nemo-prefs-widgets`, `test-nemo-dot-files-win32`.
 
 - ✅ If "Show path in tab" option is enabled, don't show the path twice - shorten it. For example:
 	- Opened: 20260831-164337
@@ -2748,18 +3160,21 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Better: "C:\opt\0-0\users\collierjr\...\nemo-anywhere\github"
 	- The folder name in front of the path is gone - the path already ends with it.
 	- A path too long for a title keeps its root and its last two folders, with the middle left out. The root says which drive or share it is on, the end is what tells one tab from another.
+	- Test case: `test-nemo-path-forms`.
 
 - ✅ .Lnk folder icons should use the same folder icons as the theme, but with an overlay.
 	- Opened: 20260831-164337
 	- Closed: 20260831-193000
 	- The shell hands back its own folder art for a shortcut to a folder, which looks nothing like the folders around it. The theme's folder icon is used instead, with the shortcut overlay on top.
 	- Whether the target is a folder is read from what the .lnk itself records, not by looking at the target - a shortcut to a share that is not answering would otherwise cost about twenty seconds on the draw path.
+	- Test case: `test-nemo-emblems`, `test-nemo-lnk`, `test-nemo-shortcut-win32`.
 
 - ✅ All .lnk files should have a .lnk overlay (similar to how Explorer does it).
 	- Opened: 20260831-164337
 	- Closed: 20260831-193000
 	- New overlay, drawn as an arrow in a white box the way the shell does it.
 	- .desktop launchers get the same one, on every platform.
+	- Test case: `test-nemo-emblems`.
 
 - ✅ All symlinks and junctions should have an overlay, but different from .lnk.
 	- Opened: 20260831-164337
@@ -2773,12 +3188,14 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Both overlays are ours rather than the theme's. An icon added by resource path is only searched after every theme, so a theme that carries its own symlink emblem would always win - and most of them draw the same arrow the shell uses for a shortcut.
 	- .desktop now behaves like .lnk: the extension is off the listing, on in the rename box, and still in the "Ext" column. One preference covers both, and it is no longer hidden on Linux.
 	- Checked on a junction. A real symlink could not be made without Developer Mode, but both are reparse points and read the same way.
+	- Test case: `test-nemo-emblems`, `test-nemo-shortcut-name`.
 
 - ✅ Preferences|Context menus still has a "Desktop" group with a "Customize" box in it. Nothing is behind it. Remove.
 	- Opened: 20260831-170000
 	- Closed: 20260831-172500
 	- Found while taking out the desktop tooltip box.
 	- The action it was meant to show never existed in this fork, so the box could only ever hide something that was not there. Gone, along with its setting.
+	- Test case: none, removed feature.
 
 - ✅ Remove bottom-left buttons, and bottom-right zoom bar in list view.
 	- Opened: 20260831-164337
@@ -2788,22 +3205,26 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- The zoom slider now shows only where it does anything useful - icon and compact views. List view sizes itself off its columns.
 	- The bar is about half its old height, since nothing in it needs button room any more.
 	- Partly reversed on 20260916. The places and tree buttons are back on the bottom-left, now as independent toggles rather than a radio pair, and beside them one button collapses both panes. The bar grows again to fit them. The zoom slider rule from this item is untouched. See "Places and TreeView can both exist at the same time".
+	- Test case: none, look only, judged by eye.
 
 - ✅ Preferences|Preview: "Show tooltips on the desktop" (and related checkboxes) have no meaning. Remove.
 	- Opened: 20260831-164337
 	- Closed: 20260831-170000
 	- Removed, along with the setting behind it. Nothing read it once the desktop shell went.
 	- The icon-view and list-view tooltip boxes stay - those still do something. So do the boxes choosing what a tooltip shows.
+	- Test case: none, removed feature.
 
 - ✅ By default, disable all checkboxes related to Preferences|Behavior|Media handling.
 	- Opened: 20260831-164337
 	- Closed: 20260831-170000
 	- Automount, automatic open of a mounted disk, and content detection all start off now. The fourth box in that group was already off.
+	- Test case: `test-nemo-config` (`test_product_defaults`).
 
 - ✅ Gray out "Open as Administrator", if already running as such.
 	- Opened: 20260831-164337
 	- Closed: 20260831-170000
 	- Windows has no root account to test for, so the item used to stay live in an already elevated copy and a second prompt bought nothing. The process token is asked instead.
+	- Test case: none, a plain read of the process token; the menu state needs a full window.
 
 - ✅ Windows: show the icon the shell would show for .lnk files (without requiring Explorer to run).
 	- Opened: 20260827-090000
@@ -2811,11 +3232,13 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Split out of the done item for opening a shortcut the way Explorer does. A shortcut showed a generic icon rather than its target's - the toolkit reports one flat icon for every file on Windows.
 	- Fixed: a shortcut is drawn with the shell's own icon for it, at each of the shell's sizes rather than scaled from one, and cached. No Explorer process is involved.
 	- Note: the shell's icon for a registered file type (a .docx drawn as Word's) is deliberately not used for ordinary files - it would fight the icon themes. The lookup is by path and could be widened later.
+	- Test case: `test-nemo-shell-icon-win32`, Windows only.
 
 - ✅ Windows: edit a `.lnk`'s target from a properties view - the analog of the `.desktop` launcher editor.
 	- Opened: 20260826-103001
 	- Closed: 20260829-100000
 	- Added: Properties on a shortcut shows Target, Arguments, Start in and Comment below the name, each saved as it is edited. A file dropped on Target or Start in fills it in. A shortcut with no file target still opens for editing.
+	- Test case: `test-nemo-shortcut-win32` (`test_info_round_trip`), Windows only; filling a field by drop needs a full window.
 
 - ✅ Windows: no shell coupling for file associations - read them from the registry (system defaults only), layered under an override map of our own.
 	- Opened: 20260730-203115
@@ -2824,12 +3247,14 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Fixed: the default for a type is the override when one is set, else what the shell itself would open it with, asked the way Explorer asks. The toolkit's own answer could be a print command, and its Open With list carried print entries too; those are gone.
 	- Fixed: "Set as default" in Open With records the choice in the settings file, one line per type in the registry's own `%1` shape, and Reset takes it away again.
 	- Note: a program is shown under its own description (Notepad, VSCodium), the way Explorer names it.
+	- Test case: `test-nemo-associations-win32` (`test_overrides`, `test_registry`), Windows only.
 
 - ✅ Bookmarks are kept in the toolkit's own file, not ours.
 	- Opened: 20260828-133604
 	- Closed: 20260829-090000
 	- Only relevant on Windows. The toolkit's file sits in the local profile while the settings are in the roaming one, so a roaming profile carried the settings and left the bookmarks behind.
 	- Fixed: on Windows the list lives beside the settings. A list an older version kept in the toolkit's file is copied across the first time, and a reset clears both so the old list cannot come back.
+	- Test case: `test-nemo-first-run-win32` (`test_toolkit_list_copied_across`), Windows only.
 
 - ✅ Windows: content search cannot read documents, because the search helpers are not packaged there.
 	- Opened: 20260828-160000
@@ -2839,6 +3264,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Fixed: a helper is looked for beside the main program before the search path, so a name that has to gain `.exe` is found all the same.
 	- Fixed: a helper's `Priority` is honoured. One helper runs per file; the next is only tried when it cannot read the file at all.
 	- Added: a switch in Preferences to answer searches from the Windows Search index for folders it covers. Off by default. Folders outside the index, and content searches by pattern or by case, are still searched directly.
+	- Test case: `test-nemo-search-helpers` for the converters, `test-nemo-search-content` for helper priority and fallback (POSIX only), `test-nemo-search-win32` for the index, Windows only.
 
 - ✅ Windows and NTFS: any directory symlink through any mechanism should also allow a junction, preferred over a symlink.
 	- Opened: 20260823-142431
@@ -2847,6 +3273,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- A link to a folder is now a junction. One place decides it, so every route into "Make symlink" gets the same answer, and a symlink is still the fallback for anything a junction cannot hold - a file, a share, a relative target.
 	- The point of preferring one: a junction needs no privilege. Making a folder link no longer wants Developer Mode or an elevated run, and the menu item stops graying out for a folder on a machine that has neither.
 	- Verified: a folder link made from the menu reads back as a mount point rather than a symlink, and a new check covers it.
+	- Test case: `test-nemo-link-copy` (`check_link_options`, `check_kinds`), `test-nemo-make-link-job` (`check_every`).
 
 - ✅ New flag: `--reset`. Clears bookmarks, resets to default state. (Maybe just delete the config file?)
 	- Opened: 20260730-112038
@@ -2854,6 +3281,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Every stored setting is dropped and the settings file itself is removed, so anything hand-written that nemo does not recognize goes too. Bookmarks and their side file go with it.
 	- It refuses while a copy is running, and says so. That copy holds the settings in memory and would write them straight back.
 	- The first-run marker is cleared along with everything else, so the next start puts the platform defaults back.
+	- Test case: `test-nemo-instances` for `--reset`, `test-nemo-first-run-win32` (`test_reset_files`, `test_reset_all`) on Windows.
 
 - ✅ If the Windows version has never run before, the bookmarks should be cleared, and populated with only the main Windows defaults. (C:\, Desktop, Documents, Downloads, Pictures, Videos, AppData). Also, all linux-specific settings and bookmarks should be cleared on first startup.
 	- Opened: 20260722-172504
@@ -2861,6 +3289,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- On the first start the drive root and the user's own folders go in, taken from what Windows reports rather than spelled out, so a machine on another drive or in another language gets the right names.
 	- A bookmark that can only be a path from a POSIX machine is dropped, and so is any setting whose value is one. A set someone already curated on Windows is kept rather than replaced - that matters for anyone upgrading from a build without the marker.
 	- Marked by `state.first-run-done` in the settings file. Clearing that line by hand puts the defaults back on the next start.
+	- Test case: `test-nemo-first-run-win32` (`test_seeds_defaults`, `test_foreign_bookmarks_dropped`, `test_foreign_settings_dropped`, `test_windows_settings_kept`), Windows only.
 
 - ✅ Allow '~' in bookmarks to specify home dir (only if at the start and unquoted).
 	- Opened: 20260722-201512
@@ -2869,12 +3298,14 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- The literal text still wins: a folder really named with a `%` in it opens as itself, and only a name that is actually set in the environment is ever substituted. Verified both ways.
 	- Reaches the location bar, the bookmark editor and the command line.
 	- ✋ Not done: storing the shorthand *in* the bookmarks file so it follows the home folder around. That needs the file to keep an unexpanded form and re-expand on load, which is a bigger change than the input side.
+	- Test case: `test-eel-user-input` (`test_expansion`).
 
 - ✅ Windows: an option to leave the `.lnk` off a shortcut's name.
 	- Opened: 20260828-083458
 	- Closed: 20260828-090000
 	- The shell never shows it, so nor do we unless the new switch on the Display page is turned on. Off by default.
 	- Only the name shown loses the extension. The Ext column still says `lnk`, and a rename typed as the shown name puts the extension back, the same way a renamed `.desktop` file keeps its own - without that a rename would quietly turn the shortcut into an ordinary file.
+	- Test case: `test-nemo-shortcut-name` (`check_shown_name`, `check_rename_keeps_extension`).
 
 - ✅ Let the Type column take the width it needs when there is room for it.
 	- Opened: 20260828-083458
@@ -2882,6 +3313,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- It was held to twice the width of the Ext column, so it read "Folde" and "Link t" in a window with plenty of room to spare.
 	- That ceiling is gone. Type still gives its width back first when the window is too narrow, and still stops at a share of Name so one long value cannot take the row.
 	- Note: This may contradict the latest canonical column-sizing definition in 'design.md' under the section "List view column widths", as of 20260916-113519.
+	- Test case: none, replaced by the column width rule in design.md, whose arithmetic `test-nemo-column-layout` covers.
 
 - ✅ The preferences dialog opens too short for the Display page, and does not follow a fractional display scale.
 	- Opened: 20260828-083458
@@ -2890,30 +3322,35 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- It now measures every page and takes the longest, and the width the widest page needs, both still capped at nine tenths of the screen.
 	- The minimum size it will not go below is written in pixels for a 96dpi screen, so at 150% it quietly meant two thirds of what it said. It is scaled by the same font size Windows hands the toolkit.
 	- A check now compares the page list the sizing walks against the pages the dialog actually holds. It found one missing on its first run - Document templates, whose page had no name at all.
+	- Test case: `test-nemo-prefs-dialog` (`test_size`), `test-nemo-prefs-widgets` (`check_pages_are_all_listed`).
 
 - ✅ The two command fields on the Behavior page crowd their labels and run past the section.
 	- Opened: 20260828-083458
 	- Closed: 20260828-090000
 	- Four pixels between the label and the field, and the field itself pushed past the right-hand margin every other section keeps.
 	- Twelve pixels now, the field stops where the rest of the page does, and the two fields start at the same place as each other.
+	- Test case: none, spacing only, judged by eye.
 
 - ✅ Move the Ext column between Size and Type in the default order.
 	- Opened: 20260827-183930
 	- Closed: 20260827-194220
 	- It sat between Name and Size. It stays on by default either way.
 	- Both platform defaults moved, and the schema with them.
+	- Test case: none, a default value; `test-nemo-config-schema` keeps the schema in step with it.
 
 - ✅ Name and Location split the search row evenly.
 	- Opened: 20260827-183930
 	- Closed: 20260827-194220
 	- The default was a third to Name and the rest to Location.
 	- A split dragged by hand still stands from then on.
+	- Test case: none, replaced by the column width rule in design.md; `test-nemo-column-layout` (`check_primaries_share_the_surplus`) covers the sharing.
 
 - ✅ Location is off by default outside search.
 	- Opened: 20260827-183930
 	- Closed: 20260827-194220
 	- It belongs in the search results list and nowhere else, unless it is turned on by hand.
 	- Already the case: it is in the default column order but not the default visible list, and a run against a clean config confirmed it does not appear. Wherever it was seen, it had been turned on for that folder and remembered.
+	- Test case: none, already the default, confirmed rather than changed.
 
 - ✅ A preference for which terminal "Open in Terminal" runs.
 	- Opened: 20260827-183930
@@ -2922,6 +3359,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Left empty it means the platform default, which is what happened before: the desktop's own choice on Linux, the first of the known shells found on PATH on Windows. Filled in, it wins over both.
 	- Splitting one field into a program and its arguments has three rules, in order: a quoted first word, then a string that names a program on its own (so an unquoted path with spaces still works), then the first space. Tested.
 	- Verified on Windows: a terminal named with an argument is launched exactly as written.
+	- Test case: `test-nemo-desktop-terminal` (POSIX only), `test-nemo-view-win32` for splitting the command line, Windows only.
 
 - ✅ Make link is on by default, and Windows tells a shortcut from a symlink.
 	- Opened: 20260827-183930
@@ -2932,6 +3370,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Windows allows a symlink only with Developer Mode on or when running elevated, so the item goes gray when neither holds. The check is made once by making a throwaway symlink and deleting it, which is a plainer answer than reading a token and a registry key.
 	- A drag with the link modifier still makes a shortcut on Windows, which is what Explorer does.
 	- Both verified on Windows against a real folder. Not covered: the grayed-out state, which needs a box without Developer Mode; and an undo-then-redo of a symlink remakes it as a shortcut, since both share one undo record.
+	- Test case: `test-nemo-link-copy` (`check_link_options`) for the fallback; the grayed item needs a box without Developer Mode.
 
 - ✅ Update the vendored SHCL to the current release.
 	- Opened: 20260826-103001
@@ -2944,6 +3383,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Taken on 20260828, once the manifest asked for UTF-8. Settings now save through it: a temp file beside the target, flushed to disk before it is published, and on Windows a replace that carries the old file's permissions, attributes and alternate streams onto the new one. The previous writer published a brand-new file and left all of that behind.
 	- Reading stays where it was. The library reads a file with no size limit, and its allocator ends the process rather than failing, so the cap in front of it stays; the reader also hands back the exact bytes the "was this our own write" check compares against.
 	- The trap: the library names its temp file by splitting the path on a forward slash and nothing else, so a Windows path spelled with backslashes puts the temp somewhere impossible and every save fails. The path is handed over spelled with slashes. The existing config checks caught this immediately.
+	- Test case: `test-nemo-config` (`test_persistence`, `test_external_edit`, `test_float_under_comma_locale`, which skips with no comma locale installed), plus the SHCL fuzz target.
 
 - ✅ Ask for UTF-8 as the process codepage in the Windows manifest.
 	- Opened: 20260827-075015
@@ -2953,6 +3393,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Looked. Nothing of ours narrows: every Windows call in the tree is the wide form, and the only conversions are explicit UTF-8 ones. What the change reaches is the libraries underneath and the C runtime, which is the point of it.
 	- In: the code page reads 65001 with the manifest and 1252 without. The app was run with its config under a folder named in German and Japanese, and read, wrote and live-reloaded it. Suite unchanged.
 	- Follow-on, taken: the config engine now saves through its library's own writer. See the SHCL item above.
+	- Test case: `test-nemo-manifest-win32` (`check_config_round_trip`), Windows only.
 
 - ✅ The whole `desktop` group of settings is dead weight.
 	- Opened: 20260827-075015
@@ -2960,6 +3401,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Fifteen keys left behind when the desktop shell came out. They still ship in the schema and still appear in a generated starter config, so a user can set them and nothing happens.
 	- Two of the fifteen are not clearly dead on a quick look - one leaf name is shared with a live setting in another group - so this wants checking key by key rather than deleting the group.
 	- Checked key by key. Twelve had no reader anywhere and are gone from the table, the schema and the preference names. Three still have live readers and stay: the deprecated manage-the-desktop switch, the grid switch, and the desktop text ellipsis limit, which shares its leaf name with the icon view's own.
+	- Test case: none, nothing checks that every key still has a reader.
 
 - ✅ Windows: open a `.lnk` the way Explorer does, by what it points at.
 	- Opened: 20260826-103001
@@ -2973,6 +3415,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- That is what fixes the program case. A shortcut carries a command line, a working directory and a window state, and none of them survive being reduced to a target path - a shortcut to a shell with arguments used to open a bare shell. Shortcuts to virtual items (Recycle Bin, a control panel page) now open too, having no path to reduce to in the first place.
 	- Verified: a launched shortcut's arguments and working directory both arrive.
 	- Icon split off below - it is a bigger piece than the rest of this and applies to more than shortcuts.
+	- Test case: `test-nemo-shortcut-win32` (`test_open_action` and the launch block), Windows only.
 
 - ✅ Show a build number in `--version`, `--about`, Help > About, the Windows splash screen, and the release notes.
 	- Opened: 20260826-103001
@@ -2982,6 +3425,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Five characters at the moment. It comes off the same commit date the reproducible builds already use, so two builds of one commit agree; a build outside the release lanes falls back to the clock.
 	- `--about` is new, and prints the version line, the copyright, the project home and the license. Help > About gained the copyright and a link to the project, which it had never shown.
 	- Checked on both platforms: the two command line outputs, the About dialog, and the splash.
+	- Test case: `test-nemo-cli-version` (`check_prints`), POSIX only.
 
 - ✅ Ctrl+H toggles dot-files and Windows hidden files together.
 	- Opened: 20260826-103001
@@ -2990,10 +3434,12 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Ctrl+Shift+H stays as it is, Windows only.
 	- Both the setting and the dot-file menu item move with it now. The item had to be ticked directly - neither of the two toggles watches for a change made anywhere else, they are only read when the menus are built. That wider gap is left for later.
 	- Nothing changes off Windows, where one switch already covered both.
+	- Test case: `test-nemo-dot-files-win32` (`test_ctrl_h_brings_them_together`), Windows only.
 
 - ✅ Ctrl+, opens Preferences.
 	- Opened: 20260826-103001
 	- Closed: 20260827-110000
+	- Test case: none, a single accelerator entry.
 
 - ✅ Build timestamps come from the commit being built, not the clock, so a release can be reproduced.
 	- Opened: 20260826-115717
@@ -3003,6 +3449,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Verified by building each artifact twice from scratch: the Windows exe, the Linux tarball, the .deb, the .rpm and the Windows zip all came out byte-identical. A build with the stamp removed differed, which is the check that the mechanism is what did it.
 	- Also fixed on the way through: the Linux release lane had been failing since the staging script gained a safety guard on its destination name, which no longer matched what the release script passed it.
 	- Not covered, and cannot be: a signed exe, since the countersignature carries the real time of signing.
+	- Test case: none, release pipeline; proving it takes two full release builds.
 
 - ✅ Windows: two kinds of hidden file, two options.
 	- Opened: 20260823-140628
@@ -3012,6 +3459,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- "Show dot-files" is now a second switch, Ctrl+Shift+H, next to "Show hidden files" in the View menu and hidden on every other platform, where one switch still covers both. Default is to hide them.
 	- The two are independent: revealing attribute-hidden files no longer reveals dot-files, and the listing, the tree sidebar and search all go through the same check.
 	- Flipping either one re-reads the open folder, so an edit to the settings file shows up without a restart.
+	- Test case: `test-nemo-dot-files-win32` (`test_hidden_by_default`, `test_switch_reveals_them`, `test_independent_of_show_hidden`), Windows only.
 
 - ✅ Windows: choose which separator paths are shown with.
 	- Opened: 20260823-140628
@@ -3022,6 +3470,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Changing it re-reads the open folder, so the whole window switches over at once rather than on the next visit.
 	- Typed input already took both separators, so what is new is the option to turn `/` off. A location that leans on it is then refused with a beep instead of going anywhere.
 	- Also fixed on the way past: the preferences dialog named a widget in a size group that no longer exists, so loading it stopped early and silently. Only an unused list model came after the break, which is why nothing looked wrong.
+	- Test case: `test-nemo-path-separator-win32`, Windows only.
 
 - ✅ Windows: "Copy path as [\|/]".
 	- Opened: 20260823-140628
@@ -3029,6 +3478,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- A second clipboard item directly below the existing Copy Path one, spelling out whichever separator the paths are not currently shown with. It follows the same show/hide setting as the first, so the pair travels together.
 	- In all four places the first one appears: the Edit menu, the selection menu, the background menu and the breadcrumb menu. Hidden on every other platform.
 	- The existing Copy Path now follows the display setting too, so the pair is always "what you see" and "the other one". A remote location still contributes its uri untouched, since a uri's slashes were never separators.
+	- Test case: `test-nemo-path-list`.
 
 - ✅ Windows: "Open with Explorer", for a single selected entry.
 	- Opened: 20260823-140628
@@ -3038,6 +3488,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- A deliberate escape hatch rather than a dependency. The standing "depend on Explorer as little as possible" rule is about core function; this one says Explorer on the label.
 	- Two routes, because one is not enough: the shell item API, which handles any name, falling back to a command line when that is refused. Running elevated is when it gets refused, and nemo can be running elevated - "Open as administrator" puts it there.
 	- Both routes verified. The item opens a window, so it sits behind `NEMO_PROBE_EXPLORER` rather than running on every pass of the suite.
+	- Test case: `test-nemo-view-win32` (`check_quote`) for the fallback command line; opening Explorer only runs with `NEMO_PROBE_EXPLORER` set, since it opens a window.
 
 - ✅ Column widths and the Ext column, second pass. Overrides the earlier column rules where they disagree.
 	- Opened: 20260823-130540
@@ -3050,21 +3501,25 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- A small gap keeps the first and last columns off the window frame.
 	- All of it verified in the running app, the zoom case included.
 	- Note: This contradicts the latest canonical column-sizing definition in 'design.md' under the section "List view column widths", as of 20260916-113519.
+	- Test case: `test-nemo-filename-extension` for Ext, `fCheckZoomRemeasure` in the C lint for the zoom; the width rules were replaced by the one in design.md.
 
 - ✅ The preferences dialog opens larger, and big enough for the Views page to fit without a scrollbar.
 	- Opened: 20260823-130540
 	- Closed: 20260823-134341
 	- The height is measured from the page itself rather than fixed, so a different theme, font size or translation still fits, up to what the monitor has room for.
+	- Test case: `test-nemo-prefs-dialog` (`test_size`).
 
 - ✅ Ask before moving files to Trash defaults to on.
 	- Opened: 20260823-130540
 	- Closed: 20260823-134341
 	- Already the default; confirmed rather than changed.
+	- Test case: none, already the default, confirmed rather than changed.
 
 - ✅ Right-click properties wording: ours is plain "Properties" and sits first; the Windows sheet reads "Windows properties (Alt+Enter)" below it. Shortcuts themselves are unchanged.
 	- Opened: n/a
 	- Closed: 20260822-075741
 	- Seen in the running app; the breadcrumb menu says "Windows properties" without the hint, since Alt+Enter acts on the selection rather than a path segment.
+	- Test case: none, wording only.
 
 - ✅ New list columns.
 	- Opened: n/a
@@ -3074,6 +3529,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Windows only: "Permissions source" - Inherited, Local or Mixed, read from the file's ACL - off by default, listed after Owner. Verified against files with disabled inheritance and added grants.
 	- Type now defaults to at most twice the File extension column's width.
 	- Note: This may contradict the latest canonical column-sizing definition in 'design.md' under the section "List view column widths", as of 20260916-113519.
+	- Test case: `test-nemo-filename-extension`, `test-nemo-owner-columns` (`check_windows_lookup`), `test-nemo-perm-source-win32` (Windows only).
 
 - ✅ Column widths remember the user's hand. Overrides the earlier auto-sizing rules where they disagree.
 	- Opened: n/a
@@ -3082,6 +3538,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Name still takes all remaining space - except in find mode, where Name and Location split the row one-third/two-thirds by default, and an adjusted split is remembered forever and kept as the window resizes. Supersedes the find-mode column note, now canceled.
 	- Both verified in the running app: the dragged ceiling survives narrow-then-wide, and the find-mode split holds at the adjusted ratio across sizes.
 	- Note: This contradicts the latest canonical column-sizing definition in 'design.md' under the section "List view column widths", as of 20260916-113519.
+	- Test case: none, replaced by the column width rule in design.md.
 
 - ✅ Properties on Windows opens the one Windows itself shows, instead of ours.
 	- Opened: 20260821-180950
@@ -3091,6 +3548,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Anything the shell cannot name falls back to ours rather than doing nothing: a virtual location, a selection spanning folders (which is what a search result set is), or an item that has gone away since it was clicked.
 	- The sheet runs off the main loop, so the window behind it stays live while it is open, and it is waited out rather than abandoned - the extra threads go when it closes.
 	- Verified on Windows, and the fallback rule has checks of its own.
+	- Test case: `test-nemo-properties-win32`, Windows only.
 
 - ✅ Every piece of text in the interface reads as a sentence, not as a headline - only the first word capitalised, and anything that is a name left alone.
 	- Opened: 20260821-180950
@@ -3101,6 +3559,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Left alone on purpose: the license text, which is quoted verbatim, and the name a new folder or document is given, which is written to disk rather than shown.
 	- It is checked rather than trusted, because a label copied from upstream arrives in Title Case: `cicd/utility/lint-ui-case.py` reads every translatable string in the tree and fails the lint step on any that is not a sentence. The whole exception list lives in that one file, each entry with its reason.
 	- The check found what a first pass by eye did not - the plural labels, where two spellings sit in one call, which is what had left "Copy Paths" and "Make Links" behind.
+	- Test case: `cicd/utility/lint-ui-case.py`.
 
 - ✅ One setting for how much of the machine's CPU any compression may use, as a percentage of the cores it finds. Default 50% - the best balance on a hyperthreaded CPU.
 	- Opened: 20260821-140715
@@ -3110,6 +3569,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- It is the one marker that does not stand for a control in the Compress dialog, so a line edited past it says nothing - the program simply picks for itself.
 	- Rounds up, so a single-core machine still gets one thread and the answer is never nothing.
 	- Verified: each program is handed the switch it spells its own way.
+	- Test case: `test-nemo-archive` (`check_cpu_share`, `check_commands`).
 
 - ✅ Per-monitor DPI aware where the platform offers it, and DPI aware at minimum everywhere else.
 	- Opened: 20260821-140715
@@ -3120,6 +3580,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Nothing was needed for Linux or BSD: X11 and Wayland desktops publish their own scaling and the toolkit already follows it.
 	- The manifest also declares the run level explicitly (unchanged - what we already had by having none) and the versions of Windows we have run on, so the version APIs stop reporting Windows 8 forever.
 	- Verified on this box: the running process reports per-monitor awareness and its window reports the v2 context. The scaling sum is covered by a test. This box runs at 100%, so the fraction itself rests on arithmetic. It still needs a look on a scaled display.
+	- Test case: `test-nemo-dpi-win32`, `test-nemo-manifest-win32` (`check_dpi`, per-monitor v2 only checked in a desktop session), Windows only.
 
 - ✅ F2 selects the whole name, extension and all, rather than just the part before the dot. Settings tunable, for anyone who wants it the other way.
 	- Opened: 20260821-140715
@@ -3127,6 +3588,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Both views. A folder was already selected whole; a file now is too.
 	- `preferences.rename-selects-whole-name`, a file-only setting with no control in Preferences.
 	- Verified in the running window: F2 on a `.md` file opens the box with the suffix inside the selection.
+	- Test case: `test-eel-rename-region` (`check_setting`).
 
 - ✅ List view columns use the window as it is resized, instead of being pushed off the end of it or leaving a gap.
 	- Opened: 20260821-140715
@@ -3141,6 +3603,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Refines the earlier "Name column always as large as possible" work under Done, which only made Name take the slack; this is the rule for all of them.
 	- Verified at half a dozen widths on two folders, and the rule itself has a test of its own.
 	- Note: This contradicts the latest canonical column-sizing definition in 'design.md' under the section "List view column widths", as of 20260916-113519.
+	- Test case: `test-nemo-column-layout`.
 
 - ✅ Twelve more icon sets, all of them asked for by name: BeautyLine, the six Simply Circles colors, Lime Numix 2021, MB Lime Suru GLOW, Material Black Pistachio Suru, Avidity Dusk Mixed Suru, FF-BlackGreen and FF-Flamengo-RJ-BR. Twenty-three sets in the picker now.
 	- Opened: 20260819-124028
@@ -3149,15 +3612,18 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Three new fetch shapes were needed: a repository that keeps one theme family per branch, six themes out of one sparse checkout, and two that ship the icons as a tar committed inside a repository of something else.
 	- Buuf is deliberately not included. It is CC BY-NC-SA, and the NonCommercial term rules it out of anything shipped and out of the repository. It is still wanted, so `filesystem/` explains where to drop it and gives a one-line fetch for it.
 	- Three of the twelve carry no license file upstream and are shipped on weaker evidence than the rest. Each one is named, with what it rests on, in `vendor/README.md`. Check them before a release.
+	- Test case: none, icon art and a license review; `test-nemo-appearance` (`test_bundled_set`) covers the bundle itself.
 
 - ✅ A gallery of every icon set in the README, four icons each on a light and a dark background, plus how to drop your own in. Rendered by `cicd/utility/icon-gallery.py`; re-run it when the set list changes.
 	- Opened: 20260819-124028
 	- Closed: 20260819-160351
 	- Each icon is rasterized on its own before being placed. Several sets color themselves through a stylesheet keyed on a class name they all spell the same way, so pasting their markup into one sheet made six differently colored sets come out identical - and renaming the classes apart made them all come out black.
+	- Test case: none, docs only.
 
 - ✅ `filesystem/` - a tree mirroring where things go on disk, so a folder can be copied straight across. Carries the icon and widget drop-in folders, what they are called on each platform, and the two optional `index.theme` keys that tell the picker which modes a theme suits.
 	- Opened: 20260819-124028
 	- Closed: 20260819-160351
+	- Test case: none, docs only.
 
 - ✅ Windows icon sets: one per Windows generation, all with yellow folders.
 	- Opened: 20260819-124028
@@ -3167,6 +3633,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- The XP and 7 folders were too shallow to read as folders at a glance; the body is taller in every era now.
 	- The folder itself is drawn per era rather than shared - chunky and outlined for XP and 7, flat and square for 10, rounded with the front panel falling away for 11. It is the icon a Windows generation is recognised by.
 	- The vendored Fluent icon set is gone with them: it drew blue folders and looked nothing like Windows 11, and Mica now covers that style. The Fluent *widget* theme stays. About 390 KB and 179 files lighter.
+	- Test case: none, icon art; pairing with the widget themes is under `test-nemo-appearance` (`test_icons_follow_style`).
 
 - ✅ Every bundled SVG run through a size pass: 2.1 MB of icon art down to 1.8 MB, and nemo's own artwork from 142 KB to 50 KB.
 	- Opened: 20260819-124028
@@ -3174,30 +3641,36 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Numbers in path data are rounded to a step finer than a two-thousandth of the icon, which is under a tenth of a pixel at any size one is drawn. Colors fold to their short form and unreferenced ids go.
 	- Multipliers - transform matrices, gradient vectors - are deliberately left alone: rounding a scale factor moves everything it touches, which is visible where rounding a coordinate is not.
 	- All 983 icons were compared before and after. One differs at all, by an amount invisible side by side. Checking caught a real fault first time round: an arc's two flags can be written with nothing between them, and reading path data as a plain run of numbers swallows one and silently reshapes the glyph.
+	- Test case: `cicd/utility/svg-min.py --self-test`, run by the lint step; skips with no python.
 
 - ✅ Default settings changed: folder expanders on in list view, binary size prefixes (KiB/MiB), and thumbnail visibility inherited from the parent folder.
 	- Opened: 20260819-124028
 	- Closed: 20260819-141014
+	- Test case: none, default values only.
 
 - ✅ List columns trimmed to one row per idea.
 	- Opened: 20260819-124028
 	- Closed: 20260819-141014
 	- Three dates, the same three everywhere: Date Created, Date Modified (on by default) and Date Read. The "- Time" twins of the first two are gone; they showed the same instant a second way. The times themselves come from whatever each OS keeps them in, so nothing here is per-platform.
 	- MIME Type and Detailed Type are no longer offered - neither reads as anything but debug output beside the plain Type column. Off behind a named switch in the source rather than deleted, since the underlying values are still what the properties window and the sort menu use.
+	- Test case: none, a deliberate removal behind a compile switch.
 
 - ✅ Appearance page: picking a Style now moves the Icons choice to match it, so a Windows 11 window frame no longer comes with macOS icons. Where a style has no icon set of its own the icons stay put. The note about drop-in theme folders sits further down the page, clear of the two pickers.
 	- Opened: 20260819-124028
 	- Closed: 20260819-141014
+	- Test case: `test-nemo-appearance` (`test_icons_follow_style`); the bundled-theme half runs only on a bundled-themes build, so on Windows.
 
 - ✅ "System default" in both theme pickers now reads "Nemo Anywhere" - on the bundled targets it is the app's own look, not the platform's.
 	- Opened: 20260819-124028
 	- Closed: 20260819-141014
+	- Test case: none, wording only.
 
 - ✅ Settings belong where each platform keeps them: `%APPDATA%\nemo-anywhere` on Windows, `~/Library/Application Support/nemo-anywhere` on macOS. Linux and BSD keep `~/.config`. Themes stay where they were.
 	- Opened: 20260819-084600
 	- Closed: 20260819-105607
 	- A folder left in the old place is moved across on first run, so nobody starts from defaults.
 	- Covered by a test over both roots.
+	- Test case: `test-nemo-config-root`.
 
 - ✅ The Windows executable takes too long to start. 14.2s down to 3.4s, and the executable from 39.8 MB to 33.5 MB.
 	- Opened: 20260819-084600
@@ -3209,11 +3682,13 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- The window itself is now shown at its remembered size and place as soon as it has somewhere to be, rather than after the first folder resolves. The splash goes when the folder has finished listing or a second after the view is up, whichever comes first - a big folder can take twenty seconds to list and there is no sense covering a window that is already usable.
 	- Found on the way: the app had never brought its own window to the front on Windows. Showing a window maps it without activating it, so it opened behind whatever you were looking at; on Linux the window manager focuses new windows itself, which is why it had never shown. Fixed.
 	- The remaining 2.5s over a plain-folder launch is the packer's own fixed cost and would need a different packer to reach.
+	- Test case: `test-nemo-appearance` (`test_bundled_set`, `test_bundled_icons_resolve`, on a bundled-themes build); start time, the splash and the window coming forward need a real desktop.
 
 - ✅ Dimmer highlight of mouseover line. It can easily get confused with line selection.
 	- Opened: 20260802-011216
 	- Closed: 20260802-015402
 	- The hover tint on a file-pane or tree row is dimmed to well under half what the theme sets, and only on rows that are not selected.
+	- Test case: `test-nemo-row-hover`.
 
 - ✅ Drag and drop onto a path button, and a fuller right-click menu on one.
 	- Opened: 20260802-011216
@@ -3221,6 +3696,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Dropping onto a path button already worked, and still does.
 	- The right-click menu was the short location one. It gained Open, Open in Terminal, Open as Admin and New Folder, so a path segment behaves like the folder it names.
 	- New Folder is only offered on the segment for the folder being viewed, and creates inside it. On any other segment it is grayed.
+	- Test case: none, New folder on the current segment only needs a full window; not worth building one for this.
 
 - ✅ Ship with "Copy path(s)" script from current nemo install.
 	- Opened: 20260724-091054
@@ -3230,6 +3706,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Copies the native path of each selected item, one per line, unquoted, with no trailing newline - the line ending being the local one, so a paste into cmd or notepad comes out as separate lines.
 	- Anything with no local path (a remote share) contributes its uri instead, and a recent or favorites entry resolves to the file it stands for rather than copying a virtual uri.
 	- Label follows the count: "Copy Path" for one, "Copy Paths" for several. Show/hide checkboxes in Preferences like the other context-menu items.
+	- Test case: `test-nemo-path-list`.
 
 - ✅ Right-click "Compress...": a cross-platform way to archive the selected files and folders.
 	- Opened: 20260819-170512
@@ -3248,6 +3725,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- An option nothing can honor is shown grayed rather than hidden, so the dialog does not change shape from one machine to the next.
 	- Encryption and splitting are treated as requirements - if nothing installed can do them the job is refused rather than quietly writing a readable archive. Everything else is a preference, honoured where possible and dropped where not.
 	- Compression runs as a normal background job: it shows in the same progress popup as copying, can be canceled, and a canceled or failed run leaves no half-written archive behind.
+	- Test case: `test-nemo-archive`, `test-archive-job` (`check_cancel`, `check_unreadable_sources`), `test-nemo-archive-combos`, `test-nemo-archive-settings`.
 
 - ✅ The 7z and rar command lines are settings, not code, so a user can edit them.
 	- Opened: 20260821-124844
@@ -3257,6 +3735,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Clearing a line puts the shipped one back rather than running nothing, and a line that cannot be read is refused outright rather than half-run.
 	- A password is handed to the program as a value, never written into the settings file.
 	- `{{LIKE_THIS}}` is now the convention for any setting that needs a placeholder. Braces because no shell or command prompt expands them, so a line can be pasted somewhere to try it out and come back unchanged.
+	- Test case: `test-nemo-command-template` (`check_from_config`, `check_unused`, `check_values_stay_one_argument`).
 
 - ✅ Right-click "Extract" for the archive formats we recognize, including shelling out to 7z or rar.
 	- Opened: 20260820-174223
@@ -3269,6 +3748,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Collisions ask the same question copying asks, with the same answers - skip, duplicate, rename, replace, and applying that answer to everything after it. A folder arriving on a folder merges without asking. The prompt says which archive the incoming file came from, since several can be unpacked at once.
 	- An entry whose stored path climbs out of the folder being unpacked into, or names a drive, is put back inside it.
 	- Unpacking runs as a normal background job: it shows in the same progress popup as copying and can be canceled.
+	- Test case: `test-nemo-extract`, `test-extract-job`, `test-nemo-menu-paths`; collisions and password reuse need a dialog and are not covered.
 
 - ✅ Depend on Explorer as little as possible.
 	- Opened: 20260818-144244
@@ -3277,6 +3757,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- It was already unreachable: the only caller sits behind a desktop-view check that went permanently false when the desktop shell was removed. On Windows it would also have been asking for a handler that Windows does not answer for - nothing is registered for a folder as a type.
 	- Removed, along with its declaration. Nothing in the tree launches Explorer now.
 	- What remains is in-process and unavoidable: the recycle bin and `.lnk` files are shell APIs called inside our own process, with no Explorer involved. Two `ShellExecute` calls stay for good reasons - one launches the terminal the user chose (found on PATH, not via the shell's associations), the other relaunches our own executable elevated, which is the only way to ask for elevation.
+	- Test case: `fCheckWinLaunch` in the C lint.
 
 - ✅ Code review 20260815 - architecture and UX notes.
 	- Opened: 20260815-154746
@@ -3284,35 +3765,45 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Observations and suggestions rather than defects. Not individually reproduced.
 	- ✅ Item 110. Two separate desktop-terminal fallbacks disagree: "Open in Terminal" honors the configured terminal, launching a terminal app does not.
 		- Fixed: both paths fall back to the same scan of known terminals, so neither silently does nothing.
+		- Test case: `test-eel-terminal` (`test_fallback_scan`).
 
 	- ✅ Item 111. Localization is effectively dead on Windows and on relocated installs; the locale directory is baked at build time and no packaging step installs or points to it.
 		- Fixed: data, translations and helper programs are found relative to the running program, with the built-in path as a fallback.
+		- Test case: `test-nemo-runtime-env`, POSIX only.
 
 	- ✅ Item 112. Windows drive roots are labeled bare, with no volume label.
 		- Fixed: the volume label is shown ahead of the drive letter.
 		- Verified on Windows: the sidebar reads "Windows (C:)" and "Extra (K:)" against the real volumes on this box.
 		- But only the sidebar was covered - see the drive-root naming item under Done - Bugs.
+		- Test case: `test-nemo-drive-root-name`, Windows only.
 
 	- ✅ Item 113. The README points Windows users at the wrong settings folder.
 		- Fixed.
+		- Test case: none, docs only.
 
 	- ✅ Item 114. "Open in Terminal" on Windows is hardcoded with no setting, though the same item is configurable on Linux.
 		- Fixed: the list of terminals to try is a setting, tried in order.
+		- Test case: `test-nemo-view-win32` for the terminal command split, Windows only; the order the candidates are tried in is not covered.
 
 	- ✅ Item 115. Failed Windows elevation or terminal launch is silent; the shell-execute result is ignored.
 		- Fixed: a failure is reported rather than swallowed. The path is also quoted properly now, so a folder with spaces or a drive root works.
+		- Test case: `test-nemo-view-win32` for the quoting, Windows only; the failure report needs a real launch and is not covered.
 
 	- ✅ Item 116. Selectable message-dialog text grabs focus pre-selected.
 		- Fixed: the text is still selectable but no longer takes focus pre-selected.
+		- Test case: `test-eel-stock-dialogs`.
 
 	- ✅ Item 117. The properties window never cancels scheduled owner/group changes on close.
 		- Fixed: pending changes are canceled when the window closes.
+		- Test case: none, needs a full properties window; not worth building one for this.
 
 	- ✅ Item 118. The Ctrl-key state for tab switching is a stale process-wide global.
 		- Fixed: the state belongs to the notebook and is cleared when it loses the keyboard.
+		- Test case: none, needs synthesized key events on a live notebook; not worth building for this.
 
 	- ✅ Item 119. The public design doc's code-structure sections are empty scaffolding; the real internal architecture lives only in private notes.
 		- Fixed: the code-structure, data-flow, execution, stack, UI and testing sections are written.
+		- Test case: none, docs only.
 
 - ✅ Ultra-portable Windows: a single self-contained executable.
 	- Opened: 20260730-203115
@@ -3326,6 +3817,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- The extension library went in with them. With no external plugins on Windows the executable was its only reader, so there is no separate library beside it any more. Linux keeps it shared, for third-party extensions.
 	- ✅ No external plugin loading on Windows (a bad plugin must never hang the app); keep the extension-management UI in-exe.
 		- The plugin folder is never read on Windows, so a stray library cannot load and hang the app. The plugins tab in Settings still appears, listing nothing.
+	- Test case: `cicd/utility/check-win-build-flags.bash` for the GUI subsystem, plus the `--version` smoke in `cicd/cicd-win.ps1`; the packing itself is a pipeline stage.
 
 - ✅ Windows look: make it feel native even though it isn't Explorer.
 	- Opened: 20260730-203115
@@ -3341,6 +3833,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- ✅ Theme + light/dark selection stored in config; auto-follow the Windows light/dark setting with a manual override.
 		- Done: auto-follow reads Windows AppsUseLightTheme at startup and live (registry watch).
 		- Done: an Appearance page in settings with Light / Dark / Follow the system, plus style and icon pickers filtered to the mode in force. Picking one half of a light/dark pair follows the pair when the mode changes.
+	- Test case: `test-nemo-appearance` (`test_dropin_shadows_bundled` and the theme and mode checks); the font rendering is look only, judged by eye.
 
 - ✅ Config engine: settings + persistence moved to SHCL in a user-level `settings.shcl`; gconf/dconf and the Windows registry are out of the picture.
 	- Opened: 20260718-170501
@@ -3351,24 +3844,28 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Done: the `compat.*` fallback schemas are gone; desktop-owned settings (terminal, recent files, 12/24h clock) are read from the desktop where it publishes them, ours otherwise.
 	- Note: settings do not carry over from a pre-1.0 install - nothing left can read the old store. Fresh defaults on first run after upgrading.
 	- Note: nemo actions can still name any GSettings schema in a condition; that reads other programs' settings and is unaffected.
+	- Test case: `test-nemo-config`, `test-nemo-config-catalog`, `test-nemo-config-schema`.
 
 - ✅ No autorun, ever, on any platform - not even an option. Notice a new drive; never run anything off it. Remove the autorun-software helper and its media-autorun path.
 	- Opened: 20260730-203115
 	- Closed: 20260802-002013
 	- Done: the autorun-software helper, its menu entry, and the "prompt or autorun programs" preference are gone.
 	- Done: the inserted-media bar never offers to run software from media. Other media notices (audio CD, photos) unchanged, and automount / auto-open still work - drives are noticed, nothing runs.
+	- Test case: `fCheckNoAutorun` in the C lint.
 
 - ✅ Native Windows shortcuts: create `.lnk` files, the Windows analog of `.desktop` launchers.
 	- Opened: 20260725-153058
 	- Closed: 20260803-135051
 	- ✅ Create: "Make Link" and the drag "_Link Here" now write a `.lnk` shell shortcut on Windows (via `IShellLinkW`), in place of the POSIX symlink the win32 file layer can't make. Round-trip verified by a test that loads the shortcut back through the shell.
 	- ✅ Follow on open: opening a `.lnk` now follows through to its target - a folder navigates in place, a file opens as if the target were double-clicked. Reading the target round-trips through the shell (test-verified).
+	- Test case: `test-nemo-shortcut-win32`, `test-nemo-make-link-job` (`shortcut`), Windows only for the shell half.
 
 - ✅ Ship the app's own icons and data files on Windows.
 	- Opened: 20260725-153058
 	- Closed: 20260826-103001
 	- Cause: the data dir was a compile-time absolute Unix path, so the sort-menu icons, the eject icon and the emblem art did not resolve on Windows.
 	- Fixed: the artwork rides inside the executable as a compiled-in resource, and the data, translation and helper-program folders are found relative to the running program, with the built-in path as a fallback.
+	- Test case: `test-nemo-app-resources`, `test-nemo-runtime-env` (POSIX only), `test-nemo-appearance` (`test_app_icons_resolve`).
 
 - ✅ Real-Windows validation pass.
 	- Opened: 20260724-140849
@@ -3377,6 +3874,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Note: moving a file to the trash raises a Windows confirmation dialog of its own on this box, on top of ours. Open question: should ours stand down there? The test that hit it now skips that step unless asked for it.
 	- Done on real Windows: the recycle bin end to end, network browsing against this box's own shares, single instance and location forwarding, the installer's install/reinstall/uninstall round trip, and elevated relaunch. Each of the code-review items was re-checked here.
 	- Found doing it, and fixed: the whole compiled-resource bundle was missing from the Windows build, so there was no menu bar at all; a drive root was named three different ways; "Set as default" failed silently forever; the installer read a prerelease version as the release it precedes.
+	- Test case: `test-nemo-drive-root-name`, `test-nemo-trash-win32`, `test-nemo-associations-win32` (Windows only), and `cicd/utility/check-win-build-flags.bash` for the resource bundle in the exe.
 
 - ✅ Get release binaries onto the host, plus an optimized buildtype.
 	- Opened: 20260730-185314
@@ -3384,22 +3882,26 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- ✅ Done: host dogfood path proven. Release build staged in the container, copied out to a self-contained folder, launched via a small wrapper.
 	- ✅ Done: Linux release lane at `cicd/linux/release.bash` - optimized stripped build on an Ubuntu 22.04 box (the glibc floor is what the binary is built against), staged into a relocatable prefix, packed as the tarball plus the sums file.
 	- ✅ Done: artifacts come out under the names the installers look for, and the artifact dir is wired in `config.bash` so `utility/release.bash` verifies and attaches them.
+	- Test case: none, pipeline setup.
 
 - ✅ Single-exe packaging stage in `cicd-win.ps1` - pack the staged DLL closure into one portable `.exe`.
 	- Opened: 20260730-203115
 	- Closed: 20260804-095855
 	- Done: `cicd/win/pack-portable.ps1` flattens the bundle and packs it with Enigma Virtual Box into one self-contained exe; wired as cicd-win stage 5.
+	- Test case: none, pipeline setup.
 
 - ✅ Windows exe signing groundwork.
 	- Opened: n/a
 	- Closed: 20260804-095855
 	- ✅ Embedded VERSIONINFO in the exe (real publisher/version metadata; a blank-metadata binary scores worse with AV heuristics and looks unfinished in Properties).
 	- ✅ Local `signtool` signing scaffold in cicd-win stage 5 - env-driven, no-op until a cert is configured (fits a token/store cert: Certum OSS, Azure Trusted Signing, or a commercial EV).
+	- Test case: `cicd/utility/check-win-build-flags.bash` for the version resource; the signing scaffold is pipeline setup.
 
 - ✅ Publish the Windows `.zip` alongside the single exe. `install.ps1` only ever looks for the contract-named zip, so on Windows the one-liner installer had nothing to fetch even though the release carried a working exe.
 	- Opened: 20260804-133646
 	- Closed: 20260804-232326
 	- Done: `cicd/win/pack-zip.bash` builds it from the cross build, and every release from `v1.0.0-beta2` on has it.
+	- Test case: none, release packaging.
 
 - ✅ Don't continuously spam stdout/stderr with meaningless debug messages.
 	- Opened: 20260802-011216
@@ -3407,12 +3909,14 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Cause: on Windows, any file type without a registry MIME mapping fell through a wildcard and got a doomed image-thumbnail attempt - two warnings per file, every folder browsed. A few one-shot startup notices added to the noise.
 	- Fixed: unknown types are no longer treated as thumbnailable, the image loader gets a real MIME type, and the per-file / startup notices are debug-level now (visible with G_MESSAGES_DEBUG when wanted).
 	- Verified: browsing a mixed folder of images and non-images runs silent; image thumbnails unaffected.
+	- Test case: `test-nemo-thumbnail-win32` (Windows only), `test-nemo-directory-load-clean`.
 
 - ✅ Add a C formatter/linter gate and wire it into the format/lint stages.
 	- Opened: 20260725-153058
 	- Closed: 20260802-011216
 	- Done: check-only cppcheck over the changed C files only, wired into both pipelines (Windows stage 1 + gate, Linux lint stage). No in-place formatter - a full-tree reformat of the inherited code would bury history in churn.
 	- Done: a box without cppcheck skips with a warning instead of blocking a push.
+	- Test case: none, it is the lint gate itself.
 
 - ✅ Change default settings:
 	- Opened: 20260724-091054
@@ -3422,17 +3926,20 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- ✅ Date display in ISO format.
 	- ✅ Showing owner, group, and perms.
 	- Done: new out-of-the-box defaults - list view at 66%, trash moves ask first, ISO dates, owner/group/permissions columns visible. Existing installs that changed a setting keep their value.
+	- Test case: `test-nemo-config` (`test_product_defaults`).
 
 - ✅ Remove features:
 	- Opened: 20260724-091054
 	- Closed: 20260802-004759
 	- Option to display date in monospace font.
 	- Done: the date font style option, its setting, and the mono-font matching are gone. Dates use the regular font.
+	- Test case: none, removed feature.
 
 - ✅ Allow select and copy of error message dialogs.
 	- Opened: 20260724-102941
 	- Closed: 20260802-004759
 	- Done: the message text in the stock error/question dialogs is selectable, so it can be copied. The expandable details text already was.
+	- Test case: `test-eel-stock-dialogs`.
 
 - ✅ "Name" column should always be as large as possible, the other columns don't auto-adjust. When window grows or shrinks, the Name column does too to as wide as possible without pushing other columns off.
 	- Opened: 20260724-091054
@@ -3441,12 +3948,14 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Fixed: dropped that request, so Name now gives space back down to its existing minimum. Long names ellipsize as before.
 	- Verified: at 600px wide all four columns fit where Date Modified used to be cut off; at 1500px Name still takes all the slack; shrinking back from wide re-fits correctly.
 	- Note: This contradicts the latest canonical column-sizing definition in 'design.md' under the section "List view column widths", as of 20260916-113519.
+	- Test case: `test-nemo-column-layout`, `fCheckColumnExpand` in the C lint.
 
 - ✅ Wine launcher.
 	- Opened: 20260724-091054
 	- Closed: 20260725-153058
 	- Fixed: launches detached, so the script exits and returns immediately.
 	- Fixed: initial directory is the user's home if it exists, falling back to the drive root, then C:\.
+	- Test case: none, a dev script that needs wine and a display.
 
 - ✅ Installer script(s) - one-liner install from a shell, for every target.
 	- Opened: 20260723-132307
@@ -3457,6 +3966,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Done: README gained an Installation section. The release-asset naming the installers depend on is in design.md under Delivery.
 	- Verified: end to end on the unix side against a stand-in releases service - channel and asset resolution, checksum pass and tamper-fail, install, reinstall, uninstall, prompt accept and decline, and both installers leaving identical results.
 	- Note: the Windows half still needs the real-Windows validation pass.
+	- Test case: `cicd/linux/test-installers.bash`, `cicd/linux/test-install-download.bash`.
 
 - ✅ Dogfood launcher script.
 	- Opened: 20260723-081328
@@ -3468,11 +3978,13 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Done: a launch with nothing to copy went from nine seconds to one. Working out which programs are running was the whole cost on Windows, and it was being done twice.
 	- Fixed: the newest copy could age out and be re-fetched on every run whenever the source build was itself older than the pruning cutoff.
 	- Fixed: copies left by the pre-single-exe layout were invisible to the pruning and sat there for good.
+	- Test case: `cicd/utility/test-runfm-pool.ps1`.
 
 - ✅ Adopt the local-only delivery model: dev = integration target, main = release-only (dev to main = release cut). Feature branches merge --no-ff into dev.
 	- Opened: 20260718-192018
 	- Closed: 20260718-195609
 	- Note: copied as high-level concepts (not language tooling) from the sibling project.
+	- Test case: none, process.
 
 - ✅ Make the CICD test gate resilient to a down or absent docker daemon.
 	- Opened: 20260721-222522
@@ -3483,23 +3995,27 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Verified: gate passes normally, and skips cleanly when docker is unreachable.
 	- Note: whether one smoke test was enough as a gate settled itself. The gate runs the whole suite now, on Linux and on Windows.
 	- Note: since 20260919 a missing `nemo-build` is made on first use rather than skipped. Any other missing container still skips.
+	- Test case: none, pipeline setup.
 
 - ✅ Stand up the local pipeline: engine, config, git backup+publish, release helper, and a pre-push merge gate.
 	- Opened: 20260718-192018
 	- Closed: 20260725-153058
 	- Verified: container build + smoke test, and backup+publish, all pass.
+	- Test case: none, pipeline setup.
 
 - ✅ dbus / single-instance handling.
 	- Opened: 20260718-155447
 	- Closed: 20260725-153058
 	- Verified: single-instance works unchanged on Windows. A second launch hands its arguments to the first. No per-platform gating needed. Details in design.md, "Decisions along the way".
 	- Fixed: a bus-less environment (headless or minimal system) crashed the internal file-operations service. It now skips setup cleanly. Regression test added, passes on both platforms.
+	- Test case: `test-nemo-startup-clean` (`check_no_bus`), `test-nemo-instances`.
 
 - ✅ Context-menu actions: open in terminal, open elevated, launchers.
 	- Opened: 20260718-155447
 	- Closed: 20260724-143335
 	- Done: on Windows, "open in terminal" opens the native console at the folder, and "open elevated" relaunches the app through the normal elevation prompt. Linux paths unchanged. Menu labels are per-platform.
 	- Note: `.desktop` launcher files already degrade cleanly on Windows. Native `.lnk` creation is its own item, since done.
+	- Test case: `test-nemo-view-win32` (Windows only), `test-eel-terminal`; the launches themselves open a prompt or a console and are not driven.
 
 - ✅ Thumbnails, icon theme, and default-app association per platform.
 	- Opened: 20260718-155447
@@ -3507,6 +4023,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Done: the portable file-and-app layer already carries most of this. The real gaps were the two icon bugs (see Done - Bugs) and packaging the thumbnailer tools with the Windows runtime.
 	- Verified: default-app lookup, launch, and set-default work on Windows through the portable layer. Image thumbnails render.
 	- Note: on Windows 10/11 the per-user default-app choice may not stick. Not worked around.
+	- Test case: `test-nemo-associations-win32`, `test-nemo-thumbnail-win32` (Windows only), `test-nemo-thumbnail`.
 
 - ✅ gvfs replacement or scope-out (mounts, network, trash).
 	- Opened: 20260718-155447
@@ -3525,33 +4042,39 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- Verified: graceful-empty in the dev rig (no real network there). Populated browsing is part of the real-Windows validation pass.
 	- ✅ Accept `\` as a separator in typed locations on all platforms.
 		- Done: the literal path is tried first, then a `\`-to-`/` retry only if it doesn't resolve. Real backslash-named files and remote URIs are never touched.
+	- Test case: `test-nemo-metadata-store`, `test-nemo-trash-win32`, `test-nemo-network-win32` (Windows only), `test-eel-user-input`; the Network sidebar gate is not covered.
 
 - ✅ File operations (copy/move/delete/rename) on native APIs.
 	- Opened: 20260718-155447
 	- Closed: 20260722-201512
 	- Verified: the existing operations engine drives all core operations correctly on Windows - copy, conflict, overwrite, recursive folder copy, move, rename, delete. No porting needed. Probe test added, runs on both platforms.
 	- Fixed: link-creation options are hidden on Windows (no symlink support there). The permissions tab, columns, and change-permissions paths are hidden too, since Windows fabricates the mode bits.
+	- Test case: `test-gio-fileops`, `test-copy`.
 
 - ✅ File monitoring via portable backends.
 	- Opened: 20260718-155447
 	- Closed: 20260725-153058
 	- Verified: change events deliver through the native monitor backends on both platforms. Nothing to port.
+	- Test case: `test-nemo-directory-monitor`.
 
 - ✅ Choose and stand up the Windows toolchain.
 	- Opened: 20260718-155447
 	- Closed: 20260725-153058
 	- Done: cross-compile from Linux with mingw-w64, smoke-test under wine, in a dedicated container. Details in design.md, "Building (Windows cross)".
+	- Test case: none, a decision; the cross build stage exercises it.
 
 - ✅ Get GTK3 + GLib/GIO building on the chosen toolchain.
 	- Opened: 20260718-155447
 	- Closed: 20260725-153058
 	- Done: cross configure comes up clean with all deps resolved. Unix-only deps guarded out per platform.
+	- Test case: none beyond the cross build stage and the native Windows gate build.
 
 - ✅ Compile on Windows, stubbing/excluding hard platform deps.
 	- Opened: 20260718-155447
 	- Closed: 20260725-153058
 	- Done: the app, its helpers, and the extension library all build and link clean, and run under wine. Linux stays green.
 	- Done: POSIX gaps closed via a shared compatibility header plus per-site guards.
+	- Test case: none beyond the cross build stage and the native Windows gate build.
 
 - ✅ Launch on Windows and browse the local filesystem.
 	- Opened: 20260718-155447
@@ -3559,47 +4082,56 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Done: the GUI comes up under wine and browses the local drive - sidebar, icon view, per-type icons, item count, free space.
 	- Fixed: startup abort caused by desktop settings schemas that only exist on Cinnamon/GNOME. Bundled neutral fallbacks now cover them (see design.md, "Decisions along the way").
 	- Done: GUI smoke test scripted.
+	- Test case: `cicd/win/gui-launch-smoke.ps1` in the Windows gate, `cicd/win/gui-smoke.bash` under wine after the cross build.
 
 - ✅ Map drive letters / roots into the location model.
 	- Opened: 20260718-155447
 	- Closed: 20260725-153058
 	- Done: on Windows, each fixed drive is a first-class sidebar root with a disk-usage bar, replacing the single Unix filesystem root (meaningless on Windows). Removable and network drives keep the normal devices path, which carries eject.
 	- Verified: drives show as roots and open to their contents.
+	- Test case: `test-nemo-drive-root-name` for the names, Windows only; listing fixed drives as sidebar roots is not covered.
 
 - ✅ Remove desktop management entirely (Nemo Anywhere is a file manager, not a desktop shell).
 	- Opened: 20260718-170501
 	- Closed: 20260719-181630
 	- Done: the desktop binary, desktop windows, and the Cinnamon session coupling all deleted. Kept the launcher-file editor and the monitor-geometry helper, both real file-manager features.
+	- Test case: none, removed feature.
 
 - ✅ Isolate xapp / cinnamon-desktop coupling (reimplement portably, not just disable).
 	- Opened: 20260718-155447
 	- Closed: 20260719-190803
 	- Done: favorites, thumbnails, tray icon, and the icon chooser all reimplemented portably. Details in design.md, "Decisions along the way".
+	- Test case: `test-nemo-favorites`, `test-nemo-thumbnail`; the build containers carry neither library, so a dependency coming back breaks the build.
 
 - ✅ Prove a de-Cinnamon Linux build that runs standalone (no xapp, no cinnamon-desktop) on any desktop or none.
 	- Opened: 20260718-155447
 	- Closed: 20260719-190803
 	- Verified: builds and links with neither library. Favorites and thumbnails work on the standalone build.
+	- Test case: none beyond the container build, which has neither library installed.
 
 - ✅ Isolate per-file view metadata keys so the two builds don't share view state on the same files.
 	- Opened: 20260718-174619
 	- Closed: 20260722-172504
 	- Done: view/layout keys and the favorite markers carry the app name. Keys other file managers also read (custom icon, emblems, annotation, backgrounds) stay shared on purpose.
+	- Test case: `fCheckMetadataSlug` in the C lint.
 
 - ✅ Build upstream as-is on Linux (meson) to confirm a known-good reference.
 	- Opened: 20260718-154147
 	- Closed: 20260718-155447
 	- Done: builds and runs clean on stock Debian 13, in a container (this dev box has newer mixed libs).
+	- Test case: none, one-time setup.
 
 - ✅ Note the exact dependency set and versions that produce a working build.
 	- Opened: 20260718-154147
 	- Closed: 20260718-155447
 	- Done: recorded in the build notes outside the repo.
+	- Test case: none, notes only.
 
 - ✅ Reorganize into a clean project structure; build consolidated under `source/`, root kept lean.
 	- Opened: 20260718-154147
 	- Closed: 20260718-161018
 	- Done: meson project moved under `source/` with its internal layout intact. Builds and runs green.
+	- Test case: none, layout only.
 
 - ✅ Rebrand to "Nemo Anywhere" / `nemo-anywhere` so it co-installs and runs alongside upstream Nemo without conflict.
 	- Opened: 20260718-170501
@@ -3607,32 +4139,39 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Done: renamed the installed identity only (binaries, service names, settings schema, config/data dirs, menu entries, icons). Internal code identifiers left as-is; no clash.
 	- Done: settings fully isolated from upstream Nemo. Doesn't claim the freedesktop file-manager service when upstream holds it.
 	- Verified: staged install has no filename collisions with upstream. The window comes up with no desktop session.
+	- Test case: `cicd/linux/test-prefix.bash`, `test-nemo-config-root`.
 
 - ✅ Install nemo-anywhere and upstream Nemo into separate prefixes and confirm both run simultaneously without conflict (real side-by-side runtime proof).
 	- Opened: 20260718-191700
 	- Closed: 20260719-181454
+	- Test case: none, a one-time runtime check; `cicd/linux/test-prefix.bash` holds the file names apart.
 
 - ✅ Clean detached baseline from linuxmint/nemo 6.6.4 (no upstream commit history).
 	- Opened: 20260718-154147
 	- Closed: 20260718-155447
+	- Test case: none, repo history.
 
 - ✅ Fork branding + provenance (README, fork.md), GPL-2.0-only.
 	- Opened: 20260718-154147
 	- Closed: 20260718-155447
+	- Test case: none, docs only.
 
 - ✅ Name chosen: nemo-anywhere.
 	- Opened: n/a
 	- Closed: 20260718-155447
+	- Test case: none, a decision.
 
 - ✅ Create the GitHub repo and push.
 	- Opened: 20260718-154147
 	- Closed: 20260725-153058
 	- Done: created public.
+	- Test case: none, process.
 
 - ✅ Strip upstream CI - keep the repo clear of unrelated automation.
 	- Opened: 20260718-154147
 	- Closed: 20260725-153058
 	- Done: workflows and issue templates removed in the fork-setup commit.
+	- Test case: none, repo housekeeping.
 
 ### Future and/or deferred
 
@@ -3643,12 +4182,14 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- Why: behind the scenes, list view keeps one saved copy of each row's icon per preset size, seven in all. Zooming just picks a different copy. There is no copy for an in-between size, so there is no in-between size.
 	- The fix is to keep one copy per row, drawn at whatever size is asked for.
 	- Deferred because nothing needs it yet. List view has no size slider, and huge icons in a list are no use. It becomes worth doing if list view ever gets a slider.
+	- Test case: none, deferred.
 
 - ✋ Make regular delete/recycle/overwrite confirmation dialogs default to OK.
 	- Opened: 20260917-125804
 	- This reverses the earlier design intended to guard against an apparent spontaneous deletion bug.
 	- Don't alter the code that optionally provides ultra-protection by showing what will be deleted, how it was invoked, what files, etc.
 	- Only do this once nemo-anywhere has been in reliable use for many days or weeks, including archiving.
+	- Test case: none, deferred.
 
 - ✋ Code review 20260815.
 	- Opened: 20260815-154746
@@ -3658,6 +4199,7 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- Deferred: doing it properly needs a per-file cache of the formatted value with its own invalidation - the same machinery as the icon render cache, for much less gain.
 	- ✋ Item 109. Platform code is split two ways: dedicated Windows modules alongside inline platform blocks in large shared files.
 		- Deferred: Need to decide whether this is "convention" or a "bug".
+	- Test case: none, all three items are deferred.
 
 - ✋ Windows: "Open in terminal" should refer to an ordered list of shells and terminals in settings (if there's not a standard Windows way). At install time - and at launch in a background thread once the UI renders and settles:
 	- Opened: 20260802-095853
@@ -3669,11 +4211,13 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- PyCmd
 		- CMD.exe
 		- Powershell 5
+	- Test case: none, deferred.
 
 - ✋ Session bookmarks - that allow you to jump backwards and forwards to folders and/or files
 	- Opened: 20260819-141014
 	- Backlogged: 20260918-184949
 	- Need to think through the UX.
+	- Test case: none, deferred.
 
 ### Canceled
 
@@ -3716,17 +4260,20 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 		- The second option, hardlinks, by its nature is too fraught with potential future data loss problems for the user, that we don't want to be viewed as somehow "responsible" for. Those problems are already explained in the "Make hardlink" feature.
 		- And finally, updating symlinks inside the new copy - while the more "proper" way to do it - could still lead to unexpected results for users. (And is also, arguably, "inconsistent" since only paths pointed to inside the clone get modified.)
 		- The whole thing should probably be left to other third-party utilities that users would have to specifically seek out, with motivation - rather than a feature they stumble upon in their file manager.
+	- Test case: none, canceled.
 
 - 🚫 In list view, a folder of pictures shows a horizontal scrollbar even when every column fits. A folder of text files the same size does not.
 	- Opened: 20260921. Closed: 20260921.
 	- Why canceled: not a bug. The columns did not fit. The pictures were 327 bytes against 4 KiB, and "327 bytes" is wider than "4.0 KiB". "Image" is wider than "Text", and the names were a character longer.
 	- Every name in that folder is the same width, so Name has nothing it can cut short. With every column at its least, the row ran about 24px past the view. design.md says to scroll then.
 	- Text files of 327 bytes with shorter names fit, and showed no scrollbar.
+	- Test case: none, not a bug.
 
 - 🚫 Persist icon view size changes, for both regular and image.
 	- Why canceled: Per-folder and global settings do this. Not perfectly, but the overlap might cause confusion.
 	- Opened: 20260920-162550
 	- Closed: 20260920-162550
+	- Test case: none, canceled.
 
 - 🚫 Nothing in the suite can build a window, so a widget's teardown cannot be tested.
 	- Opened: 20260919-210000
@@ -3734,19 +4281,23 @@ Each item carries an `Opened:` date as its first sub-bullet, and a `Closed:` dat
 	- The sidebar and the view are compiled into the program, and the tests link the two libraries beside it. A fix in either is pinned by reading the source, never by running it.
 	- Would have taken moving the program's sources into a library the executable and the tests both link. Declined: the restructure costs more than the class of fault it would catch.
 	- Instead, `cicd/utility/lint-pref-handlers.py` pairs every connect with its disconnect across the whole tree, which covers more sites than a teardown test would and found one the review missed.
+	- Test case: none, canceled; `cicd/utility/lint-pref-handlers.py` covers the teardown handlers instead.
 
 - 🚫 Keyboard shortcuts do nothing in the Windows build when run under wine.
 	- Opened: 20260725-172648
 	- Closed: 20260802-001535
 	- Cause: wine has no keyboard layout DLL, so GTK can't turn a keypress into a key value and no shortcut ever matches. Plain keys (arrows, typing) still work, and so do the menus and mouse.
 	- Note: a wine limitation, not our code. Expected to work on real Windows - added to the real-Windows validation pass.
+	- Test case: none, wine limitation.
 
 - 🚫 Launching `app\nemo-anywhere.exe` straight from the dogfood folder throws missing-dll dialogs (libcairo-goobject-2 and friends) - the exe has to go through the root `nemo-anywhere.vbs`, which wires the dll path. Punted: the single-exe work removes the whole launcher/dll-folder arrangement.
 	- Opened: 20260730-185140
 	- Closed: 20260802-101032
+	- Test case: none, canceled.
 
 - 🚫 In find mode, shrink the Name column to fit and let Location grow with the window, then put it back on leaving find mode.
 	- Opened: 20260730-112038
 	- Closed: 20260822-075741
 	- Superseded by the column-width work: in find mode Name and Location split the row one-third/two-thirds, and an adjusted split is remembered.
 	- Note: This may contradict the latest canonical column-sizing definition in 'design.md' under the section "List view column widths", as of 20260916-113519.
+	- Test case: none, superseded by the column-width rules.
