@@ -332,7 +332,17 @@ nemo_archive_backend_caps (NemoArchiveFormat  format,
 	case NEMO_ARCHIVE_BACKEND_LIBARCHIVE:
 		return info->by_libarchive ? info->caps_libarchive : 0;
 	case NEMO_ARCHIVE_BACKEND_7Z:
-		return info->by_7z ? info->caps_7z : 0;
+		if (!info->by_7z) {
+			return 0;
+		}
+#ifdef G_OS_WIN32
+		/* 7-Zip on Windows keeps a link as the raw reparse data. Only
+		   7-Zip on Windows gives it back as a link; libarchive, which
+		   extracts here, reads a file of junk and an empty folder. */
+		return info->caps_7z & ~NEMO_ARCHIVE_CAP_STORE_LINKS;
+#else
+		return info->caps_7z;
+#endif
 	case NEMO_ARCHIVE_BACKEND_RAR:
 		return info->by_rar ? info->caps_rar : 0;
 	case NEMO_ARCHIVE_BACKEND_NONE:
@@ -1849,11 +1859,10 @@ nemo_archive_build_command (NemoArchiveBackend        backend,
 		if (format == NEMO_ARCHIVE_FORMAT_7Z) {
 			solid_v[0] = g_strdup (options->solid ? "-ms=on" : "-ms=off");
 		}
-#ifndef G_OS_WIN32
-		if (options->store_links) {
+		if (options->store_links &&
+		    (nemo_archive_backend_caps (format, backend) & NEMO_ARCHIVE_CAP_STORE_LINKS)) {
 			g_ptr_array_add (links_v, g_strdup ("-snl"));
 		}
-#endif
 		/* Left alone, 7z follows every link, folders too. */
 		for (l = leave_out; l != NULL; l = l->next) {
 			g_ptr_array_add (links_v, g_strconcat ("-x!", (char *) l->data, NULL));

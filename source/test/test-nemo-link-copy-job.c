@@ -279,6 +279,14 @@ run_combination (const char *tmp, int number, guint supported, gboolean is_move,
 	g_setenv ("NEMO_LINK_COPY", answer, TRUE);
 	check (run_job (sources, to, is_move, window));
 
+	/* A move on one drive is a rename, so every link arrives as it was,
+	   whatever the rows said. Only a move to another drive asks. */
+	if (is_move) {
+		file_as = NEMO_LINK_FILE_SYMLINK;
+		dir_as = NEMO_LINK_DIR_SYMLINK;
+		junction_as = NEMO_LINK_JUNCTION;
+	}
+
 	check_file_row (to, "pointer", file_as);
 	check_file_row (to_plain, "deep", file_as);
 	if (supported & NEMO_LINK_DIR_SYMLINK) {

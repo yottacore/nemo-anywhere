@@ -46,6 +46,15 @@ ROW_TYPE_SUBMENU = "submenu"
 ROW_TYPE_SEPARATOR = "separator"
 
 
+# Python's gettext.textdomain() is its own, not the C library's, so a builder
+# left to the default domain would never find our catalog.
+def new_builder():
+    builder = Gtk.Builder()
+    builder.set_translation_domain(leconfig.APP_SLUG)
+    builder.add_from_resource("/org/nemo/action-layout-editor/nemo-action-layout-editor.glade")
+    return builder
+
+
 def new_hash():
     return uuid.uuid4().hex
 
@@ -337,7 +346,7 @@ class NemoActionsOrganizer(Gtk.Box):
         Gtk.Box.__init__(self, orientation=Gtk.Orientation.VERTICAL)
 
         if builder is None:
-            self.builder = Gtk.Builder.new_from_resource("/org/nemo/action-layout-editor/nemo-action-layout-editor.glade")
+            self.builder = new_builder()
         else:
             self.builder = builder
 
@@ -1646,7 +1655,7 @@ class NemoActionsOrganizer(Gtk.Box):
 
 class EditorWindow():
     def __init__(self):
-        self.builder = Gtk.Builder.new_from_resource("/org/nemo/action-layout-editor/nemo-action-layout-editor.glade")
+        self.builder = new_builder()
         self.main_window = self.builder.get_object("main_window")
         self.hamburger_button = self.builder.get_object("hamburger_button")
         self.editor = NemoActionsOrganizer(self.main_window, self.builder)
