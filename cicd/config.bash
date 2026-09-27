@@ -150,9 +150,11 @@ RELEASE_NATIVE_OSARCH="linux-x86_64"
 ## own packed exe through cicd-win.ps1; this only keeps the zip current.
 ## The exe is copied out because the engine checks for the artifact on the host, and
 ## the cross build dir lives only in the container.
+## Then the exe is opened under wine and its main window looked for, about twenty
+## seconds, since nothing else here ever starts the Windows build's GUI.
 BUILD_CROSS=1
 CROSS_TARGETS=(
-	"Windows x86_64 (mingw)|windows-x86_64|cicd/artifacts/cross/nemo-anywhere.exe|rm -f cicd/artifacts/cross/nemo-anywhere.exe && bash cicd/win/build-cross.bash && mkdir -p cicd/artifacts/cross && docker cp nemo-winbuild:/build-win/src/nemo-anywhere.exe cicd/artifacts/cross/nemo-anywhere.exe"
+	"Windows x86_64 (mingw)|windows-x86_64|cicd/artifacts/cross/nemo-anywhere.exe|rm -f cicd/artifacts/cross/nemo-anywhere.exe && bash cicd/win/build-cross.bash && mkdir -p cicd/artifacts/cross && docker cp nemo-winbuild:/build-win/src/nemo-anywhere.exe cicd/artifacts/cross/nemo-anywhere.exe && docker exec nemo-winbuild bash /src/cicd/win/gui-smoke.bash"
 )
 #	Rust-era original (reference only - cargo/zig cross, not applicable to meson):
 #	CROSS_TARGETS=(

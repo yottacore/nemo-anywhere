@@ -55,6 +55,52 @@ test_independent_of_show_hidden (void)
 	nemo_config_set_boolean (nemo_preferences, NEMO_PREFERENCES_SHOW_HIDDEN_FILES, FALSE);
 }
 
+static void
+set_apart (gboolean hidden, gboolean dots)
+{
+	nemo_config_set_boolean (nemo_preferences, NEMO_PREFERENCES_SHOW_HIDDEN_FILES, hidden);
+	nemo_config_set_boolean (nemo_windows_preferences, NEMO_PREFERENCES_SHOW_DOT_FILES, dots);
+}
+
+static gboolean
+hidden_shown (void)
+{
+	return nemo_config_get_boolean (nemo_preferences, NEMO_PREFERENCES_SHOW_HIDDEN_FILES);
+}
+
+static gboolean
+dots_shown (void)
+{
+	return nemo_config_get_boolean (nemo_windows_preferences, NEMO_PREFERENCES_SHOW_DOT_FILES);
+}
+
+/* Ctrl+H: out of step, the attribute switch's new value wins and the dot-file
+ * one comes with it, so one keystroke shows everything that was out of sight. */
+static void
+test_ctrl_h_brings_them_together (void)
+{
+	/* Attribute shown, dots hidden: Ctrl+H turns the attribute off. */
+	set_apart (TRUE, FALSE);
+	nemo_global_preferences_set_show_all_hidden (!hidden_shown ());
+	check (!hidden_shown ());
+	check (!dots_shown ());
+	check (nemo_file_name_is_hidden_dot_file (".bashrc"));
+
+	/* Attribute hidden, dots shown: Ctrl+H turns both on. */
+	set_apart (FALSE, TRUE);
+	nemo_global_preferences_set_show_all_hidden (!hidden_shown ());
+	check (hidden_shown ());
+	check (dots_shown ());
+	check (!nemo_file_name_is_hidden_dot_file (".bashrc"));
+
+	/* In step, they stay in step. */
+	nemo_global_preferences_set_show_all_hidden (!hidden_shown ());
+	check (!hidden_shown ());
+	check (!dots_shown ());
+
+	set_apart (FALSE, FALSE);
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -69,6 +115,7 @@ main (int argc, char *argv[])
 	test_hidden_by_default ();
 	test_switch_reveals_them ();
 	test_independent_of_show_hidden ();
+	test_ctrl_h_brings_them_together ();
 
 	g_free (tmp);
 

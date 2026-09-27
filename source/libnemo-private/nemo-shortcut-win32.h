@@ -79,6 +79,18 @@ gboolean nemo_shortcut_win32_target_is_dir (const char *lnk_path,
 gboolean nemo_shortcut_win32_launch (const char  *lnk_path,
                                      GError     **error);
 
+/* What opening a path does, when it is a shortcut. A chain of shortcuts is
+ * followed to its end first. */
+typedef enum {
+	NEMO_SHORTCUT_OPEN_NOT_A_SHORTCUT,
+	NEMO_SHORTCUT_OPEN_HERE,	/* a folder, or a file the shell cannot place */
+	NEMO_SHORTCUT_OPEN_BY_SHELL	/* everything else, the shortcut itself handed over */
+} NemoShortcutOpen;
+
+/* For OPEN_HERE, *target_path is what to open. Caller frees. */
+NemoShortcutOpen nemo_shortcut_win32_open_action (const char  *path,
+                                                  char       **target_path);
+
 G_END_DECLS
 
 #endif /* NEMO_SHORTCUT_WIN32_H */

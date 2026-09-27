@@ -371,6 +371,105 @@ test_parts (const char *dir)
 	g_free (doc);
 }
 
+static NemoShortcutOpen
+open_action (const char *path, char **target)
+{
+	NemoShortcutOpen action;
+
+	g_free (*target);
+	action = nemo_shortcut_win32_open_action (path, target);
+	g_print ("  open %s -> %d %s\n", path, action, *target != NULL ? *target : "");
+	return action;
+}
+
+/* What a double-click on a shortcut does, decided before anything is started:
+ * a folder opens in the tab, anything the shell can place goes to the shell
+ * with the shortcut itself, and a file only this program can place opens here. */
+static void
+test_open_action (const char *dir)
+{
+	char *base = g_build_filename (dir, "open", NULL);
+	char *folder = g_build_filename (base, "folder", NULL);
+	char *doc = g_build_filename (base, "doc.txt", NULL);
+	char *gone = g_build_filename (base, "gone.txt", NULL);
+	char *folder_lnk = g_build_filename (base, "folder.lnk", NULL);
+	char *doc_lnk = g_build_filename (base, "doc.lnk", NULL);
+	char *gone_lnk = g_build_filename (base, "gone.lnk", NULL);
+	char *program_lnk = g_build_filename (base, "program.lnk", NULL);
+	char *chain_lnk = g_build_filename (base, "chain.lnk", NULL);
+	char *foreign_lnk = g_build_filename (base, "foreign.lnk", NULL);
+	char *loop_lnk = g_build_filename (base, "loop.lnk", NULL);
+	char *notepad = g_build_filename (g_getenv ("SystemRoot") != NULL ? g_getenv ("SystemRoot") : "C:\\Windows",
+					  "notepad.exe", NULL);
+	char *target = NULL;
+
+	g_mkdir_with_parents (folder, 0700);
+	check (g_file_set_contents (doc, "doc", -1, NULL));
+	check (g_file_set_contents (gone, "gone", -1, NULL));
+
+	check (nemo_shortcut_win32_create (folder, folder_lnk, NULL, NULL, NULL, NULL));
+	check (nemo_shortcut_win32_create (doc, doc_lnk, NULL, NULL, NULL, NULL));
+	check (nemo_shortcut_win32_create (gone, gone_lnk, NULL, NULL, NULL, NULL));
+	check (nemo_shortcut_win32_create (notepad, program_lnk, base, doc, NULL, NULL));
+	check (nemo_shortcut_win32_create (folder_lnk, chain_lnk, NULL, NULL, NULL, NULL));
+	write_foreign_lnk (foreign_lnk, "doc.txt", FALSE);
+	write_foreign_lnk (loop_lnk, "loop.lnk", FALSE);
+	g_unlink (gone);
+
+	check (open_action (doc, &target) == NEMO_SHORTCUT_OPEN_NOT_A_SHORTCUT);
+	check (target == NULL);
+
+	check (open_action (folder_lnk, &target) == NEMO_SHORTCUT_OPEN_HERE);
+	check (target != NULL && same_path (target, folder));
+
+	/* The shell reads the arguments, Start in and window state from the
+	   shortcut; none of that survives being reduced to a path. */
+	check (open_action (doc_lnk, &target) == NEMO_SHORTCUT_OPEN_BY_SHELL);
+	check (target == NULL);
+	check (open_action (program_lnk, &target) == NEMO_SHORTCUT_OPEN_BY_SHELL);
+	check (target == NULL);
+
+	/* Nothing to open here, so the shell is the one to say so. */
+	check (open_action (gone_lnk, &target) == NEMO_SHORTCUT_OPEN_BY_SHELL);
+	check (target == NULL);
+
+	check (open_action (chain_lnk, &target) == NEMO_SHORTCUT_OPEN_HERE);
+	check (target != NULL && same_path (target, folder));
+
+	/* Made off Windows: the shell cannot place it, so it opens here. */
+	check (open_action (foreign_lnk, &target) == NEMO_SHORTCUT_OPEN_HERE);
+	check (target != NULL && same_path (target, doc));
+
+	/* A shortcut to itself ends, and never hands a shortcut back to be
+	   opened again. */
+	check (open_action (loop_lnk, &target) == NEMO_SHORTCUT_OPEN_BY_SHELL);
+	check (target == NULL);
+
+	g_free (target);
+	g_unlink (loop_lnk);
+	g_unlink (foreign_lnk);
+	g_unlink (chain_lnk);
+	g_unlink (program_lnk);
+	g_unlink (gone_lnk);
+	g_unlink (doc_lnk);
+	g_unlink (folder_lnk);
+	g_unlink (doc);
+	g_rmdir (folder);
+	g_rmdir (base);
+	g_free (notepad);
+	g_free (loop_lnk);
+	g_free (foreign_lnk);
+	g_free (chain_lnk);
+	g_free (program_lnk);
+	g_free (gone_lnk);
+	g_free (doc_lnk);
+	g_free (folder_lnk);
+	g_free (gone);
+	g_free (doc);
+	g_free (folder);
+	g_free (base);
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -387,6 +486,7 @@ main (int argc, char *argv[])
 	test_info_round_trip (dir, target);
 	test_foreign (dir);
 	test_parts (dir);
+	test_open_action (dir);
 
 	lnk = g_build_filename (dir, "shortcut.lnk", NULL);
 

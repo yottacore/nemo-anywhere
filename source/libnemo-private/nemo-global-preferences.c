@@ -105,6 +105,17 @@ nemo_global_preferences_get_remember_folder_settings (void)
     return remember_folder_settings;
 }
 
+#ifdef G_OS_WIN32
+/* The two can be set apart in preferences or with the dot-file item. Whatever
+   value the attribute switch takes, the dot-file one is brought to it. */
+void
+nemo_global_preferences_set_show_all_hidden (gboolean show)
+{
+    nemo_config_set_boolean (nemo_preferences, NEMO_PREFERENCES_SHOW_HIDDEN_FILES, show);
+    nemo_config_set_boolean (nemo_windows_preferences, NEMO_PREFERENCES_SHOW_DOT_FILES, show);
+}
+#endif
+
 gboolean
 nemo_global_preferences_get_inherit_show_thumbnails_preference (void)
 {

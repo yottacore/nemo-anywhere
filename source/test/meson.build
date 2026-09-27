@@ -1249,6 +1249,25 @@ test('Directory load clean test',
 )
 
 if is_windows
+  share_win32 = executable('test-nemo-share-win32',
+    [ 'test-nemo-share-win32.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  )
+  test('Share check does no I/O', share_win32, args: [ 'share' ])
+  test('Junction to a missing folder lists', share_win32, args: [ 'dangling' ])
+
+  test('Permissions source test',
+    executable('test-nemo-perm-source-win32',
+      [ 'test-nemo-perm-source-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, win_shell, test_scratch ],
+    ),
+    args: []
+  )
+endif
+
+if is_windows
   test('Metadata ready test',
     executable('test-nemo-metadata-ready-win32',
       [ 'test-nemo-metadata-ready-win32.c' ],
@@ -1281,6 +1300,15 @@ if is_windows
   test('Long path enumeration test',
     executable('test-nemo-dir-enum-win32',
       [ 'test-nemo-dir-enum-win32.c' ] + longPathManifest,
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: []
+  )
+
+  test('Application manifest test',
+    executable('test-nemo-manifest-win32',
+      [ 'test-nemo-manifest-win32.c' ] + longPathManifest,
       include_directories: [ rootInclude, ],
       dependencies: [ gtk, nemo_private, test_scratch ],
     ),

@@ -168,6 +168,56 @@ test_command_for_app (void)
 	}
 }
 
+/* Windows will not let a program set the per-user default, so "Set as
+ * default" keeps its own in the settings file. The choice has to read back as
+ * the default for that type, carrying the command it was made from. */
+static void
+test_set_default (void)
+{
+	GAppInfo *app, *back;
+
+	app = g_app_info_create_from_commandline ("\"C:\\Windows\\notepad.exe\" \"%1\"",
+						  NULL, G_APP_INFO_CREATE_NONE, NULL);
+	check (app != NULL, "an app info can be made from a command line");
+	if (app == NULL) {
+		return;
+	}
+	g_print ("      GIO spells it: %s\n", g_app_info_get_commandline (app));
+
+	check (!nemo_associations_win32_set_default (app, "text/plain"),
+	       "a mime type is refused, since nothing is looked up by one");
+
+	check (nemo_associations_win32_set_default (app, ".qqq"), "set as default for .qqq");
+	back = nemo_associations_win32_default_for_type (".qqq");
+	check (back != NULL, "and it reads back as the default");
+	if (back != NULL) {
+		const char *command = nemo_associations_win32_command_of (back);
+
+		check (command != NULL && strstr (command, "notepad.exe") != NULL &&
+		       strstr (command, "%1") != NULL,
+		       "carrying the program and where the file goes");
+		g_print ("      .qqq -> %s\n", command ? command : "(null)");
+		g_object_unref (back);
+	}
+	g_object_unref (app);
+
+	/* No placeholder in what GIO holds: the file still has to be handed over. */
+	app = g_app_info_create_from_commandline ("\"C:\\Windows\\write.exe\"",
+						  NULL, G_APP_INFO_CREATE_NONE, NULL);
+	if (app != NULL) {
+		check (nemo_associations_win32_set_default (app, ".qqq"), "set again, with no placeholder");
+		back = nemo_associations_win32_default_for_type (".qqq");
+		check (back != NULL && nemo_associations_win32_command_of (back) != NULL &&
+		       strstr (nemo_associations_win32_command_of (back), "write.exe") != NULL &&
+		       strstr (nemo_associations_win32_command_of (back), "%1") != NULL,
+		       "the new choice replaces the old, with a place for the file");
+		g_clear_object (&back);
+		g_object_unref (app);
+	}
+
+	nemo_associations_win32_set_override (".qqq", NULL);
+}
+
 static void
 test_names (void)
 {
@@ -213,6 +263,7 @@ main (int argc, char *argv[])
 	test_overrides ();
 	test_registry ();
 	test_command_for_app ();
+	test_set_default ();
 	test_names ();
 
 	g_free (scratch);

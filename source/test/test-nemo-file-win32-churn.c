@@ -88,6 +88,87 @@ write_file (const char *path, const char *contents)
 	}
 }
 
+/* A NemoFile loaded once, the way a listing loads it. */
+static NemoFile *
+loaded (const char *path)
+{
+	GFile *location = g_file_new_for_path (path);
+	NemoFile *file = nemo_file_get (location);
+	GFileInfo *info = fresh_info (path);
+
+	g_object_unref (location);
+	if (info != NULL) {
+		nemo_file_update_info (file, info);
+		g_object_unref (info);
+	}
+	return file;
+}
+
+static const char *
+first_icon_name (NemoFile *file)
+{
+	GIcon *icon = file->details->icon;
+
+	if (!G_IS_THEMED_ICON (icon)) {
+		return NULL;
+	}
+	return g_themed_icon_get_names (G_THEMED_ICON (icon))[0];
+}
+
+/* gio gives every file the same flat icon on Windows, so the per-type one is
+ * ours to derive, and a folder's size of zero once sent its type off to be
+ * guessed from the name. */
+static void
+check_types (const char *dir)
+{
+	const char *files[] = { "note.txt", "shot.png", "tune.mp3" };
+	const char *folders[] = { "docs", ".config" };
+	char *seen[G_N_ELEMENTS (files)];
+	guint i, j;
+
+	for (i = 0; i < G_N_ELEMENTS (files); i++) {
+		char *path = g_build_filename (dir, files[i], NULL);
+		NemoFile *file = loaded (path);
+
+		seen[i] = g_strdup (first_icon_name (file));
+		g_print ("  %s: icon %s\n", files[i], seen[i] ? seen[i] : "(none)");
+		nemo_file_unref (file);
+		g_free (path);
+	}
+	for (i = 0; i < G_N_ELEMENTS (files); i++) {
+		check (seen[i] != NULL);
+		for (j = i + 1; j < G_N_ELEMENTS (files); j++) {
+			check (g_strcmp0 (seen[i], seen[j]) != 0);
+		}
+	}
+	check (g_strcmp0 (seen[1], "image-png") == 0);
+	for (i = 0; i < G_N_ELEMENTS (files); i++) {
+		g_free (seen[i]);
+	}
+
+	for (i = 0; i < G_N_ELEMENTS (folders); i++) {
+		char *path = g_build_filename (dir, folders[i], NULL);
+		NemoFile *file;
+		char *mime, *type;
+
+		g_mkdir (path, 0700);
+		file = loaded (path);
+		mime = nemo_file_get_mime_type (file);
+		type = nemo_file_get_type_as_string (file);
+		g_print ("  %s: %s, \"%s\"\n", folders[i], mime, type ? type : "(null)");
+
+		check (g_strcmp0 (mime, "inode/directory") == 0);
+		check (nemo_file_is_directory (file));
+		check (g_strcmp0 (type, "Folder") == 0);
+
+		g_free (type);
+		g_free (mime);
+		nemo_file_unref (file);
+		g_rmdir (path);
+		g_free (path);
+	}
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -139,6 +220,8 @@ main (int argc, char *argv[])
 		g_rmdir (sub);
 		g_free (sub);
 	}
+
+	check_types (dir);
 
 	/* A real change must still come through, or the check above could be
 	 * satisfied by a file that reports nothing ever. */

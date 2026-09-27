@@ -70,6 +70,12 @@ mkdir -p "${repo}/source" "${repo}/cicd"
 printf '#!/usr/bin/env bash\nexit 0\n' > "${repo}/cicd/cicd.bash"
 chmod +x "${repo}/cicd/cicd.bash"
 printf 'exit 0\n' > "${repo}/cicd/cicd-win.ps1"
+## The lint stage runs under MSYS2 on Windows, where pwsh is not on PATH. The
+## gate is a stand-in anyway, so pwsh can be one too.
+mkdir -p "${scratch}/bin"
+printf '#!/usr/bin/env bash\nexit 0\n' > "${scratch}/bin/pwsh"
+chmod +x "${scratch}/bin/pwsh"
+PATH="${scratch}/bin:${PATH}"
 git -C "$repo" init -q
 git -C "$repo" config user.name test
 git -C "$repo" config user.email test@example.invalid
