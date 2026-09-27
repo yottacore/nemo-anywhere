@@ -14,10 +14,17 @@
 ##	  build-cross.bash and stage-native.bash strip what they produce and call
 ##	  this on it. mingw's own static objects carry debug information even in a
 ##	  release link, so an unstripped exe will not pass --shipped.
-##	- The artifact half is skipped when no exe is named, and when objdump cannot
-##	  be found, the same way lint-c.bash skips a missing cppcheck. STRICT=1 turns
-##	  either skip into a failure. Nothing is looked for by default: the stale
-##	  artifacts of an earlier run are not what a bare run should be judging.
+##	- The artifact half also reads back what the exe has to carry, each of which
+##	  has gone missing before: the compiled-in resource bundle (without it there
+##	  is no menu bar and every .ui lookup fails), the manifest with long paths
+##	  and the UTF-8 code page, the GUI subsystem (a console one opens a console
+##	  window behind the app), and the version resource with a FileVersion that
+##	  matches source/meson.build and a CompanyName.
+##	- The artifact half is skipped when no exe is named, and when objdump or
+##	  windres cannot be found, the same way lint-c.bash skips a missing
+##	  cppcheck. STRICT=1 turns any skip into a failure. Nothing is looked for by
+##	  default: the stale artifacts of an earlier run are not what a bare run
+##	  should be judging.
 ##	- Syntax: check-win-build-flags.bash [--shipped] [path-to-exe]
 
 ##	Copyright (c) 2026 Bubbles
@@ -64,9 +71,42 @@ fCheckLane(){
 	done
 }
 
+## The manifest and the version block, read back through windres. Held in a
+## variable and searched there: a reader that stops at its first match would
+## kill the writer upstream of it.
+fCheckResources(){
+	local path="$1"
+	local windres="" candidate rc manifest ver
+
+	for candidate in x86_64-w64-mingw32-windres windres; do
+		if command -v "$candidate" >/dev/null 2>&1; then windres="$candidate"; break; fi
+	done
+	if [[ -z "$windres" ]]; then
+		fSkip "windres not found, so the resources in ${path} were not read"
+		return 0
+	fi
+
+	rc="$("$windres" -i "$path" -O rc 2>/dev/null || true)"
+	## Resource 1 of type 24 is the only manifest Windows reads from an exe.
+	manifest="$(awk '/^1 24 /{ inside = 1 } inside { print } inside && /^END/{ exit }' <<<"$rc")"
+	if [[ -z "$manifest" ]]; then
+		fFail "${path}: no application manifest (resource 1, type 24)"
+	else
+		[[ "$manifest" == *'>true</longPathAware>'* ]] || fFail "${path}: manifest does not declare longPathAware"
+		[[ "$manifest" == *'>UTF-8</activeCodePage>'* ]] || fFail "${path}: manifest does not set the UTF-8 code page"
+	fi
+
+	ver="$(grep -oP "(?<![_[:alnum:]])version\s*:\s*'\K[^']+" source/meson.build | head -1 || true)"
+	grep -q -F "VALUE \"FileVersion\", \"${ver}\"" <<<"$rc" \
+		|| fFail "${path}: version resource has no FileVersion ${ver}"
+	grep -q -E 'VALUE "CompanyName", L?"[^"]+"' <<<"$rc" \
+		|| fFail "${path}: version resource has no CompanyName"
+	return 0
+}
+
 fCheckExe(){
 	local path="$1"
-	local bytes sections
+	local bytes sections headers subsystem
 
 	if ! command -v objdump >/dev/null 2>&1; then
 		fSkip "objdump not found, so ${path} was not read"
@@ -77,6 +117,17 @@ fCheckExe(){
 	if (( bytes > maxBytes )); then
 		fFail "${path}: ${bytes} bytes, over the ${maxBytes} ceiling - this is a debug link"
 	fi
+
+	headers="$(objdump -p "$path" 2>/dev/null || true)"
+	subsystem="$(awk '$1 == "Subsystem" { print $2 }' <<<"$headers")"
+	[[ "$subsystem" == "00000002" ]] || fFail "${path}: PE subsystem is ${subsystem:-unreadable}, expected 00000002 (Windows GUI)"
+
+	## Content of nemo-shell-ui.xml, which only the bundle carries. Its resource
+	## path is no proof: the code that looks it up spells that out too.
+	LC_ALL=C grep -a -q -F '<menubar name="MenuBar">' "$path" \
+		|| fFail "${path}: the compiled-in resource bundle is missing (no nemo-shell-ui.xml content)"
+
+	fCheckResources "$path"
 
 	(( shipped )) || return 0
 

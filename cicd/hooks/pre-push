@@ -26,15 +26,30 @@
 
 set -Eeuo pipefail
 
-[[ "${SKIP_GATE:-0}" == "1" ]] && exit 0
-
-root="$(git rev-parse --show-toplevel)"
-z="0000000000000000000000000000000000000000"
-
 ## meson.build: first `version : '...'`.
 ## The lookbehind matters: without it `meson_version` on the same project() line
 ## matches first, and only the field order would keep it right.
 _ver_from(){ grep -oP "(?<![_[:alnum:]])version\s*:\s*'\K[^']+" "$1" 2>/dev/null | head -1; }
+
+## Returns 0 when $2 is a strict increase over $1, 1 when they are equal and 2
+## when $2 is lower. Map '-' to '~' first (as package.bash does) so a
+## prerelease sorts BELOW its release - plain sort -V puts 1.0.0-beta2 after
+## 1.0.0, which wrongly blocked the beta->final push.
+fVersionOrder(){
+	[[ "$1" == "$2" ]] && return 1
+	local top
+	top="$(printf '%s\n%s\n' "${1//-/\~}" "${2//-/\~}" | sort -V | tail -1)"
+	[[ "$top" == "${2//-/\~}" ]] && return 0
+	return 2
+}
+
+## Sourced by cicd/hooks/test-pre-push.bash for the two functions above.
+[[ "${BASH_SOURCE[0]}" == "$0" ]] || return 0
+
+[[ "${SKIP_GATE:-0}" == "1" ]] && exit 0
+
+root="$(git rev-parse --show-toplevel)"
+z="0000000000000000000000000000000000000000"
 
 gate_ran=0
 run_gate(){ ((gate_ran)) && return 0; gate_ran=1
@@ -67,16 +82,13 @@ while read -r _ localsha remoteref remotesha; do
 		newver="$(_ver_from "${root}/source/meson.build")"
 		oldver="$(git show "${remotesha}:source/meson.build" 2>/dev/null | _ver_from /dev/stdin || true)"
 		if [[ -n "$oldver" && -n "$newver" ]]; then
-			if [[ "$newver" == "$oldver" ]]; then
+			order=0
+			fVersionOrder "$oldver" "$newver" || order=$?
+			if [[ "$order" == "1" ]]; then
 				echo "FAILED: push to main does not bump the version (still ${newver}); bump source/meson.build on dev first" >&2
 				exit 1
 			fi
-			## Strict increase via version sort. Map '-' to '~' first (as
-			## package.bash does) so a prerelease sorts BELOW its release -
-			## plain sort -V puts 1.0.0-beta2 after 1.0.0, which wrongly
-			## blocked the beta->final push. Highest must be the new version.
-			top="$(printf '%s\n%s\n' "${oldver//-/\~}" "${newver//-/\~}" | sort -V | tail -1)"
-			[[ "$top" == "${newver//-/\~}" ]] || { echo "FAILED: main version ${newver} is not greater than ${oldver}" >&2; exit 1; }
+			[[ "$order" == "0" ]] || { echo "FAILED: main version ${newver} is not greater than ${oldver}" >&2; exit 1; }
 		fi
 		## README release badge must match (once such a badge exists). shields.io
 		## escapes '-' as '--'. No badge yet = nothing to enforce (first release adds it).

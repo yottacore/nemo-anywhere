@@ -19,12 +19,18 @@ classes and every #id anything points at are left exactly as they were.
 
 Syntax: svg-min.py <in.svg> <out.svg>
         svg-min.py --tree <in-dir> <out-dir>       (--tree in place is allowed)
+        svg-min.py --self-test
+
+--self-test minifies a made-up document that carries each of the traps above
+and checks what comes out, so a change that rounds a multiplier or loses an
+arc flag fails the lint stage rather than showing up as a misdrawn icon.
 """
 
 import math
 import os
 import re
 import sys
+import tempfile
 import xml.etree.ElementTree as ET
 
 SVG_NS = "http://www.w3.org/2000/svg"
@@ -305,7 +311,97 @@ def minify(src, dst):
         handle.write(out)
 
 
+SELF_TEST_SVG = """\
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+     xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+     width="16" height="16" viewBox="0 0 16 16" version="1.1">
+  <metadata>editor notes</metadata>
+  <sodipodi:namedview id="namedview1" pagecolor="#ffffff"/>
+  <style id="current-color-scheme" type="text/css">#by-style { opacity: .5 }</style>
+  <defs>
+    <linearGradient id="grad" x1="445.123456" y1="0" x2="200.987654" y2="16"
+        gradientUnits="userSpaceOnUse" gradientTransform="matrix(.38956 0 0 .38956 1.234567 -2.345678)">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" style="stop-color:#aabbcc;stop-opacity:1"/>
+    </linearGradient>
+    <path id="shape" d="M0 0h1v1z"/>
+  </defs>
+  <g id="unused-group" transform="matrix(.38956 0 0 .38956 1.23456789 2)" inkscape:label="Layer 1">
+    <path id="unused-path" fill="url(#grad)" d="M1.23456789 2.3456789a5 5 0 015 5a.6.6 0 00-.418 1.029"/>
+  </g>
+  <g transform="scale(4)"><path id="scaled" d="M1.23456789 1l2 2" fill="#abcdef" stroke="#FFFFFF"/></g>
+  <use xlink:href="#shape"/>
+  <rect id="by-style" width="1" height="1"/>
+</svg>
+"""
+
+
+def self_test():
+    failures = []
+
+    def check(label, got, want):
+        if got != want:
+            failures.append(f"{label}: got {got!r}, expected {want!r}")
+
+    # Flags 0 and 1 run straight into the x that follows them.
+    tokens = [text for is_command, text in _path_tokens("a5 5 0 015 5") if not is_command]
+    check("arc flags tokenized", tokens, ["5", "5", "0", "0", "1", "5", "5"])
+
+    with tempfile.TemporaryDirectory() as tmp:
+        src = os.path.join(tmp, "in.svg")
+        dst = os.path.join(tmp, "out.svg")
+        with open(src, "w", encoding="utf-8") as handle:
+            handle.write(SELF_TEST_SVG)
+        minify(src, dst)
+        with open(dst, encoding="utf-8") as handle:
+            text = handle.read()
+
+    root = ET.fromstring(text)
+    by_tag = {}
+    for element in root.iter():
+        by_tag.setdefault(element.tag.split("}")[-1], []).append(element)
+    ids = sorted(element.get("id") for element in root.iter() if element.get("id"))
+    paths = by_tag.get("path", [])
+    groups = by_tag.get("g", [])
+    stops = by_tag.get("stop", [])
+    gradient = by_tag.get("linearGradient", [None])[0]
+
+    for gone in ("sodipodi", "inkscape", "metadata", 'version="'):
+        check(f"{gone} dropped", gone in text, False)
+    # A path inside the 0.39 scale keeps the base 3 decimals; both arcs keep
+    # their seven parameters, flags included.
+    check("arcs survive", paths[1].get("d") if len(paths) > 1 else None,
+          "M1.235 2.346a5 5 0 0 1 5 5a.6 .6 0 0 0-.418 1.029")
+    # Scaled up by 4, one digit finer, so the error on screen stays the same.
+    check("scaled path rounded finer", paths[2].get("d") if len(paths) > 2 else None, "M1.2346 1l2 2")
+    check("transform kept", groups[0].get("transform") if groups else None,
+          "matrix(.38956 0 0 .38956 1.23456789 2)")
+    check("gradient transform kept", gradient.get("gradientTransform") if gradient is not None else None,
+          "matrix(.38956 0 0 .38956 1.234567 -2.345678)")
+    check("gradient vector kept",
+          [gradient.get(k) for k in ("x1", "x2")] if gradient is not None else None,
+          ["445.123456", "200.987654"])
+    check("stop color shortened", stops[0].get("stop-color") if stops else None, "#fff")
+    check("style color shortened", stops[1].get("style") if len(stops) > 1 else None,
+          "stop-color:#abc;stop-opacity:1")
+    check("colors", [paths[2].get("fill"), paths[2].get("stroke")] if len(paths) > 2 else None,
+          ["#abcdef", "#FFF"])
+    check("ids", ids, ["by-style", "current-color-scheme", "grad", "shape"])
+
+    for failure in failures:
+        print(f"[ FAIL: svg-min self-test: {failure} ]")
+    if failures:
+        print(f"[ FAILED: svg-min self-test, {len(failures)} problem(s) ]")
+        return 1
+    print("[ OK: svg-min self-test ]")
+    return 0
+
+
 def main(argv):
+    if argv[1:] == ["--self-test"]:
+        return self_test()
+
     if len(argv) == 4 and argv[1] == "--tree":
         src_root, dst_root = argv[2], argv[3]
         kept = 0

@@ -36,6 +36,8 @@ fEcho(){ echo "[ $* ]"; }
 ## covers the local cicd-win.ps1 path too.
 # shellcheck source=../utility/include/source-date.bash
 source "${REPO}/cicd/utility/include/source-date.bash"
+# shellcheck source=../utility/include/pixbuf-loaders.bash
+source "${REPO}/cicd/utility/include/pixbuf-loaders.bash"
 fSetSourceDate "$REPO"
 
 [[ -f "${BUILD}/src/nemo-anywhere.exe" ]] || { fEcho "FAILED: no exe at ${BUILD}/src/nemo-anywhere.exe"; exit 1; }
@@ -86,11 +88,14 @@ while IFS= read -r dll; do [[ -f "$dll" ]] && cp -n "$dll" "${DEST}/mingw64/bin/
 ndll="$(wc -l < "$tmplist")"; rm -f "$tmplist"
 
 ## Rebuild the loader cache in-place (arch-independent text; the query tool writes
-## paths relative to the loader dir, so the bundle is relocatable).
+## paths relative to the loader dir, so the bundle is relocatable). A failed
+## query leaves an empty cache behind, which the check below refuses.
 if [[ -x "${MINGW}/bin/gdk-pixbuf-query-loaders.exe" ]]; then
 	( cd "${DEST}/mingw64" && GDK_PIXBUF_MODULEDIR="lib/gdk-pixbuf-2.0/2.10.0/loaders" \
 		"${MINGW}/bin/gdk-pixbuf-query-loaders.exe" > "lib/gdk-pixbuf-2.0/2.10.0/loaders.cache" ) || true
 fi
+fCheckLoadersCache "${DEST}/mingw64/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache" \
+	|| { fEcho "FAILED: the bundle cannot load images without its gdk-pixbuf loaders.cache"; exit 1; }
 
 ## Schemas: nemo's own merged with the GTK ones, compiled (the app hard-aborts on a
 ## missing schema). glib-compile-schemas output is arch-independent.

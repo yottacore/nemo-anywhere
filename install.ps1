@@ -343,17 +343,18 @@ function fPathAdd {
 	if (fPathContains $Scope $Dir) { return $false }
 	$current = fPathRead $Scope
 	$tail = if ($current -and $current.EndsWith(';')) { ';' } else { '' }
-	fPathWrite $Scope $(if ($current) { "$($current.TrimEnd(';'));${Dir}${tail}" } else { $Dir })
+	$head = $current.Substring(0, $current.Length - $tail.Length)
+	fPathWrite $Scope $(if ($current) { "${head};${Dir}${tail}" } else { $Dir })
 	return $true
 }
 
 function fPathRemove {
 	param([string]$Scope, [string]$Dir)
 	if (-not (fPathContains $Scope $Dir)) { return $false }
-	$current = fPathRead $Scope
-	$tail = if ($current.EndsWith(';')) { ';' } else { '' }
-	$kept = $current -split ';' | Where-Object { $_ -and ($_.TrimEnd('\') -ine $Dir.TrimEnd('\')) }
-	fPathWrite $Scope (($kept -join ';') + $tail)
+	## Empty entries are kept, a trailing one included, so the value comes back
+	## as it was found.
+	$kept = @((fPathRead $Scope) -split ';' | Where-Object { -not $_ -or ($_.TrimEnd('\') -ine $Dir.TrimEnd('\')) })
+	fPathWrite $Scope ($kept -join ';')
 	return $true
 }
 
