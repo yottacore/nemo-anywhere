@@ -36,6 +36,8 @@ OUT="${ROOT}/cicd/artifacts/release"
 source "${ROOT}/cicd/utility/include/echo.bash"
 # shellcheck source=../utility/include/source-date.bash
 source "${ROOT}/cicd/utility/include/source-date.bash"
+# shellcheck source=../utility/include/pixbuf-loaders.bash
+source "${ROOT}/cicd/utility/include/pixbuf-loaders.bash"
 
 while (($#)); do case "$1" in
 	--out)     OUT="${2:?--out needs a path}"; shift 2 ;;
@@ -120,6 +122,10 @@ docker cp "${CONTAINER}:/tmp/${name}" "${work}/${name}" >/dev/null
 docker exec "$CONTAINER" rm -rf "/tmp/${name}"
 
 [[ -f "${work}/${name}/${SLUG}.exe" ]] || fDie "flattened tree has no ${SLUG}.exe"
+## Copied from the sysroot, where fetch-sysroot.bash only warns when it cannot
+## make one.
+fCheckLoadersCache "${work}/${name}/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache" \
+	|| fDie "the zip would carry no usable gdk-pixbuf loaders.cache - rebuild the sysroot"
 
 mkdir -p "$OUT"
 rm -f "${OUT}/${name}.zip"

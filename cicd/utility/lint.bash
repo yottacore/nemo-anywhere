@@ -8,7 +8,11 @@
 ##	  which is how the Bash checker came to run nowhere.
 ##	- vendor-themes.bash's self-test rides along here rather than in the test
 ##	  stage: it needs git, which the build container does not have, and it runs
-##	  in well under a second.
+##	  in well under a second. The other script tests are here for the same
+##	  reason - git, pwsh or python3, none of them in the container - and so the
+##	  merge gate runs them. A packages-stage failure only warns.
+##	- A script test that cannot run on this box exits 77 and says why, which is
+##	  not a failure here.
 ##	- Syntax: lint.bash [base-branch]   (passed through to the C check)
 
 ##	Copyright (c) 2026 Bubbles
@@ -19,6 +23,8 @@
 set -Eeuo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+fTest(){ local rc=0; "$@" || rc=$?; [[ "$rc" == "0" || "$rc" == "77" ]] || exit "$rc"; }
 
 bash "${here}/lint-c.bash" "$@"
 bash "${here}/lint-bash.bash"
@@ -32,6 +38,29 @@ if [[ "$(uname -o 2>/dev/null)" == "Msys" ]]; then
 	echo "[ vendor-themes self-test skipped: needs symlinks, not there under MSYS2 ]"
 else
 	bash "${here}/vendor-themes.bash" --self-test
+fi
+
+bash "${here}/../hooks/test-pre-push.bash"
+py=""
+for cand in python3 python; do
+	if command -v "$cand" >/dev/null 2>&1; then py="$cand"; break; fi
+done
+if [[ -n "$py" ]]; then
+	"$py" "${here}/svg-min.py" --self-test
+else
+	echo "[ svg-min self-test skipped: no python ]"
+fi
+if command -v pwsh >/dev/null 2>&1; then
+	pwsh -NoProfile -File "${here}/test-install-path.ps1"
+	pwsh -NoProfile -File "${here}/test-runfm-pool.ps1"
+else
+	echo "[ install.ps1 PATH and n8runfm pool tests skipped: no pwsh ]"
+fi
+## Under MSYS2 install.ps1 would be installing into the real Windows profile.
+if [[ "$(uname -o 2>/dev/null)" == "Msys" ]]; then
+	echo "[ installer download check skipped: Linux only ]"
+else
+	fTest bash "${here}/../linux/test-install-download.bash"
 fi
 
 ## The app icons are cut from assets/logo.png by hand, so a new logo can sit there
