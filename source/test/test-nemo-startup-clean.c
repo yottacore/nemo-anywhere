@@ -135,6 +135,15 @@ launch (const char *exe, const char *root, gboolean with_bus, const char *err_pa
 	return pid;
 }
 
+/* Other tests share the display, so a window from the list can be gone before
+ * it is read. Xlib's default handler exits on that BadWindow; the read just
+ * fails instead. */
+static int
+ignore_x_error (Display *display, XErrorEvent *event)
+{
+	return 0;
+}
+
 static gboolean
 window_of (Display *display, Window window, Atom pid_atom, GPid pid)
 {
@@ -364,6 +373,8 @@ main (int argc, char *argv[])
 		g_print ("SKIP: no display\n");
 		return 77;
 	}
+
+	XSetErrorHandler (ignore_x_error);
 
 	if (ensure_session_bus (argc, argv)) {
 		check_activation_file (argv[1]);
