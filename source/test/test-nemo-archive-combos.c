@@ -16,6 +16,7 @@
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-link-copy.h>
 #include <libnemo-private/nemo-progress-info-manager.h>
+#include <libnemo-private/nemo-trash-win32.h>
 
 #include <archive.h>
 #include <archive_entry.h>
@@ -811,6 +812,65 @@ run_row (const char *tmp, const char *outside, int number,
 	g_free (name);
 }
 
+/* On Windows the delete goes to the real Recycle Bin, not the scratch trash, and
+   every run used to leave some hundreds of items there. Take back out whatever
+   came from under this run's home. */
+static void
+purge_recycled (const char *home)
+{
+#ifdef G_OS_WIN32
+	GFile *root;
+	GFileEnumerator *children;
+	GFileInfo *info;
+	char *prefix;
+	gsize prefix_len;
+	int purged = 0;
+
+	nemo_trash_win32_register ();
+	root = g_file_new_for_uri ("trash:///");
+	children = g_file_enumerate_children (root, "standard::name,trash::orig-path",
+					      G_FILE_QUERY_INFO_NONE, NULL, NULL);
+	if (children == NULL) {
+		g_printerr ("FAIL: could not list the Recycle Bin to clear it\n");
+		failures++;
+		g_object_unref (root);
+		return;
+	}
+
+	prefix = g_strconcat (home, "\\", NULL);
+	g_strdelimit (prefix, "/", '\\');
+	prefix_len = strlen (prefix);
+
+	while ((info = g_file_enumerator_next_file (children, NULL, NULL)) != NULL) {
+		const char *orig = g_file_info_get_attribute_byte_string (info, "trash::orig-path");
+
+		if (orig != NULL && strlen (orig) > prefix_len &&
+		    g_ascii_strncasecmp (orig, prefix, prefix_len) == 0) {
+			GFile *item = g_file_get_child (root, g_file_info_get_name (info));
+			GError *error = NULL;
+
+			if (g_file_delete (item, NULL, &error)) {
+				purged++;
+			} else {
+				g_printerr ("FAIL: could not clear %s from the Recycle Bin: %s\n",
+					    orig, error->message);
+				failures++;
+				g_error_free (error);
+			}
+			g_object_unref (item);
+		}
+		g_object_unref (info);
+	}
+
+	g_print ("cleared %d items from the Recycle Bin\n", purged);
+	g_free (prefix);
+	g_object_unref (children);
+	g_object_unref (root);
+#else
+	(void) home;
+#endif
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -869,6 +929,8 @@ main (int argc, char *argv[])
 		g_print ("%s: %u combinations\n", nemo_archive_format_id (format), rows->len);
 		g_array_free (rows, TRUE);
 	}
+
+	purge_recycled (home);
 
 	g_object_unref (manager);
 	g_clear_pointer (&contents, g_hash_table_destroy);

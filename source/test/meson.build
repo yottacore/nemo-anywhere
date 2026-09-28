@@ -446,6 +446,8 @@ if is_windows
   # The recycle-bin monitor is polled, so the same-count case has to sit through
   # a few turns of it - well past the 30s meson allows by default. On a machine
   # with a full bin the whole run has been seen to take four and a half minutes.
+  # It watches the real bin for a quiet spell, so nothing else may run beside
+  # it: the archive combinations test recycles into that same bin.
   test('rcgzbyar Trash win32 test',
     executable('test-nemo-trash-win32',
       [ 'test-nemo-trash-win32.c' ],
@@ -453,7 +455,8 @@ if is_windows
       dependencies: [ gtk, nemo_private ],
     ),
     args: [],
-    timeout: 600
+    timeout: 600,
+    is_parallel: false,
   )
 endif
 
