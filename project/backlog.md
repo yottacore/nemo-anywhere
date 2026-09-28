@@ -30,6 +30,632 @@ Going forward, new issues in the new template at the bottom of this file, will g
 
 ## New format
 
+- Code review 20260928.
+	- ID: 2026092813381400
+	- Type: Task
+	- Status: Started
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Requirements:
+		- Everything changed from 20260917 to 20260927, reviewed or not, plus the ground the 20260919 round did not reach where it changed since.
+		- Items 1 to 45 below carry this ID as their parent. Technical detail is in the private notes under the same numbers.
+	- Progress log:
+		- 20260928-133814: Filed 33 defects and 12 enhancements. Of the defects, 4 are regressions or missed twins of an earlier fix (items 4, 12, 21, 22), item 15 reopens three closures, and the rest are new ground. 19 were reproduced, some only in part. The others were only read, and each says so.
+	- Decisions:
+		- Not release-ready. Items 1, 3, 5, 6, 7 and 16 give a wrong result with no error, or change files the user did not ask to change.
+		- Handlers that outlive their widget have come back a third time (20260919 items 3 and 10, now item 22). Per the fix rules, that class wants a table in design.md.
+		- Decided against: a same-size, same-time twin showing another file's picture. Already recorded as designed.
+		- Decided against: shortcut reads on the main thread when opening one, and an edited shortcut losing its item ID list. Both recorded as known gaps.
+		- Decided against: the archive password showing in the process list. design.md says so.
+		- Decided against: a small copy leaving a partial file on a failed write. GLib's own copy does the same.
+		- Decided against: Escape not restoring the selection, Ctrl+Shift+T, and Control kept for F1, tab keys, Ctrl+H and Ctrl+M on macOS. All settled earlier.
+		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
+	- Test case: none, review round.
+
+- Code review 20260928 item 1. Zooming while thumbnails render can store a small thumbnail as full size, and it is never made again.
+	- ID: 2026092813381401
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: the picture stays blurry at the larger size until the file is edited or the cache is cleared.
+	- Expected behavior: design.md, a thumbnail is made again bigger when a draw wants more than is stored.
+	- Reproduced: yes, 20260928, Linux.
+	- Actual cause: a new request merges into the job a worker is already running, and the worker stores the new size with the old picture.
+	- Origin: 0c1612a and 056d3e0, 20260921 (thumbdb, thumbs). New ground. Confirmed.
+	- Test case: none yet. `test-nemo-thumbnail-order` can pause a worker mid-render and check the stored width.
+
+- Code review 20260928 item 2. The tree sidebar crashes on Shift+F10 or the Menu key.
+	- ID: 2026092813381402
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Steps to reproduce [Bug]:
+		- Show the tree sidebar, click a folder in it, press Shift+F10.
+	- Reproduced: yes, 20260928, Linux.
+	- Actual cause: the keyboard path passes no mouse event, and the menu code reads the pointer position from it.
+	- Origin: upstream, never touched here. Not seen by an earlier round. Confirmed.
+	- Test case: none yet.
+
+- Code review 20260928 item 3. Edit link on a symlink whose name ends in .lnk turns the symlink into a plain file.
+	- ID: 2026092813381403
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Target OS: Linux, BSD, macOS.
+	- Incorrect behavior: the symlink is replaced by an edited copy of the shortcut it pointed at, and the real shortcut is left as it was.
+	- Expected behavior: a symlink always gets the symlink editor, whatever its name.
+	- Reproduced: yes, 20260928, Linux.
+	- Actual cause: the dialog picks the shortcut editor by the name alone. A shortcut save also resets the file's permissions.
+	- Origin: 1866e56, 20260925 (linkedit). New ground. Confirmed.
+	- Test case: none yet. `test-nemo-link-edit` with a symlink named `.lnk`.
+
+- Code review 20260928 item 4. A dangling symlink fails a 7z or rar archive, and the finished archive is deleted.
+	- ID: 2026092813381404
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Steps to reproduce [Bug]:
+		- Untick "store links", then compress a folder holding a link to a missing file as 7z or rar.
+	- Incorrect behavior: "could not be created", and the whole archive is gone. On Windows it happens to every 7z, whatever the checkbox says.
+	- Expected behavior: the link is passed over with a warning, as the zip writer does.
+	- Reproduced: yes for the tools' exit codes, 20260928, Linux. The job side was read only.
+	- Actual cause: 7z exits 1 and rar exits 6 when they skip a link they cannot follow, and any non-zero exit fails the job.
+	- Origin: 6c2418f, 20260820. Widened on Windows by 09506ec, 20260926 (bugs), which took link storing away from 7z there. Regression of that fix on Windows. Confirmed.
+	- Test case: none yet. A dangling link row in `test-nemo-archive-combos`.
+
+- Code review 20260928 item 5. The installer and prefix checks cannot fail a pipeline run.
+	- ID: 2026092813381405
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: a broken installer prints a warning, and the run still goes on to dogfood and publish.
+	- Expected behavior: the check stops the run, as the done item for the installer fixes says it does.
+	- Reproduced: yes, 20260928, Linux.
+	- Actual cause: both checks sit in the packaging list, where a failure only warns.
+	- Origin: 7284973, 20260925, and c5f4e7b, 20260926. New ground. Confirmed.
+	- Test case: none yet.
+
+- Code review 20260928 item 6. The pre-push version guard reads the working tree, not the commit being pushed.
+	- ID: 2026092813381406
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: a push to `main` with no version bump passes when the bump is only uncommitted, or when another branch is checked out. The gate also runs on the tree rather than the pushed commit.
+	- Expected behavior: the hook header, a push to `main` must raise the version.
+	- Reproduced: yes, 20260928, Linux.
+	- Origin: 2d475c4, 20260718. Not seen by an earlier round. Confirmed.
+	- Test case: none yet. A dirty-tree case in `test-pre-push.bash`.
+
+- Code review 20260928 item 7. C static analysis on `main` and `dev` checks no files.
+	- ID: 2026092813381407
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: the file list is changes against `dev`, which is empty on `dev` and right after a merge to `main`. The stage prints OK.
+	- Expected behavior: README, every build goes through static analysis, and the pre-push header, nothing reaches the release branch unverified.
+	- Reproduced: yes, 20260928, Linux.
+	- Origin: 0d92350, 20260802. Not seen by an earlier round. Confirmed.
+	- Test case: none yet.
+
+- Code review 20260928 item 8. A FIFO named .lnk freezes the window.
+	- ID: 2026092813381408
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Target OS: Linux, BSD, macOS.
+	- Incorrect behavior: listing a folder that holds a FIFO named `x.lnk` hangs for good. Every `.lnk` on a slow share is also read on the main thread for its icon and sort place, with no share check.
+	- Expected behavior: only regular files are read, and a per-file read on a share is gated, per the project rule.
+	- Reproduced: yes for the hang, 20260928, Linux. The share case was read only.
+	- Origin: 673bcbb, 20260924 (lnkread). New ground. Confirmed.
+	- Test case: none yet. A FIFO case in `test-nemo-lnk`.
+
+- Code review 20260928 item 9. A checksum taken after a file changed keeps that content out of the cache for good.
+	- ID: 2026092813381409
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: a picture edited while its thumbnail is queued is stored with its old size and new checksum. Every later store of that content, under any name, then fails, and the file is made again on every visit.
+	- Reproduced: yes at the database level, 20260928, Linux. The edit-while-queued path was read only.
+	- Actual cause: the checksum is unique on its own, but the lookup matches checksum and size.
+	- Origin: 42adbdf and 0c1612a, 20260921 (thumbdb). New ground. Confirmed.
+	- Test case: none yet. `test-nemo-cache-db` with two stores of one checksum at different sizes.
+
+- Code review 20260928 item 10. A small PSD file can tie up a thumbnail thread for minutes.
+	- ID: 2026092813381410
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: a 180 KB file took 15 s and a 720 KB one 64 s, and neither can be canceled.
+	- Expected behavior: the PSD done item, a bad file is refused cleanly and a large one never costs full size.
+	- Reproduced: yes, 20260928, Linux.
+	- Actual cause: rows of zero length are accepted and padded out, so the work follows the declared size, not the file.
+	- Origin: 056d3e0, 20260921 (thumbs). New ground. Confirmed.
+	- Test case: none yet. The file as a `test-nemo-psd` case and a fuzz seed.
+
+- Code review 20260928 item 11. Cache pruning sorts the whole thumbnail table while it holds the write lock.
+	- ID: 2026092813381411
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: about 1 s per batch at 40k thumbnails, near the 3 s busy timeout at the 2 GiB default. Other windows' stores then fail.
+	- Expected behavior: the file cache item, many processes share the cache without getting in each other's way.
+	- Reproduced: yes for the timing, 20260928, Linux. The failed stores were read only.
+	- Origin: 5678432 and 6d52b4b, 20260921 (thumbdb). New ground. Confirmed.
+	- Test case: none yet. A query plan check in `test-nemo-cache-prune`.
+
+- Code review 20260928 item 12. Redo after undoing Make link makes a different kind of link.
+	- ID: 2026092813381412
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: on Windows a junction, symlink or hardlink comes back as a shortcut. Elsewhere a relative symlink, hardlink or shortcut comes back as an absolute symlink.
+	- Expected behavior: redo makes what was made the first time.
+	- Reproduced: no, read only.
+	- Actual cause: the undo record does not keep the dialog's choices.
+	- Origin: the redo code is upstream. It broke when the choices came in with 73ec92e, 20260924 (makelink). Regression. Plausible.
+	- Test case: none yet. An undo and redo case in `test-nemo-make-link-job`.
+
+- Code review 20260928 item 13. A Windows install for all users may not run for other users.
+	- ID: 2026092813381413
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Target OS: Windows.
+	- Incorrect behavior: the installed folder keeps the installing user's temp folder permissions, so another user sees the shortcut and PATH entry but cannot start the program.
+	- Reproduced: no, read only. Needs a Windows box.
+	- Actual cause: the unpacked tree is moved, not copied, and a move on one drive keeps the old permissions.
+	- Origin: before 20260917, carried into 7284973, 20260925. Not seen by an earlier round. Plausible.
+	- Test case: none yet.
+
+- Code review 20260928 item 14. Edit link can remove the link when only the case of its name changes.
+	- ID: 2026092813381414
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Target OS: Linux and macOS, on a case-insensitive file system.
+	- Incorrect behavior: renaming "Link" to "link" while changing its target leaves no link. The target is not touched.
+	- Expected behavior: design.md, the old link is never missing.
+	- Reproduced: no, read only.
+	- Actual cause: the new link is renamed over the old name, and the old name, which is now the new link, is then removed.
+	- Origin: 1866e56, 20260925 (linkedit). New ground. Plausible.
+	- Test case: none yet.
+
+- Code review 20260928 item 15. Three items from code review 20260919 closed with no test and no reason.
+	- ID: 2026092813381415
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: items 11 and 12 were speed fixes with no speed test, and item 21's hoists and dead code have none. The review rules reopen a closed item with neither a test nor a reason.
+	- Expected behavior: a speed fix has a check with a number to fail on.
+	- Origin: code review 20260919. Confirmed.
+	- Test case: none yet.
+
+- Code review 20260928 item 16. 7z reads `*` and `?` in a left-out linked folder's name as wildcards.
+	- ID: 2026092813381416
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Target OS: Linux, BSD, macOS.
+	- Incorrect behavior: a linked folder named `a*`, with store and follow both off, also drops a real folder `abc`. With delete-originals off, the job reports success on an archive that is missing it.
+	- Reproduced: yes for 7z, 20260928, Linux.
+	- Origin: b8e1401, 20260925 (linktests). New ground. Confirmed.
+	- Test case: none yet. A combos row with those two names.
+
+- Code review 20260928 item 17. Hardlinking a selected symlink links the symlink, not the file.
+	- ID: 2026092813381417
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: a relative symlink hardlinked into another folder arrives dangling.
+	- Expected behavior: the hardlink warning, the same file under a second name.
+	- Reproduced: yes, 20260928, Linux.
+	- Origin: 73ec92e, 20260924 (makelink). New ground. Confirmed.
+	- Test case: none yet.
+
+- Code review 20260928 item 18. A relative symlink between two shares of one server does not resolve.
+	- ID: 2026092813381418
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Target OS: Windows.
+	- Incorrect behavior: a link from `\\srv\a\x` to `\\srv\b\y` is written as `..\..\b\y`, which Windows cannot follow above a share.
+	- Reproduced: no, read only.
+	- Origin: 1866e56, 20260925 (linkedit). New ground. Plausible.
+	- Test case: none yet.
+
+- Code review 20260928 item 19. An Olympus raw file with a looping directory takes seconds to read.
+	- ID: 2026092813381419
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: a 12 KB file took 8.7 s of a thumbnail thread.
+	- Expected behavior: design.md, a thumbnail takes a few milliseconds.
+	- Reproduced: yes, 20260928, Linux.
+	- Origin: 4809a54, 20260922 (rawthumbs). New ground. Confirmed.
+	- Test case: none yet.
+
+- Code review 20260928 item 20. The file cache is never closed at quit.
+	- ID: 2026092813381420
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: up to 30 s of draw counts are lost at every quit, so the age rule counts recent use short. The log is never trimmed at close.
+	- Reproduced: yes, 20260928, Linux. Nothing in the program calls the close.
+	- Origin: 6d52b4b, 20260921 (thumbdb). New ground. Confirmed.
+	- Test case: none yet.
+
+- Code review 20260928 item 21. One Ctrl+click check in the list view was missed by the macOS Cmd change.
+	- ID: 2026092813381421
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Target OS: macOS.
+	- Incorrect behavior: Cmd+click on an unselected row skips the view's own add-to-selection code.
+	- Reproduced: no, read only.
+	- Origin: upstream line, missed by d5fef60, 20260922 (cmdkeys). Missed twin of that fix. Plausible.
+	- Test case: none yet.
+
+- Code review 20260928 item 22. The list view's row shading handlers can outlive the view.
+	- ID: 2026092813381422
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: changing row shading while a closed tab's view is still held, as a rename or unmount does, calls into a freed tree view.
+	- Reproduced: no, read only.
+	- Origin: f172064, 20260918 (row shading). Same class as code review 20260919 items 3 and 10. Regression of that class. Plausible.
+	- Test case: none yet.
+
+- Code review 20260928 item 23. File jobs and the clipboard leak memory on every operation.
+	- ID: 2026092813381423
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: each move job, each file moved by rename, each job's progress, each drag's clipboard check, and a canceled zip leak a little. A few smaller leaks sit in search, theme and window setup.
+	- Reproduced: yes, 20260928, Linux.
+	- Origin: upstream, apart from the zip one from 6c2418f, 20260820. Not seen by an earlier round. Confirmed.
+	- Test case: none yet.
+
+- Code review 20260928 item 24. Settings comments that look like the SHCL info block are removed on save.
+	- ID: 2026092813381424
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: a line of the user's own that starts like the info block's lines is taken as part of it and dropped, and so is a bare `##` next to one.
+	- Expected behavior: a comment of the user's own is kept.
+	- Reproduced: no, read only.
+	- Origin: 851c5aa, 20260925 (shclbanner). New ground. Plausible.
+	- Test case: none yet.
+
+- Code review 20260928 item 25. The .deb changes with the filesystem it is built on.
+	- ID: 2026092813381425
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Target OS: Linux.
+	- Incorrect behavior: Installed-Size comes from disk blocks, so one tree read 3106 KB on one filesystem and 5176 KB on another.
+	- Expected behavior: README and design.md, Linux builds can be rebuilt from their commit to the same bytes.
+	- Reproduced: yes, 20260928, Linux.
+	- Origin: f49050b, 20260804. The README claim came in d07af73, 20260925. Not seen by an earlier round. Confirmed.
+	- Test case: none yet.
+
+- Code review 20260928 item 26. The installers go ahead when a release has no sums file.
+	- ID: 2026092813381426
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: the plan says "UNVERIFIED", and with the yes flag the install goes on.
+	- Expected behavior: design.md and README, downloads are checked before anything is unpacked.
+	- Reproduced: no, read only.
+	- Origin: a2b0e10, 20260723. Not seen by an earlier round. Plausible.
+	- Test case: none yet. A no-sums case in `test-install-download.bash`.
+
+- Code review 20260928 item 27. The Linux release image is not pinned.
+	- ID: 2026092813381427
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: a box without the image builds it from current Ubuntu 22.04 updates, so later compilers give other bytes.
+	- Expected behavior: design.md, the same bytes on any box on any day, and README, dependency versions are pinned.
+	- Reproduced: no, read only.
+	- Origin: d2b180e and 860904d, before 20260917. Not seen by an earlier round. Plausible.
+	- Test case: none yet.
+
+- Code review 20260928 item 28. Release notes can carry a build number no binary has.
+	- ID: 2026092813381428
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: artifacts built on `dev` are published under the merge commit on `main`, which has another date, and nothing checks the two match.
+	- Reproduced: no, read only.
+	- Origin: `cicd/utility/release.bash`, before 20260917. Not seen by an earlier round. Plausible.
+	- Test case: none yet.
+
+- Code review 20260928 item 29. The Windows GUI smoke check can miss its window and can use someone else's display.
+	- ID: 2026092813381429
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: `grep -q` downstream of the window list can end the pipeline early and read as no window. The display number is fixed and not checked first.
+	- Reproduced: no, read only.
+	- Origin: 0caf474, 20260721. Not seen by an earlier round. Plausible.
+	- Test case: none yet.
+
+- Code review 20260928 item 30. A hang found by the fuzzer stops the stage with the wrong label.
+	- ID: 2026092813381430
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: a timeout exits with libFuzzer's default code, which the stage reads as neither a find nor a clean run, and the targets after it do not run.
+	- Reproduced: no, read only.
+	- Origin: `cicd/linux/fuzz.bash`, fuzzlines, 20260926. New ground. Plausible.
+	- Test case: none yet.
+
+- Code review 20260928 item 31. Two help texts are out of date.
+	- ID: 2026092813381431
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: the Windows preflight says the lint stage is cppcheck on changed files, but it now runs every linter. `cicd.bash --help` leaves out fuzzing from what `--quick` skips.
+	- Reproduced: yes, the texts were checked against the stages, 20260928.
+	- Origin: b21d9cb, 20260920, and 7f65705, 20260916. Not seen by an earlier round. Confirmed.
+	- Test case: none yet.
+
+- Code review 20260928 item 32. A signed shift in the metadata list mask.
+	- ID: 2026092813381432
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: `1 << 31` on an int is undefined in C. It works under gcc today.
+	- Reproduced: yes, 20260928, Linux.
+	- Origin: upstream macro. One use added in 5d96d9b, 20260722. Not seen by an earlier round. Confirmed.
+	- Test case: none yet.
+
+- Code review 20260928 item 33. Two tests read memory they do not own.
+	- ID: 2026092813381433
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: the content search test writes 3 bytes past a string, and the raw test's patch helper counts on bytes GLib may clear. The raw test fails 21 checks when GLib clears them.
+	- Reproduced: yes, 20260928, Linux.
+	- Origin: 4d8f9f7, 20260828, and 4809a54, 20260922 (rawthumbs). New ground. Confirmed.
+	- Test case: the tests themselves.
+
+- Code review 20260928 item 34. Apply the directives' new C section.
+	- ID: 2026092813381434
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Requirements:
+		- Directive dated 20260919, new since the last round. Not a regression.
+		- Name the C standard in the build. None is named today, so gcc's default applies.
+		- Raise the warning level past `-Wall`. At the next level there are about 1700 warnings, almost all unused parameters and missing field initializers, 139 of them on lines changed in the last 10 days.
+		- One line in each allocating function's header comment on who frees the result.
+	- Test case: none yet.
+
+- Code review 20260928 item 35. Add a sanitizer build of the test suite to the pipeline.
+	- ID: 2026092813381435
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Requirements:
+		- Directive dated 20260919: ASan and UBSan on the test build.
+		- Items 23, 32 and 33 came from one such run. A leak pass needs a suppressions file for GTK's own.
+	- Test case: the lane itself.
+
+- Code review 20260928 item 36. Drawing can wait up to 3 s on the file cache.
+	- ID: 2026092813381436
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Requirements:
+		- The in-memory draw counter shares a lock with database calls that can wait on another window. Give it its own, and flush off the main thread.
+	- Test case: none yet.
+
+- Code review 20260928 item 37. Path and file rows in the cache never age out.
+	- ID: 2026092813381437
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Requirements:
+		- Rows for files that still exist stay after their thumbnails are pruned, and count against the size limit. Add an age rule for rows with no thumbnail.
+	- Test case: none yet.
+
+- Code review 20260928 item 38. The test guard dialog resumes a job the user paused.
+	- ID: 2026092813381438
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Requirements:
+		- Resume only if the guard's own pause did the pausing.
+	- Test case: none yet.
+
+- Code review 20260928 item 39. Four delete confirm functions are marked unused but are called.
+	- ID: 2026092813381439
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Requirements:
+		- The mark hides a real warning if one of them stops being called. Drop it on all four.
+	- Test case: none, the compiler checks it once the mark is gone.
+
+- Code review 20260928 item 40. The shortcut path choice code is only reached by tests.
+	- ID: 2026092813381440
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Requirements:
+		- Make link always writes all three paths since linkdlg, so dropping the relative path and the portable-only case are unused. Remove them, or keep them on purpose for a later "Defaults..." button and say so.
+	- Test case: none yet.
+
+- Code review 20260928 item 41. Fuzz the shortcut editing code.
+	- ID: 2026092813381441
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Requirements:
+		- The fuzz target covers only the shortcut reader. Setting paths in a shortcut parses the same untrusted bytes with its own code.
+	- Test case: the new fuzz target.
+
+- Code review 20260928 item 42. Dragging the only tab off a window restarts the same window in a new process.
+	- ID: 2026092813381442
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Requirements:
+		- The tab menu grays out "New window" for the only tab. A drag to empty screen should do nothing there too.
+	- Test case: none yet.
+
+- Code review 20260928 item 43. On Windows, any process may take the foreground during a tab move.
+	- ID: 2026092813381443
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Target OS: Windows.
+	- Requirements:
+		- Allow only the receiving window's process.
+	- Test case: none yet.
+
+- Code review 20260928 item 44. The tab move test checks only the window title.
+	- ID: 2026092813381444
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Requirements:
+		- A move that dropped the view or the selection would still pass. Check both.
+	- Test case: `test-nemo-tab-move`.
+
+- Code review 20260928 item 45. Self-tests in the lint stage have no test IDs.
+	- ID: 2026092813381445
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Requirements:
+		- Four self-tests run in the lint stage with no ID, and the ID check cannot see them. Give them IDs, or record that they are exempt.
+	- Test case: `test-id.py --check`.
+
 ## Bugs
 
 ## Features and enhancements
