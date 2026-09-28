@@ -4373,3 +4373,5 @@ Template:
 	- Closed: YYYYmmDD-HHMMSS
 
 -->
+
+Old and new formats.
