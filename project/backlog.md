@@ -26,7 +26,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Introduction
 
-Going forward, new issues in the new template at the bottom of this file, will go in the '## New format' section only. No more status emojis, but will be sorted (top-down) by status, then severity|priority. Issues in the old format (with status emojis) won't be refactored, but will continue to be worked until moved to closed, canceled, or deferred sections, and emojis updated. (Eventually this will all be moved to nano-git-db anyway. This new template is an intermediate effort to make issues going forward more structured and importable.)
+Going forward, new issues in the new template at the bottom of this file, will go in the '## New format' section only. No more status emojis. Refer to '## Reference' for sort order. Issues in the old format (with status emojis) won't be refactored, but will continue to be worked until moved to closed, canceled, or deferred sections, and emojis updated. (Eventually this will all be moved to nano-git-db anyway. This new template is an intermediate effort to make issues going forward more structured and importable.)
 
 ## New format
 
@@ -4952,7 +4952,12 @@ New issue format:
 
 - The ID is the local time to the hundredth of a second. Opened is when it was written down, which may differ. (Use a keyboard macro and possibly something like project 'zuid' to generate.)
 
-- Status values, in sort order: Started, Testing, Waiting on signoff, Stalled, Queued, Deferred, Done, Moot, Canceled. Testing means the fix is in and checks are running or still to run. Waiting on signoff means testing passed. Moot means something else changed and made it irrelevant. Canceled means it still applies but was decided against.
+- Status values meaning: Testing means the fix is in and checks are running or still to run. Waiting on signoff means automated testing passed. Moot means something else changed that made it irrelevant. Canceled means it still applies but was decided against.
+
+- As issues are worked, and statuses change, place them in correct sorting order within the list:
+	- First by status: Waiting on signoff, Testing, Stalled, Started, Queued, Done, Deferred, Canceled, Moot
+	- Then by type: Bugs, [not bugs together]
+	- Then by severity|priority: Critical, High, Avg, Low
 
 - Rows marked [Bug] are for bugs only, and rows marked [Feature] for features and enhancements. Children are not nested. They sit at the top level and point back with Parent ID.
 
