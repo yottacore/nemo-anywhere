@@ -857,18 +857,44 @@ options_for (NemoArchiveFormat format, NemoArchiveOptions *options)
 	options->solid = format == NEMO_ARCHIVE_FORMAT_7Z;
 }
 
-/* A link that leads nowhere has nothing to put in. It is passed over with a
-   warning that names it, and the rest of the archive stands. 7z and rar end
-   such a run with a warning status, which is not a failed archive. */
+/* Whether a link that leads nowhere goes in as a link. The library writes one
+   in every format it has. 7z and rar keep links only all or none, so theirs go
+   in by a run of their own, which a split set cannot be added to. There 7-Zip
+   will not go through a linked folder, and rar has no way to take * or ? in a
+   name literally. */
+static gboolean
+dangling_kept (NemoArchiveFormat format, NemoArchiveBackend backend,
+	       const NemoArchiveOptions *options, const char *name, gboolean through_link)
+{
+	if (backend == NEMO_ARCHIVE_BACKEND_LIBARCHIVE) {
+		return TRUE;
+	}
+	if ((nemo_archive_backend_caps (format, backend) & NEMO_ARCHIVE_CAP_STORE_LINKS) == 0 ||
+	    options->split_size > 0) {
+		return FALSE;
+	}
+	if (backend == NEMO_ARCHIVE_BACKEND_7Z) {
+		return !through_link;
+	}
+	return strpbrk (name, "*?") == NULL;
+}
+
+/* A link that leads nowhere goes in as a link wherever the writer can, even
+   with links otherwise followed, and the good link beside it is still
+   followed. Where it cannot, it is passed over with a warning that names it,
+   and the rest of the archive stands. 7z and rar end such a run with a
+   warning status, which is not a failed archive. library picks the library's
+   7z writer, by leaving solid off. */
 static void
 check_dangling (const char *tmp, NemoArchiveFormat format, gboolean store, gboolean delete_sources,
-		gboolean split, GtkWidget *window, NemoProgressInfoManager *manager)
+		gboolean split, gboolean library, GtkWidget *window, NemoProgressInfoManager *manager)
 {
-	char *label = g_strdup_printf ("dangling-%s-%d%d%d", nemo_archive_format_id (format),
-				       store, delete_sources, split);
+	char *label = g_strdup_printf ("dangling-%s-%d%d%d%d", nemo_archive_format_id (format),
+				       store, delete_sources, split, library);
 	char *root = g_build_filename (tmp, label, NULL);
 	char *held = g_build_filename (root, "held", NULL);
 	char *gone = g_build_filename (held, "gone", NULL);
+	char *good = g_build_filename (held, "good", NULL);
 	char *base = g_strconcat ("held", nemo_archive_format_extension (format), NULL);
 	char *dest = g_build_filename (root, base, NULL);
 	NemoArchiveOptions options;
@@ -876,41 +902,77 @@ check_dangling (const char *tmp, NemoArchiveFormat format, gboolean store, gbool
 	GHashTable *found;
 	GString *said = g_string_new (NULL);
 	GList *sources;
-	gboolean stored, ok;
+	gboolean stored, kept, odd_kept, ok;
 	int warnings, errors, asked;
 	int before = failures;
 
 	g_mkdir_with_parents (held, 0700);
 	write_bytes (held, "a.txt", "alpha", 5);
+	write_bytes (root, "target.txt", "target", 6);
 	check (nemo_link_create ("nowhere", gone, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
+	check (nemo_link_create ("../target.txt", good, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
+#ifndef G_OS_WIN32
+	{
+		/* rar would read this name as a pattern, so it stays out there. */
+		char *odd = g_build_filename (held, "g?ne", NULL);
+
+		check (nemo_link_create ("nowhere", odd, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
+		g_free (odd);
+	}
+#endif
 	sources = g_list_append (NULL, g_file_new_for_path (held));
 
 	options_for (format, &options);
 	options.store_links = store;
 	options.delete_sources = delete_sources;
+	if (library) {
+		options.solid = FALSE;
+	}
 	/* One volume, renamed back to the name asked for, so it reads back. */
 	options.split_size = split ? SPLIT_BYTES : 0;
 	backend = nemo_archive_pick_backend (format, &options);
+	if (library) {
+		check (backend == NEMO_ARCHIVE_BACKEND_LIBARCHIVE);
+	}
 	stored = store && (nemo_archive_backend_caps (format, backend) & NEMO_ARCHIVE_CAP_STORE_LINKS) != 0;
+	kept = stored || dangling_kept (format, backend, &options, "held/gone", FALSE);
+#ifndef G_OS_WIN32
+	odd_kept = stored || dangling_kept (format, backend, &options, "held/g?ne", FALSE);
+#else
+	odd_kept = TRUE;
+#endif
 
 	ok = run_single (sources, dest, &options, window, manager, &warnings, &errors, &asked, said);
 	check (ok);
 	check (errors == 0);
 
+	/* The value is whether the entry is a link. */
 	found = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 	read_back (dest, found);
 	check (g_hash_table_contains (found, "held/a.txt"));
-	check (g_hash_table_contains (found, "held/gone") == stored);
+	check (g_hash_table_contains (found, "held/good"));
+	check (GPOINTER_TO_INT (g_hash_table_lookup (found, "held/good")) == stored);
+	check (g_hash_table_contains (found, "held/gone") == kept);
+	if (kept) {
+		check (GPOINTER_TO_INT (g_hash_table_lookup (found, "held/gone")));
+	}
+#ifndef G_OS_WIN32
+	check (g_hash_table_contains (found, "held/g?ne") == odd_kept);
+	if (odd_kept) {
+		check (GPOINTER_TO_INT (g_hash_table_lookup (found, "held/g?ne")));
+	}
+#endif
 	g_hash_table_destroy (found);
 
-	if (stored) {
-		/* Kept as a link, so nothing was left out. */
+	if (kept && odd_kept) {
+		/* In as links, so nothing was left out. */
 		check (warnings == 0);
 		check (asked == (delete_sources ? 1 : 0));
 	} else {
 		/* One warning either way, and the originals stay. */
 		check (warnings == 1);
-		check (strstr (said->str, "gone") != NULL);
+		check (kept || strstr (said->str, "gone") != NULL);
+		check (odd_kept || strstr (said->str, "g?ne") != NULL);
 		check (asked == 0);
 		check (exists (held, "a.txt"));
 	}
@@ -924,7 +986,139 @@ check_dangling (const char *tmp, NemoArchiveFormat format, gboolean store, gbool
 	g_list_free_full (sources, g_object_unref);
 	g_free (dest);
 	g_free (base);
+	g_free (good);
 	g_free (gone);
+	g_free (held);
+	g_free (root);
+	g_free (label);
+}
+
+/* The whole selection is one link that leads nowhere. Where it can go in as a
+   link that is the archive; where it cannot there is nothing to write. */
+static void
+check_dangling_alone (const char *tmp, NemoArchiveFormat format,
+		      GtkWidget *window, NemoProgressInfoManager *manager)
+{
+	char *label = g_strdup_printf ("dangling-alone-%s", nemo_archive_format_id (format));
+	char *root = g_build_filename (tmp, label, NULL);
+	char *gone = g_build_filename (root, "gone", NULL);
+	char *base = g_strconcat ("gone", nemo_archive_format_extension (format), NULL);
+	char *dest = g_build_filename (root, base, NULL);
+	NemoArchiveOptions options;
+	NemoArchiveBackend backend;
+	GHashTable *found;
+	GString *said = g_string_new (NULL);
+	GList *sources;
+	gboolean kept, ok;
+	int warnings, errors, asked;
+	int before = failures;
+
+	g_mkdir_with_parents (root, 0700);
+	check (nemo_link_create ("nowhere", gone, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
+	sources = g_list_append (NULL, g_file_new_for_path (gone));
+
+	options_for (format, &options);
+	backend = nemo_archive_pick_backend (format, &options);
+	kept = dangling_kept (format, backend, &options, "gone", FALSE);
+
+	ok = run_single (sources, dest, &options, window, manager, &warnings, &errors, &asked, said);
+	check (ok == kept);
+	if (kept) {
+		check (errors == 0);
+		check (warnings == 0);
+		found = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+		read_back (dest, found);
+		check (g_hash_table_size (found) == 1);
+		check (GPOINTER_TO_INT (g_hash_table_lookup (found, "gone")));
+		g_hash_table_destroy (found);
+	} else {
+		check (errors == 1);
+		check (!g_file_test (dest, G_FILE_TEST_EXISTS));
+	}
+
+	if (failures > before) {
+		g_printerr ("  in %s (backend %d)\n%s", label, backend, said->str);
+	}
+
+	g_string_free (said, TRUE);
+	nemo_archive_options_clear (&options);
+	g_list_free_full (sources, g_object_unref);
+	g_free (dest);
+	g_free (base);
+	g_free (gone);
+	g_free (root);
+	g_free (label);
+}
+
+/* A link that leads nowhere inside a linked folder that is followed. 7-Zip
+   will not keep a link on a path through a linked folder, so under 7z it is
+   left out and named, and the link beside the folder still goes in. */
+static void
+check_dangling_deep (const char *tmp, NemoArchiveFormat format,
+		     GtkWidget *window, NemoProgressInfoManager *manager)
+{
+	char *label = g_strdup_printf ("dangling-deep-%s", nemo_archive_format_id (format));
+	char *root = g_build_filename (tmp, label, NULL);
+	char *held = g_build_filename (root, "held", NULL);
+	char *outer = g_build_filename (root, "outer", NULL);
+	char *deep = g_build_filename (outer, "deep", NULL);
+	char *gone = g_build_filename (held, "gone", NULL);
+	char *linked = g_build_filename (held, "linked", NULL);
+	char *base = g_strconcat ("held", nemo_archive_format_extension (format), NULL);
+	char *dest = g_build_filename (root, base, NULL);
+	NemoArchiveOptions options;
+	NemoArchiveBackend backend;
+	GHashTable *found;
+	GString *said = g_string_new (NULL);
+	GList *sources;
+	gboolean kept, deep_kept, ok;
+	int warnings, errors, asked;
+	int before = failures;
+
+	g_mkdir_with_parents (held, 0700);
+	g_mkdir_with_parents (outer, 0700);
+	write_bytes (held, "a.txt", "alpha", 5);
+	check (nemo_link_create ("nowhere", gone, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
+	check (nemo_link_create ("nowhere", deep, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
+	check (nemo_link_create ("../outer", linked, NULL, NEMO_LINK_DIR_SYMLINK, NULL));
+	sources = g_list_append (NULL, g_file_new_for_path (held));
+
+	options_for (format, &options);
+	options.follow_link_dirs = TRUE;
+	backend = nemo_archive_pick_backend (format, &options);
+	kept = dangling_kept (format, backend, &options, "held/gone", FALSE);
+	deep_kept = dangling_kept (format, backend, &options, "held/linked/deep", TRUE);
+
+	ok = run_single (sources, dest, &options, window, manager, &warnings, &errors, &asked, said);
+	check (ok);
+	check (errors == 0);
+
+	found = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+	read_back (dest, found);
+	check (g_hash_table_contains (found, "held/a.txt"));
+	check (g_hash_table_contains (found, "held/gone") == kept);
+	check (!kept || GPOINTER_TO_INT (g_hash_table_lookup (found, "held/gone")));
+	check (g_hash_table_contains (found, "held/linked/deep") == deep_kept);
+	check (!deep_kept || GPOINTER_TO_INT (g_hash_table_lookup (found, "held/linked/deep")));
+	g_hash_table_destroy (found);
+
+	check (warnings == ((kept && deep_kept) ? 0 : 1));
+	check (deep_kept || strstr (said->str, "held/linked/deep") != NULL);
+	check (kept || strstr (said->str, "held/gone") != NULL);
+
+	if (failures > before) {
+		g_printerr ("  in %s (backend %d)\n%s", label, backend, said->str);
+	}
+
+	g_string_free (said, TRUE);
+	nemo_archive_options_clear (&options);
+	g_list_free_full (sources, g_object_unref);
+	g_free (dest);
+	g_free (base);
+	g_free (linked);
+	g_free (gone);
+	g_free (deep);
+	g_free (outer);
 	g_free (held);
 	g_free (root);
 	g_free (label);
@@ -1157,14 +1351,25 @@ main (int argc, char *argv[])
 
 			for (store = 0; store < 2; store++) {
 				for (del = 0; del < 2; del++) {
-					check_dangling (tmp, format, store, del, FALSE, window, manager);
+					check_dangling (tmp, format, store, del, FALSE, FALSE,
+							window, manager);
 					number++;
 				}
 			}
 			if (nemo_archive_format_caps (format) & NEMO_ARCHIVE_CAP_SPLIT) {
-				check_dangling (tmp, format, FALSE, FALSE, TRUE, window, manager);
+				check_dangling (tmp, format, FALSE, FALSE, TRUE, FALSE, window, manager);
 				number++;
 			}
+			if (format == NEMO_ARCHIVE_FORMAT_7Z) {
+				for (del = 0; del < 2; del++) {
+					check_dangling (tmp, format, FALSE, del, FALSE, TRUE,
+							window, manager);
+					number++;
+				}
+			}
+			check_dangling_alone (tmp, format, window, manager);
+			check_dangling_deep (tmp, format, window, manager);
+			number += 2;
 #ifndef G_OS_WIN32
 			check_patterns (tmp, outside, format, window, manager);
 			number += 2;

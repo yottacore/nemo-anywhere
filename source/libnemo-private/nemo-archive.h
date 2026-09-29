@@ -146,6 +146,15 @@ char   **nemo_archive_build_command (NemoArchiveBackend        backend,
 				     GList                    *names,
 				     GList                    *leave_out);
 
+/* The run ahead of that one, which puts in the links named in names, as
+   links, while the real run follows links. For the links that lead nowhere. */
+char   **nemo_archive_build_links_command (NemoArchiveBackend        backend,
+					   NemoArchiveFormat         format,
+					   const NemoArchiveOptions *options,
+					   const char               *program,
+					   const char               *archive_path,
+					   GList                    *names);
+
 /* Whether a 7z or rar run that ended on a warning status warned about nothing
    but the links in skipped, which lead nowhere and so had nothing to put in.
    output is what the tool printed, with its backspaces already applied;

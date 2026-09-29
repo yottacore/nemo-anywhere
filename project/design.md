@@ -470,7 +470,9 @@ Archives are written by libarchive, with the `7z` and `rar` commands as optional
 
 - Following symlinked and junctioned folders is off by default, and is ours rather than the archiver's, because the tree is walked through GIO before anything reaches a writer. A link loop would otherwise pull in the whole disk, so the walk remembers directories by file id and terminates even with following switched on.
 
-- A link that leads nowhere has nothing to put in. It is left out, and a warning names it, whichever writer ran. The 7z and rar commands end such a run on a warning status. That is taken as success only when every warning they printed is about one of those links, so any other warning still fails the archive.
+- A link that leads nowhere goes in as a link, even when links are otherwise followed, since there is nothing to follow. The library does that in every format it writes. 7z and rar keep links all or none, so there those links go in first, by a run of their own that keeps links, and the real run adds the rest. The delete check counts such a link as in.
+	- It cannot be done for a split set, which neither tool can add to, or for 7z on Windows, where 7-Zip is never asked to keep links. It is also not done where 7-Zip would reach the link through a linked folder, which it refuses, or where rar would read a `*` or `?` in the name as a pattern. There the link is left out, and a warning names it.
+	- The 7z and rar commands end a run that passed over such a link on a warning status. That is taken as success only when every warning they printed is about one of those links, so any other warning still fails the archive.
 
 - A name with `*` or `?` in it is a name, not a pattern. 7-Zip is told so. rar has no way to be told, so a rar archive is refused when one of the names it would be handed has either, rather than written with the wrong files in it, and unpacking passes such an archive on to 7-Zip.
 

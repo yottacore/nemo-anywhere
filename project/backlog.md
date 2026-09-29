@@ -154,7 +154,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Type: Bug
 	- Status: Waiting for testing
 	- Needs local test suite run?: yes, the full Linux suite.
-	- Needs external testing: Windows. The archive combinations test, whose new rows there send every 7z through the warning path, since 7z keeps no links on Windows. Also a link with a name that is not plain ASCII, since 7z on Windows may print names in the console code page, which would fail the job as before.
+	- Needs external testing: Windows. The archive combinations test. There zip, tar and rar should keep a link that leads nowhere as a link, while 7z leaves it out with the warning, since 7z keeps no links on Windows. Also a link with a name that is not plain ASCII, since 7z and rar on Windows may print names in the console code page, which would fail the job as before.
 	- Priority|Severity: Avg
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
@@ -162,19 +162,25 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Steps to reproduce [Bug]:
 		- Untick "store links", then compress a folder holding a link to a missing file as 7z or rar.
 	- Incorrect behavior: "could not be created", and the whole archive is gone. On Windows it happens to every 7z, whatever the checkbox says.
-	- Expected behavior: the link is passed over with a warning, as the zip writer does.
+	- Expected behavior: the link goes in as a link, even with "store links" unticked, wherever the format and tool can keep it. Where they cannot, it is left out with a warning that names it, and the rest of the archive stands.
 	- Reproduced: yes for the tools' exit codes, 20260928, Linux. The job side was read only. The job side too on 20260928, with the new test rows.
 	- Actual cause: 7z exits 1 and rar exits 6 when they skip a link they cannot follow, and any non-zero exit fails the job.
+	- Progress log:
+		- 20260929-070928: Reworked for the decision below. Links that lead nowhere now go in as links. Leaving them out with a warning is kept only where the tool cannot keep them.
 	- Decisions:
 		- 20260929: every format stores a link that leads nowhere as a link, where the format and tool can, even when links are otherwise followed. Leaving it out with a warning is only the fallback.
 	- Origin: 6c2418f, 20260820. Widened on Windows by 09506ec, 20260926 (bugs), which took link storing away from 7z there. Regression of that fix on Windows. Confirmed.
 	- Note: the zip writer did not warn either. For a link to nothing, GIO answers with the link itself rather than failing, so the scan's "dangling" branch never ran and every writer left the link out without a word.
-	- Actual fix: the scan lists each link that leads nowhere, for 7z and rar too whenever links are not stored. When 7z ends on 1 or rar on 6, the job reads what the tool printed. It counts as done only if every warning names one of those links and the archive is there. Any other warning still fails the job. Every writer then shows one warning naming the links left out. With delete-originals on, the names go in the "originals were kept" warning instead of a second one.
-	- Swept: the library writer shares the scan, and now warns too. The delete check's own walk already refused on a dangling link. A split archive is checked for its first volume. Unpacking has no link scan.
-	- Branch: arclinks
-	- Commit: 334b239
-	- Test case: rhr6ggmt, Archive option combinations, new dangling-link rows for every format, with links stored and not, delete on and off, and one split. Fails before the fix and passes after, on Linux. Also rev86z08, Archive options test, which feeds the output reader what 7-Zip 25.01 and RAR 7.20 print, including a real read error beside the link. That reader is new, so it has no before run.
-	- Verified: the 8 archive, extract, template and schema tests pass on Linux, the combinations and job tests three runs in a row. Lint and the Windows cross build are clean. The output reader's Windows-only rows pass under wine.
+	- Actual fix: the library writer keeps each link that leads nowhere as a link, in every format it writes, 7z included, and still follows the other links. 7z and rar keep links only all or none. So those links go in first, by a run of their own that keeps links, and the real run adds the rest to that archive, following links as before. If that first run fails, the links are left out and named instead. The delete check counts a link that went in as in.
+		- Left out with the warning, as before: a split archive, since neither tool can add to one. 7z on Windows, which is never asked to keep links. A link 7-Zip would reach through a followed linked folder, since it refuses that path. Under rar, a name with * or ?, which it would read as a pattern.
+		- The real run still passes over those links with a warning status. The output reader from 334b239 still fails the job on any warning that does not name one of them.
+	- Swept: every writer. The library writes zip, tar and its three compressed forms, and 7z; 7z writes 7z, and zip when split; rar writes rar. The delete check's own walk follows the same rule. Compress each goes through the same per-archive code. Unpacking has no link scan.
+	- Branch: arclinks, then arcdangle
+	- Commit: 334b239, then 991b6e1
+	- Test case: rhr6ggmt, Archive option combinations. Its dangling-link rows check that the link reads back as a link, with a good link beside it still followed, for every format, with links stored and not, delete on and off, and one split. New rows: the library's 7z, a selection of only a dangling link, one inside a followed linked folder, and on Linux a name with ? for rar. 26 rows fail before the rework and all pass after, on Linux.
+		- rewygsbg, Archive job test: the delete check now passes with such a link in a zip. Its older check that the delete check refused is commented out with the reason. Fails before, passes after.
+		- rev86z08, Archive options test: the output reader rows from 334b239, and new rows for the line of the first run. That line is new, so it has no before run.
+	- Verified: the 9 archive, extract, template and schema tests pass on Linux, the combinations and job tests three runs in a row. Lint and the Windows cross build are clean. The Archive options test passes under wine, its Windows-only rows included.
 
 - Code review 20260928 item 17. Hardlinking a selected symlink links the symlink, not the file.
 	- ID: 2026092813381417
