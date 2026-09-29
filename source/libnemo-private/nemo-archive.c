@@ -150,7 +150,9 @@ typedef struct {
 
 	GList              *entries;		/* ArchiveEntry * */
 	GList              *left_out;		/* char *, linked folders not followed */
-	GList              *dangling;		/* char *, links that lead nowhere */
+	GList              *dangling;		/* char *, links that lead nowhere, left out */
+	GList              *dangling_first;	/* char *, the ones a run of their own keeps */
+	guint               through_links;	/* followed linked folders the scan is in */
 	GList              *passed_over;	/* char *, the dangling ones of every unit */
 	guint64             total_bytes;
 	guint64             done_bytes;
@@ -748,6 +750,32 @@ nemo_archive_format_size (guint64 bytes)
 	return g_strdup_printf ("%llu", (unsigned long long) bytes);
 }
 
+/* Whether a link that leads nowhere goes in as a link when links are otherwise
+   followed. The library writes one in every format it has, 7z included. 7z
+   and rar keep links all or none, so there it takes a run of its own before
+   the real one, and a split set cannot be added to afterwards. In that run
+   7-Zip refuses a path through a linked folder, and rar reads * and ? in a
+   name it is handed as a wildcard, so those stay out. */
+static gboolean
+dangling_goes_in (const NemoArchiveOptions *options,
+		  NemoArchiveBackend        backend,
+		  const char               *rel_path,
+		  gboolean                  through_link)
+{
+	if (backend == NEMO_ARCHIVE_BACKEND_LIBARCHIVE) {
+		return TRUE;
+	}
+	if ((nemo_archive_backend_caps (options->format, backend) & NEMO_ARCHIVE_CAP_STORE_LINKS) == 0 ||
+	    options->split_size > 0) {
+		return FALSE;
+	}
+	if (backend == NEMO_ARCHIVE_BACKEND_7Z) {
+		return !through_link;
+	}
+
+	return strpbrk (rel_path, "*?") == NULL;
+}
+
 /* One thing that should have gone into the archive. size is -1 where only
    being there can be checked: a directory, or something stored as a link. */
 typedef struct {
@@ -762,6 +790,9 @@ typedef struct {
 	gboolean      store_links;
 	gboolean      follow_link_dirs;
 	gboolean      whole;		/* nothing was passed over on the way */
+	const NemoArchiveOptions *options;
+	NemoArchiveBackend        backend;
+	guint                     through_links;	/* followed linked folders we are in */
 } VerifyWalk;
 
 static void
@@ -845,8 +876,17 @@ verify_walk_item (VerifyWalk *walk,
 		effective = g_file_query_info (file, SCAN_ATTRIBUTES,
 					       G_FILE_QUERY_INFO_NONE,
 					       walk->cancellable, NULL);
-		if (effective == NULL) {
-			walk->whole = FALSE;	/* dangling, so nothing went in */
+		/* Leads nowhere. GIO may answer for the link itself. */
+		if (effective == NULL ||
+		    g_file_info_get_file_type (effective) == G_FILE_TYPE_SYMBOLIC_LINK) {
+			g_clear_object (&effective);
+			if (g_file_info_get_symlink_target (info) != NULL &&
+			    dangling_goes_in (walk->options, walk->backend, rel_path,
+					      walk->through_links > 0)) {
+				expect (walk, rel_path, -1, FALSE);
+			} else {
+				walk->whole = FALSE;	/* nothing went in */
+			}
 			return;
 		}
 		if (g_file_info_get_file_type (effective) == G_FILE_TYPE_DIRECTORY &&
@@ -873,7 +913,13 @@ verify_walk_item (VerifyWalk *walk,
 		}
 
 		expect (walk, rel_path, -1, TRUE);
+		if (g_file_info_get_is_symlink (info)) {
+			walk->through_links++;
+		}
 		verify_walk_directory (walk, file, rel_path);
+		if (g_file_info_get_is_symlink (info)) {
+			walk->through_links--;
+		}
 	} else if (type == G_FILE_TYPE_REGULAR) {
 		expect (walk, rel_path, g_file_info_get_size (effective), FALSE);
 	} else {
@@ -1028,7 +1074,7 @@ nemo_archive_verify (GFile                    *archive_file,
 		     GCancellable             *cancellable,
 		     char                    **reason)
 {
-	VerifyWalk walk = { NULL, NULL, NULL, FALSE, FALSE, TRUE };
+	VerifyWalk walk = { NULL, NULL, NULL, FALSE, FALSE, TRUE, NULL, NEMO_ARCHIVE_BACKEND_NONE, 0 };
 	GHashTable *listing = NULL;
 	GHashTable *folders = NULL;
 	GHashTableIter iter;
@@ -1073,6 +1119,8 @@ nemo_archive_verify (GFile                    *archive_file,
 		(nemo_archive_backend_caps (options->format, backend) &
 		 NEMO_ARCHIVE_CAP_STORE_LINKS) != 0;
 	walk.follow_link_dirs = options->follow_link_dirs;
+	walk.options = options;
+	walk.backend = backend;
 
 	for (l = sources; l != NULL; l = l->next) {
 		GFile *file = G_FILE (l->data);
@@ -1273,11 +1321,21 @@ scan_item (ArchiveJob *job,
 					       G_FILE_QUERY_INFO_NONE,
 					       job->cancellable, NULL);
 		/* With nothing reachable at the other end, GIO answers for the
-		   link itself. Nothing to store, but it gets named at the end. */
+		   link itself. It goes in as a link where it can, and is named
+		   at the end where it cannot. */
 		if (effective == NULL ||
 		    g_file_info_get_file_type (effective) == G_FILE_TYPE_SYMBOLIC_LINK) {
-			job->dangling = g_list_prepend (job->dangling, g_strdup (rel_path));
 			g_clear_object (&effective);
+			if (g_file_info_get_symlink_target (info) == NULL ||
+			    !dangling_goes_in (&job->options, job->backend, rel_path,
+					       job->through_links > 0)) {
+				job->dangling = g_list_prepend (job->dangling, g_strdup (rel_path));
+			} else if (job->backend == NEMO_ARCHIVE_BACKEND_LIBARCHIVE) {
+				add_entry (job, file, rel_path, info, TRUE);
+			} else {
+				job->dangling_first = g_list_prepend (job->dangling_first,
+								      g_strdup (rel_path));
+			}
 			return;
 		}
 		if (g_file_info_get_file_type (effective) == G_FILE_TYPE_DIRECTORY &&
@@ -1304,7 +1362,13 @@ scan_item (ArchiveJob *job,
 		}
 
 		add_entry (job, file, rel_path, effective, FALSE);
+		if (g_file_info_get_is_symlink (info)) {
+			job->through_links++;
+		}
 		scan_directory (job, file, rel_path, seen);
+		if (g_file_info_get_is_symlink (info)) {
+			job->through_links--;
+		}
 	} else if (type == G_FILE_TYPE_REGULAR) {
 		add_entry (job, file, rel_path, effective, FALSE);
 	}
@@ -1663,7 +1727,7 @@ set_unit_status (ArchiveJob *job,
 static gboolean
 unit_has_nothing (ArchiveJob *job)
 {
-	if (job->entries != NULL) {
+	if (job->entries != NULL || job->dangling_first != NULL) {
 		return FALSE;
 	}
 
@@ -1797,14 +1861,18 @@ free_values (char **values)
 	}
 }
 
-char **
-nemo_archive_build_command (NemoArchiveBackend        backend,
-			    NemoArchiveFormat         format,
-			    const NemoArchiveOptions *options,
-			    const char               *program,
-			    const char               *archive_path,
-			    GList                    *names,
-			    GList                    *leave_out)
+/* links_only is the run ahead of the real one that keeps the links that lead
+   nowhere. It keeps every link it is handed, and leaves the switches that the
+   real run adds, or that would stop it adding, to the real run. */
+static char **
+build_command (NemoArchiveBackend        backend,
+	       NemoArchiveFormat         format,
+	       const NemoArchiveOptions *options,
+	       const char               *program,
+	       const char               *archive_path,
+	       GList                    *names,
+	       GList                    *leave_out,
+	       gboolean                  links_only)
 {
 	/* One slot per switch a token stands for, plus the terminator. Only the
 	   password ever needs two, and only for 7-Zip. */
@@ -1860,13 +1928,13 @@ nemo_archive_build_command (NemoArchiveBackend        backend,
 				password_v[1] = g_strdup ("-mhe=on");
 			}
 		}
-		if (options->split_size > 0) {
+		if (options->split_size > 0 && !links_only) {
 			split_v[0] = g_strdup_printf ("-v%llub", (unsigned long long) options->split_size);
 		}
 		if (format == NEMO_ARCHIVE_FORMAT_7Z) {
 			solid_v[0] = g_strdup (options->solid ? "-ms=on" : "-ms=off");
 		}
-		if (options->store_links &&
+		if ((options->store_links || links_only) &&
 		    (nemo_archive_backend_caps (format, backend) & NEMO_ARCHIVE_CAP_STORE_LINKS)) {
 			g_ptr_array_add (links_v, g_strdup ("-snl"));
 		}
@@ -1886,7 +1954,7 @@ nemo_archive_build_command (NemoArchiveBackend        backend,
 				? g_strconcat ("-hp", options->password, NULL)
 				: g_strconcat ("-p", options->password, NULL);
 		}
-		if (options->split_size > 0) {
+		if (options->split_size > 0 && !links_only) {
 			split_v[0] = g_strdup_printf ("-v%llub", (unsigned long long) options->split_size);
 		}
 		solid_v[0] = g_strdup (options->solid ? "-s" : "-s-");
@@ -1894,18 +1962,24 @@ nemo_archive_build_command (NemoArchiveBackend        backend,
 		if (options->dedupe) {
 			dedupe_v[0] = g_strdup ("-oi");
 		}
-		if (options->recovery_record) {
+		/* Both for the real run. A locked archive cannot be added to. */
+		if (options->recovery_record && !links_only) {
 			recovery_v[0] = g_strdup ("-rr3p");
 		}
-		if (options->lock) {
+		if (options->lock && !links_only) {
 			lock_v[0] = g_strdup ("-k");
 		}
 
 		/* -ol keeps links as links. Without it rar follows them, which is
 		   what not keeping them means; -ola would keep them too, with the
 		   path made absolute, and -ol- would drop them. */
-		if (options->store_links) {
+		if (options->store_links || links_only) {
 			g_ptr_array_add (links_v, g_strdup ("-ol"));
+		}
+		/* With -r, "sub/name" means every "name" under sub. The line has
+		   -r ahead of this, and the last one said is the one rar takes. */
+		if (links_only) {
+			g_ptr_array_add (links_v, g_strdup ("-r-"));
 		}
 		for (l = leave_out; l != NULL; l = l->next) {
 			g_ptr_array_add (links_v, g_strconcat ("-x", (char *) l->data, NULL));
@@ -1975,6 +2049,31 @@ nemo_archive_build_command (NemoArchiveBackend        backend,
 	free_values (archive_v);
 
 	return argv;
+}
+
+char **
+nemo_archive_build_command (NemoArchiveBackend        backend,
+			    NemoArchiveFormat         format,
+			    const NemoArchiveOptions *options,
+			    const char               *program,
+			    const char               *archive_path,
+			    GList                    *names,
+			    GList                    *leave_out)
+{
+	return build_command (backend, format, options, program, archive_path,
+			      names, leave_out, FALSE);
+}
+
+char **
+nemo_archive_build_links_command (NemoArchiveBackend        backend,
+				  NemoArchiveFormat         format,
+				  const NemoArchiveOptions *options,
+				  const char               *program,
+				  const char               *archive_path,
+				  GList                    *names)
+{
+	return build_command (backend, format, options, program, archive_path,
+			      names, NULL, TRUE);
 }
 
 static gboolean
@@ -2392,15 +2491,121 @@ only_dangling_warned (ArchiveJob  *job,
 		      GSubprocess *process,
 		      GString     *output)
 {
-	if (job->dangling == NULL || output_full (output) ||
-	    !g_subprocess_get_if_exited (process)) {
+	GList *known;
+	gboolean only;
+
+	/* The ones already in as links are passed over again by the real run. */
+	if ((job->dangling == NULL && job->dangling_first == NULL) ||
+	    output_full (output) || !g_subprocess_get_if_exited (process)) {
 		return FALSE;
 	}
 
-	return nemo_archive_only_skipped_links (job->backend,
+	known = g_list_concat (g_list_copy (job->dangling), g_list_copy (job->dangling_first));
+	only = nemo_archive_only_skipped_links (job->backend,
 						g_subprocess_get_exit_status (process),
-						output->str, job->dangling) &&
+						output->str, known) &&
 	       archive_written (job);
+	g_list_free (known);
+
+	return only;
+}
+
+/* Starts a tool line in the base folder and reads what it prints until it
+   ends, moving the progress bar as it goes. The caller waits on what comes
+   back. NULL if it could not be started. */
+static GSubprocess *
+start_tool (ArchiveJob  *job,
+	    char       **argv,
+	    const char  *base_path,
+	    GString     *output,
+	    GError     **error)
+{
+	GSubprocessLauncher *launcher;
+	GSubprocess *process;
+	GInputStream *out;
+	char buffer[4096];
+
+	launcher = g_subprocess_launcher_new (G_SUBPROCESS_FLAGS_STDOUT_PIPE |
+					      G_SUBPROCESS_FLAGS_STDERR_MERGE);
+	g_subprocess_launcher_set_cwd (launcher, base_path);
+
+	process = g_subprocess_launcher_spawnv (launcher, (const gchar * const *) argv, error);
+	g_object_unref (launcher);
+
+	if (process == NULL) {
+		return NULL;
+	}
+
+	out = g_subprocess_get_stdout_pipe (process);
+
+	while (TRUE) {
+		gssize count = g_input_stream_read (out, buffer, sizeof (buffer),
+						    job->cancellable, NULL);
+		int percent = -1;
+
+		if (count <= 0) {
+			break;
+		}
+
+		take_output (output, buffer, (gsize) count);
+
+		if (scan_percent (buffer, (gsize) count, &percent)) {
+			nemo_progress_info_set_progress (job->progress, percent, 100);
+		}
+	}
+
+	if (job_aborted (job)) {
+		g_subprocess_force_exit (process);
+	}
+
+	return process;
+}
+
+/* Neither tool keeps some links and follows the rest, so the links that lead
+   nowhere go in first, by a run that keeps links, and the real run adds the
+   rest to that archive. If this run fails they are left out after all, and
+   named, as where there is no way to keep them. */
+static void
+put_in_dangling_first (ArchiveJob *job,
+		       const char *program,
+		       const char *base_path,
+		       const char *archive_path)
+{
+	GSubprocess *process = NULL;
+	GString *output;
+	char **argv;
+	gboolean ok = FALSE;
+
+	if (job->dangling_first == NULL) {
+		return;
+	}
+
+	job->dangling_first = g_list_reverse (job->dangling_first);
+	argv = nemo_archive_build_links_command (job->backend, job->options.format, &job->options,
+						 program, archive_path, job->dangling_first);
+	output = g_string_new (NULL);
+
+	if (argv != NULL) {
+		process = start_tool (job, argv, base_path, output, NULL);
+	}
+	if (process != NULL) {
+		ok = g_subprocess_wait_check (process, NULL, NULL);
+		g_object_unref (process);
+	}
+
+	if (!ok && !job_aborted (job)) {
+		char *said = output_tail (output);
+
+		g_warning ("Links that lead nowhere could not be kept, so they are left out: %s", said);
+		g_free (said);
+
+		g_file_delete (job->destination, NULL, NULL);
+		job->dangling = g_list_concat (g_list_reverse (job->dangling_first), job->dangling);
+		job->dangling_first = NULL;
+	}
+
+	g_string_free (output, TRUE);
+	g_strfreev (argv);
 }
 
 static gboolean
@@ -2412,12 +2617,9 @@ run_command (ArchiveJob *job)
 	char **argv = NULL;
 	GList *names = NULL;
 	GList *l;
-	GSubprocessLauncher *launcher;
 	GSubprocess *process;
-	GInputStream *out;
 	GError *error = NULL;
 	GString *output;
-	char buffer[4096];
 	gboolean ok = FALSE;
 
 	base_path = g_file_get_path (job->base_dir);
@@ -2434,7 +2636,8 @@ run_command (ArchiveJob *job)
 	/* Both tools follow links unless told to keep them, folders and all. The
 	   linked folders that are not to be followed have to be found first, so
 	   they can be named as left out, and so do links that lead nowhere, which
-	   end the run on a warning that is only about them. */
+	   go in by a run of their own where they can, and end the real run on a
+	   warning that is only about them. */
 	if (!job_stores_links (job)) {
 		scan_sources (job);
 		if (job_aborted (job) || unit_has_nothing (job)) {
@@ -2472,47 +2675,33 @@ run_command (ArchiveJob *job)
 		}
 	}
 
+	set_unit_status (job, g_strdup_printf (_("Compressing with %s"),
+					       job->backend == NEMO_ARCHIVE_BACKEND_RAR ? "rar" : "7z"));
+
+	put_in_dangling_first (job, program, base_path, archive_path);
+	if (job_aborted (job)) {
+		goto out;
+	}
+
+	/* Only links that went in first, and rar fails a run that adds nothing.
+	   If they did not go in after all, there is nothing. */
+	if (!job_stores_links (job) && job->entries == NULL) {
+		ok = job->dangling_first != NULL || (unit_has_nothing (job) && job->unit_empty);
+		goto out;
+	}
+
 	argv = nemo_archive_build_command (job->backend, job->options.format, &job->options,
 					   program, archive_path, names, job->left_out);
 
-	launcher = g_subprocess_launcher_new (G_SUBPROCESS_FLAGS_STDOUT_PIPE |
-					      G_SUBPROCESS_FLAGS_STDERR_MERGE);
-	g_subprocess_launcher_set_cwd (launcher, base_path);
-
-	process = g_subprocess_launcher_spawnv (launcher, (const gchar * const *) argv, &error);
-	g_object_unref (launcher);
+	output = g_string_new (NULL);
+	process = start_tool (job, argv, base_path, output, &error);
 
 	if (process == NULL) {
 		job_fail (job, _("The archive could not be created."),
 			  error != NULL ? error->message : NULL);
 		g_clear_error (&error);
+		g_string_free (output, TRUE);
 		goto out;
-	}
-
-	set_unit_status (job, g_strdup_printf (_("Compressing with %s"),
-					       job->backend == NEMO_ARCHIVE_BACKEND_RAR ? "rar" : "7z"));
-
-	output = g_string_new (NULL);
-	out = g_subprocess_get_stdout_pipe (process);
-
-	while (TRUE) {
-		gssize count = g_input_stream_read (out, buffer, sizeof (buffer),
-						    job->cancellable, NULL);
-		int percent = -1;
-
-		if (count <= 0) {
-			break;
-		}
-
-		take_output (output, buffer, (gsize) count);
-
-		if (scan_percent (buffer, (gsize) count, &percent)) {
-			nemo_progress_info_set_progress (job->progress, percent, 100);
-		}
-	}
-
-	if (job_aborted (job)) {
-		g_subprocess_force_exit (process);
 	}
 
 	ok = g_subprocess_wait_check (process, NULL, &error);
@@ -2698,6 +2887,8 @@ finish_unit (ArchiveJob *job)
 	job->left_out = NULL;
 	job->passed_over = g_list_concat (job->passed_over, g_list_reverse (job->dangling));
 	job->dangling = NULL;
+	g_list_free_full (job->dangling_first, g_free);
+	job->dangling_first = NULL;
 	job->unit_empty = FALSE;
 
 	g_clear_object (&job->base_dir);

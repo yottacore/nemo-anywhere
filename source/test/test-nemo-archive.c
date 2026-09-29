@@ -365,6 +365,89 @@ check_backends (void)
 #endif
 }
 
+static int
+arg_index (char **argv, const char *arg)
+{
+	int i;
+
+	for (i = 0; argv != NULL && argv[i] != NULL; i++) {
+		if (strcmp (argv[i], arg) == 0) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+/* The run ahead of the real one, which puts in the links that lead nowhere as
+   links while links are otherwise followed. It keeps links whatever the box
+   says, and leaves to the real run what would stop it adding to the archive. */
+static void
+check_links_command (void)
+{
+	NemoArchiveOptions options;
+	GList *names = g_list_append (NULL, (gpointer) "held/gone");
+	char **argv;
+
+	nemo_archive_options_init (&options);
+	options.format = NEMO_ARCHIVE_FORMAT_RAR;
+	options.store_links = FALSE;
+	options.password = g_strdup ("secret");
+	options.encrypt_names = TRUE;
+	options.recovery_record = TRUE;
+	options.lock = TRUE;
+
+	argv = nemo_archive_build_links_command (NEMO_ARCHIVE_BACKEND_RAR, options.format, &options,
+						 "rar", "/tmp/out.rar", names);
+	check (argv != NULL);
+	check (!has_unexpanded (argv));
+	check (has_arg (argv, "-ol"));
+	/* -r would take every "gone" under held; the last one said wins. */
+	check (arg_index (argv, "-r-") > arg_index (argv, "-r"));
+	check (has_arg (argv, "-hpsecret"));
+	check (!has_arg (argv, "-k"));
+	check (!has_prefix_arg (argv, "-rr"));
+	check (has_arg (argv, "held/gone"));
+	g_strfreev (argv);
+
+	/* The real run still follows. */
+	argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_RAR, options.format, &options,
+					   "rar", "/tmp/out.rar", names, NULL);
+	check (!has_arg (argv, "-ol"));
+	check (!has_arg (argv, "-r-"));
+	check (has_arg (argv, "-k"));
+	g_strfreev (argv);
+	nemo_archive_options_clear (&options);
+
+	nemo_archive_options_init (&options);
+	options.format = NEMO_ARCHIVE_FORMAT_7Z;
+	options.store_links = FALSE;
+	options.password = g_strdup ("secret");
+	options.encrypt_names = TRUE;
+
+	argv = nemo_archive_build_links_command (NEMO_ARCHIVE_BACKEND_7Z, options.format, &options,
+						 "7z", "/tmp/out.7z", names);
+	check (argv != NULL);
+	check (!has_unexpanded (argv));
+#ifdef G_OS_WIN32
+	/* No -snl on Windows, so the run is never made there. */
+	check (!has_arg (argv, "-snl"));
+#else
+	check (has_arg (argv, "-snl"));
+#endif
+	check (has_arg (argv, "-spd"));
+	check (has_arg (argv, "-mhe=on"));
+	check (has_arg (argv, "held/gone"));
+	g_strfreev (argv);
+
+	argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_7Z, options.format, &options,
+					   "7z", "/tmp/out.7z", names, NULL);
+	check (!has_arg (argv, "-snl"));
+	g_strfreev (argv);
+	nemo_archive_options_clear (&options);
+
+	g_list_free (names);
+}
+
 static void
 check_commands (void)
 {
@@ -540,6 +623,8 @@ check_commands (void)
 	nemo_archive_options_clear (&options);
 
 	g_list_free (names);
+
+	check_links_command ();
 }
 
 /* What the two tools print when they pass over a link that leads nowhere,

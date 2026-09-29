@@ -496,9 +496,9 @@ check_verify (const char *tmp,
 
 #ifndef G_OS_WIN32
 	/* Anything the walk had to pass over means the archive was never offered
-	   all of it, whether or not what did go in reads back cleanly. With the
-	   links box unticked a dangling one is followed, and there is nothing at
-	   the other end to store. */
+	   all of it, whether or not what did go in reads back cleanly. A link
+	   that leads nowhere is one of those only where the writer cannot keep
+	   it as a link. The library can, with the links box unticked too. */
 	{
 		char *link_path = g_build_filename (deep, "dangling", NULL);
 		GFile *link_file = g_file_new_for_path (link_path);
@@ -514,8 +514,23 @@ check_verify (const char *tmp,
 				     archive_done, NULL);
 		wait_for_job ();
 
+		/* Out since 20260929, when a link that leads nowhere started going
+		   in as a link, so the walk is whole and the check passes.
 		check (!nemo_archive_verify (link_destination, sources, &options,
 					     NEMO_ARCHIVE_BACKEND_LIBARCHIVE, NULL, &reason));
+		check (reason != NULL);
+		*/
+		check (nemo_archive_verify (link_destination, sources, &options,
+					    NEMO_ARCHIVE_BACKEND_LIBARCHIVE, NULL, &reason));
+		check (reason == NULL);
+		g_free (reason);
+		reason = NULL;
+
+		/* Still a miss for a writer that could not take it as a link, as
+		   7z on Windows cannot. rar writes no zip, so it keeps no links
+		   here and stands in for that. */
+		check (!nemo_archive_verify (link_destination, sources, &options,
+					     NEMO_ARCHIVE_BACKEND_RAR, NULL, &reason));
 		check (reason != NULL);
 		g_free (reason);
 		reason = NULL;
