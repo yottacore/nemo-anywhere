@@ -150,6 +150,8 @@ typedef struct {
 
 	GList              *entries;		/* ArchiveEntry * */
 	GList              *left_out;		/* char *, linked folders not followed */
+	GList              *dangling;		/* char *, links that lead nowhere */
+	GList              *passed_over;	/* char *, the dangling ones of every unit */
 	guint64             total_bytes;
 	guint64             done_bytes;
 	guint               file_count;
@@ -1270,8 +1272,13 @@ scan_item (ArchiveJob *job,
 		effective = g_file_query_info (file, SCAN_ATTRIBUTES,
 					       G_FILE_QUERY_INFO_NONE,
 					       job->cancellable, NULL);
-		if (effective == NULL) {
-			return;		/* dangling - there is nothing to store */
+		/* With nothing reachable at the other end, GIO answers for the
+		   link itself. Nothing to store, but it gets named at the end. */
+		if (effective == NULL ||
+		    g_file_info_get_file_type (effective) == G_FILE_TYPE_SYMBOLIC_LINK) {
+			job->dangling = g_list_prepend (job->dangling, g_strdup (rel_path));
+			g_clear_object (&effective);
+			return;
 		}
 		if (g_file_info_get_file_type (effective) == G_FILE_TYPE_DIRECTORY &&
 		    !job->options.follow_link_dirs) {
@@ -1970,6 +1977,109 @@ nemo_archive_build_command (NemoArchiveBackend        backend,
 	return argv;
 }
 
+static gboolean
+names_skipped (const char *path,
+	       gsize       length,
+	       GList      *skipped)
+{
+	GList *l;
+
+	for (l = skipped; l != NULL; l = l->next) {
+		const char *name = l->data;
+
+		if (strlen (name) == length && strncmp (name, path, length) == 0) {
+			return TRUE;
+		}
+	}
+
+	return FALSE;
+}
+
+gboolean
+nemo_archive_only_skipped_links (NemoArchiveBackend  backend,
+				 int                 exit_status,
+				 const char         *output,
+				 GList              *skipped)
+{
+	char **lines;
+	gboolean in_list = FALSE;
+	gboolean clean = TRUE;
+	guint named = 0;
+	guint i;
+
+	if (output == NULL || skipped == NULL) {
+		return FALSE;
+	}
+	/* 7-Zip's 1 is any warning at all; rar's 6 is a file it could not open. */
+	if (!(backend == NEMO_ARCHIVE_BACKEND_7Z && exit_status == 1) &&
+	    !(backend == NEMO_ARCHIVE_BACKEND_RAR && exit_status == 6)) {
+		return FALSE;
+	}
+
+	lines = g_strsplit (output, "\n", -1);
+	for (i = 0; lines[i] != NULL; i++) {
+		g_strstrip (lines[i]);
+#ifdef G_OS_WIN32
+		g_strdelimit (lines[i], "\\", '/');
+#endif
+	}
+
+	for (i = 0; clean && lines[i] != NULL; i++) {
+		const char *line = lines[i];
+
+		if (backend == NEMO_ARCHIVE_BACKEND_RAR) {
+			/* "Cannot open <name>", then the reason on a line of its own. */
+			if (g_str_has_prefix (line, "Cannot open ")) {
+				const char *name = line + strlen ("Cannot open ");
+
+				clean = names_skipped (name, strlen (name), skipped);
+				named++;
+			} else if (g_str_has_prefix (line, "Cannot ") ||
+				   g_str_has_prefix (line, "WARNING") ||
+				   g_str_has_prefix (line, "ERROR")) {
+				clean = FALSE;
+			}
+			continue;
+		}
+
+		/* 7-Zip lists them again at the end, "<name> : <reason>", under
+		   one heading for the scan and another for files it could not
+		   read while writing. Every one has to be a link we know of. */
+		if (g_str_has_suffix (line, "WARNINGS for files and folders:") ||
+		    g_str_has_suffix (line, "WARNINGS for files:")) {
+			in_list = TRUE;
+		} else if (in_list) {
+			if (g_str_has_prefix (line, "----")) {
+				in_list = FALSE;
+			} else if (line[0] != '\0') {
+				/* A name can hold " : " itself, so try each one. */
+				const char *separator = strstr (line, " : ");
+
+				while (separator != NULL &&
+				       !names_skipped (line, (gsize) (separator - line), skipped)) {
+					separator = strstr (separator + 1, " : ");
+				}
+				clean = separator != NULL;
+				named++;
+			}
+		} else if (g_str_has_prefix (line, "WARNING")) {
+			/* As it happens: "WARNING: <reason>", and the name next. A
+			   count such as "WARNING: Cannot open 1 file" has none. */
+			const char *name = lines[i + 1];
+
+			clean = name != NULL && names_skipped (name, strlen (name), skipped);
+			named += clean ? 1 : 0;
+			i++;
+		} else if (g_str_has_prefix (line, "ERROR")) {
+			clean = FALSE;
+		}
+	}
+
+	g_strfreev (lines);
+
+	return clean && named > 0;
+}
+
 /* Both tools write a running "NN%". The newest one in the buffer wins. */
 static gboolean
 scan_percent (const char *text,
@@ -2180,6 +2290,119 @@ queue_one (GFile *file)
 	nemo_file_changes_queue_file_added (file);
 }
 
+/* rar reads * and ? in any name it is handed as a wildcard, and has no switch
+   to say otherwise. Only a name we pass counts; what it finds in a folder by
+   itself is taken as it is. */
+static const char *
+first_pattern (GList *names)
+{
+	GList *l;
+
+	for (l = names; l != NULL; l = l->next) {
+		if (strpbrk (l->data, "*?") != NULL) {
+			return l->data;
+		}
+	}
+
+	return NULL;
+}
+
+/* What a tool printed, as a terminal would leave it. Both redraw their
+   progress with backspaces, which would otherwise pile up for as long as the
+   job runs. Past the limit the rest is dropped, and output_full says so. */
+#define OUTPUT_LIMIT (1024 * 1024)
+
+static void
+take_output (GString    *output,
+	     const char *buffer,
+	     gsize       count)
+{
+	gsize i;
+
+	for (i = 0; i < count && output->len < OUTPUT_LIMIT; i++) {
+		if (buffer[i] != '\b') {
+			g_string_append_c (output, buffer[i]);
+			continue;
+		}
+
+		/* One character back, not one byte, and never onto the line above. */
+		while (output->len > 0 && output->str[output->len - 1] != '\n') {
+			gboolean first_byte = ((guchar) output->str[output->len - 1] & 0xC0) != 0x80;
+
+			g_string_truncate (output, output->len - 1);
+			if (first_byte) {
+				break;
+			}
+		}
+	}
+}
+
+static gboolean
+output_full (GString *output)
+{
+	return output->len >= OUTPUT_LIMIT;
+}
+
+/* The end of what the tool said, for the error dialog. Caller frees. */
+static char *
+output_tail (GString *output)
+{
+	const char *start = output->str;
+
+	if (output->len > 4096) {
+		start = output->str + output->len - 4096;
+		while (*start != '\0' && ((guchar) *start & 0xC0) == 0x80) {
+			start++;
+		}
+	}
+
+	return g_strstrip (g_strdup (start));
+}
+
+static gboolean
+archive_written (ArchiveJob *job)
+{
+	guint digits;
+
+	if (g_file_query_exists (job->destination, NULL)) {
+		return TRUE;
+	}
+	if (job->options.split_size == 0) {
+		return FALSE;
+	}
+
+	for (digits = 1; digits <= 3; digits++) {
+		GFile *first = volume_file (job->destination, job->backend, 1, digits);
+		gboolean there = first != NULL && g_file_query_exists (first, NULL);
+
+		g_clear_object (&first);
+		if (there) {
+			return TRUE;
+		}
+	}
+
+	return FALSE;
+}
+
+/* A link that leads nowhere is passed over by both tools with a warning
+   status, the same way the library writer passes over it. Any other warning,
+   or one about some other file, still fails the job. */
+static gboolean
+only_dangling_warned (ArchiveJob  *job,
+		      GSubprocess *process,
+		      GString     *output)
+{
+	if (job->dangling == NULL || output_full (output) ||
+	    !g_subprocess_get_if_exited (process)) {
+		return FALSE;
+	}
+
+	return nemo_archive_only_skipped_links (job->backend,
+						g_subprocess_get_exit_status (process),
+						output->str, job->dangling) &&
+	       archive_written (job);
+}
+
 static gboolean
 run_command (ArchiveJob *job)
 {
@@ -2193,7 +2416,7 @@ run_command (ArchiveJob *job)
 	GSubprocess *process;
 	GInputStream *out;
 	GError *error = NULL;
-	GString *tail;
+	GString *output;
 	char buffer[4096];
 	gboolean ok = FALSE;
 
@@ -2210,8 +2433,9 @@ run_command (ArchiveJob *job)
 
 	/* Both tools follow links unless told to keep them, folders and all. The
 	   linked folders that are not to be followed have to be found first, so
-	   they can be named as left out. */
-	if (!job_stores_links (job) && !job->options.follow_link_dirs) {
+	   they can be named as left out, and so do links that lead nowhere, which
+	   end the run on a warning that is only about them. */
+	if (!job_stores_links (job)) {
 		scan_sources (job);
 		if (job_aborted (job) || unit_has_nothing (job)) {
 			g_free (base_path);
@@ -2230,6 +2454,23 @@ run_command (ArchiveJob *job)
 		names = g_list_prepend (names, g_file_get_basename (G_FILE (l->data)));
 	}
 	names = g_list_reverse (names);
+
+	if (job->backend == NEMO_ARCHIVE_BACKEND_RAR) {
+		const char *pattern = first_pattern (names);
+
+		if (pattern == NULL) {
+			pattern = first_pattern (job->left_out);
+		}
+		if (pattern != NULL) {
+			char *details = g_strdup_printf (
+				_("\"%s\" has * or ? in its name, which rar reads as a wildcard, so other files could go in or be left out with it. Choose another format, or rename it."),
+				pattern);
+
+			job_fail (job, _("The archive could not be created."), details);
+			g_free (details);
+			goto out;
+		}
+	}
 
 	argv = nemo_archive_build_command (job->backend, job->options.format, &job->options,
 					   program, archive_path, names, job->left_out);
@@ -2251,7 +2492,7 @@ run_command (ArchiveJob *job)
 	set_unit_status (job, g_strdup_printf (_("Compressing with %s"),
 					       job->backend == NEMO_ARCHIVE_BACKEND_RAR ? "rar" : "7z"));
 
-	tail = g_string_new (NULL);
+	output = g_string_new (NULL);
 	out = g_subprocess_get_stdout_pipe (process);
 
 	while (TRUE) {
@@ -2263,10 +2504,7 @@ run_command (ArchiveJob *job)
 			break;
 		}
 
-		g_string_append_len (tail, buffer, count);
-		if (tail->len > 4096) {
-			g_string_erase (tail, 0, tail->len - 4096);
-		}
+		take_output (output, buffer, (gsize) count);
 
 		if (scan_percent (buffer, (gsize) count, &percent)) {
 			nemo_progress_info_set_progress (job->progress, percent, 100);
@@ -2278,15 +2516,20 @@ run_command (ArchiveJob *job)
 	}
 
 	ok = g_subprocess_wait_check (process, NULL, &error);
+	if (!ok && !job_aborted (job) && only_dangling_warned (job, process, output)) {
+		ok = TRUE;
+	}
 	if (!ok && !job_aborted (job)) {
+		char *said = output_tail (output);
+
 		/* rar can end with nothing but blank lines, which says nothing. */
-		g_strstrip (tail->str);
 		job_fail (job, _("The archive could not be created."),
-			  tail->str[0] != '\0' ? tail->str : (error != NULL ? error->message : NULL));
+			  said[0] != '\0' ? said : (error != NULL ? error->message : NULL));
+		g_free (said);
 	}
 
 	g_clear_error (&error);
-	g_string_free (tail, TRUE);
+	g_string_free (output, TRUE);
 	g_object_unref (process);
 
  out:
@@ -2325,10 +2568,39 @@ verify_unit (ArchiveJob *job)
 	}
 }
 
+/* The links a job passed over, named for the warning. NULL if none. */
+static char *
+passed_over_note (GList *names)
+{
+	guint count = g_list_length (names);
+	guint shown = 0;
+	GString *note;
+	GList *l;
+
+	if (count == 0) {
+		return NULL;
+	}
+
+	note = g_string_new (ngettext ("It points to something that cannot be reached, so there was nothing to put in:",
+				       "They point to something that cannot be reached, so there was nothing to put in:",
+				       count));
+	for (l = names; l != NULL && shown < 10; l = l->next, shown++) {
+		g_string_append_printf (note, "\n%s", (const char *) l->data);
+	}
+	if (count > shown) {
+		g_string_append_c (note, '\n');
+		g_string_append_printf (note, ngettext ("and %u more", "and %u more", count - shown),
+					count - shown);
+	}
+
+	return g_string_free (note, FALSE);
+}
+
 static gboolean
 archive_job_done (gpointer user_data)
 {
 	ArchiveJob *job = user_data;
+	char *note;
 
 	nemo_file_changes_consume_changes (TRUE);
 
@@ -2336,16 +2608,30 @@ archive_job_done (gpointer user_data)
 		eel_show_error_dialog (job->error_message, job->error_details, job->parent_window);
 	}
 
+	/* Only a delete sets verify_trouble. One dialog, not two, when the
+	   originals stayed because of the links. */
+	note = passed_over_note (job->passed_over);
+	if (job->verify_trouble != NULL) {
+		char *details = note != NULL
+			? g_strconcat (job->verify_trouble, "\n\n", note, NULL)
+			: g_strdup (job->verify_trouble);
+
+		eel_show_warning_dialog (_("The original files were kept."),
+					 details, job->parent_window);
+		g_free (details);
+	} else if (job->success && note != NULL) {
+		eel_show_warning_dialog (ngettext ("A link was left out of the archive.",
+						   "Some links were left out of the archive.",
+						   g_list_length (job->passed_over)),
+					 note, job->parent_window);
+	}
+	g_free (note);
+
 	/* The box was ticked in the Compress dialog, so this is a delete a person
 	   asked for, and it goes through the ordinary trash-or-delete with its own
 	   confirmation rather than anything quieter here. A cancelled job removes
 	   nothing, even where an earlier archive of it did check out. */
 	if (job->options.delete_sources) {
-		if (job->verify_trouble != NULL) {
-			eel_show_warning_dialog (_("The original files were kept."),
-						 job->verify_trouble, job->parent_window);
-		}
-
 		if (job->verified != NULL && !job_aborted (job)) {
 			job->verified = g_list_reverse (job->verified);
 			nemo_file_operations_trash_or_delete_by_user (job->verified,
@@ -2369,6 +2655,7 @@ archive_job_done (gpointer user_data)
 	g_list_free_full (job->entries, (GDestroyNotify) archive_entry_free_full);
 	g_list_free_full (job->units, (GDestroyNotify) archive_unit_free);
 	g_list_free_full (job->verified, g_object_unref);
+	g_list_free_full (job->passed_over, g_free);
 	g_free (job->verify_trouble);
 	g_clear_object (&job->result_file);
 	g_clear_object (&job->base_dir);
@@ -2409,6 +2696,8 @@ finish_unit (ArchiveJob *job)
 	job->entries = NULL;
 	g_list_free_full (job->left_out, g_free);
 	job->left_out = NULL;
+	job->passed_over = g_list_concat (job->passed_over, g_list_reverse (job->dangling));
+	job->dangling = NULL;
 	job->unit_empty = FALSE;
 
 	g_clear_object (&job->base_dir);

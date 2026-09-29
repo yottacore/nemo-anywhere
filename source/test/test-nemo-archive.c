@@ -503,6 +503,8 @@ check_commands (void)
 	check (has_arg (argv, "-psecret"));
 	check (has_arg (argv, "-mhe=on"));
 	check (has_arg (argv, "-ms=on"));
+	/* Names are names. Without -spd a left-out "a*" also leaves out "abc". */
+	check (has_arg (argv, "-spd"));
 	g_strfreev (argv);
 	nemo_archive_options_clear (&options);
 
@@ -540,6 +542,109 @@ check_commands (void)
 	g_list_free (names);
 }
 
+/* What the two tools print when they pass over a link that leads nowhere,
+   taken from 7-Zip 25.01 and RAR 7.20. Only that, and only for links the
+   scan found, is a warning to live with; anything else fails the archive. */
+static void
+check_skipped_links (void)
+{
+	static const char seven_dangling[] =
+		"\n7-Zip 25.01 (x64) : Copyright (c) 1999-2025 Igor Pavlov : 2025-08-03\n"
+		"Scanning the drive:\n"
+		"\nWARNING: errno=2 : No such file or directory\nsel/dang\n\n"
+		"\nWARNING: errno=2 : No such file or directory\nsel/sub/dang2\n\n"
+		"2 folders, 2 files, 16 bytes (1 KiB)\n\nCreating archive: x.7z\n\n"
+		"Files read from disk: 2\nArchive size: 203 bytes (1 KiB)\n\n"
+		"Scan WARNINGS for files and folders:\n\n"
+		"sel/dang : errno=2 : No such file or directory\n"
+		"sel/sub/dang2 : errno=2 : No such file or directory\n"
+		"----------------\nScan WARNINGS: 2\n";
+	/* A folder it could not list and a file it could not read, beside the
+	   dangling link. */
+	static const char seven_more[] =
+		"Scanning the drive:\n"
+		"\nWARNING: errno=2 : No such file or directory\nsel/dang\n\n"
+		"\nWARNING: errno=13 : Permission denied\nsel/lock/\n\n"
+		"Creating archive: x.7z\n\n"
+		"WARNING: errno=13 : Permission denied\nsel/secret\n\n"
+		"Scan WARNINGS for files and folders:\n\n"
+		"sel/dang : errno=2 : No such file or directory\n"
+		"sel/lock/ : errno=13 : Permission denied\n"
+		"----------------\nScan WARNINGS: 2\n\n"
+		"WARNINGS for files:\n\n"
+		"sel/secret : errno=13 : Permission denied\n"
+		"----------------\nWARNING: Cannot open 1 file\n";
+	static const char rar_dangling[] =
+		"\nRAR 7.20   Copyright (c) 1993-2026 Alexander Roshal   1 Feb 2026\n"
+		"Cannot open sel/sub/dang2\nNo such file or directory\n"
+		"Cannot open sel/dang\nNo such file or directory\n"
+		"Creating archive x.rar\n\n"
+		"Adding    sel/f                                                           18%  OK \n"
+		"Adding    sel                                                              OK \nDone\n";
+	static const char rar_more[] =
+		"Cannot read contents of /tmp/x/sel/lock\nPermission denied\n"
+		"Cannot open sel/dang\nNo such file or directory\n"
+		"Creating archive x.rar\n\n"
+		"Cannot open sel/secret\nPermission denied\n"
+		"WARNING: Cannot open 1 file\nDone\n";
+	GList *both = NULL;
+	GList *one = NULL;
+
+	both = g_list_append (both, (gpointer) "sel/dang");
+	both = g_list_append (both, (gpointer) "sel/sub/dang2");
+	one = g_list_append (one, (gpointer) "sel/dang");
+
+	check (nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_7Z, 1, seven_dangling, both));
+	check (nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_RAR, 6, rar_dangling, both));
+
+	/* A warning about a link the scan did not find is not ours to excuse. */
+	check (!nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_7Z, 1, seven_dangling, one));
+	check (!nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_RAR, 6, rar_dangling, one));
+	check (!nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_7Z, 1, seven_dangling, NULL));
+
+	/* A real read error beside the link still fails. */
+	check (!nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_7Z, 1, seven_more, one));
+	check (!nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_RAR, 6, rar_more, one));
+
+	/* Only the warning status; an error status is never excused. */
+	check (!nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_7Z, 2, seven_dangling, both));
+	check (!nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_RAR, 1, rar_dangling, both));
+	check (!nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_RAR, 6, seven_dangling, both));
+
+	/* Warning status with nothing named at all. */
+	check (!nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_7Z, 1, "Everything is Ok\n", both));
+	check (!nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_RAR, 6, "Done\n", both));
+	/* A count with no name after it. */
+	check (!nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_7Z, 1,
+						 "sel/dang\nWARNING: Cannot open 1 file\n", both));
+
+	/* A name with the separator in it. */
+	{
+		GList *colon = g_list_append (NULL, (gpointer) "sel/a : b");
+
+		check (nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_7Z, 1,
+							"WARNING: errno=2 : No such file or directory\nsel/a : b\n\n"
+							"Scan WARNINGS for files and folders:\n\n"
+							"sel/a : b : errno=2 : No such file or directory\n"
+							"----------------\nScan WARNINGS: 1\n", colon));
+		g_list_free (colon);
+	}
+
+#ifdef G_OS_WIN32
+	/* The same, with the separators Windows prints. */
+	check (nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_7Z, 1,
+						"Scan WARNINGS for files and folders:\r\n\r\n"
+						"sel\\dang : The system cannot find the file specified.\r\n"
+						"----------------\r\nScan WARNINGS: 1\r\n", one));
+	check (nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_RAR, 6,
+						"Cannot open sel\\dang\r\nThe system cannot find the file specified.\r\nDone\r\n",
+						one));
+#endif
+
+	g_list_free (one);
+	g_list_free (both);
+}
+
 /* The share of the machine any compression is allowed. Nothing has read the
  * settings file here, so this is the shipped 50% - and the point of the check
  * is the arithmetic around it: never zero on a single-core box, never more
@@ -568,6 +673,7 @@ main (int argc, char *argv[])
 	check_volume_collapse (scratch);
 	check_backends ();
 	check_commands ();
+	check_skipped_links ();
 	check_cpu_share ();
 
 	g_free (scratch);
