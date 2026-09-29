@@ -74,7 +74,7 @@ typedef enum {
 } ThumbnailCommandType;
 
 /* multipurpose structure used for making thumbnails, associating a uri with where the thumbnail is to be stored */
-typedef struct {
+typedef struct NemoThumbnailInfo {
     char *image_uri;
     char *mime_type;
     time_t original_file_mtime;
@@ -88,6 +88,8 @@ typedef struct {
     guint save_checksum : 1;    /* write the checksum onto the file too */
     guint ahead : 1;            /* not on screen yet; only the store wants it */
     guint load_only : 1;        /* already made; read it back to hold near the view */
+    guint running : 1;          /* a worker has it, so nothing above changes now */
+    struct NemoThumbnailInfo *follow;   /* a bigger ask that came in meanwhile, started when this one ends */
 } NemoThumbnailInfo;
 
 /* How it works:
@@ -102,6 +104,10 @@ typedef struct {
  *   existing info's mtime and size are updated. It keeps its place, unless the add comes from a folder being
  *   queued again in view order, which gives it the new one. Otherwise, the incoming info is added to
  *   thumbnails_to_make_hash, and pushed to the threadpool queue.
+ *
+ *   An info a worker already has is left alone, or the picture drawn at the old size would be stored as the
+ *   new one. A bigger ask takes its place in the table and waits as its follow, pushed when it ends. A smaller
+ *   or equal one is answered by what is being made.
  *
  * - nemo_thumbnail_remove_from_queue (THUMBNAIL_REMOVE): The info is looked up by uri in thumbnails_to_make_hash.
  *   If the info is found, it gets removed from thumbnails_to_make_hash, and info->cancelled is set to TRUE, so when
@@ -570,8 +576,26 @@ already_stored (NemoCacheDb *db, NemoThumbnailInfo *info)
 static void
 remove_from_hash_table (NemoThumbnailInfo *info)
 {
+    NemoThumbnailInfo *follow;
+
     g_mutex_lock (&thumbnails_mutex);
-    g_hash_table_remove (thumbnails_to_make_hash, info->image_uri);
+
+    /* A newer ask for the same file may hold the entry by now. */
+    if (g_hash_table_lookup (thumbnails_to_make_hash, info->image_uri) == info) {
+        g_hash_table_remove (thumbnails_to_make_hash, info->image_uri);
+    }
+
+    follow = info->follow;
+    if (follow != NULL && g_cancellable_is_cancelled (cancellable)) {
+        /* Shutting down: the pool takes no more. */
+        if (g_hash_table_lookup (thumbnails_to_make_hash, follow->image_uri) == follow) {
+            g_hash_table_remove (thumbnails_to_make_hash, follow->image_uri);
+        }
+        free_thumbnail_info (follow);
+    } else if (follow != NULL) {
+        g_thread_pool_push ((GThreadPool *) tpool, follow, NULL);
+    }
+
     g_mutex_unlock (&thumbnails_mutex);
 
     free_thumbnail_info (info);
@@ -612,6 +636,10 @@ thumbnail_thread (gpointer data,
     time_t current_time;
     gchar *image_uri = info->image_uri;
     gboolean free_uri = FALSE;
+
+    g_mutex_lock (&thumbnails_mutex);
+    info->running = TRUE;
+    g_mutex_unlock (&thumbnails_mutex);
 
     if (g_cancellable_is_cancelled (cancellable) || info->cancelled) {
         DEBUG ("Skipping cancelled file: %s", info->image_uri);
@@ -806,6 +834,15 @@ feeder_thread (GTask        *task,
 
                     // Don't free this later.
                     feeder_info = NULL;
+                } else if (existing_info->running) {
+                    if (!feeder_info->load_only && feeder_info->size > existing_info->size) {
+                        DEBUG ("(Main Thread) Bigger than the one being made, following it: %s", feeder_info->image_uri);
+
+                        /* Replace, not insert: the old key is freed with the running job. */
+                        existing_info->follow = feeder_info;
+                        g_hash_table_replace (thumbnails_to_make_hash, feeder_info->image_uri, feeder_info);
+                        feeder_info = NULL;
+                    }
                 } else {
                     DEBUG ("(Main Thread) Updating existing file mtime and prioritizing: %s", feeder_info->image_uri);
 
@@ -902,6 +939,11 @@ finalize_thumbnailer (void)
 
     g_object_unref (feeder_task);
     g_async_queue_unref (feeder_queue);
+
+    /* A job ending past this point sees the cancel and drops its follow,
+       rather than pushing it into a pool being freed. */
+    g_mutex_lock (&thumbnails_mutex);
+    g_mutex_unlock (&thumbnails_mutex);
 
     // This will drain and free any remaining infos.
     g_thread_pool_free ((GThreadPool *) tpool, FALSE, TRUE);
