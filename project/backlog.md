@@ -1,11 +1,10 @@
 <!-- markdownlint-disable MD007 -- Unordered list indentation -->
 <!-- markdownlint-disable MD010 -- No hard tabs -->
 <!-- markdownlint-disable MD033 -- No inline html -->
-<!-- markdownlint-disable MD055 -- Table pipe style [Expected: leading_and_trailing; Actual: leading_only; Missing trailing pipe] -->
 <!-- markdownlint-disable MD041 -- First line in a file should be a top-level heading -->
-# Requirements
 
-This is a product backlog just for pre-v1.0.0 release. After that, bugs, features, and enhancements will be managed in Github Issues.
+<!-- TOC ignore:true -->
+# Project backlog
 
 <!-- TOC ignore:true -->
 ## Table of contents
@@ -13,14 +12,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 <!-- TOC -->
 
 - [Introduction](#introduction)
-- [New format](#new-format)
-- [Bugs](#bugs)
-- [Features and enhancements](#features-and-enhancements)
-- [Done](#done)
-	- [Done - Bugs](#done---bugs)
-	- [Done - Features and enhancements](#done---features-and-enhancements)
-- [Deferred](#deferred)
-- [Canceled](#canceled)
+- [Issues](#issues)
+- [Old format](#old-format)
+	- [Bugs](#bugs)
+	- [Features and enhancements](#features-and-enhancements)
+	- [Done](#done)
+		- [Done - Bugs](#done---bugs)
+		- [Done - Features and enhancements](#done---features-and-enhancements)
+	- [Deferred](#deferred)
+	- [Canceled](#canceled)
+- [Template](#template)
 
 <!-- /TOC -->
 
@@ -28,7 +29,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 Going forward, new issues in the new template at the bottom of this file, will go in the '## New format' section only. No more status emojis. Refer to '## Reference' for sort order. Issues in the old format (with status emojis) won't be refactored, but will continue to be worked until moved to closed, canceled, or deferred sections, and emojis updated. (Eventually this will all be moved to nano-git-db anyway. This new template is an intermediate effort to make issues going forward more structured and importable.)
 
-## New format
+This is a product backlog just for pre-v1.0.0 release. After that, bugs, features, and enhancements will be managed in Github Issues.
+
+## Issues
 
 - Code review 20260928.
 	- ID: 2026092813381400
@@ -423,6 +426,8 @@ Going forward, new issues in the new template at the bottom of this file, will g
 	- Parent ID: 2026092813381400
 	- Incorrect behavior: the plan says "UNVERIFIED", and with the yes flag the install goes on.
 	- Expected behavior: design.md and README, downloads are checked before anything is unpacked.
+	- Decisions:
+		- 20260928: refuse by default. An explicit override flag installs anyway. The yes flag alone does not.
 	- Reproduced: no, read only.
 	- Origin: a2b0e10, 20260723. Not seen by an earlier round. Plausible.
 	- Test case: none yet. A no-sums case in `test-install-download.bash`.
@@ -531,6 +536,8 @@ Going forward, new issues in the new template at the bottom of this file, will g
 		- Name the C standard in the build. None is named today, so gcc's default applies.
 		- Raise the warning level past `-Wall`. At the next level there are about 1700 warnings, almost all unused parameters and missing field initializers, 139 of them on lines changed in the last 10 days.
 		- One line in each allocating function's header comment on who frees the result.
+	- Decisions:
+		- 20260928: full `-Wextra` over the whole tree, with every warning fixed. The fork will never track upstream, so churn in inherited files is fine.
 	- Test case: none yet.
 
 - Code review 20260928 item 35. Add a sanitizer build of the test suite to the pipeline.
@@ -598,6 +605,8 @@ Going forward, new issues in the new template at the bottom of this file, will g
 	- Parent ID: 2026092813381400
 	- Requirements:
 		- Make link always writes all three paths since linkdlg, so dropping the relative path and the portable-only case are unused. Remove them, or keep them on purpose for a later "Defaults..." button and say so.
+	- Decisions:
+		- 20260928: remove them. Git history has them if a Defaults button is ever built.
 	- Test case: none yet.
 
 - Code review 20260928 item 41. Fuzz the shortcut editing code.
@@ -656,9 +665,11 @@ Going forward, new issues in the new template at the bottom of this file, will g
 		- Four self-tests run in the lint stage with no ID, and the ID check cannot see them. Give them IDs, or record that they are exempt.
 	- Test case: `test-id.py --check`.
 
-## Bugs
+## Old format
 
-## Features and enhancements
+### Bugs
+
+### Features and enhancements
 
 - 🔘 Take SHCL 3.0.0-beta.1 from its published release, once there is one, and run the config tests against it.
 	- Opened: 20260925-122815
@@ -799,9 +810,9 @@ Going forward, new issues in the new template at the bottom of this file, will g
 	- Note: removing it touches about twenty files, mostly the icon view, so it wants its own pass and a look on screen after.
 	- Test case: none yet, not started.
 
-## Done
+### Done
 
-### Done - Bugs
+#### Done - Bugs
 
 - ✅ On Windows, 7z with a password and no link options left files out of the archive.
 	- Opened: 20260926-190245
@@ -2627,7 +2638,7 @@ Going forward, new issues in the new template at the bottom of this file, will g
 	- Verified: every mapped name present in both the Linux and Windows icon themes.
 	- Test case: none, no check yet that each icon name exists in the icon themes.
 
-### Done - Features and enhancements
+#### Done - Features and enhancements
 
 - ✅ "Make link" dialog:
 	- Opened: 20260926-094941
@@ -4799,7 +4810,7 @@ Going forward, new issues in the new template at the bottom of this file, will g
 	- Done: workflows and issue templates removed in the fork-setup commit.
 	- Test case: none, repo housekeeping.
 
-## Deferred
+### Deferred
 
 - ✋ Let the list view's row icons be any size, not just the seven preset sizes.
 	- Opened: 20260920-230000. Deferred: 20260921.
@@ -4845,7 +4856,7 @@ Going forward, new issues in the new template at the bottom of this file, will g
 	- Need to think through the UX.
 	- Test case: none, deferred.
 
-## Canceled
+### Canceled
 
 - 🚫 Menu: "Snapshot ..."
 	- Only works if folders selected
@@ -4928,11 +4939,9 @@ Going forward, new issues in the new template at the bottom of this file, will g
 	- Note: This may contradict the latest canonical column-sizing definition in 'design.md' under the section "List view column widths", as of 20260916-113519.
 	- Test case: none, superseded by the column-width rules.
 
-## Reference
+## Template
 
-<!-- New issue template
-
-Legacy statuses:
+### Old format
 
 - 🔘 Not started
 
@@ -4946,63 +4955,61 @@ Legacy statuses:
 
 - 🚫 Canceled
 
-New issue format:
+### New format
 
-- Only use rows that you actually need or expect will be filled in. Always fill in the title, ID, Type, Status, Opened and Created by.
+- Notes:
 
-- The ID is the local time to the hundredth of a second. Opened is when it was written down, which may differ. (Use a keyboard macro and possibly something like project 'zuid' to generate.)
+	- Only use rows that you actually need or expect will be filled in. Always fill in the title, ID, Type, Status, Opened and Created by.
 
-- Status values meaning: Testing means the fix is in and checks are running or still to run. Waiting on signoff means automated testing passed. Moot means something else changed that made it irrelevant. Canceled means it still applies but was decided against.
+	- The ID is the local time to the hundredth of a second. Opened is when it was written down, which may differ. (Use a keyboard macro and possibly something like project 'zuid' to generate.)
 
-- As issues are worked, and statuses change, place them in correct sorting order within the list:
-	- First by status: Waiting on signoff, Testing, Stalled, Started, Queued, Done, Deferred, Canceled, Moot
-	- Then by type: Bugs, [not bugs together]
-	- Then by severity|priority: Critical, High, Avg, Low
+	- Status values meaning: Testing means the fix is in and checks are running or still to run. Waiting on signoff means automated testing passed. Moot means something else changed that made it irrelevant. Canceled means it still applies but was decided against. Waiting for testing means the fix is in and waits on a long CI run or an outside test host. Can't reproduce means a real attempt to reproduce it failed.
 
-- Rows marked [Bug] are for bugs only, and rows marked [Feature] for features and enhancements. Children are not nested. They sit at the top level and point back with Parent ID.
+	- As issues are worked, and statuses change, place them in correct sorting order within the list:
+		- First by status: Waiting for answers, Waiting on signoff, Testing, Waiting for testing, Can't reproduce, Stalled, Started, Queued, Done, Deferred, Canceled, Moot
+		- Then by severity|priority: Critical, High, Avg, Low
+		- Then by type: Bugs, [not bugs together]
+
+	- Rows marked [Bug] are for bugs only, and rows marked [Feature] for features and enhancements. Children are not nested. They sit at the top level and point back with Parent ID.
 
 Template:
 
 - Title
 	- ID: YYYYmmDDHHMMSSNN
 	- Type: [Bug|Feature|Enhancement|Task]
-	- Status: [Queued|Started|Stalled|Testing|Waiting on signoff|Moot|Canceled|Deferred|Done]
+	- Status: [Queued|Waiting for answers|Waiting on signoff|Waiting for testing|Started|Testing|Stalled|Can't reproduce|Moot|Canceled|Deferred|Done]
+	- Needs local test suite run?:
+	- Needs external testing:
 	- Priority|Severity [Bug]: [Critical|High|Avg|Low]
-	- Opened: YYYYmmDD-HHMMSS
+	- Opened:
 	- Opened by:
 	- Assigned to:
-	- Parent ID: YYYYmmDDHHMMSSNN
+	- Parent ID:
 	- Prereq IDs:
-		- YYYYmmDDHHMMSSNN
 	- Related IDs:
-		- YYYYmmDDHHMMSSNN
 	- Target OS:
 	- Test environment:
 	- Version and build:
 	- Requirements  [Feature]:
 		- Hierarchical bulleted list.
 	- Steps to reproduce [Bug]:
-		- ...
+		- …
 	- Incorrect behavior [Bug]:
 	- Expected behavior [Bug]:
 	- Reproduced [Bug]: [No, or when, where and how]
 	- Possible cause [Bug]:
 	- Actual cause [Bug]:
-		- ...
+		- …
 	- Estimated effort: [High|Avg|Low]
 	- Actual effort: [High|Avg|Low]
 	- Progress log:
-		- YYYYmmDD-HHMMSS: Notable effort.
+		- …
 	- Decisions:
-		- ...
+		- …
 	- Actual fix [Bug]:
 	- Branch:
 	- Commit:
 	- Test case: [Reason not applicable, or CI test case #]
 	- Acceptance signoff:
-	- Superseded by ID: YYYYmmDDHHMMSSNN
-	- Closed: YYYYmmDD-HHMMSS
-
--->
-
-Old and new formats.
+	- Superseded by ID:
+	- Closed:
