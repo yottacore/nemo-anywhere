@@ -92,22 +92,24 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 				- E.g. "because [[[A folders][ and ][B files] selected, aren't in the archive][, [and]][[X folders][ and ][Y files] are in the archive that weren't selected]]|[total selected size is N but archive shows M]."
 					- The part about size mismatch should be left out as irrelevant if the file counts don't match.
 		- "Volume size" options: include what each is good for in parentheses. E.g. "4 GiB (max FAT32 size)".
+			- FAT32 caps a file at 4 GiB less one byte, so a 4 GiB volume doesn't fit. Add a 4095 MiB entry for it.
 		- Once OK is hit, if pre-scanning is required, the progress dialog should have a second progress bar above the regular one, showing pre-scan progress.
-		- Add up the total file size of what's selected, in real time on a background thread, while the dialog is open. Include the follow-symlink and follow-mountpoint sizes if they are selected. Show it as text near the bottom of the dialog, maybe in the same row as "Cancel" and "OK".
+		- Add up the total file size of what's selected, in real time on a background thread, while the dialog is open. Include the follow-symlink, follow-junction and follow-mountpoint sizes if they are selected. Show it as text near the bottom of the dialog, maybe in the same row as "Cancel" and "OK".
 	- Open questions:
-		- The mockup shows boxes, but each section reads as a radio group, one choice per section. Right?
-		- Once Junctions is changed by hand, does a later Symlinks change still reset it? Suggest not.
-		- With Symlinks on Ignore or Follow, can Junctions still pick a store choice the archiver supports? Suggest yes, so the table sets only defaults.
-		- FAT32 caps a file at 4 GiB less one byte, so a 4 GiB volume doesn't fit. The FAT32 label belongs on a new 4095 MiB entry.
-		- On Windows a folder mount point and a junction are the same kind of reparse point. Suggest one that points at a whole volume counts as a mountpoint only.
-		- 7z on Windows leaves links out today. Suggest it counts as not supporting "Store as Symlinks" there, so the choice is disabled.
-		- A forced off, from the format or the selection, should not overwrite the remembered choice. Switching back puts it back, and a disabled store choice falls back to "Ignore".
+		- Mixed choices in rar and 7z, see Notes. Waiting on the design update.
+	- Decisions:
+		- Symlinks and Junctions are each a radio group.
+		- A hand change to Junctions sticks. A later Symlinks change doesn't reset it.
+		- Junctions can use any store choice the archiver supports, whatever Symlinks is on. The table sets only defaults.
+		- On Windows a folder mount point and a junction are the same kind of reparse point. One that points at a whole volume counts as a mountpoint only.
+		- 7z on Windows leaves links out today, so it counts as not supporting "Store as Symlinks" there, and that choice is disabled.
+		- A forced off, from the format or the selection, doesn't overwrite the remembered choice. Switching back puts it back, and a disabled store choice falls back to "Ignore".
+		- Each Follow total counts only its own kind of link. The symlink total follows symlinks but not junctions. The junction total follows junctions but not symlinks.
 	- Notes:
 		- Today's two boxes make four cases. Store plus follow means nothing, and neither ticked quietly follows linked files but leaves linked folders out. Separate choices per kind of link remove both.
 		- The 7z path already scans and passes a leave-out list, so most of the pre-scan exists.
 		- With following on, the delete check compares against what was meant to go in, followed content included.
-		- Mixed choices, such as following symlinks while storing junctions, are not one switch in rar or 7z. They need our own list of what goes in.
-		- The two Follow totals can reach the same folder. Each folder counts once.
+		- Mixed choices, such as following symlinks while storing junctions, are not one switch in rar or 7z. They need our own list of what goes in. An update to the design is coming for this.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mountpoint box. IDs when written.
 
 - Code review 20260928 item 1. Zooming while thumbnails render can store a small thumbnail as full size, and it is never made again.
