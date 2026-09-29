@@ -968,6 +968,19 @@ if not is_windows
     args: [ nemo ],
     timeout: 120
   )
+
+  xtst = dependency('xtst', required: false)
+  if xtst.found()
+    test('rj04ta3n Tree menu key test',
+      executable('test-nemo-tree-menu-key',
+        [ 'test-nemo-tree-menu-key.c' ],
+        include_directories: [ rootInclude, ],
+        dependencies: [ glib, x11, xtst, test_scratch ],
+      ),
+      args: [ nemo ],
+      timeout: 120
+    )
+  endif
 endif
 
 test('rezjn4m8 Filename extension test',

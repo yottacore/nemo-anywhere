@@ -56,6 +56,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rj043mnp, Thumbnail zoom during render test. Linux only. Fails before the fix, passes after.
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
 
+- Code review 20260928 item 2. The tree sidebar crashes on Shift+F10 or the Menu key.
+	- ID: 2026092813381402
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes, the full Linux suite.
+	- Priority|Severity: High
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Steps to reproduce [Bug]:
+		- Show the tree sidebar, click a folder in it, press Shift+F10.
+	- Reproduced: yes, 20260928, Linux.
+	- Actual cause: the keyboard path passes no mouse event, and the menu code reads the pointer position from it.
+	- Origin: upstream, never touched here. Not seen by an earlier round. Confirmed.
+	- Actual fix: with no mouse event the menu is for the row the keyboard is on. With no row at all, no menu opens, from the keyboard or a right click.
+	- Note: a right click on empty space in the tree used to open the menu with nothing behind it, so its items acted on no file. It now opens nothing. A row with no file behind it, such as one still loading, is treated the same.
+	- Note: the keyboard menu opens at the top left of the tree, not beside the row. That comes from the shared placement code the other views use, and is left as is.
+	- Swept: the places sidebar reads the selected row and never the event. The list and icon views pass the event on to the shared view code, which checks for none before reading the position. The tab bar checks for none before reading the button and time. The path bar, location bar and toolbar back and forward menus only open from a click, so always have an event. The rename field's menu checks for none. No other code reads a position or button from a menu event.
+	- Branch: treemenu
+	- Commit: d879cfb
+	- Test case: rj04ta3n, Tree menu key test. Linux only. Fails before the fix, passes after.
+	- Verified: the new test fails before the fix, with the crash, and passes five runs in a row after it on Linux. A right click on a tree row still opens the menu, and one on empty space opens nothing. Lint is clean.
+
 - Code review 20260928.
 	- ID: 2026092813381400
 	- Type: Task
@@ -77,21 +100,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: Escape not restoring the selection, Ctrl+Shift+T, and Control kept for F1, tab keys, Ctrl+H and Ctrl+M on macOS. All settled earlier.
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
-
-- Code review 20260928 item 2. The tree sidebar crashes on Shift+F10 or the Menu key.
-	- ID: 2026092813381402
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Steps to reproduce [Bug]:
-		- Show the tree sidebar, click a folder in it, press Shift+F10.
-	- Reproduced: yes, 20260928, Linux.
-	- Actual cause: the keyboard path passes no mouse event, and the menu code reads the pointer position from it.
-	- Origin: upstream, never touched here. Not seen by an earlier round. Confirmed.
-	- Test case: none yet.
 
 - Code review 20260928 item 3. Edit link on a symlink whose name ends in .lnk turns the symlink into a plain file.
 	- ID: 2026092813381403
