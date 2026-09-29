@@ -470,6 +470,10 @@ Archives are written by libarchive, with the `7z` and `rar` commands as optional
 
 - Following symlinked and junctioned folders is off by default, and is ours rather than the archiver's, because the tree is walked through GIO before anything reaches a writer. A link loop would otherwise pull in the whole disk, so the walk remembers directories by file id and terminates even with following switched on.
 
+- A link that leads nowhere has nothing to put in. It is left out, and a warning names it, whichever writer ran. The 7z and rar commands end such a run on a warning status. That is taken as success only when every warning they printed is about one of those links, so any other warning still fails the archive.
+
+- A name with `*` or `?` in it is a name, not a pattern. 7-Zip is told so. rar has no way to be told, so a rar archive is refused when one of the names it would be handed has either, rather than written with the wrong files in it, and unpacking passes such an archive on to 7-Zip.
+
 - Deleting what went in is off by default, and never happens on the writer's word. The archive is read back first, and every file that should be in there has to be there under the same relative path at the same size, with nothing passed over on the way in - a dangling link, or a linked folder the options said not to follow, is a miss like any other. The check reads the archive with the library rather than asking the program that wrote it, because checking work with the code that did it proves very little. What passes goes to the trash through the ordinary delete, which asks in its own right, so ticking the box is never the last word. A split archive is not offered the option at all: one volume will not open on its own, so there is nothing to check.
 
 - The dialog starts from what it was last used with, so a second archive does not mean setting the same five things again. Two are left out on purpose. The password is never written anywhere, and deleting the originals is a decision about one archive rather than a preference, so both start clear every time. What is remembered is per user, not per folder.

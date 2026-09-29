@@ -194,6 +194,8 @@ check_commands (void)
 	check (g_strcmp0 (argv[1], "x") == 0);
 	check (has_arg (argv, "-y"));
 	check (has_arg (argv, "-o/tmp/out"));
+	/* An archive named "a?.7z" is that one archive, not a pattern. */
+	check (has_arg (argv, "-spd"));
 	/* Answered rather than asked, or an encrypted archive stops for a
 	   password on a console that is not there. */
 	check (has_arg (argv, "-p"));

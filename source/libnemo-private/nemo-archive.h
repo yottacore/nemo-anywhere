@@ -146,6 +146,15 @@ char   **nemo_archive_build_command (NemoArchiveBackend        backend,
 				     GList                    *names,
 				     GList                    *leave_out);
 
+/* Whether a 7z or rar run that ended on a warning status warned about nothing
+   but the links in skipped, which lead nowhere and so had nothing to put in.
+   output is what the tool printed, with its backspaces already applied;
+   skipped holds paths relative to the base folder. */
+gboolean nemo_archive_only_skipped_links (NemoArchiveBackend  backend,
+					  int                 exit_status,
+					  const char         *output,
+					  GList              *skipped);
+
 /* "700 MB", "4480m", "1.5 GB" -> bytes. Returns FALSE on anything unreadable. */
 /* What the tool actually writes when splitting is on. `digits` is how wide the
    number is: 7z always uses 3, rar picks its own. */

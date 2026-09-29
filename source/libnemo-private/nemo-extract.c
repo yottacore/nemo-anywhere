@@ -1482,6 +1482,17 @@ extract_with_command (ExtractJob         *job,
 		return EXTRACT_FAILED;
 	}
 
+	/* rar reads * and ? anywhere in the path as a wildcard and would unpack
+	   the archives beside this one too. 7z, the other command, reads rar and
+	   is told to take names as they are. */
+	if (backend == NEMO_EXTRACT_BACKEND_RAR && strpbrk (archive_path, "*?") != NULL) {
+		*out_details = g_strdup_printf (_("The path to \"%s\" has * or ? in it, which rar reads as a wildcard."),
+						job->current_name);
+		g_free (archive_path);
+		g_free (base_path);
+		return EXTRACT_UNSUPPORTED;
+	}
+
 	/* A command has no per-entry hook to hang the collision questions off,
 	   so it unpacks somewhere of its own and what it produced is placed
 	   afterwards - which is also what keeps a failed run from scattering. */
@@ -1626,25 +1637,40 @@ extract_one (ExtractJob *job,
 		NemoExtractBackend order[2];
 		guint count = command_backends_for (job->current_name, order);
 		char *details = NULL;
+		char *passed = NULL;	/* why a command was not even tried */
 		guint i;
 
 		result = EXTRACT_FAILED;
 
 		for (i = 0; i < count && !job_cancelled (job); i++) {
-			g_clear_pointer (&details, g_free);
-			result = extract_with_command (job, archive, order[i], &details);
+			char *said = NULL;
+
+			result = extract_with_command (job, archive, order[i], &said);
 
 			if (result == EXTRACT_OK) {
+				g_free (said);
 				break;
+			}
+			if (result == EXTRACT_UNSUPPORTED && passed == NULL) {
+				passed = said;
+			} else {
+				g_free (details);
+				details = said;
 			}
 		}
 
 		if (result != EXTRACT_OK && !job_cancelled (job)) {
+			char *text = passed != NULL && details != NULL
+				? g_strconcat (passed, "\n\n", details, NULL)
+				: g_strdup (passed != NULL ? passed : details);
+
 			job_fail (job, _("The archive could not be unpacked."),
-				  details != NULL ? details :
+				  text != NULL ? text :
 				  _("Nothing installed here can read this archive."));
+			g_free (text);
 		}
 
+		g_free (passed);
 		g_free (details);
 	}
 

@@ -5,7 +5,10 @@
  * one comes from a dialog, and there is nobody to click it.
  *
  * Also a 7z split three ways, where the later volumes are what is selected: it
- * unpacks once, from the first volume. Needs a 7z command to write it. */
+ * unpacks once, from the first volume. Needs a 7z command to write it.
+ *
+ * Also archives whose names hold * or ?, unpacked through the commands, which
+ * must not read those names as patterns. */
 
 #include "test.h"
 
@@ -102,11 +105,11 @@ write_test_zip (const char *path)
 	archive_write_free (a);
 }
 
-static void
-run_job_on (GList             *archives,
-	    const char        *destination,
-	    NemoExtractLayout  layout,
-	    GtkWidget         *window)
+static gboolean
+start_and_wait (GList             *archives,
+		const char        *destination,
+		NemoExtractLayout  layout,
+		GtkWidget         *window)
 {
 	GFile *dest;
 	guint timeout_id;
@@ -125,9 +128,18 @@ run_job_on (GList             *archives,
 	g_source_remove (timeout_id);
 
 	check (job_finished);
-	check (job_succeeded);
-
 	g_object_unref (dest);
+
+	return job_succeeded;
+}
+
+static void
+run_job_on (GList             *archives,
+	    const char        *destination,
+	    NemoExtractLayout  layout,
+	    GtkWidget         *window)
+{
+	check (start_and_wait (archives, destination, layout, window));
 }
 
 static void
@@ -372,6 +384,226 @@ check_split_volumes (const char *tmp,
 	g_free (seven);
 }
 
+#ifndef G_OS_WIN32
+/* Names with * or ? cannot be made on Windows. */
+static char *
+find_rar (void)
+{
+	static const char * const names[] = { "rar", NULL };
+	char *found = NULL;
+	int i;
+
+	for (i = 0; names[i] != NULL && found == NULL; i++) {
+		found = g_find_program_in_path (names[i]);
+	}
+
+	return found;
+}
+
+static gboolean
+run_in (const char *dir, char **argv)
+{
+	char *out = NULL, *err = NULL;
+	int status = -1;
+	gboolean ok;
+
+	ok = g_spawn_sync (dir, argv, NULL, G_SPAWN_DEFAULT, NULL, NULL,
+			   &out, &err, &status, NULL) &&
+	     g_spawn_check_wait_status (status, NULL);
+	if (!ok) {
+		g_printerr ("%s said: %s%s\n", argv[0], out != NULL ? out : "", err != NULL ? err : "");
+	}
+	g_free (out);
+	g_free (err);
+
+	return ok;
+}
+
+static void
+make_folder_with (const char *dir, const char *name)
+{
+	char *folder = g_build_filename (dir, name, NULL);
+	char *file_name = g_strconcat (name, ".txt", NULL);
+	char *path = g_build_filename (folder, file_name, NULL);
+
+	g_mkdir_with_parents (folder, 0700);
+	check (g_file_set_contents (path, name, -1, NULL));
+	g_free (path);
+	g_free (file_name);
+	g_free (folder);
+}
+
+static void
+rename_in (const char *dir, const char *from, const char *to)
+{
+	char *from_path = g_build_filename (dir, from, NULL);
+	char *to_path = g_build_filename (dir, to, NULL);
+
+	check (g_rename (from_path, to_path) == 0);
+	g_free (to_path);
+	g_free (from_path);
+}
+
+/* Fills in the password when it is asked for. Anything else but a message,
+   which take_messages reads, is refused. */
+static gboolean
+answer_password (gpointer data)
+{
+	guint *other = data;
+	GList *windows, *l;
+
+	windows = gtk_window_list_toplevels ();
+	for (l = windows; l != NULL; l = l->next) {
+		GtkWidget *content;
+		GList *boxes, *children, *c;
+		gboolean filled = FALSE;
+
+		if (!GTK_IS_DIALOG (l->data) || GTK_IS_MESSAGE_DIALOG (l->data) ||
+		    !gtk_widget_get_mapped (l->data)) {
+			continue;
+		}
+		if (g_strcmp0 (gtk_window_get_title (GTK_WINDOW (l->data)), "Password required") != 0) {
+			(*other)++;
+			gtk_dialog_response (GTK_DIALOG (l->data), GTK_RESPONSE_DELETE_EVENT);
+			continue;
+		}
+
+		content = gtk_dialog_get_content_area (GTK_DIALOG (l->data));
+		boxes = gtk_container_get_children (GTK_CONTAINER (content));
+		children = boxes != NULL && GTK_IS_CONTAINER (boxes->data)
+			? gtk_container_get_children (GTK_CONTAINER (boxes->data)) : NULL;
+		for (c = children; c != NULL; c = c->next) {
+			if (GTK_IS_ENTRY (c->data)) {
+				gtk_entry_set_text (GTK_ENTRY (c->data), "secret");
+				filled = TRUE;
+			}
+		}
+		g_list_free (children);
+		g_list_free (boxes);
+		check (filled);
+		gtk_dialog_response (GTK_DIALOG (l->data), GTK_RESPONSE_OK);
+	}
+	g_list_free (windows);
+
+	return G_SOURCE_CONTINUE;
+}
+
+/* What the message dialogs a job left up said, closed as they are read. */
+static char *
+take_messages (void)
+{
+	GString *said = g_string_new (NULL);
+	GList *windows, *l;
+
+	while (g_main_context_iteration (NULL, FALSE)) {
+	}
+
+	windows = gtk_window_list_toplevels ();
+	for (l = windows; l != NULL; l = l->next) {
+		char *text = NULL;
+
+		if (!GTK_IS_MESSAGE_DIALOG (l->data)) {
+			continue;
+		}
+		g_object_get (l->data, "secondary-text", &text, NULL);
+		g_string_append_printf (said, "%s\n", text != NULL ? text : "");
+		g_free (text);
+		gtk_widget_destroy (GTK_WIDGET (l->data));
+	}
+	g_list_free (windows);
+
+	return g_string_free (said, FALSE);
+}
+
+/* An archive named with * or ? is one archive. Unpacked through a command, the
+   name must not be read as a pattern that takes in its neighbors too. */
+static void
+check_pattern_names (const char *tmp,
+		     GtkWidget  *window)
+{
+	char *seven = find_seven_zip ();
+	char *rar = find_rar ();
+	char *work, *dest, *path, *wanted, *stray;
+	guint other = 0, answer_id;
+
+	if (seven == NULL) {
+		g_printerr ("note: no 7z command here, names with wildcards not checked\n");
+		g_free (rar);
+		return;
+	}
+
+	work = g_build_filename (tmp, "patterns", NULL);
+	dest = g_build_filename (tmp, "unpatterned", NULL);
+	g_mkdir_with_parents (work, 0700);
+	g_mkdir_with_parents (dest, 0700);
+	make_folder_with (work, "one");
+	make_folder_with (work, "two");
+
+	/* Encrypted names are something libarchive cannot read, so these go to
+	   the commands, which then ask for the password. */
+	answer_id = g_timeout_add (100, answer_password, &other);
+	{
+		char *first[] = { seven, (char *) "a", (char *) "-psecret", (char *) "-mhe=on",
+				  (char *) "sq.7z", (char *) "one", NULL };
+		char *second[] = { seven, (char *) "a", (char *) "sx.7z", (char *) "two", NULL };
+
+		check (run_in (work, first));
+		check (run_in (work, second));
+		rename_in (work, "sq.7z", "s?.7z");
+	}
+
+	path = g_build_filename (work, "s?.7z", NULL);
+	run_job (path, dest, NEMO_EXTRACT_TO_SUBFOLDER, window);
+	wanted = g_build_filename (dest, "s?", "one", "one.txt", NULL);
+	stray = g_build_filename (dest, "s?", "two", NULL);
+	check (g_file_test (wanted, G_FILE_TEST_IS_REGULAR));
+	check (!g_file_test (stray, G_FILE_TEST_EXISTS));
+	g_free (stray);
+	g_free (wanted);
+	g_free (path);
+
+	/* rar has no way to take a name as it is, so it is passed over. 7z reads
+	   rar too, where it was built with the rar codec, and does the job; where
+	   not, nothing does, and that is the answer. */
+	if (rar == NULL) {
+		g_printerr ("note: no rar command here, rar names with wildcards not checked\n");
+	} else {
+		char *first[] = { rar, (char *) "a", (char *) "-hpsecret", (char *) "rq.rar", (char *) "one", NULL };
+		char *second[] = { rar, (char *) "a", (char *) "rx.rar", (char *) "two", NULL };
+		GList *archives;
+		gboolean unpacked;
+		char *said;
+
+		check (run_in (work, first));
+		check (run_in (work, second));
+		rename_in (work, "rq.rar", "r?.rar");
+
+		path = g_build_filename (work, "r?.rar", NULL);
+		archives = g_list_prepend (NULL, g_file_new_for_path (path));
+		unpacked = start_and_wait (archives, dest, NEMO_EXTRACT_TO_SUBFOLDER, window);
+		g_list_free_full (archives, g_object_unref);
+
+		wanted = g_build_filename (dest, "r?", "one", "one.txt", NULL);
+		stray = g_build_filename (dest, "r?", "two", NULL);
+		said = take_messages ();
+		check (g_file_test (wanted, G_FILE_TEST_IS_REGULAR) == unpacked);
+		check (!g_file_test (stray, G_FILE_TEST_EXISTS));
+		check (unpacked || strstr (said, "wildcard") != NULL);
+		g_free (said);
+		g_free (stray);
+		g_free (wanted);
+		g_free (path);
+	}
+	g_source_remove (answer_id);
+	check (other == 0);
+
+	g_free (dest);
+	g_free (work);
+	g_free (rar);
+	g_free (seven);
+}
+#endif
+
 int
 main (int argc, char *argv[])
 {
@@ -397,6 +629,9 @@ main (int argc, char *argv[])
 	check_here_layout (tmp, archive_path, window);
 	check_subfolder_layout (tmp, archive_path, window);
 	check_split_volumes (tmp, window);
+#ifndef G_OS_WIN32
+	check_pattern_names (tmp, window);
+#endif
 
 	g_free (archive_path);
 	g_free (tmp);

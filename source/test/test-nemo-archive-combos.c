@@ -8,6 +8,9 @@
  * keeps the contents or the names out, that a split made volumes, and that
  * the originals went only where the archive checked out, with a warning
  * where they were kept.
+ *
+ * After the crossed rows, per format: a link that leads nowhere, and names
+ * with * or ? that 7z or rar could read as patterns.
  */
 
 #include "test.h"
@@ -812,6 +815,226 @@ run_row (const char *tmp, const char *outside, int number,
 	g_free (name);
 }
 
+/* One compress of sources into dest, for the rows below the crossed ones.
+   Answers whether the job said it succeeded. */
+static gboolean
+run_single (GList *sources, const char *dest_path, const NemoArchiveOptions *options,
+	    GtkWidget *window, NemoProgressInfoManager *manager,
+	    int *warnings, int *errors, int *asked, GString *said)
+{
+	GFile *dest = g_file_new_for_path (dest_path);
+	guint timeout_id;
+
+	job_finished = FALSE;
+	job_succeeded = FALSE;
+	nemo_archive_create (sources, dest, options, GTK_WINDOW (window), archive_done, NULL);
+	g_object_unref (dest);
+
+	timeout_id = g_timeout_add_seconds (JOB_TIMEOUT_SECONDS, give_up, NULL);
+	gtk_main ();
+	if (job_finished) {
+		g_source_remove (timeout_id);
+	} else {
+		g_printerr ("FAIL: compressing did not finish within %d seconds\n",
+			    JOB_TIMEOUT_SECONDS);
+		failures++;
+	}
+	*asked = wait_for_jobs (manager);
+	take_dialogs (warnings, errors, said);
+
+	return job_succeeded;
+}
+
+/* Some writers claim 7z for themselves only with an option libarchive lacks. */
+static void
+options_for (NemoArchiveFormat format, NemoArchiveOptions *options)
+{
+	nemo_archive_options_init (options);
+	options->format = format;
+	options->recovery_record = FALSE;
+	options->store_links = FALSE;
+	options->follow_link_dirs = FALSE;
+	options->solid = format == NEMO_ARCHIVE_FORMAT_7Z;
+}
+
+/* A link that leads nowhere has nothing to put in. It is passed over with a
+   warning that names it, and the rest of the archive stands. 7z and rar end
+   such a run with a warning status, which is not a failed archive. */
+static void
+check_dangling (const char *tmp, NemoArchiveFormat format, gboolean store, gboolean delete_sources,
+		gboolean split, GtkWidget *window, NemoProgressInfoManager *manager)
+{
+	char *label = g_strdup_printf ("dangling-%s-%d%d%d", nemo_archive_format_id (format),
+				       store, delete_sources, split);
+	char *root = g_build_filename (tmp, label, NULL);
+	char *held = g_build_filename (root, "held", NULL);
+	char *gone = g_build_filename (held, "gone", NULL);
+	char *base = g_strconcat ("held", nemo_archive_format_extension (format), NULL);
+	char *dest = g_build_filename (root, base, NULL);
+	NemoArchiveOptions options;
+	NemoArchiveBackend backend;
+	GHashTable *found;
+	GString *said = g_string_new (NULL);
+	GList *sources;
+	gboolean stored, ok;
+	int warnings, errors, asked;
+	int before = failures;
+
+	g_mkdir_with_parents (held, 0700);
+	write_bytes (held, "a.txt", "alpha", 5);
+	check (nemo_link_create ("nowhere", gone, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
+	sources = g_list_append (NULL, g_file_new_for_path (held));
+
+	options_for (format, &options);
+	options.store_links = store;
+	options.delete_sources = delete_sources;
+	/* One volume, renamed back to the name asked for, so it reads back. */
+	options.split_size = split ? SPLIT_BYTES : 0;
+	backend = nemo_archive_pick_backend (format, &options);
+	stored = store && (nemo_archive_backend_caps (format, backend) & NEMO_ARCHIVE_CAP_STORE_LINKS) != 0;
+
+	ok = run_single (sources, dest, &options, window, manager, &warnings, &errors, &asked, said);
+	check (ok);
+	check (errors == 0);
+
+	found = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+	read_back (dest, found);
+	check (g_hash_table_contains (found, "held/a.txt"));
+	check (g_hash_table_contains (found, "held/gone") == stored);
+	g_hash_table_destroy (found);
+
+	if (stored) {
+		/* Kept as a link, so nothing was left out. */
+		check (warnings == 0);
+		check (asked == (delete_sources ? 1 : 0));
+	} else {
+		/* One warning either way, and the originals stay. */
+		check (warnings == 1);
+		check (strstr (said->str, "gone") != NULL);
+		check (asked == 0);
+		check (exists (held, "a.txt"));
+	}
+
+	if (failures > before) {
+		g_printerr ("  in %s (backend %d)\n%s", label, backend, said->str);
+	}
+
+	g_string_free (said, TRUE);
+	nemo_archive_options_clear (&options);
+	g_list_free_full (sources, g_object_unref);
+	g_free (dest);
+	g_free (base);
+	g_free (gone);
+	g_free (held);
+	g_free (root);
+	g_free (label);
+}
+
+#ifndef G_OS_WIN32
+/* Names with * or ? in them are names, not patterns. A linked folder "a*" that
+   is left out must not take "abc" or "apple.txt" with it, and a folder "a?c"
+   picked on its own must not bring "abc" along. rar has no way to say that,
+   so it refuses rather than writing the wrong archive. */
+static void
+check_patterns (const char *tmp, const char *outside, NemoArchiveFormat format,
+		GtkWidget *window, NemoProgressInfoManager *manager)
+{
+	char *label = g_strdup_printf ("patterns-%s", nemo_archive_format_id (format));
+	char *root = g_build_filename (tmp, label, NULL);
+	char *wild = g_build_filename (root, "wild", NULL);
+	char *abc = g_build_filename (wild, "abc", NULL);
+	char *qmark = g_build_filename (wild, "a?c", NULL);
+	char *star = g_build_filename (wild, "a*", NULL);
+	char *linked = g_build_filename (outside, "linked", NULL);
+	char *base, *dest;
+	gboolean refuses;
+	NemoArchiveOptions options;
+	NemoArchiveBackend backend;
+	GHashTable *found;
+	GString *said = g_string_new (NULL);
+	GList *sources;
+	gboolean ok;
+	int warnings, errors, asked;
+	int before = failures;
+
+	g_mkdir_with_parents (abc, 0700);
+	g_mkdir_with_parents (qmark, 0700);
+	write_bytes (abc, "x.txt", "xray", 4);
+	write_bytes (qmark, "q.txt", "quebec", 6);
+	write_bytes (wild, "apple.txt", "apple", 5);
+	check (nemo_link_create (linked, star, NULL, NEMO_LINK_DIR_SYMLINK, NULL));
+
+	options_for (format, &options);
+	backend = nemo_archive_pick_backend (format, &options);
+	refuses = backend == NEMO_ARCHIVE_BACKEND_RAR;
+
+	/* The linked folder, left out by name. */
+	base = g_strconcat ("wild", nemo_archive_format_extension (format), NULL);
+	dest = g_build_filename (root, base, NULL);
+	sources = g_list_append (NULL, g_file_new_for_path (wild));
+	ok = run_single (sources, dest, &options, window, manager, &warnings, &errors, &asked, said);
+	if (refuses) {
+		check (!ok);
+		check (errors == 1);
+		check (strstr (said->str, "a*") != NULL);
+		check (!g_file_test (dest, G_FILE_TEST_EXISTS));
+	} else {
+		check (ok);
+		check (errors == 0);
+		found = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+		read_back (dest, found);
+		check (g_hash_table_contains (found, "wild/abc/x.txt"));
+		check (g_hash_table_contains (found, "wild/apple.txt"));
+		check (g_hash_table_contains (found, "wild/a?c/q.txt"));
+		check (!g_hash_table_contains (found, "wild/a*/c.txt"));
+		g_hash_table_destroy (found);
+	}
+	g_list_free_full (sources, g_object_unref);
+	g_free (dest);
+	g_free (base);
+	if (failures > before) {
+		g_printerr ("  in %s, left out (backend %d)\n%s", label, backend, said->str);
+		before = failures;
+	}
+	g_string_truncate (said, 0);
+
+	/* A selected folder whose name reads as a pattern for its sibling. */
+	base = g_strconcat ("qmark", nemo_archive_format_extension (format), NULL);
+	dest = g_build_filename (root, base, NULL);
+	sources = g_list_append (NULL, g_file_new_for_path (qmark));
+	ok = run_single (sources, dest, &options, window, manager, &warnings, &errors, &asked, said);
+	if (refuses) {
+		check (!ok);
+		check (errors == 1);
+		check (strstr (said->str, "a?c") != NULL);
+	} else {
+		check (ok);
+		found = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+		read_back (dest, found);
+		check (g_hash_table_contains (found, "a?c/q.txt"));
+		check (!g_hash_table_contains (found, "abc/x.txt"));
+		g_hash_table_destroy (found);
+	}
+	g_list_free_full (sources, g_object_unref);
+
+	if (failures > before) {
+		g_printerr ("  in %s (backend %d)\n%s", label, backend, said->str);
+	}
+
+	g_string_free (said, TRUE);
+	nemo_archive_options_clear (&options);
+	g_free (dest);
+	g_free (base);
+	g_free (linked);
+	g_free (star);
+	g_free (qmark);
+	g_free (abc);
+	g_free (wild);
+	g_free (root);
+	g_free (label);
+}
+#endif
+
 /* On Windows the delete goes to the real Recycle Bin, not the scratch trash, and
    every run used to leave some hundreds of items there. Take back out whatever
    came from under this run's home. */
@@ -928,6 +1151,25 @@ main (int argc, char *argv[])
 		}
 		g_print ("%s: %u combinations\n", nemo_archive_format_id (format), rows->len);
 		g_array_free (rows, TRUE);
+
+		if (with_links) {
+			int store, del;
+
+			for (store = 0; store < 2; store++) {
+				for (del = 0; del < 2; del++) {
+					check_dangling (tmp, format, store, del, FALSE, window, manager);
+					number++;
+				}
+			}
+			if (nemo_archive_format_caps (format) & NEMO_ARCHIVE_CAP_SPLIT) {
+				check_dangling (tmp, format, FALSE, FALSE, TRUE, window, manager);
+				number++;
+			}
+#ifndef G_OS_WIN32
+			check_patterns (tmp, outside, format, window, manager);
+			number += 2;
+#endif
+		}
 	}
 
 	purge_recycled (home);

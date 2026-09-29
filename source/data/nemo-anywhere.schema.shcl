@@ -25,7 +25,7 @@ field: appearance.mode
 
 field: archive.create-with-7z
 	type: string
-	default: "{{PROGRAM}} a {{FORMAT}} {{LEVEL}} {{THREADS}} -y -bsp1 {{PASSWORD}} {{SPLIT}} {{SOLID}} {{LINKS}} -- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}"
+	default: "{{PROGRAM}} a {{FORMAT}} {{LEVEL}} {{THREADS}} -y -bsp1 -spd {{PASSWORD}} {{SPLIT}} {{SOLID}} {{LINKS}} -- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}"
 	desc: Command line 7-Zip is run with to create an archive. Each {{NAME}} stands for something the Compress dialog fills in; drop one and that option stops working. Empty the line for the built-in one.
 
 field: archive.create-with-rar
@@ -35,7 +35,7 @@ field: archive.create-with-rar
 
 field: archive.extract-with-7z
 	type: string
-	default: "{{PROGRAM}} x -y -bsp1 {{PASSWORD}} -o{{TARGET_FOLDER}} -- {{SOURCE_ARCHIVE}}"
+	default: "{{PROGRAM}} x -y -bsp1 -spd {{PASSWORD}} -o{{TARGET_FOLDER}} -- {{SOURCE_ARCHIVE}}"
 	desc: Command line 7-Zip is run with to unpack an archive. Empty the line for the built-in one.
 
 field: archive.extract-with-rar
