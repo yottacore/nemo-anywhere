@@ -149,6 +149,31 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rhqxx81r, Link edit test, a new target under another spelling. It runs only where two spellings name one entry, and says so otherwise. Fails before the fix and passes after, on the normalizing dataset.
 	- Verified: the link edit test passes on Linux, both on that dataset and in the suite's own temp folder, where this check is skipped.
 
+- Code review 20260928 item 4. A dangling symlink fails a 7z or rar archive, and the finished archive is deleted.
+	- ID: 2026092813381404
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes, the full Linux suite.
+	- Needs external testing: Windows. The archive combinations test, whose new rows there send every 7z through the warning path, since 7z keeps no links on Windows. Also a link with a name that is not plain ASCII, since 7z on Windows may print names in the console code page, which would fail the job as before.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Steps to reproduce [Bug]:
+		- Untick "store links", then compress a folder holding a link to a missing file as 7z or rar.
+	- Incorrect behavior: "could not be created", and the whole archive is gone. On Windows it happens to every 7z, whatever the checkbox says.
+	- Expected behavior: the link is passed over with a warning, as the zip writer does.
+	- Reproduced: yes for the tools' exit codes, 20260928, Linux. The job side was read only. The job side too on 20260928, with the new test rows.
+	- Actual cause: 7z exits 1 and rar exits 6 when they skip a link they cannot follow, and any non-zero exit fails the job.
+	- Origin: 6c2418f, 20260820. Widened on Windows by 09506ec, 20260926 (bugs), which took link storing away from 7z there. Regression of that fix on Windows. Confirmed.
+	- Note: the zip writer did not warn either. For a link to nothing, GIO answers with the link itself rather than failing, so the scan's "dangling" branch never ran and every writer left the link out without a word.
+	- Actual fix: the scan lists each link that leads nowhere, for 7z and rar too whenever links are not stored. When 7z ends on 1 or rar on 6, the job reads what the tool printed. It counts as done only if every warning names one of those links and the archive is there. Any other warning still fails the job. Every writer then shows one warning naming the links left out. With delete-originals on, the names go in the "originals were kept" warning instead of a second one.
+	- Swept: the library writer shares the scan, and now warns too. The delete check's own walk already refused on a dangling link. A split archive is checked for its first volume. Unpacking has no link scan.
+	- Branch: arclinks
+	- Commit: 334b239
+	- Test case: rhr6ggmt, Archive option combinations, new dangling-link rows for every format, with links stored and not, delete on and off, and one split. Fails before the fix and passes after, on Linux. Also rev86z08, Archive options test, which feeds the output reader what 7-Zip 25.01 and RAR 7.20 print, including a real read error beside the link. That reader is new, so it has no before run.
+	- Verified: the 8 archive, extract, template and schema tests pass on Linux, the combinations and job tests three runs in a row. Lint and the Windows cross build are clean. The output reader's Windows-only rows pass under wine.
+
 - Code review 20260928 item 17. Hardlinking a selected symlink links the symlink, not the file.
 	- ID: 2026092813381417
 	- Type: Bug
@@ -192,6 +217,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rfwwdyvg, Link copy test, on Windows only. Fails before the fix and passes after, under wine.
 	- Verified: the link copy test's share checks pass under wine. Its one failure there is the old one, since wine makes no symlinks.
 
+- Code review 20260928 item 16. 7z reads `*` and `?` in a left-out linked folder's name as wildcards.
+	- ID: 2026092813381416
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes, the full Linux suite.
+	- Needs external testing: Windows. The 7z lines now carry `-spd`, so the archive combinations and extract job tests there show 7-Zip still takes them.
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Target OS: Linux, BSD, macOS.
+	- Incorrect behavior: a linked folder named `a*`, with store and follow both off, also drops a real folder `abc`. With delete-originals off, the job reports success on an archive that is missing it.
+	- Reproduced: yes for 7z, 20260928, Linux.
+	- Origin: b8e1401, 20260925 (linktests). New ground. Confirmed.
+	- Note: rar has the same class. It drops real files that match, such as `apple.txt` for `a*`, and stores an empty folder for the link. Both tools also read a selected item's name as a pattern, and when extracting the archive's own path, so `s?.7z` brought out `sx.7z` along with it.
+	- Actual cause: 7z and rar read `*` and `?` as wildcards in every name on their command line.
+	- Actual fix: both built-in 7z lines pass `-spd`, which makes 7-Zip take names as they are. rar has no such switch. Compress to rar refuses a selected item or left-out folder with either character, and says which. Extracting skips rar for such a path and goes on to 7z, which reads rar where it was built with that codec.
+	- Swept: 7z left-out folders, selected items, and the archive path when extracting. rar left-out folders, selected items, and the archive path when extracting, folders in it included. rar takes the new archive's own name as it is, checked. A command line edited in the settings keeps what it has, without `-spd`.
+	- Branch: arclinks
+	- Commit: 334b239
+	- Test case: rhr6ggmt, Archive option combinations, new rows with a linked folder `a*` beside `abc`, `a?c` and `apple.txt`, and with `a?c` selected on its own. reww9h2s, Extract job test, extracts `s?.7z` and `r?.rar` beside `sx.7z` and `rx.rar`. rev86z08 and reww9h2r check for `-spd`. All fail before the fix and pass after, on Linux.
+	- Verified: same runs as item 4. Debian's 7-Zip has no rar codec, so on Linux the `r?.rar` case ends in an error naming the wildcard, which the test accepts.
+
 - Code review 20260928.
 	- ID: 2026092813381400
 	- Type: Task
@@ -213,31 +261,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: Escape not restoring the selection, Ctrl+Shift+T, and Control kept for F1, tab keys, Ctrl+H and Ctrl+M on macOS. All settled earlier.
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
-
-- Code review 20260928 item 4. A dangling symlink fails a 7z or rar archive, and the finished archive is deleted.
-	- ID: 2026092813381404
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes, the full Linux suite.
-	- Needs external testing: Windows. The archive combinations test, whose new rows there send every 7z through the warning path, since 7z keeps no links on Windows. Also a link with a name that is not plain ASCII, since 7z on Windows may print names in the console code page, which would fail the job as before.
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Steps to reproduce [Bug]:
-		- Untick "store links", then compress a folder holding a link to a missing file as 7z or rar.
-	- Incorrect behavior: "could not be created", and the whole archive is gone. On Windows it happens to every 7z, whatever the checkbox says.
-	- Expected behavior: the link is passed over with a warning, as the zip writer does.
-	- Reproduced: yes for the tools' exit codes, 20260928, Linux. The job side was read only. The job side too on 20260928, with the new test rows.
-	- Actual cause: 7z exits 1 and rar exits 6 when they skip a link they cannot follow, and any non-zero exit fails the job.
-	- Origin: 6c2418f, 20260820. Widened on Windows by 09506ec, 20260926 (bugs), which took link storing away from 7z there. Regression of that fix on Windows. Confirmed.
-	- Note: the zip writer did not warn either. For a link to nothing, GIO answers with the link itself rather than failing, so the scan's "dangling" branch never ran and every writer left the link out without a word.
-	- Actual fix: the scan lists each link that leads nowhere, for 7z and rar too whenever links are not stored. When 7z ends on 1 or rar on 6, the job reads what the tool printed. It counts as done only if every warning names one of those links and the archive is there. Any other warning still fails the job. Every writer then shows one warning naming the links left out. With delete-originals on, the names go in the "originals were kept" warning instead of a second one.
-	- Swept: the library writer shares the scan, and now warns too. The delete check's own walk already refused on a dangling link. A split archive is checked for its first volume. Unpacking has no link scan.
-	- Branch: arclinks
-	- Commit: 334b239
-	- Test case: rhr6ggmt, Archive option combinations, new dangling-link rows for every format, with links stored and not, delete on and off, and one split. Fails before the fix and passes after, on Linux. Also rev86z08, Archive options test, which feeds the output reader what 7-Zip 25.01 and RAR 7.20 print, including a real read error beside the link. That reader is new, so it has no before run.
-	- Verified: the 8 archive, extract, template and schema tests pass on Linux, the combinations and job tests three runs in a row. Lint and the Windows cross build are clean. The output reader's Windows-only rows pass under wine.
 
 - Code review 20260928 item 5. The installer and prefix checks cannot fail a pipeline run.
 	- ID: 2026092813381405
@@ -367,29 +390,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: a speed fix has a check with a number to fail on.
 	- Origin: code review 20260919. Confirmed.
 	- Test case: none yet.
-
-- Code review 20260928 item 16. 7z reads `*` and `?` in a left-out linked folder's name as wildcards.
-	- ID: 2026092813381416
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes, the full Linux suite.
-	- Needs external testing: Windows. The 7z lines now carry `-spd`, so the archive combinations and extract job tests there show 7-Zip still takes them.
-	- Priority|Severity: Low
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Target OS: Linux, BSD, macOS.
-	- Incorrect behavior: a linked folder named `a*`, with store and follow both off, also drops a real folder `abc`. With delete-originals off, the job reports success on an archive that is missing it.
-	- Reproduced: yes for 7z, 20260928, Linux.
-	- Origin: b8e1401, 20260925 (linktests). New ground. Confirmed.
-	- Note: rar has the same class. It drops real files that match, such as `apple.txt` for `a*`, and stores an empty folder for the link. Both tools also read a selected item's name as a pattern, and when extracting the archive's own path, so `s?.7z` brought out `sx.7z` along with it.
-	- Actual cause: 7z and rar read `*` and `?` as wildcards in every name on their command line.
-	- Actual fix: both built-in 7z lines pass `-spd`, which makes 7-Zip take names as they are. rar has no such switch. Compress to rar refuses a selected item or left-out folder with either character, and says which. Extracting skips rar for such a path and goes on to 7z, which reads rar where it was built with that codec.
-	- Swept: 7z left-out folders, selected items, and the archive path when extracting. rar left-out folders, selected items, and the archive path when extracting, folders in it included. rar takes the new archive's own name as it is, checked. A command line edited in the settings keeps what it has, without `-spd`.
-	- Branch: arclinks
-	- Commit: 334b239
-	- Test case: rhr6ggmt, Archive option combinations, new rows with a linked folder `a*` beside `abc`, `a?c` and `apple.txt`, and with `a?c` selected on its own. reww9h2s, Extract job test, extracts `s?.7z` and `r?.rar` beside `sx.7z` and `rx.rar`. rev86z08 and reww9h2r check for `-spd`. All fail before the fix and pass after, on Linux.
-	- Verified: same runs as item 4. Debian's 7-Zip has no rar codec, so on Linux the `r?.rar` case ends in an error naming the wildcard, which the test accepts.
 
 - Code review 20260928 item 19. An Olympus raw file with a looping directory takes seconds to read.
 	- ID: 2026092813381419
