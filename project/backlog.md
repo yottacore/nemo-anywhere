@@ -44,27 +44,52 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- For options that aren't supported by the archiver (e.g. add recovery record), don't just disable it, but deselect AND disable.
 		- Link handling: the options and workarounds got complex and confusing. This is a reset:
-			- Radio buttons (disabled with nothing selected if no folders and/or links are selected directly):
-				- "Ignore symlinks[ and junctions]". Default on.
-					- If the archiver doesn't clearly support it natively, use our own logic to pre-scan and exclude all in the selected trees (after hitting OK).
-				- "Store links as links". Disabled if storing symlinks [and junctions] isn't clearly supported by the archiver.
-					- Sub-option checkboxes, visible on Windows only:
-						- "Store symlinks as symlinks"
-							- On by default if "Store links as links" is selected and clearly supported by the archiver; otherwise off and disabled.
-							- Otherwise, on and disabled, if the next two aren't clearly natively supported by the archiver.
-						- Pseudo-radio buttons but presented as normal checkboxes in this same list (0 or 1 selected options are possible but not both):
-							- "Store junctions as junctions"
-								- Off and disabled if the archiver doesn't clearly natively support it. If supported, then on by default. On and disabled, if this is supported but "Store junctions as symlinks" isn't.
-							- "Store junctions as symlinks"
-								- Off and disabled if the selected archiver doesn't clearly natively support it. If both "Store junctions as junctions" and this are supported, they can both be off, or only one on. On and disabled, if this is supported but "Store junctions as junctions" isn't.
-				- "Follow symlinks[ and junctions] (size: )".
+			- Radio buttons (disabled with nothing selected if no folders and/or links are selected directly). Only one can be selected:
+				- "Ignore links". Default on.
+					- If the archiver doesn't clearly support ignoring links natively (including junctions on Windows), use our own logic to pre-scan and exclude all in the selected trees (after hitting OK).
+				- "Follow links (size: )".
 					- Advise that this usually isn't a good idea unless you are sure.
 					- Add up total file size from a background thread, in real time.
+				- "Store links as links", if clearly possible with the selected archiver. If not, disable this option.
+					- Windows only: see the sub-options below.
+			- Sub-options for "Store links as links" (Windows only). The visual presentation is intentionally different from the logical options, for UX simplicity.
+				- Visual presentation of options (all checkboxes):
+					- "Store symlinks as symlinks"
+					- "Store junctions as junctions"
+					- "Store junctions as symlinks"
+				- Actual possible states:
+					- "symlinks as symlinks" off AND ("junctions as junctions" off AND "junctions as symlinks" off)
+					- "symlinks as symlinks" on AND ("junctions as junctions" off AND "junctions as symlinks" off)
+					- "symlinks as symlinks" on AND ("junctions as junctions" on OR "junctions as symlinks" on)
+					- "symlinks as symlinks" off AND ("junctions as junctions" on OR "junctions as symlinks" on)
+				- Possible options further constrained by what the archiver clearly supports natively:
+					- Meaning of table headers below:
+						- s2s supp: Are "Symlinks as Symlinks" supported?
+						- j2j supp: Are "Junctions as Junctions" supported?
+						- j2s supp: Are "Junctions as Symlinks" supported?
+						- s2s en: Then "Symlinks as Symlinks" UI option enabled?
+						- j2j en: Then "Junctions as Junctions" UI option enabled?
+						- j2s en: Then "Junctions as Symlinks" UI option enabled?
+						- s2s st: Then "Symlinks as Symlinks" UI option selected by default?
+						- j2j st: Then "Junctions as Junctions" UI option selected by default?
+						- j2s st: Then "Junctions as Symlinks" UI option selected by default?
+					- Possible UI option states based on what's supported:
+
+						| s2s supp | j2j supp | j2s supp | s2s en | j2j en | j2s en | s2s st | j2j st | j2s st
+						|   :--:   |   :--:   |   :--:   |  :--:  |  :--:  |  :--:  |  :--:  |  :--:  |  :--:
+						|    n     |    n     |    n     |   n    |   n    |   n    |  off   |  off   |  off
+						|    Y     |    n     |    n     |   Y    |   n    |   n    |   ON   |  off   |  off
+						|    Y     |    Y     |    n     |   Y    |   Y    |   n    |   ON   |   ON   |  off
+						|    Y     |    Y     |    Y     |   Y    |   Y    |   Y    |   ON   |   ON   |  off
+						|    n     |    Y     |    n     |   n    |   Y    |   n    |  off   |   ON   |  off
+						|    n     |    Y     |    Y     |   n    |   Y    |   Y    |  off   |   ON   |  off
+						|    n     |    n     |    Y     |   n    |   n    |   Y    |  off   |  off   |   ON
+
 			- Additional option: "Follow mountpoints (size: )". Off by default.
 				- If off but the archiver doesn't clearly natively support it, use our own logic to pre-scan and exclude all in the selected trees (after hitting OK).
 				- If on, add up total file size from a background thread, in real time. Stop counting and clear the total if deselected.
 			- Those options should be all off and disabled if no folders and/or links are selected directly.
-			- FYI `.lnk` files are always stored, never followed. Flyover text for "Follow symlinks[ and junctions]" should say that.
+			- FYI `.lnk` files are always stored, never followed. Flyover text for "Follow links" should say that.
 		- "Delete the originals once the archive checks out"
 			- Rename to "Delete originals after verification".
 			- After archive completion, if they don't match, be more specific about why the originals couldn't be deleted.
@@ -74,8 +99,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Once OK is hit, if pre-scanning is required, the progress dialog should have a second progress bar above the regular one, showing pre-scan progress.
 		- Add up the total file size of what's selected, in real time on a background thread, while the dialog is open. Include the follow-symlink and follow-mountpoint sizes if they are selected. Show it as text near the bottom of the dialog, maybe in the same row as "Cancel" and "OK".
 	- Open questions:
-		- Unticking "Store symlinks as symlinks" has no clear meaning. Are those links then left out, or followed? Suggest dropping the box, so symlinks are always stored as links under "Store links as links".
-		- RAR stores a junction as a junction. The zip and tar writers can only turn one into a symlink, which is our conversion, not native. So a format never offers both junction boxes, and the pseudo-radio never shows two. Suggest one "Junctions" dropdown instead, listing only what the format can do, plus "Leave out".
+		- The table has no row for symlinks and junctions-as-symlinks supported, junctions-as-junctions not. Presumably Y n Y, enabled Y n Y, default ON off ON.
+		- Any link a "Store links as links" state doesn't store is left out, as under "Ignore links"? That makes all three boxes off the same as "Ignore links".
 		- FAT32 caps a file at 4 GiB less one byte, so a 4 GiB volume doesn't fit. The FAT32 label belongs on a new 4095 MiB entry.
 		- On Windows a folder mount point and a junction are the same kind of reparse point. Suggest one that points at a whole volume counts as a mountpoint only.
 		- 7z on Windows leaves links out today. Suggest it counts as not supporting "Store links as links" there, so the choice is disabled.
