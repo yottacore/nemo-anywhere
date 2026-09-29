@@ -33,6 +33,59 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Compression dialog reset: link handling as one choice, mountpoints, running size total, clearer delete check.
+	- ID: 2026092910143202
+	- Type: Enhancement
+	- Status: Waiting for answers
+	- Opened: 20260929-101432
+	- Opened by: t00mietum
+	- Related IDs: 2026092813381404, 2026092813381416
+	- Target OS: Linux, Windows
+	- Requirements:
+		- For options that aren't supported by the archiver (e.g. add recovery record), don't just disable it, but deselect AND disable.
+		- Link handling: the options and workarounds got complex and confusing. This is a reset:
+			- Radio buttons (disabled with nothing selected if no folders and/or links are selected directly):
+				- "Ignore symlinks[ and junctions]". Default on.
+					- If the archiver doesn't clearly support it natively, use our own logic to pre-scan and exclude all in the selected trees (after hitting OK).
+				- "Store links as links". Disabled if storing symlinks [and junctions] isn't clearly supported by the archiver.
+					- Sub-option checkboxes, visible on Windows only:
+						- "Store symlinks as symlinks"
+							- On by default if "Store links as links" is selected and clearly supported by the archiver; otherwise off and disabled.
+							- Otherwise, on and disabled, if the next two aren't clearly natively supported by the archiver.
+						- Pseudo-radio buttons but presented as normal checkboxes in this same list (0 or 1 selected options are possible but not both):
+							- "Store junctions as junctions"
+								- Off and disabled if the archiver doesn't clearly natively support it. If supported, then on by default. On and disabled, if this is supported but "Store junctions as symlinks" isn't.
+							- "Store junctions as symlinks"
+								- Off and disabled if the selected archiver doesn't clearly natively support it. If both "Store junctions as junctions" and this are supported, they can both be off, or only one on. On and disabled, if this is supported but "Store junctions as junctions" isn't.
+				- "Follow symlinks[ and junctions] (size: )".
+					- Advise that this usually isn't a good idea unless you are sure.
+					- Add up total file size from a background thread, in real time.
+			- Additional option: "Follow mountpoints (size: )". Off by default.
+				- If off but the archiver doesn't clearly natively support it, use our own logic to pre-scan and exclude all in the selected trees (after hitting OK).
+				- If on, add up total file size from a background thread, in real time. Stop counting and clear the total if deselected.
+			- Those options should be all off and disabled if no folders and/or links are selected directly.
+			- FYI `.lnk` files are always stored, never followed. Flyover text for "Follow symlinks[ and junctions]" should say that.
+		- "Delete the originals once the archive checks out"
+			- Rename to "Delete originals after verification".
+			- After archive completion, if they don't match, be more specific about why the originals couldn't be deleted.
+				- E.g. "because [[[A folders][ and ][B files] selected, aren't in the archive][, [and]][[X folders][ and ][Y files] are in the archive that weren't selected]]|[total selected size is N but archive shows M]."
+					- The part about size mismatch should be left out as irrelevant if the file counts don't match.
+		- "Volume size" options: include what each is good for in parentheses. E.g. "4 GiB (max FAT32 size)".
+		- Once OK is hit, if pre-scanning is required, the progress dialog should have a second progress bar above the regular one, showing pre-scan progress.
+		- Add up the total file size of what's selected, in real time on a background thread, while the dialog is open. Include the follow-symlink and follow-mountpoint sizes if they are selected. Show it as text near the bottom of the dialog, maybe in the same row as "Cancel" and "OK".
+	- Open questions:
+		- Unticking "Store symlinks as symlinks" has no clear meaning. Are those links then left out, or followed? Suggest dropping the box, so symlinks are always stored as links under "Store links as links".
+		- RAR stores a junction as a junction. The zip and tar writers can only turn one into a symlink, which is our conversion, not native. So a format never offers both junction boxes, and the pseudo-radio never shows two. Suggest one "Junctions" dropdown instead, listing only what the format can do, plus "Leave out".
+		- FAT32 caps a file at 4 GiB less one byte, so a 4 GiB volume doesn't fit. The FAT32 label belongs on a new 4095 MiB entry.
+		- On Windows a folder mount point and a junction are the same kind of reparse point. Suggest one that points at a whole volume counts as a mountpoint only.
+		- 7z on Windows leaves links out today. Suggest it counts as not supporting "Store links as links" there, so the choice is disabled.
+		- A forced off, from the format or the selection, should not overwrite the remembered choice. Switching back puts it back, and a disabled "Store links as links" falls back to "Ignore".
+	- Notes:
+		- Today's two boxes make four cases. Store plus follow means nothing, and neither ticked quietly follows linked files but leaves linked folders out. The radio group removes both.
+		- The 7z path already scans and passes a leave-out list, so most of the pre-scan exists.
+		- With following on, the delete check compares against what was meant to go in, followed content included.
+	- Test case: extend test-nemo-archive-combos to each link choice and the mountpoint box. IDs when written.
+
 - Code review 20260928 item 1. Zooming while thumbnails render can store a small thumbnail as full size, and it is never made again.
 	- ID: 2026092813381401
 	- Type: Bug
