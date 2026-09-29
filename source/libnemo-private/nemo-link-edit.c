@@ -59,6 +59,20 @@ same_file (const char *a, const char *b)
 #endif
 }
 
+#ifndef G_OS_WIN32
+/* Whether a and b are one directory entry, under two spellings where the
+   file system ignores case or normalization. A symlink with a second hard
+   link could pass the inode test alone. */
+static gboolean
+one_entry (const char *a, const char *b)
+{
+	GStatBuf sa, sb;
+
+	return g_lstat (a, &sa) == 0 && g_lstat (b, &sb) == 0 &&
+	       sa.st_dev == sb.st_dev && sa.st_ino == sb.st_ino && sa.st_nlink == 1;
+}
+#endif
+
 static gboolean
 is_taken (const char *path)
 {
@@ -144,6 +158,9 @@ nemo_link_edit_symlink (const char  *link_path,
 	NemoLinkKind kind;
 	char *dir = NULL, *new_path = NULL, *old_target = NULL, *spare = NULL;
 	gboolean ok = FALSE;
+#ifndef G_OS_WIN32
+	gboolean same_entry;
+#endif
 
 	if (new_target == NULL || new_target[0] == '\0') {
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
@@ -187,6 +204,14 @@ nemo_link_edit_symlink (const char  *link_path,
 	}
 #endif
 
+#ifndef G_OS_WIN32
+	/* Asked before the rename. After it, where the new name is the old link
+	   under another spelling, removing the old name would take the new link
+	   with it, and a cached lookup of the old spelling can still show the
+	   old link. */
+	same_entry = strcmp (new_path, link_path) == 0 || one_entry (new_path, link_path);
+#endif
+
 	spare = spare_path (dir, new_name);
 	if (!nemo_link_create (new_target, spare, dir, kind, error)) {
 		goto out;
@@ -219,7 +244,7 @@ nemo_link_edit_symlink (const char  *link_path,
 			     _("Could not put the new link in place: %s"), g_strerror (saved));
 		goto out;
 	}
-	if (strcmp (new_path, link_path) != 0 && !remove_link (link_path, error)) {
+	if (!same_entry && !remove_link (link_path, error)) {
 		goto out;
 	}
 #endif
@@ -246,6 +271,23 @@ has_lnk (const char *name)
 }
 
 gboolean
+nemo_link_edit_is_shortcut (GFile *link)
+{
+	const char *path = g_file_peek_path (link);
+	char *name;
+	gboolean yes;
+
+	if (path == NULL || nemo_link_kind (link, NULL) != NEMO_LINK_NONE) {
+		return FALSE;
+	}
+	name = g_path_get_basename (path);
+	yes = has_lnk (name);
+	g_free (name);
+
+	return yes;
+}
+
+gboolean
 nemo_link_edit_shortcut (const char  *lnk_path,
                          const char  *new_name,
                          gboolean     set_paths,
@@ -254,8 +296,20 @@ nemo_link_edit_shortcut (const char  *lnk_path,
                          const char  *portable,
                          GError     **error)
 {
+	GFile *file;
 	char *full_name, *new_path;
 	gboolean ok;
+
+	/* Written through a symlink, the save would replace the symlink with a
+	   copy of what it points at. */
+	file = g_file_new_for_path (lnk_path);
+	ok = nemo_link_kind (file, NULL) == NEMO_LINK_NONE;
+	g_object_unref (file);
+	if (!ok) {
+		g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
+			     _("\"%s\" is a symlink or junction, not a shortcut."), lnk_path);
+		return FALSE;
+	}
 
 	full_name = new_name != NULL && new_name[0] != '\0' && !has_lnk (new_name)
 		? g_strconcat (new_name, ".lnk", NULL) : g_strdup (new_name);
@@ -336,7 +390,7 @@ nemo_link_edit_ask (GtkWindow *parent,
 		return;
 	}
 	name = g_path_get_basename (path);
-	is_lnk = has_lnk (name);
+	is_lnk = nemo_link_edit_is_shortcut (link);
 
 	if (is_lnk) {
 		if (!nemo_lnk_read (path, &lnk)) {

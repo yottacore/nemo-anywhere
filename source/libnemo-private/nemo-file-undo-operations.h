@@ -31,6 +31,8 @@
 #include <gio/gio.h>
 #include <gtk/gtk.h>
 
+#include "nemo-link-copy.h"
+
 typedef enum {
 	NEMO_FILE_UNDO_OP_COPY,
 	NEMO_FILE_UNDO_OP_DUPLICATE,
@@ -127,6 +129,10 @@ NemoFileUndoInfo *nemo_file_undo_info_ext_new (NemoFileUndoOp op_type,
 void nemo_file_undo_info_ext_add_origin_target_pair (NemoFileUndoInfoExt *self,
 							 GFile                   *origin,
 							 GFile                   *target);
+/* What a redo of Make link makes, the way the first run was asked. */
+void nemo_file_undo_info_ext_set_link (NemoFileUndoInfoExt   *self,
+				       gboolean               symlink,
+				       const NemoLinkOptions *options);
 
 /* create new file/folder */
 #define NEMO_TYPE_FILE_UNDO_INFO_CREATE         (nemo_file_undo_info_create_get_type ())

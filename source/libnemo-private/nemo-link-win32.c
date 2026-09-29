@@ -440,6 +440,37 @@ nemo_win32_link_create (const char         *target,
 	return ok;
 }
 
+/* Where a link at w_path finally leads, as a \\?\ path, or NULL with
+   *win_error set. */
+static WCHAR *
+final_path (const gunichar2 *w_path, DWORD *win_error)
+{
+	HANDLE handle;
+	WCHAR *found = NULL;
+	DWORD len;
+
+	handle = CreateFileW ((LPCWSTR) w_path, 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+			      NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	if (handle == INVALID_HANDLE_VALUE) {
+		*win_error = GetLastError ();
+		return NULL;
+	}
+
+	len = GetFinalPathNameByHandleW (handle, NULL, 0, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+	if (len > 0) {
+		found = g_new0 (WCHAR, len + 1);
+		if (GetFinalPathNameByHandleW (handle, found, len + 1, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS) > len) {
+			g_clear_pointer (&found, g_free);
+		}
+	}
+	if (found == NULL) {
+		*win_error = GetLastError ();
+	}
+	CloseHandle (handle);
+
+	return found;
+}
+
 gboolean
 nemo_win32_link_create_hard (const char  *existing_path,
                              const char  *link_path,
@@ -447,14 +478,29 @@ nemo_win32_link_create_hard (const char  *existing_path,
 {
 	gunichar2 *w_existing = to_utf16 (existing_path);
 	gunichar2 *w_link = to_utf16 (link_path);
-	DWORD win_error = 0;
+	WCHAR *w_final = NULL;
+	DWORD attributes, win_error = 0;
 	gboolean ok;
 
+	/* CreateHardLinkW names the symlink itself, not what it leads to. */
+	attributes = GetFileAttributesW ((LPCWSTR) w_existing);
+	if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_REPARSE_POINT)) {
+		w_final = final_path (w_existing, &win_error);
+		if (w_final == NULL) {
+			g_free (w_existing);
+			g_free (w_link);
+			set_link_error (error, win_error);
+			return FALSE;
+		}
+	}
+
 	SetLastError (0);
-	ok = CreateHardLinkW ((LPCWSTR) w_link, (LPCWSTR) w_existing, NULL) != 0;
+	ok = CreateHardLinkW ((LPCWSTR) w_link, w_final != NULL ? w_final : (LPCWSTR) w_existing, NULL) != 0;
 	if (!ok) {
 		win_error = GetLastError ();
 	}
+
+	g_free (w_final);
 
 	g_free (w_existing);
 	g_free (w_link);

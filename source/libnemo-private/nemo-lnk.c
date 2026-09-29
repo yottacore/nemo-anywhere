@@ -1831,6 +1831,31 @@ strings_start (const guint8 *bytes, gsize length, gsize *pos)
 	return *pos <= length;
 }
 
+/* g_file_set_contents writes a new file. GLib 2.72 gives it the umask's
+   permissions rather than the ones the shortcut had; 2.84 keeps them. */
+static gboolean
+rewrite_lnk (const char *lnk_path, const char *data, gsize length, GError **error)
+{
+#ifndef G_OS_WIN32
+	GStatBuf info;
+
+	if (g_stat (lnk_path, &info) == 0) {
+		int mode = info.st_mode & 0777;
+
+		if (!g_file_set_contents_full (lnk_path, data, length,
+					       G_FILE_SET_CONTENTS_CONSISTENT, mode, error)) {
+			return FALSE;
+		}
+		/* Past the umask, which the call above is still under. */
+		if (g_chmod (lnk_path, mode) != 0) {
+			g_warning ("could not put the permissions back on %s: %s", lnk_path, g_strerror (errno));
+		}
+		return TRUE;
+	}
+#endif
+	return g_file_set_contents (lnk_path, data, length, error);
+}
+
 gboolean
 nemo_lnk_drop_relative (const char  *lnk_path,
 			GError     **error)
@@ -1894,7 +1919,7 @@ nemo_lnk_drop_relative (const char  *lnk_path,
 	bytes[22] = (flags >> 16) & 0xff;
 	bytes[23] = flags >> 24;
 
-	ok = g_file_set_contents (lnk_path, contents, length, error);
+	ok = rewrite_lnk (lnk_path, contents, length, error);
 	g_free (contents);
 
 	return ok;
@@ -2089,7 +2114,7 @@ nemo_lnk_set_paths (const char  *lnk_path,
 	}
 	put_u32 (out, 0);
 
-	ok = g_file_set_contents (lnk_path, (const char *) out->data, out->len, error);
+	ok = rewrite_lnk (lnk_path, (const char *) out->data, out->len, error);
 
  out:
 	nemo_lnk_clear (&old);

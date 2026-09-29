@@ -337,6 +337,11 @@ struct _NemoFileUndoInfoExtDetails {
 	GFile *dest_dir;
 	GQueue *sources;	     /* Relative to src_dir */
 	GQueue *destinations;    /* Relative to dest_dir */
+
+	/* Make link's answers, for a redo. */
+	gboolean link_symlink;
+	gboolean link_options_set;
+	NemoLinkOptions link_options;
 };
 
 static char *
@@ -485,6 +490,8 @@ ext_create_link_redo_func (NemoFileUndoInfoExt *self,
 {
 	nemo_file_operations_link (HEAD (self->priv->sources), NULL,
 				       self->priv->dest_dir, parent_window,
+				       self->priv->link_symlink,
+				       self->priv->link_options_set ? &self->priv->link_options : NULL,
 				       file_undo_info_transfer_callback, self);
 }
 
@@ -657,6 +664,18 @@ nemo_file_undo_info_ext_add_origin_target_pair (NemoFileUndoInfoExt *self,
 {
     g_queue_push_tail (self->priv->sources, g_object_ref (origin));
     g_queue_push_tail (self->priv->destinations, g_object_ref (target));
+}
+
+void
+nemo_file_undo_info_ext_set_link (NemoFileUndoInfoExt   *self,
+				  gboolean               symlink,
+				  const NemoLinkOptions *options)
+{
+	self->priv->link_symlink = symlink;
+	self->priv->link_options_set = options != NULL;
+	if (options != NULL) {
+		self->priv->link_options = *options;
+	}
 }
 
 /* create new file/folder */
