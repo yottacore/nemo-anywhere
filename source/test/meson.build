@@ -1224,6 +1224,19 @@ test('rhf905br Thumbnail order test',
   args: []
 )
 
+# Its stand-in thumbnailer is matched on image/png, and Windows types a file
+# by its extension instead.
+if not is_windows
+  test('rj043mnp Thumbnail zoom during render test',
+    executable('test-nemo-thumbnail-zoom',
+      [ 'test-nemo-thumbnail-zoom.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: []
+  )
+endif
+
 test('rhdfp7t8 Menu paths test',
   executable('test-nemo-menu-paths',
     [ 'test-nemo-menu-paths.c' ] + gresources,
