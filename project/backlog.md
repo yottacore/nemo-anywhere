@@ -33,6 +33,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Code review 20260928 item 1. Zooming while thumbnails render can store a small thumbnail as full size, and it is never made again.
+	- ID: 2026092813381401
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes, the full Linux suite.
+	- Priority|Severity: High
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: the picture stays blurry at the larger size until the file is edited or the cache is cleared.
+	- Expected behavior: design.md, a thumbnail is made again bigger when a draw wants more than is stored.
+	- Reproduced: yes, 20260928, Linux.
+	- Actual cause: a new request merges into the job a worker is already running, and the worker stores the new size with the old picture.
+	- Origin: 0c1612a and 056d3e0, 20260921 (thumbdb, thumbs). New ground. Confirmed.
+	- Actual fix: a job a worker has started is no longer changed. A bigger ask for the same file waits behind it and starts when it ends. A smaller or equal one is answered by the job already running. A job that ends only clears its own entry from the queue table, not a newer one for the same file.
+	- Swept: besides the merge, a queued job is only changed by the remove path, which just marks it canceled, and by shutdown, which now drops a waiting follow-up. No other code writes to a job once it is queued.
+	- Note: edits during a render no longer rewrite the running job's size and time either. Item 9's queued-edit path is unchanged.
+	- Note: while a bigger ask waits behind a running job, the file reads as not being made, so the thumbnail progress bar can end a moment early. Left as is.
+	- Branch: thumbzoom
+	- Commit: 1a7470d
+	- Test case: rj043mnp, Thumbnail zoom during render test. Linux only. Fails before the fix, passes after.
+	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
+
 - Code review 20260928.
 	- ID: 2026092813381400
 	- Type: Task
@@ -54,28 +77,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: Escape not restoring the selection, Ctrl+Shift+T, and Control kept for F1, tab keys, Ctrl+H and Ctrl+M on macOS. All settled earlier.
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
-
-- Code review 20260928 item 1. Zooming while thumbnails render can store a small thumbnail as full size, and it is never made again.
-	- ID: 2026092813381401
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes, the full Linux suite.
-	- Priority|Severity: High
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: the picture stays blurry at the larger size until the file is edited or the cache is cleared.
-	- Expected behavior: design.md, a thumbnail is made again bigger when a draw wants more than is stored.
-	- Reproduced: yes, 20260928, Linux.
-	- Actual cause: a new request merges into the job a worker is already running, and the worker stores the new size with the old picture.
-	- Origin: 0c1612a and 056d3e0, 20260921 (thumbdb, thumbs). New ground. Confirmed.
-	- Actual fix: a job a worker has started is no longer changed. A bigger ask for the same file waits behind it and starts when it ends. A smaller or equal one is answered by the job already running. A job that ends only clears its own entry from the queue table, not a newer one for the same file.
-	- Swept: besides the merge, a queued job is only changed by the remove path, which just marks it canceled, and by shutdown, which now drops a waiting follow-up. No other code writes to a job once it is queued.
-	- Note: edits during a render no longer rewrite the running job's size and time either. Item 9's queued-edit path is unchanged.
-	- Branch: thumbzoom
-	- Commit: 1a7470d
-	- Test case: rj043mnp, Thumbnail zoom during render test. Linux only. Fails before the fix, passes after.
-	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
 
 - Code review 20260928 item 2. The tree sidebar crashes on Shift+F10 or the Menu key.
 	- ID: 2026092813381402
