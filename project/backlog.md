@@ -79,28 +79,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rj04ta3n, Tree menu key test. Linux only. Fails before the fix, passes after.
 	- Verified: the new test fails before the fix, with the crash, and passes five runs in a row after it on Linux. A right click on a tree row still opens the menu, and one on empty space opens nothing. Lint is clean.
 
-- Code review 20260928.
-	- ID: 2026092813381400
-	- Type: Task
-	- Status: Started
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Requirements:
-		- Everything changed from 20260917 to 20260927, reviewed or not, plus the ground the 20260919 round did not reach where it changed since.
-		- Items 1 to 45 below carry this ID as their parent. Technical detail is in the private notes under the same numbers.
-	- Progress log:
-		- 20260928-133814: Filed 33 defects and 12 enhancements. Of the defects, 4 are regressions or missed twins of an earlier fix (items 4, 12, 21, 22), item 15 reopens three closures, and the rest are new ground. 19 were reproduced, some only in part. The others were only read, and each says so.
-	- Decisions:
-		- Not release-ready. Items 1, 3, 5, 6, 7 and 16 give a wrong result with no error, or change files the user did not ask to change.
-		- Handlers that outlive their widget have come back a third time (20260919 items 3 and 10, now item 22). Per the fix rules, that class wants a table in design.md.
-		- Decided against: a same-size, same-time twin showing another file's picture. Already recorded as designed.
-		- Decided against: shortcut reads on the main thread when opening one, and an edited shortcut losing its item ID list. Both recorded as known gaps.
-		- Decided against: the archive password showing in the process list. design.md says so.
-		- Decided against: a small copy leaving a partial file on a failed write. GLib's own copy does the same.
-		- Decided against: Escape not restoring the selection, Ctrl+Shift+T, and Control kept for F1, tab keys, Ctrl+H and Ctrl+M on macOS. All settled earlier.
-		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
-	- Test case: none, review round.
-
 - Code review 20260928 item 3. Edit link on a symlink whose name ends in .lnk turns the symlink into a plain file.
 	- ID: 2026092813381403
 	- Type: Bug
@@ -124,6 +102,117 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 342d30a
 	- Test case: rhqxx81r, Link edit test, with a symlink named .lnk and a save of a shortcut with its own permissions. Fails before the fix and passes after, on Linux. The permissions check only fails on GLib 2.72, so it was run both ways on Ubuntu 22.04.
 	- Verified: the link edit test passes on Linux with GLib 2.84 and 2.72. All 21 link, shortcut and undo tests pass on Linux. Lint and the Windows cross build are clean.
+
+- Code review 20260928 item 12. Redo after undoing Make link makes a different kind of link.
+	- ID: 2026092813381412
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes, the full Linux suite.
+	- Needs external testing: Windows. The redo test on a real box, where it also covers a junction and a shortcut the shell reads.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: on Windows a junction, symlink or hardlink comes back as a shortcut. Elsewhere a relative symlink, hardlink or shortcut comes back as an absolute symlink.
+	- Expected behavior: redo makes what was made the first time.
+	- Reproduced: yes, 20260928, Linux. A hardlink and a folder shortcut came back as absolute symlinks, and relative symlinks as absolute ones.
+	- Actual cause: the undo record does not keep the dialog's choices.
+	- Origin: the redo code is upstream. It broke when the choices came in with 73ec92e, 20260924 (makelink). Regression. Confirmed.
+	- Actual fix: the undo record keeps the dialog's choices, and a redo makes the links with them.
+	- Swept: Make link is the only job that takes the dialog's choices. A copy's redo does not keep the link copy choice either, but every copy job asks it again when links are in it, so nothing is picked quietly. That was read, not run.
+	- Branch: linkfix
+	- Commit: 342d30a
+	- Test case: rj05egmb, Make link redo. Fails before the fix and passes after, on Linux.
+	- Verified: the new test passes on Linux. Under wine the hardlink half passes on the first run and the redo alike, and the shortcut half fails both times the same way, as it always has there.
+
+- Code review 20260928 item 14. Edit link can remove the link when only the case of its name changes.
+	- ID: 2026092813381414
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes, the full Linux suite.
+	- Needs external testing: a case-insensitive file system, such as macOS or a Linux folder with case folding on. The test finds out for itself which spellings name one entry.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Target OS: Linux and macOS, on a case-insensitive file system.
+	- Incorrect behavior: renaming "Link" to "link" while changing its target leaves no link. The target is not touched.
+	- Expected behavior: design.md, the old link is never missing.
+	- Reproduced: yes, 20260928, Linux, on a ZFS dataset that normalizes names. "café" in its two Unicode spellings is one entry there, the same way "Link" and "link" are on a case-insensitive one.
+	- Actual cause: the new link is renamed over the old name, and the old name, which is now the new link, is then removed.
+	- Origin: 1866e56, 20260925 (linkedit). New ground. Confirmed.
+	- Actual fix: before the rename, it checks whether the new name is the old link under another spelling. If it is, nothing is removed afterwards.
+	- Note: on that ZFS dataset a lookup by the other spelling can still show the old link after the rename. Checking only after the rename missed the bug, so the check comes first, and the test reads the folder listing.
+	- Swept: the Windows branch removes the old link before the rename, so it cannot hit this. A rename with no new target and a shortcut rename remove nothing.
+	- Branch: linkfix
+	- Commit: 342d30a
+	- Test case: rhqxx81r, Link edit test, a new target under another spelling. It runs only where two spellings name one entry, and says so otherwise. Fails before the fix and passes after, on the normalizing dataset.
+	- Verified: the link edit test passes on Linux, both on that dataset and in the suite's own temp folder, where this check is skipped.
+
+- Code review 20260928 item 17. Hardlinking a selected symlink links the symlink, not the file.
+	- ID: 2026092813381417
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes, the full Linux suite.
+	- Needs external testing: Windows. A hardlink of a selected file symlink is a second name for the file, with Developer Mode on so the link test can make symlinks.
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: a relative symlink hardlinked into another folder arrives dangling.
+	- Expected behavior: the hardlink warning, the same file under a second name.
+	- Reproduced: yes, 20260928, Linux.
+	- Actual cause: the hardlink is made of the symlink itself. Windows does the same, per its documentation.
+	- Origin: 73ec92e, 20260924 (makelink). New ground. Confirmed.
+	- Actual fix: a symlink is followed first, so the hardlink is a second name for the file it leads to. A symlink that leads nowhere fails with the usual error.
+	- Swept: the hardlink call has one implementation per platform, and Make link is its only caller. Both follow now.
+	- Branch: linkfix
+	- Commit: 342d30a
+	- Test case: rfwwdyvg, Link copy test, a hardlink of a relative symlink made in another folder. Fails before the fix and passes after, on Linux.
+	- Verified: the link copy test passes on Linux. The Windows code builds but was not run, since wine makes no symlinks.
+
+- Code review 20260928 item 18. A relative symlink between two shares of one server does not resolve.
+	- ID: 2026092813381418
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs external testing: Windows, a relative link made on one share to a file on another share of the same server comes out with the full path, and one within a share still comes out relative.
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Target OS: Windows.
+	- Incorrect behavior: a link from `\\srv\a\x` to `\\srv\b\y` is written as `..\..\b\y`, which Windows cannot follow above a share.
+	- Reproduced: yes, 20260928, in the Windows build under wine, by the relative path it spells. Not tried against a real share.
+	- Actual cause: only the first part of the two paths had to match. For a share path that is the server, but the share has to match too.
+	- Origin: 1866e56, 20260925 (linkedit). New ground. Confirmed.
+	- Actual fix: a share path needs both the server and the share in common, including the long `\\?\UNC\` form. Otherwise the full path is used.
+	- Swept: Make link's relative symlinks and the shortcut's relative path both go through the same spelling code.
+	- Branch: linkfix
+	- Commit: 342d30a
+	- Test case: rfwwdyvg, Link copy test, on Windows only. Fails before the fix and passes after, under wine.
+	- Verified: the link copy test's share checks pass under wine. Its one failure there is the old one, since wine makes no symlinks.
+
+- Code review 20260928.
+	- ID: 2026092813381400
+	- Type: Task
+	- Status: Started
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Requirements:
+		- Everything changed from 20260917 to 20260927, reviewed or not, plus the ground the 20260919 round did not reach where it changed since.
+		- Items 1 to 45 below carry this ID as their parent. Technical detail is in the private notes under the same numbers.
+	- Progress log:
+		- 20260928-133814: Filed 33 defects and 12 enhancements. Of the defects, 4 are regressions or missed twins of an earlier fix (items 4, 12, 21, 22), item 15 reopens three closures, and the rest are new ground. 19 were reproduced, some only in part. The others were only read, and each says so.
+	- Decisions:
+		- Not release-ready. Items 1, 3, 5, 6, 7 and 16 give a wrong result with no error, or change files the user did not ask to change.
+		- Handlers that outlive their widget have come back a third time (20260919 items 3 and 10, now item 22). Per the fix rules, that class wants a table in design.md.
+		- Decided against: a same-size, same-time twin showing another file's picture. Already recorded as designed.
+		- Decided against: shortcut reads on the main thread when opening one, and an edited shortcut losing its item ID list. Both recorded as known gaps.
+		- Decided against: the archive password showing in the process list. design.md says so.
+		- Decided against: a small copy leaving a partial file on a failed write. GLib's own copy does the same.
+		- Decided against: Escape not restoring the selection, Ctrl+Shift+T, and Control kept for F1, tab keys, Ctrl+H and Ctrl+M on macOS. All settled earlier.
+		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
+	- Test case: none, review round.
 
 - Code review 20260928 item 4. A dangling symlink fails a 7z or rar archive, and the finished archive is deleted.
 	- ID: 2026092813381404
@@ -243,28 +332,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Origin: 5678432 and 6d52b4b, 20260921 (thumbdb). New ground. Confirmed.
 	- Test case: none yet. A query plan check in `test-nemo-cache-prune`.
 
-- Code review 20260928 item 12. Redo after undoing Make link makes a different kind of link.
-	- ID: 2026092813381412
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes, the full Linux suite.
-	- Needs external testing: Windows. The redo test on a real box, where it also covers a junction and a shortcut the shell reads.
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: on Windows a junction, symlink or hardlink comes back as a shortcut. Elsewhere a relative symlink, hardlink or shortcut comes back as an absolute symlink.
-	- Expected behavior: redo makes what was made the first time.
-	- Reproduced: yes, 20260928, Linux. A hardlink and a folder shortcut came back as absolute symlinks, and relative symlinks as absolute ones.
-	- Actual cause: the undo record does not keep the dialog's choices.
-	- Origin: the redo code is upstream. It broke when the choices came in with 73ec92e, 20260924 (makelink). Regression. Confirmed.
-	- Actual fix: the undo record keeps the dialog's choices, and a redo makes the links with them.
-	- Swept: Make link is the only job that takes the dialog's choices. A copy's redo does not keep the link copy choice either, but every copy job asks it again when links are in it, so nothing is picked quietly. That was read, not run.
-	- Branch: linkfix
-	- Commit: 342d30a
-	- Test case: rj05egmb, Make link redo. Fails before the fix and passes after, on Linux.
-	- Verified: the new test passes on Linux. Under wine the hardlink half passes on the first run and the redo alike, and the shortcut half fails both times the same way, as it always has there.
-
 - Code review 20260928 item 13. A Windows install for all users may not run for other users.
 	- ID: 2026092813381413
 	- Type: Bug
@@ -279,30 +346,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual cause: the unpacked tree is moved, not copied, and a move on one drive keeps the old permissions.
 	- Origin: before 20260917, carried into 7284973, 20260925. Not seen by an earlier round. Plausible.
 	- Test case: none yet.
-
-- Code review 20260928 item 14. Edit link can remove the link when only the case of its name changes.
-	- ID: 2026092813381414
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes, the full Linux suite.
-	- Needs external testing: a case-insensitive file system, such as macOS or a Linux folder with case folding on. The test finds out for itself which spellings name one entry.
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Target OS: Linux and macOS, on a case-insensitive file system.
-	- Incorrect behavior: renaming "Link" to "link" while changing its target leaves no link. The target is not touched.
-	- Expected behavior: design.md, the old link is never missing.
-	- Reproduced: yes, 20260928, Linux, on a ZFS dataset that normalizes names. "café" in its two Unicode spellings is one entry there, the same way "Link" and "link" are on a case-insensitive one.
-	- Actual cause: the new link is renamed over the old name, and the old name, which is now the new link, is then removed.
-	- Origin: 1866e56, 20260925 (linkedit). New ground. Confirmed.
-	- Actual fix: before the rename, it checks whether the new name is the old link under another spelling. If it is, nothing is removed afterwards.
-	- Note: on that ZFS dataset a lookup by the other spelling can still show the old link after the rename. Checking only after the rename missed the bug, so the check comes first, and the test reads the folder listing.
-	- Swept: the Windows branch removes the old link before the rename, so it cannot hit this. A rename with no new target and a shortcut rename remove nothing.
-	- Branch: linkfix
-	- Commit: 342d30a
-	- Test case: rhqxx81r, Link edit test, a new target under another spelling. It runs only where two spellings name one entry, and says so otherwise. Fails before the fix and passes after, on the normalizing dataset.
-	- Verified: the link edit test passes on Linux, both on that dataset and in the suite's own temp folder, where this check is skipped.
 
 - Code review 20260928 item 15. Three items from code review 20260919 closed with no test and no reason.
 	- ID: 2026092813381415
@@ -330,49 +373,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: yes for 7z, 20260928, Linux.
 	- Origin: b8e1401, 20260925 (linktests). New ground. Confirmed.
 	- Test case: none yet. A combos row with those two names.
-
-- Code review 20260928 item 17. Hardlinking a selected symlink links the symlink, not the file.
-	- ID: 2026092813381417
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes, the full Linux suite.
-	- Needs external testing: Windows. A hardlink of a selected file symlink is a second name for the file, with Developer Mode on so the link test can make symlinks.
-	- Priority|Severity: Low
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: a relative symlink hardlinked into another folder arrives dangling.
-	- Expected behavior: the hardlink warning, the same file under a second name.
-	- Reproduced: yes, 20260928, Linux.
-	- Actual cause: the hardlink is made of the symlink itself. Windows does the same, per its documentation.
-	- Origin: 73ec92e, 20260924 (makelink). New ground. Confirmed.
-	- Actual fix: a symlink is followed first, so the hardlink is a second name for the file it leads to. A symlink that leads nowhere fails with the usual error.
-	- Swept: the hardlink call has one implementation per platform, and Make link is its only caller. Both follow now.
-	- Branch: linkfix
-	- Commit: 342d30a
-	- Test case: rfwwdyvg, Link copy test, a hardlink of a relative symlink made in another folder. Fails before the fix and passes after, on Linux.
-	- Verified: the link copy test passes on Linux. The Windows code builds but was not run, since wine makes no symlinks.
-
-- Code review 20260928 item 18. A relative symlink between two shares of one server does not resolve.
-	- ID: 2026092813381418
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: Windows, a relative link made on one share to a file on another share of the same server comes out with the full path, and one within a share still comes out relative.
-	- Priority|Severity: Low
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Target OS: Windows.
-	- Incorrect behavior: a link from `\\srv\a\x` to `\\srv\b\y` is written as `..\..\b\y`, which Windows cannot follow above a share.
-	- Reproduced: yes, 20260928, in the Windows build under wine, by the relative path it spells. Not tried against a real share.
-	- Actual cause: only the first part of the two paths had to match. For a share path that is the server, but the share has to match too.
-	- Origin: 1866e56, 20260925 (linkedit). New ground. Confirmed.
-	- Actual fix: a share path needs both the server and the share in common, including the long `\\?\UNC\` form. Otherwise the full path is used.
-	- Swept: Make link's relative symlinks and the shortcut's relative path both go through the same spelling code.
-	- Branch: linkfix
-	- Commit: 342d30a
-	- Test case: rfwwdyvg, Link copy test, on Windows only. Fails before the fix and passes after, under wine.
-	- Verified: the link copy test's share checks pass under wine. Its one failure there is the old one, since wine makes no symlinks.
 
 - Code review 20260928 item 19. An Olympus raw file with a looping directory takes seconds to read.
 	- ID: 2026092813381419
