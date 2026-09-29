@@ -395,6 +395,84 @@ check_hardlink (const char *dir)
 	g_free (first);
 }
 
+/* A hardlink of a selected symlink is a second name for the file it leads
+   to. The symlink's own relative path would lead nowhere from elsewhere. */
+static void
+check_hardlink_of_symlink (const char *dir)
+{
+	char *file = g_build_filename (dir, "hs-file.txt", NULL);
+	char *near = g_build_filename (dir, "hs-a", NULL);
+	char *far = g_build_filename (dir, "hs-b", "c", NULL);
+	char *link = g_build_filename (near, "rel", NULL);
+	char *spelled = g_build_filename ("..", "hs-file.txt", NULL);
+	char *made = g_build_filename (far, "rel", NULL);
+	char *contents = NULL;
+	GError *error = NULL;
+	FILE *fp;
+
+	g_mkdir_with_parents (near, 0700);
+	g_mkdir_with_parents (far, 0700);
+	check (g_file_set_contents (file, "one", -1, NULL));
+	check (nemo_link_create (spelled, link, near, NEMO_LINK_FILE_SYMLINK, NULL));
+
+	check (nemo_link_create_hard (link, made, &error));
+	g_clear_error (&error);
+	check (kind_of (made) == NEMO_LINK_NONE);
+	fp = g_fopen (made, "ab");
+	check (fp != NULL);
+	if (fp != NULL) {
+		fputs ("two", fp);
+		fclose (fp);
+	}
+	check (g_file_get_contents (file, &contents, NULL, NULL) &&
+	       g_strcmp0 (contents, "onetwo") == 0);
+	g_free (contents);
+
+	g_remove (made);
+	g_remove (link);
+	g_remove (file);
+	g_free (file);
+	g_free (near);
+	g_free (far);
+	g_free (link);
+	g_free (spelled);
+	g_free (made);
+}
+
+#ifdef G_OS_WIN32
+/* Windows cannot follow ".." above a share, so a link from one share to
+   another of the same server has only the full path. */
+static void
+check_relative_across_shares (void)
+{
+	char *text;
+
+	text = nemo_link_relative_target ("\\\\srv\\b\\y.txt", "\\\\srv\\a\\x");
+	check (text == NULL);
+	g_free (text);
+
+	text = nemo_link_relative_target ("\\\\srv\\b\\y.txt", "\\\\srv\\a");
+	check (text == NULL);
+	g_free (text);
+
+	text = nemo_link_relative_target ("\\\\srv\\a\\y.txt", "\\\\other\\a\\x");
+	check (text == NULL);
+	g_free (text);
+
+	text = nemo_link_relative_target ("\\\\srv\\a\\y.txt", "\\\\srv\\a\\x");
+	check (g_strcmp0 (text, "..\\y.txt") == 0);
+	g_free (text);
+
+	text = nemo_link_relative_target ("\\\\?\\UNC\\srv\\b\\y.txt", "\\\\?\\UNC\\srv\\a\\x");
+	check (text == NULL);
+	g_free (text);
+
+	text = nemo_link_relative_target ("C:\\y.txt", "C:\\a");
+	check (g_strcmp0 (text, "..\\y.txt") == 0);
+	g_free (text);
+}
+#endif
+
 /* Every row and every choice, for one link and for several: the wording
    follows the count, and no two choices in a row read the same. */
 static void
@@ -498,8 +576,12 @@ main (int argc, char **argv)
 	check_link_options ();
 	check_hardlink (dir);
 	if (symlinks) {
+		check_hardlink_of_symlink (dir);
 		check_relative_spelling (dir);
 	}
+#ifdef G_OS_WIN32
+	check_relative_across_shares ();
+#endif
 	check_destination_support (dir);
 
 	g_free (dir);

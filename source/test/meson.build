@@ -536,6 +536,7 @@ test('rhn92e10 Make link shortcut absolute', make_link_job, args: [ 'shortcut-ab
 test('rhnb1z7g Make link shortcut portable', make_link_job, args: [ 'shortcut-portable' ])
 test('rhnq7f38 Make link names', make_link_job, args: [ 'names' ])
 test('rhr6ggms Make link, every answer', make_link_job, args: [ 'every' ])
+test('rj05egmb Make link redo', make_link_job, args: [ 'redo' ])
 if is_windows
   test('rhmye3d3 Make link junction', make_link_job, args: [ 'junction' ])
 endif

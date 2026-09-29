@@ -68,7 +68,8 @@ gboolean nemo_link_create (const char    *target,
                            GError       **error);
 
 /* A second name for existing_path, which has to be a file on the same drive.
-   A change made through either name shows through the other. */
+   A change made through either name shows through the other. A symlink is
+   followed, so the second name is for the file it leads to. */
 gboolean nemo_link_create_hard (const char  *existing_path,
                                 const char  *link_path,
                                 GError     **error);

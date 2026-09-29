@@ -151,7 +151,9 @@ nemo_shortcut_properties_should_show (GList *files)
 	}
 
 	file = NEMO_FILE (files->data);
-	if (nemo_file_is_directory (file) || !nemo_file_is_local (file)) {
+	/* A symlink named .lnk would be saved through, as in Edit link. */
+	if (nemo_file_is_directory (file) || !nemo_file_is_local (file) ||
+	    nemo_file_is_symbolic_link (file)) {
 		return FALSE;
 	}
 

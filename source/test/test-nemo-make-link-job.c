@@ -3,15 +3,16 @@
  *
  * Argument: "relative" (default), "absolute", "hardlink", "junction",
  * "shortcut" (every part), "shortcut-absolute", "shortcut-portable", "names"
- * for what links made beside their originals are called, or "every" for
- * every answer the dialog can give, made both beside the originals and in
- * another folder.
+ * for what links made beside their originals are called, "every" for every
+ * answer the dialog can give, made both beside the originals and in another
+ * folder, or "redo" for links made again after an undo.
  */
 
 #include "test.h"
 
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-file-operations.h>
+#include <libnemo-private/nemo-file-undo-manager.h>
 #include <libnemo-private/nemo-link-copy.h>
 #ifdef G_OS_WIN32
 #include <libnemo-private/nemo-shortcut-win32.h>
@@ -405,6 +406,119 @@ check_every (const char *tmp, guint supported, GtkWidget *window)
 	}
 }
 
+static void
+redo_done (GObject *source, GAsyncResult *res, gpointer data)
+{
+	gboolean user_cancel = FALSE;
+
+	job_succeeded = nemo_file_undo_info_apply_finish (NEMO_FILE_UNDO_INFO (source), res,
+							  &user_cancel, NULL);
+	job_finished = TRUE;
+	gtk_main_quit ();
+}
+
+/* Takes away a link Make link left in dir, the way an undo would. */
+static void
+remove_made (const char *dir, const char *name, NemoMakeLink kind)
+{
+	char *made = made_name (name, kind, FALSE);
+	char *path = g_build_filename (dir, made, NULL);
+
+	if (kind_of (path) == NEMO_LINK_JUNCTION) {
+		check (g_rmdir (path) == 0);
+	} else {
+		check (g_remove (path) == 0);
+	}
+	g_free (path);
+	g_free (made);
+}
+
+/* A redo makes the same kind of link the dialog asked for the first time. */
+static void
+check_redo (const char *tmp, guint supported, GtkWidget *window)
+{
+	NemoLinkOptions sets[] = {
+		{ NEMO_MAKE_SHORTCUT, NEMO_MAKE_HARDLINK, FALSE, NEMO_LNK_ALL_PARTS },
+		{ NEMO_MAKE_SYMLINK, NEMO_MAKE_SYMLINK, TRUE, NEMO_LNK_ALL_PARTS },
+		{ NEMO_MAKE_JUNCTION, NEMO_MAKE_SHORTCUT, FALSE, NEMO_LNK_RELATIVE },
+	};
+	guint i;
+
+	for (i = 0; i < G_N_ELEMENTS (sets); i++) {
+		const NemoLinkOptions *options = &sets[i];
+		char *name, *root, *from, *to, *payload, *folder, *made;
+		NemoFileUndoInfo *info;
+		GList *uris = NULL;
+		int round;
+
+		if ((options->file_kind == NEMO_MAKE_SYMLINK && !(supported & NEMO_LINK_FILE_SYMLINK)) ||
+		    (options->folder_kind == NEMO_MAKE_JUNCTION && !(supported & NEMO_LINK_JUNCTION))) {
+			continue;
+		}
+
+		name = g_strdup_printf ("redo-%u", i);
+		root = g_build_filename (tmp, name, NULL);
+		from = g_build_filename (root, "from", NULL);
+		to = g_build_filename (root, "to", NULL);
+		payload = g_build_filename (from, "payload.txt", NULL);
+		folder = g_build_filename (from, "folder", NULL);
+		g_mkdir_with_parents (folder, 0700);
+		g_mkdir_with_parents (to, 0700);
+		check (g_file_set_contents (payload, "payload", -1, NULL));
+		uris = g_list_append (uris, uri_of (payload));
+		uris = g_list_append (uris, uri_of (folder));
+
+		check (run_link_job (uris, to, sets + i, window));
+		info = nemo_file_undo_manager_get_action ();
+		check (info != NULL);
+
+		/* The first run, then the redo, each checked the same way. */
+		for (round = 0; round < 2 && info != NULL; round++) {
+			int before = failures;
+
+			if (round == 1) {
+				guint timeout_id;
+
+				g_object_ref (info);
+				remove_made (to, "payload.txt", options->file_kind);
+				remove_made (to, "folder", options->folder_kind);
+				check (g_file_set_contents (payload, "payload", -1, NULL));
+				job_finished = FALSE;
+				job_succeeded = FALSE;
+				nemo_file_undo_manager_push_flag ();
+				nemo_file_undo_info_apply_async (info, FALSE, GTK_WINDOW (window), redo_done, NULL);
+				timeout_id = g_timeout_add_seconds (JOB_TIMEOUT_SECONDS, give_up, NULL);
+				gtk_main ();
+				g_source_remove (timeout_id);
+				check (job_finished && job_succeeded);
+				g_object_unref (info);
+			}
+
+			made = made_name ("payload.txt", options->file_kind, FALSE);
+			check_made (to, made, payload, options->file_kind, FALSE, options);
+			g_free (made);
+			made = made_name ("folder", options->folder_kind, FALSE);
+			check_made (to, made, folder, options->folder_kind, TRUE, options);
+			g_free (made);
+
+			if (failures > before) {
+				g_printerr ("  in %s, %s: file %s, folder %s, %s\n", name,
+					    round == 0 ? "first run" : "redo",
+					    make_word (options->file_kind), make_word (options->folder_kind),
+					    options->relative ? "relative" : "absolute");
+			}
+		}
+
+		g_list_free_full (uris, g_free);
+		g_free (folder);
+		g_free (payload);
+		g_free (to);
+		g_free (from);
+		g_free (root);
+		g_free (name);
+	}
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -450,6 +564,15 @@ main (int argc, char *argv[])
 		window = test_window_new ("make link test", 5);
 		gtk_widget_show (window);
 		check_every (tmp, supported, window);
+		return failures > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+	}
+	if (g_strcmp0 (how, "redo") == 0) {
+		window = test_window_new ("make link test", 5);
+		gtk_widget_show (window);
+		check_redo (tmp, supported, window);
+		if (failures == 0) {
+			g_print ("make link job (redo): all checks passed\n");
+		}
 		return failures > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 	}
 	if (g_strcmp0 (how, "names") == 0) {

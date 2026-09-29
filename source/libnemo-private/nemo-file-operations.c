@@ -6879,6 +6879,8 @@ start_link_job (GList *files,
 		job->common.undo_info = nemo_file_undo_info_ext_new (NEMO_FILE_UNDO_OP_CREATE_LINK,
 									 g_list_length (files),
 									 src_dir, target_dir);
+		nemo_file_undo_info_ext_set_link (NEMO_FILE_UNDO_INFO_EXT (job->common.undo_info),
+						  symlink, options);
 		g_object_unref (src_dir);
 	}
 
@@ -6892,10 +6894,12 @@ nemo_file_operations_link (GList *files,
 			       GArray *relative_item_points,
 			       GFile *target_dir,
 			       GtkWindow *parent_window,
+			       gboolean symlink,
+			       const NemoLinkOptions *options,
 			       NemoCopyCallback  done_callback,
 			       gpointer done_callback_data)
 {
-	start_link_job (files, relative_item_points, target_dir, parent_window, FALSE, NULL,
+	start_link_job (files, relative_item_points, target_dir, parent_window, symlink, options,
 			done_callback, done_callback_data);
 }
 
@@ -7308,6 +7312,7 @@ nemo_file_operations_copy_move (const GList *item_uris,
 					       relative_item_points,
 					       dest,
 					       parent_window,
+					       FALSE, NULL,
 					       done_callback, done_callback_data);
 	}
 

@@ -25,9 +25,14 @@ gboolean nemo_link_edit_symlink  (const char  *link_path,
                                   const char  *new_target,
                                   GError     **error);
 
-/* The same for a Windows shortcut. ".lnk" is put on the name when it is not
-   there. The paths are rewritten only when set_paths is TRUE, since that drops
-   what else the shortcut knew about its old target. */
+/* Whether link gets the shortcut editor: a file named .lnk that is not itself
+   a symlink or junction. Those get the target editor, whatever their name. */
+gboolean nemo_link_edit_is_shortcut (GFile *link);
+
+/* The same for a Windows shortcut, and a symlink to one is refused. ".lnk" is
+   put on the name when it is not there. The paths are rewritten only when
+   set_paths is TRUE, since that drops what else the shortcut knew about its
+   old target. */
 gboolean nemo_link_edit_shortcut (const char  *lnk_path,
                                   const char  *new_name,
                                   gboolean     set_paths,

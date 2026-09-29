@@ -22,6 +22,7 @@
 #ifdef G_OS_WIN32
 #include "nemo-link-win32.h"
 #else
+#include <fcntl.h>
 #include <unistd.h>
 #endif
 
@@ -499,7 +500,9 @@ nemo_link_create_hard (const char  *existing_path,
 #else
 	int saved;
 
-	if (link (existing_path, link_path) == 0) {
+	/* A plain link() gives a second name to a symlink rather than to its
+	   file, and a relative one then dangles from anywhere else. */
+	if (linkat (AT_FDCWD, existing_path, AT_FDCWD, link_path, AT_SYMLINK_FOLLOW) == 0) {
 		return TRUE;
 	}
 
@@ -568,6 +571,22 @@ same_part (const char *a, const char *b)
 #endif
 }
 
+#ifdef G_OS_WIN32
+/* How many leading parts of a path are its root: the drive, or the server and
+   share, after "?" and "UNC" in the long form. */
+static int
+root_parts (const char *path)
+{
+	gboolean two_slashes = G_IS_DIR_SEPARATOR (path[0]) && G_IS_DIR_SEPARATOR (path[1]);
+
+	if (two_slashes && (path[2] == '?' || path[2] == '.') && G_IS_DIR_SEPARATOR (path[3])) {
+		return g_ascii_strncasecmp (path + 4, "UNC", 3) == 0 && G_IS_DIR_SEPARATOR (path[7]) ? 4 : 2;
+	}
+
+	return two_slashes ? 2 : 1;
+}
+#endif
+
 /* The steps from dir to target, both taken as spelled: up past what they do
    not share, then down. */
 static char *
@@ -583,8 +602,9 @@ spell_relative (const char *dir, const char *target)
 	}
 
 #ifdef G_OS_WIN32
-	/* The first part is the drive or the server. There is no way up and over. */
-	if (common == 0) {
+	/* There is no way up and over the drive, or over the server and share of
+	   a UNC path. */
+	if (common < root_parts (dir) || common < root_parts (target)) {
 		g_strfreev (from);
 		g_strfreev (to);
 		return NULL;

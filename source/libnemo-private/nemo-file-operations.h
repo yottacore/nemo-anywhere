@@ -166,10 +166,14 @@ void nemo_file_operations_duplicate (GList                *files,
 					 GtkWindow            *parent_window,
 					 NemoCopyCallback  done_callback,
 					 gpointer              done_callback_data);
+/* options is the Make link dialog's answer, or NULL. With none, symlink says
+   whether Windows makes a symlink or a shortcut; elsewhere it is a symlink. */
 void nemo_file_operations_link      (GList                *files,
 					 GArray               *relative_item_points,
 					 GFile                *target_dir,
 					 GtkWindow            *parent_window,
+					 gboolean              symlink,
+					 const NemoLinkOptions *options,
 					 NemoCopyCallback  done_callback,
 					 gpointer              done_callback_data);
 void nemo_file_mark_desktop_file_trusted (GFile           *file,
