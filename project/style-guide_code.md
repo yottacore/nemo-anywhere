@@ -15,7 +15,7 @@ How the C in this repo is written, and why. Companion to [design.md](design.md),
 
 - [The one rule that beats the rest](#the-one-rule-that-beats-the-rest)
 
-- [Why there is no formatter config](#why-there-is-no-formatter-config)
+- [No formatter config yet](#no-formatter-config-yet)
 
 - [Layout](#layout)
 
@@ -41,17 +41,15 @@ How the C in this repo is written, and why. Companion to [design.md](design.md),
 
 ## The one rule that beats the rest
 
-This is a fork of a twenty-year-old GNOME codebase. New code looks like the code beside it, even where that is not what a fresh project would choose. A patch that reformats a function it did not need to touch is noise in every future diff against upstream, and it will be asked to go back.
+This began as a fork of a twenty-year-old GNOME codebase. It no longer follows upstream and never will, so the inherited code is ours to improve. New code looks like the code beside it, so each file reads as one piece. Restyling or cleaning up inherited code is welcome, as its own change rather than mixed into a fix.
 
-Vendored code is left alone entirely, and so is anything still carrying an upstream copyright header. Do not restyle it, do not rename in it, do not "modernize" it. The vendored trees are `vendor/` at the repo root (icons, themes, the SHCL header and blake3) and `source/cut-n-paste-code/`.
+Vendored code is left alone entirely. Do not restyle it, do not rename in it, do not "modernize" it. The vendored trees are `vendor/` at the repo root (icons, themes, the SHCL header and blake3) and `source/cut-n-paste-code/`.
 
-## Why there is no formatter config
+## No formatter config yet
 
-There is no `.clang-format`. Two reasons.
+There is no `.clang-format` yet. Nothing ties the tree to upstream Nemo, so a config may cover the whole tree and reformat inherited files. Vendored code stays out of it.
 
-Most of the tree is inherited. A config aimed at the whole tree would rewrite hundreds of files nobody here wrote and make comparison against upstream Nemo useless. A config aimed only at the files written for the fork would need tuning until it stopped disagreeing with code that is already correct, and would then catch little, because those files already follow the inherited style.
-
-So the rules are written down here instead.
+Until one is added, the rules are written down here.
 
 ## Layout
 

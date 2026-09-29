@@ -165,6 +165,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the link is passed over with a warning, as the zip writer does.
 	- Reproduced: yes for the tools' exit codes, 20260928, Linux. The job side was read only. The job side too on 20260928, with the new test rows.
 	- Actual cause: 7z exits 1 and rar exits 6 when they skip a link they cannot follow, and any non-zero exit fails the job.
+	- Decisions:
+		- 20260929: every format stores a link that leads nowhere as a link, where the format and tool can, even when links are otherwise followed. Leaving it out with a warning is only the fallback.
 	- Origin: 6c2418f, 20260820. Widened on Windows by 09506ec, 20260926 (bugs), which took link storing away from 7z there. Regression of that fix on Windows. Confirmed.
 	- Note: the zip writer did not warn either. For a link to nothing, GIO answers with the link itself rather than failing, so the scan's "dangling" branch never ran and every writer left the link out without a word.
 	- Actual fix: the scan lists each link that leads nowhere, for 7z and rar too whenever links are not stored. When 7z ends on 1 or rar on 6, the job reads what the tool printed. It counts as done only if every warning names one of those links and the archive is there. Any other warning still fails the job. Every writer then shows one warning naming the links left out. With delete-originals on, the names go in the "originals were kept" warning instead of a second one.
