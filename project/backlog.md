@@ -49,9 +49,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Volume sizes say what each is for.
 		- A pre-scan progress bar after OK.
 		- Keep compress and extract modular, for a possible split to their own project.
+		- Options opens by itself when a remembered choice isn't the default, and a button beside it resets them.
+		- 7z goes to 7-Zip first where it's installed, and an edited 7-Zip line gets `-spd` at run time.
 	- Progress log:
 		- 20260929-161500: design moved to its own doc, with the new size counting. Five of the eight old questions are answered there.
 		- 20260929-173000: answers folded in. A nested filesystems option, exact totals for files with more than one path, dangling links under Ignore, the library's 7z storing links, and the order of the code split. One question left, on `-spd`.
+		- 20260929-190000: `-spd` is added at run time, 7-Zip is used first for 7z, and Options opens by itself and gets a reset button. Other filesystems is for folders only. One question left, on a selected link to another filesystem.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
 
 - Code review 20260928 item 1. Zooming while thumbnails render can store a small thumbnail as full size, and it is never made again.
@@ -258,7 +261,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
-	- Design: [20260929_compression.md](design_docs/20260929_compression.md), open question on `-spd` in an edited command line.
+	- Design: [20260929_compression.md](design_docs/20260929_compression.md). An edited 7-Zip line gets `-spd` added at run time. Nothing changes until the reset is built.
 	- Target OS: Linux, BSD, macOS.
 	- Incorrect behavior: a linked folder named `a*`, with store and follow both off, also drops a real folder `abc`. With delete-originals off, the job reports success on an archive that is missing it.
 	- Reproduced: yes for 7z, 20260928, Linux.

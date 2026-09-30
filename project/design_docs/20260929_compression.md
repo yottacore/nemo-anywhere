@@ -17,6 +17,7 @@ Status: design pass, 2026-09-29. None of it is built yet. The backlog item is 20
 
 - [Modularity](#modularity)
 - [Compress dialog](#compress-dialog)
+	- [Options expander](#options-expander)
 	- [Options the writer can't do](#options-the-writer-cant-do)
 	- [Link handling](#link-handling)
 		- [Link options](#link-options)
@@ -31,6 +32,9 @@ Status: design pass, 2026-09-29. None of it is built yet. The backlog item is 20
 	- [Delete originals after verification](#delete-originals-after-verification)
 	- [Volume sizes](#volume-sizes)
 - [Why the reset](#why-the-reset)
+- [Archiver programs](#archiver-programs)
+	- [7-Zip first for 7z](#7-zip-first-for-7z)
+	- [Wildcards in an edited 7-Zip line](#wildcards-in-an-edited-7-zip-line)
 - [Open questions](#open-questions)
 
 <!-- /TOC -->
@@ -64,6 +68,15 @@ Status: design pass, 2026-09-29. None of it is built yet. The backlog item is 20
 
 ## Compress dialog
 
+### Options expander
+
+- If any stored options (from last session) are non-default, auto-expand "Options".
+	- It compares the remembered choices, so one the format has forced off still counts.
+
+- Add a button or icon next to the "Options" expander, to reset to default.
+	- It puts every choice under Options back to its default, and drops the remembered ones from the settings file.
+	- Disabled when everything is already at default.
+
 ### Options the writer can't do
 
 - For options that aren't supported by the archiver (e.g. add recovery record), don't just disable it, but deselect AND disable.
@@ -95,8 +108,8 @@ The options and workarounds got complex and confusing. This is a reset.
 	- Until this is built, 2026092813381404 stays as it is. It keeps these links even with "store links" off.
 
 - The library's 7z writer offers "Store as Symlinks". It already keeps links that lead nowhere as links.
-	- So 7z on Windows can store links when nothing needs 7-Zip itself. With a password or volumes the job still goes to 7-Zip, which leaves links out there, so the choice is disabled.
-	- The cost is speed. The library's 7z writer is handed no thread count, so a big job that went to 7-Zip on several cores would run on one. Measure that before building it.
+	- 7-Zip is used first for 7z where it's installed (see [7-Zip first for 7z](#7-zip-first-for-7z)). So this matters on Windows, where 7-Zip leaves links out. A job that stores links goes to the library there, on one thread.
+	- With a password or volumes the job still needs 7-Zip, so on Windows the choice is disabled.
 
 - On Windows a folder mount point and a junction are the same kind of reparse point. One that points at a whole volume counts as a mount point only.
 
@@ -138,7 +151,8 @@ The options and workarounds got complex and confusing. This is a reset.
 	- [ ] Follow other filesystems (size Δ: N)
 		- Was "Follow across mounted filesystems".
 		- Unchecked by default.
-	- Both are disabled unless a folder or link is selected (of any type).
+	- "Follow nested filesystems" is disabled unless a folder or link is selected (of any type).
+	- "Follow other filesystems" is disabled unless a folder is selected.
 
 - Nested means the same pool or volume on both sides of the mount: one ZFS pool, one Btrfs filesystem, one APFS container. Anything else is another filesystem.
 
@@ -192,6 +206,8 @@ How to calculate the five different sizes shown.
 
 - The cost is two bytes per file, and at most sixteen additions per path.
 
+- This is also the live count. Each path adds to the totals as it's found, so nothing is worked out again at the end.
+
 #### Background scan
 
 - In a background task, gather a list of all canonical file paths included in the current selection and below, and populate `canonicalFullFilePath`, with the following exclusions:
@@ -244,13 +260,28 @@ How to calculate the five different sizes shown.
 
 - Today's two boxes, "store links" and "follow links", make four cases. Store plus follow means nothing. Neither ticked quietly follows linked files but leaves linked folders out. Separate choices per kind of link remove both.
 
+## Archiver programs
+
+### 7-Zip first for 7z
+
+- Where 7-Zip is installed, 7z archives go to it rather than the library. It compresses on as many threads as the settings allow.
+	- The library's 7z writer has no thread option. Checked on libarchive 3.7.4, which turns down `7zip:threads`. It can't be given one without changing libarchive.
+	- 7-Zip reports its own percent done, so the progress bar still moves.
+
+- The library still writes 7z when 7-Zip isn't installed, or when the job needs what only the library can do. Today that is storing links on Windows.
+
+### Wildcards in an edited 7-Zip line
+
+- 7-Zip reads `*` and `?` in a name as wildcards unless the line has `-spd`. The built-in lines have it. A line edited in the settings keeps what was typed.
+	- Where it matters: a selected item or a left-out folder when compressing, and the archive's own path when extracting. Windows allows neither character in a name, so this is Linux, BSD and macOS only.
+	- What goes wrong without it: files whose names match go in or are left out along with it, and the job still reports success.
+
+- Add `-spd` at run time when the line runs 7-Zip and doesn't have it. The saved line isn't changed.
+	- A line that runs some other program is left alone.
+
+- rar has no such switch, so it keeps refusing a name with `*` or `?`, as it does today.
+
 ## Open questions
 
-- `-spd` in an edited 7z command line. The built-in lines have it. A line edited in the settings keeps what was typed, so one edited before `-spd` was added, or with it taken out, lets 7-Zip read `*` and `?` as wildcards again.
-	- Where it matters: a name handed to 7-Zip with `*` or `?` in it. That is a selected item or a left-out folder when compressing, and the archive's own path when extracting. Windows allows neither character in a name, so this is Linux, BSD and macOS only.
-	- What goes wrong: files whose names match go in or are left out along with it, and the job still reports success. When extracting, other archives that match come out too.
-	- Choices:
-		- Refuse the job when a name has `*` or `?` and the line has no `-spd`. The message names the setting and says to add `-spd` or clear the line. This is what rar gets today, since it has no such switch at all.
-		- Add `-spd` at run time when it's missing. Nothing to see, but it changes a line someone wrote, and breaks one that runs something other than 7-Zip.
-		- Make it a marker that warns when left out. The job would still run wrong.
-	- Suggest refusing. It only stops a job that would go wrong, and it's the same check rar already has, so one check in the core covers both.
+- A selected link to a folder on another filesystem, with Symlinks on "Follow". "Follow other filesystems" is disabled then, since no folder is selected, and it's unchecked by default. The link points onto another filesystem, so the scan won't follow it, and what it points to never goes in.
+	- Either enable "Follow other filesystems" for a selected link too, or let a selected link be followed onto another filesystem whatever that option says.
