@@ -182,7 +182,9 @@ VERSION_MANIFEST="source/meson.build"
 
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 ## Stage 6: distributable packages - READY.
-## Each entry is "label|shell command"; a failure warns and the rest still run.
+## Each PACKAGE_CMDS entry is "label|shell command"; a failure warns and the rest
+## still run. PACKAGE_CHECKS entries run after them, the same way, but a failure
+## stops the run before dogfood and publish; exit 77 only warns.
 ## Both steps work from what the per-platform release lanes already produced, so
 ## nothing is rebuilt here:
 ##   - .deb and .rpm are made from the Linux release tarball, and install the same
@@ -200,6 +202,8 @@ PACKAGE_ENABLE=1
 PACKAGE_CMDS=(
 	"Linux .deb + .rpm|bash cicd/linux/package.bash"
 	"Windows .zip|bash cicd/win/pack-zip.bash"
+)
+PACKAGE_CHECKS=(
 	"Installer check|bash cicd/linux/test-installers.bash"
 	"Prefix check|bash cicd/linux/test-prefix.bash"
 )

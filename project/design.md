@@ -934,6 +934,8 @@ Windows is one self-contained `nemo-anywhere.exe` with the whole runtime packed 
 
 Packaging builds from what the release lanes already produced and never rebuilds. The Linux tarball becomes a `.deb` and an `.rpm`, both installing the same relocatable prefix under `/opt` plus a launcher, a menu entry and icons in the shared theme. The `.deb`'s dependency versions are read off the built binaries inside the release container rather than on a development box, so the package claims the floor the binary was actually built against; `rpmbuild` derives its own from the ELF. BSD, macOS, AppImage and Flatpak wait on a toolchain.
 
+A packager that fails only warns, so one broken format does not cost the others. The installer and prefix checks run after the packagers and stop the run on a failure, before dogfood and publish.
+
 Cutting a release tags `v<version>` from a clean main and uploads the artifacts. Release notes are the hand-written changelog section for that version, never a generated commit list, falling back to generated notes only so a release is never published blank. A version carrying a pre-release part is published as a prerelease, which matters to the installers: their stable channel takes the newest release with no prerelease part, and the newest prerelease only while no stable release exists.
 
 ### Installing

@@ -10,7 +10,7 @@
 ##	  stage: it needs git, which the build container does not have, and it runs
 ##	  in well under a second. The other script tests are here for the same
 ##	  reason - git, pwsh or python3, none of them in the container - and so the
-##	  merge gate runs them. A packages-stage failure only warns.
+##	  merge gate runs them. The packages stage never runs in the gate.
 ##	- A script test that cannot run on this box exits 77 and says why, which is
 ##	  not a failure here.
 ##	- Syntax: lint.bash [base-branch]   (passed through to the C check)
@@ -41,6 +41,7 @@ else
 fi
 
 bash "${here}/../hooks/test-pre-push.bash"
+bash "${here}/test-package-checks.bash"
 py=""
 for cand in python3 python; do
 	if command -v "$cand" >/dev/null 2>&1; then py="$cand"; break; fi
