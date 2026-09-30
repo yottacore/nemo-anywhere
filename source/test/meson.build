@@ -96,11 +96,11 @@ test('rdjjz89r Config store test',
 
 # Counts allocations through its own malloc, which only glibc allows.
 if not is_windows
-  test('rj4jbn1b Config read cost test',
-    executable('test-nemo-config-reads',
-      [ 'test-nemo-config-reads.c' ],
+  test('rj4jbn1b Allocations per read test',
+    executable('test-nemo-read-allocations',
+      [ 'test-nemo-read-allocations.c' ],
       include_directories: [ rootInclude, ],
-      dependencies: [ glib, nemo_private, test_scratch ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
     ),
     args: []
   )

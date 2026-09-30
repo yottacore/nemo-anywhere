@@ -1,6 +1,6 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 
-/* test-nemo-config-reads.c - what reading a setting costs.
+/* test-nemo-read-allocations.c - what the reads made per icon and per row cost.
 
    Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu).
 
@@ -20,12 +20,17 @@
    Boston, MA 02110-1335, USA.
 */
 
-/* Settings are read per icon hover, so a read of a flag or a number makes no
- * heap allocation: the "group.key" path is built once per key, not per read.
- * Counted rather than timed, so a busy box cannot move it. Every flag and
- * number in the key table is read a thousand times, and the bar is one
- * allocation per ten reads. None is made today; building the path per read
- * made two.
+/* Heap allocations counted, rather than time, so a busy box cannot move it.
+ *
+ * Settings are read per icon hover, so a read of a flag or a number makes no
+ * allocation: the "group.key" path is built once per key, not per read. Every
+ * flag and number in the key table is read a thousand times, and the bar is
+ * one allocation per ten reads. None is made today; building the path per
+ * read made one or two.
+ *
+ * The Ext column asks every row for its extension, which is one string handed
+ * back. The file name is looked at where it sits rather than copied first. The
+ * bar is one and a half allocations per read: one today, two with the copy.
  *
  * The count comes from this program's own malloc, which only glibc lets it
  * put in front of the real one, and which a sanitizer build already owns. */
@@ -34,10 +39,11 @@
 
 #include <stdlib.h>
 
-#include <glib.h>
+#include <gtk/gtk.h>
 
 #include <libnemo-private/nemo-config.h>
 #include <libnemo-private/nemo-config-keys.h>
+#include <libnemo-private/nemo-file.h>
 
 #include "test-scratch.h"
 #include "test-check.h"
@@ -58,7 +64,7 @@ extern void *__libc_malloc (size_t size);
 extern void *__libc_calloc (size_t count, size_t size);
 extern void *__libc_realloc (void *block, size_t size);
 
-/* Per thread, so the file monitor's own work does not land in the count. */
+/* Per thread, so the file monitor's own work is not counted. */
 static __thread gboolean counting;
 static __thread guint64  allocations;
 
@@ -87,6 +93,7 @@ realloc (void *block, size_t size)
 }
 #endif
 
+#ifdef READS_COUNTED
 #define ROUNDS 1000
 
 /* Returns how many reads it made; the values go into sink so none is skipped. */
@@ -118,6 +125,36 @@ read_every_scalar (gint64 *sink)
 	return reads;
 }
 
+static void
+check_extension_reads (const char *tmp)
+{
+	char     *path = g_build_filename (tmp, "report.txt", NULL);
+	char     *uri = g_filename_to_uri (path, NULL, NULL);
+	NemoFile *file = nemo_file_get_by_uri (uri);
+	GQuark    extension = g_quark_from_static_string ("extension");
+	char     *got;
+	guint64   reads;
+
+	got = nemo_file_get_string_attribute_q (file, extension);
+	check (g_strcmp0 (got, "txt") == 0);
+	g_free (got);
+
+	allocations = 0;
+	counting = TRUE;
+	for (reads = 0; reads < ROUNDS * 100; reads++)
+		g_free (nemo_file_get_string_attribute_q (file, extension));
+	counting = FALSE;
+
+	g_print ("extension: %" G_GUINT64_FORMAT " reads, %" G_GUINT64_FORMAT " allocations\n",
+		 reads, allocations);
+	check (allocations * 2 < reads * 3);
+
+	nemo_file_unref (file);
+	g_free (uri);
+	g_free (path);
+}
+#endif
+
 int
 main (int argc, char *argv[])
 {
@@ -130,7 +167,9 @@ main (int argc, char *argv[])
 	guint64 reads = 0;
 	int     round;
 
-	tmp = test_scratch_config_home ("nemo-config-reads-XXXXXX");
+	tmp = test_scratch_config_home ("nemo-read-allocations-XXXXXX");
+	/* A file object looks up the icon theme, which wants a screen. */
+	gtk_init_check (&argc, &argv);
 	nemo_config_init ();
 
 	/* The first pass builds the key index and opens every group, once. */
@@ -141,15 +180,17 @@ main (int argc, char *argv[])
 		reads += read_every_scalar (&sink);
 	counting = FALSE;
 
-	g_print ("%" G_GUINT64_FORMAT " reads, %" G_GUINT64_FORMAT " allocations\n",
+	g_print ("settings: %" G_GUINT64_FORMAT " reads, %" G_GUINT64_FORMAT " allocations\n",
 		 reads, allocations);
 	check (allocations * 10 < reads);
+
+	check_extension_reads (tmp);
 
 	nemo_config_shutdown ();
 	g_free (tmp);
 
 	if (failures == 0)
-		g_print ("nemo-config-reads: all checks passed\n");
+		g_print ("nemo-read-allocations: all checks passed\n");
 
 	return failures == 0 ? 0 : 1;
 #endif
