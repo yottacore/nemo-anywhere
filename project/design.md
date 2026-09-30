@@ -393,6 +393,8 @@ The file cache is the fourth store. It is a private SQLite database under the us
 
 - Only one process prunes at a time. The claim is a row in the database, taken in a write transaction, so SQLite's own locking decides who wins. That works the same on every platform, where a lock file would need a separate answer for Windows. The claim carries a heartbeat, and one nobody has touched for ten minutes belongs to a process that died and is taken over.
 
+- Both rules go by a thumbnail's age, the later of when it was made and when it was last drawn, and that age is indexed. Each batch is picked holding the write lock, so it walks the index rather than sorting the whole table while other windows wait to write.
+
 - The space goes back a few pages at a time with incremental vacuum rather than a full VACUUM. A full one holds the write lock for as long as it takes to copy the whole file, and every other copy would wait on it.
 
 - Quitting stops a pass part way through, and it lets go of its claim.
