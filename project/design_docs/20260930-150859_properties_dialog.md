@@ -176,11 +176,9 @@ A name in a folder's `.hidden` file is hidden, on every platform.
 
 - A name in `.hidden` counts under the hidden files switch, not the dot-files one, since its name isn't what hides it. Off Windows GLib reports both kinds as one, so the app tells them apart by the leading dot.
 
-- With the flag first in line, a name in `.hidden` only hides a file that can't take the flag. See [Open questions](#open-questions).
+- With the flag first in line, a name in `.hidden` only hides a file that can't take the flag.
 
 ### Open questions
-
-- Whether a name in `.hidden` should still hide a file whose flag is clear, on Windows, macOS and FreeBSD. With the flag first it doesn't, so on those platforms `.hidden` only counts on a drive that can't store the flag. That goes against honoring `.hidden` on Windows so a drive shared with Linux looks the same on both.
 
 - Whether the counting choices are remembered. They're the link rows and the two filesystem boxes above.
 	- Remembered: they come back as last set, as the Compress dialog's do. A folder counted with links followed shows that total again next time, and nothing says it isn't the default count.
