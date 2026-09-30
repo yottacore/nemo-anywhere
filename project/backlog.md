@@ -44,13 +44,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Design: [20260929_compression.md](design_docs/20260929_compression.md). The requirements, decisions and open questions are there.
 	- Requirements:
 		- Deselect and disable options the archiver can't do.
-		- Symlinks and Junctions as radio groups, plus a mounted filesystems option, each with a live size change. A total size beside Cancel and OK.
+		- Symlinks and Junctions as radio groups, plus nested and other filesystems options, each with a live size change. A total size beside Cancel and OK.
 		- Rename the delete box, and say why a delete check failed.
 		- Volume sizes say what each is for.
 		- A pre-scan progress bar after OK.
 		- Keep compress and extract modular, for a possible split to their own project.
 	- Progress log:
 		- 20260929-161500: design moved to its own doc, with the new size counting. Five of the eight old questions are answered there.
+		- 20260929-173000: answers folded in. A nested filesystems option, exact totals for files with more than one path, dangling links under Ignore, the library's 7z storing links, and the order of the code split. One question left, on `-spd`.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
 
 - Code review 20260928 item 1. Zooming while thumbnails render can store a small thumbnail as full size, and it is never made again.
@@ -190,6 +191,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20260929-070928: Reworked for the decision below. Links that lead nowhere now go in as links. Leaving them out with a warning is kept only where the tool cannot keep them.
 	- Decisions:
 		- 20260929: every format stores a link that leads nowhere as a link, where the format and tool can, even when links are otherwise followed. Leaving it out with a warning is only the fallback.
+		- 20260929: under the Compress dialog reset, "Ignore" leaves these links out too. "Follow" and "Store" keep them. Nothing changes here until the reset is built.
 	- Origin: 6c2418f, 20260820. Widened on Windows by 09506ec, 20260926 (bugs), which took link storing away from 7z there. Regression of that fix on Windows. Confirmed.
 	- Note: the zip writer did not warn either. For a link to nothing, GIO answers with the link itself rather than failing, so the scan's "dangling" branch never ran and every writer left the link out without a word.
 	- Actual fix: the library writer keeps each link that leads nowhere as a link, in every format it writes, 7z included, and still follows the other links. 7z and rar keep links only all or none. So those links go in first, by a run of their own that keeps links, and the real run adds the rest to that archive, following links as before. If that first run fails, the links are left out and named instead. The delete check counts a link that went in as in.
