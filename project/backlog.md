@@ -36,7 +36,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
 	- Type: Enhancement
-	- Status: Waiting for answers
+	- Status: Queued
 	- Opened: 20260929-101432
 	- Opened by: t00mietum
 	- Related IDs: 2026092813381404, 2026092813381416
@@ -55,13 +55,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20260929-161500: design moved to its own doc, with the new size counting. Five of the eight old questions are answered there.
 		- 20260929-173000: answers folded in. A nested filesystems option, exact totals for files with more than one path, dangling links under Ignore, the library's 7z storing links, and the order of the code split. One question left, on `-spd`.
 		- 20260929-190000: `-spd` is added at run time, 7-Zip is used first for 7z, and Options opens by itself and gets a reset button. Other filesystems is for folders only. One question left, on a selected link to another filesystem.
+		- 20260930-090000: a link onto another filesystem is followed only when both options are on. The reset button also collapses Options, and the store option's flyover says when it forces one thread. The settings comments on the command lines now say they are base flags. No questions left.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
 
 - Code review 20260928 item 1. Zooming while thumbnails render can store a small thumbnail as full size, and it is never made again.
 	- ID: 2026092813381401
 	- Type: Bug
 	- Status: Waiting for testing
-	- Needs local test suite run?: yes, the full Linux suite.
+	- Needs local test suite run?: no. The full Linux suite passed 136 of 136 on 20260930.
 	- Priority|Severity: High
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
@@ -84,7 +85,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026092813381402
 	- Type: Bug
 	- Status: Waiting for testing
-	- Needs local test suite run?: yes, the full Linux suite.
+	- Needs local test suite run?: no. The full Linux suite passed 136 of 136 on 20260930.
 	- Priority|Severity: High
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
@@ -107,7 +108,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026092813381403
 	- Type: Bug
 	- Status: Waiting for testing
-	- Needs local test suite run?: yes, the full Linux suite.
+	- Needs local test suite run?: no. The full Linux suite passed 136 of 136 on 20260930.
 	- Needs external testing: Windows. Edit link on a symlink named .lnk gets the target editor, and the Properties shortcut page does not show for one.
 	- Priority|Severity: Avg
 	- Opened: 20260928-133814
@@ -131,7 +132,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026092813381412
 	- Type: Bug
 	- Status: Waiting for testing
-	- Needs local test suite run?: yes, the full Linux suite.
+	- Needs local test suite run?: no. The full Linux suite passed 136 of 136 on 20260930.
 	- Needs external testing: Windows. The redo test on a real box, where it also covers a junction and a shortcut the shell reads.
 	- Priority|Severity: Avg
 	- Opened: 20260928-133814
@@ -153,7 +154,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026092813381414
 	- Type: Bug
 	- Status: Waiting for testing
-	- Needs local test suite run?: yes, the full Linux suite.
+	- Needs local test suite run?: no. The full Linux suite passed 136 of 136 on 20260930.
 	- Needs external testing: a case-insensitive file system, such as macOS or a Linux folder with case folding on. The test finds out for itself which spellings name one entry.
 	- Priority|Severity: Avg
 	- Opened: 20260928-133814
@@ -177,7 +178,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026092813381404
 	- Type: Bug
 	- Status: Waiting for testing
-	- Needs local test suite run?: yes, the full Linux suite.
+	- Needs local test suite run?: no. The full Linux suite passed 136 of 136 on 20260930.
 	- Needs external testing: Windows. The archive combinations test. There zip, tar and rar should keep a link that leads nowhere as a link, while 7z leaves it out with the warning, since 7z keeps no links on Windows. Also a link with a name that is not plain ASCII, since 7z and rar on Windows may print names in the console code page, which would fail the job as before.
 	- Priority|Severity: Avg
 	- Opened: 20260928-133814
@@ -212,7 +213,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026092813381417
 	- Type: Bug
 	- Status: Waiting for testing
-	- Needs local test suite run?: yes, the full Linux suite.
+	- Needs local test suite run?: no. The full Linux suite passed 136 of 136 on 20260930.
 	- Needs external testing: Windows. A hardlink of a selected file symlink is a second name for the file, with Developer Mode on so the link test can make symlinks.
 	- Priority|Severity: Low
 	- Opened: 20260928-133814
@@ -255,7 +256,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026092813381416
 	- Type: Bug
 	- Status: Waiting for testing
-	- Needs local test suite run?: yes, the full Linux suite.
+	- Needs local test suite run?: no. The full Linux suite passed 136 of 136 on 20260930.
 	- Needs external testing: Windows. The 7z lines now carry `-spd`, so the archive combinations and extract job tests there show 7-Zip still takes them.
 	- Priority|Severity: Low
 	- Opened: 20260928-133814

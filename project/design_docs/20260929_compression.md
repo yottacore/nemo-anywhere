@@ -35,7 +35,6 @@ Status: design pass, 2026-09-29. None of it is built yet. The backlog item is 20
 - [Archiver programs](#archiver-programs)
 	- [7-Zip first for 7z](#7-zip-first-for-7z)
 	- [Wildcards in an edited 7-Zip line](#wildcards-in-an-edited-7-zip-line)
-- [Open questions](#open-questions)
 
 <!-- /TOC -->
 
@@ -75,6 +74,7 @@ Status: design pass, 2026-09-29. None of it is built yet. The backlog item is 20
 
 - Add a button or icon next to the "Options" expander, to reset to default.
 	- It puts every choice under Options back to its default, and drops the remembered ones from the settings file.
+	- Then it collapses Options.
 	- Disabled when everything is already at default.
 
 ### Options the writer can't do
@@ -109,6 +109,7 @@ The options and workarounds got complex and confusing. This is a reset.
 
 - The library's 7z writer offers "Store as Symlinks". It already keeps links that lead nowhere as links.
 	- 7-Zip is used first for 7z where it's installed (see [7-Zip first for 7z](#7-zip-first-for-7z)). So this matters on Windows, where 7-Zip leaves links out. A job that stores links goes to the library there, on one thread.
+	- When that is the case, the flyover text for "Store as Symlinks" says it forces single-threaded compression.
 	- With a password or volumes the job still needs 7-Zip, so on Windows the choice is disabled.
 
 - On Windows a folder mount point and a junction are the same kind of reparse point. One that points at a whole volume counts as a mount point only.
@@ -150,9 +151,11 @@ The options and workarounds got complex and confusing. This is a reset.
 		- Checked by default.
 	- [ ] Follow other filesystems (size Δ: N)
 		- Was "Follow across mounted filesystems".
-		- Unchecked by default.
+		- Never checked by default.
 	- "Follow nested filesystems" is disabled unless a folder or link is selected (of any type).
 	- "Follow other filesystems" is disabled unless a folder is selected.
+
+- A link that points onto a nested or other filesystem is followed only when both are on: its link option, and that filesystem option. Either one off, and it isn't followed. That's the same as a link to a local folder with Follow off.
 
 - Nested means the same pool or volume on both sides of the mount: one ZFS pool, one Btrfs filesystem, one APFS container. Anything else is another filesystem.
 
@@ -262,6 +265,8 @@ How to calculate the five different sizes shown.
 
 ## Archiver programs
 
+- The command lines in the settings are base flags. The dialog adds to them, or changes them, as a job needs. They're there to future-proof, or to adjust for a slightly different version of a program, and otherwise shouldn't need editing. The comment above each one in the settings file says so.
+
 ### 7-Zip first for 7z
 
 - Where 7-Zip is installed, 7z archives go to it rather than the library. It compresses on as many threads as the settings allow.
@@ -280,8 +285,3 @@ How to calculate the five different sizes shown.
 	- A line that runs some other program is left alone.
 
 - rar has no such switch, so it keeps refusing a name with `*` or `?`, as it does today.
-
-## Open questions
-
-- A selected link to a folder on another filesystem, with Symlinks on "Follow". "Follow other filesystems" is disabled then, since no folder is selected, and it's unchecked by default. The link points onto another filesystem, so the scan won't follow it, and what it points to never goes in.
-	- Either enable "Follow other filesystems" for a selected link too, or let a selected link be followed onto another filesystem whatever that option says.

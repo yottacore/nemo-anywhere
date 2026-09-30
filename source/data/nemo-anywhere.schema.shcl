@@ -26,22 +26,22 @@ field: appearance.mode
 field: archive.create-with-7z
 	type: string
 	default: "{{PROGRAM}} a {{FORMAT}} {{LEVEL}} {{THREADS}} -y -bsp1 -spd {{PASSWORD}} {{SPLIT}} {{SOLID}} {{LINKS}} -- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}"
-	desc: Command line 7-Zip is run with to create an archive. Each {{NAME}} stands for something the Compress dialog fills in; drop one and that option stops working. Empty the line for the built-in one.
+	desc: Command line 7-Zip is run with to create an archive. Each {{NAME}} stands for something the Compress dialog fills in; drop one and that option stops working. Base flags only, which the app adds to or changes as a job needs; edit only to suit a different version of the program. Empty the line for the built-in one.
 
 field: archive.create-with-rar
 	type: string
 	default: "{{PROGRAM}} a {{LEVEL}} {{THREADS}} -r -y {{PASSWORD}} {{SPLIT}} {{SOLID}} {{DEDUPE}} {{RECOVERY}} {{LOCK}} {{LINKS}} -- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}"
-	desc: Command line rar is run with to create an archive. Same placeholders as the 7-Zip line, plus {{DEDUPE}}, {{RECOVERY}} and {{LOCK}}, which only rar has.
+	desc: Command line rar is run with to create an archive. Same placeholders as the 7-Zip line, plus {{DEDUPE}}, {{RECOVERY}} and {{LOCK}}, which only rar has. Base flags only, which the app adds to or changes as a job needs; edit only to suit a different version of the program.
 
 field: archive.extract-with-7z
 	type: string
 	default: "{{PROGRAM}} x -y -bsp1 -spd {{PASSWORD}} -o{{TARGET_FOLDER}} -- {{SOURCE_ARCHIVE}}"
-	desc: Command line 7-Zip is run with to unpack an archive. Empty the line for the built-in one.
+	desc: Command line 7-Zip is run with to unpack an archive. Base flags only, which the app adds to or changes as a job needs; edit only to suit a different version of the program. Empty the line for the built-in one.
 
 field: archive.extract-with-rar
 	type: string
 	default: "{{PROGRAM}} x -y {{PASSWORD}} -- {{SOURCE_ARCHIVE}} {{TARGET_FOLDER_WITH_SEPARATOR}}"
-	desc: Command line rar or unrar is run with to unpack an archive. Empty the line for the built-in one.
+	desc: Command line rar or unrar is run with to unpack an archive. Base flags only, which the app adds to or changes as a job needs; edit only to suit a different version of the program. Empty the line for the built-in one.
 
 field: archive.last-each
 	type: bool
