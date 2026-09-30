@@ -10,7 +10,12 @@
 ##	   - push to main         -> also a version-bump guard: source/meson.build must
 ##	     be a strict version increase over what's already on main, and (once one
 ##	     exists) the README "Release-<ver>" badge must match. So a release merge
-##	     can't ship the same-or-lower version.
+##	     can't ship the same-or-lower version. Both are read from the commit
+##	     being pushed, not the working tree.
+##	   - push to main         -> refused when the tracked files differ from the
+##	     commit being pushed: another branch checked out, or uncommitted edits.
+##	     The gate builds and lints the working tree, so it would pass or fail
+##	     something other than what is pushed.
 ##	   - any other branch     -> not gated. dev included: a chunk is built and
 ##	     tested before it is merged there, and a full run's own publish would
 ##	     only repeat the checks it just made.
@@ -71,15 +76,12 @@ run_gate(){ ((gate_ran)) && return 0; gate_ran=1
 while read -r _ localsha remoteref remotesha; do
 	[[ "$localsha" == "$z" ]] && continue          # branch delete: skip
 	branch="${remoteref#refs/heads/}"
-	case "$branch" in
-		main) run_gate ;;
-		*) continue ;;
-	esac
+	[[ "$branch" == "main" ]] || continue
 
-	## Version-bump guard: main only, and only when main already has a version to
-	## compare against (skips the very first push to main).
-	if [[ "$branch" == "main" && "$remotesha" != "$z" ]]; then
-		newver="$(_ver_from "${root}/source/meson.build")"
+	## Version-bump guard, only when main already has a version to compare
+	## against (skips the very first push to main).
+	if [[ "$remotesha" != "$z" ]]; then
+		newver="$(git show "${localsha}:source/meson.build" 2>/dev/null | _ver_from /dev/stdin || true)"
 		oldver="$(git show "${remotesha}:source/meson.build" 2>/dev/null | _ver_from /dev/stdin || true)"
 		if [[ -n "$oldver" && -n "$newver" ]]; then
 			order=0
@@ -92,11 +94,21 @@ while read -r _ localsha remoteref remotesha; do
 		fi
 		## README release badge must match (once such a badge exists). shields.io
 		## escapes '-' as '--'. No badge yet = nothing to enforce (first release adds it).
-		if grep -q "Release-[^ )]*-" "${root}/README.md" 2>/dev/null; then
+		readme="$(git show "${localsha}:README.md" 2>/dev/null || true)"
+		if grep -q "Release-[^ )]*-" <<<"$readme"; then
 			badge_ver="${newver//-/--}"
-			grep -q "Release-${badge_ver}-" "${root}/README.md" || { echo "FAILED: README release badge != ${newver}; update it on dev before the release merge" >&2; exit 1; }
+			grep -q "Release-${badge_ver}-" <<<"$readme" || { echo "FAILED: README release badge != ${newver}; update it on dev before the release merge" >&2; exit 1; }
 		fi
 	fi
+
+	## Untracked files are left out: the lints only ever add them to what they check.
+	differs="$(git -C "$root" diff --name-only "$localsha" --)"
+	if [[ -n "$differs" ]]; then
+		echo "FAILED: the working tree is not the commit pushed to main (${localsha:0:12}), so the gate would test something else. Check that commit out, with nothing uncommitted. Differs:" >&2
+		head -20 <<<"$differs" >&2
+		exit 1
+	fi
+	run_gate
 done
 
 exit 0

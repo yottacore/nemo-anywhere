@@ -4,7 +4,9 @@
 ##	  must carry a strictly higher version, with a prerelease below its own
 ##	  release - which plain sort -V gets backwards, so a beta to final push was
 ##	  once refused. First the compare on its own, then the whole hook run
-##	  against a throwaway repo, with a stand-in for the gate it calls.
+##	  against a throwaway repo, with a stand-in for the gate it calls. The
+##	  version and badge come from the commit pushed, never the working tree,
+##	  and the gate is refused when the tree is not that commit.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/hooks/test-pre-push.bash
 ##	- Test ID: rhtrxr80
@@ -91,7 +93,7 @@ fCommitVersion(){
 }
 
 ## old new expected-exit expected-text. The hook reads the new version from the
-## work tree and the old one from the remote sha git hands it.
+## local sha git hands it and the old one from the remote sha.
 hookCases=(
 	"1.0.0-beta2|1.0.0|0|"
 	"1.0.0|1.0.0-rc.1|1|is not greater than"
@@ -119,8 +121,52 @@ out="$(cd "$repo" && printf 'refs/heads/dev %s refs/heads/dev %s\n' "$newsha" "$
 	| bash "$hook" origin example.invalid 2>&1)" || rc=$?
 [[ "$rc" == "0" ]] || fFail "hook refused a push to dev: ${out}"
 
+## $1 label, $2 expected exit, $3 expected text; pushes $newsha over $oldsha to
+## main from whatever state the repo is in.
+fPushMain(){
+	local rc=0 out
+	out="$(cd "$repo" && printf 'refs/heads/main %s refs/heads/main %s\n' "$newsha" "$oldsha" \
+		| bash "$hook" origin example.invalid 2>&1)" || rc=$?
+	if [[ "$rc" != "$2" ]]; then
+		fFail "hook, ${1}: exit ${rc}, expected ${2}; said: ${out}"
+	elif [[ -n "$3" && "$out" != *"$3"* ]]; then
+		fFail "hook, ${1}: no '${3}'; said: ${out}"
+	fi
+}
+
+## The bump sits only in the working tree, so what is pushed has none.
+oldsha="$(fCommitVersion 2.0.0)"
+echo x >> "${repo}/notes"
+newsha="$(fCommitVersion 2.0.0)"
+printf "project('nemo-anywhere', 'c', version : '2.0.1', meson_version : '>=0.56.0')\n" > "${repo}/source/meson.build"
+fPushMain "bump only uncommitted" 1 "does not bump"
+git -C "$repo" checkout -q -- source/meson.build
+
+## A real bump pushed while another branch, still on the old version, is checked out.
+newsha="$(fCommitVersion 2.0.1)"
+git -C "$repo" checkout -q "$oldsha"
+fPushMain "other commit checked out" 1 "not the commit pushed"
+git -C "$repo" checkout -q "$newsha"
+fPushMain "the pushed commit checked out" 0 ""
+
+## Uncommitted edits are refused too; untracked files are not.
+echo y >> "${repo}/notes"
+fPushMain "uncommitted edit" 1 "not the commit pushed"
+git -C "$repo" checkout -q -- notes
+echo z > "${repo}/untracked"
+fPushMain "untracked file" 0 ""
+rm -f "${repo}/untracked"
+
+## The badge is read from the pushed commit: wrong there, right only in the tree.
+oldsha="$newsha"
+printf '![Release](https://img.shields.io/badge/Release-2.0.1-blue)\n' > "${repo}/README.md"
+newsha="$(fCommitVersion 2.0.2)"
+printf '![Release](https://img.shields.io/badge/Release-2.0.2-blue)\n' > "${repo}/README.md"
+fPushMain "badge right only in the tree" 1 "README release badge"
+git -C "$repo" checkout -q -- README.md
+
 if ((failures)); then
 	fEcho "FAILED: pre-push version guard, ${failures} problem(s)"
 	exit 1
 fi
-fEcho "OK: pre-push version guard (${#cases[@]} compares, $(( ${#hookCases[@]} + 1 )) hook runs)"
+fEcho "OK: pre-push version guard (${#cases[@]} compares, $(( ${#hookCases[@]} + 7 )) hook runs)"

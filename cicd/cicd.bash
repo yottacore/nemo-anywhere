@@ -317,7 +317,8 @@ fi
 ## the pre-push hook for main, so nothing reaches the release branch unverified
 ## even outside a full run. The test stage builds first, since there is
 ## no build stage here - so what is compiled is the working tree rather than the
-## sha being pushed. Source tree untouched, build directory written to.
+## sha being pushed. The hook refuses a push where the two differ. Source tree
+## untouched, build directory written to.
 if ((gate)); then
 	fSection "Gate 1/3  Format check"
 	if declare -p FMT_CHECK_CMD &>/dev/null && ((${#FMT_CHECK_CMD[@]})); then

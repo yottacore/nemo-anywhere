@@ -870,6 +870,8 @@ The one deliberate exception is a release-only workflow, `.github/workflows/rele
 
 - The same hook blocks a push to main unless `source/meson.build` is a strict version increase over what is already there.
 
+- Both the version and the README badge are read from the commit being pushed. The hook also refuses when the tracked files differ from that commit, since the gate builds and tests the working tree. So a release is pushed from a clean checkout of main.
+
 ### Versions and build numbers
 
 - `source/meson.build` is the only place the version is written. Everything else reads it.
