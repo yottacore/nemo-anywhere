@@ -94,6 +94,18 @@ test('rdjjz89r Config store test',
   timeout: 90         # a hundred external rewrites, each waiting on the file monitor
 )
 
+# Counts allocations through its own malloc, which only glibc allows.
+if not is_windows
+  test('rj4jbn1b Config read cost test',
+    executable('test-nemo-config-reads',
+      [ 'test-nemo-config-reads.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, nemo_private, test_scratch ],
+    ),
+    args: []
+  )
+endif
+
 test('rh325v70 Delete test guard arming test',
   executable('test-nemo-delete-testguard',
     [ 'test-nemo-delete-testguard.c' ],
