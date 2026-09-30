@@ -970,6 +970,21 @@ if not is_windows
     args: []
   )
 
+  # Preloaded into the program, so it links nothing of ours.
+  list_view_counts = shared_module('test-nemo-list-view-counts',
+    [ 'test-nemo-list-view-counts.c' ],
+    dependencies: [ gtk, cc.find_library('dl', required: false) ],
+  )
+  test('rj4jkr22 List view work per row test',
+    executable('test-nemo-list-view-work',
+      [ 'test-nemo-list-view-work.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, list_view_counts ],
+    timeout: 180
+  )
+
   test('rhtq57n4 Clean start test',
     executable('test-nemo-startup-clean',
       [ 'test-nemo-startup-clean.c' ],
