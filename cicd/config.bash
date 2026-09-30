@@ -95,8 +95,8 @@ TEST_CMD=(bash "${DOCKER_RUN}" "tests" "NEMO_TEST_JOBS=${CICD_MAX_JOBS:-2} bash 
 CICD_CONTAINERS=(nemo-build nemo-build-jammy nemo-winbuild)
 
 ## Stage 3 (after tests): lints - READY. cicd/utility/lint.bash runs the C check
-## over the CHANGED C files and shellcheck over the project's own scripts.
-## Nothing is rewritten, and the inherited tree is never linted whole. Each
+## (the changed C files on a feature branch, the whole tree on dev and main) and
+## shellcheck over the project's own scripts. Nothing is rewritten. Each
 ## checker warn-skips on a box that lacks its tool, so the probe only has to say
 ## that a shell exists - the cppcheck probe that used to sit here took the whole
 ## stage down with it, Bash check included.

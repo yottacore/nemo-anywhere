@@ -222,6 +222,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual cause: the hook read the version and the README badge from the working tree, and the gate builds whatever tree is checked out.
 	- Actual fix: the version and badge are read from the commit being pushed. A push to main is refused when the tracked files differ from that commit, as with another branch checked out or an uncommitted edit. Untracked files are allowed. The container runner also refuses a clone other than the one its container has mounted, such as a second worktree, which it would otherwise have tested instead.
 	- Note: a release is now pushed from a clean checkout of main in the main clone. A merge made while another branch is checked out still works, but main has to be checked out, with nothing uncommitted, before the push.
+	- Signed off: 20260930, a clean main in the main clone for a release push.
 	- Swept: both reads in the version guard, the Windows gate (the same check runs before it), and the container runner the gate's build and tests go through. The release and cross builds call the container directly, but a full run from another clone now stops at the debug build, before they run.
 	- Branch: gatefix
 	- Commit: 683eae0
@@ -231,7 +232,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026092813381407
 	- Type: Bug
 	- Status: Waiting for testing
-	- Needs external testing: Windows. The lint stage under MSYS2 runs the new scope test with the Windows git.
+	- Needs local test suite run?: yes. The full Linux suite, since file operation messages go through the changed string formatter.
+	- Needs external testing: Windows. The lint stage under MSYS2 runs the new scope test with the Windows git, and the whole-tree cppcheck pass.
 	- Priority|Severity: Avg
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
@@ -241,13 +243,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: yes, 20260928, Linux.
 	- Origin: 0d92350, 20260802. Not seen by an earlier round. Confirmed.
 	- Actual cause: dev and main only take merges, so the changes since the merge base with dev are always empty there.
-	- Against: lint scoped by file, in the review's Decisions. File scoping stays. Only the range on dev and main changed.
-	- Actual fix: on dev, main or a named base, the list is what the latest merge brought in, from its first parent up to HEAD, plus anything uncommitted. On main right after a release merge, that is the whole release. Feature branches are unchanged. The lint names the commit its list starts from.
-	- Note: the other choice was the whole first-party tree. It takes about 10 seconds but has 15 findings in 3 files today, which would need fixing or suppressing first. The latest merge changes no source and is easy to swap later.
-	- Swept: the Windows pipeline runs the same C lint through the lint stage. No other check picks its files by a diff against dev.
-	- Branch: gatefix
-	- Commit: 8116044
-	- Test case: rj3ytty2, C lint scope test: a feature branch, dev after a merge and after a later commit, main after the release merge, an uncommitted edit, and a branch with no C. Fails before the fix and passes after, on Linux.
+	- Against: lint scoped by file, in the review's Decisions. File scoping stays on feature branches. dev and main lint the whole tree, chosen 20260930 over the latest merge.
+	- Actual fix: on dev, main or a named base, cppcheck covers every first-party C file in the tree, plus untracked ones. Vendored code stays out, now `source/cut-n-paste-code/` as well as `vendor/`. Feature branches are unchanged.
+		- The 15 findings a whole-tree pass had are gone. The string formatter uses the standard `va_copy` in place of the glib macro cppcheck could not follow. The conflict dialog leaked two names, and now frees them. The old bus test's one false positive is suppressed inline.
+		- cppcheck runs on half the cores with a build dir, which keeps the cross-file checks. The whole tree takes about 13 seconds, against about 50 on one core.
+	- Swept: the Windows pipeline runs the same C lint through the lint stage. No other check picks its files by a diff against dev. The scope is described in the lint's header, the code style guide, the cicd config and the suppressions file. The Windows script's own wording goes with item 31.
+	- Branch: gatefix, lintall
+	- Commit: 8116044, f63374e, fee3012
+	- Test case: rj3ytty2, C lint scope test: a feature branch, dev after a merge and after a later commit, main after the release merge, untracked and deleted files, a branch with no C and one with an uncommitted edit, and a branch named as the base. Fails against the latest-merge scope and passes after, on Linux. rj46m24q, EEL string check test, and rj46pkw3, Conflict dialog test, for the C fixes. Both pin behavior the fixes kept, so neither fails before them.
+	- Verified: the whole-tree C lint fails with the 15 findings before the C fixes and is clean after. Lint and the test ID check pass.
 
 - Code review 20260928 item 8. A FIFO named .lnk freezes the window.
 	- ID: 2026092813381408
@@ -266,6 +270,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Origin: 673bcbb, 20260924 (lnkread). New ground. Confirmed.
 	- Actual cause: the shortcut reader opened and read any file named `.lnk`, and a FIFO with no writer blocks both. The icon and sort checks looked only at the name and at whether the folder is local. On Windows they never asked whether the file sits on a share.
 	- Against: design.md says a folder shortcut sorts with the folders on every platform. On Windows one that sits on a share now sorts with the files, and design.md says so.
+	- Signed off: 20260930, a shortcut on a share sorts with the files and wears the plain shortcut icon.
 	- Actual fix: the reader opens without blocking and reads only a regular file. The icon and sort place of a shortcut are read only for a regular file that is local and not on a share.
 	- Swept: every shortcut read goes through the one reader, so following one, opening one and the Edit link dialog refuse a FIFO too. The two paths-rewrite calls read the file whole, but only after the reader has read it. The Windows target check and shell icon for a shortcut sit behind the same new gate. The other reads made while a folder lists, `.desktop` link info and thumbnails with their checksums, go by content type, which is `inode/fifo` for a FIFO whatever its name, and both run off the main thread.
 	- Note: opening a shortcut still reads it on the main thread, a recorded known gap. Only the FIFO hang is gone there.

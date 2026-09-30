@@ -1,7 +1,8 @@
 # Suppressions for cppcheck, which cicd/utility/lint-c.bash runs over the C
-# files a branch changed. These used to be two dozen --suppress flags on the
-# command line. Same idea as pyproject.toml and .shellcheckrc: the settings sit
-# in a file, so anything else pointed at this tree can use the same list.
+# files a branch changed, or the whole tree on dev and main. These used to be
+# two dozen --suppress flags on the command line. Same idea as pyproject.toml
+# and .shellcheckrc: the settings sit in a file, so anything else pointed at
+# this tree can use the same list.
 #
 # A suppression that belongs to one line goes in that line's source file as an
 # inline comment instead, which is why --inline-suppr is still passed.
