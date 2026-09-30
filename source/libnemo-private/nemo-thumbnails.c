@@ -507,10 +507,26 @@ nemo_thumbnail_encode (GdkPixbuf *pixbuf, NemoThumbnailFormat *format)
     return g_bytes_new_take (buffer, len);
 }
 
+/* The size and time in `id` were read when the file was queued, or when the
+ * view last looked. True if the file still has them. */
+static gboolean
+stat_unchanged (const char *uri, const NemoFileId *id)
+{
+    NemoFileId now = { 0 };
+    time_t mtime;
+
+    return get_file_mtime (uri, &mtime, &now) &&
+           now.bytes == id->bytes && now.mtime == id->mtime;
+}
+
 /* Checksums the file when making the thumbnail reads all of it anyway, which
  * costs a second pass over bytes the page cache still holds. One worked out
  * on an earlier visit is read back instead: a folder queued ahead asks about
- * every file in it, and on a second visit most are stored already. */
+ * every file in it, and on a second visit most are stored already.
+ *
+ * A file edited since its size and time were read gets no checksum. Stored
+ * with the old size, the new contents' checksum would claim a record no copy
+ * of them could ever match. */
 static void
 learn_digest (NemoCacheDb *db, NemoThumbnailInfo *info)
 {
@@ -528,7 +544,8 @@ learn_digest (NemoCacheDb *db, NemoThumbnailInfo *info)
     if (g_file_peek_path (file) == NULL)
         return;
 
-    info->id.has_digest = nemo_file_digest_file (file, info->id.digest, cancellable, NULL);
+    info->id.has_digest = nemo_file_digest_file (file, info->id.digest, cancellable, NULL) &&
+                          stat_unchanged (info->image_uri, &info->id);
 }
 
 /* Last, once the store has it and the draw is on its way: an attribute write is

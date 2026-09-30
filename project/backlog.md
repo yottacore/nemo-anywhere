@@ -274,6 +274,51 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rhmxm5ah, Windows shortcut reader test, and rhnqqpm8, Folder shortcuts sort with folders test, each with a new FIFO case. Both fail before the fix, stopped after 10 seconds, and pass after, on Linux.
 	- Verified: the Windows cross build compiles. C lint is clean. The link edit, link emblem, link copy, make link shortcut and thumbnail hold tests pass.
 
+- Code review 20260928 item 9. A checksum taken after a file changed keeps that content out of the cache for good.
+	- ID: 2026092813381409
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes. The full Linux suite, once for branch `cachedb`.
+	- Needs external testing: rj40hkdr on a Windows box. It is built for Windows and has only run on Linux.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: a picture edited while its thumbnail is queued is stored with its old size and new checksum. Every later store of that content, under any name, then fails, and the file is made again on every visit.
+	- Reproduced: yes at the database level, 20260928, Linux. Through the thumbnail queue too, 20260930, Linux: a picture edited after the view read its size and time, and before its job ran.
+	- Actual cause: a thumbnail job keeps the size and time from when the view last looked, and checksums the contents as they are when it runs. The checksum is unique on its own, but the lookup matches checksum and size.
+	- Origin: 42adbdf and 0c1612a, 20260921 (thumbdb). New ground. Confirmed.
+	- Actual fix: the job reads the size and time again once the checksum is done, and keeps no checksum if either moved. The store finds a record by checksum alone, and a record found at another size takes the newer size. Records written before this are thrown away with the cache, since item 11 changed the tables.
+	- Swept: the thumbnail job is the only place a checksum is worked out. The other source is the store itself, read back by name, size and time. The checksum written onto the file uses the same checked size and time. Attaching a checksum to a name, which only the tests call today, puts the size right the same way. Lookups by name and by size and time still match the size, as they should.
+	- Note: item 1's rule is unchanged. A job a worker has started still keeps its size and time. The recheck is after the checksum, inside the job.
+	- Note: on Windows the view reads a symlink's own size and time, while the checksum reads what it points at. That was the same mismatch, and such a file now gets no checksum. Read only.
+	- Branch: cachedb
+	- Commit: 4e75a91
+	- Test case: rj40hkdr, Thumbnail of an edited file test. rhd1cv38, File cache store test, with two stores of one checksum at different sizes, under two names. Both fail before the fix and pass after, on Linux.
+	- Verified: those two, and the cache prune, thumbnail store, zoom, hold, order, memory, jobs and file checksum tests, pass three runs in a row on Linux. Lint and the Windows cross build are clean.
+
+- Code review 20260928 item 11. Cache pruning sorts the whole thumbnail table while it holds the write lock.
+	- ID: 2026092813381411
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes. The full Linux suite, once for branch `cachedb`.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: about 1 s per batch at 40k thumbnails, near the 3 s busy timeout at the 2 GiB default. Other windows' stores then fail.
+	- Expected behavior: the file cache item, many processes share the cache without getting in each other's way.
+	- Reproduced: yes for the timing, 20260928, Linux. The failed stores were read only.
+	- Actual cause: both prune rules go by a thumbnail's age, the later of when it was made and when it was last drawn, and nothing indexed it. Each batch sorted or scanned the whole table while holding the write lock.
+	- Origin: 5678432 and 6d52b4b, 20260921 (thumbdb). New ground. Confirmed.
+	- Actual fix: the age is indexed, and both rules' queries walk the index. The index on draw time alone, which nothing used, is gone. The tables changed, so the cache starts over once, on the first run of this version.
+	- Swept: every query the prune runs inside a write. Missing names are picked before the write, in row order. Orphaned records are found by a scan of the records with no sort, fast at 40 thousand. Draw counts, forget and store go by key. There is no other sort in the store.
+	- Note: picking no longer grows with the table, but a batch still holds the write lock for as long as its deletes take. With 40 thousand thumbnails of 16 KB, another window's write waited at most about 1.4 s, against about 1.6 s before. Both are under the 3 s timeout. A cap on bytes per batch would cut it further. Not done here.
+	- Branch: cachedb
+	- Commit: 1a08e33
+	- Test case: rhd69rjr, File cache prune test, with 1500 thumbnails. The prune's own pick queries walk at most one batch and sort nothing. Fails before the fix and passes after, on Linux.
+	- Verified: same runs as item 9.
+
 - Code review 20260928 item 17. Hardlinking a selected symlink links the symlink, not the file.
 	- ID: 2026092813381417
 	- Type: Bug
@@ -363,20 +408,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
 
-- Code review 20260928 item 9. A checksum taken after a file changed keeps that content out of the cache for good.
-	- ID: 2026092813381409
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: a picture edited while its thumbnail is queued is stored with its old size and new checksum. Every later store of that content, under any name, then fails, and the file is made again on every visit.
-	- Reproduced: yes at the database level, 20260928, Linux. The edit-while-queued path was read only.
-	- Actual cause: the checksum is unique on its own, but the lookup matches checksum and size.
-	- Origin: 42adbdf and 0c1612a, 20260921 (thumbdb). New ground. Confirmed.
-	- Test case: none yet. `test-nemo-cache-db` with two stores of one checksum at different sizes.
-
 - Code review 20260928 item 10. A small PSD file can tie up a thumbnail thread for minutes.
 	- ID: 2026092813381410
 	- Type: Bug
@@ -391,20 +422,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual cause: rows of zero length are accepted and padded out, so the work follows the declared size, not the file.
 	- Origin: 056d3e0, 20260921 (thumbs). New ground. Confirmed.
 	- Test case: none yet. The file as a `test-nemo-psd` case and a fuzz seed.
-
-- Code review 20260928 item 11. Cache pruning sorts the whole thumbnail table while it holds the write lock.
-	- ID: 2026092813381411
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: about 1 s per batch at 40k thumbnails, near the 3 s busy timeout at the 2 GiB default. Other windows' stores then fail.
-	- Expected behavior: the file cache item, many processes share the cache without getting in each other's way.
-	- Reproduced: yes for the timing, 20260928, Linux. The failed stores were read only.
-	- Origin: 5678432 and 6d52b4b, 20260921 (thumbdb). New ground. Confirmed.
-	- Test case: none yet. A query plan check in `test-nemo-cache-prune`.
 
 - Code review 20260928 item 13. A Windows install for all users may not run for other users.
 	- ID: 2026092813381413

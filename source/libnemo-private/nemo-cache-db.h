@@ -226,6 +226,13 @@ NemoCachePruneResult nemo_cache_db_prune (const NemoCachePruneRules *rules,
 					  gint64                    *removed,
 					  gint64                    *due);
 
+/* For the tests. Runs the queries the prune picks thumbnails with against the
+ * store as it is, and answers the rows they stepped through without an index
+ * to narrow them, and how many sorts they needed. Both have to stay small
+ * however big the table gets, since the prune runs them holding the write
+ * lock. */
+gboolean nemo_cache_db_prune_pick_cost (NemoCacheDb *db, gint64 *rows_walked, gint64 *sorts);
+
 G_END_DECLS
 
 #endif /* NEMO_CACHE_DB_H */

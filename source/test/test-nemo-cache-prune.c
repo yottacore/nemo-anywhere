@@ -322,6 +322,33 @@ check_size (NemoCacheDb *db)
 	check (query_int ("PRAGMA freelist_count") == 0);
 }
 
+/* The prune picks each batch holding the write lock, and every other window's
+ * store waits behind it. Picking by age used to sort the whole thumbnail
+ * table, about a second a batch at 40 thousand, against a 3 second busy
+ * timeout. What sqlite reports for the real queries has to stay within one
+ * batch however many rows there are. */
+static void
+check_pick_cost (NemoCacheDb *db)
+{
+	gint64 rows_walked = -1, sorts = -1;
+	gint64 held = 0;
+	int i;
+
+	for (i = 0; i < 1500; i++) {
+		g_autofree char *uri = g_strdup_printf ("file:///many/%04d.jpg", i);
+
+		store (db, uri, 5000 + i, wall () - (i * 7919) % 1500, 16);
+	}
+	nemo_cache_db_usage (db, &held, NULL);
+	check (held >= 1500);
+
+	check (nemo_cache_db_prune_pick_cost (db, &rows_walked, &sorts));
+	g_print ("  prune picks over %" G_GINT64_FORMAT " thumbnails: %" G_GINT64_FORMAT
+		 " rows walked, %" G_GINT64_FORMAT " sorts\n", held, rows_walked, sorts);
+	check (sorts == 0);
+	check (rows_walked >= 0 && rows_walked <= 256);
+}
+
 /* A damaged page deep in the file does not stop it opening, so the pass is what
  * finds it. It leaves a marker, and the next open starts over. */
 static void
@@ -398,6 +425,7 @@ main (int argc, char *argv[])
 	check_missing (db);
 	check_age (db);
 	check_size (db);
+	check_pick_cost (db);
 	check_damage ();
 
 	nemo_cache_db_close ();

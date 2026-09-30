@@ -356,6 +356,10 @@ The file cache is the fourth store. It is a private SQLite database under the us
 
 - A file that has to be read in full to make its thumbnail is checksummed at the same time, since its bytes were just read. A copy of it under another name then finds the thumbnail already there.
 
+- The size and time a thumbnail job carries are from when the view last looked. They are read again once the checksum is done, and a file that changed in between gets no checksum that time. Otherwise the new contents' checksum would be stored with the old size.
+
+- A record is found by its checksum alone, as the checksum is what is unique. One found at another size had its size taken before an edit, and the newer size replaces it.
+
 - Reload makes the folder's thumbnails again, as it always has. It forgets the stored copy and stops using the freedesktop one for those files. The freedesktop cache itself is left alone.
 
 - The file's own type icon stays up until its thumbnail is ready. There is no "loading" icon in between, since few themes have one and the stand-in flashed. An edited file keeps its old thumbnail until the new one is made.
@@ -388,6 +392,8 @@ The file cache is the fourth store. It is a private SQLite database under the us
 - A pass is due at random between 4 and 24 hours after the last, and waits until nothing has been drawn for 5 minutes. All three are in the config file. Whoever finishes a pass picks the next time and writes it in the file, so every copy running agrees on it.
 
 - Only one process prunes at a time. The claim is a row in the database, taken in a write transaction, so SQLite's own locking decides who wins. That works the same on every platform, where a lock file would need a separate answer for Windows. The claim carries a heartbeat, and one nobody has touched for ten minutes belongs to a process that died and is taken over.
+
+- Both rules go by a thumbnail's age, the later of when it was made and when it was last drawn, and that age is indexed. Each batch is picked holding the write lock, so it walks the index rather than sorting the whole table while other windows wait to write.
 
 - The space goes back a few pages at a time with incremental vacuum rather than a full VACUUM. A full one holds the write lock for as long as it takes to copy the whole file, and every other copy would wait on it.
 

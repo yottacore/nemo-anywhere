@@ -38,7 +38,7 @@
 
 /* Bumped when the tables change. The store is a cache, so a file written by
  * another version is thrown away rather than migrated. */
-#define SCHEMA_VERSION 3
+#define SCHEMA_VERSION 4
 
 /* How long a statement waits for another process to finish writing. Long enough
  * that a busy window wins rather than dropping its work, short enough that a
@@ -56,6 +56,20 @@
 /* Rows per prune transaction. Small enough that a window waiting to write
  * never waits long. */
 #define PRUNE_BATCH 256
+
+/* A thumbnail's age, for both prune rules. Indexed, so picking a batch walks
+ * the index rather than sorting the whole table under the write lock. The
+ * queries have to spell it the same way for sqlite to use the index. */
+#define THUMBNAIL_AGE "MAX (rendered, stored)"
+
+/* The two ways the prune picks thumbnails, shared with the test hook so it
+ * asks sqlite about the very queries the prune runs. */
+#define OLDEST_SQL \
+	"SELECT file_id, LENGTH (image) FROM thumbnails" \
+	" ORDER BY " THUMBNAIL_AGE ", file_id LIMIT " G_STRINGIFY (PRUNE_BATCH)
+#define OLDER_THAN_SQL \
+	"SELECT file_id FROM thumbnails" \
+	" WHERE " THUMBNAIL_AGE " < ? LIMIT " G_STRINGIFY (PRUNE_BATCH)
 
 /* Pages handed back to the disk per step while compacting. */
 #define COMPACT_STEP_PAGES 256
@@ -115,7 +129,7 @@ static const char SCHEMA[] =
 	"  rendered  INTEGER NOT NULL DEFAULT 0,"
 	"  renders   INTEGER NOT NULL DEFAULT 0,"
 	"  image     BLOB NOT NULL);"
-	"CREATE INDEX IF NOT EXISTS thumbnails_rendered ON thumbnails (rendered);"
+	"CREATE INDEX IF NOT EXISTS thumbnails_age ON thumbnails (" THUMBNAIL_AGE ");"
 	/* The prune's own bookkeeping. Claiming a pass is a write transaction,
 	 * and sqlite already makes those take turns across processes, so two
 	 * copies cannot both think they won. */
@@ -443,11 +457,13 @@ nemo_cache_db_get (void)
 	return db;
 }
 
-/* The only one of the three that is really about the contents. */
+/* The only one of the three that is really about the contents. The checksum
+ * alone, the same as the unique index: a record that paired it with another
+ * size would otherwise never be found, and nothing could be added beside it. */
 static gint64
 file_by_digest (NemoCacheDb *db, const NemoFileId *id)
 {
-	static const char sql[] = "SELECT id FROM files WHERE digest = ? AND bytes = ?";
+	static const char sql[] = "SELECT id FROM files WHERE digest = ?";
 	sqlite3_stmt *stmt;
 
 	if (!id->has_digest)
@@ -458,7 +474,6 @@ file_by_digest (NemoCacheDb *db, const NemoFileId *id)
 		return 0;
 
 	sqlite3_bind_blob (stmt, 1, id->digest, NEMO_CACHE_DIGEST_LEN, SQLITE_STATIC);
-	sqlite3_bind_int64 (stmt, 2, id->bytes);
 
 	return step_id (stmt);
 }
@@ -511,21 +526,6 @@ file_by_stat (NemoCacheDb *db, const NemoFileId *id)
 	return step_id (stmt);
 }
 
-/* The record for what `id` describes, or 0 if there is none yet. */
-static gint64
-file_resolve (NemoCacheDb *db, const char *uri, const NemoFileId *id)
-{
-	gint64 fid;
-
-	fid = file_by_digest (db, id);
-	if (fid == 0)
-		fid = file_by_uri (db, uri, id);
-	if (fid == 0)
-		fid = file_by_stat (db, id);
-
-	return fid;
-}
-
 static gint64
 file_add (NemoCacheDb *db, const NemoFileId *id)
 {
@@ -570,11 +570,41 @@ file_learn_digest (NemoCacheDb *db, gint64 file_id, const NemoFileId *id)
 	return ok;
 }
 
+/* One checksum is one set of contents, so one size. A record found by its
+ * checksum at another size took the size from before an edit, and the size in
+ * hand is the newer. Left alone, lookups that go by size would keep missing. */
+static gboolean
+file_set_bytes (NemoCacheDb *db, gint64 file_id, const NemoFileId *id)
+{
+	static const char sql[] = "UPDATE files SET bytes = ? WHERE id = ? AND bytes <> ?";
+	sqlite3_stmt *stmt = prep (db, sql, "set size");
+	gboolean      ok;
+
+	if (stmt == NULL)
+		return FALSE;
+
+	sqlite3_bind_int64 (stmt, 1, id->bytes);
+	sqlite3_bind_int64 (stmt, 2, file_id);
+	sqlite3_bind_int64 (stmt, 3, id->bytes);
+
+	ok = db_ok (db, sqlite3_step (stmt), "set size");
+	sqlite3_finalize (stmt);
+
+	return ok;
+}
+
 /* The record for `id`, made if there is none. */
 static gint64
 file_for (NemoCacheDb *db, const char *uri, const NemoFileId *id)
 {
-	gint64 fid = file_resolve (db, uri, id);
+	gint64 fid = file_by_digest (db, id);
+
+	if (fid != 0)
+		return file_set_bytes (db, fid, id) ? fid : 0;
+
+	fid = file_by_uri (db, uri, id);
+	if (fid == 0)
+		fid = file_by_stat (db, id);
 
 	if (fid == 0)
 		return file_add (db, id);
@@ -747,6 +777,9 @@ nemo_cache_db_set_digest (NemoCacheDb *db, const char *uri, const NemoFileId *id
 	target = file_by_digest (db, id);
 	mine   = file_by_uri (db, uri, id);
 
+	if (target != 0 && !file_set_bytes (db, target, id))
+		goto fail;
+
 	if (mine == 0) {
 		/* Nothing known about this path yet, or what was known is stale. */
 		if (target == 0)
@@ -759,10 +792,13 @@ nemo_cache_db_set_digest (NemoCacheDb *db, const char *uri, const NemoFileId *id
 			&& link_path (db, uri, target, id->mtime);
 	}
 
-	if (done)
+	if (done) {
 		done = commit (db);
-	else
-		rollback (db);
+		goto out;
+	}
+
+fail:
+	rollback (db);
 
 out:
 	g_mutex_unlock (&db->lock);
@@ -1606,9 +1642,7 @@ drop_orphans (NemoCacheDb *db, GCancellable *cancellable, gint64 *removed)
 static gboolean
 drop_old (NemoCacheDb *db, GCancellable *cancellable, gint64 cutoff, gint64 *removed)
 {
-	static const char sql[] =
-		"DELETE FROM thumbnails WHERE file_id IN (SELECT file_id FROM thumbnails"
-		" WHERE MAX (rendered, stored) < ? LIMIT " G_STRINGIFY (PRUNE_BATCH) ")";
+	static const char sql[] = "DELETE FROM thumbnails WHERE file_id IN (" OLDER_THAN_SQL ")";
 	gint64 changed;
 
 	do {
@@ -1651,9 +1685,7 @@ used_bytes (NemoCacheDb *db)
 static gboolean
 drop_to_size (NemoCacheDb *db, GCancellable *cancellable, gint64 max_bytes, gint64 *removed)
 {
-	static const char pick_sql[] =
-		"SELECT file_id, LENGTH (image) FROM thumbnails"
-		" ORDER BY MAX (rendered, stored), file_id LIMIT " G_STRINGIFY (PRUNE_BATCH);
+	static const char pick_sql[] = OLDEST_SQL;
 	static const char drop_sql[] = "DELETE FROM thumbnails WHERE file_id = ?";
 	g_autoptr (GArray) doomed = g_array_new (FALSE, FALSE, sizeof (gint64));
 	sqlite3_stmt      *stmt;
@@ -1856,4 +1888,53 @@ out:
 		*due_out = due;
 
 	return result;
+}
+
+/* Runs one pick query to the end and adds up what sqlite says it cost. */
+static gboolean
+add_pick_cost (NemoCacheDb *db, const char *sql, gint64 *rows_walked, gint64 *sorts)
+{
+	sqlite3_stmt *stmt = prep (db, sql, "pick cost");
+	int           rc;
+
+	if (stmt == NULL)
+		return FALSE;
+
+	/* Older than the epoch: nothing matches, which is the case that used to
+	 * walk the whole table. The other query takes no value. */
+	if (sqlite3_bind_parameter_count (stmt) > 0)
+		sqlite3_bind_int64 (stmt, 1, 0);
+
+	while ((rc = sqlite3_step (stmt)) == SQLITE_ROW)
+		;
+
+	*rows_walked += sqlite3_stmt_status (stmt, SQLITE_STMTSTATUS_FULLSCAN_STEP, FALSE);
+	*sorts += sqlite3_stmt_status (stmt, SQLITE_STMTSTATUS_SORT, FALSE);
+
+	sqlite3_finalize (stmt);
+
+	return db_ok (db, rc, "pick cost");
+}
+
+gboolean
+nemo_cache_db_prune_pick_cost (NemoCacheDb *db, gint64 *rows_walked, gint64 *sorts)
+{
+	gboolean ok;
+
+	g_return_val_if_fail (rows_walked != NULL && sorts != NULL, FALSE);
+
+	*rows_walked = 0;
+	*sorts = 0;
+
+	if (db == NULL || db->broken)
+		return FALSE;
+
+	g_mutex_lock (&db->lock);
+
+	ok = add_pick_cost (db, OLDEST_SQL, rows_walked, sorts)
+		&& add_pick_cost (db, OLDER_THAN_SQL, rows_walked, sorts);
+
+	g_mutex_unlock (&db->lock);
+
+	return ok;
 }
