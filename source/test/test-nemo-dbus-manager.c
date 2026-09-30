@@ -24,6 +24,7 @@ main (int argc, char **argv)
 	}
 	g_clear_error (&error);
 
+	/* cppcheck-suppress leakReturnValNotUsed ; the connection is owned by app, not returned to the caller */
 	if (g_application_get_dbus_connection (app) != NULL) {
 		g_printerr ("FAIL     expected NULL dbus connection with disabled bus\n");
 		return 1;

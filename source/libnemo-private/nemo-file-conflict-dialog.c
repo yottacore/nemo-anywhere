@@ -193,7 +193,9 @@ file_list_ready_cb (GList *files,
 	}
 
 	secondary_text = g_strdup_printf ("%s\n%s", message, message_extra);
-    g_clear_pointer (&message, g_free);
+	g_free (message);
+	g_free (dest_name);
+	g_free (dest_dir_name);
 
 	label = gtk_label_new (primary_text);
 	gtk_label_set_line_wrap (GTK_LABEL (label), TRUE);
@@ -221,7 +223,7 @@ file_list_ready_cb (GList *files,
 	g_free (primary_text);
 	g_free (secondary_text);
 
-    ui_scale = gtk_widget_get_scale_factor (fcd->details->titles_vbox),
+    ui_scale = gtk_widget_get_scale_factor (fcd->details->titles_vbox);
 
     /* Set up file icons */
     pixbuf = nemo_file_get_icon_pixbuf (dest,

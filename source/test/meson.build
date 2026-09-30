@@ -245,6 +245,24 @@ test('reqzgh4g Config root test',
   args: []
 )
 
+test('rj46m24q EEL string check test',
+  executable('test-eel-string',
+    [ 'test-eel-string.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private ],
+  ),
+  args: []
+)
+
+test('rj46pkw3 Conflict dialog test',
+  executable('test-nemo-conflict-dialog',
+    [ 'test-nemo-conflict-dialog.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
 test('rcgzq4qg User input parse test',
   executable('test-eel-user-input',
     [ 'test-eel-user-input.c' ],
