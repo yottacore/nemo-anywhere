@@ -2110,6 +2110,16 @@ nemo_file_is_lnk (NemoFile *file)
 	return name_has_lnk (file->details->name);
 }
 
+/* Whether a .lnk may be read for its icon and sort place. That read is on the
+   main thread, so it is only a regular file and never one on a share. */
+static gboolean
+lnk_is_cheap_to_read (NemoFile *file)
+{
+	return name_has_lnk (file->details->name) &&
+	       file->details->type == G_FILE_TYPE_REGULAR &&
+	       nemo_file_is_local (file) && !nemo_file_is_on_a_share (file);
+}
+
 /* The shell never shows a shortcut's extension, so neither do we unless asked to. */
 static gboolean
 hiding_shortcut_extension (void)
@@ -3809,7 +3819,7 @@ sorts_as_folder (NemoFile *file)
 	if (nemo_file_is_directory (file)) {
 		return TRUE;
 	}
-	if (!name_has_lnk (file->details->name) || !nemo_file_is_local (file)) {
+	if (!lnk_is_cheap_to_read (file)) {
 		return FALSE;
 	}
 
@@ -5707,7 +5717,7 @@ nemo_file_get_icon (NemoFile *file,
 	/* A shortcut wears its target's icon, which only the shell can find. The
 	   exception is a folder: the shell hands back its own art, which looks
 	   nothing like the folders around it, so the theme's is used instead. */
-	if (name_has_lnk (file->details->name) && nemo_file_is_local (file)) {
+	if (lnk_is_cheap_to_read (file)) {
 		char *path = nemo_file_get_path (file);
 		GdkPixbuf *pixbuf = NULL;
 
@@ -5737,7 +5747,7 @@ nemo_file_get_icon (NemoFile *file,
 	/* A Windows shortcut wears the icon of what it points at, worked out
 	   from the shortcut alone: the target may be on a share that is not
 	   answering. */
-	if (name_has_lnk (file->details->name) && nemo_file_is_local (file)) {
+	if (lnk_is_cheap_to_read (file)) {
 		char *path = nemo_file_get_path (file);
 		GIcon *target_icon = path != NULL ? nemo_lnk_icon_for_path (path, file->details->mtime) : NULL;
 

@@ -26,8 +26,10 @@
 
 #include <config.h>
 
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <glib.h>
@@ -1212,6 +1214,56 @@ test_icon (void)
 	machine_clear (&machine);
 }
 
+static void
+fifo_timed_out (int sig)
+{
+	static const char message[] = "FAIL: reading a FIFO named .lnk blocked\n";
+	ssize_t written;
+
+	(void) sig;
+	written = write (STDERR_FILENO, message, sizeof message - 1);
+	(void) written;
+	_exit (1);
+}
+
+/* A FIFO with nobody writing blocks the open and the read for good. Listing
+   the folder it sits in asks for its icon and sort place, so only a regular
+   file may be read. */
+static void
+test_fifo (void)
+{
+	Machine machine;
+	NemoLnk lnk;
+	NemoLnk followed;
+	char *path, *uri;
+	GIcon *icon;
+
+	machine_init (&machine);
+	machine_apply (&machine);
+
+	path = g_build_filename (machine.root, "trap.lnk", NULL);
+	check (mkfifo (path, 0600) == 0);
+
+	signal (SIGALRM, fifo_timed_out);
+	alarm (10);
+
+	check (!nemo_lnk_read (path, &lnk));
+	icon = nemo_lnk_icon_for_path (path, 1);
+	check (icon == NULL);
+	g_clear_object (&icon);
+	check (!nemo_lnk_target_is_dir_for_path (path, 2));
+	uri = nemo_lnk_follow (path, &followed);
+	check (uri == NULL);
+	g_free (uri);
+	nemo_lnk_clear (&followed);
+
+	alarm (0);
+	signal (SIGALRM, SIG_DFL);
+
+	g_free (path);
+	machine_clear (&machine);
+}
+
 /* Whether a block with this signature is in the extra data. */
 static gboolean
 has_block (const guint8 *bytes, gsize length, guint32 signature)
@@ -1348,6 +1400,7 @@ main (int argc, char **argv)
 	test_expand ();
 	test_parse_env ();
 	test_icon ();
+	test_fifo ();
 	test_set_paths ();
 
 	if (failures == 0)
