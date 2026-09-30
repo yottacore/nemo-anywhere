@@ -42,6 +42,7 @@ fi
 
 bash "${here}/../hooks/test-pre-push.bash"
 bash "${here}/test-package-checks.bash"
+bash "${here}/test-lint-scope.bash"
 fTest bash "${here}/test-docker-run.bash"
 py=""
 for cand in python3 python; do

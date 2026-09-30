@@ -4,8 +4,9 @@
 ##	  inherited tree (upstream nemo has no house style, and a full-tree pass
 ##	  would drown real findings in legacy noise). Nothing is rewritten.
 ##	- Changed = commits since the merge base with the integration branch (dev,
-##	  else main) plus anything uncommitted (tracked, staged, untracked). On the
-##	  integration branch itself only the uncommitted changes are checked.
+##	  else main) plus anything uncommitted (tracked, staged, untracked). On dev,
+##	  main or the base itself, where that range is always empty, it is what the
+##	  latest merge brought in instead: from its first parent up to HEAD.
 ##	- cppcheck findings (error/warning/portability) fail the gate. A missing
 ##	  cppcheck skips with a warning so an unprovisioned box can't hard-block a
 ##	  push; CPPCHECK_STRICT=1 turns that miss into a hard failure.
@@ -17,7 +18,8 @@
 ##	  whole-tree, which pairs each disconnect with the connect it belongs to,
 ##	  and the accelerator check (cicd/utility/lint-accels.py), whole-tree too.
 ##	- Runs the same everywhere bash + git + cppcheck exist (Linux host, MSYS2).
-##	- Syntax: lint-c.bash [base-branch]
+##	- Syntax: lint-c.bash [--list-files] [base-branch]
+##	  --list-files prints the C files the cppcheck pass would cover, and stops.
 
 ##	Copyright (c) 2026 Bubbles
 ##	Licensed under The MIT License (MIT). Full text at:
@@ -26,6 +28,8 @@
 
 set -Eeuo pipefail
 
+listOnly=0
+if [[ "${1:-}" == "--list-files" ]]; then listOnly=1; shift; fi
 base="${1:-}"
 strict="${CPPCHECK_STRICT:-0}"
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -43,6 +47,7 @@ while read -r fn tag; do testIds[$fn]="$tag"; done < <(awk '
 curTest=""
 trap '[[ -n "$curTest" ]] && printf "%s %-22s FAIL\n" "${testIds[$curTest]:-?}" "${curTest#fCheck}"' EXIT
 fRun(){
+	if ((listOnly)); then return 0; fi
 	curTest="$1"
 	"$1"
 	printf '%s %-22s OK\n' "${testIds[$1]:-?}" "${1#fCheck}"
@@ -1121,7 +1126,9 @@ PY=""
 for cand in python3 python; do
 	command -v "$cand" >/dev/null 2>&1 && { PY="$cand"; break; }
 done
-if [[ -n "$PY" ]]; then
+if ((listOnly)); then
+	:
+elif [[ -n "$PY" ]]; then
 	"$PY" cicd/utility/lint-ui-case.py source
 	## Same reasoning: the demo recorder's settings keys and columns go stale
 	## silently, and nothing C has to change for that to happen.
@@ -1137,7 +1144,7 @@ else
 	fEcho "WARNING: UI case SKIPPED: no python" >&2
 fi
 
-if ! command -v cppcheck >/dev/null 2>&1; then
+if ((! listOnly)) && ! command -v cppcheck >/dev/null 2>&1; then
 	if [[ "$strict" == "1" ]]; then
 		fEcho "FAILED: C lint: cppcheck not installed" >&2
 		exit 1
@@ -1151,12 +1158,21 @@ if [[ -z "$base" ]]; then
 	if "${GIT[@]}" show-ref --verify --quiet refs/heads/dev; then base="dev"; else base="main"; fi
 fi
 
-## Collect candidates: branch commits since the merge base (skipped when we ARE
-## the base), then everything not yet committed. Deletions can't be linted.
+## Collect candidates: branch commits since the merge base, then everything not
+## yet committed. Deletions can't be linted. dev and main only take --no-ff
+## merges, so base...HEAD there is empty, even on main right after the release
+## merge the pre-push gate is checking. Those take the latest merge instead.
 candidates=""
+range=""
 head_branch="$("${GIT[@]}" rev-parse --abbrev-ref HEAD)"
-if [[ "$head_branch" != "$base" ]] && "${GIT[@]}" rev-parse --verify --quiet "$base" >/dev/null; then
-	candidates+="$("${GIT[@]}" diff --name-only --diff-filter=d "${base}...HEAD")"$'\n'
+if [[ "$head_branch" == "$base" || "$head_branch" == "dev" || "$head_branch" == "main" ]]; then
+	merge="$("${GIT[@]}" rev-list --first-parent --merges -n 1 HEAD || true)"
+	if [[ -n "$merge" ]]; then range="${merge}^1..HEAD"; fi
+elif "${GIT[@]}" rev-parse --verify --quiet "$base" >/dev/null; then
+	range="${base}...HEAD"
+fi
+if [[ -n "$range" ]]; then
+	candidates+="$("${GIT[@]}" diff --name-only --diff-filter=d "$range")"$'\n'
 fi
 candidates+="$("${GIT[@]}" diff --name-only --diff-filter=d HEAD)"$'\n'
 candidates+="$("${GIT[@]}" diff --cached --name-only --diff-filter=d)"$'\n'
@@ -1171,12 +1187,19 @@ while IFS= read -r f; do
 	[[ -f "$f" ]] && files+=("$f")
 done < <(printf '%s\n' "$candidates" | LC_ALL=C sort -u)
 
-if ((${#files[@]} == 0)); then
-	fEcho "OK: C lint: no changed C files"
+if ((listOnly)); then
+	if ((${#files[@]})); then printf '%s\n' "${files[@]}"; fi
 	exit 0
 fi
 
-fEcho "C lint (cppcheck, check-only) over ${#files[@]} changed file(s)..."
+since="${range:-HEAD}"
+since="${since%%..*}"
+if ((${#files[@]} == 0)); then
+	fEcho "OK: C lint: no C files changed since ${since:0:12}"
+	exit 0
+fi
+
+fEcho "C lint (cppcheck, check-only) over ${#files[@]} file(s) changed since ${since:0:12}..."
 ## The suppression list is in .cppcheck-suppressions at the repo root, with the
 ## reason for each one written beside it. --inline-suppr stays for the handful
 ## that belong to a single line rather than a whole file.
