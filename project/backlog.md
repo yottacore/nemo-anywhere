@@ -341,17 +341,27 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Code review 20260928 item 8. A FIFO named .lnk freezes the window.
 	- ID: 2026092813381408
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes. The full Linux suite, since the icon and sort change runs for every file in every listing.
+	- Needs external testing: Windows. A folder of shortcuts on a share lists with no stall, and those shortcuts sort with the files. A local folder shortcut still sorts with the folders and wears the folder icon. Both tests below are POSIX-only.
 	- Priority|Severity: Avg
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
-	- Target OS: Linux, BSD, macOS.
+	- Target OS: Linux, BSD, macOS for the FIFO. Windows for the share.
 	- Incorrect behavior: listing a folder that holds a FIFO named `x.lnk` hangs for good. Every `.lnk` on a slow share is also read on the main thread for its icon and sort place, with no share check.
 	- Expected behavior: only regular files are read, and a per-file read on a share is gated, per the project rule.
 	- Reproduced: yes for the hang, 20260928, Linux. The share case was read only.
 	- Origin: 673bcbb, 20260924 (lnkread). New ground. Confirmed.
-	- Test case: none yet. A FIFO case in `test-nemo-lnk`.
+	- Actual cause: the shortcut reader opened and read any file named `.lnk`, and a FIFO with no writer blocks both. The icon and sort checks looked only at the name and at whether the folder is local. On Windows they never asked whether the file sits on a share.
+	- Against: design.md says a folder shortcut sorts with the folders on every platform. On Windows one that sits on a share now sorts with the files, and design.md says so.
+	- Actual fix: the reader opens without blocking and reads only a regular file. The icon and sort place of a shortcut are read only for a regular file that is local and not on a share.
+	- Swept: every shortcut read goes through the one reader, so following one, opening one and the Edit link dialog refuse a FIFO too. The two paths-rewrite calls read the file whole, but only after the reader has read it. The Windows target check and shell icon for a shortcut sit behind the same new gate. The other reads made while a folder lists, `.desktop` link info and thumbnails with their checksums, go by content type, which is `inode/fifo` for a FIFO whatever its name, and both run off the main thread.
+	- Note: opening a shortcut still reads it on the main thread, a recorded known gap. Only the FIFO hang is gone there.
+	- Branch: lnkfifo
+	- Commit: fd2b0d0
+	- Test case: rhmxm5ah, Windows shortcut reader test, and rhnqqpm8, Folder shortcuts sort with folders test, each with a new FIFO case. Both fail before the fix, stopped after 10 seconds, and pass after, on Linux.
+	- Verified: the Windows cross build compiles. C lint is clean. The link edit, link emblem, link copy, make link shortcut and thumbnail hold tests pass.
 
 - Code review 20260928 item 9. A checksum taken after a file changed keeps that content out of the cache for good.
 	- ID: 2026092813381409
