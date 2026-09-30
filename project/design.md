@@ -870,6 +870,8 @@ The one deliberate exception is a release-only workflow, `.github/workflows/rele
 
 - The same hook blocks a push to main unless `source/meson.build` is a strict version increase over what is already there.
 
+- Both the version and the README badge are read from the commit being pushed. The hook also refuses when the tracked files differ from that commit, since the gate builds and tests the working tree. So a release is pushed from a clean checkout of main.
+
 ### Versions and build numbers
 
 - `source/meson.build` is the only place the version is written. Everything else reads it.
@@ -933,6 +935,8 @@ Windows is one self-contained `nemo-anywhere.exe` with the whole runtime packed 
 - Packed exes are occasionally false-flagged by antivirus, so the plain zip stays available as the fallback artifact. It is also the fallback for the release being unsigned.
 
 Packaging builds from what the release lanes already produced and never rebuilds. The Linux tarball becomes a `.deb` and an `.rpm`, both installing the same relocatable prefix under `/opt` plus a launcher, a menu entry and icons in the shared theme. The `.deb`'s dependency versions are read off the built binaries inside the release container rather than on a development box, so the package claims the floor the binary was actually built against; `rpmbuild` derives its own from the ELF. BSD, macOS, AppImage and Flatpak wait on a toolchain.
+
+A packager that fails only warns, so one broken format does not cost the others. The installer and prefix checks run after the packagers and stop the run on a failure, before dogfood and publish.
 
 Cutting a release tags `v<version>` from a clean main and uploads the artifacts. Release notes are the hand-written changelog section for that version, never a generated commit list, falling back to generated notes only so a release is never published blank. A version carrying a pre-release part is published as a prerelease, which matters to the installers: their stable channel takes the newest release with no prerelease part, and the newest prerelease only while no stable release exists.
 

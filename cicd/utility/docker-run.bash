@@ -81,6 +81,15 @@ if ! docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx "$container"; the
 fi
 docker start "$container" >/dev/null 2>&1 || true
 
+## The container builds the clone it was made on. Called from any other, such as
+## a second worktree, it would pass or fail that clone instead.
+here_repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
+mounted="$(docker inspect "$container" --format '{{range .Mounts}}{{if eq .Destination "/src"}}{{.Source}}{{end}}{{end}}' 2>/dev/null || true)"
+if [[ -n "$mounted" && "$(realpath -m "$mounted")" != "$here_repo" ]]; then
+	fEcho "FAILED: ${label}: ${container} builds ${mounted}, not ${here_repo}" >&2
+	exit 1
+fi
+
 ## Real work: its exit code is the genuine result and still gates the push.
 ## 'ulimit -c 0' first: the container's workdir IS the mounted repo, and the kernel's
 ## core_pattern is a bare relative name, so a crash here drops a root-owned core.<pid>

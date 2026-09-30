@@ -317,7 +317,8 @@ fi
 ## the pre-push hook for main, so nothing reaches the release branch unverified
 ## even outside a full run. The test stage builds first, since there is
 ## no build stage here - so what is compiled is the working tree rather than the
-## sha being pushed. Source tree untouched, build directory written to.
+## sha being pushed. The hook refuses a push where the two differ. Source tree
+## untouched, build directory written to.
 if ((gate)); then
 	fSection "Gate 1/3  Format check"
 	if declare -p FMT_CHECK_CMD &>/dev/null && ((${#FMT_CHECK_CMD[@]})); then
@@ -386,6 +387,7 @@ fi
 if ((PACKAGE_ENABLE)) && ((! quick)); then
 	fEcho_Clean "Packages ............:"
 	for entry in "${PACKAGE_CMDS[@]:-}"; do [[ -n "$entry" ]] && fEcho_Clean "    - ${entry%%|*}"; done
+	for entry in "${PACKAGE_CHECKS[@]:-}"; do [[ -n "$entry" ]] && fEcho_Clean "    - ${entry%%|*} (stops the run on failure)"; done
 	fEcho_Clean "  deferred ..........: BSD, macOS, AppImage, Flatpak - no toolchain on this box"
 else
 	fEcho_Clean "Packages ............: $( ((quick)) && echo '(skipped --quick)' || echo '(disabled)')"
@@ -628,6 +630,8 @@ fi
 ## rebuilt from source. Which formats, and how, is entirely the project's business
 ## (PACKAGE_CMDS in config.bash) - the engine only decides when it happens and that
 ## a failing packager warns rather than aborting the run. Skipped under --quick.
+## PACKAGE_CHECKS run after, and those do abort: a check that fails means what
+## the packagers made is broken, and dogfood and publish would pass it on.
 build_packages(){
 	((PACKAGE_ENABLE)) || { fEcho_Clean "packages disabled"; return 0; }
 	if ! declare -p PACKAGE_CMDS &>/dev/null || ((${#PACKAGE_CMDS[@]} == 0)); then
@@ -649,11 +653,28 @@ build_packages(){
 	write_sums
 	fEcho "OK: ${made}/${#PACKAGE_CMDS[@]} packaging step(s) -> ${RELEASE_ARTIFACT_DIR}/"
 }
+run_package_checks(){
+	((PACKAGE_ENABLE)) || return 0
+	declare -p PACKAGE_CHECKS &>/dev/null || return 0
+
+	local entry label cmd rc
+	for entry in "${PACKAGE_CHECKS[@]}"; do
+		label="${entry%%|*}"; cmd="${entry#*|}"
+		fEcho_Clean "checking: ${label} ..."
+		rc=0; eval "${cmd}" || rc=$?
+		case "$rc" in
+			0)  ;;
+			77) fEcho "WARNING: ${label} skipped" ;;
+			*)  fDie "${label} (exit ${rc})" ;;
+		esac
+	done
+}
 fSection "6/8  Packages"
 if ((quick)); then
 	fEcho_Clean "packages skipped (--quick)"
 else
 	build_packages
+	run_package_checks
 fi
 
 ## Stage 7: dogfood. Three independent installs: fixed name, rotating dated copy,
