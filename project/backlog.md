@@ -391,6 +391,27 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rhr6ggmt, Archive option combinations, new rows with a linked folder `a*` beside `abc`, `a?c` and `apple.txt`, and with `a?c` selected on its own. reww9h2s, Extract job test, extracts `s?.7z` and `r?.rar` beside `sx.7z` and `rx.rar`. rev86z08 and reww9h2r check for `-spd`. All fail before the fix and pass after, on Linux.
 	- Verified: same runs as item 4. Debian's 7-Zip has no rar codec, so on Linux the `r?.rar` case ends in an error naming the wildcard, which the test accepts.
 
+- Code review 20260928 item 10. A small PSD file can tie up a thumbnail thread for minutes.
+	- ID: 2026092813381410
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. The full Linux suite passed 139 of 139 on 20260930.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: a 180 KB file took 15 s and a 720 KB one 64 s, and neither can be canceled.
+	- Expected behavior: the PSD done item, a bad file is refused cleanly and a large one never costs full size.
+	- Reproduced: yes, 20260928, Linux.
+	- Actual cause: rows of zero length are accepted and padded out, so the work follows the declared size, not the file.
+	- Origin: 056d3e0, 20260921 (thumbs). New ground. Confirmed.
+	- Actual fix: a packed row shorter than two bytes for every 128 of the row cannot fill it, and a file with one is now refused before any row is decoded. A row with enough bytes that still ends early is padded as before. So the work a file can cause stays in step with its size.
+	- Swept: the Photoshop reader is the only run-length row decoder among the thumbnail readers. The camera raw reader reads previews, and its own slow file is item 19.
+	- Note: the reader still takes no cancel from the thumbnail thread. That would mean a cancel through the thumbnail factory for every reader, and a small file no longer runs long enough to need one. Left as is.
+	- Test case: `test-nemo-psd`: rows at the least length are read, one byte less is refused, and a 30000 by 30000 file of empty rows is refused in under a second, psd and psb. Fuzz seed `zero-rows`, and `short-literal` reworked so it still reaches the literal-run bound.
+	- Branch: psdrows
+	- Commit: 24d99cd
+
 - Code review 20260928.
 	- ID: 2026092813381400
 	- Type: Task
@@ -412,21 +433,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: Escape not restoring the selection, Ctrl+Shift+T, and Control kept for F1, tab keys, Ctrl+H and Ctrl+M on macOS. All settled earlier.
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
-
-- Code review 20260928 item 10. A small PSD file can tie up a thumbnail thread for minutes.
-	- ID: 2026092813381410
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: a 180 KB file took 15 s and a 720 KB one 64 s, and neither can be canceled.
-	- Expected behavior: the PSD done item, a bad file is refused cleanly and a large one never costs full size.
-	- Reproduced: yes, 20260928, Linux.
-	- Actual cause: rows of zero length are accepted and padded out, so the work follows the declared size, not the file.
-	- Origin: 056d3e0, 20260921 (thumbs). New ground. Confirmed.
-	- Test case: none yet. The file as a `test-nemo-psd` case and a fuzz seed.
 
 - Code review 20260928 item 13. A Windows install for all users may not run for other users.
 	- ID: 2026092813381413
