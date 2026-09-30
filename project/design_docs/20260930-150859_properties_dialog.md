@@ -55,7 +55,7 @@ The Properties window shows what a file or folder is, and lets a few things abou
 	- Counting like the Compress dialog: link choices, nested and other filesystems, and exact totals for a file with more than one path.
 	- A "Hidden" box, like the Hidden attribute in Windows, that works on every platform.
 	- Hidden is kept in the platform's own flag where there is one, and as a TukzedoFS tattr. Linux and the other BSDs keep an extended attribute too. An order says which wins when they disagree.
-	- A folder's `.hidden` file is honored on every platform, Windows included. The app never adds a name to one.
+	- A folder's `.hidden` file is honored on every platform, Windows included. The app keeps one up to date when it's already there, but never makes a new one.
 	- Dot-files are a separate kind of hidden on every platform, with their own switch, as on Windows today.
 
 ## Goals
@@ -140,15 +140,15 @@ Setting the box writes it in every place the file allows. Clearing it updates al
 
 - Linux and the other BSDs have no hidden flag, so they also keep an extended attribute on the file. It's there in case the database is missing something, and so the mark moves with the file to another system. It may not be reliable, since many copy tools drop it.
 
-- On a platform with its own flag, only the flag and the tattr are written. The tattr there is a copy for searching. Writing an extended attribute too would keep a file hidden after Explorer or Finder had shown it again.
+- On a platform with its own flag, only the flag and the tattr are written. The tattr there is a copy for searching. Writing an extended attribute too would leave a stale copy on the file after Explorer or Finder had shown it again.
 
-- A `.hidden` file is never written, only read. Clearing the box takes the name out of the folder's `.hidden`, if the folder can be written. That's the only change the app ever makes to one.
+- A folder's `.hidden` file is updated only when it's already there and the folder can be written. Setting the box adds the name, and clearing it takes the name out. The app never makes a new `.hidden` file.
 
 #### When they disagree
 
 Another program, a rename or a copy can leave the places saying different things. The first place in this list that has an answer wins.
 
-1. The platform's own flag, on Windows, macOS and FreeBSD. Set is hidden, and clear is no answer.
+1. The platform's own flag, on Windows, macOS and FreeBSD. Where the filesystem takes it, it always answers, set or clear.
 
 2. The Hidden tattr, when it's set either way. A tattr that isn't set is no answer.
 
@@ -160,7 +160,7 @@ Another program, a rename or a copy can leave the places saying different things
 
 - `.hidden` and the extended attribute come last because they may sit in a read-only folder, where they can't be put right.
 
-- On a filesystem that takes the platform's flag, the tattr is only a copy and is skipped here. Explorer or Finder can clear the flag without touching the tattr, and the file should then be shown.
+- So the rest of the list only counts where the file can't take the flag: on Linux and the other BSDs, or on a drive that doesn't store it. When Explorer or Finder clears the flag, the file is shown, whatever the tattr says.
 
 - A dot-file is hidden by its name, apart from this list and under its own switch.
 
@@ -176,7 +176,11 @@ A name in a folder's `.hidden` file is hidden, on every platform.
 
 - A name in `.hidden` counts under the hidden files switch, not the dot-files one, since its name isn't what hides it. Off Windows GLib reports both kinds as one, so the app tells them apart by the leading dot.
 
+- With the flag first in line, a name in `.hidden` only hides a file that can't take the flag. See [Open questions](#open-questions).
+
 ### Open questions
+
+- Whether a name in `.hidden` should still hide a file whose flag is clear, on Windows, macOS and FreeBSD. With the flag first it doesn't, so on those platforms `.hidden` only counts on a drive that can't store the flag. That goes against honoring `.hidden` on Windows so a drive shared with Linux looks the same on both.
 
 - Whether the counting choices are remembered. They're the link rows and the two filesystem boxes above.
 	- Remembered: they come back as last set, as the Compress dialog's do. A folder counted with links followed shows that total again next time, and nothing says it isn't the default count.
@@ -195,7 +199,7 @@ A name in a folder's `.hidden` file is hidden, on every platform.
 
 - Keeping Hidden in only one place off Windows. An extended attribute is dropped by many copy tools, and a TukzedoFS tattr is lost with the database unless it was exported.
 
-- Writing a `.hidden` file. It's only read, and a name is only ever taken out of one.
+- Making a new `.hidden` file where a folder has none.
 
 - One switch for dot-files and Hidden. They're separate ways to hide a file, as on Windows.
 
@@ -208,6 +212,10 @@ A name in a folder's `.hidden` file is hidden, on every platform.
 - "Advanced properties" as the name of ours on Windows. It's plain "Properties" now, and sits first.
 
 - Hidden kept in three places on Linux, `.hidden` included, with the extended attribute first when they disagree (2026-09-30). The app now never adds to a `.hidden` file, and the tattr comes before it.
+
+- Never writing a `.hidden` file, only taking a name out (2026-09-30). The app now keeps one up to date when it's already there.
+
+- The platform's flag answering only when set, with the tattr skipped on a filesystem that takes the flag (2026-09-30). The flag now answers either way.
 
 ## Research findings
 
