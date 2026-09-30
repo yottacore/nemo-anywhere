@@ -110,8 +110,9 @@ get_len (Reader *r, gboolean wide, guint64 *value)
 	return TRUE;
 }
 
-/* PackBits. A short row is padded rather than refused, since a thumbnail with
- * one bad row still beats no thumbnail. */
+/* PackBits. A row that runs out early is padded rather than refused, since a
+ * thumbnail with one bad row still beats no thumbnail. One too short to ever
+ * fill is refused before this, in load. */
 static void
 unpack_row (const guint8 *in, gsize in_len, guint8 *out, gsize out_len)
 {
@@ -369,6 +370,10 @@ load (Reader *r, int size)
 
 	if (compression == 1) {
 		gsize entries = (gsize) used * height;
+		/* PackBits gets at most 128 bytes out of 2. A row shorter than that
+		 * cannot be whole, and padding it out would let a small file cost
+		 * as much work as its declared size. */
+		gsize packed_min = (row_bytes + 127) / 128 * 2;
 		gsize i;
 
 		counts = g_new (guint32, entries);
@@ -384,6 +389,9 @@ load (Reader *r, int size)
 					return NULL;
 				}
 				counts[i] = narrow;
+			}
+			if (counts[i] < packed_min) {
+				return NULL;
 			}
 			packed_max = MAX (packed_max, counts[i]);
 		}
