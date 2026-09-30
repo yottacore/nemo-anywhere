@@ -1116,6 +1116,16 @@ test('rewygsbg Archive job test',
   args: []
 )
 
+test('rj4jewn6 Archive check cost test',
+  executable('test-nemo-archive-verify-cost',
+    [ 'test-nemo-archive-verify-cost.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ archive, gio, nemo_private, test_scratch ],
+  ),
+  args: [],
+  timeout: 120
+)
+
 # Some hundreds of archives, so it gets longer than the default.
 test('rhr6ggmt Archive option combinations',
   executable('test-nemo-archive-combos',
