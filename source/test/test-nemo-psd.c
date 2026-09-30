@@ -367,6 +367,80 @@ test_truncated (void)
 	check (answered == 0);
 }
 
+/* Square, RGB, packed, every row row_len bytes of runs of 128. */
+static GBytes *
+build_rows (guint version, guint side, guint row_len, guint8 value)
+{
+	GByteArray *out = g_byte_array_new ();
+	guint rows = 3 * side, i, j;
+
+	g_byte_array_append (out, (const guint8 *) "8BPS", 4);
+	put16 (out, version);
+	g_byte_array_append (out, (const guint8 *) "\0\0\0\0\0\0", 6);
+	put16 (out, 3);
+	put32 (out, side);
+	put32 (out, side);
+	put16 (out, 8);
+	put16 (out, 3);
+	put32 (out, 0);
+	put32 (out, 0);
+	if (version == 2) {
+		put32 (out, 0);
+	}
+	put32 (out, 0);
+	put16 (out, 1);
+
+	for (i = 0; i < rows; i++) {
+		if (version == 2) {
+			put32 (out, row_len);
+		} else {
+			put16 (out, row_len);
+		}
+	}
+	for (i = 0; i < rows; i++) {
+		for (j = 0; j < row_len; j++) {
+			guint8 b = j % 2 == 0 ? 0x81 : value;
+
+			g_byte_array_append (out, &b, 1);
+		}
+	}
+
+	return g_byte_array_free_to_bytes (out);
+}
+
+/* PackBits needs two bytes for every 128 of a row. A row shorter than that
+ * was padded out, so a file of zero-length rows cost its declared size in
+ * work: 180 KB took seconds. Rows at the least a whole row can take are read,
+ * and one byte less is refused. */
+static void
+test_short_rows (void)
+{
+	guint version;
+
+	for (version = 1; version <= 2; version++) {
+		g_autoptr (GBytes) whole = build_rows (version, 256, 4, 200);
+		g_autoptr (GBytes) short_by_one = build_rows (version, 256, 3, 200);
+		g_autoptr (GBytes) empty_rows = build_rows (version, version == 1 ? 30000 : 60000, 0, 0);
+		g_autoptr (GdkPixbuf) read = read_bytes (whole, 64);
+		g_autoptr (GdkPixbuf) refused = read_bytes (short_by_one, 64);
+		g_autoptr (GdkPixbuf) bomb = NULL;
+		gint64 start;
+		double secs;
+
+		check (pixel_is (read, 10, 10, 200, 200, 200, -1));
+		check (refused == NULL);
+
+		start = g_get_monotonic_time ();
+		bomb = read_bytes (empty_rows, 256);
+		secs = (g_get_monotonic_time () - start) / 1e6;
+		check (bomb == NULL);
+		if (secs >= 1.0) {
+			g_printerr ("  empty rows took %.2f s\n", secs);
+		}
+		check (secs < 1.0);
+	}
+}
+
 static void
 test_types (void)
 {
@@ -414,6 +488,7 @@ main (int argc, char **argv)
 	test_other_modes ();
 	test_shrink ();
 	test_truncated ();
+	test_short_rows ();
 	test_types ();
 	test_factory (home);
 

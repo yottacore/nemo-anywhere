@@ -33,6 +33,28 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Code review 20260928 item 10. A small PSD file can tie up a thumbnail thread for minutes.
+	- ID: 2026092813381410
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The full Linux suite passed 139 of 139 on 20260930.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: a 180 KB file took 15 s and a 720 KB one 64 s, and neither can be canceled.
+	- Expected behavior: the PSD done item, a bad file is refused cleanly and a large one never costs full size.
+	- Reproduced: yes, 20260928, Linux.
+	- Actual cause: rows of zero length are accepted and padded out, so the work follows the declared size, not the file.
+	- Origin: 056d3e0, 20260921 (thumbs). New ground. Confirmed.
+	- Actual fix: a packed row shorter than two bytes for every 128 of the row cannot fill it, and a file with one is now refused before any row is decoded. A row with enough bytes that still ends early is padded as before. So the work a file can cause stays in step with its size.
+	- Swept: the Photoshop reader is the only run-length row decoder among the thumbnail readers. The camera raw reader reads previews, and its own slow file is item 19.
+	- Note: the reader still takes no cancel from the thumbnail thread. That would mean a cancel through the thumbnail factory for every reader, and a small file no longer runs long enough to need one. Left as is.
+	- Note: waits on signoff because the fix picked one of two options the review offered, and a file with one short row now shows the type icon instead of a padded picture. The fuzz stage still owes a run with the changed seeds.
+	- Test case: `test-nemo-psd`: rows at the least length are read, one byte less is refused, and a file of empty rows, 30000 by 30000 as psd and 60000 by 60000 as psb, is refused in under a second. Fuzz seed `zero-rows`, and `short-literal` reworked so it still reaches the literal-run bound.
+	- Branch: psdrows
+	- Commit: 24d99cd
+
 - Code review 20260928 item 1. Zooming while thumbnails render can store a small thumbnail as full size, and it is never made again.
 	- ID: 2026092813381401
 	- Type: Bug
@@ -412,21 +434,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: Escape not restoring the selection, Ctrl+Shift+T, and Control kept for F1, tab keys, Ctrl+H and Ctrl+M on macOS. All settled earlier.
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
-
-- Code review 20260928 item 10. A small PSD file can tie up a thumbnail thread for minutes.
-	- ID: 2026092813381410
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: a 180 KB file took 15 s and a 720 KB one 64 s, and neither can be canceled.
-	- Expected behavior: the PSD done item, a bad file is refused cleanly and a large one never costs full size.
-	- Reproduced: yes, 20260928, Linux.
-	- Actual cause: rows of zero length are accepted and padded out, so the work follows the declared size, not the file.
-	- Origin: 056d3e0, 20260921 (thumbs). New ground. Confirmed.
-	- Test case: none yet. The file as a `test-nemo-psd` case and a fuzz seed.
 
 - Code review 20260928 item 13. A Windows install for all users may not run for other users.
 	- ID: 2026092813381413
@@ -875,6 +882,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- Four self-tests run in the lint stage with no ID, and the ID check cannot see them. Give them IDs, or record that they are exempt.
 	- Test case: `test-id.py --check`.
+
+- A thumbnail already being made runs to the end after its folder is left.
+	- ID: 2026093013002529
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20260930-130025
+	- Opened by: review of code review 20260928 item 10
+	- Related IDs: 2026092813381410
+	- Requirements:
+		- Leaving a folder drops its queued thumbnails, but one a thread has started is finished. A 42 MB Photoshop file of 30000 by 30000 took about 11 s of a thread. The readers and the thumbnail factory take no cancel from the thread.
+		- Stop a started thumbnail once nothing wants it, for every reader.
+	- Test case: none yet. A large file whose thumbnail is dropped mid-read frees its thread within a set time.
 
 ## Old format
 
