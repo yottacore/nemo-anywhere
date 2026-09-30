@@ -318,7 +318,7 @@ Per-folder view state - view mode, zoom, sort column, column layout - is app-own
 
 The file cache is the fourth store. It is a private SQLite database under the user's cache folder, with what has been worked out about files on disk, so it does not have to be worked out again. Thumbnails are the first thing in it and the reason it exists, but its tables are about files rather than pictures.
 
-- It is the start of TukzedoFS, a database of what the app knows about files, which later also serves dedupe, tags and the size scans. The database, the tables, checksums written onto files, and pruning are in [20260930-145641_tukzedofs.md](design_docs/20260930-145641_tukzedofs.md).
+- It is the start of TukzedoFS, a database of what the app knows about files, which later also serves dedupe, tags and the size scans. The database, the tables, checksums written onto files, and pruning are in [20260930-145641_tukzedofs.md](design_docs/20260930-145641_tukzedofs.md). Most of TukzedoFS will probably go in Captain Nemo rather than here.
 
 - How thumbnails are made, stored, ordered and shown, and the planned dedupe, are in [20260925-063617_dedupe_and_thumbnails.md](design_docs/20260925-063617_dedupe_and_thumbnails.md).
 
