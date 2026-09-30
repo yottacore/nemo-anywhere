@@ -33,6 +33,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Code review 20260928 item 15. Three items from code review 20260919 closed with no test and no reason.
+	- ID: 2026092813381415
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: items 11 and 12 were speed fixes with no speed test, and item 21's hoists and dead code have none. The review rules reopen a closed item with neither a test nor a reason.
+	- Expected behavior: a speed fix has a check with a number to fail on.
+	- Origin: code review 20260919. Confirmed.
+	- Fixed: each of the three now has a check with a number to fail on, or a reason on its entry where none can be made.
+	- Note: the fork still left in each name lookup of the theme vendoring script is filed as its own item.
+	- Test case: `rj4jkr22 List view work per row test`, `cicd/utility/test-vendor-forks.bash` (rj4j8jk8), `rj4jbn1b Allocations per read test` and `rj4jewn6 Archive check cost test`.
+	- Branch: speedpins
+
 - Code review 20260928 item 10. A small PSD file can tie up a thumbnail thread for minutes.
 	- ID: 2026092813381410
 	- Type: Bug
@@ -450,19 +466,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Origin: before 20260917, carried into 7284973, 20260925. Not seen by an earlier round. Plausible.
 	- Test case: none yet.
 
-- Code review 20260928 item 15. Three items from code review 20260919 closed with no test and no reason.
-	- ID: 2026092813381415
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: items 11 and 12 were speed fixes with no speed test, and item 21's hoists and dead code have none. The review rules reopen a closed item with neither a test nor a reason.
-	- Expected behavior: a speed fix has a check with a number to fail on.
-	- Origin: code review 20260919. Confirmed.
-	- Test case: none yet.
-
 - On Windows, a local shortcut to a share that is not answering can stall the window while its icon is looked up.
 	- ID: 2026093010493389
 	- Type: Bug
@@ -700,6 +703,33 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: a batch also ends after about 1 MB of thumbnails, so each hold of the lock stays short at any size.
 	- Reproduced: yes for the 1.4 s, 20260930, Linux, under item 11.
 	- Test case: none yet. The prune test with large thumbnails, checking the bytes one batch removes.
+
+- The theme vendoring script still starts a process for every name it looks up.
+	- ID: 2026093013281956
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20260930-132819
+	- Opened by: code review 20260928 item 15
+	- Incorrect behavior: the lookup asks for its context pattern through a command substitution, one fork per name tried, in a part of the file whose own comment says it is fork-free.
+	- Expected behavior: the lookup answers the way the scorer does, with no fork.
+	- Origin: left by the fix for code review 20260919 item 12. Confirmed.
+	- Test case: `cicd/utility/test-vendor-forks.bash` counts it today; its bar can come down once this is fixed.
+	- Note: the bar has to come down with the count, or a fork put back at the first lookup of each icon passes again. The failure message there gets the bar right only while it is an odd number of halves.
+
+- The string list settings read has no check on its cost per read.
+	- ID: 2026093013501931
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20260930-135019
+	- Opened by: code review 20260928 item 15
+	- Related IDs: 2026092813381415
+	- Incorrect behavior: code review 20260919 item 21 stopped every settings read from building its key path each time. `rj4jbn1b Allocations per read test` reads flags, numbers, strings and enums, but no string list, so a string list read that builds the path each time again still passes. Item 21's entry says the test covers the settings reads.
+	- Expected behavior: the test also fails when the string list read builds its path per read, or item 21's entry says why that read has no check.
+	- Reproduced: yes, 20260930, Linux.
+	- Origin: missed by the first review of code review 20260928 item 15, which named only the string and enum reads. Confirmed.
+	- Test case: none yet. `rj4jbn1b`, with a string list count whose bar goes by the length of each list.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
@@ -1427,13 +1457,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Origin: measurement came with the column width work, shading with `ownerrows`. Confirmed by reading the hookup and the bodies, not measured.
 			- Fixed: the theme sizes and the column list are read once rather than per row, parity is worked out once per row rather than once per cell, and a renderer that already has no background is left alone. The rows look the same as before.
 			- Measured over 20,000 files. Listing did not move, at about 7.8 s of processor time either way. Paging through the folder went from 1.16 s to 1.01 s with shading off, which is the default, and did not move with it on. So the suspects here were real but small, and the listing cost is somewhere else.
-			- Test case: `fCheckCellPlain` in the C lint; the speed itself has no test.
+			- Test case: `fCheckCellPlain` in the C lint; for the speed, `rj4jkr22 List view work per row test`, which counts the per-row and per-cell work against the cells measured.
 		- ✅ Item 12. The theme vendoring script forks per icon.
 			- Cause: the resolver is called through command substitution up to five times per icon across roughly 3,600 icons. The file's own note two hundred lines above says a substitution there is a fork and that this runs tens of thousands of times, and solves it that way for the scorer.
 			- Origin: the scorer was fixed, the resolver that calls it was not. Confirmed.
 			- Fixed: the resolver answers through a global and returns a status, the way the scorer already did. The link-stub test reads the head of the file itself instead of calling out three times, and the two `dirname` calls and the two branches picking a directory name are gone. That is about twelve forks an icon removed.
 			- New `--self-test` builds a small tree and checks resolution against it: plain name, symbolic name, context filter on and off, both alias forms, the hop limit and a missing name. It runs in the lint stage, since the build container has no git.
-			- Test case: `cicd/utility/vendor-themes.bash --self-test` for resolution; the speed itself has no test.
+			- Test case: `cicd/utility/vendor-themes.bash --self-test` for resolution; for the speed, `cicd/utility/test-vendor-forks.bash` (rj4j8jk8), which counts the processes started per icon.
 		- ✅ Item 13. A maintainer's home path is baked into test fixtures.
 			- Cause: five lines of one Windows test use a real personal path where the rest of the suite uses a placeholder.
 			- Origin: written with a live path and never anonymized. Confirmed.
@@ -1485,7 +1515,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Done, the naming: the profiler script carried the Bash `f` prefix into Python and is the only Python file here that did.
 			- Not done, with reasons. Two theme-root scans stay: one is startup, the other is opening the preferences dialog, and the only way to skip them is to cache the scan, which means a theme installed while running goes unseen. The per-key ancestor walk in the folder settings stays: it runs once per folder change, not per file. The metadata store keeps its one pass per moved file, since skipping it needs an index of every ancestor of every key, and the comment that read as a contradiction now says what the code does.
 			- Not done, and dropped: `out` and `result` as the name of the value a function returns, in eleven Windows files. Every one is a short function that declares it, fills it and returns it. That is the clearest use of the name, so there is nothing to fix.
-			- Test case: `fCheckTestHelpers` in the C lint for the test helpers; the hoists and dead code have none.
+			- Test case: `fCheckTestHelpers` in the C lint for the test helpers. For the hoists, `rj4jbn1b Allocations per read test` covers the settings reads and the Ext column, and `rj4jewn6 Archive check cost test` the archive check. The Windows index search hoist has none: it saves one length per result row beside a split and a copy the same row already makes, too small for a bar. The dead code has none, since nothing is left to run. The regex hoist in `flame-report.py` and the string build in `svg-min.py` have none either: both are developer scripts, and neither gained as much as two times, too little for a timing bar that holds steady.
 
 - ✅ The Windows cross link compiles its LTO jobs one at a time.
 	- Opened: 20260919-203000

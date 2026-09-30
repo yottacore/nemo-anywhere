@@ -94,6 +94,18 @@ test('rdjjz89r Config store test',
   timeout: 90         # a hundred external rewrites, each waiting on the file monitor
 )
 
+# Counts allocations through its own malloc, which only glibc allows.
+if not is_windows
+  test('rj4jbn1b Allocations per read test',
+    executable('test-nemo-read-allocations',
+      [ 'test-nemo-read-allocations.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: []
+  )
+endif
+
 test('rh325v70 Delete test guard arming test',
   executable('test-nemo-delete-testguard',
     [ 'test-nemo-delete-testguard.c' ],
@@ -958,6 +970,21 @@ if not is_windows
     args: []
   )
 
+  # Preloaded into the program, so it links nothing of ours.
+  list_view_counts = shared_module('test-nemo-list-view-counts',
+    [ 'test-nemo-list-view-counts.c' ],
+    dependencies: [ gtk, cc.find_library('dl', required: false) ],
+  )
+  test('rj4jkr22 List view work per row test',
+    executable('test-nemo-list-view-work',
+      [ 'test-nemo-list-view-work.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, list_view_counts ],
+    timeout: 180
+  )
+
   test('rhtq57n4 Clean start test',
     executable('test-nemo-startup-clean',
       [ 'test-nemo-startup-clean.c' ],
@@ -1102,6 +1129,16 @@ test('rewygsbg Archive job test',
     c_args: nemo_definitions,
   ),
   args: []
+)
+
+test('rj4jewn6 Archive check cost test',
+  executable('test-nemo-archive-verify-cost',
+    [ 'test-nemo-archive-verify-cost.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ archive, gio, nemo_private, test_scratch ],
+  ),
+  args: [],
+  timeout: 120
 )
 
 # Some hundreds of archives, so it gets longer than the default.

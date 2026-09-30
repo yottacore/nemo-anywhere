@@ -372,6 +372,68 @@ fIsLinkStub(){
 	[[ "$head" == *.svg || "$head" == *.png ]]
 }
 
+## One line of theme-icon-names.txt: resolve it, stage the file, and the dark
+## half's where upstream drew one. Works on fBuildIconTheme's locals - repo,
+## the two staging dirs, darkFrom, counterpart and the four counts - so the
+## fork count below runs the same body a build does.
+fStageIcon(){
+	local ctx="$1" name="$2"
+	local symbolic=0 bucket=scalable src="" out darkSrc darkOut
+
+	if [[ "$name" == *-symbolic ]]; then symbolic=1; bucket=symbolic; fi
+
+	## Themes disagree about which context an icon belongs to - Adwaita
+	## files folder-open under status, inode-directory under mimetypes and
+	## media-eject under actions. The basename is unique enough on its own,
+	## so a context miss retries with the filter off rather than giving up.
+	##
+	## Some names were never redrawn as vector - Adwaita's emblems and the
+	## whole legacy set are bitmap only. Better a bitmap than a hole.
+	if   fResolve "$repo" "$ctx" "$name.svg" "$symbolic"; then src="$resolved_path"
+	elif fResolve "$repo" any    "$name.svg" "$symbolic"; then src="$resolved_path"
+	elif fResolve "$repo" "$ctx" "$name.png" "$symbolic"; then src="$resolved_path"
+	elif fResolve "$repo" any    "$name.png" "$symbolic"; then src="$resolved_path"
+	fi
+
+	## Not every theme has a symbolic set - Papirus has none at all, only
+	## size buckets - so a miss retries the plain name at a toolbar size.
+	## GTK still treats the installed file as symbolic because of how it is
+	## named, and a flat 16px glyph in the theme's own colors beats
+	## dropping the whole toolbar back to Adwaita.
+	if [[ -z "$src" && "$symbolic" == "1" ]]; then
+		if fResolve "$repo" "$ctx" "${name%-symbolic}.svg" 0 small; then
+			src="$resolved_path"
+			borrowed=$(( borrowed + 1 ))
+		fi
+	fi
+
+	if [[ -z "$src" ]]; then missing=$(( missing + 1 )); return 0; fi
+
+	## Keep the source extension: a handful of names exist only as bitmaps
+	## upstream, and a png under an .svg name renders as nothing.
+	out="$staged/$bucket/$ctx/$name.${src##*.}"
+
+	mkdir -p "${out%/*}"
+	cp -f "$src" "$out"
+	found=$(( found + 1 ))
+
+	## The dark half takes only what upstream actually drew differently.
+	if [[ -n "$darkFrom" && -n "$counterpart" ]]; then
+		darkSrc=""
+		if [[ "$darkFrom" == roots:* ]]; then
+			fResolve "$repo" any "$name.svg" "$symbolic" large darkIndex && darkSrc="$resolved_path"
+		else
+			fResolve "$repo" "$ctx" "$name${darkFrom#suffix:}.svg" "$symbolic" && darkSrc="$resolved_path"
+		fi
+		if [[ -n "$darkSrc" ]]; then
+			darkOut="$darkStaged/$bucket/$ctx/$name.${darkSrc##*.}"
+			mkdir -p "${darkOut%/*}"
+			cp -f "$darkSrc" "$darkOut"
+			darkFound=$(( darkFound + 1 ))
+		fi
+	fi
+}
+
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 ## --self-test: resolution against a tree built here, no network and no clone.
 ##
@@ -379,15 +441,8 @@ fIsLinkStub(){
 ## stdout, which is easy to get subtly wrong, and because the only other way to
 ## find out is a twenty minute run against twenty upstreams.
 
-fSelfTest(){
-	local repo="$tmp/selftest" fails=0
-
-	fCheck(){
-		local what="$1" want="$2" got="$3"
-		if [[ "$want" == "$got" ]]; then return 0; fi
-		fEcho "FAIL: ${what}: wanted '${want}', got '${got}'"
-		fails=$(( fails + 1 ))
-	}
+fSelfTestTree(){
+	local repo="$1"
 
 	mkdir -p "$repo"/{scalable/{places,actions},symbolic/places,links/places,16x16/places}
 	printf '<svg/>\n' > "$repo/scalable/places/folder.svg"
@@ -411,6 +466,19 @@ fSelfTest(){
 	printf 'loop1.svg\n' > "$repo/links/places/loop2.svg"
 
 	fBuildIndex "$repo" "scalable symbolic links 16x16"
+}
+
+fSelfTest(){
+	local repo="$tmp/selftest" fails=0
+
+	fCheck(){
+		local what="$1" want="$2" got="$3"
+		if [[ "$want" == "$got" ]]; then return 0; fi
+		fEcho "FAIL: ${what}: wanted '${want}', got '${got}'"
+		fails=$(( fails + 1 ))
+	}
+
+	fSelfTestTree "$repo"
 
 	fResolve "$repo" places "folder.svg" 0 || true
 	fCheck "plain name" "$repo/scalable/places/folder.svg" "$resolved_path"
@@ -479,7 +547,36 @@ fSelfTest(){
 	exit 0
 }
 
+## --count-forks: stage icons from the self-test tree through fStageIcon and
+## say how many processes that started. A fork per icon is what made a full
+## run take minutes. The count is only exact in a PID namespace of its own,
+## where nothing else takes a pid, which is how test-vendor-forks.bash runs it.
+fCountForks(){
+	local repo="$tmp/selftest" staged="$tmp/stage-forks" darkStaged="$tmp/stage-forks-dark"
+	local darkFrom="" counterpart="" found=0 missing=0 darkFound=0 borrowed=0
+	local pair before after
+	## Every branch of the lookup chain: a first-try hit, symbolic, a context
+	## miss, both kinds of alias, a dangling one, a bitmap, a miss all the way
+	## down, and a symbolic name borrowed from the plain one.
+	local names=(
+		places/folder places/folder-symbolic places/eject places/alias places/reallink
+		places/folder-docs places/bitmap places/nothing actions/eject-symbolic
+	)
+
+	fSelfTestTree "$repo"
+
+	read -r _ _ _ _ before < /proc/loadavg
+	for pair in "${names[@]}"; do
+		fStageIcon "${pair%%/*}" "${pair#*/}"
+	done
+	read -r _ _ _ _ after < /proc/loadavg
+
+	echo "icons=${#names[@]} found=${found} missing=${missing} borrowed=${borrowed} forks=$(( after - before ))"
+	exit 0
+}
+
 [[ "${wanted[0]:-}" == "--self-test" ]] && fSelfTest
+[[ "${wanted[0]:-}" == "--count-forks" ]] && fCountForks
 
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 ## Emit index.theme for a finished icon theme directory.
@@ -540,7 +637,7 @@ fBuildIconTheme(){
 	fEcho_Clean ""
 	fEcho "Icon theme: $outName ($style)"
 
-	local repo staged darkStaged ctx name out darkOut src darkSrc symbolic
+	local repo staged darkStaged ctx name
 	repo="$(fClone "$url" "$ref" "$roots" "$fetch")"
 
 	fBuildIndex "$repo" "$roots"
@@ -556,65 +653,10 @@ fBuildIconTheme(){
 	darkStaged="$tmp/stage-$id-dark"
 	rm -rf "$staged" "$darkStaged"
 
-	local found=0 missing=0 darkFound=0 borrowed=0 bucket
+	local found=0 missing=0 darkFound=0 borrowed=0
 	while read -r ctx name; do
 		[[ -z "$ctx" || "$ctx" == \#* ]] && continue
-
-		symbolic=0
-		bucket=scalable
-		if [[ "$name" == *-symbolic ]]; then symbolic=1; bucket=symbolic; fi
-
-		src=""
-		## Themes disagree about which context an icon belongs to - Adwaita
-		## files folder-open under status, inode-directory under mimetypes and
-		## media-eject under actions. The basename is unique enough on its own,
-		## so a context miss retries with the filter off rather than giving up.
-		##
-		## Some names were never redrawn as vector - Adwaita's emblems and the
-		## whole legacy set are bitmap only. Better a bitmap than a hole.
-		if   fResolve "$repo" "$ctx" "$name.svg" "$symbolic"; then src="$resolved_path"
-		elif fResolve "$repo" any    "$name.svg" "$symbolic"; then src="$resolved_path"
-		elif fResolve "$repo" "$ctx" "$name.png" "$symbolic"; then src="$resolved_path"
-		elif fResolve "$repo" any    "$name.png" "$symbolic"; then src="$resolved_path"
-		fi
-
-		## Not every theme has a symbolic set - Papirus has none at all, only
-		## size buckets - so a miss retries the plain name at a toolbar size.
-		## GTK still treats the installed file as symbolic because of how it is
-		## named, and a flat 16px glyph in the theme's own colors beats
-		## dropping the whole toolbar back to Adwaita.
-		if [[ -z "$src" && "$symbolic" == "1" ]]; then
-			if fResolve "$repo" "$ctx" "${name%-symbolic}.svg" 0 small; then
-				src="$resolved_path"
-				borrowed=$(( borrowed + 1 ))
-			fi
-		fi
-
-		if [[ -z "$src" ]]; then missing=$(( missing + 1 )); continue; fi
-
-		## Keep the source extension: a handful of names exist only as bitmaps
-		## upstream, and a png under an .svg name renders as nothing.
-		out="$staged/$bucket/$ctx/$name.${src##*.}"
-
-		mkdir -p "${out%/*}"
-		cp -f "$src" "$out"
-		found=$(( found + 1 ))
-
-		## The dark half takes only what upstream actually drew differently.
-		if [[ -n "$darkFrom" && -n "$counterpart" ]]; then
-			darkSrc=""
-			if [[ "$darkFrom" == roots:* ]]; then
-				fResolve "$repo" any "$name.svg" "$symbolic" large darkIndex && darkSrc="$resolved_path"
-			else
-				fResolve "$repo" "$ctx" "$name${darkFrom#suffix:}.svg" "$symbolic" && darkSrc="$resolved_path"
-			fi
-			if [[ -n "$darkSrc" ]]; then
-				darkOut="$darkStaged/$bucket/$ctx/$name.${darkSrc##*.}"
-				mkdir -p "${darkOut%/*}"
-				cp -f "$darkSrc" "$darkOut"
-				darkFound=$(( darkFound + 1 ))
-			fi
-		fi
+		fStageIcon "$ctx" "$name"
 	done < <(grep -vE '^\s*(#|$)' "$nameList")
 
 	(( found > 0 )) || { fEcho "SKIPPED: $outName resolved nothing"; return 0; }
