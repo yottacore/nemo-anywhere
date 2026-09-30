@@ -62,7 +62,7 @@ rc=0
 ## The UI style guide asks for American spelling, so the code and the docs that
 ## go with it say the same thing.
 british='\b([a-z_]*colour[a-z_]*|behaviour[a-z]*|honour[a-z]*|flavour[a-z]*|[a-z]*grey[a-z]*|recognis[a-z]+|normalis[a-z]+|organis[a-z]+|initialis[a-z]+|centred|towards|licence|defence|neighbour[a-z]*|favourite[a-z]*)\b'
-fReport "a British spelling" "$british" source cicd utility README.md changelog.md project/design.md \
+fReport "a British spelling" "$british" source cicd utility README.md changelog.md project/design.md project/design_docs \
 	':!:cicd/utility/lint-ui-case.py' ':!:cicd/utility/include' || rc=1
 
 ## "No banner dividers" - style-guide_code.md. Three forms had grown up before
