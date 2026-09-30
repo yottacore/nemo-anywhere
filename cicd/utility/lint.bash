@@ -38,6 +38,7 @@ if [[ "$(uname -o 2>/dev/null)" == "Msys" ]]; then
 	echo "[ vendor-themes self-test skipped: needs symlinks, not there under MSYS2 ]"
 else
 	bash "${here}/vendor-themes.bash" --self-test
+	fTest bash "${here}/test-vendor-forks.bash"
 fi
 
 bash "${here}/../hooks/test-pre-push.bash"
