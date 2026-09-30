@@ -222,6 +222,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual cause: the hook read the version and the README badge from the working tree, and the gate builds whatever tree is checked out.
 	- Actual fix: the version and badge are read from the commit being pushed. A push to main is refused when the tracked files differ from that commit, as with another branch checked out or an uncommitted edit. Untracked files are allowed. The container runner also refuses a clone other than the one its container has mounted, such as a second worktree, which it would otherwise have tested instead.
 	- Note: a release is now pushed from a clean checkout of main in the main clone. A merge made while another branch is checked out still works, but main has to be checked out, with nothing uncommitted, before the push.
+	- Signed off: 20260930, a clean main in the main clone for a release push.
 	- Swept: both reads in the version guard, the Windows gate (the same check runs before it), and the container runner the gate's build and tests go through. The release and cross builds call the container directly, but a full run from another clone now stops at the debug build, before they run.
 	- Branch: gatefix
 	- Commit: 683eae0
@@ -266,6 +267,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Origin: 673bcbb, 20260924 (lnkread). New ground. Confirmed.
 	- Actual cause: the shortcut reader opened and read any file named `.lnk`, and a FIFO with no writer blocks both. The icon and sort checks looked only at the name and at whether the folder is local. On Windows they never asked whether the file sits on a share.
 	- Against: design.md says a folder shortcut sorts with the folders on every platform. On Windows one that sits on a share now sorts with the files, and design.md says so.
+	- Signed off: 20260930, a shortcut on a share sorts with the files and wears the plain shortcut icon.
 	- Actual fix: the reader opens without blocking and reads only a regular file. The icon and sort place of a shortcut are read only for a regular file that is local and not on a share.
 	- Swept: every shortcut read goes through the one reader, so following one, opening one and the Edit link dialog refuse a FIFO too. The two paths-rewrite calls read the file whole, but only after the reader has read it. The Windows target check and shell icon for a shortcut sit behind the same new gate. The other reads made while a folder lists, `.desktop` link info and thumbnails with their checksums, go by content type, which is `inode/fifo` for a FIFO whatever its name, and both run off the main thread.
 	- Note: opening a shortcut still reads it on the main thread, a recorded known gap. Only the FIFO hang is gone there.
