@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 
-##	- Purpose: Check-only C lint over the CHANGED .c/.h files, never the whole
-##	  inherited tree (upstream nemo has no house style, and a full-tree pass
-##	  would drown real findings in legacy noise). Nothing is rewritten.
-##	- Changed = commits since the merge base with the integration branch (dev,
-##	  else main) plus anything uncommitted (tracked, staged, untracked). On dev,
-##	  main or the base itself, where that range is always empty, it is what the
-##	  latest merge brought in instead: from its first parent up to HEAD.
+##	- Purpose: Check-only C lint. Nothing is rewritten.
+##	- On a feature branch, cppcheck covers the .c/.h files changed since the
+##	  merge base with the integration branch (dev, else main), plus anything
+##	  uncommitted (tracked, staged, untracked). On dev, main or the named base,
+##	  which only take merges, it covers every first-party .c/.h in the tree,
+##	  plus untracked ones. Vendored code (vendor/, source/cut-n-paste-code/) is
+##	  left out either way.
 ##	- cppcheck findings (error/warning/portability) fail the gate. A missing
 ##	  cppcheck skips with a warning so an unprovisioned box can't hard-block a
 ##	  push; CPPCHECK_STRICT=1 turns that miss into a hard failure.
@@ -45,7 +45,12 @@ while read -r fn tag; do testIds[$fn]="$tag"; done < <(awk '
 	/^fCheck[A-Za-z0-9_]+\(\)\{/ { fn = $0; sub(/\(\).*/, "", fn); if (id != "") print fn, id }
 	{ id = "" }' cicd/utility/lint-c.bash)
 curTest=""
-trap '[[ -n "$curTest" ]] && printf "%s %-22s FAIL\n" "${testIds[$curTest]:-?}" "${curTest#fCheck}"' EXIT
+cacheDir=""
+fCleanCache(){
+	[[ "$cacheDir" == cicd/artifacts/cppcheck.* && -d "$cacheDir" ]] || return 0
+	rm -rf -- "$cacheDir"
+}
+trap 'fCleanCache; [[ -n "$curTest" ]] && printf "%s %-22s FAIL\n" "${testIds[$curTest]:-?}" "${curTest#fCheck}"' EXIT
 fRun(){
 	if ((listOnly)); then return 0; fi
 	curTest="$1"
@@ -1158,24 +1163,26 @@ if [[ -z "$base" ]]; then
 	if "${GIT[@]}" show-ref --verify --quiet refs/heads/dev; then base="dev"; else base="main"; fi
 fi
 
-## Collect candidates: branch commits since the merge base, then everything not
-## yet committed. Deletions can't be linted. dev and main only take --no-ff
-## merges, so base...HEAD there is empty, even on main right after the release
-## merge the pre-push gate is checking. Those take the latest merge instead.
+## Collect candidates. dev and main only take --no-ff merges, so base...HEAD is
+## always empty there, even on main right after the release merge the pre-push
+## gate is checking. They get the whole tree instead. A feature branch gets its
+## commits since the merge base, then everything not yet committed. Untracked
+## files count on both. Deletions can't be linted; the -f test below drops them.
 candidates=""
 range=""
+wholeTree=0
 head_branch="$("${GIT[@]}" rev-parse --abbrev-ref HEAD)"
 if [[ "$head_branch" == "$base" || "$head_branch" == "dev" || "$head_branch" == "main" ]]; then
-	merge="$("${GIT[@]}" rev-list --first-parent --merges -n 1 HEAD || true)"
-	if [[ -n "$merge" ]]; then range="${merge}^1..HEAD"; fi
-elif "${GIT[@]}" rev-parse --verify --quiet "$base" >/dev/null; then
-	range="${base}...HEAD"
+	wholeTree=1
+	candidates+="$("${GIT[@]}" ls-files)"$'\n'
+else
+	if "${GIT[@]}" rev-parse --verify --quiet "$base" >/dev/null; then
+		range="${base}...HEAD"
+		candidates+="$("${GIT[@]}" diff --name-only --diff-filter=d "$range")"$'\n'
+	fi
+	candidates+="$("${GIT[@]}" diff --name-only --diff-filter=d HEAD)"$'\n'
+	candidates+="$("${GIT[@]}" diff --cached --name-only --diff-filter=d)"$'\n'
 fi
-if [[ -n "$range" ]]; then
-	candidates+="$("${GIT[@]}" diff --name-only --diff-filter=d "$range")"$'\n'
-fi
-candidates+="$("${GIT[@]}" diff --name-only --diff-filter=d HEAD)"$'\n'
-candidates+="$("${GIT[@]}" diff --cached --name-only --diff-filter=d)"$'\n'
 candidates+="$("${GIT[@]}" ls-files --others --exclude-standard)"
 
 ## Keep C sources that still exist, dedup. Vendored code is upstream's to
@@ -1183,7 +1190,7 @@ candidates+="$("${GIT[@]}" ls-files --others --exclude-standard)"
 files=()
 while IFS= read -r f; do
 	[[ "$f" == *.c || "$f" == *.h ]] || continue
-	[[ "$f" == vendor/* ]] && continue
+	[[ "$f" == vendor/* || "$f" == source/cut-n-paste-code/* ]] && continue
 	[[ -f "$f" ]] && files+=("$f")
 done < <(printf '%s\n' "$candidates" | LC_ALL=C sort -u)
 
@@ -1192,18 +1199,29 @@ if ((listOnly)); then
 	exit 0
 fi
 
-since="${range:-HEAD}"
-since="${since%%..*}"
+if ((wholeTree)); then
+	scope="in the tree on ${head_branch}"
+else
+	since="${range:-HEAD}"
+	scope="changed since ${since%%...*}"
+fi
 if ((${#files[@]} == 0)); then
-	fEcho "OK: C lint: no C files changed since ${since:0:12}"
+	fEcho "OK: C lint: no C files ${scope}"
 	exit 0
 fi
 
-fEcho "C lint (cppcheck, check-only) over ${#files[@]} file(s) changed since ${since:0:12}..."
+fEcho "C lint (cppcheck, check-only) over ${#files[@]} file(s) ${scope}..."
 ## The suppression list is in .cppcheck-suppressions at the repo root, with the
 ## reason for each one written beside it. --inline-suppr stays for the handful
 ## that belong to a single line rather than a whole file.
+## -j on its own drops the cross-file checks (the ctu* ones); a build dir keeps
+## them, with the same findings as one process. Half the cores, since something
+## else is usually running. The dir is relative so MSYS2 hands it over as is.
+jobs=$(( $(nproc 2>/dev/null || echo 2) / 2 ))
+((jobs >= 1)) || jobs=1
+mkdir -p cicd/artifacts
+cacheDir="$(mktemp -d cicd/artifacts/cppcheck.XXXXXX)"
 cppcheck --enable=warning,portability --library=gtk --inline-suppr \
-	--suppressions-list=.cppcheck-suppressions \
+	--suppressions-list=.cppcheck-suppressions -j "$jobs" --cppcheck-build-dir="$cacheDir" \
 	--quiet --error-exitcode=2 "${files[@]}"
 fEcho "OK: C lint: no findings"
