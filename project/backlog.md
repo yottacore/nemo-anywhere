@@ -715,6 +715,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the lookup answers the way the scorer does, with no fork.
 	- Origin: left by the fix for code review 20260919 item 12. Confirmed.
 	- Test case: `cicd/utility/test-vendor-forks.bash` counts it today; its bar can come down once this is fixed.
+	- Note: the bar has to come down with the count, or a fork put back at the first lookup of each icon passes again. The failure message there gets the bar right only while it is an odd number of halves.
+
+- The string list settings read has no check on its cost per read.
+	- ID: 2026093013501931
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20260930-135019
+	- Opened by: code review 20260928 item 15
+	- Related IDs: 2026092813381415
+	- Incorrect behavior: code review 20260919 item 21 stopped every settings read from building its key path each time. `rj4jbn1b Allocations per read test` reads flags, numbers, strings and enums, but no string list, so a string list read that builds the path each time again still passes. Item 21's entry says the test covers the settings reads.
+	- Expected behavior: the test also fails when the string list read builds its path per read, or item 21's entry says why that read has no check.
+	- Reproduced: yes, 20260930, Linux.
+	- Origin: missed by the first review of code review 20260928 item 15, which named only the string and enum reads. Confirmed.
+	- Test case: none yet. `rj4jbn1b`, with a string list count whose bar goes by the length of each list.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
