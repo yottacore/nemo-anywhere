@@ -456,6 +456,27 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Origin: code review 20260919. Confirmed.
 	- Test case: none yet.
 
+- On Windows, a local shortcut to a share that is not answering can stall the window while its icon is looked up.
+	- ID: 2026093010493389
+	- Type: Bug
+	- Status: Queued
+	- Needs external testing: Windows. A folder of local shortcuts to a dead share lists with no stall, and each shows the icon its target's type calls for.
+	- Priority|Severity: Avg
+	- Opened: 20260930-104934
+	- Opened by: code review 20260928 follow-up
+	- Related IDs: 2026092813381408, 2026093010493450
+	- Target OS: Windows
+	- Incorrect behavior: a shortcut with no icon of its own gets one from the Windows shell, on the window's thread. The shell may go to the target for it. On a share that is not answering that is about twenty seconds per shortcut.
+	- Expected behavior: the share is never visited for an icon.
+		- The target path is read from the shortcut file, as the folder check already does.
+		- When the target is on a share, the icon comes from the name alone. A folder gets the folder icon, a document the icon for its extension, and a program the plain program icon.
+		- Shortcut icon lookups run off the window's thread, local targets included.
+	- Reproduced: no. Read only, from item 8 of code review 20260928.
+	- Decisions:
+		- 20260930: assume the stall rather than time it first. Many shortcuts to shares would multiply it.
+		- 20260930: a program on a share showing the plain program icon is fine.
+	- Test case: none yet.
+
 - Code review 20260928 item 19. An Olympus raw file with a looping directory takes seconds to read.
 	- ID: 2026092813381419
 	- Type: Bug
@@ -660,6 +681,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Origin: 4d8f9f7, 20260828, and 4809a54, 20260922 (rawthumbs). New ground. Confirmed.
 	- Test case: the tests themselves.
 
+- A cache prune batch holds the write lock longer as thumbnails get bigger.
+	- ID: 2026093010493420
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20260930-104934
+	- Opened by: code review 20260928 follow-up
+	- Related IDs: 2026092813381411, 2026092813381436
+	- Incorrect behavior: a batch is 256 thumbnails whatever their size. With 40 thousand of 16 KB, another window's store waited up to about 1.4 s. Bigger thumbnails make each batch longer, toward the 3 s timeout, past which the store is dropped.
+	- Expected behavior: a batch also ends after about 1 MB of thumbnails, so each hold of the lock stays short at any size.
+	- Reproduced: yes for the 1.4 s, 20260930, Linux, under item 11.
+	- Test case: none yet. The prune test with large thumbnails, checking the bytes one batch removes.
+
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
 	- Type: Enhancement
@@ -713,6 +747,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Items 23, 32 and 33 came from one such run. A leak pass needs a suppressions file for GTK's own.
 	- Test case: the lane itself.
 
+- The app visits network shares on its own.
+	- ID: 2026093010493450
+	- Type: Task
+	- Status: Queued
+	- Opened: 20260930-104934
+	- Opened by: code review 20260928 follow-up
+	- Related IDs: 2026093010493389, 2026092813381408
+	- Requirements:
+		- The app never visits a network share on its own. Only something a person does reaches one, such as going to a share or opening a link or shortcut that points at one.
+		- Find each place that touches a share with no such action behind it, and gate it or work from what is on local disk. Icons, sort places, emblems, thumbnails, link targets, free space and the side pane are the first to check.
+		- Asked 20260930, as design.md "Speed, memory and size".
+	- Test case: none yet. One per path found, where it can run off Windows.
+
 - Code review 20260928 item 36. Drawing can wait up to 3 s on the file cache.
 	- ID: 2026092813381436
 	- Type: Enhancement
@@ -722,6 +769,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026092813381400
 	- Requirements:
 		- The in-memory draw counter shares a lock with database calls that can wait on another window. Give it its own, and flush off the main thread.
+		- The window never waits on the cache, however briefly. Asked 20260930. Besides draw counts, the timed flush and the forget behind a thumbnail refresh write on the window's thread today.
+		- First measure whether a window really freezes while another prunes. Found by reading only.
+	- Related IDs: 2026092813381411, 2026093010493420
 	- Test case: none yet.
 
 - Code review 20260928 item 37. Path and file rows in the cache never age out.
