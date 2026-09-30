@@ -195,8 +195,6 @@ The same scan and counting as the Compress dialog: see [Counting sizes](20260929
 
 ### Open questions
 
-- What a copy does today when the tree it copies has another filesystem mounted inside it. The filesystem options change that, so it needs checking first.
-
 - When the totals are shown: only when the source has links, as the link dialog is today, or on every copy past some size.
 
 - How the new-space estimate for a clone is worked out, since the filesystem doesn't say ahead of time.
