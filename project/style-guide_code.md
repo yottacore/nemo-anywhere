@@ -6,7 +6,7 @@
 <!-- TOC ignore:true -->
 # nemo-anywhere code style
 
-How the C in this repo is written, and why. Companion to [design.md](design.md), [style-guide_ui.md](style-guide_ui.md) and [../contributing.md](../contributing.md).
+How the C in this repo is written, and why. Companion to [design.md](design.md), [style-guide_ux.md](style-guide_ux.md) and [../contributing.md](../contributing.md).
 
 <!-- TOC ignore:true -->
 ## Table of contents
