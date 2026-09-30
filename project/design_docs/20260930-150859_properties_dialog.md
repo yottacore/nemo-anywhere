@@ -19,6 +19,9 @@
 	- [Counting today](#counting-today)
 	- [Planned counting](#planned-counting)
 	- [Hidden attribute](#hidden-attribute)
+		- [Where it's kept](#where-its-kept)
+		- [When they disagree](#when-they-disagree)
+		- [Honoring .hidden files](#honoring-hidden-files)
 	- [Open questions](#open-questions)
 - [Alternative ideas](#alternative-ideas)
 	- [Unconsidered](#unconsidered)
@@ -51,6 +54,8 @@ The Properties window shows what a file or folder is, and lets a few things abou
 - Planned:
 	- Counting like the Compress dialog: link choices, nested and other filesystems, and exact totals for a file with more than one path.
 	- A "Hidden" box, like the Hidden attribute in Windows, that works on every platform.
+	- Where a platform has no hidden flag of its own, Hidden is kept in three places, with an order for when they disagree.
+	- A folder's `.hidden` file is honored on every platform, Windows included.
 
 ## Goals
 
@@ -110,22 +115,60 @@ The same scan and counting as the Compress dialog. See [Counting sizes](20260929
 
 A "Hidden" box on the Basic page, like the Hidden attribute in Windows.
 
-- On Windows it sets or clears the file's Hidden attribute, the same one Explorer sets.
-
 - On a folder it asks, as Windows does, whether to apply it to the folder only, or to everything inside too.
 
 - With several items selected it shows a mixed state when some are hidden and some aren't.
 
-- Off Windows there's no Hidden attribute. See [Open questions](#open-questions) for where it's kept there.
+- Setting or clearing it is something a person does, so the ctime change that comes with it is expected. It isn't held back by the checksum setting.
 
 - The listing already treats the two kinds apart on Windows: attribute-hidden files, and dot-files. On other platforms one switch covers both. See [design.md](../design.md#hidden-files-and-shortcuts).
 
-### Open questions
+#### Where it's kept
 
-- Where "Hidden" is kept off Windows. The choices:
-	- A `.hidden` file in the folder, one name per line. GLib already reads it, and so do other file managers on Linux. It only covers files in that folder, and a rename or move loses it.
-	- An extended attribute on the file itself. It travels with the file, but nothing else reads it.
-	- A row in TukzedoFS. Nothing else reads it, and it's lost with the database.
+Setting the box writes it in every place the file and its folder allow. Clearing it clears it from all of them.
+
+- Windows: the file's Hidden attribute, the same one Explorer sets.
+
+- macOS and FreeBSD: the system's own hidden flag, the same one `chflags hidden` sets.
+
+- Linux and the other BSDs have no hidden flag, so it goes in three places:
+	- An extended attribute on the file. It moves with the file through a rename or a move, but nothing else reads it.
+	- The folder's `.hidden` file, one name per line. Other file managers read it, but it only covers that folder, and a rename or a move leaves the old name behind.
+	- A row in [TukzedoFS](20260930-145641_tukzedofs.md). Nothing else reads it, and it can't be rebuilt from the disk, so it's in the exports.
+
+- On a platform with its own flag, only the flag and a TukzedoFS row are written. The row there is a copy for searching. Writing the others too would keep a file hidden after Explorer or Finder had shown it again.
+
+#### When they disagree
+
+Another program, a rename or a copy can leave the places saying different things. The first place in this list that has an answer wins.
+
+1. The platform's own flag, where there is one. Explorer and Finder change it, so there it's the only one that counts, apart from `.hidden` below.
+
+2. The extended attribute. It says hidden or shown, and it follows the file.
+
+3. The folder's `.hidden` file, where the folder has one. A name in it is hidden, and a name missing from it is shown.
+
+4. The TukzedoFS row. It only has a say where the file has no attribute and the folder has no `.hidden` file, such as on a drive that can't take either.
+
+- A dot-file is hidden by its name, whatever the list says.
+
+- Reading never writes. A place that disagrees is put right the next time the box is set or cleared. Fixing it on read would change ctimes behind someone's back, and could reach a share nobody asked to visit.
+
+#### Honoring .hidden files
+
+A name in a folder's `.hidden` file is hidden, on every platform.
+
+- On Linux, macOS and the BSDs this already works. GLib reads the file and marks the names hidden.
+
+- On Windows GLib looks only at the Hidden attribute, so the app reads `.hidden` itself there. A drive shared with Linux then looks the same on both.
+
+- On Windows a name in `.hidden` counts under the hidden files switch, not the dot-files one, since its name isn't what hides it.
+
+- On macOS and FreeBSD a name in `.hidden` is hidden even when the flag is clear. That is the one place the flag doesn't count alone.
+
+- Clearing the box takes the name out of `.hidden` too, on every platform.
+
+### Open questions
 
 - Whether a dot-file shows the box ticked and grayed, since its name is what hides it.
 
@@ -141,6 +184,8 @@ A "Hidden" box on the Basic page, like the Hidden attribute in Windows.
 
 - Counting the largest files first. The size of each file comes with the listing, so it would only make the total later.
 
+- Keeping Hidden in only one place off Windows. A `.hidden` file loses a renamed file, an extended attribute is read by nothing else, and a TukzedoFS row is lost with the database unless it was exported.
+
 ### Superseded
 
 - "Contents" and "Size" as one line each. Replaced by the Folders and Files lines with hidden counts.
@@ -149,7 +194,9 @@ A "Hidden" box on the Basic page, like the Hidden attribute in Windows.
 
 ## Research findings
 
-- GLib has read a `.hidden` file in each folder since 2.36, and marks the names in it hidden.
+- GLib has read a `.hidden` file in each folder since 2.36, and marks the names in it hidden. It does this on every platform but Windows. On Windows it looks only at the Hidden attribute, so neither `.hidden` nor a leading dot hides anything there.
+
+- macOS and FreeBSD have a hidden flag of their own, set with `chflags hidden`. GLib doesn't read it, so the app has to.
 
 - Windows reports only its own Hidden attribute, so dot-files were shown there whatever the setting said, until the second switch.
 
@@ -157,7 +204,9 @@ A "Hidden" box on the Basic page, like the Hidden attribute in Windows.
 
 - Planned counting, after the Compress dialog reset, since it shares the scan.
 
-- The Hidden box, once the open question on where it's kept is settled.
+- Reading `.hidden` on Windows, and the hidden flag on macOS and FreeBSD. Neither needs the box.
+
+- The Hidden box, and writing each place it's kept.
 
 ## Related backlog issues
 
