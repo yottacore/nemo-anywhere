@@ -197,7 +197,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
-	- Design: [20260929_compression.md](design_docs/20260929_compression.md), open question on these links under the new "Ignore" choice.
+	- Design: [20260929-101432_compression.md](design_docs/20260929-101432_compression.md). Under the reset, "Ignore" leaves these links out too.
 	- Steps to reproduce [Bug]:
 		- Untick "store links", then compress a folder holding a link to a missing file as 7z or rar.
 	- Incorrect behavior: "could not be created", and the whole archive is gone. On Windows it happens to every 7z, whatever the checkbox says.
@@ -415,7 +415,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
-	- Design: [20260929_compression.md](design_docs/20260929_compression.md). An edited 7-Zip line gets `-spd` added at run time. Nothing changes until the reset is built.
+	- Design: [20260929-101432_compression.md](design_docs/20260929-101432_compression.md). An edited 7-Zip line gets `-spd` added at run time. Nothing changes until the reset is built.
 	- Target OS: Linux, BSD, macOS.
 	- Incorrect behavior: a linked folder named `a*`, with store and follow both off, also drops a real folder `abc`. With delete-originals off, the job reports success on an archive that is missing it.
 	- Reproduced: yes for 7z, 20260928, Linux.
@@ -739,7 +739,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026092813381404, 2026092813381416
 	- Target OS: Linux, Windows
-	- Design: [20260929_compression.md](design_docs/20260929_compression.md). The requirements, decisions and open questions are there.
+	- Design: [20260929-101432_compression.md](design_docs/20260929-101432_compression.md). The requirements, decisions and open questions are there.
 	- Requirements:
 		- Deselect and disable options the archiver can't do.
 		- Symlinks and Junctions as radio groups, plus nested and other filesystems options, each with a live size change. A total size beside Cancel and OK.
@@ -941,12 +941,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - 🔘 Cut 1.0.0-rc.1.
 	- Opened: 20260925-122815
+	- Design: [20260930-150859_delete_guard.md](design_docs/20260930-150859_delete_guard.md), for the test guard.
 	- The delete test guard stays in as a preference setting. (But off in code.) The changelog and the release notes point it out, and say where to turn it off.
 	- Note: the changelog's vNEXT section is missing most of the work since beta2, such as Compress and Extract, the crash reporter, the delete protections and tab move.
 	- Note: `main` still has the installers from 20260804. Their stable channel asks for the latest stable release, which does not exist yet, so the README one-liners fail until this cut.
 	- Test case: none, release step.
 
-- 🔘 File uniqueness design: See [20260925_dedupe_and_thumbnails.md](design_docs/20260925_dedupe_and_thumbnails.md).
+- 🔘 File uniqueness design: See [20260925-063617_dedupe_and_thumbnails.md](design_docs/20260925-063617_dedupe_and_thumbnails.md).
+	- Design: the tables and how one file is told from another moved to [20260930-145641_tukzedofs.md](design_docs/20260930-145641_tukzedofs.md). Thumbnails and dedupe stay in their own doc.
 	- Note: If the previous cache implementation is on-disk when the new version runs, delete it.
 		- This is OK since it's still beta. In the future for release versions, changes will require a migration.
 	- Opened: 20260925-063617 by JC.
@@ -954,6 +956,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - 🔘 Metadata-aware Nemo Anywhere:
 	- Opened: 20260923-144941
+	- Design: [20260930-145641_tukzedofs.md](design_docs/20260930-145641_tukzedofs.md). What is logged when, the tables, and the open questions on tags are there.
+	- Note: writing the hash onto files became a setting, off by default, since each write changes the file's ctime.
 	- 🔘 When creating a file, also log its known information to the database.
 	- 🔘 When doing anything that involves changing any part of the full file path of one or more folders or files, update the information in the file database.
 	- 🔘 When doing anything that requires full file content to pass through the program, landing in a local directory:
@@ -982,7 +986,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Cache content hashes in local SQLite as well as optionally xattrs.
 	- And related, smart:
 		- Deduper for CoW systems. It never deletes, trashes, moves or hardlinks.
-	- Design: [20260925_dedupe_and_thumbnails.md](design_docs/20260925_dedupe_and_thumbnails.md).
+	- Design: [20260925-063617_dedupe_and_thumbnails.md](design_docs/20260925-063617_dedupe_and_thumbnails.md).
 	- Test case: none yet, not started.
 
 - 🔘 Selectable metadata to include for media titles in icon mode. (E.g. px size, capture date, megapixel, framerate for video, Avg bitrate for audio and video, codec, etc.)
@@ -1002,6 +1006,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - 🔘 A Windows installer exe that installs, or updates an install already there.
 	- Opened: 20260919-132409
+	- Design: [20260930-145641_windows_exe_packing.md](design_docs/20260930-145641_windows_exe_packing.md).
 	- Note: Windows has the portable exe and the zip today, and `install.ps1` for an install with a menu entry and PATH.
 	- Note: wants signing first, or it trips the same warnings the exe does.
 	- Test case: none yet, not started.
@@ -1057,6 +1062,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - 🔘 Windows code signing, and reducing AV false positives.
 	- Opened: 20260804-095855
+	- Design: [20260930-145641_windows_exe_packing.md](design_docs/20260930-145641_windows_exe_packing.md).
 	- Note: a paid signing service, around $10 a month for 5,000 signatures, is the option on the table now.
 	- Note: SignPath Foundation (free for open source) was applied for and refused, so releases ship an unsigned exe with the `.zip` as the fallback. The release-only workflow at `.github/workflows/release-win.yml` still builds, packs and publishes; its submission step is left dormant behind the token gate. That workflow existed because SignPath would only sign CI-built artifacts, so with it gone nothing forces a release into hosted CI and a local cut is viable again.
 	- Note: options weighed (Azure Artifact Signing, Certum open source, commercial cloud, reapplying) are in `cicd/win/signing.md`.
@@ -1824,6 +1830,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Cause: not found. The app wrote nothing about a trash or delete job, and the rollback that brought the home folder back took its own log and every other record under home with it. Every trash path in the code starts from a selection, a drop, an undo or a menu; none runs on its own.
 	- Fixed what can be. Every trash and delete job now logs its count, folder, first item, window and the key, click or drop that asked for it. A job with no input event behind it (another program, another copy, a timer) always asks first, whatever the preference says, and the question says where it came from. A job of `confirm-many-items` or more (20 by default, 0 turns it off) asks even with confirmation off.
 	- The confirmation dialogs keep their usual default button. The dialog itself is the pause.
+	- Note: superseded 20260914. Every question that can remove files now starts on Cancel. See [20260930-150859_delete_guard.md](design_docs/20260930-150859_delete_guard.md).
 	- Test case: `test-nemo-delete-guard` (`nemo_delete_guard_must_ask`), `fCheckJobCallers` and `fCheckBusMethods` in the C lint; the log line is not checked.
 
 - ✅ Plugins are duplicated.
@@ -3129,7 +3136,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ Copying a tiny file makes a CoW clone of it, where a plain copy would do better.
 	- Opened: 20260923-114627. Closed: 20260924-100500.
 	- A copy tries a clone first at any size, then a plain copy. A clone of a tiny file can cost more than it saves.
-	- Pick a size below which a copy skips the clone. See [20260925_dedupe_and_thumbnails.md](design_docs/20260925_dedupe_and_thumbnails.md#copy-on-write-clones).
+	- Pick a size below which a copy skips the clone. See [20260925-063617_dedupe_and_thumbnails.md](design_docs/20260925-063617_dedupe_and_thumbnails.md#copy-on-write-clones).
 	- Done: on Linux, a file under 64 KiB is read whole and written out plainly, so it is never cloned. 64 KiB is 16 blocks of 4 KiB, and a clone saves less than that below it while the file system keeps track of the shared extent for as long as both copies exist.
 	- Done: the limit is `performance.clone-min-kib` in the settings file, 0 to always clone and 1024 at most. Other platforms have nothing to skip, since only Linux clones on copy there.
 	- Note: an overwrite, a link copied as a link, or anything the plain copy cannot start goes the usual way, so conflicts and errors read the same as before.
@@ -4167,6 +4174,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260823-142431
 	- Closed: 20260828-151500
 	- The hidden-files half of this item became "Two kinds of hidden file, two options", now done - it asks for the same thing as two switches rather than one.
+	- Note: superseded in part. Make link now asks, and offers a junction or a symlink for a folder. See [20260930-145641_moving_and_copying.md](design_docs/20260930-145641_moving_and_copying.md).
 	- A link to a folder is now a junction. One place decides it, so every route into "Make symlink" gets the same answer, and a symlink is still the fallback for anything a junction cannot hold - a file, a share, a relative target.
 	- The point of preferring one: a junction needs no privilege. Making a folder link no longer wants Developer Mode or an elevated run, and the menu item stops graying out for a folder on a machine that has neither.
 	- Verified: a folder link made from the menu reads back as a mount point rather than a symlink, and a new check covers it.
@@ -4608,6 +4616,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ Right-click "Compress...": a cross-platform way to archive the selected files and folders.
 	- Opened: 20260819-170512
 	- Closed: 20260820-153813
+	- Note: superseded in part by 2026092910143202, not built yet. The "store links" and "follow linked folders" boxes become a choice per kind of link. See [20260929-101432_compression.md](design_docs/20260929-101432_compression.md).
 	- On the selection menu, the background menu (the folder being viewed) and a breadcrumb segment; also on the Edit menu.
 	- A dialog asks for the name, the format and the folder to put it in, prefilled from the selection and the folder being viewed. The name follows the format, so switching from zip to tar.xz swaps the suffix instead of stacking one on top of the other.
 	- Compressing one folder - selected, or from the background menu or a breadcrumb - archives the folder itself, so opening the archive shows the folder and the contents are one level in. The archive is named after the folder and offered beside it rather than inside it, which is where a person would look for it. A drive root, having no beside, keeps itself.
@@ -5083,6 +5092,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✋ Make regular delete/recycle/overwrite confirmation dialogs default to OK.
 	- Opened: 20260917-125804
+	- Design: [20260930-150859_delete_guard.md](design_docs/20260930-150859_delete_guard.md).
 	- This reverses the earlier design intended to guard against an apparent spontaneous deletion bug.
 	- Don't alter the code that optionally provides ultra-protection by showing what will be deleted, how it was invoked, what files, etc.
 	- Only do this once nemo-anywhere has been in reliable use for many days or weeks, including archiving.

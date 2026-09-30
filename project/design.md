@@ -7,7 +7,7 @@
 <!-- TOC ignore:true -->
 # nemo-anywhere design
 
-What the project is for, and the decisions behind it. Companion to [backlog.md](backlog.md), which tracks the work itself.
+What the project is for, and the decisions behind it. Companion to [backlog.md](backlog.md), which tracks the work itself. Larger features have a design doc of their own under [design_docs/](design_docs/), and the sections here link to them.
 
 Status: kept current as decisions change, rather than written once. Last read through on 2026-09-19, at 1.0.0-beta2. The git log of this file is its revision history. Where a decision was reversed, the text says so at the point it changed.
 
@@ -316,183 +316,31 @@ Per-folder view state - view mode, zoom, sort column, column layout - is app-own
 
 #### File cache
 
-The file cache is the fourth store. It is a private SQLite database under the user's cache directory, holding what has been worked out about files on disk so it does not have to be worked out again. Thumbnails are the first thing in it and the reason it exists, but the tables are about files rather than about pictures, so a checksum for a text file is as much at home there as an image is.
+The file cache is the fourth store. It is a private SQLite database under the user's cache folder, with what has been worked out about files on disk, so it does not have to be worked out again. Thumbnails are the first thing in it and the reason it exists, but its tables are about files rather than pictures.
 
-- Thumbnails were kept in the shared freedesktop cache until 2026-09-21, and that folder is still read. A thumbnail another program already made is used rather than rendered again; nothing is written back to it. On Windows and macOS there was never anything to share with.
+- It is the start of TukzedoFS, a database of what the app knows about files, which later also serves dedupe, tags and the size scans. The database, the tables, checksums written onto files, and pruning are in [20260930-145641_tukzedofs.md](design_docs/20260930-145641_tukzedofs.md).
 
-- The change was asked for, and the earlier decision to stay with the shared cache is reversed. What settled it is that the new requirements cannot be said in a PNG-per-file store keyed on a hash of the path: a thumbnail stored at the largest size a file has actually been shown at, files recognized as the same after they move, and pruning by how often something has been drawn. The dependency that argued against it in 2026-09-05 turned out to be one apt line per Linux container and nothing at all for Windows, where the sysroot already had it.
-
-- SQLite is linked static. It has to come through pkg-config rather than meson's `find_library`, because the cross sysroot is not on the compiler's own search path.
-
-- Three tables of data, plus one row of bookkeeping for pruning. `files` is one row per distinct set of file contents: the size, and the checksum once anything has bothered to compute one. It holds no image, picture or not. `paths` is one row per uri, pointing at the file it holds and carrying its own timestamp. `thumbnails` is only for images; it hangs off a `files` row and holds the encoded image.
-
-- Splitting paths from files is what lets a file that moved, or a second copy of one, find a thumbnail that is already there. It is also what a duplicate finder would need, which is why the split is drawn this way rather than around thumbnails: every file seen is a `files` row, and the copies of one are the paths hanging off it. A file nothing can draw has no `thumbnails` row and is otherwise an ordinary record.
-
-- A checksum settles what two records that looked separate really were, so learning one folds them together. The image and every other name move onto the record that stays. Without a checksum, size and timestamp together are the only guess available, and two unrelated files that happen to match both would share a thumbnail.
-
-- Every launch is its own process and several can be open at once, so the file is in WAL mode with a busy timeout. Writes are small and the whole store is rebuildable, so `synchronous` is NORMAL rather than FULL - a power cut can cost the last few rows, which is not worth an fsync per row.
-
-- A damaged file, or one written by another version of the tables, is thrown away and rebuilt at open rather than migrated or repaired. Nothing in it cannot be worked out again from the disk. Damage noticed while running only stops the store being used, because deleting a file other processes still have open is worse than going without until the next launch. It also leaves a marker beside the file, and the next launch starts over when it sees one. A damaged page deep in the file does not stop it opening, so without the marker nothing would ever act on it.
-
-- Draw counts are held in memory and written in one transaction. Scrolling a big folder draws the same file repeatedly, and the age rule works in days, so a write per draw would buy nothing.
-
-- A checksum is also left on the file itself, in three attributes: the checksum, and the size and time it was taken at. That way it travels with the file - a copy onto another machine, or onto a drive this program has never seen, arrives already knowing what it is. On Linux and the BSDs they are extended attributes in the `user` namespace; on Windows they are alternate data streams, which only NTFS and ReFS have, and the setting says so where it is switched on.
-
-- The time is written last of the three, and reading requires both the size and the time to match. A write that stops part way then leaves the old time next to the new checksum, and the next reader throws the lot away. Written the other way round, a half-finished write leaves the old checksum under a size and time that both match, which no reader can catch.
-
-- Writing an attribute is slow enough that it happens after the database is already up to date, never in front of a draw. It is also optional: a file system with nowhere to put one simply goes without, and the database still knows.
-
-- It is off by default, and switched on by a setting. It changes the file's status-change time, though not its modified time, and that can wake a backup tool, though most ignore it. With it on, a checksum is written when a thumbnail is made, so files already in the cache get one the next time they are drawn again. A file that already carries the same checksum is left alone.
-
-- On NTFS a write to any stream counts as a change to the whole file and moves its modified time. Left alone, that would make each checksum stale as soon as it was written, and the file would read as edited to everything else too. The write tells its handle to leave the file times as they are.
-
-- A thumbnail is made at the size it is being drawn at, rounded up to a step of 128 pixels, and made again bigger when a draw wants more than is stored. So each picture is kept at the largest size it has actually been shown at, and a folder only ever seen small stays small on disk.
-
-- JPEG at quality 90, and PNG only when the picture has see-through parts. An alpha channel that is opaque everywhere still counts as a photo. WebP is out, since gdk-pixbuf cannot write it and the Windows build cannot read it.
-
-- A thumbnail is read on a worker thread and decoded no bigger than the draw needs, so a picture stored at 640 and shown in a list takes a 128 pixel copy in memory. JPEG decodes straight to a smaller size, which is far cheaper than decoding in full and scaling.
-
-- A render that failed is stored too, with no image, so a broken file is not tried again on every launch. Editing the file clears it.
-
-- A file that has to be read in full to make its thumbnail is checksummed at the same time, since its bytes were just read. A copy of it under another name then finds the thumbnail already there.
-
-- The size and time a thumbnail job carries are from when the view last looked. They are read again once the checksum is done, and a file that changed in between gets no checksum that time. Otherwise the new contents' checksum would be stored with the old size.
-
-- A record is found by its checksum alone, as the checksum is what is unique. One found at another size had its size taken before an edit, and the newer size replaces it.
-
-- Reload makes the folder's thumbnails again, as it always has. It forgets the stored copy and stops using the freedesktop one for those files. The freedesktop cache itself is left alone.
-
-- The file's own type icon stays up until its thumbnail is ready. There is no "loading" icon in between, since few themes have one and the stand-in flashed. An edited file keeps its old thumbnail until the new one is made.
-
-- A folder of pictures on a local disk has all its thumbnails made once it has loaded, strictly top down in view order. Nothing is asked for while it loads, since where a file ends up is only known once the whole folder is in. Scrolling does not change the order: a file that comes into view waits its turn, and so does a picture stored on an earlier visit. A new sort or zoom queues the folder again in its new order.
-
-- Each picture is also held in memory as it is made or found in the store, still in that order, so scrolling anywhere finds it drawn already. That stops at a limit, 1 GiB by default. Past it only the pictures within two screens of the view are held. Those are read back from the store several at a time, and the picture drawn longest ago makes room, one from a folder no view shows first.
-
-- A folder that is left keeps its pictures for a minute, in case it is gone back to. Opening another folder of pictures lets them go at once.
-
-- Thumbnails are made on half the processors by default, so neighbors can finish a little out of order. None can go ahead of its place in the queue. A folder that is not mostly pictures, or is on a share, is only made as it comes into view, top down on each screen.
-
-- Photoshop files are read by a small reader of our own, since gdk-pixbuf has none. A .psd or .psb carries a flattened copy of the picture after its layers, and that is all a thumbnail needs, so the layers are skipped. It is shrunk while it is decoded, so a large file never sits in memory at full size. Grayscale, indexed, RGB and CMYK are read; Lab, multichannel and 32 bit files are not.
-
-- Camera raw files are read by another small reader of our own. Nothing here can develop sensor data, and a library that can is large and slow. Every camera also stores a finished JPEG preview in the file for its own screen, so that is what gets drawn. The reader walks the file's directories, takes the smallest preview that still covers the draw, and decodes it already shrunk. Previews under 320 pixels are passed over while a bigger one exists, since the small ones are often letterboxed. The file's own orientation is applied, since the preview is stored the way the sensor saw it.
-	- The TIFF based files are covered this way: DNG, CR2, NEF, ARW, PEF, RW2, SRW and kin. ORF keeps its preview in the maker note, which is read too. RAF and CR3 are other containers and have a path each. Canon CRW, Minolta MRW and Sigma X3F are not read.
-	- A thumbnail takes a few milliseconds and reads a few directories and one JPEG, never the sensor data. So a raw file is not checksummed as a side effect of its thumbnail, the way a file read in full is.
-
-- Formats nothing in the process reads go to ImageMagick, when it is installed. It is the last thing tried, after gdk-pixbuf and the two readers above, and covers JPEG 2000, HEIC, AVIF, EXR, DDS, TGA, FITS and the older raw containers. Linking a decoder for each would add a library per format to every build, most of them to the portable Windows exe as well, for files few people have. ImageMagick is already on most Linux desktops, has a Windows installer, and learns new formats on its own schedule.
-	- It runs as a separate program, one file per run, on the same worker threads as every other thumbnail. Batching several files into one run was measured and saved about 15%, since the time goes into decoding rather than starting the program. A batch would also lose the top-down order and per-file cancel.
-	- Only formats on a fixed list are handed over, chosen by extension, and the format is named in the command rather than guessed. ImageMagick also reads scripts, vector files and pseudo-files, and a file named for one could otherwise be read as one.
-	- It never sees a file name. The file goes in on stdin and the PNG comes back on stdout. ImageMagick reads meaning into names, such as `%d` as a frame number, and versions 6 and 7 escape that differently, so no one spelling works for both.
-	- Memory, disk and time are capped for each run, and a run is killed after 30 seconds like any other external thumbnailer. A file over 256 MiB is left alone, since ImageMagick holds all of its input in memory first. Both "disable all" and the per-type list in the thumbnailer settings apply.
-	- `magick` is looked for first. On Linux, ImageMagick 6's `convert` is used when there is no `magick`. On Windows `convert.exe` is the system tool that converts a FAT drive to NTFS, so it is never run there.
-
-- Pruning runs on a worker thread over a connection of its own, so it never holds up a draw. Each pass checks the file for damage, forgets local files that are gone, drops thumbnails not drawn for too long, then drops the least recently drawn until the file is under its size limit, and last hands the freed space back to the disk.
-
-- A file is only forgotten when its folder is still there. A whole folder missing is more often a drive that is not plugged in. Shares are skipped, and so is any folder that is slow to answer, since one that is not answering costs about twenty seconds per question.
-
-- A pass is due at random between 4 and 24 hours after the last, and waits until nothing has been drawn for 5 minutes. All three are in the config file. Whoever finishes a pass picks the next time and writes it in the file, so every copy running agrees on it.
-
-- Only one process prunes at a time. The claim is a row in the database, taken in a write transaction, so SQLite's own locking decides who wins. That works the same on every platform, where a lock file would need a separate answer for Windows. The claim carries a heartbeat, and one nobody has touched for ten minutes belongs to a process that died and is taken over.
-
-- Both rules go by a thumbnail's age, the later of when it was made and when it was last drawn, and that age is indexed. Each batch is picked holding the write lock, so it walks the index rather than sorting the whole table while other windows wait to write.
-
-- The space goes back a few pages at a time with incremental vacuum rather than a full VACUUM. A full one holds the write lock for as long as it takes to copy the whole file, and every other copy would wait on it.
-
-- Quitting stops a pass part way through, and it lets go of its claim.
-
-- The settings are on the Preview page: the size limit, the age limit, forgetting missing files, and saving checksums onto files. The schedule stays in the config file only. The page also shows how many thumbnails there are and the space on disk, with a button to clean up now and one to empty the cache.
-
-- Emptying asks first, then drops every row and runs a full VACUUM. In WAL mode the VACUUM writes the new file into the journal, which then holds more than the old file did, so the journal is folded back in and cut short after it.
-
-- The older sweep of the shared freedesktop cache is gone, along with its two settings. Nothing here writes to that cache any more, and other programs that do can look after it.
+- How thumbnails are made, stored, ordered and shown, and the planned dedupe, are in [20260925-063617_dedupe_and_thumbnails.md](design_docs/20260925-063617_dedupe_and_thumbnails.md).
 
 ### File operations
 
 #### Trash and delete
 
-Trashing and deleting are the two things a file manager cannot take back, so they are held to a higher bar than the confirmation preferences alone. This was settled after a copy of the app emptied a home folder with nothing anywhere to say why, and tightened when it happened a second time.
+Trashing and deleting are the two things a file manager cannot take back, so they are held to a higher bar than the confirmation preferences alone. Home and mounted drives are never removed, a link is always removed as a link, nothing outside a window can remove anything, every question starts on Cancel, and every trash and delete is logged. A stricter test guard asks about every delete in pre-releases.
 
-- Every trash and delete job writes one log line: how many items, which folder, the first item, the window, whether a trash or delete command asked for it, and the key or button behind it. On Linux the line also goes to the system journal. The usual place for it is a log file under the home folder, which is the first thing lost.
-
-- Home, any folder above it, and the top of a mounted drive or share are never trashed or removed, whatever asked. A delete that reaches a mount inside a folder stops there instead of emptying the drive. This is checked where each file is actually removed rather than at the dialog, so a path that never shows a dialog is held to it too.
-
-- A job that would take most of what sits directly in home is refused outright, not asked about. Nobody clears a home folder from a file manager on purpose, and a question is one Enter away from yes.
-
-- Nothing outside a window can trash, delete, move or empty the trash. Each of those starts from something done in a window: a command, a drop, undo, or a button in the preferences. The bus interface that let other programs copy, move and empty the trash came from the Nemo desktop, and was removed. `cicd/utility/lint-c.bash` keeps three lists: the files allowed to start one of these jobs, the bus methods, and the files allowed a raw delete. That last list only touches the app's own files, such as the settings on `--reset`, the thumbnail cache and old crash reports.
-
-- Only the trash and delete commands in a window count as a person asking. Anything else, such as undo or a drop, always asks first whatever the preference says, and the question says so. This used to be inferred from whether an input event was in flight, which any unrelated key or click could satisfy.
-
-- A job of `confirm-many-items` or more asks even with confirmation switched off. Twenty by default, and zero turns it off. A slip that takes one file is a nuisance; one that takes a folder is a day.
-
-- Every question that can remove files starts on Cancel. This reverses the earlier call to keep the affirmative as the default. The dialog was meant to be the pause, but a stray Enter goes straight through a pause.
-
-- A trash or delete key that arrives within a second of a window appearing or taking focus is ignored. A window that opens while someone is typing somewhere else gets the rest of that typing.
-
-- Removing a folder tree never follows a link to another folder. The link is removed as a link. That holds for a symlink, a junction, a `.desktop` file and a `.lnk` shortcut, wherever one sits in the tree, and it is not a setting. Windows reports a junction as an ordinary folder, so every walk that removes things asks for itself, and the lint gate fails a new one that does not.
+- The rules, the test guard and their history are in [20260930-150859_delete_guard.md](design_docs/20260930-150859_delete_guard.md).
 
 #### Links
 
-Copying a link asks what should be at the far end. A link can stay a link or be replaced by what it points at, and neither answer is right every time, so the question is put once per operation rather than guessed. It is asked whenever the source holds a link, on every platform, including where the destination can hold none - there every option but the copy is grayed out and the dialog says why. A copy that quietly turns links into files, or files into links, is the thing being avoided.
+Copying a link asks what should be at the far end, once per operation, on every platform. A move always takes a link as the link. Make link and Edit link cover every kind of link each platform has, shortcuts included. Copies are clones where the filesystem allows.
 
-- Windows is where this mattered most. A copy there always followed the link and left the contents behind, so a link could not be copied as a link at all. POSIX already kept symlinks by default; what is new there is being able to ask for the contents instead.
-
-- Windows has two kinds of link where POSIX has one, and the dialog says so. A folder symlink and a junction both point at a folder, but only the symlink needs a privilege Windows normally withholds. Each row starts on the kind it found and falls back to the nearest kind that still reaches the same target, then to a plain copy. Anything the destination cannot take is grayed out rather than hidden, so the dialog does not change shape between machines.
-
-- A link counts as one item rather than a folder to walk into. That is what POSIX always did and Windows never did, and it is what stops a copy following a link to somewhere large or unreachable.
-
-- A move always takes a link as the link. Taking the contents would empty the folder the link points at, which is not what was asked to go. A move to another drive still asks, and can make a different kind of link, but the copy option is grayed out. A move on one drive is a rename and asks nothing, so every link arrives as it was.
-
-- Make link asks what to make, one row for the folders and one for the files. Folders get a junction or a symlink on Windows and a symlink elsewhere. Files get a symlink or a hardlink. Either can be a `.lnk` shortcut, labeled Shortcut. The title is in the window's title bar. From the menu the dialog does not say where the links go, since it is always the folder in view. A link drop opens the same dialog, and there it names the folder, since a drop can be onto another folder or another window. A symlink path row picks absolute or relative for whatever comes out a symlink. It is hidden when nothing does, since a junction is always absolute and a hardlink has no path, but keeps its space so the dialog does not jump.
-	- Absolute is the default. Relative is there for links inside a tree: it keeps working when the whole tree is moved or mounted somewhere else, which is the usual reason to link inside one. It always has to work from the folder the link really sits in, since `..` climbs from there. So the paths as seen and the real paths, with symlinked folders resolved, are both tried, and the shortest that still reaches the target wins. Resolving alone would send a link up to the root whenever a symlinked folder on the way leads to another tree. Between two Windows drives there is no relative path, and the link keeps the absolute one.
-	- A link made beside its original says what it is: "photo - symlink.jpg", "photo - hardlink.jpg", "folder - junction". The extension stays last so the link still opens as its type. A shortcut follows Explorer's pattern instead, "photo.jpg - shortcut.lnk". A link made in another folder keeps the original's name. A clash adds " 2", " 3" and so on.
-	- A drop never asks the drop question for links, since the dialog is the question.
-	- A hardlink is never picked for anyone, even where a symlink cannot be made. It is the one choice that can cost something: an edit through one name changes a file that looks unrelated, and a program that saves by replacing the file splits the two names apart without a word. Its tooltip says so, and choosing it asks once more, every time, with Cancel as the default. Backing out goes back to the dialog with the choices as they were.
-	- Nothing is remembered. Every open starts from the defaults, so what it offers never depends on what was done last time. A way to change the defaults may come later.
-	- Windows with no symlink privilege still gets the menu item, since a junction, a hardlink and a shortcut need none. The symlink choices are gray, with a line saying why, and files start on Shortcut.
-
-- A shortcut can hold several paths at once, and is followed by the first that still leads somewhere. So every shortcut gets all three: Absolute, Relative and Portable. There is no choice to make.
-	- Portable is the path with a Windows environment variable in it, such as `%USERPROFILE%\Documents\notes.txt`, where one covers the target. It keeps working for another user or on another machine, so it is tried first. Off Windows the home folder is `%USERPROFILE%`, and a target on a mounted Windows share keeps its `\\server\share` path there instead.
-	- Windows 11 follows a shortcut through its item ID list, which names the target in Windows' own terms, or else through the portable path. It never uses the absolute or relative path alone. No Linux path can be written as an item ID list, so Explorer follows a shortcut made off Windows only through its portable path. Nemo Anywhere on Windows reads the rest itself.
-	- On Windows the shell writes the item ID list and the relative path.
-	- The paths inside are spelled the Windows way on every platform, with backslashes, and variables are always `%NAME%`, never `$NAME`. Each is read back for the platform in use.
-
-- Edit link changes an existing link's name and where it points. It is offered only when one symlink, junction or shortcut is selected. A hardlink has no target to change.
-	- A symlink or junction gets one target field, taken as typed, so a relative one stays relative. The new link is made under a spare name first. On Linux it is then renamed over the old one, so the old link is never missing. Windows cannot rename over a folder, so there the old link goes first, and the new one is taken back if it will not.
-	- A shortcut shows its three paths, and any can be emptied to drop it. Only the paths are rewritten; its arguments, Start in folder and icon stay. What else it holds about the old target goes with them, the item ID list included, since Windows would follow that first.
-	- The old link is removed through the delete guard, which removes a link and nothing else.
+- Copying, moving, clone copies, making and editing links, and the planned size totals are in [20260930-145641_moving_and_copying.md](design_docs/20260930-145641_moving_and_copying.md).
 
 #### Archives
 
-Archives are written by libarchive, with the `7z` and `rar` commands as optional extras rather than the primary route. Linking a library needs nothing installed on the user's machine, writes the tar, zip and 7z families natively, and reports real per-file progress through the ordinary job queue. What it cannot do on the write side is why the commands are still reached for: no rar at all, and no split volumes, solid blocks, duplicate references or 7z encryption. Where an installed command can honor one of those it is used, and where nothing can the option is grayed out rather than hidden.
+Archives are written by libarchive, with the `7z` and `rar` commands as optional extras rather than the primary route. Encryption and splitting are requirements, and a job that nothing installed can do is refused rather than written weaker. Unpacking reads far more formats than writing does, and never lets an archive write outside the folder picked.
 
-The planned Compress dialog reset, with its link choices, size totals and the split of the archive code from the rest of the app, is in [20260929_compression.md](design_docs/20260929_compression.md).
-
-- Which writer gets a job follows from what was asked for, not from the format. Encryption and splitting are requirements - a backend that cannot do them is not a candidate, because quietly writing a readable archive when one was asked to be locked is the worst possible outcome. Everything else is a preference, honored where a writer can and dropped where none can, rather than failing the job.
-
-- Where the archive goes follows the long-standing convention rather than anything invented here. One item is archived as itself and offered beside itself, so opening the archive shows the folder and the contents are one level in. Selecting a folder's whole contents instead still takes the folder's name, but is offered inside the folder with the contents at its root. A partial selection gets no suggested name at all - it is not the folder, and there is no other name a person would agree with - so the field starts empty and Compress waits until it is filled in.
-
-- Compressing a selection separately is that convention applied per item, and deliberately one job rather than one per item: several progress bars racing for the same folder would be unreadable, and canceling would mean canceling each of them.
-
-- Unpacking reaches much further than writing, so the two sides are not symmetrical. libarchive reads the tar, zip, 7z, rar, cab, lha, cpio, xar and iso families and the bare compressors, which is most of what anyone double-clicks, and it reads them entry by entry - which is what makes per-file progress, canceling and a collision prompt possible at all. A command is reached for only when libarchive will not open the file, and only while nothing has been written yet, so handing the archive on costs nothing.
-
-- Where an archive says an entry goes is not taken at its word. A stored path that is absolute, names a drive, or climbs out with `..` is reduced to something inside the folder the person picked. An archive must not be able to write wherever it likes on the strength of being opened.
-
-- Following symlinked and junctioned folders is off by default, and is ours rather than the archiver's, because the tree is walked through GIO before anything reaches a writer. A link loop would otherwise pull in the whole disk, so the walk remembers directories by file id and terminates even with following switched on.
-
-- A link that leads nowhere goes in as a link, even when links are otherwise followed, since there is nothing to follow. The library does that in every format it writes. 7z and rar keep links all or none, so there those links go in first, by a run of their own that keeps links, and the real run adds the rest. The delete check counts such a link as in.
-	- It cannot be done for a split set, which neither tool can add to, or for 7z on Windows, where 7-Zip is never asked to keep links. It is also not done where 7-Zip would reach the link through a linked folder, which it refuses, or where rar would read a `*` or `?` in the name as a pattern. There the link is left out, and a warning names it.
-	- The 7z and rar commands end a run that passed over such a link on a warning status. That is taken as success only when every warning they printed is about one of those links, so any other warning still fails the archive.
-
-- A name with `*` or `?` in it is a name, not a pattern. 7-Zip is told so. rar has no way to be told, so a rar archive is refused when one of the names it would be handed has either, rather than written with the wrong files in it, and unpacking passes such an archive on to 7-Zip.
-
-- Deleting what went in is off by default, and never happens on the writer's word. The archive is read back first, and every file that should be in there has to be there under the same relative path at the same size, with nothing passed over on the way in - a dangling link, or a linked folder the options said not to follow, is a miss like any other. The check reads the archive with the library rather than asking the program that wrote it, because checking work with the code that did it proves very little. What passes goes to the trash through the ordinary delete, which asks in its own right, so ticking the box is never the last word. A split archive is not offered the option at all: one volume will not open on its own, so there is nothing to check.
-
-- The dialog starts from what it was last used with, so a second archive does not mean setting the same five things again. Two are left out on purpose. The password is never written anywhere, and deleting the originals is a decision about one archive rather than a preference, so both start clear every time. What is remembered is per user, not per folder.
-
-- Deleting the originals with a password set asks for the password a second time before anything starts. A typo writes a perfectly good archive, the read-back passes, and the files go, leaving an archive nobody can open. Either half on its own leaves a way back, so it is only the two together that ask.
-
-- The command lines the two programs run with are settings, not code, so a person can point one at a different build or add a switch nobody thought to offer. Every control the Compress dialog offers has a `{{MARKER}}` of its own, so an edited line keeps the dialog working; leave one out and the app says which control has gone quiet. Clearing a line puts the original back. A password is handed over as a value and never written into the line or the settings file, though it is still visible in the process list while the program runs, which is true of every archiver.
-
-- How much of the machine a compression may use is one setting, a percentage of the cores found rather than a thread count written into each line. A percentage still means something on a machine with a different core count, and one answer covers both programs and the built-in writer. The default is 50%, because a hyperthreaded core is not a whole core and taking every logical processor slows the rest of the machine for nothing.
+- How it works today, and the planned Compress dialog reset with its link choices, size totals and the split of the archive code from the rest of the app, are in [20260929-101432_compression.md](design_docs/20260929-101432_compression.md).
 
 ### Search
 
@@ -621,7 +469,7 @@ This rule has been rewritten several times and will probably move again, so the 
 
 - Every label reads as a sentence rather than a headline. Only the first word is capitalized, and a name keeps its capital wherever it stands: the platforms, the toolkit, Trash and the other sidebar places, formats, acronyms. Mnemonics do not move and shortcut text is untouched. It is checked at lint time over every translatable string in the tree, so a label copied from upstream in Title Case is caught where it is added.
 
-- Properties is the platform's own on Windows. Alt+Enter and Ctrl+I hand the selection to the shell property sheet, the same one Explorer shows, so a file's details read the way they do everywhere else on the machine and any tab a third-party program adds is there too. Our own window is still there under Ctrl+Enter, covering what the shell sheet has no room for - a custom icon, an emblem, an annotation, an extension page - and anything the shell cannot name falls back to it rather than doing nothing. The other platforms use our window throughout.
+- Properties is the platform's own on Windows, with ours under Ctrl+Enter for what the shell sheet has no room for. The other platforms use our window throughout. See [20260930-150859_properties_dialog.md](design_docs/20260930-150859_properties_dialog.md), with the planned counting and Hidden box.
 
 - A settings window opens the size of its longest page. The preferences dialog measures every page it holds and opens tall and wide enough for the largest, up to nine tenths of the screen, so no page starts out behind a scrollbar. Its floor is written for a 96dpi screen and scaled by the display's font scaling, so it means the same thing at 150% as at 100%.
 
@@ -698,7 +546,7 @@ On Windows the gaps are filled natively rather than by porting gvfs:
 
 - File associations are read from the registry and never written to it. Windows keeps the per-user default under a hash a program is not meant to set, so "Set as default" used to fail outright. The choice is kept in the settings file instead: one line per type, a command line with `%1` for the file, in the shape the registry itself uses. The map is consulted first and the registry answers for everything else, through the same query Explorer makes, so the open verb comes back rather than a print one.
 
-- The app never starts another program itself. The single-exe build carries its whole runtime inside it, and anything it starts inherits that view of the disk along with the rest of the environment, which is not the machine the other program expects. So the desktop is asked to do the starting, for every launch rather than only the ones worked out here. The programs offered under "Open with" come from the toolkit but carry the same registry command line, so they go the same way. A store app has no command line and is left to the toolkit.
+- The app never starts another program itself. The single-exe build carries its whole runtime inside it, and anything it starts would inherit that. So the desktop is asked to do the starting, for every launch. See [Programs the app starts](design_docs/20260930-145641_windows_exe_packing.md#programs-the-app-starts).
 
 - The clipboard and outbound drags are the app's own rather than the toolkit's. The toolkit only puts its own target names into a drag, and nothing outside it reads those; the one format every Windows program does read has no name to register it under, so it cannot be added from outside. A drag now carries what Explorer's own drags carry, with the app's own formats riding alongside, so drops back into our own window behave exactly as before. One switch turns the whole thing off and puts every drag back on the toolkit's. Control copies and shift moves, following Windows, read from the keyboard directly because the toolkit reports the same suggested action either way.
 
@@ -731,7 +579,7 @@ Measured on 2026-09-20 with the Linux release build on a desktop machine. Each i
 
 - The program never goes to a network share on its own. Only something a person does reaches one, such as going to a share or opening a link or shortcut that points at one. A share that is not answering can hold each question for about twenty seconds, so an icon, sort place or emblem for something on a share comes from what is on local disk, or stays plain.
 
-- On Windows the packed exe took 3.4 s to start on 2026-08-19. It had been 14.2 s, nearly all of it the packer handling a couple of thousand small theme files before any of our code ran, until the themes were compiled in.
+- On Windows the packed exe took 3.4 s to start on 2026-08-19, down from 14.2 s. See [Startup time](design_docs/20260930-145641_windows_exe_packing.md#startup-time).
 
 - Size: the Linux drop is 43 files and 3.4 MB, 3.1 MB of it the program. The packed Windows exe is about 38 MB, most of it the GTK runtime.
 
@@ -850,7 +698,7 @@ The Windows build is native, not cross-compiled: MSYS2 with the mingw64 GTK3 too
 
 - `pacman -S --needed mingw-w64-x86_64-{gcc,meson,ninja,pkgconf,gtk3,json-glib,libarchive,libexif,libgsf,cppcheck,gettext} intltool git`, then `meson setup -Dxmp=false build source` and `ninja -C build`.
 
-- Enigma Virtual Box is needed only for the single-exe artifact. Without it everything still builds, tests and stages, and only the packing step skips.
+- Enigma Virtual Box is needed only for the single-exe artifact. Without it everything still builds, tests and stages, and only the packing step skips. See [20260930-145641_windows_exe_packing.md](design_docs/20260930-145641_windows_exe_packing.md).
 
 A cross-compile lane also exists, for checking a Windows build from the Linux box without Windows hardware. It is a developer convenience rather than part of the pipeline, since only Windows can pack the single exe.
 
@@ -910,7 +758,7 @@ Nothing a build produces takes its timestamp from the clock. Every lane sets `SO
 
 - The Windows exe was the one that actually differed run to run. The linker writes a timestamp into the PE header, and left alone it writes the clock: two clean builds of one commit used to differ in exactly those four bytes.
 
-- The strip rewrites the field too, so whatever strips a shipped exe has to carry the stamp as well as whatever linked it. Both Windows lanes were missed here, one at a time: the linker was given the stamp and the strip that ran after it put the clock back. Whichever step writes the file last is the one that decides.
+- The strip rewrites the field too, so whatever strips a released exe has to carry the stamp as well as whatever linked it. Both Windows lanes were missed here, one at a time: the linker was given the stamp and the strip that ran after it put the clock back. Whichever step writes the file last is the one that decides.
 
 - Each lane checks the stamp on the file it actually goes on to pack, not on an earlier copy of it. The cross lane checks twice, once after the link and once after the strip, so a failure says which step caused it.
 
@@ -936,11 +784,7 @@ Linux is a thin relocatable prefix of a couple of MB that uses the distro's own 
 
 - Staging leaves out what only a system install would read: mime data, polkit, man pages and the editor syntax files. Both packages install the prefix under `/opt`, where none of it is read, and the install rules still produce all of it, so a distro building `--prefix=/usr` is unaffected. Icons are compiled in except the app icon at its eight sizes, which packaging and the menu entry need as real files. Actions, search helpers and the settings schema stay as files, since those are the drop-in folders a user edits and Preferences has buttons that open them.
 
-Windows is one self-contained `nemo-anywhere.exe` with the whole runtime packed inside it by Enigma Virtual Box, as an in-memory virtual filesystem with nothing extracted at run time. No library folder, no launcher, nothing installed or registered: an exe to copy anywhere.
-
-- The pack source is the same flat layout the zip uses - exe and dlls at the root, `lib/`, `share/` and `etc/` beside them - and GLib-stack libraries resolve their data relative to their own dll, so that tree also runs unpacked with a bare double-click.
-
-- Packed exes are occasionally false-flagged by antivirus, so the plain zip stays available as the fallback artifact. It is also the fallback for the release being unsigned.
+Windows is one self-contained `nemo-anywhere.exe` with the whole runtime packed inside it by Enigma Virtual Box, as an in-memory virtual filesystem with nothing extracted at run time. No library folder, no launcher, nothing installed or registered: an exe to copy anywhere. A plain zip of the same files is published beside it. See [20260930-145641_windows_exe_packing.md](design_docs/20260930-145641_windows_exe_packing.md).
 
 Packaging builds from what the release lanes already produced and never rebuilds. The Linux tarball becomes a `.deb` and an `.rpm`, both installing the same relocatable prefix under `/opt` plus a launcher, a menu entry and icons in the shared theme. The `.deb`'s dependency versions are read off the built binaries inside the release container rather than on a development box, so the package claims the floor the binary was actually built against; `rpmbuild` derives its own from the ELF. BSD, macOS, AppImage and Flatpak wait on a toolchain.
 
