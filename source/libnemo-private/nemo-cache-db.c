@@ -443,11 +443,13 @@ nemo_cache_db_get (void)
 	return db;
 }
 
-/* The only one of the three that is really about the contents. */
+/* The only one of the three that is really about the contents. The checksum
+ * alone, the same as the unique index: a record that paired it with another
+ * size would otherwise never be found, and nothing could be added beside it. */
 static gint64
 file_by_digest (NemoCacheDb *db, const NemoFileId *id)
 {
-	static const char sql[] = "SELECT id FROM files WHERE digest = ? AND bytes = ?";
+	static const char sql[] = "SELECT id FROM files WHERE digest = ?";
 	sqlite3_stmt *stmt;
 
 	if (!id->has_digest)
@@ -458,7 +460,6 @@ file_by_digest (NemoCacheDb *db, const NemoFileId *id)
 		return 0;
 
 	sqlite3_bind_blob (stmt, 1, id->digest, NEMO_CACHE_DIGEST_LEN, SQLITE_STATIC);
-	sqlite3_bind_int64 (stmt, 2, id->bytes);
 
 	return step_id (stmt);
 }
@@ -511,21 +512,6 @@ file_by_stat (NemoCacheDb *db, const NemoFileId *id)
 	return step_id (stmt);
 }
 
-/* The record for what `id` describes, or 0 if there is none yet. */
-static gint64
-file_resolve (NemoCacheDb *db, const char *uri, const NemoFileId *id)
-{
-	gint64 fid;
-
-	fid = file_by_digest (db, id);
-	if (fid == 0)
-		fid = file_by_uri (db, uri, id);
-	if (fid == 0)
-		fid = file_by_stat (db, id);
-
-	return fid;
-}
-
 static gint64
 file_add (NemoCacheDb *db, const NemoFileId *id)
 {
@@ -570,11 +556,41 @@ file_learn_digest (NemoCacheDb *db, gint64 file_id, const NemoFileId *id)
 	return ok;
 }
 
+/* One checksum is one set of contents, so one size. A record found by its
+ * checksum at another size took the size from before an edit, and the size in
+ * hand is the newer. Left alone, lookups that go by size would keep missing. */
+static gboolean
+file_set_bytes (NemoCacheDb *db, gint64 file_id, const NemoFileId *id)
+{
+	static const char sql[] = "UPDATE files SET bytes = ? WHERE id = ? AND bytes <> ?";
+	sqlite3_stmt *stmt = prep (db, sql, "set size");
+	gboolean      ok;
+
+	if (stmt == NULL)
+		return FALSE;
+
+	sqlite3_bind_int64 (stmt, 1, id->bytes);
+	sqlite3_bind_int64 (stmt, 2, file_id);
+	sqlite3_bind_int64 (stmt, 3, id->bytes);
+
+	ok = db_ok (db, sqlite3_step (stmt), "set size");
+	sqlite3_finalize (stmt);
+
+	return ok;
+}
+
 /* The record for `id`, made if there is none. */
 static gint64
 file_for (NemoCacheDb *db, const char *uri, const NemoFileId *id)
 {
-	gint64 fid = file_resolve (db, uri, id);
+	gint64 fid = file_by_digest (db, id);
+
+	if (fid != 0)
+		return file_set_bytes (db, fid, id) ? fid : 0;
+
+	fid = file_by_uri (db, uri, id);
+	if (fid == 0)
+		fid = file_by_stat (db, id);
 
 	if (fid == 0)
 		return file_add (db, id);
@@ -747,6 +763,9 @@ nemo_cache_db_set_digest (NemoCacheDb *db, const char *uri, const NemoFileId *id
 	target = file_by_digest (db, id);
 	mine   = file_by_uri (db, uri, id);
 
+	if (target != 0 && !file_set_bytes (db, target, id))
+		goto fail;
+
 	if (mine == 0) {
 		/* Nothing known about this path yet, or what was known is stale. */
 		if (target == 0)
@@ -759,10 +778,13 @@ nemo_cache_db_set_digest (NemoCacheDb *db, const char *uri, const NemoFileId *id
 			&& link_path (db, uri, target, id->mtime);
 	}
 
-	if (done)
+	if (done) {
 		done = commit (db);
-	else
-		rollback (db);
+		goto out;
+	}
+
+fail:
+	rollback (db);
 
 out:
 	g_mutex_unlock (&db->lock);

@@ -339,6 +339,53 @@ check_digest_folds_records (NemoCacheDb *db)
 	check (after == before);
 }
 
+/* A checksum paired with the size from before an edit. The contents are the
+ * same whatever size the record says, so the next store of them, under this
+ * name or any other, has to find that record and put the size right. It used
+ * to be refused, since only the checksum is unique and the lookup wanted
+ * both. */
+static void
+check_late_checksum (NemoCacheDb *db)
+{
+	guint8 digest[NEMO_CACHE_DIGEST_LEN];
+	guint8 back[NEMO_CACHE_DIGEST_LEN];
+	NemoFileId stale, fresh, copy, fresh_plain;
+	NemoThumbnailRecord in = record_for (256);
+	NemoThumbnailRecord out = { 0 };
+	g_autoptr (GBytes) image = fake_image ('p', 96);
+	gint64 before = 0, after = 0;
+
+	memset (digest, 0x3c, sizeof (digest));
+	stale = id_for (1000, SOURCE_MTIME, digest);
+	fresh = id_for (1200, SOURCE_MTIME + 7 * G_USEC_PER_SEC, digest);
+	copy = id_for (1200, SOURCE_MTIME + 9 * G_USEC_PER_SEC, digest);
+	fresh_plain = id_for (1200, SOURCE_MTIME + 7 * G_USEC_PER_SEC, NULL);
+
+	check (nemo_cache_db_thumbnail_store (db, "file:///late/photo.jpg", &stale, &in, image));
+	nemo_cache_db_usage (db, &before, NULL);
+
+	check (nemo_cache_db_thumbnail_store (db, "file:///late/photo.jpg", &fresh, &in, image));
+	check (nemo_cache_db_thumbnail_store (db, "file:///late/copy.jpg", &copy, &in, image));
+
+	/* Read without a lookup, which would link a missing row back in. */
+	check (nemo_cache_db_lookup_digest (db, "file:///late/photo.jpg", 1200,
+					    SOURCE_MTIME + 7 * G_USEC_PER_SEC, back));
+	check (memcmp (back, digest, sizeof (digest)) == 0);
+	check (nemo_cache_db_lookup_digest (db, "file:///late/copy.jpg", 1200,
+					    SOURCE_MTIME + 9 * G_USEC_PER_SEC, back));
+	check (!nemo_cache_db_lookup_digest (db, "file:///late/photo.jpg", 1000, SOURCE_MTIME, back));
+	check (nemo_cache_db_thumbnail_stats (db, "file:///late/copy.jpg", NULL, NULL));
+
+	/* One record and one image for the one set of contents. */
+	nemo_cache_db_usage (db, &after, NULL);
+	check (after == before);
+
+	/* A draw that has no checksum goes by size and time, so the size on the
+	 * record has to be the new one. */
+	check (nemo_cache_db_thumbnail_lookup (db, "file:///late/photo.jpg", &fresh_plain, &out, NULL));
+	check (out.size == 256);
+}
+
 /* The main file and its journal together, which is what the disk is paying. */
 static gint64
 on_disk (void)
@@ -623,6 +670,7 @@ main (int argc, char *argv[])
 	check_restore_keeps_draw_counts (db);
 	check_plain_file_is_recorded (db);
 	check_digest_folds_records (db);
+	check_late_checksum (db);
 	check_empty (db);
 	check_note_render (db);
 	check_failure_record (db);

@@ -356,6 +356,10 @@ The file cache is the fourth store. It is a private SQLite database under the us
 
 - A file that has to be read in full to make its thumbnail is checksummed at the same time, since its bytes were just read. A copy of it under another name then finds the thumbnail already there.
 
+- The size and time a thumbnail job carries are from when the view last looked. They are read again once the checksum is done, and a file that changed in between gets no checksum that time. Otherwise the new contents' checksum would be stored with the old size.
+
+- A record is found by its checksum alone, as the checksum is what is unique. One found at another size had its size taken before an edit, and the newer size replaces it.
+
 - Reload makes the folder's thumbnails again, as it always has. It forgets the stored copy and stops using the freedesktop one for those files. The freedesktop cache itself is left alone.
 
 - The file's own type icon stays up until its thumbnail is ready. There is no "loading" icon in between, since few themes have one and the stand-in flashed. An edited file keeps its old thumbnail until the new one is made.

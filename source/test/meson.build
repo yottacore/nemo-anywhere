@@ -1238,6 +1238,15 @@ test('rhf905br Thumbnail order test',
   args: []
 )
 
+test('rj40hkdr Thumbnail of an edited file test',
+  executable('test-nemo-thumbnail-edited',
+    [ 'test-nemo-thumbnail-edited.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
 # Its stand-in thumbnailer is matched on image/png, and Windows types a file
 # by its extension instead.
 if not is_windows
