@@ -634,7 +634,7 @@ This rule has been rewritten several times and will probably move again, so the 
 	- Arguments are left out, since they were written for a Windows program.
 	- The icon comes from what the shortcut records, never from the target, for the same reason as on Windows.
 
-- A shortcut to a folder sorts with the folders when folders come first, on every platform. Whether its target is a folder is read from the shortcut, the same as its folder icon, so the two always agree. A shortcut whose folder has since gone keeps both until it is opened, since checking the target could stall on a share that is not answering.
+- A shortcut to a folder sorts with the folders when folders come first, on every platform. Whether its target is a folder is read from the shortcut, the same as its folder icon, so the two always agree. A shortcut whose folder has since gone keeps both until it is opened, since checking the target could stall on a share that is not answering. For the same reason a shortcut that sits on a Windows share is not read for either, and sorts with the files. Only a regular file is read, so a pipe or device that happens to end in `.lnk` cannot hold up the listing.
 
 #### Scaling and startup
 

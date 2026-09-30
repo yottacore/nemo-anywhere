@@ -37,6 +37,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#ifndef G_OS_WIN32
+#include <fcntl.h>
+#include <unistd.h>
+#endif
 
 #include <glib/gi18n.h>
 #include <glib/gstdio.h>
@@ -383,6 +387,33 @@ nemo_lnk_parse (const guint8 *bytes, gsize length, NemoLnk *lnk)
 	return TRUE;
 }
 
+/* Only a regular file is read. A FIFO or a device named .lnk would block the
+   open or the read for good, and listing a folder reads every shortcut in it,
+   so the open itself must not wait either. */
+static FILE *
+open_regular (const char *path)
+{
+#ifdef G_OS_WIN32
+	return g_fopen (path, "rb");
+#else
+	struct stat st;
+	FILE *fp;
+	int fd = g_open (path, O_RDONLY | O_NONBLOCK | O_CLOEXEC, 0);
+
+	if (fd < 0) {
+		return NULL;
+	}
+	if (fstat (fd, &st) != 0 || !S_ISREG (st.st_mode) ||
+	    fcntl (fd, F_SETFL, fcntl (fd, F_GETFL) & ~O_NONBLOCK) != 0 ||
+	    (fp = fdopen (fd, "rb")) == NULL) {
+		close (fd);
+		return NULL;
+	}
+
+	return fp;
+#endif
+}
+
 gboolean
 nemo_lnk_read (const char *lnk_path, NemoLnk *lnk)
 {
@@ -393,7 +424,7 @@ nemo_lnk_read (const char *lnk_path, NemoLnk *lnk)
 
 	memset (lnk, 0, sizeof *lnk);
 
-	fp = g_fopen (lnk_path, "rb");
+	fp = open_regular (lnk_path);
 	if (fp == NULL) {
 		return FALSE;
 	}

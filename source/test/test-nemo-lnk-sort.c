@@ -4,7 +4,10 @@
 
 #include <config.h>
 
+#include <signal.h>
 #include <stdlib.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <glib/gstdio.h>
 #include <gtk/gtk.h>
 
@@ -34,6 +37,18 @@ loaded (const char *dir, const char *name)
 	return file;
 }
 
+static void
+fifo_timed_out (int sig)
+{
+	static const char message[] = "FAIL: listing a FIFO named .lnk blocked\n";
+	ssize_t written;
+
+	(void) sig;
+	written = write (STDERR_FILENO, message, sizeof message - 1);
+	(void) written;
+	_exit (1);
+}
+
 static int
 by_name (NemoFile *a, NemoFile *b)
 {
@@ -45,8 +60,9 @@ int
 main (int argc, char **argv)
 {
 	g_autofree char *dir = NULL, *folder = NULL, *doc = NULL;
-	g_autofree char *to_folder = NULL, *to_doc = NULL;
-	NemoFile *f_folder, *f_doc, *f_to_folder, *f_to_doc;
+	g_autofree char *to_folder = NULL, *to_doc = NULL, *trap = NULL;
+	NemoFile *f_folder, *f_doc, *f_to_folder, *f_to_doc, *f_trap;
+	NemoIconInfo *icon;
 	char *tmp;
 
 	gtk_init_check (&argc, &argv);
@@ -83,14 +99,33 @@ main (int argc, char **argv)
 	check (by_name (f_folder, f_to_doc) < 0);
 	check (by_name (f_to_doc, f_doc) < 0);
 
+	/* A FIFO named .lnk is only a file. Its sort place and icon come without
+	   reading it, which would block for good. */
+	trap = g_build_filename (dir, "c trap.lnk", NULL);
+	check (mkfifo (trap, 0600) == 0);
+	f_trap = loaded (dir, "c trap.lnk");
+	signal (SIGALRM, fifo_timed_out);
+	alarm (10);
+	check (by_name (f_folder, f_trap) < 0);
+	check (by_name (f_doc, f_trap) < 0);
+	icon = nemo_file_get_icon (f_trap, 48, 48, 1, 0);
+	check (icon != NULL);
+	if (icon != NULL) {
+		nemo_icon_info_unref (icon);
+	}
+	alarm (0);
+	signal (SIGALRM, SIG_DFL);
+
 	nemo_file_monitor_remove (f_folder, f_folder);
 	nemo_file_monitor_remove (f_doc, f_doc);
 	nemo_file_monitor_remove (f_to_folder, f_to_folder);
 	nemo_file_monitor_remove (f_to_doc, f_to_doc);
+	nemo_file_monitor_remove (f_trap, f_trap);
 	nemo_file_unref (f_folder);
 	nemo_file_unref (f_doc);
 	nemo_file_unref (f_to_folder);
 	nemo_file_unref (f_to_doc);
+	nemo_file_unref (f_trap);
 	g_free (tmp);
 
 	if (failures == 0) {
