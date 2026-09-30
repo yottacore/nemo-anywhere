@@ -153,7 +153,7 @@ The options and workarounds got complex and confusing. This is a reset.
 		- Was "Follow across mounted filesystems".
 		- Never checked by default.
 	- "Follow nested filesystems" is disabled unless a folder or link is selected (of any type).
-	- "Follow other filesystems" is disabled unless a folder is selected.
+	- "Follow other filesystems" is disabled unless a folder or link is selected (of any type).
 
 - A link that points onto a nested or other filesystem is followed only when both are on: its link option, and that filesystem option. Either one off, and it isn't followed. That's the same as a link to a local folder with Follow off.
 
@@ -244,6 +244,8 @@ How to calculate the five different sizes shown.
 - The job works from our own list of what goes in, built by its pre-scan. That is what makes mixed choices work in rar and 7z, such as following symlinks while storing junctions.
 	- The 7z path already scans and passes a leave-out list, so part of the pre-scan exists.
 
+- This design might need some extra work, if testing shows that lists of files to include and/or exclude exceeds the command-line length, on any OS.
+
 ### Delete originals after verification
 
 - "Delete the originals once the archive checks out"
@@ -256,8 +258,7 @@ How to calculate the five different sizes shown.
 
 ### Volume sizes
 
-- "Volume size" options: include what each is good for in parentheses. E.g. "4 GiB (max FAT32 size)".
-	- FAT32 caps a file at 4 GiB less one byte, so a 4 GiB volume doesn't fit. Add a 4095 MiB entry for it.
+- "Volume size" options: include what each is good for in parentheses. E.g. "4,095 MiB (max FAT32 size)".
 
 ## Why the reset
 
