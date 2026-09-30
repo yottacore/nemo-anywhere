@@ -3582,7 +3582,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260908-133615
 	- Closed: 20260917-182027
 	- `project/style-guide_code.md` covers the code. Nothing yet covers dialog layout, sentence case, when a prompt is warranted, keyboard behavior or icon use, all of which the lint gate half-enforces already without saying why.
-	- Done: `project/style-guide_ui.md`. It collects the rules the closed items settled one at a time, with the reason for each, and says which of them a check enforces. Linked from the README and the code guide.
+	- Done: `project/style-guide_ux.md`. It collects the rules the closed items settled one at a time, with the reason for each, and says which of them a check enforces. Linked from the README and the code guide.
 	- Test case: none, docs only.
 
 - ✅ Archive dialog: Add an option - off by default - to delete what contents were archived, once archive is successfully created, and contents verified by relative pathname and file sizes.

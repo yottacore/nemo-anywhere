@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ##	- Purpose: three rules from project/style-guide_code.md and
-##	  project/style-guide_ui.md that nothing else checks: American spelling, no
+##	  project/style-guide_ux.md that nothing else checks: American spelling, no
 ##	  banner dividers in C, and ASCII only outside the copyright marker.
 ##	- Only the fork's own lines are checked. Most of source/ came from upstream
 ##	  and spells things its own way, so a line that is byte for byte the same as
