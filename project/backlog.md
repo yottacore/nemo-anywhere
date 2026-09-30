@@ -943,6 +943,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260925-122815
 	- Design: [20260930-150859_delete_guard.md](design_docs/20260930-150859_delete_guard.md), for the test guard.
 	- The delete test guard stays in as a preference setting. (But off in code.) The changelog and the release notes point it out, and say where to turn it off.
+	- Note: at rc.2 the setting's default goes to off. The test guard stays in the code.
 	- Note: the changelog's vNEXT section is missing most of the work since beta2, such as Compress and Extract, the crash reporter, the delete protections and tab move.
 	- Note: `main` still has the installers from 20260804. Their stable channel asks for the latest stable release, which does not exist yet, so the README one-liners fail until this cut.
 	- Test case: none, release step.
@@ -956,8 +957,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - 🔘 Metadata-aware Nemo Anywhere:
 	- Opened: 20260923-144941
-	- Design: [20260930-145641_tukzedofs.md](design_docs/20260930-145641_tukzedofs.md). What is logged when, the tables, and the open questions on tags are there.
-	- Note: writing the hash onto files became a setting, off by default, since each write changes the file's ctime.
+	- Design: [20260930-145641_tukzedofs.md](design_docs/20260930-145641_tukzedofs.md). What is logged when, the tables, and tags with their exports are there.
+	- Note: writing the hash and the tag hashes onto files became a setting, off by default, since each write changes the file's ctime. Tags are also exported now and then, since the database can be thrown away.
 	- 🔘 When creating a file, also log its known information to the database.
 	- 🔘 When doing anything that involves changing any part of the full file path of one or more folders or files, update the information in the file database.
 	- 🔘 When doing anything that requires full file content to pass through the program, landing in a local directory:

@@ -65,6 +65,7 @@ How files are copied and moved, and how links are handled along the way. It also
 	- Copy dialog enhancements:
 		- Use similar file size totalling logic as the Compression dialog design, based on selections.
 		- Show how much total file size is going to the same CoW filesystem (with much smaller estimated total new space to be consumed), and how much is being copied to a different filesystem.
+		- An "Ignore" choice per kind of link, and the nested and other filesystem options, as the Compress dialog has.
 	- Move dialog enhancements:
 		- Use similar file totalling logic as the Copy dialog design.
 		- Show how much is just moving on the same filesystem, and how much new data will be copied elsewhere.
@@ -184,13 +185,17 @@ The same scan and counting as the Compress dialog: see [Counting sizes](20260929
 	- How much only moves on the same filesystem, and takes no new space.
 	- How much new data is copied somewhere else.
 
-- The link rows would take the choices the Compress dialog has, per kind of link, with a size change beside each. The rows today already match most of them: "Copy link as-is" is Store, and "Copy contents" is Follow.
+- The copy dialog gets the choices the Compress dialog has, with a size change beside each:
+	- Each link row gets "Ignore", which leaves those links out of the copy. The rows today already match the others: "Copy link as-is" is Store, and "Copy contents" is Follow. Each row still starts where it does today.
+	- Follow nested filesystems, checked by default.
+	- Follow other filesystems, never checked by default.
+	- A link onto a nested or other filesystem is followed only when both its link choice and the filesystem option are on, the same as in the Compress dialog.
+
+- A move keeps its rows as they are, since it always takes a link as the link.
 
 ### Open questions
 
-- Whether the copy dialog gets an "Ignore" choice per kind of link, to leave links out, as the Compress dialog has.
-
-- Whether copy gets the nested and other filesystem options, and what a copy does today when the tree it copies has another filesystem mounted inside it.
+- What a copy does today when the tree it copies has another filesystem mounted inside it. The filesystem options change that, so it needs checking first.
 
 - When the totals are shown: only when the source has links, as the link dialog is today, or on every copy past some size.
 
