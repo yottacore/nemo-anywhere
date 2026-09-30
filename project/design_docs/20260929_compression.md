@@ -21,7 +21,7 @@ Status: design pass, 2026-09-29. None of it is built yet. The backlog item is 20
 	- [Link handling](#link-handling)
 		- [Link options](#link-options)
 		- [Junction defaults](#junction-defaults)
-		- [Mounted filesystems](#mounted-filesystems)
+		- [Nested and other filesystems](#nested-and-other-filesystems)
 		- [Total size](#total-size)
 	- [Counting sizes](#counting-sizes)
 		- [Path list](#path-list)
@@ -55,7 +55,10 @@ Status: design pass, 2026-09-29. None of it is built yet. The backlog item is 20
 	- Trash, through file operations, and the delete guard. Both stay in nemo. The core asks its caller to delete and never deletes on its own.
 	- eel's stock dialogs.
 
-- The size scan below is new code, so it goes in the core from the start.
+- Order of the work, so nothing is moved twice:
+	- First the interfaces, and a place in the tree for the core. Nothing moves yet.
+	- Then the reset, written in the core from the start. It rewrites most of the link and walk code anyway.
+	- Then the rest of the archive and extract code moves over in one pass, with no change in what it does. The archive and extract tests stay as they are, and pass before and after.
 
 - Core tests run with no display.
 
@@ -88,7 +91,12 @@ The options and workarounds got complex and confusing. This is a reset.
 
 - A store choice the archiver can't do falls back to "Ignore".
 
-- 7z on Windows leaves links out today, so it counts as not supporting "Store as Symlinks" there, and that choice is disabled.
+- A link that leads nowhere: "Ignore" leaves it out like any other link. "Follow" and "Store" keep it as a link, since there is nothing to follow.
+	- Until this is built, 2026092813381404 stays as it is. It keeps these links even with "store links" off.
+
+- The library's 7z writer offers "Store as Symlinks". It already keeps links that lead nowhere as links.
+	- So 7z on Windows can store links when nothing needs 7-Zip itself. With a password or volumes the job still goes to 7-Zip, which leaves links out there, so the choice is disabled.
+	- The cost is speed. The library's 7z writer is handed no thread count, so a big job that went to 7-Zip on several cores would run on one. Measure that before building it.
 
 - On Windows a folder mount point and a junction are the same kind of reparse point. One that points at a whole volume counts as a mount point only.
 
@@ -121,12 +129,20 @@ The options and workarounds got complex and confusing. This is a reset.
 
 - Junctions can use any store choice the archiver supports, whatever Symlinks is on. The table sets only defaults.
 
-#### Mounted filesystems
+#### Nested and other filesystems
 
-- An option below all that:
-	- [ ] Follow across mounted filesystems (size Δ: N)
+- Two options below all that:
+	- [ ] Follow nested filesystems (size Δ: N)
+		- For ZFS, Btrfs, etc.
+		- Checked by default.
+	- [ ] Follow other filesystems (size Δ: N)
+		- Was "Follow across mounted filesystems".
 		- Unchecked by default.
-		- Disabled if no folder is selected (of any type).
+	- Both are disabled unless a folder or link is selected (of any type).
+
+- Nested means the same pool or volume on both sides of the mount: one ZFS pool, one Btrfs filesystem, one APFS container. Anything else is another filesystem.
+
+- Windows has no nested kind. A volume mounted in a folder is another filesystem, so the nested option is hidden there.
 
 #### Total size
 
@@ -135,86 +151,67 @@ The options and workarounds got complex and confusing. This is a reset.
 
 ### Counting sizes
 
-How to calculate the four different sizes shown.
+How to calculate the five different sizes shown.
 
 #### Path list
 
-- Build a structured list, e.g. `canonicalFullFilePath` with the following fields. Note: none of the 'is*' booleans are mutually exclusive - it's possible for all to be true.
+- Build a structured list, e.g. `canonicalFullFilePath`, with one entry per file:
 	- path
 		- This field must be ultra fast to add up to millions of paths to, and to match one value in a large set.
 	- bytes
-	- isDifferentFs
-		- Means the canonical file path is on a different FS.
-		- Different from the filesystem of the folder the selection is in. "CWD" below means that folder too, not the program's working folder.
-		- Just because a file may be under a cross-FS mount, doesn't mean it's not a symlink that points back to the same FS as CWD.
-			- But even so, it won't be scanned if "Cross filesystem" option is off.
+	- countedIn
+		- Which of the sixteen totals below already have this file's bytes. One bit each.
+
+- Each path the scan takes to a file has four flags. None of them are mutually exclusive - it's possible for all to be true. They describe the path, not the file, so a file reached by two paths can have two sets.
 	- isSymlinked
 		- A symlinked file or a descendant of a symlinked folder
 	- isJunctioned
 		- A descendant of a junction folder
+	- isNestedFs
+		- The path crossed into a nested filesystem.
+	- isDifferentFs
+		- The path crossed onto another filesystem.
+		- Just because a file may be under a cross-FS mount, doesn't mean it's not a symlink that points back to the same FS as CWD.
+			- But even so, it won't be scanned if "Follow other filesystems" is off.
+			- So it's the path that counts, not where the file ends up. Otherwise the totals and the archive would disagree.
+		- CWD here is the folder the selection is in, not the program's working folder.
 
 #### Size totals
 
-- Build a structure for total sizes, e.g. `totalSizes`
-	- Stored. Each new path adds its bytes to exactly one of these eight, picked by its three flags:
-		- nSymlinked_nJunctioned_nCross
-		- nSymlinked_nJunctioned_yCross
-		- nSymlinked_yJunctioned_nCross
-		- nSymlinked_yJunctioned_yCross
-		- ySymlinked_nJunctioned_nCross
-		- ySymlinked_nJunctioned_yCross
-		- ySymlinked_yJunctioned_nCross
-		- ySymlinked_yJunctioned_yCross
-	- Summed from those eight at each UI refresh. A name that leaves out a flag counts both values of it. E.g. `nSymlinked_nCross` = `nSymlinked_nJunctioned_nCross` + `nSymlinked_yJunctioned_nCross`.
-		- nSymlinked_nJunctioned
-		- nSymlinked_yJunctioned
-		- ySymlinked_nJunctioned
-		- nSymlinked_nCross
-		- nSymlinked_yCross
-		- ySymlinked_nCross
-		- nJunctioned_nCross
-		- nJunctioned_yCross
-		- yJunctioned_nCross
-		- nSymlinked
-		- ySymlinked
-		- nJunctioned
-		- yJunctioned
-		- nCross
-		- yCross
-		- total (all eight)
-	- Those are the only sums the table below uses. The other three pairs aren't needed.
+- Build a structure for total sizes, e.g. `totalSizes`, with one total for each mix of the four follow options, sixteen in all. Each one is the size of what that mix would put in the archive.
+
+- When the scan reaches a file by a path:
+	- Find the mixes that let that path in. A mix lets it in when it follows every flag the path has.
+	- Add the file's bytes to each of those totals that the file's `countedIn` doesn't have yet, then mark them in `countedIn`.
+
+- So a file counts once in every mix that lets in any path to it. Which path the scan found first doesn't matter.
+	- A file in `v2/` that is also reached through a `current -> v2` link counts in all sixteen, since the direct path needs nothing.
+	- A file reached only through a symlink by one path, and only through a junction by another, counts wherever symlinks or junctions are followed, and nowhere else.
+
+- This replaces the eight flag totals of the first draft. One set of flags per file can't be exact when a file has two paths. The flags the paths share count it where neither path goes. All the flags of both leave it out where one path alone would bring it in.
+
+- The cost is two bytes per file, and at most sixteen additions per path.
 
 #### Background scan
 
 - In a background task, gather a list of all canonical file paths included in the current selection and below, and populate `canonicalFullFilePath`, with the following exclusions:
 	- If "follow symlinks" selection is off, don't count any files that are symlinks at any level, and don't follow any folder symlinks, at any level.
 	- If "follow junctions" is off, don't follow any folder junctions, at any level.
-	- If "Follow across mounted filesystems" is off, don't follow any folders that are mounted from a different filesystem, or links of any kind that made it past the previous exclusions, but point to a different filesystem.
+	- If "Follow nested filesystems" is off, don't follow any folders that are mounted from a nested filesystem, or links of any kind that made it past the previous exclusions, but point to a nested filesystem.
+	- If "Follow other filesystems" is off, don't follow any folders that are mounted from a different filesystem, or links of any kind that made it past the previous exclusions, but point to a different filesystem.
 	- As candidates that made it this far are scanned read:
 		- Obtain the full canonical file path.
 		- See if that path already exists in the existing `canonicalFullFilePath` list.
-		- If it doesn't:
-			- Add the full canonical file path to the list, and populate the other fields with it.
-			- Update the `totalSizes` structure with the appropriate additive values.
-		- If it does, and the stored entry has a flag this path doesn't, clear that flag and move the bytes to the matching total.
-			- A file reached both directly and through a symlink counts as direct. Otherwise the order of the walk decides whether it counts with "Follow" off. A `current` link beside the `v2` folder it leads to is the common case.
-	- If one of the UI options is changed at any time during this (i.e. "follow symlinks", "follow junctions", "follow across filesystems"):
+		- If it doesn't, add the full canonical file path to the list, with its bytes.
+		- Either way, update `totalSizes` and `countedIn` as above.
+	- If one of the UI options is changed at any time during this (i.e. "follow symlinks", "follow junctions", "follow nested filesystems", "follow other filesystems"):
 		- If an option is *less* inclusive, don't interrupt scan but immediately back out of now-excluded paths, and resume with the next legal path. (But don't remove or change any values of either structure.)
 		- If an option is *more* inclusive, restart the scan with the more inclusive option. (Only adding to the file list and doing math as previously unseen paths are discovered.)
-	- Every 0.25 second, check to see if any of the values in `totalSizes` have changed, or if any of the three relevant options have changed. If so, update the appropriate GUI elements.
+	- Every 0.25 second, check to see if any of the values in `totalSizes` have changed, or if any of the four relevant options have changed. If so, update the appropriate GUI elements.
 		- Calculations for UI:
-			- A Δ is what turning that option off would take away from the total, with the other two left as set. A file that is both symlinked and junctioned counts in both Δs, so the three don't add up to anything.
-
-			| f-sym | f-jnc | f-cfs | Δ-sym                         | Δ-jnc                         | Δ-cfs                         | total size
-			| :---: | :---: | :---: | :---------------------------- | :---------------------------- | :---------------------------- | :----------------------------
-			|   n   |   n   |   n   | 0                             | 0                             | 0                             | nSymlinked_nJunctioned_nCross
-			|   n   |   n   |   y   | 0                             | 0                             | nSymlinked_nJunctioned_yCross | nSymlinked_nJunctioned
-			|   n   |   y   |   n   | 0                             | nSymlinked_yJunctioned_nCross | 0                             | nSymlinked_nCross
-			|   n   |   y   |   y   | 0                             | nSymlinked_yJunctioned        | nSymlinked_yCross             | nSymlinked
-			|   y   |   n   |   n   | ySymlinked_nJunctioned_nCross | 0                             | 0                             | nJunctioned_nCross
-			|   y   |   n   |   y   | ySymlinked_nJunctioned        | 0                             | nJunctioned_yCross            | nJunctioned
-			|   y   |   y   |   n   | ySymlinked_nCross             | yJunctioned_nCross            | 0                             | nCross
-			|   y   |   y   |   y   | ySymlinked                    | yJunctioned                   | yCross                        | total
+			- The total is the `totalSizes` entry for the options as set.
+			- A Δ is what turning that option off would take away from the total, with the other three left as set. It's the total less the entry for the same options with that one off, so it's 0 for an option that's off. A file that is both symlinked and junctioned counts in both Δs, so the Δs don't add up to anything.
+			- Both are exact. The scan has walked every path the options as set allow, and so every path a mix with one option fewer allows. An entry for a mix that follows more is partial until the scan restarts with it.
 
 - In the future, the file scanning will use the "TukzedoFS" cache - PostgreSQL on Tukzedo Linux, SQLite3 otherwise.
 
@@ -249,16 +246,11 @@ How to calculate the four different sizes shown.
 
 ## Open questions
 
-- On ZFS and btrfs each dataset or subvolume is its own filesystem. With the mount option off, nested datasets under a selected folder are left out, as with `find -xdev`. OK?
-
-- The mount option is disabled with no folder selected. But a selected file symlink can lead to another filesystem, and with "Follow" on and the mount option stuck off, that file is left out. Suggest enabling it when any folder or link is selected.
-
-- After the repeat-path rule, a file reached only through a symlink by one path, and only through a junction by another, keeps neither flag. It then counts even with both set to Ignore. Windows only, and rare. Suggest accepting that. The exact fix keeps, per file, which of the eight option sets let it in.
-
-- Links that lead nowhere: 2026092813381404 stores them as links in every format that can, even with "store links" off. Under the new choices, suggest "Ignore" leaves them out like any other link, and "Follow" and "Store" store them, since there is nothing to follow.
-
-- `-spd` is only in the built-in 7z command lines, so a line edited in the settings keeps the wildcard bug from 2026092813381416. Add it when missing, warn, or leave it?
-
-- Should the library's 7z writer offer "Store as Symlinks"? It already keeps links that lead nowhere as links. That would move 7z jobs that store links off the 7-Zip program, and give 7z link storing back on Windows.
-
-- Moving today's archive and extract code into the layers: as its own change now, or a part at a time as each is touched? Suggest the new scan first, then the rest as touched.
+- `-spd` in an edited 7z command line. The built-in lines have it. A line edited in the settings keeps what was typed, so one edited before `-spd` was added, or with it taken out, lets 7-Zip read `*` and `?` as wildcards again.
+	- Where it matters: a name handed to 7-Zip with `*` or `?` in it. That is a selected item or a left-out folder when compressing, and the archive's own path when extracting. Windows allows neither character in a name, so this is Linux, BSD and macOS only.
+	- What goes wrong: files whose names match go in or are left out along with it, and the job still reports success. When extracting, other archives that match come out too.
+	- Choices:
+		- Refuse the job when a name has `*` or `?` and the line has no `-spd`. The message names the setting and says to add `-spd` or clear the line. This is what rar gets today, since it has no such switch at all.
+		- Add `-spd` at run time when it's missing. Nothing to see, but it changes a line someone wrote, and breaks one that runs something other than 7-Zip.
+		- Make it a marker that warns when left out. The job would still run wrong.
+	- Suggest refusing. It only stops a job that would go wrong, and it's the same check rar already has, so one check in the core covers both.
