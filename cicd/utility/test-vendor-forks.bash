@@ -5,10 +5,10 @@
 ##	  run, so this is where its speed goes. The count comes from a PID
 ##	  namespace of its own, where nothing else takes a pid, so it is exact and
 ##	  a busy box cannot move it.
-##	- The bar is 5 per icon. The lookup as it stands starts 4: a copy and a
+##	- The bar is 4.5 per icon. The lookup as it stands starts 4: a copy and a
 ##	  mkdir for each icon staged, and one per name it tries. As it used to be
-##	  it started 11, and putting back any one part of that on its own, such as
-##	  asking the lookup through a substitution, comes to more than 5.
+##	  it started 11. Any one fork more per icon fails it, such as asking the
+##	  first lookup, which every icon takes, through a substitution.
 ##	- Exits 77 where no PID namespace can be made without root.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-vendor-forks.bash
@@ -23,7 +23,8 @@ set -Eeuo pipefail
 echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURCE[0]}") ${BASH_SOURCE[0]##*/} ]"
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-perIcon=5
+## In halves, so one fork more per icon is over it.
+halvesPerIcon=9
 
 fEcho(){ echo "[ $* ]"; }
 
@@ -48,8 +49,8 @@ if [[ -z "${icons}" || -z "${forks}" || "${found:-0}" == "0" ]]; then
 	exit 1
 fi
 
-if (( forks > icons * perIcon )); then
-	fEcho "FAILED: vendor-themes fork count: ${forks} processes for ${icons} icons, over ${perIcon} each"
+if (( forks * 2 > icons * halvesPerIcon )); then
+	fEcho "FAILED: vendor-themes fork count: ${forks} processes for ${icons} icons, over $(( halvesPerIcon / 2 )).5 each"
 	exit 1
 fi
 fEcho "OK: vendor-themes fork count: ${forks} processes for ${icons} icons"
