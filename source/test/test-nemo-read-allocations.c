@@ -28,6 +28,10 @@
  * one allocation per ten reads. None is made today; building the path per
  * read made one or two.
  *
+ * A string or enum read makes one allocation of its own, the string handed
+ * back or the nick looked up, so each kind is read a thousand times over the
+ * table on its own, with a bar of one and a half per read.
+ *
  * The Ext column asks every row for its extension, which is one string handed
  * back. The file name is looked at where it sits rather than copied first. The
  * bar is one and a half allocations per read: one today, two with the copy.
@@ -125,6 +129,47 @@ read_every_scalar (gint64 *sink)
 	return reads;
 }
 
+static guint
+read_every_text (NemoConfigType type, gint64 *sink)
+{
+	const NemoConfigKey *k;
+	guint reads = 0;
+
+	for (k = nemo_config_keys; k->key != NULL; k++) {
+		NemoConfigGroup *group;
+
+		if (k->type != type)
+			continue;
+		group = nemo_config_get_group (k->group);
+		if (type == NEMO_CONFIG_STRING)
+			g_free (nemo_config_get_string (group, k->key));
+		else
+			*sink += nemo_config_get_enum (group, k->key);
+		reads++;
+	}
+
+	return reads;
+}
+
+/* Kept apart per kind, since together the one with more keys hides the other. */
+static void
+check_text_reads (NemoConfigType type, const char *label, gint64 *sink)
+{
+	guint64 reads = 0;
+	int     round;
+
+	check (read_every_text (type, sink) > 0);
+	allocations = 0;
+	counting = TRUE;
+	for (round = 0; round < ROUNDS; round++)
+		reads += read_every_text (type, sink);
+	counting = FALSE;
+
+	g_print ("%s: %" G_GUINT64_FORMAT " reads, %" G_GUINT64_FORMAT " allocations\n",
+		 label, reads, allocations);
+	check (allocations * 2 < reads * 3);
+}
+
 static void
 check_extension_reads (const char *tmp)
 {
@@ -183,6 +228,9 @@ main (int argc, char *argv[])
 	g_print ("settings: %" G_GUINT64_FORMAT " reads, %" G_GUINT64_FORMAT " allocations\n",
 		 reads, allocations);
 	check (allocations * 10 < reads);
+
+	check_text_reads (NEMO_CONFIG_STRING, "strings", &sink);
+	check_text_reads (NEMO_CONFIG_ENUM, "enums", &sink);
 
 	check_extension_reads (tmp);
 
