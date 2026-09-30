@@ -793,7 +793,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: `main` still has the installers from 20260804. Their stable channel asks for the latest stable release, which does not exist yet, so the README one-liners fail until this cut.
 	- Test case: none, release step.
 
-- 🔘 File uniqueness design: See [dedupe_and_thumbnails.md](design_docs/dedupe_and_thumbnails.md).
+- 🔘 File uniqueness design: See [20260925_dedupe_and_thumbnails.md](design_docs/20260925_dedupe_and_thumbnails.md).
 	- Note: If the previous cache implementation is on-disk when the new version runs, delete it.
 		- This is OK since it's still beta. In the future for release versions, changes will require a migration.
 	- Opened: 20260925-063617 by JC.
@@ -829,7 +829,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Cache content hashes in local SQLite as well as optionally xattrs.
 	- And related, smart:
 		- Deduper for CoW systems. It never deletes, trashes, moves or hardlinks.
-	- Design: [dedupe_and_thumbnails.md](design_docs/dedupe_and_thumbnails.md).
+	- Design: [20260925_dedupe_and_thumbnails.md](design_docs/20260925_dedupe_and_thumbnails.md).
 	- Test case: none yet, not started.
 
 - 🔘 Selectable metadata to include for media titles in icon mode. (E.g. px size, capture date, megapixel, framerate for video, Avg bitrate for audio and video, codec, etc.)
@@ -2976,7 +2976,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ Copying a tiny file makes a CoW clone of it, where a plain copy would do better.
 	- Opened: 20260923-114627. Closed: 20260924-100500.
 	- A copy tries a clone first at any size, then a plain copy. A clone of a tiny file can cost more than it saves.
-	- Pick a size below which a copy skips the clone. See [dedupe_and_thumbnails.md](design_docs/dedupe_and_thumbnails.md#copy-on-write-clones).
+	- Pick a size below which a copy skips the clone. See [20260925_dedupe_and_thumbnails.md](design_docs/20260925_dedupe_and_thumbnails.md#copy-on-write-clones).
 	- Done: on Linux, a file under 64 KiB is read whole and written out plainly, so it is never cloned. 64 KiB is 16 blocks of 4 KiB, and a clone saves less than that below it while the file system keeps track of the shared extent for as long as both copies exist.
 	- Done: the limit is `performance.clone-min-kib` in the settings file, 0 to always clone and 1024 at most. Other platforms have nothing to skip, since only Linux clones on copy there.
 	- Note: an overwrite, a link copied as a link, or anything the plain copy cannot start goes the usual way, so conflicts and errors read the same as before.
