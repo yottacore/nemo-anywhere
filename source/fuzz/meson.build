@@ -152,6 +152,7 @@ fuzzPsdCorpus = files(
   'corpus/psd/truncated',
   'corpus/psd/bad-count',
   'corpus/psd/short-literal',
+  'corpus/psd/zero-rows',
 )
 
 fuzzRawCorpus = files(
