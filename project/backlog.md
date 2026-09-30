@@ -33,31 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
-	- ID: 2026092910143202
-	- Type: Enhancement
-	- Status: Queued
-	- Opened: 20260929-101432
-	- Opened by: t00mietum
-	- Related IDs: 2026092813381404, 2026092813381416
-	- Target OS: Linux, Windows
-	- Design: [20260929_compression.md](design_docs/20260929_compression.md). The requirements, decisions and open questions are there.
-	- Requirements:
-		- Deselect and disable options the archiver can't do.
-		- Symlinks and Junctions as radio groups, plus nested and other filesystems options, each with a live size change. A total size beside Cancel and OK.
-		- Rename the delete box, and say why a delete check failed.
-		- Volume sizes say what each is for.
-		- A pre-scan progress bar after OK.
-		- Keep compress and extract modular, for a possible split to their own project.
-		- Options opens by itself when a remembered choice isn't the default, and a button beside it resets them.
-		- 7z goes to 7-Zip first where it's installed, and an edited 7-Zip line gets `-spd` at run time.
-	- Progress log:
-		- 20260929-161500: design moved to its own doc, with the new size counting. Five of the eight old questions are answered there.
-		- 20260929-173000: answers folded in. A nested filesystems option, exact totals for files with more than one path, dangling links under Ignore, the library's 7z storing links, and the order of the code split. One question left, on `-spd`.
-		- 20260929-190000: `-spd` is added at run time, 7-Zip is used first for 7z, and Options opens by itself and gets a reset button. Other filesystems is for folders only. One question left, on a selected link to another filesystem.
-		- 20260930-090000: a link onto another filesystem is followed only when both options are on. The reset button also collapses Options, and the store option's flyover says when it forces one thread. The settings comments on the command lines now say they are base flags. No questions left.
-	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
-
 - Code review 20260928 item 1. Zooming while thumbnails render can store a small thumbnail as full size, and it is never made again.
 	- ID: 2026092813381401
 	- Type: Bug
@@ -209,6 +184,71 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- rev86z08, Archive options test: the output reader rows from 334b239, and new rows for the line of the first run. That line is new, so it has no before run.
 	- Verified: the 9 archive, extract, template and schema tests pass on Linux, the combinations and job tests three runs in a row. Lint and the Windows cross build are clean. The Archive options test passes under wine, its Windows-only rows included.
 
+- Code review 20260928 item 5. The installer and prefix checks cannot fail a pipeline run.
+	- ID: 2026092813381405
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes. The first full pipeline run since the fix, to see the packages stage run both checks and go on to dogfood.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: a broken installer prints a warning, and the run still goes on to dogfood and publish.
+	- Expected behavior: the check stops the run, as the done item for the installer fixes says it does.
+	- Reproduced: yes, 20260928, Linux.
+	- Actual cause: both checks sit in the packaging list, where a failure only warns.
+	- Origin: 7284973, 20260925, and c5f4e7b, 20260926. New ground. Confirmed.
+	- Against: warn-only packagers, in the review's Decisions. The packagers still only warn. Only the two checks moved.
+	- Actual fix: the two checks have a list of their own in the pipeline config. They run after the packagers, and any failure but a skip stops the run before dogfood and publish.
+	- Swept: the Windows pipeline has no packages stage, and its installer check already stops the run. Nothing else sits in the packaging list but the two packagers.
+	- Branch: gatefix
+	- Commit: 9000f48
+	- Test case: rj3yttvt, Package checks test. Fails before the fix and passes after, on Linux.
+	- Verified: the test also fails on a fix that warns instead of stopping. The installer and prefix checks both pass on the current release tarball, so the new stop does not block a run today.
+
+- Code review 20260928 item 6. The pre-push version guard reads the working tree, not the commit being pushed.
+	- ID: 2026092813381406
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs external testing: Windows. One push to main through the hook from a Windows checkout, to see that a clean checkout reads as clean.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: a push to `main` with no version bump passes when the bump is only uncommitted, or when another branch is checked out. The gate also runs on the tree rather than the pushed commit.
+	- Expected behavior: the hook header, a push to `main` must raise the version.
+	- Reproduced: yes, 20260928, Linux.
+	- Origin: 2d475c4, 20260718. Not seen by an earlier round. Confirmed.
+	- Actual cause: the hook read the version and the README badge from the working tree, and the gate builds whatever tree is checked out.
+	- Actual fix: the version and badge are read from the commit being pushed. A push to main is refused when the tracked files differ from that commit, as with another branch checked out or an uncommitted edit. Untracked files are allowed. The container runner also refuses a clone other than the one its container has mounted, such as a second worktree, which it would otherwise have tested instead.
+	- Note: a release is now pushed from a clean checkout of main in the main clone. A merge made while another branch is checked out still works, but main has to be checked out, with nothing uncommitted, before the push.
+	- Swept: both reads in the version guard, the Windows gate (the same check runs before it), and the container runner the gate's build and tests go through. The release and cross builds call the container directly, but a full run from another clone now stops at the debug build, before they run.
+	- Branch: gatefix
+	- Commit: 683eae0
+	- Test case: rhtrxr80, Pre-push version guard, with five new hook runs: a bump only in the tree, another commit checked out, an uncommitted edit, an untracked file, and a badge right only in the tree. rj3ytv0b, Container clone test. Both fail before the fix and pass after, on Linux.
+
+- Code review 20260928 item 7. C static analysis on `main` and `dev` checks no files.
+	- ID: 2026092813381407
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs external testing: Windows. The lint stage under MSYS2 runs the new scope test with the Windows git.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: the file list is changes against `dev`, which is empty on `dev` and right after a merge to `main`. The stage prints OK.
+	- Expected behavior: README, every build goes through static analysis, and the pre-push header, nothing reaches the release branch unverified.
+	- Reproduced: yes, 20260928, Linux.
+	- Origin: 0d92350, 20260802. Not seen by an earlier round. Confirmed.
+	- Actual cause: dev and main only take merges, so the changes since the merge base with dev are always empty there.
+	- Against: lint scoped by file, in the review's Decisions. File scoping stays. Only the range on dev and main changed.
+	- Actual fix: on dev, main or a named base, the list is what the latest merge brought in, from its first parent up to HEAD, plus anything uncommitted. On main right after a release merge, that is the whole release. Feature branches are unchanged. The lint names the commit its list starts from.
+	- Note: the other choice was the whole first-party tree. It takes about 10 seconds but has 15 findings in 3 files today, which would need fixing or suppressing first. The latest merge changes no source and is easy to swap later.
+	- Swept: the Windows pipeline runs the same C lint through the lint stage. No other check picks its files by a diff against dev.
+	- Branch: gatefix
+	- Commit: 8116044
+	- Test case: rj3ytty2, C lint scope test: a feature branch, dev after a merge and after a later commit, main after the release merge, an uncommitted edit, and a branch with no C. Fails before the fix and passes after, on Linux.
+
 - Code review 20260928 item 17. Hardlinking a selected symlink links the symlink, not the file.
 	- ID: 2026092813381417
 	- Type: Bug
@@ -297,71 +337,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: Escape not restoring the selection, Ctrl+Shift+T, and Control kept for F1, tab keys, Ctrl+H and Ctrl+M on macOS. All settled earlier.
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
-
-- Code review 20260928 item 5. The installer and prefix checks cannot fail a pipeline run.
-	- ID: 2026092813381405
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes. The first full pipeline run since the fix, to see the packages stage run both checks and go on to dogfood.
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: a broken installer prints a warning, and the run still goes on to dogfood and publish.
-	- Expected behavior: the check stops the run, as the done item for the installer fixes says it does.
-	- Reproduced: yes, 20260928, Linux.
-	- Actual cause: both checks sit in the packaging list, where a failure only warns.
-	- Origin: 7284973, 20260925, and c5f4e7b, 20260926. New ground. Confirmed.
-	- Against: warn-only packagers, in the review's Decisions. The packagers still only warn. Only the two checks moved.
-	- Actual fix: the two checks have a list of their own in the pipeline config. They run after the packagers, and any failure but a skip stops the run before dogfood and publish.
-	- Swept: the Windows pipeline has no packages stage, and its installer check already stops the run. Nothing else sits in the packaging list but the two packagers.
-	- Branch: gatefix
-	- Commit: 9000f48
-	- Test case: rj3yttvt, Package checks test. Fails before the fix and passes after, on Linux.
-	- Verified: the test also fails on a fix that warns instead of stopping. The installer and prefix checks both pass on the current release tarball, so the new stop does not block a run today.
-
-- Code review 20260928 item 6. The pre-push version guard reads the working tree, not the commit being pushed.
-	- ID: 2026092813381406
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: Windows. One push to main through the hook from a Windows checkout, to see that a clean checkout reads as clean.
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: a push to `main` with no version bump passes when the bump is only uncommitted, or when another branch is checked out. The gate also runs on the tree rather than the pushed commit.
-	- Expected behavior: the hook header, a push to `main` must raise the version.
-	- Reproduced: yes, 20260928, Linux.
-	- Origin: 2d475c4, 20260718. Not seen by an earlier round. Confirmed.
-	- Actual cause: the hook read the version and the README badge from the working tree, and the gate builds whatever tree is checked out.
-	- Actual fix: the version and badge are read from the commit being pushed. A push to main is refused when the tracked files differ from that commit, as with another branch checked out or an uncommitted edit. Untracked files are allowed. The container runner also refuses a clone other than the one its container has mounted, such as a second worktree, which it would otherwise have tested instead.
-	- Note: a release is now pushed from a clean checkout of main in the main clone. A merge made while another branch is checked out still works, but main has to be checked out, with nothing uncommitted, before the push.
-	- Swept: both reads in the version guard, the Windows gate (the same check runs before it), and the container runner the gate's build and tests go through. The release and cross builds call the container directly, but a full run from another clone now stops at the debug build, before they run.
-	- Branch: gatefix
-	- Commit: 683eae0
-	- Test case: rhtrxr80, Pre-push version guard, with five new hook runs: a bump only in the tree, another commit checked out, an uncommitted edit, an untracked file, and a badge right only in the tree. rj3ytv0b, Container clone test. Both fail before the fix and pass after, on Linux.
-
-- Code review 20260928 item 7. C static analysis on `main` and `dev` checks no files.
-	- ID: 2026092813381407
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: Windows. The lint stage under MSYS2 runs the new scope test with the Windows git.
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: the file list is changes against `dev`, which is empty on `dev` and right after a merge to `main`. The stage prints OK.
-	- Expected behavior: README, every build goes through static analysis, and the pre-push header, nothing reaches the release branch unverified.
-	- Reproduced: yes, 20260928, Linux.
-	- Origin: 0d92350, 20260802. Not seen by an earlier round. Confirmed.
-	- Actual cause: dev and main only take merges, so the changes since the merge base with dev are always empty there.
-	- Against: lint scoped by file, in the review's Decisions. File scoping stays. Only the range on dev and main changed.
-	- Actual fix: on dev, main or a named base, the list is what the latest merge brought in, from its first parent up to HEAD, plus anything uncommitted. On main right after a release merge, that is the whole release. Feature branches are unchanged. The lint names the commit its list starts from.
-	- Note: the other choice was the whole first-party tree. It takes about 10 seconds but has 15 findings in 3 files today, which would need fixing or suppressing first. The latest merge changes no source and is easy to swap later.
-	- Swept: the Windows pipeline runs the same C lint through the lint stage. No other check picks its files by a diff against dev.
-	- Branch: gatefix
-	- Commit: 8116044
-	- Test case: rj3ytty2, C lint scope test: a feature branch, dev after a merge and after a later commit, main after the release merge, an uncommitted edit, and a branch with no C. Fails before the fix and passes after, on Linux.
 
 - Code review 20260928 item 8. A FIFO named .lnk freezes the window.
 	- ID: 2026092813381408
@@ -652,6 +627,31 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: yes, 20260928, Linux.
 	- Origin: 4d8f9f7, 20260828, and 4809a54, 20260922 (rawthumbs). New ground. Confirmed.
 	- Test case: the tests themselves.
+
+- Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
+	- ID: 2026092910143202
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20260929-101432
+	- Opened by: t00mietum
+	- Related IDs: 2026092813381404, 2026092813381416
+	- Target OS: Linux, Windows
+	- Design: [20260929_compression.md](design_docs/20260929_compression.md). The requirements, decisions and open questions are there.
+	- Requirements:
+		- Deselect and disable options the archiver can't do.
+		- Symlinks and Junctions as radio groups, plus nested and other filesystems options, each with a live size change. A total size beside Cancel and OK.
+		- Rename the delete box, and say why a delete check failed.
+		- Volume sizes say what each is for.
+		- A pre-scan progress bar after OK.
+		- Keep compress and extract modular, for a possible split to their own project.
+		- Options opens by itself when a remembered choice isn't the default, and a button beside it resets them.
+		- 7z goes to 7-Zip first where it's installed, and an edited 7-Zip line gets `-spd` at run time.
+	- Progress log:
+		- 20260929-161500: design moved to its own doc, with the new size counting. Five of the eight old questions are answered there.
+		- 20260929-173000: answers folded in. A nested filesystems option, exact totals for files with more than one path, dangling links under Ignore, the library's 7z storing links, and the order of the code split. One question left, on `-spd`.
+		- 20260929-190000: `-spd` is added at run time, 7-Zip is used first for 7z, and Options opens by itself and gets a reset button. Other filesystems is for folders only. One question left, on a selected link to another filesystem.
+		- 20260930-090000: a link onto another filesystem is followed only when both options are on. The reset button also collapses Options, and the store option's flyover says when it forces one thread. The settings comments on the command lines now say they are base flags. No questions left.
+	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
 
 - Code review 20260928 item 34. Apply the directives' new C section.
 	- ID: 2026092813381434
