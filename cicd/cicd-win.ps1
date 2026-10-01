@@ -309,6 +309,9 @@ function fTests {
 	## here rather than beside the other script tests in lint.
 	& pwsh -NoProfile -File (Join-Path $Root "cicd\win\test-install-holders.ps1")
 	if ($LASTEXITCODE -ne 0) { fDie "install.ps1 in-use check failed (exit $LASTEXITCODE)" }
+	## Needs Windows ACLs to read, so it sits here for the same reason.
+	& pwsh -NoProfile -File (Join-Path $Root "cicd\win\test-install-acl.ps1")
+	if ($LASTEXITCODE -ne 0) { fDie "install.ps1 ACL check failed (exit $LASTEXITCODE)" }
 }
 
 ## Path to the freshly built exe for the in-place smoke. The extension lib is folded
