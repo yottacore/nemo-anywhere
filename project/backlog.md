@@ -1018,6 +1018,54 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Stop a started thumbnail once nothing wants it, for every reader.
 	- Test case: none yet. A large file whose thumbnail is dropped mid-read frees its thread within a set time.
 
+- Copy dialog: size totals split by where the data goes.
+	- ID: 2026100114301533
+	- Type: Feature
+	- Status: Queued
+	- Opened: 20261001-143015
+	- Opened by: t00mietum
+	- Prereq IDs: 2026092910143202
+	- Design: [Planned copy and move totals](design_docs/20260930-145641_moving_and_copying.md#planned-copy-and-move-totals). Two open questions there.
+	- Requirements:
+		- After rc.1.
+		- Total the selection the same way as the Compress dialog design.
+		- Show how much goes to the same Copy-on-Write filesystem, with a much smaller estimate of the new space it will take.
+		- Show how much is copied to a different filesystem.
+	- Test case: none yet.
+
+- Move dialog: size totals split by where the data goes.
+	- ID: 2026100114301534
+	- Type: Feature
+	- Status: Queued
+	- Opened: 20261001-143015
+	- Opened by: t00mietum
+	- Prereq IDs: 2026100114301533
+	- Design: [Planned copy and move totals](design_docs/20260930-145641_moving_and_copying.md#planned-copy-and-move-totals).
+	- Requirements:
+		- After rc.1.
+		- Total the selection the same way as the Copy dialog.
+		- Show how much only moves on the same filesystem, and how much new data is copied somewhere else.
+	- Test case: none yet.
+
+- Remember window size and zoom, per monitor.
+	- ID: 2026100114301535
+	- Type: Feature
+	- Status: Queued
+	- Opened: 20261001-143015
+	- Opened by: t00mietum
+	- Requirements:
+		- After rc.1.
+		- Only when "Remember window size" is on in settings. That setting doesn't exist yet. Today the size is always saved.
+			- Any time the user resizes a window, that size becomes the main default, whatever the window.
+				- The same for zoom.
+			- Also store the size per monitor.
+				- The same for zoom.
+			- A window opened on a monitor gets that monitor's saved size.
+				- The same for zoom.
+			- A window dragged to a monitor that has its own saved size changes to that size once the move stops.
+				- The same for zoom.
+	- Test case: none yet.
+
 ## Old format
 
 ### Bugs
