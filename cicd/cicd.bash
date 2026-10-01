@@ -693,7 +693,11 @@ if ((quick)); then
 elif [[ -n "${PRIVATE_RUNNER:-}" && -x "${PRIVATE_RUNNER}" ]]; then
 	fEcho_Clean "private runner ..."
 	priv_start="$(mktemp)"
-	"${PRIVATE_RUNNER}" --public "${root}" || fDie "a private runner job failed"
+	## The Store bundle is made from this run's Windows zip. With no packages
+	## stage, the zip there is an older run's.
+	priv_args=()
+	((PACKAGE_ENABLE)) || priv_args+=(--no-store)
+	"${PRIVATE_RUNNER}" --public "${root}" "${priv_args[@]}" || fDie "a private runner job failed"
 	fEcho "OK: private runner"
 	## A build joins this run's dogfood only if the runner made it just now. One
 	## left from an earlier run of the same version must not be published again.
