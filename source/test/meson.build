@@ -1005,6 +1005,16 @@ if not is_windows
     timeout: 120
   )
 
+  test('rj750n43 File cache written at quit test',
+    executable('test-nemo-cache-quit',
+      [ 'test-nemo-cache-quit.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, x11, test_scratch ],
+    ),
+    args: [ nemo ],
+    timeout: 180
+  )
+
   test('rhmr6qgs Tab move between processes test',
     executable('test-nemo-tab-move',
       [ 'test-nemo-tab-move.c' ],
