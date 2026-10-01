@@ -362,6 +362,28 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rhd69rjr, File cache prune test, with 1500 thumbnails. The prune's own pick queries walk at most one batch and sort nothing. Fails before the fix and passes after, on Linux.
 	- Verified: same runs as item 9.
 
+- Code review 20260928 item 13. A Windows install for all users may not run for other users.
+	- ID: 2026092813381413
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. Windows only. The lint stage and the installer check pass on Linux.
+	- Needs external testing: Windows. The new test fails before the fix and passes after.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Target OS: Windows.
+	- Incorrect behavior: the installed folder keeps the installing user's temp folder permissions, so another user sees the shortcut and PATH entry but cannot start the program.
+	- Reproduced: not yet. The new test reproduces it on Windows, and waits on a run there.
+	- Actual cause: the unpacked tree is moved, not copied, and a move on one drive keeps the old permissions.
+	- Origin: before 20260917, carried into 7284973, 20260925. Not seen by an earlier round. Plausible.
+	- Actual fix: the new tree is copied out of the temp folder into the staging folder beside the install, never moved, so every file takes the install folder's permissions. User and system installs take the same path.
+	- Swept: the other moves in the project's PowerShell are renames inside one folder. The installer's own swap renames the staging folder inside the folder it was copied to, so it keeps the right permissions. The unix side already sets owner and mode on a system install.
+	- Note: the system target itself is not run by the test. A user install takes the same staging, under a parent that lets Users read and run where the temp folder does not.
+	- Branch: installacl
+	- Commit: a876603, test in 3c40b76
+	- Test case: `cicd/win/test-install-acl.ps1` (rj72n4xb), in the Windows test stage. Every installed file and folder has to carry the read and run grant its parent passes down.
+
 - Code review 20260928 item 17. Hardlinking a selected symlink links the symlink, not the file.
 	- ID: 2026092813381417
 	- Type: Bug
@@ -450,21 +472,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: Escape not restoring the selection, Ctrl+Shift+T, and Control kept for F1, tab keys, Ctrl+H and Ctrl+M on macOS. All settled earlier.
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
-
-- Code review 20260928 item 13. A Windows install for all users may not run for other users.
-	- ID: 2026092813381413
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Target OS: Windows.
-	- Incorrect behavior: the installed folder keeps the installing user's temp folder permissions, so another user sees the shortcut and PATH entry but cannot start the program.
-	- Reproduced: no, read only. Needs a Windows box.
-	- Actual cause: the unpacked tree is moved, not copied, and a move on one drive keeps the old permissions.
-	- Origin: before 20260917, carried into 7284973, 20260925. Not seen by an earlier round. Plausible.
-	- Test case: none yet.
 
 - On Windows, a local shortcut to a share that is not answering can stall the window while its icon is looked up.
 	- ID: 2026093010493389
