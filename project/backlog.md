@@ -57,6 +57,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: a876603, test in 3c40b76
 	- Test case: `cicd/win/test-install-acl.ps1` (rj72n4xb), in the Windows test stage. Every installed file and folder has to carry the read and run grant its parent passes down.
 
+- Code review 20260928 item 19. An Olympus raw file with a looping directory takes seconds to read.
+	- ID: 2026092813381419
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The full Linux suite passed 142 of 142 on 20261001.
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: a 12 KB file took 8.7 s of a thumbnail thread.
+	- Expected behavior: design.md, a thumbnail takes a few milliseconds.
+	- Reproduced: yes, 20260928, Linux. Again 20261001, 5.9 s.
+	- Actual cause: a directory that names itself as the next one is read 32 times. Each of its entries can start a maker note or preview lookup that reads the file a few bytes at a time, and nothing bounded the total.
+	- Origin: 4809a54, 20260922 (rawthumbs). New ground. Confirmed.
+	- Actual fix: finding the previews in a file is held to a fixed number of reads, far more than any real camera file tried needed. Reading the preview that was found is not counted.
+	- Sweep: every reader in the raw reader that a directory entry can start.
+	- Swept: the Olympus maker note, Panasonic's preview tag, the JPEG offset tags, strip lists, values stored outside the entry, EXIF and sub-directories, and the CR3 box walk all go through the one counted read, so the cap covers each. Panasonic's tag was as slow as the maker note in a looping file and is in the test. The properties page reads EXIF through libexif from memory, not a read per entry. Search: every `read_at` call in `nemo-raw.c`, and a grep for `ifd`, `0x927C`, maker note and the EXIF loader across `source/`.
+	- Note: reading a directory in one block, and skipping a maker note already read, were also offered. Neither is needed with the cap, and the skip would not stop notes at different offsets.
+	- Note: waits on signoff because the fix took one of the three the review offered. A real file that needed more reads than the cap would show the type icon. The fuzz stage still owes a run with the new seed.
+	- Test case: `rhg7vh28 Camera raw reader test`: three files with a looping directory, read from disk, each under 0.25 s. They are the review's file, the same with camera settings, and Panasonic's preview tag, which took 8 s, 12 s and 0.8 s before. A tall uncompressed preview is still read after the directories. Fuzz seed `olympus-loop`.
+	- Branch: rawloop
+	- Commit: 1a95d6a, seed in 03e4206
+
 - Code review 20260928 item 15. Three items from code review 20260919 closed with no test and no reason.
 	- ID: 2026092813381415
 	- Type: Bug
@@ -514,20 +537,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: no. Seen on Windows, not yet reproduced here.
 	- Possible cause: each shortcut's icon comes from the Windows shell on the window's thread, one file after another, the first time the view asks for it. The only cache is in memory, so every new run pays it again.
 	- Note: 2026093010493389 already wants these lookups off the window's thread. One fix may cover both.
-	- Test case: none yet.
-
-- Code review 20260928 item 19. An Olympus raw file with a looping directory takes seconds to read.
-	- ID: 2026092813381419
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: a 12 KB file took 8.7 s of a thumbnail thread.
-	- Expected behavior: design.md, a thumbnail takes a few milliseconds.
-	- Reproduced: yes, 20260928, Linux.
-	- Origin: 4809a54, 20260922 (rawthumbs). New ground. Confirmed.
 	- Test case: none yet.
 
 - Code review 20260928 item 20. The file cache is never closed at quit.
