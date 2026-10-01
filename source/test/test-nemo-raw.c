@@ -357,6 +357,46 @@ test_rgb_only (void)
 	check (orientation_is (pixbuf, NULL));
 }
 
+/* An uncompressed preview is read a row at a time, more reads than the
+ * directories are allowed. */
+static void
+test_tall_rgb (void)
+{
+	W w = { g_byte_array_new (), FALSE };
+	g_autoptr (GByteArray) out = w.out;
+	g_autoptr (GdkPixbuf) pixbuf = NULL;
+	g_autofree guint8 *rgb = g_malloc (4096 * 3);
+	guint32 rgb_at, ifd0;
+	guint i;
+
+	for (i = 0; i < 4096 * 3; i += 3) {
+		rgb[i] = 40;
+		rgb[i + 1] = 90;
+		rgb[i + 2] = 160;
+	}
+
+	tiff_head (&w, 42);
+	rgb_at = blob (&w, rgb, 4096 * 3);
+	{
+		Entry e[] = {
+			{ 0x100, 3, 1, 1 },
+			{ 0x101, 3, 1, 4096 },
+			{ 0x102, 3, 1, 8 },
+			{ 0x103, 3, 1, 1 },
+			{ 0x106, 3, 1, 2 },
+			{ 0x111, 4, 1, rgb_at },
+			{ 0x115, 3, 1, 3 },
+			{ 0x117, 4, 1, 4096 * 3 },
+		};
+		ifd0 = ifd (&w, e, G_N_ELEMENTS (e), 0);
+	}
+	patch32 (&w, 4, ifd0);
+
+	pixbuf = read_array (out, 128);
+	check (pixbuf != NULL && gdk_pixbuf_get_height (pixbuf) == 128);
+	check (color_is (pixbuf, 40, 90, 160));
+}
+
 /* NEF and ARW style: the preview named by JPEG offset and length in the
  * second directory of the chain. */
 static void
@@ -630,6 +670,110 @@ test_loop (void)
 	check (pixbuf == NULL);
 }
 
+#define LOOP_ENTRIES 512
+
+/* A first directory that names itself as the next, so it is read again as
+ * often as the reader allows. Every one of its entries is the one given. */
+static void
+looping_ifd (W *w, guint16 tag, guint16 type, guint32 count, guint32 value)
+{
+	Entry e[LOOP_ENTRIES];
+	guint32 at = w->out->len;
+	guint i;
+
+	for (i = 0; i < LOOP_ENTRIES; i++) {
+		e[i] = (Entry) { tag, type, count, value };
+	}
+	ifd (w, e, LOOP_ENTRIES, at);
+	patch32 (w, 4, at);
+}
+
+/* An Olympus note whose directories are full and lack what is looked for:
+ * the settings tag, or with settings, where the preview starts. */
+static GByteArray *
+build_olympus_loop (gboolean settings)
+{
+	W w = { g_byte_array_new (), FALSE };
+	g_autoptr (GByteArray) note_bytes = g_byte_array_new ();
+	W note = { note_bytes, FALSE };
+	Entry e[LOOP_ENTRIES];
+	guint32 note_at;
+	guint i;
+
+	for (i = 0; i < LOOP_ENTRIES; i++) {
+		e[i] = (Entry) { 0x1234, 3, 1, 0 };
+	}
+	g_byte_array_append (note_bytes, (const guint8 *) "OLYMPUS\0II\3\0", 12);
+	if (settings) {
+		e[LOOP_ENTRIES - 1] = (Entry) { 0x2020, 13, 1, 12 + 2 + LOOP_ENTRIES * 12 + 4 };
+		ifd (&note, e, LOOP_ENTRIES, 0);
+		e[LOOP_ENTRIES - 1] = e[0];
+	}
+	ifd (&note, e, LOOP_ENTRIES, 0);
+
+	tiff_head (&w, 0x4F52);
+	note_at = blob (&w, note_bytes->data, note_bytes->len);
+	looping_ifd (&w, 0x927C, 7, note_bytes->len, note_at);
+
+	return w.out;
+}
+
+/* Panasonic's preview tag, at a JPEG that never gets to its frame header. */
+static GByteArray *
+build_rw2_loop (void)
+{
+	W w = { g_byte_array_new (), FALSE };
+	g_autoptr (GByteArray) markers = g_byte_array_new ();
+	guint32 at;
+	guint i;
+
+	g_byte_array_append (markers, (const guint8 *) "\xFF\xD8", 2);
+	for (i = 0; i < 64; i++) {
+		g_byte_array_append (markers, (const guint8 *) "\xFF\xE0\x00\x02", 4);
+	}
+	g_byte_array_append (markers, (const guint8 *) "\xFF\xD9", 2);
+
+	tiff_head (&w, 0x55);
+	at = blob (&w, markers->data, markers->len);
+	looping_ifd (&w, 0x2E, 7, markers->len, at);
+
+	return w.out;
+}
+
+/* Each read is a seek and a read on the file, so the work is read from disk
+ * the way the thumbnailer reads it. A memory stream hides most of the cost.
+ * Before the fix they took 8 s, 12 s and 0.8 s. */
+static void
+test_loop_work (const char *dir)
+{
+	GByteArray *files[] = {
+		build_olympus_loop (FALSE),
+		build_olympus_loop (TRUE),
+		build_rw2_loop (),
+	};
+	guint i;
+
+	for (i = 0; i < G_N_ELEMENTS (files); i++) {
+		g_autofree char *name = g_strdup_printf ("loop-%u.orf", i);
+		g_autofree char *path = g_build_filename (dir, name, NULL);
+		g_autofree char *uri = g_filename_to_uri (path, NULL, NULL);
+		g_autoptr (GdkPixbuf) pixbuf = NULL;
+		gint64 start;
+		double secs;
+
+		check (g_file_set_contents (path, (const char *) files[i]->data, files[i]->len, NULL));
+		start = g_get_monotonic_time ();
+		pixbuf = nemo_raw_load_uri (uri, 128);
+		secs = (g_get_monotonic_time () - start) / 1e6;
+		check (pixbuf == NULL);
+		if (secs >= 0.25) {
+			g_printerr ("  %s took %.2f s\n", name, secs);
+		}
+		check (secs < 0.25);
+		g_byte_array_unref (files[i]);
+	}
+}
+
 static void
 test_types (void)
 {
@@ -678,6 +822,7 @@ main (int argc, char **argv)
 
 	test_dng ();
 	test_rgb_only ();
+	test_tall_rgb ();
 	test_chain ();
 	test_rw2 ();
 	test_orf ();
@@ -685,6 +830,7 @@ main (int argc, char **argv)
 	test_cr3 ();
 	test_damaged ();
 	test_loop ();
+	test_loop_work (home);
 	test_types ();
 	test_factory (home);
 

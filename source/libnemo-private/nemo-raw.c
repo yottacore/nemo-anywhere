@@ -34,6 +34,7 @@
 #define MAX_PREVIEWS  16
 #define MAX_JPEG      (64 * 1024 * 1024)
 #define MAX_RGB_SIDE  4096
+#define MAX_READS     4096
 
 /* Under this a preview is the camera's index thumbnail, which is often
  * letterboxed to 4:3, so a bigger one is used even for a small draw. */
@@ -43,6 +44,7 @@ typedef struct {
 	GInputStream *in;
 	GCancellable *cancellable;
 	goffset       size;
+	guint         reads_left;
 } Reader;
 
 static gboolean
@@ -50,9 +52,10 @@ read_at (Reader *r, goffset at, void *buf, gsize len)
 {
 	gsize got = 0;
 
-	if (at < 0 || at > r->size || (goffset) len > r->size - at) {
+	if (r->reads_left == 0 || at < 0 || at > r->size || (goffset) len > r->size - at) {
 		return FALSE;
 	}
+	r->reads_left--;
 	if (!g_seekable_seek (G_SEEKABLE (r->in), at, G_SEEK_SET, r->cancellable, NULL)) {
 		return FALSE;
 	}
@@ -641,7 +644,10 @@ rank (const Preview *p, guint target)
 GdkPixbuf *
 nemo_raw_load (GInputStream *stream, int size, GCancellable *cancellable)
 {
-	Reader r = { stream, cancellable, 0 };
+	/* A chain that loops, with every entry pointing at the same maker note or
+	 * preview, repeats its reads up to MAX_IFDS times over, and each is a
+	 * seek and a read on the file. Real files need under fifty. */
+	Reader r = { stream, cancellable, 0, MAX_READS };
 	Scan s = { 0 };
 	GdkPixbuf *pixbuf = NULL;
 	const char *own;
@@ -667,6 +673,8 @@ nemo_raw_load (GInputStream *stream, int size, GCancellable *cancellable)
 	} else {
 		scan_tiff (&s, 0);
 	}
+	/* Reading the picture found is bounded by its own size. */
+	r.reads_left = G_MAXUINT;
 
 	size = CLAMP (size, 1, 4096);
 	target = MAX (size, SMALL_PREVIEW);

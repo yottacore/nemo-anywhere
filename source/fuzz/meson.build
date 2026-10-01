@@ -165,6 +165,7 @@ fuzzRawCorpus = files(
   'corpus/raw/cr3',
   'corpus/raw/truncated',
   'corpus/raw/bad-offset',
+  'corpus/raw/olympus-loop',
 )
 
 fuzzXlsCorpus = files(
