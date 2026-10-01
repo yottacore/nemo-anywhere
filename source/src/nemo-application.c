@@ -680,7 +680,6 @@ nemo_application_quit_mainloop (GApplication *app)
 {
 	DEBUG ("Quitting mainloop");
 
-    nemo_cache_db_prune_stop ();
     nemo_icon_info_clear_caches ();
     save_accel_map (NULL);
     g_object_unref (NEMO_APPLICATION (app)->undo_manager);

@@ -41,6 +41,8 @@
 #include <libnemo-private/nemo-metadata-store.h>
 #include <libnemo-private/nemo-config.h>
 #include <libnemo-private/nemo-crash.h>
+#include <libnemo-private/nemo-cache-db.h>
+#include <libnemo-private/nemo-cache-db-prune.h>
 #ifdef G_OS_WIN32
 #include <libnemo-private/nemo-dnd-win32.h>
 #endif
@@ -189,7 +191,16 @@ main (int argc, char *argv[])
 
 	g_object_unref (application);
 
+	/* A prune pass has a connection of its own, and folding the journal in
+	 * has to wait for it to finish. */
+	nemo_cache_db_prune_stop ();
+
  	eel_debug_shut_down ();
+
+	/* After the shutdown list, which waits for the thumbnail threads, so the
+	 * last thumbnails they stored are folded in too. GApplication's
+	 * quit_mainloop is never called, so nothing in there can do this. */
+	nemo_cache_db_quit ();
 
 	return retval;
 }

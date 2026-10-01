@@ -101,6 +101,12 @@ typedef struct {
 NemoCacheDb *nemo_cache_db_get   (void);
 void         nemo_cache_db_close (void);
 
+/* For the end of the process: writes out what is pending and folds the journal
+ * back in, as closing does, but leaves the store open. A worker the quit does
+ * not wait for may still be using it, and closing would free it under that
+ * worker. Exiting closes the file. Opens nothing if the store was never used. */
+void         nemo_cache_db_quit  (void);
+
 /* Where the database file is, whether or not it opened. Freed by the caller. */
 char *nemo_cache_db_path (void);
 
