@@ -769,20 +769,18 @@ function fMain {
 		## Stage beside the prefix, then swap with same-volume renames. Copying the
 		## new tree in before removing the old one means a cross-volume or disk-full
 		## failure never leaves nothing installed; the old copy is dropped only once
-		## the new one is in place. (Move-Item is Directory.Move and throws across
-		## volumes, so keep the copy fallback for the temp-on-another-drive case.)
+		## the new one is in place.
+		## Copied, never moved, out of the temp folder: a move on one volume keeps
+		## the temp folder's permissions, so other accounts could not run a system
+		## install. New files take the install folder's own.
 		$staging = "${prefix}.new.${PID}"
 		$backup  = "${prefix}.old.${PID}"
 		if (Test-Path -LiteralPath $staging) { Remove-Item -LiteralPath $staging -Recurse -Force }
 		if (Test-Path -LiteralPath $backup)  { Remove-Item -LiteralPath $backup  -Recurse -Force }
 		try {
-			Move-Item -LiteralPath $tree -Destination $staging -ErrorAction Stop
+			Copy-Item -LiteralPath $tree -Destination $staging -Recurse -Force -ErrorAction Stop
 		} catch {
-			try {
-				Copy-Item -LiteralPath $tree -Destination $staging -Recurse -Force -ErrorAction Stop
-			} catch {
-				fFileError $_ "could not stage the new install" $staging
-			}
+			fFileError $_ "could not stage the new install" $staging
 		}
 		if (Test-Path -LiteralPath $prefix) {
 			try {
@@ -911,3 +909,6 @@ if ($state.failed -and $runningAsScriptFile) { exit 1 }
 ##		  Clearer errors for a failed GitHub request and for access denied or a
 ##		  file in use. TLS 1.2 and the architecture read so Windows PowerShell
 ##		  5.1 works, and tags sort the same way install.bash sorts them.
+##		- 2026-10-01 JC: The Windows install folder is copied out of the temp
+##		  folder rather than moved, so it takes the install folder's permissions
+##		  and other accounts can run a system install.
