@@ -1226,6 +1226,39 @@ nemo_cache_db_usage (NemoCacheDb *db, gint64 *n_thumbnails, gint64 *bytes)
 	g_mutex_unlock (&db->lock);
 }
 
+/* Called with the lock held. */
+static void
+write_out (NemoCacheDb *db)
+{
+	if (db->flush_id != 0) {
+		g_source_remove (db->flush_id);
+		db->flush_id = 0;
+	}
+	flush_renders (db);
+
+	/* Folds the WAL back in, so the next launch opens one file rather than
+	 * replaying a journal that could be most of the cache. */
+	sqlite3_exec (db->handle, "PRAGMA wal_checkpoint (TRUNCATE)", NULL, NULL, NULL);
+}
+
+void
+nemo_cache_db_quit (void)
+{
+	NemoCacheDb *db;
+
+	/* Not get(), which would make a store for a run that never used one. */
+	g_mutex_lock (&the_db_lock);
+	db = the_db;
+	g_mutex_unlock (&the_db_lock);
+
+	if (db == NULL)
+		return;
+
+	g_mutex_lock (&db->lock);
+	write_out (db);
+	g_mutex_unlock (&db->lock);
+}
+
 void
 nemo_cache_db_close (void)
 {
@@ -1242,15 +1275,7 @@ nemo_cache_db_close (void)
 
 	g_mutex_lock (&db->lock);
 
-	if (db->flush_id != 0) {
-		g_source_remove (db->flush_id);
-		db->flush_id = 0;
-	}
-	flush_renders (db);
-
-	/* Folds the WAL back in, so the next launch opens one file rather than
-	 * replaying a journal that could be most of the cache. */
-	sqlite3_exec (db->handle, "PRAGMA wal_checkpoint (TRUNCATE)", NULL, NULL, NULL);
+	write_out (db);
 	sqlite3_close (db->handle);
 	db->handle = NULL;
 
