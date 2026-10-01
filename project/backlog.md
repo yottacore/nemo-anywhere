@@ -36,7 +36,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Code review 20260928 item 15. Three items from code review 20260919 closed with no test and no reason.
 	- ID: 2026092813381415
 	- Type: Bug
-	- Status: Waiting on signoff
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
@@ -52,7 +52,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Code review 20260928 item 10. A small PSD file can tie up a thumbnail thread for minutes.
 	- ID: 2026092813381410
 	- Type: Bug
-	- Status: Waiting on signoff
+	- Status: Done
 	- Needs local test suite run?: no. The full Linux suite passed 139 of 139 on 20260930.
 	- Priority|Severity: Avg
 	- Opened: 20260928-133814
@@ -5261,7 +5261,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Then by severity|priority: Critical, High, Avg, Low
 		- Then by type: Bugs, [not bugs together]
 
-	- Rows marked [Bug] are for bugs only, and rows marked [Feature] for features and enhancements. Children are not nested. They sit at the top level and point back with Parent ID.
+	- Rows marked [Bug] are for bugs only, and rows marked [Feature] for features and enhancements. Priority and Severity share one row and one scale. Priority is for a Feature or Enhancement, and Severity for a Bug. Children are not nested. They sit at the top level and point back with Parent ID.
 
 Template:
 
@@ -5271,7 +5271,7 @@ Template:
 	- Status: [Queued|Waiting for answers|Waiting on signoff|Waiting for testing|Started|Testing|Stalled|Can't reproduce|Moot|Canceled|Deferred|Done]
 	- Needs local test suite run?:
 	- Needs external testing:
-	- Priority|Severity [Bug]: [Critical|High|Avg|Low]
+	- Priority [Feature|Enhancement] | Severity [Bug]: [Critical|High|Avg|Low]
 	- Opened:
 	- Opened by:
 	- Assigned to:
