@@ -487,6 +487,26 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20260930: a program on a share showing the plain program icon is fine.
 	- Test case: none yet.
 
+- On Windows, a folder full of shortcuts shows nothing until every shortcut icon is found.
+	- ID: 2026100112000535
+	- Type: Bug
+	- Status: Queued
+	- Needs external testing: Windows. The Start menu folder lists at once, and the shortcut icons fill in after.
+	- Priority|Severity: Avg
+	- Opened: 20261001-120005
+	- Opened by: t00mietum
+	- Related IDs: 2026093010493389, 2026092813381436
+	- Target OS: Windows
+	- Steps to reproduce:
+		- Go to the Start menu Programs folder, or any folder with many `.lnk` files.
+	- Incorrect behavior: the content pane stays empty until the icons for all the shortcuts are loaded.
+	- Expected behavior: the pane shows the files right away, with a plain icon or the last known one. Shortcut icons load in the background and replace them as each one is found.
+		- Possibly the shortcut icons can use the thumbnail cache, with its own icon table, so a folder seen before draws its real icons at once.
+	- Reproduced: no. Seen on Windows, not yet reproduced here.
+	- Possible cause: each shortcut's icon comes from the Windows shell on the window's thread, one file after another, the first time the view asks for it. The only cache is in memory, so every new run pays it again.
+	- Note: 2026093010493389 already wants these lookups off the window's thread. One fix may cover both.
+	- Test case: none yet.
+
 - Code review 20260928 item 19. An Olympus raw file with a looping directory takes seconds to read.
 	- ID: 2026092813381419
 	- Type: Bug
