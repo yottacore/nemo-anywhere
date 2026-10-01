@@ -262,7 +262,7 @@ Details are in these docs:
 
 - Code style: [project/style-guide_code.md](project/style-guide_code.md).
 
-- UI style guide: [project/style-guide_ux.md](project/style-guide_ux.md).
+- UX style guide: [project/style-guide_ux.md](project/style-guide_ux.md).
 
 ## Icon themes
 
