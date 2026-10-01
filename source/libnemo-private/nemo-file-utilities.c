@@ -51,6 +51,10 @@
 #ifdef G_OS_WIN32
 #include <windows.h>
 #endif
+#ifdef __APPLE__
+#include <limits.h>
+#include <mach-o/dyld.h>
+#endif
 
 #define NEMO_USER_DIRECTORY_NAME NEMO_APP_SLUG
 
@@ -1108,6 +1112,18 @@ nemo_get_exe_path (void)
 			exe = g_utf16_to_utf8 ((const gunichar2 *) wexe, -1, NULL, NULL, NULL);
 		}
 	}
+#elif defined (__APPLE__)
+	{
+		/* The path it was started by, which can be a link. Resolved, so a
+		 * bundle reached through one still finds its own Resources. */
+		char given[PATH_MAX];
+		char real[PATH_MAX];
+		uint32_t size = sizeof (given);
+
+		if (_NSGetExecutablePath (given, &size) == 0 && realpath (given, real) != NULL) {
+			exe = g_strdup (real);
+		}
+	}
 #else
 	exe = g_file_read_link ("/proc/self/exe", NULL);
 	if (exe == NULL) {
@@ -1140,11 +1156,12 @@ runtime_dir_for (const char *tail, const char *built_in)
 	dir = g_path_get_dirname (exe);
 	g_free (exe);
 
-	/* bin/<exe> in a prefix, then the flat Windows layout. */
-	for (i = 0; i < 2; i++) {
-		char *candidate = i == 0
-			? g_build_filename (dir, "..", tail, NULL)
-			: g_build_filename (dir, tail, NULL);
+	/* bin/<exe> in a prefix, then the flat Windows layout, then a macOS
+	 * bundle, where the prefix is in Resources beside MacOS/<exe>. */
+	for (i = 0; i < 3; i++) {
+		char *candidate = i == 0 ? g_build_filename (dir, "..", tail, NULL)
+			: i == 1 ? g_build_filename (dir, tail, NULL)
+			: g_build_filename (dir, "..", "Resources", tail, NULL);
 
 		if (g_file_test (candidate, G_FILE_TEST_IS_DIR)) {
 			result = g_strdup (candidate);
@@ -1196,6 +1213,64 @@ nemo_get_bin_dir (void)
 	}
 	return dir;
 }
+
+#ifdef __APPLE__
+/* gdk-pixbuf reads the paths in its loader list relative to the folder the
+ * program was started from, unresolved. Started through the dogfood launcher's
+ * link, that is another bundle and no loader is found, so SVG icons go blank.
+ * Write the list again with whole paths, into the cache dir, and point at it. */
+static void
+setup_pixbuf_loaders (const char *contents)
+{
+	char *list = g_build_filename (contents, "Resources", "lib", "gdk-pixbuf-2.0",
+				       "2.10.0", "loaders.cache", NULL);
+	char *text = NULL;
+	char **lines;
+	GString *fixed;
+	char *hash, *name, *dir, *out;
+	int i;
+
+	if (!g_file_get_contents (list, &text, NULL, NULL)) {
+		g_free (list);
+		return;
+	}
+	g_free (list);
+
+	lines = g_strsplit (text, "\n", -1);
+	g_free (text);
+	fixed = g_string_new (NULL);
+	for (i = 0; lines[i] != NULL; i++) {
+		const char *line = lines[i];
+
+		/* The module's own line is one quoted path. The lines under it
+		 * hold several quoted strings each. */
+		if (line[0] == '"' && line[1] != '/' && g_str_has_suffix (line, "\"") &&
+		    strchr (line + 1, '"') == line + strlen (line) - 1) {
+			g_string_append_printf (fixed, "\"%s/%s\n", contents, line + 1);
+		} else if (line[0] != '\0' || lines[i + 1] != NULL) {
+			g_string_append_printf (fixed, "%s\n", line);
+		}
+	}
+	g_strfreev (lines);
+
+	/* One per bundle, since two builds can be running at once. */
+	hash = g_compute_checksum_for_string (G_CHECKSUM_SHA1, contents, -1);
+	hash[12] = '\0';
+	name = g_strdup_printf ("pixbuf-loaders-%s.cache", hash);
+	dir = g_build_filename (g_get_user_cache_dir (), NEMO_APP_SLUG, NULL);
+	out = g_build_filename (dir, name, NULL);
+	if (g_mkdir_with_parents (dir, 0700) == 0 &&
+	    g_file_set_contents (out, fixed->str, fixed->len, NULL)) {
+		g_setenv ("GDK_PIXBUF_MODULE_FILE", out, TRUE);
+	}
+
+	g_free (out);
+	g_free (dir);
+	g_free (name);
+	g_free (hash);
+	g_string_free (fixed, TRUE);
+}
+#endif
 
 #ifndef G_OS_WIN32
 /* Put dir at the front of a colon-separated environment list, unless it is
@@ -1250,6 +1325,9 @@ nemo_setup_runtime_environment (void)
 	char *base;
 	char *prefix;
 	char *share;
+#ifdef __APPLE__
+	gboolean in_bundle = FALSE;
+#endif
 
 	exe = nemo_get_exe_path ();
 	if (exe == NULL) {
@@ -1260,7 +1338,19 @@ nemo_setup_runtime_environment (void)
 	g_free (exe);
 
 	base = g_path_get_basename (bindir);
-	prefix = strcmp (base, "bin") == 0 ? g_path_get_dirname (bindir) : g_strdup (bindir);
+	if (strcmp (base, "bin") == 0) {
+		prefix = g_path_get_dirname (bindir);
+#ifdef __APPLE__
+	} else if (strcmp (base, "MacOS") == 0) {
+		char *contents = g_path_get_dirname (bindir);
+
+		prefix = g_build_filename (contents, "Resources", NULL);
+		g_free (contents);
+		in_bundle = TRUE;
+#endif
+	} else {
+		prefix = g_strdup (bindir);
+	}
 	g_free (base);
 
 	share = g_build_filename (prefix, "share", NULL);
@@ -1272,6 +1362,18 @@ nemo_setup_runtime_environment (void)
 
 		prepend_env_dir ("XDG_DATA_DIRS", share, "/usr/local/share:/usr/share");
 		prepend_env_dir ("PATH", bindir, NULL);
+
+#ifdef __APPLE__
+		/* A bundle carries GTK's own data and modules too. */
+		if (in_bundle) {
+			char *contents = g_path_get_dirname (prefix);
+
+			g_setenv ("GTK_DATA_PREFIX", prefix, TRUE);
+			g_setenv ("GTK_EXE_PREFIX", prefix, TRUE);
+			setup_pixbuf_loaders (contents);
+			g_free (contents);
+		}
+#endif
 
 		/* Settings are not on GSettings any more, so there is normally no
 		 * schema here - but an action file may still name someone else's. */

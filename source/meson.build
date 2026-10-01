@@ -184,7 +184,8 @@ if is_windows
   win_shell = declare_dependency(link_args: ['-lshell32', '-lole32', '-loleaut32', '-lshlwapi', '-luuid', '-lwbemuuid', '-lmpr', '-ladvapi32', '-lversion', '-lnetapi32'])
 else
   gio_unix = dependency('gio-unix-2.0',              version: glib_version)
-  x11      = dependency('x11')
+  # GTK on macOS draws through Quartz, with no X server.
+  x11      = is_macos ? declare_dependency() : dependency('x11')
   go_intr  = dependency('gobject-introspection-1.0', version: '>=1.0')
   win_shell = declare_dependency()
 endif

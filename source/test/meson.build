@@ -952,14 +952,17 @@ if not is_windows
             meson.current_source_dir() / '..' / 'build-number.py', py.full_path() ],
   )
 
-  test('rhmr6qgr Window under the pointer test',
-    executable('test-nemo-window-at-point',
-      [ 'test-nemo-window-at-point.c', '../src/nemo-window-at-point.c' ],
-      include_directories: [ rootInclude, include_directories('../src') ],
-      dependencies: [ gtk, x11, test_scratch ],
-    ),
-    args: []
-  )
+  # X11 only. GTK on macOS has no X server to ask.
+  if not is_macos
+    test('rhmr6qgr Window under the pointer test',
+      executable('test-nemo-window-at-point',
+        [ 'test-nemo-window-at-point.c', '../src/nemo-window-at-point.c' ],
+        include_directories: [ rootInclude, include_directories('../src') ],
+        dependencies: [ gtk, x11, test_scratch ],
+      ),
+      args: []
+    )
+  endif
 
   test('rhtq57n3 Action programs in their own folder test',
     executable('test-nemo-action-exec',
@@ -985,15 +988,17 @@ if not is_windows
     timeout: 180
   )
 
-  test('rhtq57n4 Clean start test',
-    executable('test-nemo-startup-clean',
-      [ 'test-nemo-startup-clean.c' ],
-      include_directories: [ rootInclude, ],
-      dependencies: [ glib, gio, x11, test_scratch ],
-    ),
-    args: [ nemo ],
-    timeout: 120
-  )
+  if not is_macos
+    test('rhtq57n4 Clean start test',
+      executable('test-nemo-startup-clean',
+        [ 'test-nemo-startup-clean.c' ],
+        include_directories: [ rootInclude, ],
+        dependencies: [ glib, gio, x11, test_scratch ],
+      ),
+      args: [ nemo ],
+      timeout: 120
+    )
+  endif
 
   test('rg3wt7d9 Instances test',
     executable('test-nemo-instances',
@@ -1005,15 +1010,17 @@ if not is_windows
     timeout: 120
   )
 
-  test('rj750n43 File cache written at quit test',
-    executable('test-nemo-cache-quit',
-      [ 'test-nemo-cache-quit.c' ],
-      include_directories: [ rootInclude, ],
-      dependencies: [ gtk, nemo_private, x11, test_scratch ],
-    ),
-    args: [ nemo ],
-    timeout: 180
-  )
+  if not is_macos
+    test('rj750n43 File cache written at quit test',
+      executable('test-nemo-cache-quit',
+        [ 'test-nemo-cache-quit.c' ],
+        include_directories: [ rootInclude, ],
+        dependencies: [ gtk, nemo_private, x11, test_scratch ],
+      ),
+      args: [ nemo ],
+      timeout: 180
+    )
+  endif
 
   test('rhmr6qgs Tab move between processes test',
     executable('test-nemo-tab-move',
