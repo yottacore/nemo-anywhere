@@ -80,6 +80,28 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: rawloop
 	- Commit: 1a95d6a, seed in 03e4206
 
+- Code review 20260928 item 20. The file cache is never closed at quit.
+	- ID: 2026092813381420
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The full Linux suite passed 143 of 143 on 20261001.
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Related IDs: 2026100113372562, 2026100113372592
+	- Incorrect behavior: up to 30 s of draw counts are lost at every quit, so the age rule counts recent use short. The log is never trimmed at close.
+	- Reproduced: yes, 20260928, Linux. Nothing in the program calls the close. Again 20261001: after each quit the journal held 0.1 to 3 MB, and the draws of the last few seconds were not counted.
+	- Actual cause: nothing writes the store out at quit. The quit hook the review named is never called by GLib, so nothing put there would run either.
+	- Origin: 6d52b4b, 20260921 (thumbdb). New ground. Confirmed.
+	- Actual fix: at the very end of every run, after the thumbnail threads are done, the draw counts held in memory are written and the journal is folded back into the file. The store is left open until the process ends, since a worker the quit does not wait for may still be using it. A run that never used the store does not make one. The cleanup pass is stopped first, as the dead hook meant to do.
+	- Note: closing the window, the last window, Close all windows and `--quit` all end in that same code, on Windows too. No signal is handled, so a copy killed by one still loses the counts, as it loses a settings change.
+	- Note: the other writes held back for a moment, settings and folder metadata, are already written in the same place. The keyboard shortcut map is saved only from the dead hook, which is its own item, 2026100113372562.
+	- Note: waits on signoff because it changes what the program writes at quit, and the fix is neither of the two the review offered.
+	- Test case: `rj750n43 File cache written at quit test`. The built program is closed by its window while thumbnails are being made, after they are made, and while drawing them from the store, then taken down by `--quit` from another copy. After each the journal is empty, and the last two raised every draw count. A `--version` run makes no store.
+	- Branch: cacheclose
+	- Commit: 639757b, test in 66bd445 and 8b78915
+
 - Code review 20260928 item 15. Three items from code review 20260919 closed with no test and no reason.
 	- ID: 2026092813381415
 	- Type: Bug
@@ -539,19 +561,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: 2026093010493389 already wants these lookups off the window's thread. One fix may cover both.
 	- Test case: none yet.
 
-- Code review 20260928 item 20. The file cache is never closed at quit.
-	- ID: 2026092813381420
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: up to 30 s of draw counts are lost at every quit, so the age rule counts recent use short. The log is never trimmed at close.
-	- Reproduced: yes, 20260928, Linux. Nothing in the program calls the close.
-	- Origin: 6d52b4b, 20260921 (thumbdb). New ground. Confirmed.
-	- Test case: none yet.
-
 - Code review 20260928 item 21. One Ctrl+click check in the list view was missed by the macOS Cmd change.
 	- ID: 2026092813381421
 	- Type: Bug
@@ -784,6 +793,36 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Origin: the copy fallback from 7284973, 20260925, which item 13's fix made the path every install takes. Plausible.
 	- Sweep: every way out of the Windows install after the staging folder exists: the failed copy, the old folder that cannot be renamed, and the failed final rename.
 	- Test case: none yet. A Windows test that makes the copy fail and checks that no staging folder is left.
+
+- The application's quit hook never runs, so a keyboard shortcut changed just before quit is lost.
+	- ID: 2026100113372562
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261001-133725
+	- Opened by: code review 20260928 item 20
+	- Related IDs: 2026092813381420
+	- Incorrect behavior: both application classes put their quit work in `quit_mainloop`, which GLib has not called since 2.32. So a shortcut map change still waiting out its 30 s is never saved, and the "still unmounting" notice is never taken down. The rest of it frees memory the exit frees anyway.
+	- Expected behavior: a shortcut changed just before quit is there on the next start.
+	- Reproduced: yes for the hook, 20261001, Linux. The lost shortcut is read only.
+	- Origin: upstream. Not seen by an earlier round. Hook confirmed, the lost shortcut plausible.
+	- Possible fix: move what still matters to GApplication's `shutdown`, and drop what the exit makes pointless.
+	- Test case: none yet.
+
+- Two copies starting at once on a new file cache can find it locked, and one runs with the cache off.
+	- ID: 2026100113372592
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261001-133725
+	- Opened by: code review 20260928 item 20
+	- Related IDs: 2026092813381420
+	- Incorrect behavior: while one connection sets up a cache file that did not exist, another opening it fails at once with "could not set up the file cache: database is locked" and that copy has no cache until it is started again. The store's own comment says a busy one waits up to 3 s.
+	- Expected behavior: the second one waits its turn and uses the cache.
+	- Reproduced: once, 20261001, Linux, with a second connection opening a new file as a window did. Not on demand.
+	- Possible cause: the first switch of a new file to its journal mode takes a lock that sqlite does not wait for.
+	- Origin: 9fd0939, 20260921 (thumbdb). New ground. Confirmed, seen once.
+	- Test case: none yet.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
