@@ -33,6 +33,30 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Code review 20260928 item 13. A Windows install for all users may not run for other users.
+	- ID: 2026092813381413
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. Windows only. The lint stage and the installer check pass on Linux.
+	- Needs external testing: Windows. Done 20261001 on b29w: the new test fails before the fix and passes after.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Related IDs: 2026100112505357
+	- Target OS: Windows.
+	- Incorrect behavior: the installed folder keeps the installing user's temp folder permissions, so another user sees the shortcut and PATH entry but cannot start the program.
+	- Reproduced: yes, 20261001, b29w, by the new test. Before the fix none of the five installed items let Users read and run.
+	- Actual cause: the unpacked tree is moved, not copied, and a move on one drive keeps the old permissions.
+	- Origin: before 20260917, carried into 7284973, 20260925. Not seen by an earlier round. Confirmed 20261001.
+	- Actual fix: the new tree is copied out of the temp folder into the staging folder beside the install, never moved, so every file takes the install folder's permissions. User and system installs take the same path.
+	- Swept: no other move in the project's PowerShell takes a tree out of a temp folder. The installer's own swap renames the staging folder inside the folder it was copied to, so it keeps the right permissions. The unix side already sets owner and mode on a system install.
+	- Note: the system target itself is not run by the test. A user install takes the same staging, under a parent that lets Users read and run where the temp folder does not.
+	- Signoff: the fix changes the permissions of installed files, and the all-users target is checked by reading only.
+	- Branch: installacl
+	- Commit: a876603, test in 3c40b76
+	- Test case: `cicd/win/test-install-acl.ps1` (rj72n4xb), in the Windows test stage. Every installed file and folder has to carry the read and run grant its parent passes down.
+
 - Code review 20260928 item 15. Three items from code review 20260919 closed with no test and no reason.
 	- ID: 2026092813381415
 	- Type: Bug
@@ -451,21 +475,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
 
-- Code review 20260928 item 13. A Windows install for all users may not run for other users.
-	- ID: 2026092813381413
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Target OS: Windows.
-	- Incorrect behavior: the installed folder keeps the installing user's temp folder permissions, so another user sees the shortcut and PATH entry but cannot start the program.
-	- Reproduced: no, read only. Needs a Windows box.
-	- Actual cause: the unpacked tree is moved, not copied, and a move on one drive keeps the old permissions.
-	- Origin: before 20260917, carried into 7284973, 20260925. Not seen by an earlier round. Plausible.
-	- Test case: none yet.
-
 - On Windows, a local shortcut to a share that is not answering can stall the window while its icon is looked up.
 	- ID: 2026093010493389
 	- Type: Bug
@@ -750,6 +759,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: yes, 20260930, Linux.
 	- Origin: missed by the first review of code review 20260928 item 15, which named only the string and enum reads. Confirmed.
 	- Test case: none yet. `rj4jbn1b`, with a string list count whose bar goes by the length of each list.
+
+- A failed Windows install leaves a half-copied folder beside the install folder.
+	- ID: 2026100112505357
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261001-125053
+	- Opened by: review of code review 20260928 item 13
+	- Related IDs: 2026092813381413
+	- Target OS: Windows.
+	- Incorrect behavior: when the copy into the staging folder fails partway, such as on a full disk, the partial `<install folder>.new.<number>` folder stays next to the install. No later install removes it. The old install is still there and still runs.
+	- Expected behavior: a failed install leaves nothing behind, as install.bash does.
+	- Reproduced: no, read only. Windows only.
+	- Origin: the copy fallback from 7284973, 20260925, which item 13's fix made the path every install takes. Plausible.
+	- Sweep: every way out of the Windows install after the staging folder exists: the failed copy, the old folder that cannot be renamed, and the failed final rename.
+	- Test case: none yet. A Windows test that makes the copy fail and checks that no staging folder is left.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
