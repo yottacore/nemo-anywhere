@@ -23,10 +23,12 @@
 /* Draw counts are held in memory for up to 30 s before they are written, so a
  * quit has to write them, and fold the journal back into the file. The built
  * program opens a folder of pictures and quits soon after, the way a user ends
- * it: the first run by closing its window, which makes the thumbnails, the
- * second the same way, which draws them from the store, and a third through
- * --quit from another copy. After each the journal is empty, and after the
- * second and third the counts went up.
+ * it. First a folder of big pictures, closed while thumbnails are still being
+ * made. Then a small one, closed once its thumbnails are made, then again,
+ * when they are drawn from the store, and a third time through --quit from
+ * another copy. After each the journal is empty, and after the last two the
+ * counts went up. A --version run, which never uses the store, leaves none
+ * behind.
  *
  * Counts are read with nemo_cache_db_thumbnail_stats, which only reads. Needs
  * the built program (argv[1]) and a display; without a display it skips. The
@@ -54,6 +56,9 @@
 #include "test-check.h"
 
 #define PICTURES 12
+
+/* Enough big pictures that some are still being made when the window closes. */
+#define BUSY_PICTURES 64
 
 /* Well under the 30 s the counts wait in memory, and long enough for the
  * thumbnails to come back from the store and be drawn. */
@@ -215,17 +220,17 @@ close_window (Display *display, GPid pid)
 /* Sizes and shades differ, so no two are the same file. Dated well back, since
  * a file changed in the last moments is not thumbnailed yet. */
 static char **
-make_pictures (const char *folder)
+make_pictures (const char *folder, int count, int scale)
 {
-	char **uris = g_new0 (char *, PICTURES + 1);
+	char **uris = g_new0 (char *, count + 1);
 	struct utimbuf old = { 978307200, 978307200 };	/* 2001-01-01 */
 	int i;
 
 	g_mkdir_with_parents (folder, 0700);
 
-	for (i = 0; i < PICTURES; i++) {
-		int width = 120 + 37 * i;
-		int height = 300 - 17 * i;
+	for (i = 0; i < count; i++) {
+		int width = (120 + 37 * (i % 12)) * scale + i;
+		int height = (300 - 17 * (i % 12)) * scale;
 		GdkPixbuf *pixbuf = gdk_pixbuf_new (GDK_COLORSPACE_RGB, FALSE, 8, width, height);
 		char *name = g_strdup_printf ("picture-%02d.png", i);
 		char *path = g_build_filename (folder, name, NULL);
@@ -267,6 +272,23 @@ wait_stored (NemoCacheDb *db, char **uris, int seconds)
 			return TRUE;
 		}
 		g_usleep (100 * 1000);
+	}
+
+	return FALSE;
+}
+
+static gboolean
+wait_any_stored (NemoCacheDb *db, char **uris, int seconds)
+{
+	int i, j;
+
+	for (i = 0; i < seconds * 100; i++) {
+		for (j = 0; uris[j] != NULL; j++) {
+			if (nemo_cache_db_thumbnail_stats (db, uris[j], NULL, NULL)) {
+				return TRUE;
+			}
+		}
+		g_usleep (10 * 1000);
 	}
 
 	return FALSE;
@@ -361,13 +383,13 @@ int
 main (int argc, char *argv[])
 {
 	const char *exe;
-	char *root, *folder, *db_path;
-	char **uris;
+	char *root, *folder, *busy_folder, *db_path;
+	char **uris, **busy_uris;
 	Display *display;
 	NemoCacheDb *db = NULL;
 	gint64 made[PICTURES], drawn[PICTURES], quit[PICTURES];
 	gboolean with_bus;
-	GPid pid;
+	GPid pid = 0;
 
 	if (argc < 2) {
 		g_printerr ("usage: %s <nemo-anywhere>\n", argv[0]);
@@ -386,8 +408,14 @@ main (int argc, char *argv[])
 	 * the scratch dir too. */
 	root = test_scratch_config_home ("nemo-cache-quit-XXXXXX");
 	folder = g_build_filename (root, "pictures", NULL);
-	uris = make_pictures (folder);
+	uris = make_pictures (folder, PICTURES, 1);
+	busy_folder = g_build_filename (root, "busy", NULL);
+	busy_uris = make_pictures (busy_folder, BUSY_PICTURES, 6);
 	db_path = nemo_cache_db_path ();
+	check (db_path != NULL);
+	if (db_path == NULL) {
+		return EXIT_FAILURE;
+	}
 
 	XSetErrorHandler (ignore_x_error);
 	display = XOpenDisplay (NULL);
@@ -396,19 +424,44 @@ main (int argc, char *argv[])
 		return 77;
 	}
 
-	/* First run makes the thumbnails. Closing it with them stored leaves rows
-	 * in the journal that only the quit folds back in. */
-	pid = launch (exe, folder);
-	check (pid > 0);
-	check (wait_window (display, pid, 30));
+	/* A run that never touches the store must not make one on its way out. */
+	{
+		char *version_argv[] = { (char *) exe, (char *) "--version", NULL };
+		int status = -1;
 
-	/* Opened while the program runs, so its own write is in the journal the
-	 * program's quit has to fold in. */
+		check (g_spawn_sync (NULL, version_argv, NULL,
+				     G_SPAWN_STDOUT_TO_DEV_NULL | G_SPAWN_STDERR_TO_DEV_NULL,
+				     NULL, NULL, NULL, NULL, &status, NULL));
+		check (WIFEXITED (status) && WEXITSTATUS (status) == 0);
+		check (!g_file_test (db_path, G_FILE_TEST_EXISTS));
+	}
+
+	/* Made before the program starts. Two copies setting up a new file at the
+	 * same moment can find it locked, and that is not what this test is about. */
 	db = nemo_cache_db_get ();
 	check (db != NULL);
 	if (db == NULL) {
 		goto out;
 	}
+
+	/* Closed while thumbnails are still being made. The ones in hand are
+	 * finished and stored on the way out, and the journal is folded in after
+	 * them. */
+	pid = launch (exe, busy_folder);
+	check (pid > 0);
+	check (wait_window (display, pid, 30));
+	check (wait_any_stored (db, busy_uris, 60));
+	check (!all_stored (db, busy_uris));
+	check (close_window (display, pid));
+	check (wait_exit (pid, 30));
+	pid = 0;
+	check (journal_empty (db_path));
+
+	/* First run on the small set makes the thumbnails. Closing it with them
+	 * stored leaves rows in the journal that only the quit folds back in. */
+	pid = launch (exe, folder);
+	check (pid > 0);
+	check (wait_window (display, pid, 30));
 	check (wait_stored (db, uris, 60));
 
 	check (close_window (display, pid));
@@ -458,6 +511,8 @@ out:
 	stop (pid);
 	XCloseDisplay (display);
 	g_strfreev (uris);
+	g_strfreev (busy_uris);
+	g_free (busy_folder);
 	g_free (db_path);
 	g_free (folder);
 	g_free (root);
