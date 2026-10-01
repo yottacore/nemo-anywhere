@@ -208,6 +208,20 @@ PACKAGE_CHECKS=(
 	"Prefix check|bash cicd/linux/test-prefix.bash"
 )
 
+## Stage 6, after the packages: builds that need another box's OS or signing
+## material, kept in a private repo. They run only when that repo is checked out at
+## this path. Its runner takes --public <this repo>, waits for its own boxes, skips
+## one that is off or busy, and exits 1 only when a job ran and failed. Its output
+## stays in the private repo, apart from a dogfood drop for a platform this box
+## cannot build (PRIVATE_DOGFOOD). Empty, or --no-private, to skip.
+PRIVATE_RUNNER="${NEMO_PRIVATE_RUNNER-$(cd "${root}/../.." && pwd)/nemo-anywhere-private/repo/cicd/run.bash}"
+## "<dir under the private repo>|<dogfood dests array>". The dir is the build to
+## publish, with @VER@ for the version. It is used only when the runner made it
+## during this run, so a build left from an earlier run is never published again.
+PRIVATE_DOGFOOD=(
+	"dist/@VER@/macos/dogfood/${EXE_NAME}|DOGFOOD_DESTS_MACOS"
+)
+
 
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 ## Stage 4: profiler (non-gating flamegraph artifact) - READY.
@@ -282,7 +296,7 @@ DOGFOOD_TAG=""
 ## Cross-built binaries for another box to pick up over the sync layer. Empty: what a
 ## Windows box dogfoods is the packed single exe, and only Windows can pack it, so
 ## DOGFOOD_DESTS_MSWIN is written by that box's own pipeline rather than from here.
-## Same for macos, once there is a macOS build at all.
+## A macOS build comes from the private runner, through PRIVATE_DOGFOOD.
 DOGFOOD_CROSS_DESTS=()
 ## Run after the installs. Keeps the launcher and its wrappers in step with the
 ## synced copies people actually run.

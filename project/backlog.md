@@ -36,7 +36,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Code review 20260928 item 13. A Windows install for all users may not run for other users.
 	- ID: 2026092813381413
 	- Type: Bug
-	- Status: Waiting on signoff
+	- Status: Done
 	- Needs local test suite run?: no. Windows only. The lint stage and the installer check pass on Linux.
 	- Needs external testing: Windows. Done 20261001 on b29w: the new test fails before the fix and passes after.
 	- Priority|Severity: Avg
@@ -60,7 +60,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Code review 20260928 item 19. An Olympus raw file with a looping directory takes seconds to read.
 	- ID: 2026092813381419
 	- Type: Bug
-	- Status: Waiting on signoff
+	- Status: Done
 	- Needs local test suite run?: no. The full Linux suite passed 142 of 142 on 20261001.
 	- Priority|Severity: Low
 	- Opened: 20260928-133814
@@ -83,7 +83,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Code review 20260928 item 20. The file cache is never closed at quit.
 	- ID: 2026092813381420
 	- Type: Bug
-	- Status: Waiting on signoff
+	- Status: Done
 	- Needs local test suite run?: no. The full Linux suite passed 143 of 143 on 20261001.
 	- Priority|Severity: Low
 	- Opened: 20260928-133814

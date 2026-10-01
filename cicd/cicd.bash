@@ -30,6 +30,7 @@
 ##	   --no-cross          skip cross-target release builds
 ##	   --no-arm            skip the ARM64 release builds + packages (x86_64 only)
 ##	   --no-package        skip the packages stage (.deb/.rpm/installer)
+##	   --no-private        skip the private runner (PRIVATE_RUNNER in config.bash)
 ##	   --no-profile        skip the profiler stage
 ##	   --no-dogfood        skip installing the native release locally
 ##	   --no-publish        skip the git backup + publish stage
@@ -124,6 +125,7 @@ while (($#)); do case "$1" in
 	--no-cross)               BUILD_CROSS=0; shift ;;
 	--no-arm)                 no_arm=1; shift ;;                ## drop ARM64 builds + packages
 	--no-package)             PACKAGE_ENABLE=0; shift ;;
+	--no-private)             PRIVATE_RUNNER=""; shift ;;
 	--no-profile)             PROFILE_ENABLE=0; shift ;;
 	--no-dogfood)             DOGFOOD_FIXED_DESTS=(); DOGFOOD_ROTATING_DESTS=(); DOGFOOD_CROSS_DESTS=(); DOGFOOD_HOOK=(); DOGFOOD_REMOTE=(); shift ;;
 	--no-publish)             GIT_PUBLISH=(); shift ;;
@@ -391,6 +393,13 @@ if ((PACKAGE_ENABLE)) && ((! quick)); then
 	fEcho_Clean "  deferred ..........: BSD, macOS, AppImage, Flatpak - no toolchain on this box"
 else
 	fEcho_Clean "Packages ............: $( ((quick)) && echo '(skipped --quick)' || echo '(disabled)')"
+fi
+if ((quick)); then
+	fEcho_Clean "Private runner ......: (skipped --quick)"
+elif [[ -n "${PRIVATE_RUNNER:-}" && -x "${PRIVATE_RUNNER}" ]]; then
+	fEcho_Clean "Private runner ......: ${PRIVATE_RUNNER}"
+else
+	fEcho_Clean "Private runner ......: (not checked out)"
 fi
 if ((${#DOGFOOD_FIXED_DESTS[@]})); then
 	if [[ -n "$fixed_dest" ]]; then
@@ -676,6 +685,34 @@ else
 	build_packages
 	run_package_checks
 fi
+## The private runner builds on boxes that are often off or busy, so it skips
+## those itself and says so. Only a job that ran and failed stops the run.
+priv_dogfood=()
+if ((quick)); then
+	fEcho_Clean "private runner skipped (--quick)"
+elif [[ -n "${PRIVATE_RUNNER:-}" && -x "${PRIVATE_RUNNER}" ]]; then
+	fEcho_Clean "private runner ..."
+	priv_start="$(mktemp)"
+	## The Store bundle is made from this run's Windows zip. With no packages
+	## stage, the zip there is an older run's.
+	priv_args=()
+	((PACKAGE_ENABLE)) || priv_args+=(--no-store)
+	"${PRIVATE_RUNNER}" --public "${root}" "${priv_args[@]}" || fDie "a private runner job failed"
+	fEcho "OK: private runner"
+	## A build joins this run's dogfood only if the runner made it just now. One
+	## left from an earlier run of the same version must not be published again.
+	for entry in "${PRIVATE_DOGFOOD[@]:-}"; do
+		[[ -n "$entry" ]] || continue
+		pd_src="${PRIVATE_RUNNER%/cicd/*}/${entry%%|*}"
+		pd_src="${pd_src//@VER@/${ver}}"
+		if [[ -d "$pd_src" && "$pd_src" -nt "$priv_start" ]]; then
+			priv_dogfood+=("${pd_src}|${entry#*|}")
+		fi
+	done
+	rm -f "$priv_start"
+else
+	fEcho_Clean "private runner not checked out; skipped"
+fi
 
 ## Stage 7: dogfood. Three independent installs: fixed name, rotating dated copy,
 ## and cross-built binaries for a box that cannot build its own.
@@ -774,6 +811,31 @@ if ((${#DOGFOOD_CROSS_DESTS[@]})); then
 		else
 			fEcho "WARNING: cross dogfood dest not writable (${xdest}); skipping ${xosarch}"
 		fi
+	done
+fi
+
+## Private builds: what the private runner made this run for a platform this box
+## cannot build, swapped in whole the same way as 7a. Not under --no-dogfood.
+if ((${#DOGFOOD_FIXED_DESTS[@]})); then
+	for entry in "${priv_dogfood[@]:-}"; do
+		[[ -n "$entry" ]] || continue
+		pd_src="${entry%%|*}"
+		declare -n pd_dests="${entry#*|}"
+		pd_dest=""
+		for d in "${pd_dests[@]}"; do [[ -d "$d" && -w "$d" ]] && { pd_dest="$d"; break; }; done
+		unset -n pd_dests
+		if [[ -z "$pd_dest" ]]; then
+			fEcho "WARNING: no dogfood dest for ${pd_src##*/dist/}; skipping"
+			continue
+		fi
+		pd_app="${pd_dest}/${EXE_NAME}"
+		[[ "$pd_app" == /*/"${EXE_NAME}" ]] || fDie "refusing to replace ${pd_app}"
+		rm -rf "${pd_app}.new"
+		cp -a "${pd_src}" "${pd_app}.new"
+		rm -rf "${pd_app}"
+		mv "${pd_app}.new" "${pd_app}"
+		fEcho "OK: published (private) -> ${pd_app}"
+		df_did=1
 	done
 fi
 

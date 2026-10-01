@@ -10,7 +10,8 @@
 ##		  copy never blocks the next one, and the symlink is the only fixed name.
 ##		- On Windows a build is one packed self-contained exe. Everywhere else it is a
 ##		  relocatable prefix tree, so a version is a directory and the symlink points
-##		  at the binary in its bin/, which sorts out its own runtime environment.
+##		  at the binary in its bin/, which sorts out its own runtime environment. On
+##		  macOS the tree is an app bundle's Contents and the binary is in MacOS/.
 ##		- The pool is GFS-rotated on every run: the newest of each completed hour, day,
 ##		  week, month and year, plus the most recent few, plus the very first build,
 ##		  which is kept forever. On top of that a hard budget - at most 10 versions, at
@@ -25,8 +26,8 @@
 ##		  '--no-admin' opts out.
 ##		- Opens at a configured startup location when the caller names none, and falls
 ##		  back to another file manager when there is no build to run at all.
-##		- '--no-admin', '--no-update' and '--gui' are consumed here; everything else is
-##		  checked against the app's own options and forwarded.
+##		- '--no-admin', '--no-update', '--install-only' and '--gui' are consumed here;
+##		  everything else is checked against the app's own options and forwarded.
 ##	History: At bottom of script.
 
 ##	Copyright (c) 2026 Bubbles
@@ -48,9 +49,11 @@ $ExeName = "${ProgramName}${ExeExt}"
 ## What a build looks like. Windows packs the whole GTK runtime into one exe; every
 ## other platform ships the relocatable prefix, so a version is a directory and
 ## $PayloadMainBin is the binary inside it that the symlink and the launch point at.
-## That same file is what a build is identified by.
+## That same file is what a build is identified by. On macOS the prefix sits in the
+## bundle's Resources, and the binary in MacOS finds it there.
 $PayloadIsFile  = $IsWindows
-$PayloadMainBin = if ($IsWindows) { "" } else { "bin/${ProgramName}" }
+$PayloadMainBin = if ($IsWindows) { "" } elseif ($IsMacOS) { "Contents/MacOS/${ProgramName}" } else { "bin/${ProgramName}" }
+$PayloadShare   = if ($IsMacOS) { "Contents/Resources/share" } else { "share" }
 
 ## Where a build arrives from: the synced dogfood dir for this platform, which is
 ## what the pipeline's dogfood stage publishes to. Only ever this platform's dir - a
@@ -262,7 +265,7 @@ $RunningPaths = $null
 
 ## Entry point.
 function fMain {
-	param([string[]]$PassArgs, [switch]$NoUpdate)
+	param([string[]]$PassArgs, [switch]$NoUpdate, [switch]$InstallOnly)
 
 	foreach ($dir in @($TargetDir, $LogDir)) {
 		if (-not (Test-Path -LiteralPath $dir)) {
@@ -300,8 +303,12 @@ function fMain {
 	## worth repointing, and one that was pruned to nothing would otherwise keep a
 	## menu entry aimed at a version directory that is gone.
 	fStep "Desktop"
-	if ($IsWindows) { fRefreshShortcuts } else { fRegisterDesktopEntry }
+	if     ($IsWindows) { fRefreshShortcuts }
+	elseif ($IsMacOS)   { fWriteMacApp }
+	else                { fRegisterDesktopEntry }
 	if (-not $script:StepRows) { fItem "-" "" "nothing to update" }
+
+	if ($InstallOnly) { return }
 
 	fStep "Launch"
 	$PassArgs = fAddStartupLocation -PassArgs $PassArgs
@@ -890,7 +897,7 @@ function fPublishIcon {
 
 	$dest = Join-Path $TargetDir "${ProgramName}.png"
 	$src  = if ($PayloadIsFile) { $null }
-	        else { Join-Path $newest.Payload.FullName "share/icons/hicolor/256x256/apps/${ProgramName}.png" }
+	        else { Join-Path $newest.Payload.FullName "${PayloadShare}/icons/hicolor/256x256/apps/${ProgramName}.png" }
 	if (-not $src -or -not (Test-Path -LiteralPath $src)) {
 		## Windows carries its icon inside the exe, and an older prefix may not have
 		## the file at all. A copy already published still beats nothing.
@@ -959,6 +966,86 @@ function fRegisterDesktopEntry {
 		if ($update) { & $update $appsDir 2>$null | Out-Null }
 	} catch {
 		fItem "-" "menu" "could not register the entry: $($_.Exception.Message)"
+	}
+}
+
+
+## macOS counterpart of the desktop entry. There are no menu files there: an app in
+## ~/Applications is what Spotlight, Launchpad and the Dock find. Its program is a
+## script that has this launcher bring in and rotate a new build, then runs the
+## build in its own process through a link inside the bundle. So the Dock sees one
+## program, under this bundle's name and icon, and it can be kept there. Started by
+## the launcher instead, the build would be a second program and the Dock would
+## show this one quit and a nameless one appear. Never fatal.
+function fWriteMacApp {
+	$wrapper = fWrapperPath
+	if (-not $wrapper) { fItem "-" "app" "no deployed launcher to point at; app left alone"; return }
+
+	$app      = Join-Path $InstallDir "Nemo Anywhere (dogfood).app"
+	$contents = Join-Path $app "Contents"
+	$script   = Join-Path $contents "MacOS/runfm"
+	$link     = Join-Path $contents "MacOS/${ProgramName}"
+	$plist    = Join-Path $contents "Info.plist"
+	$icns     = Join-Path $contents "Resources/${ProgramName}.icns"
+
+	$q = { param($s) "'" + ($s -replace "'", "'\''") + "'" }
+	$run = if ($wrapper -like "*.ps1") { "pwsh -NoProfile -File " + (& $q $wrapper) } else { & $q $wrapper }
+	## A plain launch opens where a typed one would. Fixed when the script is
+	## written, and only when the place is there then.
+	$start = $StartupLocations | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+	$startLine = if ($start) { 'if [ $# -eq 0 ]; then set -- ' + (& $q $start) + '; fi' } else { "" }
+	## Started from the Finder it gets launchd's bare PATH, which has neither
+	## Homebrew nor ~/.local/bin, so the wrapper would not find pwsh. With no build
+	## held, the wrapper runs as usual and falls back to another file manager.
+	$wantScript = @'
+#!/bin/bash
+export PATH="$HOME/.local/bin:/usr/local/bin:/opt/homebrew/bin:$PATH"
+here="$(cd "$(dirname "$0")" && pwd)"
+@RUN@ --install-only >/dev/null 2>&1
+@START@
+if [ -x "$here/@NAME@" ]; then exec "$here/@NAME@" "$@"; fi
+exec @RUN@ "$@"
+'@.Replace("@RUN@", $run).Replace("@START@", $startLine).Replace("@NAME@", $ProgramName).Replace("`n`n", "`n").TrimEnd()
+	$wantPlist = @(
+		'<?xml version="1.0" encoding="UTF-8"?>'
+		'<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
+		'<plist version="1.0">'
+		'<dict>'
+		"`t<key>CFBundleExecutable</key><string>runfm</string>"
+		"`t<key>CFBundleIconFile</key><string>${ProgramName}</string>"
+		"`t<key>CFBundleIdentifier</key><string>org.NemoAnywhere.dogfood</string>"
+		"`t<key>CFBundleName</key><string>Nemo Anywhere (dogfood)</string>"
+		"`t<key>CFBundlePackageType</key><string>APPL</string>"
+		"`t<key>NSHighResolutionCapable</key><true/>"
+		'</dict>'
+		'</plist>'
+	) -join "`n"
+
+	$icon       = fPublishIcon
+	$haveScript = Get-Content -LiteralPath $script -Raw -ErrorAction SilentlyContinue
+	$havePlist  = Get-Content -LiteralPath $plist -Raw -ErrorAction SilentlyContinue
+	$haveLink   = Get-Item -LiteralPath $link -Force -ErrorAction SilentlyContinue
+	$iconDue    = $icon -and -not (Test-Path -LiteralPath $icns)
+	if ($haveScript -and $haveScript.TrimEnd() -eq $wantScript -and
+	    $havePlist -and $havePlist.TrimEnd() -eq $wantPlist -and
+	    $haveLink -and $haveLink.LinkTarget -eq $LinkPath -and -not $iconDue) {
+		fItem "ok" "app" "already current"
+		return
+	}
+
+	try {
+		foreach ($dir in @((Split-Path -Parent $script), (Split-Path -Parent $icns))) {
+			if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+		}
+		Set-Content -LiteralPath $script -Value $wantScript -Encoding utf8NoBOM
+		Set-Content -LiteralPath $plist  -Value $wantPlist  -Encoding utf8NoBOM
+		& chmod 755 $script
+		if ($haveLink) { Remove-Item -LiteralPath $link -Force }
+		New-Item -ItemType SymbolicLink -Path $link -Target $LinkPath | Out-Null
+		if ($icon) { & sips -s format icns $icon --out $icns *> $null }
+		fItem "ok" "app" "written: $app"
+	} catch {
+		fItem "-" "app" "could not write the app: $($_.Exception.Message)"
 	}
 }
 
@@ -1412,11 +1499,13 @@ $script:StepRows = 0
 ##                the launched app all get admin rights. '--admin' is still accepted,
 ##                and is the only way to ask for it on unix - where it is refused.
 ##   --no-update  skip the copy, rotate and relink; just run what is already held.
+##   --install-only  do the copy, rotate, relink and desktop steps, and launch nothing.
 ##   --gui        force the end-of-run / failure dialog on (auto-on for a shortcut).
 ## Single-dash spellings are accepted too: '-admin' is what a PowerShell user types,
 ## and it collides with nothing in the app's own option set.
 $wantAdmin = $IsWindows
 $noUpdate  = $false
+$installOnly = $false
 $forceGui  = $false
 $passArgs  = @()
 foreach ($arg in $args) {
@@ -1424,6 +1513,7 @@ foreach ($arg in $args) {
 		'^--?admin$'     { $wantAdmin = $true;  continue }
 		'^--?no-admin$'  { $wantAdmin = $false; continue }
 		'^--?no-update$' { $noUpdate  = $true;  continue }
+		'^--?install-only$' { $installOnly = $true; continue }
 		'^--?gui$'       { $forceGui  = $true;  continue }
 		default          { $passArgs += $arg }
 	}
@@ -1467,7 +1557,7 @@ if ($wantAdmin -and -not (fIsElevated)) {
 ## Elevated (self- or from an elevated shell): also launch the app elevated.
 if ($wantAdmin) { $RunAsAdmin = $true }
 
-fMain -PassArgs $passArgs -NoUpdate:$noUpdate
+fMain -PassArgs $passArgs -NoUpdate:$noUpdate -InstallOnly:$installOnly
 
 ## Report any real problems (a failed copy etc.) for the shortcut case.
 if ($script:GuiFeedback -and $script:RunWarnings.Count) {
