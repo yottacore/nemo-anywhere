@@ -1154,6 +1154,23 @@ fCheckClickPrimary(){
 }
 fRun fCheckClickPrimary
 
+## Shifting into the sign bit of an int is undefined, though gcc does what was
+## meant today. The metadata list mask was 1<<31; a top bit is 1u << 31.
+## Test ID: rj9v86cj
+fCheckSignShift(){
+	local bad
+
+	bad="$(grep -rn -E '(^|[^0-9A-Za-z_.])1[[:space:]]*<<[[:space:]]*31([^0-9]|$)|\(int\)[^;]*<<[[:space:]]*24([^0-9]|$)' \
+		source --include='*.c' --include='*.h' \
+		| grep -v -E '^source/(vendor|cut-n-paste-code)/' || true)"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: a shift into the sign bit of an int; shift an unsigned value"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fRun fCheckSignShift
+
 ## Under MSYS2, use the Windows git that made this checkout - the msys one has
 ## its own HOME/config, so its line-ending view marks every CRLF file modified.
 GIT=(git)
