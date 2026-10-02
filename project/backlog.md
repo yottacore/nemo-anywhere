@@ -523,8 +523,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, a local shortcut to a share that is not answering can stall the window while its icon is looked up.
 	- ID: 2026093010493389
 	- Type: Bug
-	- Status: Queued
-	- Needs external testing: Windows. A folder of local shortcuts to a dead share lists with no stall, and each shows the icon its target's type calls for.
+	- Status: Waiting for testing
+	- Needs external testing: Windows. A folder of local shortcuts to a dead share lists with no stall, and each shows the icon its target's type calls for. Also rfhr0zw0 on a Windows box.
 	- Priority|Severity: Avg
 	- Opened: 20260930-104934
 	- Opened by: code review 20260928 follow-up
@@ -539,12 +539,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Decisions:
 		- 20260930: assume the stall rather than time it first. Many shortcuts to shares would multiply it.
 		- 20260930: a program on a share showing the plain program icon is fine.
-	- Test case: none yet.
+	- Actual cause: the shell was handed the shortcut itself, and it reads the target, or the icon file the shortcut names, to find the icon. Nothing checked whether either was on a share.
+	- Actual fix: the shortcut file is read for its target and for the icon file it names. When either is on a share, by its path or by a drive letter mapped to one, the shell is asked about the target's name alone, which it answers without opening anything. A folder still gets the theme's folder icon from the folder check. Every lookup now runs off the window's thread, with 2026100112000535.
+	- Swept: the shell icon is asked for in one place. The folder check and the sort place already read only the shortcut file. Off Windows the icon comes from the shortcut file only. design.md says how a shortcut on a share gets its icon.
+	- Note: a shortcut that records only an item ID list, with no path, is still handed to the shell. Nothing in the file says where such a target lives without asking the shell.
+	- Branch: lnkasync
+	- Commit: 61dcecc
+	- Test case: rfhr0zw0, Shell icon test, new share cases: a document on a share wears the icon for its name and not the one the shortcut names, and a program on a share, or a shortcut whose icon is on a share, gets the plain program icon. The document cases fail with the share route taken out and pass with it, under wine. rhmxm5ah, Windows shortcut reader test, new cases for the icon file and the share check, on Linux.
+	- Verified: the Linux build and the shortcut reader, sort, link edit, link copy and make link tests pass. The Windows cross build compiles with no warnings. rfhr0zw0 passes under wine, and the Windows shortcut and share tests give the same results there as on dev. C lint and the test ID check are clean.
 
 - On Windows, a folder full of shortcuts shows nothing until every shortcut icon is found.
 	- ID: 2026100112000535
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for testing
 	- Needs external testing: Windows. The Start menu folder lists at once, and the shortcut icons fill in after.
 	- Priority|Severity: Avg
 	- Opened: 20261001-120005
@@ -559,7 +566,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: no. Seen on Windows, not yet reproduced here.
 	- Possible cause: each shortcut's icon comes from the Windows shell on the window's thread, one file after another, the first time the view asks for it. The only cache is in memory, so every new run pays it again.
 	- Note: 2026093010493389 already wants these lookups off the window's thread. One fix may cover both.
-	- Test case: none yet.
+	- Actual cause: as above, read from the code. The view asked the shell for each shortcut's icon the first time it drew it, and waited for the answer.
+	- Actual fix: the view gets the cached icon or nothing, at once, and the plain shortcut icon stands in. One worker thread asks the shell, and the shortcut is redrawn when an icon is found. A shortcut the shell has no icon for is remembered too, so it is not asked again. Same branch and fix as 2026093010493389.
+	- Note: the icon table in the file cache was not built. It needs a new cache table and version, its own pruning, and a choice of which sizes to keep, which is more than this fix. Until then the last known icon is kept only while the app runs, so a new run starts plain again.
+	- Note: the folder check behind the sort place and the folder icon still reads each shortcut on the window's thread. It is a local file read, cached, and was not measured.
+	- Branch: lnkasync
+	- Commit: 61dcecc
+	- Test case: rfhr0zw0, Shell icon test, new lookup cases: the first ask returns at once with nothing, a second one while it runs is not queued again, the window is told once when the icon is found, and the cache answers after. A file that is not a shortcut is finished with and not asked again. No case shows the wait itself, since a slow shell can't be made here.
+	- Verified: rfhr0zw0 passes under wine, and the wine build lists a folder of shortcuts with each one's own icon. The rest as on 2026093010493389.
 
 - Code review 20260928 item 21. One Ctrl+click check in the list view was missed by the macOS Cmd change.
 	- ID: 2026092813381421
