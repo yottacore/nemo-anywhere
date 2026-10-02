@@ -33,6 +33,31 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Code review 20260928 item 21. One Ctrl+click check in the list view was missed by the macOS Cmd change.
+	- ID: 2026092813381421
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Target OS: macOS.
+	- Incorrect behavior: Cmd+click on an unselected row skips the view's own add-to-selection code.
+	- Reproduced: no Mac to run it on. Pinned instead by a lint check that fails on the tree before the fix, 20261002.
+	- Actual cause: the Cmd change moved the test that opens the click branch to the primary key, but not the Control test inside it.
+	- Origin: upstream line, missed by d5fef60, 20260922 (cmdkeys). Missed twin of that fix. Plausible.
+	- Actual fix: that test takes the primary key too. The icon view's type-ahead find next and previous (Ctrl+G and Shift+Ctrl+G) and its Ctrl+V guard also take it now, as GTK's own list search and the list view's copy of the Ctrl+V guard already do.
+	- Sweep: every remaining Ctrl-as-primary check in the views.
+	- Swept: a grep for `GDK_CONTROL_MASK` across `source/` outside vendored code.
+		- Changed: the list view's row click, the icon view's find next and previous, and the icon view's Ctrl+V guard.
+		- Left on Control, per the cmdkeys item: keyboard moves and Ctrl+space that keep the selection, in both views; Ctrl+F10 for the background menu in both views; the window's block on GTK's emoji keys, which GTK binds to Control itself; the rename label's GtkEntry bindings. The location entry already takes either key.
+		- Left alone: the icon view's stretch keys. Nothing shows stretch handles any more.
+	- Note: unverified on a Mac. Waits on signoff because two keys beyond the item moved on macOS.
+	- Test case: rj9tz3mv, the ClickPrimary lint check. Plain Control in any click or scroll handler fails the lint. Fails before the fix, at the list view line, and passes after.
+	- Verified: the Linux build is clean, with no warnings. Lint, the test ID check and the Primary mask test pass.
+	- Branch: tidy4
+	- Commit: 4078549
+
 - Code review 20260928 item 1. Zooming while thumbnails render can store a small thumbnail as full size, and it is never made again.
 	- ID: 2026092813381401
 	- Type: Bug
@@ -446,6 +471,25 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rhr6ggmt, Archive option combinations, new rows with a linked folder `a*` beside `abc`, `a?c` and `apple.txt`, and with `a?c` selected on its own. reww9h2s, Extract job test, extracts `s?.7z` and `r?.rar` beside `sx.7z` and `rx.rar`. rev86z08 and reww9h2r check for `-spd`. All fail before the fix and pass after, on Linux.
 	- Verified: same runs as item 4. Debian's 7-Zip has no rar codec, so on Linux the `r?.rar` case ends in an error naming the wildcard, which the test accepts.
 
+- Code review 20260928 item 33. Two tests read memory they do not own.
+	- ID: 2026092813381433
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes. The Windows cross build, for the Windows-only search test and the test build file.
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: the content search test writes 3 bytes past a string, and the raw test's patch helper counts on bytes GLib may clear. The raw test fails 21 checks when GLib clears them.
+	- Reproduced: yes, 20260928, Linux. Again 20261002.
+	- Origin: 4d8f9f7, 20260828, and 4809a54, 20260922 (rawthumbs). New ground. Confirmed.
+	- Actual fix: the content search test takes each binary file's length from its literal, so none is counted by hand. The raw test's patch helper writes in place instead of shrinking the buffer and growing it back.
+	- Swept: the content search test's other two binary files were counted by hand too. The GIF was one byte short, so it now ends with its trailer. No other test or product code reads back bytes from past a shrink. The three search tests' hit handlers now free the results they are handed.
+	- Test case: rffvm2bg, Search content test, now built with the address checker, which stops on a read past a string. rj9v7n76, Camera raw reader test, cleared memory, which runs the raw test again with GLib clearing what a shrunk array gives up. Both fail before the fix and pass after, on Linux. rhg7vh28 still runs it the usual way.
+	- Verified: the content search, both raw, search helpers and search engine tests pass on Linux, after a clean build with no warnings. Lint and the test ID check pass.
+	- Branch: tidy4
+	- Commit: 856f567
+
 - Code review 20260928.
 	- ID: 2026092813381400
 	- Type: Task
@@ -467,31 +511,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: Escape not restoring the selection, Ctrl+Shift+T, and Control kept for F1, tab keys, Ctrl+H and Ctrl+M on macOS. All settled earlier.
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
-
-- Code review 20260928 item 21. One Ctrl+click check in the list view was missed by the macOS Cmd change.
-	- ID: 2026092813381421
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Priority|Severity: Low
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Target OS: macOS.
-	- Incorrect behavior: Cmd+click on an unselected row skips the view's own add-to-selection code.
-	- Reproduced: no Mac to run it on. Pinned instead by a lint check that fails on the tree before the fix, 20261002.
-	- Actual cause: the Cmd change moved the test that opens the click branch to the primary key, but not the Control test inside it.
-	- Origin: upstream line, missed by d5fef60, 20260922 (cmdkeys). Missed twin of that fix. Plausible.
-	- Actual fix: that test takes the primary key too. The icon view's type-ahead find next and previous (Ctrl+G and Shift+Ctrl+G) and its Ctrl+V guard also take it now, as GTK's own list search and the list view's copy of the Ctrl+V guard already do.
-	- Sweep: every remaining Ctrl-as-primary check in the views.
-	- Swept: a grep for `GDK_CONTROL_MASK` across `source/` outside vendored code.
-		- Changed: the list view's row click, the icon view's find next and previous, and the icon view's Ctrl+V guard.
-		- Left on Control, per the cmdkeys item: keyboard moves and Ctrl+space that keep the selection, in both views; Ctrl+F10 for the background menu in both views; the window's block on GTK's emoji keys, which GTK binds to Control itself; the rename label's GtkEntry bindings. The location entry already takes either key.
-		- Left alone: the icon view's stretch keys. Nothing shows stretch handles any more.
-	- Note: unverified on a Mac. Waits on signoff because two keys beyond the item moved on macOS.
-	- Test case: rj9tz3mv, the ClickPrimary lint check. Plain Control in any click or scroll handler fails the lint. Fails before the fix, at the list view line, and passes after.
-	- Verified: the Linux build is clean, with no warnings. Lint, the test ID check and the Primary mask test pass.
-	- Branch: tidy4
-	- Commit: 4078549
 
 - Code review 20260928 item 22. The list view's row shading handlers can outlive the view.
 	- ID: 2026092813381422
@@ -616,66 +635,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: no, read only.
 	- Origin: `cicd/linux/fuzz.bash`, fuzzlines, 20260926. New ground. Plausible.
 	- Test case: none yet.
-
-- Code review 20260928 item 31. Two help texts are out of date.
-	- ID: 2026092813381431
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Low
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: the Windows preflight says the lint stage is cppcheck on changed files, but it now runs every linter. `cicd.bash --help` leaves out fuzzing from what `--quick` skips.
-	- Reproduced: yes, the texts were checked against the stages, 20260928.
-	- Origin: b21d9cb, 20260920, and 7f65705, 20260916. Not seen by an earlier round. Confirmed.
-	- Actual fix: the Windows preflight says lint runs every checker in `lint.bash`. The `--quick` help names fuzzing, and also the private runner, the scroll harness and the demo video, which it had left out too.
-	- Swept: the Windows script's header stage list and the comment above its lint call said the same stale thing, and are fixed. The cicd config's lint comment is current. `--gate` help is current.
-	- Test case: rj9v18rx, `test-cicd-help.bash`, in the lint stage. Every stage that reports "skipped (--quick)" and every switch `--quick` turns off must be named in `--help`. Fails before the fix and passes after. The Windows preflight line has no test, since it only prints in a Windows run and a test could only match the string.
-	- Verified: shellcheck and PSScriptAnalyzer are clean, and the Windows script parses.
-	- Acceptance signoff: Self-closed: mechanical.
-	- Branch: tidy4
-	- Commit: bcf647a
-	- Closed: 20261002-143238
-
-- Code review 20260928 item 32. A signed shift in the metadata list mask.
-	- ID: 2026092813381432
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Low
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: `1 << 31` on an int is undefined in C. It works under gcc today.
-	- Reproduced: yes, 20260928, Linux. Again 20261002, in the folder settings test.
-	- Origin: upstream macro. One use added in 5d96d9b, 20260722. Not seen by an earlier round. Confirmed.
-	- Actual fix: the mask is `1u << 31`.
-	- Sweep: the macro's uses, and other `1 << 31` on an int across `source/` outside vendored code.
-	- Swept: all five uses of the mask mix it with unsigned ids, so nothing else changed there. No other `1 << 31` in first-party code. The eel canvas color macros shifted an int into the top byte the same way. They shift unsigned now, and have no callers. The directory request bits stop at 11, and the byte readers cast before shifting.
-	- Test case: rj9v86cj, the SignShift lint check. A literal 1 shifted by 31, or an int cast shifted by 24, fails the lint. Fails before the fix, on the mask and both eel macros, and passes after. The folder settings test reports both shifts as undefined before the fix and nothing after.
-	- Verified: the Linux build is clean, and the folder settings test passes. Lint and the test ID check pass.
-	- Acceptance signoff: Self-closed: reproduced, test fails before and passes after, sweep answered.
-	- Branch: tidy4
-	- Commit: b0ebc2c
-	- Closed: 20261002-143238
-
-- Code review 20260928 item 33. Two tests read memory they do not own.
-	- ID: 2026092813381433
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes. The Windows cross build, for the Windows-only search test and the test build file.
-	- Priority|Severity: Low
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: the content search test writes 3 bytes past a string, and the raw test's patch helper counts on bytes GLib may clear. The raw test fails 21 checks when GLib clears them.
-	- Reproduced: yes, 20260928, Linux. Again 20261002.
-	- Origin: 4d8f9f7, 20260828, and 4809a54, 20260922 (rawthumbs). New ground. Confirmed.
-	- Actual fix: the content search test takes each binary file's length from its literal, so none is counted by hand. The raw test's patch helper writes in place instead of shrinking the buffer and growing it back.
-	- Swept: the content search test's other two binary files were counted by hand too. The GIF was one byte short, so it now ends with its trailer. No other test or product code reads back bytes from past a shrink. The three search tests' hit handlers now free the results they are handed.
-	- Test case: rffvm2bg, Search content test, now built with the address checker, which stops on a read past a string. rj9v7n76, Camera raw reader test, cleared memory, which runs the raw test again with GLib clearing what a shrunk array gives up. Both fail before the fix and pass after, on Linux. rhg7vh28 still runs it the usual way.
-	- Verified: the content search, both raw, search helpers and search engine tests pass on Linux, after a clean build with no warnings. Lint and the test ID check pass.
-	- Branch: tidy4
-	- Commit: 856f567
 
 - A cache prune batch holds the write lock longer as thumbnails get bigger.
 	- ID: 2026093010493420
@@ -1070,6 +1029,47 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: `test-nemo-psd`: rows at the least length are read, one byte less is refused, and a file of empty rows, 30000 by 30000 as psd and 60000 by 60000 as psb, is refused in under a second. Fuzz seed `zero-rows`, and `short-literal` reworked so it still reaches the literal-run bound.
 	- Branch: psdrows
 	- Commit: 24d99cd
+
+- Code review 20260928 item 31. Two help texts are out of date.
+	- ID: 2026092813381431
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: the Windows preflight says the lint stage is cppcheck on changed files, but it now runs every linter. `cicd.bash --help` leaves out fuzzing from what `--quick` skips.
+	- Reproduced: yes, the texts were checked against the stages, 20260928.
+	- Origin: b21d9cb, 20260920, and 7f65705, 20260916. Not seen by an earlier round. Confirmed.
+	- Actual fix: the Windows preflight says lint runs every checker in `lint.bash`. The `--quick` help names fuzzing, and also the private runner, the scroll harness and the demo video, which it had left out too.
+	- Swept: the Windows script's header stage list and the comment above its lint call said the same stale thing, and are fixed. The cicd config's lint comment is current. `--gate` help is current.
+	- Test case: rj9v18rx, `test-cicd-help.bash`, in the lint stage. Every stage that reports "skipped (--quick)" and every switch `--quick` turns off must be named in `--help`. Fails before the fix and passes after. The Windows preflight line has no test, since it only prints in a Windows run and a test could only match the string.
+	- Verified: shellcheck and PSScriptAnalyzer are clean, and the Windows script parses.
+	- Acceptance signoff: Self-closed: mechanical.
+	- Branch: tidy4
+	- Commit: bcf647a
+	- Closed: 20261002-143238
+
+- Code review 20260928 item 32. A signed shift in the metadata list mask.
+	- ID: 2026092813381432
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: `1 << 31` on an int is undefined in C. It works under gcc today.
+	- Reproduced: yes, 20260928, Linux. Again 20261002, in the folder settings test.
+	- Origin: upstream macro. One use added in 5d96d9b, 20260722. Not seen by an earlier round. Confirmed.
+	- Actual fix: the mask is `1u << 31`.
+	- Sweep: the macro's uses, and other `1 << 31` on an int across `source/` outside vendored code.
+	- Swept: all five uses of the mask mix it with unsigned ids, so nothing else changed there. No other `1 << 31` in first-party code. The eel canvas color macros shifted an int into the top byte the same way. They shift unsigned now, and have no callers. The directory request bits stop at 11, and the byte readers cast before shifting.
+	- Test case: rj9v86cj, the SignShift lint check. A literal 1 shifted by 31, or an int cast shifted by 24, fails the lint. Fails before the fix, on the mask and both eel macros, and passes after. The folder settings test reports both shifts as undefined before the fix and nothing after.
+	- Verified: the Linux build is clean, and the folder settings test passes. Lint and the test ID check pass.
+	- Acceptance signoff: Self-closed: reproduced, test fails before and passes after, sweep answered.
+	- Branch: tidy4
+	- Commit: b0ebc2c
+	- Closed: 20261002-143238
 
 - Code review 20260928 item 19. An Olympus raw file with a looping directory takes seconds to read.
 	- ID: 2026092813381419
