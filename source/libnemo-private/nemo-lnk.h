@@ -42,6 +42,7 @@ typedef struct {
 	char     *working_dir;
 	char     *arguments;
 	char     *description;
+	char     *icon_location;  /* the file the icon is taken from, as written */
 } NemoLnk;
 
 /* Which of its ways to find the target a new shortcut carries. */
@@ -61,6 +62,11 @@ gboolean nemo_lnk_is_dir (const NemoLnk *lnk);
 
 /* The target as Windows would print it, for messages. Caller frees. */
 char    *nemo_lnk_display_target (const NemoLnk *lnk);
+
+/* Whether the target, or the file the icon is taken from, is on a share, from
+   what the shortcut records. Nothing is looked up, so a drive letter mapped to
+   a share only counts where the shortcut says so itself. */
+gboolean nemo_lnk_points_at_share (const NemoLnk *lnk);
 
 /* A path with Windows %NAME% variables in it, as this machine spells it, or
    NULL when a variable is not set. Off Windows the backslashes around them

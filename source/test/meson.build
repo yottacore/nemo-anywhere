@@ -1496,7 +1496,7 @@ if is_windows
     executable('test-nemo-shell-icon-win32',
       [ 'test-nemo-shell-icon-win32.c' ],
       include_directories: [ rootInclude, ],
-      dependencies: [ gtk, nemo_private, test_scratch ],
+      dependencies: [ gtk, nemo_private, win_shell, test_scratch ],
     ),
     args: []
   )
