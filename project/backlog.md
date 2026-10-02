@@ -33,113 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- Code review 20260928 item 13. A Windows install for all users may not run for other users.
-	- ID: 2026092813381413
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: no. Windows only. The lint stage and the installer check pass on Linux.
-	- Needs external testing: Windows. Done 20261001 on b29w: the new test fails before the fix and passes after.
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Related IDs: 2026100112505357
-	- Target OS: Windows.
-	- Incorrect behavior: the installed folder keeps the installing user's temp folder permissions, so another user sees the shortcut and PATH entry but cannot start the program.
-	- Reproduced: yes, 20261001, b29w, by the new test. Before the fix none of the five installed items let Users read and run.
-	- Actual cause: the unpacked tree is moved, not copied, and a move on one drive keeps the old permissions.
-	- Origin: before 20260917, carried into 7284973, 20260925. Not seen by an earlier round. Confirmed 20261001.
-	- Actual fix: the new tree is copied out of the temp folder into the staging folder beside the install, never moved, so every file takes the install folder's permissions. User and system installs take the same path.
-	- Swept: no other move in the project's PowerShell takes a tree out of a temp folder. The installer's own swap renames the staging folder inside the folder it was copied to, so it keeps the right permissions. The unix side already sets owner and mode on a system install.
-	- Note: the system target itself is not run by the test. A user install takes the same staging, under a parent that lets Users read and run where the temp folder does not.
-	- Signoff: the fix changes the permissions of installed files, and the all-users target is checked by reading only.
-	- Branch: installacl
-	- Commit: a876603, test in 3c40b76
-	- Test case: `cicd/win/test-install-acl.ps1` (rj72n4xb), in the Windows test stage. Every installed file and folder has to carry the read and run grant its parent passes down.
-
-- Code review 20260928 item 19. An Olympus raw file with a looping directory takes seconds to read.
-	- ID: 2026092813381419
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed 142 of 142 on 20261001.
-	- Priority|Severity: Low
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: a 12 KB file took 8.7 s of a thumbnail thread.
-	- Expected behavior: design.md, a thumbnail takes a few milliseconds.
-	- Reproduced: yes, 20260928, Linux. Again 20261001, 5.9 s.
-	- Actual cause: a directory that names itself as the next one is read 32 times. Each of its entries can start a maker note or preview lookup that reads the file a few bytes at a time, and nothing bounded the total.
-	- Origin: 4809a54, 20260922 (rawthumbs). New ground. Confirmed.
-	- Actual fix: finding the previews in a file is held to a fixed number of reads, far more than any real camera file tried needed. Reading the preview that was found is not counted.
-	- Sweep: every reader in the raw reader that a directory entry can start.
-	- Swept: the Olympus maker note, Panasonic's preview tag, the JPEG offset tags, strip lists, values stored outside the entry, EXIF and sub-directories, and the CR3 box walk all go through the one counted read, so the cap covers each. Panasonic's tag was as slow as the maker note in a looping file and is in the test. The properties page reads EXIF through libexif from memory, not a read per entry. Search: every `read_at` call in `nemo-raw.c`, and a grep for `ifd`, `0x927C`, maker note and the EXIF loader across `source/`.
-	- Note: reading a directory in one block, and skipping a maker note already read, were also offered. Neither is needed with the cap, and the skip would not stop notes at different offsets.
-	- Note: waits on signoff because the fix took one of the three the review offered. A real file that needed more reads than the cap would show the type icon. The fuzz stage still owes a run with the new seed.
-	- Test case: `rhg7vh28 Camera raw reader test`: three files with a looping directory, read from disk, each under 0.25 s. They are the review's file, the same with camera settings, and Panasonic's preview tag, which took 8 s, 12 s and 0.8 s before. A tall uncompressed preview is still read after the directories. Fuzz seed `olympus-loop`.
-	- Branch: rawloop
-	- Commit: 1a95d6a, seed in 03e4206
-
-- Code review 20260928 item 20. The file cache is never closed at quit.
-	- ID: 2026092813381420
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed 143 of 143 on 20261001.
-	- Priority|Severity: Low
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Related IDs: 2026100113372562, 2026100113372592
-	- Incorrect behavior: up to 30 s of draw counts are lost at every quit, so the age rule counts recent use short. The log is never trimmed at close.
-	- Reproduced: yes, 20260928, Linux. Nothing in the program calls the close. Again 20261001: after each quit the journal held 0.1 to 3 MB, and the draws of the last few seconds were not counted.
-	- Actual cause: nothing writes the store out at quit. The quit hook the review named is never called by GLib, so nothing put there would run either.
-	- Origin: 6d52b4b, 20260921 (thumbdb). New ground. Confirmed.
-	- Actual fix: at the very end of every run, after the thumbnail threads are done, the draw counts held in memory are written and the journal is folded back into the file. The store is left open until the process ends, since a worker the quit does not wait for may still be using it. A run that never used the store does not make one. The cleanup pass is stopped first, as the dead hook meant to do.
-	- Note: closing the window, the last window, Close all windows and `--quit` all end in that same code, on Windows too. No signal is handled, so a copy killed by one still loses the counts, as it loses a settings change.
-	- Note: the other writes held back for a moment, settings and folder metadata, are already written in the same place. The keyboard shortcut map is saved only from the dead hook, which is its own item, 2026100113372562.
-	- Note: waits on signoff because it changes what the program writes at quit, and the fix is neither of the two the review offered.
-	- Test case: `rj750n43 File cache written at quit test`. The built program is closed by its window while thumbnails are being made, after they are made, and while drawing them from the store, then taken down by `--quit` from another copy. After each the journal is empty, and the last two raised every draw count. A `--version` run makes no store.
-	- Branch: cacheclose
-	- Commit: 639757b, test in 66bd445 and 8b78915
-
-- Code review 20260928 item 15. Three items from code review 20260919 closed with no test and no reason.
-	- ID: 2026092813381415
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: items 11 and 12 were speed fixes with no speed test, and item 21's hoists and dead code have none. The review rules reopen a closed item with neither a test nor a reason.
-	- Expected behavior: a speed fix has a check with a number to fail on.
-	- Origin: code review 20260919. Confirmed.
-	- Fixed: each of the three now has a check with a number to fail on, or a reason on its entry where none can be made.
-	- Note: the fork still left in each name lookup of the theme vendoring script is filed as its own item.
-	- Test case: `rj4jkr22 List view work per row test`, `cicd/utility/test-vendor-forks.bash` (rj4j8jk8), `rj4jbn1b Allocations per read test` and `rj4jewn6 Archive check cost test`.
-	- Branch: speedpins
-
-- Code review 20260928 item 10. A small PSD file can tie up a thumbnail thread for minutes.
-	- ID: 2026092813381410
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed 139 of 139 on 20260930.
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: a 180 KB file took 15 s and a 720 KB one 64 s, and neither can be canceled.
-	- Expected behavior: the PSD done item, a bad file is refused cleanly and a large one never costs full size.
-	- Reproduced: yes, 20260928, Linux.
-	- Actual cause: rows of zero length are accepted and padded out, so the work follows the declared size, not the file.
-	- Origin: 056d3e0, 20260921 (thumbs). New ground. Confirmed.
-	- Actual fix: a packed row shorter than two bytes for every 128 of the row cannot fill it, and a file with one is now refused before any row is decoded. A row with enough bytes that still ends early is padded as before. So the work a file can cause stays in step with its size.
-	- Swept: the Photoshop reader is the only run-length row decoder among the thumbnail readers. The camera raw reader reads previews, and its own slow file is item 19.
-	- Note: the reader still takes no cancel from the thumbnail thread. That would mean a cancel through the thumbnail factory for every reader, and a small file no longer runs long enough to need one. Left as is.
-	- Note: waits on signoff because the fix picked one of two options the review offered, and a file with one short row now shows the type icon instead of a padded picture. The fuzz stage still owes a run with the changed seeds.
-	- Test case: `test-nemo-psd`: rows at the least length are read, one byte less is refused, and a file of empty rows, 30000 by 30000 as psd and 60000 by 60000 as psb, is refused in under a second. Fuzz seed `zero-rows`, and `short-literal` reworked so it still reaches the literal-run bound.
-	- Branch: psdrows
-	- Commit: 24d99cd
-
 - Code review 20260928 item 1. Zooming while thumbnails render can store a small thumbnail as full size, and it is never made again.
 	- ID: 2026092813381401
 	- Type: Bug
@@ -431,6 +324,61 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rhd69rjr, File cache prune test, with 1500 thumbnails. The prune's own pick queries walk at most one batch and sort nothing. Fails before the fix and passes after, on Linux.
 	- Verified: same runs as item 9.
 
+- On Windows, a local shortcut to a share that is not answering can stall the window while its icon is looked up.
+	- ID: 2026093010493389
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs external testing: Windows. A folder of local shortcuts to a dead share lists with no stall, and each shows the icon its target's type calls for. Also rfhr0zw0 on a Windows box.
+	- Priority|Severity: Avg
+	- Opened: 20260930-104934
+	- Opened by: code review 20260928 follow-up
+	- Related IDs: 2026092813381408, 2026093010493450
+	- Target OS: Windows
+	- Incorrect behavior: a shortcut with no icon of its own gets one from the Windows shell, on the window's thread. The shell may go to the target for it. On a share that is not answering that is about twenty seconds per shortcut.
+	- Expected behavior: the share is never visited for an icon.
+		- The target path is read from the shortcut file, as the folder check already does.
+		- When the target is on a share, the icon comes from the name alone. A folder gets the folder icon, a document the icon for its extension, and a program the plain program icon.
+		- Shortcut icon lookups run off the window's thread, local targets included.
+	- Reproduced: no. Read only, from item 8 of code review 20260928.
+	- Decisions:
+		- 20260930: assume the stall rather than time it first. Many shortcuts to shares would multiply it.
+		- 20260930: a program on a share showing the plain program icon is fine.
+	- Actual cause: the shell was handed the shortcut itself, and it reads the target, or the icon file the shortcut names, to find the icon. Nothing checked whether either was on a share.
+	- Actual fix: the shortcut file is read for its target and for the icon file it names. When either is on a share, by its path or by a drive letter mapped to one, the shell is asked about the target's name alone, which it answers without opening anything. A folder still gets the theme's folder icon from the folder check. Every lookup now runs off the window's thread, with 2026100112000535.
+	- Swept: the shell icon is asked for in one place. The folder check and the sort place already read only the shortcut file. Off Windows the icon comes from the shortcut file only. design.md says how a shortcut on a share gets its icon.
+	- Note: a shortcut that records only an item ID list, with no path, is still handed to the shell. Nothing in the file says where such a target lives without asking the shell.
+	- Branch: lnkasync
+	- Commit: 61dcecc
+	- Test case: rfhr0zw0, Shell icon test, new share cases: a document on a share wears the icon for its name and not the one the shortcut names, and a program on a share, or a shortcut whose icon is on a share, gets the plain program icon. The document cases fail with the share route taken out and pass with it, under wine. rhmxm5ah, Windows shortcut reader test, new cases for the icon file and the share check, on Linux.
+	- Verified: the Linux build and the shortcut reader, sort, link edit, link copy and make link tests pass. The Windows cross build compiles with no warnings. rfhr0zw0 passes under wine, and the Windows shortcut and share tests give the same results there as on dev. C lint and the test ID check are clean.
+
+- On Windows, a folder full of shortcuts shows nothing until every shortcut icon is found.
+	- ID: 2026100112000535
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs external testing: Windows. The Start menu folder lists at once, and the shortcut icons fill in after.
+	- Priority|Severity: Avg
+	- Opened: 20261001-120005
+	- Opened by: t00mietum
+	- Related IDs: 2026093010493389, 2026092813381436
+	- Target OS: Windows
+	- Steps to reproduce:
+		- Go to the Start menu Programs folder, or any folder with many `.lnk` files.
+	- Incorrect behavior: the content pane stays empty until the icons for all the shortcuts are loaded.
+	- Expected behavior: the pane shows the files right away, with a plain icon or the last known one. Shortcut icons load in the background and replace them as each one is found.
+		- Possibly the shortcut icons can use the thumbnail cache, with its own icon table, so a folder seen before draws its real icons at once.
+	- Reproduced: no. Seen on Windows, not yet reproduced here.
+	- Possible cause: each shortcut's icon comes from the Windows shell on the window's thread, one file after another, the first time the view asks for it. The only cache is in memory, so every new run pays it again.
+	- Note: 2026093010493389 already wants these lookups off the window's thread. One fix may cover both.
+	- Actual cause: as above, read from the code. The view asked the shell for each shortcut's icon the first time it drew it, and waited for the answer.
+	- Actual fix: the view gets the cached icon or nothing, at once, and the plain shortcut icon stands in. One worker thread asks the shell, and the shortcut is redrawn when an icon is found. A shortcut the shell has no icon for is remembered too, so it is not asked again. Same branch and fix as 2026093010493389.
+	- Note: the icon table in the file cache was not built. It needs a new cache table and version, its own pruning, and a choice of which sizes to keep, which is more than this fix. Until then the last known icon is kept only while the app runs, so a new run starts plain again.
+	- Note: the folder check behind the sort place and the folder icon still reads each shortcut on the window's thread. It is a local file read, cached, and was not measured.
+	- Branch: lnkasync
+	- Commit: 61dcecc
+	- Test case: rfhr0zw0, Shell icon test, new lookup cases: the first ask returns at once with nothing, a second one while it runs is not queued again, the window is told once when the icon is found, and the cache answers after. A file that is not a shortcut is finished with and not asked again. No case shows the wait itself, since a slow shell can't be made here.
+	- Verified: rfhr0zw0 passes under wine, and the wine build lists a folder of shortcuts with each one's own icon. The rest as on 2026093010493389.
+
 - Code review 20260928 item 17. Hardlinking a selected symlink links the symlink, not the file.
 	- ID: 2026092813381417
 	- Type: Bug
@@ -519,61 +467,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: Escape not restoring the selection, Ctrl+Shift+T, and Control kept for F1, tab keys, Ctrl+H and Ctrl+M on macOS. All settled earlier.
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
-
-- On Windows, a local shortcut to a share that is not answering can stall the window while its icon is looked up.
-	- ID: 2026093010493389
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: Windows. A folder of local shortcuts to a dead share lists with no stall, and each shows the icon its target's type calls for. Also rfhr0zw0 on a Windows box.
-	- Priority|Severity: Avg
-	- Opened: 20260930-104934
-	- Opened by: code review 20260928 follow-up
-	- Related IDs: 2026092813381408, 2026093010493450
-	- Target OS: Windows
-	- Incorrect behavior: a shortcut with no icon of its own gets one from the Windows shell, on the window's thread. The shell may go to the target for it. On a share that is not answering that is about twenty seconds per shortcut.
-	- Expected behavior: the share is never visited for an icon.
-		- The target path is read from the shortcut file, as the folder check already does.
-		- When the target is on a share, the icon comes from the name alone. A folder gets the folder icon, a document the icon for its extension, and a program the plain program icon.
-		- Shortcut icon lookups run off the window's thread, local targets included.
-	- Reproduced: no. Read only, from item 8 of code review 20260928.
-	- Decisions:
-		- 20260930: assume the stall rather than time it first. Many shortcuts to shares would multiply it.
-		- 20260930: a program on a share showing the plain program icon is fine.
-	- Actual cause: the shell was handed the shortcut itself, and it reads the target, or the icon file the shortcut names, to find the icon. Nothing checked whether either was on a share.
-	- Actual fix: the shortcut file is read for its target and for the icon file it names. When either is on a share, by its path or by a drive letter mapped to one, the shell is asked about the target's name alone, which it answers without opening anything. A folder still gets the theme's folder icon from the folder check. Every lookup now runs off the window's thread, with 2026100112000535.
-	- Swept: the shell icon is asked for in one place. The folder check and the sort place already read only the shortcut file. Off Windows the icon comes from the shortcut file only. design.md says how a shortcut on a share gets its icon.
-	- Note: a shortcut that records only an item ID list, with no path, is still handed to the shell. Nothing in the file says where such a target lives without asking the shell.
-	- Branch: lnkasync
-	- Commit: 61dcecc
-	- Test case: rfhr0zw0, Shell icon test, new share cases: a document on a share wears the icon for its name and not the one the shortcut names, and a program on a share, or a shortcut whose icon is on a share, gets the plain program icon. The document cases fail with the share route taken out and pass with it, under wine. rhmxm5ah, Windows shortcut reader test, new cases for the icon file and the share check, on Linux.
-	- Verified: the Linux build and the shortcut reader, sort, link edit, link copy and make link tests pass. The Windows cross build compiles with no warnings. rfhr0zw0 passes under wine, and the Windows shortcut and share tests give the same results there as on dev. C lint and the test ID check are clean.
-
-- On Windows, a folder full of shortcuts shows nothing until every shortcut icon is found.
-	- ID: 2026100112000535
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: Windows. The Start menu folder lists at once, and the shortcut icons fill in after.
-	- Priority|Severity: Avg
-	- Opened: 20261001-120005
-	- Opened by: t00mietum
-	- Related IDs: 2026093010493389, 2026092813381436
-	- Target OS: Windows
-	- Steps to reproduce:
-		- Go to the Start menu Programs folder, or any folder with many `.lnk` files.
-	- Incorrect behavior: the content pane stays empty until the icons for all the shortcuts are loaded.
-	- Expected behavior: the pane shows the files right away, with a plain icon or the last known one. Shortcut icons load in the background and replace them as each one is found.
-		- Possibly the shortcut icons can use the thumbnail cache, with its own icon table, so a folder seen before draws its real icons at once.
-	- Reproduced: no. Seen on Windows, not yet reproduced here.
-	- Possible cause: each shortcut's icon comes from the Windows shell on the window's thread, one file after another, the first time the view asks for it. The only cache is in memory, so every new run pays it again.
-	- Note: 2026093010493389 already wants these lookups off the window's thread. One fix may cover both.
-	- Actual cause: as above, read from the code. The view asked the shell for each shortcut's icon the first time it drew it, and waited for the answer.
-	- Actual fix: the view gets the cached icon or nothing, at once, and the plain shortcut icon stands in. One worker thread asks the shell, and the shortcut is redrawn when an icon is found. A shortcut the shell has no icon for is remembered too, so it is not asked again. Same branch and fix as 2026093010493389.
-	- Note: the icon table in the file cache was not built. It needs a new cache table and version, its own pruning, and a choice of which sizes to keep, which is more than this fix. Until then the last known icon is kept only while the app runs, so a new run starts plain again.
-	- Note: the folder check behind the sort place and the folder icon still reads each shortcut on the window's thread. It is a local file read, cached, and was not measured.
-	- Branch: lnkasync
-	- Commit: 61dcecc
-	- Test case: rfhr0zw0, Shell icon test, new lookup cases: the first ask returns at once with nothing, a second one while it runs is not queued again, the window is told once when the icon is found, and the cache answers after. A file that is not a shortcut is finished with and not asked again. No case shows the wait itself, since a slow shell can't be made here.
-	- Verified: rfhr0zw0 passes under wine, and the wine build lists a folder of shortcuts with each one's own icon. The rest as on 2026093010493389.
 
 - Code review 20260928 item 21. One Ctrl+click check in the list view was missed by the macOS Cmd change.
 	- ID: 2026092813381421
@@ -1083,6 +976,113 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Decisions:
 		- 20261002: with "Each folder keeps its own view, zoom, sort and columns" on in Preferences (`remember-folder-settings`), the monitor's saved zoom wins over the folder's own.
 	- Test case: none yet.
+
+- Code review 20260928 item 13. A Windows install for all users may not run for other users.
+	- ID: 2026092813381413
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. Windows only. The lint stage and the installer check pass on Linux.
+	- Needs external testing: Windows. Done 20261001 on b29w: the new test fails before the fix and passes after.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Related IDs: 2026100112505357
+	- Target OS: Windows.
+	- Incorrect behavior: the installed folder keeps the installing user's temp folder permissions, so another user sees the shortcut and PATH entry but cannot start the program.
+	- Reproduced: yes, 20261001, b29w, by the new test. Before the fix none of the five installed items let Users read and run.
+	- Actual cause: the unpacked tree is moved, not copied, and a move on one drive keeps the old permissions.
+	- Origin: before 20260917, carried into 7284973, 20260925. Not seen by an earlier round. Confirmed 20261001.
+	- Actual fix: the new tree is copied out of the temp folder into the staging folder beside the install, never moved, so every file takes the install folder's permissions. User and system installs take the same path.
+	- Swept: no other move in the project's PowerShell takes a tree out of a temp folder. The installer's own swap renames the staging folder inside the folder it was copied to, so it keeps the right permissions. The unix side already sets owner and mode on a system install.
+	- Note: the system target itself is not run by the test. A user install takes the same staging, under a parent that lets Users read and run where the temp folder does not.
+	- Signoff: the fix changes the permissions of installed files, and the all-users target is checked by reading only.
+	- Branch: installacl
+	- Commit: a876603, test in 3c40b76
+	- Test case: `cicd/win/test-install-acl.ps1` (rj72n4xb), in the Windows test stage. Every installed file and folder has to carry the read and run grant its parent passes down.
+
+- Code review 20260928 item 15. Three items from code review 20260919 closed with no test and no reason.
+	- ID: 2026092813381415
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: items 11 and 12 were speed fixes with no speed test, and item 21's hoists and dead code have none. The review rules reopen a closed item with neither a test nor a reason.
+	- Expected behavior: a speed fix has a check with a number to fail on.
+	- Origin: code review 20260919. Confirmed.
+	- Fixed: each of the three now has a check with a number to fail on, or a reason on its entry where none can be made.
+	- Note: the fork still left in each name lookup of the theme vendoring script is filed as its own item.
+	- Test case: `rj4jkr22 List view work per row test`, `cicd/utility/test-vendor-forks.bash` (rj4j8jk8), `rj4jbn1b Allocations per read test` and `rj4jewn6 Archive check cost test`.
+	- Branch: speedpins
+
+- Code review 20260928 item 10. A small PSD file can tie up a thumbnail thread for minutes.
+	- ID: 2026092813381410
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 139 of 139 on 20260930.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: a 180 KB file took 15 s and a 720 KB one 64 s, and neither can be canceled.
+	- Expected behavior: the PSD done item, a bad file is refused cleanly and a large one never costs full size.
+	- Reproduced: yes, 20260928, Linux.
+	- Actual cause: rows of zero length are accepted and padded out, so the work follows the declared size, not the file.
+	- Origin: 056d3e0, 20260921 (thumbs). New ground. Confirmed.
+	- Actual fix: a packed row shorter than two bytes for every 128 of the row cannot fill it, and a file with one is now refused before any row is decoded. A row with enough bytes that still ends early is padded as before. So the work a file can cause stays in step with its size.
+	- Swept: the Photoshop reader is the only run-length row decoder among the thumbnail readers. The camera raw reader reads previews, and its own slow file is item 19.
+	- Note: the reader still takes no cancel from the thumbnail thread. That would mean a cancel through the thumbnail factory for every reader, and a small file no longer runs long enough to need one. Left as is.
+	- Note: waits on signoff because the fix picked one of two options the review offered, and a file with one short row now shows the type icon instead of a padded picture. The fuzz stage still owes a run with the changed seeds.
+	- Test case: `test-nemo-psd`: rows at the least length are read, one byte less is refused, and a file of empty rows, 30000 by 30000 as psd and 60000 by 60000 as psb, is refused in under a second. Fuzz seed `zero-rows`, and `short-literal` reworked so it still reaches the literal-run bound.
+	- Branch: psdrows
+	- Commit: 24d99cd
+
+- Code review 20260928 item 19. An Olympus raw file with a looping directory takes seconds to read.
+	- ID: 2026092813381419
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 142 of 142 on 20261001.
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: a 12 KB file took 8.7 s of a thumbnail thread.
+	- Expected behavior: design.md, a thumbnail takes a few milliseconds.
+	- Reproduced: yes, 20260928, Linux. Again 20261001, 5.9 s.
+	- Actual cause: a directory that names itself as the next one is read 32 times. Each of its entries can start a maker note or preview lookup that reads the file a few bytes at a time, and nothing bounded the total.
+	- Origin: 4809a54, 20260922 (rawthumbs). New ground. Confirmed.
+	- Actual fix: finding the previews in a file is held to a fixed number of reads, far more than any real camera file tried needed. Reading the preview that was found is not counted.
+	- Sweep: every reader in the raw reader that a directory entry can start.
+	- Swept: the Olympus maker note, Panasonic's preview tag, the JPEG offset tags, strip lists, values stored outside the entry, EXIF and sub-directories, and the CR3 box walk all go through the one counted read, so the cap covers each. Panasonic's tag was as slow as the maker note in a looping file and is in the test. The properties page reads EXIF through libexif from memory, not a read per entry. Search: every `read_at` call in `nemo-raw.c`, and a grep for `ifd`, `0x927C`, maker note and the EXIF loader across `source/`.
+	- Note: reading a directory in one block, and skipping a maker note already read, were also offered. Neither is needed with the cap, and the skip would not stop notes at different offsets.
+	- Note: waits on signoff because the fix took one of the three the review offered. A real file that needed more reads than the cap would show the type icon. The fuzz stage still owes a run with the new seed.
+	- Test case: `rhg7vh28 Camera raw reader test`: three files with a looping directory, read from disk, each under 0.25 s. They are the review's file, the same with camera settings, and Panasonic's preview tag, which took 8 s, 12 s and 0.8 s before. A tall uncompressed preview is still read after the directories. Fuzz seed `olympus-loop`.
+	- Branch: rawloop
+	- Commit: 1a95d6a, seed in 03e4206
+
+- Code review 20260928 item 20. The file cache is never closed at quit.
+	- ID: 2026092813381420
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 143 of 143 on 20261001.
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Related IDs: 2026100113372562, 2026100113372592
+	- Incorrect behavior: up to 30 s of draw counts are lost at every quit, so the age rule counts recent use short. The log is never trimmed at close.
+	- Reproduced: yes, 20260928, Linux. Nothing in the program calls the close. Again 20261001: after each quit the journal held 0.1 to 3 MB, and the draws of the last few seconds were not counted.
+	- Actual cause: nothing writes the store out at quit. The quit hook the review named is never called by GLib, so nothing put there would run either.
+	- Origin: 6d52b4b, 20260921 (thumbdb). New ground. Confirmed.
+	- Actual fix: at the very end of every run, after the thumbnail threads are done, the draw counts held in memory are written and the journal is folded back into the file. The store is left open until the process ends, since a worker the quit does not wait for may still be using it. A run that never used the store does not make one. The cleanup pass is stopped first, as the dead hook meant to do.
+	- Note: closing the window, the last window, Close all windows and `--quit` all end in that same code, on Windows too. No signal is handled, so a copy killed by one still loses the counts, as it loses a settings change.
+	- Note: the other writes held back for a moment, settings and folder metadata, are already written in the same place. The keyboard shortcut map is saved only from the dead hook, which is its own item, 2026100113372562.
+	- Note: waits on signoff because it changes what the program writes at quit, and the fix is neither of the two the review offered.
+	- Test case: `rj750n43 File cache written at quit test`. The built program is closed by its window while thumbnails are being made, after they are made, and while drawing them from the store, then taken down by `--quit` from another copy. After each the journal is empty, and the last two raised every draw count. A `--version` run makes no store.
+	- Branch: cacheclose
+	- Commit: 639757b, test in 66bd445 and 8b78915
 
 ## Old format
 
