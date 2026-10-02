@@ -105,7 +105,7 @@
 /* Name of Nemo trash directories */
 #define TRASH_DIRECTORY_NAME ".Trash"
 
-#define METADATA_ID_IS_LIST_MASK (1<<31)
+#define METADATA_ID_IS_LIST_MASK (1u << 31)
 
 #define MAX_THUMBNAIL_TRIES 2
 

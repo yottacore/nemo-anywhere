@@ -1114,6 +1114,63 @@ fCheckUiDomain(){
 }
 fRun fCheckUiDomain
 
+## A click or scroll takes the primary modifier (eel_gtk_primary_mask), which
+## is Cmd on macOS. Plain Control in a button or scroll handler is a click that
+## missed that change; the list view's add-to-selection on Ctrl+click did.
+## Keyboard handlers mix both on purpose and are not checked.
+## Test ID: rj9tz3mv
+fCheckClickPrimary(){
+	local bad f
+	local -a handlerFiles=()
+
+	while IFS= read -r f; do
+		[[ "$f" == source/vendor/* || "$f" == source/cut-n-paste-code/* ]] || handlerFiles+=("$f")
+	done < <(grep -rl -E 'GdkEvent(Button|Scroll)' source --include='*.c' || true)
+	if ((${#handlerFiles[@]} == 0)); then
+		fEcho "FAIL: no click or scroll handlers found; the check has lost its files"
+		exit 2
+	fi
+
+	## A function starts at a column-0 brace, or a signature line ending in one,
+	## and ends at a column-0 closing brace.
+	bad="$(awk '
+		FNR == 1 { body = 0; sig = "" }
+		body && /^}/ { body = 0; sig = ""; next }
+		body {
+			if (sig ~ /GdkEvent(Button|Scroll)/ && /GDK_CONTROL_MASK/)
+				print FILENAME ":" FNR ": " $0
+			next
+		}
+		/^\{/ { body = 1; next }
+		/^[A-Za-z_].*\)[[:space:]]*\{[[:space:]]*$/ && !/=/ { sig = sig " " $0; body = 1; next }
+		/^}/ || /;[[:space:]]*$/ || /^#/ { sig = ""; next }
+		{ sig = sig " " $0 }
+	' "${handlerFiles[@]}")"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: Control in a click or scroll handler; use eel_gtk_primary_mask"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fRun fCheckClickPrimary
+
+## Shifting into the sign bit of an int is undefined, though gcc does what was
+## meant today. The metadata list mask was 1<<31; a top bit is 1u << 31.
+## Test ID: rj9v86cj
+fCheckSignShift(){
+	local bad
+
+	bad="$(grep -rn -E '(^|[^0-9A-Za-z_.])1[[:space:]]*<<[[:space:]]*31([^0-9]|$)|\(int\)[^;]*<<[[:space:]]*24([^0-9]|$)' \
+		source --include='*.c' --include='*.h' \
+		| grep -v -E '^source/(vendor|cut-n-paste-code)/' || true)"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: a shift into the sign bit of an int; shift an unsigned value"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fRun fCheckSignShift
+
 ## Under MSYS2, use the Windows git that made this checkout - the msys one has
 ## its own HOME/config, so its line-ending view marks every CRLF file modified.
 GIT=(git)

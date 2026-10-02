@@ -38,9 +38,10 @@
 ##	                       refuses one by default)
 ##	   --shots             refresh README screenshots (off by default)
 ##	   --demo              re-record the demo video (off by default)
-##	   --quick             skip the slow stages: cross builds, packages, profiler,
-##	                       harness, screenshots, demo, remote dogfood. The native
-##	                       build, the full test suite and local dogfood still run.
+##	   --quick             skip the slow stages: cross builds, packages, private
+##	                       runner, profiler, fuzzing, scroll harness, screenshots,
+##	                       demo video, remote dogfood. The native build, the full
+##	                       test suite and local dogfood still run.
 ##	   --gate              merge gate only: format-check + lints + tests, then exit
 ##	                       (fast local stand-in for hosted CI; the pre-push hook runs it)
 ## - Reuse: copy the cicd/ directory into another project and edit config.bash.

@@ -3952,6 +3952,8 @@ nemo_icon_container_search_key_press_event (GtkWidget *widget,
 						GdkEventKey *event,
 						NemoIconContainer *container)
 {
+	/* Same key as GTK's own list search: Cmd+G on macOS */
+	GdkModifierType primary = eel_gtk_primary_mask (event->window);
 	gboolean retval = FALSE;
 
 	g_assert (GTK_IS_WIDGET (widget));
@@ -3978,7 +3980,7 @@ nemo_icon_container_search_key_press_event (GtkWidget *widget,
 		retval = TRUE;
 	}
 
-	if (((event->state & (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) == (GDK_CONTROL_MASK | GDK_SHIFT_MASK))
+	if (((event->state & (primary | GDK_SHIFT_MASK)) == (primary | GDK_SHIFT_MASK))
 	    && (event->keyval == GDK_KEY_g || event->keyval == GDK_KEY_G)) {
 		nemo_icon_container_search_move (widget, container, TRUE);
 		retval = TRUE;
@@ -3990,7 +3992,7 @@ nemo_icon_container_search_key_press_event (GtkWidget *widget,
 		retval = TRUE;
 	}
 
-	if (((event->state & (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) == GDK_CONTROL_MASK)
+	if (((event->state & (primary | GDK_SHIFT_MASK)) == primary)
 	    && (event->keyval == GDK_KEY_g || event->keyval == GDK_KEY_G)) {
 		nemo_icon_container_search_move (widget, container, FALSE);
 		retval = TRUE;
@@ -4282,7 +4284,7 @@ key_press_event (GtkWidget *widget,
 			break;
 		case GDK_KEY_v:
 			/* Eat Control + v to not enable type ahead */
-			if ((event->state & GDK_CONTROL_MASK) != 0) {
+			if ((event->state & eel_gtk_primary_mask (event->window)) != 0) {
 				handled = TRUE;
 			}
 			break;

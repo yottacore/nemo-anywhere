@@ -7,7 +7,7 @@
 ##		  Docker or wine is involved here. Does NOT touch cicd.bash or config.bash.
 ##		- Stages (fail-fast; any error aborts before the next stage):
 ##		   0. remote sync   (fetch; fast-forward if safely behind; abort if diverged)
-##		   1. lint          (check-only: cppcheck over the changed C files, shellcheck over the scripts)
+##		   1. lint          (check-only: every checker in cicd/utility/lint.bash)
 ##		   2. debug build   (meson setup -Dxmp=false + ninja, MSYS2 mingw64)
 ##		   3. tests         (meson test suite, the installer's in-use check, then a
 ##		                     --version smoke and a GUI launch smoke of the built exe)
@@ -263,9 +263,9 @@ ninja -C $BuildRel -j $jobs
 	fEcho "OK: native build: $exe ($size)"
 }
 
-## Check-only lints over the changed C files and the project's own scripts, via
-## the shared bash helper. Each checker warn-skips when its tool isn't
-## installed; findings abort. Runs in the mingw64 shell where they live.
+## Every check-only lint, through the shared bash helper (cicd/utility/lint.bash).
+## Each checker warn-skips when its tool isn't installed; findings abort. Runs
+## in the mingw64 shell where they live.
 function fLint {
 	fMingw "bash cicd/utility/lint.bash"
 	if ($script:MingwRc -ne 0) { fDie "lint failed (exit $($script:MingwRc))" }
@@ -647,7 +647,7 @@ function fMain {
 	fEcho_Clean "Version .....: $(fVersion)  (source/meson.build)"
 	fEcho_Clean "Toolchain ...: $(if ($toolMiss) { "MISSING - $toolMiss" } else { "mingw64 GTK toolchain OK" })"
 	fEcho_Clean "Remote sync .: $(if ($NoSync) { '(skipped)' } else { 'fetch + fast-forward check' })"
-	fEcho_Clean "Lint ........: $(if ($NoFmt) { '(skipped)' } else { 'cppcheck, check-only, changed C files' })"
+	fEcho_Clean "Lint ........: $(if ($NoFmt) { '(skipped)' } else { 'every checker in lint.bash, check-only' })"
 	fEcho_Clean "Build .......: $(if ($NoBuild) { '(skipped)' } else { 'meson + ninja, native mingw64' })"
 	fEcho_Clean "Tests .......: $(if ($NoBuild) { '(skipped)' } else { 'meson test suite + --version and GUI smokes' })"
 	fEcho_Clean "Packages ....: $(if ($NoPack -or $NoBuild) { '(skipped)' } else { 'portable single-exe (Enigma Virtual Box)' })"
