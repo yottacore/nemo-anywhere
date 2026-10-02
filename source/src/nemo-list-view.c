@@ -1594,7 +1594,7 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 				if (view->details->row_selected_on_button_down) {
 					call_parent = on_expander;
 					view->details->ignore_button_release = call_parent;
-				} else if ((event->state & GDK_CONTROL_MASK) != 0) {
+				} else if ((event->state & eel_gtk_primary_mask (event->window)) != 0) {
 					GList *selected_rows;
 					GList *l;
 
