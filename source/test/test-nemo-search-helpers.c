@@ -574,6 +574,7 @@ hits_added_cb (NemoSearchEngine *engine, GList *hits, gpointer data)
 		FileSearchResult *result = l->data;
 
 		found = g_list_prepend (found, g_path_get_basename (result->uri));
+		file_search_result_free (result);
 	}
 }
 

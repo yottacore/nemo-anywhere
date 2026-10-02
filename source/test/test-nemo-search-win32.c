@@ -38,7 +38,10 @@ check_sql (const char *what, const char *got, const char *expected)
 static void
 hits_added_cb (NemoSearchEngine *engine, GList *hits, gpointer data)
 {
-	n_hits += g_list_length (hits);
+	for (GList *l = hits; l != NULL; l = l->next) {
+		file_search_result_free (l->data);
+		n_hits++;
+	}
 }
 
 static void

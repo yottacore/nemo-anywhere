@@ -406,13 +406,23 @@ test('rgeahzbr Entry context menu test',
   args: []
 )
 
+# Its binary files are written from literals with NULs inside, and a wrong
+# length reads past one with nothing to say so. ASan on this one executable
+# sees that; leaks are left to other tests, since GTK's own would drown it.
+testSan = []
+if not is_windows and cc.has_link_argument('-fsanitize=address')
+  testSan = [ '-fsanitize=address', '-fno-omit-frame-pointer' ]
+endif
+
 test('rffvm2bg Search content test',
   executable('test-nemo-search-content',
     [ 'test-nemo-search-content.c' ],
     include_directories: [ rootInclude, ],
     dependencies: [ gtk, nemo_private, test_scratch ],
-    c_args: nemo_definitions,
+    c_args: nemo_definitions + testSan,
+    link_args: testSan,
   ),
+  env: [ 'ASAN_OPTIONS=detect_leaks=0' ],
   args: []
 )
 
@@ -1228,12 +1238,18 @@ test('rhe0xz31 Photoshop reader test',
   args: []
 )
 
-test('rhg7vh28 Camera raw reader test',
-  executable('test-nemo-raw',
-    [ 'test-nemo-raw.c' ],
-    include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private, test_scratch ],
-  ),
+testRaw = executable('test-nemo-raw',
+  [ 'test-nemo-raw.c' ],
+  include_directories: [ rootInclude, ],
+  dependencies: [ gtk, nemo_private, test_scratch ],
+)
+
+test('rhg7vh28 Camera raw reader test', testRaw, args: [])
+
+# Again with GLib clearing what a shrunk array gives up, so the fixtures can't
+# lean on bytes they no longer own.
+test('rj9v7n76 Camera raw reader test, cleared memory', testRaw,
+  env: [ 'G_DEBUG=gc-friendly' ],
   args: []
 )
 

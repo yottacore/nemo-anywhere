@@ -53,26 +53,30 @@ w16 (W *w, guint v)
 }
 
 static void
-w32 (W *w, guint32 v)
+put32 (const W *w, guint8 *b, guint32 v)
 {
-	guint8 b[4];
-
 	if (w->big) {
 		b[0] = v >> 24; b[1] = v >> 16; b[2] = v >> 8; b[3] = v;
 	} else {
 		b[0] = v; b[1] = v >> 8; b[2] = v >> 16; b[3] = v >> 24;
 	}
-	g_byte_array_append (w->out, b, 4);
 }
 
 static void
+w32 (W *w, guint32 v)
+{
+	guint8 b[4];
+
+	put32 (w, b, v);
+	g_byte_array_append (w->out, b, 4);
+}
+
+/* In place: GLib may clear the tail of a shrunk array (G_DEBUG=gc-friendly). */
+static void
 patch32 (W *w, guint at, guint32 v)
 {
-	guint len = w->out->len;
-
-	g_byte_array_set_size (w->out, at);
-	w32 (w, v);
-	g_byte_array_set_size (w->out, len);
+	g_assert (at + 4 <= w->out->len);
+	put32 (w, w->out->data + at, v);
 }
 
 static guint32
