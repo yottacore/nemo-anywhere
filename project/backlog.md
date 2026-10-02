@@ -1047,7 +1047,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Show how much only moves on the same filesystem, and how much new data is copied somewhere else.
 	- Test case: none yet.
 
-- Remember window size and zoom, per monitor.
+- Remember window size and zoom, per unique `[monitor size+]<OS-specific DPI/zoom setting>+<resolution>`.
 	- ID: 2026100114301535
 	- Type: Feature
 	- Status: Queued
@@ -1055,15 +1055,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Requirements:
 		- After rc.1.
-		- Only when "Remember window size" is on in settings. That setting doesn't exist yet. Today the size is always saved.
-			- Any time the user resizes a window, that size becomes the main default, whatever the window.
-				- The same for zoom.
-			- Also store the size per monitor.
-				- The same for zoom.
-			- A window opened on a monitor gets that monitor's saved size.
-				- The same for zoom.
-			- A window dragged to a monitor that has its own saved size changes to that size once the move stops.
-				- The same for zoom.
+		- Any time the user resizes a window, that size becomes the main default, whatever the window.
+			- The same for zoom.
+		- Also store the size per unique `[monitor size+]<OS-specific DPI/zoom setting>+<resolution>`.
+			- The same for zoom.
+		- A window opened on a monitor gets that monitor's saved size (fallback to main saved default).
+			- The same for zoom.
+		- A window dragged to a monitor that has its own saved size changes to that size once the move stops (fallback to main saved default).
+			- The same for zoom.
+	- Notes:
+		- Resolution and DPI by themselves may not be enough, if the DPI information is disconnected from actual inches. It's the *actual* physical DPI, combined with resolution, that's important, and will have to best approximate.
+		- If determining *actual* physical DPI isn't possible, then just resolution and DPI (e.g. Windows' desktop zoom factor) may have to do.
+	- Decisions:
+		- 20261002: with "Each folder keeps its own view, zoom, sort and columns" on in Preferences (`remember-folder-settings`), the monitor's saved zoom wins over the folder's own.
 	- Test case: none yet.
 
 ## Old format
