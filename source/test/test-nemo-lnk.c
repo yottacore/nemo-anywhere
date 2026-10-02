@@ -1214,6 +1214,73 @@ test_icon (void)
 	machine_clear (&machine);
 }
 
+static gboolean
+spec_on_share (const Spec *spec)
+{
+	NemoLnk lnk;
+	gboolean share;
+
+	g_assert (parse (spec, &lnk));
+	share = nemo_lnk_points_at_share (&lnk);
+	nemo_lnk_clear (&lnk);
+
+	return share;
+}
+
+/* Windows takes a shortcut's icon from the shell only when nothing it records
+   is on a share, so this is what keeps the window off the network. */
+static void
+test_share (void)
+{
+	Spec icon_wide = { .local_base = "C:\\Tools\\app.exe", .icon = "%SystemRoot%\\system32\\shell32.dll" };
+	Spec icon_ansi = { .local_base = "C:\\Tools\\app.exe", .icon = "C:\\Tools\\app.ico", .ansi_strings = TRUE };
+	Spec local = { .local_base = "C:\\Tools\\app.exe", .serial = 1 };
+	Spec relative = { .relative = "..\\..\\app.exe" };
+	Spec long_local = { .local_base = "\\\\?\\C:\\Tools\\app.exe" };
+	Spec device = { .local_base = "\\\\.\\pipe\\x" };
+	Spec network = { .net_share = "\\\\srv\\Share", .suffix = "app.exe" };
+	Spec unc_base = { .local_base = "\\\\srv\\Share\\app.exe" };
+	Spec long_unc = { .local_base = "\\\\?\\UNC\\srv\\Share\\app.exe" };
+	Spec env_unc = { .env = "\\\\srv\\Share\\app.exe" };
+	Spec env_var = { .env = "%NEMO_TEST_SHARE%\\app.exe" };
+	Spec env_unset = { .env = "%NEMO_TEST_UNSET%\\app.exe" };
+	Spec icon_share = { .local_base = "C:\\Tools\\app.exe", .icon = "\\\\srv\\Share\\app.ico" };
+	Spec icon_var = { .local_base = "C:\\Tools\\app.exe", .icon = "%NEMO_TEST_SHARE%\\app.ico" };
+	NemoLnk lnk;
+
+	g_setenv ("NEMO_TEST_SHARE", "\\\\srv\\Share", TRUE);
+	g_unsetenv ("NEMO_TEST_UNSET");
+
+	check (parse (&icon_wide, &lnk));
+	check (g_strcmp0 (lnk.icon_location, "%SystemRoot%\\system32\\shell32.dll") == 0);
+	check (g_strcmp0 (lnk.local_path, "C:\\Tools\\app.exe") == 0);
+	nemo_lnk_clear (&lnk);
+	check (parse (&icon_ansi, &lnk));
+	check (g_strcmp0 (lnk.icon_location, "C:\\Tools\\app.ico") == 0);
+	nemo_lnk_clear (&lnk);
+	check (parse (&local, &lnk));
+	check (lnk.icon_location == NULL);
+	nemo_lnk_clear (&lnk);
+
+	check (!spec_on_share (&local));
+	check (!spec_on_share (&relative));
+	check (!spec_on_share (&long_local));
+	check (!spec_on_share (&device));
+	check (!spec_on_share (&icon_wide));
+	check (!spec_on_share (&icon_ansi));
+	check (!spec_on_share (&env_unset));
+
+	check (spec_on_share (&network));
+	check (spec_on_share (&unc_base));
+	check (spec_on_share (&long_unc));
+	check (spec_on_share (&env_unc));
+	check (spec_on_share (&env_var));
+	check (spec_on_share (&icon_share));
+	check (spec_on_share (&icon_var));
+
+	g_unsetenv ("NEMO_TEST_SHARE");
+}
+
 static void
 fifo_timed_out (int sig)
 {
@@ -1400,6 +1467,7 @@ main (int argc, char **argv)
 	test_expand ();
 	test_parse_env ();
 	test_icon ();
+	test_share ();
 	test_fifo ();
 	test_set_paths ();
 

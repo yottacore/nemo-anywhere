@@ -5574,6 +5574,19 @@ nemo_file_set_is_favorite (NemoFile *file,
     g_free (uri);
 }
 
+#ifdef G_OS_WIN32
+static void
+shell_icon_found (gpointer location)
+{
+	NemoFile *file = nemo_file_get_existing (location);
+
+	if (file != NULL) {
+		nemo_file_changed (file);
+		nemo_file_unref (file);
+	}
+}
+#endif
+
 NemoIconInfo *
 nemo_file_get_icon (NemoFile *file,
 			int size,
@@ -5716,7 +5729,9 @@ nemo_file_get_icon (NemoFile *file,
 #ifdef G_OS_WIN32
 	/* A shortcut wears its target's icon, which only the shell can find. The
 	   exception is a folder: the shell hands back its own art, which looks
-	   nothing like the folders around it, so the theme's is used instead. */
+	   nothing like the folders around it, so the theme's is used instead.
+	   The shell is asked off the window's thread, and the plain icon stands
+	   in until it answers. */
 	if (lnk_is_cheap_to_read (file)) {
 		char *path = nemo_file_get_path (file);
 		GdkPixbuf *pixbuf = NULL;
@@ -5732,7 +5747,9 @@ nemo_file_get_icon (NemoFile *file,
 		}
 
 		if (path != NULL) {
-			pixbuf = nemo_shell_icon_win32_for_path (path, size * scale, file->details->mtime);
+			pixbuf = nemo_shell_icon_win32_lookup (path, size * scale, file->details->mtime,
+							       shell_icon_found, nemo_file_get_location (file),
+							       g_object_unref);
 		}
 
 		g_free (path);

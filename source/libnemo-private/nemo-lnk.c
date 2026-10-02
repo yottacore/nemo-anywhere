@@ -352,13 +352,9 @@ nemo_lnk_parse (const guint8 *bytes, gsize length, NemoLnk *lnk)
 	    !read_string (bytes, length, &pos, unicode, &lnk->arguments)) {
 		return TRUE;
 	}
-	if (flags & FLAG_HAS_ICON_LOCATION) {
-		char *icon = NULL;
-
-		if (!read_string (bytes, length, &pos, unicode, &icon)) {
-			return TRUE;
-		}
-		g_free (icon);
+	if ((flags & FLAG_HAS_ICON_LOCATION) &&
+	    !read_string (bytes, length, &pos, unicode, &lnk->icon_location)) {
+		return TRUE;
 	}
 
 	/* Windows reads the block only when the flag says to, and so does this. */
@@ -450,6 +446,7 @@ nemo_lnk_clear (NemoLnk *lnk)
 	g_free (lnk->working_dir);
 	g_free (lnk->arguments);
 	g_free (lnk->description);
+	g_free (lnk->icon_location);
 	memset (lnk, 0, sizeof *lnk);
 }
 
@@ -473,6 +470,62 @@ nemo_lnk_display_target (const NemoLnk *lnk)
 	}
 
 	return g_strdup (lnk->relative_path);
+}
+
+/* \\server\share, in either slash and in the long form, but not \\?\C:\ or a
+   device. */
+static gboolean
+is_share_path (const char *path)
+{
+	char *spelled;
+	gboolean share;
+
+	if (path == NULL || strlen (path) < 2) {
+		return FALSE;
+	}
+
+	spelled = g_strdup (path);
+	g_strdelimit (spelled, "/", '\\');
+	if (g_ascii_strncasecmp (spelled, "\\\\?\\UNC\\", 8) == 0) {
+		share = TRUE;
+	} else if (g_str_has_prefix (spelled, "\\\\?\\") || g_str_has_prefix (spelled, "\\\\.\\")) {
+		share = FALSE;
+	} else {
+		share = spelled[0] == '\\' && spelled[1] == '\\';
+	}
+	g_free (spelled);
+
+	return share;
+}
+
+static gboolean
+expands_to_share (const char *windows_path)
+{
+	char *expanded;
+	gboolean share;
+
+	if (windows_path == NULL) {
+		return FALSE;
+	}
+
+	expanded = nemo_lnk_expand (windows_path);
+	share = is_share_path (expanded);
+	g_free (expanded);
+
+	return share;
+}
+
+/* The relative path is left out: it starts from the folder the shortcut is
+   in, which is never on a share when this is asked. */
+gboolean
+nemo_lnk_points_at_share (const NemoLnk *lnk)
+{
+	g_return_val_if_fail (lnk != NULL, FALSE);
+
+	return lnk->net_share != NULL ||
+	       is_share_path (lnk->local_path) ||
+	       expands_to_share (lnk->env_path) ||
+	       expands_to_share (lnk->icon_location);
 }
 
 /* Casefolded, since Windows names do not keep case. */
