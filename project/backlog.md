@@ -452,20 +452,28 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The theme vendoring script still starts a process for every name it looks up.
 	- ID: 2026093013281956
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20260930-132819
 	- Opened by: code review 20260928 item 15
 	- Incorrect behavior: the lookup asks for its context pattern through a command substitution, one fork per name tried, in a part of the file whose own comment says it is fork-free.
 	- Expected behavior: the lookup answers the way the scorer does, with no fork.
+	- Reproduced: yes, 20261003, Linux. The fork count for the test set was 36 processes for 9 icons, 20 of them from the name lookups.
 	- Origin: left by the fix for code review 20260919 item 12. Confirmed.
-	- Test case: `cicd/utility/test-vendor-forks.bash` counts it today; its bar can come down once this is fixed.
-	- Note: the bar has to come down with the count, or a fork put back at the first lookup of each icon passes again. The failure message there gets the bar right only while it is an odd number of halves.
+	- Actual cause: the context pattern came back on stdout, so every name tried read it through a command substitution.
+	- Actual fix: the context pattern comes back through a global, as the score does. The test set now starts 17 processes for 9 icons. The bar went from 4.5 to 2.5 per icon, so one fork more per icon fails it again. The failure message now gives the bar right for an even number of halves too.
+	- Swept: the only other substitution below the fork-free comment is the readlink for a symlinked alias. Bash has no builtin for it, and it runs once per alias followed, not per name tried, so it stays. The rest of the count is the mkdir and copy for each icon staged.
+	- Test case: `cicd/utility/test-vendor-forks.bash` (rj4j8jk8). Fails before the fix (36 for 9 icons) and with one fork put back at the first lookup of each icon (26), passes after (17).
+	- Verified: the fork count, the vendoring self-test and the lint stage pass. shellcheck is clean.
+	- Branch: pins2
+	- Commit: 76d3176
+	- Acceptance signoff: Self-closed: the speed of a build script, with nothing on screen. rj4j8jk8 covers it.
+	- Closed: 20261003-134129
 
 - The string list settings read has no check on its cost per read.
 	- ID: 2026093013501931
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20260930-135019
 	- Opened by: code review 20260928 item 15
@@ -474,7 +482,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the test also fails when the string list read builds its path per read, or item 21's entry says why that read has no check.
 	- Reproduced: yes, 20260930, Linux.
 	- Origin: missed by the first review of code review 20260928 item 15, which named only the string and enum reads. Confirmed.
-	- Test case: none yet. `rj4jbn1b`, with a string list count whose bar goes by the length of each list.
+	- Actual fix: the test reads every string list a thousand times, once with the defaults and once with each list stored in the file. The bar is what the lists cost by themselves, the array and one copy per item, plus half an allocation per read. Both counts match that exactly today.
+	- Swept: every typed read in `nemo-config.h` now has a count: flags, whole numbers, decimals, strings, enums and string lists. `nemo_config_get_int` goes through the whole number read, and `nemo_config_get_default_boolean` reads only the key table.
+	- Test case: `rj4jbn1b Allocations per read test`, string list cases. Fails with the path built per read (75000 and 80000 allocations against 59000 and 64000), passes on the code as it is.
+	- Verified: the test passes on Linux after a clean build, and the lint stage is clean.
+	- Branch: pins2
+	- Commit: f0afcaa
+	- Acceptance signoff: Self-closed: a cost per read, with nothing on screen. rj4jbn1b covers it.
+	- Closed: 20261003-134129
 
 - A failed Windows install leaves a half-copied folder beside the install folder.
 	- ID: 2026100112505357
