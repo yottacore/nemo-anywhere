@@ -2881,13 +2881,18 @@ run_command (ArchiveJob *job)
 	   first run kept it or not. Left to itself, 7-Zip on Windows puts in an
 	   empty entry for each, and rar there writes a plain folder over a
 	   folder link the first run kept. rar would read * or ? in a name as a
-	   pattern, so those it is left to pass over. */
+	   pattern, and -x@ as a list file, so those it is left to pass over. */
 	leave_out = g_list_copy (job->left_out);
 	for (l = job->dangling_first; l != NULL; l = l->next) {
-		leave_out = g_list_append (leave_out, l->data);
+		if (job->backend != NEMO_ARCHIVE_BACKEND_RAR || ((char *) l->data)[0] != '@') {
+			leave_out = g_list_append (leave_out, l->data);
+		}
 	}
 	for (l = job->dangling; l != NULL; l = l->next) {
-		if (job->backend != NEMO_ARCHIVE_BACKEND_RAR || strpbrk (l->data, "*?") == NULL) {
+		const char *name = l->data;
+
+		if (job->backend != NEMO_ARCHIVE_BACKEND_RAR ||
+		    (strpbrk (name, "*?") == NULL && name[0] != '@')) {
 			leave_out = g_list_append (leave_out, l->data);
 		}
 	}
