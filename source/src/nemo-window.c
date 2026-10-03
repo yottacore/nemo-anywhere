@@ -2396,7 +2396,7 @@ nemo_window_init (NemoWindow *window)
 				  "changed::" NEMO_PREFERENCES_SHOW_FULL_PATH_TITLES,
 				  G_CALLBACK(title_spelling_changed),
 				  window, G_CONNECT_SWAPPED);
-    g_signal_connect_object (nemo_preferences,
+    g_signal_connect_object (nemo_windows_preferences,
 				  "changed::" NEMO_PREFERENCES_PATH_SEPARATOR,
 				  G_CALLBACK(title_spelling_changed),
 				  window, G_CONNECT_SWAPPED);

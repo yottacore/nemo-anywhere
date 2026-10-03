@@ -9949,7 +9949,7 @@ nemo_file_class_init (NemoFileClass *class)
 				  G_CALLBACK (thumbnail_limit_changed_callback),
 				  NULL);
 	thumbnail_size_changed_callback (NULL);
-	g_signal_connect_swapped (nemo_preferences,
+	g_signal_connect_swapped (nemo_icon_view_preferences,
 				  "changed::" NEMO_PREFERENCES_ICON_VIEW_THUMBNAIL_SIZE,
 				  G_CALLBACK (thumbnail_size_changed_callback),
 				  NULL);
