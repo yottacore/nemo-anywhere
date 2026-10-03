@@ -148,7 +148,7 @@ These are the features that make Nemo worth porting:
 
 	- Dot files and files with the hidden attribute each have a switch. Ctrl+H flips both. (They can also be independently hidden.)
 
-	- Includes right-click ptions like "Open in Windows Terminal", "Open as Administrator", "Open with Explorer", and "Copy path" with either kind of slash.
+	- Includes right-click options like "Open in Windows Terminal", "Open as Administrator", "Open with Explorer", and "Copy path" with either kind of slash.
 
 	- Light or dark follows the Windows setting. Four icon sets are drawn to match XP, 7, 10 and 11.
 
@@ -212,7 +212,7 @@ These are the features that make Nemo worth porting:
 
 - Alternate rows can be shaded, off by default. Selection and hover still show through it.
 
-- Places and the folder tree can now both open at teh same time. The tree lists folders only, and a folder with nothing under it gets no expander.
+- Places and the folder tree can now both open at the same time. The tree lists folders only, and a folder with nothing under it gets no expander.
 
 - Tabs are as wide as their title. With full paths on, a path too long to fit is shortened a step at a time, and the name of the folder itself is always kept. The active tab shows as much of the path as possible.
 
