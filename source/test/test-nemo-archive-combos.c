@@ -416,7 +416,11 @@ read_back (const char *path, GHashTable *found)
 			continue;
 		}
 
-		name = g_strdup (archive_entry_pathname (entry));
+		/* The plain name is in the locale's code page, which on Windows
+		   is not UTF-8. */
+		name = g_strdup (archive_entry_pathname_utf8 (entry) != NULL
+				 ? archive_entry_pathname_utf8 (entry)
+				 : archive_entry_pathname (entry));
 		length = strlen (name);
 		if (length > 0 && name[length - 1] == '/') {
 			name[length - 1] = '\0';
@@ -857,6 +861,9 @@ options_for (NemoArchiveFormat format, NemoArchiveOptions *options)
 	options->solid = format == NEMO_ARCHIVE_FORMAT_7Z;
 }
 
+/* "g", o with diaeresis, "n", a with macron. */
+#define WIDE_NAME "g\xc3\xb6n\xc4\x81"
+
 /* Whether a link that leads nowhere goes in as a link. The library writes one
    in every format it has. 7z and rar keep links only all or none, so theirs go
    in by a run of their own, which a split set cannot be added to. There 7-Zip
@@ -910,7 +917,15 @@ check_dangling (const char *tmp, NemoArchiveFormat format, gboolean store, gbool
 	write_bytes (held, "a.txt", "alpha", 5);
 	write_bytes (root, "target.txt", "target", 6);
 	check (nemo_link_create ("nowhere", gone, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
-	check (nemo_link_create ("../target.txt", good, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
+	/* Windows does not follow a link spelled with / at all. */
+	check (nemo_link_create (".." G_DIR_SEPARATOR_S "target.txt", good, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
+	{
+		/* On Windows a folder link reads as a folder, wherever it leads. */
+		char *gone_dir = g_build_filename (held, "gonedir", NULL);
+
+		check (nemo_link_create ("nowhere", gone_dir, NULL, NEMO_LINK_DIR_SYMLINK, NULL));
+		g_free (gone_dir);
+	}
 #ifndef G_OS_WIN32
 	{
 		/* rar would read this name as a pattern, so it stays out there. */
@@ -918,6 +933,15 @@ check_dangling (const char *tmp, NemoArchiveFormat format, gboolean store, gbool
 
 		check (nemo_link_create ("nowhere", odd, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
 		g_free (odd);
+	}
+#else
+	{
+		/* Both tools print names in the console code page unless told
+		   otherwise, and that one has no a with a macron. */
+		char *wide = g_build_filename (held, WIDE_NAME, NULL);
+
+		check (nemo_link_create ("nowhere", wide, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
+		g_free (wide);
 	}
 #endif
 	sources = g_list_append (NULL, g_file_new_for_path (held));
@@ -956,10 +980,19 @@ check_dangling (const char *tmp, NemoArchiveFormat format, gboolean store, gbool
 	if (kept) {
 		check (GPOINTER_TO_INT (g_hash_table_lookup (found, "held/gone")));
 	}
+	check (g_hash_table_contains (found, "held/gonedir") == kept);
+	if (kept) {
+		check (GPOINTER_TO_INT (g_hash_table_lookup (found, "held/gonedir")));
+	}
 #ifndef G_OS_WIN32
 	check (g_hash_table_contains (found, "held/g?ne") == odd_kept);
 	if (odd_kept) {
 		check (GPOINTER_TO_INT (g_hash_table_lookup (found, "held/g?ne")));
+	}
+#else
+	check (g_hash_table_contains (found, "held/" WIDE_NAME) == kept);
+	if (kept) {
+		check (GPOINTER_TO_INT (g_hash_table_lookup (found, "held/" WIDE_NAME)));
 	}
 #endif
 	g_hash_table_destroy (found);
@@ -972,7 +1005,11 @@ check_dangling (const char *tmp, NemoArchiveFormat format, gboolean store, gbool
 		/* One warning either way, and the originals stay. */
 		check (warnings == 1);
 		check (kept || strstr (said->str, "gone") != NULL);
+		check (kept || strstr (said->str, "gonedir") != NULL);
 		check (odd_kept || strstr (said->str, "g?ne") != NULL);
+#ifdef G_OS_WIN32
+		check (kept || strstr (said->str, WIDE_NAME) != NULL);
+#endif
 		check (asked == 0);
 		check (exists (held, "a.txt"));
 	}
@@ -1080,7 +1117,7 @@ check_dangling_deep (const char *tmp, NemoArchiveFormat format,
 	write_bytes (held, "a.txt", "alpha", 5);
 	check (nemo_link_create ("nowhere", gone, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
 	check (nemo_link_create ("nowhere", deep, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
-	check (nemo_link_create ("../outer", linked, NULL, NEMO_LINK_DIR_SYMLINK, NULL));
+	check (nemo_link_create (".." G_DIR_SEPARATOR_S "outer", linked, NULL, NEMO_LINK_DIR_SYMLINK, NULL));
 	sources = g_list_append (NULL, g_file_new_for_path (held));
 
 	options_for (format, &options);
