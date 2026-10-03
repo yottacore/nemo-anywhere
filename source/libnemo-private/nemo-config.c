@@ -221,7 +221,11 @@ new_empty_doc (void)
 
 /* The file as it was, beside it, before a format change rewrites it. Same
  * bytes, so putting it back is a rename. Returns the name, or NULL when it
- * could not be written, and then the old file must stay as it is. */
+ * could not be written, and then the old file must stay as it is.
+ *
+ * SHCL 3 only converts text. A later release may back up and convert the file
+ * itself; if it does, use that instead of this and the conversion in
+ * load_locked, never both on one file. */
 static char *
 backup_old_format (const char *text, gsize len, gint64 format)
 {
