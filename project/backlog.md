@@ -524,7 +524,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Type: Bug
 	- Status: Waiting on signoff
 	- Needs local test suite run?: Yes, the full Linux suite.
-	- Needs external testing: rdjjz89r on a Windows box, where the monitor reports an edit about 2 s late.
+	- Needs external testing: rdjjz89r on a Windows box, whose file monitor works differently.
 	- Priority|Severity: Low
 	- Opened: 20261002-212730
 	- Opened by: item 2026092813381422
