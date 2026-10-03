@@ -1561,6 +1561,16 @@ configure_writer (struct archive  *a,
 		} else {
 			opts = g_strdup_printf ("zip:compression=deflate,zip:compression-level=%d", level);
 		}
+#ifdef G_OS_WIN32
+		{
+			/* Otherwise names go in in a local code page, which
+			   drops any letter it does not have. */
+			char *with_names = g_strconcat (opts, ",zip:hdrcharset=UTF-8", NULL);
+
+			g_free (opts);
+			opts = with_names;
+		}
+#endif
 		break;
 	case NEMO_ARCHIVE_FORMAT_TAR:
 		archive_write_set_format_pax_restricted (a);
@@ -2792,6 +2802,7 @@ run_command (ArchiveJob *job)
 	char *archive_path = NULL;
 	char **argv = NULL;
 	GList *names = NULL;
+	GList *leave_out;
 	GList *l;
 	GSubprocess *process;
 	GError *error = NULL;
@@ -2866,8 +2877,24 @@ run_command (ArchiveJob *job)
 		goto out;
 	}
 
+	/* Every link the scan passed over is left out by name, whether the
+	   first run kept it or not. Left to itself, 7-Zip on Windows puts in an
+	   empty entry for each, and rar there writes a plain folder over a
+	   folder link the first run kept. rar would read * or ? in a name as a
+	   pattern, so those it is left to pass over. */
+	leave_out = g_list_copy (job->left_out);
+	for (l = job->dangling_first; l != NULL; l = l->next) {
+		leave_out = g_list_append (leave_out, l->data);
+	}
+	for (l = job->dangling; l != NULL; l = l->next) {
+		if (job->backend != NEMO_ARCHIVE_BACKEND_RAR || strpbrk (l->data, "*?") == NULL) {
+			leave_out = g_list_append (leave_out, l->data);
+		}
+	}
+
 	argv = nemo_archive_build_command (job->backend, job->options.format, &job->options,
-					   program, archive_path, names, job->left_out);
+					   program, archive_path, names, leave_out);
+	g_list_free (leave_out);
 
 	output = g_string_new (NULL);
 	process = start_tool (job, argv, base_path, output, &error);
