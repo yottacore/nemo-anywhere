@@ -1046,6 +1046,21 @@ if not is_windows
       args: [ nemo ],
       timeout: 120
     )
+
+    # Preloaded into the program, so it links nothing of ours.
+    held_view_hooks = shared_module('test-nemo-held-view-hooks',
+      [ 'test-nemo-held-view-hooks.c' ],
+      dependencies: [ gtk, cc.find_library('dl', required: false) ],
+    )
+    test('rjahhesy Held view settings handlers test',
+      executable('test-nemo-held-view',
+        [ 'test-nemo-held-view.c' ],
+        include_directories: [ rootInclude, ],
+        dependencies: [ glib, x11, xtst, test_scratch ],
+      ),
+      args: [ nemo, held_view_hooks ],
+      timeout: 180
+    )
   endif
 endif
 
