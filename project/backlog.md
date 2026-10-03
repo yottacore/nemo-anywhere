@@ -561,7 +561,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: shortcut changes are saved to `~/.gnome2/accels/nemo`, and that folder is never made. With no `~/.gnome2/accels`, nothing is saved, and on Windows it is never there. Where it is there, the file is the one upstream Nemo uses, so the two programs read and overwrite each other's shortcuts.
 	- Expected behavior: shortcuts are saved, in a file of the app's own.
 	- Reproduced: yes, 20261003, Linux, with an empty home. No file after quit.
-	- Possible fix: save beside the settings, making the folder when needed. Whether an existing upstream file is read once is open.
+	- Possible fix: save beside the settings, making the folder when needed.
+	- Decisions:
+		- 20261003: the shortcut file moves beside the settings file, and its folder is made when needed. It stays in GTK's own format.
+		- 20261003: on the first start after the move, an existing `~/.gnome2/accels/nemo` is read once, so custom shortcuts carry over. The old file is left alone.
 	- Test case: none yet. rjch1b9a makes the folder itself, and would no longer need to.
 
 - A busy answer to the version check at open wipes the file cache under other copies.
