@@ -75,7 +75,7 @@ if [[ -n "$art_dir" ]]; then
 	[[ -s "$sums" ]] || die "no ${sums} - run cicd/cicd.bash (full, not --quick) first"
 	( cd "${art_dir}" && sha256sum -c "${EXE_NAME}-${ver}-sha256sums.txt" >/dev/null ) || die "artifact checksums do not verify"
 	## The tag goes on HEAD, so the artifacts have to be HEAD's build. Built on dev
-	## before the merge, they carry dev's commit date: a rebuild of the tag would
+	## before the merge, they have dev's commit date: a rebuild of the tag would
 	## not match them, and the build number in the notes would be one no binary has.
 	shopt -s nullglob
 	arts=("${art_dir}/${EXE_NAME}-${ver}-"*)

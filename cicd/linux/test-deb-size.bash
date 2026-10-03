@@ -38,7 +38,7 @@ trap cleanup EXIT
 failures=0
 fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
-## A copy of the lane, so nothing lands in the real release dir.
+## A copy of the lane, so nothing is written to the real release dir.
 lane="${scratch}/repo"
 mkdir -p "${lane}/cicd/linux" "${lane}/cicd/utility/include" "${lane}/cicd/artifacts/release"
 cp "${root}/cicd/linux/package.bash" "${lane}/cicd/linux/"
@@ -75,7 +75,7 @@ fPack(){
 mkdir -p "${scratch}/work-a"
 fPack "${scratch}/work-a" "${scratch}/a.deb"
 
-## What dpkg-gencontrol would say for the same tree: unpacked, with the empty
+## What dpkg-gencontrol would say for the same tree: extracted, with the empty
 ## DEBIAN dir it is measured with. Counted by hand only where the tool is missing.
 fExpected(){
 	local tree="${scratch}/unpacked" ctl="${scratch}/ctl"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Print the build stamp each release artifact carries, or check them against one.
+"""Print the build stamp in each release artifact, or check them against one.
 
 Every lane stamps SOURCE_DATE_EPOCH, the commit date of what was built, into its
 output: tar entry times, the .deb and .rpm file times, the rpm build time and the
@@ -7,7 +7,7 @@ PE header of a Windows exe. So the stamp says which commit an artifact came from
 and the build number in it follows from the same date.
 
 Syntax: release-stamps.py [--expect EPOCH] [--exe NAME] FILE...
-With --expect, exits 1 when any artifact carries another stamp. In a zip only
+With --expect, exits 1 when any artifact has another stamp. In a zip only
 the exe called NAME is read: the runtime's own exes keep their packagers' dates,
 and zip entry times are local time. A file it has no reader for is listed as
 unchecked and does not fail the run. So is a packed exe, since the packer writes
