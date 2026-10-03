@@ -1057,6 +1057,11 @@ nemo_window_finalize (GObject *object)
 
 	g_clear_object (&window->details->ui_manager);
 
+	g_free (window->details->ignore_meta_view_id);
+	g_free (window->details->ignore_meta_sort_column);
+	g_list_free_full (window->details->ignore_meta_visible_columns, g_free);
+	g_list_free_full (window->details->ignore_meta_column_order, g_free);
+
 	/* nemo_window_close() should have run */
 	g_assert (window->details->panes == NULL);
 
