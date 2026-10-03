@@ -436,9 +436,9 @@ nemo_action_manager_constructed (GObject *object)
     reload_actions_layout (action_manager);
     refresh_actions (action_manager, NULL);
 
-    g_signal_connect (nemo_plugin_preferences,
-                      "changed::" NEMO_PLUGIN_PREFERENCES_DISABLED_ACTIONS,
-                      G_CALLBACK (plugin_prefs_changed), action_manager);
+    g_signal_connect_object (nemo_plugin_preferences,
+                             "changed::" NEMO_PLUGIN_PREFERENCES_DISABLED_ACTIONS,
+                             G_CALLBACK (plugin_prefs_changed), action_manager, 0);
 }
 
 NemoActionManager *
@@ -464,7 +464,6 @@ nemo_action_manager_dispose (GObject *object)
     }
 
     g_clear_object (&priv->json_parser);
-    g_signal_handlers_disconnect_by_func (nemo_plugin_preferences, G_CALLBACK (plugin_prefs_changed), action_manager);
 
     G_OBJECT_CLASS (nemo_action_manager_parent_class)->dispose (object);
 }

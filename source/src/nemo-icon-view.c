@@ -2748,33 +2748,6 @@ nemo_icon_view_finalize (GObject *object)
 	g_clear_handle_id (&icon_view->details->render_ahead_id, g_source_remove);
 	g_free (icon_view->details);
 
-	g_signal_handlers_disconnect_by_func (nemo_preferences,
-					      default_sort_order_changed_callback,
-					      icon_view);
-	g_signal_handlers_disconnect_by_func (nemo_preferences,
-					      default_sort_in_reverse_order_changed_callback,
-					      icon_view);
-	g_signal_handlers_disconnect_by_func (nemo_preferences,
-					      image_display_policy_changed_callback,
-					      icon_view);
-
-	g_signal_handlers_disconnect_by_func (nemo_icon_view_preferences,
-					      default_icon_size_changed_callback,
-					      icon_view);
-	g_signal_handlers_disconnect_by_func (nemo_icon_view_preferences,
-					      labels_beside_icons_changed_callback,
-					      icon_view);
-	g_signal_handlers_disconnect_by_func (nemo_icon_view_preferences,
-					      text_attribute_names_changed_callback,
-					      icon_view);
-
-	g_signal_handlers_disconnect_by_func (nemo_compact_view_preferences,
-					      default_icon_size_changed_callback,
-					      icon_view);
-	g_signal_handlers_disconnect_by_func (nemo_compact_view_preferences,
-					      all_columns_same_width_changed_callback,
-					      icon_view);
-
 	G_OBJECT_CLASS (nemo_icon_view_parent_class)->finalize (object);
 }
 
@@ -2800,43 +2773,43 @@ nemo_icon_view_constructed (GObject *object)
                                              NEMO_ICON_LAYOUT_L_R_T_B);
     }
 
-    g_signal_connect_swapped (nemo_preferences,
+    g_signal_connect_object (nemo_preferences,
                   "changed::" NEMO_PREFERENCES_DEFAULT_SORT_ORDER,
                   G_CALLBACK (default_sort_order_changed_callback),
-                  icon_view);
-    g_signal_connect_swapped (nemo_preferences,
+                  icon_view, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_preferences,
                   "changed::" NEMO_PREFERENCES_DEFAULT_SORT_IN_REVERSE_ORDER,
                   G_CALLBACK (default_sort_in_reverse_order_changed_callback),
-                  icon_view);
-    g_signal_connect_swapped (nemo_preferences,
+                  icon_view, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_preferences,
                   "changed::" NEMO_PREFERENCES_SHOW_IMAGE_FILE_THUMBNAILS,
                   G_CALLBACK (image_display_policy_changed_callback),
-                  icon_view);
-    g_signal_connect_swapped (nemo_icon_view_preferences,
+                  icon_view, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_icon_view_preferences,
                   "changed::" NEMO_PREFERENCES_ICON_VIEW_DEFAULT_ICON_SIZE,
                   G_CALLBACK (default_icon_size_changed_callback),
-                  icon_view);
-    g_signal_connect_swapped (nemo_icon_view_preferences,
+                  icon_view, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_icon_view_preferences,
                   "changed::" NEMO_PREFERENCES_ICON_VIEW_DEFAULT_IMAGE_ICON_SIZE,
                   G_CALLBACK (default_icon_size_changed_callback),
-                  icon_view);
-    g_signal_connect_swapped (nemo_icon_view_preferences,
+                  icon_view, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_icon_view_preferences,
                   "changed::" NEMO_PREFERENCES_ICON_VIEW_LABELS_BESIDE_ICONS,
                   G_CALLBACK (labels_beside_icons_changed_callback),
-                  icon_view);
-    g_signal_connect_swapped (nemo_icon_view_preferences,
+                  icon_view, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_icon_view_preferences,
                   "changed::" NEMO_PREFERENCES_ICON_VIEW_CAPTIONS,
                   G_CALLBACK (text_attribute_names_changed_callback),
-                  icon_view);
+                  icon_view, G_CONNECT_SWAPPED);
 
-    g_signal_connect_swapped (nemo_compact_view_preferences,
+    g_signal_connect_object (nemo_compact_view_preferences,
                   "changed::" NEMO_PREFERENCES_COMPACT_VIEW_DEFAULT_ICON_SIZE,
                   G_CALLBACK (default_icon_size_changed_callback),
-                  icon_view);
-    g_signal_connect_swapped (nemo_compact_view_preferences,
+                  icon_view, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_compact_view_preferences,
                   "changed::" NEMO_PREFERENCES_COMPACT_VIEW_ALL_COLUMNS_SAME_WIDTH,
                   G_CALLBACK (all_columns_same_width_changed_callback),
-                  icon_view);
+                  icon_view, G_CONNECT_SWAPPED);
 
     g_signal_connect_object (get_icon_container (icon_view), "handle_netscape_url",
                  G_CALLBACK (icon_view_handle_netscape_url), icon_view, 0);

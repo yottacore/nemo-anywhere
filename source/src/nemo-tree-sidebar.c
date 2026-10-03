@@ -1724,13 +1724,13 @@ fm_tree_view_init (FMTreeView *view)
                                                                          view);
     view->details->ui_manager = gtk_ui_manager_new ();
 
-    g_signal_connect_swapped (nemo_preferences,
+    g_signal_connect_object (nemo_preferences,
                   "changed::" NEMO_PREFERENCES_SORT_DIRECTORIES_FIRST,
-                  G_CALLBACK (sort_directories_first_changed_callback), view);
+                  G_CALLBACK (sort_directories_first_changed_callback), view, G_CONNECT_SWAPPED);
                   
-    g_signal_connect_swapped (nemo_preferences,
+    g_signal_connect_object (nemo_preferences,
                   "changed::" NEMO_PREFERENCES_SORT_FAVORITES_FIRST,
-                  G_CALLBACK (sort_favorites_first_changed_callback), view);
+                  G_CALLBACK (sort_favorites_first_changed_callback), view, G_CONNECT_SWAPPED);
 
     view->details->sort_directories_first = nemo_config_get_boolean (nemo_preferences,
                                                                     NEMO_PREFERENCES_SORT_DIRECTORIES_FIRST);
@@ -1818,14 +1818,6 @@ fm_tree_view_dispose (GObject *object)
 
     g_clear_object (&view->details->action_manager);
     g_clear_object (&view->details->ui_manager);
-
-    g_signal_handlers_disconnect_by_func (nemo_preferences,
-                          G_CALLBACK(sort_directories_first_changed_callback),
-                          view);
-    g_signal_handlers_disconnect_by_func (nemo_preferences,
-                          G_CALLBACK(sort_favorites_first_changed_callback),
-                          view);
-        
 
 	view->details->window = NULL;
 

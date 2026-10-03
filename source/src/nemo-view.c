@@ -2904,44 +2904,44 @@ nemo_view_init (NemoView *view)
 
 	gtk_widget_show (GTK_WIDGET (view));
 
-	g_signal_connect_swapped (nemo_preferences,
-				  "changed::" NEMO_PREFERENCES_ENABLE_DELETE,
-				  G_CALLBACK (schedule_update_menus_callback), view);
-    g_signal_connect_swapped (nemo_menu_config_preferences,
-                              "changed",
-                              G_CALLBACK (schedule_update_menus_callback), view);
-    g_signal_connect_swapped (nemo_preferences,
+	g_signal_connect_object (nemo_preferences,
+				 "changed::" NEMO_PREFERENCES_ENABLE_DELETE,
+				 G_CALLBACK (schedule_update_menus_callback), view, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_menu_config_preferences,
+                             "changed",
+                             G_CALLBACK (schedule_update_menus_callback), view, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_preferences,
                   "changed::" NEMO_PREFERENCES_SWAP_TRASH_DELETE,
-                  G_CALLBACK (swap_delete_keybinding_changed_callback), view);
-	g_signal_connect_swapped (nemo_preferences,
-				  "changed::" NEMO_PREFERENCES_CLICK_POLICY,
-				  G_CALLBACK(click_policy_changed_callback),
-				  view);
-    g_signal_connect_swapped (nemo_preferences,
+                  G_CALLBACK (swap_delete_keybinding_changed_callback), view, G_CONNECT_SWAPPED);
+	g_signal_connect_object (nemo_preferences,
+				 "changed::" NEMO_PREFERENCES_CLICK_POLICY,
+				 G_CALLBACK(click_policy_changed_callback),
+				 view, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_preferences,
                   "changed::" NEMO_PREFERENCES_CLICK_TO_RENAME,
                   G_CALLBACK(click_to_rename_changed_callback),
-                  view);
+                  view, G_CONNECT_SWAPPED);
 #ifdef G_OS_WIN32
-	g_signal_connect_swapped (nemo_windows_preferences,
-				  "changed::" NEMO_PREFERENCES_SHOW_DOT_FILES,
-				  G_CALLBACK (dot_files_preference_changed_callback), view);
+	g_signal_connect_object (nemo_windows_preferences,
+				 "changed::" NEMO_PREFERENCES_SHOW_DOT_FILES,
+				 G_CALLBACK (dot_files_preference_changed_callback), view, G_CONNECT_SWAPPED);
 #endif
-	g_signal_connect_swapped (nemo_preferences,
-				  "changed::" NEMO_PREFERENCES_SORT_DIRECTORIES_FIRST,
-				  G_CALLBACK(sort_directories_first_changed_callback), view);
-	g_signal_connect_swapped (nemo_preferences,
-				  "changed::" NEMO_PREFERENCES_SORT_FAVORITES_FIRST,
-				  G_CALLBACK(sort_favorites_first_changed_callback), view);
-	g_signal_connect_swapped (nemo_window_state,
-				  "changed::" NEMO_WINDOW_STATE_START_WITH_STATUS_BAR,
-				  G_CALLBACK (nemo_view_display_selection_info), view);
+	g_signal_connect_object (nemo_preferences,
+				 "changed::" NEMO_PREFERENCES_SORT_DIRECTORIES_FIRST,
+				 G_CALLBACK(sort_directories_first_changed_callback), view, G_CONNECT_SWAPPED);
+	g_signal_connect_object (nemo_preferences,
+				 "changed::" NEMO_PREFERENCES_SORT_FAVORITES_FIRST,
+				 G_CALLBACK(sort_favorites_first_changed_callback), view, G_CONNECT_SWAPPED);
+	g_signal_connect_object (nemo_window_state,
+				 "changed::" NEMO_WINDOW_STATE_START_WITH_STATUS_BAR,
+				 G_CALLBACK (nemo_view_display_selection_info), view, G_CONNECT_SWAPPED);
 
-    g_signal_connect_swapped (nemo_preferences,
+    g_signal_connect_object (nemo_preferences,
                   "changed::" NEMO_PREFERENCES_SHOW_BOOKMARKS_IN_TO_MENUS,
-                  G_CALLBACK (nemo_to_menu_preferences_changed_callback), view);
-    g_signal_connect_swapped (nemo_preferences,
+                  G_CALLBACK (nemo_to_menu_preferences_changed_callback), view, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_preferences,
                   "changed::" NEMO_PREFERENCES_SHOW_PLACES_IN_TO_MENUS,
-                  G_CALLBACK (nemo_to_menu_preferences_changed_callback), view);
+                  G_CALLBACK (nemo_to_menu_preferences_changed_callback), view, G_CONNECT_SWAPPED);
 
     nemo_to_menu_preferences_changed_callback (view);
 
@@ -2949,9 +2949,9 @@ nemo_view_init (NemoView *view)
 	g_signal_connect_object (manager, "undo-changed",
 				 G_CALLBACK (undo_manager_changed_cb), view, 0);
 
-    g_signal_connect (nemo_plugin_preferences,
-                      "changed::" NEMO_PLUGIN_PREFERENCES_DISABLED_SCRIPTS,
-                      G_CALLBACK (plugin_prefs_changed), view);
+    g_signal_connect_object (nemo_plugin_preferences,
+                             "changed::" NEMO_PLUGIN_PREFERENCES_DISABLED_SCRIPTS,
+                             G_CALLBACK (plugin_prefs_changed), view, 0);
 
 	/* Accessibility */
 	atk_object = gtk_widget_get_accessible (GTK_WIDGET (view));
@@ -3104,8 +3104,6 @@ nemo_view_destroy (GtkWidget *object)
 		view->details->directory_as_file = NULL;
 	}
 
-    g_signal_handlers_disconnect_by_func (nemo_plugin_preferences, G_CALLBACK (plugin_prefs_changed), view);
-
 	GTK_WIDGET_CLASS (nemo_view_parent_class)->destroy (object);
 }
 
@@ -3115,31 +3113,6 @@ nemo_view_finalize (GObject *object)
 	NemoView *view;
 
 	view = NEMO_VIEW (object);
-
-	g_signal_handlers_disconnect_by_func (nemo_preferences,
-					      schedule_update_menus_callback, view);
-	g_signal_handlers_disconnect_by_func (nemo_preferences,
-					      click_policy_changed_callback, view);
-    g_signal_handlers_disconnect_by_func (nemo_preferences,
-                          click_to_rename_changed_callback, view);
-#ifdef G_OS_WIN32
-	g_signal_handlers_disconnect_by_func (nemo_windows_preferences,
-					      dot_files_preference_changed_callback, view);
-#endif
-	g_signal_handlers_disconnect_by_func (nemo_preferences,
-					      sort_directories_first_changed_callback, view);
-	g_signal_handlers_disconnect_by_func (nemo_preferences,
-					      sort_favorites_first_changed_callback, view);
-	g_signal_handlers_disconnect_by_func (nemo_window_state,
-					      nemo_view_display_selection_info, view);
-    g_signal_handlers_disconnect_by_func (nemo_menu_config_preferences,
-                          schedule_update_menus_callback, view);
-
-    g_signal_handlers_disconnect_by_func (nemo_preferences,
-                          nemo_to_menu_preferences_changed_callback, view);
-
-    g_signal_handlers_disconnect_by_func (nemo_preferences,
-                          schedule_update_menus, view);
 
 	unschedule_pop_up_location_context_menu (view);
 	if (view->details->location_popup_event != NULL) {

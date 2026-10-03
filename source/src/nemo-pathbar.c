@@ -339,9 +339,9 @@ nemo_path_bar_init (NemoPathBar *path_bar)
 
     desktop_is_home = g_file_equal (path_bar->priv->home_path, path_bar->priv->desktop_path);
 
-    g_signal_connect_swapped (nemo_preferences, "changed::" NEMO_PREFERENCES_DESKTOP_IS_HOME_DIR,
+    g_signal_connect_object (nemo_preferences, "changed::" NEMO_PREFERENCES_DESKTOP_IS_HOME_DIR,
                   G_CALLBACK(desktop_location_changed_callback),
-                  path_bar);
+                  path_bar, G_CONNECT_SWAPPED);
 
     g_signal_connect_swapped (path_bar->priv->up_slider_button, "clicked", G_CALLBACK (nemo_path_bar_scroll_up), path_bar);
     g_signal_connect_swapped (path_bar->priv->down_slider_button, "clicked", G_CALLBACK (nemo_path_bar_scroll_down), path_bar);
@@ -405,10 +405,6 @@ nemo_path_bar_finalize (GObject *object)
     g_clear_object (&path_bar->priv->xdg_templates_path);
     g_clear_object (&path_bar->priv->xdg_videos_path);
     g_clear_object (&path_bar->priv->desktop_path);
-
-    g_signal_handlers_disconnect_by_func (nemo_preferences,
-                          desktop_location_changed_callback,
-                          path_bar);
 
     G_OBJECT_CLASS (nemo_path_bar_parent_class)->finalize (object);
 }
