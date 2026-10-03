@@ -21,7 +21,6 @@
 	- [Making links](#making-links)
 	- [Shortcuts](#shortcuts)
 	- [Editing links](#editing-links)
-	- [Planned copy and move totals](#planned-copy-and-move-totals)
 	- [Open questions](#open-questions)
 - [Alternative ideas](#alternative-ideas)
 	- [Unconsidered](#unconsidered)
@@ -38,8 +37,6 @@
 How files are copied and moved, and how links are handled along the way. It also covers making and editing links, since those share the same kinds and the same rules.
 
 - Built today: a copy that meets a link asks what to do with it, a move always takes a link as a link, copies are clones where the filesystem allows, and Make link and Edit link cover every kind of link on every platform.
-
-- Planned, after rc.1: the copy and move dialogs count sizes the way the [compression](20260929-101432_compression.md) dialog does, per kind of link and per filesystem, and say how much new space the job will take.
 
 - Deleting and trashing are in [design.md](../design.md#trash-and-delete).
 
@@ -60,15 +57,6 @@ How files are copied and moved, and how links are handled along the way. It also
 - Make link offers every kind the platform has. A hardlink is never picked for anyone.
 
 - Nothing in the link dialogs is remembered between uses.
-
-- Planned:
-	- Copy dialog enhancements:
-		- Use similar file size totalling logic as the Compression dialog design, based on selections.
-		- Show how much total file size is going to the same CoW filesystem (with much smaller estimated total new space to be consumed), and how much is being copied to a different filesystem.
-		- An "Ignore" choice per kind of link, and the nested and other filesystem options, as the Compress dialog has.
-	- Move dialog enhancements:
-		- Use similar file totalling logic as the Copy dialog design.
-		- Show how much is just moving on the same filesystem, and how much new data will be copied elsewhere.
 
 ## Goals
 
@@ -131,7 +119,7 @@ Copying a link asks what should be at the far end. A link can stay a link or be 
 	- An overwrite, a link copied as a link, or anything the plain copy can't start goes the usual way, so conflicts and errors read the same.
 	- Other platforms have nothing to skip, since only Linux clones on copy there.
 
-- Which filesystems can clone is in [dedupe and thumbnails](20260925-063617_dedupe_and_thumbnails.md#copy-on-write-clones).
+- Which filesystems can clone is under [Research findings](#research-findings).
 
 ### Making links
 
@@ -172,32 +160,7 @@ Edit link changes an existing link's name and where it points. It is offered onl
 
 - The old link is removed through the delete guard, which removes a link and nothing else.
 
-### Planned copy and move totals
-
-The same scan and counting as the Compress dialog: see [Counting sizes](20260929-101432_compression.md#counting-sizes). What differs is what the totals are split by.
-
-- Copy:
-	- The total size of what the choices as set would copy.
-	- How much goes to the same Copy-on-Write filesystem, and a much smaller estimate of the new space that will take.
-	- How much is copied to a different filesystem.
-
-- Move:
-	- How much only moves on the same filesystem, and takes no new space.
-	- How much new data is copied somewhere else.
-
-- The copy dialog gets the choices the Compress dialog has, with a size change beside each:
-	- Each link row gets "Ignore", which leaves those links out of the copy. The rows today already match the others: "Copy link as-is" is Store, and "Copy contents" is Follow. Each row still starts where it does today.
-	- Follow nested filesystems, checked by default.
-	- Follow other filesystems, never checked by default.
-	- A link onto a nested or other filesystem is followed only when both its link choice and the filesystem option are on, the same as in the Compress dialog.
-
-- A move keeps its rows as they are, since it always takes a link as the link.
-
 ### Open questions
-
-- When the totals are shown: only when the source has links, as the link dialog is today, or on every copy past some size.
-
-- How the new-space estimate for a clone is worked out, since the filesystem doesn't say ahead of time.
 
 - A relative symlink between two shares of one server doesn't resolve (2026092813381418).
 
@@ -211,7 +174,7 @@ The same scan and counting as the Compress dialog: see [Counting sizes](20260929
 
 - A "Snapshot ..." menu item, canceled on 2026-09-25. It would have made a Copy-on-Write clone or a hardlinked copy of a folder tree beside itself, then pointed links inside the copy at the copy.
 	- The clone already comes from copy and paste on a filesystem that clones.
-	- The hardlink copy is too fraught with future data loss for the user. See [Hardlinks](20260925-063617_dedupe_and_thumbnails.md#hardlinks).
+	- The hardlink copy is too fraught with future data loss for the user.
 	- Rewriting links inside the copy could still surprise people, and is inconsistent, since only links into the tree would change.
 	- It belongs in tools someone goes looking for, not a feature stumbled on in a file manager.
 
@@ -245,13 +208,11 @@ The same scan and counting as the Compress dialog: see [Counting sizes](20260929
 
 - A clone below 64 KiB saves less than the filesystem spends keeping track of the shared part.
 
+- Copy-on-Write clones, by platform: FICLONE on Btrfs, ZFS, XFS, OCFS2 and bcachefs on Linux, `clonefile()` on APFS, and FSCTL_DUPLICATE_EXTENTS_TO_FILE on ReFS. ZFS needs OpenZFS 2.2 or later with block cloning on.
+
 ## Roadmap
 
-- The copy and move totals, after rc.1. They share the scan the Compress dialog reset builds.
-
-- Answer the open questions above before the copy dialog changes.
-
-- The totals read from [TukzedoFS](20260930-145641_tukzedofs.md) once it has the rows.
+None.
 
 ## Related backlog issues
 
@@ -284,7 +245,3 @@ The same scan and counting as the Compress dialog: see [Counting sizes](20260929
 - 2026092813381418: a relative symlink between two shares of one server does not resolve.
 
 - 2026092813381440: the shortcut path choice code is only reached by tests.
-
-- 2026100114301533: copy dialog size totals, after rc.1.
-
-- 2026100114301534: move dialog size totals, after rc.1.

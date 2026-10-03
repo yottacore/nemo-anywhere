@@ -111,8 +111,6 @@ What the project is trying to be, roughly in priority order:
 - Handle natively in own code (and or reliance on optionally-installed CLI tools), far more robustly than Nemo's reliance on external tools - and lack of really good tools:
 	- Archive/extract.
 	- Find.
-	- Robust rename that surpasses Thunar Renamer and Directory Opus in functionality, simplicity, and repeatability (e.g. saveable templates). For media types, be at least as robust as "CamHauler" (formerly "Rapid Photo Downloader Pro" and may get yet another rename).
-	- Smart duplicate file and directory finder and handler.
 
 - Never follow links of any kind for deletes or moves. The copy portion presents user with options for how to handle links.
 
@@ -318,9 +316,9 @@ Per-folder view state - view mode, zoom, sort column, column layout - is app-own
 
 The file cache is the fourth store. It is a private SQLite database under the user's cache folder, with what has been worked out about files on disk, so it does not have to be worked out again. Thumbnails are the first thing in it and the reason it exists, but its tables are about files rather than pictures.
 
-- It is the start of TukzedoFS, a database of what the app knows about files, which later also serves dedupe, tags and the size scans. The database, the tables, checksums written onto files, and pruning are in [20260930-145641_tukzedofs.md](design_docs/20260930-145641_tukzedofs.md). Most of TukzedoFS will probably go in Captain Nemo rather than here.
+- The tables, checksums written onto files, and pruning are in [20260930-145641_file_cache.md](design_docs/20260930-145641_file_cache.md).
 
-- How thumbnails are made, stored, ordered and shown, and the planned dedupe, are in [20260925-063617_dedupe_and_thumbnails.md](design_docs/20260925-063617_dedupe_and_thumbnails.md).
+- How thumbnails are made, stored, ordered and shown is in [20260925-063617_thumbnails.md](design_docs/20260925-063617_thumbnails.md).
 
 ### File operations
 
@@ -334,7 +332,7 @@ Trashing and deleting are the two things a file manager cannot take back, so the
 
 Copying a link asks what should be at the far end, once per operation, on every platform. A move always takes a link as the link. Make link and Edit link cover every kind of link each platform has, shortcuts included. Copies are clones where the filesystem allows.
 
-- Copying, moving, clone copies, making and editing links, and the planned size totals are in [20260930-145641_moving_and_copying.md](design_docs/20260930-145641_moving_and_copying.md).
+- Copying, moving, clone copies, and making and editing links are in [20260930-145641_moving_and_copying.md](design_docs/20260930-145641_moving_and_copying.md).
 
 #### Archives
 
@@ -469,7 +467,7 @@ This rule has been rewritten several times and will probably move again, so the 
 
 - Every label reads as a sentence rather than a headline. Only the first word is capitalized, and a name keeps its capital wherever it stands: the platforms, the toolkit, Trash and the other sidebar places, formats, acronyms. Mnemonics do not move and shortcut text is untouched. It is checked at lint time over every translatable string in the tree, so a label copied from upstream in Title Case is caught where it is added.
 
-- Properties is the platform's own on Windows, with ours under Ctrl+Enter for what the shell sheet has no room for. The other platforms use our window throughout. See [20260930-150859_properties_dialog.md](design_docs/20260930-150859_properties_dialog.md), with the planned counting and Hidden box.
+- Properties is the platform's own on Windows, with ours under Ctrl+Enter for what the shell sheet has no room for. The other platforms use our window throughout. See [20260930-150859_properties_dialog.md](design_docs/20260930-150859_properties_dialog.md).
 
 - A settings window opens the size of its longest page. The preferences dialog measures every page it holds and opens tall and wide enough for the largest, up to nine tenths of the screen, so no page starts out behind a scrollbar. Its floor is written for a 96dpi screen and scaled by the display's font scaling, so it means the same thing at 150% as at 100%.
 
