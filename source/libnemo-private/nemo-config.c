@@ -708,14 +708,50 @@ is_banner_line (const char *bare)
 		g_once_init_leave (&once, 1);
 	}
 
-	if (g_str_has_prefix (bare, "##    "))
+	if (g_str_has_prefix (bare, "##    ") || strcmp (bare, "##") == 0)
 		return TRUE;
-	/* A bare "##" is only ours next to the rest of the block. */
 	for (i = 0; lines[i] != NULL; i++) {
 		if (strlen (lines[i]) > 2 && strcmp (lines[i], bare) == 0)
 			return TRUE;
 	}
 	return FALSE;
+}
+
+/* Which lines are the info block. Only a run of "##" lines that names the
+ * format counts, found the way shcl_set_banner finds one: by its SHCL line or
+ * its version line, never its links. Inside the run, a line that is not one of
+ * the block's own is somebody's note and stays. */
+static gboolean *
+find_banner_lines (GPtrArray *lines)
+{
+	gboolean *banner = g_new0 (gboolean, lines->len + 1);
+	guint     start = 0;
+	guint     i;
+
+	for (i = 0; i <= lines->len; i++) {
+		const char *line = i < lines->len ? g_ptr_array_index (lines, i) : "";
+		const char *bare = line + strspn (line, " \t");
+		gboolean    named = FALSE;
+		guint       j;
+
+		if (g_str_has_prefix (bare, "##"))
+			continue;
+
+		for (j = start; j < i && !named; j++) {
+			const char *in_run = g_ptr_array_index (lines, j);
+
+			in_run += strspn (in_run, " \t");
+			named = g_str_has_prefix (in_run, "## This config file format is SHCL.") ||
+			        g_str_has_prefix (in_run, SHCL_FORMAT_LINE_HEAD);
+		}
+		for (j = start; named && j < i; j++) {
+			const char *in_run = g_ptr_array_index (lines, j);
+
+			banner[j] = is_banner_line (in_run + strspn (in_run, " \t"));
+		}
+		start = i + 1;
+	}
+	return banner;
 }
 
 /* Take any catalog already in the text out and put a fresh one on the end. An
@@ -734,6 +770,7 @@ apply_catalog (shcl_doc *doc, const char *text, gsize len, gsize *out_len)
 	const char  *p = text;
 	const char  *end = text + len;
 	char        *catalog;
+	gboolean    *banner;
 	gboolean     dropped_last = FALSE;
 	guint        i;
 
@@ -750,24 +787,18 @@ apply_catalog (shcl_doc *doc, const char *text, gsize len, gsize *out_len)
 		p = nl != NULL ? nl + 1 : end;
 	}
 
+	banner = find_banner_lines (lines);
 	p = text;
 	for (i = 0; i < lines->len; i++) {
 		const char *line = g_ptr_array_index (lines, i);
 		const char *bare = line + strspn (line, " \t");
 		gsize       whole = g_array_index (keeps, gsize, i);
-		gboolean    drop  = g_hash_table_contains (key_lines, bare) || is_banner_line (bare);
+		gboolean    drop  = g_hash_table_contains (key_lines, bare) || banner[i];
 
 		if (!drop && g_hash_table_contains (desc_lines, bare) && i + 1 < lines->len) {
 			const char *next = g_ptr_array_index (lines, i + 1);
 
 			drop = g_hash_table_contains (key_lines, next + strspn (next, " \t"));
-		}
-		if (!drop && strcmp (bare, "##") == 0) {
-			const char *prev = i > 0 ? g_ptr_array_index (lines, i - 1) : "";
-			const char *next = i + 1 < lines->len ? g_ptr_array_index (lines, i + 1) : "";
-
-			drop = is_banner_line (prev + strspn (prev, " \t")) ||
-			       is_banner_line (next + strspn (next, " \t"));
 		}
 		/* A blank that only sat between two stripped lines goes with them. */
 		if (!drop && *bare == '\0' && dropped_last)
@@ -779,6 +810,7 @@ apply_catalog (shcl_doc *doc, const char *text, gsize len, gsize *out_len)
 	}
 	g_ptr_array_free (lines, TRUE);
 	g_array_free (keeps, TRUE);
+	g_free (banner);
 
 	/* Whatever blank lines taking those out left behind. */
 	while (body->len > 0 && (body->data[body->len - 1] == '\n' ||

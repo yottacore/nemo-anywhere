@@ -382,6 +382,53 @@ test_own_comment_kept (NemoConfigGroup *prefs)
 	g_free (text);
 }
 
+/* Only a run of "##" lines that names the format is the info block. Lines
+ * spelled like its fields elsewhere are somebody's notes, and so is a "##"
+ * written against the block that is not one of its own lines. */
+static void
+test_banner_like_comment_kept (NemoConfigGroup *prefs)
+{
+	char *settings = read_settings ();
+	char *edited = g_strconcat ("##\n##    Aligned   like the info block\n##\n",
+	                            settings,
+	                            "\npreferences.always-show-tabs: true\n", NULL);
+	char *text;
+
+	g_free (settings);
+	write_and_wait (edited, prefs, "always-show-tabs");
+	g_free (edited);
+
+	nemo_config_set_int (prefs, "tab-width-min-percent", 14);
+	nemo_config_flush ();
+
+	text = read_file ();
+	check (strstr (text, "##\n##    Aligned   like the info block\n##\n") != NULL);
+	check (count_of (text, "This config file format is SHCL.") == 1);
+	g_free (text);
+
+	/* A note added below the block, then a key under it. */
+	text = read_file ();
+	edited = g_strconcat (text, "## my note\npreferences.show-full-path-titles: true\n", NULL);
+	g_free (text);
+	write_and_wait (edited, prefs, "show-full-path-titles");
+	g_free (edited);
+
+	nemo_config_set_int (prefs, "tab-width-min-percent", 15);
+	nemo_config_flush ();
+
+	text = read_file ();
+	check (strstr (text, "## my note\n") != NULL);
+	check (count_of (text, "This config file format is SHCL.") == 1);
+	check (count_of (text, "##    Format   3") == 1);
+	check (g_str_has_suffix (text, "No warranty.\n##\n"));
+	g_free (text);
+
+	nemo_config_reset (prefs, "tab-width-min-percent");
+	nemo_config_reset (prefs, "always-show-tabs");
+	nemo_config_reset (prefs, "show-full-path-titles");
+	nemo_config_flush ();
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -406,6 +453,7 @@ main (int argc, char *argv[])
 	test_older_banner_replaced (prefs);
 	test_line_after_banner (prefs);
 	test_own_comment_kept (prefs);
+	test_banner_like_comment_kept (prefs);
 
 	nemo_config_shutdown ();
 	g_free (tmp);
