@@ -11,12 +11,24 @@
 # 3.24.33, and every 3.24.x since is compatible.
 #
 # Source tree is mounted at /src (like nemo-build); builds go to /build-release.
+#
+# Pinned, so a box that has to build this image gets the same compiler and
+# libraries as every other box, not whatever 22.04 updates are current that day.
+# The base is jammy-20260731.1 by digest, and apt reads the archive as it stood
+# on 2026-08-04 from snapshot.ubuntu.com. Together they give the package set the
+# image was first built with. Move both on purpose, never one alone.
+# The snapshot host is https only, and the base has no CA certificates yet; the
+# first install skips the TLS check, which costs nothing, since apt still checks
+# every index and package against the archive's signed InRelease.
 
-FROM ubuntu:22.04
+FROM ubuntu:22.04@sha256:3b06811b2afd352be909dd088a004166d665dc76d38b13eada33522a9d915c6f
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN sed -i -E 's#http://(archive|security)\.ubuntu\.com/ubuntu/?#https://snapshot.ubuntu.com/ubuntu/20260804T200000Z/#' /etc/apt/sources.list \
+	&& apt-get -o Acquire::https::Verify-Peer=false update \
+	&& apt-get -o Acquire::https::Verify-Peer=false install -y --no-install-recommends ca-certificates \
+	&& apt-get update && apt-get install -y --no-install-recommends \
 		meson ninja-build gcc pkg-config gettext intltool itstool \
 		gobject-introspection libgirepository1.0-dev python3-gi \
 		libgtk-3-dev libglib2.0-dev libglib2.0-bin libglib2.0-dev-bin \
