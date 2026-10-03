@@ -416,7 +416,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: changing row shading while a closed tab's view is still held, as a rename or unmount does, calls into a freed tree view.
 	- Reproduced: no, read only.
 	- Origin: f172064, 20260918 (row shading). Same class as code review 20260919 items 3 and 10. Regression of that class. Plausible.
-	- Test case: none yet.
+	- Actual cause: the list view, the view it is built on and the icon view connected their settings handlers with a plain connect and removed them in finalize. A view held after its tab closes is not finalized until it is let go, but its widgets go when the tab closes, so a settings change in between ran the handlers on freed widgets.
+	- Actual fix: every handler on a settings group whose data is an object is now connected with `g_signal_connect_object`, so it goes when its owner is torn down, and the disconnects that went with them are gone. The two that move the icon container from one group to the other stay. The settings handler lint now reports a plain connect for an object on a settings group. design.md, "Handlers on settings groups", has the rule.
+	- Reproduced: yes, 20261002, Linux. A closed tab's list view, still held, kept 25 handlers on the settings groups, row shading, its color and folder expansion among them. No crash was seen.
+	- Sweep: every plain connect on a settings group with an object as its data, per design.md "Handlers on settings groups".
+	- Swept: 64 connects in the list view, icon view, view base, window, icon container, icon grid container, path bar, places and tree sidebars, toolbar, action manager, job queue, both plugin settings pages and the main application. The settings handler lint over `source/` reports none left.
+	- Note: left as they were: the Current folder tab's struct, handlers with no data or a file static, the separator test's local, and handlers on other objects, which only the table covers. Two defects found nearby are their own items, 2026100221072783 and 2026100221072784.
+	- Branch: prefhandlers
+	- Commit: 4081143 (lint), bc2cd7d (test), 17a568c (fix)
+	- Test case: rjahhesy, Held view settings handlers test. A closed tab's list or icon view, still held, has no handler left on a settings group, and row shading, its color and folder expansion still reach the open tab. It fails with the list and icon view files from before the fix. `lint-pref-handlers.py --self-test`, new cases for a held view, a handler never disconnected and a local not disconnected.
 
 - Code review 20260928 item 23. File jobs and the clipboard leak memory on every operation.
 	- ID: 2026092813381423
@@ -613,6 +621,37 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: once, 20261001, Linux, with a second connection opening a new file as a window did. Not on demand.
 	- Possible cause: the first switch of a new file to its journal mode takes a lock that sqlite does not wait for.
 	- Origin: 9fd0939, 20260921 (thumbdb). New ground. Confirmed, seen once.
+	- Test case: none yet.
+
+- The window title does not follow a change to the path separator.
+	- ID: 2026100221072783
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261002-210727
+	- Opened by: item 2026092813381422
+	- Related IDs: 2026092813381422
+	- Incorrect behavior: the window listens for `path-separator` on the main settings group, but the key is in the windows group, so the handler never runs. A title that spells out a path keeps the old separator until something else sets it.
+	- Expected behavior: the title follows the separator at once, as the places pane does.
+	- Reproduced: no, read only.
+	- Origin: 4942625 listened on the main group, and e821544 then moved the key to the windows group. Not seen by an earlier round. Plausible.
+	- Possible fix: listen on the windows group. A lint check of each listened key against the group the schema puts it in would find any others.
+	- Test case: none yet.
+
+- After an icon view closes, icon captions and the label length limits stop following their settings until restart.
+	- ID: 2026100221072784
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261002-210727
+	- Opened by: item 2026092813381422
+	- Related IDs: 2026092813381422
+	- Incorrect behavior: the icon view container connects three settings handlers once per process, with no data, and the first container to be freed removes them. After that, the captions and the label length limits for icon view and desktop no longer follow their settings.
+	- Expected behavior: those settings keep working for every icon view until the program quits.
+	- Reproduced: no, read only.
+	- Origin: upstream. Not seen by an earlier round. Plausible.
+	- Keep: design.md, "Handlers on settings groups", the row for no data or a file static.
+	- Possible fix: drop the three disconnects from the container's finalize.
 	- Test case: none yet.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
