@@ -378,6 +378,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: four values do not read right. Filed as 2026100314515200, and marked in the writer so the test fails once they do.
 	- Verified: rjcev513 passes. It fails when the app converts no file with no format line at startup, and when it converts every such file as 2.x.
 	- Branch: shclold
+	- Commit: d344708
 	- Test case: rjcev513 Config old formats test.
 
 - Code review 20260928 item 24. Settings comments that look like the SHCL info block are removed on save.
@@ -398,6 +399,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Sweep: every place that takes the info block out of the file.
 	- Swept: `apply_catalog` is the only one. Nothing else strips it, and `shcl_set_banner` is not called.
 	- Branch: shclold
+	- Commit: e2c055b
 	- Test case: rg6a49ar Config defaults list test, new case for notes spelled like the block, at the top and right after it. Fails before the fix, passes after.
 
 - Code review 20260928 item 25. The .deb changes with the filesystem it is built on.
