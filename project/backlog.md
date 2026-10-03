@@ -196,6 +196,52 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: dd08205
 	- Test case: rjc4dd8z, Config format upgrade test. Fails before the change, passes after.
 
+- The window title does not follow a change to the path separator.
+	- ID: 2026100221072783
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The Linux suite passed 157 of 157 on the branch.
+	- Priority|Severity: Low
+	- Opened: 20261002-210727
+	- Opened by: item 2026092813381422
+	- Related IDs: 2026092813381422
+	- Incorrect behavior: the window listens for `path-separator` on the main settings group, but the key is in the windows group, so the handler never runs. A title that spells out a path keeps the old separator until something else sets it.
+	- Expected behavior: the title follows the separator at once, as the places pane does.
+	- Reproduced: yes, 20261003, Linux. With a tab open, a change to `windows.path-separator` in the settings file never reached the window.
+	- Origin: 4942625 listened on the main group, and e821544 then moved the key to the windows group. Not seen by an earlier round. Confirmed.
+	- Possible fix: listen on the windows group. A lint check of each listened key against the group the schema puts it in would find any others.
+	- Actual cause: as above. Nothing checked that a listened key is in the group it is listened on.
+	- Actual fix: the window listens on the windows group. The settings handler lint now checks each key in a handler, a read or a write against the group the settings table puts it in. design.md, "Handlers on settings groups", says so.
+	- Sweep: every handler, read and write on a settings group with a key known before run time.
+	- Swept: 447 calls over `source/`. One more was wrong: the thumbnail size handler in the file code listened on the main group, but the key is in the icon view group, so a change to it waited for a restart. Fixed the same way. The 5 calls whose key is only known at run time were left alone.
+	- Note: on Linux the separator changes nothing a person sees, so the title is only worth a look on Windows.
+	- Branch: grpfix
+	- Commit: 0a17659 (lint), bc533c7 (test), 5f6d314 (fix)
+	- Test case: rjahhesy, Held view settings handlers test. A change to the path separator has to make the window spell its path again. It fails without the fix. `lint-pref-handlers.py --self-test`, new cases for a key on the wrong group, a key in no group and a macro it cannot read.
+
+- After an icon view closes, icon captions and the label length limits stop following their settings until restart.
+	- ID: 2026100221072784
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The Linux suite passed 157 of 157 on the branch.
+	- Priority|Severity: Low
+	- Opened: 20261002-210727
+	- Opened by: item 2026092813381422
+	- Related IDs: 2026092813381422
+	- Incorrect behavior: the icon view container connects three settings handlers once per process, with no data, and the first container to be freed removes them. After that, the captions and the label length limits for icon view and desktop no longer follow their settings.
+	- Expected behavior: those settings keep working for every icon view until the program quits.
+	- Reproduced: yes, 20261003, Linux. Closing an icon view tab removed all three handlers.
+	- Origin: upstream. Not seen by an earlier round. Confirmed.
+	- Keep: design.md, "Handlers on settings groups", the row for no data or a file static.
+	- Possible fix: drop the three disconnects from the container's finalize.
+	- Actual cause: as above. The container's finalize removed handlers that every container shares.
+	- Actual fix: the three disconnects are gone, and the finalize with them, per the row above. The settings handler lint now reports a disconnect on a settings group whose data is NULL or a file static.
+	- Sweep: every disconnect on a settings group with no data or a file static.
+	- Swept: the lint over `source/` finds none left. The other disconnects on settings groups are the icon container moving from one group to the other, the Current folder tab's struct, and a test's local.
+	- Branch: grpfix
+	- Commit: 0a17659 (lint), bc533c7 (test), 4e37c4e (fix)
+	- Test case: rjahhesy, Held view settings handlers test. A handler connected with no data or a static must still be there after a list or icon view tab closes. It fails without the fix. `lint-pref-handlers.py --self-test`, a new case for such a disconnect.
+
 - Code review 20260928 item 3. Edit link on a symlink whose name ends in .lnk turns the symlink into a plain file.
 	- ID: 2026092813381403
 	- Type: Bug
@@ -475,52 +521,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Possible cause: the first switch of a new file to its journal mode takes a lock that sqlite does not wait for.
 	- Origin: 9fd0939, 20260921 (thumbdb). New ground. Confirmed, seen once.
 	- Test case: none yet.
-
-- The window title does not follow a change to the path separator.
-	- ID: 2026100221072783
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The Linux suite passed 157 of 157 on the branch.
-	- Priority|Severity: Low
-	- Opened: 20261002-210727
-	- Opened by: item 2026092813381422
-	- Related IDs: 2026092813381422
-	- Incorrect behavior: the window listens for `path-separator` on the main settings group, but the key is in the windows group, so the handler never runs. A title that spells out a path keeps the old separator until something else sets it.
-	- Expected behavior: the title follows the separator at once, as the places pane does.
-	- Reproduced: yes, 20261003, Linux. With a tab open, a change to `windows.path-separator` in the settings file never reached the window.
-	- Origin: 4942625 listened on the main group, and e821544 then moved the key to the windows group. Not seen by an earlier round. Confirmed.
-	- Possible fix: listen on the windows group. A lint check of each listened key against the group the schema puts it in would find any others.
-	- Actual cause: as above. Nothing checked that a listened key is in the group it is listened on.
-	- Actual fix: the window listens on the windows group. The settings handler lint now checks each key in a handler, a read or a write against the group the settings table puts it in. design.md, "Handlers on settings groups", says so.
-	- Sweep: every handler, read and write on a settings group with a key known before run time.
-	- Swept: 447 calls over `source/`. One more was wrong: the thumbnail size handler in the file code listened on the main group, but the key is in the icon view group, so a change to it waited for a restart. Fixed the same way. The 5 calls whose key is only known at run time were left alone.
-	- Note: on Linux the separator changes nothing a person sees, so the title is only worth a look on Windows.
-	- Branch: grpfix
-	- Commit: 0a17659 (lint), bc533c7 (test), 5f6d314 (fix)
-	- Test case: rjahhesy, Held view settings handlers test. A change to the path separator has to make the window spell its path again. It fails without the fix. `lint-pref-handlers.py --self-test`, new cases for a key on the wrong group, a key in no group and a macro it cannot read.
-
-- After an icon view closes, icon captions and the label length limits stop following their settings until restart.
-	- ID: 2026100221072784
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The Linux suite passed 157 of 157 on the branch.
-	- Priority|Severity: Low
-	- Opened: 20261002-210727
-	- Opened by: item 2026092813381422
-	- Related IDs: 2026092813381422
-	- Incorrect behavior: the icon view container connects three settings handlers once per process, with no data, and the first container to be freed removes them. After that, the captions and the label length limits for icon view and desktop no longer follow their settings.
-	- Expected behavior: those settings keep working for every icon view until the program quits.
-	- Reproduced: yes, 20261003, Linux. Closing an icon view tab removed all three handlers.
-	- Origin: upstream. Not seen by an earlier round. Confirmed.
-	- Keep: design.md, "Handlers on settings groups", the row for no data or a file static.
-	- Possible fix: drop the three disconnects from the container's finalize.
-	- Actual cause: as above. The container's finalize removed handlers that every container shares.
-	- Actual fix: the three disconnects are gone, and the finalize with them, per the row above. The settings handler lint now reports a disconnect on a settings group whose data is NULL or a file static.
-	- Sweep: every disconnect on a settings group with no data or a file static.
-	- Swept: the lint over `source/` finds none left. The other disconnects on settings groups are the icon container moving from one group to the other, the Current folder tab's struct, and a test's local.
-	- Branch: grpfix
-	- Commit: 0a17659 (lint), bc533c7 (test), 4e37c4e (fix)
-	- Test case: rjahhesy, Held view settings handlers test. A handler connected with no data or a static must still be there after a list or icon view tab closes. It fails without the fix. `lint-pref-handlers.py --self-test`, a new case for such a disconnect.
 
 - A hand edit to the settings file can be lost when the program saves at the same moment.
 	- ID: 2026100221273001
