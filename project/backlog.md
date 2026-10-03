@@ -338,6 +338,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
 
+- A CI test makes settings files in older SHCL formats and checks they are converted.
+	- ID: 2026100314290808
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261003-142908
+	- Opened by: t00mietum
+	- Related IDs: 2026100311512222
+	- Requirements:
+		- Before rc.1.
+		- Part of CI/CD. The test makes settings files in each older SHCL format, then checks the app's own conversion, not one done with SHCL's help.
+	- Note: rjc4dd8z only covers one hand-written 2.x file.
+	- Test case: this item is the test. Its ID is given when it is written.
+
 - Code review 20260928 item 24. Settings comments that look like the SHCL info block are removed on save.
 	- ID: 2026092813381424
 	- Type: Bug
