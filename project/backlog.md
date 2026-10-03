@@ -36,7 +36,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Code review 20260928 item 21. One Ctrl+click check in the list view was missed by the macOS Cmd change.
 	- ID: 2026092813381421
 	- Type: Bug
-	- Status: Waiting on signoff
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
