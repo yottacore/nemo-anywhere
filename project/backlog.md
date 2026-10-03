@@ -861,6 +861,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261002: with "Each folder keeps its own view, zoom, sort and columns" on in Preferences (`remember-folder-settings`), the monitor's saved zoom wins over the folder's own.
 	- Test case: none yet.
 
+- Demo gif: show best features first.
+	- ID: 2026100219523841
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261002-195238
+	- Opened by: t00mietum
+	- Requirements:
+		- Show best features first, e.g.
+			- Native compression features
+			- Full Windows .lnk support in Linux and macOS
+			- Relative link creation
+			- Copy allows link-handling options
+			- Advanced automatic column sizing logic
+			- Optional striped rows (turn on instantly, don't bother with menu)
+	- Test case: none, demo content. `cicd/utility/lint-demo-script.py` checks the script.
+
 - Code review 20260928 item 12. Redo after undoing Make link makes a different kind of link.
 	- ID: 2026092813381412
 	- Type: Bug
