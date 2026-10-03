@@ -85,6 +85,7 @@ static gboolean    save_failing;
 static GThread    *config_thread;      /* whoever called init - the UI thread */
 static gboolean    hands_off;          /* the file is read but never saved over */
 static gboolean    rewrite_due;        /* converted from an older format, not saved yet */
+static gboolean    still_v2;           /* on disk as read at startup: 2.x, not saved over */
 
 static void schedule_save (const NemoConfigKey *k);
 static void emit_changed  (const char *group, const char *key);
@@ -321,8 +322,9 @@ known_keys_only (shcl_doc *from)
 	return to;
 }
 
-/* @at_start: a file with no format line is converted only at startup. One
- * that turns up while running is a hand edit in progress, by today's rules. */
+/* @at_start: a file with no format line is read as 2.x only at startup. One
+ * that turns up while running is a hand edit in progress, by today's rules,
+ * unless it is still the 2.x file startup read and could not save over. */
 static void
 load_locked (gboolean at_start)
 {
@@ -352,6 +354,7 @@ load_locked (gboolean at_start)
 		gboolean        was_hands_off = hands_off;
 
 		hands_off = FALSE;
+		rewrite_due = FALSE;
 
 		/* An older release would write over a newer format and lose what it
 		 * can't read, and the newer one would then convert it back with a
@@ -363,16 +366,17 @@ load_locked (gboolean at_start)
 				           ", newer than this release reads (%d); "
 				           "settings changed here will not be saved",
 				           config_path, format, SHCL_FORMAT_MAJOR);
-		} else if (format >= 0 ? format < SHCL_FORMAT_MAJOR : at_start) {
-			/* No format line means a 2.x release wrote it, or a hand edit
-			 * dropped the line. Which one is not known, so only the spellings
-			 * both read the same way are converted. If nothing needed it, the
-			 * next save adds the line and that is all. */
-			conv = shcl_migrate_unstamped (text, len, FALSE);
+		} else if (format >= 0 ? format < SHCL_FORMAT_MAJOR : at_start || still_v2) {
+			/* No format line: every file a 2.x release wrote, or a hand edit
+			 * that dropped the line. Taken as 2.x, since the app's own files
+			 * are the common case. If both rules read it the same, the next
+			 * save adds the line and that is all. */
+			conv = shcl_migrate_unstamped (text, len, TRUE);
 			if (format < 0 && conv.lost == 0 && conv.len == len &&
 			    memcmp (conv.text, text, len) == 0)
 				g_clear_pointer (&conv.text, free);
 		}
+		still_v2 = format < 0 && conv.text != NULL;
 
 		if (conv.text != NULL) {
 			gint64  was    = format >= 0 ? format : 2;
@@ -461,6 +465,8 @@ load_locked (gboolean at_start)
 
 		if (gone) {
 			hands_off = FALSE;
+			rewrite_due = FALSE;
+			still_v2 = FALSE;
 			g_clear_pointer (&last_written, g_free);
 			last_written_len = 0;
 		}
@@ -910,6 +916,7 @@ save_now (gpointer data)
 		g_hash_table_remove_all (pending_keys);
 		save_failing = FALSE;
 		rewrite_due = FALSE;
+		still_v2 = FALSE;
 	} else {
 		if (!save_failing) {
 			g_warning ("nemo-config: cannot write %s: %s",

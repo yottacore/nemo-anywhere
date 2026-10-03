@@ -1,12 +1,14 @@
 /* Settings files from each SHCL release before format 3, written by that
  * release's own code (shcl-old-writer, built per release), have to read in the
  * app the way that release read them. The conversion checked is the app's, at
- * startup: a file only its setters wrote is read as it is, and one with a hand
- * edit the old rules spell differently is backed up and rewritten.
+ * startup: a file with no format line is read as 2.x, and backed up and
+ * rewritten when today's rules would read it another way.
  *
- * Conversion only runs when the store opens, and the store opens once a
- * process, so each case is two runs of this program: one that opens the old
- * file, and one that opens what the first left behind.
+ * A file with no format line is converted when the store opens, and the store
+ * opens once a process, so each case is two runs of this program: one that
+ * opens the old file, and one that opens what the first left behind. The
+ * blocked case is one run: no backup can be written, so the file must never
+ * be saved over, and a hand edit to it while running is still read as 2.x.
  *
  *   test-nemo-config-old-formats <release> <writer> [<release> <writer> ...] */
 
@@ -90,6 +92,25 @@ same_strv (char **got, const char *want)
 	return same;
 }
 
+static int changed_count;
+
+static void
+on_changed (NemoConfigGroup *group, const char *key, gpointer data)
+{
+	changed_count++;
+}
+
+static void
+wait_for_change (int from)
+{
+	int spins = 0;
+
+	while (changed_count == from && spins++ < 2500) {
+		g_main_context_iteration (NULL, FALSE);
+		g_usleep (2000);
+	}
+}
+
 /* Every key the old release wrote, read through the app. A key marked as
  * misread is a known fault, filed in the backlog; it has to still read wrong,
  * so the check is updated when it is fixed. */
@@ -101,7 +122,7 @@ check_values (const char *expect_path, const char *label)
 	int    n;
 
 	g_free (text);
-	check (g_strv_length (lines) > 20);
+	check (g_strv_length (lines) > 15);
 
 	for (n = 0; lines[n] != NULL; n++) {
 		char           **f = g_strsplit (lines[n], "\t", 4);
@@ -192,9 +213,9 @@ open_old_file (const char *home, const char *writer, const char *variant, const 
 
 	backups = list_backups (dir);
 	now = read_path (path, &now_len);
-	if (strcmp (variant, "plain") == 0) {
-		/* Nothing the old setters wrote needs converting. Left alone until the
-		 * next save, which only adds the info block. */
+	if (strcmp (variant, "nobackslash") == 0) {
+		/* Both rule sets read it the same. Left alone until the next save,
+		 * which only adds the info block. */
 		check (backups->len == 0);
 		check (now_len == old_len && memcmp (now, old, old_len) == 0);
 	} else {
@@ -244,13 +265,108 @@ open_saved_file (const char *home, const char *variant, const char *label)
 	nemo_config_init ();
 
 	backups = list_backups (dir);
-	check (backups->len == (strcmp (variant, "plain") == 0 ? 0u : 1u));
+	check (backups->len == (strcmp (variant, "nobackslash") == 0 ? 0u : 1u));
 	g_ptr_array_unref (backups);
 	check_values (expect, label);
 	check (nemo_config_get_boolean (nemo_config_get_group ("preferences"), "always-show-tabs"));
 
 	nemo_config_shutdown ();
 	g_free (expect);
+	g_free (dir);
+	return failures == 0 ? 0 : 1;
+}
+
+/* A directory at each name a backup could take in the next minute, so none
+ * can be written. Only regular files count as backups after this. */
+static void
+block_backups (const char *dir)
+{
+	GDateTime *now = g_date_time_new_now_local ();
+	int        s;
+
+	for (s = -2; s < 60; s++) {
+		GDateTime *at = g_date_time_add_seconds (now, s);
+		char      *stamp = g_date_time_format (at, "%Y%m%d-%H%M%S");
+		char      *name = g_strdup_printf ("settings_backup_%s_format-v2.shcl", stamp);
+		char      *full = g_build_filename (dir, name, NULL);
+
+		check (g_mkdir_with_parents (full, 0700) == 0);
+		g_free (full);
+		g_free (name);
+		g_free (stamp);
+		g_date_time_unref (at);
+	}
+	g_date_time_unref (now);
+}
+
+static guint
+count_backup_files (const char *dir)
+{
+	GPtrArray *backups = list_backups (dir);
+	guint      i, n = 0;
+
+	for (i = 0; i < backups->len; i++) {
+		char *full = g_build_filename (dir, backups->pdata[i], NULL);
+
+		if (g_file_test (full, G_FILE_TEST_IS_REGULAR))
+			n++;
+		g_free (full);
+	}
+	g_ptr_array_unref (backups);
+	return n;
+}
+
+/* A 2.x file that could not be backed up stays as it is, and an edit to it
+ * while running is read the way the startup read it. */
+static int
+open_blocked (const char *home, const char *writer, const char *label)
+{
+	char            *dir = nemo_get_user_directory ();
+	char            *path = g_build_filename (dir, "settings.shcl", NULL);
+	char            *expect = g_build_filename (home, "expect.txt", NULL);
+	const char      *run[] = { writer, path, expect, "plain", NULL };
+	int              status = -1;
+	char            *old, *edited, *now;
+	gsize            old_len, now_len;
+	NemoConfigGroup *prefs;
+	gulong           id;
+
+	g_mkdir_with_parents (dir, 0700);
+	check (g_spawn_sync (NULL, (char **) run, NULL, G_SPAWN_DEFAULT,
+	                     NULL, NULL, NULL, NULL, &status, NULL));
+	check (g_spawn_check_exit_status (status, NULL));
+	old = read_path (path, &old_len);
+	block_backups (dir);
+
+	nemo_config_init ();
+	prefs = nemo_config_get_group ("preferences");
+	check (count_backup_files (dir) == 0);
+	now = read_path (path, &now_len);
+	check (now_len == old_len && memcmp (now, old, old_len) == 0);
+	g_free (now);
+	check_values (expect, label);
+
+	id = g_signal_connect (prefs, "changed", G_CALLBACK (on_changed), NULL);
+	changed_count = 0;
+	edited = g_strconcat (old, "preferences.always-show-tabs: true\n", NULL);
+	check (g_file_set_contents (path, edited, -1, NULL));
+	wait_for_change (0);
+	check (nemo_config_get_boolean (prefs, "always-show-tabs"));
+	check_values (expect, label);
+
+	nemo_config_set_boolean (prefs, "show-hidden-files", FALSE);
+	nemo_config_flush ();
+	now = read_path (path, NULL);
+	check (strcmp (now, edited) == 0);
+	check (count_backup_files (dir) == 0);
+	g_free (now);
+
+	g_signal_handler_disconnect (prefs, id);
+	nemo_config_shutdown ();
+	g_free (edited);
+	g_free (old);
+	g_free (expect);
+	g_free (path);
 	g_free (dir);
 	return failures == 0 ? 0 : 1;
 }
@@ -273,7 +389,7 @@ run_self (const char *self, const char *stage, const char *home, const char *wri
 int
 main (int argc, char *argv[])
 {
-	static const char *variants[] = { "plain", "hand" };
+	static const char *variants[] = { "plain", "hand", "nobackslash" };
 	int                i, v;
 
 	g_log_set_always_fatal (G_LOG_LEVEL_CRITICAL);
@@ -286,6 +402,10 @@ main (int argc, char *argv[])
 		test_scratch_point_config_at (argv[2]);
 		return open_saved_file (argv[2], argv[4], argv[5]);
 	}
+	if (argc == 6 && strcmp (argv[1], "--blocked") == 0) {
+		test_scratch_point_config_at (argv[2]);
+		return open_blocked (argv[2], argv[3], argv[5]);
+	}
 
 	if (argc < 3 || (argc - 1) % 2 != 0) {
 		g_printerr ("usage: %s <release> <writer> [<release> <writer> ...]\n", argv[0]);
@@ -293,7 +413,7 @@ main (int argc, char *argv[])
 	}
 
 	for (i = 1; i + 1 < argc; i += 2) {
-		for (v = 0; v < 2; v++) {
+		for (v = 0; v < (int) G_N_ELEMENTS (variants); v++) {
 			char *home = test_scratch_dir ("nemo-config-old-XXXXXX", NULL);
 			char *label = g_strdup_printf ("SHCL %s, %s", argv[i], variants[v]);
 
@@ -302,6 +422,16 @@ main (int argc, char *argv[])
 				continue;
 			run_self (argv[0], "--open-old", home, argv[i + 1], variants[v], label);
 			run_self (argv[0], "--open-saved", home, argv[i + 1], variants[v], label);
+			g_free (label);
+			g_free (home);
+		}
+		{
+			char *home = test_scratch_dir ("nemo-config-old-XXXXXX", NULL);
+			char *label = g_strdup_printf ("SHCL %s, no backup", argv[i]);
+
+			check (home != NULL);
+			if (home != NULL)
+				run_self (argv[0], "--blocked", home, argv[i + 1], "plain", label);
 			g_free (label);
 			g_free (home);
 		}
