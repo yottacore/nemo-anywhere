@@ -18,8 +18,9 @@ G_BEGIN_DECLS
 void   test_heap_init   (int argc, char **argv);
 
 /* Runs op warmup times, then rounds times more, and gives how many bytes the
-   heap grew over the rounds. -1 where the heap cannot be read, such as under
-   a sanitizer, which keeps a heap of its own. */
+   heap grew over the rounds. Where a thread started or ended meanwhile, the
+   rounds are run again, up to three times in all. -1 where the heap cannot be
+   read, such as under a sanitizer, which keeps a heap of its own. */
 gint64 test_heap_growth (void (*op) (gpointer data), gpointer data,
 			 guint warmup, guint rounds);
 

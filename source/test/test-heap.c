@@ -18,6 +18,11 @@
    means in use. */
 #define HEAP_TUNABLES "glibc.malloc.tcache_count=0:glibc.malloc.arena_max=1"
 
+/* A worker thread that GLib's pool starts during the rounds costs about 1.3 KB
+   once, more than the smallest leak over 64 rounds. A reading taken while the
+   thread count moved is taken again. A leak shows in every reading. */
+#define HEAP_READINGS 3
+
 void
 test_heap_init (int argc, char **argv)
 {
@@ -81,11 +86,32 @@ heap_readable (void)
 	return after - before >= (gint64) probe_size;
 }
 
+static int
+thread_count (void)
+{
+	char *status = NULL;
+	const char *line;
+	int count = -1;
+
+	if (g_file_get_contents ("/proc/self/status", &status, NULL, NULL)) {
+		line = strstr (status, "\nThreads:");
+		if (line != NULL) {
+			count = atoi (line + strlen ("\nThreads:"));
+		}
+		g_free (status);
+	}
+
+	return count;
+}
+
 gint64
 test_heap_growth (void (*op) (gpointer data), gpointer data,
 		  guint warmup, guint rounds)
 {
 	gint64 before;
+	gint64 growth = 0;
+	int threads;
+	guint reading;
 	guint i;
 
 	if (!heap_readable ()) {
@@ -96,10 +122,19 @@ test_heap_growth (void (*op) (gpointer data), gpointer data,
 		op (data);
 	}
 
-	before = heap_in_use ();
-	for (i = 0; i < rounds; i++) {
-		op (data);
+	for (reading = 0; reading < HEAP_READINGS; reading++) {
+		threads = thread_count ();
+		before = heap_in_use ();
+		for (i = 0; i < rounds; i++) {
+			op (data);
+		}
+		growth = heap_in_use () - before;
+
+		if (thread_count () == threads) {
+			break;
+		}
+		g_print ("the thread count moved, so the reading is taken again\n");
 	}
 
-	return heap_in_use () - before;
+	return growth;
 }
