@@ -522,16 +522,27 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - A hand edit to the settings file can be lost when the program saves at the same moment.
 	- ID: 2026100221273001
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on signoff
+	- Needs local test suite run?: Yes, the full Linux suite.
+	- Needs external testing: rdjjz89r on a Windows box, where the monitor reports an edit about 2 s late.
 	- Priority|Severity: Low
 	- Opened: 20261002-212730
 	- Opened by: item 2026092813381422
 	- Related IDs: 2026092813381422
 	- Incorrect behavior: a change made in the program is saved a couple of seconds later, and the save writes the whole file without checking whether it changed on disk since it was read. A hand edit saved just before that, and not yet picked up, is overwritten. The program then takes the event for it as its own write, so the edit is gone with no message.
 	- Expected behavior: a hand edit is never lost to the program's own save.
-	- Reproduced: no, read only.
-	- Origin: before this branch. Code review 20260919 item 16 fixed the other direction, a change in the program lost to a hand edit. Not seen by an earlier round. Plausible.
-	- Test case: none yet.
+	- Reproduced: yes, 20261003, Linux. A hand edit written while a change made in the program waited to be saved was gone after the save, and stayed gone once the monitor caught up. A file removed by hand was put back, and a file in a newer format was saved over, the same way.
+	- Actual cause: the save wrote the document it had in memory without looking at the file. The late event for the edit then matched the save and was ignored as the program's own write.
+	- Origin: before this branch. Code review 20260919 item 16 fixed the other direction, a change in the program lost to a hand edit. Not seen by an earlier round. Confirmed.
+	- Decisions:
+		- When both sides changed, the file wins for every key the program did not change. The program's unsaved keys go on top of a fresh read, and then it saves. No dialog. Call made without asking; reversible.
+		- A key changed both ways keeps the program's change. That is the rule item 16 of review 20260919 already follows when the monitor gets there first, so the answer does not depend on which comes first. The hand edit can still be the later of the two. Going by time would need a time per key, checked against the file's.
+	- Actual fix: a save reads the file first. If it is not what the program last wrote or read, it is reloaded the way the monitor does it, with the unsaved keys put back and the changed keys announced, and then the save goes ahead. A newer-format file found that way is left alone, and a removed file means defaults plus the unsaved keys, both as the monitor already does. A very short window is left between that read and the write, which no ordinary file write can close.
+	- Swept: the monitor's reload and the save now share one reload. The exit flush and `--reset` go through the same save. The bookmarks file is the only other watched file the program writes; it is saved at once on each change with no delay, so it was left alone.
+	- Verified: config tests rg6a49ar, rdjjz89r, rjc4dd8z, rjcev513, reqzgh4g, rfazc870 and rf2w8yxr pass on Linux after a clean build. Lint clean.
+	- Branch: handedit
+	- Commit: 3ad0dcc
+	- Test case: rdjjz89r (`test_hand_edit_survives_save`, `test_hand_delete_and_newer_before_save`), red before the fix and green after.
 
 - The leak tests can pass a small leak, or skip, when a worker thread starts during the counted rounds.
 	- ID: 2026100308563229
