@@ -34,6 +34,8 @@
 #include <string.h>
 #include <gtk/gtk.h>
 
+#include <libnemo-private/nemo-clipboard.h>
+#include <libnemo-private/nemo-file.h>
 #include <libnemo-private/nemo-file-operations.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-progress-info.h>
@@ -175,6 +177,65 @@ teardown_move (MoveCase *move)
 	gtk_widget_destroy (move->window);
 }
 
+typedef struct {
+	GtkWidget *window;
+	GList *on_clipboard;
+	GList *dragged;
+} ClipboardCase;
+
+/* A drag of files that are not the ones cut, which leaves the cut alone. */
+static void
+clipboard_round (gpointer data)
+{
+	ClipboardCase *clip = data;
+
+	nemo_clipboard_clear_if_colliding_uris (clip->window, clip->dragged,
+						gdk_atom_intern_static_string ("x-special/gnome-copied-files"));
+}
+
+static char *
+make_file_uri (const char *dir, const char *name)
+{
+	char *path = g_build_filename (dir, name, NULL);
+	char *uri;
+
+	check (g_file_set_contents (path, "x", -1, NULL));
+	uri = g_filename_to_uri (path, NULL, NULL);
+	g_free (path);
+
+	return uri;
+}
+
+static void
+setup_clipboard (ClipboardCase *clip, const char *tmp)
+{
+	char *cut = make_file_uri (tmp, "cut.txt");
+
+	clip->window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
+	clip->on_clipboard = g_list_append (NULL, nemo_file_get_by_uri (cut));
+	clip->dragged = g_list_append (NULL, make_file_uri (tmp, "dragged.txt"));
+	nemo_clipboard_set_files (clip->window, clip->on_clipboard, TRUE);
+	g_free (cut);
+}
+
+static void
+teardown_clipboard (ClipboardCase *clip)
+{
+	GtkSelectionData *held;
+
+	/* Still there, so every round had something to read. */
+	held = gtk_clipboard_wait_for_contents (nemo_clipboard_get (clip->window),
+						gdk_atom_intern_static_string ("x-special/gnome-copied-files"));
+	check (held != NULL);
+	if (held != NULL) {
+		gtk_selection_data_free (held);
+	}
+
+	nemo_file_list_free (clip->on_clipboard);
+	g_list_free_full (clip->dragged, g_free);
+	gtk_widget_destroy (clip->window);
+}
+
 static int
 run_case (const char *name, void (*op) (gpointer), gpointer data)
 {
@@ -208,6 +269,12 @@ main (int argc, char *argv[])
 	g_setenv ("NEMO_TESTGUARD_ALL_DELETES", "0", TRUE);
 
 	which = argc > 1 ? argv[1] : "progress";
+
+	/* The clipboard is one per display, and the clipboard test beside this
+	   one in the suite owns it too. */
+	if (strcmp (which, "clipboard") == 0) {
+		test_own_display (argc, argv, NULL);
+	}
 	tmp = test_scratch_config_home ("nemo-leaks-XXXXXX");
 
 	if (!gtk_init_check (&argc, &argv)) {
@@ -226,6 +293,12 @@ main (int argc, char *argv[])
 		setup_move (&move, tmp);
 		skipped = run_case (which, move_round, &move);
 		teardown_move (&move);
+	} else if (strcmp (which, "clipboard") == 0) {
+		ClipboardCase clip = { 0 };
+
+		setup_clipboard (&clip, tmp);
+		skipped = run_case (which, clipboard_round, &clip);
+		teardown_clipboard (&clip);
 	} else {
 		g_printerr ("unknown case: %s\n", which);
 		failures++;

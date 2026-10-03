@@ -733,6 +733,7 @@ nemo_clipboard_clear_if_colliding_uris (GtkWidget *widget,
 
 	clipboard_item_uris = nemo_clipboard_get_uri_list_from_selection_data (data, NULL,
 										   copied_files_atom);
+	gtk_selection_data_free (data);
 
 	for (l = (GList *) item_uris; l; l = l->next) {
 		/* Compare the incoming uris against what is ON the clipboard, not
