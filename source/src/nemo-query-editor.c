@@ -605,6 +605,8 @@ nemo_query_editor_set_query (NemoQueryEditor	*editor,
     gtk_entry_set_text (GTK_ENTRY (editor->priv->file_entry), file_pattern);
 	gtk_entry_set_text (GTK_ENTRY (editor->priv->content_entry), content_pattern);
     gtk_widget_grab_focus (editor->priv->file_entry);
+    g_free (file_pattern);
+    g_free (content_pattern);
 
 	g_free (editor->priv->current_uri);
 	editor->priv->current_uri = NULL;

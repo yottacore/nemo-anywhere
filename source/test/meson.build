@@ -145,15 +145,19 @@ test('rhtq57n0 Job queue test',
 # The heap is read through glibc, so elsewhere these skip.
 if not is_windows
   leaks = executable('test-nemo-leaks',
-    [ 'test-nemo-leaks.c' ],
-    include_directories: [ rootInclude, ],
+    [ 'test-nemo-leaks.c', '../src/nemo-query-editor.c' ] + gresources,
+    include_directories: [ rootInclude, include_directories('../src') ],
     dependencies: [ gtk, nemo_private, test_scratch, test_heap ],
+    c_args: nemo_definitions,
   )
 
   test('rjbkzvdv Job progress leak test', leaks, args: [ 'progress' ])
   test('rjbkzwe7 Move job leak test', leaks, args: [ 'move' ])
   test('rjbmdd0s Clipboard drag check leak test', leaks, args: [ 'clipboard' ])
   test('rjbmh7g1 Stopped zip leak test', leaks, args: [ 'zip-cancel' ])
+  test('rjbn18rq Search query leak test', leaks, args: [ 'query-editor' ])
+  test('rjbn19rn Bookmarks load leak test', leaks, args: [ 'bookmarks' ])
+  test('rjbn328w Bookmarks file load leak test', leaks, args: [ 'bookmarks-file' ])
 endif
 
 test('rhtq57n1 Cancelled drop leaves the files test',

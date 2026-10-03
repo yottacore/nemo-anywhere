@@ -41,6 +41,13 @@
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-progress-info.h>
 #include <libnemo-private/nemo-progress-info-manager.h>
+#include <libnemo-private/nemo-query.h>
+
+#include "nemo-query-editor.h"
+
+/* Taken in whole, since a load of the file is only started from inside it:
+   by its file monitor, which is seconds slow, or at start. */
+#include "nemo-bookmark-list.c"
 
 #include "test-heap.h"
 #include "test-scratch.h"
@@ -342,6 +349,70 @@ teardown_zip (ZipCase *zip)
 	gtk_widget_destroy (zip->window);
 }
 
+typedef struct {
+	GtkWidget *window;
+	GtkWidget *editor;
+	NemoQuery *query;
+} QueryCase;
+
+/* What a search tab does when it opens or its query changes. */
+static void
+query_round (gpointer data)
+{
+	QueryCase *search = data;
+
+	nemo_query_editor_set_query (NEMO_QUERY_EDITOR (search->editor), search->query);
+}
+
+static void
+setup_query (QueryCase *search, const char *tmp)
+{
+	char *uri = g_filename_to_uri (tmp, NULL, NULL);
+
+	search->editor = nemo_query_editor_new ();
+	search->window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
+	gtk_container_add (GTK_CONTAINER (search->window), search->editor);
+	search->query = nemo_query_new ();
+	nemo_query_set_file_pattern (search->query, "report");
+	nemo_query_set_content_pattern (search->query, "total");
+	nemo_query_set_location (search->query, uri);
+	g_free (uri);
+}
+
+static void
+teardown_query (QueryCase *search)
+{
+	g_object_unref (search->query);
+	gtk_widget_destroy (search->window);
+}
+
+static void
+wait_for_bookmark_ops (NemoBookmarkList *bookmarks)
+{
+	gint64 give_up_at = g_get_monotonic_time () + JOB_TIMEOUT_SECONDS * G_USEC_PER_SEC;
+
+	while (!g_queue_is_empty (bookmarks->pending_ops)) {
+		if (g_get_monotonic_time () > give_up_at) {
+			g_printerr ("FAIL: a bookmarks load did not finish within %d seconds\n",
+				    JOB_TIMEOUT_SECONDS);
+			failures++;
+			return;
+		}
+		g_main_context_iteration (NULL, TRUE);
+	}
+}
+
+/* A load with no bookmarks file and no metadata file, as on a first run, or
+   after the file is removed. */
+static void
+bookmarks_round (gpointer data)
+{
+	NemoBookmarkList *bookmarks = data;
+
+	nemo_bookmark_list_load_file (bookmarks);
+	wait_for_bookmark_ops (bookmarks);
+}
+
 /* The smallest leak there is, once a round, is twice this. */
 #define ANY_LEAK (TEST_HEAP_SMALLEST_BLOCK / 2)
 
@@ -422,6 +493,41 @@ main (int argc, char *argv[])
 		skipped = run_case (which, zip_cancel_round, &zip, ZIP_LIMIT);
 		g_signal_handler_disconnect (manager, watch_id);
 		teardown_zip (&zip);
+	} else if (strcmp (which, "query-editor") == 0) {
+		QueryCase search = { 0 };
+
+		setup_query (&search, tmp);
+		skipped = run_case (which, query_round, &search, ANY_LEAK);
+		teardown_query (&search);
+	} else if (strcmp (which, "bookmarks") == 0 || strcmp (which, "bookmarks-file") == 0) {
+		NemoBookmarkList *bookmarks;
+
+		/* With a bookmarks file, the load goes on to the metadata file,
+		   which is missing in the usual case. */
+		if (strcmp (which, "bookmarks-file") == 0) {
+			GFile *file = nemo_bookmark_list_get_file ();
+			GFile *parent = g_file_get_parent (file);
+			char *dir = g_file_get_path (parent);
+			char *path = g_file_get_path (file);
+			char *uri = g_filename_to_uri (tmp, NULL, NULL);
+			char *line = g_strdup_printf ("%s Scratch\n", uri);
+
+			check (g_mkdir_with_parents (dir, 0700) == 0);
+			check (g_file_set_contents (path, line, -1, NULL));
+			g_free (uri);
+			g_free (line);
+			g_free (path);
+			g_free (dir);
+			g_object_unref (parent);
+			g_object_unref (file);
+		}
+
+		bookmarks = nemo_bookmark_list_get_default ();
+		wait_for_bookmark_ops (bookmarks);
+		if (strcmp (which, "bookmarks-file") == 0) {
+			check (nemo_bookmark_list_length (bookmarks) == 1);
+		}
+		skipped = run_case (which, bookmarks_round, bookmarks, ANY_LEAK);
 	} else {
 		g_printerr ("unknown case: %s\n", which);
 		failures++;
