@@ -692,6 +692,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: a zip that has finished leaves memory where it was.
 	- Reproduced: yes, 20261003, Linux. Growth was the same over 64 and 192 zips per zip, and the same for a zip that finished and one stopped partway.
 	- Origin: unknown. Not seen by an earlier round. Confirmed.
+	- Cause: every compress job keeps two holds on its stop handle and lets go of one, so it is every archive format, not only zip. Unpacking takes the same two holds. It falls under item 2026092813381423's sweep, so it is fixed there and this item closes with it.
 	- Test case: none yet. rjbmh7g1 allows for it, with a note naming this item, and its limit can drop to the others' once this is fixed.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
