@@ -44,7 +44,8 @@ esac
 ## A fresh clone has none yet, so it is made from cicd/win/Dockerfile on first
 ## use, the same way nemo-build is. --init reaps orphans (wine leaves plenty);
 ## --ulimit core=0 keeps crash dumps out of the mounted tree.
-if ! docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx "$CONTAINER"; then
+names="$(docker ps -a --format '{{.Names}}' 2>/dev/null || true)"
+if ! grep -qx "$CONTAINER" <<<"$names"; then
 	if ! docker image inspect nemo-winbuild-deps:latest >/dev/null 2>&1; then
 		fEcho "building image nemo-winbuild-deps (first run only, takes a while)"
 		docker build -t nemo-winbuild-deps:latest "${ROOT}/cicd/win/" >/dev/null || fDie "could not build image nemo-winbuild-deps"

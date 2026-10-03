@@ -37,6 +37,8 @@ SLUG="nemo-anywhere"
 
 # shellcheck source=include/echo.bash
 source "${HERE}/include/echo.bash"
+# shellcheck source=include/xvfb.bash
+source "${HERE}/include/xvfb.bash"
 
 out=""; secs=12; hz=20; bin=""; probeOnly=0
 while (($#)); do case "$1" in
@@ -60,7 +62,7 @@ esac; done
 
 fCheckPreconditions(){
 	local tool missing=()
-	for tool in gdb Xvfb inferno-flamegraph; do
+	for tool in gdb Xvfb xdpyinfo inferno-flamegraph; do
 		command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")
 	done
 	((${#missing[@]})) && fDie "missing: ${missing[*]}"
@@ -104,13 +106,13 @@ fi
 #••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 # Workload: a folder worth loading
 
-disp=":97"                                     # not :98/:99 - other projects use those
-xvfb_pid=""; app_pid=""; driver_pid=""
+disp=""; app_pid=""; driver_pid=""
+XVFB_PID=""
 
 cleanup(){
 	[[ -n "$driver_pid" ]] && kill "$driver_pid" 2>/dev/null || true
 	[[ -n "$app_pid"    ]] && kill "$app_pid"    2>/dev/null || true
-	[[ -n "$xvfb_pid"   ]] && kill "$xvfb_pid"   2>/dev/null || true
+	[[ -n "$XVFB_PID"   ]] && kill "$XVFB_PID"   2>/dev/null || true
 	rm -rf "$work"
 }
 trap cleanup EXIT
@@ -135,13 +137,9 @@ fEcho_Clean "$(find "$tree" -type f | wc -l) files"
 # Run it headless
 
 fEcho_Clean
-fEcho "Starting headless display ${disp}"
-Xvfb "$disp" -screen 0 1280x900x24 >/dev/null 2>&1 &
-xvfb_pid=$!
-for _ in $(seq 1 50); do
-	DISPLAY="$disp" xdotool getdisplaygeometry >/dev/null 2>&1 && break
-	sleep 0.1
-done
+fXvfbStart :120 1280x900x24 "${work}/xvfb.log" || fDie "no free headless display from :120"
+disp="$XVFB_DISPLAY"
+fEcho "Started headless display ${disp}"
 
 ## A throwaway HOME, so profiling never reads or writes the real settings.
 fake_home="${work}/home"
@@ -272,3 +270,5 @@ fEcho_Clean
 ##	History:
 ##		- 2026-08-04: Created. Debugger-based sampling rather than perf, so
 ##		  profiling needs no elevated privileges.
+##		- 2026-10-03: The display is the first free one from :120, proven ours,
+##		  instead of a fixed :97 other projects also use.
