@@ -265,6 +265,7 @@ The table below is the rule for a handler connected to one of the settings group
 	- GLib removes such a handler from the group once the object's dispose finishes, rather than only no longer calling it. That holds from GLib 2.72, the oldest the release build is made against, through the one in the Windows build.
 
 - `cicd/utility/lint-pref-handlers.py` checks every row for the declared groups except `nemo_config_bind`, which needs no check. The last row has no check, since nothing in the source says how long some other object lives.
+	- It also checks each key against the group the settings table puts it in. A handler on a group that does not have its key is never called, and nothing says so.
 
 ### One process per window
 
