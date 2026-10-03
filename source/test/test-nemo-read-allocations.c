@@ -32,6 +32,11 @@
  * back or the nick looked up, so each kind is read a thousand times over the
  * table on its own, with a bar of one and a half per read.
  *
+ * A string list read hands back an array and a copy of each item, so its bar
+ * goes by the length of each list: that many allocations plus one, and half
+ * an allocation more per read. It is read once with the defaults and once with
+ * every list stored in the file, since those take different paths.
+ *
  * The Ext column asks every row for its extension, which is one string handed
  * back. The file name is looked at where it sits rather than copied first. The
  * bar is one and a half allocations per read: one today, two with the copy.
@@ -170,6 +175,66 @@ check_text_reads (NemoConfigType type, const char *label, gint64 *sink)
 	check (allocations * 2 < reads * 3);
 }
 
+/* Returns how many reads it made, and adds to owed what the lists handed back
+ * cost by themselves: the array, and one copy per item. */
+static guint
+read_every_list (guint64 *owed)
+{
+	const NemoConfigKey *k;
+	guint reads = 0;
+
+	for (k = nemo_config_keys; k->key != NULL; k++) {
+		char **list;
+
+		if (k->type != NEMO_CONFIG_STRING_LIST)
+			continue;
+		list = nemo_config_get_strv (nemo_config_get_group (k->group), k->key);
+		*owed += g_strv_length (list) + 1;
+		g_strfreev (list);
+		reads++;
+	}
+
+	return reads;
+}
+
+static void
+check_list_reads (const char *label)
+{
+	guint64 owed = 0, reads = 0;
+	int     round;
+
+	check (read_every_list (&owed) > 0);
+	owed = 0;
+	allocations = 0;
+	counting = TRUE;
+	for (round = 0; round < ROUNDS; round++)
+		reads += read_every_list (&owed);
+	counting = FALSE;
+
+	g_print ("%s: %" G_GUINT64_FORMAT " reads, %" G_GUINT64_FORMAT " allocations, %"
+		 G_GUINT64_FORMAT " for the lists themselves\n", label, reads, allocations, owed);
+	check (allocations * 2 < owed * 2 + reads);
+}
+
+/* Not the default for any list, so each one is stored and read from the file. */
+static void
+store_every_list (void)
+{
+	static const char *const stored[] = { "one", "two", "three", NULL };
+	const NemoConfigKey *k;
+
+	for (k = nemo_config_keys; k->key != NULL; k++) {
+		char **list;
+
+		if (k->type != NEMO_CONFIG_STRING_LIST)
+			continue;
+		nemo_config_set_strv (nemo_config_get_group (k->group), k->key, stored);
+		list = nemo_config_get_strv (nemo_config_get_group (k->group), k->key);
+		check (g_strv_length (list) == 3);
+		g_strfreev (list);
+	}
+}
+
 static void
 check_extension_reads (const char *tmp)
 {
@@ -231,6 +296,9 @@ main (int argc, char *argv[])
 
 	check_text_reads (NEMO_CONFIG_STRING, "strings", &sink);
 	check_text_reads (NEMO_CONFIG_ENUM, "enums", &sink);
+	check_list_reads ("default lists");
+	store_every_list ();
+	check_list_reads ("stored lists");
 
 	check_extension_reads (tmp);
 

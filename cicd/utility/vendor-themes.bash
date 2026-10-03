@@ -220,6 +220,7 @@ declare -gA darkIndex=()
 declare -gi scored=0
 declare -g scoreBias=large
 declare -g resolved_path=""
+declare -g context_pattern=""
 
 ## @3 names the array to fill, so a dark overlay gets an index of its own
 ## rather than the light one being rebuilt once per icon.
@@ -245,21 +246,22 @@ fBuildIndex(){
 }
 
 ## Context names differ between upstreams; accept every spelling we have seen.
+## Answers through context_pattern, as fScore does through scored.
 fContextPattern(){
 	case "$1" in
 		## A dark overlay is a flat folder of a handful of files with no context
 		## directories at all, so there is nothing to match on - and nothing to
 		## confuse either, since the names in it are unique.
-		any)       echo '' ;;
-		mimetypes) echo 'mimetypes|mimes|mime' ;;
-		places)    echo 'places|filesystems' ;;
-		devices)   echo 'devices|apps/devices' ;;
-		emblems)   echo 'emblems|emotes' ;;
+		any)       context_pattern='' ;;
+		mimetypes) context_pattern='mimetypes|mimes|mime' ;;
+		places)    context_pattern='places|filesystems' ;;
+		devices)   context_pattern='devices|apps/devices' ;;
+		emblems)   context_pattern='emblems|emotes' ;;
 		## Adwaita files its widget glyphs under ui/ and its stock ones under
 		## legacy/, and puts a few of what we call actions under categories/.
-		actions)   echo 'actions|ui|legacy|categories' ;;
-		status)    echo 'status|animations|ui' ;;
-		*)         echo "$1" ;;
+		actions)   context_pattern='actions|ui|legacy|categories' ;;
+		status)    context_pattern='status|animations|ui' ;;
+		*)         context_pattern="$1" ;;
 	esac
 }
 
@@ -308,7 +310,8 @@ fResolve(){
 
 	scoreBias="${5:-large}"
 
-	pattern="$(fContextPattern "$ctx")"
+	fContextPattern "$ctx"
+	pattern="$context_pattern"
 
 	while :; do
 		best=""; bestScore=-9999
