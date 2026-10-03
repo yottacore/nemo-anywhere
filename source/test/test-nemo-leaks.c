@@ -34,6 +34,7 @@
 #include <string.h>
 #include <gtk/gtk.h>
 
+#include <libnemo-private/nemo-file-operations.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-progress-info.h>
 #include <libnemo-private/nemo-progress-info-manager.h>
@@ -44,6 +45,7 @@
 
 #define WARMUP_ROUNDS 8
 #define COUNTED_ROUNDS 64
+#define JOB_TIMEOUT_SECONDS 30
 
 static void
 drain_main_loop (void)
@@ -66,6 +68,111 @@ progress_round (gpointer data)
 	nemo_progress_info_finish (info);
 	drain_main_loop ();
 	g_object_unref (info);
+}
+
+typedef struct {
+	GtkWidget *window;
+	GFile *dir_a;
+	GFile *dir_b;
+	GList *in_a;
+	GList *in_b;
+	gboolean done;
+} MoveCase;
+
+static void
+move_done (GHashTable *debuting_uris, gboolean success, gpointer data)
+{
+	MoveCase *move = data;
+
+	(void) debuting_uris;
+	check (success);
+	move->done = TRUE;
+	gtk_main_quit ();
+}
+
+static gboolean
+give_up (gpointer data)
+{
+	(void) data;
+	g_printerr ("FAIL: a job did not finish within %d seconds\n",
+		    JOB_TIMEOUT_SECONDS);
+	failures++;
+	gtk_main_quit ();
+	return G_SOURCE_REMOVE;
+}
+
+/* Two files moved to the other folder and back, by rename, as on one disk. */
+static void
+move_round (gpointer data)
+{
+	MoveCase *move = data;
+	GList *swap_files;
+	GFile *swap_dir;
+	guint timeout_id;
+
+	move->done = FALSE;
+	timeout_id = g_timeout_add_seconds (JOB_TIMEOUT_SECONDS, give_up, NULL);
+	nemo_file_operations_move (move->in_a, NULL, move->dir_b,
+				   GTK_WINDOW (move->window), move_done, move);
+	gtk_main ();
+	if (move->done) {
+		g_source_remove (timeout_id);
+	}
+	drain_main_loop ();
+
+	swap_files = move->in_a;
+	move->in_a = move->in_b;
+	move->in_b = swap_files;
+	swap_dir = move->dir_a;
+	move->dir_a = move->dir_b;
+	move->dir_b = swap_dir;
+}
+
+static GList *
+make_files (GFile *dir_a, GFile *dir_b, GList **in_b)
+{
+	const char *names[] = { "one.txt", "two.txt" };
+	GList *in_a = NULL;
+	guint i;
+
+	*in_b = NULL;
+	for (i = 0; i < G_N_ELEMENTS (names); i++) {
+		GFile *file = g_file_get_child (dir_a, names[i]);
+		char *path = g_file_get_path (file);
+
+		check (g_file_set_contents (path, "x", -1, NULL));
+		g_free (path);
+		in_a = g_list_append (in_a, file);
+		*in_b = g_list_append (*in_b, g_file_get_child (dir_b, names[i]));
+	}
+
+	return in_a;
+}
+
+static void
+setup_move (MoveCase *move, const char *tmp)
+{
+	char *path_a = g_build_filename (tmp, "a", NULL);
+	char *path_b = g_build_filename (tmp, "b", NULL);
+
+	check (g_mkdir_with_parents (path_a, 0700) == 0);
+	check (g_mkdir_with_parents (path_b, 0700) == 0);
+	move->window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
+	move->dir_a = g_file_new_for_path (path_a);
+	move->dir_b = g_file_new_for_path (path_b);
+	move->in_a = make_files (move->dir_a, move->dir_b, &move->in_b);
+	g_free (path_a);
+	g_free (path_b);
+}
+
+static void
+teardown_move (MoveCase *move)
+{
+	g_list_free_full (move->in_a, g_object_unref);
+	g_list_free_full (move->in_b, g_object_unref);
+	g_object_unref (move->dir_a);
+	g_object_unref (move->dir_b);
+	gtk_widget_destroy (move->window);
 }
 
 static int
@@ -97,6 +204,9 @@ main (int argc, char *argv[])
 
 	test_heap_init (argc, argv);
 
+	/* The delete test guard stops to ask before every move. */
+	g_setenv ("NEMO_TESTGUARD_ALL_DELETES", "0", TRUE);
+
 	which = argc > 1 ? argv[1] : "progress";
 	tmp = test_scratch_config_home ("nemo-leaks-XXXXXX");
 
@@ -110,6 +220,12 @@ main (int argc, char *argv[])
 
 	if (strcmp (which, "progress") == 0) {
 		skipped = run_case (which, progress_round, NULL);
+	} else if (strcmp (which, "move") == 0) {
+		MoveCase move = { 0 };
+
+		setup_move (&move, tmp);
+		skipped = run_case (which, move_round, &move);
+		teardown_move (&move);
 	} else {
 		g_printerr ("unknown case: %s\n", which);
 		failures++;

@@ -151,6 +151,7 @@ if not is_windows
   )
 
   test('rjbkzvdv Job progress leak test', leaks, args: [ 'progress' ])
+  test('rjbkzwe7 Move job leak test', leaks, args: [ 'move' ])
 endif
 
 test('rhtq57n1 Cancelled drop leaves the files test',
