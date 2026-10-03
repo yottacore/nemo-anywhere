@@ -436,6 +436,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: rjcev513 fails before the fix and passes after, both for the four values and for its new no-backup case. rjc4dd8z, rg6a49ar and rdjjz89r pass. Lint is clean.
 	- Swept: the conversion has one call, in `load_locked`. Startup reaches it, and so does `reload_locked`, which the monitor and the save share. A reload reads a file with no format line by today's rules, except in the no-backup case above.
 	- Branch: v2read
+	- Commit: 660122f
 	- Test case: rjcev513 Config old formats test. The four values are plain checks now. It also covers a file both rules read alike, which is left alone, and a 2.x file that can't be backed up and is edited while the app runs.
 
 - Code review 20260928 item 25. The .deb changes with the filesystem it is built on.
