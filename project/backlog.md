@@ -33,6 +33,27 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Settings an older release wrote with a backslash or tab in a value read wrong after the upgrade, with no warning.
+	- ID: 2026100314515200
+	- Type: Bug
+	- Status: Waiting for answers
+	- Priority|Severity: Avg
+	- Opened: 20261003-145152
+	- Opened by: item 2026100314290808
+	- Related IDs: 2026100311512222, 2026100314290808
+	- Steps to reproduce [Bug]:
+		- With a release on SHCL 1.2.0 or 2.0.0, such as v1.0.0-beta2, set a value like `\\server\share\term.exe`, `tools\7z.exe`, a tab, or an association like `log=C:\Tools\view.exe "%1"`. Then start this release on the same settings.
+	- Incorrect behavior [Bug]: the backslashes read doubled and the tab reads as `\t`. Nothing is backed up and no warning is given. The next save writes the wrong values in the current format, so they stay wrong and the old file is gone.
+	- Expected behavior [Bug]: every value reads as the old release read it.
+	- Reproduced [Bug]: yes, 20261003, Linux. Test rjcev513 writes the file with each old release's own code and reads it through the app.
+	- Actual cause [Bug]: the old releases wrote a backslash as `\\` outside double quotes. Format 3 reads it there as it stands. A file with no format line is converted with only the spellings both rule sets read the same way, per a decision on 2026100311512222, and these are not among them. With nothing changed, the "read two ways" warning is skipped too.
+	- Against: 2026100311512222, Decisions, "A file with no format line ... only spellings both rules agree on are changed."
+	- Note: design.md, "Settings", says such a file is rewritten when the old rules read it differently. These values are read differently and it is not.
+	- Progress log:
+		- 20261003-145152: with the file converted as 2.x instead, every value both old releases wrote reads right in rjcev513, and the only other change is that such a file is then backed up and rewritten. The cost is a hand-written current file with no info block and a backslash escape outside double quotes, which would then be read as 2.x. Every file the app itself wrote before format 3 has no format line.
+		- 20261003-145152: question. Should a file with no format line be converted as 2.x at startup? Suggested: yes, since app-written old files are the common case. A smaller step either way: back up the file and warn whenever a value could be read two ways, even when nothing is converted.
+	- Test case: rjcev513 Config old formats test. Its four marked values pin the fault, and fail once they read right.
+
 - Code review 20260928 item 2. The tree sidebar crashes on Shift+F10 or the Menu key.
 	- ID: 2026092813381402
 	- Type: Bug
@@ -341,16 +362,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - A CI test makes settings files in older SHCL formats and checks they are converted.
 	- ID: 2026100314290808
 	- Type: Task
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes, the full Linux suite. The config tests pass.
+	- Needs external testing: the Windows cross build and a Windows box run of rjcev513.
 	- Priority|Severity: Avg
 	- Opened: 20261003-142908
 	- Opened by: t00mietum
-	- Related IDs: 2026100311512222
+	- Related IDs: 2026100311512222, 2026100314515200
 	- Requirements:
 		- Before rc.1.
 		- Part of CI/CD. The test makes settings files in each older SHCL format, then checks the app's own conversion, not one done with SHCL's help.
 	- Note: rjc4dd8z only covers one hand-written 2.x file.
-	- Test case: this item is the test. Its ID is given when it is written.
+	- Done: settings were written with SHCL 1.2.0 (v1.0.0-beta2 and on) and 2.0.0 before format 3. Both headers are kept in `vendor/shcl-old`, and a small writer is built against each. It writes a settings file with the setters the app used then, with and without a few hand-edited lines, and records what that release read back from it. The test opens each file in the app, then opens what the app saved in a second run, and checks every value, the backup, and the format line.
+	- Note: both old releases write these files the same way. Settings in a comma-decimal locale under 1.2.0 are not covered, since the build box has no such locale. Keys renamed since are left out; the test is about the format.
+	- Note: four values do not read right. Filed as 2026100314515200, and marked in the writer so the test fails once they do.
+	- Verified: rjcev513 passes. It fails when the app converts no file with no format line at startup, and when it converts every such file as 2.x.
+	- Branch: shclold
+	- Test case: rjcev513 Config old formats test.
 
 - Code review 20260928 item 24. Settings comments that look like the SHCL info block are removed on save.
 	- ID: 2026092813381424

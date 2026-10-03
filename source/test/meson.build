@@ -114,6 +114,28 @@ test('rjc4dd8z Config format upgrade test',
   timeout: 60
 )
 
+# One writer per SHCL release from before format 3, each built against that
+# release's header alone, so the old files come from the old code.
+shclOldWriters = []
+foreach release : [ '1.2.0', '2.0.0' ]
+  shclOldWriters += [ release, executable('shcl-old-writer-' + release,
+    [ 'shcl-old-writer.c' ],
+    include_directories: include_directories('../../vendor/shcl-old' / release),
+    dependencies: [ math ],
+    override_options: [ 'warning_level=0' ],
+  ) ]
+endforeach
+
+test('rjcev513 Config old formats test',
+  executable('test-nemo-config-old-formats',
+    [ 'test-nemo-config-old-formats.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: shclOldWriters,
+  timeout: 60
+)
+
 # Counts allocations through its own malloc, which only glibc allows.
 if not is_windows
   test('rj4jbn1b Allocations per read test',
