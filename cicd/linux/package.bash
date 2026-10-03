@@ -164,6 +164,16 @@ deb_depends(){
 ## size is what a download is.
 fSize(){ du -h --apparent-size "$1" | cut -f1; }
 
+## Installed-Size the way dpkg-gencontrol counts it: each file or symlink rounded
+## up to a KiB, a hardlink once, anything else 1. du counts disk blocks, so the
+## same tree gave a different number, and a different .deb, on each filesystem.
+fInstalledKb(){
+	find "$1" -printf '%y %s %D:%i %n\n' | awk '
+		$1 == "f" || $1 == "l" { if ($4 > 1 && seen[$3]++) next; kb += int(($2 + 1023) / 1024); next }
+		{ kb += 1 }
+		END { print kb + 0 }'
+}
+
 
 #••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 # .deb
@@ -178,7 +188,7 @@ if ((do_deb)); then
 		build_tree "$debroot"
 		mkdir -p "${debroot}/DEBIAN"
 		depends="$(deb_depends)"
-		installed_kb="$(du -sk "$debroot" | cut -f1)"
+		installed_kb="$(fInstalledKb "$debroot")"
 		{
 			echo "Package: ${SLUG}"
 			echo "Version: ${ver}"

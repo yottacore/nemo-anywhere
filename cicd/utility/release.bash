@@ -4,7 +4,8 @@
 ##	  artifacts, and the optional GitHub Release upload all happen on this box.
 ##	- Flow (run AFTER merging dev into main --no-ff):
 ##	   1. verify: on main, clean tree, version bumped, README badge matches
-##	   2. (when artifacts are wired) run the full pipeline if they're missing/stale
+##	   2. artifacts exist, match their sums file, and were built from HEAD itself,
+##	      not from dev before the merge
 ##	   3. tag the merge: v<version>, where <version> comes from source/meson.build
 ##	      alone (the build stamps from it too, so they can never disagree)
 ##	   4. --push: push main + the tag
@@ -73,14 +74,22 @@ if [[ -n "$art_dir" ]]; then
 	sums="${art_dir}/${EXE_NAME}-${ver}-sha256sums.txt"
 	[[ -s "$sums" ]] || die "no ${sums} - run cicd/cicd.bash (full, not --quick) first"
 	( cd "${art_dir}" && sha256sum -c "${EXE_NAME}-${ver}-sha256sums.txt" >/dev/null ) || die "artifact checksums do not verify"
+	## The tag goes on HEAD, so the artifacts have to be HEAD's build. Built on dev
+	## before the merge, they have dev's commit date: a rebuild of the tag would
+	## not match them, and the build number in the notes would be one no binary has.
+	shopt -s nullglob
+	arts=("${art_dir}/${EXE_NAME}-${ver}-"*)
+	shopt -u nullglob
+	head_ct="$(git log -1 --format=%ct)"
+	if ! stamps="$(python3 "${here}/release-stamps.py" --expect "${head_ct}" --exe "${EXE_NAME}.exe" "${arts[@]}")"; then
+		printf '%s\n' "$stamps" >&2
+		die "artifacts are not stamped ${head_ct}, HEAD's commit date - rebuild them here with cicd/cicd.bash --no-publish (not --quick) first"
+	fi
 fi
 
 echo ""
 echo "Release ${tag} from $(git rev-parse --short HEAD) on main"
 if ((have_artifacts)); then
-	shopt -s nullglob
-	arts=("${art_dir}/${EXE_NAME}-${ver}-"*)
-	shopt -u nullglob
 	echo "Artifacts:"; printf '  %s\n' "${arts[@]}"
 else
 	echo "Artifacts: (none - tag-only release; artifact stage not wired yet)"

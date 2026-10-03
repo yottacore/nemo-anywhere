@@ -48,6 +48,9 @@ bash "${here}/test-cicd-help.bash"
 fTest bash "${here}/test-docker-run.bash"
 fTest bash "${here}/../win/test-gui-smoke.bash"
 fTest bash "${here}/../linux/test-fuzz-exit.bash"
+fTest bash "${here}/../linux/test-deb-size.bash"
+bash "${here}/../linux/test-release-image-pin.bash"
+fTest bash "${here}/test-release-stamp.bash"
 py=""
 for cand in python3 python; do
 	if command -v "$cand" >/dev/null 2>&1; then py="$cand"; break; fi
