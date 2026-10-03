@@ -173,24 +173,25 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026092813381423
 	- Type: Bug
 	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The gate passed 152 of 152 on cc31dd3.
+	- Needs local test suite run?: no. The gate passed 155 of 155 on d1872a5.
 	- Needs external testing: none. Nothing changed is Windows-only code, and the cross build is clean.
 	- Priority|Severity: Low
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Related IDs: 2026100307122400
 	- Incorrect behavior: each move job, each file moved by rename, each job's progress, each drag's clipboard check, and a canceled zip leak a little. A few smaller leaks sit in search, theme and window setup.
 	- Reproduced: yes, 20261003, Linux. Every site grew the heap on each repeat, and a stopped zip by about a quarter of a megabyte.
 	- Origin: upstream, apart from the zip one from 6c2418f, 20260820. Not seen by an earlier round. Confirmed.
-	- Actual cause: each site kept or copied something and never let it go on one way out. The progress manager also kept its own hold on every job's progress after the job finished, so the whole progress went, not only its lock. A stopped zip failed the archive library's last writes, and the library then skipped the step that frees its compressor.
-	- Actual fix: each site frees what it owns. The progress manager lets go of a job's progress when the job finishes, and lets go of its handler when it goes itself. The zip writer treats a write after a stop as done rather than failed, and the job still reports the stop.
+	- Actual cause: each site kept or copied something and never let it go on one way out. The progress manager also kept its own hold on every job's progress after the job finished, so the whole progress went, not only its lock. A stopped zip failed the archive library's last writes, and the library then skipped the step that frees its compressor. Every compress and unpack job also kept two holds on its stop handle and let go of one.
+	- Actual fix: each site frees what it owns. The progress manager lets go of a job's progress when the job finishes, and lets go of its handler when it goes itself. The zip writer treats a write after a stop as done rather than failed, and the job still reports the stop. Compress and unpack jobs take one hold on the stop handle. A stopped tar fails its last writes again once the job is done with it, so a stop near the start of a big file ends at once, as it did before.
 	- Sweep: whatever these functions own and miss on a way out, in the same files and the progress manager.
-	- Swept: copy, duplicate and link jobs free their desktop location already. The progress manager's hold on each finished job. The progress lock beside its condition. The window's view id, visible columns and column order, kept like its sort column. The theme check's first copy when it gives up. The bookmark metadata error when that file is missing. The clipboard check is the only place that waits for the clipboard; every other read is handed its data and freed by the toolkit.
-	- Note: every zip, stopped or not, still grows by about 150 bytes a time, which is its own item, 2026100307122400. Leaks seen only at exit, in the startup command line and the undo manager, were left alone.
+	- Swept: copy, duplicate and link jobs free their desktop location already. The progress manager's hold on each finished job. The progress lock beside its condition. The window's view id, visible columns and column order, kept like its sort column. The theme check's first copy when it gives up. The bookmark metadata error when that file is missing. The clipboard check is the only place that waits for the clipboard; every other read is handed its data and freed by the toolkit. The stop handle in the compress and unpack job setup; the file jobs' setup was already right, and nothing else asks a progress for its stop handle.
+	- Note: item 2026100307122400, the 150 bytes left by every archive job, was this item's, and closed with it. Leaks seen only at exit, in the startup command line and the undo manager, were left alone.
 	- Branch: leaks
-	- Commit: 9619c6a (progress), fa3de32 (move), d9c526d (clipboard), 63f91f0 (zip), e98eb39 (search), 0c7b356 (bookmarks), b565bf2 (window), cc31dd3 (theme)
-	- Test case: rjbkzvdv Job progress leak test, rjbkzwe7 Move job leak test, rjbmdd0s Clipboard drag check leak test, rjbmh7g1 Stopped zip leak test, rjbn18rq Search query leak test, rjbn19rn Bookmarks load leak test, rjbn328w Bookmarks file load leak test. Each repeats its operation and fails when the heap grows, and each fails with its fix taken out. The window and theme sites have no test, since only the running program reaches them; a window closing and the theme check were checked by hand to leave nothing behind, before and after.
-	- Acceptance signoff: waiting. Two sites rest on a hand check, and the zip writer's handling of a stop changed.
+	- Commit: 9619c6a (progress), fa3de32 (move), d9c526d (clipboard), 63f91f0 (zip), e98eb39 (search), 0c7b356 (bookmarks), b565bf2 (window), cc31dd3 (theme), 4802a37 (stop handle), 377d761 (leak test readings), d1872a5 (tar stop)
+	- Test case: rjbkzvdv Job progress leak test, rjbkzwe7 Move job leak test, rjbmdd0s Clipboard drag check leak test, rjbmh7g1 Stopped zip leak test, rjbn18rq Search query leak test, rjbn19rn Bookmarks load leak test, rjbn328w Bookmarks file load leak test, rjbpmcxy Extract job leak test, rjbqagjf Stopped tar.gz leak test. Each repeats its operation and fails when the heap grows, and each fails with its fix taken out. rjbpyy28 Archive stop time test: a stopped tar.gz or tar.xz of a 16 GiB file has to end in under twice the time a 4 GiB one takes, plus 3 s. The window and theme sites have no test, since only the running program reaches them; a window closing and the theme check were checked by hand to leave nothing behind, before and after.
+	- Acceptance signoff: waiting. Two sites rest on a hand check, and the archive writer's handling of a stop changed.
 
 - Code review 20260928 item 3. Edit link on a symlink whose name ends in .lnk turns the symlink into a plain file.
 	- ID: 2026092813381403
@@ -680,21 +681,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Origin: before this branch. Code review 20260919 item 16 fixed the other direction, a change in the program lost to a hand edit. Not seen by an earlier round. Plausible.
 	- Test case: none yet.
 
-- Every zip grows the program's memory by about 150 bytes, whether it finishes or is stopped.
-	- ID: 2026100307122400
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261003-071224
-	- Opened by: item 2026092813381423
-	- Related IDs: 2026092813381423
-	- Incorrect behavior: memory in use grows by about 150 bytes for each zip written, and is never given back. It is still reachable from somewhere, so it is something kept rather than lost.
-	- Expected behavior: a zip that has finished leaves memory where it was.
-	- Reproduced: yes, 20261003, Linux. Growth was the same over 64 and 192 zips per zip, and the same for a zip that finished and one stopped partway.
-	- Origin: unknown. Not seen by an earlier round. Confirmed.
-	- Cause: every compress job keeps two holds on its stop handle and lets go of one, so it is every archive format, not only zip. Unpacking takes the same two holds. It falls under item 2026092813381423's sweep, so it is fixed there and this item closes with it.
-	- Test case: none yet. rjbmh7g1 allows for it, with a note naming this item, and its limit can drop to the others' once this is fixed.
-
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
 	- Type: Enhancement
@@ -1174,6 +1160,26 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: `rj750n43 File cache written at quit test`. The built program is closed by its window while thumbnails are being made, after they are made, and while drawing them from the store, then taken down by `--quit` from another copy. After each the journal is empty, and the last two raised every draw count. A `--version` run makes no store.
 	- Branch: cacheclose
 	- Commit: 639757b, test in 66bd445 and 8b78915
+
+- Every zip grows the program's memory by about 150 bytes, whether it finishes or is stopped.
+	- ID: 2026100307122400
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261003-071224
+	- Opened by: item 2026092813381423
+	- Related IDs: 2026092813381423
+	- Incorrect behavior: memory in use grows by about 150 bytes for each zip written, and is never given back. It is still reachable from somewhere, so it is something kept rather than lost.
+	- Expected behavior: a zip that has finished leaves memory where it was.
+	- Reproduced: yes, 20261003, Linux. Growth was the same over 64 and 192 zips per zip, and the same for a zip that finished and one stopped partway.
+	- Origin: unknown. Not seen by an earlier round. Confirmed.
+	- Cause: every compress job keeps two holds on its stop handle and lets go of one, so it is every archive format, not only zip. Unpacking takes the same two holds. It falls under item 2026092813381423's sweep, so it is fixed there and this item closes with it.
+	- Actual fix: compress and unpack jobs take one hold on the stop handle. Fixed under item 2026092813381423, whose sweep it falls under.
+	- Branch: leaks
+	- Commit: 4802a37
+	- Test case: rjbmh7g1 Stopped zip leak test, now held to the same limit as the other leak tests, and rjbpmcxy Extract job leak test. Both fail with the extra hold put back.
+	- Acceptance signoff: Self-closed: reproduced, the tests fail before the fix and pass after, and the sweep has its answer on item 2026092813381423.
+	- Closed: 20261003-081627
 
 ## Old format
 
