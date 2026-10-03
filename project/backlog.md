@@ -189,6 +189,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Decisions:
 		- The old file is copied to the backup name, then the new one replaces it in one step. Another copy of the app starting at that moment never finds the file missing.
 		- A file with no format line came from a 2.x release, or a hand edit took the line out. At startup it is only rewritten when the old rules read it differently, and only spellings both rules agree on are changed. While running it is read as a hand edit and left alone. Its backup name says format 2.
+			- Replaced 20261003 by the decision on 2026100314515200: such a file is converted as 2.x at startup.
 		- A file in a newer format is read but never saved over. A change made meanwhile is kept and saved once the file is current again. Otherwise an older build and a newer one would keep rewriting each other's file, with a new backup each time.
 		- If the backup can't be written, the old file is not saved over.
 		- The new file has only the settings this release knows, each with its comment. Anything else stays in the backup.
@@ -318,6 +319,38 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rhmxm5ah, Windows shortcut reader test, and rhnqqpm8, Folder shortcuts sort with folders test, each with a new FIFO case. Both fail before the fix, stopped after 10 seconds, and pass after, on Linux.
 	- Verified: the Windows cross build compiles. C lint is clean. The link edit, link emblem, link copy, make link shortcut and thumbnail hold tests pass.
 
+- Settings an older release wrote with a backslash or tab in a value read wrong after the upgrade, with no warning.
+	- ID: 2026100314515200
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes. The config tests pass.
+	- Needs external testing: a Windows box run of rjcev513.
+	- Priority|Severity: Avg
+	- Opened: 20261003-145152
+	- Opened by: item 2026100314290808
+	- Related IDs: 2026100311512222, 2026100314290808
+	- Steps to reproduce [Bug]:
+		- With a release on SHCL 1.2.0 or 2.0.0, such as v1.0.0-beta2, set a value like `\\server\share\term.exe`, `tools\7z.exe`, a tab, or an association like `log=C:\Tools\view.exe "%1"`. Then start this release on the same settings.
+	- Incorrect behavior [Bug]: the backslashes read doubled and the tab reads as `\t`. Nothing is backed up and no warning is given. The next save writes the wrong values in the current format, so they stay wrong and the old file is gone.
+	- Expected behavior [Bug]: every value reads as the old release read it.
+	- Reproduced [Bug]: yes, 20261003, Linux. Test rjcev513 writes the file with each old release's own code and reads it through the app.
+	- Actual cause [Bug]: the old releases wrote a backslash as `\\` outside double quotes. Format 3 reads it there as it stands. A file with no format line is converted with only the spellings both rule sets read the same way, per a decision on 2026100311512222, and these are not among them. With nothing changed, the "read two ways" warning is skipped too.
+	- Against: 2026100311512222, Decisions, "A file with no format line ... only spellings both rules agree on are changed." Replaced by the answer below.
+	- Decisions:
+		- 20261003: a file with no format line is converted as 2.x at startup.
+	- Note: design.md, "Settings", said such a file is rewritten when the old rules read it differently. These values were read differently and it was not. It now says what the code does.
+	- Progress log:
+		- 20261003-145152: with the file converted as 2.x instead, every value both old releases wrote reads right in rjcev513, and the only other change is that such a file is then backed up and rewritten. The cost is a hand-written current file with no info block and a backslash escape outside double quotes, which would then be read as 2.x. Every file the app itself wrote before format 3 has no format line.
+		- 20261003-145152: question. Should a file with no format line be converted as 2.x at startup? Suggested: yes, since app-written old files are the common case. A smaller step either way: back up the file and warn whenever a value could be read two ways, even when nothing is converted.
+		- 20261003: answered yes. A file with no format line is converted as 2.x at startup.
+	- Actual fix [Bug]: a file with no format line is converted as 2.x at startup. While the app can't save over that file yet, because its backup or the save failed, a hand edit to it is read as 2.x too. Before, the edit was read by today's rules, and with no backup the next save wrote the misread values over the file.
+	- Note: the cost named above, as it behaves now. A hand-written file the app never saved, with an unquoted backslash, is read the 2.x way at startup: `\\server\share` reads as `\server\share`, and `C:\temp\new` gets a tab and a line break. The file as written goes to the backup first, with a message naming it, and no warning. Once the app has saved the file, or for an edit made while it runs, the backslash reads as written.
+	- Verified: rjcev513 fails before the fix and passes after, both for the four values and for its new no-backup case. rjc4dd8z, rg6a49ar and rdjjz89r pass. Lint is clean.
+	- Swept: the conversion has one call, in `load_locked`. Startup reaches it, and so does `reload_locked`, which the monitor and the save share. A reload reads a file with no format line by today's rules, except in the no-backup case above.
+	- Branch: v2read
+	- Commit: 660122f
+	- Test case: rjcev513 Config old formats test. The four values are plain checks now. It also covers a file both rules read alike, which is left alone, and a 2.x file that can't be backed up and is edited while the app runs.
+
 - A CI test makes settings files in older SHCL formats and checks they are converted.
 	- ID: 2026100314290808
 	- Type: Task
@@ -405,30 +438,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: Escape not restoring the selection, Ctrl+Shift+T, and Control kept for F1, tab keys, Ctrl+H and Ctrl+M on macOS. All settled earlier.
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
-
-- Settings an older release wrote with a backslash or tab in a value read wrong after the upgrade, with no warning.
-	- ID: 2026100314515200
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261003-145152
-	- Opened by: item 2026100314290808
-	- Related IDs: 2026100311512222, 2026100314290808
-	- Steps to reproduce [Bug]:
-		- With a release on SHCL 1.2.0 or 2.0.0, such as v1.0.0-beta2, set a value like `\\server\share\term.exe`, `tools\7z.exe`, a tab, or an association like `log=C:\Tools\view.exe "%1"`. Then start this release on the same settings.
-	- Incorrect behavior [Bug]: the backslashes read doubled and the tab reads as `\t`. Nothing is backed up and no warning is given. The next save writes the wrong values in the current format, so they stay wrong and the old file is gone.
-	- Expected behavior [Bug]: every value reads as the old release read it.
-	- Reproduced [Bug]: yes, 20261003, Linux. Test rjcev513 writes the file with each old release's own code and reads it through the app.
-	- Actual cause [Bug]: the old releases wrote a backslash as `\\` outside double quotes. Format 3 reads it there as it stands. A file with no format line is converted with only the spellings both rule sets read the same way, per a decision on 2026100311512222, and these are not among them. With nothing changed, the "read two ways" warning is skipped too.
-	- Against: 2026100311512222, Decisions, "A file with no format line ... only spellings both rules agree on are changed." Replaced by the answer below.
-	- Decisions:
-		- 20261003: a file with no format line is converted as 2.x at startup.
-	- Note: design.md, "Settings", says such a file is rewritten when the old rules read it differently. These values are read differently and it is not.
-	- Progress log:
-		- 20261003-145152: with the file converted as 2.x instead, every value both old releases wrote reads right in rjcev513, and the only other change is that such a file is then backed up and rewritten. The cost is a hand-written current file with no info block and a backslash escape outside double quotes, which would then be read as 2.x. Every file the app itself wrote before format 3 has no format line.
-		- 20261003-145152: question. Should a file with no format line be converted as 2.x at startup? Suggested: yes, since app-written old files are the common case. A smaller step either way: back up the file and warn whenever a value could be read two ways, even when nothing is converted.
-		- 20261003: answered yes. A file with no format line is converted as 2.x at startup.
-	- Test case: rjcev513 Config old formats test. Its four marked values pin the fault, and fail once they read right.
 
 - Code review 20260928 item 25. The .deb changes with the filesystem it is built on.
 	- ID: 2026092813381425

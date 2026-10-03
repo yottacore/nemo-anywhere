@@ -3,10 +3,12 @@
  * vendor/shcl-old, against that release's own header, so the file and the
  * readings come from the old code and nothing in today's SHCL.
  *
- *   shcl-old-writer <settings.shcl> <expect.txt> plain|hand
+ *   shcl-old-writer <settings.shcl> <expect.txt> plain|hand|nobackslash
  *
  * plain is only what the app's own setters wrote. hand adds lines spelled the
- * way a person might have written them under the old rules.
+ * way a person might have written them under the old rules. nobackslash is
+ * plain without the values the old setters escaped, so both rule sets read it
+ * the same.
  *
  * expect.txt has one line per key: path, type, whether today's app is known to
  * read it another way, and the value. Strings are hex, lists are a count and
@@ -29,7 +31,7 @@ typedef struct {
 	const char *path;
 	char        type;          /* s string or enum nick, l list, b, i, f */
 	int         how;
-	int         misread;       /* known fault, backlog 2026100314515200 */
+	int         misread;       /* known fault, filed in the backlog */
 	const char *text;          /* s, and a HAND line's value text */
 	const char *list[6];
 	int         n;
@@ -42,20 +44,20 @@ static const Entry entries[] = {
 	{ "appearance.gtk-theme", 's', SET, 0, "Adwaita-dark", { 0 }, 0, 0, 0,
 	  "Theme, with a # and a \\ in the note" },
 	{ "appearance.icon-theme", 's', SET, 0, "caf\xc3\xa9 icons", { 0 }, 0, 0, 0, NULL },
-	{ "terminal.exec", 's', SET, 1, "\\\\server\\share\\term.exe", { 0 }, 0, 0, 0, NULL },
+	{ "terminal.exec", 's', SET, 0, "\\\\server\\share\\term.exe", { 0 }, 0, 0, 0, NULL },
 	{ "terminal.exec-arg", 's', SET, 0, "--title=\"a # b\"", { 0 }, 0, 0, 0,
 	  "Argument that terminal takes before a command" },
 	{ "list-view.row-shading-color", 's', SET, 0, "rgba(0, 0, 0, 0.1)", { 0 }, 0, 0, 0, NULL },
 	{ "preferences.bulk-rename-tool", 's', SET, 0, "C:\\Program Files\\Renamer\\r.exe --flag",
 	  { 0 }, 0, 0, 0, NULL },
-	{ "archive.create-with-7z", 's', SET, 1, "tools\\7z.exe", { 0 }, 0, 0, 0, NULL },
-	{ "archive.create-with-rar", 's', SET, 1, "rar\ta", { 0 }, 0, 0, 0, NULL },
+	{ "archive.create-with-7z", 's', SET, 0, "tools\\7z.exe", { 0 }, 0, 0, 0, NULL },
+	{ "archive.create-with-rar", 's', SET, 0, "rar\ta", { 0 }, 0, 0, 0, NULL },
 	{ "archive.extract-with-7z", 's', SET, 0, "", { 0 }, 0, 0, 0, NULL },
 	{ "archive.extract-with-rar", 's', SET, 0, " lead and trail ", { 0 }, 0, 0, 0, NULL },
 	{ "appearance.mode", 's', SET, 0, "dark", { 0 }, 0, 0, 0, NULL },
 	{ "preferences.click-policy", 's', SET, 0, "single", { 0 }, 0, 0, 0, NULL },
 	{ "windows.path-separator", 's', SET, 0, "slash", { 0 }, 0, 0, 0, NULL },
-	{ "windows.associations", 'l', SET, 1, NULL,
+	{ "windows.associations", 'l', SET, 0, NULL,
 	  { "txt=notepad.exe %1", "log=C:\\Tools\\view.exe \"%1\"", "md=typora, with comma" },
 	  3, 0, 0, NULL },
 	{ "search.search-skip-folders", 'l', SET, 0, NULL,
@@ -85,6 +87,21 @@ put_hex (FILE *out, const char *p, size_t n)
 
 	for (i = 0; i < n; i++)
 		fprintf (out, "%02x", (unsigned char) p[i]);
+}
+
+/* Whether the old setters wrote an escape for this value. */
+static int
+escaped (const Entry *e)
+{
+	int i;
+
+	if (e->text != NULL && strpbrk (e->text, "\\\t") != NULL)
+		return 1;
+	for (i = 0; i < e->n; i++) {
+		if (strpbrk (e->list[i], "\\\t") != NULL)
+			return 1;
+	}
+	return 0;
 }
 
 static int
@@ -172,14 +189,17 @@ main (int argc, char *argv[])
 	shcl_str  canon;
 	FILE     *out;
 	size_t    i, len;
-	int       hand, bad = 0;
+	int       hand, bare, bad = 0;
 	char     *text;
 
-	if (argc != 4 || (strcmp (argv[3], "plain") != 0 && strcmp (argv[3], "hand") != 0)) {
-		fprintf (stderr, "usage: %s <settings.shcl> <expect.txt> plain|hand\n", argv[0]);
+	if (argc != 4 || (strcmp (argv[3], "plain") != 0 && strcmp (argv[3], "hand") != 0 &&
+	                  strcmp (argv[3], "nobackslash") != 0)) {
+		fprintf (stderr, "usage: %s <settings.shcl> <expect.txt> plain|hand|nobackslash\n",
+		         argv[0]);
 		return 2;
 	}
 	hand = strcmp (argv[3], "hand") == 0;
+	bare = strcmp (argv[3], "nobackslash") == 0;
 
 	/* The setters the app called then, in nemo-config.c. */
 	d = shcl_new ();
@@ -188,7 +208,7 @@ main (int argc, char *argv[])
 		size_t       plen = strlen (e->path);
 		int          set = 1;
 
-		if (e->how != SET)
+		if (e->how != SET || (bare && escaped (e)))
 			continue;
 		switch (e->type) {
 		case 's':
@@ -251,7 +271,7 @@ main (int argc, char *argv[])
 	if (back == NULL || out == NULL)
 		return 1;
 	for (i = 0; i < N_ENTRIES; i++) {
-		if (entries[i].how == HAND && !hand)
+		if ((entries[i].how == HAND && !hand) || (bare && escaped (&entries[i])))
 			continue;
 		if (!put_reading (out, back, &entries[i])) {
 			fprintf (stderr, "%s: %s does not read back as written\n",
