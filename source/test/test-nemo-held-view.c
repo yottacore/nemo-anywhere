@@ -21,13 +21,13 @@
 */
 
 /* A view whose tab has closed can stay in memory while an unmount, eject or
- * rename still holds it. Its widgets are gone by then, so no handler on a
+ * rename still has a ref on it. Its widgets are gone by then, so no handler on a
  * settings group may still have the view or a widget inside it as its data.
  * One that did called into a freed tree view the next time row shading was
  * changed.
  *
  * The built program (argv[1]) opens two folders in tabs with
- * test-nemo-held-view-hooks (argv[2]) preloaded, which holds each view the
+ * test-nemo-held-view-hooks (argv[2]) preloaded, which keeps each view the
  * program destroys and reports any handler left. A tab is closed with Ctrl+W.
  * In the list view, row shading, its color and folder expansion are then
  * changed in settings.shcl, and each change has to reach the open tab with
@@ -300,20 +300,44 @@ moved (const char *path, const char *name, gint64 before, GPid pid)
 	return FALSE;
 }
 
-/* The whole file each time, as a person editing it would leave it. */
+static gboolean
+file_has (const char *path, const char *line)
+{
+	char *text = NULL;
+	gboolean has = g_file_get_contents (path, &text, NULL, NULL) && strstr (text, line) != NULL;
+
+	g_free (text);
+
+	return has;
+}
+
+/* The whole file each time, as a person editing it would leave it. The
+   program's own debounced save can come between the write and the reload and
+   put the old value back, which is a lost edit and not what this test is
+   about, so that case writes again. A line still on disk that never reached
+   the tab is a failure. */
 static void
 change_setting (const char *settings, GString *lines, const char *line,
 		const char *out, const char *count, GPid pid)
 {
-	gint64 before = settled (out, count);
+	int tries;
 
 	g_string_append (lines, line);
-	check (g_file_set_contents (settings, lines->str, -1, NULL));
-	if (!moved (out, count, before, pid)) {
-		g_printerr ("list view: \"%.*s\" never reached the open tab\n",
-			    (int) strcspn (line, "\n"), line);
-		failures++;
+	for (tries = 0; tries < 3; tries++) {
+		gint64 before = settled (out, count);
+
+		check (g_file_set_contents (settings, lines->str, -1, NULL));
+		if (moved (out, count, before, pid)) {
+			return;
+		}
+		if (!alive (pid) || file_has (settings, line)) {
+			break;
+		}
+		g_print ("list view: settings.shcl was saved over by the program, writing it again\n");
 	}
+	g_printerr ("list view: \"%.*s\" never reached the open tab\n",
+		    (int) strcspn (line, "\n"), line);
+	failures++;
 }
 
 static GPid
@@ -462,7 +486,7 @@ int
 main (int argc, char *argv[])
 {
 #ifndef __linux__
-	g_print ("SKIP: holds the view through LD_PRELOAD, which is Linux only here\n");
+	g_print ("SKIP: keeps the view through LD_PRELOAD, which is Linux only here\n");
 	return 77;
 #else
 	int event, error, major, minor;

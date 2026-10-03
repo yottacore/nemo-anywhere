@@ -16,7 +16,7 @@
 ##	  wherever it sits. A missing python skips it the same way cppcheck does.
 ##	- Then the settings-handler check (cicd/utility/lint-pref-handlers.py), also
 ##	  whole-tree, which pairs each disconnect with the connect it belongs to
-##	  and holds each handler to its row in design.md, "Handlers on settings
+##	  and checks each handler against its row in design.md, "Handlers on settings
 ##	  groups", and the accelerator check (cicd/utility/lint-accels.py), whole-tree too.
 ##	- Runs the same everywhere bash + git + cppcheck exist (Linux host, MSYS2).
 ##	- Syntax: lint-c.bash [--list-files] [base-branch]
