@@ -436,8 +436,8 @@ main (int argc, char *argv[])
 		check (!g_file_test (db_path, G_FILE_TEST_EXISTS));
 	}
 
-	/* Made before the program starts. Two copies setting up a new file at the
-	 * same moment can find it locked, and that is not what this test is about. */
+	/* Made before the program starts, so the program's own setup of a new
+	 * file is not part of what is timed here. */
 	db = nemo_cache_db_get ();
 	check (db != NULL);
 	if (db == NULL) {

@@ -259,6 +259,16 @@ test('rhd1cv38 File cache store test',
   args: []
 )
 
+test('rjch1a9a File cache opened by many at once test',
+  executable('test-nemo-cache-open-race',
+    [ 'test-nemo-cache-open-race.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch, sqlite ],
+  ),
+  args: [],
+  timeout: 120
+)
+
 test('rhd69rjr File cache prune test',
   executable('test-nemo-cache-prune',
     [ 'test-nemo-cache-prune.c' ],
@@ -1086,6 +1096,21 @@ if not is_windows
     ),
     args: [ nemo ],
     timeout: 180
+  )
+
+  # Preloaded into the program, so it links nothing of ours.
+  quit_hooks = shared_module('test-nemo-quit-hooks',
+    [ 'test-nemo-quit-hooks.c' ],
+    dependencies: [ gtk ],
+  )
+  test('rjch1b9a Shortcut saved and notice withdrawn at quit test',
+    executable('test-nemo-quit-saves',
+      [ 'test-nemo-quit-saves.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, x11, test_scratch ],
+    ),
+    args: [ nemo, quit_hooks ],
+    timeout: 120
   )
 
   test('rhmr6qgs Tab move between processes test',

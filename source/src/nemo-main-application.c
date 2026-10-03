@@ -1292,12 +1292,14 @@ nemo_desktop_application_continue_quit (NemoApplication *app)
 {
 }
 
+/* A notice outlives the program on the notification server, and an unmount
+ * still running at quit would never take it down. */
 static void
-nemo_main_application_quit_mainloop (GApplication *app)
+nemo_main_application_shutdown (GApplication *app)
 {
-    nemo_main_application_notify_unmount_done (NEMO_APPLICATION (app), NULL);
+    g_application_withdraw_notification (app, NEMO_NOTIFICATION_UNMOUNT_ID_PENDING);
 
-    G_APPLICATION_CLASS (nemo_main_application_parent_class)->quit_mainloop (app);
+    G_APPLICATION_CLASS (nemo_main_application_parent_class)->shutdown (app);
 }
 
 static void
@@ -1313,7 +1315,7 @@ nemo_main_application_class_init (NemoMainApplicationClass *class)
     application_class = G_APPLICATION_CLASS (class);
     application_class->open = nemo_main_application_open;
     application_class->local_command_line = nemo_main_application_local_command_line;
-    application_class->quit_mainloop = nemo_main_application_quit_mainloop;
+    application_class->shutdown = nemo_main_application_shutdown;
 
     nemo_app_class = NEMO_APPLICATION_CLASS (class);
     nemo_app_class->open_location = nemo_main_application_open_location;
