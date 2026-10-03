@@ -2762,17 +2762,6 @@ finalize (GObject *object)
 
 	details = NEMO_ICON_CONTAINER (object)->details;
 
-	g_signal_handlers_disconnect_by_func (nemo_icon_view_preferences,
-					      text_ellipsis_limit_changed_container_callback,
-					      object);
-	g_signal_handlers_disconnect_by_func (nemo_desktop_preferences,
-					      text_ellipsis_limit_changed_container_callback,
-					      object);
-
-    g_signal_handlers_disconnect_by_func (nemo_preferences,
-                                          tooltip_prefs_changed_callback,
-                                          object);
-
 	g_hash_table_destroy (details->icon_set);
 	details->icon_set = NULL;
 
@@ -4930,30 +4919,30 @@ nemo_icon_container_init (NemoIconContainer *container)
 	g_signal_connect (container, "focus-out-event",
 			  G_CALLBACK (handle_focus_out_event), NULL);
 
-    g_signal_connect_swapped (nemo_preferences,
-                              "changed::" NEMO_PREFERENCES_TOOLTIPS_ICON_VIEW,
-                              G_CALLBACK (tooltip_prefs_changed_callback),
-                              container);
+    g_signal_connect_object (nemo_preferences,
+                             "changed::" NEMO_PREFERENCES_TOOLTIPS_ICON_VIEW,
+                             G_CALLBACK (tooltip_prefs_changed_callback),
+                             container, G_CONNECT_SWAPPED);
 
-    g_signal_connect_swapped (nemo_preferences,
-                              "changed::" NEMO_PREFERENCES_TOOLTIP_FILE_TYPE,
-                              G_CALLBACK (tooltip_prefs_changed_callback),
-                              container);
+    g_signal_connect_object (nemo_preferences,
+                             "changed::" NEMO_PREFERENCES_TOOLTIP_FILE_TYPE,
+                             G_CALLBACK (tooltip_prefs_changed_callback),
+                             container, G_CONNECT_SWAPPED);
 
-    g_signal_connect_swapped (nemo_preferences,
-                              "changed::" NEMO_PREFERENCES_TOOLTIP_MOD_DATE,
-                              G_CALLBACK (tooltip_prefs_changed_callback),
-                              container);
+    g_signal_connect_object (nemo_preferences,
+                             "changed::" NEMO_PREFERENCES_TOOLTIP_MOD_DATE,
+                             G_CALLBACK (tooltip_prefs_changed_callback),
+                             container, G_CONNECT_SWAPPED);
 
-    g_signal_connect_swapped (nemo_preferences,
-                              "changed::" NEMO_PREFERENCES_TOOLTIP_ACCESS_DATE,
-                              G_CALLBACK (tooltip_prefs_changed_callback),
-                              container);
+    g_signal_connect_object (nemo_preferences,
+                             "changed::" NEMO_PREFERENCES_TOOLTIP_ACCESS_DATE,
+                             G_CALLBACK (tooltip_prefs_changed_callback),
+                             container, G_CONNECT_SWAPPED);
 
-    g_signal_connect_swapped (nemo_preferences,
-                              "changed::" NEMO_PREFERENCES_TOOLTIP_FULL_PATH,
-                              G_CALLBACK (tooltip_prefs_changed_callback),
-                              container);
+    g_signal_connect_object (nemo_preferences,
+                             "changed::" NEMO_PREFERENCES_TOOLTIP_FULL_PATH,
+                             G_CALLBACK (tooltip_prefs_changed_callback),
+                             container, G_CONNECT_SWAPPED);
 
     container->details->show_icon_view_tooltips = nemo_config_get_boolean (nemo_preferences,
                                                                           NEMO_PREFERENCES_TOOLTIPS_ICON_VIEW);
@@ -7276,15 +7265,15 @@ nemo_icon_container_set_is_desktop (NemoIconContainer *container,
         context = gtk_widget_get_style_context (GTK_WIDGET (container));
         gtk_style_context_add_class (context, "nemo-desktop");
 
-        g_signal_connect_swapped (nemo_desktop_preferences,
-                                  "changed::" NEMO_PREFERENCES_DESKTOP_TEXT_ELLIPSIS_LIMIT,
-                                  G_CALLBACK (text_ellipsis_limit_changed_container_callback),
-                                  container);
+        g_signal_connect_object (nemo_desktop_preferences,
+                                 "changed::" NEMO_PREFERENCES_DESKTOP_TEXT_ELLIPSIS_LIMIT,
+                                 G_CALLBACK (text_ellipsis_limit_changed_container_callback),
+                                 container, G_CONNECT_SWAPPED);
     } else {
-        g_signal_connect_swapped (nemo_icon_view_preferences,
-                                  "changed::" NEMO_PREFERENCES_ICON_VIEW_TEXT_ELLIPSIS_LIMIT,
-                                  G_CALLBACK (text_ellipsis_limit_changed_container_callback),
-                                  container);
+        g_signal_connect_object (nemo_icon_view_preferences,
+                                 "changed::" NEMO_PREFERENCES_ICON_VIEW_TEXT_ELLIPSIS_LIMIT,
+                                 G_CALLBACK (text_ellipsis_limit_changed_container_callback),
+                                 container, G_CONNECT_SWAPPED);
     }
 }
 

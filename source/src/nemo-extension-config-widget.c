@@ -403,8 +403,6 @@ nemo_extension_config_widget_finalize (GObject *object)
 
     g_list_free_full (widget->initial_extension_ids, (GDestroyNotify) g_free);
 
-    g_signal_handler_disconnect (nemo_plugin_preferences, widget->bl_handler);
-
     G_OBJECT_CLASS (nemo_extension_config_widget_parent_class)->finalize (object);
 }
 
@@ -423,9 +421,9 @@ nemo_extension_config_widget_init (NemoExtensionConfigWidget *self)
     self->current_extensions = NULL;
     self->initial_extension_ids = NULL;
 
-    self->bl_handler = g_signal_connect (nemo_plugin_preferences,
-    		                             "changed::" NEMO_PLUGIN_PREFERENCES_DISABLED_EXTENSIONS,
-                                         G_CALLBACK (on_settings_changed), self);
+    self->bl_handler = g_signal_connect_object (nemo_plugin_preferences,
+                                                "changed::" NEMO_PLUGIN_PREFERENCES_DISABLED_EXTENSIONS,
+                                                G_CALLBACK (on_settings_changed), self, 0);
 
     GtkWidget *label = nemo_config_base_widget_get_label (NEMO_CONFIG_BASE_WIDGET (self));
 

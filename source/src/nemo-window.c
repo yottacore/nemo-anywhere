@@ -1048,16 +1048,6 @@ nemo_window_finalize (GObject *object)
 
 	cancel_pending_geometry_save (window);
 
-    g_signal_handlers_disconnect_by_func (nemo_preferences,
-                                          nemo_window_sync_thumbnail_action,
-                                          window);
-    g_signal_handlers_disconnect_by_func (nemo_preferences,
-                                          default_folder_viewer_changed,
-                                          window);
-    g_signal_handlers_disconnect_by_func (nemo_preferences,
-                                          title_spelling_changed,
-                                          window);
-
     clear_menu_hide_delay (window);
 
 	nemo_window_finalize_menus (window);
@@ -2385,26 +2375,26 @@ nemo_window_init (NemoWindow *window)
 
 	nemo_delete_guard_watch_window (GTK_WINDOW (window));
 
-    g_signal_connect_swapped (nemo_preferences,
+    g_signal_connect_object (nemo_preferences,
 				  "changed::" NEMO_PREFERENCES_SHOW_IMAGE_FILE_THUMBNAILS,
 				  G_CALLBACK(nemo_window_sync_thumbnail_action),
-				  window);
-    g_signal_connect_swapped (nemo_preferences,
+				  window, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_preferences,
 				  "changed::" NEMO_PREFERENCES_INHERIT_SHOW_THUMBNAILS,
 				  G_CALLBACK(nemo_window_sync_thumbnail_action),
-				  window);
-    g_signal_connect_swapped (nemo_preferences,
+				  window, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_preferences,
 				  "changed::" NEMO_PREFERENCES_DEFAULT_FOLDER_VIEWER,
 				  G_CALLBACK(default_folder_viewer_changed),
-				  window);
-    g_signal_connect_swapped (nemo_preferences,
+				  window, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_preferences,
 				  "changed::" NEMO_PREFERENCES_SHOW_FULL_PATH_TITLES,
 				  G_CALLBACK(title_spelling_changed),
-				  window);
-    g_signal_connect_swapped (nemo_preferences,
+				  window, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_preferences,
 				  "changed::" NEMO_PREFERENCES_PATH_SEPARATOR,
 				  G_CALLBACK(title_spelling_changed),
-				  window);
+				  window, G_CONNECT_SWAPPED);
 }
 
 static void

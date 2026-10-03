@@ -1283,8 +1283,8 @@ nemo_main_application_continue_startup (NemoApplication *app)
 	g_signal_connect_object (self->priv->volume_monitor, "mount_added",
 				 G_CALLBACK (mount_added_callback), self, 0);
 
-    g_signal_connect_swapped (nemo_window_state, "changed::" NEMO_WINDOW_STATE_START_WITH_MENU_BAR,
-                              G_CALLBACK (menu_state_changed_callback), self);
+    g_signal_connect_object (nemo_window_state, "changed::" NEMO_WINDOW_STATE_START_WITH_MENU_BAR,
+                             G_CALLBACK (menu_state_changed_callback), self, G_CONNECT_SWAPPED);
 }
 
 static void

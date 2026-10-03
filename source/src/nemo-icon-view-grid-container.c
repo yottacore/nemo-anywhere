@@ -1579,15 +1579,15 @@ nemo_icon_view_grid_container_construct (NemoIconViewGridContainer *icon_contain
     constants->max_text_width_beside_top_to_bottom = 150; // Not used
     constants->icon_vertical_adjust = 20;
 
-    g_signal_connect_swapped (nemo_desktop_preferences,
-                              "changed::" NEMO_PREFERENCES_DESKTOP_TEXT_ELLIPSIS_LIMIT,
-                              G_CALLBACK (desktop_text_ellipsis_limit_changed_callback),
-                              NEMO_ICON_CONTAINER (icon_container));
+    g_signal_connect_object (nemo_desktop_preferences,
+                             "changed::" NEMO_PREFERENCES_DESKTOP_TEXT_ELLIPSIS_LIMIT,
+                             G_CALLBACK (desktop_text_ellipsis_limit_changed_callback),
+                             NEMO_ICON_CONTAINER (icon_container), G_CONNECT_SWAPPED);
 
-    g_signal_connect_swapped (nemo_icon_view_preferences,
-                              "changed::" NEMO_PREFERENCES_ICON_VIEW_CAPTIONS,
-                              G_CALLBACK (captions_changed_callback),
-                              NEMO_ICON_CONTAINER (icon_container));
+    g_signal_connect_object (nemo_icon_view_preferences,
+                             "changed::" NEMO_PREFERENCES_ICON_VIEW_CAPTIONS,
+                             G_CALLBACK (captions_changed_callback),
+                             NEMO_ICON_CONTAINER (icon_container), G_CONNECT_SWAPPED);
 
     g_signal_connect (icon_container,
                       "get-tooltip-text",
@@ -1598,20 +1598,6 @@ nemo_icon_view_grid_container_construct (NemoIconViewGridContainer *icon_contain
 }
 
 static void
-finalize (GObject *object)
-{
-    g_signal_handlers_disconnect_by_func (nemo_desktop_preferences,
-                                          desktop_text_ellipsis_limit_changed_callback,
-                                          object);
-
-    g_signal_handlers_disconnect_by_func (nemo_icon_view_preferences,
-                                          captions_changed_callback,
-                                          object);
-
-    G_OBJECT_CLASS (nemo_icon_view_grid_container_parent_class)->finalize (object);
-}
-
-static void
 nemo_icon_view_grid_container_class_init (NemoIconViewGridContainerClass *klass)
 {
 	NemoIconContainerClass *ic_class;
@@ -1619,8 +1605,6 @@ nemo_icon_view_grid_container_class_init (NemoIconViewGridContainerClass *klass)
 	ic_class = &klass->parent_class;
 
 	attribute_none_q = g_quark_from_static_string ("none");
-
-    G_OBJECT_CLASS (klass)->finalize = finalize;
 
     ic_class->is_grid_container = TRUE;
 

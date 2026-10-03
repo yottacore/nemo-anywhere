@@ -4626,19 +4626,19 @@ nemo_places_sidebar_init (NemoPlacesSidebar *sidebar)
                              G_CALLBACK (query_tooltip_callback), sidebar, 0);
     gtk_widget_set_has_tooltip (GTK_WIDGET (tree_view), TRUE);
 
-	g_signal_connect_swapped (nemo_preferences, "changed::" NEMO_PREFERENCES_DESKTOP_IS_HOME_DIR,
-				  G_CALLBACK(desktop_setting_changed_callback),
-				  sidebar);
+	g_signal_connect_object (nemo_preferences, "changed::" NEMO_PREFERENCES_DESKTOP_IS_HOME_DIR,
+				 G_CALLBACK(desktop_setting_changed_callback),
+				 sidebar, G_CONNECT_SWAPPED);
 
-	g_signal_connect_swapped (nemo_desktop_preferences, "changed::" NEMO_PREFERENCES_SHOW_DESKTOP,
-				  G_CALLBACK(desktop_setting_changed_callback),
-				  sidebar);
+	g_signal_connect_object (nemo_desktop_preferences, "changed::" NEMO_PREFERENCES_SHOW_DESKTOP,
+				 G_CALLBACK(desktop_setting_changed_callback),
+				 sidebar, G_CONNECT_SWAPPED);
 
 	/* A drive root is listed as "C:\", so how a path is spelled changes what
 	   the sidebar says. */
-	g_signal_connect_swapped (nemo_windows_preferences, "changed::" NEMO_PREFERENCES_PATH_SEPARATOR,
-				  G_CALLBACK(update_places_on_idle),
-				  sidebar);
+	g_signal_connect_object (nemo_windows_preferences, "changed::" NEMO_PREFERENCES_PATH_SEPARATOR,
+				 G_CALLBACK(update_places_on_idle),
+				 sidebar, G_CONNECT_SWAPPED);
 
     nemo_desktop_settings_watch (NEMO_PREFERENCES_RECENT_ENABLED,
                                  G_CALLBACK (desktop_setting_changed_callback),
@@ -4712,30 +4712,6 @@ nemo_places_sidebar_dispose (GObject *object)
 					      (gpointer *) &sidebar->go_to_after_mount_slot);
 		sidebar->go_to_after_mount_slot = NULL;
 	}
-
-    g_signal_handlers_disconnect_by_func (nemo_window_state,
-                                          breakpoint_changed_cb,
-                                          sidebar);
-
-	g_signal_handlers_disconnect_by_func (nemo_preferences,
-					      desktop_setting_changed_callback,
-					      sidebar);
-
-	/* init also connects this to nemo_desktop_preferences (show-desktop),
-	 * and set_parent_window connects reset_menu to nemo_preferences; both
-	 * config groups are process-global, so a later change would fire on the
-	 * freed sidebar (the fork's live settings reload makes this reachable). */
-	g_signal_handlers_disconnect_by_func (nemo_desktop_preferences,
-					      desktop_setting_changed_callback,
-					      sidebar);
-
-	g_signal_handlers_disconnect_by_func (nemo_preferences,
-					      reset_menu,
-					      sidebar);
-
-	g_signal_handlers_disconnect_by_func (nemo_windows_preferences,
-					      update_places_on_idle,
-					      sidebar);
 
     nemo_desktop_settings_unwatch (sidebar);
 
@@ -4831,8 +4807,8 @@ nemo_places_sidebar_set_parent_window (NemoPlacesSidebar *sidebar,
     }
 
     sidebar->bookmark_breakpoint = breakpoint;
-    g_signal_connect_swapped (nemo_window_state, "changed::" NEMO_PREFERENCES_SIDEBAR_BOOKMARK_BREAKPOINT,
-                              G_CALLBACK (breakpoint_changed_cb), sidebar);
+    g_signal_connect_object (nemo_window_state, "changed::" NEMO_PREFERENCES_SIDEBAR_BOOKMARK_BREAKPOINT,
+                             G_CALLBACK (breakpoint_changed_cb), sidebar, G_CONNECT_SWAPPED);
 
 	sidebar->bookmarks_changed_id =
 		g_signal_connect_swapped (sidebar->bookmarks, "changed",
@@ -4862,8 +4838,8 @@ nemo_places_sidebar_set_parent_window (NemoPlacesSidebar *sidebar,
 	g_signal_connect_object (sidebar->volume_monitor, "drive_changed",
 				 G_CALLBACK (drive_changed_callback), sidebar, 0);
 
-	g_signal_connect_swapped (nemo_preferences, "changed::" NEMO_PREFERENCES_ALWAYS_USE_BROWSER,
-				 G_CALLBACK (reset_menu), sidebar);
+	g_signal_connect_object (nemo_preferences, "changed::" NEMO_PREFERENCES_ALWAYS_USE_BROWSER,
+				 G_CALLBACK (reset_menu), sidebar, G_CONNECT_SWAPPED);
 	update_places (sidebar);
 }
 

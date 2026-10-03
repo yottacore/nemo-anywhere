@@ -25,6 +25,7 @@ Status: kept current as decisions change, rather than written once. Last read th
 	- [Code layout](#code-layout)
 	- [Data flow](#data-flow)
 	- [Execution flow](#execution-flow)
+	- [Handlers on settings groups](#handlers-on-settings-groups)
 	- [One process per window](#one-process-per-window)
 - [Features](#features)
 	- [Configuration and persistence](#configuration-and-persistence)
@@ -243,6 +244,27 @@ One process per window by default, one main loop each, and a firm rule that noth
 - Work started off the main loop reports back on it. File operations own a progress object the UI observes, thumbnails hand back a finished image, a completed directory load emits `done_loading`. Callbacks outliving their object are the recurring hazard, so long-running work holds a reference and cancels on dispose.
 
 - Debounce and coalesce rather than write or redraw on every event. Settings saves, metadata saves, window geometry and sidebar rebuilds all batch.
+
+### Handlers on settings groups
+
+The table below is the rule for a handler connected to one of the settings groups declared in `nemo-global-preferences.h`. The groups last as long as the process. A view, a sidebar or a window can be torn down long before that, and a view can then stay in memory a while longer, held by an unmount, an eject or a rename that is still running. A handler left on a group past teardown is called with widgets that are already gone the next time the setting changes, and live reload makes a change an ordinary event. The same mistake was fixed in the places sidebar, in a test and in the list view, each a different way, so the answer is kept here once.
+
+| Case                                                                                                                                           | Answer
+| :---                                                                                                                                           | :---
+| The data is an object that can go before the process ends: a view, a widget, a window, a dialog page, or a helper object such as the job queue | `g_signal_connect_object` with that object, with `G_CONNECT_SWAPPED` where the callback takes it first. No disconnect anywhere. The handler goes when the object is disposed.
+| The callback works on a widget the owner holds, rather than on the owner                                                                       | `g_signal_connect_object` with the widget it works on, as the row hover tint does with the tree view.
+| The data is `NULL`, or the address of a file-level static                                                                                      | Plain `g_signal_connect`, once per process, never disconnected.
+| The data is the address of a local variable, as in a test                                                                                      | Plain connect with the id kept, and `g_signal_handler_disconnect` on the same group before the function returns.
+| The data is a plain struct, not an object, freed when a widget goes                                                                            | Plain connect, and `g_signal_handlers_disconnect_by_data` on the same group in the function that frees the struct, run from that widget's `destroy`.
+| `nemo_config_bind`                                                                                                                             | Used as it is. The binding goes when the object is finalized, and it only sets a stock property on the object itself, which is safe on a widget already torn down.
+| A handler on some other object that outlives the receiver, such as a `NemoFile` or a monitor the whole process shares                          | As the first row.
+
+- `g_signal_connect_object` was chosen over a disconnect in dispose, and over one in finalize.
+	- Finalize is too late. The widgets inside are freed at dispose, and a held view is not finalized until the hold is let go. That is how the list view's row shading handler reached a freed tree view.
+	- A disconnect in dispose works, but it names the group a second time, and the two names drifted apart in the sidebar and in a test. With `g_signal_connect_object` there is no second name to get wrong and no teardown line to forget.
+	- GLib removes such a handler from the group once the object's dispose finishes, rather than only no longer calling it. That holds from GLib 2.72, the oldest the release build is made against, through the one in the Windows build.
+
+- `cicd/utility/lint-pref-handlers.py` checks every row for the declared groups except `nemo_config_bind`, which needs no check. The last row has no check, since nothing in the source says how long some other object lives.
 
 ### One process per window
 

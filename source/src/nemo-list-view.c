@@ -4043,20 +4043,20 @@ create_and_set_up_tree_view (NemoListView *view)
     gtk_tree_view_set_show_expanders (view->details->tree_view,
                                       nemo_config_get_boolean (nemo_list_view_preferences,
                                                               NEMO_PREFERENCES_LIST_VIEW_ENABLE_EXPANSION));
-    g_signal_connect_swapped (nemo_list_view_preferences,
-                              "changed::" NEMO_PREFERENCES_LIST_VIEW_ENABLE_EXPANSION,
-                              G_CALLBACK (expanders_enabled_changed_cb),
-                              view);
+    g_signal_connect_object (nemo_list_view_preferences,
+                             "changed::" NEMO_PREFERENCES_LIST_VIEW_ENABLE_EXPANSION,
+                             G_CALLBACK (expanders_enabled_changed_cb),
+                             view, G_CONNECT_SWAPPED);
 
     row_shading_changed_callback (view);
-    g_signal_connect_swapped (nemo_list_view_preferences,
-                              "changed::" NEMO_PREFERENCES_LIST_VIEW_ROW_SHADING,
-                              G_CALLBACK (row_shading_changed_callback),
-                              view);
-    g_signal_connect_swapped (nemo_list_view_preferences,
-                              "changed::" NEMO_PREFERENCES_LIST_VIEW_ROW_SHADING_COLOR,
-                              G_CALLBACK (row_shading_changed_callback),
-                              view);
+    g_signal_connect_object (nemo_list_view_preferences,
+                             "changed::" NEMO_PREFERENCES_LIST_VIEW_ROW_SHADING,
+                             G_CALLBACK (row_shading_changed_callback),
+                             view, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_list_view_preferences,
+                             "changed::" NEMO_PREFERENCES_LIST_VIEW_ROW_SHADING_COLOR,
+                             G_CALLBACK (row_shading_changed_callback),
+                             view, G_CONNECT_SWAPPED);
     g_signal_connect_swapped (view->details->tree_view, "style-updated",
                               G_CALLBACK (tree_view_style_updated),
                               view);
@@ -5905,34 +5905,6 @@ nemo_list_view_finalize (GObject *object)
 
 	g_free (list_view->details);
 
-	g_signal_handlers_disconnect_by_func (nemo_preferences,
-					      default_sort_order_changed_callback,
-					      list_view);
-	g_signal_handlers_disconnect_by_func (nemo_list_view_preferences,
-					      default_icon_size_changed_callback,
-					      list_view);
-	g_signal_handlers_disconnect_by_func (nemo_list_view_preferences,
-					      default_visible_columns_changed_callback,
-					      list_view);
-	g_signal_handlers_disconnect_by_func (nemo_list_view_preferences,
-					      default_column_order_changed_callback,
-					      list_view);
-    g_signal_handlers_disconnect_by_func (nemo_list_view_preferences,
-                                          expanders_enabled_changed_cb,
-                                          list_view);
-    g_signal_handlers_disconnect_by_func (nemo_list_view_preferences,
-                                          row_shading_changed_callback,
-                                          list_view);
-	g_signal_handlers_disconnect_by_func (nemo_list_view_preferences,
-					      column_fit_percent_changed_callback,
-					      list_view);
-	g_signal_handlers_disconnect_by_func (nemo_search_preferences,
-					      search_grouping_changed_callback,
-					      list_view);
-    g_signal_handlers_disconnect_by_func (nemo_preferences,
-                                          tooltip_prefs_changed_callback,
-                                          list_view);
-
 	G_OBJECT_CLASS (nemo_list_view_parent_class)->finalize (object);
 }
 
@@ -6112,59 +6084,59 @@ nemo_list_view_init (NemoListView *list_view)
 
 	create_and_set_up_tree_view (list_view);
 
-	g_signal_connect_swapped (nemo_preferences,
-				  "changed::" NEMO_PREFERENCES_DEFAULT_SORT_ORDER,
-				  G_CALLBACK (default_sort_order_changed_callback),
-				  list_view);
-	g_signal_connect_swapped (nemo_preferences,
-				  "changed::" NEMO_PREFERENCES_DEFAULT_SORT_IN_REVERSE_ORDER,
-				  G_CALLBACK (default_sort_order_changed_callback),
-				  list_view);
-	g_signal_connect_swapped (nemo_list_view_preferences,
-				  "changed::" NEMO_PREFERENCES_LIST_VIEW_DEFAULT_ICON_SIZE,
-				  G_CALLBACK (default_icon_size_changed_callback),
-				  list_view);
-	g_signal_connect_swapped (nemo_list_view_preferences,
-				  "changed::" NEMO_PREFERENCES_LIST_VIEW_DEFAULT_VISIBLE_COLUMNS,
-				  G_CALLBACK (default_visible_columns_changed_callback),
-				  list_view);
-	g_signal_connect_swapped (nemo_list_view_preferences,
-				  "changed::" NEMO_PREFERENCES_LIST_VIEW_DEFAULT_COLUMN_ORDER,
-				  G_CALLBACK (default_column_order_changed_callback),
-				  list_view);
-	g_signal_connect_swapped (nemo_list_view_preferences,
-				  "changed::" NEMO_PREFERENCES_LIST_VIEW_COLUMN_FIT_PERCENT,
-				  G_CALLBACK (column_fit_percent_changed_callback),
-				  list_view);
-	g_signal_connect_swapped (nemo_search_preferences,
-				  "changed::" NEMO_PREFERENCES_SEARCH_GROUP_BY_FOLDER,
-				  G_CALLBACK (search_grouping_changed_callback),
-				  list_view);
+	g_signal_connect_object (nemo_preferences,
+				 "changed::" NEMO_PREFERENCES_DEFAULT_SORT_ORDER,
+				 G_CALLBACK (default_sort_order_changed_callback),
+				 list_view, G_CONNECT_SWAPPED);
+	g_signal_connect_object (nemo_preferences,
+				 "changed::" NEMO_PREFERENCES_DEFAULT_SORT_IN_REVERSE_ORDER,
+				 G_CALLBACK (default_sort_order_changed_callback),
+				 list_view, G_CONNECT_SWAPPED);
+	g_signal_connect_object (nemo_list_view_preferences,
+				 "changed::" NEMO_PREFERENCES_LIST_VIEW_DEFAULT_ICON_SIZE,
+				 G_CALLBACK (default_icon_size_changed_callback),
+				 list_view, G_CONNECT_SWAPPED);
+	g_signal_connect_object (nemo_list_view_preferences,
+				 "changed::" NEMO_PREFERENCES_LIST_VIEW_DEFAULT_VISIBLE_COLUMNS,
+				 G_CALLBACK (default_visible_columns_changed_callback),
+				 list_view, G_CONNECT_SWAPPED);
+	g_signal_connect_object (nemo_list_view_preferences,
+				 "changed::" NEMO_PREFERENCES_LIST_VIEW_DEFAULT_COLUMN_ORDER,
+				 G_CALLBACK (default_column_order_changed_callback),
+				 list_view, G_CONNECT_SWAPPED);
+	g_signal_connect_object (nemo_list_view_preferences,
+				 "changed::" NEMO_PREFERENCES_LIST_VIEW_COLUMN_FIT_PERCENT,
+				 G_CALLBACK (column_fit_percent_changed_callback),
+				 list_view, G_CONNECT_SWAPPED);
+	g_signal_connect_object (nemo_search_preferences,
+				 "changed::" NEMO_PREFERENCES_SEARCH_GROUP_BY_FOLDER,
+				 G_CALLBACK (search_grouping_changed_callback),
+				 list_view, G_CONNECT_SWAPPED);
 
-    g_signal_connect_swapped (nemo_preferences,
-                              "changed::" NEMO_PREFERENCES_TOOLTIPS_LIST_VIEW,
-                              G_CALLBACK (tooltip_prefs_changed_callback),
-                              list_view);
+    g_signal_connect_object (nemo_preferences,
+                             "changed::" NEMO_PREFERENCES_TOOLTIPS_LIST_VIEW,
+                             G_CALLBACK (tooltip_prefs_changed_callback),
+                             list_view, G_CONNECT_SWAPPED);
 
-    g_signal_connect_swapped (nemo_preferences,
-                              "changed::" NEMO_PREFERENCES_TOOLTIP_FILE_TYPE,
-                              G_CALLBACK (tooltip_prefs_changed_callback),
-                              list_view);
+    g_signal_connect_object (nemo_preferences,
+                             "changed::" NEMO_PREFERENCES_TOOLTIP_FILE_TYPE,
+                             G_CALLBACK (tooltip_prefs_changed_callback),
+                             list_view, G_CONNECT_SWAPPED);
 
-    g_signal_connect_swapped (nemo_preferences,
-                              "changed::" NEMO_PREFERENCES_TOOLTIP_MOD_DATE,
-                              G_CALLBACK (tooltip_prefs_changed_callback),
-                              list_view);
+    g_signal_connect_object (nemo_preferences,
+                             "changed::" NEMO_PREFERENCES_TOOLTIP_MOD_DATE,
+                             G_CALLBACK (tooltip_prefs_changed_callback),
+                             list_view, G_CONNECT_SWAPPED);
 
-    g_signal_connect_swapped (nemo_preferences,
-                              "changed::" NEMO_PREFERENCES_TOOLTIP_ACCESS_DATE,
-                              G_CALLBACK (tooltip_prefs_changed_callback),
-                              list_view);
+    g_signal_connect_object (nemo_preferences,
+                             "changed::" NEMO_PREFERENCES_TOOLTIP_ACCESS_DATE,
+                             G_CALLBACK (tooltip_prefs_changed_callback),
+                             list_view, G_CONNECT_SWAPPED);
 
-    g_signal_connect_swapped (nemo_preferences,
-                              "changed::" NEMO_PREFERENCES_TOOLTIP_FULL_PATH,
-                              G_CALLBACK (tooltip_prefs_changed_callback),
-                              list_view);
+    g_signal_connect_object (nemo_preferences,
+                             "changed::" NEMO_PREFERENCES_TOOLTIP_FULL_PATH,
+                             G_CALLBACK (tooltip_prefs_changed_callback),
+                             list_view, G_CONNECT_SWAPPED);
 
     tooltip_prefs_changed_callback (list_view);
 

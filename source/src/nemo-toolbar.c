@@ -369,9 +369,9 @@ nemo_toolbar_constructed (GObject *obj)
     gtk_widget_show_all (GTK_WIDGET (tool_box));
     gtk_widget_set_margin_left (GTK_WIDGET (tool_box), 6);
 
-    g_signal_connect_swapped (nemo_preferences,
+    g_signal_connect_object (nemo_preferences,
                   "changed",
-                  G_CALLBACK (toolbar_update_appearance), self);
+                  G_CALLBACK (toolbar_update_appearance), self, G_CONNECT_SWAPPED);
 
 	toolbar_update_appearance (self);
 }
@@ -435,9 +435,6 @@ nemo_toolbar_dispose (GObject *obj)
 	NemoToolbar *self = NEMO_TOOLBAR (obj);
 
 	g_clear_object (&self->priv->action_group);
-
-	g_signal_handlers_disconnect_by_func (nemo_preferences,
-					      toolbar_update_appearance, self);
 
 	G_OBJECT_CLASS (nemo_toolbar_parent_class)->dispose (obj);
 }
