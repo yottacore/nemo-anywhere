@@ -169,6 +169,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjahhesy, Held view settings handlers test. A closed tab's list or icon view, still held, has no handler left on a settings group, and row shading, its color and folder expansion still reach the open tab. It fails with the list and icon view files from before the fix. `lint-pref-handlers.py --self-test`, new cases for a held view, a handler never disconnected and a local not disconnected.
 	- Acceptance signoff: waiting. The fix picks one of two ways to tie a handler to its owner, and adds a rule table to design.md.
 
+- Code review 20260928 item 23. File jobs and the clipboard leak memory on every operation.
+	- ID: 2026092813381423
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The gate passed 152 of 152 on cc31dd3.
+	- Needs external testing: none. Nothing changed is Windows-only code, and the cross build is clean.
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: each move job, each file moved by rename, each job's progress, each drag's clipboard check, and a canceled zip leak a little. A few smaller leaks sit in search, theme and window setup.
+	- Reproduced: yes, 20261003, Linux. Every site grew the heap on each repeat, and a stopped zip by about a quarter of a megabyte.
+	- Origin: upstream, apart from the zip one from 6c2418f, 20260820. Not seen by an earlier round. Confirmed.
+	- Actual cause: each site kept or copied something and never let it go on one way out. The progress manager also kept its own hold on every job's progress after the job finished, so the whole progress went, not only its lock. A stopped zip failed the archive library's last writes, and the library then skipped the step that frees its compressor.
+	- Actual fix: each site frees what it owns. The progress manager lets go of a job's progress when the job finishes, and lets go of its handler when it goes itself. The zip writer treats a write after a stop as done rather than failed, and the job still reports the stop.
+	- Sweep: whatever these functions own and miss on a way out, in the same files and the progress manager.
+	- Swept: copy, duplicate and link jobs free their desktop location already. The progress manager's hold on each finished job. The progress lock beside its condition. The window's view id, visible columns and column order, kept like its sort column. The theme check's first copy when it gives up. The bookmark metadata error when that file is missing. The clipboard check is the only place that waits for the clipboard; every other read is handed its data and freed by the toolkit.
+	- Note: every zip, stopped or not, still grows by about 150 bytes a time, which is its own item, 2026100307122400. Leaks seen only at exit, in the startup command line and the undo manager, were left alone.
+	- Branch: leaks
+	- Commit: 9619c6a (progress), fa3de32 (move), d9c526d (clipboard), 63f91f0 (zip), e98eb39 (search), 0c7b356 (bookmarks), b565bf2 (window), cc31dd3 (theme)
+	- Test case: rjbkzvdv Job progress leak test, rjbkzwe7 Move job leak test, rjbmdd0s Clipboard drag check leak test, rjbmh7g1 Stopped zip leak test, rjbn18rq Search query leak test, rjbn19rn Bookmarks load leak test, rjbn328w Bookmarks file load leak test. Each repeats its operation and fails when the heap grows, and each fails with its fix taken out. The window and theme sites have no test, since only the running program reaches them; a window closing and the theme check were checked by hand to leave nothing behind, before and after.
+	- Acceptance signoff: waiting. Two sites rest on a hand check, and the zip writer's handling of a stop changed.
+
 - Code review 20260928 item 3. Edit link on a symlink whose name ends in .lnk turns the symlink into a plain file.
 	- ID: 2026092813381403
 	- Type: Bug
@@ -428,19 +451,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261002-194800: rfhr0zw0 fails two checks on b29w in the native suite: a local shortcut does not wear the icon it names, and a document on a share does. The other share cases and every lookup case pass.
 
-- Code review 20260928 item 23. File jobs and the clipboard leak memory on every operation.
-	- ID: 2026092813381423
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: each move job, each file moved by rename, each job's progress, each drag's clipboard check, and a canceled zip leak a little. A few smaller leaks sit in search, theme and window setup.
-	- Reproduced: yes, 20260928, Linux.
-	- Origin: upstream, apart from the zip one from 6c2418f, 20260820. Not seen by an earlier round. Confirmed.
-	- Test case: none yet.
-
 - Code review 20260928 item 24. Settings comments that look like the SHCL info block are removed on save.
 	- ID: 2026092813381424
 	- Type: Bug
@@ -669,6 +679,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: no, read only.
 	- Origin: before this branch. Code review 20260919 item 16 fixed the other direction, a change in the program lost to a hand edit. Not seen by an earlier round. Plausible.
 	- Test case: none yet.
+
+- Every zip grows the program's memory by about 150 bytes, whether it finishes or is stopped.
+	- ID: 2026100307122400
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261003-071224
+	- Opened by: item 2026092813381423
+	- Related IDs: 2026092813381423
+	- Incorrect behavior: memory in use grows by about 150 bytes for each zip written, and is never given back. It is still reachable from somewhere, so it is something kept rather than lost.
+	- Expected behavior: a zip that has finished leaves memory where it was.
+	- Reproduced: yes, 20261003, Linux. Growth was the same over 64 and 192 zips per zip, and the same for a zip that finished and one stopped partway.
+	- Origin: unknown. Not seen by an earlier round. Confirmed.
+	- Test case: none yet. rjbmh7g1 allows for it, with a note naming this item, and its limit can drop to the others' once this is fixed.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
