@@ -31,7 +31,7 @@
  * program destroys and reports any handler left. A tab is closed with Ctrl+W.
  * In the list view, row shading, its color and folder expansion are then
  * changed in settings.shcl, and each change has to reach the open tab with
- * the program still running. The icon view gets the handler check only.
+ * the program still running. Rows drawn shaded show that row shading is on. The icon view gets the handler check only.
  *
  * Runs on an X server of its own, since it types into the window. Linux only,
  * since it works by LD_PRELOAD. */
@@ -52,6 +52,9 @@
 #include <X11/Xatom.h>
 #include <X11/keysym.h>
 #include <X11/extensions/XTest.h>
+
+#define SHCL_IMPLEMENTATION
+#include "shcl.h"
 
 #include "test-scratch.h"
 #include "test-check.h"
@@ -311,33 +314,81 @@ file_has (const char *path, const char *line)
 	return has;
 }
 
+/* A key already there is changed on its own line. A second line for it
+   reads as a list, and the key then reads as its default. */
+static void
+set_line (GString *lines, const char *key, const char *line)
+{
+	char *text = g_strconcat ("\n", lines->str, NULL);
+	char *start = g_strconcat ("\n", key, ":", NULL);
+	char *at = strstr (text, start);
+
+	if (at != NULL) {
+		gssize pos = at - text;
+
+		g_string_erase (lines, pos, strcspn (lines->str + pos, "\n") + 1);
+		g_string_insert (lines, pos, line);
+	} else {
+		g_string_append (lines, line);
+	}
+
+	g_free (start);
+	g_free (text);
+}
+
+/* Through the parser the program reads the file with, so a step whose text
+   does not mean what it says fails here. */
+static gboolean
+reads_back (const char *text, const char *key, const char *value)
+{
+	shcl_doc *doc = shcl_parse (text, strlen (text));
+	shcl_read_str read = shcl_read_string (doc, key, strlen (key));
+	gboolean same = shcl_diag_count (doc) == 0 && read.status == SHCL_GOOD &&
+			read.value.n == strlen (value) &&
+			memcmp (read.value.p, value, read.value.n) == 0;
+
+	shcl_free (doc);
+
+	return same;
+}
+
 /* The whole file each time, as a person editing it would leave it. The
    program's own debounced save can come between the write and the reload and
    put the old value back, which is a lost edit and not what this test is
    about, so that case writes again. A line still on disk that never reached
    the tab is a failure. */
 static void
-change_setting (const char *settings, GString *lines, const char *line,
+change_setting (const char *settings, GString *lines, const char *key, const char *value,
 		const char *out, const char *count, GPid pid)
 {
+	char *line = g_strdup_printf ("%s: %s\n", key, value);
+	gboolean reached = FALSE;
 	int tries;
 
-	g_string_append (lines, line);
-	for (tries = 0; tries < 3; tries++) {
+	set_line (lines, key, line);
+	if (!reads_back (lines->str, key, value)) {
+		g_printerr ("list view: settings.shcl does not read back %s as %s\n", key, value);
+		failures++;
+		g_free (line);
+		return;
+	}
+	for (tries = 0; tries < 3 && !reached; tries++) {
 		gint64 before = settled (out, count);
 
 		check (g_file_set_contents (settings, lines->str, -1, NULL));
-		if (moved (out, count, before, pid)) {
-			return;
+		reached = moved (out, count, before, pid);
+		if (!reached) {
+			if (!alive (pid) || file_has (settings, line)) {
+				break;
+			}
+			g_print ("list view: settings.shcl was saved over by the program, writing it again\n");
 		}
-		if (!alive (pid) || file_has (settings, line)) {
-			break;
-		}
-		g_print ("list view: settings.shcl was saved over by the program, writing it again\n");
 	}
-	g_printerr ("list view: \"%.*s\" never reached the open tab\n",
-		    (int) strcspn (line, "\n"), line);
-	failures++;
+	if (!reached) {
+		g_printerr ("list view: \"%s: %s\" never reached the open tab\n", key, value);
+		failures++;
+	}
+	g_free (line);
 }
 
 static GPid
@@ -453,9 +504,11 @@ check_held_view (const char *exe, const char *module, const char *viewer)
 	failures += report_hits (out, viewer);
 
 	if (list) {
-		change_setting (settings, lines, "list-view.row-shading: true\n", out, "draws", pid);
-		change_setting (settings, lines, "list-view.row-shading-color: red\n", out, "draws", pid);
-		change_setting (settings, lines, "list-view.enable-folder-expansion: false\n",
+		change_setting (settings, lines, "list-view.row-shading", "true",
+				out, "shaded_rows", pid);
+		change_setting (settings, lines, "list-view.row-shading-color", "red",
+				out, "draws", pid);
+		change_setting (settings, lines, "list-view.enable-folder-expansion", "false",
 				out, "expander_sets", pid);
 		g_usleep (500 * 1000);
 		if (!alive (pid)) {

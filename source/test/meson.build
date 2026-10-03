@@ -1055,8 +1055,8 @@ if not is_windows
     test('rjahhesy Held view settings handlers test',
       executable('test-nemo-held-view',
         [ 'test-nemo-held-view.c' ],
-        include_directories: [ rootInclude, ],
-        dependencies: [ glib, x11, xtst, test_scratch ],
+        include_directories: [ rootInclude, shclInclude, ],
+        dependencies: [ glib, x11, xtst, math, test_scratch ],
       ),
       args: [ nemo, held_view_hooks ],
       timeout: 180

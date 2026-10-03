@@ -28,9 +28,9 @@
  * the view or a widget inside it as its data. Only pointers are compared, so
  * nothing freed is read.
  *
- * It also counts the program's redraws and expander changes on live tree
- * views, so the driver can tell a settings change reached the open tab. All of
- * it goes to $NEMO_HELD_VIEW_OUT ten times a second. */
+ * It also counts the program's redraws, expander changes and shaded rows on
+ * live tree views, so the driver can tell a settings change reached the open
+ * tab. All of it goes to $NEMO_HELD_VIEW_OUT ten times a second. */
 
 #define _GNU_SOURCE
 
@@ -62,6 +62,7 @@ static GPtrArray *destroyed;	/* views and the widgets inside them, gone */
 static GString   *report;	/* "destroyed" and "hit" lines so far */
 static gint       draws;
 static gint       expander_sets;
+static gint       shaded_rows;
 
 static void *
 real (const char *name)
@@ -276,6 +277,26 @@ gtk_tree_view_set_show_expanders (GtkTreeView *tree_view,
 	pass_on (tree_view, enabled);
 }
 
+/* The list view asks for a row's background area only to pick its shade, so
+   this moves only while row shading is on. A redraw comes with any value. */
+void
+gtk_tree_view_get_background_area (GtkTreeView       *tree_view,
+				   GtkTreePath       *path,
+				   GtkTreeViewColumn *column,
+				   GdkRectangle      *rect)
+{
+	static void (*pass_on) (GtkTreeView *, GtkTreePath *, GtkTreeViewColumn *,
+				GdkRectangle *);
+
+	if (pass_on == NULL) {
+		pass_on = real ("gtk_tree_view_get_background_area");
+	}
+	if (live_tree_view (tree_view)) {
+		g_atomic_int_inc (&shaded_rows);
+	}
+	pass_on (tree_view, path, column, rect);
+}
+
 static void *
 write_report (void *data)
 {
@@ -288,8 +309,9 @@ write_report (void *data)
 			g_mutex_lock (&lock);
 			fputs (report->str, f);
 			g_mutex_unlock (&lock);
-			fprintf (f, "draws %d\nexpander_sets %d\n",
-				 g_atomic_int_get (&draws), g_atomic_int_get (&expander_sets));
+			fprintf (f, "draws %d\nexpander_sets %d\nshaded_rows %d\n",
+				 g_atomic_int_get (&draws), g_atomic_int_get (&expander_sets),
+				 g_atomic_int_get (&shaded_rows));
 			fclose (f);
 			rename (part, out_path);
 		}
