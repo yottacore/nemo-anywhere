@@ -570,15 +570,27 @@ main (int argc, char *argv[])
 		setup_clipboard (&clip, tmp);
 		skipped = run_case (which, clipboard_round, &clip, ANY_LEAK);
 		teardown_clipboard (&clip);
-	} else if (strcmp (which, "zip-cancel") == 0 || strcmp (which, "tar.gz-cancel") == 0) {
+	} else if (strcmp (which, "zip-cancel") == 0 || strcmp (which, "tar.gz-cancel") == 0 ||
+		   strcmp (which, "7z-cancel") == 0) {
 		/* A tar fails what is written after a stop, where a zip drops it,
-		   and each way has to leave nothing behind. */
-		NemoArchiveFormat format = strcmp (which, "tar.gz-cancel") == 0
-					   ? NEMO_ARCHIVE_FORMAT_TAR_GZ : NEMO_ARCHIVE_FORMAT_ZIP;
+		   and the 7z writer is closed as failed. Each way has to leave
+		   nothing behind. */
+		NemoArchiveFormat format = NEMO_ARCHIVE_FORMAT_ZIP;
 		ZipCase zip = { 0 };
 		gulong watch_id;
 
+		if (strcmp (which, "tar.gz-cancel") == 0) {
+			format = NEMO_ARCHIVE_FORMAT_TAR_GZ;
+		} else if (strcmp (which, "7z-cancel") == 0) {
+			format = NEMO_ARCHIVE_FORMAT_7Z;
+		}
 		setup_zip (&zip, tmp, format);
+		/* Or a 7z goes to the 7-Zip program, where it is installed. */
+		if (format == NEMO_ARCHIVE_FORMAT_7Z) {
+			zip.options.store_links = FALSE;
+			check (nemo_archive_pick_backend (format, &zip.options) ==
+			       NEMO_ARCHIVE_BACKEND_LIBARCHIVE);
+		}
 		watch_id = g_signal_connect (manager, "new-progress-info",
 					     G_CALLBACK (watch_new_progress), &zip);
 		skipped = run_case (which, zip_cancel_round, &zip, ANY_LEAK);
