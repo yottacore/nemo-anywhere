@@ -417,6 +417,57 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: e2c055b
 	- Test case: rg6a49ar Config defaults list test, new case for notes spelled like the block, at the top and right after it. Fails before the fix, passes after.
 
+- The application's quit hook never runs, so a keyboard shortcut changed just before quit is lost.
+	- ID: 2026100113372562
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes.
+	- Needs external testing: none. The test needs X, and on Windows the shortcut file's folder is never there, so nothing is saved there either way (2026100315470225).
+	- Priority|Severity: Low
+	- Opened: 20261001-133725
+	- Opened by: code review 20260928 item 20
+	- Related IDs: 2026092813381420, 2026100315470225
+	- Incorrect behavior: both application classes put their quit work in `quit_mainloop`, which GLib has not called since 2.32. So a shortcut map change still waiting out its 30 s is never saved, and the "still unmounting" notice is never taken down. The rest of it frees memory the exit frees anyway.
+	- Expected behavior: a shortcut changed just before quit is there on the next start.
+	- Reproduced: yes for the hook, 20261001, Linux. The lost shortcut and the notice left up, 20261003, Linux.
+	- Origin: upstream. Not seen by an earlier round. Confirmed.
+	- Possible fix: move what still matters to GApplication's `shutdown`, and drop what the exit makes pointless.
+	- Actual cause: GLib calls `shutdown` at the end of a run, not `quit_mainloop`.
+	- Actual fix: the quit work moved to `shutdown` in both classes. The base class saves a shortcut change still waiting, and the window class takes down the "still unmounting" notice. Freeing the icon caches, the undo manager and the style provider was dropped, since the exit frees them.
+	- Note: the file cache is still written at the end of `main ()`. `shutdown` runs before the thumbnail threads are done, and they may still be storing.
+	- Note: the old hook took the notice down through the unmount done step with no message, which logs a critical. The notice is now withdrawn on its own.
+	- Note: the shortcut file's folder is never made, so with none nothing is saved at any time. Filed as 2026100315470225. The test makes the folder.
+	- Swept: these two were the only `quit_mainloop` overrides, and the only application classes.
+	- Branch: quitlock
+	- Commit: aced497
+	- Test case: `rjch1b9a Shortcut saved and notice withdrawn at quit test`. The built program changes a shortcut and puts the notice up once its window is up, and the window is closed inside the 30 s. The shortcut is in the saved file and back on the next start, and the notice was withdrawn. Fails before the fix and passes after, on Linux.
+	- Verified: rjch1b9a, rj750n43 and the file cache store and prune tests pass on Linux. Lint is clean.
+
+- Two copies starting at once on a new file cache can find it locked, and one runs with the cache off.
+	- ID: 2026100113372592
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes.
+	- Needs external testing: Windows: rjch1a9a in the native suite.
+	- Priority|Severity: Low
+	- Opened: 20261001-133725
+	- Opened by: code review 20260928 item 20
+	- Related IDs: 2026092813381420, 2026100316054301
+	- Incorrect behavior: while one connection sets up a cache file that did not exist, another opening it fails at once with "could not set up the file cache: database is locked" and that copy has no cache until it is started again. The store's own comment says a busy one waits up to 3 s.
+	- Expected behavior: the second one waits its turn and uses the cache.
+	- Reproduced: once, 20261001, Linux, with a second connection opening a new file as a window did. Not on demand. Again 20261003, Linux: in 2 of 200 rounds of four processes setting up one new file at once, and every time while another connection held the write lock on a new file.
+	- Possible cause: the first switch of a new file to its journal mode takes a lock that sqlite does not wait for.
+	- Actual cause: the switch to WAL reads the file and then takes the write lock. sqlite never waits on that second step, since two readers each waiting on the other would wait for good, so it answers busy at once and the busy timeout never applies.
+	- Origin: 9fd0939, 20260921 (thumbdb). New ground. Confirmed.
+	- Actual fix: the setup is tried again on a busy answer, every 10 ms, for as long as the busy timeout.
+	- Swept: the prune's own connection opens through the same setup. There is no other journal mode change.
+	- Note: once, under a parallel full build, two copies in one round still had no store. How long they had waited was not shown then. The test now prints it, and a copy that gave up only after the whole busy timeout is listed but not counted, since that is the designed limit on a disk that slow. Not seen again in 450 rounds under the same load.
+	- Note: a busy answer to the version read at open is taken as a file from another version, and the file is wiped. Filed as 2026100316054301.
+	- Branch: quitlock
+	- Commit: aced497
+	- Test case: `rjch1a9a File cache opened by many at once test`. One connection holds the write lock on a new file for 300 ms while the store opens it, then rounds of four copies open a new file at the same instant. The held lock fails before the fix and passes after, on Linux. The rounds hit the bug about once in a hundred before the fix, so they are a sweep rather than the pin.
+	- Verified: rjch1a9a passes on Linux, 60 rounds. Lint is clean.
+
 - Code review 20260928.
 	- ID: 2026092813381400
 	- Type: Task
@@ -525,57 +576,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Origin: the copy fallback from 7284973, 20260925, which item 13's fix made the path every install takes. Plausible.
 	- Sweep: every way out of the Windows install after the staging folder exists: the failed copy, the old folder that cannot be renamed, and the failed final rename.
 	- Test case: none yet. A Windows test that makes the copy fail and checks that no staging folder is left.
-
-- The application's quit hook never runs, so a keyboard shortcut changed just before quit is lost.
-	- ID: 2026100113372562
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes.
-	- Needs external testing: none. The test needs X, and on Windows the shortcut file's folder is never there, so nothing is saved there either way (2026100315470225).
-	- Priority|Severity: Low
-	- Opened: 20261001-133725
-	- Opened by: code review 20260928 item 20
-	- Related IDs: 2026092813381420, 2026100315470225
-	- Incorrect behavior: both application classes put their quit work in `quit_mainloop`, which GLib has not called since 2.32. So a shortcut map change still waiting out its 30 s is never saved, and the "still unmounting" notice is never taken down. The rest of it frees memory the exit frees anyway.
-	- Expected behavior: a shortcut changed just before quit is there on the next start.
-	- Reproduced: yes for the hook, 20261001, Linux. The lost shortcut and the notice left up, 20261003, Linux.
-	- Origin: upstream. Not seen by an earlier round. Confirmed.
-	- Possible fix: move what still matters to GApplication's `shutdown`, and drop what the exit makes pointless.
-	- Actual cause: GLib calls `shutdown` at the end of a run, not `quit_mainloop`.
-	- Actual fix: the quit work moved to `shutdown` in both classes. The base class saves a shortcut change still waiting, and the window class takes down the "still unmounting" notice. Freeing the icon caches, the undo manager and the style provider was dropped, since the exit frees them.
-	- Note: the file cache is still written at the end of `main ()`. `shutdown` runs before the thumbnail threads are done, and they may still be storing.
-	- Note: the old hook took the notice down through the unmount done step with no message, which logs a critical. The notice is now withdrawn on its own.
-	- Note: the shortcut file's folder is never made, so with none nothing is saved at any time. Filed as 2026100315470225. The test makes the folder.
-	- Swept: these two were the only `quit_mainloop` overrides, and the only application classes.
-	- Branch: quitlock
-	- Commit: aced497
-	- Test case: `rjch1b9a Shortcut saved and notice withdrawn at quit test`. The built program changes a shortcut and puts the notice up once its window is up, and the window is closed inside the 30 s. The shortcut is in the saved file and back on the next start, and the notice was withdrawn. Fails before the fix and passes after, on Linux.
-	- Verified: rjch1b9a, rj750n43 and the file cache store and prune tests pass on Linux. Lint is clean.
-
-- Two copies starting at once on a new file cache can find it locked, and one runs with the cache off.
-	- ID: 2026100113372592
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes.
-	- Needs external testing: Windows: rjch1a9a in the native suite.
-	- Priority|Severity: Low
-	- Opened: 20261001-133725
-	- Opened by: code review 20260928 item 20
-	- Related IDs: 2026092813381420, 2026100316054301
-	- Incorrect behavior: while one connection sets up a cache file that did not exist, another opening it fails at once with "could not set up the file cache: database is locked" and that copy has no cache until it is started again. The store's own comment says a busy one waits up to 3 s.
-	- Expected behavior: the second one waits its turn and uses the cache.
-	- Reproduced: once, 20261001, Linux, with a second connection opening a new file as a window did. Not on demand. Again 20261003, Linux: in 2 of 200 rounds of four processes setting up one new file at once, and every time while another connection held the write lock on a new file.
-	- Possible cause: the first switch of a new file to its journal mode takes a lock that sqlite does not wait for.
-	- Actual cause: the switch to WAL reads the file and then takes the write lock. sqlite never waits on that second step, since two readers each waiting on the other would wait for good, so it answers busy at once and the busy timeout never applies.
-	- Origin: 9fd0939, 20260921 (thumbdb). New ground. Confirmed.
-	- Actual fix: the setup is tried again on a busy answer, every 10 ms, for as long as the busy timeout.
-	- Swept: the prune's own connection opens through the same setup. There is no other journal mode change.
-	- Note: once, under a parallel full build, two copies in one round still had no store. How long they had waited was not shown then. The test now prints it, and a copy that gave up only after the whole busy timeout is listed but not counted, since that is the designed limit on a disk that slow. Not seen again in 450 rounds under the same load.
-	- Note: a busy answer to the version read at open is taken as a file from another version, and the file is wiped. Filed as 2026100316054301.
-	- Branch: quitlock
-	- Commit: aced497
-	- Test case: `rjch1a9a File cache opened by many at once test`. One connection holds the write lock on a new file for 300 ms while the store opens it, then rounds of four copies open a new file at the same instant. The held lock fails before the fix and passes after, on Linux. The rounds hit the bug about once in a hundred before the fix, so they are a sweep rather than the pin.
-	- Verified: rjch1a9a passes on Linux, 60 rounds. Lint is clean.
 
 - A keyboard shortcut change is never saved where the shortcut file's folder is missing, and the file is upstream Nemo's.
 	- ID: 2026100315470225
