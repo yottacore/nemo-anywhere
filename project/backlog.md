@@ -410,51 +410,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Origin: `cicd/utility/release.bash`, before 20260917. Not seen by an earlier round. Plausible.
 	- Test case: none yet.
 
-- Code review 20260928 item 29. The Windows GUI smoke check can miss its window and can use someone else's display.
-	- ID: 2026092813381429
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Low
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: `grep -q` downstream of the window list can end the pipeline early and read as no window. The display number is fixed and not checked first.
-	- Reproduced: yes, 20261003, Linux. A long window list read as no window. With another server already on :99, the app was started on that server.
-	- Actual cause: `grep -q` quits at its first match, so the window list's writer fails and the pipeline reads as failed. The display was always :99, with no check, and when another server already held it the app was started on that one.
-	- Origin: 0caf474, 20260721. Not seen by an earlier round. Confirmed.
-	- Actual fix: the window list is read in full, then matched. The display is the first free one from :120 up, and is used only once its lock names the server started there and that server answers. `GUI_SMOKE_DISPLAY` moves the start.
-	- Swept: the profiler had a fixed :97 with no check, and now starts its display the same way, from one shared helper. `gui-headless.bash` already refuses a number another server holds. Its default of :99 is only for a run by hand, since the demo recorder passes its own number. `docker-run.bash`, `build-cross.bash` and one check in `lint-c.bash` piped into `grep -q`, and now don't. The Bash lint now fails on `grep -q` or `grep -m` reading a pipe. The `| head -1` sites were left, since each reads only a few short lines.
-	- Note: the lint check reads one line at a time, so a pipe split across two lines is not caught.
-	- Branch: smokehang
-	- Commit: 034e095
-	- Test case: rjcbfbx8, GUI smoke check test, and rjcc6jnz, the Bash lint's pipe check. Both fail before the fix and pass after.
-	- Verified: rjcbfbx8 fails before the fix on both counts and passes three runs in a row after it. The smoke check passes on the real build, and so do the profiler, the Windows cross build and the lint stage.
-	- Acceptance signoff: Self-closed: a pipeline check with nothing on screen. rjcbfbx8 and rjcc6jnz cover it.
-	- Closed: 20261003-140636
-
-- Code review 20260928 item 30. A hang found by the fuzzer stops the stage with the wrong label.
-	- ID: 2026092813381430
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Low
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: a timeout exits with libFuzzer's default code, which the stage reads as neither a find nor a clean run, and the targets after it do not run.
-	- Reproduced: yes, 20261003, Linux. A target that hangs stopped the stage with "exited 70", and the targets after it did not run.
-	- Actual cause: libFuzzer gives each kind of find its own exit code, and only its own reports used the stage's find code. A hang exits 70, a memory error caught by the address checker exits 1, and running out of memory exits 71.
-	- Origin: `cicd/linux/fuzz.bash`, fuzzlines, 20260926. New ground. Confirmed.
-	- Actual fix: a hang and a memory error now exit with the stage's find code. Any failed run that saved an input also counts as a find, which covers running out of memory, since that code can't be set. The find line names the saved input. One input may run 25 seconds before it counts as a hang, set by `FUZZ_TIMEOUT`.
-	- Decisions:
-		- The 25 second hang limit is new, and the usual one for fuzzing elsewhere. libFuzzer's own limit is 20 minutes, longer than the whole stage.
-	- Swept: each way libFuzzer ends a run with a find was checked for its exit code: its own reports (crash signal, leak), a hang, a memory error, and running out of memory. All four now count as a find. The memory error had the same fault as the hang.
-	- Branch: smokehang
-	- Commit: 2621f60
-	- Test case: rjcbfcx7, fuzz stage exit test. Fails before the fix, passes after.
-	- Verified: rjcbfcx7 fails before the fix and passes after. A short run of the real targets is clean with the new limit and codes. The lint stage passes.
-	- Acceptance signoff: Self-closed: a pipeline check with nothing on screen. rjcbfcx7 covers it.
-	- Closed: 20261003-140636
-
 - A cache prune batch holds the write lock longer as thumbnails get bigger.
 	- ID: 2026093010493420
 	- Type: Bug
@@ -1055,6 +1010,51 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: `test-nemo-psd`: rows at the least length are read, one byte less is refused, and a file of empty rows, 30000 by 30000 as psd and 60000 by 60000 as psb, is refused in under a second. Fuzz seed `zero-rows`, and `short-literal` reworked so it still reaches the literal-run bound.
 	- Branch: psdrows
 	- Commit: 24d99cd
+
+- Code review 20260928 item 29. The Windows GUI smoke check can miss its window and can use someone else's display.
+	- ID: 2026092813381429
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: `grep -q` downstream of the window list can end the pipeline early and read as no window. The display number is fixed and not checked first.
+	- Reproduced: yes, 20261003, Linux. A long window list read as no window. With another server already on :99, the app was started on that server.
+	- Actual cause: `grep -q` quits at its first match, so the window list's writer fails and the pipeline reads as failed. The display was always :99, with no check, and when another server already held it the app was started on that one.
+	- Origin: 0caf474, 20260721. Not seen by an earlier round. Confirmed.
+	- Actual fix: the window list is read in full, then matched. The display is the first free one from :120 up, and is used only once its lock names the server started there and that server answers. `GUI_SMOKE_DISPLAY` moves the start.
+	- Swept: the profiler had a fixed :97 with no check, and now starts its display the same way, from one shared helper. `gui-headless.bash` already refuses a number another server holds. Its default of :99 is only for a run by hand, since the demo recorder passes its own number. `docker-run.bash`, `build-cross.bash` and one check in `lint-c.bash` piped into `grep -q`, and now don't. The Bash lint now fails on `grep -q` or `grep -m` reading a pipe. The `| head -1` sites were left, since each reads only a few short lines.
+	- Note: the lint check reads one line at a time, so a pipe split across two lines is not caught.
+	- Branch: smokehang
+	- Commit: 034e095
+	- Test case: rjcbfbx8, GUI smoke check test, and rjcc6jnz, the Bash lint's pipe check. Both fail before the fix and pass after.
+	- Verified: rjcbfbx8 fails before the fix on both counts and passes three runs in a row after it. The smoke check passes on the real build, and so do the profiler, the Windows cross build and the lint stage.
+	- Acceptance signoff: Self-closed: a pipeline check with nothing on screen. rjcbfbx8 and rjcc6jnz cover it.
+	- Closed: 20261003-140636
+
+- Code review 20260928 item 30. A hang found by the fuzzer stops the stage with the wrong label.
+	- ID: 2026092813381430
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: a timeout exits with libFuzzer's default code, which the stage reads as neither a find nor a clean run, and the targets after it do not run.
+	- Reproduced: yes, 20261003, Linux. A target that hangs stopped the stage with "exited 70", and the targets after it did not run.
+	- Actual cause: libFuzzer gives each kind of find its own exit code, and only its own reports used the stage's find code. A hang exits 70, a memory error caught by the address checker exits 1, and running out of memory exits 71.
+	- Origin: `cicd/linux/fuzz.bash`, fuzzlines, 20260926. New ground. Confirmed.
+	- Actual fix: a hang and a memory error now exit with the stage's find code. Any failed run that saved an input also counts as a find, which covers running out of memory, since that code can't be set. The find line names the saved input. One input may run 25 seconds before it counts as a hang, set by `FUZZ_TIMEOUT`.
+	- Decisions:
+		- The 25 second hang limit is new, and the usual one for fuzzing elsewhere. libFuzzer's own limit is 20 minutes, longer than the whole stage.
+	- Swept: each way libFuzzer ends a run with a find was checked for its exit code: its own reports (crash signal, leak), a hang, a memory error, and running out of memory. All four now count as a find. The memory error had the same fault as the hang.
+	- Branch: smokehang
+	- Commit: 2621f60
+	- Test case: rjcbfcx7, fuzz stage exit test. Fails before the fix, passes after.
+	- Verified: rjcbfcx7 fails before the fix and passes after. A short run of the real targets is clean with the new limit and codes. The lint stage passes.
+	- Acceptance signoff: Self-closed: a pipeline check with nothing on screen. rjcbfcx7 covers it.
+	- Closed: 20261003-140636
 
 - The theme vendoring script still starts a process for every name it looks up.
 	- ID: 2026093013281956
