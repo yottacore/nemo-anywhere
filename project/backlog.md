@@ -207,9 +207,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Code review 20260928 item 4. A dangling symlink fails a 7z or rar archive, and the finished archive is deleted.
 	- ID: 2026092813381404
 	- Type: Bug
-	- Status: Queued
-	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
-	- Needs external testing: Windows. The archive combinations test. There zip, tar and rar should keep a link that leads nowhere as a link, while 7z leaves it out with the warning, since 7z keeps no links on Windows. Also a link with a name that is not plain ASCII, since 7z and rar on Windows may print names in the console code page, which would fail the job as before.
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The full Linux suite passed 157 of 157 on 20261003.
+	- Needs external testing: no. Ran natively on b29w on 20261003, a link with a name past ASCII included.
 	- Priority|Severity: Avg
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
@@ -220,10 +220,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: "could not be created", and the whole archive is gone. On Windows it happens to every 7z, whatever the checkbox says.
 	- Expected behavior: the link goes in as a link, even with "store links" unticked, wherever the format and tool can keep it. Where they cannot, it is left out with a warning that names it, and the rest of the archive stands.
 	- Reproduced: yes for the tools' exit codes, 20260928, Linux. The job side was read only. The job side too on 20260928, with the new test rows.
+		- Windows, 20261003, b29w natively: every format failed, not only rar.
 	- Actual cause: 7z exits 1 and rar exits 6 when they skip a link they cannot follow, and any non-zero exit fails the job.
+		- Windows: GLib gives a link that leads nowhere the link's own type, a file or a folder, as if it had been followed. So the scan never saw one there, and every writer tried to read it.
+		- Windows: GLib does not fold a program's error output into its normal output, so what 7z and rar said about the link never reached the reader.
+		- Windows: 7-Zip puts in an empty entry for a link it cannot open, and rar's real run writes a plain folder over a folder link its first run kept.
+		- Windows: 7z and rar print names in the console code page, and the library zip writer stores them in a local code page. A name past ASCII came out changed, and the delete check read archive names the same way.
 	- Progress log:
 		- 20260929-070928: Reworked for the decision below. Links that lead nowhere now go in as links. Leaving them out with a warning is kept only where the tool cannot keep them.
 		- 20261002-194800: the archive combinations test fails on b29w in the native suite. The four rar rows with a link that leads nowhere fail: rar says it cannot open the dead link, and it also cannot open the good link beside it ("The filename, directory name, or volume label syntax is incorrect"), so no archive is made. The 7z, zip and tar rows pass.
+		- 20261003-124500: the full log of that run shows the zip, tar and 7z dangling rows failing too. The good link's error was the test's own: it was spelled with /, which Windows does not follow at all. Fixed for Windows on arcwin.
+		- 20261003-124949: left at signoff rather than closed. On Windows the fix also changes what goes into archives: zip names, and the two built-in command lines.
 	- Decisions:
 		- 20260929: every format stores a link that leads nowhere as a link, where the format and tool can, even when links are otherwise followed. Leaving it out with a warning is only the fallback.
 		- 20260929: under the Compress dialog reset, "Ignore" leaves these links out too. "Follow" and "Store" keep them. Nothing changes here until the reset is built.
@@ -231,14 +238,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: the zip writer did not warn either. For a link to nothing, GIO answers with the link itself rather than failing, so the scan's "dangling" branch never ran and every writer left the link out without a word.
 	- Actual fix: the library writer keeps each link that leads nowhere as a link, in every format it writes, 7z included, and still follows the other links. 7z and rar keep links only all or none. So those links go in first, by a run of their own that keeps links, and the real run adds the rest to that archive, following links as before. If that first run fails, the links are left out and named instead. The delete check counts a link that went in as in.
 		- Left out with the warning, as before: a split archive, since neither tool can add to one. 7z on Windows, which is never asked to keep links. A link 7-Zip would reach through a followed linked folder, since it refuses that path. Under rar, a name with * or ?, which it would read as a pattern.
-		- The real run still passes over those links with a warning status. The output reader from 334b239 still fails the job on any warning that does not name one of them.
+		- The real run is told to leave out every such link by name, whether the first run kept it or not. rar is not told about a name with * or ?, or one starting with @, which it would read as a list file. It passes over those with a warning status. The output reader from 334b239 still fails the job on any warning that does not name one of them.
+		- Windows: a link counts as leading nowhere when opening through it finds nothing. The tools' error output is read beside the normal output. 7z and rar are asked for UTF-8 names in their built-in lines, the library zip writer stores UTF-8 names, and the delete check reads archive names as UTF-8. The reader takes the count line both tools end on there.
 	- Swept: every writer. The library writes zip, tar and its three compressed forms, and 7z; 7z writes 7z, and zip when split; rar writes rar. The delete check's own walk follows the same rule. Compress each goes through the same per-archive code. Unpacking has no link scan.
-	- Branch: arclinks, then arcdangle
-	- Commit: 334b239, then 991b6e1
+		- Windows: the dangling check is one function for the scan and the delete check. Both places that start 7z or rar, compress and extract, read error output the same way, so extracting now sees a wrong password on Windows too. Extracting already read names as UTF-8; its hard link names now do as well. The other GIO link type checks are filed as 2026100312494903. A linked folder named with a leading @ has the same list file trouble under rar, filed as 2026100312494905.
+	- Branch: arclinks, then arcdangle, then arcwin
+	- Commit: 334b239, then 991b6e1, then d0519a7, 3871931, 1507a21, 1ec66eb
 	- Test case: rhr6ggmt, Archive option combinations. Its dangling-link rows check that the link reads back as a link, with a good link beside it still followed, for every format, with links stored and not, delete on and off, and one split. New rows: the library's 7z, a selection of only a dangling link, one inside a followed linked folder, and on Linux a name with ? for rar. 26 rows fail before the rework and all pass after, on Linux.
 		- rewygsbg, Archive job test: the delete check now passes with such a link in a zip. Its older check that the delete check refused is commented out with the reason. Fails before, passes after.
 		- rev86z08, Archive options test: the output reader rows from 334b239, and new rows for the line of the first run. That line is new, so it has no before run.
+		- Windows, arcwin: rhr6ggmt's dangling rows add a folder link that leads nowhere and, on Windows, a name past ASCII. The good links use the native separator. 36 rows fail natively on b29w before the fix and all pass after. rev86z08 gained rows for the count line and the UTF-8 switches, which fail with the count handling taken out.
 	- Verified: the 9 archive, extract, template and schema tests pass on Linux, the combinations and job tests three runs in a row. Lint and the Windows cross build are clean. The Archive options test passes under wine, its Windows-only rows included.
+		- 20261003: rhr6ggmt, rewygsbg and rev86z08 pass natively on b29w and on Linux. Full Linux suite 157 of 157. Full native suite on b29w at 1507a21: 137 passed, 10 skipped, 1 failed, rfhr0zw0, which belongs to 2026093010493389. The archive and extract tests again at 1ec66eb.
 
 - On Windows, a local shortcut to a share that is not answering can stall the window while its icon is looked up.
 	- ID: 2026093010493389
@@ -512,6 +523,49 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: yes, 20261003, Linux, under load. With 24 bytes leaked a round, 2 of 48 runs passed. With nothing leaked, the stopped zip and tar.gz tests skipped in about three runs of four of a suite run repeated in parallel.
 	- Origin: 377d761, on this item's branch. Confirmed.
 	- Test case: none yet. A leak test case that leaks one small block a round while a worker thread starts, expected to fail.
+
+- On Windows, a link that leads nowhere is never shown as broken.
+	- ID: 2026100312494903
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261003-124949
+	- Opened by: item 2026092813381404
+	- Related IDs: 2026092813381404
+	- Target OS: Windows
+	- Incorrect behavior: the app tells a broken link by GIO answering with the link type after following it. On Windows GIO answers with the link's own type instead, a file or a folder, whether the link leads anywhere or not. So the broken link checks in `nemo-file.c`, used for emblems, favorites and opening, never fire there.
+	- Expected behavior: a link that leads nowhere is treated as broken on Windows too.
+	- Reproduced: GIO's answer yes, 20261003, b29w. The app's side is read only. Plausible.
+	- Possible fix: the check the archive scan now uses on Windows, which opens through the link.
+	- Test case: none yet.
+
+- On Windows, a symlink made with / in a relative target leads nowhere.
+	- ID: 2026100312494904
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261003-124949
+	- Opened by: item 2026092813381404
+	- Related IDs: 2026092813381404
+	- Target OS: Windows
+	- Incorrect behavior: a symlink keeps its target as it was typed. Windows does not follow a relative target spelled with /, so the new link opens nothing, though / works almost everywhere else on Windows.
+	- Expected behavior: a symlink made by the app leads where it was pointed.
+	- Reproduced: Windows' side yes, 20261003, b29w: such a link cannot be opened. That the app writes one is read only. Plausible.
+	- Possible fix: write a relative symlink target with backslashes, as junctions already are.
+	- Test case: none yet.
+
+- Under rar, a selected linked folder whose name starts with @ is not left out.
+	- ID: 2026100312494905
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261003-124949
+	- Opened by: item 2026092813381404
+	- Related IDs: 2026092813381404
+	- Incorrect behavior: a linked folder that is not followed is left out of a rar with `-x` and its name. For a selected folder named `@x` that is `-x@x`, which rar reads as a list file called `x`, so the folder is not left out and the run may fail.
+	- Expected behavior: the linked folder is left out, whatever its name.
+	- Reproduced: rar's side yes, 20261003, Linux: `-x@b` makes rar look for a list file `b`. The job's side is read only. Plausible.
+	- Test case: none yet.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
