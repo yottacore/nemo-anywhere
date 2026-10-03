@@ -298,6 +298,28 @@ read_user_version (sqlite3 *handle)
 	return version;
 }
 
+/* The switch to WAL reads the file and only then takes the write lock, and
+ * sqlite will not wait on that second step, since two readers each waiting on
+ * the other would wait for good. So a copy that meets another one setting up
+ * the same new file is told it is locked at once, and tries again here for as
+ * long as it would wait on any other busy file. */
+static int
+exec_setup (sqlite3 *handle, const char *sql, char **err)
+{
+	gint64 give_up = g_get_monotonic_time () + BUSY_TIMEOUT_MS * 1000;
+	int    rc;
+
+	for (;;) {
+		rc = sqlite3_exec (handle, sql, NULL, NULL, err);
+		if ((rc & 0xff) != SQLITE_BUSY || g_get_monotonic_time () >= give_up)
+			return rc;
+
+		sqlite3_free (*err);
+		*err = NULL;
+		g_usleep (10 * 1000);
+	}
+}
+
 /* Opens the file and puts the schema in it. Answers NULL and leaves nothing
  * behind if it could not, so the caller can wipe and try once more. */
 static sqlite3 *
@@ -332,13 +354,13 @@ open_at (const char *path, gboolean *out_rebuild)
 	 * because losing the last few rows to a power cut costs a re-read and
 	 * nothing else. The size limit trims the journal back after a prune has
 	 * grown it. */
-	rc = sqlite3_exec (handle,
-			   "PRAGMA auto_vacuum = INCREMENTAL;"
-			   "PRAGMA journal_mode = WAL;"
-			   "PRAGMA journal_size_limit = 67108864;"
-			   "PRAGMA synchronous = NORMAL;"
-			   "PRAGMA foreign_keys = ON;",
-			   NULL, NULL, &err);
+	rc = exec_setup (handle,
+			 "PRAGMA auto_vacuum = INCREMENTAL;"
+			 "PRAGMA journal_mode = WAL;"
+			 "PRAGMA journal_size_limit = 67108864;"
+			 "PRAGMA synchronous = NORMAL;"
+			 "PRAGMA foreign_keys = ON;",
+			 &err);
 	if (rc != SQLITE_OK) {
 		*out_rebuild = is_corruption (rc);
 		g_warning ("could not set up the file cache: %s", err ? err : sqlite3_errstr (rc));

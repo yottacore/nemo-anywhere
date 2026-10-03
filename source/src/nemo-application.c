@@ -677,19 +677,16 @@ nemo_application_startup (GApplication *app)
     }
 }
 
+/* GLib stopped calling quit_mainloop in 2.32, so quit work goes here. What
+ * the exit frees anyway is left to it. The file cache is written out at the
+ * end of main (), since the thumbnail threads are still running here. */
 static void
-nemo_application_quit_mainloop (GApplication *app)
+nemo_application_shutdown (GApplication *app)
 {
-	DEBUG ("Quitting mainloop");
+	/* a shortcut change still waiting out its delay */
+	save_accel_map (NULL);
 
-    nemo_icon_info_clear_caches ();
-    save_accel_map (NULL);
-    g_object_unref (NEMO_APPLICATION (app)->undo_manager);
-    g_clear_object (&mandatory_css_provider);
-
-    nemo_application_notify_unmount_done (NEMO_APPLICATION (app), NULL);
-
-	G_APPLICATION_CLASS (nemo_application_parent_class)->quit_mainloop (app);
+	G_APPLICATION_CLASS (nemo_application_parent_class)->shutdown (app);
 }
 
 static void
@@ -720,7 +717,7 @@ nemo_application_class_init (NemoApplicationClass *class)
 
     application_class = G_APPLICATION_CLASS (class);
     application_class->startup = nemo_application_startup;
-    application_class->quit_mainloop = nemo_application_quit_mainloop;
+    application_class->shutdown = nemo_application_shutdown;
 
     gtkapp_class = GTK_APPLICATION_CLASS (class);
     gtkapp_class->window_removed = nemo_application_window_removed;

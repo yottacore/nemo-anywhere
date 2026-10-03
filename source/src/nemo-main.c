@@ -198,8 +198,8 @@ main (int argc, char *argv[])
  	eel_debug_shut_down ();
 
 	/* After the shutdown list, which waits for the thumbnail threads, so the
-	 * last thumbnails they stored are folded in too. GApplication's
-	 * quit_mainloop is never called, so nothing in there can do this. */
+	 * last thumbnails they stored are folded in too. The application's
+	 * shutdown runs before that, while they may still be storing. */
 	nemo_cache_db_quit ();
 
 	return retval;

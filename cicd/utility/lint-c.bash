@@ -116,7 +116,8 @@ fRun fCheckOverwriteAsk
 
 ## Bus methods: the freedesktop file manager interface, and the tab hand-over
 ## between our own windows, which lists windows and opens a folder in a tab.
-## None of them touches a file.
+## None of them touches a file. Tests are left out: a test that stands in for
+## another program's server is not something the app exports.
 ## Test ID: rh3qr9y8
 fCheckBusMethods(){
 	local allowed=' ShowFolders ShowItems ShowItemProperties ListWindows TakeTab '
@@ -125,11 +126,11 @@ fCheckBusMethods(){
 	while read -r name; do
 		[[ -z "$name" ]] && continue
 		[[ "$allowed" == *" ${name} "* ]] || bad+="${name} "
-	done <<< "$(grep -rhoE "<method name=['\"][A-Za-z0-9_]+" source | sed -E "s/.*=['\"]//" | sort -u || true)"
+	done <<< "$(grep -rhoE --exclude-dir=test "<method name=['\"][A-Za-z0-9_]+" source | sed -E "s/.*=['\"]//" | sort -u || true)"
 
 	if [[ -n "$bad" ]]; then
 		fEcho "FAIL: bus methods not on the list in lint-c.bash: ${bad% }"
-		grep -rnE "<method name=['\"]" source || true
+		grep -rnE --exclude-dir=test "<method name=['\"]" source || true
 		exit 2
 	fi
 }
