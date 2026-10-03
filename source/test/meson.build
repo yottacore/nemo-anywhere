@@ -103,6 +103,17 @@ test('rdjjz89r Config store test',
   timeout: 90         # a hundred external rewrites, each waiting on the file monitor
 )
 
+# Converting runs when the store opens, so the old file goes in before that.
+test('rjc4dd8z Config format upgrade test',
+  executable('test-nemo-config-format',
+    [ 'test-nemo-config-format.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: [],
+  timeout: 60
+)
+
 # Counts allocations through its own malloc, which only glibc allows.
 if not is_windows
   test('rj4jbn1b Allocations per read test',

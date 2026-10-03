@@ -302,6 +302,8 @@ Application settings live in `settings.shcl`, in whichever directory the platfor
 
 - Edits made while the app is running are picked up straight away, so hand-editing behaves like using the dialog.
 
+- The file ends with SHCL's info block, which names the format it was written in. A file in an older format is copied beside it as `settings_backup_<YYYYmmDD-HHMMSS>_format-v<N>.shcl`, and a new `settings.shcl` is written with the settings this release knows, converted by SHCL. A file with no format line came from a 2.x release or a hand edit, so it is only rewritten at startup, and only when the old rules read it differently. A file in a newer format is used but never saved over, so running an older build does not undo a newer one's settings.
+
 - Types, defaults and allowed values live in one table in the code, and a matching schema sits beside the app so `shcl check --schema` can catch a typo in a hand-edited file. Keeping defaults central is deliberately against the config library's own per-call-site advice: with nearly two hundred settings, many read from several places, two call sites disagreeing about what a setting means when absent is a silent bug.
 
 - A handful of settings are the desktop's to decide rather than ours: which terminal to open, whether the session remembers recent files, 12h or 24h clocks. Where a desktop publishes them we read its answer, and everywhere else our own value stands in. That is the only remaining use of the desktop settings database, it is read-only, and it never touches a schema of ours.

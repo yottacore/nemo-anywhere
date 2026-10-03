@@ -83,6 +83,8 @@ static gboolean    config_ready;
 static GHashTable *pending_keys;       /* set of const NemoConfigKey*, changed but not yet on disk */
 static gboolean    save_failing;
 static GThread    *config_thread;      /* whoever called init - the UI thread */
+static gboolean    hands_off;          /* the file is read but never saved over */
+static gboolean    rewrite_due;        /* converted from an older format, not saved yet */
 
 static void schedule_save (const NemoConfigKey *k);
 static void emit_changed  (const char *group, const char *key);
@@ -217,8 +219,105 @@ new_empty_doc (void)
 	return d;
 }
 
+/* The file as it was, beside it, before a format change rewrites it. Same
+ * bytes, so putting it back is a rename. Returns the name, or NULL when it
+ * could not be written, and then the old file must stay as it is. */
+static char *
+backup_old_format (const char *text, gsize len, gint64 format)
+{
+	GDateTime *now   = g_date_time_new_now_local ();
+	char      *stamp = g_date_time_format (now, "%Y%m%d-%H%M%S");
+	char      *dir   = g_path_get_dirname (config_path);
+	char      *stem  = g_path_get_basename (config_path);
+	char      *dot   = strrchr (stem, '.');
+	char      *path  = NULL;
+	int        tries;
+
+	g_date_time_unref (now);
+	if (dot != NULL)
+		*dot = '\0';
+
+	/* Two copies starting in the same second can both get here. */
+	for (tries = 1; tries < 10; tries++) {
+		char  *name, *had = NULL;
+		gsize  had_len = 0;
+
+		name = tries == 1
+			? g_strdup_printf ("%s_backup_%s_format-v%" G_GINT64_FORMAT ".shcl",
+			                   stem, stamp, format)
+			: g_strdup_printf ("%s_backup_%s-%d_format-v%" G_GINT64_FORMAT ".shcl",
+			                   stem, stamp, tries, format);
+		path = g_build_filename (dir, name, NULL);
+		g_free (name);
+
+		if (!g_file_get_contents (path, &had, &had_len, NULL)) {
+			if (!g_file_set_contents (path, text, (gssize) len, NULL))
+				g_clear_pointer (&path, g_free);
+			break;
+		}
+		if (had_len == len && memcmp (had, text, len) == 0) {
+			g_free (had);
+			break;
+		}
+		g_free (had);
+		g_clear_pointer (&path, g_free);
+	}
+
+	g_free (stamp);
+	g_free (dir);
+	g_free (stem);
+	return path;
+}
+
+/* A converted file is written fresh, the way this release would have written
+ * it: only the keys it knows, each with its comment. Anything else stays in
+ * the backup. */
+static shcl_doc *
+known_keys_only (shcl_doc *from)
+{
+	shcl_doc            *to = new_empty_doc ();
+	const NemoConfigKey *k;
+
+	for (k = nemo_config_keys; k->key != NULL; k++) {
+		char     *path = key_path (k);
+		gsize     plen = strlen (path);
+		gboolean  set  = FALSE;
+
+		if (k->type == NEMO_CONFIG_STRING_LIST) {
+			shcl_read_str_arr r = shcl_read_string_array (from, path, plen);
+
+			if (r.status == SHCL_GOOD || r.status == SHCL_EMPTY) {
+				const char **values = g_new0 (const char *, r.n + 1);
+				size_t      *lens   = g_new0 (size_t, r.n + 1);
+				size_t       i;
+
+				for (i = 0; i < r.n; i++) {
+					values[i] = r.values[i].p;
+					lens[i]   = r.values[i].n;
+				}
+				set = shcl_set_string_array (to, path, plen, values, lens, r.n);
+				g_free (values);
+				g_free (lens);
+			}
+		} else {
+			shcl_read_str r = shcl_read_string (from, path, plen);
+
+			if (r.status == SHCL_GOOD || r.status == SHCL_EMPTY)
+				set = shcl_set_string (to, path, plen, r.value.p, r.value.n);
+		}
+		if (set && k->summary != NULL)
+			shcl_set_comment (to, path, plen, k->summary, strlen (k->summary));
+
+		shcl_reads_release (from);
+		g_free (path);
+	}
+	return to;
+}
+
+/* @at_start: a file with no format line is converted only at startup. One
+ * that turns up while running is a hand edit in progress, by today's rules. */
 static void
-load_locked (void)
+load_locked (gboolean at_start)
 {
 	char     *text = NULL;
 	gsize     len  = 0;
@@ -240,14 +339,66 @@ load_locked (void)
 	}
 
 	if (g_file_get_contents (config_path, &text, &len, &error)) {
-		size_t i, n;
+		size_t          i, n;
+		gint64          format = shcl_format_version (text, len);
+		shcl_migration  conv = { NULL, 0, 0, 0, 0 };
+		gboolean        was_hands_off = hands_off;
+
+		hands_off = FALSE;
+
+		/* An older release would write over a newer format and lose what it
+		 * can't read, and the newer one would then convert it back with a
+		 * fresh backup every time. Read it, never save over it. */
+		if (format > SHCL_FORMAT_MAJOR) {
+			hands_off = TRUE;
+			if (!was_hands_off)
+				g_warning ("nemo-config: %s is SHCL format %" G_GINT64_FORMAT
+				           ", newer than this release reads (%d); "
+				           "settings changed here will not be saved",
+				           config_path, format, SHCL_FORMAT_MAJOR);
+		} else if (format >= 0 ? format < SHCL_FORMAT_MAJOR : at_start) {
+			/* No format line means a 2.x release wrote it, or a hand edit
+			 * dropped the line. Which one is not known, so only the spellings
+			 * both read the same way are converted. If nothing needed it, the
+			 * next save adds the line and that is all. */
+			conv = shcl_migrate_unstamped (text, len, FALSE);
+			if (format < 0 && conv.lost == 0 && conv.len == len &&
+			    memcmp (conv.text, text, len) == 0)
+				g_clear_pointer (&conv.text, free);
+		}
+
+		if (conv.text != NULL) {
+			gint64  was    = format >= 0 ? format : 2;
+			char   *backup = backup_old_format (text, len, was);
+
+			if (backup == NULL) {
+				g_warning ("nemo-config: %s is in an older SHCL format and no "
+				           "backup could be written beside it; it will not be "
+				           "saved over", config_path);
+				hands_off = TRUE;
+			} else {
+				g_message ("nemo-config: %s was SHCL format %" G_GINT64_FORMAT
+				           " and is rewritten for format %d; the old file is %s",
+				           config_path, was, SHCL_FORMAT_MAJOR, backup);
+				if (conv.ambiguous > 0 || conv.lost > 0)
+					g_warning ("nemo-config: %zu value(s) could be read two "
+					           "ways and %zu line(s) could not be converted; "
+					           "check them against %s",
+					           conv.ambiguous, conv.lost, backup);
+				rewrite_due = TRUE;
+			}
+			g_free (backup);
+		}
 
 		/* Out of memory, and the one case SHCL hands back. Same answer as an
 		 * unreadable file: keep what we have. */
-		fresh = shcl_parse (text, len);
+		fresh = conv.text != NULL ? shcl_parse (conv.text, conv.len)
+		                          : shcl_parse (text, len);
+		free (conv.text);
 		if (fresh == NULL) {
 			g_warning ("nemo-config: out of memory reading %s", config_path);
 			g_free (text);
+			rewrite_due = FALSE;
 			if (config_doc == NULL)
 				config_doc = new_empty_doc ();
 			return;
@@ -275,6 +426,13 @@ load_locked (void)
 			           config_path, shcl_lost_count (config_doc));
 		}
 
+		if (rewrite_due) {
+			shcl_doc *known = known_keys_only (config_doc);
+
+			shcl_free (config_doc);
+			config_doc = known;
+		}
+
 		g_free (last_written);
 		last_written = g_memdup2 (text, len);
 		last_written_len = len;
@@ -294,6 +452,8 @@ load_locked (void)
 		if (!gone && config_doc != NULL)
 			return;
 
+		if (gone)
+			hands_off = FALSE;
 		shcl_free (config_doc);
 		config_doc = new_empty_doc ();
 	}
@@ -647,6 +807,12 @@ save_now (gpointer data)
 	g_mutex_lock (&config_lock);
 	save_timeout_id = 0;
 
+	/* Load already said why. Changes stay in memory for this run. */
+	if (hands_off) {
+		g_mutex_unlock (&config_lock);
+		return G_SOURCE_REMOVE;
+	}
+
 	canon = shcl_to_canonical (config_doc);
 	/* By length throughout: SHCL is NUL-transparent, so a NUL that came in
 	 * from the file must not truncate the write or the own-write check. */
@@ -678,6 +844,7 @@ save_now (gpointer data)
 		last_written_len = text_len;
 		g_hash_table_remove_all (pending_keys);
 		save_failing = FALSE;
+		rewrite_due = FALSE;
 	} else {
 		if (!save_failing) {
 			g_warning ("nemo-config: cannot write %s: %s",
@@ -839,6 +1006,7 @@ config_file_changed (GFileMonitor      *monitor,
 	GList               *pending;
 	char                *text = NULL;
 	gsize                len = 0;
+	gboolean             rewrite;
 
 	if (event != G_FILE_MONITOR_EVENT_CHANGES_DONE_HINT &&
 	    event != G_FILE_MONITOR_EVENT_CREATED &&
@@ -860,15 +1028,21 @@ config_file_changed (GFileMonitor      *monitor,
 	g_mutex_lock (&config_lock);
 	before = snapshot_locked ();
 	pending = capture_pending_locked ();
-	load_locked ();
+	load_locked (FALSE);
 	/* An in-app change made inside the debounce window is not on disk yet, so
 	 * the file we just read doesn't have it. Put those keys back, or the
 	 * queued save would write the reloaded document and lose them. */
 	restore_pending_locked (pending);
+	/* A save skipped while the file was hands off left nothing queued. */
+	if (pending != NULL && !hands_off && save_timeout_id == 0)
+		schedule_save (NULL);
 	after = snapshot_locked ();
+	rewrite = rewrite_due;
 	g_mutex_unlock (&config_lock);
 
 	g_list_free_full (pending, pending_value_free);
+	if (rewrite)
+		save_now (NULL);
 
 	for (k = nemo_config_keys; k->key != NULL; k++) {
 		char       *path = key_path (k);
@@ -889,7 +1063,8 @@ config_file_changed (GFileMonitor      *monitor,
 void
 nemo_config_init (void)
 {
-	GFile *file;
+	GFile    *file;
+	gboolean  rewrite;
 
 	if (config_ready)
 		return;
@@ -903,8 +1078,12 @@ nemo_config_init (void)
 	pending_keys  = g_hash_table_new (g_direct_hash, g_direct_equal);
 
 	g_mutex_lock (&config_lock);
-	load_locked ();
+	load_locked (TRUE);
+	rewrite = rewrite_due;
 	g_mutex_unlock (&config_lock);
+
+	if (rewrite)
+		save_now (NULL);
 
 	/* Hand-editing the file is the point, so pick edits up while we run. */
 	file = g_file_new_for_path (config_path);
