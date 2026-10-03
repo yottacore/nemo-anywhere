@@ -177,6 +177,7 @@ typedef struct {
 	GOutputStream *stream;
 	GCancellable  *cancellable;
 	GError        *error;
+	gboolean       fail_after_stop;
 } StreamSink;
 
 static gboolean
@@ -1412,6 +1413,14 @@ scan_sources (ArchiveJob *job)
 	g_hash_table_destroy (seen);
 }
 
+static gboolean
+format_pads_entries (NemoArchiveFormat format)
+{
+	return format == NEMO_ARCHIVE_FORMAT_TAR ||
+	       format == NEMO_ARCHIVE_FORMAT_TAR_GZ ||
+	       format == NEMO_ARCHIVE_FORMAT_TAR_XZ;
+}
+
 static la_ssize_t
 sink_write (struct archive *a,
 	    void           *client_data,
@@ -1425,9 +1434,10 @@ sink_write (struct archive *a,
 	/* A stop is not a failed write. libarchive takes a failed write as fatal
 	   and then never finishes the entry, which is where the zip writer frees
 	   its compressor. The job sees the stop itself and removes the archive,
-	   so these bytes can go nowhere. */
+	   so these bytes can go nowhere. A tar's last writes are the exception,
+	   see run_libarchive. */
 	if (g_cancellable_is_cancelled (sink->cancellable)) {
-		return (la_ssize_t) length;
+		return sink->fail_after_stop ? -1 : (la_ssize_t) length;
 	}
 
 	if (!g_output_stream_write_all (sink->stream, buffer, length, &written,
@@ -1786,6 +1796,7 @@ run_libarchive (ArchiveJob *job)
 	sink.stream = G_OUTPUT_STREAM (out);
 	sink.cancellable = job->cancellable;
 	sink.error = NULL;
+	sink.fail_after_stop = FALSE;
 
 	a = archive_write_new ();
 
@@ -1831,6 +1842,15 @@ run_libarchive (ArchiveJob *job)
 	/* The sink drops what is written after a stop instead of failing it. */
 	if (ok && job_aborted (job)) {
 		ok = FALSE;
+	}
+
+	/* Freed after a stop, a tar writer fills the rest of the open entry with
+	   zeros, through the compressor, which on a big file takes as long as the
+	   rest of the job would have. A failed write ends that at once, and the
+	   gzip and xz filters still end their compressor on close. Not so the zip
+	   writer, which is why only the tar formats get it. */
+	if (job_aborted (job) && format_pads_entries (job->options.format)) {
+		sink.fail_after_stop = TRUE;
 	}
 
 	archive_write_free (a);

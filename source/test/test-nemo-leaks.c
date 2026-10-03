@@ -289,7 +289,7 @@ watch_new_progress (NemoProgressInfoManager *manager,
 	g_signal_connect (info, "progress-changed", G_CALLBACK (cancel_once_writing), data);
 }
 
-/* A zip of one big file, stopped partway through it. */
+/* An archive of one big file, stopped partway through it. */
 static void
 zip_cancel_round (gpointer data)
 {
@@ -316,10 +316,10 @@ zip_cancel_round (gpointer data)
 #define NOISE_BYTES (8 * 1024 * 1024)
 
 static void
-setup_zip (ZipCase *zip, const char *tmp)
+setup_zip (ZipCase *zip, const char *tmp, NemoArchiveFormat format)
 {
 	char *source = g_build_filename (tmp, "noise.bin", NULL);
-	char *archive = g_build_filename (tmp, "noise.zip", NULL);
+	char *archive = g_build_filename (tmp, "noise.archive", NULL);
 	GRand *rand = g_rand_new_with_seed (7);
 	gsize n = NOISE_BYTES / sizeof (guint32);
 	guint32 *words = g_new (guint32, n);
@@ -334,7 +334,7 @@ setup_zip (ZipCase *zip, const char *tmp)
 	zip->sources = g_list_append (NULL, g_file_new_for_path (source));
 	zip->destination = g_file_new_for_path (archive);
 	nemo_archive_options_init (&zip->options);
-	zip->options.format = NEMO_ARCHIVE_FORMAT_ZIP;
+	zip->options.format = format;
 
 	g_free (words);
 	g_rand_free (rand);
@@ -570,11 +570,15 @@ main (int argc, char *argv[])
 		setup_clipboard (&clip, tmp);
 		skipped = run_case (which, clipboard_round, &clip, ANY_LEAK);
 		teardown_clipboard (&clip);
-	} else if (strcmp (which, "zip-cancel") == 0) {
+	} else if (strcmp (which, "zip-cancel") == 0 || strcmp (which, "tar.gz-cancel") == 0) {
+		/* A tar fails what is written after a stop, where a zip drops it,
+		   and each way has to leave nothing behind. */
+		NemoArchiveFormat format = strcmp (which, "tar.gz-cancel") == 0
+					   ? NEMO_ARCHIVE_FORMAT_TAR_GZ : NEMO_ARCHIVE_FORMAT_ZIP;
 		ZipCase zip = { 0 };
 		gulong watch_id;
 
-		setup_zip (&zip, tmp);
+		setup_zip (&zip, tmp, format);
 		watch_id = g_signal_connect (manager, "new-progress-info",
 					     G_CALLBACK (watch_new_progress), &zip);
 		skipped = run_case (which, zip_cancel_round, &zip, ANY_LEAK);

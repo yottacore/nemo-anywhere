@@ -159,6 +159,7 @@ if not is_windows
   test('rjbn19rn Bookmarks load leak test', leaks, args: [ 'bookmarks' ])
   test('rjbn328w Bookmarks file load leak test', leaks, args: [ 'bookmarks-file' ])
   test('rjbpmcxy Extract job leak test', leaks, args: [ 'extract' ])
+  test('rjbqagjf Stopped tar.gz leak test', leaks, args: [ 'tar.gz-cancel' ])
 endif
 
 test('rhtq57n1 Cancelled drop leaves the files test',
@@ -1203,6 +1204,20 @@ test('rj4jewn6 Archive check cost test',
   args: [],
   timeout: 120
 )
+
+# Makes its big file sparse, which is a POSIX call.
+if not is_windows
+  test('rjbpyy28 Archive stop time test',
+    executable('test-nemo-archive-stop-time',
+      [ 'test-nemo-archive-stop-time.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+      c_args: nemo_definitions,
+    ),
+    args: [],
+    timeout: 240
+  )
+endif
 
 # Some hundreds of archives, so it gets longer than the default.
 test('rhr6ggmt Archive option combinations',
