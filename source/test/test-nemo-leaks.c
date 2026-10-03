@@ -32,10 +32,12 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <glib/gstdio.h>
 #include <gtk/gtk.h>
 
 #include <libnemo-private/nemo-archive.h>
 #include <libnemo-private/nemo-clipboard.h>
+#include <libnemo-private/nemo-extract.h>
 #include <libnemo-private/nemo-file.h>
 #include <libnemo-private/nemo-file-operations.h>
 #include <libnemo-private/nemo-global-preferences.h>
@@ -351,6 +353,96 @@ teardown_zip (ZipCase *zip)
 
 typedef struct {
 	GtkWidget *window;
+	GList *archives;
+	GFile *destination;
+	char *unpacked;
+	gboolean done;
+	gboolean succeeded;
+} ExtractCase;
+
+static void
+extract_done (GFile *destination_dir, gboolean success, gpointer data)
+{
+	ExtractCase *extract = data;
+
+	(void) destination_dir;
+	extract->succeeded = success;
+	extract->done = TRUE;
+	gtk_main_quit ();
+}
+
+/* A small zip unpacked, and what came out taken away again, so every round
+   unpacks under the same name. */
+static void
+extract_round (gpointer data)
+{
+	ExtractCase *extract = data;
+	guint timeout_id;
+
+	extract->done = FALSE;
+	extract->succeeded = FALSE;
+	timeout_id = g_timeout_add_seconds (JOB_TIMEOUT_SECONDS, give_up, NULL);
+	nemo_extract_files (extract->archives, extract->destination, NEMO_EXTRACT_HERE,
+			    GTK_WINDOW (extract->window), extract_done, extract);
+	gtk_main ();
+	if (extract->done) {
+		g_source_remove (timeout_id);
+	}
+	drain_main_loop ();
+
+	check (extract->succeeded);
+	check (g_remove (extract->unpacked) == 0);
+}
+
+/* The zip comes from the compress job, as a user's would. */
+static void
+setup_extract (ExtractCase *extract, const char *tmp)
+{
+	char *source = g_build_filename (tmp, "packed.txt", NULL);
+	char *archive = g_build_filename (tmp, "packed.zip", NULL);
+	char *out = g_build_filename (tmp, "out", NULL);
+	ZipCase zip = { 0 };
+	guint timeout_id;
+
+	check (g_file_set_contents (source, "packed", -1, NULL));
+	check (g_mkdir_with_parents (out, 0700) == 0);
+
+	extract->window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
+	zip.sources = g_list_append (NULL, g_file_new_for_path (source));
+	zip.destination = g_file_new_for_path (archive);
+	nemo_archive_options_init (&zip.options);
+	zip.options.format = NEMO_ARCHIVE_FORMAT_ZIP;
+	timeout_id = g_timeout_add_seconds (JOB_TIMEOUT_SECONDS, give_up, NULL);
+	nemo_archive_create (zip.sources, zip.destination, &zip.options,
+			     GTK_WINDOW (extract->window), zip_done, &zip);
+	gtk_main ();
+	if (zip.done) {
+		g_source_remove (timeout_id);
+	}
+	check (zip.succeeded);
+	nemo_archive_options_clear (&zip.options);
+	g_list_free_full (zip.sources, g_object_unref);
+
+	extract->archives = g_list_append (NULL, zip.destination);
+	extract->destination = g_file_new_for_path (out);
+	extract->unpacked = g_build_filename (out, "packed.txt", NULL);
+
+	g_free (out);
+	g_free (archive);
+	g_free (source);
+}
+
+static void
+teardown_extract (ExtractCase *extract)
+{
+	g_list_free_full (extract->archives, g_object_unref);
+	g_object_unref (extract->destination);
+	g_free (extract->unpacked);
+	gtk_widget_destroy (extract->window);
+}
+
+typedef struct {
+	GtkWidget *window;
 	GtkWidget *editor;
 	NemoQuery *query;
 } QueryCase;
@@ -415,11 +507,6 @@ bookmarks_round (gpointer data)
 
 /* The smallest leak there is, once a round, is twice this. */
 #define ANY_LEAK (TEST_HEAP_SMALLEST_BLOCK / 2)
-
-/* Every zip, stopped or not, still grows the heap by about 150 bytes, which
-   is backlog item 2026100307122400 and not a leak a sanitizer can see. What a
-   stop left behind was a quarter of a megabyte. */
-#define ZIP_LIMIT 1024
 
 static int
 run_case (const char *name, void (*op) (gpointer), gpointer data, gint64 limit)
@@ -490,9 +577,15 @@ main (int argc, char *argv[])
 		setup_zip (&zip, tmp);
 		watch_id = g_signal_connect (manager, "new-progress-info",
 					     G_CALLBACK (watch_new_progress), &zip);
-		skipped = run_case (which, zip_cancel_round, &zip, ZIP_LIMIT);
+		skipped = run_case (which, zip_cancel_round, &zip, ANY_LEAK);
 		g_signal_handler_disconnect (manager, watch_id);
 		teardown_zip (&zip);
+	} else if (strcmp (which, "extract") == 0) {
+		ExtractCase extract = { 0 };
+
+		setup_extract (&extract, tmp);
+		skipped = run_case (which, extract_round, &extract, ANY_LEAK);
+		teardown_extract (&extract);
 	} else if (strcmp (which, "query-editor") == 0) {
 		QueryCase search = { 0 };
 

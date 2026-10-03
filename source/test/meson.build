@@ -158,6 +158,7 @@ if not is_windows
   test('rjbn18rq Search query leak test', leaks, args: [ 'query-editor' ])
   test('rjbn19rn Bookmarks load leak test', leaks, args: [ 'bookmarks' ])
   test('rjbn328w Bookmarks file load leak test', leaks, args: [ 'bookmarks-file' ])
+  test('rjbpmcxy Extract job leak test', leaks, args: [ 'extract' ])
 endif
 
 test('rhtq57n1 Cancelled drop leaves the files test',
