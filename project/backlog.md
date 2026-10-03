@@ -33,27 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- Settings an older release wrote with a backslash or tab in a value read wrong after the upgrade, with no warning.
-	- ID: 2026100314515200
-	- Type: Bug
-	- Status: Waiting for answers
-	- Priority|Severity: Avg
-	- Opened: 20261003-145152
-	- Opened by: item 2026100314290808
-	- Related IDs: 2026100311512222, 2026100314290808
-	- Steps to reproduce [Bug]:
-		- With a release on SHCL 1.2.0 or 2.0.0, such as v1.0.0-beta2, set a value like `\\server\share\term.exe`, `tools\7z.exe`, a tab, or an association like `log=C:\Tools\view.exe "%1"`. Then start this release on the same settings.
-	- Incorrect behavior [Bug]: the backslashes read doubled and the tab reads as `\t`. Nothing is backed up and no warning is given. The next save writes the wrong values in the current format, so they stay wrong and the old file is gone.
-	- Expected behavior [Bug]: every value reads as the old release read it.
-	- Reproduced [Bug]: yes, 20261003, Linux. Test rjcev513 writes the file with each old release's own code and reads it through the app.
-	- Actual cause [Bug]: the old releases wrote a backslash as `\\` outside double quotes. Format 3 reads it there as it stands. A file with no format line is converted with only the spellings both rule sets read the same way, per a decision on 2026100311512222, and these are not among them. With nothing changed, the "read two ways" warning is skipped too.
-	- Against: 2026100311512222, Decisions, "A file with no format line ... only spellings both rules agree on are changed."
-	- Note: design.md, "Settings", says such a file is rewritten when the old rules read it differently. These values are read differently and it is not.
-	- Progress log:
-		- 20261003-145152: with the file converted as 2.x instead, every value both old releases wrote reads right in rjcev513, and the only other change is that such a file is then backed up and rewritten. The cost is a hand-written current file with no info block and a backslash escape outside double quotes, which would then be read as 2.x. Every file the app itself wrote before format 3 has no format line.
-		- 20261003-145152: question. Should a file with no format line be converted as 2.x at startup? Suggested: yes, since app-written old files are the common case. A smaller step either way: back up the file and warn whenever a value could be read two ways, even when nothing is converted.
-	- Test case: rjcev513 Config old formats test. Its four marked values pin the fault, and fail once they read right.
-
 - Code review 20260928 item 2. The tree sidebar crashes on Shift+F10 or the Menu key.
 	- ID: 2026092813381402
 	- Type: Bug
@@ -263,6 +242,31 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 0a17659 (lint), bc533c7 (test), 4e37c4e (fix)
 	- Test case: rjahhesy, Held view settings handlers test. A handler connected with no data or a static must still be there after a list or icon view tab closes. It fails without the fix. `lint-pref-handlers.py --self-test`, a new case for such a disconnect.
 
+- A hand edit to the settings file can be lost when the program saves at the same moment.
+	- ID: 2026100221273001
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Needs local test suite run?: Yes, the full Linux suite.
+	- Needs external testing: rdjjz89r on a Windows box, whose file monitor works differently.
+	- Priority|Severity: Low
+	- Opened: 20261002-212730
+	- Opened by: item 2026092813381422
+	- Related IDs: 2026092813381422
+	- Incorrect behavior: a change made in the program is saved a couple of seconds later, and the save writes the whole file without checking whether it changed on disk since it was read. A hand edit saved just before that, and not yet picked up, is overwritten. The program then takes the event for it as its own write, so the edit is gone with no message.
+	- Expected behavior: a hand edit is never lost to the program's own save.
+	- Reproduced: yes, 20261003, Linux. A hand edit written while a change made in the program waited to be saved was gone after the save, and stayed gone once the monitor caught up. A file removed by hand was put back, and a file in a newer format was saved over, the same way.
+	- Actual cause: the save wrote the document it had in memory without looking at the file. The late event for the edit then matched the save and was ignored as the program's own write.
+	- Origin: before this branch. Code review 20260919 item 16 fixed the other direction, a change in the program lost to a hand edit. Not seen by an earlier round. Confirmed.
+	- Decisions:
+		- When both sides changed, the file wins for every key the program did not change. The program's unsaved keys go on top of a fresh read, and then it saves. No dialog. Call made without asking; reversible.
+		- A key changed both ways keeps the program's change. That is the rule item 16 of review 20260919 already follows when the monitor gets there first, so the answer does not depend on which comes first. The hand edit can still be the later of the two. Going by time would need a time per key, checked against the file's.
+	- Actual fix: a save reads the file first. If it is not what the program last wrote or read, it is reloaded the way the monitor does it, with the unsaved keys put back and the changed keys announced, and then the save goes ahead. A newer-format file found that way is left alone, and a removed file means defaults plus the unsaved keys, both as the monitor already does. A very short window is left between that read and the write, which no ordinary file write can close.
+	- Swept: the monitor's reload and the save now share one reload. The exit flush and `--reset` go through the same save. The bookmarks file is the only other watched file the program writes; it is saved at once on each change with no delay, so it was left alone.
+	- Verified: config tests rg6a49ar, rdjjz89r, rjc4dd8z, rjcev513, reqzgh4g, rfazc870 and rf2w8yxr pass on Linux after a clean build. Lint clean.
+	- Branch: handedit
+	- Commit: 3ad0dcc
+	- Test case: rdjjz89r (`test_hand_edit_survives_save`, `test_hand_delete_and_newer_before_save`), red before the fix and green after.
+
 - Code review 20260928 item 3. Edit link on a symlink whose name ends in .lnk turns the symlink into a plain file.
 	- ID: 2026092813381403
 	- Type: Bug
@@ -402,6 +406,30 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
 
+- Settings an older release wrote with a backslash or tab in a value read wrong after the upgrade, with no warning.
+	- ID: 2026100314515200
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261003-145152
+	- Opened by: item 2026100314290808
+	- Related IDs: 2026100311512222, 2026100314290808
+	- Steps to reproduce [Bug]:
+		- With a release on SHCL 1.2.0 or 2.0.0, such as v1.0.0-beta2, set a value like `\\server\share\term.exe`, `tools\7z.exe`, a tab, or an association like `log=C:\Tools\view.exe "%1"`. Then start this release on the same settings.
+	- Incorrect behavior [Bug]: the backslashes read doubled and the tab reads as `\t`. Nothing is backed up and no warning is given. The next save writes the wrong values in the current format, so they stay wrong and the old file is gone.
+	- Expected behavior [Bug]: every value reads as the old release read it.
+	- Reproduced [Bug]: yes, 20261003, Linux. Test rjcev513 writes the file with each old release's own code and reads it through the app.
+	- Actual cause [Bug]: the old releases wrote a backslash as `\\` outside double quotes. Format 3 reads it there as it stands. A file with no format line is converted with only the spellings both rule sets read the same way, per a decision on 2026100311512222, and these are not among them. With nothing changed, the "read two ways" warning is skipped too.
+	- Against: 2026100311512222, Decisions, "A file with no format line ... only spellings both rules agree on are changed." Replaced by the answer below.
+	- Decisions:
+		- 20261003: a file with no format line is converted as 2.x at startup.
+	- Note: design.md, "Settings", says such a file is rewritten when the old rules read it differently. These values are read differently and it is not.
+	- Progress log:
+		- 20261003-145152: with the file converted as 2.x instead, every value both old releases wrote reads right in rjcev513, and the only other change is that such a file is then backed up and rewritten. The cost is a hand-written current file with no info block and a backslash escape outside double quotes, which would then be read as 2.x. Every file the app itself wrote before format 3 has no format line.
+		- 20261003-145152: question. Should a file with no format line be converted as 2.x at startup? Suggested: yes, since app-written old files are the common case. A smaller step either way: back up the file and warn whenever a value could be read two ways, even when nothing is converted.
+		- 20261003: answered yes. A file with no format line is converted as 2.x at startup.
+	- Test case: rjcev513 Config old formats test. Its four marked values pin the fault, and fail once they read right.
+
 - Code review 20260928 item 25. The .deb changes with the filesystem it is built on.
 	- ID: 2026092813381425
 	- Type: Bug
@@ -517,20 +545,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: once, 20261001, Linux, with a second connection opening a new file as a window did. Not on demand.
 	- Possible cause: the first switch of a new file to its journal mode takes a lock that sqlite does not wait for.
 	- Origin: 9fd0939, 20260921 (thumbdb). New ground. Confirmed, seen once.
-	- Test case: none yet.
-
-- A hand edit to the settings file can be lost when the program saves at the same moment.
-	- ID: 2026100221273001
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261002-212730
-	- Opened by: item 2026092813381422
-	- Related IDs: 2026092813381422
-	- Incorrect behavior: a change made in the program is saved a couple of seconds later, and the save writes the whole file without checking whether it changed on disk since it was read. A hand edit saved just before that, and not yet picked up, is overwritten. The program then takes the event for it as its own write, so the edit is gone with no message.
-	- Expected behavior: a hand edit is never lost to the program's own save.
-	- Reproduced: no, read only.
-	- Origin: before this branch. Code review 20260919 item 16 fixed the other direction, a change in the program lost to a hand edit. Not seen by an earlier round. Plausible.
 	- Test case: none yet.
 
 - The leak tests can pass a small leak, or skip, when a worker thread starts during the counted rounds.

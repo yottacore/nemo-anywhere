@@ -302,6 +302,7 @@ Application settings live in `settings.shcl`, in whichever directory the platfor
 - Because of that the file alone would say nothing about what else there is, so everything unset is listed at the end, commented out, with the value in use and a one-line note wherever the name does not already explain itself. Uncommenting a line is the same as changing the setting in the dialog. Keys the app writes back itself - window size, sidebar width, the last state of a search toggle - are left off that list, since setting one by hand only gets it overwritten.
 
 - Edits made while the app is running are picked up straight away, so hand-editing behaves like using the dialog.
+	- A save reads the file first. A hand edit the app has not picked up yet is taken in, and a setting changed both ways keeps the change made in the app, the same as when the edit is picked up first. A file removed by hand goes back to defaults, apart from changes made in the app and not yet saved.
 
 - The file ends with SHCL's info block, which names the format it was written in. A file in an older format is copied beside it as `settings_backup_<YYYYmmDD-HHMMSS>_format-v<N>.shcl`, and a new `settings.shcl` is written with the settings this release knows, converted by SHCL. A file with no format line came from a 2.x release or a hand edit, so it is only rewritten at startup, and only when the old rules read it differently. A file in a newer format is used but never saved over, so running an older build does not undo a newer one's settings.
 
