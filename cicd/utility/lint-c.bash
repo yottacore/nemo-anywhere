@@ -1008,7 +1008,7 @@ fCheckEntryFocusOut(){
 
 	[[ -f "$src" ]] || return 0
 
-	if ! tr -d '\n' < "$src" | grep -q -E 'nemo_location_bar_get_entry \([^;]*"focus-out-event",[[:space:]]*G_CALLBACK \(toolbar_focus_out_callback\)'; then
+	if ! grep -q -E 'nemo_location_bar_get_entry \([^;]*"focus-out-event",[[:space:]]*G_CALLBACK \(toolbar_focus_out_callback\)' <<<"$(tr -d '\n' < "$src")"; then
 		fEcho "FAIL: ${src}: the path entry's focus-out-event must go to toolbar_focus_out_callback"
 		exit 2
 	fi

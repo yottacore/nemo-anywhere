@@ -61,6 +61,17 @@ if [[ -n "$fileWide" ]]; then
 	exit 1
 fi
 
+## grep -q and -m quit at their first match. Downstream of a writer under
+## pipefail, the writer's SIGPIPE then turns a match into a failed pipeline,
+## which read as no window in the GUI smoke check. Give them a here-string.
+## Test ID: rjcc6jnz
+earlyExit="$(grep -nE '(^|[^|])[|][[:space:]]*grep([[:space:]]+-[^[:space:]]+)*[[:space:]]+-[a-zA-Z]*[qm]' "${files[@]}" || true)"
+if [[ -n "$earlyExit" ]]; then
+	printf '%s\n' "$earlyExit"
+	fEcho "FAILED: Bash lint: grep -q or -m reading a pipe - feed it a here-string"
+	exit 1
+fi
+
 fEcho "Bash lint (shellcheck) over ${#files[@]} script(s)..."
 shellcheck "${files[@]}"
 fEcho "OK: Bash lint: no findings"
