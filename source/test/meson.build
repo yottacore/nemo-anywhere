@@ -8,6 +8,15 @@ test_scratch = declare_dependency(
   ),
 )
 
+# Heap growth over repeated operations, for the leak tests.
+test_heap = declare_dependency(
+  link_with: static_library('test-heap',
+    [ 'test-heap.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ glib ],
+  ),
+)
+
 test('5ethkhjr Search Engine test',
   executable('test-nemo-search-engine',
     [ 'test-nemo-search-engine.c' ],
@@ -132,6 +141,26 @@ test('rhtq57n0 Job queue test',
   ),
   args: []
 )
+
+# The heap is read through glibc, so elsewhere these skip.
+if not is_windows
+  leaks = executable('test-nemo-leaks',
+    [ 'test-nemo-leaks.c', '../src/nemo-query-editor.c' ] + gresources,
+    include_directories: [ rootInclude, include_directories('../src') ],
+    dependencies: [ gtk, nemo_private, test_scratch, test_heap ],
+    c_args: nemo_definitions,
+  )
+
+  test('rjbkzvdv Job progress leak test', leaks, args: [ 'progress' ])
+  test('rjbkzwe7 Move job leak test', leaks, args: [ 'move' ])
+  test('rjbmdd0s Clipboard drag check leak test', leaks, args: [ 'clipboard' ])
+  test('rjbmh7g1 Stopped zip leak test', leaks, args: [ 'zip-cancel' ])
+  test('rjbn18rq Search query leak test', leaks, args: [ 'query-editor' ])
+  test('rjbn19rn Bookmarks load leak test', leaks, args: [ 'bookmarks' ])
+  test('rjbn328w Bookmarks file load leak test', leaks, args: [ 'bookmarks-file' ])
+  test('rjbpmcxy Extract job leak test', leaks, args: [ 'extract' ])
+  test('rjbqagjf Stopped tar.gz leak test', leaks, args: [ 'tar.gz-cancel' ])
+endif
 
 test('rhtq57n1 Cancelled drop leaves the files test',
   executable('test-nemo-drop-cancel',
@@ -1175,6 +1204,20 @@ test('rj4jewn6 Archive check cost test',
   args: [],
   timeout: 120
 )
+
+# Makes its big file sparse, which is a POSIX call.
+if not is_windows
+  test('rjbpyy28 Archive stop time test',
+    executable('test-nemo-archive-stop-time',
+      [ 'test-nemo-archive-stop-time.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+      c_args: nemo_definitions,
+    ),
+    args: [],
+    timeout: 240
+  )
+endif
 
 # Some hundreds of archives, so it gets longer than the default.
 test('rhr6ggmt Archive option combinations',

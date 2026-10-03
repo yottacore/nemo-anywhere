@@ -177,6 +177,7 @@ typedef struct {
 	GOutputStream *stream;
 	GCancellable  *cancellable;
 	GError        *error;
+	gboolean       fail_after_stop;
 } StreamSink;
 
 static gboolean
@@ -1412,6 +1413,14 @@ scan_sources (ArchiveJob *job)
 	g_hash_table_destroy (seen);
 }
 
+static gboolean
+format_pads_entries (NemoArchiveFormat format)
+{
+	return format == NEMO_ARCHIVE_FORMAT_TAR ||
+	       format == NEMO_ARCHIVE_FORMAT_TAR_GZ ||
+	       format == NEMO_ARCHIVE_FORMAT_TAR_XZ;
+}
+
 static la_ssize_t
 sink_write (struct archive *a,
 	    void           *client_data,
@@ -1422,13 +1431,27 @@ sink_write (struct archive *a,
 	GError *error = NULL;
 	gsize written = 0;
 
+	/* A stop is not a failed write. libarchive takes a failed write as fatal
+	   and then never finishes the entry, which is where the zip writer frees
+	   its compressor. The job sees the stop itself and removes the archive,
+	   so these bytes can go nowhere. A tar's last writes are the exception,
+	   see run_libarchive. */
+	if (g_cancellable_is_cancelled (sink->cancellable)) {
+		return sink->fail_after_stop ? -1 : (la_ssize_t) length;
+	}
+
 	if (!g_output_stream_write_all (sink->stream, buffer, length, &written,
 					sink->cancellable, &error)) {
+		if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+			g_clear_error (&error);
+			return (la_ssize_t) length;
+		}
+
 		archive_set_error (a, EIO, "%s",
 				   error != NULL ? error->message : "write failed");
 
-		/* libarchive writes again on its way out after a failure, such as
-		   a cancel. The first error is the one that says what happened. */
+		/* libarchive writes again on its way out after a failure. The first
+		   error is the one that says what happened. */
 		if (sink->error == NULL) {
 			sink->error = error;
 		} else {
@@ -1773,6 +1796,7 @@ run_libarchive (ArchiveJob *job)
 	sink.stream = G_OUTPUT_STREAM (out);
 	sink.cancellable = job->cancellable;
 	sink.error = NULL;
+	sink.fail_after_stop = FALSE;
 
 	a = archive_write_new ();
 
@@ -1813,6 +1837,20 @@ run_libarchive (ArchiveJob *job)
 	if (ok && archive_write_close (a) != ARCHIVE_OK) {
 		job_fail (job, _("The archive could not be created."), archive_error_string (a));
 		ok = FALSE;
+	}
+
+	/* The sink drops what is written after a stop instead of failing it. */
+	if (ok && job_aborted (job)) {
+		ok = FALSE;
+	}
+
+	/* Freed after a stop, a tar writer fills the rest of the open entry with
+	   zeros, through the compressor, which on a big file takes as long as the
+	   rest of the job would have. A failed write ends that at once, and the
+	   gzip and xz filters still end their compressor on close. Not so the zip
+	   writer, which is why only the tar formats get it. */
+	if (job_aborted (job) && format_pads_entries (job->options.format)) {
+		sink.fail_after_stop = TRUE;
 	}
 
 	archive_write_free (a);
@@ -3031,8 +3069,8 @@ start_job (ArchiveJob               *job,
 	}
 
 	job->progress = nemo_progress_info_new ();
+	/* Comes with a ref, which archive_job_done drops. */
 	job->cancellable = nemo_progress_info_get_cancellable (job->progress);
-	g_object_ref (job->cancellable);
 
 	nemo_progress_info_set_status (job->progress, _("Preparing to compress"));
 

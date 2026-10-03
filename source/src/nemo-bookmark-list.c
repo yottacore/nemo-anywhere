@@ -760,8 +760,10 @@ load_bookmark_metadata_file (NemoBookmarkList *list)
         }
 
         g_strfreev (items);
-    } else if (!g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_NOENT)) {
-        g_warning ("Could not load bookmark metadata file: %s\n", error->message);
+    } else {
+        if (!g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_NOENT)) {
+            g_warning ("Could not load bookmark metadata file: %s\n", error->message);
+        }
         g_error_free (error);
     }
 
@@ -785,6 +787,7 @@ load_files_finish (NemoBookmarkList *bookmarks,
         g_error_free (error);
         return;
     }
+    g_clear_error (&error);
 
     GList *old_list = bookmarks->list;
     bookmarks->list = new_list;

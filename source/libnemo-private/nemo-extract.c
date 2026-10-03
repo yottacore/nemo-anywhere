@@ -1822,8 +1822,8 @@ nemo_extract_files (GList               *archives,
 	}
 
 	job->progress = nemo_progress_info_new ();
+	/* Comes with a ref, which extract_job_done drops. */
 	job->cancellable = nemo_progress_info_get_cancellable (job->progress);
-	g_object_ref (job->cancellable);
 
 	nemo_progress_info_set_status (job->progress, _("Preparing to unpack"));
 	nemo_progress_info_take_initial_details (job->progress,

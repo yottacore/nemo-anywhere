@@ -225,6 +225,7 @@ add_fallback_mandatory_css_provider (const gchar *theme_name)
                                                         "@");
     } else {
         /* If we can find neither, just bail out */
+        g_free (init_fallback_css);
         goto out;
     }
 
@@ -237,6 +238,7 @@ apply:
                                      final_fallback_css,
                                      -1,
                                      &error);
+    g_free (final_fallback_css);
 
     if (error) {
         g_warning ("Failed to create a fallback provider: %s", error->message);

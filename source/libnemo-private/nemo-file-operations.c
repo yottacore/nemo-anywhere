@@ -5981,7 +5981,7 @@ move_file_prepare (CopyMoveJob *move_job,
 									    src, dest);
 		}
 
-		return;
+		goto out;
 	}
 
 	if (IS_IO_ERROR (error, INVALID_FILENAME) &&
@@ -6236,6 +6236,7 @@ move_job_done (gpointer user_data)
 
 	g_list_free_full (job->files, g_object_unref);
 	g_object_unref (job->destination);
+	g_clear_object (&job->desktop_location);
 	g_hash_table_unref (job->debuting_files);
 	g_free (job->icon_positions);
 
