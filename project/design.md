@@ -539,6 +539,7 @@ Two settings decide how the app looks: a light or dark mode, and the widget and 
 - A shortcut to a folder wears the theme's folder icon. Everything else about a shortcut's icon comes from the shell, since only it can find a program's own artwork, but for a folder that answer is Microsoft's folder drawn among the theme's, which reads as a mistake. Whether the target is a folder comes from what the shortcut file records rather than from looking at the target, since a shortcut to a share that is not answering would otherwise stall the listing.
 	- The shell is asked off the window's thread. A folder of shortcuts lists at once with the plain shortcut icon, and each one changes as its own icon is found. What was found is kept only while the app runs.
 	- A shortcut whose target, or the icon it names, is on a share gets the icon for the target's name instead, so the share is never visited: a document the icon for its kind, a program the plain program icon. Whether it is on a share is read from the shortcut file and from the drive letter's mapping, never from the share.
+		- Windows records the share as well as the drive path when the target's drive is shared. That shortcut counts as local when the drive's volume serial matches the one it records. A shortcut made on another machine's drive goes by the target's name.
 
 ### Platform integration
 

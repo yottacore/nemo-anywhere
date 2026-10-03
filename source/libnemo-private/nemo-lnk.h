@@ -65,7 +65,10 @@ char    *nemo_lnk_display_target (const NemoLnk *lnk);
 
 /* Whether the target, or the file the icon is taken from, is on a share, from
    what the shortcut records. Nothing is looked up, so a drive letter mapped to
-   a share only counts where the shortcut says so itself. */
+   a share only counts where the shortcut says so itself. Windows records the
+   share as well as the drive path when the target's drive is shared; that
+   counts as the drive, and whether the drive is this machine's is for the
+   caller to say. */
 gboolean nemo_lnk_points_at_share (const NemoLnk *lnk);
 
 /* A path with Windows %NAME% variables in it, as this machine spells it, or

@@ -522,7 +522,7 @@ nemo_lnk_points_at_share (const NemoLnk *lnk)
 {
 	g_return_val_if_fail (lnk != NULL, FALSE);
 
-	return lnk->net_share != NULL ||
+	return (lnk->net_share != NULL && lnk->local_path == NULL) ||
 	       is_share_path (lnk->local_path) ||
 	       expands_to_share (lnk->env_path) ||
 	       expands_to_share (lnk->icon_location);
