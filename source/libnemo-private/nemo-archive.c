@@ -1422,13 +1422,26 @@ sink_write (struct archive *a,
 	GError *error = NULL;
 	gsize written = 0;
 
+	/* A stop is not a failed write. libarchive takes a failed write as fatal
+	   and then never finishes the entry, which is where the zip writer frees
+	   its compressor. The job sees the stop itself and removes the archive,
+	   so these bytes can go nowhere. */
+	if (g_cancellable_is_cancelled (sink->cancellable)) {
+		return (la_ssize_t) length;
+	}
+
 	if (!g_output_stream_write_all (sink->stream, buffer, length, &written,
 					sink->cancellable, &error)) {
+		if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+			g_clear_error (&error);
+			return (la_ssize_t) length;
+		}
+
 		archive_set_error (a, EIO, "%s",
 				   error != NULL ? error->message : "write failed");
 
-		/* libarchive writes again on its way out after a failure, such as
-		   a cancel. The first error is the one that says what happened. */
+		/* libarchive writes again on its way out after a failure. The first
+		   error is the one that says what happened. */
 		if (sink->error == NULL) {
 			sink->error = error;
 		} else {
@@ -1812,6 +1825,11 @@ run_libarchive (ArchiveJob *job)
 
 	if (ok && archive_write_close (a) != ARCHIVE_OK) {
 		job_fail (job, _("The archive could not be created."), archive_error_string (a));
+		ok = FALSE;
+	}
+
+	/* The sink drops what is written after a stop instead of failing it. */
+	if (ok && job_aborted (job)) {
 		ok = FALSE;
 	}
 

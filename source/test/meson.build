@@ -153,6 +153,7 @@ if not is_windows
   test('rjbkzvdv Job progress leak test', leaks, args: [ 'progress' ])
   test('rjbkzwe7 Move job leak test', leaks, args: [ 'move' ])
   test('rjbmdd0s Clipboard drag check leak test', leaks, args: [ 'clipboard' ])
+  test('rjbmh7g1 Stopped zip leak test', leaks, args: [ 'zip-cancel' ])
 endif
 
 test('rhtq57n1 Cancelled drop leaves the files test',

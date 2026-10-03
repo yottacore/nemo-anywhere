@@ -34,6 +34,7 @@
 #include <string.h>
 #include <gtk/gtk.h>
 
+#include <libnemo-private/nemo-archive.h>
 #include <libnemo-private/nemo-clipboard.h>
 #include <libnemo-private/nemo-file.h>
 #include <libnemo-private/nemo-file-operations.h>
@@ -236,8 +237,121 @@ teardown_clipboard (ClipboardCase *clip)
 	gtk_widget_destroy (clip->window);
 }
 
+typedef struct {
+	GtkWidget *window;
+	GList *sources;
+	GFile *destination;
+	NemoArchiveOptions options;
+	gboolean done;
+	gboolean succeeded;
+	gboolean canceled;
+} ZipCase;
+
+static void
+zip_done (GFile *result, gboolean success, gpointer data)
+{
+	ZipCase *zip = data;
+
+	(void) result;
+	zip->succeeded = success;
+	zip->done = TRUE;
+	gtk_main_quit ();
+}
+
+/* Once some of the file is in, its entry is open, which is where a stop used
+   to leave the compressor's state behind. */
+static void
+cancel_once_writing (NemoProgressInfo *info, gpointer data)
+{
+	ZipCase *zip = data;
+
+	if (!zip->canceled && nemo_progress_info_get_progress (info) > 0) {
+		zip->canceled = TRUE;
+		nemo_progress_info_cancel (info);
+	}
+}
+
+static void
+watch_new_progress (NemoProgressInfoManager *manager,
+		    NemoProgressInfo        *info,
+		    gpointer                 data)
+{
+	(void) manager;
+	g_signal_connect (info, "progress-changed", G_CALLBACK (cancel_once_writing), data);
+}
+
+/* A zip of one big file, stopped partway through it. */
+static void
+zip_cancel_round (gpointer data)
+{
+	ZipCase *zip = data;
+	guint timeout_id;
+
+	zip->done = FALSE;
+	zip->succeeded = FALSE;
+	zip->canceled = FALSE;
+	timeout_id = g_timeout_add_seconds (JOB_TIMEOUT_SECONDS, give_up, NULL);
+	nemo_archive_create (zip->sources, zip->destination, &zip->options,
+			     GTK_WINDOW (zip->window), zip_done, zip);
+	gtk_main ();
+	if (zip->done) {
+		g_source_remove (timeout_id);
+	}
+	drain_main_loop ();
+
+	/* Stopped mid-entry every time, or the round proves nothing. */
+	check (zip->canceled && !zip->succeeded);
+}
+
+/* Bytes that do not compress, so there is time to stop it. */
+#define NOISE_BYTES (8 * 1024 * 1024)
+
+static void
+setup_zip (ZipCase *zip, const char *tmp)
+{
+	char *source = g_build_filename (tmp, "noise.bin", NULL);
+	char *archive = g_build_filename (tmp, "noise.zip", NULL);
+	GRand *rand = g_rand_new_with_seed (7);
+	gsize n = NOISE_BYTES / sizeof (guint32);
+	guint32 *words = g_new (guint32, n);
+	gsize i;
+
+	for (i = 0; i < n; i++) {
+		words[i] = g_rand_int (rand);
+	}
+	check (g_file_set_contents (source, (const char *) words, NOISE_BYTES, NULL));
+
+	zip->window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
+	zip->sources = g_list_append (NULL, g_file_new_for_path (source));
+	zip->destination = g_file_new_for_path (archive);
+	nemo_archive_options_init (&zip->options);
+	zip->options.format = NEMO_ARCHIVE_FORMAT_ZIP;
+
+	g_free (words);
+	g_rand_free (rand);
+	g_free (archive);
+	g_free (source);
+}
+
+static void
+teardown_zip (ZipCase *zip)
+{
+	nemo_archive_options_clear (&zip->options);
+	g_list_free_full (zip->sources, g_object_unref);
+	g_object_unref (zip->destination);
+	gtk_widget_destroy (zip->window);
+}
+
+/* The smallest leak there is, once a round, is twice this. */
+#define ANY_LEAK (TEST_HEAP_SMALLEST_BLOCK / 2)
+
+/* Every zip, stopped or not, still grows the heap by about 150 bytes, which
+   is backlog item 2026100307122400 and not a leak a sanitizer can see. What a
+   stop left behind was a quarter of a megabyte. */
+#define ZIP_LIMIT 1024
+
 static int
-run_case (const char *name, void (*op) (gpointer), gpointer data)
+run_case (const char *name, void (*op) (gpointer), gpointer data, gint64 limit)
 {
 	gint64 growth;
 
@@ -249,8 +363,7 @@ run_case (const char *name, void (*op) (gpointer), gpointer data)
 
 	g_print ("%s: the heap grew %" G_GINT64_FORMAT " bytes over %d rounds\n",
 		 name, growth, COUNTED_ROUNDS);
-	/* The smallest leak there is, once a round, is twice this. */
-	check (growth < (gint64) COUNTED_ROUNDS * TEST_HEAP_SMALLEST_BLOCK / 2);
+	check (growth < (gint64) COUNTED_ROUNDS * limit);
 
 	return 0;
 }
@@ -286,19 +399,29 @@ main (int argc, char *argv[])
 	manager = nemo_progress_info_manager_new ();
 
 	if (strcmp (which, "progress") == 0) {
-		skipped = run_case (which, progress_round, NULL);
+		skipped = run_case (which, progress_round, NULL, ANY_LEAK);
 	} else if (strcmp (which, "move") == 0) {
 		MoveCase move = { 0 };
 
 		setup_move (&move, tmp);
-		skipped = run_case (which, move_round, &move);
+		skipped = run_case (which, move_round, &move, ANY_LEAK);
 		teardown_move (&move);
 	} else if (strcmp (which, "clipboard") == 0) {
 		ClipboardCase clip = { 0 };
 
 		setup_clipboard (&clip, tmp);
-		skipped = run_case (which, clipboard_round, &clip);
+		skipped = run_case (which, clipboard_round, &clip, ANY_LEAK);
 		teardown_clipboard (&clip);
+	} else if (strcmp (which, "zip-cancel") == 0) {
+		ZipCase zip = { 0 };
+		gulong watch_id;
+
+		setup_zip (&zip, tmp);
+		watch_id = g_signal_connect (manager, "new-progress-info",
+					     G_CALLBACK (watch_new_progress), &zip);
+		skipped = run_case (which, zip_cancel_round, &zip, ZIP_LIMIT);
+		g_signal_handler_disconnect (manager, watch_id);
+		teardown_zip (&zip);
 	} else {
 		g_printerr ("unknown case: %s\n", which);
 		failures++;
