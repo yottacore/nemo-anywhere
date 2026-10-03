@@ -160,6 +160,7 @@ if not is_windows
   test('rjbn328w Bookmarks file load leak test', leaks, args: [ 'bookmarks-file' ])
   test('rjbpmcxy Extract job leak test', leaks, args: [ 'extract' ])
   test('rjbqagjf Stopped tar.gz leak test', leaks, args: [ 'tar.gz-cancel' ])
+  test('rjbw0rkq Stopped 7z leak test', leaks, args: [ '7z-cancel' ])
 endif
 
 test('rhtq57n1 Cancelled drop leaves the files test',

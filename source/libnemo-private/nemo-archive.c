@@ -1775,6 +1775,7 @@ run_libarchive (ArchiveJob *job)
 	GError *error = NULL;
 	GList *l;
 	gboolean ok = TRUE;
+	gboolean closed;
 
 	scan_sources (job);
 
@@ -1834,6 +1835,7 @@ run_libarchive (ArchiveJob *job)
 		}
 	}
 
+	closed = ok;
 	if (ok && archive_write_close (a) != ARCHIVE_OK) {
 		job_fail (job, _("The archive could not be created."), archive_error_string (a));
 		ok = FALSE;
@@ -1851,6 +1853,14 @@ run_libarchive (ArchiveJob *job)
 	   writer, which is why only the tar formats get it. */
 	if (job_aborted (job) && format_pads_entries (job->options.format)) {
 		sink.fail_after_stop = TRUE;
+	}
+
+	/* The 7z writer pads the same way, but into a temporary file of its own
+	   that the sink never sees. Marked failed, the close skips the open entry
+	   and still frees the output buffers, and the free ends the compressor. */
+	if (job_aborted (job) && !closed && job->options.format == NEMO_ARCHIVE_FORMAT_7Z) {
+		archive_write_fail (a);
+		archive_write_close (a);
 	}
 
 	archive_write_free (a);

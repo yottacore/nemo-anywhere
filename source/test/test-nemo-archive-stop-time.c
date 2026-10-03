@@ -26,13 +26,19 @@
  * as long as compressing the rest of it would have. A stop has to end in about
  * the same time whatever was left to write.
  *
- * So in each compressed tar format, a 4 GiB file and a 16 GiB one, sparse so
- * they cost no disk, are each stopped at their first progress report. The
- * time from the stop to the job's end for the big one has to be under twice
- * that for the small one, plus some slack for a busy box. With the zeros going
- * all the way, the tar.gz took 15 s and 56 s, and the tar.xz 5 s and 20 s.
- * Without, the tar.gz takes about 0.1 s either way, and the tar.xz under 3 s,
- * where xz has to fill one output buffer with zeros before a write fails. */
+ * So in each compressed tar format and the 7z, a 4 GiB file and a 16 GiB
+ * one, sparse so they cost no disk, are each stopped at their first progress
+ * report. The time from the stop to the job's end for the big one has to be
+ * under twice that for the small one, plus some slack for a busy box. With
+ * the zeros going all the way, the tar.gz took 15 s and 56 s, and the tar.xz
+ * 5 s and 20 s. Without, the tar.gz takes about 0.1 s either way, and the
+ * tar.xz under 3 s, where xz has to fill one output buffer with zeros before
+ * a write fails.
+ *
+ * The built-in 7z writer pads the same way, but into a temporary file of its
+ * own, so how the job treats the output does not reach it. A 2 GB file took
+ * 24 s. Link storing is off here, since with it on a 7z goes to the 7-Zip
+ * program where it is installed. */
 
 #include <config.h>
 
@@ -55,6 +61,7 @@
 #define JOB_TIMEOUT_SECONDS 100
 
 typedef struct {
+	NemoProgressInfo *info;
 	gint64 stopped_at;
 	gint64 done_at;
 	gboolean succeeded;
@@ -66,7 +73,8 @@ stop_once_writing (NemoProgressInfo *info, gpointer data)
 {
 	StopCase *stop = data;
 
-	if (stop->stopped_at == 0 && nemo_progress_info_get_progress (info) > 0) {
+	if (info == stop->info && stop->stopped_at == 0 &&
+	    nemo_progress_info_get_progress (info) > 0) {
 		stop->stopped_at = g_get_monotonic_time ();
 		nemo_progress_info_cancel (info);
 	}
@@ -77,8 +85,13 @@ watch_new_progress (NemoProgressInfoManager *manager,
 		    NemoProgressInfo        *info,
 		    gpointer                 data)
 {
+	StopCase *stop = data;
+
 	(void) manager;
-	g_signal_connect (info, "progress-changed", G_CALLBACK (stop_once_writing), data);
+	if (stop->info == NULL) {
+		stop->info = g_object_ref (info);
+		g_signal_connect (info, "progress-changed", G_CALLBACK (stop_once_writing), stop);
+	}
 }
 
 static void
@@ -123,6 +136,8 @@ time_stop (NemoProgressInfoManager *manager,
 
 	nemo_archive_options_init (&options);
 	options.format = format;
+	options.store_links = FALSE;
+	check (nemo_archive_pick_backend (format, &options) == NEMO_ARCHIVE_BACKEND_LIBARCHIVE);
 
 	watch_id = g_signal_connect (manager, "new-progress-info",
 				     G_CALLBACK (watch_new_progress), &stop);
@@ -134,6 +149,13 @@ time_stop (NemoProgressInfoManager *manager,
 		g_source_remove (timeout_id);
 	}
 	g_signal_handler_disconnect (manager, watch_id);
+
+	/* A job that ends quickly can still have a progress report queued, and
+	   the next case's StopCase may sit at this one's address. */
+	if (stop.info != NULL) {
+		g_signal_handlers_disconnect_by_data (stop.info, &stop);
+		g_object_unref (stop.info);
+	}
 
 	check (stop.done && stop.stopped_at != 0 && !stop.succeeded);
 	check (!g_file_test (path, G_FILE_TEST_EXISTS));
@@ -212,6 +234,7 @@ main (int argc, char *argv[])
 
 	check_format (manager, window, small, big, tmp, NEMO_ARCHIVE_FORMAT_TAR_GZ, "tar.gz");
 	check_format (manager, window, small, big, tmp, NEMO_ARCHIVE_FORMAT_TAR_XZ, "tar.xz");
+	check_format (manager, window, small, big, tmp, NEMO_ARCHIVE_FORMAT_7Z, "7z");
 
 	g_object_unref (small);
 	g_object_unref (big);
