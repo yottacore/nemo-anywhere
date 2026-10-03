@@ -103,6 +103,75 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the 9 archive, extract, template and schema tests pass on Linux, the combinations and job tests three runs in a row. Lint and the Windows cross build are clean. The Archive options test passes under wine, its Windows-only rows included.
 		- 20261003: rhr6ggmt, rewygsbg and rev86z08 pass natively on b29w and on Linux. Full Linux suite 157 of 157. Full native suite on b29w at 1507a21: 137 passed, 10 skipped, 1 failed, rfhr0zw0, which belongs to 2026093010493389. The archive and extract tests again at 1ec66eb.
 
+- On Windows, a folder full of shortcuts shows nothing until every shortcut icon is found.
+	- ID: 2026100112000535
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Needs external testing: the Start menu folder seen on screen on Windows. The rest ran on b29w, 20261003.
+	- Priority|Severity: Avg
+	- Opened: 20261001-120005
+	- Opened by: t00mietum
+	- Related IDs: 2026093010493389, 2026092813381436
+	- Target OS: Windows
+	- Steps to reproduce:
+		- Go to the Start menu Programs folder, or any folder with many `.lnk` files.
+	- Incorrect behavior: the content pane stays empty until the icons for all the shortcuts are loaded.
+	- Expected behavior: the pane shows the files right away, with a plain icon or the last known one. Shortcut icons load in the background and replace them as each one is found.
+		- Possibly the shortcut icons can use the thumbnail cache, with its own icon table, so a folder seen before draws its real icons at once.
+	- Reproduced: no. Seen on Windows, not yet reproduced here.
+	- Possible cause: each shortcut's icon comes from the Windows shell on the window's thread, one file after another, the first time the view asks for it. The only cache is in memory, so every new run pays it again.
+	- Note: 2026093010493389 already wants these lookups off the window's thread. One fix may cover both.
+	- Actual cause: as above, read from the code. The view asked the shell for each shortcut's icon the first time it drew it, and waited for the answer.
+	- Actual fix: the view gets the cached icon or nothing, at once, and the plain shortcut icon stands in. One worker thread asks the shell, and the shortcut is redrawn when an icon is found. A shortcut the shell has no icon for is remembered too, so it is not asked again. Same branch and fix as 2026093010493389.
+	- Note: the icon table in the file cache was not built. It needs a new cache table and version, its own pruning, and a choice of which sizes to keep, which is more than this fix. Until then the last known icon is kept only while the app runs, so a new run starts plain again.
+	- Note: the folder check behind the sort place and the folder icon still reads each shortcut on the window's thread. It is a local file read, cached, and was not measured.
+	- Branch: lnkasync
+	- Commit: 61dcecc
+	- Test case: rfhr0zw0, Shell icon test, new lookup cases: the first ask returns at once with nothing, a second one while it runs is not queued again, the window is told once when the icon is found, and the cache answers after. A file that is not a shortcut is finished with and not asked again. No case shows the wait itself, since a slow shell can't be made here.
+	- Verified: rfhr0zw0 passes under wine, and the wine build lists a folder of shortcuts with each one's own icon. The rest as on 2026093010493389.
+	- Verified: the lookup cases in rfhr0zw0 pass on b29w on 20261002, in the native suite. The test as a whole fails on the dead share item's cases.
+	- Verified: 20261003 on b29w, rfhr0zw0 passes whole, with the fix for 2026093010493389 on lnkicon. Asking for the icons of all 335 shortcuts in both Start menu folders took under 1 ms in all. The icons came in over 28 seconds on a first run, and 3 seconds on a second.
+	- Note: before the fix the view asked for each of these on the window's thread, from the code. Not timed.
+	- Note: the folder was not opened on screen. b29w's only session is the one on its own screen.
+
+- On Windows, a local shortcut to a share that is not answering can stall the window while its icon is looked up.
+	- ID: 2026093010493389
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Needs external testing: done on b29w, 20261003. rfhr0zw0 passes there, dead share cases included.
+	- Priority|Severity: Avg
+	- Opened: 20260930-104934
+	- Opened by: code review 20260928 follow-up
+	- Related IDs: 2026092813381408, 2026093010493450
+	- Target OS: Windows
+	- Incorrect behavior: a shortcut with no icon of its own gets one from the Windows shell, on the window's thread. The shell may go to the target for it. On a share that is not answering that is about twenty seconds per shortcut.
+	- Expected behavior: the share is never visited for an icon.
+		- The target path is read from the shortcut file, as the folder check already does.
+		- When the target is on a share, the icon comes from the name alone. A folder gets the folder icon, a document the icon for its extension, and a program the plain program icon.
+		- Shortcut icon lookups run off the window's thread, local targets included.
+	- Reproduced: no. Read only, from item 8 of code review 20260928.
+	- Reproduced: yes, the second cause below, 20261003 on b29w. rfhr0zw0 failed the same two checks with the build from dev.
+	- Decisions:
+		- 20260930: assume the stall rather than time it first. Many shortcuts to shares would multiply it.
+		- 20260930: a program on a share showing the plain program icon is fine.
+	- Actual cause: the shell was handed the shortcut itself, and it reads the target, or the icon file the shortcut names, to find the icon. Nothing checked whether either was on a share.
+	- Actual fix: the shortcut file is read for its target and for the icon file it names. When either is on a share, by its path or by a drive letter mapped to one, the shell is asked about the target's name alone, which it answers without opening anything. A folder still gets the theme's folder icon from the folder check. Every lookup now runs off the window's thread, with 2026100112000535.
+	- Actual cause: a second one, on b29w after the first fix. Windows records the share as well as the drive path in a shortcut whose target's drive is shared, and b29w shares its C drive. Every local shortcut there was taken as one on a share, so it got the icon for its target's name rather than the one it names. Wine never writes the share part, so the test passed there.
+	- Actual fix: a shortcut that records both counts as local when the drive's volume serial matches the one it records. One made on another machine's drive still goes by the name. Only the drive root is asked for its serial, so no link on the way to the target is followed.
+	- Swept: the shell icon is asked for in one place. The folder check and the sort place already read only the shortcut file. Off Windows the icon comes from the shortcut file only. design.md says how a shortcut on a share gets its icon.
+	- Note: a shortcut that records only an item ID list, with no path, is still handed to the shell. Nothing in the file says where such a target lives without asking the shell.
+	- Branch: lnkasync, lnkicon
+	- Commit: 61dcecc, a9aa321
+	- Test case: rfhr0zw0, Shell icon test, new share cases: a document on a share wears the icon for its name and not the one the shortcut names, and a program on a share, or a shortcut whose icon is on a share, gets the plain program icon. The document cases fail with the share route taken out and pass with it, under wine. rhmxm5ah, Windows shortcut reader test, new cases for the icon file and the share check, on Linux.
+	- Test case: rfhr0zw0, two more cases: a shortcut made by the shell and given a record of both its drive and a share, once with this drive's serial and once with another. The first wears the icon it names. It fails before the second fix and passes after, on b29w and under wine. rhmxm5ah, a shortcut that records both is not on a share. Fails before and passes after, on Linux.
+	- Swept: the share check has one caller. Opening a shortcut tries the share only when the drive path is not there, and Edit link shows the drive path first. Both already right.
+	- Note: the two checks that failed on b29w expected the right thing. The code was wrong there, and on any machine whose drive is shared.
+	- Verified: 20261003, rfhr0zw0 passes on b29w with all 37 checks, and fails three before the fix. It passes under wine. Full Linux suite 157 of 157. The Windows cross build has no warnings, and lint is clean.
+	- Verified: the Linux build and the shortcut reader, sort, link edit, link copy and make link tests pass. The Windows cross build compiles with no warnings. rfhr0zw0 passes under wine, and the Windows shortcut and share tests give the same results there as on dev. C lint and the test ID check are clean.
+	- Progress log:
+		- 20261002-194800: rfhr0zw0 fails two checks on b29w in the native suite: a local shortcut does not wear the icon it names, and a document on a share does. The other share cases and every lookup case pass.
+		- 20261003-133500: the cause was the share record Windows writes for a shared drive. Fixed on lnkicon. The dead share check on screen was not run; the share cases in rfhr0zw0 use a share address that does not answer.
+
 - Settings in an older SHCL format are kept as a backup and written again in the current one.
 	- ID: 2026100311512222
 	- Type: Enhancement
@@ -178,37 +247,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rhmxm5ah, Windows shortcut reader test, and rhnqqpm8, Folder shortcuts sort with folders test, each with a new FIFO case. Both fail before the fix, stopped after 10 seconds, and pass after, on Linux.
 	- Verified: the Windows cross build compiles. C lint is clean. The link edit, link emblem, link copy, make link shortcut and thumbnail hold tests pass.
 
-- On Windows, a folder full of shortcuts shows nothing until every shortcut icon is found.
-	- ID: 2026100112000535
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs external testing: the Start menu folder seen on screen on Windows. The rest ran on b29w, 20261003.
-	- Priority|Severity: Avg
-	- Opened: 20261001-120005
-	- Opened by: t00mietum
-	- Related IDs: 2026093010493389, 2026092813381436
-	- Target OS: Windows
-	- Steps to reproduce:
-		- Go to the Start menu Programs folder, or any folder with many `.lnk` files.
-	- Incorrect behavior: the content pane stays empty until the icons for all the shortcuts are loaded.
-	- Expected behavior: the pane shows the files right away, with a plain icon or the last known one. Shortcut icons load in the background and replace them as each one is found.
-		- Possibly the shortcut icons can use the thumbnail cache, with its own icon table, so a folder seen before draws its real icons at once.
-	- Reproduced: no. Seen on Windows, not yet reproduced here.
-	- Possible cause: each shortcut's icon comes from the Windows shell on the window's thread, one file after another, the first time the view asks for it. The only cache is in memory, so every new run pays it again.
-	- Note: 2026093010493389 already wants these lookups off the window's thread. One fix may cover both.
-	- Actual cause: as above, read from the code. The view asked the shell for each shortcut's icon the first time it drew it, and waited for the answer.
-	- Actual fix: the view gets the cached icon or nothing, at once, and the plain shortcut icon stands in. One worker thread asks the shell, and the shortcut is redrawn when an icon is found. A shortcut the shell has no icon for is remembered too, so it is not asked again. Same branch and fix as 2026093010493389.
-	- Note: the icon table in the file cache was not built. It needs a new cache table and version, its own pruning, and a choice of which sizes to keep, which is more than this fix. Until then the last known icon is kept only while the app runs, so a new run starts plain again.
-	- Note: the folder check behind the sort place and the folder icon still reads each shortcut on the window's thread. It is a local file read, cached, and was not measured.
-	- Branch: lnkasync
-	- Commit: 61dcecc
-	- Test case: rfhr0zw0, Shell icon test, new lookup cases: the first ask returns at once with nothing, a second one while it runs is not queued again, the window is told once when the icon is found, and the cache answers after. A file that is not a shortcut is finished with and not asked again. No case shows the wait itself, since a slow shell can't be made here.
-	- Verified: rfhr0zw0 passes under wine, and the wine build lists a folder of shortcuts with each one's own icon. The rest as on 2026093010493389.
-	- Verified: the lookup cases in rfhr0zw0 pass on b29w on 20261002, in the native suite. The test as a whole fails on the dead share item's cases.
-	- Verified: 20261003 on b29w, rfhr0zw0 passes whole, with the fix for 2026093010493389 on lnkicon. Asking for the icons of all 335 shortcuts in both Start menu folders took under 1 ms in all. The icons came in over 28 seconds on a first run, and 3 seconds on a second.
-	- Note: before the fix the view asked for each of these on the window's thread, from the code. Not timed.
-	- Note: the folder was not opened on screen. b29w's only session is the one on its own screen.
-
 - Code review 20260928 item 17. Hardlinking a selected symlink links the symlink, not the file.
 	- ID: 2026092813381417
 	- Type: Bug
@@ -253,44 +291,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: Escape not restoring the selection, Ctrl+Shift+T, and Control kept for F1, tab keys, Ctrl+H and Ctrl+M on macOS. All settled earlier.
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
-
-- On Windows, a local shortcut to a share that is not answering can stall the window while its icon is looked up.
-	- ID: 2026093010493389
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs external testing: done on b29w, 20261003. rfhr0zw0 passes there, dead share cases included.
-	- Priority|Severity: Avg
-	- Opened: 20260930-104934
-	- Opened by: code review 20260928 follow-up
-	- Related IDs: 2026092813381408, 2026093010493450
-	- Target OS: Windows
-	- Incorrect behavior: a shortcut with no icon of its own gets one from the Windows shell, on the window's thread. The shell may go to the target for it. On a share that is not answering that is about twenty seconds per shortcut.
-	- Expected behavior: the share is never visited for an icon.
-		- The target path is read from the shortcut file, as the folder check already does.
-		- When the target is on a share, the icon comes from the name alone. A folder gets the folder icon, a document the icon for its extension, and a program the plain program icon.
-		- Shortcut icon lookups run off the window's thread, local targets included.
-	- Reproduced: no. Read only, from item 8 of code review 20260928.
-	- Reproduced: yes, the second cause below, 20261003 on b29w. rfhr0zw0 failed the same two checks with the build from dev.
-	- Decisions:
-		- 20260930: assume the stall rather than time it first. Many shortcuts to shares would multiply it.
-		- 20260930: a program on a share showing the plain program icon is fine.
-	- Actual cause: the shell was handed the shortcut itself, and it reads the target, or the icon file the shortcut names, to find the icon. Nothing checked whether either was on a share.
-	- Actual fix: the shortcut file is read for its target and for the icon file it names. When either is on a share, by its path or by a drive letter mapped to one, the shell is asked about the target's name alone, which it answers without opening anything. A folder still gets the theme's folder icon from the folder check. Every lookup now runs off the window's thread, with 2026100112000535.
-	- Actual cause: a second one, on b29w after the first fix. Windows records the share as well as the drive path in a shortcut whose target's drive is shared, and b29w shares its C drive. Every local shortcut there was taken as one on a share, so it got the icon for its target's name rather than the one it names. Wine never writes the share part, so the test passed there.
-	- Actual fix: a shortcut that records both counts as local when the drive's volume serial matches the one it records. One made on another machine's drive still goes by the name. Only the drive root is asked for its serial, so no link on the way to the target is followed.
-	- Swept: the shell icon is asked for in one place. The folder check and the sort place already read only the shortcut file. Off Windows the icon comes from the shortcut file only. design.md says how a shortcut on a share gets its icon.
-	- Note: a shortcut that records only an item ID list, with no path, is still handed to the shell. Nothing in the file says where such a target lives without asking the shell.
-	- Branch: lnkasync, lnkicon
-	- Commit: 61dcecc, a9aa321
-	- Test case: rfhr0zw0, Shell icon test, new share cases: a document on a share wears the icon for its name and not the one the shortcut names, and a program on a share, or a shortcut whose icon is on a share, gets the plain program icon. The document cases fail with the share route taken out and pass with it, under wine. rhmxm5ah, Windows shortcut reader test, new cases for the icon file and the share check, on Linux.
-	- Test case: rfhr0zw0, two more cases: a shortcut made by the shell and given a record of both its drive and a share, once with this drive's serial and once with another. The first wears the icon it names. It fails before the second fix and passes after, on b29w and under wine. rhmxm5ah, a shortcut that records both is not on a share. Fails before and passes after, on Linux.
-	- Swept: the share check has one caller. Opening a shortcut tries the share only when the drive path is not there, and Edit link shows the drive path first. Both already right.
-	- Note: the two checks that failed on b29w expected the right thing. The code was wrong there, and on any machine whose drive is shared.
-	- Verified: 20261003, rfhr0zw0 passes on b29w with all 37 checks, and fails three before the fix. It passes under wine. Full Linux suite 157 of 157. The Windows cross build has no warnings, and lint is clean.
-	- Verified: the Linux build and the shortcut reader, sort, link edit, link copy and make link tests pass. The Windows cross build compiles with no warnings. rfhr0zw0 passes under wine, and the Windows shortcut and share tests give the same results there as on dev. C lint and the test ID check are clean.
-	- Progress log:
-		- 20261002-194800: rfhr0zw0 fails two checks on b29w in the native suite: a local shortcut does not wear the icon it names, and a document on a share does. The other share cases and every lookup case pass.
-		- 20261003-133500: the cause was the share record Windows writes for a shared drive. Fixed on lnkicon. The dead share check on screen was not run; the share cases in rfhr0zw0 use a share address that does not answer.
 
 - Code review 20260928 item 24. Settings comments that look like the SHCL info block are removed on save.
 	- ID: 2026092813381424
