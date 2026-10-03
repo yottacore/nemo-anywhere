@@ -68,20 +68,22 @@
    -y answers the prompts a program with no console would otherwise wait on
    forever; -bsp1 is what puts 7-Zip's percentage on stdout for the progress
    bar; -spd makes 7-Zip take a name with * or ? in it as that name, not a
-   pattern (rar has no such switch); "--" stops switch parsing, so a file
+   pattern (rar has no such switch); -sccUTF-8 and rar's -scfr make the names
+   either one prints UTF-8, where on Windows they would come out in the
+   console's code page and match no file; "--" stops switch parsing, so a file
    whose name starts with a dash is read as a file; and "x" rather than "e" on
    the unpack lines is what keeps the paths stored in the archive. {{THREADS}}
    is the one marker that does not come from the Compress dialog - it carries
    the share of the machine's cores set once under "performance", and leaving
    it out just lets the program pick for itself, so it goes unremarked. */
 #define NEMO_ARCHIVE_COMMAND_7Z_DEFAULT \
-	"{{PROGRAM}} a {{FORMAT}} {{LEVEL}} {{THREADS}} -y -bsp1 -spd " \
+	"{{PROGRAM}} a {{FORMAT}} {{LEVEL}} {{THREADS}} -y -bsp1 -spd -sccUTF-8 " \
 	"{{PASSWORD}} {{SPLIT}} {{SOLID}} {{LINKS}} " \
 	"-- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}"
 
 /* -r is what makes a named folder mean its contents. */
 #define NEMO_ARCHIVE_COMMAND_RAR_DEFAULT \
-	"{{PROGRAM}} a {{LEVEL}} {{THREADS}} -r -y " \
+	"{{PROGRAM}} a {{LEVEL}} {{THREADS}} -r -y -scfr " \
 	"{{PASSWORD}} {{SPLIT}} {{SOLID}} {{DEDUPE}} {{RECOVERY}} {{LOCK}} {{LINKS}} " \
 	"-- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}"
 

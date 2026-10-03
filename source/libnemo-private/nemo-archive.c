@@ -40,6 +40,7 @@
 #include "nemo-file-operations.h"
 #include "nemo-global-preferences.h"
 #include "nemo-job-queue.h"
+#include "nemo-link-win32.h"
 #include "nemo-progress-info.h"
 
 #define READ_BUFFER_SIZE (64 * 1024)
@@ -777,6 +778,30 @@ dangling_goes_in (const NemoArchiveOptions *options,
 	return strpbrk (rel_path, "*?") == NULL;
 }
 
+/* effective is what GIO said with the link followed. With nothing at the
+   other end it answers for the link itself: as a link on Linux, but on
+   Windows with the link's own type, a file or a folder, so there it takes a
+   look of its own. */
+static gboolean
+leads_nowhere (GFile     *file,
+	       GFileInfo *effective)
+{
+	if (effective == NULL ||
+	    g_file_info_get_file_type (effective) == G_FILE_TYPE_SYMBOLIC_LINK) {
+		return TRUE;
+	}
+#ifdef G_OS_WIN32
+	{
+		const char *path = g_file_peek_path (file);
+
+		return path != NULL && !nemo_win32_link_leads_somewhere (path);
+	}
+#else
+	(void) file;
+	return FALSE;
+#endif
+}
+
 /* One thing that should have gone into the archive. size is -1 where only
    being there can be checked: a directory, or something stored as a link. */
 typedef struct {
@@ -877,9 +902,7 @@ verify_walk_item (VerifyWalk *walk,
 		effective = g_file_query_info (file, SCAN_ATTRIBUTES,
 					       G_FILE_QUERY_INFO_NONE,
 					       walk->cancellable, NULL);
-		/* Leads nowhere. GIO may answer for the link itself. */
-		if (effective == NULL ||
-		    g_file_info_get_file_type (effective) == G_FILE_TYPE_SYMBOLIC_LINK) {
+		if (leads_nowhere (file, effective)) {
 			g_clear_object (&effective);
 			if (g_file_info_get_symlink_target (info) != NULL &&
 			    dangling_goes_in (walk->options, walk->backend, rel_path,
@@ -1006,7 +1029,10 @@ archive_listing (const char *path,
 	*folders_out = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 
 	while (archive_read_next_header (a, &entry) == ARCHIVE_OK) {
-		char *name = normal_archive_path (archive_entry_pathname (entry));
+		/* The plain name is in the locale's code page, which on Windows
+		   is not UTF-8, so a name past ASCII would match nothing. */
+		const char *raw = archive_entry_pathname_utf8 (entry);
+		char *name = normal_archive_path (raw != NULL ? raw : archive_entry_pathname (entry));
 		gint64 *size = g_new (gint64, 1);
 
 		/* No size is not a wrong size: rar keeps a second copy of a file
@@ -1321,11 +1347,9 @@ scan_item (ArchiveJob *job,
 		effective = g_file_query_info (file, SCAN_ATTRIBUTES,
 					       G_FILE_QUERY_INFO_NONE,
 					       job->cancellable, NULL);
-		/* With nothing reachable at the other end, GIO answers for the
-		   link itself. It goes in as a link where it can, and is named
-		   at the end where it cannot. */
-		if (effective == NULL ||
-		    g_file_info_get_file_type (effective) == G_FILE_TYPE_SYMBOLIC_LINK) {
+		/* It goes in as a link where it can, and is named at the end
+		   where it cannot. */
+		if (leads_nowhere (file, effective)) {
 			g_clear_object (&effective);
 			if (g_file_info_get_symlink_target (info) == NULL ||
 			    !dangling_goes_in (&job->options, job->backend, rel_path,
@@ -1537,6 +1561,16 @@ configure_writer (struct archive  *a,
 		} else {
 			opts = g_strdup_printf ("zip:compression=deflate,zip:compression-level=%d", level);
 		}
+#ifdef G_OS_WIN32
+		{
+			/* Otherwise names go in in a local code page, which
+			   drops any letter it does not have. */
+			char *with_names = g_strconcat (opts, ",zip:hdrcharset=UTF-8", NULL);
+
+			g_free (opts);
+			opts = with_names;
+		}
+#endif
 		break;
 	case NEMO_ARCHIVE_FORMAT_TAR:
 		archive_write_set_format_pax_restricted (a);
@@ -2142,6 +2176,34 @@ names_skipped (const char *path,
 	return FALSE;
 }
 
+/* "WARNING: Cannot open 2 files", which both end on under Windows. It names
+   nothing, so it says only how many names have to be there. */
+static gboolean
+open_count (const char *line,
+	    guint      *count)
+{
+	const char *rest;
+	char *end;
+	guint64 value;
+
+	if (!g_str_has_prefix (line, "WARNING: Cannot open ")) {
+		return FALSE;
+	}
+
+	rest = line + strlen ("WARNING: Cannot open ");
+	if (!g_ascii_isdigit (*rest)) {
+		return FALSE;
+	}
+
+	value = g_ascii_strtoull (rest, &end, 10);
+	if (strcmp (end, " file") != 0 && strcmp (end, " files") != 0) {
+		return FALSE;
+	}
+
+	*count = (guint) MIN (value, G_MAXUINT);
+	return TRUE;
+}
+
 gboolean
 nemo_archive_only_skipped_links (NemoArchiveBackend  backend,
 				 int                 exit_status,
@@ -2149,9 +2211,12 @@ nemo_archive_only_skipped_links (NemoArchiveBackend  backend,
 				 GList              *skipped)
 {
 	char **lines;
+	GHashTable *named;	/* the skipped links named, each once */
 	gboolean in_list = FALSE;
 	gboolean clean = TRUE;
-	guint named = 0;
+	guint counted = 0;
+	guint count;
+	gboolean only;
 	guint i;
 
 	if (output == NULL || skipped == NULL) {
@@ -2171,8 +2236,15 @@ nemo_archive_only_skipped_links (NemoArchiveBackend  backend,
 #endif
 	}
 
+	named = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+
 	for (i = 0; clean && lines[i] != NULL; i++) {
 		const char *line = lines[i];
+
+		if (open_count (line, &count)) {
+			counted = MAX (counted, count);
+			continue;
+		}
 
 		if (backend == NEMO_ARCHIVE_BACKEND_RAR) {
 			/* "Cannot open <name>", then the reason on a line of its own. */
@@ -2180,7 +2252,7 @@ nemo_archive_only_skipped_links (NemoArchiveBackend  backend,
 				const char *name = line + strlen ("Cannot open ");
 
 				clean = names_skipped (name, strlen (name), skipped);
-				named++;
+				g_hash_table_add (named, g_strdup (name));
 			} else if (g_str_has_prefix (line, "Cannot ") ||
 				   g_str_has_prefix (line, "WARNING") ||
 				   g_str_has_prefix (line, "ERROR")) {
@@ -2207,24 +2279,30 @@ nemo_archive_only_skipped_links (NemoArchiveBackend  backend,
 					separator = strstr (separator + 1, " : ");
 				}
 				clean = separator != NULL;
-				named++;
+				if (clean) {
+					g_hash_table_add (named, g_strndup (line, (gsize) (separator - line)));
+				}
 			}
 		} else if (g_str_has_prefix (line, "WARNING")) {
-			/* As it happens: "WARNING: <reason>", and the name next. A
-			   count such as "WARNING: Cannot open 1 file" has none. */
+			/* As it happens: "WARNING: <reason>", and the name next. */
 			const char *name = lines[i + 1];
 
 			clean = name != NULL && names_skipped (name, strlen (name), skipped);
-			named += clean ? 1 : 0;
+			if (clean) {
+				g_hash_table_add (named, g_strdup (name));
+			}
 			i++;
 		} else if (g_str_has_prefix (line, "ERROR")) {
 			clean = FALSE;
 		}
 	}
 
+	only = clean && g_hash_table_size (named) > 0 && counted <= g_hash_table_size (named);
+
+	g_hash_table_destroy (named);
 	g_strfreev (lines);
 
-	return clean && named > 0;
+	return only;
 }
 
 /* Both tools write a running "NN%". The newest one in the buffer wins. */
@@ -2558,6 +2636,54 @@ only_dangling_warned (ArchiveJob  *job,
 	return only;
 }
 
+GSubprocessFlags
+nemo_archive_tool_stderr_flag (void)
+{
+#ifdef G_OS_WIN32
+	return G_SUBPROCESS_FLAGS_STDERR_PIPE;
+#else
+	return G_SUBPROCESS_FLAGS_STDERR_MERGE;
+#endif
+}
+
+/* Read to the end even past the limit, or a tool with a lot to say would
+   block on a full pipe. */
+static gpointer
+read_stderr (gpointer data)
+{
+	GInputStream *in = data;
+	GString *text = g_string_new (NULL);
+	char buffer[4096];
+	gssize count;
+
+	while ((count = g_input_stream_read (in, buffer, sizeof (buffer), NULL, NULL)) > 0) {
+		if (text->len < OUTPUT_LIMIT) {
+			g_string_append_len (text, buffer, MIN ((gsize) count, OUTPUT_LIMIT - text->len));
+		}
+	}
+
+	g_object_unref (in);
+	return g_string_free (text, FALSE);
+}
+
+GThread *
+nemo_archive_tool_stderr_start (GSubprocess *process)
+{
+	GInputStream *in = g_subprocess_get_stderr_pipe (process);
+
+	if (in == NULL) {
+		return NULL;
+	}
+
+	return g_thread_new ("tool-stderr", read_stderr, g_object_ref (in));
+}
+
+char *
+nemo_archive_tool_stderr_finish (GThread *reader)
+{
+	return reader != NULL ? g_thread_join (reader) : NULL;
+}
+
 /* Starts a tool line in the base folder and reads what it prints until it
    ends, moving the progress bar as it goes. The caller waits on what comes
    back. NULL if it could not be started. */
@@ -2571,10 +2697,12 @@ start_tool (ArchiveJob  *job,
 	GSubprocessLauncher *launcher;
 	GSubprocess *process;
 	GInputStream *out;
+	GThread *err_reader;
+	char *err_text;
 	char buffer[4096];
 
 	launcher = g_subprocess_launcher_new (G_SUBPROCESS_FLAGS_STDOUT_PIPE |
-					      G_SUBPROCESS_FLAGS_STDERR_MERGE);
+					      nemo_archive_tool_stderr_flag ());
 	g_subprocess_launcher_set_cwd (launcher, base_path);
 
 	process = g_subprocess_launcher_spawnv (launcher, (const gchar * const *) argv, error);
@@ -2585,6 +2713,7 @@ start_tool (ArchiveJob  *job,
 	}
 
 	out = g_subprocess_get_stdout_pipe (process);
+	err_reader = nemo_archive_tool_stderr_start (process);
 
 	while (TRUE) {
 		gssize count = g_input_stream_read (out, buffer, sizeof (buffer),
@@ -2605,6 +2734,15 @@ start_tool (ArchiveJob  *job,
 	if (job_aborted (job)) {
 		g_subprocess_force_exit (process);
 	}
+
+	err_text = nemo_archive_tool_stderr_finish (err_reader);
+	if (err_text != NULL && err_text[0] != '\0') {
+		if (output->len > 0 && output->str[output->len - 1] != '\n') {
+			take_output (output, "\n", 1);
+		}
+		take_output (output, err_text, strlen (err_text));
+	}
+	g_free (err_text);
 
 	return process;
 }
@@ -2664,6 +2802,7 @@ run_command (ArchiveJob *job)
 	char *archive_path = NULL;
 	char **argv = NULL;
 	GList *names = NULL;
+	GList *leave_out;
 	GList *l;
 	GSubprocess *process;
 	GError *error = NULL;
@@ -2738,8 +2877,29 @@ run_command (ArchiveJob *job)
 		goto out;
 	}
 
+	/* Every link the scan passed over is left out by name, whether the
+	   first run kept it or not. Left to itself, 7-Zip on Windows puts in an
+	   empty entry for each, and rar there writes a plain folder over a
+	   folder link the first run kept. rar would read * or ? in a name as a
+	   pattern, and -x@ as a list file, so those it is left to pass over. */
+	leave_out = g_list_copy (job->left_out);
+	for (l = job->dangling_first; l != NULL; l = l->next) {
+		if (job->backend != NEMO_ARCHIVE_BACKEND_RAR || ((char *) l->data)[0] != '@') {
+			leave_out = g_list_append (leave_out, l->data);
+		}
+	}
+	for (l = job->dangling; l != NULL; l = l->next) {
+		const char *name = l->data;
+
+		if (job->backend != NEMO_ARCHIVE_BACKEND_RAR ||
+		    (strpbrk (name, "*?") == NULL && name[0] != '@')) {
+			leave_out = g_list_append (leave_out, l->data);
+		}
+	}
+
 	argv = nemo_archive_build_command (job->backend, job->options.format, &job->options,
-					   program, archive_path, names, job->left_out);
+					   program, archive_path, names, leave_out);
+	g_list_free (leave_out);
 
 	output = g_string_new (NULL);
 	process = start_tool (job, argv, base_path, output, &error);

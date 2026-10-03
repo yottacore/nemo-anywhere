@@ -1227,7 +1227,8 @@ extract_with_libarchive (ExtractJob *job,
 		if (archive_entry_hardlink (entry) != NULL) {
 			/* No data follows a hard link; it names something else
 			   in the same archive, which is copied instead. */
-			char *link_rel = nemo_extract_sanitize_path (archive_entry_hardlink (entry));
+			const char *other = archive_entry_hardlink_utf8 (entry);
+			char *link_rel = nemo_extract_sanitize_path (other != NULL ? other : archive_entry_hardlink (entry));
 			GFile *source = link_rel != NULL ?
 				target_for_entry (job, link_rel, FALSE, size, mtime) : NULL;
 
@@ -1389,13 +1390,15 @@ run_unpack_command (ExtractJob         *job,
 	GSubprocessLauncher *launcher;
 	GSubprocess *process;
 	GInputStream *out;
+	GThread *err_reader;
+	char *err_text;
 	GError *error = NULL;
 	char buffer[4096];
 	gboolean ran;
 
 	launcher = g_subprocess_launcher_new (G_SUBPROCESS_FLAGS_STDIN_PIPE |
 					      G_SUBPROCESS_FLAGS_STDOUT_PIPE |
-					      G_SUBPROCESS_FLAGS_STDERR_MERGE);
+					      nemo_archive_tool_stderr_flag ());
 	g_subprocess_launcher_set_cwd (launcher, base_path);
 
 	process = g_subprocess_launcher_spawnv (launcher, (const gchar * const *) argv, &error);
@@ -1416,6 +1419,7 @@ run_unpack_command (ExtractJob         *job,
 							 backend == NEMO_EXTRACT_BACKEND_RAR ? "rar" : "7z"));
 
 	out = g_subprocess_get_stdout_pipe (process);
+	err_reader = nemo_archive_tool_stderr_start (process);
 
 	for (;;) {
 		gssize count = g_input_stream_read (out, buffer, sizeof (buffer), job->cancellable, NULL);
@@ -1438,6 +1442,19 @@ run_unpack_command (ExtractJob         *job,
 	if (job_aborted (job)) {
 		g_subprocess_force_exit (process);
 	}
+
+	/* Both tools say a wrong password on stderr. */
+	err_text = nemo_archive_tool_stderr_finish (err_reader);
+	if (err_text != NULL && err_text[0] != '\0') {
+		if (tail->len > 0 && tail->str[tail->len - 1] != '\n') {
+			g_string_append_c (tail, '\n');
+		}
+		g_string_append (tail, err_text);
+		if (tail->len > 4096) {
+			g_string_erase (tail, 0, tail->len - 4096);
+		}
+	}
+	g_free (err_text);
 
 	ran = g_subprocess_wait_check (process, NULL, &error);
 

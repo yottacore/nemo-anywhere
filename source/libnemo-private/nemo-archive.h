@@ -155,6 +155,14 @@ char   **nemo_archive_build_links_command (NemoArchiveBackend        backend,
 					   const char               *archive_path,
 					   GList                    *names);
 
+/* GLib folds a tool's stderr into its stdout on Unix only. Elsewhere it gets
+   a pipe of its own, read on a thread from start to finish, and the caller
+   puts what it said after the rest. finish takes NULL, and returns NULL where
+   there was no pipe; caller frees. */
+GSubprocessFlags nemo_archive_tool_stderr_flag   (void);
+GThread         *nemo_archive_tool_stderr_start  (GSubprocess *process);
+char            *nemo_archive_tool_stderr_finish (GThread     *reader);
+
 /* Whether a 7z or rar run that ended on a warning status warned about nothing
    but the links in skipped, which lead nowhere and so had nothing to put in.
    output is what the tool printed, with its backspaces already applied;
