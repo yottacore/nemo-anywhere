@@ -8,6 +8,15 @@ test_scratch = declare_dependency(
   ),
 )
 
+# Heap growth over repeated operations, for the leak tests.
+test_heap = declare_dependency(
+  link_with: static_library('test-heap',
+    [ 'test-heap.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ glib ],
+  ),
+)
+
 test('5ethkhjr Search Engine test',
   executable('test-nemo-search-engine',
     [ 'test-nemo-search-engine.c' ],
@@ -132,6 +141,17 @@ test('rhtq57n0 Job queue test',
   ),
   args: []
 )
+
+# The heap is read through glibc, so elsewhere these skip.
+if not is_windows
+  leaks = executable('test-nemo-leaks',
+    [ 'test-nemo-leaks.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch, test_heap ],
+  )
+
+  test('rjbkzvdv Job progress leak test', leaks, args: [ 'progress' ])
+endif
 
 test('rhtq57n1 Cancelled drop leaves the files test',
   executable('test-nemo-drop-cancel',
