@@ -28,9 +28,13 @@
  * the view or a widget inside it as its data. Only pointers are compared, so
  * nothing freed is read.
  *
+ * A handler whose data is NULL or a static is there for the whole process, so
+ * one of those found gone is reported as lost.
+ *
  * It also counts the program's redraws, expander changes and shaded rows on
- * live tree views, so the driver can tell a settings change reached the open
- * tab. All of it goes to $NEMO_HELD_VIEW_OUT ten times a second. */
+ * live tree views, and buttons taken off a path bar, so the driver can tell a
+ * settings change reached the open tab. All of it goes to $NEMO_HELD_VIEW_OUT
+ * ten times a second. */
 
 #define _GNU_SOURCE
 
@@ -48,6 +52,7 @@ typedef struct {
 	gulong   id;
 	gpointer data;
 	char    *detail;
+	gboolean whole_process;
 } Handler;
 
 typedef struct {
@@ -63,6 +68,7 @@ static GString   *report;	/* "destroyed" and "hit" lines so far */
 static gint       draws;
 static gint       expander_sets;
 static gint       shaded_rows;
+static gint       pathbar_removes;
 
 static void *
 real (const char *name)
@@ -91,7 +97,11 @@ is_group (gpointer instance)
 static void
 note_handler (gpointer instance, const gchar *detailed_signal, gulong id, gpointer data)
 {
-	Handler handler = { instance, id, data, g_strdup (detailed_signal) };
+	Dl_info image;
+	/* dladdr finds only addresses inside a loaded program or library, which
+	   a static is and anything allocated is not. */
+	Handler handler = { instance, id, data, g_strdup (detailed_signal),
+			    data == NULL || dladdr (data, &image) != 0 };
 
 	g_mutex_lock (&lock);
 	g_array_append_val (handlers, handler);
@@ -297,6 +307,37 @@ gtk_tree_view_get_background_area (GtkTreeView       *tree_view,
 	pass_on (tree_view, path, column, rect);
 }
 
+void
+gtk_container_remove (GtkContainer *container,
+		      GtkWidget    *widget)
+{
+	static void (*pass_on) (GtkContainer *, GtkWidget *);
+
+	if (pass_on == NULL) {
+		pass_on = real ("gtk_container_remove");
+	}
+	if (out_path != NULL && container != NULL &&
+	    strcmp (G_OBJECT_TYPE_NAME (container), "NemoPathBar") == 0) {
+		g_atomic_int_inc (&pathbar_removes);
+	}
+	pass_on (container, widget);
+}
+
+static void
+note_lost (FILE *f)
+{
+	guint i;
+
+	for (i = 0; i < handlers->len; i++) {
+		Handler *handler = &g_array_index (handlers, Handler, i);
+
+		if (handler->whole_process &&
+		    !g_signal_handler_is_connected (handler->group, handler->id)) {
+			fprintf (f, "lost %s\n", handler->detail);
+		}
+	}
+}
+
 static void *
 write_report (void *data)
 {
@@ -308,10 +349,11 @@ write_report (void *data)
 		if (f != NULL) {
 			g_mutex_lock (&lock);
 			fputs (report->str, f);
+			note_lost (f);
 			g_mutex_unlock (&lock);
-			fprintf (f, "draws %d\nexpander_sets %d\nshaded_rows %d\n",
+			fprintf (f, "draws %d\nexpander_sets %d\nshaded_rows %d\npathbar_removes %d\n",
 				 g_atomic_int_get (&draws), g_atomic_int_get (&expander_sets),
-				 g_atomic_int_get (&shaded_rows));
+				 g_atomic_int_get (&shaded_rows), g_atomic_int_get (&pathbar_removes));
 			fclose (f);
 			rename (part, out_path);
 		}

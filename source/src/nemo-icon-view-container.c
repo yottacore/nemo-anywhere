@@ -2005,29 +2005,9 @@ nemo_icon_view_container_get_additional_text_line_count (NemoIconContainer *cont
 }
 
 static void
-finalize (GObject *object)
-{
-    g_signal_handlers_disconnect_by_func (nemo_icon_view_preferences,
-                                          text_ellipsis_limit_changed_callback,
-                                          NULL);
-
-    g_signal_handlers_disconnect_by_func (nemo_desktop_preferences,
-                                          desktop_text_ellipsis_limit_changed_callback,
-                                          NULL);
-
-    g_signal_handlers_disconnect_by_func (nemo_icon_view_preferences,
-                                          update_auto_strv_as_quarks,
-                                          &caption_attributes);
-
-    G_OBJECT_CLASS (nemo_icon_view_container_parent_class)->finalize (object);
-}
-
-static void
 nemo_icon_view_container_class_init (NemoIconViewContainerClass *klass)
 {
 	NemoIconContainerClass *ic_class;
-
-    G_OBJECT_CLASS (klass)->finalize = finalize;
 
 	ic_class = &klass->parent_class;
 
@@ -2065,6 +2045,8 @@ nemo_icon_view_container_init (NemoIconViewContainer *icon_container)
 
     g_signal_connect (icon_container, "get-tooltip-text", G_CALLBACK (on_get_tooltip_text), NULL);
 
+    /* Once for the process and never disconnected: every container reads the
+       same statics, so one being freed must not take them from the rest. */
     if (!setup_prefs) {
         g_signal_connect_swapped (nemo_icon_view_preferences,
                       "changed::" NEMO_PREFERENCES_ICON_VIEW_TEXT_ELLIPSIS_LIMIT,

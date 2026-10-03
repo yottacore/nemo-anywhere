@@ -17,7 +17,8 @@
 ##	- Then the settings-handler check (cicd/utility/lint-pref-handlers.py), also
 ##	  whole-tree, which pairs each disconnect with the connect it belongs to
 ##	  and checks each handler against its row in design.md, "Handlers on settings
-##	  groups", and the accelerator check (cicd/utility/lint-accels.py), whole-tree too.
+##	  groups", and each key against the group the settings table puts it in, and
+##	  the accelerator check (cicd/utility/lint-accels.py), whole-tree too.
 ##	- Runs the same everywhere bash + git + cppcheck exist (Linux host, MSYS2).
 ##	- Syntax: lint-c.bash [--list-files] [base-branch]
 ##	  --list-files prints the C files the cppcheck pass would cover, and stops.
@@ -1199,7 +1200,8 @@ elif [[ -n "$PY" ]]; then
 	## Whole-tree too: a disconnect aimed at the wrong preference group removes
 	## nothing and says nothing, and the handler then runs on a freed object.
 	## So does one left for finalize while a view is still held, which is why
-	## a plain connect for an object is reported too.
+	## a plain connect for an object is reported too. A handler listening on a
+	## group that does not have its key is never called, and says nothing.
 	"$PY" cicd/utility/lint-pref-handlers.py --self-test
 	"$PY" cicd/utility/lint-pref-handlers.py source
 	## A key claimed by two actions does whichever GTK merged first, and says

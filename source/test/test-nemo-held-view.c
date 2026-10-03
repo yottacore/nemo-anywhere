@@ -31,7 +31,14 @@
  * program destroys and reports any handler left. A tab is closed with Ctrl+W.
  * In the list view, row shading, its color and folder expansion are then
  * changed in settings.shcl, and each change has to reach the open tab with
- * the program still running. Rows drawn shaded show that row shading is on. The icon view gets the handler check only.
+ * the program still running. Rows drawn shaded show that row shading is on.
+ * The path separator is changed last, and the window has to spell its path
+ * again, which takes the path bar's buttons down. The icon view gets the
+ * handler checks only.
+ *
+ * A handler connected once for the whole process, with no data or a static,
+ * has to outlive the tab. Freeing the icon view's container used to remove
+ * the ones for its captions and label lengths from every other icon view.
  *
  * Runs on an X server of its own, since it types into the window. Linux only,
  * since it works by LD_PRELOAD. */
@@ -271,6 +278,26 @@ report_hits (const char *path, const char *viewer)
 	return hits;
 }
 
+static int
+report_lost (const char *path, const char *viewer)
+{
+	char *text = read_report (path);
+	char **lines = g_strsplit (text, "\n", -1);
+	int i, lost = 0;
+
+	for (i = 0; lines[i] != NULL; i++) {
+		if (g_str_has_prefix (lines[i], "lost ")) {
+			g_printerr ("%s view: a handler for the whole process went with the tab: %s\n",
+				    viewer, lines[i] + 5);
+			lost++;
+		}
+	}
+	g_strfreev (lines);
+	g_free (text);
+
+	return lost;
+}
+
 /* Waits for the count to stop moving, so a move after a change is the change. */
 static gint64
 settled (const char *path, const char *name)
@@ -358,8 +385,8 @@ reads_back (const char *text, const char *key, const char *value)
    about, so that case writes again. A line still on disk that never reached
    the tab is a failure. */
 static void
-change_setting (const char *settings, GString *lines, const char *key, const char *value,
-		const char *out, const char *count, GPid pid)
+change_setting (const char *viewer, const char *settings, GString *lines, const char *key,
+		const char *value, const char *out, const char *count, GPid pid)
 {
 	char *line = g_strdup_printf ("%s: %s\n", key, value);
 	gboolean reached = FALSE;
@@ -367,7 +394,7 @@ change_setting (const char *settings, GString *lines, const char *key, const cha
 
 	set_line (lines, key, line);
 	if (!reads_back (lines->str, key, value)) {
-		g_printerr ("list view: settings.shcl does not read back %s as %s\n", key, value);
+		g_printerr ("%s view: settings.shcl does not read back %s as %s\n", viewer, key, value);
 		failures++;
 		g_free (line);
 		return;
@@ -381,11 +408,12 @@ change_setting (const char *settings, GString *lines, const char *key, const cha
 			if (!alive (pid) || file_has (settings, line)) {
 				break;
 			}
-			g_print ("list view: settings.shcl was saved over by the program, writing it again\n");
+			g_print ("%s view: settings.shcl was saved over by the program, writing it again\n",
+				 viewer);
 		}
 	}
 	if (!reached) {
-		g_printerr ("list view: \"%s: %s\" never reached the open tab\n", key, value);
+		g_printerr ("%s view: \"%s: %s\" never reached the open tab\n", viewer, key, value);
 		failures++;
 	}
 	g_free (line);
@@ -504,18 +532,25 @@ check_held_view (const char *exe, const char *module, const char *viewer)
 	failures += report_hits (out, viewer);
 
 	if (list) {
-		change_setting (settings, lines, "list-view.row-shading", "true",
+		change_setting (viewer, settings, lines, "list-view.row-shading", "true",
 				out, "shaded_rows", pid);
-		change_setting (settings, lines, "list-view.row-shading-color", "red",
+		change_setting (viewer, settings, lines, "list-view.row-shading-color", "red",
 				out, "draws", pid);
-		change_setting (settings, lines, "list-view.enable-folder-expansion", "false",
+		change_setting (viewer, settings, lines, "list-view.enable-folder-expansion", "false",
 				out, "expander_sets", pid);
+		/* The window, not the view, but this is where a running window is. */
+		change_setting (viewer, settings, lines, "windows.path-separator", "slash",
+				out, "pathbar_removes", pid);
 		g_usleep (500 * 1000);
 		if (!alive (pid)) {
 			g_printerr ("list view: the program died after the settings changed\n");
 			failures++;
 		}
 	}
+
+	/* A container can be freed a little after its view is destroyed. */
+	g_usleep (1000 * 1000);
+	failures += report_lost (out, viewer);
 
 out:
 	if (failures > failed_before && !alive (pid)) {

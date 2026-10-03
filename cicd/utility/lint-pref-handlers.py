@@ -18,7 +18,13 @@
 # handler goes before its function returns, or a struct whose handlers go in
 # the function that frees it. Anything else is an object, and a disconnect in
 # finalize is too late for a view that is still held, so that is reported and
-# g_signal_connect_object is the fix.
+# g_signal_connect_object is the fix. A handler whose data is NULL or a file
+# static is connected once for the process, so a disconnect of one is reported
+# too: the first owner to go would take it from every other.
+#
+# Each key is checked against the group the settings table puts it in, for a
+# "changed::" handler and for a read or write through nemo_config_*. A handler
+# on a group that does not have its key is never called, and nothing says so.
 #
 # --self-test runs the checks over made-up files, wrong and right, so a change
 # that blinds them to a group or a spelling shows up here rather than as a
@@ -50,6 +56,46 @@ def groups_pattern(root):
     if not names:
         raise SystemExit(f"[ FAILED: no config groups declared in {GROUPS_HEADER} ]")
     return "(?:" + "|".join(sorted(names, key=len, reverse=True)) + ")"
+
+
+# The table the program looks every key up in, the name each group variable is
+# given, and the string macros keys are written with.
+KEYS_TABLE = "libnemo-private/nemo-config-keys.h"
+GROUP_NAMES = "libnemo-private/nemo-global-preferences.c"
+TABLE_ROW = re.compile(r'^\s*\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*NEMO_CONFIG_\w+', re.MULTILINE)
+GROUP_NAME = re.compile(r'^\s*(\w+)\s*=\s*nemo_config_get_group\s*\(\s*"([^"]+)"\s*\)', re.MULTILINE)
+STRING_DEFINE = re.compile(
+    r'^[ \t]*#[ \t]*define[ \t]+(\w+)[ \t]+"([^"\n]*)"[ \t]*(?:/\*.*?\*/[ \t]*|//[^\n]*)?$',
+    re.MULTILINE)
+
+
+def string_defines(text):
+    found = {}
+    for name, value in STRING_DEFINE.findall(text):
+        # Two values for one name cannot be told apart here, so neither is used.
+        found[name] = value if found.get(name, value) == value else None
+    return found
+
+
+def key_context(root):
+    def read(rel):
+        path = root / rel
+        return path.read_text(errors="replace") if path.is_file() else ""
+
+    keys = set(TABLE_ROW.findall(read(KEYS_TABLE)))
+    names = dict(GROUP_NAME.findall(read(GROUP_NAMES)))
+    declared = DECLARED.findall(read(GROUPS_HEADER))
+    if not keys:
+        raise SystemExit(f"[ FAILED: no keys found in {KEYS_TABLE} ]")
+    unnamed = [group for group in declared if group not in names]
+    if unnamed:
+        raise SystemExit(f"[ FAILED: no group name for {', '.join(unnamed)} in {GROUP_NAMES} ]")
+
+    macros = {}
+    for header in sorted(root.rglob("*.h")):
+        for name, value in string_defines(header.read_text(errors="replace")).items():
+            macros[name] = value if macros.get(name, value) == value else None
+    return {"keys": keys, "names": names, "macros": macros}
 
 
 
@@ -119,7 +165,15 @@ def function_at(spans, pos):
 # Arguments of the call whose "(" is at open_pos, split on top-level commas,
 # each with its runs of whitespace made one space.
 def call_args(code, open_pos):
-    args, depth, start = [], 0, open_pos + 1
+    spans, close = call_arg_spans(code, open_pos)
+    if spans is None:
+        return None, close
+    return [re.sub(r"\s+", " ", code[start:end]).strip() for start, end in spans], close
+
+
+# The same split as offsets, so an argument can be read from the unmasked text.
+def call_arg_spans(code, open_pos):
+    spans, depth, start = [], 0, open_pos + 1
     for pos in range(open_pos, len(code)):
         char = code[pos]
         if char in "([{":
@@ -127,10 +181,10 @@ def call_args(code, open_pos):
         elif char in ")]}":
             depth -= 1
             if depth == 0:
-                args.append(code[start:pos])
-                return [re.sub(r"\s+", " ", arg).strip() for arg in args], pos
+                spans.append((start, pos))
+                return spans, pos
         elif char == "," and depth == 1:
-            args.append(code[start:pos])
+            spans.append((start, pos))
             start = pos + 1
     return None, len(code)
 
@@ -213,10 +267,85 @@ def lifetime_problems(text, groups):
                          f"{callback} on {group_name} with {data} can outlive it; use "
                          "g_signal_connect_object, per design.md \"Handlers on settings groups\""))
 
+    for match in DISCONNECT_ONCE.finditer(code):
+        args, _ = call_args(code, match.end() - 1)
+        if not args or len(args) < 2 or not re.fullmatch(groups, args[0]):
+            continue
+        data = args[-1]
+        if data == "NULL" or (re.fullmatch(r"&\s*\w+", data) and is_file_static(code, data[1:].strip())):
+            problems.append((line_of(text, match.start()), "once",
+                             f"a handler on {args[0]} with {data} is there for the whole process; "
+                             "never disconnect it, per design.md \"Handlers on settings groups\""))
+
     return problems
 
 
-def check_file(path, pats, groups):
+DISCONNECT_ONCE = re.compile(r"\bg_signal_handlers_disconnect_by_(?:func|data)\s*\(")
+KEYED_CALL = re.compile(r"\b(g_signal_connect\w*|nemo_config_(?:get|set|reset|bind)\w*)\s*\(")
+KEY_PIECES = re.compile(r'\s*(?:"((?:\\.|[^"\\])*)"|(\w+))')
+
+
+# The key's text, with its macros put in. None when it is not known until run
+# time, such as a variable. A name in capitals that cannot be found is reported
+# rather than skipped, so a moved header cannot blind the check.
+def key_text(expr, macros):
+    found, pos = [], 0
+    for piece in KEY_PIECES.finditer(expr):
+        if piece.start() != pos:
+            return None, None
+        pos = piece.end()
+        found.append(piece.groups())
+    if not found or expr[pos:].strip():
+        return None, None
+
+    pieces = []
+    for literal, name in found:
+        if name is None:
+            pieces.append(literal)
+        elif macros.get(name) is not None:
+            pieces.append(macros[name])
+        elif re.fullmatch(r"[A-Z][A-Z0-9_]*", name):
+            return None, name
+        else:
+            return None, None
+    return "".join(pieces), None
+
+
+def key_problems(text, groups, context):
+    code = masked(text)
+    macros = dict(context["macros"])
+    macros.update((name, value) for name, value in string_defines(text).items() if value is not None)
+    problems = []
+
+    for match in KEYED_CALL.finditer(code):
+        spans, _ = call_arg_spans(code, match.end() - 1)
+        if not spans or len(spans) < 2:
+            continue
+        group_name = squeeze(code[spans[0][0]:spans[0][1]])
+        if not re.fullmatch(groups, group_name):
+            continue
+        line = line_of(text, match.start())
+        key, unknown = key_text(text[spans[1][0]:spans[1][1]], macros)
+        if unknown:
+            problems.append((line, "group", f"{unknown} on {group_name} is not a string macro this can read"))
+            continue
+        if key is None:
+            continue
+        if match.group(1).startswith("g_signal"):
+            if not key.startswith("changed::"):
+                continue
+            key = key[len("changed::"):]
+        group = context["names"].get(group_name)
+        if (group, key) in context["keys"]:
+            continue
+        holders = sorted(owner for owner, name in context["keys"] if name == key)
+        where = "is in " + ", ".join(holders) if holders else "is in no group"
+        problems.append((line, "group", f"{key} on {group_name} ({group}), but the key {where}"))
+
+    return problems
+
+
+def check_file(path, pats, groups, context=None):
     text = path.read_text(errors="replace")
     problems = []
 
@@ -250,13 +379,42 @@ def check_file(path, pats, groups):
                  + ", ".join(sorted(connected)))
             )
 
-    return problems + lifetime_problems(text, groups)
+    problems += lifetime_problems(text, groups)
+    if context is not None:
+        problems += key_problems(text, groups, context)
+    return problems
 
 
 SELF_TEST_HEADER = """\
 extern NemoConfigGroup *nemo_preferences;
 extern NemoConfigGroup *nemo_list_view_preferences;
 extern NemoConfigGroup *nemo_window_state;
+extern NemoConfigGroup *nemo_windows_preferences;
+
+#define NEMO_PREFERENCES_PATH_SEPARATOR\t\t"path-separator"
+#define NEMO_PREFERENCES_DATE_FORMAT   "date-format"    /* the trailing comment is part of the test */
+"""
+
+SELF_TEST_KEYS = """\
+static const NemoConfigKey nemo_config_keys[] = {
+\t{ "preferences", "date-format", NEMO_CONFIG_ENUM, "locale", NULL, NULL, NULL },
+\t{ "list-view", "row-shading", NEMO_CONFIG_BOOL, "false", NULL, NULL, NULL },
+\t{ "window-state", "sidebar-width", NEMO_CONFIG_INT, "200", NULL, NULL, NULL },
+\t{ "window-state", "start-with-sidebar", NEMO_CONFIG_BOOL, "true", NULL, NULL, NULL },
+\t{ "windows", "path-separator", NEMO_CONFIG_ENUM, "backslash", NULL, NULL, NULL },
+\t{ NULL }
+};
+"""
+
+SELF_TEST_NAMES = """\
+void
+nemo_global_preferences_init (void)
+{
+\tnemo_preferences          = nemo_config_get_group ("preferences");
+\tnemo_list_view_preferences = nemo_config_get_group ("list-view");
+\tnemo_window_state          = nemo_config_get_group ("window-state");
+\tnemo_windows_preferences   = nemo_config_get_group ("windows");
+}
 """
 
 # nemo_window_state is the group whose name does not end in "preferences".
@@ -384,6 +542,68 @@ tab_new (GtkWidget *dialog)
 }
 """
 
+# Item 2026100221072783: the key moved to the windows group and the window
+# kept listening on the main one, so its handler never ran.
+SELF_TEST_WRONG_GROUP = """\
+static void
+window_init (Window *window)
+{
+\tg_signal_connect_object (nemo_preferences, "changed::" NEMO_PREFERENCES_PATH_SEPARATOR,
+\t\t\t\t G_CALLBACK (title_changed), window, G_CONNECT_SWAPPED);
+\tg_signal_connect_swapped (nemo_list_view_preferences, "changed::date-format",
+\t\t\t\t  G_CALLBACK (format_changed), NULL);
+\tg_signal_connect_swapped (nemo_preferences, "changed::no-such-key",
+\t\t\t\t  G_CALLBACK (format_changed), NULL);
+\tg_signal_connect_swapped (nemo_preferences, "changed::" NEMO_PREFERENCES_GONE,
+\t\t\t\t  G_CALLBACK (format_changed), NULL);
+\tg_free (nemo_config_get_string (nemo_window_state, NEMO_PREFERENCES_PATH_SEPARATOR));
+}
+"""
+
+SELF_TEST_RIGHT_GROUP = """\
+#define LOCAL_KEY "sidebar-width"
+
+static void
+window_init (Window *window, const char *key)
+{
+\tg_signal_connect_object (nemo_windows_preferences, "changed::" NEMO_PREFERENCES_PATH_SEPARATOR,
+\t\t\t\t G_CALLBACK (title_changed), window, G_CONNECT_SWAPPED);
+\tg_signal_connect_swapped (nemo_preferences, "changed::" NEMO_PREFERENCES_DATE_FORMAT,
+\t\t\t\t  G_CALLBACK (format_changed), NULL);
+\tg_signal_connect_swapped (nemo_preferences, "changed",
+\t\t\t\t  G_CALLBACK (any_changed), NULL);
+\tnemo_config_set_int (nemo_window_state, LOCAL_KEY, 3);
+\tnemo_config_get_boolean (nemo_preferences, key);
+}
+"""
+
+# Item 2026100221072784: connected once for the process, and the first
+# container freed took them from every other.
+SELF_TEST_ONCE = """\
+static GQuark *captions;
+
+static void
+container_init (Container *container)
+{
+\tstatic gboolean done = FALSE;
+
+\tif (!done) {
+\t\tg_signal_connect_swapped (nemo_preferences, "changed::date-format",
+\t\t\t\t\t  G_CALLBACK (limit_changed), NULL);
+\t\tg_signal_connect (nemo_preferences, "changed::date-format",
+\t\t\t\t  G_CALLBACK (update_quarks), &captions);
+\t\tdone = TRUE;
+\t}
+}
+
+static void
+container_finalize (GObject *object)
+{
+\tg_signal_handlers_disconnect_by_func (nemo_preferences, limit_changed, NULL);
+\tg_signal_handlers_disconnect_by_func (nemo_preferences, update_quarks, &captions);
+}
+"""
+
 # Each case and every report it must give, by kind and a piece of its text.
 # Nothing else may be reported.
 SELF_TEST_CASES = [
@@ -410,6 +630,18 @@ SELF_TEST_CASES = [
         ("mismatch", "handler id is disconnected from nemo_preferences"),
         ("lifetime", "note_it on nemo_window_state with local &seen"),
     ]),
+    ("wrong-group.c", SELF_TEST_WRONG_GROUP, [
+        ("group", "path-separator on nemo_preferences (preferences), but the key is in windows"),
+        ("group", "date-format on nemo_list_view_preferences (list-view), but the key is in preferences"),
+        ("group", "no-such-key on nemo_preferences (preferences), but the key is in no group"),
+        ("group", "NEMO_PREFERENCES_GONE on nemo_preferences is not a string macro"),
+        ("group", "path-separator on nemo_window_state (window-state), but the key is in windows"),
+    ]),
+    ("once.c", SELF_TEST_ONCE, [
+        ("once", "on nemo_preferences with NULL is there for the whole process"),
+        ("once", "on nemo_preferences with &captions is there for the whole process"),
+    ]),
+    ("right-group.c", SELF_TEST_RIGHT_GROUP, []),
     ("object.c", SELF_TEST_OBJECT, []),
     ("null.c", SELF_TEST_NULL, []),
     ("static.c", SELF_TEST_STATIC, []),
@@ -424,12 +656,15 @@ def self_test():
         root = Path(tmp)
         (root / GROUPS_HEADER).parent.mkdir(parents=True)
         (root / GROUPS_HEADER).write_text(SELF_TEST_HEADER)
+        (root / KEYS_TABLE).write_text(SELF_TEST_KEYS)
+        (root / GROUP_NAMES).write_text(SELF_TEST_NAMES)
         groups = groups_pattern(root)
         pats = patterns(groups)
+        context = key_context(root)
 
         for name, source, expected in SELF_TEST_CASES:
             (root / name).write_text(source)
-            left = check_file(root / name, pats, groups)
+            left = check_file(root / name, pats, groups, context)
             for kind, piece in expected:
                 found = next((p for p in left if p[1] == kind and piece in p[2]), None)
                 if found is None:
@@ -458,9 +693,10 @@ def main():
 
     groups = groups_pattern(root)
     pats = patterns(groups)
+    context = key_context(root)
     failures = 0
     for path in sorted(root.rglob("*.c")):
-        for line, _, message in check_file(path, pats, groups):
+        for line, _, message in check_file(path, pats, groups, context):
             rel = path.relative_to(root.parent)
             print(f"[ FAIL: {rel}:{line}: {message} ]")
             failures += 1
@@ -468,7 +704,7 @@ def main():
     if failures:
         print(f"[ FAILED: settings handlers: {failures} problem(s) ]")
         return 1
-    print("[ OK: settings handlers: every disconnect matches its connect, and every handler fits a row ]")
+    print("[ OK: settings handlers: every disconnect matches its connect, every handler fits a row, and every key is on its group ]")
     return 0
 
 
