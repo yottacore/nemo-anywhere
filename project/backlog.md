@@ -654,6 +654,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Possible fix: drop the three disconnects from the container's finalize.
 	- Test case: none yet.
 
+- A hand edit to the settings file can be lost when the program saves at the same moment.
+	- ID: 2026100221273001
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261002-212730
+	- Opened by: item 2026092813381422
+	- Related IDs: 2026092813381422
+	- Incorrect behavior: a change made in the program is saved a couple of seconds later, and the save writes the whole file without checking whether it changed on disk since it was read. A hand edit saved just before that, and not yet picked up, is overwritten. The program then takes the event for it as its own write, so the edit is gone with no message.
+	- Expected behavior: a hand edit is never lost to the program's own save.
+	- Reproduced: no, read only.
+	- Origin: before this branch. Code review 20260919 item 16 fixed the other direction, a change in the program lost to a hand edit. Not seen by an earlier round. Plausible.
+	- Test case: none yet.
+
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
 	- Type: Enhancement
