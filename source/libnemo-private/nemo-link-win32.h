@@ -23,6 +23,11 @@ G_BEGIN_DECLS
    deduplication, store app aliases) and none of those are links to copy. */
 NemoLinkKind nemo_win32_link_kind (const char *path);
 
+/* Whether opening path through the link reaches anything. GLib cannot say:
+   for a link that leads nowhere it answers with the link's own type, a file
+   or a folder, as if it had been followed. */
+gboolean nemo_win32_link_leads_somewhere (const char *path);
+
 /* What a link points at, spelled the way the link itself spells it - so a
    relative symlink answers with its relative text. Caller frees. */
 gboolean nemo_win32_link_read_target (const char  *link_path,

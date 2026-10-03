@@ -385,6 +385,45 @@ set_link_error (GError **error,
 	}
 }
 
+gboolean
+nemo_win32_link_leads_somewhere (const char *path)
+{
+	gunichar2 *w_path = to_utf16 (path);
+	HANDLE handle;
+	DWORD win_error;
+
+	if (w_path == NULL) {
+		return FALSE;
+	}
+
+	/* No FILE_FLAG_OPEN_REPARSE_POINT, so the open goes through the link,
+	   and backup semantics so a folder opens too. */
+	handle = CreateFileW ((LPCWSTR) w_path, 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+			      NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
+	win_error = handle == INVALID_HANDLE_VALUE ? GetLastError () : 0;
+	g_free (w_path);
+
+	if (handle != INVALID_HANDLE_VALUE) {
+		CloseHandle (handle);
+		return TRUE;
+	}
+
+	/* Something there that will not open, such as a file in use or one
+	   that is not ours to read, is still somewhere. A target spelled with /
+	   is the invalid name. */
+	switch (win_error) {
+	case ERROR_FILE_NOT_FOUND:
+	case ERROR_PATH_NOT_FOUND:
+	case ERROR_INVALID_NAME:
+	case ERROR_BAD_NETPATH:
+	case ERROR_BAD_NET_NAME:
+	case ERROR_CANT_RESOLVE_FILENAME:
+		return FALSE;
+	default:
+		return TRUE;
+	}
+}
+
 /* Symlinks keep whatever spelling they were given; a junction has to be
    absolute, so a relative one is resolved against the directory the original
    link sat in. */

@@ -415,6 +415,8 @@ check_links_command (void)
 	check (!has_arg (argv, "-ol"));
 	check (!has_arg (argv, "-r-"));
 	check (has_arg (argv, "-k"));
+	/* The names it prints have to match ours. */
+	check (has_arg (argv, "-scfr"));
 	g_strfreev (argv);
 	nemo_archive_options_clear (&options);
 
@@ -588,6 +590,7 @@ check_commands (void)
 	check (has_arg (argv, "-ms=on"));
 	/* Names are names. Without -spd a left-out "a*" also leaves out "abc". */
 	check (has_arg (argv, "-spd"));
+	check (has_arg (argv, "-sccUTF-8"));
 	g_strfreev (argv);
 	nemo_archive_options_clear (&options);
 
@@ -713,6 +716,40 @@ check_skipped_links (void)
 							"sel/a : b : errno=2 : No such file or directory\n"
 							"----------------\nScan WARNINGS: 1\n", colon));
 		g_list_free (colon);
+	}
+
+	/* On Windows both end on a count, 7-Zip names each one twice, and what
+	   rar names comes after the rest. */
+	{
+		static const char seven_counted[] =
+			"Scan WARNINGS for files and folders:\n\n"
+			"sel/dang : The system cannot find the file specified.\n"
+			"----------------\nScan WARNINGS: 1\n\n"
+			"WARNINGS for files:\n\n"
+			"sel/dang : The system cannot find the file specified.\n"
+			"----------------\nWARNING: Cannot open 1 file\n\n"
+			"WARNING: The system cannot find the file specified.\nsel/dang\n";
+		static const char rar_counted[] =
+			"Creating archive x.rar\n\n"
+			"Adding    sel/f                                                  OK \n"
+			"WARNING: Cannot open 2 files\nDone\n"
+			"Cannot open sel/dang\nThe system cannot find the file specified.\n"
+			"Cannot open sel/sub/dang2\nThe system cannot find the file specified.\n";
+		static const char rar_short[] =
+			"WARNING: Cannot open 3 files\nDone\n"
+			"Cannot open sel/dang\nThe system cannot find the file specified.\n"
+			"Cannot open sel/sub/dang2\nThe system cannot find the file specified.\n";
+
+		check (nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_7Z, 1, seven_counted, one));
+		check (nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_RAR, 6, rar_counted, both));
+		/* One it could not open went unnamed. */
+		check (!nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_RAR, 6, rar_short, both));
+		check (!nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_RAR, 6, rar_counted, one));
+		/* A count is only a count. */
+		check (!nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_RAR, 6,
+							 "WARNING: Cannot open 1 file\nDone\n", both));
+		check (!nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_RAR, 6,
+							 "WARNING: Cannot open some files\nCannot open sel/dang\n", both));
 	}
 
 #ifdef G_OS_WIN32
