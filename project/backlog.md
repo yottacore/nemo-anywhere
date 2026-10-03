@@ -33,36 +33,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- Code review 20260928 item 21. One Ctrl+click check in the list view was missed by the macOS Cmd change.
-	- ID: 2026092813381421
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Low
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Target OS: macOS.
-	- Incorrect behavior: Cmd+click on an unselected row skips the view's own add-to-selection code.
-	- Reproduced: no Mac to run it on. Pinned instead by a lint check that fails on the tree before the fix, 20261002.
-	- Actual cause: the Cmd change moved the test that opens the click branch to the primary key, but not the Control test inside it.
-	- Origin: upstream line, missed by d5fef60, 20260922 (cmdkeys). Missed twin of that fix. Plausible.
-	- Actual fix: that test takes the primary key too. The icon view's type-ahead find next and previous (Ctrl+G and Shift+Ctrl+G) and its Ctrl+V guard also take it now, as GTK's own list search and the list view's copy of the Ctrl+V guard already do.
-	- Sweep: every remaining Ctrl-as-primary check in the views.
-	- Swept: a grep for `GDK_CONTROL_MASK` across `source/` outside vendored code.
-		- Changed: the list view's row click, the icon view's find next and previous, and the icon view's Ctrl+V guard.
-		- Left on Control, per the cmdkeys item: keyboard moves and Ctrl+space that keep the selection, in both views; Ctrl+F10 for the background menu in both views; the window's block on GTK's emoji keys, which GTK binds to Control itself; the rename label's GtkEntry bindings. The location entry already takes either key.
-		- Left alone: the icon view's stretch keys. Nothing shows stretch handles any more.
-	- Note: unverified on a Mac. Waits on signoff because two keys beyond the item moved on macOS.
-	- Test case: rj9tz3mv, the ClickPrimary lint check. Plain Control in any click or scroll handler fails the lint. Fails before the fix, at the list view line, and passes after.
-	- Verified: the Linux build is clean, with no warnings. Lint, the test ID check and the Primary mask test pass.
-	- Branch: tidy4
-	- Commit: 4078549
-
 - Code review 20260928 item 1. Zooming while thumbnails render can store a small thumbnail as full size, and it is never made again.
 	- ID: 2026092813381401
 	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: no. The full Linux suite passed 136 of 136 on 20260930.
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
 	- Priority|Severity: High
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
@@ -84,8 +59,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Code review 20260928 item 2. The tree sidebar crashes on Shift+F10 or the Menu key.
 	- ID: 2026092813381402
 	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: no. The full Linux suite passed 136 of 136 on 20260930.
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
 	- Priority|Severity: High
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
@@ -104,12 +79,79 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rj04ta3n, Tree menu key test. Linux only. Fails before the fix, passes after.
 	- Verified: the new test fails before the fix, with the crash, and passes five runs in a row after it on Linux. A right click on a tree row still opens the menu, and one on empty space opens nothing. Lint is clean.
 
+- Code review 20260928 item 5. The installer and prefix checks cannot fail a pipeline run.
+	- ID: 2026092813381405
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The full pipeline ran on 20261002. The packages stage ran both checks, both passed, and the run went on to dogfood.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: a broken installer prints a warning, and the run still goes on to dogfood and publish.
+	- Expected behavior: the check stops the run, as the done item for the installer fixes says it does.
+	- Reproduced: yes, 20260928, Linux.
+	- Actual cause: both checks sit in the packaging list, where a failure only warns.
+	- Origin: 7284973, 20260925, and c5f4e7b, 20260926. New ground. Confirmed.
+	- Against: warn-only packagers, in the review's Decisions. The packagers still only warn. Only the two checks moved.
+	- Actual fix: the two checks have a list of their own in the pipeline config. They run after the packagers, and any failure but a skip stops the run before dogfood and publish.
+	- Swept: the Windows pipeline has no packages stage, and its installer check already stops the run. Nothing else sits in the packaging list but the two packagers.
+	- Branch: gatefix
+	- Commit: 9000f48
+	- Test case: rj3yttvt, Package checks test. Fails before the fix and passes after, on Linux.
+	- Verified: the test also fails on a fix that warns instead of stopping. The installer and prefix checks both pass on the current release tarball, so the new stop does not block a run today.
+
+- Code review 20260928 item 9. A checksum taken after a file changed keeps that content out of the cache for good.
+	- ID: 2026092813381409
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: a picture edited while its thumbnail is queued is stored with its old size and new checksum. Every later store of that content, under any name, then fails, and the file is made again on every visit.
+	- Reproduced: yes at the database level, 20260928, Linux. Through the thumbnail queue too, 20260930, Linux: a picture edited after the view read its size and time, and before its job ran.
+	- Actual cause: a thumbnail job keeps the size and time from when the view last looked, and checksums the contents as they are when it runs. The checksum is unique on its own, but the lookup matches checksum and size.
+	- Origin: 42adbdf and 0c1612a, 20260921 (thumbdb). New ground. Confirmed.
+	- Actual fix: the job reads the size and time again once the checksum is done, and keeps no checksum if either moved. The store finds a record by checksum alone, and a record found at another size takes the newer size. Records written before this are thrown away with the cache, since item 11 changed the tables.
+	- Swept: the thumbnail job is the only place a checksum is worked out. The other source is the store itself, read back by name, size and time. The checksum written onto the file uses the same checked size and time. Attaching a checksum to a name, which only the tests call today, puts the size right the same way. Lookups by name and by size and time still match the size, as they should.
+	- Note: item 1's rule is unchanged. A job a worker has started still keeps its size and time. The recheck is after the checksum, inside the job.
+	- Note: on Windows the view reads a symlink's own size and time, while the checksum reads what it points at. That was the same mismatch, and such a file now gets no checksum. Read only.
+	- Branch: cachedb
+	- Commit: 4e75a91
+	- Test case: rj40hkdr, Thumbnail of an edited file test. rhd1cv38, File cache store test, with two stores of one checksum at different sizes, under two names. Both fail before the fix and pass after, on Linux.
+	- Verified: those two, and the cache prune, thumbnail store, zoom, hold, order, memory, jobs and file checksum tests, pass three runs in a row on Linux. Lint and the Windows cross build are clean.
+	- Verified: rj40hkdr passed on b29w on 20261002, in the native suite.
+
+- Code review 20260928 item 11. Cache pruning sorts the whole thumbnail table while it holds the write lock.
+	- ID: 2026092813381411
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: about 1 s per batch at 40k thumbnails, near the 3 s busy timeout at the 2 GiB default. Other windows' stores then fail.
+	- Expected behavior: the file cache item, many processes share the cache without getting in each other's way.
+	- Reproduced: yes for the timing, 20260928, Linux. The failed stores were read only.
+	- Actual cause: both prune rules go by a thumbnail's age, the later of when it was made and when it was last drawn, and nothing indexed it. Each batch sorted or scanned the whole table while holding the write lock.
+	- Origin: 5678432 and 6d52b4b, 20260921 (thumbdb). New ground. Confirmed.
+	- Actual fix: the age is indexed, and both rules' queries walk the index. The index on draw time alone, which nothing used, is gone. The tables changed, so the cache starts over once, on the first run of this version.
+	- Swept: every query the prune runs inside a write. Missing names are picked before the write, in row order. Orphaned records are found by a scan of the records with no sort, fast at 40 thousand. Draw counts, forget and store go by key. There is no other sort in the store.
+	- Note: picking no longer grows with the table, but a batch still holds the write lock for as long as its deletes take. With 40 thousand thumbnails of 16 KB, another window's write waited at most about 1.4 s, against about 1.6 s before. Both are under the 3 s timeout. A cap on bytes per batch would cut it further. Not done here.
+	- Branch: cachedb
+	- Commit: 1a08e33
+	- Test case: rhd69rjr, File cache prune test, with 1500 thumbnails. The prune's own pick queries walk at most one batch and sort nothing. Fails before the fix and passes after, on Linux.
+	- Verified: same runs as item 9.
+
 - Code review 20260928 item 3. Edit link on a symlink whose name ends in .lnk turns the symlink into a plain file.
 	- ID: 2026092813381403
 	- Type: Bug
 	- Status: Waiting for testing
-	- Needs local test suite run?: no. The full Linux suite passed 136 of 136 on 20260930.
-	- Needs external testing: Windows. Edit link on a symlink named .lnk gets the target editor, and the Properties shortcut page does not show for one.
+	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
+	- Needs external testing: Windows, on screen. Edit link on a symlink named .lnk gets the target editor, and the Properties shortcut page does not show for one.
 	- Priority|Severity: Avg
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
@@ -127,109 +169,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 342d30a
 	- Test case: rhqxx81r, Link edit test, with a symlink named .lnk and a save of a shortcut with its own permissions. Fails before the fix and passes after, on Linux. The permissions check only fails on GLib 2.72, so it was run both ways on Ubuntu 22.04.
 	- Verified: the link edit test passes on Linux with GLib 2.84 and 2.72. All 21 link, shortcut and undo tests pass on Linux. Lint and the Windows cross build are clean.
-
-- Code review 20260928 item 12. Redo after undoing Make link makes a different kind of link.
-	- ID: 2026092813381412
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: no. The full Linux suite passed 136 of 136 on 20260930.
-	- Needs external testing: Windows. The redo test on a real box, where it also covers a junction and a shortcut the shell reads.
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: on Windows a junction, symlink or hardlink comes back as a shortcut. Elsewhere a relative symlink, hardlink or shortcut comes back as an absolute symlink.
-	- Expected behavior: redo makes what was made the first time.
-	- Reproduced: yes, 20260928, Linux. A hardlink and a folder shortcut came back as absolute symlinks, and relative symlinks as absolute ones.
-	- Actual cause: the undo record does not keep the dialog's choices.
-	- Origin: the redo code is upstream. It broke when the choices came in with 73ec92e, 20260924 (makelink). Regression. Confirmed.
-	- Actual fix: the undo record keeps the dialog's choices, and a redo makes the links with them.
-	- Swept: Make link is the only job that takes the dialog's choices. A copy's redo does not keep the link copy choice either, but every copy job asks it again when links are in it, so nothing is picked quietly. That was read, not run.
-	- Branch: linkfix
-	- Commit: 342d30a
-	- Test case: rj05egmb, Make link redo. Fails before the fix and passes after, on Linux.
-	- Verified: the new test passes on Linux. Under wine the hardlink half passes on the first run and the redo alike, and the shortcut half fails both times the same way, as it always has there.
-
-- Code review 20260928 item 14. Edit link can remove the link when only the case of its name changes.
-	- ID: 2026092813381414
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: no. The full Linux suite passed 136 of 136 on 20260930.
-	- Needs external testing: a case-insensitive file system, such as macOS or a Linux folder with case folding on. The test finds out for itself which spellings name one entry.
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Target OS: Linux and macOS, on a case-insensitive file system.
-	- Incorrect behavior: renaming "Link" to "link" while changing its target leaves no link. The target is not touched.
-	- Expected behavior: design.md, the old link is never missing.
-	- Reproduced: yes, 20260928, Linux, on a ZFS dataset that normalizes names. "café" in its two Unicode spellings is one entry there, the same way "Link" and "link" are on a case-insensitive one.
-	- Actual cause: the new link is renamed over the old name, and the old name, which is now the new link, is then removed.
-	- Origin: 1866e56, 20260925 (linkedit). New ground. Confirmed.
-	- Actual fix: before the rename, it checks whether the new name is the old link under another spelling. If it is, nothing is removed afterwards.
-	- Note: on that ZFS dataset a lookup by the other spelling can still show the old link after the rename. Checking only after the rename missed the bug, so the check comes first, and the test reads the folder listing.
-	- Swept: the Windows branch removes the old link before the rename, so it cannot hit this. A rename with no new target and a shortcut rename remove nothing.
-	- Branch: linkfix
-	- Commit: 342d30a
-	- Test case: rhqxx81r, Link edit test, a new target under another spelling. It runs only where two spellings name one entry, and says so otherwise. Fails before the fix and passes after, on the normalizing dataset.
-	- Verified: the link edit test passes on Linux, both on that dataset and in the suite's own temp folder, where this check is skipped.
-
-- Code review 20260928 item 4. A dangling symlink fails a 7z or rar archive, and the finished archive is deleted.
-	- ID: 2026092813381404
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: no. The full Linux suite passed 136 of 136 on 20260930.
-	- Needs external testing: Windows. The archive combinations test. There zip, tar and rar should keep a link that leads nowhere as a link, while 7z leaves it out with the warning, since 7z keeps no links on Windows. Also a link with a name that is not plain ASCII, since 7z and rar on Windows may print names in the console code page, which would fail the job as before.
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Design: [20260929-101432_compression.md](design_docs/20260929-101432_compression.md). Under the reset, "Ignore" leaves these links out too.
-	- Steps to reproduce [Bug]:
-		- Untick "store links", then compress a folder holding a link to a missing file as 7z or rar.
-	- Incorrect behavior: "could not be created", and the whole archive is gone. On Windows it happens to every 7z, whatever the checkbox says.
-	- Expected behavior: the link goes in as a link, even with "store links" unticked, wherever the format and tool can keep it. Where they cannot, it is left out with a warning that names it, and the rest of the archive stands.
-	- Reproduced: yes for the tools' exit codes, 20260928, Linux. The job side was read only. The job side too on 20260928, with the new test rows.
-	- Actual cause: 7z exits 1 and rar exits 6 when they skip a link they cannot follow, and any non-zero exit fails the job.
-	- Progress log:
-		- 20260929-070928: Reworked for the decision below. Links that lead nowhere now go in as links. Leaving them out with a warning is kept only where the tool cannot keep them.
-	- Decisions:
-		- 20260929: every format stores a link that leads nowhere as a link, where the format and tool can, even when links are otherwise followed. Leaving it out with a warning is only the fallback.
-		- 20260929: under the Compress dialog reset, "Ignore" leaves these links out too. "Follow" and "Store" keep them. Nothing changes here until the reset is built.
-	- Origin: 6c2418f, 20260820. Widened on Windows by 09506ec, 20260926 (bugs), which took link storing away from 7z there. Regression of that fix on Windows. Confirmed.
-	- Note: the zip writer did not warn either. For a link to nothing, GIO answers with the link itself rather than failing, so the scan's "dangling" branch never ran and every writer left the link out without a word.
-	- Actual fix: the library writer keeps each link that leads nowhere as a link, in every format it writes, 7z included, and still follows the other links. 7z and rar keep links only all or none. So those links go in first, by a run of their own that keeps links, and the real run adds the rest to that archive, following links as before. If that first run fails, the links are left out and named instead. The delete check counts a link that went in as in.
-		- Left out with the warning, as before: a split archive, since neither tool can add to one. 7z on Windows, which is never asked to keep links. A link 7-Zip would reach through a followed linked folder, since it refuses that path. Under rar, a name with * or ?, which it would read as a pattern.
-		- The real run still passes over those links with a warning status. The output reader from 334b239 still fails the job on any warning that does not name one of them.
-	- Swept: every writer. The library writes zip, tar and its three compressed forms, and 7z; 7z writes 7z, and zip when split; rar writes rar. The delete check's own walk follows the same rule. Compress each goes through the same per-archive code. Unpacking has no link scan.
-	- Branch: arclinks, then arcdangle
-	- Commit: 334b239, then 991b6e1
-	- Test case: rhr6ggmt, Archive option combinations. Its dangling-link rows check that the link reads back as a link, with a good link beside it still followed, for every format, with links stored and not, delete on and off, and one split. New rows: the library's 7z, a selection of only a dangling link, one inside a followed linked folder, and on Linux a name with ? for rar. 26 rows fail before the rework and all pass after, on Linux.
-		- rewygsbg, Archive job test: the delete check now passes with such a link in a zip. Its older check that the delete check refused is commented out with the reason. Fails before, passes after.
-		- rev86z08, Archive options test: the output reader rows from 334b239, and new rows for the line of the first run. That line is new, so it has no before run.
-	- Verified: the 9 archive, extract, template and schema tests pass on Linux, the combinations and job tests three runs in a row. Lint and the Windows cross build are clean. The Archive options test passes under wine, its Windows-only rows included.
-
-- Code review 20260928 item 5. The installer and prefix checks cannot fail a pipeline run.
-	- ID: 2026092813381405
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes. The first full pipeline run since the fix, to see the packages stage run both checks and go on to dogfood.
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: a broken installer prints a warning, and the run still goes on to dogfood and publish.
-	- Expected behavior: the check stops the run, as the done item for the installer fixes says it does.
-	- Reproduced: yes, 20260928, Linux.
-	- Actual cause: both checks sit in the packaging list, where a failure only warns.
-	- Origin: 7284973, 20260925, and c5f4e7b, 20260926. New ground. Confirmed.
-	- Against: warn-only packagers, in the review's Decisions. The packagers still only warn. Only the two checks moved.
-	- Actual fix: the two checks have a list of their own in the pipeline config. They run after the packagers, and any failure but a skip stops the run before dogfood and publish.
-	- Swept: the Windows pipeline has no packages stage, and its installer check already stops the run. Nothing else sits in the packaging list but the two packagers.
-	- Branch: gatefix
-	- Commit: 9000f48
-	- Test case: rj3yttvt, Package checks test. Fails before the fix and passes after, on Linux.
-	- Verified: the test also fails on a fix that warns instead of stopping. The installer and prefix checks both pass on the current release tarball, so the new stop does not block a run today.
+	- Verified: rhqxx81r passed on b29w on 20261002, in the native suite, the .lnk symlink case included.
 
 - Code review 20260928 item 6. The pre-push version guard reads the working tree, not the commit being pushed.
 	- ID: 2026092813381406
@@ -257,7 +197,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026092813381407
 	- Type: Bug
 	- Status: Waiting for testing
-	- Needs local test suite run?: yes. The full Linux suite, since file operation messages go through the changed string formatter.
+	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
 	- Needs external testing: Windows. The lint stage under MSYS2 runs the new scope test with the Windows git, and the whole-tree cppcheck pass.
 	- Priority|Severity: Avg
 	- Opened: 20260928-133814
@@ -282,7 +222,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026092813381408
 	- Type: Bug
 	- Status: Waiting for testing
-	- Needs local test suite run?: yes. The full Linux suite, since the icon and sort change runs for every file in every listing.
+	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
 	- Needs external testing: Windows. A folder of shortcuts on a share lists with no stall, and those shortcuts sort with the files. A local folder shortcut still sorts with the folders and wears the folder icon. Both tests below are POSIX-only.
 	- Priority|Severity: Avg
 	- Opened: 20260928-133814
@@ -303,79 +243,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: fd2b0d0
 	- Test case: rhmxm5ah, Windows shortcut reader test, and rhnqqpm8, Folder shortcuts sort with folders test, each with a new FIFO case. Both fail before the fix, stopped after 10 seconds, and pass after, on Linux.
 	- Verified: the Windows cross build compiles. C lint is clean. The link edit, link emblem, link copy, make link shortcut and thumbnail hold tests pass.
-
-- Code review 20260928 item 9. A checksum taken after a file changed keeps that content out of the cache for good.
-	- ID: 2026092813381409
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes. The full Linux suite, once for branch `cachedb`.
-	- Needs external testing: rj40hkdr on a Windows box. It is built for Windows and has only run on Linux.
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: a picture edited while its thumbnail is queued is stored with its old size and new checksum. Every later store of that content, under any name, then fails, and the file is made again on every visit.
-	- Reproduced: yes at the database level, 20260928, Linux. Through the thumbnail queue too, 20260930, Linux: a picture edited after the view read its size and time, and before its job ran.
-	- Actual cause: a thumbnail job keeps the size and time from when the view last looked, and checksums the contents as they are when it runs. The checksum is unique on its own, but the lookup matches checksum and size.
-	- Origin: 42adbdf and 0c1612a, 20260921 (thumbdb). New ground. Confirmed.
-	- Actual fix: the job reads the size and time again once the checksum is done, and keeps no checksum if either moved. The store finds a record by checksum alone, and a record found at another size takes the newer size. Records written before this are thrown away with the cache, since item 11 changed the tables.
-	- Swept: the thumbnail job is the only place a checksum is worked out. The other source is the store itself, read back by name, size and time. The checksum written onto the file uses the same checked size and time. Attaching a checksum to a name, which only the tests call today, puts the size right the same way. Lookups by name and by size and time still match the size, as they should.
-	- Note: item 1's rule is unchanged. A job a worker has started still keeps its size and time. The recheck is after the checksum, inside the job.
-	- Note: on Windows the view reads a symlink's own size and time, while the checksum reads what it points at. That was the same mismatch, and such a file now gets no checksum. Read only.
-	- Branch: cachedb
-	- Commit: 4e75a91
-	- Test case: rj40hkdr, Thumbnail of an edited file test. rhd1cv38, File cache store test, with two stores of one checksum at different sizes, under two names. Both fail before the fix and pass after, on Linux.
-	- Verified: those two, and the cache prune, thumbnail store, zoom, hold, order, memory, jobs and file checksum tests, pass three runs in a row on Linux. Lint and the Windows cross build are clean.
-
-- Code review 20260928 item 11. Cache pruning sorts the whole thumbnail table while it holds the write lock.
-	- ID: 2026092813381411
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes. The full Linux suite, once for branch `cachedb`.
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: about 1 s per batch at 40k thumbnails, near the 3 s busy timeout at the 2 GiB default. Other windows' stores then fail.
-	- Expected behavior: the file cache item, many processes share the cache without getting in each other's way.
-	- Reproduced: yes for the timing, 20260928, Linux. The failed stores were read only.
-	- Actual cause: both prune rules go by a thumbnail's age, the later of when it was made and when it was last drawn, and nothing indexed it. Each batch sorted or scanned the whole table while holding the write lock.
-	- Origin: 5678432 and 6d52b4b, 20260921 (thumbdb). New ground. Confirmed.
-	- Actual fix: the age is indexed, and both rules' queries walk the index. The index on draw time alone, which nothing used, is gone. The tables changed, so the cache starts over once, on the first run of this version.
-	- Swept: every query the prune runs inside a write. Missing names are picked before the write, in row order. Orphaned records are found by a scan of the records with no sort, fast at 40 thousand. Draw counts, forget and store go by key. There is no other sort in the store.
-	- Note: picking no longer grows with the table, but a batch still holds the write lock for as long as its deletes take. With 40 thousand thumbnails of 16 KB, another window's write waited at most about 1.4 s, against about 1.6 s before. Both are under the 3 s timeout. A cap on bytes per batch would cut it further. Not done here.
-	- Branch: cachedb
-	- Commit: 1a08e33
-	- Test case: rhd69rjr, File cache prune test, with 1500 thumbnails. The prune's own pick queries walk at most one batch and sort nothing. Fails before the fix and passes after, on Linux.
-	- Verified: same runs as item 9.
-
-- On Windows, a local shortcut to a share that is not answering can stall the window while its icon is looked up.
-	- ID: 2026093010493389
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: Windows. A folder of local shortcuts to a dead share lists with no stall, and each shows the icon its target's type calls for. Also rfhr0zw0 on a Windows box.
-	- Priority|Severity: Avg
-	- Opened: 20260930-104934
-	- Opened by: code review 20260928 follow-up
-	- Related IDs: 2026092813381408, 2026093010493450
-	- Target OS: Windows
-	- Incorrect behavior: a shortcut with no icon of its own gets one from the Windows shell, on the window's thread. The shell may go to the target for it. On a share that is not answering that is about twenty seconds per shortcut.
-	- Expected behavior: the share is never visited for an icon.
-		- The target path is read from the shortcut file, as the folder check already does.
-		- When the target is on a share, the icon comes from the name alone. A folder gets the folder icon, a document the icon for its extension, and a program the plain program icon.
-		- Shortcut icon lookups run off the window's thread, local targets included.
-	- Reproduced: no. Read only, from item 8 of code review 20260928.
-	- Decisions:
-		- 20260930: assume the stall rather than time it first. Many shortcuts to shares would multiply it.
-		- 20260930: a program on a share showing the plain program icon is fine.
-	- Actual cause: the shell was handed the shortcut itself, and it reads the target, or the icon file the shortcut names, to find the icon. Nothing checked whether either was on a share.
-	- Actual fix: the shortcut file is read for its target and for the icon file it names. When either is on a share, by its path or by a drive letter mapped to one, the shell is asked about the target's name alone, which it answers without opening anything. A folder still gets the theme's folder icon from the folder check. Every lookup now runs off the window's thread, with 2026100112000535.
-	- Swept: the shell icon is asked for in one place. The folder check and the sort place already read only the shortcut file. Off Windows the icon comes from the shortcut file only. design.md says how a shortcut on a share gets its icon.
-	- Note: a shortcut that records only an item ID list, with no path, is still handed to the shell. Nothing in the file says where such a target lives without asking the shell.
-	- Branch: lnkasync
-	- Commit: 61dcecc
-	- Test case: rfhr0zw0, Shell icon test, new share cases: a document on a share wears the icon for its name and not the one the shortcut names, and a program on a share, or a shortcut whose icon is on a share, gets the plain program icon. The document cases fail with the share route taken out and pass with it, under wine. rhmxm5ah, Windows shortcut reader test, new cases for the icon file and the share check, on Linux.
-	- Verified: the Linux build and the shortcut reader, sort, link edit, link copy and make link tests pass. The Windows cross build compiles with no warnings. rfhr0zw0 passes under wine, and the Windows shortcut and share tests give the same results there as on dev. C lint and the test ID check are clean.
 
 - On Windows, a folder full of shortcuts shows nothing until every shortcut icon is found.
 	- ID: 2026100112000535
@@ -403,12 +270,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 61dcecc
 	- Test case: rfhr0zw0, Shell icon test, new lookup cases: the first ask returns at once with nothing, a second one while it runs is not queued again, the window is told once when the icon is found, and the cache answers after. A file that is not a shortcut is finished with and not asked again. No case shows the wait itself, since a slow shell can't be made here.
 	- Verified: rfhr0zw0 passes under wine, and the wine build lists a folder of shortcuts with each one's own icon. The rest as on 2026093010493389.
+	- Verified: the lookup cases in rfhr0zw0 pass on b29w on 20261002, in the native suite. The test as a whole fails on the dead share item's cases.
 
 - Code review 20260928 item 17. Hardlinking a selected symlink links the symlink, not the file.
 	- ID: 2026092813381417
 	- Type: Bug
 	- Status: Waiting for testing
-	- Needs local test suite run?: no. The full Linux suite passed 136 of 136 on 20260930.
+	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
 	- Needs external testing: Windows. A hardlink of a selected file symlink is a second name for the file, with Developer Mode on so the link test can make symlinks.
 	- Priority|Severity: Low
 	- Opened: 20260928-133814
@@ -425,6 +293,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 342d30a
 	- Test case: rfwwdyvg, Link copy test, a hardlink of a relative symlink made in another folder. Fails before the fix and passes after, on Linux.
 	- Verified: the link copy test passes on Linux. The Windows code builds but was not run, since wine makes no symlinks.
+	- Note: rfwwdyvg passed on b29w on 20261002, in the native suite, but it skips its symlink checks without a word when symlinks can't be made, so this case is not shown to have run.
 
 - Code review 20260928 item 18. A relative symlink between two shares of one server does not resolve.
 	- ID: 2026092813381418
@@ -446,49 +315,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 342d30a
 	- Test case: rfwwdyvg, Link copy test, on Windows only. Fails before the fix and passes after, under wine.
 	- Verified: the link copy test's share checks pass under wine. Its one failure there is the old one, since wine makes no symlinks.
-
-- Code review 20260928 item 16. 7z reads `*` and `?` in a left-out linked folder's name as wildcards.
-	- ID: 2026092813381416
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: no. The full Linux suite passed 136 of 136 on 20260930.
-	- Needs external testing: Windows. The 7z lines now carry `-spd`, so the archive combinations and extract job tests there show 7-Zip still takes them.
-	- Priority|Severity: Low
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Design: [20260929-101432_compression.md](design_docs/20260929-101432_compression.md). An edited 7-Zip line gets `-spd` added at run time. Nothing changes until the reset is built.
-	- Target OS: Linux, BSD, macOS.
-	- Incorrect behavior: a linked folder named `a*`, with store and follow both off, also drops a real folder `abc`. With delete-originals off, the job reports success on an archive that is missing it.
-	- Reproduced: yes for 7z, 20260928, Linux.
-	- Origin: b8e1401, 20260925 (linktests). New ground. Confirmed.
-	- Note: rar has the same class. It drops real files that match, such as `apple.txt` for `a*`, and stores an empty folder for the link. Both tools also read a selected item's name as a pattern, and when extracting the archive's own path, so `s?.7z` brought out `sx.7z` along with it.
-	- Actual cause: 7z and rar read `*` and `?` as wildcards in every name on their command line.
-	- Actual fix: both built-in 7z lines pass `-spd`, which makes 7-Zip take names as they are. rar has no such switch. Compress to rar refuses a selected item or left-out folder with either character, and says which. Extracting skips rar for such a path and goes on to 7z, which reads rar where it was built with that codec.
-	- Swept: 7z left-out folders, selected items, and the archive path when extracting. rar left-out folders, selected items, and the archive path when extracting, folders in it included. rar takes the new archive's own name as it is, checked. A command line edited in the settings keeps what it has, without `-spd`.
-	- Branch: arclinks
-	- Commit: 334b239
-	- Test case: rhr6ggmt, Archive option combinations, new rows with a linked folder `a*` beside `abc`, `a?c` and `apple.txt`, and with `a?c` selected on its own. reww9h2s, Extract job test, extracts `s?.7z` and `r?.rar` beside `sx.7z` and `rx.rar`. rev86z08 and reww9h2r check for `-spd`. All fail before the fix and pass after, on Linux.
-	- Verified: same runs as item 4. Debian's 7-Zip has no rar codec, so on Linux the `r?.rar` case ends in an error naming the wildcard, which the test accepts.
-
-- Code review 20260928 item 33. Two tests read memory they do not own.
-	- ID: 2026092813381433
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes. The Windows cross build, for the Windows-only search test and the test build file.
-	- Priority|Severity: Low
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: the content search test writes 3 bytes past a string, and the raw test's patch helper counts on bytes GLib may clear. The raw test fails 21 checks when GLib clears them.
-	- Reproduced: yes, 20260928, Linux. Again 20261002.
-	- Origin: 4d8f9f7, 20260828, and 4809a54, 20260922 (rawthumbs). New ground. Confirmed.
-	- Actual fix: the content search test takes each binary file's length from its literal, so none is counted by hand. The raw test's patch helper writes in place instead of shrinking the buffer and growing it back.
-	- Swept: the content search test's other two binary files were counted by hand too. The GIF was one byte short, so it now ends with its trailer. No other test or product code reads back bytes from past a shrink. The three search tests' hit handlers now free the results they are handed.
-	- Test case: rffvm2bg, Search content test, now built with the address checker, which stops on a read past a string. rj9v7n76, Camera raw reader test, cleared memory, which runs the raw test again with GLib clearing what a shrunk array gives up. Both fail before the fix and pass after, on Linux. rhg7vh28 still runs it the usual way.
-	- Verified: the content search, both raw, search helpers and search engine tests pass on Linux, after a clean build with no warnings. Lint and the test ID check pass.
-	- Branch: tidy4
-	- Commit: 856f567
+	- Note: rfwwdyvg passed on b29w on 20261002, in the native suite. Whether the box had two shares to link between is not shown.
 
 - Code review 20260928.
 	- ID: 2026092813381400
@@ -511,6 +338,72 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: Escape not restoring the selection, Ctrl+Shift+T, and Control kept for F1, tab keys, Ctrl+H and Ctrl+M on macOS. All settled earlier.
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
+
+- Code review 20260928 item 4. A dangling symlink fails a 7z or rar archive, and the finished archive is deleted.
+	- ID: 2026092813381404
+	- Type: Bug
+	- Status: Queued
+	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
+	- Needs external testing: Windows. The archive combinations test. There zip, tar and rar should keep a link that leads nowhere as a link, while 7z leaves it out with the warning, since 7z keeps no links on Windows. Also a link with a name that is not plain ASCII, since 7z and rar on Windows may print names in the console code page, which would fail the job as before.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Design: [20260929-101432_compression.md](design_docs/20260929-101432_compression.md). Under the reset, "Ignore" leaves these links out too.
+	- Steps to reproduce [Bug]:
+		- Untick "store links", then compress a folder holding a link to a missing file as 7z or rar.
+	- Incorrect behavior: "could not be created", and the whole archive is gone. On Windows it happens to every 7z, whatever the checkbox says.
+	- Expected behavior: the link goes in as a link, even with "store links" unticked, wherever the format and tool can keep it. Where they cannot, it is left out with a warning that names it, and the rest of the archive stands.
+	- Reproduced: yes for the tools' exit codes, 20260928, Linux. The job side was read only. The job side too on 20260928, with the new test rows.
+	- Actual cause: 7z exits 1 and rar exits 6 when they skip a link they cannot follow, and any non-zero exit fails the job.
+	- Progress log:
+		- 20260929-070928: Reworked for the decision below. Links that lead nowhere now go in as links. Leaving them out with a warning is kept only where the tool cannot keep them.
+		- 20261002-194800: the archive combinations test fails on b29w in the native suite. The four rar rows with a link that leads nowhere fail: rar says it cannot open the dead link, and it also cannot open the good link beside it ("The filename, directory name, or volume label syntax is incorrect"), so no archive is made. The 7z, zip and tar rows pass.
+	- Decisions:
+		- 20260929: every format stores a link that leads nowhere as a link, where the format and tool can, even when links are otherwise followed. Leaving it out with a warning is only the fallback.
+		- 20260929: under the Compress dialog reset, "Ignore" leaves these links out too. "Follow" and "Store" keep them. Nothing changes here until the reset is built.
+	- Origin: 6c2418f, 20260820. Widened on Windows by 09506ec, 20260926 (bugs), which took link storing away from 7z there. Regression of that fix on Windows. Confirmed.
+	- Note: the zip writer did not warn either. For a link to nothing, GIO answers with the link itself rather than failing, so the scan's "dangling" branch never ran and every writer left the link out without a word.
+	- Actual fix: the library writer keeps each link that leads nowhere as a link, in every format it writes, 7z included, and still follows the other links. 7z and rar keep links only all or none. So those links go in first, by a run of their own that keeps links, and the real run adds the rest to that archive, following links as before. If that first run fails, the links are left out and named instead. The delete check counts a link that went in as in.
+		- Left out with the warning, as before: a split archive, since neither tool can add to one. 7z on Windows, which is never asked to keep links. A link 7-Zip would reach through a followed linked folder, since it refuses that path. Under rar, a name with * or ?, which it would read as a pattern.
+		- The real run still passes over those links with a warning status. The output reader from 334b239 still fails the job on any warning that does not name one of them.
+	- Swept: every writer. The library writes zip, tar and its three compressed forms, and 7z; 7z writes 7z, and zip when split; rar writes rar. The delete check's own walk follows the same rule. Compress each goes through the same per-archive code. Unpacking has no link scan.
+	- Branch: arclinks, then arcdangle
+	- Commit: 334b239, then 991b6e1
+	- Test case: rhr6ggmt, Archive option combinations. Its dangling-link rows check that the link reads back as a link, with a good link beside it still followed, for every format, with links stored and not, delete on and off, and one split. New rows: the library's 7z, a selection of only a dangling link, one inside a followed linked folder, and on Linux a name with ? for rar. 26 rows fail before the rework and all pass after, on Linux.
+		- rewygsbg, Archive job test: the delete check now passes with such a link in a zip. Its older check that the delete check refused is commented out with the reason. Fails before, passes after.
+		- rev86z08, Archive options test: the output reader rows from 334b239, and new rows for the line of the first run. That line is new, so it has no before run.
+	- Verified: the 9 archive, extract, template and schema tests pass on Linux, the combinations and job tests three runs in a row. Lint and the Windows cross build are clean. The Archive options test passes under wine, its Windows-only rows included.
+
+- On Windows, a local shortcut to a share that is not answering can stall the window while its icon is looked up.
+	- ID: 2026093010493389
+	- Type: Bug
+	- Status: Queued
+	- Needs external testing: Windows. A folder of local shortcuts to a dead share lists with no stall, and each shows the icon its target's type calls for. Also rfhr0zw0 on a Windows box.
+	- Priority|Severity: Avg
+	- Opened: 20260930-104934
+	- Opened by: code review 20260928 follow-up
+	- Related IDs: 2026092813381408, 2026093010493450
+	- Target OS: Windows
+	- Incorrect behavior: a shortcut with no icon of its own gets one from the Windows shell, on the window's thread. The shell may go to the target for it. On a share that is not answering that is about twenty seconds per shortcut.
+	- Expected behavior: the share is never visited for an icon.
+		- The target path is read from the shortcut file, as the folder check already does.
+		- When the target is on a share, the icon comes from the name alone. A folder gets the folder icon, a document the icon for its extension, and a program the plain program icon.
+		- Shortcut icon lookups run off the window's thread, local targets included.
+	- Reproduced: no. Read only, from item 8 of code review 20260928.
+	- Decisions:
+		- 20260930: assume the stall rather than time it first. Many shortcuts to shares would multiply it.
+		- 20260930: a program on a share showing the plain program icon is fine.
+	- Actual cause: the shell was handed the shortcut itself, and it reads the target, or the icon file the shortcut names, to find the icon. Nothing checked whether either was on a share.
+	- Actual fix: the shortcut file is read for its target and for the icon file it names. When either is on a share, by its path or by a drive letter mapped to one, the shell is asked about the target's name alone, which it answers without opening anything. A folder still gets the theme's folder icon from the folder check. Every lookup now runs off the window's thread, with 2026100112000535.
+	- Swept: the shell icon is asked for in one place. The folder check and the sort place already read only the shortcut file. Off Windows the icon comes from the shortcut file only. design.md says how a shortcut on a share gets its icon.
+	- Note: a shortcut that records only an item ID list, with no path, is still handed to the shell. Nothing in the file says where such a target lives without asking the shell.
+	- Branch: lnkasync
+	- Commit: 61dcecc
+	- Test case: rfhr0zw0, Shell icon test, new share cases: a document on a share wears the icon for its name and not the one the shortcut names, and a program on a share, or a shortcut whose icon is on a share, gets the plain program icon. The document cases fail with the share route taken out and pass with it, under wine. rhmxm5ah, Windows shortcut reader test, new cases for the icon file and the share check, on Linux.
+	- Verified: the Linux build and the shortcut reader, sort, link edit, link copy and make link tests pass. The Windows cross build compiles with no warnings. rfhr0zw0 passes under wine, and the Windows shortcut and share tests give the same results there as on dev. C lint and the test ID check are clean.
+	- Progress log:
+		- 20261002-194800: rfhr0zw0 fails two checks on b29w in the native suite: a local shortcut does not wear the icon it names, and a document on a share does. The other share cases and every lookup case pass.
 
 - Code review 20260928 item 22. The list view's row shading handlers can outlive the view.
 	- ID: 2026092813381422
@@ -968,6 +861,56 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261002: with "Each folder keeps its own view, zoom, sort and columns" on in Preferences (`remember-folder-settings`), the monitor's saved zoom wins over the folder's own.
 	- Test case: none yet.
 
+- Code review 20260928 item 12. Redo after undoing Make link makes a different kind of link.
+	- ID: 2026092813381412
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: on Windows a junction, symlink or hardlink comes back as a shortcut. Elsewhere a relative symlink, hardlink or shortcut comes back as an absolute symlink.
+	- Expected behavior: redo makes what was made the first time.
+	- Reproduced: yes, 20260928, Linux. A hardlink and a folder shortcut came back as absolute symlinks, and relative symlinks as absolute ones.
+	- Actual cause: the undo record does not keep the dialog's choices.
+	- Origin: the redo code is upstream. It broke when the choices came in with 73ec92e, 20260924 (makelink). Regression. Confirmed.
+	- Actual fix: the undo record keeps the dialog's choices, and a redo makes the links with them.
+	- Swept: Make link is the only job that takes the dialog's choices. A copy's redo does not keep the link copy choice either, but every copy job asks it again when links are in it, so nothing is picked quietly. That was read, not run.
+	- Branch: linkfix
+	- Commit: 342d30a
+	- Test case: rj05egmb, Make link redo. Fails before the fix and passes after, on Linux.
+	- Verified: the new test passes on Linux. Under wine the hardlink half passes on the first run and the redo alike, and the shortcut half fails both times the same way, as it always has there.
+	- Verified: rj05egmb passed on b29w on 20261002, in the native suite.
+	- Acceptance signoff: Self-closed: reproduced, test fails before and passes after, and passes on Windows.
+	- Closed: 20261002-194800
+
+- Code review 20260928 item 14. Edit link can remove the link when only the case of its name changes.
+	- ID: 2026092813381414
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Target OS: Linux and macOS, on a case-insensitive file system.
+	- Incorrect behavior: renaming "Link" to "link" while changing its target leaves no link. The target is not touched.
+	- Expected behavior: design.md, the old link is never missing.
+	- Reproduced: yes, 20260928, Linux, on a ZFS dataset that normalizes names. "café" in its two Unicode spellings is one entry there, the same way "Link" and "link" are on a case-insensitive one.
+	- Actual cause: the new link is renamed over the old name, and the old name, which is now the new link, is then removed.
+	- Origin: 1866e56, 20260925 (linkedit). New ground. Confirmed.
+	- Actual fix: before the rename, it checks whether the new name is the old link under another spelling. If it is, nothing is removed afterwards.
+	- Note: on that ZFS dataset a lookup by the other spelling can still show the old link after the rename. Checking only after the rename missed the bug, so the check comes first, and the test reads the folder listing.
+	- Swept: the Windows branch removes the old link before the rename, so it cannot hit this. A rename with no new target and a shortcut rename remove nothing.
+	- Branch: linkfix
+	- Commit: 342d30a
+	- Test case: rhqxx81r, Link edit test, a new target under another spelling. It runs only where two spellings name one entry, and says so otherwise. Fails before the fix and passes after, on the normalizing dataset.
+	- Verified: the link edit test passes on Linux, both on that dataset and in the suite's own temp folder, where this check is skipped.
+	- Verified: rhqxx81r passed on b29w on 20261002, in the native suite. NTFS names one entry by both spellings, so the case check ran there.
+	- Acceptance signoff: Self-closed: reproduced, test fails before and passes after.
+	- Closed: 20261002-194800
+
 - Code review 20260928 item 13. A Windows install for all users may not run for other users.
 	- ID: 2026092813381413
 	- Type: Bug
@@ -1029,6 +972,78 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: `test-nemo-psd`: rows at the least length are read, one byte less is refused, and a file of empty rows, 30000 by 30000 as psd and 60000 by 60000 as psb, is refused in under a second. Fuzz seed `zero-rows`, and `short-literal` reworked so it still reaches the literal-run bound.
 	- Branch: psdrows
 	- Commit: 24d99cd
+
+- Code review 20260928 item 21. One Ctrl+click check in the list view was missed by the macOS Cmd change.
+	- ID: 2026092813381421
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Target OS: macOS.
+	- Incorrect behavior: Cmd+click on an unselected row skips the view's own add-to-selection code.
+	- Reproduced: no Mac to run it on. Pinned instead by a lint check that fails on the tree before the fix, 20261002.
+	- Actual cause: the Cmd change moved the test that opens the click branch to the primary key, but not the Control test inside it.
+	- Origin: upstream line, missed by d5fef60, 20260922 (cmdkeys). Missed twin of that fix. Plausible.
+	- Actual fix: that test takes the primary key too. The icon view's type-ahead find next and previous (Ctrl+G and Shift+Ctrl+G) and its Ctrl+V guard also take it now, as GTK's own list search and the list view's copy of the Ctrl+V guard already do.
+	- Sweep: every remaining Ctrl-as-primary check in the views.
+	- Swept: a grep for `GDK_CONTROL_MASK` across `source/` outside vendored code.
+		- Changed: the list view's row click, the icon view's find next and previous, and the icon view's Ctrl+V guard.
+		- Left on Control, per the cmdkeys item: keyboard moves and Ctrl+space that keep the selection, in both views; Ctrl+F10 for the background menu in both views; the window's block on GTK's emoji keys, which GTK binds to Control itself; the rename label's GtkEntry bindings. The location entry already takes either key.
+		- Left alone: the icon view's stretch keys. Nothing shows stretch handles any more.
+	- Note: unverified on a Mac. Waits on signoff because two keys beyond the item moved on macOS.
+	- Test case: rj9tz3mv, the ClickPrimary lint check. Plain Control in any click or scroll handler fails the lint. Fails before the fix, at the list view line, and passes after.
+	- Verified: the Linux build is clean, with no warnings. Lint, the test ID check and the Primary mask test pass.
+	- Branch: tidy4
+	- Commit: 4078549
+
+- Code review 20260928 item 16. 7z reads `*` and `?` in a left-out linked folder's name as wildcards.
+	- ID: 2026092813381416
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Design: [20260929-101432_compression.md](design_docs/20260929-101432_compression.md). An edited 7-Zip line gets `-spd` added at run time. Nothing changes until the reset is built.
+	- Target OS: Linux, BSD, macOS.
+	- Incorrect behavior: a linked folder named `a*`, with store and follow both off, also drops a real folder `abc`. With delete-originals off, the job reports success on an archive that is missing it.
+	- Reproduced: yes for 7z, 20260928, Linux.
+	- Origin: b8e1401, 20260925 (linktests). New ground. Confirmed.
+	- Note: rar has the same class. It drops real files that match, such as `apple.txt` for `a*`, and stores an empty folder for the link. Both tools also read a selected item's name as a pattern, and when extracting the archive's own path, so `s?.7z` brought out `sx.7z` along with it.
+	- Actual cause: 7z and rar read `*` and `?` as wildcards in every name on their command line.
+	- Actual fix: both built-in 7z lines pass `-spd`, which makes 7-Zip take names as they are. rar has no such switch. Compress to rar refuses a selected item or left-out folder with either character, and says which. Extracting skips rar for such a path and goes on to 7z, which reads rar where it was built with that codec.
+	- Swept: 7z left-out folders, selected items, and the archive path when extracting. rar left-out folders, selected items, and the archive path when extracting, folders in it included. rar takes the new archive's own name as it is, checked. A command line edited in the settings keeps what it has, without `-spd`.
+	- Branch: arclinks
+	- Commit: 334b239
+	- Test case: rhr6ggmt, Archive option combinations, new rows with a linked folder `a*` beside `abc`, `a?c` and `apple.txt`, and with `a?c` selected on its own. reww9h2s, Extract job test, extracts `s?.7z` and `r?.rar` beside `sx.7z` and `rx.rar`. rev86z08 and reww9h2r check for `-spd`. All fail before the fix and pass after, on Linux.
+	- Verified: same runs as item 4. Debian's 7-Zip has no rar codec, so on Linux the `r?.rar` case ends in an error naming the wildcard, which the test accepts.
+	- Verified: the 7z rows of rhr6ggmt and reww9h2s pass on b29w on 20261002, in the native suite. That test's only failures there are item 4's rar rows.
+	- Acceptance signoff: Self-closed: reproduced, test fails before and passes after, sweep answered.
+	- Closed: 20261002-194800
+
+- Code review 20260928 item 33. Two tests read memory they do not own.
+	- ID: 2026092813381433
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The Windows cross build passed on 20261002.
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: the content search test writes 3 bytes past a string, and the raw test's patch helper counts on bytes GLib may clear. The raw test fails 21 checks when GLib clears them.
+	- Reproduced: yes, 20260928, Linux. Again 20261002.
+	- Origin: 4d8f9f7, 20260828, and 4809a54, 20260922 (rawthumbs). New ground. Confirmed.
+	- Actual fix: the content search test takes each binary file's length from its literal, so none is counted by hand. The raw test's patch helper writes in place instead of shrinking the buffer and growing it back.
+	- Swept: the content search test's other two binary files were counted by hand too. The GIF was one byte short, so it now ends with its trailer. No other test or product code reads back bytes from past a shrink. The three search tests' hit handlers now free the results they are handed.
+	- Test case: rffvm2bg, Search content test, now built with the address checker, which stops on a read past a string. rj9v7n76, Camera raw reader test, cleared memory, which runs the raw test again with GLib clearing what a shrunk array gives up. Both fail before the fix and pass after, on Linux. rhg7vh28 still runs it the usual way.
+	- Verified: the content search, both raw, search helpers and search engine tests pass on Linux, after a clean build with no warnings. Lint and the test ID check pass.
+	- Branch: tidy4
+	- Commit: 856f567
+	- Acceptance signoff: Self-closed: reproduced, test fails before and passes after, sweep answered.
+	- Closed: 20261002-194800
 
 - Code review 20260928 item 31. Two help texts are out of date.
 	- ID: 2026092813381431
