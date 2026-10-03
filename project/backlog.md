@@ -33,29 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- Code review 20260928 item 1. Zooming while thumbnails render can store a small thumbnail as full size, and it is never made again.
-	- ID: 2026092813381401
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
-	- Priority|Severity: High
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: the picture stays blurry at the larger size until the file is edited or the cache is cleared.
-	- Expected behavior: design.md, a thumbnail is made again bigger when a draw wants more than is stored.
-	- Reproduced: yes, 20260928, Linux.
-	- Actual cause: a new request merges into the job a worker is already running, and the worker stores the new size with the old picture.
-	- Origin: 0c1612a and 056d3e0, 20260921 (thumbdb, thumbs). New ground. Confirmed.
-	- Actual fix: a job a worker has started is no longer changed. A bigger ask for the same file waits behind it and starts when it ends. A smaller or equal one is answered by the job already running. A job that ends only clears its own entry from the queue table, not a newer one for the same file.
-	- Swept: besides the merge, a queued job is only changed by the remove path, which just marks it canceled, and by shutdown, which now drops a waiting follow-up. No other code writes to a job once it is queued.
-	- Note: edits during a render no longer rewrite the running job's size and time either. Item 9's queued-edit path is unchanged.
-	- Note: while a bigger ask waits behind a running job, the file reads as not being made, so the thumbnail progress bar can end a moment early. Left as is.
-	- Branch: thumbzoom
-	- Commit: 1a7470d
-	- Test case: rj043mnp, Thumbnail zoom during render test. Linux only. Fails before the fix, passes after.
-	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
-
 - Code review 20260928 item 2. The tree sidebar crashes on Shift+F10 or the Menu key.
 	- ID: 2026092813381402
 	- Type: Bug
@@ -78,137 +55,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: d879cfb
 	- Test case: rj04ta3n, Tree menu key test. Linux only. Fails before the fix, passes after.
 	- Verified: the new test fails before the fix, with the crash, and passes five runs in a row after it on Linux. A right click on a tree row still opens the menu, and one on empty space opens nothing. Lint is clean.
-
-- Code review 20260928 item 5. The installer and prefix checks cannot fail a pipeline run.
-	- ID: 2026092813381405
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The full pipeline ran on 20261002. The packages stage ran both checks, both passed, and the run went on to dogfood.
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: a broken installer prints a warning, and the run still goes on to dogfood and publish.
-	- Expected behavior: the check stops the run, as the done item for the installer fixes says it does.
-	- Reproduced: yes, 20260928, Linux.
-	- Actual cause: both checks sit in the packaging list, where a failure only warns.
-	- Origin: 7284973, 20260925, and c5f4e7b, 20260926. New ground. Confirmed.
-	- Against: warn-only packagers, in the review's Decisions. The packagers still only warn. Only the two checks moved.
-	- Actual fix: the two checks have a list of their own in the pipeline config. They run after the packagers, and any failure but a skip stops the run before dogfood and publish.
-	- Swept: the Windows pipeline has no packages stage, and its installer check already stops the run. Nothing else sits in the packaging list but the two packagers.
-	- Branch: gatefix
-	- Commit: 9000f48
-	- Test case: rj3yttvt, Package checks test. Fails before the fix and passes after, on Linux.
-	- Verified: the test also fails on a fix that warns instead of stopping. The installer and prefix checks both pass on the current release tarball, so the new stop does not block a run today.
-
-- Code review 20260928 item 9. A checksum taken after a file changed keeps that content out of the cache for good.
-	- ID: 2026092813381409
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: a picture edited while its thumbnail is queued is stored with its old size and new checksum. Every later store of that content, under any name, then fails, and the file is made again on every visit.
-	- Reproduced: yes at the database level, 20260928, Linux. Through the thumbnail queue too, 20260930, Linux: a picture edited after the view read its size and time, and before its job ran.
-	- Actual cause: a thumbnail job keeps the size and time from when the view last looked, and checksums the contents as they are when it runs. The checksum is unique on its own, but the lookup matches checksum and size.
-	- Origin: 42adbdf and 0c1612a, 20260921 (thumbdb). New ground. Confirmed.
-	- Actual fix: the job reads the size and time again once the checksum is done, and keeps no checksum if either moved. The store finds a record by checksum alone, and a record found at another size takes the newer size. Records written before this are thrown away with the cache, since item 11 changed the tables.
-	- Swept: the thumbnail job is the only place a checksum is worked out. The other source is the store itself, read back by name, size and time. The checksum written onto the file uses the same checked size and time. Attaching a checksum to a name, which only the tests call today, puts the size right the same way. Lookups by name and by size and time still match the size, as they should.
-	- Note: item 1's rule is unchanged. A job a worker has started still keeps its size and time. The recheck is after the checksum, inside the job.
-	- Note: on Windows the view reads a symlink's own size and time, while the checksum reads what it points at. That was the same mismatch, and such a file now gets no checksum. Read only.
-	- Branch: cachedb
-	- Commit: 4e75a91
-	- Test case: rj40hkdr, Thumbnail of an edited file test. rhd1cv38, File cache store test, with two stores of one checksum at different sizes, under two names. Both fail before the fix and pass after, on Linux.
-	- Verified: those two, and the cache prune, thumbnail store, zoom, hold, order, memory, jobs and file checksum tests, pass three runs in a row on Linux. Lint and the Windows cross build are clean.
-	- Verified: rj40hkdr passed on b29w on 20261002, in the native suite.
-
-- Code review 20260928 item 11. Cache pruning sorts the whole thumbnail table while it holds the write lock.
-	- ID: 2026092813381411
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: about 1 s per batch at 40k thumbnails, near the 3 s busy timeout at the 2 GiB default. Other windows' stores then fail.
-	- Expected behavior: the file cache item, many processes share the cache without getting in each other's way.
-	- Reproduced: yes for the timing, 20260928, Linux. The failed stores were read only.
-	- Actual cause: both prune rules go by a thumbnail's age, the later of when it was made and when it was last drawn, and nothing indexed it. Each batch sorted or scanned the whole table while holding the write lock.
-	- Origin: 5678432 and 6d52b4b, 20260921 (thumbdb). New ground. Confirmed.
-	- Actual fix: the age is indexed, and both rules' queries walk the index. The index on draw time alone, which nothing used, is gone. The tables changed, so the cache starts over once, on the first run of this version.
-	- Swept: every query the prune runs inside a write. Missing names are picked before the write, in row order. Orphaned records are found by a scan of the records with no sort, fast at 40 thousand. Draw counts, forget and store go by key. There is no other sort in the store.
-	- Note: picking no longer grows with the table, but a batch still holds the write lock for as long as its deletes take. With 40 thousand thumbnails of 16 KB, another window's write waited at most about 1.4 s, against about 1.6 s before. Both are under the 3 s timeout. A cap on bytes per batch would cut it further. Not done here.
-	- Branch: cachedb
-	- Commit: 1a08e33
-	- Test case: rhd69rjr, File cache prune test, with 1500 thumbnails. The prune's own pick queries walk at most one batch and sort nothing. Fails before the fix and passes after, on Linux.
-	- Verified: same runs as item 9.
-
-- Code review 20260928 item 22. The list view's row shading handlers can outlive the view.
-	- ID: 2026092813381422
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The gate passed 145 of 145 on 472f957.
-	- Needs external testing: one Windows box run, since the view base's Windows-only dot-files handler changed. The cross build is clean.
-	- Priority|Severity: Low
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: changing row shading while a closed tab's view is still held, as a rename or unmount does, calls into a freed tree view.
-	- Reproduced: yes, 20261002, Linux. A closed tab's list view, still held, kept 25 handlers on the settings groups, row shading, its color and folder expansion among them. No crash was seen.
-	- Origin: f172064, 20260918 (row shading). Same class as code review 20260919 items 3 and 10. Regression of that class. Confirmed.
-	- Actual cause: the list view, the view it is built on and the icon view connected their settings handlers with a plain connect and removed them in finalize. A view held after its tab closes is not finalized until it is let go, but its widgets go when the tab closes, so a settings change in between ran the handlers on freed widgets.
-	- Actual fix: every handler on a settings group whose data is an object is now connected with `g_signal_connect_object`, so it goes when its owner is torn down, and the disconnects that went with them are gone. The two that move the icon container from one group to the other stay. The settings handler lint now reports a plain connect for an object on a settings group. design.md, "Handlers on settings groups", has the rule.
-	- Sweep: every plain connect on a settings group with an object as its data, per design.md "Handlers on settings groups".
-	- Swept: 64 connects in the list view, icon view, view base, window, icon container, icon grid container, path bar, places and tree sidebars, toolbar, action manager, job queue, both plugin settings pages and the main application. The settings handler lint over `source/` reports none left.
-	- Note: left as they were: the Current folder tab's struct, handlers with no data or a file static, the separator test's local, and handlers on other objects, which only the table covers. Two defects found nearby are their own items, 2026100221072783 and 2026100221072784.
-	- Branch: prefhandlers
-	- Commit: 4081143 (lint), bc2cd7d and 472f957 (test), 17a568c (fix)
-	- Test case: rjahhesy, Held view settings handlers test. A closed tab's list or icon view, still held, has no handler left on a settings group, and row shading, its color and folder expansion still reach the open tab. It fails with the list and icon view files from before the fix. `lint-pref-handlers.py --self-test`, new cases for a held view, a handler never disconnected and a local not disconnected.
-	- Acceptance signoff: waiting. The fix picks one of two ways to tie a handler to its owner, and adds a rule table to design.md.
-
-- Code review 20260928 item 23. File jobs and the clipboard leak memory on every operation.
-	- ID: 2026092813381423
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The gate passed 155 of 155 on d1872a5.
-	- Needs external testing: none. Nothing changed is Windows-only code, and the cross build is clean.
-	- Priority|Severity: Low
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Related IDs: 2026100307122400, 2026100308563229, 2026100308563234
-	- Incorrect behavior: each move job, each file moved by rename, each job's progress, each drag's clipboard check, and a canceled zip leak a little. A few smaller leaks sit in search, theme and window setup.
-	- Reproduced: yes, 20261003, Linux. Every site grew the heap on each repeat, and a stopped zip by about a quarter of a megabyte.
-	- Origin: upstream, apart from the zip one from 6c2418f, 20260820. Not seen by an earlier round. Confirmed.
-	- Actual cause: each site kept or copied something and never let it go on one way out. The progress manager also kept its own hold on every job's progress after the job finished, so the whole progress went, not only its lock. A stopped zip failed the archive library's last writes, and the library then skipped the step that frees its compressor. Every compress and unpack job also kept two holds on its stop handle and let go of one.
-	- Actual fix: each site frees what it owns. The progress manager lets go of a job's progress when the job finishes, and lets go of its handler when it goes itself. The zip writer treats a write after a stop as done rather than failed, and the job still reports the stop. Compress and unpack jobs take one hold on the stop handle. A stopped tar fails its last writes again once the job is done with it, so a stop near the start of a big file ends at once, as it did before.
-	- Sweep: whatever these functions own and miss on a way out, in the same files and the progress manager.
-	- Swept: copy, duplicate and link jobs free their desktop location already. The progress manager's hold on each finished job. The progress lock beside its condition. The window's view id, visible columns and column order, kept like its sort column. The theme check's first copy when it gives up. The bookmark metadata error when that file is missing. The clipboard check is the only place that waits for the clipboard; every other read is handed its data and freed by the toolkit. The stop handle in the compress and unpack job setup; the file jobs' setup was already right, and nothing else asks a progress for its stop handle.
-	- Note: item 2026100307122400, the 150 bytes left by every archive job, was this item's, and closed with it. Leaks seen only at exit, in the startup command line and the undo manager, were left alone.
-	- Branch: leaks
-	- Commit: 9619c6a (progress), fa3de32 (move), d9c526d (clipboard), 63f91f0 (zip), e98eb39 (search), 0c7b356 (bookmarks), b565bf2 (window), cc31dd3 (theme), 4802a37 (stop handle), 377d761 (leak test readings), d1872a5 (tar stop)
-	- Test case: rjbkzvdv Job progress leak test, rjbkzwe7 Move job leak test, rjbmdd0s Clipboard drag check leak test, rjbmh7g1 Stopped zip leak test, rjbn18rq Search query leak test, rjbn19rn Bookmarks load leak test, rjbn328w Bookmarks file load leak test, rjbpmcxy Extract job leak test, rjbqagjf Stopped tar.gz leak test. Each repeats its operation and fails when the heap grows, and each fails with its fix taken out. rjbpyy28 Archive stop time test: a stopped tar.gz or tar.xz of a 16 GiB file has to end in under twice the time a 4 GiB one takes, plus 3 s. The window and theme sites have no test, since only the running program reaches them; a window closing and the theme check were checked by hand to leave nothing behind, before and after.
-	- Acceptance signoff: waiting. Two sites rest on a hand check, and the archive writer's handling of a stop changed.
-
-- A stopped 7z made without the 7-Zip program takes as long to end as the rest of the file would have taken.
-	- ID: 2026100308563234
-	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Priority|Severity: Low
-	- Opened: 20261003-085632
-	- Opened by: review of item 2026092813381423
-	- Related IDs: 2026092813381423
-	- Requirements:
-		- A stop on a 7z written by the built-in writer ends about as fast as a stop on a zip or tar.gz.
-	- Note: the built-in writer is used where the 7-Zip program is missing, or where link storing is off. On a stop it fills the rest of the open entry with zeros through its compressor, into a temporary file of its own, so how the job handles the output does not reach it. A 2 GB file stopped near the start took 24 s, the same before and after item 2026092813381423. The progress bar stands still meanwhile, and the next queued job waits.
-	- Actual fix: after a stop, the 7z writer is marked failed and then closed. The close skips the open entry, so there are no zeros to write, and still frees what it holds. The temporary file and compressor go when the writer is freed. A stop now ends in about 0.01 s, as fast as on a zip.
-	- Branch: stop7z
-	- Commit: ef05a4f
-	- Test case: rjbpyy28 Archive stop time test now has a 7z case. A 4 GiB and a 16 GiB file are stopped at their first progress report. Before the fix, the 4 GiB one took 50 s and the 16 GiB one did not end in 100 s. After, both take 0.01 s. rjbw0rkq Stopped 7z leak test, which fails at 82 bytes a round when the close is left out.
-	- Acceptance signoff: waiting. The archive writer's handling of a stop changed again, this time for the 7z.
 
 - Code review 20260928 item 3. Edit link on a symlink whose name ends in .lnk turns the symlink into a plain file.
 	- ID: 2026092813381403
@@ -234,53 +80,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rhqxx81r, Link edit test, with a symlink named .lnk and a save of a shortcut with its own permissions. Fails before the fix and passes after, on Linux. The permissions check only fails on GLib 2.72, so it was run both ways on Ubuntu 22.04.
 	- Verified: the link edit test passes on Linux with GLib 2.84 and 2.72. All 21 link, shortcut and undo tests pass on Linux. Lint and the Windows cross build are clean.
 	- Verified: rhqxx81r passed on b29w on 20261002, in the native suite, the .lnk symlink case included.
-
-- Code review 20260928 item 6. The pre-push version guard reads the working tree, not the commit being pushed.
-	- ID: 2026092813381406
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: Windows. One push to main through the hook from a Windows checkout, to see that a clean checkout reads as clean.
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: a push to `main` with no version bump passes when the bump is only uncommitted, or when another branch is checked out. The gate also runs on the tree rather than the pushed commit.
-	- Expected behavior: the hook header, a push to `main` must raise the version.
-	- Reproduced: yes, 20260928, Linux.
-	- Origin: 2d475c4, 20260718. Not seen by an earlier round. Confirmed.
-	- Actual cause: the hook read the version and the README badge from the working tree, and the gate builds whatever tree is checked out.
-	- Actual fix: the version and badge are read from the commit being pushed. A push to main is refused when the tracked files differ from that commit, as with another branch checked out or an uncommitted edit. Untracked files are allowed. The container runner also refuses a clone other than the one its container has mounted, such as a second worktree, which it would otherwise have tested instead.
-	- Note: a release is now pushed from a clean checkout of main in the main clone. A merge made while another branch is checked out still works, but main has to be checked out, with nothing uncommitted, before the push.
-	- Signed off: 20260930, a clean main in the main clone for a release push.
-	- Swept: both reads in the version guard, the Windows gate (the same check runs before it), and the container runner the gate's build and tests go through. The release and cross builds call the container directly, but a full run from another clone now stops at the debug build, before they run.
-	- Branch: gatefix
-	- Commit: 683eae0
-	- Test case: rhtrxr80, Pre-push version guard, with five new hook runs: a bump only in the tree, another commit checked out, an uncommitted edit, an untracked file, and a badge right only in the tree. rj3ytv0b, Container clone test. Both fail before the fix and pass after, on Linux.
-
-- Code review 20260928 item 7. C static analysis on `main` and `dev` checks no files.
-	- ID: 2026092813381407
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
-	- Needs external testing: Windows. The lint stage under MSYS2 runs the new scope test with the Windows git, and the whole-tree cppcheck pass.
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: the file list is changes against `dev`, which is empty on `dev` and right after a merge to `main`. The stage prints OK.
-	- Expected behavior: README, every build goes through static analysis, and the pre-push header, nothing reaches the release branch unverified.
-	- Reproduced: yes, 20260928, Linux.
-	- Origin: 0d92350, 20260802. Not seen by an earlier round. Confirmed.
-	- Actual cause: dev and main only take merges, so the changes since the merge base with dev are always empty there.
-	- Against: lint scoped by file, in the review's Decisions. File scoping stays on feature branches. dev and main lint the whole tree, chosen 20260930 over the latest merge.
-	- Actual fix: on dev, main or a named base, cppcheck covers every first-party C file in the tree, plus untracked ones. Vendored code stays out, now `source/cut-n-paste-code/` as well as `vendor/`. Feature branches are unchanged.
-		- The 15 findings a whole-tree pass had are gone. The string formatter uses the standard `va_copy` in place of the glib macro cppcheck could not follow. The conflict dialog leaked two names, and now frees them. The old bus test's one false positive is suppressed inline.
-		- cppcheck runs on half the cores with a build dir, which keeps the cross-file checks. The whole tree takes about 13 seconds, against about 50 on one core.
-	- Swept: the Windows pipeline runs the same C lint through the lint stage. No other check picks its files by a diff against dev. The scope is described in the lint's header, the code style guide, the cicd config and the suppressions file. The Windows script's own wording goes with item 31.
-	- Branch: gatefix, lintall
-	- Commit: 8116044, f63374e, fee3012
-	- Test case: rj3ytty2, C lint scope test: a feature branch, dev after a merge and after a later commit, main after the release merge, untracked and deleted files, a branch with no C and one with an uncommitted edit, and a branch named as the base. Fails against the latest-merge scope and passes after, on Linux. rj46m24q, EEL string check test, and rj46pkw3, Conflict dialog test, for the C fixes. Both pin behavior the fixes kept, so neither fails before them.
-	- Verified: the whole-tree C lint fails with the 15 findings before the C fixes and is clean after. Lint and the test ID check pass.
 
 - Code review 20260928 item 8. A FIFO named .lnk freezes the window.
 	- ID: 2026092813381408
@@ -358,28 +157,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rfwwdyvg, Link copy test, a hardlink of a relative symlink made in another folder. Fails before the fix and passes after, on Linux.
 	- Verified: the link copy test passes on Linux. The Windows code builds but was not run, since wine makes no symlinks.
 	- Note: rfwwdyvg passed on b29w on 20261002, in the native suite, but it skips its symlink checks without a word when symlinks can't be made, so this case is not shown to have run.
-
-- Code review 20260928 item 18. A relative symlink between two shares of one server does not resolve.
-	- ID: 2026092813381418
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: Windows, a relative link made on one share to a file on another share of the same server comes out with the full path, and one within a share still comes out relative.
-	- Priority|Severity: Low
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Target OS: Windows.
-	- Incorrect behavior: a link from `\\srv\a\x` to `\\srv\b\y` is written as `..\..\b\y`, which Windows cannot follow above a share.
-	- Reproduced: yes, 20260928, in the Windows build under wine, by the relative path it spells. Not tried against a real share.
-	- Actual cause: only the first part of the two paths had to match. For a share path that is the server, but the share has to match too.
-	- Origin: 1866e56, 20260925 (linkedit). New ground. Confirmed.
-	- Actual fix: a share path needs both the server and the share in common, including the long `\\?\UNC\` form. Otherwise the full path is used.
-	- Swept: Make link's relative symlinks and the shortcut's relative path both go through the same spelling code.
-	- Branch: linkfix
-	- Commit: 342d30a
-	- Test case: rfwwdyvg, Link copy test, on Windows only. Fails before the fix and passes after, under wine.
-	- Verified: the link copy test's share checks pass under wine. Its one failure there is the old one, since wine makes no symlinks.
-	- Note: rfwwdyvg passed on b29w on 20261002, in the native suite. Whether the box had two shares to link between is not shown.
 
 - Code review 20260928.
 	- ID: 2026092813381400
@@ -922,6 +699,155 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Optional striped rows (turn on instantly, don't bother with menu)
 	- Test case: none, demo content. `cicd/utility/lint-demo-script.py` checks the script.
 
+- Code review 20260928 item 1. Zooming while thumbnails render can store a small thumbnail as full size, and it is never made again.
+	- ID: 2026092813381401
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
+	- Priority|Severity: High
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: the picture stays blurry at the larger size until the file is edited or the cache is cleared.
+	- Expected behavior: design.md, a thumbnail is made again bigger when a draw wants more than is stored.
+	- Reproduced: yes, 20260928, Linux.
+	- Actual cause: a new request merges into the job a worker is already running, and the worker stores the new size with the old picture.
+	- Origin: 0c1612a and 056d3e0, 20260921 (thumbdb, thumbs). New ground. Confirmed.
+	- Actual fix: a job a worker has started is no longer changed. A bigger ask for the same file waits behind it and starts when it ends. A smaller or equal one is answered by the job already running. A job that ends only clears its own entry from the queue table, not a newer one for the same file.
+	- Swept: besides the merge, a queued job is only changed by the remove path, which just marks it canceled, and by shutdown, which now drops a waiting follow-up. No other code writes to a job once it is queued.
+	- Note: edits during a render no longer rewrite the running job's size and time either. Item 9's queued-edit path is unchanged.
+	- Note: while a bigger ask waits behind a running job, the file reads as not being made, so the thumbnail progress bar can end a moment early. Left as is.
+	- Branch: thumbzoom
+	- Commit: 1a7470d
+	- Test case: rj043mnp, Thumbnail zoom during render test. Linux only. Fails before the fix, passes after.
+	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
+	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. rj043mnp covers it.
+	- Closed: 20261003-112426
+
+- Code review 20260928 item 5. The installer and prefix checks cannot fail a pipeline run.
+	- ID: 2026092813381405
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full pipeline ran on 20261002. The packages stage ran both checks, both passed, and the run went on to dogfood.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: a broken installer prints a warning, and the run still goes on to dogfood and publish.
+	- Expected behavior: the check stops the run, as the done item for the installer fixes says it does.
+	- Reproduced: yes, 20260928, Linux.
+	- Actual cause: both checks sit in the packaging list, where a failure only warns.
+	- Origin: 7284973, 20260925, and c5f4e7b, 20260926. New ground. Confirmed.
+	- Against: warn-only packagers, in the review's Decisions. The packagers still only warn. Only the two checks moved.
+	- Actual fix: the two checks have a list of their own in the pipeline config. They run after the packagers, and any failure but a skip stops the run before dogfood and publish.
+	- Swept: the Windows pipeline has no packages stage, and its installer check already stops the run. Nothing else sits in the packaging list but the two packagers.
+	- Branch: gatefix
+	- Commit: 9000f48
+	- Test case: rj3yttvt, Package checks test. Fails before the fix and passes after, on Linux.
+	- Verified: the test also fails on a fix that warns instead of stopping. The installer and prefix checks both pass on the current release tarball, so the new stop does not block a run today.
+	- Acceptance signoff: Self-closed: a pipeline check with nothing on screen. rj3yttvt covers it.
+	- Closed: 20261003-112426
+
+- Code review 20260928 item 9. A checksum taken after a file changed keeps that content out of the cache for good.
+	- ID: 2026092813381409
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: a picture edited while its thumbnail is queued is stored with its old size and new checksum. Every later store of that content, under any name, then fails, and the file is made again on every visit.
+	- Reproduced: yes at the database level, 20260928, Linux. Through the thumbnail queue too, 20260930, Linux: a picture edited after the view read its size and time, and before its job ran.
+	- Actual cause: a thumbnail job keeps the size and time from when the view last looked, and checksums the contents as they are when it runs. The checksum is unique on its own, but the lookup matches checksum and size.
+	- Origin: 42adbdf and 0c1612a, 20260921 (thumbdb). New ground. Confirmed.
+	- Actual fix: the job reads the size and time again once the checksum is done, and keeps no checksum if either moved. The store finds a record by checksum alone, and a record found at another size takes the newer size. Records written before this are thrown away with the cache, since item 11 changed the tables.
+	- Swept: the thumbnail job is the only place a checksum is worked out. The other source is the store itself, read back by name, size and time. The checksum written onto the file uses the same checked size and time. Attaching a checksum to a name, which only the tests call today, puts the size right the same way. Lookups by name and by size and time still match the size, as they should.
+	- Note: item 1's rule is unchanged. A job a worker has started still keeps its size and time. The recheck is after the checksum, inside the job.
+	- Note: on Windows the view reads a symlink's own size and time, while the checksum reads what it points at. That was the same mismatch, and such a file now gets no checksum. Read only.
+	- Branch: cachedb
+	- Commit: 4e75a91
+	- Test case: rj40hkdr, Thumbnail of an edited file test. rhd1cv38, File cache store test, with two stores of one checksum at different sizes, under two names. Both fail before the fix and pass after, on Linux.
+	- Verified: those two, and the cache prune, thumbnail store, zoom, hold, order, memory, jobs and file checksum tests, pass three runs in a row on Linux. Lint and the Windows cross build are clean.
+	- Verified: rj40hkdr passed on b29w on 20261002, in the native suite.
+	- Acceptance signoff: Self-closed: what the cache keeps can't be seen on screen. rj40hkdr and rhd1cv38 cover it.
+	- Closed: 20261003-112426
+
+- Code review 20260928 item 11. Cache pruning sorts the whole thumbnail table while it holds the write lock.
+	- ID: 2026092813381411
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: about 1 s per batch at 40k thumbnails, near the 3 s busy timeout at the 2 GiB default. Other windows' stores then fail.
+	- Expected behavior: the file cache item, many processes share the cache without getting in each other's way.
+	- Reproduced: yes for the timing, 20260928, Linux. The failed stores were read only.
+	- Actual cause: both prune rules go by a thumbnail's age, the later of when it was made and when it was last drawn, and nothing indexed it. Each batch sorted or scanned the whole table while holding the write lock.
+	- Origin: 5678432 and 6d52b4b, 20260921 (thumbdb). New ground. Confirmed.
+	- Actual fix: the age is indexed, and both rules' queries walk the index. The index on draw time alone, which nothing used, is gone. The tables changed, so the cache starts over once, on the first run of this version.
+	- Swept: every query the prune runs inside a write. Missing names are picked before the write, in row order. Orphaned records are found by a scan of the records with no sort, fast at 40 thousand. Draw counts, forget and store go by key. There is no other sort in the store.
+	- Note: picking no longer grows with the table, but a batch still holds the write lock for as long as its deletes take. With 40 thousand thumbnails of 16 KB, another window's write waited at most about 1.4 s, against about 1.6 s before. Both are under the 3 s timeout. A cap on bytes per batch would cut it further. Not done here.
+	- Branch: cachedb
+	- Commit: 1a08e33
+	- Test case: rhd69rjr, File cache prune test, with 1500 thumbnails. The prune's own pick queries walk at most one batch and sort nothing. Fails before the fix and passes after, on Linux.
+	- Verified: same runs as item 9.
+	- Acceptance signoff: Self-closed: how long the cache holds its lock can't be seen on screen. rhd69rjr covers it.
+	- Closed: 20261003-112426
+
+- Code review 20260928 item 6. The pre-push version guard reads the working tree, not the commit being pushed.
+	- ID: 2026092813381406
+	- Type: Bug
+	- Status: Done
+	- Needs external testing: Windows. One push to main through the hook from a Windows checkout, to see that a clean checkout reads as clean.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: a push to `main` with no version bump passes when the bump is only uncommitted, or when another branch is checked out. The gate also runs on the tree rather than the pushed commit.
+	- Expected behavior: the hook header, a push to `main` must raise the version.
+	- Reproduced: yes, 20260928, Linux.
+	- Origin: 2d475c4, 20260718. Not seen by an earlier round. Confirmed.
+	- Actual cause: the hook read the version and the README badge from the working tree, and the gate builds whatever tree is checked out.
+	- Actual fix: the version and badge are read from the commit being pushed. A push to main is refused when the tracked files differ from that commit, as with another branch checked out or an uncommitted edit. Untracked files are allowed. The container runner also refuses a clone other than the one its container has mounted, such as a second worktree, which it would otherwise have tested instead.
+	- Note: a release is now pushed from a clean checkout of main in the main clone. A merge made while another branch is checked out still works, but main has to be checked out, with nothing uncommitted, before the push.
+	- Signed off: 20260930, a clean main in the main clone for a release push.
+	- Swept: both reads in the version guard, the Windows gate (the same check runs before it), and the container runner the gate's build and tests go through. The release and cross builds call the container directly, but a full run from another clone now stops at the debug build, before they run.
+	- Branch: gatefix
+	- Commit: 683eae0
+	- Test case: rhtrxr80, Pre-push version guard, with five new hook runs: a bump only in the tree, another commit checked out, an uncommitted edit, an untracked file, and a badge right only in the tree. rj3ytv0b, Container clone test. Both fail before the fix and pass after, on Linux.
+	- Acceptance signoff: Self-closed: a hook check with nothing on screen. rhtrxr80 and rj3ytv0b cover it. The Windows case is left to the next push from a Windows checkout.
+	- Closed: 20261003-112426
+
+- Code review 20260928 item 7. C static analysis on `main` and `dev` checks no files.
+	- ID: 2026092813381407
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
+	- Needs external testing: Windows. The lint stage under MSYS2 runs the new scope test with the Windows git, and the whole-tree cppcheck pass.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: the file list is changes against `dev`, which is empty on `dev` and right after a merge to `main`. The stage prints OK.
+	- Expected behavior: README, every build goes through static analysis, and the pre-push header, nothing reaches the release branch unverified.
+	- Reproduced: yes, 20260928, Linux.
+	- Origin: 0d92350, 20260802. Not seen by an earlier round. Confirmed.
+	- Actual cause: dev and main only take merges, so the changes since the merge base with dev are always empty there.
+	- Against: lint scoped by file, in the review's Decisions. File scoping stays on feature branches. dev and main lint the whole tree, chosen 20260930 over the latest merge.
+	- Actual fix: on dev, main or a named base, cppcheck covers every first-party C file in the tree, plus untracked ones. Vendored code stays out, now `source/cut-n-paste-code/` as well as `vendor/`. Feature branches are unchanged.
+		- The 15 findings a whole-tree pass had are gone. The string formatter uses the standard `va_copy` in place of the glib macro cppcheck could not follow. The conflict dialog leaked two names, and now frees them. The old bus test's one false positive is suppressed inline.
+		- cppcheck runs on half the cores with a build dir, which keeps the cross-file checks. The whole tree takes about 13 seconds, against about 50 on one core.
+	- Swept: the Windows pipeline runs the same C lint through the lint stage. No other check picks its files by a diff against dev. The scope is described in the lint's header, the code style guide, the cicd config and the suppressions file. The Windows script's own wording goes with item 31.
+	- Branch: gatefix, lintall
+	- Commit: 8116044, f63374e, fee3012
+	- Test case: rj3ytty2, C lint scope test: a feature branch, dev after a merge and after a later commit, main after the release merge, untracked and deleted files, a branch with no C and one with an uncommitted edit, and a branch named as the base. Fails against the latest-merge scope and passes after, on Linux. rj46m24q, EEL string check test, and rj46pkw3, Conflict dialog test, for the C fixes. Both pin behavior the fixes kept, so neither fails before them.
+	- Verified: the whole-tree C lint fails with the 15 findings before the C fixes and is clean after. Lint and the test ID check pass.
+	- Acceptance signoff: Self-closed: a lint stage with nothing on screen. rj3ytty2, rj46m24q and rj46pkw3 cover it. The Windows case is left to the next native gate run.
+	- Closed: 20261003-112426
+
 - Code review 20260928 item 12. Redo after undoing Make link makes a different kind of link.
 	- ID: 2026092813381412
 	- Type: Bug
@@ -1033,6 +959,79 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: `test-nemo-psd`: rows at the least length are read, one byte less is refused, and a file of empty rows, 30000 by 30000 as psd and 60000 by 60000 as psb, is refused in under a second. Fuzz seed `zero-rows`, and `short-literal` reworked so it still reaches the literal-run bound.
 	- Branch: psdrows
 	- Commit: 24d99cd
+
+- Code review 20260928 item 22. The list view's row shading handlers can outlive the view.
+	- ID: 2026092813381422
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The gate passed 145 of 145 on 472f957.
+	- Needs external testing: one Windows box run, since the view base's Windows-only dot-files handler changed. The cross build is clean.
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: changing row shading while a closed tab's view is still held, as a rename or unmount does, calls into a freed tree view.
+	- Reproduced: yes, 20261002, Linux. A closed tab's list view, still held, kept 25 handlers on the settings groups, row shading, its color and folder expansion among them. No crash was seen.
+	- Origin: f172064, 20260918 (row shading). Same class as code review 20260919 items 3 and 10. Regression of that class. Confirmed.
+	- Actual cause: the list view, the view it is built on and the icon view connected their settings handlers with a plain connect and removed them in finalize. A view held after its tab closes is not finalized until it is let go, but its widgets go when the tab closes, so a settings change in between ran the handlers on freed widgets.
+	- Actual fix: every handler on a settings group whose data is an object is now connected with `g_signal_connect_object`, so it goes when its owner is torn down, and the disconnects that went with them are gone. The two that move the icon container from one group to the other stay. The settings handler lint now reports a plain connect for an object on a settings group. design.md, "Handlers on settings groups", has the rule.
+	- Sweep: every plain connect on a settings group with an object as its data, per design.md "Handlers on settings groups".
+	- Swept: 64 connects in the list view, icon view, view base, window, icon container, icon grid container, path bar, places and tree sidebars, toolbar, action manager, job queue, both plugin settings pages and the main application. The settings handler lint over `source/` reports none left.
+	- Note: left as they were: the Current folder tab's struct, handlers with no data or a file static, the separator test's local, and handlers on other objects, which only the table covers. Two defects found nearby are their own items, 2026100221072783 and 2026100221072784.
+	- Branch: prefhandlers
+	- Commit: 4081143 (lint), bc2cd7d and 472f957 (test), 17a568c (fix)
+	- Test case: rjahhesy, Held view settings handlers test. A closed tab's list or icon view, still held, has no handler left on a settings group, and row shading, its color and folder expansion still reach the open tab. It fails with the list and icon view files from before the fix. `lint-pref-handlers.py --self-test`, new cases for a held view, a handler never disconnected and a local not disconnected.
+	- Acceptance signoff: Self-closed: a handler left on a held view shows nothing on screen. rjahhesy and the lint self-test cover it, and the design.md rule table stands. The Windows case runs with the next native suite run.
+	- Closed: 20261003-112426
+
+- Code review 20260928 item 23. File jobs and the clipboard leak memory on every operation.
+	- ID: 2026092813381423
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The gate passed 155 of 155 on d1872a5.
+	- Needs external testing: none. Nothing changed is Windows-only code, and the cross build is clean.
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Related IDs: 2026100307122400, 2026100308563229, 2026100308563234
+	- Incorrect behavior: each move job, each file moved by rename, each job's progress, each drag's clipboard check, and a canceled zip leak a little. A few smaller leaks sit in search, theme and window setup.
+	- Reproduced: yes, 20261003, Linux. Every site grew the heap on each repeat, and a stopped zip by about a quarter of a megabyte.
+	- Origin: upstream, apart from the zip one from 6c2418f, 20260820. Not seen by an earlier round. Confirmed.
+	- Actual cause: each site kept or copied something and never let it go on one way out. The progress manager also kept its own hold on every job's progress after the job finished, so the whole progress went, not only its lock. A stopped zip failed the archive library's last writes, and the library then skipped the step that frees its compressor. Every compress and unpack job also kept two holds on its stop handle and let go of one.
+	- Actual fix: each site frees what it owns. The progress manager lets go of a job's progress when the job finishes, and lets go of its handler when it goes itself. The zip writer treats a write after a stop as done rather than failed, and the job still reports the stop. Compress and unpack jobs take one hold on the stop handle. A stopped tar fails its last writes again once the job is done with it, so a stop near the start of a big file ends at once, as it did before.
+	- Sweep: whatever these functions own and miss on a way out, in the same files and the progress manager.
+	- Swept: copy, duplicate and link jobs free their desktop location already. The progress manager's hold on each finished job. The progress lock beside its condition. The window's view id, visible columns and column order, kept like its sort column. The theme check's first copy when it gives up. The bookmark metadata error when that file is missing. The clipboard check is the only place that waits for the clipboard; every other read is handed its data and freed by the toolkit. The stop handle in the compress and unpack job setup; the file jobs' setup was already right, and nothing else asks a progress for its stop handle.
+	- Note: item 2026100307122400, the 150 bytes left by every archive job, was this item's, and closed with it. Leaks seen only at exit, in the startup command line and the undo manager, were left alone.
+	- Branch: leaks
+	- Commit: 9619c6a (progress), fa3de32 (move), d9c526d (clipboard), 63f91f0 (zip), e98eb39 (search), 0c7b356 (bookmarks), b565bf2 (window), cc31dd3 (theme), 4802a37 (stop handle), 377d761 (leak test readings), d1872a5 (tar stop)
+	- Test case: rjbkzvdv Job progress leak test, rjbkzwe7 Move job leak test, rjbmdd0s Clipboard drag check leak test, rjbmh7g1 Stopped zip leak test, rjbn18rq Search query leak test, rjbn19rn Bookmarks load leak test, rjbn328w Bookmarks file load leak test, rjbpmcxy Extract job leak test, rjbqagjf Stopped tar.gz leak test. Each repeats its operation and fails when the heap grows, and each fails with its fix taken out. rjbpyy28 Archive stop time test: a stopped tar.gz or tar.xz of a 16 GiB file has to end in under twice the time a 4 GiB one takes, plus 3 s. The window and theme sites have no test, since only the running program reaches them; a window closing and the theme check were checked by hand to leave nothing behind, before and after.
+	- Acceptance signoff: Self-closed: leaks show nothing on screen. The nine leak tests and rjbpyy28 cover it. The window and theme sites have no test, since nothing in the suite reaches them; item 35's sanitizer build is where they get one.
+	- Closed: 20261003-112426
+
+- Code review 20260928 item 18. A relative symlink between two shares of one server does not resolve.
+	- ID: 2026092813381418
+	- Type: Bug
+	- Status: Done
+	- Needs external testing: Windows, a relative link made on one share to a file on another share of the same server comes out with the full path, and one within a share still comes out relative.
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Target OS: Windows.
+	- Incorrect behavior: a link from `\\srv\a\x` to `\\srv\b\y` is written as `..\..\b\y`, which Windows cannot follow above a share.
+	- Reproduced: yes, 20260928, in the Windows build under wine, by the relative path it spells. Not tried against a real share.
+	- Actual cause: only the first part of the two paths had to match. For a share path that is the server, but the share has to match too.
+	- Origin: 1866e56, 20260925 (linkedit). New ground. Confirmed.
+	- Actual fix: a share path needs both the server and the share in common, including the long `\\?\UNC\` form. Otherwise the full path is used.
+	- Swept: Make link's relative symlinks and the shortcut's relative path both go through the same spelling code.
+	- Branch: linkfix
+	- Commit: 342d30a
+	- Test case: rfwwdyvg, Link copy test, on Windows only. Fails before the fix and passes after, under wine.
+	- Verified: the link copy test's share checks pass under wine. Its one failure there is the old one, since wine makes no symlinks.
+	- Note: rfwwdyvg passed on b29w on 20261002, in the native suite. Whether the box had two shares to link between is not shown.
+	- Acceptance signoff: Self-closed: two shares of one server with a relative link between them is hard to set up by hand. rfwwdyvg covers it on Windows, run under wine.
+	- Closed: 20261003-112426
 
 - Code review 20260928 item 21. One Ctrl+click check in the list view was missed by the macOS Cmd change.
 	- ID: 2026092813381421
@@ -1211,6 +1210,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjbmh7g1 Stopped zip leak test, now held to the same limit as the other leak tests, and rjbpmcxy Extract job leak test. Both fail with the extra hold put back.
 	- Acceptance signoff: Self-closed: reproduced, the tests fail before the fix and pass after, and the sweep has its answer on item 2026092813381423.
 	- Closed: 20261003-081627
+
+- A stopped 7z made without the 7-Zip program takes as long to end as the rest of the file would have taken.
+	- ID: 2026100308563234
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261003-085632
+	- Opened by: review of item 2026092813381423
+	- Related IDs: 2026092813381423
+	- Requirements:
+		- A stop on a 7z written by the built-in writer ends about as fast as a stop on a zip or tar.gz.
+	- Note: the built-in writer is used where the 7-Zip program is missing, or where link storing is off. On a stop it fills the rest of the open entry with zeros through its compressor, into a temporary file of its own, so how the job handles the output does not reach it. A 2 GB file stopped near the start took 24 s, the same before and after item 2026092813381423. The progress bar stands still meanwhile, and the next queued job waits.
+	- Actual fix: after a stop, the 7z writer is marked failed and then closed. The close skips the open entry, so there are no zeros to write, and still frees what it holds. The temporary file and compressor go when the writer is freed. A stop now ends in about 0.01 s, as fast as on a zip.
+	- Branch: stop7z
+	- Commit: ef05a4f
+	- Test case: rjbpyy28 Archive stop time test now has a 7z case. A 4 GiB and a 16 GiB file are stopped at their first progress report. Before the fix, the 4 GiB one took 50 s and the 16 GiB one did not end in 100 s. After, both take 0.01 s. rjbw0rkq Stopped 7z leak test, which fails at 82 bytes a round when the close is left out.
+	- Acceptance signoff: waiting. The archive writer's handling of a stop changed again, this time for the 7z.
 
 ## Old format
 
