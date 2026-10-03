@@ -218,6 +218,8 @@ These are the features that make Nemo worth porting:
 
 - Every folder follows one set of view defaults, unless per-folder settings are turned on.
 
+- Window size and zoom are remembered for each monitor, by its resolution and DPI. A window dragged to another monitor takes the size and zoom last used there. (Coming soon.)
+
 - Search has several improvements:
 
 	- Search results can be grouped under the folder they came from. A flat list of thirty files all called `notes.txt` tells you nothing; a row per folder with the matches under it tells you where to look. It's one toggle in the search bar, and the results are the same either way.
