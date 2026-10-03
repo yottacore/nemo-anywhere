@@ -193,6 +193,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjbkzvdv Job progress leak test, rjbkzwe7 Move job leak test, rjbmdd0s Clipboard drag check leak test, rjbmh7g1 Stopped zip leak test, rjbn18rq Search query leak test, rjbn19rn Bookmarks load leak test, rjbn328w Bookmarks file load leak test, rjbpmcxy Extract job leak test, rjbqagjf Stopped tar.gz leak test. Each repeats its operation and fails when the heap grows, and each fails with its fix taken out. rjbpyy28 Archive stop time test: a stopped tar.gz or tar.xz of a 16 GiB file has to end in under twice the time a 4 GiB one takes, plus 3 s. The window and theme sites have no test, since only the running program reaches them; a window closing and the theme check were checked by hand to leave nothing behind, before and after.
 	- Acceptance signoff: waiting. Two sites rest on a hand check, and the archive writer's handling of a stop changed.
 
+- A stopped 7z made without the 7-Zip program takes as long to end as the rest of the file would have taken.
+	- ID: 2026100308563234
+	- Type: Enhancement
+	- Status: Waiting on signoff
+	- Priority|Severity: Low
+	- Opened: 20261003-085632
+	- Opened by: review of item 2026092813381423
+	- Related IDs: 2026092813381423
+	- Requirements:
+		- A stop on a 7z written by the built-in writer ends about as fast as a stop on a zip or tar.gz.
+	- Note: the built-in writer is used where the 7-Zip program is missing, or where link storing is off. On a stop it fills the rest of the open entry with zeros through its compressor, into a temporary file of its own, so how the job handles the output does not reach it. A 2 GB file stopped near the start took 24 s, the same before and after item 2026092813381423. The progress bar stands still meanwhile, and the next queued job waits.
+	- Actual fix: after a stop, the 7z writer is marked failed and then closed. The close skips the open entry, so there are no zeros to write, and still frees what it holds. The temporary file and compressor go when the writer is freed. A stop now ends in about 0.01 s, as fast as on a zip.
+	- Branch: stop7z
+	- Commit: ef05a4f
+	- Test case: rjbpyy28 Archive stop time test now has a 7z case. A 4 GiB and a 16 GiB file are stopped at their first progress report. Before the fix, the 4 GiB one took 50 s and the 16 GiB one did not end in 100 s. After, both take 0.01 s. rjbw0rkq Stopped 7z leak test, which fails at 82 bytes a round when the close is left out.
+	- Acceptance signoff: waiting. The archive writer's handling of a stop changed again, this time for the 7z.
+
 - Code review 20260928 item 3. Edit link on a symlink whose name ends in .lnk turns the symlink into a plain file.
 	- ID: 2026092813381403
 	- Type: Bug
@@ -904,19 +921,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Advanced automatic column sizing logic
 			- Optional striped rows (turn on instantly, don't bother with menu)
 	- Test case: none, demo content. `cicd/utility/lint-demo-script.py` checks the script.
-
-- A stopped 7z made without the 7-Zip program takes as long to end as the rest of the file would have taken.
-	- ID: 2026100308563234
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261003-085632
-	- Opened by: review of item 2026092813381423
-	- Related IDs: 2026092813381423
-	- Requirements:
-		- A stop on a 7z written by the built-in writer ends about as fast as a stop on a zip or tar.gz.
-	- Note: the built-in writer is used where the 7-Zip program is missing, or where link storing is off. On a stop it fills the rest of the open entry with zeros through its compressor, into a temporary file of its own, so how the job handles the output does not reach it. A 2 GB file stopped near the start took 24 s, the same before and after item 2026092813381423. The progress bar stands still meanwhile, and the next queued job waits.
-	- Test case: none yet. A size check like rjbpyy28 for the 7z.
 
 - Code review 20260928 item 12. Redo after undoing Make link makes a different kind of link.
 	- ID: 2026092813381412
