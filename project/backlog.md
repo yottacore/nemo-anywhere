@@ -56,6 +56,30 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rj04ta3n, Tree menu key test. Linux only. Fails before the fix, passes after.
 	- Verified: the new test fails before the fix, with the crash, and passes five runs in a row after it on Linux. A right click on a tree row still opens the menu, and one on empty space opens nothing. Lint is clean.
 
+- Settings in an older SHCL format are kept as a backup and written again in the current one.
+	- ID: 2026100311512222
+	- Type: Enhancement
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The full Linux suite and the gate passed on 20261003.
+	- Needs external testing: a Windows box run of rjc4dd8z, with the next batch.
+	- Priority|Severity: Avg
+	- Opened: 20261003-115122
+	- Opened by: t00mietum
+	- Requirements:
+		- When a shcl upgrade breaks compatibility with the application config file(s):
+			- Check if the new shcl version has breaking changes. If so:
+				- Rename the latest config file '[origname]_backup_YYYYmmDD-HHMMSS_format-v[shcl version].shcl'
+				- Write a new config file with the same previous path and name, from scratch through shcl, using whatever settings and conversions shcl can handle.
+	- Decisions:
+		- The old file is copied to the backup name, then the new one replaces it in one step. Another copy of the app starting at that moment never finds the file missing.
+		- A file with no format line came from a 2.x release, or a hand edit took the line out. At startup it is only rewritten when the old rules read it differently, and only spellings both rules agree on are changed. While running it is read as a hand edit and left alone. Its backup name says format 2.
+		- A file in a newer format is read but never saved over. A change made meanwhile is kept and saved once the file is current again. Otherwise an older build and a newer one would keep rewriting each other's file, with a new backup each time.
+		- If the backup can't be written, the old file is not saved over.
+		- The new file has only the settings this release knows, each with its comment. Anything else stays in the backup.
+	- Branch: shclfmt
+	- Commit: dd08205
+	- Test case: rjc4dd8z, Config format upgrade test. Fails before the change, passes after.
+
 - Code review 20260928 item 3. Edit link on a symlink whose name ends in .lnk turns the symlink into a plain file.
 	- ID: 2026092813381403
 	- Type: Bug
