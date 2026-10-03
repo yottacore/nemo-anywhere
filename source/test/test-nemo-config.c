@@ -560,6 +560,113 @@ test_pending_change_survives_reload (NemoConfigGroup *prefs, NemoConfigGroup *wi
 	nemo_config_flush ();
 }
 
+/* The other direction: a hand edit saved while a change made here is waiting
+ * to be written, and before the file monitor has said anything. No main loop
+ * runs between the edit and the flush, so only the save itself can see it.
+ * The edit keeps every key it changed, except one also changed here, where the
+ * change made here wins, as it does when the monitor gets there first. */
+static void
+test_hand_edit_survives_save (NemoConfigGroup *prefs, NemoConfigGroup *window_state)
+{
+	char  *path = nemo_config_get_path ();
+	char  *text;
+	gulong id;
+	int    spins = 0, seen;
+
+	nemo_config_flush ();
+	nemo_config_set_int (window_state, "sidebar-width", 556);
+
+	changed_count = 0;
+	id = g_signal_connect (prefs, "changed::show-hidden-files",
+	                       G_CALLBACK (on_changed), NULL);
+	check (g_file_set_contents (path,
+	                           "preferences:\n"
+	                           "\tshow-hidden-files: true\n"
+	                           "window-state:\n"
+	                           "\tsidebar-width: 300\n", -1, NULL));
+	nemo_config_flush ();
+
+	text = read_settings ();
+	check (strstr (text, "show-hidden-files: true") != NULL);
+	check (strstr (text, "sidebar-width: 556") != NULL);
+	g_free (text);
+	check (nemo_config_get_boolean (prefs, "show-hidden-files") == TRUE);
+	check (nemo_config_get_int (window_state, "sidebar-width") == 556);
+	/* test_external_edit left a second handler on this key. */
+	check (changed_count >= 1);
+	seen = changed_count;
+
+	/* The monitor's late events for the edit must change nothing now. */
+	while (spins++ < 100) {
+		g_main_context_iteration (NULL, FALSE);
+		g_usleep (5000);
+	}
+	check (nemo_config_get_boolean (prefs, "show-hidden-files") == TRUE);
+	check (nemo_config_get_int (window_state, "sidebar-width") == 556);
+	check (changed_count == seen);
+	g_signal_handler_disconnect (prefs, id);
+
+	nemo_config_reset (window_state, "sidebar-width");
+	nemo_config_reset (prefs, "show-hidden-files");
+	nemo_config_flush ();
+	g_free (path);
+}
+
+/* The same race, with the file removed by hand, then with one in a newer
+ * format put in its place. Each is taken as the monitor would take it. */
+static void
+test_hand_delete_and_newer_before_save (NemoConfigGroup *prefs, NemoConfigGroup *window_state)
+{
+	static const char newer[] =
+		"preferences.show-hidden-files: true\n"
+		"\n"
+		"##    Format   999\n";
+	char *path = nemo_config_get_path ();
+	char *text;
+	int   spins = 0;
+
+	nemo_config_set_boolean (prefs, "show-hidden-files", TRUE);
+	nemo_config_flush ();
+
+	/* Removing the file is going back to defaults, apart from the change made here. */
+	nemo_config_set_int (window_state, "sidebar-width", 557);
+	check (g_remove (path) == 0);
+	nemo_config_flush ();
+	text = read_settings ();
+	check (strstr (text, "show-hidden-files") == NULL);
+	check (strstr (text, "sidebar-width: 557") != NULL);
+	g_free (text);
+	check (nemo_config_get_boolean (prefs, "show-hidden-files") == FALSE);
+
+	/* A newer format is read, never saved over. */
+	nemo_config_set_int (window_state, "sidebar-width", 558);
+	check (g_file_set_contents (path, newer, -1, NULL));
+	nemo_config_flush ();
+	text = read_file ();
+	check (strcmp (text, newer) == 0);
+	g_free (text);
+	check (nemo_config_get_boolean (prefs, "show-hidden-files") == TRUE);
+	check (nemo_config_get_int (window_state, "sidebar-width") == 558);
+
+	/* A current file again, and the change made meanwhile goes out with it. */
+	check (g_file_set_contents (path, "window-state.sidebar-width: 300\n", -1, NULL));
+	nemo_config_set_int (window_state, "sidebar-width", 559);
+	nemo_config_flush ();
+	text = read_settings ();
+	check (strstr (text, "sidebar-width: 559") != NULL);
+	check (strstr (text, "show-hidden-files") == NULL);
+	g_free (text);
+	check (nemo_config_get_boolean (prefs, "show-hidden-files") == FALSE);
+
+	while (spins++ < 100) {
+		g_main_context_iteration (NULL, FALSE);
+		g_usleep (5000);
+	}
+	nemo_config_reset (window_state, "sidebar-width");
+	nemo_config_flush ();
+	g_free (path);
+}
+
 /* A count of its own: an earlier test leaves on_changed connected to the
    same key. */
 static int      thread_changes;
@@ -914,6 +1021,8 @@ main (int argc, char *argv[])
 	test_oversized_file_refused (prefs);
 	test_duplicate_key_falls_back (prefs, list_view);
 	test_pending_change_survives_reload (prefs, window_state);
+	test_hand_edit_survives_save (prefs, window_state);
+	test_hand_delete_and_newer_before_save (prefs, window_state);
 	test_changed_on_main_thread (prefs);
 	test_backslash_paths_round_trip (prefs, window_state);
 	test_many_reloads (window_state);

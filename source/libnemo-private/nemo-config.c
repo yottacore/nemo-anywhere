@@ -88,6 +88,9 @@ static gboolean    rewrite_due;        /* converted from an older format, not sa
 
 static void schedule_save (const NemoConfigKey *k);
 static void emit_changed  (const char *group, const char *key);
+static gboolean reload_locked (gboolean queue_save, GHashTable **before,
+                               GHashTable **after);
+static void announce_changes (GHashTable *before, GHashTable *after);
 
 /* Key table */
 
@@ -456,8 +459,11 @@ load_locked (gboolean at_start)
 		if (!gone && config_doc != NULL)
 			return;
 
-		if (gone)
+		if (gone) {
 			hands_off = FALSE;
+			g_clear_pointer (&last_written, g_free);
+			last_written_len = 0;
+		}
 		shcl_free (config_doc);
 		config_doc = new_empty_doc ();
 	}
@@ -833,19 +839,39 @@ apply_catalog (shcl_doc *doc, const char *text, gsize len, gsize *out_len)
 static gboolean
 save_now (gpointer data)
 {
-	char     *text = NULL;
-	char     *dir;
-	gsize     text_len;
-	GError   *error = NULL;
-	shcl_str  canon;
-	gboolean  ok;
+	char       *text = NULL;
+	char       *dir;
+	char       *on_disk = NULL;
+	gsize       text_len, disk_len = 0;
+	GError     *error = NULL;
+	GHashTable *before = NULL, *after = NULL;
+	shcl_str    canon;
+	gboolean    ok, have, gone, foreign;
+
+	have = g_file_get_contents (config_path, &on_disk, &disk_len, &error);
+	gone = !have && g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_NOENT);
+	g_clear_error (&error);
 
 	g_mutex_lock (&config_lock);
 	save_timeout_id = 0;
 
+	/* A hand edit saved since the last read, and not yet reported by the
+	 * monitor, would be written over here, and its late event then looks like
+	 * our own write. Take it in first; the keys changed here still win. */
+	if (have)
+		foreign = last_written == NULL || last_written_len != disk_len ||
+		          memcmp (last_written, on_disk, disk_len) != 0;
+	else
+		foreign = gone && last_written != NULL;
+	g_free (on_disk);
+	if (foreign)
+		reload_locked (FALSE, &before, &after);
+
 	/* Load already said why. Changes stay in memory for this run. */
 	if (hands_off) {
 		g_mutex_unlock (&config_lock);
+		if (before != NULL)
+			announce_changes (before, after);
 		return G_SOURCE_REMOVE;
 	}
 
@@ -859,6 +885,9 @@ save_now (gpointer data)
 	 * has been copied out. */
 	shcl_compact (config_doc);
 	g_mutex_unlock (&config_lock);
+
+	if (before != NULL)
+		announce_changes (before, after);
 
 	dir = g_path_get_dirname (config_path);
 	g_mkdir_with_parents (dir, 0700);
@@ -1030,6 +1059,49 @@ restore_pending_locked (GList *pending)
 	}
 }
 
+/* Called with the lock held. Reads the file again and puts back what was
+ * changed here and not saved yet. @queue_save is FALSE when the caller is
+ * the save. Returns whether the file wants rewriting into this format. */
+static gboolean
+reload_locked (gboolean queue_save, GHashTable **before, GHashTable **after)
+{
+	GList *pending;
+
+	*before = snapshot_locked ();
+	pending = capture_pending_locked ();
+	load_locked (FALSE);
+	/* An in-app change made inside the debounce window is not on disk yet, so
+	 * the file we just read doesn't have it. Put those keys back, or the
+	 * queued save would write the reloaded document and lose them. */
+	restore_pending_locked (pending);
+	/* A save skipped while the file was hands off left nothing queued. */
+	if (queue_save && pending != NULL && !hands_off && save_timeout_id == 0)
+		schedule_save (NULL);
+	*after = snapshot_locked ();
+	g_list_free_full (pending, pending_value_free);
+	return rewrite_due;
+}
+
+/* Without the lock: a handler may well set something. Frees both. */
+static void
+announce_changes (GHashTable *before, GHashTable *after)
+{
+	const NemoConfigKey *k;
+
+	for (k = nemo_config_keys; k->key != NULL; k++) {
+		char       *path = key_path (k);
+		const char *a = g_hash_table_lookup (before, path);
+		const char *b = g_hash_table_lookup (after, path);
+
+		if (g_strcmp0 (a, b) != 0)
+			emit_changed (k->group, k->key);
+		g_free (path);
+	}
+
+	g_hash_table_destroy (before);
+	g_hash_table_destroy (after);
+}
+
 static void
 config_file_changed (GFileMonitor      *monitor,
                      GFile             *file,
@@ -1037,12 +1109,10 @@ config_file_changed (GFileMonitor      *monitor,
                      GFileMonitorEvent  event,
                      gpointer           data)
 {
-	GHashTable          *before, *after;
-	const NemoConfigKey *k;
-	GList               *pending;
-	char                *text = NULL;
-	gsize                len = 0;
-	gboolean             rewrite;
+	GHashTable *before, *after;
+	char       *text = NULL;
+	gsize       len = 0;
+	gboolean    rewrite;
 
 	if (event != G_FILE_MONITOR_EVENT_CHANGES_DONE_HINT &&
 	    event != G_FILE_MONITOR_EVENT_CREATED &&
@@ -1062,36 +1132,12 @@ config_file_changed (GFileMonitor      *monitor,
 	}
 
 	g_mutex_lock (&config_lock);
-	before = snapshot_locked ();
-	pending = capture_pending_locked ();
-	load_locked (FALSE);
-	/* An in-app change made inside the debounce window is not on disk yet, so
-	 * the file we just read doesn't have it. Put those keys back, or the
-	 * queued save would write the reloaded document and lose them. */
-	restore_pending_locked (pending);
-	/* A save skipped while the file was hands off left nothing queued. */
-	if (pending != NULL && !hands_off && save_timeout_id == 0)
-		schedule_save (NULL);
-	after = snapshot_locked ();
-	rewrite = rewrite_due;
+	rewrite = reload_locked (TRUE, &before, &after);
 	g_mutex_unlock (&config_lock);
 
-	g_list_free_full (pending, pending_value_free);
 	if (rewrite)
 		save_now (NULL);
-
-	for (k = nemo_config_keys; k->key != NULL; k++) {
-		char       *path = key_path (k);
-		const char *a = g_hash_table_lookup (before, path);
-		const char *b = g_hash_table_lookup (after, path);
-
-		if (g_strcmp0 (a, b) != 0)
-			emit_changed (k->group, k->key);
-		g_free (path);
-	}
-
-	g_hash_table_destroy (before);
-	g_hash_table_destroy (after);
+	announce_changes (before, after);
 }
 
 /* Lifecycle */
