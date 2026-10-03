@@ -505,29 +505,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Possible cause: meson 0.61's `setup --reconfigure` does not apply the option to a build dir set up without it. The current image also has a build dir saved inside it, so even a new container starts from it.
 	- Test case: none yet.
 
-- Code review 20260928 item 25. The .deb changes with the filesystem it is built on.
-	- ID: 2026092813381425
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Low
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Target OS: Linux.
-	- Incorrect behavior: Installed-Size comes from disk blocks, so one tree read 3106 KB on one filesystem and 5176 KB on another.
-	- Expected behavior: README and design.md, Linux builds can be rebuilt from their commit to the same bytes.
-	- Reproduced: yes, 20260928, Linux. Again 20261003: one tarball packed on ext4, btrfs and tmpfs gave Installed-Size 5520, 5320 and 5316, and three different .deb files.
-	- Origin: f49050b, 20260804. The README claim came in d07af73, 20260925. Not seen by an earlier round. Confirmed.
-	- Actual cause: Installed-Size was `du -sk` of the package tree, which counts disk blocks.
-	- Actual fix: it is counted the way dpkg-gencontrol counts it, from file sizes: each file or symlink rounded up to a KiB, a hardlink once, anything else 1.
-	- Swept: the other `du` calls in the pipeline only print a size to the console. The .rpm was already the same on all three filesystems.
-	- Branch: relrepro
-	- Commit: f3b4e94
-	- Test case: `cicd/linux/test-deb-size.bash` (rjcma0se). Fails before the fix, passes after.
-	- Verified: rjcma0se fails before the fix (200 or 128 against 113, and the .deb differs between filesystems) and passes after. The beta2 tarball now packs to the same .deb on ext4, btrfs and tmpfs. The lint stage passes.
-	- Acceptance signoff: Self-closed: a packaging check with nothing on screen. rjcma0se covers it.
-	- Closed: 20261003-163500
-
 - Code review 20260928 item 26. The installers go ahead when a release has no sums file.
 	- ID: 2026092813381426
 	- Type: Bug
@@ -543,53 +520,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: no, read only.
 	- Origin: a2b0e10, 20260723. Not seen by an earlier round. Plausible.
 	- Test case: none yet. A no-sums case in `test-install-download.bash`.
-
-- Code review 20260928 item 27. The Linux release image is not pinned.
-	- ID: 2026092813381427
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Low
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: a box without the image builds it from current Ubuntu 22.04 updates, so later compilers give other bytes.
-	- Expected behavior: design.md, the same bytes on any box on any day, and README, dependency versions are pinned.
-	- Reproduced: pinned 20261003 by rjcma0t3, which fails on the old Dockerfile. `ubuntu:22.04` and the live archive both move, and the image on this box was built from them on 20260804.
-	- Origin: d2b180e and 860904d, before 20260917. Not seen by an earlier round. Plausible.
-	- Actual fix: the Dockerfile pins the base by digest, jammy-20260731.1, which is the base the current image was built on. apt reads the archive from snapshot.ubuntu.com as it stood on 20260804, when the current image was built.
-	- Decisions:
-		- 20261003: pin to the dates the current image was built from, not to today, so a box that builds the image matches the one that built the published releases. Moving on means moving the digest and the snapshot date together.
-		- 20261003: the image on this box is kept as it is. It was not replaced, since it builds the same bytes.
-	- Swept: the dev image (`Dockerfile.dev`) and the Windows cross build image are not release lanes, and are left unpinned.
-	- Branch: relrepro
-	- Commit: f3b4e94
-	- Test case: `cicd/linux/test-release-image-pin.bash` (rjcma0t3). Fails before the fix, passes after.
-	- Verified: rjcma0t3 fails on the old Dockerfile and passes on the new one, and fails when the security source is left out of the rewrite or apt runs first. An image built from the new Dockerfile has the same packages as the current image but two: libsqlite3 is 0.7, where the current image has 0.8 from a later hand install, and the current image also has the beta1 .deb installed. A clean release build of dev `f4d2386` in each gave the same tarball, byte for byte. The lint stage passes.
-	- Acceptance signoff: Self-closed: a build image check with nothing on screen. rjcma0t3 covers it.
-	- Closed: 20261003-163500
-
-- Code review 20260928 item 28. Release notes can carry a build number no binary has.
-	- ID: 2026092813381428
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Low
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: artifacts built on `dev` are published under the merge commit on `main`, which has another date, and nothing checks the two match.
-	- Reproduced: yes, 20261003, Linux. In a scratch repo, release.bash tagged a `--no-ff` merge with artifacts stamped with the dev commit's date.
-	- Origin: `cicd/utility/release.bash`, before 20260917. Not seen by an earlier round. Plausible.
-	- Actual fix: release.bash refuses to tag unless every artifact has HEAD's commit date: the tarball, .deb and .rpm file times, the rpm build time, and the stamp in the zip's own exe. The stamps are read by `cicd/utility/release-stamps.py`. So the artifacts must be built on main after the merge.
-	- Decisions:
-		- 20261003: build on main after the merge rather than tag the dev commit. The tag stays on the merge, as documented, and a rebuild of the tag then matches.
-	- Swept: the hosted Windows workflow already stamps the tag's own commit date. The Windows zip's runtime exes keep their packagers' dates, so only the app's exe is read. The sums file is not stamped.
-	- Branch: relrepro
-	- Commit: f3b4e94
-	- Test case: `cicd/utility/test-release-stamp.bash` (rjcma0tt). Fails before the fix, passes after.
-	- Verified: rjcma0tt fails before the fix (tagged with dev's artifacts) and passes after, with dev's stamp on the tarball, the zip's exe or the .deb each refused. The stamp reader gives one date for each beta2 artifact, which matches dpkg-deb and rpm. The lint stage passes.
-	- Note: the next release cut builds its artifacts on main after the merge, with `cicd/cicd.bash --no-publish`.
-	- Acceptance signoff: Self-closed: a release script check with nothing on screen. rjcma0tt covers it.
-	- Closed: 20261003-163500
 
 - A cache prune batch holds the write lock longer as thumbnails get bigger.
 	- ID: 2026093010493420
@@ -1175,6 +1105,76 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: `test-nemo-psd`: rows at the least length are read, one byte less is refused, and a file of empty rows, 30000 by 30000 as psd and 60000 by 60000 as psb, is refused in under a second. Fuzz seed `zero-rows`, and `short-literal` reworked so it still reaches the literal-run bound.
 	- Branch: psdrows
 	- Commit: 24d99cd
+
+- Code review 20260928 item 25. The .deb changes with the filesystem it is built on.
+	- ID: 2026092813381425
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Target OS: Linux.
+	- Incorrect behavior: Installed-Size comes from disk blocks, so one tree read 3106 KB on one filesystem and 5176 KB on another.
+	- Expected behavior: README and design.md, Linux builds can be rebuilt from their commit to the same bytes.
+	- Reproduced: yes, 20260928, Linux. Again 20261003: one tarball packed on ext4, btrfs and tmpfs gave Installed-Size 5520, 5320 and 5316, and three different .deb files.
+	- Origin: f49050b, 20260804. The README claim came in d07af73, 20260925. Not seen by an earlier round. Confirmed.
+	- Actual cause: Installed-Size was `du -sk` of the package tree, which counts disk blocks.
+	- Actual fix: it is counted the way dpkg-gencontrol counts it, from file sizes: each file or symlink rounded up to a KiB, a hardlink once, anything else 1.
+	- Swept: the other `du` calls in the pipeline only print a size to the console. The .rpm was already the same on all three filesystems.
+	- Branch: relrepro
+	- Commit: f3b4e94
+	- Test case: `cicd/linux/test-deb-size.bash` (rjcma0se). Fails before the fix, passes after.
+	- Verified: rjcma0se fails before the fix (200 or 128 against 113, and the .deb differs between filesystems) and passes after. The beta2 tarball now packs to the same .deb on ext4, btrfs and tmpfs. The lint stage passes.
+	- Acceptance signoff: Self-closed: a packaging check with nothing on screen. rjcma0se covers it.
+	- Closed: 20261003-163500
+
+- Code review 20260928 item 27. The Linux release image is not pinned.
+	- ID: 2026092813381427
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: a box without the image builds it from current Ubuntu 22.04 updates, so later compilers give other bytes.
+	- Expected behavior: design.md, the same bytes on any box on any day, and README, dependency versions are pinned.
+	- Reproduced: pinned 20261003 by rjcma0t3, which fails on the old Dockerfile. `ubuntu:22.04` and the live archive both move, and the image on this box was built from them on 20260804.
+	- Origin: d2b180e and 860904d, before 20260917. Not seen by an earlier round. Plausible.
+	- Actual fix: the Dockerfile pins the base by digest, jammy-20260731.1, which is the base the current image was built on. apt reads the archive from snapshot.ubuntu.com as it stood on 20260804, when the current image was built.
+	- Decisions:
+		- 20261003: pin to the dates the current image was built from, not to today, so a box that builds the image matches the one that built the published releases. Moving on means moving the digest and the snapshot date together.
+		- 20261003: the image on this box is kept as it is. It was not replaced, since it builds the same bytes.
+	- Swept: the dev image (`Dockerfile.dev`) and the Windows cross build image are not release lanes, and are left unpinned.
+	- Branch: relrepro
+	- Commit: f3b4e94
+	- Test case: `cicd/linux/test-release-image-pin.bash` (rjcma0t3). Fails before the fix, passes after.
+	- Verified: rjcma0t3 fails on the old Dockerfile and passes on the new one, and fails when the security source is left out of the rewrite or apt runs first. An image built from the new Dockerfile has the same packages as the current image but two: libsqlite3 is 0.7, where the current image has 0.8 from a later hand install, and the current image also has the beta1 .deb installed. A clean release build of dev `f4d2386` in each gave the same tarball, byte for byte. The lint stage passes.
+	- Acceptance signoff: Self-closed: a build image check with nothing on screen. rjcma0t3 covers it.
+	- Closed: 20261003-163500
+
+- Code review 20260928 item 28. Release notes can carry a build number no binary has.
+	- ID: 2026092813381428
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: artifacts built on `dev` are published under the merge commit on `main`, which has another date, and nothing checks the two match.
+	- Reproduced: yes, 20261003, Linux. In a scratch repo, release.bash tagged a `--no-ff` merge with artifacts stamped with the dev commit's date.
+	- Origin: `cicd/utility/release.bash`, before 20260917. Not seen by an earlier round. Plausible.
+	- Actual fix: release.bash refuses to tag unless every artifact has HEAD's commit date: the tarball, .deb and .rpm file times, the rpm build time, and the stamp in the zip's own exe. The stamps are read by `cicd/utility/release-stamps.py`. So the artifacts must be built on main after the merge.
+	- Decisions:
+		- 20261003: build on main after the merge rather than tag the dev commit. The tag stays on the merge, as documented, and a rebuild of the tag then matches.
+	- Swept: the hosted Windows workflow already stamps the tag's own commit date. The Windows zip's runtime exes keep their packagers' dates, so only the app's exe is read. The sums file is not stamped.
+	- Branch: relrepro
+	- Commit: f3b4e94
+	- Test case: `cicd/utility/test-release-stamp.bash` (rjcma0tt). Fails before the fix, passes after.
+	- Verified: rjcma0tt fails before the fix (tagged with dev's artifacts) and passes after, with dev's stamp on the tarball, the zip's exe or the .deb each refused. The stamp reader gives one date for each beta2 artifact, which matches dpkg-deb and rpm. The lint stage passes.
+	- Note: the next release cut builds its artifacts on main after the merge, with `cicd/cicd.bash --no-publish`.
+	- Acceptance signoff: Self-closed: a release script check with nothing on screen. rjcma0tt covers it.
+	- Closed: 20261003-163500
 
 - Code review 20260928 item 29. The Windows GUI smoke check can miss its window and can use someone else's display.
 	- ID: 2026092813381429
