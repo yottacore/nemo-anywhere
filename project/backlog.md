@@ -355,16 +355,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Code review 20260928 item 24. Settings comments that look like the SHCL info block are removed on save.
 	- ID: 2026092813381424
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes, the full Linux suite. The config tests pass.
 	- Priority|Severity: Low
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
 	- Incorrect behavior: a line of the user's own that starts like the info block's lines is taken as part of it and dropped, and so is a bare `##` next to one.
 	- Expected behavior: a comment of the user's own is kept.
-	- Reproduced: no, read only.
-	- Origin: 851c5aa, 20260925 (shclbanner). New ground. Plausible.
-	- Test case: none yet.
+	- Reproduced: yes, 20261003, Linux. A note spelled `##    Aligned   like the info block` between two `##` lines, at the top of the file, was gone after the next save, `##` lines and all.
+	- Origin: 851c5aa, 20260925 (shclbanner). New ground. Confirmed.
+	- Actual cause: the save took any line starting `##` and four spaces as part of the info block wherever it was, and any `##` next to one.
+	- Actual fix: only a run of `##` lines that has the block's SHCL line or its format line is the block, the same test SHCL itself uses. Inside that run only the block's own lines come off, so a `## note` written against it stays too.
+	- Sweep: every place that takes the info block out of the file.
+	- Swept: `apply_catalog` is the only one. Nothing else strips it, and `shcl_set_banner` is not called.
+	- Branch: shclold
+	- Test case: rg6a49ar Config defaults list test, new case for notes spelled like the block, at the top and right after it. Fails before the fix, passes after.
 
 - Code review 20260928 item 25. The .deb changes with the filesystem it is built on.
 	- ID: 2026092813381425
