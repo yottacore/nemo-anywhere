@@ -141,6 +141,105 @@ move_to_share (const char *lnk_path, const char *name)
 	return ok;
 }
 
+static void
+put32 (GByteArray *out, guint32 v)
+{
+	guint8 b[4] = { v, v >> 8, v >> 16, v >> 24 };
+
+	g_byte_array_append (out, b, 4);
+}
+
+static void
+set32 (GByteArray *out, guint at, guint32 v)
+{
+	out->data[at] = v;
+	out->data[at + 1] = v >> 8;
+	out->data[at + 2] = v >> 16;
+	out->data[at + 3] = v >> 24;
+}
+
+static guint32
+volume_serial (const char *path)
+{
+	wchar_t root[4] = { (wchar_t) path[0], L':', L'\\', 0 };
+	DWORD serial = 0;
+
+	g_assert (GetVolumeInformationW (root, NULL, 0, &serial, NULL, NULL, NULL, 0));
+
+	return serial;
+}
+
+/* Windows writes the share beside the drive path when the target's drive is
+   shared, and wine never does, so the shell's own record is swapped for one
+   with both. Everything else in the file is left as the shell wrote it. */
+static gboolean
+record_shared_drive (const char *lnk_path, const char *local, guint32 serial)
+{
+	const char *net = "\\\\10.255.255.1\\C";
+	guint8 *bytes = NULL;
+	gsize length = 0;
+	GByteArray *out, *info;
+	guint32 flags, at = 0x4c, old_size, net_start;
+	gboolean ok;
+
+	if (!g_file_get_contents (lnk_path, (char **) &bytes, &length, NULL) || length < 0x4c + 4) {
+		g_free (bytes);
+		return FALSE;
+	}
+	flags = bytes[20] | bytes[21] << 8 | bytes[22] << 16 | (guint32) bytes[23] << 24;
+	if (flags & 0x01) {
+		at += 2 + (bytes[at] | bytes[at + 1] << 8);
+	}
+	if (!(flags & 0x02) || at + 4 > length) {
+		g_free (bytes);
+		return FALSE;
+	}
+	old_size = bytes[at] | bytes[at + 1] << 8 | bytes[at + 2] << 16 | (guint32) bytes[at + 3] << 24;
+	if (old_size > length - at || !g_str_is_ascii (local)) {
+		g_free (bytes);
+		return FALSE;
+	}
+
+	info = g_byte_array_new ();
+	for (int i = 0; i < 7; i++) {
+		put32 (info, 0);
+	}
+	set32 (info, 4, 0x1c);
+	set32 (info, 8, 0x03);            /* drive path and share */
+	set32 (info, 12, info->len);
+	put32 (info, 0x11);
+	put32 (info, 3);                  /* fixed drive */
+	put32 (info, serial);
+	put32 (info, 0x10);
+	g_byte_array_append (info, (const guint8 *) "", 1);
+	set32 (info, 16, info->len);
+	g_byte_array_append (info, (const guint8 *) local, strlen (local) + 1);
+	net_start = info->len;
+	set32 (info, 20, net_start);
+	put32 (info, 0);
+	put32 (info, 0);
+	put32 (info, 0x14);
+	put32 (info, 0);
+	put32 (info, 0);
+	g_byte_array_append (info, (const guint8 *) net, strlen (net) + 1);
+	set32 (info, net_start, info->len - net_start);
+	set32 (info, 24, info->len);
+	g_byte_array_append (info, (const guint8 *) "", 1);
+	set32 (info, 0, info->len);
+
+	out = g_byte_array_new ();
+	g_byte_array_append (out, bytes, at);
+	g_byte_array_append (out, info->data, info->len);
+	g_byte_array_append (out, bytes + at + old_size, length - at - old_size);
+	ok = g_file_set_contents (lnk_path, (const char *) out->data, out->len, NULL);
+
+	g_byte_array_free (out, TRUE);
+	g_byte_array_free (info, TRUE);
+	g_free (bytes);
+
+	return ok;
+}
+
 /* The shell honors the icon a shortcut names before anything else, so one
    naming notepad's tells the two routes apart. */
 static void
@@ -154,7 +253,10 @@ test_share (const char *dir)
 	char *doc_on_share = g_build_filename (dir, "doc on share.lnk", NULL);
 	char *tool_on_share = g_build_filename (dir, "tool on share.lnk", NULL);
 	char *icon_on_share = g_build_filename (dir, "icon on share.lnk", NULL);
-	GdkPixbuf *plain_doc, *named_doc, *shared_doc, *shared_tool, *shared_icon;
+	char *shared_drive = g_build_filename (dir, "shared drive.lnk", NULL);
+	char *made_elsewhere = g_build_filename (dir, "made elsewhere.lnk", NULL);
+	guint32 serial = volume_serial (doc);
+	GdkPixbuf *plain_doc, *named_doc, *shared_doc, *shared_tool, *shared_icon, *on_shared_drive, *elsewhere;
 
 	check (nemo_shortcut_win32_create (doc, to_doc, NULL, NULL, NULL, NULL),
 	       "a shortcut to a local document is made");
@@ -168,12 +270,20 @@ test_share (const char *dir)
 	       "a shortcut to a program on a share is made");
 	check (make_with_icon (notepad, DEAD_SHARE "app.ico", 0, icon_on_share),
 	       "a shortcut to notepad with its icon on a share is made");
+	check (make_with_icon (doc, notepad, 0, shared_drive) &&
+	       record_shared_drive (shared_drive, doc, serial),
+	       "one naming notepad's icon, on a drive that is shared, is made");
+	check (make_with_icon (doc, notepad, 0, made_elsewhere) &&
+	       record_shared_drive (made_elsewhere, doc, serial ^ 0x5a5a5a5a),
+	       "and one made on another machine's shared drive");
 
 	plain_doc = nemo_shell_icon_win32_for_path (to_doc, 32, 1);
 	named_doc = nemo_shell_icon_win32_for_path (named, 32, 1);
 	shared_doc = nemo_shell_icon_win32_for_path (doc_on_share, 32, 1);
 	shared_tool = nemo_shell_icon_win32_for_path (tool_on_share, 32, 1);
 	shared_icon = nemo_shell_icon_win32_for_path (icon_on_share, 32, 1);
+	on_shared_drive = nemo_shell_icon_win32_for_path (shared_drive, 32, 1);
+	elsewhere = nemo_shell_icon_win32_for_path (made_elsewhere, 32, 1);
 
 	check (plain_doc != NULL && named_doc != NULL && !same_picture (plain_doc, named_doc),
 	       "a local shortcut wears the icon it names");
@@ -185,13 +295,22 @@ test_share (const char *dir)
 	       "a program on a share gets the plain program icon");
 	check (shared_icon != NULL && shared_tool != NULL && same_picture (shared_icon, shared_tool),
 	       "a shortcut whose icon is on a share wears the icon for its target's name");
+	check (on_shared_drive != NULL && named_doc != NULL && plain_doc != NULL &&
+	       same_picture (on_shared_drive, named_doc) && !same_picture (on_shared_drive, plain_doc),
+	       "a local shortcut to a shared drive wears the icon it names");
+	check (elsewhere != NULL && plain_doc != NULL && same_picture (elsewhere, plain_doc),
+	       "one whose drive is another machine's wears the icon for its name");
 
+	g_clear_object (&on_shared_drive);
+	g_clear_object (&elsewhere);
 	g_clear_object (&plain_doc);
 	g_clear_object (&named_doc);
 	g_clear_object (&shared_doc);
 	g_clear_object (&shared_tool);
 	g_clear_object (&shared_icon);
 
+	g_remove (made_elsewhere);
+	g_remove (shared_drive);
 	g_remove (icon_on_share);
 	g_remove (tool_on_share);
 	g_remove (doc_on_share);
@@ -199,6 +318,8 @@ test_share (const char *dir)
 	g_remove (to_doc);
 	g_remove (tool);
 	g_remove (doc);
+	g_free (made_elsewhere);
+	g_free (shared_drive);
 	g_free (icon_on_share);
 	g_free (tool_on_share);
 	g_free (doc_on_share);

@@ -1239,6 +1239,7 @@ test_share (void)
 	Spec long_local = { .local_base = "\\\\?\\C:\\Tools\\app.exe" };
 	Spec device = { .local_base = "\\\\.\\pipe\\x" };
 	Spec network = { .net_share = "\\\\srv\\Share", .suffix = "app.exe" };
+	Spec shared_drive = { .local_base = "C:\\Tools\\app.exe", .serial = 1, .net_share = "\\\\pc\\C" };
 	Spec unc_base = { .local_base = "\\\\srv\\Share\\app.exe" };
 	Spec long_unc = { .local_base = "\\\\?\\UNC\\srv\\Share\\app.exe" };
 	Spec env_unc = { .env = "\\\\srv\\Share\\app.exe" };
@@ -1269,6 +1270,7 @@ test_share (void)
 	check (!spec_on_share (&icon_wide));
 	check (!spec_on_share (&icon_ansi));
 	check (!spec_on_share (&env_unset));
+	check (!spec_on_share (&shared_drive));
 
 	check (spec_on_share (&network));
 	check (spec_on_share (&unc_base));

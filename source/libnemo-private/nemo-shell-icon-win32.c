@@ -220,6 +220,38 @@ expands_to_remote_drive (const char *windows_path)
 	return remote;
 }
 
+/* A shortcut to a drive that was shared when it was made records the share as
+   well. The drive path is this machine's only when the volume serial matches;
+   otherwise the shell may go by the share. Only the drive root is asked, so a
+   link or mount point on the way to the target is never followed. */
+static gboolean
+drive_is_elsewhere (const NemoLnk *lnk)
+{
+	const char *path = lnk->local_path;
+	wchar_t root[4] = { 0, L':', L'\\', 0 };
+	DWORD serial = 0, old_mode = 0;
+	gboolean same;
+
+	if (lnk->net_share == NULL || path == NULL) {
+		return FALSE;
+	}
+	if (g_str_has_prefix (path, "\\\\?\\")) {
+		path += 4;
+	}
+	if (!lnk->has_serial || !g_ascii_isalpha (path[0]) || path[1] != ':') {
+		return TRUE;
+	}
+
+	root[0] = (wchar_t) g_ascii_toupper (path[0]);
+	/* no "insert a disk" box for an empty drive */
+	SetThreadErrorMode (SEM_FAILCRITICALERRORS, &old_mode);
+	same = GetVolumeInformationW (root, NULL, 0, &serial, NULL, NULL, NULL, 0) &&
+	       serial == lnk->drive_serial;
+	SetThreadErrorMode (old_mode, NULL);
+
+	return !same;
+}
+
 /* The shell's icon for the shortcut at path, or for its target's name when
    the target or the shortcut's own icon is on a share. A shortcut that cannot
    be read gets none, since what it points at cannot be told. */
@@ -239,6 +271,7 @@ shortcut_icon (const char *path, gint pixel_size)
 
 	on_share = nemo_lnk_points_at_share (&lnk) ||
 		   drive_is_remote (lnk.local_path, 0) ||
+		   drive_is_elsewhere (&lnk) ||
 		   expands_to_remote_drive (lnk.env_path) ||
 		   expands_to_remote_drive (lnk.icon_location);
 
