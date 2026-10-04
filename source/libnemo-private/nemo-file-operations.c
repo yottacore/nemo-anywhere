@@ -1376,8 +1376,9 @@ run_simple_dialog_va (CommonJob *job,
 	int res;
 	const char *button_title;
 	GPtrArray *ptr_array;
+	gboolean paused_here;
 
-    nemo_progress_info_pause (job->progress);
+	paused_here = nemo_progress_info_pause (job->progress);
 
 	data = g_new0 (RunSimpleDialogData, 1);
 	data->parent_window = &job->parent_window;
@@ -1404,7 +1405,9 @@ run_simple_dialog_va (CommonJob *job,
 	g_free (data->button_titles);
 	g_free (data);
 
-    nemo_progress_info_resume (job->progress);
+	if (paused_here) {
+		nemo_progress_info_resume (job->progress);
+	}
 
 	g_free (primary_text);
 	g_free (secondary_text);
@@ -1499,6 +1502,7 @@ ask_about_links (CopyMoveJob          *copy_job,
 	const char *dest_path;
 	const char *forced;
 	guint supported;
+	gboolean paused_here;
 
 	copy_job->link_choice_set = FALSE;
 
@@ -1528,9 +1532,11 @@ ask_about_links (CopyMoveJob          *copy_job,
 	data.supported = supported;
 	data.is_move = copy_job->is_move;
 
-	nemo_progress_info_pause (job->progress);
+	paused_here = nemo_progress_info_pause (job->progress);
 	g_io_scheduler_job_send_to_mainloop (job->io_job, do_run_link_dialog, &data, NULL);
-	nemo_progress_info_resume (job->progress);
+	if (paused_here) {
+		nemo_progress_info_resume (job->progress);
+	}
 
 	if (!data.accepted) {
 		return FALSE;
@@ -4834,8 +4840,9 @@ run_conflict_dialog (CommonJob *job,
 {
 	ConflictDialogData *data;
 	ConflictResponseData *resp_data;
+	gboolean paused_here;
 
-    nemo_progress_info_pause (job->progress);
+	paused_here = nemo_progress_info_pause (job->progress);
 
 	data = g_new0 (ConflictDialogData, 1);
 	data->parent = job->parent_window;
@@ -4854,7 +4861,9 @@ run_conflict_dialog (CommonJob *job,
 
 	g_free (data);
 
-    nemo_progress_info_resume (job->progress);
+	if (paused_here) {
+		nemo_progress_info_resume (job->progress);
+	}
 
 	return resp_data;
 }

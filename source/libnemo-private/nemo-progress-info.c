@@ -484,17 +484,22 @@ nemo_progress_info_queue (NemoProgressInfo *info)
     g_mutex_unlock (&info->info_lock);
 }
 
-void
+gboolean
 nemo_progress_info_pause (NemoProgressInfo *info)
 {
+	gboolean paused_here = FALSE;
+
 	g_mutex_lock (&info->info_lock);
 
 	if (!info->paused) {
 		info->paused = TRUE;
+		paused_here = TRUE;
         g_timer_stop (info->time);
 	}
 
 	g_mutex_unlock (&info->info_lock);
+
+	return paused_here;
 }
 
 void
