@@ -529,7 +529,8 @@ struct _EelCanvasAccessibleClass
 	GtkAccessibleClass parent_class;
 };
 
-/* An item's accessible. Subclass it to keep its place on screen. */
+/* An item's accessible, which gives its place on screen. An item type with
+   an accessible of its own derives it from this one. */
 GType eel_canvas_item_accessible_get_type (void);
 
 typedef struct _EelCanvasItemAccessible EelCanvasItemAccessible;
