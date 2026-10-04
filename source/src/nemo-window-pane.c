@@ -1419,10 +1419,14 @@ nemo_window_pane_remove_slot_unsafe (NemoWindowPane *pane,
 	page_num = gtk_notebook_page_num (notebook, GTK_WIDGET (slot));
 	g_assert (page_num >= 0);
 
+	/* Torn down here, not on the last unref. A tab menu, a drag or an idle
+	   can still hold the slot, and when this is the last tab the window is
+	   gone before that ref is dropped, while the view's teardown still needs
+	   the window. */
+	g_object_ref (slot);
 	g_signal_handlers_block_by_func (notebook,
 					 G_CALLBACK (notebook_switch_page_cb),
 					 pane);
-	/* this will call gtk_widget_destroy on the slot */
 	gtk_notebook_remove_page (notebook, page_num);
 	g_signal_handlers_unblock_by_func (notebook,
 					   G_CALLBACK (notebook_switch_page_cb),
@@ -1430,6 +1434,8 @@ nemo_window_pane_remove_slot_unsafe (NemoWindowPane *pane,
 
 	/* The notebook's own remove already set the tab strip, preference included. */
 	pane->slots = g_list_remove (pane->slots, slot);
+	gtk_widget_destroy (GTK_WIDGET (slot));
+	g_object_unref (slot);
 }
 
 NemoWindowSlot *

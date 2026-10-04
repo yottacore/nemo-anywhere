@@ -8,6 +8,8 @@
  * the folder but lost either one fails. The probe also drags a tab off to
  * empty screen: a second tab goes to a new copy, and the only tab stays put,
  * with the window in its own process or with every window in one process.
+ * The only tab dropped on another copy's window, or closed from the tab menu,
+ * takes its window with it, and that copy has to end cleanly.
  *
  * Needs the built program (argv[1]), a display and a session bus. Runs on an
  * X server of its own, since the probe moves the pointer, and starts a bus if
@@ -19,6 +21,7 @@
 #include <gio/gio.h>
 #include <glib/gstdio.h>
 
+#include <fcntl.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
@@ -46,6 +49,49 @@ launch (char **argv)
 	}
 
 	return pid;
+}
+
+static void
+to_log (gpointer data)
+{
+	int fd = open (data, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+
+	if (fd >= 0) {
+		dup2 (fd, STDERR_FILENO);
+		close (fd);
+	}
+}
+
+/* The same, with what the copy prints on stderr kept in a file. */
+static GPid
+launch_logged (char **argv, const char *log_path)
+{
+	GPid pid = 0;
+	GError *error = NULL;
+
+	if (!g_spawn_async (NULL, argv, NULL, G_SPAWN_DO_NOT_REAP_CHILD,
+	                    to_log, (gpointer) log_path, &pid, &error)) {
+		g_printerr ("spawn: %s\n", error->message);
+		g_error_free (error);
+	}
+
+	return pid;
+}
+
+/* Waits for the copy to end on its own. FALSE if it is still running. */
+static gboolean
+wait_exit (GPid pid, int seconds, int *status)
+{
+	int i;
+
+	for (i = 0; i < seconds * 10; i++) {
+		if (waitpid (pid, status, WNOHANG) == pid) {
+			return TRUE;
+		}
+		g_usleep (100 * 1000);
+	}
+
+	return FALSE;
 }
 
 static gboolean
@@ -361,6 +407,63 @@ tear_off (GPid pid)
 	return FALSE;
 }
 
+/* Has the probe run a command: "drop X Y" or "close". */
+static gboolean
+probe_do (GPid pid, const char *command)
+{
+	char *path = g_strdup_printf ("%s/%d.do", probe_dir, (int) pid);
+	gboolean written = g_file_set_contents (path, command, -1, NULL);
+
+	g_free (path);
+
+	return written && kill (pid, SIGUSR2) == 0;
+}
+
+/* The copy, whose last tab just went, ends on its own with nothing logged
+   against it and no crash report. Reaps it, so its pid is cleared. */
+static void
+check_closed_cleanly (GPid *pid, const char *log_path, const char *what)
+{
+	char *log = NULL, *crash_dir, *crash_end;
+	GDir *dir;
+	int status = 0;
+
+	crash_end = g_strdup_printf ("-%d.txt", (int) *pid);
+	if (!wait_exit (*pid, 20, &status)) {
+		g_printerr ("FAIL the window %s did not close\n", what);
+		failures++;
+	} else {
+		*pid = 0;
+		if (!WIFEXITED (status) || WEXITSTATUS (status) != 0) {
+			g_printerr ("FAIL the window %s ended badly (%s %d)\n", what,
+			            WIFSIGNALED (status) ? "signal" : "exit",
+			            WIFSIGNALED (status) ? WTERMSIG (status) : WEXITSTATUS (status));
+			failures++;
+		}
+	}
+	g_file_get_contents (log_path, &log, NULL, NULL);
+	if (log != NULL && strstr (log, "CRITICAL") != NULL) {
+		g_printerr ("FAIL the window %s logged criticals:\n%s", what, log);
+		failures++;
+	}
+	g_free (log);
+	crash_dir = g_build_filename (g_getenv ("XDG_CONFIG_HOME"), "nemo-anywhere", "crash", NULL);
+	dir = g_dir_open (crash_dir, 0, NULL);
+	if (dir != NULL) {
+		const char *name;
+
+		while ((name = g_dir_read_name (dir)) != NULL) {
+			if (g_str_has_suffix (name, crash_end)) {
+				g_printerr ("FAIL the window %s left a crash report, %s\n", what, name);
+				failures++;
+			}
+		}
+		g_dir_close (dir);
+	}
+	g_free (crash_dir);
+	g_free (crash_end);
+}
+
 /* A copy some other copy started, so not ours to reap. */
 static void
 stop_other (GPid pid)
@@ -417,10 +520,12 @@ ensure_session_bus (int argc, char *argv[])
 int
 main (int argc, char *argv[])
 {
-	char *exe, *home, *tmp, *alpha, *beta, *gamma, *alpha_uri, *beta_uri, *picked, *kept;
+	char *exe, *home, *tmp, *alpha, *beta, *gamma, *delta, *epsilon, *alpha_uri, *beta_uri, *picked, *kept;
 	char *alpha_name = NULL, *beta_name = NULL, *third_name = NULL, *torn_name = NULL;
 	char *single = NULL, *single_settings = NULL, *single_config = NULL;
 	GPid alpha_pid = 0, beta_pid = 0, third_pid = 0, torn_pid = 0, single_pid = 0;
+	GPid delta_pid = 0, epsilon_pid = 0;
+	char *delta_name = NULL, *delta_log = NULL, *epsilon_log = NULL;
 	guint32 alpha_id = 0, beta_id = 0, third_id = 0, torn_id = 0;
 	gboolean probed = FALSE;
 	GError *error = NULL;
@@ -451,11 +556,15 @@ main (int argc, char *argv[])
 	alpha = g_build_filename (tmp, "alpha", NULL);
 	beta = g_build_filename (tmp, "beta", NULL);
 	gamma = g_build_filename (tmp, "gamma", NULL);
+	delta = g_build_filename (tmp, "delta", NULL);
+	epsilon = g_build_filename (tmp, "epsilon", NULL);
 	picked = g_build_filename (alpha, "picked.txt", NULL);
 	kept = g_build_filename (beta, "kept.txt", NULL);
 	check (g_mkdir (alpha, 0755) == 0);
 	check (g_mkdir (beta, 0755) == 0);
 	check (g_mkdir (gamma, 0755) == 0);
+	check (g_mkdir (delta, 0755) == 0);
+	check (g_mkdir (epsilon, 0755) == 0);
 	check (g_file_set_contents (picked, "x\n", -1, NULL));
 	check (g_file_set_contents (kept, "x\n", -1, NULL));
 	alpha_uri = g_filename_to_uri (alpha, NULL, NULL);
@@ -476,7 +585,8 @@ main (int argc, char *argv[])
 
 	{
 		char *args_a[] = { exe, (char *) "--geometry=600x400", alpha, NULL };
-		char *args_b[] = { exe, (char *) "--geometry=600x400", beta, NULL };
+		/* Off to the side, so a tab can be dropped on it. */
+		char *args_b[] = { exe, (char *) "--geometry=600x400+650+0", beta, NULL };
 
 		alpha_pid = launch (args_a);
 		beta_pid = launch (args_b);
@@ -585,6 +695,52 @@ main (int argc, char *argv[])
 		check (wait_title (beta_name, "beta", &beta_id));
 	}
 
+	/* The only tab dropped on another copy's window goes there, and the window
+	   it left closes cleanly. Its tab used to be freed after the window, and
+	   took its menus off a window that was gone. The copies from the two
+	   cases above can sit over beta's window, so they go first. */
+	stop_other (torn_pid);
+	torn_pid = 0;
+	stop (third_pid);
+	third_pid = 0;
+	delta_log = g_build_filename (probe_dir, "delta.log", NULL);
+	{
+		char *args[] = { exe, (char *) "--geometry=600x400+0+460", delta, NULL };
+
+		delta_pid = launch_logged (args, delta_log);
+	}
+	check (delta_pid > 0);
+	delta_name = delta_pid > 0 ? wait_name_of (delta_pid) : NULL;
+	check (delta_name != NULL);
+	if (delta_name != NULL && wait_shows (delta_pid, "delta", NULL, NULL)) {
+		check (wait_title (beta_name, "beta", &beta_id));
+		/* The middle of beta's window. */
+		check (probe_do (delta_pid, "drop 950 200"));
+		if (!wait_title (beta_name, "delta", &beta_id)) {
+			g_printerr ("FAIL the only tab dropped on another window did not go there\n");
+			failures++;
+		}
+		check_closed_cleanly (&delta_pid, delta_log, "the only tab left");
+	} else {
+		failures++;
+	}
+
+	/* The only tab closed from the tab menu closes the window cleanly too. The
+	   menu's Move tab to items hold the tab as well. */
+	epsilon_log = g_build_filename (probe_dir, "epsilon.log", NULL);
+	{
+		char *args[] = { exe, (char *) "--geometry=600x400", epsilon, NULL };
+
+		epsilon_pid = launch_logged (args, epsilon_log);
+	}
+	check (epsilon_pid > 0);
+	if (epsilon_pid > 0 && wait_shows (epsilon_pid, "epsilon", NULL, NULL)) {
+		check (probe_do (epsilon_pid, "close"));
+		check_closed_cleanly (&epsilon_pid, epsilon_log, "whose only tab was closed");
+	} else {
+		failures++;
+	}
+
 	/* With every window in one process, the only tab stays put as well, and no
 	   window is made for it. */
 	single = test_scratch_dir ("nemo-tabmove-single-XXXXXX", NULL);
@@ -627,8 +783,13 @@ out:
 	g_free (beta_name);
 	g_free (third_name);
 	g_free (torn_name);
+	g_free (delta_name);
+	g_free (delta_log);
+	g_free (epsilon_log);
 
 	stop (single_pid);
+	stop (delta_pid);
+	stop (epsilon_pid);
 	stop_other (torn_pid);
 	stop (third_pid);
 	stop (beta_pid);
@@ -644,6 +805,8 @@ out:
 	g_rmdir (alpha);
 	g_rmdir (beta);
 	g_rmdir (gamma);
+	g_rmdir (delta);
+	g_rmdir (epsilon);
 	g_free (single_settings);
 	g_free (single_config);
 	g_free (single);
@@ -652,6 +815,8 @@ out:
 	g_free (alpha);
 	g_free (beta);
 	g_free (gamma);
+	g_free (delta);
+	g_free (epsilon);
 	g_free (alpha_uri);
 	g_free (beta_uri);
 	g_free (tmp);
