@@ -320,6 +320,8 @@ void			  nemo_icon_container_invert_selection				(NemoIconContainer  *view);
 void              nemo_icon_container_set_selection                 (NemoIconContainer  *view,
 									 GList                  *selection);
 GArray    *       nemo_icon_container_get_selected_icon_locations   (NemoIconContainer  *view);
+gboolean          nemo_icon_container_get_selection_menu_rect       (NemoIconContainer  *container,
+									     GdkRectangle       *rect);
 gboolean          nemo_icon_container_has_stretch_handles           (NemoIconContainer  *container);
 gboolean          nemo_icon_container_is_stretched                  (NemoIconContainer  *container);
 void              nemo_icon_container_show_stretch_handles          (NemoIconContainer  *container);

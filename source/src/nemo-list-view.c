@@ -1220,6 +1220,38 @@ enter_notify_callback (GtkWidget *widget,
 	return FALSE;
 }
 
+/* The cursor row when it is selected, since that is where the keyboard is,
+   else the first selected row in sight. */
+static gboolean
+nemo_list_view_get_selection_menu_rect (NemoView *view, GdkRectangle *rect)
+{
+	NemoListView *list_view = NEMO_LIST_VIEW (view);
+	GtkTreeView *tree_view = list_view->details->tree_view;
+	GtkTreeViewColumn *column = list_view->details->file_name_column;
+	GtkTreeSelection *selection = gtk_tree_view_get_selection (tree_view);
+	GtkTreePath *cursor = NULL;
+	GList *rows, *l;
+	gboolean found = FALSE;
+
+	gtk_tree_view_get_cursor (tree_view, &cursor, NULL);
+	if (cursor != NULL && gtk_tree_selection_path_is_selected (selection, cursor)) {
+		found = eel_gtk_tree_view_get_row_rect (tree_view, cursor, column, rect);
+	}
+	gtk_tree_path_free (cursor);
+
+	if (!found) {
+		rows = gtk_tree_selection_get_selected_rows (selection, NULL);
+		for (l = rows; l != NULL && !found; l = l->next) {
+			found = eel_gtk_tree_view_get_row_rect (tree_view, l->data, column, rect);
+		}
+		g_list_free_full (rows, (GDestroyNotify) gtk_tree_path_free);
+	}
+
+	return found &&
+	       gtk_widget_translate_coordinates (GTK_WIDGET (tree_view), GTK_WIDGET (view),
+						 rect->x, rect->y, &rect->x, &rect->y);
+}
+
 static void
 do_popup_menu (GtkWidget *widget, NemoListView *view, GdkEventButton *event)
 {
@@ -6070,6 +6102,7 @@ nemo_list_view_class_init (NemoListViewClass *class)
 	nemo_view_class->using_manual_layout = nemo_list_view_using_manual_layout;
 	nemo_view_class->get_view_id = nemo_list_view_get_id;
 	nemo_view_class->get_first_visible_file = nemo_list_view_get_first_visible_file;
+	nemo_view_class->get_selection_menu_rect = nemo_list_view_get_selection_menu_rect;
 	nemo_view_class->scroll_to_file = list_view_scroll_to_file;
     nemo_view_class->click_to_rename_mode_changed = nemo_list_view_click_to_rename_mode_changed;
 }

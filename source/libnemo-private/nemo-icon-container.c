@@ -6236,6 +6236,77 @@ nemo_icon_container_get_selected_icon_locations (NemoIconContainer *container)
 	return result;
 }
 
+/* The part of an icon and its label that is in sight, in the container's
+   own coordinates. */
+static gboolean
+icon_get_visible_rect (NemoIconContainer *container,
+		       NemoIcon *icon,
+		       GdkRectangle *rect)
+{
+	GdkRectangle icon_rect, bounds = { 0, 0, 0, 0 };
+	EelIRect canvas_bounds;
+
+	if (icon->item == NULL || !nemo_icon_container_icon_is_positioned (icon)) {
+		return FALSE;
+	}
+
+	item_get_canvas_bounds (container, EEL_CANVAS_ITEM (icon->item), &canvas_bounds, FALSE);
+	icon_rect.x = canvas_bounds.x0 - (int) gtk_adjustment_get_value
+		(gtk_scrollable_get_hadjustment (GTK_SCROLLABLE (container)));
+	icon_rect.y = canvas_bounds.y0 - (int) gtk_adjustment_get_value
+		(gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (container)));
+	icon_rect.width = canvas_bounds.x1 - canvas_bounds.x0;
+	icon_rect.height = canvas_bounds.y1 - canvas_bounds.y0;
+
+	bounds.width = gtk_widget_get_allocated_width (GTK_WIDGET (container));
+	bounds.height = gtk_widget_get_allocated_height (GTK_WIDGET (container));
+
+	return gdk_rectangle_intersect (&icon_rect, &bounds, rect);
+}
+
+/**
+ * nemo_icon_container_get_selection_menu_rect:
+ * @container: An icon container widget.
+ * @rect: (out): Where the icon sits, in the container's coordinates.
+ *
+ * The selected icon a menu opened from the keyboard belongs beside: the
+ * keyboard focus when it is selected, else the selected icon nearest the top
+ * left that is in sight.
+ *
+ * Return value: FALSE when no selected icon is in sight.
+ **/
+gboolean
+nemo_icon_container_get_selection_menu_rect (NemoIconContainer *container,
+					     GdkRectangle *rect)
+{
+	NemoIcon *focus, *icon;
+	GdkRectangle icon_rect;
+	gboolean found = FALSE;
+	GList *p;
+
+	g_return_val_if_fail (NEMO_IS_ICON_CONTAINER (container), FALSE);
+
+	focus = container->details->keyboard_focus;
+	if (focus != NULL && focus->is_selected &&
+	    icon_get_visible_rect (container, focus, rect)) {
+		return TRUE;
+	}
+
+	for (p = container->details->icons; p != NULL; p = p->next) {
+		icon = p->data;
+		if (!icon->is_selected || !icon_get_visible_rect (container, icon, &icon_rect)) {
+			continue;
+		}
+		if (!found || icon_rect.y < rect->y ||
+		    (icon_rect.y == rect->y && icon_rect.x < rect->x)) {
+			*rect = icon_rect;
+			found = TRUE;
+		}
+	}
+
+	return found;
+}
+
 /**
  * nemo_icon_container_select_all:
  * @container: An icon container widget.

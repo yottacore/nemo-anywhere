@@ -23,7 +23,8 @@
 /* The menu key and Ctrl+F10 have no pointer behind them. The menu once opened
  * at the pointer anyway, which can be anywhere, and read as the key doing
  * nothing. With no event it has to open against the focused widget, or
- * against the view itself when the focus is elsewhere. */
+ * against the view itself when the focus is elsewhere. Given the item the menu
+ * is for, it opens just below that item, unless the item is out of sight. */
 
 #include <config.h>
 
@@ -73,14 +74,18 @@ screen_origin (GtkWidget *widget, int *x, int *y)
 
 /* Pops the menu with no event and reports where its window opened. */
 static gboolean
-pop_up (GtkWidget *view, int *x, int *y)
+pop_up_at_item (GtkWidget *view, const GdkRectangle *item, int *x, int *y)
 {
 	GtkWidget *menu = new_menu ();
 	GtkWidget *menu_window;
 	gboolean shown;
 
 	g_object_ref_sink (menu);
-	eel_pop_up_context_menu (GTK_MENU (menu), NULL, view);
+	if (item != NULL) {
+		eel_pop_up_context_menu_at_item (GTK_MENU (menu), NULL, view, item);
+	} else {
+		eel_pop_up_context_menu (GTK_MENU (menu), NULL, view);
+	}
 	settle ();
 
 	menu_window = gtk_widget_get_toplevel (menu);
@@ -94,6 +99,12 @@ pop_up (GtkWidget *view, int *x, int *y)
 	g_object_unref (menu);
 
 	return shown;
+}
+
+static gboolean
+pop_up (GtkWidget *view, int *x, int *y)
+{
+	return pop_up_at_item (view, NULL, x, y);
 }
 
 static gboolean
@@ -159,6 +170,26 @@ main (int argc, char *argv[])
 	screen_origin (view, &want_x, &want_y);
 	g_print ("view at %d,%d: menu at %d,%d\n", want_x, want_y, x, y);
 	check (near (x, want_x + 16) && near (y, want_y + 16));
+
+	/* An item in sight: just below it, at its left edge. */
+	{
+		GdkRectangle item = { 40, 30, 80, 20 };
+
+		check (pop_up_at_item (view, &item, &x, &y));
+		screen_origin (view, &want_x, &want_y);
+		g_print ("item at %d,%d: menu at %d,%d\n", want_x + 40, want_y + 50, x, y);
+		check (near (x, want_x + 40) && near (y, want_y + 50));
+	}
+
+	/* An item scrolled out of sight: back to the top left, as with none. */
+	{
+		GdkRectangle item = { 40, 500, 80, 20 };
+
+		check (pop_up_at_item (view, &item, &x, &y));
+		screen_origin (view, &want_x, &want_y);
+		g_print ("item out of sight: menu at %d,%d\n", x, y);
+		check (near (x, want_x + 16) && near (y, want_y + 16));
+	}
 
 	gtk_widget_destroy (window);
 
