@@ -2481,6 +2481,8 @@ nemo_icon_canvas_item_accessible_get_image_position
 	NemoIconCanvasItem *item;
 	gint x_offset, y_offset, itmp;
 
+	*x = -1;
+	*y = -1;
 	item = NEMO_ICON_CANVAS_ITEM (atk_gobject_accessible_get_object (ATK_GOBJECT_ACCESSIBLE (image)));
 	if (!item) {
 		return;
@@ -2504,6 +2506,10 @@ nemo_icon_canvas_item_accessible_get_image_position
 		}
 	}
 	atk_component_get_position (ATK_COMPONENT (image), x, y, coord_type);
+	/* Scrolled out of sight: no place, as the extents say. */
+	if (*x == G_MININT) {
+		return;
+	}
 	*x += x_offset;
 	*y += y_offset;
 }
@@ -2731,16 +2737,18 @@ nemo_icon_canvas_item_accessible_text_interface_init (AtkTextIface *iface)
 }
 
 typedef struct {
-	AtkGObjectAccessible parent;
+	EelCanvasItemAccessible parent;
 } NemoIconCanvasItemAccessible;
 
 typedef struct {
-	AtkGObjectAccessibleClass parent_class;
+	EelCanvasItemAccessibleClass parent_class;
 } NemoIconCanvasItemAccessibleClass;
 
+/* The canvas item's accessible gives the extents, which the picture and
+   text positions below are measured from. */
 G_DEFINE_TYPE_WITH_CODE (NemoIconCanvasItemAccessible,
 			 nemo_icon_canvas_item_accessible,
-			 ATK_TYPE_GOBJECT_ACCESSIBLE,
+			 eel_canvas_item_accessible_get_type (),
 			 G_IMPLEMENT_INTERFACE (ATK_TYPE_IMAGE,
 						nemo_icon_canvas_item_accessible_image_interface_init)
 			 G_IMPLEMENT_INTERFACE (ATK_TYPE_TEXT,

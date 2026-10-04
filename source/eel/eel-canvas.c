@@ -105,7 +105,6 @@ static guint item_signals[ITEM_LAST_SIGNAL] = { 0 };
 
 static GObjectClass *item_parent_class;
 
-static gpointer accessible_item_parent_class;
 static gpointer accessible_parent_class;
 
 
@@ -4053,11 +4052,19 @@ eel_canvas_item_accessible_is_item_on_screen (EelCanvasItem *item)
 	return eel_canvas_item_accessible_is_item_in_window (item, &rect);
 }
 
+/* Built on the GObject accessible, so the item behind it can be found, with
+   the component interface that gives its place on screen. The type used to be
+   derived at run time from whatever the registry gave for GInitiallyUnowned,
+   which under GTK 3 is the no-op object: no item, and no extents. */
+G_DEFINE_TYPE_WITH_CODE (EelCanvasItemAccessible, eel_canvas_item_accessible,
+			 ATK_TYPE_GOBJECT_ACCESSIBLE,
+			 G_IMPLEMENT_INTERFACE (ATK_TYPE_COMPONENT,
+						eel_canvas_item_accessible_component_interface_init))
+
 static void
 eel_canvas_item_accessible_initialize (AtkObject *obj, gpointer data)
 {
-	if (ATK_OBJECT_CLASS (accessible_item_parent_class)->initialize != NULL)
-		ATK_OBJECT_CLASS (accessible_item_parent_class)->initialize (obj, data);
+	ATK_OBJECT_CLASS (eel_canvas_item_accessible_parent_class)->initialize (obj, data);
 	g_object_set_data (G_OBJECT (obj), "atk-component-layer",
 			   GINT_TO_POINTER (ATK_LAYER_MDI));
 }
@@ -4069,7 +4076,7 @@ eel_canvas_item_accessible_ref_state_set (AtkObject *accessible)
  	EelCanvasItem *item;
 	AtkStateSet *state_set;
 
-	state_set = ATK_OBJECT_CLASS (accessible_item_parent_class)->ref_state_set (accessible);
+	state_set = ATK_OBJECT_CLASS (eel_canvas_item_accessible_parent_class)->ref_state_set (accessible);
 	obj = atk_gobject_accessible_get_object (ATK_GOBJECT_ACCESSIBLE (accessible));
 
 	item = EEL_CANVAS_ITEM (obj);
@@ -4096,70 +4103,27 @@ eel_canvas_item_accessible_ref_state_set (AtkObject *accessible)
 }
 
 static void
-eel_canvas_item_accessible_class_init (AtkObjectClass *klass)
+eel_canvas_item_accessible_class_init (EelCanvasItemAccessibleClass *klass)
 {
- 	accessible_item_parent_class = g_type_class_peek_parent (klass);
+	AtkObjectClass *atk_class = ATK_OBJECT_CLASS (klass);
 
-	klass->initialize = eel_canvas_item_accessible_initialize;
-	klass->ref_state_set = eel_canvas_item_accessible_ref_state_set;
+	atk_class->initialize = eel_canvas_item_accessible_initialize;
+	atk_class->ref_state_set = eel_canvas_item_accessible_ref_state_set;
 }
 
-static GType
-eel_canvas_item_accessible_get_type (void)
+static void
+eel_canvas_item_accessible_init (EelCanvasItemAccessible *accessible)
 {
-	static GType type = 0;
-
-	if (!type) {
-		static const GInterfaceInfo atk_component_info = {
-			(GInterfaceInitFunc) eel_canvas_item_accessible_component_interface_init,
-                 	(GInterfaceFinalizeFunc) NULL,
-			NULL
-		};
-		AtkObjectFactory *factory;
-		GType parent_atk_type;
-		GTypeQuery query;
-		GTypeInfo tinfo = { 0 };
-
-		factory = atk_registry_get_factory (atk_get_default_registry(),
-						    G_TYPE_INITIALLY_UNOWNED);
-		if (!factory) {
-			return G_TYPE_INVALID;
-		}
-		parent_atk_type = atk_object_factory_get_accessible_type (factory);
-		if (!parent_atk_type) {
-			return G_TYPE_INVALID;
-		}
-		g_type_query (parent_atk_type, &query);
-		tinfo.class_init = (GClassInitFunc) eel_canvas_item_accessible_class_init;
-		tinfo.class_size = query.class_size;
-		tinfo.instance_size = query.instance_size;
-		type = g_type_register_static (parent_atk_type,
-					       "EelCanvasItemAccessibility",
-					       &tinfo, 0);
-
-		g_type_add_interface_static (type, ATK_TYPE_COMPONENT,
-					     &atk_component_info);
-
-	}
-	return type;
 }
 
 static AtkObject *
 eel_canvas_item_accessible_create (GObject *for_object)
 {
-	GType type;
 	AtkObject *accessible;
-	EelCanvasItem *item;
 
-	item = EEL_CANVAS_ITEM (for_object);
-	g_return_val_if_fail (item != NULL, NULL);
+	g_return_val_if_fail (EEL_IS_CANVAS_ITEM (for_object), NULL);
 
-	type = eel_canvas_item_accessible_get_type ();
-	if (type == G_TYPE_INVALID) {
-		return atk_no_op_object_new (for_object);
-	}
-
-        accessible = g_object_new (type, NULL);
+	accessible = g_object_new (eel_canvas_item_accessible_get_type (), NULL);
 	atk_object_initialize (accessible, for_object);
 	return accessible;
 }
