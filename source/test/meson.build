@@ -436,6 +436,15 @@ test('rhtmbdma Keyboard context menu test',
   args: []
 )
 
+test('rjes67yy Rename field accessible test',
+  executable('test-eel-editable-label-atk',
+    [ 'test-eel-editable-label-atk.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
 test('rhtmbdmb Escape forgets the cursor test',
   executable('test-eel-forget-cursor',
     [ 'test-eel-forget-cursor.c' ],
