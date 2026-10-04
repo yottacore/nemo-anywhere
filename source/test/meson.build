@@ -1186,14 +1186,19 @@ if not is_windows
     timeout: 240
   )
 
+  # Preloaded into every copy the test starts; it links nothing of ours.
+  tab_move_probe = shared_module('test-nemo-tab-move-probe',
+    [ 'test-nemo-tab-move-probe.c' ],
+    dependencies: [ gtk ],
+  )
   test('rhmr6qgs Tab move between processes test',
     executable('test-nemo-tab-move',
       [ 'test-nemo-tab-move.c' ],
       include_directories: [ rootInclude, ],
       dependencies: [ gtk, test_scratch ],
     ),
-    args: [ nemo ],
-    timeout: 120
+    args: [ nemo, tab_move_probe ],
+    timeout: 180
   )
 
   xtst = dependency('xtst', required: false)

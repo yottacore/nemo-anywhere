@@ -138,6 +138,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
 
+- Moving the only tab to another window can crash the window it left.
+	- ID: 2026100413510329
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261004-135103
+	- Opened by: work on 2026092813381442
+	- Related IDs: 2026092813381442
+	- Target OS: all
+	- Steps to reproduce:
+		- With "Always show tabs" on and two windows open, drag the only tab of one window onto the other, or send it there with "Move tab to".
+	- Incorrect behavior: the tab moves. The window it left then logs criticals about a window that is gone as it closes, and sometimes crashes, which leaves a crash report.
+	- Expected behavior: the window closes cleanly.
+	- Reproduced: yes, 20261004, Linux. Once as a crash, with the only tab sent to a new copy before item 42's change. Once as criticals, with the only tab dropped on another window.
+	- Possible cause: the tab is closed from an idle that holds its own reference. Closing the last tab closes the window, so the tab is freed after the window, and its view then takes its menus off a window that is gone (`real_unmerge_menus`).
+	- Test case: none yet. rhmr6qgs could send the only tab of a copy to another window and check the copy leaves no crash report.
+
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
 	- Type: Enhancement
@@ -266,17 +283,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The fuzz target covers only the shortcut reader. Setting paths in a shortcut parses the same untrusted bytes with its own code.
 	- Test case: the new fuzz target.
 
-- Code review 20260928 item 42. Dragging the only tab off a window restarts the same window in a new process.
-	- ID: 2026092813381442
-	- Type: Enhancement
-	- Status: Queued
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Requirements:
-		- The tab menu grays out "New window" for the only tab. A drag to empty screen should do nothing there too.
-	- Test case: none yet.
-
 - Code review 20260928 item 43. On Windows, any process may take the foreground during a tab move.
 	- ID: 2026092813381443
 	- Type: Enhancement
@@ -288,17 +294,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- Allow only the receiving window's process.
 	- Test case: none yet.
-
-- Code review 20260928 item 44. The tab move test checks only the window title.
-	- ID: 2026092813381444
-	- Type: Enhancement
-	- Status: Queued
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Requirements:
-		- A move that dropped the view or the selection would still pass. Check both.
-	- Test case: `test-nemo-tab-move`.
 
 - Code review 20260928 item 45. Self-tests in the lint stage have no test IDs.
 	- ID: 2026092813381445
@@ -1891,6 +1886,48 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: ef05a4f
 	- Test case: rjbpyy28 Archive stop time test now has a 7z case. A 4 GiB and a 16 GiB file are stopped at their first progress report. Before the fix, the 4 GiB one took 50 s and the 16 GiB one did not end in 100 s. After, both take 0.01 s. rjbw0rkq Stopped 7z leak test, which fails at 82 bytes a round when the close is left out.
 	- Acceptance signoff: waiting. The archive writer's handling of a stop changed again, this time for the 7z.
+
+- Code review 20260928 item 42. Dragging the only tab off a window restarts the same window in a new process.
+	- ID: 2026092813381442
+	- Type: Enhancement
+	- Status: Done
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Related IDs: 2026100413510329
+	- Requirements:
+		- The tab menu grays out "New window" for the only tab. A drag to empty screen should do nothing there too.
+	- Origin: the tab move between windows, b096102.
+	- Progress log:
+		- The only tab of a window with one pane now stays put when dropped outside every window, by the same rule that grays out "New window" in its menu. That holds with every window in one process too. When a move onto another window fails, the only tab stays where it is.
+		- Moving the only tab onto another window can crash the window it left. Filed as 2026100413510329.
+	- Swept: the three ways a tab goes to a window of its own: the menu's "New window", a drop on empty screen with a window per process, and the same drop with every window in one process. All three use one check, `nemo_tab_move_is_only_tab`.
+	- Branch: tabmove
+	- Commit: cdbdef0
+	- Test case: rhmr6qgs, Tab move between processes test. The only tab dropped on empty screen starts no copy and stays, with a window per process and with one process. One of two tabs still goes to a new copy. Fails before the change and passes after.
+	- Verified: 20261004, Linux: rhmr6qgs fails before the change, at both only-tab checks, and passes after, three runs in a row. The only tab dragged to empty screen leaves the window as it was. A second tab dragged out opens in a new copy. The argv, instances, keyboard menu, held view and schema drift tests pass. Lint passes.
+	- Acceptance signoff: Self-closed: the change does what the item asked, and its test fails before and passes after.
+	- Closed: 20261004-135103
+
+- Code review 20260928 item 44. The tab move test checks only the window title.
+	- ID: 2026092813381444
+	- Type: Enhancement
+	- Status: Done
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Requirements:
+		- A move that dropped the view or the selection would still pass. Check both.
+	- Origin: the tab move between windows, b096102.
+	- Progress log:
+		- The test now checks the view and the selection the receiving window shows, three ways: a tab another window took, a window of its own started for a tab, and a tab dragged off into a new copy. These checks run on Linux only.
+		- The icon view's compact setting can now be read as well as set.
+	- Branch: tabmove
+	- Commit: cdbdef0
+	- Test case: rhmr6qgs, Tab move between processes test.
+	- Verified: 20261004, Linux: rhmr6qgs passes. With the view left out where a window takes a tab, all three new checks fail. The same with the selection left out. It passes again after a clean build.
+	- Acceptance signoff: Self-closed: the change does what the item asked, and the new checks fail when the view or the selection is left out.
+	- Closed: 20261004-135103
 
 - Code review 20260928 item 39. Four delete confirm functions are marked unused but are called.
 	- ID: 2026092813381439

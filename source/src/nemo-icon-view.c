@@ -2749,6 +2749,22 @@ nemo_icon_view_set_property (GObject         *object,
 }
 
 static void
+nemo_icon_view_get_property (GObject    *object,
+			     guint       prop_id,
+			     GValue     *value,
+			     GParamSpec *pspec)
+{
+	switch (prop_id) {
+	case PROP_COMPACT:
+		g_value_set_boolean (value, NEMO_ICON_VIEW (object)->details->compact);
+		break;
+	default:
+		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+		break;
+	}
+}
+
+static void
 nemo_icon_view_finalize (GObject *object)
 {
 	NemoIconView *icon_view;
@@ -2850,6 +2866,7 @@ nemo_icon_view_class_init (NemoIconViewClass *klass)
 	oclass = G_OBJECT_CLASS (klass);
 
 	oclass->set_property = nemo_icon_view_set_property;
+	oclass->get_property = nemo_icon_view_get_property;
 	oclass->finalize = nemo_icon_view_finalize;
     oclass->constructed = nemo_icon_view_constructed;
 
@@ -2904,7 +2921,7 @@ nemo_icon_view_class_init (NemoIconViewClass *klass)
 				      "Compact",
 				      "Whether this view provides a compact listing",
 				      FALSE,
-				      G_PARAM_WRITABLE);
+				      G_PARAM_READWRITE);
 	properties[PROP_SUPPORTS_AUTO_LAYOUT] =
 		g_param_spec_boolean ("supports-auto-layout",
 				      "Supports auto layout",

@@ -89,6 +89,13 @@ slot_can_move (NemoWindowSlot *slot)
 	return movable;
 }
 
+gboolean
+nemo_tab_move_is_only_tab (NemoWindowSlot *slot)
+{
+	return g_list_length (slot->pane->slots) == 1 &&
+	       !nemo_window_split_view_showing (nemo_window_slot_get_window (slot));
+}
+
 static NemoTabState *
 tab_state_from_slot (NemoWindowSlot *slot)
 {
@@ -476,7 +483,6 @@ nemo_tab_move_menu_item_new (NemoWindowSlot *slot)
 	NemoWindow *window = nemo_window_slot_get_window (slot);
 	GtkWidget *item, *submenu, *child;
 	GPtrArray *targets;
-	gboolean alone;
 	guint i;
 
 	item = gtk_menu_item_new_with_mnemonic (_("Move tab _to"));
@@ -511,8 +517,7 @@ nemo_tab_move_menu_item_new (NemoWindowSlot *slot)
 
 	/* The only tab going to a window of its own would just be this window
 	   again, somewhere else. */
-	alone = g_list_length (slot->pane->slots) == 1 && !nemo_window_split_view_showing (window);
-	gtk_widget_set_sensitive (child, !alone);
+	gtk_widget_set_sensitive (child, !nemo_tab_move_is_only_tab (slot));
 
 	gtk_menu_item_set_submenu (GTK_MENU_ITEM (item), submenu);
 
@@ -524,6 +529,7 @@ nemo_tab_move_tear_off (NemoWindowSlot *slot)
 {
 	GPtrArray *targets;
 	guint64 *handles;
+	gboolean moved;
 	int found;
 	guint i;
 
@@ -539,8 +545,9 @@ nemo_tab_move_tear_off (NemoWindowSlot *slot)
 
 	found = nemo_window_at_pointer (gtk_widget_get_display (GTK_WIDGET (slot)),
 	                                handles, (int) targets->len);
-	if (found < 0 ||
-	    !move_to_target (slot, g_ptr_array_index (targets, found), gtk_get_current_event_time ())) {
+	moved = found >= 0 &&
+	        move_to_target (slot, g_ptr_array_index (targets, found), gtk_get_current_event_time ());
+	if (!moved && !nemo_tab_move_is_only_tab (slot)) {
 		move_to_new_window (slot, gtk_get_current_event_time ());
 	}
 
