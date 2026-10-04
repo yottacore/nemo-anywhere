@@ -327,20 +327,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the window closes cleanly.
 	- Reproduced: yes, 20261004, Linux. Once as a crash, with the only tab sent to a new copy before item 42's change. Once as criticals, with the only tab dropped on another window.
 		- Again 20261004, Linux, by rhmr6qgs: the copy whose only tab was dropped on another window crashed on every run and left a crash report, or logged the criticals.
-	- Possible cause: the tab is closed from an idle that holds its own reference. Closing the last tab closes the window, so the tab is freed after the window, and its view then takes its menus off a window tha- The tab menu is made again on every right-click and never freed until its window closes.
-	- ID: 2026100414202491
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261004-142024
-	- Opened by: work on 2026100413510329
-	- Related IDs: 2026100413510329
-	- Target OS: all
-	- Incorrect behavior: each right-click on a tab, or the Menu key on the tab bar, builds a new menu and attaches it to the tab bar. Nothing frees it when it closes, so menus pile up for the life of the window, and each one keeps a hold on its tab.
-	- Expected behavior: a tab menu is freed once it closes.
-	- Reproduced: no, read only (`notebook_popup_menu_show` in nemo-window-pane.c). Plausible.
-	- Test case: none yet. A count of the menus attached to the tab bar after a few opens would pin it.
-t is gone (`real_unmerge_menus`).
+	- Possible cause: the tab is closed from an idle that holds its own reference. Closing the last tab closes the window, so the tab is freed after the window, and its view then takes its menus off a window that is gone (`real_unmerge_menus`).
 	- Actual cause: a tab taken out of its window was only torn down when its last reference went. The idle that closes a moved tab holds one, so for the last tab the window went first. The tab menu and a drag over a tab hold references the same way.
 	- Actual fix: a tab is torn down as it leaves its pane, while its window is still there. The tab's own teardown now runs once, since it is called again at the last reference.
 	- Swept: closing a tab by its button, Ctrl+W and the tab menu; the last tab of a pane in split view; a window closed with tabs in it; a tab moved or torn off to a new window, in its own process or in one process. GTK's own move of a tab between windows in one process keeps the tab alive and is not affected. The other timeouts and idles on windows and tabs are removed by id when those go.
@@ -969,6 +956,31 @@ t is gone (`real_unmerge_menus`).
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- The tab menu is made again on every right-click and never freed until its window closes.
+	- ID: 2026100414202491
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 168 of 168 on 20261004, on tabmenu.
+	- Needs external testing: none.
+	- Priority|Severity: Low
+	- Opened: 20261004-142024
+	- Opened by: work on 2026100413510329
+	- Related IDs: 2026100413510329
+	- Target OS: all
+	- Incorrect behavior: each right-click on a tab, or the Menu key on the tab bar, builds a new menu and attaches it to the tab bar. Nothing frees it when it closes, so menus pile up for the life of the window, and each one keeps a hold on its tab.
+	- Expected behavior: a tab menu is freed once it closes.
+	- Reproduced: yes, 20261004, Linux, by rjf00qfj. Five opens of the tab menu left ten menu windows behind, since its Move tab to submenu is one too.
+	- Origin: inherited from upstream Nemo, in the baseline. Confirmed.
+	- Actual cause: the tab menu is attached to the tab bar, and nothing destroys it before the tab bar goes. The history menu on Back and Forward and the list header's column menu are made the same way and never attached, so they stayed for the life of the program. Up and the other toolbar buttons made an empty menu on a right-click or long press, and never showed it.
+	- Actual fix: a menu made for one open is destroyed once it closes, after the chosen item has run. The toolbar buttons make a menu only for Back and Forward.
+	- Swept: the view's file, background and path bar menus, and the places and tree sidebar menus, are made once from the window's menu definitions and kept, so they do not pile up. The keyboard menu opens those same menus. The drop menu that asks Move, Copy or Link is freed after its answer. The rename field keeps one menu and replaces it on each open. A grep for `gtk_menu_new` finds no other menu made on demand.
+	- Test case: rjf00qfj, Menus freed after closing test. It opens and closes the tab menu, the Back history menu, the column menu and a right-click on Up five times each, and counts what is left over. It failed before the fix on all four and passes after. rhtmbdma gained three sub-cases: a menu freed once it closes, picked from or not, with the picked item still run, and the drop menu freed after its answer. Each failed with its freeing taken out.
+	- Verified: full Linux suite 168 of 168, lint clean, Windows cross build clean.
+	- Branch: tabmenu
+	- Commit: fdb03bb
+	- Acceptance signoff: Self-closed: reproduced, its test failed before the fix and passes after, and nothing changes on screen.
+	- Closed: 20261004-143637
 
 - Two copies starting at once on a new file cache can find it locked, and one runs with the cache off.
 	- ID: 2026100113372592
