@@ -58,6 +58,9 @@
 /* Well inside that. */
 #define HOLD_MS 300
 
+/* How long a reader is in the way of the holder's commit. */
+#define READ_MS 50
+
 /* Exit status of a copy that waited out the busy timeout. */
 #define WAITED_OUT 2
 
@@ -91,13 +94,45 @@ remove_store (const char *path)
 	g_unlink (shm);
 }
 
+typedef struct {
+	const char *path;
+	sqlite3    *holder;
+	gboolean    reader_in;
+	int         commit_rc;
+} Hold;
+
+static gpointer
+end_read_later (gpointer user_data)
+{
+	g_usleep (READ_MS * 1000);
+	sqlite3_exec (user_data, "COMMIT", NULL, NULL, NULL);
+
+	return NULL;
+}
+
+/* While the store waits it keeps trying, and each try takes a read lock for a
+ * moment. Under load one of those can be there right as the holder commits,
+ * and a commit with no wait of its own is then refused and keeps its lock until
+ * the store has given up. That happened once on a slow box. So a read lock is
+ * made to be there every time, and the holder has to wait it out like any
+ * other copy would. */
 static gpointer
 release_later (gpointer user_data)
 {
-	sqlite3 *holder = user_data;
+	Hold *hold = user_data;
+	sqlite3 *reader = NULL;
+	GThread *thread;
 
 	g_usleep (HOLD_MS * 1000);
-	sqlite3_exec (holder, "COMMIT", NULL, NULL, NULL);
+
+	hold->reader_in = sqlite3_open (hold->path, &reader) == SQLITE_OK
+		&& sqlite3_exec (reader, "BEGIN; SELECT COUNT (*) FROM sqlite_master", NULL, NULL, NULL) == SQLITE_OK;
+	thread = g_thread_new ("reader", end_read_later, reader);
+
+	hold->commit_rc = sqlite3_exec (hold->holder, "COMMIT", NULL, NULL, NULL);
+
+	g_thread_join (thread);
+	sqlite3_close (reader);
 
 	return NULL;
 }
@@ -107,27 +142,33 @@ release_later (gpointer user_data)
 static void
 check_waits_for_lock (const char *path)
 {
-	sqlite3 *holder = NULL;
+	Hold hold = { path, NULL, FALSE, SQLITE_OK };
 	NemoCacheDb *db;
 	GThread *thread;
 	gint64 started, waited;
 
 	remove_store (path);
-	check (sqlite3_open (path, &holder) == SQLITE_OK);
-	check (sqlite3_exec (holder, "PRAGMA user_version = 0; BEGIN IMMEDIATE", NULL, NULL, NULL) == SQLITE_OK);
+	check (sqlite3_open (path, &hold.holder) == SQLITE_OK);
+	sqlite3_busy_timeout (hold.holder, BUSY_TIMEOUT_MS);
+	check (sqlite3_exec (hold.holder, "PRAGMA user_version = 0; BEGIN IMMEDIATE", NULL, NULL, NULL) == SQLITE_OK);
 
-	thread = g_thread_new ("holder", release_later, holder);
+	thread = g_thread_new ("holder", release_later, &hold);
 	started = g_get_monotonic_time ();
 	db = nemo_cache_db_get ();
 	waited = (g_get_monotonic_time () - started) / 1000;
 	g_thread_join (thread);
+
+	check (hold.reader_in);
+	if (hold.commit_rc != SQLITE_OK)
+		g_printerr ("the holder could not let go of the lock: %s\n", sqlite3_errstr (hold.commit_rc));
+	check (hold.commit_rc == SQLITE_OK);
 
 	if (db == NULL)
 		g_printerr ("no store while the lock was held, gave up after %" G_GINT64_FORMAT " ms\n", waited);
 	check (db != NULL);
 
 	nemo_cache_db_close ();
-	sqlite3_close (holder);
+	sqlite3_close (hold.holder);
 	remove_store (path);
 }
 
