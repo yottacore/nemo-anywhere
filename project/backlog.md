@@ -676,6 +676,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: the item 27 decision still holds. The image has the same packages as before; only build leftovers were removed.
 	- Note: a clean build takes about a minute here, so each pipeline run is that much longer.
 	- Note: beta1 and beta2 were built with link-time optimization off, so a rebuild of either tag does not match what was published.
+		- 20261004: README and design.md now say the same-bytes claim starts with the release after beta2. The release image was flattened, which took about 390 MB of old build dirs out of its layers. Its files are unchanged.
 	- Branch: cleanrel
 	- Commit: a24072f
 	- Test case: `cicd/linux/test-release-setup.bash` (rjcpvcyb), in the lint stage. Fails before the fix, passes after.

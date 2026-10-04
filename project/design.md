@@ -783,7 +783,7 @@ Stages, in order, each self-skipping when unconfigured: remote sync, format, deb
 
 ### Reproducible builds
 
-Nothing a build produces takes its timestamp from the clock. Every lane sets `SOURCE_DATE_EPOCH` to the commit date of what is being built, so the same commit builds to the same bytes on any box on any day and a released Linux artifact can be checked against a rebuild of its tag. The Windows exe cannot be yet: its hosted build installs whatever MSYS2 packages are current that day.
+Nothing a build produces takes its timestamp from the clock. Every lane sets `SOURCE_DATE_EPOCH` to the commit date of what is being built, so the same commit builds to the same bytes on any box on any day and a released Linux artifact can be checked against a rebuild of its tag. That holds from the release after 1.0.0-beta2, since beta1 and beta2 were built with link-time optimization off. The Windows exe cannot be yet: its hosted build installs whatever MSYS2 packages are current that day.
 
 - The Windows exe was the one that actually differed run to run. The linker writes a timestamp into the PE header, and left alone it writes the clock: two clean builds of one commit used to differ in exactly those four bytes.
 

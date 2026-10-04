@@ -234,7 +234,7 @@ These are the features that make Nemo worth porting:
 
 - Features that a platform can't do is either hidden or visually disabled.
 
-- Releases can be checked. Every download is published with checksums, and the Linux builds can be rebuilt from their commit to the same bytes.
+- Releases can be checked. Every download is published with checksums, and the Linux builds can be rebuilt from their commit to the same bytes. That starts with the release after 1.0.0-beta2.
 
 - There are dozens of "minor papercut" fixes and "quality-of-life" improvements.
 
