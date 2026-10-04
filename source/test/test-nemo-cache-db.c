@@ -12,6 +12,8 @@
 #include <glib.h>
 #include <glib/gstdio.h>
 
+#include <sqlite3.h>
+
 #include <libnemo-private/nemo-cache-db.h>
 
 #include "test-scratch.h"
@@ -594,6 +596,93 @@ check_second_process_sees_writes (void)
 	check (out_text != NULL && g_ascii_strtoll (out_text, NULL, 10) == 1);
 }
 
+/* sqlite's own file layer with one change: while armed, a read of the schema
+ * version is answered busy. sqlite hands every PRAGMA to the file layer first,
+ * and a failure there is what the read comes back with. */
+static sqlite3_vfs                busy_vfs;
+static sqlite3_vfs               *real_vfs;
+static sqlite3_io_methods         busy_methods;
+static const sqlite3_io_methods  *real_methods;
+static gint                       version_busy;
+
+static int
+busy_file_control (sqlite3_file *file, int op, void *arg)
+{
+	char **words = arg;
+
+	if (op == SQLITE_FCNTL_PRAGMA && g_atomic_int_get (&version_busy)
+	    && g_ascii_strcasecmp (words[1], "user_version") == 0 && words[2] == NULL)
+		return SQLITE_BUSY;
+
+	return real_methods->xFileControl (file, op, arg);
+}
+
+static int
+busy_open (sqlite3_vfs *vfs, const char *name, sqlite3_file *file, int flags, int *out_flags)
+{
+	int rc = real_vfs->xOpen (real_vfs, name, file, flags, out_flags);
+
+	(void) vfs;
+
+	if (rc != SQLITE_OK || !(flags & SQLITE_OPEN_MAIN_DB) || file->pMethods == NULL)
+		return rc;
+
+	if (real_methods == NULL) {
+		real_methods = file->pMethods;
+		busy_methods = *real_methods;
+		busy_methods.xFileControl = busy_file_control;
+	}
+	if (file->pMethods == real_methods)
+		file->pMethods = &busy_methods;
+
+	return rc;
+}
+
+/* A version that could not be read is not a version from somewhere else. The
+ * file has to stay as it is, since other copies may have it open, and this
+ * copy runs with no cache. */
+static void
+check_unread_version_keeps_file (void)
+{
+	NemoCacheDb *db;
+	guint8 digest[NEMO_CACHE_DIGEST_LEN];
+	guint8 back[NEMO_CACHE_DIGEST_LEN];
+	NemoFileId id;
+
+	memset (digest, 0x5c, sizeof (digest));
+	id = id_for (68888, SOURCE_MTIME, digest);
+
+	db = nemo_cache_db_get ();
+	check (db != NULL);
+	check (nemo_cache_db_set_digest (db, "file:///busy/kept.txt", &id));
+	nemo_cache_db_close ();
+
+	real_vfs = sqlite3_vfs_find (NULL);
+	check (real_vfs != NULL);
+	if (real_vfs == NULL)
+		return;
+	busy_vfs = *real_vfs;
+	busy_vfs.zName = "busy-version";
+	busy_vfs.xOpen = busy_open;
+	check (sqlite3_vfs_register (&busy_vfs, 1) == SQLITE_OK);
+
+	g_atomic_int_set (&version_busy, TRUE);
+	db = nemo_cache_db_get ();
+	check (db == NULL);
+	g_atomic_int_set (&version_busy, FALSE);
+	nemo_cache_db_close ();
+
+	/* Not a lookup, which would put the row back. */
+	memset (back, 0, sizeof (back));
+	db = nemo_cache_db_get ();
+	check (db != NULL);
+	check (nemo_cache_db_lookup_digest (db, "file:///busy/kept.txt", 68888, SOURCE_MTIME, back));
+	check (memcmp (back, digest, sizeof (digest)) == 0);
+
+	sqlite3_vfs_unregister (&busy_vfs);
+	nemo_cache_db_close ();
+}
+
 /* A render that failed is stored with no image, so the next run knows not to
  * try again, and a later good one replaces it. */
 static void
@@ -679,6 +768,7 @@ main (int argc, char *argv[])
 	check_corrupt_file_is_rebuilt ();
 	check_wrong_version_is_rebuilt ();
 	check_second_process_sees_writes ();
+	check_unread_version_keeps_file ();
 
 	nemo_cache_db_close ();
 

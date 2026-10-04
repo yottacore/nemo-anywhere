@@ -281,21 +281,28 @@ nemo_cache_db_path (void)
 	return g_build_filename (dir, "files.db", NULL);
 }
 
+/* Answers sqlite's code. A read that failed says nothing about the version,
+ * so it must not be taken for one. */
 static int
-read_user_version (sqlite3 *handle)
+read_user_version (sqlite3 *handle, int *version)
 {
 	sqlite3_stmt *stmt = NULL;
-	int           version = 0;
+	int           rc;
 
-	if (sqlite3_prepare_v2 (handle, "PRAGMA user_version", -1, &stmt, NULL) != SQLITE_OK)
-		return -1;
-
-	if (sqlite3_step (stmt) == SQLITE_ROW)
-		version = sqlite3_column_int (stmt, 0);
+	rc = sqlite3_prepare_v2 (handle, "PRAGMA user_version", -1, &stmt, NULL);
+	if (rc == SQLITE_OK) {
+		rc = sqlite3_step (stmt);
+		if (rc == SQLITE_ROW) {
+			*version = sqlite3_column_int (stmt, 0);
+			rc = SQLITE_OK;
+		} else if (rc == SQLITE_DONE) {
+			rc = SQLITE_ERROR;
+		}
+	}
 
 	sqlite3_finalize (stmt);
 
-	return version;
+	return rc;
 }
 
 /* The switch to WAL reads the file and only then takes the write lock, and
@@ -327,7 +334,7 @@ open_at (const char *path, gboolean *out_rebuild)
 {
 	sqlite3 *handle = NULL;
 	char    *err = NULL;
-	int      version;
+	int      version = 0;
 	int      rc;
 
 	*out_rebuild = FALSE;
@@ -369,10 +376,19 @@ open_at (const char *path, gboolean *out_rebuild)
 		return NULL;
 	}
 
+	/* Other copies may have the file open, so one that only could not be
+	 * read is left alone, and this copy runs without it. */
+	rc = read_user_version (handle, &version);
+	if (rc != SQLITE_OK) {
+		*out_rebuild = is_corruption (rc);
+		g_warning ("could not read the file cache version: %s", sqlite3_errstr (rc));
+		sqlite3_close (handle);
+		return NULL;
+	}
+
 	/* 0 is a file nobody has written tables into yet. Anything else that is
 	 * not ours was written by another version, and gets the same treatment as
 	 * a damaged file. */
-	version = read_user_version (handle);
 	if (version != 0 && version != SCHEMA_VERSION) {
 		*out_rebuild = TRUE;
 		sqlite3_close (handle);

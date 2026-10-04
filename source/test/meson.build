@@ -255,7 +255,7 @@ test('rhd1cv38 File cache store test',
   executable('test-nemo-cache-db',
     [ 'test-nemo-cache-db.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private, test_scratch ],
+    dependencies: [ gtk, nemo_private, test_scratch, sqlite ],
   ),
   args: []
 )
