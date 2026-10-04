@@ -1213,8 +1213,8 @@ check_at_names (const char *tmp, const char *outside, NemoArchiveFormat format,
 	}
 	g_string_truncate (said, 0);
 
-	/* Made only now, since rar -r tries every name beside the selection,
-	   picked or not. */
+	/* Made only now, since rar with -r, as on a line edited in the
+	   settings, tries every name beside the selection, picked or not. */
 	check (nemo_link_create ("nowhere", at_gone, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
 	sources = g_list_append (sources, g_file_new_for_path (at_gone));
 	ok = run_single (sources, dest, &options, window, manager, &warnings, &errors, &asked, said);
@@ -1245,6 +1245,85 @@ check_at_names (const char *tmp, const char *outside, NemoArchiveFormat format,
 	g_free (plain);
 	g_free (at_gone);
 	g_free (at_dir);
+	g_free (root);
+	g_free (label);
+}
+
+/* What is beside the selection or below it plays no part: a file picked by
+   name does not bring the same name from a folder below, and a link that
+   leads nowhere, not picked, is not looked at. */
+static void
+check_beside (const char *tmp, NemoArchiveFormat format,
+	      GtkWidget *window, NemoProgressInfoManager *manager)
+{
+	char *label = g_strdup_printf ("beside-%s", nemo_archive_format_id (format));
+	char *root = g_build_filename (tmp, label, NULL);
+	char *plain = g_build_filename (root, "a.txt", NULL);
+	char *held = g_build_filename (root, "held", NULL);
+	char *sub = g_build_filename (root, "sub", NULL);
+	char *below = g_build_filename (sub, "held", NULL);
+	char *gone = g_build_filename (root, "gone", NULL);
+	char *base = g_strconcat ("beside", nemo_archive_format_extension (format), NULL);
+	char *dest = g_build_filename (root, base, NULL);
+	NemoArchiveOptions options;
+	NemoArchiveBackend backend;
+	GHashTable *found;
+	GString *said = g_string_new (NULL);
+	GList *sources = NULL;
+	gboolean ok;
+	int warnings, errors, asked;
+	int before = failures;
+	int pass;
+
+	g_mkdir_with_parents (held, 0700);
+	g_mkdir_with_parents (below, 0700);
+	write_bytes (root, "a.txt", "alpha", 5);
+	write_bytes (held, "b.txt", "bravo", 5);
+	write_bytes (sub, "a.txt", "under", 5);
+	write_bytes (below, "b.txt", "under", 5);
+	sources = g_list_append (sources, g_file_new_for_path (plain));
+	sources = g_list_append (sources, g_file_new_for_path (held));
+
+	options_for (format, &options);
+	backend = nemo_archive_pick_backend (format, &options);
+
+	/* Then again with the link beside it, made only now so each half fails
+	   on its own. */
+	for (pass = 0; pass < (with_links ? 2 : 1); pass++) {
+		if (pass == 1) {
+			g_unlink (dest);
+			check (nemo_link_create ("nowhere", gone, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
+		}
+		ok = run_single (sources, dest, &options, window, manager,
+				 &warnings, &errors, &asked, said);
+		check (ok);
+		check (errors == 0);
+		check (warnings == 0);
+
+		found = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+		read_back (dest, found);
+		check (g_hash_table_contains (found, "a.txt"));
+		check (g_hash_table_contains (found, "held/b.txt"));
+		check (g_hash_table_size (found) == 2);
+		if (failures > before) {
+			dump_entries (label, found);
+			g_printerr ("  in %s, pass %d (backend %d)\n%s", label, pass, backend, said->str);
+			before = failures;
+		}
+		g_hash_table_destroy (found);
+		g_string_truncate (said, 0);
+	}
+
+	g_string_free (said, TRUE);
+	nemo_archive_options_clear (&options);
+	g_list_free_full (sources, g_object_unref);
+	g_free (dest);
+	g_free (base);
+	g_free (gone);
+	g_free (below);
+	g_free (sub);
+	g_free (held);
+	g_free (plain);
 	g_free (root);
 	g_free (label);
 }
@@ -1501,6 +1580,8 @@ main (int argc, char *argv[])
 			number += 2;
 #endif
 		}
+		check_beside (tmp, format, window, manager);
+		number++;
 	}
 
 	purge_recycled (home);

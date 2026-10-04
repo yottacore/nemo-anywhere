@@ -81,9 +81,11 @@
 	"{{PASSWORD}} {{SPLIT}} {{SOLID}} {{LINKS}} " \
 	"-- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}"
 
-/* -r is what makes a named folder mean its contents. */
+/* No -r: a folder named on the line goes in whole without it, and with it
+   rar reads every name as a pattern for each folder below, so a picked a.txt
+   brings sub/a.txt too, and every name it walks past is opened. */
 #define NEMO_ARCHIVE_COMMAND_RAR_DEFAULT \
-	"{{PROGRAM}} a {{LEVEL}} {{THREADS}} -r -y -scfr " \
+	"{{PROGRAM}} a {{LEVEL}} {{THREADS}} -y -scfr " \
 	"{{PASSWORD}} {{SPLIT}} {{SOLID}} {{DEDUPE}} {{RECOVERY}} {{LOCK}} {{LINKS}} " \
 	"-- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}"
 

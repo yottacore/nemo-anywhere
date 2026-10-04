@@ -2067,8 +2067,9 @@ build_command (NemoArchiveBackend        backend,
 		if (options->store_links || links_only) {
 			g_ptr_array_add (links_v, g_strdup ("-ol"));
 		}
-		/* With -r, "sub/name" means every "name" under sub. The line has
-		   -r ahead of this, and the last one said is the one rar takes. */
+		/* With -r, "sub/name" means every "name" under sub. Only a line
+		   edited in the settings still has it, and the last one said is
+		   the one rar takes. */
 		if (links_only) {
 			g_ptr_array_add (links_v, g_strdup ("-r-"));
 		}
