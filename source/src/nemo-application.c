@@ -345,12 +345,10 @@ static gboolean
 save_accel_map (gpointer data)
 {
     if (save_of_accel_map_requested) {
-        char *accel_map_filename;
-        accel_map_filename = nemo_get_accel_map_file ();
-        if (accel_map_filename) {
-            gtk_accel_map_save (accel_map_filename);
-            g_free (accel_map_filename);
-        }
+        char *accel_map_filename = nemo_get_accel_map_file ();
+
+        gtk_accel_map_save (accel_map_filename);
+        g_free (accel_map_filename);
         save_of_accel_map_requested = FALSE;
     }
 
@@ -374,12 +372,20 @@ init_gtk_accels (void)
 {
     char *accel_map_filename;
 
-    /* load accelerator map, and register save callback */
     accel_map_filename = nemo_get_accel_map_file ();
-    if (accel_map_filename) {
+    if (g_file_test (accel_map_filename, G_FILE_TEST_EXISTS)) {
         gtk_accel_map_load (accel_map_filename);
-        g_free (accel_map_filename);
+    } else {
+        /* First start with a file of our own: carry over any custom
+         * shortcuts from upstream's file, then write ours at once. That our
+         * file exists is what says the old one has been read. */
+        char *legacy = nemo_get_legacy_accel_map_file ();
+
+        gtk_accel_map_load (legacy);
+        gtk_accel_map_save (accel_map_filename);
+        g_free (legacy);
     }
+    g_free (accel_map_filename);
 
     g_signal_connect (gtk_accel_map_get (), "changed",
               G_CALLBACK (queue_accel_map_save_callback), NULL);

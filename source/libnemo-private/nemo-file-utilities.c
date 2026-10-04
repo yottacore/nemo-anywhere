@@ -448,23 +448,30 @@ nemo_get_user_directory (void)
 /**
  * nemo_get_accel_map_file:
  *
- * Get the path for the filename containing nemo accelerator map.
- * The filename need not exist.
+ * The keyboard shortcut file, beside the settings file. The folder is made
+ * here; the file need not exist.
  *
- * Return value: the filename path, or NULL if the home directory could not be found
+ * Return value: the filename path, freed by the caller.
  **/
 char *
 nemo_get_accel_map_file (void)
 {
-	const gchar *override;
+	g_autofree char *dir = nemo_get_user_directory ();
 
-	override = g_getenv ("GNOME22_USER_DIR");
+	return g_build_filename (dir, "accels", NULL);
+}
 
-	if (override) {
-		return g_build_filename (override, "accels/nemo", NULL);
-	} else {
-		return g_build_filename (g_get_home_dir (), ".gnome2/accels/nemo", NULL);
-	}
+/* Where upstream Nemo keeps its shortcuts, and where older builds of ours
+ * saved them too. Read once, to carry custom shortcuts over; never written. */
+char *
+nemo_get_legacy_accel_map_file (void)
+{
+	const char *override = g_getenv ("GNOME22_USER_DIR");
+
+	if (override != NULL && *override != '\0')
+		return g_build_filename (override, "accels", "nemo", NULL);
+
+	return g_build_filename (g_get_home_dir (), ".gnome2", "accels", "nemo", NULL);
 }
 
 /**
