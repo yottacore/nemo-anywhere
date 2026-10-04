@@ -247,8 +247,7 @@ row_screen_rect (GtkTreeView *tree_view, GtkTreePath *path, GdkRectangle *rect)
 }
 
 /* Selects an item well away from the pane's top left and notes where it is.
-   An icon's accessible object has no place on screen, so the icon's is read
-   from the canvas item behind it. */
+   An icon's place is read from the canvas item behind its accessible object. */
 static gboolean
 select_far_item (void)
 {

@@ -1101,6 +1101,21 @@ if not is_windows
     timeout: 180
   )
 
+  icon_atk_probe = shared_module('test-nemo-icon-atk-probe',
+    [ 'test-nemo-icon-atk-probe.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk ],
+  )
+  test('rjerav6k Icon accessible extents test',
+    executable('test-nemo-icon-atk',
+      [ 'test-nemo-icon-atk.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, icon_atk_probe ],
+    timeout: 120
+  )
+
   test('rhtq57n4 Clean start test',
     executable('test-nemo-startup-clean',
       [ 'test-nemo-startup-clean.c' ],
