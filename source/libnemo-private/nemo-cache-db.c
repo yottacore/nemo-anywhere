@@ -335,6 +335,17 @@ read_user_version (sqlite3 *handle, int *version)
 	return rc;
 }
 
+/* sqlite's message names only the kind of failure. The extended code says which
+ * step failed, such as a delete or a lock, and the system error says why. */
+static void
+warn_setup (sqlite3 *handle, const char *what, int rc, const char *err)
+{
+	g_warning ("%s: %s (sqlite code %d, system error %d)", what,
+		   err != NULL ? err : sqlite3_errstr (rc),
+		   handle != NULL ? sqlite3_extended_errcode (handle) : rc,
+		   handle != NULL ? sqlite3_system_errno (handle) : 0);
+}
+
 /* sqlite's busy handler, in place of its own timed one. The wait is timed on
  * the clock rather than by adding up the sleeps, since a sleep of a few
  * milliseconds runs long on Windows and on a loaded box. */
@@ -361,6 +372,26 @@ busy_wait (void *data, int tries)
 	return 1;
 }
 
+/* On Windows a copy that quits without closing the store lets go of its locks
+ * on the -shm file before Windows unmaps the file from it. The next copy to
+ * open then finds no lock, takes itself for the first, and empties the file,
+ * which Windows refuses while a view of it is left (ERROR_USER_MAPPED_FILE).
+ * sqlite let that pass before 3.50 and now answers SQLITE_IOERR_TRUNCATE. The
+ * view goes once the old copy is fully gone, so it is a wait like a busy one. */
+static gboolean
+setup_worth_retry (sqlite3 *handle, int rc)
+{
+	if ((rc & 0xff) == SQLITE_BUSY)
+		return TRUE;
+
+#ifdef G_OS_WIN32
+	return rc != SQLITE_OK && sqlite3_extended_errcode (handle) == SQLITE_IOERR_TRUNCATE;
+#else
+	(void) handle;
+	return FALSE;
+#endif
+}
+
 /* The switch to WAL reads the file and only then takes the write lock, and
  * sqlite will not wait on that second step, since two readers each waiting on
  * the other would wait for good. So a copy that meets another one setting up
@@ -374,7 +405,7 @@ exec_setup (sqlite3 *handle, const char *sql, char **err)
 
 	for (;;) {
 		rc = sqlite3_exec (handle, sql, NULL, NULL, err);
-		if ((rc & 0xff) != SQLITE_BUSY || g_get_monotonic_time () >= give_up)
+		if (!setup_worth_retry (handle, rc) || g_get_monotonic_time () >= give_up)
 			return rc;
 
 		sqlite3_free (*err);
@@ -400,7 +431,9 @@ open_at (const char *path, gboolean *out_rebuild)
 			      NULL);
 	if (rc != SQLITE_OK) {
 		*out_rebuild = is_corruption (rc);
-		g_warning ("could not open the file cache %s: %s", path, sqlite3_errstr (rc));
+		g_autofree char *what = g_strdup_printf ("could not open the file cache %s", path);
+
+		warn_setup (handle, what, rc, NULL);
 		sqlite3_close (handle);
 		return NULL;
 	}
@@ -416,17 +449,21 @@ open_at (const char *path, gboolean *out_rebuild)
 	 * WAL so a reading window is not blocked by a writing one, and NORMAL
 	 * because losing the last few rows to a power cut costs a re-read and
 	 * nothing else. The size limit trims the journal back after a prune has
-	 * grown it. */
+	 * grown it.
+	 *
+	 * The read at the end is the first one through the WAL on a new file,
+	 * which opens its -shm file, so it gets the same wait (setup_worth_retry). */
 	rc = exec_setup (handle,
 			 "PRAGMA auto_vacuum = INCREMENTAL;"
 			 "PRAGMA journal_mode = WAL;"
 			 "PRAGMA journal_size_limit = 67108864;"
 			 "PRAGMA synchronous = NORMAL;"
-			 "PRAGMA foreign_keys = ON;",
+			 "PRAGMA foreign_keys = ON;"
+			 "SELECT COUNT (*) FROM sqlite_master;",
 			 &err);
 	if (rc != SQLITE_OK) {
 		*out_rebuild = is_corruption (rc);
-		g_warning ("could not set up the file cache: %s", err ? err : sqlite3_errstr (rc));
+		warn_setup (handle, "could not set up the file cache", rc, err);
 		sqlite3_free (err);
 		sqlite3_close (handle);
 		return NULL;
@@ -437,7 +474,7 @@ open_at (const char *path, gboolean *out_rebuild)
 	rc = read_user_version (handle, &version);
 	if (rc != SQLITE_OK) {
 		*out_rebuild = is_corruption (rc);
-		g_warning ("could not read the file cache version: %s", sqlite3_errstr (rc));
+		warn_setup (handle, "could not read the file cache version", rc, NULL);
 		sqlite3_close (handle);
 		return NULL;
 	}
@@ -454,7 +491,7 @@ open_at (const char *path, gboolean *out_rebuild)
 	rc = sqlite3_exec (handle, SCHEMA, NULL, NULL, &err);
 	if (rc != SQLITE_OK) {
 		*out_rebuild = is_corruption (rc);
-		g_warning ("could not make the file cache tables: %s", err ? err : sqlite3_errstr (rc));
+		warn_setup (handle, "could not make the file cache tables", rc, err);
 		sqlite3_free (err);
 		sqlite3_close (handle);
 		return NULL;
