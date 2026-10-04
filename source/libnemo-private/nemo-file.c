@@ -56,6 +56,7 @@
 #include <eel/eel-string.h>
 #include <libnemo-private/nemo-posix-compat.h>
 #ifdef G_OS_WIN32
+#include <libnemo-private/nemo-link-win32.h>
 #include <libnemo-private/nemo-security-win32.h>
 #include <libnemo-private/nemo-shell-icon-win32.h>
 #include <libnemo-private/nemo-shortcut-win32.h>
@@ -2925,6 +2926,7 @@ update_info_internal (NemoFile *file,
 #ifdef G_OS_WIN32
 	/* Fresh info means the ACL may have moved too - read it again when asked. */
 	file->details->win32_perm_source = NEMO_WIN32_PERM_SOURCE_NOT_COMPUTED;
+	file->details->win32_link_end_read = FALSE;
 #endif
 
 	free_owner = FALSE;
@@ -8331,7 +8333,30 @@ nemo_file_is_broken_symbolic_link (NemoFile *file)
 	g_return_val_if_fail (NEMO_IS_FILE (file), FALSE);
 
 	/* Non-broken symbolic links return the target's type for get_file_type. */
-	return nemo_file_get_file_type (file) == G_FILE_TYPE_SYMBOLIC_LINK;
+	if (nemo_file_get_file_type (file) == G_FILE_TYPE_SYMBOLIC_LINK) {
+		return TRUE;
+	}
+
+#ifdef G_OS_WIN32
+	/* Here GIO gives a link the type it has itself, a file or a folder,
+	   wherever it leads, so the type above never says. The answer is kept
+	   until the next info load, since the type column asks on every draw.
+	   A link on a share, or to one, is never looked into. */
+	if (file->details->is_symlink && !file->details->win32_link_end_read) {
+		GFile *location = nemo_file_get_location (file);
+		const char *path = g_file_peek_path (location);
+
+		file->details->win32_link_leads_nowhere =
+			path != NULL && !nemo_file_is_on_a_share (file) &&
+			nemo_win32_link_leads_nowhere_here (path);
+		file->details->win32_link_end_read = TRUE;
+		g_object_unref (location);
+	}
+
+	return file->details->is_symlink && file->details->win32_link_leads_nowhere;
+#else
+	return FALSE;
+#endif
 }
 
 static void

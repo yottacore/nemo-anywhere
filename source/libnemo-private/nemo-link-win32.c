@@ -340,6 +340,9 @@ try_junction (const char *target_path,
 	return ok;
 }
 
+/* A relative target is stored as given, and Windows does not take / as a
+   separator in one, so "sub/x" would lead nowhere. An absolute one is
+   rewritten by the call anyway. */
 static gboolean
 try_symlink (const char *target_path,
              const char *link_path,
@@ -347,10 +350,13 @@ try_symlink (const char *target_path,
              DWORD       extra_flags,
              DWORD      *win_error)
 {
-	gunichar2 *w_target = to_utf16 (target_path);
+	char *native = to_native_separators (target_path);
+	gunichar2 *w_target = to_utf16 (native);
 	gunichar2 *w_link = to_utf16 (link_path);
 	DWORD flags = extra_flags;
 	gboolean ok;
+
+	g_free (native);
 
 	if (target_is_dir) {
 		flags |= SYMBOLIC_LINK_FLAG_DIRECTORY;
@@ -422,6 +428,244 @@ nemo_win32_link_leads_somewhere (const char *path)
 	default:
 		return TRUE;
 	}
+}
+
+/* A drive letter mapped to a share, or a subst onto one. QueryDosDevice reads
+   the drive's entry in the object table, so the share itself is not asked. */
+static gboolean
+drive_is_remote (const char *path, gint depth)
+{
+	wchar_t drive[3] = { 0, L':', 0 };
+	wchar_t device[1024];
+	char *name, *folded;
+	gboolean remote;
+
+	if (path == NULL || !g_ascii_isalpha (path[0]) || path[1] != ':' || depth > 4) {
+		return FALSE;
+	}
+
+	drive[0] = (wchar_t) g_ascii_toupper (path[0]);
+	if (QueryDosDeviceW (drive, device, G_N_ELEMENTS (device)) == 0) {
+		return FALSE;
+	}
+
+	name = g_utf16_to_utf8 ((const gunichar2 *) device, -1, NULL, NULL, NULL);
+	if (name == NULL) {
+		return FALSE;
+	}
+
+	folded = g_ascii_strdown (name, -1);
+	if (g_str_has_prefix (folded, "\\??\\unc\\")) {
+		remote = TRUE;
+	} else if (g_str_has_prefix (folded, "\\??\\")) {
+		remote = drive_is_remote (name + 4, depth + 1);
+	} else {
+		/* \Device\Mup, LanmanRedirector, WebDavRedirector, RdpDr, VBoxMiniRdr */
+		remote = g_str_has_prefix (folded, "\\device\\mup") ||
+			 strstr (folded, "redirector") != NULL ||
+			 strstr (folded, "rdr") != NULL;
+	}
+
+	g_free (folded);
+	g_free (name);
+
+	return remote;
+}
+
+gboolean
+nemo_win32_drive_is_remote (const char *path)
+{
+	return drive_is_remote (path, 0);
+}
+
+/* A target that names a share, in any spelling a reparse point or a person
+   may use, or a drive letter that is one. */
+static gboolean
+target_is_remote (const char *target)
+{
+	const char *rest = target;
+
+	if (g_str_has_prefix (target, "\\??\\") || g_str_has_prefix (target, "\\\\?\\") ||
+	    g_str_has_prefix (target, "\\\\.\\")) {
+		rest = target + 4;
+		if (g_ascii_strncasecmp (rest, "UNC\\", 4) == 0) {
+			return TRUE;
+		}
+	} else if ((target[0] == '\\' || target[0] == '/') && (target[1] == '\\' || target[1] == '/')) {
+		return TRUE;
+	}
+
+	return drive_is_remote (rest, 0);
+}
+
+/* A name's reparse tag, or 0, read from the listing of the folder above it,
+   so a link is not followed and nothing behind it is opened. FALSE when
+   nothing has that name. */
+static gboolean
+read_entry (const char *path,
+            DWORD      *tag)
+{
+	gunichar2 *w_path = to_utf16 (path);
+	WIN32_FIND_DATAW found;
+	HANDLE handle;
+
+	if (w_path == NULL) {
+		return FALSE;
+	}
+	handle = FindFirstFileW ((LPCWSTR) w_path, &found);
+	g_free (w_path);
+	if (handle == INVALID_HANDLE_VALUE) {
+		return FALSE;
+	}
+	FindClose (handle);
+
+	*tag = (found.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) ? found.dwReserved0 : 0;
+
+	return TRUE;
+}
+
+/* Puts a target's parts in front of what is left to walk. */
+static void
+push_parts (GQueue     *parts,
+            const char *path,
+            const char *separators)
+{
+	char **split = g_strsplit_set (path, separators, -1);
+	int i;
+
+	for (i = g_strv_length (split) - 1; i >= 0; i--) {
+		if (split[i][0] != '\0') {
+			g_queue_push_head (parts, split[i]);
+		} else {
+			g_free (split[i]);
+		}
+	}
+	g_free (split);
+}
+
+/* "C:\" for anything on drive C, or NULL when path is not on a drive. */
+static char *
+drive_root (const char *path)
+{
+	if (path == NULL || !g_ascii_isalpha (path[0]) || path[1] != ':') {
+		return NULL;
+	}
+	return g_strdup_printf ("%c:\\", path[0]);
+}
+
+#define MAX_LINK_HOPS 63	/* what Windows itself follows */
+
+gboolean
+nemo_win32_link_leads_nowhere_here (const char *link_path)
+{
+	GQueue parts = G_QUEUE_INIT;
+	char *walked;
+	char *part;
+	int hops = 0;
+	gboolean nowhere = FALSE;
+
+	if (link_path == NULL || target_is_remote (link_path)) {
+		return FALSE;
+	}
+
+	/* The folder the link sits in is where the user already is. Every name
+	   from there on is read from the listing of the folder above it, and
+	   each link's target from its own reparse point. */
+	walked = g_path_get_dirname (link_path);
+	g_queue_push_head (&parts, g_path_get_basename (link_path));
+
+	while ((part = g_queue_pop_head (&parts)) != NULL) {
+		char *candidate, *target = NULL, *root;
+		const char *rest;
+		DWORD tag;
+
+		if (strcmp (part, ".") == 0) {
+			g_free (part);
+			continue;
+		}
+		if (strcmp (part, "..") == 0) {
+			char *up = g_path_get_dirname (walked);
+
+			g_free (walked);
+			walked = up;
+			g_free (part);
+			continue;
+		}
+
+		/* No name holds these. The lookup below would read / as a
+		   separator and the rest as a pattern. */
+		if (strpbrk (part, "/*?<>\"|") != NULL) {
+			nowhere = TRUE;
+			g_free (part);
+			break;
+		}
+
+		candidate = g_build_filename (walked, part, NULL);
+		g_free (part);
+
+		if (!read_entry (candidate, &tag)) {
+			nowhere = TRUE;
+			g_free (candidate);
+			break;
+		}
+		if (tag != IO_REPARSE_TAG_SYMLINK && tag != IO_REPARSE_TAG_MOUNT_POINT) {
+			g_free (walked);
+			walked = candidate;
+			continue;
+		}
+
+		if (++hops > MAX_LINK_HOPS) {
+			nowhere = TRUE;
+			g_free (candidate);
+			break;
+		}
+		/* Not knowing is not broken. */
+		if (!nemo_win32_link_read_target (candidate, &target, NULL) ||
+		    target_is_remote (target)) {
+			g_free (target);
+			g_free (candidate);
+			break;
+		}
+
+		rest = target;
+		if (g_str_has_prefix (rest, "\\??\\") || g_str_has_prefix (rest, "\\\\?\\")) {
+			rest += 4;
+		}
+		root = drive_root (rest);
+		if (root != NULL) {
+			g_free (walked);
+			walked = root;
+			push_parts (&parts, rest + 2, "\\/");
+		} else if (rest[0] == '\\' || rest[0] == '/') {
+			root = drive_root (walked);
+			if (root == NULL) {
+				g_free (target);
+				g_free (candidate);
+				break;
+			}
+			g_free (walked);
+			walked = root;
+			push_parts (&parts, rest + 1, "\\/");
+		} else if (rest[0] != '\0' && rest[1] == ':') {
+			/* "C:name", relative to a drive's own folder. Nothing makes
+			   one, and nothing here can say where it goes. */
+			g_free (target);
+			g_free (candidate);
+			break;
+		} else {
+			/* Relative: from the link's own folder, which is what walked
+			   still is. Only \ splits it, as only \ does for Windows. */
+			push_parts (&parts, rest, "\\");
+		}
+
+		g_free (target);
+		g_free (candidate);
+	}
+
+	g_queue_clear_full (&parts, g_free);
+	g_free (walked);
+
+	return nowhere;
 }
 
 /* Symlinks keep whatever spelling they were given; a junction has to be

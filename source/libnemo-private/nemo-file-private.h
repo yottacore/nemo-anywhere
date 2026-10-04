@@ -82,6 +82,10 @@ struct NemoFileDetails
 	guint win32_perm_source : 3;
 	/* owner_real is looked up by us on Windows, once per info load. */
 	guint win32_owner_real_read : 1;
+	/* Whether a link leads nowhere, worked out when first asked and again
+	   after each info load. GIO cannot tell there. */
+	guint win32_link_end_read : 1;
+	guint win32_link_leads_nowhere : 1;
 #endif
 
 	time_t atime; /* 0 is unknown */

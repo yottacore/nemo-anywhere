@@ -1682,6 +1682,15 @@ if is_windows
     args: []
   )
 
+  test('rjehwjw7 Link end test',
+    executable('test-nemo-link-end-win32',
+      [ 'test-nemo-link-end-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: []
+  )
+
   test('rfmxrdph Clipboard win32 test',
     executable('test-nemo-clipboard-win32',
       [ 'test-nemo-clipboard-win32.c' ],
