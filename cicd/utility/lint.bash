@@ -52,6 +52,7 @@ fTest bash "${here}/../linux/test-deb-size.bash"
 bash "${here}/../linux/test-release-image-pin.bash"
 fTest bash "${here}/../linux/test-release-setup.bash"
 fTest bash "${here}/test-release-stamp.bash"
+fTest bash "${here}/test-release-notes.bash"
 py=""
 for cand in python3 python; do
 	if command -v "$cand" >/dev/null 2>&1; then py="$cand"; break; fi

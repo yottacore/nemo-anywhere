@@ -821,7 +821,7 @@ Packaging builds from what the release lanes already produced and never rebuilds
 
 A packager that fails only warns, so one broken format does not cost the others. The installer and prefix checks run after the packagers and stop the run on a failure, before dogfood and publish.
 
-Cutting a release tags `v<version>` from a clean main and uploads the artifacts. Release notes are the hand-written changelog section for that version, never a generated commit list, falling back to generated notes only so a release is never published blank. A version carrying a pre-release part is published as a prerelease, which matters to the installers: their stable channel takes the newest release with no prerelease part, and the newest prerelease only while no stable release exists.
+Cutting a release tags `v<version>` from a clean main and uploads the artifacts. Release notes are the hand-written changelog section for that version, never a generated commit list. A version with no section gets one line pointing at the changelog, so a release is never published blank. Under the notes, a Downloads table links each build, with the target OS in rows and the CPU in columns. The local cut and the Windows build each write it again from the files the release holds once their own uploads are done, so it is whole whichever one finishes last. A version carrying a pre-release part is published as a prerelease, which matters to the installers: their stable channel takes the newest release with no prerelease part, and the newest prerelease only while no stable release exists.
 
 ### Installing
 

@@ -33,6 +33,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Release page: group the downloads in a table.
+	- ID: 2026100413051728
+	- Type: Feature
+	- Status: Waiting on signoff
+	- Needs external testing: the Windows build's last step on the next real release tag, and the release page looked at then.
+	- Opened: 20261004-130517
+	- Opened by: t00mietum
+	- Requirements:
+		- When a release is made, its downloads are grouped in a table.
+		- CPU architecture in columns, and target OS in rows.
+	- Decisions:
+		- A row or column shows only when something was built for it. A combination not built is an empty cell. A call made without asking.
+		- A cell links each file of that build, such as tar.gz, deb and rpm. Checksums, and files that name no OS and CPU, go in a line under the table. A call made without asking.
+		- The table goes after the changelog section and before the build number.
+	- Against: design.md said a version with no changelog section falls back to generated notes. Both lanes now write one line pointing at the changelog, as the local cut already did. design.md says so now.
+	- Done: both release lanes write the notes through one script, once their own uploads are done, from the files the release holds. So the table is whole whichever lane finishes last. The Windows build's notes keep the build number now too.
+	- Note: if the Windows build ever creates the release before the local cut does, the local cut's create still fails, as before. Not changed here.
+	- Swept: every place release notes are written: `release.bash`, and the notes and publish steps in `release-win.yml`. `changelog-notes.bash` is still the one reader of the changelog.
+	- Branch: relnotes
+	- Commit: 4e5127f
+	- Test case: rjf2v5d5 (`test-release-notes.bash`, lint stage).
+	- Verified: rjf2v5d5 passes, and the lint stage is clean.
+
 - Code review 20260928 item 40. The shortcut path choice code is only reached by tests.
 	- ID: 2026092813381440
 	- Type: Enhancement
@@ -191,17 +214,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Allow only the receiving window's process.
 	- Test case: none yet.
 
-- Code review 20260928 item 45. Self-tests in the lint stage have no test IDs.
-	- ID: 2026092813381445
-	- Type: Enhancement
-	- Status: Queued
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Requirements:
-		- Four self-tests run in the lint stage with no ID, and the ID check cannot see them. Give them IDs, or record that they are exempt.
-	- Test case: `test-id.py --check`.
-
 - A thumbnail already being made runs to the end after its folder is left.
 	- ID: 2026093013002529
 	- Type: Enhancement
@@ -229,17 +241,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Advanced automatic column sizing logic
 			- Optional striped rows (turn on instantly, don't bother with menu)
 	- Test case: none, demo content. `cicd/utility/lint-demo-script.py` checks the script.
-
-- Release page: group the downloads in a table.
-	- ID: 2026100413051728
-	- Type: Feature
-	- Status: Queued
-	- Opened: 20261004-130517
-	- Opened by: t00mietum
-	- Requirements:
-		- When a release is made, its downloads are grouped in a table.
-		- CPU architecture in columns, and target OS in rows.
-	- Test case: none yet.
 
 - Code review 20260928 item 2. The tree sidebar crashes on Shift+F10 or the Menu key.
 	- ID: 2026092813381402
@@ -1950,6 +1951,24 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: ef05a4f
 	- Test case: rjbpyy28 Archive stop time test now has a 7z case. A 4 GiB and a 16 GiB file are stopped at their first progress report. Before the fix, the 4 GiB one took 50 s and the 16 GiB one did not end in 100 s. After, both take 0.01 s. rjbw0rkq Stopped 7z leak test, which fails at 82 bytes a round when the close is left out.
 	- Acceptance signoff: waiting. The archive writer's handling of a stop changed again, this time for the 7z.
+
+- Code review 20260928 item 45. Self-tests in the lint stage have no test IDs.
+	- ID: 2026092813381445
+	- Type: Enhancement
+	- Status: Done
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Requirements:
+		- Four self-tests run in the lint stage with no ID, and the ID check cannot see them. Give them IDs, or record that they are exempt.
+	- Fixed: the four self-tests have IDs, kept in each tool and printed when it runs. The ID check now finds every self-test the lint stage runs, so a new one with no ID fails it. The ID check itself is the gate, not a test, and has no ID.
+	- Swept: every `--self-test` and `--check` call in `lint.bash` and `lint-c.bash`. There are no others in the lint stage.
+	- Branch: relnotes
+	- Commit: 50354c0
+	- Test case: `test-id.py --check`, in the lint stage. It failed on the four before the fix and passes after.
+	- Verified: lint stage clean, 275 test IDs.
+	- Acceptance signoff: Self-closed: mechanical, and the check failed before the fix and passes after.
+	- Closed: 20261004-152310
 
 - Code review 20260928 item 38. The test guard dialog resumes a job the user paused.
 	- ID: 2026092813381438

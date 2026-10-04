@@ -8,6 +8,7 @@ script. Re-run it after changing the logo.
 
 With --check nothing is written. It fails if a committed icon no longer looks
 like the logo, which is how a new logo went unnoticed for two days.
+Test ID: rhdsqqx1
 
 Syntax: gen-app-icon.py [--check] [<repo-root>]
 """
@@ -68,6 +69,8 @@ def main(argv):
     logo = Image.open(os.path.join(root, "assets", "logo.png")).convert("RGBA")
 
     if checking:
+        tag = next(line[9:] for line in __doc__.splitlines() if line.startswith("Test ID: "))
+        print("[ Test %s gen-app-icon.py --check ]" % tag)
         return check(root, logo)
 
     ico = os.path.join(root, "source", "src", "nemo-anywhere.ico")

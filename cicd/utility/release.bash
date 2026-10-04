@@ -10,7 +10,7 @@
 ##	      alone (the build stamps from it too, so they can never disagree)
 ##	   4. --push: push main + the tag
 ##	   5. --publish: also attach cicd/artifacts/release/* to a GitHub Release
-##	      as plain uploads (gh CLI; no Actions)
+##	      as plain uploads (gh CLI; no Actions), then write its Downloads table
 ##	- Status: tag + push work today. Artifact verification/attach is gated off until
 ##	  the release-build stage produces host-side artifacts (RELEASE_ARTIFACT_DIR in
 ##	  config.bash). First release also needs a "Release-<ver>" README badge to exist.
@@ -111,16 +111,11 @@ else
 fi
 if ((do_publish)); then
 	command -v gh >/dev/null 2>&1 || die "gh CLI not found"
-	## Notes are the hand-written changelog section when there is one.
+	## Notes are the hand-written changelog section when there is one. The
+	## Downloads table goes in once the files are up.
 	notes_file="$(mktemp)"
 	trap 'rm -f "${notes_file}"' EXIT
-	if ! "${here}/changelog-notes.bash" "${ver}" >"${notes_file}"; then
-		echo "no changelog section for ${ver} - publishing with a placeholder body" >&2
-		printf 'See the changelog for details.\n' >"${notes_file}"
-	fi
-	## Same number the binaries carry: both read it off HEAD's commit date.
-	( source "${here}/include/source-date.bash"; fSetSourceDate "${here}/../.."
-	  printf '\n---\n\nBuild %s\n' "$(python3 "${here}/../../source/build-number.py")" ) >>"${notes_file}"
+	bash "${here}/release-notes.bash" "${ver}" >"${notes_file}"
 	notes_arg=(--notes-file "${notes_file}")
 	## A prerelease is anything with a pre-release part, matching the tag rule the
 	## release workflow applies from its side.
@@ -130,10 +125,14 @@ if ((do_publish)); then
 		gh release create "${tag}" --title "${APP_NAME} ${ver}" "${notes_arg[@]}" "${pre_arg[@]}" \
 			"${art_dir}/${EXE_NAME}-${ver}-"*
 		echo "GitHub Release ${tag} created with artifacts"
+		## The Windows build adds its exe later and writes the table again then.
+		bash "${here}/release-notes.bash" --update "${tag}" \
+			|| echo "WARNING: Downloads table not written; rerun: cicd/utility/release-notes.bash --update ${tag}" >&2
 	else
 		gh release create "${tag}" --title "${APP_NAME} ${ver}" "${notes_arg[@]}" "${pre_arg[@]}"
 		echo "GitHub Release ${tag} created (no artifacts attached - stage not wired yet)"
 	fi
 elif ((do_push)) && ((have_artifacts)); then
 	echo "next (optional): gh release create ${tag} ${art_dir}/${EXE_NAME}-${ver}-*"
+	echo "  then: cicd/utility/release-notes.bash --update ${tag}"
 fi

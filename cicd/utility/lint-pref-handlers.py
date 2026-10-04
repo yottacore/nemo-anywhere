@@ -29,6 +29,7 @@
 # --self-test runs the checks over made-up files, wrong and right, so a change
 # that blinds them to a group or a spelling shows up here rather than as a
 # clean run over a tree that is not clean.
+# Test ID: rhtg2yer
 #
 # Syntax: lint-pref-handlers.py [root]   (default: the repo's source/)
 #         lint-pref-handlers.py --self-test
@@ -651,6 +652,8 @@ SELF_TEST_CASES = [
 
 
 def self_test():
+    own = Path(__file__).read_text(encoding="utf-8")
+    print("[ Test %s lint-pref-handlers.py --self-test ]" % re.search(r"(?m)^# Test ID: (\S+)$", own).group(1))
     failed = False
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
