@@ -51,6 +51,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Origin: 801ed01, 20260821, which put the command lines in the settings with `-r`. Not seen by an earlier round. Confirmed.
 	- Decisions:
 		- 20261004: a rar line edited in the settings keeps what it has, `-r` included, as item 2026092813381416 settled for `-spd` on 7-Zip lines. When the compression reset adds run-time flags to edited lines, `-r0` after an edited line's `-r` would undo it, since rar takes the last one said. It recurses only for a name with `*` or `?`, which rar already refuses.
+		- 20261004: answered yes. The compression reset adds `-r0` at run time to an edited rar line, as it adds `-spd` to an edited 7-Zip line. Recorded on 2026092910143202.
 	- Actual fix: the built-in rar line no longer has `-r`. A selected file is taken from the job's folder only, and a selected folder still goes in whole, hidden files, empty folders and links included.
 	- Swept: the built-in rar line and the settings schema's copy of it. The first run that keeps links that lead nowhere still says `-r-`, for an edited line. The 7-Zip lines never had `-r`, and the new rows pass for every format. Neither extract line has it. Names with `*` or `?`: rar reads them as patterns with or without `-r`, so item 2026092813381416's refusals stay as they are. Left-out names after `-x` are relative paths with no wildcards, which rar matches only where they are, with or without `-r`. A selected link named with a leading @ still goes in as `./@name`.
 	- Branch: rarsel
@@ -105,7 +106,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual cause: sqlite gives a free lock to whoever asks first, not to whoever has waited longest. The prune went from each write straight into the next, while sqlite's own wait backs off to 100 ms between tries, so a waiter kept waking while the next write had the lock. The only gaps were the ones left now and then while the journal was copied back into the file.
 		- Reproduced again 20261004, Linux, in the new test: with a window's read open through the pass, a writer sat out 24 to 29 of the prune's 34 writes in one wait, every run.
 	- Decisions:
-		- Made without asking: the prune rests as long as each write took, and at least 40 ms, so a pass takes at least twice as long. The Clean up button waits for it too.
+		- The prune rests as long as each write took, and at least 40 ms, so a pass takes at least twice as long. The Clean up button waits for it too. Confirmed 20261004.
 	- Actual fix: after each write the prune rests as long as the write took, and at least 40 ms, so the gap allows two Windows clock ticks. A copy waiting on the file tries again every 5 ms instead of backing off to 100 ms, and its 3 s limit is timed on the clock rather than by adding up its sleeps.
 	- Swept: every write the prune makes in a loop: dropping missing names, orphans, old thumbnails, the size rule and each compact step. The claim and the release are single writes. Every connection is opened in one place, so the prune's own waits the same way as a window's. Nothing else in the store writes in a loop.
 	- Note: a store's commit can also copy the journal back into the file, which on a busy disk took about a second. That is time on the disk, not a wait for the prune's lock, and it holds the store's own lock, so it belongs with 2026092813381436.
@@ -171,11 +172,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Keep compress and extract modular, for a possible split to their own project.
 		- Options opens by itself when a remembered choice isn't the default, and a button beside it resets them.
 		- 7z goes to 7-Zip first where it's installed, and an edited 7-Zip line gets `-spd` at run time.
+		- An edited rar line gets `-r0` at run time, so an `-r` left in it no longer takes same-named files from the folders below.
 	- Progress log:
 		- 20260929-161500: design moved to its own doc, with the new size counting. Five of the eight old questions are answered there.
 		- 20260929-173000: answers folded in. A nested filesystems option, exact totals for files with more than one path, dangling links under Ignore, the library's 7z storing links, and the order of the code split. One question left, on `-spd`.
 		- 20260929-190000: `-spd` is added at run time, 7-Zip is used first for 7z, and Options opens by itself and gets a reset button. Other filesystems is for folders only. One question left, on a selected link to another filesystem.
 		- 20260930-090000: a link onto another filesystem is followed only when both options are on. The reset button also collapses Options, and the store option's flyover says when it forces one thread. The settings comments on the command lines now say they are base flags. No questions left.
+		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
 
 - Code review 20260928 item 34. Apply the directives' new C section.
@@ -940,7 +943,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: all views place the keyboard menu through one shared function in eel, so one change covers them.
 	- Note: "Places" no longer takes the keyboard (2026100408525989), so it has no keyboard menu. That part of the requirements goes away.
 	- Decisions:
-		- The menu opens just below the item, from its left edge. With no room below, it opens above it. The item is the name cell in the list view, the icon and its label in the icon and compact views, and the row in the tree.
+		- The menu opens just below the item, from its left edge. With no room below, it opens above it. Confirmed 20261004. The item is the name cell in the list view, the icon and its label in the icon and compact views, and the row in the tree.
 		- With several items selected, the menu goes by the one the keyboard is on when that one is selected. Otherwise it goes by the first selected item in sight.
 		- A selected item scrolled out of sight gets the top left, as with nothing selected. The view is not scrolled to it.
 		- Ctrl+F10 opens the folder's own menu, not the selection's, so it stays at the top left. No key press opens a menu at the pointer.
