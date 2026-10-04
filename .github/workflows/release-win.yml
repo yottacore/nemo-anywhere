@@ -116,13 +116,13 @@ jobs:
           wait-for-completion: true
           output-artifact-directory: signed
 
-      # Notes come from the changelog section for this version. Writes nothing when
-      # the version has no section, and the publish step then falls back to the
-      # generated commit list rather than an empty body.
+      # Notes come from the changelog section for this version, the same way the
+      # local cut writes them. Writes nothing if that fails, and the publish step
+      # then falls back to the generated commit list rather than an empty body.
       - name: Release notes from changelog
         if: startsWith(github.ref, 'refs/tags/')
         shell: bash
-        run: bash cicd/utility/changelog-notes.bash "${GITHUB_REF_NAME}" > release-notes.md || rm -f release-notes.md
+        run: bash cicd/utility/release-notes.bash "${GITHUB_REF_NAME}" > release-notes.md || rm -f release-notes.md
 
       # Attach to the release on a tag build. Prefer the signed exe when present.
       # Creates the release if the tag push arrived before release.bash made one.
@@ -172,3 +172,13 @@ jobs:
             [IO.File]::WriteAllText("$PWD/$name.sha256", "$line`n")
             gh release upload "$env:TAG" "$name.sha256" --clobber
           }
+
+      # Last, once the exe and the sums file are up: the Downloads table is read
+      # off what the release holds now, so it is right whichever lane finished
+      # last. The local cut writes it the same way after its own uploads.
+      - name: Downloads table
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash cicd/utility/release-notes.bash --update "${GITHUB_REF_NAME}"
