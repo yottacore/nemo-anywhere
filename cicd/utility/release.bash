@@ -10,7 +10,9 @@
 ##	      alone (the build stamps from it too, so they can never disagree)
 ##	   4. --push: push main + the tag
 ##	   5. --publish: also attach cicd/artifacts/release/* to a GitHub Release
-##	      as plain uploads (gh CLI; no Actions), then write its Downloads table
+##	      as plain uploads (gh CLI; no Actions), then write its Downloads table.
+##	      If the Windows build made the release first, the files, title, notes
+##	      and prerelease flag go onto that one.
 ##	- Status: tag + push work today. Artifact verification/attach is gated off until
 ##	  the release-build stage produces host-side artifacts (RELEASE_ARTIFACT_DIR in
 ##	  config.bash). First release also needs a "Release-<ver>" README badge to exist.
@@ -113,26 +115,77 @@ if ((do_publish)); then
 	command -v gh >/dev/null 2>&1 || die "gh CLI not found"
 	## Notes are the hand-written changelog section when there is one. The
 	## Downloads table goes in once the files are up.
-	notes_file="$(mktemp)"
-	trap 'rm -f "${notes_file}"' EXIT
+	pub_dir="$(mktemp -d)"
+	trap 'rm -rf "${pub_dir}"' EXIT
+	notes_file="${pub_dir}/notes.md"
 	bash "${here}/release-notes.bash" "${ver}" >"${notes_file}"
 	notes_arg=(--notes-file "${notes_file}")
 	## A prerelease is anything with a pre-release part, matching the tag rule the
 	## release workflow applies from its side.
 	pre_arg=()
 	if [[ "$ver" == *-* ]]; then pre_arg=(--prerelease); fi
-	if ((have_artifacts)); then
-		gh release create "${tag}" --title "${APP_NAME} ${ver}" "${notes_arg[@]}" "${pre_arg[@]}" \
-			"${art_dir}/${EXE_NAME}-${ver}-"*
+	files=()
+	if ((have_artifacts)); then files=("${art_dir}/${EXE_NAME}-${ver}-"*); fi
+	## The tag starts the Windows build, which makes the release itself when it
+	## finds none. If it got there first, this lane adds to that one instead.
+	joined=0
+	if gh release view "${tag}" --json name >/dev/null 2>&1; then
+		joined=1
+	elif ! gh release create "${tag}" --title "${APP_NAME} ${ver}" "${notes_arg[@]}" "${pre_arg[@]}" "${files[@]}"; then
+		gh release view "${tag}" --json name >/dev/null 2>&1 || die "gh release create ${tag} failed"
+		joined=1
+	fi
+	if ((joined)); then
+		pre_flag=--prerelease=false
+		if ((${#pre_arg[@]})); then pre_flag=--prerelease; fi
+		gh release edit "${tag}" --title "${APP_NAME} ${ver}" "${notes_arg[@]}" "${pre_flag}" >/dev/null
+		if ((have_artifacts)); then
+			## A .sha256 beside an asset is the Windows build's checksum, written
+			## when it gave up waiting for the sums file. Fold it into the sums
+			## file, as it would have done itself had the file been there.
+			sums_name="${sums##*/}"
+			cp "${sums}" "${pub_dir}/${sums_name}"
+			upload=("${pub_dir}/${sums_name}")
+			for f in "${files[@]}"; do [[ "$f" == "$sums" ]] || upload+=("$f"); done
+			gh release view "${tag}" --json assets >"${pub_dir}/assets.json"
+			mapfile -t sidecars < <(python3 -c 'import json, sys
+for a in json.load(open(sys.argv[1]))["assets"]:
+    if a["name"].endswith(".sha256") and a.get("state") == "uploaded": print(a["name"])' "${pub_dir}/assets.json")
+			declare -A summed=()
+			while read -r hash name || [[ -n "${name:-}" ]]; do summed["${name#\*}"]=1; done <"${pub_dir}/${sums_name}"
+			folded=()
+			for side in "${sidecars[@]}"; do
+				## A file just uploaded can be listed before it can be fetched.
+				got=0
+				for try in 1 2 3 4 5 6; do
+					if gh release download "${tag}" --pattern "${side}" --dir "${pub_dir}" --clobber 2>/dev/null; then got=1; break; fi
+					if ((try < 6)); then sleep $((try * 5)); fi
+				done
+				if ((! got)); then echo "WARNING: could not fetch ${side}; left beside its file" >&2; continue; fi
+				while read -r hash name || [[ -n "${name:-}" ]]; do
+					name="${name#\*}"
+					if [[ -z "$name" || -n "${summed[$name]:-}" ]]; then continue; fi
+					printf '%s  %s\n' "$hash" "$name" >>"${pub_dir}/${sums_name}"
+					summed["$name"]=1
+				done <"${pub_dir}/${side}"
+				folded+=("${side}")
+			done
+			gh release upload "${tag}" "${upload[@]}" --clobber
+			for side in "${folded[@]}"; do gh release delete-asset "${tag}" "${side}" -y; done
+		fi
+		echo "GitHub Release ${tag} was there already; added to it"
+	elif ((have_artifacts)); then
 		echo "GitHub Release ${tag} created with artifacts"
-		## The Windows build adds its exe later and writes the table again then.
+	else
+		echo "GitHub Release ${tag} created (no artifacts attached - stage not wired yet)"
+	fi
+	if ((have_artifacts)); then
+		## Whichever lane uploads last writes the table again then.
 		bash "${here}/release-notes.bash" --update "${tag}" \
 			|| echo "WARNING: Downloads table not written; rerun: cicd/utility/release-notes.bash --update ${tag}" >&2
-	else
-		gh release create "${tag}" --title "${APP_NAME} ${ver}" "${notes_arg[@]}" "${pre_arg[@]}"
-		echo "GitHub Release ${tag} created (no artifacts attached - stage not wired yet)"
 	fi
 elif ((do_push)) && ((have_artifacts)); then
 	echo "next (optional): gh release create ${tag} ${art_dir}/${EXE_NAME}-${ver}-*"
+	echo "  or, once the Windows build has made it: gh release upload ${tag} ${art_dir}/${EXE_NAME}-${ver}-*"
 	echo "  then: cicd/utility/release-notes.bash --update ${tag}"
 fi

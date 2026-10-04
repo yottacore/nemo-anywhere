@@ -6,7 +6,8 @@
 ##	  whole whichever release lane adds its files last.
 ##	- Runs release-notes.bash over made-up asset lists, then a copy of
 ##	  release.bash --publish in a scratch repo against a stand-in gh, followed by
-##	  the Windows workflow's last step. Nothing reaches GitHub.
+##	  the Windows workflow's last step, and again with the release already
+##	  made by the Windows build. Nothing reaches GitHub.
 ##	- Needs git and python3; exit 77 without them. pandoc, when there, checks
 ##	  that the table renders as one.
 ##	- Runs in the lint stage.
@@ -170,9 +171,12 @@ fWant "$notes" "no assets file, no table" '!### Downloads'
 notes="$(fNotes 9.9.7 2>/dev/null)"
 fWant "$notes" "no changelog section, placeholder" "See the changelog for details."
 
-## A stand-in gh. It keeps the release's files in assets.json and its notes in
-## body.md. after-view-N.json stands for another lane's upload finishing just
-## after the Nth read.
+## A stand-in gh. It keeps the release's files in assets.json, their bytes in
+## file_<name>, its notes in body.md, and its title and prerelease flag in
+## title and prerelease. No assets.json means no release yet.
+## after-view-N.json stands for another lane's upload finishing just after the
+## Nth read, and made-meanwhile.json for the Windows build making the release
+## just before this lane's create.
 fakeDir="${scratch}/gh"
 mkdir -p "${scratch}/bin" "$fakeDir"
 cat > "${scratch}/bin/gh" <<'EOF'
@@ -180,31 +184,80 @@ cat > "${scratch}/bin/gh" <<'EOF'
 set -euo pipefail
 d="${FAKE_GH}"
 printf '%s\n' "$*" >> "${d}/log"
+## $1 add or drop, then files to add or names to drop.
+fFiles(){
+	local how="$1" f n names=()
+	shift
+	for f in "$@"; do
+		n="${f##*/}"; n="${n//[^A-Za-z0-9._-]/.}"; names+=("$n")
+		if [[ "$how" == add ]]; then cp "$f" "${d}/file_${n}"; else rm -f "${d}/file_${n}"; fi
+	done
+	python3 - "${d}/assets.json" "${FAKE_BASE}" "$how" "${names[@]}" <<'PY'
+import json, os, sys
+out, base, how, names = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4:]
+have = json.load(open(out))["assets"] if os.path.exists(out) else []
+have = [a for a in have if a["name"] not in names]
+if how == "add":
+    have += [{"name": n, "state": "uploaded", "url": base + "/" + n} for n in names]
+text = json.dumps({"assets": have})
+open(out, "w").write(text)
+PY
+}
+fFlags(){
+	while (($#)); do case "$1" in
+		--notes-file) cp "$2" "${d}/body.md"; shift 2 ;;
+		--title) printf '%s\n' "$2" > "${d}/title"; shift 2 ;;
+		--prerelease|--prerelease=true) echo true > "${d}/prerelease"; shift ;;
+		--prerelease=false) echo false > "${d}/prerelease"; shift ;;
+		*) shift ;;
+	esac; done
+}
 case "${1:-} ${2:-}" in
 	"release view")
+		if [[ ! -f "${d}/assets.json" ]]; then echo "release not found" >&2; exit 1; fi
 		n=$(( $(cat "${d}/views" 2>/dev/null || echo 0) + 1 ))
 		echo "$n" > "${d}/views"
 		cat "${d}/assets.json"
 		if [[ -f "${d}/after-view-${n}.json" ]]; then cp "${d}/after-view-${n}.json" "${d}/assets.json"; fi ;;
 	"release edit")
-		while (($#)); do if [[ "$1" == --notes-file ]]; then cp "$2" "${d}/body.md"; fi; shift; done ;;
+		[[ -f "${d}/assets.json" ]] || { echo "release not found" >&2; exit 1; }
+		fFlags "$@" ;;
 	"release create")
+		if [[ -f "${d}/made-meanwhile.json" ]]; then mv "${d}/made-meanwhile.json" "${d}/assets.json"; fi
+		if [[ -f "${d}/assets.json" ]]; then echo "HTTP 422: Validation Failed (already_exists)" >&2; exit 1; fi
 		shift 3
-		files=()
+		files=() flags=()
 		while (($#)); do case "$1" in
-			--notes-file) cp "$2" "${d}/body.md"; shift 2 ;;
-			--title) shift 2 ;;
-			--*) shift ;;
+			--notes-file|--title) flags+=("$1" "$2"); shift 2 ;;
+			--*) flags+=("$1"); shift ;;
 			*) files+=("$1"); shift ;;
 		esac; done
-		names=()
-		for f in "${files[@]}"; do n="${f##*/}"; names+=("${n//[^A-Za-z0-9._-]/.}"); done
-		python3 - "${d}/assets.json" "${FAKE_BASE}" "${names[@]}" <<'PY'
-import json, sys
-out, base, names = sys.argv[1], sys.argv[2], sys.argv[3:]
-json.dump({"assets": [{"name": n, "state": "uploaded", "url": base + "/" + n} for n in names]}, open(out, "w"))
-PY
-		;;
+		echo false > "${d}/prerelease"
+		fFlags "${flags[@]}"
+		fFiles add "${files[@]}" ;;
+	"release upload")
+		[[ -f "${d}/assets.json" ]] || { echo "release not found" >&2; exit 1; }
+		shift 3
+		files=()
+		for f in "$@"; do [[ "$f" == --* ]] || files+=("$f"); done
+		for f in "${files[@]}"; do
+			n="${f##*/}"
+			if [[ -f "${d}/file_${n}" && " $* " != *" --clobber "* ]]; then echo "asset under the same name already exists: ${n}" >&2; exit 1; fi
+		done
+		fFiles add "${files[@]}" ;;
+	"release download")
+		shift 3
+		pattern="" dir="."
+		while (($#)); do case "$1" in
+			-p|--pattern) pattern="$2"; shift 2 ;;
+			-D|--dir) dir="$2"; shift 2 ;;
+			*) shift ;;
+		esac; done
+		[[ -f "${d}/file_${pattern}" ]] || { echo "no assets to download" >&2; exit 1; }
+		cp "${d}/file_${pattern}" "${dir}/${pattern}" ;;
+	"release delete-asset")
+		[[ -f "${d}/file_${4:-}" ]] || { echo "asset not found: ${4:-}" >&2; exit 1; }
+		fFiles drop "$4" ;;
 	*) echo "stand-in gh: not handled: $*" >&2; exit 1 ;;
 esac
 EOF
@@ -283,16 +336,34 @@ with zipfile.ZipFile(sys.argv[1], "w") as z:
 EOF
 ( cd "$art" && sha256sum "${app}"-* > "$sums" )
 
-if ! out="$(cd "$repo" && bash cicd/utility/release.bash --publish -y 2>&1)"; then
+## release.bash refuses a tag that is there already, so each run starts without it.
+fCut(){
+	fGit tag -d "$tag" >/dev/null 2>&1 || true
+	git -C "${scratch}/origin.git" tag -d "$tag" >/dev/null 2>&1 || true
+	out="$(cd "$repo" && bash cicd/utility/release.bash --publish -y 2>&1)"
+}
+fNames(){ python3 -c 'import json, sys; print(" ".join(sorted(a["name"] for a in json.load(open(sys.argv[1]))["assets"])))' "${fakeDir}/assets.json"; }
+## $1 what. The release as the local cut makes it, whoever made it first.
+fWantLocalCut(){
+	local got
+	got="$(cat "${fakeDir}/title" 2>/dev/null || true)"
+	if [[ "$got" == "Nemo Anywhere ${ver}" ]]; then fEcho "OK: ${1}: title"; else fFail "${1}: title is '${got}'"; fi
+	got="$(cat "${fakeDir}/prerelease" 2>/dev/null || true)"
+	if [[ "$got" == true ]]; then fEcho "OK: ${1}: prerelease"; else fFail "${1}: prerelease is '${got}'"; fi
+	body="$(cat "${fakeDir}/body.md" 2>/dev/null || true)"
+	fWant "$body" "${1}, notes" "- Something new."
+	fWant "$body" "${1}, checksums" "Checksums: $(fLink "$sums" "$sums")"
+	fWantCell "$body" "$1" Linux x86_64 "$(fLink tar.gz "${app}-linux-x86_64.tar.gz")"
+}
+
+fReset
+if ! fCut; then
 	fFail "release.bash --publish failed: ${out}"
 elif [[ ! -f "${fakeDir}/body.md" ]]; then
 	fFail "release.bash --publish wrote no notes: ${out}"
 else
-	body="$(cat "${fakeDir}/body.md")"
-	fWantCell "$body" "local cut" Linux x86_64 "$(fLink tar.gz "${app}-linux-x86_64.tar.gz")"
+	fWantLocalCut "local cut"
 	fWantCell "$body" "local cut" Windows x86_64 "$(fLink zip "$winZip")"
-	fWant "$body" "local cut, checksums" "Checksums: $(fLink "$sums" "$sums")"
-	fWant "$body" "local cut, notes" "- Something new."
 	## What the workflow uploads, then its last step, run as it runs it.
 	fAssets "${fakeDir}/assets.json" "${app}-linux-x86_64.tar.gz" "$sums" "$winZip" "$winExe"
 	if ! out="$(cd "$repo" && GITHUB_REF_NAME="$tag" bash cicd/utility/release-notes.bash --update "$tag" 2>&1)"; then
@@ -303,6 +374,49 @@ else
 		fWantCell "$body" "Windows lane last" Linux x86_64 "$(fLink tar.gz "${app}-linux-x86_64.tar.gz")"
 		fWant "$body" "Windows lane last, build line" "Build ${expectBuild}"
 	fi
+fi
+
+## The Windows build made the release, as it does when the tag gets there
+## first: its own title, no prerelease flag here to see it put right, and the
+## exe's checksum beside it, since it gave up waiting for the sums file.
+exeLine="$(printf 'exe\n' | sha256sum | cut -d' ' -f1)  ${winExe}"
+fWorkflowFirst(){
+	printf 'exe\n' > "${fakeDir}/file_${winExe}"
+	printf '%s\n' "$exeLine" > "${fakeDir}/file_${winExe}.sha256"
+	fAssets "$1" "$winExe" "${winExe}.sha256"
+	printf '%s\n' "$tag" > "${fakeDir}/title"
+	echo false > "${fakeDir}/prerelease"
+	printf 'Generated.\n' > "${fakeDir}/body.md"
+}
+fReset
+fWorkflowFirst "${fakeDir}/assets.json"
+if ! fCut; then
+	fFail "Windows lane made the release: release.bash --publish failed: ${out}"
+else
+	fWantLocalCut "Windows lane made the release"
+	fWantCell "$body" "Windows lane made the release" Windows x86_64 "$(fLink zip "$winZip"), $(fLink "portable exe" "$winExe")"
+	got="$(fNames)"
+	want="${app}-linux-x86_64.tar.gz ${sums} ${winExe} ${winZip}"
+	if [[ "$got" == "$want" ]]; then fEcho "OK: Windows lane made the release: files, exe checksum folded in"
+	else fFail "Windows lane made the release: files are '${got}', wanted '${want}'"
+	fi
+	sumsText="$(cat "${fakeDir}/file_${sums}" 2>/dev/null || true)"
+	fWant "$sumsText" "Windows lane made the release, exe in the sums file" "$exeLine"
+	fWant "$sumsText" "Windows lane made the release, Linux in the sums file" "  ${app}-linux-x86_64.tar.gz"
+fi
+
+## The release is made between this lane's look and its create.
+fReset
+fWorkflowFirst "${fakeDir}/made-meanwhile.json"
+if ! fCut; then
+	fFail "release made meanwhile: release.bash --publish failed: ${out}"
+else
+	got="$(fNames)"
+	if [[ "$got" == *"$sums"* && "$got" == *"$winExe"* && "$got" == *"${app}-linux-x86_64.tar.gz"* ]]; then fEcho "OK: release made meanwhile: files added to it"
+	else fFail "release made meanwhile: files are '${got}'"
+	fi
+	got="$(cat "${fakeDir}/title" 2>/dev/null || true)"
+	if [[ "$got" == "Nemo Anywhere ${ver}" ]]; then fEcho "OK: release made meanwhile: title"; else fFail "release made meanwhile: title is '${got}'"; fi
 fi
 step="$(grep -A6 -F -- '- name: Downloads table' "${root}/.github/workflows/release-win.yml" | grep -F 'run:' || true)"
 if [[ "$step" == *"bash cicd/utility/release-notes.bash --update \"\${GITHUB_REF_NAME}\""* ]]; then fEcho "OK: workflow's last step runs the same update"
