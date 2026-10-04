@@ -107,6 +107,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
 
+- The keyboard menu opens at the pane's top left, not beside the selected item.
+	- ID: 2026100408414402
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261004-084144
+	- Opened by: t00mietum
+	- Related IDs: 2026092813381402
+	- Target OS: all
+	- Requirements:
+		- Shift+F10 or the Menu key opens the menu beside the selected item, in the file list, icon view, tree and places sidebar.
+		- With nothing selected, the menu opens near the pane's top left, as today.
+		- A right click still opens the menu at the pointer.
+	- Note: all views place the keyboard menu through one shared function in eel, so one change covers them.
+	- Test case: none yet. A check that the keyboard menu is placed at the selected row, in each view.
+
 - A waiting store can miss every gap between the prune's writes.
 	- ID: 2026100319191870
 	- Type: Bug
@@ -407,6 +423,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual fix: with no mouse event the menu is for the row the keyboard is on. With no row at all, no menu opens, from the keyboard or a right click.
 	- Note: a right click on empty space in the tree used to open the menu with nothing behind it, so its items acted on no file. It now opens nothing. A row with no file behind it, such as one still loading, is treated the same.
 	- Note: the keyboard menu opens at the top left of the tree, not beside the row. That comes from the shared placement code the other views use, and is left as is.
+		- Filed as 2026100408414402, for every view.
 	- Swept: the places sidebar reads the selected row and never the event. The list and icon views pass the event on to the shared view code, which checks for none before reading the position. The tab bar checks for none before reading the button and time. The path bar, location bar and toolbar back and forward menus only open from a click, so always have an event. The rename field's menu checks for none. No other code reads a position or button from a menu event.
 	- Branch: treemenu
 	- Commit: d879cfb
