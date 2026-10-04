@@ -55,6 +55,36 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: rhtrxr81 fails before the fix on both installers (installed with the yes flag, no refusal) and passes after: refused on stable and dev with the yes flag and nothing downloaded, installed with the override, and with the override a release with sums still verified and a tampered build still refused. The lint stage passes.
 	- Acceptance signoff: the option name and the README sentence want a look.
 
+- Two copies starting at once on a new file cache can find it locked, and one runs with the cache off.
+	- ID: 2026100113372592
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. The full Linux suite passed 162 of 162 on 20261003, on cachelock.
+	- Needs external testing: Windows: rjch1a9a in the native suite on vm925w, where it failed.
+	- Priority|Severity: Low
+	- Opened: 20261001-133725
+	- Opened by: code review 20260928 item 20
+	- Related IDs: 2026092813381420, 2026100316054301
+	- Incorrect behavior: while one connection sets up a cache file that did not exist, another opening it fails at once with "could not set up the file cache: database is locked" and that copy has no cache until it is started again. The store's own comment says a busy one waits up to 3 s.
+	- Expected behavior: the second one waits its turn and uses the cache.
+	- Reproduced: once, 20261001, Linux, with a second connection opening a new file as a window did. Not on demand. Again 20261003, Linux: in 2 of 200 rounds of four processes setting up one new file at once, and every time while another connection held the write lock on a new file.
+	- Possible cause: the first switch of a new file to its journal mode takes a lock that sqlite does not wait for.
+	- Actual cause: the switch to WAL reads the file and then takes the write lock. sqlite never waits on that second step, since two readers each waiting on the other would wait for good, so it answers busy at once and the busy timeout never applies.
+		- The failure on vm925w came from the test, not the store. The test's holder committed with no wait of its own. While the store waits it keeps trying, and each try takes a read lock for a moment. One was there right as the holder committed, so the commit was refused, and the holder kept the write lock until the store gave up. The store's 3 s wait ran to 4.9 s on a busy box.
+	- Origin: 9fd0939, 20260921 (thumbdb). New ground. Confirmed.
+	- Actual fix: the setup is tried again on a busy answer, every 10 ms, for as long as the busy timeout.
+		- The test's holder now waits on a busy file like any other copy, and its commit is checked. A reader is put in the way of that commit on every run.
+	- Swept: the prune's own connection opens through the same setup. There is no other journal mode change. The store opens the file in one place, which sets the busy timeout, and a refused commit is always rolled back, so no store connection keeps a lock past one.
+	- Note: once, under a parallel full build, two copies in one round still had no store. How long they had waited was not shown then. The test now prints it, and a copy that gave up only after the whole busy timeout is listed but not counted, since that is the designed limit on a disk that slow. Not seen again in 450 rounds under the same load.
+	- Note: a busy answer to the version read at open is taken as a file from another version, and the file is wiped. Filed as 2026100316054301.
+	- Branch: quitlock, then cachelock
+	- Commit: aced497, f7c0854
+	- Test case: `rjch1a9a File cache opened by many at once test`. One connection holds the write lock on a new file for 300 ms while the store opens it, then rounds of four copies open a new file at the same instant. The held lock fails before the fix and passes after, on Linux. The rounds hit the bug about once in a hundred before the fix, so they are a sweep rather than the pin. The held lock also has a reader in the way of its release. With the old holder that fails every run, the store giving up after 3.3 s with "database is locked". With the fix it passes.
+	- Verified: rjch1a9a passes on Linux, 60 rounds. Lint is clean. On 20261003, the reader case fails before the test fix and passes after. 320 runs of rjch1a9a, 16 at a time, passed beside 240 runs of the store and prune tests. The full Linux suite, the Windows cross build and lint pass.
+	- Progress log:
+		- 20261003: rjch1a9a passed natively on b29w at 43a9126, but failed once in the native suite on vm925w at c78aa9e. With the write lock held for 300 ms, the store gave up after 4.9 s with "database is locked". It passed five runs in a row there on its own afterward. Back to Queued.
+		- 20261003: the cause was the test's own holder. Fixed on cachelock. Waits on a native run on vm925w.
+
 - Code review 20260928.
 	- ID: 2026092813381400
 	- Type: Task
@@ -77,45 +107,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
 
-- Two copies starting at once on a new file cache can find it locked, and one runs with the cache off.
-	- ID: 2026100113372592
-	- Type: Bug
-	- Status: Queued
-	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
-	- Needs external testing: Windows: rjch1a9a in the native suite.
-	- Priority|Severity: Low
-	- Opened: 20261001-133725
-	- Opened by: code review 20260928 item 20
-	- Related IDs: 2026092813381420, 2026100316054301
-	- Incorrect behavior: while one connection sets up a cache file that did not exist, another opening it fails at once with "could not set up the file cache: database is locked" and that copy has no cache until it is started again. The store's own comment says a busy one waits up to 3 s.
-	- Expected behavior: the second one waits its turn and uses the cache.
-	- Reproduced: once, 20261001, Linux, with a second connection opening a new file as a window did. Not on demand. Again 20261003, Linux: in 2 of 200 rounds of four processes setting up one new file at once, and every time while another connection held the write lock on a new file.
-	- Possible cause: the first switch of a new file to its journal mode takes a lock that sqlite does not wait for.
-	- Actual cause: the switch to WAL reads the file and then takes the write lock. sqlite never waits on that second step, since two readers each waiting on the other would wait for good, so it answers busy at once and the busy timeout never applies.
-	- Origin: 9fd0939, 20260921 (thumbdb). New ground. Confirmed.
-	- Actual fix: the setup is tried again on a busy answer, every 10 ms, for as long as the busy timeout.
-	- Swept: the prune's own connection opens through the same setup. There is no other journal mode change.
-	- Note: once, under a parallel full build, two copies in one round still had no store. How long they had waited was not shown then. The test now prints it, and a copy that gave up only after the whole busy timeout is listed but not counted, since that is the designed limit on a disk that slow. Not seen again in 450 rounds under the same load.
-	- Note: a busy answer to the version read at open is taken as a file from another version, and the file is wiped. Filed as 2026100316054301.
-	- Branch: quitlock
-	- Commit: aced497
-	- Test case: `rjch1a9a File cache opened by many at once test`. One connection holds the write lock on a new file for 300 ms while the store opens it, then rounds of four copies open a new file at the same instant. The held lock fails before the fix and passes after, on Linux. The rounds hit the bug about once in a hundred before the fix, so they are a sweep rather than the pin.
-	- Verified: rjch1a9a passes on Linux, 60 rounds. Lint is clean.
-	- Progress log:
-		- 20261003: rjch1a9a passed natively on b29w at 43a9126, but failed once in the native suite on vm925w at c78aa9e. With the write lock held for 300 ms, the store gave up after 4.9 s with "database is locked". It passed five runs in a row there on its own afterward. Back to Queued.
-
-- A cache prune batch holds the write lock longer as thumbnails get bigger.
-	- ID: 2026093010493420
+- A waiting store can miss every gap between the prune's writes.
+	- ID: 2026100319191870
 	- Type: Bug
 	- Status: Queued
 	- Priority|Severity: Low
-	- Opened: 20260930-104934
-	- Opened by: code review 20260928 follow-up
-	- Related IDs: 2026092813381411, 2026092813381436
-	- Incorrect behavior: a batch is 256 thumbnails whatever their size. With 40 thousand of 16 KB, another window's store waited up to about 1.4 s. Bigger thumbnails make each batch longer, toward the 3 s timeout, past which the store is dropped.
-	- Expected behavior: a batch also ends after about 1 MB of thumbnails, so each hold of the lock stays short at any size.
-	- Reproduced: yes for the 1.4 s, 20260930, Linux, under item 11.
-	- Test case: none yet. The prune test with large thumbnails, checking the bytes one batch removes.
+	- Opened: 20261003-191918
+	- Opened by: work on 2026093010493420
+	- Related IDs: 2026093010493420, 2026092813381436
+	- Incorrect behavior: while the prune hands space back, each step holds the write lock for only about 40 ms, but the steps follow one another with no gap. A store from another window sleeps up to 100 ms between tries, so it can keep waking while the next step has the lock. It waited 1 to 1.4 s, against the 3 s timeout.
+	- Expected behavior: a waiting store gets its turn within about one step of the prune.
+	- Reproduced: yes, 20261003, Linux, with 40 thousand thumbnails of 16 KB and with 5 thousand of 128 KB, and a second connection writing every 20 ms during the pass.
+	- Possible cause: nothing in the prune lets go of the lock long enough for a waiting connection to notice. The same can happen between delete batches.
+	- Test case: none yet. A prune test where another connection writes during the pass and its longest wait is checked.
 
 - A failed Windows install leaves a half-copied folder beside the install folder.
 	- ID: 2026100112505357
@@ -132,20 +136,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Origin: the copy fallback from 7284973, 20260925, which item 13's fix made the path every install takes. Plausible.
 	- Sweep: every way out of the Windows install after the staging folder exists: the failed copy, the old folder that cannot be renamed, and the failed final rename.
 	- Test case: none yet. A Windows test that makes the copy fail and checks that no staging folder is left.
-
-- A busy answer to the version check at open wipes the file cache under other copies.
-	- ID: 2026100316054301
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261003-160543
-	- Opened by: work on 2026100113372592
-	- Related IDs: 2026100113372592
-	- Incorrect behavior: when the version cannot be read at open, as when the file stays busy past the wait, the answer is taken as a file from another version. The cache files are removed and started over, while other copies may still have them open.
-	- Expected behavior: a failed read leaves the file alone, and that copy runs with the cache off, as for other open errors.
-	- Reproduced: no, read only. By then the file is in WAL, where a read rarely waits.
-	- Origin: 6d52b4b, 20260921 (thumbdb). New ground. Plausible.
-	- Test case: none yet.
 
 - On Windows, a link that leads nowhere is never shown as broken.
 	- ID: 2026100312494903
@@ -979,6 +969,52 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- A cache prune batch holds the write lock longer as thumbnails get bigger.
+	- ID: 2026093010493420
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 162 of 162 on 20261003, on cachelock.
+	- Priority|Severity: Low
+	- Opened: 20260930-104934
+	- Opened by: code review 20260928 follow-up
+	- Related IDs: 2026092813381411, 2026092813381436
+	- Incorrect behavior: a batch is 256 thumbnails whatever their size. With 40 thousand of 16 KB, another window's store waited up to about 1.4 s. Bigger thumbnails make each batch longer, toward the 3 s timeout, past which the store is dropped.
+	- Expected behavior: a batch also ends after about 1 MB of thumbnails, so each hold of the lock stays short at any size.
+	- Reproduced: yes for the 1.4 s, 20260930, Linux, under item 11.
+	- Actual cause: a batch was 256 thumbnails whatever their size, and a thumbnail takes longer to delete the bigger it is.
+	- Actual fix: a batch also ends after about 1 MB of thumbnails, in each prune step that deletes them: records no name points at any more, old thumbnails, and the size limit. The size step still stops once the file is under its limit.
+	- Swept: every prune step that deletes thumbnails. Forgetting names of missing files deletes names only. The step that hands space back goes 256 pages at a time whatever the thumbnail size.
+	- Note: measured again with 40 thousand thumbnails of 16 KB and with 5 thousand of 128 KB. With the limit, the deletes no longer kept another window's store waiting over 0.2 s, against three such waits, up to 0.33 s, at 128 KB before. The longest waits, 1 to 1.4 s, were in the step that hands space back, both before and after, so the 1.4 s above most likely came from there too. Filed as 2026100319191870.
+	- Branch: cachelock
+	- Commit: 5ddde28
+	- Test case: rhd69rjr, File cache prune test, the batch bytes case. Thumbnails of 256 KB go by each of the three steps, and no one write may take out much over 1 MB. Fails before the fix, at 4 to 6 MB in one write, and passes after, on Linux.
+	- Verified: rhd69rjr fails before the fix and passes after. 80 runs of it, 16 at a time, passed. The full Linux suite, the Windows cross build and lint pass.
+	- Acceptance signoff: Self-closed: how long the cache holds its lock can't be seen on screen. rhd69rjr covers it.
+	- Closed: 20261003-193326
+
+- A busy answer to the version check at open wipes the file cache under other copies.
+	- ID: 2026100316054301
+	- Type: Bug
+	- Status: Done
+	- Needs external testing: Windows: rhd1cv38 in the native suite, for its new case. Not needed to close.
+	- Priority|Severity: Low
+	- Opened: 20261003-160543
+	- Opened by: work on 2026100113372592
+	- Related IDs: 2026100113372592
+	- Incorrect behavior: when the version cannot be read at open, as when the file stays busy past the wait, the answer is taken as a file from another version. The cache files are removed and started over, while other copies may still have them open.
+	- Expected behavior: a failed read leaves the file alone, and that copy runs with the cache off, as for other open errors.
+	- Reproduced: yes, 20261003, Linux, with the version read answered busy on cue. The file was started over and its rows were gone.
+	- Actual cause: a version read that failed before it ran came back as -1, which the open took for another version, so it wiped the file. One that failed while running came back as 0, a file with no tables yet, and the tables and version were then written into a file nobody had read.
+	- Origin: 6d52b4b, 20260921 (thumbdb). New ground. Confirmed.
+	- Actual fix: any failed read of the version leaves the file alone and the open gives up, so that copy runs without the cache. A damaged file still starts over.
+	- Swept: every read in the store whose answer can lead to a wipe. The size and free page reads answer -1 and the prune stops. The prune's check marks damage only on a damage code. A failed read of the prune claim is an error. Only the version read led to a wipe.
+	- Branch: cachelock
+	- Commit: 86634da
+	- Test case: rhd1cv38, File cache store test, the unread version case. The version read is answered busy while the store opens, and the row stored before has to be there after. Fails before the fix and passes after, on Linux.
+	- Verified: rhd1cv38 fails before the fix, the file started over and the row gone, and passes after. 160 runs of it, 16 at a time, passed. The full Linux suite, the Windows cross build and lint pass.
+	- Acceptance signoff: Self-closed: what the cache keeps can't be seen on screen. rhd1cv38 covers it.
+	- Closed: 20261003-193326
 
 - The leak tests can pass a small leak, or skip, when a worker thread starts during the counted rounds.
 	- ID: 2026100308563229
