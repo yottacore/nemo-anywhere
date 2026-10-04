@@ -939,15 +939,17 @@ fCheckGeometrySave(){
 }
 fRun fCheckGeometrySave
 
-## A click on a place leaves the keyboard in the sidebar. Connecting a content
-## view grabbed the focus every time, so a place whose folder wanted another
-## view type took it away and one beside it did not.
+## "Places" never keeps the keyboard: its tree refuses the focus, and so does the
+## scrolled window around it, which would take it from Tab or F6. Opening a
+## place or ending a rename hands it to the folder. Only the tree pane keeps the
+## focus it was given, so connecting a content view must not grab from it, nor
+## from a rename in "Places" while it lasts.
 ## Test ID: rhtg2yej
 fCheckSidebarFocus(){
-	local src='source/src/nemo-window.c'
-	local body bad
+	local src='source/src/nemo-window.c' places='source/src/nemo-places-sidebar.c'
+	local body bad fn
 
-	[[ -f "$src" ]] || return 0
+	[[ -f "$src" && -f "$places" ]] || return 0
 
 	body="$(awk '/^nemo_window_connect_content_view \(/,/^}/' "$src")"
 	bad="$(awk '
@@ -956,8 +958,26 @@ fCheckSidebarFocus(){
 		/(nemo_view|gtk_widget)_grab_focus *\(/ { if (!p || !t || NR - p > 4 || NR - t > 4) print }
 	' <<< "$body")"
 	if [[ -z "$body" || -n "$bad" ]]; then
-		fEcho "FAIL: ${src}: nemo_window_connect_content_view grabs the focus only while neither sidebar holds it"
+		fEcho "FAIL: ${src}: nemo_window_connect_content_view grabs the focus only while neither side pane holds it"
 		[[ -n "$bad" ]] && printf '%s\n' "$bad"
+		exit 2
+	fi
+
+	body="$(awk '/^nemo_places_sidebar_init \(/,/^}/' "$places")"
+	if ! grep -q -F 'gtk_widget_set_can_focus (GTK_WIDGET (tree_view), FALSE);' <<< "$body" ||
+	   ! grep -q -F 'gtk_widget_set_can_focus (GTK_WIDGET (sidebar), FALSE);' <<< "$body"; then
+		fEcho "FAIL: ${places}: the places tree and the scrolled window around it must refuse the keyboard focus"
+		exit 2
+	fi
+	for fn in open_selected_bookmark bookmarks_edited bookmarks_editing_canceled; do
+		body="$(fn="$fn" awk '$0 ~ "^" ENVIRON["fn"] " \\(", /^}/' "$places")"
+		if ! grep -q -F 'focus_folder_view (' <<< "$body"; then
+			fEcho "FAIL: ${places}: ${fn} must hand the focus to the folder"
+			exit 2
+		fi
+	done
+	if grep -q 'widget_class->focus *=' "$places"; then
+		fEcho "FAIL: ${places}: a focus handler on the sidebar moves its cursor on every Tab past it"
 		exit 2
 	fi
 }
