@@ -382,6 +382,13 @@ nemo_window_slot_dispose (GObject *object)
 
 	slot = NEMO_WINDOW_SLOT (object);
 
+	/* A slot taken out of its pane is destroyed there, so this runs again at
+	   the last unref. By then the extras box went with the slot's children. */
+	if (slot->extra_location_widgets == NULL) {
+		G_OBJECT_CLASS (nemo_window_slot_parent_class)->dispose (object);
+		return;
+	}
+
 	nemo_window_slot_clear_forward_list (slot);
 	nemo_window_slot_clear_back_list (slot);
     nemo_window_slot_remove_extra_location_widgets (slot);
@@ -441,6 +448,8 @@ nemo_window_slot_dispose (GObject *object)
 
 	g_free (slot->status_text);
 	slot->status_text = NULL;
+
+	slot->extra_location_widgets = NULL;
 
 	G_OBJECT_CLASS (nemo_window_slot_parent_class)->dispose (object);
 }
