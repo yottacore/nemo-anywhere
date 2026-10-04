@@ -49,6 +49,7 @@ void                  eel_pop_up_context_menu_at_item                 (GtkMenu  
                                                                        GdkEvent             *event,
                                                                        GtkWidget            *widget,
                                                                        const GdkRectangle   *item);
+void                  eel_gtk_menu_destroy_on_close                   (GtkMenu              *menu);
 GtkMenuItem *         eel_gtk_menu_append_separator                   (GtkMenu              *menu);
 GtkMenuItem *         eel_gtk_menu_insert_separator                   (GtkMenu              *menu,
 								       int                   index);

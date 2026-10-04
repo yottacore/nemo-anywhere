@@ -622,10 +622,10 @@ notebook_popup_menu_show (NemoWindowPane *pane,
 		event_time = gtk_get_current_event_time ();
 	}
 
-	/* TODO is this correct? */
 	gtk_menu_attach_to_widget (GTK_MENU (popup),
 				   pane->notebook,
 				   NULL);
+	eel_gtk_menu_destroy_on_close (GTK_MENU (popup));
 
 	gtk_menu_popup (GTK_MENU (popup), NULL, NULL, NULL, NULL,
 			button, event_time);

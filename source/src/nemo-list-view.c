@@ -2593,6 +2593,7 @@ column_header_clicked (GtkWidget *column_button,
                       list_view);
 
 	gtk_widget_show_all (menu);
+	eel_gtk_menu_destroy_on_close (GTK_MENU (menu));
 	gtk_menu_popup_for_device (GTK_MENU (menu),
 	                           gdk_event_get_device ((GdkEvent *) event),
 	                           NULL, NULL, NULL, NULL, NULL,
