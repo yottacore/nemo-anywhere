@@ -52,7 +52,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual fix: `release-win.yml` only builds, and hands back the exe as a `release-files` artifact under its release name. `release.bash --publish` waits for each hosted build in `RELEASE_WORKFLOWS`, downloads its files, adds their lines to the one sums file, writes the notes with the Downloads table, and makes the release with every file in one `gh release create`.
 	- Swept: every `gh release` call. None are left in the workflow. design.md and `cicd/win/signing.md` say the workflow no longer publishes.
 	- Branch: relrace, then relone
-	- Commit: 24de39d
+	- Commit: 24de39d, 3cfa988
 	- Test case: rjf2v5d5 (`test-release-notes.bash`, lint stage): a hosted build still running, one that fails and is rerun, a release already there, and a misnamed hosted file.
 	- Verified: rjf2v5d5 fails on the old `release.bash` and workflow and passes now.
 
