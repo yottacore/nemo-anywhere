@@ -79,7 +79,7 @@ chmod +x "${shimDir}/curl"
 ## PowerShell looks a function up before a cmdlet of the same name, so these
 ## stand in for the two web cmdlets for the one run of the installer.
 cat > "${shimDir}/run-install.ps1" <<'EOF'
-param([string]$Installer, [string]$Curl, [string]$Release = "stable", [switch]$Yes, [switch]$AllowUnverified)
+param([string]$Installer, [string]$Curl, [string]$Release = "stable", [switch]$Yes, [switch]$NoVerify)
 function Invoke-RestMethod {
 	param([string]$Uri, [switch]$UseBasicParsing)
 	$null = $UseBasicParsing
@@ -98,7 +98,7 @@ function Invoke-WebRequest {
 ## Only passed when set, so a run without it works on an installer that
 ## predates the option.
 $extra = @{}
-if ($AllowUnverified) { $extra.AllowUnverified = $true }
+if ($NoVerify) { $extra.NoVerify = $true }
 & $Installer -Release $Release -Yes:$Yes @extra
 if (-not $?) { exit 1 }
 exit 0
@@ -163,11 +163,11 @@ fRun(){
 	if [[ "$installer" == "bash" ]]; then
 		cmd=(bash "${root}/install.bash" --release "$channel")
 		[[ -n "$answer" ]] || cmd+=(--yes)
-		[[ -z "$unverified" ]] || cmd+=(--allow-unverified)
+		[[ -z "$unverified" ]] || cmd+=(--no-verify)
 	else
 		cmd=(pwsh -NoProfile -File "${shimDir}/run-install.ps1" -Installer "${root}/install.ps1" -Curl "${shimDir}/curl" -Release "$channel")
 		[[ -n "$answer" ]] || cmd+=(-Yes)
-		[[ -z "$unverified" ]] || cmd+=(-AllowUnverified)
+		[[ -z "$unverified" ]] || cmd+=(-NoVerify)
 	fi
 	## A proxy that answers nothing, so a request that slips past the stand-ins
 	## fails here instead of reaching GitHub.
@@ -297,8 +297,8 @@ for inst in "${installers[@]}"; do
 	for channel in stable dev; do
 		fRun "$inst" "no-sums-${channel}" "$noSums" "$channel" ""
 		[[ "$runRc" != "0" ]] || fFail "${inst} ${channel} with no sums file: exited 0"
-		opt="--allow-unverified"
-		[[ "$inst" == "bash" ]] || opt="-AllowUnverified"
+		opt="--no-verify"
+		[[ "$inst" == "bash" ]] || opt="-NoVerify"
 		fExpectSaid "${inst} ${channel} with no sums file" "$opt"
 		fExpectInstall "${inst} ${channel} with no sums file" ""
 		! grep -q -F ".tar.gz" "${noSums}/requests.log" || fFail "${inst} ${channel} with no sums file: downloaded the build first"

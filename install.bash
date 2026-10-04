@@ -16,7 +16,7 @@
 ##	    --release dev|stable    which release to take (default: stable)
 ##	    --target  user|system   where to install (default: user)
 ##	    --from    PATH|URL      install this archive instead of a release
-##	    --allow-unverified      install a release that has no checksums file
+##	    --no-verify             install a release that has no checksums file
 ##	    --uninstall             remove an existing install
 ##	    -y, --yes               don't ask before making changes
 ##	    --version               print the installer's version
@@ -34,7 +34,7 @@
 set -Eeuo pipefail
 
 REPO="yottacore/nemo-anywhere"
-INSTALLER_VERSION="1.3.0"
+INSTALLER_VERSION="1.3.1"
 APP_NAME="Nemo Anywhere"
 EXE_NAME="nemo-anywhere"
 
@@ -66,7 +66,7 @@ fHelp(){
 		    --release dev|stable    which release to take (default: stable)
 		    --target  user|system   where to install (default: user)
 		    --from    PATH|URL      install this archive instead of a release
-		    --allow-unverified      install a release that has no checksums file
+		    --no-verify             install a release that has no checksums file
 		    --uninstall             remove an existing install
 		    -y, --yes               don't ask before making changes
 		    --version               the installer's version
@@ -76,8 +76,8 @@ fHelp(){
 		  stable takes the newest prerelease and says so in the plan.
 
 		  A release download is checked against the release's checksums file.
-		  With no checksums file it stops, even with -y, unless
-		  --allow-unverified is given. A --from archive is not checked.
+		  With no checksums file it stops, even with -y, unless --no-verify is
+		  given. A --from archive is not checked.
 
 		  User install goes to \${XDG_DATA_HOME:-~/.local/share}/${EXE_NAME}, with a
 		  launcher in ~/.local/share/applications and ${EXE_NAME} on PATH via
@@ -94,7 +94,7 @@ fHelp(){
 #••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 # Arguments
 
-release="stable"; target="user"; from=""; do_uninstall=0; assume_yes=0; allow_unverified=0
+release="stable"; target="user"; from=""; do_uninstall=0; assume_yes=0; no_verify=0
 ## A "shift 2" with no value after the option shifts nothing, and the loop
 ## would never end, so a missing value is caught here instead.
 fNeedValue(){ [[ -n "${2:-}" ]] || fDie "$1 needs a value (try --help)"; }
@@ -106,7 +106,7 @@ while (($#)); do case "$1" in
 	--target)  fNeedValue "$@"; target="$2";  shift 2 ;;
 	--from)    fNeedValue "$@"; from="$2";    shift 2 ;;
 	--uninstall) do_uninstall=1; shift ;;
-	--allow-unverified) allow_unverified=1; shift ;;
+	--no-verify) no_verify=1; shift ;;
 	-y|--yes)  assume_yes=1; shift ;;
 	--version) echo "${APP_NAME} installer ${INSTALLER_VERSION}"; exit 0 ;;
 	-h|--help) fHelp; exit 0 ;;
@@ -379,11 +379,11 @@ else
 	release_desc="${release} ${version}"
 	if [[ -n "$sums_url" ]]; then
 		verify="sha256, against ${sums_asset}"
-	elif ((allow_unverified)); then
-		verify="UNVERIFIED - release publishes no checksums (--allow-unverified)"
+	elif ((no_verify)); then
+		verify="UNVERIFIED - release publishes no checksums (--no-verify)"
 	else
 		## Before the plan and the question, so -y alone never gets past it.
-		fDie "release ${tag} publishes no ${sums_asset}, so the download can't be checked - re-run with --allow-unverified to install it anyway"
+		fDie "release ${tag} publishes no ${sums_asset}, so the download can't be checked - re-run with --no-verify to install it anyway"
 	fi
 fi
 
@@ -508,4 +508,5 @@ fEcho_Clean ""
 ##		  no release, downloads fail with a sentence, and a user install checks
 ##		  it can write where it is going before asking.
 ##		- 2026-10-03 JC: A release with no checksums file stops the install,
-##		  -y or not, unless --allow-unverified is given.
+##		  -y or not, unless --no-verify is given.
+##		- 2026-10-04 JC: The no-checksums override is named --no-verify.

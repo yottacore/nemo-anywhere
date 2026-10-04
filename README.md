@@ -314,7 +314,7 @@ This one is for Windows, or anywhere else with PowerShell. It is a full installe
 & ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/yottacore/nemo-anywhere/main/install.ps1')))
 ~~~
 
-A release with no checksums file is not installed, even with `--yes`. Add `--allow-unverified` (`-AllowUnverified` in PowerShell) to install it anyway.
+A release with no checksums file is not installed, even with `--yes`. Add `--no-verify` (`-NoVerify` in PowerShell) to install it anyway.
 
 Reinstalling over an existing copy is fine - it replaces it. `--help` also says how to remove it.
 
