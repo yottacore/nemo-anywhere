@@ -33,31 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- Code review 20260928 item 26. The installers go ahead when a release has no sums file.
-	- ID: 2026092813381426
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Low
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: the plan says "UNVERIFIED", and with the yes flag the install goes on.
-	- Expected behavior: design.md and README, downloads are checked before anything is unpacked.
-	- Decisions:
-		- 20260928: refuse by default. An explicit override flag installs anyway. The yes flag alone does not.
-		- 20261004: the override is `--no-verify` in install.bash and `-NoVerify` in install.ps1. No other name is taken.
-	- Reproduced: yes, 20261003, Linux. Both installers installed a stable and a prerelease build that had no sums file, with the yes flag.
-	- Origin: a2b0e10, 20260723. Not seen by an earlier round. Confirmed.
-	- Actual fix: with no sums file in the release, both installers stop while resolving, before the plan and the question, and name the override. The override is `--no-verify` in install.bash and `-NoVerify` in install.ps1. With it the plan says "UNVERIFIED". A sums file that is there is still checked with the override on. Help text, README and design.md say so. Installer version 1.3.1.
-	- Swept: both installers, stable and dev channels, each through one shared branch in its resolve step. A `--from` archive, a path or a URL, never had a sums file and is still not checked; design.md and the help now say so. A sums file that fails to download, has no line for the build, or does not match still stops the install, override or not. The rename covered both installers' options, help, plan and errors, README, design.md and rhtrxr81; a grep of the repo finds the old names nowhere else.
-	- Branch: nosums, noverify (the rename)
-	- Commit: 070301a, efa8053
-	- Test case: `cicd/linux/test-install-download.bash` (rhtrxr81), the no-sums cases. Fails before the fix, passes after.
-	- Verified: rhtrxr81 fails before the fix on both installers (installed with the yes flag, no refusal) and passes after: refused on stable and dev with the yes flag and nothing downloaded, installed with the override, and with the override a release with sums still verified and a tampered build still refused. The lint stage passes.
-	- Verified: 20261004, after the rename. rhtrxr81 fails on the 1.3.0 installers, which don't know the new names, and passes on 1.3.1. The lint stage passes. install.ps1 parses clean.
-	- Acceptance signoff: Signed off 20261004, with the flag renamed to --no-verify
-	- Closed: 20261004-100156
-
 - Two copies starting at once on a new file cache can find it locked, and one runs with the cache off.
 	- ID: 2026100113372592
 	- Type: Bug
@@ -1049,6 +1024,31 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- Code review 20260928 item 26. The installers go ahead when a release has no sums file.
+	- ID: 2026092813381426
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: the plan says "UNVERIFIED", and with the yes flag the install goes on.
+	- Expected behavior: design.md and README, downloads are checked before anything is unpacked.
+	- Decisions:
+		- 20260928: refuse by default. An explicit override flag installs anyway. The yes flag alone does not.
+		- 20261004: the override is `--no-verify` in install.bash and `-NoVerify` in install.ps1. No other name is taken.
+	- Reproduced: yes, 20261003, Linux. Both installers installed a stable and a prerelease build that had no sums file, with the yes flag.
+	- Origin: a2b0e10, 20260723. Not seen by an earlier round. Confirmed.
+	- Actual fix: with no sums file in the release, both installers stop while resolving, before the plan and the question, and name the override. The override is `--no-verify` in install.bash and `-NoVerify` in install.ps1. With it the plan says "UNVERIFIED". A sums file that is there is still checked with the override on. Help text, README and design.md say so. Installer version 1.3.1.
+	- Swept: both installers, stable and dev channels, each through one shared branch in its resolve step. A `--from` archive, a path or a URL, never had a sums file and is still not checked; design.md and the help now say so. A sums file that fails to download, has no line for the build, or does not match still stops the install, override or not. The rename covered both installers' options, help, plan and errors, README, design.md and rhtrxr81; a grep of the repo finds the old names nowhere else.
+	- Branch: nosums, noverify (the rename)
+	- Commit: 070301a, efa8053
+	- Test case: `cicd/linux/test-install-download.bash` (rhtrxr81), the no-sums cases. Fails before the fix, passes after.
+	- Verified: rhtrxr81 fails before the fix on both installers (installed with the yes flag, no refusal) and passes after: refused on stable and dev with the yes flag and nothing downloaded, installed with the override, and with the override a release with sums still verified and a tampered build still refused. The lint stage passes.
+	- Verified: 20261004, after the rename. rhtrxr81 fails on the 1.3.0 installers, which don't know the new names, and passes on 1.3.1. The lint stage passes. install.ps1 parses clean.
+	- Acceptance signoff: Signed off 20261004, with the flag renamed to --no-verify
+	- Closed: 20261004-100156
 
 - A cache prune batch holds the write lock longer as thumbnails get bigger.
 	- ID: 2026093010493420
