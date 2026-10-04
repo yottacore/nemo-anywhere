@@ -107,35 +107,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
 
-- Clicking a place in "Places" leaves the keyboard focus there.
-	- ID: 2026100408525989
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261004-085259
-	- Opened by: t00mietum
-	- Target OS: all
-	- Steps to reproduce:
-		- Click a place in "Places".
-		- Press an arrow key or type a letter.
-	- Incorrect behavior: the keys go to "Places", not to the folder that opened.
-	- Expected behavior:
-		- Focus moves to the main view after the click, with nothing selected there.
-		- "Places" never takes keyboard focus, except while renaming an entry after right-clicking it and choosing "Rename".
-	- Reproduced: yes, 20261004, Linux. After a click on a bookmark, Down moved the cursor in "Places" and nothing in the folder.
-	- Actual cause: the earlier item "Focus can never remain on the "Places" pane" was built backward. Connecting a view skips the focus grab while either side pane has focus, so the keyboard stays on the clicked place. The test and the lint check written for it lock that in.
-	- Note: the tree view may still hold focus, per the "Places" and tree view layout item. Only "Places" changes.
-	- Note: 2026100408414402 lists the places sidebar for the keyboard menu. With no focus there, that part goes away.
-	- Actual fix: the "Places" tree refuses the keyboard focus, and so does the scrolled window around it, which would otherwise take it from Tab or F6. Opening a place hands the focus to the folder. A click on the open folder's own place also clears its selection. A rename still gets its entry, and when it ends the focus goes back to the folder. F6 now goes from the folder straight to the tree pane. The handler that moved the "Places" cursor whenever Tab passed it is gone.
-	- Swept: every way a place opens in the same window goes through one function: left click, middle click into a new tab, the menu's Open, and a volume mounted first. A new window or close-behind leaves the focus alone. Both ends of a rename, done and canceled. The tree pane is unchanged, and connecting a view still does not take the focus from it. Nothing else puts the focus in "Places".
-	- Note: the clicked place stays highlighted in "Places". That is its selection, which follows the open folder, not the focus.
-	- Branch: placesfocus2
-	- Commit: 4968d39
-	- Test case: `rjedw75s Places focus test`, new. It runs the program, clicks a bookmark, clicks it again, and renames it from its menu. 8 of its 11 checks fail before the fix, and all pass after. `rgxy149r Focus guard test` and `rhtg2yej` in the C lint now check the new behavior, and each fails with either refusal taken out. `rj04ta3n Tree menu key test` checks F6 still reaches the tree.
-	- Verified: in the running program, a click on a place and then Down or typing moves in the folder. A rename from the menu still edits, and Enter or Escape gives the keys back to the folder. A place whose folder uses another view type gets the focus in the new view. A click in the tree keeps the keys in the tree. F6 goes from the folder to the tree and back. Full Linux suite 163 of 163, lint clean. rjedw75s passed 64 runs, 16 at a time on one display.
-	- Acceptance signoff: Self-closed: the item spelled out the behavior, the change does that and no more, and rjedw75s pins it.
-	- Closed: 20261004-092702
-
 - The keyboard menu opens at the pane's top left, not beside the selected item.
 	- ID: 2026100408414402
 	- Type: Enhancement
@@ -486,6 +457,35 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. rj043mnp covers it.
 	- Closed: 20261003-112426
+
+- Clicking a place in "Places" leaves the keyboard focus there.
+	- ID: 2026100408525989
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261004-085259
+	- Opened by: t00mietum
+	- Target OS: all
+	- Steps to reproduce:
+		- Click a place in "Places".
+		- Press an arrow key or type a letter.
+	- Incorrect behavior: the keys go to "Places", not to the folder that opened.
+	- Expected behavior:
+		- Focus moves to the main view after the click, with nothing selected there.
+		- "Places" never takes keyboard focus, except while renaming an entry after right-clicking it and choosing "Rename".
+	- Reproduced: yes, 20261004, Linux. After a click on a bookmark, Down moved the cursor in "Places" and nothing in the folder.
+	- Actual cause: the earlier item "Focus can never remain on the "Places" pane" was built backward. Connecting a view skips the focus grab while either side pane has focus, so the keyboard stays on the clicked place. The test and the lint check written for it lock that in.
+	- Note: the tree view may still hold focus, per the "Places" and tree view layout item. Only "Places" changes.
+	- Note: 2026100408414402 lists the places sidebar for the keyboard menu. With no focus there, that part goes away.
+	- Actual fix: the "Places" tree refuses the keyboard focus, and so does the scrolled window around it, which would otherwise take it from Tab or F6. Opening a place hands the focus to the folder. A click on the open folder's own place also clears its selection. A rename still gets its entry, and when it ends the focus goes back to the folder. F6 now goes from the folder straight to the tree pane. The handler that moved the "Places" cursor whenever Tab passed it is gone.
+	- Swept: every way a place opens in the same window goes through one function: left click, middle click into a new tab, the menu's Open, and a volume mounted first. A new window or close-behind leaves the focus alone. Both ends of a rename, done and canceled. The tree pane is unchanged, and connecting a view still does not take the focus from it. Nothing else puts the focus in "Places".
+	- Note: the clicked place stays highlighted in "Places". That is its selection, which follows the open folder, not the focus.
+	- Branch: placesfocus2
+	- Commit: 4968d39
+	- Test case: `rjedw75s Places focus test`, new. It runs the program, clicks a bookmark, clicks it again, and renames it from its menu. 8 of its 11 checks fail before the fix, and all pass after. `rgxy149r Focus guard test` and `rhtg2yej` in the C lint now check the new behavior, and each fails with either refusal taken out. `rj04ta3n Tree menu key test` checks F6 still reaches the tree.
+	- Verified: in the running program, a click on a place and then Down or typing moves in the folder. A rename from the menu still edits, and Enter or Escape gives the keys back to the folder. A place whose folder uses another view type gets the focus in the new view. A click in the tree keeps the keys in the tree. F6 goes from the folder to the tree and back. Full Linux suite 163 of 163, lint clean. rjedw75s passed 64 runs, 16 at a time on one display.
+	- Acceptance signoff: Self-closed: the item spelled out the behavior, the change does that and no more, and rjedw75s pins it.
+	- Closed: 20261004-092702
 
 - Code review 20260928 item 4. A dangling symlink fails a 7z or rar archive, and the finished archive is deleted.
 	- ID: 2026092813381404
