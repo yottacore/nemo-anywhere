@@ -58,7 +58,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Moving the only tab to another window can crash the window it left.
 	- ID: 2026100413510329
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261004-135103
 	- Opened by: work on 2026092813381442
@@ -69,8 +69,31 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: the tab moves. The window it left then logs criticals about a window that is gone as it closes, and sometimes crashes, which leaves a crash report.
 	- Expected behavior: the window closes cleanly.
 	- Reproduced: yes, 20261004, Linux. Once as a crash, with the only tab sent to a new copy before item 42's change. Once as criticals, with the only tab dropped on another window.
-	- Possible cause: the tab is closed from an idle that holds its own reference. Closing the last tab closes the window, so the tab is freed after the window, and its view then takes its menus off a window that is gone (`real_unmerge_menus`).
-	- Test case: none yet. rhmr6qgs could send the only tab of a copy to another window and check the copy leaves no crash report.
+		- Again 20261004, Linux, by rhmr6qgs: the copy whose only tab was dropped on another window crashed on every run and left a crash report, or logged the criticals.
+	- Possible cause: the tab is closed from an idle that holds its own reference. Closing the last tab closes the window, so the tab is freed after the window, and its view then takes its menus off a window tha- The tab menu is made again on every right-click and never freed until its window closes.
+	- ID: 2026100414202491
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261004-142024
+	- Opened by: work on 2026100413510329
+	- Related IDs: 2026100413510329
+	- Target OS: all
+	- Incorrect behavior: each right-click on a tab, or the Menu key on the tab bar, builds a new menu and attaches it to the tab bar. Nothing frees it when it closes, so menus pile up for the life of the window, and each one keeps a hold on its tab.
+	- Expected behavior: a tab menu is freed once it closes.
+	- Reproduced: no, read only (`notebook_popup_menu_show` in nemo-window-pane.c). Plausible.
+	- Test case: none yet. A count of the menus attached to the tab bar after a few opens would pin it.
+
+t is gone (`real_unmerge_menus`).
+	- Actual cause: a tab taken out of its window was only torn down when its last reference went. The idle that closes a moved tab holds one, so for the last tab the window went first. The tab menu and a drag over a tab hold references the same way.
+	- Actual fix: a tab is torn down as it leaves its pane, while its window is still there. The tab's own teardown now runs once, since it is called again at the last reference.
+	- Swept: closing a tab by its button, Ctrl+W and the tab menu; the last tab of a pane in split view; a window closed with tabs in it; a tab moved or torn off to a new window, in its own process or in one process. GTK's own move of a tab between windows in one process keeps the tab alive and is not affected. The other timeouts and idles on windows and tabs are removed by id when those go.
+	- Branch: tabcrash
+	- Commit: feb2ce0
+	- Test case: rhmr6qgs, Tab move between processes test. Two new sub-cases: the only tab dropped on another copy's window, and the only tab closed from the tab menu, each checking that the copy it left ends cleanly. The first failed before the fix and passes after. The second passed both ways, and guards the menu's hold on the tab.
+	- Verified: full Linux suite 167 of 167, lint clean, Windows cross build clean.
+	- Acceptance signoff: Self-closed: reproduced, its test failed before the fix and passes after, and there is nothing to judge on screen.
+	- Closed: 20261004-142024
 
 - On a real Windows screen, the compress dialog test finds the options area capped at a different height than the dialog code works out.
 	- ID: 2026100413554978
