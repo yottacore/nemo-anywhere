@@ -239,6 +239,11 @@ NemoCachePruneResult nemo_cache_db_prune (const NemoCachePruneRules *rules,
  * lock. */
 gboolean nemo_cache_db_prune_pick_cost (NemoCacheDb *db, gint64 *rows_walked, gint64 *sorts);
 
+/* For the tests. The most thumbnail bytes one write of the last prune pass in
+ * this process took out. Each write holds the lock every other window waits
+ * on, so this has to stay near the batch limit however big thumbnails are. */
+gint64 nemo_cache_db_prune_largest_batch (void);
+
 G_END_DECLS
 
 #endif /* NEMO_CACHE_DB_H */
