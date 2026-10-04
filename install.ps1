@@ -108,7 +108,7 @@ param(
 # Configuration
 
 $Repo    = "yottacore/nemo-anywhere"
-$InstallerVersion = "1.3.1"
+$InstallerVersion = "1.3.2"
 $AppName = "Nemo Anywhere"
 $ExeName = "nemo-anywhere"
 
@@ -293,6 +293,14 @@ function fWaitUntilFree {
 		Start-Sleep -Seconds 1
 	}
 	return (fHoldersOf $Folder)
+}
+
+## Not Move-Item: when a rename is refused, pwsh 7 falls back to moving the
+## files one at a time, so a folder with one file held open ends up split in
+## two. Every caller renames within one folder, so no copy is ever needed.
+function fRenameFolder {
+	param([string]$From, [string]$To)
+	[System.IO.Directory]::Move($From, $To)
 }
 
 function fMakeShortcut {
@@ -796,25 +804,34 @@ function fMain {
 		$backup  = "${prefix}.old.${PID}"
 		if (Test-Path -LiteralPath $staging) { Remove-Item -LiteralPath $staging -Recurse -Force }
 		if (Test-Path -LiteralPath $backup)  { Remove-Item -LiteralPath $backup  -Recurse -Force }
+		## Once in place the staging folder is gone, so the finally only finds one
+		## a failure left behind.
 		try {
-			Copy-Item -LiteralPath $tree -Destination $staging -Recurse -Force -ErrorAction Stop
-		} catch {
-			fFileError $_ "could not stage the new install" $staging
-		}
-		if (Test-Path -LiteralPath $prefix) {
 			try {
-				Move-Item -LiteralPath $prefix -Destination $backup -ErrorAction Stop
+				Copy-Item -LiteralPath $tree -Destination $staging -Recurse -Force -ErrorAction Stop
 			} catch {
-				## Something has the folder open that the process scan cannot see - a
-				## scanner, a shell window sitting in it, a handle from another session.
-				fFail "could not replace ${prefix} - something still has it open, close it and try again"
+				fFileError $_ "could not stage the new install" $staging
 			}
-		}
-		try {
-			Move-Item -LiteralPath $staging -Destination $prefix -ErrorAction Stop
-		} catch {
-			if (Test-Path -LiteralPath $backup) { Move-Item -LiteralPath $backup -Destination $prefix -ErrorAction Stop }
-			throw
+			if (Test-Path -LiteralPath $prefix) {
+				try {
+					fRenameFolder $prefix $backup
+				} catch {
+					## Something has the folder open that the process scan cannot see - a
+					## scanner, a shell window sitting in it, a handle from another session.
+					fFail "could not replace ${prefix} - something still has it open, close it and try again"
+				}
+			}
+			try {
+				fRenameFolder $staging $prefix
+			} catch {
+				if (Test-Path -LiteralPath $backup) { fRenameFolder $backup $prefix }
+				throw
+			}
+		} finally {
+			if (Test-Path -LiteralPath $staging) {
+				Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
+				if (Test-Path -LiteralPath $staging) { fWarn "could not remove ${staging} - delete it by hand" }
+			}
 		}
 		if (Test-Path -LiteralPath $backup) { Remove-Item -LiteralPath $backup -Recurse -Force }
 		fEcho_Clean "folder installed at ${prefix}"
@@ -842,19 +859,22 @@ function fMain {
 		$backup  = "${prefix}.old.${PID}"
 		fSh @("mkdir", "-p", $parent)
 		fSh @("rm", "-rf", $staging, $backup)
-		fSh @("cp", "-a", $tree, $staging)
-		if ($Target -eq "system") {
-			## Staged as the invoking user; a system prefix must not stay user-writable.
-			fSh @("chown", "-R", "0:0", $staging) -Soft
-			fSh @("chmod", "-R", "a+rX", $staging)
-		}
-		if (Test-Path -LiteralPath $prefix) { fSh @("mv", $prefix, $backup) }
 		try {
-			fSh @("mv", $staging, $prefix)
-		} catch {
-			if (Test-Path -LiteralPath $backup) { fSh @("mv", $backup, $prefix) -Soft }
-			fSh @("rm", "-rf", $staging) -Soft
-			throw
+			fSh @("cp", "-a", $tree, $staging)
+			if ($Target -eq "system") {
+				## Staged as the invoking user; a system prefix must not stay user-writable.
+				fSh @("chown", "-R", "0:0", $staging) -Soft
+				fSh @("chmod", "-R", "a+rX", $staging)
+			}
+			if (Test-Path -LiteralPath $prefix) { fSh @("mv", $prefix, $backup) }
+			try {
+				fSh @("mv", $staging, $prefix)
+			} catch {
+				if (Test-Path -LiteralPath $backup) { fSh @("mv", $backup, $prefix) -Soft }
+				throw
+			}
+		} finally {
+			if (Test-Path -LiteralPath $staging) { fSh @("rm", "-rf", $staging) -Soft }
 		}
 		fSh @("rm", "-rf", $backup)
 		fEcho_Clean "prefix installed at ${prefix}"
@@ -934,3 +954,7 @@ if ($state.failed -and $runningAsScriptFile) { exit 1 }
 ##		- 2026-10-03 JC: A release with no checksums file stops the install,
 ##		  -Yes or not, unless -NoVerify is given.
 ##		- 2026-10-04 JC: The no-checksums override is named -NoVerify.
+##		- 2026-10-04 JC: A failed install no longer leaves its half-copied
+##		  staging folder beside the install folder. On Windows an install
+##		  folder with a file held open is no longer split in two by the move
+##		  aside.
