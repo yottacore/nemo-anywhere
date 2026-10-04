@@ -50,6 +50,7 @@ fTest bash "${here}/../win/test-gui-smoke.bash"
 fTest bash "${here}/../linux/test-fuzz-exit.bash"
 fTest bash "${here}/../linux/test-deb-size.bash"
 bash "${here}/../linux/test-release-image-pin.bash"
+fTest bash "${here}/../linux/test-release-setup.bash"
 fTest bash "${here}/test-release-stamp.bash"
 py=""
 for cand in python3 python; do

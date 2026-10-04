@@ -795,6 +795,8 @@ Nothing a build produces takes its timestamp from the clock. Every lane sets `SO
 
 - A tree with uncommitted changes still gets its `HEAD` commit's date, since the alternative is the clock, but the release lanes warn, because nothing built from it can be reproduced.
 
+- The Linux release lane sets up an empty build dir every run and reads back the options meson recorded. The release image's meson keeps a reused dir's own link-time optimization setting on a reconfigure, so a dir first set up without it built every release without it, and none of them matched a clean rebuild of the commit.
+
 - Left out on purpose: the wall clock still names log files and dated dogfood copies, which is what it is for. A signed exe can never be byte-identical anyway, since the countersignature carries the real time of signing.
 
 ### Release artifacts and packaging
