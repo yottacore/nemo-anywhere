@@ -1122,7 +1122,7 @@ nemo_main_application_local_command_line (GApplication *application,
 			g_printerr ("Nemo is already running - quit it first, then --reset.\n");
 			*exit_status = EXIT_FAILURE;
 		} else {
-			char *settings;
+			char *settings, *shortcuts;
 
 			/* Clear the live store first so the flush leaves nothing queued,
 			 * then take the file itself - anything hand-written that nemo does
@@ -1133,6 +1133,12 @@ nemo_main_application_local_command_line (GApplication *application,
 			settings = nemo_config_get_path ();
 			g_unlink (settings);
 			g_free (settings);
+
+			/* Emptied rather than removed, since a missing file is what
+			 * sends the next start to upstream Nemo's shortcuts. */
+			shortcuts = nemo_get_accel_map_file ();
+			g_file_set_contents (shortcuts, "", 0, NULL);
+			g_free (shortcuts);
 
 			nemo_bookmark_list_reset_files ();
 			g_print ("Settings and bookmarks cleared.\n");

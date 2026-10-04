@@ -30,7 +30,10 @@
  *
  * This test stands in for the notification server, on a session bus of its
  * own. Without a bus the notice is not checked. POSIX: the window is found and
- * closed through X. */
+ * closed through X.
+ *
+ * With "carry-over" as argv[3] it checks where the shortcut file is instead,
+ * and the one-time read of upstream Nemo's file. */
 
 #include <config.h>
 
@@ -360,81 +363,184 @@ ensure_session_bus (int argc, char *argv[])
 	return FALSE;
 }
 
-/* The saved line for the shortcut, uncommented. */
+/* An uncommented line for the probe shortcut with key in it. An empty key
+ * matches any probe line. */
 static gboolean
-shortcut_saved (const char *accel_file)
+has_shortcut (const char *accel_file, const char *key)
 {
 	char *text = NULL;
-	gboolean saved = FALSE;
+	gboolean found = FALSE;
 	char **lines;
 	int i;
 
 	if (!g_file_get_contents (accel_file, &text, NULL, NULL)) {
-		g_printerr ("%s was not written\n", accel_file);
 		return FALSE;
 	}
 
 	lines = g_strsplit (text, "\n", -1);
-	for (i = 0; lines[i] != NULL && !saved; i++) {
-		saved = g_str_has_prefix (lines[i], "(gtk_accel_path \"<nemo-test>/Probe\"") &&
-			strstr (lines[i], "F12") != NULL;
-	}
-	if (!saved) {
-		g_printerr ("%s has no line for the changed shortcut\n", accel_file);
+	for (i = 0; lines[i] != NULL && !found; i++) {
+		found = g_str_has_prefix (lines[i], "(gtk_accel_path \"<nemo-test>/Probe\"") &&
+			strstr (lines[i], key) != NULL;
 	}
 
 	g_strfreev (lines);
 	g_free (text);
 
-	return saved;
+	return found;
 }
 
-int
-main (int argc, char *argv[])
+static char *
+accel_file_in (const char *root)
 {
-	const char *exe, *hooks;
-	char *root, *folder, *out, *accel_file, *text;
+	return g_build_filename (root, NEMO_APP_SLUG, "accels", NULL);
+}
+
+static char **
+start_env (const char *root, const char *hooks, const char *out)
+{
 	char **envp;
-	Display *display;
-	gboolean with_bus, serving = FALSE;
-	GPid pid = 0;
 
-	if (argc < 3) {
-		g_printerr ("usage: %s <nemo-anywhere> <hooks.so>\n", argv[0]);
-		return 77;
-	}
-	exe = argv[1];
-	hooks = argv[2];
-
-	test_own_display (argc, argv, NULL);
-	if (g_getenv ("DISPLAY") == NULL) {
-		g_print ("SKIP: no display\n");
-		return 77;
-	}
-
-	with_bus = ensure_session_bus (argc, argv);
-
-	/* The program inherits this, so its settings and saved shortcuts are in
-	 * the scratch dir too. */
-	root = test_scratch_config_home ("nemo-quit-saves-XXXXXX");
-	folder = g_build_filename (root, "folder", NULL);
-	g_mkdir_with_parents (folder, 0700);
-	out = g_build_filename (root, "hooks.out", NULL);
-	accel_file = g_build_filename (root, ".gnome2", "accels", "nemo", NULL);
-
-	/* The program never makes this folder, so with none it saves nothing at
-	 * any time. That is item 2026100315470225. */
-	{
-		char *accel_dir = g_path_get_dirname (accel_file);
-
-		g_mkdir_with_parents (accel_dir, 0700);
-		g_free (accel_dir);
-	}
-
+	test_scratch_point_config_at (root);
 	envp = g_get_environ ();
 	envp = g_environ_setenv (envp, "LD_PRELOAD", hooks, TRUE);
 	envp = g_environ_setenv (envp, "NEMO_QUIT_OUT", out, TRUE);
 	envp = g_environ_unsetenv (envp, "GNOME22_USER_DIR");
+
+	return envp;
+}
+
+/* One start: what the hooks wrote, then the window closed the way a user
+ * closes it. NULL when either part failed. */
+static char *
+run_once (Display *display, const char *exe, const char *folder, char **envp, const char *out)
+{
+	GPid pid;
+	char *text;
+
+	g_unlink (out);
+	pid = launch (exe, folder, envp);
+	if (pid <= 0) {
+		return NULL;
+	}
+	text = wait_hooks (out, pid, 30);
+	if (!close_window (display, pid) || !wait_exit (pid, 30)) {
+		g_printerr ("the program did not quit cleanly\n");
+		g_clear_pointer (&text, g_free);
+	}
+	stop (pid);
+
+	return text;
+}
+
+static gboolean
+run_reset (const char *exe, char **envp)
+{
+	char *argv[] = { (char *) exe, (char *) "--reset", NULL };
+	int status = 0;
+
+	return g_spawn_sync (NULL, argv, envp, G_SPAWN_STDOUT_TO_DEV_NULL, NULL, NULL,
+			     NULL, NULL, &status, NULL) &&
+	       g_spawn_check_wait_status (status, NULL);
+}
+
+static gboolean
+answer_has (char *text, const char *key)
+{
+	gboolean has = text != NULL && strstr (text, key) != NULL;
+
+	if (!has) {
+		g_printerr ("wanted %s, the shortcut was %s\n", key, text != NULL ? text : "(no answer)");
+	}
+	g_free (text);
+
+	return has;
+}
+
+/* The shortcut file is the program's own, beside the settings. A change is
+ * saved with no ~/.gnome2 at all. Upstream Nemo's file there is read on the
+ * first start only, and never written. --reset empties ours, so it does not
+ * send the next start back to upstream's. */
+static void
+carry_over (Display *display, const char *exe, const char *hooks)
+{
+	const char *upstream = "(gtk_accel_path \"<nemo-test>/Probe\" \"<Control>F11\")\n";
+	char *root, *folder, *out, *accel_file, *legacy, *legacy_dir, *gnome2, *text = NULL;
+	char **envp;
+
+	root = test_scratch_dir ("nemo-accels-new-XXXXXX", NULL);
+	folder = g_build_filename (root, "folder", NULL);
+	g_mkdir_with_parents (folder, 0700);
+	out = g_build_filename (root, "hooks.out", NULL);
+	accel_file = accel_file_in (root);
+	gnome2 = g_build_filename (root, ".gnome2", NULL);
+	envp = start_env (root, hooks, out);
+
+	text = run_once (display, exe, folder, envp, out);
+	check (g_strcmp0 (text, "changed") == 0);
+	g_free (text);
+	check (has_shortcut (accel_file, "F12"));
+	check (!g_file_test (gnome2, G_FILE_TEST_EXISTS));
+
+	g_strfreev (envp);
+	g_free (gnome2);
+	g_free (accel_file);
+	g_free (out);
+	g_free (folder);
+	g_free (root);
+
+	root = test_scratch_dir ("nemo-accels-old-XXXXXX", NULL);
+	folder = g_build_filename (root, "folder", NULL);
+	g_mkdir_with_parents (folder, 0700);
+	out = g_build_filename (root, "hooks.out", NULL);
+	accel_file = accel_file_in (root);
+	legacy = g_build_filename (root, ".gnome2", "accels", "nemo", NULL);
+	legacy_dir = g_path_get_dirname (legacy);
+	g_mkdir_with_parents (legacy_dir, 0700);
+	check (g_file_set_contents (legacy, upstream, -1, NULL));
+	envp = start_env (root, hooks, out);
+	envp = g_environ_setenv (envp, "NEMO_QUIT_CHECK", "1", TRUE);
+
+	/* First start: upstream's shortcut is used and copied into ours. */
+	check (answer_has (run_once (display, exe, folder, envp, out), "F11"));
+	check (has_shortcut (accel_file, "F11"));
+	check (g_file_get_contents (legacy, &text, NULL, NULL) && g_strcmp0 (text, upstream) == 0);
+	g_free (text);
+
+	/* Ours is there now, so a later change to upstream's is not read. */
+	check (g_file_set_contents (legacy, "(gtk_accel_path \"<nemo-test>/Probe\" \"<Control>F10\")\n", -1, NULL));
+	check (answer_has (run_once (display, exe, folder, envp, out), "F11"));
+
+	check (run_reset (exe, envp));
+	check (g_file_test (accel_file, G_FILE_TEST_IS_REGULAR));
+	check (!has_shortcut (accel_file, ""));
+	check (answer_has (run_once (display, exe, folder, envp, out), "none"));
+
+	g_strfreev (envp);
+	g_free (legacy_dir);
+	g_free (legacy);
+	g_free (accel_file);
+	g_free (out);
+	g_free (folder);
+	g_free (root);
+}
+
+static void
+quit_saves (Display *display, const char *exe, const char *hooks, gboolean with_bus)
+{
+	char *root, *folder, *out, *accel_file, *text;
+	char **envp;
+	gboolean serving = FALSE;
+	GPid pid = 0;
+
+	/* The program inherits this, so its settings and saved shortcuts are in
+	 * the scratch dir too. No ~/.gnome2 is made, since the program must not
+	 * need one. */
+	root = test_scratch_config_home ("nemo-quit-saves-XXXXXX");
+	folder = g_build_filename (root, "folder", NULL);
+	g_mkdir_with_parents (folder, 0700);
+	out = g_build_filename (root, "hooks.out", NULL);
+	accel_file = accel_file_in (root);
+	envp = start_env (root, hooks, out);
 
 	seen = g_ptr_array_new_with_free_func (g_free);
 	if (with_bus) {
@@ -446,13 +552,6 @@ main (int argc, char *argv[])
 		check (serving);
 	}
 
-	XSetErrorHandler (ignore_x_error);
-	display = XOpenDisplay (NULL);
-	if (display == NULL) {
-		g_print ("SKIP: display will not open\n");
-		return 77;
-	}
-
 	/* First start: the hooks change the shortcut and put the notice up, and
 	 * the window is closed well inside the 30 s. */
 	pid = launch (exe, folder, envp);
@@ -460,7 +559,7 @@ main (int argc, char *argv[])
 	text = wait_hooks (out, pid, 30);
 	check (g_strcmp0 (text, "changed") == 0);
 	g_free (text);
-	check (!g_file_test (accel_file, G_FILE_TEST_EXISTS));
+	check (!has_shortcut (accel_file, "F12"));
 	if (serving) {
 		check (wait_seen ("add " PENDING_ID, 10));
 	}
@@ -469,7 +568,10 @@ main (int argc, char *argv[])
 	check (wait_exit (pid, 30));
 	stop (pid);
 
-	check (shortcut_saved (accel_file));
+	if (!has_shortcut (accel_file, "F12")) {
+		g_printerr ("%s has no line for the changed shortcut\n", accel_file);
+		failures++;
+	}
 	if (serving) {
 		check (wait_seen ("remove " PENDING_ID, 10));
 	}
@@ -494,12 +596,50 @@ main (int argc, char *argv[])
 		g_print ("no session bus: the notice was not checked\n");
 	}
 
-	XCloseDisplay (display);
 	g_strfreev (envp);
 	g_free (accel_file);
 	g_free (out);
 	g_free (folder);
 	g_free (root);
+}
+
+int
+main (int argc, char *argv[])
+{
+	const char *exe, *hooks;
+	gboolean with_bus, carry;
+	Display *display;
+
+	if (argc < 3) {
+		g_printerr ("usage: %s <nemo-anywhere> <hooks.so> [carry-over]\n", argv[0]);
+		return 77;
+	}
+	exe = argv[1];
+	hooks = argv[2];
+	carry = argc > 3 && strcmp (argv[3], "carry-over") == 0;
+
+	test_own_display (argc, argv, NULL);
+	if (g_getenv ("DISPLAY") == NULL) {
+		g_print ("SKIP: no display\n");
+		return 77;
+	}
+
+	with_bus = ensure_session_bus (argc, argv);
+
+	XSetErrorHandler (ignore_x_error);
+	display = XOpenDisplay (NULL);
+	if (display == NULL) {
+		g_print ("SKIP: display will not open\n");
+		return 77;
+	}
+
+	if (carry) {
+		carry_over (display, exe, hooks);
+	} else {
+		quit_saves (display, exe, hooks, with_bus);
+	}
+
+	XCloseDisplay (display);
 
 	if (failures > 0) {
 		g_printerr ("%d failure(s)\n", failures);

@@ -312,6 +312,8 @@ Application settings live in `settings.shcl`, in whichever directory the platfor
 
 - A few settings are file-only, with nothing in Preferences.
 
+- Keyboard shortcuts are kept beside the settings in `accels`, in GTK's own format. Upstream Nemo keeps its shortcuts in `~/.gnome2/accels/nemo`. The first start with no `accels` reads that file, so custom shortcuts carry over, and writes `accels` straight away. That `accels` exists is what marks the old file as read, so it is read once and never written. `--reset` empties `accels` rather than removing it, for the same reason.
+
 - What a rename starts out with selected is a checkbox under Behavior. The default selects the whole name, extension included, since a person pressing F2 usually means to replace the name outright and a re-typed extension is cheaper than one silently kept. Turned off, only the part before the extension is selected.
 
 - Where a setting is a command line for another program, the parts we fill in are written `{{LIKE_THIS}}` - capitals between double braces. Braces because nothing expands them: the same line pasted into a shell or a command prompt to try it out comes back unchanged, where `%NAME%` would vanish on Windows and `${NAME}` would on Linux. Only the markers a setting declares are replaced, so anything else in braces passes through as itself and there is nothing to escape.

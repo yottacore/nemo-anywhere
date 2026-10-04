@@ -127,23 +127,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Sweep: every way out of the Windows install after the staging folder exists: the failed copy, the old folder that cannot be renamed, and the failed final rename.
 	- Test case: none yet. A Windows test that makes the copy fail and checks that no staging folder is left.
 
-- A keyboard shortcut change is never saved where the shortcut file's folder is missing, and the file is upstream Nemo's.
-	- ID: 2026100315470225
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261003-154702
-	- Opened by: work on 2026100113372562
-	- Related IDs: 2026100113372562
-	- Incorrect behavior: shortcut changes are saved to `~/.gnome2/accels/nemo`, and that folder is never made. With no `~/.gnome2/accels`, nothing is saved, and on Windows it is never there. Where it is there, the file is the one upstream Nemo uses, so the two programs read and overwrite each other's shortcuts.
-	- Expected behavior: shortcuts are saved, in a file of the app's own.
-	- Reproduced: yes, 20261003, Linux, with an empty home. No file after quit.
-	- Possible fix: save beside the settings, making the folder when needed.
-	- Decisions:
-		- 20261003: the shortcut file moves beside the settings file, and its folder is made when needed. It stays in GTK's own format.
-		- 20261003: on the first start after the move, an existing `~/.gnome2/accels/nemo` is read once, so custom shortcuts carry over. The old file is left alone.
-	- Test case: none yet. rjch1b9a makes the folder itself, and would no longer need to.
-
 - A busy answer to the version check at open wipes the file cache under other copies.
 	- ID: 2026100316054301
 	- Type: Bug
@@ -1005,6 +988,32 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
 
+- A keyboard shortcut change is never saved where the shortcut file's folder is missing, and the file is upstream Nemo's.
+	- ID: 2026100315470225
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261003-154702
+	- Opened by: work on 2026100113372562
+	- Related IDs: 2026100113372562
+	- Incorrect behavior: shortcut changes are saved to `~/.gnome2/accels/nemo`, and that folder is never made. With no `~/.gnome2/accels`, nothing is saved, and on Windows it is never there. Where it is there, the file is the one upstream Nemo uses, so the two programs read and overwrite each other's shortcuts.
+	- Expected behavior: shortcuts are saved, in a file of the app's own.
+	- Reproduced: yes, 20261003, Linux, with an empty home. No file after quit.
+	- Possible fix: save beside the settings, making the folder when needed.
+	- Decisions:
+		- 20261003: the shortcut file moves beside the settings file, and its folder is made when needed. It stays in GTK's own format.
+		- 20261003: on the first start after the move, an existing `~/.gnome2/accels/nemo` is read once, so custom shortcuts carry over. The old file is left alone.
+	- Actual cause: the path was upstream's, and nothing made its folder. GTK's save gives up quietly when it cannot open the file.
+	- Actual fix: the file is `accels` beside `settings.shcl`, and the settings folder is made as before. A start that finds no `accels` reads `~/.gnome2/accels/nemo` if there, then writes `accels` at once. That `accels` exists is how "once" is known, so the old file is read on that start only and is never written. `--reset` empties `accels` rather than removing it, so the next start does not go back to the old file. Its help text still says settings and bookmarks.
+	- Note: rjch1b9a no longer makes a folder, and looks for the file in the new place.
+	- Swept: every caller of the shortcut path: the load at startup, the delayed and quit-time save, and `--reset`. `GNOME22_USER_DIR` is now only in the old-file path and the test. The other `.gnome2` use, `nemo_is_in_system_dir`, is about trusted desktop files and was left alone. `n8runfm.ps1` only passes `--reset` through. README never named the file. design.md and the changelog now say where it is.
+	- Test case: `rjcscb0t Shortcut file beside settings and carried over once test`. With no `~/.gnome2`, a change is saved to `accels` and nothing is made there. With an old file, its shortcut is used on the first start and copied into `accels`, and the old file is unchanged. A later change to the old file is not read. After `--reset`, `accels` is empty and the next start has the default. Fails before the fix and passes after, on Linux, and so does rjch1b9a.
+	- Verified: full Linux suite 161 of 161, Windows cross build, lint clean.
+	- Branch: accelmove
+	- Commit: 3c5c3ab
+	- Acceptance signoff: Self-closed: both calls were answered in Decisions, and rjcscb0t fails before the fix and passes after.
+	- Closed: 20261003-175916
+
 - The window title does not follow a change to the path separator.
 	- ID: 2026100221072783
 	- Type: Bug
@@ -1153,6 +1162,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: the file cache is still written at the end of `main ()`. `shutdown` runs before the thumbnail threads are done, and they may still be storing.
 	- Note: the old hook took the notice down through the unmount done step with no message, which logs a critical. The notice is now withdrawn on its own.
 	- Note: the shortcut file's folder is never made, so with none nothing is saved at any time. Filed as 2026100315470225. The test makes the folder.
+		- Fixed under 2026100315470225: the file is now beside the settings, and the test no longer makes a folder.
 	- Swept: these two were the only `quit_mainloop` overrides, and the only application classes.
 	- Branch: quitlock
 	- Commit: aced497

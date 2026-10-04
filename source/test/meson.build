@@ -1103,14 +1103,21 @@ if not is_windows
     [ 'test-nemo-quit-hooks.c' ],
     dependencies: [ gtk ],
   )
+  quit_saves = executable('test-nemo-quit-saves',
+    [ 'test-nemo-quit-saves.c' ],
+    c_args: nemo_definitions,
+    include_directories: [ rootInclude, ],
+    dependencies: [ glib, gio, x11, test_scratch ],
+  )
   test('rjch1b9a Shortcut saved and notice withdrawn at quit test',
-    executable('test-nemo-quit-saves',
-      [ 'test-nemo-quit-saves.c' ],
-      include_directories: [ rootInclude, ],
-      dependencies: [ glib, gio, x11, test_scratch ],
-    ),
+    quit_saves,
     args: [ nemo, quit_hooks ],
     timeout: 120
+  )
+  test('rjcscb0t Shortcut file beside settings and carried over once test',
+    quit_saves,
+    args: [ nemo, quit_hooks, 'carry-over' ],
+    timeout: 240
   )
 
   test('rhmr6qgs Tab move between processes test',

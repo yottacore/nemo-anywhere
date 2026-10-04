@@ -126,6 +126,7 @@ GFile *
 nemo_find_file_insensitive (GFile *parent, const gchar *name);
 
 char * nemo_get_accel_map_file (void);
+char * nemo_get_legacy_accel_map_file (void);
 
 char * nemo_get_scripts_directory_path (void);
 
