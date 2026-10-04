@@ -1528,6 +1528,24 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: reproduced, the tests fail before the fix and pass after, and the sweep has its answer on item 2026092813381423.
 	- Closed: 20261003-081627
 
+- The thumbnail order test can fail with its two same-time pictures a second apart.
+	- ID: 2026100317174376
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261003-171743
+	- Opened by: test run on b29w
+	- Target OS: all, seen on Windows.
+	- Incorrect behavior: rhf905br failed on b29w, on its check that the two twin pictures have the same time.
+	- Reproduced: yes, 20261003, b29w natively. On Linux with a one-second pause put between the two pictures.
+	- Actual cause: the test read the clock once for each picture, so a second could tick over between them. Slower saves on Windows make that more likely.
+	- Actual fix: the time is read once for both pictures.
+	- Branch: twintime
+	- Test case: rhf905br itself. With the pause, it fails before the fix and passes after on Linux.
+	- Verified: the full Linux suite passed 160 of 160 with the fix.
+	- Acceptance signoff: Self-closed: test-only fix, red and green both ways.
+	- Closed: 20261003-172400
+
 - A stopped 7z made without the 7-Zip program takes as long to end as the rest of the file would have taken.
 	- ID: 2026100308563234
 	- Type: Enhancement

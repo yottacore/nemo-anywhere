@@ -285,6 +285,7 @@ main (int argc, char **argv)
 	g_autofree char *dir = NULL;
 	g_autofree char *uri = NULL;
 	NemoDirectory *directory;
+	guint64 twin_time;
 	int client, i;
 
 	gtk_init_check (&argc, &argv);
@@ -317,7 +318,9 @@ main (int argc, char **argv)
 						    G_FILE_QUERY_INFO_NONE, NULL, NULL));
 	}
 
-	/* A BMP is the same size for any picture of the same dimensions. */
+	/* A BMP is the same size for any picture of the same dimensions. Both
+	   get one time read up front, or a second can tick over between them. */
+	twin_time = (guint64) (g_get_real_time () / G_USEC_PER_SEC) - 7200;
 	for (i = 0; i < 2; i++) {
 		g_autofree char *path = g_build_filename (dir, i == 0 ? "twin-a.bmp" : "twin-b.bmp", NULL);
 		g_autoptr (GFile) location = g_file_new_for_path (path);
@@ -326,8 +329,7 @@ main (int argc, char **argv)
 		gdk_pixbuf_fill (pixbuf, i == 0 ? 0xff0000ff : 0x0000ffff);
 		check (gdk_pixbuf_save (pixbuf, path, "bmp", NULL, NULL));
 		g_object_unref (pixbuf);
-		check (g_file_set_attribute_uint64 (location, G_FILE_ATTRIBUTE_TIME_MODIFIED,
-						    (guint64) (g_get_real_time () / G_USEC_PER_SEC) - 7200,
+		check (g_file_set_attribute_uint64 (location, G_FILE_ATTRIBUTE_TIME_MODIFIED, twin_time,
 						    G_FILE_QUERY_INFO_NONE, NULL, NULL));
 	}
 
