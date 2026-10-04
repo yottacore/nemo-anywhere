@@ -97,15 +97,24 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - If the Windows release workflow makes the release before the local cut does, the local cut fails.
 	- ID: 2026100415281302
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on signoff
+	- Needs external testing: a real release the Windows build makes first. A normal cut never gets there, so the next tag will likely not show it.
 	- Priority|Severity: Low
 	- Opened: 20261004-152813
 	- Opened by: work on 2026100413051728
 	- Related IDs: 2026100413051728
 	- Incorrect behavior: `release.bash` pushes the tag, then runs `gh release create`. The tag starts the Windows workflow, which makes the release itself when none is there yet. If the local step runs late, its create fails.
 	- Expected behavior: whichever side comes second adds to the release the other made.
-	- Reproduced: no. Found by reading.
-	- Test case: none yet. `test-release-notes.bash` runs the local cut against a stand-in `gh` and could take a case where the release already exists.
+	- Reproduced: yes. The new cases in rjf2v5d5 fail on the old `release.bash`, where the create is refused because the release is there.
+	- Decisions:
+		- A `.sha256` the Windows build put beside its exe, when it gave up waiting for the sums file, is folded into the sums file and then removed from the release. That is what the release would hold had the local cut been first. A call made without asking.
+		- On a release it finds, the local cut sets the title, notes and prerelease flag, clearing the flag for a stable version.
+	- Actual fix: `release.bash` looks for the release before it creates one, and again if the create fails. When it is there, the local cut edits it and uploads its files to it, then writes the Downloads table as before.
+	- Swept: every `gh release create`. `release.bash` is fixed. The hint it prints after `--push` alone now also gives the upload form. `release-win.yml` already edits a release it finds, and leaves the title alone.
+	- Branch: relrace
+	- Commit: 24de39d
+	- Test case: rjf2v5d5 (`test-release-notes.bash`, lint stage), with the release made by the Windows build before the local cut looks, and between its look and its create.
+	- Verified: rjf2v5d5 fails on the old `release.bash` and passes now. The lint stage is clean.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
