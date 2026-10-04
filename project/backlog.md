@@ -56,26 +56,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjf2v5d5 (`test-release-notes.bash`, lint stage).
 	- Verified: rjf2v5d5 passes, and the lint stage is clean.
 
-- Code review 20260928 item 40. The shortcut path choice code is only reached by tests.
-	- ID: 2026092813381440
-	- Type: Enhancement
-	- Status: Waiting for testing
-	- Needs external testing: rdcvb368 and the Make link tests, natively on a Windows box.
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Requirements:
-		- Make link always writes all three paths since linkdlg, so dropping the relative path and the portable-only case are unused. Remove them, or keep them on purpose for a later "Defaults..." button and say so.
-	- Decisions:
-		- 20260928: remove them. Git history has them if a Defaults button is ever built.
-	- Fixed: every shortcut now has the absolute and relative paths. Taking the relative path out, shortcuts with no absolute path, their "would hold no path" error and the paths field in the Make link answers are gone.
-	- Note: the one choice left is whether the portable path goes in. Make link always adds it. A link made on Windows with no dialog leaves it out, as before.
-	- Swept: every caller of the shortcut writers, the path flags and the answers field, in the source, tests, fuzz targets, cicd scripts and docs. The moving and copying design doc already says every shortcut gets all three.
-	- Branch: guardlnk
-	- Commit: 745ac2a
-	- Test case: narrowed to what still exists in rhn5ewrg, rhnb1z7g (now checks the portable path), rhr6ggms, rj05egmb, rhmxm5ah, rfwwdyvg and rdcvb368. Commented out with the reason: rhn92e10 (an absolute-only shortcut from Make link), and the cases in the others for shortcuts without the absolute or relative path, taking the relative path out, and the paths field.
-	- Verified: Linux suite 167 of 167. Windows cross build and lint clean.
-
 - Code review 20260928.
 	- ID: 2026092813381400
 	- Type: Task
@@ -97,6 +77,35 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: Escape not restoring the selection, Ctrl+Shift+T, and Control kept for F1, tab keys, Ctrl+H and Ctrl+M on macOS. All settled earlier.
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
+
+- On Windows, the file cache test of many copies opening at once failed once in a parallel suite run with a disk I/O error.
+	- ID: 2026100415281201
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261004-152812
+	- Opened by: owed native tests, 20261004
+	- Related IDs: 2026100113372592
+	- Target OS: Windows
+	- Test environment: vm925w, session 0, native suite at 8 jobs.
+	- Incorrect behavior: in rjch1a9a, one of 20 rounds had a copy with no store, after "could not set up the file cache: disk I/O error" at 302 ms.
+	- Expected behavior: every copy gets its store, even with the rest of the suite running beside it.
+	- Reproduced: once, 20261004, vm925w at 0ad01d1, in the full native suite. Passed 5 of 5 run alone right after, and passed in the full suite at bab9a49 earlier the same day.
+	- Possible cause: not known. The fix for 2026100113372592 retries a busy cache, and an I/O error may need the same, or it may be something Windows does to a new file under load.
+	- Test case: rjch1a9a, File cache opened by many at once test.
+
+- If the Windows release workflow makes the release before the local cut does, the local cut fails.
+	- ID: 2026100415281302
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261004-152813
+	- Opened by: work on 2026100413051728
+	- Related IDs: 2026100413051728
+	- Incorrect behavior: `release.bash` pushes the tag, then runs `gh release create`. The tag starts the Windows workflow, which makes the release itself when none is there yet. If the local step runs late, its create fails.
+	- Expected behavior: whichever side comes second adds to the release the other made.
+	- Reproduced: no. Found by reading.
+	- Test case: none yet. `test-release-notes.bash` runs the local cut against a stand-in `gh` and could take a case where the release already exists.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
@@ -1951,6 +1960,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: ef05a4f
 	- Test case: rjbpyy28 Archive stop time test now has a 7z case. A 4 GiB and a 16 GiB file are stopped at their first progress report. Before the fix, the 4 GiB one took 50 s and the 16 GiB one did not end in 100 s. After, both take 0.01 s. rjbw0rkq Stopped 7z leak test, which fails at 82 bytes a round when the close is left out.
 	- Acceptance signoff: waiting. The archive writer's handling of a stop changed again, this time for the 7z.
+
+- Code review 20260928 item 40. The shortcut path choice code is only reached by tests.
+	- ID: 2026092813381440
+	- Type: Enhancement
+	- Status: Done
+	- Needs external testing: none left. Ran on vm925w on 20261004.
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Requirements:
+		- Make link always writes all three paths since linkdlg, so dropping the relative path and the portable-only case are unused. Remove them, or keep them on purpose for a later "Defaults..." button and say so.
+	- Decisions:
+		- 20260928: remove them. Git history has them if a Defaults button is ever built.
+	- Fixed: every shortcut now has the absolute and relative paths. Taking the relative path out, shortcuts with no absolute path, their "would hold no path" error and the paths field in the Make link answers are gone.
+	- Note: the one choice left is whether the portable path goes in. Make link always adds it. A link made on Windows with no dialog leaves it out, as before.
+	- Swept: every caller of the shortcut writers, the path flags and the answers field, in the source, tests, fuzz targets, cicd scripts and docs. The moving and copying design doc already says every shortcut gets all three.
+	- Branch: guardlnk
+	- Commit: 745ac2a
+	- Test case: narrowed to what still exists in rhn5ewrg, rhnb1z7g (now checks the portable path), rhr6ggms, rj05egmb, rhmxm5ah, rfwwdyvg and rdcvb368. Commented out with the reason: rhn92e10 (an absolute-only shortcut from Make link), and the cases in the others for shortcuts without the absolute or relative path, taking the relative path out, and the paths field.
+	- Verified: Linux suite 167 of 167. Windows cross build and lint clean.
+	- Verified: 20261004, Windows, at 0ad01d1: rdcvb368 and the 21 link and shortcut tests built there pass natively on vm925w.
+	- Acceptance signoff: Self-closed: the removal follows the Decisions row, nothing a person sees changed, and its tests pass on Linux and natively on Windows. The path flags went with the cases they chose between, leaving only the portable path optional.
+	- Closed: 20261004-152800
 
 - Code review 20260928 item 45. Self-tests in the lint stage have no test IDs.
 	- ID: 2026092813381445
