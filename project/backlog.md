@@ -106,6 +106,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual fix: the built-in rar line no longer has `-r`. A selected file is taken from the job's folder only, and a selected folder still goes in whole, hidden files, empty folders and links included.
 	- Swept: the built-in rar line and the settings schema's copy of it. The first run that keeps links that lead nowhere still says `-r-`, for an edited line. The 7-Zip lines never had `-r`, and the new rows pass for every format. Neither extract line has it. Names with `*` or `?`: rar reads them as patterns with or without `-r`, so item 2026092813381416's refusals stay as they are. Left-out names after `-x` are relative paths with no wildcards, which rar matches only where they are, with or without `-r`. A selected link named with a leading @ still goes in as `./@name`.
 	- Branch: rarsel
+	- Commit: 81e4f82
 	- Test case: rhr6ggmt, Archive option combinations: a picked `a.txt` and folder beside `sub/a.txt` and `sub/held`, in every format, then again with an unpicked link that leads nowhere beside them. Under rar the first run took `sub/a.txt` and the second failed before the fix; both pass after. rev86z08, Archive options test: the built-in rar line has no `-r`. Fails before the fix, passes after.
 	- Verified: 20261004, Linux: rhr6ggmt, rev86z08 and rewygsbg pass, rar ran 43 rows. Full Linux suite 164 of 164.
 
