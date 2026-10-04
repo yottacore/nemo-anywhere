@@ -45,15 +45,6 @@ typedef struct {
 	char     *icon_location;  /* the file the icon is taken from, as written */
 } NemoLnk;
 
-/* Which of its ways to find the target a new shortcut carries. */
-typedef enum {
-	NEMO_LNK_ABSOLUTE = 1 << 0,
-	NEMO_LNK_RELATIVE = 1 << 1,
-	NEMO_LNK_PORTABLE = 1 << 2   /* through environment variables */
-} NemoLnkParts;
-
-#define NEMO_LNK_ALL_PARTS (NEMO_LNK_ABSOLUTE | NEMO_LNK_RELATIVE | NEMO_LNK_PORTABLE)
-
 gboolean nemo_lnk_parse (const guint8 *bytes, gsize length, NemoLnk *lnk);
 gboolean nemo_lnk_read  (const char *lnk_path, NemoLnk *lnk);
 void     nemo_lnk_clear (NemoLnk *lnk);
@@ -81,23 +72,19 @@ char    *nemo_lnk_expand (const char *windows_path);
    NULL when none covers it. */
 char    *nemo_lnk_portable_path (const char *target_path);
 
-/* Write a shortcut at lnk_path to target_path, both paths here, carrying the
-   parts asked for. Paths inside are spelled the Windows way on every
-   platform. Absolute is the \\server\share path when the target is on a
-   mounted Windows share, else the path itself. Portable is the path with an
-   environment variable in it, which Windows follows too, even from a
-   shortcut made elsewhere; off Windows a share path goes there as well, for
-   the same reason. Fails with G_IO_ERROR_EXISTS when lnk_path is taken, and
-   with G_IO_ERROR_INVALID_ARGUMENT when none of the parts fit. */
+/* Write a shortcut at lnk_path to target_path, both paths here, with the
+   absolute path and the relative one from the shortcut's folder, and the
+   portable one too when with_portable and it fits. Paths inside are spelled
+   the Windows way on every platform. Absolute is the \\server\share path
+   when the target is on a mounted Windows share, else the path itself.
+   Portable is the path with an environment variable in it, which Windows
+   follows too, even from a shortcut made elsewhere; off Windows a share path
+   goes there as well, for the same reason. Fails with G_IO_ERROR_EXISTS when
+   lnk_path is taken. */
 gboolean nemo_lnk_write (const char  *lnk_path,
                          const char  *target_path,
-                         guint        parts,
+                         gboolean     with_portable,
                          GError     **error);
-
-/* Take the relative path back out of a shortcut, for Windows, which always
-   writes one. */
-gboolean nemo_lnk_drop_relative (const char  *lnk_path,
-                                 GError     **error);
 
 /* Put new paths in an existing shortcut, keeping the rest of it, such as its
    arguments, Start in folder and icon. The paths are taken as written, in

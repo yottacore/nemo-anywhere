@@ -665,7 +665,9 @@ test('rhmye3d0 Make link relative', make_link_job, args: [ 'relative' ])
 test('rhmye3d1 Make link absolute', make_link_job, args: [ 'absolute' ])
 test('rhmye3d2 Make link hardlink', make_link_job, args: [ 'hardlink' ])
 test('rhn5ewrg Make link shortcut', make_link_job, args: [ 'shortcut' ])
-test('rhn92e10 Make link shortcut absolute', make_link_job, args: [ 'shortcut-absolute' ])
+# A shortcut always has every path since backlog 2026092813381440, so an
+# absolute-only one can no longer be asked for.
+# test('rhn92e10 Make link shortcut absolute', make_link_job, args: [ 'shortcut-absolute' ])
 test('rhnb1z7g Make link shortcut portable', make_link_job, args: [ 'shortcut-portable' ])
 test('rhnq7f38 Make link names', make_link_job, args: [ 'names' ])
 test('rhr6ggms Make link, every answer', make_link_job, args: [ 'every' ])

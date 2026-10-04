@@ -1731,7 +1731,7 @@ put_env_block (GByteArray *out, const char *path)
 gboolean
 nemo_lnk_write (const char  *lnk_path,
 		const char  *target_path,
-		guint        parts,
+		gboolean     with_portable,
 		GError     **error)
 {
 	GStatBuf info;
@@ -1740,7 +1740,7 @@ nemo_lnk_write (const char  *lnk_path,
 	GFileOutputStream *stream;
 	char *dir, *relative_text, *relative_windows = NULL, *unc = NULL, *suffix = NULL;
 	char *absolute = NULL, *portable = NULL;
-	guint32 flags = FLAG_IS_UNICODE;
+	guint32 flags = FLAG_IS_UNICODE | FLAG_HAS_LINK_INFO;
 	gboolean is_dir, ok;
 	glong units;
 
@@ -1782,63 +1782,41 @@ nemo_lnk_write (const char  *lnk_path,
 	}
 #endif
 
-	if (parts & NEMO_LNK_ABSOLUTE) {
-		flags |= FLAG_HAS_LINK_INFO;
-		if (unc == NULL) {
-			absolute = to_backslashes (target_path);
-		}
+	if (unc == NULL) {
+		absolute = to_backslashes (target_path);
 	}
 
 	/* Written the way Windows writes it, from the folder the shortcut is in. */
-	if (parts & NEMO_LNK_RELATIVE) {
-		dir = g_path_get_dirname (lnk_path);
-		relative_text = nemo_link_relative_target (target_path, dir);
-		g_free (dir);
-		units = relative_text != NULL ? utf16_length (relative_text) : -1;
-		if (units >= 0 && units <= G_MAXUINT16) {
-			relative_windows = to_backslashes (relative_text);
-			if (!g_str_has_prefix (relative_text, "..")) {
-				char *dotted = g_strconcat (".\\", relative_windows, NULL);
+	dir = g_path_get_dirname (lnk_path);
+	relative_text = nemo_link_relative_target (target_path, dir);
+	g_free (dir);
+	units = relative_text != NULL ? utf16_length (relative_text) : -1;
+	if (units >= 0 && units <= G_MAXUINT16) {
+		relative_windows = to_backslashes (relative_text);
+		if (!g_str_has_prefix (relative_text, "..")) {
+			char *dotted = g_strconcat (".\\", relative_windows, NULL);
 
-				g_free (relative_windows);
-				relative_windows = dotted;
-			}
-			flags |= FLAG_HAS_RELATIVE_PATH;
+			g_free (relative_windows);
+			relative_windows = dotted;
 		}
-		g_free (relative_text);
+		flags |= FLAG_HAS_RELATIVE_PATH;
 	}
+	g_free (relative_text);
 
 	/* Windows follows this block from a shortcut made anywhere, and not the
-	   other two, so a share path goes in when no variable covers the target.
-	   On Windows a plain path is kept for when the absolute one is left out. */
-	if (parts & NEMO_LNK_PORTABLE) {
+	   other two, so a share path goes in when no variable covers the target. */
+	if (with_portable) {
 		if (unc != NULL) {
 			portable = join_windows (unc, suffix);
 		} else {
 			portable = nemo_lnk_portable_path (target_path);
 		}
-#ifdef G_OS_WIN32
-		if (portable == NULL) {
-			portable = to_backslashes (target_path);
-		}
-#endif
 		units = portable != NULL ? utf16_length (portable) : -1;
 		if (units >= 0 && units < ENV_PATH_CHARS) {
 			flags |= FLAG_HAS_EXP_STRING;
 		} else {
 			g_clear_pointer (&portable, g_free);
 		}
-	}
-
-	if (!(flags & (FLAG_HAS_LINK_INFO | FLAG_HAS_RELATIVE_PATH | FLAG_HAS_EXP_STRING))) {
-		g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
-			     _("A shortcut to \"%s\" would hold no path: no environment variable "
-			       "covers it, and there is no path from the shortcut to it. Choose an "
-			       "absolute path as well."),
-			     target_path);
-		g_free (unc);
-		g_free (suffix);
-		return FALSE;
 	}
 
 	out = g_byte_array_new ();
@@ -1857,9 +1835,9 @@ nemo_lnk_write (const char  *lnk_path,
 	put_u32 (out, 0);
 	put_u32 (out, 0);
 
-	if ((flags & FLAG_HAS_LINK_INFO) && unc != NULL) {
+	if (unc != NULL) {
 		put_network_link_info (out, unc, suffix);
-	} else if (flags & FLAG_HAS_LINK_INFO) {
+	} else {
 		put_local_link_info (out, absolute, 0);
 	}
 	if (flags & FLAG_HAS_RELATIVE_PATH) {
@@ -1938,75 +1916,6 @@ rewrite_lnk (const char *lnk_path, const char *data, gsize length, GError **erro
 	}
 #endif
 	return g_file_set_contents (lnk_path, data, length, error);
-}
-
-gboolean
-nemo_lnk_drop_relative (const char  *lnk_path,
-			GError     **error)
-{
-	char *contents = NULL;
-	guint8 *bytes;
-	gsize length, pos, count, cut;
-	guint32 flags;
-	gboolean ok;
-	NemoLnk check;
-
-	if (!g_file_get_contents (lnk_path, &contents, &length, error)) {
-		return FALSE;
-	}
-	bytes = (guint8 *) contents;
-
-	if (!nemo_lnk_parse (bytes, length, &check)) {
-		g_free (contents);
-		g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
-			     _("\"%s\" is not a shortcut."), lnk_path);
-		return FALSE;
-	}
-	nemo_lnk_clear (&check);
-
-	flags = get_u32 (bytes + 20);
-	if (!(flags & FLAG_HAS_RELATIVE_PATH)) {
-		g_free (contents);
-		return TRUE;
-	}
-	if (!strings_start (bytes, length, &pos)) {
-		g_free (contents);
-		g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
-			     _("\"%s\" is not a shortcut."), lnk_path);
-		return FALSE;
-	}
-
-	/* The name comes first, then the relative path. */
-	if ((flags & FLAG_HAS_NAME) && pos + 2 <= length) {
-		pos += 2 + get_u16 (bytes + pos) * ((flags & FLAG_IS_UNICODE) ? 2 : 1);
-	}
-	if (pos + 2 > length) {
-		g_free (contents);
-		g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
-			     _("\"%s\" is not a shortcut."), lnk_path);
-		return FALSE;
-	}
-	count = get_u16 (bytes + pos);
-	cut = 2 + count * ((flags & FLAG_IS_UNICODE) ? 2 : 1);
-	if (cut > length - pos) {
-		g_free (contents);
-		g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
-			     _("\"%s\" is not a shortcut."), lnk_path);
-		return FALSE;
-	}
-
-	memmove (bytes + pos, bytes + pos + cut, length - pos - cut);
-	length -= cut;
-	flags &= ~FLAG_HAS_RELATIVE_PATH;
-	bytes[20] = flags & 0xff;
-	bytes[21] = (flags >> 8) & 0xff;
-	bytes[22] = (flags >> 16) & 0xff;
-	bytes[23] = flags >> 24;
-
-	ok = rewrite_lnk (lnk_path, contents, length, error);
-	g_free (contents);
-
-	return ok;
 }
 
 /* Extra data blocks that say where the target is, one way or another. Each

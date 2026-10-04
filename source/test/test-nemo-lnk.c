@@ -759,17 +759,18 @@ test_follow (void)
 	machine_clear (&machine);
 }
 
-/* Write a shortcut to dir/name from dir/lnk_name with the parts given, read
-   it back, and check it leads to the same place. The caller clears *lnk. */
+/* Write a shortcut to dir/name from dir/lnk_name, with the portable path if
+   asked, read it back, and check it leads to the same place. The caller
+   clears *lnk. */
 static void
-write_parts (const char *dir, const char *name, const char *lnk_name, guint parts, NemoLnk *lnk)
+write_parts (const char *dir, const char *name, const char *lnk_name, gboolean with_portable, NemoLnk *lnk)
 {
 	char *target = g_build_filename (dir, name, NULL);
 	char *lnk_path = g_build_filename (dir, lnk_name, NULL);
 	char *uri, *want;
 	GError *error = NULL;
 
-	check (nemo_lnk_write (lnk_path, target, parts, &error));
+	check (nemo_lnk_write (lnk_path, target, with_portable, &error));
 	g_clear_error (&error);
 	check (nemo_lnk_read (lnk_path, lnk));
 	uri = nemo_lnk_resolve (lnk_path, lnk);
@@ -786,7 +787,7 @@ write_parts (const char *dir, const char *name, const char *lnk_name, guint part
 static void
 write_and_read (const char *dir, const char *name, const char *lnk_name, NemoLnk *lnk)
 {
-	write_parts (dir, name, lnk_name, NEMO_LNK_ABSOLUTE | NEMO_LNK_RELATIVE, lnk);
+	write_parts (dir, name, lnk_name, FALSE, lnk);
 }
 
 static char *
@@ -806,7 +807,7 @@ test_write (void)
 {
 	Machine machine;
 	NemoLnk lnk;
-	char *root, *cifs, *sub, *gvfs_share, *lnk_path, *target, *before, *after, *uri, *want, *windows;
+	char *root, *cifs, *sub, *gvfs_share, *lnk_path, *target, *before, *after, *windows;
 	gsize before_length, after_length;
 	GError *error = NULL;
 
@@ -832,6 +833,12 @@ test_write (void)
 	check (lnk.net_share == NULL && g_strcmp0 (lnk.local_path, windows) == 0);
 	check (lnk.env_path == NULL);
 	nemo_lnk_clear (&lnk);
+
+	/* Absolute only, relative only, portable only, none, and the relative
+	   path taken back out all went with the path choice (backlog
+	   2026092813381440). */
+#if 0
+	char *uri, *want;
 
 	/* Absolute only: no relative path, and it still leads there. */
 	lnk_path = g_build_filename (root, "abs.lnk", NULL);
@@ -878,6 +885,7 @@ test_write (void)
 	/* And once it is gone, again is a no-op. */
 	check (nemo_lnk_drop_relative (lnk_path, NULL));
 	g_free (lnk_path);
+#endif
 	g_free (windows);
 	g_free (target);
 
@@ -908,10 +916,11 @@ test_write (void)
 	check (lnk.local_path == NULL);
 	nemo_lnk_clear (&lnk);
 
-	/* Portable on a share is the share path too, where Windows reads it. */
-	write_parts (root, "cifs/dir/a.txt", "pa.lnk", NEMO_LNK_PORTABLE, &lnk);
+	/* Portable on a share is the share path too, where Windows reads it. The
+	   other paths are always there now (backlog 2026092813381440).
+	   check (lnk.net_share == NULL && lnk.local_path == NULL && lnk.relative_path == NULL); */
+	write_parts (root, "cifs/dir/a.txt", "pa.lnk", TRUE, &lnk);
 	check (g_strcmp0 (lnk.env_path, "\\\\SRV\\share\\dir\\a.txt") == 0);
-	check (lnk.net_share == NULL && lnk.local_path == NULL && lnk.relative_path == NULL);
 	nemo_lnk_clear (&lnk);
 
 	/* A share mounted at a folder inside it. */
@@ -927,7 +936,7 @@ test_write (void)
 	touch (gvfs_share, "Movies/m.mkv");
 	lnk_path = g_build_filename (root, "m.lnk", NULL);
 	target = g_build_filename (gvfs_share, "Movies", "m.mkv", NULL);
-	check (nemo_lnk_write (lnk_path, target, NEMO_LNK_ABSOLUTE | NEMO_LNK_RELATIVE, NULL));
+	check (nemo_lnk_write (lnk_path, target, FALSE, NULL));
 	check (nemo_lnk_read (lnk_path, &lnk));
 	check (g_strcmp0 (lnk.net_share, "\\\\nas\\media") == 0);
 	check (g_strcmp0 (lnk.net_path, "Movies\\m.mkv") == 0);
@@ -935,7 +944,7 @@ test_write (void)
 
 	/* Never over something already there. */
 	g_assert (g_file_get_contents (lnk_path, &before, &before_length, NULL));
-	check (!nemo_lnk_write (lnk_path, target, NEMO_LNK_ABSOLUTE | NEMO_LNK_RELATIVE, &error));
+	check (!nemo_lnk_write (lnk_path, target, FALSE, &error));
 	check (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_EXISTS));
 	g_clear_error (&error);
 	g_assert (g_file_get_contents (lnk_path, &after, &after_length, NULL));
@@ -948,7 +957,7 @@ test_write (void)
 	/* Nothing to point at. */
 	lnk_path = g_build_filename (root, "gone.lnk", NULL);
 	target = g_build_filename (root, "gone.txt", NULL);
-	check (!nemo_lnk_write (lnk_path, target, NEMO_LNK_ABSOLUTE | NEMO_LNK_RELATIVE, NULL));
+	check (!nemo_lnk_write (lnk_path, target, FALSE, NULL));
 	check (!g_file_test (lnk_path, G_FILE_TEST_EXISTS));
 	g_free (lnk_path);
 	g_free (target);
@@ -974,14 +983,15 @@ test_portable (void)
 	machine_apply (&machine);
 	outside = realpath (machine.root, NULL);
 
-	/* Under home: the variable Windows has for it, and nothing else. */
+	/* Under home: the variable Windows has for it. "And nothing else" went
+	   with the path choice (backlog 2026092813381440).
+	   check (lnk.local_path == NULL && lnk.relative_path == NULL); */
 	touch (home, "Documents/p.txt");
 	target = g_build_filename (home, "Documents", "p.txt", NULL);
 	lnk_path = g_build_filename (outside, "p.lnk", NULL);
-	check (nemo_lnk_write (lnk_path, target, NEMO_LNK_PORTABLE, NULL));
+	check (nemo_lnk_write (lnk_path, target, TRUE, NULL));
 	check (nemo_lnk_read (lnk_path, &lnk));
 	check (g_strcmp0 (lnk.env_path, "%USERPROFILE%\\Documents\\p.txt") == 0);
-	check (lnk.local_path == NULL && lnk.relative_path == NULL);
 	uri = nemo_lnk_resolve (lnk_path, &lnk);
 	want = uri_of (home, "Documents/p.txt");
 	check (g_strcmp0 (uri, want) == 0);
@@ -992,7 +1002,7 @@ test_portable (void)
 	   absolute path is wrong still finds it. */
 	g_free (lnk_path);
 	lnk_path = g_build_filename (outside, "all.lnk", NULL);
-	check (nemo_lnk_write (lnk_path, target, NEMO_LNK_ALL_PARTS, NULL));
+	check (nemo_lnk_write (lnk_path, target, TRUE, NULL));
 	check (nemo_lnk_read (lnk_path, &lnk));
 	check (lnk.env_path != NULL && lnk.local_path != NULL && lnk.relative_path != NULL);
 	uri = nemo_lnk_resolve (lnk_path, &lnk);
@@ -1005,7 +1015,7 @@ test_portable (void)
 	/* Home itself, and a name past ASCII under it. */
 	g_free (lnk_path);
 	lnk_path = g_build_filename (outside, "home.lnk", NULL);
-	check (nemo_lnk_write (lnk_path, home, NEMO_LNK_PORTABLE, NULL));
+	check (nemo_lnk_write (lnk_path, home, TRUE, NULL));
 	check (nemo_lnk_read (lnk_path, &lnk));
 	check (g_strcmp0 (lnk.env_path, "%USERPROFILE%") == 0);
 	check (nemo_lnk_is_dir (&lnk));
@@ -1015,7 +1025,7 @@ test_portable (void)
 	target = g_build_filename (home, UNICODE_NAME, NULL);
 	g_free (lnk_path);
 	lnk_path = g_build_filename (outside, "u.lnk", NULL);
-	check (nemo_lnk_write (lnk_path, target, NEMO_LNK_PORTABLE, NULL));
+	check (nemo_lnk_write (lnk_path, target, TRUE, NULL));
 	check (nemo_lnk_read (lnk_path, &lnk));
 	check (g_strcmp0 (lnk.env_path, "%USERPROFILE%\\" UNICODE_NAME) == 0);
 	uri = nemo_lnk_resolve (lnk_path, &lnk);
@@ -1026,7 +1036,8 @@ test_portable (void)
 	nemo_lnk_clear (&lnk);
 	g_free (target);
 
-	/* Too long for the block: left out, and with nothing else, refused. */
+	/* Too long for the block: left out. "With nothing else, refused" went
+	   with the path choice (backlog 2026092813381440). */
 	target = g_build_filename (home, "long", NULL);
 	g_mkdir (target, 0700);
 	{
@@ -1039,8 +1050,8 @@ test_portable (void)
 		}
 		g_free (lnk_path);
 		lnk_path = g_build_filename (outside, "long.lnk", NULL);
-		check (!nemo_lnk_write (lnk_path, deep->str, NEMO_LNK_PORTABLE, NULL));
-		check (nemo_lnk_write (lnk_path, deep->str, NEMO_LNK_PORTABLE | NEMO_LNK_ABSOLUTE, NULL));
+		/* check (!nemo_lnk_write (lnk_path, deep->str, NEMO_LNK_PORTABLE, NULL)); */
+		check (nemo_lnk_write (lnk_path, deep->str, TRUE, NULL));
 		check (nemo_lnk_read (lnk_path, &lnk));
 		check (lnk.env_path == NULL && lnk.local_path != NULL);
 		nemo_lnk_clear (&lnk);
@@ -1150,7 +1161,7 @@ test_parse_env (void)
 	g_free (want);
 	nemo_lnk_clear (&lnk);
 
-	/* Dropping the relative path keeps the name before it and the rest after. */
+	/* Dropping the relative path went with the path choice (backlog 2026092813381440).
 	check (nemo_lnk_drop_relative (lnk_path, NULL));
 	check (nemo_lnk_read (lnk_path, &lnk));
 	check (lnk.relative_path == NULL);
@@ -1158,6 +1169,7 @@ test_parse_env (void)
 	check (g_strcmp0 (lnk.working_dir, "C:\\Temp") == 0);
 	check (g_strcmp0 (lnk.env_path, "%USERPROFILE%\\gone\\n.txt") == 0);
 	nemo_lnk_clear (&lnk);
+	*/
 
 	g_free (copy);
 	g_free (lnk_path);
