@@ -409,6 +409,23 @@ check_links_command (void)
 	check (has_arg (argv, "held/gone"));
 	g_strfreev (argv);
 
+	/* A selected link that leads nowhere named @gone: rar would load a
+	   list file called gone. 7z takes the name as it is. */
+	{
+		GList *at = g_list_append (NULL, (gpointer) "@gone");
+
+		argv = nemo_archive_build_links_command (NEMO_ARCHIVE_BACKEND_RAR, options.format,
+							 &options, "rar", "/tmp/out.rar", at);
+		check (has_arg (argv, "./@gone"));
+		check (!has_arg (argv, "@gone"));
+		g_strfreev (argv);
+		argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_7Z, NEMO_ARCHIVE_FORMAT_7Z,
+						   &options, "7z", "/tmp/out.7z", at, NULL);
+		check (has_arg (argv, "@gone"));
+		g_strfreev (argv);
+		g_list_free (at);
+	}
+
 	/* The real run still follows. */
 	argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_RAR, options.format, &options,
 					   "rar", "/tmp/out.rar", names, NULL);
@@ -525,6 +542,9 @@ check_commands (void)
 	{
 		GList *skip = g_list_append (NULL, (gpointer) "a folder/linked");
 
+		/* rar would read -x@x as a list file named x. */
+		skip = g_list_append (skip, (gpointer) "@x");
+
 		nemo_archive_options_init (&options);
 		options.format = NEMO_ARCHIVE_FORMAT_RAR;
 		options.store_links = TRUE;
@@ -546,12 +566,15 @@ check_commands (void)
 						   "rar", "/tmp/out.rar", names, skip);
 		check (!has_prefix_arg (argv, "-ol"));
 		check (has_arg (argv, "-xa folder/linked"));
+		check (has_arg (argv, "-x./@x"));
+		check (!has_arg (argv, "-x@x"));
 		g_strfreev (argv);
 
 		options.format = NEMO_ARCHIVE_FORMAT_7Z;
 		argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_7Z, options.format, &options,
 						   "7z", "/tmp/out.7z", names, skip);
 		check (has_arg (argv, "-x!a folder/linked"));
+		check (has_arg (argv, "-x!@x"));
 		check (!has_arg (argv, "-snl"));
 		g_strfreev (argv);
 
@@ -716,6 +739,21 @@ check_skipped_links (void)
 							"sel/a : b : errno=2 : No such file or directory\n"
 							"----------------\nScan WARNINGS: 1\n", colon));
 		g_list_free (colon);
+	}
+
+	/* rar says a name starting with @ as it was handed over, with ./ in
+	   front, and again without it for what -r finds. */
+	{
+		GList *at = g_list_append (NULL, (gpointer) "@gone");
+
+		check (nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_RAR, 6,
+							"Cannot open @gone\nNo such file or directory\n"
+							"Cannot open ./@gone\nNo such file or directory\n"
+							"Adding    a.txt     OK \nDone\n", at));
+		check (!nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_RAR, 6,
+							 "Cannot open ./@gone\nNo such file or directory\n"
+							 "Cannot open ./@other\nNo such file or directory\n", at));
+		g_list_free (at);
 	}
 
 	/* On Windows both end on a count, 7-Zip names each one twice, and what

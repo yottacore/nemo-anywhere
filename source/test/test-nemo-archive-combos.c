@@ -1161,6 +1161,94 @@ check_dangling_deep (const char *tmp, NemoArchiveFormat format,
 	g_free (label);
 }
 
+/* Selected names that start with @, which rar reads as a list file after -x.
+   The linked folder is not followed, so it stays out, and the link that leads
+   nowhere goes in as a link where it can. */
+static void
+check_at_names (const char *tmp, const char *outside, NemoArchiveFormat format,
+		GtkWidget *window, NemoProgressInfoManager *manager)
+{
+	char *label = g_strdup_printf ("at-%s", nemo_archive_format_id (format));
+	char *root = g_build_filename (tmp, label, NULL);
+	char *at_dir = g_build_filename (root, "@x", NULL);
+	char *at_gone = g_build_filename (root, "@gone", NULL);
+	char *plain = g_build_filename (root, "a.txt", NULL);
+	char *linked = g_build_filename (outside, "linked", NULL);
+	char *base = g_strconcat ("at", nemo_archive_format_extension (format), NULL);
+	char *dest = g_build_filename (root, base, NULL);
+	NemoArchiveOptions options;
+	NemoArchiveBackend backend;
+	GHashTable *found;
+	GString *said = g_string_new (NULL);
+	GList *sources = NULL;
+	gboolean kept, ok;
+	int warnings, errors, asked;
+	int before = failures;
+
+	g_mkdir_with_parents (root, 0700);
+	write_bytes (root, "a.txt", "alpha", 5);
+	check (nemo_link_create (linked, at_dir, NULL, NEMO_LINK_DIR_SYMLINK, NULL));
+	sources = g_list_append (sources, g_file_new_for_path (plain));
+	sources = g_list_append (sources, g_file_new_for_path (at_dir));
+
+	options_for (format, &options);
+	backend = nemo_archive_pick_backend (format, &options);
+	kept = dangling_kept (format, backend, &options, "@gone", FALSE);
+
+	/* The linked folder on its own first. */
+	ok = run_single (sources, dest, &options, window, manager, &warnings, &errors, &asked, said);
+	check (ok);
+	check (errors == 0);
+	check (warnings == 0);
+
+	found = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+	read_back (dest, found);
+	check (g_hash_table_contains (found, "a.txt"));
+	check (!g_hash_table_contains (found, "@x/c.txt"));
+	g_hash_table_destroy (found);
+	g_unlink (dest);
+	if (failures > before) {
+		g_printerr ("  in %s, the folder alone (backend %d)\n%s", label, backend, said->str);
+		before = failures;
+	}
+	g_string_truncate (said, 0);
+
+	/* Made only now, since rar -r tries every name beside the selection,
+	   picked or not. */
+	check (nemo_link_create ("nowhere", at_gone, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
+	sources = g_list_append (sources, g_file_new_for_path (at_gone));
+	ok = run_single (sources, dest, &options, window, manager, &warnings, &errors, &asked, said);
+	check (ok);
+	check (errors == 0);
+
+	found = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+	read_back (dest, found);
+	check (g_hash_table_contains (found, "a.txt"));
+	check (!g_hash_table_contains (found, "@x/c.txt"));
+	check (g_hash_table_contains (found, "@gone") == kept);
+	check (!kept || GPOINTER_TO_INT (g_hash_table_lookup (found, "@gone")));
+	g_hash_table_destroy (found);
+
+	check (warnings == (kept ? 0 : 1));
+	check (kept || strstr (said->str, "@gone") != NULL);
+
+	if (failures > before) {
+		g_printerr ("  in %s (backend %d)\n%s", label, backend, said->str);
+	}
+
+	g_string_free (said, TRUE);
+	nemo_archive_options_clear (&options);
+	g_list_free_full (sources, g_object_unref);
+	g_free (dest);
+	g_free (base);
+	g_free (linked);
+	g_free (plain);
+	g_free (at_gone);
+	g_free (at_dir);
+	g_free (root);
+	g_free (label);
+}
+
 #ifndef G_OS_WIN32
 /* Names with * or ? in them are names, not patterns. A linked folder "a*" that
    is left out must not take "abc" or "apple.txt" with it, and a folder "a?c"
@@ -1406,7 +1494,8 @@ main (int argc, char *argv[])
 			}
 			check_dangling_alone (tmp, format, window, manager);
 			check_dangling_deep (tmp, format, window, manager);
-			number += 2;
+			check_at_names (tmp, outside, format, window, manager);
+			number += 4;
 #ifndef G_OS_WIN32
 			check_patterns (tmp, outside, format, window, manager);
 			number += 2;
