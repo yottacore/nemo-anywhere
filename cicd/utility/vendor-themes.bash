@@ -443,6 +443,7 @@ fStageIcon(){
 ## Worth having because the resolver answers through a global rather than
 ## stdout, which is easy to get subtly wrong, and because the only other way to
 ## find out is a twenty minute run against twenty upstreams.
+## Test ID: rhad73w8
 
 fSelfTestTree(){
 	local repo="$1"
@@ -473,6 +474,7 @@ fSelfTestTree(){
 
 fSelfTest(){
 	local repo="$tmp/selftest" fails=0
+	fEcho "Test $(sed -n 's/^## Test ID: //p' "${BASH_SOURCE[0]}") vendor-themes.bash --self-test"
 
 	fCheck(){
 		local what="$1" want="$2" got="$3"
