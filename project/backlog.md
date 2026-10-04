@@ -55,21 +55,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
 
-- On a real Windows screen, the compress dialog test finds the options area capped at a different height than the dialog code works out.
-	- ID: 2026100413554978
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261004-135549
-	- Opened by: owed native tests, 20261004
-	- Target OS: Windows
-	- Test environment: vm925w, console session, 2512 px work area.
-	- Incorrect behavior: rhtmbdmj fails at `test-nemo-archive-dialog.c` line 164. With Options opened, the scroll's max height is 2241, which is not what `nemo_archive_options_room` gives for that screen. The three made-up screen heights pass.
-	- Expected behavior: the test passes, or the test is shown to be wrong and fixed.
-	- Reproduced: yes, twice, 20261004, vm925w console session at bab9a49. Session 0 runs skip it for no monitor, so it may never have run on a real Windows screen before.
-	- Possible cause: not known. The dialog may size against a different monitor or work area than the test reads, or a scale factor is applied on one side only.
-	- Test case: rhtmbdmj, Compress dialog height test.
-
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
 	- Type: Enhancement
@@ -956,6 +941,31 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- On a real Windows screen, the compress dialog test finds the options area capped at a different height than the dialog code works out.
+	- ID: 2026100413554978
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261004-135549
+	- Opened by: owed native tests, 20261004
+	- Target OS: Windows
+	- Test environment: vm925w, console session, 2512 px work area.
+	- Incorrect behavior: rhtmbdmj fails at `test-nemo-archive-dialog.c` line 164. With Options opened, the scroll's max height is 2241, which is not what `nemo_archive_options_room` gives for that screen. The three made-up screen heights pass.
+	- Expected behavior: the test passes, or the test is shown to be wrong and fixed.
+	- Reproduced: yes, twice, 20261004, vm925w console session at bab9a49. Session 0 runs skip it for no monitor, so it may never have run on a real Windows screen before.
+		- Again 20261004 on Linux, with a window manager on the test's display: off by the 25 px frame there.
+	- Possible cause: not known. The dialog may size against a different monitor or work area than the test reads, or a scale factor is applied on one side only.
+	- Actual cause: the test was wrong. The dialog counts its own frame in the closed height, as `nemo_archive_options_room` says it should. The test left the frame out. The Windows title bar and borders are the missing 39 px. Linux runs had no window manager, so no frame, and passed either way.
+	- Actual fix: the test takes the closed height from the dialog's outer frame. On Linux it gets its own display with a window manager, so the frame is real there too. It also checks that the opened dialog sits inside the work area.
+	- Swept: the other two dialogs sized from the work area, the delete check and Preferences, cap at a fraction of it and leave room for a frame.
+	- Note: a title bar the toolkit draws itself, as on Wayland, is not counted by the dialog's frame measure. Not seen here; on X11 this dialog got no such title bar, even with `GTK_CSD=1`.
+	- Branch: dlgheight
+	- Commit: bb67758
+	- Test case: rhtmbdmj, Compress dialog height test. It failed before on vm925w and on Linux with the frame, and passes after on both. It also fails on Linux when the dialog leaves its frame out of the room.
+	- Verified: rhtmbdmj passes in vm925w's console session and on Linux. Windows cross build clean, lint clean.
+	- Acceptance signoff: Self-closed: reproduced, the test was the defect, it failed before the fix and passes after, and there is nothing to judge on screen.
+	- Closed: 20261004-144645
 
 - The tab menu is made again on every right-click and never freed until its window closes.
 	- ID: 2026100414202491

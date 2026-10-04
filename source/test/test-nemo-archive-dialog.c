@@ -22,14 +22,19 @@
 
 /* Opening Options once pushed the dialog's buttons off a 540 pixel screen.
  * The options now scroll in whatever room the screen leaves. The real dialog
- * gives the closed height and what the options want; the room for those is
- * worked out for 540, 768 and 1080 pixel work areas, and the dialog is opened
- * for real on the test screen, where nothing should be cut. */
+ * gives the closed height, frame included, and what the options want; the room
+ * for those is worked out for 540, 768 and 1080 pixel work areas, and the dialog
+ * is opened for real on the test screen, where nothing should be cut. */
 
 #include <config.h>
 
 #include <stdlib.h>
 #include <gtk/gtk.h>
+#ifdef GDK_WINDOWING_X11
+#include <signal.h>
+#include <gdk/gdkx.h>
+#include <X11/Xatom.h>
+#endif
 
 #include <libnemo-private/nemo-archive.h>
 #include <libnemo-private/nemo-global-preferences.h>
@@ -99,6 +104,63 @@ find_dialog (void)
 	return dialog;
 }
 
+#ifdef GDK_WINDOWING_X11
+static gboolean
+has_window_manager (Display *xdisplay)
+{
+	Atom type;
+	int format;
+	unsigned long count, after;
+	unsigned char *data = NULL;
+	gboolean found;
+
+	found = XGetWindowProperty (xdisplay, DefaultRootWindow (xdisplay),
+				    XInternAtom (xdisplay, "_NET_SUPPORTING_WM_CHECK", False),
+				    0, 1, False, XA_WINDOW, &type, &format, &count, &after,
+				    &data) == Success &&
+		data != NULL && count == 1;
+	if (data != NULL) {
+		XFree (data);
+	}
+
+	return found;
+}
+#endif
+
+/* With no window manager the dialog has no frame, and a test that left the
+   frame out would pass there and fail on every real desktop. So the private
+   display gets one. */
+static GPid
+start_window_manager (void)
+{
+	GPid pid = 0;
+#ifdef GDK_WINDOWING_X11
+	GdkDisplay *display = gdk_display_get_default ();
+	char *argv[] = { (char *) "openbox", NULL };
+	Display *xdisplay;
+	int i;
+
+	if (g_getenv ("NEMO_TEST_OWN_DISPLAY") == NULL || !GDK_IS_X11_DISPLAY (display)) {
+		return 0;
+	}
+	xdisplay = gdk_x11_display_get_xdisplay (display);
+	if (has_window_manager (xdisplay)) {
+		return 0;
+	}
+	if (!g_spawn_async (NULL, argv, NULL,
+			    G_SPAWN_SEARCH_PATH | G_SPAWN_STDOUT_TO_DEV_NULL | G_SPAWN_STDERR_TO_DEV_NULL,
+			    NULL, NULL, &pid, NULL)) {
+		g_print ("no openbox; the dialog has no frame here\n");
+		return 0;
+	}
+	for (i = 0; i < 100 && !has_window_manager (xdisplay); i++) {
+		g_usleep (50000);
+	}
+	check (has_window_manager (xdisplay));
+#endif
+	return pid;
+}
+
 static void
 check_screen (const Probe *probe, int work_height)
 {
@@ -121,8 +183,8 @@ probe_dialog (gpointer data)
 {
 	Probe *probe = data;
 	GtkScrolledWindow *scroll;
-	GdkRectangle work;
-	int width, room;
+	GdkRectangle work, frame;
+	int room;
 
 	probe->ran = TRUE;
 	probe->dialog = find_dialog ();
@@ -132,7 +194,10 @@ probe_dialog (gpointer data)
 	}
 
 	settle ();
-	gtk_window_get_size (GTK_WINDOW (probe->dialog), &width, &probe->closed_height);
+	/* The outer height, since the title bar and borders take screen too. Only
+	   a session with no window manager has none. */
+	gdk_window_get_frame_extents (gtk_widget_get_window (probe->dialog), &frame);
+	probe->closed_height = frame.height;
 	probe->expander = find_type (probe->dialog, GTK_TYPE_EXPANDER);
 	check (probe->expander != NULL);
 	if (probe->expander == NULL) {
@@ -164,6 +229,11 @@ probe_dialog (gpointer data)
 	check (gtk_scrolled_window_get_max_content_height (scroll) == room);
 	check (gtk_scrolled_window_get_min_content_height (scroll) == MIN (probe->natural, room));
 
+	gdk_window_get_frame_extents (gtk_widget_get_window (probe->dialog), &frame);
+	g_print ("frame %d px tall at %d, work area %d to %d\n", frame.height, frame.y,
+		 work.y, work.y + work.height);
+	check (frame.y >= work.y && frame.y + frame.height <= work.y + work.height);
+
 	gtk_dialog_response (GTK_DIALOG (probe->dialog), GTK_RESPONSE_CANCEL);
 	return G_SOURCE_REMOVE;
 }
@@ -175,8 +245,10 @@ main (int argc, char *argv[])
 	GFile *dir, *file;
 	GList *files;
 	Probe probe = { 0 };
+	GPid window_manager;
 	char *tmp;
 
+	test_own_display (argc, argv, NULL);
 	tmp = test_scratch_config_home ("nemo-archive-dialog-test-XXXXXX");
 
 	if (!gtk_init_check (&argc, &argv)) {
@@ -192,6 +264,7 @@ main (int argc, char *argv[])
 		return 77;
 	}
 
+	window_manager = start_window_manager ();
 	nemo_global_preferences_init ();
 
 	path = g_build_filename (tmp, "photo.jpg", NULL);
@@ -208,6 +281,14 @@ main (int argc, char *argv[])
 	g_object_unref (file);
 	g_object_unref (dir);
 	g_free (tmp);
+#ifdef GDK_WINDOWING_X11
+	if (window_manager != 0) {
+		kill (window_manager, SIGTERM);
+		g_spawn_close_pid (window_manager);
+	}
+#else
+	(void) window_manager;
+#endif
 
 	if (failures > 0) {
 		g_printerr ("%d check(s) failed\n", failures);
