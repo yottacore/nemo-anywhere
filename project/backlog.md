@@ -33,6 +33,26 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Code review 20260928 item 40. The shortcut path choice code is only reached by tests.
+	- ID: 2026092813381440
+	- Type: Enhancement
+	- Status: Waiting for testing
+	- Needs external testing: rdcvb368 and the Make link tests, natively on a Windows box.
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Requirements:
+		- Make link always writes all three paths since linkdlg, so dropping the relative path and the portable-only case are unused. Remove them, or keep them on purpose for a later "Defaults..." button and say so.
+	- Decisions:
+		- 20260928: remove them. Git history has them if a Defaults button is ever built.
+	- Fixed: every shortcut now has the absolute and relative paths. Taking the relative path out, shortcuts with no absolute path, their "would hold no path" error and the paths field in the Make link answers are gone.
+	- Note: the one choice left is whether the portable path goes in. Make link always adds it. A link made on Windows with no dialog leaves it out, as before.
+	- Swept: every caller of the shortcut writers, the path flags and the answers field, in the source, tests, fuzz targets, cicd scripts and docs. The moving and copying design doc already says every shortcut gets all three.
+	- Branch: guardlnk
+	- Commit: 745ac2a
+	- Test case: narrowed to what still exists in rhn5ewrg, rhnb1z7g (now checks the portable path), rhr6ggms, rj05egmb, rhmxm5ah, rfwwdyvg and rdcvb368. Commented out with the reason: rhn92e10 (an absolute-only shortcut from Make link), and the cases in the others for shortcuts without the absolute or relative path, taking the relative path out, and the paths field.
+	- Verified: Linux suite 167 of 167. Windows cross build and lint clean.
+
 - Code review 20260928.
 	- ID: 2026092813381400
 	- Type: Task
@@ -147,46 +167,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- Rows for files that still exist stay after their thumbnails are pruned, and count against the size limit. Add an age rule for rows with no thumbnail.
 	- Test case: none yet.
-
-- Code review 20260928 item 38. The test guard dialog resumes a job the user paused.
-	- ID: 2026092813381438
-	- Type: Enhancement
-	- Status: Done
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Requirements:
-		- Resume only if the guard's own pause did the pausing.
-	- Origin: `7025cca`, 20260924. Confirmed.
-	- Fixed: a pause now says whether it was the one that paused, and the guard resumes only then.
-	- Sweep: every other place a job pauses for a question of its own.
-	- Swept: the error, conflict and link questions in file operations, and the conflict and password questions in extract, do the same now. The only other pause is the progress window's Pause button.
-	- Branch: guardlnk
-	- Commit: b64993e
-	- Test case: rhnpn188, now also with a job already paused when the guard asks, and a check of what a pause says. Fails before the fix, passes after.
-	- Verified: Linux suite 167 of 167. Windows cross build and lint clean.
-	- Acceptance signoff: Self-closed: test fails before and passes after, sweep answered.
-	- Closed: 20261004-150509
-
-- Code review 20260928 item 40. The shortcut path choice code is only reached by tests.
-	- ID: 2026092813381440
-	- Type: Enhancement
-	- Status: Waiting for testing
-	- Needs external testing: rdcvb368 and the Make link tests, natively on a Windows box.
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Requirements:
-		- Make link always writes all three paths since linkdlg, so dropping the relative path and the portable-only case are unused. Remove them, or keep them on purpose for a later "Defaults..." button and say so.
-	- Decisions:
-		- 20260928: remove them. Git history has them if a Defaults button is ever built.
-	- Fixed: every shortcut now has the absolute and relative paths. Taking the relative path out, shortcuts with no absolute path, their "would hold no path" error and the paths field in the Make link answers are gone.
-	- Note: the one choice left is whether the portable path goes in. Make link always adds it. A link made on Windows with no dialog leaves it out, as before.
-	- Swept: every caller of the shortcut writers, the path flags and the answers field, in the source, tests, fuzz targets, cicd scripts and docs. The moving and copying design doc already says every shortcut gets all three.
-	- Branch: guardlnk
-	- Commit: 745ac2a
-	- Test case: narrowed to what still exists in rhn5ewrg, rhnb1z7g (now checks the portable path), rhr6ggms, rj05egmb, rhmxm5ah, rfwwdyvg and rdcvb368. Commented out with the reason: rhn92e10 (an absolute-only shortcut from Make link), and the cases in the others for shortcuts without the absolute or relative path, taking the relative path out, and the paths field.
-	- Verified: Linux suite 167 of 167. Windows cross build and lint clean.
 
 - Code review 20260928 item 41. Fuzz the shortcut editing code.
 	- ID: 2026092813381441
@@ -1970,6 +1950,26 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: ef05a4f
 	- Test case: rjbpyy28 Archive stop time test now has a 7z case. A 4 GiB and a 16 GiB file are stopped at their first progress report. Before the fix, the 4 GiB one took 50 s and the 16 GiB one did not end in 100 s. After, both take 0.01 s. rjbw0rkq Stopped 7z leak test, which fails at 82 bytes a round when the close is left out.
 	- Acceptance signoff: waiting. The archive writer's handling of a stop changed again, this time for the 7z.
+
+- Code review 20260928 item 38. The test guard dialog resumes a job the user paused.
+	- ID: 2026092813381438
+	- Type: Enhancement
+	- Status: Done
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Requirements:
+		- Resume only if the guard's own pause did the pausing.
+	- Origin: `7025cca`, 20260924. Confirmed.
+	- Fixed: a pause now says whether it was the one that paused, and the guard resumes only then.
+	- Sweep: every other place a job pauses for a question of its own.
+	- Swept: the error, conflict and link questions in file operations, and the conflict and password questions in extract, do the same now. The only other pause is the progress window's Pause button.
+	- Branch: guardlnk
+	- Commit: b64993e
+	- Test case: rhnpn188, now also with a job already paused when the guard asks, and a check of what a pause says. Fails before the fix, passes after.
+	- Verified: Linux suite 167 of 167. Windows cross build and lint clean.
+	- Acceptance signoff: Self-closed: test fails before and passes after, sweep answered.
+	- Closed: 20261004-150509
 
 - Code review 20260928 item 42. Dragging the only tab off a window restarts the same window in a new process.
 	- ID: 2026092813381442
