@@ -74,6 +74,14 @@ if [[ "$(uname -o 2>/dev/null)" == "Msys" ]]; then
 else
 	fTest bash "${here}/../linux/test-install-download.bash"
 fi
+## The Windows test stage runs it there.
+if [[ "$(uname -o 2>/dev/null)" == "Msys" ]]; then
+	echo "[ install.ps1 staging check skipped: run by the Windows test stage ]"
+elif command -v pwsh >/dev/null 2>&1; then
+	fTest pwsh -NoProfile -File "${here}/test-install-staging.ps1"
+else
+	echo "[ install.ps1 staging check skipped: no pwsh ]"
+fi
 
 ## The app icons are cut from assets/logo.png by hand, so a new logo can sit there
 ## with the old icons still shipping. Needs Pillow, which not every box has.
