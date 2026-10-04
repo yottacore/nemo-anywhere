@@ -349,6 +349,76 @@ check_pick_cost (NemoCacheDb *db)
 	check (rows_walked >= 0 && rows_walked <= 256);
 }
 
+#define BIG_THUMBNAIL ((gint64) 256 * 1024)
+#define BATCH_BYTES   ((gint64) 1024 * 1024)
+
+static void
+check_one_batch (const char *rule, gint64 removed, gint64 expected)
+{
+	gint64 largest = nemo_cache_db_prune_largest_batch ();
+
+	g_print ("  %s: %" G_GINT64_FORMAT " removed, at most %" G_GINT64_FORMAT
+		 " bytes in one write\n", rule, removed, largest);
+	check (removed == expected);
+	check (largest > 0 && largest < BATCH_BYTES + BIG_THUMBNAIL);
+}
+
+/* Each batch holds the write lock while it deletes, and a big thumbnail takes
+ * longer to delete than a small one. So a batch ends after about a megabyte
+ * as well as after so many rows, and every rule that deletes thumbnails has to
+ * keep to that. */
+static void
+check_batch_bytes (NemoCacheDb *db)
+{
+	g_autofree char *dir = g_build_filename (scratch, "big", NULL);
+	NemoCachePruneRules rules;
+	gint64 removed = 0;
+	gint64 used;
+	int i;
+
+	check (g_mkdir_with_parents (dir, 0700) == 0);
+
+	/* Gone from a folder that is still there, so what they held is left with
+	 * no name and goes as an orphan. */
+	for (i = 0; i < 24; i++) {
+		g_autofree char *name = g_strdup_printf ("gone-%02d.jpg", i);
+		g_autofree char *path = g_build_filename (dir, name, NULL);
+		g_autofree char *uri = g_filename_to_uri (path, NULL, NULL);
+
+		store (db, uri, 7000 + i, wall (), BIG_THUMBNAIL);
+	}
+	rules = rules_now ();
+	rules.drop_missing = TRUE;
+	check (nemo_cache_db_prune (&rules, NULL, &removed, NULL) == NEMO_CACHE_PRUNE_DONE);
+	check_one_batch ("orphans", removed, 24);
+
+	for (i = 0; i < 24; i++) {
+		g_autofree char *uri = g_strdup_printf ("file:///big/old-%02d.jpg", i);
+
+		store (db, uri, 7100 + i, wall () - 400 * DAY, BIG_THUMBNAIL);
+	}
+	rules = rules_now ();
+	rules.max_age_secs = 180 * DAY;
+	check (nemo_cache_db_prune (&rules, NULL, &removed, NULL) == NEMO_CACHE_PRUNE_DONE);
+	check_one_batch ("age", removed, 24);
+
+	/* The oldest in the file, so the size rule takes these first. */
+	for (i = 0; i < 24; i++) {
+		g_autofree char *uri = g_strdup_printf ("file:///big/over-%02d.jpg", i);
+
+		store (db, uri, 7200 + i, wall () - 2 * DAY + i, BIG_THUMBNAIL);
+	}
+	nemo_cache_db_flush (db);
+	used = (query_int ("PRAGMA page_count") - query_int ("PRAGMA freelist_count"))
+		* query_int ("PRAGMA page_size");
+	rules = rules_now ();
+	rules.max_bytes = used - 16 * BIG_THUMBNAIL;
+	check (nemo_cache_db_prune (&rules, NULL, &removed, NULL) == NEMO_CACHE_PRUNE_DONE);
+	check_one_batch ("size", removed, 16);
+	check (!has_thumbnail (db, "file:///big/over-15.jpg"));
+	check (has_thumbnail (db, "file:///big/over-16.jpg"));
+}
+
 /* A damaged page deep in the file does not stop it opening, so the pass is what
  * finds it. It leaves a marker, and the next open starts over. */
 static void
@@ -426,6 +496,7 @@ main (int argc, char *argv[])
 	check_age (db);
 	check_size (db);
 	check_pick_cost (db);
+	check_batch_bytes (db);
 	check_damage ();
 
 	nemo_cache_db_close ();

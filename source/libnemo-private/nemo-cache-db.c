@@ -57,6 +57,11 @@
  * never waits long. */
 #define PRUNE_BATCH 256
 
+/* A batch also ends after about this many bytes of thumbnails, since deleting
+ * one takes longer the bigger it is. Without it a batch of big thumbnails
+ * would hold the write lock toward the busy timeout of every other window. */
+#define PRUNE_BATCH_BYTES (1024 * 1024)
+
 /* A thumbnail's age, for both prune rules. Indexed, so picking a batch walks
  * the index rather than sorting the whole table under the write lock. The
  * queries have to spell it the same way for sqlite to use the index. */
@@ -68,7 +73,7 @@
 	"SELECT file_id, LENGTH (image) FROM thumbnails" \
 	" ORDER BY " THUMBNAIL_AGE ", file_id LIMIT " G_STRINGIFY (PRUNE_BATCH)
 #define OLDER_THAN_SQL \
-	"SELECT file_id FROM thumbnails" \
+	"SELECT file_id, LENGTH (image) FROM thumbnails" \
 	" WHERE " THUMBNAIL_AGE " < ? LIMIT " G_STRINGIFY (PRUNE_BATCH)
 
 /* Pages handed back to the disk per step while compacting. */
@@ -92,6 +97,9 @@ struct _NemoCacheDb {
 	/* uri -> draws not yet written. Guarded by `lock`. */
 	GHashTable  *pending;
 	guint        flush_id;
+
+	/* Prune connection only. */
+	gint64       largest_batch;
 };
 
 /* A static GMutex needs no setup, and guards the one-time open. Not
@@ -104,6 +112,10 @@ static gboolean     the_db_tried = FALSE;
 /* Monotonic seconds of the last lookup, store or draw, for the prune's idle
  * test. 0 until something uses the store. */
 static gint last_used_secs = 0;
+
+/* The most thumbnail bytes one prune transaction took out, in the last pass
+ * this process ran. Read only by the tests, after the pass. */
+static gint64 last_largest_batch = 0;
 
 static const char SCHEMA[] =
 	"CREATE TABLE IF NOT EXISTS files ("
@@ -1617,37 +1629,87 @@ drop_missing_paths (NemoCacheDb *db, GCancellable *cancellable)
 	return TRUE;
 }
 
-/* Runs one batch statement inside its own transaction, with the claim checked
- * first. `sql` may carry one bound value. Answers the rows changed, or -1. */
-static gint64
-batch_delete (NemoCacheDb *db, const char *sql, gboolean bind, gint64 value, const char *what)
+/* One prune transaction's worth of thumbnails. */
+typedef struct {
+	GArray  *ids;
+	gint64   bytes;
+	gboolean full;
+} Batch;
+
+/* Steps a pick whose rows are a file id and the size of its thumbnail, until
+ * the batch is full: PRUNE_BATCH rows or `max_bytes` of thumbnails. A full
+ * batch means there may be more. Finalizes the statement either way. */
+static gboolean
+pick_batch (NemoCacheDb *db, sqlite3_stmt *stmt, gint64 max_bytes, Batch *batch, const char *what)
+{
+	int rc;
+
+	g_array_set_size (batch->ids, 0);
+	batch->bytes = 0;
+	batch->full = FALSE;
+
+	while ((rc = sqlite3_step (stmt)) == SQLITE_ROW) {
+		gint64 fid = sqlite3_column_int64 (stmt, 0);
+
+		g_array_append_val (batch->ids, fid);
+		batch->bytes += sqlite3_column_int64 (stmt, 1);
+
+		if (batch->ids->len >= PRUNE_BATCH || batch->bytes >= max_bytes) {
+			batch->full = TRUE;
+			rc = SQLITE_DONE;
+			break;
+		}
+	}
+
+	sqlite3_finalize (stmt);
+
+	return db_ok (db, rc, what);
+}
+
+/* Runs `sql`, which takes one id, for each id in the batch, and adds up the
+ * rows it changed. */
+static gboolean
+delete_each (NemoCacheDb *db, const char *sql, const Batch *batch, gint64 *changed, const char *what)
 {
 	sqlite3_stmt *stmt;
-	gint64        changed = -1;
+	gboolean      ok = TRUE;
+	guint         i;
 
-	if (!begin (db))
-		return -1;
-
-	if (!still_ours (db)) {
-		rollback (db);
-		return -1;
-	}
+	if (batch->ids->len == 0)
+		return TRUE;
 
 	stmt = prep (db, sql, what);
-	if (stmt != NULL) {
-		if (bind)
-			sqlite3_bind_int64 (stmt, 1, value);
-		if (db_ok (db, sqlite3_step (stmt), what))
-			changed = sqlite3_changes (db->handle);
-		sqlite3_finalize (stmt);
+	if (stmt == NULL)
+		return FALSE;
+
+	for (i = 0; ok && i < batch->ids->len; i++) {
+		sqlite3_reset (stmt);
+		sqlite3_bind_int64 (stmt, 1, g_array_index (batch->ids, gint64, i));
+		ok = db_ok (db, sqlite3_step (stmt), what);
+		if (ok && changed != NULL)
+			*changed += sqlite3_changes (db->handle);
 	}
 
-	if (changed < 0) {
+	sqlite3_finalize (stmt);
+
+	return ok;
+}
+
+/* Commits a batch that went well, or rolls it back. */
+static gboolean
+end_batch (NemoCacheDb *db, gboolean ok, const Batch *batch)
+{
+	if (!ok) {
 		rollback (db);
-		return -1;
+		return FALSE;
 	}
 
-	return commit (db) ? changed : -1;
+	if (!commit (db))
+		return FALSE;
+
+	db->largest_batch = MAX (db->largest_batch, batch->bytes);
+
+	return TRUE;
 }
 
 /* A file record nothing points at any more goes, and its thumbnail with it.
@@ -1657,45 +1719,27 @@ static gboolean
 drop_orphans (NemoCacheDb *db, GCancellable *cancellable, gint64 *removed)
 {
 	static const char pick_sql[] =
-		"DELETE FROM doomed;"
-		"INSERT INTO doomed SELECT id FROM files f"
-		" WHERE NOT EXISTS (SELECT 1 FROM paths p WHERE p.file_id = f.id)"
-		" LIMIT " G_STRINGIFY (PRUNE_BATCH) ";";
-	gint64   picked;
-	gboolean ok;
-
-	if (!db_ok (db, sqlite3_exec (db->handle,
-				      "CREATE TEMP TABLE IF NOT EXISTS doomed (id INTEGER PRIMARY KEY)",
-				      NULL, NULL, NULL), "orphans"))
-		return FALSE;
+		"SELECT f.id, IFNULL ((SELECT LENGTH (image) FROM thumbnails t WHERE t.file_id = f.id), 0)"
+		" FROM files f WHERE NOT EXISTS (SELECT 1 FROM paths p WHERE p.file_id = f.id)"
+		" LIMIT " G_STRINGIFY (PRUNE_BATCH);
+	g_autoptr (GArray) ids = g_array_new (FALSE, FALSE, sizeof (gint64));
+	Batch              batch = { ids, 0, FALSE };
+	sqlite3_stmt      *stmt;
+	gboolean           ok;
 
 	do {
 		if (g_cancellable_is_cancelled (cancellable) || !begin (db))
 			return FALSE;
 
-		ok = still_ours (db)
-			&& db_ok (db, sqlite3_exec (db->handle, pick_sql, NULL, NULL, NULL), "orphans");
-		picked = ok ? sqlite3_changes (db->handle) : 0;
+		ok = still_ours (db);
+		stmt = ok ? prep (db, pick_sql, "orphans") : NULL;
+		ok = stmt != NULL && pick_batch (db, stmt, PRUNE_BATCH_BYTES, &batch, "orphans");
+		ok = ok && delete_each (db, "DELETE FROM thumbnails WHERE file_id = ?", &batch, removed, "orphans");
+		ok = ok && delete_each (db, "DELETE FROM files WHERE id = ?", &batch, NULL, "orphans");
 
-		if (ok && picked > 0) {
-			ok = db_ok (db, sqlite3_exec (db->handle,
-						      "DELETE FROM thumbnails WHERE file_id IN (SELECT id FROM doomed)",
-						      NULL, NULL, NULL), "orphans");
-			if (ok)
-				*removed += sqlite3_changes (db->handle);
-			ok = ok && db_ok (db, sqlite3_exec (db->handle,
-							    "DELETE FROM files WHERE id IN (SELECT id FROM doomed)",
-							    NULL, NULL, NULL), "orphans");
-		}
-
-		if (ok)
-			ok = commit (db);
-		else
-			rollback (db);
-
-		if (!ok)
+		if (!end_batch (db, ok, &batch))
 			return FALSE;
-	} while (picked == PRUNE_BATCH);
+	} while (batch.full);
 
 	return TRUE;
 }
@@ -1705,19 +1749,25 @@ drop_orphans (NemoCacheDb *db, GCancellable *cancellable, gint64 *removed)
 static gboolean
 drop_old (NemoCacheDb *db, GCancellable *cancellable, gint64 cutoff, gint64 *removed)
 {
-	static const char sql[] = "DELETE FROM thumbnails WHERE file_id IN (" OLDER_THAN_SQL ")";
-	gint64 changed;
+	g_autoptr (GArray) ids = g_array_new (FALSE, FALSE, sizeof (gint64));
+	Batch              batch = { ids, 0, FALSE };
+	sqlite3_stmt      *stmt;
+	gboolean           ok;
 
 	do {
-		if (g_cancellable_is_cancelled (cancellable))
+		if (g_cancellable_is_cancelled (cancellable) || !begin (db))
 			return FALSE;
 
-		changed = batch_delete (db, sql, TRUE, cutoff, "drop old");
-		if (changed < 0)
-			return FALSE;
+		ok = still_ours (db);
+		stmt = ok ? prep (db, OLDER_THAN_SQL, "drop old") : NULL;
+		if (stmt != NULL)
+			sqlite3_bind_int64 (stmt, 1, cutoff);
+		ok = stmt != NULL && pick_batch (db, stmt, PRUNE_BATCH_BYTES, &batch, "drop old");
+		ok = ok && delete_each (db, "DELETE FROM thumbnails WHERE file_id = ?", &batch, removed, "drop old");
 
-		*removed += changed;
-	} while (changed == PRUNE_BATCH);
+		if (!end_batch (db, ok, &batch))
+			return FALSE;
+	} while (batch.full);
 
 	return TRUE;
 }
@@ -1748,13 +1798,11 @@ used_bytes (NemoCacheDb *db)
 static gboolean
 drop_to_size (NemoCacheDb *db, GCancellable *cancellable, gint64 max_bytes, gint64 *removed)
 {
-	static const char pick_sql[] = OLDEST_SQL;
-	static const char drop_sql[] = "DELETE FROM thumbnails WHERE file_id = ?";
-	g_autoptr (GArray) doomed = g_array_new (FALSE, FALSE, sizeof (gint64));
+	g_autoptr (GArray) ids = g_array_new (FALSE, FALSE, sizeof (gint64));
+	Batch              batch = { ids, 0, FALSE };
 	sqlite3_stmt      *stmt;
-	gint64             used, excess, freed;
+	gint64             used;
 	gboolean           ok;
-	guint              i;
 
 	for (;;) {
 		if (g_cancellable_is_cancelled (cancellable))
@@ -1766,48 +1814,23 @@ drop_to_size (NemoCacheDb *db, GCancellable *cancellable, gint64 max_bytes, gint
 		if (used <= max_bytes)
 			return TRUE;
 
-		excess = used - max_bytes;
-		freed = 0;
-		g_array_set_size (doomed, 0);
-
 		if (!begin (db))
 			return FALSE;
+
 		ok = still_ours (db);
+		stmt = ok ? prep (db, OLDEST_SQL, "pick oldest") : NULL;
+		ok = stmt != NULL
+			&& pick_batch (db, stmt, MIN (used - max_bytes, PRUNE_BATCH_BYTES), &batch, "pick oldest");
+		ok = ok && delete_each (db, "DELETE FROM thumbnails WHERE file_id = ?", &batch, NULL, "drop oldest");
 
-		stmt = ok ? prep (db, pick_sql, "pick oldest") : NULL;
-		if (stmt != NULL) {
-			while (freed < excess && sqlite3_step (stmt) == SQLITE_ROW) {
-				gint64 fid = sqlite3_column_int64 (stmt, 0);
-
-				g_array_append_val (doomed, fid);
-				freed += sqlite3_column_int64 (stmt, 1);
-			}
-			sqlite3_finalize (stmt);
-		} else {
-			ok = FALSE;
-		}
-
-		stmt = (ok && doomed->len > 0) ? prep (db, drop_sql, "drop oldest") : NULL;
-		for (i = 0; stmt != NULL && ok && i < doomed->len; i++) {
-			sqlite3_reset (stmt);
-			sqlite3_bind_int64 (stmt, 1, g_array_index (doomed, gint64, i));
-			ok = db_ok (db, sqlite3_step (stmt), "drop oldest");
-		}
-		sqlite3_finalize (stmt);
-
-		if (ok)
-			ok = commit (db);
-		else
-			rollback (db);
-
-		if (!ok)
+		if (!end_batch (db, ok, &batch))
 			return FALSE;
 
 		/* Nothing left to take, and what is over is names and records. */
-		if (doomed->len == 0)
+		if (batch.ids->len == 0)
 			return TRUE;
 
-		*removed += doomed->len;
+		*removed += batch.ids->len;
 	}
 }
 
@@ -1944,6 +1967,7 @@ nemo_cache_db_prune (const NemoCachePruneRules *rules,
 
 out:
 	sqlite3_close (pruner.handle);
+	last_largest_batch = pruner.largest_batch;
 
 	if (removed_out != NULL)
 		*removed_out = removed;
@@ -2000,4 +2024,10 @@ nemo_cache_db_prune_pick_cost (NemoCacheDb *db, gint64 *rows_walked, gint64 *sor
 	g_mutex_unlock (&db->lock);
 
 	return ok;
+}
+
+gint64
+nemo_cache_db_prune_largest_batch (void)
+{
+	return last_largest_batch;
 }
