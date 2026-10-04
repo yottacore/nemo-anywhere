@@ -136,7 +136,7 @@ FUZZ_CMD=(bash "${DOCKER_RUN}" "fuzz" "FUZZ_SECS=${FUZZ_SECS} NEMO_TEST_JOBS=${C
 ## release.bash owns the whole lane: it builds in nemo-build-jammy so the glibc floor
 ## stays at 2.35, stages the relocatable prefix, writes the versioned tarball and the
 ## sums file, and leaves the staged tree at cicd/artifacts/dogfood/ for stage 7 and
-## the launcher. Incremental, so only the first run after a clone is slow.
+## the launcher. Every run builds from an empty dir, about a minute here.
 ## RELEASE_NATIVE_BIN is the wrapper inside that tree - the engine only checks it
 ## exists, and stage 7 installs the tree around it rather than the file itself.
 RELEASE_ENABLE=1
