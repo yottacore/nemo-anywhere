@@ -28,6 +28,16 @@ NemoLinkKind nemo_win32_link_kind (const char *path);
    or a folder, as if it had been followed. */
 gboolean nemo_win32_link_leads_somewhere (const char *path);
 
+/* Whether the link at link_path leads nowhere, found without opening anything
+   through a link. Each link on the way is read from its own reparse point, and
+   FALSE, as for a link that leads somewhere, comes back as soon as one names a
+   share or a drive mapped to one. So it never reaches a share. */
+gboolean nemo_win32_link_leads_nowhere_here (const char *link_path);
+
+/* Whether a path's drive letter is a share, or a subst onto one. Asks the
+   drive's entry in the object table, not the share. */
+gboolean nemo_win32_drive_is_remote (const char *path);
+
 /* What a link points at, spelled the way the link itself spells it - so a
    relative symlink answers with its relative text. Caller frees. */
 gboolean nemo_win32_link_read_target (const char  *link_path,

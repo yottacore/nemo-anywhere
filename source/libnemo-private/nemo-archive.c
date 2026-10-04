@@ -1943,6 +1943,15 @@ free_values (char **values)
 	}
 }
 
+/* rar reads @name as a list file to load, both after -x and as a source when
+   nothing by that name can be opened, as with a link that leads nowhere. It
+   takes ./@name as the name and stores it without the ./. */
+static char *
+rar_name (const char *prefix, const char *name)
+{
+	return g_strconcat (prefix, name[0] == '@' ? "./" : "", name, NULL);
+}
+
 /* links_only is the run ahead of the real one that keeps the links that lead
    nowhere. It keeps every link it is handed, and leaves the switches that the
    real run adds, or that would stop it adding, to the real run. */
@@ -2064,7 +2073,7 @@ build_command (NemoArchiveBackend        backend,
 			g_ptr_array_add (links_v, g_strdup ("-r-"));
 		}
 		for (l = leave_out; l != NULL; l = l->next) {
-			g_ptr_array_add (links_v, g_strconcat ("-x", (char *) l->data, NULL));
+			g_ptr_array_add (links_v, rar_name ("-x", l->data));
 		}
 	} else {
 		g_ptr_array_free (links_v, TRUE);
@@ -2078,7 +2087,8 @@ build_command (NemoArchiveBackend        backend,
 	sources = g_ptr_array_new_with_free_func (g_free);
 
 	for (l = names; l != NULL; l = l->next) {
-		g_ptr_array_add (sources, g_strdup (l->data));
+		g_ptr_array_add (sources, backend == NEMO_ARCHIVE_BACKEND_RAR
+				 ? rar_name ("", l->data) : g_strdup (l->data));
 	}
 	g_ptr_array_add (sources, NULL);
 
@@ -2251,6 +2261,10 @@ nemo_archive_only_skipped_links (NemoArchiveBackend  backend,
 			if (g_str_has_prefix (line, "Cannot open ")) {
 				const char *name = line + strlen ("Cannot open ");
 
+				/* Said as it was handed over, see rar_name. */
+				if (g_str_has_prefix (name, "./@")) {
+					name += 2;
+				}
 				clean = names_skipped (name, strlen (name), skipped);
 				g_hash_table_add (named, g_strdup (name));
 			} else if (g_str_has_prefix (line, "Cannot ") ||
@@ -2881,18 +2895,15 @@ run_command (ArchiveJob *job)
 	   first run kept it or not. Left to itself, 7-Zip on Windows puts in an
 	   empty entry for each, and rar there writes a plain folder over a
 	   folder link the first run kept. rar would read * or ? in a name as a
-	   pattern, and -x@ as a list file, so those it is left to pass over. */
+	   pattern, so those it is left to pass over. */
 	leave_out = g_list_copy (job->left_out);
 	for (l = job->dangling_first; l != NULL; l = l->next) {
-		if (job->backend != NEMO_ARCHIVE_BACKEND_RAR || ((char *) l->data)[0] != '@') {
-			leave_out = g_list_append (leave_out, l->data);
-		}
+		leave_out = g_list_append (leave_out, l->data);
 	}
 	for (l = job->dangling; l != NULL; l = l->next) {
 		const char *name = l->data;
 
-		if (job->backend != NEMO_ARCHIVE_BACKEND_RAR ||
-		    (strpbrk (name, "*?") == NULL && name[0] != '@')) {
+		if (job->backend != NEMO_ARCHIVE_BACKEND_RAR || strpbrk (name, "*?") == NULL) {
 			leave_out = g_list_append (leave_out, l->data);
 		}
 	}

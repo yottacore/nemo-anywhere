@@ -29,6 +29,7 @@
 #include <shlobj.h>
 
 #include "nemo-shell-icon-win32.h"
+#include "nemo-link-win32.h"
 #include "nemo-lnk.h"
 
 /* Exported by GDK's win32 backend, declared only for GTK's own build. */
@@ -161,48 +162,6 @@ shell_icon_index (const char *path, gboolean name_only, gint *index)
 	return found != 0;
 }
 
-/* A drive letter mapped to a share, or a subst onto one. QueryDosDevice reads
-   the drive's entry in the object table, so the share itself is not asked. */
-static gboolean
-drive_is_remote (const char *path, gint depth)
-{
-	wchar_t drive[3] = { 0, L':', 0 };
-	wchar_t device[1024];
-	char *name, *folded;
-	gboolean remote;
-
-	if (path == NULL || !g_ascii_isalpha (path[0]) || path[1] != ':' || depth > 4) {
-		return FALSE;
-	}
-
-	drive[0] = (wchar_t) g_ascii_toupper (path[0]);
-	if (QueryDosDeviceW (drive, device, G_N_ELEMENTS (device)) == 0) {
-		return FALSE;
-	}
-
-	name = g_utf16_to_utf8 ((const gunichar2 *) device, -1, NULL, NULL, NULL);
-	if (name == NULL) {
-		return FALSE;
-	}
-
-	folded = g_ascii_strdown (name, -1);
-	if (g_str_has_prefix (folded, "\\??\\unc\\")) {
-		remote = TRUE;
-	} else if (g_str_has_prefix (folded, "\\??\\")) {
-		remote = drive_is_remote (name + 4, depth + 1);
-	} else {
-		/* \Device\Mup, LanmanRedirector, WebDavRedirector, RdpDr, VBoxMiniRdr */
-		remote = g_str_has_prefix (folded, "\\device\\mup") ||
-			 strstr (folded, "redirector") != NULL ||
-			 strstr (folded, "rdr") != NULL;
-	}
-
-	g_free (folded);
-	g_free (name);
-
-	return remote;
-}
-
 static gboolean
 expands_to_remote_drive (const char *windows_path)
 {
@@ -214,7 +173,7 @@ expands_to_remote_drive (const char *windows_path)
 	}
 
 	expanded = nemo_lnk_expand (windows_path);
-	remote = drive_is_remote (expanded, 0);
+	remote = nemo_win32_drive_is_remote (expanded);
 	g_free (expanded);
 
 	return remote;
@@ -270,7 +229,7 @@ shortcut_icon (const char *path, gint pixel_size)
 	}
 
 	on_share = nemo_lnk_points_at_share (&lnk) ||
-		   drive_is_remote (lnk.local_path, 0) ||
+		   nemo_win32_drive_is_remote (lnk.local_path) ||
 		   drive_is_elsewhere (&lnk) ||
 		   expands_to_remote_drive (lnk.env_path) ||
 		   expands_to_remote_drive (lnk.icon_location);

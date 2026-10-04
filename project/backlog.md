@@ -85,6 +85,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
 
+- Under rar, a selected file also takes same-named files from the folders below it, and a link that leads nowhere beside the selection fails the job.
+	- ID: 2026100410431108
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261004-104311
+	- Opened by: item 2026100312494905
+	- Related IDs: 2026100312494905, 2026092813381404
+	- Incorrect behavior: the rar line has `-r`, and rar then reads each selected name as a pattern for every folder below where the job runs. Picking `a.txt` in a folder that also has `sub/a.txt` puts both in the archive. rar also tries every other name it walks past, so a link that leads nowhere sitting beside the selection, not picked, makes rar warn, and the job fails and deletes the archive.
+	- Expected behavior: the archive holds what was selected and nothing else, and names that were not selected play no part.
+	- Reproduced: rar's side yes, 20261004, Linux, RAR 7.20: `rar a -r -- x.rar a.txt` took `sub/a.txt` too, and said it could not open an unpicked link beside it, with exit 6. The second half on the job's side too, on winlinks: a selected file and linked folder with a link that leads nowhere beside them failed. The first half on the job's side is read only. Plausible.
+	- Test case: none yet.
+
 - A waiting store can miss every gap between the prune's writes.
 	- ID: 2026100319191870
 	- Type: Bug
@@ -114,49 +127,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Origin: the copy fallback from 7284973, 20260925, which item 13's fix made the path every install takes. Plausible.
 	- Sweep: every way out of the Windows install after the staging folder exists: the failed copy, the old folder that cannot be renamed, and the failed final rename.
 	- Test case: none yet. A Windows test that makes the copy fail and checks that no staging folder is left.
-
-- On Windows, a link that leads nowhere is never shown as broken.
-	- ID: 2026100312494903
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261003-124949
-	- Opened by: item 2026092813381404
-	- Related IDs: 2026092813381404
-	- Target OS: Windows
-	- Incorrect behavior: the app tells a broken link by GIO answering with the link type after following it. On Windows GIO answers with the link's own type instead, a file or a folder, whether the link leads anywhere or not. So the broken link checks in `nemo-file.c`, used for emblems, favorites and opening, never fire there.
-	- Expected behavior: a link that leads nowhere is treated as broken on Windows too.
-	- Reproduced: GIO's answer yes, 20261003, b29w. The app's side is read only. Plausible.
-	- Possible fix: the check the archive scan now uses on Windows, which opens through the link.
-	- Test case: none yet.
-
-- On Windows, a symlink made with / in a relative target leads nowhere.
-	- ID: 2026100312494904
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261003-124949
-	- Opened by: item 2026092813381404
-	- Related IDs: 2026092813381404
-	- Target OS: Windows
-	- Incorrect behavior: a symlink keeps its target as it was typed. Windows does not follow a relative target spelled with /, so the new link opens nothing, though / works almost everywhere else on Windows.
-	- Expected behavior: a symlink made by the app leads where it was pointed.
-	- Reproduced: Windows' side yes, 20261003, b29w: such a link cannot be opened. That the app writes one is read only. Plausible.
-	- Possible fix: write a relative symlink target with backslashes, as junctions already are.
-	- Test case: none yet.
-
-- Under rar, a selected linked folder whose name starts with @ is not left out.
-	- ID: 2026100312494905
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261003-124949
-	- Opened by: item 2026092813381404
-	- Related IDs: 2026092813381404
-	- Incorrect behavior: a linked folder that is not followed is left out of a rar with `-x` and its name. For a selected folder named `@x` that is `-x@x`, which rar reads as a list file called `x`, so the folder is not left out and the run may fail.
-	- Expected behavior: the linked folder is left out, whatever its name.
-	- Reproduced: rar's side yes, 20261003, Linux: `-x@b` makes rar look for a list file `b`. The job's side is read only. Plausible.
-	- Test case: none yet.
 
 - Icons in the icon and compact views give a screen reader no place on screen.
 	- ID: 2026100409554600
@@ -1024,6 +994,87 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- On Windows, a link that leads nowhere is never shown as broken.
+	- ID: 2026100312494903
+	- Type: Bug
+	- Status: Done
+	- Needs external testing: no. Ran natively on b29w on 20261004.
+	- Priority|Severity: Low
+	- Opened: 20261003-124949
+	- Opened by: item 2026092813381404
+	- Related IDs: 2026092813381404
+	- Target OS: Windows
+	- Incorrect behavior: the app tells a broken link by GIO answering with the link type after following it. On Windows GIO answers with the link's own type instead, a file or a folder, whether the link leads anywhere or not. So the broken link checks in `nemo-file.c`, used for emblems, favorites and opening, never fire there.
+	- Expected behavior: a link that leads nowhere is treated as broken on Windows too.
+	- Reproduced: GIO's answer yes, 20261003, b29w. The app's side is read only. Plausible.
+		- The app's side too, 20261004, b29w: a file link, a folder link and a junction that lead nowhere all read as not broken.
+	- Possible fix: the check the archive scan now uses on Windows, which opens through the link.
+	- Actual cause: the app asked only for the link type GIO gives a link that leads nowhere, and on Windows GIO never gives it.
+	- Origin: the inherited check, wrong on Windows since the port. Widened by ac5347f, 20260827, which lists folders without following links. Confirmed.
+	- Decisions:
+		- 20261004: a link on a share, or one whose way passes a share or a drive mapped to one, is not looked into and shows as not broken. Opening through the link, as the possible fix said, would go to the share with no user action. A call made without asking, from the share rule. The archive scan keeps opening through the link, since a compress is a user action.
+	- Actual fix: on Windows the app works out where a link leads from the links themselves. Each name on the way is read from the folder above it, and each link from its own target, so nothing is opened through a link. A chain of links is followed the same way, and a loop counts as leading nowhere. The answer is kept until the file is read again, since the type column asks on every draw.
+	- Swept: every caller of the broken link check: the type text and detailed type, which sort by type also reads, the favorites toggle, and opening, which offers to move a broken link to the Trash. The emblems never asked; a link wears the link emblem either way. No other check tells a broken link by GIO's type: link copy reads the reparse tag on Windows, and the archive scan has its own. The check of a drive mapped to a share now sits beside the link code and is shared with the shortcut icons.
+	- Branch: winlinks
+	- Commit: eea8dfb
+	- Test case: rjehwjw7, Link end test, Windows only: file, folder and absolute links, a junction whose folder is gone, links Windows will not follow (/ and * in a relative target), chains good and gone, a loop, links to a share directly and through another link, and the kept answer until the file is read again. Fails before the fix and passes after, natively on b29w. The share and read-again rows each fail with their part of the fix taken out.
+	- Verified: 20261004, rjehwjw7, rfmxrdpg and rfhr0zw0, which uses the moved drive check, pass natively on b29w. Full native suite there at eea8dfb: 141 passed, 10 skipped, none failed. Full Linux suite 164 of 164.
+	- Acceptance signoff: Self-closed: reproduced, red before the fix and green after, and swept. The broken link dialog on opening is the existing one.
+	- Closed: 20261004-104311
+
+- On Windows, a symlink made with / in a relative target leads nowhere.
+	- ID: 2026100312494904
+	- Type: Bug
+	- Status: Done
+	- Needs external testing: no. Ran natively on b29w on 20261004.
+	- Priority|Severity: Low
+	- Opened: 20261003-124949
+	- Opened by: item 2026092813381404
+	- Related IDs: 2026092813381404
+	- Target OS: Windows
+	- Incorrect behavior: a symlink keeps its target as it was typed. Windows does not follow a relative target spelled with /, so the new link opens nothing, though / works almost everywhere else on Windows.
+	- Expected behavior: a symlink made by the app leads where it was pointed.
+	- Reproduced: Windows' side yes, 20261003, b29w: such a link cannot be opened. That the app writes one is read only. Plausible.
+		- The app's side too, 20261004, b29w: links it made to `sub/target.txt`, `sub/dir` and `../sub/target.txt` opened nothing.
+	- Possible fix: write a relative symlink target with backslashes, as junctions already are.
+	- Actual cause: Windows keeps a relative symlink target exactly as given and splits it only at `\`. An absolute one it rewrites itself, so only relative ones were hit.
+	- Origin: 5791854, 20260902 (copying links). Confirmed.
+	- Actual fix: every symlink the app makes has its target written with `\`.
+	- Note: "a link keeps its own spelling" in the links copy item is about relative against absolute. A relative link stays relative.
+	- Swept: Windows symlinks are made in one place, which Make link, Edit link, link copy and the default link all go through. Junctions already used `\`.
+	- Branch: winlinks
+	- Commit: eea8dfb
+	- Test case: rjehwjw7, Link end test, Windows only: links made with / to a file, to a folder, and up a folder, each read through, and the stored target read back. Fails before the fix and passes after, natively on b29w.
+	- Verified: 20261004, rjehwjw7 and the link tests (rfwwdyvg, rhqxx81r, rhmye3d0, rhmye3d3, rhr6ggms) pass natively on b29w. Full native suite there at eea8dfb: 141 passed, 10 skipped, none failed. The Windows cross build is clean.
+	- Acceptance signoff: Self-closed: reproduced, red before the fix and green after, and swept.
+	- Closed: 20261004-104311
+
+- Under rar, a selected linked folder whose name starts with @ is not left out.
+	- ID: 2026100312494905
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 164 of 164 on 20261004, on winlinks.
+	- Needs external testing: no. The archive tests passed natively on b29w on 20261004.
+	- Priority|Severity: Low
+	- Opened: 20261003-124949
+	- Opened by: item 2026092813381404
+	- Related IDs: 2026092813381404
+	- Incorrect behavior: a linked folder that is not followed is left out of a rar with `-x` and its name. For a selected folder named `@x` that is `-x@x`, which rar reads as a list file called `x`, so the folder is not left out and the run may fail.
+	- Expected behavior: the linked folder is left out, whatever its name.
+	- Reproduced: rar's side yes, 20261003, Linux: `-x@b` makes rar look for a list file `b`. The job's side is read only. Plausible.
+		- The job's side too, 20261004, Linux: the archive could not be created, and rar said it could not open `x`.
+	- Actual cause: rar reads `@name` as a list file to load after `-x`. It does the same with a selected name when nothing by that name can be opened, as with a link that leads nowhere, so such a link named with a leading @ failed its first run as well.
+	- Origin: b8e1401, 20260925, which leaves linked folders out by name. Seen by item 2026092813381404's fix, which only passed such names over. Confirmed.
+	- Actual fix: rar is handed a name that starts with @ as `./@name`, after `-x` and as a selected name. It stores it as `@name`. What rar says about `./@name` is read as being about `@name`. The job no longer passes those names over, so a link that leads nowhere named with a leading @ is left out of the real run by name, like any other.
+	- Swept: every name rar is handed: the names left out, the selected names, and the names of the first run, which all go through the one command builder. The output reader. 7z takes `-x!@name` and a selected `@name` as names. Archive paths are always full paths, so they never start with @.
+	- Note: rar's `-r` also tries every name beside a selection, picked or not, and takes same-named files from the folders below. Filed as 2026100410431108.
+	- Branch: winlinks
+	- Commit: a33ea89
+	- Test case: rhr6ggmt, Archive option combinations: new rows for a selected linked folder `@x` alone, then beside a link `@gone` that leads nowhere, in every format. rev86z08, Archive options test: rows for `-x./@x`, `./@gone`, and the reader taking `./@gone` as `@gone`. Both fail before the fix and pass after, on Linux.
+	- Verified: 20261004, rhr6ggmt, rev86z08 and rewygsbg pass on Linux, and natively on b29w, where rar ran 43 rows. Full Linux suite 164 of 164. Full native suite on b29w at eea8dfb: 141 passed, 10 skipped, none failed.
+	- Acceptance signoff: Self-closed: reproduced, red before the fix and green after, and swept.
+	- Closed: 20261004-104311
 
 - Code review 20260928 item 26. The installers go ahead when a release has no sums file.
 	- ID: 2026092813381426
