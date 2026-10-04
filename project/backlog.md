@@ -33,454 +33,27 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- Code review 20260928 item 2. The tree sidebar crashes on Shift+F10 or the Menu key.
-	- ID: 2026092813381402
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
-	- Priority|Severity: High
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Steps to reproduce [Bug]:
-		- Show the tree sidebar, click a folder in it, press Shift+F10.
-	- Reproduced: yes, 20260928, Linux.
-	- Actual cause: the keyboard path passes no mouse event, and the menu code reads the pointer position from it.
-	- Origin: upstream, never touched here. Not seen by an earlier round. Confirmed.
-	- Actual fix: with no mouse event the menu is for the row the keyboard is on. With no row at all, no menu opens, from the keyboard or a right click.
-	- Note: a right click on empty space in the tree used to open the menu with nothing behind it, so its items acted on no file. It now opens nothing. A row with no file behind it, such as one still loading, is treated the same.
-	- Note: the keyboard menu opens at the top left of the tree, not beside the row. That comes from the shared placement code the other views use, and is left as is.
-	- Swept: the places sidebar reads the selected row and never the event. The list and icon views pass the event on to the shared view code, which checks for none before reading the position. The tab bar checks for none before reading the button and time. The path bar, location bar and toolbar back and forward menus only open from a click, so always have an event. The rename field's menu checks for none. No other code reads a position or button from a menu event.
-	- Branch: treemenu
-	- Commit: d879cfb
-	- Test case: rj04ta3n, Tree menu key test. Linux only. Fails before the fix, passes after.
-	- Verified: the new test fails before the fix, with the crash, and passes five runs in a row after it on Linux. A right click on a tree row still opens the menu, and one on empty space opens nothing. Lint is clean.
-	- Verified: 20261003, Linux. Shift+F10 and the Menu key on a tree row both open the menu for that row, with no crash.
-	- Acceptance signoff: Self-closed: rj04ta3n passes in the full Linux suite, and Shift+F10 on a tree row was seen on screen on Linux. The menu opens for that row, and the program keeps running. The menu still opens at the top left of the tree, as noted above.
-	- Closed: 20261003-174609
-
-- Code review 20260928 item 4. A dangling symlink fails a 7z or rar archive, and the finished archive is deleted.
-	- ID: 2026092813381404
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
-	- Needs external testing: no. Ran natively on b29w and on vm925w on 20261003, a link with a name past ASCII included.
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Design: [20260929-101432_compression.md](design_docs/20260929-101432_compression.md). Under the reset, "Ignore" leaves these links out too.
-	- Steps to reproduce [Bug]:
-		- Untick "store links", then compress a folder holding a link to a missing file as 7z or rar.
-	- Incorrect behavior: "could not be created", and the whole archive is gone. On Windows it happens to every 7z, whatever the checkbox says.
-	- Expected behavior: the link goes in as a link, even with "store links" unticked, wherever the format and tool can keep it. Where they cannot, it is left out with a warning that names it, and the rest of the archive stands.
-	- Reproduced: yes for the tools' exit codes, 20260928, Linux. The job side was read only. The job side too on 20260928, with the new test rows.
-		- Windows, 20261003, b29w natively: every format failed, not only rar.
-	- Actual cause: 7z exits 1 and rar exits 6 when they skip a link they cannot follow, and any non-zero exit fails the job.
-		- Windows: GLib gives a link that leads nowhere the link's own type, a file or a folder, as if it had been followed. So the scan never saw one there, and every writer tried to read it.
-		- Windows: GLib does not fold a program's error output into its normal output, so what 7z and rar said about the link never reached the reader.
-		- Windows: 7-Zip puts in an empty entry for a link it cannot open, and rar's real run writes a plain folder over a folder link its first run kept.
-		- Windows: 7z and rar print names in the console code page, and the library zip writer stores them in a local code page. A name past ASCII came out changed, and the delete check read archive names the same way.
-	- Progress log:
-		- 20260929-070928: Reworked for the decision below. Links that lead nowhere now go in as links. Leaving them out with a warning is kept only where the tool cannot keep them.
-		- 20261002-194800: the archive combinations test fails on b29w in the native suite. The four rar rows with a link that leads nowhere fail: rar says it cannot open the dead link, and it also cannot open the good link beside it ("The filename, directory name, or volume label syntax is incorrect"), so no archive is made. The 7z, zip and tar rows pass.
-		- 20261003-124500: the full log of that run shows the zip, tar and 7z dangling rows failing too. The good link's error was the test's own: it was spelled with /, which Windows does not follow at all. Fixed for Windows on arcwin.
-		- 20261003-124949: left at signoff rather than closed. On Windows the fix also changes what goes into archives: zip names, and the two built-in command lines.
-	- Decisions:
-		- 20260929: every format stores a link that leads nowhere as a link, where the format and tool can, even when links are otherwise followed. Leaving it out with a warning is only the fallback.
-		- 20260929: under the Compress dialog reset, "Ignore" leaves these links out too. "Follow" and "Store" keep them. Nothing changes here until the reset is built.
-	- Origin: 6c2418f, 20260820. Widened on Windows by 09506ec, 20260926 (bugs), which took link storing away from 7z there. Regression of that fix on Windows. Confirmed.
-	- Note: the zip writer did not warn either. For a link to nothing, GIO answers with the link itself rather than failing, so the scan's "dangling" branch never ran and every writer left the link out without a word.
-	- Actual fix: the library writer keeps each link that leads nowhere as a link, in every format it writes, 7z included, and still follows the other links. 7z and rar keep links only all or none. So those links go in first, by a run of their own that keeps links, and the real run adds the rest to that archive, following links as before. If that first run fails, the links are left out and named instead. The delete check counts a link that went in as in.
-		- Left out with the warning, as before: a split archive, since neither tool can add to one. 7z on Windows, which is never asked to keep links. A link 7-Zip would reach through a followed linked folder, since it refuses that path. Under rar, a name with * or ?, which it would read as a pattern.
-		- The real run is told to leave out every such link by name, whether the first run kept it or not. rar is not told about a name with * or ?, or one starting with @, which it would read as a list file. It passes over those with a warning status. The output reader from 334b239 still fails the job on any warning that does not name one of them.
-		- Windows: a link counts as leading nowhere when opening through it finds nothing. The tools' error output is read beside the normal output. 7z and rar are asked for UTF-8 names in their built-in lines, the library zip writer stores UTF-8 names, and the delete check reads archive names as UTF-8. The reader takes the count line both tools end on there.
-	- Swept: every writer. The library writes zip, tar and its three compressed forms, and 7z; 7z writes 7z, and zip when split; rar writes rar. The delete check's own walk follows the same rule. Compress each goes through the same per-archive code. Unpacking has no link scan.
-		- Windows: the dangling check is one function for the scan and the delete check. Both places that start 7z or rar, compress and extract, read error output the same way, so extracting now sees a wrong password on Windows too. Extracting already read names as UTF-8; its hard link names now do as well. The other GIO link type checks are filed as 2026100312494903. A linked folder named with a leading @ has the same list file trouble under rar, filed as 2026100312494905.
-	- Branch: arclinks, then arcdangle, then arcwin
-	- Commit: 334b239, then 991b6e1, then d0519a7, 3871931, 1507a21, 1ec66eb
-	- Test case: rhr6ggmt, Archive option combinations. Its dangling-link rows check that the link reads back as a link, with a good link beside it still followed, for every format, with links stored and not, delete on and off, and one split. New rows: the library's 7z, a selection of only a dangling link, one inside a followed linked folder, and on Linux a name with ? for rar. 26 rows fail before the rework and all pass after, on Linux.
-		- rewygsbg, Archive job test: the delete check now passes with such a link in a zip. Its older check that the delete check refused is commented out with the reason. Fails before, passes after.
-		- rev86z08, Archive options test: the output reader rows from 334b239, and new rows for the line of the first run. That line is new, so it has no before run.
-		- Windows, arcwin: rhr6ggmt's dangling rows add a folder link that leads nowhere and, on Windows, a name past ASCII. The good links use the native separator. 36 rows fail natively on b29w before the fix and all pass after. rev86z08 gained rows for the count line and the UTF-8 switches, which fail with the count handling taken out.
-	- Verified: the 9 archive, extract, template and schema tests pass on Linux, the combinations and job tests three runs in a row. Lint and the Windows cross build are clean. The Archive options test passes under wine, its Windows-only rows included.
-		- 20261003: rhr6ggmt, rewygsbg and rev86z08 pass natively on b29w and on Linux. Full Linux suite 157 of 157. Full native suite on b29w at 1507a21: 137 passed, 10 skipped, 1 failed, rfhr0zw0, which belongs to 2026093010493389. The archive and extract tests again at 1ec66eb.
-	- Verified: 20261003, rhr6ggmt, rewygsbg and rev86z08 pass in the native suite on vm925w at c78aa9e.
-	- Acceptance signoff: Self-closed: rhr6ggmt, rewygsbg and rev86z08 pass on Linux and natively on b29w and vm925w. The Windows changes to zip names and to the built-in 7z and rar lines are what the item asked for, and rhr6ggmt and rev86z08 check them.
-	- Closed: 20261003-174609
-
-- On Windows, a folder full of shortcuts shows nothing until every shortcut icon is found.
-	- ID: 2026100112000535
-	- Type: Bug
-	- Status: Done
-	- Needs external testing: done. The Start menu folder was seen on screen on vm925w, 20261003. The rest ran on b29w.
-	- Priority|Severity: Avg
-	- Opened: 20261001-120005
-	- Opened by: t00mietum
-	- Related IDs: 2026093010493389, 2026092813381436
-	- Target OS: Windows
-	- Steps to reproduce:
-		- Go to the Start menu Programs folder, or any folder with many `.lnk` files.
-	- Incorrect behavior: the content pane stays empty until the icons for all the shortcuts are loaded.
-	- Expected behavior: the pane shows the files right away, with a plain icon or the last known one. Shortcut icons load in the background and replace them as each one is found.
-		- Possibly the shortcut icons can use the thumbnail cache, with its own icon table, so a folder seen before draws its real icons at once.
-	- Reproduced: no. Seen on Windows, not yet reproduced here.
-	- Possible cause: each shortcut's icon comes from the Windows shell on the window's thread, one file after another, the first time the view asks for it. The only cache is in memory, so every new run pays it again.
-	- Note: 2026093010493389 already wants these lookups off the window's thread. One fix may cover both.
-	- Actual cause: as above, read from the code. The view asked the shell for each shortcut's icon the first time it drew it, and waited for the answer.
-	- Actual fix: the view gets the cached icon or nothing, at once, and the plain shortcut icon stands in. One worker thread asks the shell, and the shortcut is redrawn when an icon is found. A shortcut the shell has no icon for is remembered too, so it is not asked again. Same branch and fix as 2026093010493389.
-	- Note: the icon table in the file cache was not built. It needs a new cache table and version, its own pruning, and a choice of which sizes to keep, which is more than this fix. Until then the last known icon is kept only while the app runs, so a new run starts plain again.
-	- Note: the folder check behind the sort place and the folder icon still reads each shortcut on the window's thread. It is a local file read, cached, and was not measured.
-	- Branch: lnkasync
-	- Commit: 61dcecc
-	- Test case: rfhr0zw0, Shell icon test, new lookup cases: the first ask returns at once with nothing, a second one while it runs is not queued again, the window is told once when the icon is found, and the cache answers after. A file that is not a shortcut is finished with and not asked again. No case shows the wait itself, since a slow shell can't be made here.
-	- Verified: rfhr0zw0 passes under wine, and the wine build lists a folder of shortcuts with each one's own icon. The rest as on 2026093010493389.
-	- Verified: the lookup cases in rfhr0zw0 pass on b29w on 20261002, in the native suite. The test as a whole fails on the dead share item's cases.
-	- Verified: 20261003 on b29w, rfhr0zw0 passes whole, with the fix for 2026093010493389 on lnkicon. Asking for the icons of all 335 shortcuts in both Start menu folders took under 1 ms in all. The icons came in over 28 seconds on a first run, and 3 seconds on a second.
-	- Note: before the fix the view asked for each of these on the window's thread, from the code. Not timed.
-	- Note: the folder was not opened on screen. b29w's only session is the one on its own screen.
-	- Verified: 20261003 on vm925w, on screen. The Start menu Programs folder, 67 items, was listed within 300 ms of the window showing, the shortcuts with the plain shortcut icon. Their own icons were all in by 2 s. The window answered every check while they loaded.
-	- Acceptance signoff: Self-closed: rfhr0zw0 passes natively on b29w and vm925w, and the Start menu folder was seen on screen.
-	- Closed: 20261003-174609
-
-- On Windows, a local shortcut to a share that is not answering can stall the window while its icon is looked up.
-	- ID: 2026093010493389
-	- Type: Bug
-	- Status: Done
-	- Needs external testing: done on b29w, 20261003. rfhr0zw0 passes there, dead share cases included.
-	- Priority|Severity: Avg
-	- Opened: 20260930-104934
-	- Opened by: code review 20260928 follow-up
-	- Related IDs: 2026092813381408, 2026093010493450
-	- Target OS: Windows
-	- Incorrect behavior: a shortcut with no icon of its own gets one from the Windows shell, on the window's thread. The shell may go to the target for it. On a share that is not answering that is about twenty seconds per shortcut.
-	- Expected behavior: the share is never visited for an icon.
-		- The target path is read from the shortcut file, as the folder check already does.
-		- When the target is on a share, the icon comes from the name alone. A folder gets the folder icon, a document the icon for its extension, and a program the plain program icon.
-		- Shortcut icon lookups run off the window's thread, local targets included.
-	- Reproduced: no. Read only, from item 8 of code review 20260928.
-	- Reproduced: yes, the second cause below, 20261003 on b29w. rfhr0zw0 failed the same two checks with the build from dev.
-	- Decisions:
-		- 20260930: assume the stall rather than time it first. Many shortcuts to shares would multiply it.
-		- 20260930: a program on a share showing the plain program icon is fine.
-	- Actual cause: the shell was handed the shortcut itself, and it reads the target, or the icon file the shortcut names, to find the icon. Nothing checked whether either was on a share.
-	- Actual fix: the shortcut file is read for its target and for the icon file it names. When either is on a share, by its path or by a drive letter mapped to one, the shell is asked about the target's name alone, which it answers without opening anything. A folder still gets the theme's folder icon from the folder check. Every lookup now runs off the window's thread, with 2026100112000535.
-	- Actual cause: a second one, on b29w after the first fix. Windows records the share as well as the drive path in a shortcut whose target's drive is shared, and b29w shares its C drive. Every local shortcut there was taken as one on a share, so it got the icon for its target's name rather than the one it names. Wine never writes the share part, so the test passed there.
-	- Actual fix: a shortcut that records both counts as local when the drive's volume serial matches the one it records. One made on another machine's drive still goes by the name. Only the drive root is asked for its serial, so no link on the way to the target is followed.
-	- Swept: the shell icon is asked for in one place. The folder check and the sort place already read only the shortcut file. Off Windows the icon comes from the shortcut file only. design.md says how a shortcut on a share gets its icon.
-	- Note: a shortcut that records only an item ID list, with no path, is still handed to the shell. Nothing in the file says where such a target lives without asking the shell.
-	- Branch: lnkasync, lnkicon
-	- Commit: 61dcecc, a9aa321
-	- Test case: rfhr0zw0, Shell icon test, new share cases: a document on a share wears the icon for its name and not the one the shortcut names, and a program on a share, or a shortcut whose icon is on a share, gets the plain program icon. The document cases fail with the share route taken out and pass with it, under wine. rhmxm5ah, Windows shortcut reader test, new cases for the icon file and the share check, on Linux.
-	- Test case: rfhr0zw0, two more cases: a shortcut made by the shell and given a record of both its drive and a share, once with this drive's serial and once with another. The first wears the icon it names. It fails before the second fix and passes after, on b29w and under wine. rhmxm5ah, a shortcut that records both is not on a share. Fails before and passes after, on Linux.
-	- Swept: the share check has one caller. Opening a shortcut tries the share only when the drive path is not there, and Edit link shows the drive path first. Both already right.
-	- Note: the two checks that failed on b29w expected the right thing. The code was wrong there, and on any machine whose drive is shared.
-	- Verified: 20261003, rfhr0zw0 passes on b29w with all 37 checks, and fails three before the fix. It passes under wine. Full Linux suite 157 of 157. The Windows cross build has no warnings, and lint is clean.
-	- Verified: the Linux build and the shortcut reader, sort, link edit, link copy and make link tests pass. The Windows cross build compiles with no warnings. rfhr0zw0 passes under wine, and the Windows shortcut and share tests give the same results there as on dev. C lint and the test ID check are clean.
-	- Progress log:
-		- 20261002-194800: rfhr0zw0 fails two checks on b29w in the native suite: a local shortcut does not wear the icon it names, and a document on a share does. The other share cases and every lookup case pass.
-		- 20261003-133500: the cause was the share record Windows writes for a shared drive. Fixed on lnkicon. The dead share check on screen was not run; the share cases in rfhr0zw0 use a share address that does not answer.
-	- Verified: 20261003 on vm925w, on screen. A local folder holding a shortcut to a document on a share that does not answer, and one whose icon is on that share, opened as fast as any other folder, and the window answered every check over 8 s. The first wears the document icon and the second the plain program icon. The Windows shell itself took 45 s to make the first shortcut.
-	- Acceptance signoff: Self-closed: rfhr0zw0 passes natively on b29w and vm925w, and a folder with shortcuts to a share that does not answer was seen on screen.
-	- Closed: 20261003-174609
-
-- Settings in an older SHCL format are kept as a backup and written again in the current one.
-	- ID: 2026100311512222
-	- Type: Enhancement
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
-	- Needs external testing: done. rjc4dd8z passed natively on b29w and vm925w, 20261003.
-	- Priority|Severity: Avg
-	- Opened: 20261003-115122
-	- Opened by: t00mietum
-	- Requirements:
-		- When a shcl upgrade breaks compatibility with the application config file(s):
-			- Check if the new shcl version has breaking changes. If so:
-				- Rename the latest config file '[origname]_backup_YYYYmmDD-HHMMSS_format-v[shcl version].shcl'
-				- Write a new config file with the same previous path and name, from scratch through shcl, using whatever settings and conversions shcl can handle.
-	- Decisions:
-		- The old file is copied to the backup name, then the new one replaces it in one step. Another copy of the app starting at that moment never finds the file missing.
-		- A file with no format line came from a 2.x release, or a hand edit took the line out. At startup it is only rewritten when the old rules read it differently, and only spellings both rules agree on are changed. While running it is read as a hand edit and left alone. Its backup name says format 2.
-			- Replaced 20261003 by the decision on 2026100314515200: such a file is converted as 2.x at startup.
-		- A file in a newer format is read but never saved over. A change made meanwhile is kept and saved once the file is current again. Otherwise an older build and a newer one would keep rewriting each other's file, with a new backup each time.
-		- If the backup can't be written, the old file is not saved over.
-		- The new file has only the settings this release knows, each with its comment. Anything else stays in the backup.
-	- Branch: shclfmt
-	- Commit: dd08205
-	- Test case: rjc4dd8z, Config format upgrade test. Fails before the change, passes after.
-	- Acceptance signoff: Self-closed: rjc4dd8z fails before the change and passes after, on Linux and natively on Windows. Nothing on screen to judge.
-	- Closed: 20261003-174609
-
-- The window title does not follow a change to the path separator.
-	- ID: 2026100221072783
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
-	- Priority|Severity: Low
-	- Opened: 20261002-210727
-	- Opened by: item 2026092813381422
-	- Related IDs: 2026092813381422
-	- Incorrect behavior: the window listens for `path-separator` on the main settings group, but the key is in the windows group, so the handler never runs. A title that spells out a path keeps the old separator until something else sets it.
-	- Expected behavior: the title follows the separator at once, as the places pane does.
-	- Reproduced: yes, 20261003, Linux. With a tab open, a change to `windows.path-separator` in the settings file never reached the window.
-	- Origin: 4942625 listened on the main group, and e821544 then moved the key to the windows group. Not seen by an earlier round. Confirmed.
-	- Possible fix: listen on the windows group. A lint check of each listened key against the group the schema puts it in would find any others.
-	- Actual cause: as above. Nothing checked that a listened key is in the group it is listened on.
-	- Actual fix: the window listens on the windows group. The settings handler lint now checks each key in a handler, a read or a write against the group the settings table puts it in. design.md, "Handlers on settings groups", says so.
-	- Sweep: every handler, read and write on a settings group with a key known before run time.
-	- Swept: 447 calls over `source/`. One more was wrong: the thumbnail size handler in the file code listened on the main group, but the key is in the icon view group, so a change to it waited for a restart. Fixed the same way. The 5 calls whose key is only known at run time were left alone.
-	- Note: on Linux the separator changes nothing a person sees, so the title is only worth a look on Windows.
-	- Branch: grpfix
-	- Commit: 0a17659 (lint), bc533c7 (test), 5f6d314 (fix)
-	- Test case: rjahhesy, Held view settings handlers test. A change to the path separator has to make the window spell its path again. It fails without the fix. `lint-pref-handlers.py --self-test`, new cases for a key on the wrong group, a key in no group and a macro it cannot read.
-	- Verified: 20261003 on vm925w, with whole paths in the title. A change of `windows.path-separator` to slash in the settings file turned the title from `C:\Users\...` to `C:/Users/...`, and back again on the change back.
-	- Acceptance signoff: Self-closed: rjahhesy passes in the full Linux suite, and the title was seen to follow the separator on Windows.
-	- Closed: 20261003-174609
-
-- After an icon view closes, icon captions and the label length limits stop following their settings until restart.
-	- ID: 2026100221072784
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
-	- Priority|Severity: Low
-	- Opened: 20261002-210727
-	- Opened by: item 2026092813381422
-	- Related IDs: 2026092813381422
-	- Incorrect behavior: the icon view container connects three settings handlers once per process, with no data, and the first container to be freed removes them. After that, the captions and the label length limits for icon view and desktop no longer follow their settings.
-	- Expected behavior: those settings keep working for every icon view until the program quits.
-	- Reproduced: yes, 20261003, Linux. Closing an icon view tab removed all three handlers.
-	- Origin: upstream. Not seen by an earlier round. Confirmed.
-	- Keep: design.md, "Handlers on settings groups", the row for no data or a file static.
-	- Possible fix: drop the three disconnects from the container's finalize.
-	- Actual cause: as above. The container's finalize removed handlers that every container shares.
-	- Actual fix: the three disconnects are gone, and the finalize with them, per the row above. The settings handler lint now reports a disconnect on a settings group whose data is NULL or a file static.
-	- Sweep: every disconnect on a settings group with no data or a file static.
-	- Swept: the lint over `source/` finds none left. The other disconnects on settings groups are the icon container moving from one group to the other, the Current folder tab's struct, and a test's local.
-	- Branch: grpfix
-	- Commit: 0a17659 (lint), bc533c7 (test), 4e37c4e (fix)
-	- Test case: rjahhesy, Held view settings handlers test. A handler connected with no data or a static must still be there after a list or icon view tab closes. It fails without the fix. `lint-pref-handlers.py --self-test`, a new case for such a disconnect.
-	- Verified: 20261003, Linux, on screen. With a second icon view tab opened and closed, a change to `icon-view.captions` in the settings file put the sizes under the icons in the tab left open.
-	- Acceptance signoff: Self-closed: rjahhesy passes in the full Linux suite, and the captions were seen to follow their setting after a tab closed.
-	- Closed: 20261003-174609
-
-- A hand edit to the settings file can be lost when the program saves at the same moment.
-	- ID: 2026100221273001
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
-	- Needs external testing: done. rdjjz89r passed on vm925w on 20261003, in a session with a monitor. The native suite skips it where there is none.
-	- Priority|Severity: Low
-	- Opened: 20261002-212730
-	- Opened by: item 2026092813381422
-	- Related IDs: 2026092813381422
-	- Incorrect behavior: a change made in the program is saved a couple of seconds later, and the save writes the whole file without checking whether it changed on disk since it was read. A hand edit saved just before that, and not yet picked up, is overwritten. The program then takes the event for it as its own write, so the edit is gone with no message.
-	- Expected behavior: a hand edit is never lost to the program's own save.
-	- Reproduced: yes, 20261003, Linux. A hand edit written while a change made in the program waited to be saved was gone after the save, and stayed gone once the monitor caught up. A file removed by hand was put back, and a file in a newer format was saved over, the same way.
-	- Actual cause: the save wrote the document it had in memory without looking at the file. The late event for the edit then matched the save and was ignored as the program's own write.
-	- Origin: before this branch. Code review 20260919 item 16 fixed the other direction, a change in the program lost to a hand edit. Not seen by an earlier round. Confirmed.
-	- Decisions:
-		- When both sides changed, the file wins for every key the program did not change. The program's unsaved keys go on top of a fresh read, and then it saves. No dialog. Call made without asking; reversible.
-		- A key changed both ways keeps the program's change. That is the rule item 16 of review 20260919 already follows when the monitor gets there first, so the answer does not depend on which comes first. The hand edit can still be the later of the two. Going by time would need a time per key, checked against the file's.
-	- Actual fix: a save reads the file first. If it is not what the program last wrote or read, it is reloaded the way the monitor does it, with the unsaved keys put back and the changed keys announced, and then the save goes ahead. A newer-format file found that way is left alone, and a removed file means defaults plus the unsaved keys, both as the monitor already does. A very short window is left between that read and the write, which no ordinary file write can close.
-	- Swept: the monitor's reload and the save now share one reload. The exit flush and `--reset` go through the same save. The bookmarks file is the only other watched file the program writes; it is saved at once on each change with no delay, so it was left alone.
-	- Verified: config tests rg6a49ar, rdjjz89r, rjc4dd8z, rjcev513, reqzgh4g, rfazc870 and rf2w8yxr pass on Linux after a clean build. Lint clean.
-	- Branch: handedit
-	- Commit: 3ad0dcc
-	- Test case: rdjjz89r (`test_hand_edit_survives_save`, `test_hand_delete_and_newer_before_save`), red before the fix and green after.
-	- Acceptance signoff: Self-closed: rdjjz89r fails before the fix and passes after, and passes on Linux and natively on Windows.
-	- Closed: 20261003-174609
-
-- Code review 20260928 item 3. Edit link on a symlink whose name ends in .lnk turns the symlink into a plain file.
-	- ID: 2026092813381403
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
-	- Needs external testing: done on vm925w, 20261003.
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Target OS: Linux, BSD, macOS.
-	- Incorrect behavior: the symlink is replaced by an edited copy of the shortcut it pointed at, and the real shortcut is left as it was.
-	- Expected behavior: a symlink always gets the symlink editor, whatever its name.
-	- Reproduced: yes, 20260928, Linux.
-	- Actual cause: the dialog picks the shortcut editor by the name alone. A shortcut save also resets the file's permissions.
-	- Origin: 1866e56, 20260925 (linkedit). New ground. Confirmed.
-	- Note: the permissions reset happens with GLib 2.72, the Ubuntu 22.04 floor. GLib 2.84 keeps them on its own.
-	- Actual fix: a symlink or junction gets the target editor whatever its name, and the shortcut save refuses one. A shortcut save puts back the permissions the file had.
-	- Swept: the Windows shortcut page in Properties also chose by name alone, and now skips a symlink. The only other shortcut writer rewrites a file it has just made. Other code that checks for a .lnk name only reads.
-	- Branch: linkfix
-	- Commit: 342d30a
-	- Test case: rhqxx81r, Link edit test, with a symlink named .lnk and a save of a shortcut with its own permissions. Fails before the fix and passes after, on Linux. The permissions check only fails on GLib 2.72, so it was run both ways on Ubuntu 22.04.
-	- Verified: the link edit test passes on Linux with GLib 2.84 and 2.72. All 21 link, shortcut and undo tests pass on Linux. Lint and the Windows cross build are clean.
-	- Verified: rhqxx81r passed on b29w on 20261002, in the native suite, the .lnk symlink case included.
-	- Verified: 20261003 on vm925w, on screen. Edit link on a symlink named `s.lnk` shows the symlink editor, with its name and where it points, and its Properties has no shortcut fields. A real shortcut beside it still gets the shortcut editor and the shortcut fields. rhqxx81r passed natively there with symlinks allowed, so the `.lnk` symlink case ran.
-	- Acceptance signoff: Self-closed: rhqxx81r passes on Linux and natively on Windows with its symlink cases run, and both dialogs were seen on screen on Windows.
-	- Closed: 20261003-174609
-
-- Code review 20260928 item 8. A FIFO named .lnk freezes the window.
-	- ID: 2026092813381408
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
-	- Needs external testing: done on vm925w, 20261003.
-	- Priority|Severity: Avg
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Target OS: Linux, BSD, macOS for the FIFO. Windows for the share.
-	- Incorrect behavior: listing a folder that holds a FIFO named `x.lnk` hangs for good. Every `.lnk` on a slow share is also read on the main thread for its icon and sort place, with no share check.
-	- Expected behavior: only regular files are read, and a per-file read on a share is gated, per the project rule.
-	- Reproduced: yes for the hang, 20260928, Linux. The share case was read only.
-	- Origin: 673bcbb, 20260924 (lnkread). New ground. Confirmed.
-	- Actual cause: the shortcut reader opened and read any file named `.lnk`, and a FIFO with no writer blocks both. The icon and sort checks looked only at the name and at whether the folder is local. On Windows they never asked whether the file sits on a share.
-	- Against: design.md says a folder shortcut sorts with the folders on every platform. On Windows one that sits on a share now sorts with the files, and design.md says so.
-	- Signed off: 20260930, a shortcut on a share sorts with the files and wears the plain shortcut icon.
-	- Actual fix: the reader opens without blocking and reads only a regular file. The icon and sort place of a shortcut are read only for a regular file that is local and not on a share.
-	- Swept: every shortcut read goes through the one reader, so following one, opening one and the Edit link dialog refuse a FIFO too. The two paths-rewrite calls read the file whole, but only after the reader has read it. The Windows target check and shell icon for a shortcut sit behind the same new gate. The other reads made while a folder lists, `.desktop` link info and thumbnails with their checksums, go by content type, which is `inode/fifo` for a FIFO whatever its name, and both run off the main thread.
-	- Note: opening a shortcut still reads it on the main thread, a recorded known gap. Only the FIFO hang is gone there.
-	- Branch: lnkfifo
-	- Commit: fd2b0d0
-	- Test case: rhmxm5ah, Windows shortcut reader test, and rhnqqpm8, Folder shortcuts sort with folders test, each with a new FIFO case. Both fail before the fix, stopped after 10 seconds, and pass after, on Linux.
-	- Verified: the Windows cross build compiles. C lint is clean. The link edit, link emblem, link copy, make link shortcut and thumbnail hold tests pass.
-	- Verified: 20261003 on vm925w, on screen. A folder of shortcuts opened through a share listed with no stall, the window answering every check over 8 s. Its folder shortcut sorts with the files and wears the plain shortcut icon. The same folder opened locally sorts the folder shortcut with the folders, with the folder icon.
-	- Acceptance signoff: Self-closed: rhmxm5ah and rhnqqpm8 pass in the full Linux suite, and the share listing was seen on screen on Windows.
-	- Closed: 20261003-174609
-
-- Settings an older release wrote with a backslash or tab in a value read wrong after the upgrade, with no warning.
-	- ID: 2026100314515200
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
-	- Needs external testing: done. rjcev513 passed natively on b29w and vm925w, 20261003.
-	- Priority|Severity: Avg
-	- Opened: 20261003-145152
-	- Opened by: item 2026100314290808
-	- Related IDs: 2026100311512222, 2026100314290808
-	- Steps to reproduce [Bug]:
-		- With a release on SHCL 1.2.0 or 2.0.0, such as v1.0.0-beta2, set a value like `\\server\share\term.exe`, `tools\7z.exe`, a tab, or an association like `log=C:\Tools\view.exe "%1"`. Then start this release on the same settings.
-	- Incorrect behavior [Bug]: the backslashes read doubled and the tab reads as `\t`. Nothing is backed up and no warning is given. The next save writes the wrong values in the current format, so they stay wrong and the old file is gone.
-	- Expected behavior [Bug]: every value reads as the old release read it.
-	- Reproduced [Bug]: yes, 20261003, Linux. Test rjcev513 writes the file with each old release's own code and reads it through the app.
-	- Actual cause [Bug]: the old releases wrote a backslash as `\\` outside double quotes. Format 3 reads it there as it stands. A file with no format line is converted with only the spellings both rule sets read the same way, per a decision on 2026100311512222, and these are not among them. With nothing changed, the "read two ways" warning is skipped too.
-	- Against: 2026100311512222, Decisions, "A file with no format line ... only spellings both rules agree on are changed." Replaced by the answer below.
-	- Decisions:
-		- 20261003: a file with no format line is converted as 2.x at startup.
-	- Note: design.md, "Settings", said such a file is rewritten when the old rules read it differently. These values were read differently and it was not. It now says what the code does.
-	- Progress log:
-		- 20261003-145152: with the file converted as 2.x instead, every value both old releases wrote reads right in rjcev513, and the only other change is that such a file is then backed up and rewritten. The cost is a hand-written current file with no info block and a backslash escape outside double quotes, which would then be read as 2.x. Every file the app itself wrote before format 3 has no format line.
-		- 20261003-145152: question. Should a file with no format line be converted as 2.x at startup? Suggested: yes, since app-written old files are the common case. A smaller step either way: back up the file and warn whenever a value could be read two ways, even when nothing is converted.
-		- 20261003: answered yes. A file with no format line is converted as 2.x at startup.
-	- Actual fix [Bug]: a file with no format line is converted as 2.x at startup. While the app can't save over that file yet, because its backup or the save failed, a hand edit to it is read as 2.x too. Before, the edit was read by today's rules, and with no backup the next save wrote the misread values over the file.
-	- Note: the cost named above, as it behaves now. A hand-written file the app never saved, with an unquoted backslash, is read the 2.x way at startup: `\\server\share` reads as `\server\share`, and `C:\temp\new` gets a tab and a line break. The file as written goes to the backup first, with a message naming it, and no warning. Once the app has saved the file, or for an edit made while it runs, the backslash reads as written.
-	- Verified: rjcev513 fails before the fix and passes after, both for the four values and for its new no-backup case. rjc4dd8z, rg6a49ar and rdjjz89r pass. Lint is clean.
-	- Swept: the conversion has one call, in `load_locked`. Startup reaches it, and so does `reload_locked`, which the monitor and the save share. A reload reads a file with no format line by today's rules, except in the no-backup case above.
-	- Branch: v2read
-	- Commit: 660122f
-	- Test case: rjcev513 Config old formats test. The four values are plain checks now. It also covers a file both rules read alike, which is left alone, and a 2.x file that can't be backed up and is edited while the app runs.
-	- Acceptance signoff: Self-closed: rjcev513 fails before the fix and passes after, on Linux and natively on Windows. The question on the item was answered.
-	- Closed: 20261003-174609
-
-- A CI test makes settings files in older SHCL formats and checks they are converted.
-	- ID: 2026100314290808
+- Code review 20260928.
+	- ID: 2026092813381400
 	- Type: Task
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
-	- Needs external testing: done. The Windows cross build is clean, and rjcev513 passed natively on b29w and vm925w, 20261003.
-	- Priority|Severity: Avg
-	- Opened: 20261003-142908
-	- Opened by: t00mietum
-	- Related IDs: 2026100311512222, 2026100314515200
+	- Status: Started
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
 	- Requirements:
-		- Before rc.1.
-		- Part of CI/CD. The test makes settings files in each older SHCL format, then checks the app's own conversion, not one done with SHCL's help.
-	- Note: rjc4dd8z only covers one hand-written 2.x file.
-	- Done: settings were written with SHCL 1.2.0 (v1.0.0-beta2 and on) and 2.0.0 before format 3. Both headers are kept in `vendor/shcl-old`, and a small writer is built against each. It writes a settings file with the setters the app used then, with and without a few hand-edited lines, and records what that release read back from it. The test opens each file in the app, then opens what the app saved in a second run, and checks every value, the backup, and the format line.
-	- Note: both old releases write these files the same way. Settings in a comma-decimal locale under 1.2.0 are not covered, since the build box has no such locale. Keys renamed since are left out; the test is about the format.
-	- Note: four values do not read right. Filed as 2026100314515200, and marked in the writer so the test fails once they do.
-	- Verified: rjcev513 passes. It fails when the app converts no file with no format line at startup, and when it converts every such file as 2.x.
-	- Branch: shclold
-	- Commit: d344708
-	- Test case: rjcev513 Config old formats test.
-	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
-	- Closed: 20261003-174609
-
-- Code review 20260928 item 17. Hardlinking a selected symlink links the symlink, not the file.
-	- ID: 2026092813381417
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
-	- Needs external testing: done on vm925w, 20261003.
-	- Priority|Severity: Low
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: a relative symlink hardlinked into another folder arrives dangling.
-	- Expected behavior: the hardlink warning, the same file under a second name.
-	- Reproduced: yes, 20260928, Linux.
-	- Actual cause: the hardlink is made of the symlink itself. Windows does the same, per its documentation.
-	- Origin: 73ec92e, 20260924 (makelink). New ground. Confirmed.
-	- Actual fix: a symlink is followed first, so the hardlink is a second name for the file it leads to. A symlink that leads nowhere fails with the usual error.
-	- Swept: the hardlink call has one implementation per platform, and Make link is its only caller. Both follow now.
-	- Branch: linkfix
-	- Commit: 342d30a
-	- Test case: rfwwdyvg, Link copy test, a hardlink of a relative symlink made in another folder. Fails before the fix and passes after, on Linux.
-	- Verified: the link copy test passes on Linux. The Windows code builds but was not run, since wine makes no symlinks.
-	- Note: rfwwdyvg passed on b29w on 20261002, in the native suite, but it skips its symlink checks without a word when symlinks can't be made, so this case is not shown to have run.
-	- Verified: 20261003, rfwwdyvg passed natively on vm925w with symlinks allowed, so the hardlink of a symlink case ran.
-	- Acceptance signoff: Self-closed: rfwwdyvg passes on Linux and natively on Windows with its symlink cases run.
-	- Closed: 20261003-174609
-
-- Code review 20260928 item 24. Settings comments that look like the SHCL info block are removed on save.
-	- ID: 2026092813381424
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
-	- Priority|Severity: Low
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: a line of the user's own that starts like the info block's lines is taken as part of it and dropped, and so is a bare `##` next to one.
-	- Expected behavior: a comment of the user's own is kept.
-	- Reproduced: yes, 20261003, Linux. A note spelled `##    Aligned   like the info block` between two `##` lines, at the top of the file, was gone after the next save, `##` lines and all.
-	- Origin: 851c5aa, 20260925 (shclbanner). New ground. Confirmed.
-	- Actual cause: the save took any line starting `##` and four spaces as part of the info block wherever it was, and any `##` next to one.
-	- Actual fix: only a run of `##` lines that has the block's SHCL line or its format line is the block, the same test SHCL itself uses. Inside that run only the block's own lines come off, so a `## note` written against it stays too.
-	- Sweep: every place that takes the info block out of the file.
-	- Swept: `apply_catalog` is the only one. Nothing else strips it, and `shcl_set_banner` is not called.
-	- Branch: shclold
-	- Commit: e2c055b
-	- Test case: rg6a49ar Config defaults list test, new case for notes spelled like the block, at the top and right after it. Fails before the fix, passes after.
-	- Acceptance signoff: Self-closed: rg6a49ar fails before the fix and passes after, in the full Linux suite.
-	- Closed: 20261003-174609
-
-- The application's quit hook never runs, so a keyboard shortcut changed just before quit is lost.
-	- ID: 2026100113372562
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
-	- Needs external testing: none. The test needs X, and on Windows the shortcut file's folder is never there, so nothing is saved there either way (2026100315470225).
-	- Priority|Severity: Low
-	- Opened: 20261001-133725
-	- Opened by: code review 20260928 item 20
-	- Related IDs: 2026092813381420, 2026100315470225
-	- Incorrect behavior: both application classes put their quit work in `quit_mainloop`, which GLib has not called since 2.32. So a shortcut map change still waiting out its 30 s is never saved, and the "still unmounting" notice is never taken down. The rest of it frees memory the exit frees anyway.
-	- Expected behavior: a shortcut changed just before quit is there on the next start.
-	- Reproduced: yes for the hook, 20261001, Linux. The lost shortcut and the notice left up, 20261003, Linux.
-	- Origin: upstream. Not seen by an earlier round. Confirmed.
-	- Possible fix: move what still matters to GApplication's `shutdown`, and drop what the exit makes pointless.
-	- Actual cause: GLib calls `shutdown` at the end of a run, not `quit_mainloop`.
-	- Actual fix: the quit work moved to `shutdown` in both classes. The base class saves a shortcut change still waiting, and the window class takes down the "still unmounting" notice. Freeing the icon caches, the undo manager and the style provider was dropped, since the exit frees them.
-	- Note: the file cache is still written at the end of `main ()`. `shutdown` runs before the thumbnail threads are done, and they may still be storing.
-	- Note: the old hook took the notice down through the unmount done step with no message, which logs a critical. The notice is now withdrawn on its own.
-	- Note: the shortcut file's folder is never made, so with none nothing is saved at any time. Filed as 2026100315470225. The test makes the folder.
-	- Swept: these two were the only `quit_mainloop` overrides, and the only application classes.
-	- Branch: quitlock
-	- Commit: aced497
-	- Test case: `rjch1b9a Shortcut saved and notice withdrawn at quit test`. The built program changes a shortcut and puts the notice up once its window is up, and the window is closed inside the 30 s. The shortcut is in the saved file and back on the next start, and the notice was withdrawn. Fails before the fix and passes after, on Linux.
-	- Verified: rjch1b9a, rj750n43 and the file cache store and prune tests pass on Linux. Lint is clean.
-	- Acceptance signoff: Self-closed: rjch1b9a fails before the fix and passes after, in the full Linux suite.
-	- Closed: 20261003-174609
+		- Everything changed from 20260917 to 20260927, reviewed or not, plus the ground the 20260919 round did not reach where it changed since.
+		- Items 1 to 45 below carry this ID as their parent. Technical detail is in the private notes under the same numbers.
+	- Progress log:
+		- 20260928-133814: Filed 33 defects and 12 enhancements. Of the defects, 4 are regressions or missed twins of an earlier fix (items 4, 12, 21, 22), item 15 reopens three closures, and the rest are new ground. 19 were reproduced, some only in part. The others were only read, and each says so.
+	- Decisions:
+		- Not release-ready. Items 1, 3, 5, 6, 7 and 16 give a wrong result with no error, or change files the user did not ask to change.
+		- Handlers that outlive their widget have come back a third time (20260919 items 3 and 10, now item 22). Per the fix rules, that class wants a table in design.md.
+		- Decided against: a same-size, same-time twin showing another file's picture. Already recorded as designed.
+		- Decided against: shortcut reads on the main thread when opening one, and an edited shortcut losing its item ID list. Both recorded as known gaps.
+		- Decided against: the archive password showing in the process list. design.md says so.
+		- Decided against: a small copy leaving a partial file on a failed write. GLib's own copy does the same.
+		- Decided against: Escape not restoring the selection, Ctrl+Shift+T, and Control kept for F1, tab keys, Ctrl+H and Ctrl+M on macOS. All settled earlier.
+		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
+	- Test case: none, review round.
 
 - Two copies starting at once on a new file cache can find it locked, and one runs with the cache off.
 	- ID: 2026100113372592
@@ -508,28 +81,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: rjch1a9a passes on Linux, 60 rounds. Lint is clean.
 	- Progress log:
 		- 20261003: rjch1a9a passed natively on b29w at 43a9126, but failed once in the native suite on vm925w at c78aa9e. With the write lock held for 300 ms, the store gave up after 4.9 s with "database is locked". It passed five runs in a row there on its own afterward. Back to Queued.
-
-- Code review 20260928.
-	- ID: 2026092813381400
-	- Type: Task
-	- Status: Started
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Requirements:
-		- Everything changed from 20260917 to 20260927, reviewed or not, plus the ground the 20260919 round did not reach where it changed since.
-		- Items 1 to 45 below carry this ID as their parent. Technical detail is in the private notes under the same numbers.
-	- Progress log:
-		- 20260928-133814: Filed 33 defects and 12 enhancements. Of the defects, 4 are regressions or missed twins of an earlier fix (items 4, 12, 21, 22), item 15 reopens three closures, and the rest are new ground. 19 were reproduced, some only in part. The others were only read, and each says so.
-	- Decisions:
-		- Not release-ready. Items 1, 3, 5, 6, 7 and 16 give a wrong result with no error, or change files the user did not ask to change.
-		- Handlers that outlive their widget have come back a third time (20260919 items 3 and 10, now item 22). Per the fix rules, that class wants a table in design.md.
-		- Decided against: a same-size, same-time twin showing another file's picture. Already recorded as designed.
-		- Decided against: shortcut reads on the main thread when opening one, and an edited shortcut losing its item ID list. Both recorded as known gaps.
-		- Decided against: the archive password showing in the process list. design.md says so.
-		- Decided against: a small copy leaving a partial file on a failed write. GLib's own copy does the same.
-		- Decided against: Escape not restoring the selection, Ctrl+Shift+T, and Control kept for F1, tab keys, Ctrl+H and Ctrl+M on macOS. All settled earlier.
-		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
-	- Test case: none, review round.
 
 - Code review 20260928 item 26. The installers go ahead when a release has no sums file.
 	- ID: 2026092813381426
@@ -874,6 +425,32 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Optional striped rows (turn on instantly, don't bother with menu)
 	- Test case: none, demo content. `cicd/utility/lint-demo-script.py` checks the script.
 
+- Code review 20260928 item 2. The tree sidebar crashes on Shift+F10 or the Menu key.
+	- ID: 2026092813381402
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
+	- Priority|Severity: High
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Steps to reproduce [Bug]:
+		- Show the tree sidebar, click a folder in it, press Shift+F10.
+	- Reproduced: yes, 20260928, Linux.
+	- Actual cause: the keyboard path passes no mouse event, and the menu code reads the pointer position from it.
+	- Origin: upstream, never touched here. Not seen by an earlier round. Confirmed.
+	- Actual fix: with no mouse event the menu is for the row the keyboard is on. With no row at all, no menu opens, from the keyboard or a right click.
+	- Note: a right click on empty space in the tree used to open the menu with nothing behind it, so its items acted on no file. It now opens nothing. A row with no file behind it, such as one still loading, is treated the same.
+	- Note: the keyboard menu opens at the top left of the tree, not beside the row. That comes from the shared placement code the other views use, and is left as is.
+	- Swept: the places sidebar reads the selected row and never the event. The list and icon views pass the event on to the shared view code, which checks for none before reading the position. The tab bar checks for none before reading the button and time. The path bar, location bar and toolbar back and forward menus only open from a click, so always have an event. The rename field's menu checks for none. No other code reads a position or button from a menu event.
+	- Branch: treemenu
+	- Commit: d879cfb
+	- Test case: rj04ta3n, Tree menu key test. Linux only. Fails before the fix, passes after.
+	- Verified: the new test fails before the fix, with the crash, and passes five runs in a row after it on Linux. A right click on a tree row still opens the menu, and one on empty space opens nothing. Lint is clean.
+	- Verified: 20261003, Linux. Shift+F10 and the Menu key on a tree row both open the menu for that row, with no crash.
+	- Acceptance signoff: Self-closed: rj04ta3n passes in the full Linux suite, and Shift+F10 on a tree row was seen on screen on Linux. The menu opens for that row, and the program keeps running. The menu still opens at the top left of the tree, as noted above.
+	- Closed: 20261003-174609
+
 - Code review 20260928 item 1. Zooming while thumbnails render can store a small thumbnail as full size, and it is never made again.
 	- ID: 2026092813381401
 	- Type: Bug
@@ -898,6 +475,222 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. rj043mnp covers it.
 	- Closed: 20261003-112426
+
+- Code review 20260928 item 4. A dangling symlink fails a 7z or rar archive, and the finished archive is deleted.
+	- ID: 2026092813381404
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
+	- Needs external testing: no. Ran natively on b29w and on vm925w on 20261003, a link with a name past ASCII included.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Design: [20260929-101432_compression.md](design_docs/20260929-101432_compression.md). Under the reset, "Ignore" leaves these links out too.
+	- Steps to reproduce [Bug]:
+		- Untick "store links", then compress a folder holding a link to a missing file as 7z or rar.
+	- Incorrect behavior: "could not be created", and the whole archive is gone. On Windows it happens to every 7z, whatever the checkbox says.
+	- Expected behavior: the link goes in as a link, even with "store links" unticked, wherever the format and tool can keep it. Where they cannot, it is left out with a warning that names it, and the rest of the archive stands.
+	- Reproduced: yes for the tools' exit codes, 20260928, Linux. The job side was read only. The job side too on 20260928, with the new test rows.
+		- Windows, 20261003, b29w natively: every format failed, not only rar.
+	- Actual cause: 7z exits 1 and rar exits 6 when they skip a link they cannot follow, and any non-zero exit fails the job.
+		- Windows: GLib gives a link that leads nowhere the link's own type, a file or a folder, as if it had been followed. So the scan never saw one there, and every writer tried to read it.
+		- Windows: GLib does not fold a program's error output into its normal output, so what 7z and rar said about the link never reached the reader.
+		- Windows: 7-Zip puts in an empty entry for a link it cannot open, and rar's real run writes a plain folder over a folder link its first run kept.
+		- Windows: 7z and rar print names in the console code page, and the library zip writer stores them in a local code page. A name past ASCII came out changed, and the delete check read archive names the same way.
+	- Progress log:
+		- 20260929-070928: Reworked for the decision below. Links that lead nowhere now go in as links. Leaving them out with a warning is kept only where the tool cannot keep them.
+		- 20261002-194800: the archive combinations test fails on b29w in the native suite. The four rar rows with a link that leads nowhere fail: rar says it cannot open the dead link, and it also cannot open the good link beside it ("The filename, directory name, or volume label syntax is incorrect"), so no archive is made. The 7z, zip and tar rows pass.
+		- 20261003-124500: the full log of that run shows the zip, tar and 7z dangling rows failing too. The good link's error was the test's own: it was spelled with /, which Windows does not follow at all. Fixed for Windows on arcwin.
+		- 20261003-124949: left at signoff rather than closed. On Windows the fix also changes what goes into archives: zip names, and the two built-in command lines.
+	- Decisions:
+		- 20260929: every format stores a link that leads nowhere as a link, where the format and tool can, even when links are otherwise followed. Leaving it out with a warning is only the fallback.
+		- 20260929: under the Compress dialog reset, "Ignore" leaves these links out too. "Follow" and "Store" keep them. Nothing changes here until the reset is built.
+	- Origin: 6c2418f, 20260820. Widened on Windows by 09506ec, 20260926 (bugs), which took link storing away from 7z there. Regression of that fix on Windows. Confirmed.
+	- Note: the zip writer did not warn either. For a link to nothing, GIO answers with the link itself rather than failing, so the scan's "dangling" branch never ran and every writer left the link out without a word.
+	- Actual fix: the library writer keeps each link that leads nowhere as a link, in every format it writes, 7z included, and still follows the other links. 7z and rar keep links only all or none. So those links go in first, by a run of their own that keeps links, and the real run adds the rest to that archive, following links as before. If that first run fails, the links are left out and named instead. The delete check counts a link that went in as in.
+		- Left out with the warning, as before: a split archive, since neither tool can add to one. 7z on Windows, which is never asked to keep links. A link 7-Zip would reach through a followed linked folder, since it refuses that path. Under rar, a name with * or ?, which it would read as a pattern.
+		- The real run is told to leave out every such link by name, whether the first run kept it or not. rar is not told about a name with * or ?, or one starting with @, which it would read as a list file. It passes over those with a warning status. The output reader from 334b239 still fails the job on any warning that does not name one of them.
+		- Windows: a link counts as leading nowhere when opening through it finds nothing. The tools' error output is read beside the normal output. 7z and rar are asked for UTF-8 names in their built-in lines, the library zip writer stores UTF-8 names, and the delete check reads archive names as UTF-8. The reader takes the count line both tools end on there.
+	- Swept: every writer. The library writes zip, tar and its three compressed forms, and 7z; 7z writes 7z, and zip when split; rar writes rar. The delete check's own walk follows the same rule. Compress each goes through the same per-archive code. Unpacking has no link scan.
+		- Windows: the dangling check is one function for the scan and the delete check. Both places that start 7z or rar, compress and extract, read error output the same way, so extracting now sees a wrong password on Windows too. Extracting already read names as UTF-8; its hard link names now do as well. The other GIO link type checks are filed as 2026100312494903. A linked folder named with a leading @ has the same list file trouble under rar, filed as 2026100312494905.
+	- Branch: arclinks, then arcdangle, then arcwin
+	- Commit: 334b239, then 991b6e1, then d0519a7, 3871931, 1507a21, 1ec66eb
+	- Test case: rhr6ggmt, Archive option combinations. Its dangling-link rows check that the link reads back as a link, with a good link beside it still followed, for every format, with links stored and not, delete on and off, and one split. New rows: the library's 7z, a selection of only a dangling link, one inside a followed linked folder, and on Linux a name with ? for rar. 26 rows fail before the rework and all pass after, on Linux.
+		- rewygsbg, Archive job test: the delete check now passes with such a link in a zip. Its older check that the delete check refused is commented out with the reason. Fails before, passes after.
+		- rev86z08, Archive options test: the output reader rows from 334b239, and new rows for the line of the first run. That line is new, so it has no before run.
+		- Windows, arcwin: rhr6ggmt's dangling rows add a folder link that leads nowhere and, on Windows, a name past ASCII. The good links use the native separator. 36 rows fail natively on b29w before the fix and all pass after. rev86z08 gained rows for the count line and the UTF-8 switches, which fail with the count handling taken out.
+	- Verified: the 9 archive, extract, template and schema tests pass on Linux, the combinations and job tests three runs in a row. Lint and the Windows cross build are clean. The Archive options test passes under wine, its Windows-only rows included.
+		- 20261003: rhr6ggmt, rewygsbg and rev86z08 pass natively on b29w and on Linux. Full Linux suite 157 of 157. Full native suite on b29w at 1507a21: 137 passed, 10 skipped, 1 failed, rfhr0zw0, which belongs to 2026093010493389. The archive and extract tests again at 1ec66eb.
+	- Verified: 20261003, rhr6ggmt, rewygsbg and rev86z08 pass in the native suite on vm925w at c78aa9e.
+	- Acceptance signoff: Self-closed: rhr6ggmt, rewygsbg and rev86z08 pass on Linux and natively on b29w and vm925w. The Windows changes to zip names and to the built-in 7z and rar lines are what the item asked for, and rhr6ggmt and rev86z08 check them.
+	- Closed: 20261003-174609
+
+- On Windows, a folder full of shortcuts shows nothing until every shortcut icon is found.
+	- ID: 2026100112000535
+	- Type: Bug
+	- Status: Done
+	- Needs external testing: done. The Start menu folder was seen on screen on vm925w, 20261003. The rest ran on b29w.
+	- Priority|Severity: Avg
+	- Opened: 20261001-120005
+	- Opened by: t00mietum
+	- Related IDs: 2026093010493389, 2026092813381436
+	- Target OS: Windows
+	- Steps to reproduce:
+		- Go to the Start menu Programs folder, or any folder with many `.lnk` files.
+	- Incorrect behavior: the content pane stays empty until the icons for all the shortcuts are loaded.
+	- Expected behavior: the pane shows the files right away, with a plain icon or the last known one. Shortcut icons load in the background and replace them as each one is found.
+		- Possibly the shortcut icons can use the thumbnail cache, with its own icon table, so a folder seen before draws its real icons at once.
+	- Reproduced: no. Seen on Windows, not yet reproduced here.
+	- Possible cause: each shortcut's icon comes from the Windows shell on the window's thread, one file after another, the first time the view asks for it. The only cache is in memory, so every new run pays it again.
+	- Note: 2026093010493389 already wants these lookups off the window's thread. One fix may cover both.
+	- Actual cause: as above, read from the code. The view asked the shell for each shortcut's icon the first time it drew it, and waited for the answer.
+	- Actual fix: the view gets the cached icon or nothing, at once, and the plain shortcut icon stands in. One worker thread asks the shell, and the shortcut is redrawn when an icon is found. A shortcut the shell has no icon for is remembered too, so it is not asked again. Same branch and fix as 2026093010493389.
+	- Note: the icon table in the file cache was not built. It needs a new cache table and version, its own pruning, and a choice of which sizes to keep, which is more than this fix. Until then the last known icon is kept only while the app runs, so a new run starts plain again.
+	- Note: the folder check behind the sort place and the folder icon still reads each shortcut on the window's thread. It is a local file read, cached, and was not measured.
+	- Branch: lnkasync
+	- Commit: 61dcecc
+	- Test case: rfhr0zw0, Shell icon test, new lookup cases: the first ask returns at once with nothing, a second one while it runs is not queued again, the window is told once when the icon is found, and the cache answers after. A file that is not a shortcut is finished with and not asked again. No case shows the wait itself, since a slow shell can't be made here.
+	- Verified: rfhr0zw0 passes under wine, and the wine build lists a folder of shortcuts with each one's own icon. The rest as on 2026093010493389.
+	- Verified: the lookup cases in rfhr0zw0 pass on b29w on 20261002, in the native suite. The test as a whole fails on the dead share item's cases.
+	- Verified: 20261003 on b29w, rfhr0zw0 passes whole, with the fix for 2026093010493389 on lnkicon. Asking for the icons of all 335 shortcuts in both Start menu folders took under 1 ms in all. The icons came in over 28 seconds on a first run, and 3 seconds on a second.
+	- Note: before the fix the view asked for each of these on the window's thread, from the code. Not timed.
+	- Note: the folder was not opened on screen. b29w's only session is the one on its own screen.
+	- Verified: 20261003 on vm925w, on screen. The Start menu Programs folder, 67 items, was listed within 300 ms of the window showing, the shortcuts with the plain shortcut icon. Their own icons were all in by 2 s. The window answered every check while they loaded.
+	- Acceptance signoff: Self-closed: rfhr0zw0 passes natively on b29w and vm925w, and the Start menu folder was seen on screen.
+	- Closed: 20261003-174609
+
+- On Windows, a local shortcut to a share that is not answering can stall the window while its icon is looked up.
+	- ID: 2026093010493389
+	- Type: Bug
+	- Status: Done
+	- Needs external testing: done on b29w, 20261003. rfhr0zw0 passes there, dead share cases included.
+	- Priority|Severity: Avg
+	- Opened: 20260930-104934
+	- Opened by: code review 20260928 follow-up
+	- Related IDs: 2026092813381408, 2026093010493450
+	- Target OS: Windows
+	- Incorrect behavior: a shortcut with no icon of its own gets one from the Windows shell, on the window's thread. The shell may go to the target for it. On a share that is not answering that is about twenty seconds per shortcut.
+	- Expected behavior: the share is never visited for an icon.
+		- The target path is read from the shortcut file, as the folder check already does.
+		- When the target is on a share, the icon comes from the name alone. A folder gets the folder icon, a document the icon for its extension, and a program the plain program icon.
+		- Shortcut icon lookups run off the window's thread, local targets included.
+	- Reproduced: no. Read only, from item 8 of code review 20260928.
+	- Reproduced: yes, the second cause below, 20261003 on b29w. rfhr0zw0 failed the same two checks with the build from dev.
+	- Decisions:
+		- 20260930: assume the stall rather than time it first. Many shortcuts to shares would multiply it.
+		- 20260930: a program on a share showing the plain program icon is fine.
+	- Actual cause: the shell was handed the shortcut itself, and it reads the target, or the icon file the shortcut names, to find the icon. Nothing checked whether either was on a share.
+	- Actual fix: the shortcut file is read for its target and for the icon file it names. When either is on a share, by its path or by a drive letter mapped to one, the shell is asked about the target's name alone, which it answers without opening anything. A folder still gets the theme's folder icon from the folder check. Every lookup now runs off the window's thread, with 2026100112000535.
+	- Actual cause: a second one, on b29w after the first fix. Windows records the share as well as the drive path in a shortcut whose target's drive is shared, and b29w shares its C drive. Every local shortcut there was taken as one on a share, so it got the icon for its target's name rather than the one it names. Wine never writes the share part, so the test passed there.
+	- Actual fix: a shortcut that records both counts as local when the drive's volume serial matches the one it records. One made on another machine's drive still goes by the name. Only the drive root is asked for its serial, so no link on the way to the target is followed.
+	- Swept: the shell icon is asked for in one place. The folder check and the sort place already read only the shortcut file. Off Windows the icon comes from the shortcut file only. design.md says how a shortcut on a share gets its icon.
+	- Note: a shortcut that records only an item ID list, with no path, is still handed to the shell. Nothing in the file says where such a target lives without asking the shell.
+	- Branch: lnkasync, lnkicon
+	- Commit: 61dcecc, a9aa321
+	- Test case: rfhr0zw0, Shell icon test, new share cases: a document on a share wears the icon for its name and not the one the shortcut names, and a program on a share, or a shortcut whose icon is on a share, gets the plain program icon. The document cases fail with the share route taken out and pass with it, under wine. rhmxm5ah, Windows shortcut reader test, new cases for the icon file and the share check, on Linux.
+	- Test case: rfhr0zw0, two more cases: a shortcut made by the shell and given a record of both its drive and a share, once with this drive's serial and once with another. The first wears the icon it names. It fails before the second fix and passes after, on b29w and under wine. rhmxm5ah, a shortcut that records both is not on a share. Fails before and passes after, on Linux.
+	- Swept: the share check has one caller. Opening a shortcut tries the share only when the drive path is not there, and Edit link shows the drive path first. Both already right.
+	- Note: the two checks that failed on b29w expected the right thing. The code was wrong there, and on any machine whose drive is shared.
+	- Verified: 20261003, rfhr0zw0 passes on b29w with all 37 checks, and fails three before the fix. It passes under wine. Full Linux suite 157 of 157. The Windows cross build has no warnings, and lint is clean.
+	- Verified: the Linux build and the shortcut reader, sort, link edit, link copy and make link tests pass. The Windows cross build compiles with no warnings. rfhr0zw0 passes under wine, and the Windows shortcut and share tests give the same results there as on dev. C lint and the test ID check are clean.
+	- Progress log:
+		- 20261002-194800: rfhr0zw0 fails two checks on b29w in the native suite: a local shortcut does not wear the icon it names, and a document on a share does. The other share cases and every lookup case pass.
+		- 20261003-133500: the cause was the share record Windows writes for a shared drive. Fixed on lnkicon. The dead share check on screen was not run; the share cases in rfhr0zw0 use a share address that does not answer.
+	- Verified: 20261003 on vm925w, on screen. A local folder holding a shortcut to a document on a share that does not answer, and one whose icon is on that share, opened as fast as any other folder, and the window answered every check over 8 s. The first wears the document icon and the second the plain program icon. The Windows shell itself took 45 s to make the first shortcut.
+	- Acceptance signoff: Self-closed: rfhr0zw0 passes natively on b29w and vm925w, and a folder with shortcuts to a share that does not answer was seen on screen.
+	- Closed: 20261003-174609
+
+- Code review 20260928 item 3. Edit link on a symlink whose name ends in .lnk turns the symlink into a plain file.
+	- ID: 2026092813381403
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
+	- Needs external testing: done on vm925w, 20261003.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Target OS: Linux, BSD, macOS.
+	- Incorrect behavior: the symlink is replaced by an edited copy of the shortcut it pointed at, and the real shortcut is left as it was.
+	- Expected behavior: a symlink always gets the symlink editor, whatever its name.
+	- Reproduced: yes, 20260928, Linux.
+	- Actual cause: the dialog picks the shortcut editor by the name alone. A shortcut save also resets the file's permissions.
+	- Origin: 1866e56, 20260925 (linkedit). New ground. Confirmed.
+	- Note: the permissions reset happens with GLib 2.72, the Ubuntu 22.04 floor. GLib 2.84 keeps them on its own.
+	- Actual fix: a symlink or junction gets the target editor whatever its name, and the shortcut save refuses one. A shortcut save puts back the permissions the file had.
+	- Swept: the Windows shortcut page in Properties also chose by name alone, and now skips a symlink. The only other shortcut writer rewrites a file it has just made. Other code that checks for a .lnk name only reads.
+	- Branch: linkfix
+	- Commit: 342d30a
+	- Test case: rhqxx81r, Link edit test, with a symlink named .lnk and a save of a shortcut with its own permissions. Fails before the fix and passes after, on Linux. The permissions check only fails on GLib 2.72, so it was run both ways on Ubuntu 22.04.
+	- Verified: the link edit test passes on Linux with GLib 2.84 and 2.72. All 21 link, shortcut and undo tests pass on Linux. Lint and the Windows cross build are clean.
+	- Verified: rhqxx81r passed on b29w on 20261002, in the native suite, the .lnk symlink case included.
+	- Verified: 20261003 on vm925w, on screen. Edit link on a symlink named `s.lnk` shows the symlink editor, with its name and where it points, and its Properties has no shortcut fields. A real shortcut beside it still gets the shortcut editor and the shortcut fields. rhqxx81r passed natively there with symlinks allowed, so the `.lnk` symlink case ran.
+	- Acceptance signoff: Self-closed: rhqxx81r passes on Linux and natively on Windows with its symlink cases run, and both dialogs were seen on screen on Windows.
+	- Closed: 20261003-174609
+
+- Code review 20260928 item 8. A FIFO named .lnk freezes the window.
+	- ID: 2026092813381408
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
+	- Needs external testing: done on vm925w, 20261003.
+	- Priority|Severity: Avg
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Target OS: Linux, BSD, macOS for the FIFO. Windows for the share.
+	- Incorrect behavior: listing a folder that holds a FIFO named `x.lnk` hangs for good. Every `.lnk` on a slow share is also read on the main thread for its icon and sort place, with no share check.
+	- Expected behavior: only regular files are read, and a per-file read on a share is gated, per the project rule.
+	- Reproduced: yes for the hang, 20260928, Linux. The share case was read only.
+	- Origin: 673bcbb, 20260924 (lnkread). New ground. Confirmed.
+	- Actual cause: the shortcut reader opened and read any file named `.lnk`, and a FIFO with no writer blocks both. The icon and sort checks looked only at the name and at whether the folder is local. On Windows they never asked whether the file sits on a share.
+	- Against: design.md says a folder shortcut sorts with the folders on every platform. On Windows one that sits on a share now sorts with the files, and design.md says so.
+	- Signed off: 20260930, a shortcut on a share sorts with the files and wears the plain shortcut icon.
+	- Actual fix: the reader opens without blocking and reads only a regular file. The icon and sort place of a shortcut are read only for a regular file that is local and not on a share.
+	- Swept: every shortcut read goes through the one reader, so following one, opening one and the Edit link dialog refuse a FIFO too. The two paths-rewrite calls read the file whole, but only after the reader has read it. The Windows target check and shell icon for a shortcut sit behind the same new gate. The other reads made while a folder lists, `.desktop` link info and thumbnails with their checksums, go by content type, which is `inode/fifo` for a FIFO whatever its name, and both run off the main thread.
+	- Note: opening a shortcut still reads it on the main thread, a recorded known gap. Only the FIFO hang is gone there.
+	- Branch: lnkfifo
+	- Commit: fd2b0d0
+	- Test case: rhmxm5ah, Windows shortcut reader test, and rhnqqpm8, Folder shortcuts sort with folders test, each with a new FIFO case. Both fail before the fix, stopped after 10 seconds, and pass after, on Linux.
+	- Verified: the Windows cross build compiles. C lint is clean. The link edit, link emblem, link copy, make link shortcut and thumbnail hold tests pass.
+	- Verified: 20261003 on vm925w, on screen. A folder of shortcuts opened through a share listed with no stall, the window answering every check over 8 s. Its folder shortcut sorts with the files and wears the plain shortcut icon. The same folder opened locally sorts the folder shortcut with the folders, with the folder icon.
+	- Acceptance signoff: Self-closed: rhmxm5ah and rhnqqpm8 pass in the full Linux suite, and the share listing was seen on screen on Windows.
+	- Closed: 20261003-174609
+
+- Settings an older release wrote with a backslash or tab in a value read wrong after the upgrade, with no warning.
+	- ID: 2026100314515200
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
+	- Needs external testing: done. rjcev513 passed natively on b29w and vm925w, 20261003.
+	- Priority|Severity: Avg
+	- Opened: 20261003-145152
+	- Opened by: item 2026100314290808
+	- Related IDs: 2026100311512222, 2026100314290808
+	- Steps to reproduce [Bug]:
+		- With a release on SHCL 1.2.0 or 2.0.0, such as v1.0.0-beta2, set a value like `\\server\share\term.exe`, `tools\7z.exe`, a tab, or an association like `log=C:\Tools\view.exe "%1"`. Then start this release on the same settings.
+	- Incorrect behavior [Bug]: the backslashes read doubled and the tab reads as `\t`. Nothing is backed up and no warning is given. The next save writes the wrong values in the current format, so they stay wrong and the old file is gone.
+	- Expected behavior [Bug]: every value reads as the old release read it.
+	- Reproduced [Bug]: yes, 20261003, Linux. Test rjcev513 writes the file with each old release's own code and reads it through the app.
+	- Actual cause [Bug]: the old releases wrote a backslash as `\\` outside double quotes. Format 3 reads it there as it stands. A file with no format line is converted with only the spellings both rule sets read the same way, per a decision on 2026100311512222, and these are not among them. With nothing changed, the "read two ways" warning is skipped too.
+	- Against: 2026100311512222, Decisions, "A file with no format line ... only spellings both rules agree on are changed." Replaced by the answer below.
+	- Decisions:
+		- 20261003: a file with no format line is converted as 2.x at startup.
+	- Note: design.md, "Settings", said such a file is rewritten when the old rules read it differently. These values were read differently and it was not. It now says what the code does.
+	- Progress log:
+		- 20261003-145152: with the file converted as 2.x instead, every value both old releases wrote reads right in rjcev513, and the only other change is that such a file is then backed up and rewritten. The cost is a hand-written current file with no info block and a backslash escape outside double quotes, which would then be read as 2.x. Every file the app itself wrote before format 3 has no format line.
+		- 20261003-145152: question. Should a file with no format line be converted as 2.x at startup? Suggested: yes, since app-written old files are the common case. A smaller step either way: back up the file and warn whenever a value could be read two ways, even when nothing is converted.
+		- 20261003: answered yes. A file with no format line is converted as 2.x at startup.
+	- Actual fix [Bug]: a file with no format line is converted as 2.x at startup. While the app can't save over that file yet, because its backup or the save failed, a hand edit to it is read as 2.x too. Before, the edit was read by today's rules, and with no backup the next save wrote the misread values over the file.
+	- Note: the cost named above, as it behaves now. A hand-written file the app never saved, with an unquoted backslash, is read the 2.x way at startup: `\\server\share` reads as `\server\share`, and `C:\temp\new` gets a tab and a line break. The file as written goes to the backup first, with a message naming it, and no warning. Once the app has saved the file, or for an edit made while it runs, the backslash reads as written.
+	- Verified: rjcev513 fails before the fix and passes after, both for the four values and for its new no-backup case. rjc4dd8z, rg6a49ar and rdjjz89r pass. Lint is clean.
+	- Swept: the conversion has one call, in `load_locked`. Startup reaches it, and so does `reload_locked`, which the monitor and the save share. A reload reads a file with no format line by today's rules, except in the no-backup case above.
+	- Branch: v2read
+	- Commit: 660122f
+	- Test case: rjcev513 Config old formats test. The four values are plain checks now. It also covers a file both rules read alike, which is left alone, and a 2.x file that can't be backed up and is edited while the app runs.
+	- Acceptance signoff: Self-closed: rjcev513 fails before the fix and passes after, on Linux and natively on Windows. The question on the item was answered.
+	- Closed: 20261003-174609
 
 - A release build reuses an old build dir that keeps link-time optimization off.
 	- ID: 2026100316321188
@@ -1160,6 +953,213 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: `test-nemo-psd`: rows at the least length are read, one byte less is refused, and a file of empty rows, 30000 by 30000 as psd and 60000 by 60000 as psb, is refused in under a second. Fuzz seed `zero-rows`, and `short-literal` reworked so it still reaches the literal-run bound.
 	- Branch: psdrows
 	- Commit: 24d99cd
+
+- Settings in an older SHCL format are kept as a backup and written again in the current one.
+	- ID: 2026100311512222
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
+	- Needs external testing: done. rjc4dd8z passed natively on b29w and vm925w, 20261003.
+	- Priority|Severity: Avg
+	- Opened: 20261003-115122
+	- Opened by: t00mietum
+	- Requirements:
+		- When a shcl upgrade breaks compatibility with the application config file(s):
+			- Check if the new shcl version has breaking changes. If so:
+				- Rename the latest config file '[origname]_backup_YYYYmmDD-HHMMSS_format-v[shcl version].shcl'
+				- Write a new config file with the same previous path and name, from scratch through shcl, using whatever settings and conversions shcl can handle.
+	- Decisions:
+		- The old file is copied to the backup name, then the new one replaces it in one step. Another copy of the app starting at that moment never finds the file missing.
+		- A file with no format line came from a 2.x release, or a hand edit took the line out. At startup it is only rewritten when the old rules read it differently, and only spellings both rules agree on are changed. While running it is read as a hand edit and left alone. Its backup name says format 2.
+			- Replaced 20261003 by the decision on 2026100314515200: such a file is converted as 2.x at startup.
+		- A file in a newer format is read but never saved over. A change made meanwhile is kept and saved once the file is current again. Otherwise an older build and a newer one would keep rewriting each other's file, with a new backup each time.
+		- If the backup can't be written, the old file is not saved over.
+		- The new file has only the settings this release knows, each with its comment. Anything else stays in the backup.
+	- Branch: shclfmt
+	- Commit: dd08205
+	- Test case: rjc4dd8z, Config format upgrade test. Fails before the change, passes after.
+	- Acceptance signoff: Self-closed: rjc4dd8z fails before the change and passes after, on Linux and natively on Windows. Nothing on screen to judge.
+	- Closed: 20261003-174609
+
+- A CI test makes settings files in older SHCL formats and checks they are converted.
+	- ID: 2026100314290808
+	- Type: Task
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
+	- Needs external testing: done. The Windows cross build is clean, and rjcev513 passed natively on b29w and vm925w, 20261003.
+	- Priority|Severity: Avg
+	- Opened: 20261003-142908
+	- Opened by: t00mietum
+	- Related IDs: 2026100311512222, 2026100314515200
+	- Requirements:
+		- Before rc.1.
+		- Part of CI/CD. The test makes settings files in each older SHCL format, then checks the app's own conversion, not one done with SHCL's help.
+	- Note: rjc4dd8z only covers one hand-written 2.x file.
+	- Done: settings were written with SHCL 1.2.0 (v1.0.0-beta2 and on) and 2.0.0 before format 3. Both headers are kept in `vendor/shcl-old`, and a small writer is built against each. It writes a settings file with the setters the app used then, with and without a few hand-edited lines, and records what that release read back from it. The test opens each file in the app, then opens what the app saved in a second run, and checks every value, the backup, and the format line.
+	- Note: both old releases write these files the same way. Settings in a comma-decimal locale under 1.2.0 are not covered, since the build box has no such locale. Keys renamed since are left out; the test is about the format.
+	- Note: four values do not read right. Filed as 2026100314515200, and marked in the writer so the test fails once they do.
+	- Verified: rjcev513 passes. It fails when the app converts no file with no format line at startup, and when it converts every such file as 2.x.
+	- Branch: shclold
+	- Commit: d344708
+	- Test case: rjcev513 Config old formats test.
+	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
+	- Closed: 20261003-174609
+
+- The window title does not follow a change to the path separator.
+	- ID: 2026100221072783
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
+	- Priority|Severity: Low
+	- Opened: 20261002-210727
+	- Opened by: item 2026092813381422
+	- Related IDs: 2026092813381422
+	- Incorrect behavior: the window listens for `path-separator` on the main settings group, but the key is in the windows group, so the handler never runs. A title that spells out a path keeps the old separator until something else sets it.
+	- Expected behavior: the title follows the separator at once, as the places pane does.
+	- Reproduced: yes, 20261003, Linux. With a tab open, a change to `windows.path-separator` in the settings file never reached the window.
+	- Origin: 4942625 listened on the main group, and e821544 then moved the key to the windows group. Not seen by an earlier round. Confirmed.
+	- Possible fix: listen on the windows group. A lint check of each listened key against the group the schema puts it in would find any others.
+	- Actual cause: as above. Nothing checked that a listened key is in the group it is listened on.
+	- Actual fix: the window listens on the windows group. The settings handler lint now checks each key in a handler, a read or a write against the group the settings table puts it in. design.md, "Handlers on settings groups", says so.
+	- Sweep: every handler, read and write on a settings group with a key known before run time.
+	- Swept: 447 calls over `source/`. One more was wrong: the thumbnail size handler in the file code listened on the main group, but the key is in the icon view group, so a change to it waited for a restart. Fixed the same way. The 5 calls whose key is only known at run time were left alone.
+	- Note: on Linux the separator changes nothing a person sees, so the title is only worth a look on Windows.
+	- Branch: grpfix
+	- Commit: 0a17659 (lint), bc533c7 (test), 5f6d314 (fix)
+	- Test case: rjahhesy, Held view settings handlers test. A change to the path separator has to make the window spell its path again. It fails without the fix. `lint-pref-handlers.py --self-test`, new cases for a key on the wrong group, a key in no group and a macro it cannot read.
+	- Verified: 20261003 on vm925w, with whole paths in the title. A change of `windows.path-separator` to slash in the settings file turned the title from `C:\Users\...` to `C:/Users/...`, and back again on the change back.
+	- Acceptance signoff: Self-closed: rjahhesy passes in the full Linux suite, and the title was seen to follow the separator on Windows.
+	- Closed: 20261003-174609
+
+- After an icon view closes, icon captions and the label length limits stop following their settings until restart.
+	- ID: 2026100221072784
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
+	- Priority|Severity: Low
+	- Opened: 20261002-210727
+	- Opened by: item 2026092813381422
+	- Related IDs: 2026092813381422
+	- Incorrect behavior: the icon view container connects three settings handlers once per process, with no data, and the first container to be freed removes them. After that, the captions and the label length limits for icon view and desktop no longer follow their settings.
+	- Expected behavior: those settings keep working for every icon view until the program quits.
+	- Reproduced: yes, 20261003, Linux. Closing an icon view tab removed all three handlers.
+	- Origin: upstream. Not seen by an earlier round. Confirmed.
+	- Keep: design.md, "Handlers on settings groups", the row for no data or a file static.
+	- Possible fix: drop the three disconnects from the container's finalize.
+	- Actual cause: as above. The container's finalize removed handlers that every container shares.
+	- Actual fix: the three disconnects are gone, and the finalize with them, per the row above. The settings handler lint now reports a disconnect on a settings group whose data is NULL or a file static.
+	- Sweep: every disconnect on a settings group with no data or a file static.
+	- Swept: the lint over `source/` finds none left. The other disconnects on settings groups are the icon container moving from one group to the other, the Current folder tab's struct, and a test's local.
+	- Branch: grpfix
+	- Commit: 0a17659 (lint), bc533c7 (test), 4e37c4e (fix)
+	- Test case: rjahhesy, Held view settings handlers test. A handler connected with no data or a static must still be there after a list or icon view tab closes. It fails without the fix. `lint-pref-handlers.py --self-test`, a new case for such a disconnect.
+	- Verified: 20261003, Linux, on screen. With a second icon view tab opened and closed, a change to `icon-view.captions` in the settings file put the sizes under the icons in the tab left open.
+	- Acceptance signoff: Self-closed: rjahhesy passes in the full Linux suite, and the captions were seen to follow their setting after a tab closed.
+	- Closed: 20261003-174609
+
+- A hand edit to the settings file can be lost when the program saves at the same moment.
+	- ID: 2026100221273001
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
+	- Needs external testing: done. rdjjz89r passed on vm925w on 20261003, in a session with a monitor. The native suite skips it where there is none.
+	- Priority|Severity: Low
+	- Opened: 20261002-212730
+	- Opened by: item 2026092813381422
+	- Related IDs: 2026092813381422
+	- Incorrect behavior: a change made in the program is saved a couple of seconds later, and the save writes the whole file without checking whether it changed on disk since it was read. A hand edit saved just before that, and not yet picked up, is overwritten. The program then takes the event for it as its own write, so the edit is gone with no message.
+	- Expected behavior: a hand edit is never lost to the program's own save.
+	- Reproduced: yes, 20261003, Linux. A hand edit written while a change made in the program waited to be saved was gone after the save, and stayed gone once the monitor caught up. A file removed by hand was put back, and a file in a newer format was saved over, the same way.
+	- Actual cause: the save wrote the document it had in memory without looking at the file. The late event for the edit then matched the save and was ignored as the program's own write.
+	- Origin: before this branch. Code review 20260919 item 16 fixed the other direction, a change in the program lost to a hand edit. Not seen by an earlier round. Confirmed.
+	- Decisions:
+		- When both sides changed, the file wins for every key the program did not change. The program's unsaved keys go on top of a fresh read, and then it saves. No dialog. Call made without asking; reversible.
+		- A key changed both ways keeps the program's change. That is the rule item 16 of review 20260919 already follows when the monitor gets there first, so the answer does not depend on which comes first. The hand edit can still be the later of the two. Going by time would need a time per key, checked against the file's.
+	- Actual fix: a save reads the file first. If it is not what the program last wrote or read, it is reloaded the way the monitor does it, with the unsaved keys put back and the changed keys announced, and then the save goes ahead. A newer-format file found that way is left alone, and a removed file means defaults plus the unsaved keys, both as the monitor already does. A very short window is left between that read and the write, which no ordinary file write can close.
+	- Swept: the monitor's reload and the save now share one reload. The exit flush and `--reset` go through the same save. The bookmarks file is the only other watched file the program writes; it is saved at once on each change with no delay, so it was left alone.
+	- Verified: config tests rg6a49ar, rdjjz89r, rjc4dd8z, rjcev513, reqzgh4g, rfazc870 and rf2w8yxr pass on Linux after a clean build. Lint clean.
+	- Branch: handedit
+	- Commit: 3ad0dcc
+	- Test case: rdjjz89r (`test_hand_edit_survives_save`, `test_hand_delete_and_newer_before_save`), red before the fix and green after.
+	- Acceptance signoff: Self-closed: rdjjz89r fails before the fix and passes after, and passes on Linux and natively on Windows.
+	- Closed: 20261003-174609
+
+- Code review 20260928 item 17. Hardlinking a selected symlink links the symlink, not the file.
+	- ID: 2026092813381417
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
+	- Needs external testing: done on vm925w, 20261003.
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: a relative symlink hardlinked into another folder arrives dangling.
+	- Expected behavior: the hardlink warning, the same file under a second name.
+	- Reproduced: yes, 20260928, Linux.
+	- Actual cause: the hardlink is made of the symlink itself. Windows does the same, per its documentation.
+	- Origin: 73ec92e, 20260924 (makelink). New ground. Confirmed.
+	- Actual fix: a symlink is followed first, so the hardlink is a second name for the file it leads to. A symlink that leads nowhere fails with the usual error.
+	- Swept: the hardlink call has one implementation per platform, and Make link is its only caller. Both follow now.
+	- Branch: linkfix
+	- Commit: 342d30a
+	- Test case: rfwwdyvg, Link copy test, a hardlink of a relative symlink made in another folder. Fails before the fix and passes after, on Linux.
+	- Verified: the link copy test passes on Linux. The Windows code builds but was not run, since wine makes no symlinks.
+	- Note: rfwwdyvg passed on b29w on 20261002, in the native suite, but it skips its symlink checks without a word when symlinks can't be made, so this case is not shown to have run.
+	- Verified: 20261003, rfwwdyvg passed natively on vm925w with symlinks allowed, so the hardlink of a symlink case ran.
+	- Acceptance signoff: Self-closed: rfwwdyvg passes on Linux and natively on Windows with its symlink cases run.
+	- Closed: 20261003-174609
+
+- Code review 20260928 item 24. Settings comments that look like the SHCL info block are removed on save.
+	- ID: 2026092813381424
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: a line of the user's own that starts like the info block's lines is taken as part of it and dropped, and so is a bare `##` next to one.
+	- Expected behavior: a comment of the user's own is kept.
+	- Reproduced: yes, 20261003, Linux. A note spelled `##    Aligned   like the info block` between two `##` lines, at the top of the file, was gone after the next save, `##` lines and all.
+	- Origin: 851c5aa, 20260925 (shclbanner). New ground. Confirmed.
+	- Actual cause: the save took any line starting `##` and four spaces as part of the info block wherever it was, and any `##` next to one.
+	- Actual fix: only a run of `##` lines that has the block's SHCL line or its format line is the block, the same test SHCL itself uses. Inside that run only the block's own lines come off, so a `## note` written against it stays too.
+	- Sweep: every place that takes the info block out of the file.
+	- Swept: `apply_catalog` is the only one. Nothing else strips it, and `shcl_set_banner` is not called.
+	- Branch: shclold
+	- Commit: e2c055b
+	- Test case: rg6a49ar Config defaults list test, new case for notes spelled like the block, at the top and right after it. Fails before the fix, passes after.
+	- Acceptance signoff: Self-closed: rg6a49ar fails before the fix and passes after, in the full Linux suite.
+	- Closed: 20261003-174609
+
+- The application's quit hook never runs, so a keyboard shortcut changed just before quit is lost.
+	- ID: 2026100113372562
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
+	- Needs external testing: none. The test needs X, and on Windows the shortcut file's folder is never there, so nothing is saved there either way (2026100315470225).
+	- Priority|Severity: Low
+	- Opened: 20261001-133725
+	- Opened by: code review 20260928 item 20
+	- Related IDs: 2026092813381420, 2026100315470225
+	- Incorrect behavior: both application classes put their quit work in `quit_mainloop`, which GLib has not called since 2.32. So a shortcut map change still waiting out its 30 s is never saved, and the "still unmounting" notice is never taken down. The rest of it frees memory the exit frees anyway.
+	- Expected behavior: a shortcut changed just before quit is there on the next start.
+	- Reproduced: yes for the hook, 20261001, Linux. The lost shortcut and the notice left up, 20261003, Linux.
+	- Origin: upstream. Not seen by an earlier round. Confirmed.
+	- Possible fix: move what still matters to GApplication's `shutdown`, and drop what the exit makes pointless.
+	- Actual cause: GLib calls `shutdown` at the end of a run, not `quit_mainloop`.
+	- Actual fix: the quit work moved to `shutdown` in both classes. The base class saves a shortcut change still waiting, and the window class takes down the "still unmounting" notice. Freeing the icon caches, the undo manager and the style provider was dropped, since the exit frees them.
+	- Note: the file cache is still written at the end of `main ()`. `shutdown` runs before the thumbnail threads are done, and they may still be storing.
+	- Note: the old hook took the notice down through the unmount done step with no message, which logs a critical. The notice is now withdrawn on its own.
+	- Note: the shortcut file's folder is never made, so with none nothing is saved at any time. Filed as 2026100315470225. The test makes the folder.
+	- Swept: these two were the only `quit_mainloop` overrides, and the only application classes.
+	- Branch: quitlock
+	- Commit: aced497
+	- Test case: `rjch1b9a Shortcut saved and notice withdrawn at quit test`. The built program changes a shortcut and puts the notice up once its window is up, and the window is closed inside the 30 s. The shortcut is in the saved file and back on the next start, and the notice was withdrawn. Fails before the fix and passes after, on Linux.
+	- Verified: rjch1b9a, rj750n43 and the file cache store and prune tests pass on Linux. Lint is clean.
+	- Acceptance signoff: Self-closed: rjch1b9a fails before the fix and passes after, in the full Linux suite.
+	- Closed: 20261003-174609
 
 - Code review 20260928 item 25. The .deb changes with the filesystem it is built on.
 	- ID: 2026092813381425
