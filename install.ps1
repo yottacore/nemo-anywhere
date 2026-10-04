@@ -16,6 +16,7 @@
 ##			-Release dev|stable     which release to take (default: stable)
 ##			-Target  user|system    where to install (default: user)
 ##			-From    PATH|URL       install this archive instead of a release
+##			-AllowUnverified        install a release that has no checksums file
 ##			-Uninstall              remove an existing install
 ##			-Yes                    don't ask before making changes
 ##			-Version                print the installer's version
@@ -55,6 +56,11 @@
 
 .PARAMETER From
 	Install this archive - a path or a URL - instead of fetching a release.
+	It is not checked against a checksums file.
+
+.PARAMETER AllowUnverified
+	Install a release that publishes no checksums file. Without it the installer
+	stops there, even with -Yes. A checksums file that is there is still checked.
 
 .PARAMETER Uninstall
 	Remove an existing install, including its launcher and PATH entry. Settings
@@ -90,6 +96,7 @@ param(
 	[ValidateSet("dev", "stable")][string]$Release = "stable",
 	[ValidateSet("user", "system")][string]$Target = "user",
 	[string]$From = "",
+	[switch]$AllowUnverified,
 	[switch]$Uninstall,
 	[switch]$Yes,
 	[switch]$Version,
@@ -101,7 +108,7 @@ param(
 # Configuration
 
 $Repo    = "yottacore/nemo-anywhere"
-$InstallerVersion = "1.2.0"
+$InstallerVersion = "1.3.0"
 $AppName = "Nemo Anywhere"
 $ExeName = "nemo-anywhere"
 
@@ -185,6 +192,7 @@ function fHelp {
 	fEcho_Clean "    -Release dev|stable     which release to take (default: stable)"
 	fEcho_Clean "    -Target  user|system    where to install (default: user)"
 	fEcho_Clean "    -From    PATH|URL       install this archive instead of a release"
+	fEcho_Clean "    -AllowUnverified        install a release that has no checksums file"
 	fEcho_Clean "    -Uninstall              remove an existing install"
 	fEcho_Clean "    -Yes                    don't ask before making changes"
 	fEcho_Clean "    -Version                the installer's version"
@@ -192,6 +200,10 @@ function fHelp {
 	fEcho_Clean ""
 	fEcho_Clean "  The OS and architecture are detected. With no stable release yet,"
 	fEcho_Clean "  stable takes the newest prerelease and says so in the plan."
+	fEcho_Clean ""
+	fEcho_Clean "  A release download is checked against the release's checksums file."
+	fEcho_Clean "  With no checksums file it stops, even with -Yes, unless"
+	fEcho_Clean "  -AllowUnverified is given. A -From archive is not checked."
 	fEcho_Clean ""
 }
 
@@ -657,7 +669,14 @@ function fMain {
 		$sourceDesc  = $downloadUrl
 		$releaseDesc = "${Release} ${relVersion}"
 		if ($Release -eq "stable" -and $relVersion.Contains('-')) { $releaseDesc += "   (no stable release yet, so the newest prerelease)" }
-		$verifyDesc  = if ($sumsUrl) { "sha256, against ${sumsAsset}" } else { "UNVERIFIED - release publishes no checksums" }
+		if ($sumsUrl) {
+			$verifyDesc = "sha256, against ${sumsAsset}"
+		} elseif ($AllowUnverified) {
+			$verifyDesc = "UNVERIFIED - release publishes no checksums (-AllowUnverified)"
+		} else {
+			## Before the plan and the question, so -Yes alone never gets past it.
+			fFail "release ${tag} publishes no ${sumsAsset}, so the download can't be checked - re-run with -AllowUnverified to install it anyway"
+		}
 	}
 
 	fEcho_Clean ""
@@ -912,3 +931,5 @@ if ($state.failed -and $runningAsScriptFile) { exit 1 }
 ##		- 2026-10-01 JC: The Windows install folder is copied out of the temp
 ##		  folder rather than moved, so it takes the install folder's permissions
 ##		  and other accounts can run a system install.
+##		- 2026-10-03 JC: A release with no checksums file stops the install,
+##		  -Yes or not, unless -AllowUnverified is given.
