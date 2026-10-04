@@ -141,7 +141,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The rename field moves a window that does not exist yet when it is sized before it is shown.
 	- ID: 2026100412363910
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261004-123639
 	- Opened by: work on 2026100412230310
@@ -151,8 +151,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: no critical. The text window takes its size when it is made.
 	- Reproduced: yes, 20261004, Linux, with the field put in a window before the window is shown. A rename in the program puts it in a view already on screen, and was not seen to log it.
 	- Possible cause: `eel_editable_label_size_allocate` calls `gdk_window_move_resize` on `text_area` without checking that the widget is realized.
+	- Actual cause: as above. GTK sizes a window's widgets before it realizes them, so a field in a window that is not yet shown is sized first, and the text window is not there to move.
 	- Origin: upstream.
-	- Test case: none yet.
+	- Actual fix: the size code moves the text window only once the field is realized. Realize already makes the text window at the field's place and size, and now says so at the site.
+	- Swept: the only other `gdk_window_move_resize` in a size handler, the path bar's, already checks first. The icon container's one `gdk_window_move` realizes its dialog just before. The field's other uses of the text window, on map, unmap, pointer motion and the screen position, only run once it is realized.
+	- Branch: editlbl
+	- Commit: 9d15cf8
+	- Test case: rjew8g59, Rename field sized before shown test. A field sized with no window, then one put in a window before it is shown, log nothing, and the text window matches the field when shown, after a move and when shown again. Fails before the fix with two criticals, passes after.
+	- Verified: 20261004, Linux: rjew8g59 fails before the fix and passes after. It also fails when the text window is made at the wrong size, and when the size code never moves it. Full Linux suite 167 of 167, rjes67yy included. The Windows cross build and lint pass.
+	- Acceptance signoff: Self-closed: reproduced, rjew8g59 fails before the fix and passes after, and the sweep is answered.
+	- Closed: 20261004-132748
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
@@ -261,13 +269,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Code review 20260928 item 39. Four delete confirm functions are marked unused but are called.
 	- ID: 2026092813381439
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
 	- Requirements:
 		- The mark hides a real warning if one of them stops being called. Drop it on all four.
+	- Done: the mark is gone from the move to trash, delete from trash, empty trash and delete directly confirms. All four are still called, and the build has no warning.
+	- Swept: the one other function in the tree marked unused, the date type name in `nemo-file.c`, is only called from a debug message that can compile away, so it keeps the mark.
+	- Branch: editlbl
+	- Commit: 1a45acc
 	- Test case: none, the compiler checks it once the mark is gone.
+	- Verified: 20261004, Linux: clean rebuild with no warnings, full Linux suite 167 of 167, and the Windows cross build passes.
+	- Acceptance signoff: Self-closed: mechanical.
+	- Closed: 20261004-132748
 
 - Code review 20260928 item 40. The shortcut path choice code is only reached by tests.
 	- ID: 2026092813381440
