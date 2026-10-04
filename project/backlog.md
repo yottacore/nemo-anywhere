@@ -490,32 +490,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
 
-- A release build reuses an old build dir that keeps link-time optimization off.
-	- ID: 2026100316321188
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261003-163211
-	- Opened by: code review 20260928 items 25 to 28
-	- Related IDs: 2026092813381427, 2026092813381428
-	- Target OS: Linux.
-	- Incorrect behavior: release.bash asks for link-time optimization, but the release container's build dir has it off and keeps it off. A clean build of the same commit has it on, so every binary differs from the published ones.
-	- Expected behavior: README, the Linux builds can be rebuilt from their commit to the same bytes.
-	- Reproduced: yes, 20261003, Linux. Dev `f4d2386` built in a new container from the current image, with its old build dir, gave a 2175143 byte tarball. A clean build gave 2195908 bytes. The live release container's build dir also reads link-time optimization off.
-	- Possible cause: meson 0.61's `setup --reconfigure` does not apply the option to a build dir set up without it. The current image also has a build dir saved inside it, so even a new container starts from it.
-	- Actual cause: on a reconfigure, the release image's meson takes plain options but drops new `b_` ones, so `b_lto` and `b_lto_threads` never reached a dir first set up without them. release.bash reconfigured whatever dir it found, and the image had one saved inside it from hand work in the container.
-	- Actual fix: the build dir is set up from nothing on every release build, by the new `cicd/linux/release-setup.bash`, which then reads back what meson recorded and stops on anything but what was asked. `--clean` is still taken but does nothing now. The release image was re-committed without its build dirs, temp files and the beta1 package's leftover config, and the release container was made again from it.
-	- Swept: the cross lane's meson keeps `b_` options on a reconfigure, and its build dir reads link-time optimization on. The fuzz lane already starts over when its flags are missing. The debug build and the suite are not release builds. The hosted Windows build runs on a fresh runner.
-	- Note: the item 27 decision still holds. The image has the same packages as before; only build leftovers were removed.
-	- Note: a clean build takes about a minute here, so each pipeline run is that much longer.
-	- Note: beta1 and beta2 were built with link-time optimization off, so a rebuild of either tag does not match what was published.
-	- Branch: cleanrel
-	- Commit: a24072f
-	- Test case: `cicd/linux/test-release-setup.bash` (rjcpvcyb), in the lint stage. Fails before the fix, passes after.
-	- Verified: rjcpvcyb fails with the old reconfigure logic (`b_lto` off, no `-flto`) and passes with the fix, and fails when the setup script's guard on what it clears is taken out. A full release build in the old container, over its old dir, came out with link-time optimization on. A second one in a new container from the re-committed image gave the same tarball, byte for byte. The lint stage passes.
-	- Acceptance signoff: Self-closed: a build lane fix with nothing on screen. rjcpvcyb covers it.
-	- Closed: 20261003-172500
-
 - Code review 20260928 item 26. The installers go ahead when a release has no sums file.
 	- ID: 2026092813381426
 	- Type: Bug
@@ -883,6 +857,32 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. rj043mnp covers it.
 	- Closed: 20261003-112426
+
+- A release build reuses an old build dir that keeps link-time optimization off.
+	- ID: 2026100316321188
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261003-163211
+	- Opened by: code review 20260928 items 25 to 28
+	- Related IDs: 2026092813381427, 2026092813381428
+	- Target OS: Linux.
+	- Incorrect behavior: release.bash asks for link-time optimization, but the release container's build dir has it off and keeps it off. A clean build of the same commit has it on, so every binary differs from the published ones.
+	- Expected behavior: README, the Linux builds can be rebuilt from their commit to the same bytes.
+	- Reproduced: yes, 20261003, Linux. Dev `f4d2386` built in a new container from the current image, with its old build dir, gave a 2175143 byte tarball. A clean build gave 2195908 bytes. The live release container's build dir also reads link-time optimization off.
+	- Possible cause: meson 0.61's `setup --reconfigure` does not apply the option to a build dir set up without it. The current image also has a build dir saved inside it, so even a new container starts from it.
+	- Actual cause: on a reconfigure, the release image's meson takes plain options but drops new `b_` ones, so `b_lto` and `b_lto_threads` never reached a dir first set up without them. release.bash reconfigured whatever dir it found, and the image had one saved inside it from hand work in the container.
+	- Actual fix: the build dir is set up from nothing on every release build, by the new `cicd/linux/release-setup.bash`, which then reads back what meson recorded and stops on anything but what was asked. `--clean` is still taken but does nothing now. The release image was re-committed without its build dirs, temp files and the beta1 package's leftover config, and the release container was made again from it.
+	- Swept: the cross lane's meson keeps `b_` options on a reconfigure, and its build dir reads link-time optimization on. The fuzz lane already starts over when its flags are missing. The debug build and the suite are not release builds. The hosted Windows build runs on a fresh runner.
+	- Note: the item 27 decision still holds. The image has the same packages as before; only build leftovers were removed.
+	- Note: a clean build takes about a minute here, so each pipeline run is that much longer.
+	- Note: beta1 and beta2 were built with link-time optimization off, so a rebuild of either tag does not match what was published.
+	- Branch: cleanrel
+	- Commit: a24072f
+	- Test case: `cicd/linux/test-release-setup.bash` (rjcpvcyb), in the lint stage. Fails before the fix, passes after.
+	- Verified: rjcpvcyb fails with the old reconfigure logic (`b_lto` off, no `-flto`) and passes with the fix, and fails when the setup script's guard on what it clears is taken out. A full release build in the old container, over its old dir, came out with link-time optimization on. A second one in a new container from the re-committed image gave the same tarball, byte for byte. The lint stage passes.
+	- Acceptance signoff: Self-closed: a build lane fix with nothing on screen. rjcpvcyb covers it.
+	- Closed: 20261003-172500
 
 - Code review 20260928 item 5. The installer and prefix checks cannot fail a pipeline run.
 	- ID: 2026092813381405
