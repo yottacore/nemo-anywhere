@@ -313,6 +313,11 @@ struct NemoViewClass {
         /* Signals used only for keybindings */
         gboolean (* trash)                         (NemoView *view);
         gboolean (* delete)                        (NemoView *view);
+
+	/* Where the selected item the keyboard menu is for sits, in the
+	   view's coordinates. FALSE when none is in sight. */
+	gboolean (* get_selection_menu_rect)   (NemoView          *view,
+						GdkRectangle      *rect);
 };
 
 /* GObject support */

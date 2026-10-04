@@ -1280,13 +1280,30 @@ static void
 popup_menu (FMTreeView     *view,
             GdkEventButton *event)
 {
+    GtkTreeView *tree_view = GTK_TREE_VIEW (view->details->tree_widget);
+    GtkTreePath *path;
+    GdkRectangle item;
+    gboolean have_item = FALSE;
+
     /* Every item acts on a row, so with no row there is no menu. */
     if (!update_menu_states (view, event)) {
         return;
     }
-    eel_pop_up_context_menu (GTK_MENU (view->details->popup_menu),
-                             (GdkEvent *) event,
-                             GTK_WIDGET (view->details->tree_widget));
+
+    if (event == NULL) {
+        path = popup_row (view, NULL);
+        if (path != NULL) {
+            have_item = eel_gtk_tree_view_get_row_rect (tree_view, path,
+                                                        gtk_tree_view_get_column (tree_view, 0),
+                                                        &item);
+            gtk_tree_path_free (path);
+        }
+    }
+
+    eel_pop_up_context_menu_at_item (GTK_MENU (view->details->popup_menu),
+                                     (GdkEvent *) event,
+                                     GTK_WIDGET (tree_view),
+                                     have_item ? &item : NULL);
 }
 
 /* Callback used for the GtkWidget::popup-menu signal of the shortcuts list */

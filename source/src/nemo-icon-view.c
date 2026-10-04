@@ -2635,6 +2635,16 @@ icon_view_handle_raw (NemoIconContainer *container, const char *raw_data,
 				       raw_data, length, target_uri, direct_save_uri, action, x, y);
 }
 
+static gboolean
+icon_view_get_selection_menu_rect (NemoView *view, GdkRectangle *rect)
+{
+	NemoIconContainer *container = get_icon_container (NEMO_ICON_VIEW (view));
+
+	return nemo_icon_container_get_selection_menu_rect (container, rect) &&
+	       gtk_widget_translate_coordinates (GTK_WIDGET (container), GTK_WIDGET (view),
+						 rect->x, rect->y, &rect->x, &rect->y);
+}
+
 static char *
 icon_view_get_first_visible_file (NemoView *view)
 {
@@ -2886,6 +2896,7 @@ nemo_icon_view_class_init (NemoIconViewClass *klass)
 	nemo_view_class->widget_to_file_operation_position = nemo_icon_view_widget_to_file_operation_position;
 	nemo_view_class->get_view_id = nemo_icon_view_get_id;
 	nemo_view_class->get_first_visible_file = icon_view_get_first_visible_file;
+	nemo_view_class->get_selection_menu_rect = icon_view_get_selection_menu_rect;
 	nemo_view_class->scroll_to_file = icon_view_scroll_to_file;
 
 	properties[PROP_COMPACT] =

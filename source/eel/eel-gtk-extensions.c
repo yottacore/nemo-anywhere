@@ -338,18 +338,46 @@ create_keyboard_popup_rect (GtkWidget *widget, GdkRectangle *rect)
     rect->height = 2;
 }
 
+/* The part of an item that is on screen, in the toplevel's coordinates. */
+static gboolean
+item_popup_rect (GtkWidget *widget, const GdkRectangle *item, GdkRectangle *rect)
+{
+    GdkRectangle bounds = { 0, 0, 0, 0 };
+    GdkRectangle visible;
+
+    if (item == NULL) {
+        return FALSE;
+    }
+
+    bounds.width = gtk_widget_get_allocated_width (widget);
+    bounds.height = gtk_widget_get_allocated_height (widget);
+    if (!gdk_rectangle_intersect (item, &bounds, &visible)) {
+        return FALSE;
+    }
+    if (!gtk_widget_translate_coordinates (widget, gtk_widget_get_toplevel (widget),
+                                           visible.x, visible.y, &visible.x, &visible.y)) {
+        return FALSE;
+    }
+
+    *rect = visible;
+    return TRUE;
+}
+
 /**
- * eel_pop_up_context_menu:
+ * eel_pop_up_context_menu_at_item:
+ * @item: (nullable): the item the menu is for, in @widget's coordinates.
  *
- * Pop up a context menu under the mouse, or against the focused widget when
- * there is no event behind it.
+ * Pop up a context menu under the mouse. With no event behind it, the menu
+ * opens just below @item, or against the focused widget when @item is NULL
+ * or scrolled out of view.
  * The menu is sunk after use, so it will be destroyed unless the
  * caller first ref'ed it.
  **/
 void
-eel_pop_up_context_menu (GtkMenu        *menu,
-                         GdkEvent       *event,
-                         GtkWidget      *widget)
+eel_pop_up_context_menu_at_item (GtkMenu            *menu,
+                                 GdkEvent           *event,
+                                 GtkWidget          *widget,
+                                 const GdkRectangle *item)
 {
     g_return_if_fail (GTK_IS_MENU (menu));
 
@@ -364,11 +392,15 @@ eel_pop_up_context_menu (GtkMenu        *menu,
 #endif
     {
         GdkWindow *window = gtk_widget_get_window (gtk_widget_get_toplevel (widget));
-
+        GdkGravity rect_anchor = GDK_GRAVITY_NORTH_WEST;
         GdkRectangle rect;
 
         if (event != NULL) {
             create_popup_rect (window, &rect);
+        } else if (item_popup_rect (widget, item, &rect)) {
+            /* Below the item, so it stays in sight. GTK flips the menu above
+               it when there is no room below. */
+            rect_anchor = GDK_GRAVITY_SOUTH_WEST;
         } else {
             create_keyboard_popup_rect (widget, &rect);
         }
@@ -376,13 +408,29 @@ eel_pop_up_context_menu (GtkMenu        *menu,
         gtk_menu_popup_at_rect (menu,
                                 window,
                                 &rect,
-                                GDK_GRAVITY_NORTH_WEST,
+                                rect_anchor,
                                 GDK_GRAVITY_NORTH_WEST,
                                 NULL);
     }
 
 	g_object_ref_sink (menu);
 	g_object_unref (menu);
+}
+
+/**
+ * eel_pop_up_context_menu:
+ *
+ * Pop up a context menu under the mouse, or against the focused widget when
+ * there is no event behind it.
+ * The menu is sunk after use, so it will be destroyed unless the
+ * caller first ref'ed it.
+ **/
+void
+eel_pop_up_context_menu (GtkMenu        *menu,
+                         GdkEvent       *event,
+                         GtkWidget      *widget)
+{
+    eel_pop_up_context_menu_at_item (menu, event, widget, NULL);
 }
 
 GtkMenuItem *
@@ -507,6 +555,38 @@ eel_gtk_get_treeview_row_text_at_pos (GtkTreeView *tree_view,
     gtk_tree_path_free (path);
 
     return inside;
+}
+
+/* Where a row's cell in column sits, in the tree view's own coordinates, cut
+   to the part scrolled into view. FALSE when none of it is, or the row is not
+   shown at all, such as one inside a collapsed folder. */
+gboolean
+eel_gtk_tree_view_get_row_rect (GtkTreeView       *tree_view,
+                                GtkTreePath       *path,
+                                GtkTreeViewColumn *column,
+                                GdkRectangle      *rect)
+{
+    GdkRectangle cell, row, visible;
+
+    gtk_tree_view_get_cell_area (tree_view, path, column, &cell);
+    gtk_tree_view_get_background_area (tree_view, path, column, &row);
+    if (row.height <= 0) {
+        return FALSE;
+    }
+    /* The whole row height, so the menu clears the row and not just its text. */
+    cell.y = row.y;
+    cell.height = row.height;
+
+    gtk_tree_view_get_visible_rect (tree_view, &visible);
+    gtk_tree_view_convert_tree_to_bin_window_coords (tree_view, visible.x, visible.y,
+                                                     &visible.x, &visible.y);
+    if (!gdk_rectangle_intersect (&cell, &visible, rect)) {
+        return FALSE;
+    }
+
+    gtk_tree_view_convert_bin_window_to_widget_coords (tree_view, rect->x, rect->y,
+                                                       &rect->x, &rect->y);
+    return TRUE;
 }
 
 /* Escape in a list: nothing selected, and the cursor back on the first row

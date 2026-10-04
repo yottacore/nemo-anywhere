@@ -11170,6 +11170,10 @@ void
 nemo_view_pop_up_selection_context_menu  (NemoView *view,
 					      GdkEventButton  *event)
 {
+	NemoViewClass *view_class;
+	GdkRectangle item;
+	gboolean have_item = FALSE;
+
 	g_assert (NEMO_IS_VIEW (view));
 
 	/* Make the context menu items not flash as they update to proper disabled,
@@ -11178,9 +11182,15 @@ nemo_view_pop_up_selection_context_menu  (NemoView *view,
     nemo_view_update_actions_and_extensions (view);
     update_context_menu_position_from_event (view, event);
 
-    eel_pop_up_context_menu (create_popup_menu (view, NEMO_VIEW_POPUP_PATH_SELECTION),
-                             (GdkEvent *) event,
-                             GTK_WIDGET (view));
+    view_class = NEMO_VIEW_CLASS (G_OBJECT_GET_CLASS (view));
+    if (event == NULL && view_class->get_selection_menu_rect != NULL) {
+        have_item = view_class->get_selection_menu_rect (view, &item);
+    }
+
+    eel_pop_up_context_menu_at_item (create_popup_menu (view, NEMO_VIEW_POPUP_PATH_SELECTION),
+                                     (GdkEvent *) event,
+                                     GTK_WIDGET (view),
+                                     have_item ? &item : NULL);
 }
 
 /**

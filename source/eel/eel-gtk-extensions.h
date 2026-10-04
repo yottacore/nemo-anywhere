@@ -45,6 +45,10 @@ gboolean              eel_check_is_wayland (void);
 void                  eel_pop_up_context_menu                         (GtkMenu              *menu,
                                                                        GdkEvent             *event,
                                                                        GtkWidget            *widget);
+void                  eel_pop_up_context_menu_at_item                 (GtkMenu              *menu,
+                                                                       GdkEvent             *event,
+                                                                       GtkWidget            *widget,
+                                                                       const GdkRectangle   *item);
 GtkMenuItem *         eel_gtk_menu_append_separator                   (GtkMenu              *menu);
 GtkMenuItem *         eel_gtk_menu_insert_separator                   (GtkMenu              *menu,
 								       int                   index);
@@ -61,6 +65,10 @@ gboolean              eel_gtk_get_treeview_row_text_at_pos           (GtkTreeVie
                                                                        gint x, gint y);
 gboolean              eel_gtk_get_treeview_row_text_is_under_pointer  (GtkTreeView *tree_view);
 void                  eel_gtk_tree_view_forget_cursor                 (GtkTreeView *tree_view);
+gboolean              eel_gtk_tree_view_get_row_rect                  (GtkTreeView *tree_view,
+                                                                       GtkTreePath *path,
+                                                                       GtkTreeViewColumn *column,
+                                                                       GdkRectangle *rect);
 gchar *               eel_gtk_tree_view_column_clipped_text          (GtkTreeViewColumn *column,
                                                                        GtkTreeModel *model,
                                                                        GtkTreeIter *iter);

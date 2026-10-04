@@ -1084,6 +1084,22 @@ if not is_windows
     timeout: 120
   )
 
+  # Preloaded too; it opens the menus and measures from inside the program.
+  menu_key_place_probe = shared_module('test-nemo-menu-key-place-probe',
+    [ 'test-nemo-menu-key-place-probe.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk ],
+  )
+  test('rjefm41d Keyboard menu beside the item test',
+    executable('test-nemo-menu-key-place',
+      [ 'test-nemo-menu-key-place.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, menu_key_place_probe ],
+    timeout: 180
+  )
+
   test('rhtq57n4 Clean start test',
     executable('test-nemo-startup-clean',
       [ 'test-nemo-startup-clean.c' ],
