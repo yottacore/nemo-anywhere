@@ -137,29 +137,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
 
-- A failed Windows install leaves a half-copied folder beside the install folder.
-	- ID: 2026100112505357
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Low
-	- Opened: 20261001-125053
-	- Opened by: review of code review 20260928 item 13
-	- Related IDs: 2026092813381413
-	- Target OS: Windows.
-	- Incorrect behavior: when the copy into the staging folder fails partway, such as on a full disk, the partial `<install folder>.new.<number>` folder stays next to the install. No later install removes it. The old install is still there and still runs.
-	- Expected behavior: a failed install leaves nothing behind, as install.bash does.
-	- Reproduced: yes, 20261004, b29w, by the new test. All three ways out left the staging folder. Worse, when the old folder could not be moved aside because a file in it was held open, its other files were moved one at a time into `<install folder>.old.<number>`, so the old install no longer ran.
-	- Origin: the copy fallback from 7284973, 20260925, which item 13's fix made the path every install takes. The split old install is from the same commit: PowerShell 7's Move-Item falls back to moving file by file when a folder rename is refused. Confirmed 20261004.
-	- Sweep: every way out of the Windows install after the staging folder exists: the failed copy, the old folder that cannot be renamed, and the failed final rename.
-	- Actual fix: the staging folder is removed on every way out once it exists, as install.bash does. The install folder renames are plain folder renames, which fail whole instead of splitting the folder. install.ps1 is 1.3.2.
-	- Swept: all three Windows ways out, through one cleanup around the whole stage and swap. install.ps1's unix half had the same gap for a failed copy and a failed move aside, and now cleans up the same way. install.bash already removed its staging folder on all three. No other PowerShell in the project moves a folder: n8runfm.ps1 moves single files on Windows, and the sandbox agent moves one job file.
-	- Branch: stageclean
-	- Commit: d8da36d
-	- Test case: `cicd/utility/test-install-staging.ps1` (rjeqef3d), in the Windows test stage and in the lint stage on Linux. Each way out has to fail, leave nothing beside the install folder, and keep the old install whole.
-	- Verified: 20261004, b29w. rjeqef3d fails on 1.3.1, with all three staging folders left and the old install split, and passes on 1.3.2. rj72n4xb still passes. On Linux rjeqef3d fails on 1.3.1 for the copy and the move aside and passes on 1.3.2, and rhqmz9n8 passes. The lint stage passes. install.ps1 parses clean in PowerShell 5.1 and 7.
-	- Acceptance signoff: Self-closed: the item said what a failed install should leave, the change does that, and rjeqef3d fails before and passes after.
-	- Closed: 20261004-120651
-
 - Icons in the icon and compact views give a screen reader no place on screen.
 	- ID: 2026100409554600
 	- Type: Bug
@@ -1026,6 +1003,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- A failed Windows install leaves a half-copied folder beside the install folder.
+	- ID: 2026100112505357
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261001-125053
+	- Opened by: review of code review 20260928 item 13
+	- Related IDs: 2026092813381413
+	- Target OS: Windows.
+	- Incorrect behavior: when the copy into the staging folder fails partway, such as on a full disk, the partial `<install folder>.new.<number>` folder stays next to the install. No later install removes it. The old install is still there and still runs.
+	- Expected behavior: a failed install leaves nothing behind, as install.bash does.
+	- Reproduced: yes, 20261004, b29w, by the new test. All three ways out left the staging folder. Worse, when the old folder could not be moved aside because a file in it was held open, its other files were moved one at a time into `<install folder>.old.<number>`, so the old install no longer ran.
+	- Origin: the copy fallback from 7284973, 20260925, which item 13's fix made the path every install takes. The split old install is from the same commit: PowerShell 7's Move-Item falls back to moving file by file when a folder rename is refused. Confirmed 20261004.
+	- Sweep: every way out of the Windows install after the staging folder exists: the failed copy, the old folder that cannot be renamed, and the failed final rename.
+	- Actual fix: the staging folder is removed on every way out once it exists, as install.bash does. The install folder renames are plain folder renames, which fail whole instead of splitting the folder. install.ps1 is 1.3.2.
+	- Swept: all three Windows ways out, through one cleanup around the whole stage and swap. install.ps1's unix half had the same gap for a failed copy and a failed move aside, and now cleans up the same way. install.bash already removed its staging folder on all three. No other PowerShell in the project moves a folder: n8runfm.ps1 moves single files on Windows, and the sandbox agent moves one job file.
+	- Branch: stageclean
+	- Commit: d8da36d
+	- Test case: `cicd/utility/test-install-staging.ps1` (rjeqef3d), in the Windows test stage and in the lint stage on Linux. Each way out has to fail, leave nothing beside the install folder, and keep the old install whole.
+	- Verified: 20261004, b29w. rjeqef3d fails on 1.3.1, with all three staging folders left and the old install split, and passes on 1.3.2. rj72n4xb still passes. On Linux rjeqef3d fails on 1.3.1 for the copy and the move aside and passes on 1.3.2, and rhqmz9n8 passes. The lint stage passes. install.ps1 parses clean in PowerShell 5.1 and 7.
+	- Acceptance signoff: Self-closed: the item said what a failed install should leave, the change does that, and rjeqef3d fails before and passes after.
+	- Closed: 20261004-120651
 
 - On Windows, a link that leads nowhere is never shown as broken.
 	- ID: 2026100312494903
