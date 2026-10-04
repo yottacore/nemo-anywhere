@@ -130,7 +130,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - A keyboard shortcut change is never saved where the shortcut file's folder is missing, and the file is upstream Nemo's.
 	- ID: 2026100315470225
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261003-154702
 	- Opened by: work on 2026100113372562
@@ -142,7 +142,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Decisions:
 		- 20261003: the shortcut file moves beside the settings file, and its folder is made when needed. It stays in GTK's own format.
 		- 20261003: on the first start after the move, an existing `~/.gnome2/accels/nemo` is read once, so custom shortcuts carry over. The old file is left alone.
-	- Test case: none yet. rjch1b9a makes the folder itself, and would no longer need to.
+	- Actual cause: the path was upstream's, and nothing made its folder. GTK's save gives up quietly when it cannot open the file.
+	- Actual fix: the file is `accels` beside `settings.shcl`, and the settings folder is made as before. A start that finds no `accels` reads `~/.gnome2/accels/nemo` if there, then writes `accels` at once. That `accels` exists is how "once" is known, so the old file is read on that start only and is never written. `--reset` empties `accels` rather than removing it, so the next start does not go back to the old file. Its help text still says settings and bookmarks.
+	- Note: rjch1b9a no longer makes a folder, and looks for the file in the new place.
+	- Swept: every caller of the shortcut path: the load at startup, the delayed and quit-time save, and `--reset`. `GNOME22_USER_DIR` is now only in the old-file path and the test. The other `.gnome2` use, `nemo_is_in_system_dir`, is about trusted desktop files and was left alone. `n8runfm.ps1` only passes `--reset` through. README never named the file. design.md and the changelog now say where it is.
+	- Test case: `rjcscb0t Shortcut file beside settings and carried over once test`. With no `~/.gnome2`, a change is saved to `accels` and nothing is made there. With an old file, its shortcut is used on the first start and copied into `accels`, and the old file is unchanged. A later change to the old file is not read. After `--reset`, `accels` is empty and the next start has the default. Fails before the fix and passes after, on Linux, and so does rjch1b9a.
+	- Verified: full Linux suite 161 of 161, Windows cross build, lint clean.
+	- Branch: accelmove
+	- Commit: 3c5c3ab
+	- Acceptance signoff: Self-closed: both calls were answered in Decisions, and rjcscb0t fails before the fix and passes after.
+	- Closed: 20261003-175916
 
 - A busy answer to the version check at open wipes the file cache under other copies.
 	- ID: 2026100316054301
