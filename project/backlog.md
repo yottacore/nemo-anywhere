@@ -366,6 +366,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Optional striped rows (turn on instantly, don't bother with menu)
 	- Test case: none, demo content. `cicd/utility/lint-demo-script.py` checks the script.
 
+- Release page: group the downloads in a table.
+	- ID: 2026100413051728
+	- Type: Feature
+	- Status: Queued
+	- Opened: 20261004-130517
+	- Opened by: t00mietum
+	- Requirements:
+		- When a release is made, its downloads are grouped in a table.
+		- CPU architecture in columns, and target OS in rows.
+	- Test case: none yet.
+
 - Code review 20260928 item 2. The tree sidebar crashes on Shift+F10 or the Menu key.
 	- ID: 2026092813381402
 	- Type: Bug
