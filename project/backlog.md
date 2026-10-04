@@ -88,6 +88,33 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261003: rjch1a9a passed natively on b29w at 43a9126, but failed once in the native suite on vm925w at c78aa9e. With the write lock held for 300 ms, the store gave up after 4.9 s with "database is locked". It passed five runs in a row there on its own afterward. Back to Queued.
 		- 20261003: the cause was the test's own holder. Fixed on cachelock. Waits on a native run on vm925w.
 
+- A waiting store can miss every gap between the prune's writes.
+	- ID: 2026100319191870
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. The full Linux suite passed 164 of 164 on 20261004, on prunegap.
+	- Needs external testing: Windows: rhd69rjr and rjch1a9a in the native suite on vm925w. A short sleep there runs on to the next clock tick, which the rest after each write allows for, but it has not run there yet.
+	- Priority|Severity: Low
+	- Opened: 20261003-191918
+	- Opened by: work on 2026093010493420
+	- Related IDs: 2026093010493420, 2026092813381436
+	- Incorrect behavior: while the prune hands space back, each step holds the write lock for only about 40 ms, but the steps follow one another with no gap. A store from another window sleeps up to 100 ms between tries, so it can keep waking while the next step has the lock. It waited 1 to 1.4 s, against the 3 s timeout.
+	- Expected behavior: a waiting store gets its turn within about one step of the prune.
+	- Reproduced: yes, 20261003, Linux, with 40 thousand thumbnails of 16 KB and with 5 thousand of 128 KB, and a second connection writing every 20 ms during the pass.
+	- Possible cause: nothing in the prune lets go of the lock long enough for a waiting connection to notice. The same can happen between delete batches.
+	- Actual cause: sqlite gives a free lock to whoever asks first, not to whoever has waited longest. The prune went from each write straight into the next, while sqlite's own wait backs off to 100 ms between tries, so a waiter kept waking while the next write had the lock. The only gaps were the ones left now and then while the journal was copied back into the file.
+		- Reproduced again 20261004, Linux, in the new test: with a window's read open through the pass, a writer sat out 24 to 29 of the prune's 34 writes in one wait, every run.
+	- Decisions:
+		- Made without asking: the prune rests as long as each write took, and at least 40 ms, so a pass takes at least twice as long. The Clean up button waits for it too.
+	- Actual fix: after each write the prune rests as long as the write took, and at least 40 ms, so the gap allows two Windows clock ticks. A copy waiting on the file tries again every 5 ms instead of backing off to 100 ms, and its 3 s limit is timed on the clock rather than by adding up its sleeps.
+	- Swept: every write the prune makes in a loop: dropping missing names, orphans, old thumbnails, the size rule and each compact step. The claim and the release are single writes. Every connection is opened in one place, so the prune's own waits the same way as a window's. Nothing else in the store writes in a loop.
+	- Note: a store's commit can also copy the journal back into the file, which on a busy disk took about a second. That is time on the disk, not a wait for the prune's lock, and it holds the store's own lock, so it belongs with 2026092813381436.
+	- Note: rhd69rjr's time limit went to 120 s, since eight copies at once took 31 to 35 s with the rests.
+	- Branch: prunegap
+	- Commit: 3474eb0
+	- Test case: rhd69rjr, File cache prune test, the waiting writer case. Another connection writes every 20 ms while a pass takes out 16 MB and hands it back, with a read held open through the pass. It may sit out at most two of the prune's writes in one wait. Fails before the fix, at 24 to 29 of 34, and passes after, at one.
+	- Verified: 20261004, Linux: rhd69rjr fails before the fix in 26 of 26 runs, 16 of them at once, and passes after in every run, 16 at once included. 48 runs of rjch1a9a beside 16 each of the store and prune tests, 16 at a time, all passed. The full Linux suite, lint and the Windows cross build pass.
+
 - Code review 20260928.
 	- ID: 2026092813381400
 	- Type: Task
@@ -109,20 +136,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: Escape not restoring the selection, Ctrl+Shift+T, and Control kept for F1, tab keys, Ctrl+H and Ctrl+M on macOS. All settled earlier.
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
-
-- A waiting store can miss every gap between the prune's writes.
-	- ID: 2026100319191870
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261003-191918
-	- Opened by: work on 2026093010493420
-	- Related IDs: 2026093010493420, 2026092813381436
-	- Incorrect behavior: while the prune hands space back, each step holds the write lock for only about 40 ms, but the steps follow one another with no gap. A store from another window sleeps up to 100 ms between tries, so it can keep waking while the next step has the lock. It waited 1 to 1.4 s, against the 3 s timeout.
-	- Expected behavior: a waiting store gets its turn within about one step of the prune.
-	- Reproduced: yes, 20261003, Linux, with 40 thousand thumbnails of 16 KB and with 5 thousand of 128 KB, and a second connection writing every 20 ms during the pass.
-	- Possible cause: nothing in the prune lets go of the lock long enough for a waiting connection to notice. The same can happen between delete batches.
-	- Test case: none yet. A prune test where another connection writes during the pass and its longest wait is checked.
 
 - A failed Windows install leaves a half-copied folder beside the install folder.
 	- ID: 2026100112505357
