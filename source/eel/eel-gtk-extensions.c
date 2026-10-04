@@ -433,6 +433,36 @@ eel_pop_up_context_menu (GtkMenu        *menu,
     eel_pop_up_context_menu_at_item (menu, event, widget, NULL);
 }
 
+static gboolean
+destroy_menu_idle (gpointer data)
+{
+    gtk_widget_destroy (GTK_WIDGET (data));
+    return G_SOURCE_REMOVE;
+}
+
+static void
+destroy_closed_menu (GtkMenuShell *menu, gpointer data)
+{
+    /* The chosen item is activated after the menu closes, and destroying the
+       menu now would drop the item's handlers before that. */
+    g_idle_add_full (G_PRIORITY_DEFAULT_IDLE, destroy_menu_idle,
+                     g_object_ref (menu), g_object_unref);
+}
+
+/**
+ * eel_gtk_menu_destroy_on_close:
+ *
+ * For a menu built each time it is opened. It is destroyed once it closes,
+ * since nothing else frees it, attached or not.
+ **/
+void
+eel_gtk_menu_destroy_on_close (GtkMenu *menu)
+{
+    g_return_if_fail (GTK_IS_MENU (menu));
+
+    g_signal_connect (menu, "deactivate", G_CALLBACK (destroy_closed_menu), NULL);
+}
+
 GtkMenuItem *
 eel_gtk_menu_append_separator (GtkMenu *menu)
 {

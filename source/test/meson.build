@@ -1200,6 +1200,15 @@ if not is_windows
     args: [ nemo, tab_move_probe ],
     timeout: 180
   )
+  test('rjf00qfj Menus freed after closing test',
+    executable('test-nemo-menus-freed',
+      [ 'test-nemo-menus-freed.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, test_scratch ],
+    ),
+    args: [ nemo, tab_move_probe ],
+    timeout: 120
+  )
 
   xtst = dependency('xtst', required: false)
   if xtst.found()
