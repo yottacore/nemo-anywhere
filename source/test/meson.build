@@ -1315,7 +1315,7 @@ test('rhtmbdmj Compress dialog height test',
   executable('test-nemo-archive-dialog',
     [ 'test-nemo-archive-dialog.c', '../src/nemo-archive-dialog.c' ],
     include_directories: [ rootInclude, include_directories('../src') ],
-    dependencies: [ gtk, nemo_private, test_scratch ],
+    dependencies: [ gtk, nemo_private, x11, test_scratch ],
     c_args: nemo_definitions,
   ),
   args: []
