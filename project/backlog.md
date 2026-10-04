@@ -33,29 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- If the Windows release workflow makes the release before the local cut does, the local cut fails.
-	- ID: 2026100415281302
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: the next real release tag. The cut should wait for the Windows build, then put up one release with every file.
-	- Priority|Severity: Low
-	- Opened: 20261004-152813
-	- Opened by: work on 2026100413051728
-	- Related IDs: 2026100413051728
-	- Incorrect behavior: `release.bash` pushes the tag, then runs `gh release create`. The tag starts the Windows workflow, which makes the release itself when none is there yet. If the local step runs late, its create fails.
-	- Expected behavior: only the local cut makes a release. Hosted builds only build, and hand their files back to it, so the release goes up whole in one step. The same holds for any later BSD, macOS or ARM build done elsewhere.
-		- Answered 2026-10-04, replacing the first fix, where whichever side came second added to the other's release.
-	- Reproduced: yes. The new cases in rjf2v5d5 fail on the old `release.bash`, where the create is refused because the release is there.
-	- Decisions:
-		- If a hosted build fails, no release is made. Run `release.bash --publish` again once it passes; it picks up from the pushed tag. A call made without asking.
-		- A release already there for the tag is refused, never added to. A call made without asking.
-	- Actual fix: `release-win.yml` only builds, and hands back the exe as a `release-files` artifact under its release name. `release.bash --publish` waits for each hosted build in `RELEASE_WORKFLOWS`, downloads its files, adds their lines to the one sums file, writes the notes with the Downloads table, and makes the release with every file in one `gh release create`.
-	- Swept: every `gh release` call. None are left in the workflow. design.md and `cicd/win/signing.md` say the workflow no longer publishes.
-	- Branch: relrace, then relone
-	- Commit: 24de39d, 3cfa988
-	- Test case: rjf2v5d5 (`test-release-notes.bash`, lint stage): a hosted build still running, one that fails and is rerun, a release already there, and a misnamed hosted file.
-	- Verified: rjf2v5d5 fails on the old `release.bash` and workflow and passes now.
-
 - Release page: group the downloads in a table.
 	- ID: 2026100413051728
 	- Type: Feature
@@ -79,6 +56,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjf2v5d5 (`test-release-notes.bash`, lint stage).
 	- Verified: rjf2v5d5 passes, and the lint stage is clean.
 
+- If the Windows release workflow makes the release before the local cut does, the local cut fails.
+	- ID: 2026100415281302
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs external testing: the next real release tag. The cut should wait for the Windows build, then put up one release with every file.
+	- Priority|Severity: Low
+	- Opened: 20261004-152813
+	- Opened by: work on 2026100413051728
+	- Related IDs: 2026100413051728
+	- Incorrect behavior: `release.bash` pushes the tag, then runs `gh release create`. The tag starts the Windows workflow, which makes the release itself when none is there yet. If the local step runs late, its create fails.
+	- Expected behavior: only the local cut makes a release. Hosted builds only build, and hand their files back to it, so the release goes up whole in one step. The same holds for any later BSD, macOS or ARM build done elsewhere.
+		- Answered 2026-10-04, replacing the first fix, where whichever side came second added to the other's release.
+	- Reproduced: yes. The new cases in rjf2v5d5 fail on the old `release.bash`, where the create is refused because the release is there.
+	- Decisions:
+		- If a hosted build fails, no release is made. Run `release.bash --publish` again once it passes; it picks up from the pushed tag. A call made without asking.
+		- A release already there for the tag is refused, never added to. A call made without asking.
+	- Actual fix: `release-win.yml` only builds, and hands back the exe as a `release-files` artifact under its release name. `release.bash --publish` waits for each hosted build in `RELEASE_WORKFLOWS`, downloads its files, adds their lines to the one sums file, writes the notes with the Downloads table, and makes the release with every file in one `gh release create`.
+	- Swept: every `gh release` call. None are left in the workflow. design.md and `cicd/win/signing.md` say the workflow no longer publishes.
+	- Branch: relrace, then relone
+	- Commit: 24de39d, 3cfa988
+	- Test case: rjf2v5d5 (`test-release-notes.bash`, lint stage): a hosted build still running, one that fails and is rerun, a release already there, and a misnamed hosted file.
+	- Verified: rjf2v5d5 fails on the old `release.bash` and workflow and passes now.
+
 - Code review 20260928.
 	- ID: 2026092813381400
 	- Type: Task
@@ -100,36 +100,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: Escape not restoring the selection, Ctrl+Shift+T, and Control kept for F1, tab keys, Ctrl+H and Ctrl+M on macOS. All settled earlier.
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
-
-- On Windows, the file cache test of many copies opening at once failed once in a parallel suite run with a disk I/O error.
-	- ID: 2026100415281201
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed 167 of 167 on 20261004, on cacheio.
-	- Needs external testing: none left. Ran on vm925w on 20261004.
-	- Priority|Severity: Low
-	- Opened: 20261004-152812
-	- Opened by: owed native tests, 20261004
-	- Related IDs: 2026100113372592
-	- Target OS: Windows
-	- Test environment: vm925w, session 0, native suite at 8 jobs.
-	- Incorrect behavior: in rjch1a9a, one of 20 rounds had a copy with no store, after "could not set up the file cache: disk I/O error" at 302 ms.
-	- Expected behavior: every copy gets its store, even with the rest of the suite running beside it.
-	- Reproduced: once, 20261004, vm925w at 0ad01d1, in the full native suite. Passed 5 of 5 run alone right after, and passed in the full suite at bab9a49 earlier the same day.
-		- Reproduced again 20261004 on vm925w, with rjch1a9a and the prune test run over and over, 12 at a time. rjch1a9a failed in each of three tries, 4 times in all. The message now has sqlite's own code and the system error, and said the -shm file could not be emptied because it was still mapped.
-	- Possible cause: not known. The fix for 2026100113372592 retries a busy cache, and an I/O error may need the same, or it may be something Windows does to a new file under load.
-	- Actual cause: a copy that quits without closing the store lets go of its locks on the -shm file before Windows unmaps the file from it. A copy opening at that moment finds no lock, takes itself for the first, and tries to empty the file. Windows refuses that while a view of the file is left. The sqlite in the Windows build gives up with a disk I/O error there, where older versions carried on. The app quits without closing the store too, so two windows could hit it, not only the test.
-		- With the copies closing the store before they quit, 60 runs under the same load all passed, so the old copy's view is what is in the way.
-	- Actual fix: setting up the store waits out that error as it does a busy file, for up to the same 3 s, on Windows only. The first read through the new journal, which is where a new file opens the -shm file, moved into the setup so it gets the same wait. Every setup failure now logs sqlite's own code and the system error.
-	- Swept: every connection to the store is opened in one place, the prune's own and the test hook's included, and nothing else in the app uses sqlite. Once a connection is set up it has the -shm file locked and never empties it again.
-	- Note: closing the store when the app quits would narrow the window for a normal quit, but not for a crash or a killed copy, and worker threads can still be using it then. Left alone.
-	- Branch: cacheio
-	- Commit: e9ac264, 18be0d2
-	- Test case: rjch1a9a, File cache opened by many at once test. On Windows it now first leaves a view of a new -shm file with no lock behind it, as a quitting copy would, and lets it go after 300 ms; the store has to open. Fails before the fix at once with the disk I/O error, and passes after.
-	- Verified: 20261004, Windows, vm925w: the new case fails before the fix and passes after. With the fix, rjch1a9a and the prune test run 60 times each, 12 at a time, three times over, all passed, against 4 failures in three tries before. The full native suite passed seven times at 8 jobs, 141 OK each, five before the fix and two after.
-	- Verified: 20261004, Linux: the full suite passed 167 of 167, and lint and the Windows cross build are clean.
-	- Acceptance signoff: Self-closed: reproduced, its test fails before the fix and passes after natively on Windows, and nothing is left to judge on screen.
-	- Closed: 20261004-164709
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
@@ -971,6 +941,36 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- On Windows, the file cache test of many copies opening at once failed once in a parallel suite run with a disk I/O error.
+	- ID: 2026100415281201
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 167 of 167 on 20261004, on cacheio.
+	- Needs external testing: none left. Ran on vm925w on 20261004.
+	- Priority|Severity: Low
+	- Opened: 20261004-152812
+	- Opened by: owed native tests, 20261004
+	- Related IDs: 2026100113372592
+	- Target OS: Windows
+	- Test environment: vm925w, session 0, native suite at 8 jobs.
+	- Incorrect behavior: in rjch1a9a, one of 20 rounds had a copy with no store, after "could not set up the file cache: disk I/O error" at 302 ms.
+	- Expected behavior: every copy gets its store, even with the rest of the suite running beside it.
+	- Reproduced: once, 20261004, vm925w at 0ad01d1, in the full native suite. Passed 5 of 5 run alone right after, and passed in the full suite at bab9a49 earlier the same day.
+		- Reproduced again 20261004 on vm925w, with rjch1a9a and the prune test run over and over, 12 at a time. rjch1a9a failed in each of three tries, 4 times in all. The message now has sqlite's own code and the system error, and said the -shm file could not be emptied because it was still mapped.
+	- Possible cause: not known. The fix for 2026100113372592 retries a busy cache, and an I/O error may need the same, or it may be something Windows does to a new file under load.
+	- Actual cause: a copy that quits without closing the store lets go of its locks on the -shm file before Windows unmaps the file from it. A copy opening at that moment finds no lock, takes itself for the first, and tries to empty the file. Windows refuses that while a view of the file is left. The sqlite in the Windows build gives up with a disk I/O error there, where older versions carried on. The app quits without closing the store too, so two windows could hit it, not only the test.
+		- With the copies closing the store before they quit, 60 runs under the same load all passed, so the old copy's view is what is in the way.
+	- Actual fix: setting up the store waits out that error as it does a busy file, for up to the same 3 s, on Windows only. The first read through the new journal, which is where a new file opens the -shm file, moved into the setup so it gets the same wait. Every setup failure now logs sqlite's own code and the system error.
+	- Swept: every connection to the store is opened in one place, the prune's own and the test hook's included, and nothing else in the app uses sqlite. Once a connection is set up it has the -shm file locked and never empties it again.
+	- Note: closing the store when the app quits would narrow the window for a normal quit, but not for a crash or a killed copy, and worker threads can still be using it then. Left alone.
+	- Branch: cacheio
+	- Commit: e9ac264, 18be0d2
+	- Test case: rjch1a9a, File cache opened by many at once test. On Windows it now first leaves a view of a new -shm file with no lock behind it, as a quitting copy would, and lets it go after 300 ms; the store has to open. Fails before the fix at once with the disk I/O error, and passes after.
+	- Verified: 20261004, Windows, vm925w: the new case fails before the fix and passes after. With the fix, rjch1a9a and the prune test run 60 times each, 12 at a time, three times over, all passed, against 4 failures in three tries before. The full native suite passed seven times at 8 jobs, 141 OK each, five before the fix and two after.
+	- Verified: 20261004, Linux: the full suite passed 167 of 167, and lint and the Windows cross build are clean.
+	- Acceptance signoff: Self-closed: reproduced, its test fails before the fix and passes after natively on Windows, and nothing is left to judge on screen.
+	- Closed: 20261004-164709
 
 - On a real Windows screen, the compress dialog test finds the options area capped at a different height than the dialog code works out.
 	- ID: 2026100413554978
