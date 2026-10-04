@@ -45,6 +45,11 @@
  * stuck one does not hold up a draw. */
 #define BUSY_TIMEOUT_MS 3000
 
+/* How often a connection waiting on a busy file tries again. sqlite's own wait
+ * backs off to 100 ms between tries, longer than the gap the prune leaves
+ * between its writes (see make_way). */
+#define BUSY_RETRY_MS 5
+
 /* Draw counts are batched rather than written one at a time - see note_render. */
 #define RENDER_FLUSH_SECS 30
 #define RENDER_FLUSH_MAX  256
@@ -61,6 +66,11 @@
  * one takes longer the bigger it is. Without it a batch of big thumbnails
  * would hold the write lock toward the busy timeout of every other window. */
 #define PRUNE_BATCH_BYTES (1024 * 1024)
+
+/* The least the prune rests after each write, so a waiter trying every
+ * BUSY_RETRY_MS gets a try in the gap. On Windows a short sleep runs on to the
+ * next clock tick, about 16 ms, so this allows for two of those. */
+#define PRUNE_REST_MIN_MS 40
 
 /* A thumbnail's age, for both prune rules. Indexed, so picking a batch walks
  * the index rather than sorting the whole table under the write lock. The
@@ -100,6 +110,7 @@ struct _NemoCacheDb {
 
 	/* Prune connection only. */
 	gint64       largest_batch;
+	gint64       held_since;	/* monotonic, when the current write began */
 };
 
 /* A static GMutex needs no setup, and guards the one-time open. Not
@@ -116,6 +127,13 @@ static gint last_used_secs = 0;
 /* The most thumbnail bytes one prune transaction took out, in the last pass
  * this process ran. Read only by the tests, after the pass. */
 static gint64 last_largest_batch = 0;
+
+/* Writes made by prune passes in this process. Read only by the tests. */
+static gint prune_steps = 0;
+
+/* When this thread's current wait on a busy file began. A thread runs one
+ * statement at a time, so it waits on one file at a time. */
+static GPrivate busy_since = G_PRIVATE_INIT (g_free);
 
 static const char SCHEMA[] =
 	"CREATE TABLE IF NOT EXISTS files ("
@@ -317,6 +335,32 @@ read_user_version (sqlite3 *handle, int *version)
 	return rc;
 }
 
+/* sqlite's busy handler, in place of its own timed one. The wait is timed on
+ * the clock rather than by adding up the sleeps, since a sleep of a few
+ * milliseconds runs long on Windows and on a loaded box. */
+static int
+busy_wait (void *data, int tries)
+{
+	gint64 *since = g_private_get (&busy_since);
+	gint64  now = g_get_monotonic_time ();
+
+	(void) data;
+
+	if (since == NULL) {
+		since = g_new (gint64, 1);
+		g_private_set (&busy_since, since);
+	}
+
+	if (tries == 0)
+		*since = now;
+	else if (now - *since >= (gint64) BUSY_TIMEOUT_MS * 1000)
+		return 0;
+
+	g_usleep (BUSY_RETRY_MS * 1000);
+
+	return 1;
+}
+
 /* The switch to WAL reads the file and only then takes the write lock, and
  * sqlite will not wait on that second step, since two readers each waiting on
  * the other would wait for good. So a copy that meets another one setting up
@@ -361,7 +405,7 @@ open_at (const char *path, gboolean *out_rebuild)
 		return NULL;
 	}
 
-	sqlite3_busy_timeout (handle, BUSY_TIMEOUT_MS);
+	sqlite3_busy_handler (handle, busy_wait, NULL);
 
 	/* Incremental vacuum so the prune can hand space back a few pages at a
 	 * time, rather than a full VACUUM holding the write lock for as long as
@@ -1422,6 +1466,38 @@ claim_pass (NemoCacheDb *db, const NemoCachePruneRules *rules, gint64 *due)
 	return commit (db) ? CLAIM_WON : CLAIM_ERROR;
 }
 
+static gboolean
+begin_step (NemoCacheDb *db)
+{
+	if (!begin (db))
+		return FALSE;
+
+	db->held_since = g_get_monotonic_time ();
+
+	return TRUE;
+}
+
+/* Called after each of the prune's writes. Once the lock is free sqlite gives
+ * it to whoever asks first, not to whoever has waited longest, so a pass that
+ * went straight on to its next write would keep a waiting store out until the
+ * pass was done. Resting as long as the write took lets a waiter in within
+ * about one write, and a write slowed by a busy box rests longer to match. A
+ * pass takes at least twice as long for it, which is fine for a cleanup in the
+ * background. */
+static void
+make_way (NemoCacheDb *db, GCancellable *cancellable)
+{
+	gint64 now = g_get_monotonic_time ();
+	gint64 until = now + MAX (now - db->held_since, (gint64) PRUNE_REST_MIN_MS * 1000);
+
+	g_atomic_int_inc (&prune_steps);
+
+	while (now < until && !g_cancellable_is_cancelled (cancellable)) {
+		g_usleep (MIN (until - now, 10 * 1000));
+		now = g_get_monotonic_time ();
+	}
+}
+
 /* Called inside each batch's transaction. Stamps the claim so nobody takes it
  * for a dead one, and answers false if somebody already has - a pass that
  * stalled past the stale limit must not carry on beside the one that took
@@ -1600,7 +1676,7 @@ drop_missing_paths (NemoCacheDb *db, GCancellable *cancellable)
 		}
 
 		if (gone->len > 0) {
-			if (!begin (db))
+			if (!begin_step (db))
 				return FALSE;
 			ok = still_ours (db);
 
@@ -1620,6 +1696,8 @@ drop_missing_paths (NemoCacheDb *db, GCancellable *cancellable)
 
 			if (!ok)
 				return FALSE;
+
+			make_way (db, cancellable);
 		}
 
 		if (rowids->len < PRUNE_BATCH)
@@ -1695,9 +1773,10 @@ delete_each (NemoCacheDb *db, const char *sql, const Batch *batch, gint64 *chang
 	return ok;
 }
 
-/* Commits a batch that went well, or rolls it back. */
+/* Commits a batch that went well and makes way for anyone waiting, or rolls
+ * it back. */
 static gboolean
-end_batch (NemoCacheDb *db, gboolean ok, const Batch *batch)
+end_batch (NemoCacheDb *db, gboolean ok, const Batch *batch, GCancellable *cancellable)
 {
 	if (!ok) {
 		rollback (db);
@@ -1708,6 +1787,7 @@ end_batch (NemoCacheDb *db, gboolean ok, const Batch *batch)
 		return FALSE;
 
 	db->largest_batch = MAX (db->largest_batch, batch->bytes);
+	make_way (db, cancellable);
 
 	return TRUE;
 }
@@ -1728,7 +1808,7 @@ drop_orphans (NemoCacheDb *db, GCancellable *cancellable, gint64 *removed)
 	gboolean           ok;
 
 	do {
-		if (g_cancellable_is_cancelled (cancellable) || !begin (db))
+		if (g_cancellable_is_cancelled (cancellable) || !begin_step (db))
 			return FALSE;
 
 		ok = still_ours (db);
@@ -1737,7 +1817,7 @@ drop_orphans (NemoCacheDb *db, GCancellable *cancellable, gint64 *removed)
 		ok = ok && delete_each (db, "DELETE FROM thumbnails WHERE file_id = ?", &batch, removed, "orphans");
 		ok = ok && delete_each (db, "DELETE FROM files WHERE id = ?", &batch, NULL, "orphans");
 
-		if (!end_batch (db, ok, &batch))
+		if (!end_batch (db, ok, &batch, cancellable))
 			return FALSE;
 	} while (batch.full);
 
@@ -1755,7 +1835,7 @@ drop_old (NemoCacheDb *db, GCancellable *cancellable, gint64 cutoff, gint64 *rem
 	gboolean           ok;
 
 	do {
-		if (g_cancellable_is_cancelled (cancellable) || !begin (db))
+		if (g_cancellable_is_cancelled (cancellable) || !begin_step (db))
 			return FALSE;
 
 		ok = still_ours (db);
@@ -1765,7 +1845,7 @@ drop_old (NemoCacheDb *db, GCancellable *cancellable, gint64 cutoff, gint64 *rem
 		ok = stmt != NULL && pick_batch (db, stmt, PRUNE_BATCH_BYTES, &batch, "drop old");
 		ok = ok && delete_each (db, "DELETE FROM thumbnails WHERE file_id = ?", &batch, removed, "drop old");
 
-		if (!end_batch (db, ok, &batch))
+		if (!end_batch (db, ok, &batch, cancellable))
 			return FALSE;
 	} while (batch.full);
 
@@ -1814,7 +1894,7 @@ drop_to_size (NemoCacheDb *db, GCancellable *cancellable, gint64 max_bytes, gint
 		if (used <= max_bytes)
 			return TRUE;
 
-		if (!begin (db))
+		if (!begin_step (db))
 			return FALSE;
 
 		ok = still_ours (db);
@@ -1823,7 +1903,7 @@ drop_to_size (NemoCacheDb *db, GCancellable *cancellable, gint64 max_bytes, gint
 			&& pick_batch (db, stmt, MIN (used - max_bytes, PRUNE_BATCH_BYTES), &batch, "pick oldest");
 		ok = ok && delete_each (db, "DELETE FROM thumbnails WHERE file_id = ?", &batch, NULL, "drop oldest");
 
-		if (!end_batch (db, ok, &batch))
+		if (!end_batch (db, ok, &batch, cancellable))
 			return FALSE;
 
 		/* Nothing left to take, and what is over is names and records. */
@@ -1847,10 +1927,12 @@ compact (NemoCacheDb *db, GCancellable *cancellable)
 		if (g_cancellable_is_cancelled (cancellable))
 			return FALSE;
 
+		db->held_since = g_get_monotonic_time ();
 		if (!db_ok (db, sqlite3_exec (db->handle,
 					      "PRAGMA incremental_vacuum (" G_STRINGIFY (COMPACT_STEP_PAGES) ")",
 					      NULL, NULL, NULL), "compact"))
 			return FALSE;
+		make_way (db, cancellable);
 
 		before = unused;
 		unused = pragma_int (db, "PRAGMA freelist_count");
@@ -2030,4 +2112,19 @@ gint64
 nemo_cache_db_prune_largest_batch (void)
 {
 	return last_largest_batch;
+}
+
+gint
+nemo_cache_db_prune_steps (void)
+{
+	return g_atomic_int_get (&prune_steps);
+}
+
+struct sqlite3 *
+nemo_cache_db_open_another (void)
+{
+	g_autofree char *path = nemo_cache_db_path ();
+	gboolean         rebuild;
+
+	return path != NULL ? open_at (path, &rebuild) : NULL;
 }

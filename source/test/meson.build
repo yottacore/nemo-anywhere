@@ -276,7 +276,8 @@ test('rhd69rjr File cache prune test',
     include_directories: [ rootInclude, ],
     dependencies: [ gtk, nemo_private, test_scratch, sqlite ],
   ),
-  args: []
+  args: [],
+  timeout: 120
 )
 
 test('rhd4gy78 Thumbnail store test',

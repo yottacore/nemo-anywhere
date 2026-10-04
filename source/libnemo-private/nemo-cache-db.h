@@ -244,6 +244,14 @@ gboolean nemo_cache_db_prune_pick_cost (NemoCacheDb *db, gint64 *rows_walked, gi
  * on, so this has to stay near the batch limit however big thumbnails are. */
 gint64 nemo_cache_db_prune_largest_batch (void);
 
+/* For the tests. How many writes prune passes in this process have made so far.
+ * A store that waits through more than one or two of them was kept out. */
+gint nemo_cache_db_prune_steps (void);
+
+/* For the tests. A connection of its own to the store's file, set up the way
+ * every copy's is, as another window's would be. Close it with sqlite3_close. */
+struct sqlite3 *nemo_cache_db_open_another (void);
+
 G_END_DECLS
 
 #endif /* NEMO_CACHE_DB_H */
