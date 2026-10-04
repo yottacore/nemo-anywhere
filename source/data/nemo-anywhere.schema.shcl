@@ -30,7 +30,7 @@ field: archive.create-with-7z
 
 field: archive.create-with-rar
 	type: string
-	default: "{{PROGRAM}} a {{LEVEL}} {{THREADS}} -r -y -scfr {{PASSWORD}} {{SPLIT}} {{SOLID}} {{DEDUPE}} {{RECOVERY}} {{LOCK}} {{LINKS}} -- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}"
+	default: "{{PROGRAM}} a {{LEVEL}} {{THREADS}} -y -scfr {{PASSWORD}} {{SPLIT}} {{SOLID}} {{DEDUPE}} {{RECOVERY}} {{LOCK}} {{LINKS}} -- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}"
 	desc: Command line rar is run with to create an archive. Same placeholders as the 7-Zip line, plus {{DEDUPE}}, {{RECOVERY}} and {{LOCK}}, which only rar has. Base flags only, which the app adds to or changes as a job needs; edit only to suit a different version of the program.
 
 field: archive.extract-with-7z

@@ -401,7 +401,8 @@ check_links_command (void)
 	check (argv != NULL);
 	check (!has_unexpanded (argv));
 	check (has_arg (argv, "-ol"));
-	/* -r would take every "gone" under held; the last one said wins. */
+	/* -r, on a line edited in the settings, would take every "gone" under
+	   held; the last one said wins. */
 	check (arg_index (argv, "-r-") > arg_index (argv, "-r"));
 	check (has_arg (argv, "-hpsecret"));
 	check (!has_arg (argv, "-k"));
@@ -431,6 +432,9 @@ check_links_command (void)
 					   "rar", "/tmp/out.rar", names, NULL);
 	check (!has_arg (argv, "-ol"));
 	check (!has_arg (argv, "-r-"));
+	/* A named folder goes in whole without -r, and with it a picked a.txt
+	   brings every a.txt below. */
+	check (!has_arg (argv, "-r"));
 	check (has_arg (argv, "-k"));
 	/* The names it prints have to match ours. */
 	check (has_arg (argv, "-scfr"));
@@ -742,7 +746,7 @@ check_skipped_links (void)
 	}
 
 	/* rar says a name starting with @ as it was handed over, with ./ in
-	   front, and again without it for what -r finds. */
+	   front, and again without it for what -r finds on an edited line. */
 	{
 		GList *at = g_list_append (NULL, (gpointer) "@gone");
 

@@ -33,6 +33,31 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Under rar, a selected file also takes same-named files from the folders below it, and a link that leads nowhere beside the selection fails the job.
+	- ID: 2026100410431108
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. The full Linux suite passed 164 of 164 on 20261004, on rarsel.
+	- Needs external testing: rhr6ggmt natively on a Windows box. rar's docs give the same rule for a named folder there, but rar on Windows has differed from Linux before.
+	- Priority|Severity: Avg
+	- Opened: 20261004-104311
+	- Opened by: item 2026100312494905
+	- Related IDs: 2026100312494905, 2026092813381404
+	- Incorrect behavior: the rar line has `-r`, and rar then reads each selected name as a pattern for every folder below where the job runs. Picking `a.txt` in a folder that also has `sub/a.txt` puts both in the archive. rar also tries every other name it walks past, so a link that leads nowhere sitting beside the selection, not picked, makes rar warn, and the job fails and deletes the archive.
+	- Expected behavior: the archive holds what was selected and nothing else, and names that were not selected play no part.
+	- Reproduced: rar's side yes, 20261004, Linux, RAR 7.20: `rar a -r -- x.rar a.txt` took `sub/a.txt` too, and said it could not open an unpicked link beside it, with exit 6. The second half on the job's side too, on winlinks: a selected file and linked folder with a link that leads nowhere beside them failed. The first half on the job's side is read only. Plausible.
+		- Both halves on the job's side, 20261004, Linux: picking `a.txt` and a folder put `sub/a.txt` in the archive and the job said it worked. With an unpicked link that leads nowhere beside them, the job failed and left no archive.
+	- Actual cause: rar's `-r` makes every selected name a pattern for the working folder and each folder below it, so rar looks at every name it walks past. A folder named on the line goes in whole without `-r`, as rar's own docs say.
+	- Origin: 801ed01, 20260821, which put the command lines in the settings with `-r`. Not seen by an earlier round. Confirmed.
+	- Decisions:
+		- 20261004: a rar line edited in the settings keeps what it has, `-r` included, as item 2026092813381416 settled for `-spd` on 7-Zip lines. When the compression reset adds run-time flags to edited lines, `-r0` after an edited line's `-r` would undo it, since rar takes the last one said. It recurses only for a name with `*` or `?`, which rar already refuses.
+	- Actual fix: the built-in rar line no longer has `-r`. A selected file is taken from the job's folder only, and a selected folder still goes in whole, hidden files, empty folders and links included.
+	- Swept: the built-in rar line and the settings schema's copy of it. The first run that keeps links that lead nowhere still says `-r-`, for an edited line. The 7-Zip lines never had `-r`, and the new rows pass for every format. Neither extract line has it. Names with `*` or `?`: rar reads them as patterns with or without `-r`, so item 2026092813381416's refusals stay as they are. Left-out names after `-x` are relative paths with no wildcards, which rar matches only where they are, with or without `-r`. A selected link named with a leading @ still goes in as `./@name`.
+	- Branch: rarsel
+	- Commit: 81e4f82
+	- Test case: rhr6ggmt, Archive option combinations: a picked `a.txt` and folder beside `sub/a.txt` and `sub/held`, in every format, then again with an unpicked link that leads nowhere beside them. Under rar the first run took `sub/a.txt` and the second failed before the fix; both pass after. rev86z08, Archive options test: the built-in rar line has no `-r`. Fails before the fix, passes after.
+	- Verified: 20261004, Linux: rhr6ggmt, rev86z08 and rewygsbg pass, rar ran 43 rows. Full Linux suite 164 of 164.
+
 - Two copies starting at once on a new file cache can find it locked, and one runs with the cache off.
 	- ID: 2026100113372592
 	- Type: Bug
@@ -84,19 +109,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: Escape not restoring the selection, Ctrl+Shift+T, and Control kept for F1, tab keys, Ctrl+H and Ctrl+M on macOS. All settled earlier.
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
-
-- Under rar, a selected file also takes same-named files from the folders below it, and a link that leads nowhere beside the selection fails the job.
-	- ID: 2026100410431108
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261004-104311
-	- Opened by: item 2026100312494905
-	- Related IDs: 2026100312494905, 2026092813381404
-	- Incorrect behavior: the rar line has `-r`, and rar then reads each selected name as a pattern for every folder below where the job runs. Picking `a.txt` in a folder that also has `sub/a.txt` puts both in the archive. rar also tries every other name it walks past, so a link that leads nowhere sitting beside the selection, not picked, makes rar warn, and the job fails and deletes the archive.
-	- Expected behavior: the archive holds what was selected and nothing else, and names that were not selected play no part.
-	- Reproduced: rar's side yes, 20261004, Linux, RAR 7.20: `rar a -r -- x.rar a.txt` took `sub/a.txt` too, and said it could not open an unpicked link beside it, with exit 6. The second half on the job's side too, on winlinks: a selected file and linked folder with a link that leads nowhere beside them failed. The first half on the job's side is read only. Plausible.
-	- Test case: none yet.
 
 - A waiting store can miss every gap between the prune's writes.
 	- ID: 2026100319191870
