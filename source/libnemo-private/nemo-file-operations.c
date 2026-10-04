@@ -1761,7 +1761,7 @@ should_confirm_move_to_trash (void)
 	return confirm_move_to_trash;
 }
 
-static gboolean G_GNUC_UNUSED
+static gboolean
 confirm_move_to_trash (CommonJob *job,
 			   GList *files)
 {
@@ -1831,7 +1831,7 @@ nemo_file_operations_delete_from_trash_asks (gboolean by_user, guint count)
 					      nemo_config_get_int (nemo_preferences, NEMO_PREFERENCES_CONFIRM_MANY_ITEMS));
 }
 
-static gboolean G_GNUC_UNUSED
+static gboolean
 confirm_delete_from_trash (CommonJob *job,
 			   GList *files)
 {
@@ -1871,7 +1871,7 @@ confirm_delete_from_trash (CommonJob *job,
 	return (response == 1);
 }
 
-static gboolean G_GNUC_UNUSED
+static gboolean
 confirm_empty_trash (CommonJob *job)
 {
 	char *prompt;
@@ -1894,7 +1894,7 @@ confirm_empty_trash (CommonJob *job)
 	return (response == 1);
 }
 
-static gboolean G_GNUC_UNUSED
+static gboolean
 confirm_delete_directly (CommonJob *job,
 			 GList *files)
 {
