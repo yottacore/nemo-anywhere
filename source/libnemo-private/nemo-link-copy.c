@@ -9,7 +9,6 @@
 
 #include <config.h>
 #include "nemo-link-copy.h"
-#include "nemo-lnk.h"
 
 #include <errno.h>
 #include <stdlib.h>
@@ -744,7 +743,6 @@ nemo_link_options_initial (guint            supported,
 	options->file_kind = (supported & NEMO_LINK_FILE_SYMLINK) ? NEMO_MAKE_SYMLINK
 								 : NEMO_MAKE_SHORTCUT;
 	options->relative = FALSE;
-	options->lnk_parts = NEMO_LNK_ALL_PARTS;
 }
 
 /* A junction is always absolute, a hardlink has no path at all, and a
@@ -794,7 +792,6 @@ read_options (MakeLinkDialog *d, NemoLinkOptions *options)
 			   : is_active (d->file_shortcut) ? NEMO_MAKE_SHORTCUT
 			   : NEMO_MAKE_SYMLINK;
 	options->relative = is_active (d->relative);
-	options->lnk_parts = NEMO_LNK_ALL_PARTS;
 }
 
 static void

@@ -580,9 +580,13 @@ static void
 run_conflict_dialog (ExtractJob   *job,
 		     ConflictData *data)
 {
-	nemo_progress_info_pause (job->progress);
+	gboolean paused_here;
+
+	paused_here = nemo_progress_info_pause (job->progress);
 	g_io_scheduler_job_send_to_mainloop (job->io_job, do_run_conflict_dialog, data, NULL);
-	nemo_progress_info_resume (job->progress);
+	if (paused_here) {
+		nemo_progress_info_resume (job->progress);
+	}
 }
 
 typedef struct {
@@ -644,15 +648,18 @@ static void
 ask_password (ExtractJob *job)
 {
 	PasswordData data = { job, NULL };
+	gboolean paused_here;
 
 	if (job->password_asked) {
 		return;
 	}
 	job->password_asked = TRUE;
 
-	nemo_progress_info_pause (job->progress);
+	paused_here = nemo_progress_info_pause (job->progress);
 	g_io_scheduler_job_send_to_mainloop (job->io_job, do_ask_password, &data, NULL);
-	nemo_progress_info_resume (job->progress);
+	if (paused_here) {
+		nemo_progress_info_resume (job->progress);
+	}
 
 	if (data.password != NULL && data.password[0] != '\0') {
 		job->password = data.password;

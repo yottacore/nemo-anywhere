@@ -1376,8 +1376,9 @@ run_simple_dialog_va (CommonJob *job,
 	int res;
 	const char *button_title;
 	GPtrArray *ptr_array;
+	gboolean paused_here;
 
-    nemo_progress_info_pause (job->progress);
+	paused_here = nemo_progress_info_pause (job->progress);
 
 	data = g_new0 (RunSimpleDialogData, 1);
 	data->parent_window = &job->parent_window;
@@ -1404,7 +1405,9 @@ run_simple_dialog_va (CommonJob *job,
 	g_free (data->button_titles);
 	g_free (data);
 
-    nemo_progress_info_resume (job->progress);
+	if (paused_here) {
+		nemo_progress_info_resume (job->progress);
+	}
 
 	g_free (primary_text);
 	g_free (secondary_text);
@@ -1499,6 +1502,7 @@ ask_about_links (CopyMoveJob          *copy_job,
 	const char *dest_path;
 	const char *forced;
 	guint supported;
+	gboolean paused_here;
 
 	copy_job->link_choice_set = FALSE;
 
@@ -1528,9 +1532,11 @@ ask_about_links (CopyMoveJob          *copy_job,
 	data.supported = supported;
 	data.is_move = copy_job->is_move;
 
-	nemo_progress_info_pause (job->progress);
+	paused_here = nemo_progress_info_pause (job->progress);
 	g_io_scheduler_job_send_to_mainloop (job->io_job, do_run_link_dialog, &data, NULL);
-	nemo_progress_info_resume (job->progress);
+	if (paused_here) {
+		nemo_progress_info_resume (job->progress);
+	}
 
 	if (!data.accepted) {
 		return FALSE;
@@ -4834,8 +4840,9 @@ run_conflict_dialog (CommonJob *job,
 {
 	ConflictDialogData *data;
 	ConflictResponseData *resp_data;
+	gboolean paused_here;
 
-    nemo_progress_info_pause (job->progress);
+	paused_here = nemo_progress_info_pause (job->progress);
 
 	data = g_new0 (ConflictDialogData, 1);
 	data->parent = job->parent_window;
@@ -4854,7 +4861,9 @@ run_conflict_dialog (CommonJob *job,
 
 	g_free (data);
 
-    nemo_progress_info_resume (job->progress);
+	if (paused_here) {
+		nemo_progress_info_resume (job->progress);
+	}
 
 	return resp_data;
 }
@@ -6446,10 +6455,11 @@ get_abs_path_for_symlink (GFile *file)
 
 
 /* A .lnk shortcut. Rewrite *dest to carry the required .lnk extension, then
- * save the shortcut pointing at target_path, carrying the NemoLnkParts asked
- * for. On success *dest owns the .lnk GFile. */
+ * save the shortcut pointing at target_path, with the absolute and relative
+ * paths, and the portable one too if asked. On success *dest owns the .lnk
+ * GFile. */
 static gboolean
-create_lnk (GFile **dest, const char *target_path, guint parts, GError **error)
+create_lnk (GFile **dest, const char *target_path, gboolean with_portable, GError **error)
 {
 	GFile *dir, *lnk;
 	char *base, *lnk_base, *lnk_path;
@@ -6478,9 +6488,9 @@ create_lnk (GFile **dest, const char *target_path, guint parts, GError **error)
 		ok = FALSE;
 	} else {
 #ifdef G_OS_WIN32
-		ok = nemo_shortcut_win32_create_parts (target_path, lnk_path, parts, error);
+		ok = nemo_shortcut_win32_create_paths (target_path, lnk_path, with_portable, error);
 #else
-		ok = nemo_lnk_write (lnk_path, target_path, parts, error);
+		ok = nemo_lnk_write (lnk_path, target_path, with_portable, error);
 #endif
 	}
 	g_free (lnk_path);
@@ -6542,7 +6552,7 @@ make_chosen_link (CopyMoveJob *job, GFile *src, GFile **dest, GFile *dest_dir,
 					     _("Shortcuts can only point at a local file or folder."));
 			ok = FALSE;
 		} else {
-			ok = create_lnk (dest, src_path, options->lnk_parts, error);
+			ok = create_lnk (dest, src_path, TRUE, error);
 		}
 	} else if (!is_dir && kind == NEMO_MAKE_HARDLINK) {
 		if (src_path == NULL || dest_path == NULL) {
@@ -6641,7 +6651,7 @@ link_file (CopyMoveJob *job,
 		    * bookkeeping below records that file instead. */
 		   (job->want_symlink
 		    ? win_create_symlink (dest, path, &error)
-		    : create_lnk (&dest, path, NEMO_LNK_ABSOLUTE | NEMO_LNK_RELATIVE, &error))
+		    : create_lnk (&dest, path, FALSE, &error))
 #else
 		   g_file_make_symbolic_link (dest,
 					      path,

@@ -81,8 +81,8 @@ main (int argc, char **argv)
 	to_doc = g_build_filename (dir, "a to doc.lnk", NULL);
 	check (g_mkdir (folder, 0755) == 0);
 	check (g_file_set_contents (doc, "x", -1, NULL));
-	check (nemo_lnk_write (to_folder, folder, NEMO_LNK_ABSOLUTE, NULL));
-	check (nemo_lnk_write (to_doc, doc, NEMO_LNK_ABSOLUTE, NULL));
+	check (nemo_lnk_write (to_folder, folder, FALSE, NULL));
+	check (nemo_lnk_write (to_doc, doc, FALSE, NULL));
 
 	f_folder = loaded (dir, "m folder");
 	f_doc = loaded (dir, "b doc.txt");

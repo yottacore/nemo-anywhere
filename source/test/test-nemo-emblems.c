@@ -96,7 +96,7 @@ test_which_emblem (const char *dir)
 
 	check (g_mkdir (folder, 0755) == 0);
 	check (g_file_set_contents (doc, "plain", -1, NULL));
-	check (nemo_lnk_write (lnk, folder, NEMO_LNK_ABSOLUTE, NULL));
+	check (nemo_lnk_write (lnk, folder, FALSE, NULL));
 	check (g_file_set_contents (desktop,
 				    "[Desktop Entry]\nType=Application\nName=X\nExec=true\n", -1, NULL));
 

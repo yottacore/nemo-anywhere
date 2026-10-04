@@ -465,11 +465,13 @@ ask (const char *op, char *primary, char *detail)
 	} else {
 		gint64 deadline = g_get_monotonic_time () + ANSWER_TIMEOUT_USEC;
 		NemoProgressInfo *progress = nemo_job_queue_get_current_info ();
+		gboolean paused_here = FALSE;
 
 		/* Paused, the job's progress window stays down while this waits,
-		   as it does for the job's own questions. */
+		   as it does for the job's own questions. A job the user had
+		   already paused stays paused after the answer. */
 		if (progress != NULL) {
-			nemo_progress_info_pause (progress);
+			paused_here = nemo_progress_info_pause (progress);
 		}
 
 		data->refs++;
@@ -489,7 +491,7 @@ ask (const char *op, char *primary, char *detail)
 		go_ahead = data->answered && data->go_ahead;
 		g_mutex_unlock (&data->lock);
 
-		if (progress != NULL) {
+		if (paused_here) {
 			nemo_progress_info_resume (progress);
 		}
 	}

@@ -285,25 +285,25 @@ test_foreign (const char *dir)
 	g_free (links);
 }
 
-/* Each part on its own and all together, read back the way the app reads a
- * shortcut, and whether the shell could follow it. */
+/* With and without the portable path, read back the way the app reads a
+ * shortcut, and the shell can follow it. */
 static void
-check_parts (const char *doc, const char *lnk, guint parts, gboolean shell_follows)
+check_parts (const char *doc, const char *lnk, gboolean with_portable)
 {
 	NemoLnk info;
 	char *target = NULL;
-	gboolean by_shell = !shell_follows;
+	gboolean by_shell = FALSE;
 
 	g_unlink (lnk);
-	check (nemo_shortcut_win32_create_parts (doc, lnk, parts, NULL));
+	check (nemo_shortcut_win32_create_paths (doc, lnk, with_portable, NULL));
 	check (nemo_lnk_read (lnk, &info));
-	check ((info.local_path != NULL) == ((parts & NEMO_LNK_ABSOLUTE) != 0));
-	check ((info.relative_path != NULL) == ((parts & NEMO_LNK_RELATIVE) != 0));
-	check ((info.env_path != NULL) == ((parts & NEMO_LNK_PORTABLE) != 0));
+	check (info.local_path != NULL);
+	check (info.relative_path != NULL);
+	check ((info.env_path != NULL) == with_portable);
 	nemo_lnk_clear (&info);
 
 	check (nemo_shortcut_win32_read_target (lnk, &target, &by_shell, NULL));
-	check (by_shell == shell_follows);
+	check (by_shell);
 	check (target != NULL && same_path (target, doc));
 	g_free (target);
 	g_unlink (lnk);
@@ -316,15 +316,14 @@ test_parts (const char *dir)
 	char *lnk = g_build_filename (dir, "parts.lnk", NULL);
 	char *portable = nemo_lnk_portable_path (doc);
 	char *saved = g_strdup (g_getenv ("LOCALAPPDATA"));
-	char *target = NULL;
-	gboolean by_shell;
 	NemoLnk info;
 
 	check (g_file_set_contents (doc, "doc", -1, NULL));
 
-	/* Where no variable covers the target, and the scratch folder may or
-	   may not be under the profile, a plain path goes in the block, drive
-	   and all. */
+	/* A shortcut with only the portable path, which was the only way a
+	   plain path went in that block, can no longer be asked for since the
+	   path choice went (backlog 2026092813381440).
+
 	check (nemo_shortcut_win32_create_parts (doc, lnk, NEMO_LNK_PORTABLE, NULL));
 	check (nemo_lnk_read (lnk, &info));
 	check (info.env_path != NULL &&
@@ -335,6 +334,7 @@ test_parts (const char *dir)
 	check (by_shell && target != NULL && same_path (target, doc));
 	g_clear_pointer (&target, g_free);
 	g_unlink (lnk);
+	*/
 
 	/* From here on a variable covers it, whatever the box. */
 	g_setenv ("LOCALAPPDATA", dir, TRUE);
@@ -342,18 +342,18 @@ test_parts (const char *dir)
 	portable = nemo_lnk_portable_path (doc);
 	check (g_strcmp0 (portable, "%LOCALAPPDATA%\\parts.txt") == 0);
 
-	/* The shell writes a relative path whatever it is asked; taken back out. */
+	check_parts (doc, lnk, FALSE);
+	check_parts (doc, lnk, TRUE);
+	/* Shortcuts without the absolute or the relative path went with the
+	   path choice (backlog 2026092813381440).
 	check_parts (doc, lnk, NEMO_LNK_ABSOLUTE, TRUE);
-	check_parts (doc, lnk, NEMO_LNK_ABSOLUTE | NEMO_LNK_RELATIVE, TRUE);
-	check_parts (doc, lnk, NEMO_LNK_ALL_PARTS, TRUE);
-	/* No item id list, and the shell follows it all the same. */
 	check_parts (doc, lnk, NEMO_LNK_PORTABLE, TRUE);
 	check_parts (doc, lnk, NEMO_LNK_PORTABLE | NEMO_LNK_RELATIVE, TRUE);
-	/* This one it does not; the app still does. */
 	check_parts (doc, lnk, NEMO_LNK_RELATIVE, FALSE);
+	*/
 
 	/* The variable is kept as written, not expanded. */
-	check (nemo_shortcut_win32_create_parts (doc, lnk, NEMO_LNK_ALL_PARTS, NULL));
+	check (nemo_shortcut_win32_create_paths (doc, lnk, TRUE, NULL));
 	check (nemo_lnk_read (lnk, &info));
 	check (g_strcmp0 (info.env_path, portable) == 0);
 	nemo_lnk_clear (&info);

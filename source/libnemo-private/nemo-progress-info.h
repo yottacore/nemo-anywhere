@@ -67,7 +67,9 @@ gboolean      nemo_progress_info_get_is_paused   (NemoProgressInfo *info);
 void          nemo_progress_info_queue           (NemoProgressInfo *info);
 void          nemo_progress_info_start           (NemoProgressInfo *info);
 void          nemo_progress_info_finish          (NemoProgressInfo *info);
-void          nemo_progress_info_pause           (NemoProgressInfo *info);
+/* TRUE when this call did the pausing, so a caller that pauses for its own
+   question resumes only then, and a pause the user asked for stays. */
+gboolean      nemo_progress_info_pause           (NemoProgressInfo *info);
 void          nemo_progress_info_resume          (NemoProgressInfo *info);
 void          nemo_progress_info_set_status      (NemoProgressInfo *info,
 						      const char           *status);
