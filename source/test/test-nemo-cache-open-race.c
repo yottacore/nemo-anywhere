@@ -32,9 +32,9 @@
  * it in the same instant, and every one of them has to get a store. That one
  * only hit it about one round in a hundred.
  *
- * On Windows the copies also quit without closing the store, as the app does,
- * and one that is still going away can leave the next unable to set up. A view
- * of the -shm file with no lock behind it stands in for that copy. */
+ * The copies quit without closing the store, as the app does. On Windows one
+ * that is still going away can leave the next unable to set up, so a view of
+ * the -shm file with no lock behind it stands in for that copy first. */
 
 #include <config.h>
 
@@ -200,7 +200,7 @@ check_waits_for_lock (const char *path)
 }
 
 #ifdef G_OS_WIN32
-/* Bigger than the first region sqlite maps, as a real one would be. */
+/* More than the first region sqlite maps, which is what an old copy leaves. */
 #define OLD_VIEW_BYTES (64 * 1024)
 
 typedef struct {
