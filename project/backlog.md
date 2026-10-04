@@ -153,31 +153,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Origin: upstream.
 	- Test case: none yet.
 
-- Icons in the icon and compact views give a screen reader no place on screen.
-	- ID: 2026100409554600
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed 165 of 165 on 20261004, on iconatk.
-	- Priority|Severity: Low
-	- Opened: 20261004-095546
-	- Opened by: work on 2026100408414402
-	- Related IDs: 2026100412230310
-	- Target OS: all
-	- Incorrect behavior: an icon's accessible object has no position or size, and asking where its picture is logs a critical warning.
-	- Expected behavior: a screen reader can find each icon on screen.
-	- Reproduced: yes, 20261004, Linux. Asking an icon's accessible object for its extents fails a type check.
-	- Possible cause: the icon's accessible type is built on the plain one for any object, so it lacks the part that gives a position. Its picture position code still calls that part on itself.
-	- Actual cause: the icon's accessible type was built on the plain GObject one, with no position part. The canvas item accessible that has one was never used for icons. It was also derived at run time from what the registry gives a plain object, which under GTK 3 is the do-nothing object, so it could not find its own item.
-	- Origin: upstream.
-	- Actual fix: the canvas item accessible is now an ordinary type built on the GObject one, with the position part, and the icon's accessible is built on it. Icons now give their extents on screen and in the window, and the picture's place. An icon scrolled out of sight gives no place, for the picture too.
-	- Swept: the three position calls in the icon accessible, for the picture, a character and a point in the text, now all reach the canvas item's. The rubber band selection box gets the same canvas item accessible. The icon container's own accessible is built from the canvas's registered factory and already had a position. The rename field is the one other type derived at run time, and it gets the do-nothing object too; filed as 2026100412230310.
-	- Branch: iconatk
-	- Commit: 472da37
-	- Test case: rjerav6k, Icon accessible extents test. Linux only. Fails before the fix, passes after. rjefm41d and rhtmbdma still pass.
-	- Verified: 20261004, Linux: rjerav6k fails before the fix, with no extents and over a hundred criticals per view, and passes after in the icon view, the compact view and the icon view scrolled part way down. Full Linux suite 165 of 165. The Windows cross build and lint pass.
-	- Acceptance signoff: Self-closed: rjerav6k passes, and the fix does what the item asked and no more.
-	- Closed: 20261004-122303
-
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
 	- Type: Enhancement
@@ -1029,6 +1004,31 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- Icons in the icon and compact views give a screen reader no place on screen.
+	- ID: 2026100409554600
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 165 of 165 on 20261004, on iconatk.
+	- Priority|Severity: Low
+	- Opened: 20261004-095546
+	- Opened by: work on 2026100408414402
+	- Related IDs: 2026100412230310
+	- Target OS: all
+	- Incorrect behavior: an icon's accessible object has no position or size, and asking where its picture is logs a critical warning.
+	- Expected behavior: a screen reader can find each icon on screen.
+	- Reproduced: yes, 20261004, Linux. Asking an icon's accessible object for its extents fails a type check.
+	- Possible cause: the icon's accessible type is built on the plain one for any object, so it lacks the part that gives a position. Its picture position code still calls that part on itself.
+	- Actual cause: the icon's accessible type was built on the plain GObject one, with no position part. The canvas item accessible that has one was never used for icons. It was also derived at run time from what the registry gives a plain object, which under GTK 3 is the do-nothing object, so it could not find its own item.
+	- Origin: upstream.
+	- Actual fix: the canvas item accessible is now an ordinary type built on the GObject one, with the position part, and the icon's accessible is built on it. Icons now give their extents on screen and in the window, and the picture's place. An icon scrolled out of sight gives no place, for the picture too.
+	- Swept: the three position calls in the icon accessible, for the picture, a character and a point in the text, now all reach the canvas item's. The rubber band selection box gets the same canvas item accessible. The icon container's own accessible is built from the canvas's registered factory and already had a position. The rename field is the one other type derived at run time, and it gets the do-nothing object too; filed as 2026100412230310.
+	- Branch: iconatk
+	- Commit: 472da37
+	- Test case: rjerav6k, Icon accessible extents test. Linux only. Fails before the fix, passes after. rjefm41d and rhtmbdma still pass.
+	- Verified: 20261004, Linux: rjerav6k fails before the fix, with no extents and over a hundred criticals per view, and passes after in the icon view, the compact view and the icon view scrolled part way down. Full Linux suite 165 of 165. The Windows cross build and lint pass.
+	- Acceptance signoff: Self-closed: rjerav6k passes, and the fix does what the item asked and no more.
+	- Closed: 20261004-122303
 
 - A failed Windows install leaves a half-copied folder beside the install folder.
 	- ID: 2026100112505357
