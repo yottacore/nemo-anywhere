@@ -30,7 +30,11 @@
  * the store opens it, which always hit that step. Then each round starts a few
  * copies of this program on a cache that is not there yet, all timed to open
  * it in the same instant, and every one of them has to get a store. That one
- * only hit it about one round in a hundred. */
+ * only hit it about one round in a hundred.
+ *
+ * On Windows the copies also quit without closing the store, as the app does,
+ * and one that is still going away can leave the next unable to set up. A view
+ * of the -shm file with no lock behind it stands in for that copy. */
 
 #include <config.h>
 
@@ -40,6 +44,10 @@
 #include <glib/gstdio.h>
 
 #include <sqlite3.h>
+
+#ifdef G_OS_WIN32
+#include <windows.h>
+#endif
 
 #include <libnemo-private/nemo-cache-db.h>
 
@@ -191,6 +199,76 @@ check_waits_for_lock (const char *path)
 	remove_store (path);
 }
 
+#ifdef G_OS_WIN32
+/* Bigger than the first region sqlite maps, as a real one would be. */
+#define OLD_VIEW_BYTES (64 * 1024)
+
+typedef struct {
+	HANDLE file;
+	HANDLE mapping;
+	void  *view;
+} OldView;
+
+static gpointer
+unmap_later (gpointer user_data)
+{
+	OldView *old = user_data;
+
+	g_usleep (HOLD_MS * 1000);
+	UnmapViewOfFile (old->view);
+	CloseHandle (old->mapping);
+	CloseHandle (old->file);
+
+	return NULL;
+}
+
+/* A copy that quit lets go of its locks before Windows unmaps the -shm file
+ * from it. Windows will not empty a file while a view of it is left, so the
+ * store has to wait for that view to go, as it would for a lock. */
+static void
+check_waits_for_old_view (const char *path)
+{
+	g_autofree char *shm_path = g_strconcat (path, "-shm", NULL);
+	g_autofree gunichar2 *wide = NULL;
+	OldView old = { INVALID_HANDLE_VALUE, NULL, NULL };
+	NemoCacheDb *db;
+	GThread *thread;
+	gint64 started, waited;
+
+	remove_store (path);
+	wide = g_utf8_to_utf16 (shm_path, -1, NULL, NULL, NULL);
+	old.file = CreateFileW (wide, GENERIC_READ | GENERIC_WRITE,
+				FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+				NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	check (old.file != INVALID_HANDLE_VALUE);
+	if (old.file == INVALID_HANDLE_VALUE)
+		return;
+	old.mapping = CreateFileMappingW (old.file, NULL, PAGE_READWRITE, 0, OLD_VIEW_BYTES, NULL);
+	if (old.mapping != NULL)
+		old.view = MapViewOfFile (old.mapping, FILE_MAP_WRITE, 0, 0, OLD_VIEW_BYTES);
+	check (old.view != NULL);
+	if (old.view == NULL) {
+		if (old.mapping != NULL)
+			CloseHandle (old.mapping);
+		CloseHandle (old.file);
+		return;
+	}
+
+	thread = g_thread_new ("old view", unmap_later, &old);
+	started = g_get_monotonic_time ();
+	db = nemo_cache_db_get ();
+	waited = (g_get_monotonic_time () - started) / 1000;
+	g_thread_join (thread);
+
+	if (db == NULL)
+		g_printerr ("no store while an old view was left, gave up after %" G_GINT64_FORMAT " ms\n", waited);
+	check (db != NULL);
+
+	nemo_cache_db_close ();
+	remove_store (path);
+}
+#endif
+
 typedef struct {
 	int        running;
 	int        missed;
@@ -278,6 +356,9 @@ main (int argc, char *argv[])
 		return EXIT_FAILURE;
 
 	check_waits_for_lock (path);
+#ifdef G_OS_WIN32
+	check_waits_for_old_view (path);
+#endif
 
 	for (round = 0; round < rounds; round++) {
 		int this_round;
