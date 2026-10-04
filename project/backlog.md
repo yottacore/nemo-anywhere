@@ -36,8 +36,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Code review 20260928 item 2. The tree sidebar crashes on Shift+F10 or the Menu key.
 	- ID: 2026092813381402
 	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
 	- Priority|Severity: High
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
@@ -55,13 +55,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: d879cfb
 	- Test case: rj04ta3n, Tree menu key test. Linux only. Fails before the fix, passes after.
 	- Verified: the new test fails before the fix, with the crash, and passes five runs in a row after it on Linux. A right click on a tree row still opens the menu, and one on empty space opens nothing. Lint is clean.
+	- Verified: 20261003, Linux. Shift+F10 and the Menu key on a tree row both open the menu for that row, with no crash.
+	- Acceptance signoff: Self-closed: rj04ta3n passes in the full Linux suite, and Shift+F10 on a tree row was seen on screen on Linux. The menu opens for that row, and the program keeps running. The menu still opens at the top left of the tree, as noted above.
+	- Closed: 20261003-174609
 
 - Code review 20260928 item 4. A dangling symlink fails a 7z or rar archive, and the finished archive is deleted.
 	- ID: 2026092813381404
 	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The full Linux suite passed 157 of 157 on 20261003.
-	- Needs external testing: no. Ran natively on b29w on 20261003, a link with a name past ASCII included.
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
+	- Needs external testing: no. Ran natively on b29w and on vm925w on 20261003, a link with a name past ASCII included.
 	- Priority|Severity: Avg
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
@@ -102,12 +105,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Windows, arcwin: rhr6ggmt's dangling rows add a folder link that leads nowhere and, on Windows, a name past ASCII. The good links use the native separator. 36 rows fail natively on b29w before the fix and all pass after. rev86z08 gained rows for the count line and the UTF-8 switches, which fail with the count handling taken out.
 	- Verified: the 9 archive, extract, template and schema tests pass on Linux, the combinations and job tests three runs in a row. Lint and the Windows cross build are clean. The Archive options test passes under wine, its Windows-only rows included.
 		- 20261003: rhr6ggmt, rewygsbg and rev86z08 pass natively on b29w and on Linux. Full Linux suite 157 of 157. Full native suite on b29w at 1507a21: 137 passed, 10 skipped, 1 failed, rfhr0zw0, which belongs to 2026093010493389. The archive and extract tests again at 1ec66eb.
+	- Verified: 20261003, rhr6ggmt, rewygsbg and rev86z08 pass in the native suite on vm925w at c78aa9e.
+	- Acceptance signoff: Self-closed: rhr6ggmt, rewygsbg and rev86z08 pass on Linux and natively on b29w and vm925w. The Windows changes to zip names and to the built-in 7z and rar lines are what the item asked for, and rhr6ggmt and rev86z08 check them.
+	- Closed: 20261003-174609
 
 - On Windows, a folder full of shortcuts shows nothing until every shortcut icon is found.
 	- ID: 2026100112000535
 	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs external testing: the Start menu folder seen on screen on Windows. The rest ran on b29w, 20261003.
+	- Status: Done
+	- Needs external testing: done. The Start menu folder was seen on screen on vm925w, 20261003. The rest ran on b29w.
 	- Priority|Severity: Avg
 	- Opened: 20261001-120005
 	- Opened by: t00mietum
@@ -133,11 +139,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261003 on b29w, rfhr0zw0 passes whole, with the fix for 2026093010493389 on lnkicon. Asking for the icons of all 335 shortcuts in both Start menu folders took under 1 ms in all. The icons came in over 28 seconds on a first run, and 3 seconds on a second.
 	- Note: before the fix the view asked for each of these on the window's thread, from the code. Not timed.
 	- Note: the folder was not opened on screen. b29w's only session is the one on its own screen.
+	- Verified: 20261003 on vm925w, on screen. The Start menu Programs folder, 67 items, was listed within 300 ms of the window showing, the shortcuts with the plain shortcut icon. Their own icons were all in by 2 s. The window answered every check while they loaded.
+	- Acceptance signoff: Self-closed: rfhr0zw0 passes natively on b29w and vm925w, and the Start menu folder was seen on screen.
+	- Closed: 20261003-174609
 
 - On Windows, a local shortcut to a share that is not answering can stall the window while its icon is looked up.
 	- ID: 2026093010493389
 	- Type: Bug
-	- Status: Waiting on signoff
+	- Status: Done
 	- Needs external testing: done on b29w, 20261003. rfhr0zw0 passes there, dead share cases included.
 	- Priority|Severity: Avg
 	- Opened: 20260930-104934
@@ -171,13 +180,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261002-194800: rfhr0zw0 fails two checks on b29w in the native suite: a local shortcut does not wear the icon it names, and a document on a share does. The other share cases and every lookup case pass.
 		- 20261003-133500: the cause was the share record Windows writes for a shared drive. Fixed on lnkicon. The dead share check on screen was not run; the share cases in rfhr0zw0 use a share address that does not answer.
+	- Verified: 20261003 on vm925w, on screen. A local folder holding a shortcut to a document on a share that does not answer, and one whose icon is on that share, opened as fast as any other folder, and the window answered every check over 8 s. The first wears the document icon and the second the plain program icon. The Windows shell itself took 45 s to make the first shortcut.
+	- Acceptance signoff: Self-closed: rfhr0zw0 passes natively on b29w and vm925w, and a folder with shortcuts to a share that does not answer was seen on screen.
+	- Closed: 20261003-174609
 
 - Settings in an older SHCL format are kept as a backup and written again in the current one.
 	- ID: 2026100311512222
 	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The full Linux suite and the gate passed on 20261003.
-	- Needs external testing: a Windows box run of rjc4dd8z, with the next batch.
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
+	- Needs external testing: done. rjc4dd8z passed natively on b29w and vm925w, 20261003.
 	- Priority|Severity: Avg
 	- Opened: 20261003-115122
 	- Opened by: t00mietum
@@ -196,12 +208,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: shclfmt
 	- Commit: dd08205
 	- Test case: rjc4dd8z, Config format upgrade test. Fails before the change, passes after.
+	- Acceptance signoff: Self-closed: rjc4dd8z fails before the change and passes after, on Linux and natively on Windows. Nothing on screen to judge.
+	- Closed: 20261003-174609
 
 - The window title does not follow a change to the path separator.
 	- ID: 2026100221072783
 	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The Linux suite passed 157 of 157 on the branch.
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
 	- Priority|Severity: Low
 	- Opened: 20261002-210727
 	- Opened by: item 2026092813381422
@@ -219,12 +233,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: grpfix
 	- Commit: 0a17659 (lint), bc533c7 (test), 5f6d314 (fix)
 	- Test case: rjahhesy, Held view settings handlers test. A change to the path separator has to make the window spell its path again. It fails without the fix. `lint-pref-handlers.py --self-test`, new cases for a key on the wrong group, a key in no group and a macro it cannot read.
+	- Verified: 20261003 on vm925w, with whole paths in the title. A change of `windows.path-separator` to slash in the settings file turned the title from `C:\Users\...` to `C:/Users/...`, and back again on the change back.
+	- Acceptance signoff: Self-closed: rjahhesy passes in the full Linux suite, and the title was seen to follow the separator on Windows.
+	- Closed: 20261003-174609
 
 - After an icon view closes, icon captions and the label length limits stop following their settings until restart.
 	- ID: 2026100221072784
 	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The Linux suite passed 157 of 157 on the branch.
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
 	- Priority|Severity: Low
 	- Opened: 20261002-210727
 	- Opened by: item 2026092813381422
@@ -242,13 +259,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: grpfix
 	- Commit: 0a17659 (lint), bc533c7 (test), 4e37c4e (fix)
 	- Test case: rjahhesy, Held view settings handlers test. A handler connected with no data or a static must still be there after a list or icon view tab closes. It fails without the fix. `lint-pref-handlers.py --self-test`, a new case for such a disconnect.
+	- Verified: 20261003, Linux, on screen. With a second icon view tab opened and closed, a change to `icon-view.captions` in the settings file put the sizes under the icons in the tab left open.
+	- Acceptance signoff: Self-closed: rjahhesy passes in the full Linux suite, and the captions were seen to follow their setting after a tab closed.
+	- Closed: 20261003-174609
 
 - A hand edit to the settings file can be lost when the program saves at the same moment.
 	- ID: 2026100221273001
 	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: Yes, the full Linux suite.
-	- Needs external testing: rdjjz89r on a Windows box, whose file monitor works differently.
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
+	- Needs external testing: done. rdjjz89r passed on vm925w on 20261003, in a session with a monitor. The native suite skips it where there is none.
 	- Priority|Severity: Low
 	- Opened: 20261002-212730
 	- Opened by: item 2026092813381422
@@ -267,13 +287,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: handedit
 	- Commit: 3ad0dcc
 	- Test case: rdjjz89r (`test_hand_edit_survives_save`, `test_hand_delete_and_newer_before_save`), red before the fix and green after.
+	- Acceptance signoff: Self-closed: rdjjz89r fails before the fix and passes after, and passes on Linux and natively on Windows.
+	- Closed: 20261003-174609
 
 - Code review 20260928 item 3. Edit link on a symlink whose name ends in .lnk turns the symlink into a plain file.
 	- ID: 2026092813381403
 	- Type: Bug
-	- Status: Waiting for testing
+	- Status: Done
 	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
-	- Needs external testing: Windows, on screen. Edit link on a symlink named .lnk gets the target editor, and the Properties shortcut page does not show for one.
+	- Needs external testing: done on vm925w, 20261003.
 	- Priority|Severity: Avg
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
@@ -292,13 +314,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rhqxx81r, Link edit test, with a symlink named .lnk and a save of a shortcut with its own permissions. Fails before the fix and passes after, on Linux. The permissions check only fails on GLib 2.72, so it was run both ways on Ubuntu 22.04.
 	- Verified: the link edit test passes on Linux with GLib 2.84 and 2.72. All 21 link, shortcut and undo tests pass on Linux. Lint and the Windows cross build are clean.
 	- Verified: rhqxx81r passed on b29w on 20261002, in the native suite, the .lnk symlink case included.
+	- Verified: 20261003 on vm925w, on screen. Edit link on a symlink named `s.lnk` shows the symlink editor, with its name and where it points, and its Properties has no shortcut fields. A real shortcut beside it still gets the shortcut editor and the shortcut fields. rhqxx81r passed natively there with symlinks allowed, so the `.lnk` symlink case ran.
+	- Acceptance signoff: Self-closed: rhqxx81r passes on Linux and natively on Windows with its symlink cases run, and both dialogs were seen on screen on Windows.
+	- Closed: 20261003-174609
 
 - Code review 20260928 item 8. A FIFO named .lnk freezes the window.
 	- ID: 2026092813381408
 	- Type: Bug
-	- Status: Waiting for testing
+	- Status: Done
 	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
-	- Needs external testing: Windows. A folder of shortcuts on a share lists with no stall, and those shortcuts sort with the files. A local folder shortcut still sorts with the folders and wears the folder icon. Both tests below are POSIX-only.
+	- Needs external testing: done on vm925w, 20261003.
 	- Priority|Severity: Avg
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
@@ -318,13 +343,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: fd2b0d0
 	- Test case: rhmxm5ah, Windows shortcut reader test, and rhnqqpm8, Folder shortcuts sort with folders test, each with a new FIFO case. Both fail before the fix, stopped after 10 seconds, and pass after, on Linux.
 	- Verified: the Windows cross build compiles. C lint is clean. The link edit, link emblem, link copy, make link shortcut and thumbnail hold tests pass.
+	- Verified: 20261003 on vm925w, on screen. A folder of shortcuts opened through a share listed with no stall, the window answering every check over 8 s. Its folder shortcut sorts with the files and wears the plain shortcut icon. The same folder opened locally sorts the folder shortcut with the folders, with the folder icon.
+	- Acceptance signoff: Self-closed: rhmxm5ah and rhnqqpm8 pass in the full Linux suite, and the share listing was seen on screen on Windows.
+	- Closed: 20261003-174609
 
 - Settings an older release wrote with a backslash or tab in a value read wrong after the upgrade, with no warning.
 	- ID: 2026100314515200
 	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes. The config tests pass.
-	- Needs external testing: a Windows box run of rjcev513.
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
+	- Needs external testing: done. rjcev513 passed natively on b29w and vm925w, 20261003.
 	- Priority|Severity: Avg
 	- Opened: 20261003-145152
 	- Opened by: item 2026100314290808
@@ -350,13 +378,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: v2read
 	- Commit: 660122f
 	- Test case: rjcev513 Config old formats test. The four values are plain checks now. It also covers a file both rules read alike, which is left alone, and a 2.x file that can't be backed up and is edited while the app runs.
+	- Acceptance signoff: Self-closed: rjcev513 fails before the fix and passes after, on Linux and natively on Windows. The question on the item was answered.
+	- Closed: 20261003-174609
 
 - A CI test makes settings files in older SHCL formats and checks they are converted.
 	- ID: 2026100314290808
 	- Type: Task
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes, the full Linux suite. The config tests pass.
-	- Needs external testing: the Windows cross build and a Windows box run of rjcev513.
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
+	- Needs external testing: done. The Windows cross build is clean, and rjcev513 passed natively on b29w and vm925w, 20261003.
 	- Priority|Severity: Avg
 	- Opened: 20261003-142908
 	- Opened by: t00mietum
@@ -372,13 +402,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: shclold
 	- Commit: d344708
 	- Test case: rjcev513 Config old formats test.
+	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
+	- Closed: 20261003-174609
 
 - Code review 20260928 item 17. Hardlinking a selected symlink links the symlink, not the file.
 	- ID: 2026092813381417
 	- Type: Bug
-	- Status: Waiting for testing
+	- Status: Done
 	- Needs local test suite run?: no. The full Linux suite passed 144 of 144 on 20261002.
-	- Needs external testing: Windows. A hardlink of a selected file symlink is a second name for the file, with Developer Mode on so the link test can make symlinks.
+	- Needs external testing: done on vm925w, 20261003.
 	- Priority|Severity: Low
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
@@ -395,12 +427,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rfwwdyvg, Link copy test, a hardlink of a relative symlink made in another folder. Fails before the fix and passes after, on Linux.
 	- Verified: the link copy test passes on Linux. The Windows code builds but was not run, since wine makes no symlinks.
 	- Note: rfwwdyvg passed on b29w on 20261002, in the native suite, but it skips its symlink checks without a word when symlinks can't be made, so this case is not shown to have run.
+	- Verified: 20261003, rfwwdyvg passed natively on vm925w with symlinks allowed, so the hardlink of a symlink case ran.
+	- Acceptance signoff: Self-closed: rfwwdyvg passes on Linux and natively on Windows with its symlink cases run.
+	- Closed: 20261003-174609
 
 - Code review 20260928 item 24. Settings comments that look like the SHCL info block are removed on save.
 	- ID: 2026092813381424
 	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes, the full Linux suite. The config tests pass.
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
 	- Priority|Severity: Low
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
@@ -416,12 +451,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: shclold
 	- Commit: e2c055b
 	- Test case: rg6a49ar Config defaults list test, new case for notes spelled like the block, at the top and right after it. Fails before the fix, passes after.
+	- Acceptance signoff: Self-closed: rg6a49ar fails before the fix and passes after, in the full Linux suite.
+	- Closed: 20261003-174609
 
 - The application's quit hook never runs, so a keyboard shortcut changed just before quit is lost.
 	- ID: 2026100113372562
 	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes.
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
 	- Needs external testing: none. The test needs X, and on Windows the shortcut file's folder is never there, so nothing is saved there either way (2026100315470225).
 	- Priority|Severity: Low
 	- Opened: 20261001-133725
@@ -442,12 +479,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: aced497
 	- Test case: `rjch1b9a Shortcut saved and notice withdrawn at quit test`. The built program changes a shortcut and puts the notice up once its window is up, and the window is closed inside the 30 s. The shortcut is in the saved file and back on the next start, and the notice was withdrawn. Fails before the fix and passes after, on Linux.
 	- Verified: rjch1b9a, rj750n43 and the file cache store and prune tests pass on Linux. Lint is clean.
+	- Acceptance signoff: Self-closed: rjch1b9a fails before the fix and passes after, in the full Linux suite.
+	- Closed: 20261003-174609
 
 - Two copies starting at once on a new file cache can find it locked, and one runs with the cache off.
 	- ID: 2026100113372592
 	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes.
+	- Status: Queued
+	- Needs local test suite run?: no. The full Linux suite passed 160 of 160 on 20261003.
 	- Needs external testing: Windows: rjch1a9a in the native suite.
 	- Priority|Severity: Low
 	- Opened: 20261001-133725
@@ -467,6 +506,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: aced497
 	- Test case: `rjch1a9a File cache opened by many at once test`. One connection holds the write lock on a new file for 300 ms while the store opens it, then rounds of four copies open a new file at the same instant. The held lock fails before the fix and passes after, on Linux. The rounds hit the bug about once in a hundred before the fix, so they are a sweep rather than the pin.
 	- Verified: rjch1a9a passes on Linux, 60 rounds. Lint is clean.
+	- Progress log:
+		- 20261003: rjch1a9a passed natively on b29w at 43a9126, but failed once in the native suite on vm925w at c78aa9e. With the write lock held for 300 ms, the store gave up after 4.9 s with "database is locked". It passed five runs in a row there on its own afterward. Back to Queued.
 
 - Code review 20260928.
 	- ID: 2026092813381400
