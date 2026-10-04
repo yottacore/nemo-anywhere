@@ -12,7 +12,8 @@
 ##	- The sums file covers every artifact sitting in the release dir, so a Windows
 ##	  exe dropped in beside the tarball (the CI builds and signs that one) is
 ##	  covered by the same file the installers verify against.
-##	- Syntax: release.bash [--clean]      (--clean forces a from-scratch build)
+##	- Every build starts from an empty build dir; release-setup.bash says why.
+##	- Syntax: release.bash
 
 ##	Copyright (c) 2026 Bubbles
 ##	Licensed under The MIT License (MIT). Full text at:
@@ -35,9 +36,8 @@ source "${ROOT}/cicd/utility/include/echo.bash"
 # shellcheck source=../utility/include/source-date.bash
 source "${ROOT}/cicd/utility/include/source-date.bash"
 
-clean=0
 case "${1:-}" in
-	--clean) clean=1 ;;
+	--clean) ;;	# every build is clean now; still taken so old command lines run
 	-h|--help) sed -n '/^##	- Purpose:/,/^##	Copyright/p' "${BASH_SOURCE[0]}" | sed '$d; s/^##	\{0,1\}//'; exit 0 ;;
 	"") ;;
 	*) fDie "unknown option: $1 (try --help)" ;;
@@ -85,12 +85,9 @@ arch="$(docker exec "$CONTAINER" uname -m)"
 
 fEcho_Clean ""
 fEcho "Building ${SLUG} ${ver} (linux-${arch})"
-((clean)) && docker exec "$CONTAINER" rm -rf "$BUILD" || true
-docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" "$CONTAINER" sh -c "
-	set -e
-	if [ -d ${BUILD} ]; then reconf=--reconfigure; else reconf=; fi
-	meson setup \$reconf --buildtype=release -Dstrip=true -Db_lto=true -Db_lto_threads=4 -Dextension_library=static -Dprefix=/opt/${SLUG} ${BUILD} /src/source >/dev/null
-	ninja -C ${BUILD} -j ${jobs}" | tail -1
+docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" "$CONTAINER" bash /src/cicd/linux/release-setup.bash "$BUILD" /src/source "/opt/${SLUG}" \
+	|| fDie "could not set up ${BUILD} in ${CONTAINER}"
+docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" "$CONTAINER" ninja -C "$BUILD" -j "$jobs" | tail -1
 
 fEcho_Clean ""
 fEcho "Smoke test"
@@ -160,3 +157,4 @@ fEcho_Clean ""
 
 ##	History:
 ##		- 2026-08-04 JC: Created (Linux half of the v1.0.0-beta1 release assets).
+##		- 2026-10-03: Always a clean build dir.

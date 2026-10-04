@@ -143,7 +143,7 @@ fCheckExe(){
 fCheckLane 'cicd/win/build-cross.bash' '--buildtype=release' '-Dstrip=true' '-Db_lto=true'
 fCheckLane '.github/workflows/release-win.yml' '--buildtype=release' '-Dstrip=true' '-Db_lto=true'
 ## The Linux lane has always passed the first two. Checked here so all three stay together.
-fCheckLane 'cicd/linux/release.bash' '--buildtype=release' '-Dstrip=true' '-Db_lto=true'
+fCheckLane 'cicd/linux/release-setup.bash' '--buildtype=release' '-Dstrip=true' '-Db_lto=true'
 
 if [[ -n "$exe" && -f "$exe" ]]; then
 	fCheckExe "$exe"
