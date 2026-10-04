@@ -107,6 +107,27 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
 
+- Clicking a place in "Places" leaves the keyboard focus there.
+	- ID: 2026100408525989
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261004-085259
+	- Opened by: t00mietum
+	- Target OS: all
+	- Steps to reproduce:
+		- Click a place in "Places".
+		- Press an arrow key or type a letter.
+	- Incorrect behavior: the keys go to "Places", not to the folder that opened.
+	- Expected behavior:
+		- Focus moves to the main view after the click, with nothing selected there.
+		- "Places" never takes keyboard focus, except while renaming an entry after right-clicking it and choosing "Rename".
+	- Reproduced: no.
+	- Actual cause: the earlier item "Focus can never remain on the "Places" pane" was built backward. Connecting a view skips the focus grab while either side pane has focus, so the keyboard stays on the clicked place. The test and the lint check written for it lock that in.
+	- Note: the tree view may still hold focus, per the "Places" and tree view layout item. Only "Places" changes.
+	- Note: 2026100408414402 lists the places sidebar for the keyboard menu. With no focus there, that part goes away.
+	- Test case: none yet. `test-eel-focus-guard` and `fCheckSidebarFocus` in the C lint check the old behavior and need to change with the fix.
+
 - The keyboard menu opens at the pane's top left, not beside the selected item.
 	- ID: 2026100408414402
 	- Type: Enhancement
