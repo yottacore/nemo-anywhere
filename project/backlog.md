@@ -140,16 +140,40 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The rename field in the icon and compact views gives a screen reader nothing to read.
 	- ID: 2026100412230310
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261004-122303
 	- Opened by: work on 2026100409554600
-	- Related IDs: 2026100409554600
+	- Related IDs: 2026100409554600, 2026100412363910
 	- Target OS: all
 	- Incorrect behavior: the rename field's accessible object is built on the do-nothing object, so its text calls fail a type check and give no text or position.
 	- Expected behavior: a screen reader can read the rename field and find it on screen.
-	- Reproduced: no. Under GTK 3 the accessible type it is derived from at run time is the do-nothing object, and its text code casts itself to a widget accessible. Not seen logging yet.
+	- Reproduced: yes, 20261004, Linux. During a rename in the icon view, the field's accessible object gave no name, no text and no extents, and logged four criticals.
 	- Possible cause: the same run-time derivation the canvas items had, in `eel_accessibility_create_derived_type`. GTK 3 registers no accessible factory for widgets, so the registry hands back the do-nothing object. The fix is likely to build it on the GTK label or widget accessible directly.
+	- Actual cause: as above. The type was derived from what the registry gave for the field's widget type, the do-nothing object, which is not a widget accessible. Every text call, the name and the state set ask for the widget and got nothing.
+	- Origin: upstream.
+	- Actual fix: the field's accessible is now an ordinary type built on GTK's widget accessible, with the text and editable text parts, and GTK makes it for the field. It gives its name and text, takes an edit, and gives the field's place and each character's.
+	- Swept: `eel_accessibility_create_derived_type` has one other user, the icon container. It derives from the canvas's own registered accessible, not the do-nothing object, and works: during a rename its last child is the field. No other code in the tree derives an accessible type at run time.
+	- Branch: renameatk
+	- Commit: 58e96c5
+	- Test case: rjes67yy, Rename field accessible test. Fails before the fix, passes after.
+	- Verified: 20261004, Linux: rjes67yy fails before the fix, 13 failures and 16 criticals, and passes after. In the program, a rename in the icon view gives the file name as its name and text, and extents that match the field, with no warning. Full Linux suite 166 of 166, rjerav6k, rjefm41d and rhtmbdma included. The Windows cross build and lint pass.
+	- Acceptance signoff: Self-closed: reproduced, rjes67yy fails before the fix and passes after, and the sweep is answered.
+	- Closed: 20261004-123639
+
+- The rename field moves a window that does not exist yet when it is sized before it is shown.
+	- ID: 2026100412363910
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261004-123639
+	- Opened by: work on 2026100412230310
+	- Related IDs: 2026100412230310
+	- Target OS: all
+	- Incorrect behavior: an EelEditableLabel given its size before it is realized logs a critical, since its size code moves its text window, which is only made on realize.
+	- Expected behavior: no critical. The text window takes its size when it is made.
+	- Reproduced: yes, 20261004, Linux, with the field put in a window before the window is shown. A rename in the program puts it in a view already on screen, and was not seen to log it.
+	- Possible cause: `eel_editable_label_size_allocate` calls `gdk_window_move_resize` on `text_area` without checking that the widget is realized.
 	- Origin: upstream.
 	- Test case: none yet.
 
