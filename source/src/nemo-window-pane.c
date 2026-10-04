@@ -806,6 +806,10 @@ notebook_create_window_cb (GtkNotebook *notebook,
 		return NULL;
 	}
 
+	if (nemo_tab_move_is_only_tab (slot)) {
+		return NULL;
+	}
+
 	app = NEMO_APPLICATION (g_application_get_default ());
 
 	new_window = nemo_application_create_window

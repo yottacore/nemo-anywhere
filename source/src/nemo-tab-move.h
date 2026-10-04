@@ -46,8 +46,13 @@ guint nemo_tab_move_export (GDBusConnection *connection,
 /* "Move tab to", with a submenu of every other window and a new one. */
 GtkWidget *nemo_tab_move_menu_item_new (NemoWindowSlot *slot);
 
+/* The only tab of a window with one pane, which has nowhere new to go: a
+ * window of its own would be this one again. */
+gboolean nemo_tab_move_is_only_tab (NemoWindowSlot *slot);
+
 /* A tab dragged off its tab bar and dropped outside it: onto another window
- * if there is one of ours under the pointer, otherwise a new one. */
+ * if there is one of ours under the pointer, otherwise a new one, unless it is
+ * the only tab. */
 void nemo_tab_move_tear_off (NemoWindowSlot *slot);
 
 G_END_DECLS
