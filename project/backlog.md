@@ -33,6 +33,28 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Code review 20260928 item 26. The installers go ahead when a release has no sums file.
+	- ID: 2026092813381426
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Priority|Severity: Low
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Incorrect behavior: the plan says "UNVERIFIED", and with the yes flag the install goes on.
+	- Expected behavior: design.md and README, downloads are checked before anything is unpacked.
+	- Decisions:
+		- 20260928: refuse by default. An explicit override flag installs anyway. The yes flag alone does not.
+	- Reproduced: yes, 20261003, Linux. Both installers installed a stable and a prerelease build that had no sums file, with the yes flag.
+	- Origin: a2b0e10, 20260723. Not seen by an earlier round. Confirmed.
+	- Actual fix: with no sums file in the release, both installers stop while resolving, before the plan and the question, and name the override. The override is `--allow-unverified` in install.bash and `-AllowUnverified` in install.ps1. With it the plan says "UNVERIFIED". A sums file that is there is still checked with the override on. Help text, README and design.md say so. Installer version 1.3.0.
+	- Swept: both installers, stable and dev channels, each through one shared branch in its resolve step. A `--from` archive, a path or a URL, never had a sums file and is still not checked; design.md and the help now say so. A sums file that fails to download, has no line for the build, or does not match still stops the install, override or not.
+	- Branch: nosums
+	- Commit: 070301a
+	- Test case: `cicd/linux/test-install-download.bash` (rhtrxr81), the no-sums cases. Fails before the fix, passes after.
+	- Verified: rhtrxr81 fails before the fix on both installers (installed with the yes flag, no refusal) and passes after: refused on stable and dev with the yes flag and nothing downloaded, installed with the override, and with the override a release with sums still verified and a tampered build still refused. The lint stage passes.
+	- Acceptance signoff: the option name and the README sentence want a look.
+
 - Code review 20260928.
 	- ID: 2026092813381400
 	- Type: Task
@@ -81,22 +103,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: rjch1a9a passes on Linux, 60 rounds. Lint is clean.
 	- Progress log:
 		- 20261003: rjch1a9a passed natively on b29w at 43a9126, but failed once in the native suite on vm925w at c78aa9e. With the write lock held for 300 ms, the store gave up after 4.9 s with "database is locked". It passed five runs in a row there on its own afterward. Back to Queued.
-
-- Code review 20260928 item 26. The installers go ahead when a release has no sums file.
-	- ID: 2026092813381426
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Incorrect behavior: the plan says "UNVERIFIED", and with the yes flag the install goes on.
-	- Expected behavior: design.md and README, downloads are checked before anything is unpacked.
-	- Decisions:
-		- 20260928: refuse by default. An explicit override flag installs anyway. The yes flag alone does not.
-	- Reproduced: no, read only.
-	- Origin: a2b0e10, 20260723. Not seen by an earlier round. Plausible.
-	- Test case: none yet. A no-sums case in `test-install-download.bash`.
 
 - A cache prune batch holds the write lock longer as thumbnails get bigger.
 	- ID: 2026093010493420

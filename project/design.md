@@ -831,7 +831,7 @@ Cutting a release tags `v<version>` from a clean main and uploads the artifacts.
 
 - A user install is the default and needs no privileges. A system-wide install is opt-in and is the only path that escalates, which it states in the plan first.
 
-- The OS and architecture are detected, not asked for. Every run prints what it is about to do and waits for a yes. Downloads are checksum-verified before anything is unpacked, so a bad download can never replace a working install. Reinstalling replaces in place, and `--uninstall` removes exactly what was added.
+- The OS and architecture are detected, not asked for. Every run prints what it is about to do and waits for a yes. Downloads are checksum-verified before anything is unpacked, so a bad download can never replace a working install. A release with no checksums file stops the install before the plan, `--yes` or not, and only `--allow-unverified` gets past it. An archive given with `--from` is not checked. Reinstalling replaces in place, and `--uninstall` removes exactly what was added.
 
 - Because they read the releases page, the packaging stage has to produce exactly these names: `nemo-anywhere-<version>-<os>-<arch>.tar.gz` for unix and `.zip` for Windows, with `<os>` one of `linux` or `windows` and `<arch>` one of `x86_64` or `arm64`, plus `nemo-anywhere-<version>-sha256sums.txt` beside them in `sha256sum` format. The portable Windows exe is `nemo-anywhere-<version>-windows-x86_64-portable.exe`, built by the hosted workflow, which adds its line to the same sums file. Each archive holds one top-level folder, whose entry point is `bin/nemo-anywhere` on unix and `nemo-anywhere.exe` at the root on Windows.
 
