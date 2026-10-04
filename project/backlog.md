@@ -33,89 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- Under rar, a selected file also takes same-named files from the folders below it, and a link that leads nowhere beside the selection fails the job.
-	- ID: 2026100410431108
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: no. The full Linux suite passed 164 of 164 on 20261004, on rarsel.
-	- Needs external testing: rhr6ggmt natively on a Windows box. rar's docs give the same rule for a named folder there, but rar on Windows has differed from Linux before.
-	- Priority|Severity: Avg
-	- Opened: 20261004-104311
-	- Opened by: item 2026100312494905
-	- Related IDs: 2026100312494905, 2026092813381404
-	- Incorrect behavior: the rar line has `-r`, and rar then reads each selected name as a pattern for every folder below where the job runs. Picking `a.txt` in a folder that also has `sub/a.txt` puts both in the archive. rar also tries every other name it walks past, so a link that leads nowhere sitting beside the selection, not picked, makes rar warn, and the job fails and deletes the archive.
-	- Expected behavior: the archive holds what was selected and nothing else, and names that were not selected play no part.
-	- Reproduced: rar's side yes, 20261004, Linux, RAR 7.20: `rar a -r -- x.rar a.txt` took `sub/a.txt` too, and said it could not open an unpicked link beside it, with exit 6. The second half on the job's side too, on winlinks: a selected file and linked folder with a link that leads nowhere beside them failed. The first half on the job's side is read only. Plausible.
-		- Both halves on the job's side, 20261004, Linux: picking `a.txt` and a folder put `sub/a.txt` in the archive and the job said it worked. With an unpicked link that leads nowhere beside them, the job failed and left no archive.
-	- Actual cause: rar's `-r` makes every selected name a pattern for the working folder and each folder below it, so rar looks at every name it walks past. A folder named on the line goes in whole without `-r`, as rar's own docs say.
-	- Origin: 801ed01, 20260821, which put the command lines in the settings with `-r`. Not seen by an earlier round. Confirmed.
-	- Decisions:
-		- 20261004: a rar line edited in the settings keeps what it has, `-r` included, as item 2026092813381416 settled for `-spd` on 7-Zip lines. When the compression reset adds run-time flags to edited lines, `-r0` after an edited line's `-r` would undo it, since rar takes the last one said. It recurses only for a name with `*` or `?`, which rar already refuses.
-		- 20261004: answered yes. The compression reset adds `-r0` at run time to an edited rar line, as it adds `-spd` to an edited 7-Zip line. Recorded on 2026092910143202.
-	- Actual fix: the built-in rar line no longer has `-r`. A selected file is taken from the job's folder only, and a selected folder still goes in whole, hidden files, empty folders and links included.
-	- Swept: the built-in rar line and the settings schema's copy of it. The first run that keeps links that lead nowhere still says `-r-`, for an edited line. The 7-Zip lines never had `-r`, and the new rows pass for every format. Neither extract line has it. Names with `*` or `?`: rar reads them as patterns with or without `-r`, so item 2026092813381416's refusals stay as they are. Left-out names after `-x` are relative paths with no wildcards, which rar matches only where they are, with or without `-r`. A selected link named with a leading @ still goes in as `./@name`.
-	- Branch: rarsel
-	- Commit: 81e4f82
-	- Test case: rhr6ggmt, Archive option combinations: a picked `a.txt` and folder beside `sub/a.txt` and `sub/held`, in every format, then again with an unpicked link that leads nowhere beside them. Under rar the first run took `sub/a.txt` and the second failed before the fix; both pass after. rev86z08, Archive options test: the built-in rar line has no `-r`. Fails before the fix, passes after.
-	- Verified: 20261004, Linux: rhr6ggmt, rev86z08 and rewygsbg pass, rar ran 43 rows. Full Linux suite 164 of 164.
-
-- Two copies starting at once on a new file cache can find it locked, and one runs with the cache off.
-	- ID: 2026100113372592
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: no. The full Linux suite passed 162 of 162 on 20261003, on cachelock.
-	- Needs external testing: Windows: rjch1a9a in the native suite on vm925w, where it failed.
-	- Priority|Severity: Low
-	- Opened: 20261001-133725
-	- Opened by: code review 20260928 item 20
-	- Related IDs: 2026092813381420, 2026100316054301
-	- Incorrect behavior: while one connection sets up a cache file that did not exist, another opening it fails at once with "could not set up the file cache: database is locked" and that copy has no cache until it is started again. The store's own comment says a busy one waits up to 3 s.
-	- Expected behavior: the second one waits its turn and uses the cache.
-	- Reproduced: once, 20261001, Linux, with a second connection opening a new file as a window did. Not on demand. Again 20261003, Linux: in 2 of 200 rounds of four processes setting up one new file at once, and every time while another connection held the write lock on a new file.
-	- Possible cause: the first switch of a new file to its journal mode takes a lock that sqlite does not wait for.
-	- Actual cause: the switch to WAL reads the file and then takes the write lock. sqlite never waits on that second step, since two readers each waiting on the other would wait for good, so it answers busy at once and the busy timeout never applies.
-		- The failure on vm925w came from the test, not the store. The test's holder committed with no wait of its own. While the store waits it keeps trying, and each try takes a read lock for a moment. One was there right as the holder committed, so the commit was refused, and the holder kept the write lock until the store gave up. The store's 3 s wait ran to 4.9 s on a busy box.
-	- Origin: 9fd0939, 20260921 (thumbdb). New ground. Confirmed.
-	- Actual fix: the setup is tried again on a busy answer, every 10 ms, for as long as the busy timeout.
-		- The test's holder now waits on a busy file like any other copy, and its commit is checked. A reader is put in the way of that commit on every run.
-	- Swept: the prune's own connection opens through the same setup. There is no other journal mode change. The store opens the file in one place, which sets the busy timeout, and a refused commit is always rolled back, so no store connection keeps a lock past one.
-	- Note: once, under a parallel full build, two copies in one round still had no store. How long they had waited was not shown then. The test now prints it, and a copy that gave up only after the whole busy timeout is listed but not counted, since that is the designed limit on a disk that slow. Not seen again in 450 rounds under the same load.
-	- Note: a busy answer to the version read at open is taken as a file from another version, and the file is wiped. Filed as 2026100316054301.
-	- Branch: quitlock, then cachelock
-	- Commit: aced497, f7c0854
-	- Test case: `rjch1a9a File cache opened by many at once test`. One connection holds the write lock on a new file for 300 ms while the store opens it, then rounds of four copies open a new file at the same instant. The held lock fails before the fix and passes after, on Linux. The rounds hit the bug about once in a hundred before the fix, so they are a sweep rather than the pin. The held lock also has a reader in the way of its release. With the old holder that fails every run, the store giving up after 3.3 s with "database is locked". With the fix it passes.
-	- Verified: rjch1a9a passes on Linux, 60 rounds. Lint is clean. On 20261003, the reader case fails before the test fix and passes after. 320 runs of rjch1a9a, 16 at a time, passed beside 240 runs of the store and prune tests. The full Linux suite, the Windows cross build and lint pass.
-	- Progress log:
-		- 20261003: rjch1a9a passed natively on b29w at 43a9126, but failed once in the native suite on vm925w at c78aa9e. With the write lock held for 300 ms, the store gave up after 4.9 s with "database is locked". It passed five runs in a row there on its own afterward. Back to Queued.
-		- 20261003: the cause was the test's own holder. Fixed on cachelock. Waits on a native run on vm925w.
-
-- A waiting store can miss every gap between the prune's writes.
-	- ID: 2026100319191870
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: no. The full Linux suite passed 164 of 164 on 20261004, on prunegap.
-	- Needs external testing: Windows: rhd69rjr and rjch1a9a in the native suite on vm925w. A short sleep there runs on to the next clock tick, which the rest after each write allows for, but it has not run there yet.
-	- Priority|Severity: Low
-	- Opened: 20261003-191918
-	- Opened by: work on 2026093010493420
-	- Related IDs: 2026093010493420, 2026092813381436
-	- Incorrect behavior: while the prune hands space back, each step holds the write lock for only about 40 ms, but the steps follow one another with no gap. A store from another window sleeps up to 100 ms between tries, so it can keep waking while the next step has the lock. It waited 1 to 1.4 s, against the 3 s timeout.
-	- Expected behavior: a waiting store gets its turn within about one step of the prune.
-	- Reproduced: yes, 20261003, Linux, with 40 thousand thumbnails of 16 KB and with 5 thousand of 128 KB, and a second connection writing every 20 ms during the pass.
-	- Possible cause: nothing in the prune lets go of the lock long enough for a waiting connection to notice. The same can happen between delete batches.
-	- Actual cause: sqlite gives a free lock to whoever asks first, not to whoever has waited longest. The prune went from each write straight into the next, while sqlite's own wait backs off to 100 ms between tries, so a waiter kept waking while the next write had the lock. The only gaps were the ones left now and then while the journal was copied back into the file.
-		- Reproduced again 20261004, Linux, in the new test: with a window's read open through the pass, a writer sat out 24 to 29 of the prune's 34 writes in one wait, every run.
-	- Decisions:
-		- The prune rests as long as each write took, and at least 40 ms, so a pass takes at least twice as long. The Clean up button waits for it too. Confirmed 20261004.
-	- Actual fix: after each write the prune rests as long as the write took, and at least 40 ms, so the gap allows two Windows clock ticks. A copy waiting on the file tries again every 5 ms instead of backing off to 100 ms, and its 3 s limit is timed on the clock rather than by adding up its sleeps.
-	- Swept: every write the prune makes in a loop: dropping missing names, orphans, old thumbnails, the size rule and each compact step. The claim and the release are single writes. Every connection is opened in one place, so the prune's own waits the same way as a window's. Nothing else in the store writes in a loop.
-	- Note: a store's commit can also copy the journal back into the file, which on a busy disk took about a second. That is time on the disk, not a wait for the prune's lock, and it holds the store's own lock, so it belongs with 2026092813381436.
-	- Note: rhd69rjr's time limit went to 120 s, since eight copies at once took 31 to 35 s with the rests.
-	- Branch: prunegap
-	- Commit: 3474eb0
-	- Test case: rhd69rjr, File cache prune test, the waiting writer case. Another connection writes every 20 ms while a pass takes out 16 MB and hands it back, with a read held open through the pass. It may sit out at most two of the prune's writes in one wait. Fails before the fix, at 24 to 29 of 34, and passes after, at one.
-	- Verified: 20261004, Linux: rhd69rjr fails before the fix in 26 of 26 runs, 16 of them at once, and passes after in every run, 16 at once included. 48 runs of rjch1a9a beside 16 each of the store and prune tests, 16 at a time, all passed. The full Linux suite, lint and the Windows cross build pass.
-
 - Code review 20260928.
 	- ID: 2026092813381400
 	- Type: Task
@@ -154,6 +71,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: yes, 20261004, Linux. Once as a crash, with the only tab sent to a new copy before item 42's change. Once as criticals, with the only tab dropped on another window.
 	- Possible cause: the tab is closed from an idle that holds its own reference. Closing the last tab closes the window, so the tab is freed after the window, and its view then takes its menus off a window that is gone (`real_unmerge_menus`).
 	- Test case: none yet. rhmr6qgs could send the only tab of a copy to another window and check the copy leaves no crash report.
+
+- On a real Windows screen, the compress dialog test finds the options area capped at a different height than the dialog code works out.
+	- ID: 2026100413554978
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261004-135549
+	- Opened by: owed native tests, 20261004
+	- Target OS: Windows
+	- Test environment: vm925w, console session, 2512 px work area.
+	- Incorrect behavior: rhtmbdmj fails at `test-nemo-archive-dialog.c` line 164. With Options opened, the scroll's max height is 2241, which is not what `nemo_archive_options_room` gives for that screen. The three made-up screen heights pass.
+	- Expected behavior: the test passes, or the test is shown to be wrong and fixed.
+	- Reproduced: yes, twice, 20261004, vm925w console session at bab9a49. Session 0 runs skip it for no monitor, so it may never have run on a real Windows screen before.
+	- Possible cause: not known. The dialog may size against a different monitor or work area than the test reads, or a scale factor is applied on one side only.
+	- Test case: rhtmbdmj, Compress dialog height test.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
@@ -396,6 +328,35 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. rj043mnp covers it.
 	- Closed: 20261003-112426
+
+- Under rar, a selected file also takes same-named files from the folders below it, and a link that leads nowhere beside the selection fails the job.
+	- ID: 2026100410431108
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 164 of 164 on 20261004, on rarsel.
+	- Needs external testing: none left. Ran on vm925w on 20261004.
+	- Priority|Severity: Avg
+	- Opened: 20261004-104311
+	- Opened by: item 2026100312494905
+	- Related IDs: 2026100312494905, 2026092813381404
+	- Incorrect behavior: the rar line has `-r`, and rar then reads each selected name as a pattern for every folder below where the job runs. Picking `a.txt` in a folder that also has `sub/a.txt` puts both in the archive. rar also tries every other name it walks past, so a link that leads nowhere sitting beside the selection, not picked, makes rar warn, and the job fails and deletes the archive.
+	- Expected behavior: the archive holds what was selected and nothing else, and names that were not selected play no part.
+	- Reproduced: rar's side yes, 20261004, Linux, RAR 7.20: `rar a -r -- x.rar a.txt` took `sub/a.txt` too, and said it could not open an unpicked link beside it, with exit 6. The second half on the job's side too, on winlinks: a selected file and linked folder with a link that leads nowhere beside them failed. The first half on the job's side is read only. Plausible.
+		- Both halves on the job's side, 20261004, Linux: picking `a.txt` and a folder put `sub/a.txt` in the archive and the job said it worked. With an unpicked link that leads nowhere beside them, the job failed and left no archive.
+	- Actual cause: rar's `-r` makes every selected name a pattern for the working folder and each folder below it, so rar looks at every name it walks past. A folder named on the line goes in whole without `-r`, as rar's own docs say.
+	- Origin: 801ed01, 20260821, which put the command lines in the settings with `-r`. Not seen by an earlier round. Confirmed.
+	- Decisions:
+		- 20261004: a rar line edited in the settings keeps what it has, `-r` included, as item 2026092813381416 settled for `-spd` on 7-Zip lines. When the compression reset adds run-time flags to edited lines, `-r0` after an edited line's `-r` would undo it, since rar takes the last one said. It recurses only for a name with `*` or `?`, which rar already refuses.
+		- 20261004: answered yes. The compression reset adds `-r0` at run time to an edited rar line, as it adds `-spd` to an edited 7-Zip line. Recorded on 2026092910143202.
+	- Actual fix: the built-in rar line no longer has `-r`. A selected file is taken from the job's folder only, and a selected folder still goes in whole, hidden files, empty folders and links included.
+	- Swept: the built-in rar line and the settings schema's copy of it. The first run that keeps links that lead nowhere still says `-r-`, for an edited line. The 7-Zip lines never had `-r`, and the new rows pass for every format. Neither extract line has it. Names with `*` or `?`: rar reads them as patterns with or without `-r`, so item 2026092813381416's refusals stay as they are. Left-out names after `-x` are relative paths with no wildcards, which rar matches only where they are, with or without `-r`. A selected link named with a leading @ still goes in as `./@name`.
+	- Branch: rarsel
+	- Commit: 81e4f82
+	- Test case: rhr6ggmt, Archive option combinations: a picked `a.txt` and folder beside `sub/a.txt` and `sub/held`, in every format, then again with an unpicked link that leads nowhere beside them. Under rar the first run took `sub/a.txt` and the second failed before the fix; both pass after. rev86z08, Archive options test: the built-in rar line has no `-r`. Fails before the fix, passes after.
+	- Verified: 20261004, Linux: rhr6ggmt, rev86z08 and rewygsbg pass, rar ran 43 rows. Full Linux suite 164 of 164.
+	- Verified: 20261004, Windows, at bab9a49: rhr6ggmt passes natively on vm925w, rar ran 43 rows. The native suite there had no failures, 142 OK.
+	- Acceptance signoff: Self-closed: its tests pass on Linux and natively on Windows, and nothing is left to judge on screen.
+	- Closed: 20261004-140500
 
 - Clicking a place in "Places" leaves the keyboard focus there.
 	- ID: 2026100408525989
@@ -986,6 +947,69 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- Two copies starting at once on a new file cache can find it locked, and one runs with the cache off.
+	- ID: 2026100113372592
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 162 of 162 on 20261003, on cachelock.
+	- Needs external testing: none left. Ran on vm925w on 20261004.
+	- Priority|Severity: Low
+	- Opened: 20261001-133725
+	- Opened by: code review 20260928 item 20
+	- Related IDs: 2026092813381420, 2026100316054301
+	- Incorrect behavior: while one connection sets up a cache file that did not exist, another opening it fails at once with "could not set up the file cache: database is locked" and that copy has no cache until it is started again. The store's own comment says a busy one waits up to 3 s.
+	- Expected behavior: the second one waits its turn and uses the cache.
+	- Reproduced: once, 20261001, Linux, with a second connection opening a new file as a window did. Not on demand. Again 20261003, Linux: in 2 of 200 rounds of four processes setting up one new file at once, and every time while another connection held the write lock on a new file.
+	- Possible cause: the first switch of a new file to its journal mode takes a lock that sqlite does not wait for.
+	- Actual cause: the switch to WAL reads the file and then takes the write lock. sqlite never waits on that second step, since two readers each waiting on the other would wait for good, so it answers busy at once and the busy timeout never applies.
+		- The failure on vm925w came from the test, not the store. The test's holder committed with no wait of its own. While the store waits it keeps trying, and each try takes a read lock for a moment. One was there right as the holder committed, so the commit was refused, and the holder kept the write lock until the store gave up. The store's 3 s wait ran to 4.9 s on a busy box.
+	- Origin: 9fd0939, 20260921 (thumbdb). New ground. Confirmed.
+	- Actual fix: the setup is tried again on a busy answer, every 10 ms, for as long as the busy timeout.
+		- The test's holder now waits on a busy file like any other copy, and its commit is checked. A reader is put in the way of that commit on every run.
+	- Swept: the prune's own connection opens through the same setup. There is no other journal mode change. The store opens the file in one place, which sets the busy timeout, and a refused commit is always rolled back, so no store connection keeps a lock past one.
+	- Note: once, under a parallel full build, two copies in one round still had no store. How long they had waited was not shown then. The test now prints it, and a copy that gave up only after the whole busy timeout is listed but not counted, since that is the designed limit on a disk that slow. Not seen again in 450 rounds under the same load.
+	- Note: a busy answer to the version read at open is taken as a file from another version, and the file is wiped. Filed as 2026100316054301.
+	- Branch: quitlock, then cachelock
+	- Commit: aced497, f7c0854
+	- Test case: `rjch1a9a File cache opened by many at once test`. One connection holds the write lock on a new file for 300 ms while the store opens it, then rounds of four copies open a new file at the same instant. The held lock fails before the fix and passes after, on Linux. The rounds hit the bug about once in a hundred before the fix, so they are a sweep rather than the pin. The held lock also has a reader in the way of its release. With the old holder that fails every run, the store giving up after 3.3 s with "database is locked". With the fix it passes.
+	- Verified: rjch1a9a passes on Linux, 60 rounds. Lint is clean. On 20261003, the reader case fails before the test fix and passes after. 320 runs of rjch1a9a, 16 at a time, passed beside 240 runs of the store and prune tests. The full Linux suite, the Windows cross build and lint pass.
+	- Progress log:
+		- 20261003: rjch1a9a passed natively on b29w at 43a9126, but failed once in the native suite on vm925w at c78aa9e. With the write lock held for 300 ms, the store gave up after 4.9 s with "database is locked". It passed five runs in a row there on its own afterward. Back to Queued.
+		- 20261003: the cause was the test's own holder. Fixed on cachelock. Waits on a native run on vm925w.
+	- Verified: 20261004, Windows, at bab9a49: rjch1a9a passes natively on vm925w. The native suite there had no failures, 142 OK.
+	- Acceptance signoff: Self-closed: its tests pass on Linux and natively on Windows, and nothing is left to judge on screen.
+	- Closed: 20261004-140500
+
+- A waiting store can miss every gap between the prune's writes.
+	- ID: 2026100319191870
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 164 of 164 on 20261004, on prunegap.
+	- Needs external testing: none left. Ran on vm925w on 20261004.
+	- Priority|Severity: Low
+	- Opened: 20261003-191918
+	- Opened by: work on 2026093010493420
+	- Related IDs: 2026093010493420, 2026092813381436
+	- Incorrect behavior: while the prune hands space back, each step holds the write lock for only about 40 ms, but the steps follow one another with no gap. A store from another window sleeps up to 100 ms between tries, so it can keep waking while the next step has the lock. It waited 1 to 1.4 s, against the 3 s timeout.
+	- Expected behavior: a waiting store gets its turn within about one step of the prune.
+	- Reproduced: yes, 20261003, Linux, with 40 thousand thumbnails of 16 KB and with 5 thousand of 128 KB, and a second connection writing every 20 ms during the pass.
+	- Possible cause: nothing in the prune lets go of the lock long enough for a waiting connection to notice. The same can happen between delete batches.
+	- Actual cause: sqlite gives a free lock to whoever asks first, not to whoever has waited longest. The prune went from each write straight into the next, while sqlite's own wait backs off to 100 ms between tries, so a waiter kept waking while the next write had the lock. The only gaps were the ones left now and then while the journal was copied back into the file.
+		- Reproduced again 20261004, Linux, in the new test: with a window's read open through the pass, a writer sat out 24 to 29 of the prune's 34 writes in one wait, every run.
+	- Decisions:
+		- The prune rests as long as each write took, and at least 40 ms, so a pass takes at least twice as long. The Clean up button waits for it too. Confirmed 20261004.
+	- Actual fix: after each write the prune rests as long as the write took, and at least 40 ms, so the gap allows two Windows clock ticks. A copy waiting on the file tries again every 5 ms instead of backing off to 100 ms, and its 3 s limit is timed on the clock rather than by adding up its sleeps.
+	- Swept: every write the prune makes in a loop: dropping missing names, orphans, old thumbnails, the size rule and each compact step. The claim and the release are single writes. Every connection is opened in one place, so the prune's own waits the same way as a window's. Nothing else in the store writes in a loop.
+	- Note: a store's commit can also copy the journal back into the file, which on a busy disk took about a second. That is time on the disk, not a wait for the prune's lock, and it holds the store's own lock, so it belongs with 2026092813381436.
+	- Note: rhd69rjr's time limit went to 120 s, since eight copies at once took 31 to 35 s with the rests.
+	- Branch: prunegap
+	- Commit: 3474eb0
+	- Test case: rhd69rjr, File cache prune test, the waiting writer case. Another connection writes every 20 ms while a pass takes out 16 MB and hands it back, with a read held open through the pass. It may sit out at most two of the prune's writes in one wait. Fails before the fix, at 24 to 29 of 34, and passes after, at one.
+	- Verified: 20261004, Linux: rhd69rjr fails before the fix in 26 of 26 runs, 16 of them at once, and passes after in every run, 16 at once included. 48 runs of rjch1a9a beside 16 each of the store and prune tests, 16 at a time, all passed. The full Linux suite, lint and the Windows cross build pass.
+	- Verified: 20261004, Windows, at bab9a49: rhd69rjr and rjch1a9a pass natively on vm925w. The native suite there had no failures, 142 OK.
+	- Acceptance signoff: Self-closed: its tests pass on Linux and natively on Windows, and nothing is left to judge on screen.
+	- Closed: 20261004-140500
 
 - The rename field moves a window that does not exist yet when it is sized before it is shown.
 	- ID: 2026100412363910
