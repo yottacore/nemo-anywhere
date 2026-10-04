@@ -9,10 +9,11 @@
 ##	   3. tag the merge: v<version>, where <version> comes from source/meson.build
 ##	      alone (the build stamps from it too, so they can never disagree)
 ##	   4. --push: push main + the tag
-##	   5. --publish: also attach cicd/artifacts/release/* to a GitHub Release
-##	      as plain uploads (gh CLI; no Actions), then write its Downloads table.
-##	      If the Windows build made the release first, the files, title, notes
-##	      and prerelease flag go onto that one.
+##	   5. --publish: wait for the hosted builds the tag started
+##	      (RELEASE_WORKFLOWS), download their files, and make the GitHub Release
+##	      with those and cicd/artifacts/release/* in one step, one sums file
+##	      and the Downloads table included. Only this lane makes a release.
+##	      Run again after a failed hosted build, it picks up from the pushed tag.
 ##	- Status: tag + push work today. Artifact verification/attach is gated off until
 ##	  the release-build stage produces host-side artifacts (RELEASE_ARTIFACT_DIR in
 ##	  config.bash). First release also needs a "Release-<ver>" README badge to exist.
@@ -55,7 +56,15 @@ if ! git diff --quiet || ! git diff --cached --quiet; then die "working tree not
 ver="$(grep -oP "(?<![_[:alnum:]])version\s*:\s*'\K[^']+" "${VERSION_MANIFEST}" | head -1)"
 [[ -n "$ver" ]] || die "no version in ${VERSION_MANIFEST}"
 tag="v${ver}"
-git rev-parse -q --verify "refs/tags/${tag}" >/dev/null && die "tag ${tag} already exists - bump the version on dev first"
+resume=0
+if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+	## A publish stopped by a hosted build that failed starts again from here.
+	if ((do_publish)) && [[ "$(git rev-parse "${tag}^{commit}")" == "$(git rev-parse HEAD)" ]]; then
+		resume=1
+	else
+		die "tag ${tag} already exists - bump the version on dev first"
+	fi
+fi
 
 ## Only a hand-written release badge needs checking, and it must be bumped on dev
 ## with the version (shields.io escapes '-' as '--'), never patched here on main.
@@ -68,7 +77,7 @@ fi
 ## 2. Release artifacts must exist and carry this version (full cicd run makes them).
 ## Gated on a configured RELEASE_ARTIFACT_DIR; without one a release is tag and
 ## push only. The Windows exe is not among them: the hosted workflow builds it on
-## the tag and adds it, and its line in the sums file, once it is done.
+## the tag, and --publish fetches it from there.
 have_artifacts=0
 art_dir="${RELEASE_ARTIFACT_DIR:-}"
 if [[ -n "$art_dir" ]]; then
@@ -100,8 +109,12 @@ echo "Push: ${do_push}  Publish (gh): ${do_publish}"
 if ((! assume_yes)); then read -r -p "Proceed? [y/N] " a; [[ "$a" == [yY]* ]] || exit 1; fi
 
 ## 3. Tag the merge.
-git tag -a "${tag}" -m "${tag}"
-echo "tagged ${tag}"
+if ((resume)); then
+	echo "tag ${tag} is there already on HEAD; publishing it"
+else
+	git tag -a "${tag}" -m "${tag}"
+	echo "tagged ${tag}"
+fi
 
 ## 4/5. Push and publish.
 if ((do_push)); then
@@ -113,79 +126,79 @@ else
 fi
 if ((do_publish)); then
 	command -v gh >/dev/null 2>&1 || die "gh CLI not found"
-	## Notes are the hand-written changelog section when there is one. The
-	## Downloads table goes in once the files are up.
 	pub_dir="$(mktemp -d)"
 	trap 'rm -rf "${pub_dir}"' EXIT
+	## gh leaves a draft when an upload fails part way.
+	if is_draft="$(gh release view "${tag}" --json isDraft --jq .isDraft 2>/dev/null)"; then
+		[[ "$is_draft" == true ]] || die "release ${tag} is published already"
+		die "a draft release for ${tag} is left from a failed publish; delete it (gh release delete ${tag} -y) and rerun"
+	fi
+	sums_out="${pub_dir}/${EXE_NAME}-${ver}-sha256sums.txt"
+	: >"${sums_out}"
+	files=()
+	if ((have_artifacts)); then
+		cp "${sums}" "${sums_out}"
+		for f in "${arts[@]}"; do [[ "$f" == "$sums" ]] || files+=("$f"); done
+	fi
+	## Each hosted build hands over its files as a release-files artifact,
+	## already named for the release. All of them come down first, so the
+	## release goes up whole or not at all.
+	head_sha="$(git rev-parse HEAD)"
+	for wf in "${RELEASE_WORKFLOWS[@]}"; do
+		run=""
+		for _ in $(seq 1 "${RELEASE_RUN_LOOKS:-20}"); do
+			run="$(gh run list --workflow "${wf}" --commit "${head_sha}" --event push --json databaseId,headBranch \
+				--jq "[.[] | select(.headBranch == \"${tag}\")][0].databaseId // empty" 2>/dev/null || true)"
+			[[ -z "$run" ]] || break
+			sleep "${RELEASE_POLL_SECS:-15}"
+		done
+		[[ -n "$run" ]] || die "no ${wf} run for ${tag} turned up; start one, then rerun: cicd/utility/release.bash --publish"
+		echo "waiting for ${wf} run ${run}"
+		state=""
+		for _ in $(seq 1 120); do
+			state="$(gh run view "${run}" --json status,conclusion --jq '.status + " " + .conclusion' 2>/dev/null || true)"
+			[[ "$state" != completed* ]] || break
+			sleep "${RELEASE_POLL_SECS:-30}"
+		done
+		[[ "$state" == "completed success" ]] || die "${wf} run ${run} ended '${state:-still running}'; once it passes (gh run rerun ${run}), rerun: cicd/utility/release.bash --publish"
+		got_dir="${pub_dir}/from-${wf%.*}"
+		gh run download "${run}" --name release-files --dir "${got_dir}" || die "could not download release-files from ${wf} run ${run}"
+		shopt -s nullglob
+		got=("${got_dir}"/*)
+		shopt -u nullglob
+		((${#got[@]})) || die "${wf} run ${run} handed over no files"
+		for f in "${got[@]}"; do
+			name="${f##*/}"
+			[[ -f "$f" && "$name" == "${EXE_NAME}-${ver}-"* ]] || die "${wf} handed over '${name}', not a ${EXE_NAME}-${ver}-* file"
+			for have in "${files[@]}"; do [[ "${have##*/}" != "$name" ]] || die "${wf} handed over ${name}, which is here already"; done
+			( cd "${got_dir}" && sha256sum "${name}" ) >>"${sums_out}"
+			files+=("$f")
+		done
+	done
+	## Every file has its line, so the sums file is never one lane's half.
+	sort -k2 -o "${sums_out}" "${sums_out}"
+	if [[ -s "${sums_out}" ]]; then files+=("${sums_out}"); fi
+	## The table is written before the upload, from the names GitHub will keep
+	## (anything outside [A-Za-z0-9._-] becomes a dot), so the release is never
+	## seen without it.
+	base_url="$(gh repo view --json url --jq .url)/releases/download/${tag}"
+	python3 -c 'import json, re, sys
+base = sys.argv[1]
+names = [re.sub(r"[^A-Za-z0-9._-]", ".", n) for n in sys.argv[2:]]
+print(json.dumps({"assets": [{"name": n, "state": "uploaded", "url": base + "/" + n} for n in names]}))' \
+		"${base_url}" "${files[@]##*/}" >"${pub_dir}/assets.json"
 	notes_file="${pub_dir}/notes.md"
-	bash "${here}/release-notes.bash" "${ver}" >"${notes_file}"
-	notes_arg=(--notes-file "${notes_file}")
-	## A prerelease is anything with a pre-release part, matching the tag rule the
-	## release workflow applies from its side.
+	bash "${here}/release-notes.bash" "${ver}" "${pub_dir}/assets.json" >"${notes_file}"
+	## A prerelease is anything with a pre-release part.
 	pre_arg=()
 	if [[ "$ver" == *-* ]]; then pre_arg=(--prerelease); fi
-	files=()
-	if ((have_artifacts)); then files=("${art_dir}/${EXE_NAME}-${ver}-"*); fi
-	## The tag starts the Windows build, which makes the release itself when it
-	## finds none. If it got there first, this lane adds to that one instead.
-	joined=0
-	if gh release view "${tag}" --json name >/dev/null 2>&1; then
-		joined=1
-	elif ! gh release create "${tag}" --title "${APP_NAME} ${ver}" "${notes_arg[@]}" "${pre_arg[@]}" "${files[@]}"; then
-		gh release view "${tag}" --json name >/dev/null 2>&1 || die "gh release create ${tag} failed"
-		joined=1
-	fi
-	if ((joined)); then
-		pre_flag=--prerelease=false
-		if ((${#pre_arg[@]})); then pre_flag=--prerelease; fi
-		gh release edit "${tag}" --title "${APP_NAME} ${ver}" "${notes_arg[@]}" "${pre_flag}" >/dev/null
-		if ((have_artifacts)); then
-			## A .sha256 beside an asset is the Windows build's checksum, written
-			## when it gave up waiting for the sums file. Fold it into the sums
-			## file, as it would have done itself had the file been there.
-			sums_name="${sums##*/}"
-			cp "${sums}" "${pub_dir}/${sums_name}"
-			upload=("${pub_dir}/${sums_name}")
-			for f in "${files[@]}"; do [[ "$f" == "$sums" ]] || upload+=("$f"); done
-			gh release view "${tag}" --json assets >"${pub_dir}/assets.json"
-			mapfile -t sidecars < <(python3 -c 'import json, sys
-for a in json.load(open(sys.argv[1]))["assets"]:
-    if a["name"].endswith(".sha256") and a.get("state") == "uploaded": print(a["name"])' "${pub_dir}/assets.json")
-			declare -A summed=()
-			while read -r hash name || [[ -n "${name:-}" ]]; do summed["${name#\*}"]=1; done <"${pub_dir}/${sums_name}"
-			folded=()
-			for side in "${sidecars[@]}"; do
-				## A file just uploaded can be listed before it can be fetched.
-				got=0
-				for try in 1 2 3 4 5 6; do
-					if gh release download "${tag}" --pattern "${side}" --dir "${pub_dir}" --clobber 2>/dev/null; then got=1; break; fi
-					if ((try < 6)); then sleep $((try * 5)); fi
-				done
-				if ((! got)); then echo "WARNING: could not fetch ${side}; left beside its file" >&2; continue; fi
-				while read -r hash name || [[ -n "${name:-}" ]]; do
-					name="${name#\*}"
-					if [[ -z "$name" || -n "${summed[$name]:-}" ]]; then continue; fi
-					printf '%s  %s\n' "$hash" "$name" >>"${pub_dir}/${sums_name}"
-					summed["$name"]=1
-				done <"${pub_dir}/${side}"
-				folded+=("${side}")
-			done
-			gh release upload "${tag}" "${upload[@]}" --clobber
-			for side in "${folded[@]}"; do gh release delete-asset "${tag}" "${side}" -y; done
-		fi
-		echo "GitHub Release ${tag} was there already; added to it"
-	elif ((have_artifacts)); then
-		echo "GitHub Release ${tag} created with artifacts"
-	else
-		echo "GitHub Release ${tag} created (no artifacts attached - stage not wired yet)"
-	fi
-	if ((have_artifacts)); then
-		## Whichever lane uploads last writes the table again then.
-		bash "${here}/release-notes.bash" --update "${tag}" \
-			|| echo "WARNING: Downloads table not written; rerun: cicd/utility/release-notes.bash --update ${tag}" >&2
-	fi
-elif ((do_push)) && ((have_artifacts)); then
-	echo "next (optional): gh release create ${tag} ${art_dir}/${EXE_NAME}-${ver}-*"
-	echo "  or, once the Windows build has made it: gh release upload ${tag} ${art_dir}/${EXE_NAME}-${ver}-*"
-	echo "  then: cicd/utility/release-notes.bash --update ${tag}"
+	## With files given, gh makes a draft, uploads, then publishes.
+	gh release create "${tag}" --verify-tag --title "${APP_NAME} ${ver}" --notes-file "${notes_file}" "${pre_arg[@]}" "${files[@]}" \
+		|| die "gh release create ${tag} failed"
+	echo "GitHub Release ${tag} made with ${#files[@]} file(s)"
+	## Read back what GitHub has, in case it named a file some other way.
+	bash "${here}/release-notes.bash" --update "${tag}" \
+		|| echo "WARNING: Downloads table not checked; rerun: cicd/utility/release-notes.bash --update ${tag}" >&2
+elif ((do_push)); then
+	echo "next: cicd/utility/release.bash --publish (waits for the hosted builds, then makes the release)"
 fi

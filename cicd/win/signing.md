@@ -8,7 +8,7 @@ Status: **deferred**. Releases ship an unsigned exe, with the `.zip` as the fall
 
 - The release-only GitHub Actions workflow exists *because* SignPath would only sign artifacts from a verifiable CI build. With that gone, nothing forces the release build into hosted CI, and a local `cicd-win.ps1` cut is viable again. That matters because most of the remaining options sign locally rather than in CI.
 
-- `.github/workflows/release-win.yml` is kept as it is. It still builds, packs and publishes; the SignPath submission step stays dormant behind its `SIGNPATH_API_TOKEN` gate, so there is nothing to unpick if this is picked back up. The repo has no secrets or variables set, and the step is confirmed skipped on the last tag build.
+- `.github/workflows/release-win.yml` is kept as it is. It still builds and packs, and hands the exe to the local cut, which makes the release; the SignPath submission step stays dormant behind its `SIGNPATH_API_TOKEN` gate, so there is nothing to unpick if this is picked back up. The repo has no secrets or variables set, and the step is confirmed skipped on the last tag build.
 
 ## Options, if this is revisited
 

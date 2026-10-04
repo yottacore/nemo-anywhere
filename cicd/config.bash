@@ -174,6 +174,10 @@ CROSS_TARGETS=(
 ## would throw away the tarball release.bash just wrote.
 RELEASE_ARTIFACT_DIR="cicd/artifacts/release"
 RELEASE_COLLECT=0
+## Hosted builds started by the release tag. utility/release.bash --publish waits
+## for each, downloads its release-files artifact and makes the release with those
+## files and its own in one go. A hosted build never makes or edits a release.
+RELEASE_WORKFLOWS=(release-win.yml)
 VERSION_MANIFEST="source/meson.build"
 #	Rust-era original (reference only):
 #	RELEASE_ARTIFACT_DIR="cicd/artifacts/release"

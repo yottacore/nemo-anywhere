@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
 
 ##	- Purpose: Write a release's notes: the version's changelog section, the
-##	  Downloads table, and the build number. The one place both release lanes
-##	  get them from, so the notes come out the same whichever lane is last.
+##	  Downloads table, and the build number.
 ##	- With a version, prints the notes. The table comes from an assets file in
 ##	  the form `gh release view <tag> --json assets` prints, and is left out
 ##	  without one.
 ##	- With --update <tag>, reads what the release holds now and edits its
-##	  notes to match. Each lane runs this after its own uploads. The local cut
-##	  and the Windows build both add files, minutes apart, so the list is read
-##	  again after the edit, and the edit is redone if it moved meanwhile.
+##	  notes to match. The local cut runs this once the release is up. The
+##	  list is read again after the edit, and the edit is redone if it moved
+##	  meanwhile.
 ##	- A version with no changelog section gets a placeholder line, not a
 ##	  generated commit list.
 ##	- Syntax: release-notes.bash [--changelog <file>] <version> [assets.json]

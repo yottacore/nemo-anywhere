@@ -36,30 +36,31 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - If the Windows release workflow makes the release before the local cut does, the local cut fails.
 	- ID: 2026100415281302
 	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs external testing: a real release the Windows build makes first. A normal cut never gets there, so the next tag will likely not show it.
+	- Status: Waiting for testing
+	- Needs external testing: the next real release tag. The cut should wait for the Windows build, then put up one release with every file.
 	- Priority|Severity: Low
 	- Opened: 20261004-152813
 	- Opened by: work on 2026100413051728
 	- Related IDs: 2026100413051728
 	- Incorrect behavior: `release.bash` pushes the tag, then runs `gh release create`. The tag starts the Windows workflow, which makes the release itself when none is there yet. If the local step runs late, its create fails.
-	- Expected behavior: whichever side comes second adds to the release the other made.
+	- Expected behavior: only the local cut makes a release. Hosted builds only build, and hand their files back to it, so the release goes up whole in one step. The same holds for any later BSD, macOS or ARM build done elsewhere.
+		- Answered 2026-10-04, replacing the first fix, where whichever side came second added to the other's release.
 	- Reproduced: yes. The new cases in rjf2v5d5 fail on the old `release.bash`, where the create is refused because the release is there.
 	- Decisions:
-		- A `.sha256` the Windows build put beside its exe, when it gave up waiting for the sums file, is folded into the sums file and then removed from the release. That is what the release would hold had the local cut been first. A call made without asking.
-		- On a release it finds, the local cut sets the title, notes and prerelease flag, clearing the flag for a stable version.
-	- Actual fix: `release.bash` looks for the release before it creates one, and again if the create fails. When it is there, the local cut edits it and uploads its files to it, then writes the Downloads table as before.
-	- Swept: every `gh release create`. `release.bash` is fixed. The hint it prints after `--push` alone now also gives the upload form. `release-win.yml` already edits a release it finds, and leaves the title alone.
-	- Branch: relrace
+		- If a hosted build fails, no release is made. Run `release.bash --publish` again once it passes; it picks up from the pushed tag. A call made without asking.
+		- A release already there for the tag is refused, never added to. A call made without asking.
+	- Actual fix: `release-win.yml` only builds, and hands back the exe as a `release-files` artifact under its release name. `release.bash --publish` waits for each hosted build in `RELEASE_WORKFLOWS`, downloads its files, adds their lines to the one sums file, writes the notes with the Downloads table, and makes the release with every file in one `gh release create`.
+	- Swept: every `gh release` call. None are left in the workflow. design.md and `cicd/win/signing.md` say the workflow no longer publishes.
+	- Branch: relrace, then relone
 	- Commit: 24de39d
-	- Test case: rjf2v5d5 (`test-release-notes.bash`, lint stage), with the release made by the Windows build before the local cut looks, and between its look and its create.
-	- Verified: rjf2v5d5 fails on the old `release.bash` and passes now. The lint stage is clean.
+	- Test case: rjf2v5d5 (`test-release-notes.bash`, lint stage): a hosted build still running, one that fails and is rerun, a release already there, and a misnamed hosted file.
+	- Verified: rjf2v5d5 fails on the old `release.bash` and workflow and passes now.
 
 - Release page: group the downloads in a table.
 	- ID: 2026100413051728
 	- Type: Feature
 	- Status: Waiting on signoff
-	- Needs external testing: the Windows build's last step on the next real release tag, and the release page looked at then.
+	- Needs external testing: the next real release tag, and the release page looked at then.
 	- Opened: 20261004-130517
 	- Opened by: t00mietum
 	- Requirements:
@@ -71,7 +72,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The table goes after the changelog section and before the build number.
 	- Against: design.md said a version with no changelog section falls back to generated notes. Both lanes now write one line pointing at the changelog, as the local cut already did. design.md says so now.
 	- Done: both release lanes write the notes through one script, once their own uploads are done, from the files the release holds. So the table is whole whichever lane finishes last. The Windows build's notes keep the build number now too.
-	- Note: if the Windows build ever creates the release before the local cut does, the local cut's create still fails, as before. Not changed here.
+	- Note: since `2026100415281302`, only the local cut writes the notes. It writes the table before the upload, from the names the files will have.
 	- Swept: every place release notes are written: `release.bash`, and the notes and publish steps in `release-win.yml`. `changelog-notes.bash` is still the one reader of the changelog.
 	- Branch: relnotes
 	- Commit: 4e5127f
