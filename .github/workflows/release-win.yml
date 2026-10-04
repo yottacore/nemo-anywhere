@@ -11,10 +11,13 @@
 # stage-native.bash (self-contained bundle) -> pack-portable.ps1 (EVB single exe).
 #
 # The SignPath step below is left in place but dormant: it is gated on the
-# SIGNPATH_API_TOKEN secret, which is not set, so the job builds and attaches the
-# UNSIGNED exe and never hard-fails on a missing cert. Nothing here needs unpicking
+# SIGNPATH_API_TOKEN secret, which is not set, so the job hands over the UNSIGNED
+# exe and never hard-fails on a missing cert. Nothing here needs unpicking
 # if signing is picked back up. See cicd/win/signing.md for where that stands and
 # what the alternatives are.
+#
+# It never touches the release. The local cut waits for this run, downloads the
+# exe and makes the release with every file at once.
 #
 # Triggers: a pushed v* tag (the release cut), or a manual run for a build/pack
 # smoke without releasing.
@@ -27,7 +30,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write   # attach assets to the GitHub Release
+  contents: read
   id-token: write   # SignPath origin verification (OIDC)
 
 jobs:
@@ -116,70 +119,26 @@ jobs:
           wait-for-completion: true
           output-artifact-directory: signed
 
-      # Notes come from the changelog section for this version, the same way the
-      # local cut writes them. Writes nothing if that fails, and the publish step
-      # then falls back to the generated commit list rather than an empty body.
-      - name: Release notes from changelog
-        if: startsWith(github.ref, 'refs/tags/')
-        shell: bash
-        run: bash cicd/utility/release-notes.bash "${GITHUB_REF_NAME}" > release-notes.md || rm -f release-notes.md
-
-      # Attach to the release on a tag build. Prefer the signed exe when present.
-      # Creates the release if the tag push arrived before release.bash made one.
-      # A SemVer prerelease tag (a hyphen after the version core, e.g. v1.0.0-rc1 or
-      # v0.9.0-beta) is marked prerelease; a plain v<version> is marked latest. The
-      # flag and the notes are enforced on edit too, so a release that already
-      # existed ends up with both right.
-      - name: Publish to release
-        if: startsWith(github.ref, 'refs/tags/')
+      # The release itself is made on the Linux box, in one step with every
+      # platform's files, so this only hands over the exe. It goes up as the
+      # release-files artifact, already under its release name, where
+      # cicd/utility/release.bash waits for it.
+      - name: Release file
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
         run: |
           $exe = if (Test-Path signed/nemo-anywhere.exe) { "signed/nemo-anywhere.exe" }
                  else { "cicd/artifacts/win-portable/nemo-anywhere.exe" }
-          $rel = if ($env:TAG -match '-') { "--prerelease" } else { "--latest" }
-          $notes = "release-notes.md"
-          if ((Test-Path $notes) -and (Get-Item $notes).Length -gt 0) {
-            gh release create "$env:TAG" --verify-tag --title "$env:TAG" --notes-file $notes $rel 2>$null
-            gh release edit "$env:TAG" $rel --notes-file $notes 2>$null
-          } else {
-            gh release create "$env:TAG" --verify-tag --title "$env:TAG" --generate-notes $rel 2>$null
-            gh release edit "$env:TAG" $rel 2>$null
+          $ver = (Select-String -Path source/meson.build -Pattern "(?<![_\w])version\s*:\s*'([^']+)'" | Select-Object -First 1).Matches[0].Groups[1].Value
+          if (-not $ver) { throw "no version in source/meson.build" }
+          if ($env:GITHUB_REF -like 'refs/tags/*' -and $env:GITHUB_REF_NAME -ne "v$ver") {
+            throw "tag $env:GITHUB_REF_NAME is not v$ver from source/meson.build"
           }
-          # The version goes in the name like every other artifact, and the exe gets
-          # a line in the release's sums file. The local cut uploads that file just
-          # after pushing the tag, well before this build ends, but wait for it
-          # rather than race it. Without it, a .sha256 file goes beside the exe, and
-          # a local cut that comes later folds it into the sums file.
-          $ver = $env:TAG -replace '^v', ''
-          $name = "nemo-anywhere-$ver-windows-x86_64-portable.exe"
-          Copy-Item -LiteralPath $exe -Destination $name
-          gh release upload "$env:TAG" "$name" --clobber
-          $hash = (Get-FileHash -LiteralPath $name -Algorithm SHA256).Hash.ToLowerInvariant()
-          $line = "$hash  $name"
-          $sums = "nemo-anywhere-$ver-sha256sums.txt"
-          $got = $false
-          for ($i = 0; $i -lt 20 -and -not $got; $i++) {
-            gh release download "$env:TAG" --pattern $sums --clobber 2>$null
-            if ($LASTEXITCODE -eq 0 -and (Test-Path $sums)) { $got = $true } else { Start-Sleep -Seconds 30 }
-          }
-          if ($got) {
-            $kept = @(Get-Content -LiteralPath $sums | Where-Object { $_ -and $_ -notmatch "[ *]$([regex]::Escape($name))$" })
-            [IO.File]::WriteAllText((Resolve-Path $sums), ((@($kept) + $line) -join "`n") + "`n")
-            gh release upload "$env:TAG" $sums --clobber
-          } else {
-            [IO.File]::WriteAllText("$PWD/$name.sha256", "$line`n")
-            gh release upload "$env:TAG" "$name.sha256" --clobber
-          }
+          New-Item -ItemType Directory -Force release-files | Out-Null
+          Copy-Item -LiteralPath $exe -Destination "release-files/nemo-anywhere-$ver-windows-x86_64-portable.exe"
 
-      # Last, once the exe and the sums file are up: the Downloads table is read
-      # off what the release holds now, so it is right whichever lane finished
-      # last. The local cut writes it the same way after its own uploads.
-      - name: Downloads table
-        if: startsWith(github.ref, 'refs/tags/')
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: bash cicd/utility/release-notes.bash --update "${GITHUB_REF_NAME}"
+      - name: Upload release file
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-files
+          path: release-files/
+          if-no-files-found: error

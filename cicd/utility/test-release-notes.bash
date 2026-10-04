@@ -2,12 +2,12 @@
 
 ##	- Purpose: Check the Downloads table in release notes: OS in rows, CPU in
 ##	  columns, an empty cell where nothing was built, links as GitHub has the
-##	  files named, and checksums kept out of the table. Also that it comes out
-##	  whole whichever release lane adds its files last.
+##	  files named, and checksums kept out of the table. Also that the local cut
+##	  waits for the hosted Windows build and makes the release whole, in one
+##	  step, and makes none when that build fails.
 ##	- Runs release-notes.bash over made-up asset lists, then a copy of
-##	  release.bash --publish in a scratch repo against a stand-in gh, followed by
-##	  the Windows workflow's last step, and again with the release already
-##	  made by the Windows build. Nothing reaches GitHub.
+##	  release.bash --publish in a scratch repo against a stand-in gh. Nothing
+##	  reaches GitHub.
 ##	- Needs git and python3; exit 77 without them. pandoc, when there, checks
 ##	  that the table renders as one.
 ##	- Runs in the lint stage.
@@ -95,7 +95,7 @@ fWant(){
 fNotes(){ bash "${here}/release-notes.bash" --changelog "$changelog" "$@"; }
 fLink(){ printf '[%s](%s/%s)' "$1" "$base" "$2"; }
 
-## Every name the two lanes upload for a release.
+## Every name a release has.
 linuxFiles=("${app}-linux-x86_64.deb" "${app}-linux-x86_64.rpm" "${app}-linux-x86_64.tar.gz")
 winZip="${app}-windows-x86_64.zip"
 winExe="${app}-windows-x86_64-portable.exe"
@@ -172,11 +172,12 @@ notes="$(fNotes 9.9.7 2>/dev/null)"
 fWant "$notes" "no changelog section, placeholder" "See the changelog for details."
 
 ## A stand-in gh. It keeps the release's files in assets.json, their bytes in
-## file_<name>, its notes in body.md, and its title and prerelease flag in
-## title and prerelease. No assets.json means no release yet.
-## after-view-N.json stands for another lane's upload finishing just after the
-## Nth read, and made-meanwhile.json for the Windows build making the release
-## just before this lane's create.
+## file_<name>, its notes in body.md (and as made in body-at-create.md), and
+## its title and prerelease flag in title and prerelease. No assets.json means
+## no release yet. after-view-N.json stands for a file showing up just after
+## the Nth read. The hosted build is run_id, which run list hides for
+## run_hidden looks, run_states, one state per look with the last one kept,
+## and artifact/, what it handed over.
 fakeDir="${scratch}/gh"
 mkdir -p "${scratch}/bin" "$fakeDir"
 cat > "${scratch}/bin/gh" <<'EOF'
@@ -215,6 +216,7 @@ fFlags(){
 case "${1:-} ${2:-}" in
 	"release view")
 		if [[ ! -f "${d}/assets.json" ]]; then echo "release not found" >&2; exit 1; fi
+		if [[ " $* " == *" isDraft "* ]]; then cat "${d}/draft" 2>/dev/null || echo false; exit 0; fi
 		n=$(( $(cat "${d}/views" 2>/dev/null || echo 0) + 1 ))
 		echo "$n" > "${d}/views"
 		cat "${d}/assets.json"
@@ -223,7 +225,6 @@ case "${1:-} ${2:-}" in
 		[[ -f "${d}/assets.json" ]] || { echo "release not found" >&2; exit 1; }
 		fFlags "$@" ;;
 	"release create")
-		if [[ -f "${d}/made-meanwhile.json" ]]; then mv "${d}/made-meanwhile.json" "${d}/assets.json"; fi
 		if [[ -f "${d}/assets.json" ]]; then echo "HTTP 422: Validation Failed (already_exists)" >&2; exit 1; fi
 		shift 3
 		files=() flags=()
@@ -234,30 +235,24 @@ case "${1:-} ${2:-}" in
 		esac; done
 		echo false > "${d}/prerelease"
 		fFlags "${flags[@]}"
+		cp "${d}/body.md" "${d}/body-at-create.md"
 		fFiles add "${files[@]}" ;;
-	"release upload")
-		[[ -f "${d}/assets.json" ]] || { echo "release not found" >&2; exit 1; }
-		shift 3
-		files=()
-		for f in "$@"; do [[ "$f" == --* ]] || files+=("$f"); done
-		for f in "${files[@]}"; do
-			n="${f##*/}"
-			if [[ -f "${d}/file_${n}" && " $* " != *" --clobber "* ]]; then echo "asset under the same name already exists: ${n}" >&2; exit 1; fi
-		done
-		fFiles add "${files[@]}" ;;
-	"release download")
-		shift 3
-		pattern="" dir="."
-		while (($#)); do case "$1" in
-			-p|--pattern) pattern="$2"; shift 2 ;;
-			-D|--dir) dir="$2"; shift 2 ;;
-			*) shift ;;
-		esac; done
-		[[ -f "${d}/file_${pattern}" ]] || { echo "no assets to download" >&2; exit 1; }
-		cp "${d}/file_${pattern}" "${dir}/${pattern}" ;;
-	"release delete-asset")
-		[[ -f "${d}/file_${4:-}" ]] || { echo "asset not found: ${4:-}" >&2; exit 1; }
-		fFiles drop "$4" ;;
+	"run list")
+		[[ -f "${d}/run_id" ]] || exit 0
+		hidden="$(cat "${d}/run_hidden" 2>/dev/null || echo 0)"
+		if ((hidden > 0)); then echo $((hidden - 1)) > "${d}/run_hidden"; exit 0; fi
+		cat "${d}/run_id" ;;
+	"run view")
+		[[ "${3:-}" == "$(cat "${d}/run_id")" ]] || { echo "no such run: ${3:-}" >&2; exit 1; }
+		head -1 "${d}/run_states"
+		if [[ "$(wc -l < "${d}/run_states")" -gt 1 ]]; then sed -i 1d "${d}/run_states"; fi ;;
+	"run download")
+		dir="."
+		while (($#)); do case "$1" in -D|--dir) dir="$2"; shift 2 ;; *) shift ;; esac; done
+		mkdir -p "$dir"
+		cp "${d}/artifact/"* "$dir/" ;;
+	"repo view")
+		echo "${FAKE_BASE%/releases/download/*}" ;;
 	*) echo "stand-in gh: not handled: $*" >&2; exit 1 ;;
 esac
 EOF
@@ -265,17 +260,7 @@ chmod +x "${scratch}/bin/gh"
 export FAKE_GH="$fakeDir" FAKE_BASE="$base" PATH="${scratch}/bin:${PATH}"
 
 fUpdate(){ bash "${here}/release-notes.bash" --changelog "$changelog" --update "$tag" > "${scratch}/update.out" 2>&1; }
-fReset(){ rm -f "${fakeDir}"/*; }
-
-## The Windows build first, the local cut after.
-fReset
-fAssets "${fakeDir}/assets.json" "$winExe"
-fUpdate || fFail "Windows lane first: update failed: $(cat "${scratch}/update.out")"
-fAssets "${fakeDir}/assets.json" "$winExe" "${linuxFiles[@]}" "$sums" "$winZip"
-fUpdate || fFail "local lane second: update failed: $(cat "${scratch}/update.out")"
-body="$(cat "${fakeDir}/body.md")"
-fWantCell "$body" "Windows lane first" Windows x86_64 "$(fLink zip "$winZip"), $(fLink "portable exe" "$winExe")"
-fWantCell "$body" "Windows lane first" Linux x86_64 "$(fLink tar.gz "${app}-linux-x86_64.tar.gz"), $(fLink deb "${app}-linux-x86_64.deb"), $(fLink rpm "${app}-linux-x86_64.rpm")"
+fReset(){ rm -rf "${fakeDir:?}"/*; }
 
 ## A file uploaded between the read and the edit gets a second edit.
 fReset
@@ -297,9 +282,7 @@ elif grep -q 'kept changing' "${scratch}/update.out"; then fEcho "OK: files neve
 else fFail "files never settle: failed for another reason: $(cat "${scratch}/update.out")"
 fi
 
-## The real local cut: release.bash --publish in a scratch repo, then the
-## workflow's last step once its exe and sums are up.
-fReset
+## The real local cut: release.bash --publish in a scratch repo.
 repo="${scratch}/repo"
 mkdir -p "${repo}/cicd/utility/include" "${repo}/source"
 cp "${root}/cicd/config.bash" "${repo}/cicd/"
@@ -336,94 +319,114 @@ with zipfile.ZipFile(sys.argv[1], "w") as z:
 EOF
 ( cd "$art" && sha256sum "${app}"-* > "$sums" )
 
-## release.bash refuses a tag that is there already, so each run starts without it.
+export RELEASE_POLL_SECS=0 RELEASE_RUN_LOOKS=3
+## $1 states the hosted build goes through, one per look. The run is not
+## listed the first time it is looked for, as just after a tag push.
+fHosted(){
+	fReset
+	mkdir -p "${fakeDir}/artifact"
+	printf 'exe\n' > "${fakeDir}/artifact/${winExe}"
+	echo 4242 > "${fakeDir}/run_id"
+	echo 1 > "${fakeDir}/run_hidden"
+	printf '%s\n' "$@" > "${fakeDir}/run_states"
+}
+## release.bash makes the tag, so a fresh cut starts without it.
 fCut(){
 	fGit tag -d "$tag" >/dev/null 2>&1 || true
 	git -C "${scratch}/origin.git" tag -d "$tag" >/dev/null 2>&1 || true
-	out="$(cd "$repo" && bash cicd/utility/release.bash --publish -y 2>&1)"
+	fCutAgain
 }
+fCutAgain(){ out="$(cd "$repo" && bash cicd/utility/release.bash --publish -y 2>&1)"; }
 fNames(){ python3 -c 'import json, sys; print(" ".join(sorted(a["name"] for a in json.load(open(sys.argv[1]))["assets"])))' "${fakeDir}/assets.json"; }
-## $1 what. The release as the local cut makes it, whoever made it first.
-fWantLocalCut(){
+exeLine="$(printf 'exe\n' | sha256sum | cut -d' ' -f1)  ${winExe}"
+allNames="${app}-linux-x86_64.tar.gz ${sums} ${winExe} ${winZip}"
+## $1 what. The release as one create made it, whole.
+fWantRelease(){
 	local got
+	got="$(fNames)"
+	if [[ "$got" == "$allNames" ]]; then fEcho "OK: ${1}: files"; else fFail "${1}: files are '${got}', wanted '${allNames}'"; fi
+	[[ "$(grep -m1 -E '^release (create|upload|edit|delete)' "${fakeDir}/log" || true)" == "release create"* ]] \
+		|| fFail "${1}: the release was touched before it was made"
+	if grep -q -E '^release (upload|delete)' "${fakeDir}/log"; then fFail "${1}: files went up after the release was made"; else fEcho "OK: ${1}: one create"; fi
 	got="$(cat "${fakeDir}/title" 2>/dev/null || true)"
 	if [[ "$got" == "Nemo Anywhere ${ver}" ]]; then fEcho "OK: ${1}: title"; else fFail "${1}: title is '${got}'"; fi
 	got="$(cat "${fakeDir}/prerelease" 2>/dev/null || true)"
 	if [[ "$got" == true ]]; then fEcho "OK: ${1}: prerelease"; else fFail "${1}: prerelease is '${got}'"; fi
-	body="$(cat "${fakeDir}/body.md" 2>/dev/null || true)"
+	body="$(cat "${fakeDir}/body-at-create.md" 2>/dev/null || true)"
 	fWant "$body" "${1}, notes" "- Something new."
 	fWant "$body" "${1}, checksums" "Checksums: $(fLink "$sums" "$sums")"
-	fWantCell "$body" "$1" Linux x86_64 "$(fLink tar.gz "${app}-linux-x86_64.tar.gz")"
+	fWantCell "$body" "${1}, table as made" Windows x86_64 "$(fLink zip "$winZip"), $(fLink "portable exe" "$winExe")"
+	fWantCell "$body" "${1}, table as made" Linux x86_64 "$(fLink tar.gz "${app}-linux-x86_64.tar.gz")"
+	fWant "$body" "${1}, build line" "Build ${expectBuild}"
+	got="$(cat "${fakeDir}/file_${sums}" 2>/dev/null || true)"
+	fWant "$got" "${1}, exe in the sums file" "$exeLine"
+	fWant "$got" "${1}, Linux in the sums file" "  ${app}-linux-x86_64.tar.gz"
+	fWant "$got" "${1}, zip in the sums file" "  ${winZip}"
 }
 
-fReset
-if ! fCut; then
+## The hosted build is still running when the cut looks, then passes.
+fHosted "in_progress " "in_progress " "completed success"
+if fCut; then
+	fWantRelease "hosted build waited for"
+	waited="$(grep -c '^run view' "${fakeDir}/log" || true)"
+	if [[ "$waited" == 3 ]]; then fEcho "OK: hosted build waited for: until it ended"; else fFail "hosted build waited for: ${waited} look(s), wanted 3"; fi
+else
 	fFail "release.bash --publish failed: ${out}"
-elif [[ ! -f "${fakeDir}/body.md" ]]; then
-	fFail "release.bash --publish wrote no notes: ${out}"
+fi
+
+## A failed hosted build makes no release, and a rerun once it passes picks
+## up from the pushed tag.
+fHosted "completed failure"
+if fCut; then fFail "hosted build failed: release.bash said OK"
 else
-	fWantLocalCut "local cut"
-	fWantCell "$body" "local cut" Windows x86_64 "$(fLink zip "$winZip")"
-	## What the workflow uploads, then its last step, run as it runs it.
-	fAssets "${fakeDir}/assets.json" "${app}-linux-x86_64.tar.gz" "$sums" "$winZip" "$winExe"
-	if ! out="$(cd "$repo" && GITHUB_REF_NAME="$tag" bash cicd/utility/release-notes.bash --update "$tag" 2>&1)"; then
-		fFail "workflow step failed: ${out}"
+	fWant "$out" "hosted build failed: says how to go on" "gh run rerun 4242"
+	if [[ -f "${fakeDir}/assets.json" ]]; then fFail "hosted build failed: a release was made"; else fEcho "OK: hosted build failed: no release"; fi
+	echo "completed success" > "${fakeDir}/run_states"
+	if fCutAgain; then
+		fWant "$out" "rerun after the hosted build passed: tag kept" "is there already on HEAD"
+		fWantRelease "rerun after the hosted build passed"
 	else
-		body="$(cat "${fakeDir}/body.md")"
-		fWantCell "$body" "Windows lane last" Windows x86_64 "$(fLink zip "$winZip"), $(fLink "portable exe" "$winExe")"
-		fWantCell "$body" "Windows lane last" Linux x86_64 "$(fLink tar.gz "${app}-linux-x86_64.tar.gz")"
-		fWant "$body" "Windows lane last, build line" "Build ${expectBuild}"
+		fFail "rerun after the hosted build passed: ${out}"
 	fi
 fi
 
-## The Windows build made the release, as it does when the tag gets there
-## first: its own title, no prerelease flag here to see it put right, and the
-## exe's checksum beside it, since it gave up waiting for the sums file.
-exeLine="$(printf 'exe\n' | sha256sum | cut -d' ' -f1)  ${winExe}"
-fWorkflowFirst(){
-	printf 'exe\n' > "${fakeDir}/file_${winExe}"
-	printf '%s\n' "$exeLine" > "${fakeDir}/file_${winExe}.sha256"
-	fAssets "$1" "$winExe" "${winExe}.sha256"
-	printf '%s\n' "$tag" > "${fakeDir}/title"
-	echo false > "${fakeDir}/prerelease"
-	printf 'Generated.\n' > "${fakeDir}/body.md"
-}
-fReset
-fWorkflowFirst "${fakeDir}/assets.json"
-if ! fCut; then
-	fFail "Windows lane made the release: release.bash --publish failed: ${out}"
+## A rerun on a different commit is still refused.
+fGit commit -q --allow-empty -m later
+if fCutAgain; then fFail "tag on another commit: release.bash said OK"
+else fWant "$out" "tag on another commit: refused" "already exists"
+fi
+fGit reset -q --hard HEAD~1
+
+## A release that is there already is never added to.
+fHosted "completed success"
+fAssets "${fakeDir}/assets.json" "$winExe"
+if fCut; then fFail "release there already: release.bash said OK"
 else
-	fWantLocalCut "Windows lane made the release"
-	fWantCell "$body" "Windows lane made the release" Windows x86_64 "$(fLink zip "$winZip"), $(fLink "portable exe" "$winExe")"
-	got="$(fNames)"
-	want="${app}-linux-x86_64.tar.gz ${sums} ${winExe} ${winZip}"
-	if [[ "$got" == "$want" ]]; then fEcho "OK: Windows lane made the release: files, exe checksum folded in"
-	else fFail "Windows lane made the release: files are '${got}', wanted '${want}'"
-	fi
-	sumsText="$(cat "${fakeDir}/file_${sums}" 2>/dev/null || true)"
-	fWant "$sumsText" "Windows lane made the release, exe in the sums file" "$exeLine"
-	fWant "$sumsText" "Windows lane made the release, Linux in the sums file" "  ${app}-linux-x86_64.tar.gz"
+	fWant "$out" "release there already: refused" "published already"
+	if grep -q -E '^release (create|upload|edit)' "${fakeDir}/log"; then fFail "release there already: it was changed"; else fEcho "OK: release there already: left alone"; fi
 fi
 
-## The release is made between this lane's look and its create.
-fReset
-fWorkflowFirst "${fakeDir}/made-meanwhile.json"
-if ! fCut; then
-	fFail "release made meanwhile: release.bash --publish failed: ${out}"
+## A hosted build that hands over something not named for this version.
+fHosted "completed success"
+printf 'x\n' > "${fakeDir}/artifact/nemo-anywhere.exe"
+if fCut; then fFail "misnamed hosted file: release.bash said OK"
 else
-	got="$(fNames)"
-	if [[ "$got" == *"$sums"* && "$got" == *"$winExe"* && "$got" == *"${app}-linux-x86_64.tar.gz"* ]]; then fEcho "OK: release made meanwhile: files added to it"
-	else fFail "release made meanwhile: files are '${got}'"
-	fi
-	got="$(cat "${fakeDir}/title" 2>/dev/null || true)"
-	if [[ "$got" == "Nemo Anywhere ${ver}" ]]; then fEcho "OK: release made meanwhile: title"; else fFail "release made meanwhile: title is '${got}'"; fi
+	fWant "$out" "misnamed hosted file: refused" "handed over 'nemo-anywhere.exe'"
+	if [[ -f "${fakeDir}/assets.json" ]]; then fFail "misnamed hosted file: a release was made"; else fEcho "OK: misnamed hosted file: no release"; fi
 fi
-step="$(grep -A6 -F -- '- name: Downloads table' "${root}/.github/workflows/release-win.yml" | grep -F 'run:' || true)"
-if [[ "$step" == *"bash cicd/utility/release-notes.bash --update \"\${GITHUB_REF_NAME}\""* ]]; then fEcho "OK: workflow's last step runs the same update"
-else fFail "release-win.yml has no Downloads table step running release-notes.bash --update"
+
+## A hosted build hands over files and never touches the release.
+wfFile="${root}/.github/workflows/release-win.yml"
+if grep -q -E 'gh release|contents: write' "$wfFile"; then fFail "release-win.yml still writes to the release"
+else fEcho "OK: workflow leaves the release alone"
 fi
-lastStep="$(grep -E '^      - name: ' "${root}/.github/workflows/release-win.yml" | tail -1)"
-[[ "$lastStep" == *"Downloads table"* ]] || fFail "the Downloads table step is not the workflow's last: ${lastStep}"
+upload="$(grep -A3 -F 'uses: actions/upload-artifact' "$wfFile" || true)"
+if grep -q -F 'name: release-files' <<< "$upload"; then fEcho "OK: workflow hands over release-files"
+else fFail "release-win.yml uploads no release-files artifact"
+fi
+if [[ " $(sed -n 's/^RELEASE_WORKFLOWS=(\(.*\))$/\1/p' "${root}/cicd/config.bash") " == *" release-win.yml "* ]]; then fEcho "OK: the cut waits for release-win.yml"
+else fFail "release-win.yml is not in RELEASE_WORKFLOWS"
+fi
 
 if ((failures)); then fEcho "${failures} release notes check(s) failed"; exit 1; fi
 fEcho "release notes checks passed"
