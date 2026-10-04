@@ -1191,8 +1191,11 @@ eel_editable_label_size_allocate (GtkWidget     *widget,
 
   (* GTK_WIDGET_CLASS (eel_editable_label_parent_class)->size_allocate) (widget, allocation);
 
-  gdk_window_move_resize (label->text_area, allocation->x, allocation->y,
-                          allocation->width, allocation->height);
+  /* A window is sized before it is realized. Realize makes text_area
+     from the allocation, so there is nothing to move until then. */
+  if (gtk_widget_get_realized (widget))
+    gdk_window_move_resize (label->text_area, allocation->x, allocation->y,
+                            allocation->width, allocation->height);
 }
 
 static void
@@ -1658,6 +1661,7 @@ eel_editable_label_realize (GtkWidget *widget)
                             GDK_POINTER_MOTION_MASK |
                             GDK_ENTER_NOTIFY_MASK |
                             GDK_LEAVE_NOTIFY_MASK);
+  /* x, y, width and height are still the allocation from above. */
   attributes_mask = GDK_WA_X | GDK_WA_Y | GDK_WA_CURSOR;
 
   label->text_area = gdk_window_new (gtk_widget_get_parent_window (widget),

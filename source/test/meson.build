@@ -445,6 +445,15 @@ test('rjes67yy Rename field accessible test',
   args: []
 )
 
+test('rjew8g59 Rename field sized before shown test',
+  executable('test-eel-editable-label-size',
+    [ 'test-eel-editable-label-size.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private ],
+  ),
+  args: []
+)
+
 test('rhtmbdmb Escape forgets the cursor test',
   executable('test-eel-forget-cursor',
     [ 'test-eel-forget-cursor.c' ],
