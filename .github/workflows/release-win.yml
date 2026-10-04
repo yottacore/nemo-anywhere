@@ -151,7 +151,8 @@ jobs:
           # The version goes in the name like every other artifact, and the exe gets
           # a line in the release's sums file. The local cut uploads that file just
           # after pushing the tag, well before this build ends, but wait for it
-          # rather than race it. Without it, a .sha256 file goes beside the exe.
+          # rather than race it. Without it, a .sha256 file goes beside the exe, and
+          # a local cut that comes later folds it into the sums file.
           $ver = $env:TAG -replace '^v', ''
           $name = "nemo-anywhere-$ver-windows-x86_64-portable.exe"
           Copy-Item -LiteralPath $exe -Destination $name
