@@ -505,25 +505,150 @@ bookmarks_round (gpointer data)
 	wait_for_bookmark_ops (bookmarks);
 }
 
+/* With what the thread itself takes, a little under what a leak of one block
+   a round adds up to over the counted rounds. */
+#define WORKER_HOLDS 768
+
+typedef struct {
+	GThread *thread;
+	GMutex lock;
+	GCond changed;
+	gboolean holding;
+	gboolean let_go;
+} Worker;
+
+static gpointer
+worker_main (gpointer data)
+{
+	Worker *worker = data;
+	char *held = g_malloc0 (WORKER_HOLDS);
+
+	g_mutex_lock (&worker->lock);
+	worker->holding = TRUE;
+	g_cond_broadcast (&worker->changed);
+	while (!worker->let_go) {
+		g_cond_wait (&worker->changed, &worker->lock);
+	}
+	g_mutex_unlock (&worker->lock);
+	g_free (held);
+
+	return NULL;
+}
+
+/* Returns once the worker holds its memory, so it counts in this round. */
+static void
+worker_start (Worker *worker)
+{
+	g_mutex_init (&worker->lock);
+	g_cond_init (&worker->changed);
+	worker->thread = g_thread_new ("leak-self-check", worker_main, worker);
+	g_mutex_lock (&worker->lock);
+	while (!worker->holding) {
+		g_cond_wait (&worker->changed, &worker->lock);
+	}
+	g_mutex_unlock (&worker->lock);
+}
+
+static void
+worker_end (Worker *worker)
+{
+	if (worker->thread == NULL) {
+		return;
+	}
+	g_mutex_lock (&worker->lock);
+	worker->let_go = TRUE;
+	g_cond_broadcast (&worker->changed);
+	g_mutex_unlock (&worker->lock);
+	g_thread_join (worker->thread);
+	worker->thread = NULL;
+	g_mutex_clear (&worker->lock);
+	g_cond_clear (&worker->changed);
+}
+
+typedef struct {
+	guint round;
+	gpointer leaked;
+	Worker first;
+	Worker second;
+} SelfCheck;
+
+/* Leaks one small block a round. A thread starts in each of the first two
+   counts and the first one ends in the third, giving back more than half of
+   what the leak took there. Taking the third count as it came, the leak got
+   through. */
+static void
+self_check_round (gpointer data)
+{
+	SelfCheck *self = data;
+	gpointer *block = g_malloc (3 * sizeof (gpointer));
+	guint counted = self->round - WARMUP_ROUNDS;
+
+	*block = self->leaked;
+	self->leaked = block;
+
+	if (self->round >= WARMUP_ROUNDS) {
+		if (counted == 0) {
+			worker_start (&self->first);
+		} else if (counted == COUNTED_ROUNDS + COUNTED_ROUNDS / 2) {
+			worker_start (&self->second);
+		} else if (counted == 2 * COUNTED_ROUNDS + COUNTED_ROUNDS / 2) {
+			worker_end (&self->first);
+		}
+	}
+	self->round++;
+}
+
+static void
+teardown_self_check (SelfCheck *self)
+{
+	worker_end (&self->first);
+	worker_end (&self->second);
+	while (self->leaked != NULL) {
+		gpointer *block = self->leaked;
+
+		self->leaked = *block;
+		g_free (block);
+	}
+}
+
 /* The smallest leak there is, once a round, is twice this. */
 #define ANY_LEAK (TEST_HEAP_SMALLEST_BLOCK / 2)
 
 static int
-run_case (const char *name, void (*op) (gpointer), gpointer data, gint64 limit)
+run_case_expecting (const char *name, void (*op) (gpointer), gpointer data,
+		    gint64 limit, gboolean leaks)
 {
 	gint64 growth;
 
-	growth = test_heap_growth (op, data, WARMUP_ROUNDS, COUNTED_ROUNDS);
-	if (growth < 0) {
+	switch (test_heap_growth (op, data, WARMUP_ROUNDS, COUNTED_ROUNDS,
+				  (gint64) COUNTED_ROUNDS * limit, &growth)) {
+	case TEST_HEAP_READ:
+		break;
+	case TEST_HEAP_UNREADABLE:
 		g_print ("SKIP: the heap cannot be read here\n");
 		return 77;
+	case TEST_HEAP_UNSETTLED:
+	default:
+		g_printerr ("FAIL: a thread started or ended in every reading\n");
+		failures++;
+		return 0;
 	}
 
 	g_print ("%s: the heap grew %" G_GINT64_FORMAT " bytes over %d rounds\n",
 		 name, growth, COUNTED_ROUNDS);
-	check (growth < (gint64) COUNTED_ROUNDS * limit);
+	if (leaks) {
+		check (growth >= (gint64) COUNTED_ROUNDS * limit);
+	} else {
+		check (growth < (gint64) COUNTED_ROUNDS * limit);
+	}
 
 	return 0;
+}
+
+static int
+run_case (const char *name, void (*op) (gpointer), gpointer data, gint64 limit)
+{
+	return run_case_expecting (name, op, data, limit, FALSE);
 }
 
 int
@@ -637,6 +762,11 @@ main (int argc, char *argv[])
 			check (nemo_bookmark_list_length (bookmarks) == 1);
 		}
 		skipped = run_case (which, bookmarks_round, bookmarks, ANY_LEAK);
+	} else if (strcmp (which, "self-check") == 0) {
+		SelfCheck self = { 0 };
+
+		skipped = run_case_expecting (which, self_check_round, &self, ANY_LEAK, TRUE);
+		teardown_self_check (&self);
 	} else {
 		g_printerr ("unknown case: %s\n", which);
 		failures++;

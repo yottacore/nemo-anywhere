@@ -147,20 +147,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Origin: 6d52b4b, 20260921 (thumbdb). New ground. Plausible.
 	- Test case: none yet.
 
-- The leak tests can pass a small leak, or skip, when a worker thread starts during the counted rounds.
-	- ID: 2026100308563229
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261003-085632
-	- Opened by: review of item 2026092813381423
-	- Related IDs: 2026092813381423
-	- Incorrect behavior: where a worker thread starts during the counted rounds, the reading is taken again. Memory held at that time can be given back during the new reading and cancel out a leak of one small block a round, so the test passes. A reading that comes out below zero is reported as a heap that cannot be read, and the test skips.
-	- Expected behavior: a leak of one block a round fails every time, and a leak test skips only where the heap really cannot be read.
-	- Reproduced: yes, 20261003, Linux, under load. With 24 bytes leaked a round, 2 of 48 runs passed. With nothing leaked, the stopped zip and tar.gz tests skipped in about three runs of four of a suite run repeated in parallel.
-	- Origin: 377d761, on this item's branch. Confirmed.
-	- Test case: none yet. A leak test case that leaks one small block a round while a worker thread starts, expected to fail.
-
 - On Windows, a link that leads nowhere is never shown as broken.
 	- ID: 2026100312494903
 	- Type: Bug
@@ -993,6 +979,32 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- The leak tests can pass a small leak, or skip, when a worker thread starts during the counted rounds.
+	- ID: 2026100308563229
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The Linux suite passed 162 of 162 on bedccab, none skipped.
+	- Needs external testing: none. The leak tests are Linux only.
+	- Priority|Severity: Low
+	- Opened: 20261003-085632
+	- Opened by: review of item 2026092813381423
+	- Related IDs: 2026092813381423
+	- Incorrect behavior: where a worker thread starts during the counted rounds, the reading is taken again. Memory held at that time can be given back during the new reading and cancel out a leak of one small block a round, so the test passes. A reading that comes out below zero is reported as a heap that cannot be read, and the test skips.
+	- Expected behavior: a leak of one block a round fails every time, and a leak test skips only where the heap really cannot be read.
+	- Reproduced: yes, 20261003, Linux, under load. With 24 bytes leaked a round, 2 of 48 runs passed. With nothing leaked, the stopped zip and tar.gz tests skipped in about three runs of four of a suite run repeated in parallel.
+	- Origin: 377d761, on this item's branch. Confirmed.
+	- Actual cause: a reading was judged only by the thread count before and after it. GLib's pools stop a thread that sits idle, and what it gives back can fall in the reading taken again. A thread just joined is still listed for a moment, so its end can go unseen. A thread also takes some memory the first time it does a piece of work, which can come a reading after it started, so a clean run could fail too.
+	- Actual fix: GLib's pools keep their threads for the life of a leak test, so a thread only ever starts. A reading counts only where the same threads, by id, were there before and after, leaving out a thread on its way out. Growth past the limit has to show in two such readings, since a leak grows the heap in every one. A reading below zero is a reading; only a heap that cannot be read skips. Where threads come or go in every one of eight readings, the test fails and says so.
+	- Note: a leak tied to a pool thread ending is now out of these tests' view, since pool threads no longer end.
+	- Sweep: every test that reads the heap.
+	- Swept: the leak tests are the only users of the shared reading. The config test's list read check reads the heap itself, but looks for megabytes, which a thread's memory cannot reach. The archive stop time test reads no heap. The leak tests stay inside `if not is_windows` in the test meson.build.
+	- Branch: leakretry
+	- Commit: bedccab
+	- Test case: rjcth67d Leak test self-check. It leaks one small block a round while threads start and end around it, and passes only where the reading calls it a leak.
+	- Verified: under load, 12 tests at a time. The self-check failed on the old reading in 119 of 120 runs and passed on the new in 72 of 72. With 24 bytes leaked a round, the stopped zip test passed on the old reading in 2 of 192 runs, and on the new in 0 of 96. With nothing leaked, the stopped zip and tar.gz tests on the old reading skipped in 21 of 256 runs and failed in 4. On the new, 0 of 192 skipped or failed. The other leak tests passed 96 of 96 on the new. Lint is clean.
+	- Acceptance signoff: Self-closed: test-only change. rjcth67d fails on the old reading and passes on the new.
+	- Closed: 20261003-184621
 
 - A keyboard shortcut change is never saved where the shortcut file's folder is missing, and the file is upstream Nemo's.
 	- ID: 2026100315470225
