@@ -107,37 +107,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
 
-- The keyboard menu opens at the pane's top left, not beside the selected item.
-	- ID: 2026100408414402
-	- Type: Enhancement
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed 164 of 164 on 20261004.
-	- Priority|Severity: Avg
-	- Opened: 20261004-084144
-	- Opened by: t00mietum
-	- Related IDs: 2026092813381402, 2026100408525989
-	- Target OS: all
-	- Requirements:
-		- Shift+F10 or the Menu key opens the menu beside the selected item, in the file list, icon view, tree and places sidebar.
-		- With nothing selected, the menu opens near the pane's top left, as today.
-		- A right click still opens the menu at the pointer.
-	- Note: all views place the keyboard menu through one shared function in eel, so one change covers them.
-	- Note: "Places" no longer takes the keyboard (2026100408525989), so it has no keyboard menu. That part of the requirements goes away.
-	- Decisions:
-		- The menu opens just below the item, from its left edge. With no room below, it opens above it. The item is the name cell in the list view, the icon and its label in the icon and compact views, and the row in the tree.
-		- With several items selected, the menu goes by the one the keyboard is on when that one is selected. Otherwise it goes by the first selected item in sight.
-		- A selected item scrolled out of sight gets the top left, as with nothing selected. The view is not scrolled to it.
-		- Ctrl+F10 opens the folder's own menu, not the selection's, so it stays at the top left. No key press opens a menu at the pointer.
-	- Note: the list, icon and compact views say where their selected item is, and the shared function puts the menu below it. The tree does the same for its keyboard row.
-	- Swept: every caller of the shared function. The list, icon and compact views' selection menu and the tree's row menu now go below the item. The folder's own menu keeps the top left. The location menu only opens from a click. The tab bar never takes the keyboard. The rename field's menu has its own placement.
-	- Branch: kbmenu
-	- Commit: 8f7b345
-	- Test case: `rjefm41d Keyboard menu beside the item test`, new, Linux only. It covers the list, icon and compact views, the tree, nothing selected and a right click. 7 of its 11 checks fail before the change, and all pass after. `rhtmbdma Keyboard context menu test` gained two cases, an item in sight and one scrolled out of it.
-	- Verified: in the running program, Shift+F10 and the Menu key open the menu below the selected file in the list and icon views, and below the open folder's row in the tree. With nothing selected it opens at the folder's top left, and a right click opens it at the pointer. rjefm41d passed ten runs. rj04ta3n, rhtmbdma and rjedw75s passed five each. Full Linux suite 164 of 164, lint clean, Windows cross build clean.
-	- Note: on Windows the keyboard menu takes the same placement code as on Linux. rhtmbdma is not Linux only, so its new cases run in the next native suite.
-	- Acceptance signoff: Self-closed: the item said where the menu goes, the change does that, and rjefm41d pins it in every view. Below rather than over the item is in Decisions.
-	- Closed: 20261004-095546
-
 - A waiting store can miss every gap between the prune's writes.
 	- ID: 2026100319191870
 	- Type: Bug
@@ -995,6 +964,37 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: `test-nemo-psd`: rows at the least length are read, one byte less is refused, and a file of empty rows, 30000 by 30000 as psd and 60000 by 60000 as psb, is refused in under a second. Fuzz seed `zero-rows`, and `short-literal` reworked so it still reaches the literal-run bound.
 	- Branch: psdrows
 	- Commit: 24d99cd
+
+- The keyboard menu opens at the pane's top left, not beside the selected item.
+	- ID: 2026100408414402
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 164 of 164 on 20261004.
+	- Priority|Severity: Avg
+	- Opened: 20261004-084144
+	- Opened by: t00mietum
+	- Related IDs: 2026092813381402, 2026100408525989
+	- Target OS: all
+	- Requirements:
+		- Shift+F10 or the Menu key opens the menu beside the selected item, in the file list, icon view, tree and places sidebar.
+		- With nothing selected, the menu opens near the pane's top left, as today.
+		- A right click still opens the menu at the pointer.
+	- Note: all views place the keyboard menu through one shared function in eel, so one change covers them.
+	- Note: "Places" no longer takes the keyboard (2026100408525989), so it has no keyboard menu. That part of the requirements goes away.
+	- Decisions:
+		- The menu opens just below the item, from its left edge. With no room below, it opens above it. The item is the name cell in the list view, the icon and its label in the icon and compact views, and the row in the tree.
+		- With several items selected, the menu goes by the one the keyboard is on when that one is selected. Otherwise it goes by the first selected item in sight.
+		- A selected item scrolled out of sight gets the top left, as with nothing selected. The view is not scrolled to it.
+		- Ctrl+F10 opens the folder's own menu, not the selection's, so it stays at the top left. No key press opens a menu at the pointer.
+	- Note: the list, icon and compact views say where their selected item is, and the shared function puts the menu below it. The tree does the same for its keyboard row.
+	- Swept: every caller of the shared function. The list, icon and compact views' selection menu and the tree's row menu now go below the item. The folder's own menu keeps the top left. The location menu only opens from a click. The tab bar never takes the keyboard. The rename field's menu has its own placement.
+	- Branch: kbmenu
+	- Commit: 8f7b345
+	- Test case: `rjefm41d Keyboard menu beside the item test`, new, Linux only. It covers the list, icon and compact views, the tree, nothing selected and a right click. 7 of its 11 checks fail before the change, and all pass after. `rhtmbdma Keyboard context menu test` gained two cases, an item in sight and one scrolled out of it.
+	- Verified: in the running program, Shift+F10 and the Menu key open the menu below the selected file in the list and icon views, and below the open folder's row in the tree. With nothing selected it opens at the folder's top left, and a right click opens it at the pointer. rjefm41d passed ten runs. rj04ta3n, rhtmbdma and rjedw75s passed five each. Full Linux suite 164 of 164, lint clean, Windows cross build clean.
+	- Note: on Windows the keyboard menu takes the same placement code as on Linux. rhtmbdma is not Linux only, so its new cases run in the next native suite.
+	- Acceptance signoff: Self-closed: the item said where the menu goes, the change does that, and rjefm41d pins it in every view. Below rather than over the item is in Decisions.
+	- Closed: 20261004-095546
 
 - Settings in an older SHCL format are kept as a backup and written again in the current one.
 	- ID: 2026100311512222
