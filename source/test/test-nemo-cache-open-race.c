@@ -64,11 +64,30 @@
 /* Exit status of a copy that waited out the busy timeout. */
 #define WAITED_OUT 2
 
+/* On Windows sqlite logs the system call that failed and the file it was on,
+ * which says more than the code the store reports. Busy is the normal wait. */
+static void
+sqlite_said (void *data, int code, const char *message)
+{
+	(void) data;
+
+	switch (code & 0xff) {
+	case SQLITE_BUSY:
+	case SQLITE_NOTICE:
+	case SQLITE_WARNING:
+		return;
+	default:
+		g_printerr ("sqlite (%d): %s\n", code, message);
+	}
+}
+
 static int
 run_copy (const char *when)
 {
 	gint64 start = g_ascii_strtoll (when, NULL, 10);
 	gint64 late;
+
+	sqlite3_config (SQLITE_CONFIG_LOG, sqlite_said, NULL);
 
 	/* Spin, since a sleep wakes too late to line the copies up. */
 	while (g_get_real_time () < start)

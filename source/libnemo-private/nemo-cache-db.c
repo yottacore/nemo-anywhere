@@ -335,6 +335,17 @@ read_user_version (sqlite3 *handle, int *version)
 	return rc;
 }
 
+/* sqlite's message names only the kind of failure. The extended code says which
+ * step failed, such as a delete or a lock, and the system error says why. */
+static void
+warn_setup (sqlite3 *handle, const char *what, int rc, const char *err)
+{
+	g_warning ("%s: %s (sqlite code %d, system error %d)", what,
+		   err != NULL ? err : sqlite3_errstr (rc),
+		   handle != NULL ? sqlite3_extended_errcode (handle) : rc,
+		   handle != NULL ? sqlite3_system_errno (handle) : 0);
+}
+
 /* sqlite's busy handler, in place of its own timed one. The wait is timed on
  * the clock rather than by adding up the sleeps, since a sleep of a few
  * milliseconds runs long on Windows and on a loaded box. */
@@ -400,7 +411,9 @@ open_at (const char *path, gboolean *out_rebuild)
 			      NULL);
 	if (rc != SQLITE_OK) {
 		*out_rebuild = is_corruption (rc);
-		g_warning ("could not open the file cache %s: %s", path, sqlite3_errstr (rc));
+		g_autofree char *what = g_strdup_printf ("could not open the file cache %s", path);
+
+		warn_setup (handle, what, rc, NULL);
 		sqlite3_close (handle);
 		return NULL;
 	}
@@ -426,7 +439,7 @@ open_at (const char *path, gboolean *out_rebuild)
 			 &err);
 	if (rc != SQLITE_OK) {
 		*out_rebuild = is_corruption (rc);
-		g_warning ("could not set up the file cache: %s", err ? err : sqlite3_errstr (rc));
+		warn_setup (handle, "could not set up the file cache", rc, err);
 		sqlite3_free (err);
 		sqlite3_close (handle);
 		return NULL;
@@ -437,7 +450,7 @@ open_at (const char *path, gboolean *out_rebuild)
 	rc = read_user_version (handle, &version);
 	if (rc != SQLITE_OK) {
 		*out_rebuild = is_corruption (rc);
-		g_warning ("could not read the file cache version: %s", sqlite3_errstr (rc));
+		warn_setup (handle, "could not read the file cache version", rc, NULL);
 		sqlite3_close (handle);
 		return NULL;
 	}
@@ -454,7 +467,7 @@ open_at (const char *path, gboolean *out_rebuild)
 	rc = sqlite3_exec (handle, SCHEMA, NULL, NULL, &err);
 	if (rc != SQLITE_OK) {
 		*out_rebuild = is_corruption (rc);
-		g_warning ("could not make the file cache tables: %s", err ? err : sqlite3_errstr (rc));
+		warn_setup (handle, "could not make the file cache tables", rc, err);
 		sqlite3_free (err);
 		sqlite3_close (handle);
 		return NULL;
