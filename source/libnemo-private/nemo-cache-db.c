@@ -449,13 +449,17 @@ open_at (const char *path, gboolean *out_rebuild)
 	 * WAL so a reading window is not blocked by a writing one, and NORMAL
 	 * because losing the last few rows to a power cut costs a re-read and
 	 * nothing else. The size limit trims the journal back after a prune has
-	 * grown it. */
+	 * grown it.
+	 *
+	 * The read at the end is the first one through the WAL on a new file,
+	 * which opens its -shm file, so it gets the same wait (setup_worth_retry). */
 	rc = exec_setup (handle,
 			 "PRAGMA auto_vacuum = INCREMENTAL;"
 			 "PRAGMA journal_mode = WAL;"
 			 "PRAGMA journal_size_limit = 67108864;"
 			 "PRAGMA synchronous = NORMAL;"
-			 "PRAGMA foreign_keys = ON;",
+			 "PRAGMA foreign_keys = ON;"
+			 "SELECT COUNT (*) FROM sqlite_master;",
 			 &err);
 	if (rc != SQLITE_OK) {
 		*out_rebuild = is_corruption (rc);
