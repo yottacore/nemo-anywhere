@@ -1908,10 +1908,12 @@ nemo_window_connect_content_view (NemoWindow *window,
         nemo_window_sync_view_type (window);
     }
 
-	/* A click in either side pane leaves the keyboard there. Only a location
-	 * that needs a different view type gets this far, so without the check a
-	 * place with its own view type would lose the focus and one beside it
-	 * would not. A pane that is not up reads as NULL, which is not within. */
+	/* A click in the tree leaves the keyboard there, and a rename in "Places"
+	 * keeps it while it lasts; "Places" holds it at no other time. Only a
+	 * location that needs a different view type gets this far, so without the
+	 * check a folder with its own view type would take the focus from the tree
+	 * and one beside it would not. A pane that is not up reads as NULL, which
+	 * is not within. */
 	if (!eel_gtk_focus_is_within (window->details->places_sidebar) &&
 	    !eel_gtk_focus_is_within (window->details->tree_sidebar)) {
 		nemo_view_grab_focus (view);

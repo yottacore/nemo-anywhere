@@ -65,6 +65,7 @@
 #include "nemo-bookmark-list.h"
 #include "nemo-places-sidebar.h"
 #include "nemo-properties-window.h"
+#include "nemo-view.h"
 #include "nemo-window.h"
 #include "nemo-window-slot.h"
 
@@ -2716,6 +2717,26 @@ drive_start_from_bookmark_cb (GObject      *source_object,
 	}
 }
 
+/* "Places" never keeps the keyboard, so opening a place hands it to the folder,
+ * with nothing selected there. A folder that wants another view type gets a new
+ * view, which takes the focus again when it is connected. */
+static void
+focus_folder_view (NemoPlacesSidebar *sidebar,
+		   gboolean           same_folder)
+{
+	NemoWindowSlot *slot = nemo_window_get_active_slot (sidebar->window);
+
+	if (slot == NULL || slot->content_view == NULL) {
+		return;
+	}
+
+	/* Going to another folder starts with no selection. Staying put does not. */
+	if (same_folder) {
+		nemo_view_set_selection (slot->content_view, NULL);
+	}
+	nemo_view_grab_focus (slot->content_view);
+}
+
 static void
 open_selected_bookmark (NemoPlacesSidebar *sidebar,
 			GtkTreeModel	      *model,
@@ -2723,7 +2744,8 @@ open_selected_bookmark (NemoPlacesSidebar *sidebar,
 			NemoWindowOpenFlags	      flags)
 {
 	NemoWindowSlot *slot;
-	GFile *location;
+	GFile *location, *current;
+	gboolean same_folder = FALSE;
 	char *uri;
 
 	if (!iter) {
@@ -2739,6 +2761,9 @@ open_selected_bookmark (NemoPlacesSidebar *sidebar,
 		/* Navigate to the clicked location */
 		if ((flags & NEMO_WINDOW_OPEN_FLAG_NEW_WINDOW) == 0) {
 			slot = nemo_window_get_active_slot (sidebar->window);
+			current = nemo_window_slot_get_location (slot);
+			same_folder = current != NULL && g_file_equal (current, location);
+			g_clear_object (&current);
 			nemo_window_slot_open_location (slot, location, flags);
 		} else {
 			nemo_application_open_in_new_window (nemo_application_get_singleton (),
@@ -2786,6 +2811,12 @@ open_selected_bookmark (NemoPlacesSidebar *sidebar,
 			g_object_unref (drive);
 		if (volume != NULL)
 			g_object_unref (volume);
+	}
+
+	/* A new window takes the keyboard itself, and close-behind may have taken
+	 * this one, and the sidebar, with it. */
+	if ((flags & (NEMO_WINDOW_OPEN_FLAG_NEW_WINDOW | NEMO_WINDOW_OPEN_FLAG_CLOSE_BEHIND)) == 0) {
+		focus_folder_view (sidebar, same_folder);
 	}
 }
 
@@ -3490,30 +3521,6 @@ properties_cb (GtkAction           *item,
 	gtk_tree_path_free (path);
 }
 
-static gboolean
-nemo_places_sidebar_focus (GtkWidget *widget,
-			       GtkDirectionType direction)
-{
-	NemoPlacesSidebar *sidebar = NEMO_PLACES_SIDEBAR (widget);
-	GtkTreePath *path;
-	GtkTreeIter iter, child_iter;
-	gboolean res;
-
-	res = get_selected_iter (sidebar, &iter);
-	if (!res) {
-		gtk_tree_model_get_iter_first (GTK_TREE_MODEL (sidebar->store_filter), &iter);
-        gtk_tree_model_iter_children (GTK_TREE_MODEL (sidebar->store_filter), &child_iter, &iter);
-		res = find_next_row (sidebar, &child_iter);
-		if (res) {
-			path = gtk_tree_model_get_path (GTK_TREE_MODEL (sidebar->store_filter), &iter);
-			gtk_tree_view_set_cursor (sidebar->tree_view, path, NULL, FALSE);
-			gtk_tree_path_free (path);
-		}
-	}
-
-	return GTK_WIDGET_CLASS (nemo_places_sidebar_parent_class)->focus (widget, direction);
-}
-
 /* Handler for GtkWidget::key-press-event on the shortcuts list */
 static gboolean
 bookmarks_key_press_event_cb (GtkWidget             *widget,
@@ -4205,6 +4212,8 @@ bookmarks_edited (GtkCellRenderer       *cell,
 	if (bookmark != NULL) {
 		nemo_bookmark_set_custom_name (bookmark, new_text);
 	}
+
+	focus_folder_view (sidebar, FALSE);
 }
 
 static void
@@ -4212,6 +4221,7 @@ bookmarks_editing_canceled (GtkCellRenderer       *cell,
 			    NemoPlacesSidebar *sidebar)
 {
 	g_object_set (cell, "editable", FALSE, NULL);
+	focus_folder_view (sidebar, FALSE);
 }
 
 static void
@@ -4566,6 +4576,12 @@ nemo_places_sidebar_init (NemoPlacesSidebar *sidebar)
 
     gtk_tree_view_set_model (tree_view, GTK_TREE_MODEL (sidebar->store_filter));
 
+    /* "Places" never keeps the keyboard; a click opens the place and the folder
+       takes the keys. Only the entry of a rename in progress can have it. The
+       scrolled window around the tree would take it in the tree's place, from
+       Tab or F6, so it refuses too. */
+    gtk_widget_set_can_focus (GTK_WIDGET (tree_view), FALSE);
+    gtk_widget_set_can_focus (GTK_WIDGET (sidebar), FALSE);
     gtk_container_add (GTK_CONTAINER (sidebar), GTK_WIDGET (tree_view));
     gtk_widget_show (GTK_WIDGET (tree_view));
 
@@ -4754,7 +4770,6 @@ nemo_places_sidebar_class_init (NemoPlacesSidebarClass *class)
     oclass->dispose = nemo_places_sidebar_dispose;
 
 	widget_class->style_set = nemo_places_sidebar_style_set;
-	widget_class->focus = nemo_places_sidebar_focus;
 
     gtk_icon_size_lookup (GTK_ICON_SIZE_MENU, &menu_icon_pixels, NULL);
     EJECT_ICON_SIZE_NOT_HOVERED = gtk_icon_size_register ("menu-icon-size-small",

@@ -1069,6 +1069,21 @@ if not is_windows
     timeout: 180
   )
 
+  # Preloaded too; it clicks from inside the program.
+  places_focus_probe = shared_module('test-nemo-places-focus-probe',
+    [ 'test-nemo-places-focus-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('rjedw75s Places focus test',
+    executable('test-nemo-places-focus',
+      [ 'test-nemo-places-focus.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, places_focus_probe ],
+    timeout: 120
+  )
+
   test('rhtq57n4 Clean start test',
     executable('test-nemo-startup-clean',
       [ 'test-nemo-startup-clean.c' ],
