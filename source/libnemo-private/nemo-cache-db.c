@@ -372,6 +372,26 @@ busy_wait (void *data, int tries)
 	return 1;
 }
 
+/* On Windows a copy that quits without closing the store lets go of its locks
+ * on the -shm file before Windows unmaps the file from it. The next copy to
+ * open then finds no lock, takes itself for the first, and empties the file,
+ * which Windows refuses while a view of it is left (ERROR_USER_MAPPED_FILE).
+ * sqlite let that pass before 3.50 and now answers SQLITE_IOERR_TRUNCATE. The
+ * view goes once the old copy is fully gone, so it is a wait like a busy one. */
+static gboolean
+setup_worth_retry (sqlite3 *handle, int rc)
+{
+	if ((rc & 0xff) == SQLITE_BUSY)
+		return TRUE;
+
+#ifdef G_OS_WIN32
+	return rc != SQLITE_OK && sqlite3_extended_errcode (handle) == SQLITE_IOERR_TRUNCATE;
+#else
+	(void) handle;
+	return FALSE;
+#endif
+}
+
 /* The switch to WAL reads the file and only then takes the write lock, and
  * sqlite will not wait on that second step, since two readers each waiting on
  * the other would wait for good. So a copy that meets another one setting up
@@ -385,7 +405,7 @@ exec_setup (sqlite3 *handle, const char *sql, char **err)
 
 	for (;;) {
 		rc = sqlite3_exec (handle, sql, NULL, NULL, err);
-		if ((rc & 0xff) != SQLITE_BUSY || g_get_monotonic_time () >= give_up)
+		if (!setup_worth_retry (handle, rc) || g_get_monotonic_time () >= give_up)
 			return rc;
 
 		sqlite3_free (*err);
