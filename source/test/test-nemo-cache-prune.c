@@ -1,8 +1,8 @@
 /* The file cache prune. Each rule is checked for what it takes and for what it
  * has to leave alone: a missing file goes but a file on a missing folder stays,
- * an old thumbnail goes but a recently drawn one stays, an old name with no
- * thumbnail goes but a recent one stays, and the size limit takes the least
- * recently drawn first. The claim is checked from both sides, since
+ * one on a share is not looked for, an old thumbnail goes but a recently drawn
+ * one stays, an old name with no thumbnail goes but a recent one stays, and the
+ * size limit takes the least recently drawn first. The claim is checked from both sides, since
  * two processes pruning at once is what it exists to stop. */
 
 #include <config.h>
@@ -22,6 +22,7 @@
 #include <libnemo-private/nemo-cache-db.h>
 #include <libnemo-private/nemo-cache-db-prune.h>
 #include <libnemo-private/nemo-global-preferences.h>
+#include <libnemo-private/nemo-share.h>
 
 #include "test-scratch.h"
 #include "test-check.h"
@@ -261,6 +262,34 @@ check_missing (NemoCacheDb *db)
 	check (has_thumbnail (db, kept));
 	check (has_thumbnail (db, away));
 	check (has_thumbnail (db, remote));
+}
+
+/* A file on a share is never looked for, since a host that is not answering
+ * would hold the pass. One that has gone stays until it is off the share. */
+static void
+check_missing_on_share (NemoCacheDb *db)
+{
+	g_autofree char *nas = g_build_filename (scratch, "nas", NULL);
+	g_autofree char *dir = g_build_filename (nas, "pictures", NULL);
+	g_autofree char *gone_path = g_build_filename (dir, "gone.jpg", NULL);
+	g_autofree char *gone = NULL;
+	const char *roots[] = { nas, NULL };
+	NemoCachePruneRules rules = rules_now ();
+	gint64 removed = 0;
+
+	check (g_mkdir_with_parents (dir, 0700) == 0);
+	gone = g_filename_to_uri (gone_path, NULL, NULL);
+	store (db, gone, 1005, wall (), 64);
+
+	rules.drop_missing = TRUE;
+	nemo_share_set_roots_for_test (roots);
+	check (nemo_cache_db_prune (&rules, NULL, &removed, NULL) == NEMO_CACHE_PRUNE_DONE);
+	check (paths_named (gone) == 1);
+	check (has_thumbnail (db, gone));
+
+	nemo_share_set_roots_for_test (NULL);
+	check (nemo_cache_db_prune (&rules, NULL, &removed, NULL) == NEMO_CACHE_PRUNE_DONE);
+	check (paths_named (gone) == 0);
 }
 
 /* Age counts from the last draw, or from when it was made if never drawn. */
@@ -723,6 +752,7 @@ main (int argc, char *argv[])
 	check_cancel ();
 	check_prune_now ();
 	check_missing (db);
+	check_missing_on_share (db);
 	check_age (db);
 	check_bare_names (db);
 	check_size (db);

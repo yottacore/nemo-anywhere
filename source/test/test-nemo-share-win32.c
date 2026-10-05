@@ -46,6 +46,7 @@
 #include <libnemo-private/nemo-file.h>
 #include <libnemo-private/nemo-file-private.h>
 #include <libnemo-private/nemo-link-win32.h>
+#include <libnemo-private/nemo-share.h>
 
 #include "test-scratch.h"
 #include "test-check.h"
@@ -147,6 +148,35 @@ run_share (void)
 	link = link_with_target (dir, "local-link", "C:\\Windows");
 	check (!nemo_file_is_on_a_share (link));
 	nemo_file_unref (link);
+
+	/* A folder standing in for a mapped drive. A link onto it from here is
+	   on a share, and one already inside it is not. */
+	{
+		char *nas = g_build_filename (dir, "nas", NULL);
+		char *inside = g_build_filename (nas, "inside", NULL);
+		char *beside = g_build_filename (nas, "beside", NULL);
+		const char *roots[] = { nas, NULL };
+
+		g_mkdir_with_parents (inside, 0700);
+		nemo_share_set_roots_for_test (roots);
+
+		link = link_with_target (dir, "to-nas", beside);
+		check (nemo_file_is_on_a_share (link));
+		nemo_file_unref (link);
+
+		link = link_with_target (inside, "within-nas", beside);
+		check (!nemo_file_is_on_a_share (link));
+		nemo_file_unref (link);
+
+		link = link_with_target (dir, "nas-rel", "nas\\beside");
+		check (nemo_file_is_on_a_share (link));
+		nemo_file_unref (link);
+
+		nemo_share_set_roots_for_test (NULL);
+		g_free (beside);
+		g_free (inside);
+		g_free (nas);
+	}
 
 	g_free (host_uri);
 	g_free (far);

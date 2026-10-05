@@ -95,6 +95,10 @@ struct NemoFileDetails
     time_t btime; /* 0 is unknown */
 	
 	char *symlink_name;
+	/* Whether symlink_name leads onto another share, and the share
+	   generation that answer was read against; 0 is not read yet. */
+	guint share_link_gen;
+	guint share_link_leaves : 1;
 	
 	GRefString *mime_type;
 	

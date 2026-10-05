@@ -25,6 +25,7 @@
 #include <glib/gi18n.h>
 #include <gdk/gdk.h>
 #include "nemo-file-utilities.h"
+#include "nemo-share.h"
 #include "nemo-program-choosing.h"
 #include "nemo-ui-utilities.h"
 
@@ -1751,7 +1752,12 @@ get_is_dir (NemoFile *file)
 
     GFile *f = nemo_file_get_location (file);
 
-    if (g_file_is_native (f) && (!nemo_location_is_network_safe (f))) {
+    /* Asked on the window's thread for each selected file whenever the
+       selection changes, and the test follows a link. The type the listing
+       already has stands in for one onto a share. */
+    if (nemo_file_is_on_a_share (file)) {
+        ret = nemo_file_is_directory (file);
+    } else if (g_file_is_native (f) && (!nemo_location_is_network_safe (f))) {
         gchar *path;
 
         path = g_file_get_path (f);
