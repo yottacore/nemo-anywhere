@@ -198,7 +198,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Start with no bookmarks, then change any setting, such as striped rows, by editing settings.shcl while the window is open.
 	- Incorrect behavior [Bug]: a Bookmarks heading with nothing under it appears in Places.
 	- Expected behavior [Bug]: no Bookmarks heading while there are no bookmarks.
-	- Reproduced [Bug]: seen while recording the demo, 20261005, on a private Xvfb. Not reproduced on its own yet.
+	- Reproduced [Bug]: seen 20261005 on Linux, during the demo. Not reproduced on its own yet.
 	- Test case: none yet.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
