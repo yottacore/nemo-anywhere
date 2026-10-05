@@ -179,7 +179,7 @@ static guint reap_cache_timeout = 0;
 static guint time_now;
 
 static gboolean
-reap_old_icon (gpointer  key,
+reap_old_icon (G_GNUC_UNUSED gpointer  key,
 	       gpointer  value,
 	       gpointer  user_info)
 {
@@ -200,7 +200,7 @@ reap_old_icon (gpointer  key,
 }
 
 static gboolean
-reap_cache (gpointer data)
+reap_cache (G_GNUC_UNUSED gpointer data)
 {
 	gboolean reapable_icons_left;
 

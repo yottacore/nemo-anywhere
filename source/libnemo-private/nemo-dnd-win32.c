@@ -390,7 +390,7 @@ data_get_data (IDataObject *iface, FORMATETC *want, STGMEDIUM *out)
 }
 
 static HRESULT STDMETHODCALLTYPE
-data_get_data_here (IDataObject *iface, FORMATETC *want, STGMEDIUM *out)
+data_get_data_here (G_GNUC_UNUSED IDataObject *iface, G_GNUC_UNUSED FORMATETC *want, G_GNUC_UNUSED STGMEDIUM *out)
 {
 	return E_NOTIMPL;
 }
@@ -406,7 +406,7 @@ data_query_get_data (IDataObject *iface, FORMATETC *want)
 }
 
 static HRESULT STDMETHODCALLTYPE
-data_get_canonical_format_etc (IDataObject *iface, FORMATETC *in, FORMATETC *out)
+data_get_canonical_format_etc (G_GNUC_UNUSED IDataObject *iface, G_GNUC_UNUSED FORMATETC *in, FORMATETC *out)
 {
 	if (out == NULL) {
 		return E_INVALIDARG;
@@ -498,20 +498,20 @@ data_enum_format_etc (IDataObject *iface, DWORD direction, IEnumFORMATETC **out)
 }
 
 static HRESULT STDMETHODCALLTYPE
-data_advise (IDataObject *iface, FORMATETC *fmt, DWORD flags,
-	     IAdviseSink *sink, DWORD *connection)
+data_advise (G_GNUC_UNUSED IDataObject *iface, G_GNUC_UNUSED FORMATETC *fmt, G_GNUC_UNUSED DWORD flags,
+	     G_GNUC_UNUSED IAdviseSink *sink, G_GNUC_UNUSED DWORD *connection)
 {
 	return OLE_E_ADVISENOTSUPPORTED;
 }
 
 static HRESULT STDMETHODCALLTYPE
-data_unadvise (IDataObject *iface, DWORD connection)
+data_unadvise (G_GNUC_UNUSED IDataObject *iface, G_GNUC_UNUSED DWORD connection)
 {
 	return OLE_E_ADVISENOTSUPPORTED;
 }
 
 static HRESULT STDMETHODCALLTYPE
-data_enum_advise (IDataObject *iface, IEnumSTATDATA **out)
+data_enum_advise (G_GNUC_UNUSED IDataObject *iface, G_GNUC_UNUSED IEnumSTATDATA **out)
 {
 	return OLE_E_ADVISENOTSUPPORTED;
 }
@@ -612,7 +612,7 @@ source_query_continue (IDropSource *iface, BOOL escape, DWORD keys)
 }
 
 static HRESULT STDMETHODCALLTYPE
-source_give_feedback (IDropSource *iface, DWORD effect)
+source_give_feedback (G_GNUC_UNUSED IDropSource *iface, G_GNUC_UNUSED DWORD effect)
 {
 	return DRAGDROP_S_USEDEFAULTCURSORS;
 }
@@ -768,7 +768,7 @@ paths_from_uri_list (const char *uri_list)
 		path = g_filename_from_uri (lines[i], NULL, NULL);
 		if (path == NULL) {
 			g_strfreev (lines);
-			g_ptr_array_foreach (paths, (GFunc) g_free, NULL);
+			g_ptr_array_set_free_func (paths, g_free);
 			g_ptr_array_free (paths, TRUE);
 			return NULL;
 		}
@@ -919,7 +919,7 @@ remove_moved_sources (GtkWidget *widget, const char *uri_list)
 gpointer
 nemo_dnd_win32_data_object (const char    *uri_list,
 			    const char    *icon_list,
-			    GdkDragAction  actions)
+			    G_GNUC_UNUSED GdkDragAction  actions)
 {
 	DataObject *self;
 	gchar **paths;

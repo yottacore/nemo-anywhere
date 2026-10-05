@@ -187,7 +187,7 @@ remove_expand_timeout (NemoTreeViewDragDest *dest)
 static gboolean
 highlight_draw (GtkWidget *widget,
 		cairo_t   *cr,
-                gpointer data)
+                G_GNUC_UNUSED gpointer data)
 {
 	GdkWindow *bin_window;
 	int width;
@@ -574,9 +574,9 @@ drag_motion_callback (GtkWidget *widget,
 }
 
 static void
-drag_leave_callback (GtkWidget *widget,
-		     GdkDragContext *context,
-		     guint32 time,
+drag_leave_callback (G_GNUC_UNUSED GtkWidget *widget,
+		     G_GNUC_UNUSED GdkDragContext *context,
+		     G_GNUC_UNUSED guint32 time,
 		     gpointer data)
 {
 	NemoTreeViewDragDest *dest;
@@ -794,7 +794,7 @@ receive_xds (NemoTreeViewDragDest *dest,
 	     GtkWidget *widget,
 	     guint32 time,
 	     GdkDragContext *context,
-	     int x, int y)
+	     G_GNUC_UNUSED int x, G_GNUC_UNUSED int y)
 {
 	GFile *location;
 	const guchar *selection_data;
@@ -976,7 +976,7 @@ set_direct_save_uri (NemoTreeViewDragDest *dest,
 }
 
 static gboolean
-drag_drop_callback (GtkWidget *widget,
+drag_drop_callback (G_GNUC_UNUSED GtkWidget *widget,
 		    GdkDragContext *context,
 		    int x,
 		    int y,
@@ -1020,7 +1020,7 @@ drag_drop_callback (GtkWidget *widget,
 
 static void
 tree_view_weak_notify (gpointer user_data,
-		       GObject *object)
+		       G_GNUC_UNUSED GObject *object)
 {
 	NemoTreeViewDragDest *dest;
 

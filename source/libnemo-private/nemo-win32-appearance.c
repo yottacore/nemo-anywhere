@@ -36,7 +36,7 @@ nemo_win32_prefers_dark (void)
 
 /* Marshalled onto the main loop by the watcher thread. */
 static gboolean
-notify_on_main (gpointer data)
+notify_on_main (G_GNUC_UNUSED gpointer data)
 {
 	if (watch_cb != NULL) {
 		watch_cb (nemo_win32_prefers_dark (), watch_data);
@@ -46,7 +46,7 @@ notify_on_main (gpointer data)
 
 /* Blocks on registry-change notifications; hops back to the main loop on each. */
 static gpointer
-watch_thread (gpointer data)
+watch_thread (G_GNUC_UNUSED gpointer data)
 {
 	HKEY key;
 

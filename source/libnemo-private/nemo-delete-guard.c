@@ -458,7 +458,7 @@ nemo_delete_guard_in_grace (gint64 focused_at, gint64 now)
 }
 
 static gboolean
-note_focus (GtkWidget *widget, GdkEvent *event, gpointer user_data)
+note_focus (GtkWidget *widget, G_GNUC_UNUSED GdkEvent *event, G_GNUC_UNUSED gpointer user_data)
 {
 	gint64 *focused_at = g_object_get_data (G_OBJECT (widget), FOCUSED_AT_KEY);
 

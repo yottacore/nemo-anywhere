@@ -260,7 +260,7 @@ istr_set_insert (GHashTable *table, const char *istr)
 }
 
 static void
-add_istr_to_list (gpointer key, gpointer value, gpointer callback_data)
+add_istr_to_list (gpointer key, G_GNUC_UNUSED gpointer value, gpointer callback_data)
 {
 	GList **list;
 
@@ -358,7 +358,7 @@ nemo_directory_verify_request_counts (NemoDirectory *directory)
  */
 static gboolean
 async_job_start (NemoDirectory *directory,
-		 const char *job)
+		 G_GNUC_UNUSED const char *job)
 {
 #ifdef DEBUG_ASYNC_JOBS
 	char *key;
@@ -406,8 +406,8 @@ async_job_start (NemoDirectory *directory,
 
 /* End a job. */
 static void
-async_job_end (NemoDirectory *directory,
-	       const char *job)
+async_job_end (G_GNUC_UNUSED NemoDirectory *directory,
+	       G_GNUC_UNUSED const char *job)
 {
 #ifdef DEBUG_ASYNC_JOBS
 	char *key;
@@ -443,7 +443,7 @@ async_job_end (NemoDirectory *directory,
 
 /* Helper to get one value from a hash table. */
 static void
-get_one_value_callback (gpointer key, gpointer value, gpointer callback_data)
+get_one_value_callback (G_GNUC_UNUSED gpointer key, gpointer value, gpointer callback_data)
 {
 	gpointer *returned_value;
 
@@ -733,7 +733,7 @@ nemo_directory_set_up_request (NemoFileAttributes file_attributes)
 }
 
 static void
-mime_db_changed_callback (GObject *ignore, NemoDirectory *dir)
+mime_db_changed_callback (G_GNUC_UNUSED GObject *ignore, NemoDirectory *dir)
 {
 	NemoFileAttributes attrs;
 
@@ -838,13 +838,13 @@ set_file_unconfirmed (NemoFile *file, gboolean unconfirmed)
 static gboolean show_hidden_files = TRUE;
 
 static void
-show_hidden_files_changed_callback (gpointer callback_data)
+show_hidden_files_changed_callback (G_GNUC_UNUSED gpointer callback_data)
 {
 	show_hidden_files = nemo_config_get_boolean (nemo_preferences, NEMO_PREFERENCES_SHOW_HIDDEN_FILES);
 }
 
 static gboolean
-should_skip_file (NemoDirectory *directory, GFileInfo *info)
+should_skip_file (G_GNUC_UNUSED NemoDirectory *directory, GFileInfo *info)
 {
 	static gboolean show_hidden_files_changed_callback_installed = FALSE;
     gboolean is_hidden;
@@ -2029,7 +2029,7 @@ directory_load_state_free (DirectoryLoadState *state)
 }
 
 static void
-more_files_callback (GObject *source_object,
+more_files_callback (G_GNUC_UNUSED GObject *source_object,
 		     GAsyncResult *res,
 		     gpointer user_data)
 {
@@ -2442,7 +2442,7 @@ directory_count_state_free (DirectoryCountState *state)
 }
 
 static void
-count_more_files_callback (GObject *source_object,
+count_more_files_callback (G_GNUC_UNUSED GObject *source_object,
 			   GAsyncResult *res,
 			   gpointer user_data)
 {
@@ -2747,7 +2747,7 @@ deep_count_next_dir (DeepCountState *state)
 }
 
 static void
-deep_count_more_files_callback (GObject *source_object,
+deep_count_more_files_callback (G_GNUC_UNUSED GObject *source_object,
 				GAsyncResult *res,
 				gpointer user_data)
 {
@@ -3059,7 +3059,7 @@ mime_list_one (MimeListState *state,
 }
 
 static void
-mime_list_callback (GObject *source_object,
+mime_list_callback (G_GNUC_UNUSED GObject *source_object,
 		    GAsyncResult *res,
 		    gpointer user_data)
 {
@@ -3847,7 +3847,7 @@ extern int cached_thumbnail_size;
 
 static void
 thumbnail_load_thread (GTask        *task,
-		       gpointer      source,
+		       G_GNUC_UNUSED gpointer      source,
 		       gpointer      task_data,
 		       GCancellable *cancellable)
 {
@@ -3862,9 +3862,9 @@ thumbnail_load_thread (GTask        *task,
 }
 
 static void
-thumbnail_load_done (GObject      *source,
+thumbnail_load_done (G_GNUC_UNUSED GObject      *source,
 		     GAsyncResult *res,
-		     gpointer      user_data)
+		     G_GNUC_UNUSED gpointer      user_data)
 {
 	ThumbnailState *state = g_task_get_task_data (G_TASK (res));
 	NemoDirectory *directory;

@@ -275,7 +275,7 @@ static void
 nemo_icon_canvas_item_set_property (GObject        *object,
 					guint           property_id,
 					const GValue   *value,
-					GParamSpec     *pspec)
+					G_GNUC_UNUSED GParamSpec     *pspec)
 {
 	NemoIconCanvasItem *item;
 	NemoIconCanvasItemDetails *details;
@@ -393,7 +393,7 @@ static void
 nemo_icon_canvas_item_get_property (GObject        *object,
 					guint           property_id,
 					GValue         *value,
-					GParamSpec     *pspec)
+					G_GNUC_UNUSED GParamSpec     *pspec)
 {
 	NemoIconCanvasItemDetails *details;
 
@@ -1355,7 +1355,7 @@ map_surface (NemoIconCanvasItem *icon_item)
 static void
 nemo_icon_canvas_item_draw (EelCanvasItem *item,
                                 cairo_t *cr,
-                                cairo_region_t *region)
+                                G_GNUC_UNUSED cairo_region_t *region)
 {
 	NemoIconContainer *container;
 	NemoIconCanvasItem *icon_item;
@@ -1603,7 +1603,7 @@ hit_test (NemoIconCanvasItem *icon_item, EelIRect canvas_rect)
 
 /* Point handler for the icon canvas item. */
 static double
-nemo_icon_canvas_item_point (EelCanvasItem *item, double x, double y, int cx, int cy,
+nemo_icon_canvas_item_point (EelCanvasItem *item, G_GNUC_UNUSED double x, G_GNUC_UNUSED double y, int cx, int cy,
 				 EelCanvasItem **actual_item)
 {
 	EelIRect canvas_rect;
@@ -2288,7 +2288,7 @@ nemo_icon_canvas_item_accessible_do_action (AtkAction *accessible,
 }
 
 static int
-nemo_icon_canvas_item_accessible_get_n_actions (AtkAction *accessible)
+nemo_icon_canvas_item_accessible_get_n_actions (G_GNUC_UNUSED AtkAction *accessible)
 {
 	return LAST_ACTION;
 }
@@ -2311,7 +2311,7 @@ nemo_icon_canvas_item_accessible_action_get_description (AtkAction *accessible,
 }
 
 static const char *
-nemo_icon_canvas_item_accessible_action_get_name (AtkAction *accessible, int i)
+nemo_icon_canvas_item_accessible_action_get_name (G_GNUC_UNUSED AtkAction *accessible, int i)
 {
 	g_assert (i < LAST_ACTION);
 
@@ -2319,7 +2319,7 @@ nemo_icon_canvas_item_accessible_action_get_name (AtkAction *accessible, int i)
 }
 
 static const char *
-nemo_icon_canvas_item_accessible_action_get_keybinding (AtkAction *accessible,
+nemo_icon_canvas_item_accessible_action_get_keybinding (G_GNUC_UNUSED AtkAction *accessible,
 							    int i)
 {
 	g_assert (i < LAST_ACTION);
@@ -2851,7 +2851,7 @@ nemo_icon_canvas_item_accessible_class_init (NemoIconCanvasItemAccessibleClass *
 }
 
 static void
-nemo_icon_canvas_item_accessible_init (NemoIconCanvasItemAccessible *self)
+nemo_icon_canvas_item_accessible_init (G_GNUC_UNUSED NemoIconCanvasItemAccessible *self)
 {
 }
 
@@ -2898,7 +2898,7 @@ nemo_icon_canvas_item_accessible_factory_get_accessible_type (void)
 }
 
 static void
-nemo_icon_canvas_item_accessible_factory_init (NemoIconCanvasItemAccessibleFactory *self)
+nemo_icon_canvas_item_accessible_factory_init (G_GNUC_UNUSED NemoIconCanvasItemAccessibleFactory *self)
 {
 }
 

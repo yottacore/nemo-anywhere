@@ -61,7 +61,7 @@ nemo_signaller_get_current (void)
 }
 
 static void
-nemo_signaller_init (NemoSignaller *signaller)
+nemo_signaller_init (G_GNUC_UNUSED NemoSignaller *signaller)
 {
 }
 

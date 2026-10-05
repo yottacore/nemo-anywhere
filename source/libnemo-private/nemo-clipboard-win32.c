@@ -99,7 +99,7 @@ paths_from_uris (GList *uris)
 		gchar *path = g_filename_from_uri (node->data, NULL, NULL);
 
 		if (path == NULL) {
-			g_ptr_array_foreach (paths, (GFunc) g_free, NULL);
+			g_ptr_array_set_free_func (paths, g_free);
 			g_ptr_array_free (paths, TRUE);
 			return NULL;
 		}
@@ -280,10 +280,10 @@ write_pending_text (gpointer data)
 }
 
 static gboolean
-editable_copy_hook (GSignalInvocationHint *hint,
-		    guint                  n_params,
+editable_copy_hook (G_GNUC_UNUSED GSignalInvocationHint *hint,
+		    G_GNUC_UNUSED guint                  n_params,
 		    const GValue          *params,
-		    gpointer               data)
+		    G_GNUC_UNUSED gpointer               data)
 {
 	GtkWidget *widget = g_value_get_object (&params[0]);
 	char *text = selected_text (widget);

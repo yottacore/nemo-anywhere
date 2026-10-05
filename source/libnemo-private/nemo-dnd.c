@@ -751,7 +751,7 @@ nemo_drag_drop_action_for_uri_list (GdkDragAction actions,
    the location and size of each icon relative to the cursor.
 */
 static void
-add_one_gnome_icon (const char *uri, const char *path_str, int x, int y, int w, int h,
+add_one_gnome_icon (const char *uri, G_GNUC_UNUSED const char *path_str, int x, int y, int w, int h,
 		    gpointer data)
 {
 	GString *result;
@@ -836,7 +836,7 @@ add_one_compatible_uri (const char *uri, int x, int y, int w, int h, gpointer da
 #endif
 
 static void
-add_one_uri (const char *uri, const char *path_str, int x, int y, int w, int h, gpointer data)
+add_one_uri (const char *uri, G_GNUC_UNUSED const char *path_str, G_GNUC_UNUSED int x, G_GNUC_UNUSED int y, G_GNUC_UNUSED int w, G_GNUC_UNUSED int h, gpointer data)
 {
 	GString *result;
 	
@@ -847,7 +847,7 @@ add_one_uri (const char *uri, const char *path_str, int x, int y, int w, int h, 
 }
 
 static void
-add_one_path (const char *uri, const char *path_str, int x, int y, int w, int h, gpointer data)
+add_one_path (G_GNUC_UNUSED const char *uri, const char *path_str, G_GNUC_UNUSED int x, G_GNUC_UNUSED int y, G_GNUC_UNUSED int w, G_GNUC_UNUSED int h, gpointer data)
 {
     GString *result;
 
@@ -891,11 +891,11 @@ nemo_drag_selection_payload (guint info,
 /* Common function for drag_data_get_callback calls.
  * Returns FALSE if it doesn't handle drag data */
 gboolean
-nemo_drag_drag_data_get (GtkWidget *widget,
-			GdkDragContext *context,
+nemo_drag_drag_data_get (G_GNUC_UNUSED GtkWidget *widget,
+			G_GNUC_UNUSED GdkDragContext *context,
 			GtkSelectionData *selection_data,
 			guint info,
-			guint32 time,
+			G_GNUC_UNUSED guint32 time,
 			gpointer container_context,
 			NemoDragEachSelectedItemIterator each_selected_item_iterator)
 {
@@ -922,7 +922,7 @@ typedef struct
 } DropActionMenuData;
 
 static void
-menu_deactivate_callback (GtkWidget *menu,
+menu_deactivate_callback (G_GNUC_UNUSED GtkWidget *menu,
 			  gpointer   data)
 {
 	DropActionMenuData *damd;

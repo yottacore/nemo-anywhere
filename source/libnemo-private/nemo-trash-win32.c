@@ -743,19 +743,19 @@ trash_file_equal (GFile *a, GFile *b)
 }
 
 static gboolean
-trash_file_is_native (GFile *file)
+trash_file_is_native (G_GNUC_UNUSED GFile *file)
 {
 	return FALSE;
 }
 
 static gboolean
-trash_file_has_uri_scheme (GFile *file, const char *scheme)
+trash_file_has_uri_scheme (G_GNUC_UNUSED GFile *file, const char *scheme)
 {
 	return g_ascii_strcasecmp (scheme, "trash") == 0;
 }
 
 static char *
-trash_file_get_uri_scheme (GFile *file)
+trash_file_get_uri_scheme (G_GNUC_UNUSED GFile *file)
 {
 	return g_strdup ("trash");
 }
@@ -772,7 +772,7 @@ trash_file_get_basename (GFile *file)
 }
 
 static char *
-trash_file_get_path (GFile *file)
+trash_file_get_path (G_GNUC_UNUSED GFile *file)
 {
 	return NULL;
 }
@@ -875,14 +875,14 @@ trash_file_resolve_relative_path (GFile *file, const char *relative_path)
 
 static GFile *
 trash_file_get_child_for_display_name (GFile *file, const char *display_name,
-				       GError **error)
+				       G_GNUC_UNUSED GError **error)
 {
 	return trash_file_resolve_relative_path (file, display_name);
 }
 
 static GFileInfo *
-trash_file_query_info (GFile *file, const char *attributes,
-		       GFileQueryInfoFlags flags, GCancellable *cancellable,
+trash_file_query_info (GFile *file, G_GNUC_UNUSED const char *attributes,
+		       G_GNUC_UNUSED GFileQueryInfoFlags flags, G_GNUC_UNUSED GCancellable *cancellable,
 		       GError **error)
 {
 	NemoTrashWin32File *self = NEMO_TRASH_WIN32_FILE (file);
@@ -933,8 +933,8 @@ trash_file_query_info (GFile *file, const char *attributes,
 }
 
 static GFileInfo *
-trash_file_query_filesystem_info (GFile *file, const char *attributes,
-				  GCancellable *cancellable, GError **error)
+trash_file_query_filesystem_info (G_GNUC_UNUSED GFile *file, G_GNUC_UNUSED const char *attributes,
+				  G_GNUC_UNUSED GCancellable *cancellable, G_GNUC_UNUSED GError **error)
 {
 	GFileInfo *info;
 
@@ -966,7 +966,7 @@ G_DEFINE_TYPE (NemoTrashWin32Enumerator, nemo_trash_win32_enumerator,
 
 static GFileInfo *
 trash_enumerator_next_file (GFileEnumerator *enumerator,
-			    GCancellable *cancellable, GError **error)
+			    G_GNUC_UNUSED GCancellable *cancellable, G_GNUC_UNUSED GError **error)
 {
 	NemoTrashWin32Enumerator *self = NEMO_TRASH_WIN32_ENUMERATOR (enumerator);
 	GFileInfo *info;
@@ -981,8 +981,8 @@ trash_enumerator_next_file (GFileEnumerator *enumerator,
 }
 
 static gboolean
-trash_enumerator_close (GFileEnumerator *enumerator,
-			GCancellable *cancellable, GError **error)
+trash_enumerator_close (G_GNUC_UNUSED GFileEnumerator *enumerator,
+			G_GNUC_UNUSED GCancellable *cancellable, G_GNUC_UNUSED GError **error)
 {
 	return TRUE;
 }
@@ -998,7 +998,7 @@ trash_enumerator_finalize (GObject *object)
 }
 
 static void
-nemo_trash_win32_enumerator_init (NemoTrashWin32Enumerator *self)
+nemo_trash_win32_enumerator_init (G_GNUC_UNUSED NemoTrashWin32Enumerator *self)
 {
 }
 
@@ -1011,8 +1011,8 @@ nemo_trash_win32_enumerator_class_init (NemoTrashWin32EnumeratorClass *klass)
 }
 
 static GFileEnumerator *
-trash_file_enumerate_children (GFile *file, const char *attributes,
-			       GFileQueryInfoFlags flags,
+trash_file_enumerate_children (GFile *file, G_GNUC_UNUSED const char *attributes,
+			       G_GNUC_UNUSED GFileQueryInfoFlags flags,
 			       GCancellable *cancellable, GError **error)
 {
 	NemoTrashWin32File *self = NEMO_TRASH_WIN32_FILE (file);
@@ -1330,7 +1330,7 @@ monitor_poll (gpointer user_data)
 }
 
 static gboolean
-emit_changed_idle (gpointer user_data)
+emit_changed_idle (G_GNUC_UNUSED gpointer user_data)
 {
 	GList *snapshot = NULL, *l;
 
@@ -1379,7 +1379,7 @@ trash_win32_monitor_cancel (GFileMonitor *file_monitor)
 }
 
 static void
-nemo_trash_win32_monitor_init (NemoTrashWin32Monitor *monitor)
+nemo_trash_win32_monitor_init (G_GNUC_UNUSED NemoTrashWin32Monitor *monitor)
 {
 }
 
@@ -1390,8 +1390,8 @@ nemo_trash_win32_monitor_class_init (NemoTrashWin32MonitorClass *klass)
 }
 
 static GFileMonitor *
-trash_file_monitor (GFile *file, GFileMonitorFlags flags,
-		    GCancellable *cancellable, GError **error)
+trash_file_monitor (G_GNUC_UNUSED GFile *file, G_GNUC_UNUSED GFileMonitorFlags flags,
+		    G_GNUC_UNUSED GCancellable *cancellable, G_GNUC_UNUSED GError **error)
 {
 	NemoTrashWin32Monitor *monitor;
 
@@ -1419,7 +1419,7 @@ trash_file_finalize (GObject *object)
 }
 
 static void
-nemo_trash_win32_file_init (NemoTrashWin32File *self)
+nemo_trash_win32_file_init (G_GNUC_UNUSED NemoTrashWin32File *self)
 {
 }
 
@@ -1468,7 +1468,7 @@ trash_file_new_for_uri (const char *uri)
 }
 
 static GFile *
-trash_vfs_lookup (GVfs *vfs, const char *identifier, gpointer user_data)
+trash_vfs_lookup (G_GNUC_UNUSED GVfs *vfs, const char *identifier, G_GNUC_UNUSED gpointer user_data)
 {
 	if (g_str_has_prefix (identifier, "trash:")) {
 		return trash_file_new_for_uri (identifier);

@@ -169,10 +169,10 @@ schedule_update_info (NemoTrashMonitor *trash_monitor)
 }
 
 static void
-file_changed (GFileMonitor* monitor,
-	      GFile *child,
-	      GFile *other_file,
-	      GFileMonitorEvent event_type,
+file_changed (G_GNUC_UNUSED GFileMonitor* monitor,
+	      G_GNUC_UNUSED GFile *child,
+	      G_GNUC_UNUSED GFile *other_file,
+	      G_GNUC_UNUSED GFileMonitorEvent event_type,
 	      gpointer user_data)
 {
 	NemoTrashMonitor *trash_monitor;

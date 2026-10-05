@@ -145,7 +145,7 @@ GFile *_nemo_favorite_vfs_file_new_for_info (NemoFavoriteInfo *info);
 // }
 
 static void
-unmonitor_files (NemoFavoriteVfsFileMonitor *monitor)
+unmonitor_files (G_GNUC_UNUSED NemoFavoriteVfsFileMonitor *monitor)
 {
     /* Disabled. See below */
     return;
@@ -160,7 +160,7 @@ unmonitor_files (NemoFavoriteVfsFileMonitor *monitor)
 }
 
 static void
-monitor_files (NemoFavoriteVfsFileMonitor *monitor)
+monitor_files (G_GNUC_UNUSED NemoFavoriteVfsFileMonitor *monitor)
 {
 
     /* Disabled - this isn't necessary right now but could be expanded to help
@@ -316,7 +316,7 @@ favorites_changed (NemoFavorites *favorites,
 }
 
 static void
-mounts_changed (GVolumeMonitor *mount_mon,
+mounts_changed (G_GNUC_UNUSED GVolumeMonitor *mount_mon,
                 GMount         *mount,
                 gpointer        user_data)
 {

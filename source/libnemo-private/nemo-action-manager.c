@@ -62,10 +62,10 @@ enum {
 static guint signals[LAST_SIGNAL] = { 0 };
 
 static void
-actions_changed (GFileMonitor      *monitor,
+actions_changed (G_GNUC_UNUSED GFileMonitor      *monitor,
                  GFile             *file,
-                 GFile             *other_file,
-                 GFileMonitorEvent  event_type,
+                 G_GNUC_UNUSED GFile             *other_file,
+                 G_GNUC_UNUSED GFileMonitorEvent  event_type,
                  gpointer           user_data)
 {
     NemoActionManager *action_manager;
@@ -79,7 +79,7 @@ actions_changed (GFileMonitor      *monitor,
 }
 
 static void
-plugin_prefs_changed (NemoConfigGroup *settings, gchar *key, gpointer user_data)
+plugin_prefs_changed (G_GNUC_UNUSED NemoConfigGroup *settings, G_GNUC_UNUSED gchar *key, gpointer user_data)
 {
     g_return_if_fail (NEMO_IS_ACTION_MANAGER (user_data));
 
@@ -341,9 +341,9 @@ reload_actions_layout (NemoActionManager *action_manager)
 }
 
 static void
-nemo_config_dir_changed (GFileMonitor      *monitor,
+nemo_config_dir_changed (G_GNUC_UNUSED GFileMonitor      *monitor,
                          GFile             *file,
-                         GFile             *other_file,
+                         G_GNUC_UNUSED GFile             *other_file,
                          GFileMonitorEvent  event_type,
                          gpointer           user_data)
 {
@@ -416,7 +416,7 @@ refresh_actions (NemoActionManager *action_manager,
 }
 
 static void
-nemo_action_manager_init (NemoActionManager *action_manager)
+nemo_action_manager_init (G_GNUC_UNUSED NemoActionManager *action_manager)
 {
 }
 
@@ -755,7 +755,7 @@ parse_level (ActionsIterData *idata,
         guint len = json_reader_count_elements (reader);
         DEBUG ("Processing %d children of '%s'.", len, path == NULL ? "root" : path);
 
-        gint i;
+        guint i;
         for (i = 0; i < len; i++) {
             if (!json_reader_read_element (reader, i)) {
                 idata->error = g_error_copy (json_reader_get_error (reader));
@@ -780,7 +780,7 @@ parse_level (ActionsIterData *idata,
 }
 
 static gboolean
-iter_actions (NemoActionManager  *action_manager,
+iter_actions (G_GNUC_UNUSED NemoActionManager  *action_manager,
               ActionsIterData    *idata)
 {
     JsonReader *reader = idata->reader;
@@ -878,7 +878,7 @@ nemo_action_manager_iterate_actions (NemoActionManager                *action_ma
 }
 
 void
-nemo_action_manager_add_action_ui (NemoActionManager   *manager,
+nemo_action_manager_add_action_ui (G_GNUC_UNUSED NemoActionManager   *manager,
                                    GtkUIManager        *ui_manager,
                                    GtkAction           *action,
                                    const gchar         *action_path,
@@ -936,7 +936,7 @@ nemo_action_manager_add_action_ui (NemoActionManager   *manager,
 }
 
 void
-nemo_action_manager_update_action_states (NemoActionManager *action_manager,
+nemo_action_manager_update_action_states (G_GNUC_UNUSED NemoActionManager *action_manager,
                                           GtkActionGroup    *action_group,
                                           GList             *selection,
                                           NemoFile          *parent,

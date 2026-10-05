@@ -97,9 +97,9 @@ nemo_launch_application (GAppInfo *application,
 
 #ifdef G_OS_UNIX
 static void
-dummy_child_watch (GPid     pid,
-                   gint     status,
-                   gpointer user_data)
+dummy_child_watch (G_GNUC_UNUSED GPid     pid,
+                   G_GNUC_UNUSED gint     status,
+                   G_GNUC_UNUSED gpointer user_data)
 {
   /* Nothing, this is just to ensure we don't double fork
    * and break pkexec:
@@ -108,9 +108,9 @@ dummy_child_watch (GPid     pid,
 }
 
 static void
-gather_pid_callback (GDesktopAppInfo *appinfo,
+gather_pid_callback (G_GNUC_UNUSED GDesktopAppInfo *appinfo,
                      GPid            pid,
-                     gpointer        data)
+                     G_GNUC_UNUSED gpointer        data)
 {
     g_child_watch_add(pid, dummy_child_watch, NULL);
 }
@@ -331,7 +331,7 @@ nemo_launch_application_from_command_array (GdkScreen  *screen,
 }
 
 void
-nemo_launch_desktop_file (GdkScreen   *screen,
+nemo_launch_desktop_file (G_GNUC_UNUSED GdkScreen   *screen,
 			      const char  *desktop_file_uri,
 			      const GList *parameter_uris,
 			      GtkWindow   *parent_window)

@@ -64,7 +64,7 @@ nemo_monitor_active (void)
 static gboolean call_consume_changes_idle_id = 0;
 
 static gboolean
-call_consume_changes_idle_cb (gpointer not_used)
+call_consume_changes_idle_cb (G_GNUC_UNUSED gpointer not_used)
 {
 	nemo_file_changes_consume_changes (TRUE);
 	call_consume_changes_idle_id = 0;
@@ -81,7 +81,7 @@ schedule_call_consume_changes (void)
 }
 
 static void
-mount_removed (GVolumeMonitor *volume_monitor,
+mount_removed (G_GNUC_UNUSED GVolumeMonitor *volume_monitor,
          GMount *mount,
          gpointer user_data)
 {
@@ -99,11 +99,11 @@ mount_removed (GVolumeMonitor *volume_monitor,
 }
 
 static void
-dir_changed (GFileMonitor* monitor,
+dir_changed (G_GNUC_UNUSED GFileMonitor* monitor,
 	     GFile *child,
 	     GFile *other_file,
 	     GFileMonitorEvent event_type,
-	     gpointer user_data)
+	     G_GNUC_UNUSED gpointer user_data)
 {
 	char *uri, *to_uri;
 

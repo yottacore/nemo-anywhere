@@ -1066,16 +1066,16 @@ apply_appearance (void)
 }
 
 static void
-appearance_changed_cb (NemoConfigGroup *group,
-		       const char      *key,
-		       gpointer         user_data)
+appearance_changed_cb (G_GNUC_UNUSED NemoConfigGroup *group,
+		       G_GNUC_UNUSED const char      *key,
+		       G_GNUC_UNUSED gpointer         user_data)
 {
 	apply_appearance ();
 }
 
 /* Someone other than us moved the property - that is the desktop talking. */
 static void
-prefer_dark_notify_cb (GObject *settings, GParamSpec *pspec, gpointer user_data)
+prefer_dark_notify_cb (GObject *settings, G_GNUC_UNUSED GParamSpec *pspec, G_GNUC_UNUSED gpointer user_data)
 {
 	gboolean was = desktop_dark;
 
@@ -1095,7 +1095,7 @@ prefer_dark_notify_cb (GObject *settings, GParamSpec *pspec, gpointer user_data)
 
 #ifdef G_OS_WIN32
 static void
-system_dark_changed_cb (gboolean dark, gpointer user_data)
+system_dark_changed_cb (G_GNUC_UNUSED gboolean dark, G_GNUC_UNUSED gpointer user_data)
 {
 	apply_appearance ();
 }

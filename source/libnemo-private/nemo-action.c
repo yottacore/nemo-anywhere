@@ -287,9 +287,9 @@ queue_recalc_dbus_conditions (NemoAction *action)
 }
 
 static void
-on_dbus_appeared (GDBusConnection *connection,
-                  const gchar     *name,
-                  const gchar     *name_owner,
+on_dbus_appeared (G_GNUC_UNUSED GDBusConnection *connection,
+                  G_GNUC_UNUSED const gchar     *name,
+                  G_GNUC_UNUSED const gchar     *name_owner,
                   gpointer         user_data)
 {
     DBusCondition *cond = user_data;
@@ -299,8 +299,8 @@ on_dbus_appeared (GDBusConnection *connection,
 }
 
 static void
-on_dbus_disappeared (GDBusConnection *connection,
-                     const gchar     *name,
+on_dbus_disappeared (G_GNUC_UNUSED GDBusConnection *connection,
+                     G_GNUC_UNUSED const gchar     *name,
                      gpointer         user_data)
 {
     DBusCondition *cond = user_data;
@@ -534,7 +534,7 @@ setup_gsettings_condition (NemoAction *action,
     if (schema) {
         GSettings *settings;
         gchar **keys;
-        gint i;
+        guint i;
 
         settings = g_settings_new (split[GSETTINGS_SCHEMA_INDEX]);
         keys = g_settings_list_keys (settings);
@@ -589,7 +589,7 @@ strip_custom_modifier (const gchar *raw, gboolean *custom, gchar **out)
 }
 
 static void
-populate_patterns_and_filenames (NemoAction   *action,
+populate_patterns_and_filenames (G_GNUC_UNUSED NemoAction   *action,
                                  gchar       **array,
                                  GList       **allowed_patterns,
                                  GList       **forbidden_patterns,
@@ -605,7 +605,7 @@ populate_patterns_and_filenames (NemoAction   *action,
         return;
     }
 
-    gint i;
+    guint i;
 
     for (i = 0; i < g_strv_length (array); i++) {
         GString *str = g_string_new (array[i]);
@@ -1764,7 +1764,7 @@ get_is_dir (NemoFile *file)
 }
 
 static gboolean
-check_is_allowed (NemoAction *action,
+check_is_allowed (G_GNUC_UNUSED NemoAction *action,
                   NemoFile   *parent,
                   GList      *selection,
                   GList      *allowed_patterns,

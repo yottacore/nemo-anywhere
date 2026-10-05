@@ -785,7 +785,7 @@ has_invalid_xml_char (char *str)
 
 
 static char *
-custom_full_name_to_string (char *format, va_list va)
+custom_full_name_to_string (G_GNUC_UNUSED char *format, va_list va)
 {
 	GFile *file;
 
@@ -801,7 +801,7 @@ custom_full_name_skip (va_list *va)
 }
 
 static char *
-custom_basename_to_string (char *format, va_list va)
+custom_basename_to_string (G_GNUC_UNUSED char *format, va_list va)
 {
 	GFile *file;
 	GFileInfo *info;
@@ -864,7 +864,7 @@ custom_basename_skip (va_list *va)
 
 
 static char *
-custom_size_to_string (char *format, va_list va)
+custom_size_to_string (G_GNUC_UNUSED char *format, va_list va)
 {
 	goffset size;
 
@@ -883,7 +883,7 @@ custom_size_skip (va_list *va)
 }
 
 static char *
-custom_time_to_string (char *format, va_list va)
+custom_time_to_string (G_GNUC_UNUSED char *format, va_list va)
 {
 	int secs;
 
@@ -898,7 +898,7 @@ custom_time_skip (va_list *va)
 }
 
 static char *
-custom_mount_to_string (char *format, va_list va)
+custom_mount_to_string (G_GNUC_UNUSED char *format, va_list va)
 {
 	GMount *mount;
 
@@ -984,7 +984,7 @@ get_parent_name (GFile *file, gchar **name)
 /* adapted from gio/glocalfile.c */
 static gboolean
 _g_local_file_delete (GFile         *file,
-                     GCancellable  *cancellable,
+                     G_GNUC_UNUSED GCancellable  *cancellable,
                      GError       **error)
 {
     gchar *path;
@@ -2058,7 +2058,7 @@ delete_dir (CommonJob *job, GFile *dir,
 	    gboolean *skipped_file,
 	    SourceInfo *source_info,
 	    TransferInfo *transfer_info,
-	    gboolean toplevel)
+	    G_GNUC_UNUSED gboolean toplevel)
 {
 	GFileInfo *info;
 	GError *error;
@@ -2375,7 +2375,7 @@ report_trash_progress (CommonJob *job,
    the delete was asked about twice, the second time from behind the progress
    window. */
 static gboolean
-trash_one_file (GFile *file, GCancellable *cancellable, GError **error)
+trash_one_file (GFile *file, G_GNUC_UNUSED GCancellable *cancellable, GError **error)
 {
 	if (!nemo_delete_guard_check (file, error)) {
 		return FALSE;
@@ -2581,7 +2581,7 @@ refuse_job (DeleteJob *job)
 
 static gboolean
 delete_job (GIOSchedulerJob *io_job,
-	    GCancellable *cancellable,
+	    G_GNUC_UNUSED GCancellable *cancellable,
 	    gpointer user_data)
 {
 	DeleteJob *job = user_data;
@@ -3001,7 +3001,7 @@ prompt_empty_trash (GtkWindow *parent_window)
 }
 
 static void
-empty_trash_for_unmount_done (gboolean success,
+empty_trash_for_unmount_done (G_GNUC_UNUSED gboolean success,
 			      gpointer user_data)
 {
 	UnmountData *data = user_data;
@@ -3077,7 +3077,7 @@ nemo_file_operations_unmount_mount (GtkWindow                      *parent_windo
 
 static void
 mount_callback_data_notify (gpointer data,
-			    GObject *object)
+			    G_GNUC_UNUSED GObject *object)
 {
 	GMountOperation *mount_op;
 
@@ -3510,8 +3510,7 @@ scan_file (GFile *file,
 	}
 
 	/* Free all from queue if we exited early */
-	g_queue_foreach (dirs, (GFunc)g_object_unref, NULL);
-	g_queue_free (dirs);
+	g_queue_free_full (dirs, g_object_unref);
 }
 
 static void
@@ -3648,7 +3647,7 @@ verify_destination (CommonJob *job,
 		free_size = g_file_info_get_attribute_uint64 (fsinfo,
 							      G_FILE_ATTRIBUTE_FILESYSTEM_FREE);
 
-		if (free_size < required_size) {
+		if (free_size < (guint64) required_size) {
 			size_difference = required_size - free_size;
 			primary = f (_("Error while copying to \"%B\"."), dest);
 			secondary = f (_("There is not enough space on the destination. Try to remove files to make space."));
@@ -3939,7 +3938,7 @@ make_file_name_valid_for_dest_fs (char *filename,
 static GFile *
 get_unique_target_file (GFile *src,
 			GFile *dest_dir,
-			gboolean same_fs,
+			G_GNUC_UNUSED gboolean same_fs,
 			const char *dest_fs_type,
 			int count)
 {
@@ -4674,7 +4673,7 @@ typedef struct {
 
 static void
 copy_file_progress_callback (goffset current_num_bytes,
-			     goffset total_num_bytes,
+			     G_GNUC_UNUSED goffset total_num_bytes,
 			     gpointer user_data)
 {
 	ProgressData *pdata;
@@ -5646,7 +5645,7 @@ copy_job_done (gpointer user_data)
 
 static gboolean
 copy_job (GIOSchedulerJob *io_job,
-	  GCancellable *cancellable,
+	  G_GNUC_UNUSED GCancellable *cancellable,
 	  gpointer user_data)
 {
 	CopyMoveJob *job;
@@ -5791,7 +5790,7 @@ nemo_file_operations_copy (GList *files,
 }
 
 static void
-report_move_progress (CopyMoveJob *move_job, int total, int left)
+report_move_progress (CopyMoveJob *move_job, G_GNUC_UNUSED int total, int left)
 {
 	CommonJob *job;
 
@@ -6257,7 +6256,7 @@ move_job_done (gpointer user_data)
 
 static gboolean
 move_job (GIOSchedulerJob *io_job,
-	  GCancellable *cancellable,
+	  G_GNUC_UNUSED GCancellable *cancellable,
 	  gpointer user_data)
 {
 	CopyMoveJob *job;
@@ -6788,7 +6787,7 @@ link_job_done (gpointer user_data)
 
 static gboolean
 link_job (GIOSchedulerJob *io_job,
-	  GCancellable *cancellable,
+	  G_GNUC_UNUSED GCancellable *cancellable,
 	  gpointer user_data)
 {
 	CopyMoveJob *job;
@@ -7063,7 +7062,7 @@ set_permissions_file (SetPermissionsJob *job,
 
 static gboolean
 set_permissions_job (GIOSchedulerJob *io_job,
-		     GCancellable *cancellable,
+		     G_GNUC_UNUSED GCancellable *cancellable,
 		     gpointer user_data)
 {
 	SetPermissionsJob *job = user_data;
@@ -7363,7 +7362,7 @@ create_job_done (gpointer user_data)
 
 static gboolean
 create_job (GIOSchedulerJob *io_job,
-	    GCancellable *cancellable,
+	    G_GNUC_UNUSED GCancellable *cancellable,
 	    gpointer user_data)
 {
 	CreateJob *job;
@@ -7844,7 +7843,7 @@ empty_trash_job_done (gpointer user_data)
 
 static gboolean
 empty_trash_job (GIOSchedulerJob *io_job,
-		 GCancellable *cancellable,
+		 G_GNUC_UNUSED GCancellable *cancellable,
 		 gpointer user_data)
 {
 	EmptyTrashJob *job = user_data;

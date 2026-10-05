@@ -638,7 +638,7 @@ vfs_file_poll_for_media (NemoFile *file)
 }
 
 static void
-nemo_vfs_file_init (NemoVFSFile *file)
+nemo_vfs_file_init (G_GNUC_UNUSED NemoVFSFile *file)
 {
 }
 

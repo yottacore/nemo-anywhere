@@ -62,7 +62,7 @@ nemo_undo_transaction_new (const char *operation_name,
 }
 
 static void 
-nemo_undo_transaction_init (NemoUndoTransaction *transaction)
+nemo_undo_transaction_init (G_GNUC_UNUSED NemoUndoTransaction *transaction)
 {
 }
 

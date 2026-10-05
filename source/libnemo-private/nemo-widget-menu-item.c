@@ -331,7 +331,7 @@ nemo_widget_menu_item_set_use_action_appearance (NemoWidgetMenuItem *widget_menu
 }
 
 static void
-nemo_widget_menu_item_activate (GtkMenuItem *menu_item)
+nemo_widget_menu_item_activate (G_GNUC_UNUSED GtkMenuItem *menu_item)
 {
 }
 

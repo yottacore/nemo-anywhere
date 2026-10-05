@@ -260,7 +260,7 @@ search_monitor_remove (NemoDirectory *directory,
 }
 
 static void
-cancel_call_when_ready (gpointer key, gpointer value, gpointer user_data)
+cancel_call_when_ready (gpointer key, G_GNUC_UNUSED gpointer value, gpointer user_data)
 {
 	SearchCallback *search_callback;
 	NemoFile *file;
@@ -283,6 +283,12 @@ search_callback_destroy (SearchCallback *search_callback)
 	nemo_file_list_free (search_callback->file_list);
 
 	g_free (search_callback);
+}
+
+static void
+destroy_one (gpointer data, G_GNUC_UNUSED gpointer user_data)
+{
+	search_callback_destroy (data);
 }
 
 static void
@@ -471,7 +477,7 @@ search_cancel_callback (NemoDirectory *directory,
 
 
 static void
-search_engine_hits_added (NemoSearchEngine *engine, GList *hits, 
+search_engine_hits_added (G_GNUC_UNUSED NemoSearchEngine *engine, GList *hits, 
 			  NemoSearchDirectory *search)
 {
 	GList *hit;
@@ -511,7 +517,7 @@ search_engine_hits_added (NemoSearchEngine *engine, GList *hits,
 }
 
 static void
-search_engine_hits_subtracted (NemoSearchEngine *engine, GList *hits, 
+search_engine_hits_subtracted (G_GNUC_UNUSED NemoSearchEngine *engine, GList *hits, 
 			       NemoSearchDirectory *search)
 {
 	GList *hit_list;
@@ -560,7 +566,13 @@ search_callback_add_pending_file_callbacks (SearchCallback *callback)
 }
 
 static void
-search_engine_error (NemoSearchEngine *engine, const char *error_message, NemoSearchDirectory *search)
+add_pending_one (gpointer data, G_GNUC_UNUSED gpointer user_data)
+{
+	search_callback_add_pending_file_callbacks (data);
+}
+
+static void
+search_engine_error (G_GNUC_UNUSED NemoSearchEngine *engine, const char *error_message, NemoSearchDirectory *search)
 {
 	GError *error;
 
@@ -572,15 +584,14 @@ search_engine_error (NemoSearchEngine *engine, const char *error_message, NemoSe
 }
 
 static void
-search_engine_finished (NemoSearchEngine *engine, NemoSearchDirectory *search)
+search_engine_finished (G_GNUC_UNUSED NemoSearchEngine *engine, NemoSearchDirectory *search)
 {
 	search->details->search_finished = TRUE;
 
 	nemo_directory_emit_done_loading (NEMO_DIRECTORY (search));
 
 	/* Add all file callbacks */
-	g_list_foreach (search->details->pending_callback_list, 
-			(GFunc)search_callback_add_pending_file_callbacks, NULL);
+	g_list_foreach (search->details->pending_callback_list, add_pending_one, NULL);
 	search->details->callback_list = g_list_concat (search->details->callback_list,
 							search->details->pending_callback_list);
 
@@ -660,7 +671,7 @@ search_get_file_list (NemoDirectory *directory)
 
 
 static gboolean
-search_is_editable (NemoDirectory *directory)
+search_is_editable (G_GNUC_UNUSED NemoDirectory *directory)
 {
 	return FALSE;
 }
@@ -687,15 +698,13 @@ search_dispose (GObject *object)
 	
 	if (search->details->callback_list) {
 		/* Remove callbacks */
-		g_list_foreach (search->details->callback_list,
-				(GFunc)search_callback_destroy, NULL);
+		g_list_foreach (search->details->callback_list, destroy_one, NULL);
 		g_list_free (search->details->callback_list);
 		search->details->callback_list = NULL;
 	}
 
 	if (search->details->pending_callback_list) {
-		g_list_foreach (search->details->pending_callback_list,
-				(GFunc)search_callback_destroy, NULL);
+		g_list_foreach (search->details->pending_callback_list, destroy_one, NULL);
 		g_list_free (search->details->pending_callback_list);
 		search->details->pending_callback_list = NULL;
 	}

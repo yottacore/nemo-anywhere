@@ -182,7 +182,7 @@ list_changed (NemoColumnChooser *chooser)
 }
 
 static void
-visible_toggled_callback (GtkCellRendererToggle *cell, 
+visible_toggled_callback (G_GNUC_UNUSED GtkCellRendererToggle *cell, 
 			  char *path_string,
 			  gpointer user_data)
 {
@@ -205,14 +205,14 @@ visible_toggled_callback (GtkCellRendererToggle *cell,
 }
 
 static void
-selection_changed_callback (GtkTreeSelection *selection, gpointer user_data)
+selection_changed_callback (G_GNUC_UNUSED GtkTreeSelection *selection, gpointer user_data)
 {
 	update_buttons (NEMO_COLUMN_CHOOSER (user_data));
 }
 
 static void
-row_deleted_callback (GtkTreeModel *model, 
-		       GtkTreePath *path,
+row_deleted_callback (G_GNUC_UNUSED GtkTreeModel *model, 
+		       G_GNUC_UNUSED GtkTreePath *path,
 		       gpointer user_data)
 {
 	list_changed (NEMO_COLUMN_CHOOSER (user_data));
@@ -284,7 +284,7 @@ add_tree_view (NemoColumnChooser *chooser)
 }
 
 static void
-move_up_clicked_callback (GtkWidget *button, gpointer user_data)
+move_up_clicked_callback (G_GNUC_UNUSED GtkWidget *button, gpointer user_data)
 {
 	NemoColumnChooser *chooser;
 	GtkTreeIter iter;
@@ -312,7 +312,7 @@ move_up_clicked_callback (GtkWidget *button, gpointer user_data)
 }
 
 static void
-move_down_clicked_callback (GtkWidget *button, gpointer user_data)
+move_down_clicked_callback (G_GNUC_UNUSED GtkWidget *button, gpointer user_data)
 {
 	NemoColumnChooser *chooser;
 	GtkTreeIter iter;
@@ -338,7 +338,7 @@ move_down_clicked_callback (GtkWidget *button, gpointer user_data)
 }
 
 static void
-use_default_clicked_callback (GtkWidget *button, gpointer user_data)
+use_default_clicked_callback (G_GNUC_UNUSED GtkWidget *button, gpointer user_data)
 {
 	g_signal_emit (NEMO_COLUMN_CHOOSER (user_data), 
 		       signals[USE_DEFAULT], 0);

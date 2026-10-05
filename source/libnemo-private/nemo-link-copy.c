@@ -795,7 +795,7 @@ read_options (MakeLinkDialog *d, NemoLinkOptions *options)
 }
 
 static void
-update_make_link_dialog (GtkToggleButton *button, MakeLinkDialog *d)
+update_make_link_dialog (G_GNUC_UNUSED GtkToggleButton *button, MakeLinkDialog *d)
 {
 	NemoLinkOptions options;
 	GtkWidget *path_row[3] = { d->path_label, d->absolute, d->relative };

@@ -79,7 +79,7 @@ file_undo_manager_clear (NemoFileUndoManager *self)
 }
 
 static void
-trash_state_changed_cb (NemoTrashMonitor *monitor,
+trash_state_changed_cb (G_GNUC_UNUSED NemoTrashMonitor *monitor,
 			gboolean is_empty,
 			gpointer user_data)
 {
