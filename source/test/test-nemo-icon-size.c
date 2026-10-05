@@ -12,7 +12,7 @@
 #include "test-check.h"
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	const gint *steps;
 	guint n_steps, i;
@@ -81,7 +81,7 @@ main (int argc, char *argv[])
 	for (i = 0; i < 7; i++) {
 		size = nemo_icon_size_from_legacy_level (i);
 		check (nemo_icon_size_legacy_level (size) == (gint) i);
-		check (nemo_get_list_icon_size (size) == nemo_list_icon_size_from_legacy_level (i));
+		check ((gint) nemo_get_list_icon_size (size) == nemo_list_icon_size_from_legacy_level (i));
 	}
 
 	/* A size between two steps belongs to the step at or above it. */

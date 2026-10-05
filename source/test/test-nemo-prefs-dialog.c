@@ -61,12 +61,12 @@ nemo_template_config_widget_new (void)
 }
 
 void
-nemo_prefs_file_cache_setup (GtkBuilder *builder)
+nemo_prefs_file_cache_setup (G_GNUC_UNUSED GtkBuilder *builder)
 {
 }
 
 void
-nemo_prefs_current_folder_setup (GtkBuilder *builder, GtkWidget *dialog, GtkWindow *parent)
+nemo_prefs_current_folder_setup (G_GNUC_UNUSED GtkBuilder *builder, G_GNUC_UNUSED GtkWidget *dialog, G_GNUC_UNUSED GtkWindow *parent)
 {
 }
 

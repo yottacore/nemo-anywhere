@@ -19,7 +19,7 @@ static int loads = 0;
 static GList *added = NULL;	/* names, owned */
 
 static void
-files_added (NemoDirectory *directory, GList *files, gpointer data)
+files_added (G_GNUC_UNUSED NemoDirectory *directory, GList *files, G_GNUC_UNUSED gpointer data)
 {
 	GList *l;
 
@@ -34,7 +34,7 @@ files_added (NemoDirectory *directory, GList *files, gpointer data)
 }
 
 static void
-done_loading (NemoDirectory *directory, gpointer data)
+done_loading (G_GNUC_UNUSED NemoDirectory *directory, G_GNUC_UNUSED gpointer data)
 {
 	loads++;
 }

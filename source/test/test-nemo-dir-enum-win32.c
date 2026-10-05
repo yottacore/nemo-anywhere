@@ -69,7 +69,7 @@ build_deep_folder (const char *root)
 }
 
 static int
-compare_names (const void *a, const void *b, gpointer user_data)
+compare_names (const void *a, const void *b, G_GNUC_UNUSED gpointer user_data)
 {
 	return g_ascii_strcasecmp (*(const char * const *) a, *(const char * const *) b);
 }
@@ -297,7 +297,7 @@ test_missing_long_path (const char *deep)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	char *root, *deep;
 

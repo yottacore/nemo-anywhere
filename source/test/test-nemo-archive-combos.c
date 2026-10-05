@@ -71,7 +71,7 @@ static gboolean with_links;
 static GHashTable *contents;	/* archive path -> GBytes, what each file holds */
 
 static void
-archive_done (GFile *result, gboolean success, gpointer data)
+archive_done (G_GNUC_UNUSED GFile *result, gboolean success, G_GNUC_UNUSED gpointer data)
 {
 	job_succeeded = success;
 	job_finished = TRUE;
@@ -79,7 +79,7 @@ archive_done (GFile *result, gboolean success, gpointer data)
 }
 
 static gboolean
-give_up (gpointer data)
+give_up (G_GNUC_UNUSED gpointer data)
 {
 	gtk_main_quit ();
 	return G_SOURCE_REMOVE;
@@ -529,7 +529,7 @@ static int questions_answered;
    runs from a timeout. The only one expected is the trash asking to go
    ahead, answered yes with the last button. */
 static gboolean
-answer_questions (gpointer data)
+answer_questions (G_GNUC_UNUSED gpointer data)
 {
 	GList *windows = gtk_window_list_toplevels ();
 	GList *l;

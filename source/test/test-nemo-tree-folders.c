@@ -29,7 +29,7 @@ static GtkTreeView *tree;
 static char *root_dir;
 
 static gint
-icon_scale (FMTreeModel *m, gpointer data)
+icon_scale (G_GNUC_UNUSED FMTreeModel *m, G_GNUC_UNUSED gpointer data)
 {
 	return 1;
 }

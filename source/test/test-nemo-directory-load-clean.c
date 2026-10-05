@@ -40,9 +40,9 @@ counting_writer (GLogLevelFlags   level,
 static gboolean done = FALSE;
 
 static void
-directory_ready (NemoDirectory *directory,
+directory_ready (G_GNUC_UNUSED NemoDirectory *directory,
 		 GList         *files,
-		 gpointer       callback_data)
+		 G_GNUC_UNUSED gpointer       callback_data)
 {
 	check (g_list_length (files) == 8);
 	done = TRUE;
@@ -50,16 +50,16 @@ directory_ready (NemoDirectory *directory,
 
 #ifdef G_OS_WIN32
 static void
-root_ready (NemoDirectory *directory,
-	    GList         *files,
-	    gpointer       callback_data)
+root_ready (G_GNUC_UNUSED NemoDirectory *directory,
+	    G_GNUC_UNUSED GList         *files,
+	    G_GNUC_UNUSED gpointer       callback_data)
 {
 	done = TRUE;
 }
 #endif
 
 static gboolean
-give_up (gpointer data)
+give_up (G_GNUC_UNUSED gpointer data)
 {
 	g_printerr ("FAIL directory never became ready\n");
 	failures++;

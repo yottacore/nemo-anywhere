@@ -59,7 +59,7 @@ job_finished (gpointer data)
 /* Waits while told to hold, so a second job has something to queue behind. */
 static gboolean
 job_func (GIOSchedulerJob *io_job,
-	  GCancellable    *cancellable,
+	  G_GNUC_UNUSED GCancellable    *cancellable,
 	  gpointer         data)
 {
 	Job *job = data;

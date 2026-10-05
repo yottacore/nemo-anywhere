@@ -167,7 +167,7 @@ test_when_the_password_is_confirmed (void)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	char *tmp;
 

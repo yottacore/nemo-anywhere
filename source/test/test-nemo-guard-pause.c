@@ -51,7 +51,7 @@ job_done (gpointer user_data)
 
 static gboolean
 guard_job (GIOSchedulerJob *io_job,
-	   GCancellable    *cancellable,
+	   G_GNUC_UNUSED GCancellable    *cancellable,
 	   gpointer         user_data)
 {
 	Run *run = user_data;

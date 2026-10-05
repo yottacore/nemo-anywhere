@@ -39,21 +39,21 @@
 static gboolean job_finished;
 
 static void
-delete_done (GHashTable *debuting_uris, gboolean user_cancel, gpointer data)
+delete_done (G_GNUC_UNUSED GHashTable *debuting_uris, G_GNUC_UNUSED gboolean user_cancel, G_GNUC_UNUSED gpointer data)
 {
 	job_finished = TRUE;
 	gtk_main_quit ();
 }
 
 static void
-move_done (GHashTable *debuting_uris, gboolean success, gpointer data)
+move_done (G_GNUC_UNUSED GHashTable *debuting_uris, G_GNUC_UNUSED gboolean success, G_GNUC_UNUSED gpointer data)
 {
 	job_finished = TRUE;
 	gtk_main_quit ();
 }
 
 static gboolean
-give_up (gpointer data)
+give_up (G_GNUC_UNUSED gpointer data)
 {
 	g_printerr ("FAIL: the job did not finish within %d seconds\n",
 		    JOB_TIMEOUT_SECONDS);
@@ -118,7 +118,7 @@ check_starts_on_cancel (GtkWidget *dialog, GList *buttons)
 /* The go-ahead is the last button on every dialog these jobs put up. An error
    dialog gets its last button too, which is Skip, and says so on stderr. */
 static gboolean
-answer_dialogs (gpointer data)
+answer_dialogs (G_GNUC_UNUSED gpointer data)
 {
 	GList *windows, *l;
 

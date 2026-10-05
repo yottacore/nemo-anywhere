@@ -306,7 +306,7 @@ finish (void)
 
 /* Each step waits for what the one before set going. Up to ten seconds each. */
 static gboolean
-tick (gpointer data)
+tick (G_GNUC_UNUSED gpointer data)
 {
 	GtkWidget *menu;
 	GdkRectangle rect;

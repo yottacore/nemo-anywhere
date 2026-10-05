@@ -22,9 +22,9 @@ test_quit (int exit_code)
 }
 
 void
-test_delete_event (GtkWidget *widget,
-		   GdkEvent *event,
-		   gpointer callback_data)
+test_delete_event (G_GNUC_UNUSED GtkWidget *widget,
+		   G_GNUC_UNUSED GdkEvent *event,
+		   G_GNUC_UNUSED gpointer callback_data)
 {
 	test_quit (0);
 }
@@ -88,8 +88,8 @@ test_pixbuf_new_named (const char *name, float scale)
 
 GtkWidget *
 test_label_new (const char *text,
-		gboolean with_background,
-		int num_sizes_larger)
+		G_GNUC_UNUSED gboolean with_background,
+		G_GNUC_UNUSED int num_sizes_larger)
 {
 	GtkWidget *label;
 

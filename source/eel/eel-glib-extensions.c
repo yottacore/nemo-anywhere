@@ -62,10 +62,16 @@ eel_g_str_list_equal (GList *list_a, GList *list_b)
  * @list: List of strings and/or NULLs to copy.
  * Return value: Deep copy of @list.
  **/
+static gpointer
+copy_str (gconstpointer str, G_GNUC_UNUSED gpointer data)
+{
+	return g_strdup (str);
+}
+
 GList *
 eel_g_str_list_copy (GList *list)
 {
-	return g_list_copy_deep (list, (GCopyFunc) g_strdup, NULL);
+	return g_list_copy_deep (list, copy_str, NULL);
 }
 
 gboolean
@@ -236,11 +242,16 @@ eel_g_hash_table_safe_for_each (GHashTable *hash_table,
  * Copy the list of objects, ref'ing each one.
  * @list: GList of objects.
  **/
+static gpointer
+copy_object_ref (gconstpointer object, G_GNUC_UNUSED gpointer data)
+{
+	return g_object_ref ((gpointer) object);
+}
+
 GList *
 eel_g_object_list_copy (GList *list)
 {
-	g_list_foreach (list, (GFunc) g_object_ref, NULL);
-	return g_list_copy (list);
+	return g_list_copy_deep (list, copy_object_ref, NULL);
 }
 
 #if !defined (EEL_OMIT_SELF_CHECK)

@@ -84,7 +84,7 @@ drop (GdkDragAction actions, GdkDragAction suggested, const char *target_path,
 }
 
 static char *
-other_file_system (const char *here)
+other_file_system (G_GNUC_UNUSED const char *here)
 {
 #ifndef G_OS_WIN32
 	GStatBuf here_st, other_st;

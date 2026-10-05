@@ -8021,8 +8021,9 @@ nemo_icon_container_accessible_finalize (GObject *object)
 }
 
 static void
-nemo_icon_container_accessible_class_init (AtkObjectClass *klass)
+nemo_icon_container_accessible_class_init (gpointer g_class, G_GNUC_UNUSED gpointer class_data)
 {
+	AtkObjectClass *klass = g_class;
 	GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
 
 	accessible_parent_class = g_type_class_peek_parent (klass);

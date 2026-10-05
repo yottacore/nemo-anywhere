@@ -65,7 +65,7 @@ eel_accessibility_set_up_label_widget_relation (GtkWidget *label, GtkWidget *wid
 GType
 eel_accessibility_create_derived_type (const char *type_name,
 				       GType existing_gobject_with_proxy,
-				       EelAccessibilityClassInitFn class_init)
+				       GClassInitFunc class_init)
 {
 	GType type;
 	GType parent_atk_type;
@@ -95,10 +95,7 @@ eel_accessibility_create_derived_type (const char *type_name,
 	 */
 	g_type_query (parent_atk_type, &query);
 
-	if (class_init) {
-		tinfo.class_init = (GClassInitFunc) class_init;
-	}
-
+	tinfo.class_init    = class_init;
 	tinfo.class_size    = query.class_size;
 	tinfo.instance_size = query.instance_size;
 
@@ -335,11 +332,7 @@ eel_accessible_text_get_type (void)
 
 	if (!type) {
 		const GTypeInfo tinfo = {
-			sizeof (AtkTextIface),
-			(GBaseInitFunc) NULL,
-			(GBaseFinalizeFunc) NULL,
-			(GClassInitFunc) NULL,
-			(GClassFinalizeFunc) NULL
+			.class_size = sizeof (AtkTextIface),
 		};
 
 		type = g_type_register_static (

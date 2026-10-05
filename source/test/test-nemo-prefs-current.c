@@ -47,25 +47,25 @@ nemo_window_get_type (void)
 }
 
 NemoWindowSlot *
-nemo_window_get_active_slot (NemoWindow *window)
+nemo_window_get_active_slot (G_GNUC_UNUSED NemoWindow *window)
 {
 	return NULL;
 }
 
 GFile *
-nemo_window_slot_get_location (NemoWindowSlot *slot)
+nemo_window_slot_get_location (G_GNUC_UNUSED NemoWindowSlot *slot)
 {
 	return NULL;
 }
 
 char *
-nemo_window_slot_get_location_uri (NemoWindowSlot *slot)
+nemo_window_slot_get_location_uri (G_GNUC_UNUSED NemoWindowSlot *slot)
 {
 	return NULL;
 }
 
 void
-nemo_window_slot_force_reload (NemoWindowSlot *slot)
+nemo_window_slot_force_reload (G_GNUC_UNUSED NemoWindowSlot *slot)
 {
 }
 

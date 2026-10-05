@@ -21,9 +21,9 @@ static gboolean copy_finished;
 static gboolean copy_succeeded;
 
 static void
-copy_done (GHashTable *debuting_uris,
+copy_done (G_GNUC_UNUSED GHashTable *debuting_uris,
            gboolean success,
-           gpointer data)
+           G_GNUC_UNUSED gpointer data)
 {
 	copy_succeeded = success;
 	copy_finished = TRUE;
@@ -31,7 +31,7 @@ copy_done (GHashTable *debuting_uris,
 }
 
 static gboolean
-give_up (gpointer data)
+give_up (G_GNUC_UNUSED gpointer data)
 {
 	g_printerr ("FAIL: copy did not finish within %d seconds\n",
 		    COPY_TIMEOUT_SECONDS);

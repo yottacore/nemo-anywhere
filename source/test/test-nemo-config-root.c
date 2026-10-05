@@ -40,7 +40,7 @@ has_marker (const char *dir, const char *name)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	char *sandbox;
 	char *xdg;

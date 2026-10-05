@@ -42,7 +42,7 @@ G_DEFINE_INTERFACE (NemoMenuProvider, nemo_menu_provider, G_TYPE_OBJECT)
  **/
 
 static void
-nemo_menu_provider_default_init (NemoMenuProviderInterface *klass)
+nemo_menu_provider_default_init (G_GNUC_UNUSED NemoMenuProviderInterface *klass)
 {
     static gboolean initialized = FALSE;
 

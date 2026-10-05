@@ -30,9 +30,9 @@ static gboolean job_finished;
 static gboolean job_succeeded;
 
 static void
-extract_done (GFile    *destination_dir,
+extract_done (G_GNUC_UNUSED GFile    *destination_dir,
 	      gboolean  success,
-	      gpointer  data)
+	      G_GNUC_UNUSED gpointer  data)
 {
 	job_succeeded = success;
 	job_finished = TRUE;
@@ -40,7 +40,7 @@ extract_done (GFile    *destination_dir,
 }
 
 static gboolean
-give_up (gpointer data)
+give_up (G_GNUC_UNUSED gpointer data)
 {
 	g_printerr ("FAIL: unpacking did not finish within %d seconds\n",
 		    EXTRACT_TIMEOUT_SECONDS);

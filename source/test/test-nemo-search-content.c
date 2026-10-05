@@ -22,7 +22,7 @@ static gboolean done;
 static GList *found;
 
 static void
-hits_added_cb (NemoSearchEngine *engine, GList *hits, gpointer data)
+hits_added_cb (G_GNUC_UNUSED NemoSearchEngine *engine, GList *hits, G_GNUC_UNUSED gpointer data)
 {
 	for (GList *l = hits; l != NULL; l = l->next) {
 		FileSearchResult *result = l->data;
@@ -32,7 +32,7 @@ hits_added_cb (NemoSearchEngine *engine, GList *hits, gpointer data)
 }
 
 static void
-finished_cb (NemoSearchEngine *engine, gpointer data)
+finished_cb (G_GNUC_UNUSED NemoSearchEngine *engine, G_GNUC_UNUSED gpointer data)
 {
 	done = TRUE;
 }

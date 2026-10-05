@@ -151,7 +151,7 @@ add_selected (GString *state, GtkWidget *view)
 }
 
 static gboolean
-tick (gpointer data)
+tick (G_GNUC_UNUSED gpointer data)
 {
 	GString *state = g_string_new (NULL);
 	GtkWidget *window, *view = NULL;
@@ -204,7 +204,7 @@ drop_at (int x, int y)
 }
 
 static gboolean
-tear_off (gpointer data)
+tear_off (G_GNUC_UNUSED gpointer data)
 {
 	GdkWindow *root = gdk_get_default_root_window ();
 
@@ -436,7 +436,7 @@ check_menus (int times)
 }
 
 static gboolean
-run_command (gpointer data)
+run_command (G_GNUC_UNUSED gpointer data)
 {
 	char *path = g_strconcat (out_path, ".do", NULL);
 	char *text = NULL;

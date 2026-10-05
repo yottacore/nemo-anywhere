@@ -127,7 +127,7 @@ uri_for (const char *path)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	char *dir, *one, *two, *uri_one, *uri_two, *uri_list;
 	IDataObject *data;

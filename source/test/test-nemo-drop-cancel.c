@@ -57,7 +57,7 @@ typedef struct {
 } Drop;
 
 static void
-drop_done (GHashTable *debuting_uris, gboolean success, gpointer data)
+drop_done (G_GNUC_UNUSED GHashTable *debuting_uris, gboolean success, gpointer data)
 {
 	Drop *drop = data;
 

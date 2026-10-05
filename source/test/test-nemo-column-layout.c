@@ -360,7 +360,7 @@ check_classes (void)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	check_fills_the_width ();
 	check_wide ();

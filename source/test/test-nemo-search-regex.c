@@ -16,7 +16,7 @@
 static gboolean done;
 
 static void
-finished_cb (NemoSearchEngine *engine, gpointer data)
+finished_cb (G_GNUC_UNUSED NemoSearchEngine *engine, G_GNUC_UNUSED gpointer data)
 {
 	done = TRUE;
 }
