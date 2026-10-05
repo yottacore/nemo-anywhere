@@ -339,7 +339,7 @@ note_lost (FILE *f)
 }
 
 static void *
-write_report (void *data)
+write_report (G_GNUC_UNUSED void *data)
 {
 	char *part = g_strconcat (out_path, ".part", NULL);
 

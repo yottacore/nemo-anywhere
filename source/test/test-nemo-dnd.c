@@ -26,7 +26,7 @@ at_page_end (const char *bytes, int len)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	GList *list;
 

@@ -24,7 +24,7 @@ typedef struct {
 } RenameWait;
 
 static void
-rename_done (NemoFile *file, GFile *result, GError *error, gpointer data)
+rename_done (G_GNUC_UNUSED NemoFile *file, G_GNUC_UNUSED GFile *result, GError *error, gpointer data)
 {
 	RenameWait *wait = data;
 

@@ -1450,7 +1450,7 @@ test_set_paths (void)
 }
 
 int
-main (int argc, char **argv)
+main (void)
 {
 	g_autofree char *scratch = test_scratch_dir ("nemo-lnk-home-XXXXXX", NULL);
 	char *real;

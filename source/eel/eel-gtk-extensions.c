@@ -441,7 +441,7 @@ destroy_menu_idle (gpointer data)
 }
 
 static void
-destroy_closed_menu (GtkMenuShell *menu, gpointer data)
+destroy_closed_menu (GtkMenuShell *menu, G_GNUC_UNUSED gpointer data)
 {
     /* The chosen item is activated after the menu closes, and destroying the
        menu now would drop the item's handlers before that. */
@@ -697,8 +697,8 @@ eel_gtk_get_treeview_row_text_is_under_pointer (GtkTreeView *tree_view)
 
 static void
 refuse_focus_cb (GtkWidget  *widget,
-                 GParamSpec *pspec,
-                 gpointer    user_data)
+                 G_GNUC_UNUSED GParamSpec *pspec,
+                 G_GNUC_UNUSED gpointer    user_data)
 {
     if (gtk_widget_get_can_focus (widget)) {
         gtk_widget_set_can_focus (widget, FALSE);
@@ -726,7 +726,7 @@ current_page (GtkNotebook *notebook)
 static gboolean
 notebook_focus_cb (GtkWidget        *notebook,
                    GtkDirectionType  direction,
-                   gpointer          user_data)
+                   G_GNUC_UNUSED gpointer          user_data)
 {
     GtkWidget *page = current_page (GTK_NOTEBOOK (notebook));
 
@@ -738,7 +738,7 @@ notebook_focus_cb (GtkWidget        *notebook,
 
 static void
 notebook_grab_focus_cb (GtkWidget *notebook,
-                        gpointer   user_data)
+                        G_GNUC_UNUSED gpointer   user_data)
 {
     GtkWidget *page = current_page (GTK_NOTEBOOK (notebook));
     GtkWidget *toplevel, *focus = NULL;

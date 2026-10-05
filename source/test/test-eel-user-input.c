@@ -59,7 +59,7 @@ test_expansion (const char *tmpdir)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	char *tmpdir, *real_file, *typed, *resolved;
 	GFile *location;

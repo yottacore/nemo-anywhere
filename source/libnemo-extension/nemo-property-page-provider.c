@@ -40,7 +40,7 @@ G_DEFINE_INTERFACE (NemoPropertyPageProvider, nemo_property_page_provider, G_TYP
  **/
 
 static void
-nemo_property_page_provider_default_init (NemoPropertyPageProviderInterface *klass)
+nemo_property_page_provider_default_init (G_GNUC_UNUSED NemoPropertyPageProviderInterface *klass)
 {
 }
 

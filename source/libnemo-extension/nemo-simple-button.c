@@ -22,7 +22,7 @@ G_DEFINE_TYPE (NemoSimpleButton, nemo_simple_button, GTK_TYPE_BUTTON)
 
 static gboolean
 nemo_simple_button_button_release (GtkWidget      *widget,
-                                   GdkEventButton *event)
+                                   G_GNUC_UNUSED GdkEventButton *event)
 {
   g_signal_emit_by_name (GTK_BUTTON (widget), "released");
 

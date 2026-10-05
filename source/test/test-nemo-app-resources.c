@@ -28,7 +28,7 @@ carries (const char *path)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	/* The note emblem, which a file carrying a note is drawn with. */
 	carries ("/org/nemo/appicons/16x16/emblems/emblem-note.png");

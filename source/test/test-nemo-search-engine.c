@@ -28,7 +28,7 @@ typedef struct {
 } Run;
 
 static void
-hits_added (NemoSearchEngine *engine, GList *hits, gpointer data)
+hits_added (G_GNUC_UNUSED NemoSearchEngine *engine, GList *hits, gpointer data)
 {
 	Run *run = data;
 	GList *l;
@@ -44,7 +44,7 @@ hits_added (NemoSearchEngine *engine, GList *hits, gpointer data)
 }
 
 static void
-search_finished (NemoSearchEngine *engine, gpointer data)
+search_finished (G_GNUC_UNUSED NemoSearchEngine *engine, gpointer data)
 {
 	Run *run = data;
 

@@ -825,7 +825,7 @@ check_cpu_share (void)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	char *scratch = test_scratch_dir ("nemo-archive-XXXXXX", NULL);
 

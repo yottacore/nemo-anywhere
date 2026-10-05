@@ -11,7 +11,7 @@
 #include "test-check.h"
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	GFile *folder = g_file_new_for_path ("/some/folder");
 	GFile *item = g_file_new_for_path ("/some/folder/item.txt");

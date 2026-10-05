@@ -18,7 +18,7 @@
 static int loads = 0;
 
 static void
-done_loading (NemoDirectory *directory, gpointer data)
+done_loading (G_GNUC_UNUSED NemoDirectory *directory, G_GNUC_UNUSED gpointer data)
 {
 	loads++;
 }

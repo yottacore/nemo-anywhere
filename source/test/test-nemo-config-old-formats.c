@@ -95,7 +95,7 @@ same_strv (char **got, const char *want)
 static int changed_count;
 
 static void
-on_changed (NemoConfigGroup *group, const char *key, gpointer data)
+on_changed (G_GNUC_UNUSED NemoConfigGroup *group, G_GNUC_UNUSED const char *key, G_GNUC_UNUSED gpointer data)
 {
 	changed_count++;
 }

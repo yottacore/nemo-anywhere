@@ -471,7 +471,7 @@ test_open_action (const char *dir)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	char *dir, *target, *lnk;
 	GError *error = NULL;

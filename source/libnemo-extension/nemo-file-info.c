@@ -38,7 +38,7 @@ NemoFileInfo *(*nemo_file_info_getter) (GFile *location, gboolean create);
  **/
 
 static void
-nemo_file_info_default_init (NemoFileInfoInterface *klass)
+nemo_file_info_default_init (G_GNUC_UNUSED NemoFileInfoInterface *klass)
 {
 }
 

@@ -59,7 +59,7 @@ check_nonsense (void)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	check_whole_steps ();
 	check_fractions ();

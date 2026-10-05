@@ -127,7 +127,7 @@ launch (const char *exe, const char *root, const char *err_path)
 }
 
 static int
-ignore_x_error (Display *d, XErrorEvent *event)
+ignore_x_error (G_GNUC_UNUSED Display *d, G_GNUC_UNUSED XErrorEvent *event)
 {
 	return 0;
 }

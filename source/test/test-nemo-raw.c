@@ -818,7 +818,7 @@ test_factory (const char *dir)
 }
 
 int
-main (int argc, char **argv)
+main (void)
 {
 	g_autofree char *home = test_scratch_config_home ("nemo-raw-XXXXXX");
 

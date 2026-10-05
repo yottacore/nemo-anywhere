@@ -34,9 +34,9 @@ static gboolean job_finished;
 static gboolean job_succeeded;
 
 static void
-job_done (GHashTable *debuting_uris,
+job_done (G_GNUC_UNUSED GHashTable *debuting_uris,
           gboolean success,
-          gpointer data)
+          G_GNUC_UNUSED gpointer data)
 {
 	job_succeeded = success;
 	job_finished = TRUE;
@@ -44,7 +44,7 @@ job_done (GHashTable *debuting_uris,
 }
 
 static gboolean
-give_up (gpointer data)
+give_up (G_GNUC_UNUSED gpointer data)
 {
 	g_printerr ("FAIL: link job did not finish within %d seconds\n", JOB_TIMEOUT_SECONDS);
 	failures++;
@@ -402,7 +402,7 @@ check_every (const char *tmp, guint supported, GtkWidget *window)
 }
 
 static void
-redo_done (GObject *source, GAsyncResult *res, gpointer data)
+redo_done (GObject *source, GAsyncResult *res, G_GNUC_UNUSED gpointer data)
 {
 	gboolean user_cancel = FALSE;
 

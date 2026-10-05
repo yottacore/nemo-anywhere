@@ -51,7 +51,7 @@ window_up (void)
 }
 
 static gboolean
-poke (gpointer user_data)
+poke (G_GNUC_UNUSED gpointer user_data)
 {
 	GApplication *app = g_application_get_default ();
 	char *text;

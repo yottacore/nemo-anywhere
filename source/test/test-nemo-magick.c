@@ -202,7 +202,7 @@ test_factory (const char *dir)
 }
 
 int
-main (int argc, char **argv)
+main (void)
 {
 	g_autofree char *home = test_scratch_config_home ("nemo-magick-XXXXXX");
 	g_autofree char *plain = g_build_filename (home, "plain.jp2", NULL);

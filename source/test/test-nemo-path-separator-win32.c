@@ -80,7 +80,7 @@ test_slash_input_can_be_refused (void)
 }
 
 static void
-late_handler (gpointer data, const char *key)
+late_handler (gpointer data, G_GNUC_UNUSED const char *key)
 {
 	char *seen = data;
 

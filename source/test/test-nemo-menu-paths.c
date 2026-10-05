@@ -18,12 +18,12 @@ typedef struct {
 } Walk;
 
 static void
-start_element (GMarkupParseContext *context,
+start_element (G_GNUC_UNUSED GMarkupParseContext *context,
 	       const gchar *element,
 	       const gchar **names,
 	       const gchar **values,
 	       gpointer user_data,
-	       GError **error)
+	       G_GNUC_UNUSED GError **error)
 {
 	Walk *walk = user_data;
 	const gchar *name = NULL;
@@ -65,10 +65,10 @@ start_element (GMarkupParseContext *context,
 }
 
 static void
-end_element (GMarkupParseContext *context,
-	     const gchar *element,
+end_element (G_GNUC_UNUSED GMarkupParseContext *context,
+	     G_GNUC_UNUSED const gchar *element,
 	     gpointer user_data,
-	     GError **error)
+	     G_GNUC_UNUSED GError **error)
 {
 	Walk *walk = user_data;
 
@@ -115,7 +115,7 @@ read_menu_file (const char *resource,
 }
 
 int
-main (int argc, char **argv)
+main (void)
 {
 	Walk walk;
 	guint i;

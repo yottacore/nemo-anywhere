@@ -125,7 +125,7 @@ launch (const char *exe, const char *arg)
 /* Other tests share the display, so a window from the list can be gone before
  * it is read. Xlib's default handler exits on that BadWindow. */
 static int
-ignore_x_error (Display *display, XErrorEvent *event)
+ignore_x_error (G_GNUC_UNUSED Display *display, G_GNUC_UNUSED XErrorEvent *event)
 {
 	return 0;
 }

@@ -80,7 +80,7 @@ find_named (GtkWidget *widget, const char *name)
 }
 
 static void
-changed_cb (NemoQueryEditor *editor, NemoQuery *query, gboolean reload, Seen *seen)
+changed_cb (G_GNUC_UNUSED NemoQueryEditor *editor, NemoQuery *query, G_GNUC_UNUSED gboolean reload, Seen *seen)
 {
 	seen->count++;
 	g_free (seen->pattern);

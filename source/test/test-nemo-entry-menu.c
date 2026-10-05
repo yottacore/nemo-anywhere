@@ -24,14 +24,14 @@ static struct {
 static gboolean use_key = TRUE;
 
 static void
-popup_seen (GtkEntry *entry, GtkWidget *menu, gpointer data)
+popup_seen (G_GNUC_UNUSED GtkEntry *entry, GtkWidget *menu, G_GNUC_UNUSED gpointer data)
 {
 	popup.menu = menu;
 	g_main_loop_quit (popup.loop);
 }
 
 static gboolean
-give_up (gpointer data)
+give_up (G_GNUC_UNUSED gpointer data)
 {
 	g_main_loop_quit (popup.loop);
 

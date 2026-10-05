@@ -25,7 +25,7 @@ static const char old_file[] =
 static int changed_count;
 
 static void
-on_changed (NemoConfigGroup *group, const char *key, gpointer data)
+on_changed (G_GNUC_UNUSED NemoConfigGroup *group, G_GNUC_UNUSED const char *key, G_GNUC_UNUSED gpointer data)
 {
 	changed_count++;
 }
@@ -100,7 +100,7 @@ backup_name_ok (const char *name, const char *format)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	char            *tmp, *path, *dir, *text, *first_backup;
 	GPtrArray       *backups;

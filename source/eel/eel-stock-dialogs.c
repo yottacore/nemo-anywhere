@@ -85,7 +85,7 @@ timed_wait_hash_equal (gconstpointer value1, gconstpointer value2)
 }
 
 static void
-timed_wait_delayed_close_destroy_dialog_callback (GtkWidget *object, gpointer callback_data)
+timed_wait_delayed_close_destroy_dialog_callback (G_GNUC_UNUSED GtkWidget *object, gpointer callback_data)
 {
 	g_source_remove (GPOINTER_TO_UINT (callback_data));
 }
@@ -177,8 +177,8 @@ timed_wait_dialog_destroy_callback (GtkWidget *object, gpointer callback_data)
 
 static void
 trash_dialog_response_callback (GtkDialog *dialog,
-				int response_id,
-				TimedWait *wait)
+				G_GNUC_UNUSED int response_id,
+				G_GNUC_UNUSED TimedWait *wait)
 {
 	gtk_widget_destroy (GTK_WIDGET (dialog));
 }

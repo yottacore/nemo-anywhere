@@ -41,8 +41,8 @@ static int monitor_events = 0;
 static GMainLoop *monitor_loop = NULL;
 
 static void
-on_monitor_changed (GFileMonitor *monitor, GFile *file, GFile *other,
-                    GFileMonitorEvent event, gpointer user_data)
+on_monitor_changed (G_GNUC_UNUSED GFileMonitor *monitor, G_GNUC_UNUSED GFile *file, G_GNUC_UNUSED GFile *other,
+                    G_GNUC_UNUSED GFileMonitorEvent event, G_GNUC_UNUSED gpointer user_data)
 {
 	monitor_events++;
 	if (monitor_loop)
@@ -70,7 +70,7 @@ write_file (GFile *f, const char *contents)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	GError *error = NULL;
 	gchar *base_path;

@@ -158,13 +158,13 @@ run_share (void)
 static gboolean done;
 
 static void
-ready (NemoDirectory *directory, GList *files, gpointer data)
+ready (G_GNUC_UNUSED NemoDirectory *directory, G_GNUC_UNUSED GList *files, G_GNUC_UNUSED gpointer data)
 {
 	done = TRUE;
 }
 
 static gboolean
-give_up (gpointer data)
+give_up (G_GNUC_UNUSED gpointer data)
 {
 	done = TRUE;
 	return G_SOURCE_CONTINUE;

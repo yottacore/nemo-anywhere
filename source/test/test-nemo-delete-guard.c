@@ -48,7 +48,7 @@ make_files (const char *dir, const char *prefix, int from, int to)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	char *root, *home, *docs, *notes, *home_link, *outside, *precious, *tree, *inner, *link;
 	GStatBuf proc_st, top_st;

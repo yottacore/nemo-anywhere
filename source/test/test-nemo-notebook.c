@@ -55,8 +55,8 @@ nemo_window_slot_get_type (void)
 }
 
 void
-nemo_drag_slot_proxy_init (GtkWidget *widget, NemoFile *target_file,
-			   NemoWindowSlot *target_slot)
+nemo_drag_slot_proxy_init (G_GNUC_UNUSED GtkWidget *widget, G_GNUC_UNUSED NemoFile *target_file,
+			   G_GNUC_UNUSED NemoWindowSlot *target_slot)
 {
 }
 

@@ -31,9 +31,9 @@ static gboolean job_finished;
 static gboolean job_succeeded;
 
 static void
-archive_done (GFile    *result,
+archive_done (G_GNUC_UNUSED GFile    *result,
 	      gboolean  success,
-	      gpointer  data)
+	      G_GNUC_UNUSED gpointer  data)
 {
 	job_succeeded = success;
 	job_finished = TRUE;
@@ -41,7 +41,7 @@ archive_done (GFile    *result,
 }
 
 static gboolean
-give_up (gpointer data)
+give_up (G_GNUC_UNUSED gpointer data)
 {
 	g_printerr ("FAIL: compressing did not finish within %d seconds\n",
 		    ARCHIVE_TIMEOUT_SECONDS);

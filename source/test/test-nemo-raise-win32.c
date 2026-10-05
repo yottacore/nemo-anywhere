@@ -251,7 +251,7 @@ stop_copy (Copy *copy)
 }
 
 static DWORD WINAPI
-watchdog (LPVOID data)
+watchdog (G_GNUC_UNUSED LPVOID data)
 {
 	Sleep (RUN_TIMEOUT_MS);
 	fprintf (stderr, "FAIL: no result in %d ms\n", RUN_TIMEOUT_MS);

@@ -54,7 +54,7 @@ text_for_uris (const char * const *uris)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	char *text;
 

@@ -129,7 +129,7 @@ test_brokers (void)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	test_split ();
 	test_missing_is_refused ();

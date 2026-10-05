@@ -233,7 +233,7 @@ check_commands (void)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	check_recognition ();
 	check_folder_names ();

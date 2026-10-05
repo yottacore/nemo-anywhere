@@ -74,7 +74,7 @@ test_damaged_file_set_aside (const char *tmpdir)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	g_autofree char *tmpdir = NULL;
 	char *value;

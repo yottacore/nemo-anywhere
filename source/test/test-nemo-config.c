@@ -60,7 +60,7 @@ static int   changed_count;
 static char *changed_key;
 
 static void
-on_changed (NemoConfigGroup *group, const char *key, gpointer data)
+on_changed (G_GNUC_UNUSED NemoConfigGroup *group, const char *key, G_GNUC_UNUSED gpointer data)
 {
 	changed_count++;
 	g_free (changed_key);
@@ -270,14 +270,14 @@ test_bind (NemoConfigGroup *prefs)
  * zero-valued nick whatever was picked - for the executable-text setting that
  * meant "run it" no matter what the dialog showed. */
 static gboolean
-viewer_get_mapping (GValue *value, const NemoConfigValue *config_value, gpointer data)
+viewer_get_mapping (GValue *value, const NemoConfigValue *config_value, G_GNUC_UNUSED gpointer data)
 {
 	g_value_set_boolean (value, g_strcmp0 (config_value->s, "compact-view") == 0);
 	return TRUE;
 }
 
 static gboolean
-viewer_set_mapping (const GValue *value, NemoConfigValue *config_value, gpointer data)
+viewer_set_mapping (const GValue *value, NemoConfigValue *config_value, G_GNUC_UNUSED gpointer data)
 {
 	config_value->s = g_strdup (g_value_get_boolean (value) ? "compact-view"
 	                                                        : "list-view");
@@ -673,7 +673,7 @@ static int      thread_changes;
 static GThread *changed_on;
 
 static void
-on_changed_note_thread (NemoConfigGroup *group, const char *key, gpointer data)
+on_changed_note_thread (G_GNUC_UNUSED NemoConfigGroup *group, G_GNUC_UNUSED const char *key, G_GNUC_UNUSED gpointer data)
 {
 	thread_changes++;
 	changed_on = g_thread_self ();

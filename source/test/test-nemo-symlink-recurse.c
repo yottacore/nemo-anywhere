@@ -23,7 +23,7 @@
 #include "test-check.h"
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	char  *root, *target, *victim, *link;
 	GFile *link_gf;

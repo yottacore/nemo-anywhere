@@ -115,7 +115,7 @@ launch (const char *exe, const char *folder, char **envp)
 }
 
 static int
-ignore_x_error (Display *display, XErrorEvent *event)
+ignore_x_error (G_GNUC_UNUSED Display *display, G_GNUC_UNUSED XErrorEvent *event)
 {
 	return 0;
 }
@@ -242,9 +242,9 @@ wait_seen (const char *what, int seconds)
 }
 
 static void
-notification_call (GDBusConnection *connection, const char *sender, const char *path,
-		   const char *interface, const char *method, GVariant *parameters,
-		   GDBusMethodInvocation *invocation, gpointer user_data)
+notification_call (G_GNUC_UNUSED GDBusConnection *connection, G_GNUC_UNUSED const char *sender, G_GNUC_UNUSED const char *path,
+		   G_GNUC_UNUSED const char *interface, const char *method, GVariant *parameters,
+		   GDBusMethodInvocation *invocation, G_GNUC_UNUSED gpointer user_data)
 {
 	const char *id = NULL;
 	const char *what = strcmp (method, "AddNotification") == 0 ? "add" : "remove";

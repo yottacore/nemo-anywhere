@@ -11,7 +11,7 @@
 #include <glib-object.h>
 
 static void
-nemo_name_and_desc_provider_default_init (NemoNameAndDescProviderInterface *klass)
+nemo_name_and_desc_provider_default_init (G_GNUC_UNUSED NemoNameAndDescProviderInterface *klass)
 {
 }
 

@@ -144,7 +144,7 @@ picture_placed (const GdkRectangle *image, const GdkRectangle *icon)
 }
 
 static void
-count_complaint (const char *domain, GLogLevelFlags level, const char *message, gpointer data)
+count_complaint (const char *domain, GLogLevelFlags level, const char *message, G_GNUC_UNUSED gpointer data)
 {
 	if (level & (G_LOG_LEVEL_CRITICAL | G_LOG_LEVEL_WARNING)) {
 		complaints++;
@@ -283,7 +283,7 @@ check_icons (void)
 
 /* Up to ten seconds for the window and its icons. */
 static gboolean
-tick (gpointer data)
+tick (G_GNUC_UNUSED gpointer data)
 {
 	GList *toplevels, *l;
 	const char *title;

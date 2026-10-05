@@ -17,7 +17,7 @@ G_DEFINE_TYPE_WITH_CODE (TestExt, test_ext, G_TYPE_OBJECT,
 /* Two calls nemo itself never makes, so a static build that kept only what the
    exe references would fail here. */
 static GList *
-test_ext_get_file_items (NemoMenuProvider *provider, GtkWidget *window, GList *files)
+test_ext_get_file_items (G_GNUC_UNUSED NemoMenuProvider *provider, G_GNUC_UNUSED GtkWidget *window, G_GNUC_UNUSED GList *files)
 {
 	GList *items = NULL;
 
@@ -32,13 +32,13 @@ test_ext_menu_iface_init (NemoMenuProviderIface *iface)
 	iface->get_file_items = test_ext_get_file_items;
 }
 
-static void test_ext_init (TestExt *self) {}
-static void test_ext_class_init (TestExtClass *klass) {}
+static void test_ext_init (G_GNUC_UNUSED TestExt *self) {}
+static void test_ext_class_init (G_GNUC_UNUSED TestExtClass *klass) {}
 
 static GType types[1];
 
 G_MODULE_EXPORT void
-nemo_module_initialize (GTypeModule *module)
+nemo_module_initialize (G_GNUC_UNUSED GTypeModule *module)
 {
 	types[0] = test_ext_get_type ();
 }

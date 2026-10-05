@@ -47,7 +47,7 @@ check_under (const char *uri, const char *root, gboolean want)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	/* The item itself, and what is below it. */
 	check_under ("file:///a/ab", "file:///a/ab", TRUE);

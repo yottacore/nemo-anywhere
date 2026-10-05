@@ -174,7 +174,7 @@ test_enumerator_skips_missing (void)
 }
 
 static void
-test_enumerate_children (NemoFavorites *favorites, const char *dir)
+test_enumerate_children (G_GNUC_UNUSED NemoFavorites *favorites, const char *dir)
 {
 	char *path, *uri, *entry;
 	const char *entries[2];
@@ -327,7 +327,7 @@ test_no_callbacks_after_dispose (void)
 static gint stress_stop;
 
 static gpointer
-stress_reader (gpointer data)
+stress_reader (G_GNUC_UNUSED gpointer data)
 {
 	while (!g_atomic_int_get (&stress_stop)) {
 		GFile *root = g_file_new_for_uri ("favorites:///");

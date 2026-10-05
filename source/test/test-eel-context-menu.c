@@ -110,7 +110,7 @@ pop_up (GtkWidget *view, int *x, int *y)
 }
 
 static void
-item_activated (GtkMenuItem *item, gpointer data)
+item_activated (G_GNUC_UNUSED GtkMenuItem *item, gpointer data)
 {
 	*(gboolean *) data = TRUE;
 }
@@ -154,7 +154,7 @@ static gpointer drop_menu;
 
 /* Closes the drop menu as Escape would, once it is open. */
 static gboolean
-close_drop_menu (gpointer data)
+close_drop_menu (G_GNUC_UNUSED gpointer data)
 {
 	GList *toplevels = gtk_window_list_toplevels ();
 	GList *l;
