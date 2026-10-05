@@ -172,7 +172,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Code review 20260928 item 36. Drawing can wait up to 3 s on the file cache.
 	- ID: 2026092813381436
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 168 of 168 on 20261004, on drawlock.
+	- Needs external testing: none. Nothing here is per platform, and rhd1cv38 passes under wine. Its new cases run in the next native Windows suite.
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
@@ -181,7 +183,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The window never waits on the cache, however briefly. Asked 20260930. Besides draw counts, the timed flush and the forget behind a thumbnail refresh write on the window's thread today.
 		- First measure whether a window really freezes while another prunes. Found by reading only.
 	- Related IDs: 2026092813381411, 2026093010493420
-	- Test case: none yet.
+	- Note: measured 20261004, Linux, before the change. A window drew 2000 pictures, one every 2 ms, with four thumbnail threads looking up and storing, while another process pruned a cache of 40 thousand thumbnails of 16 KB down to a tenth. Its own thread waited on the cache up to 2.3 s at a time, 55 s out of 60, and 143 waits were over 0.1 s. With 100 pictures drawn instead, up to 0.5 s at a time, 6.7 s out of 60. With no prune at all, up to 0.2 s.
+	- Note: measured 20261004, Linux, after the change, the same three runs. The longest call on the window's thread took 0.3 ms, under 50 ms in all over 60 s, and its main loop was never more than 20 ms late. The thumbnail threads still wait on the prune, up to 1.7 s, which the window no longer sees.
+	- Actual cause: a draw count took the store's lock, and a thumbnail thread keeps that lock while it waits on another copy, for up to 3 s. The write once 256 files were waiting, and the one on the 30 s timer, ran on the window's thread. A refresh wrote there too, once per file in the folder on Reload.
+	- Decisions:
+		- Calls made without asking. A refresh is queued like a draw count and written at once by the writer. A refresh still queued is done first by the next read or write of a thumbnail, so the old picture is never read back after it was asked for. A write that fails is tried again after 30 s, not on every draw. The flush before a prune moved onto the prune's thread.
+	- Done: draw counts and refreshes are queued under a lock of their own, never held while the file is in use, and a thread of their own writes them. The counts go after 30 s or once 256 files are waiting, as before. A quit stops that thread and then writes what is left, at the end of the program as before.
+	- Swept: every call into the cache from the window's thread: the draw count, the refresh from Reload or a thumbnail refresh, the timed flush, and the flush before a prune. Lookups and stores already ran on thumbnail threads, and the settings page reads and empties on a thread of its own. The open happens on whichever thread first asks; a draw count only follows a thumbnail read from the store, so the store is already open by then.
+	- Branch: drawlock
+	- Commit: d22c7e3
+	- Test case: rhd1cv38, File cache store test, three new cases. Another connection holds the file for 1.5 s while a thumbnail thread waits in a store; 300 draw counts and a refresh on the test's thread must each take under 0.3 s, and all of it is written once the file is let go. Draw counts are written on their own with no main loop running. A thumbnail refreshed right after it was stored is never read back, over 200 tries.
+	- Verified: 20261004, Linux: rhd1cv38 fails before the change, 4 checks, with the test's thread waiting 3 s on the cache, and passes after. 48 runs of it, 16 at once, passed. rj750n43, which checks draw counts reach the file at quit, and rhd69rjr passed 6 more runs each. The full Linux suite passes 168 of 168, and lint and the Windows cross build are clean. rhd1cv38 passes under wine.
+	- Acceptance signoff: Self-closed: its test fails before and passes after, and a wait on the cache is not something to judge on screen. The calls made without asking are in Decisions.
+	- Closed: 20261004-184242
 
 - A thumbnail already being made runs to the end after its folder is left.
 	- ID: 2026093013002529
