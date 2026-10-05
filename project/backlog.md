@@ -188,7 +188,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - An empty Bookmarks heading shows up in the side pane once the settings file changes.
 	- ID: 2026100513114683
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261005-131146
 	- Opened by: backlog round 20261005
@@ -198,8 +198,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Start with no bookmarks, then change any setting, such as striped rows, by editing settings.shcl while the window is open.
 	- Incorrect behavior [Bug]: a Bookmarks heading with nothing under it appears in Places.
 	- Expected behavior [Bug]: no Bookmarks heading while there are no bookmarks.
-	- Reproduced [Bug]: seen 20261005 on Linux, during the demo. Not reproduced on its own yet.
-	- Test case: none yet.
+	- Reproduced [Bug]: seen 20261005 on Linux, during the demo. Reproduced on its own the same day. It takes an edit that leaves out the `window-state.sidebar-bookmark-breakpoint` line, which the demo's rewrite of the whole file did.
+	- Actual cause [Bug]:
+		- Places saves where its own Bookmarks section starts. An edit without that line puts it back to -1, its "never set" value. The reload handler took -1 as a position, so 0 bookmarks counted as more than the split and the heading showed.
+		- The share audit did not cause it. Its changes to Places and to how a bookmark is checked don't reach the heading.
+	- Actual fix [Bug]: the split is read in one place, which takes -1 as after the last bookmark, as startup already did. Places and the Bookmarks window both read it there.
+	- Swept: the other Places headings. My computer always has Home under it. Devices is added with its first row only. Network is added only when it lists something. The Bookmarks window read the same value raw when saving an edited bookmark, where -1 would have edited the wrong row; it now uses the same reading. That one was not checked on screen.
+	- Branch: bmhead
+	- Commit: c1a8698
+	- Test case: rjhemba0, Linux only.
+	- Verified: rjhemba0 failed before the fix and passes after, 3 runs in a row. Full Linux suite 171 of 171. Lint clean.
+	- Acceptance signoff: Self-closed: reproduced, its test failed before the fix and passes after, and the test checks the heading itself.
+	- Closed: 20261005-132621
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
