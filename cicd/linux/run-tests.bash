@@ -9,8 +9,9 @@
 ##	  worktree instead would be correct and would also be a cold build every time,
 ##	  which is why it is not done.
 ##	- NEMO_TEST_JOBS caps both the build and the number of tests at once, so a run
-##	  leaves the box usable. BUILD_DIR overrides the build directory.
-##	- Syntax: run-tests.bash          (no arguments)
+##	  leaves the box usable. BUILD_DIR overrides the build directory, and
+##	  SETUP_ARGS adds words to its meson setup. Arguments go to meson test.
+##	- Syntax: run-tests.bash [meson test arguments]
 
 ##	Copyright (c) 2026 Bubbles
 ##	Licensed under The MIT License (MIT). Full text at:
@@ -31,12 +32,14 @@ jobs="${NEMO_TEST_JOBS:-2}"
 case "${jobs}" in
 	''|*[!0-9]*|0*) jobs=2 ;;
 esac
+# shellcheck disable=SC2206  ## word splitting is the point; the sanitizer lane passes -D options.
+setupArgs=(${SETUP_ARGS:-})
 
 ## A container recreated from the image has no build directory yet.
 if [[ -f "${build}/build.ninja" ]]; then
-	meson setup --reconfigure "${build}" /src/source
+	meson setup --reconfigure "${build}" /src/source "${setupArgs[@]}"
 else
-	meson setup "${build}" /src/source
+	meson setup "${build}" /src/source "${setupArgs[@]}"
 fi
 
 if ! ninja -C "${build}" -j "${jobs}"; then
@@ -55,7 +58,7 @@ TMPDIR="$(mktemp -d /tmp/nemo-suite-XXXXXX)"
 export TMPDIR
 trap 'rmdir "${TMPDIR}" 2>/dev/null || true' EXIT
 
-xvfb-run -a meson test -C "${build}" --no-rebuild --num-processes "${jobs}" --print-errorlogs
+xvfb-run -a meson test -C "${build}" --no-rebuild --num-processes "${jobs}" --print-errorlogs "$@"
 
 leftover="$(find "${TMPDIR}" -mindepth 1 -maxdepth 1 -printf '%f\n' || true)"
 if [[ -n "${leftover}" ]]; then

@@ -1,0 +1,11 @@
+# Leak suppressions for cicd/linux/test-sanitizers.bash.
+# Only libraries under GTK go here, matched by library. The lane keeps short
+# stacks for speed, so they stop in GLib and a function of ours never shows.
+# A leak of ours is fixed. One that has to wait is filed, and the test that
+# shows it gets detect_leaks=0 in its meson env, with the backlog ID beside it.
+
+# fontconfig's pattern and font set caches, made under pango and kept for the process.
+leak:libfontconfig.so.1
+
+# Mesa's GLX setup when GTK opens the display; nothing of ours calls into it.
+leak:libGLX_mesa.so.0

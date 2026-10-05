@@ -688,6 +688,8 @@ Tests are ordinary executables run by meson, and the bar for adding one is a def
 
 - The parsers that read text from outside the program are fuzzed: the settings file, the drag payload, and the command lines kept in the config. Each target builds two ways. Ordinarily it replays a checked-in seed corpus as part of the suite, which keeps the target compiling and the seeds meaning something. With `-Dfuzzing=true` it builds against libFuzzer and the pipeline runs a real search for a bounded time per target, where the budget running out is a pass and a find leaves behind the input that caused it. The settings parser is vendored rather than ours, so a find there is a report upstream instead of a local patch.
 
+- Full pipeline runs build the whole suite again with AddressSanitizer and UndefinedBehaviorSanitizer, and run it with leak checks on. Any report fails the test that made it. Leaks inside the libraries under GTK are listed by library in `cicd/linux/sanitizers.supp`. A leak in our own code is fixed. One that has to wait is filed on the backlog, and the one test that shows it runs without leak checks, with the ID beside it. GTK animations are off in that run, since a CSS transition leaks inside GTK itself. The leak tests read the heap through glibc, which the sanitizer replaces, so they report a skip there. It is not part of `--quick` or the gate.
+
 - The suite runs headless, on a virtual display where GTK needs one, and forms part of the Linux pre-push gate along with the build, the lints and a launch smoke test. A test that cannot run on the current platform reports a skip, never a pass.
 
 - Anything needing a real desktop - clicking a menu, driving a drag - runs on a private virtual display with a window manager in the Linux build container, and on Windows in a throwaway Windows Sandbox built from the host's own image, which has its own desktop and keeps no state. A window can also be photographed without disturbing anything, since it renders off-screen even when covered.
@@ -751,7 +753,7 @@ The one deliberate exception is a release-only workflow, `.github/workflows/rele
 
 - The Windows gate runs the same lints, build, test suite and smoke test.
 
-- `--quick` skips the slow stages: the cross build, packages, the profiler, screenshots and the demo. The native build, the full suite and dogfood still run. On Windows `-Quick` changes nothing yet, since none of those run there.
+- `--quick` skips the slow stages: the cross build, packages, the profiler, fuzzing, the sanitizer suite, screenshots and the demo. The native build, the full suite and dogfood still run. On Windows `-Quick` changes nothing yet, since none of those run there.
 
 - The same hook blocks a push to main unless `source/meson.build` is a strict version increase over what is already there.
 
@@ -769,7 +771,7 @@ The one deliberate exception is a release-only workflow, `.github/workflows/rele
 
 ### The pipeline
 
-Stages, in order, each self-skipping when unconfigured: remote sync, format, debug build, tests and lints, profiler, release build, packages, dogfood, backup and publish. Disabled on purpose today are the format stage, since there is no in-place C formatter worth running, and the engine's own release collector, because the per-platform release lanes write those artifacts themselves.
+Stages, in order, each self-skipping when unconfigured: remote sync, format, debug build, tests and lints with fuzzing and the sanitizer suite, profiler, release build, packages, dogfood, backup and publish. Disabled on purpose today are the format stage, since there is no in-place C formatter worth running, and the engine's own release collector, because the per-platform release lanes write those artifacts themselves.
 
 - Remote sync runs first for a reason. The publish stage pulls at the end, so without it a change merged remotely mid-run would be pushed having never been built or tested. It fast-forwards when the branch is only behind and stops the run outright when it has diverged. It is skipped in gate mode, since a pre-push hook must not rewrite the tree underneath the push that called it.
 
