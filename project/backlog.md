@@ -165,6 +165,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A program an action needs, given by full path, and the templates folder, are set by the user.
 		- A chain of links is placed by its first link only. autofs is not counted, since it fronts local disks as often as shares.
 	- Branch: shareaudit
+	- Commit: 701bb2a
 	- Test case: rjhbbg9n, Share visits test, Linux and BSD only. A scratch folder stands in for a network mount, through a test hook on the share check. One case per path: links onto it, item counts, bookmarks, the action folder test and custom icons.
 	- Test case: rhd69rjr, File cache prune test, a new case: a gone file on a share keeps its row until the share is gone.
 	- Test case: rhtwm2c8, Share check does no I/O, new cases for a link onto a share and one within it, through the same hook. Windows only.
