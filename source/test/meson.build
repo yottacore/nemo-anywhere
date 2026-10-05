@@ -1058,13 +1058,22 @@ if not is_windows
   )
 endif
 
+cli_version = executable('test-nemo-cli-version',
+  [ 'test-nemo-cli-version.c' ],
+  include_directories: [ rootInclude, ],
+  dependencies: [ glib ],
+)
+
+if is_windows
+  test('rjgw21aw Version and option parse test',
+    cli_version,
+    args: [ nemo, meson.project_version() ],
+  )
+endif
+
 if not is_windows
   test('rh3nba2g Version with no display test',
-    executable('test-nemo-cli-version',
-      [ 'test-nemo-cli-version.c' ],
-      include_directories: [ rootInclude, ],
-      dependencies: [ glib ],
-    ),
+    cli_version,
     args: [ nemo, meson.project_version(),
             meson.current_source_dir() / '..' / 'build-number.py', py.full_path() ],
   )
