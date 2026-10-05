@@ -125,6 +125,7 @@ fExpect fuzz-doc OK
 fExpect fuzz-psd FOUND oom
 fExpect fuzz-raw OK
 fExpect fuzz-lnk OK
+fExpect fuzz-lnk-edit OK
 
 if ((failures)); then
 	grep -E '^[0-9]+/[0-9]+ |^\[' <<<"${out}" || true

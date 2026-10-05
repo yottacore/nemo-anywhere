@@ -42,6 +42,7 @@ targets=(
 	"rhe0xz33|fuzz-psd|psd"
 	"rhqmm0as|fuzz-raw|raw"
 	"rhmxm5aj|fuzz-lnk|lnk"
+	"rjfa5fnh|fuzz-lnk-edit|lnk-edit"
 )
 
 case "${1:-}" in
@@ -114,6 +115,13 @@ ninja -C "${build}" -j "${NEMO_TEST_JOBS:-2}" "${ninjaTargets[@]}"
 findings="${build}/findings"
 logs="${build}/logs"
 mkdir -p "${findings}" "${logs}"
+
+## The shortcut edit target writes a file per input, and GLib syncs the file it
+## replaces. On the container's disk that held it to about 90 runs a second,
+## against about 4000 on tmpfs.
+if [[ -d /dev/shm && -w /dev/shm ]]; then
+	export TMPDIR=/dev/shm
+fi
 
 declare -i found=0 num=0
 
