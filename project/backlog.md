@@ -118,7 +118,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Directive dated 20260919: ASan and UBSan on the test build.
 		- Items 23, 32 and 33 came from one such run. A leak pass needs a suppressions file for GTK's own.
 	- Decisions:
-		- Stage 3, after fuzzing, on full runs only. Not in `--quick` or the gate. `--no-sanitize` skips it. The flag name is a call made without asking.
+		- Stage 3, after fuzzing, on full runs only. Not in `--quick` or the gate. `--no-sanitize` skips it. The flag name was confirmed.
 		- Short stacks. Full ones slowed the GUI tests past their own limits, two runs out of two. A call made without asking.
 		- GTK animations are off in that run, since GTK 3.24.49 leaks a value on each CSS transition and only GTK's code is on that path. A call made without asking.
 		- The leak tests and the allocations test skip there by themselves (exit 77), since they find the heap unreadable. No lane-level exclusion.
