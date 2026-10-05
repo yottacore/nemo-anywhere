@@ -30,6 +30,7 @@
 
 #include <glib.h>
 #include <glib-object.h>
+#include <gio/gio.h>
 #include <time.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
 
@@ -83,7 +84,8 @@ GdkPixbuf *            nemo_desktop_thumbnail_factory_generate_thumbnail (NemoDe
 GdkPixbuf *            nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (NemoDesktopThumbnailFactory *factory,
 										   const char            *uri,
 										   const char            *mime_type,
-										   int                    size);
+										   int                    size,
+										   GCancellable          *cancellable);
 gboolean               nemo_desktop_thumbnail_factory_can_make (NemoDesktopThumbnailFactory *factory,
 								 const char            *uri,
 								 const char            *mime_type);

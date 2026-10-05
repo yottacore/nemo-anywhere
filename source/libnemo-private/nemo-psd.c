@@ -413,6 +413,11 @@ load (Reader *r, int size)
 		planes[c] = g_malloc0 ((gsize) s.cells_w * s.cells_h);
 
 		for (y = 0; y < height; y++) {
+			/* A read off the buffer never looks at the cancel, and the
+			   decoding between reads is most of the time. */
+			if (g_cancellable_is_cancelled (r->cancellable)) {
+				goto out;
+			}
 			if (compression == 1) {
 				guint32 n = counts[(gsize) c * height + y];
 
@@ -462,20 +467,20 @@ nemo_psd_load (GInputStream *stream, int size, GCancellable *cancellable)
 }
 
 GdkPixbuf *
-nemo_psd_load_uri (const char *uri, int size)
+nemo_psd_load_uri (const char *uri, int size, GCancellable *cancellable)
 {
 	g_autoptr (GFile) file = g_file_new_for_uri (uri);
 	g_autoptr (GFileInputStream) in = NULL;
 	g_autoptr (GInputStream) buffered = NULL;
 
-	in = g_file_read (file, NULL, NULL);
+	in = g_file_read (file, cancellable, NULL);
 	if (in == NULL) {
 		return NULL;
 	}
 
 	buffered = g_buffered_input_stream_new_sized (G_INPUT_STREAM (in), 64 * 1024);
 
-	return nemo_psd_load (buffered, size, NULL);
+	return nemo_psd_load (buffered, size, cancellable);
 }
 
 gboolean

@@ -90,7 +90,7 @@ load (const char *path, int size)
 {
 	g_autofree char *uri = g_filename_to_uri (path, NULL, NULL);
 
-	return nemo_magick_load_uri (uri, size);
+	return nemo_magick_load_uri (uri, size, NULL);
 }
 
 static gboolean
@@ -195,7 +195,7 @@ test_factory (const char *dir)
 	factory = nemo_desktop_thumbnail_factory_new (NEMO_DESKTOP_THUMBNAIL_SIZE_LARGE);
 	check (nemo_desktop_thumbnail_factory_can_make (factory, uri, "image/jp2"));
 
-	pixbuf = nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (factory, uri, "image/jp2", 128);
+	pixbuf = nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (factory, uri, "image/jp2", 128, NULL);
 	check (color_is (pixbuf, 30, 40, 200));
 
 	g_object_unref (factory);

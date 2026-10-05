@@ -79,6 +79,32 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjf2v5d5 (`test-release-notes.bash`, lint stage): a hosted build still running, one that fails and is rerun, a release already there, and a misnamed hosted file.
 	- Verified: rjf2v5d5 fails on the old `release.bash` and workflow and passes now.
 
+- A thumbnail already being made runs to the end after its folder is left.
+	- ID: 2026093013002529
+	- Type: Enhancement
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. The full Linux suite passed 169 of 169 on 20261004, on thumbstop.
+	- Needs external testing: rjffcm7d natively on Windows. Its ImageMagick case checks that a `magick.exe` nothing wants any more is ended and its thread freed. It passes under wine, which says little about how Windows ends a program.
+	- Opened: 20260930-130025
+	- Opened by: review of code review 20260928 item 10
+	- Related IDs: 2026092813381410
+	- Requirements:
+		- Leaving a folder drops its queued thumbnails, but one a thread has started is finished. A 42 MB Photoshop file of 30000 by 30000 took about 11 s of a thread. The readers and the thumbnail factory take no cancel from the thread.
+		- Stop a started thumbnail once nothing wants it, for every reader.
+	- Decisions:
+		- Nothing wants a thumbnail once its file is let go, the same moment a queued one is dropped. A bigger size asked for while a smaller one is made still lets the smaller one finish, as item 2026092813381401 settled. A call made without asking.
+		- Quitting stops every started thumbnail too, since quit waits for the threads. A call made without asking.
+		- A stopped thumbnail stores nothing, not even a failure, so the file is tried again the next time it is shown.
+	- Done: each started thumbnail has its own cancel, set when its file is let go or the app quits. The thumbnail factory hands it to every reader. The Photoshop and camera raw readers check it between reads and between rows. The gdk-pixbuf path feeds its loader a piece at a time and checks between pieces. A thumbnailer program or ImageMagick is ended, the same way the 30 s timeout ends one. The checksum read before a thumbnail takes the same cancel.
+	- Note: one reader can't be stopped all the way. A gdk-pixbuf loader that only decodes once it has the whole file, such as TIFF, still finishes that decode. gdk-pixbuf has no cancel for it. Reading the file stops, and JPEG and PNG decode as they read, so they stop.
+	- Note: ending a thumbnailer program ends only that program. One that starts others of its own leaves them running, as the timeout already did.
+	- Note: ImageMagick runs through GLib's process calls on every platform, as the archive tools do, and is ended through them. `nemo-launch-win32.c` starts what the user opens and keeps no hold on it, so the stop does not go through there.
+	- Swept: every reader the thumbnail factory calls: thumbnailer programs, gdk-pixbuf, Photoshop, camera raw and ImageMagick. Reading back a stored thumbnail is small and left alone. Every caller of the changed calls: the thumbnail queue, and the Photoshop, camera raw and ImageMagick tests.
+	- Branch: thumbstop
+	- Commit: 2f6ba48
+	- Test case: rjffcm7d (`test-nemo-thumbnail-stop`). A 42 MB Photoshop file of 30000 by 30000, dropped partway on the only thread, frees it within 3 s, and nothing is stored for it. A thumbnailer program, a stand-in ImageMagick and a slow gdk-pixbuf read are each stopped within 3 s, and the programs are gone. `test-nemo-psd` has a stopped read too. The gdk-pixbuf case is POSIX only.
+	- Verified: rjffcm7d fails with started thumbnails left to run: the next picture came 14 s after the drop, and the dropped one was stored. It also fails with a stopped one stored as a failure, and with each reader's stop taken out. It passes now. The Windows cross build and lint are clean, and rjffcm7d passes under wine.
+
 - Code review 20260928.
 	- ID: 2026092813381400
 	- Type: Task
@@ -168,18 +194,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Find each place that touches a share with no such action behind it, and gate it or work from what is on local disk. Icons, sort places, emblems, thumbnails, link targets, free space and the side pane are the first to check.
 		- Asked 20260930, as design.md "Speed, memory and size".
 	- Test case: none yet. One per path found, where it can run off Windows.
-
-- A thumbnail already being made runs to the end after its folder is left.
-	- ID: 2026093013002529
-	- Type: Enhancement
-	- Status: Queued
-	- Opened: 20260930-130025
-	- Opened by: review of code review 20260928 item 10
-	- Related IDs: 2026092813381410
-	- Requirements:
-		- Leaving a folder drops its queued thumbnails, but one a thread has started is finished. A 42 MB Photoshop file of 30000 by 30000 took about 11 s of a thread. The readers and the thumbnail factory take no cancel from the thread.
-		- Stop a started thumbnail once nothing wants it, for every reader.
-	- Test case: none yet. A large file whose thumbnail is dropped mid-read frees its thread within a set time.
 
 - Demo gif: show best features first.
 	- ID: 2026100219523841

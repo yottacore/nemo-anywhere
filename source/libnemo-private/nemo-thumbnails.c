@@ -90,6 +90,7 @@ typedef struct NemoThumbnailInfo {
     guint load_only : 1;        /* already made; read it back to hold near the view */
     guint running : 1;          /* a worker has it, so nothing above changes now */
     struct NemoThumbnailInfo *follow;   /* a bigger ask that came in meanwhile, started when this one ends */
+    GCancellable *stop;         /* set while running; cancelled once nothing wants it */
 } NemoThumbnailInfo;
 
 /* How it works:
@@ -111,7 +112,9 @@ typedef struct NemoThumbnailInfo {
  *
  * - nemo_thumbnail_remove_from_queue (THUMBNAIL_REMOVE): The info is looked up by uri in thumbnails_to_make_hash.
  *   If the info is found, it gets removed from thumbnails_to_make_hash, and info->cancelled is set to TRUE, so when
- *   it comes up in the threadpool queue, it is ignored and freed.
+ *   it comes up in the threadpool queue, it is ignored and freed. A job a worker already has for that uri is
+ *   stopped through its `stop`, which every reader and helper program watches. A stopped job stores nothing, not
+ *   even a failure, so the file is made again next time it is wanted.
  *
  * The pool runs in `order`, lowest first. A folder queued ahead gets a band, and each file its place in the
  * view within the band, so it is made top down whatever is scrolled into view meanwhile. A newer band goes
@@ -128,6 +131,10 @@ static volatile GThreadPool *tpool = NULL;
 /* Table of uris queued to the thread pool (tpool) */
 static GMutex thumbnails_mutex;
 static GHashTable *thumbnails_to_make_hash = NULL;
+
+/* Jobs a worker has, under thumbnails_mutex. A running job may have left the
+   table to a follow, or to nothing at all, so it is found here to be stopped. */
+static GPtrArray *running_jobs = NULL;
 
 /* Every action goes thru the feeder queue. It gets processed in the feeder_task's thread. */
 static GAsyncQueue *feeder_queue = NULL;
@@ -209,9 +216,25 @@ get_file_mtime (const char *file_uri, time_t* mtime, NemoFileId *id)
 static void
 free_thumbnail_info (NemoThumbnailInfo *info)
 {
+    g_clear_object (&info->stop);
     g_free (info->image_uri);
     g_free (info->mime_type);
     g_free (info);
+}
+
+/* Under thumbnails_mutex. */
+static void
+stop_running (const char *uri)
+{
+    guint i;
+
+    for (i = 0; i < running_jobs->len; i++) {
+        NemoThumbnailInfo *job = g_ptr_array_index (running_jobs, i);
+
+        if (uri == NULL || strcmp (job->image_uri, uri) == 0) {
+            g_cancellable_cancel (job->stop);
+        }
+    }
 }
 
 static NemoDesktopThumbnailFactory *
@@ -544,7 +567,7 @@ learn_digest (NemoCacheDb *db, NemoThumbnailInfo *info)
     if (g_file_peek_path (file) == NULL)
         return;
 
-    info->id.has_digest = nemo_file_digest_file (file, info->id.digest, cancellable, NULL) &&
+    info->id.has_digest = nemo_file_digest_file (file, info->id.digest, info->stop, NULL) &&
                           stat_unchanged (info->image_uri, &info->id);
 }
 
@@ -596,6 +619,8 @@ remove_from_hash_table (NemoThumbnailInfo *info)
     NemoThumbnailInfo *follow;
 
     g_mutex_lock (&thumbnails_mutex);
+
+    g_ptr_array_remove_fast (running_jobs, info);
 
     /* A newer ask for the same file may hold the entry by now. */
     if (g_hash_table_lookup (thumbnails_to_make_hash, info->image_uri) == info) {
@@ -656,6 +681,8 @@ thumbnail_thread (gpointer data,
 
     g_mutex_lock (&thumbnails_mutex);
     info->running = TRUE;
+    info->stop = g_cancellable_new ();
+    g_ptr_array_add (running_jobs, info);
     g_mutex_unlock (&thumbnails_mutex);
 
     if (g_cancellable_is_cancelled (cancellable) || info->cancelled) {
@@ -696,6 +723,12 @@ thumbnail_thread (gpointer data,
     db = nemo_cache_db_get ();
 
     learn_digest (db, info);
+
+    if (g_cancellable_is_cancelled (info->stop)) {
+        DEBUG ("(Thumbnail Thread) Stopped, nothing wants it: %s", info->image_uri);
+        remove_from_hash_table (info);
+        return;
+    }
 
     if (db != NULL && already_stored (db, info)) {
         DEBUG ("(Thumbnail Thread) Already stored: %s", info->image_uri);
@@ -745,9 +778,18 @@ thumbnail_thread (gpointer data,
     pixbuf = nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (get_thumbnail_factory (),
                                                                          image_uri,
                                                                          info->mime_type,
-                                                                         info->size);
+                                                                         info->size,
+                                                                         info->stop);
     if (free_uri) {
         g_free (image_uri);
+    }
+
+    /* Not a failure. Stored as one, the file would never get its picture. */
+    if (g_cancellable_is_cancelled (info->stop)) {
+        DEBUG ("(Thumbnail Thread) Stopped, nothing wants it: %s", info->image_uri);
+        g_clear_object (&pixbuf);
+        remove_from_hash_table (info);
+        return;
     }
 
     /* Nothing goes into the shared freedesktop cache any more. It is read
@@ -901,12 +943,20 @@ feeder_thread (GTask        *task,
                     g_hash_table_remove (thumbnails_to_make_hash, feeder_info->image_uri);
                     existing_info->cancelled = TRUE;
                 }
+
+                /* Started already, maybe with a bigger ask waiting behind it. */
+                stop_running (feeder_info->image_uri);
                 DEBUG ("(Remove from queue) Unlocking mutex");
                 g_mutex_unlock (&thumbnails_mutex);
                 break;
             case THUMBNAIL_THREAD_EXIT:
                 DEBUG ("(Finalize) Received THUMBNAIL_THREAD_EXIT, cancelling");
                 g_cancellable_cancel (cancellable);
+
+                /* Quitting waits for the workers, so none finishes a big file first. */
+                g_mutex_lock (&thumbnails_mutex);
+                stop_running (NULL);
+                g_mutex_unlock (&thumbnails_mutex);
                 break;
         }
 
@@ -966,6 +1016,7 @@ finalize_thumbnailer (void)
     g_thread_pool_free ((GThreadPool *) tpool, FALSE, TRUE);
 
     g_hash_table_destroy (thumbnails_to_make_hash);
+    g_clear_pointer (&running_jobs, g_ptr_array_unref);
 }
 
 /* Mainloop */
@@ -976,6 +1027,7 @@ queue_render (NemoFile *file, int size, gboolean ahead, gboolean load_only, gint
     static gsize once_init = 0;
     if (g_once_init_enter (&once_init)) {
         thumbnails_to_make_hash = g_hash_table_new (g_str_hash, g_str_equal);
+        running_jobs = g_ptr_array_new ();
         DEBUG ("Initialize thread pool");
 
         tpool = g_thread_pool_new ((GFunc) thumbnail_thread, NULL,
@@ -1189,6 +1241,21 @@ nemo_thumbnail_unwatch_jobs (NemoThumbnailJobsFunc func, gpointer data)
             return;
         }
     }
+}
+
+guint
+nemo_thumbnail_running_jobs (void)
+{
+    guint count;
+
+    if (running_jobs == NULL)
+        return 0;
+
+    g_mutex_lock (&thumbnails_mutex);
+    count = running_jobs->len;
+    g_mutex_unlock (&thumbnails_mutex);
+
+    return count;
 }
 
 /* Mainloop */

@@ -767,7 +767,7 @@ test_loop_work (const char *dir)
 
 		check (g_file_set_contents (path, (const char *) files[i]->data, files[i]->len, NULL));
 		start = g_get_monotonic_time ();
-		pixbuf = nemo_raw_load_uri (uri, 128);
+		pixbuf = nemo_raw_load_uri (uri, 128, NULL);
 		secs = (g_get_monotonic_time () - start) / 1e6;
 		check (pixbuf == NULL);
 		if (secs >= 0.25) {
@@ -809,7 +809,7 @@ test_factory (const char *dir)
 	check (nemo_desktop_thumbnail_factory_can_make (factory, uri, "image/x-adobe-dng"));
 
 	pixbuf = nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (factory, uri,
-									    "image/x-adobe-dng", 128);
+									    "image/x-adobe-dng", 128, NULL);
 	check (color_is (pixbuf, 200, 30, 30));
 	/* Turned upright by the factory: 400 by 300 on its side. */
 	check (pixbuf != NULL && gdk_pixbuf_get_height (pixbuf) > gdk_pixbuf_get_width (pixbuf));

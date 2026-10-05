@@ -51,9 +51,11 @@ gchar     **nemo_magick_argv    (const char *program,
 				 const char *coder,
 				 int         size);
 
-/* Runs it, giving up after half a minute. NULL for any failure: no program,
- * a format the installed copy was built without, a damaged file. */
-GdkPixbuf  *nemo_magick_load_uri (const char *uri,
-				  int         size);
+/* Runs it, giving up after half a minute, or ending it once @cancellable is
+ * cancelled. NULL for any failure: no program, a format the installed copy
+ * was built without, a damaged file. */
+GdkPixbuf  *nemo_magick_load_uri (const char   *uri,
+				  int           size,
+				  GCancellable *cancellable);
 
 #endif

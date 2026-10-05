@@ -185,6 +185,7 @@ typedef struct {
 	GMainLoop   *loop;
 	GBytes      *out;
 	gboolean     timed_out;
+	gboolean     stopped;
 } Run;
 
 static gboolean
@@ -193,6 +194,19 @@ run_timed_out (gpointer data)
 	Run *run = data;
 
 	run->timed_out = TRUE;
+	g_subprocess_force_exit (run->proc);
+
+	return G_SOURCE_REMOVE;
+}
+
+/* Nothing wants the picture any more. A cancelled communicate would leave
+ * the program running, so it is ended instead, the same way as a timeout. */
+static gboolean
+run_cancelled (GCancellable *cancellable, gpointer data)
+{
+	Run *run = data;
+
+	run->stopped = TRUE;
 	g_subprocess_force_exit (run->proc);
 
 	return G_SOURCE_REMOVE;
@@ -228,7 +242,7 @@ decode_png (GBytes *bytes)
 }
 
 GdkPixbuf *
-nemo_magick_load_uri (const char *uri, int size)
+nemo_magick_load_uri (const char *uri, int size, GCancellable *cancellable)
 {
 	g_autofree char *path = NULL;
 	g_autoptr (GMappedFile) mapped = NULL;
@@ -237,10 +251,11 @@ nemo_magick_load_uri (const char *uri, int size)
 	const char *program, *coder;
 	GMainContext *context;
 	GSource *timeout;
+	GSource *stop = NULL;
 	GdkPixbuf *pixbuf = NULL;
 	Run run = { 0 };
 
-	if (!nemo_magick_type_ok (uri)) {
+	if (!nemo_magick_type_ok (uri) || g_cancellable_is_cancelled (cancellable)) {
 		return NULL;
 	}
 	path = g_filename_from_uri (uri, NULL, NULL);
@@ -276,16 +291,26 @@ nemo_magick_load_uri (const char *uri, int size)
 		g_source_set_callback (timeout, run_timed_out, &run, NULL);
 		g_source_attach (timeout, context);
 
+		if (cancellable != NULL) {
+			stop = g_cancellable_source_new (cancellable);
+			g_source_set_callback (stop, G_SOURCE_FUNC (run_cancelled), &run, NULL);
+			g_source_attach (stop, context);
+		}
+
 		/* A killed child closes its output, so the loop still ends. */
 		g_main_loop_run (run.loop);
 
 		if (run.timed_out) {
 			g_warning ("ImageMagick took longer than %d seconds, gave up on %s",
 				   TIMEOUT_SECONDS, path);
-		} else if (run.out != NULL && g_subprocess_get_successful (run.proc)) {
+		} else if (!run.stopped && run.out != NULL && g_subprocess_get_successful (run.proc)) {
 			pixbuf = decode_png (run.out);
 		}
 
+		if (stop != NULL) {
+			g_source_destroy (stop);
+			g_source_unref (stop);
+		}
 		g_source_destroy (timeout);
 		g_source_unref (timeout);
 		g_main_loop_unref (run.loop);
