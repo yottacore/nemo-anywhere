@@ -105,6 +105,35 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjffcm7d (`test-nemo-thumbnail-stop`). A 42 MB Photoshop file of 30000 by 30000, dropped partway on the only thread, frees it within 3 s, and nothing is stored for it. A thumbnailer program, a stand-in ImageMagick and a slow gdk-pixbuf read are each stopped within 3 s, and the programs are gone. `test-nemo-psd` has a stopped read too. The gdk-pixbuf case is POSIX only.
 	- Verified: rjffcm7d fails with started thumbnails left to run: the next picture came 14 s after the drop, and the dropped one was stored. It also fails with a stopped one stored as a failure, and with each reader's stop taken out. It passes now. The Windows cross build and lint are clean, and rjffcm7d passes under wine.
 
+- Code review 20260928 item 35. Add a sanitizer build of the test suite to the pipeline.
+	- ID: 2026092813381435
+	- Type: Enhancement
+	- Status: Waiting for testing
+	- Needs local test suite run?: one full `cicd.bash` run, to see the stage in its place. Its command ran on its own, and the help test passes.
+	- Needs external testing: one Windows launch with a folder and an option on the command line, since the option parse changed. The cross build is clean.
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Requirements:
+		- Directive dated 20260919: ASan and UBSan on the test build.
+		- Items 23, 32 and 33 came from one such run. A leak pass needs a suppressions file for GTK's own.
+	- Decisions:
+		- Stage 3, after fuzzing, on full runs only. Not in `--quick` or the gate. `--no-sanitize` skips it. The flag name is a call made without asking.
+		- Short stacks. Full ones slowed the GUI tests past their own limits, two runs out of two. A call made without asking.
+		- GTK animations are off in that run, since GTK 3.24.49 leaks a value on each CSS transition and only GTK's code is on that path. A call made without asking.
+		- The leak tests and the allocations test skip there by themselves (exit 77), since they find the heap unreadable. No lane-level exclusion.
+	- Done: `cicd/linux/test-sanitizers.bash` builds the suite with both sanitizers in its own build dir and runs it through `run-tests.bash`, leak checks on. Any report fails the test. `cicd/linux/sanitizers.supp` lists fontconfig and Mesa by library.
+	- Fixed, found by the first runs:
+		- Every option parsed from the command line leaked, since the parse left them out of the list the application frees.
+		- A closed tab or window kept its location, and its scroll target when it closed before loading finished. The pending scroll target was also replaced without being freed.
+		- The application never freed its undo manager, and the places pane never freed its menu manager.
+		- Test side: scratch paths and a folder in five tests, and the crash test now leaves its deliberate faults to the reporter under the sanitizers.
+	- Swept: every place `pending_scroll_to` is set (one other, after the old location change is ended) and the slot's dispose. Other option parses in `source/`: none.
+	- Branch: asan
+	- Commit: 81d03ad, 8c89061
+	- Test case: rjfgk2mp (`cicd/linux/test-sanitizers.bash`, the lane itself).
+	- Verified: the lane fails on a heap overflow, a leak and a signed overflow in a test, and passes on this branch with 157 OK and 12 skipped. Linux suite 169 of 169, lint clean, Windows cross build clean.
+
 - Code review 20260928.
 	- ID: 2026092813381400
 	- Type: Task
@@ -169,35 +198,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Decisions:
 		- 20260928: full `-Wextra` over the whole tree, with every warning fixed. The fork will never track upstream, so churn in inherited files is fine.
 	- Test case: none yet.
-
-- Code review 20260928 item 35. Add a sanitizer build of the test suite to the pipeline.
-	- ID: 2026092813381435
-	- Type: Enhancement
-	- Status: Waiting for testing
-	- Needs local test suite run?: one full `cicd.bash` run, to see the stage in its place. Its command ran on its own, and the help test passes.
-	- Needs external testing: one Windows launch with a folder and an option on the command line, since the option parse changed. The cross build is clean.
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Requirements:
-		- Directive dated 20260919: ASan and UBSan on the test build.
-		- Items 23, 32 and 33 came from one such run. A leak pass needs a suppressions file for GTK's own.
-	- Decisions:
-		- Stage 3, after fuzzing, on full runs only. Not in `--quick` or the gate. `--no-sanitize` skips it. The flag name is a call made without asking.
-		- Short stacks. Full ones slowed the GUI tests past their own limits, two runs out of two. A call made without asking.
-		- GTK animations are off in that run, since GTK 3.24.49 leaks a value on each CSS transition and only GTK's code is on that path. A call made without asking.
-		- The leak tests and the allocations test skip there by themselves (exit 77), since they find the heap unreadable. No lane-level exclusion.
-	- Done: `cicd/linux/test-sanitizers.bash` builds the suite with both sanitizers in its own build dir and runs it through `run-tests.bash`, leak checks on. Any report fails the test. `cicd/linux/sanitizers.supp` lists fontconfig and Mesa by library.
-	- Fixed, found by the first runs:
-		- Every option parsed from the command line leaked, since the parse left them out of the list the application frees.
-		- A closed tab or window kept its location, and its scroll target when it closed before loading finished. The pending scroll target was also replaced without being freed.
-		- The application never freed its undo manager, and the places pane never freed its menu manager.
-		- Test side: scratch paths and a folder in five tests, and the crash test now leaves its deliberate faults to the reporter under the sanitizers.
-	- Swept: every place `pending_scroll_to` is set (one other, after the old location change is ended) and the slot's dispose. Other option parses in `source/`: none.
-	- Branch: asan
-	- Commit: 81d03ad, 8c89061
-	- Test case: rjfgk2mp (`cicd/linux/test-sanitizers.bash`, the lane itself).
-	- Verified: the lane fails on a heap overflow, a leak and a signed overflow in a test, and passes on this branch with 157 OK and 12 skipped. Linux suite 169 of 169, lint clean, Windows cross build clean.
 
 - The app visits network shares on its own.
 	- ID: 2026093010493450
