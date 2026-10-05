@@ -2230,17 +2230,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: a later SHCL may back up and convert a file in an older format itself. Look for a call that does or helps with that before wiring in a new version. If it does the job, use it in place of ours in `nemo-config.c`. Never run both on the same file.
 	- Test case: none yet, not started.
 
-- **Stop here for a next release**.
-
-- 🔘 Cut 1.0.0-rc.1.
-	- Opened: 20260925-122815
-	- Design: [20260930-150859_delete_guard.md](design_docs/20260930-150859_delete_guard.md), for the test guard.
-	- The delete test guard stays in as a preference setting. (But off in code.) The changelog and the release notes point it out, and say where to turn it off.
-	- Note: at rc.2 the setting's default goes to off. The test guard stays in the code.
-	- Note: the changelog's vNEXT section is missing most of the work since beta2, such as Compress and Extract, the crash reporter, the delete protections and tab move.
-	- Note: `main` still has the installers from 20260804. Their stable channel asks for the latest stable release, which does not exist yet, so the README one-liners fail until this cut.
-	- Test case: none, release step.
-
 - 🔘 A fractional display scale is only applied to text, so widgets, icons and spacing stay at the whole step below it.
 	- Opened: 20260821-150232
 	- Cause: the toolkit scales in whole numbers. At 150% the type is right and everything around it is a third too small.
@@ -2252,6 +2241,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Design: [20260930-145641_windows_exe_packing.md](design_docs/20260930-145641_windows_exe_packing.md).
 	- Note: Windows has the portable exe and the zip today, and `install.ps1` for an install with a menu entry and PATH.
 	- Note: wants signing first, or it trips the same warnings the exe does.
+	- Test case: none yet, not started.
+
+- 🔘 Linux arm64 release build. Needs an arm64 GTK3 build environment; nothing cross-compiles it today, so the installers' arm64 path has nothing to fetch.
+	- Opened: 20260804-133646
+	- Note: if arm64 builds turn out much slower, they go behind an `--include-arm` flag rather than the `--no-arm` the engine has now.
+	- Test case: none yet, not started.
+
+- 🔘 Target: BSD
+	- Opened: 20260730-185314
+	- Test case: none yet, not started.
+
+- 🔘 Target: macOS
+	- Opened: 20260730-185314
 	- Test case: none yet, not started.
 
 - 🛠️ Real-Windows validation: the paths still not exercised there.
@@ -2267,18 +2269,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: ImageMagick thumbnails have not run on Windows. Things to see there: no console window flashes up, and the packed exe's file hooks, which every program it starts inherits, do not upset `magick.exe`.
 	- Test case: the Windows gate runs the suite natively, plus `cicd/win/gui-launch-smoke.ps1`; signing and the UAC prompt have none.
 
-- 🔘 Linux arm64 release build. Needs an arm64 GTK3 build environment; nothing cross-compiles it today, so the installers' arm64 path has nothing to fetch.
-	- Opened: 20260804-133646
-	- Note: if arm64 builds turn out much slower, they go behind an `--include-arm` flag rather than the `--no-arm` the engine has now.
-	- Test case: none yet, not started.
+- **Stop here for a next release**.
 
-- 🔘 Target: BSD
-	- Opened: 20260730-185314
-	- Test case: none yet, not started.
-
-- 🔘 Target: macOS
-	- Opened: 20260730-185314
-	- Test case: none yet, not started.
+- 🔘 Cut 1.0.0-rc.1.
+	- Opened: 20260925-122815
+	- Design: [20260930-150859_delete_guard.md](design_docs/20260930-150859_delete_guard.md), for the test guard.
+	- The delete test guard stays in as a preference setting. (But off in code.) The changelog and the release notes point it out, and say where to turn it off.
+	- Note: at rc.2 the setting's default goes to off. The test guard stays in the code.
+	- Note: the changelog's vNEXT section is missing most of the work since beta2, such as Compress and Extract, the crash reporter, the delete protections and tab move.
+	- Note: `main` still has the installers from 20260804. Their stable channel asks for the latest stable release, which does not exist yet, so the README one-liners fail until this cut.
+	- Test case: none, release step.
 
 - 🛠️ Windows: Need to figure out a way to do GUI testing and demo recording, without interrupting the live console session.
 	- Opened: 20260829-071437
