@@ -285,7 +285,7 @@ G_DEFINE_TYPE (NemoPlacesSidebar, nemo_places_sidebar, GTK_TYPE_SCROLLED_WINDOW)
 static void
 breakpoint_changed_cb (NemoPlacesSidebar *sidebar)
 {
-    sidebar->bookmark_breakpoint = nemo_config_get_int (nemo_window_state, NEMO_PREFERENCES_SIDEBAR_BOOKMARK_BREAKPOINT);
+    sidebar->bookmark_breakpoint = nemo_bookmark_list_get_breakpoint (sidebar->bookmarks);
     update_places (sidebar);
 }
 

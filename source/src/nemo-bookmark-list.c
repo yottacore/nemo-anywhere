@@ -721,6 +721,22 @@ nemo_bookmark_list_length (NemoBookmarkList *bookmarks)
 	return g_list_length (bookmarks->list);
 }
 
+gint
+nemo_bookmark_list_get_breakpoint (NemoBookmarkList *bookmarks)
+{
+	gint breakpoint;
+
+	g_return_val_if_fail (NEMO_IS_BOOKMARK_LIST (bookmarks), 0);
+
+	/* -1 is the default, so a hand edit that drops the key brings it back.
+	   Taken as an index it showed an empty Bookmarks heading in Places. */
+	breakpoint = nemo_config_get_int (nemo_window_state, NEMO_PREFERENCES_SIDEBAR_BOOKMARK_BREAKPOINT);
+	if (breakpoint < 0)
+		breakpoint = (gint) nemo_bookmark_list_length (bookmarks);
+
+	return breakpoint;
+}
+
 static gchar *
 bookmark_metadata_path (void)
 {
