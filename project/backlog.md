@@ -175,6 +175,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Type: Enhancement
 	- Status: Waiting for testing
 	- Needs local test suite run?: one full `cicd.bash` run, to see the stage in its place. Its command ran on its own, and the help test passes.
+	- Needs external testing: one Windows launch with a folder and an option on the command line, since the option parse changed. The cross build is clean.
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400

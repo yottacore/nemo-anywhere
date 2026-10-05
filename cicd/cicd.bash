@@ -523,8 +523,8 @@ elif ((quick)); then
 	fEcho_Clean "fuzz skipped (--quick)"
 fi
 ## The suite again on a build with the address and undefined behavior
-## sanitizers. A cold build of its own takes minutes, so like fuzzing it is left
-## out of --quick and the gate.
+## sanitizers. It has a build of its own, about a minute cold, so like fuzzing it
+## is left out of --quick and the gate.
 if ((! quick)) && [[ -n "${SANITIZE_CMD+x}" ]] && ((${#SANITIZE_CMD[@]})); then
 	"${SANITIZE_CMD[@]}"
 	fEcho "OK: sanitizer suite clean"

@@ -118,8 +118,8 @@ FUZZ_CMD=(bash "${DOCKER_RUN}" "fuzz" "FUZZ_SECS=${FUZZ_SECS} NEMO_TEST_JOBS=${C
 
 ## Stage 3 (after fuzzing): the suite again, built with the address and undefined
 ## behavior sanitizers, leak checks on - READY. It builds into a directory of its
-## own, so /build is left alone. About a minute warm and several cold, so it is
-## left out of --quick and the gate; --no-sanitize skips it too. Leaks in the
+## own, so /build is left alone. About a minute cold at 16 jobs and half that
+## warm, which is still too long for --quick or the gate; --no-sanitize skips it too. Leaks in the
 ## libraries under GTK are listed in linux/sanitizers.supp.
 SANITIZE_CMD=(bash "${DOCKER_RUN}" "sanitizers" "NEMO_TEST_JOBS=${CICD_MAX_JOBS:-2} bash /src/cicd/linux/test-sanitizers.bash")
 

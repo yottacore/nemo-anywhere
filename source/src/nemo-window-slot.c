@@ -424,9 +424,9 @@ nemo_window_slot_dispose (GObject *object)
 	 * It was already here before the slot move, though */
 	nemo_file_unref (slot->viewed_file);
 
-	/* The location stays until finalize, since the tab label and the pane
-	   can still read it between a destroy and the last unref. */
 	g_clear_pointer (&slot->pending_scroll_to, g_free);
+	/* The location is let go in finalize, since the tab label and the pane
+	   can still ask for it between a destroy and the last unref. */
 
 	g_list_free_full (slot->pending_selection, g_object_unref);
 	slot->pending_selection = NULL;
