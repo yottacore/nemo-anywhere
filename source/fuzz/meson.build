@@ -82,6 +82,16 @@ if not is_windows
     c_args:    fuzzCArgs,
     link_args: fuzzLinkArgs,
   )
+
+  # Edit link reads the old shortcut again to keep what it does not change.
+  # The target writes each input to a scratch file, removed at exit.
+  fuzzLnkEdit = executable('fuzz-lnk-edit',
+    [ 'fuzz-lnk-edit.c' ] + fuzzDriver,
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+    c_args:    fuzzCArgs,
+    link_args: fuzzLinkArgs,
+  )
 endif
 
 # The three binary Office parsers. Each helper is a program of its own, so the
@@ -210,6 +220,19 @@ fuzzLnkCorpus = files(
   'corpus/lnk/bad-info-size',
 )
 
+fuzzLnkEditCorpus = files(
+  'corpus/lnk-edit/empty',
+  'corpus/lnk-edit/local',
+  'corpus/lnk-edit/network',
+  'corpus/lnk-edit/relative-only',
+  'corpus/lnk-edit/truncated',
+  'corpus/lnk-edit/all-strings',
+  'corpus/lnk-edit/ansi-strings',
+  'corpus/lnk-edit/network-args',
+  'corpus/lnk-edit/block-too-big',
+  'corpus/lnk-edit/no-link-info',
+)
+
 # Under -Dfuzzing there is no main to hand a file list to; the targets are
 # driven by fuzz.bash instead.
 #
@@ -231,5 +254,6 @@ if not get_option('fuzzing')
   test('rhatwe0t Word document fuzz corpus test',    fuzzDoc,             args: fuzzDocCorpus,             env: fuzzTestEnv)
   if not is_windows
     test('rhmxm5ag Windows shortcut fuzz corpus test', fuzzLnk,           args: fuzzLnkCorpus,             env: fuzzTestEnv)
+    test('rjfa5fmh Shortcut edit fuzz corpus test',    fuzzLnkEdit,       args: fuzzLnkEditCorpus,         env: fuzzTestEnv)
   endif
 endif
