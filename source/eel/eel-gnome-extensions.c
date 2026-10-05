@@ -79,7 +79,7 @@ terminal_settings_new (void)
 char *
 eel_gnome_get_fallback_terminal_exec (void)
 {
-    gint i;
+    gsize i;
 
     for (i = 0; i < G_N_ELEMENTS (known_terminals); i++) {
         gchar *term_path = g_find_program_in_path (known_terminals[i].exec);
@@ -101,7 +101,7 @@ prepend_terminal_to_command_line (const char *command_line)
     gchar *terminal = NULL;
     gchar *ret = NULL;
     GString *escaped_command_line = NULL;
-    gint i;
+    gsize i;
 
     g_return_val_if_fail (command_line != NULL, g_strdup (command_line));
 

@@ -384,7 +384,7 @@ main (int argc, char *argv[])
 	char *dir, *to_notepad, *to_folder, *folder;
 	GdkPixbuf *small, *large, *jumbo, *again, *folder_icon, *missing;
 	const int sizes[] = { 16, 32, 48, 256 };
-	int i;
+	gsize i;
 
 	gtk_init_check (&argc, &argv);
 

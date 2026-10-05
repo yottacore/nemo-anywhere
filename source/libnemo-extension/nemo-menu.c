@@ -59,6 +59,12 @@ nemo_menu_append_item (NemoMenu *menu, NemoMenuItem *item)
 	menu->priv->item_list = g_list_append (menu->priv->item_list, g_object_ref (item));
 }
 
+static gpointer
+copy_item_ref (gconstpointer item, G_GNUC_UNUSED gpointer data)
+{
+	return g_object_ref ((gpointer) item);
+}
+
 /**
  * nemo_menu_get_items:
  * @menu: a #NemoMenu
@@ -72,8 +78,7 @@ nemo_menu_get_items (NemoMenu *menu)
 
 	g_return_val_if_fail (menu != NULL, NULL);
 	
-	item_list = g_list_copy (menu->priv->item_list);
-	g_list_foreach (item_list, (GFunc)g_object_ref, NULL);
+	item_list = g_list_copy_deep (menu->priv->item_list, copy_item_ref, NULL);
 	
 	return item_list;
 }
@@ -88,8 +93,7 @@ nemo_menu_item_list_free (GList *item_list)
 {
 	g_return_if_fail (item_list != NULL);
 	
-	g_list_foreach (item_list, (GFunc)g_object_unref, NULL);
-	g_list_free (item_list);
+	g_list_free_full (item_list, g_object_unref);
 }
 
 /* Type initialization */
