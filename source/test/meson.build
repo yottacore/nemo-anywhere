@@ -832,6 +832,18 @@ if is_windows
   )
 endif
 
+# Puts three windows on screen and needs the foreground, so it skips over ssh.
+if is_windows
+  test('rjf8db1q Tab move foreground right test',
+    executable('test-nemo-raise-win32',
+      [ 'test-nemo-raise-win32.c', '../src/nemo-window-at-point-win32.c' ],
+      include_directories: [ rootInclude, include_directories('../src') ],
+      dependencies: [ gtk ],
+    ),
+    args: []
+  )
+endif
+
 if is_windows
   test('renz2428 Network win32 test',
     executable('test-nemo-network-win32',

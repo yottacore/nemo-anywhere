@@ -400,7 +400,7 @@ move_to_target (NemoWindowSlot *slot,
 		GError *error = NULL;
 
 		connection = g_application_get_dbus_connection (g_application_get_default ());
-		nemo_window_allow_others_to_raise ();
+		nemo_window_allow_to_raise (target->handle);
 		reply = g_dbus_connection_call_sync (connection, target->bus_name, NEMO_INSTANCE_OBJECT_PATH,
 		                                     TABS_INTERFACE, "TakeTab",
 		                                     g_variant_new ("(uss^asu)", target->id, state->uri,

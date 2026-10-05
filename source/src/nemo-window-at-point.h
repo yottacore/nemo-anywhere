@@ -32,10 +32,11 @@ int nemo_window_at_pointer (GdkDisplay    *display,
                             const guint64 *candidates,
                             int            n_candidates);
 
-/* Lets another process bring its window to the front once, as the one the
- * user is working in may. Nothing to do off Windows; the X11 timestamp passed
- * along does the same job there. */
-void nemo_window_allow_others_to_raise (void);
+/* Lets the process that owns the window with this native handle bring it to
+ * the front once, as the one the user is working in may. No other process
+ * gets the right. Nothing to do off Windows; the X11 timestamp passed along
+ * does the same job there. */
+void nemo_window_allow_to_raise (guint64 handle);
 
 G_END_DECLS
 

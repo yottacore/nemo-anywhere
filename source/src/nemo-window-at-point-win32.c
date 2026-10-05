@@ -61,9 +61,17 @@ nemo_window_native_handle (GtkWindow *window)
 }
 
 void
-nemo_window_allow_others_to_raise (void)
+nemo_window_allow_to_raise (guint64 handle)
 {
-	AllowSetForegroundWindow (ASFW_ANY);
+	DWORD process_id = 0;
+
+	/* A window that has gone, or no handle at all, gets nobody the right. */
+	if (handle == 0 || GetWindowThreadProcessId ((HWND) (guintptr) handle, &process_id) == 0 ||
+	    process_id == 0) {
+		return;
+	}
+
+	AllowSetForegroundWindow (process_id);
 }
 
 /* A window from a suspended store app is "visible" but not drawn. */

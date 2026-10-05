@@ -205,18 +205,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The fuzz target covers only the shortcut reader. Setting paths in a shortcut parses the same untrusted bytes with its own code.
 	- Test case: the new fuzz target.
 
-- Code review 20260928 item 43. On Windows, any process may take the foreground during a tab move.
-	- ID: 2026092813381443
-	- Type: Enhancement
-	- Status: Queued
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Target OS: Windows.
-	- Requirements:
-		- Allow only the receiving window's process.
-	- Test case: none yet.
-
 - A thumbnail already being made runs to the end after its folder is left.
 	- ID: 2026093013002529
 	- Type: Enhancement
@@ -1984,6 +1972,28 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: ef05a4f
 	- Test case: rjbpyy28 Archive stop time test now has a 7z case. A 4 GiB and a 16 GiB file are stopped at their first progress report. Before the fix, the 4 GiB one took 50 s and the 16 GiB one did not end in 100 s. After, both take 0.01 s. rjbw0rkq Stopped 7z leak test, which fails at 82 bytes a round when the close is left out.
 	- Acceptance signoff: waiting. The archive writer's handling of a stop changed again, this time for the 7z.
+
+- Code review 20260928 item 43. On Windows, any process may take the foreground during a tab move.
+	- ID: 2026092813381443
+	- Type: Enhancement
+	- Status: Done
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Target OS: Windows.
+	- Requirements:
+		- Allow only the receiving window's process.
+	- Origin: the tab move between windows, b096102.
+	- Progress log:
+		- A tab moved to another copy's window now hands the right to come to the front only to the process that owns that window, found from the window's handle. A handle that is gone, or none, hands it to nobody.
+		- The old right open to every process outlived the copy that gave it. On an idle box any program could take the foreground long after the move.
+	- Swept: the one place a tab move hands over the right, used by both the menu and a drop. A tab moved to a new window starts that copy itself, so it needs no right handed over. No other code hands the foreground to another process.
+	- Branch: fgtab
+	- Commit: 0a70a44
+	- Test case: rjf8db1q, Tab move foreground right test, Windows only. Two copies of the test each show a window. The right handed to one copy's window lets that copy come to the front and not the other. It needs a desktop, so it skips over ssh. Fails before the change and passes after.
+	- Verified: 20261004, vm925w, in the signed-in session: rjf8db1q fails before the change, both copies taking the foreground, and passes after, five runs. Over ssh it skips. Windows cross build clean, lint passes. On Linux the tab move and window under the pointer tests pass.
+	- Acceptance signoff: Self-closed: the change does what the item asked, and its test fails before and passes after.
+	- Closed: 20261004-171718
 
 - Code review 20260928 item 40. The shortcut path choice code is only reached by tests.
 	- ID: 2026092813381440
