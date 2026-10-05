@@ -33,43 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- Code review 20260928 item 34. Apply the directives' new C section.
-	- ID: 2026092813381434
-	- Type: Enhancement
-	- Status: Waiting for testing
-	- Needs local test suite run?: no. On wextra3 the full Linux suite passed 169 of 169, the sanitizer lane 157 with 12 skipped, and the fuzz lane 10 of 10, all with warnings fatal. On wextra4 the Linux suite passed 169 of 169 again.
-	- Needs external testing: the native Windows suite once all parts are in, through the gate, which now sets up its build with `-Dwerror=true`. MSYS2's gcc may find warnings the cross build does not. The canvas types and the accessible class setup changed, and in part 2 the icon container's accessible interfaces. Part 4 changed only comments, and the gate's lint stage now runs the ownership check under MSYS2's python.
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Requirements:
-		- Directive dated 20260919, new since the last round. Not a regression.
-		- Name the C standard in the build. None is named today, so gcc's default applies.
-		- Raise the warning level past `-Wall`. At the next level there are about 1700 warnings, almost all unused parameters and missing field initializers, 139 of them on lines changed in the last 10 days.
-		- One line in each allocating function's header comment on who frees the result.
-	- Progress log:
-		- 20261005-103251: part 1 of 3. The build names c17 and runs at `-Wextra`, with `-Werror` still off. eel, the extension library and the tests now build clean at that level, on Linux and in the Windows cross build. Left for the next parts: `libnemo-private` and `src` (1441 warnings on Linux, 1530 in the cross build), then `-Werror`, then the who-frees lines.
-		- 20261005-110434: part 2 of 3. `libnemo-private` now builds clean at `-Wextra` on Linux and in the Windows cross build. Every row of the settings table names its flags. Function pointer casts became callbacks of the right type. No fallthrough or enum warnings were in this part. Left: `src`, 829 warnings on Linux and 838 in the cross build, then `-Werror`, then the who-frees lines.
-		- 20261005-113707: part 3. `src` builds clean, so the whole tree has no warnings at `-Wextra` with gcc on Linux, in the cross build and in the release image, and with clang. Both fallthroughs in the path bar are meant, and now say so. The 4 enum warnings were a slot flag held in a variable of the wrong flag type; same value, so no change in behavior. clang found 7 more that gcc does not: 3 partial initializers, 2 signed compares, and a test's struct around a flexible array. The sanitizer build found a test whose skip path left its arguments unused. Every pipeline build now treats warnings as errors and reads that back from the build dir. No bug found. Left: the who-frees lines.
-		- 20261005-120248: part 4. Every function a header declares that returns a pointer now says who frees it: 562 definitions across eel, `libnemo-private`, the extension library, `src` and the test helpers, 22 of them Windows-only. Before this, 29 said so in GLib's form and about 20 more in prose. A new lint check holds it for the whole tree. The comment on `nemo_view_get_selection` said to free only the list, but every view refs the files, and its callers free them with `nemo_file_list_free`; the comment now says so. No leak or double free found.
-			- Examined and left alone: `nemo_job_queue_get` hands out a ref on the shared queue that no caller drops, harmless for a queue that lives as long as the process. `nemo_file_queue_dequeue` drops the queue's ref before returning the file, and nothing calls it. `nemo_sort_columns` returns NULL and loses the list when given no order, which no caller does.
-	- Decisions:
-		- 20260928: full `-Wextra` over the whole tree, with every warning fixed. The fork will never track upstream, so churn in inherited files is fine.
-		- 20261005: c17, not gnu17. Nothing in the tree needs a GNU language extension. Strict c17 hides the POSIX and BSD calls glibc gives by default, so the build asks for them back with `_DEFAULT_SOURCE`, in one place. On Windows the only gap was `M_PI`, now `G_PI`.
-		- 20261005: vendored code builds at `-Wall` in its own target (blake3, libegg), so it stays as it came. SHCL is header-only and builds clean at `-Wextra`, so it has no exemption.
-		- 20261005: an unused parameter gets `G_GNUC_UNUSED` in front of its type, the form GLib documents. Existing `(void) x;` lines stay. A test `main` that ignores both arguments is `main (void)`.
-		- 20261005: a build dir set up before this keeps its old std and warning level on reconfigure, so meson stops and asks for `meson setup --wipe` once.
-		- 20261005: the settings table stays positional, with the flags written out at the end of each row, since `lint-pref-handlers.py` reads the rows by position.
-		- 20261005: warnings are errors in every pipeline build and not by default. The gate and debug build, the sanitizer and fuzz lanes, the cross build, the release build and the native Windows gate pass `-Dwerror=true`. A plain `meson setup` and the hosted Windows release build leave it off, since both can meet a compiler newer than any here. The release image's older gcc is clean too, so its build has it on.
-		- 20261005: each of those lanes reads `-Werror` back out of the build dir after setup and stops if it is missing, so a reused dir or a lane that lost the flag cannot quietly build without it.
-		- 20261005: vendored code keeps building at `-Wall`, and its warnings are never fatal. Only an edit to the vendored file could fix one.
-		- 20261005: who frees a result is written in GLib's own form, the one the inherited code already used: a `Returns: (transfer full)` line, or `none`, `container` or `floating`, above the definition, with the free function where it is not plain `g_free`. A doc comment that already had a Returns line gets the annotation added to it; anything else gets a one-line comment. The schemes stay as they were: objects by refcount, and strings, lists and structs freed by the caller with the function the line names. No arena was added.
-		- 20261005: the scope is every function a first-party header declares that returns a pointer, a reference the caller must not free included. Static helpers and vendored code are left out. A returned `GdkAtom` is not counted, since it is never freed.
-		- 20261005: the ownership check reads the source as text rather than through the compiler, so both sides of every `#if` are checked on any platform. A definition counts when it starts in column 0, and its comment when it ends on the line above, or one blank line above.
-	- Branch: wextra1, wextra2, wextra3, wextra4
-	- Commit: df8a8a5, a0e0ed6, e316e67, 459d24c, f8aff1f, 6d67e06, ff68a3f, a87b584, b15b7c1
-	- Test case: the `-Werror` build in every pipeline lane; a warning put back in a source file fails the gate build. rjh7qnxw checks each lane passes and reads back `-Dwerror=true` and that the defaults do not. rjcpvcyb also checks the release dir comes out with it. rjh9pts1, the ownership check's self-test over made-up files; the check then runs over the whole tree in the lint stage, and a missing line fails it.
-
 - Code review 20260928.
 	- ID: 2026092813381400
 	- Type: Task
@@ -91,6 +54,37 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: Escape not restoring the selection, Ctrl+Shift+T, and Control kept for F1, tab keys, Ctrl+H and Ctrl+M on macOS. All settled earlier.
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
+
+- On Windows the gate says the build is not set up with `-Werror` when it is.
+	- ID: 2026100518100000
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261005-181000
+	- Opened by: native gate run for 2026092813381434
+	- Related IDs: 2026092813381434
+	- Target OS: Windows
+	- Steps to reproduce: run `pwsh cicd/cicd-win.ps1 -Gate -Yes` on a Windows box with a fresh build dir.
+	- Incorrect behavior: `check-werror: cicd/artifacts/build-win does not build with -Werror`, exit 4, before anything compiles. It stops the gate, the pre-push hook on Windows and the Windows dogfood stage.
+	- Expected behavior: the check passes when the build dir was set up with `-Dwerror=true`.
+	- Reproduced: 20261005 on vm925w at 9aba9d4.
+	- Possible cause: meson quotes each flag in `build.ninja` on Windows (`"-Werror"`), and `check-werror.bash` only matches a bare `-Werror`. Test rjh7qnxw never reads a Windows `build.ninja`.
+	- Test case: rjh7qnxw, to gain a quoted case.
+
+- On Windows, a mapped drive that is not answering may stall the side pane or the trash state.
+	- ID: 2026100512334934
+	- Type: Bug
+	- Status: Queued
+	- Needs external testing: all of it. A Windows box with a drive letter mapped to a share that does not answer, such as an unused address on the local subnet.
+	- Priority|Severity: Low
+	- Opened: 20261005-123349
+	- Opened by: share audit 2026093010493450
+	- Related IDs: 2026093010493450
+	- Target OS: Windows
+	- Incorrect behavior: read only. GLib builds its drive list through the shell, asking for each drive's display name when the list is made and for its icon when the side pane draws it. The trash state asks the recycle bin of every drive. Either may go to a mapped drive's share, on the window's thread.
+	- Expected behavior: a mapped drive is named and drawn from its letter and what Windows keeps locally, and the trash state never asks a share.
+	- Reproduced: no. Read from GLib's source and the Windows docs; not timed.
+	- Test case: none yet. Needs a Windows box with a dead mapped drive.
 
 - The app visits network shares on its own.
 	- ID: 2026093010493450
@@ -148,21 +142,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: none for the side pane free space, since a test cannot make the volume list show a fake share.
 	- Verified: rjhbbg9n and rhd69rjr fail before the fix, in every case that names a share, and pass after, on Linux. With only the action change taken out, its case alone fails. The full Linux suite passed 170 of 170. The Windows cross build is clean, and rhtwm2c8 and rhd69rjr pass under wine. Lint is clean.
 
-- On Windows, a mapped drive that is not answering may stall the side pane or the trash state.
-	- ID: 2026100512334934
-	- Type: Bug
-	- Status: Queued
-	- Needs external testing: all of it. A Windows box with a drive letter mapped to a share that does not answer, such as an unused address on the local subnet.
-	- Priority|Severity: Low
-	- Opened: 20261005-123349
-	- Opened by: share audit 2026093010493450
-	- Related IDs: 2026093010493450
-	- Target OS: Windows
-	- Incorrect behavior: read only. GLib builds its drive list through the shell, asking for each drive's display name when the list is made and for its icon when the side pane draws it. The trash state asks the recycle bin of every drive. Either may go to a mapped drive's share, on the window's thread.
-	- Expected behavior: a mapped drive is named and drawn from its letter and what Windows keeps locally, and the trash state never asks a share.
-	- Reproduced: no. Read from GLib's source and the Windows docs; not timed.
-	- Test case: none yet. Needs a Windows box with a dead mapped drive.
-
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
 	- Type: Enhancement
@@ -188,82 +167,311 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20260929-190000: `-spd` is added at run time, 7-Zip is used first for 7z, and Options opens by itself and gets a reset button. Other filesystems is for folders only. One question left, on a selected link to another filesystem.
 		- 20260930-090000: a link onto another filesystem is followed only when both options are on. The reset button also collapses Options, and the store option's flyover says when it forces one thread. The settings comments on the command lines now say they are base flags. No questions left.
 		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
+		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
 
-- The Linux release build runs its link-time step on one core, with a warning every build.
-	- ID: 2026100514300212
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Low
-	- Opened: 20261005-143002
-	- Opened by: backlog round 20261005
-	- Related IDs: 2026092813381434, 2026100316321188
-	- Target OS: Linux.
-	- Incorrect behavior: each release build prints "lto-wrapper: warning: using serial compilation of 9 LTRANS jobs".
-	- Expected behavior: no warning, and the link uses the cores it was given.
-	- Reproduced: yes, 20261005, on every release build.
-	- Actual cause: two things. The release image had no `make`, which gcc runs those jobs through. And the image's meson 0.61 gives the thread count to the compile only, so the link got a bare `-flto`, which gcc 11 runs on one core even with `make` there.
-	- Actual fix: `make` added to the release image and its Dockerfile, from the same pinned packages. The release setup passes `-flto=4` to the link too, and stops if any link with link-time optimization is missing it.
-	- Note: the image was saved again with only `make` added, and the release container made again from it.
-	- Branch: jammymake
-	- Test case: rjcpvcyb, through the release setup it runs, which now checks every link line.
-	- Verified: the release tarball is the same bytes before and after, built from the same commit. No warning in the build. The new check fails with the link flag taken out and passes with it. rjcpvcyb passes.
-	- Acceptance signoff: Self-closed: a build lane fix with nothing on screen.
-	- Closed: 20261005-143002
-
-- Demo gif: show best features first.
-	- ID: 2026100219523841
+- Compression reset: a place in the tree for the archive core, and its interfaces.
+	- ID: 2026100516274126
 	- Type: Enhancement
-	- Status: Done
-	- Opened: 20261002-195238
-	- Opened by: t00mietum
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Target OS: Linux, Windows
+	- Design: [Modularity](design_docs/20260929-101432_compression.md#modularity) and [Roadmap](design_docs/20260929-101432_compression.md#roadmap).
 	- Requirements:
-		- Show best features first, e.g.
-			- Native compression features
-			- Full Windows .lnk support in Linux and macOS
-			- Relative link creation
-			- Copy allows link-handling options
-			- Advanced automatic column sizing logic
-			- Optional striped rows (turn on instantly, don't bother with menu)
-	- Progress log:
-		- 20261005-130500: the scenes now run best first. Compress, then a Windows shortcut made and opened, a relative symlink, the question a link copy asks, column sizing, and striped rows. Picture folders and grouped search follow. The gif's scenes run about 61 s, under the 66 s cap. The new gif is `assets/demo.gif`.
-		- Left out for time: F3's second pane, which upstream already had, the tree beside Places, and the drag that asks before a move.
-	- Decisions:
-		- Calls made without asking, for signoff. Column sizing is shown by dragging the window corner in and back out. The link is copied into its own folder, with Copy content picked. Striped rows come on through the settings file, with no menu.
-		- 20261005: the demo keeps writing its whole settings file, dropping lines the app saved there. It is the demo's own home, never the user's, and the Bookmarks fix took away the one effect it had on the demo.
-	- Branch: demofirst
-	- Commit: 6cf53de
-	- Test case: none, demo content. `cicd/utility/lint-demo-script.py` checks the script.
-	- Verified: the lint stage passes, the demo lint included. In the new gif and video each scene does what its caption says.
-	- Note: once the settings file changes, an empty Bookmarks heading shows up in the sidebar, so it appears from the striped rows scene on. Fixed by 2026100513114683.
-	- Acceptance signoff: looks good, 20261005.
-	- Closed: 20261005-160000
+		- Its own folder and library target for the core, with no GTK and no nemo types. Nothing moves into it yet.
+		- An interface for each nemo part the archive and extract code call today: the job queue, progress info and the file-changes queue; command templates and settings; the directory walk; trash and the delete guard; eel's stock dialogs.
+		- The core takes its settings as values, and reports progress, questions and file changes through callbacks. It asks its caller to delete and never deletes on its own.
+		- On Windows the walk still has to get past MAX_PATH, so nemo hands its own walk in.
+		- A test target for the core that runs with no display.
+	- Estimated effort: Avg
+	- Test case: a new core test that builds without GTK and runs with no display. ID when written.
 
-- An empty Bookmarks heading shows up in the side pane once the settings file changes.
-	- ID: 2026100513114683
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Low
-	- Opened: 20261005-131146
-	- Opened by: backlog round 20261005
-	- Related IDs: 2026100219523841
-	- Target OS: Linux
-	- Steps to reproduce [Bug]:
-		- Start with no bookmarks, then change any setting, such as striped rows, by editing settings.shcl while the window is open.
-	- Incorrect behavior [Bug]: a Bookmarks heading with nothing under it appears in Places.
-	- Expected behavior [Bug]: no Bookmarks heading while there are no bookmarks.
-	- Reproduced [Bug]: seen 20261005 on Linux, during the demo. Reproduced on its own the same day. It takes an edit that leaves out the `window-state.sidebar-bookmark-breakpoint` line, which the demo's rewrite of the whole file did.
-	- Actual cause [Bug]:
-		- Places saves where its own Bookmarks section starts. An edit without that line puts it back to -1, its "never set" value. The reload handler took -1 as a position, so 0 bookmarks counted as more than the split and the heading showed.
-		- The share audit did not cause it. Its changes to Places and to how a bookmark is checked don't reach the heading.
-	- Actual fix [Bug]: the split is read in one place, which takes -1 as after the last bookmark, as startup already did. Places and the Bookmarks window both read it there.
-	- Swept: the other Places headings. My computer always has Home under it. Devices is added with its first row only. Network is added only when it lists something. The Bookmarks window read the same value raw when saving an edited bookmark, where -1 would have edited the wrong row; it now uses the same reading. That one has no test of its own.
-	- Branch: bmhead
-	- Commit: c1a8698
-	- Test case: rjhemba0, Linux only.
-	- Verified: rjhemba0 failed before the fix and passes after, 3 runs in a row. Full Linux suite 171 of 171. Lint clean.
-	- Acceptance signoff: Self-closed: reproduced, its test failed before the fix and passes after, and the test checks the heading itself.
-	- Closed: 20261005-132621
+- Compression reset: link and filesystem choices in the archive options.
+	- ID: 2026100516274163
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274126
+	- Target OS: Linux, Windows
+	- Design: [Link options](design_docs/20260929-101432_compression.md#link-options) and [Junction defaults](design_docs/20260929-101432_compression.md#junction-defaults).
+	- Requirements:
+		- Symlinks: Ignore, the default, Follow, or Store as symlinks.
+		- Junctions, Windows only: Ignore, Follow, Store as junctions, or Store as symlinks. Its default follows Symlinks by the table in the design. A hand change sticks.
+		- Follow nested filesystems, on by default. Follow other filesystems, never on by default.
+		- A store choice the writer can't do falls back to Ignore.
+		- These replace the store links and follow links options and their remembered values. Written in the core.
+		- Open: whether the old remembered values carry over to the new choices.
+	- Estimated effort: Avg
+	- Test case: new core test cases for the junction default table and the fall back to Ignore. rhae85g0, Archive settings test, for the remembered choices. IDs when written.
+
+- Compression reset: tell a nested filesystem from another one.
+	- ID: 2026100516274200
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274126
+	- Target OS: Linux, Windows
+	- Design: [Nested and other filesystems](design_docs/20260929-101432_compression.md#nested-and-other-filesystems).
+	- Requirements:
+		- For a folder, or where a link leads, say whether it is on the same filesystem as the folder the selection is in, a nested one, or another one.
+		- Nested means the same pool or volume on both sides of the mount: one ZFS pool, one Btrfs filesystem, one APFS container. Anything else is another filesystem.
+		- Windows has no nested kind. A folder mount point and a junction are the same kind of reparse point, and one that points at a whole volume counts as a mount point only.
+		- Read from the mount table and the path, never from a share. Written in the core.
+	- Estimated effort: Avg
+	- Test case: new core test cases read from a made-up mount table. IDs when written.
+
+- Compression reset: path list and sixteen size totals.
+	- ID: 2026100516274237
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274126
+	- Target OS: Linux, Windows
+	- Design: [Path list](design_docs/20260929-101432_compression.md#path-list) and [Size totals](design_docs/20260929-101432_compression.md#size-totals).
+	- Requirements:
+		- One entry per file: its path, its bytes, and which of the 16 totals already count it. Adding a path and finding one stay fast at millions of paths.
+		- Each path to a file has 4 flags: symlinked, junctioned, nested filesystem, other filesystem. They describe the path, not the file.
+		- One total per mix of the 4 follow options. A path adds the file's bytes to each mix that follows all of its flags and doesn't count the file yet.
+		- Gives the total for the options as set, and each option's size change: that total less the entry with only that option off.
+		- No disk access here. The background scan feeds it. Written in the core.
+	- Estimated effort: Low
+	- Test case: new core test cases on made-up paths, the two worked examples in the design included. IDs when written.
+
+- Compression reset: the background scan behind the size totals.
+	- ID: 2026100516274275
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274163, 2026100516274200, 2026100516274237
+	- Target OS: Linux, Windows
+	- Design: [Background scan](design_docs/20260929-101432_compression.md#background-scan).
+	- Requirements:
+		- Walks the selection and everything below it by the 4 follow options, and hands each path to the path list with its flags.
+		- Canonical paths. A link loop still ends. A `.lnk` is never followed.
+		- An option made less inclusive mid-scan backs out of the paths it now leaves out, without stopping. One made more inclusive restarts the scan, which adds only paths not seen yet.
+		- Reports changed totals through a callback, at most every 0.25 s.
+		- Cancel stops it and frees the list and the totals. Written in the core.
+		- Open: whether the scan may follow a link onto a network share before OK, given the share rule.
+	- Estimated effort: High
+	- Test case: new core test cases on a scratch tree with folder and file links, a loop, a link that leads nowhere, and an option changed mid-scan. Junctions on Windows. IDs when written.
+
+- Compression reset: 7-Zip first for 7z, and `-spd` on an edited 7-Zip line.
+	- ID: 2026100516274312
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Related IDs: 2026092813381416
+	- Target OS: Linux, Windows
+	- Design: [7-Zip first for 7z](design_docs/20260929-101432_compression.md#7-zip-first-for-7z) and [Wildcards in an edited 7-Zip line](design_docs/20260929-101432_compression.md#wildcards-in-an-edited-7-zip-line).
+	- Requirements:
+		- Where 7-Zip is installed, a 7z job goes to it rather than the library, on as many threads as the settings allow. Its own percent done moves the progress bar.
+		- The library still writes 7z when 7-Zip isn't installed, or when the job stores links on Windows. That job runs on one thread.
+		- `-spd` is added at run time when the line runs 7-Zip and doesn't have it, for compress and for the archive's path when extracting. The saved line isn't changed, and a line that runs another program is left alone.
+	- Estimated effort: Avg
+	- Test case: rev86z08, Archive options test, for which writer gets 7z and for the added `-spd`. rhr6ggmt and reww9h2s, rows with an edited 7-Zip line and a name with `*` or `?`.
+
+- Compression reset: `-r0` on an edited rar line.
+	- ID: 2026100516274349
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Related IDs: 2026100410431108
+	- Target OS: Linux, Windows
+	- Design: [Recursion in an edited rar line](design_docs/20260929-101432_compression.md#recursion-in-an-edited-rar-line).
+	- Requirements:
+		- `-r0` is added at run time when the compress line runs rar, after anything the line has, so an `-r` left in it no longer takes same-named files from the folders below.
+		- The saved line isn't changed. The extract lines never had `-r`.
+	- Estimated effort: Low
+	- Test case: rev86z08, Archive options test, for the added `-r0`. rhr6ggmt, the picked `a.txt` beside `sub/a.txt` rows again with an edited rar line that keeps `-r`.
+
+- Compression reset: link choices and filesystem options in the Compress dialog.
+	- ID: 2026100516274386
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274163, 2026100516274312
+	- Target OS: Linux, Windows
+	- Design: [Link handling](design_docs/20260929-101432_compression.md#link-handling).
+	- Requirements:
+		- Symlinks and Junctions radio groups replace the two link boxes. They show when the selection has a link or a folder. Junctions is Windows only.
+		- Follow nested filesystems and Follow other filesystems sit below them, disabled unless a folder or link is selected. Nested is hidden on Windows.
+		- A store choice the writer can't do is disabled. On Windows, 7z with a password or volumes disables Store as symlinks.
+		- The Follow flyover says a `.lnk` is always stored. The Store as symlinks flyover says when it forces one thread.
+		- Junctions takes its default from Symlinks by the table, until it is changed by hand.
+		- The size changes in the labels come with the live totals item.
+	- Estimated effort: High
+	- Test case: test-nemo-archive-dialog (rhtmbdmj), new cases for which groups show, the junction defaults, and what is disabled per format. IDs when written.
+
+- Compression reset: the job follows the new link and filesystem choices.
+	- ID: 2026100516274423
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274163, 2026100516274275
+	- Related IDs: 2026092813381404
+	- Target OS: Linux, Windows
+	- Design: [After OK](design_docs/20260929-101432_compression.md#after-ok) and [Link options](design_docs/20260929-101432_compression.md#link-options).
+	- Requirements:
+		- After OK the job runs its own pre-scan through the core scan, and works from that list. It never reuses the dialog's scan.
+		- The library writer writes from the list, for every format it writes.
+		- A link that leads nowhere: Ignore leaves it out, Follow and Store keep it as a link. This replaces the rule from 2026092813381404, so its test rows that expect the old rule are commented out with the reason.
+		- The delete check compares against what was meant to go in, followed content included.
+		- Compress each goes through the same code.
+	- Estimated effort: High
+	- Test case: rhr6ggmt, Archive option combinations, rows for each link choice and filesystem option in the library formats. rewygsbg, Archive job test, for the delete check with followed content.
+
+- Compression reset: 7z and rar programs work from the job's list.
+	- ID: 2026100516274460
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274423
+	- Target OS: Linux, Windows
+	- Design: [After OK](design_docs/20260929-101432_compression.md#after-ok).
+	- Requirements:
+		- 7-Zip and rar are told what goes in from the pre-scan list, so mixed choices work, such as following symlinks while storing junctions.
+		- The 7z leave-out list of today becomes part of this. The first run for links that lead nowhere keeps working.
+		- Names stay names: `-spd` for 7-Zip, and rar keeps refusing `*` and `?`.
+		- Open: a list past the command line limit on some OS. The design leaves it to testing.
+	- Estimated effort: High
+	- Test case: rhr6ggmt, the same rows for 7z and rar, plus a mixed choice such as following symlinks while storing junctions.
+
+- Compression reset: live size totals in the Compress dialog.
+	- ID: 2026100516274498
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274275, 2026100516274386
+	- Target OS: Linux, Windows
+	- Design: [Total size](design_docs/20260929-101432_compression.md#total-size) and [Background scan](design_docs/20260929-101432_compression.md#background-scan).
+	- Requirements:
+		- The dialog starts the background scan with the options as set, and narrows or restarts it as they change.
+		- Each follow option shows its size change. "Total size to include" sits on the left of the Cancel and OK row. Both update at most every 0.25 s.
+		- Cancel or OK stops the scan and frees it.
+	- Estimated effort: Avg
+	- Test case: test-nemo-archive-dialog (rhtmbdmj), new cases on a scratch tree: the total and each size change match the core's numbers, and Cancel frees the scan. IDs when written.
+
+- Compression reset: a pre-scan progress bar after OK.
+	- ID: 2026100516274535
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274423
+	- Target OS: Linux, Windows
+	- Design: [After OK](design_docs/20260929-101432_compression.md#after-ok).
+	- Requirements:
+		- While the job's pre-scan runs, the progress dialog shows a second bar for it above the regular one.
+		- Driven by the core's progress callback.
+		- Open: when a job needs no pre-scan, such as a selection of plain files.
+	- Estimated effort: Avg
+	- Test case: rewygsbg, Archive job test, checks the pre-scan reports progress before the first file is written.
+
+- Compression reset: rename the delete box, and say why a delete check failed.
+	- ID: 2026100516274572
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274423
+	- Target OS: Linux, Windows
+	- Design: [Delete originals after verification](design_docs/20260929-101432_compression.md#delete-originals-after-verification).
+	- Requirements:
+		- The box reads "Delete originals after verification".
+		- A failed check says why: how many selected folders and files aren't in the archive, and how many in it weren't selected. When the counts match, the selected size against the archive's.
+		- The size is left out when the counts don't match.
+	- Estimated effort: Avg
+	- Test case: rewygsbg, Archive job test, cases for each kind of mismatch and the reason it gives. rhtmbdmj for the new label.
+
+- Compression reset: volume sizes say what each is for.
+	- ID: 2026100516274609
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Target OS: Linux, Windows
+	- Design: [Volume sizes](design_docs/20260929-101432_compression.md#volume-sizes).
+	- Requirements:
+		- Each preset has its use in parentheses, such as "4,095 MiB (max FAT32 size)".
+		- A preset with its note reads as its size, and a typed size reads as before.
+		- Open: today's list has no 4,095 MiB entry, and the full list of sizes and notes isn't given.
+	- Estimated effort: Low
+	- Test case: rev86z08, Archive options test, each preset reads back as its size. rhtmbdmj for the list.
+
+- Compression reset: Options opens by itself, gets a reset button, and unticks what the writer can't do.
+	- ID: 2026100516274646
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274386
+	- Target OS: Linux, Windows
+	- Design: [Options expander](design_docs/20260929-101432_compression.md#options-expander) and [Options the writer can't do](design_docs/20260929-101432_compression.md#options-the-writer-cant-do).
+	- Requirements:
+		- Options opens when a remembered choice isn't the default, one the format forced off included.
+		- A button beside Options puts every choice under it back to default, drops the remembered ones from the settings file, and collapses Options. It is disabled when all are at default.
+		- An option the writer can't do is unticked and disabled. That doesn't overwrite the remembered choice, so switching back restores it.
+	- Estimated effort: Avg
+	- Test case: rhtmbdmj, cases for opening by itself, the reset, and a format that forces an option off. rhae85g0, Archive settings test, for remembered choices kept through a forced off and dropped by the reset.
+
+- Compression reset: move the compress code into the archive core.
+	- ID: 2026100516274683
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274349, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646
+	- Target OS: Linux, Windows
+	- Design: [Modularity](design_docs/20260929-101432_compression.md#modularity) and [Roadmap](design_docs/20260929-101432_compression.md#roadmap).
+	- Requirements:
+		- Last, after every other reset item. The rest of the compress code moves behind the interfaces, with no change in what it does.
+		- Writer choice, command lines, writing, and the check before a delete go to the core. The Compress dialog and the progress bars go to the GTK layer. Menus, the job queue, settings, trash and the delete guard stay in nemo.
+		- Each piece moves once.
+	- Estimated effort: High
+	- Test case: none new. rev86z08, rhae85g0, rewygsbg, rj4jewn6, rjbpyy28, rhr6ggmt, rhtmbdmj and the core tests stay as they are, and pass before and after.
+
+- Compression reset: move the extract code into the archive core.
+	- ID: 2026100516275399
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274683
+	- Target OS: Linux, Windows
+	- Design: [Modularity](design_docs/20260929-101432_compression.md#modularity) and [Roadmap](design_docs/20260929-101432_compression.md#roadmap).
+	- Requirements:
+		- Extracting and the cleaning of stored paths move to the core, and the conflict dialog to the GTK layer, with no change in what they do.
+		- After this the core has no GTK and no nemo types, and its build shows it.
+	- Estimated effort: High
+	- Test case: none new. reww9h2r, reww9h2s and the extract leak test rjbpmcxy stay as they are, and pass before and after.
 
 - Code review 20260928 item 2. The tree sidebar crashes on Shift+F10 or the Menu key.
 	- ID: 2026092813381402
@@ -961,6 +1169,53 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- The Linux release build runs its link-time step on one core, with a warning every build.
+	- ID: 2026100514300212
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261005-143002
+	- Opened by: backlog round 20261005
+	- Related IDs: 2026092813381434, 2026100316321188
+	- Target OS: Linux.
+	- Incorrect behavior: each release build prints "lto-wrapper: warning: using serial compilation of 9 LTRANS jobs".
+	- Expected behavior: no warning, and the link uses the cores it was given.
+	- Reproduced: yes, 20261005, on every release build.
+	- Actual cause: two things. The release image had no `make`, which gcc runs those jobs through. And the image's meson 0.61 gives the thread count to the compile only, so the link got a bare `-flto`, which gcc 11 runs on one core even with `make` there.
+	- Actual fix: `make` added to the release image and its Dockerfile, from the same pinned packages. The release setup passes `-flto=4` to the link too, and stops if any link with link-time optimization is missing it.
+	- Note: the image was saved again with only `make` added, and the release container made again from it.
+	- Branch: jammymake
+	- Test case: rjcpvcyb, through the release setup it runs, which now checks every link line.
+	- Verified: the release tarball is the same bytes before and after, built from the same commit. No warning in the build. The new check fails with the link flag taken out and passes with it. rjcpvcyb passes.
+	- Acceptance signoff: Self-closed: a build lane fix with nothing on screen.
+	- Closed: 20261005-143002
+
+- An empty Bookmarks heading shows up in the side pane once the settings file changes.
+	- ID: 2026100513114683
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261005-131146
+	- Opened by: backlog round 20261005
+	- Related IDs: 2026100219523841
+	- Target OS: Linux
+	- Steps to reproduce [Bug]:
+		- Start with no bookmarks, then change any setting, such as striped rows, by editing settings.shcl while the window is open.
+	- Incorrect behavior [Bug]: a Bookmarks heading with nothing under it appears in Places.
+	- Expected behavior [Bug]: no Bookmarks heading while there are no bookmarks.
+	- Reproduced [Bug]: seen 20261005 on Linux, during the demo. Reproduced on its own the same day. It takes an edit that leaves out the `window-state.sidebar-bookmark-breakpoint` line, which the demo's rewrite of the whole file did.
+	- Actual cause [Bug]:
+		- Places saves where its own Bookmarks section starts. An edit without that line puts it back to -1, its "never set" value. The reload handler took -1 as a position, so 0 bookmarks counted as more than the split and the heading showed.
+		- The share audit did not cause it. Its changes to Places and to how a bookmark is checked don't reach the heading.
+	- Actual fix [Bug]: the split is read in one place, which takes -1 as after the last bookmark, as startup already did. Places and the Bookmarks window both read it there.
+	- Swept: the other Places headings. My computer always has Home under it. Devices is added with its first row only. Network is added only when it lists something. The Bookmarks window read the same value raw when saving an edited bookmark, where -1 would have edited the wrong row; it now uses the same reading. That one has no test of its own.
+	- Branch: bmhead
+	- Commit: c1a8698
+	- Test case: rjhemba0, Linux only.
+	- Verified: rjhemba0 failed before the fix and passes after, 3 runs in a row. Full Linux suite 171 of 171. Lint clean.
+	- Acceptance signoff: Self-closed: reproduced, its test failed before the fix and passes after, and the test checks the heading itself.
+	- Closed: 20261005-132621
 
 - On Windows, the file cache test of many copies opening at once failed once in a parallel suite run with a disk I/O error.
 	- ID: 2026100415281201
@@ -2050,6 +2305,71 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: ef05a4f
 	- Test case: rjbpyy28 Archive stop time test now has a 7z case. A 4 GiB and a 16 GiB file are stopped at their first progress report. Before the fix, the 4 GiB one took 50 s and the 16 GiB one did not end in 100 s. After, both take 0.01 s. rjbw0rkq Stopped 7z leak test, which fails at 82 bytes a round when the close is left out.
 	- Acceptance signoff: waiting. The archive writer's handling of a stop changed again, this time for the 7z.
+
+- Code review 20260928 item 34. Apply the directives' new C section.
+	- ID: 2026092813381434
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no. On wextra3 the full Linux suite passed 169 of 169, the sanitizer lane 157 with 12 skipped, and the fuzz lane 10 of 10, all with warnings fatal. On wextra4 the Linux suite passed 169 of 169 again.
+	- Needs external testing: done 20261005 on vm925w at 9aba9d4. MSYS2's gcc 16.1 built all 582 steps with `-Wextra -Werror -std=c17` and no warnings. Native suite 143 OK, 12 skipped, 0 failed. The gate itself first failed on a false `-Werror` check, filed as 2026100518100000.
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Requirements:
+		- Directive dated 20260919, new since the last round. Not a regression.
+		- Name the C standard in the build. None is named today, so gcc's default applies.
+		- Raise the warning level past `-Wall`. At the next level there are about 1700 warnings, almost all unused parameters and missing field initializers, 139 of them on lines changed in the last 10 days.
+		- One line in each allocating function's header comment on who frees the result.
+	- Progress log:
+		- 20261005-103251: part 1 of 3. The build names c17 and runs at `-Wextra`, with `-Werror` still off. eel, the extension library and the tests now build clean at that level, on Linux and in the Windows cross build. Left for the next parts: `libnemo-private` and `src` (1441 warnings on Linux, 1530 in the cross build), then `-Werror`, then the who-frees lines.
+		- 20261005-110434: part 2 of 3. `libnemo-private` now builds clean at `-Wextra` on Linux and in the Windows cross build. Every row of the settings table names its flags. Function pointer casts became callbacks of the right type. No fallthrough or enum warnings were in this part. Left: `src`, 829 warnings on Linux and 838 in the cross build, then `-Werror`, then the who-frees lines.
+		- 20261005-113707: part 3. `src` builds clean, so the whole tree has no warnings at `-Wextra` with gcc on Linux, in the cross build and in the release image, and with clang. Both fallthroughs in the path bar are meant, and now say so. The 4 enum warnings were a slot flag held in a variable of the wrong flag type; same value, so no change in behavior. clang found 7 more that gcc does not: 3 partial initializers, 2 signed compares, and a test's struct around a flexible array. The sanitizer build found a test whose skip path left its arguments unused. Every pipeline build now treats warnings as errors and reads that back from the build dir. No bug found. Left: the who-frees lines.
+		- 20261005-120248: part 4. Every function a header declares that returns a pointer now says who frees it: 562 definitions across eel, `libnemo-private`, the extension library, `src` and the test helpers, 22 of them Windows-only. Before this, 29 said so in GLib's form and about 20 more in prose. A new lint check holds it for the whole tree. The comment on `nemo_view_get_selection` said to free only the list, but every view refs the files, and its callers free them with `nemo_file_list_free`; the comment now says so. No leak or double free found.
+			- Examined and left alone: `nemo_job_queue_get` hands out a ref on the shared queue that no caller drops, harmless for a queue that lives as long as the process. `nemo_file_queue_dequeue` drops the queue's ref before returning the file, and nothing calls it. `nemo_sort_columns` returns NULL and loses the list when given no order, which no caller does.
+	- Decisions:
+		- 20260928: full `-Wextra` over the whole tree, with every warning fixed. The fork will never track upstream, so churn in inherited files is fine.
+		- 20261005: c17, not gnu17. Nothing in the tree needs a GNU language extension. Strict c17 hides the POSIX and BSD calls glibc gives by default, so the build asks for them back with `_DEFAULT_SOURCE`, in one place. On Windows the only gap was `M_PI`, now `G_PI`.
+		- 20261005: vendored code builds at `-Wall` in its own target (blake3, libegg), so it stays as it came. SHCL is header-only and builds clean at `-Wextra`, so it has no exemption.
+		- 20261005: an unused parameter gets `G_GNUC_UNUSED` in front of its type, the form GLib documents. Existing `(void) x;` lines stay. A test `main` that ignores both arguments is `main (void)`.
+		- 20261005: a build dir set up before this keeps its old std and warning level on reconfigure, so meson stops and asks for `meson setup --wipe` once.
+		- 20261005: the settings table stays positional, with the flags written out at the end of each row, since `lint-pref-handlers.py` reads the rows by position.
+		- 20261005: warnings are errors in every pipeline build and not by default. The gate and debug build, the sanitizer and fuzz lanes, the cross build, the release build and the native Windows gate pass `-Dwerror=true`. A plain `meson setup` and the hosted Windows release build leave it off, since both can meet a compiler newer than any here. The release image's older gcc is clean too, so its build has it on.
+		- 20261005: each of those lanes reads `-Werror` back out of the build dir after setup and stops if it is missing, so a reused dir or a lane that lost the flag cannot quietly build without it.
+		- 20261005: vendored code keeps building at `-Wall`, and its warnings are never fatal. Only an edit to the vendored file could fix one.
+		- 20261005: who frees a result is written in GLib's own form, the one the inherited code already used: a `Returns: (transfer full)` line, or `none`, `container` or `floating`, above the definition, with the free function where it is not plain `g_free`. A doc comment that already had a Returns line gets the annotation added to it; anything else gets a one-line comment. The schemes stay as they were: objects by refcount, and strings, lists and structs freed by the caller with the function the line names. No arena was added.
+		- 20261005: the scope is every function a first-party header declares that returns a pointer, a reference the caller must not free included. Static helpers and vendored code are left out. A returned `GdkAtom` is not counted, since it is never freed.
+		- 20261005: the ownership check reads the source as text rather than through the compiler, so both sides of every `#if` are checked on any platform. A definition counts when it starts in column 0, and its comment when it ends on the line above, or one blank line above.
+	- Branch: wextra1, wextra2, wextra3, wextra4
+	- Commit: df8a8a5, a0e0ed6, e316e67, 459d24c, f8aff1f, 6d67e06, ff68a3f, a87b584, b15b7c1
+	- Test case: the `-Werror` build in every pipeline lane; a warning put back in a source file fails the gate build. rjh7qnxw checks each lane passes and reads back `-Dwerror=true` and that the defaults do not. rjcpvcyb also checks the release dir comes out with it. rjh9pts1, the ownership check's self-test over made-up files; the check then runs over the whole tree in the lint stage, and a missing line fails it.
+
+- Demo gif: show best features first.
+	- ID: 2026100219523841
+	- Type: Enhancement
+	- Status: Done
+	- Opened: 20261002-195238
+	- Opened by: t00mietum
+	- Requirements:
+		- Show best features first, e.g.
+			- Native compression features
+			- Full Windows .lnk support in Linux and macOS
+			- Relative link creation
+			- Copy allows link-handling options
+			- Advanced automatic column sizing logic
+			- Optional striped rows (turn on instantly, don't bother with menu)
+	- Progress log:
+		- 20261005-130500: the scenes now run best first. Compress, then a Windows shortcut made and opened, a relative symlink, the question a link copy asks, column sizing, and striped rows. Picture folders and grouped search follow. The gif's scenes run about 61 s, under the 66 s cap. The new gif is `assets/demo.gif`.
+		- Left out for time: F3's second pane, which upstream already had, the tree beside Places, and the drag that asks before a move.
+	- Decisions:
+		- Calls made without asking, for signoff. Column sizing is shown by dragging the window corner in and back out. The link is copied into its own folder, with Copy content picked. Striped rows come on through the settings file, with no menu.
+		- 20261005: the demo keeps writing its whole settings file, dropping lines the app saved there. It is the demo's own home, never the user's, and the Bookmarks fix took away the one effect it had on the demo.
+	- Branch: demofirst
+	- Commit: 6cf53de
+	- Test case: none, demo content. `cicd/utility/lint-demo-script.py` checks the script.
+	- Verified: the lint stage passes, the demo lint included. In the new gif and video each scene does what its caption says.
+	- Note: once the settings file changes, an empty Bookmarks heading shows up in the sidebar, so it appears from the striped rows scene on. Fixed by 2026100513114683.
+	- Acceptance signoff: looks good, 20261005.
+	- Closed: 20261005-160000
 
 - Code review 20260928 item 36. Drawing can wait up to 3 s on the file cache.
 	- ID: 2026092813381436
