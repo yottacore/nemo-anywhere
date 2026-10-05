@@ -197,13 +197,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Code review 20260928 item 41. Fuzz the shortcut editing code.
 	- ID: 2026092813381441
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
 	- Requirements:
 		- The fuzz target covers only the shortcut reader. Setting paths in a shortcut parses the same untrusted bytes with its own code.
-	- Test case: the new fuzz target.
+	- Done: a new fuzz target puts three sets of paths in each input: same drive with all three paths, a share path alone, and a relative path alone. An edit that works must read back with the new paths and the old name, Start in, arguments and icon. An edit that is refused must leave the file as it was. The item ID list going is a known gap and is not checked.
+	- Found: a UTF-16 string in the shortcut that would not convert, such as one with half a surrogate pair, was dropped while its flag stayed. Every string and block after it then read out of place, so the edited shortcut lost its portable path. Kept UTF-16 strings now go back byte for byte.
+	- Note: the fuzz stage puts its temp files on tmpfs. The new target writes a file per input, and on disk it ran far too slowly to find anything.
+	- Swept: setting paths is the only code that writes back strings read from a shortcut, on every platform. The reader keeps a string that will not convert as none and reads on. A new shortcut is written from strings it builds itself.
+	- Branch: lnkfuzz
+	- Commit: 5b04f83 (target), 5134a9d (fix)
+	- Test case: rjfa5fnh (fuzz stage) and rjfa5fmh (seed replay in the suite). The `lone-surrogate` seed pins the fix.
+	- Verified: rjfa5fmh fails on the old writer and passes now. The new target ran five minutes clean. Linux suite 168 of 168, the fuzz exit check, lint and the Windows cross build are clean.
+	- Acceptance signoff: Self-closed: the fuzz target is the test, and its seed pins the writer fix.
+	- Closed: 20261004-174202
 
 - A thumbnail already being made runs to the end after its folder is left.
 	- ID: 2026093013002529
