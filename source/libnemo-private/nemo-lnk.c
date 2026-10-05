@@ -1952,6 +1952,50 @@ put_counted (GByteArray *out, const char *text)
 	return TRUE;
 }
 
+/* Steps past one counted string, and notes where it starts. */
+static gboolean
+skip_string (const guint8 *bytes, gsize length, gsize *pos, gboolean unicode, gsize *at)
+{
+	gsize need;
+
+	if (*pos + 2 > length) {
+		return FALSE;
+	}
+	need = get_u16 (bytes + *pos);
+	if (unicode) {
+		need *= 2;
+	}
+	if (need > length - *pos - 2) {
+		return FALSE;
+	}
+	*at = *pos;
+	*pos += 2 + need;
+
+	return TRUE;
+}
+
+/* A string kept from the old file. UTF-16 goes back byte for byte: Windows
+   does not check it, and one that will not convert still has to fill its
+   place, or every string after it reads one along. */
+static gboolean
+put_kept (GByteArray *out, const guint8 *bytes, gsize at, gboolean unicode)
+{
+	guint16 count = get_u16 (bytes + at);
+	char *text;
+	gboolean ok;
+
+	if (unicode) {
+		g_byte_array_append (out, bytes + at, 2 + 2 * (guint) count);
+		return TRUE;
+	}
+
+	text = ansi_to_utf8 (bytes + at + 2, count);
+	ok = put_counted (out, text != NULL ? text : "");
+	g_free (text);
+
+	return ok;
+}
+
 /* The drive letter a Windows path starts with, or 0. */
 static char
 drive_letter (const char *path)
@@ -1975,7 +2019,7 @@ nemo_lnk_set_paths (const char  *lnk_path,
 	gsize length, pos;
 	guint32 flags, new_flags;
 	gboolean unicode, ok = FALSE;
-	char *name = NULL, *old_relative = NULL, *working_dir = NULL, *arguments = NULL, *icon = NULL;
+	gsize name_at = 0, old_relative_at = 0, working_dir_at = 0, arguments_at = 0, icon_at = 0;
 	char *relative_windows = NULL;
 	GByteArray *out = NULL;
 	NemoLnk old = { 0 };
@@ -2017,11 +2061,11 @@ nemo_lnk_set_paths (const char  *lnk_path,
 	flags = get_u32 (bytes + 20);
 	unicode = (flags & FLAG_IS_UNICODE) != 0;
 	if (!strings_start (bytes, length, &pos) ||
-	    ((flags & FLAG_HAS_NAME) && !read_string (bytes, length, &pos, unicode, &name)) ||
-	    ((flags & FLAG_HAS_RELATIVE_PATH) && !read_string (bytes, length, &pos, unicode, &old_relative)) ||
-	    ((flags & FLAG_HAS_WORKING_DIR) && !read_string (bytes, length, &pos, unicode, &working_dir)) ||
-	    ((flags & FLAG_HAS_ARGUMENTS) && !read_string (bytes, length, &pos, unicode, &arguments)) ||
-	    ((flags & FLAG_HAS_ICON_LOCATION) && !read_string (bytes, length, &pos, unicode, &icon))) {
+	    ((flags & FLAG_HAS_NAME) && !skip_string (bytes, length, &pos, unicode, &name_at)) ||
+	    ((flags & FLAG_HAS_RELATIVE_PATH) && !skip_string (bytes, length, &pos, unicode, &old_relative_at)) ||
+	    ((flags & FLAG_HAS_WORKING_DIR) && !skip_string (bytes, length, &pos, unicode, &working_dir_at)) ||
+	    ((flags & FLAG_HAS_ARGUMENTS) && !skip_string (bytes, length, &pos, unicode, &arguments_at)) ||
+	    ((flags & FLAG_HAS_ICON_LOCATION) && !skip_string (bytes, length, &pos, unicode, &icon_at))) {
 		g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
 			     _("\"%s\" is not a shortcut."), lnk_path);
 		goto out;
@@ -2078,11 +2122,11 @@ nemo_lnk_set_paths (const char  *lnk_path,
 	if (relative != NULL) {
 		relative_windows = to_backslashes (relative);
 	}
-	if ((name != NULL && !put_counted (out, name)) ||
+	if (((flags & FLAG_HAS_NAME) && !put_kept (out, bytes, name_at, unicode)) ||
 	    (relative != NULL && !put_counted (out, relative_windows)) ||
-	    (working_dir != NULL && !put_counted (out, working_dir)) ||
-	    (arguments != NULL && !put_counted (out, arguments)) ||
-	    (icon != NULL && !put_counted (out, icon))) {
+	    ((flags & FLAG_HAS_WORKING_DIR) && !put_kept (out, bytes, working_dir_at, unicode)) ||
+	    ((flags & FLAG_HAS_ARGUMENTS) && !put_kept (out, bytes, arguments_at, unicode)) ||
+	    ((flags & FLAG_HAS_ICON_LOCATION) && !put_kept (out, bytes, icon_at, unicode))) {
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
 				     _("A path is too long for a shortcut."));
 		goto out;
@@ -2115,11 +2159,6 @@ nemo_lnk_set_paths (const char  *lnk_path,
 		g_byte_array_unref (out);
 	}
 	g_free (relative_windows);
-	g_free (name);
-	g_free (old_relative);
-	g_free (working_dir);
-	g_free (arguments);
-	g_free (icon);
 	g_free (contents);
 
 	return ok;

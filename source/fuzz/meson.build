@@ -231,6 +231,7 @@ fuzzLnkEditCorpus = files(
   'corpus/lnk-edit/network-args',
   'corpus/lnk-edit/block-too-big',
   'corpus/lnk-edit/no-link-info',
+  'corpus/lnk-edit/lone-surrogate',
 )
 
 # Under -Dfuzzing there is no main to hand a file list to; the targets are
