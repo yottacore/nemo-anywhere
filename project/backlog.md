@@ -190,6 +190,27 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
 
+- The Linux release build runs its link-time step on one core, with a warning every build.
+	- ID: 2026100514300212
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261005-143002
+	- Opened by: backlog round 20261005
+	- Related IDs: 2026092813381434, 2026100316321188
+	- Target OS: Linux.
+	- Incorrect behavior: each release build prints "lto-wrapper: warning: using serial compilation of 9 LTRANS jobs".
+	- Expected behavior: no warning, and the link uses the cores it was given.
+	- Reproduced: yes, 20261005, on every release build.
+	- Actual cause: two things. The release image had no `make`, which gcc runs those jobs through. And the image's meson 0.61 gives the thread count to the compile only, so the link got a bare `-flto`, which gcc 11 runs on one core even with `make` there.
+	- Actual fix: `make` added to the release image and its Dockerfile, from the same pinned packages. The release setup passes `-flto=4` to the link too, and stops if any link with link-time optimization is missing it.
+	- Note: the image was saved again with only `make` added, and the release container made again from it.
+	- Branch: jammymake
+	- Test case: rjcpvcyb, through the release setup it runs, which now checks every link line.
+	- Verified: the release tarball is the same bytes before and after, built from the same commit. No warning in the build. The new check fails with the link flag taken out and passes with it. rjcpvcyb passes.
+	- Acceptance signoff: Self-closed: a build lane fix with nothing on screen.
+	- Closed: 20261005-143002
+
 - Demo gif: show best features first.
 	- ID: 2026100219523841
 	- Type: Enhancement

@@ -10,6 +10,8 @@
 # runtime is not bundled on Linux), so the GTK version here is the floor too:
 # 3.24.33, and every 3.24.x since is compatible.
 #
+# make is there for gcc's link-time step, which runs its jobs through it.
+#
 # Source tree is mounted at /src (like nemo-build); builds go to /build-release.
 #
 # Pinned, so a box that has to build this image gets the same compiler and
@@ -29,7 +31,7 @@ RUN sed -i -E 's#http://(archive|security)\.ubuntu\.com/ubuntu/?#https://snapsho
 	&& apt-get -o Acquire::https::Verify-Peer=false update \
 	&& apt-get -o Acquire::https::Verify-Peer=false install -y --no-install-recommends ca-certificates \
 	&& apt-get update && apt-get install -y --no-install-recommends \
-		meson ninja-build gcc pkg-config gettext intltool itstool \
+		meson ninja-build gcc make pkg-config gettext intltool itstool \
 		gobject-introspection libgirepository1.0-dev python3-gi \
 		libgtk-3-dev libglib2.0-dev libglib2.0-bin libglib2.0-dev-bin \
 		libpango1.0-dev libatk1.0-dev libgail-3-dev \
