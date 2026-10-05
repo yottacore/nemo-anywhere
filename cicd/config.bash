@@ -185,6 +185,9 @@ RELEASE_COLLECT=0
 ## for each, downloads its release-files artifact and makes the release with those
 ## files and its own in one go. A hosted build never makes or edits a release.
 RELEASE_WORKFLOWS=(release-win.yml)
+## The account releases are published as. --publish refuses to run when gh is
+## signed in as anyone else. Empty skips the check.
+RELEASE_GH_LOGIN="t00mietum"
 VERSION_MANIFEST="source/meson.build"
 #	Rust-era original (reference only):
 #	RELEASE_ARTIFACT_DIR="cicd/artifacts/release"

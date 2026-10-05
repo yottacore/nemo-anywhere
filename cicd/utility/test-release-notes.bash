@@ -253,6 +253,8 @@ case "${1:-} ${2:-}" in
 		cp "${d}/artifact/"* "$dir/" ;;
 	"repo view")
 		echo "${FAKE_BASE%/releases/download/*}" ;;
+	"api user")
+		echo "${FAKE_LOGIN}" ;;
 	*) echo "stand-in gh: not handled: $*" >&2; exit 1 ;;
 esac
 EOF
@@ -363,6 +365,18 @@ fWantRelease(){
 	fWant "$got" "${1}, Linux in the sums file" "  ${app}-linux-x86_64.tar.gz"
 	fWant "$got" "${1}, zip in the sums file" "  ${winZip}"
 }
+
+## gh signed in as another account: refused before the tag is made.
+login="$(sed -n 's/^RELEASE_GH_LOGIN="\(.*\)"$/\1/p' "${repo}/cicd/config.bash")"
+[[ -n "$login" ]] || fFail "no RELEASE_GH_LOGIN in config.bash"
+fHosted "completed success"
+if FAKE_LOGIN=someone-else fCut; then fFail "other gh account: release.bash said OK"
+else
+	fWant "$out" "other gh account: refused" "signed in as 'someone-else'"
+	if fGit rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then fFail "other gh account: the tag was made"; else fEcho "OK: other gh account: no tag"; fi
+	if grep -q -E '^(release|run) ' "${fakeDir}/log"; then fFail "other gh account: gh went on past the check"; else fEcho "OK: other gh account: nothing else asked"; fi
+fi
+export FAKE_LOGIN="$login"
 
 ## The hosted build is still running when the cut looks, then passes.
 fHosted "in_progress " "in_progress " "completed success"

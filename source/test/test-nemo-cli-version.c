@@ -2,8 +2,9 @@
  * all. They used to fail with "Cannot open display" before the flag was read.
  * Both lead with "nemo-anywhere v<version> build <build number>", and the build
  * number is worked out by build-number.py, which is run here on fixed times.
- * Takes the path to nemo-anywhere, the project version, the path to
- * build-number.py and a python to run it with. */
+ * The option parse is checked here too, since it runs before any window.
+ * Takes the path to nemo-anywhere, the project version, and optionally the
+ * path to build-number.py and a python to run it with. */
 
 #include <config.h>
 
@@ -144,16 +145,54 @@ check_prints (const char *program, const char *flag, const char *version)
 	g_strfreev (envp);
 }
 
+/* An option that takes a value is read with it, and one that is not known
+   stops the run. --version keeps the display closed in both. */
+static void
+check_parse (const char *program, const char *flag, gboolean want_ok)
+{
+	const char *argv[] = { program, flag, "--version", NULL };
+	char *out = NULL, *err = NULL;
+	int status = -1;
+	int before = failures;
+	GError *error = NULL;
+
+	check (g_spawn_sync (NULL, (char **) argv, NULL, G_SPAWN_DEFAULT, NULL, NULL,
+			     &out, &err, &status, &error));
+	if (error != NULL) {
+		g_printerr ("%s: %s\n", flag, error->message);
+		g_clear_error (&error);
+	} else if (want_ok) {
+		check (g_spawn_check_wait_status (status, NULL));
+		check (strstr (out, "nemo-anywhere v") != NULL);
+	} else {
+		check (!g_spawn_check_wait_status (status, NULL));
+		check (strstr (out, "nemo-anywhere v") == NULL);
+		check (strstr (err, "Could not parse arguments") != NULL);
+	}
+	if (failures > before) {
+		g_printerr ("%s: out [%s] err [%s]\n", flag, out, err);
+	}
+
+	g_free (out);
+	g_free (err);
+}
+
 int
 main (int argc, char *argv[])
 {
-	if (argc < 5) {
-		g_printerr ("usage: %s <path to nemo-anywhere> <version> <build-number.py> <python>\n", argv[0]);
+	if (argc < 3) {
+		g_printerr ("usage: %s <path to nemo-anywhere> <version> [<build-number.py> <python>]\n", argv[0]);
 		return 77;
 	}
 
 	check_prints (argv[1], "--version", argv[2]);
 	check_prints (argv[1], "--about", argv[2]);
+	check_parse (argv[1], "--geometry=600x400+10+10", TRUE);
+	check_parse (argv[1], "--no-such-option", FALSE);
+
+	if (argc < 5) {
+		goto done;
+	}
 
 	/* Minutes since 2000, rounded to the nearest, in the digits above. */
 	check_build_number (argv[4], argv[3], EPOCH_2000, "0");
@@ -165,6 +204,7 @@ main (int argc, char *argv[])
 	/* 2026-08-27 00:00 UTC, the day the number was first shown. */
 	check_build_number (argv[4], argv[3], 1787788800, "dbsv0");
 
+done:
 	if (failures > 0) {
 		g_printerr ("%d failure(s)\n", failures);
 		return EXIT_FAILURE;

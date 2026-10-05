@@ -33,107 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- Release page: group the downloads in a table.
-	- ID: 2026100413051728
-	- Type: Feature
-	- Status: Waiting on signoff
-	- Needs external testing: the next real release tag, and the release page looked at then.
-	- Opened: 20261004-130517
-	- Opened by: t00mietum
-	- Requirements:
-		- When a release is made, its downloads are grouped in a table.
-		- CPU architecture in columns, and target OS in rows.
-	- Decisions:
-		- A row or column shows only when something was built for it. A combination not built is an empty cell. A call made without asking.
-		- A cell links each file of that build, such as tar.gz, deb and rpm. Checksums, and files that name no OS and CPU, go in a line under the table. A call made without asking.
-		- The table goes after the changelog section and before the build number.
-	- Against: design.md said a version with no changelog section falls back to generated notes. Both lanes now write one line pointing at the changelog, as the local cut already did. design.md says so now.
-	- Done: both release lanes write the notes through one script, once their own uploads are done, from the files the release holds. So the table is whole whichever lane finishes last. The Windows build's notes keep the build number now too.
-	- Note: since `2026100415281302`, only the local cut writes the notes. It writes the table before the upload, from the names the files will have.
-	- Swept: every place release notes are written: `release.bash`, and the notes and publish steps in `release-win.yml`. `changelog-notes.bash` is still the one reader of the changelog.
-	- Branch: relnotes
-	- Commit: 4e5127f
-	- Test case: rjf2v5d5 (`test-release-notes.bash`, lint stage).
-	- Verified: rjf2v5d5 passes, and the lint stage is clean.
-
-- If the Windows release workflow makes the release before the local cut does, the local cut fails.
-	- ID: 2026100415281302
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: the next real release tag. The cut should wait for the Windows build, then put up one release with every file.
-	- Priority|Severity: Low
-	- Opened: 20261004-152813
-	- Opened by: work on 2026100413051728
-	- Related IDs: 2026100413051728
-	- Incorrect behavior: `release.bash` pushes the tag, then runs `gh release create`. The tag starts the Windows workflow, which makes the release itself when none is there yet. If the local step runs late, its create fails.
-	- Expected behavior: only the local cut makes a release. Hosted builds only build, and hand their files back to it, so the release goes up whole in one step. The same holds for any later BSD, macOS or ARM build done elsewhere.
-		- Answered 2026-10-04, replacing the first fix, where whichever side came second added to the other's release.
-	- Reproduced: yes. The new cases in rjf2v5d5 fail on the old `release.bash`, where the create is refused because the release is there.
-	- Decisions:
-		- If a hosted build fails, no release is made. Run `release.bash --publish` again once it passes; it picks up from the pushed tag. A call made without asking.
-		- A release already there for the tag is refused, never added to. A call made without asking.
-	- Actual fix: `release-win.yml` only builds, and hands back the exe as a `release-files` artifact under its release name. `release.bash --publish` waits for each hosted build in `RELEASE_WORKFLOWS`, downloads its files, adds their lines to the one sums file, writes the notes with the Downloads table, and makes the release with every file in one `gh release create`.
-	- Swept: every `gh release` call. None are left in the workflow. design.md and `cicd/win/signing.md` say the workflow no longer publishes.
-	- Branch: relrace, then relone
-	- Commit: 24de39d, 3cfa988
-	- Test case: rjf2v5d5 (`test-release-notes.bash`, lint stage): a hosted build still running, one that fails and is rerun, a release already there, and a misnamed hosted file.
-	- Verified: rjf2v5d5 fails on the old `release.bash` and workflow and passes now.
-
-- A thumbnail already being made runs to the end after its folder is left.
-	- ID: 2026093013002529
-	- Type: Enhancement
-	- Status: Waiting for testing
-	- Needs local test suite run?: no. The full Linux suite passed 169 of 169 on 20261004, on thumbstop.
-	- Needs external testing: rjffcm7d natively on Windows. Its ImageMagick case checks that a `magick.exe` nothing wants any more is ended and its thread freed. It passes under wine, which says little about how Windows ends a program.
-	- Opened: 20260930-130025
-	- Opened by: review of code review 20260928 item 10
-	- Related IDs: 2026092813381410
-	- Requirements:
-		- Leaving a folder drops its queued thumbnails, but one a thread has started is finished. A 42 MB Photoshop file of 30000 by 30000 took about 11 s of a thread. The readers and the thumbnail factory take no cancel from the thread.
-		- Stop a started thumbnail once nothing wants it, for every reader.
-	- Decisions:
-		- Nothing wants a thumbnail once its file is let go, the same moment a queued one is dropped. A bigger size asked for while a smaller one is made still lets the smaller one finish, as item 2026092813381401 settled. A call made without asking.
-		- Quitting stops every started thumbnail too, since quit waits for the threads. A call made without asking.
-		- A stopped thumbnail stores nothing, not even a failure, so the file is tried again the next time it is shown.
-	- Done: each started thumbnail has its own cancel, set when its file is let go or the app quits. The thumbnail factory hands it to every reader. The Photoshop and camera raw readers check it between reads and between rows. The gdk-pixbuf path feeds its loader a piece at a time and checks between pieces. A thumbnailer program or ImageMagick is ended, the same way the 30 s timeout ends one. The checksum read before a thumbnail takes the same cancel.
-	- Note: one reader can't be stopped all the way. A gdk-pixbuf loader that only decodes once it has the whole file, such as TIFF, still finishes that decode. gdk-pixbuf has no cancel for it. Reading the file stops, and JPEG and PNG decode as they read, so they stop.
-	- Note: ending a thumbnailer program ends only that program. One that starts others of its own leaves them running, as the timeout already did.
-	- Note: ImageMagick runs through GLib's process calls on every platform, as the archive tools do, and is ended through them. `nemo-launch-win32.c` starts what the user opens and keeps no hold on it, so the stop does not go through there.
-	- Swept: every reader the thumbnail factory calls: thumbnailer programs, gdk-pixbuf, Photoshop, camera raw and ImageMagick. Reading back a stored thumbnail is small and left alone. Every caller of the changed calls: the thumbnail queue, and the Photoshop, camera raw and ImageMagick tests.
-	- Branch: thumbstop
-	- Commit: 2f6ba48
-	- Test case: rjffcm7d (`test-nemo-thumbnail-stop`). A 42 MB Photoshop file of 30000 by 30000, dropped partway on the only thread, frees it within 3 s, and nothing is stored for it. A thumbnailer program, a stand-in ImageMagick and a slow gdk-pixbuf read are each stopped within 3 s, and the programs are gone. `test-nemo-psd` has a stopped read too. The gdk-pixbuf case is POSIX only.
-	- Verified: rjffcm7d fails with started thumbnails left to run: the next picture came 14 s after the drop, and the dropped one was stored. It also fails with a stopped one stored as a failure, and with each reader's stop taken out. It passes now. The Windows cross build and lint are clean, and rjffcm7d passes under wine.
-
-- Code review 20260928 item 35. Add a sanitizer build of the test suite to the pipeline.
-	- ID: 2026092813381435
-	- Type: Enhancement
-	- Status: Waiting for testing
-	- Needs local test suite run?: one full `cicd.bash` run, to see the stage in its place. Its command ran on its own, and the help test passes.
-	- Needs external testing: one Windows launch with a folder and an option on the command line, since the option parse changed. The cross build is clean.
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Requirements:
-		- Directive dated 20260919: ASan and UBSan on the test build.
-		- Items 23, 32 and 33 came from one such run. A leak pass needs a suppressions file for GTK's own.
-	- Decisions:
-		- Stage 3, after fuzzing, on full runs only. Not in `--quick` or the gate. `--no-sanitize` skips it. The flag name was confirmed.
-		- Short stacks. Full ones slowed the GUI tests past their own limits, two runs out of two. A call made without asking.
-		- GTK animations are off in that run, since GTK 3.24.49 leaks a value on each CSS transition and only GTK's code is on that path. A call made without asking.
-		- The leak tests and the allocations test skip there by themselves (exit 77), since they find the heap unreadable. No lane-level exclusion.
-	- Done: `cicd/linux/test-sanitizers.bash` builds the suite with both sanitizers in its own build dir and runs it through `run-tests.bash`, leak checks on. Any report fails the test. `cicd/linux/sanitizers.supp` lists fontconfig and Mesa by library.
-	- Fixed, found by the first runs:
-		- Every option parsed from the command line leaked, since the parse left them out of the list the application frees.
-		- A closed tab or window kept its location, and its scroll target when it closed before loading finished. The pending scroll target was also replaced without being freed.
-		- The application never freed its undo manager, and the places pane never freed its menu manager.
-		- Test side: scratch paths and a folder in five tests, and the crash test now leaves its deliberate faults to the reporter under the sanitizers.
-	- Swept: every place `pending_scroll_to` is set (one other, after the old location change is ended) and the slot's dispose. Other option parses in `source/`: none.
-	- Branch: asan
-	- Commit: 81d03ad, 8c89061
-	- Test case: rjfgk2mp (`cicd/linux/test-sanitizers.bash`, the lane itself).
-	- Verified: the lane fails on a heap overflow, a leak and a signed overflow in a test, and passes on this branch with 157 OK and 12 skipped. Linux suite 169 of 169, lint clean, Windows cross build clean.
-
 - Code review 20260928.
 	- ID: 2026092813381400
 	- Type: Task
@@ -1952,6 +1851,51 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: test-only fix, red and green both ways.
 	- Closed: 20261003-172400
 
+- If the Windows release workflow makes the release before the local cut does, the local cut fails.
+	- ID: 2026100415281302
+	- Type: Bug
+	- Status: Done
+	- Needs external testing: the next real release tag. The cut should wait for the Windows build, then put up one release with every file.
+	- Priority|Severity: Low
+	- Opened: 20261004-152813
+	- Opened by: work on 2026100413051728
+	- Related IDs: 2026100413051728
+	- Incorrect behavior: `release.bash` pushes the tag, then runs `gh release create`. The tag starts the Windows workflow, which makes the release itself when none is there yet. If the local step runs late, its create fails.
+	- Expected behavior: only the local cut makes a release. Hosted builds only build, and hand their files back to it, so the release goes up whole in one step. The same holds for any later BSD, macOS or ARM build done elsewhere.
+		- Answered 2026-10-04, replacing the first fix, where whichever side came second added to the other's release.
+	- Reproduced: yes. The new cases in rjf2v5d5 fail on the old `release.bash`, where the create is refused because the release is there.
+	- Decisions:
+		- If a hosted build fails, no release is made. Run `release.bash --publish` again once it passes; it picks up from the pushed tag. A call made without asking.
+		- A release already there for the tag is refused, never added to. A call made without asking.
+	- Actual fix: `release-win.yml` only builds, and hands back the exe as a `release-files` artifact under its release name. `release.bash --publish` waits for each hosted build in `RELEASE_WORKFLOWS`, downloads its files, adds their lines to the one sums file, writes the notes with the Downloads table, and makes the release with every file in one `gh release create`.
+	- Swept: every `gh release` call. None are left in the workflow. design.md and `cicd/win/signing.md` say the workflow no longer publishes.
+	- Branch: relrace, then relone
+	- Commit: 24de39d, 3cfa988
+	- Test case: rjf2v5d5 (`test-release-notes.bash`, lint stage): a hosted build still running, one that fails and is rerun, a release already there, and a misnamed hosted file.
+	- Verified: rjf2v5d5 fails on the old `release.bash` and workflow and passes now.
+	- Verified: 20261005, every gh call and option the cut uses is in gh 2.96, and the workflow's artifact and file names match what the cut waits for.
+	- Note: the cut now also stops before the tag when gh is signed in as another account (2026100507520726).
+	- Acceptance signoff: Self-closed: only a real tag runs it end to end, which is hard to set up by hand. rjf2v5d5 covers a build still running, a failed one, a release already there and a misnamed file.
+	- Closed: 20261005-075207
+
+- Release: the cut could publish under whichever account gh is signed in as.
+	- ID: 2026100507520726
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261005-075207
+	- Opened by: work on 2026100415281302
+	- Related IDs: 2026100415281302
+	- Incorrect behavior: `release.bash --publish` runs gh as whoever is signed in. On a box with more than one account that can be the wrong one, and the release is made in that name.
+	- Expected behavior: the cut stops before the tag when gh is signed in as anyone but the account the project publishes under.
+	- Reproduced: yes. The new case in rjf2v5d5 fails with the check taken out.
+	- Actual fix: when publishing, `release.bash` asks gh who it is before the tag, and stops with how to switch. `RELEASE_GH_LOGIN` in config.bash names the account. Empty skips the check.
+	- Branch: closeout2
+	- Commit: 852303f
+	- Test case: rjf2v5d5 (`test-release-notes.bash`, lint stage).
+	- Acceptance signoff: Self-closed: reproduced, red without the check and green with it, and nothing on screen.
+	- Closed: 20261005-075207
+
 - A stopped 7z made without the 7-Zip program takes as long to end as the rest of the file would have taken.
 	- ID: 2026100308563234
 	- Type: Enhancement
@@ -2184,6 +2128,95 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: mechanical.
 	- Closed: 20261004-132748
 
+- Release page: group the downloads in a table.
+	- ID: 2026100413051728
+	- Type: Feature
+	- Status: Done
+	- Needs external testing: the next real release tag, and the release page looked at then.
+	- Opened: 20261004-130517
+	- Opened by: t00mietum
+	- Requirements:
+		- When a release is made, its downloads are grouped in a table.
+		- CPU architecture in columns, and target OS in rows.
+	- Decisions:
+		- A row or column shows only when something was built for it. A combination not built is an empty cell. A call made without asking.
+		- A cell links each file of that build, such as tar.gz, deb and rpm. Checksums, and files that name no OS and CPU, go in a line under the table. A call made without asking.
+		- The table goes after the changelog section and before the build number.
+	- Against: design.md said a version with no changelog section falls back to generated notes. Both lanes now write one line pointing at the changelog, as the local cut already did. design.md says so now.
+	- Done: both release lanes write the notes through one script, once their own uploads are done, from the files the release holds. So the table is whole whichever lane finishes last. The Windows build's notes keep the build number now too.
+	- Note: since `2026100415281302`, only the local cut writes the notes. It writes the table before the upload, from the names the files will have.
+	- Swept: every place release notes are written: `release.bash`, and the notes and publish steps in `release-win.yml`. `changelog-notes.bash` is still the one reader of the changelog.
+	- Branch: relnotes
+	- Commit: 4e5127f
+	- Test case: rjf2v5d5 (`test-release-notes.bash`, lint stage).
+	- Verified: rjf2v5d5 passes, and the lint stage is clean.
+	- Verified: 20261005, notes made from the beta2 file names show the table as intended, with the checksums line under it.
+	- Acceptance signoff: Self-closed: the release page can only be seen at a real tag, which is hard to set up by hand. rjf2v5d5 covers the table, and there is nothing on it to judge by eye.
+	- Closed: 20261005-075207
+
+- A thumbnail already being made runs to the end after its folder is left.
+	- ID: 2026093013002529
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 169 of 169 on 20261004, on thumbstop.
+	- Needs external testing: rjffcm7d natively on Windows. Its ImageMagick case checks that a `magick.exe` nothing wants any more is ended and its thread freed. It passes under wine, which says little about how Windows ends a program.
+	- Opened: 20260930-130025
+	- Opened by: review of code review 20260928 item 10
+	- Related IDs: 2026092813381410
+	- Requirements:
+		- Leaving a folder drops its queued thumbnails, but one a thread has started is finished. A 42 MB Photoshop file of 30000 by 30000 took about 11 s of a thread. The readers and the thumbnail factory take no cancel from the thread.
+		- Stop a started thumbnail once nothing wants it, for every reader.
+	- Decisions:
+		- Nothing wants a thumbnail once its file is let go, the same moment a queued one is dropped. A bigger size asked for while a smaller one is made still lets the smaller one finish, as item 2026092813381401 settled. A call made without asking.
+		- Quitting stops every started thumbnail too, since quit waits for the threads. A call made without asking.
+		- A stopped thumbnail stores nothing, not even a failure, so the file is tried again the next time it is shown.
+	- Done: each started thumbnail has its own cancel, set when its file is let go or the app quits. The thumbnail factory hands it to every reader. The Photoshop and camera raw readers check it between reads and between rows. The gdk-pixbuf path feeds its loader a piece at a time and checks between pieces. A thumbnailer program or ImageMagick is ended, the same way the 30 s timeout ends one. The checksum read before a thumbnail takes the same cancel.
+	- Note: one reader can't be stopped all the way. A gdk-pixbuf loader that only decodes once it has the whole file, such as TIFF, still finishes that decode. gdk-pixbuf has no cancel for it. Reading the file stops, and JPEG and PNG decode as they read, so they stop.
+	- Note: ending a thumbnailer program ends only that program. One that starts others of its own leaves them running, as the timeout already did.
+	- Note: ImageMagick runs through GLib's process calls on every platform, as the archive tools do, and is ended through them. `nemo-launch-win32.c` starts what the user opens and keeps no hold on it, so the stop does not go through there.
+	- Swept: every reader the thumbnail factory calls: thumbnailer programs, gdk-pixbuf, Photoshop, camera raw and ImageMagick. Reading back a stored thumbnail is small and left alone. Every caller of the changed calls: the thumbnail queue, and the Photoshop, camera raw and ImageMagick tests.
+	- Branch: thumbstop
+	- Commit: 2f6ba48
+	- Test case: rjffcm7d (`test-nemo-thumbnail-stop`). A 42 MB Photoshop file of 30000 by 30000, dropped partway on the only thread, frees it within 3 s, and nothing is stored for it. A thumbnailer program, a stand-in ImageMagick and a slow gdk-pixbuf read are each stopped within 3 s, and the programs are gone. `test-nemo-psd` has a stopped read too. The gdk-pixbuf case is POSIX only.
+	- Verified: rjffcm7d fails with started thumbnails left to run: the next picture came 14 s after the drop, and the dropped one was stored. It also fails with a stopped one stored as a failure, and with each reader's stop taken out. It passes now. The Windows cross build and lint are clean, and rjffcm7d passes under wine.
+	- Verified: 20261005, rjffcm7d passes natively on b29w in the full native suite, 141 OK and 0 failed.
+	- Acceptance signoff: Self-closed: a thread freed early can't be seen on screen. rjffcm7d covers it on Linux and natively on Windows.
+	- Closed: 20261005-075207
+
+- Code review 20260928 item 35. Add a sanitizer build of the test suite to the pipeline.
+	- ID: 2026092813381435
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: one full `cicd.bash` run, to see the stage in its place. Its command ran on its own, and the help test passes.
+	- Needs external testing: one Windows launch with a folder and an option on the command line, since the option parse changed. The cross build is clean.
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Requirements:
+		- Directive dated 20260919: ASan and UBSan on the test build.
+		- Items 23, 32 and 33 came from one such run. A leak pass needs a suppressions file for GTK's own.
+	- Decisions:
+		- Stage 3, after fuzzing, on full runs only. Not in `--quick` or the gate. `--no-sanitize` skips it. The flag name was confirmed.
+		- Short stacks. Full ones slowed the GUI tests past their own limits, two runs out of two. A call made without asking.
+		- GTK animations are off in that run, since GTK 3.24.49 leaks a value on each CSS transition and only GTK's code is on that path. A call made without asking.
+		- The leak tests and the allocations test skip there by themselves (exit 77), since they find the heap unreadable. No lane-level exclusion.
+	- Done: `cicd/linux/test-sanitizers.bash` builds the suite with both sanitizers in its own build dir and runs it through `run-tests.bash`, leak checks on. Any report fails the test. `cicd/linux/sanitizers.supp` lists fontconfig and Mesa by library.
+	- Fixed, found by the first runs:
+		- Every option parsed from the command line leaked, since the parse left them out of the list the application frees.
+		- A closed tab or window kept its location, and its scroll target when it closed before loading finished. The pending scroll target was also replaced without being freed.
+		- The application never freed its undo manager, and the places pane never freed its menu manager.
+		- Test side: scratch paths and a folder in five tests, and the crash test now leaves its deliberate faults to the reporter under the sanitizers.
+	- Swept: every place `pending_scroll_to` is set (one other, after the old location change is ended) and the slot's dispose. Other option parses in `source/`: none.
+	- Branch: asan
+	- Commit: 81d03ad, 8c89061
+	- Test case: rjfgk2mp (`cicd/linux/test-sanitizers.bash`, the lane itself).
+	- Verified: the lane fails on a heap overflow, a leak and a signed overflow in a test, and passes on this branch with 157 OK and 12 skipped. Linux suite 169 of 169, lint clean, Windows cross build clean.
+	- Verified: 20261005, the stage ran in its place in a full `cicd.bash` run, 157 OK and 12 skipped, with no reports.
+	- Verified: 20261005, on vm925w the app opened a folder with an accented letter and a space in its name, with `--geometry` before the folder and `-g` after it, at the size and place asked. An unknown option exits 1.
+	- Test case: rjgw21aw (`test-nemo-cli-version`, Windows) and rh3nba2g (the same, Linux) now check the option parse: a value is read with its option, and an unknown option stops the run. Both fail with the parse broken. rjgw21aw passes natively on b29w.
+	- Acceptance signoff: Self-closed: a pipeline stage with nothing on screen. rjfgk2mp covers the stage, and rjgw21aw and rh3nba2g cover the option parse it changed.
+	- Closed: 20261005-080909
+
 ## Old format
 
 ### Bugs
@@ -2213,17 +2246,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Cause: the toolkit scales in whole numbers. At 150% the type is right and everything around it is a third too small.
 	- Probable fix: our own stylesheet, with padding, icon sizes and the like driven from the leftover fraction. Only do it once someone has looked at it on a scaled display.
 	- Test case: none yet, not started.
-
-- 🔬 Installers: architecture always detected, a version option, and a stable install that still works before any stable release exists.
-	- Opened: 20260919-131209
-	- Done: `--arch` and `-Arch` are gone. `--version`, `-Version` and `-Help` are new, and the bash one takes `--opt=value` too.
-	- Done: releases are ranked by version rather than by the order the API lists them. Stable takes the newest prerelease while no stable release exists, and the plan says so.
-	- Verified: both installers, bash and PowerShell 7, show the right plan against the live releases on Linux. The ranking was checked against a list with a two-digit minor and beta10 beside beta2.
-	- Done 20260925: `install.ps1` no longer closes the shell that ran the one-liner, on an error or on `-Help`, and always removes its temp folder. Unix installs swap in place the way `install.bash` does. A failed request to GitHub is named as that, not as "no release", and access denied or a file in use each get their own advice. Windows PowerShell 5.1 gets TLS 1.2 and reads the architecture it can. Both installers rank tags the same way.
-	- Done 20260925: `install.bash` checks it can write where a user install goes before asking, and a failed download says so in a sentence.
-	- Verified: both installers install, reinstall and uninstall the Linux tarball into a scratch home, in the pipeline's new installer check.
-	- Left: run both on Windows, in PowerShell 5.1 and 7.
-	- Test case: `cicd/linux/test-installers.bash`, `cicd/linux/test-install-download.bash`, `cicd/utility/test-install-path.ps1`, `cicd/win/test-install-holders.ps1`; PowerShell 5.1 is not covered.
 
 - 🔘 A Windows installer exe that installs, or updates an install already there.
 	- Opened: 20260919-132409
@@ -4127,6 +4149,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: none, no check yet that each icon name exists in the icon themes.
 
 #### Done - Features and enhancements
+
+- ✅ Installers: architecture always detected, a version option, and a stable install that still works before any stable release exists.
+	- Opened: 20260919-131209
+	- Done: `--arch` and `-Arch` are gone. `--version`, `-Version` and `-Help` are new, and the bash one takes `--opt=value` too.
+	- Done: releases are ranked by version rather than by the order the API lists them. Stable takes the newest prerelease while no stable release exists, and the plan says so.
+	- Verified: both installers, bash and PowerShell 7, show the right plan against the live releases on Linux. The ranking was checked against a list with a two-digit minor and beta10 beside beta2.
+	- Done 20260925: `install.ps1` no longer closes the shell that ran the one-liner, on an error or on `-Help`, and always removes its temp folder. Unix installs swap in place the way `install.bash` does. A failed request to GitHub is named as that, not as "no release", and access denied or a file in use each get their own advice. Windows PowerShell 5.1 gets TLS 1.2 and reads the architecture it can. Both installers rank tags the same way.
+	- Done 20260925: `install.bash` checks it can write where a user install goes before asking, and a failed download says so in a sentence.
+	- Verified: both installers install, reinstall and uninstall the Linux tarball into a scratch home, in the pipeline's new installer check.
+	- Verified 20261005: install.ps1 runs on Windows in both PowerShell 5.1 and 7, as a user with no admin rights. Version, help, install, reinstall and uninstall all exit 0, and the folder, the PATH entry and the Start menu entry come and go as they should.
+	- Test case: `cicd/linux/test-installers.bash`, `cicd/linux/test-install-download.bash`, `cicd/utility/test-install-path.ps1`, `cicd/win/test-install-holders.ps1`; PowerShell 5.1 is not covered.
 
 - ✅ "Make link" dialog:
 	- Opened: 20260926-094941
