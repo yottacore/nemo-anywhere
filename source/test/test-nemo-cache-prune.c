@@ -1,7 +1,8 @@
 /* The file cache prune. Each rule is checked for what it takes and for what it
  * has to leave alone: a missing file goes but a file on a missing folder stays,
- * an old thumbnail goes but a recently drawn one stays, and the size limit takes
- * the least recently drawn first. The claim is checked from both sides, since
+ * an old thumbnail goes but a recently drawn one stays, an old name with no
+ * thumbnail goes but a recent one stays, and the size limit takes the least
+ * recently drawn first. The claim is checked from both sides, since
  * two processes pruning at once is what it exists to stop. */
 
 #include <config.h>
@@ -285,6 +286,123 @@ check_age (NemoCacheDb *db)
 
 	/* The record of the file stays; only the picture was old. */
 	check (paths_named ("file:///age/old.jpg") == 1);
+}
+
+/* A name stored with a checksum and no thumbnail, `fill` standing in for the
+ * checksum. */
+static void
+name_with_digest (NemoCacheDb *db, const char *uri, gint64 file_bytes, guint8 fill)
+{
+	NemoFileId id = { 0 };
+
+	id.bytes = file_bytes;
+	id.mtime = MTIME;
+	memset (id.digest, fill, sizeof (id.digest));
+	id.has_digest = TRUE;
+
+	check (nemo_cache_db_set_digest (db, uri, &id));
+}
+
+static gboolean
+reads_digest (NemoCacheDb *db, const char *uri, gint64 file_bytes)
+{
+	guint8 digest[NEMO_CACHE_DIGEST_LEN];
+
+	return nemo_cache_db_lookup_digest (db, uri, file_bytes, MTIME, digest);
+}
+
+static void
+backdate (const char *uri, gint64 days)
+{
+	g_autofree char *sql = g_strdup_printf ("UPDATE paths SET seen = %" G_GINT64_FORMAT
+						" WHERE uri = '%s'", wall () - days * DAY, uri);
+
+	check (query_int (sql) == 1);
+}
+
+static gint64
+files_of_size (gint64 file_bytes)
+{
+	g_autofree char *sql = g_strdup_printf ("SELECT COUNT(*) FROM files WHERE bytes = %"
+						G_GINT64_FORMAT, file_bytes);
+
+	return query_int (sql);
+}
+
+/* A name whose thumbnail has gone holds only what the file gives again, so it
+ * goes once nothing has been stored under it for the age limit, or 180 days
+ * with no limit, and its file record with it. A name that still has a
+ * thumbnail is left to the thumbnail rules, and a copy's other name keeps the
+ * record. Read back only through calls that never put a row back. */
+static void
+check_bare_names (NemoCacheDb *db)
+{
+	const char *stale = "file:///bare/stale.jpg";
+	const char *fresh = "file:///bare/fresh.jpg";
+	const char *drawn = "file:///bare/drawn.jpg";
+	const char *copy_old = "file:///bare/copy-old.txt";
+	const char *copy_new = "file:///bare/copy-new.txt";
+	const char *unlimited = "file:///bare/unlimited.txt";
+	const char *younger = "file:///bare/younger.txt";
+	NemoCachePruneRules rules = rules_now ();
+	g_autofree char *sql = NULL;
+	int i;
+
+	store (db, stale, 9001, wall (), 64);
+	store (db, fresh, 9002, wall (), 64);
+	store (db, drawn, 9003, wall (), 64);
+	check (nemo_cache_db_thumbnail_forget (db, stale));
+	check (nemo_cache_db_thumbnail_forget (db, fresh));
+	name_with_digest (db, stale, 9001, 0x11);
+	name_with_digest (db, copy_old, 9004, 0x22);
+	name_with_digest (db, copy_new, 9004, 0x22);
+	check (files_of_size (9004) == 1);
+
+	backdate (stale, 400);
+	backdate (drawn, 400);
+	backdate (copy_old, 400);
+	check (reads_digest (db, stale, 9001));
+
+	rules.max_age_secs = 180 * DAY;
+	check (nemo_cache_db_prune (&rules, NULL, NULL, NULL) == NEMO_CACHE_PRUNE_DONE);
+
+	check (!reads_digest (db, stale, 9001));
+	check (paths_named (stale) == 0);
+	check (files_of_size (9001) == 0);
+
+	check (paths_named (fresh) == 1);
+	check (paths_named (drawn) == 1);
+	check (has_thumbnail (db, drawn));
+
+	check (paths_named (copy_old) == 0);
+	check (reads_digest (db, copy_new, 9004));
+	check (files_of_size (9004) == 1);
+
+	name_with_digest (db, unlimited, 9005, 0x33);
+	name_with_digest (db, younger, 9006, 0x44);
+	backdate (unlimited, 200);
+	backdate (younger, 100);
+
+	/* More than one write's worth. */
+	for (i = 0; i < 300; i++) {
+		g_autofree char *uri = g_strdup_printf ("file:///bare/many/%03d.txt", i);
+		NemoFileId id = { 0 };
+
+		id.bytes = 9100 + i;
+		id.mtime = MTIME;
+		check (nemo_cache_db_note_file (db, uri, &id));
+	}
+	sql = g_strdup_printf ("UPDATE paths SET seen = %" G_GINT64_FORMAT
+			       " WHERE uri LIKE 'file:///bare/many/%%'", wall () - 200 * DAY);
+	check (query_int (sql) == 300);
+
+	rules = rules_now ();
+	check (nemo_cache_db_prune (&rules, NULL, NULL, NULL) == NEMO_CACHE_PRUNE_DONE);
+	check (!reads_digest (db, unlimited, 9005));
+	check (files_of_size (9005) == 0);
+	check (reads_digest (db, younger, 9006));
+	check (query_int ("SELECT COUNT(*) FROM paths WHERE uri LIKE 'file:///bare/many/%'") == 0);
+	check (query_int ("SELECT COUNT(*) FROM files WHERE bytes BETWEEN 9100 AND 9399") == 0);
 }
 
 /* Over the limit, the least recently drawn go until it fits, and the freed
@@ -606,6 +724,7 @@ main (int argc, char *argv[])
 	check_prune_now ();
 	check_missing (db);
 	check_age (db);
+	check_bare_names (db);
 	check_size (db);
 	check_pick_cost (db);
 	check_batch_bytes (db);

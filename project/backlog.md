@@ -183,17 +183,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026092813381411, 2026093010493420
 	- Test case: none yet.
 
-- Code review 20260928 item 37. Path and file rows in the cache never age out.
-	- ID: 2026092813381437
-	- Type: Enhancement
-	- Status: Queued
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Requirements:
-		- Rows for files that still exist stay after their thumbnails are pruned, and count against the size limit. Add an age rule for rows with no thumbnail.
-	- Test case: none yet.
-
 - A thumbnail already being made runs to the end after its folder is left.
 	- ID: 2026093013002529
 	- Type: Enhancement
@@ -1961,6 +1950,30 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: ef05a4f
 	- Test case: rjbpyy28 Archive stop time test now has a 7z case. A 4 GiB and a 16 GiB file are stopped at their first progress report. Before the fix, the 4 GiB one took 50 s and the 16 GiB one did not end in 100 s. After, both take 0.01 s. rjbw0rkq Stopped 7z leak test, which fails at 82 bytes a round when the close is left out.
 	- Acceptance signoff: waiting. The archive writer's handling of a stop changed again, this time for the 7z.
+
+- Code review 20260928 item 37. Path and file rows in the cache never age out.
+	- ID: 2026092813381437
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 168 of 168 on 20261004, on cacheage.
+	- Needs external testing: none. The rule is plain SQL with nothing per platform, and its test passes under wine.
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Requirements:
+		- Rows for files that still exist stay after their thumbnails are pruned, and count against the size limit. Add an age rule for rows with no thumbnail.
+	- Decisions:
+		- A call made without asking: a name with no thumbnail goes once nothing has been stored under it for the thumbnail age limit, or 180 days, that setting's default, when the limit is off. No new setting. Without a fallback, a cache held down by the size limit alone would still fill with these rows.
+		- Its age is when a thumbnail was last stored or linked under the name. A draw of a name that still has its thumbnail does not refresh that time, so a name whose thumbnail the size rule took can go at the next pass. It costs one checksum when the file is next thumbnailed, and that read happens anyway.
+		- The tables stay at version 4, so the cache does not start over.
+	- Done: each prune pass forgets names whose file has no thumbnail left and that are older than the age above, then the file records nothing points at go with the orphans. All such a row keeps is a size, a time and maybe a checksum, and the file gives those again. A name that still has a thumbnail is left to the thumbnail rules.
+	- Swept: rows with no thumbnail come only from the age and size rules and a thumbnail refresh. Names and file records are the only rows besides thumbnails and the prune's own row, and orphaned file records already went. Draw counts live on thumbnails. Everything the rule drops can be worked out again from the disk.
+	- Branch: cacheage
+	- Commit: f37a678
+	- Test case: rhd69rjr, File cache prune test, the bare names case. Old names with no thumbnail go, with their file record and checksum, under the age limit and with it off. A recent one, one that still has a thumbnail, and a copy's other name stay. 300 old names go in more than one write. Read back with calls that never put a row back.
+	- Verified: 20261004, Linux: rhd69rjr fails before the fix, 8 checks, and passes after. The full Linux suite passes 168 of 168, and lint and the Windows cross build are clean. rhd69rjr passes under wine.
+	- Acceptance signoff: Self-closed: its test fails before and passes after, and nothing is left to judge on screen. The age is a call made without asking, in Decisions.
+	- Closed: 20261004-175908
 
 - Code review 20260928 item 41. Fuzz the shortcut editing code.
 	- ID: 2026092813381441
