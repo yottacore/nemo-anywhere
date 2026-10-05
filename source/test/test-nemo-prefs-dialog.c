@@ -48,12 +48,14 @@
 #define MIN_WIDTH 1000
 #define MIN_HEIGHT 700
 
+/* Returns: (transfer floating) */
 NemoPluginManager *
 nemo_plugin_manager_new (void)
 {
 	return (NemoPluginManager *) gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_template_config_widget_new (void)
 {

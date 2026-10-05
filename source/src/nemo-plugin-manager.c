@@ -50,6 +50,7 @@ nemo_plugin_manager_init (NemoPluginManager *self)
     gtk_widget_show_all (GTK_WIDGET (self));
 }
 
+/* Returns: (transfer floating) */
 NemoPluginManager *
 nemo_plugin_manager_new (void)
 {

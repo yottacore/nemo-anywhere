@@ -46,18 +46,21 @@ nemo_window_get_type (void)
 	return GTK_TYPE_APPLICATION_WINDOW;
 }
 
+/* Returns: (transfer none) */
 NemoWindowSlot *
 nemo_window_get_active_slot (G_GNUC_UNUSED NemoWindow *window)
 {
 	return NULL;
 }
 
+/* Returns: (transfer full) */
 GFile *
 nemo_window_slot_get_location (G_GNUC_UNUSED NemoWindowSlot *slot)
 {
 	return NULL;
 }
 
+/* Returns: (transfer full) */
 char *
 nemo_window_slot_get_location_uri (G_GNUC_UNUSED NemoWindowSlot *slot)
 {

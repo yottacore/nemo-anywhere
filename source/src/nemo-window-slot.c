@@ -512,6 +512,7 @@ nemo_window_slot_class_init (NemoWindowSlotClass *klass)
 			      G_TYPE_STRING);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GFile *
 nemo_window_slot_get_location (NemoWindowSlot *slot)
 {
@@ -523,6 +524,7 @@ nemo_window_slot_get_location (NemoWindowSlot *slot)
 	return NULL;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_window_slot_get_location_uri (NemoWindowSlot *slot)
 {
@@ -543,6 +545,7 @@ nemo_window_slot_make_hosting_pane_active (NemoWindowSlot *slot)
 					 slot);
 }
 
+/* Returns: (transfer none) */
 NemoWindow *
 nemo_window_slot_get_window (NemoWindowSlot *slot)
 {
@@ -793,7 +796,8 @@ nemo_window_slot_add_extra_location_widget (NemoWindowSlot *slot,
 	gtk_widget_show (slot->extra_location_widgets);
 }
 
-/* returns either the pending or the actual current uri */
+/* returns either the pending or the actual current uri
+ * Returns: (transfer full): free with g_free */
 char *
 nemo_window_slot_get_current_uri (NemoWindowSlot *slot)
 {
@@ -809,6 +813,7 @@ nemo_window_slot_get_current_uri (NemoWindowSlot *slot)
 	return NULL;
 }
 
+/* Returns: (transfer none): owned by @slot */
 NemoView *
 nemo_window_slot_get_current_view (NemoWindowSlot *slot)
 {
@@ -929,6 +934,7 @@ nemo_window_slot_should_close_with_mount (NemoWindowSlot *slot,
 	return close_with_mount;
 }
 
+/* Returns: (transfer floating) */
 NemoWindowSlot *
 nemo_window_slot_new (NemoWindowPane *pane)
 {

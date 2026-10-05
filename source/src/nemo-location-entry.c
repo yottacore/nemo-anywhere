@@ -444,6 +444,7 @@ nemo_location_entry_init (NemoLocationEntry *entry)
 		          G_CALLBACK (got_completion_data_callback), entry);
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_location_entry_new (void)
 {

@@ -481,6 +481,7 @@ nemo_toolbar_class_init (NemoToolbarClass *klass)
 	g_object_class_install_properties (oclass, NUM_PROPERTIES, properties);
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_toolbar_new (GtkActionGroup *action_group)
 {
@@ -490,12 +491,14 @@ nemo_toolbar_new (GtkActionGroup *action_group)
 			     NULL);
 }
 
+/* Returns: (transfer none): owned by @self */
 GtkWidget *
 nemo_toolbar_get_path_bar (NemoToolbar *self)
 {
 	return self->priv->path_bar;
 }
 
+/* Returns: (transfer none): owned by @self */
 GtkWidget *
 nemo_toolbar_get_location_bar (NemoToolbar *self)
 {

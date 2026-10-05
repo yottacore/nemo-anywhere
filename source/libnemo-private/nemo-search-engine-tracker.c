@@ -318,6 +318,7 @@ nemo_search_engine_tracker_init (NemoSearchEngineTracker *engine)
 }
 
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoSearchEngine *
 nemo_search_engine_tracker_new (void)
 {

@@ -141,6 +141,7 @@ previewer_close_ready_cb (G_GNUC_UNUSED GObject *source,
   g_object_unref (self);
 }
 
+/* Returns: (transfer none): kept for the life of the process */
 NemoPreviewer *
 nemo_previewer_get_singleton (void)
 {

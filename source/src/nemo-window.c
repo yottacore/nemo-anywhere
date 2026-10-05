@@ -1242,6 +1242,7 @@ nemo_window_close_pane (NemoWindow *window,
 	gtk_widget_destroy (GTK_WIDGET (pane));
 }
 
+/* Returns: (transfer none) */
 NemoWindowPane*
 nemo_window_get_active_pane (NemoWindow *window)
 {
@@ -1971,6 +1972,7 @@ nemo_window_show (GtkWidget *widget)
 	gtk_ui_manager_ensure_update (window->details->ui_manager);
 }
 
+/* Returns: (transfer none): owned by @window */
 GtkUIManager *
 nemo_window_get_ui_manager (NemoWindow *window)
 {
@@ -1979,6 +1981,7 @@ nemo_window_get_ui_manager (NemoWindow *window)
 	return window->details->ui_manager;
 }
 
+/* Returns: (transfer none): owned by @window */
 GtkActionGroup *
 nemo_window_get_main_action_group (NemoWindow *window)
 {
@@ -1987,6 +1990,7 @@ nemo_window_get_main_action_group (NemoWindow *window)
 	return window->details->main_action_group;
 }
 
+/* Returns: (transfer none): owned by @window */
 NemoNavigationState *
 nemo_window_get_navigation_state (NemoWindow *window)
 {
@@ -1995,6 +1999,7 @@ nemo_window_get_navigation_state (NemoWindow *window)
 	return window->details->nav_state;
 }
 
+/* Returns: (transfer none): owned by @window */
 NemoWindowPane *
 nemo_window_get_next_pane (NemoWindow *window)
 {
@@ -2050,6 +2055,7 @@ nemo_window_slot_set_viewed_file (NemoWindowSlot *slot,
 	slot->viewed_file = file;
 }
 
+/* Returns: (transfer none): owned by @window */
 NemoWindowSlot *
 nemo_window_get_slot_for_view (NemoWindow *window,
 				   NemoView *view)
@@ -2088,6 +2094,7 @@ nemo_window_set_hidden_files_mode (NemoWindow *window,
 	g_signal_emit_by_name (window, "hidden_files_mode_changed");
 }
 
+/* Returns: (transfer none): owned by @window */
 NemoWindowSlot *
 nemo_window_get_active_slot (NemoWindow *window)
 {
@@ -2100,6 +2107,7 @@ nemo_window_get_active_slot (NemoWindow *window)
 	return window->details->active_pane->active_slot;
 }
 
+/* Returns: (transfer none): owned by @window */
 NemoWindowSlot *
 nemo_window_get_extra_slot (NemoWindow *window)
 {
@@ -2130,6 +2138,7 @@ nemo_window_get_extra_slot (NemoWindow *window)
 	return extra_pane->active_slot;
 }
 
+/* Returns: (transfer none): owned by @window */
 GList *
 nemo_window_get_panes (NemoWindow *window)
 {
@@ -2565,6 +2574,7 @@ nemo_window_class_init (NemoWindowClass *class)
 	g_type_class_add_private (oclass, sizeof (NemoWindowDetails));
 }
 
+/* Returns: (transfer none): a toplevel owned by @application */
 NemoWindow *
 nemo_window_new (GtkApplication *application,
                  GdkScreen *screen)
@@ -2651,6 +2661,7 @@ nemo_window_clear_secondary_pane_location (NemoWindow *window)
     g_clear_object (&window->details->secondary_pane_last_location);
 }
 
+/* Returns: (transfer none): owned by @window */
 const gchar *
 nemo_window_get_ignore_meta_view_id (NemoWindow *window)
 {
@@ -2719,6 +2730,7 @@ nemo_window_forget_ignore_meta_icon_sizes (NemoWindow *window)
     window->details->ignore_meta_list_icon_size = 0;
 }
 
+/* Returns: (transfer full): free with g_list_free_full (list, g_free) */
 GList *
 nemo_window_get_ignore_meta_visible_columns (NemoWindow *window)
 {
@@ -2735,6 +2747,7 @@ nemo_window_set_ignore_meta_visible_columns (NemoWindow *window, GList *list)
         g_list_free_full (old, g_free);
 }
 
+/* Returns: (transfer full): free with g_list_free_full (list, g_free) */
 GList *
 nemo_window_get_ignore_meta_column_order (NemoWindow *window)
 {
@@ -2751,6 +2764,7 @@ nemo_window_set_ignore_meta_column_order (NemoWindow *window, GList *list)
         g_list_free_full (old, g_free);
 }
 
+/* Returns: (transfer none): owned by @window */
 const gchar *
 nemo_window_get_ignore_meta_sort_column (NemoWindow *window)
 {

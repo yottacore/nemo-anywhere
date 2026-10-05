@@ -247,6 +247,7 @@ nemo_interesting_folder_bar_init (NemoInterestingFolderBar *bar)
     bar->priv->type = TYPE_NONE_FOLDER;
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_interesting_folder_bar_new (NemoView *view, InterestingFolderType type)
 {
@@ -256,6 +257,7 @@ return g_object_new (NEMO_TYPE_INTERESTING_FOLDER_BAR,
                      NULL);
 }
 
+/* Returns: (transfer floating): NULL when the folder is not one of these */
 GtkWidget *
 nemo_interesting_folder_bar_new_for_location (NemoView *view, GFile *location)
 {

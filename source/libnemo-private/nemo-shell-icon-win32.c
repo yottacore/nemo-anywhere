@@ -349,6 +349,7 @@ lookup_thread (gpointer unused)
 	return NULL;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GdkPixbuf *
 nemo_shell_icon_win32_for_path (const gchar *path,
 				gint         pixel_size,
@@ -373,6 +374,7 @@ nemo_shell_icon_win32_for_path (const gchar *path,
 	return pixbuf;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GdkPixbuf *
 nemo_shell_icon_win32_lookup (const gchar        *path,
 			      gint                pixel_size,

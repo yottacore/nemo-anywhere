@@ -2069,6 +2069,7 @@ nemo_path_bar_set_path (NemoPathBar *path_bar, GFile *file_path)
     return nemo_path_bar_update_path (path_bar, file_path, TRUE);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GFile *
 nemo_path_bar_get_path_for_button (NemoPathBar *path_bar,
                        GtkWidget       *button)

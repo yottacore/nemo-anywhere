@@ -37,7 +37,8 @@ shell_execute_ok (HINSTANCE result, const gchar *what, const gchar *target)
 
 /* Command-line quoting, MSVCRT rules: a run of backslashes immediately before
    the closing quote has to be doubled, or the quote is escaped away. A drive
-   root ("C:\") is the common case and used to swallow it. */
+   root ("C:\") is the common case and used to swallow it.
+   Returns: (transfer full): free with g_free */
 gchar *
 nemo_view_win32_quote_arg (const gchar *arg)
 {
@@ -129,7 +130,8 @@ nemo_view_win32_open_elevated (const gchar *path)
 /* The preference is one field, so the program and anything after it arrive
    together. A quoted first word wins; failing that, a string that names a
    program on its own is taken whole, so a path with spaces and no arguments
-   still works unquoted; otherwise it splits at the first space. */
+   still works unquoted; otherwise it splits at the first space.
+   Returns: (transfer full): free with g_free, and @args too */
 gchar *
 nemo_view_win32_split_terminal_command (const gchar *command, gchar **args)
 {

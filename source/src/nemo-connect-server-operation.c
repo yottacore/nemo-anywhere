@@ -142,6 +142,7 @@ nemo_connect_server_operation_init (NemoConnectServerOperation *self)
 						     NemoConnectServerOperationDetails);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GMountOperation *
 nemo_connect_server_operation_new (NemoConnectServerDialog *dialog)
 {

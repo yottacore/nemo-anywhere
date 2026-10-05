@@ -227,7 +227,7 @@ edit_bookmarks_dialog_reset_signals (G_GNUC_UNUSED gpointer data,
  * Create a new bookmark-editing window. 
  * @list: The NemoBookmarkList that this window will edit.
  *
- * Return value: A pointer to the new window.
+ * Return value: (transfer none): A pointer to the new window.
  **/
 GtkWindow *
 create_bookmarks_window (NemoBookmarkList *list, GObject *undo_manager_source)

@@ -278,6 +278,7 @@ other_instances (GApplication *application)
 	return (GStrv) g_ptr_array_free (others, FALSE);
 }
 
+/* Returns: (transfer full): free with g_strfreev */
 GStrv
 nemo_main_application_other_instances (void)
 {
@@ -1337,6 +1338,7 @@ nemo_main_application_class_init (NemoMainApplicationClass *class)
     g_type_class_add_private (class, sizeof (NemoMainApplicationPriv));
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoApplication *
 nemo_main_application_get_singleton (void)
 {

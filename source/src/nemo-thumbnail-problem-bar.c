@@ -160,6 +160,7 @@ nemo_thumbnail_problem_bar_init (NemoThumbnailProblemBar *bar)
     bar->priv = NEMO_THUMBNAIL_PROBLEM_BAR_GET_PRIVATE (bar);
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_thumbnail_problem_bar_new (NemoView *view)
 {

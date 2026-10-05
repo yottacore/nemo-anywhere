@@ -238,6 +238,7 @@ nemo_trash_bar_init (NemoTrashBar *bar)
 			  G_CALLBACK (trash_bar_response_cb), bar);
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_trash_bar_new (NemoView *view)
 {

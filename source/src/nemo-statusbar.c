@@ -397,6 +397,7 @@ nemo_status_bar_class_init (NemoStatusBarClass *status_bar_class)
     g_object_class_install_properties (oclass, NUM_PROPERTIES, properties);
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_status_bar_new (NemoWindow *window)
 {
@@ -407,6 +408,7 @@ nemo_status_bar_new (NemoWindow *window)
                          NULL);
 }
 
+/* Returns: (transfer none): owned by @bar */
 GtkWidget *
 nemo_status_bar_get_real_statusbar (NemoStatusBar *bar)
 {

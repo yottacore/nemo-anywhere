@@ -520,6 +520,7 @@ nemo_query_editor_changed (NemoQueryEditor *editor)
 	nemo_query_editor_changed_force (editor, TRUE);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoQuery *
 nemo_query_editor_get_query (NemoQueryEditor *editor)
 {
@@ -567,6 +568,7 @@ nemo_query_editor_get_query (NemoQueryEditor *editor)
     return query;
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_query_editor_new (void)
 {
@@ -692,6 +694,7 @@ nemo_query_editor_get_active (NemoQueryEditor *editor)
     return gtk_widget_get_visible (editor->priv->infobar);
 }
 
+/* Returns: (transfer none): owned by @editor */
 const gchar *
 nemo_query_editor_get_base_uri (NemoQueryEditor *editor)
 {

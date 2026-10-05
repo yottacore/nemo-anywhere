@@ -238,12 +238,14 @@ make_in (const char *base, const char *tmpl, GError **error)
 	return path;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 test_scratch_dir (const char *tmpl, GError **error)
 {
 	return make_in (g_get_tmp_dir (), tmpl, error);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 test_scratch_dir_in (const char *base, const char *tmpl, GError **error)
 {
@@ -264,6 +266,7 @@ test_scratch_point_config_at (const char *dir)
 	g_setenv ("XDG_CACHE_HOME", dir, TRUE);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 test_scratch_config_home (const char *tmpl)
 {

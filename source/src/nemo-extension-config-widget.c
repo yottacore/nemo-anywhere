@@ -465,6 +465,7 @@ nemo_extension_config_widget_init (NemoExtensionConfigWidget *self)
     refresh_widget (self);
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_extension_config_widget_new (void)
 {

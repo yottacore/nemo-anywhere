@@ -1124,6 +1124,7 @@ nemo_window_pane_init (NemoWindowPane *pane)
 	gtk_style_context_add_class (context, "nemo-window-pane");
 }
 
+/* Returns: (transfer floating) */
 NemoWindowPane *
 nemo_window_pane_new (NemoWindow *window)
 {
@@ -1204,6 +1205,7 @@ nemo_window_pane_sync_up_actions (NemoWindowPane *pane)
     gtk_action_set_sensitive (action, allowed);
 }
 
+/* Returns: (transfer none): owned by @pane */
 GtkActionGroup *
 nemo_window_pane_get_toolbar_action_group (NemoWindowPane *pane)
 {
@@ -1438,6 +1440,7 @@ nemo_window_pane_remove_slot_unsafe (NemoWindowPane *pane,
 	g_object_unref (slot);
 }
 
+/* Returns: (transfer none): owned by @pane */
 NemoWindowSlot *
 nemo_window_pane_open_slot (NemoWindowPane *pane,
 				NemoWindowOpenSlotFlags flags)

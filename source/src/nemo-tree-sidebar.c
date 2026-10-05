@@ -1885,6 +1885,7 @@ fm_tree_view_set_parent_window (FMTreeView *view,
 
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_tree_sidebar_new (NemoWindow *window)
 {

@@ -471,6 +471,7 @@ nemo_location_bar_init (NemoLocationBar *bar)
 	gtk_widget_show_all (GTK_WIDGET (bar));
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_location_bar_new (void)
 {
@@ -525,6 +526,7 @@ nemo_location_bar_set_location (NemoLocationBar *bar,
     nemo_location_bar_update_icon (bar);
 }
 
+/* Returns: (transfer none): owned by @location_bar */
 NemoEntry *
 nemo_location_bar_get_entry (NemoLocationBar *location_bar)
 {

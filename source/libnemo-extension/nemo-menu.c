@@ -127,6 +127,7 @@ nemo_menu_class_init (NemoMenuClass *klass)
 
 /* public constructors */
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoMenu *
 nemo_menu_new (void)
 {

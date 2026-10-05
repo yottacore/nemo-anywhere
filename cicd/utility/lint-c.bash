@@ -19,6 +19,9 @@
 ##	  and checks each handler against its row in design.md, "Handlers on settings
 ##	  groups", and each key against the group the settings table puts it in, and
 ##	  the accelerator check (cicd/utility/lint-accels.py), whole-tree too.
+##	- Then the ownership check (cicd/utility/lint-ownership.py), whole-tree:
+##	  each pointer a header's function returns has a "(transfer ...)" line
+##	  above its definition.
 ##	- Runs the same everywhere bash + git + cppcheck exist (Linux host, MSYS2).
 ##	- Syntax: lint-c.bash [--list-files] [base-branch]
 ##	  --list-files prints the C files the cppcheck pass would cover, and stops.
@@ -1229,6 +1232,10 @@ elif [[ -n "$PY" ]]; then
 	## A key claimed by two actions does whichever GTK merged first, and says
 	## nothing about it.
 	"$PY" cicd/utility/lint-accels.py source
+	## Who frees a returned pointer is written above the function, since C
+	## can't say it. Whole-tree, so a Windows-only file is read on Linux too.
+	"$PY" cicd/utility/lint-ownership.py --self-test
+	"$PY" cicd/utility/lint-ownership.py source
 else
 	fEcho "WARNING: UI case SKIPPED: no python" >&2
 fi

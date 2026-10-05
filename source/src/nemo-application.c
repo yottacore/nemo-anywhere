@@ -478,7 +478,8 @@ nemo_application_window_per_process (void)
 /* Every "somewhere other than this window" goes through here. By default that
  * is another process, and NULL comes back; with the setting off the window is
  * made here, already on its way to the location, and returned. A process that
- * cannot be started falls back to a window here rather than to nothing. */
+ * cannot be started falls back to a window here rather than to nothing.
+ * Returns: (transfer none): a toplevel owned by the application, or NULL */
 NemoWindow *
 nemo_application_open_in_new_window (NemoApplication *application,
                                      GdkScreen       *screen,
@@ -510,6 +511,7 @@ nemo_application_open_in_new_window (NemoApplication *application,
 	return window;
 }
 
+/* Returns: (transfer none): a toplevel owned by the application */
 NemoWindow *
 nemo_application_create_window (NemoApplication *application,
                                 GdkScreen       *screen)
@@ -748,6 +750,7 @@ nemo_application_class_init (NemoApplicationClass *class)
     g_type_class_add_private (class, sizeof (NemoApplicationPriv));
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoApplication *
 nemo_application_initialize_singleton (GType object_type,
                                        const gchar *first_property_name,
@@ -763,6 +766,7 @@ nemo_application_initialize_singleton (GType object_type,
     return application;
 }
 
+/* Returns: (transfer none) */
 NemoApplication *
 nemo_application_get_singleton (void)
 {

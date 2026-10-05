@@ -679,6 +679,7 @@ nemo_template_config_widget_init (NemoTemplateConfigWidget *self)
     on_row_selected (NEMO_CONFIG_BASE_WIDGET (self)->listbox, NULL, self);
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_template_config_widget_new (void)
 {
