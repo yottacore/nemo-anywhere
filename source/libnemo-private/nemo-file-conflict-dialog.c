@@ -621,6 +621,7 @@ nemo_file_conflict_dialog_class_init (NemoFileConflictDialogClass *klass)
 	g_type_class_add_private (klass, sizeof (NemoFileConflictDialogDetails));
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_file_conflict_dialog_get_new_name (NemoFileConflictDialog *dialog)
 {
@@ -635,6 +636,7 @@ nemo_file_conflict_dialog_get_apply_to_all (NemoFileConflictDialog *dialog)
 		(GTK_TOGGLE_BUTTON (dialog->details->checkbox));
 }
 
+/* Returns: (transfer none): a toplevel; destroy with gtk_widget_destroy */
 GtkWidget *
 nemo_file_conflict_dialog_new (GtkWindow *parent,
 				   GFile *source,

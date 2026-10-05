@@ -67,7 +67,7 @@
  * Obtains the geometry string for this window, suitable for
  * set_geometry_string(); assumes the window has NorthWest gravity
  *
- * Return value: geometry string, must be freed
+ * Return value: (transfer full): geometry string, must be freed
  **/
 char*
 eel_gtk_window_get_geometry_string (GtkWindow *window)
@@ -463,12 +463,14 @@ eel_gtk_menu_destroy_on_close (GtkMenu *menu)
     g_signal_connect (menu, "deactivate", G_CALLBACK (destroy_closed_menu), NULL);
 }
 
+/* Returns: (transfer none): owned by @menu */
 GtkMenuItem *
 eel_gtk_menu_append_separator (GtkMenu *menu)
 {
 	return eel_gtk_menu_insert_separator (menu, -1);
 }
 
+/* Returns: (transfer none): owned by @menu */
 GtkMenuItem *
 eel_gtk_menu_insert_separator (GtkMenu *menu, int index)
 {
@@ -645,7 +647,8 @@ eel_gtk_tree_view_forget_cursor (GtkTreeView *tree_view)
 
 /* The whole value of a cell too narrow to show it, or NULL if it fits. Widths
    come from the renderers rather than the column, because a column's own size
-   answer is its minimum and says nothing about text that can ellipsize. */
+   answer is its minimum and says nothing about text that can ellipsize.
+   Returns: (transfer full): free with g_free */
 gchar *
 eel_gtk_tree_view_column_clipped_text (GtkTreeViewColumn *column,
                                        GtkTreeModel      *model,

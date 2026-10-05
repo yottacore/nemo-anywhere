@@ -313,6 +313,7 @@ forwarded_ready (GObject      *source,
 	g_object_unref (task);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GFileEnumerator *
 nemo_enumerate_children (GFile                *dir,
 			 const char           *attributes,
@@ -359,6 +360,7 @@ nemo_enumerate_children_async (GFile                *dir,
 					 cancellable, forwarded_ready, task);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GFileEnumerator *
 nemo_enumerate_children_finish (GFile         *dir,
 				GAsyncResult  *result,

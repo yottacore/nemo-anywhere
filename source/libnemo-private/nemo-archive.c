@@ -187,6 +187,7 @@ format_is_valid (NemoArchiveFormat format)
 	return format >= 0 && format < NEMO_ARCHIVE_N_FORMATS;
 }
 
+/* Returns: (transfer none): a static string */
 const char *
 nemo_archive_format_id (NemoArchiveFormat format)
 {
@@ -195,6 +196,7 @@ nemo_archive_format_id (NemoArchiveFormat format)
 	return formats[format].id;
 }
 
+/* Returns: (transfer none): a static string */
 const char *
 nemo_archive_format_name (NemoArchiveFormat format)
 {
@@ -203,6 +205,7 @@ nemo_archive_format_name (NemoArchiveFormat format)
 	return _(formats[format].name);
 }
 
+/* Returns: (transfer none): a static string */
 const char *
 nemo_archive_format_extension (NemoArchiveFormat format)
 {
@@ -240,6 +243,7 @@ static GMutex   probe_lock;
 static char    *probed_program[4];
 static gboolean probed[4];
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_archive_find_command (const char * const *names,
 			   const char         *win_subdir)
@@ -537,6 +541,7 @@ nemo_archive_options_copy (const NemoArchiveOptions *source,
 	dest->password = g_strdup (source->password);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_archive_strip_extension (const char *name)
 {
@@ -561,6 +566,7 @@ nemo_archive_strip_extension (const char *name)
 	return g_strdup (name);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_archive_apply_extension (const char        *name,
 			      NemoArchiveFormat  format)
@@ -580,7 +586,8 @@ nemo_archive_apply_extension (const char        *name,
 
 /* One item names the archive after itself, whether it is a file or a folder.
    Several only borrow the folder's name when they are the whole folder; a part
-   of one has no name a user would agree with, so none is offered. */
+   of one has no name a user would agree with, so none is offered.
+   Returns: (transfer full): free with g_free */
 char *
 nemo_archive_suggest_name (GList             *files,
 			   gboolean           whole_folder,
@@ -623,7 +630,8 @@ nemo_archive_suggest_name (GList             *files,
 /* Compressing a selection separately names each archive after the item it came
    from, extension and all: "notes.rar" becomes "notes.rar.zip". The name field
    strips a suffix it recognizes, which cannot be done here - re-zipping a zip
-   would then write the archive over the file being read. */
+   would then write the archive over the file being read.
+   Returns: (transfer full): free with g_free */
 char *
 nemo_archive_each_name (const char        *item_name,
 			NemoArchiveFormat  format)
@@ -729,6 +737,7 @@ nemo_archive_options_room (int work_height,
 	return MAX (120, work_height - closed_height);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_archive_format_size (guint64 bytes)
 {
@@ -2144,6 +2153,7 @@ build_command (NemoArchiveBackend        backend,
 	return argv;
 }
 
+/* Returns: (transfer full): free with g_strfreev */
 char **
 nemo_archive_build_command (NemoArchiveBackend        backend,
 			    NemoArchiveFormat         format,
@@ -2157,6 +2167,7 @@ nemo_archive_build_command (NemoArchiveBackend        backend,
 			      names, leave_out, FALSE);
 }
 
+/* Returns: (transfer full): free with g_strfreev */
 char **
 nemo_archive_build_links_command (NemoArchiveBackend        backend,
 				  NemoArchiveFormat         format,
@@ -2359,7 +2370,8 @@ scan_percent (const char *text,
 /* Neither tool writes the name it was given once splitting is on. 7z appends
    ".001" to it; rar drops the extension and puts "partN" in front of it, with
    as many digits as it feels like. Both number the only volume too, which is
-   what nemo_archive_collapse_volume undoes below. */
+   what nemo_archive_collapse_volume undoes below.
+   Returns: (transfer full): free with g_free */
 char *
 nemo_archive_volume_name (const char         *archive_name,
 			  NemoArchiveBackend  backend,
@@ -2416,7 +2428,8 @@ volume_file (GFile              *destination,
 
 /* Renames a lone volume back to the name that was asked for. The digit count
    is whatever the first volume turned out to be written with, since rar picks
-   it and 7z always uses three. Answers the file the result is in either way. */
+   it and 7z always uses three. Answers the file the result is in either way.
+   Returns: (transfer full): unref with g_object_unref */
 GFile *
 nemo_archive_collapse_volume (GFile              *destination,
 			      NemoArchiveBackend  backend)
@@ -2681,6 +2694,7 @@ read_stderr (gpointer data)
 	return g_string_free (text, FALSE);
 }
 
+/* Returns: (transfer full): hand it to nemo_archive_tool_stderr_finish, which joins it */
 GThread *
 nemo_archive_tool_stderr_start (GSubprocess *process)
 {
@@ -2693,6 +2707,7 @@ nemo_archive_tool_stderr_start (GSubprocess *process)
 	return g_thread_new ("tool-stderr", read_stderr, g_object_ref (in));
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_archive_tool_stderr_finish (GThread *reader)
 {

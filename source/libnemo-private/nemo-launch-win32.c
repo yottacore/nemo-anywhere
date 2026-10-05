@@ -326,6 +326,7 @@ set_failed (GError      **error,
 	g_free (reason);
 }
 
+/* Returns: (transfer full): free with g_free, and @args too */
 gchar *
 nemo_launch_win32_split_command (const gchar  *command_line,
 				 gchar       **args)

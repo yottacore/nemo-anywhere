@@ -45,6 +45,7 @@ nemo_separator_action_class_init (NemoSeparatorActionClass *klass)
     action_class->toolbar_item_type = GTK_TYPE_SEPARATOR_TOOL_ITEM;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GtkAction *
 nemo_separator_action_new (const gchar *name)
 {

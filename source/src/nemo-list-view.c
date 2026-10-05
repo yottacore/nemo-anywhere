@@ -6256,6 +6256,7 @@ nemo_list_view_register (void)
 	nemo_view_factory_register (&nemo_list_view);
 }
 
+/* Returns: (transfer none): owned by @list_view */
 GtkTreeView*
 nemo_list_view_get_tree_view (NemoListView *list_view)
 {

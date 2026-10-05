@@ -458,7 +458,8 @@ get_metadata_from_info (GFileInfo *info)
 }
 
 /* The store key for a file: its uri, except favorites entries resolve to
- * the real file they point at, so markers go on the target. */
+ * the real file they point at, so markers go on the target.
+ * Returns: (transfer full): free with g_free */
 char *
 nemo_file_get_metadata_store_uri (NemoFile *file)
 {
@@ -847,6 +848,7 @@ remove_from_link_hash_table (NemoFile *file)
 	modify_link_hash_table (file, remove_from_link_hash_table_list);
 }
 
+/* Returns: (transfer full): unref with nemo_file_unref */
 NemoFile *
 nemo_file_new_from_info (NemoDirectory *directory,
 			     GFileInfo *info)
@@ -927,18 +929,21 @@ nemo_file_get_internal (GFile *location, gboolean create)
 	return file;
 }
 
+/* Returns: (transfer full): unref with nemo_file_unref */
 NemoFile *
 nemo_file_get (GFile *location)
 {
 	return nemo_file_get_internal (location, TRUE);
 }
 
+/* Returns: (transfer full): NULL if not known yet; unref with nemo_file_unref */
 NemoFile *
 nemo_file_get_existing (GFile *location)
 {
 	return nemo_file_get_internal (location, FALSE);
 }
 
+/* Returns: (transfer full): NULL if not known yet; unref with nemo_file_unref */
 NemoFile *
 nemo_file_get_existing_by_uri (const char *uri)
 {
@@ -952,6 +957,7 @@ nemo_file_get_existing_by_uri (const char *uri)
 	return file;
 }
 
+/* Returns: (transfer full): unref with nemo_file_unref */
 NemoFile *
 nemo_file_get_by_uri (const char *uri)
 {
@@ -1061,6 +1067,7 @@ finalize (GObject *object)
 	G_OBJECT_CLASS (nemo_file_parent_class)->finalize (object);
 }
 
+/* Returns: (transfer full): @file with one more ref; drop it with nemo_file_unref */
 NemoFile *
 nemo_file_ref (NemoFile *file)
 {
@@ -1099,7 +1106,7 @@ nemo_file_unref (NemoFile *file)
  *
  * @file: The file in question.
  *
- * Return value: A string representing the parent's location,
+ * Return value: (transfer full): A string representing the parent's location,
  * formatted for user display (including stripping "file://").
  * If the parent is NULL, returns the empty string.
  */
@@ -1129,7 +1136,7 @@ nemo_file_get_parent_uri_for_display (NemoFile *file)
  *
  * @file: The file in question.
  *
- * Return value: A string for the parent's location, in "raw URI" form.
+ * Return value: (transfer full): A string for the parent's location, in "raw URI" form.
  * Use nemo_file_get_parent_uri_for_display instead if the
  * result is to be displayed on-screen.
  * If the parent is NULL, returns the empty string.
@@ -1147,6 +1154,7 @@ nemo_file_get_parent_uri (NemoFile *file)
 	return nemo_directory_get_uri (file->details->directory);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GFile *
 nemo_file_get_parent_location (NemoFile *file)
 {
@@ -1160,6 +1168,7 @@ nemo_file_get_parent_location (NemoFile *file)
 	return nemo_directory_get_location (file->details->directory);
 }
 
+/* Returns: (transfer full): unref with nemo_file_unref */
 NemoFile *
 nemo_file_get_parent (NemoFile *file)
 {
@@ -1788,6 +1797,7 @@ nemo_file_can_trash (NemoFile *file)
 	return file->details->can_trash;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GFile *
 nemo_file_get_location (NemoFile *file)
 {
@@ -1804,7 +1814,8 @@ nemo_file_get_location (NemoFile *file)
 	return g_file_get_child (dir, file->details->name);
 }
 
-/* Return the actual uri associated with the passed-in file. */
+/* Return the actual uri associated with the passed-in file.
+ * Returns: (transfer full): free with g_free */
 char *
 nemo_file_get_uri (NemoFile *file)
 {
@@ -1824,6 +1835,7 @@ nemo_file_get_uri (NemoFile *file)
 /* Return the local uri associated with the passed-in file.
  * If the local uri can't be resolved, the uri from nemo_file_get_uri
  * is returned instead.
+ * Returns: (transfer full): free with g_free
  */
 char *
 nemo_file_get_local_uri (NemoFile *file)
@@ -1850,7 +1862,8 @@ nemo_file_get_local_uri (NemoFile *file)
 	return uri;
 }
 
-/* Return the actual path associated with the passed-in file. */
+/* Return the actual path associated with the passed-in file.
+ * Returns: (transfer full): free with g_free */
 char *
 nemo_file_get_path (NemoFile *file)
 {
@@ -1866,6 +1879,7 @@ nemo_file_get_path (NemoFile *file)
     return path;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_file_get_uri_scheme (NemoFile *file)
 {
@@ -1902,6 +1916,7 @@ nemo_file_has_uri_scheme (NemoFile    *file,
     return has;
 }
 
+/* Returns: (transfer full): ends with nemo_file_operation_complete, which frees it */
 NemoFileOperation *
 nemo_file_operation_new (NemoFile *file,
 			     NemoFileOperationCallback callback,
@@ -2163,7 +2178,8 @@ hidden_extension (NemoFile *file)
 /* What the rename box starts from. It shows the extension the listing hides, so
    a rename can see what it is keeping. A launcher that renames through its own
    Name= key is the exception - there the box is editing the entry's title, and
-   the file name is put back together afterwards. */
+   the file name is put back together afterwards.
+   Returns: (transfer full): free with g_free */
 char *
 nemo_file_get_rename_name (NemoFile *file)
 {
@@ -4279,6 +4295,7 @@ filter_hidden_partition_callback (gpointer data,
 					  TRUE);
 }
 
+/* Returns: (transfer full): free with nemo_file_list_free */
 GList *
 nemo_file_list_filter_hidden (GList    *files,
 				  gboolean  show_hidden)
@@ -4300,6 +4317,7 @@ nemo_file_list_filter_hidden (GList    *files,
 	return filtered_files;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_file_get_metadata (NemoFile *file,
 			    const char *key,
@@ -4336,6 +4354,7 @@ nemo_file_get_metadata (NemoFile *file,
 	return g_strdup (default_metadata);
 }
 
+/* Returns: (transfer full): free with g_list_free_full (list, g_free) */
 GList *
 nemo_file_get_metadata_list (NemoFile *file,
 				 const char *key)
@@ -4718,6 +4737,7 @@ nemo_file_peek_display_name (NemoFile *file)
 	return file->details->display_name;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_file_get_display_name (NemoFile *file)
 {
@@ -4732,7 +4752,8 @@ nemo_file_get_display_name (NemoFile *file)
 }
 
 /* How the status bar names a selected file. A search hit can be anywhere, so
-   its name on its own does not say which file was found. */
+   its name on its own does not say which file was found.
+   Returns: (transfer full): free with g_free */
 char *
 nemo_file_get_status_name (NemoFile *file, gboolean in_search)
 {
@@ -4752,6 +4773,7 @@ nemo_file_get_status_name (NemoFile *file, gboolean in_search)
 	return name;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_file_get_edit_name (NemoFile *file)
 {
@@ -4764,12 +4786,14 @@ nemo_file_get_edit_name (NemoFile *file)
 	return g_strdup (res);
 }
 
+/* Returns: (transfer none): owned by @file */
 const char *
 nemo_file_peek_name (NemoFile *file)
 {
     return file->details->name;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_file_get_name (NemoFile *file)
 {
@@ -4783,7 +4807,7 @@ nemo_file_get_name (NemoFile *file)
  * Gets the standard::description key from @file, if
  * it has been cached.
  *
- * Returns: a string containing the value of the standard::description
+ * Returns: (transfer full): a string containing the value of the standard::description
  * 	key, or %NULL.
  */
 char *
@@ -4841,6 +4865,7 @@ nemo_file_has_activation_uri (NemoFile *file)
 /* Return the uri associated with the passed-in file, which may not be
  * the actual uri if the file is an desktop file or a nemo
  * xml link file.
+ * Returns: (transfer full): free with g_free
  */
 char *
 nemo_file_get_activation_uri (NemoFile *file)
@@ -4854,6 +4879,7 @@ nemo_file_get_activation_uri (NemoFile *file)
 	return nemo_file_get_uri (file);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GFile *
 nemo_file_get_activation_location (NemoFile *file)
 {
@@ -4867,6 +4893,7 @@ nemo_file_get_activation_location (NemoFile *file)
 }
 
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_file_get_drop_target_uri (NemoFile *file)
 {
@@ -5281,6 +5308,7 @@ prepend_icon_name (const char *name,
 	g_themed_icon_prepend_name(icon, name);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GIcon *
 nemo_file_get_gicon (NemoFile *file,
 			 NemoFileIconFlags flags)
@@ -5446,6 +5474,7 @@ get_symbolic_icon_name_for_file (NemoFile *file)
     return NULL;
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_file_get_control_icon_name (NemoFile *file)
 {
@@ -5590,6 +5619,7 @@ shell_icon_found (gpointer location)
 }
 #endif
 
+/* Returns: (transfer full): unref with nemo_icon_info_unref */
 NemoIconInfo *
 nemo_file_get_icon (NemoFile *file,
 			int size,
@@ -5799,6 +5829,7 @@ nemo_file_get_icon (NemoFile *file,
 	}
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GdkPixbuf *
 nemo_file_get_icon_pixbuf (NemoFile *file,
 			       int size,
@@ -6597,7 +6628,7 @@ nemo_file_can_get_selinux_context (NemoFile *file)
  * context
  * @file: NemoFile representing the file in question.
  *
- * Returns: Newly allocated string ready to display to the user.
+ * Returns: (transfer full): Newly allocated string ready to display to the user. Free with g_free.
  *
  **/
 char *
@@ -6769,7 +6800,7 @@ nemo_file_can_get_owner (NemoFile *file)
  *
  * @file: The file in question.
  *
- * Return value: A newly-allocated string.
+ * Return value: (transfer full): A newly-allocated string.
  */
 char *
 nemo_file_get_owner_name (NemoFile *file)
@@ -6898,6 +6929,8 @@ nemo_file_set_owner (NemoFile *file,
  * "real name", the real name follows the standard user name, separated
  * by a carriage return. The caller is responsible for freeing this list
  * and its contents.
+ *
+ * Returns: (transfer full): free with g_list_free_full (list, g_free)
  */
 GList *
 nemo_get_user_names (void)
@@ -6952,7 +6985,7 @@ nemo_file_can_get_group (NemoFile *file)
  *
  * @file: The file in question.
  *
- * Return value: A newly-allocated string.
+ * Return value: (transfer full): A newly-allocated string.
  **/
 char *
 nemo_file_get_group_name (NemoFile *file)
@@ -7033,6 +7066,8 @@ nemo_get_group_names_for_user (void)
  * nemo_get_group_names:
  *
  * Get a list of all group names.
+ *
+ * Returns: (transfer full): free with g_list_free_full (list, g_free)
  */
 GList *
 nemo_get_all_group_names (void)
@@ -7059,6 +7094,8 @@ nemo_get_all_group_names (void)
  * can set the group of a specific file to.
  *
  * @file: The NemoFile in question.
+ *
+ * Returns: (transfer full): free with g_list_free_full (list, g_free)
  */
 GList *
 nemo_file_get_settable_group_names (NemoFile *file)
@@ -7332,7 +7369,7 @@ read_owner_real (NemoFile *file)
  * @include_real_name: Whether or not to append the real name (if any)
  * for this user after the user name.
  *
- * Returns: Newly allocated string ready to display to the user.
+ * Returns: (transfer full): Newly allocated string ready to display to the user.
  *
  **/
 char *
@@ -7367,7 +7404,8 @@ nemo_file_get_owner_as_string (NemoFile *file, gboolean include_real_name)
 	return user_name;
 }
 
-/* The display name alone, or NULL when the system has none. */
+/* The display name alone, or NULL when the system has none.
+ * Returns: (transfer full): free with g_free */
 char *
 nemo_file_get_owner_real_name (NemoFile *file)
 {
@@ -7626,7 +7664,7 @@ nemo_file_get_deep_directory_count_as_string (NemoFile *file)
  * "date_permissions", "owner", "owner_name", "owner_and_name", "extension", "permissions_source", "group", "permissions", "octal_permissions", "uri", "where",
  * "link_target", "volume", "free_space", "selinux_context", "trashed_on", "trashed_orig_path"
  *
- * Returns: Newly allocated string ready to display to the user, or NULL
+ * Returns: (transfer full): Newly allocated string ready to display to the user, or NULL
  * if the value is unknown or @attribute_name is not supported.
  *
  **/
@@ -7798,6 +7836,7 @@ nemo_file_get_string_attribute_q (NemoFile *file, GQuark attribute_q)
 	return g_strdup (extension_attribute);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_file_get_string_attribute (NemoFile *file, const char *attribute_name)
 {
@@ -7818,7 +7857,7 @@ nemo_file_get_string_attribute (NemoFile *file, const char *attribute_name)
  * @attribute_name: The name of the desired attribute. See the description of
  * nemo_file_get_string for the set of available attributes.
  *
- * Returns: Newly allocated string ready to display to the user, or a string
+ * Returns: (transfer full): Newly allocated string ready to display to the user, or a string
  * such as "unknown" if the value is unknown or @attribute_name is not supported.
  *
  **/
@@ -7892,6 +7931,7 @@ nemo_file_get_string_attribute_with_default_q (NemoFile *file, GQuark attribute_
 	return g_strdup (_("unknown"));
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_file_get_string_attribute_with_default (NemoFile *file, const char *attribute_name)
 {
@@ -8039,6 +8079,7 @@ update_description_for_link (NemoFile *file, char *string)
 	return string;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_file_get_type_as_string (NemoFile *file)
 {
@@ -8053,6 +8094,7 @@ nemo_file_get_type_as_string (NemoFile *file)
     return update_description_for_link (file, get_description (file, FALSE));
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_file_get_detailed_type_as_string (NemoFile *file)
 {
@@ -8092,7 +8134,7 @@ nemo_file_get_file_type (NemoFile *file)
  * Return this file's default mime type.
  * @file: NemoFile representing the file in question.
  *
- * Returns: The mime type.
+ * Returns: (transfer full): The mime type. Free with g_free.
  *
  **/
 char *
@@ -8155,7 +8197,7 @@ nemo_file_is_launchable (NemoFile *file)
  * @file: NemoFile representing the file in question.
  * @view_file: NemoFile representing the view's directory_as_file.
  *
- * Returns: A list of emblem names.
+ * Returns: (transfer full): A list of emblem names. Free with g_list_free_full (list, g_object_unref).
  *
  **/
 GList *
@@ -8236,7 +8278,7 @@ sort_keyword_list_and_remove_duplicates (GList *keywords)
  * Return this file's keywords.
  * @file: NemoFile representing the file in question.
  *
- * Returns: A list of keywords.
+ * Returns: (transfer full): A list of keywords. Free with g_list_free_full (list, g_free).
  *
  **/
 GList *
@@ -8278,6 +8320,7 @@ nemo_file_is_mountpoint (NemoFile *file)
 	return file->details->is_mountpoint;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GMount *
 nemo_file_get_mount (NemoFile *file)
 {
@@ -8394,7 +8437,7 @@ get_fs_free_cb (GObject *source_object,
  * Get a nicely formatted char with free space on the file's volume
  * @file: NemoFile representing the file in question.
  *
- * Returns: newly-allocated copy of file size in a formatted string
+ * Returns: (transfer full): newly-allocated copy of file size in a formatted string. Free with g_free.
  */
 char *
 nemo_file_get_volume_free_space (NemoFile *file)
@@ -8432,7 +8475,7 @@ nemo_file_get_volume_free_space (NemoFile *file)
  * Get the path of the volume the file resides on
  * @file: NemoFile representing the file in question.
  *
- * Returns: newly-allocated copy of the volume name of the target file,
+ * Returns: (transfer full): newly-allocated copy of the volume name of the target file,
  * if the volume name isn't set, it returns the mount path of the volume
  */
 char *
@@ -8462,7 +8505,7 @@ nemo_file_get_volume_name (NemoFile *file)
  * to call this function on a file that isn't a symbolic link.
  * @file: NemoFile representing the symbolic link in question.
  *
- * Returns: newly-allocated copy of the file path of the target of the symbolic link.
+ * Returns: (transfer full): newly-allocated copy of the file path of the target of the symbolic link. Free with g_free.
  */
 char *
 nemo_file_get_symbolic_link_target_path (NemoFile *file)
@@ -8481,7 +8524,7 @@ nemo_file_get_symbolic_link_target_path (NemoFile *file)
  * to call this function on a file that isn't a symbolic link.
  * @file: NemoFile representing the symbolic link in question.
  *
- * Returns: newly-allocated copy of the uri of the target of the symbolic link.
+ * Returns: (transfer full): newly-allocated copy of the uri of the target of the symbolic link. Free with g_free.
  */
 char *
 nemo_file_get_symbolic_link_target_uri (NemoFile *file)
@@ -8744,6 +8787,7 @@ nemo_file_is_in_admin (NemoFile *file)
     return nemo_directory_is_in_admin (file->details->directory);
 }
 
+/* Returns: (transfer none): owned by @file */
 GError *
 nemo_file_get_file_info_error (NemoFile *file)
 {
@@ -8798,12 +8842,14 @@ nemo_file_is_executable (NemoFile *file)
 	return file->details->can_execute;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_file_get_filesystem_id (NemoFile *file)
 {
 	return g_strdup (file->details->filesystem_id);
 }
 
+/* Returns: (transfer full): unref with nemo_file_unref */
 NemoFile *
 nemo_file_get_trash_original_file (NemoFile *file)
 {
@@ -9036,6 +9082,7 @@ add_line (GString *string, const gchar *add, gboolean prefix_newline)
     return g_string_append (string, add);
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_file_construct_tooltip (NemoFile *file, NemoFileTooltipFlags flags, gpointer search_dir)
 {
@@ -9529,6 +9576,8 @@ file_unref_one (gpointer data, G_GNUC_UNUSED gpointer user_data)
  *
  * Ref all the files in a list.
  * @list: GList of files.
+ *
+ * Returns: (transfer none): @list itself; each file has one more ref, dropped with nemo_file_list_unref
  **/
 GList *
 nemo_file_list_ref (GList *list)
@@ -9567,6 +9616,8 @@ nemo_file_list_free (GList *list)
  *
  * Copy the list of files, making a new ref of each,
  * @list: GList of files.
+ *
+ * Returns: (transfer full): free with nemo_file_list_free
  **/
 GList *
 nemo_file_list_copy (GList *list)
@@ -9574,6 +9625,7 @@ nemo_file_list_copy (GList *list)
 	return g_list_copy (nemo_file_list_ref (list));
 }
 
+/* Returns: (transfer full): free with g_list_free_full (list, g_object_unref) */
 GList *
 nemo_file_list_from_uris (GList *uri_list)
 {
@@ -9659,6 +9711,7 @@ nemo_file_get_default_sort_type (NemoFile *file,
 	return retval;
 }
 
+/* Returns: (transfer none): an interned string */
 const gchar *
 nemo_file_get_default_sort_attribute (NemoFile *file,
 					  gboolean *reversed)
@@ -9696,6 +9749,8 @@ compare_by_display_name_cover (gconstpointer a, gconstpointer b)
  *
  * Sort the list of files by file name.
  * @list: GList of files.
+ *
+ * Returns: (transfer full): @list sorted in place, owned as @list was
  **/
 GList *
 nemo_file_list_sort_by_display_name (GList *list)
@@ -10130,6 +10185,7 @@ nemo_file_get_search_result_count (NemoFile *file, gpointer search_dir)
     return 0;
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_file_get_search_result_count_as_string (NemoFile *file, gpointer search_dir)
 {
@@ -10142,6 +10198,7 @@ nemo_file_get_search_result_count_as_string (NemoFile *file, gpointer search_dir
     return NULL;
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_file_get_search_result_snippet (NemoFile *file, gpointer search_dir)
 {

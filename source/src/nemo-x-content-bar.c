@@ -273,6 +273,7 @@ nemo_x_content_bar_init (NemoXContentBar *bar)
 			  bar);
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_x_content_bar_new (GMount *mount, 
 			    const char *x_content_type)

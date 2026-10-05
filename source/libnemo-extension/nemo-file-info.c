@@ -99,6 +99,7 @@ nemo_file_info_get_file_type (NemoFileInfo *file)
 	return NEMO_FILE_INFO_GET_IFACE (file)->get_file_type (file);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_file_info_get_name (NemoFileInfo *file)
 {
@@ -122,6 +123,7 @@ nemo_file_info_get_location (NemoFileInfo *file)
 
 	return NEMO_FILE_INFO_GET_IFACE (file)->get_location (file);
 }
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_file_info_get_uri (NemoFileInfo *file)
 {
@@ -131,6 +133,7 @@ nemo_file_info_get_uri (NemoFileInfo *file)
 	return NEMO_FILE_INFO_GET_IFACE (file)->get_uri (file);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_file_info_get_activation_uri (NemoFileInfo *file)
 {
@@ -156,6 +159,7 @@ nemo_file_info_get_parent_location (NemoFileInfo *file)
 	return NEMO_FILE_INFO_GET_IFACE (file)->get_parent_location (file);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_file_info_get_parent_uri (NemoFileInfo *file)
 {
@@ -197,6 +201,7 @@ nemo_file_info_get_mount (NemoFileInfo *file)
 	return NEMO_FILE_INFO_GET_IFACE (file)->get_mount (file);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_file_info_get_uri_scheme (NemoFileInfo *file)
 {
@@ -206,6 +211,7 @@ nemo_file_info_get_uri_scheme (NemoFileInfo *file)
 	return NEMO_FILE_INFO_GET_IFACE (file)->get_uri_scheme (file);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_file_info_get_mime_type (NemoFileInfo *file)
 {
@@ -255,6 +261,7 @@ nemo_file_info_add_emblem (NemoFileInfo *file,
 	NEMO_FILE_INFO_GET_IFACE (file)->add_emblem (file, emblem_name);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_file_info_get_string_attribute (NemoFileInfo *file,
 					 const char *attribute_name)

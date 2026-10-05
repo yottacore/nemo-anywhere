@@ -1118,6 +1118,7 @@ nemo_crash_handler_install (void)
 #endif
 }
 
+/* Returns: (transfer none): kept for the life of the process */
 const char *
 nemo_crash_report_path (void)
 {

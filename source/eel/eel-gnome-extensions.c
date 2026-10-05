@@ -76,6 +76,7 @@ terminal_settings_new (void)
     return NULL;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 eel_gnome_get_fallback_terminal_exec (void)
 {

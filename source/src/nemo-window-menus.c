@@ -1610,6 +1610,7 @@ static const GtkRadioActionEntry toolbar_radio_entries[] = {
       TOOLBAR_ENTRY }
 };
 
+/* Returns: (transfer full): unref with g_object_unref */
 GtkActionGroup *
 nemo_window_create_toolbar_action_group (NemoWindow *window)
 {

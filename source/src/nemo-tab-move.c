@@ -477,6 +477,7 @@ menu_move_to_new_window_cb (GtkMenuItem *item,
 	move_to_new_window (slot, gtk_get_current_event_time ());
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_tab_move_menu_item_new (NemoWindowSlot *slot)
 {

@@ -916,6 +916,7 @@ remove_moved_sources (GtkWidget *widget, const char *uri_list)
 	g_list_free_full (files, g_object_unref);
 }
 
+/* Returns: (transfer full): an IDataObject; drop it with IDataObject_Release */
 gpointer
 nemo_dnd_win32_data_object (const char    *uri_list,
 			    const char    *icon_list,

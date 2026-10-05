@@ -89,6 +89,7 @@ nemo_cell_renderer_disk_class_init (NemoCellRendererDiskClass *klass)
                                                          G_PARAM_READWRITE));
 }
 
+/* Returns: (transfer floating) */
 GtkCellRenderer *
 nemo_cell_renderer_disk_new (void)
 {

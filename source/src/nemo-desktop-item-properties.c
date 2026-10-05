@@ -495,6 +495,7 @@ nemo_desktop_item_properties_create_begin (const char *uri,
 	g_object_unref (location);
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_desktop_item_properties_make_box (GtkSizeGroup *label_size_group,
                                            GList *files)

@@ -589,6 +589,7 @@ nemo_window_slot_open_location_full (NemoWindowSlot *slot,
     g_clear_object (&old_location);
 }
 
+/* Returns: (transfer none): a static string */
 const char *
 nemo_window_slot_get_content_view_id (NemoWindowSlot *slot)
 {

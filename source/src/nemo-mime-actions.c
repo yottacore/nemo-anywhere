@@ -342,6 +342,7 @@ file_has_local_path (NemoFile *file)
 	return res;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GAppInfo *
 nemo_mime_get_default_application_for_file (NemoFile *file)
 {
@@ -420,6 +421,7 @@ file_compare_by_parent_uri (NemoFile *file_a,
 	return ret;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_mime_get_application_name (GAppInfo *app)
 {
@@ -475,6 +477,7 @@ application_compare_by_id (const GAppInfo *app_a,
 	return strcmp (id_a, id_b);
 }
 
+/* Returns: (transfer full): free with g_list_free_full (list, g_object_unref) */
 GList *
 nemo_mime_get_applications_for_file (NemoFile *file)
 {
@@ -512,6 +515,7 @@ nemo_mime_get_applications_for_file (NemoFile *file)
 	return filter_nemo_handler (result);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GAppInfo *
 nemo_mime_get_default_application_for_files (GList *files)
 {
@@ -605,6 +609,7 @@ intersect_application_lists (GList *a,
 	return g_list_reverse (ret);
 }
 
+/* Returns: (transfer full): free with g_list_free_full (list, g_object_unref) */
 GList *
 nemo_mime_get_applications_for_files (GList *files)
 {

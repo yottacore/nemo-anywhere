@@ -456,6 +456,7 @@ out:
 	return pixbuf;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GdkPixbuf *
 nemo_psd_load (GInputStream *stream, int size, GCancellable *cancellable)
 {
@@ -466,6 +467,7 @@ nemo_psd_load (GInputStream *stream, int size, GCancellable *cancellable)
 	return load (&r, size);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GdkPixbuf *
 nemo_psd_load_uri (const char *uri, int size, GCancellable *cancellable)
 {

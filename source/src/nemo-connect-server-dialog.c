@@ -1138,6 +1138,7 @@ nemo_connect_server_dialog_class_init (NemoConnectServerDialogClass *class)
 	g_type_class_add_private (class, sizeof (NemoConnectServerDialogDetails));
 }
 
+/* Returns: (transfer none): a toplevel; destroy with gtk_widget_destroy */
 GtkWidget *
 nemo_connect_server_dialog_new (NemoWindow *window)
 {

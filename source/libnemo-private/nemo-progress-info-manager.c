@@ -112,6 +112,7 @@ progress_info_finished_cb (NemoProgressInfo *info,
 	g_object_unref (info);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoProgressInfoManager *
 nemo_progress_info_manager_new (void)
 {
@@ -137,6 +138,7 @@ nemo_progress_info_manager_add_new_info (NemoProgressInfoManager *self,
 	g_signal_emit (self, signals[NEW_PROGRESS_INFO], 0, info);
 }
 
+/* Returns: (transfer none): owned by @self */
 GList *
 nemo_progress_info_manager_get_all_infos (NemoProgressInfoManager *self)
 {

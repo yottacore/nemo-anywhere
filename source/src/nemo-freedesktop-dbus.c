@@ -229,7 +229,8 @@ nemo_freedesktop_dbus_set_open_locations (NemoFreedesktopDBus *fdb,
 	nemo_freedesktop_file_manager1_set_open_locations (fdb->skeleton, locations);
 }
 
-/* Tries to own the org.freedesktop.FileManager1 service name */
+/* Tries to own the org.freedesktop.FileManager1 service name
+ * Returns: (transfer full): unref with g_object_unref */
 NemoFreedesktopDBus *
 nemo_freedesktop_dbus_new (void)
 {	

@@ -180,6 +180,7 @@ nemo_navigation_state_class_init (NemoNavigationStateClass *klass)
 	g_type_class_add_private (klass, sizeof (NemoNavigationStateDetails));
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoNavigationState *
 nemo_navigation_state_new (GtkActionGroup *slave,
 			       const gchar **action_names)
@@ -241,6 +242,7 @@ nemo_navigation_state_sync_all (NemoNavigationState *self)
 	}
 }
 
+/* Returns: (transfer none): owned by @self */
 GtkActionGroup *
 nemo_navigation_state_get_master (NemoNavigationState *self)
 {

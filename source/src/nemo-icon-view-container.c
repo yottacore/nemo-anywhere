@@ -2069,6 +2069,7 @@ nemo_icon_view_container_init (NemoIconViewContainer *icon_container)
     }
 }
 
+/* Returns: (transfer none): @icon_container itself */
 NemoIconContainer *
 nemo_icon_view_container_construct (NemoIconViewContainer *icon_container,
                                     NemoIconView          *view,
@@ -2108,6 +2109,7 @@ nemo_icon_view_container_construct (NemoIconViewContainer *icon_container,
 	return NEMO_ICON_CONTAINER (icon_container);
 }
 
+/* Returns: (transfer floating) */
 NemoIconContainer *
 nemo_icon_view_container_new (NemoIconView *view,
                               gboolean      is_desktop)

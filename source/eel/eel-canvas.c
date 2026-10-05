@@ -130,7 +130,7 @@ eel_canvas_item_init (EelCanvasItem *item)
  * eel_canvas_rect_get_type().  The list of object arguments/value pairs is
  * used to configure the item.
  *
- * Return value: The newly-created item.
+ * Return value: (transfer none): The newly-created item.
  **/
 EelCanvasItem *
 eel_canvas_item_new (EelCanvasGroup *parent, GType type, const gchar *first_arg_name, ...)
@@ -2353,7 +2353,7 @@ eel_canvas_destroy (GtkWidget *object)
  * visual and colormap before calling this function, and they can be popped
  * afterwards.
  *
- * Return value: A newly-created canvas.
+ * Return value: (transfer floating): A newly-created canvas.
  **/
 GtkWidget *
 eel_canvas_new (void)
@@ -3240,7 +3240,7 @@ add_idle (EelCanvas *canvas)
  *
  * Queries the root group of a canvas.
  *
- * Return value: The root group of the specified canvas.
+ * Return value: (transfer none): The root group of the specified canvas.
  **/
 EelCanvasGroup *
 eel_canvas_root (EelCanvas *canvas)
@@ -3506,7 +3506,7 @@ eel_canvas_update_now (EelCanvas *canvas)
  * Looks for the item that is under the specified position, which must be
  * specified in world coordinates.
  *
- * Return value: The sought item, or NULL if no item is at the specified
+ * Return value: (transfer none): The sought item, or NULL if no item is at the specified
  * coordinates.
  **/
 EelCanvasItem *

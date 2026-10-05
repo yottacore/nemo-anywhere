@@ -23,7 +23,8 @@
 
 /* The command line another copy needs to show what this one was asked for.
  * A selection is passed as --select when the location is its folder; when it
- * is not, the location alone is what can be said on a command line. */
+ * is not, the location alone is what can be said on a command line.
+ * Returns: (transfer full): free with g_strfreev */
 char **
 nemo_new_process_argv (GFile *location,
                        GFile *selection)
@@ -47,7 +48,8 @@ nemo_new_process_argv (GFile *location,
 }
 
 /* A tab moved out into a window of its own keeps its view and selection. The
- * options are hidden ones, and apply only to a single location. */
+ * options are hidden ones, and apply only to a single location.
+ * Returns: (transfer full): free with g_strfreev */
 char **
 nemo_new_process_argv_tab (GFile       *location,
                            const char  *view_id,

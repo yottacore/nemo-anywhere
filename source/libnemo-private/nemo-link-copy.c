@@ -239,6 +239,7 @@ typedef struct {
 	GtkWidget    *buttons[N_COLUMNS];
 } Row;
 
+/* Returns: (transfer none): a static string */
 const char *
 nemo_link_choice_row_label (NemoLinkKind found,
                             guint        count)
@@ -254,7 +255,8 @@ nemo_link_choice_row_label (NemoLinkKind found,
 }
 
 /* Said as what happens to this link, since "Symlink" beside a symlink read as
-   though a new one would be made. */
+   though a new one would be made.
+   Returns: (transfer none): a static string */
 const char *
 nemo_link_choice_label (NemoLinkKind found,
                         NemoLinkKind offer,
@@ -280,6 +282,7 @@ nemo_link_choice_label (NemoLinkKind found,
 		       : ngettext ("Copy as a symlink", "Copy as symlinks", count);
 }
 
+/* Returns: (transfer none): a static string */
 const char *
 nemo_link_choice_tooltip (NemoLinkKind found,
                           NemoLinkKind offer)
@@ -668,6 +671,7 @@ leads_to (const char *real_link_dir, const char *text, const char *real_target)
 }
 #endif
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_link_relative_target (const char *target_path,
                            const char *dir)

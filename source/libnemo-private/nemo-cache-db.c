@@ -322,6 +322,7 @@ commit (NemoCacheDb *db)
 	return FALSE;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_cache_db_path (void)
 {
@@ -588,6 +589,7 @@ db_open (void)
 	return db;
 }
 
+/* Returns: (transfer none): the one store for the process, or NULL */
 NemoCacheDb *
 nemo_cache_db_get (void)
 {
@@ -2531,6 +2533,7 @@ nemo_cache_db_prune_steps (void)
 	return g_atomic_int_get (&prune_steps);
 }
 
+/* Returns: (transfer full): close with sqlite3_close */
 struct sqlite3 *
 nemo_cache_db_open_another (void)
 {

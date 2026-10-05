@@ -636,6 +636,7 @@ nemo_file_undo_info_ext_class_init (NemoFileUndoInfoExtClass *klass)
 	g_type_class_add_private (klass, sizeof (NemoFileUndoInfoExtDetails));
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoFileUndoInfo *
 nemo_file_undo_info_ext_new (NemoFileUndoOp op_type,
 				 gint item_count,
@@ -855,6 +856,7 @@ nemo_file_undo_info_create_class_init (NemoFileUndoInfoCreateClass *klass)
 	g_type_class_add_private (klass, sizeof (NemoFileUndoInfoCreateDetails));
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoFileUndoInfo *
 nemo_file_undo_info_create_new (NemoFileUndoOp op_type)
 {
@@ -970,6 +972,7 @@ nemo_file_undo_info_rename_class_init (NemoFileUndoInfoRenameClass *klass)
 	g_type_class_add_private (klass, sizeof (NemoFileUndoInfoRenameDetails));
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoFileUndoInfo *
 nemo_file_undo_info_rename_new (void)
 {
@@ -1288,6 +1291,7 @@ nemo_file_undo_info_trash_class_init (NemoFileUndoInfoTrashClass *klass)
 	g_type_class_add_private (klass, sizeof (NemoFileUndoInfoTrashDetails));
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoFileUndoInfo *
 nemo_file_undo_info_trash_new (gint item_count)
 {
@@ -1437,6 +1441,7 @@ nemo_file_undo_info_rec_permissions_class_init (NemoFileUndoInfoRecPermissionsCl
 	g_type_class_add_private (klass, sizeof (NemoFileUndoInfoRecPermissionsDetails));
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoFileUndoInfo *
 nemo_file_undo_info_rec_permissions_new (GFile   *dest,
 					     guint32 file_permissions,
@@ -1558,6 +1563,7 @@ nemo_file_undo_info_permissions_class_init (NemoFileUndoInfoPermissionsClass *kl
 	g_type_class_add_private (klass, sizeof (NemoFileUndoInfoPermissionsDetails));
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoFileUndoInfo *
 nemo_file_undo_info_permissions_new (GFile   *file,
 					 guint32  current_permissions,
@@ -1692,6 +1698,7 @@ nemo_file_undo_info_ownership_class_init (NemoFileUndoInfoOwnershipClass *klass)
 	g_type_class_add_private (klass, sizeof (NemoFileUndoInfoOwnershipDetails));
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoFileUndoInfo *
 nemo_file_undo_info_ownership_new (NemoFileUndoOp  op_type,
 				       GFile              *file,

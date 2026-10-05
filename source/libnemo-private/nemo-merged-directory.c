@@ -511,6 +511,7 @@ nemo_merged_directory_add_real_directory (NemoMergedDirectory *merged,
 	g_signal_emit (merged, signals[ADD_REAL_DIRECTORY], 0, real_directory);
 }
 
+/* Returns: (transfer container): free with g_list_free; the directories stay @merged's */
 GList *
 nemo_merged_directory_get_real_directories (NemoMergedDirectory *merged)
 {

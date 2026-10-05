@@ -26,6 +26,7 @@
 #include <eel/eel-art-extensions.h>
 #include "nemo-icon-private.h"
 
+/* Returns: (transfer full): free with nemo_placement_grid_free */
 NemoPlacementGrid *
 nemo_placement_grid_new (NemoIconContainer *container, gboolean tight)
 {

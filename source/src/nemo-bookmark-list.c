@@ -631,7 +631,7 @@ nemo_bookmark_list_delete_items_with_uri (NemoBookmarkList *bookmarks,
  * Get a string representing the bookmark_list's window's geometry.
  * This is the value set earlier by nemo_bookmark_list_set_window_geometry.
  * @bookmarks: the list of bookmarks associated with the window.
- * Return value: string representation of window's geometry, suitable for
+ * Return value: (transfer none): string representation of window's geometry, suitable for
  * passing to gnome_parse_geometry(), or NULL if
  * no window geometry has yet been saved for this bookmark list.
  **/
@@ -664,6 +664,7 @@ nemo_bookmark_list_insert_item (NemoBookmarkList *bookmarks,
 	nemo_bookmark_list_save_file (bookmarks);
 }
 
+/* Returns: (transfer container): free with g_list_free; the bookmarks stay @bookmarks' */
 GList *
 nemo_bookmark_list_get_for_uri (NemoBookmarkList   *bookmarks,
                                       const char   *uri)
@@ -693,7 +694,7 @@ nemo_bookmark_list_get_for_uri (NemoBookmarkList   *bookmarks,
  * @bookmarks: the list of bookmarks.
  * @index: index, must be less than length of list.
  * 
- * Return value: the bookmark at position @index in @bookmarks.
+ * Return value: (transfer none): the bookmark at position @index in @bookmarks.
  **/
 NemoBookmark *
 nemo_bookmark_list_item_at (NemoBookmarkList *bookmarks, guint index)
@@ -1141,7 +1142,7 @@ static NemoBookmarkList *list = NULL;
  * 
  * Retrieves the bookmark list singleton, with contents read from disk.
  * 
- * Return value: A pointer to the object
+ * Return value: (transfer none): A pointer to the object
  **/
 NemoBookmarkList *
 nemo_bookmark_list_get_default (void)

@@ -1918,6 +1918,7 @@ fm_tree_model_add_root_uri (FMTreeModel *model, const char *root_uri, const char
 	report_node_inserted (model, node);
 }
 
+/* Returns: (transfer none): owned by @model */
 GMount *
 fm_tree_model_get_mount_for_root_node_file (FMTreeModel *model, NemoFile *file)
 {
@@ -1985,6 +1986,7 @@ fm_tree_model_remove_root_uri (FMTreeModel *model, const char *uri)
 	}
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 FMTreeModel *
 fm_tree_model_new (void)
 {
@@ -2043,6 +2045,7 @@ fm_tree_model_expect_children (FMTreeModel *model, GtkTreeIter *iter)
 	}
 }
 
+/* Returns: (transfer full): unref with nemo_file_unref */
 NemoFile *
 fm_tree_model_iter_get_file (FMTreeModel *model, GtkTreeIter *iter)
 {

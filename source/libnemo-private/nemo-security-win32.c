@@ -146,6 +146,7 @@ look_up_full_name (PSID owner)
 	return full_name;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_security_win32_owner_full_name (const char *path)
 {

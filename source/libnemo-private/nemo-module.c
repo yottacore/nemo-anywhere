@@ -227,6 +227,7 @@ nemo_module_setup (void)
 	}
 }
 
+/* Returns: (transfer full): free with nemo_module_extension_list_free */
 GList *
 nemo_module_get_extensions_for_type (GType type)
 {

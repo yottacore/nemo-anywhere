@@ -169,6 +169,7 @@ job_finished_cb (NemoJobQueue *self,
 
 static void start_job (NemoJobQueue *self, Job *job);
 
+/* Returns: (transfer full): the shared queue with one more ref; unref with g_object_unref */
 NemoJobQueue *
 nemo_job_queue_get (void)
 {
@@ -214,6 +215,7 @@ nemo_job_queue_add_new_job (NemoJobQueue         *self,
    that stops to ask can pause the right one. */
 static GPrivate current_info;
 
+/* Returns: (transfer none): owned by the running job */
 NemoProgressInfo *
 nemo_job_queue_get_current_info (void)
 {
@@ -270,6 +272,7 @@ nemo_job_queue_start_job_by_info (NemoJobQueue     *self,
         start_job (self, target->data);
 }
 
+/* Returns: (transfer none): owned by @self */
 GList *
 nemo_job_queue_get_all_jobs (NemoJobQueue *self)
 {

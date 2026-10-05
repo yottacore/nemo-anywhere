@@ -713,6 +713,7 @@ file_to_iter_cb (G_GNUC_UNUSED gpointer  key,
 	dir_to_iters (data, dir_file_entry->reverse_map);
 }
 
+/* Returns: (transfer full): free with g_list_free_full (list, g_free) */
 GList *
 nemo_list_model_get_all_iters_for_file (NemoListModel *model, NemoFile *file)
 {
@@ -1461,6 +1462,7 @@ nemo_list_model_clear (NemoListModel *model)
 	nemo_list_model_clear_directory (model, model->details->files);
 }
 
+/* Returns: (transfer full): unref with nemo_file_unref */
 NemoFile *
 nemo_list_model_file_for_path (NemoListModel *model, GtkTreePath *path)
 {
@@ -1565,7 +1567,8 @@ nemo_list_model_unload_subdirectory (NemoListModel *model, GtkTreeIter *iter)
 /* Adds the folder row that grouped search results hang off, and hands back the
    directory to pass to nemo_list_model_add_file for the matches under it. NULL
    when the row is already there for some other reason. @created says whether
-   this call is what put it there, so the caller can expand it just the once. */
+   this call is what put it there, so the caller can expand it just the once.
+   Returns: (transfer none): owned by the row */
 NemoDirectory *
 nemo_list_model_add_search_group (NemoListModel *model,
 				  NemoFile      *dir_file,
@@ -1785,6 +1788,7 @@ nemo_list_model_set_drag_view (NemoListModel *model,
 	model->details->drag_begin_y = drag_begin_y;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_list_model_drag_payload (NemoListModel *model,
 			      GList *path_list,
@@ -1798,6 +1802,7 @@ nemo_list_model_drag_payload (NemoListModel *model,
 	return nemo_drag_selection_payload (info, &context, each_path_get_data_binder);
 }
 
+/* Returns: (transfer full): free with gtk_target_list_unref */
 GtkTargetList *
 nemo_list_model_get_drag_target_list (void)
 {

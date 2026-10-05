@@ -579,6 +579,7 @@ convert_lines_to_str_list (char **lines, gboolean *cut)
 	return g_list_reverse (result);
 }
 
+/* Returns: (transfer full): free with g_list_free_full (list, g_free) */
 GList*
 nemo_clipboard_get_uri_list_from_selection_data (GtkSelectionData *selection_data,
 						     gboolean *cut,
@@ -607,6 +608,7 @@ nemo_clipboard_get_uri_list_from_selection_data (GtkSelectionData *selection_dat
 	return items;
 }
 
+/* Returns: (transfer none): owned by GTK */
 GtkClipboard *
 nemo_clipboard_get (GtkWidget *widget)
 {

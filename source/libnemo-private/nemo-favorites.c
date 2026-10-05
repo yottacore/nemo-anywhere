@@ -44,6 +44,7 @@ G_DEFINE_BOXED_TYPE (NemoFavoriteInfo, nemo_favorite_info, nemo_favorite_info_co
  */
 NemoFavorites *global_favorites;
 
+/* Returns: (transfer full): free with nemo_favorite_info_free */
 NemoFavoriteInfo *
 nemo_favorite_info_copy (const NemoFavoriteInfo *info)
 {
@@ -1145,6 +1146,7 @@ _nemo_favorites_has_display_name (NemoFavorites *favorites,
     return found;
 }
 
+/* Returns: (transfer full): free with nemo_favorite_info_free */
 NemoFavoriteInfo *
 _nemo_favorites_dup_by_display_name (NemoFavorites *favorites,
                                      const gchar   *display_name)
@@ -1259,7 +1261,8 @@ nemo_favorites_rename (NemoFavorites *favorites,
 
 
 /* Used by nemo_favorite_vfs_file. The names are copies - the caller reads them
- * on a worker thread, where the table itself is not its to hold. */
+ * on a worker thread, where the table itself is not its to hold.
+ * Returns: (transfer full): free with g_list_free_full (list, g_free) */
 GList *
 _nemo_favorites_get_display_names (NemoFavorites *favorites)
 {

@@ -5175,6 +5175,7 @@ item_event_callback (EelCanvasItem *item,
     return FALSE;
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_icon_container_new (void)
 {
@@ -5239,6 +5240,7 @@ nemo_icon_container_is_empty (NemoIconContainer *container)
 	return container->details->icons == NULL;
 }
 
+/* Returns: (transfer none): owned by @container */
 NemoIconData *
 nemo_icon_container_get_first_visible_icon (NemoIconContainer *container)
 {
@@ -5393,6 +5395,7 @@ nemo_icon_container_for_each (NemoIconContainer *container,
 			call_icon_callback, &callback_and_data);
 }
 
+/* Returns: (transfer container): free with g_list_free; the data stays the container's */
 GList *
 nemo_icon_container_get_data_in_order (NemoIconContainer *container)
 {
@@ -5563,6 +5566,7 @@ activate_selected_items_alternate (NemoIconContainer *container,
 	g_list_free (selection);
 }
 
+/* Returns: (transfer full): unref with nemo_icon_info_unref */
 NemoIconInfo *
 nemo_icon_container_get_icon_images (NemoIconContainer *container,
                                      NemoIconData      *data,
@@ -6100,7 +6104,7 @@ nemo_icon_container_get_real_selection (NemoIconContainer *container)
  *
  * Get a list of the icons currently selected in @container.
  *
- * Return value: A GList of the programmer-specified data associated to each
+ * Return value: (transfer container): A GList of the programmer-specified data associated to each
  * selected icon, or NULL if no icon is selected.  The caller is expected to
  * free the list when it is not needed anymore.
  **/
@@ -6120,7 +6124,7 @@ nemo_icon_container_get_selection (NemoIconContainer *container)
  *
  * Get an exiting list of the icons currently selected in @container.
  *
- * Return value: A GList of the programmer-specified data associated to each
+ * Return value: (transfer none): A GList of the programmer-specified data associated to each
  * selected icon, or NULL if no icon is selected.  This list belongs to the
  * NemoIconContainer and should not be freed.
  **/
@@ -6220,6 +6224,8 @@ nemo_icon_container_get_icon_locations (G_GNUC_UNUSED NemoIconContainer *contain
  * @container: An icon container widget.
  *
  * Returns an array of GdkPoints of locations of the selected icons.
+ *
+ * Returns: (transfer full): free with g_array_free (array, TRUE)
  **/
 GArray *
 nemo_icon_container_get_selected_icon_locations (NemoIconContainer *container)
@@ -6463,6 +6469,8 @@ nemo_icon_container_forget_selection (NemoIconContainer *container)
  * Locate an icon, given the URI. The URI must match exactly.
  * Later we may have to have some way of figuring out if the
  * URI specifies the same object that does not require an exact match.
+ *
+ * Returns: (transfer none): owned by @container
  **/
 NemoIcon *
 nemo_icon_container_get_icon_by_uri (NemoIconContainer *container,
@@ -6697,6 +6705,7 @@ compute_stretch (StretchState *start,
 	}
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_icon_container_get_icon_uri (NemoIconContainer *container,
 				      NemoIcon *icon)
@@ -6711,6 +6720,7 @@ nemo_icon_container_get_icon_uri (NemoIconContainer *container,
 	return uri;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_icon_container_get_icon_drop_target_uri (NemoIconContainer *container,
 				   	     	  NemoIcon *icon)
@@ -7209,6 +7219,7 @@ nemo_icon_container_start_renaming_selected_item (NemoIconContainer *container,
 	nemo_icon_canvas_item_set_renaming (icon->item, TRUE);
 }
 
+/* Returns: (transfer none): owned by @container */
 NemoIcon *
 nemo_icon_container_get_icon_being_renamed (NemoIconContainer *container)
 {
@@ -7420,6 +7431,8 @@ nemo_icon_container_set_label_font_offset (NemoIconContainer *container,
  * @data: Icon data
  *
  * Gets the description for the icon. This function may return NULL.
+ *
+ * Returns: (transfer full): free with g_free
  **/
 char*
 nemo_icon_container_get_icon_description (NemoIconContainer *container,

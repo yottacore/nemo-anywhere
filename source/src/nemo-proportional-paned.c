@@ -131,6 +131,7 @@ nemo_proportional_paned_class_init (NemoProportionalPanedClass *klass)
 					G_TYPE_NONE, 1, G_TYPE_INT);
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_proportional_paned_new (void)
 {

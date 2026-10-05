@@ -818,6 +818,7 @@ nemo_mime_application_chooser_class_init (NemoMimeApplicationChooserClass *class
 	g_type_class_add_private (class, sizeof (NemoMimeApplicationChooserDetails));
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_mime_application_chooser_new (const char *uri,
                                         GList *files,
@@ -836,6 +837,7 @@ nemo_mime_application_chooser_new (const char *uri,
 	return chooser;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GAppInfo *
 nemo_mime_application_chooser_get_info (NemoMimeApplicationChooser *chooser)
 {
@@ -845,6 +847,7 @@ nemo_mime_application_chooser_get_info (NemoMimeApplicationChooser *chooser)
         return g_object_ref (chooser->details->custom_info);
 }
 
+/* Returns: (transfer none): owned by @chooser */
 const gchar *
 nemo_mime_application_chooser_get_uri (NemoMimeApplicationChooser *chooser)
 {

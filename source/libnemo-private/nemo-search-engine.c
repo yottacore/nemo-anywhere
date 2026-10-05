@@ -96,6 +96,7 @@ nemo_search_engine_init (G_GNUC_UNUSED NemoSearchEngine *engine)
 {
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoSearchEngine *
 nemo_search_engine_new (void)
 {
@@ -189,6 +190,7 @@ static gint64 count = 0;
 static GHashTable *fsr_accounting_table = NULL;
 #endif
 
+/* Returns: (transfer full): free with file_search_result_free */
 FileSearchResult *
 file_search_result_new (gchar *uri, gchar *snippet)
 {

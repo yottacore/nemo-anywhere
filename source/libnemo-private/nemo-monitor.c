@@ -148,6 +148,7 @@ dir_changed (G_GNUC_UNUSED GFileMonitor* monitor,
     schedule_call_consume_changes ();
 }
 
+/* Returns: (transfer full): free with nemo_monitor_cancel */
 NemoMonitor *
 nemo_monitor_directory (GFile *location)
 {

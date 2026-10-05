@@ -489,6 +489,7 @@ nemo_progress_ui_handler_class_init (NemoProgressUIHandlerClass *klass)
 	g_type_class_add_private (klass, sizeof (NemoProgressUIHandlerPriv));
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoProgressUIHandler *
 nemo_progress_ui_handler_new (void)
 {

@@ -237,6 +237,7 @@ get_icon_container (NemoIconView *icon_view)
 	return NEMO_ICON_CONTAINER (icon_view->details->icon_container);
 }
 
+/* Returns: (transfer none): owned by @icon_view */
 NemoIconContainer *
 nemo_icon_view_get_icon_container (NemoIconView *icon_view)
 {
@@ -601,6 +602,7 @@ update_layout_menus (NemoIconView *view)
 }
 
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_icon_view_get_directory_sort_by (NemoIconView *icon_view,
 					  NemoFile *file)

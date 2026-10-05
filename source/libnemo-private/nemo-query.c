@@ -76,12 +76,14 @@ nemo_query_init (NemoQuery *query)
 						      NemoQueryDetails);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoQuery *
 nemo_query_new (void)
 {
 	return g_object_new (NEMO_TYPE_QUERY,  NULL);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_query_get_file_pattern (NemoQuery *query)
 {
@@ -99,6 +101,7 @@ nemo_query_set_file_pattern (NemoQuery *query, const char *text)
 	query->details->file_pattern = g_strstrip (g_strdup (text));
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_query_get_content_pattern (NemoQuery *query)
 {
@@ -127,6 +130,7 @@ nemo_query_has_content_pattern (NemoQuery *query)
     return query->details->content_pattern != NULL;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_query_get_location (NemoQuery *query)
 {
@@ -144,6 +148,7 @@ nemo_query_set_location (NemoQuery *query, const char *uri)
 	query->details->location_uri = g_strdup (uri);
 }
 
+/* Returns: (transfer full): free with g_list_free_full (list, g_free) */
 GList *
 nemo_query_get_mime_types (NemoQuery *query)
 {
@@ -186,6 +191,7 @@ nemo_query_get_show_hidden (NemoQuery *query)
     return query->details->show_hidden;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_query_to_readable_string (NemoQuery *query)
 {

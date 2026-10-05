@@ -69,6 +69,7 @@ destroy_clipboard_monitor (void)
 	}
 }
 
+/* Returns: (transfer none): kept for the life of the process */
 NemoClipboardMonitor *
 nemo_clipboard_monitor_get (void)
 {
@@ -201,6 +202,7 @@ nemo_clipboard_monitor_set_clipboard_info (NemoClipboardMonitor *monitor,
 	nemo_clipboard_monitor_emit_changed ();
 }
 
+/* Returns: (transfer none): owned by @monitor */
 NemoClipboardInfo *
 nemo_clipboard_monitor_get_clipboard_info (NemoClipboardMonitor *monitor)
 {

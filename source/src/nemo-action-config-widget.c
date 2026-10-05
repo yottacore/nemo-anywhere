@@ -528,6 +528,7 @@ nemo_action_config_widget_init (NemoActionConfigWidget *self)
     setup_dir_monitors (self);
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_action_config_widget_new (void)
 {

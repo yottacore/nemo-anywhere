@@ -453,6 +453,7 @@ show_ok_dialog (const char *primary_text,
 	return dialog;
 }
 
+/* Returns: (transfer none): a toplevel; destroy with gtk_widget_destroy */
 GtkDialog *
 eel_create_info_dialog (const char *primary_text,
 			const char *secondary_text,
@@ -464,6 +465,7 @@ eel_create_info_dialog (const char *primary_text,
 				      parent);
 }
 
+/* Returns: (transfer none): destroys itself on response */
 GtkDialog *
 eel_show_info_dialog (const char *primary_text,
 		      const char *secondary_text,
@@ -474,6 +476,7 @@ eel_show_info_dialog (const char *primary_text,
 			    GTK_MESSAGE_INFO, parent);
 }
 
+/* Returns: (transfer none): destroys itself on response */
 GtkDialog *
 eel_show_info_dialog_with_details (const char *primary_text,
 				   const char *secondary_text,
@@ -499,6 +502,7 @@ eel_show_info_dialog_with_details (const char *primary_text,
 }
 
 
+/* Returns: (transfer none): destroys itself on response */
 GtkDialog *
 eel_show_warning_dialog (const char *primary_text,
 			 const char *secondary_text,
@@ -510,6 +514,7 @@ eel_show_warning_dialog (const char *primary_text,
 }
 
 
+/* Returns: (transfer none): destroys itself on response */
 GtkDialog *
 eel_show_error_dialog (const char *primary_text,
 		       const char *secondary_text,
@@ -520,6 +525,7 @@ eel_show_error_dialog (const char *primary_text,
 			       GTK_MESSAGE_ERROR, parent);
 }
 
+/* Returns: (transfer none): destroys itself on response */
 GtkDialog *
 eel_show_error_dialog_with_details (const char *primary_text,
 				    const char *secondary_text,
@@ -555,6 +561,8 @@ eel_show_error_dialog_with_details (const char *primary_text,
  * @yes_label: The label of the "yes" button.
  * @no_label: The label of the "no" button.
  * @parent: The parent window for this dialog.
+ *
+ * Returns: (transfer none): a toplevel; destroy with gtk_widget_destroy
  */
 GtkDialog *
 eel_show_yes_no_dialog (const char *primary_text, 
@@ -585,6 +593,8 @@ eel_show_yes_no_dialog (const char *primary_text,
  * @answer_0: The label of the leftmost button (index 0)
  * @answer_1: The label of the 2nd-to-leftmost button (index 1)
  * @parent: The parent window for this dialog.
+ *
+ * Returns: (transfer none): a toplevel; destroy with gtk_widget_destroy
  */
 GtkDialog *
 eel_create_question_dialog (const char *primary_text,

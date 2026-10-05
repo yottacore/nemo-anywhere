@@ -1542,6 +1542,7 @@ nemo_icon_view_grid_container_icon_removed (G_GNUC_UNUSED NemoIconViewGridContai
 {
 }
 
+/* Returns: (transfer none): @icon_container itself */
 NemoIconContainer *
 nemo_icon_view_grid_container_construct (NemoIconViewGridContainer *icon_container,
                                          NemoIconView              *view,
@@ -1648,6 +1649,7 @@ nemo_icon_view_grid_container_init (NemoIconViewGridContainer *icon_container)
     icon_container->text_ellipsis_limit = 2;
 }
 
+/* Returns: (transfer floating) */
 NemoIconContainer *
 nemo_icon_view_grid_container_new (NemoIconView *view,
                                    gboolean      is_desktop)

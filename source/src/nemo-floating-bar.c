@@ -326,6 +326,7 @@ nemo_floating_bar_set_show_spinner (NemoFloatingBar *self,
 	}
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_floating_bar_new (const gchar *label,
 			   gboolean show_spinner)

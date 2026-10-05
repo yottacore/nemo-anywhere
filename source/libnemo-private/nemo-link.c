@@ -344,6 +344,7 @@ nemo_link_local_set_icon (const char        *uri,
 	return nemo_link_local_set_key (uri, "Icon", icon, FALSE);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_link_local_get_text (const char *path)
 {
@@ -484,6 +485,7 @@ nemo_link_get_link_icon_from_desktop (GKeyFile *key_file)
 	return icon;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_link_local_get_link_uri (const char *uri)
 {

@@ -394,7 +394,8 @@ nemo_metadata_store_set_stringv (const char *uri,
 	g_mutex_unlock (&store_mutex);
 }
 
-/* returns a copy, or NULL when the key is unset or holds a list */
+/* returns a copy, or NULL when the key is unset or holds a list
+ * Returns: (transfer full): free with g_free */
 char *
 nemo_metadata_store_get_string (const char *uri,
 				const char *key)
@@ -419,6 +420,7 @@ nemo_metadata_store_get_string (const char *uri,
 	return value;
 }
 
+/* Returns: (transfer full): free with g_strfreev */
 char **
 nemo_metadata_store_get_stringv (const char *uri,
 				 const char *key)

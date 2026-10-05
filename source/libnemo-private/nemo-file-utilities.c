@@ -67,6 +67,7 @@ static GFile *nemo_find_file_insensitive_next (GFile *parent, const gchar *name)
    name or a uri; a path is shortened by measurement well before this. */
 #define WINDOW_TITLE_LIMIT 180
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_compute_title_for_location (GFile *location)
 {
@@ -123,6 +124,7 @@ nemo_compute_title_for_location (GFile *location)
     return title;
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_compute_title_path_for_location (GFile *location)
 {
@@ -159,7 +161,8 @@ has_space (const char *text)
    or a window switcher tells our window from any other file manager's. The
    folder goes first, since a narrow taskbar button cuts from the end. Quotes
    only go on when a space would otherwise blur where the name stops. The tabs
-   keep the bare folder title, since the window around them already says it. */
+   keep the bare folder title, since the window around them already says it.
+   Returns: (transfer full): free with g_free */
 char *
 nemo_compute_window_title (const char *location_title)
 {
@@ -204,7 +207,8 @@ nemo_get_uptime_seconds (void)
 }
 
 /* Days, hours and minutes, leaving out any that are zero. Seconds would only
-   be stale by the time anyone read them. */
+   be stale by the time anyone read them.
+   Returns: (transfer full): free with g_free */
 char *
 nemo_format_uptime (gint64 seconds)
 {
@@ -241,6 +245,7 @@ nemo_format_uptime (gint64 seconds)
 }
 
 // TODO: Maybe this can replace nemo_compute_title_for_location() all around?
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_compute_search_title_for_location (GFile *location)
 {
@@ -281,7 +286,7 @@ nemo_compute_search_title_for_location (GFile *location)
  * carrying between a user's machines, so Windows gets roaming AppData and
  * macOS its Application Support dir.
  *
- * Return value: the directory path, owned by the callee.
+ * Return value: (transfer none): the directory path, owned by the callee.
  **/
 const char *
 nemo_get_user_config_root (void)
@@ -326,7 +331,7 @@ nemo_get_user_config_root (void)
  * thumbnail database syncing between machines. macOS has a cache dir of its
  * own that the system knows it may empty.
  *
- * Return value: the directory path, owned by the callee.
+ * Return value: (transfer none): the directory path, owned by the callee.
  **/
 const char *
 nemo_get_user_cache_root (void)
@@ -360,6 +365,7 @@ nemo_get_user_cache_root (void)
 #endif
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_get_user_cache_directory (void)
 {
@@ -419,7 +425,7 @@ migrate_legacy_user_directory (const char *user_directory)
  *
  * Get the path for the directory containing nemo settings.
  *
- * Return value: the directory path.
+ * Return value: (transfer full): the directory path. Free with g_free.
  **/
 char *
 nemo_get_user_directory (void)
@@ -451,7 +457,7 @@ nemo_get_user_directory (void)
  * The keyboard shortcut file, beside the settings file. The folder is made
  * here; the file need not exist.
  *
- * Return value: the filename path, freed by the caller.
+ * Return value: (transfer full): the filename path, freed by the caller.
  **/
 char *
 nemo_get_accel_map_file (void)
@@ -462,7 +468,8 @@ nemo_get_accel_map_file (void)
 }
 
 /* Where upstream Nemo keeps its shortcuts, and where older builds of ours
- * saved them too. Read once, to carry custom shortcuts over; never written. */
+ * saved them too. Read once, to carry custom shortcuts over; never written.
+ * Returns: (transfer full): free with g_free */
 char *
 nemo_get_legacy_accel_map_file (void)
 {
@@ -479,7 +486,7 @@ nemo_get_legacy_accel_map_file (void)
  *
  * Get the path for the directory containing nemo scripts.
  *
- * Return value: the directory path containing nemo scripts
+ * Return value: (transfer full): the directory path containing nemo scripts. Free with g_free.
  **/
 char *
 nemo_get_scripts_directory_path (void)
@@ -765,6 +772,7 @@ update_xdg_dir_cache (void)
 	}
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_get_xdg_dir (const char *type)
 {
@@ -804,7 +812,7 @@ get_desktop_path (void)
  *
  * Get the path for the directory containing files on the desktop.
  *
- * Return value: the directory path.
+ * Return value: (transfer full): the directory path. Free with g_free.
  **/
 char *
 nemo_get_desktop_directory (void)
@@ -830,6 +838,7 @@ nemo_get_desktop_directory (void)
 	return desktop_directory;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GFile *
 nemo_get_desktop_location (void)
 {
@@ -849,7 +858,7 @@ nemo_get_desktop_location (void)
  *
  * Get the uri for the directory containing files on the desktop.
  *
- * Return value: the directory path.
+ * Return value: (transfer full): the directory path. Free with g_free.
  **/
 char *
 nemo_get_desktop_directory_uri (void)
@@ -864,6 +873,7 @@ nemo_get_desktop_directory_uri (void)
 	return desktop_uri;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_get_desktop_directory_uri_no_create (void)
 {
@@ -877,6 +887,7 @@ nemo_get_desktop_directory_uri_no_create (void)
 	return desktop_uri;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_get_home_directory_uri (void)
 {
@@ -896,6 +907,7 @@ nemo_should_use_templates_directory (void)
 	return res;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_get_templates_directory (void)
 {
@@ -934,6 +946,7 @@ nemo_ensure_valid_templates_directory (void)
     }
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_get_templates_directory_uri (void)
 {
@@ -945,6 +958,7 @@ nemo_get_templates_directory_uri (void)
 	return uri;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_get_searches_directory (void)
 {
@@ -1093,7 +1107,7 @@ nemo_is_desktop_directory (GFile *dir)
  *
  * Get the path for the directory containing the legacy gmc desktop.
  *
- * Return value: the directory path.
+ * Return value: (transfer full): the directory path. Free with g_free.
  **/
 char *
 nemo_get_gmc_desktop_directory (void)
@@ -1101,6 +1115,7 @@ nemo_get_gmc_desktop_directory (void)
 	return g_build_filename (g_get_home_dir (), LEGACY_DESKTOP_DIRECTORY_NAME, NULL);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_get_exe_path (void)
 {
@@ -1165,6 +1180,7 @@ runtime_dir_for (const char *tail, const char *built_in)
 	return result;
 }
 
+/* Returns: (transfer none): kept for the life of the process */
 const char *
 nemo_get_data_dir (void)
 {
@@ -1178,6 +1194,7 @@ nemo_get_data_dir (void)
 	return dir;
 }
 
+/* Returns: (transfer none): kept for the life of the process */
 const char *
 nemo_get_locale_dir (void)
 {
@@ -1192,7 +1209,8 @@ nemo_get_locale_dir (void)
 }
 
 /* Where our sibling programs are - the document converters search uses. "" means
- * we could not work it out and the caller should just let PATH answer. */
+ * we could not work it out and the caller should just let PATH answer.
+ * Returns: (transfer none): kept for the life of the process */
 const char *
 nemo_get_bin_dir (void)
 {
@@ -1298,7 +1316,8 @@ nemo_setup_runtime_environment (void)
  * launcher and the packed exe's environment each put our own share dir on
  * XDG_DATA_DIRS, and GLib on win32 adds the exe's share dir on top of that -
  * so anything scanned per data dir (actions, search helpers, themes) showed
- * up once per copy. */
+ * up once per copy.
+ * Returns: (transfer none): kept for the life of the process */
 const char * const *
 nemo_get_system_data_dirs (void)
 {
@@ -1338,6 +1357,7 @@ nemo_get_system_data_dirs (void)
 	return (const char * const *) dirs;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_get_data_file_path (const char *partial_path)
 {
@@ -1363,6 +1383,7 @@ nemo_get_data_file_path (const char *partial_path)
 	return NULL;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_ensure_unique_file_name (const char *directory_uri,
 				  const char *base_name,
@@ -1411,6 +1432,7 @@ nemo_ensure_unique_file_name (const char *directory_uri,
 	return res;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_unique_temporary_file_name (void)
 {
@@ -1431,6 +1453,7 @@ nemo_unique_temporary_file_name (void)
 	return file_name;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GFile *
 nemo_find_existing_uri_in_hierarchy (GFile *location)
 {
@@ -1464,7 +1487,7 @@ nemo_find_existing_uri_in_hierarchy (GFile *location)
  * originally-cased path is returned. This function performs might perform
  * I/O.
  *
- * Return value: a #GFile to a child specified by @name.
+ * Return value: (transfer full): a #GFile to a child specified by @name. Unref with g_object_unref.
  **/
 GFile *
 nemo_find_file_insensitive (GFile *parent, const gchar *name)
@@ -1765,6 +1788,7 @@ nemo_is_in_system_dir (GFile *file)
 	return res;
 }
 
+/* Returns: (transfer full): free with g_hash_table_destroy */
 GHashTable *
 nemo_trashed_files_get_original_directories (GList *files,
 						 GList **unhandled_files)
@@ -2007,6 +2031,7 @@ nemo_get_x_content_types_for_mount_async (GMount *mount,
 				    data);
 }
 
+/* Returns: (transfer full): free with g_strfreev */
 char **
 nemo_get_cached_x_content_types_for_mount (GMount *mount)
 {
@@ -2090,6 +2115,7 @@ get_best_name (GtkIconTheme *icon_theme,
     return icon_name;
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_get_mount_icon_name (GMount *mount)
 {
@@ -2114,6 +2140,7 @@ nemo_get_mount_icon_name (GMount *mount)
     return icon_name;
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_get_volume_icon_name (GVolume *volume)
 {
@@ -2138,6 +2165,7 @@ nemo_get_volume_icon_name (GVolume *volume)
     return icon_name;
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_get_drive_icon_name (GDrive *drive)
 {
@@ -2161,6 +2189,7 @@ nemo_get_drive_icon_name (GDrive *drive)
     return icon_name;
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_get_best_guess_file_mimetype (const gchar *filename,
                                    GFileInfo   *info,
@@ -2304,6 +2333,7 @@ nemo_uri_is_at_or_under (const char *uri, const char *root)
 	       uri[root_len] == '\0' || uri[root_len] == '/';
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GMount *
 nemo_get_mount_for_location_safe (GFile *location)
 {
@@ -2407,6 +2437,7 @@ nemo_location_is_drive_root (G_GNUC_UNUSED GFile *location)
 #endif
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_get_drive_root_name (G_GNUC_UNUSED GFile *location)
 {
@@ -2440,7 +2471,8 @@ nemo_get_drive_root_name (G_GNUC_UNUSED GFile *location)
 /* Text for a list of locations (GFile *), one per line, for the clipboard.
    Anything with no local path - a remote uri - contributes its uri instead, so
    the text is never silently shorter than what was selected. Returns NULL when
-   nothing at all could be named. */
+   nothing at all could be named.
+   Returns: (transfer full): free with g_free */
 gchar *
 nemo_build_path_list_text (GList *locations,
                            gchar  separator)
@@ -2682,7 +2714,8 @@ path_forms_join (const gchar *anchor, gchar **items, guint count, gchar separato
    readable; only when that has run out do the folders above the last one drop
    to their initials. The root and the last folder's name survive every step,
    since those are what tell one tab from another. A path under home reads as ~
-   once it is being shortened at all. */
+   once it is being shortened at all.
+   Returns: (transfer full): free with g_strfreev */
 gchar **
 nemo_path_forms (const gchar *path,
                  gchar        separator,
@@ -2773,7 +2806,8 @@ nemo_path_forms (const gchar *path,
 }
 
 /* Windows shells never print a ~, and the drive a path is on is worth more than
-   the four characters a ~ would save. */
+   the four characters a ~ would save.
+   Returns: (transfer none): owned by GLib */
 const gchar *
 nemo_path_display_home (void)
 {
@@ -2856,7 +2890,8 @@ nemo_path_apply_display_separator (gchar *path)
 }
 
 /* The parse name of a location, spelled with the separator the user picked.
-   A remote location keeps its uri untouched. */
+   A remote location keeps its uri untouched.
+   Returns: (transfer full): free with g_free */
 gchar *
 nemo_location_get_display_name (GFile *location)
 {
@@ -2899,7 +2934,8 @@ nemo_path_input_is_allowed (const gchar *text)
 /* The value of the Ext column: the tail of the name after the last dot, without
  * the dot. A dot is often just part of a name, so the tail only counts when it
  * looks the part - short, letters and digits only, at least one letter. NULL when
- * there is not one worth showing. */
+ * there is not one worth showing.
+ * Returns: (transfer full): free with g_free */
 gchar *
 nemo_filename_get_extension (const gchar *name)
 {
@@ -2960,7 +2996,8 @@ nemo_archive_mount_supported (void)
 }
 
 /* gvfs wants the archive's own URI escaped twice as the host part:
-   archive://file%253A%252F%252F.../ */
+   archive://file%253A%252F%252F.../
+   Returns: (transfer full): unref with g_object_unref */
 GFile *
 nemo_archive_mount_location (GFile *archive)
 {

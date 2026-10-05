@@ -304,6 +304,7 @@ nemo_progress_info_widget_class_init (NemoProgressInfoWidgetClass *klass)
 	g_type_class_add_private (klass, sizeof (NemoProgressInfoWidgetPriv));
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_progress_info_widget_new (NemoProgressInfo *info)
 {

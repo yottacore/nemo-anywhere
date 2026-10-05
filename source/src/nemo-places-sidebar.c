@@ -4869,6 +4869,7 @@ nemo_places_sidebar_style_set (GtkWidget *widget,
 	update_places (sidebar);
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_places_sidebar_new (NemoWindow *window)
 {

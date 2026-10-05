@@ -170,6 +170,7 @@ nemo_shortcut_properties_should_show (GList *files)
 	return show;
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_shortcut_properties_make_box (GtkSizeGroup *label_size_group,
 				   GList        *files)
@@ -241,6 +242,7 @@ nemo_shortcut_properties_should_show (G_GNUC_UNUSED GList *files)
 	return FALSE;
 }
 
+/* Returns: (transfer floating): NULL here */
 GtkWidget *
 nemo_shortcut_properties_make_box (G_GNUC_UNUSED GtkSizeGroup *label_size_group,
 				   G_GNUC_UNUSED GList        *files)

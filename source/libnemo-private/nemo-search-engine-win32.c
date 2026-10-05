@@ -281,6 +281,7 @@ probe_sql (const gchar *folder)
 	return g_string_free (sql, FALSE);
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_search_win32_build_sql (const gchar *folder,
 			     gboolean     recurse,
@@ -750,6 +751,7 @@ nemo_search_engine_win32_init (NemoSearchEngineWin32 *engine)
 	engine->details->fallback = fallback;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoSearchEngine *
 nemo_search_engine_win32_new (void)
 {

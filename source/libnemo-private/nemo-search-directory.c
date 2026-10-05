@@ -768,6 +768,7 @@ nemo_search_directory_class_init (NemoSearchDirectoryClass *class)
 	directory_class->is_editable = search_is_editable;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_search_directory_generate_new_uri (void)
 {
@@ -808,6 +809,7 @@ nemo_search_directory_set_query (NemoSearchDirectory *search,
 	}
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoQuery *
 nemo_search_directory_get_query (NemoSearchDirectory *search)
 {

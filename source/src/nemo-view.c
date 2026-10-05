@@ -434,6 +434,8 @@ real_get_backing_uri (NemoView *view)
  *
  * Returns the URI for the target location of new directory, new file, new
  * link and paste operations.
+ *
+ * Returns: (transfer full): free with g_free
  */
 
 char *
@@ -766,12 +768,14 @@ nemo_view_restore_default_icon_size (NemoView *view)
 	NEMO_VIEW_CLASS (G_OBJECT_GET_CLASS (view))->restore_default_icon_size (view);
 }
 
+/* Returns: (transfer none): a static string */
 const char *
 nemo_view_get_view_id (NemoView *view)
 {
 	return NEMO_VIEW_CLASS (G_OBJECT_GET_CLASS (view))->get_view_id (view);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_view_get_first_visible_file (NemoView *view)
 {
@@ -790,11 +794,11 @@ nemo_view_scroll_to_file (NemoView *view,
  *
  * Get a list of NemoFile pointers that represents the
  * currently-selected items in this view. Subclasses must override
- * the signal handler for the 'get_selection' signal. Callers are
- * responsible for g_free-ing the list (but not its data).
+ * the signal handler for the 'get_selection' signal. Each file is
+ * reffed, so free it with nemo_file_list_free.
  * @view: NemoView whose selected items are of interest.
  *
- * Return value: GList of NemoFile pointers representing the selection.
+ * Return value: (transfer full): GList of NemoFile pointers representing the selection.
  *
  **/
 GList *
@@ -814,7 +818,7 @@ nemo_view_get_selection (NemoView *view)
  * is owned by the view's icon container and should not be freed.
  * @view: NemoView whose selected items are of interest.
  *
- * Return value: GList of NemoFile pointers representing the selection.
+ * Return value: (transfer none): GList of NemoFile pointers representing the selection.
  *
  **/
 GList *
@@ -1056,6 +1060,7 @@ create_templates_parameters_free (gpointer data, G_GNUC_UNUSED GClosure *closure
 	g_free (parameters);
 }
 
+/* Returns: (transfer none) */
 NemoWindow *
 nemo_view_get_nemo_window (NemoView  *view)
 {
@@ -1064,6 +1069,7 @@ nemo_view_get_nemo_window (NemoView  *view)
 	return view->details->window;
 }
 
+/* Returns: (transfer none) */
 NemoWindowSlot *
 nemo_view_get_nemo_window_slot (NemoView  *view)
 {
@@ -4349,6 +4355,7 @@ nemo_view_get_loading (NemoView *view)
 	return view->details->loading;
 }
 
+/* Returns: (transfer none): owned by the window */
 GtkUIManager *
 nemo_view_get_ui_manager (NemoView  *view)
 {
@@ -4364,7 +4371,7 @@ nemo_view_get_ui_manager (NemoView  *view)
  * Get the model for this NemoView.
  * @view: NemoView of interest.
  *
- * Return value: NemoDirectory for this view.
+ * Return value: (transfer none): NemoDirectory for this view.
  *
  **/
 NemoDirectory *
@@ -4650,6 +4657,7 @@ open_one_in_new_window (gpointer data, gpointer callback_data)
 				     NEMO_WINDOW_OPEN_FLAG_NEW_WINDOW);
 }
 
+/* Returns: (transfer none): owned by @view */
 NemoFile *
 nemo_view_get_directory_as_file (NemoView *view)
 {
@@ -11892,6 +11900,7 @@ nemo_view_set_show_foreign (NemoView *view,
 	view->details->show_foreign_files = show_foreign;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_view_get_uri (NemoView *view)
 {

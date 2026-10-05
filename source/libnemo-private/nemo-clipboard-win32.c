@@ -399,6 +399,7 @@ nemo_clipboard_win32_has_files (void)
 	return IsClipboardFormatAvailable (CF_HDROP);
 }
 
+/* Returns: (transfer full): free with g_list_free_full (list, g_free) */
 GList *
 nemo_clipboard_win32_get_files (gboolean *cut)
 {
