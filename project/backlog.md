@@ -85,7 +85,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Code review 20260928 item 34. Apply the directives' new C section.
 	- ID: 2026092813381434
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Started
+	- Needs local test suite run?: yes, after the last part: the fuzz and sanitizer lanes at the new level. The full Linux suite passed 169 of 169 on 20261005, on wextra1.
+	- Needs external testing: the native Windows suite once all parts are in. The canvas types and the accessible class setup changed.
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
@@ -94,9 +96,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Name the C standard in the build. None is named today, so gcc's default applies.
 		- Raise the warning level past `-Wall`. At the next level there are about 1700 warnings, almost all unused parameters and missing field initializers, 139 of them on lines changed in the last 10 days.
 		- One line in each allocating function's header comment on who frees the result.
+	- Progress log:
+		- 20261005-103251: part 1 of 3. The build names c17 and runs at `-Wextra`, with `-Werror` still off. eel, the extension library and the tests now build clean at that level, on Linux and in the Windows cross build. Left for the next parts: `libnemo-private` and `src` (1441 warnings on Linux, 1530 in the cross build), then `-Werror`, then the who-frees lines.
 	- Decisions:
 		- 20260928: full `-Wextra` over the whole tree, with every warning fixed. The fork will never track upstream, so churn in inherited files is fine.
-	- Test case: none yet.
+		- 20261005: c17, not gnu17. Nothing in the tree needs a GNU language extension. Strict c17 hides the POSIX and BSD calls glibc gives by default, so the build asks for them back with `_DEFAULT_SOURCE`, in one place. On Windows the only gap was `M_PI`, now `G_PI`.
+		- 20261005: vendored code builds at `-Wall` in its own target (blake3, libegg), so it stays as it came. SHCL is header-only and builds clean at `-Wextra`, so it has no exemption.
+		- 20261005: an unused parameter gets `G_GNUC_UNUSED` in front of its type, the form GLib documents. Existing `(void) x;` lines stay. A test `main` that ignores both arguments is `main (void)`.
+		- 20261005: a build dir set up before this keeps its old std and warning level on reconfigure, so meson stops and asks for `meson setup --wipe` once.
+	- Branch: wextra1
+	- Commit: df8a8a5, a0e0ed6, e316e67
+	- Test case: none yet. The build itself is the check once `-Werror` is on.
 
 - The app visits network shares on its own.
 	- ID: 2026093010493450
