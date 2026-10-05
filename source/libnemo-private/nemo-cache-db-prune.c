@@ -63,6 +63,10 @@ pass_in_thread (GTask        *task,
 
 	(void) source;
 
+	/* A pass reads the draw times, and the last few are still in memory.
+	 * Here rather than on the window's thread, since it waits on the file. */
+	nemo_cache_db_flush (nemo_cache_db_get ());
+
 	pass->result = nemo_cache_db_prune (&pass->rules, cancellable, &pass->removed, &pass->due);
 
 	g_atomic_int_set (&in_thread, 0);
@@ -148,9 +152,6 @@ start_pass (gboolean force, NemoCachePruneDone done, gpointer done_data)
 {
 	PrunePass *pass;
 	GTask     *task;
-
-	/* A pass reads the draw times, and the last few are still in memory. */
-	nemo_cache_db_flush (nemo_cache_db_get ());
 
 	pass = g_new0 (PrunePass, 1);
 	pass->rules = read_rules ();

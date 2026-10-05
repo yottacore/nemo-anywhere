@@ -5119,13 +5119,14 @@ nemo_file_should_show_thumbnail (NemoFile *file)
 
 /* A refresh. The file cache forgets its copy and the freedesktop one stops
  * being read for this file, so the next draw makes a new one. The freedesktop
- * cache itself is left as it is, since it is not ours to write. */
+ * cache itself is left as it is, since it is not ours to write. The forget is
+ * queued, since the file can be held by another copy for seconds. */
 void
 nemo_file_delete_thumbnail (NemoFile *file)
 {
     g_autofree char *uri = nemo_file_get_uri (file);
 
-    nemo_cache_db_thumbnail_forget (nemo_cache_db_get (), uri);
+    nemo_cache_db_thumbnail_forget_later (uri);
 
     file->details->thumbnail_ignore_shared = TRUE;
     g_clear_pointer (&file->details->thumbnail_path, g_free);

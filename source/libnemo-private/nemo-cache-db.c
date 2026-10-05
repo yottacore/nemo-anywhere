@@ -50,9 +50,13 @@
  * between its writes (see make_way). */
 #define BUSY_RETRY_MS 5
 
-/* Draw counts are batched rather than written one at a time - see note_render. */
+/* Draw counts are batched rather than written one at a time - see note_render.
+ * A write that failed is not tried again for the same wait. */
 #define RENDER_FLUSH_SECS 30
 #define RENDER_FLUSH_MAX  256
+
+#define FORGET_SQL \
+	"DELETE FROM thumbnails WHERE file_id = (SELECT file_id FROM paths WHERE uri = ?)"
 
 /* A claim on the prune nobody has touched for this long belongs to a process
  * that died part way through. */
@@ -109,10 +113,6 @@ struct _NemoCacheDb {
 	 * without the marker nothing would ever notice. */
 	gboolean     broken;
 
-	/* uri -> draws not yet written. Guarded by `lock`. */
-	GHashTable  *pending;
-	guint        flush_id;
-
 	/* Prune connection only. */
 	gint64       largest_batch;
 	gint64       held_since;	/* monotonic, when the current write began */
@@ -135,6 +135,23 @@ static gint64 last_largest_batch = 0;
 
 /* Writes made by prune passes in this process. Read only by the tests. */
 static gint prune_steps = 0;
+
+/* Writes the window's thread hands off: draw counts and refreshes. They have a
+ * lock of their own, never held across a call into sqlite, so the window never
+ * waits on another copy's hold on the file. The writer thread writes them out.
+ * A refresh still queued is also done by whatever takes the store's lock next
+ * to read or write a thumbnail, so none is read back after it was asked for.
+ * Lock order is the store's lock, then this one. */
+static GMutex      queue_lock;
+static GCond       queue_cond;
+static GHashTable *queued_draws = NULL;		/* uri -> draws not yet written */
+static GHashTable *queued_forgets = NULL;	/* uris whose thumbnail goes */
+static gint64      draws_due = 0;		/* monotonic; 0 with none queued */
+static gint64      retry_after = 0;		/* monotonic, after a failed write */
+static gint64      draw_wait = (gint64) RENDER_FLUSH_SECS * G_USEC_PER_SEC;
+static GThread    *writer = NULL;
+static gboolean    writer_stop = FALSE;
+static gboolean    writer_done = FALSE;		/* the process is quitting */
 
 /* When this thread's current wait on a busy file began. A thread runs one
  * statement at a time, so it waits on one file at a time. */
@@ -567,7 +584,6 @@ db_open (void)
 	db = g_new0 (NemoCacheDb, 1);
 	db->handle = handle;
 	g_mutex_init (&db->lock);
-	db->pending = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 
 	return db;
 }
@@ -984,6 +1000,353 @@ read_thumbnail (NemoCacheDb         *db,
 	return found;
 }
 
+/* Every drawn icon in a folder would otherwise be a write, and scrolling a big
+ * folder draws the same file over and over. Counts are held in memory and
+ * written in one transaction, which is also all the age rule needs - it works
+ * in days. Called with the store's lock held. */
+static gboolean
+write_draws (NemoCacheDb *db, GHashTable *draws)
+{
+	static const char sql[] =
+		"UPDATE thumbnails SET rendered = ?, renders = renders + ?"
+		" WHERE file_id = (SELECT file_id FROM paths WHERE uri = ?)";
+	sqlite3_stmt  *stmt;
+	GHashTableIter iter;
+	gpointer       uri, count;
+	gint64         now = g_get_real_time () / G_USEC_PER_SEC;
+
+	if (!begin (db))
+		return FALSE;
+
+	stmt = prep (db, sql, "draw count");
+	if (stmt == NULL) {
+		rollback (db);
+		return FALSE;
+	}
+
+	g_hash_table_iter_init (&iter, draws);
+	while (g_hash_table_iter_next (&iter, &uri, &count)) {
+		sqlite3_reset (stmt);
+		sqlite3_bind_int64 (stmt, 1, now);
+		sqlite3_bind_int64 (stmt, 2, (gint64) GPOINTER_TO_INT (count));
+		sqlite3_bind_text (stmt, 3, (const char *) uri, -1, SQLITE_STATIC);
+		db_ok (db, sqlite3_step (stmt), "draw count");
+	}
+
+	sqlite3_finalize (stmt);
+
+	return commit (db);
+}
+
+/* Called with the store's lock held. */
+static gboolean
+write_forgets (NemoCacheDb *db, GHashTable *uris)
+{
+	sqlite3_stmt  *stmt;
+	GHashTableIter iter;
+	gpointer       uri;
+	gboolean       ok = TRUE;
+
+	if (!begin (db))
+		return FALSE;
+
+	stmt = prep (db, FORGET_SQL, "forget thumbnail");
+	if (stmt == NULL) {
+		rollback (db);
+		return FALSE;
+	}
+
+	g_hash_table_iter_init (&iter, uris);
+	while (ok && g_hash_table_iter_next (&iter, &uri, NULL)) {
+		sqlite3_reset (stmt);
+		sqlite3_bind_text (stmt, 1, (const char *) uri, -1, SQLITE_STATIC);
+		ok = db_ok (db, sqlite3_step (stmt), "forget thumbnail");
+	}
+
+	sqlite3_finalize (stmt);
+
+	if (!ok) {
+		rollback (db);
+		return FALSE;
+	}
+
+	return commit (db);
+}
+
+/* With queue_lock held. */
+static void
+queue_init_locked (void)
+{
+	if (queued_draws != NULL)
+		return;
+
+	queued_draws = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+	queued_forgets = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+}
+
+/* With queue_lock held. Hands back the table and leaves an empty one. */
+static GHashTable *
+steal_locked (GHashTable **table)
+{
+	GHashTable *taken = *table;
+
+	*table = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+
+	return taken;
+}
+
+/* Writes what the window has queued: refreshes, and draw counts too when
+ * `with_draws`. Called with the store's lock held, which is what keeps a
+ * refresh in order with the reads: whoever holds it either finds the refresh
+ * still queued or already done. What could not be written goes back in the
+ * queue for later, unless the file is damaged. */
+static void
+write_queued (NemoCacheDb *db, gboolean with_draws)
+{
+	g_autoptr (GHashTable) forgets = NULL;
+	g_autoptr (GHashTable) draws = NULL;
+	gboolean forgot, drew;
+	gint64   now;
+
+	g_mutex_lock (&queue_lock);
+	queue_init_locked ();
+	if (g_hash_table_size (queued_forgets) > 0)
+		forgets = steal_locked (&queued_forgets);
+	if (with_draws && g_hash_table_size (queued_draws) > 0) {
+		draws = steal_locked (&queued_draws);
+		draws_due = 0;
+	}
+	g_mutex_unlock (&queue_lock);
+
+	if (forgets == NULL && draws == NULL)
+		return;
+
+	forgot = forgets == NULL || (!db->broken && write_forgets (db, forgets));
+	drew = draws == NULL || (!db->broken && write_draws (db, draws));
+
+	if ((forgot && drew) || db->broken)
+		return;
+
+	now = g_get_monotonic_time ();
+
+	g_mutex_lock (&queue_lock);
+
+	if (!forgot) {
+		GHashTableIter iter;
+		gpointer       uri;
+
+		g_hash_table_iter_init (&iter, forgets);
+		while (g_hash_table_iter_next (&iter, &uri, NULL)) {
+			g_hash_table_iter_steal (&iter);
+			g_hash_table_add (queued_forgets, uri);
+		}
+	}
+
+	if (!drew) {
+		GHashTableIter iter;
+		gpointer       uri, count;
+
+		g_hash_table_iter_init (&iter, draws);
+		while (g_hash_table_iter_next (&iter, &uri, &count)) {
+			gpointer more = g_hash_table_lookup (queued_draws, uri);
+
+			g_hash_table_iter_steal (&iter);
+			g_hash_table_replace (queued_draws, uri,
+					      GINT_TO_POINTER (GPOINTER_TO_INT (count) + GPOINTER_TO_INT (more)));
+		}
+
+		if (draws_due == 0)
+			draws_due = now + draw_wait;
+	}
+
+	/* Not on every draw: a file held by another copy would be asked again
+	 * and again. */
+	retry_after = now + draw_wait;
+
+	g_mutex_unlock (&queue_lock);
+}
+
+static gboolean
+forget_queued (const char *uri)
+{
+	gboolean queued;
+
+	g_mutex_lock (&queue_lock);
+	queued = queued_forgets != NULL && g_hash_table_contains (queued_forgets, uri);
+	g_mutex_unlock (&queue_lock);
+
+	return queued;
+}
+
+static void
+drop_queued (void)
+{
+	g_mutex_lock (&queue_lock);
+	if (queued_draws != NULL) {
+		g_hash_table_remove_all (queued_draws);
+		g_hash_table_remove_all (queued_forgets);
+	}
+	draws_due = 0;
+	g_mutex_unlock (&queue_lock);
+}
+
+/* With queue_lock held. When the writer next has something to do, monotonic,
+ * or G_MAXINT64 for nothing queued. */
+static gint64
+next_write_locked (void)
+{
+	gint64 at;
+
+	if (g_hash_table_size (queued_forgets) > 0 ||
+	    g_hash_table_size (queued_draws) >= RENDER_FLUSH_MAX)
+		at = 0;
+	else if (draws_due != 0)
+		at = draws_due;
+	else
+		return G_MAXINT64;
+
+	return MAX (at, retry_after);
+}
+
+static gpointer
+writer_run (gpointer data)
+{
+	(void) data;
+
+	g_mutex_lock (&queue_lock);
+
+	while (!writer_stop) {
+		gint64       at = next_write_locked ();
+		NemoCacheDb *db;
+
+		if (at == G_MAXINT64) {
+			g_cond_wait (&queue_cond, &queue_lock);
+			continue;
+		}
+
+		if (g_get_monotonic_time () < at) {
+			g_cond_wait_until (&queue_cond, &queue_lock, at);
+			continue;
+		}
+
+		g_mutex_unlock (&queue_lock);
+
+		/* Opens the store if a refresh came before anything else used it. */
+		db = nemo_cache_db_get ();
+		if (db != NULL && !db->broken) {
+			g_mutex_lock (&db->lock);
+			write_queued (db, TRUE);
+			g_mutex_unlock (&db->lock);
+		} else {
+			drop_queued ();
+		}
+
+		g_mutex_lock (&queue_lock);
+	}
+
+	g_mutex_unlock (&queue_lock);
+
+	return NULL;
+}
+
+/* With queue_lock held. The writer starts on the first thing queued. */
+static void
+wake_writer_locked (void)
+{
+	if (writer == NULL && !writer_stop && !writer_done)
+		writer = g_thread_new ("cache-writer", writer_run, NULL);
+
+	g_cond_signal (&queue_cond);
+}
+
+/* Lets the writer finish what it is writing and waits for it. What is still
+ * queued stays queued. After `for_good` no writer starts again, since the
+ * process is on its way out. */
+static void
+stop_writer (gboolean for_good)
+{
+	GThread *thread;
+
+	g_mutex_lock (&queue_lock);
+	thread = writer;
+	writer = NULL;
+	writer_stop = TRUE;
+	writer_done = writer_done || for_good;
+	g_cond_broadcast (&queue_cond);
+	g_mutex_unlock (&queue_lock);
+
+	if (thread != NULL)
+		g_thread_join (thread);
+
+	g_mutex_lock (&queue_lock);
+	writer_stop = FALSE;
+	g_mutex_unlock (&queue_lock);
+}
+
+void
+nemo_cache_db_note_render (NemoCacheDb *db, const char *uri)
+{
+	gpointer old;
+	guint    queued;
+
+	g_return_if_fail (uri != NULL);
+
+	if (db == NULL || db->broken)
+		return;
+
+	touch ();
+
+	g_mutex_lock (&queue_lock);
+
+	queue_init_locked ();
+
+	old = g_hash_table_lookup (queued_draws, uri);
+	g_hash_table_replace (queued_draws, g_strdup (uri),
+			      GINT_TO_POINTER (GPOINTER_TO_INT (old) + 1));
+	queued = g_hash_table_size (queued_draws);
+
+	if (draws_due == 0) {
+		draws_due = g_get_monotonic_time () + draw_wait;
+		wake_writer_locked ();
+	} else if (queued == RENDER_FLUSH_MAX) {
+		wake_writer_locked ();
+	}
+
+	g_mutex_unlock (&queue_lock);
+}
+
+void
+nemo_cache_db_thumbnail_forget_later (const char *uri)
+{
+	g_return_if_fail (uri != NULL);
+
+	g_mutex_lock (&queue_lock);
+	queue_init_locked ();
+	/* cppcheck-suppress leakNoVarFunctionCall ; the queue owns its keys and frees them */
+	g_hash_table_add (queued_forgets, g_strdup (uri));
+	wake_writer_locked ();
+	g_mutex_unlock (&queue_lock);
+}
+
+void
+nemo_cache_db_flush (NemoCacheDb *db)
+{
+	if (db == NULL || db->broken)
+		return;
+
+	g_mutex_lock (&db->lock);
+	write_queued (db, TRUE);
+	g_mutex_unlock (&db->lock);
+}
+
+void
+nemo_cache_db_set_draw_wait (gint ms)
+{
+	g_mutex_lock (&queue_lock);
+	draw_wait = (gint64) ms * 1000;
+	g_mutex_unlock (&queue_lock);
+}
+
 gboolean
 nemo_cache_db_thumbnail_lookup (NemoCacheDb         *db,
 				const char          *uri,
@@ -1009,6 +1372,12 @@ nemo_cache_db_thumbnail_lookup (NemoCacheDb         *db,
 
 	g_mutex_lock (&db->lock);
 
+	/* A refresh asked for and not written yet still counts, even if it
+	 * could not be written now. */
+	write_queued (db, FALSE);
+	if (forget_queued (uri))
+		goto out;
+
 	fid = file_by_digest (db, id);
 	known_path = FALSE;
 	if (fid == 0) {
@@ -1027,6 +1396,7 @@ nemo_cache_db_thumbnail_lookup (NemoCacheDb         *db,
 			link_path (db, uri, fid, id->mtime);
 	}
 
+out:
 	g_mutex_unlock (&db->lock);
 
 	return found;
@@ -1080,6 +1450,9 @@ nemo_cache_db_thumbnail_store (NemoCacheDb               *db,
 
 	g_mutex_lock (&db->lock);
 
+	/* A queued refresh done after this write would throw it away. */
+	write_queued (db, FALSE);
+
 	if (!begin (db))
 		goto out;
 
@@ -1110,6 +1483,14 @@ nemo_cache_db_thumbnail_store (NemoCacheDb               *db,
 	else
 		rollback (db);
 
+	/* Written over a refresh that is still queued, so that one is done. */
+	if (done) {
+		g_mutex_lock (&queue_lock);
+		if (queued_forgets != NULL)
+			g_hash_table_remove (queued_forgets, uri);
+		g_mutex_unlock (&queue_lock);
+	}
+
 	goto out;
 
 fail:
@@ -1124,8 +1505,6 @@ out:
 gboolean
 nemo_cache_db_thumbnail_forget (NemoCacheDb *db, const char *uri)
 {
-	static const char sql[] =
-		"DELETE FROM thumbnails WHERE file_id = (SELECT file_id FROM paths WHERE uri = ?)";
 	sqlite3_stmt *stmt;
 	gboolean      done = FALSE;
 
@@ -1136,7 +1515,7 @@ nemo_cache_db_thumbnail_forget (NemoCacheDb *db, const char *uri)
 
 	g_mutex_lock (&db->lock);
 
-	stmt = prep (db, sql, "forget thumbnail");
+	stmt = prep (db, FORGET_SQL, "forget thumbnail");
 	if (stmt != NULL) {
 		sqlite3_bind_text (stmt, 1, uri, -1, SQLITE_STATIC);
 		done = db_ok (db, sqlite3_step (stmt), "forget thumbnail");
@@ -1146,110 +1525,6 @@ nemo_cache_db_thumbnail_forget (NemoCacheDb *db, const char *uri)
 	g_mutex_unlock (&db->lock);
 
 	return done;
-}
-
-/* Every drawn icon in a folder would otherwise be a write, and scrolling a big
- * folder draws the same file over and over. Counts are held in memory and
- * written in one transaction, which is also all the age rule needs - it works
- * in days. Called with the lock held. */
-static void
-flush_renders (NemoCacheDb *db)
-{
-	static const char sql[] =
-		"UPDATE thumbnails SET rendered = ?, renders = renders + ?"
-		" WHERE file_id = (SELECT file_id FROM paths WHERE uri = ?)";
-	sqlite3_stmt  *stmt;
-	GHashTableIter iter;
-	gpointer       uri, count;
-	gint64         now;
-
-	if (db->broken || g_hash_table_size (db->pending) == 0)
-		return;
-
-	now = g_get_real_time () / G_USEC_PER_SEC;
-
-	if (!begin (db))
-		return;
-
-	stmt = prep (db, sql, "draw count");
-	if (stmt == NULL) {
-		rollback (db);
-		return;
-	}
-
-	g_hash_table_iter_init (&iter, db->pending);
-	while (g_hash_table_iter_next (&iter, &uri, &count)) {
-		sqlite3_reset (stmt);
-		sqlite3_bind_int64 (stmt, 1, now);
-		sqlite3_bind_int64 (stmt, 2, (gint64) GPOINTER_TO_INT (count));
-		sqlite3_bind_text (stmt, 3, (const char *) uri, -1, SQLITE_STATIC);
-		db_ok (db, sqlite3_step (stmt), "draw count");
-	}
-
-	sqlite3_finalize (stmt);
-
-	commit (db);
-
-	g_hash_table_remove_all (db->pending);
-}
-
-static gboolean
-flush_renders_timeout (gpointer data)
-{
-	NemoCacheDb *db = data;
-
-	g_mutex_lock (&db->lock);
-	db->flush_id = 0;
-	flush_renders (db);
-	g_mutex_unlock (&db->lock);
-
-	return G_SOURCE_REMOVE;
-}
-
-void
-nemo_cache_db_note_render (NemoCacheDb *db, const char *uri)
-{
-	gpointer old;
-
-	g_return_if_fail (uri != NULL);
-
-	if (db == NULL || db->broken)
-		return;
-
-	touch ();
-
-	g_mutex_lock (&db->lock);
-
-	old = g_hash_table_lookup (db->pending, uri);
-	if (old != NULL)
-		g_hash_table_replace (db->pending, g_strdup (uri),
-				      GINT_TO_POINTER (GPOINTER_TO_INT (old) + 1));
-	else
-		g_hash_table_insert (db->pending, g_strdup (uri), GINT_TO_POINTER (1));
-
-	if (g_hash_table_size (db->pending) >= RENDER_FLUSH_MAX)
-		flush_renders (db);
-	else if (db->flush_id == 0)
-		db->flush_id = g_timeout_add_seconds (RENDER_FLUSH_SECS, flush_renders_timeout, db);
-
-	g_mutex_unlock (&db->lock);
-}
-
-void
-nemo_cache_db_flush (NemoCacheDb *db)
-{
-	if (db == NULL || db->broken)
-		return;
-
-	g_mutex_lock (&db->lock);
-
-	if (db->flush_id != 0) {
-		g_source_remove (db->flush_id);
-		db->flush_id = 0;
-	}
-	flush_renders (db);
-
-	g_mutex_unlock (&db->lock);
 }
 
 gboolean
@@ -1307,7 +1582,7 @@ nemo_cache_db_empty (NemoCacheDb *db)
 
 	g_mutex_lock (&db->lock);
 
-	g_hash_table_remove_all (db->pending);
+	drop_queued ();
 
 	done = db_ok (db, sqlite3_exec (db->handle,
 					"DELETE FROM thumbnails;"
@@ -1366,11 +1641,8 @@ nemo_cache_db_usage (NemoCacheDb *db, gint64 *n_thumbnails, gint64 *bytes)
 static void
 write_out (NemoCacheDb *db)
 {
-	if (db->flush_id != 0) {
-		g_source_remove (db->flush_id);
-		db->flush_id = 0;
-	}
-	flush_renders (db);
+	if (!db->broken)
+		write_queued (db, TRUE);
 
 	/* Folds the WAL back in, so the next launch opens one file rather than
 	 * replaying a journal that could be most of the cache. */
@@ -1381,11 +1653,23 @@ void
 nemo_cache_db_quit (void)
 {
 	NemoCacheDb *db;
+	gboolean     forgets;
 
-	/* Not get(), which would make a store for a run that never used one. */
-	g_mutex_lock (&the_db_lock);
-	db = the_db;
-	g_mutex_unlock (&the_db_lock);
+	stop_writer (TRUE);
+
+	g_mutex_lock (&queue_lock);
+	forgets = queued_forgets != NULL && g_hash_table_size (queued_forgets) > 0;
+	g_mutex_unlock (&queue_lock);
+
+	/* Not get() unless a refresh is waiting, which would make a store for a
+	 * run that never used one. */
+	if (forgets) {
+		db = nemo_cache_db_get ();
+	} else {
+		g_mutex_lock (&the_db_lock);
+		db = the_db;
+		g_mutex_unlock (&the_db_lock);
+	}
 
 	if (db == NULL)
 		return;
@@ -1399,6 +1683,9 @@ void
 nemo_cache_db_close (void)
 {
 	NemoCacheDb *db;
+
+	/* It writes through the store this frees. */
+	stop_writer (FALSE);
 
 	g_mutex_lock (&the_db_lock);
 	db = the_db;
@@ -1414,8 +1701,6 @@ nemo_cache_db_close (void)
 	write_out (db);
 	sqlite3_close (db->handle);
 	db->handle = NULL;
-
-	g_hash_table_destroy (db->pending);
 
 	g_mutex_unlock (&db->lock);
 	g_mutex_clear (&db->lock);
