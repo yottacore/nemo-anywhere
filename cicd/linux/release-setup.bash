@@ -32,14 +32,14 @@ if [[ -e "$build" ]]; then
 	rm -rf "$build"
 fi
 
-meson setup --buildtype=release -Dstrip=true -Db_lto=true -Db_lto_threads=4 -Dextension_library=static "-Dprefix=${prefix}" "$build" "$src" >/dev/null
+meson setup --buildtype=release -Dstrip=true -Db_lto=true -Db_lto_threads=4 -Dextension_library=static -Dwerror=true "-Dprefix=${prefix}" "$build" "$src" >/dev/null
 
-want="buildtype=release strip=True b_lto=True b_lto_threads=4 extension_library=static prefix=${prefix}"
+want="buildtype=release strip=True b_lto=True b_lto_threads=4 extension_library=static werror=True prefix=${prefix}"
 got="$(meson introspect --buildoptions "$build" | python3 -c '
 import json, sys
 opts = {o["name"]: o["value"] for o in json.load(sys.stdin)}
 print(" ".join(f"{n}={opts.get(n)}" for n in sys.argv[1:]))
-' buildtype strip b_lto b_lto_threads extension_library prefix)"
+' buildtype strip b_lto b_lto_threads extension_library werror prefix)"
 [[ "$got" == "$want" ]] || fDie "${build} has ${got}, asked for ${want}"
 grep -q -F -e '-flto' "${build}/build.ninja" || fDie "${build}/build.ninja has no -flto"
 

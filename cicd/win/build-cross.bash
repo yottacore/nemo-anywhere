@@ -79,7 +79,8 @@ fBuild(){
 	if ! docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" "$CONTAINER" sh -c "
 		set -e
 		if [ -f ${BUILD}/build.ninja ]; then reconf=--reconfigure; else reconf=; fi
-		meson setup \$reconf --cross-file ${CROSS} --buildtype=release -Dstrip=true -Db_lto=true -Db_lto_threads=4 -Dxmp=false ${BUILD} /src/source >/dev/null
+		meson setup \$reconf --cross-file ${CROSS} --buildtype=release -Dstrip=true -Db_lto=true -Db_lto_threads=4 -Dxmp=false -Dwerror=true ${BUILD} /src/source >/dev/null
+		bash /src/cicd/utility/check-werror.bash ${BUILD}
 		ninja -C ${BUILD} -j ${jobs}" >"$log" 2>&1
 	then
 		tail -40 "$log" >&2
