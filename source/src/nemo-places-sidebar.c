@@ -42,6 +42,7 @@
 #include <libnemo-private/nemo-module.h>
 #include <libnemo-private/nemo-file.h>
 #include <libnemo-private/nemo-file-utilities.h>
+#include <libnemo-private/nemo-share.h>
 #include <libnemo-private/nemo-file-operations.h>
 #include <libnemo-private/nemo-trash-monitor.h>
 #include <libnemo-private/nemo-icon-names.h>
@@ -745,6 +746,13 @@ get_disk_full (NemoPlacesSidebar *sidebar, GFile *file, gchar **tooltip_info)
     DfCacheEntry *entry;
     gint64 now;
     gint percent;
+
+    /* Asked again every few seconds with nobody looking at it, so a share
+       shows no bar. */
+    if (g_file_is_native (file) && nemo_path_is_on_a_share (g_file_peek_path (file))) {
+        *tooltip_info = g_strdup (" ");
+        return -1;
+    }
 
     uri = g_file_get_uri (file);
     now = g_get_monotonic_time ();

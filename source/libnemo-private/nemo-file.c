@@ -42,6 +42,7 @@
 #include "nemo-module.h"
 #include "nemo-search-directory.h"
 #include "nemo-search-engine.h"
+#include "nemo-share.h"
 #include "nemo-search-directory-file.h"
 #include "nemo-thumbnails.h"
 #include "nemo-thumbnail-memory.h"
@@ -716,6 +717,7 @@ nemo_file_clear_info (NemoFile *file)
     file->details->load_deferred_attrs = NEMO_FILE_LOAD_DEFERRED_ATTRS_NO;
 	g_free (file->details->symlink_name);
 	file->details->symlink_name = NULL;
+	file->details->share_link_gen = 0;
     g_clear_pointer (&file->details->mime_type, g_ref_string_release);
     g_clear_pointer (&file->details->selinux_context, g_free);
     g_clear_pointer (&file->details->description, g_free);
@@ -2437,7 +2439,8 @@ nemo_file_is_local (NemoFile *file)
 }
 
 #ifdef G_OS_WIN32
-/* Reparse targets come back in the NT spelling, hence the two extra prefixes. */
+/* A folder on a share, by its spelling alone. A drive letter mapped to one
+   is not counted, so a mapped drive browses like a local one. */
 static gboolean
 path_is_a_share (const char *path)
 {
@@ -2460,33 +2463,50 @@ path_is_a_share (const char *path)
  * A share is native as far as gio is concerned, so nothing gated on "local"
  * holds it back and a folder of junctions pays a network timeout per entry -
  * twenty to fifty seconds each, one at a time, while the listing waits. This
- * covers both a file sitting on a share and a link pointing at one. Always
- * %FALSE off Windows, where a share is a mount and not native.
+ * covers a file sitting in a folder on a Windows share, and a link from
+ * anywhere onto a share other than the one it sits on. Off Windows a share is
+ * a network mount (nemo-share.c), and only the link half applies: a folder on
+ * one is somewhere the user went.
  *
  * Returns: %TRUE if reading @file may have to go over the network.
  */
 gboolean
 nemo_file_is_on_a_share (NemoFile *file)
 {
-#ifdef G_OS_WIN32
 	NemoDirectory *directory;
+	const char *folder = NULL;
+	guint generation;
 
 	g_return_val_if_fail (NEMO_IS_FILE (file), FALSE);
-
-	if (path_is_a_share (file->details->symlink_name)) {
-		return TRUE;
-	}
 
 	/* peek rather than get: this is asked for every file on every pass of the
 	   async loop, so it must not allocate. */
 	directory = file->details->directory;
+	if (directory != NULL && directory->details->location != NULL) {
+		folder = g_file_peek_path (directory->details->location);
+	}
 
-	return directory != NULL && directory->details->location != NULL &&
-	       path_is_a_share (g_file_peek_path (directory->details->location));
-#else
-	(void) file;
-	return FALSE;
+#ifdef G_OS_WIN32
+	if (path_is_a_share (folder)) {
+		return TRUE;
+	}
 #endif
+
+	/* A link in a folder on another machine names a path over there, which
+	   says nothing about the shares here. */
+	if (file->details->symlink_name == NULL || folder == NULL) {
+		return FALSE;
+	}
+
+	/* Kept per file, since placing the target allocates. */
+	generation = nemo_share_generation ();
+	if (file->details->share_link_gen != generation) {
+		file->details->share_link_leaves =
+			nemo_share_link_leaves_for_a_share (folder, file->details->symlink_name);
+		file->details->share_link_gen = generation;
+	}
+
+	return file->details->share_link_leaves;
 }
 
 static void
@@ -3112,6 +3132,7 @@ update_info_internal (NemoFile *file,
 		changed = TRUE;
 		g_free (file->details->symlink_name);
 		file->details->symlink_name = g_strdup (symlink_name);
+		file->details->share_link_gen = 0;
 	}
 
 	selinux_context = g_file_info_get_attribute_string (info, G_FILE_ATTRIBUTE_SELINUX_CONTEXT);
@@ -4965,6 +4986,32 @@ get_custom_icon_metadata_name (NemoFile *file)
 	return icon_name;
 }
 
+/* An icon file is read on the window's thread the first time it is drawn, so
+   one on a share, or anywhere else off the machine, stays plain. */
+static GIcon *
+drop_icon_off_disk (GIcon *icon)
+{
+	GFile *location;
+	const char *path;
+
+	if (icon == NULL || !G_IS_FILE_ICON (icon)) {
+		return icon;
+	}
+
+	location = g_file_icon_get_file (G_FILE_ICON (icon));
+	if (g_file_has_uri_scheme (location, "resource")) {
+		return icon;
+	}
+
+	path = g_file_is_native (location) ? g_file_peek_path (location) : NULL;
+	if (path == NULL || nemo_path_is_on_a_share (path)) {
+		g_object_unref (icon);
+		return NULL;
+	}
+
+	return icon;
+}
+
 static GIcon *
 get_custom_icon (NemoFile *file)
 {
@@ -4985,7 +5032,7 @@ get_custom_icon (NemoFile *file)
 
 	if (custom_icon_uri) {
 		icon_file = g_file_new_for_uri (custom_icon_uri);
-		icon = g_file_icon_new (icon_file);
+		icon = drop_icon_off_disk (g_file_icon_new (icon_file));
 		g_object_unref (icon_file);
 		g_free (custom_icon_uri);
 	}
@@ -5000,7 +5047,7 @@ get_custom_icon (NemoFile *file)
 	}
 
 	if (icon == NULL && file->details->got_link_info && file->details->custom_icon != NULL) {
-		icon = g_object_ref (file->details->custom_icon);
+		icon = drop_icon_off_disk (g_object_ref (file->details->custom_icon));
  	}
 
 	return icon;

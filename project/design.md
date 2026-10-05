@@ -607,6 +607,7 @@ Measured on 2026-09-20 with the Linux release build on a desktop machine. Each i
 - What is left at this size is still measuring, but now it is the Name column, where no two values repeat. A folder with varied names, sizes and dates rather than empty files runs about half again as long as the table above.
 
 - The program never goes to a network share on its own. Only something a person does reaches one, such as going to a share or opening a link or shortcut that points at one. A share that is not answering can hold each question for about twenty seconds, so an icon, sort place or emblem for something on a share comes from what is on local disk, or stays plain.
+	- On Windows a share is a UNC path or a drive letter mapped to one. On Linux and the BSDs it is a mount of a network file system, read from the mount table rather than asked. A link counts when it leads onto a share other than the one it sits on. The share holding the home folder counts as local, since the program works there from its first window on.
 
 - On Windows the packed exe took 3.4 s to start on 2026-08-19, down from 14.2 s. See [Startup time](design_docs/20260930-145641_windows_exe_packing.md#startup-time).
 

@@ -55,6 +55,7 @@ nemo_private_sources = [
   'nemo-folder-settings.c',
   'nemo-network-win32.c',
   'nemo-security-win32.c',
+  'nemo-share.c',
   'nemo-link-copy.c',
   'nemo-link-edit.c',
   'nemo-link-win32.c',

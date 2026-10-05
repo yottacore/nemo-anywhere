@@ -37,6 +37,7 @@
 #include <libnemo-private/nemo-file.h>
 #include <libnemo-private/nemo-file-utilities.h>
 #include <libnemo-private/nemo-icon-names.h>
+#include <libnemo-private/nemo-share.h>
 
 #define DEBUG_FLAG NEMO_DEBUG_BOOKMARKS
 #include <libnemo-private/nemo-debug.h>
@@ -749,7 +750,12 @@ nemo_bookmark_uri_get_exists (NemoBookmark *bookmark)
 
     path_name = g_file_get_path (bookmark->details->location);
 
-    if (g_file_is_native (bookmark->details->location) && 
+    /* Asked on the window's thread for every bookmark, on every rebuild of
+       the side pane while it reads as missing. One on a share is taken as
+       there, so it never waits on a host that is not answering. */
+    if (path_name != NULL && nemo_path_is_on_a_share (path_name)) {
+        exists = TRUE;
+    } else if (g_file_is_native (bookmark->details->location) &&
         (!nemo_location_is_network_safe (bookmark->details->location)) && g_file_test (path_name, G_FILE_TEST_EXISTS)) {
 		exists = TRUE;
 	} else {

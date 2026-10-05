@@ -25,6 +25,7 @@
 #include "nemo-cache-db.h"
 
 #include "nemo-file-utilities.h"
+#include "nemo-share.h"
 
 #include <glib/gstdio.h>
 #include <sqlite3.h>
@@ -1936,8 +1937,9 @@ local_file_is_gone (const char *uri, GHashTable *folders)
 	if (path == NULL)
 		return FALSE;
 
-	/* A share can take twenty seconds to say no, once per question. */
-	if ((path[0] == '/' && path[1] == '/') || (path[0] == '\\' && path[1] == '\\'))
+	/* A share can take twenty seconds to say no, once per question, and a
+	   hard network mount can hold the pass for good. */
+	if (nemo_path_is_on_a_share (path))
 		return FALSE;
 
 	folder = g_path_get_dirname (path);

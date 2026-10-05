@@ -122,15 +122,54 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The app visits network shares on its own.
 	- ID: 2026093010493450
 	- Type: Task
-	- Status: Queued
+	- Status: Waiting for answers
+	- Needs local test suite run?: no. The full Linux suite passed 170 of 170 on shareaudit.
+	- Needs external testing: rhtwm2c8 natively on Windows. A link onto a mapped drive letter has no test, since a test cannot map one; on a box, a local folder holding a symlink to a mapped drive that is not answering should list with no wait and show no item count for it.
 	- Opened: 20260930-104934
 	- Opened by: code review 20260928 follow-up
-	- Related IDs: 2026093010493389, 2026092813381408
+	- Related IDs: 2026093010493389, 2026092813381408, 2026100112000535, 2026100512334934
+	- Target OS: Linux, Windows, BSD, macOS
 	- Requirements:
 		- The app never visits a network share on its own. Only something a person does reaches one, such as going to a share or opening a link or shortcut that points at one.
 		- Find each place that touches a share with no such action behind it, and gate it or work from what is on local disk. Icons, sort places, emblems, thumbnails, link targets, free space and the side pane are the first to check.
 		- Asked 20260930, as design.md "Speed, memory and size".
-	- Test case: none yet. One per path found, where it can run off Windows.
+	- Progress log:
+		- 20261005-123349: audit done and the costly paths fixed, listed under Swept. Two paths need a call and are left as they are:
+			- Question 1: on Linux and the BSDs a folder is listed by following every link in it, to read the type, size and date of what it points at. So a link onto a share that is not answering still holds up the whole folder once, before any of the gated questions. Windows lists links without following them and still gets their type; Linux can't, so a link listed that way has no type until it is looked at. Should a link onto a share be listed without following it, showing as a plain link that sorts with the files until it is opened? Links elsewhere would be looked at as now. Suggested: yes, since it is what the rule asks for.
+			- Question 2: a folder on a Linux network mount, or on a Windows drive letter mapped to a share, works as a local one once someone goes there: item counts, thumbnails, and in a picture folder every picture made ahead. A folder on a UNC path does not, and design.md says a share counts as remote for "Local files only". Should the first two follow the UNC path, so counts and thumbnails there are off by default? Suggested: yes.
+	- Decisions:
+		- 20261005: the share holding the home folder counts as local, so a home on a network mount keeps its counts, thumbnails, free space bar and bookmark checks. A call made without asking.
+		- 20261005: a link onto the same share it sits on is not a visit, since the user is on that share already. A call made without asking.
+		- 20261005: a bookmark on a share is taken as there and wears the plain folder icon, never the missing one. A network file system mounted at `/` does not count, or nothing would be local. Calls made without asking.
+	- Swept: fixed here.
+		- The share check behind every per-file question now covers a link onto a network mount on Linux and the BSDs, and onto a mapped drive on Windows. Read from the mount table and the path, never the share. That gates what already sat behind it: item counts, thumbnails and their checksums, mount and free space lookups per file, the picture folder guess, tree expanders, pictures made ahead, and on Windows shortcut icons and sort places and owner names.
+		- Bookmarks: each one that reads as missing was checked on the window's thread at every rebuild of the side pane. One on a share is not checked.
+		- File cache prune: looked for gone files on mapped drives and network mounts, where a hard mount can hold the pass for good. Now skipped, as a UNC path already was.
+		- Actions: the folder test for each selected file followed links, on the window's thread, at every selection change. One onto a share goes by the type the listing has.
+		- Custom icons and `.desktop` link icons: an icon file on a share was read on the window's thread for the first draw. It stays plain.
+		- Side pane free space: asked every 8 s for a mounted volume on a network file system. That row shows no bar now.
+	- Swept: already gated by earlier items, rechecked. The per-file item count, mount and free space questions, thumbnails through the speed settings, shortcut reads, icons and sort places, the Windows link end check, owner names, the picture folder guess, the tree's look-ahead, pictures made ahead, and the Windows listing not following links.
+	- Swept: checked, no visit without a user action.
+		- Side pane: built-in rows, mounts with no volume (icon by file system type), the network section, and Windows drive rows (fixed drives only).
+		- Tree: a root is not read until opened, and the look-ahead skips roots.
+		- Path bar, window title and the shown folder's monitor: only the folder gone to and the folders above it.
+		- File monitors: only shown folders, the bookmarks file, and the action and template folders.
+		- Crash reporter: reads and writes only its own folder beside the settings.
+		- Startup: opens the folder asked for, or home. There is no session restore.
+		- `.desktop` links read only the link file. The favorites check is an in-memory list. The clipboard reads no files.
+		- Search, typed locations, Properties, deep counts and opening a file are user actions.
+	- Swept: left as is.
+		- Questions 1 and 2 above.
+		- Windows: mapped drives get their names and icons from the shell when the drive list is built, and the trash state asks every drive's recycle bin. Filed as 2026100512334934.
+		- First run on Windows checks the user's own known folders for the default bookmarks, which may be redirected to a share. Once, and on folders the user owns.
+		- A program an action needs, given by full path, and the templates folder, are set by the user.
+		- A chain of links is placed by its first link only. autofs is not counted, since it fronts local disks as often as shares.
+	- Branch: shareaudit
+	- Test case: rjhbbg9n, Share visits test, Linux and BSD only. A scratch folder stands in for a network mount, through a test hook on the share check. One case per path: links onto it, item counts, bookmarks, the action folder test and custom icons.
+	- Test case: rhd69rjr, File cache prune test, a new case: a gone file on a share keeps its row until the share is gone.
+	- Test case: rhtwm2c8, Share check does no I/O, new cases for a link onto a share and one within it, through the same hook. Windows only.
+	- Test case: none for the side pane free space, since a test cannot make the volume list show a fake share.
+	- Verified: rjhbbg9n and rhd69rjr fail before the fix, in every case that names a share, and pass after, on Linux. With only the action change taken out, its case alone fails. The full Linux suite passed 170 of 170. The Windows cross build is clean, and rhtwm2c8 and rhd69rjr pass under wine. Lint is clean.
 
 - Demo gif: show best features first.
 	- ID: 2026100219523841
@@ -147,6 +186,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Advanced automatic column sizing logic
 			- Optional striped rows (turn on instantly, don't bother with menu)
 	- Test case: none, demo content. `cicd/utility/lint-demo-script.py` checks the script.
+
+- On Windows, a mapped drive that is not answering may stall the side pane or the trash state.
+	- ID: 2026100512334934
+	- Type: Bug
+	- Status: Queued
+	- Needs external testing: all of it. A Windows box with a drive letter mapped to a share that does not answer, such as an unused address on the local subnet.
+	- Priority|Severity: Low
+	- Opened: 20261005-123349
+	- Opened by: share audit 2026093010493450
+	- Related IDs: 2026093010493450
+	- Target OS: Windows
+	- Incorrect behavior: read only. GLib builds its drive list through the shell, asking for each drive's display name when the list is made and for its icon when the side pane draws it. The trash state asks the recycle bin of every drive. Either may go to a mapped drive's share, on the window's thread.
+	- Expected behavior: a mapped drive is named and drawn from its letter and what Windows keeps locally, and the trash state never asks a share.
+	- Reproduced: no. Read from GLib's source and the Windows docs; not timed.
+	- Test case: none yet. Needs a Windows box with a dead mapped drive.
 
 - Code review 20260928 item 2. The tree sidebar crashes on Shift+F10 or the Menu key.
 	- ID: 2026092813381402
