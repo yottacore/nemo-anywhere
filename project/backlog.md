@@ -86,6 +86,31 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: none for the side pane free space, since a test cannot make the volume list show a fake share.
 	- Verified: rjhbbg9n and rhd69rjr fail before the fix, in every case that names a share, and pass after, on Linux. With only the action change taken out, its case alone fails. The full Linux suite passed 170 of 170. The Windows cross build is clean, and rhtwm2c8 and rhd69rjr pass under wine. Lint is clean.
 
+- Demo gif: show best features first.
+	- ID: 2026100219523841
+	- Type: Enhancement
+	- Status: Waiting on signoff
+	- Opened: 20261002-195238
+	- Opened by: t00mietum
+	- Requirements:
+		- Show best features first, e.g.
+			- Native compression features
+			- Full Windows .lnk support in Linux and macOS
+			- Relative link creation
+			- Copy allows link-handling options
+			- Advanced automatic column sizing logic
+			- Optional striped rows (turn on instantly, don't bother with menu)
+	- Progress log:
+		- 20261005-130500: the scenes now run best first. Compress, then a Windows shortcut made and opened, a relative symlink, the question a link copy asks, column sizing, and striped rows. Picture folders and grouped search follow. The gif's scenes run about 61 s, under the 66 s cap. The new gif is `assets/demo.gif`.
+		- Left out for time: F3's second pane, which upstream already had, the tree beside Places, and the drag that asks before a move.
+	- Decisions:
+		- Calls made without asking, for signoff. Column sizing is shown by dragging the window corner in and back out. The link is copied into its own folder, with Copy content picked. Striped rows come on through the settings file, with no menu.
+	- Branch: demofirst
+	- Commit: 6cf53de
+	- Test case: none, demo content. `cicd/utility/lint-demo-script.py` checks the script.
+	- Verified: the lint stage passes, the demo lint included. In the new gif and video each scene does what its caption says.
+	- Note: once the settings file changes, an empty Bookmarks heading shows up in the sidebar, so it appears from the striped rows scene on.
+
 - Code review 20260928 item 34. Apply the directives' new C section.
 	- ID: 2026092813381434
 	- Type: Enhancement
@@ -160,6 +185,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: no. Read from GLib's source and the Windows docs; not timed.
 	- Test case: none yet. Needs a Windows box with a dead mapped drive.
 
+- An empty Bookmarks heading shows up in the side pane once the settings file changes.
+	- ID: 2026100513114683
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261005-131146
+	- Opened by: backlog round 20261005
+	- Related IDs: 2026100219523841
+	- Target OS: Linux
+	- Steps to reproduce [Bug]:
+		- Start with no bookmarks, then change any setting, such as striped rows, by editing settings.shcl while the window is open.
+	- Incorrect behavior [Bug]: a Bookmarks heading with nothing under it appears in Places.
+	- Expected behavior [Bug]: no Bookmarks heading while there are no bookmarks.
+	- Reproduced [Bug]: seen while recording the demo, 20261005, on a private Xvfb. Not reproduced on its own yet.
+	- Test case: none yet.
+
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
 	- Type: Enhancement
@@ -186,31 +227,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20260930-090000: a link onto another filesystem is followed only when both options are on. The reset button also collapses Options, and the store option's flyover says when it forces one thread. The settings comments on the command lines now say they are base flags. No questions left.
 		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
-
-- Demo gif: show best features first.
-	- ID: 2026100219523841
-	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Opened: 20261002-195238
-	- Opened by: t00mietum
-	- Requirements:
-		- Show best features first, e.g.
-			- Native compression features
-			- Full Windows .lnk support in Linux and macOS
-			- Relative link creation
-			- Copy allows link-handling options
-			- Advanced automatic column sizing logic
-			- Optional striped rows (turn on instantly, don't bother with menu)
-	- Progress log:
-		- 20261005-130500: the scenes now run best first. Compress, then a Windows shortcut made and opened, a relative symlink, the question a link copy asks, column sizing, and striped rows. Picture folders and grouped search follow. The gif's scenes run about 61 s, under the 66 s cap. The new gif is `assets/demo.gif`.
-		- Left out for time: F3's second pane, which upstream already had, the tree beside Places, and the drag that asks before a move.
-	- Decisions:
-		- Calls made without asking, for signoff. Column sizing is shown by dragging the window corner in and back out. The link is copied into its own folder, with Copy content picked. Striped rows come on through the settings file, with no menu.
-	- Branch: demofirst
-	- Commit: 6cf53de
-	- Test case: none, demo content. `cicd/utility/lint-demo-script.py` checks the script.
-	- Verified: the lint stage passes, the demo lint included. In the new gif and video each scene does what its caption says.
-	- Note: once the settings file changes, an empty Bookmarks heading shows up in the sidebar, so it appears from the striped rows scene on.
 
 - Code review 20260928 item 2. The tree sidebar crashes on Shift+F10 or the Menu key.
 	- ID: 2026092813381402
