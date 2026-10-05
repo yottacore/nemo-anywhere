@@ -1559,6 +1559,15 @@ if not is_windows
   )
 endif
 
+test('rjffcm7d Thumbnail stopped once nothing wants it test',
+  executable('test-nemo-thumbnail-stop',
+    [ 'test-nemo-thumbnail-stop.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
 test('rhdfp7t8 Menu paths test',
   executable('test-nemo-menu-paths',
     [ 'test-nemo-menu-paths.c' ] + gresources,

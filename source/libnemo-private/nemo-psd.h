@@ -41,7 +41,8 @@ GdkPixbuf *nemo_psd_load     (GInputStream *stream,
 			      int           size,
 			      GCancellable *cancellable);
 
-GdkPixbuf *nemo_psd_load_uri (const char *uri,
-			      int         size);
+GdkPixbuf *nemo_psd_load_uri (const char   *uri,
+			      int           size,
+			      GCancellable *cancellable);
 
 #endif

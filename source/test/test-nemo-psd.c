@@ -441,6 +441,25 @@ test_short_rows (void)
 	}
 }
 
+/* A memory stream never looks at the cancel, so this is the reader's own
+ * check between rows. A thumbnail nothing wants any more stops there. */
+static void
+test_cancelled (void)
+{
+	g_autoptr (GBytes) whole = build_rows (1, 256, 4, 200);
+	g_autoptr (GInputStream) in = g_memory_input_stream_new_from_bytes (whole);
+	g_autoptr (GCancellable) cancellable = g_cancellable_new ();
+	g_autoptr (GdkPixbuf) read = NULL;
+	g_autoptr (GdkPixbuf) stopped = NULL;
+
+	read = read_bytes (whole, 64);
+	check (read != NULL);
+
+	g_cancellable_cancel (cancellable);
+	stopped = nemo_psd_load (in, 64, cancellable);
+	check (stopped == NULL);
+}
+
 static void
 test_types (void)
 {
@@ -470,7 +489,7 @@ test_factory (const char *dir)
 	check (nemo_desktop_thumbnail_factory_can_make (factory, uri, "image/vnd.adobe.photoshop"));
 
 	pixbuf = nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (factory, uri,
-									    "image/vnd.adobe.photoshop", 128);
+									    "image/vnd.adobe.photoshop", 128, NULL);
 	check (pixel_is (pixbuf, 1, 1, 20, 40, 60, -1));
 
 	g_object_unref (factory);
@@ -489,6 +508,7 @@ main (int argc, char **argv)
 	test_shrink ();
 	test_truncated ();
 	test_short_rows ();
+	test_cancelled ();
 	test_types ();
 	test_factory (home);
 

@@ -731,17 +731,17 @@ nemo_raw_load (GInputStream *stream, int size, GCancellable *cancellable)
 }
 
 GdkPixbuf *
-nemo_raw_load_uri (const char *uri, int size)
+nemo_raw_load_uri (const char *uri, int size, GCancellable *cancellable)
 {
 	g_autoptr (GFile) file = g_file_new_for_uri (uri);
 	g_autoptr (GFileInputStream) in = NULL;
 
-	in = g_file_read (file, NULL, NULL);
+	in = g_file_read (file, cancellable, NULL);
 	if (in == NULL || !g_seekable_can_seek (G_SEEKABLE (in))) {
 		return NULL;
 	}
 
-	return nemo_raw_load (G_INPUT_STREAM (in), size, NULL);
+	return nemo_raw_load (G_INPUT_STREAM (in), size, cancellable);
 }
 
 gboolean

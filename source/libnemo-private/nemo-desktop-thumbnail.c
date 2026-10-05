@@ -374,11 +374,15 @@ create_loader (GFile        *file,
   return loader;
 }
 
+/* Fed to the loader a chunk at a time, so a cancel is seen between chunks
+ * even though no loader takes one. A loader that keeps everything for its
+ * close, such as TIFF, still decodes there to the end. */
 static GdkPixbuf *
-_gdk_pixbuf_new_from_uri_at_scale (const char *uri,
-				   gint        width,
-				   gint        height,
-				   gboolean    preserve_aspect_ratio)
+_gdk_pixbuf_new_from_uri_at_scale (const char   *uri,
+				   gint          width,
+				   gint          height,
+				   gboolean      preserve_aspect_ratio,
+				   GCancellable *cancellable)
 {
     gboolean result;
     guchar buffer[LOAD_BUFFER_SIZE];
@@ -404,7 +408,7 @@ _gdk_pixbuf_new_from_uri_at_scale (const char *uri,
     file_info = g_file_query_info (file,
                                    G_FILE_ATTRIBUTE_PREVIEW_ICON,
                                    G_FILE_QUERY_INFO_NONE,
-                                   NULL,  /* GCancellable */
+                                   cancellable,
                                    NULL); /* return location for GError */
     if (file_info != NULL) {
         GObject *object;
@@ -415,14 +419,14 @@ _gdk_pixbuf_new_from_uri_at_scale (const char *uri,
             input_stream = g_loadable_icon_load (G_LOADABLE_ICON (object),
                                                  0,     /* size */
                                                  NULL,  /* return location for type */
-                                                 NULL,  /* GCancellable */
+                                                 cancellable,
                                                  NULL); /* return location for GError */
         }
         g_object_unref (file_info);
     }
 
     if (input_stream == NULL) {
-        input_stream = G_INPUT_STREAM (g_file_read (file, NULL, &error));
+        input_stream = G_INPUT_STREAM (g_file_read (file, cancellable, &error));
         if (input_stream == NULL) {
             if (error != NULL) {
                 g_debug ("Unable to create an input stream for %s: %s", uri, error->message);
@@ -441,7 +445,7 @@ _gdk_pixbuf_new_from_uri_at_scale (const char *uri,
 	bytes_read = g_input_stream_read (input_stream,
 					  buffer,
 					  sizeof (buffer),
-					  NULL,
+					  cancellable,
 					  &error);
         if (error != NULL) {
             g_debug ("Error reading from %s: %s", uri, error->message);
@@ -495,6 +499,11 @@ _gdk_pixbuf_new_from_uri_at_scale (const char *uri,
     }
 
     gdk_pixbuf_loader_close (loader, NULL);
+
+    /* Stopped partway, so what the loader has is only the top of it. */
+    if (g_cancellable_is_cancelled (cancellable)) {
+        result = FALSE;
+    }
 
     if (!result) {
 	g_object_unref (G_OBJECT (loader));
@@ -1306,6 +1315,7 @@ typedef struct {
   GSubprocess *proc;
   GMainLoop   *loop;
   gboolean     timed_out;
+  gboolean     stopped;
   gboolean     ok;
 } ScriptRun;
 
@@ -1315,6 +1325,18 @@ script_timed_out (gpointer data)
   ScriptRun *run = data;
 
   run->timed_out = TRUE;
+  g_subprocess_force_exit (run->proc);
+
+  return G_SOURCE_REMOVE;
+}
+
+/* Nothing wants the picture any more, so the helper is ended like a timeout. */
+static gboolean
+script_cancelled (GCancellable *cancellable, gpointer data)
+{
+  ScriptRun *run = data;
+
+  run->stopped = TRUE;
   g_subprocess_force_exit (run->proc);
 
   return G_SOURCE_REMOVE;
@@ -1334,10 +1356,11 @@ script_finished (GObject *source, GAsyncResult *result, gpointer data)
  * of one to four - a single helper that never exits used to cost that slot for the
  * rest of the session, and four of them stopped thumbnailing altogether. */
 static gboolean
-run_thumbnailer_script (const char *command_line)
+run_thumbnailer_script (const char *command_line, GCancellable *cancellable)
 {
   GMainContext *context;
   GSource *timeout;
+  GSource *stop = NULL;
   GSubprocess *proc;
   ScriptRun run = { 0 };
   gchar **argv = NULL;
@@ -1371,6 +1394,13 @@ run_thumbnailer_script (const char *command_line)
   g_source_set_callback (timeout, script_timed_out, &run, NULL);
   g_source_attach (timeout, context);
 
+  if (cancellable != NULL)
+    {
+      stop = g_cancellable_source_new (cancellable);
+      g_source_set_callback (stop, G_SOURCE_FUNC (script_cancelled), &run, NULL);
+      g_source_attach (stop, context);
+    }
+
   /* Killing the child completes the wait, so the loop still ends by itself
    * and the process is reaped rather than left behind. */
   g_main_loop_run (run.loop);
@@ -1379,8 +1409,13 @@ run_thumbnailer_script (const char *command_line)
     g_warning ("Thumbnailer took longer than %d seconds, gave up on it: %s",
                THUMBNAILER_TIMEOUT_SECONDS, command_line);
 
-  ok = run.ok;
+  ok = run.ok && !run.stopped;
 
+  if (stop != NULL)
+    {
+      g_source_destroy (stop);
+      g_source_unref (stop);
+    }
   g_source_destroy (timeout);
   g_source_unref (timeout);
   g_main_loop_unref (run.loop);
@@ -1413,16 +1448,19 @@ nemo_desktop_thumbnail_factory_generate_thumbnail (NemoDesktopThumbnailFactory *
 {
   return nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (factory, uri, mime_type,
                                                                    factory->priv->size == NEMO_DESKTOP_THUMBNAIL_SIZE_LARGE
-                                                                   ? 256 : 128);
+                                                                   ? 256 : 128, NULL);
 }
 
 /* The same, at any size rather than the two the shared cache has folders for.
- * An external thumbnailer is free to hand back something smaller than asked. */
+ * An external thumbnailer is free to hand back something smaller than asked.
+ * Once @cancellable is cancelled every reader stops and the answer is NULL,
+ * which the caller tells apart from a failure by the cancellable. */
 GdkPixbuf *
 nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (NemoDesktopThumbnailFactory *factory,
 							    const char            *uri,
 							    const char            *mime_type,
-							    int                    size)
+							    int                    size,
+							    GCancellable          *cancellable)
 {
   GdkPixbuf *pixbuf, *scaled, *tmp_pixbuf;
   char *script, *expanded_script;
@@ -1467,7 +1505,7 @@ nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (NemoDesktopThumbnailF
 	  close (fd);
 
 	  expanded_script = expand_thumbnailing_script (script, size, uri, tmpname);
-	  if (expanded_script != NULL && run_thumbnailer_script (expanded_script))
+	  if (expanded_script != NULL && run_thumbnailer_script (expanded_script, cancellable))
 	    {
 	      pixbuf = gdk_pixbuf_new_from_file (tmpname, NULL);
 	    }
@@ -1483,7 +1521,7 @@ nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (NemoDesktopThumbnailF
   /* Fall back to gdk-pixbuf */
   if (!disabled && pixbuf == NULL && mimetype_supported_by_gdk_pixbuf (mime_type))
     {
-      pixbuf = _gdk_pixbuf_new_from_uri_at_scale (uri, size, size, TRUE);
+      pixbuf = _gdk_pixbuf_new_from_uri_at_scale (uri, size, size, TRUE, cancellable);
 
       if (pixbuf != NULL)
         {
@@ -1495,13 +1533,16 @@ nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (NemoDesktopThumbnailF
     }
       
   if (!disabled && pixbuf == NULL && nemo_psd_type_ok (mime_type))
-    pixbuf = nemo_psd_load_uri (uri, size);
+    pixbuf = nemo_psd_load_uri (uri, size, cancellable);
 
   if (!disabled && pixbuf == NULL && nemo_raw_type_ok (mime_type))
-    pixbuf = nemo_raw_load_uri (uri, size);
+    pixbuf = nemo_raw_load_uri (uri, size, cancellable);
 
   if (!disabled && pixbuf == NULL && nemo_magick_type_ok (uri))
-    pixbuf = nemo_magick_load_uri (uri, size);
+    pixbuf = nemo_magick_load_uri (uri, size, cancellable);
+
+  if (g_cancellable_is_cancelled (cancellable))
+    g_clear_object (&pixbuf);
 
   if (pixbuf == NULL)
     return NULL;
