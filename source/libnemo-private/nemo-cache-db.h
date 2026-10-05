@@ -104,7 +104,8 @@ void         nemo_cache_db_close (void);
 /* For the end of the process: writes out what is pending and folds the journal
  * back in, as closing does, but leaves the store open. A worker the quit does
  * not wait for may still be using it, and closing would free it under that
- * worker. Exiting closes the file. Opens nothing if the store was never used. */
+ * worker. Exiting closes the file. Opens nothing if the store was never used.
+ * The writer thread is stopped first and not started again. */
 void         nemo_cache_db_quit  (void);
 
 /* Where the database file is, whether or not it opened. Freed by the caller. */
@@ -162,17 +163,31 @@ gboolean nemo_cache_db_thumbnail_store (NemoCacheDb               *db,
 					GBytes                    *image);
 
 /* Drops the thumbnail of what `uri` points at, for a refresh asked for by
- * hand. The record of the file itself stays. */
+ * hand. The record of the file itself stays. Waits on the file, so not for the
+ * window's thread; that has forget_later. */
 gboolean nemo_cache_db_thumbnail_forget (NemoCacheDb *db, const char *uri);
+
+/* The same refresh, queued for the writer thread, so the window never waits on
+ * another copy's hold on the file. Needs no open store. A lookup or store of a
+ * thumbnail made after this returns sees it done, even before the writer gets
+ * to it. */
+void nemo_cache_db_thumbnail_forget_later (const char *uri);
 
 /* Counts a draw against whatever `uri` points at and stamps the time. Both are
  * what the pruning rules read, so this is called often and does as little as it
- * can get away with - see the note on batching in the .c file. */
+ * can get away with - see the note on batching in the .c file. Never touches
+ * the file: the counts go out on the writer thread, after 30 s or once 256
+ * files are waiting. */
 void nemo_cache_db_note_render (NemoCacheDb *db, const char *uri);
 
-/* Writes out the draw counts held in memory. Anything about to read them - a
- * prune, or the settings page - calls this first. */
+/* Writes out the draw counts and refreshes held in memory, on the calling
+ * thread. Anything about to read them - a prune, or the settings page - calls
+ * this first. */
 void nemo_cache_db_flush (NemoCacheDb *db);
+
+/* For the tests. How long draw counts wait in memory before the writer thread
+ * writes them, and how long it waits after a failed write. 30 s unless set. */
+void nemo_cache_db_set_draw_wait (gint ms);
 
 /* Draws counted against `uri` and when it was last drawn, epoch seconds. False
  * if there is no thumbnail behind that uri. Either out parameter may be NULL.
