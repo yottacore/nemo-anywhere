@@ -27,8 +27,8 @@ if [[ ! -f "${build}/build.ninja" ]]; then
 fi
 
 ## search-helpers asks for -Werror=address on its own, so only the bare flag
-## counts.
-if ! grep -q -E -- '(^|[[:space:]])-Werror([[:space:]]|$)' "${build}/build.ninja"; then
+## counts. On Windows meson double-quotes every argument in build.ninja.
+if ! grep -q -E -- '(^|[[:space:]])(-Werror|"-Werror")([[:space:]]|$)' "${build}/build.ninja"; then
 	echo "check-werror: ${build} does not build with -Werror. Run its meson setup again with -Dwerror=true" >&2
 	exit 1
 fi

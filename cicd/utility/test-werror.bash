@@ -41,12 +41,19 @@ project="$(sed -n '/^project(/,/)/p' "${root}/source/meson.build")"
 
 scratch="$(mktemp -d)"
 trap 'rm -rf -- "${scratch}"' EXIT
-mkdir -p "${scratch}/on" "${scratch}/off" "${scratch}/empty"
+mkdir -p "${scratch}/on" "${scratch}/off" "${scratch}/empty" "${scratch}/winon" "${scratch}/winoff" "${scratch}/winhalf"
 printf 'build a.o: c_COMPILER a.c\n ARGS = -Wall -Winvalid-pch -Wextra -Werror -std=c17\n' > "${scratch}/on/build.ninja"
 printf 'build a.o: c_COMPILER a.c\n ARGS = -Wall -Winvalid-pch -Wextra -std=c17 -Werror=address\n' > "${scratch}/off/build.ninja"
+## On Windows meson wraps every argument in double quotes.
+printf 'build a.c.obj: c_COMPILER ../a.c\n ARGS = "-I." "-fdiagnostics-color=always" "-Wall" "-Winvalid-pch" "-Wextra" "-Werror" "-std=c17"\n' > "${scratch}/winon/build.ninja"
+printf 'build a.c.obj: c_COMPILER ../a.c\n ARGS = "-I." "-Wall" "-Wextra" "-std=c17" "-Werror=address"\n' > "${scratch}/winoff/build.ninja"
+printf 'build a.c.obj: c_COMPILER ../a.c\n ARGS = "-I." "-Wall" "-Werror -std=c17"\n' > "${scratch}/winhalf/build.ninja"
 
 bash "$checker" "${scratch}/on" 2>/dev/null || fFail "check-werror.bash refused a dir with -Werror"
 if bash "$checker" "${scratch}/off" 2>/dev/null; then fFail "check-werror.bash passed a dir with only -Werror=address"; fi
+bash "$checker" "${scratch}/winon" 2>/dev/null || fFail "check-werror.bash refused a Windows dir with \"-Werror\""
+if bash "$checker" "${scratch}/winoff" 2>/dev/null; then fFail "check-werror.bash passed a Windows dir with only \"-Werror=address\""; fi
+if bash "$checker" "${scratch}/winhalf" 2>/dev/null; then fFail "check-werror.bash passed -Werror inside a quoted argument"; fi
 if bash "$checker" "${scratch}/empty" 2>/dev/null; then fFail "check-werror.bash passed a dir with no build.ninja"; fi
 
 if ((failures)); then fEcho "FAILED: werror check, ${failures} problem(s)"; exit 1; fi

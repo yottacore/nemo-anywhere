@@ -33,6 +33,28 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- On Windows the gate says the build is not set up with `-Werror` when it is.
+	- ID: 2026100518100000
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs external testing: `pwsh cicd/cicd-win.ps1 -Gate -Yes` on a Windows box, on this branch or after it merges.
+	- Priority|Severity: High
+	- Opened: 20261005-181000
+	- Opened by: native gate run for 2026092813381434
+	- Related IDs: 2026092813381434
+	- Target OS: Windows
+	- Steps to reproduce: run `pwsh cicd/cicd-win.ps1 -Gate -Yes` on a Windows box with a fresh build dir.
+	- Incorrect behavior: `check-werror: cicd/artifacts/build-win does not build with -Werror`, exit 4, before anything compiles. It stops the gate, the pre-push hook on Windows and the Windows dogfood stage.
+	- Expected behavior: the check passes when the build dir was set up with `-Dwerror=true`.
+	- Reproduced: 20261005 on vm925w at 9aba9d4.
+	- Possible cause: meson quotes each flag in `build.ninja` on Windows (`"-Werror"`), and `check-werror.bash` only matches a bare `-Werror`. Test rjh7qnxw never reads a Windows `build.ninja`.
+	- Actual cause: as above. On Windows meson writes every argument in `build.ninja` inside double quotes, so `-Werror` is there as `"-Werror"`, and the check only took the bare form.
+	- Actual fix: the check takes `-Werror` bare or as one whole quoted argument. `"-Werror=address"` and a quoted argument that only starts with `-Werror` still fail.
+	- Swept: every script that reads `build.ninja` or other meson output. Only `check-werror.bash` matched a flag as a whole word. The LTO checks in `release-setup.bash` and `test-release-setup.bash`, and the sanitizer and fuzz lane checks, match a substring, so a quote around the flag does not change them, and all of them run on Linux only. `check-win-build-flags.bash` reads the lanes' own meson setup lines, not the build dir. The hosted `release-win.yml` reads nothing back.
+	- Branch: werrq
+	- Test case: rjh7qnxw. It gained Windows-style build dirs: a quoted `"-Werror"` that has to pass, and a quoted `"-Werror=address"` and a quoted `"-Werror -std=c17"` that have to fail.
+	- Verified: rjh7qnxw failed before the fix, on the quoted `"-Werror"` case, and passes after, under both GNU grep and ugrep. The check passes on the Linux `/build` dir, and on an `ARGS` line quoted by meson's own Windows quoting code, which the old check refuses.
+
 - Code review 20260928.
 	- ID: 2026092813381400
 	- Type: Task
@@ -54,22 +76,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: Escape not restoring the selection, Ctrl+Shift+T, and Control kept for F1, tab keys, Ctrl+H and Ctrl+M on macOS. All settled earlier.
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
-
-- On Windows the gate says the build is not set up with `-Werror` when it is.
-	- ID: 2026100518100000
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261005-181000
-	- Opened by: native gate run for 2026092813381434
-	- Related IDs: 2026092813381434
-	- Target OS: Windows
-	- Steps to reproduce: run `pwsh cicd/cicd-win.ps1 -Gate -Yes` on a Windows box with a fresh build dir.
-	- Incorrect behavior: `check-werror: cicd/artifacts/build-win does not build with -Werror`, exit 4, before anything compiles. It stops the gate, the pre-push hook on Windows and the Windows dogfood stage.
-	- Expected behavior: the check passes when the build dir was set up with `-Dwerror=true`.
-	- Reproduced: 20261005 on vm925w at 9aba9d4.
-	- Possible cause: meson quotes each flag in `build.ninja` on Windows (`"-Werror"`), and `check-werror.bash` only matches a bare `-Werror`. Test rjh7qnxw never reads a Windows `build.ninja`.
-	- Test case: rjh7qnxw, to gain a quoted case.
 
 - On Windows, a mapped drive that is not answering may stall the side pane or the trash state.
 	- ID: 2026100512334934
