@@ -76,7 +76,7 @@ static GParamSpec *properties[NUM_PROPERTIES] = { NULL, };
 G_DEFINE_TYPE (NemoMimeApplicationChooser, nemo_mime_application_chooser, GTK_TYPE_BOX);
 
 static void
-add_clicked_cb (GtkButton *button,
+add_clicked_cb (G_GNUC_UNUSED GtkButton *button,
 		gpointer user_data)
 {
 	NemoMimeApplicationChooser *chooser = user_data;
@@ -99,7 +99,7 @@ add_clicked_cb (GtkButton *button,
 }
 
 static void
-remove_clicked_cb (GtkMenuItem *item,
+remove_clicked_cb (G_GNUC_UNUSED GtkMenuItem *item,
 		   gpointer user_data)
 {
 	NemoMimeApplicationChooser *chooser = user_data;
@@ -128,7 +128,7 @@ remove_clicked_cb (GtkMenuItem *item,
 }
 
 static void
-populate_popup_cb (GtkAppChooserWidget *widget,
+populate_popup_cb (G_GNUC_UNUSED GtkAppChooserWidget *widget,
 		   GtkMenu *menu,
 		   GAppInfo *app,
 		   gpointer user_data)
@@ -163,7 +163,7 @@ default_app_for_type (NemoMimeApplicationChooser *chooser)
 }
 
 static void
-reset_clicked_cb (GtkButton *button,
+reset_clicked_cb (G_GNUC_UNUSED GtkButton *button,
                   gpointer   user_data)
 {
 	NemoMimeApplicationChooser *chooser;
@@ -222,7 +222,7 @@ set_default_or_say_why (NemoMimeApplicationChooser *chooser,
 }
 
 static void
-set_as_default_clicked_cb (GtkButton *button,
+set_as_default_clicked_cb (G_GNUC_UNUSED GtkButton *button,
 			   gpointer user_data)
 {
 	NemoMimeApplicationChooser *chooser = user_data;
@@ -276,7 +276,7 @@ app_info_can_add (GAppInfo *info,
 }
 
 static void
-application_selected_cb (GtkAppChooserWidget *widget,
+application_selected_cb (G_GNUC_UNUSED GtkAppChooserWidget *widget,
 			 GAppInfo *info,
 			 gpointer user_data)
 {
@@ -300,7 +300,7 @@ application_selected_cb (GtkAppChooserWidget *widget,
 
 static void
 application_activated_cb (GtkAppChooserWidget *widget,
-                                     GAppInfo *info,
+                                     G_GNUC_UNUSED GAppInfo *info,
                                      gpointer  user_data)
 {
     NemoMimeApplicationChooser *chooser = user_data;
@@ -521,7 +521,7 @@ nemo_mime_application_chooser_apply_labels (NemoMimeApplicationChooser *chooser)
 }
 
 static gboolean
-exec_filter_func (const GtkFileFilterInfo *info, gpointer data)
+exec_filter_func (const GtkFileFilterInfo *info, G_GNUC_UNUSED gpointer data)
 {
     if (info->contains & GTK_FILE_FILTER_FILENAME) {
         if (g_file_test (info->filename, G_FILE_TEST_IS_EXECUTABLE))
@@ -532,7 +532,7 @@ exec_filter_func (const GtkFileFilterInfo *info, gpointer data)
 }
 
 static void
-on_file_chooser_button_clicked (GtkButton                  *button,
+on_file_chooser_button_clicked (G_GNUC_UNUSED GtkButton                  *button,
                                 NemoMimeApplicationChooser *chooser)
 {
     GtkWidget *dialog;

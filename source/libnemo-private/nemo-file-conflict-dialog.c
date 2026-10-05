@@ -71,7 +71,7 @@ G_DEFINE_TYPE (NemoFileConflictDialog,
 				      NemoFileConflictDialogDetails))
 
 static void
-file_icons_changed (NemoFile *file,
+file_icons_changed (G_GNUC_UNUSED NemoFile *file,
 		    NemoFileConflictDialog *fcd)
 {
 	GdkPixbuf *pixbuf;
@@ -455,7 +455,7 @@ checkbox_toggled_cb (GtkToggleButton *t,
 }
 
 static void
-reset_button_clicked_cb (GtkButton *w,
+reset_button_clicked_cb (G_GNUC_UNUSED GtkButton *w,
 			 NemoFileConflictDialog *dialog)
 {
 	NemoFileConflictDialogDetails *details;

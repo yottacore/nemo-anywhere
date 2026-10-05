@@ -92,7 +92,7 @@ nemo_search_engine_class_init (NemoSearchEngineClass *class)
 }
 
 static void
-nemo_search_engine_init (NemoSearchEngine *engine)
+nemo_search_engine_init (G_GNUC_UNUSED NemoSearchEngine *engine)
 {
 }
 

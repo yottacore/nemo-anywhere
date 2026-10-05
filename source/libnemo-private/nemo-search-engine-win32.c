@@ -352,8 +352,8 @@ nemo_search_win32_build_sql (const gchar *folder,
 }
 
 static gboolean
-note_any_row (const wchar_t *path,
-	      guint32        attrs,
+note_any_row (G_GNUC_UNUSED const wchar_t *path,
+	      G_GNUC_UNUSED guint32        attrs,
 	      gpointer       user_data)
 {
 	*(gboolean *) user_data = TRUE;

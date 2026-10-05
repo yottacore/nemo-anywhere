@@ -86,8 +86,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026092813381434
 	- Type: Enhancement
 	- Status: Started
-	- Needs local test suite run?: yes, after the last part: the fuzz and sanitizer lanes at the new level. The full Linux suite passed 169 of 169 on 20261005, on wextra1.
-	- Needs external testing: the native Windows suite once all parts are in. The canvas types and the accessible class setup changed.
+	- Needs local test suite run?: yes, after the last part: the fuzz and sanitizer lanes at the new level. The full Linux suite passed 169 of 169 on 20261005, on wextra1 and again on wextra2.
+	- Needs external testing: the native Windows suite once all parts are in. The canvas types and the accessible class setup changed, and in part 2 the icon container's accessible interfaces.
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
@@ -98,14 +98,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- One line in each allocating function's header comment on who frees the result.
 	- Progress log:
 		- 20261005-103251: part 1 of 3. The build names c17 and runs at `-Wextra`, with `-Werror` still off. eel, the extension library and the tests now build clean at that level, on Linux and in the Windows cross build. Left for the next parts: `libnemo-private` and `src` (1441 warnings on Linux, 1530 in the cross build), then `-Werror`, then the who-frees lines.
+		- 20261005-110434: part 2 of 3. `libnemo-private` now builds clean at `-Wextra` on Linux and in the Windows cross build. Every row of the settings table names its flags. Function pointer casts became callbacks of the right type. No fallthrough or enum warnings were in this part. Left: `src`, 829 warnings on Linux and 838 in the cross build, then `-Werror`, then the who-frees lines.
 	- Decisions:
 		- 20260928: full `-Wextra` over the whole tree, with every warning fixed. The fork will never track upstream, so churn in inherited files is fine.
 		- 20261005: c17, not gnu17. Nothing in the tree needs a GNU language extension. Strict c17 hides the POSIX and BSD calls glibc gives by default, so the build asks for them back with `_DEFAULT_SOURCE`, in one place. On Windows the only gap was `M_PI`, now `G_PI`.
 		- 20261005: vendored code builds at `-Wall` in its own target (blake3, libegg), so it stays as it came. SHCL is header-only and builds clean at `-Wextra`, so it has no exemption.
 		- 20261005: an unused parameter gets `G_GNUC_UNUSED` in front of its type, the form GLib documents. Existing `(void) x;` lines stay. A test `main` that ignores both arguments is `main (void)`.
 		- 20261005: a build dir set up before this keeps its old std and warning level on reconfigure, so meson stops and asks for `meson setup --wipe` once.
-	- Branch: wextra1
-	- Commit: df8a8a5, a0e0ed6, e316e67
+		- 20261005: the settings table stays positional, with the flags written out at the end of each row, since `lint-pref-handlers.py` reads the rows by position.
+	- Branch: wextra1, wextra2
+	- Commit: df8a8a5, a0e0ed6, e316e67, 459d24c, f8aff1f
 	- Test case: none yet. The build itself is the check once `-Werror` is on.
 
 - The app visits network shares on its own.

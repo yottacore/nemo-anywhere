@@ -259,9 +259,9 @@ queue_changed (NemoFavorites *favorites)
 // }
 
 static void
-sync_file_metadata (NemoFavorites *favorites,
-                    const gchar   *uri,
-                    gboolean       is_favorite)
+sync_file_metadata (G_GNUC_UNUSED NemoFavorites *favorites,
+                    G_GNUC_UNUSED const gchar   *uri,
+                    G_GNUC_UNUSED gboolean       is_favorite)
 {
     /* Disabled - this is less than optimal, and is implemented instead in
      * nemo, currently. This could be changed later to help support other browsers.
@@ -553,7 +553,7 @@ favorite_parent_label (GFile *parent_file, const gchar *fallback_uri)
 /* Callers hold infos_lock - this walks the table and rewrites display names in
  * place. */
 static void
-deduplicate_display_names (NemoFavorites *favorites,
+deduplicate_display_names (G_GNUC_UNUSED NemoFavorites *favorites,
                            GHashTable    *infos)
 {
     GList *fav_uris, *ptr;
@@ -868,8 +868,8 @@ add_favorite (NemoFavorites *favorites,
 }
 
 static void
-on_settings_list_changed (NemoConfigGroup *settings,
-                          gchar     *key,
+on_settings_list_changed (G_GNUC_UNUSED NemoConfigGroup *settings,
+                          G_GNUC_UNUSED gchar     *key,
                           gpointer   user_data)
 {
     NemoFavorites *favorites = NEMO_FAVORITES (user_data);
@@ -983,7 +983,7 @@ typedef struct {
 } MatchData;
 
 void
-match_mimetypes (gpointer key,
+match_mimetypes (G_GNUC_UNUSED gpointer key,
                  gpointer value,
                  gpointer user_data)
 {
@@ -996,7 +996,7 @@ match_mimetypes (gpointer key,
         return;
     }
 
-    gint i;
+    guint i;
 
     for (i = 0; i < g_strv_length ((gchar **) data->mimetypes); i++)
     {
@@ -1074,7 +1074,7 @@ nemo_favorites_get_n_favorites (NemoFavorites *favorites)
 }
 
 static gboolean
-lookup_display_name (gpointer key,
+lookup_display_name (G_GNUC_UNUSED gpointer key,
                      gpointer value,
                      gpointer user_data)
 {

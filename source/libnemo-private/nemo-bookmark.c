@@ -116,7 +116,7 @@ nemo_bookmark_update_icon (NemoBookmark *bookmark)
 
 static void
 bookmark_set_name_from_ready_file (NemoBookmark *self,
-				   NemoFile *file)
+				   G_GNUC_UNUSED NemoFile *file)
 {
 	gchar *display_name;
 

@@ -95,7 +95,7 @@ expander_activated_cb (GtkExpander *expander,
 }
 
 static void
-reset_button_clicked_cb (GtkButton *button,
+reset_button_clicked_cb (G_GNUC_UNUSED GtkButton *button,
 			 gpointer   user_data)
 {
 	GtkWidget *dialog = user_data;

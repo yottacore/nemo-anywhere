@@ -306,7 +306,7 @@ nemo_file_clear_display_name (NemoFile *file)
    gio hands back the basename, which is "\" for every drive alike, so the title
    bar and the breadcrumb both read "\" with no way to tell the drives apart. */
 static char *
-file_get_drive_root_name (NemoFile *file, GFileInfo *info)
+file_get_drive_root_name (G_GNUC_UNUSED NemoFile *file, G_GNUC_UNUSED GFileInfo *info)
 {
 #ifdef G_OS_WIN32
 	GFile *location;
@@ -342,7 +342,7 @@ file_get_drive_root_name (NemoFile *file, GFileInfo *info)
 static gboolean
 foreach_metadata_free (gpointer  key,
 		       gpointer  value,
-		       gpointer  user_data)
+		       G_GNUC_UNUSED gpointer  user_data)
 {
 	guint id;
 
@@ -2090,7 +2090,7 @@ name_has_extension (const char *name, const char *ext)
 static gboolean show_shortcut_extension = FALSE;
 
 static void
-show_shortcut_extension_changed_callback (gpointer callback_data)
+show_shortcut_extension_changed_callback (G_GNUC_UNUSED gpointer callback_data)
 {
 	show_shortcut_extension = nemo_config_get_boolean (nemo_preferences,
 							   NEMO_PREFERENCES_SHOW_SHORTCUT_EXTENSION);
@@ -3655,7 +3655,7 @@ file_is_shortcut (NemoFile *file)
 
 static GList *
 prepend_automatic_keywords (NemoFile *file,
-                            NemoFile *view_file,
+                            G_GNUC_UNUSED NemoFile *view_file,
                             GList *names)
 {
 	/* Prepend in reverse order. */
@@ -4171,7 +4171,7 @@ nemo_file_is_hidden_file (NemoFile *file)
 static gboolean show_dot_files = FALSE;
 
 static void
-show_dot_files_changed_callback (gpointer callback_data)
+show_dot_files_changed_callback (G_GNUC_UNUSED gpointer callback_data)
 {
 	show_dot_files = nemo_config_get_boolean (nemo_windows_preferences, NEMO_PREFERENCES_SHOW_DOT_FILES);
 }
@@ -5032,7 +5032,7 @@ nemo_file_should_show_thumbnail (NemoFile *file)
 	if (file->details->thumbnail == NULL &&
 	    file->details->thumbnail_path == NULL &&
 	    file->details->thumbnail_is_up_to_date &&
-	    nemo_file_get_size (file) > cached_thumbnail_limit) {
+	    (guint64) nemo_file_get_size (file) > cached_thumbnail_limit) {
 		return FALSE;
 	}
 
@@ -6086,7 +6086,7 @@ nemo_file_get_date_as_string (NemoFile       *file,
 static NemoSpeedTradeoffValue show_directory_item_count;
 
 static void
-show_directory_item_count_changed_callback (gpointer callback_data)
+show_directory_item_count_changed_callback (G_GNUC_UNUSED gpointer callback_data)
 {
 	show_directory_item_count = nemo_config_get_enum (nemo_preferences, NEMO_PREFERENCES_SHOW_DIRECTORY_ITEM_COUNTS);
 }
@@ -8288,7 +8288,7 @@ nemo_file_get_mount (NemoFile *file)
 }
 
 static void
-file_mount_unmounted (GMount *mount,
+file_mount_unmounted (G_GNUC_UNUSED GMount *mount,
 		      gpointer data)
 {
 	NemoFile *file;
@@ -9510,6 +9510,20 @@ nemo_file_dump (NemoFile *file)
 	g_free (uri);
 }
 
+static void
+file_ref_one (gpointer data, G_GNUC_UNUSED gpointer user_data)
+{
+	nemo_file_ref (data);
+}
+
+/* Not a for loop: an unref can take the item out of the list being walked,
+   and g_list_foreach reads the next link first. */
+static void
+file_unref_one (gpointer data, G_GNUC_UNUSED gpointer user_data)
+{
+	nemo_file_unref (data);
+}
+
 /**
  * nemo_file_list_ref
  *
@@ -9519,7 +9533,7 @@ nemo_file_dump (NemoFile *file)
 GList *
 nemo_file_list_ref (GList *list)
 {
-	g_list_foreach (list, (GFunc) nemo_file_ref, NULL);
+	g_list_foreach (list, file_ref_one, NULL);
 	return list;
 }
 
@@ -9532,7 +9546,7 @@ nemo_file_list_ref (GList *list)
 void
 nemo_file_list_unref (GList *list)
 {
-	g_list_foreach (list, (GFunc) nemo_file_unref, NULL);
+	g_list_foreach (list, file_unref_one, NULL);
 }
 
 /**
@@ -9808,7 +9822,7 @@ nemo_file_list_cancel_call_when_ready (NemoFileListHandle *handle)
 }
 
 static void
-thumbnail_limit_changed_callback (gpointer user_data)
+thumbnail_limit_changed_callback (G_GNUC_UNUSED gpointer user_data)
 {
 	/* The preference offers up to 64 GB, so read it at full width: through
 	 * the gint accessor 8 GB truncated to 0 (nothing thumbnailed at all) and
@@ -9824,7 +9838,7 @@ thumbnail_limit_changed_callback (gpointer user_data)
 }
 
 static void
-thumbnail_size_changed_callback (gpointer user_data)
+thumbnail_size_changed_callback (G_GNUC_UNUSED gpointer user_data)
 {
 	cached_thumbnail_size = nemo_config_get_int (nemo_icon_view_preferences,
 						    NEMO_PREFERENCES_ICON_VIEW_THUMBNAIL_SIZE);
@@ -9838,7 +9852,7 @@ thumbnail_size_changed_callback (gpointer user_data)
 }
 
 static void
-show_thumbnails_changed_callback (gpointer user_data)
+show_thumbnails_changed_callback (G_GNUC_UNUSED gpointer user_data)
 {
 	show_image_thumbs = nemo_config_get_enum (nemo_preferences, NEMO_PREFERENCES_SHOW_IMAGE_FILE_THUMBNAILS);
 
@@ -9850,7 +9864,7 @@ show_thumbnails_changed_callback (gpointer user_data)
 }
 
 static void
-mime_type_data_changed_callback (GObject *signaller, gpointer user_data)
+mime_type_data_changed_callback (G_GNUC_UNUSED GObject *signaller, G_GNUC_UNUSED gpointer user_data)
 {
 	/* Tell the world that icons might have changed. We could invent a narrower-scope
 	 * signal to mean only "thumbnails might have changed" if this ends up being slow
@@ -9860,8 +9874,8 @@ mime_type_data_changed_callback (GObject *signaller, gpointer user_data)
 }
 
 static void
-icon_theme_changed_callback (GtkIconTheme *icon_theme,
-			     gpointer user_data)
+icon_theme_changed_callback (G_GNUC_UNUSED GtkIconTheme *icon_theme,
+			     G_GNUC_UNUSED gpointer user_data)
 {
 	/* Clear all pixmap caches as the icon => pixmap lookup changed */
 	nemo_icon_info_clear_caches ();
@@ -9874,17 +9888,17 @@ icon_theme_changed_callback (GtkIconTheme *icon_theme,
 }
 
 static void
-real_set_metadata (NemoFile  *file,
-		   const char    *key,
-		   const char    *value)
+real_set_metadata (G_GNUC_UNUSED NemoFile  *file,
+		   G_GNUC_UNUSED const char    *key,
+		   G_GNUC_UNUSED const char    *value)
 {
 	/* Dummy default impl */
 }
 
 static void
-real_set_metadata_as_list (NemoFile *file,
-			   const char   *key,
-			   char         **value)
+real_set_metadata_as_list (G_GNUC_UNUSED NemoFile *file,
+			   G_GNUC_UNUSED const char   *key,
+			   G_GNUC_UNUSED char         **value)
 {
 	/* Dummy default impl */
 }

@@ -4,6 +4,8 @@
  * © Linux Mint team), relicensed under GPL-2.0 per LGPL-2.1 section 3.
  */
 
+#include <eel/eel-glib-extensions.h>
+
 #include "nemo-favorites.h"
 #include "nemo-favorite-vfs-file-enumerator.h"
 #include "nemo-favorite-vfs-file.h"
@@ -97,7 +99,7 @@ next_async_op_free (GList *files)
 static void
 next_files_async_thread (GTask        *task,
                          gpointer      source_object,
-                         gpointer      task_data,
+                         G_GNUC_UNUSED gpointer      task_data,
                          GCancellable *cancellable)
 {
     NemoFavoriteVfsFileEnumerator *self = NEMO_FAVORITE_VFS_FILE_ENUMERATOR (source_object);
@@ -184,9 +186,9 @@ next_files_finished (GFileEnumerator  *enumerator,
 }
 
 static gboolean
-close_fn (GFileEnumerator *enumerator,
-          GCancellable    *cancellable,
-          GError         **error)
+close_fn (G_GNUC_UNUSED GFileEnumerator *enumerator,
+          G_GNUC_UNUSED GCancellable    *cancellable,
+          G_GNUC_UNUSED GError         **error)
 {
     // NemoFavoriteVfsFileEnumerator *self = NEMO_FAVORITE_VFS_FILE_ENUMERATOR (enumerator);
 
@@ -194,7 +196,7 @@ close_fn (GFileEnumerator *enumerator,
 }
 
 static void
-nemo_favorite_vfs_file_enumerator_init (NemoFavoriteVfsFileEnumerator *self)
+nemo_favorite_vfs_file_enumerator_init (G_GNUC_UNUSED NemoFavoriteVfsFileEnumerator *self)
 {
 }
 
@@ -241,7 +243,7 @@ nemo_favorite_vfs_file_enumerator_new (GFile               *file,
     NemoFavoriteVfsFileEnumerator *enumerator = g_object_new (NEMO_TYPE_NEMO_FAVORITE_VFS_FILE_ENUMERATOR, NULL);
     NemoFavoriteVfsFileEnumeratorPrivate *priv = nemo_favorite_vfs_file_enumerator_get_instance_private(enumerator);
 
-    priv->uris = g_list_copy_deep (uris, (GCopyFunc) g_strdup, NULL);
+    priv->uris = eel_g_str_list_copy (uris);
     priv->current_pos = priv->uris;
 
     priv->file = g_object_ref (file);

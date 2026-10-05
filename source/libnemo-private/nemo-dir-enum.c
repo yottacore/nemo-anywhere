@@ -168,8 +168,8 @@ long_enumerator_next_file (GFileEnumerator  *enumerator,
 
 static gboolean
 long_enumerator_close (GFileEnumerator  *enumerator,
-		       GCancellable     *cancellable,
-		       GError          **error)
+		       G_GNUC_UNUSED GCancellable     *cancellable,
+		       G_GNUC_UNUSED GError          **error)
 {
 	NemoLongEnumerator *self = NEMO_LONG_ENUMERATOR (enumerator);
 

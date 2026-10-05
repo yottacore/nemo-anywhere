@@ -257,7 +257,7 @@ thumbnailer_new (const gchar *path)
 }
 
 static gpointer
-init_thumbnailers_dirs (gpointer data)
+init_thumbnailers_dirs (G_GNUC_UNUSED gpointer data)
 {
   const gchar * const *data_dirs;
   gchar **thumbs_dirs;
@@ -386,7 +386,7 @@ _gdk_pixbuf_new_from_uri_at_scale (const char   *uri,
 {
     gboolean result;
     guchar buffer[LOAD_BUFFER_SIZE];
-    gsize bytes_read;
+    gssize bytes_read;
     GdkPixbufLoader *loader = NULL;
     GdkPixbuf *pixbuf;	
     GdkPixbufAnimation *animation;
@@ -625,7 +625,7 @@ nemo_desktop_thumbnail_factory_is_disabled (NemoDesktopThumbnailFactory *factory
 }
 
 static gboolean
-remove_thumbnailer_from_mime_type_map (gchar       *key,
+remove_thumbnailer_from_mime_type_map (G_GNUC_UNUSED gchar       *key,
                                        Thumbnailer *value,
                                        gchar       *path)
 {
@@ -707,9 +707,9 @@ remove_thumbnailer (NemoDesktopThumbnailFactory *factory,
 }
 
 static void
-thumbnailers_directory_changed (GFileMonitor                 *monitor,
+thumbnailers_directory_changed (G_GNUC_UNUSED GFileMonitor                 *monitor,
                                 GFile                        *file,
-                                GFile                        *other_file,
+                                G_GNUC_UNUSED GFile                        *other_file,
                                 GFileMonitorEvent             event_type,
                                 NemoDesktopThumbnailFactory *factory)
 {
@@ -799,8 +799,8 @@ nemo_desktop_thumbnail_factory_load_thumbnailers (NemoDesktopThumbnailFactory *f
 }
 
 static void
-external_thumbnailers_disabled_all_changed_cb (NemoConfigGroup              *settings,
-                                               const gchar                  *key,
+external_thumbnailers_disabled_all_changed_cb (G_GNUC_UNUSED NemoConfigGroup              *settings,
+                                               G_GNUC_UNUSED const gchar                  *key,
                                                NemoDesktopThumbnailFactory *factory)
 {
   NemoDesktopThumbnailFactoryPrivate *priv = factory->priv;
@@ -823,8 +823,8 @@ external_thumbnailers_disabled_all_changed_cb (NemoConfigGroup              *set
 }
 
 static void
-external_thumbnailers_disabled_changed_cb (NemoConfigGroup              *settings,
-                                           const gchar                  *key,
+external_thumbnailers_disabled_changed_cb (G_GNUC_UNUSED NemoConfigGroup              *settings,
+                                           G_GNUC_UNUSED const gchar                  *key,
                                            NemoDesktopThumbnailFactory *factory)
 {
   NemoDesktopThumbnailFactoryPrivate *priv = factory->priv;
@@ -863,7 +863,7 @@ external_thumbnailers_disabled_changed_cb (NemoConfigGroup              *setting
 */
 
 static void
-get_user_info (NemoDesktopThumbnailFactory *factory,
+get_user_info (G_GNUC_UNUSED NemoDesktopThumbnailFactory *factory,
                                    gboolean *adjust,
                                       uid_t *uid,
                                       gid_t *gid)
@@ -1040,7 +1040,7 @@ nemo_desktop_thumbnail_factory_lookup (NemoDesktopThumbnailFactory *factory,
  * Since: 2.2
  **/
 gboolean
-nemo_desktop_thumbnail_factory_has_valid_failed_thumbnail (NemoDesktopThumbnailFactory *factory,
+nemo_desktop_thumbnail_factory_has_valid_failed_thumbnail (G_GNUC_UNUSED NemoDesktopThumbnailFactory *factory,
 							    const char            *uri,
 							    time_t                 mtime)
 {
@@ -1332,7 +1332,7 @@ script_timed_out (gpointer data)
 
 /* Nothing wants the picture any more, so the helper is ended like a timeout. */
 static gboolean
-script_cancelled (GCancellable *cancellable, gpointer data)
+script_cancelled (G_GNUC_UNUSED GCancellable *cancellable, gpointer data)
 {
   ScriptRun *run = data;
 

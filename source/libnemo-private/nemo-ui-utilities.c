@@ -61,10 +61,16 @@ nemo_ui_prepare_merge_ui (GtkUIManager *ui_manager,
 }
 
 static void
-extension_action_callback (GtkAction *action,
+extension_action_callback (G_GNUC_UNUSED GtkAction *action,
 			   gpointer callback_data)
 {
 	nemo_menu_item_activate (NEMO_MENU_ITEM (callback_data));
+}
+
+static void
+menu_item_unref (gpointer data, G_GNUC_UNUSED GClosure *closure)
+{
+	g_object_unref (data);
 }
 
 GtkAction *
@@ -102,7 +108,7 @@ nemo_action_from_menu_item (NemoMenuItem *item,
 	g_signal_connect_data (action, "activate",
 			       G_CALLBACK (extension_action_callback),
 			       g_object_ref (item),
-			       (GClosureNotify)g_object_unref, 0);
+			       menu_item_unref, 0);
 
 	g_free (name);
 	g_free (label);

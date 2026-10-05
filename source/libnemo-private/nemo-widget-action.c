@@ -222,14 +222,14 @@ create_menu_item (GtkAction *action)
 }
 
 static GtkWidget *
-create_tool_item (GtkAction *action)
+create_tool_item (G_GNUC_UNUSED GtkAction *action)
 {
   g_warning ("NemoWidgetAction: Toolbar items unsupported at this time.");
   return NULL;
 }
 
 void
-nemo_widget_action_activate (NemoWidgetAction *action)
+nemo_widget_action_activate (G_GNUC_UNUSED NemoWidgetAction *action)
 {
 
 }

@@ -649,9 +649,9 @@ xdg_dir_changed (NemoFile *file,
 }
 
 static void
-xdg_dir_cache_changed_cb (GFileMonitor  *monitor,
-			  GFile *file,
-			  GFile *other_file,
+xdg_dir_cache_changed_cb (G_GNUC_UNUSED GFileMonitor  *monitor,
+			  G_GNUC_UNUSED GFile *file,
+			  G_GNUC_UNUSED GFile *other_file,
 			  GFileMonitorEvent event_type)
 {
 	if (event_type == G_FILE_MONITOR_EVENT_CHANGED ||
@@ -663,7 +663,7 @@ xdg_dir_cache_changed_cb (GFileMonitor  *monitor,
 static int user_dirs_changed_tag = 0;
 
 static gboolean
-emit_user_dirs_changed_idle (gpointer data)
+emit_user_dirs_changed_idle (G_GNUC_UNUSED gpointer data)
 {
 	g_signal_emit_by_name (nemo_signaller_get_current (),
 			       "user_dirs_changed");
@@ -984,7 +984,7 @@ desktop_dir_changed (void)
 }
 
 static void
-desktop_dir_changed_callback (gpointer callback_data)
+desktop_dir_changed_callback (G_GNUC_UNUSED gpointer callback_data)
 {
 	desktop_dir_changed ();
 }
@@ -1840,8 +1840,8 @@ typedef struct {
 } RestoreFilesData;
 
 static void
-ensure_dirs_task_ready_cb (GObject *_source,
-			   GAsyncResult *res,
+ensure_dirs_task_ready_cb (G_GNUC_UNUSED GObject *_source,
+			   G_GNUC_UNUSED GAsyncResult *res,
 			   gpointer user_data)
 {
 	NemoFile *original_dir;
@@ -1875,7 +1875,7 @@ ensure_dirs_task_ready_cb (GObject *_source,
 
 static void
 ensure_dirs_task_thread_func (GTask *task,
-			      gpointer source,
+			      G_GNUC_UNUSED gpointer source,
 			      gpointer task_data,
 			      GCancellable *cancellable)
 {
@@ -2049,14 +2049,14 @@ debug_icon_names (const gchar *format, ...)
 static gchar *
 get_best_name (GtkIconTheme *icon_theme,
                         GIcon        *gicon,
-                        const gchar  *dev_name,
+                        G_GNUC_UNUSED const gchar  *dev_name,
                         const gchar  *type_name)
 {
     gchar *icon_name = NULL;
 
     if (G_IS_THEMED_ICON (gicon)) {
         const gchar * const *names;
-        gint i;
+        guint i;
 
         // TODO: We should just use what gicon Gio gives us and let the theme deal with it.
         // but currently everywhere nemo needs this is looking for icon names, so this function
@@ -2385,7 +2385,7 @@ nemo_path_is_network_safe (const gchar *path)
    says "(C:) Windows"; and the sidebar built "Windows (C:)" itself. The drive
    letter is the part that identifies it, so that is what all of them show now. */
 gboolean
-nemo_location_is_drive_root (GFile *location)
+nemo_location_is_drive_root (G_GNUC_UNUSED GFile *location)
 {
 #ifdef G_OS_WIN32
     g_autofree gchar *path = NULL;
@@ -2408,7 +2408,7 @@ nemo_location_is_drive_root (GFile *location)
 }
 
 gchar *
-nemo_get_drive_root_name (GFile *location)
+nemo_get_drive_root_name (G_GNUC_UNUSED GFile *location)
 {
 #ifdef G_OS_WIN32
     g_autofree gchar *path = NULL;
@@ -2493,7 +2493,7 @@ static gchar    display_separator = '\\';
 static gboolean slash_input_allowed = TRUE;
 
 static void
-separator_preference_changed (gpointer callback_data)
+separator_preference_changed (G_GNUC_UNUSED gpointer callback_data)
 {
     g_autofree gchar *choice = nemo_config_get_string (nemo_windows_preferences,
                                                        NEMO_PREFERENCES_PATH_SEPARATOR);
@@ -2577,8 +2577,8 @@ nemo_rename_region (const char *name,
 /* Rewrites in place - both separators are one ASCII byte, so nothing moves.
    Only ever hand this a local path; a uri's slashes are not separators. */
 void
-nemo_path_apply_separator (gchar *path,
-                           gchar  separator)
+nemo_path_apply_separator (G_GNUC_UNUSED gchar *path,
+                           G_GNUC_UNUSED gchar  separator)
 {
 #ifdef G_OS_WIN32
     gchar other = (separator == '/') ? '\\' : '/';

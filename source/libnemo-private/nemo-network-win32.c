@@ -407,19 +407,19 @@ network_file_equal (GFile *a, GFile *b)
 }
 
 static gboolean
-network_file_is_native (GFile *file)
+network_file_is_native (G_GNUC_UNUSED GFile *file)
 {
 	return FALSE;
 }
 
 static gboolean
-network_file_has_uri_scheme (GFile *file, const char *scheme)
+network_file_has_uri_scheme (G_GNUC_UNUSED GFile *file, const char *scheme)
 {
 	return g_ascii_strcasecmp (scheme, "network") == 0;
 }
 
 static char *
-network_file_get_uri_scheme (GFile *file)
+network_file_get_uri_scheme (G_GNUC_UNUSED GFile *file)
 {
 	return g_strdup ("network");
 }
@@ -436,7 +436,7 @@ network_file_get_basename (GFile *file)
 }
 
 static char *
-network_file_get_path (GFile *file)
+network_file_get_path (G_GNUC_UNUSED GFile *file)
 {
 	return NULL;
 }
@@ -512,14 +512,14 @@ network_file_resolve_relative_path (GFile *file, const char *relative_path)
 
 static GFile *
 network_file_get_child_for_display_name (GFile *file, const char *display_name,
-					 GError **error)
+					 G_GNUC_UNUSED GError **error)
 {
 	return network_file_resolve_relative_path (file, display_name);
 }
 
 static GFileInfo *
-network_file_query_info (GFile *file, const char *attributes,
-			 GFileQueryInfoFlags flags, GCancellable *cancellable,
+network_file_query_info (GFile *file, G_GNUC_UNUSED const char *attributes,
+			 G_GNUC_UNUSED GFileQueryInfoFlags flags, G_GNUC_UNUSED GCancellable *cancellable,
 			 GError **error)
 {
 	NemoNetworkWin32File *self = NEMO_NETWORK_WIN32_FILE (file);
@@ -567,8 +567,8 @@ network_file_query_info (GFile *file, const char *attributes,
 }
 
 static GFileInfo *
-network_file_query_filesystem_info (GFile *file, const char *attributes,
-				    GCancellable *cancellable, GError **error)
+network_file_query_filesystem_info (G_GNUC_UNUSED GFile *file, G_GNUC_UNUSED const char *attributes,
+				    G_GNUC_UNUSED GCancellable *cancellable, G_GNUC_UNUSED GError **error)
 {
 	GFileInfo *info;
 
@@ -600,7 +600,7 @@ G_DEFINE_TYPE (NemoNetworkWin32Enumerator, nemo_network_win32_enumerator,
 
 static GFileInfo *
 network_enumerator_next_file (GFileEnumerator *enumerator,
-			      GCancellable *cancellable, GError **error)
+			      G_GNUC_UNUSED GCancellable *cancellable, G_GNUC_UNUSED GError **error)
 {
 	NemoNetworkWin32Enumerator *self = NEMO_NETWORK_WIN32_ENUMERATOR (enumerator);
 	NetItem *item;
@@ -617,8 +617,8 @@ network_enumerator_next_file (GFileEnumerator *enumerator,
 }
 
 static gboolean
-network_enumerator_close (GFileEnumerator *enumerator,
-			  GCancellable *cancellable, GError **error)
+network_enumerator_close (G_GNUC_UNUSED GFileEnumerator *enumerator,
+			  G_GNUC_UNUSED GCancellable *cancellable, G_GNUC_UNUSED GError **error)
 {
 	return TRUE;
 }
@@ -634,7 +634,7 @@ network_enumerator_finalize (GObject *object)
 }
 
 static void
-nemo_network_win32_enumerator_init (NemoNetworkWin32Enumerator *self)
+nemo_network_win32_enumerator_init (G_GNUC_UNUSED NemoNetworkWin32Enumerator *self)
 {
 }
 
@@ -647,9 +647,9 @@ nemo_network_win32_enumerator_class_init (NemoNetworkWin32EnumeratorClass *klass
 }
 
 static GFileEnumerator *
-network_file_enumerate_children (GFile *file, const char *attributes,
-				 GFileQueryInfoFlags flags,
-				 GCancellable *cancellable, GError **error)
+network_file_enumerate_children (GFile *file, G_GNUC_UNUSED const char *attributes,
+				 G_GNUC_UNUSED GFileQueryInfoFlags flags,
+				 G_GNUC_UNUSED GCancellable *cancellable, GError **error)
 {
 	NemoNetworkWin32File *self = NEMO_NETWORK_WIN32_FILE (file);
 	NemoNetworkWin32Enumerator *enumerator;
@@ -704,13 +704,13 @@ static GType nemo_network_win32_monitor_get_type (void);
 G_DEFINE_TYPE (NemoNetworkWin32Monitor, nemo_network_win32_monitor, G_TYPE_FILE_MONITOR)
 
 static gboolean
-network_win32_monitor_cancel (GFileMonitor *monitor)
+network_win32_monitor_cancel (G_GNUC_UNUSED GFileMonitor *monitor)
 {
 	return TRUE;
 }
 
 static void
-nemo_network_win32_monitor_init (NemoNetworkWin32Monitor *monitor)
+nemo_network_win32_monitor_init (G_GNUC_UNUSED NemoNetworkWin32Monitor *monitor)
 {
 }
 
@@ -721,8 +721,8 @@ nemo_network_win32_monitor_class_init (NemoNetworkWin32MonitorClass *klass)
 }
 
 static GFileMonitor *
-network_file_monitor (GFile *file, GFileMonitorFlags flags,
-		      GCancellable *cancellable, GError **error)
+network_file_monitor (G_GNUC_UNUSED GFile *file, G_GNUC_UNUSED GFileMonitorFlags flags,
+		      G_GNUC_UNUSED GCancellable *cancellable, G_GNUC_UNUSED GError **error)
 {
 	return g_object_new (NEMO_TYPE_NETWORK_WIN32_MONITOR, NULL);
 }
@@ -740,7 +740,7 @@ network_file_finalize (GObject *object)
 }
 
 static void
-nemo_network_win32_file_init (NemoNetworkWin32File *self)
+nemo_network_win32_file_init (G_GNUC_UNUSED NemoNetworkWin32File *self)
 {
 }
 
@@ -786,7 +786,7 @@ network_file_new_for_uri (const char *uri)
 }
 
 static GFile *
-network_vfs_lookup (GVfs *vfs, const char *identifier, gpointer user_data)
+network_vfs_lookup (G_GNUC_UNUSED GVfs *vfs, const char *identifier, G_GNUC_UNUSED gpointer user_data)
 {
 	if (g_str_has_prefix (identifier, "network:")) {
 		return network_file_new_for_uri (identifier);

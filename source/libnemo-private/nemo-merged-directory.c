@@ -238,7 +238,7 @@ merged_cancel_callback (NemoDirectory *directory,
 }
 
 static void
-build_merged_callback_list (NemoDirectory *directory,
+build_merged_callback_list (G_GNUC_UNUSED NemoDirectory *directory,
 			    GList *file_list,
 			    gpointer callback_data)
 {
@@ -419,7 +419,7 @@ merged_get_file_list (NemoDirectory *directory)
 }
 
 static void
-forward_files_added_cover (NemoDirectory *real_directory,
+forward_files_added_cover (G_GNUC_UNUSED NemoDirectory *real_directory,
 			   GList *files,
 			   gpointer callback_data)
 {
@@ -427,7 +427,7 @@ forward_files_added_cover (NemoDirectory *real_directory,
 }
 
 static void
-forward_files_changed_cover (NemoDirectory *real_directory,
+forward_files_changed_cover (G_GNUC_UNUSED NemoDirectory *real_directory,
 			     GList *files,
 			     gpointer callback_data)
 {
@@ -446,7 +446,7 @@ done_loading_callback (NemoDirectory *real_directory,
 }
 
 static void
-monitor_add_directory (gpointer key,
+monitor_add_directory (G_GNUC_UNUSED gpointer key,
 		       gpointer value,
 		       gpointer callback_data)
 {
@@ -518,7 +518,7 @@ nemo_merged_directory_get_real_directories (NemoMergedDirectory *merged)
 }
 
 static void
-merged_callback_remove_directory_cover (gpointer key,
+merged_callback_remove_directory_cover (G_GNUC_UNUSED gpointer key,
 					gpointer value,
 					gpointer callback_data)
 {
@@ -527,7 +527,7 @@ merged_callback_remove_directory_cover (gpointer key,
 }
 
 static void
-monitor_remove_directory (gpointer key,
+monitor_remove_directory (G_GNUC_UNUSED gpointer key,
 			  gpointer value,
 			  gpointer callback_data)
 {
@@ -607,7 +607,7 @@ nemo_merged_directory_remove_real_directory (NemoMergedDirectory *merged,
 }
 
 static void
-merged_monitor_destroy_cover (gpointer key,
+merged_monitor_destroy_cover (G_GNUC_UNUSED gpointer key,
 			      gpointer value,
 			      gpointer callback_data)
 {
@@ -615,9 +615,9 @@ merged_monitor_destroy_cover (gpointer key,
 }
 
 static void
-merged_callback_destroy_cover (gpointer key,
+merged_callback_destroy_cover (G_GNUC_UNUSED gpointer key,
 			       gpointer value,
-			       gpointer callback_data)
+			       G_GNUC_UNUSED gpointer callback_data)
 {
 	merged_callback_destroy (value);
 }

@@ -234,7 +234,7 @@ emit_change_signals_for_all_files (NemoDirectory *directory)
 }
 
 static void
-collect_all_directories (gpointer key, gpointer value, gpointer callback_data)
+collect_all_directories (G_GNUC_UNUSED gpointer key, gpointer value, gpointer callback_data)
 {
 	NemoDirectory *directory;
 	GList **dirs;
@@ -916,8 +916,7 @@ call_get_file_info_free_list (gpointer key, gpointer value, gpointer user_data)
 	files = value;
 	
 	nemo_directory_get_info_for_new_files (directory, files);
-	g_list_foreach (files, (GFunc) g_object_unref, NULL);
-	g_list_free (files);
+	g_list_free_full (files, g_object_unref);
 }
 
 /* An entry coming or going changes the folder's own modified time as well as
@@ -1049,8 +1048,10 @@ nemo_directory_notify_files_added (GList *files)
 }
 
 static void
-g_file_pair_free (GFilePair *pair)
+g_file_pair_free (gpointer data)
 {
+	GFilePair *pair = data;
+
 	g_object_unref (pair->to);
 	g_object_unref (pair->from);
 	g_free (pair);
@@ -1488,8 +1489,7 @@ nemo_directory_notify_files_moved_by_uri (GList *uri_pairs)
 
 	file_pairs = uri_pairs_to_file_pairs (uri_pairs);
 	nemo_directory_notify_files_moved (file_pairs);
-	g_list_foreach (file_pairs, (GFunc)g_file_pair_free, NULL);
-	g_list_free (file_pairs);
+	g_list_free_full (file_pairs, g_file_pair_free);
 }
 
 void
@@ -1666,7 +1666,7 @@ real_get_file_list (NemoDirectory *directory)
 }
 
 static gboolean
-real_is_editable (NemoDirectory *directory)
+real_is_editable (G_GNUC_UNUSED NemoDirectory *directory)
 {
 	return TRUE;
 }
@@ -1750,6 +1750,20 @@ nemo_directory_is_mostly_images (NemoDirectory *directory)
 	return mostly;
 }
 
+static void
+directory_ref_one (gpointer data, G_GNUC_UNUSED gpointer user_data)
+{
+	nemo_directory_ref (data);
+}
+
+/* Not a for loop: an unref can take the item out of the list being walked,
+   and g_list_foreach reads the next link first. */
+static void
+directory_unref_one (gpointer data, G_GNUC_UNUSED gpointer user_data)
+{
+	nemo_directory_unref (data);
+}
+
 /**
  * nemo_directory_list_ref
  *
@@ -1759,7 +1773,7 @@ nemo_directory_is_mostly_images (NemoDirectory *directory)
 GList *
 nemo_directory_list_ref (GList *list)
 {
-	g_list_foreach (list, (GFunc) nemo_directory_ref, NULL);
+	g_list_foreach (list, directory_ref_one, NULL);
 	return list;
 }
 
@@ -1772,7 +1786,7 @@ nemo_directory_list_ref (GList *list)
 void
 nemo_directory_list_unref (GList *list)
 {
-	g_list_foreach (list, (GFunc) nemo_directory_unref, NULL);
+	g_list_foreach (list, directory_unref_one, NULL);
 }
 
 /**

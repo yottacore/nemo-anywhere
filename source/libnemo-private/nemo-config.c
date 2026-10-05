@@ -843,7 +843,7 @@ apply_catalog (shcl_doc *doc, const char *text, gsize len, gsize *out_len)
 }
 
 static gboolean
-save_now (gpointer data)
+save_now (G_GNUC_UNUSED gpointer data)
 {
 	char       *text = NULL;
 	char       *dir;
@@ -1110,11 +1110,11 @@ announce_changes (GHashTable *before, GHashTable *after)
 }
 
 static void
-config_file_changed (GFileMonitor      *monitor,
-                     GFile             *file,
-                     GFile             *other,
+config_file_changed (G_GNUC_UNUSED GFileMonitor      *monitor,
+                     G_GNUC_UNUSED GFile             *file,
+                     G_GNUC_UNUSED GFile             *other,
                      GFileMonitorEvent  event,
-                     gpointer           data)
+                     G_GNUC_UNUSED gpointer           data)
 {
 	GHashTable *before, *after;
 	char       *text = NULL;
@@ -1350,7 +1350,7 @@ nemo_config_group_class_init (NemoConfigGroupClass *klass)
 }
 
 static void
-nemo_config_group_init (NemoConfigGroup *self)
+nemo_config_group_init (G_GNUC_UNUSED NemoConfigGroup *self)
 {
 }
 
@@ -2148,13 +2148,13 @@ binding_sync_to_config (ConfigBinding *b)
 }
 
 static void
-on_config_changed (NemoConfigGroup *group, const char *key, gpointer data)
+on_config_changed (G_GNUC_UNUSED NemoConfigGroup *group, G_GNUC_UNUSED const char *key, gpointer data)
 {
 	binding_sync_to_object ((ConfigBinding *) data);
 }
 
 static void
-on_property_notify (GObject *object, GParamSpec *pspec, gpointer data)
+on_property_notify (G_GNUC_UNUSED GObject *object, G_GNUC_UNUSED GParamSpec *pspec, gpointer data)
 {
 	binding_sync_to_config ((ConfigBinding *) data);
 }
@@ -2172,7 +2172,7 @@ binding_free (ConfigBinding *b)
 }
 
 static void
-binding_object_gone (gpointer data, GObject *where_the_object_was)
+binding_object_gone (gpointer data, G_GNUC_UNUSED GObject *where_the_object_was)
 {
 	ConfigBinding *b = data;
 

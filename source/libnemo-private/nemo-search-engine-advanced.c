@@ -150,7 +150,8 @@ process_search_helper_file (const gchar *path)
     gchar *abs_try_path = NULL;
     gchar **mime_types = NULL;
     gsize n_types;
-    gint i, priority;
+    gsize i;
+    gint priority;
 
     DEBUG ("Loading search helper: %s", path);
 
@@ -245,7 +246,7 @@ done:
 }
 
 static void
-initialize_search_helpers (NemoSearchEngineAdvanced *engine)
+initialize_search_helpers (G_GNUC_UNUSED NemoSearchEngineAdvanced *engine)
 {
     GList *dir_list, *d_iter;
 
@@ -557,7 +558,7 @@ search_thread_data_new (NemoSearchEngineAdvanced *engine,
     SearchThreadData *data;
     char *uri;
     GFile *location;
-    gint i;
+    guint i;
 
 	data = g_new0 (SearchThreadData, 1);
 
@@ -648,9 +649,7 @@ search_thread_data_new (NemoSearchEngineAdvanced *engine,
 static void
 search_thread_data_free (SearchThreadData *data)
 {
-	g_queue_foreach (data->directories,
-			 (GFunc)g_object_unref, NULL);
-	g_queue_free (data->directories);
+	g_queue_free_full (data->directories, g_object_unref);
 	g_hash_table_destroy (data->visited);
     g_hash_table_destroy (data->skip_folders);
 	g_object_unref (data->cancellable);
@@ -1005,7 +1004,7 @@ search_for_content_hits (SearchThreadData *data,
 
 static gboolean
 hash_func_check_skip_file (gpointer key,
-                           gpointer value,
+                           G_GNUC_UNUSED gpointer value,
                            gpointer user_data)
 {
     const gchar *entry = key;
@@ -1021,7 +1020,7 @@ hash_func_check_skip_file (gpointer key,
 
 static gboolean
 hash_func_check_skip_dir (gpointer key,
-                          gpointer value,
+                          G_GNUC_UNUSED gpointer value,
                           gpointer user_data)
 {
     const gchar *entry = key;
@@ -1042,7 +1041,7 @@ hash_func_check_skip_dir (gpointer key,
 }
 
 static gboolean
-should_skip_child (SearchThreadData *data, GFileInfo *info, GFile *file, gboolean is_dir)
+should_skip_child (SearchThreadData *data, G_GNUC_UNUSED GFileInfo *info, GFile *file, gboolean is_dir)
 {
     const gchar *path = g_file_peek_path (file);
     g_autofree gchar *resolved_path = g_canonicalize_filename (path, NULL);

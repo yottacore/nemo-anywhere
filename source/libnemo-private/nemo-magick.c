@@ -76,7 +76,7 @@ static const struct {
 };
 
 static gpointer
-find_program (gpointer data)
+find_program (G_GNUC_UNUSED gpointer data)
 {
 	char *found = g_find_program_in_path ("magick");
 
@@ -202,7 +202,7 @@ run_timed_out (gpointer data)
 /* Nothing wants the picture any more. A cancelled communicate would leave
  * the program running, so it is ended instead, the same way as a timeout. */
 static gboolean
-run_cancelled (GCancellable *cancellable, gpointer data)
+run_cancelled (G_GNUC_UNUSED GCancellable *cancellable, gpointer data)
 {
 	Run *run = data;
 

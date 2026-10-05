@@ -173,7 +173,7 @@ get_max_threads (void) {
 static gint
 order_sorter (gconstpointer a,
               gconstpointer b,
-              gpointer      data)
+              G_GNUC_UNUSED gpointer      data)
 {
     gint64 oa = ((const NemoThumbnailInfo *) a)->order;
     gint64 ob = ((const NemoThumbnailInfo *) b)->order;
@@ -669,7 +669,7 @@ hand_over_stored (NemoThumbnailInfo *info, gboolean near_view)
 /* Thumbnail thread */
 static void
 thumbnail_thread (gpointer data,
-                  gpointer user_data)
+                  G_GNUC_UNUSED gpointer user_data)
 {
     NemoThumbnailInfo *info = (NemoThumbnailInfo *) data;
     NemoCacheDb *db;
@@ -851,9 +851,9 @@ thumbnail_thread (gpointer data,
 
 /* Mainloop */
 static  void
-feeder_task_complete (GObject      *source,
+feeder_task_complete (G_GNUC_UNUSED GObject      *source,
                        GAsyncResult *res,
-                       gpointer      user_data)
+                       G_GNUC_UNUSED gpointer      user_data)
 {
     g_task_propagate_boolean (G_TASK (res), NULL);
     DEBUG ("(Finalize) Feeder task done");
@@ -862,8 +862,8 @@ feeder_task_complete (GObject      *source,
 /* Feeder thread */
 static void
 feeder_thread (GTask        *task,
-                gpointer      source,
-                gpointer      task_data,
+                G_GNUC_UNUSED gpointer      source,
+                G_GNUC_UNUSED gpointer      task_data,
                 GCancellable *cancellable)
 {
     gpointer data;

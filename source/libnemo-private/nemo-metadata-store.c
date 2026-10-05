@@ -277,7 +277,7 @@ save_now (void)
 }
 
 static gboolean
-save_timeout_callback (gpointer user_data)
+save_timeout_callback (G_GNUC_UNUSED gpointer user_data)
 {
 	g_mutex_lock (&store_mutex);
 	save_timeout_id = 0;
