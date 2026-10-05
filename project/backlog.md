@@ -190,7 +190,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Demo gif: show best features first.
 	- ID: 2026100219523841
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting on signoff
 	- Opened: 20261002-195238
 	- Opened by: t00mietum
 	- Requirements:
@@ -201,7 +201,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Copy allows link-handling options
 			- Advanced automatic column sizing logic
 			- Optional striped rows (turn on instantly, don't bother with menu)
+	- Progress log:
+		- 20261005-130500: the scenes now run best first. Compress, then a Windows shortcut made and opened, a relative symlink, the question a link copy asks, column sizing, and striped rows. Picture folders and grouped search follow. The gif's scenes run about 61 s, under the 66 s cap. The new gif is `assets/demo.gif`.
+		- Left out for time: F3's second pane, which upstream already had, the tree beside Places, and the drag that asks before a move.
+	- Decisions:
+		- Calls made without asking, for signoff. Column sizing is shown by dragging the window corner in and back out. The link is copied into its own folder, with Copy content picked. Striped rows come on through the settings file, with no menu.
+	- Branch: demofirst
+	- Commit: 6cf53de
 	- Test case: none, demo content. `cicd/utility/lint-demo-script.py` checks the script.
+	- Verified: the lint stage passes, the demo lint included. In the new gif and video each scene does what its caption says.
+	- Note: once the settings file changes, an empty Bookmarks heading shows up in the sidebar, so it appears from the striped rows scene on.
 
 - Code review 20260928 item 2. The tree sidebar crashes on Shift+F10 or the Menu key.
 	- ID: 2026092813381402
