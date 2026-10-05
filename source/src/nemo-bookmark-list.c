@@ -222,8 +222,8 @@ idle_notify (NemoBookmarkList *bookmarks)
 }
 
 static void
-bookmark_in_list_notify (GObject *object,
-			 GParamSpec *pspec,
+bookmark_in_list_notify (G_GNUC_UNUSED GObject *object,
+			 G_GNUC_UNUSED GParamSpec *pspec,
 			 NemoBookmarkList *bookmarks)
 {
 	/* emit the changed signal without saving, as only appearance properties changed */
@@ -237,7 +237,7 @@ bookmark_in_list_notify (GObject *object,
 }
 
 static gboolean
-bookmark_location_mounted_callback (NemoBookmark *bookmark,
+bookmark_location_mounted_callback (G_GNUC_UNUSED NemoBookmark *bookmark,
                                     GFile *location,
                                     NemoBookmarkList *bookmarks)
 {
@@ -369,9 +369,9 @@ nemo_bookmark_list_class_init (NemoBookmarkListClass *class)
 }
 
 static void
-bookmark_monitor_changed_cb (GFileMonitor      *monitor,
-			     GFile             *child,
-			     GFile             *other_file,
+bookmark_monitor_changed_cb (G_GNUC_UNUSED GFileMonitor      *monitor,
+			     G_GNUC_UNUSED GFile             *child,
+			     G_GNUC_UNUSED GFile             *other_file,
 			     GFileMonitorEvent  eflags,
 			     gpointer           user_data)
 {
@@ -385,7 +385,7 @@ bookmark_monitor_changed_cb (GFileMonitor      *monitor,
 }
 
 static void
-volume_monitor_activity_cb (GVolumeMonitor *monitor, GMount *mount, gpointer user_data)
+volume_monitor_activity_cb (G_GNUC_UNUSED GVolumeMonitor *monitor, G_GNUC_UNUSED GMount *mount, gpointer user_data)
 {
     NemoBookmarkList *bookmarks = NEMO_BOOKMARK_LIST (user_data);
 
@@ -636,7 +636,7 @@ nemo_bookmark_list_delete_items_with_uri (NemoBookmarkList *bookmarks,
  * no window geometry has yet been saved for this bookmark list.
  **/
 const char *
-nemo_bookmark_list_get_window_geometry (NemoBookmarkList *bookmarks)
+nemo_bookmark_list_get_window_geometry (G_GNUC_UNUSED NemoBookmarkList *bookmarks)
 {
 	return window_geometry;
 }
@@ -730,7 +730,7 @@ bookmark_metadata_path (void)
 }
 
 static GList *
-load_bookmark_metadata_file (NemoBookmarkList *list)
+load_bookmark_metadata_file (G_GNUC_UNUSED NemoBookmarkList *list)
 {   /* Part of load_files thread */
     GError *error = NULL;
     GKeyFile *kfile = g_key_file_new ();
@@ -775,7 +775,7 @@ load_bookmark_metadata_file (NemoBookmarkList *list)
 
 static void
 load_files_finish (NemoBookmarkList *bookmarks,
-                   GObject          *source,
+                   G_GNUC_UNUSED GObject          *source,
                    GAsyncResult     *res)
 {
     GError *error = NULL;
@@ -808,7 +808,7 @@ find_meta_func (gconstpointer a,
 static void
 load_files_thread (GTask        *task,
                    gpointer      source_object,
-                   gpointer      task_data,
+                   G_GNUC_UNUSED gpointer      task_data,
                    GCancellable *cancellable)
 {
     NemoBookmarkList *list = NEMO_BOOKMARK_LIST (source_object);
@@ -953,7 +953,7 @@ save_bookmark_metadata_file (NemoBookmarkList *list)
 
 static void
 save_files_finish (NemoBookmarkList *bookmarks,
-                   GObject          *source,
+                   G_GNUC_UNUSED GObject          *source,
                    GAsyncResult     *res)
 {
     GError *error = NULL;
@@ -981,8 +981,8 @@ save_files_finish (NemoBookmarkList *bookmarks,
 static void
 save_files_thread (GTask        *task,
                    gpointer      source_object,
-                   gpointer      task_data,
-                   GCancellable *cancellable)
+                   G_GNUC_UNUSED gpointer      task_data,
+                   G_GNUC_UNUSED GCancellable *cancellable)
 {
     NemoBookmarkList *bookmarks = NEMO_BOOKMARK_LIST (source_object);
 

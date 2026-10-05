@@ -86,8 +86,8 @@ sync_search_directory (NemoWindowSlot *slot)
 }
 
 static void
-sync_search_location_cb (NemoWindow *window,
-			 GError *error,
+sync_search_location_cb (G_GNUC_UNUSED NemoWindow *window,
+			 G_GNUC_UNUSED GError *error,
 			 gpointer user_data)
 {
 	NemoWindowSlot *slot = user_data;
@@ -116,7 +116,7 @@ create_new_search (NemoWindowSlot *slot)
 }
 
 static void
-query_editor_cancel_callback (NemoQueryEditor *editor,
+query_editor_cancel_callback (G_GNUC_UNUSED NemoQueryEditor *editor,
 			      NemoWindowSlot *slot)
 {
 	GtkAction *search;
@@ -128,9 +128,9 @@ query_editor_cancel_callback (NemoQueryEditor *editor,
 }
 
 static void
-query_editor_changed_callback (NemoQueryEditor *editor,
-			       NemoQuery *query,
-			       gboolean reload,
+query_editor_changed_callback (G_GNUC_UNUSED NemoQueryEditor *editor,
+			       G_GNUC_UNUSED NemoQuery *query,
+			       G_GNUC_UNUSED gboolean reload,
 			       NemoWindowSlot *slot)
 {
 	NemoDirectory *directory;
@@ -266,7 +266,7 @@ real_inactive (NemoWindowSlot *slot)
 }
 
 static void
-floating_bar_action_cb (NemoFloatingBar *floating_bar,
+floating_bar_action_cb (G_GNUC_UNUSED NemoFloatingBar *floating_bar,
 			gint action,
 			NemoWindowSlot *slot)
 {
@@ -347,7 +347,7 @@ nemo_window_slot_init (NemoWindowSlot *slot)
 }
 
 static void
-view_end_loading_cb (NemoView       *view,
+view_end_loading_cb (G_GNUC_UNUSED NemoView       *view,
 		     		 gboolean        all_files_seen,
 		     		 NemoWindowSlot *slot)
 {

@@ -465,7 +465,7 @@ current_field_changed (GtkWidget *widget, CurrentTab *tab)
 
 /* the Default widgets are bound to the preferences, so writing them is enough */
 static void
-copy_to_default_clicked (GtkButton *button, CurrentTab *tab)
+copy_to_default_clicked (G_GNUC_UNUSED GtkButton *button, CurrentTab *tab)
 {
 	int field;
 
@@ -475,7 +475,7 @@ copy_to_default_clicked (GtkButton *button, CurrentTab *tab)
 }
 
 static void
-copy_to_current_clicked (GtkButton *button, CurrentTab *tab)
+copy_to_current_clicked (G_GNUC_UNUSED GtkButton *button, CurrentTab *tab)
 {
 	int field;
 
@@ -490,7 +490,7 @@ copy_to_current_clicked (GtkButton *button, CurrentTab *tab)
 }
 
 static void
-forget_clicked (GtkButton *button, CurrentTab *tab)
+forget_clicked (G_GNUC_UNUSED GtkButton *button, CurrentTab *tab)
 {
 	nemo_folder_settings_forget (tab->folder);
 	apply_to_window (tab);
@@ -508,7 +508,7 @@ set_folder_uri (CurrentTab *tab, const char *uri)
 }
 
 static void
-loading_uri (NemoWindow *window, const char *uri, CurrentTab *tab)
+loading_uri (G_GNUC_UNUSED NemoWindow *window, const char *uri, CurrentTab *tab)
 {
 	set_folder_uri (tab, uri);
 }
@@ -546,7 +546,7 @@ follow_window (CurrentTab *tab, NemoWindow *window)
 }
 
 static void
-active_window_changed (GtkApplication *app, GParamSpec *pspec, CurrentTab *tab)
+active_window_changed (GtkApplication *app, G_GNUC_UNUSED GParamSpec *pspec, CurrentTab *tab)
 {
 	GtkWindow *window = gtk_application_get_active_window (app);
 
@@ -557,7 +557,7 @@ active_window_changed (GtkApplication *app, GParamSpec *pspec, CurrentTab *tab)
 
 /* An insensitive page still switches on a click, so the tab has to refuse it here. */
 static void
-page_switching (GtkNotebook *notebook, GtkWidget *page, guint page_num, CurrentTab *tab)
+page_switching (GtkNotebook *notebook, GtkWidget *page, G_GNUC_UNUSED guint page_num, CurrentTab *tab)
 {
 	if (page == tab->current_page && !remembering ()) {
 		g_signal_stop_emission_by_name (notebook, "switch-page");
@@ -566,14 +566,14 @@ page_switching (GtkNotebook *notebook, GtkWidget *page, guint page_num, CurrentT
 
 /* connected after, so the new page is already the current one */
 static void
-page_switched_after (GtkNotebook *notebook, GtkWidget *page, guint page_num, CurrentTab *tab)
+page_switched_after (G_GNUC_UNUSED GtkNotebook *notebook, G_GNUC_UNUSED GtkWidget *page, G_GNUC_UNUSED guint page_num, CurrentTab *tab)
 {
 	refresh (tab);
 }
 
 /* The folder's settings can change behind the dialog, from the view itself. */
 static void
-dialog_activated (GtkWindow *dialog, GParamSpec *pspec, CurrentTab *tab)
+dialog_activated (GtkWindow *dialog, G_GNUC_UNUSED GParamSpec *pspec, CurrentTab *tab)
 {
 	if (gtk_window_is_active (dialog)) {
 		refresh (tab);
@@ -587,7 +587,7 @@ preference_changed (CurrentTab *tab)
 }
 
 static void
-dialog_destroyed (GtkWidget *dialog, CurrentTab *tab)
+dialog_destroyed (G_GNUC_UNUSED GtkWidget *dialog, CurrentTab *tab)
 {
 	follow_window (tab, NULL);
 	if (tab->app != NULL) {

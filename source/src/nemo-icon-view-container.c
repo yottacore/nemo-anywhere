@@ -176,7 +176,7 @@ skip_emblem:
 }
 
 static char *
-nemo_icon_view_container_get_icon_description (NemoIconContainer *container,
+nemo_icon_view_container_get_icon_description (G_GNUC_UNUSED NemoIconContainer *container,
 						   NemoIconData      *data)
 {
 	NemoFile *file;
@@ -409,7 +409,7 @@ typedef enum {
 } SortCategory;
 
 static SortCategory
-get_sort_category (NemoFile *file)
+get_sort_category (G_GNUC_UNUSED NemoFile *file)
 {
 	return SORT_OTHER;
 }
@@ -808,7 +808,7 @@ lay_down_icons_horizontal (NemoIconContainer *container,
 static void
 lay_down_icons_vertical (NemoIconContainer *container,
              GList *icons,
-             double start_y)
+             G_GNUC_UNUSED double start_y)
 {
     GList *p, *line_start;
     NemoIcon *icon;
@@ -1896,7 +1896,7 @@ static const char * step_names[] = {
 };
 
 static void
-text_ellipsis_limit_changed_callback (gpointer callback_data)
+text_ellipsis_limit_changed_callback (G_GNUC_UNUSED gpointer callback_data)
 {
     char **pref;
     unsigned int i;
@@ -1924,7 +1924,7 @@ text_ellipsis_limit_changed_callback (gpointer callback_data)
 }
 
 static void
-desktop_text_ellipsis_limit_changed_callback (gpointer callback_data)
+desktop_text_ellipsis_limit_changed_callback (G_GNUC_UNUSED gpointer callback_data)
 {
     int pref;
 
@@ -1935,7 +1935,7 @@ desktop_text_ellipsis_limit_changed_callback (gpointer callback_data)
 static gchar *
 on_get_tooltip_text (NemoIconContainer *container,
                      NemoFile          *file,
-                     gpointer           user_data)
+                     G_GNUC_UNUSED gpointer           user_data)
 {
     gchar *tooltip_text = NULL;
 

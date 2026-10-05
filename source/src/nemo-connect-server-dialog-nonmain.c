@@ -35,7 +35,7 @@
  * open at once clobbered each other's - the first to finish completed the
  * second's result and left the first hanging. */
 static void
-window_go_to_cb (NemoWindow *window,
+window_go_to_cb (G_GNUC_UNUSED NemoWindow *window,
 		 GError *error,
 		 gpointer user_data)
 {
@@ -51,7 +51,7 @@ window_go_to_cb (NemoWindow *window,
 }
 
 gboolean
-nemo_connect_server_dialog_display_location_finish (NemoConnectServerDialog *self,
+nemo_connect_server_dialog_display_location_finish (G_GNUC_UNUSED NemoConnectServerDialog *self,
 							GAsyncResult *res,
 							GError **error)
 {

@@ -690,7 +690,7 @@ resolve_target (ExtractJob *job,
 	for (;;) {
 		GFile *target;
 		GFileInfo *info;
-		ConflictData data = { NULL, };
+		ConflictData data = { 0 };
 		int response;
 
 		if (job_aborted (job)) {

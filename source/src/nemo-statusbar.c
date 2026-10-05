@@ -192,19 +192,19 @@ tree_button_toggled_cb (GtkToggleButton *button, NemoStatusBar *bar)
 }
 
 static void
-hide_sidebar_clicked_cb (GtkButton *button, NemoStatusBar *bar)
+hide_sidebar_clicked_cb (G_GNUC_UNUSED GtkButton *button, NemoStatusBar *bar)
 {
     nemo_window_hide_sidebar (bar->window);
 }
 
 static void
-show_sidebar_clicked_cb (GtkButton *button, NemoStatusBar *bar)
+show_sidebar_clicked_cb (G_GNUC_UNUSED GtkButton *button, NemoStatusBar *bar)
 {
     nemo_window_show_sidebar (bar->window);
 }
 
 static void
-sidebar_state_changed_cb (GObject *object, GParamSpec *pspec, gpointer user_data)
+sidebar_state_changed_cb (G_GNUC_UNUSED GObject *object, G_GNUC_UNUSED GParamSpec *pspec, gpointer user_data)
 {
     nemo_status_bar_sync_button_states (NEMO_STATUS_BAR (user_data));
 }

@@ -88,7 +88,7 @@ enum {
 };
 
 static void
-action_close_window_slot_callback (GtkAction *action,
+action_close_window_slot_callback (G_GNUC_UNUSED GtkAction *action,
 				   gpointer user_data)
 {
 	NemoWindow *window;
@@ -101,7 +101,7 @@ action_close_window_slot_callback (GtkAction *action,
 }
 
 static void
-action_connect_to_server_callback (GtkAction *action,
+action_connect_to_server_callback (G_GNUC_UNUSED GtkAction *action,
 				   gpointer user_data)
 {
 	NemoWindow *window = NEMO_WINDOW (user_data);
@@ -113,7 +113,7 @@ action_connect_to_server_callback (GtkAction *action,
 }
 
 static void
-action_stop_callback (GtkAction *action,
+action_stop_callback (G_GNUC_UNUSED GtkAction *action,
 		      gpointer user_data)
 {
 	NemoWindow *window;
@@ -138,7 +138,7 @@ action_undo_callback (GtkAction *action,
 #endif
 
 static void
-action_home_callback (GtkAction *action,
+action_home_callback (G_GNUC_UNUSED GtkAction *action,
 		      gpointer user_data)
 {
     NemoWindow *window;
@@ -152,7 +152,7 @@ action_home_callback (GtkAction *action,
 }
 
 static void
-action_go_to_computer_callback (GtkAction *action,
+action_go_to_computer_callback (G_GNUC_UNUSED GtkAction *action,
 				gpointer user_data)
 {
 	NemoWindow *window;
@@ -169,7 +169,7 @@ action_go_to_computer_callback (GtkAction *action,
 }
 
 static void
-action_go_to_network_callback (GtkAction *action,
+action_go_to_network_callback (G_GNUC_UNUSED GtkAction *action,
 				gpointer user_data)
 {
 	NemoWindow *window;
@@ -186,7 +186,7 @@ action_go_to_network_callback (GtkAction *action,
 }
 
 static void
-action_go_to_templates_callback (GtkAction *action,
+action_go_to_templates_callback (G_GNUC_UNUSED GtkAction *action,
 				 gpointer user_data)
 {
 	NemoWindow *window;
@@ -207,7 +207,7 @@ action_go_to_templates_callback (GtkAction *action,
 }
 
 static void
-action_go_to_trash_callback (GtkAction *action,
+action_go_to_trash_callback (G_GNUC_UNUSED GtkAction *action,
 			     gpointer user_data)
 {
 	NemoWindow *window;
@@ -224,7 +224,7 @@ action_go_to_trash_callback (GtkAction *action,
 }
 
 static void
-action_reload_callback (GtkAction *action,
+action_reload_callback (G_GNUC_UNUSED GtkAction *action,
 			gpointer user_data)
 {
 	NemoWindowSlot *slot;
@@ -246,21 +246,21 @@ get_current_view (NemoWindow *window)
 }
 
 static void
-action_zoom_in_callback (GtkAction *action,
+action_zoom_in_callback (G_GNUC_UNUSED GtkAction *action,
 			 gpointer user_data)
 {
     nemo_view_bump_icon_size (get_current_view (user_data), 1);
 }
 
 static void
-action_zoom_out_callback (GtkAction *action,
+action_zoom_out_callback (G_GNUC_UNUSED GtkAction *action,
 			  gpointer user_data)
 {
     nemo_view_bump_icon_size (get_current_view (user_data), -1);
 }
 
 static void
-action_zoom_normal_callback (GtkAction *action,
+action_zoom_normal_callback (G_GNUC_UNUSED GtkAction *action,
 			     gpointer user_data)
 {
     nemo_view_restore_default_icon_size (get_current_view (user_data));
@@ -271,7 +271,7 @@ action_zoom_normal_callback (GtkAction *action,
  * The item is hidden on every other platform, where one switch covers both. */
 static void
 action_show_dot_files_callback (GtkAction *action,
-				gpointer callback_data)
+				G_GNUC_UNUSED gpointer callback_data)
 {
 	nemo_config_set_boolean (nemo_windows_preferences, NEMO_PREFERENCES_SHOW_DOT_FILES,
 				 gtk_toggle_action_get_active (GTK_TOGGLE_ACTION (action)));
@@ -318,7 +318,7 @@ action_show_hidden_files_callback (GtkAction *action,
 }
 
 static void
-action_preferences_callback (GtkAction *action,
+action_preferences_callback (G_GNUC_UNUSED GtkAction *action,
 			     gpointer user_data)
 {
 	GtkWindow *window;
@@ -329,7 +329,7 @@ action_preferences_callback (GtkAction *action,
 }
 
 static void
-action_about_nemo_callback (GtkAction *action,
+action_about_nemo_callback (G_GNUC_UNUSED GtkAction *action,
 				gpointer user_data)
 {
 	const gchar *license[] = {
@@ -381,7 +381,7 @@ action_about_nemo_callback (GtkAction *action,
 }
 
 static void
-action_up_callback (GtkAction *action,
+action_up_callback (G_GNUC_UNUSED GtkAction *action,
 		     gpointer user_data)
 {
 	NemoWindow *window = user_data;
@@ -438,7 +438,7 @@ action_nemo_manual_callback (GtkAction *action,
 }
 
 static void
-action_show_shortcuts_window (GtkAction *action,
+action_show_shortcuts_window (G_GNUC_UNUSED GtkAction *action,
                               gpointer user_data)
 {
     NemoWindow *window;
@@ -489,7 +489,7 @@ menu_item_select_cb (GtkMenuItem *proxy,
 }
 
 static void
-menu_item_deselect_cb (GtkMenuItem *proxy,
+menu_item_deselect_cb (G_GNUC_UNUSED GtkMenuItem *proxy,
 		       NemoWindow *window)
 {
 	gtk_statusbar_pop (GTK_STATUSBAR (window->details->statusbar),
@@ -497,8 +497,8 @@ menu_item_deselect_cb (GtkMenuItem *proxy,
 }
 
 static void
-disconnect_proxy_cb (GtkUIManager *manager,
-		     GtkAction *action,
+disconnect_proxy_cb (G_GNUC_UNUSED GtkUIManager *manager,
+		     G_GNUC_UNUSED GtkAction *action,
 		     GtkWidget *proxy,
 		     NemoWindow *window)
 {
@@ -511,8 +511,8 @@ disconnect_proxy_cb (GtkUIManager *manager,
 }
 
 static void
-trash_state_changed_cb (NemoTrashMonitor *monitor,
-			gboolean state,
+trash_state_changed_cb (G_GNUC_UNUSED NemoTrashMonitor *monitor,
+			G_GNUC_UNUSED gboolean state,
 			NemoWindow *window)
 {
 	GtkActionGroup *action_group;
@@ -546,14 +546,14 @@ nemo_window_initialize_trash_icon_monitor (NemoWindow *window)
 #define MENU_ITEM_MAX_WIDTH_CHARS 32
 
 static void
-action_close_all_windows_callback (GtkAction *action,
-				   gpointer user_data)
+action_close_all_windows_callback (G_GNUC_UNUSED GtkAction *action,
+				   G_GNUC_UNUSED gpointer user_data)
 {
 	nemo_application_close_all_windows (nemo_application_get_singleton ());
 }
 
 static void
-action_back_callback (GtkAction *action,
+action_back_callback (G_GNUC_UNUSED GtkAction *action,
 		      gpointer user_data)
 {
 	nemo_window_back_or_forward (NEMO_WINDOW (user_data),
@@ -561,7 +561,7 @@ action_back_callback (GtkAction *action,
 }
 
 static void
-action_forward_callback (GtkAction *action,
+action_forward_callback (G_GNUC_UNUSED GtkAction *action,
 			 gpointer user_data)
 {
 	nemo_window_back_or_forward (NEMO_WINDOW (user_data),
@@ -569,14 +569,14 @@ action_forward_callback (GtkAction *action,
 }
 
 static void
-action_split_view_switch_next_pane_callback(GtkAction *action,
+action_split_view_switch_next_pane_callback(G_GNUC_UNUSED GtkAction *action,
 					    gpointer user_data)
 {
 	nemo_window_pane_grab_focus (nemo_window_get_next_pane (NEMO_WINDOW (user_data)));
 }
 
 static void
-action_split_view_same_location_callback (GtkAction *action,
+action_split_view_same_location_callback (G_GNUC_UNUSED GtkAction *action,
 					  gpointer user_data)
 {
 	NemoWindow *window;
@@ -687,7 +687,7 @@ action_split_view_callback (GtkAction *action,
 }
 
 static void
-view_radio_entry_changed_cb (GtkAction *action,
+view_radio_entry_changed_cb (G_GNUC_UNUSED GtkAction *action,
                              GtkRadioAction *current,
                              gpointer user_data)
 {
@@ -713,7 +713,7 @@ view_radio_entry_changed_cb (GtkAction *action,
 }
 
 static void
-toolbar_radio_entry_changed_cb (GtkAction *action,
+toolbar_radio_entry_changed_cb (G_GNUC_UNUSED GtkAction *action,
                                 GtkRadioAction *current,
                                 gpointer user_data)
 {
@@ -773,22 +773,22 @@ nemo_window_update_show_hide_ui_elements (NemoWindow *window)
 }
 
 static void
-action_add_bookmark_callback (GtkAction *action,
+action_add_bookmark_callback (G_GNUC_UNUSED GtkAction *action,
 			      gpointer user_data)
 {
     nemo_window_add_bookmark_for_current_location (NEMO_WINDOW (user_data));
 }
 
 static void
-action_edit_bookmarks_callback (GtkAction *action,
+action_edit_bookmarks_callback (G_GNUC_UNUSED GtkAction *action,
 				gpointer user_data)
 {
     nemo_window_edit_bookmarks (NEMO_WINDOW (user_data));
 }
 
 static void
-connect_proxy_cb (GtkActionGroup *action_group,
-                  GtkAction *action,
+connect_proxy_cb (G_GNUC_UNUSED GtkActionGroup *action_group,
+                  G_GNUC_UNUSED GtkAction *action,
                   GtkWidget *proxy,
                   NemoWindow *window)
 {
@@ -811,7 +811,7 @@ connect_proxy_cb (GtkActionGroup *action_group,
 }
 
 static void
-action_new_window_callback (GtkAction *action,
+action_new_window_callback (G_GNUC_UNUSED GtkAction *action,
                             gpointer user_data)
 {
     NemoWindow *current_window;
@@ -856,7 +856,7 @@ action_new_window_callback (GtkAction *action,
 }
 
 static void
-action_new_tab_callback (GtkAction *action,
+action_new_tab_callback (G_GNUC_UNUSED GtkAction *action,
 			 gpointer user_data)
 {
 	NemoWindow *window;
@@ -870,7 +870,7 @@ action_new_tab_callback (GtkAction *action,
    would open in its program, which is not what a tab key should do. The view's
    "Open in new tab" gives the key up to this, so only one of them has it. */
 static void
-action_new_tab_accel_callback (GtkAction *action,
+action_new_tab_accel_callback (G_GNUC_UNUSED GtkAction *action,
 			       gpointer   user_data)
 {
 	NemoWindow *window = NEMO_WINDOW (user_data);
@@ -934,7 +934,7 @@ toggle_location_entry (NemoWindow     *window,
 }
 
 void
-action_toggle_location_entry_callback (GtkToggleAction *action,
+action_toggle_location_entry_callback (G_GNUC_UNUSED GtkToggleAction *action,
                                         gpointer user_data)
 {
     NemoWindow *window = user_data;
@@ -952,7 +952,7 @@ void nemo_window_show_location_entry (NemoWindow *window) {
 }
 
 static void
-action_menu_edit_location_callback (GtkAction *action,
+action_menu_edit_location_callback (G_GNUC_UNUSED GtkAction *action,
 				gpointer user_data)
 {
 	NemoWindow *window = user_data;
@@ -994,7 +994,7 @@ set_content_view_type(NemoWindow *window,
 }
 
 static void
-action_icon_view_callback (GtkAction *action,
+action_icon_view_callback (G_GNUC_UNUSED GtkAction *action,
                            gpointer user_data)
 {
     NemoWindow *window;
@@ -1006,7 +1006,7 @@ action_icon_view_callback (GtkAction *action,
 
 
 static void
-action_list_view_callback (GtkAction *action,
+action_list_view_callback (G_GNUC_UNUSED GtkAction *action,
                            gpointer user_data)
 {
     NemoWindow *window;
@@ -1018,7 +1018,7 @@ action_list_view_callback (GtkAction *action,
 
 
 static void
-action_compact_view_callback (GtkAction *action,
+action_compact_view_callback (G_GNUC_UNUSED GtkAction *action,
                            gpointer user_data)
 {
     NemoWindow *window;
@@ -1215,7 +1215,7 @@ menu_set_view_selection (guint action_id,
 }
 
 static void
-action_tabs_previous_callback (GtkAction *action,
+action_tabs_previous_callback (G_GNUC_UNUSED GtkAction *action,
 			       gpointer user_data)
 {
 	NemoWindowPane *pane;
@@ -1226,7 +1226,7 @@ action_tabs_previous_callback (GtkAction *action,
 }
 
 static void
-action_tabs_next_callback (GtkAction *action,
+action_tabs_next_callback (G_GNUC_UNUSED GtkAction *action,
 			   gpointer user_data)
 {
 	NemoWindowPane *pane;
@@ -1251,7 +1251,7 @@ reorder_tab (NemoWindowPane *pane, int offset)
 }
 
 static void
-action_tabs_move_left_callback (GtkAction *action,
+action_tabs_move_left_callback (G_GNUC_UNUSED GtkAction *action,
 				gpointer user_data)
 {
 	NemoWindow *window = user_data;
@@ -1259,7 +1259,7 @@ action_tabs_move_left_callback (GtkAction *action,
 }
 
 static void
-action_tabs_move_right_callback (GtkAction *action,
+action_tabs_move_right_callback (G_GNUC_UNUSED GtkAction *action,
 				 gpointer user_data)
 {
 	NemoWindow *window = user_data;
@@ -1285,7 +1285,7 @@ action_tab_change_action_activate_callback (GtkAction *action,
 }
 
 static void
-action_new_folder_callback (GtkAction *action,
+action_new_folder_callback (G_GNUC_UNUSED GtkAction *action,
                             gpointer user_data)
 {
     g_assert (NEMO_IS_WINDOW (user_data));
@@ -1334,7 +1334,7 @@ open_in_terminal_other (const gchar *path)
 
 
 static void
-action_open_terminal_callback(GtkAction *action, gpointer callback_data)
+action_open_terminal_callback(G_GNUC_UNUSED GtkAction *action, gpointer callback_data)
 {
     NemoWindow *window;
     NemoView *view;
@@ -1356,7 +1356,7 @@ action_open_terminal_callback(GtkAction *action, gpointer callback_data)
 #define NEMO_VIEW_MENUBAR_FILE_PATH                  "/MenuBar/File"
 
 static void
-on_file_menu_show (GtkWidget *widget, gpointer user_data)
+on_file_menu_show (G_GNUC_UNUSED GtkWidget *widget, gpointer user_data)
 {
     NemoWindow *window;
     NemoView *view;
@@ -1368,10 +1368,10 @@ on_file_menu_show (GtkWidget *widget, gpointer user_data)
 }
 
 static const GtkActionEntry main_entries[] = {
-  /* name, stock id, label */  { "File", NULL, N_("_File") },
-  /* name, stock id, label */  { "Edit", NULL, N_("_Edit") },
-  /* name, stock id, label */  { "View", NULL, N_("_View") },
-  /* name, stock id, label */  { "Help", NULL, N_("_Help") },
+  /* name, stock id, label */  { "File", NULL, N_("_File"), NULL, NULL, NULL },
+  /* name, stock id, label */  { "Edit", NULL, N_("_Edit"), NULL, NULL, NULL },
+  /* name, stock id, label */  { "View", NULL, N_("_View"), NULL, NULL, NULL },
+  /* name, stock id, label */  { "Help", NULL, N_("_Help"), NULL, NULL, NULL },
   /* name, stock id */         { "Close", "window-close-symbolic",
   /* label, accelerator */       N_("_Close"), "<Primary>W",
   /* tooltip */                  N_("Close this folder"),
@@ -1480,9 +1480,9 @@ static const GtkActionEntry main_entries[] = {
   /* label, accelerator */       N_("_Trash"), NULL,
   /* tooltip */                  N_("Open your personal trash folder"),
                                  G_CALLBACK (action_go_to_trash_callback) },
-  /* name, stock id, label */  { "Go", NULL, N_("_Go") },
-  /* name, stock id, label */  { "Bookmarks", NULL, N_("_Bookmarks") },
-  /* name, stock id, label */  { "Tabs", NULL, N_("_Tabs") },
+  /* name, stock id, label */  { "Go", NULL, N_("_Go"), NULL, NULL, NULL },
+  /* name, stock id, label */  { "Bookmarks", NULL, N_("_Bookmarks"), NULL, NULL, NULL },
+  /* name, stock id, label */  { "Tabs", NULL, N_("_Tabs"), NULL, NULL, NULL },
   /* name, stock id, label */  { "New Window", NULL, N_("New _window"),
                                  "<Primary>N", N_("Open another Nemo window for the displayed location"),
                                  G_CALLBACK (action_new_window_callback) },
@@ -1526,8 +1526,8 @@ static const GtkActionEntry main_entries[] = {
   { "TabsMoveRight", NULL, N_("Move tab _right"), "<shift><control>Page_Down",
     N_("Move current tab to right"),
     G_CALLBACK (action_tabs_move_right_callback) },
-  { "Sidebar List", NULL, N_("Sidebar") },
-  { "Toolbar List", NULL, N_("Toolbar") }
+  { "Sidebar List", NULL, N_("Sidebar"), NULL, NULL, NULL },
+  { "Toolbar List", NULL, N_("Toolbar"), NULL, NULL, NULL }
 };
 
 static const GtkToggleActionEntry main_toggle_entries[] = {
@@ -2168,7 +2168,6 @@ nemo_window_load_extension_menus (NemoWindow *window)
 	if (items != NULL) {
 		add_extension_menu_items (window, merge_id, action_group, items, "");
 
-		g_list_foreach (items, (GFunc) g_object_unref, NULL);
-		g_list_free (items);
+		g_list_free_full (items, g_object_unref);
 	}
 }

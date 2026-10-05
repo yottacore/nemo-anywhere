@@ -110,7 +110,7 @@ entry_activate_cb (GtkWidget *entry, Editor *editor)
 }
 
 static gboolean
-entry_focus_out_cb (GtkWidget *entry, GdkEventFocus *event, Editor *editor)
+entry_focus_out_cb (GtkWidget *entry, G_GNUC_UNUSED GdkEventFocus *event, Editor *editor)
 {
 	save_entry (GTK_ENTRY (entry), editor);
 	return FALSE;
@@ -119,13 +119,13 @@ entry_focus_out_cb (GtkWidget *entry, GdkEventFocus *event, Editor *editor)
 /* A file dropped on the field becomes its path. */
 static void
 drag_data_received_cb (GtkWidget        *entry,
-		       GdkDragContext   *context,
-		       int               x,
-		       int               y,
+		       G_GNUC_UNUSED GdkDragContext   *context,
+		       G_GNUC_UNUSED int               x,
+		       G_GNUC_UNUSED int               y,
 		       GtkSelectionData *selection_data,
-		       guint             info,
-		       guint             time,
-		       gpointer          user_data)
+		       G_GNUC_UNUSED guint             info,
+		       G_GNUC_UNUSED guint             time,
+		       G_GNUC_UNUSED gpointer          user_data)
 {
 	char **uris = g_uri_list_extract_uris ((const char *) gtk_selection_data_get_data (selection_data));
 	char *path = uris != NULL && uris[0] != NULL ? g_filename_from_uri (uris[0], NULL, NULL) : NULL;
@@ -236,14 +236,14 @@ nemo_shortcut_properties_make_box (GtkSizeGroup *label_size_group,
 #else
 
 gboolean
-nemo_shortcut_properties_should_show (GList *files)
+nemo_shortcut_properties_should_show (G_GNUC_UNUSED GList *files)
 {
 	return FALSE;
 }
 
 GtkWidget *
-nemo_shortcut_properties_make_box (GtkSizeGroup *label_size_group,
-				   GList        *files)
+nemo_shortcut_properties_make_box (G_GNUC_UNUSED GtkSizeGroup *label_size_group,
+				   G_GNUC_UNUSED GList        *files)
 {
 	return NULL;
 }

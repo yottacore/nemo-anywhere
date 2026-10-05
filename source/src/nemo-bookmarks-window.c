@@ -143,7 +143,7 @@ static void	update_bookmark_from_text		    (void);
 static void
 nemo_bookmarks_window_response_callback (GtkDialog *dialog,
 					     int response_id,
-					     gpointer callback_data)
+					     G_GNUC_UNUSED gpointer callback_data)
 {
     if (response_id == GTK_RESPONSE_CLOSE) {
 		gtk_widget_hide (GTK_WIDGET (dialog));
@@ -201,8 +201,8 @@ bookmarks_set_empty (gboolean empty)
 }
 
 static void
-edit_bookmarks_dialog_reset_signals (gpointer data,
-				     GObject *obj)
+edit_bookmarks_dialog_reset_signals (G_GNUC_UNUSED gpointer data,
+				     G_GNUC_UNUSED GObject *obj)
 {
 	g_signal_handler_disconnect (jump_button,
 				     jump_button_signal_id);
@@ -517,7 +517,7 @@ nemo_bookmarks_window_save_geometry (GtkWindow *window)
 }
 
 static void
-on_bookmark_list_changed (NemoBookmarkList *bmarks, gpointer data)
+on_bookmark_list_changed (NemoBookmarkList *bmarks, G_GNUC_UNUSED gpointer data)
 {
 	g_return_if_fail (NEMO_IS_BOOKMARK_LIST (bmarks));
 
@@ -526,8 +526,8 @@ on_bookmark_list_changed (NemoBookmarkList *bmarks, gpointer data)
 }
 
 static void
-on_name_field_changed (GtkEditable *editable,
-		       gpointer     user_data)
+on_name_field_changed (G_GNUC_UNUSED GtkEditable *editable,
+		       G_GNUC_UNUSED gpointer     user_data)
 {
 	GtkTreeIter   iter;
 	g_return_if_fail(GTK_IS_TREE_VIEW(bookmark_list_widget));
@@ -552,7 +552,7 @@ on_name_field_changed (GtkEditable *editable,
 }
 
 static void
-open_selected_bookmark (gpointer user_data, GdkScreen *screen)
+open_selected_bookmark (gpointer user_data, G_GNUC_UNUSED GdkScreen *screen)
 {
 	NemoBookmark *selected;
 	NemoWindow *window;
@@ -586,8 +586,8 @@ on_jump_button_clicked (GtkButton *button,
 }
 
 static void
-on_sort_button_clicked (GtkButton *button,
-                        gpointer   user_data)
+on_sort_button_clicked (G_GNUC_UNUSED GtkButton *button,
+                        G_GNUC_UNUSED gpointer   user_data)
 {
     g_assert (NEMO_IS_BOOKMARK_LIST (bookmarks));
 
@@ -599,7 +599,7 @@ bookmarks_delete_bookmark (void)
 {
     NemoBookmark *bookmark;
 	GtkTreeIter iter;
-	gint i;
+	guint i;
 
 	g_assert (GTK_IS_TREE_VIEW (bookmark_list_widget));
 	
@@ -623,16 +623,16 @@ bookmarks_delete_bookmark (void)
 }
 
 static void
-on_remove_button_clicked (GtkButton *button,
-                          gpointer   user_data)
+on_remove_button_clicked (G_GNUC_UNUSED GtkButton *button,
+                          G_GNUC_UNUSED gpointer   user_data)
 {
         bookmarks_delete_bookmark ();
 }
 
 static void
 on_row_deleted (GtkListStore *store,
-        GtkTreePath *path,
-        gpointer user_data)
+        G_GNUC_UNUSED GtkTreePath *path,
+        G_GNUC_UNUSED gpointer user_data)
 {
 	NemoBookmark *bookmark = NULL;
 
@@ -649,7 +649,7 @@ on_row_deleted (GtkListStore *store,
                                 BOOKMARK_LIST_COLUMN_BOOKMARK, &bookmark,
                                 -1);
             if (bookmark != NULL) {
-                gint i;
+                guint i;
 
                 for (i = 0; i < nemo_bookmark_list_length (bookmarks); i++) {
                     NemoBookmark *old_bm = nemo_bookmark_list_item_at (bookmarks, i);
@@ -685,9 +685,9 @@ on_row_deleted (GtkListStore *store,
  */
 
 static gboolean
-on_button_pressed (GtkTreeView *view,
-		   GdkEventButton *event,
-		   gpointer user_data)
+on_button_pressed (G_GNUC_UNUSED GtkTreeView *view,
+		   G_GNUC_UNUSED GdkEventButton *event,
+		   G_GNUC_UNUSED gpointer user_data)
 {
 	update_bookmark_from_text ();
 
@@ -695,9 +695,9 @@ on_button_pressed (GtkTreeView *view,
 }
 
 static gboolean
-on_key_pressed (GtkTreeView *view,
+on_key_pressed (G_GNUC_UNUSED GtkTreeView *view,
                 GdkEventKey *event,
-                gpointer user_data)
+                G_GNUC_UNUSED gpointer user_data)
 {
         if (event->keyval == GDK_KEY_Delete || event->keyval == GDK_KEY_KP_Delete) {
                 bookmarks_delete_bookmark ();
@@ -711,8 +711,8 @@ on_key_pressed (GtkTreeView *view,
 
 static void
 on_row_activated (GtkTreeView       *view,
-                  GtkTreePath       *path,
-                  GtkTreeViewColumn *column,
+                  G_GNUC_UNUSED GtkTreePath       *path,
+                  G_GNUC_UNUSED GtkTreeViewColumn *column,
                   gpointer           user_data)
 {
 	GdkScreen *screen;
@@ -722,8 +722,8 @@ on_row_activated (GtkTreeView       *view,
 }
 
 static void
-on_selection_changed (GtkTreeSelection *treeselection,
-		      gpointer user_data)
+on_selection_changed (G_GNUC_UNUSED GtkTreeSelection *treeselection,
+		      G_GNUC_UNUSED gpointer user_data)
 {
 	NemoBookmark *selected;
 	const char *name = NULL;
@@ -838,8 +838,8 @@ update_bookmark_from_text (void)
 
 static gboolean
 on_text_field_focus_out_event (GtkWidget *widget,
-			       GdkEventFocus *event,
-			       gpointer user_data)
+			       G_GNUC_UNUSED GdkEventFocus *event,
+			       G_GNUC_UNUSED gpointer user_data)
 {
 	g_assert (NEMO_IS_ENTRY (widget));
 
@@ -857,8 +857,8 @@ name_or_uri_field_activate (NemoEntry *entry)
 }
 
 static void
-on_uri_field_changed (GtkEditable *editable,
-		      gpointer user_data)
+on_uri_field_changed (G_GNUC_UNUSED GtkEditable *editable,
+		      G_GNUC_UNUSED gpointer user_data)
 {
 	/* Remember that user has changed text so we 
 	 * update real bookmark later. 
@@ -868,8 +868,8 @@ on_uri_field_changed (GtkEditable *editable,
 
 static gboolean
 on_window_delete_event (GtkWidget *widget,
-			GdkEvent *event,
-			gpointer user_data)
+			G_GNUC_UNUSED GdkEvent *event,
+			G_GNUC_UNUSED gpointer user_data)
 {
 	gtk_widget_hide (widget);
 	return TRUE;
@@ -888,7 +888,7 @@ restore_geometry (gpointer data)
 
 static void
 on_window_hide_event (GtkWidget *widget,
-		      gpointer user_data)
+		      G_GNUC_UNUSED gpointer user_data)
 {
 	nemo_bookmarks_window_save_geometry (GTK_WINDOW (widget));
 
@@ -902,7 +902,7 @@ on_window_hide_event (GtkWidget *widget,
 
 static void
 on_window_destroy_event (GtkWidget *widget,
-		      	 gpointer user_data)
+		      	 G_GNUC_UNUSED gpointer user_data)
 {
 	g_object_unref (bookmark_list_store);
 	g_object_unref (bookmark_empty_list_store);
@@ -930,8 +930,8 @@ repopulate_now (void)
 	GtkListStore *store;
 	GtkTreePath *path;
 	GtkTreeRowReference *reference;
-	guint index;
-    gint breakpoint, bookmarks_length;
+	guint index, bookmarks_length;
+    gint breakpoint;
     gboolean breakpoint_added;
 
 	g_assert (GTK_IS_TREE_VIEW (bookmark_list_widget));
@@ -969,7 +969,7 @@ repopulate_now (void)
     breakpoint = nemo_config_get_int (nemo_window_state, NEMO_PREFERENCES_SIDEBAR_BOOKMARK_BREAKPOINT);
 
     if (breakpoint < 0) {     // Default gsettings value is -1 (which translates to 'not previously set')
-        breakpoint = bookmarks_length;
+        breakpoint = (gint) bookmarks_length;
         nemo_config_set_int (nemo_window_state, NEMO_PREFERENCES_SIDEBAR_BOOKMARK_BREAKPOINT, breakpoint);
     }
 
@@ -983,7 +983,7 @@ repopulate_now (void)
 		gchar            *bookmark_icon;
 		GtkTreeIter       iter;
 
-        if (index == breakpoint && !breakpoint_added) {
+        if (index == (guint) breakpoint && !breakpoint_added) {
             bookmark_icon = NULL;
             bookmark = NULL;
 
@@ -1056,7 +1056,7 @@ repopulate_now (void)
 }
 
 static gboolean
-idle_repopulate_cb (gpointer data)
+idle_repopulate_cb (G_GNUC_UNUSED gpointer data)
 {
     repopulate_now ();
 

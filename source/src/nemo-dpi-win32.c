@@ -199,7 +199,7 @@ apply_now (void)
 }
 
 static gboolean
-recompute_cb (gpointer data)
+recompute_cb (G_GNUC_UNUSED gpointer data)
 {
 	recompute_id = 0;
 	apply_now ();
@@ -218,8 +218,8 @@ recompute_soon (void)
 
 static GdkFilterReturn
 message_filter (GdkXEvent *xevent,
-		GdkEvent  *event,
-		gpointer   data)
+		G_GNUC_UNUSED GdkEvent  *event,
+		G_GNUC_UNUSED gpointer   data)
 {
 	MSG *msg = (MSG *) xevent;
 
@@ -233,8 +233,8 @@ message_filter (GdkXEvent *xevent,
 }
 
 static void
-monitors_changed_cb (GdkScreen *screen,
-		     gpointer   data)
+monitors_changed_cb (G_GNUC_UNUSED GdkScreen *screen,
+		     G_GNUC_UNUSED gpointer   data)
 {
 	recompute_soon ();
 }

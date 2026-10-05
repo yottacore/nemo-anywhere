@@ -112,7 +112,7 @@ nemo_proportional_paned_size_allocate (GtkWidget *widget,
 }
 
 static void
-nemo_proportional_paned_init (NemoProportionalPaned *self)
+nemo_proportional_paned_init (G_GNUC_UNUSED NemoProportionalPaned *self)
 {
 }
 

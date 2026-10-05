@@ -404,7 +404,7 @@ append_exif_info (NemoImagePropertiesPage *page)
 }
 
 static void
-append_xmp_info (NemoImagePropertiesPage *page)
+append_xmp_info (G_GNUC_UNUSED NemoImagePropertiesPage *page)
 {
 #ifdef HAVE_EXEMPI
 	if (page->details->xmp == NULL)
@@ -536,7 +536,7 @@ file_read_callback (GObject      *object,
 }
 
 static void
-size_prepared_callback (GdkPixbufLoader *loader,
+size_prepared_callback (G_GNUC_UNUSED GdkPixbufLoader *loader,
 			int              width,
 			int              height,
 			gpointer         callback_data)
@@ -738,7 +738,7 @@ is_mime_type_supported (const char *mime_type)
 }
 
 static GList *
-get_property_pages (NemoPropertyPageProvider *provider,
+get_property_pages (G_GNUC_UNUSED NemoPropertyPageProvider *provider,
                     GList *files)
 {
 	GList *pages;
@@ -782,12 +782,12 @@ property_page_provider_iface_init (NemoPropertyPageProviderIface *iface)
 
 
 static void
-nemo_image_properties_page_provider_init (NemoImagePropertiesPageProvider *sidebar)
+nemo_image_properties_page_provider_init (G_GNUC_UNUSED NemoImagePropertiesPageProvider *sidebar)
 {
 }
 
 static void
-nemo_image_properties_page_provider_class_init (NemoImagePropertiesPageProviderClass *class)
+nemo_image_properties_page_provider_class_init (G_GNUC_UNUSED NemoImagePropertiesPageProviderClass *class)
 {
 }
 

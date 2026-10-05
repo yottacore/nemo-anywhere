@@ -185,7 +185,7 @@ position_and_selection_are_at_end (GtkEditable *editable)
 }
 
 static void
-got_completion_data_callback (GFilenameCompleter *completer,
+got_completion_data_callback (G_GNUC_UNUSED GFilenameCompleter *completer,
 			      NemoLocationEntry *entry)
 {
 	if (entry->details->idle_id) {
@@ -277,7 +277,7 @@ destroy (GtkWidget *object)
 
 static void
 nemo_location_entry_text_changed (NemoLocationEntry *entry,
-				      GParamSpec            *pspec)
+				      G_GNUC_UNUSED GParamSpec            *pspec)
 {
 	if (entry->details->setting_special_text) {
 		return;
@@ -288,9 +288,9 @@ nemo_location_entry_text_changed (NemoLocationEntry *entry,
 
 static void
 nemo_location_entry_icon_release (GtkEntry *gentry,
-				      GtkEntryIconPosition position,
-				      GdkEvent *event,
-				      gpointer unused)
+				      G_GNUC_UNUSED GtkEntryIconPosition position,
+				      G_GNUC_UNUSED GdkEvent *event,
+				      G_GNUC_UNUSED gpointer unused)
 {
 	switch (NEMO_LOCATION_ENTRY (gentry)->details->secondary_action) {
 	case NEMO_LOCATION_ENTRY_ACTION_GOTO:

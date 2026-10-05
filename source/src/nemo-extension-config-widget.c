@@ -80,7 +80,7 @@ get_button_for_row (GtkWidget *row)
 }
 
 static void
-on_row_activated (GtkWidget *box, GtkWidget *row, GtkWidget *widget)
+on_row_activated (G_GNUC_UNUSED GtkWidget *box, GtkWidget *row, G_GNUC_UNUSED GtkWidget *widget)
 {
     GtkWidget *button = get_button_for_row (row);
 
@@ -130,7 +130,7 @@ on_check_toggled(GtkWidget *button, ExtensionProxy *proxy)
 }
 
 static gboolean
-on_config_clicked (GtkLinkButton *button,
+on_config_clicked (G_GNUC_UNUSED GtkLinkButton *button,
                    gpointer       user_data)
 {
     ExtensionProxy *proxy = (ExtensionProxy *) user_data;
@@ -144,7 +144,7 @@ on_config_clicked (GtkLinkButton *button,
 #define LINE_PREFIX_LEN 17
 
 static void
-detect_extensions (NemoExtensionConfigWidget *widget)
+detect_extensions (G_GNUC_UNUSED NemoExtensionConfigWidget *widget)
 {
     gchar *out = NULL;
 
@@ -324,7 +324,7 @@ refresh_widget (NemoExtensionConfigWidget *widget)
 }
 
 static void
-on_settings_changed (NemoConfigGroup *settings, gchar *key, gpointer user_data)
+on_settings_changed (G_GNUC_UNUSED NemoConfigGroup *settings, G_GNUC_UNUSED gchar *key, gpointer user_data)
 {
     NemoExtensionConfigWidget *w = NEMO_EXTENSION_CONFIG_WIDGET (user_data);
 
@@ -333,7 +333,7 @@ on_settings_changed (NemoConfigGroup *settings, gchar *key, gpointer user_data)
 }
 
 static void
-on_enable_clicked (GtkWidget *button, NemoExtensionConfigWidget *widget)
+on_enable_clicked (G_GNUC_UNUSED GtkWidget *button, G_GNUC_UNUSED NemoExtensionConfigWidget *widget)
 {
     nemo_config_set_strv (nemo_plugin_preferences,
     		             NEMO_PLUGIN_PREFERENCES_DISABLED_EXTENSIONS,
@@ -341,7 +341,7 @@ on_enable_clicked (GtkWidget *button, NemoExtensionConfigWidget *widget)
 }
 
 static void
-on_disable_clicked (GtkWidget *button, NemoExtensionConfigWidget *widget)
+on_disable_clicked (G_GNUC_UNUSED GtkWidget *button, NemoExtensionConfigWidget *widget)
 {
     GPtrArray *new_list = g_ptr_array_new ();
 
@@ -361,7 +361,7 @@ on_disable_clicked (GtkWidget *button, NemoExtensionConfigWidget *widget)
 }
 
 static void
-on_restart_clicked (GtkWidget *button, NemoExtensionConfigWidget *widget)
+on_restart_clicked (G_GNUC_UNUSED GtkWidget *button, G_GNUC_UNUSED NemoExtensionConfigWidget *widget)
 {
     /* TODO: We should be able to get existing window locations and geometry out of
      * gtk_application_get_windows() and restore them with the proper window geometry

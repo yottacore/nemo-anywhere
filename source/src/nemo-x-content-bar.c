@@ -55,7 +55,7 @@ enum {
 G_DEFINE_TYPE (NemoXContentBar, nemo_x_content_bar, GTK_TYPE_INFO_BAR)
 
 static void
-content_bar_response_cb (GtkInfoBar *infobar,
+content_bar_response_cb (G_GNUC_UNUSED GtkInfoBar *infobar,
 			 gint response_id,
 			 gpointer user_data)
 {

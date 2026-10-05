@@ -280,7 +280,7 @@ nemo_file_management_properties_size_group_create (GtkBuilder *builder,
 
 static void
 columns_changed_callback (NemoColumnChooser *chooser,
-			  gpointer callback_data)
+			  G_GNUC_UNUSED gpointer callback_data)
 {
 	char **visible_columns;
 	char **column_order;
@@ -303,7 +303,7 @@ columns_changed_callback (NemoColumnChooser *chooser,
 static void
 free_column_names_array (GPtrArray *column_names)
 {
-	g_ptr_array_foreach (column_names, (GFunc) g_free, NULL);
+	g_ptr_array_set_free_func (column_names, g_free);
 	g_ptr_array_free (column_names, TRUE);
 }
 
@@ -349,7 +349,7 @@ create_icon_caption_combo_box_items (GtkComboBoxText *combo_box,
 }
 
 static void
-icon_captions_changed_callback (GtkComboBox *combo_box,
+icon_captions_changed_callback (G_GNUC_UNUSED GtkComboBox *combo_box,
 				gpointer user_data)
 {
 	GPtrArray *captions;
@@ -622,8 +622,8 @@ fill_appearance_combo (GtkComboBoxText *combo,
 }
 
 static void
-appearance_mode_changed (NemoConfigGroup *group,
-			 const char      *key,
+appearance_mode_changed (G_GNUC_UNUSED NemoConfigGroup *group,
+			 G_GNUC_UNUSED const char      *key,
 			 gpointer         user_data)
 {
 	GtkBuilder *builder = user_data;
@@ -740,7 +740,7 @@ set_columns_from_settings (NemoColumnChooser *chooser)
 
 static void
 use_default_callback (NemoColumnChooser *chooser,
-		      gpointer user_data)
+		      G_GNUC_UNUSED gpointer user_data)
 {
 	nemo_config_reset (nemo_list_view_preferences,
 			  NEMO_PREFERENCES_LIST_VIEW_DEFAULT_VISIBLE_COLUMNS);
@@ -923,7 +923,7 @@ bind_builder_uint_enum (GtkBuilder *builder,
 static gboolean
 percent_get_mapping (GValue                *value,
 		     const NemoConfigValue *config_value,
-		     gpointer               user_data)
+		     G_GNUC_UNUSED gpointer               user_data)
 {
 	g_value_set_double (value, (gdouble) config_value->i);
 	return TRUE;
@@ -932,7 +932,7 @@ percent_get_mapping (GValue                *value,
 static gboolean
 percent_set_mapping (const GValue    *value,
 		     NemoConfigValue *config_value,
-		     gpointer         user_data)
+		     G_GNUC_UNUSED gpointer         user_data)
 {
 	config_value->i = (gint64) (g_value_get_double (value) + 0.5);
 	return TRUE;
@@ -1010,7 +1010,7 @@ bind_builder_radio (GtkBuilder *builder,
 static void
 setup_configurable_menu_items (GtkBuilder *builder)
 {
-    gint i;
+    guint i;
 
     for (i = 0; i < CONFIGURABLE_MENU_ITEM_COUNT; i++) {
         if (CONFIGURABLE_MENU_ITEM_INFO[i].config_widget_name == NULL) {
@@ -1076,7 +1076,7 @@ connect_quick_renames (GtkBuilder *builder)
 }
 
 static void
-on_dialog_destroy (GtkWidget *widget,
+on_dialog_destroy (G_GNUC_UNUSED GtkWidget *widget,
                    gpointer   user_data)
 {
     GtkBuilder *builder = GTK_BUILDER (user_data);
@@ -1086,7 +1086,7 @@ on_dialog_destroy (GtkWidget *widget,
 
 static void
 set_gtk_filechooser_sort_first (GObject *object,
-				GParamSpec *pspec)
+				G_GNUC_UNUSED GParamSpec *pspec)
 {
 	nemo_desktop_settings_set_filechooser_bool (NEMO_PREFERENCES_SORT_DIRECTORIES_FIRST,
 						   gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (object)));
@@ -1209,7 +1209,7 @@ page_content (GtkBuilder *builder, const char *id, gint *border)
 static gboolean
 dialog_key_press (GtkWidget   *dialog,
 		  GdkEventKey *event,
-		  gpointer     user_data)
+		  G_GNUC_UNUSED gpointer     user_data)
 {
 	if (event->keyval == GDK_KEY_Escape &&
 	    (event->state & gtk_accelerator_get_default_mod_mask ()) == 0) {
@@ -1305,7 +1305,7 @@ size_dialog_to_longest_page (GtkBuilder *builder,
    internal child, hence forall. */
 static void
 show_scrollbars_when_needed (GtkWidget *widget,
-			     gpointer   unused)
+			     G_GNUC_UNUSED gpointer   unused)
 {
 	if (GTK_IS_SCROLLED_WINDOW (widget)) {
 		gtk_scrolled_window_set_overlay_scrolling (GTK_SCROLLED_WINDOW (widget), FALSE);

@@ -325,7 +325,7 @@ nemo_icon_view_clean_up (NemoIconView *icon_view)
 }
 
 static void
-action_clean_up_callback (GtkAction *action, gpointer callback_data)
+action_clean_up_callback (G_GNUC_UNUSED GtkAction *action, gpointer callback_data)
 {
 	nemo_icon_view_clean_up (NEMO_ICON_VIEW (callback_data));
 }
@@ -338,7 +338,7 @@ nemo_icon_view_using_auto_layout (NemoIconView *icon_view)
 }
 
 static void
-action_sort_radio_callback (GtkAction *action,
+action_sort_radio_callback (G_GNUC_UNUSED GtkAction *action,
 			    GtkRadioAction *current,
 			    NemoIconView *view)
 {
@@ -367,7 +367,7 @@ list_covers (NemoIconData *data, gpointer callback_data)
 }
 
 static void
-unref_cover (NemoIconData *data, gpointer callback_data)
+unref_cover (NemoIconData *data, G_GNUC_UNUSED gpointer callback_data)
 {
 	nemo_file_unref (NEMO_FILE (data));
 }
@@ -769,7 +769,7 @@ nemo_icon_view_set_directory_auto_layout (NemoIconView *icon_view,
 }
 
 void
-nemo_icon_view_set_directory_horizontal_layout (NemoIconView *icon_view,
+nemo_icon_view_set_directory_horizontal_layout (G_GNUC_UNUSED NemoIconView *icon_view,
                                                 NemoFile     *file,
                                                 gboolean      horizontal)
 {
@@ -780,7 +780,7 @@ nemo_icon_view_set_directory_horizontal_layout (NemoIconView *icon_view,
 }
 
 gboolean
-nemo_icon_view_get_directory_horizontal_layout (NemoIconView *icon_view,
+nemo_icon_view_get_directory_horizontal_layout (G_GNUC_UNUSED NemoIconView *icon_view,
                                                 NemoFile     *file)
 {
     return nemo_file_get_boolean_metadata (file,
@@ -789,7 +789,7 @@ nemo_icon_view_get_directory_horizontal_layout (NemoIconView *icon_view,
 }
 
 void
-nemo_icon_view_set_directory_grid_adjusts (NemoIconView *icon_view,
+nemo_icon_view_set_directory_grid_adjusts (G_GNUC_UNUSED NemoIconView *icon_view,
                                            NemoFile     *file,
                                            gint          horizontal,
                                            gint          vertical)
@@ -800,7 +800,7 @@ nemo_icon_view_set_directory_grid_adjusts (NemoIconView *icon_view,
 }
 
 void
-nemo_icon_view_get_directory_grid_adjusts (NemoIconView *icon_view,
+nemo_icon_view_get_directory_grid_adjusts (G_GNUC_UNUSED NemoIconView *icon_view,
                                            NemoFile     *file,
                                            gint         *horizontal,
                                            gint         *vertical)
@@ -1082,7 +1082,7 @@ nemo_icon_view_begin_loading (NemoView *view)
 }
 
 static void
-icon_view_notify_clipboard_info (NemoClipboardMonitor *monitor,
+icon_view_notify_clipboard_info (G_GNUC_UNUSED NemoClipboardMonitor *monitor,
                                  NemoClipboardInfo *info,
                                  NemoIconView *icon_view)
 {
@@ -1402,7 +1402,7 @@ nemo_icon_view_get_selection_count (NemoView *view)
 }
 
 static void
-count_item (NemoIconData *icon_data,
+count_item (G_GNUC_UNUSED NemoIconData *icon_data,
 	    gpointer callback_data)
 {
 	guint *count;
@@ -1547,7 +1547,7 @@ nemo_icon_view_start_renaming_file (NemoView *view,
 }
 
 static const GtkActionEntry icon_view_entries[] = {
-  /* name, stock id, label */  { "Arrange Items", NULL, N_("Arran_ge items") },
+  /* name, stock id, label */  { "Arrange Items", NULL, N_("Arran_ge items"), NULL, NULL, NULL },
   /* name, stock id */         { "Clean Up", NULL,
   /* label, accelerator */       N_("_Organize by name"), NULL,
   /* tooltip */                  N_("Reposition icons to better fit in the window and avoid overlapping"),
@@ -2105,7 +2105,7 @@ icon_position_changed_callback (NemoIconContainer *container,
 
 /* Attempt to change the filename to the new text.  Notify user if operation fails. */
 static void
-icon_rename_ended_cb (NemoIconContainer *container,
+icon_rename_ended_cb (G_GNUC_UNUSED NemoIconContainer *container,
 		      NemoFile *file,
 		      const char *new_name,
 		      NemoIconView *icon_view)
@@ -2125,7 +2125,7 @@ icon_rename_ended_cb (NemoIconContainer *container,
 }
 
 static void
-icon_rename_started_cb (NemoIconContainer *container,
+icon_rename_started_cb (G_GNUC_UNUSED NemoIconContainer *container,
 			GtkWidget *widget,
 			gpointer callback_data)
 {
@@ -2340,23 +2340,23 @@ nemo_icon_view_sort_favorites_first_changed (NemoView *directory_view)
 }
 
 static gboolean
-icon_view_can_accept_item (NemoIconContainer *container,
+icon_view_can_accept_item (G_GNUC_UNUSED NemoIconContainer *container,
 			   NemoFile *target_item,
 			   const char *item_uri,
-			   NemoView *view)
+			   G_GNUC_UNUSED NemoView *view)
 {
 	return nemo_drag_can_accept_item (target_item, item_uri);
 }
 
 static char *
-icon_view_get_container_uri (NemoIconContainer *container,
+icon_view_get_container_uri (G_GNUC_UNUSED NemoIconContainer *container,
 			     NemoView *view)
 {
 	return nemo_view_get_uri (view);
 }
 
 static void
-icon_view_move_copy_items (NemoIconContainer *container,
+icon_view_move_copy_items (G_GNUC_UNUSED NemoIconContainer *container,
 			   const GList *item_uris,
 			   GArray *relative_item_points,
 			   const char *target_dir,
@@ -2406,7 +2406,7 @@ nemo_icon_view_update_click_to_rename_mode (NemoIconView *icon_view)
 }
 
 static gboolean
-get_stored_layout_timestamp (NemoIconContainer *container,
+get_stored_layout_timestamp (G_GNUC_UNUSED NemoIconContainer *container,
 			     NemoIconData *icon_data,
 			     time_t *timestamp,
 			     NemoIconView *view)
@@ -2433,7 +2433,7 @@ get_stored_layout_timestamp (NemoIconContainer *container,
 }
 
 static gboolean
-store_layout_timestamp (NemoIconContainer *container,
+store_layout_timestamp (G_GNUC_UNUSED NemoIconContainer *container,
 			NemoIconData *icon_data,
 			const time_t *timestamp,
 			NemoIconView *view)
@@ -2463,7 +2463,7 @@ store_layout_timestamp (NemoIconContainer *container,
 }
 
 static gboolean
-focus_in_event_callback (GtkWidget *widget, GdkEventFocus *event, gpointer user_data)
+focus_in_event_callback (G_GNUC_UNUSED GtkWidget *widget, G_GNUC_UNUSED GdkEventFocus *event, gpointer user_data)
 {
 	NemoWindowSlot *slot;
 	NemoIconView *icon_view = NEMO_ICON_VIEW (user_data);
@@ -2478,7 +2478,7 @@ focus_in_event_callback (GtkWidget *widget, GdkEventFocus *event, gpointer user_
 /* Runs after the container, so Escape still cancels a rename or a stretch
    before it gets as far as the selection. */
 static gboolean
-key_press_event_callback (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
+key_press_event_callback (GtkWidget *widget, GdkEventKey *event, G_GNUC_UNUSED gpointer user_data)
 {
 	if (event->keyval != GDK_KEY_Escape) {
 		return FALSE;
@@ -2490,7 +2490,7 @@ key_press_event_callback (GtkWidget *widget, GdkEventKey *event, gpointer user_d
 }
 
 static gboolean
-button_press_callback (GtkWidget *widget, GdkEventFocus *event, gpointer user_data)
+button_press_callback (G_GNUC_UNUSED GtkWidget *widget, GdkEventFocus *event, gpointer user_data)
 {
     NemoView *view = NEMO_VIEW (user_data);
     GdkEventButton *event_button = (GdkEventButton *)event;
@@ -2600,7 +2600,7 @@ create_icon_container (NemoIconView *icon_view)
 
 /* Handles an URL received from Mozilla */
 static void
-icon_view_handle_netscape_url (NemoIconContainer *container, const char *encoded_url,
+icon_view_handle_netscape_url (G_GNUC_UNUSED NemoIconContainer *container, const char *encoded_url,
 			       const char *target_uri,
 			       GdkDragAction action, int x, int y, NemoIconView *view)
 {
@@ -2609,7 +2609,7 @@ icon_view_handle_netscape_url (NemoIconContainer *container, const char *encoded
 }
 
 static void
-icon_view_handle_uri_list (NemoIconContainer *container, const char *item_uris,
+icon_view_handle_uri_list (G_GNUC_UNUSED NemoIconContainer *container, const char *item_uris,
 			   const char *target_uri,
 			   GdkDragAction action, int x, int y, NemoIconView *view)
 {
@@ -2618,7 +2618,7 @@ icon_view_handle_uri_list (NemoIconContainer *container, const char *item_uris,
 }
 
 static void
-icon_view_handle_text (NemoIconContainer *container, const char *text,
+icon_view_handle_text (G_GNUC_UNUSED NemoIconContainer *container, const char *text,
 		       const char *target_uri,
 		       GdkDragAction action, int x, int y, NemoIconView *view)
 {
@@ -2627,7 +2627,7 @@ icon_view_handle_text (NemoIconContainer *container, const char *text,
 }
 
 static void
-icon_view_handle_raw (NemoIconContainer *container, const char *raw_data,
+icon_view_handle_raw (G_GNUC_UNUSED NemoIconContainer *container, const char *raw_data,
 		      int length, const char *target_uri, const char *direct_save_uri,
 		      GdkDragAction action, int x, int y, NemoIconView *view)
 {
@@ -2998,7 +2998,7 @@ nemo_compact_view_create (NemoWindowSlot *slot)
 static gboolean
 nemo_icon_view_supports_uri (const char *uri,
 			   GFileType file_type,
-			   const char *mime_type)
+			   G_GNUC_UNUSED const char *mime_type)
 {
 	if (file_type == G_FILE_TYPE_DIRECTORY) {
 		return TRUE;

@@ -7553,7 +7553,7 @@ create_job (GIOSchedulerJob *io_job,
 				filename2 = g_strdup_printf ("%s %d%s", filename_base, count, suffix);
 
 				new_filename = NULL;
-				if (max_length > 0 && strlen (filename2) > abs(max_length)) {
+				if (max_length > 0 && strlen (filename2) > (size_t) max_length) {
 					new_filename = shorten_utf8_string (filename2, strlen (filename2) - max_length);
 				}
 
@@ -7589,7 +7589,7 @@ create_job (GIOSchedulerJob *io_job,
 
 			filename2 = g_strdup_printf ("%s %d%s", filename_base, ++count, suffix);
 
-			if (max_length > 0 && strlen (filename2) > abs(max_length)) {
+			if (max_length > 0 && strlen (filename2) > (size_t) max_length) {
 				new_filename = shorten_utf8_string (filename2, strlen (filename2) - max_length);
 				if (new_filename != NULL) {
 					g_free (filename2);

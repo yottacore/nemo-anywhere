@@ -124,7 +124,7 @@ update_label (NemoFloatingBar *self)
 }
 
 static gboolean
-overlay_enter_notify_cb (GtkWidget        *parent,
+overlay_enter_notify_cb (G_GNUC_UNUSED GtkWidget        *parent,
 			 GdkEventCrossing *event,
 			 gpointer          user_data)
 {

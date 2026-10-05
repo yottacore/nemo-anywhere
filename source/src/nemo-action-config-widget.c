@@ -55,7 +55,7 @@ get_button_for_row (GtkWidget *row)
 }
 
 static void
-on_row_activated (GtkWidget *box, GtkWidget *row, GtkWidget *widget)
+on_row_activated (G_GNUC_UNUSED GtkWidget *box, GtkWidget *row, G_GNUC_UNUSED GtkWidget *widget)
 {
     GtkWidget *button = get_button_for_row (row);
 
@@ -321,7 +321,7 @@ refresh_widget (NemoActionConfigWidget *widget)
 }
 
 static void
-on_settings_changed (NemoConfigGroup *settings, gchar *key, gpointer user_data)
+on_settings_changed (G_GNUC_UNUSED NemoConfigGroup *settings, G_GNUC_UNUSED gchar *key, gpointer user_data)
 {
     NemoActionConfigWidget *w = NEMO_ACTION_CONFIG_WIDGET (user_data);
 
@@ -329,7 +329,7 @@ on_settings_changed (NemoConfigGroup *settings, gchar *key, gpointer user_data)
 }
 
 static void
-on_enable_clicked (GtkWidget *button, NemoActionConfigWidget *widget)
+on_enable_clicked (G_GNUC_UNUSED GtkWidget *button, G_GNUC_UNUSED NemoActionConfigWidget *widget)
 {
     nemo_config_set_strv (nemo_plugin_preferences,
     		             NEMO_PLUGIN_PREFERENCES_DISABLED_ACTIONS,
@@ -337,7 +337,7 @@ on_enable_clicked (GtkWidget *button, NemoActionConfigWidget *widget)
 }
 
 static void
-on_disable_clicked (GtkWidget *button, NemoActionConfigWidget *widget)
+on_disable_clicked (G_GNUC_UNUSED GtkWidget *button, NemoActionConfigWidget *widget)
 {
     GPtrArray *new_list = g_ptr_array_new ();
 
@@ -357,7 +357,7 @@ on_disable_clicked (GtkWidget *button, NemoActionConfigWidget *widget)
 }
 
 static void
-on_open_folder_clicked (GtkWidget *button, NemoActionConfigWidget *widget)
+on_open_folder_clicked (G_GNUC_UNUSED GtkWidget *button, G_GNUC_UNUSED NemoActionConfigWidget *widget)
 {
     gchar *path = NULL;
     path = g_build_filename (g_get_user_data_dir (), NEMO_APP_SLUG, "actions", NULL);
@@ -374,7 +374,7 @@ on_open_folder_clicked (GtkWidget *button, NemoActionConfigWidget *widget)
 
 #ifndef G_OS_WIN32
 static void
-on_layout_editor_clicked (GtkWidget *button, NemoActionConfigWidget *widget)
+on_layout_editor_clicked (G_GNUC_UNUSED GtkWidget *button, G_GNUC_UNUSED NemoActionConfigWidget *widget)
 {
     GError *error = NULL;
     gchar *editor;
@@ -399,10 +399,10 @@ on_layout_editor_clicked (GtkWidget *button, NemoActionConfigWidget *widget)
 #endif
 
 static void
-on_dir_changed (GFileMonitor     *monitor,
-                GFile            *file,
-                GFile            *other_file,
-                GFileMonitorEvent event_type,
+on_dir_changed (G_GNUC_UNUSED GFileMonitor     *monitor,
+                G_GNUC_UNUSED GFile            *file,
+                G_GNUC_UNUSED GFile            *other_file,
+                G_GNUC_UNUSED GFileMonitorEvent event_type,
                 gpointer          user_data)
 {
     NemoActionConfigWidget *widget = NEMO_ACTION_CONFIG_WIDGET (user_data);

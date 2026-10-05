@@ -888,8 +888,10 @@ bookmark_callback_data_new (NemoView *view,
 }
 
 static void
-bookmark_callback_data_free (BookmarkCallbackData *data)
+bookmark_callback_data_free (gpointer callback_data, G_GNUC_UNUSED GClosure *closure)
 {
+    BookmarkCallbackData *data = callback_data;
+
     g_free ((char *)data->dest_uri);
     g_free (data);
 }
@@ -914,8 +916,10 @@ application_launch_parameters_new (GAppInfo *application,
 }
 
 static void
-application_launch_parameters_free (ApplicationLaunchParameters *parameters)
+application_launch_parameters_free (gpointer data, G_GNUC_UNUSED GClosure *closure)
 {
+	ApplicationLaunchParameters *parameters = data;
+
 	g_object_unref (parameters->application);
 	nemo_file_list_free (parameters->files);
 
@@ -1018,8 +1022,10 @@ script_launch_parameters_new (NemoFile *file,
 }
 
 static void
-script_launch_parameters_free (ScriptLaunchParameters *parameters)
+script_launch_parameters_free (gpointer data, G_GNUC_UNUSED GClosure *closure)
 {
+	ScriptLaunchParameters *parameters = data;
+
 	g_object_unref (parameters->directory_view);
 	nemo_file_unref (parameters->file);
 	g_free (parameters);
@@ -1041,8 +1047,10 @@ create_template_parameters_new (NemoFile *file,
 }
 
 static void
-create_templates_parameters_free (CreateTemplateParameters *parameters)
+create_templates_parameters_free (gpointer data, G_GNUC_UNUSED GClosure *closure)
 {
+	CreateTemplateParameters *parameters = data;
+
 	g_object_unref (parameters->directory_view);
 	nemo_file_unref (parameters->file);
 	g_free (parameters);
@@ -1189,7 +1197,7 @@ get_is_desktop_view (NemoView *view)
 void
 nemo_view_preview_files (NemoView *view,
 			     GList *files,
-			     GArray *locations)
+			     G_GNUC_UNUSED GArray *locations)
 {
 	NemoPreviewer *previewer;
 	gchar *uri;
@@ -1252,7 +1260,7 @@ nemo_view_activate_file (NemoView *view,
 }
 
 static void
-action_open_callback (GtkAction *action,
+action_open_callback (G_GNUC_UNUSED GtkAction *action,
 		      gpointer callback_data)
 {
 	GList *selection;
@@ -1269,7 +1277,7 @@ action_open_callback (GtkAction *action,
 }
 
 static void
-action_open_close_parent_callback (GtkAction *action,
+action_open_close_parent_callback (G_GNUC_UNUSED GtkAction *action,
 				   gpointer callback_data)
 {
 	GList *selection;
@@ -1287,7 +1295,7 @@ action_open_close_parent_callback (GtkAction *action,
 
 
 static void
-action_open_alternate_callback (GtkAction *action,
+action_open_alternate_callback (G_GNUC_UNUSED GtkAction *action,
 				gpointer callback_data)
 {
 	NemoView *view;
@@ -1307,7 +1315,7 @@ action_open_alternate_callback (GtkAction *action,
 }
 
 static void
-action_open_new_tab_callback (GtkAction *action,
+action_open_new_tab_callback (G_GNUC_UNUSED GtkAction *action,
 			      gpointer callback_data)
 {
 	NemoView *view;
@@ -1431,7 +1439,7 @@ open_with_other_program (NemoView *view)
 }
 
 static void
-action_other_application_callback (GtkAction *action,
+action_other_application_callback (G_GNUC_UNUSED GtkAction *action,
 				   gpointer callback_data)
 {
 	g_assert (NEMO_IS_VIEW (callback_data));
@@ -1484,7 +1492,7 @@ real_trash (NemoView *view)
 }
 
 static void
-action_trash_callback (GtkAction *action,
+action_trash_callback (G_GNUC_UNUSED GtkAction *action,
 		       gpointer callback_data)
 {
         trash_or_delete_selected_files (NEMO_VIEW (callback_data));
@@ -1521,14 +1529,14 @@ delete_selected_files (NemoView *view)
 }
 
 static void
-action_delete_callback (GtkAction *action,
+action_delete_callback (G_GNUC_UNUSED GtkAction *action,
 			gpointer callback_data)
 {
         delete_selected_files (NEMO_VIEW (callback_data));
 }
 
 static void
-action_restore_from_trash_callback (GtkAction *action,
+action_restore_from_trash_callback (G_GNUC_UNUSED GtkAction *action,
 				    gpointer callback_data)
 {
 	NemoView *view;
@@ -1560,7 +1568,7 @@ real_delete (NemoView *view)
 }
 
 static void
-action_duplicate_callback (GtkAction *action,
+action_duplicate_callback (G_GNUC_UNUSED GtkAction *action,
 			   gpointer callback_data)
 {
         NemoView *view;
@@ -1601,7 +1609,7 @@ create_links_for_selection (NemoView *view, const NemoLinkOptions *options)
 }
 
 static void
-action_edit_link_callback (GtkAction *action,
+action_edit_link_callback (G_GNUC_UNUSED GtkAction *action,
 			   gpointer callback_data)
 {
 	NemoView *view = NEMO_VIEW (callback_data);
@@ -1619,7 +1627,7 @@ action_edit_link_callback (GtkAction *action,
 
 /* Asks what kind of links to make first. */
 static void
-action_create_link_callback (GtkAction *action,
+action_create_link_callback (G_GNUC_UNUSED GtkAction *action,
 			     gpointer callback_data)
 {
 	NemoView *view = NEMO_VIEW (callback_data);
@@ -1658,7 +1666,7 @@ action_create_link_callback (GtkAction *action,
 }
 
 static void
-action_pin_unpin_file_callback (GtkAction *action,
+action_pin_unpin_file_callback (G_GNUC_UNUSED GtkAction *action,
                                 gpointer   callback_data)
 {
     NemoView *view;
@@ -1695,7 +1703,7 @@ action_pin_unpin_file_callback (GtkAction *action,
 }
 
 static void
-action_favorite_unfavorite_file_callback (GtkAction *action,
+action_favorite_unfavorite_file_callback (G_GNUC_UNUSED GtkAction *action,
                                           gpointer   callback_data)
 {
     NemoView *view;
@@ -1732,7 +1740,7 @@ action_favorite_unfavorite_file_callback (GtkAction *action,
 }
 
 static void
-action_select_all_callback (GtkAction *action,
+action_select_all_callback (G_GNUC_UNUSED GtkAction *action,
 			    gpointer callback_data)
 {
 	g_assert (NEMO_IS_VIEW (callback_data));
@@ -1741,7 +1749,7 @@ action_select_all_callback (GtkAction *action,
 }
 
 static void
-action_invert_selection_callback (GtkAction *action,
+action_invert_selection_callback (G_GNUC_UNUSED GtkAction *action,
 				  gpointer callback_data)
 {
 	g_assert (NEMO_IS_VIEW (callback_data));
@@ -1860,7 +1868,7 @@ select_pattern (NemoView *view)
 }
 
 static void
-action_select_pattern_callback (GtkAction *action,
+action_select_pattern_callback (G_GNUC_UNUSED GtkAction *action,
 				gpointer callback_data)
 {
 	g_assert (NEMO_IS_VIEW (callback_data));
@@ -1869,7 +1877,7 @@ action_select_pattern_callback (GtkAction *action,
 }
 
 static void
-action_reset_to_defaults_callback (GtkAction *action,
+action_reset_to_defaults_callback (G_GNUC_UNUSED GtkAction *action,
 				   gpointer callback_data)
 {
 	g_assert (NEMO_IS_VIEW (callback_data));
@@ -1879,7 +1887,7 @@ action_reset_to_defaults_callback (GtkAction *action,
 
 
 static void
-hidden_files_mode_changed (NemoWindow *window,
+hidden_files_mode_changed (G_GNUC_UNUSED NemoWindow *window,
 			   gpointer callback_data)
 {
 	NemoView *directory_view;
@@ -1890,7 +1898,7 @@ hidden_files_mode_changed (NemoWindow *window,
 }
 
 static void
-action_empty_trash_callback (GtkAction *action,
+action_empty_trash_callback (G_GNUC_UNUSED GtkAction *action,
 			     gpointer callback_data)
 {
         g_assert (NEMO_IS_VIEW (callback_data));
@@ -1973,7 +1981,7 @@ rename_file (NemoView *view, NemoFile *new_file)
 
 static void
 reveal_newly_added_folder (NemoView *view, NemoFile *new_file,
-			   NemoDirectory *directory, GFile *target_location)
+			   G_GNUC_UNUSED NemoDirectory *directory, GFile *target_location)
 {
 	GFile *location;
 
@@ -1994,8 +2002,8 @@ typedef struct {
 
 
 static void
-track_newly_added_locations (NemoView *view, NemoFile *new_file,
-			     NemoDirectory *directory, gpointer user_data)
+track_newly_added_locations (G_GNUC_UNUSED NemoView *view, NemoFile *new_file,
+			     G_GNUC_UNUSED NemoDirectory *directory, gpointer user_data)
 {
 	NewFolderData *data;
 
@@ -2005,8 +2013,14 @@ track_newly_added_locations (NemoView *view, NemoFile *new_file,
 }
 
 static void
+object_unref_closure (gpointer data, G_GNUC_UNUSED GClosure *closure)
+{
+	g_object_unref (data);
+}
+
+static void
 new_folder_done (GFile *new_folder,
-		 gboolean success,
+		 G_GNUC_UNUSED gboolean success,
 		 gpointer user_data)
 {
 	NemoView *directory_view;
@@ -2049,7 +2063,7 @@ new_folder_done (GFile *new_folder,
 				       "add_file",
 				       G_CALLBACK (reveal_newly_added_folder),
 				       g_object_ref (new_folder),
-				       (GClosureNotify)g_object_unref,
+				       object_unref_closure,
 				       G_CONNECT_AFTER);
 	}
 	nemo_file_unref (file);
@@ -2211,7 +2225,7 @@ nemo_view_new_file (NemoView *directory_view,
 }
 
 static void
-action_new_folder_callback (GtkAction *action,
+action_new_folder_callback (G_GNUC_UNUSED GtkAction *action,
 			    gpointer callback_data)
 {
         g_assert (NEMO_IS_VIEW (callback_data));
@@ -2220,7 +2234,7 @@ action_new_folder_callback (GtkAction *action,
 }
 
 static void
-action_new_empty_file_callback (GtkAction *action,
+action_new_empty_file_callback (G_GNUC_UNUSED GtkAction *action,
 				gpointer callback_data)
 {
         g_assert (NEMO_IS_VIEW (callback_data));
@@ -2289,7 +2303,7 @@ present_location_properties (NemoView *view,
 }
 
 static void
-action_properties_callback (GtkAction *action,
+action_properties_callback (G_GNUC_UNUSED GtkAction *action,
 			    gpointer callback_data)
 {
         g_assert (NEMO_IS_VIEW (callback_data));
@@ -2298,7 +2312,7 @@ action_properties_callback (GtkAction *action,
 }
 
 static void
-action_advanced_properties_callback (GtkAction *action,
+action_advanced_properties_callback (G_GNUC_UNUSED GtkAction *action,
 				     gpointer callback_data)
 {
         g_assert (NEMO_IS_VIEW (callback_data));
@@ -2307,7 +2321,7 @@ action_advanced_properties_callback (GtkAction *action,
 }
 
 static void
-action_location_properties_callback (GtkAction *action,
+action_location_properties_callback (G_GNUC_UNUSED GtkAction *action,
 				     gpointer   callback_data)
 {
 	g_assert (NEMO_IS_VIEW (callback_data));
@@ -2316,7 +2330,7 @@ action_location_properties_callback (GtkAction *action,
 }
 
 static void
-action_location_advanced_properties_callback (GtkAction *action,
+action_location_advanced_properties_callback (G_GNUC_UNUSED GtkAction *action,
 					      gpointer   callback_data)
 {
 	g_assert (NEMO_IS_VIEW (callback_data));
@@ -2342,7 +2356,7 @@ all_files_in_trash (GList *files)
 }
 
 static gboolean
-all_selected_items_in_trash (NemoView *view, GList *selection)
+all_selected_items_in_trash (G_GNUC_UNUSED NemoView *view, GList *selection)
 {
 	gboolean result;
 
@@ -2453,7 +2467,7 @@ sort_favorites_first_changed_callback (gpointer callback_data)
 }
 
 static void
-swap_delete_keybinding_changed_callback (gpointer callback_data)
+swap_delete_keybinding_changed_callback (G_GNUC_UNUSED gpointer callback_data)
 {
     GtkBindingSet *binding_set = gtk_binding_set_find ("NemoView");
 
@@ -2507,8 +2521,8 @@ set_up_scripts_directory_global (void)
 }
 
 static void
-scripts_added_or_changed_callback (NemoDirectory *directory,
-				   GList *files,
+scripts_added_or_changed_callback (G_GNUC_UNUSED NemoDirectory *directory,
+				   G_GNUC_UNUSED GList *files,
 				   gpointer callback_data)
 {
 	NemoView *view;
@@ -2522,8 +2536,8 @@ scripts_added_or_changed_callback (NemoDirectory *directory,
 }
 
 static void
-templates_added_or_changed_callback (NemoDirectory *directory,
-				     GList *files,
+templates_added_or_changed_callback (G_GNUC_UNUSED NemoDirectory *directory,
+				     G_GNUC_UNUSED GList *files,
 				     gpointer callback_data)
 {
 	NemoView *view;
@@ -2628,7 +2642,7 @@ remove_directory_from_templates_directory_list (NemoView *view,
 }
 
 static void
-slot_active (NemoWindowSlot *slot,
+slot_active (G_GNUC_UNUSED NemoWindowSlot *slot,
 	     NemoView *view)
 {
 	if (view->details->active) {
@@ -2642,7 +2656,7 @@ slot_active (NemoWindowSlot *slot,
 }
 
 static void
-slot_inactive (NemoWindowSlot *slot,
+slot_inactive (G_GNUC_UNUSED NemoWindowSlot *slot,
 	       NemoView *view)
 {
 	if (!view->details->active) {
@@ -2672,7 +2686,7 @@ static void slot_changed_pane (NemoWindowSlot *slot,
 }
 
 static void
-plugin_prefs_changed (NemoConfigGroup *settings, gchar *key, gpointer user_data)
+plugin_prefs_changed (G_GNUC_UNUSED NemoConfigGroup *settings, G_GNUC_UNUSED gchar *key, gpointer user_data)
 {
     scripts_added_or_changed_callback (NULL, NULL, user_data);
 }
@@ -2779,7 +2793,7 @@ update_undo_actions (NemoView *view)
 }
 
 static void
-undo_manager_changed_cb (NemoFileUndoManager* manager,
+undo_manager_changed_cb (G_GNUC_UNUSED NemoFileUndoManager* manager,
 			 NemoView *view)
 {
     if (view->details->dir_action_group == NULL) {
@@ -3489,6 +3503,12 @@ debuting_files_data_free (DebutingFilesData *data)
 	g_free (data);
 }
 
+static void
+debuting_files_data_closure_free (gpointer data, G_GNUC_UNUSED GClosure *closure)
+{
+	debuting_files_data_free (data);
+}
+
 /* This signal handler watch for the arrival of the icons created
  * as the result of a file operation. Once the last one is detected
  * it selects and reveals them all.
@@ -3496,7 +3516,7 @@ debuting_files_data_free (DebutingFilesData *data)
 static void
 debuting_files_add_file_callback (NemoView *view,
 				  NemoFile *new_file,
-				  NemoDirectory *directory,
+				  G_GNUC_UNUSED NemoDirectory *directory,
 				  DebutingFilesData *data)
 {
 	GFile *location;
@@ -3539,9 +3559,9 @@ copy_move_done_data_free (CopyMoveDoneData *data)
 }
 
 static void
-pre_copy_move_add_file_callback (NemoView *view,
+pre_copy_move_add_file_callback (G_GNUC_UNUSED NemoView *view,
 				 NemoFile *new_file,
-				 NemoDirectory *directory,
+				 G_GNUC_UNUSED NemoDirectory *directory,
 				 CopyMoveDoneData *data)
 {
 	nemo_file_ref (new_file);
@@ -3620,7 +3640,7 @@ remove_not_really_moved_files (gpointer key,
  */
 static void
 copy_move_done_callback (GHashTable *debuting_files,
-			 gboolean success,
+			 G_GNUC_UNUSED gboolean success,
 			 gpointer data)
 {
 	NemoView  *directory_view;
@@ -3675,7 +3695,7 @@ copy_move_done_callback (GHashTable *debuting_files,
 					       "add_file",
 					       G_CALLBACK (debuting_files_add_file_callback),
 					       debuting_files_data,
-					       (GClosureNotify) debuting_files_data_free,
+					       debuting_files_data_closure_free,
 					       G_CONNECT_AFTER);
 		}
 		/* Schedule menu update for undo items */
@@ -4198,7 +4218,7 @@ files_changed_callback (NemoDirectory *directory,
 }
 
 static void
-done_loading_callback (NemoDirectory *directory,
+done_loading_callback (G_GNUC_UNUSED NemoDirectory *directory,
 		       gpointer callback_data)
 {
 	NemoView *view;
@@ -4217,7 +4237,7 @@ done_loading_callback (NemoDirectory *directory,
 }
 
 static void
-load_error_callback (NemoDirectory *directory,
+load_error_callback (G_GNUC_UNUSED NemoDirectory *directory,
 		     GError *error,
 		     gpointer callback_data)
 {
@@ -4469,7 +4489,7 @@ nemo_view_duplicate_selection (NemoView *view, GList *files,
  */
 
 static gboolean
-special_link_in_selection (NemoView *view, GList *selection)
+special_link_in_selection (NemoView *view, G_GNUC_UNUSED GList *selection)
 {
 	g_return_val_if_fail (NEMO_IS_VIEW (view), FALSE);
 
@@ -4538,7 +4558,7 @@ directory_in_selection (NemoView *view, GList *selection)
 }
 
 static void
-trash_or_delete_done_cb (GHashTable *debuting_uris,
+trash_or_delete_done_cb (G_GNUC_UNUSED GHashTable *debuting_uris,
 			 gboolean user_cancel,
 			 NemoView *view)
 {
@@ -4550,7 +4570,7 @@ trash_or_delete_done_cb (GHashTable *debuting_uris,
 static void
 trash_or_delete_files (GtkWindow *parent_window,
 		       const GList *files,
-		       gboolean delete_if_all_already_in_trash,
+		       G_GNUC_UNUSED gboolean delete_if_all_already_in_trash,
 		       NemoView *view)
 {
 	GList *locations;
@@ -4572,7 +4592,7 @@ trash_or_delete_files (GtkWindow *parent_window,
 }
 
 static gboolean
-can_rename_file (NemoView *view, NemoFile *file)
+can_rename_file (G_GNUC_UNUSED NemoView *view, NemoFile *file)
 {
 	return nemo_file_can_rename (file);
 }
@@ -4593,7 +4613,7 @@ nemo_view_set_is_renaming (NemoView *view,
 static void
 start_renaming_file (NemoView *view,
 		     NemoFile *file,
-		     gboolean select_all)
+		     G_GNUC_UNUSED gboolean select_all)
 {
 	view->details->is_renaming = TRUE;
 
@@ -4639,7 +4659,7 @@ nemo_view_get_directory_as_file (NemoView *view)
 }
 
 static void
-open_with_launch_application_callback (GtkAction *action,
+open_with_launch_application_callback (G_GNUC_UNUSED GtkAction *action,
 				       gpointer callback_data)
 {
 	ApplicationLaunchParameters *launch_parameters;
@@ -4853,7 +4873,7 @@ add_application_to_open_with_menu (NemoView *view,
 	g_signal_connect_data (action, "activate",
 			       G_CALLBACK (open_with_launch_application_callback),
 			       launch_parameters,
-			       (GClosureNotify)application_launch_parameters_free, 0);
+			       application_launch_parameters_free, 0);
 
 	gtk_action_group_add_action (view->details->open_with_action_group,
 				     action);
@@ -4886,7 +4906,7 @@ add_application_to_open_with_menu (NemoView *view,
 }
 
 static void
-get_x_content_async_callback (const char **content,
+get_x_content_async_callback (G_GNUC_UNUSED const char **content,
 			      gpointer user_data)
 {
 	NemoView *view;
@@ -5080,7 +5100,7 @@ move_copy_selection_to_location (NemoView *view,
 }
 
 static void
-action_move_bookmark_callback (GtkAction *action, gpointer callback_data)
+action_move_bookmark_callback (G_GNUC_UNUSED GtkAction *action, gpointer callback_data)
 {
     NemoView *view;
     BookmarkCallbackData *data;
@@ -5091,7 +5111,7 @@ action_move_bookmark_callback (GtkAction *action, gpointer callback_data)
 }
 
 static void
-action_copy_bookmark_callback (GtkAction *action, gpointer callback_data)
+action_copy_bookmark_callback (G_GNUC_UNUSED GtkAction *action, gpointer callback_data)
 {
     NemoView *view;
     BookmarkCallbackData *data;
@@ -5125,12 +5145,12 @@ setup_bookmark_action(      char *action_name,
         g_signal_connect_data (action, "activate",
                G_CALLBACK (action_move_bookmark_callback),
                bookmark_callback_data_new(view, mount_uri),
-               (GClosureNotify)bookmark_callback_data_free, 0);
+               bookmark_callback_data_free, 0);
     } else {
         g_signal_connect_data (action, "activate",
                G_CALLBACK (action_copy_bookmark_callback),
                bookmark_callback_data_new(view, mount_uri),
-               (GClosureNotify)bookmark_callback_data_free, 0);
+               bookmark_callback_data_free, 0);
     }
 
     gtk_action_group_add_action (action_group, action);
@@ -5552,7 +5572,7 @@ reset_move_copy_to_menu (NemoView *view)
 }
 
 static void
-disconnect_bookmark (gpointer data, gpointer callback_data)
+disconnect_bookmark (gpointer data, G_GNUC_UNUSED gpointer callback_data)
 {
     GtkAction *action = GTK_ACTION (data);
     g_signal_handlers_disconnect_matched (action,
@@ -5614,8 +5634,10 @@ typedef struct
 
 
 static void
-extension_action_callback_data_free (ExtensionActionCallbackData *data)
+extension_action_callback_data_free (gpointer callback_data, G_GNUC_UNUSED GClosure *closure)
 {
+	ExtensionActionCallbackData *data = callback_data;
+
 	g_object_unref (data->item);
 	nemo_file_list_free (data->selection);
 
@@ -5657,7 +5679,7 @@ search_in_menu_items (GList* items, const char *item_name)
 }
 
 static void
-extension_action_callback (GtkAction *action,
+extension_action_callback (G_GNUC_UNUSED GtkAction *action,
 			   gpointer callback_data)
 {
 	ExtensionActionCallbackData *data;
@@ -5774,7 +5796,7 @@ add_extension_action_for_files (NemoView *view,
 	g_signal_connect_data (action, "activate",
 			       G_CALLBACK (extension_action_callback),
 			       data,
-			       (GClosureNotify)extension_action_callback_data_free, 0);
+			       extension_action_callback_data_free, 0);
 
     if (gtk_action_group_get_action (view->details->extensions_menu_action_group, gtk_action_get_name (GTK_ACTION (action))) == NULL) {
         gtk_action_group_add_action (view->details->extensions_menu_action_group,
@@ -5886,8 +5908,7 @@ reset_extension_actions_menu (NemoView *view, GList *selection)
 	if (items != NULL) {
 		add_extension_menu_items (view, selection, items, "");
 
-		g_list_foreach (items, (GFunc) g_object_unref, NULL);
-		g_list_free (items);
+		g_list_free_full (items, g_object_unref);
 	}
 }
 
@@ -6112,7 +6133,7 @@ unset_script_environment_variables (void)
 }
 
 static void
-run_script_callback (GtkAction *action, gpointer callback_data)
+run_script_callback (G_GNUC_UNUSED GtkAction *action, gpointer callback_data)
 {
 	ScriptLaunchParameters *launch_parameters;
 	GdkScreen *screen;
@@ -6197,7 +6218,7 @@ add_script_to_scripts_menus (NemoView *directory_view,
 	g_signal_connect_data (action, "activate",
 			       G_CALLBACK (run_script_callback),
 			       launch_parameters,
-			       (GClosureNotify)script_launch_parameters_free, 0);
+			       script_launch_parameters_free, 0);
 
 	gtk_action_group_add_action_with_accel (directory_view->details->scripts_action_group,
 						action, NULL);
@@ -6496,7 +6517,7 @@ update_actions_menu (NemoView *view)
 }
 
 static void
-create_template_callback (GtkAction *action, gpointer callback_data)
+create_template_callback (G_GNUC_UNUSED GtkAction *action, gpointer callback_data)
 {
 	CreateTemplateParameters *parameters;
 
@@ -6545,7 +6566,7 @@ add_template_to_templates_menus (NemoView *directory_view,
 	g_signal_connect_data (action, "activate",
 			       G_CALLBACK (create_template_callback),
 			       parameters,
-			       (GClosureNotify)create_templates_parameters_free, 0);
+			       create_templates_parameters_free, 0);
 
 	gtk_action_group_add_action (directory_view->details->templates_action_group,
 				     action);
@@ -6827,7 +6848,7 @@ copy_or_cut_files (NemoView *view,
 }
 
 static void
-action_copy_files_callback (GtkAction *action,
+action_copy_files_callback (G_GNUC_UNUSED GtkAction *action,
 			    gpointer callback_data)
 {
 	NemoView *view;
@@ -6916,7 +6937,7 @@ copy_one_path (NemoView *view,
 }
 
 static void
-action_copy_path_callback (GtkAction *action,
+action_copy_path_callback (G_GNUC_UNUSED GtkAction *action,
 			   gpointer callback_data)
 {
 	copy_selection_paths (NEMO_VIEW (callback_data), nemo_path_get_display_separator ());
@@ -6924,14 +6945,14 @@ action_copy_path_callback (GtkAction *action,
 
 /* The other spelling of the same path. Windows only - nowhere else has two. */
 static void
-action_copy_path_alt_callback (GtkAction *action,
+action_copy_path_alt_callback (G_GNUC_UNUSED GtkAction *action,
 			       gpointer callback_data)
 {
 	copy_selection_paths (NEMO_VIEW (callback_data), nemo_path_get_other_separator ());
 }
 
 static void
-action_background_copy_path_callback (GtkAction *action,
+action_background_copy_path_callback (G_GNUC_UNUSED GtkAction *action,
 				      gpointer callback_data)
 {
 	NemoView *view = NEMO_VIEW (callback_data);
@@ -6941,7 +6962,7 @@ action_background_copy_path_callback (GtkAction *action,
 }
 
 static void
-action_background_copy_path_alt_callback (GtkAction *action,
+action_background_copy_path_alt_callback (G_GNUC_UNUSED GtkAction *action,
 					  gpointer callback_data)
 {
 	NemoView *view = NEMO_VIEW (callback_data);
@@ -6951,7 +6972,7 @@ action_background_copy_path_alt_callback (GtkAction *action,
 }
 
 static void
-action_location_copy_path_callback (GtkAction *action,
+action_location_copy_path_callback (G_GNUC_UNUSED GtkAction *action,
 				    gpointer callback_data)
 {
 	NemoView *view = NEMO_VIEW (callback_data);
@@ -6961,7 +6982,7 @@ action_location_copy_path_callback (GtkAction *action,
 }
 
 static void
-action_location_copy_path_alt_callback (GtkAction *action,
+action_location_copy_path_alt_callback (G_GNUC_UNUSED GtkAction *action,
 					gpointer callback_data)
 {
 	NemoView *view = NEMO_VIEW (callback_data);
@@ -6974,8 +6995,8 @@ action_location_copy_path_alt_callback (GtkAction *action,
    item says Explorer on it. One selected entry at a time, and only one that has
    a local path - there is nothing to show Explorer for a remote uri. */
 static void
-action_open_in_explorer_callback (GtkAction *action,
-				  gpointer callback_data)
+action_open_in_explorer_callback (G_GNUC_UNUSED GtkAction *action,
+				  G_GNUC_UNUSED gpointer callback_data)
 {
 #ifdef G_OS_WIN32
 	NemoView *view = NEMO_VIEW (callback_data);
@@ -7011,7 +7032,7 @@ action_open_in_explorer_callback (GtkAction *action,
 static void
 update_copy_path_alt_action (NemoView   *view,
 			     const char *action_name,
-			     gint        count)
+			     G_GNUC_UNUSED gint        count)
 {
 	GtkAction *action;
 
@@ -7114,7 +7135,7 @@ compress_one_folder (NemoView *view,
 }
 
 static void
-action_compress_callback (GtkAction *action,
+action_compress_callback (G_GNUC_UNUSED GtkAction *action,
 			  gpointer callback_data)
 {
 	NemoView *view;
@@ -7141,7 +7162,7 @@ action_compress_callback (GtkAction *action,
 }
 
 static void
-action_background_compress_callback (GtkAction *action,
+action_background_compress_callback (G_GNUC_UNUSED GtkAction *action,
 				     gpointer callback_data)
 {
 	NemoView *view;
@@ -7152,7 +7173,7 @@ action_background_compress_callback (GtkAction *action,
 }
 
 static void
-action_location_compress_callback (GtkAction *action,
+action_location_compress_callback (G_GNUC_UNUSED GtkAction *action,
 				   gpointer callback_data)
 {
 	NemoView *view;
@@ -7237,7 +7258,7 @@ extract_selection (NemoView          *view,
 /* Into the folder being viewed, laid out the way the archive stores it - so one
    made from a folder brings that folder with it rather than its contents. */
 static void
-action_extract_here_callback (GtkAction *action,
+action_extract_here_callback (G_GNUC_UNUSED GtkAction *action,
 			      gpointer callback_data)
 {
 	NemoView *view;
@@ -7258,7 +7279,7 @@ action_extract_here_callback (GtkAction *action,
 /* A folder each, named after the archive. This is the answer to one that would
    otherwise scatter its contents across the folder being viewed. */
 static void
-action_extract_to_folder_callback (GtkAction *action,
+action_extract_to_folder_callback (G_GNUC_UNUSED GtkAction *action,
 				   gpointer callback_data)
 {
 	NemoView *view;
@@ -7309,7 +7330,7 @@ browse_extract_to_response_cb (GtkDialog *dialog,
 /* What to unpack is taken now rather than when the chooser is answered: the
    chooser is not modal, so the selection can have moved on by then. */
 static void
-action_extract_to_callback (GtkAction *action,
+action_extract_to_callback (G_GNUC_UNUSED GtkAction *action,
 			    gpointer callback_data)
 {
 	NemoView *view;
@@ -7396,7 +7417,7 @@ selection_is_mountable_archive (GList *selection)
 /* Opening the archive:// location is enough. The slot mounts anything that is
    not mounted yet, and shows the error if that fails. */
 static void
-action_mount_archive_callback (GtkAction *action,
+action_mount_archive_callback (G_GNUC_UNUSED GtkAction *action,
 			       gpointer callback_data)
 {
 	NemoView *view = NEMO_VIEW (callback_data);
@@ -7437,7 +7458,7 @@ move_copy_selection_to_next_pane (NemoView *view,
 }
 
 static void
-action_copy_to_next_pane_callback (GtkAction *action, gpointer callback_data)
+action_copy_to_next_pane_callback (G_GNUC_UNUSED GtkAction *action, gpointer callback_data)
 {
 	NemoView *view;
 
@@ -7447,7 +7468,7 @@ action_copy_to_next_pane_callback (GtkAction *action, gpointer callback_data)
 }
 
 static void
-action_move_to_next_pane_callback (GtkAction *action, gpointer callback_data)
+action_move_to_next_pane_callback (G_GNUC_UNUSED GtkAction *action, gpointer callback_data)
 {
 	NemoWindowSlot *slot;
 	char *dest_location;
@@ -7465,7 +7486,7 @@ action_move_to_next_pane_callback (GtkAction *action, gpointer callback_data)
 }
 
 static void
-action_copy_to_home_callback (GtkAction *action, gpointer callback_data)
+action_copy_to_home_callback (G_GNUC_UNUSED GtkAction *action, gpointer callback_data)
 {
 	NemoView *view;
 	char *dest_location;
@@ -7478,7 +7499,7 @@ action_copy_to_home_callback (GtkAction *action, gpointer callback_data)
 }
 
 static void
-action_move_to_home_callback (GtkAction *action, gpointer callback_data)
+action_move_to_home_callback (G_GNUC_UNUSED GtkAction *action, gpointer callback_data)
 {
 	NemoView *view;
 	char *dest_location;
@@ -7491,7 +7512,7 @@ action_move_to_home_callback (GtkAction *action, gpointer callback_data)
 }
 
 static void
-action_copy_to_desktop_callback (GtkAction *action, gpointer callback_data)
+action_copy_to_desktop_callback (G_GNUC_UNUSED GtkAction *action, gpointer callback_data)
 {
 	NemoView *view;
 	char *dest_location;
@@ -7504,7 +7525,7 @@ action_copy_to_desktop_callback (GtkAction *action, gpointer callback_data)
 }
 
 static void
-action_move_to_desktop_callback (GtkAction *action, gpointer callback_data)
+action_move_to_desktop_callback (G_GNUC_UNUSED GtkAction *action, gpointer callback_data)
 {
 	NemoView *view;
 	char *dest_location;
@@ -7555,7 +7576,7 @@ browse_copy_to_response_cb (GtkDialog *dialog, gint response, NemoView *view)
 }
 
 static void
-action_browse_for_move_to_folder_callback (GtkAction *action, gpointer callback_data)
+action_browse_for_move_to_folder_callback (G_GNUC_UNUSED GtkAction *action, gpointer callback_data)
 {
     GtkWidget *dialog;
     NemoView *view;
@@ -7578,7 +7599,7 @@ action_browse_for_move_to_folder_callback (GtkAction *action, gpointer callback_
 }
 
 static void
-action_browse_for_copy_to_folder_callback (GtkAction *action, gpointer callback_data)
+action_browse_for_copy_to_folder_callback (G_GNUC_UNUSED GtkAction *action, gpointer callback_data)
 {
     GtkWidget *dialog;
     NemoView *view;
@@ -7601,7 +7622,7 @@ action_browse_for_copy_to_folder_callback (GtkAction *action, gpointer callback_
 }
 
 static void
-action_cut_files_callback (GtkAction *action,
+action_cut_files_callback (G_GNUC_UNUSED GtkAction *action,
 			   gpointer callback_data)
 {
 	NemoView *view;
@@ -7653,7 +7674,7 @@ paste_clipboard_data (NemoView *view,
 }
 
 static void
-paste_clipboard_received_callback (GtkClipboard     *clipboard,
+paste_clipboard_received_callback (G_GNUC_UNUSED GtkClipboard     *clipboard,
 				   GtkSelectionData *selection_data,
 				   gpointer          data)
 {
@@ -7679,7 +7700,7 @@ typedef struct {
 } PasteIntoData;
 
 static void
-paste_into_clipboard_received_callback (GtkClipboard     *clipboard,
+paste_into_clipboard_received_callback (G_GNUC_UNUSED GtkClipboard     *clipboard,
 					GtkSelectionData *selection_data,
 					gpointer          callback_data)
 {
@@ -7705,7 +7726,7 @@ paste_into_clipboard_received_callback (GtkClipboard     *clipboard,
 }
 
 static void
-action_paste_files_callback (GtkAction *action,
+action_paste_files_callback (G_GNUC_UNUSED GtkAction *action,
 			     gpointer callback_data)
 {
 	NemoView *view;
@@ -7741,7 +7762,7 @@ paste_into (NemoView *view,
 
 #ifndef G_OS_WIN32
 static void
-cb_open_as_root_watch (GPid pid, gint status, gpointer user_data)
+cb_open_as_root_watch (GPid pid, G_GNUC_UNUSED gint status, G_GNUC_UNUSED gpointer user_data)
 {
     g_spawn_close_pid(pid);
 }
@@ -7757,7 +7778,7 @@ open_as_admin (NemoView *view, const gchar *path) {
 #endif
 
 static void
-open_as_root (NemoView *view, const gchar *path)
+open_as_root (G_GNUC_UNUSED NemoView *view, const gchar *path)
 {
 #ifdef G_OS_WIN32
     /* Windows has no pkexec/admin:// - relaunch ourselves elevated at this path
@@ -7831,7 +7852,7 @@ open_in_terminal (const gchar *path)
 #endif
 
 static void
-action_paste_files_into_callback (GtkAction *action,
+action_paste_files_into_callback (G_GNUC_UNUSED GtkAction *action,
 				  gpointer callback_data)
 {
 	NemoView *view;
@@ -7847,7 +7868,7 @@ action_paste_files_into_callback (GtkAction *action,
 }
 
 static void
-action_open_as_root_callback (GtkAction *action,
+action_open_as_root_callback (G_GNUC_UNUSED GtkAction *action,
 				  gpointer callback_data)
 {
 	NemoView *view;
@@ -7878,7 +7899,7 @@ action_open_as_root_callback (GtkAction *action,
 }
 
 static void
-action_follow_symlink_callback (GtkAction *action,
+action_follow_symlink_callback (G_GNUC_UNUSED GtkAction *action,
                                 gpointer callback_data)
 {
     NemoView *view;
@@ -7920,7 +7941,7 @@ action_follow_symlink_callback (GtkAction *action,
 }
 
 static void
-action_open_containing_folder_callback (GtkAction *action,
+action_open_containing_folder_callback (G_GNUC_UNUSED GtkAction *action,
                                         gpointer callback_data)
 {
     NemoView *view;
@@ -7951,7 +7972,7 @@ action_open_containing_folder_callback (GtkAction *action,
 }
 
 static void
-action_open_in_terminal_callback(GtkAction *action,
+action_open_in_terminal_callback(G_GNUC_UNUSED GtkAction *action,
 				  gpointer callback_data)
 {
 	NemoView *view;
@@ -8046,14 +8067,14 @@ real_action_redo (NemoView *view)
 }
 
 static void
-action_undo_callback (GtkAction *action,
+action_undo_callback (G_GNUC_UNUSED GtkAction *action,
 		      gpointer callback_data)
 {
 	real_action_undo (NEMO_VIEW (callback_data));
 }
 
 static void
-action_redo_callback (GtkAction *action,
+action_redo_callback (G_GNUC_UNUSED GtkAction *action,
 		      gpointer callback_data)
 {
 	real_action_redo (NEMO_VIEW (callback_data));
@@ -8091,24 +8112,24 @@ real_action_rename (NemoView *view,
 }
 
 static void
-action_rename_callback (GtkAction *action,
+action_rename_callback (G_GNUC_UNUSED GtkAction *action,
 			gpointer callback_data)
 {
 	real_action_rename (NEMO_VIEW (callback_data), FALSE);
 }
 
 static void
-action_rename_select_all_callback (GtkAction *action,
+action_rename_select_all_callback (G_GNUC_UNUSED GtkAction *action,
 				   gpointer callback_data)
 {
 	real_action_rename (NEMO_VIEW (callback_data), TRUE);
 }
 
 static void
-file_mount_callback (NemoFile  *file,
-		     GFile         *result_location,
+file_mount_callback (G_GNUC_UNUSED NemoFile  *file,
+		     G_GNUC_UNUSED GFile         *result_location,
 		     GError        *error,
-		     gpointer       callback_data)
+		     G_GNUC_UNUSED gpointer       callback_data)
 {
 	if (error != NULL &&
 	    (error->domain != G_IO_ERROR ||
@@ -8121,8 +8142,8 @@ file_mount_callback (NemoFile  *file,
 }
 
 static void
-file_unmount_callback (NemoFile  *file,
-		       GFile         *result_location,
+file_unmount_callback (G_GNUC_UNUSED NemoFile  *file,
+		       G_GNUC_UNUSED GFile         *result_location,
 		       GError        *error,
 		       gpointer       callback_data)
 {
@@ -8141,8 +8162,8 @@ file_unmount_callback (NemoFile  *file,
 }
 
 static void
-file_eject_callback (NemoFile  *file,
-		     GFile         *result_location,
+file_eject_callback (G_GNUC_UNUSED NemoFile  *file,
+		     G_GNUC_UNUSED GFile         *result_location,
 		     GError        *error,
 		     gpointer       callback_data)
 {
@@ -8161,10 +8182,10 @@ file_eject_callback (NemoFile  *file,
 }
 
 static void
-file_stop_callback (NemoFile  *file,
-		    GFile         *result_location,
+file_stop_callback (G_GNUC_UNUSED NemoFile  *file,
+		    G_GNUC_UNUSED GFile         *result_location,
 		    GError        *error,
-		    gpointer       callback_data)
+		    G_GNUC_UNUSED gpointer       callback_data)
 {
 	if (error != NULL &&
 	    (error->domain != G_IO_ERROR ||
@@ -8176,7 +8197,7 @@ file_stop_callback (NemoFile  *file,
 }
 
 static void
-action_mount_volume_callback (GtkAction *action,
+action_mount_volume_callback (G_GNUC_UNUSED GtkAction *action,
 			      gpointer data)
 {
 	NemoFile *file;
@@ -8202,7 +8223,7 @@ action_mount_volume_callback (GtkAction *action,
 }
 
 static void
-action_unmount_volume_callback (GtkAction *action,
+action_unmount_volume_callback (G_GNUC_UNUSED GtkAction *action,
 				gpointer data)
 {
 	NemoFile *file;
@@ -8227,7 +8248,7 @@ action_unmount_volume_callback (GtkAction *action,
 }
 
 static void
-action_eject_volume_callback (GtkAction *action,
+action_eject_volume_callback (G_GNUC_UNUSED GtkAction *action,
 			      gpointer data)
 {
 	NemoFile *file;
@@ -8252,10 +8273,10 @@ action_eject_volume_callback (GtkAction *action,
 }
 
 static void
-file_start_callback (NemoFile  *file,
-		     GFile         *result_location,
+file_start_callback (G_GNUC_UNUSED NemoFile  *file,
+		     G_GNUC_UNUSED GFile         *result_location,
 		     GError        *error,
-		     gpointer       callback_data)
+		     G_GNUC_UNUSED gpointer       callback_data)
 {
 	if (error != NULL &&
 	    (error->domain != G_IO_ERROR ||
@@ -8268,7 +8289,7 @@ file_start_callback (NemoFile  *file,
 }
 
 static void
-action_start_volume_callback (GtkAction *action,
+action_start_volume_callback (G_GNUC_UNUSED GtkAction *action,
 			      gpointer   data)
 {
 	NemoFile *file;
@@ -8293,7 +8314,7 @@ action_start_volume_callback (GtkAction *action,
 }
 
 static void
-action_stop_volume_callback (GtkAction *action,
+action_stop_volume_callback (G_GNUC_UNUSED GtkAction *action,
 			     gpointer   data)
 {
 	NemoFile *file;
@@ -8318,7 +8339,7 @@ action_stop_volume_callback (GtkAction *action,
 }
 
 static void
-action_detect_media_callback (GtkAction *action,
+action_detect_media_callback (G_GNUC_UNUSED GtkAction *action,
 			      gpointer   data)
 {
 	NemoFile *file;
@@ -8339,7 +8360,7 @@ action_detect_media_callback (GtkAction *action,
 }
 
 static void
-action_self_mount_volume_callback (GtkAction *action,
+action_self_mount_volume_callback (G_GNUC_UNUSED GtkAction *action,
 				   gpointer data)
 {
 	NemoFile *file;
@@ -8360,7 +8381,7 @@ action_self_mount_volume_callback (GtkAction *action,
 }
 
 static void
-action_self_unmount_volume_callback (GtkAction *action,
+action_self_unmount_volume_callback (G_GNUC_UNUSED GtkAction *action,
 				     gpointer data)
 {
 	NemoFile *file;
@@ -8380,7 +8401,7 @@ action_self_unmount_volume_callback (GtkAction *action,
 }
 
 static void
-action_self_eject_volume_callback (GtkAction *action,
+action_self_eject_volume_callback (G_GNUC_UNUSED GtkAction *action,
 				   gpointer data)
 {
 	NemoFile *file;
@@ -8400,7 +8421,7 @@ action_self_eject_volume_callback (GtkAction *action,
 }
 
 static void
-action_self_start_volume_callback (GtkAction *action,
+action_self_start_volume_callback (G_GNUC_UNUSED GtkAction *action,
 				   gpointer   data)
 {
 	NemoFile *file;
@@ -8420,7 +8441,7 @@ action_self_start_volume_callback (GtkAction *action,
 }
 
 static void
-action_self_stop_volume_callback (GtkAction *action,
+action_self_stop_volume_callback (G_GNUC_UNUSED GtkAction *action,
 				  gpointer   data)
 {
 	NemoFile *file;
@@ -8441,7 +8462,7 @@ action_self_stop_volume_callback (GtkAction *action,
 }
 
 static void
-action_self_detect_media_callback (GtkAction *action,
+action_self_detect_media_callback (G_GNUC_UNUSED GtkAction *action,
 				   gpointer   data)
 {
 	NemoFile *file;
@@ -8458,7 +8479,7 @@ action_self_detect_media_callback (GtkAction *action,
 }
 
 static void
-action_location_mount_volume_callback (GtkAction *action,
+action_location_mount_volume_callback (G_GNUC_UNUSED GtkAction *action,
 				       gpointer data)
 {
 	NemoFile *file;
@@ -8479,7 +8500,7 @@ action_location_mount_volume_callback (GtkAction *action,
 }
 
 static void
-action_location_unmount_volume_callback (GtkAction *action,
+action_location_unmount_volume_callback (G_GNUC_UNUSED GtkAction *action,
 					 gpointer data)
 {
 	NemoFile *file;
@@ -8500,7 +8521,7 @@ action_location_unmount_volume_callback (GtkAction *action,
 }
 
 static void
-action_location_eject_volume_callback (GtkAction *action,
+action_location_eject_volume_callback (G_GNUC_UNUSED GtkAction *action,
 				       gpointer data)
 {
 	NemoFile *file;
@@ -8521,7 +8542,7 @@ action_location_eject_volume_callback (GtkAction *action,
 }
 
 static void
-action_location_start_volume_callback (GtkAction *action,
+action_location_start_volume_callback (G_GNUC_UNUSED GtkAction *action,
 				       gpointer   data)
 {
 	NemoFile *file;
@@ -8541,7 +8562,7 @@ action_location_start_volume_callback (GtkAction *action,
 }
 
 static void
-action_location_stop_volume_callback (GtkAction *action,
+action_location_stop_volume_callback (G_GNUC_UNUSED GtkAction *action,
 				      gpointer   data)
 {
 	NemoFile *file;
@@ -8562,7 +8583,7 @@ action_location_stop_volume_callback (GtkAction *action,
 }
 
 static void
-action_location_detect_media_callback (GtkAction *action,
+action_location_detect_media_callback (G_GNUC_UNUSED GtkAction *action,
 				       gpointer   data)
 {
 	NemoFile *file;
@@ -8580,8 +8601,8 @@ action_location_detect_media_callback (GtkAction *action,
 
 static void
 connect_to_server_response_callback (GtkDialog *dialog,
-				     int response_id,
-				     gpointer data)
+				     G_GNUC_UNUSED int response_id,
+				     G_GNUC_UNUSED gpointer data)
 {
 #ifdef GIO_CONVERSION_DONE
 	GtkEntry *entry;
@@ -8613,7 +8634,7 @@ connect_to_server_response_callback (GtkDialog *dialog,
 }
 
 static void
-entry_activate_callback (GtkEntry *entry,
+entry_activate_callback (G_GNUC_UNUSED GtkEntry *entry,
 			 gpointer user_data)
 {
 	GtkDialog *dialog;
@@ -8623,7 +8644,7 @@ entry_activate_callback (GtkEntry *entry,
 }
 
 static void
-action_connect_to_server_link_callback (GtkAction *action,
+action_connect_to_server_link_callback (G_GNUC_UNUSED GtkAction *action,
 					gpointer data)
 {
 	NemoFile *file;
@@ -8708,7 +8729,7 @@ action_connect_to_server_link_callback (GtkAction *action,
 }
 
 static void
-action_location_open_alternate_callback (GtkAction *action,
+action_location_open_alternate_callback (G_GNUC_UNUSED GtkAction *action,
 					 gpointer   callback_data)
 {
 	NemoView *view;
@@ -8726,7 +8747,7 @@ action_location_open_alternate_callback (GtkAction *action,
 }
 
 static void
-action_location_open_in_new_tab_callback (GtkAction *action,
+action_location_open_in_new_tab_callback (G_GNUC_UNUSED GtkAction *action,
 					  gpointer   callback_data)
 {
 	NemoView *view;
@@ -8745,7 +8766,7 @@ action_location_open_in_new_tab_callback (GtkAction *action,
 }
 
 static void
-action_location_open_callback (GtkAction *action,
+action_location_open_callback (G_GNUC_UNUSED GtkAction *action,
 			       gpointer   callback_data)
 {
 	NemoView *view;
@@ -8762,7 +8783,7 @@ action_location_open_callback (GtkAction *action,
 }
 
 static void
-action_location_open_in_terminal_callback (GtkAction *action,
+action_location_open_in_terminal_callback (G_GNUC_UNUSED GtkAction *action,
 					   gpointer   callback_data)
 {
 	NemoView *view;
@@ -8784,7 +8805,7 @@ action_location_open_in_terminal_callback (GtkAction *action,
 }
 
 static void
-action_location_open_as_root_callback (GtkAction *action,
+action_location_open_as_root_callback (G_GNUC_UNUSED GtkAction *action,
 				       gpointer   callback_data)
 {
 	NemoView *view;
@@ -8806,7 +8827,7 @@ action_location_open_as_root_callback (GtkAction *action,
 }
 
 static void
-action_location_new_folder_callback (GtkAction *action,
+action_location_new_folder_callback (G_GNUC_UNUSED GtkAction *action,
 				     gpointer   callback_data)
 {
 	NemoView *view;
@@ -8833,7 +8854,7 @@ action_location_new_folder_callback (GtkAction *action,
 }
 
 static void
-action_location_cut_callback (GtkAction *action,
+action_location_cut_callback (G_GNUC_UNUSED GtkAction *action,
 			      gpointer   callback_data)
 {
 	NemoView *view;
@@ -8851,7 +8872,7 @@ action_location_cut_callback (GtkAction *action,
 }
 
 static void
-action_location_copy_callback (GtkAction *action,
+action_location_copy_callback (G_GNUC_UNUSED GtkAction *action,
 			       gpointer   callback_data)
 {
 	NemoView *view;
@@ -8869,7 +8890,7 @@ action_location_copy_callback (GtkAction *action,
 }
 
 static void
-action_location_paste_files_into_callback (GtkAction *action,
+action_location_paste_files_into_callback (G_GNUC_UNUSED GtkAction *action,
 					   gpointer callback_data)
 {
 	NemoView *view;
@@ -8884,7 +8905,7 @@ action_location_paste_files_into_callback (GtkAction *action,
 }
 
 static void
-action_location_trash_callback (GtkAction *action,
+action_location_trash_callback (G_GNUC_UNUSED GtkAction *action,
 				gpointer   callback_data)
 {
 	NemoView *view;
@@ -8904,7 +8925,7 @@ action_location_trash_callback (GtkAction *action,
 }
 
 static void
-action_location_delete_callback (GtkAction *action,
+action_location_delete_callback (G_GNUC_UNUSED GtkAction *action,
 				 gpointer   callback_data)
 {
 	NemoView *view;
@@ -8927,7 +8948,7 @@ action_location_delete_callback (GtkAction *action,
 }
 
 static void
-action_location_restore_from_trash_callback (GtkAction *action,
+action_location_restore_from_trash_callback (G_GNUC_UNUSED GtkAction *action,
 					     gpointer callback_data)
 {
 	NemoView *view;
@@ -8970,9 +8991,9 @@ nemo_view_init_show_hidden_files (NemoView *view)
 }
 
 static const GtkActionEntry directory_view_entries[] = {
-  /* name, stock id, label */  { "New Documents", "document-new-symbolic", N_("Create new _document") },
+  /* name, stock id, label */  { "New Documents", "document-new-symbolic", N_("Create new _document"), NULL, NULL, NULL },
   /* name, stock id, label */  { "Open With", NULL, N_("Open wit_h"),
-				 NULL, N_("Choose a program with which to open the selected item") },
+				 NULL, N_("Choose a program with which to open the selected item"), NULL },
   /* name, stock id */         { "Properties", "document-properties-symbolic",
 #ifdef G_OS_WIN32
   /* label, accelerator */       N_("_Windows properties (Alt+Enter)"), "<alt>Return",
@@ -8994,7 +9015,7 @@ static const GtkActionEntry directory_view_entries[] = {
   /* label, accelerator */       N_("Create new _folder"), "<Primary><shift>N",
   /* tooltip */                  N_("Create a new empty folder inside this folder"),
 				 G_CALLBACK (action_new_folder_callback) },
-  /* name, stock id, label */  { "No Templates", NULL, N_("No templates installed") },
+  /* name, stock id, label */  { "No Templates", NULL, N_("No templates installed"), NULL, NULL, NULL },
   /* name, stock id */         { "New Empty Document", NULL,
     /* translators: this is used to indicate that a document doesn't contain anything */
   /* label, accelerator */       N_("_Empty document"), NULL,
@@ -9114,9 +9135,9 @@ static const GtkActionEntry directory_view_entries[] = {
   /* label, accelerator */       N_("_Paste into folder"), "",
   /* tooltip */                  N_("Move or copy files previously selected by a Cut or Copy command into the selected folder"),
 				 G_CALLBACK (action_paste_files_into_callback) },
-  /* name, stock id, label */  { NEMO_ACTION_EXTRACT_MENU, "package-x-generic", N_("E_xtract") },
-  /* name, stock id, label */  { "CopyToMenu", NULL, N_("Cop_y to") },
-  /* name, stock id, label */  { "MoveToMenu", NULL, N_("M_ove to") },
+  /* name, stock id, label */  { NEMO_ACTION_EXTRACT_MENU, "package-x-generic", N_("E_xtract"), NULL, NULL, NULL },
+  /* name, stock id, label */  { "CopyToMenu", NULL, N_("Cop_y to"), NULL, NULL, NULL },
+  /* name, stock id, label */  { "MoveToMenu", NULL, N_("M_ove to"), NULL, NULL, NULL },
   /* name, stock id */         { "Select All", NULL,
   /* label, accelerator */       N_("Select _all"), "<Primary>A",
   /* tooltip */                  N_("Select all items in this window"),
@@ -9392,10 +9413,10 @@ static const GtkActionEntry directory_view_entries[] = {
 };
 
 static void
-connect_proxy (NemoView *view,
+connect_proxy (G_GNUC_UNUSED NemoView *view,
                GtkAction *action,
                GtkWidget *proxy,
-               GtkActionGroup *action_group)
+               G_GNUC_UNUSED GtkActionGroup *action_group)
 {
     if (strcmp (gtk_action_get_name (action), NEMO_ACTION_NEW_EMPTY_DOCUMENT) == 0 &&
         GTK_IS_IMAGE_MENU_ITEM (proxy)) {
@@ -9410,8 +9431,8 @@ connect_proxy (NemoView *view,
 
 static void
 pre_activate (NemoView *view,
-	      GtkAction *action,
-	      GtkActionGroup *action_group)
+	      G_GNUC_UNUSED GtkAction *action,
+	      G_GNUC_UNUSED GtkActionGroup *action_group)
 {
 	GdkEvent *event;
 	GtkWidget *proxy;
@@ -9529,7 +9550,7 @@ can_paste_into_file (NemoFile *file)
 }
 
 static void
-clipboard_targets_received (GtkClipboard     *clipboard,
+clipboard_targets_received (G_GNUC_UNUSED GtkClipboard     *clipboard,
                             GdkAtom          *targets,
                             int               n_targets,
 			    gpointer          user_data)
@@ -10466,7 +10487,7 @@ real_update_location_menu (NemoView *view)
 }
 
 static void
-clipboard_changed_callback (NemoClipboardMonitor *monitor, NemoView *view)
+clipboard_changed_callback (G_GNUC_UNUSED NemoClipboardMonitor *monitor, NemoView *view)
 {
 	GList *selection;
 	gint selection_count;
@@ -10516,7 +10537,7 @@ update_configurable_context_menu_items (NemoView *view)
     GtkUIManager *ui_manager;
     GtkWidget *item;
     GtkAction *action;
-    gint i;
+    guint i;
 
     ui_manager = nemo_window_get_ui_manager (view->details->window);
 
@@ -11465,7 +11486,7 @@ nemo_view_notify_selection_changed (NemoView *view)
 }
 
 static void
-file_changed_callback (NemoFile *file, gpointer callback_data)
+file_changed_callback (G_GNUC_UNUSED NemoFile *file, gpointer callback_data)
 {
 	NemoView *view = NEMO_VIEW (callback_data);
 
@@ -11660,7 +11681,7 @@ metadata_for_directory_as_file_ready_callback (NemoFile *file,
 
 static void
 metadata_for_files_in_directory_ready_callback (NemoDirectory *directory,
-				   		GList *files,
+				   		G_GNUC_UNUSED GList *files,
 			           		gpointer callback_data)
 {
 	NemoView *view;
@@ -11958,8 +11979,8 @@ nemo_view_move_copy_items (NemoView *view,
 }
 
 static void
-nemo_view_trash_state_changed_callback (NemoTrashMonitor *trash_monitor,
-					    gboolean state, gpointer callback_data)
+nemo_view_trash_state_changed_callback (G_GNUC_UNUSED NemoTrashMonitor *trash_monitor,
+					    G_GNUC_UNUSED gboolean state, gpointer callback_data)
 {
 	NemoView *view;
 
@@ -11999,7 +12020,7 @@ nemo_view_get_active (NemoView *view)
 }
 
 static GArray *
-real_get_selected_icon_locations (NemoView *view)
+real_get_selected_icon_locations (G_GNUC_UNUSED NemoView *view)
 {
         /* By default, just return an empty list. */
         return g_array_new (FALSE, TRUE, sizeof (GdkPoint));

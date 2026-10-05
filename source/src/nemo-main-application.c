@@ -160,7 +160,7 @@ publish_instance (NemoMainApplication *self)
  * written here instead, into the user's own service directory, and only when it
  * does not already describe this copy. */
 static void
-refresh_dbus_service_file (NemoMainApplication *self)
+refresh_dbus_service_file (G_GNUC_UNUSED NemoMainApplication *self)
 {
 #ifndef G_OS_WIN32
 	char *exe;
@@ -416,7 +416,7 @@ static NemoWindow *splash_watch_window;
 static gint64      splash_view_seen;
 
 static gboolean
-drop_splash_idle (gpointer data)
+drop_splash_idle (G_GNUC_UNUSED gpointer data)
 {
 	nemo_splash_hide ();
 	return G_SOURCE_REMOVE;
@@ -438,7 +438,7 @@ splash_watch_stop (void)
  * already have been painted, and a splash that outlives the load by a frame
  * that never comes is worse than one checked ten times a second. */
 static gboolean
-splash_watch_cb (gpointer data)
+splash_watch_cb (G_GNUC_UNUSED gpointer data)
 {
 	NemoWindowSlot *slot;
 	NemoView       *view;
@@ -484,7 +484,7 @@ splash_watch_cb (gpointer data)
 }
 
 static gboolean
-splash_deadline_cb (gpointer data)
+splash_deadline_cb (G_GNUC_UNUSED gpointer data)
 {
 	splash_watch_stop ();
 	nemo_splash_hide ();
@@ -549,9 +549,9 @@ nemo_main_application_create_window (NemoApplication *application,
 }
 
 static void
-mount_added_callback (GVolumeMonitor *monitor,
+mount_added_callback (G_GNUC_UNUSED GVolumeMonitor *monitor,
 		      GMount *mount,
-		      NemoMainApplication *application)
+		      G_GNUC_UNUSED NemoMainApplication *application)
 {
 	NemoDirectory *directory;
 	GFile *root;
@@ -577,7 +577,7 @@ mount_added_callback (GVolumeMonitor *monitor,
  * info.
  */
 static void
-mount_removed_callback (GVolumeMonitor *monitor,
+mount_removed_callback (G_GNUC_UNUSED GVolumeMonitor *monitor,
 			GMount *mount,
 			NemoMainApplication *application)
 {
@@ -731,7 +731,7 @@ open_tabs (NemoMainApplication *application,
     g_debug ("Opening new tab at uri %s\n", uri);
     nemo_window_go_to (window, locations[0]);
     g_free (uri);
-    for (int i = 1; i < n_files; i++) {
+    for (guint i = 1; i < n_files; i++) {
         /* open tabs in reverse order because each
          * tab is opened before the previous one */
         guint tab = n_files-i;
@@ -800,7 +800,7 @@ open_moved_tab (NemoMainApplication *self,
                 GFile               *location,
                 GdkScreen           *screen)
 {
-	NemoTabState state = { NULL };
+	NemoTabState state = { 0 };
 	NemoWindow *window;
 
 	state.uri = g_file_get_uri (location);
@@ -834,7 +834,7 @@ static void
 nemo_main_application_open (GApplication *app,
                             GFile       **files,
                             gint          n_files,
-                            const gchar  *hint)
+                            G_GNUC_UNUSED const gchar  *hint)
 {
 	NemoMainApplication *self = NEMO_MAIN_APPLICATION (app);
 
@@ -888,7 +888,7 @@ nemo_main_application_finalize (GObject *object)
 static gboolean
 do_cmdline_sanity_checks (NemoMainApplication *self,
 			  gboolean perform_self_check,
-			  gboolean version,
+			  G_GNUC_UNUSED gboolean version,
 			  gboolean kill_shell,
 			  gboolean open_in_tabs,
 			  gchar **remaining)
@@ -1001,7 +1001,7 @@ nemo_main_application_local_command_line (GApplication *application,
 		  N_("Quit Nemo."), NULL },
 		{ G_OPTION_REMAINING, 0, 0, G_OPTION_ARG_STRING_ARRAY, &remaining, NULL,  N_("[URI...]") },
 
-		{ NULL }
+		{ 0 }
 	};
 	GOptionContext *context;
 	GError *error = NULL;
@@ -1216,7 +1216,7 @@ nemo_main_application_local_command_line (GApplication *application,
 }
 
 static void
-menu_state_changed_callback (NemoMainApplication *self)
+menu_state_changed_callback (G_GNUC_UNUSED NemoMainApplication *self)
 {
     if (!nemo_config_get_boolean (nemo_window_state, NEMO_WINDOW_STATE_START_WITH_MENU_BAR) &&
         !nemo_config_get_boolean (nemo_preferences, NEMO_PREFERENCES_DISABLE_MENU_WARNING)) {
@@ -1296,7 +1296,7 @@ nemo_main_application_continue_startup (NemoApplication *app)
 }
 
 static void
-nemo_desktop_application_continue_quit (NemoApplication *app)
+nemo_desktop_application_continue_quit (G_GNUC_UNUSED NemoApplication *app)
 {
 }
 

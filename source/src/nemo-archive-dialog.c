@@ -378,7 +378,7 @@ recenter_dialog (gpointer data)
    it was toggled. Waiting for it rather than reading the window back is the
    point: gtk_window_get_size still answers with the old one at that stage. */
 static void
-dialog_size_allocated (GtkWidget     *widget,
+dialog_size_allocated (G_GNUC_UNUSED GtkWidget     *widget,
 		       GdkRectangle  *allocation,
 		       ArchiveDialog *self)
 {
@@ -401,7 +401,7 @@ dialog_size_allocated (GtkWidget     *widget,
    the dialog down the screen and can push its buttons off the bottom. */
 static void
 expander_toggled (GObject       *expander,
-		  GParamSpec    *pspec,
+		  G_GNUC_UNUSED GParamSpec    *pspec,
 		  ArchiveDialog *self)
 {
 	int deco_width, deco_height;

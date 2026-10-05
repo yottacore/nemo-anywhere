@@ -1538,72 +1538,72 @@ update_places (NemoPlacesSidebar *sidebar)
 }
 
 static void
-mount_added_callback (GVolumeMonitor *volume_monitor,
-		      GMount *mount,
+mount_added_callback (G_GNUC_UNUSED GVolumeMonitor *volume_monitor,
+		      G_GNUC_UNUSED GMount *mount,
 		      NemoPlacesSidebar *sidebar)
 {
 	update_places_on_idle (sidebar);
 }
 
 static void
-mount_removed_callback (GVolumeMonitor *volume_monitor,
-			GMount *mount,
+mount_removed_callback (G_GNUC_UNUSED GVolumeMonitor *volume_monitor,
+			G_GNUC_UNUSED GMount *mount,
 			NemoPlacesSidebar *sidebar)
 {
 	update_places_on_idle (sidebar);
 }
 
 static void
-mount_changed_callback (GVolumeMonitor *volume_monitor,
-			GMount *mount,
+mount_changed_callback (G_GNUC_UNUSED GVolumeMonitor *volume_monitor,
+			G_GNUC_UNUSED GMount *mount,
 			NemoPlacesSidebar *sidebar)
 {
 	update_places_on_idle (sidebar);
 }
 
 static void
-volume_added_callback (GVolumeMonitor *volume_monitor,
-		       GVolume *volume,
+volume_added_callback (G_GNUC_UNUSED GVolumeMonitor *volume_monitor,
+		       G_GNUC_UNUSED GVolume *volume,
 		       NemoPlacesSidebar *sidebar)
 {
 	update_places_on_idle (sidebar);
 }
 
 static void
-volume_removed_callback (GVolumeMonitor *volume_monitor,
-			 GVolume *volume,
+volume_removed_callback (G_GNUC_UNUSED GVolumeMonitor *volume_monitor,
+			 G_GNUC_UNUSED GVolume *volume,
 			 NemoPlacesSidebar *sidebar)
 {
 	update_places_on_idle (sidebar);
 }
 
 static void
-volume_changed_callback (GVolumeMonitor *volume_monitor,
-			 GVolume *volume,
+volume_changed_callback (G_GNUC_UNUSED GVolumeMonitor *volume_monitor,
+			 G_GNUC_UNUSED GVolume *volume,
 			 NemoPlacesSidebar *sidebar)
 {
 	update_places_on_idle (sidebar);
 }
 
 static void
-drive_disconnected_callback (GVolumeMonitor *volume_monitor,
-			     GDrive         *drive,
+drive_disconnected_callback (G_GNUC_UNUSED GVolumeMonitor *volume_monitor,
+			     G_GNUC_UNUSED GDrive         *drive,
 			     NemoPlacesSidebar *sidebar)
 {
 	update_places_on_idle (sidebar);
 }
 
 static void
-drive_connected_callback (GVolumeMonitor *volume_monitor,
-			  GDrive         *drive,
+drive_connected_callback (G_GNUC_UNUSED GVolumeMonitor *volume_monitor,
+			  G_GNUC_UNUSED GDrive         *drive,
 			  NemoPlacesSidebar *sidebar)
 {
 	update_places_on_idle (sidebar);
 }
 
 static void
-drive_changed_callback (GVolumeMonitor *volume_monitor,
-			GDrive         *drive,
+drive_changed_callback (G_GNUC_UNUSED GVolumeMonitor *volume_monitor,
+			G_GNUC_UNUSED GDrive         *drive,
 			NemoPlacesSidebar *sidebar)
 {
 	update_places_on_idle (sidebar);
@@ -1688,7 +1688,7 @@ desktop_setting_changed_callback (gpointer user_data)
 }
 
 static void
-loading_uri_callback (NemoWindow *window,
+loading_uri_callback (G_GNUC_UNUSED NemoWindow *window,
                             char *location,
                NemoPlacesSidebar *sidebar)
 {
@@ -2096,8 +2096,8 @@ drag_motion_callback (GtkTreeView *tree_view,
 
 static void
 drag_leave_callback (GtkTreeView *tree_view,
-		     GdkDragContext *context,
-		     unsigned int time,
+		     G_GNUC_UNUSED GdkDragContext *context,
+		     G_GNUC_UNUSED unsigned int time,
 		     NemoPlacesSidebar *sidebar)
 {
 	free_drag_data (sidebar);
@@ -2432,8 +2432,8 @@ out:
 static gboolean
 drag_drop_callback (GtkTreeView *tree_view,
 		    GdkDragContext *context,
-		    int x,
-		    int y,
+		    G_GNUC_UNUSED int x,
+		    G_GNUC_UNUSED int y,
 		    unsigned int time,
 		    NemoPlacesSidebar *sidebar)
 {
@@ -2648,7 +2648,7 @@ update_menu_states (NemoPlacesSidebar *sidebar)
 
 /* Callback used when the selection in the shortcuts tree changes */
 static void
-bookmarks_selection_changed_cb (GtkTreeSelection      *selection,
+bookmarks_selection_changed_cb (G_GNUC_UNUSED GtkTreeSelection      *selection,
 				NemoPlacesSidebar *sidebar)
 {
     update_menu_states (sidebar);
@@ -2656,7 +2656,7 @@ bookmarks_selection_changed_cb (GtkTreeSelection      *selection,
 
 static void
 volume_mounted_cb (GVolume *volume,
-		   gboolean success,
+		   G_GNUC_UNUSED gboolean success,
 		   GObject *user_data)
 {
 	GMount *mount;
@@ -2696,7 +2696,7 @@ volume_mounted_cb (GVolume *volume,
 static void
 drive_start_from_bookmark_cb (GObject      *source_object,
 			      GAsyncResult *res,
-			      gpointer      user_data)
+			      G_GNUC_UNUSED gpointer      user_data)
 {
 	GError *error;
 	char *primary;
@@ -2839,21 +2839,21 @@ open_shortcut_from_menu (NemoPlacesSidebar *sidebar,
 }
 
 static void
-open_shortcut_cb (GtkAction		*item,
+open_shortcut_cb (G_GNUC_UNUSED GtkAction		*item,
 		  NemoPlacesSidebar	*sidebar)
 {
 	open_shortcut_from_menu (sidebar, 0);
 }
 
 static void
-open_shortcut_in_new_window_cb (GtkAction	      *item,
+open_shortcut_in_new_window_cb (G_GNUC_UNUSED GtkAction	      *item,
 				NemoPlacesSidebar *sidebar)
 {
 	open_shortcut_from_menu (sidebar, NEMO_WINDOW_OPEN_FLAG_NEW_WINDOW);
 }
 
 static void
-open_shortcut_in_new_tab_cb (GtkAction	      *item,
+open_shortcut_in_new_tab_cb (G_GNUC_UNUSED GtkAction	      *item,
 				NemoPlacesSidebar *sidebar)
 {
 	open_shortcut_from_menu (sidebar, NEMO_WINDOW_OPEN_FLAG_NEW_TAB);
@@ -2892,7 +2892,7 @@ add_bookmark (NemoPlacesSidebar *sidebar)
 }
 
 static void
-add_shortcut_cb (GtkAction           *item,
+add_shortcut_cb (G_GNUC_UNUSED GtkAction           *item,
 		 NemoPlacesSidebar *sidebar)
 {
 	add_bookmark (sidebar);
@@ -2926,7 +2926,7 @@ rename_selected_bookmark (NemoPlacesSidebar *sidebar)
 }
 
 static void
-rename_shortcut_cb (GtkAction           *item,
+rename_shortcut_cb (G_GNUC_UNUSED GtkAction           *item,
 		    NemoPlacesSidebar *sidebar)
 {
 	rename_selected_bookmark (sidebar);
@@ -2963,14 +2963,14 @@ remove_selected_bookmarks (NemoPlacesSidebar *sidebar)
 }
 
 static void
-remove_shortcut_cb (GtkAction           *item,
+remove_shortcut_cb (G_GNUC_UNUSED GtkAction           *item,
 		    NemoPlacesSidebar *sidebar)
 {
 	remove_selected_bookmarks (sidebar);
 }
 
 static void
-mount_shortcut_cb (GtkAction           *item,
+mount_shortcut_cb (G_GNUC_UNUSED GtkAction           *item,
 		   NemoPlacesSidebar *sidebar)
 {
 	GtkTreeIter iter;
@@ -3000,11 +3000,11 @@ unmount_done (gpointer data)
 }
 
 static void
-show_unmount_progress_cb (GMountOperation *op,
+show_unmount_progress_cb (G_GNUC_UNUSED GMountOperation *op,
                               const gchar *message,
-                                    gint64 time_left,
+                                    G_GNUC_UNUSED gint64 time_left,
                                     gint64 bytes_left,
-                                  gpointer user_data)
+                                  G_GNUC_UNUSED gpointer user_data)
 {
     NemoApplication *app = NEMO_APPLICATION (g_application_get_default ());
 
@@ -3016,8 +3016,8 @@ show_unmount_progress_cb (GMountOperation *op,
 }
 
 static void
-show_unmount_progress_aborted_cb (GMountOperation *op,
-                                  gpointer user_data)
+show_unmount_progress_aborted_cb (G_GNUC_UNUSED GMountOperation *op,
+                                  G_GNUC_UNUSED gpointer user_data)
 {
     NemoApplication *app = NEMO_APPLICATION (g_application_get_default ());
     nemo_application_notify_unmount_done (app, NULL);
@@ -3073,7 +3073,7 @@ do_unmount_selection (NemoPlacesSidebar *sidebar)
 }
 
 static void
-unmount_shortcut_cb (GtkAction           *item,
+unmount_shortcut_cb (G_GNUC_UNUSED GtkAction           *item,
 		     NemoPlacesSidebar *sidebar)
 {
 	do_unmount_selection (sidebar);
@@ -3198,7 +3198,7 @@ do_eject (GMount *mount,
 }
 
 static void
-eject_shortcut_cb (GtkAction           *item,
+eject_shortcut_cb (G_GNUC_UNUSED GtkAction           *item,
 		   NemoPlacesSidebar *sidebar)
 {
 	GtkTreeIter iter;
@@ -3295,7 +3295,7 @@ eject_or_unmount_selection (NemoPlacesSidebar *sidebar)
 static void
 drive_poll_for_media_cb (GObject *source_object,
 			 GAsyncResult *res,
-			 gpointer user_data)
+			 G_GNUC_UNUSED gpointer user_data)
 {
 	GError *error;
 
@@ -3315,7 +3315,7 @@ drive_poll_for_media_cb (GObject *source_object,
 }
 
 static void
-rescan_shortcut_cb (GtkAction           *item,
+rescan_shortcut_cb (G_GNUC_UNUSED GtkAction           *item,
 		    NemoPlacesSidebar *sidebar)
 {
 	GtkTreeIter iter;
@@ -3338,7 +3338,7 @@ rescan_shortcut_cb (GtkAction           *item,
 static void
 drive_start_cb (GObject      *source_object,
 		GAsyncResult *res,
-		gpointer      user_data)
+		G_GNUC_UNUSED gpointer      user_data)
 {
 	GError *error;
 
@@ -3359,7 +3359,7 @@ drive_start_cb (GObject      *source_object,
 }
 
 static void
-start_shortcut_cb (GtkAction           *item,
+start_shortcut_cb (G_GNUC_UNUSED GtkAction           *item,
 		   NemoPlacesSidebar *sidebar)
 {
 	GtkTreeIter iter;
@@ -3413,7 +3413,7 @@ drive_stop_cb (GObject *source_object,
 }
 
 static void
-stop_shortcut_cb (GtkAction           *item,
+stop_shortcut_cb (G_GNUC_UNUSED GtkAction           *item,
 		  NemoPlacesSidebar *sidebar)
 {
 	GtkTreeIter iter;
@@ -3437,7 +3437,7 @@ stop_shortcut_cb (GtkAction           *item,
 }
 
 static void
-empty_trash_cb (GtkAction           *item,
+empty_trash_cb (G_GNUC_UNUSED GtkAction           *item,
 		NemoPlacesSidebar *sidebar)
 {
 	nemo_file_operations_empty_trash_by_user (GTK_WIDGET (sidebar->window));
@@ -3487,7 +3487,7 @@ find_next_row (NemoPlacesSidebar *sidebar, GtkTreeIter *iter)
 }
 
 static void
-properties_cb (GtkAction           *item,
+properties_cb (G_GNUC_UNUSED GtkAction           *item,
 	       NemoPlacesSidebar *sidebar)
 {
 	GtkTreeModel *model;
@@ -3523,7 +3523,7 @@ properties_cb (GtkAction           *item,
 
 /* Handler for GtkWidget::key-press-event on the shortcuts list */
 static gboolean
-bookmarks_key_press_event_cb (GtkWidget             *widget,
+bookmarks_key_press_event_cb (G_GNUC_UNUSED GtkWidget             *widget,
 			      GdkEventKey           *event,
 			      NemoPlacesSidebar *sidebar)
 {
@@ -3646,7 +3646,7 @@ moved_to_rect_cb (GdkWindow          *window,
 
 static void
 popup_menu_realized (GtkWidget    *menu,
-                     gpointer      user_data)
+                     G_GNUC_UNUSED gpointer      user_data)
 {
     GdkWindow *toplevel;
 
@@ -3671,7 +3671,7 @@ bookmarks_popup_menu (NemoPlacesSidebar *sidebar,
 
 /* Callback used for the GtkWidget::popup-menu signal of the shortcuts list */
 static gboolean
-bookmarks_popup_menu_cb (GtkWidget *widget,
+bookmarks_popup_menu_cb (G_GNUC_UNUSED GtkWidget *widget,
 			 NemoPlacesSidebar *sidebar)
 {
 	bookmarks_popup_menu (sidebar, NULL);
@@ -3962,7 +3962,7 @@ clear_eject_hover (GtkTreeModel *model,
 }
 
 static gboolean
-motion_notify_cb (GtkWidget         *widget,
+motion_notify_cb (G_GNUC_UNUSED GtkWidget         *widget,
                   GdkEventMotion    *event,
                   NemoPlacesSidebar *sidebar)
 {
@@ -3999,7 +3999,7 @@ motion_notify_cb (GtkWidget         *widget,
 }
 
 static gboolean
-leave_notify_cb (GtkWidget         *widget,
+leave_notify_cb (G_GNUC_UNUSED GtkWidget         *widget,
                  GdkEventCrossing  *event,
                  NemoPlacesSidebar *sidebar)
 {
@@ -4027,7 +4027,7 @@ query_tooltip_callback (GtkWidget *widget,
                         gint y,
                         gboolean kb_mode,
                         GtkTooltip *tooltip,
-                        gpointer user_data)
+                        G_GNUC_UNUSED gpointer user_data)
 {
     GtkTreeIter iter;
     GtkTreePath *path = NULL;
@@ -4160,7 +4160,7 @@ row_expanded_cb (GtkTreeView *tree_view,
 static void
 row_activated_cb (GtkTreeView       *tree_view,
                   GtkTreePath       *path,
-                  GtkTreeViewColumn *column,
+                  G_GNUC_UNUSED GtkTreeViewColumn *column,
                   gpointer           user_data)
 {
     GtkTreeIter iter;
@@ -4225,8 +4225,8 @@ bookmarks_editing_canceled (GtkCellRenderer       *cell,
 }
 
 static void
-trash_state_changed_cb (NemoTrashMonitor *trash_monitor,
-			gboolean             state,
+trash_state_changed_cb (G_GNUC_UNUSED NemoTrashMonitor *trash_monitor,
+			G_GNUC_UNUSED gboolean             state,
 			gpointer             data)
 {
 	NemoPlacesSidebar *sidebar;
@@ -4248,11 +4248,11 @@ favorites_changed_cb (gpointer data)
 }
 
 static gboolean
-tree_selection_func (GtkTreeSelection *selection,
+tree_selection_func (G_GNUC_UNUSED GtkTreeSelection *selection,
 		     GtkTreeModel *model,
 		     GtkTreePath *path,
-		     gboolean path_currently_selected,
-		     gpointer user_data)
+		     G_GNUC_UNUSED gboolean path_currently_selected,
+		     G_GNUC_UNUSED gpointer user_data)
 {
 	GtkTreeIter iter;
 	PlaceType row_type;
@@ -4270,11 +4270,11 @@ tree_selection_func (GtkTreeSelection *selection,
 }
 
 static void
-icon_cell_renderer_func (GtkTreeViewColumn *column,
+icon_cell_renderer_func (G_GNUC_UNUSED GtkTreeViewColumn *column,
 			 GtkCellRenderer *cell,
 			 GtkTreeModel *model,
 			 GtkTreeIter *iter,
-			 gpointer user_data)
+			 G_GNUC_UNUSED gpointer user_data)
 {
 	PlaceType type;
 
@@ -4296,11 +4296,11 @@ icon_cell_renderer_func (GtkTreeViewColumn *column,
 }
 
 static void
-padding_cell_renderer_func (GtkTreeViewColumn *column,
+padding_cell_renderer_func (G_GNUC_UNUSED GtkTreeViewColumn *column,
 			    GtkCellRenderer *cell,
 			    GtkTreeModel *model,
 			    GtkTreeIter *iter,
-			    gpointer user_data)
+			    G_GNUC_UNUSED gpointer user_data)
 {
 	PlaceType type;
 
@@ -4323,11 +4323,11 @@ padding_cell_renderer_func (GtkTreeViewColumn *column,
 }
 
 static void
-heading_cell_renderer_func (GtkTreeViewColumn *column,
+heading_cell_renderer_func (G_GNUC_UNUSED GtkTreeViewColumn *column,
 			    GtkCellRenderer *cell,
 			    GtkTreeModel *model,
 			    GtkTreeIter *iter,
-			    gpointer user_data)
+			    G_GNUC_UNUSED gpointer user_data)
 {
 	PlaceType type;
 
@@ -4861,7 +4861,7 @@ nemo_places_sidebar_set_parent_window (NemoPlacesSidebar *sidebar,
 
 static void
 nemo_places_sidebar_style_set (GtkWidget *widget,
-				   GtkStyle  *previous_style)
+				   G_GNUC_UNUSED GtkStyle  *previous_style)
 {
 	NemoPlacesSidebar *sidebar;
 
@@ -4910,7 +4910,7 @@ nemo_shortcuts_model_row_draggable (GtkTreeDragSource *drag_source,
 }
 
 static void
-_nemo_shortcuts_model_class_init (NemoShortcutsModelClass *klass)
+_nemo_shortcuts_model_class_init (G_GNUC_UNUSED NemoShortcutsModelClass *klass)
 {
 
 }

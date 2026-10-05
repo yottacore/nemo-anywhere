@@ -263,7 +263,7 @@ static const char *supported_theme_hints[] = {
 static gboolean
 is_known_supported_theme (const gchar *theme_name)
 {
-    gint i;
+    guint i;
     gchar *name;
     gboolean ret;
 
@@ -342,7 +342,7 @@ init_icons_and_styles (void)
 }
 
 static gboolean
-save_accel_map (gpointer data)
+save_accel_map (G_GNUC_UNUSED gpointer data)
 {
     if (save_of_accel_map_requested) {
         char *accel_map_filename = nemo_get_accel_map_file ();
@@ -356,9 +356,9 @@ save_accel_map (gpointer data)
 }
 
 static void 
-queue_accel_map_save_callback (GtkAccelMap *object, gchar *accel_path,
-        guint accel_key, GdkModifierType accel_mods,
-        gpointer user_data)
+queue_accel_map_save_callback (G_GNUC_UNUSED GtkAccelMap *object, G_GNUC_UNUSED gchar *accel_path,
+        G_GNUC_UNUSED guint accel_key, G_GNUC_UNUSED GdkModifierType accel_mods,
+        G_GNUC_UNUSED gpointer user_data)
 {
     if (!save_of_accel_map_requested) {
         save_of_accel_map_requested = TRUE;
@@ -392,7 +392,7 @@ init_gtk_accels (void)
 }
 
 static void
-menu_provider_items_updated_handler (NemoMenuProvider *provider, GtkWidget* parent_window, gpointer data)
+menu_provider_items_updated_handler (G_GNUC_UNUSED NemoMenuProvider *provider, G_GNUC_UNUSED GtkWidget* parent_window, G_GNUC_UNUSED gpointer data)
 {
 
     g_signal_emit_by_name (nemo_signaller_get_current (),
@@ -578,6 +578,12 @@ nemo_application_init (NemoApplication *application)
 	g_object_unref (action);
 }
 
+static void
+destroy_window (gpointer window, G_GNUC_UNUSED gpointer user_data)
+{
+	gtk_widget_destroy (window);
+}
+
 void
 nemo_application_quit (NemoApplication *self)
 {
@@ -592,7 +598,7 @@ nemo_application_quit (NemoApplication *self)
 	GList *windows;
 
 	windows = gtk_application_get_windows (GTK_APPLICATION (app));
-	g_list_foreach (windows, (GFunc) gtk_widget_destroy, NULL);
+	g_list_foreach (windows, destroy_window, NULL);
 
     /* we have been asked to force quit */
     g_application_quit (G_APPLICATION (self));

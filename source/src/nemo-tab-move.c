@@ -204,14 +204,14 @@ uri_has_scheme (const char *uri)
 }
 
 static void
-tabs_method_call (GDBusConnection       *connection,
-                  const char            *sender,
-                  const char            *object_path,
-                  const char            *interface_name,
+tabs_method_call (G_GNUC_UNUSED GDBusConnection       *connection,
+                  G_GNUC_UNUSED const char            *sender,
+                  G_GNUC_UNUSED const char            *object_path,
+                  G_GNUC_UNUSED const char            *interface_name,
                   const char            *method_name,
                   GVariant              *parameters,
                   GDBusMethodInvocation *invocation,
-                  gpointer               user_data)
+                  G_GNUC_UNUSED gpointer               user_data)
 {
 	if (g_strcmp0 (method_name, "ListWindows") == 0) {
 		GVariantBuilder windows;
@@ -236,7 +236,7 @@ tabs_method_call (GDBusConnection       *connection,
 	}
 
 	if (g_strcmp0 (method_name, "TakeTab") == 0) {
-		NemoTabState state = { NULL };
+		NemoTabState state = { 0 };
 		NemoWindow *window;
 		guint32 id, event_time;
 
@@ -460,7 +460,7 @@ move_to_new_window (NemoWindowSlot *slot,
 
 static void
 menu_move_to_window_cb (GtkMenuItem *item,
-                        gpointer     user_data)
+                        G_GNUC_UNUSED gpointer     user_data)
 {
 	NemoWindowSlot *slot = g_object_get_data (G_OBJECT (item), "slot");
 	Target *target = g_object_get_data (G_OBJECT (item), "target");
@@ -470,7 +470,7 @@ menu_move_to_window_cb (GtkMenuItem *item,
 
 static void
 menu_move_to_new_window_cb (GtkMenuItem *item,
-                            gpointer     user_data)
+                            G_GNUC_UNUSED gpointer     user_data)
 {
 	NemoWindowSlot *slot = g_object_get_data (G_OBJECT (item), "slot");
 
