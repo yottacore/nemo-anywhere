@@ -74,6 +74,16 @@ if grep -q 'shields.io/badge/Release-' README.md; then
 	grep -q "Release-${badge_ver}-" README.md || die "README release badge does not say ${ver} - update it on dev before the release merge"
 fi
 
+## gh makes the release as whoever it is signed in as, which on a box with more
+## than one account may not be the one the project publishes under. Checked
+## before the tag, so a refusal leaves nothing to undo.
+if ((do_publish)) && [[ -n "${RELEASE_GH_LOGIN:-}" ]]; then
+	command -v gh >/dev/null 2>&1 || die "gh CLI not found"
+	gh_login="$(gh api user --jq .login 2>/dev/null || true)"
+	[[ "$gh_login" == "$RELEASE_GH_LOGIN" ]] \
+		|| die "gh is signed in as '${gh_login:-nobody}', not ${RELEASE_GH_LOGIN}; switch first (gh auth switch -u ${RELEASE_GH_LOGIN}, or GH_TOKEN for this run) and rerun"
+fi
+
 ## 2. Release artifacts must exist and carry this version (full cicd run makes them).
 ## Gated on a configured RELEASE_ARTIFACT_DIR; without one a release is tag and
 ## push only. The Windows exe is not among them: the hosted workflow builds it on
