@@ -41,7 +41,7 @@ nemo_window_native_handle (GtkWindow *window)
 }
 
 void
-nemo_window_allow_others_to_raise (void)
+nemo_window_allow_to_raise (guint64 handle)
 {
 }
 
