@@ -4701,6 +4701,7 @@ nemo_places_sidebar_dispose (GObject *object)
     }
 
     g_clear_object (&sidebar->action_manager);
+    g_clear_object (&sidebar->ui_manager);
 
     if (sidebar->update_places_on_idle_id != 0) {
         g_source_remove (sidebar->update_places_on_idle_id);

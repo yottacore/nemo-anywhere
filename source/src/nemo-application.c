@@ -712,6 +712,16 @@ nemo_application_window_removed (GtkApplication *app,
 }
 
 static void
+nemo_application_finalize (GObject *object)
+{
+	NemoApplication *self = NEMO_APPLICATION (object);
+
+	g_clear_object (&self->undo_manager);
+
+	G_OBJECT_CLASS (nemo_application_parent_class)->finalize (object);
+}
+
+static void
 nemo_application_class_init (NemoApplicationClass *class)
 {
     GObjectClass *object_class;
@@ -720,6 +730,7 @@ nemo_application_class_init (NemoApplicationClass *class)
 
     object_class = G_OBJECT_CLASS (class);
     object_class->constructor = nemo_application_constructor;
+    object_class->finalize = nemo_application_finalize;
 
     application_class = G_APPLICATION_CLASS (class);
     application_class->startup = nemo_application_startup;

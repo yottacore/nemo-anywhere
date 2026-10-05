@@ -521,8 +521,10 @@ main (int argc, char *argv[])
 	GtkWidget *window;
 	GList *uris = NULL;
 	const char *how;
-	char *home, *tmp, *src_dir, *dst_dir, *dst_uri;
-	char *payload, *folder, *made_file, *made_folder;
+	char *home, *dst_uri;
+	/* Freed on every return, the early ones too. */
+	g_autofree char *tmp = NULL, *src_dir = NULL, *dst_dir = NULL;
+	g_autofree char *payload = NULL, *folder = NULL, *made_file = NULL, *made_folder = NULL;
 	char *text, *want, *contents = NULL;
 	guint supported, timeout_id;
 	gboolean with_file, with_folder, portable_run;
@@ -700,13 +702,6 @@ main (int argc, char *argv[])
 
 	g_list_free_full (uris, g_free);
 	g_free (dst_uri);
-	g_free (made_folder);
-	g_free (made_file);
-	g_free (folder);
-	g_free (payload);
-	g_free (dst_dir);
-	g_free (src_dir);
-	g_free (tmp);
 
 	if (failures > 0) {
 		return EXIT_FAILURE;

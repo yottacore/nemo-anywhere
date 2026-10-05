@@ -220,6 +220,17 @@ child_result_clear (ChildResult *result)
 	g_free (result->stderr_text);
 }
 
+/* Later options win, so this overrides whatever the run set. */
+static char **
+append_option (char **envp, const char *name, const char *options)
+{
+	const char *was = g_environ_getenv (envp, name);
+	g_autofree char *now = g_strconcat (was != NULL ? was : "", was != NULL ? ":" : "",
+					    options, NULL);
+
+	return g_environ_setenv (envp, name, now, TRUE);
+}
+
 static ChildResult
 run_crashing_child (const char *self, const char *config_root, const char *how,
 		    gboolean handler_on)
@@ -235,6 +246,11 @@ run_crashing_child (const char *self, const char *config_root, const char *how,
 	envp = g_environ_setenv (envp, "APPDATA", config_root, TRUE);
 	envp = g_environ_setenv (envp, "HOME", config_root, TRUE);
 	envp = g_environ_setenv (envp, "NEMO_NO_CRASH_DIALOG", "1", TRUE);
+
+	/* In a sanitizer build the faults below are caught before they happen, or
+	   taken by the sanitizer's own handler, so the reporter never sees them. */
+	envp = append_option (envp, "ASAN_OPTIONS", "handle_segv=0:handle_abort=0");
+	envp = append_option (envp, "UBSAN_OPTIONS", "halt_on_error=0");
 
 	if (handler_on) {
 		envp = g_environ_unsetenv (envp, "NEMO_NO_CRASH_HANDLER");

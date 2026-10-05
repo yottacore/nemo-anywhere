@@ -1028,7 +1028,9 @@ nemo_main_application_local_command_line (GApplication *application,
 	g_option_context_add_main_entries (context, options, NULL);
 	g_option_context_add_group (context, gtk_get_option_group (open_display));
 
-	if (!g_option_context_parse (context, &argc, &argv, &error)) {
+	/* The strv form frees what it takes out. The plain one leaves every parsed
+	   option behind, since g_application_run frees only what is left. */
+	if (!g_option_context_parse_strv (context, arguments, &error)) {
 		g_printerr ("Could not parse arguments: %s\n", error->message);
 		g_error_free (error);
 
