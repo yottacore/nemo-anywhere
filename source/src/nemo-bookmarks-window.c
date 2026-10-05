@@ -800,7 +800,7 @@ update_bookmark_from_text (void)
             return;
         }
 
-        if (selected_row > nemo_config_get_int (nemo_window_state, NEMO_PREFERENCES_SIDEBAR_BOOKMARK_BREAKPOINT)) {
+        if (selected_row > nemo_bookmark_list_get_breakpoint (bookmarks)) {
             selected_row--;
         }
 

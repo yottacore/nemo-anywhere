@@ -1135,6 +1135,20 @@ if not is_windows
     timeout: 120
   )
 
+  places_bmhead_probe = shared_module('test-nemo-places-bookmarks-heading-probe',
+    [ 'test-nemo-places-bookmarks-heading-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('rjhemba0 Places bookmarks heading after a settings edit test',
+    executable('test-nemo-places-bookmarks-heading',
+      [ 'test-nemo-places-bookmarks-heading.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, places_bmhead_probe ],
+    timeout: 120
+  )
+
   # Preloaded too; it opens the menus and measures from inside the program.
   menu_key_place_probe = shared_module('test-nemo-menu-key-place-probe',
     [ 'test-nemo-menu-key-place-probe.c' ],
