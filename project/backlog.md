@@ -203,7 +203,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Places saves where its own Bookmarks section starts. An edit without that line puts it back to -1, its "never set" value. The reload handler took -1 as a position, so 0 bookmarks counted as more than the split and the heading showed.
 		- The share audit did not cause it. Its changes to Places and to how a bookmark is checked don't reach the heading.
 	- Actual fix [Bug]: the split is read in one place, which takes -1 as after the last bookmark, as startup already did. Places and the Bookmarks window both read it there.
-	- Swept: the other Places headings. My computer always has Home under it. Devices is added with its first row only. Network is added only when it lists something. The Bookmarks window read the same value raw when saving an edited bookmark, where -1 would have edited the wrong row; it now uses the same reading. That one was not checked on screen.
+	- Swept: the other Places headings. My computer always has Home under it. Devices is added with its first row only. Network is added only when it lists something. The Bookmarks window read the same value raw when saving an edited bookmark, where -1 would have edited the wrong row; it now uses the same reading. That one has no test of its own.
 	- Branch: bmhead
 	- Commit: c1a8698
 	- Test case: rjhemba0, Linux only.
