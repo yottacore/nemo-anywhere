@@ -947,6 +947,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual fix: setting up the store waits out that error as it does a busy file, for up to the same 3 s, on Windows only. The first read through the new journal, which is where a new file opens the -shm file, moved into the setup so it gets the same wait. Every setup failure now logs sqlite's own code and the system error.
 	- Swept: every connection to the store is opened in one place, the prune's own and the test hook's included, and nothing else in the app uses sqlite. Once a connection is set up it has the -shm file locked and never empties it again.
 	- Note: closing the store when the app quits would narrow the window for a normal quit, but not for a crash or a killed copy, and worker threads can still be using it then. Left alone.
+	- Note: reported to SQLite on their forum, 20261005.
 	- Branch: cacheio
 	- Commit: e9ac264, 18be0d2
 	- Test case: rjch1a9a, File cache opened by many at once test. On Windows it now first leaves a view of a new -shm file with no lock behind it, as a quitting copy would, and lets it go after 300 ms; the store has to open. Fails before the fix at once with the disk I/O error, and passes after.
