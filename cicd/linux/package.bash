@@ -13,7 +13,8 @@
 ##	- Syntax:
 ##	  cicd/linux/package.bash [options]
 ##	  Options:
-##	   --from TARBALL   package this tarball (default: newest in the release dir)
+##	   --from TARBALL   package this tarball (default: newest in the release dir
+##	                    built for this box's arch)
 ##	   --no-deb         skip the .deb
 ##	   --no-rpm         skip the .rpm
 
@@ -39,6 +40,8 @@ MAINTAINER="t00mietum <t00mietum@users.noreply.github.com>"
 source "${ROOT}/cicd/utility/include/echo.bash"
 # shellcheck source=../utility/include/source-date.bash
 source "${ROOT}/cicd/utility/include/source-date.bash"
+# shellcheck source=../utility/include/release-files.bash
+source "${ROOT}/cicd/utility/include/release-files.bash"
 
 tarball=""; do_deb=1; do_rpm=1
 while (($#)); do case "$1" in
@@ -52,11 +55,14 @@ esac; done
 
 if [[ -z "$tarball" ]]; then
 	## Newest matching tarball. The glob is guarded so an empty dir says so
-	## rather than passing the literal pattern on to tar.
+	## rather than passing the literal pattern on to tar. Only this box's arch:
+	## the .deb's dependencies are read in the release container here, which
+	## cannot read an arm64 binary's, and the arm64 one is usually the newest.
+	hostArch="$(fReleaseArch "$(uname -m)")" || fDie "no release name for a $(uname -m) box; pass --from"
 	shopt -s nullglob
-	candidates=("${OUT}/${SLUG}"-*-linux-*.tar.gz)
+	candidates=("${OUT}/${SLUG}"-*-linux-"${hostArch}".tar.gz)
 	shopt -u nullglob
-	((${#candidates[@]})) || fDie "no release tarball in cicd/artifacts/release - run cicd/linux/release.bash first"
+	((${#candidates[@]})) || fDie "no linux-${hostArch} release tarball in cicd/artifacts/release - run cicd/linux/release.bash first"
 	tarball="${candidates[0]}"
 	for cand in "${candidates[@]}"; do
 		if [[ "$cand" -nt "$tarball" ]]; then tarball="$cand"; fi
@@ -316,3 +322,5 @@ fEcho_Clean
 ##	History:
 ##		- 2026-08-04: Created. Replaces the cargo-shaped package stage the engine
 ##		  carried over, which never applied to a meson build.
+##		- 2026-10-05: Picks this box's arch by default, now an arm64 tarball can
+##		  sit beside the x86_64 one.
