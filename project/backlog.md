@@ -33,6 +33,43 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Code review 20260928 item 34. Apply the directives' new C section.
+	- ID: 2026092813381434
+	- Type: Enhancement
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. On wextra3 the full Linux suite passed 169 of 169, the sanitizer lane 157 with 12 skipped, and the fuzz lane 10 of 10, all with warnings fatal. On wextra4 the Linux suite passed 169 of 169 again.
+	- Needs external testing: the native Windows suite once all parts are in, through the gate, which now sets up its build with `-Dwerror=true`. MSYS2's gcc may find warnings the cross build does not. The canvas types and the accessible class setup changed, and in part 2 the icon container's accessible interfaces. Part 4 changed only comments, and the gate's lint stage now runs the ownership check under MSYS2's python.
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Parent ID: 2026092813381400
+	- Requirements:
+		- Directive dated 20260919, new since the last round. Not a regression.
+		- Name the C standard in the build. None is named today, so gcc's default applies.
+		- Raise the warning level past `-Wall`. At the next level there are about 1700 warnings, almost all unused parameters and missing field initializers, 139 of them on lines changed in the last 10 days.
+		- One line in each allocating function's header comment on who frees the result.
+	- Progress log:
+		- 20261005-103251: part 1 of 3. The build names c17 and runs at `-Wextra`, with `-Werror` still off. eel, the extension library and the tests now build clean at that level, on Linux and in the Windows cross build. Left for the next parts: `libnemo-private` and `src` (1441 warnings on Linux, 1530 in the cross build), then `-Werror`, then the who-frees lines.
+		- 20261005-110434: part 2 of 3. `libnemo-private` now builds clean at `-Wextra` on Linux and in the Windows cross build. Every row of the settings table names its flags. Function pointer casts became callbacks of the right type. No fallthrough or enum warnings were in this part. Left: `src`, 829 warnings on Linux and 838 in the cross build, then `-Werror`, then the who-frees lines.
+		- 20261005-113707: part 3. `src` builds clean, so the whole tree has no warnings at `-Wextra` with gcc on Linux, in the cross build and in the release image, and with clang. Both fallthroughs in the path bar are meant, and now say so. The 4 enum warnings were a slot flag held in a variable of the wrong flag type; same value, so no change in behavior. clang found 7 more that gcc does not: 3 partial initializers, 2 signed compares, and a test's struct around a flexible array. The sanitizer build found a test whose skip path left its arguments unused. Every pipeline build now treats warnings as errors and reads that back from the build dir. No bug found. Left: the who-frees lines.
+		- 20261005-120248: part 4. Every function a header declares that returns a pointer now says who frees it: 562 definitions across eel, `libnemo-private`, the extension library, `src` and the test helpers, 22 of them Windows-only. Before this, 29 said so in GLib's form and about 20 more in prose. A new lint check holds it for the whole tree. The comment on `nemo_view_get_selection` said to free only the list, but every view refs the files, and its callers free them with `nemo_file_list_free`; the comment now says so. No leak or double free found.
+			- Examined and left alone: `nemo_job_queue_get` hands out a ref on the shared queue that no caller drops, harmless for a queue that lives as long as the process. `nemo_file_queue_dequeue` drops the queue's ref before returning the file, and nothing calls it. `nemo_sort_columns` returns NULL and loses the list when given no order, which no caller does.
+	- Decisions:
+		- 20260928: full `-Wextra` over the whole tree, with every warning fixed. The fork will never track upstream, so churn in inherited files is fine.
+		- 20261005: c17, not gnu17. Nothing in the tree needs a GNU language extension. Strict c17 hides the POSIX and BSD calls glibc gives by default, so the build asks for them back with `_DEFAULT_SOURCE`, in one place. On Windows the only gap was `M_PI`, now `G_PI`.
+		- 20261005: vendored code builds at `-Wall` in its own target (blake3, libegg), so it stays as it came. SHCL is header-only and builds clean at `-Wextra`, so it has no exemption.
+		- 20261005: an unused parameter gets `G_GNUC_UNUSED` in front of its type, the form GLib documents. Existing `(void) x;` lines stay. A test `main` that ignores both arguments is `main (void)`.
+		- 20261005: a build dir set up before this keeps its old std and warning level on reconfigure, so meson stops and asks for `meson setup --wipe` once.
+		- 20261005: the settings table stays positional, with the flags written out at the end of each row, since `lint-pref-handlers.py` reads the rows by position.
+		- 20261005: warnings are errors in every pipeline build and not by default. The gate and debug build, the sanitizer and fuzz lanes, the cross build, the release build and the native Windows gate pass `-Dwerror=true`. A plain `meson setup` and the hosted Windows release build leave it off, since both can meet a compiler newer than any here. The release image's older gcc is clean too, so its build has it on.
+		- 20261005: each of those lanes reads `-Werror` back out of the build dir after setup and stops if it is missing, so a reused dir or a lane that lost the flag cannot quietly build without it.
+		- 20261005: vendored code keeps building at `-Wall`, and its warnings are never fatal. Only an edit to the vendored file could fix one.
+		- 20261005: who frees a result is written in GLib's own form, the one the inherited code already used: a `Returns: (transfer full)` line, or `none`, `container` or `floating`, above the definition, with the free function where it is not plain `g_free`. A doc comment that already had a Returns line gets the annotation added to it; anything else gets a one-line comment. The schemes stay as they were: objects by refcount, and strings, lists and structs freed by the caller with the function the line names. No arena was added.
+		- 20261005: the scope is every function a first-party header declares that returns a pointer, a reference the caller must not free included. Static helpers and vendored code are left out. A returned `GdkAtom` is not counted, since it is never freed.
+		- 20261005: the ownership check reads the source as text rather than through the compiler, so both sides of every `#if` are checked on any platform. A definition counts when it starts in column 0, and its comment when it ends on the line above, or one blank line above.
+	- Branch: wextra1, wextra2, wextra3, wextra4
+	- Commit: df8a8a5, a0e0ed6, e316e67, 459d24c, f8aff1f, 6d67e06, ff68a3f, a87b584, b15b7c1
+	- Test case: the `-Werror` build in every pipeline lane; a warning put back in a source file fails the gate build. rjh7qnxw checks each lane passes and reads back `-Dwerror=true` and that the defaults do not. rjcpvcyb also checks the release dir comes out with it. rjh9pts1, the ownership check's self-test over made-up files; the check then runs over the whole tree in the lint stage, and a missing line fails it.
+
 - Code review 20260928.
 	- ID: 2026092813381400
 	- Type: Task
@@ -81,43 +118,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20260930-090000: a link onto another filesystem is followed only when both options are on. The reset button also collapses Options, and the store option's flyover says when it forces one thread. The settings comments on the command lines now say they are base flags. No questions left.
 		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
-
-- Code review 20260928 item 34. Apply the directives' new C section.
-	- ID: 2026092813381434
-	- Type: Enhancement
-	- Status: Waiting for testing
-	- Needs local test suite run?: no. On wextra3 the full Linux suite passed 169 of 169, the sanitizer lane 157 with 12 skipped, and the fuzz lane 10 of 10, all with warnings fatal. On wextra4 the Linux suite passed 169 of 169 again.
-	- Needs external testing: the native Windows suite once all parts are in, through the gate, which now sets up its build with `-Dwerror=true`. MSYS2's gcc may find warnings the cross build does not. The canvas types and the accessible class setup changed, and in part 2 the icon container's accessible interfaces. Part 4 changed only comments, and the gate's lint stage now runs the ownership check under MSYS2's python.
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Parent ID: 2026092813381400
-	- Requirements:
-		- Directive dated 20260919, new since the last round. Not a regression.
-		- Name the C standard in the build. None is named today, so gcc's default applies.
-		- Raise the warning level past `-Wall`. At the next level there are about 1700 warnings, almost all unused parameters and missing field initializers, 139 of them on lines changed in the last 10 days.
-		- One line in each allocating function's header comment on who frees the result.
-	- Progress log:
-		- 20261005-103251: part 1 of 3. The build names c17 and runs at `-Wextra`, with `-Werror` still off. eel, the extension library and the tests now build clean at that level, on Linux and in the Windows cross build. Left for the next parts: `libnemo-private` and `src` (1441 warnings on Linux, 1530 in the cross build), then `-Werror`, then the who-frees lines.
-		- 20261005-110434: part 2 of 3. `libnemo-private` now builds clean at `-Wextra` on Linux and in the Windows cross build. Every row of the settings table names its flags. Function pointer casts became callbacks of the right type. No fallthrough or enum warnings were in this part. Left: `src`, 829 warnings on Linux and 838 in the cross build, then `-Werror`, then the who-frees lines.
-		- 20261005-113707: part 3. `src` builds clean, so the whole tree has no warnings at `-Wextra` with gcc on Linux, in the cross build and in the release image, and with clang. Both fallthroughs in the path bar are meant, and now say so. The 4 enum warnings were a slot flag held in a variable of the wrong flag type; same value, so no change in behavior. clang found 7 more that gcc does not: 3 partial initializers, 2 signed compares, and a test's struct around a flexible array. The sanitizer build found a test whose skip path left its arguments unused. Every pipeline build now treats warnings as errors and reads that back from the build dir. No bug found. Left: the who-frees lines.
-		- 20261005-120248: part 4. Every function a header declares that returns a pointer now says who frees it: 562 definitions across eel, `libnemo-private`, the extension library, `src` and the test helpers, 22 of them Windows-only. Before this, 29 said so in GLib's form and about 20 more in prose. A new lint check holds it for the whole tree. The comment on `nemo_view_get_selection` said to free only the list, but every view refs the files, and its callers free them with `nemo_file_list_free`; the comment now says so. No leak or double free found.
-			- Examined and left alone: `nemo_job_queue_get` hands out a ref on the shared queue that no caller drops, harmless for a queue that lives as long as the process. `nemo_file_queue_dequeue` drops the queue's ref before returning the file, and nothing calls it. `nemo_sort_columns` returns NULL and loses the list when given no order, which no caller does.
-	- Decisions:
-		- 20260928: full `-Wextra` over the whole tree, with every warning fixed. The fork will never track upstream, so churn in inherited files is fine.
-		- 20261005: c17, not gnu17. Nothing in the tree needs a GNU language extension. Strict c17 hides the POSIX and BSD calls glibc gives by default, so the build asks for them back with `_DEFAULT_SOURCE`, in one place. On Windows the only gap was `M_PI`, now `G_PI`.
-		- 20261005: vendored code builds at `-Wall` in its own target (blake3, libegg), so it stays as it came. SHCL is header-only and builds clean at `-Wextra`, so it has no exemption.
-		- 20261005: an unused parameter gets `G_GNUC_UNUSED` in front of its type, the form GLib documents. Existing `(void) x;` lines stay. A test `main` that ignores both arguments is `main (void)`.
-		- 20261005: a build dir set up before this keeps its old std and warning level on reconfigure, so meson stops and asks for `meson setup --wipe` once.
-		- 20261005: the settings table stays positional, with the flags written out at the end of each row, since `lint-pref-handlers.py` reads the rows by position.
-		- 20261005: warnings are errors in every pipeline build and not by default. The gate and debug build, the sanitizer and fuzz lanes, the cross build, the release build and the native Windows gate pass `-Dwerror=true`. A plain `meson setup` and the hosted Windows release build leave it off, since both can meet a compiler newer than any here. The release image's older gcc is clean too, so its build has it on.
-		- 20261005: each of those lanes reads `-Werror` back out of the build dir after setup and stops if it is missing, so a reused dir or a lane that lost the flag cannot quietly build without it.
-		- 20261005: vendored code keeps building at `-Wall`, and its warnings are never fatal. Only an edit to the vendored file could fix one.
-		- 20261005: who frees a result is written in GLib's own form, the one the inherited code already used: a `Returns: (transfer full)` line, or `none`, `container` or `floating`, above the definition, with the free function where it is not plain `g_free`. A doc comment that already had a Returns line gets the annotation added to it; anything else gets a one-line comment. The schemes stay as they were: objects by refcount, and strings, lists and structs freed by the caller with the function the line names. No arena was added.
-		- 20261005: the scope is every function a first-party header declares that returns a pointer, a reference the caller must not free included. Static helpers and vendored code are left out. A returned `GdkAtom` is not counted, since it is never freed.
-		- 20261005: the ownership check reads the source as text rather than through the compiler, so both sides of every `#if` are checked on any platform. A definition counts when it starts in column 0, and its comment when it ends on the line above, or one blank line above.
-	- Branch: wextra1, wextra2, wextra3, wextra4
-	- Commit: df8a8a5, a0e0ed6, e316e67, 459d24c, f8aff1f, 6d67e06, ff68a3f, a87b584, b15b7c1
-	- Test case: the `-Werror` build in every pipeline lane; a warning put back in a source file fails the gate build. rjh7qnxw checks each lane passes and reads back `-Dwerror=true` and that the defaults do not. rjcpvcyb also checks the release dir comes out with it. rjh9pts1, the ownership check's self-test over made-up files; the check then runs over the whole tree in the lint stage, and a missing line fails it.
 
 - The app visits network shares on its own.
 	- ID: 2026093010493450
