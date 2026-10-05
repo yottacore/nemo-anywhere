@@ -102,7 +102,7 @@ nemo_previewer_class_init (NemoPreviewerClass *klass)
 }
 
 static void
-previewer_show_file_ready_cb (GObject *source,
+previewer_show_file_ready_cb (G_GNUC_UNUSED GObject *source,
                               GAsyncResult *res,
                               gpointer user_data)
 {
@@ -122,7 +122,7 @@ previewer_show_file_ready_cb (GObject *source,
 }
 
 static void
-previewer_close_ready_cb (GObject *source,
+previewer_close_ready_cb (G_GNUC_UNUSED GObject *source,
                           GAsyncResult *res,
                           gpointer user_data)
 {

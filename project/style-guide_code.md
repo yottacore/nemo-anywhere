@@ -85,7 +85,11 @@ move_proportionally (const NemoColumnLayoutItem *items,
 
 ## Language and types
 
-- The build sets no `-std`, so the compiler's default applies - gnu17 on current gcc. The inherited code uses GNU extensions freely, so do not move the tree to a strict `-std=c11` without building all of it first.
+- The build names c17, not gnu17. Nothing in the tree needs a GNU language extension. Strict c17 hides the POSIX and BSD calls glibc gives by default, so the build asks for them back with `_DEFAULT_SOURCE`, in one place.
+
+- Warnings are at `-Wextra` (meson's `warning_level=2`), and the tree builds clean there. Every pipeline build adds `-Dwerror=true`, so a new warning fails the gate. A plain `meson setup` leaves that off, so someone building with a newer compiler gets a warning, not a failed build. Vendored code builds at `-Wall`, and its warnings are never fatal.
+
+- An unused parameter gets `G_GNUC_UNUSED` in front of its type. A callback takes the arguments its caller passes. Where they differ, a small wrapper makes the call; a cast to `GFunc`, `GClosureNotify` or `GWeakNotify` hides the mismatch rather than fixing it. A `switch` case that runs on into the next one says so with `G_GNUC_FALLTHROUGH`.
 
 - Declare at first use rather than at the top of the function. `-Wno-declaration-after-statement` is passed for exactly that. Initialize at the declaration, and `= {0}` for a struct.
 

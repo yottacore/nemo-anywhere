@@ -50,6 +50,7 @@
 #include "nemo-statusbar.h"
 
 #include <eel/eel-debug.h>
+#include <eel/eel-glib-extensions.h>
 #include <eel/eel-gtk-extensions.h>
 #include <eel/eel-string.h>
 #include <eel/eel-vfs-extensions.h>
@@ -224,7 +225,7 @@ nemo_window_new_tab (NemoWindow *window)
 {
 	NemoWindowSlot *current_slot;
 	NemoWindowSlot *new_slot;
-	NemoWindowOpenFlags flags;
+	NemoWindowOpenSlotFlags flags;
 	GFile *location;
 	int new_slot_position;
 	char *scheme;
@@ -410,7 +411,7 @@ save_tree_width_cb (gpointer user_data)
 
 /* side pane helpers */
 static void
-places_size_allocate_callback (GtkWidget *widget,
+places_size_allocate_callback (G_GNUC_UNUSED GtkWidget *widget,
 			       GtkAllocation *allocation,
 			       gpointer user_data)
 {
@@ -434,7 +435,7 @@ places_size_allocate_callback (GtkWidget *widget,
 /* From the divider, not from size-allocate. The tree scales with the window,
    and saving every scaled width would lose the one that was dragged. */
 static void
-tree_placed_callback (GtkWidget *paned,
+tree_placed_callback (G_GNUC_UNUSED GtkWidget *paned,
 		      int position,
 		      gpointer user_data)
 {
@@ -696,7 +697,7 @@ nemo_window_disable_chrome_mapping (GValue                *value,
 }
 
 static gboolean
-on_button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer user_data)
+on_button_press_callback (G_GNUC_UNUSED GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 {
     NemoWindow *window = NEMO_WINDOW (user_data);
 
@@ -728,7 +729,7 @@ hide_menu_on_delay (NemoWindow *window)
 
 static gboolean
 on_menu_focus_out (GtkMenuShell *widget,
-                   GdkEvent  *event,
+                   G_GNUC_UNUSED GdkEvent  *event,
                    gpointer   user_data)
 {
     NemoWindow *window = NEMO_WINDOW (user_data);
@@ -751,7 +752,7 @@ on_menu_focus_out (GtkMenuShell *widget,
 }
 
 void
-on_menu_selection_done (GtkMenuShell *menushell,
+on_menu_selection_done (G_GNUC_UNUSED GtkMenuShell *menushell,
                         gpointer      user_data)
 {
 	NemoWindow *window = NEMO_WINDOW (user_data);
@@ -969,7 +970,7 @@ static void
 nemo_window_get_property (GObject *object,
 			      guint arg_id,
 			      GValue *value,
-			      GParamSpec *pspec)
+			      G_GNUC_UNUSED GParamSpec *pspec)
 {
 	NemoWindow *window;
 
@@ -1560,7 +1561,7 @@ title_spelling_changed (NemoWindow *window)
  */
 
 static void
-sync_view_type_callback (NemoFile *file,
+sync_view_type_callback (G_GNUC_UNUSED NemoFile *file,
                          gpointer callback_data)
 {
     NemoWindow *window;
@@ -1689,7 +1690,7 @@ set_title (NemoWindow *window, NemoWindowSlot *slot)
    may not. The tabs are left alone here: the notebook fits those against its own
    allocation. */
 static void
-title_size_allocate_cb (GtkWidget *widget, GtkAllocation *allocation, gpointer user_data)
+title_size_allocate_cb (GtkWidget *widget, GtkAllocation *allocation, G_GNUC_UNUSED gpointer user_data)
 {
 	NemoWindow *window = NEMO_WINDOW (widget);
 	NemoWindowSlot *slot;
@@ -1866,7 +1867,7 @@ nemo_window_sync_create_folder_button (NemoWindow *window)
 }
 
 static void
-zoom_level_changed_callback (NemoView *view,
+zoom_level_changed_callback (G_GNUC_UNUSED NemoView *view,
                              NemoWindow *window)
 {
 	g_assert (NEMO_IS_WINDOW (window));
@@ -2156,8 +2157,8 @@ window_set_search_action_text (NemoWindow *window,
 
 static void
 center_pane_divider (GtkWidget  *paned,
-                     GParamSpec *pspec,
-                     gpointer    user_data)
+                     G_GNUC_UNUSED GParamSpec *pspec,
+                     G_GNUC_UNUSED gpointer    user_data)
 {
     /* Make the paned think it's been manually resized, otherwise
      * things like the trash bar will force unwanted resizes */
@@ -2230,7 +2231,7 @@ nemo_window_state_event (GtkWidget *widget,
 
 static gboolean
 nemo_window_delete_event (GtkWidget *widget,
-			      GdkEventAny *event)
+			      G_GNUC_UNUSED GdkEventAny *event)
 {
 	nemo_window_close (NEMO_WINDOW (widget));
 	return FALSE;
@@ -2260,7 +2261,7 @@ nemo_window_button_press_event (GtkWidget *widget,
 }
 
 static void
-mouse_back_button_changed (gpointer callback_data)
+mouse_back_button_changed (G_GNUC_UNUSED gpointer callback_data)
 {
 	int new_back_button;
 
@@ -2274,7 +2275,7 @@ mouse_back_button_changed (gpointer callback_data)
 }
 
 static void
-mouse_forward_button_changed (gpointer callback_data)
+mouse_forward_button_changed (G_GNUC_UNUSED gpointer callback_data)
 {
 	int new_forward_button;
 
@@ -2288,7 +2289,7 @@ mouse_forward_button_changed (gpointer callback_data)
 }
 
 static void
-use_extra_mouse_buttons_changed (gpointer callback_data)
+use_extra_mouse_buttons_changed (G_GNUC_UNUSED gpointer callback_data)
 {
 	mouse_extra_buttons = nemo_config_get_boolean (nemo_preferences, NEMO_PREFERENCES_MOUSE_USE_EXTRA_BUTTONS);
 }
@@ -2721,14 +2722,14 @@ nemo_window_forget_ignore_meta_icon_sizes (NemoWindow *window)
 GList *
 nemo_window_get_ignore_meta_visible_columns (NemoWindow *window)
 {
-    return g_list_copy_deep (window->details->ignore_meta_visible_columns, (GCopyFunc) g_strdup, NULL);
+    return eel_g_str_list_copy (window->details->ignore_meta_visible_columns);
 }
 
 void
 nemo_window_set_ignore_meta_visible_columns (NemoWindow *window, GList *list)
 {
     GList *old = window->details->ignore_meta_visible_columns;
-    window->details->ignore_meta_visible_columns = list != NULL ? g_list_copy_deep (list, (GCopyFunc) g_strdup, NULL) :
+    window->details->ignore_meta_visible_columns = list != NULL ? eel_g_str_list_copy (list) :
                                                                   NULL;
     if (old != NULL)
         g_list_free_full (old, g_free);
@@ -2737,14 +2738,14 @@ nemo_window_set_ignore_meta_visible_columns (NemoWindow *window, GList *list)
 GList *
 nemo_window_get_ignore_meta_column_order (NemoWindow *window)
 {
-    return g_list_copy_deep (window->details->ignore_meta_column_order, (GCopyFunc) g_strdup, NULL);
+    return eel_g_str_list_copy (window->details->ignore_meta_column_order);
 }
 
 void
 nemo_window_set_ignore_meta_column_order (NemoWindow *window, GList *list)
 {
     GList *old = window->details->ignore_meta_column_order;
-    window->details->ignore_meta_column_order = list != NULL ? g_list_copy_deep (list, (GCopyFunc) g_strdup, NULL) :
+    window->details->ignore_meta_column_order = list != NULL ? eel_g_str_list_copy (list) :
                                                                NULL;
     if (old != NULL)
         g_list_free_full (old, g_free);

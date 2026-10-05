@@ -185,10 +185,10 @@ remove_bookmarks_menu_items (NemoWindow *window)
 }
 
 static void
-connect_proxy_cb (GtkActionGroup *action_group,
+connect_proxy_cb (G_GNUC_UNUSED GtkActionGroup *action_group,
                   GtkAction *action,
                   GtkWidget *proxy,
-                  gpointer dummy)
+                  G_GNUC_UNUSED gpointer dummy)
 {
 	GtkLabel *label;
 	const gchar *icon_name;
@@ -255,13 +255,13 @@ bookmark_holder_free (BookmarkHolder *bookmark_holder)
 }
 
 static void
-bookmark_holder_free_cover (gpointer callback_data, GClosure *closure)
+bookmark_holder_free_cover (gpointer callback_data, G_GNUC_UNUSED GClosure *closure)
 {
 	bookmark_holder_free (callback_data);
 }
 
 static void
-activate_bookmark_in_menu_item (GtkAction *action, gpointer user_data)
+activate_bookmark_in_menu_item (G_GNUC_UNUSED GtkAction *action, gpointer user_data)
 {
     NemoWindowSlot *slot;
     BookmarkHolder *holder;

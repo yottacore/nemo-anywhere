@@ -133,8 +133,8 @@ nemo_trash_bar_dispose (GObject *obj)
 }
 
 static void
-nemo_trash_bar_trash_state_changed (NemoTrashMonitor *trash_monitor,
-					gboolean              state,
+nemo_trash_bar_trash_state_changed (G_GNUC_UNUSED NemoTrashMonitor *trash_monitor,
+					G_GNUC_UNUSED gboolean              state,
 					gpointer              data)
 {
 	NemoTrashBar *bar;
@@ -172,7 +172,7 @@ nemo_trash_bar_class_init (NemoTrashBarClass *klass)
 static void
 trash_bar_response_cb (GtkInfoBar *infobar,
 		       gint response_id,
-		       gpointer user_data)
+		       G_GNUC_UNUSED gpointer user_data)
 {
 	NemoTrashBar *bar;
 	GtkWidget *window;

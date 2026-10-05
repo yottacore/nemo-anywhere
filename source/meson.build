@@ -138,8 +138,10 @@ archive = dependency('libarchive',                  version: '>=3.2.0')
 # file says where it is.
 sqlite  = dependency('sqlite3',                     version: '>=3.20', static: true)
 
-# Vendored code stays as it came, so it builds at -Wall rather than -Wextra.
-vendorWarnings = [ 'warning_level=1' ]
+# Vendored code stays as it came, so it builds at -Wall rather than -Wextra, and
+# a warning in it is never fatal. A newer compiler can find one there that only
+# an edit to the vendored file would fix.
+vendorWarnings = [ 'warning_level=1', 'werror=false' ]
 
 # blake3, vendored under ../vendor. Checksums have to be cheap enough to compute
 # while a folder is being listed, and this is the only option that both hits a

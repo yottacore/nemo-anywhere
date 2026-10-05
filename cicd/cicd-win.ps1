@@ -235,7 +235,8 @@ function fVersion {
 }
 
 ## Native build: meson setup (first time with -Dxmp=false, else --reconfigure) then
-## ninja, in the mingw64 shell. Aborts on a real build error.
+## ninja, in the mingw64 shell. Aborts on a real build error. Warnings are errors,
+## as in the Linux lanes (cicd/linux/run-tests.bash says why).
 function fBuild {
 	## -j caps at half the cores, same as the Linux engine; ninja alone takes cores+2.
 	$jobs = [Math]::Max(1, [Environment]::ProcessorCount / 2 -as [int])
@@ -251,7 +252,8 @@ function fBuild {
 	$sh = @"
 command -v make >/dev/null 2>&1 || { echo "no make in MSYS2, so LTO would run serially: pacman -S make"; exit 3; }
 export SOURCE_DATE_EPOCH="`$(git log -1 --format=%ct 2>/dev/null || echo 0)"
-if [ -f $BuildRel/build.ninja ]; then meson setup --reconfigure $BuildRel source; else meson setup -Dxmp=false $BuildRel source; fi
+if [ -f $BuildRel/build.ninja ]; then meson setup --reconfigure -Dwerror=true $BuildRel source; else meson setup -Dxmp=false -Dwerror=true $BuildRel source; fi
+bash cicd/utility/check-werror.bash $BuildRel || exit 4
 find $BuildRel -name '*.a' -type f | while read -r lib; do ar t "`$lib" >/dev/null 2>&1 || { echo "dropped stale `$lib"; rm -f "`$lib"; }; done
 ninja -C $BuildRel -j $jobs
 "@

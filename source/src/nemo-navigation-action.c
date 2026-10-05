@@ -221,7 +221,7 @@ is_new_tab_event(GdkEventButton *event) {
 }
 
 static gboolean
-tool_button_press_cb (GtkButton *button,
+tool_button_press_cb (G_GNUC_UNUSED GtkButton *button,
                       GdkEventButton *event,
                       gpointer user_data)
 {
@@ -246,8 +246,8 @@ tool_button_press_cb (GtkButton *button,
 }
 
 static gboolean
-tool_button_release_cb (GtkButton *button,
-                        GdkEventButton *event,
+tool_button_release_cb (G_GNUC_UNUSED GtkButton *button,
+                        G_GNUC_UNUSED GdkEventButton *event,
                         gpointer user_data)
 {
         NemoNavigationAction *self = user_data;
@@ -305,7 +305,7 @@ static void
 nemo_navigation_action_set_property (GObject *object,
 					 guint prop_id,
 					 const GValue *value,
-					 GParamSpec *pspec)
+					 G_GNUC_UNUSED GParamSpec *pspec)
 {
 	NemoNavigationAction *nav;
 
@@ -332,7 +332,7 @@ static void
 nemo_navigation_action_get_property (GObject *object,
 					 guint prop_id,
 					 GValue *value,
-					 GParamSpec *pspec)
+					 G_GNUC_UNUSED GParamSpec *pspec)
 {
 	NemoNavigationAction *nav;
 

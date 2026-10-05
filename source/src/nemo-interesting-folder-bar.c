@@ -113,7 +113,7 @@ open_info_doc (NemoInterestingFolderBar *bar, const char *name)
 static void
 interesting_folder_bar_response_cb (GtkInfoBar *infobar,
                                           gint  response_id,
-                                      gpointer  user_data)
+                                      G_GNUC_UNUSED gpointer  user_data)
 {
     NemoInterestingFolderBar *bar;
 

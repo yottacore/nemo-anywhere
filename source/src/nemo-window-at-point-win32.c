@@ -101,7 +101,7 @@ visible_rect (HWND window, RECT *rect)
 }
 
 int
-nemo_window_at_pointer (GdkDisplay    *display,
+nemo_window_at_pointer (G_GNUC_UNUSED GdkDisplay    *display,
                         const guint64 *candidates,
                         int            n_candidates)
 {

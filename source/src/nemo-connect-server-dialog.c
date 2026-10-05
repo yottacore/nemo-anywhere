@@ -439,7 +439,7 @@ connect_dialog_request_additional_details (NemoConnectServerDialog *self,
 static void
 display_location_async_cb (GObject *source,
 			   GAsyncResult *res,
-			   gpointer user_data)
+			   G_GNUC_UNUSED gpointer user_data)
 {
 	NemoConnectServerDialog *dialog;
 	GError *error;
@@ -673,7 +673,7 @@ connect_dialog_destroy (NemoConnectServerDialog *dialog)
 static void
 connect_dialog_response_cb (NemoConnectServerDialog *dialog,
 			    int response_id,
-			    gpointer data)
+			    G_GNUC_UNUSED gpointer data)
 {
 	switch (response_id) {
 	case RESPONSE_CONNECT:
@@ -796,7 +796,7 @@ sensitive_entry_changed_callback (GtkEditable *editable,
 }
 
 static void
-bind_visibility (NemoConnectServerDialog *dialog,
+bind_visibility (G_GNUC_UNUSED NemoConnectServerDialog *dialog,
 		 GtkWidget *source,
 		 GtkWidget *dest)
 {
@@ -1154,7 +1154,7 @@ nemo_connect_server_dialog_new (NemoWindow *window)
 }
 
 gboolean
-nemo_connect_server_dialog_fill_details_finish (NemoConnectServerDialog *self,
+nemo_connect_server_dialog_fill_details_finish (G_GNUC_UNUSED NemoConnectServerDialog *self,
 						    GAsyncResult *result)
 {
 	return g_simple_async_result_get_op_res_gboolean (G_SIMPLE_ASYNC_RESULT (result));

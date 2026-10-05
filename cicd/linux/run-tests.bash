@@ -11,6 +11,9 @@
 ##	- NEMO_TEST_JOBS caps both the build and the number of tests at once, so a run
 ##	  leaves the box usable. BUILD_DIR overrides the build directory, and
 ##	  SETUP_ARGS adds words to its meson setup. Arguments go to meson test.
+##	- Warnings are errors here, as in every pipeline build, and not in a plain
+##	  meson setup of the tree. Someone building from source with a newer compiler
+##	  gets a warning, not a failed build.
 ##	- Syntax: run-tests.bash [meson test arguments]
 
 ##	Copyright (c) 2026 Bubbles
@@ -33,7 +36,7 @@ case "${jobs}" in
 	''|*[!0-9]*|0*) jobs=2 ;;
 esac
 # shellcheck disable=SC2206  ## word splitting is the point; the sanitizer lane passes -D options.
-setupArgs=(${SETUP_ARGS:-})
+setupArgs=(-Dwerror=true ${SETUP_ARGS:-})
 
 ## A container recreated from the image has no build directory yet.
 if [[ -f "${build}/build.ninja" ]]; then
@@ -41,6 +44,7 @@ if [[ -f "${build}/build.ninja" ]]; then
 else
 	meson setup "${build}" /src/source "${setupArgs[@]}"
 fi
+bash "$(dirname "${BASH_SOURCE[0]}")/../utility/check-werror.bash" "${build}"
 
 if ! ninja -C "${build}" -j "${jobs}"; then
 	echo "[ the build here is the working tree, unfinished edits included ]" >&2

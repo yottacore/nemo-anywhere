@@ -39,7 +39,7 @@
 static GList *module_objects = NULL;
 
 static void
-module_object_weak_notify (gpointer user_data, GObject *object)
+module_object_weak_notify (G_GNUC_UNUSED gpointer user_data, GObject *object)
 {
     module_objects = g_list_remove (module_objects, object);
 }

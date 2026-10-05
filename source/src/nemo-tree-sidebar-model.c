@@ -146,7 +146,7 @@ G_DEFINE_TYPE_WITH_CODE (FMTreeModel, fm_tree_model, G_TYPE_OBJECT,
 						fm_tree_model_tree_model_init));
 
 static GtkTreeModelFlags
-fm_tree_model_get_flags (GtkTreeModel *tree_model)
+fm_tree_model_get_flags (G_GNUC_UNUSED GtkTreeModel *tree_model)
 {
 	return GTK_TREE_MODEL_ITERS_PERSIST;
 }
@@ -1294,7 +1294,7 @@ process_file_change (FMTreeModelRoot *root,
 }
 
 static void
-files_changed_callback (NemoDirectory *directory,
+files_changed_callback (G_GNUC_UNUSED NemoDirectory *directory,
 			GList *changed_files,
 			gpointer callback_data)
 {
@@ -1418,13 +1418,13 @@ start_monitoring_directory (FMTreeModel *model, TreeNode *node)
 }
 
 static int
-fm_tree_model_get_n_columns (GtkTreeModel *model)
+fm_tree_model_get_n_columns (G_GNUC_UNUSED GtkTreeModel *model)
 {
 	return FM_TREE_MODEL_NUM_COLUMNS;
 }
 
 static GType
-fm_tree_model_get_column_type (GtkTreeModel *model, int index)
+fm_tree_model_get_column_type (G_GNUC_UNUSED GtkTreeModel *model, int index)
 {
 	switch (index) {
 	case FM_TREE_MODEL_DISPLAY_NAME_COLUMN:

@@ -585,7 +585,7 @@ start_cursor_over (NemoListView *view, GdkEventKey *event)
 }
 
 static void
-cursor_changed_callback (GtkTreeView *tree_view, gpointer user_data)
+cursor_changed_callback (G_GNUC_UNUSED GtkTreeView *tree_view, gpointer user_data)
 {
 	remember_cursor (NEMO_LIST_VIEW (user_data));
 }
@@ -609,9 +609,9 @@ list_selection_changed_callback (GtkTreeSelection *selection, gpointer user_data
 /* Move these to eel? */
 
 static void
-tree_selection_foreach_set_boolean (GtkTreeModel *model,
-				    GtkTreePath *path,
-				    GtkTreeIter *iter,
+tree_selection_foreach_set_boolean (G_GNUC_UNUSED GtkTreeModel *model,
+				    G_GNUC_UNUSED GtkTreePath *path,
+				    G_GNUC_UNUSED GtkTreeIter *iter,
 				    gpointer callback_data)
 {
 	* (gboolean *) callback_data = TRUE;
@@ -788,8 +788,8 @@ static void
 drag_data_get_callback (GtkWidget *widget,
 			GdkDragContext *context,
 			GtkSelectionData *selection_data,
-			guint info,
-			guint time)
+			G_GNUC_UNUSED guint info,
+			G_GNUC_UNUSED guint time)
 {
 	GtkTreeView *tree_view;
 	GtkTreeModel *model;
@@ -862,8 +862,7 @@ get_filtered_selection_refs (GtkTreeView *tree_view)
 static void
 ref_list_free (GList *ref_list)
 {
-	g_list_foreach (ref_list, (GFunc) gtk_tree_row_reference_free, NULL);
-	g_list_free (ref_list);
+	g_list_free_full (ref_list, (GDestroyNotify) gtk_tree_row_reference_free);
 }
 
 static void
@@ -933,8 +932,8 @@ drag_begin_callback (GtkWidget *widget,
 }
 
 static void
-drag_end_callback (GtkWidget *widget,
-             GdkDragContext *context,
+drag_end_callback (G_GNUC_UNUSED GtkWidget *widget,
+             G_GNUC_UNUSED GdkDragContext *context,
              NemoListView *view)
 {
     view->details->drag_started = FALSE;
@@ -1176,8 +1175,8 @@ query_tooltip_callback (GtkWidget *widget,
 }
 
 static gboolean
-leave_notify_callback (GtkWidget *widget,
-		       GdkEventCrossing *event,
+leave_notify_callback (G_GNUC_UNUSED GtkWidget *widget,
+		       G_GNUC_UNUSED GdkEventCrossing *event,
 		       gpointer callback_data)
 {
 	NemoListView *view;
@@ -1263,14 +1262,14 @@ do_popup_menu (GtkWidget *widget, NemoListView *view, GdkEventButton *event)
 }
 
 static void
-row_activated_callback (GtkTreeView *treeview, GtkTreePath *path,
-			GtkTreeViewColumn *column, NemoListView *view)
+row_activated_callback (G_GNUC_UNUSED GtkTreeView *treeview, G_GNUC_UNUSED GtkTreePath *path,
+			G_GNUC_UNUSED GtkTreeViewColumn *column, NemoListView *view)
 {
 	activate_selected_items (view);
 }
 
 static void
-columns_reordered_callback (AtkObject *atk,
+columns_reordered_callback (G_GNUC_UNUSED AtkObject *atk,
                             gpointer user_data)
 {
     NemoListView *view = NEMO_LIST_VIEW (user_data);
@@ -1714,7 +1713,7 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 }
 
 static gboolean
-button_release_callback (GtkWidget *widget,
+button_release_callback (G_GNUC_UNUSED GtkWidget *widget,
 			 GdkEventButton *event,
 			 gpointer callback_data)
 {
@@ -1755,7 +1754,7 @@ subdirectory_done_loading_callback (NemoDirectory *directory, NemoListView *view
 }
 
 static void
-row_expanded_callback (GtkTreeView *treeview, GtkTreeIter *iter, GtkTreePath *path, gpointer callback_data)
+row_expanded_callback (G_GNUC_UNUSED GtkTreeView *treeview, G_GNUC_UNUSED GtkTreeIter *iter, GtkTreePath *path, gpointer callback_data)
 {
  	NemoListView *view;
  	NemoDirectory *directory;
@@ -1826,7 +1825,7 @@ unload_file_timeout (gpointer data)
 }
 
 static void
-row_collapsed_callback (GtkTreeView *treeview, GtkTreeIter *iter, GtkTreePath *path, gpointer callback_data)
+row_collapsed_callback (G_GNUC_UNUSED GtkTreeView *treeview, GtkTreeIter *iter, G_GNUC_UNUSED GtkTreePath *path, gpointer callback_data)
 {
  	NemoListView *view;
  	NemoFile *file;
@@ -2139,8 +2138,8 @@ sort_column_changed_callback (GtkTreeSortable *sortable,
 }
 
 static gboolean
-editable_focus_out_cb (GtkWidget *widget,
-		       GdkEvent *event,
+editable_focus_out_cb (G_GNUC_UNUSED GtkWidget *widget,
+		       G_GNUC_UNUSED GdkEvent *event,
 		       gpointer user_data)
 {
 	NemoListView *view = user_data;
@@ -2152,7 +2151,7 @@ editable_focus_out_cb (GtkWidget *widget,
 }
 
 static void
-cell_renderer_editing_started_cb (GtkCellRenderer *renderer,
+cell_renderer_editing_started_cb (G_GNUC_UNUSED GtkCellRenderer *renderer,
 				  GtkCellEditable *editable,
 				  const gchar *path_str,
 				  NemoListView *list_view)
@@ -2197,7 +2196,7 @@ cell_renderer_editing_started_cb (GtkCellRenderer *renderer,
 }
 
 static void
-cell_renderer_editing_canceled (GtkCellRendererText *cell,
+cell_renderer_editing_canceled (G_GNUC_UNUSED GtkCellRendererText *cell,
 				NemoListView    *view)
 {
     view->details->editable_widget = NULL;
@@ -2206,7 +2205,7 @@ cell_renderer_editing_canceled (GtkCellRendererText *cell,
 }
 
 static void
-cell_renderer_edited (GtkCellRendererText *cell,
+cell_renderer_edited (G_GNUC_UNUSED GtkCellRendererText *cell,
 		      const char          *path_str,
 		      const char          *new_text,
 		      NemoListView    *view)
@@ -2261,7 +2260,7 @@ cell_renderer_edited (GtkCellRendererText *cell,
 }
 
 static char *
-get_root_uri_callback (NemoTreeViewDragDest *dest,
+get_root_uri_callback (G_GNUC_UNUSED NemoTreeViewDragDest *dest,
 		       gpointer user_data)
 {
 	NemoListView *view;
@@ -2276,9 +2275,9 @@ get_root_uri_callback (NemoTreeViewDragDest *dest,
 #define PREVENT_EXPAND TRUE
 
 static gboolean
-test_expand_row_callback (GtkTreeView *treeview,
-                          GtkTreeIter *iter,
-                          GtkTreePath *path,
+test_expand_row_callback (G_GNUC_UNUSED GtkTreeView *treeview,
+                          G_GNUC_UNUSED GtkTreeIter *iter,
+                          G_GNUC_UNUSED GtkTreePath *path,
                           gpointer     user_data)
 {
     NemoListView *view = NEMO_LIST_VIEW (user_data);
@@ -2295,7 +2294,7 @@ test_expand_row_callback (GtkTreeView *treeview,
 }
 
 static NemoFile *
-get_file_for_path_callback (NemoTreeViewDragDest *dest,
+get_file_for_path_callback (G_GNUC_UNUSED NemoTreeViewDragDest *dest,
 			    GtkTreePath *path,
 			    gpointer user_data)
 {
@@ -2312,7 +2311,7 @@ get_file_for_path_callback (NemoTreeViewDragDest *dest,
 
 /* Handles an URL received from Mozilla */
 static void
-list_view_handle_netscape_url (NemoTreeViewDragDest *dest, const char *encoded_url,
+list_view_handle_netscape_url (G_GNUC_UNUSED NemoTreeViewDragDest *dest, const char *encoded_url,
 			       const char *target_uri, GdkDragAction action, int x, int y, NemoListView *view)
 {
 	nemo_view_handle_netscape_url_drop (NEMO_VIEW (view),
@@ -2320,7 +2319,7 @@ list_view_handle_netscape_url (NemoTreeViewDragDest *dest, const char *encoded_u
 }
 
 static void
-list_view_handle_uri_list (NemoTreeViewDragDest *dest, const char *item_uris,
+list_view_handle_uri_list (G_GNUC_UNUSED NemoTreeViewDragDest *dest, const char *item_uris,
 			   const char *target_uri,
 			   GdkDragAction action, int x, int y, NemoListView *view)
 {
@@ -2329,7 +2328,7 @@ list_view_handle_uri_list (NemoTreeViewDragDest *dest, const char *item_uris,
 }
 
 static void
-list_view_handle_text (NemoTreeViewDragDest *dest, const char *text,
+list_view_handle_text (G_GNUC_UNUSED NemoTreeViewDragDest *dest, const char *text,
 		       const char *target_uri,
 		       GdkDragAction action, int x, int y, NemoListView *view)
 {
@@ -2338,7 +2337,7 @@ list_view_handle_text (NemoTreeViewDragDest *dest, const char *text,
 }
 
 static void
-list_view_handle_raw (NemoTreeViewDragDest *dest, const char *raw_data,
+list_view_handle_raw (G_GNUC_UNUSED NemoTreeViewDragDest *dest, const char *raw_data,
 		      int length, const char *target_uri, const char *direct_save_uri,
 		      GdkDragAction action, int x, int y, NemoListView *view)
 {
@@ -2348,7 +2347,7 @@ list_view_handle_raw (NemoTreeViewDragDest *dest, const char *raw_data,
 }
 
 static void
-move_copy_items_callback (NemoTreeViewDragDest *dest,
+move_copy_items_callback (G_GNUC_UNUSED NemoTreeViewDragDest *dest,
 			  const GList *item_uris,
 			  const char *target_uri,
 			  guint action,
@@ -2438,7 +2437,7 @@ column_header_menu_toggled (GtkCheckMenuItem *menu_item,
 }
 
 static void
-column_header_menu_use_default (GtkMenuItem *menu_item,
+column_header_menu_use_default (G_GNUC_UNUSED GtkMenuItem *menu_item,
                                 NemoListView *list_view)
 {
 	NemoFile *file;
@@ -2491,7 +2490,7 @@ column_header_menu_disable_sort (GtkMenuItem *menu_item,
 }
 
 static gboolean
-column_header_clicked (GtkWidget *column_button,
+column_header_clicked (G_GNUC_UNUSED GtkWidget *column_button,
                        GdkEventButton *event,
                        NemoListView *list_view)
 {
@@ -2813,7 +2812,7 @@ shade_row (NemoListView    *view,
 }
 
 static void
-shade_row_cell_data_func (GtkTreeViewColumn *column,
+shade_row_cell_data_func (G_GNUC_UNUSED GtkTreeViewColumn *column,
                           GtkCellRenderer   *renderer,
                           GtkTreeModel      *model,
                           GtkTreeIter       *iter,
@@ -2891,8 +2890,8 @@ tree_view_style_updated (NemoListView *view)
 /* Rows stand still for the length of one redraw, which is how long the parity
    worked out for a row is good for. */
 static gboolean
-tree_view_draw_callback (GtkWidget    *widget,
-                         cairo_t      *cr,
+tree_view_draw_callback (G_GNUC_UNUSED GtkWidget    *widget,
+                         G_GNUC_UNUSED cairo_t      *cr,
                          NemoListView *view)
 {
     view->details->shade_pass++;
@@ -2901,7 +2900,7 @@ tree_view_draw_callback (GtkWidget    *widget,
 }
 
 static void
-filename_cell_data_func (GtkTreeViewColumn *column,
+filename_cell_data_func (G_GNUC_UNUSED GtkTreeViewColumn *column,
 			 GtkCellRenderer   *renderer,
 			 GtkTreeModel      *model,
 			 GtkTreeIter       *iter,
@@ -2944,7 +2943,7 @@ filename_cell_data_func (GtkTreeViewColumn *column,
 }
 
 static gboolean
-focus_in_event_callback (GtkWidget *widget, GdkEventFocus *event, gpointer user_data)
+focus_in_event_callback (G_GNUC_UNUSED GtkWidget *widget, G_GNUC_UNUSED GdkEventFocus *event, gpointer user_data)
 {
 	NemoWindowSlot *slot;
 	NemoListView *list_view = NEMO_LIST_VIEW (user_data);
@@ -3039,21 +3038,21 @@ queue_update_visible_icons(NemoListView *view,
 }
 
 static void
-handle_vadjustment_changed (GtkAdjustment *adjustment,
+handle_vadjustment_changed (G_GNUC_UNUSED GtkAdjustment *adjustment,
                             NemoListView  *view)
 {
     queue_update_visible_icons (view, NORMAL_UPDATE_VISIBLE_DELAY);
 }
 
 static gint
-get_icon_scale_callback (NemoListModel *model,
+get_icon_scale_callback (G_GNUC_UNUSED NemoListModel *model,
                          NemoListView  *view)
 {
    return gtk_widget_get_scale_factor (GTK_WIDGET (view->details->tree_view));
 }
 
 static void
-on_treeview_realized (GtkWidget *widget,
+on_treeview_realized (G_GNUC_UNUSED GtkWidget *widget,
                       gpointer   user_data)
 {
     NemoListView *view = NEMO_LIST_VIEW (user_data);
@@ -3526,7 +3525,7 @@ user_widths_settled (gpointer user_data)
 
 static void
 column_fixed_width_notify (GObject    *object,
-			   GParamSpec *pspec,
+			   G_GNUC_UNUSED GParamSpec *pspec,
 			   gpointer    user_data)
 {
 	NemoListView *view = NEMO_LIST_VIEW (user_data);
@@ -4013,7 +4012,7 @@ nemo_list_view_size_allocate (GtkWidget     *widget,
 }
 
 static void
-on_size_allocation_changed (GtkWidget    *widget,
+on_size_allocation_changed (G_GNUC_UNUSED GtkWidget    *widget,
                             GdkRectangle *allocation,
                             gpointer      user_data)
 {
@@ -4638,7 +4637,7 @@ static gboolean
 list_view_changed_foreach (GtkTreeModel *model,
               		   GtkTreePath  *path,
 			   GtkTreeIter  *iter,
-			   gpointer      data)
+			   G_GNUC_UNUSED gpointer      data)
 {
 	gtk_tree_model_row_changed (model, path, iter);
 	return FALSE;
@@ -4788,8 +4787,8 @@ nemo_list_view_clear (NemoView *view)
 }
 
 static void
-nemo_list_view_rename_callback (NemoFile *file,
-				    GFile *result_location,
+nemo_list_view_rename_callback (G_GNUC_UNUSED NemoFile *file,
+				    G_GNUC_UNUSED GFile *result_location,
 				    GError *error,
 				    gpointer callback_data)
 {
@@ -4860,9 +4859,9 @@ typedef struct {
 } HasCommonParentData;
 
 static void
-tree_selection_has_common_parent_foreach_func (GtkTreeModel *model,
+tree_selection_has_common_parent_foreach_func (G_GNUC_UNUSED GtkTreeModel *model,
 						GtkTreePath *path,
-						GtkTreeIter *iter,
+						G_GNUC_UNUSED GtkTreeIter *iter,
 						gpointer user_data)
 {
 	HasCommonParentData *data;
@@ -4997,8 +4996,7 @@ nemo_list_view_get_backing_uri (NemoView *view)
 			uri = nemo_file_get_parent_uri (file);
 			nemo_file_unref (file);
 
-			g_list_foreach (paths, (GFunc) gtk_tree_path_free, NULL);
-			g_list_free (paths);
+			g_list_free_full (paths, (GDestroyNotify) gtk_tree_path_free);
 		}
 	}
 
@@ -5010,7 +5008,7 @@ nemo_list_view_get_backing_uri (NemoView *view)
 }
 
 static void
-nemo_list_view_get_selection_foreach_func (GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter, gpointer data)
+nemo_list_view_get_selection_foreach_func (GtkTreeModel *model, G_GNUC_UNUSED GtkTreePath *path, GtkTreeIter *iter, gpointer data)
 {
 	GList **list;
 	NemoFile *file;
@@ -5080,7 +5078,7 @@ nemo_list_view_update_selection (NemoView *view)
 }
 
 static void
-nemo_list_view_get_selection_for_file_transfer_foreach_func (GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter, gpointer data)
+nemo_list_view_get_selection_for_file_transfer_foreach_func (GtkTreeModel *model, G_GNUC_UNUSED GtkTreePath *path, GtkTreeIter *iter, gpointer data)
 {
 	NemoFile *file;
 	struct SelectionForeachData *selection_data;
@@ -6015,7 +6013,7 @@ list_view_scroll_to_file (NemoView *view,
 }
 
 static void
-list_view_notify_clipboard_info (NemoClipboardMonitor *monitor,
+list_view_notify_clipboard_info (G_GNUC_UNUSED NemoClipboardMonitor *monitor,
                                  NemoClipboardInfo *info,
                                  NemoListView *view)
 {
@@ -6035,7 +6033,7 @@ list_view_notify_clipboard_info (NemoClipboardMonitor *monitor,
 
 static void
 nemo_list_view_end_loading (NemoView *view,
-				gboolean all_files_seen)
+				G_GNUC_UNUSED gboolean all_files_seen)
 {
 	NemoClipboardMonitor *monitor;
 	NemoClipboardInfo *info;
@@ -6049,7 +6047,7 @@ nemo_list_view_end_loading (NemoView *view,
 }
 
 static const char *
-nemo_list_view_get_id (NemoView *view)
+nemo_list_view_get_id (G_GNUC_UNUSED NemoView *view)
 {
 	return NEMO_LIST_VIEW_ID;
 }
@@ -6211,7 +6209,7 @@ nemo_list_view_create (NemoWindowSlot *slot)
 static gboolean
 nemo_list_view_supports_uri (const char *uri,
 				 GFileType file_type,
-				 const char *mime_type)
+				 G_GNUC_UNUSED const char *mime_type)
 {
 	if (file_type == G_FILE_TYPE_DIRECTORY) {
 		return TRUE;

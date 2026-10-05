@@ -127,7 +127,7 @@ progress_ui_handler_update_status_icon (NemoProgressUIHandler *self)
 
 static gboolean
 progress_window_delete_event (GtkWidget *widget,
-			      GdkEvent *event,
+			      G_GNUC_UNUSED GdkEvent *event,
 			      NemoProgressUIHandler *self)
 {
     gtk_widget_hide (widget);
@@ -257,7 +257,7 @@ progress_ui_handler_add_to_window (NemoProgressUIHandler *self,
 }
 
 static void
-progress_ui_handler_show_complete_notification (NemoProgressUIHandler *self)
+progress_ui_handler_show_complete_notification (G_GNUC_UNUSED NemoProgressUIHandler *self)
 {
 	GNotification *complete_notification;
 
@@ -301,7 +301,7 @@ progress_info_finished_cb (NemoProgressInfo *info,
 }
 
 static void
-progress_info_changed_cb (NemoProgressInfo *info,
+progress_info_changed_cb (G_GNUC_UNUSED NemoProgressInfo *info,
 			   NemoProgressUIHandler *self)
 {	
 	if (g_list_length(self->priv->infos) > 0) {
@@ -415,8 +415,8 @@ new_op_queued_timeout (TimeoutData *data)
 }
 
 static void
-release_application (NemoProgressInfo *info,
-		     NemoProgressUIHandler *self)
+release_application (G_GNUC_UNUSED NemoProgressInfo *info,
+		     G_GNUC_UNUSED NemoProgressUIHandler *self)
 {
 	NemoApplication *app;
 
@@ -448,7 +448,7 @@ progress_info_queued_cb (NemoProgressInfo *info,
 }
 
 static void
-new_progress_info_cb (NemoProgressInfoManager *manager,
+new_progress_info_cb (G_GNUC_UNUSED NemoProgressInfoManager *manager,
 		      NemoProgressInfo *info,
 		      NemoProgressUIHandler *self)
 {

@@ -166,7 +166,7 @@ file_entry_free (FileEntry *file_entry)
 }
 
 static GtkTreeModelFlags
-nemo_list_model_get_flags (GtkTreeModel *tree_model)
+nemo_list_model_get_flags (G_GNUC_UNUSED GtkTreeModel *tree_model)
 {
 	return GTK_TREE_MODEL_ITERS_PERSIST;
 }
@@ -701,7 +701,7 @@ dir_to_iters (struct GetIters *data,
 }
 
 static void
-file_to_iter_cb (gpointer  key,
+file_to_iter_cb (G_GNUC_UNUSED gpointer  key,
 		 gpointer  value,
 		 gpointer  user_data)
 {
@@ -938,13 +938,13 @@ nemo_list_model_set_sort_column_id (GtkTreeSortable *sortable, gint sort_column_
 }
 
 static gboolean
-nemo_list_model_has_default_sort_func (GtkTreeSortable *sortable)
+nemo_list_model_has_default_sort_func (G_GNUC_UNUSED GtkTreeSortable *sortable)
 {
 	return FALSE;
 }
 
 static gboolean
-nemo_list_model_multi_row_draggable (EggTreeMultiDragSource *drag_source, GList *path_list)
+nemo_list_model_multi_row_draggable (G_GNUC_UNUSED EggTreeMultiDragSource *drag_source, G_GNUC_UNUSED GList *path_list)
 {
 	return TRUE;
 }
@@ -1037,7 +1037,7 @@ nemo_list_model_multi_drag_data_get (EggTreeMultiDragSource *drag_source,
 }
 
 static gboolean
-nemo_list_model_multi_drag_data_delete (EggTreeMultiDragSource *drag_source, GList *path_list)
+nemo_list_model_multi_drag_data_delete (G_GNUC_UNUSED EggTreeMultiDragSource *drag_source, G_GNUC_UNUSED GList *path_list)
 {
 	return TRUE;
 }

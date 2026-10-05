@@ -75,8 +75,8 @@ nemo_new_process_argv_tab (GFile       *location,
 
 static void
 child_exited (GPid     pid,
-              gint     status,
-              gpointer user_data)
+              G_GNUC_UNUSED gint     status,
+              G_GNUC_UNUSED gpointer user_data)
 {
 	g_spawn_close_pid (pid);
 }
@@ -85,7 +85,7 @@ child_exited (GPid     pid,
 /* Its own session, so a hangup or an interrupt aimed at the window that
  * started it does not reach it. */
 static void
-detach_from_terminal (gpointer user_data)
+detach_from_terminal (G_GNUC_UNUSED gpointer user_data)
 {
 	setsid ();
 }

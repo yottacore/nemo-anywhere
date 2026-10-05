@@ -156,10 +156,10 @@ item_entry_free (ItemEntry *entry)
 }
 
 static void
-nemo_desktop_item_properties_url_drag_data_received (GtkWidget *widget, GdkDragContext *context,
-                                                         int x, int y,
+nemo_desktop_item_properties_url_drag_data_received (G_GNUC_UNUSED GtkWidget *widget, G_GNUC_UNUSED GdkDragContext *context,
+                                                         G_GNUC_UNUSED int x, G_GNUC_UNUSED int y,
                                                          GtkSelectionData *selection_data,
-                                                         guint info, guint time,
+                                                         G_GNUC_UNUSED guint info, G_GNUC_UNUSED guint time,
                                                          GtkEntry *entry)
 {
 	char **uris;
@@ -193,10 +193,10 @@ nemo_desktop_item_properties_url_drag_data_received (GtkWidget *widget, GdkDragC
 }
 
 static void
-nemo_desktop_item_properties_exec_drag_data_received (GtkWidget *widget, GdkDragContext *context,
-                                                          int x, int y,
+nemo_desktop_item_properties_exec_drag_data_received (G_GNUC_UNUSED GtkWidget *widget, G_GNUC_UNUSED GdkDragContext *context,
+                                                          G_GNUC_UNUSED int x, G_GNUC_UNUSED int y,
                                                           GtkSelectionData *selection_data,
-                                                          guint info, guint time,
+                                                          G_GNUC_UNUSED guint info, G_GNUC_UNUSED guint time,
                                                           GtkEntry *entry)
 {
 	char **uris;
@@ -301,7 +301,7 @@ entry_activate_cb (GtkWidget *entry,
 
 static gboolean
 entry_focus_out_cb (GtkWidget *entry,
-		    GdkEventFocus *event,
+		    G_GNUC_UNUSED GdkEventFocus *event,
 		    GtkWidget *container)
 {
 	const char *uri;

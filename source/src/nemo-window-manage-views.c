@@ -437,7 +437,7 @@ nemo_window_slot_open_location_full (NemoWindowSlot *slot,
         NemoWindow *target_window;
         NemoWindowPane *pane;
         NemoWindowSlot *target_slot;
-	NemoWindowOpenFlags slot_flags;
+	NemoWindowOpenSlotFlags slot_flags;
 	GFile *old_location;
 	char *old_uri, *new_uri;
 	int new_slot_position;
@@ -1704,7 +1704,7 @@ cancel_location_change (NemoWindowSlot *slot)
 }
 
 static void
-display_view_selection_failure (NemoWindow *window, NemoFile *file,
+display_view_selection_failure (G_GNUC_UNUSED NemoWindow *window, NemoFile *file,
 				GFile *location, GError *error)
 {
 	char *full_uri_for_display;

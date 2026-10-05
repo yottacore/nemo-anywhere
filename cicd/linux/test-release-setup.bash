@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 
-##	- Purpose: Check that the Linux release build gets link-time optimization even
-##	  when the container already has a build dir set up without it. A reused dir
-##	  kept it off, and every release built in it differed from a clean rebuild.
+##	- Purpose: Check that the Linux release build gets link-time optimization and
+##	  fatal warnings even when the container already has a build dir set up
+##	  without them. A reused dir kept link-time optimization off, and every
+##	  release built in it differed from a clean rebuild.
 ##	- In a throwaway container from the release image, sets up a build dir with
 ##	  no link-time optimization, runs release-setup.bash over it, and reads the
 ##	  options back. Also checks that the script will not clear a dir that is not
@@ -44,20 +45,20 @@ fOptions(){
 	docker exec "$box" meson introspect --buildoptions "$build" | python3 -c '
 import json, sys
 opts = {o["name"]: o["value"] for o in json.load(sys.stdin)}
-print(" ".join(f"{n}={opts.get(n)}" for n in ("buildtype", "strip", "b_lto", "b_lto_threads")))
+print(" ".join(f"{n}={opts.get(n)}" for n in ("buildtype", "strip", "b_lto", "b_lto_threads", "werror")))
 '
 }
 
 ## The dir as the old image and container had it.
 docker exec "$box" meson setup --buildtype=release "$build" /src/source >/dev/null
 seeded="$(fOptions)"
-[[ "$seeded" == *"b_lto=False"* ]] || fFail "could not set up a dir without link-time optimization: ${seeded}"
+[[ "$seeded" == *"b_lto=False"*"werror=False" ]] || fFail "could not set up a dir without link-time optimization and fatal warnings: ${seeded}"
 
 rc=0
 out="$(docker exec -e SOURCE_DATE_EPOCH=946684800 "$box" bash /src/cicd/linux/release-setup.bash "$build" /src/source "$prefix" 2>&1)" || rc=$?
 [[ "$rc" == 0 ]] || fFail "release-setup.bash failed over an old dir (exit ${rc}): ${out}"
 got="$(fOptions)"
-want="buildtype=release strip=True b_lto=True b_lto_threads=4"
+want="buildtype=release strip=True b_lto=True b_lto_threads=4 werror=True"
 if [[ "$got" == "$want" ]]; then
 	fEcho "OK: an old dir comes out with ${got}"
 else

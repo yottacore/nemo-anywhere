@@ -91,7 +91,7 @@ esac
 ## code a target calls into, so fuzzer-no-link goes on the whole project and the
 ## targets add the linker half. It is passed here because meson warns about any
 ## -fsanitize set from meson.build.
-setupArgs=(-Dfuzzing=true -Db_sanitize=address -Db_lundef=false -Dc_args=-fsanitize=fuzzer-no-link)
+setupArgs=(-Dfuzzing=true -Db_sanitize=address -Db_lundef=false -Dc_args=-fsanitize=fuzzer-no-link -Dwerror=true)
 if [[ -f "${build}/build.ninja" ]] && grep -qF -- '-fsanitize=fuzzer-no-link' "${build}/build.ninja"; then
 	CC=clang meson setup --reconfigure "${build}" "${src}" "${setupArgs[@]}"
 elif [[ -f "${build}/build.ninja" ]]; then
@@ -101,6 +101,7 @@ elif [[ -f "${build}/build.ninja" ]]; then
 else
 	CC=clang meson setup "${build}" "${src}" "${setupArgs[@]}"
 fi
+bash "$(dirname "${BASH_SOURCE[0]}")/../utility/check-werror.bash" "${build}"
 
 ## Only the targets themselves. Building the whole tree here costs minutes and
 ## drags in the extension library, which has no business in a fuzzing build.

@@ -19,7 +19,7 @@ struct _NemoPluginManager
 G_DEFINE_TYPE (NemoPluginManager, nemo_plugin_manager, GTK_TYPE_BIN);
 
 static void
-nemo_plugin_manager_class_init (NemoPluginManagerClass *klass)
+nemo_plugin_manager_class_init (G_GNUC_UNUSED NemoPluginManagerClass *klass)
 {
 }
 

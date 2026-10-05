@@ -260,7 +260,7 @@ nemo_rename_data_free (NemoRenameData *data)
 }
 
 static void
-rename_callback (NemoFile *file, GFile *result_location,
+rename_callback (NemoFile *file, G_GNUC_UNUSED GFile *result_location,
 		 GError *error, gpointer callback_data)
 {
 	NemoRenameData *data;

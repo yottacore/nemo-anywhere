@@ -52,8 +52,8 @@ typedef struct {
 static gboolean
 slot_proxy_drag_motion (GtkWidget          *widget,
 			GdkDragContext     *context,
-			int                 x,
-			int                 y,
+			G_GNUC_UNUSED int                 x,
+			G_GNUC_UNUSED int                 y,
 			unsigned int        time,
 			gpointer            user_data)
 {
@@ -169,8 +169,8 @@ drag_info_clear (NemoDragSlotProxyInfo *drag_info)
 
 static void
 slot_proxy_drag_leave (GtkWidget          *widget,
-		       GdkDragContext     *context,
-		       unsigned int        time,
+		       G_GNUC_UNUSED GdkDragContext     *context,
+		       G_GNUC_UNUSED unsigned int        time,
 		       gpointer            user_data)
 {
     gtk_drag_unhighlight (widget);
@@ -181,8 +181,8 @@ slot_proxy_drag_leave (GtkWidget          *widget,
 static gboolean
 slot_proxy_drag_drop (GtkWidget          *widget,
 		      GdkDragContext     *context,
-		      int                 x,
-		      int                 y,
+		      G_GNUC_UNUSED int                 x,
+		      G_GNUC_UNUSED int                 y,
 		      unsigned int        time,
 		      gpointer            user_data)
 {
@@ -278,8 +278,8 @@ slot_proxy_handle_drop (GtkWidget                *widget,
 static void
 slot_proxy_drag_data_received (GtkWidget          *widget,
 			       GdkDragContext     *context,
-			       int                 x,
-			       int                 y,
+			       G_GNUC_UNUSED int                 x,
+			       G_GNUC_UNUSED int                 y,
 			       GtkSelectionData   *data,
 			       unsigned int        info,
 			       unsigned int        time,

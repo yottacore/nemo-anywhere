@@ -31,9 +31,9 @@ if [[ "${1:-}" != "--inside" ]]; then
 	## Copies, not the container's /src, which may be another clone.
 	rc=0
 	# shellcheck disable=SC2016  ## expanded by the shell in the container
-	tar -C "${here}" -cf - fuzz.bash test-fuzz-exit.bash \
+	tar -C "${here}/.." -cf - linux/fuzz.bash linux/test-fuzz-exit.bash utility/check-werror.bash \
 		| timeout -k 5 360 docker exec -i nemo-build bash -c \
-			'd="$(mktemp -d /tmp/test_fuzz-exit.XXXXXX)" && tar -C "$d" -xf - && { rc=0; bash "$d/test-fuzz-exit.bash" --inside "$d" || rc=$?; rm -rf -- "$d"; exit "$rc"; }' \
+			'd="$(mktemp -d /tmp/test_fuzz-exit.XXXXXX)" && tar -C "$d" -xf - && { rc=0; bash "$d/linux/test-fuzz-exit.bash" --inside "$d/linux" || rc=$?; rm -rf -- "$d"; exit "$rc"; }' \
 		|| rc=$?
 	exit "${rc}"
 fi
@@ -57,9 +57,10 @@ fBuild hang 'for (;;) pause ();'
 fBuild asan 'char *p = malloc (4); volatile size_t i = n + 8; p[i] = 1; free (p);'
 fBuild oom 'size_t s = (size_t) 3 << 30; char *p = malloc (s); if (p) memset (p, 1, s); free (p);'
 
+## The stage reads the dir back for -Werror once it is set up.
 cat >"${stubs}/meson" <<'EOF'
 #!/usr/bin/env bash
-exit 0
+mkdir -p "${BUILD_DIR:?}" && printf ' ARGS = -Wextra -Werror\n' > "${BUILD_DIR}/build.ninja"
 EOF
 
 ## Each target becomes one of the programs above. The hang is second in line,

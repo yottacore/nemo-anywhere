@@ -64,7 +64,7 @@ nemo_icon_view_grid_container_get_icon_images (NemoIconContainer *container,
 					      int                    size,
 					      gboolean               for_drag_accept,
 					      gboolean              *has_window_open,
-                          gboolean               visible)
+                          G_GNUC_UNUSED gboolean               visible)
 {
 	NemoIconView *icon_view;
 	NemoFile *file;
@@ -153,7 +153,7 @@ skip_emblem:
 }
 
 static char *
-nemo_icon_view_grid_container_get_icon_description (NemoIconContainer *container,
+nemo_icon_view_grid_container_get_icon_description (G_GNUC_UNUSED NemoIconContainer *container,
 						   NemoIconData      *data)
 {
 	NemoFile *file;
@@ -236,9 +236,9 @@ nemo_icon_view_grid_container_get_icon_text (NemoIconContainer *container,
 					    NemoIconData      *data,
 					    char                 **editable_text,
 					    char                 **additional_text,
-                        gboolean              *pinned,
-                        gboolean              *fav_unavailable,
-					    gboolean               include_invisible)
+                        G_GNUC_UNUSED gboolean              *pinned,
+                        G_GNUC_UNUSED gboolean              *fav_unavailable,
+					    G_GNUC_UNUSED gboolean               include_invisible)
 {
 	GQuark *attributes;
 	char *text_array[4];
@@ -319,7 +319,7 @@ typedef enum {
 } SortCategory;
 
 static SortCategory
-get_sort_category (NemoFile *file)
+get_sort_category (G_GNUC_UNUSED NemoFile *file)
 {
 	return SORT_OTHER;
 }
@@ -614,7 +614,7 @@ lay_down_icons_desktop (NemoIconContainer *container, GList *icons)
 }
 
 static void
-nemo_icon_view_grid_container_lay_down_icons (NemoIconContainer *container, GList *icons, double start_y)
+nemo_icon_view_grid_container_lay_down_icons (NemoIconContainer *container, GList *icons, G_GNUC_UNUSED double start_y)
 {
 
     lay_down_icons_desktop (container, icons);
@@ -746,7 +746,7 @@ nemo_icon_view_grid_container_move_icon (NemoIconContainer *container,
                    int x, int y,
                    double scale,
                    gboolean raise,
-                   gboolean snap,
+                   G_GNUC_UNUSED gboolean snap,
                    gboolean update_position)
 {
     NemoIconContainerDetails *details;
@@ -795,7 +795,7 @@ nemo_icon_view_grid_container_move_icon (NemoIconContainer *container,
 static void
 nemo_icon_view_grid_container_update_icon (NemoIconContainer *container,
                                            NemoIcon          *icon,
-                                           gboolean           visible)
+                                           G_GNUC_UNUSED gboolean           visible)
 {
     NemoIconContainerDetails *details;
     guint icon_size;
@@ -1517,7 +1517,7 @@ captions_changed_callback (NemoIconContainer *container)
 static gchar *
 on_get_tooltip_text (NemoIconContainer *container,
                      NemoFile          *file,
-                     gpointer           user_data)
+                     G_GNUC_UNUSED gpointer           user_data)
 {
     gchar *tooltip_text = NULL;
 
@@ -1529,16 +1529,16 @@ on_get_tooltip_text (NemoIconContainer *container,
 }
 
 static void
-nemo_icon_view_grid_container_icon_added (NemoIconViewGridContainer *container,
-                                          NemoIconData              *icon_data,
-                                          gpointer                   data)
+nemo_icon_view_grid_container_icon_added (G_GNUC_UNUSED NemoIconViewGridContainer *container,
+                                          G_GNUC_UNUSED NemoIconData              *icon_data,
+                                          G_GNUC_UNUSED gpointer                   data)
 {
 }
 
 static void
-nemo_icon_view_grid_container_icon_removed (NemoIconViewGridContainer *container,
-                                            NemoIconData              *icon_data,
-                                            gpointer                   data)
+nemo_icon_view_grid_container_icon_removed (G_GNUC_UNUSED NemoIconViewGridContainer *container,
+                                            G_GNUC_UNUSED NemoIconData              *icon_data,
+                                            G_GNUC_UNUSED gpointer                   data)
 {
 }
 

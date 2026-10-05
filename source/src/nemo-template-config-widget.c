@@ -67,10 +67,10 @@ cancel_file_monitors (NemoTemplateConfigWidget *widget)
 }
 
 static void
-on_dir_changed (GFileMonitor     *monitor,
-                GFile            *file,
-                GFile            *other_file,
-                GFileMonitorEvent event_type,
+on_dir_changed (G_GNUC_UNUSED GFileMonitor     *monitor,
+                G_GNUC_UNUSED GFile            *file,
+                G_GNUC_UNUSED GFile            *other_file,
+                G_GNUC_UNUSED GFileMonitorEvent event_type,
                 gpointer          user_data)
 {
     NemoTemplateConfigWidget *widget = NEMO_TEMPLATE_CONFIG_WIDGET (user_data);
@@ -94,7 +94,7 @@ monitor_path (NemoTemplateConfigWidget *widget, const gchar *path)
 }
 
 static void
-on_row_selected (GtkWidget *box,
+on_row_selected (G_GNUC_UNUSED GtkWidget *box,
                   GtkWidget *row,
                   gpointer   user_data)
 {
@@ -106,7 +106,7 @@ on_row_selected (GtkWidget *box,
 }
 
 static void
-on_row_activated (GtkWidget *box,
+on_row_activated (G_GNUC_UNUSED GtkWidget *box,
                   GtkWidget *row,
                   gpointer   user_data)
 {
@@ -290,7 +290,7 @@ refresh_widget (NemoTemplateConfigWidget *widget)
 }
 
 static void
-on_remove_row_clicked (GtkWidget *button, gpointer user_data)
+on_remove_row_clicked (G_GNUC_UNUSED GtkWidget *button, gpointer user_data)
 {
     NemoTemplateConfigWidget *widget = NEMO_TEMPLATE_CONFIG_WIDGET (user_data);
     GtkListBoxRow *row = gtk_list_box_get_selected_row (GTK_LIST_BOX (NEMO_CONFIG_BASE_WIDGET (widget)->listbox));
@@ -414,7 +414,7 @@ import_template (NemoTemplateConfigWidget *widget,
 }
 
 static gboolean
-file_has_valid_app_association (const GtkFileFilterInfo *filter_info, gpointer data)
+file_has_valid_app_association (const GtkFileFilterInfo *filter_info, G_GNUC_UNUSED gpointer data)
 {
     g_autofree gchar *content_type = g_content_type_from_mime_type (filter_info->mime_type);
     g_autoptr(GAppInfo) app_info = g_app_info_get_default_for_type (content_type, FALSE);
@@ -423,7 +423,7 @@ file_has_valid_app_association (const GtkFileFilterInfo *filter_info, gpointer d
 }
 
 static void
-on_new_template_clicked (GtkWidget *button, gpointer user_data)
+on_new_template_clicked (G_GNUC_UNUSED GtkWidget *button, gpointer user_data)
 {
     NemoTemplateConfigWidget *widget = NEMO_TEMPLATE_CONFIG_WIDGET (user_data);
     GtkWidget *dialog;
@@ -461,7 +461,7 @@ on_new_template_clicked (GtkWidget *button, gpointer user_data)
 }
 
 static void
-on_rename_row_clicked (GtkWidget *button, gpointer user_data)
+on_rename_row_clicked (G_GNUC_UNUSED GtkWidget *button, gpointer user_data)
 {
     NemoTemplateConfigWidget *widget = NEMO_TEMPLATE_CONFIG_WIDGET (user_data);
     GtkWidget *row = GTK_WIDGET (gtk_list_box_get_selected_row (GTK_LIST_BOX (NEMO_CONFIG_BASE_WIDGET (widget)->listbox)));
@@ -474,7 +474,7 @@ on_rename_row_clicked (GtkWidget *button, gpointer user_data)
 }
 
 static void
-on_edit_template_clicked (GtkWidget *button, gpointer user_data)
+on_edit_template_clicked (G_GNUC_UNUSED GtkWidget *button, gpointer user_data)
 {
     NemoTemplateConfigWidget *widget = NEMO_TEMPLATE_CONFIG_WIDGET (user_data);
     GtkWidget *row = GTK_WIDGET (gtk_list_box_get_selected_row (GTK_LIST_BOX (NEMO_CONFIG_BASE_WIDGET (widget)->listbox)));
@@ -497,7 +497,7 @@ on_edit_template_clicked (GtkWidget *button, gpointer user_data)
 }
 
 static void
-on_open_folder_clicked (GtkWidget *button, NemoTemplateConfigWidget *widget)
+on_open_folder_clicked (G_GNUC_UNUSED GtkWidget *button, G_GNUC_UNUSED NemoTemplateConfigWidget *widget)
 {
     gchar *path = NULL;
     nemo_ensure_valid_templates_directory ();
@@ -514,9 +514,9 @@ on_open_folder_clicked (GtkWidget *button, NemoTemplateConfigWidget *widget)
 }
 
 static void
-on_drag_data_received(GtkWidget *widget,
+on_drag_data_received(G_GNUC_UNUSED GtkWidget *widget,
                       GdkDragContext *context,
-                      gint x, gint y,
+                      G_GNUC_UNUSED gint x, G_GNUC_UNUSED gint y,
                       GtkSelectionData *data,
                       guint target_type,
                       guint time,
@@ -551,9 +551,9 @@ on_drag_data_received(GtkWidget *widget,
 static gboolean
 on_drag_motion (GtkWidget *widget,
                 GdkDragContext *context,
-                gint x, gint y,
+                G_GNUC_UNUSED gint x, G_GNUC_UNUSED gint y,
                 guint time,
-                gpointer user_data)
+                G_GNUC_UNUSED gpointer user_data)
 {
     GdkAtom target = gtk_drag_dest_find_target(widget, context, NULL);
 

@@ -266,9 +266,10 @@ check_extension_reads (const char *tmp)
 #endif
 
 int
-main (int argc, char *argv[])
+main (G_GNUC_UNUSED int argc, G_GNUC_UNUSED char *argv[])
 {
 #ifndef READS_COUNTED
+	(void) failures;
 	g_print ("SKIP: allocations can only be counted on a glibc build with no sanitizer\n");
 	return 77;
 #else
