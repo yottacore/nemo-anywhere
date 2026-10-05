@@ -188,7 +188,311 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20260929-190000: `-spd` is added at run time, 7-Zip is used first for 7z, and Options opens by itself and gets a reset button. Other filesystems is for folders only. One question left, on a selected link to another filesystem.
 		- 20260930-090000: a link onto another filesystem is followed only when both options are on. The reset button also collapses Options, and the store option's flyover says when it forces one thread. The settings comments on the command lines now say they are base flags. No questions left.
 		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
+		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
+
+- Compression reset: a place in the tree for the archive core, and its interfaces.
+	- ID: 2026100516274126
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Target OS: Linux, Windows
+	- Design: [Modularity](design_docs/20260929-101432_compression.md#modularity) and [Roadmap](design_docs/20260929-101432_compression.md#roadmap).
+	- Requirements:
+		- Its own folder and library target for the core, with no GTK and no nemo types. Nothing moves into it yet.
+		- An interface for each nemo part the archive and extract code call today: the job queue, progress info and the file-changes queue; command templates and settings; the directory walk; trash and the delete guard; eel's stock dialogs.
+		- The core takes its settings as values, and reports progress, questions and file changes through callbacks. It asks its caller to delete and never deletes on its own.
+		- On Windows the walk still has to get past MAX_PATH, so nemo hands its own walk in.
+		- A test target for the core that runs with no display.
+	- Estimated effort: Avg
+	- Test case: a new core test that builds without GTK and runs with no display. ID when written.
+
+- Compression reset: link and filesystem choices in the archive options.
+	- ID: 2026100516274163
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274126
+	- Target OS: Linux, Windows
+	- Design: [Link options](design_docs/20260929-101432_compression.md#link-options) and [Junction defaults](design_docs/20260929-101432_compression.md#junction-defaults).
+	- Requirements:
+		- Symlinks: Ignore, the default, Follow, or Store as symlinks.
+		- Junctions, Windows only: Ignore, Follow, Store as junctions, or Store as symlinks. Its default follows Symlinks by the table in the design. A hand change sticks.
+		- Follow nested filesystems, on by default. Follow other filesystems, never on by default.
+		- A store choice the writer can't do falls back to Ignore.
+		- These replace the store links and follow links options and their remembered values. Written in the core.
+		- Open: whether the old remembered values carry over to the new choices.
+	- Estimated effort: Avg
+	- Test case: new core test cases for the junction default table and the fall back to Ignore. rhae85g0, Archive settings test, for the remembered choices. IDs when written.
+
+- Compression reset: tell a nested filesystem from another one.
+	- ID: 2026100516274200
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274126
+	- Target OS: Linux, Windows
+	- Design: [Nested and other filesystems](design_docs/20260929-101432_compression.md#nested-and-other-filesystems).
+	- Requirements:
+		- For a folder, or where a link leads, say whether it is on the same filesystem as the folder the selection is in, a nested one, or another one.
+		- Nested means the same pool or volume on both sides of the mount: one ZFS pool, one Btrfs filesystem, one APFS container. Anything else is another filesystem.
+		- Windows has no nested kind. A folder mount point and a junction are the same kind of reparse point, and one that points at a whole volume counts as a mount point only.
+		- Read from the mount table and the path, never from a share. Written in the core.
+	- Estimated effort: Avg
+	- Test case: new core test cases read from a made-up mount table. IDs when written.
+
+- Compression reset: path list and sixteen size totals.
+	- ID: 2026100516274237
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274126
+	- Target OS: Linux, Windows
+	- Design: [Path list](design_docs/20260929-101432_compression.md#path-list) and [Size totals](design_docs/20260929-101432_compression.md#size-totals).
+	- Requirements:
+		- One entry per file: its path, its bytes, and which of the 16 totals already count it. Adding a path and finding one stay fast at millions of paths.
+		- Each path to a file has 4 flags: symlinked, junctioned, nested filesystem, other filesystem. They describe the path, not the file.
+		- One total per mix of the 4 follow options. A path adds the file's bytes to each mix that follows all of its flags and doesn't count the file yet.
+		- Gives the total for the options as set, and each option's size change: that total less the entry with only that option off.
+		- No disk access here. The background scan feeds it. Written in the core.
+	- Estimated effort: Low
+	- Test case: new core test cases on made-up paths, the two worked examples in the design included. IDs when written.
+
+- Compression reset: the background scan behind the size totals.
+	- ID: 2026100516274275
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274163, 2026100516274200, 2026100516274237
+	- Target OS: Linux, Windows
+	- Design: [Background scan](design_docs/20260929-101432_compression.md#background-scan).
+	- Requirements:
+		- Walks the selection and everything below it by the 4 follow options, and hands each path to the path list with its flags.
+		- Canonical paths. A link loop still ends. A `.lnk` is never followed.
+		- An option made less inclusive mid-scan backs out of the paths it now leaves out, without stopping. One made more inclusive restarts the scan, which adds only paths not seen yet.
+		- Reports changed totals through a callback, at most every 0.25 s.
+		- Cancel stops it and frees the list and the totals. Written in the core.
+		- Open: whether the scan may follow a link onto a network share before OK, given the share rule.
+	- Estimated effort: High
+	- Test case: new core test cases on a scratch tree with folder and file links, a loop, a link that leads nowhere, and an option changed mid-scan. Junctions on Windows. IDs when written.
+
+- Compression reset: 7-Zip first for 7z, and `-spd` on an edited 7-Zip line.
+	- ID: 2026100516274312
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Related IDs: 2026092813381416
+	- Target OS: Linux, Windows
+	- Design: [7-Zip first for 7z](design_docs/20260929-101432_compression.md#7-zip-first-for-7z) and [Wildcards in an edited 7-Zip line](design_docs/20260929-101432_compression.md#wildcards-in-an-edited-7-zip-line).
+	- Requirements:
+		- Where 7-Zip is installed, a 7z job goes to it rather than the library, on as many threads as the settings allow. Its own percent done moves the progress bar.
+		- The library still writes 7z when 7-Zip isn't installed, or when the job stores links on Windows. That job runs on one thread.
+		- `-spd` is added at run time when the line runs 7-Zip and doesn't have it, for compress and for the archive's path when extracting. The saved line isn't changed, and a line that runs another program is left alone.
+	- Estimated effort: Avg
+	- Test case: rev86z08, Archive options test, for which writer gets 7z and for the added `-spd`. rhr6ggmt and reww9h2s, rows with an edited 7-Zip line and a name with `*` or `?`.
+
+- Compression reset: `-r0` on an edited rar line.
+	- ID: 2026100516274349
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Related IDs: 2026100410431108
+	- Target OS: Linux, Windows
+	- Design: [Recursion in an edited rar line](design_docs/20260929-101432_compression.md#recursion-in-an-edited-rar-line).
+	- Requirements:
+		- `-r0` is added at run time when the compress line runs rar, after anything the line has, so an `-r` left in it no longer takes same-named files from the folders below.
+		- The saved line isn't changed. The extract lines never had `-r`.
+	- Estimated effort: Low
+	- Test case: rev86z08, Archive options test, for the added `-r0`. rhr6ggmt, the picked `a.txt` beside `sub/a.txt` rows again with an edited rar line that keeps `-r`.
+
+- Compression reset: link choices and filesystem options in the Compress dialog.
+	- ID: 2026100516274386
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274163, 2026100516274312
+	- Target OS: Linux, Windows
+	- Design: [Link handling](design_docs/20260929-101432_compression.md#link-handling).
+	- Requirements:
+		- Symlinks and Junctions radio groups replace the two link boxes. They show when the selection has a link or a folder. Junctions is Windows only.
+		- Follow nested filesystems and Follow other filesystems sit below them, disabled unless a folder or link is selected. Nested is hidden on Windows.
+		- A store choice the writer can't do is disabled. On Windows, 7z with a password or volumes disables Store as symlinks.
+		- The Follow flyover says a `.lnk` is always stored. The Store as symlinks flyover says when it forces one thread.
+		- Junctions takes its default from Symlinks by the table, until it is changed by hand.
+		- The size changes in the labels come with the live totals item.
+	- Estimated effort: High
+	- Test case: test-nemo-archive-dialog (rhtmbdmj), new cases for which groups show, the junction defaults, and what is disabled per format. IDs when written.
+
+- Compression reset: the job follows the new link and filesystem choices.
+	- ID: 2026100516274423
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274163, 2026100516274275
+	- Related IDs: 2026092813381404
+	- Target OS: Linux, Windows
+	- Design: [After OK](design_docs/20260929-101432_compression.md#after-ok) and [Link options](design_docs/20260929-101432_compression.md#link-options).
+	- Requirements:
+		- After OK the job runs its own pre-scan through the core scan, and works from that list. It never reuses the dialog's scan.
+		- The library writer writes from the list, for every format it writes.
+		- A link that leads nowhere: Ignore leaves it out, Follow and Store keep it as a link. This replaces the rule from 2026092813381404, so its test rows that expect the old rule are commented out with the reason.
+		- The delete check compares against what was meant to go in, followed content included.
+		- Compress each goes through the same code.
+	- Estimated effort: High
+	- Test case: rhr6ggmt, Archive option combinations, rows for each link choice and filesystem option in the library formats. rewygsbg, Archive job test, for the delete check with followed content.
+
+- Compression reset: 7z and rar programs work from the job's list.
+	- ID: 2026100516274460
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274423
+	- Target OS: Linux, Windows
+	- Design: [After OK](design_docs/20260929-101432_compression.md#after-ok).
+	- Requirements:
+		- 7-Zip and rar are told what goes in from the pre-scan list, so mixed choices work, such as following symlinks while storing junctions.
+		- The 7z leave-out list of today becomes part of this. The first run for links that lead nowhere keeps working.
+		- Names stay names: `-spd` for 7-Zip, and rar keeps refusing `*` and `?`.
+		- Open: a list past the command line limit on some OS. The design leaves it to testing.
+	- Estimated effort: High
+	- Test case: rhr6ggmt, the same rows for 7z and rar, plus a mixed choice such as following symlinks while storing junctions.
+
+- Compression reset: live size totals in the Compress dialog.
+	- ID: 2026100516274498
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274275, 2026100516274386
+	- Target OS: Linux, Windows
+	- Design: [Total size](design_docs/20260929-101432_compression.md#total-size) and [Background scan](design_docs/20260929-101432_compression.md#background-scan).
+	- Requirements:
+		- The dialog starts the background scan with the options as set, and narrows or restarts it as they change.
+		- Each follow option shows its size change. "Total size to include" sits on the left of the Cancel and OK row. Both update at most every 0.25 s.
+		- Cancel or OK stops the scan and frees it.
+	- Estimated effort: Avg
+	- Test case: test-nemo-archive-dialog (rhtmbdmj), new cases on a scratch tree: the total and each size change match the core's numbers, and Cancel frees the scan. IDs when written.
+
+- Compression reset: a pre-scan progress bar after OK.
+	- ID: 2026100516274535
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274423
+	- Target OS: Linux, Windows
+	- Design: [After OK](design_docs/20260929-101432_compression.md#after-ok).
+	- Requirements:
+		- While the job's pre-scan runs, the progress dialog shows a second bar for it above the regular one.
+		- Driven by the core's progress callback.
+		- Open: when a job needs no pre-scan, such as a selection of plain files.
+	- Estimated effort: Avg
+	- Test case: rewygsbg, Archive job test, checks the pre-scan reports progress before the first file is written.
+
+- Compression reset: rename the delete box, and say why a delete check failed.
+	- ID: 2026100516274572
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274423
+	- Target OS: Linux, Windows
+	- Design: [Delete originals after verification](design_docs/20260929-101432_compression.md#delete-originals-after-verification).
+	- Requirements:
+		- The box reads "Delete originals after verification".
+		- A failed check says why: how many selected folders and files aren't in the archive, and how many in it weren't selected. When the counts match, the selected size against the archive's.
+		- The size is left out when the counts don't match.
+	- Estimated effort: Avg
+	- Test case: rewygsbg, Archive job test, cases for each kind of mismatch and the reason it gives. rhtmbdmj for the new label.
+
+- Compression reset: volume sizes say what each is for.
+	- ID: 2026100516274609
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Target OS: Linux, Windows
+	- Design: [Volume sizes](design_docs/20260929-101432_compression.md#volume-sizes).
+	- Requirements:
+		- Each preset has its use in parentheses, such as "4,095 MiB (max FAT32 size)".
+		- A preset with its note reads as its size, and a typed size reads as before.
+		- Open: today's list has no 4,095 MiB entry, and the full list of sizes and notes isn't given.
+	- Estimated effort: Low
+	- Test case: rev86z08, Archive options test, each preset reads back as its size. rhtmbdmj for the list.
+
+- Compression reset: Options opens by itself, gets a reset button, and unticks what the writer can't do.
+	- ID: 2026100516274646
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274386
+	- Target OS: Linux, Windows
+	- Design: [Options expander](design_docs/20260929-101432_compression.md#options-expander) and [Options the writer can't do](design_docs/20260929-101432_compression.md#options-the-writer-cant-do).
+	- Requirements:
+		- Options opens when a remembered choice isn't the default, one the format forced off included.
+		- A button beside Options puts every choice under it back to default, drops the remembered ones from the settings file, and collapses Options. It is disabled when all are at default.
+		- An option the writer can't do is unticked and disabled. That doesn't overwrite the remembered choice, so switching back restores it.
+	- Estimated effort: Avg
+	- Test case: rhtmbdmj, cases for opening by itself, the reset, and a format that forces an option off. rhae85g0, Archive settings test, for remembered choices kept through a forced off and dropped by the reset.
+
+- Compression reset: move the compress code into the archive core.
+	- ID: 2026100516274683
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274349, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646
+	- Target OS: Linux, Windows
+	- Design: [Modularity](design_docs/20260929-101432_compression.md#modularity) and [Roadmap](design_docs/20260929-101432_compression.md#roadmap).
+	- Requirements:
+		- Last, after every other reset item. The rest of the compress code moves behind the interfaces, with no change in what it does.
+		- Writer choice, command lines, writing, and the check before a delete go to the core. The Compress dialog and the progress bars go to the GTK layer. Menus, the job queue, settings, trash and the delete guard stay in nemo.
+		- Each piece moves once.
+	- Estimated effort: High
+	- Test case: none new. rev86z08, rhae85g0, rewygsbg, rj4jewn6, rjbpyy28, rhr6ggmt, rhtmbdmj and the core tests stay as they are, and pass before and after.
+
+- Compression reset: move the extract code into the archive core.
+	- ID: 2026100516275399
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274683
+	- Target OS: Linux, Windows
+	- Design: [Modularity](design_docs/20260929-101432_compression.md#modularity) and [Roadmap](design_docs/20260929-101432_compression.md#roadmap).
+	- Requirements:
+		- Extracting and the cleaning of stored paths move to the core, and the conflict dialog to the GTK layer, with no change in what they do.
+		- After this the core has no GTK and no nemo types, and its build shows it.
+	- Estimated effort: High
+	- Test case: none new. reww9h2r, reww9h2s and the extract leak test rjbpmcxy stay as they are, and pass before and after.
 
 - The Linux release build runs its link-time step on one core, with a warning every build.
 	- ID: 2026100514300212
