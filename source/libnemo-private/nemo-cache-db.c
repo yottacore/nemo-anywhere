@@ -86,6 +86,11 @@
 	"SELECT file_id, LENGTH (image) FROM thumbnails" \
 	" WHERE " THUMBNAIL_AGE " < ? LIMIT " G_STRINGIFY (PRUNE_BATCH)
 
+/* How long a name with no thumbnail is kept when thumbnails have no age limit,
+ * the same as that setting's default. Without it a cache held down by its size
+ * limit alone would fill up with them. */
+#define BARE_PATH_AGE_SECS ((gint64) 180 * 24 * 60 * 60)
+
 /* Pages handed back to the disk per step while compacting. */
 #define COMPACT_STEP_PAGES 256
 
@@ -1744,6 +1749,86 @@ drop_missing_paths (NemoCacheDb *db, GCancellable *cancellable)
 	return TRUE;
 }
 
+/* Forgets names whose file has no thumbnail left, once nothing has stored one
+ * under them since `cutoff`. All such a row keeps is a size, a time and maybe a
+ * checksum, and the file gives those again when it is next thumbnailed. What
+ * they pointed at goes with the orphans next.
+ *
+ * Nothing indexes `seen`, so the rows are picked with no transaction open, as
+ * in drop_missing_paths, and the delete asks again in case a window stored a
+ * thumbnail since. */
+static gboolean
+drop_bare_paths (NemoCacheDb *db, GCancellable *cancellable, gint64 cutoff)
+{
+	static const char list_sql[] =
+		"SELECT rowid FROM paths p WHERE rowid > ? AND seen < ?"
+		" AND NOT EXISTS (SELECT 1 FROM thumbnails t WHERE t.file_id = p.file_id)"
+		" ORDER BY rowid LIMIT " G_STRINGIFY (PRUNE_BATCH);
+	static const char drop_sql[] =
+		"DELETE FROM paths WHERE rowid = ? AND seen < ?"
+		" AND NOT EXISTS (SELECT 1 FROM thumbnails t WHERE t.file_id = paths.file_id)";
+	g_autoptr (GArray) rowids = g_array_new (FALSE, FALSE, sizeof (gint64));
+	sqlite3_stmt      *stmt;
+	gint64             after = 0;
+	gboolean           ok;
+	guint              i;
+	int                rc;
+
+	for (;;) {
+		if (g_cancellable_is_cancelled (cancellable))
+			return FALSE;
+
+		g_array_set_size (rowids, 0);
+
+		stmt = prep (db, list_sql, "list bare paths");
+		if (stmt == NULL)
+			return FALSE;
+
+		sqlite3_bind_int64 (stmt, 1, after);
+		sqlite3_bind_int64 (stmt, 2, cutoff);
+		while ((rc = sqlite3_step (stmt)) == SQLITE_ROW) {
+			gint64 rowid = sqlite3_column_int64 (stmt, 0);
+
+			g_array_append_val (rowids, rowid);
+		}
+		sqlite3_finalize (stmt);
+
+		if (!db_ok (db, rc, "list bare paths"))
+			return FALSE;
+		if (rowids->len == 0)
+			return TRUE;
+
+		after = g_array_index (rowids, gint64, rowids->len - 1);
+
+		if (!begin_step (db))
+			return FALSE;
+		ok = still_ours (db);
+
+		stmt = ok ? prep (db, drop_sql, "drop bare path") : NULL;
+		ok = ok && stmt != NULL;
+		for (i = 0; ok && i < rowids->len; i++) {
+			sqlite3_reset (stmt);
+			sqlite3_bind_int64 (stmt, 1, g_array_index (rowids, gint64, i));
+			sqlite3_bind_int64 (stmt, 2, cutoff);
+			ok = db_ok (db, sqlite3_step (stmt), "drop bare path");
+		}
+		sqlite3_finalize (stmt);
+
+		if (ok)
+			ok = commit (db);
+		else
+			rollback (db);
+
+		if (!ok)
+			return FALSE;
+
+		make_way (db, cancellable);
+
+		if (rowids->len < PRUNE_BATCH)
+			return TRUE;
+	}
+}
+
 /* One prune transaction's worth of thumbnails. */
 typedef struct {
 	GArray  *ids;
@@ -2010,8 +2095,11 @@ nemo_cache_db_prune (const NemoCachePruneRules *rules,
 	gboolean             ok;
 	gint64               removed = 0;
 	gint64               due = 0;
+	gint64               bare_age;
 
 	g_return_val_if_fail (rules != NULL, NEMO_CACHE_PRUNE_FAILED);
+
+	bare_age = rules->max_age_secs > 0 ? rules->max_age_secs : BARE_PATH_AGE_SECS;
 
 	if (removed_out != NULL)
 		*removed_out = 0;
@@ -2055,6 +2143,7 @@ nemo_cache_db_prune (const NemoCachePruneRules *rules,
 
 	ok = integrity_ok (&pruner)
 		&& (!rules->drop_missing || drop_missing_paths (&pruner, cancellable))
+		&& drop_bare_paths (&pruner, cancellable, rules->now - bare_age)
 		&& drop_orphans (&pruner, cancellable, &removed)
 		&& (rules->max_age_secs <= 0
 		    || drop_old (&pruner, cancellable, rules->now - rules->max_age_secs, &removed))

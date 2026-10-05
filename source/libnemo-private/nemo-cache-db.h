@@ -197,7 +197,9 @@ gint64 nemo_cache_db_last_used (void);
 /* What a prune pass may throw away, and when the next one is due. */
 typedef struct {
 	gint64   max_bytes;	/* the file's size to get under; 0 for no limit */
-	gint64   max_age_secs;	/* a thumbnail not drawn for this long goes; 0 to keep */
+	gint64   max_age_secs;	/* a thumbnail not drawn for this long goes; 0 to keep.
+				 * Also how long a name with no thumbnail is kept,
+				 * 180 days when 0 */
 	gboolean drop_missing;	/* forget local files gone from a folder that is not */
 	gint64   gap_min_secs;	/* the next pass is due somewhere in this range */
 	gint64   gap_max_secs;
@@ -215,9 +217,9 @@ typedef enum {
 } NemoCachePruneResult;
 
 /* One prune pass, on the calling thread, over a connection of its own. Checks
- * the file for damage, forgets missing files, drops old thumbnails and then the
- * least recently drawn until the file is small enough, and hands the freed
- * space back to the disk.
+ * the file for damage, forgets missing files and names left with no thumbnail,
+ * drops old thumbnails and then the least recently drawn until the file is small
+ * enough, and hands the freed space back to the disk.
  *
  * Only one process runs a pass at a time. The claim lives in the file itself,
  * with a heartbeat, so a process that dies part way through does not hold it
