@@ -189,6 +189,7 @@ nemo_progress_info_init (NemoProgressInfo *info)
 	g_object_unref (manager);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoProgressInfo *
 nemo_progress_info_new (void)
 {
@@ -199,6 +200,7 @@ nemo_progress_info_new (void)
 	return info;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_progress_info_get_status (NemoProgressInfo *info)
 {
@@ -217,6 +219,7 @@ nemo_progress_info_get_status (NemoProgressInfo *info)
 	return res;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_progress_info_get_details (NemoProgressInfo *info)
 {
@@ -235,6 +238,7 @@ nemo_progress_info_get_details (NemoProgressInfo *info)
 	return res;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_progress_info_get_initial_details (NemoProgressInfo *info)
 {
@@ -305,6 +309,7 @@ nemo_progress_info_cancel (NemoProgressInfo *info)
 	g_mutex_unlock (&info->info_lock);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GCancellable *
 nemo_progress_info_get_cancellable (NemoProgressInfo *info)
 {

@@ -25,6 +25,7 @@
 #include "nemo-icon-private.h"
 #include "nemo-file.h"
 
+/* Returns: (transfer full): free with nemo_centered_placement_grid_free */
 NemoCenteredPlacementGrid *
 nemo_centered_placement_grid_new (NemoIconContainer *container, gboolean horizontal)
 {
@@ -466,6 +467,7 @@ get_icon_at_grid_position (NemoCenteredPlacementGrid *grid,
     return NULL;
 }
 
+/* Returns: (transfer full): free with nemo_drag_destroy_selection_list */
 GList *
 nemo_centered_placement_grid_clear_grid_for_selection (NemoCenteredPlacementGrid *grid,
                                                        gint                       start_x,

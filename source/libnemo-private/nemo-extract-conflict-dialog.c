@@ -185,6 +185,7 @@ add_side (GtkWidget  *box,
 	g_free (markup);
 }
 
+/* Returns: (transfer none): a toplevel; destroy with gtk_widget_destroy */
 GtkWidget *
 nemo_extract_conflict_dialog_new (GtkWindow  *parent,
 				  const char *archive_name,
@@ -391,6 +392,7 @@ nemo_extract_conflict_dialog_new (GtkWindow  *parent,
 	return dialog;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_extract_conflict_dialog_get_new_name (GtkWidget *dialog)
 {

@@ -454,6 +454,7 @@ get_scaled_icon_size (NemoIconCanvasItem *item,
        *height = (pixbuf == NULL) ? 0 : (gdk_pixbuf_get_height (pixbuf) / scale);
 }
 
+/* Returns: (transfer full): free with cairo_surface_destroy */
 cairo_surface_t *
 nemo_icon_canvas_item_get_drag_surface (NemoIconCanvasItem *item)
 {
@@ -1961,6 +1962,7 @@ nemo_icon_canvas_item_hit_test_rectangle (NemoIconCanvasItem *item, EelIRect can
 	return hit_test (item, canvas_rect);
 }
 
+/* Returns: (transfer none): owned by @icon_item */
 const char *
 nemo_icon_canvas_item_get_editable_text (NemoIconCanvasItem *icon_item)
 {

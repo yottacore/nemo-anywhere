@@ -1175,6 +1175,7 @@ nemo_directory_monitor_remove_internal (NemoDirectory *directory,
 	nemo_directory_async_state_changed (directory);
 }
 
+/* Returns: (transfer full): hand it back to nemo_directory_add_file_monitors, which takes it */
 FileMonitors *
 nemo_directory_remove_file_monitors (NemoDirectory *directory,
 					 NemoFile *file)

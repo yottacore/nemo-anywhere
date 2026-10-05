@@ -36,6 +36,7 @@
 #include "eel-lib-self-check-functions.h"
 #endif
 
+/* Returns: (transfer full): free with g_free */
 char *
 eel_str_double_underscores (const char *string)
 {
@@ -70,6 +71,7 @@ eel_str_double_underscores (const char *string)
 	return escaped;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 eel_str_escape_shell_characters (const char *string)
 {
@@ -137,6 +139,7 @@ eel_str_escape_shell_characters (const char *string)
     return escaped;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 eel_str_escape_double_quoted_content (const char *string)
 {
@@ -170,6 +173,7 @@ eel_str_escape_double_quoted_content (const char *string)
     return escaped;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 eel_str_capitalize (const char *string)
 {
@@ -193,6 +197,7 @@ eel_str_capitalize (const char *string)
  * we should coordinate the names of eel_string_ellipsize_*
  * and eel_str_*_truncate so that they match better and reflect
  * their different behavior.
+ * Returns: (transfer full): free with g_free
  */
 char *
 eel_str_middle_truncate (const char *string,
@@ -238,6 +243,7 @@ eel_str_middle_truncate (const char *string,
 	return truncated;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 eel_str_strip_substring_and_after (const char *string,
 					const char *substring)
@@ -260,6 +266,7 @@ eel_str_strip_substring_and_after (const char *string,
 			  substring_position - string);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 eel_str_replace_substring (const char *string,
 				const char *substring,
@@ -488,6 +495,7 @@ skip_to_arg (va_list *va,
 	}
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 eel_strdup_vprintf_with_custom (EelPrintfHandler *custom,
 				const char *format,
@@ -670,6 +678,7 @@ eel_strdup_vprintf_with_custom (EelPrintfHandler *custom,
 	return g_string_free (str, FALSE);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 eel_strdup_printf_with_custom (EelPrintfHandler *handlers,
 			       const char *format,
@@ -685,6 +694,7 @@ eel_strdup_printf_with_custom (EelPrintfHandler *handlers,
 	return res;
 }
 
+/* Returns: (transfer full): free with g_list_free_full (list, g_free) */
 GList *
 eel_strv_to_glist (gchar **strv)
 {

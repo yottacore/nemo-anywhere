@@ -508,6 +508,7 @@ nemo_bookmark_init (NemoBookmark *bookmark)
 							 NemoBookmarkDetails);
 }
 
+/* Returns: (transfer none): owned by @bookmark */
 const gchar *
 nemo_bookmark_get_name (NemoBookmark *bookmark)
 {
@@ -607,6 +608,7 @@ nemo_bookmark_compare_uris (gconstpointer a, gconstpointer b)
 			      bookmark_b->details->location);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoBookmark *
 nemo_bookmark_copy (NemoBookmark *bookmark)
 {
@@ -620,6 +622,7 @@ nemo_bookmark_copy (NemoBookmark *bookmark)
                                   nemo_bookmark_metadata_copy (bookmark->details->metadata) : NULL);
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_bookmark_get_icon_name (NemoBookmark *bookmark)
 {
@@ -634,6 +637,7 @@ nemo_bookmark_get_icon_name (NemoBookmark *bookmark)
 	return NULL;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GFile *
 nemo_bookmark_get_location (NemoBookmark *bookmark)
 {
@@ -650,6 +654,7 @@ nemo_bookmark_get_location (NemoBookmark *bookmark)
 	return g_object_ref (bookmark->details->location);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_bookmark_get_uri (NemoBookmark *bookmark)
 {
@@ -662,6 +667,7 @@ nemo_bookmark_get_uri (NemoBookmark *bookmark)
 	return uri;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoBookmark *
 nemo_bookmark_new (GFile                *location,
                    const gchar          *custom_name,
@@ -708,7 +714,7 @@ create_image_widget_for_bookmark (NemoBookmark *bookmark)
  *
  * Return a menu item representing a bookmark.
  * @bookmark: The bookmark the menu item represents.
- * Return value: A newly-created bookmark, not yet shown.
+ * Return value: (transfer floating): A newly-created bookmark, not yet shown.
  **/
 GtkWidget *
 nemo_bookmark_menu_item_new (NemoBookmark *bookmark)
@@ -763,6 +769,7 @@ nemo_bookmark_set_scroll_pos (NemoBookmark      *bookmark,
 	bookmark->details->scroll_file = g_strdup (uri);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_bookmark_get_scroll_pos (NemoBookmark      *bookmark)
 {
@@ -791,6 +798,7 @@ char_list_to_strv (GList *list)
     return (char **) g_ptr_array_free (array, FALSE);
 }
 
+/* Returns: (transfer full): free with nemo_bookmark_metadata_free */
 NemoBookmarkMetadata *
 nemo_bookmark_get_updated_metadata (NemoBookmark  *bookmark)
 {
@@ -818,6 +826,7 @@ nemo_bookmark_get_updated_metadata (NemoBookmark  *bookmark)
     return ret;
 }
 
+/* Returns: (transfer none): owned by @bookmark */
 NemoBookmarkMetadata *
 nemo_bookmark_get_current_metadata (NemoBookmark *bookmark)
 {
@@ -827,6 +836,7 @@ nemo_bookmark_get_current_metadata (NemoBookmark *bookmark)
     return NULL;
 }
 
+/* Returns: (transfer full): free with nemo_bookmark_metadata_free */
 NemoBookmarkMetadata *
 nemo_bookmark_metadata_new (void)
 {
@@ -835,6 +845,7 @@ nemo_bookmark_metadata_new (void)
     return meta;
 }
 
+/* Returns: (transfer full): free with nemo_bookmark_metadata_free */
 NemoBookmarkMetadata *
 nemo_bookmark_metadata_copy (NemoBookmarkMetadata *meta)
 {

@@ -544,7 +544,7 @@ nemo_widget_menu_item_size_allocate (GtkWidget     *widget,
  *
  * Creates a new #NemoWidgetMenuItem.
  *
- * Returns: a new #NemoWidgetMenuItem.
+ * Returns: (transfer floating): a new #NemoWidgetMenuItem.
  */
 GtkWidget *
 nemo_widget_menu_item_new (GtkWidget *widget)

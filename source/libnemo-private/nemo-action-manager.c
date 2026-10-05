@@ -441,6 +441,7 @@ nemo_action_manager_constructed (GObject *object)
                              G_CALLBACK (plugin_prefs_changed), action_manager, 0);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoActionManager *
 nemo_action_manager_new (void)
 {
@@ -499,6 +500,7 @@ nemo_action_manager_class_init (NemoActionManagerClass *klass)
                                      G_TYPE_NONE, 0);
 }
 
+/* Returns: (transfer none): owned by @action_manager */
 GList *
 nemo_action_manager_list_actions (NemoActionManager *action_manager)
 {
@@ -507,6 +509,7 @@ nemo_action_manager_list_actions (NemoActionManager *action_manager)
     return priv->action_list_dirty ? NULL : priv->actions;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoAction *
 nemo_action_manager_get_action (NemoActionManager *action_manager,
                                 const gchar       *uuid)
@@ -527,6 +530,7 @@ nemo_action_manager_get_action (NemoActionManager *action_manager,
     }
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_action_manager_get_system_directory_path (const gchar *data_dir)
 {
@@ -546,6 +550,7 @@ nemo_action_manager_get_system_directory_path (const gchar *data_dir)
     }
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_action_manager_get_user_directory_path (void)
 {

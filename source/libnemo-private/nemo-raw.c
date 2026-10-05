@@ -641,6 +641,7 @@ rank (const Preview *p, guint target)
 	return side >= target ? side : 0x10000 + (0xFFFF - MIN (side, 0xFFFF));
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GdkPixbuf *
 nemo_raw_load (GInputStream *stream, int size, GCancellable *cancellable)
 {
@@ -730,6 +731,7 @@ nemo_raw_load (GInputStream *stream, int size, GCancellable *cancellable)
 	return pixbuf;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GdkPixbuf *
 nemo_raw_load_uri (const char *uri, int size, GCancellable *cancellable)
 {

@@ -497,7 +497,8 @@ drop_alpha (GdkPixbuf *pixbuf)
 }
 
 /* The JPEG is baseline rather than progressive, which is what gdk-pixbuf
- * writes, and is also the faster of the two to decode. */
+ * writes, and is also the faster of the two to decode.
+ * Returns: (transfer full): free with g_bytes_unref */
 GBytes *
 nemo_thumbnail_encode (GdkPixbuf *pixbuf, NemoThumbnailFormat *format)
 {

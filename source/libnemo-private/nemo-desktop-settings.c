@@ -114,6 +114,7 @@ own_terminal_chosen (void)
 	return chosen != NULL && *chosen != '\0';
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_desktop_settings_get_terminal_exec (void)
 {
@@ -122,6 +123,7 @@ nemo_desktop_settings_get_terminal_exec (void)
 	return nemo_config_get_string (own_terminal, "exec");
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_desktop_settings_get_terminal_exec_arg (void)
 {

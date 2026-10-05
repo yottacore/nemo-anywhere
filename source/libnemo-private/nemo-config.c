@@ -1232,12 +1232,14 @@ nemo_config_get_default_boolean (const char *group, const char *key)
 	return g_strcmp0 (k->def, "true") == 0;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_config_get_path (void)
 {
 	return g_strdup (config_path);
 }
 
+/* Returns: (transfer none): kept for the life of the process */
 NemoConfigGroup *
 nemo_config_get_group (const char *group)
 {
@@ -1423,6 +1425,7 @@ nemo_config_get_double (NemoConfigGroup *group, const char *key)
 	return out;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_config_get_string (NemoConfigGroup *group, const char *key)
 {
@@ -1449,6 +1452,7 @@ nemo_config_get_string (NemoConfigGroup *group, const char *key)
 	return out;
 }
 
+/* Returns: (transfer full): free with g_strfreev */
 char **
 nemo_config_get_strv (NemoConfigGroup *group, const char *key)
 {
@@ -1914,6 +1918,7 @@ nemo_config_drop_foreign_paths (void)
 #endif
 }
 
+/* Returns: (transfer full): free with g_strfreev */
 char **
 nemo_config_list_keys (NemoConfigGroup *group)
 {

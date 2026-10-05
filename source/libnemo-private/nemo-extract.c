@@ -228,6 +228,7 @@ first_volume (GFile *archive)
 	return first;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_extract_folder_name (const char *archive_name)
 {
@@ -255,6 +256,7 @@ nemo_extract_folder_name (const char *archive_name)
 	return base;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_extract_unique_name (const char *name,
 			  guint       attempt)
@@ -273,6 +275,7 @@ nemo_extract_unique_name (const char *name,
 	return g_strdup_printf ("%.*s (%u)%s", (int) (dot - name), name, attempt, dot);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_extract_sanitize_path (const char *entry_path)
 {
@@ -373,6 +376,7 @@ nemo_extract_backend_present (NemoExtractBackend backend)
 	return backend_program (backend) != NULL;
 }
 
+/* Returns: (transfer full): free with g_strfreev */
 char **
 nemo_extract_build_command (NemoExtractBackend  backend,
 			    const char         *program,

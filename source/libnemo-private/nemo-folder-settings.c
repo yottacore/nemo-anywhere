@@ -54,6 +54,7 @@ const char * const nemo_folder_settings_keys[] = {
 	NULL
 };
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_folder_settings_source_for_uri (const char *uri)
 {
@@ -93,6 +94,7 @@ nemo_folder_settings_source_for_uri (const char *uri)
 	return source;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_folder_settings_source_uri (NemoFile *folder)
 {
@@ -126,6 +128,7 @@ nemo_folder_settings_has_own (NemoFile *folder)
 	return own;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_folder_settings_get (NemoFile   *folder,
 			  const char *key,
@@ -142,6 +145,7 @@ nemo_folder_settings_get (NemoFile   *folder,
 	return value != NULL ? value : g_strdup (default_value);
 }
 
+/* Returns: (transfer full): free with g_list_free_full (list, g_free) */
 GList *
 nemo_folder_settings_get_list (NemoFile   *folder,
 			       const char *key)

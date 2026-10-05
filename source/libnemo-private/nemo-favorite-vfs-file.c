@@ -36,6 +36,7 @@ struct _NemoFavoriteVfsFile
 
 static void  nemo_favorite_vfs_file_gfile_iface_init (GFileIface *iface);
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_path_to_fav_uri (const gchar *path)
 {
@@ -44,6 +45,7 @@ nemo_path_to_fav_uri (const gchar *path)
     return g_strconcat (ROOT_URI, path, NULL);
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_fav_uri_to_display_name (const gchar *uri)
 {
@@ -1459,6 +1461,7 @@ GFile *_nemo_favorite_vfs_file_new_for_info (NemoFavoriteInfo *info)
     return G_FILE (new_file);
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *nemo_favorite_vfs_file_get_real_uri (GFile *file)
 {
     NemoFavoriteVfsFilePrivate *priv = nemo_favorite_vfs_file_get_instance_private (NEMO_FAVORITE_VFS_FILE (file));
@@ -1471,6 +1474,7 @@ gchar *nemo_favorite_vfs_file_get_real_uri (GFile *file)
     return NULL;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GFile *nemo_favorite_vfs_file_new_for_uri (const char *uri)
 {
     NemoFavoriteVfsFile *new_file;

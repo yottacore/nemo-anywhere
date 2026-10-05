@@ -1177,6 +1177,7 @@ nemo_tree_view_drag_dest_class_init (NemoTreeViewDragDestClass *class)
 
 
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoTreeViewDragDest *
 nemo_tree_view_drag_dest_new (GtkTreeView *tree_view, gboolean strict_drop)
 {

@@ -131,6 +131,7 @@ build_theme_roots (void)
 	theme_roots = (char **) g_ptr_array_free (roots, FALSE);
 }
 
+/* Returns: (transfer none): kept for the life of the process */
 const char * const *
 nemo_appearance_get_theme_roots (void)
 {
@@ -681,6 +682,7 @@ compare_display (gconstpointer a, gconstpointer b)
 	return g_utf8_collate (ia->display, ib->display);
 }
 
+/* Returns: (transfer full): free with g_list_free_full (list, nemo_theme_info_free) */
 GList *
 nemo_appearance_list_themes (NemoThemeKind kind, guint fits)
 {
@@ -725,6 +727,7 @@ nemo_appearance_list_themes (NemoThemeKind kind, guint fits)
 	return g_list_sort (out, compare_display);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_appearance_theme_for_mode (NemoThemeKind kind, const char *name)
 {
@@ -764,7 +767,8 @@ nemo_appearance_theme_for_mode (NemoThemeKind kind, const char *name)
 }
 
 /* Both kinds carry X-Nemo-Style, so pairing them is a lookup rather than a
- * table that would go stale every time a theme is added. */
+ * table that would go stale every time a theme is added.
+ * Returns: (transfer full): free with g_free */
 char *
 nemo_appearance_icons_for_widget_theme (const char *widget_name)
 {

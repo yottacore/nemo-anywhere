@@ -92,6 +92,7 @@ find_program (G_GNUC_UNUSED gpointer data)
 	return found;
 }
 
+/* Returns: (transfer none): kept for the life of the process */
 const char *
 nemo_magick_program (void)
 {
@@ -100,6 +101,7 @@ nemo_magick_program (void)
 	return g_once (&once, find_program, NULL);
 }
 
+/* Returns: (transfer none): a static string */
 const char *
 nemo_magick_coder (const char *name)
 {
@@ -141,6 +143,7 @@ nemo_magick_type_ok (const char *uri)
 	       nemo_magick_coder (uri) != NULL && nemo_magick_program () != NULL;
 }
 
+/* Returns: (transfer full): free with g_strfreev */
 gchar **
 nemo_magick_argv (const char *program, const char *coder, int size)
 {
@@ -241,6 +244,7 @@ decode_png (GBytes *bytes)
 	return pixbuf != NULL ? g_object_ref (pixbuf) : NULL;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GdkPixbuf *
 nemo_magick_load_uri (const char *uri, int size, GCancellable *cancellable)
 {

@@ -417,6 +417,7 @@ struct _NemoSearchNameMatcher {
     gboolean use_regex;
 };
 
+/* Returns: (transfer full): free with nemo_search_name_matcher_free */
 NemoSearchNameMatcher *
 nemo_search_name_matcher_new (NemoQuery *query)
 {
@@ -1489,6 +1490,7 @@ nemo_search_engine_advanced_init (NemoSearchEngineAdvanced *engine)
     }
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoSearchEngine *
 nemo_search_engine_advanced_new (void)
 {

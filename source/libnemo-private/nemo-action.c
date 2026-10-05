@@ -918,6 +918,7 @@ nemo_action_constructed (GObject *object)
     g_key_file_free (key_file);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoAction *
 nemo_action_new (const gchar *name, 
                  const gchar *path)
@@ -1552,6 +1553,7 @@ nemo_action_activate (NemoAction *action,
     g_string_free (exec, TRUE);
 }
 
+/* Returns: (transfer none): owned by @action */
 const gchar *
 nemo_action_get_orig_label (NemoAction *action)
 {
@@ -1594,6 +1596,7 @@ nemo_action_override_icon (NemoAction  *action,
     }
 }
 
+/* Returns: (transfer none): owned by @action */
 const gchar *
 nemo_action_get_orig_tt (NemoAction *action)
 {

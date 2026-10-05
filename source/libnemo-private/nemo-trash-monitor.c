@@ -212,6 +212,7 @@ unref_trash_monitor (void)
 	g_object_unref (nemo_trash_monitor);
 }
 
+/* Returns: (transfer none): kept until shutdown */
 NemoTrashMonitor *
 nemo_trash_monitor_get (void)
 {
@@ -235,6 +236,7 @@ nemo_trash_monitor_is_empty (void)
 	return monitor->details->empty;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GIcon *
 nemo_trash_monitor_get_icon (void)
 {
@@ -247,6 +249,7 @@ nemo_trash_monitor_get_icon (void)
 	return NULL;
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_trash_monitor_get_symbolic_icon_name (void)
 {

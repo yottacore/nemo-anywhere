@@ -277,6 +277,7 @@ get_search_columns (void)
 }
 
 
+/* Returns: (transfer full): free with nemo_column_list_free */
 GList *
 nemo_get_common_columns (void)
 {
@@ -290,6 +291,7 @@ nemo_get_common_columns (void)
 	return nemo_column_list_copy (columns);
 }
 
+/* Returns: (transfer full): free with nemo_column_list_free */
 GList *
 nemo_get_all_columns (void)
 {
@@ -304,6 +306,7 @@ nemo_get_all_columns (void)
 	return with_search_columns;
 }
 
+/* Returns: (transfer full): free with nemo_column_list_free */
 GList *
 nemo_get_columns_for_file (NemoFile *file)
 {
@@ -323,6 +326,7 @@ nemo_get_columns_for_file (NemoFile *file)
 	return columns;
 }
 
+/* Returns: (transfer full): free with nemo_column_list_free */
 GList *
 nemo_column_list_copy (GList *columns) 
 {
@@ -399,6 +403,7 @@ column_compare (NemoColumn *a, NemoColumn *b, char **column_order)
 	}
 }
 
+/* Returns: (transfer full): @columns sorted in place, owned as @columns was */
 GList *
 nemo_sort_columns (GList  *columns, 
 		       char  **column_order)

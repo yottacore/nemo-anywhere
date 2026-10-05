@@ -132,6 +132,7 @@ nemo_undo (GObject *undo_manager_search_start_object)
 	}
 }
 
+/* Returns: (transfer none): owned by the object it was attached to */
 NemoUndoManager *
 nemo_undo_get_undo_manager (GObject *start_object)
 {

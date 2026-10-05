@@ -548,6 +548,7 @@ parse_name (GFile *file)
 	return name != NULL ? name : g_strdup ("?");
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_delete_testguard_describe_move (GList *files,
 				     GFile *destination)
@@ -568,6 +569,7 @@ nemo_delete_testguard_describe_move (GList *files,
 	return text;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_delete_testguard_describe_overwrite (GFile *source,
 					  GFile *target)

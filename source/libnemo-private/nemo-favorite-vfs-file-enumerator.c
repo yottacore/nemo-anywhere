@@ -234,6 +234,7 @@ nemo_favorite_vfs_file_enumerator_class_init (NemoFavoriteVfsFileEnumeratorClass
     enumerator_class->close_fn = close_fn;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GFileEnumerator *
 nemo_favorite_vfs_file_enumerator_new (GFile               *file,
                                   const gchar         *attributes,

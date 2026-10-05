@@ -98,6 +98,7 @@ nemo_drag_finalize (NemoDragInfo *drag_info)
 
 /* Functions to deal with NemoDragSelectionItems.  */
 
+/* Returns: (transfer full): freed with its list by nemo_drag_destroy_selection_list */
 NemoDragSelectionItem *
 nemo_drag_selection_item_new (void)
 {
@@ -125,6 +126,7 @@ nemo_drag_destroy_selection_list (GList *list)
 	g_list_free (list);
 }
 
+/* Returns: (transfer full): free with g_strfreev */
 char **
 nemo_drag_uri_array_from_selection_list (const GList *selection_list)
 {
@@ -138,6 +140,7 @@ nemo_drag_uri_array_from_selection_list (const GList *selection_list)
 	return uris;
 }
 
+/* Returns: (transfer full): free with g_list_free_full (list, g_free) */
 GList *
 nemo_drag_uri_list_from_selection_list (const GList *selection_list)
 {
@@ -156,6 +159,7 @@ nemo_drag_uri_list_from_selection_list (const GList *selection_list)
 	return g_list_reverse (uri_list);
 }
 
+/* Returns: (transfer full): free with g_strfreev */
 char **
 nemo_drag_uri_array_from_list (const GList *uri_list)
 {
@@ -178,6 +182,7 @@ nemo_drag_uri_array_from_list (const GList *uri_list)
 	return uris;
 }
 
+/* Returns: (transfer full): free with g_list_free_full (list, g_free) */
 GList *
 nemo_drag_uri_list_from_array (const char **uris)
 {
@@ -198,7 +203,8 @@ nemo_drag_uri_list_from_array (const char **uris)
 }
 
 /* Split out from the public entry so the parser can be exercised on raw
-   bytes; GtkSelectionData is opaque and cannot be built in a test. */
+   bytes; GtkSelectionData is opaque and cannot be built in a test.
+   Returns: (transfer full): free with nemo_drag_destroy_selection_list */
 GList *
 nemo_drag_build_selection_list_from_raw (const guchar *raw, int size)
 {
@@ -284,6 +290,7 @@ nemo_drag_build_selection_list_from_raw (const guchar *raw, int size)
 	return g_list_reverse (result);
 }
 
+/* Returns: (transfer full): free with nemo_drag_destroy_selection_list */
 GList *
 nemo_drag_build_selection_list (GtkSelectionData *data)
 {
@@ -666,7 +673,8 @@ nemo_drag_default_drop_action_for_icons (GdkDragContext *context,
 }
 
 /* The first uri a text/uri-list payload names, which is all the move-or-copy
- * decision needs - a drag is one place to another, whatever it holds. */
+ * decision needs - a drag is one place to another, whatever it holds.
+ * Returns: (transfer full): free with g_free */
 char *
 nemo_drag_first_uri (GtkSelectionData *data)
 {
@@ -857,6 +865,7 @@ add_one_path (G_GNUC_UNUSED const char *uri, const char *path_str, G_GNUC_UNUSED
     g_string_append (result, "\r\n");
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_drag_selection_payload (guint info,
 			     gpointer container_context,

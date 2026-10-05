@@ -167,6 +167,7 @@ expand_one (const char             *arg,
 	return TRUE;
 }
 
+/* Returns: (transfer full): free with g_strfreev */
 char **
 nemo_command_template_expand (const char             *template_text,
 			      const NemoCommandToken *tokens,
@@ -214,6 +215,7 @@ nemo_command_template_expand (const char             *template_text,
 	return (char **) g_ptr_array_free (out, FALSE);
 }
 
+/* Returns: (transfer full): free with g_strfreev */
 char **
 nemo_command_template_unused (const char             *template_text,
 			      const NemoCommandToken *tokens)
@@ -254,6 +256,7 @@ nemo_command_template_unused (const char             *template_text,
 	return (char **) g_ptr_array_free (missing, FALSE);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_command_template_from_config (const char *group,
 				   const char *key,

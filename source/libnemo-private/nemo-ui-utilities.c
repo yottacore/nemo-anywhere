@@ -73,6 +73,7 @@ menu_item_unref (gpointer data, G_GNUC_UNUSED GClosure *closure)
 	g_object_unref (data);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GtkAction *
 nemo_action_from_menu_item (NemoMenuItem *item,
                             GtkWidget    *parent_widget)
@@ -118,6 +119,7 @@ nemo_action_from_menu_item (NemoMenuItem *item,
 	return action;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GdkPixbuf *
 nemo_ui_get_menu_icon (const char *icon_name,
                        GtkWidget  *parent_widget)
@@ -141,6 +143,7 @@ nemo_ui_get_menu_icon (const char *icon_name,
 	return pixbuf;
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_make_action_uuid_for_path (const gchar *path)
 {

@@ -64,6 +64,7 @@ nemo_icon_info_free (NemoIconInfo *icon)
     g_free (icon);
 }
 
+/* Returns: (transfer full): @icon with one more ref; drop it with nemo_icon_info_unref */
 NemoIconInfo *
 nemo_icon_info_ref (NemoIconInfo *icon)
 {
@@ -120,6 +121,7 @@ nemo_icon_info_is_fallback (NemoIconInfo  *icon)
   return icon->pixbuf == NULL;
 }
 
+/* Returns: (transfer full): unref with nemo_icon_info_unref */
 NemoIconInfo *
 nemo_icon_info_new_for_pixbuf (GdkPixbuf *pixbuf,
                                 gint      scale)
@@ -283,6 +285,7 @@ icon_key_free (IconKey *key)
 	g_free (key);
 }
 
+/* Returns: (transfer full): unref with nemo_icon_info_unref */
 NemoIconInfo *
 nemo_icon_info_lookup (GIcon *icon,
                int size,
@@ -395,6 +398,7 @@ nemo_icon_info_lookup (GIcon *icon,
     }
 }
 
+/* Returns: (transfer full): unref with nemo_icon_info_unref */
 NemoIconInfo *
 nemo_icon_info_lookup_from_name (const char *name,
                                  int size,
@@ -409,6 +413,7 @@ nemo_icon_info_lookup_from_name (const char *name,
 	return info;
 }
 
+/* Returns: (transfer full): unref with nemo_icon_info_unref */
 NemoIconInfo *
 nemo_icon_info_lookup_from_path (const char *path,
                                  int size,
@@ -426,6 +431,7 @@ nemo_icon_info_lookup_from_path (const char *path,
 	return info;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GdkPixbuf *
 nemo_icon_info_get_pixbuf_nodefault (NemoIconInfo  *icon)
 {
@@ -448,6 +454,7 @@ nemo_icon_info_get_pixbuf_nodefault (NemoIconInfo  *icon)
 }
 
 
+/* Returns: (transfer full): unref with g_object_unref */
 GdkPixbuf *
 nemo_icon_info_get_pixbuf (NemoIconInfo *icon)
 {
@@ -469,6 +476,7 @@ nemo_icon_info_get_pixbuf (NemoIconInfo *icon)
 	return res;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GdkPixbuf *
 nemo_icon_info_get_pixbuf_nodefault_at_size (NemoIconInfo  *icon,
 						 gsize              forced_size)
@@ -498,6 +506,7 @@ nemo_icon_info_get_pixbuf_nodefault_at_size (NemoIconInfo  *icon,
 }
 
 
+/* Returns: (transfer full): unref with g_object_unref */
 GdkPixbuf *
 nemo_icon_info_get_pixbuf_at_size (NemoIconInfo  *icon,
 				       gsize              forced_size)
@@ -523,6 +532,7 @@ nemo_icon_info_get_pixbuf_at_size (NemoIconInfo  *icon,
 	return scaled_pixbuf;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GdkPixbuf *
 nemo_icon_info_get_desktop_pixbuf_at_size (NemoIconInfo  *icon,
                                            gsize          max_height,
@@ -554,6 +564,7 @@ nemo_icon_info_get_desktop_pixbuf_at_size (NemoIconInfo  *icon,
     return scaled_pixbuf;
 }
 
+/* Returns: (transfer none): owned by @icon */
 const char *
 nemo_icon_info_get_used_name (NemoIconInfo  *icon)
 {
@@ -600,6 +611,7 @@ static const gint legacy_list_icon_sizes[] = {
 
 #define N_LEGACY_LEVELS ((gint) G_N_ELEMENTS (legacy_icon_sizes))
 
+/* Returns: (transfer none): a static table */
 const gint *
 nemo_icon_size_steps (guint *n_steps)
 {
@@ -791,6 +803,7 @@ nemo_icon_get_emblem_size_for_icon_size (guint size)
 	return 0; /* no emblems for smaller sizes */
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GIcon *
 nemo_user_special_directory_get_gicon (GUserDirectory directory)
 {

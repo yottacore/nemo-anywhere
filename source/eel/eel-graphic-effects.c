@@ -64,6 +64,7 @@ lighten_component (guchar cur_value)
 	return (guchar) new_value;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GdkPixbuf *
 eel_create_spotlight_pixbuf (GdkPixbuf* src)
 {
@@ -107,6 +108,7 @@ eel_create_spotlight_pixbuf (GdkPixbuf* src)
 
 /* this routine colorizes the passed-in pixbuf by multiplying each pixel with the passed in color */
 
+/* Returns: (transfer full): unref with g_object_unref */
 GdkPixbuf *
 eel_create_colorized_pixbuf (GdkPixbuf *src,
 			     GdkRGBA *color)
@@ -245,7 +247,8 @@ eel_stretch_frame_image (GdkPixbuf *frame_image, int left_offset, int top_offset
 }
 
 
-/* draw an arbitrary frame around an image, with the result passed back in a newly allocated pixbuf */
+/* draw an arbitrary frame around an image, with the result passed back in a newly allocated pixbuf
+ * Returns: (transfer full): unref with g_object_unref */
 GdkPixbuf *
 eel_embed_image_in_frame (GdkPixbuf *source_image, GdkPixbuf *frame_image, int left_offset, int top_offset, int right_offset, int bottom_offset)
 {

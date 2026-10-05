@@ -945,7 +945,7 @@ nemo_desktop_thumbnail_factory_class_init (NemoDesktopThumbnailFactoryClass *cla
  *
  * This function must be called on the main thread.
  * 
- * Return value: a new #NemoDesktopThumbnailFactory
+ * Return value: (transfer full): a new #NemoDesktopThumbnailFactory. Unref with g_object_unref.
  *
  * Since: 2.2
  **/
@@ -971,7 +971,7 @@ nemo_desktop_thumbnail_factory_new (NemoDesktopThumbnailSize size)
  *
  * Usage of this function is threadsafe.
  *
- * Return value: The absolute path of the thumbnail, or %NULL if none exist.
+ * Return value: (transfer full): The absolute path of the thumbnail, or %NULL if none exist. Free with g_free.
  *
  * Since: 2.2
  **/
@@ -1454,7 +1454,8 @@ nemo_desktop_thumbnail_factory_generate_thumbnail (NemoDesktopThumbnailFactory *
 /* The same, at any size rather than the two the shared cache has folders for.
  * An external thumbnailer is free to hand back something smaller than asked.
  * Once @cancellable is cancelled every reader stops and the answer is NULL,
- * which the caller tells apart from a failure by the cancellable. */
+ * which the caller tells apart from a failure by the cancellable.
+ * Returns: (transfer full): unref with g_object_unref */
 GdkPixbuf *
 nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (NemoDesktopThumbnailFactory *factory,
 							    const char            *uri,
@@ -1900,7 +1901,7 @@ nemo_desktop_thumbnail_factory_create_failed_thumbnail (NemoDesktopThumbnailFact
  * Calculates the MD5 checksum of the uri. This can be useful
  * if you want to manually handle thumbnail files.
  *
- * Return value: A string with the MD5 digest of the uri string.
+ * Return value: (transfer full): A string with the MD5 digest of the uri string. Free with g_free.
  *
  * Since: 2.2
  * Deprecated: 2.22: Use #GChecksum instead
@@ -1920,7 +1921,7 @@ nemo_desktop_thumbnail_md5 (const char *uri)
  *
  * Returns the filename that a thumbnail of size @size for @uri would have.
  *
- * Return value: an absolute filename
+ * Return value: (transfer full): an absolute filename. Free with g_free.
  *
  * Since: 2.2
  **/

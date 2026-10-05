@@ -461,6 +461,7 @@ nemo_favorite_vfs_file_monitor_class_init (NemoFavoriteVfsFileMonitorClass *klas
     monitor_class->cancel = nemo_favorite_vfs_file_monitor_cancel;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GFileMonitor *
 nemo_favorite_vfs_file_monitor_new (void)
 {

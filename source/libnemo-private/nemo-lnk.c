@@ -456,6 +456,7 @@ nemo_lnk_is_dir (const NemoLnk *lnk)
 	return (lnk->attributes & ATTRIBUTE_DIRECTORY) != 0;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_lnk_display_target (const NemoLnk *lnk)
 {
@@ -636,6 +637,7 @@ path_under (const char *path, const char *dir)
 }
 #endif
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_lnk_expand (const char *windows_path)
 {
@@ -686,6 +688,7 @@ static const char *portable_names[] = {
 };
 #endif
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_lnk_portable_path (const char *target_path)
 {
@@ -1164,7 +1167,8 @@ rooted_path (const char *windows_path)
 
 /* The order Windows itself tries: the path with environment variables when
    there is one, then the absolute path, then the path relative to the
-   shortcut. */
+   shortcut.
+   Returns: (transfer full): free with g_free */
 char *
 nemo_lnk_resolve (const char *lnk_path, const NemoLnk *lnk)
 {
@@ -1238,6 +1242,7 @@ nemo_lnk_resolve (const char *lnk_path, const NemoLnk *lnk)
 	return uri;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_lnk_resolve_dir (const NemoLnk *lnk, const char *windows_path)
 {
@@ -1366,6 +1371,7 @@ path_is_lnk (const char *path)
 	return length > 4 && g_ascii_strcasecmp (path + length - 4, ".lnk") == 0;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_lnk_follow (const char *lnk_path, NemoLnk *lnk_out)
 {
@@ -1505,6 +1511,7 @@ nemo_lnk_target_is_dir_for_path (const char *lnk_path, gint64 mtime)
 	return is_dir;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GIcon *
 nemo_lnk_icon_for_path (const char *lnk_path, gint64 mtime)
 {

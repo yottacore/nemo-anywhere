@@ -639,7 +639,7 @@ eel_editable_label_init (EelEditableLabel *label)
  * Creates a new label with the given text inside it. You can
  * pass %NULL to get an empty label widget.
  *
- * Return value: the new #EelEditableLabel
+ * Return value: (transfer floating): the new #EelEditableLabel
  **/
 GtkWidget*
 eel_editable_label_new (const gchar *str)
@@ -691,7 +691,7 @@ eel_editable_label_set_text (EelEditableLabel *label,
  * screen. This does not include any embedded underlines
  * indicating mnemonics or Pango markup. (See eel_editable_label_get_label())
  * 
- * Return value: the text in the label widget. This is the internal
+ * Return value: (transfer none): the text in the label widget. This is the internal
  *   string used by the label, and must not be modified.
  **/
 const gchar *
@@ -824,6 +824,7 @@ eel_editable_label_get_line_wrap (EelEditableLabel *label)
   return label->wrap;
 }
 
+/* Returns: (transfer full): free with pango_font_description_free */
 PangoFontDescription *
 eel_editable_label_get_font_description (EelEditableLabel *label)
 {
@@ -2122,7 +2123,7 @@ eel_editable_label_get_selection_bounds (EelEditableLabel  *label,
  * The returned layout is owned by the label so need not be
  * freed by the caller.
  * 
- * Return value: the #PangoLayout for this label
+ * Return value: (transfer none): the #PangoLayout for this label
  **/
 PangoLayout*
 eel_editable_label_get_layout (EelEditableLabel *label)

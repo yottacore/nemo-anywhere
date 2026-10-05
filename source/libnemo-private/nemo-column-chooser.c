@@ -638,6 +638,7 @@ nemo_column_chooser_get_settings (NemoColumnChooser *chooser,
 	*column_order = get_column_names (chooser, FALSE);
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_column_chooser_new (NemoFile *file)
 {

@@ -68,6 +68,7 @@ copy_str (gconstpointer str, G_GNUC_UNUSED gpointer data)
 	return g_strdup (str);
 }
 
+/* Returns: (transfer full): free with g_list_free_full (list, g_free) */
 GList *
 eel_g_str_list_copy (GList *list)
 {
@@ -149,7 +150,8 @@ eel_g_lists_sort_and_check_for_intersection (GList **list_1,
  * @user_data: Data to pass to function.  
  * @failed: The GList * variable pointed to by this argument will be
  * set to the list of elements for which the predicate returned
- * false. */
+ * false.
+ * Returns: (transfer container): the nodes of @list, which is used up; free with g_list_free, and @failed too */
 
 GList *
 eel_g_list_partition (GList *list,
@@ -248,6 +250,7 @@ copy_object_ref (gconstpointer object, G_GNUC_UNUSED gpointer data)
 	return g_object_ref ((gpointer) object);
 }
 
+/* Returns: (transfer full): free with g_list_free_full (list, g_object_unref) */
 GList *
 eel_g_object_list_copy (GList *list)
 {
