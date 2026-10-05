@@ -960,7 +960,8 @@ START_SETTINGS = {
     "preferences.show-hidden-files": "false",
     "preferences.confirm-drag-move": "true",
     "preferences.sort-directories-first": "true",
-    "list-view.row-shading": "true",
+    # off until the stripes scene turns it on
+    "list-view.row-shading": "false",
     "search.group-by-folder": "false",
     # the delete test guard is on by default for now, and its dialog is not a feature
     "debug.testguard-all-deletes": "false",
@@ -1011,102 +1012,49 @@ def prep_content(rec, rng):
 
 # Landmarks, measured off a --shot with the starting settings. The sidebar widths
 # are pinned in START_SETTINGS, so these hold as long as those do.
-PLACES_X   = 70          # middle of the Places pane
-TREE_X     = 245         # middle of the folder tree
-TREE_ARROW = 163         # the tree's expander triangles
 LIST_X     = 430         # in the Name column of the file list
-MENU_Y     = 13
 TOOL_Y     = 48
 ROW_Y, ROW_DY   = 109, 26        # first file row, and the row pitch
-TREE_Y, TREE_DY = 84, 23         # same for the tree
-SEARCH_BTN = (803, TOOL_Y)
 
 def row(n):
     return ROW_Y + n * ROW_DY
-
-def tree_row(n):
-    return TREE_Y + n * TREE_DY
-
-SUB_ARROW = 181          # expanders one level in
-# the sidebar toggles at the bottom left, in order: places, tree, hide/full
-STATUS_TREE = (40, 426)
-PANE1_X, PANE2_X = 300, 640      # a column in each content pane, with both open
-EMPTY_Y = 390                    # below the last row, so a click selects nothing
-
-def seg_panes(r, t, m):
-    # The window opens with Places alone. The point is that the tree is a SECOND
-    # side pane rather than a replacement for the first, so it goes on with Places
-    # still standing, and comes off again leaving it where it was.
-    with Banner(r, "The folder tree opens beside Places, not instead of it"):
-        time.sleep(0.3)
-        m.at(*STATUS_TREE, dur=0.7, settle=0.9)
-        m.at(TREE_ARROW, tree_row(0), dur=0.6, settle=0.7)    # expand Home
-        time.sleep(0.4)
-        m.at(*STATUS_TREE, dur=0.7, settle=0.9)
-    m.rest()
-
-def seg_dualpane(r, t, m):
-    # same shape as the tree scene: on, a beat to see it, off again. The new pane
-    # is sent somewhere else straight away - left on the same folder as the first,
-    # the split reads as one list drawn twice.
-    with Banner(r, "F3 gives a second content pane"):
-        t.key("F3")
-        time.sleep(1.0)
-        m.double(PANE2_X, row(4), settle=1.0)         # Pictures, in the new pane
-        m.at(PANE1_X, EMPTY_Y, dur=0.6, settle=0.4)   # back to the first pane
-        t.key("F3")
-        time.sleep(0.7)
-
-def seg_pictures(r, t, m):
-    # no view buttons: a folder that is mostly images switches to icons by itself,
-    # and switches back on the way out, which is the point of the scene
-    with Banner(r, "Picture folders switch to thumbnails by themselves"):
-        m.at(*CRUMB_HOME, dur=0.6, settle=0.7)            # back to Home
-        m.double(LIST_X, row(4), settle=0.8)             # Pictures
-        m.double(*PHOTOS_ICON, settle=0.8)               # Photos
-    with Banner(r, "Improved image thumbnail caching engine"):
-        m.move(*ICONS_EMPTY, dur=0.5)     # not rest(): that spot has a tooltip
-        time.sleep(1.6)
 
 CRUMB_HOME   = (182, TOOL_Y)     # the leftmost breadcrumb button, always home
 # Pictures is mostly images, so it opens in icon view, Photos first
 PHOTOS_ICON  = (220, 133)
 ICONS_EMPTY  = (720, 330)    # right of the last thumbnail in Photos
 SEARCH_GROUP = (879, 96)     # the group-by-folder toggle in the search bar
-# the context menu opens at the pointer, so this holds as long as the right-click
-# in seg_compress does
-COMPRESS_ITEM = (496, 356)
-# On the Compress dialog, from its own corner (see Rec.dlg); a negative y is
-# from the bottom. Open, the options push the dialog up to the top of the work
+# A context menu that would run off the bottom of the screen is pushed up to
+# fit, so for a row this far down each item sits at the same height wherever
+# the right-click was. Folder and file menus differ.
+COMPRESS_ITEM  = (496, 356)
+MAKE_LINK_ITEM = (494, 280)      # folder menu
+FILE_LINK_ITEM = (495, 331)      # file menu
+# On a dialog, from its own corner (see Rec.dlg); a negative y is from the
+# bottom. Open, the Compress options push the dialog up to the top of the work
 # area, which reserve_band keeps below the captions.
 ARCHIVE_FORMAT  = (222, 71)      # the Format dropdown
 FORMAT_7Z       = (222, 190)     # the 7z row in the list it drops down
 ARCHIVE_OPTIONS = (53, 177)      # the Options expander, closed
 SOLID_CHECK     = (38, 389)      # with the options open
 COMPRESS_GO     = (336, -19)
+LINK_SHORTCUT   = (207, 25)      # Make link for a folder
+LINK_GO         = (236, -19)
+LINK_RELATIVE   = (215, 59)      # Make link for a file: wider, one more choice
+FILE_LINK_GO    = (345, -19)
+COPY_CONTENT    = (253, 81)      # the copy question's second choice
+COPY_GO         = (287, -17)
+# how far the corner drag takes the window in: past where Name stops giving
+# way, so the scrollbar comes up
+SQUEEZE_W = 420
 
-def seg_search(r, t, m):
-    # into Documents first. Searching from there spans two folders, so the grouped
-    # result has more than one group to show. A flat list says nothing about where
-    # the matches came from, so it gets a beat to read before the grouped one
-    # replaces it. Home goes back to a list by itself, so row() holds.
-    m.at(*CRUMB_HOME, dur=0.7, settle=0.9)
-    m.double(LIST_X, row(1), settle=1.0)          # Documents
-    with Banner(r, "Search anywhere under the folder"):
-        m.move(CLIENT_W // 2, row(2), dur=0.5)
-        t.key("ctrl+f")
-        time.sleep(0.7)
-        t.type("report", wpm=150)
-        t.enter()
-        time.sleep(1.6)
-    with Banner(r, "Or grouped under the folder each came from"):
-        m.at(*SEARCH_GROUP, dur=0.8, settle=1.6)
+# Best first. Compress and the shortcut happen in Documents, and the next two
+# in Reports. Both stay in list view, so row() holds throughout.
 
 def seg_compress(r, t, m):
     # quicker than the other scenes: the dialog is plain to read, and Options
     # needs the time
-    t.key("Escape")                               # leave the search
-    time.sleep(0.6)
+    m.double(LIST_X, row(1), settle=0.8)          # Documents
     with Banner(r, "Compress, with no helper program"):
         m.at(LIST_X, row(3), dur=0.4, settle=0.2)     # budget.ods
         r.xdo("keydown", "ctrl")
@@ -1125,53 +1073,118 @@ def seg_compress(r, t, m):
         m.at_dlg(*SOLID_CHECK, dur=0.5, settle=0.7)
         m.at_dlg(*COMPRESS_GO, dur=0.5, settle=1.0)
 
-NAME_TEXT_X  = 250       # on the name itself; past its end a press starts a rubber band
-ROW_ARROW    = 170       # a folder row's expander
-MOVE_BUTTON  = (244, -17)    # on the drop question, from its bottom edge
-
-def seg_drag(r, t, m):
-    # the new archive is filed into Invoices. The folder is opened in place after,
-    # so the move is seen to have happened rather than the row just vanishing.
-    # START_SETTINGS turns the delete test guard off, or its dialog would ask
-    # here instead, and the demo lint fails a drag while anything arms it.
-    with Banner(r, "A drag asks before it moves anything"):
-        m.drag(NAME_TEXT_X, row(6), NAME_TEXT_X, row(0), dur=1.0)
-        time.sleep(1.0)
-        m.at_dlg(*MOVE_BUTTON, dur=0.6, settle=0.6)
-        m.at(ROW_ARROW, row(0), dur=0.6, settle=1.2)
-
-# Invoices is still open from the drag, which pushes Reports down to row 6. The
-# menu opens at the pointer, so these hold as long as that right-click does.
-MAKE_LINK_ITEM = (494, 280)
-LINK_SHORTCUT  = (207, 25)       # on the Make link dialog, from its corner
-LINK_GO        = (236, -19)
-
-def seg_links(r, t, m):
+def seg_lnk(r, t, m):
     # A folder shortcut, then opened. It sorts with the folders, so it comes up
     # right under Reports. Opening it on Linux is the part worth seeing.
-    with Banner(r, "Make a symlink, or a Windows shortcut, anywhere"):
-        m.at(LIST_X, row(6), dur=0.5, settle=0.3)     # Reports
+    with Banner(r, "Make a Windows shortcut, on Linux or macOS"):
+        m.at(LIST_X, row(2), dur=0.5, settle=0.3)     # Reports
         m.rclick()
         time.sleep(0.7)
         m.at(*MAKE_LINK_ITEM, dur=0.5, settle=0.8)
         m.at_dlg(*LINK_SHORTCUT, dur=0.5, settle=0.5)
         m.at_dlg(*LINK_GO, dur=0.5, settle=0.9)
-    with Banner(r, "The shortcut opens on Linux, the same as on Windows"):
-        m.double(LIST_X, row(7), settle=2.0)
+    with Banner(r, "It opens the same as it does on Windows"):
+        m.double(LIST_X, row(3), settle=1.5)
+
+def seg_rellink(r, t, m):
+    # inside Reports now, by way of the shortcut. The new link sorts under its
+    # original and stays selected, which the copy scene counts on.
+    with Banner(r, "Symlinks can be relative, or absolute"):
+        m.at(LIST_X, row(3), dur=0.5, settle=0.3)     # q3-report.odt
+        m.rclick()
+        time.sleep(0.7)
+        m.at(*FILE_LINK_ITEM, dur=0.5, settle=0.8)
+        m.at_dlg(*LINK_RELATIVE, dur=0.5, settle=0.6)
+        m.at_dlg(*FILE_LINK_GO, dur=0.5, settle=1.0)
+
+def seg_copylink(r, t, m):
+    # pasted back into the same folder: the question is the point, not where
+    # the copy goes
+    with Banner(r, "Copying a link asks: keep the link, or copy what it points to"):
+        t.key("ctrl+c")
+        time.sleep(0.4)
+        t.key("ctrl+v")
+        time.sleep(1.0)
+        m.at_dlg(*COPY_CONTENT, dur=0.6, settle=0.6)
+        m.at_dlg(*COPY_GO, dur=0.5, settle=1.2)
+
+def seg_columns(r, t, m):
+    # The window corner is dragged in until Name has given up all it can and a
+    # scrollbar comes up, then back out. The decoration does not scale with
+    # GDK_SCALE, so the corner is found in screen pixels, not through pt().
+    # Every later scene needs the window back at its exact size, so that is
+    # asked for again at the end rather than trusted to the drag.
+    sc = r.scale
+    cx = r.origin[0] + CLIENT_W * sc + 1
+    cy = r.origin[1] + CLIENT_H * sc + 1
+    with Banner(r, "Columns fit what is in them, and scroll before they get too narrow"):
+        m.move_px(cx, cy, dur=0.7)
+        time.sleep(0.2)
+        r.ev("mouse:CLICK")
+        r.xdo("mousedown", "1")
+        time.sleep(0.2)
+        m.move_px(cx - SQUEEZE_W * sc, cy, dur=1.4)
+        time.sleep(1.0)
+        m.move_px(cx, cy, dur=0.9)
+        time.sleep(0.2)
+        r.ev("mouse:CLICK_Q")
+        r.xdo("mouseup", "1")
+        time.sleep(0.3)
+    r.xdo("windowsize", r.win, str(CLIENT_W * sc), str(CLIENT_H * sc))
+    time.sleep(0.3)
+    r.place_window(r.win)
+    m.rest()
+
+def seg_stripes(r, t, m):
+    # straight into the settings file, as a hand edit would be; the app picks it
+    # up live, so there is no menu to drive
+    with Banner(r, "Striped rows, if you want them"):
+        time.sleep(0.4)
+        set_cfg(r, {"list-view.row-shading": "true"}, settle=2.0)
+
+def seg_pictures(r, t, m):
+    # no view buttons: a folder that is mostly images switches to icons by itself,
+    # and switches back on the way out, which is the point of the scene
+    with Banner(r, "Picture folders switch to thumbnails by themselves"):
+        m.at(*CRUMB_HOME, dur=0.6, settle=0.7)            # back to Home
+        m.double(LIST_X, row(4), settle=0.8)             # Pictures
+        m.double(*PHOTOS_ICON, settle=0.8)               # Photos
+    with Banner(r, "Improved image thumbnail caching engine"):
+        m.move(*ICONS_EMPTY, dur=0.5)     # not rest(): that spot has a tooltip
+        time.sleep(1.3)
+
+def seg_search(r, t, m):
+    # From Home the matches come from four folders, so the grouped result has
+    # groups to show. A flat list says nothing about where the matches came
+    # from, so it gets a beat to read before the grouped one replaces it.
+    m.at(*CRUMB_HOME, dur=0.7, settle=0.9)
+    with Banner(r, "Search anywhere under the folder"):
+        m.move(CLIENT_W // 2, row(2), dur=0.5)
+        t.key("ctrl+f")
+        time.sleep(0.7)
+        t.type("report", wpm=150)
+        t.enter()
+        time.sleep(1.0)
+    with Banner(r, "Or grouped under the folder each came from"):
+        m.at(*SEARCH_GROUP, dur=0.8, settle=1.6)
 
 def seg_outro(r, t, m):
     with Banner(r, "github.com/yottacore/nemo-anywhere"):
         m.rest()
         time.sleep(1.0)
 
+# Left out to stay under the cap, weakest first: F3's second pane (upstream
+# already had it), the tree beside Places, and the drag that asks before a
+# move. They are in git history before 2026-10-05.
 _SCRIPT = [
-    ("panes",    seg_panes),
-    ("dualpane", seg_dualpane),
+    ("compress", seg_compress),
+    ("lnk",      seg_lnk),
+    ("rellink",  seg_rellink),
+    ("copylink", seg_copylink),
+    ("columns",  seg_columns),
+    ("stripes",  seg_stripes),
     ("pictures", seg_pictures),
     ("search",   seg_search),
-    ("compress", seg_compress),
-    ("drag",     seg_drag),
-    ("links",    seg_links),
     ("outro",    seg_outro),
 ]
 SEGMENTS = {"video": _SCRIPT, "gif": _SCRIPT}
@@ -1597,3 +1610,5 @@ if __name__ == "__main__":
 ##		  is reserved with a strut, so no dialog grows up under it.
 ##		- 20260925: The video fades in and fades out to black; the gif ends on
 ##		  three seconds of black. The length warning leaves the tail out.
+##		- 20261005: Best features first. New relative link, link copy, column
+##		  and striped row scenes; F3, the tree and the drag scene left out.

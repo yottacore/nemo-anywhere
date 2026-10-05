@@ -5,13 +5,30 @@
 @ Captions sit in a black band above the window, one at a time.
 @ Keep the whole thing near a minute. The README shows the gif.
 
-@ Start: a window on Home, list view, Places open on the left.
+@ Start: a window on Home, list view, Places open on the left, rows not striped.
+@ Best features first. Left out to stay under the cap: F3's second pane, the tree beside Places, and the drag that asks before a move.
 
-The folder tree opens beside Places, not instead of it
-	@ click the tree toggle at the bottom left, expand Home, toggle it off again
+Compress, with no helper program
+	@ open Documents, ctrl-click two files, right-click, Compress, name it "paperwork"
+zip, tar or 7z, with options like a solid archive
+	@ pick 7z, open Options, tick Solid, Compress
 
-F3 gives a second content pane
-	@ press F3, open Pictures in the new pane, back to the first pane, F3 again
+Make a Windows shortcut, on Linux or macOS
+	@ right-click Reports, Make link, pick Shortcut, confirm
+It opens the same as it does on Windows
+	@ double-click the new shortcut
+
+Symlinks can be relative, or absolute
+	@ right-click q3-report.odt, Make link, pick Relative, confirm
+
+Copying a link asks: keep the link, or copy what it points to
+	@ Ctrl+C, Ctrl+V on the new link, pick Copy content, Copy
+
+Columns fit what is in them, and scroll before they get too narrow
+	@ drag the window corner in until the scrollbar shows, then back out
+
+Striped rows, if you want them
+	@ turned on straight in the settings file, no menu
 
 Picture folders switch to thumbnails by themselves
 	@ back to Home, open Pictures, then Photos. No view buttons are touched.
@@ -19,22 +36,9 @@ Improved image thumbnail caching engine
 	@ hold on the thumbnails
 
 Search anywhere under the folder
-	@ Home, open Documents, Ctrl+F, type "report", Enter
+	@ Home, Ctrl+F, type "report", Enter
 Or grouped under the folder each came from
 	@ click the group toggle in the search bar
-
-Compress, with no helper program
-	@ Escape, ctrl-click two files, right-click, Compress, name it "paperwork"
-zip, tar or 7z, with options like a solid archive
-	@ pick 7z, open Options, tick Solid, Compress
-
-A drag asks before it moves anything
-	@ drag paperwork.7z onto Invoices, click Move, expand Invoices to show it there
-
-Make a symlink, or a Windows shortcut, anywhere
-	@ right-click Reports, Make link, pick Shortcut, confirm
-The shortcut opens on Linux, the same as on Windows
-	@ double-click the new shortcut
 
 github.com/yottacore/nemo-anywhere
 	@ pointer rests, hold
