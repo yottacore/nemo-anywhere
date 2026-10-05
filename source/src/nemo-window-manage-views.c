@@ -1893,6 +1893,7 @@ switch_content_view (NemoWindowSlot *slot,
     if (nemo_view_get_selection_count (slot->content_view) == 0) {
             /* If there is no selection, queue a scroll to the same icon that
              * is currently visible */
+            g_free (slot->pending_scroll_to);
             slot->pending_scroll_to = nemo_view_get_first_visible_file (slot->content_view);
     }
 	slot->location_change_type = NEMO_LOCATION_CHANGE_RELOAD;

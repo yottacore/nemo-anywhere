@@ -672,7 +672,7 @@ int
 main (int argc, char *argv[])
 {
 	GError *error = NULL;
-	char *scratch = test_scratch_config_home ("nemo-helpers-home-XXXXXX");
+	g_autofree char *scratch = test_scratch_config_home ("nemo-helpers-home-XXXXXX");
 
 	/* The user's helper folder comes off these two. */
 	g_setenv ("LOCALAPPDATA", scratch, TRUE);

@@ -12,7 +12,7 @@
 ##	   0. remote sync (fast-forward from upstream before anything is built)
 ##	   1. format (source formatter)
 ##	   2. debug build (this is what the tests + profiler run against)
-##	   3. regression tests + lints (+ any headless harness)
+##	   3. regression tests + lints (+ fuzzing, the sanitizer suite, any headless harness)
 ##	   4. profiler (flamegraph SVG; non-gating artifact - see failure policy)
 ##	   5. release build (native + cross targets; optimized, for packaging + dogfood)
 ##	   6. packages (per-OS distributables)
@@ -32,6 +32,8 @@
 ##	   --no-package        skip the packages stage (.deb/.rpm/installer)
 ##	   --no-private        skip the private runner (PRIVATE_RUNNER in config.bash)
 ##	   --no-profile        skip the profiler stage
+##	   --no-sanitize       skip the test suite built with the address and
+##	                       undefined behavior sanitizers
 ##	   --no-dogfood        skip installing the native release locally
 ##	   --no-publish        skip the git backup + publish stage
 ##	   --allow-dirty       let publish commit an uncommitted working tree (it
@@ -39,9 +41,9 @@
 ##	   --shots             refresh README screenshots (off by default)
 ##	   --demo              re-record the demo video (off by default)
 ##	   --quick             skip the slow stages: cross builds, packages, private
-##	                       runner, profiler, fuzzing, scroll harness, screenshots,
-##	                       demo video, remote dogfood. The native build, the full
-##	                       test suite and local dogfood still run.
+##	                       runner, profiler, fuzzing, sanitizers, scroll harness,
+##	                       screenshots, demo video, remote dogfood. The native
+##	                       build, the full test suite and local dogfood still run.
 ##	   --gate              merge gate only: format-check + lints + tests, then exit
 ##	                       (fast local stand-in for hosted CI; the pre-push hook runs it)
 ## - Reuse: copy the cicd/ directory into another project and edit config.bash.
@@ -128,6 +130,7 @@ while (($#)); do case "$1" in
 	--no-package)             PACKAGE_ENABLE=0; shift ;;
 	--no-private)             PRIVATE_RUNNER=""; shift ;;
 	--no-profile)             PROFILE_ENABLE=0; shift ;;
+	--no-sanitize)            SANITIZE_CMD=(); shift ;;
 	--no-dogfood)             DOGFOOD_FIXED_DESTS=(); DOGFOOD_ROTATING_DESTS=(); DOGFOOD_CROSS_DESTS=(); DOGFOOD_HOOK=(); DOGFOOD_REMOTE=(); shift ;;
 	--no-publish)             GIT_PUBLISH=(); shift ;;
 	--allow-dirty)            allow_dirty=1; shift ;;
@@ -373,6 +376,13 @@ fEcho_Clean "CPU cap .............: $( [[ -n "${CICD_CPU_CAPPED:-}" ]] && echo "
 fEcho_Clean "Format ..............: ${FMT_CMD[*]:-(skipped)}"
 fEcho_Clean "Debug build .........: ${DEBUG_BUILD_CMD[*]}"
 fEcho_Clean "Tests ...............: ${TEST_CMD[*]}"
+if ((quick)); then
+	fEcho_Clean "Sanitizers ..........: (skipped --quick)"
+elif [[ -n "${SANITIZE_CMD+x}" ]] && ((${#SANITIZE_CMD[@]})); then
+	fEcho_Clean "Sanitizers ..........: ${SANITIZE_CMD[*]}"
+else
+	fEcho_Clean "Sanitizers ..........: (skipped)"
+fi
 if ((PROFILE_ENABLE)); then
 	fEcho_Clean "Profiler ............: ${PROFILE_SECS}s run -> flamegraph SVG (headless)"
 	fEcho_Clean "  output dir ........: ${profile_dir}"
@@ -511,6 +521,15 @@ if ((! quick)) && [[ -n "${FUZZ_CMD+x}" ]] && ((${#FUZZ_CMD[@]})); then
 	fi
 elif ((quick)); then
 	fEcho_Clean "fuzz skipped (--quick)"
+fi
+## The suite again on a build with the address and undefined behavior
+## sanitizers. It has a build of its own, about a minute cold, so like fuzzing it
+## is left out of --quick and the gate.
+if ((! quick)) && [[ -n "${SANITIZE_CMD+x}" ]] && ((${#SANITIZE_CMD[@]})); then
+	"${SANITIZE_CMD[@]}"
+	fEcho "OK: sanitizer suite clean"
+elif ((quick)); then
+	fEcho_Clean "sanitizers skipped (--quick)"
 fi
 if [[ -n "${DENY_CMD+x}" ]] && ((${#DENY_CMD[@]})); then
 	if "${DENY_PROBE[@]}" >/dev/null 2>&1; then

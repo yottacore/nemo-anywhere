@@ -424,11 +424,9 @@ nemo_window_slot_dispose (GObject *object)
 	 * It was already here before the slot move, though */
 	nemo_file_unref (slot->viewed_file);
 
-	if (slot->location) {
-		/* TODO? why do we ref here, instead of unreffing?
-		 * It was already here before the slot migration, though */
-		g_object_ref (slot->location);
-	}
+	g_clear_pointer (&slot->pending_scroll_to, g_free);
+	/* The location is let go in finalize, since the tab label and the pane
+	   can still ask for it between a destroy and the last unref. */
 
 	g_list_free_full (slot->pending_selection, g_object_unref);
 	slot->pending_selection = NULL;
@@ -455,6 +453,16 @@ nemo_window_slot_dispose (GObject *object)
 }
 
 static void
+nemo_window_slot_finalize (GObject *object)
+{
+	NemoWindowSlot *slot = NEMO_WINDOW_SLOT (object);
+
+	g_clear_object (&slot->location);
+
+	G_OBJECT_CLASS (nemo_window_slot_parent_class)->finalize (object);
+}
+
+static void
 nemo_window_slot_class_init (NemoWindowSlotClass *klass)
 {
 	GObjectClass *oclass = G_OBJECT_CLASS (klass);
@@ -463,6 +471,7 @@ nemo_window_slot_class_init (NemoWindowSlotClass *klass)
 	klass->inactive = real_inactive;
 
 	oclass->dispose = nemo_window_slot_dispose;
+	oclass->finalize = nemo_window_slot_finalize;
 
 	signals[ACTIVE] =
 		g_signal_new ("active",

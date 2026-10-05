@@ -304,6 +304,7 @@ main (int argc, char *argv[])
 	g_object_unref (src);
 	g_object_unref (dst);
 	g_object_unref (dir);
+	g_object_unref (sub);
 	g_object_unref (base);
 	g_free (base_path);
 
