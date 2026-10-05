@@ -44,7 +44,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026093010493389, 2026092813381408, 2026100112000535, 2026100512334934
 	- Target OS: Linux, Windows, BSD, macOS
 	- Requirements:
-		- The app never visits a network share on its own. Only something a person does reaches one, such as going to a share or opening a link or shortcut that points at one.
+		- The app must never visits a network share on its own. Only something a person does reaches one, such as going to a share or opening a link or shortcut that points at one.
 		- Find each place that touches a share with no such action behind it, and gate it or work from what is on local disk. Icons, sort places, emblems, thumbnails, link targets, free space and the side pane are the first to check.
 		- Asked 20260930, as design.md "Speed, memory and size".
 	- Progress log:
@@ -52,9 +52,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Question 1: on Linux and the BSDs a folder is listed by following every link in it, to read the type, size and date of what it points at. So a link onto a share that is not answering still holds up the whole folder once, before any of the gated questions. Windows lists links without following them and still gets their type; Linux can't, so a link listed that way has no type until it is looked at. Should a link onto a share be listed without following it, showing as a plain link that sorts with the files until it is opened? Links elsewhere would be looked at as now. Suggested: yes, since it is what the rule asks for.
 			- Question 2: a folder on a Linux network mount, or on a Windows drive letter mapped to a share, works as a local one once someone goes there: item counts, thumbnails, and in a picture folder every picture made ahead. A folder on a UNC path does not, and design.md says a share counts as remote for "Local files only". Should the first two follow the UNC path, so counts and thumbnails there are off by default? Suggested: yes.
 	- Decisions:
-		- 20261005: the share holding the home folder counts as local, so a home on a network mount keeps its counts, thumbnails, free space bar and bookmark checks. A call made without asking.
-		- 20261005: a link onto the same share it sits on is not a visit, since the user is on that share already. A call made without asking.
-		- 20261005: a bookmark on a share is taken as there and wears the plain folder icon, never the missing one. A network file system mounted at `/` does not count, or nothing would be local. Calls made without asking.
+		- 20261005: the share holding the home folder counts as local, so a home on a network mount keeps its counts, thumbnails, free space bar and bookmark checks.
+		- 20261005: a link onto the same share it sits on is not a visit, since the user is on that share already.
+		- 20261005: a bookmark on a share is taken as there and wears the plain folder icon, never the missing one. A network file system mounted at `/` does not count, or nothing would be local.
 	- Swept: fixed here.
 		- The share check behind every per-file question now covers a link onto a network mount on Linux and the BSDs, and onto a mapped drive on Windows. Read from the mount table and the path, never the share. That gates what already sat behind it: item counts, thumbnails and their checksums, mount and free space lookups per file, the picture folder guess, tree expanders, pictures made ahead, and on Windows shortcut icons and sort places and owner names.
 		- Bookmarks: each one that reads as missing was checked on the window's thread at every rebuild of the side pane. One on a share is not checked.
