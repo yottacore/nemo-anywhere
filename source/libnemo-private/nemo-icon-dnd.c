@@ -688,7 +688,7 @@ receive_dropped_netscape_url (NemoIconContainer *container, const char *encoded_
 	g_signal_emit_by_name (container, "handle_netscape_url",
 			       encoded_url,
 			       drop_target,
-			       gdk_drag_context_get_selected_action (context),
+			       nemo_drag_selected_action (context),
 			       x, y);
 
 	g_free (drop_target);
@@ -709,7 +709,7 @@ receive_dropped_uri_list (NemoIconContainer *container, const char *uri_list, Gd
 	g_signal_emit_by_name (container, "handle_uri_list",
 				 uri_list,
 				 drop_target,
-				 gdk_drag_context_get_selected_action (context),
+				 nemo_drag_selected_action (context),
 				 x, y);
 
 	g_free (drop_target);
@@ -730,7 +730,7 @@ receive_dropped_text (NemoIconContainer *container, const char *text, GdkDragCon
 	g_signal_emit_by_name (container, "handle_text",
 			       text,
 			       drop_target,
-			       gdk_drag_context_get_selected_action (context),
+			       nemo_drag_selected_action (context),
 			       x, y);
 
 	g_free (drop_target);
@@ -753,7 +753,7 @@ receive_dropped_raw (NemoIconContainer *container, const char *raw_data, int len
 			       length,
 			       drop_target,
 			       direct_save_uri,
-			       gdk_drag_context_get_selected_action (context),
+			       nemo_drag_selected_action (context),
 			       x, y);
 
 	g_free (drop_target);
@@ -1403,7 +1403,7 @@ nemo_icon_container_receive_dropped_icons (NemoIconContainer *container,
 		return;
 	}
 
-	real_action = gdk_drag_context_get_selected_action (context);
+	real_action = nemo_drag_selected_action (context);
 
 	if (real_action == GDK_ACTION_ASK) {
 		/* FIXME bugzilla.gnome.org 42485: This belongs in FMDirectoryView, not here. */
@@ -1908,7 +1908,7 @@ drag_motion_callback (GtkWidget *widget,
         gtk_widget_queue_draw (widget);
 	}
 
-	gdk_drag_status (context, action, time);
+	nemo_drag_status (context, action, time);
 
 	return TRUE;
 }

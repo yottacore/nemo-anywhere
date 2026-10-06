@@ -2092,9 +2092,9 @@ drag_motion_callback (GtkTreeView *tree_view,
 	g_signal_stop_emission_by_name (tree_view, "drag-motion");
 
 	if (action != 0) {
-		gdk_drag_status (context, action, time);
+		nemo_drag_status (context, action, time);
 	} else {
-		gdk_drag_status (context, 0, time);
+		nemo_drag_status (context, 0, time);
 	}
 
 	return TRUE;
@@ -2369,12 +2369,12 @@ drag_data_received_callback (GtkWidget *widget,
 		GdkDragAction real_action;
 
 		/* file transfer requested */
-		real_action = gdk_drag_context_get_selected_action (context);
+		real_action = nemo_drag_selected_action (context);
 
 		if (real_action == GDK_ACTION_ASK) {
 			real_action =
 				nemo_drag_drop_action_ask (GTK_WIDGET (tree_view),
-							       gdk_drag_context_get_actions (context));
+							       nemo_drag_offered_actions (context));
 		}
 
 		if (real_action > 0) {

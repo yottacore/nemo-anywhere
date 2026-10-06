@@ -1823,4 +1823,13 @@ if is_windows
     ),
     args: []
   )
+
+  test('rjkwtgrm Drop keys win32 test',
+    executable('test-nemo-drop-keys-win32',
+      [ 'test-nemo-drop-keys-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private ],
+    ),
+    args: []
+  )
 endif
