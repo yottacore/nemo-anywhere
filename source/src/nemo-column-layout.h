@@ -24,7 +24,8 @@
  * when the row has room, and the most it grows to. design.md's "List view
  * column widths" is the rule that sets them, and the only place it is written
  * down - restating it here would give two versions to keep in step. This file
- * only shares the row out between the widths it is given.
+ * only counts what each column has seen and shares the row out between the
+ * widths it is given.
  *
  * Nothing but arithmetic lives here, so the rule can be checked without a
  * screen.
@@ -87,6 +88,51 @@ void nemo_column_layout_distribute (const NemoColumnLayoutItem *items,
 int nemo_column_layout_fit (const int *values,
 			    int        n_values,
 			    int        percent);
+
+/* What a column has seen, as widths, kept so the fit can be worked out again
+ * as rows come and go. How each value counts is design.md's rule. */
+typedef enum {
+	NEMO_COLUMN_TALLY_WIDEST,	/* only the widest; a fixed column */
+	NEMO_COLUMN_TALLY_EACH_ROW,	/* every row once, keyed by row */
+	NEMO_COLUMN_TALLY_EACH_TEXT	/* every distinct text once */
+} NemoColumnTallyMode;
+
+typedef struct _NemoColumnTally NemoColumnTally;
+
+/* How a column of this kind counts. in_search is TRUE for find results, where
+ * one name can turn up in many folders. */
+NemoColumnTallyMode nemo_column_tally_mode_for (NemoColumnKind kind,
+						gboolean       is_name,
+						gboolean       in_search);
+
+/* Free with nemo_column_tally_free. */
+NemoColumnTally *nemo_column_tally_new (NemoColumnTallyMode mode);
+void nemo_column_tally_free (NemoColumnTally *tally);
+
+NemoColumnTallyMode nemo_column_tally_get_mode (const NemoColumnTally *tally);
+
+/* Fold one value in. row keys an EACH_ROW tally and text an EACH_TEXT one; a
+ * WIDEST tally ignores both. A row is only ever a key, never followed. A text
+ * seen at two widths counts at the wider. TRUE when the fit may have moved. */
+gboolean nemo_column_tally_note (NemoColumnTally *tally,
+				 gconstpointer    row,
+				 const char      *text,
+				 int              width);
+
+/* A row that has gone. Only an EACH_ROW tally can drop it; a text may be
+ * shared, so it stays until the next clear. TRUE when something went. */
+gboolean nemo_column_tally_forget_row (NemoColumnTally *tally,
+				       gconstpointer    row);
+
+void nemo_column_tally_clear (NemoColumnTally *tally);
+
+/* The width that shows `percent` of what was seen, the width that shows half,
+ * and the widest. A WIDEST tally answers its widest for all three. */
+void nemo_column_tally_measure (NemoColumnTally *tally,
+				int              percent,
+				int             *fit,
+				int             *half,
+				int             *widest);
 
 G_END_DECLS
 

@@ -24,6 +24,7 @@
 #include "nemo-file-utilities.h"
 #include "nemo-search-engine-advanced.h"
 #include "nemo-global-preferences.h"
+#include "nemo-column-utilities.h"
 
 #include <limits.h>
 #include <stdlib.h>
@@ -600,7 +601,7 @@ search_thread_data_new (NemoSearchEngineAdvanced *engine,
 
     data->count_hits = FALSE;
 
-    gchar **saved_search_columns = nemo_config_get_strv (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_VISIBLE_COLUMNS);
+    gchar **saved_search_columns = nemo_search_columns_get_visible ();
     if (g_strv_contains ((const gchar * const *) saved_search_columns, "search_result_count")) {
         data->count_hits = TRUE;
         DEBUG ("Counting search hits");

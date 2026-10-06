@@ -224,6 +224,8 @@ These are the features that make Nemo worth porting:
 
 	- Search results can be grouped under the folder they came from. A flat list of thirty files all called `notes.txt` tells you nothing; a row per folder with the matches under it tells you where to look. It's one toggle in the search bar, and the results are the same either way.
 
+	- Search results keep the columns you pick and the order you drag them into. By default they show Name, Ext, Size, Date modified and Location.
+
 	- Content search reads Word, Excel, PowerPoint, OpenDocument, and EPUB files by itself. It needs no helper scripts and no office suite.
 
 	- On Windows, the search index can be used for faster searches. It is off by default, since it only knows the folders it was told to watch.

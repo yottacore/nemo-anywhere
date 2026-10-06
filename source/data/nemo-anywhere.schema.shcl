@@ -254,7 +254,7 @@ field: icon-view.thumbnail-size
 field: list-view.column-fit-percent
 	type: int
 	default: 90
-	desc: Share of the values Name and Location still show when the row is short of room, and the share other variable columns show by default. Name counts every file; the others count each distinct value once.
+	desc: Share of the values Name and Location still show when the row is short of room, and the share other variable columns show by default. Name counts every file, or each distinct name once in find results; the others count each distinct value once.
 
 field: list-view.default-column-order
 	type: string-array

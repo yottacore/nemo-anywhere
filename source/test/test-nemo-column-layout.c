@@ -359,6 +359,102 @@ check_classes (void)
 			100, 100, 150 + PAD, FALSE));
 }
 
+/* Feeds a long name repeated down `repeats` rows, each a row of its own, then
+   ten short names, and returns the 90 percent fit. */
+static int
+fit_of_repeated_name (NemoColumnTally *tally, int repeats)
+{
+	char text[16];
+	int fit, half, widest;
+	int i;
+
+	for (i = 0; i < repeats; i++) {
+		nemo_column_tally_note (tally, GINT_TO_POINTER (i + 1), "a-long-name-everywhere", 400);
+	}
+	for (i = 0; i < 10; i++) {
+		g_snprintf (text, sizeof text, "n%d", i);
+		nemo_column_tally_note (tally, GINT_TO_POINTER (repeats + i + 1), text, 100 + i * 10);
+	}
+
+	nemo_column_tally_measure (tally, 90, &fit, &half, &widest);
+	check (widest == 400);
+
+	return fit;
+}
+
+/* Which values count, and how many times. A folder can't hold one name twice,
+   so there Name counts per row. Find results can, once per folder it turns up
+   in, and then each distinct name counts once, like Location. */
+static void
+check_tally_modes (void)
+{
+	NemoColumnTally *tally;
+
+	check (nemo_column_tally_mode_for (NEMO_COLUMN_KIND_PRIMARY, TRUE, FALSE) == NEMO_COLUMN_TALLY_EACH_ROW);
+	check (nemo_column_tally_mode_for (NEMO_COLUMN_KIND_PRIMARY, TRUE, TRUE) == NEMO_COLUMN_TALLY_EACH_TEXT);
+	check (nemo_column_tally_mode_for (NEMO_COLUMN_KIND_PRIMARY, FALSE, FALSE) == NEMO_COLUMN_TALLY_EACH_TEXT);
+	check (nemo_column_tally_mode_for (NEMO_COLUMN_KIND_PRIMARY, FALSE, TRUE) == NEMO_COLUMN_TALLY_EACH_TEXT);
+	check (nemo_column_tally_mode_for (NEMO_COLUMN_KIND_MINOR, FALSE, TRUE) == NEMO_COLUMN_TALLY_EACH_TEXT);
+	check (nemo_column_tally_mode_for (NEMO_COLUMN_KIND_FIXED, FALSE, TRUE) == NEMO_COLUMN_TALLY_WIDEST);
+
+	/* 100 rows of one long name and 10 short ones. Counted per row, the long
+	   name is most of what was seen and Name stays at 400. Counted once, it
+	   is 1 value in 11, and the share stops at the 9th, 180. */
+	tally = nemo_column_tally_new (nemo_column_tally_mode_for (NEMO_COLUMN_KIND_PRIMARY, TRUE, TRUE));
+	check (fit_of_repeated_name (tally, 100) == 180);
+	nemo_column_tally_free (tally);
+
+	tally = nemo_column_tally_new (NEMO_COLUMN_TALLY_EACH_ROW);
+	check (fit_of_repeated_name (tally, 100) == 400);
+	nemo_column_tally_free (tally);
+}
+
+static void
+check_tally_rows_and_texts (void)
+{
+	NemoColumnTally *tally;
+	int fit, half, widest;
+
+	/* A row measured again takes its new width, wider or narrower. */
+	tally = nemo_column_tally_new (NEMO_COLUMN_TALLY_EACH_ROW);
+	check (nemo_column_tally_note (tally, GINT_TO_POINTER (1), NULL, 300));
+	check (!nemo_column_tally_note (tally, GINT_TO_POINTER (1), NULL, 300));
+	check (nemo_column_tally_note (tally, GINT_TO_POINTER (1), NULL, 200));
+	nemo_column_tally_measure (tally, 90, &fit, &half, &widest);
+	check (fit == 200 && widest == 200);
+
+	/* A row that goes takes its width with it. */
+	check (nemo_column_tally_forget_row (tally, GINT_TO_POINTER (1)));
+	check (!nemo_column_tally_forget_row (tally, GINT_TO_POINTER (1)));
+	nemo_column_tally_measure (tally, 90, &fit, &half, &widest);
+	check (fit == 0 && widest == 0);
+	nemo_column_tally_free (tally);
+
+	/* A text counts at the widest it was seen at, such as one name at two
+	   depths of a tree, and a row going doesn't take a shared text with it. */
+	tally = nemo_column_tally_new (NEMO_COLUMN_TALLY_EACH_TEXT);
+	check (nemo_column_tally_note (tally, GINT_TO_POINTER (1), "same", 120));
+	check (nemo_column_tally_note (tally, GINT_TO_POINTER (2), "same", 150));
+	check (!nemo_column_tally_note (tally, GINT_TO_POINTER (3), "same", 120));
+	check (!nemo_column_tally_note (tally, NULL, NULL, 999));
+	check (!nemo_column_tally_forget_row (tally, GINT_TO_POINTER (2)));
+	nemo_column_tally_measure (tally, 90, &fit, &half, &widest);
+	check (fit == 150 && half == 150 && widest == 150);
+
+	nemo_column_tally_clear (tally);
+	nemo_column_tally_measure (tally, 90, &fit, &half, &widest);
+	check (fit == 0 && widest == 0);
+	nemo_column_tally_free (tally);
+
+	/* A fixed column only keeps its widest. */
+	tally = nemo_column_tally_new (NEMO_COLUMN_TALLY_WIDEST);
+	check (nemo_column_tally_note (tally, NULL, "x", 80));
+	check (!nemo_column_tally_note (tally, NULL, "y", 60));
+	nemo_column_tally_measure (tally, 90, &fit, &half, &widest);
+	check (fit == 80 && half == 80 && widest == 80);
+	nemo_column_tally_free (tally);
+}
+
 int
 main (void)
 {
@@ -375,6 +471,8 @@ main (void)
 	check_primaries_share_the_surplus ();
 	check_fit ();
 	check_classes ();
+	check_tally_modes ();
+	check_tally_rows_and_texts ();
 
 	if (failures > 0) {
 		g_printerr ("%d check(s) failed\n", failures);

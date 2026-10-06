@@ -172,7 +172,7 @@ static const NemoConfigKey nemo_config_keys[] = {
 	{ "icon-view", "labels-beside-icons", NEMO_CONFIG_BOOL, "false", NULL, NULL, NULL, NEMO_CONFIG_KEY_NONE },
 	{ "icon-view", "text-ellipsis-limit", NEMO_CONFIG_STRING_LIST, NULL, deflist_icon_view_text_ellipsis_limit, NULL, "Lines of a name under an icon before it is cut short", NEMO_CONFIG_KEY_NONE },
 	{ "icon-view", "thumbnail-size", NEMO_CONFIG_INT, "64", NULL, NULL, "Thumbnail size in pixels", NEMO_CONFIG_KEY_NONE },
-	{ "list-view", "column-fit-percent", NEMO_CONFIG_INT, "90", NULL, NULL, "Share of the values Name and Location still show when the row is short of room, and the share other variable columns show by default. Name counts every file; the others count each distinct value once.", NEMO_CONFIG_KEY_NONE },
+	{ "list-view", "column-fit-percent", NEMO_CONFIG_INT, "90", NULL, NULL, "Share of the values Name and Location still show when the row is short of room, and the share other variable columns show by default. Name counts every file, or each distinct name once in find results; the others count each distinct value once.", NEMO_CONFIG_KEY_NONE },
 	{ "list-view", "default-column-order", NEMO_CONFIG_STRING_LIST, NULL, deflist_list_view_default_column_order, NULL, NULL, NEMO_CONFIG_KEY_NONE },
 	{ "list-view", "default-visible-columns", NEMO_CONFIG_STRING_LIST, NULL, deflist_list_view_default_visible_columns, NULL, NULL, NEMO_CONFIG_KEY_NONE },
 	{ "list-view", "default-icon-size", NEMO_CONFIG_INT, "75", NULL, NULL, "Icon size as a per cent of the standard 64 pixels", NEMO_CONFIG_KEY_NONE },
