@@ -1725,7 +1725,7 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 }
 
 static gboolean
-button_release_callback (GtkWidget *widget,
+button_release_callback (G_GNUC_UNUSED GtkWidget *widget,
 			 GdkEventButton *event,
 			 gpointer callback_data)
 {

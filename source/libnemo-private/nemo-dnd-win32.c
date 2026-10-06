@@ -1090,12 +1090,10 @@ nemo_dnd_win32_drag (GtkWidget       *widget,
 	source = g_new0 (DropSource, 1);
 	source->iface.lpVtbl = &source_vtbl;
 	source->ref = 1;
+	/* Not the middle button: Windows' drag does not reliably end on its release. */
 	if (GetKeyState (VK_RBUTTON) & 0x8000) {
 		source->button = MK_RBUTTON;
 		button = GDK_BUTTON_SECONDARY;
-	} else if (GetKeyState (VK_MBUTTON) & 0x8000) {
-		source->button = MK_MBUTTON;
-		button = GDK_BUTTON_MIDDLE;
 	} else {
 		source->button = MK_LBUTTON;
 		button = GDK_BUTTON_PRIMARY;
