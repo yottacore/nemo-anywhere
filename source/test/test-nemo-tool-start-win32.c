@@ -413,7 +413,6 @@ main (int argc, char *argv[])
 				"MimeType=application/msword;\nPriority=100\n", converter);
 	write_text (dir, "fake.nemo_search_helper", text);
 	g_free (dir);
-	g_free (text);
 
 	/* A bare name, as the shipped thumbnailers have. */
 	dir = g_build_filename (g_get_user_data_dir (), "thumbnailers", NULL);
