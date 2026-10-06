@@ -812,6 +812,8 @@ Linux is a thin relocatable prefix of a couple of MB that uses the distro's own 
 
 - It is built in an Ubuntu 22.04 container, never the day-to-day Debian 13 one. A binary's glibc floor is whatever it was built against, so a release built on Debian 13 would refuse to start on anything older than 2025. The floor is therefore glibc 2.35 and GTK 3.24.33, which reaches Ubuntu 22.04, Debian 12, Mint 21 and Fedora 36 onward.
 
+- The arm64 tarball is built the same way, on an arm64 Linux box with docker, from the same image file, so it has the same floor and the same library versions. Nothing here cross-builds GTK. `cicd/linux/release-arm64.bash` sends the working tree to that box, runs the same release script there, and brings the tarball back. The release script names it `arm64`, the name the installers ask for, where the kernel says `aarch64`. On an emulated box a build takes about an hour.
+
 - What makes it relocatable: the program works out where it is and points `XDG_DATA_DIRS` and `PATH` at the folder it sits in, at startup, before anything reads them. The extension API is inside the program, so there is no `lib/` folder to find. Everything looked up through the XDG data dirs - actions, search helpers, icons, mime info - then resolves wherever the folder was installed. There used to be a shell wrapper in `bin/` doing that with the real binary hidden in `libexec/`; two files where one would do, so it went.
 
 - The D-Bus activation file is written at startup rather than installed, into the user's own service directory. It has to name an absolute path, and a portable copy does not have one until it runs.

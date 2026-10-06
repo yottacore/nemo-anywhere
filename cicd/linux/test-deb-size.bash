@@ -42,7 +42,8 @@ fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 lane="${scratch}/repo"
 mkdir -p "${lane}/cicd/linux" "${lane}/cicd/utility/include" "${lane}/cicd/artifacts/release"
 cp "${root}/cicd/linux/package.bash" "${lane}/cicd/linux/"
-cp "${root}/cicd/utility/include/echo.bash" "${root}/cicd/utility/include/source-date.bash" "${lane}/cicd/utility/include/"
+cp "${root}/cicd/utility/include/echo.bash" "${root}/cicd/utility/include/source-date.bash" "${root}/cicd/utility/include/release-files.bash" \
+	"${lane}/cicd/utility/include/"
 
 ## Sizes either side of a KiB and of a disk block, a symlink and a hardlink pair,
 ## so a count of blocks, or one that counts a hardlink twice, comes out different.
