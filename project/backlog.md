@@ -337,7 +337,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, custom actions and the window's Open in terminal start programs through GLib, not the launcher.
 	- ID: 2026100615255305
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes, the full Linux suite. Linux keeps the same calls, and the toolbar button now shares the view's code, which is the same text. rhtq57n3 and the two terminal tests passed on Linux.
+	- Needs external testing: done 20261006 on vm925w, as in Verified.
 	- Priority|Severity: Low
 	- Opened: 20261006-152553
 	- Opened by: 2026100612483725
@@ -348,6 +350,34 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: actions start the way the rest of the app starts programs on Windows, and the toolbar's terminal button opens the same terminal as the view's menu.
 	- Reproduced: no. Read from the code.
 	- Possible cause: `nemo-action.c` uses `g_spawn_command_line_async` and `g_spawn_command_line_sync`, and `open_in_terminal_other` in `nemo-window-menus.c` has no Windows branch. The view's own `open_in_terminal` does.
+	- Reproduced: 20261006 by rjmb3j8p, natively on vm925w. A condition's program and an action's command each got a console window and were started through GLib's helper. A terminal action found no terminal and did nothing.
+	- Actual cause: as in Possible cause. An action with Terminal=true also looked only for Linux terminals on Windows.
+	- Decisions:
+		- Calls made without asking. A console program in an action runs with no window, started from the app the way tools are, so in the single exe it is hooked like they are. A program with windows of its own goes through the brokers like an app opened from the menus. A terminal action runs its program in a console window of its own, through the brokers.
+		- A condition on Windows gets 10 seconds, then it counts as no and a warning is logged. The menu waits on it, and Linux has no limit.
+	- Actual fix: on Windows an action's command goes through a new `nemo_launch_win32_spawn`, which checks whether the program is a console one. Conditions go through `nemo_launch_win32_pipe`, which gives the exit status. The toolbar button calls the view's `open_in_terminal`, and the copy in `nemo-window-menus.c` is gone. The Windows terminal opener no longer crashes on a folder with no path when the terminal is Windows Terminal.
+	- Swept:
+		- GLib program starts: lint rjm8a6xr. With the old window menu code back it fails.
+		- Programs started through `g_app_info_launch` from a command line, which the lint does not see: scripts and the bulk rename tool can reach it on Windows, filed as 2026100616310432. Launching an executable file and the tree's launch need Unix permissions, so Windows never gets there. The file-roller drop needs file-roller.
+	- Verified: rjmb3j8p fails before the fix and passes after, natively on vm925w, in session 0 and in the desktop session. It passes under wine. The toolbar's terminal button, clicked in the desktop session on vm925w, started the terminal set in preferences, in the folder, from Explorer. The cross build, the Linux build and the lint stage are clean.
+	- Branch: winacts
+	- Commit: efc89d0
+	- Test case: rjmb3j8p, Action start win32 test, Windows only. Stand-ins in the action's folder say whether they got a console window and what started them. Conditions with a program, a batch file and a missing program; a command; a terminal command; a command with windows of its own. Lint rjm8a6xr keeps the window menu's terminal off GLib.
+
+- On Windows, scripts and the bulk rename tool start through GLib, not the launcher.
+	- ID: 2026100616310432
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261006-163104
+	- Opened by: 2026100615255305
+	- Related IDs: 2026100615255305, 2026100612483725
+	- Target OS: Windows
+	- Steps to reproduce: put a console program or a batch file in the scripts folder and run it from the Scripts menu. Separately, set a bulk rename tool and rename more than one file.
+	- Incorrect behavior: read only. Both go through `nemo_launch_application_from_command`, then GLib's app launch, which starts the program through GLib's helper. So a console program should get a console window, and in the single exe it may never start.
+	- Expected behavior: both start the way the rest of the app starts programs on Windows.
+	- Reproduced: no. Read from the code.
+	- Possible cause: `nemo_launch_application_from_command` has no Windows branch, and lint rjm8a6xr looks only at GLib's spawn calls, not at `g_app_info_launch`.
 	- Test case: none yet.
 
 - A FreeBSD package.

@@ -104,7 +104,7 @@ int
 main (int argc, char *argv[])
 {
 	const char *dir = getenv ("NEMO_FAKE_TOOL_DIR");
-	char name[MAX_PATH], cwd[MAX_PATH], report_path[2 * MAX_PATH];
+	char name[MAX_PATH], cwd[MAX_PATH], report_path[3 * MAX_PATH];
 	char own_dir[MAX_PATH], parent[MAX_PATH];
 	char buffer[4096], *dot;
 	const char *base, *slash;
