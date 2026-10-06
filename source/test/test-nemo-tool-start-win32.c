@@ -294,14 +294,15 @@ static void
 check_search (void)
 {
 	g_autofree char *docs = g_build_filename (scratch, "docs", NULL);
-	g_autofree char *doc = g_build_filename (docs, "t.doc", NULL);
+	g_autofree char *doc = g_build_filename (docs, "t.nemofake", NULL);
 	g_autofree char *uri = g_filename_to_uri (docs, NULL, NULL);
 	NemoSearchEngine *engine = nemo_search_engine_advanced_new ();
 	NemoQuery *query = nemo_query_new ();
 	int spins = 0;
 
 	check (g_mkdir (docs, 0755) == 0);
-	/* Not text, or it would be read without the converter. */
+	/* Not text, or it would be read without the converter. A type nothing
+	   shipped has a converter for, so only ours is tried. */
 	check (g_file_set_contents (doc, "\xd0\xcf\x11\xe0\0\0\0\0", 8, NULL));
 	g_setenv ("NEMO_FAKE_TOOL_SAYS", "alpha november zulu", TRUE);
 
@@ -319,7 +320,7 @@ check_search (void)
 	}
 
 	check (search_done);
-	check (g_list_length (found) == 1 && g_strcmp0 (found->data, "t.doc") == 0);
+	check (g_list_length (found) == 1 && g_strcmp0 (found->data, "t.nemofake") == 0);
 	check (reported ("nemo-fake-to-txt", "window=0"));
 	check (reported ("nemo-fake-to-txt", "bytes=0"));
 
@@ -410,7 +411,7 @@ main (int argc, char *argv[])
 
 	dir = g_build_filename (g_get_user_data_dir (), NEMO_APP_SLUG, "search-helpers", NULL);
 	text = g_strdup_printf ("[Nemo Search Helper]\nTryExec=%s;\nExec=nemo-fake-to-txt %%s\n"
-				"MimeType=application/msword;\nPriority=100\n", converter);
+				"MimeType=application/x-ext-nemofake;\nPriority=100\n", converter);
 	write_text (dir, "fake.nemo_search_helper", text);
 	g_free (dir);
 
