@@ -12,8 +12,7 @@
 ##	  container sees. The stamp is this side's SOURCE_DATE_EPOCH, so both arches
 ##	  carry the same date.
 ##	- The box is shared, so it is taken through the host lock for the run when
-##	  that tool is on this box. A box that does not answer is an error; the
-##	  pipeline's --no-arm leaves this lane out.
+##	  that tool is on this box. A box that does not answer is an error.
 ##	- NEMO_ARM_HOST is the ssh target (default tester@vmDebARM64), NEMO_ARM_LOCK
 ##	  its lock name (default vmDebARM64), NEMO_ARM_JOBS the build jobs (default
 ##	  4). The default box is emulated, where each core it uses costs the host
@@ -68,7 +67,7 @@ fRun(){
 	fEcho_Clean ""
 	fEcho "arm64 release build on ${armHost}"
 	ssh "${sshOpts[@]}" "$armHost" 'test "$(uname -m)" = aarch64 && docker info >/dev/null 2>&1' \
-		|| fDie "${armHost} is not an arm64 box with docker reachable as that user (--no-arm skips this lane)"
+		|| fDie "${armHost} is not an arm64 box with docker reachable as that user"
 
 	ssh "${sshOpts[@]}" "$armHost" "mkdir -p ${remoteDir} && find ${remoteDir} -mindepth 1 -delete"
 	## --ignore-failed-read: a file deleted in the tree but not yet in git is
