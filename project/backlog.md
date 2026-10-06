@@ -170,26 +170,85 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On arm64 a crash report after a call through a null pointer keeps too few frames.
 	- ID: 2026100520071434
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs local test suite run?: Yes. The Linux suite on x86_64 and the Windows cross build. The x86_64 and FreeBSD code is unchanged, but neither was built with this change.
+	- Needs external testing: rge1srj8 on an arm64 release build, at the next arm64 release run. It was only run on a debug build there.
 	- Priority|Severity: Low
 	- Opened: 20261005-200714
 	- Opened by: arm64 release build
 	- Target OS: Linux arm64
 	- Incorrect behavior: rge1srj8 fails, with fewer than 4 frames in the report.
+	- Reproduced: 20261006, arm64 debug build in the jammy image. rge1srj8 fails alone too.
 	- Possible cause: the stack after a bad jump is only recovered on x86_64, and FreeBSD amd64 since 20261005. On arm64 the return address is in the link register, and nothing reads it.
+	- Actual cause: confirmed. On arm64 a call leaves the return address in x30 and the stack as it was. The step past a bad jump only knew the x86_64 form, so the walk stopped at address 0.
+	- Actual fix: on Linux arm64 the reporter points the interrupted pc at the call, 4 bytes before x30, for the length of the walk, and puts it back after. The x86_64 and FreeBSD amd64 lines are unchanged.
+	- Swept: `nemo-crash.c` is the only place that steps past a bad jump. Windows walks with its own unwinder. FreeBSD arm64 is left out, with no box to try it on.
+	- Verified: rge1srj8 fails before the fix and passes after, on the arm64 debug build. The recovered frame resolves to the null call's line in the test, then `main` and libc.
+	- Branch: armfix
+	- Commit: 7f546d8
 	- Test case: rge1srj8.
 
 - On a slow arm64 box some tests miss their time limits.
 	- ID: 2026100520071435
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs local test suite run?: Yes. The Linux suite on x86_64 and the Windows cross build, since the test library builds there too. On a normal box the limits should stay as written: the dev box measures about 2 ms against the 3 ms reference, so the factor is 1.
+	- Needs external testing: the suite on an arm64 release build. It was only run on a debug build there.
 	- Priority|Severity: Low
 	- Opened: 20261005-200714
 	- Opened by: arm64 release build
+	- Related IDs: 2026100611482306, 2026100611482436
 	- Target OS: Linux arm64
 	- Incorrect behavior: on the emulated arm64 box, rhg7vh28 and rj9v7n76 take 0.30 to 0.39 s against a 0.25 s limit, and rhr6ggmt gives up on a compress after 60 s. rjefm41d fails even run alone. rjedw75s, rhmr6qgs and rjbpyy28 fail only in the parallel run.
+	- Reproduced: 20261006, arm64 debug build in the jammy image, 4 tests at once and alone. rj04ta3n failed there too.
 	- Possible cause: the box is about 20 times slower than x86_64. Not shown for rjefm41d.
+	- Actual cause: speed for the raw and archive tests. A race the slow box shows for the rest.
+		- rhg7vh28 and rj9v7n76: a looping file costs about 4000 small reads by design. Small seeks and reads are 50 to 100 times slower on the emulated box, plain arithmetic 3 times.
+		- rhr6ggmt: one tar.xz case at the top level, one archive per item, takes about 30 s alone and over 60 s beside other tests.
+		- rjbpyy28: the tar.xz stop takes about a minute alone, and went past the 100 s job limit beside other tests.
+		- rjefm41d: the tree opens its way down to the open folder one listing at a time, and the probe looked at its selection once. 5 runs of 6 alone found none yet; it came 100 to 300 ms later.
+		- rhmr6qgs: a window's title shows a moment before its tab bar. A drop, tear-off or close that came in between was lost, and the test then waited for it. Seen once each.
+		- rj04ta3n: the same late tree selection. Down went from the top of the tree, so the window never reached folder2.
+		- rjedw75s: not speed. Moved to 2026100611482306.
+	- Actual fix:
+		- A test helper, `test_slowness`, times small seeks and reads against a reference just above the dev box's, and is never below 1. The raw loop limit, both archive job limits and the stop time slack are multiplied by it. On the emulated box it came out 50 to 110.
+		- rjefm41d waits for the tree's selection within the step's 10 s.
+		- rhmr6qgs keeps a command until the window has its tab bar.
+		- rj04ta3n takes any move away from the start folder as the sign the tree has the keys. Down in the folder only moves the selection.
+	- Decisions:
+		- Limits scale by the speed the test measures, with no setting to raise them by hand.
+		- The reference is 3 ms, a bit over the dev box's 2 ms, so a busy dev box keeps the limits as written. A call made without asking.
+	- Swept: rjf00qfj uses the same probe's menus command, and it now waits for the tab bar as well. The other step limits in the GUI probes were left alone, since no run showed one too short.
+	- Verified: on the arm64 debug build, 4 tests at once, rhg7vh28, rj9v7n76, rhr6ggmt, rjbpyy28, rjefm41d and rhmr6qgs pass. rj04ta3n passed 3 runs of 3 beside the archive tests. The full suite there, 4 at once: 166 OK, 4 FAIL, 1 skipped, against 12 FAIL before. The 4 left are rjbkzwe7 and rhe0xz32 (2026100520071433), rgahvdsr (2026100611482436) and rjedw75s (2026100611482306).
+	- Branch: armfix
+	- Commit: 7f546d8
 	- Test case: the tests named above.
+
+- On the arm64 box the Places focus test loses its click or its rename.
+	- ID: 2026100611482306
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261006-114823
+	- Opened by: 2026100520071435
+	- Related IDs: 2026100520071435
+	- Target OS: Linux arm64
+	- Incorrect behavior: rjedw75s times out at different steps, alone or beside other tests. 2 ways seen. A click on the Second place selects its row, but the window stays on First for a minute. Or Rename from the place's menu opens the edit field, and it closes again within 100 ms, with the focus back in the folder.
+	- Reproduced: 20261006, arm64 debug build in the jammy image, 4 runs of 6. Once the window sat on the same step for over 3 minutes with the box idle, so it is not speed.
+	- Possible cause: for the rename, a focus change from the menu's grab reaching the window late and ending the edit. Draining the X server's events before the rename starts would show it. For the click, not looked at.
+	- Test case: rjedw75s.
+
+- The runtime environment test fails on a jammy build with the extension library shared.
+	- ID: 2026100611482436
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261006-114824
+	- Opened by: 2026100520071435
+	- Target OS: Linux
+	- Incorrect behavior: in rgahvdsr the copied program cannot load `libnemo-anywhere-extension.so.1`, and every check after that fails. Seen on the arm64 box in the jammy image with default build options. The release build links the library in, and the trixie build passes.
+	- Possible cause: not looked at. meson 0.61 in the jammy image may set the build's library path differently. Not tried on x86_64 jammy.
+	- Test case: rgahvdsr.
 
 - On FreeBSD, BMP, ICO, XPM and PNM pictures get no thumbnail.
 	- ID: 2026100517134043
