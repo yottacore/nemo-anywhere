@@ -36,8 +36,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows the gate says the build is not set up with `-Werror` when it is.
 	- ID: 2026100518100000
 	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: `pwsh cicd/cicd-win.ps1 -Gate -Yes` on a Windows box, on this branch or after it merges.
+	- Status: Done
+	- Needs external testing: done 20261006 on vm925w at 46f9674. `pwsh cicd/cicd-win.ps1 -Gate -Yes` passed, with the build dir's flags quoted as `"-Werror"`. Native suite 144 OK, 12 skipped, 0 failed.
 	- Priority|Severity: High
 	- Opened: 20261005-181000
 	- Opened by: native gate run for 2026092813381434
@@ -54,12 +54,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: werrq
 	- Test case: rjh7qnxw. It gained Windows-style build dirs: a quoted `"-Werror"` that has to pass, and a quoted `"-Werror=address"` and a quoted `"-Werror -std=c17"` that have to fail.
 	- Verified: rjh7qnxw failed before the fix, on the quoted `"-Werror"` case, and passes after, under both GNU grep and ugrep. The check passes on the Linux `/build` dir, and on an `ARGS` line quoted by meson's own Windows quoting code, which the old check refuses.
+	- Verified 20261006: the native gate on vm925w passed its werror check and went on to build, test and smoke the app.
+	- Acceptance signoff: Self-closed: a mechanical fix to a check, rjh7qnxw pins it, and the Windows gate it blocked now passes.
+	- Closed: 20261006-102538
 
 - On Windows, a mapped drive that is not answering may stall the side pane or the trash state.
 	- ID: 2026100512334934
 	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: on vm925w, wiht a native build of sharefollow.
+	- Status: Waiting on signoff
+	- Needs external testing: done 20261006 on vm925w at 46f9674, as below. Only the red-before step did not go red. Steps as first written:
 		- `meson test` for rjhvmm6f and also rhtwm2c8. Both pass.
 		- Again with `NEMO_PROBE_DEAD_SHARE=\\192.168.1.<unused>\share`, a fresh last octet each run. Both pass, and rjhvmm6f prints the mount list and trash state each under 2 s.
 		- Red before: `test-nemo-drives-win32.exe glib` with the same variable runs GLib's own drive list through the same checks. It should take about 20 s and fail.
@@ -81,13 +84,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjhvmm6f, Mapped drive not asked, Windows only. A free drive letter is pointed at a share for the run. It checks the letter reads as remote, its share path and name, its icons, and times the mount list and the trash state.
 	- Test case: rjhw99yh, lint, no mount list or bin query that asks every drive.
 	- Verified: rjhvmm6f passes in the cross build under wine, and its glib mode fails there on the name and icon. The timing there proves nothing, since the fake share fails fast. rjhw99yh failed on a reverted call site and a NULL bin root, and passes on the branch.
+	- Verified 20261006 on vm925w: rjhvmm6f and rhtwm2c8 pass in the native gate, and again with a share address nothing answers on, a new one each run. The mount list took under 0.01 s and the trash state under 0.04 s.
+	- Verified 20261006 on vm925w: with a dead mapped drive X: (remembered, shown Unavailable by `net use`, and a drive letter in the session), the window came up in about 1 s with its side pane. X: is under Devices as `share (\\192.168.1.<n>) (X:)` with the network drive icon, beside the box's own mapped drives named the same way. The trash row is right. Touching X:\ itself took 21 s, so the share really was dead.
+	- Note 20261006: not reproduced on real Windows. rjhvmm6f's glib mode, on GLib's own list, took about 1 s and passed every check. With the dead X: in the desktop session, the shell gave its name in 0.03 s and its icon at once, and the recycle bin query over all drives took 0.04 s. So GLib's list does not wait on a dead mapped drive on vm925w either, and rjhvmm6f does not fail on the old code there. Under wine its glib mode still fails on the name and icon. What the change still gives is Explorer's naming and the network icon.
+	- Note 20261006: vm925w already has real mapped drives Q: and R:. The steps above must use a free letter, or deleting the key afterward removes one of them.
 
 - The app visits network shares on its own.
 	- ID: 2026093010493450
 	- Type: Task
-	- Status: Waiting for testing
+	- Status: Done
 	- Needs local test suite run?: no. The full Linux suite passed 171 of 171 on sharefollow.
-	- Needs external testing: on vm925w, with a native build of sharefollow.
+	- Needs external testing: done 20261006 on vm925w at 46f9674, with X: in place of Q:, since the box has its own Q:. Steps as first written:
 		- `meson test` for rhtwm2c8 and rjhvmm6f, then both again with `NEMO_PROBE_DEAD_SHARE=\\192.168.1.<unused>\share`, a fresh last octet each run.
 		- With the dead mapped drive Q: from 2026100512334934's steps: a local folder holding a symlink to `Q:\` lists with no wait and shows no item count for it. Going into Q: itself shows no item counts and no thumbnails, with the default settings.
 	- Opened: 20260930-104934
@@ -152,6 +159,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: none for the side pane free space, since a test cannot make the volume list show a fake share.
 	- Verified: rjhbbg9n and rhd69rjr fail before the fix, in every case that names a share, and pass after, on Linux. With only the action change taken out, its case alone fails. The full Linux suite passed 170 of 170. The Windows cross build is clean, and rhtwm2c8 and rhd69rjr pass under wine. Lint is clean.
 	- Verified on sharefollow: rjhbbg9n fails with each change taken out on its own (listing, folder check, mount point, thumbnails), only in that change's cases, and passes with all in. rhtwm2c8 fails with the folder check taken out and passes with it, under wine. The full Linux suite passed 171 of 171. The Windows cross build is clean, and its window comes up under wine. Lint is clean.
+	- Verified 20261006 on vm925w: rhtwm2c8 and rjhvmm6f pass in the native gate, and again with a share address nothing answers on.
+	- Verified 20261006 on vm925w: with a dead mapped drive X:, a local folder holding a folder symlink to `X:\` listed in about 1 s from launch, and the link shows `--` for its item count.
+	- Verified 20261006 on vm925w: on a live mapped drive, its folders show `--` and its pictures the plain picture icon, with the default settings. The same folder on local disk shows `3 items` and thumbnails. Going into the dead X: itself waits on the share, since that is a user action, so the live drive stood in for it.
+	- Acceptance signoff: Self-closed: both questions were answered and done as answered, the tests pass on Linux and natively on Windows, and the Windows paths were seen on screen.
+	- Closed: 20261006-104500
 
 - Two tests fail on the release build made in the jammy image.
 	- ID: 2026100520071433
@@ -176,6 +188,40 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: on a fresh jammy release build, x86_64, both failed before the fix and pass after. The new case fails with the old lookup on jammy, on 5 criticals. The jammy release suite passed 169 of 171, with 1 skip (ImageMagick) and rg3wt7d9 timing out under load; it passed alone in 16 s, and in the full run before. The full Linux suite in `nemo-build` passed 171 of 171. rhe0xz32 passes in the Windows cross build under wine. Lint is clean.
 	- Branch: jammytests
 	- Commit: 307c84c
+
+- On Windows, a link drop moves the files instead of opening Make link.
+	- ID: 2026100610503900
+	- Type: Bug
+	- Status: Queued
+	- Needs external testing: a Windows box with a desktop session.
+	- Priority|Severity: Avg
+	- Opened: 20261006-105039
+	- Opened by: real-Windows validation, old-format item
+	- Related IDs: old-format items "Real-Windows validation" and the Alt drop that opens Make link
+	- Target OS: Windows
+	- Steps to reproduce: in a folder holding a file and a folder, drag the file onto the folder with Ctrl+Shift held. Again with Alt held, and again with the right button.
+	- Incorrect behavior: Ctrl+Shift moves the file, in the list and icon views; the move question of the test guard shows "Move: 1 item". Alt moves it in the list view and does nothing in the icon view, with no drop menu. A right-button drag does nothing. Ctrl alone copies, as it should.
+	- Expected behavior: Ctrl+Shift opens Make link for the drop. Alt, or the right button, opens the drop menu, whose "Link here..." opens Make link, as the Done item for the Alt drop describes.
+	- Reproduced: 20261006 on vm925w at 46f9674, with the native build, in the list and icon views.
+	- Possible cause: not looked at. The list view starts its drags with move, copy and link but not ask, so Alt has no menu to ask for there. Why Ctrl+Shift comes through as a move on Windows is open.
+	- Test case: none yet, not started.
+
+- On Windows, ImageMagick thumbnails open a console window each, and the packed exe makes none.
+	- ID: 2026100610503901
+	- Type: Bug
+	- Status: Queued
+	- Needs external testing: a Windows box with ImageMagick on the PATH.
+	- Priority|Severity: Avg
+	- Opened: 20261006-105039
+	- Opened by: real-Windows validation, old-format item
+	- Related IDs: old-format item "Real-Windows validation"
+	- Target OS: Windows
+	- Steps to reproduce: with ImageMagick 7 installed, open a folder of TGA, PCX, QOI, DDS, JPEG 2000 and SGI pictures in the icon view. Once with the native build, once with the packed exe.
+	- Incorrect behavior: the native build makes all six thumbnails, but a console window opens and closes for each one. With Windows Terminal as the default terminal that is a Terminal window each time. The packed exe never starts ImageMagick, and the pictures keep their plain icons.
+	- Expected behavior: thumbnails from both, and no window but the app's own.
+	- Reproduced: 20261006 on vm925w at 46f9674, ImageMagick 7.1.2. 6 consoles and 6 ImageMagick runs from the native build, none of either from the packed exe.
+	- Possible cause: read only. `nemo-magick.c` starts ImageMagick through GSubprocess, not `nemo-launch-win32.c`, so nothing hides the console. In the packed exe GLib's spawn helper sits inside the packed file system, where it cannot run.
+	- Test case: none yet, not started. rhg8y5f0 and the ImageMagick case of rjffcm7d pass on the native build, since neither looks for a window or runs the packed exe.
 
 - On arm64 a crash report after a call through a null pointer keeps too few frames.
 	- ID: 2026100520071434
@@ -216,6 +262,56 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: a thumbnail, as on Linux and Windows.
 	- Reproduced: no. Read from the loaders the gdk-pixbuf package installs, and seen in the thumbnail tests, where saving a BMP fails there.
 	- Possible cause: gdk-pixbuf 2.44 as packaged there has loaders for GIF, HEIF, JPEG, JPEG XL, PNG, TIFF, SVG and WMF only. The ImageMagick list in `nemo-magick.c` covers none of the missing ones.
+	- Test case: none yet, not started.
+
+- On Windows, a window first opened on a share shows the C:\ bookmark as `\` with a plain folder icon.
+	- ID: 2026100610370021
+	- Type: Bug
+	- Status: Queued
+	- Needs external testing: a Windows box with a share to open.
+	- Priority|Severity: Low
+	- Opened: 20261006-103700
+	- Opened by: Windows pass for 2026093010493450
+	- Related IDs: 2026093010493450
+	- Target OS: Windows
+	- Steps to reproduce: with a fresh settings folder, start the app on a mapped drive such as `Y:\`, or on a UNC path. Look at the first entry under Bookmarks.
+	- Incorrect behavior: the drive root bookmark reads `\` and has the plain outline folder icon. The bookmarks file is written with no labels.
+	- Expected behavior: `C:\` with the blue folder icon, as when the first folder is on local disk. Then the file has `file:///C:/ C:\` and the other labels.
+	- Reproduced: 20261006 on vm925w at 46f9674, starting on a mapped drive and on a UNC path. Starting on a local folder gives the right label and icon.
+	- Test case: none yet, not started.
+
+- The dogfood launcher's Desktop step fails when none of the shortcut folders exist.
+	- ID: 2026100610503902
+	- Type: Bug
+	- Status: Queued
+	- Needs external testing: a Windows box.
+	- Priority|Severity: Low
+	- Opened: 20261006-105039
+	- Opened by: real-Windows validation, old-format item
+	- Related IDs: old-format item "Real-Windows validation"
+	- Target OS: Windows
+	- Steps to reproduce: run `n8runfm.ps1 --no-admin --install-only` with a profile that has no Start Menu folder, where a deployed `runfm` is found and no shortcut to the app exists yet.
+	- Incorrect behavior: the Desktop step stops on "Cannot index into a null array" at the line that names the new shortcut. The run goes on, and nothing is written.
+	- Expected behavior: it says there is nowhere to put a shortcut, or makes the Start Menu folder, and goes on.
+	- Reproduced: 20261006 on vm925w at 46f9674, with a profile that has no Start Menu folder. A real profile always has one, so this is unlikely outside a test.
+	- Possible cause: `fRefreshShortcuts` uses the first folder in its list without checking the list has one.
+	- Test case: none yet, not started.
+
+- In the native Windows gate the ImageMagick thumbnail test always skips.
+	- ID: 2026100610503903
+	- Type: Bug
+	- Status: Queued
+	- Needs external testing: a Windows box with ImageMagick.
+	- Priority|Severity: Low
+	- Opened: 20261006-105039
+	- Opened by: real-Windows validation, old-format item
+	- Related IDs: 2026100610503901
+	- Target OS: Windows
+	- Steps to reproduce: install ImageMagick, so `magick` is on the Windows PATH, then run `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
+	- Incorrect behavior: rhg8y5f0 skips with "no ImageMagick that writes JPEG 2000". The MSYS2 login shell the tests run under drops the Windows PATH.
+	- Expected behavior: the test finds ImageMagick when the box has it. It passes when run with the Windows PATH kept.
+	- Reproduced: 20261006 on vm925w at 46f9674.
+	- Possible cause: `MSYS2_PATH_TYPE` is not set to `inherit` for the test run, so only the MSYS2 and system folders are on the PATH.
 	- Test case: none yet, not started.
 
 - A FreeBSD package.
@@ -2864,6 +2960,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: the Make link dialog, junctions and hardlinks made from it, and the junction job test have only been cross-built.
 	- Note: a link drop opening Make link, Ctrl+Shift+T, and folder shortcuts sorting with folders have only been cross-built.
 	- Note: ImageMagick thumbnails have not run on Windows. Things to see there: no console window flashes up, and the packed exe's file hooks, which every program it starts inherits, do not upset `magick.exe`.
+	- Verified 20261006 on vm925w: a folder junction moves to the second fixed drive as a junction, and the folder it pointed at keeps what it holds (rh5nme6h).
+	- Verified 20261006 on vm925w: the four Windows-only tests from the 20260919 review pass, and each one fails when what it checks is wrong: rfhr0zw0, renz2428, rfmxrdpg and rgaz5cn8. The last two exit 77 when they cannot run.
+	- Verified 20261006 on vm925w: the dogfood launcher copies a new build in, keeps one the sync layer restamped without copying it again, says so when nothing is new, removes a stale partial copy and leaves a fresh one, retires an old-layout copy, prunes a long pool to its budget with the first build kept, and keeps a version something is running from until it stops. Unelevated it copies the build to the fixed name in place of a symlink. `--no-update` runs what is held. rhtrxr83 passes there too.
+	- Verified 20261006 on vm925w: Make link on a folder offers Junction, with Symlink grayed and the reason given, and makes `target folder - junction`. On a file it offers Hardlink with its warning, asks again before making one, and makes `doc - hardlink.txt` as a second name for the same file. The junction job test rhmye3d3 passes natively.
+	- Verified 20261006 on vm925w: Ctrl+Shift+T on a selected folder opens it in a new tab, on a selected file opens a new tab of the folder in view without opening the file, and with nothing selected opens a new tab of the folder in view.
+	- Verified 20261006 on vm925w: a shortcut to a folder sorts among the folders, and a shortcut to a program among the files.
+	- Verified 20261006 on vm925w: with ImageMagick installed, rhg8y5f0 and the ImageMagick case of rjffcm7d pass natively.
+	- Filed 20261006: a link drop moves the files instead of opening Make link (2026100610503900). ImageMagick thumbnails open a console window each, and the packed exe makes none (2026100610503901). Also 2026100610503902 and 2026100610503903, both Low.
+	- Note 20261006: left here are signing and the UAC prompt, which need a release tag with secrets and a person at the screen.
 	- Test case: the Windows gate runs the suite natively, plus `cicd/win/gui-launch-smoke.ps1`; signing and the UAC prompt have none.
 
 - **Stop here for a next release**.
