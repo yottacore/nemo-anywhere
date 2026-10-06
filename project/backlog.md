@@ -282,18 +282,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Possible cause: for the rename, a focus change from the menu's grab reaching the window late and ending the edit. Draining the X server's events before the rename starts would show it. For the click, not looked at.
 	- Test case: rjedw75s.
 
-- The runtime environment test fails on a jammy build with the extension library shared.
-	- ID: 2026100611482436
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261006-114824
-	- Opened by: 2026100520071435
-	- Target OS: Linux
-	- Incorrect behavior: in rgahvdsr the copied program cannot load `libnemo-anywhere-extension.so.1`, and every check after that fails. Seen on the arm64 box in the jammy image with default build options. The release build links the library in, and the trixie build passes.
-	- Possible cause: not looked at. meson 0.61 in the jammy image may set the build's library path differently. Not tried on x86_64 jammy.
-	- Test case: rgahvdsr.
-
 - On FreeBSD, BMP, ICO, XPM and PNM pictures get no thumbnail.
 	- ID: 2026100517134043
 	- Type: Bug
@@ -1510,6 +1498,27 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- The runtime environment test fails on a jammy build with the extension library shared.
+	- ID: 2026100611482436
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261006-114824
+	- Opened by: 2026100520071435
+	- Target OS: Linux
+	- Incorrect behavior: in rgahvdsr the copied program cannot load `libnemo-anywhere-extension.so.1`, and every check after that fails. Seen on the arm64 box in the jammy image with default build options. The release build links the library in, and the trixie build passes.
+	- Possible cause: not looked at. meson 0.61 in the jammy image may set the build's library path differently. Not tried on x86_64 jammy.
+	- Reproduced: 20261006, x86_64 jammy image, default options. On trixie too, when the test is run outside `meson test`.
+	- Actual cause: the test copies itself into a scratch prefix. The build rpath is relative to the program's own folder (`$ORIGIN/../libnemo-extension`), so from the copy it points at nothing. Install rpath doesn't apply, since the copy comes from the build tree. Newer meson (1.7 on trixie) puts every shared library a test links on `LD_LIBRARY_PATH` for the run, which hid it. meson 0.61 only does that for `meson devenv`.
+	- Actual fix: with the library shared, the test is built knowing the library's build folder and puts it on `LD_LIBRARY_PATH` for the copy. A static build gets nothing.
+	- Swept: the other tests that find their own program run it in place, or write scripts, so the build rpath still reaches. Only rgahvdsr copies a linked program.
+	- Verified: rgahvdsr failed before the fix on x86_64 jammy, and run by hand on trixie. After, it passes on jammy and trixie, through meson and by hand with `LD_LIBRARY_PATH` unset, and on jammy with the library static.
+	- Branch: envlib
+	- Commit: 669df44
+	- Test case: rgahvdsr.
+	- Acceptance signoff: Self-closed: a fix to the test only, reproduced on x86_64, red before and green after on both images.
+	- Closed: 20261006-161500
 
 - The dogfood launcher's Desktop step fails when none of the shortcut folders exist.
 	- ID: 2026100610503902

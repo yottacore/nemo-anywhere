@@ -1050,7 +1050,10 @@ if not is_windows
     executable('test-nemo-runtime-env',
       [ 'test-nemo-runtime-env.c' ],
       include_directories: [ rootInclude, ],
-      c_args: nemo_definitions,
+      # The copy it runs is out of reach of the build rpath.
+      c_args: nemo_definitions + (extensionShared ? [
+        '-DTEST_EXTENSION_LIB_DIR="@0@"'.format(meson.project_build_root() / 'libnemo-extension'),
+      ] : []),
       dependencies: [ gtk, nemo_private, test_scratch ],
     ),
     args: []
