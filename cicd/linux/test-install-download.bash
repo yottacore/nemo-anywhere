@@ -7,6 +7,9 @@
 ##	  install.bash gets a curl on PATH that serves those files, and install.ps1
 ##	  gets Invoke-RestMethod and Invoke-WebRequest functions, which PowerShell
 ##	  finds before the cmdlets, that go through the same curl.
+##	- The made-up builds are named the way the release lanes name them, and a
+##	  uname on PATH has the installers ask for the other arch once as well, so
+##	  both arches are checked on either box.
 ##	- Every install goes to a scratch home and a user prefix; neither installer
 ##	  reaches for sudo without --target system, which is never passed here.
 ##	- Linux only: install.bash does not run on Windows, and install.ps1 there
@@ -34,11 +37,9 @@ if [[ "$(uname -s)" != "Linux" ]]; then
 	fEcho "installer download check skipped: Linux only"
 	exit 77
 fi
-case "$(uname -m)" in
-	x86_64|amd64)  arch="x86_64" ;;
-	aarch64|arm64) arch="arm64" ;;
-	*) fEcho "installer download check skipped: no build for $(uname -m)"; exit 77 ;;
-esac
+# shellcheck source=../utility/include/release-files.bash
+source "${root}/cicd/utility/include/release-files.bash"
+arch="$(fReleaseArch "$(uname -m)")" || { fEcho "installer download check skipped: no build for $(uname -m)"; exit 77; }
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/${exeName}-download-check.XXXXXX")"
 trap 'rm -rf "${scratch}"' EXIT
@@ -75,6 +76,15 @@ fi
 if [[ -n "$out" ]]; then cp "$file" "$out"; else cat "$file"; fi
 EOF
 chmod +x "${shimDir}/curl"
+
+## Answers -m with $UNAME_SHIM_M when that is set; the real uname does the rest.
+cat > "${shimDir}/uname" <<'EOF'
+#!/usr/bin/env bash
+if [[ "${1:-}" == "-m" && -n "${UNAME_SHIM_M:-}" ]]; then echo "$UNAME_SHIM_M"; exit 0; fi
+for u in $(type -ap uname); do [[ "$u" -ef "$0" ]] || exec "$u" "$@"; done
+exit 127
+EOF
+chmod +x "${shimDir}/uname"
 
 ## PowerShell looks a function up before a cmdlet of the same name, so these
 ## stand in for the two web cmdlets for the one run of the installer.
@@ -153,7 +163,7 @@ fMakeFixture(){
 ## channel, $5 answer to the question ("" = pass the yes option instead), $6
 ## "unverified" to pass the option that installs a release with no sums file.
 ## Leaves the exit code in $runRc and the transcript in ${home}/run.log.
-home=""; runRc=0
+home=""; runRc=0; unameM=""
 fRun(){
 	local installer="$1" label="$2" fixture="$3" channel="$4" answer="$5" unverified="${6:-}"
 	local -a cmd
@@ -172,7 +182,7 @@ fRun(){
 	## A proxy that answers nothing, so a request that slips past the stand-ins
 	## fails here instead of reaching GitHub.
 	local runEnv=(env -u DISPLAY -u no_proxy -u NO_PROXY HOME="$home" XDG_DATA_HOME="${home}/.local/share"
-		TMPDIR="${home}/tmp" PATH="${shimDir}:${PATH}" CURL_SHIM_ROOT="$fixture"
+		TMPDIR="${home}/tmp" PATH="${shimDir}:${PATH}" CURL_SHIM_ROOT="$fixture" UNAME_SHIM_M="$unameM"
 		https_proxy="http://127.0.0.1:9" HTTPS_PROXY="http://127.0.0.1:9")
 	runRc=0
 	if [[ -z "$answer" ]]; then
@@ -315,6 +325,22 @@ for inst in "${installers[@]}"; do
 	fExpectSaid "${inst} allowed, tampered build" "checksum mismatch"
 	fExpectInstall "${inst} allowed, tampered build" ""
 done
+
+## The other arch, under the name its release lane gives it.
+hostArch="$arch"
+case "$hostArch" in
+	x86_64) unameM="aarch64" ;;
+	*)      unameM="x86_64" ;;
+esac
+arch="$(fReleaseArch "$unameM")"
+otherArch="${scratch}/other-arch"
+fMakeFixture "$otherArch" v1.0.0
+for inst in "${installers[@]}"; do
+	fRun "$inst" other-arch "$otherArch" stable ""
+	fExpectInstall "${inst} on ${unameM}" 1.0.0
+	fExpectFetched "${inst} on ${unameM}" "$otherArch" v1.0.0
+done
+unameM=""; arch="$hostArch"
 
 if ((failures)); then
 	fEcho "FAILED: installer download check, ${failures} problem(s)"

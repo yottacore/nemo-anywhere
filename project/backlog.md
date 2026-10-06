@@ -2780,10 +2780,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: wants signing first, or it trips the same warnings the exe does.
 	- Test case: none yet, not started.
 
-- 🔘 Linux arm64 release build. Needs an arm64 GTK3 build environment; nothing cross-compiles it today, so the installers' arm64 path has nothing to fetch.
+- 🛠️ Linux arm64 release build. Needs an arm64 GTK3 build environment; nothing cross-compiles it today, so the installers' arm64 path has nothing to fetch.
 	- Opened: 20260804-133646
 	- Note: if arm64 builds turn out much slower, they go behind an `--include-arm` flag rather than the `--no-arm` the engine has now.
-	- Test case: none yet, not started.
+	- Done 20261005: `cicd/linux/release-arm64.bash` builds `nemo-anywhere-<version>-linux-arm64.tar.gz` on an arm64 Linux box with docker, and adds it to the sums file. It sends the working tree over and runs `release.bash` there, in an image from the same Dockerfile, so the glibc floor and the library versions match the x86_64 build. The Dockerfile pins the arm64 package sources to the same snapshot.
+	- Done 20261005: `release.bash` names the asset `arm64` where the kernel says `aarch64`, which is the name the installers ask for. `package.bash` now only picks up a tarball for its own box's arch.
+	- Verified 20261005: two builds of one commit gave the same tarball. It installs with `install.bash` on Debian 13 arm64, answers `--version` and opens its window.
+	- Note 20261005: on an emulated arm64 box a release build takes about 67 minutes at 4 cores, against under 4 minutes for x86_64 at the same 4 cores.
+	- Note 20261005: the test suite passes 160 of 171 on the arm64 release build. One failure belongs to arm64: a crash report after a call through a null pointer keeps too few frames, since that stack is only recovered on x86_64. Most of the rest are time limits the slow box misses, and 2 fail on the x86_64 release build too.
+	- Note 20261005: left for later: calling it from the pipeline, and arm64 `.deb` and `.rpm` packages. The pipeline question is whether it runs by default with `--no-arm` to skip it, or behind `--include-arm` as the note above says, given the hour it takes.
+	- Test case: rhtrxr81 has both installers fetch the arm64 build under the name the release lanes give it, on either box. rjcma0t3 checks the arm64 package sources are pinned too.
 
 - 🛠️ Target: BSD
 	- Opened: 20260730-185314

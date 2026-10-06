@@ -4,7 +4,8 @@
 ##	  every apt source moved to one dated snapshot before apt first runs. Without
 ##	  both, a box that has to build the image gets whatever 22.04 updates are
 ##	  current that day, and other compiler and library bytes with them.
-##	- Runs the Dockerfile's own sources rewrite over the stock jammy sources list.
+##	- Runs the Dockerfile's own sources rewrite over the stock jammy sources
+##	  lists, amd64 and arm64, since the same file builds both images.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/linux/test-release-image-pin.bash
 ##	- Test ID: rjcma0t3
@@ -33,7 +34,7 @@ while IFS= read -r line; do
 	if [[ ! "$line" =~ @sha256:[0-9a-f]{64}([[:space:]]|$) ]]; then fFail "base not pinned by digest: ${line}"; fi
 done <<<"$froms"
 
-## The sources list as it comes in the jammy base image.
+## The sources list as it comes in the jammy base image, amd64 then arm64.
 stock='deb http://archive.ubuntu.com/ubuntu/ jammy main restricted
 deb http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted
 deb http://archive.ubuntu.com/ubuntu/ jammy universe
@@ -43,7 +44,17 @@ deb http://archive.ubuntu.com/ubuntu/ jammy-updates multiverse
 deb http://archive.ubuntu.com/ubuntu/ jammy-backports main restricted universe multiverse
 deb http://security.ubuntu.com/ubuntu/ jammy-security main restricted
 deb http://security.ubuntu.com/ubuntu/ jammy-security universe
-deb http://security.ubuntu.com/ubuntu/ jammy-security multiverse'
+deb http://security.ubuntu.com/ubuntu/ jammy-security multiverse
+deb http://ports.ubuntu.com/ubuntu-ports/ jammy main restricted
+deb http://ports.ubuntu.com/ubuntu-ports/ jammy-updates main restricted
+deb http://ports.ubuntu.com/ubuntu-ports/ jammy universe
+deb http://ports.ubuntu.com/ubuntu-ports/ jammy-updates universe
+deb http://ports.ubuntu.com/ubuntu-ports/ jammy multiverse
+deb http://ports.ubuntu.com/ubuntu-ports/ jammy-updates multiverse
+deb http://ports.ubuntu.com/ubuntu-ports/ jammy-backports main restricted universe multiverse
+deb http://ports.ubuntu.com/ubuntu-ports/ jammy-security main restricted
+deb http://ports.ubuntu.com/ubuntu-ports/ jammy-security universe
+deb http://ports.ubuntu.com/ubuntu-ports/ jammy-security multiverse'
 
 ## Drop comments and join continuation lines so each RUN is one line, then take
 ## the sed that rewrites the sources and run it here.

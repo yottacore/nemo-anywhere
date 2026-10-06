@@ -35,6 +35,8 @@ STAGE=/build-prefix/nemo-anywhere   # stage-prefix.bash guards its rm -rf on the
 source "${ROOT}/cicd/utility/include/echo.bash"
 # shellcheck source=../utility/include/source-date.bash
 source "${ROOT}/cicd/utility/include/source-date.bash"
+# shellcheck source=../utility/include/release-files.bash
+source "${ROOT}/cicd/utility/include/release-files.bash"
 
 case "${1:-}" in
 	--clean) ;;	# every build is clean now; still taken so old command lines run
@@ -75,9 +77,15 @@ if ! docker exec "$CONTAINER" true 2>/dev/null; then
 	docker run -d --init --ulimit core=0 --name "$CONTAINER" --shm-size=2g \
 		-v "${ROOT}:/src" "$IMAGE" sleep infinity >/dev/null
 fi
+## -j alone does not hold the build to that many cores: every LTO link runs 4
+## jobs of its own, and ninja runs several links at once. Same cap the engine
+## puts on its containers.
+docker update --cpus "$jobs" "$CONTAINER" >/dev/null 2>&1 || true
 fEcho_Clean "$(docker exec "$CONTAINER" sh -c '. /etc/os-release; printf "%s, glibc %s, gtk %s" "$PRETTY_NAME" "$(ldd --version | head -1 | grep -oE "[0-9]+\.[0-9]+$")" "$(pkg-config --modversion gtk+-3.0)"')"
 
-arch="$(docker exec "$CONTAINER" uname -m)"
+## The asset name says arm64 where the kernel says aarch64.
+machine="$(docker exec "$CONTAINER" uname -m)"
+arch="$(fReleaseArch "$machine")" || fDie "no release name for a ${machine} build"
 
 
 #••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
@@ -134,18 +142,8 @@ fEcho_Clean "staged prefix kept at cicd/artifacts/dogfood/${SLUG}"
 
 rm -rf "${OUT:?}/${name}"
 
-## One sums file per release covering this version's artifacts - the installers grep
-## it for their own asset's line, so extra lines (the Windows exe) are free. Matching
-## on the version keeps a leftover build for another version out of it.
 sums="${SLUG}-${ver}-sha256sums.txt"
-tmpsums="$(mktemp)"
-rm -f "${OUT:?}/${sums}"
-## -0/-r: without them an empty dir still runs sha256sum, which then reads stdin
-## and writes a bogus "-" line into the file the installers verify against, and a
-## name with a space would be split into two arguments.
-( cd "$OUT" && find . -maxdepth 1 -type f -name "${SLUG}-${ver}-*" -printf '%P\0' | sort -z | xargs -0 -r sha256sum ) > "$tmpsums"
-mv "$tmpsums" "${OUT}/${sums}"
-chmod 644 "${OUT}/${sums}"	# mktemp makes it 0600
+fWriteReleaseSums "$OUT" "$SLUG" "$ver"
 
 fEcho_Clean ""
 fEcho "Artifacts in cicd/artifacts/release"
@@ -158,3 +156,4 @@ fEcho_Clean ""
 ##	History:
 ##		- 2026-08-04 JC: Created (Linux half of the v1.0.0-beta1 release assets).
 ##		- 2026-10-03: Always a clean build dir.
+##		- 2026-10-05: Runs on an arm64 box too, for release-arm64.bash.
