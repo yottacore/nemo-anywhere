@@ -283,6 +283,74 @@ test_scratch_config_home (const char *tmpl)
 	return dir;
 }
 
+/* Small seeks and reads through GIO are what the timed tests mostly wait on,
+   and they are what an emulated box is slowest at: 50 to 100 times slower on
+   an emulated arm64 box, where plain arithmetic is only 3 times slower. So
+   they are the yardstick. The dev box takes about 2 ms; the reference sits a
+   bit above that so a busy dev box keeps the limits as written. */
+#define SLOWNESS_PAIRS             4000
+#define SLOWNESS_REFERENCE_SECONDS 0.003
+
+static int
+compare_doubles (const void *a, const void *b)
+{
+	double x = *(const double *) a;
+	double y = *(const double *) b;
+
+	return (x > y) - (x < y);
+}
+
+double
+test_slowness (void)
+{
+	static double slowness = 0;
+	g_autofree char *dir = NULL;
+	g_autofree char *path = NULL;
+	g_autofree guint8 *bytes = NULL;
+	g_autoptr (GFile) file = NULL;
+	g_autoptr (GFileInputStream) in = NULL;
+	double runs[3];
+	guint32 next = 1;
+	guint i, j;
+
+	if (slowness > 0) {
+		return slowness;
+	}
+	slowness = 1;
+
+	dir = test_scratch_dir ("nemo-slowness-XXXXXX", NULL);
+	if (dir == NULL) {
+		return slowness;
+	}
+	path = g_build_filename (dir, "yardstick", NULL);
+	bytes = g_malloc0 (65536);
+	file = g_file_new_for_path (path);
+	if (!g_file_set_contents (path, (const char *) bytes, 65536, NULL) ||
+	    (in = g_file_read (file, NULL, NULL)) == NULL) {
+		return slowness;
+	}
+
+	/* The median, so one hiccup on a fast box does not loosen every limit. */
+	for (i = 0; i < G_N_ELEMENTS (runs); i++) {
+		gint64 start = g_get_monotonic_time ();
+
+		for (j = 0; j < SLOWNESS_PAIRS; j++) {
+			next = next * 1103515245 + 12345;
+			g_seekable_seek (G_SEEKABLE (in), (next >> 8) % (65536 - 64), G_SEEK_SET, NULL, NULL);
+			g_input_stream_read (G_INPUT_STREAM (in), bytes, 64, NULL, NULL);
+		}
+		runs[i] = (double) (g_get_monotonic_time () - start) / G_USEC_PER_SEC;
+	}
+	qsort (runs, G_N_ELEMENTS (runs), sizeof runs[0], compare_doubles);
+
+	slowness = MAX (1.0, runs[1] / SLOWNESS_REFERENCE_SECONDS);
+	if (slowness >= 2) {
+		g_printerr ("  time limits scaled %.0f times for a slow box\n", slowness);
+	}
+
+	return slowness;
+}
+
 #ifndef G_OS_WIN32
 static volatile pid_t kept_child = 0;
 

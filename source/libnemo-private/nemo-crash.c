@@ -65,6 +65,14 @@ typedef greg_t crash_reg_t;
 typedef __register_t crash_reg_t;
 #define CRASH_PC(uc) ((uc)->uc_mcontext.mc_rip)
 #define CRASH_SP(uc) ((uc)->uc_mcontext.mc_rsp)
+#elif defined (__linux__) && defined (__aarch64__)
+#include <ucontext.h>
+#define CRASH_STEP_BAD_JUMP 1
+typedef unsigned long long crash_reg_t;
+#define CRASH_PC(uc) ((uc)->uc_mcontext.pc)
+#define CRASH_SP(uc) ((uc)->uc_mcontext.sp)
+/* x30. A call leaves the return address here, not on the stack. */
+#define CRASH_LR(uc) ((uc)->uc_mcontext.regs[30])
 #endif
 #endif
 #endif
@@ -398,9 +406,10 @@ write_header (int fd, int sig, const siginfo_t *info)
 
 /* A call through a null or freed pointer faults on arrival, at an address with
    no unwind data, so the unwinder stops there after two frames. The caller's
-   return address is still on top of the stack, and the unwinder reads the
-   interrupted registers back out of this very context. Pointing them at the
-   caller for the length of the walk recovers the rest. */
+   return address is still on top of the stack, or in the link register on
+   arm64, and the unwinder reads the interrupted registers back out of this
+   very context. Pointing them at the caller for the length of the walk
+   recovers the rest. */
 static gboolean
 step_past_bad_jump (int sig, const siginfo_t *info, ucontext_t *uc, crash_reg_t saved[2])
 {
@@ -413,11 +422,16 @@ step_past_bad_jump (int sig, const siginfo_t *info, ucontext_t *uc, crash_reg_t 
 	saved[0] = CRASH_PC (uc);
 	saved[1] = CRASH_SP (uc);
 
-	/* One byte back, inside the call. A signal frame's address is looked up
-	   as it stands, not as a return address, and a call that is the last
-	   thing in its function returns into the next one. */
+	/* Back inside the call. A signal frame's address is looked up as it
+	   stands, not as a return address, and a call that is the last thing in
+	   its function returns into the next one. */
+#ifdef CRASH_LR
+	/* The call left the stack alone here, so only the pc moves. */
+	CRASH_PC (uc) = CRASH_LR (uc) - 4;
+#else
 	CRASH_PC (uc) = *(crash_reg_t *) (gsize) CRASH_SP (uc) - 1;
 	CRASH_SP (uc) += 8;
+#endif
 
 	return TRUE;
 }

@@ -45,6 +45,9 @@
 static char    *out_path;
 static char    *last;
 static gboolean tore;
+static char    *pending;
+
+static void run_pending (void);
 
 static gboolean
 is_a (gpointer object, const char *type_name)
@@ -158,6 +161,8 @@ tick (G_GNUC_UNUSED gpointer data)
 	const char *title = NULL;
 	int windows;
 
+	run_pending ();
+
 	window = shown_window (&windows);
 	if (window != NULL) {
 		title = gtk_window_get_title (GTK_WINDOW (window));
@@ -206,10 +211,9 @@ drop_at (int x, int y)
 static gboolean
 tear_off (G_GNUC_UNUSED gpointer data)
 {
-	GdkWindow *root = gdk_get_default_root_window ();
-
-	/* Over nothing at all, no window of any copy. */
-	drop_at (gdk_window_get_width (root) - 2, gdk_window_get_height (root) - 2);
+	g_free (pending);
+	pending = g_strdup ("tear");
+	run_pending ();
 
 	return G_SOURCE_CONTINUE;
 }
@@ -435,23 +439,50 @@ check_menus (int times)
 	g_string_free (report, TRUE);
 }
 
+/* The title is up a moment before the tab bar, and on a slow box a command
+   can come in between. It waits for the tab bar rather than being lost. */
+static void
+run_pending (void)
+{
+	GtkWidget *window;
+	char *text = pending;
+	int windows, x, y, times;
+
+	if (text == NULL) {
+		return;
+	}
+	window = shown_window (&windows);
+	if (window == NULL || find_in (window, "NemoNotebook") == NULL) {
+		return;
+	}
+	pending = NULL;
+
+	if (strcmp (text, "tear") == 0) {
+		GdkWindow *root = gdk_get_default_root_window ();
+
+		/* Over nothing at all, no window of any copy. */
+		drop_at (gdk_window_get_width (root) - 2, gdk_window_get_height (root) - 2);
+	} else if (sscanf (text, "drop %d %d", &x, &y) == 2) {
+		drop_at (x, y);
+	} else if (sscanf (text, "menus %d", &times) == 1) {
+		check_menus (times);
+	} else if (g_str_has_prefix (text, "close")) {
+		close_from_menu ();
+	}
+	g_free (text);
+}
+
 static gboolean
 run_command (G_GNUC_UNUSED gpointer data)
 {
 	char *path = g_strconcat (out_path, ".do", NULL);
 	char *text = NULL;
-	int x, y, times;
 
 	if (g_file_get_contents (path, &text, NULL, NULL)) {
-		if (sscanf (text, "drop %d %d", &x, &y) == 2) {
-			drop_at (x, y);
-		} else if (sscanf (text, "menus %d", &times) == 1) {
-			check_menus (times);
-		} else if (g_str_has_prefix (text, "close")) {
-			close_from_menu ();
-		}
+		g_free (pending);
+		pending = text;
+		run_pending ();
 	}
-	g_free (text);
 	g_free (path);
 
 	return G_SOURCE_CONTINUE;

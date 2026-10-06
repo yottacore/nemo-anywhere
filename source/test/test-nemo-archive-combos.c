@@ -34,6 +34,10 @@
 #define SPLIT_BYTES         65536
 #define PASSWORD            "secret"
 
+/* JOB_TIMEOUT_SECONDS times how slow the box is. One xz case at the top
+   level takes half a minute on an emulated arm64 box with nothing beside it. */
+static guint job_timeout;
+
 typedef enum {
 	P_LEVEL,
 	P_PASSWORD,
@@ -570,14 +574,14 @@ answer_questions (G_GNUC_UNUSED gpointer data)
 static int
 wait_for_jobs (NemoProgressInfoManager *manager)
 {
-	gint64 give_up_at = g_get_monotonic_time () + JOB_TIMEOUT_SECONDS * G_USEC_PER_SEC;
+	gint64 give_up_at = g_get_monotonic_time () + (gint64) job_timeout * G_USEC_PER_SEC;
 	guint answer_id = g_timeout_add (20, answer_questions, NULL);
 
 	questions_answered = 0;
 	while (nemo_progress_info_manager_get_all_infos (manager) != NULL) {
 		if (g_get_monotonic_time () > give_up_at) {
-			g_printerr ("FAIL: a job did not finish within %d seconds\n",
-				    JOB_TIMEOUT_SECONDS);
+			g_printerr ("FAIL: a job did not finish within %u seconds\n",
+				    job_timeout);
 			failures++;
 			break;
 		}
@@ -703,13 +707,13 @@ run_row (const char *tmp, const char *outside, int number,
 		g_free (path);
 		g_free (base);
 	}
-	timeout_id = g_timeout_add_seconds (JOB_TIMEOUT_SECONDS, give_up, NULL);
+	timeout_id = g_timeout_add_seconds (job_timeout, give_up, NULL);
 	gtk_main ();
 	if (job_finished) {
 		g_source_remove (timeout_id);
 	} else {
-		g_printerr ("FAIL: compressing did not finish within %d seconds\n",
-			    JOB_TIMEOUT_SECONDS);
+		g_printerr ("FAIL: compressing did not finish within %u seconds\n",
+			    job_timeout);
 		failures++;
 	}
 	asked = wait_for_jobs (manager);
@@ -834,13 +838,13 @@ run_single (GList *sources, const char *dest_path, const NemoArchiveOptions *opt
 	nemo_archive_create (sources, dest, options, GTK_WINDOW (window), archive_done, NULL);
 	g_object_unref (dest);
 
-	timeout_id = g_timeout_add_seconds (JOB_TIMEOUT_SECONDS, give_up, NULL);
+	timeout_id = g_timeout_add_seconds (job_timeout, give_up, NULL);
 	gtk_main ();
 	if (job_finished) {
 		g_source_remove (timeout_id);
 	} else {
-		g_printerr ("FAIL: compressing did not finish within %d seconds\n",
-			    JOB_TIMEOUT_SECONDS);
+		g_printerr ("FAIL: compressing did not finish within %u seconds\n",
+			    job_timeout);
 		failures++;
 	}
 	*asked = wait_for_jobs (manager);
@@ -1502,6 +1506,7 @@ main (int argc, char *argv[])
 	int number = 0;
 
 	home = test_scratch_config_home ("nemo-archive-combos-home-XXXXXX");
+	job_timeout = (guint) (JOB_TIMEOUT_SECONDS * test_slowness ());
 	/* The trash the delete uses. */
 	data_home = g_build_filename (home, "data", NULL);
 	g_setenv ("XDG_DATA_HOME", data_home, TRUE);

@@ -60,6 +60,11 @@
 #define SLACK_SECONDS 3.0
 #define JOB_TIMEOUT_SECONDS 100
 
+/* Both times how slow the box is. An emulated arm64 box takes about a minute
+   for the tar.xz stop, against under 3 s on a normal one. */
+static double slack;
+static guint job_timeout;
+
 typedef struct {
 	NemoProgressInfo *info;
 	gint64 stopped_at;
@@ -110,7 +115,7 @@ static gboolean
 give_up (gpointer data)
 {
 	(void) data;
-	g_printerr ("FAIL: the job did not end within %d seconds\n", JOB_TIMEOUT_SECONDS);
+	g_printerr ("FAIL: the job did not end within %u seconds\n", job_timeout);
 	failures++;
 	gtk_main_quit ();
 	return G_SOURCE_REMOVE;
@@ -141,7 +146,7 @@ time_stop (NemoProgressInfoManager *manager,
 
 	watch_id = g_signal_connect (manager, "new-progress-info",
 				     G_CALLBACK (watch_new_progress), &stop);
-	timeout_id = g_timeout_add_seconds (JOB_TIMEOUT_SECONDS, give_up, NULL);
+	timeout_id = g_timeout_add_seconds (job_timeout, give_up, NULL);
 	nemo_archive_create (sources, destination, &options, GTK_WINDOW (window),
 			     compress_done, &stop);
 	gtk_main ();
@@ -205,7 +210,7 @@ check_format (NemoProgressInfoManager *manager,
 	g_print ("%s: %.2f s from the stop to the end with 4 GiB, %.2f s with 16 GiB\n",
 		 name, small_seconds, big_seconds);
 	if (small_seconds >= 0 && big_seconds >= 0) {
-		check (big_seconds < 2 * small_seconds + SLACK_SECONDS);
+		check (big_seconds < 2 * small_seconds + slack);
 	}
 }
 
@@ -219,6 +224,8 @@ main (int argc, char *argv[])
 	char *tmp;
 
 	tmp = test_scratch_config_home ("nemo-stop-time-XXXXXX");
+	slack = SLACK_SECONDS * test_slowness ();
+	job_timeout = (guint) (JOB_TIMEOUT_SECONDS * test_slowness ());
 
 	if (!gtk_init_check (&argc, &argv)) {
 		g_print ("SKIP: no display\n");

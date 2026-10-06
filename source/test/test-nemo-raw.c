@@ -755,6 +755,7 @@ test_loop_work (const char *dir)
 		build_olympus_loop (TRUE),
 		build_rw2_loop (),
 	};
+	double limit = 0.25 * test_slowness ();
 	guint i;
 
 	for (i = 0; i < G_N_ELEMENTS (files); i++) {
@@ -770,10 +771,10 @@ test_loop_work (const char *dir)
 		pixbuf = nemo_raw_load_uri (uri, 128, NULL);
 		secs = (g_get_monotonic_time () - start) / 1e6;
 		check (pixbuf == NULL);
-		if (secs >= 0.25) {
-			g_printerr ("  %s took %.2f s\n", name, secs);
+		if (secs >= limit) {
+			g_printerr ("  %s took %.2f s, over %.2f s\n", name, secs, limit);
 		}
-		check (secs < 0.25);
+		check (secs < limit);
 		g_byte_array_unref (files[i]);
 	}
 }

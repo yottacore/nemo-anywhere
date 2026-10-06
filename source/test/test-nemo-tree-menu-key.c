@@ -26,7 +26,7 @@
  *
  * Needs the built program (argv[1]) and a display, and runs on an X server of
  * its own, since it types into the window. The tree gets the keyboard the way
- * a person would give it, with F6. Down then moves to the next folder, and
+ * a person would give it, with F6. Down then moves to another folder, and
  * the window following it is how the test knows the keys reached the tree. */
 
 #include <config.h>
@@ -204,9 +204,10 @@ title_of (Window window)
 	return title;
 }
 
-/* The title starts with the folder's name; what follows is the program's. */
+/* The title starts with the folder's name; what follows is the program's.
+   With away set, waits for it to show some other folder instead. */
 static gboolean
-wait_title (Window window, const char *folder, int tenths)
+wait_title (Window window, const char *folder, int tenths, gboolean away)
 {
 	size_t len = strlen (folder);
 	int i;
@@ -215,9 +216,10 @@ wait_title (Window window, const char *folder, int tenths)
 		char *title = title_of (window);
 		gboolean shows = title != NULL && strncmp (title, folder, len) == 0 &&
 				 (title[len] == '\0' || title[len] == ' ');
+		gboolean other = title != NULL && title[0] != '\0' && !shows;
 
 		g_free (title);
-		if (shows) {
+		if (away ? other : shows) {
 			return TRUE;
 		}
 		g_usleep (100 * 1000);
@@ -275,7 +277,7 @@ check_menu_key (const char *exe)
 	for (i = 0; i < 300 && alive (pid) && windows_of (pid, &window) == 0; i++) {
 		g_usleep (100 * 1000);
 	}
-	if (window == None || !wait_title (window, "folder", 100)) {
+	if (window == None || !wait_title (window, "folder", 100, FALSE)) {
 		g_printerr ("the window never showed the start folder\n");
 		failures++;
 		goto out;
@@ -285,12 +287,14 @@ check_menu_key (const char *exe)
 	XSync (display, False);
 	g_usleep (500 * 1000);
 
-	/* folder2 sits right below the start folder in the tree, and nowhere else
-	   in the window, so the window going there means the tree has the keys. */
+	/* Down in the folder only moves the selection, so the window going to
+	   another folder means the tree has the keys. Usually that is folder2,
+	   right below the start folder. On a slow box the tree can still be on
+	   its way to the start folder, and Down goes from wherever it is. */
 	for (i = 0; i < 8 && !in_tree && alive (pid); i++) {
 		press (NoSymbol, XK_F6);
 		press (NoSymbol, XK_Down);
-		in_tree = wait_title (window, "folder2", 20);
+		in_tree = wait_title (window, "folder", 20, TRUE);
 	}
 	check (in_tree);
 	if (!in_tree) {

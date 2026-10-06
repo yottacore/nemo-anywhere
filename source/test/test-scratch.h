@@ -38,6 +38,12 @@ char *test_scratch_config_home    (const char *tmpl);
    xvfb-run it starts Xvfb itself and returns in a forked copy that has it. */
 void  test_own_display (int argc, char **argv, const char *screen);
 
+/* How many times slower this box is than the one the suite's time limits
+   were set on, measured once per process and never below 1. A limit
+   multiplied by it still fails a real slowdown on a normal box, and stops
+   failing on an emulated one that is slow at everything. */
+double test_slowness (void);
+
 /* Removes every directory made so far. Runs on its own at exit. */
 void  test_scratch_cleanup (void);
 
