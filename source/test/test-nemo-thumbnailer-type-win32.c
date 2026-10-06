@@ -23,7 +23,7 @@
 /* On Windows a file's type is its extension, ".odt", while thumbnailers and
  * the list of types not to thumbnail name MIME types, so no thumbnailer was
  * ever found. Uses the gsf-office thumbnailer the app ships, on an
- * OpenDocument file holding a 5x4 thumbnail. And the same file reached as a
+ * OpenDocument file holding a red 5x4 thumbnail. And the same file reached as a
  * share is not thumbnailed with the default settings. */
 
 #include <config.h>
@@ -153,7 +153,11 @@ main (int argc, char *argv[])
 	pixbuf = nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (factory, uri, ".odt", 128, NULL);
 	check (pixbuf != NULL);
 	if (pixbuf != NULL) {
-		check (gdk_pixbuf_get_width (pixbuf) == 5 && gdk_pixbuf_get_height (pixbuf) == 4);
+		const guchar *pixel = gdk_pixbuf_read_pixels (pixbuf);
+
+		/* Scaled up to the size asked for, and the red of the one inside. */
+		check (gdk_pixbuf_get_width (pixbuf) == 128 && gdk_pixbuf_get_height (pixbuf) == 102);
+		check (pixel[0] > 150 && pixel[1] < 80 && pixel[2] < 80);
 		g_object_unref (pixbuf);
 	}
 	check (nemo_can_thumbnail (file));

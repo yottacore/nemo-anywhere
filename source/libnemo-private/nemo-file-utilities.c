@@ -3050,6 +3050,66 @@ nemo_self_check_file_utilities (void)
 
 #endif /* !NEMO_OMIT_SELF_CHECK */
 
+#ifdef G_OS_WIN32
+/* An extension Windows has no registration for comes back as
+   application/x-ext-<ext>. */
+static const struct {
+	const char *ext;
+	const char *mime;
+} known_types[] = {
+	{ "doc",  "application/msword" },
+	{ "dot",  "application/msword" },
+	{ "xls",  "application/vnd.ms-excel" },
+	{ "xlt",  "application/vnd.ms-excel" },
+	{ "ppt",  "application/vnd.ms-powerpoint" },
+	{ "pps",  "application/vnd.ms-powerpoint" },
+	{ "docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+	{ "xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+	{ "pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
+	{ "odt",  "application/vnd.oasis.opendocument.text" },
+	{ "ods",  "application/vnd.oasis.opendocument.spreadsheet" },
+	{ "odp",  "application/vnd.oasis.opendocument.presentation" },
+	{ "odg",  "application/vnd.oasis.opendocument.graphics" },
+	{ "epub", "application/epub+zip" },
+	{ "pdf",  "application/pdf" },
+};
+#endif
+
+/* Returns: (transfer full): free with g_free */
+char *
+nemo_content_type_get_mime_type (const char *content_type)
+{
+#ifdef G_OS_WIN32
+	const char *ext = NULL;
+	char *mime;
+	guint i;
+
+	/* Already a MIME type, which GLib there would turn into
+	   application/octet-stream. */
+	if (strchr (content_type, '/') != NULL) {
+		return g_strdup (content_type);
+	}
+
+	mime = g_content_type_get_mime_type (content_type);
+	if (mime == NULL) {
+		ext = content_type[0] == '.' ? content_type + 1 : content_type;
+	} else if (g_str_has_prefix (mime, "application/x-ext-")) {
+		ext = mime + strlen ("application/x-ext-");
+	}
+
+	for (i = 0; ext != NULL && i < G_N_ELEMENTS (known_types); i++) {
+		if (g_ascii_strcasecmp (ext, known_types[i].ext) == 0) {
+			g_free (mime);
+			return g_strdup (known_types[i].mime);
+		}
+	}
+
+	return mime != NULL ? mime : g_strdup (content_type);
+#else
+	return g_content_type_get_mime_type (content_type);
+#endif
+}
+
 gboolean
 nemo_content_type_is_a (const char *content_type, const char *mime_type)
 {

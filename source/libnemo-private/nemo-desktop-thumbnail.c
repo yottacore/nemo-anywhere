@@ -634,7 +634,40 @@ nemo_desktop_thumbnail_factory_is_disabled (NemoDesktopThumbnailFactory *factory
         return TRUE;
     }
 
+#ifdef G_OS_WIN32
+  {
+    g_autofree gchar *real_mime = nemo_content_type_get_mime_type (mime_type);
+
+    for (i = 0; priv->disabled_types[i]; i++)
+      {
+        if (g_strcmp0 (priv->disabled_types[i], real_mime) == 0)
+          return TRUE;
+      }
+  }
+#endif
+
   return FALSE;
+}
+
+/* On Windows a file's type is its extension, and a thumbnailer lists MIME
+ * types. Caller holds priv->lock.
+ * Returns: (transfer none) */
+static Thumbnailer *
+lookup_thumbnailer (NemoDesktopThumbnailFactory *factory,
+                    const gchar                  *mime_type)
+{
+  Thumbnailer *thumb = g_hash_table_lookup (factory->priv->mime_types_map, mime_type);
+
+#ifdef G_OS_WIN32
+  if (thumb == NULL)
+    {
+      g_autofree gchar *real_mime = nemo_content_type_get_mime_type (mime_type);
+
+      thumb = g_hash_table_lookup (factory->priv->mime_types_map, real_mime);
+    }
+#endif
+
+  return thumb;
 }
 
 static gboolean
@@ -1185,7 +1218,7 @@ nemo_desktop_thumbnail_factory_can_make (NemoDesktopThumbnailFactory *factory,
       return FALSE;
     }
 
-  thumb = g_hash_table_lookup (factory->priv->mime_types_map, mime_type);
+  thumb = lookup_thumbnailer (factory, mime_type);
 
   g_mutex_unlock (&factory->priv->lock);
 
@@ -1241,7 +1274,7 @@ nemo_desktop_thumbnail_factory_can_thumbnail (NemoDesktopThumbnailFactory *facto
     }
 
   Thumbnailer *thumb;
-  thumb = g_hash_table_lookup (factory->priv->mime_types_map, mime_type);
+  thumb = lookup_thumbnailer (factory, mime_type);
 
   g_mutex_unlock (&factory->priv->lock);
 
@@ -1527,7 +1560,7 @@ nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (NemoDesktopThumbnailF
     {
       Thumbnailer *thumb;
 
-      thumb = g_hash_table_lookup (factory->priv->mime_types_map, mime_type);
+      thumb = lookup_thumbnailer (factory, mime_type);
       if (thumb)
         script = g_strdup (thumb->command);
     }
