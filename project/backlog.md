@@ -33,37 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- On Windows, a mapped drive that is not answering may stall the side pane or the trash state.
-	- ID: 2026100512334934
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs external testing: done 20261006 on vm925w at 46f9674, as below. Only the red-before step did not go red. Steps as first written:
-		- `meson test` for rjhvmm6f and also rhtwm2c8. Both pass.
-		- Again with `NEMO_PROBE_DEAD_SHARE=\\192.168.1.<unused>\share`, a fresh last octet each run. Both pass, and rjhvmm6f prints the mount list and trash state each under 2 s.
-		- Red before: `test-nemo-drives-win32.exe glib` with the same variable runs GLib's own drive list through the same checks. It should take about 20 s and fail.
-		- A dead mapped drive: under `HKCU\Network\Q` set `RemotePath` to `\\192.168.1.<unused>\share`, `ProviderName` to `Microsoft Windows Network`, `ProviderType` to 0x20000, `ConnectionType` to 1, `DeferFlags` to 4 and `UserName` to empty, then sign out and in. Explorer shows Q: as disconnected. Start the app: the window and side pane come up with no wait, Q: is under Devices as `share (\\192.168.1.<unused>) (Q:)` with the network folder icon, and the trash icon is right. Delete the key afterward.
-	- Priority|Severity: Low
-	- Opened: 20261005-123349
-	- Opened by: share audit 2026093010493450
-	- Related IDs: 2026093010493450
-	- Target OS: Windows
-	- Incorrect behavior: read only. GLib builds its drive list through the shell, asking for each drive's display name when the list is made and for its icon when the side pane draws it. The trash state asks the recycle bin of every drive. Either may go to a mapped drive's share, on the window's thread.
-	- Expected behavior: a mapped drive is named and drawn from its letter and what Windows keeps locally, and the trash state never asks a share.
-	- Reproduced: no. Read from GLib's source and the Windows docs; not timed. A share that does not answer cannot be made here, since a UNC path fails at once with no network client.
-	- Actual cause: read, not timed. GLib's Windows volume monitor makes a mount for every drive letter each time the list is asked for, and asks the shell for each one's name as it does, and for its icon at the first draw. Seven places in the app ask for that list on the window's thread, the side pane at every rebuild. The trash state asked for every bin at once, mapped drives' too, at each look and every 3 s while watched.
-	- Actual fix: on Windows the app makes its own mount per drive letter. A mapped drive is known from its entry in the object table, and is named from its letter and the share path in that entry, the way Explorer names one, with the network folder icon. Only a local drive is asked for its type and shell name. Every mount list goes through one call. The trash state adds up the bins of the fixed drives one at a time.
-	- Swept: every `g_volume_monitor_get_mounts` caller, 7 of them: side pane, tree, path bar, bookmark list, view menus, mount lookup by location, and the async loop's mount match. The 2 drive type questions in the side pane. Both bin queries, now one function. Lint rjhw99yh fails on a new mount list outside that call, or a bin query with no root.
-	- Swept: left as is. GTK's own file chooser lists drives through GLib, but only once someone opens one. A per-file mount lookup is gated by the share check, and a mapped drive's files are on a share now. The side pane reads the volume label of fixed drives only.
-	- Branch: sharefollow
-	- Commit: cbd3559
-	- Test case: rjhvmm6f, Mapped drive not asked, Windows only. A free drive letter is pointed at a share for the run. It checks the letter reads as remote, its share path and name, its icons, and times the mount list and the trash state.
-	- Test case: rjhw99yh, lint, no mount list or bin query that asks every drive.
-	- Verified: rjhvmm6f passes in the cross build under wine, and its glib mode fails there on the name and icon. The timing there proves nothing, since the fake share fails fast. rjhw99yh failed on a reverted call site and a NULL bin root, and passes on the branch.
-	- Verified 20261006 on vm925w: rjhvmm6f and rhtwm2c8 pass in the native gate, and again with a share address nothing answers on, a new one each run. The mount list took under 0.01 s and the trash state under 0.04 s.
-	- Verified 20261006 on vm925w: with a dead mapped drive X: (remembered, shown Unavailable by `net use`, and a drive letter in the session), the window came up in about 1 s with its side pane. X: is under Devices as `share (\\192.168.1.<n>) (X:)` with the network drive icon, beside the box's own mapped drives named the same way. The trash row is right. Touching X:\ itself took 21 s, so the share really was dead.
-	- Note 20261006: not reproduced on real Windows. rjhvmm6f's glib mode, on GLib's own list, took about 1 s and passed every check. With the dead X: in the desktop session, the shell gave its name in 0.03 s and its icon at once, and the recycle bin query over all drives took 0.04 s. So GLib's list does not wait on a dead mapped drive on vm925w either, and rjhvmm6f does not fail on the old code there. Under wine its glib mode still fails on the name and icon. What the change still gives is Explorer's naming and the network icon.
-	- Note 20261006: vm925w already has real mapped drives Q: and R:. The steps above must use a free letter, or deleting the key afterward removes one of them.
-
 - Two tests fail on the release build made in the jammy image.
 	- ID: 2026100520071433
 	- Type: Bug
@@ -1387,6 +1356,41 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- On Windows, a mapped drive that is not answering may stall the side pane or the trash state.
+	- ID: 2026100512334934
+	- Type: Bug
+	- Status: Done
+	- Needs external testing: done 20261006 on vm925w at 46f9674, as below. Only the red-before step did not go red. Steps as first written:
+		- `meson test` for rjhvmm6f and also rhtwm2c8. Both pass.
+		- Again with `NEMO_PROBE_DEAD_SHARE=\\192.168.1.<unused>\share`, a fresh last octet each run. Both pass, and rjhvmm6f prints the mount list and trash state each under 2 s.
+		- Red before: `test-nemo-drives-win32.exe glib` with the same variable runs GLib's own drive list through the same checks. It should take about 20 s and fail.
+		- A dead mapped drive: under `HKCU\Network\Q` set `RemotePath` to `\\192.168.1.<unused>\share`, `ProviderName` to `Microsoft Windows Network`, `ProviderType` to 0x20000, `ConnectionType` to 1, `DeferFlags` to 4 and `UserName` to empty, then sign out and in. Explorer shows Q: as disconnected. Start the app: the window and side pane come up with no wait, Q: is under Devices as `share (\\192.168.1.<unused>) (Q:)` with the network folder icon, and the trash icon is right. Delete the key afterward.
+	- Priority|Severity: Low
+	- Opened: 20261005-123349
+	- Opened by: share audit 2026093010493450
+	- Related IDs: 2026093010493450
+	- Target OS: Windows
+	- Incorrect behavior: read only. GLib builds its drive list through the shell, asking for each drive's display name when the list is made and for its icon when the side pane draws it. The trash state asks the recycle bin of every drive. Either may go to a mapped drive's share, on the window's thread.
+	- Expected behavior: a mapped drive is named and drawn from its letter and what Windows keeps locally, and the trash state never asks a share.
+	- Reproduced: no. Read from GLib's source and the Windows docs; not timed. A share that does not answer cannot be made here, since a UNC path fails at once with no network client.
+	- Actual cause: read, not timed. GLib's Windows volume monitor makes a mount for every drive letter each time the list is asked for, and asks the shell for each one's name as it does, and for its icon at the first draw. Seven places in the app ask for that list on the window's thread, the side pane at every rebuild. The trash state asked for every bin at once, mapped drives' too, at each look and every 3 s while watched.
+	- Decisions:
+		- 20261006: the fix is kept, though the stall was not reproduced on real Windows. It keeps the app off shares it was not sent to, and the lint keeps it that way. Only a drive dead from logon was tried, not one that stops answering while connected.
+	- Actual fix: on Windows the app makes its own mount per drive letter. A mapped drive is known from its entry in the object table, and is named from its letter and the share path in that entry, the way Explorer names one, with the network folder icon. Only a local drive is asked for its type and shell name. Every mount list goes through one call. The trash state adds up the bins of the fixed drives one at a time.
+	- Swept: every `g_volume_monitor_get_mounts` caller, 7 of them: side pane, tree, path bar, bookmark list, view menus, mount lookup by location, and the async loop's mount match. The 2 drive type questions in the side pane. Both bin queries, now one function. Lint rjhw99yh fails on a new mount list outside that call, or a bin query with no root.
+	- Swept: left as is. GTK's own file chooser lists drives through GLib, but only once someone opens one. A per-file mount lookup is gated by the share check, and a mapped drive's files are on a share now. The side pane reads the volume label of fixed drives only.
+	- Branch: sharefollow
+	- Commit: cbd3559
+	- Test case: rjhvmm6f, Mapped drive not asked, Windows only. A free drive letter is pointed at a share for the run. It checks the letter reads as remote, its share path and name, its icons, and times the mount list and the trash state.
+	- Test case: rjhw99yh, lint, no mount list or bin query that asks every drive.
+	- Verified: rjhvmm6f passes in the cross build under wine, and its glib mode fails there on the name and icon. The timing there proves nothing, since the fake share fails fast. rjhw99yh failed on a reverted call site and a NULL bin root, and passes on the branch.
+	- Verified 20261006 on vm925w: rjhvmm6f and rhtwm2c8 pass in the native gate, and again with a share address nothing answers on, a new one each run. The mount list took under 0.01 s and the trash state under 0.04 s.
+	- Verified 20261006 on vm925w: with a dead mapped drive X: (remembered, shown Unavailable by `net use`, and a drive letter in the session), the window came up in about 1 s with its side pane. X: is under Devices as `share (\\192.168.1.<n>) (X:)` with the network drive icon, beside the box's own mapped drives named the same way. The trash row is right. Touching X:\ itself took 21 s, so the share really was dead.
+	- Note 20261006: not reproduced on real Windows. rjhvmm6f's glib mode, on GLib's own list, took about 1 s and passed every check. With the dead X: in the desktop session, the shell gave its name in 0.03 s and its icon at once, and the recycle bin query over all drives took 0.04 s. So GLib's list does not wait on a dead mapped drive on vm925w either, and rjhvmm6f does not fail on the old code there. Under wine its glib mode still fails on the name and icon. What the change still gives is Explorer's naming and the network icon.
+	- Note 20261006: vm925w already has real mapped drives Q: and R:. The steps above must use a free letter, or deleting the key afterward removes one of them.
+	- Acceptance signoff: 20261006, kept and closed.
+	- Closed: 20261006-213000
 
 - In the native Windows gate the ImageMagick thumbnail test always skips.
 	- ID: 2026100610503903
