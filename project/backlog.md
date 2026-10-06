@@ -99,6 +99,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: every `g_volume_monitor_get_mounts` caller, 7 of them: side pane, tree, path bar, bookmark list, view menus, mount lookup by location, and the async loop's mount match. The 2 drive type questions in the side pane. Both bin queries, now one function. Lint rjhw99yh fails on a new mount list outside that call, or a bin query with no root.
 	- Swept: left as is. GTK's own file chooser lists drives through GLib, but only once someone opens one. A per-file mount lookup is gated by the share check, and a mapped drive's files are on a share now. The side pane reads the volume label of fixed drives only.
 	- Branch: sharefollow
+	- Commit: cbd3559
 	- Test case: rjhvmm6f, Mapped drive not asked, Windows only. A free drive letter is pointed at a share for the run. It checks the letter reads as remote, its share path and name, its icons, and times the mount list and the trash state.
 	- Test case: rjhw99yh, lint, no mount list or bin query that asks every drive.
 	- Verified: rjhvmm6f passes in the cross build under wine, and its glib mode fails there on the name and icon. The timing there proves nothing, since the fake share fails fast. rjhw99yh failed on a reverted call site and a NULL bin root, and passes on the branch.
@@ -163,6 +164,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: shareaudit
 	- Commit: 701bb2a
 	- Branch: sharefollow
+	- Commit: cbd3559
 	- Test case: rjhbbg9n, Share visits test, Linux and BSD only. A scratch folder stands in for a network mount, through a test hook on the share check. One case per path: links onto it, item counts, bookmarks, the action folder test and custom icons.
 		- sharefollow added: real links listed from disk, onto the share and not, and one opened; a file, a folder and a picture inside the share; its mount point; a folder reached through a link onto it. Three older checks are commented out with the reason, since a file in a share folder is now on the share.
 	- Test case: rhd69rjr, File cache prune test, a new case: a gone file on a share keeps its row until the share is gone.
