@@ -128,6 +128,37 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rexta5a8 (Column layout test), its new tally checks.
 	- Acceptance signoff: Self-closes as Done once the full suite passes. Reproduced, and its test failed before the fix and passes after.
 
+- On Windows, programs started through GLib with pipes open a console window each, and may never start in the packed exe.
+	- ID: 2026100612483725
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes, the full Linux suite. Linux still starts these through GSubprocess with the same flags, by way of a small wrapper. The archive, extract, search and thumbnail tests passed on Linux.
+	- Needs external testing: done 20261006 on vm925w, as in Verified.
+	- Priority|Severity: Avg
+	- Opened: 20261006-124837
+	- Opened by: 2026100610503901
+	- Related IDs: 2026100610503901, 2026100615255231, 2026100615255268, 2026100615255305
+	- Target OS: Windows
+	- Steps to reproduce: with 7-Zip installed, compress a folder to 7z from the native build, then from the packed exe. Same for extracting it, and for a content search that reads a Word file.
+	- Incorrect behavior: read only. On the native build each run should open a console window. In the packed exe the job should wait for good.
+	- Expected behavior: no window but the app's own, and the job runs in both.
+	- Reproduced: 20261006 by rjm4ctwh, natively on vm925w and under wine. Each stand-in tool got a console window, and a stop did not end a compress while the tool said nothing, so the job hung until the tool quit on its own.
+	- Possible cause: GLib starts these through a helper program, which gives each a console window, and which hangs when run from inside the packed exe. `nemo_launch_win32_pipe` from 2026100610503901 starts a program with no window and no helper, but only with a file as stdin, so the archive and search code need more than it offers.
+	- Actual cause: the archive tools, the search converters and the thumbnailer programs all went through GLib's spawn, the same cause as 2026100610503901. A stop also waited on the tool's next line, since GLib's pipe read on Windows can't be stopped.
+	- Actual fix: `nemo-launch-win32.c` starts these too, with no console window and no helper. Output comes back through pipes that can be read as it comes and that a stop interrupts. The compress, extract and search code go through a small wrapper, `nemo-tool-run.c`, which is GSubprocess everywhere but Windows. Thumbnailer programs go through the same call as ImageMagick. Tool stderr stays apart from stdout on Windows, as before.
+	- Swept: every GSubprocess and `g_spawn_*` call that Windows can reach.
+		- Now through the launcher: compress (`start_tool`, both the links-first run and the main one), extract (`run_unpack_command`), search converters (`get_stream_from_helper`), thumbnailer programs (`run_thumbnailer_script`). ImageMagick already was.
+		- Still through GLib on Windows, with no pipes: a new window or tab (`nemo-new-process.c`, our own exe, which has no console window to show), custom action commands and their conditions (`nemo-action.c`), and the window's Open in terminal (`nemo-window-menus.c`). The last two are filed as 2026100615255305.
+		- Reachable, but the program does not exist on Windows, so nothing starts: `xdg-user-dirs-update` (`nemo-file-utilities.c`) and the thumbnail cache fix through `pkexec` (`nemo-thumbnail-problem-bar.c`).
+		- Not built or not reached on Windows: `pkexec` and the terminal in `nemo-view.c`, the action layout editor, the extension restart, and the extension list and its config links, which are empty there.
+		- Lint rjm8a6xr now fails on any GLib program start that is not on this list. It failed with the old extract code in place.
+	- Verified: rjm4ctwh fails before the fix and passes after, natively on vm925w and under wine. Natively it passed with the box's full PATH too. The whole native suite: 148 OK, 0 fail, 12 skipped. rhr6ggmt ran with the real 7-Zip. The packed exe: rjm4ctwh, packed into one exe with a stand-in converter and thumbnailer inside it, passed in session 0 and in the desktop session. The cross build and the Linux build are clean, and the lint stage passes.
+	- Note: on vm925w, helpers left hung by earlier runs of packed exes were still running after the app had gone, 13 of them from one exe, along with a `gdbus.exe`. They kept that exe in use, so packing a new one over it failed. None were left by 20261006 afternoon.
+	- Note: thumbnailer programs are likely never used on Windows, filed as 2026100615255268. rjm4ctwh calls the thumbnail code with a real type to reach them.
+	- Branch: toolpipes
+	- Commit: 00770f3 to 303409c
+	- Test case: rjm4ctwh, Tool start win32 test, Windows only. Stand-ins first on PATH say whether they got a console window, what reached stdin and which arguments they had. Through the real jobs it compresses to rar, fails with both outputs in the error, stops a compress while the tool says nothing, extracts a rar only the tool reads, searches through a converter and makes a thumbnail through a thumbnailer program. Lint rjm8a6xr keeps new GLib program starts off Windows.
+
 - On arm64 a crash report after a call through a null pointer keeps too few frames.
 	- ID: 2026100520071434
 	- Type: Bug
@@ -184,37 +215,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: armfix
 	- Commit: 7f546d8
 	- Test case: the tests named above.
-
-- On Windows, programs started through GLib with pipes open a console window each, and may never start in the packed exe.
-	- ID: 2026100612483725
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes, the full Linux suite. Linux still starts these through GSubprocess with the same flags, by way of a small wrapper. The archive, extract, search and thumbnail tests passed on Linux.
-	- Needs external testing: done 20261006 on vm925w, as in Verified.
-	- Priority|Severity: Avg
-	- Opened: 20261006-124837
-	- Opened by: 2026100610503901
-	- Related IDs: 2026100610503901, 2026100615255231, 2026100615255268, 2026100615255305
-	- Target OS: Windows
-	- Steps to reproduce: with 7-Zip installed, compress a folder to 7z from the native build, then from the packed exe. Same for extracting it, and for a content search that reads a Word file.
-	- Incorrect behavior: read only. On the native build each run should open a console window. In the packed exe the job should wait for good.
-	- Expected behavior: no window but the app's own, and the job runs in both.
-	- Reproduced: 20261006 by rjm4ctwh, natively on vm925w and under wine. Each stand-in tool got a console window, and a stop did not end a compress while the tool said nothing, so the job hung until the tool quit on its own.
-	- Possible cause: GLib starts these through a helper program, which gives each a console window, and which hangs when run from inside the packed exe. `nemo_launch_win32_pipe` from 2026100610503901 starts a program with no window and no helper, but only with a file as stdin, so the archive and search code need more than it offers.
-	- Actual cause: the archive tools, the search converters and the thumbnailer programs all went through GLib's spawn, the same cause as 2026100610503901. A stop also waited on the tool's next line, since GLib's pipe read on Windows can't be stopped.
-	- Actual fix: `nemo-launch-win32.c` starts these too, with no console window and no helper. Output comes back through pipes that can be read as it comes and that a stop interrupts. The compress, extract and search code go through a small wrapper, `nemo-tool-run.c`, which is GSubprocess everywhere but Windows. Thumbnailer programs go through the same call as ImageMagick. Tool stderr stays apart from stdout on Windows, as before.
-	- Swept: every GSubprocess and `g_spawn_*` call that Windows can reach.
-		- Now through the launcher: compress (`start_tool`, both the links-first run and the main one), extract (`run_unpack_command`), search converters (`get_stream_from_helper`), thumbnailer programs (`run_thumbnailer_script`). ImageMagick already was.
-		- Still through GLib on Windows, with no pipes: a new window or tab (`nemo-new-process.c`, our own exe, which has no console window to show), custom action commands and their conditions (`nemo-action.c`), and the window's Open in terminal (`nemo-window-menus.c`). The last two are filed as 2026100615255305.
-		- Reachable, but the program does not exist on Windows, so nothing starts: `xdg-user-dirs-update` (`nemo-file-utilities.c`) and the thumbnail cache fix through `pkexec` (`nemo-thumbnail-problem-bar.c`).
-		- Not built or not reached on Windows: `pkexec` and the terminal in `nemo-view.c`, the action layout editor, the extension restart, and the extension list and its config links, which are empty there.
-		- Lint rjm8a6xr now fails on any GLib program start that is not on this list. It failed with the old extract code in place.
-	- Verified: rjm4ctwh fails before the fix and passes after, natively on vm925w and under wine. Natively it passed with the box's full PATH too. The whole native suite: 148 OK, 0 fail, 12 skipped. rhr6ggmt ran with the real 7-Zip. The packed exe: rjm4ctwh, packed into one exe with a stand-in converter and thumbnailer inside it, passed in session 0 and in the desktop session. The cross build and the Linux build are clean, and the lint stage passes.
-	- Note: on vm925w, helpers left hung by earlier runs of packed exes were still running after the app had gone, 13 of them from one exe, along with a `gdbus.exe`. They kept that exe in use, so packing a new one over it failed. None were left by 20261006 afternoon.
-	- Note: thumbnailer programs are likely never used on Windows, filed as 2026100615255268. rjm4ctwh calls the thumbnail code with a real type to reach them.
-	- Branch: toolpipes
-	- Commit: 00770f3 to 303409c
-	- Test case: rjm4ctwh, Tool start win32 test, Windows only. Stand-ins first on PATH say whether they got a console window, what reached stdin and which arguments they had. Through the real jobs it compresses to rar, fails with both outputs in the error, stops a compress while the tool says nothing, extracts a rar only the tool reads, searches through a converter and makes a thumbnail through a thumbnailer program. Lint rjm8a6xr keeps new GLib program starts off Windows.
 
 - On the arm64 box the Places focus test loses its click or its rename.
 	- ID: 2026100611482306
