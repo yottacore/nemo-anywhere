@@ -132,6 +132,52 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: on vm925w, helpers left hung by earlier runs of packed exes were still running after the app had gone, 13 of them from one exe, along with a `gdbus.exe`. They kept that exe in use, so packing a new one over it failed.
 	- Test case: none yet, not started.
 
+- In find mode the Name column doesn't shrink as far as the column width rule says.
+	- ID: 2026100613285789
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261006-132858
+	- Opened by: t00mietum
+	- Related IDs: 2026100613285826
+	- Target OS: All
+	- Requirements:
+		- Before rc.1.
+	- Steps to reproduce: search a tree where the same file name turns up in many folders, in list view.
+	- Incorrect behavior: Name stays wider than its share of the shortest names would need.
+	- Expected behavior: Name shrinks to fit the shortest `column-fit-percent` of the names, like it does in a plain folder.
+	- Reproduced: no, seen in use.
+	- Possible cause: the rule counts every file for Name. A plain folder can't have one name twice, but find results can, in different folders. So a repeated name gets counted many times and pulls the share its way.
+	- Suggested fix:
+		- In find mode, count each distinct name once for Name.
+		- Location already counts each distinct value once, per design.md. Check the code does the same in find mode.
+		- design.md "List view column widths" is the canonical rule, so it changes with the fix.
+	- Test case: none yet, not started.
+
+- Find mode remembers the column choice and order, and shows more columns by default.
+	- ID: 2026100613285826
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261006-132858
+	- Opened by: t00mietum
+	- Related IDs: 2026100613285789
+	- Target OS: All
+	- Requirements:
+		- Before rc.1.
+		- Remember the columns picked, and the order they were dragged into.
+		- Default columns, in this order, and whether each shows by default:
+			- Name: yes
+			- Ext: yes
+			- Type: no
+			- Size: yes
+			- Modified: yes
+			- Other date columns: no
+			- Location: yes
+			- The rest: no
+	- Note: today the defaults are Name and Location only. The picked columns are saved under `search.search-visible-columns`, and only while `remember-folder-settings` is on.
+	- Test case: none yet, not started.
+
 - On the arm64 box the Places focus test loses its click or its rename.
 	- ID: 2026100611482306
 	- Type: Bug
