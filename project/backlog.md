@@ -213,7 +213,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: on vm925w, helpers left hung by earlier runs of packed exes were still running after the app had gone, 13 of them from one exe, along with a `gdbus.exe`. They kept that exe in use, so packing a new one over it failed. None were left by 20261006 afternoon.
 	- Note: thumbnailer programs are likely never used on Windows, filed as 2026100615255268. rjm4ctwh calls the thumbnail code with a real type to reach them.
 	- Branch: toolpipes
-	- Commit: 00770f3 to 9967da9
+	- Commit: 00770f3 to 303409c
 	- Test case: rjm4ctwh, Tool start win32 test, Windows only. Stand-ins first on PATH say whether they got a console window, what reached stdin and which arguments they had. Through the real jobs it compresses to rar, fails with both outputs in the error, stops a compress while the tool says nothing, extracts a rar only the tool reads, searches through a converter and makes a thumbnail through a thumbnailer program. Lint rjm8a6xr keeps new GLib program starts off Windows.
 
 - On the arm64 box the Places focus test loses its click or its rename.
