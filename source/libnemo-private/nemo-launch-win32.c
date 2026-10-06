@@ -809,6 +809,7 @@ struct _NemoLaunchWin32Child {
 	DWORD         code;
 };
 
+/* Returns: (transfer full): free with nemo_launch_win32_child_free */
 NemoLaunchWin32Child *
 nemo_launch_win32_child_start (const gchar * const  *argv,
 			       const gchar          *workdir,
@@ -865,12 +866,14 @@ nemo_launch_win32_child_start (const gchar * const  *argv,
 	return child;
 }
 
+/* Returns: (transfer none) */
 GInputStream *
 nemo_launch_win32_child_get_stdout (NemoLaunchWin32Child *child)
 {
 	return child->out;
 }
 
+/* Returns: (transfer none) */
 GInputStream *
 nemo_launch_win32_child_get_stderr (NemoLaunchWin32Child *child)
 {

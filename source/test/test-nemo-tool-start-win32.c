@@ -390,7 +390,10 @@ main (int argc, char *argv[])
 
 	/* Before anything caches the real data folders. */
 	scratch = test_scratch_config_home ("nemo-tool-start-XXXXXX");
-	check (scratch != NULL);
+	if (scratch == NULL) {
+		g_printerr ("FAIL: no scratch folder\n");
+		return 1;
+	}
 	g_setenv ("NEMO_FAKE_TOOL_DIR", scratch, TRUE);
 	/* Unpacking clears its own staging folder, which the guard would ask about. */
 	g_setenv ("NEMO_TESTGUARD_ALL_DELETES", "0", TRUE);

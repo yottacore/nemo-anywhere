@@ -35,6 +35,7 @@ struct _NemoToolRun {
 
 #ifdef G_OS_WIN32
 
+/* Returns: (transfer full): free with nemo_tool_run_free */
 NemoToolRun *
 nemo_tool_run_start (const gchar * const  *argv,
 		     const gchar          *cwd,
@@ -53,12 +54,14 @@ nemo_tool_run_start (const gchar * const  *argv,
 	return run;
 }
 
+/* Returns: (transfer none) */
 GInputStream *
 nemo_tool_run_get_stdout (NemoToolRun *run)
 {
 	return nemo_launch_win32_child_get_stdout (run->child);
 }
 
+/* Returns: (transfer none) */
 GInputStream *
 nemo_tool_run_get_stderr (NemoToolRun *run)
 {
@@ -108,6 +111,7 @@ nemo_tool_run_free (NemoToolRun *run)
 
 #else
 
+/* Returns: (transfer full): free with nemo_tool_run_free */
 NemoToolRun *
 nemo_tool_run_start (const gchar * const  *argv,
 		     const gchar          *cwd,
@@ -135,12 +139,14 @@ nemo_tool_run_start (const gchar * const  *argv,
 	return run;
 }
 
+/* Returns: (transfer none) */
 GInputStream *
 nemo_tool_run_get_stdout (NemoToolRun *run)
 {
 	return g_subprocess_get_stdout_pipe (run->process);
 }
 
+/* Returns: (transfer none) */
 GInputStream *
 nemo_tool_run_get_stderr (NemoToolRun *run)
 {
