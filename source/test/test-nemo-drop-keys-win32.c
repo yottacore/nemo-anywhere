@@ -78,7 +78,8 @@ main (int argc, char *argv[])
 
 	check ((nemo_drag_offered_actions (context) & GDK_ACTION_LINK) != 0);
 
-	g_object_unref (context);
+	/* Not unreffed: its finalize wants what the toolkit's own constructor
+	   sets up, and the process ends here anyway. */
 
 	return failures == 0 ? 0 : 1;
 }

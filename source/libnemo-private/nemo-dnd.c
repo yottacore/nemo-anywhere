@@ -1025,6 +1025,7 @@ nemo_drag_offered_actions (GdkDragContext *context)
 {
 #ifdef G_OS_WIN32
 	/* What the toolkit says there is fixed, and leaves out link. */
+	(void) context;
 	return GDK_ACTION_MOVE | GDK_ACTION_COPY | GDK_ACTION_LINK;
 #else
 	return gdk_drag_context_get_actions (context);
