@@ -290,11 +290,27 @@ bookmark_file_changed_callback (NemoFile *file,
 }
 
 static void
+bookmark_file_ready (NemoFile *file, gpointer callback_data)
+{
+	NemoBookmark *bookmark = NEMO_BOOKMARK (callback_data);
+
+	if (file != bookmark->details->file || nemo_file_is_gone (file)) {
+		return;
+	}
+
+	nemo_bookmark_update_icon (bookmark);
+	bookmark_set_name_from_ready_file (bookmark, file);
+}
+
+static void
 nemo_bookmark_disconnect_file (NemoBookmark *bookmark)
 {
 	if (bookmark->details->file != NULL) {
 		DEBUG ("%s: disconnecting file",
 		       nemo_bookmark_get_name (bookmark));
+
+		nemo_file_cancel_call_when_ready (bookmark->details->file,
+						  bookmark_file_ready, bookmark);
 
         g_signal_handlers_disconnect_by_func (bookmark->details->file,
                                               G_CALLBACK (bookmark_file_changed_callback),
@@ -323,6 +339,15 @@ nemo_bookmark_connect_file (NemoBookmark *bookmark)
         g_signal_connect_object (bookmark->details->file, "changed",
                                  G_CALLBACK (bookmark_file_changed_callback),
                                  bookmark, 0);
+
+		/* Name and icon wait on the info, which otherwise only came when a
+		   window happened to load the folder. Never asked of a share. */
+		if (g_file_is_native (bookmark->details->location) &&
+		    !nemo_file_is_on_a_share (bookmark->details->file)) {
+			nemo_file_call_when_ready (bookmark->details->file,
+						   NEMO_FILE_ATTRIBUTES_FOR_ICON,
+						   bookmark_file_ready, bookmark);
+		}
 	}
 
 	/* Set icon based on available information. */

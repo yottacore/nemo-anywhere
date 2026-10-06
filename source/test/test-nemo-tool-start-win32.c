@@ -380,7 +380,8 @@ int
 main (int argc, char *argv[])
 {
 	g_autofree char *bin = NULL, *rar = NULL, *unrar = NULL, *converter = NULL, *thumb = NULL;
-	g_autofree char *path = NULL, *dir = NULL, *text = NULL, *files = NULL;
+	g_autofree char *path = NULL, *dir = NULL, *text = NULL, *files = NULL, *try_exec = NULL;
+	g_auto (GStrv) parts = NULL;
 	NemoProgressInfoManager *manager;
 
 	if (argc < 2) {
@@ -413,8 +414,11 @@ main (int argc, char *argv[])
 	write_text (files, "a.txt", "some text");
 
 	dir = g_build_filename (g_get_user_data_dir (), NEMO_APP_SLUG, "search-helpers", NULL);
+	/* Key file text, so each backslash doubled, as a user writing one has to. */
+	parts = g_strsplit (converter, "\\", -1);
+	try_exec = g_strjoinv ("\\\\", parts);
 	text = g_strdup_printf ("[Nemo Search Helper]\nTryExec=%s;\nExec=nemo-fake-to-txt %%s\n"
-				"MimeType=application/x-ext-nemofake;\nPriority=100\n", converter);
+				"MimeType=application/x-ext-nemofake;\nPriority=100\n", try_exec);
 	write_text (dir, "fake.nemo_search_helper", text);
 	g_free (dir);
 

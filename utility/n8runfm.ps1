@@ -1061,8 +1061,9 @@ function fRefreshShortcuts {
 	if (-not $cmd) { return }
 	$icon = fShortcutIcon
 
+	$startMenu = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
 	$dirs = @(
-		(Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs")
+		$startMenu
 		(Join-Path $env:APPDATA "Microsoft\Internet Explorer\Quick Launch")
 		(Join-Path $env:APPDATA "Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar")
 		(Join-Path $env:ProgramData "Microsoft\Windows\Start Menu\Programs")
@@ -1106,8 +1107,11 @@ function fRefreshShortcuts {
 	}
 
 	if (-not $found) {
-		$path = Join-Path $dirs[0] "Nemo Anywhere (dogfood).lnk"
+		## Never the first folder found: with one left the list unrolls to a string,
+		## and a bare test profile may have none at all.
+		$path = Join-Path $startMenu "Nemo Anywhere (dogfood).lnk"
 		try {
+			$null = New-Item -ItemType Directory -Path $startMenu -Force
 			$link = $shell.CreateShortcut($path)
 			$link.TargetPath       = $cmd.Target
 			$link.Arguments        = $cmd.Arguments

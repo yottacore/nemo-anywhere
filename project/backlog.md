@@ -216,6 +216,58 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 7f546d8
 	- Test case: the tests named above.
 
+- On Windows, a window first opened on a share shows the C:\ bookmark as `\` with a plain folder icon.
+	- ID: 2026100610370021
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes, the full Linux suite. Bookmarks now ask for their folder's info on every platform. rjm9n8sr and the bookmark, places and share tests passed on Linux.
+	- Needs external testing: done 20261006 on vm925w, as in Verified. The side pane itself was not looked at.
+	- Priority|Severity: Low
+	- Opened: 20261006-103700
+	- Opened by: Windows pass for 2026093010493450
+	- Related IDs: 2026093010493450
+	- Target OS: Windows
+	- Steps to reproduce: with a fresh settings folder, start the app on a mapped drive such as `Y:\`, or on a UNC path. Look at the first entry under Bookmarks.
+	- Incorrect behavior: the drive root bookmark reads `\` and has the plain outline folder icon. The bookmarks file is written with no labels.
+	- Expected behavior: `C:\` with the blue folder icon, as when the first folder is on local disk. Then the file has `file:///C:/ C:\` and the other labels.
+	- Reproduced: 20261006 on vm925w at 46f9674, starting on a mapped drive and on a UNC path. Starting on a local folder gives the right label and icon.
+	- Actual cause: a bookmark takes its name and icon from its folder's info, and never asked for it. It came only when a window happened to load that folder. A window opened anywhere on C: loads `C:\` for the path bar, and one opened in home lists Desktop, Documents and the rest. On a share neither happens, so `C:\` kept the last part of its path, which is `\`, and the default icon. With no name changed, the list was never saved, so the file kept the unlabeled defaults.
+	- Actual fix: a bookmark asks for its folder's info when it first connects to it, unless the folder is on a share or not a local path. Nothing new is asked of a share.
+	- Decisions:
+		- A call made without asking: this also gives Desktop, Documents and the other default bookmarks their own icons on every start, as a window opened in home already did. Before, they kept the plain folder icon when the first window was anywhere else.
+	- Swept: `nemo_bookmark_connect_file` is where every bookmark gets its file; the side pane, the bookmarks menu and the editor all go through it. The share gate is the same `nemo_file_is_on_a_share` the rest of the app uses.
+	- Verified: rjm9n8sr fails before the fix and passes after, on Linux and natively on vm925w. On vm925w, started on `\\localhost\c$\Users\Public` and on a drive mapped to it, `C:\` got its name and icon, and the bookmarks file was saved with every label. The Windows cross build is clean, and lint passes.
+	- Branch: smallwin
+	- Commit: 19cf1e1
+	- Test case: rjm9n8sr, Bookmark name and icon test. Home gets "Home" and the home icon, the system drive's root gets `C:\` on Windows, and a folder on a share is not asked about.
+
+- On Windows, a GLib critical about `g_strv_length` shows in the tool start test.
+	- ID: 2026100615255231
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes, the full Linux suite. rfhnaccg, redrqe60 and the other search and thumbnail tests passed on Linux.
+	- Needs external testing: done 20261006 on vm925w, as in Verified.
+	- Priority|Severity: Low
+	- Opened: 20261006-152552
+	- Opened by: 2026100612483725
+	- Related IDs: 2026100612483725
+	- Target OS: Windows
+	- Steps to reproduce: run rjm4ctwh natively on vm925w with the box's full PATH.
+	- Incorrect behavior: the test passes, but its log has `g_strv_length: assertion 'str_array != NULL' failed` once, after the extract step.
+	- Expected behavior: no critical.
+	- Reproduced: 20261006, in 2 runs of 2 on vm925w with the full PATH. Not looked for with the gate's own PATH or under wine.
+	- Possible cause: not traced. The new launcher code has no such call. The search engine, the thumbnail code and the data folder lookup all have one, and none of the lists they read looks able to be NULL.
+	- Note: the PATH plays no part. It shows with MSYS2's own PATH as well, every run.
+	- Actual cause: the test writes a search helper whose TryExec is a Windows path with single backslashes. In a key file a backslash starts an escape, and `\U` is not one, so the TryExec list reads as nothing at all. The search engine passed that straight to `g_strv_length` and then took the helper without checking its program. Thumbnailer files had the same gap with no critical: an unreadable TryExec read as no TryExec.
+	- Actual fix: a search helper or thumbnailer whose TryExec can't be read is skipped, with a warning naming the file, the same as one whose Exec can't be read. rjm4ctwh now doubles the backslashes, as a hand-written file has to.
+	- Decisions:
+		- A call made without asking: skip such a file rather than read the backslashes as plain text. Exec lines already worked that way, and the key file format wants them doubled.
+	- Swept: every `g_key_file_get_string_list` and TryExec read. Actions, `.desktop` links and the thumbnailer MimeType already check for nothing read. Bookmark emblems can be NULL only from a hand-edited metadata file; left alone.
+	- Verified: the new cases in rfhnaccg and redrqe60 fail before the fix and pass after, on Linux. On vm925w rjm4ctwh has no critical now and passes, and rfhnaccg and redrqe60's new case pass. The Windows cross build is clean, and lint passes.
+	- Branch: smallwin
+	- Commit: d837594
+	- Test case: rfhnaccg, Search helpers test: no GLib critical, and the bad helper is named and skipped. redrqe60, Thumbnail factory test, `badtry` case: a thumbnailer with an unreadable TryExec is not used.
+
 - On the arm64 box the Places focus test loses its click or its rename.
 	- ID: 2026100611482306
 	- Type: Bug
@@ -259,22 +311,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Possible cause: gdk-pixbuf 2.44 as packaged there has loaders for GIF, HEIF, JPEG, JPEG XL, PNG, TIFF, SVG and WMF only. The ImageMagick list in `nemo-magick.c` covers none of the missing ones.
 	- Test case: none yet, not started.
 
-- On Windows, a window first opened on a share shows the C:\ bookmark as `\` with a plain folder icon.
-	- ID: 2026100610370021
-	- Type: Bug
-	- Status: Queued
-	- Needs external testing: a Windows box with a share to open.
-	- Priority|Severity: Low
-	- Opened: 20261006-103700
-	- Opened by: Windows pass for 2026093010493450
-	- Related IDs: 2026093010493450
-	- Target OS: Windows
-	- Steps to reproduce: with a fresh settings folder, start the app on a mapped drive such as `Y:\`, or on a UNC path. Look at the first entry under Bookmarks.
-	- Incorrect behavior: the drive root bookmark reads `\` and has the plain outline folder icon. The bookmarks file is written with no labels.
-	- Expected behavior: `C:\` with the blue folder icon, as when the first folder is on local disk. Then the file has `file:///C:/ C:\` and the other labels.
-	- Reproduced: 20261006 on vm925w at 46f9674, starting on a mapped drive and on a UNC path. Starting on a local folder gives the right label and icon.
-	- Test case: none yet, not started.
-
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440
 	- Type: Bug
@@ -293,39 +329,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: no.
 	- Possible cause: removable drives were left out of the trash state on purpose in 2026100512334934, so an empty card reader can't bring up the shell's insert-disk prompt. A check for media first might let them back in.
 	- Test case: none yet, not started.
-
-- The dogfood launcher's Desktop step fails when none of the shortcut folders exist.
-	- ID: 2026100610503902
-	- Type: Bug
-	- Status: Queued
-	- Needs external testing: a Windows box.
-	- Priority|Severity: Low
-	- Opened: 20261006-105039
-	- Opened by: real-Windows validation, old-format item
-	- Related IDs: old-format item "Real-Windows validation"
-	- Target OS: Windows
-	- Steps to reproduce: run `n8runfm.ps1 --no-admin --install-only` with a profile that has no Start Menu folder, where a deployed `runfm` is found and no shortcut to the app exists yet.
-	- Incorrect behavior: the Desktop step stops on "Cannot index into a null array" at the line that names the new shortcut. The run goes on, and nothing is written.
-	- Expected behavior: it says there is nowhere to put a shortcut, or makes the Start Menu folder, and goes on.
-	- Reproduced: 20261006 on vm925w at 46f9674, with a profile that has no Start Menu folder. A real profile always has one, so this is unlikely outside a test.
-	- Possible cause: `fRefreshShortcuts` uses the first folder in its list without checking the list has one.
-	- Test case: none yet, not started.
-
-- On Windows, a GLib critical about `g_strv_length` shows in the tool start test.
-	- ID: 2026100615255231
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261006-152552
-	- Opened by: 2026100612483725
-	- Related IDs: 2026100612483725
-	- Target OS: Windows
-	- Steps to reproduce: run rjm4ctwh natively on vm925w with the box's full PATH.
-	- Incorrect behavior: the test passes, but its log has `g_strv_length: assertion 'str_array != NULL' failed` once, after the extract step.
-	- Expected behavior: no critical.
-	- Reproduced: 20261006, in 2 runs of 2 on vm925w with the full PATH. Not looked for with the gate's own PATH or under wine.
-	- Possible cause: not traced. The new launcher code has no such call. The search engine, the thumbnail code and the data folder lookup all have one, and none of the lists they read looks able to be NULL.
-	- Test case: none yet.
 
 - On Windows, thumbnailer programs are never used.
 	- ID: 2026100615255268
@@ -1507,6 +1510,32 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- The dogfood launcher's Desktop step fails when none of the shortcut folders exist.
+	- ID: 2026100610503902
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The launcher is not part of the suite; its test runs in the lint stage, which passed.
+	- Needs external testing: done 20261006 on vm925w, as in Verified.
+	- Priority|Severity: Low
+	- Opened: 20261006-105039
+	- Opened by: real-Windows validation, old-format item
+	- Related IDs: old-format item "Real-Windows validation"
+	- Target OS: Windows
+	- Steps to reproduce: run `n8runfm.ps1 --no-admin --install-only` with a profile that has no Start Menu folder, where a deployed `runfm` is found and no shortcut to the app exists yet.
+	- Incorrect behavior: the Desktop step stops on "Cannot index into a null array" at the line that names the new shortcut. The run goes on, and nothing is written.
+	- Expected behavior: it says there is nowhere to put a shortcut, or makes the Start Menu folder, and goes on.
+	- Reproduced: 20261006 on vm925w at 46f9674, with a profile that has no Start Menu folder. A real profile always has one, so this is unlikely outside a test.
+	- Possible cause: `fRefreshShortcuts` uses the first folder in its list without checking the list has one.
+	- Actual cause: the new shortcut went in the first shortcut folder that exists. With none, the list was empty. With only one, the list came back as a plain string, so its first character was used as the folder, such as `C`. With only the all-users Start Menu, it aimed at a folder that needs admin.
+	- Actual fix: a new shortcut always goes in the user's own Start Menu, and that folder is made first if missing.
+	- Swept: the launcher's other first-item reads and filtered lists. Each is wrapped as a list, or takes the first match on purpose. The loop over the folder list takes an empty list or a string fine.
+	- Verified: rjm8ks2e fails before the fix and passes after. On vm925w the step made a real shortcut in a profile with no folders and in one with only a Desktop, and rjm8ks2e passed there too.
+	- Branch: smallwin
+	- Commit: c28882c
+	- Test case: rjm8ks2e, `cicd/utility/test-runfm-shortcuts.ps1`, in the lint stage. No folders, one folder, the all-users Start Menu alone, all folders, an old shortcut repointed, and another program's left alone.
+	- Acceptance signoff: Self-closed: the intent was clear, the fix does that and no more, and its test failed before and passes after.
+	- Closed: 20261006-160047
 
 - On Windows, a mapped drive that is not answering may stall the side pane or the trash state.
 	- ID: 2026100512334934

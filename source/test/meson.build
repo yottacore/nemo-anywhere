@@ -1761,6 +1761,15 @@ test('rfhnaccg Search helpers test',
   depends: search_helper_exes,
 )
 
+test('rjm9n8sr Bookmark name and icon test',
+  executable('test-nemo-bookmark-info',
+    [ 'test-nemo-bookmark-info.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
 if is_windows
   test('rfhnacch Windows Search test',
     executable('test-nemo-search-win32',

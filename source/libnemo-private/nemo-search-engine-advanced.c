@@ -151,6 +151,7 @@ process_search_helper_file (const gchar *path)
     gchar **try_exec_list = NULL;
     gchar *abs_try_path = NULL;
     gchar **mime_types = NULL;
+    GError *error = NULL;
     gsize n_types;
     gsize i;
     gint priority;
@@ -174,7 +175,16 @@ process_search_helper_file (const gchar *path)
         goto done;
     }
 
-    try_exec_list = g_key_file_get_string_list (key_file, SEARCH_HELPER_GROUP, "TryExec", NULL, NULL);
+    /* A bare backslash, as in a Windows path, is a bad escape to GKeyFile, and
+       the whole list comes back NULL. Unchecked is not the same as found. */
+    try_exec_list = g_key_file_get_string_list (key_file, SEARCH_HELPER_GROUP, "TryExec", NULL, &error);
+
+    if (try_exec_list == NULL) {
+        g_warning ("Nemo search_helper TryExec could not be read (%s) - %s",
+                   error != NULL ? error->message : "empty", path);
+        goto done;
+    }
+
     gboolean try_failed = FALSE;
 
     for (i = 0; i < g_strv_length (try_exec_list); i++) {
@@ -239,6 +249,7 @@ process_search_helper_file (const gchar *path)
     }
 
 done:
+    g_clear_error (&error);
     g_key_file_free (key_file);
     g_free (exec_format);
 
