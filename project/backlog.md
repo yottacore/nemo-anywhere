@@ -191,6 +191,25 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: 20261006 on vm925w at 46f9674, starting on a mapped drive and on a UNC path. Starting on a local folder gives the right label and icon.
 	- Test case: none yet, not started.
 
+- On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
+	- ID: 2026100613231440
+	- Type: Bug
+	- Status: Queued
+	- Needs external testing: a Windows box with a mapped drive to a share that can be stopped, such as vm925w with a share on b23.
+	- Priority|Severity: Low
+	- Opened: 20261006-132314
+	- Opened by: signoff of 2026100512334934
+	- Related IDs: 2026100512334934, 2026093010493450
+	- Target OS: Windows
+	- Steps to reproduce:
+		- Map a drive to a live share and open the app. Stop the share's server, or drop the network, with the app still open. Rebuild the side pane, open a new window, and watch the trash icon.
+		- Delete a file on a USB stick, so that its bin is the only one with anything in it.
+	- Incorrect behavior: not seen. 2026100512334934 was tried only with a drive that was already dead at logon, and nothing waited. A drive that dies while connected may behave differently in the shell. The trash icon shows empty when only a removable drive's bin has items, since the trash state reads fixed drives only.
+	- Expected behavior: no wait on the window's thread for a share that stops answering. The trash icon shows full when any local bin has items, with no prompt to insert a disk for an empty card reader.
+	- Reproduced: no.
+	- Possible cause: removable drives were left out of the trash state on purpose in 2026100512334934, so an empty card reader can't bring up the shell's insert-disk prompt. A check for media first might let them back in.
+	- Test case: none yet, not started.
+
 - The dogfood launcher's Desktop step fails when none of the shortcut folders exist.
 	- ID: 2026100610503902
 	- Type: Bug
