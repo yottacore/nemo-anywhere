@@ -156,7 +156,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Two tests fail on the release build made in the jammy image.
 	- ID: 2026100520071433
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs external testing: rjbkzwe7 and rhe0xz32 on the arm64 release build in the jammy image on vmDebARM64. rhe0xz32 in one native Windows suite run.
 	- Priority|Severity: Avg
 	- Opened: 20261005-200714
 	- Opened by: arm64 release build
@@ -164,8 +165,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Steps to reproduce: run the suite against a release build from `nemo-build-jammy`, x86_64 or arm64.
 	- Incorrect behavior: rjbkzwe7 (move job leak) and rhe0xz32 (thumbnail hold) fail. The day to day build in `nemo-build` passes both.
 	- Reproduced: 20261005, x86_64 and arm64 jammy release builds.
+		- 20261006, x86_64: both fail on a fresh jammy release build, and on a plain jammy build with LTO off too. So it is the older libraries, not LTO.
 	- Possible cause: not looked at. The jammy image has older GLib and GTK, and the release build has LTO on.
-	- Test case: rjbkzwe7 and rhe0xz32 themselves.
+	- Actual cause: two separate ones, neither a leak in our code.
+		- rjbkzwe7: GLib before 2.76 keeps freed slices in a cache of its own, which the heap reading counts as in use, as it would a thread's malloc cache. With slices handed straight to malloc the move case grows 640 bytes over 64 rounds on GLib 2.72, about what it does on 2.84, and no block is lost per round.
+		- rhe0xz32: the jammy image has no file type icon GTK can load. Its GTK names Yaru, which is not installed, and its cut-down Adwaita has mostly SVG icons and no SVG loader. GTK 3.24.33 also has no `text-x-generic` of its own, so the icon lookup found nothing and our code passed that nothing on to GTK, with 3 criticals and no icon name.
+	- Actual fix: the leak tests run with `G_SLICE=always-malloc`, set next to the malloc settings they already take. The thumbnail hold test searches only an icon theme it makes itself. A lookup that finds no icon at all now draws the default file picture with no criticals.
+	- Swept: the other heap reader, the list read check in rdjjz89r, has a 4 MB margin and passed on jammy. Both icon lookup paths, by name and from a file, have the guard.
+	- Test case: rjbkzwe7 and rhe0xz32 themselves. rhe0xz32 has a new case for a lookup that finds no icon, which only an older GTK reaches.
+	- Verified: on a fresh jammy release build, x86_64, both failed before the fix and pass after. The new case fails with the old lookup on jammy, on 5 criticals. The jammy release suite passed 169 of 171, with 1 skip (ImageMagick) and rg3wt7d9 timing out under load; it passed alone in 16 s, and in the full run before. The full Linux suite in `nemo-build` passed 171 of 171. rhe0xz32 passes in the Windows cross build under wine. Lint is clean.
+	- Branch: jammytests
+	- Commit: 307c84c
 
 - On arm64 a crash report after a call through a null pointer keeps too few frames.
 	- ID: 2026100520071434

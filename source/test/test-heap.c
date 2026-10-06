@@ -18,6 +18,11 @@
    means in use. */
 #define HEAP_TUNABLES "glibc.malloc.tcache_count=0:glibc.malloc.arena_max=1"
 
+/* GLib before 2.76 keeps freed slices in a cache of its own, the same way.
+   On 2.72 that read as a move job leaking 32 bytes a round. Later GLib
+   ignores it. */
+#define HEAP_SLICE "always-malloc"
+
 /* A reading where any thread started or ended is thrown away: the thread's
    own memory, taken or given back, can hide a small leak or look like one. */
 #define HEAP_READINGS 8
@@ -28,6 +33,7 @@ test_heap_init (int argc, char **argv)
 #ifdef __GLIBC__
 	const char *old;
 	char *tunables;
+	char *slice;
 
 	(void) argc;
 
@@ -42,6 +48,13 @@ test_heap_init (int argc, char **argv)
 		   : g_strdup (HEAP_TUNABLES);
 	g_setenv ("GLIBC_TUNABLES", tunables, TRUE);
 	g_free (tunables);
+
+	old = g_getenv ("G_SLICE");
+	slice = old != NULL && *old != '\0'
+		? g_strconcat (old, ",", HEAP_SLICE, NULL)
+		: g_strdup (HEAP_SLICE);
+	g_setenv ("G_SLICE", slice, TRUE);
+	g_free (slice);
 
 	execv ("/proc/self/exe", argv);
 #else
