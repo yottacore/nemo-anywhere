@@ -36,8 +36,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows the gate says the build is not set up with `-Werror` when it is.
 	- ID: 2026100518100000
 	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: `pwsh cicd/cicd-win.ps1 -Gate -Yes` on a Windows box, on this branch or after it merges.
+	- Status: Done
+	- Needs external testing: done 20261006 on vm925w at 46f9674. `pwsh cicd/cicd-win.ps1 -Gate -Yes` passed, with the build dir's flags quoted as `"-Werror"`. Native suite 144 OK, 12 skipped, 0 failed.
 	- Priority|Severity: High
 	- Opened: 20261005-181000
 	- Opened by: native gate run for 2026092813381434
@@ -54,12 +54,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: werrq
 	- Test case: rjh7qnxw. It gained Windows-style build dirs: a quoted `"-Werror"` that has to pass, and a quoted `"-Werror=address"` and a quoted `"-Werror -std=c17"` that have to fail.
 	- Verified: rjh7qnxw failed before the fix, on the quoted `"-Werror"` case, and passes after, under both GNU grep and ugrep. The check passes on the Linux `/build` dir, and on an `ARGS` line quoted by meson's own Windows quoting code, which the old check refuses.
+	- Verified 20261006: the native gate on vm925w passed its werror check and went on to build, test and smoke the app.
+	- Acceptance signoff: Self-closed: a mechanical fix to a check, rjh7qnxw pins it, and the Windows gate it blocked now passes.
+	- Closed: 20261006-102538
 
 - On Windows, a mapped drive that is not answering may stall the side pane or the trash state.
 	- ID: 2026100512334934
 	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: on vm925w, wiht a native build of sharefollow.
+	- Status: Waiting on signoff
+	- Needs external testing: done 20261006 on vm925w at 46f9674, as below. Only the red-before step did not go red. Steps as first written:
 		- `meson test` for rjhvmm6f and also rhtwm2c8. Both pass.
 		- Again with `NEMO_PROBE_DEAD_SHARE=\\192.168.1.<unused>\share`, a fresh last octet each run. Both pass, and rjhvmm6f prints the mount list and trash state each under 2 s.
 		- Red before: `test-nemo-drives-win32.exe glib` with the same variable runs GLib's own drive list through the same checks. It should take about 20 s and fail.
@@ -81,13 +84,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjhvmm6f, Mapped drive not asked, Windows only. A free drive letter is pointed at a share for the run. It checks the letter reads as remote, its share path and name, its icons, and times the mount list and the trash state.
 	- Test case: rjhw99yh, lint, no mount list or bin query that asks every drive.
 	- Verified: rjhvmm6f passes in the cross build under wine, and its glib mode fails there on the name and icon. The timing there proves nothing, since the fake share fails fast. rjhw99yh failed on a reverted call site and a NULL bin root, and passes on the branch.
+	- Verified 20261006 on vm925w: rjhvmm6f and rhtwm2c8 pass in the native gate, and again with a share address nothing answers on, a new one each run. The mount list took under 0.01 s and the trash state under 0.04 s.
+	- Verified 20261006 on vm925w: with a dead mapped drive X: (remembered, shown Unavailable by `net use`, and a drive letter in the session), the window came up in about 1 s with its side pane. X: is under Devices as `share (\\192.168.1.<n>) (X:)` with the network drive icon, beside the box's own mapped drives named the same way. The trash row is right. Touching X:\ itself took 21 s, so the share really was dead.
+	- Note 20261006: not reproduced on real Windows. rjhvmm6f's glib mode, on GLib's own list, took about 1 s and passed every check. With the dead X: in the desktop session, the shell gave its name in 0.03 s and its icon at once, and the recycle bin query over all drives took 0.04 s. So GLib's list does not wait on a dead mapped drive on vm925w either, and rjhvmm6f does not fail on the old code there. Under wine its glib mode still fails on the name and icon. What the change still gives is Explorer's naming and the network icon.
+	- Note 20261006: vm925w already has real mapped drives Q: and R:. The steps above must use a free letter, or deleting the key afterward removes one of them.
 
 - The app visits network shares on its own.
 	- ID: 2026093010493450
 	- Type: Task
-	- Status: Waiting for testing
+	- Status: Done
 	- Needs local test suite run?: no. The full Linux suite passed 171 of 171 on sharefollow.
-	- Needs external testing: on vm925w, with a native build of sharefollow.
+	- Needs external testing: done 20261006 on vm925w at 46f9674, with X: in place of Q:, since the box has its own Q:. Steps as first written:
 		- `meson test` for rhtwm2c8 and rjhvmm6f, then both again with `NEMO_PROBE_DEAD_SHARE=\\192.168.1.<unused>\share`, a fresh last octet each run.
 		- With the dead mapped drive Q: from 2026100512334934's steps: a local folder holding a symlink to `Q:\` lists with no wait and shows no item count for it. Going into Q: itself shows no item counts and no thumbnails, with the default settings.
 	- Opened: 20260930-104934
@@ -152,6 +159,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: none for the side pane free space, since a test cannot make the volume list show a fake share.
 	- Verified: rjhbbg9n and rhd69rjr fail before the fix, in every case that names a share, and pass after, on Linux. With only the action change taken out, its case alone fails. The full Linux suite passed 170 of 170. The Windows cross build is clean, and rhtwm2c8 and rhd69rjr pass under wine. Lint is clean.
 	- Verified on sharefollow: rjhbbg9n fails with each change taken out on its own (listing, folder check, mount point, thumbnails), only in that change's cases, and passes with all in. rhtwm2c8 fails with the folder check taken out and passes with it, under wine. The full Linux suite passed 171 of 171. The Windows cross build is clean, and its window comes up under wine. Lint is clean.
+	- Verified 20261006 on vm925w: rhtwm2c8 and rjhvmm6f pass in the native gate, and again with a share address nothing answers on.
+	- Verified 20261006 on vm925w: with a dead mapped drive X:, a local folder holding a folder symlink to `X:\` listed in about 1 s from launch, and the link shows `--` for its item count.
+	- Verified 20261006 on vm925w: on a live mapped drive, its folders show `--` and its pictures the plain picture icon, with the default settings. The same folder on local disk shows `3 items` and thumbnails. Going into the dead X: itself waits on the share, since that is a user action, so the live drive stood in for it.
+	- Acceptance signoff: Self-closed: both questions were answered and done as answered, the tests pass on Linux and natively on Windows, and the Windows paths were seen on screen.
+	- Closed: 20261006-104500
 
 - Two tests fail on the release build made in the jammy image.
 	- ID: 2026100520071433
@@ -206,6 +218,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: a thumbnail, as on Linux and Windows.
 	- Reproduced: no. Read from the loaders the gdk-pixbuf package installs, and seen in the thumbnail tests, where saving a BMP fails there.
 	- Possible cause: gdk-pixbuf 2.44 as packaged there has loaders for GIF, HEIF, JPEG, JPEG XL, PNG, TIFF, SVG and WMF only. The ImageMagick list in `nemo-magick.c` covers none of the missing ones.
+	- Test case: none yet, not started.
+
+- On Windows, a window first opened on a share shows the C:\ bookmark as `\` with a plain folder icon.
+	- ID: 2026100610370021
+	- Type: Bug
+	- Status: Queued
+	- Needs external testing: a Windows box with a share to open.
+	- Priority|Severity: Low
+	- Opened: 20261006-103700
+	- Opened by: Windows pass for 2026093010493450
+	- Related IDs: 2026093010493450
+	- Target OS: Windows
+	- Steps to reproduce: with a fresh settings folder, start the app on a mapped drive such as `Y:\`, or on a UNC path. Look at the first entry under Bookmarks.
+	- Incorrect behavior: the drive root bookmark reads `\` and has the plain outline folder icon. The bookmarks file is written with no labels.
+	- Expected behavior: `C:\` with the blue folder icon, as when the first folder is on local disk. Then the file has `file:///C:/ C:\` and the other labels.
+	- Reproduced: 20261006 on vm925w at 46f9674, starting on a mapped drive and on a UNC path. Starting on a local folder gives the right label and icon.
 	- Test case: none yet, not started.
 
 - A FreeBSD package.
