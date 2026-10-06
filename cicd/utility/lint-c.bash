@@ -852,6 +852,45 @@ fCheckWinLaunch(){
 }
 fRun fCheckWinLaunch
 
+## GLib's own spawn on Windows goes through a helper program, which gives a
+## console tool a console window and never starts it at all from the single
+## exe. Off Windows it is fine, so every call that starts a program is on this
+## list with why Windows never reaches it, or why it does no harm there.
+## Test ID: rjm8a6xr
+fCheckGlibSpawn(){
+	local allowed=' '
+	allowed+='nemo-tool-run.c:nemo_tool_run_start '						# Windows goes through nemo-launch-win32.c
+	allowed+='nemo-magick.c:run_magick '								# same
+	allowed+='nemo-desktop-thumbnail.c:run_thumbnailer_script '			# same
+	allowed+='nemo-new-process.c:spawn_argv '							# our own exe, which has no console window to show
+	allowed+='nemo-view.c:open_as_root '								# not built on Windows
+	allowed+='nemo-view.c:open_in_terminal '							# same
+	allowed+='nemo-action-config-widget.c:on_layout_editor_clicked '	# same
+	allowed+='nemo-extension-config-widget.c:on_restart_clicked '		# same
+	allowed+='nemo-extension-config-widget.c:detect_extensions '		# same
+	allowed+='nemo-extension-config-widget.c:on_config_clicked '		# no extensions on Windows, so no link to click
+	allowed+='nemo-file-utilities.c:update_xdg_user_dir '				# no such program on Windows
+	allowed+='nemo-thumbnail-problem-bar.c:thumbnail_problem_bar_response_cb '	# same, sh and pkexec
+	allowed+='nemo-action.c:nemo_action_activate '						# backlog 2026100615255305
+	allowed+='nemo-action.c:check_exec_condition '						# same
+	allowed+='nemo-window-menus.c:open_in_terminal_other '				# same
+	local bad
+
+	bad="$(find source/src source/libnemo-private source/libnemo-extension source/eel \( -name '*.c' -o -name '*.h' \) -exec awk -v allowed="$allowed" '
+		FNR == 1 { fn = ""; base = FILENAME; sub(/.*\//, "", base) }
+		/^[a-zA-Z_][a-zA-Z0-9_]* *\(/ { fn = $1; sub(/\(.*/, "", fn) }
+		/(^|[^A-Za-z0-9_])(g_subprocess_newv?|g_subprocess_launcher_spawnv?|g_spawn_(async|sync|command_line_async|command_line_sync|async_with_pipes|async_with_fds|async_with_pipes_and_fds)) *\(/ {
+			if (index(allowed, " " base ":" fn " ") == 0) print FILENAME ":" FNR ": " $0
+		}
+	' {} +)"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: a program started through GLib, which on Windows needs nemo-tool-run.c or nemo-launch-win32.c, and not on the list in lint-c.bash"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fRun fCheckGlibSpawn
+
 ## A right-click on a path button pops its menu inside the press. It used to
 ## wait for the folder's attributes and pop up from their callback, which came
 ## after the release with a stale event, so the menu opened and shut at once.
