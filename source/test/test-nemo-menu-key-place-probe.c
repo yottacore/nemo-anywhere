@@ -438,9 +438,14 @@ tick (G_GNUC_UNUSED gpointer data)
 			finish ();
 			return G_SOURCE_REMOVE;
 		}
-		/* The open folder's row, a few levels down the tree. */
+		/* The open folder's row, a few levels down the tree. The tree opens
+		   its way down one listing at a time, so on a slow box it can still
+		   be on the way when the steps before are done. */
 		selection = gtk_tree_view_get_selection (GTK_TREE_VIEW (tree));
 		if (!gtk_tree_selection_get_selected (selection, &model, &iter)) {
+			if (waited < 100) {
+				return G_SOURCE_CONTINUE;
+			}
 			report (FALSE, "the tree shows the open folder");
 			finish ();
 			return G_SOURCE_REMOVE;
