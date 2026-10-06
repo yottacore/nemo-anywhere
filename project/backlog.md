@@ -215,6 +215,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: no window but the app's own, and the job runs in both.
 	- Reproduced: no. Read from the code, and seen for ImageMagick, which went through the same GLib call: a console window per run on the native build, and in the packed exe the program never started.
 	- Possible cause: GLib starts these through a helper program, which gives each a console window, and which hangs when run from inside the packed exe. `nemo_launch_win32_pipe` from 2026100610503901 starts a program with no window and no helper, but only with a file as stdin, so the archive and search code need more than it offers.
+	- Note: on vm925w, helpers left hung by earlier runs of packed exes were still running after the app had gone, 13 of them from one exe, along with a `gdbus.exe`. They kept that exe in use, so packing a new one over it failed.
 	- Test case: none yet, not started.
 
 - On the arm64 box the Places focus test loses its click or its rename.
