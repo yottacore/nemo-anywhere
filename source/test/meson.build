@@ -924,6 +924,16 @@ test('rexta5a8 Column layout test',
   args: []
 )
 
+test('rjm2rvjn Find mode columns test',
+  executable('test-nemo-search-columns',
+    [ 'test-nemo-search-columns.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+    c_args: nemo_definitions,
+  ),
+  args: []
+)
+
 test('rh0ktwj0 Pane layout test',
   executable('test-nemo-pane-layout',
     [ 'test-nemo-pane-layout.c', '../src/nemo-pane-layout.c' ],

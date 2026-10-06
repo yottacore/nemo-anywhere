@@ -30,6 +30,7 @@
 #include <glib/gi18n.h>
 #include <libnemo-extension/nemo-column-provider.h>
 #include <libnemo-private/nemo-module.h>
+#include <libnemo-private/nemo-global-preferences.h>
 
 static GList *
 get_builtin_columns (void)
@@ -416,4 +417,75 @@ nemo_sort_columns (GList  *columns,
 				      (GCompareDataFunc)column_compare,
 				      column_order);
 }
-		       
+
+/* Find results are not a folder, so they keep one set of columns of their own,
+ * whatever remember-folder-settings says. The key is the shown columns in
+ * their order; empty means these defaults. */
+static const char *const search_visible_columns[] = {
+	"name", "extension", "size", "date_modified", "where", NULL
+};
+
+static const char *const search_column_order[] = {
+	"name", "extension", "type", "size", "date_modified", "date_created",
+	"date_accessed", "where", NULL
+};
+
+static char **
+saved_search_columns (void)
+{
+	char **saved = nemo_config_get_strv (nemo_search_preferences,
+					     NEMO_PREFERENCES_SEARCH_VISIBLE_COLUMNS);
+
+	if (saved != NULL && saved[0] != NULL) {
+		return saved;
+	}
+
+	g_strfreev (saved);
+	return NULL;
+}
+
+/* Returns: (transfer full): free with g_strfreev */
+char **
+nemo_search_columns_get_default_visible (void)
+{
+	return g_strdupv ((char **) search_visible_columns);
+}
+
+/* Returns: (transfer full): free with g_strfreev */
+char **
+nemo_search_columns_get_default_order (void)
+{
+	return g_strdupv ((char **) search_column_order);
+}
+
+/* Returns: (transfer full): free with g_strfreev */
+char **
+nemo_search_columns_get_visible (void)
+{
+	char **saved = saved_search_columns ();
+
+	return saved != NULL ? saved : nemo_search_columns_get_default_visible ();
+}
+
+/* Returns: (transfer full): free with g_strfreev */
+char **
+nemo_search_columns_get_order (void)
+{
+	char **saved = saved_search_columns ();
+
+	return saved != NULL ? saved : nemo_search_columns_get_default_order ();
+}
+
+void
+nemo_search_columns_save (const char *const *visible_in_order)
+{
+	if (visible_in_order == NULL) {
+		nemo_config_reset (nemo_search_preferences,
+				   NEMO_PREFERENCES_SEARCH_VISIBLE_COLUMNS);
+		return;
+	}
+
+	nemo_config_set_strv (nemo_search_preferences,
+			      NEMO_PREFERENCES_SEARCH_VISIBLE_COLUMNS,
+			      visible_in_order);
+}

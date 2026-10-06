@@ -45,5 +45,14 @@ void   nemo_column_list_free      (GList       *columns);
 GList *nemo_sort_columns          (GList       *columns,
 				       char       **column_order);
 
+/* The columns find results show, and their order. Kept always, since find
+ * results are not a folder; remember-folder-settings has no say. Saving NULL
+ * goes back to the defaults. */
+char **nemo_search_columns_get_visible         (void);
+char **nemo_search_columns_get_order           (void);
+char **nemo_search_columns_get_default_visible (void);
+char **nemo_search_columns_get_default_order   (void);
+void   nemo_search_columns_save                (const char *const *visible_in_order);
+
 
 #endif /* NEMO_COLUMN_UTILITIES_H */

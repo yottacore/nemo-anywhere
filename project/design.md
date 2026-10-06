@@ -375,6 +375,8 @@ Archives are written by libarchive, with the `7z` and `rar` commands as optional
 
 - Results can be grouped under the folder holding them. It is a heading row per folder that actually has a match, labeled with the path under the folder searched, rather than a full tree of every folder in between - a tree puts rows on screen for folders with nothing in them, and reading that path off one row is what a person actually wants. The heading rows are built by the view rather than the model, so a folder nobody asked to open is never read, monitored or walked. Flat is still the default and switching redraws from the results in hand rather than searching again.
 
+- Find results keep their own list columns and the order they were dragged into, whatever "Remember per-folder settings" says. They are not a folder, so there is no folder to keep them with. With nothing picked they show Name, Ext, Size, Date modified and Location, in that order. Type and the other two dates are hidden.
+
 - On Windows the search index is used when asked, through a switch that is off by default. It answers for any folder the index covers; a folder outside it, a network location, a regular expression or a case-sensitive content match goes to the ordinary walk unchanged. Off by default because the index only knows what it has been told to watch, and a search that quietly misses a folder is worse than a slow one.
 
 ### User interface
@@ -443,7 +445,7 @@ The window is a menu and toolbar, the side panes, a path bar and a view, and the
 
 #### List view column widths
 
-This rule has been rewritten several times and will probably move again, so the whole of it is here rather than spread between the code and a summary. This should be treated (and updated) as THE canonical, precise, complete, conflict-free definition. It describes where the behavior is going, so where the code differs it is the code that moves. The code has matched it since 2026-09-17. The arithmetic is in `nemo-column-layout.c`, which knows nothing about widgets and can be tested without a screen; the measuring that feeds it is in `nemo-list-view.c`.
+This rule has been rewritten several times and will probably move again, so the whole of it is here rather than spread between the code and a summary. This should be treated (and updated) as THE canonical, precise, complete, conflict-free definition. It describes where the behavior is going, so where the code differs it is the code that moves. The code has matched it since 2026-09-17. The arithmetic, and how each column counts what it has seen, is in `nemo-column-layout.c`, which knows nothing about widgets and can be tested without a screen; the measuring that feeds it is in `nemo-list-view.c`.
 
 - There are three "classes" of columns, for width sizing:
 	- The minimum column width that overrides all minimum-width definitions below: Column header text.
@@ -452,6 +454,7 @@ This rule has been rewritten several times and will probably move again, so the 
 		- Min width:
 			- What will display all of the shortest N% values, as set by `list-view.column-fit-percent`, default 90.
 			- Name counts every file in the folder, since every name matters.
+			- In find results one name can turn up in many folders, so there Name counts each distinct name once, like Location.
 			- Location counts each distinct value once, so a location repeated down a folder counts once rather than fifty times.
 			- The share calculation: max(1, floor(count*FITPERCENT))
 			- Plus ellipses for values that are too short.

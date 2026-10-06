@@ -295,12 +295,6 @@ static const char * default_favorites_columns_order[] = {
     "name", "size", "date_modified", NULL
 };
 
-/* Just the two: Name and Location share the row. Anything else is the user's
-   own addition, saved under search-visible-columns. */
-static const char * default_search_columns[] = {
-    "name", "where", NULL
-};
-
 /* Search results are either one flat list with a Location column, or one row per
    folder holding a match with the matches nested under it. The grouped rows are
    built here rather than by the model's own subfolder machinery: nobody opened
@@ -1302,15 +1296,13 @@ columns_reordered_callback (G_GNUC_UNUSED AtkObject *atk,
 
     list = g_list_reverse (list);
 
-    if (!nemo_global_preferences_get_remember_folder_settings ()) {
-        nemo_window_set_ignore_meta_column_order (nemo_view_get_nemo_window (NEMO_VIEW (view)), list);
-    } else if (nemo_file_is_in_search (file)) {
+    if (nemo_file_is_in_search (file)) {
         gchar **column_array = string_array_from_string_glist (list);
 
-        nemo_config_set_strv (nemo_search_preferences,
-                             NEMO_PREFERENCES_SEARCH_VISIBLE_COLUMNS,
-                             (const gchar **) column_array);
+        nemo_search_columns_save ((const gchar * const *) column_array);
         g_strfreev (column_array);
+    } else if (!nemo_global_preferences_get_remember_folder_settings ()) {
+        nemo_window_set_ignore_meta_column_order (nemo_view_get_nemo_window (NEMO_VIEW (view)), list);
     } else {
         nemo_folder_settings_set_list (file,
                                        NEMO_METADATA_KEY_LIST_VIEW_COLUMN_ORDER,
@@ -2426,16 +2418,13 @@ column_header_menu_toggled (GtkCheckMenuItem *menu_item,
 
     list = g_list_reverse (list);
 
-    if (!nemo_global_preferences_get_remember_folder_settings ()) {
-        nemo_window_set_ignore_meta_visible_columns (nemo_view_get_nemo_window (NEMO_VIEW (list_view)), list);
-    } else if (nemo_file_is_in_search (file)) {
+    if (nemo_file_is_in_search (file)) {
         gchar **column_array = string_array_from_string_glist (list);
 
-        nemo_config_set_strv (nemo_search_preferences,
-                             NEMO_PREFERENCES_SEARCH_VISIBLE_COLUMNS,
-                             (const gchar **) column_array);
-
+        nemo_search_columns_save ((const gchar * const *) column_array);
         g_strfreev (column_array);
+    } else if (!nemo_global_preferences_get_remember_folder_settings ()) {
+        nemo_window_set_ignore_meta_visible_columns (nemo_view_get_nemo_window (NEMO_VIEW (list_view)), list);
     } else
         nemo_folder_settings_set_list (file,
                                        NEMO_METADATA_KEY_LIST_VIEW_VISIBLE_COLUMNS,
@@ -2470,17 +2459,15 @@ column_header_menu_use_default (G_GNUC_UNUSED GtkMenuItem *menu_item,
                                      columns_reordered_callback,
                                      list_view);
 
-    if (!nemo_global_preferences_get_remember_folder_settings ()) {
+    if (nemo_file_is_in_search (file)) {
+        nemo_search_columns_save (NULL);
+    } else if (!nemo_global_preferences_get_remember_folder_settings ()) {
         NemoWindow *window = nemo_view_get_nemo_window (NEMO_VIEW (list_view));
         nemo_window_set_ignore_meta_visible_columns (window, NULL);
         nemo_window_set_ignore_meta_column_order (window, NULL);
     } else {
         nemo_folder_settings_set_list (file, NEMO_METADATA_KEY_LIST_VIEW_COLUMN_ORDER, NULL);
         nemo_folder_settings_set_list (file, NEMO_METADATA_KEY_LIST_VIEW_VISIBLE_COLUMNS, NULL);
-    }
-
-    if (nemo_file_is_in_search (file)) {
-        nemo_config_reset (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_VISIBLE_COLUMNS);
     }
 
     default_columns = get_default_visible_columns (list_view);
@@ -3171,20 +3158,11 @@ column_id (GtkTreeViewColumn *column)
 	return g_object_get_data (G_OBJECT (column), "column-id");
 }
 
-/* What one column has seen so far. Every column keeps its widest value. The
-   columns whose width is a judgement rather than a fact - Name, and the ones
-   with no natural length - keep every value too, so the width that shows most
-   of them can be found. Name keeps one per file, since every name counts; a
-   type or an owner keeps one per distinct text, so a value repeated down the
-   folder counts once. A date or a size keeps only the widest, because it is
-   never shown at less. */
+/* What one column has seen so far, counted per design.md: see
+   nemo_column_tally_mode_for. */
 typedef struct {
-	GHashTable *values;	/* key -> width, or NULL for a column that only needs its widest */
+	NemoColumnTally *tally;
 	GHashTable *measured;	/* cell text -> that cell's natural width; NULL for Name */
-	gint widest;
-	gint fit;		/* cached, -1 once a value has changed */
-	gint half;		/* the same for half the values */
-	gint fit_percent;	/* the share the cached fit was worked out for */
 } ColumnSamples;
 
 /* How many distinct values one column will remember the width of. A type or an
@@ -3193,14 +3171,14 @@ typedef struct {
    this the column just measures, which is what it did before. */
 #define MEASURED_TEXTS_MAX 2048
 
+static NemoColumnKind column_class (NemoListView *view, GtkTreeViewColumn *column);
+
 static void
 column_samples_free (gpointer data)
 {
 	ColumnSamples *samples = data;
 
-	if (samples->values != NULL) {
-		g_hash_table_destroy (samples->values);
-	}
+	nemo_column_tally_free (samples->tally);
 	if (samples->measured != NULL) {
 		g_hash_table_destroy (samples->measured);
 	}
@@ -3208,11 +3186,11 @@ column_samples_free (gpointer data)
 }
 
 static gboolean
-column_keeps_every_value (NemoListView      *view,
-			  GtkTreeViewColumn *column)
+showing_search (NemoListView *view)
 {
-	return column == view->details->file_name_column ||
-	       g_object_get_data (G_OBJECT (column), "unbounded") != NULL;
+	NemoFile *dir_file = nemo_view_get_directory_as_file (NEMO_VIEW (view));
+
+	return dir_file != NULL && nemo_file_is_in_search (dir_file);
 }
 
 static ColumnSamples *
@@ -3228,26 +3206,23 @@ samples_for (NemoListView      *view,
 
 	samples = g_hash_table_lookup (view->details->samples, id);
 	if (samples == NULL) {
+		gboolean is_name = column == view->details->file_name_column;
+
 		samples = g_new0 (ColumnSamples, 1);
-		samples->fit = -1;
+		/* Samples go on a folder change, so whether this is find results
+		   holds for as long as they do. */
+		samples->tally = nemo_column_tally_new (
+			nemo_column_tally_mode_for (column_class (view, column), is_name,
+						    showing_search (view)));
 
-		if (column == view->details->file_name_column) {
-			samples->values = g_hash_table_new (g_direct_hash, g_direct_equal);
-		} else {
-			/* Every column but Name shows one run of text per row, so a value
-			   seen before lays out to the same width. Name is left out: no two
-			   files in a folder share a name, so nothing would ever repeat.
-			   NEMO_MEASURE_NOCACHE turns it off, which is how the widths it
-			   hands back are checked against measuring every row. */
-			if (g_getenv ("NEMO_MEASURE_NOCACHE") == NULL) {
-				samples->measured = g_hash_table_new_full (g_str_hash, g_str_equal,
-									   g_free, NULL);
-			}
-
-			if (column_keeps_every_value (view, column)) {
-				samples->values = g_hash_table_new_full (g_str_hash, g_str_equal,
-									 g_free, NULL);
-			}
+		/* Every column but Name shows one run of text per row, so a value
+		   seen before lays out to the same width. Name is left out: in a
+		   folder no two files share a name, so nothing would ever repeat.
+		   NEMO_MEASURE_NOCACHE turns it off, which is how the widths it
+		   hands back are checked against measuring every row. */
+		if (!is_name && g_getenv ("NEMO_MEASURE_NOCACHE") == NULL) {
+			samples->measured = g_hash_table_new_full (g_str_hash, g_str_equal,
+								   g_free, NULL);
 		}
 
 		g_hash_table_insert (view->details->samples, g_strdup (id), samples);
@@ -3256,98 +3231,11 @@ samples_for (NemoListView      *view,
 	return samples;
 }
 
-/* Fold one value in. `file` keys a name and `text` keys anything else; a
-   column that keeps only its widest ignores both. TRUE when something the
-   layout reads has changed. */
-static gboolean
-note_sample (ColumnSamples *samples,
-	     NemoFile      *file,
-	     const char    *text,
-	     gint           width)
-{
-	gboolean changed = FALSE;
-	gpointer key;
-	gpointer seen;
-
-	if (samples == NULL) {
-		return FALSE;
-	}
-
-	if (samples->values == NULL) {
-		if (width > samples->widest) {
-			samples->widest = width;
-			changed = TRUE;
-		}
-		return changed;
-	}
-
-	key = file != NULL ? (gpointer) file : (gpointer) text;
-	if (key == NULL) {
-		return FALSE;
-	}
-
-	if (!g_hash_table_lookup_extended (samples->values, key, NULL, &seen) ||
-	    GPOINTER_TO_INT (seen) != width) {
-		/* The file is only ever a key, never followed, so a file that has
-		   gone leaves a stale entry and nothing worse. The text is copied. */
-		g_hash_table_insert (samples->values,
-				     file != NULL ? key : g_strdup (text),
-				     GINT_TO_POINTER (width));
-		samples->fit = -1;
-		changed = TRUE;
-	}
-
-	return changed;
-}
-
-/* The width that shows `percent` of what the column has seen, the width that
-   shows half of it, and the width that shows all of it. Worked out from the
-   values on demand and kept until one changes, so a window being resized does
-   not sort a folder per frame. */
-static void
-samples_measure (ColumnSamples *samples,
-		 gint           percent,
-		 gint          *fit,
-		 gint          *half,
-		 gint          *widest)
-{
-	if (samples == NULL) {
-		*fit = 0;
-		*half = 0;
-		*widest = 0;
-		return;
-	}
-
-	if (samples->values != NULL &&
-	    (samples->fit < 0 || samples->fit_percent != percent)) {
-		guint n = g_hash_table_size (samples->values);
-		int *widths = g_new (int, MAX (n, 1));
-		GHashTableIter iter;
-		gpointer value;
-		guint i = 0;
-
-		samples->widest = 0;
-		g_hash_table_iter_init (&iter, samples->values);
-		while (g_hash_table_iter_next (&iter, NULL, &value)) {
-			widths[i++] = GPOINTER_TO_INT (value);
-			samples->widest = MAX (samples->widest, GPOINTER_TO_INT (value));
-		}
-
-		samples->fit = nemo_column_layout_fit (widths, (int) n, percent);
-		samples->half = nemo_column_layout_fit (widths, (int) n, 50);
-		samples->fit_percent = percent;
-		g_free (widths);
-	}
-
-	*fit = samples->values != NULL ? samples->fit : samples->widest;
-	*half = samples->values != NULL ? samples->half : samples->widest;
-	*widest = samples->widest;
-}
-
 /* A file leaving the folder takes its name out of the reckoning, or a folder
    emptied of its long names would keep the width they asked for. What it held
-   in the other columns stays until resample_rows_cb, since those are kept by
-   text and another file may share it. */
+   in the other columns, and its name in find results, stays until
+   resample_rows_cb, since those are kept by text and another file may share
+   it. */
 static void
 drop_name_sample (NemoListView *view,
 		  NemoFile     *file)
@@ -3361,9 +3249,8 @@ drop_name_sample (NemoListView *view,
 	view->details->samples_stale = TRUE;
 
 	samples = g_hash_table_lookup (view->details->samples, "name");
-	if (samples != NULL && samples->values != NULL &&
-	    g_hash_table_remove (samples->values, file)) {
-		samples->fit = -1;
+	if (samples != NULL) {
+		nemo_column_tally_forget_row (samples->tally, file);
 	}
 
 	resize_columns_soon (view);
@@ -3748,7 +3635,7 @@ measure_row (GtkTreeModel *model,
 	for (l = measure_columns (view); l != NULL; l = l->next) {
 		GtkTreeViewColumn *column = l->data;
 		gboolean is_name = column == view->details->file_name_column;
-		gboolean by_text = !is_name && column_keeps_every_value (view, column);
+		gboolean by_text;
 		ColumnSamples *samples;
 		gchar *text = NULL;
 		gint width;
@@ -3758,6 +3645,11 @@ measure_row (GtkTreeModel *model,
 		}
 
 		samples = samples_for (view, column);
+		if (samples == NULL) {
+			continue;
+		}
+
+		by_text = nemo_column_tally_get_mode (samples->tally) == NEMO_COLUMN_TALLY_EACH_TEXT;
 		width = row_width_for_column (view, column, samples, model, iter,
 					      by_text ? &text : NULL);
 
@@ -3765,7 +3657,7 @@ measure_row (GtkTreeModel *model,
 			width += name_indent_for (view, path);
 		}
 
-		if (note_sample (samples, is_name ? file : NULL, text, width)) {
+		if (nemo_column_tally_note (samples->tally, file, text, width)) {
 			grew = TRUE;
 		}
 
@@ -3828,11 +3720,7 @@ resample_rows_cb (gpointer user_data)
 		while (g_hash_table_iter_next (&iter, NULL, &value)) {
 			ColumnSamples *samples = value;
 
-			if (samples->values != NULL) {
-				g_hash_table_remove_all (samples->values);
-			}
-			samples->widest = 0;
-			samples->fit = -1;
+			nemo_column_tally_clear (samples->tally);
 		}
 	}
 
@@ -3905,6 +3793,7 @@ layout_columns (NemoListView *view,
 
 	for (l = all; l != NULL; l = l->next) {
 		GtkTreeViewColumn *column = l->data;
+		ColumnSamples *samples;
 		GtkWidget *button;
 		NemoColumnMeasure measure = { 0, 0, 0, 0 };
 		gpointer dragged;
@@ -3915,8 +3804,9 @@ layout_columns (NemoListView *view,
 
 		columns[i] = column;
 
-		samples_measure (samples_for (view, column), percent,
-				 &measure.fit, &measure.half, &measure.widest);
+		samples = samples_for (view, column);
+		nemo_column_tally_measure (samples != NULL ? samples->tally : NULL, percent,
+					   &measure.fit, &measure.half, &measure.widest);
 
 		button = gtk_tree_view_column_get_button (column);
 		if (button != NULL) {
@@ -4474,7 +4364,7 @@ get_default_visible_columns (NemoListView *list_view)
     }
 
     if (nemo_file_is_in_search (file)) {
-        return g_strdupv ((gchar **) default_search_columns);
+        return nemo_search_columns_get_default_visible ();
     }
 
     return nemo_config_get_strv (nemo_list_view_preferences,
@@ -4493,22 +4383,14 @@ get_visible_columns (NemoListView *list_view)
 
 	file = nemo_view_get_directory_as_file (NEMO_VIEW (list_view));
 
+    if (nemo_file_is_in_search (file)) {
+        return nemo_search_columns_get_visible ();
+    }
+
     if (!nemo_global_preferences_get_remember_folder_settings ()) {
         visible_columns = nemo_window_get_ignore_meta_visible_columns (nemo_view_get_nemo_window (NEMO_VIEW (list_view)));
     } else {
-        if (nemo_file_is_in_search (file)) {
-            gchar **modified_cols;
-
-            modified_cols = nemo_config_get_strv (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_VISIBLE_COLUMNS);
-
-            if (g_strv_length (modified_cols) > 0) {
-                return modified_cols;
-            } else {
-                g_strfreev (modified_cols);
-            }
-        } else {
-            visible_columns = nemo_folder_settings_get_list (file, NEMO_METADATA_KEY_LIST_VIEW_VISIBLE_COLUMNS);
-        }
+        visible_columns = nemo_folder_settings_get_list (file, NEMO_METADATA_KEY_LIST_VIEW_VISIBLE_COLUMNS);
     }
 
 	if (visible_columns) {
@@ -4543,7 +4425,7 @@ get_default_column_order (NemoListView *list_view)
     }
 
     if (nemo_file_is_in_search (file)) {
-        return g_strdupv ((gchar **) default_search_columns);
+        return nemo_search_columns_get_default_order ();
     }
 
     return nemo_config_get_strv (nemo_list_view_preferences,
@@ -4562,21 +4444,14 @@ get_column_order (NemoListView *list_view)
 
 	file = nemo_view_get_directory_as_file (NEMO_VIEW (list_view));
 
+    if (nemo_file_is_in_search (file)) {
+        return nemo_search_columns_get_order ();
+    }
+
     if (!nemo_global_preferences_get_remember_folder_settings ()) {
         column_order = nemo_window_get_ignore_meta_column_order (nemo_view_get_nemo_window (NEMO_VIEW (list_view)));
     } else {
-        if (nemo_file_is_in_search (file)) {
-            gchar **modified_cols;
-            modified_cols = nemo_config_get_strv (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_VISIBLE_COLUMNS);
-
-            if (g_strv_length (modified_cols) > 0) {
-                return modified_cols;
-            } else {
-                g_strfreev (modified_cols);
-            }
-        } else {
-            column_order = nemo_folder_settings_get_list (file, NEMO_METADATA_KEY_LIST_VIEW_COLUMN_ORDER);
-        }
+        column_order = nemo_folder_settings_get_list (file, NEMO_METADATA_KEY_LIST_VIEW_COLUMN_ORDER);
     }
 
     if (column_order) {
@@ -5393,6 +5268,11 @@ nemo_list_view_reset_to_defaults (NemoView *view)
                                      columns_reordered_callback,
                                      NEMO_LIST_VIEW (view));
 
+    /* Find results keep their columns whatever remember-folder-settings says. */
+    if (nemo_file_is_in_search (file)) {
+        nemo_search_columns_save (NULL);
+    }
+
     if (!nemo_global_preferences_get_remember_folder_settings ()) {
         NemoWindow *window = nemo_view_get_nemo_window (NEMO_VIEW (view));
         nemo_window_set_ignore_meta_sort_column (window, NULL);
@@ -5401,7 +5281,6 @@ nemo_list_view_reset_to_defaults (NemoView *view)
         nemo_window_set_ignore_meta_column_order (window, NULL);
         nemo_window_set_ignore_meta_visible_columns (window, NULL);
     } else if (nemo_file_is_in_search (file)) {
-        nemo_config_reset (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_VISIBLE_COLUMNS);
         nemo_config_reset (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_SORT_COLUMN);
         nemo_config_reset (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_REVERSE_SORT);
     } else {
