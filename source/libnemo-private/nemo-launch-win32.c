@@ -35,6 +35,7 @@
 #include <wbemcli.h>
 
 #include <gio/gio.h>
+#include <gio/gwin32inputstream.h>
 #include <glib/gi18n.h>
 
 #include "nemo-launch-win32.h"
@@ -521,6 +522,154 @@ append_argument (GString *line, const gchar *arg)
 	g_string_append_c (line, '"');
 }
 
+/* Opened both ways, so one handle stands in for a missing stdin and for output
+ * nobody reads. There is no console to pass on anyway. */
+static HANDLE
+open_nowhere (void)
+{
+	SECURITY_ATTRIBUTES inherit = { sizeof inherit, NULL, TRUE };
+
+	return CreateFileW (L"NUL", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
+			    &inherit, OPEN_EXISTING, 0, NULL);
+}
+
+/* A pipe the program writes to. Ours is the overlapped end, so a read on it can
+ * be cancelled; CreatePipe only makes ones that block until something comes. */
+static gboolean
+make_out_pipe (HANDLE *ours, HANDLE *theirs)
+{
+	static volatile LONG serial;
+	SECURITY_ATTRIBUTES inherit = { sizeof inherit, NULL, TRUE };
+	wchar_t name[80];
+
+	_snwprintf (name, G_N_ELEMENTS (name), L"\\\\.\\pipe\\nemo-anywhere-%lu-%ld",
+		    (unsigned long) GetCurrentProcessId (), (long) InterlockedIncrement (&serial));
+	name[G_N_ELEMENTS (name) - 1] = L'\0';
+
+	*theirs = INVALID_HANDLE_VALUE;
+	*ours = CreateNamedPipeW (name,
+				  PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE,
+				  PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
+				  1, 65536, 65536, 0, NULL);
+	if (*ours == INVALID_HANDLE_VALUE) {
+		return FALSE;
+	}
+
+	*theirs = CreateFileW (name, GENERIC_WRITE, 0, &inherit, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	if (*theirs == INVALID_HANDLE_VALUE) {
+		CloseHandle (*ours);
+		*ours = INVALID_HANDLE_VALUE;
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+static void
+close_valid (HANDLE handle)
+{
+	if (handle != NULL && handle != INVALID_HANDLE_VALUE) {
+		CloseHandle (handle);
+	}
+}
+
+/* Started directly, so in the single-exe build it is hooked like anything else
+ * started that way. Neither broker can hand over a pipe, and a tool that only
+ * reads files and writes to us does not mind the hooks. GLib's own spawn goes
+ * through a helper program, which gives a console tool a console window of its
+ * own, and which never starts the tool at all from inside the single exe.
+ *
+ * Only the three handles given are inherited, so tools started at the same time
+ * never hold each other's pipes open. */
+static gboolean
+spawn_hidden (const gchar * const  *argv,
+	      const gchar          *workdir,
+	      HANDLE                in,
+	      HANDLE                out,
+	      HANDLE                err,
+	      HANDLE               *process_out,
+	      GError              **error)
+{
+	LPPROC_THREAD_ATTRIBUTE_LIST attributes = NULL;
+	SIZE_T attributes_size = 0;
+	STARTUPINFOEXW startup;
+	PROCESS_INFORMATION process;
+	HANDLE given[3] = { in, out, err };
+	HANDLE handed[3];
+	guint n_handed = 0, i, j;
+	GString *line;
+	gchar *program;
+	wchar_t *wexe, *wline, *wdir = NULL;
+	gboolean started = FALSE;
+
+	/* A bare name is found the way the rest of the app finds one, the exe's
+	 * own folder before PATH. */
+	program = g_path_is_absolute (argv[0]) ? g_strdup (argv[0]) : g_find_program_in_path (argv[0]);
+	if (program == NULL) {
+		SetLastError (ERROR_FILE_NOT_FOUND);
+		set_failed (error, argv[0]);
+		return FALSE;
+	}
+
+	line = g_string_new (NULL);
+	append_argument (line, program);
+	for (i = 1; argv[i] != NULL; i++) {
+		append_argument (line, argv[i]);
+	}
+	wexe = g_utf8_to_utf16 (program, -1, NULL, NULL, NULL);
+	wline = g_utf8_to_utf16 (line->str, -1, NULL, NULL, NULL);
+	if (workdir != NULL) {
+		wdir = g_utf8_to_utf16 (workdir, -1, NULL, NULL, NULL);
+	}
+	g_string_free (line, TRUE);
+
+	/* The list refuses the same handle twice. */
+	for (i = 0; i < G_N_ELEMENTS (given); i++) {
+		for (j = 0; j < n_handed && handed[j] != given[i]; j++) {
+		}
+		if (j == n_handed) {
+			handed[n_handed++] = given[i];
+		}
+	}
+
+	InitializeProcThreadAttributeList (NULL, 1, 0, &attributes_size);
+	attributes = g_malloc (attributes_size);
+
+	if (wexe != NULL && wline != NULL && (workdir == NULL || wdir != NULL) &&
+	    InitializeProcThreadAttributeList (attributes, 1, 0, &attributes_size)) {
+		if (UpdateProcThreadAttribute (attributes, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
+					       handed, n_handed * sizeof (HANDLE), NULL, NULL)) {
+			memset (&startup, 0, sizeof startup);
+			startup.StartupInfo.cb = sizeof startup;
+			startup.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+			startup.StartupInfo.hStdInput = in;
+			startup.StartupInfo.hStdOutput = out;
+			startup.StartupInfo.hStdError = err;
+			startup.lpAttributeList = attributes;
+
+			started = CreateProcessW (wexe, wline, NULL, NULL, TRUE,
+						  CREATE_NO_WINDOW | CREATE_DEFAULT_ERROR_MODE |
+						  CREATE_UNICODE_ENVIRONMENT | EXTENDED_STARTUPINFO_PRESENT,
+						  NULL, wdir, &startup.StartupInfo, &process);
+		}
+		DeleteProcThreadAttributeList (attributes);
+	}
+
+	if (started) {
+		CloseHandle (process.hThread);
+		*process_out = process.hProcess;
+	} else {
+		set_failed (error, program);
+	}
+
+	g_free (attributes);
+	g_free (wdir);
+	g_free (wline);
+	g_free (wexe);
+	g_free (program);
+	return started;
+}
+
 /* Everything the program has written so far, without waiting for more. */
 static void
 take_output (HANDLE pipe, GByteArray *got)
@@ -537,9 +686,6 @@ take_output (HANDLE pipe, GByteArray *got)
 	}
 }
 
-/* Started directly, so in the single-exe build it is hooked like anything else
- * started that way. Neither broker can hand over a pipe, and a program that only
- * reads one file and writes to us does not mind the hooks. */
 gboolean
 nemo_launch_win32_pipe (const gchar * const  *argv,
 			const gchar          *input_path,
@@ -549,100 +695,60 @@ nemo_launch_win32_pipe (const gchar * const  *argv,
 			gboolean             *timed_out)
 {
 	SECURITY_ATTRIBUTES inherit = { sizeof inherit, NULL, TRUE };
-	HANDLE input = INVALID_HANDLE_VALUE, nowhere = INVALID_HANDLE_VALUE;
+	HANDLE input = INVALID_HANDLE_VALUE, nowhere;
 	HANDLE out_read = NULL, out_write = NULL;
-	HANDLE handed[3];
-	LPPROC_THREAD_ATTRIBUTE_LIST attributes = NULL;
-	SIZE_T attributes_size = 0;
-	STARTUPINFOEXW startup;
-	PROCESS_INFORMATION process;
-	GByteArray *got;
-	GString *line;
-	wchar_t *wexe, *wline, *winput;
+	HANDLE process = NULL;
+	GByteArray *got = NULL;
+	wchar_t *winput;
 	gint64 deadline;
 	gboolean started = FALSE, ended = FALSE, stopped = FALSE, late = FALSE;
 	DWORD code = 1;
-	guint i;
 
-	*output = NULL;
+	if (output != NULL) {
+		*output = NULL;
+	}
 	if (timed_out != NULL) {
 		*timed_out = FALSE;
 	}
-	g_return_val_if_fail (argv != NULL && argv[0] != NULL && input_path != NULL, FALSE);
+	g_return_val_if_fail (argv != NULL && argv[0] != NULL, FALSE);
 
-	line = g_string_new (NULL);
-	for (i = 0; argv[i] != NULL; i++) {
-		append_argument (line, argv[i]);
-	}
-	wexe = g_utf8_to_utf16 (argv[0], -1, NULL, NULL, NULL);
-	wline = g_utf8_to_utf16 (line->str, -1, NULL, NULL, NULL);
-	winput = g_utf8_to_utf16 (input_path, -1, NULL, NULL, NULL);
-	g_string_free (line, TRUE);
+	nowhere = open_nowhere ();
 
 	/* The file itself is the program's stdin, so nothing is copied through a
 	 * pipe on the way, and it still never sees a name. */
-	if (wexe != NULL && wline != NULL && winput != NULL) {
-		input = CreateFileW (winput, GENERIC_READ,
-				     FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-				     &inherit, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-		nowhere = CreateFileW (L"NUL", GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
-				       &inherit, OPEN_EXISTING, 0, NULL);
+	if (input_path != NULL) {
+		winput = g_utf8_to_utf16 (input_path, -1, NULL, NULL, NULL);
+		if (winput != NULL) {
+			input = CreateFileW (winput, GENERIC_READ,
+					     FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+					     &inherit, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+		}
+		g_free (winput);
+	} else {
+		input = nowhere;
 	}
 
 	/* A big buffer, so a whole thumbnail fits and the program is never left
 	 * waiting on us to read. */
 	if (input != INVALID_HANDLE_VALUE && nowhere != INVALID_HANDLE_VALUE &&
-	    CreatePipe (&out_read, &out_write, &inherit, 1024 * 1024)) {
-		SetHandleInformation (out_read, HANDLE_FLAG_INHERIT, 0);
-
-		InitializeProcThreadAttributeList (NULL, 1, 0, &attributes_size);
-		attributes = g_malloc (attributes_size);
-		handed[0] = input;
-		handed[1] = out_write;
-		handed[2] = nowhere;
-
-		/* Only these three go to the child. Several thumbnails start at
-		 * once, and one that took another's pipe would keep it open. */
-		if (InitializeProcThreadAttributeList (attributes, 1, 0, &attributes_size) &&
-		    UpdateProcThreadAttribute (attributes, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
-					       handed, sizeof handed, NULL, NULL)) {
-			memset (&startup, 0, sizeof startup);
-			startup.StartupInfo.cb = sizeof startup;
-			startup.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
-			startup.StartupInfo.hStdInput = input;
-			startup.StartupInfo.hStdOutput = out_write;
-			startup.StartupInfo.hStdError = nowhere;
-			startup.lpAttributeList = attributes;
-
-			/* No window: a console program started from one without a
-			 * console gets a new console window each time otherwise. */
-			started = CreateProcessW (wexe, wline, NULL, NULL, TRUE,
-						  CREATE_NO_WINDOW | CREATE_DEFAULT_ERROR_MODE |
-						  CREATE_UNICODE_ENVIRONMENT | EXTENDED_STARTUPINFO_PRESENT,
-						  NULL, NULL, &startup.StartupInfo, &process);
-			DeleteProcThreadAttributeList (attributes);
+	    (output == NULL || CreatePipe (&out_read, &out_write, &inherit, 1024 * 1024))) {
+		if (out_read != NULL) {
+			SetHandleInformation (out_read, HANDLE_FLAG_INHERIT, 0);
 		}
-		g_free (attributes);
-		CloseHandle (out_write);
+		started = spawn_hidden (argv, NULL, input, out_write != NULL ? out_write : nowhere,
+					nowhere, &process, NULL);
+		close_valid (out_write);
 	}
 
-	if (input != INVALID_HANDLE_VALUE) {
-		CloseHandle (input);
+	if (input != nowhere) {
+		close_valid (input);
 	}
-	if (nowhere != INVALID_HANDLE_VALUE) {
-		CloseHandle (nowhere);
-	}
-	g_free (winput);
-	g_free (wline);
-	g_free (wexe);
+	close_valid (nowhere);
 
 	if (!started) {
-		if (out_read != NULL) {
-			CloseHandle (out_read);
-		}
+		close_valid (out_read);
 		return FALSE;
 	}
-	CloseHandle (process.hThread);
 
 	got = g_byte_array_new ();
 	deadline = g_get_monotonic_time () + (gint64) timeout_seconds * G_USEC_PER_SEC;
@@ -650,29 +756,33 @@ nemo_launch_win32_pipe (const gchar * const  *argv,
 	while (TRUE) {
 		DWORD state;
 
-		take_output (out_read, got);
+		if (out_read != NULL) {
+			take_output (out_read, got);
+		}
 
-		state = WaitForSingleObject (process.hProcess, 10);
+		state = WaitForSingleObject (process, 10);
 		if (state != WAIT_TIMEOUT) {
 			break;
 		}
 
 		if (!ended && g_cancellable_is_cancelled (cancellable)) {
 			stopped = ended = TRUE;
-			TerminateProcess (process.hProcess, 1);
+			TerminateProcess (process, 1);
 		} else if (!ended && g_get_monotonic_time () > deadline) {
 			late = ended = TRUE;
-			TerminateProcess (process.hProcess, 1);
+			TerminateProcess (process, 1);
 		}
 	}
 
 	/* What it wrote last. Something it started itself may still have the pipe open,
 	 * so this stops at what is there rather than waiting for the end. */
-	take_output (out_read, got);
-	CloseHandle (out_read);
+	if (out_read != NULL) {
+		take_output (out_read, got);
+		CloseHandle (out_read);
+	}
 
-	GetExitCodeProcess (process.hProcess, &code);
-	CloseHandle (process.hProcess);
+	GetExitCodeProcess (process, &code);
+	CloseHandle (process);
 
 	if (timed_out != NULL) {
 		*timed_out = late;
@@ -683,6 +793,124 @@ nemo_launch_win32_pipe (const gchar * const  *argv,
 		return FALSE;
 	}
 
-	*output = g_byte_array_free_to_bytes (got);
+	if (output != NULL) {
+		*output = g_byte_array_free_to_bytes (got);
+	} else {
+		g_byte_array_unref (got);
+	}
 	return TRUE;
+}
+
+struct _NemoLaunchWin32Child {
+	HANDLE        process;
+	GInputStream *out;
+	GInputStream *err;
+	gboolean      waited;
+	DWORD         code;
+};
+
+/* Returns: (transfer full): free with nemo_launch_win32_child_free */
+NemoLaunchWin32Child *
+nemo_launch_win32_child_start (const gchar * const  *argv,
+			       const gchar          *workdir,
+			       GSubprocessFlags      flags,
+			       GError              **error)
+{
+	NemoLaunchWin32Child *child;
+	HANDLE nowhere;
+	HANDLE out_ours = INVALID_HANDLE_VALUE, out_theirs = INVALID_HANDLE_VALUE;
+	HANDLE err_ours = INVALID_HANDLE_VALUE, err_theirs = INVALID_HANDLE_VALUE;
+	HANDLE out, err, process = NULL;
+	gboolean ok;
+
+	g_return_val_if_fail (argv != NULL && argv[0] != NULL, NULL);
+
+	nowhere = open_nowhere ();
+	ok = nowhere != INVALID_HANDLE_VALUE;
+	if (ok && (flags & G_SUBPROCESS_FLAGS_STDOUT_PIPE) != 0) {
+		ok = make_out_pipe (&out_ours, &out_theirs);
+	}
+	if (ok && (flags & G_SUBPROCESS_FLAGS_STDERR_PIPE) != 0) {
+		ok = make_out_pipe (&err_ours, &err_theirs);
+	}
+
+	if (!ok) {
+		set_failed (error, argv[0]);
+	} else {
+		out = out_theirs != INVALID_HANDLE_VALUE ? out_theirs : nowhere;
+		err = err_theirs != INVALID_HANDLE_VALUE ? err_theirs
+		    : (flags & G_SUBPROCESS_FLAGS_STDERR_MERGE) != 0 ? out
+		    : nowhere;
+		ok = spawn_hidden (argv, workdir, nowhere, out, err, &process, error);
+	}
+
+	close_valid (nowhere);
+	close_valid (out_theirs);
+	close_valid (err_theirs);
+
+	if (!ok) {
+		close_valid (out_ours);
+		close_valid (err_ours);
+		return NULL;
+	}
+
+	child = g_new0 (NemoLaunchWin32Child, 1);
+	child->process = process;
+	if (out_ours != INVALID_HANDLE_VALUE) {
+		child->out = g_win32_input_stream_new (out_ours, TRUE);
+	}
+	if (err_ours != INVALID_HANDLE_VALUE) {
+		child->err = g_win32_input_stream_new (err_ours, TRUE);
+	}
+
+	return child;
+}
+
+/* Returns: (transfer none) */
+GInputStream *
+nemo_launch_win32_child_get_stdout (NemoLaunchWin32Child *child)
+{
+	return child->out;
+}
+
+/* Returns: (transfer none) */
+GInputStream *
+nemo_launch_win32_child_get_stderr (NemoLaunchWin32Child *child)
+{
+	return child->err;
+}
+
+void
+nemo_launch_win32_child_force_exit (NemoLaunchWin32Child *child)
+{
+	if (!child->waited) {
+		TerminateProcess (child->process, 1);
+	}
+}
+
+gint
+nemo_launch_win32_child_wait (NemoLaunchWin32Child *child)
+{
+	if (!child->waited) {
+		WaitForSingleObject (child->process, INFINITE);
+		if (!GetExitCodeProcess (child->process, &child->code)) {
+			child->code = 1;
+		}
+		child->waited = TRUE;
+	}
+
+	return (gint) child->code;
+}
+
+void
+nemo_launch_win32_child_free (NemoLaunchWin32Child *child)
+{
+	if (child == NULL) {
+		return;
+	}
+
+	g_clear_object (&child->out);
+	g_clear_object (&child->err);
+	CloseHandle (child->process);
+	g_free (child);
 }

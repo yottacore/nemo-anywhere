@@ -25,6 +25,7 @@
 #include "nemo-search-engine-advanced.h"
 #include "nemo-global-preferences.h"
 #include "nemo-column-utilities.h"
+#include "nemo-tool-run.h"
 
 #include <limits.h>
 #include <stdlib.h>
@@ -745,10 +746,10 @@ send_batch (SearchThreadData *data)
 static GInputStream *
 get_stream_from_helper (SearchHelper *helper,
                         GFile        *file,
-                        GSubprocess **proc,
+                        NemoToolRun **proc,
                         GError      **error)
 {
-    GSubprocess *helper_proc;
+    NemoToolRun *helper_proc;
     GSubprocessFlags flags;
     GInputStream *stream;
     GString *command_line;
@@ -796,12 +797,12 @@ get_stream_from_helper (SearchHelper *helper,
         flags |= G_SUBPROCESS_FLAGS_STDERR_SILENCE;
     }
 
-    helper_proc = g_subprocess_newv ((const gchar * const *) argv, flags, error);
+    helper_proc = nemo_tool_run_start ((const gchar * const *) argv, NULL, flags, error);
 
     stream = NULL;
 
     if (helper_proc != NULL) {
-        stream = g_subprocess_get_stdout_pipe (helper_proc);
+        stream = nemo_tool_run_get_stdout (helper_proc);
         *proc = helper_proc;
     }
 
@@ -873,7 +874,7 @@ load_contents (SearchThreadData *data,
                GError          **error)
 {
     // TODO: Use flock/mmap for local files?
-    GSubprocess *helper_proc;
+    NemoToolRun *helper_proc;
     GInputStream *stream = NULL;
     GString *str;
 
@@ -915,12 +916,10 @@ load_contents (SearchThreadData *data,
                           data->cancellable,
                           *error == NULL ? error : NULL);
 
-    // GSubprocess owns the input stream for its STDOUT, but we own it for the text/plain stream.
+    // The run owns the input stream for its STDOUT, but we own it for the text/plain stream.
     if (helper_proc != NULL) {
-        g_subprocess_wait (helper_proc,
-                           NULL,
-                           *error == NULL ? error : NULL);
-        g_object_unref (helper_proc);
+        nemo_tool_run_wait (helper_proc);
+        nemo_tool_run_free (helper_proc);
     } else {
         g_object_unref (stream);
     }
