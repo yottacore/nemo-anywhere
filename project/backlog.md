@@ -153,28 +153,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: rjhbbg9n and rhd69rjr fail before the fix, in every case that names a share, and pass after, on Linux. With only the action change taken out, its case alone fails. The full Linux suite passed 170 of 170. The Windows cross build is clean, and rhtwm2c8 and rhd69rjr pass under wine. Lint is clean.
 	- Verified on sharefollow: rjhbbg9n fails with each change taken out on its own (listing, folder check, mount point, thumbnails), only in that change's cases, and passes with all in. rhtwm2c8 fails with the folder check taken out and passes with it, under wine. The full Linux suite passed 171 of 171. The Windows cross build is clean, and its window comes up under wine. Lint is clean.
 
-- Code review 20260928.
-	- ID: 2026092813381400
-	- Type: Task
-	- Status: Started
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Requirements:
-		- Everything changed from 20260917 to 20260927, reviewed or not, plus the ground the 20260919 round did not reach where it changed since.
-		- Items 1 to 45 below carry this ID as their parent. Technical detail is in the private notes under the same numbers.
-	- Progress log:
-		- 20260928-133814: Filed 33 defects and 12 enhancements. Of the defects, 4 are regressions or missed twins of an earlier fix (items 4, 12, 21, 22), item 15 reopens three closures, and the rest are new ground. 19 were reproduced, some only in part. The others were only read, and each says so.
-	- Decisions:
-		- Not release-ready. Items 1, 3, 5, 6, 7 and 16 give a wrong result with no error, or change files the user did not ask to change.
-		- Handlers that outlive their widget have come back a third time (20260919 items 3 and 10, now item 22). Per the fix rules, that class wants a table in design.md.
-		- Decided against: a same-size, same-time twin showing another file's picture. Already recorded as designed.
-		- Decided against: shortcut reads on the main thread when opening one, and an edited shortcut losing its item ID list. Both recorded as known gaps.
-		- Decided against: the archive password showing in the process list. design.md says so.
-		- Decided against: a small copy leaving a partial file on a failed write. GLib's own copy does the same.
-		- Decided against: Escape not restoring the selection, Ctrl+Shift+T, and Control kept for F1, tab keys, Ctrl+H and Ctrl+M on macOS. All settled earlier.
-		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
-	- Test case: none, review round.
-
 - Two tests fail on the release build made in the jammy image.
 	- ID: 2026100520071433
 	- Type: Bug
@@ -243,6 +221,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A FreeBSD build from the release cut, handed to the local cut like any build done elsewhere.
 		- Packed so `install.bash` can fetch it on BSD, which it already expects as a `-bsd-` file.
 		- A `pkg` file or a port, so the dependencies come with it. Which one is open.
+	- Decisions:
+		- 20261006: a `pkg` file, made with `pkg create` from the release build and installed with `pkg add`, with the dependencies in its manifest. A port can be its own item later. This was taken as the recommended answer when the question timed out on 20261006.
 	- Test case: none yet, not started.
 
 - FreeBSD in the pipeline.
@@ -322,6 +302,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A store choice the writer can't do falls back to Ignore.
 		- These replace the store links and follow links options and their remembered values. Written in the core.
 		- Open: whether the old remembered values carry over to the new choices.
+	- Decisions:
+		- 20261006: old remembered values map over. Store links on becomes Store as symlinks, follow links on becomes Follow, anything else Ignore. The old keys are dropped once read. This was taken as the recommended answer when the question timed out on 20261006.
 	- Estimated effort: Avg
 	- Test case: new core test cases for the junction default table and the fall back to Ignore. rhae85g0, Archive settings test, for the remembered choices. IDs when written.
 
@@ -379,6 +361,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Reports changed totals through a callback, at most every 0.25 s.
 		- Cancel stops it and frees the list and the totals. Written in the core.
 		- Open: whether the scan may follow a link onto a network share before OK, given the share rule.
+	- Decisions:
+		- 20261006: the scan behind the live totals never follows a link onto a share before OK. The total says it leaves that out. OK is the user action, so the job's own pre-scan follows it. This was taken as the recommended answer when the question timed out on 20261006.
 	- Estimated effort: High
 	- Test case: new core test cases on a scratch tree with folder and file links, a loop, a link that leads nowhere, and an option changed mid-scan. Junctions on Windows. IDs when written.
 
@@ -537,6 +521,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Each preset has its use in parentheses, such as "4,095 MiB (max FAT32 size)".
 		- A preset with its note reads as its size, and a typed size reads as before.
 		- Open: today's list has no 4,095 MiB entry, and the full list of sizes and notes isn't given.
+	- Decisions:
+		- 20261006: the list is 25 MiB (email), 100 MiB (upload limits), 700 MiB (CD), 2 GiB (old 32-bit tools), 4,095 MiB (max FAT32 size), 4,480 MiB (DVD), 8,140 MiB (dual-layer DVD) and 23 GiB (Blu-ray). This was taken as the recommended answer when the question timed out on 20261006.
 	- Estimated effort: Low
 	- Test case: rev86z08, Archive options test, each preset reads back as its size. rhtmbdmj for the list.
 
@@ -2792,6 +2778,30 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: a pipeline stage with nothing on screen. rjfgk2mp covers the stage, and rjgw21aw and rh3nba2g cover the option parse it changed.
 	- Closed: 20261005-080909
 
+- Code review 20260928.
+	- ID: 2026092813381400
+	- Type: Task
+	- Status: Done
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Requirements:
+		- Everything changed from 20260917 to 20260927, reviewed or not, plus the ground the 20260919 round did not reach where it changed since.
+		- Items 1 to 45 below carry this ID as their parent. Technical detail is in the private notes under the same numbers.
+	- Progress log:
+		- 20260928-133814: Filed 33 defects and 12 enhancements. Of the defects, 4 are regressions or missed twins of an earlier fix (items 4, 12, 21, 22), item 15 reopens three closures, and the rest are new ground. 19 were reproduced, some only in part. The others were only read, and each says so.
+	- Decisions:
+		- Not release-ready. Items 1, 3, 5, 6, 7 and 16 give a wrong result with no error, or change files the user did not ask to change.
+		- Handlers that outlive their widget have come back a third time (20260919 items 3 and 10, now item 22). Per the fix rules, that class wants a table in design.md.
+		- Decided against: a same-size, same-time twin showing another file's picture. Already recorded as designed.
+		- Decided against: shortcut reads on the main thread when opening one, and an edited shortcut losing its item ID list. Both recorded as known gaps.
+		- Decided against: the archive password showing in the process list. design.md says so.
+		- Decided against: a small copy leaving a partial file on a failed write. GLib's own copy does the same.
+		- Decided against: Escape not restoring the selection, Ctrl+Shift+T, and Control kept for F1, tab keys, Ctrl+H and Ctrl+M on macOS. All settled earlier.
+		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
+	- Test case: none, review round.
+	- Acceptance signoff: Self-closed: all 45 items under it are Done.
+	- Closed: 20261006-165500
+
 ## Old format
 
 ### Bugs
@@ -2828,15 +2838,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note 20261005: the test suite passes 160 of 171 on the arm64 release build. One failure belongs to arm64: a crash report after a call through a null pointer keeps too few frames, since that stack is only recovered on x86_64. Most of the rest are time limits the slow box misses, and 2 fail on the x86_64 release build too.
 	- Note 20261005: left for later: calling it from the pipeline, and arm64 `.deb` and `.rpm` packages. It goes behind `--include-arm`, per the note above, since it takes an hour.
 	- Test case: rhtrxr81 has both installers fetch the arm64 build under the name the release lanes give it, on either box. rjcma0t3 checks the arm64 package sources are pinned too.
-
-- 🛠️ Target: BSD
-	- Opened: 20260730-185314
-	- Done: 20261005. Builds on FreeBSD 15.1 with clang, with no warnings under `-Werror`. `--version` answers, a window comes up, and the suite passes there: 157 pass, 14 skip, none fail. Dependencies and steps are in design.md, "Building on FreeBSD".
-	- Done: 20261005. Fixed for FreeBSD: the program finding its own path, which new windows and the data dirs depend on; the crash reporter taking a sent signal for a fault, and its stack after a bad jump; and translations being switched off at setup.
-	- Done: 20261005. The 7 tests that drive the program through a preloaded library now run on FreeBSD too, and so do the tests that need a display to themselves.
-	- Note: 20261005. Skipped on FreeBSD: the 11 leak tests and the allocation count, which read glibc's heap, the checksum attribute test, which found no extended attributes on the temp dir, and the link move test, which needs a second file system.
-	- Note: 20261005. Left as their own items: a FreeBSD package `2026100517134081`, FreeBSD in the pipeline `2026100517134118`, and BMP and other thumbnails there `2026100517134043`.
-	- Test case: the existing suite, run on FreeBSD. rg3wt7d8, rgahvdsr, rhtq57n4, rge1srj8, rg3wt7d9, rhmr6qgr, rhf905br and rjffcm7d failed there before the fixes adn pass after. No new test.
 
 - 🔘 Target: macOS
 	- Opened: 20260730-185314
@@ -4735,6 +4736,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: none, no check yet that each icon name exists in the icon themes.
 
 #### Done - Features and enhancements
+
+- ✅ Target: BSD
+	- Opened: 20260730-185314
+	- Done: 20261005. Builds on FreeBSD 15.1 with clang, with no warnings under `-Werror`. `--version` answers, a window comes up, and the suite passes there: 157 pass, 14 skip, none fail. Dependencies and steps are in design.md, "Building on FreeBSD".
+	- Done: 20261005. Fixed for FreeBSD: the program finding its own path, which new windows and the data dirs depend on; the crash reporter taking a sent signal for a fault, and its stack after a bad jump; and translations being switched off at setup.
+	- Done: 20261005. The 7 tests that drive the program through a preloaded library now run on FreeBSD too, and so do the tests that need a display to themselves.
+	- Note: 20261005. Skipped on FreeBSD: the 11 leak tests and the allocation count, which read glibc's heap, the checksum attribute test, which found no extended attributes on the temp dir, and the link move test, which needs a second file system.
+	- Note: 20261005. Left as their own items: a FreeBSD package `2026100517134081`, FreeBSD in the pipeline `2026100517134118`, and BMP and other thumbnails there `2026100517134043`.
+	- Test case: the existing suite, run on FreeBSD. rg3wt7d8, rgahvdsr, rhtq57n4, rge1srj8, rg3wt7d9, rhmr6qgr, rhf905br and rjffcm7d failed there before the fixes adn pass after. No new test.
+	- Done: 20261006. What is left is in its own items, named above.
+	- Closed: 20261006-165500
 
 - ✅ Installers: architecture always detected, a version option, and a stable install that still works before any stable release exists.
 	- Opened: 20260919-131209
