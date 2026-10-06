@@ -33,35 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- On Windows, a link drop moves the files instead of opening Make link.
-	- ID: 2026100610503900
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The Linux suite passed 171 of 171 on 20261006 on the merged tree, and the Windows cross build was clean.
-	- Needs external testing: done 20261006 on vm925w, as in Verified.
-	- Priority|Severity: Avg
-	- Opened: 20261006-105039
-	- Opened by: real-Windows validation, old-format item
-	- Related IDs: old-format items "Real-Windows validation" and the Alt drop that opens Make link
-	- Target OS: Windows
-	- Steps to reproduce: in a folder holding a file and a folder, drag the file onto the folder with Ctrl+Shift held. Again with Alt held, and again with the right button.
-	- Incorrect behavior: Ctrl+Shift moves the file, in the list and icon views; the move question of the test guard shows "Move: 1 item". Alt moves it in the list view and does nothing in the icon view, with no drop menu. A right-button drag does nothing. Ctrl alone copies, as it should.
-	- Expected behavior: Ctrl+Shift opens Make link for the drop. Alt, or the right button, opens the drop menu, whose "Link here..." opens Make link, as the Done item for the Alt drop describes.
-	- Reproduced: 20261006 on vm925w at 46f9674, with the native build, in the list and icon views.
-	- Possible cause: not looked at. The list view starts its drags with move, copy and link but not ask, so Alt has no menu to ask for there. Why Ctrl+Shift comes through as a move on Windows is open.
-	- Actual cause: Windows offers copy and move for every drop, whatever keys are down, so the app reads the keys itself. It read Ctrl+Shift as nothing, and the drop then moved, as a plain drop on the same drive does. Alt and the right button were not read at all. An ask handed to the toolkit there becomes no drop, so the menu could not have come up anyway. And a right press opened the item menu at once, so a right drag never started.
-	- Decisions:
-		- On Windows the item menu now opens when the right button comes up, as in Explorer, so a right drag can start. A right click on the background still opens its menu at once. A call made without asking.
-		- A drag started with the middle button still does nothing on Windows. Its drag did not always end when the button came up.
-	- Actual fix: Ctrl+Shift makes a link, and Alt or a right drag opens the drop menu, in both views and the side pane. The ask reaches Windows as a copy and comes back out as an ask at the drop. Ctrl and Shift alone are unchanged, and nothing changes off Windows.
-	- Swept: every place a drop target sets or reads the drop action, in the icon view, list view, side pane, tree and tab drops. The side pane's drop menu now offers Link on Windows too. A drop from another program goes through the same code. Not changed: drags out of the side pane and tree, which start with the left button only.
-	- Verified: on vm925w, native build, list and icon views. Ctrl+Shift opens Make link. Alt and a right drag open the drop menu, whose "Link here..." opens Make link and "Move here" moves. Ctrl copies, a plain drag moves, and a right click with no drag opens the item menu. Native gate at b65a25b passed, 147 OK, 0 failed, 11 skipped. After 319bd9b, the drop tests, a right drag, Ctrl+Shift and a plain drag again.
-	- Note: not tried, a drop from Explorer with these keys. Once in about 20 drags the drop had not happened a second after the button came up. A rerun was fine.
-	- Branch: windrop
-	- Commit: 80f2efa, e97485a, 319bd9b
-	- Test case: rjkwtgrm, Drop keys win32 test, Windows only. What each mix of keys and buttons asks for, and that an ask reaches Windows as a copy and comes back as an ask. Fails before the fix and passes after.
-	- Acceptance signoff: wants a look, since the item menu now opens on release on Windows.
-
 - On Windows, a mapped drive that is not answering may stall the side pane or the trash state.
 	- ID: 2026100512334934
 	- Type: Bug
@@ -712,6 +683,37 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. rj043mnp covers it.
 	- Closed: 20261003-112426
+
+- On Windows, a link drop moves the files instead of opening Make link.
+	- ID: 2026100610503900
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The Linux suite passed 171 of 171 on 20261006 on the merged tree, and the Windows cross build was clean.
+	- Needs external testing: done 20261006 on vm925w, as in Verified.
+	- Priority|Severity: Avg
+	- Opened: 20261006-105039
+	- Opened by: real-Windows validation, old-format item
+	- Related IDs: old-format items "Real-Windows validation" and the Alt drop that opens Make link
+	- Target OS: Windows
+	- Steps to reproduce: in a folder holding a file and a folder, drag the file onto the folder with Ctrl+Shift held. Again with Alt held, and again with the right button.
+	- Incorrect behavior: Ctrl+Shift moves the file, in the list and icon views; the move question of the test guard shows "Move: 1 item". Alt moves it in the list view and does nothing in the icon view, with no drop menu. A right-button drag does nothing. Ctrl alone copies, as it should.
+	- Expected behavior: Ctrl+Shift opens Make link for the drop. Alt, or the right button, opens the drop menu, whose "Link here..." opens Make link, as the Done item for the Alt drop describes.
+	- Reproduced: 20261006 on vm925w at 46f9674, with the native build, in the list and icon views.
+	- Possible cause: not looked at. The list view starts its drags with move, copy and link but not ask, so Alt has no menu to ask for there. Why Ctrl+Shift comes through as a move on Windows is open.
+	- Actual cause: Windows offers copy and move for every drop, whatever keys are down, so the app reads the keys itself. It read Ctrl+Shift as nothing, and the drop then moved, as a plain drop on the same drive does. Alt and the right button were not read at all. An ask handed to the toolkit there becomes no drop, so the menu could not have come up anyway. And a right press opened the item menu at once, so a right drag never started.
+	- Decisions:
+		- On Windows the item menu now opens when the right button comes up, as in Explorer, so a right drag can start. A right click on the background still opens its menu at once. A call made without asking.
+		- A drag started with the middle button still does nothing on Windows. Its drag did not always end when the button came up.
+		- 20261006: both of the above were OK'd at signoff.
+	- Actual fix: Ctrl+Shift makes a link, and Alt or a right drag opens the drop menu, in both views and the side pane. The ask reaches Windows as a copy and comes back out as an ask at the drop. Ctrl and Shift alone are unchanged, and nothing changes off Windows.
+	- Swept: every place a drop target sets or reads the drop action, in the icon view, list view, side pane, tree and tab drops. The side pane's drop menu now offers Link on Windows too. A drop from another program goes through the same code. Not changed: drags out of the side pane and tree, which start with the left button only.
+	- Verified: on vm925w, native build, list and icon views. Ctrl+Shift opens Make link. Alt and a right drag open the drop menu, whose "Link here..." opens Make link and "Move here" moves. Ctrl copies, a plain drag moves, and a right click with no drag opens the item menu. Native gate at b65a25b passed, 147 OK, 0 failed, 11 skipped. After 319bd9b, the drop tests, a right drag, Ctrl+Shift and a plain drag again.
+	- Note: not tried, a drop from Explorer with these keys. Once in about 20 drags the drop had not happened a second after the button came up. A rerun was fine.
+	- Branch: windrop
+	- Commit: 80f2efa, e97485a, 319bd9b
+	- Test case: rjkwtgrm, Drop keys win32 test, Windows only. What each mix of keys and buttons asks for, and that an ask reaches Windows as a copy and comes back as an ask. Fails before the fix and passes after.
+	- Acceptance signoff: 20261006, both Decisions rows OK'd.
+	- Closed: 20261006-210000
 
 - On Windows, ImageMagick thumbnails open a console window each, and the packed exe makes none.
 	- ID: 2026100610503901
