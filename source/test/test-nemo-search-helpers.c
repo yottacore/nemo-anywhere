@@ -601,6 +601,21 @@ write_helper_definition (const char *dir, const char *name, const char *helper, 
 	g_free (exe);
 }
 
+static int glib_criticals;
+static int badtry_warnings;
+
+static void
+watch_log (const gchar *domain, GLogLevelFlags level, const gchar *message, gpointer data)
+{
+	if (g_strcmp0 (domain, "GLib") == 0 && (level & G_LOG_LEVEL_CRITICAL)) {
+		glib_criticals++;
+	}
+	if ((level & G_LOG_LEVEL_WARNING) && strstr (message, "badtry.nemo_search_helper") != NULL) {
+		badtry_warnings++;
+	}
+	g_log_default_handler (domain, level, message, data);
+}
+
 /* One word, one file it should turn up. */
 static void
 search_for (const char *word, const char *expected_file)
@@ -650,6 +665,8 @@ static void
 test_engine (const char *data_home)
 {
 	char *dir = g_build_filename (data_home, NEMO_APP_SLUG, "search-helpers", NULL);
+	char *path;
+	GLogFunc old_handler;
 
 	g_mkdir_with_parents (dir, 0700);
 	write_helper_definition (dir, "zip.nemo_search_helper", "mso",
@@ -658,7 +675,18 @@ test_engine (const char *data_home)
 	write_helper_definition (dir, "xls.nemo_search_helper", "xls", "application/vnd.ms-excel;");
 	write_helper_definition (dir, "ppt.nemo_search_helper", "ppt", "application/vnd.ms-powerpoint;");
 	write_helper_definition (dir, "doc.nemo_search_helper", "doc", "application/msword;");
+
+	/* A Windows path with its backslashes not doubled is a bad escape, and
+	   GKeyFile hands back no list at all. That has to skip the helper, not
+	   take it unchecked. */
+	path = g_build_filename (dir, "badtry.nemo_search_helper", NULL);
+	check (g_file_set_contents (path, "[Nemo Search Helper]\nTryExec=C:\\Tools\\nope.exe;\n"
+				    "Exec=nope %s\nMimeType=application/msword;\nPriority=200\n", -1, NULL),
+	       "bad TryExec helper written");
+	g_free (path);
 	g_free (dir);
+
+	old_handler = g_log_set_default_handler (watch_log, NULL);
 
 	search_for ("bravo", "t.docx");
 	search_for ("echo", "t.odt");
@@ -666,6 +694,10 @@ test_engine (const char *data_home)
 	search_for ("juliet", "t.xls");
 	search_for ("mike", "t.ppt");
 	search_for ("november", "t.doc");
+
+	g_log_set_default_handler (old_handler, NULL);
+	check (glib_criticals == 0, "no GLib criticals while loading helpers");
+	check (badtry_warnings > 0, "a helper with an unreadable TryExec is named and skipped");
 }
 
 int

@@ -213,6 +213,15 @@ thumbnailer_load (Thumbnailer *thumb)
     }
 
   thumb->try_exec = g_key_file_get_string (key_file, THUMBNAILER_ENTRY_GROUP, "TryExec", NULL);
+  /* A bad escape, such as a bare backslash in a Windows path, reads as NULL. */
+  if (thumb->try_exec == NULL && g_key_file_has_key (key_file, THUMBNAILER_ENTRY_GROUP, "TryExec", NULL))
+    {
+      g_warning ("Invalid thumbnailer: TryExec could not be read\n");
+      thumbnailer_unref (thumb);
+      g_key_file_free (key_file);
+
+      return NULL;
+    }
   if (thumb->try_exec != NULL)
     {
       gchar *path_to_exec = g_find_program_in_path (thumb->try_exec);
