@@ -26,6 +26,7 @@
 #include "nemo-delete-guard.h"
 #include "nemo-delete-testguard.h"
 #include "nemo-dir-enum.h"
+#include "nemo-drives-win32.h"
 
 #ifdef G_OS_WIN32
 
@@ -362,36 +363,49 @@ refresh_items_locked (void)
 	}
 }
 
-static guint64
-query_bin_count (void)
-{
-	SHQUERYRBINFO info;
-
-	memset (&info, 0, sizeof (info));
-	info.cbSize = sizeof (info);
-	if (SHQueryRecycleBinW (NULL, &info) != S_OK) {
-		return 0;
-	}
-	return (guint64) info.i64NumItems;
-}
-
-/* Count alone misses a change that keeps it the same - one item deleted and
+/* Each local drive's bin in turn. Asking for every bin at once (a NULL root)
+ * takes in mapped drives too, and one that is not answering would hold the
+ * caller, the window's poll included, for the network timeout. Only fixed
+ * drives keep a bin. Wine answers for the whole bin whatever root it is
+ * given, so the sum runs high there; nothing reads more than empty or not
+ * and whether it changed.
+ *
+ * Count alone misses a change that keeps it the same - one item deleted and
  * another recycled between two polls, or an item replaced by a bigger one.
  * Total size moves in those cases; both together are a usable fingerprint. */
 static void
 query_bin_state (guint64 *count, guint64 *size)
 {
-	SHQUERYRBINFO info;
+	DWORD drives = GetLogicalDrives ();
+	int bit;
 
-	memset (&info, 0, sizeof (info));
-	info.cbSize = sizeof (info);
-	if (SHQueryRecycleBinW (NULL, &info) != S_OK) {
-		*count = 0;
-		*size = 0;
-		return;
+	*count = 0;
+	*size = 0;
+	for (bit = 0; bit < 26; bit++) {
+		wchar_t root[4] = { (wchar_t) (L'A' + bit), L':', L'\\', L'\0' };
+		SHQUERYRBINFO info;
+
+		if (!(drives & (1u << bit)) ||
+		    nemo_drive_win32_kind ((char) ('A' + bit)) != NEMO_DRIVE_WIN32_FIXED) {
+			continue;
+		}
+
+		memset (&info, 0, sizeof (info));
+		info.cbSize = sizeof (info);
+		if (SHQueryRecycleBinW (root, &info) == S_OK) {
+			*count += (guint64) info.i64NumItems;
+			*size += (guint64) info.i64Size;
+		}
 	}
-	*count = (guint64) info.i64NumItems;
-	*size = (guint64) info.i64Size;
+}
+
+static guint64
+query_bin_count (void)
+{
+	guint64 count, size;
+
+	query_bin_state (&count, &size);
+	return count;
 }
 
 /* remove the metadata sibling after the backing file leaves the bin:

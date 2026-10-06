@@ -61,14 +61,6 @@
  * folder load (see more_files_callback). Just a paranoia cap - the enumerator
  * advances past each bad entry, so it terminates at end-of-dir on its own. */
 #define DIRECTORY_LOAD_MAX_SKIP 256
-
-/* Following a reparse point means stat'ing whatever it points at, and a link to
- * a share that is not answering costs twenty seconds per entry, with the whole
- * listing stuck behind it. Windows puts the directory bit on the link itself,
- * so the type still comes out right without the trip. */
-#define FILE_INFO_FLAGS G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS
-#else
-#define FILE_INFO_FLAGS G_FILE_QUERY_INFO_NONE
 #endif
 
 /* Keep async. jobs down to this number for all directories. */
@@ -1509,7 +1501,7 @@ new_files_callback (GObject *source_object,
 	directory = nemo_directory_ref (state->directory);
 	
 	/* Queue up the new file. */
-	info = g_file_query_info_finish (G_FILE (source_object), res, NULL);
+	info = nemo_query_listing_info_finish (G_FILE (source_object), res, NULL);
 	if (info != NULL) {
 		directory_load_one (directory, info);
 		g_object_unref (info);
@@ -1542,12 +1534,12 @@ nemo_directory_get_info_for_new_files (NemoDirectory *directory,
 		
 		state->count++;
 		
-		g_file_query_info_async (location,
-					 NEMO_FILE_DEFAULT_ATTRIBUTES,
-					 FILE_INFO_FLAGS,
-					 G_PRIORITY_DEFAULT,
-					 state->cancellable,
-					 new_files_callback, state);
+		nemo_query_listing_info_async (location,
+					       NEMO_FILE_DEFAULT_ATTRIBUTES,
+					       FALSE,
+					       G_PRIORITY_DEFAULT,
+					       state->cancellable,
+					       new_files_callback, state);
 	}
 	
 	directory->details->new_files_in_progress
@@ -2190,13 +2182,12 @@ start_monitoring_file_list (NemoDirectory *directory)
 	
 	directory->details->directory_load_in_progress = state;
 	
-	nemo_enumerate_children_async (directory->details->location,
-					 NEMO_FILE_DEFAULT_ATTRIBUTES,
-					 FILE_INFO_FLAGS,
-					 G_PRIORITY_DEFAULT, /* prio */
-					 state->cancellable,
-					 enumerate_children_callback,
-					 state);
+	nemo_enumerate_listing_async (directory->details->location,
+				      NEMO_FILE_DEFAULT_ATTRIBUTES,
+				      G_PRIORITY_DEFAULT, /* prio */
+				      state->cancellable,
+				      enumerate_children_callback,
+				      state);
 }
 
 /* Stop monitoring the file list if it is being monitored. */
@@ -3344,7 +3335,7 @@ query_info_callback (GObject *source_object,
 	nemo_file_ref (get_info_file);
 
 	error = NULL;
-	info = g_file_query_info_finish (G_FILE (source_object), res, &error);
+	info = nemo_query_listing_info_finish (G_FILE (source_object), res, &error);
 
 #ifdef G_OS_WIN32
 	/* Under wine, GLib's win32 stat fails with G_IO_ERROR_FAILED on paths
@@ -3438,11 +3429,11 @@ file_info_start (NemoDirectory *directory,
 	directory->details->get_info_in_progress = state;
 	
 	location = nemo_file_get_location (file);
-	g_file_query_info_async (location,
-				 NEMO_FILE_DEFAULT_ATTRIBUTES,
-				 FILE_INFO_FLAGS,
-				 G_PRIORITY_DEFAULT,
-				 state->cancellable, query_info_callback, state);
+	nemo_query_listing_info_async (location,
+				       NEMO_FILE_DEFAULT_ATTRIBUTES,
+				       file->details->link_look_wanted,
+				       G_PRIORITY_DEFAULT,
+				       state->cancellable, query_info_callback, state);
 	g_object_unref (location);
 }
 
@@ -4042,7 +4033,7 @@ get_mount_at (GFile *target)
 	GMount *found;
 	
 	monitor = g_volume_monitor_get ();
-	mounts = g_volume_monitor_get_mounts (monitor);
+	mounts = nemo_get_mounts (monitor);
 
 	found = NULL;
 	for (l = mounts; l != NULL; l = l->next) {

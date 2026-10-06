@@ -5383,7 +5383,7 @@ reset_move_copy_to_menu (NemoView *view)
 
         /* add mounts that has no volume (/etc/mtab mounts, ftp, sftp,...) */
         volume_monitor = g_volume_monitor_get ();
-        mounts = g_volume_monitor_get_mounts (volume_monitor);
+        mounts = nemo_get_mounts (volume_monitor);
 
         for (l = mounts; l != NULL; l = l->next) {
             mount = l->data;

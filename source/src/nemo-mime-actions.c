@@ -2117,6 +2117,9 @@ activation_get_activation_uris (ActivateParameters *parameters)
 		}
 
 		if (nemo_file_is_symbolic_link (file)) {
+			/* Opening a link onto a share is the visit, so it is
+			   followed now. */
+			nemo_file_look_at_link (file);
 			nemo_file_invalidate_attributes
 				(file,
 				 NEMO_FILE_ATTRIBUTE_INFO |

@@ -1545,7 +1545,7 @@ create_tree (FMTreeView *view)
 	
 	volume_monitor = g_volume_monitor_get ();
 	view->details->volume_monitor = volume_monitor;
-	mounts = g_volume_monitor_get_mounts (volume_monitor);
+	mounts = nemo_get_mounts (volume_monitor);
 	for (l = mounts; l != NULL; l = l->next) {
 		add_root_for_mount (view, l->data);
 		g_object_unref (l->data);

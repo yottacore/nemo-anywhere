@@ -752,6 +752,9 @@ begin_location_change (NemoWindowSlot        *slot,
         slot->determine_view_file = nemo_file_get (location);
 	g_assert (slot->determine_view_file != NULL);
 
+	/* Going there is the visit, so a link onto a share is followed now. */
+	nemo_file_look_at_link (slot->determine_view_file);
+
 	/* if the currently viewed file is marked gone while loading the new location,
 	 * this ensures that the window isn't destroyed */
         cancel_viewed_file_changed_callback (slot);

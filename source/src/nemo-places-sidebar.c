@@ -32,6 +32,7 @@
 
 #ifdef G_OS_WIN32
 #include <windows.h>
+#include <libnemo-private/nemo-drives-win32.h>
 #endif
 #include <cairo-gobject.h>
 #include <libnemo-private/nemo-favorites.h>
@@ -790,10 +791,7 @@ file_is_win_fixed_drive_root (GFile *file)
     }
 
     path = g_file_get_path (file);
-    {
-        gchar drive_path[4] = { path[0], ':', '\\', '\0' };
-        is_root = (GetDriveTypeA (drive_path) == DRIVE_FIXED);
-    }
+    is_root = nemo_drive_win32_kind (path[0]) == NEMO_DRIVE_WIN32_FIXED;
 
     g_free (path);
     return is_root;
@@ -1025,11 +1023,11 @@ update_places (NemoPlacesSidebar *sidebar)
             }
 
             gchar letter = (gchar) ('A' + bit);
-            gchar drive_path[4] = { letter, ':', '\\', '\0' };
 
             /* Fixed disks are the "roots" here; removable/optical/network keep
-               their normal Devices/Network entry (which carries eject/unmount). */
-            if (GetDriveTypeA (drive_path) != DRIVE_FIXED) {
+               their normal Devices/Network entry (which carries eject/unmount).
+               A mapped drive is known without asking it. */
+            if (nemo_drive_win32_kind (letter) != NEMO_DRIVE_WIN32_FIXED) {
                 continue;
             }
 
@@ -1152,7 +1150,7 @@ update_places (NemoPlacesSidebar *sidebar)
     PlaceInfo *place_info;
 
     /* add mounts that has no volume (/etc/mtab mounts, ftp, sftp,...) */
-    mounts = g_volume_monitor_get_mounts (volume_monitor);
+    mounts = nemo_get_mounts (volume_monitor);
 
     for (l = mounts; l != NULL; l = l->next) {
         mount = l->data;

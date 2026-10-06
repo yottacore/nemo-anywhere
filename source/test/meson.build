@@ -1636,6 +1636,18 @@ if is_windows
   test('rhtwm2c8 Share check does no I/O', share_win32, args: [ 'share' ])
   test('rhtwm2c9 Junction to a missing folder lists', share_win32, args: [ 'dangling' ])
 
+  # Maps a free drive letter for the run, so it waits for nothing else that
+  # lists the drives.
+  test('rjhvmm6f Mapped drive not asked',
+    executable('test-nemo-drives-win32',
+      [ 'test-nemo-drives-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private ],
+    ),
+    args: [],
+    is_parallel: false,
+  )
+
   test('rhtwm2ca Permissions source test',
     executable('test-nemo-perm-source-win32',
       [ 'test-nemo-perm-source-win32.c' ],

@@ -1568,7 +1568,7 @@ setup_file_path_mounted_mount (GFile *location, ButtonData *button_data)
 
     result = FALSE;
     volume_monitor = g_volume_monitor_get ();
-    mounts = g_volume_monitor_get_mounts (volume_monitor);
+    mounts = nemo_get_mounts (volume_monitor);
     for (l = mounts; l != NULL; l = l->next) {
         mount = l->data;
         if (g_mount_is_shadowed (mount)) {

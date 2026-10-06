@@ -448,6 +448,8 @@ gboolean                nemo_file_matches_uri                       (NemoFile   
 /* Is the file local? */
 gboolean                nemo_file_is_local                          (NemoFile                   *file);
 gboolean                nemo_file_is_on_a_share                     (NemoFile                   *file);
+void                    nemo_file_look_at_link                      (NemoFile                   *file);
+gboolean                nemo_file_link_is_unfollowed                (NemoFile                   *file);
 
 /* Comparing two file objects for sorting */
 NemoFileSortType    nemo_file_get_default_sort_type             (NemoFile                   *file,
