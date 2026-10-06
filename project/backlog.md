@@ -179,6 +179,40 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Possible cause: not looked at. The jammy image has older GLib and GTK, and the release build has LTO on.
 	- Test case: rjbkzwe7 and rhe0xz32 themselves.
 
+- On Windows, a link drop moves the files instead of opening Make link.
+	- ID: 2026100610503900
+	- Type: Bug
+	- Status: Queued
+	- Needs external testing: a Windows box with a desktop session.
+	- Priority|Severity: Avg
+	- Opened: 20261006-105039
+	- Opened by: real-Windows validation, old-format item
+	- Related IDs: old-format items "Real-Windows validation" and the Alt drop that opens Make link
+	- Target OS: Windows
+	- Steps to reproduce: in a folder holding a file and a folder, drag the file onto the folder with Ctrl+Shift held. Again with Alt held, and again with the right button.
+	- Incorrect behavior: Ctrl+Shift moves the file, in the list and icon views; the move question of the test guard shows "Move: 1 item". Alt moves it in the list view and does nothing in the icon view, with no drop menu. A right-button drag does nothing. Ctrl alone copies, as it should.
+	- Expected behavior: Ctrl+Shift opens Make link for the drop. Alt, or the right button, opens the drop menu, whose "Link here..." opens Make link, as the Done item for the Alt drop describes.
+	- Reproduced: 20261006 on vm925w at 46f9674, with the native build, in the list and icon views.
+	- Possible cause: not looked at. The list view starts its drags with move, copy and link but not ask, so Alt has no menu to ask for there. Why Ctrl+Shift comes through as a move on Windows is open.
+	- Test case: none yet, not started.
+
+- On Windows, ImageMagick thumbnails open a console window each, and the packed exe makes none.
+	- ID: 2026100610503901
+	- Type: Bug
+	- Status: Queued
+	- Needs external testing: a Windows box with ImageMagick on the PATH.
+	- Priority|Severity: Avg
+	- Opened: 20261006-105039
+	- Opened by: real-Windows validation, old-format item
+	- Related IDs: old-format item "Real-Windows validation"
+	- Target OS: Windows
+	- Steps to reproduce: with ImageMagick 7 installed, open a folder of TGA, PCX, QOI, DDS, JPEG 2000 and SGI pictures in the icon view. Once with the native build, once with the packed exe.
+	- Incorrect behavior: the native build makes all six thumbnails, but a console window opens and closes for each one. With Windows Terminal as the default terminal that is a Terminal window each time. The packed exe never starts ImageMagick, and the pictures keep their plain icons.
+	- Expected behavior: thumbnails from both, and no window but the app's own.
+	- Reproduced: 20261006 on vm925w at 46f9674, ImageMagick 7.1.2. 6 consoles and 6 ImageMagick runs from the native build, none of either from the packed exe.
+	- Possible cause: read only. `nemo-magick.c` starts ImageMagick through GSubprocess, not `nemo-launch-win32.c`, so nothing hides the console. In the packed exe GLib's spawn helper sits inside the packed file system, where it cannot run.
+	- Test case: none yet, not started. rhg8y5f0 and the ImageMagick case of rjffcm7d pass on the native build, since neither looks for a window or runs the packed exe.
+
 - On arm64 a crash report after a call through a null pointer keeps too few frames.
 	- ID: 2026100520071434
 	- Type: Bug
@@ -234,6 +268,40 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: the drive root bookmark reads `\` and has the plain outline folder icon. The bookmarks file is written with no labels.
 	- Expected behavior: `C:\` with the blue folder icon, as when the first folder is on local disk. Then the file has `file:///C:/ C:\` and the other labels.
 	- Reproduced: 20261006 on vm925w at 46f9674, starting on a mapped drive and on a UNC path. Starting on a local folder gives the right label and icon.
+	- Test case: none yet, not started.
+
+- The dogfood launcher's Desktop step fails when none of the shortcut folders exist.
+	- ID: 2026100610503902
+	- Type: Bug
+	- Status: Queued
+	- Needs external testing: a Windows box.
+	- Priority|Severity: Low
+	- Opened: 20261006-105039
+	- Opened by: real-Windows validation, old-format item
+	- Related IDs: old-format item "Real-Windows validation"
+	- Target OS: Windows
+	- Steps to reproduce: run `n8runfm.ps1 --no-admin --install-only` with a profile that has no Start Menu folder, where a deployed `runfm` is found and no shortcut to the app exists yet.
+	- Incorrect behavior: the Desktop step stops on "Cannot index into a null array" at the line that names the new shortcut. The run goes on, and nothing is written.
+	- Expected behavior: it says there is nowhere to put a shortcut, or makes the Start Menu folder, and goes on.
+	- Reproduced: 20261006 on vm925w at 46f9674, with a profile that has no Start Menu folder. A real profile always has one, so this is unlikely outside a test.
+	- Possible cause: `fRefreshShortcuts` uses the first folder in its list without checking the list has one.
+	- Test case: none yet, not started.
+
+- In the native Windows gate the ImageMagick thumbnail test always skips.
+	- ID: 2026100610503903
+	- Type: Bug
+	- Status: Queued
+	- Needs external testing: a Windows box with ImageMagick.
+	- Priority|Severity: Low
+	- Opened: 20261006-105039
+	- Opened by: real-Windows validation, old-format item
+	- Related IDs: 2026100610503901
+	- Target OS: Windows
+	- Steps to reproduce: install ImageMagick, so `magick` is on the Windows PATH, then run `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
+	- Incorrect behavior: rhg8y5f0 skips with "no ImageMagick that writes JPEG 2000". The MSYS2 login shell the tests run under drops the Windows PATH.
+	- Expected behavior: the test finds ImageMagick when the box has it. It passes when run with the Windows PATH kept.
+	- Reproduced: 20261006 on vm925w at 46f9674.
+	- Possible cause: `MSYS2_PATH_TYPE` is not set to `inherit` for the test run, so only the MSYS2 and system folders are on the PATH.
 	- Test case: none yet, not started.
 
 - A FreeBSD package.
@@ -2882,6 +2950,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: the Make link dialog, junctions and hardlinks made from it, and the junction job test have only been cross-built.
 	- Note: a link drop opening Make link, Ctrl+Shift+T, and folder shortcuts sorting with folders have only been cross-built.
 	- Note: ImageMagick thumbnails have not run on Windows. Things to see there: no console window flashes up, and the packed exe's file hooks, which every program it starts inherits, do not upset `magick.exe`.
+	- Verified 20261006 on vm925w: a folder junction moves to the second fixed drive as a junction, and the folder it pointed at keeps what it holds (rh5nme6h).
+	- Verified 20261006 on vm925w: the four Windows-only tests from the 20260919 review pass, and each one fails when what it checks is wrong: rfhr0zw0, renz2428, rfmxrdpg and rgaz5cn8. The last two exit 77 when they cannot run.
+	- Verified 20261006 on vm925w: the dogfood launcher copies a new build in, keeps one the sync layer restamped without copying it again, says so when nothing is new, removes a stale partial copy and leaves a fresh one, retires an old-layout copy, prunes a long pool to its budget with the first build kept, and keeps a version something is running from until it stops. Unelevated it copies the build to the fixed name in place of a symlink. `--no-update` runs what is held. rhtrxr83 passes there too.
+	- Verified 20261006 on vm925w: Make link on a folder offers Junction, with Symlink grayed and the reason given, and makes `target folder - junction`. On a file it offers Hardlink with its warning, asks again before making one, and makes `doc - hardlink.txt` as a second name for the same file. The junction job test rhmye3d3 passes natively.
+	- Verified 20261006 on vm925w: Ctrl+Shift+T on a selected folder opens it in a new tab, on a selected file opens a new tab of the folder in view without opening the file, and with nothing selected opens a new tab of the folder in view.
+	- Verified 20261006 on vm925w: a shortcut to a folder sorts among the folders, and a shortcut to a program among the files.
+	- Verified 20261006 on vm925w: with ImageMagick installed, rhg8y5f0 and the ImageMagick case of rjffcm7d pass natively.
+	- Filed 20261006: a link drop moves the files instead of opening Make link (2026100610503900). ImageMagick thumbnails open a console window each, and the packed exe makes none (2026100610503901). Also 2026100610503902 and 2026100610503903, both Low.
+	- Note 20261006: left here are signing and the UAC prompt, which need a release tag with secrets and a person at the screen.
 	- Test case: the Windows gate runs the suite natively, plus `cicd/win/gui-launch-smoke.ps1`; signing and the UAC prompt have none.
 
 - **Stop here for a next release**.
