@@ -29,7 +29,7 @@
  * counts the windows left over.
  *
  * Needs the built program (argv[1]), test-nemo-tab-move-probe (argv[2]) and a
- * display. Linux only, for the preload. */
+ * display. Linux and FreeBSD only, for the preload. */
 
 #include <config.h>
 
@@ -142,8 +142,8 @@ main (int argc, char *argv[])
 		return 77;
 	}
 
-#ifndef __linux__
-	g_print ("SKIP: the probe is preloaded, which is done on Linux only\n");
+#if !defined (__linux__) && !defined (__FreeBSD__)
+	g_print ("SKIP: the probe is preloaded, which is done on Linux and FreeBSD only\n");
 	return 77;
 #endif
 	test_own_display (argc, argv, "1280x900x24");

@@ -28,7 +28,7 @@
  * it except while a rename is under way, and the end of a rename hands it back.
  *
  * Needs the built program (argv[1]), the probe (argv[2]) and a display. Linux
- * only, since it works by LD_PRELOAD. */
+ * and FreeBSD only, since it works by LD_PRELOAD. */
 
 #include <config.h>
 
@@ -93,8 +93,8 @@ make_folder (const char *root, const char *name)
 int
 main (int argc, char *argv[])
 {
-#ifndef __linux__
-	g_print ("SKIP: drives the program through LD_PRELOAD, which is Linux only here\n");
+#if !defined (__linux__) && !defined (__FreeBSD__)
+	g_print ("SKIP: drives the program through LD_PRELOAD, which is Linux and FreeBSD only here\n");
 	return 77;
 #else
 	char *root, *first, *second, *second_uri, *gtk_config, *bookmarks, *line, *out, *path;

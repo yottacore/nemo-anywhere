@@ -50,6 +50,28 @@ static int finished[COUNT];
 static int finished_count;
 static gboolean counting;
 
+/* BMP, or a PNG with no compression where gdk-pixbuf has no BMP writer, as
+   on FreeBSD. Either is the same size for any picture of the same
+   dimensions. */
+static const char *twin_ext = "bmp";
+
+static gboolean
+can_write_bmp (void)
+{
+	GSList *formats = gdk_pixbuf_get_formats ();
+	GSList *l;
+	gboolean found = FALSE;
+
+	for (l = formats; l != NULL && !found; l = l->next) {
+		g_autofree char *name = gdk_pixbuf_format_get_name (l->data);
+
+		found = g_strcmp0 (name, "bmp") == 0 && gdk_pixbuf_format_is_writable (l->data);
+	}
+	g_slist_free (formats);
+
+	return found;
+}
+
 static void
 file_changed (NemoFile *file, gpointer data)
 {
@@ -249,8 +271,8 @@ red_of (NemoFile *file)
 static void
 test_same_size_and_time (const char *dir_uri)
 {
-	g_autofree char *uri_red = g_strdup_printf ("%s/twin-a.bmp", dir_uri);
-	g_autofree char *uri_blue = g_strdup_printf ("%s/twin-b.bmp", dir_uri);
+	g_autofree char *uri_red = g_strdup_printf ("%s/twin-a.%s", dir_uri, twin_ext);
+	g_autofree char *uri_blue = g_strdup_printf ("%s/twin-b.%s", dir_uri, twin_ext);
 	NemoFile *red = nemo_file_get_by_uri (uri_red);
 	NemoFile *blue = nemo_file_get_by_uri (uri_blue);
 	GList *list;
@@ -318,16 +340,24 @@ main (int argc, char **argv)
 						    G_FILE_QUERY_INFO_NONE, NULL, NULL));
 	}
 
-	/* A BMP is the same size for any picture of the same dimensions. Both
-	   get one time read up front, or a second can tick over between them. */
+	/* Both get one time read up front, or a second can tick over between
+	   them. */
+	if (!can_write_bmp ()) {
+		twin_ext = "png";
+	}
 	twin_time = (guint64) (g_get_real_time () / G_USEC_PER_SEC) - 7200;
 	for (i = 0; i < 2; i++) {
-		g_autofree char *path = g_build_filename (dir, i == 0 ? "twin-a.bmp" : "twin-b.bmp", NULL);
+		g_autofree char *name = g_strdup_printf ("twin-%c.%s", i == 0 ? 'a' : 'b', twin_ext);
+		g_autofree char *path = g_build_filename (dir, name, NULL);
 		g_autoptr (GFile) location = g_file_new_for_path (path);
 		GdkPixbuf *pixbuf = gdk_pixbuf_new (GDK_COLORSPACE_RGB, FALSE, 8, 300, 200);
 
 		gdk_pixbuf_fill (pixbuf, i == 0 ? 0xff0000ff : 0x0000ffff);
-		check (gdk_pixbuf_save (pixbuf, path, "bmp", NULL, NULL));
+		if (strcmp (twin_ext, "bmp") == 0) {
+			check (gdk_pixbuf_save (pixbuf, path, "bmp", NULL, NULL));
+		} else {
+			check (gdk_pixbuf_save (pixbuf, path, "png", NULL, "compression", "0", NULL));
+		}
 		g_object_unref (pixbuf);
 		check (g_file_set_attribute_uint64 (location, G_FILE_ATTRIBUTE_TIME_MODIFIED, twin_time,
 						    G_FILE_QUERY_INFO_NONE, NULL, NULL));

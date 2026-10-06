@@ -40,8 +40,8 @@
  * has to outlive the tab. Freeing the icon view's container used to remove
  * the ones for its captions and label lengths from every other icon view.
  *
- * Runs on an X server of its own, since it types into the window. Linux only,
- * since it works by LD_PRELOAD. */
+ * Runs on an X server of its own, since it types into the window. Linux and
+ * FreeBSD only, since it works by LD_PRELOAD. */
 
 #include <config.h>
 
@@ -573,8 +573,8 @@ out:
 int
 main (int argc, char *argv[])
 {
-#ifndef __linux__
-	g_print ("SKIP: keeps the view through LD_PRELOAD, which is Linux only here\n");
+#if !defined (__linux__) && !defined (__FreeBSD__)
+	g_print ("SKIP: keeps the view through LD_PRELOAD, which is Linux and FreeBSD only here\n");
 	return 77;
 #else
 	int event, error, major, minor;

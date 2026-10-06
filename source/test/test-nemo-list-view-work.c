@@ -33,8 +33,8 @@
  * - The column list and the two theme sizes are kept, not asked per row.
  *
  * The bars and what the counts came to are at the checks below. Needs the built
- * program (argv[1]), the counting module (argv[2]) and a display. Linux only,
- * since it works by LD_PRELOAD. */
+ * program (argv[1]), the counting module (argv[2]) and a display. Linux and
+ * FreeBSD only, since it works by LD_PRELOAD. */
 
 #include <config.h>
 
@@ -227,8 +227,8 @@ print_counts (const char *label, const Counts *c)
 int
 main (int argc, char *argv[])
 {
-#ifndef __linux__
-	g_print ("SKIP: counts through LD_PRELOAD, which is Linux only here\n");
+#if !defined (__linux__) && !defined (__FreeBSD__)
+	g_print ("SKIP: counts through LD_PRELOAD, which is Linux and FreeBSD only here\n");
 	return 77;
 #else
 	Counts off, on;

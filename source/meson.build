@@ -274,7 +274,9 @@ conf.set10('ENABLE_EMPTY_VIEW', enableEmptyView)
 conf.set_quoted('GETTEXT_PACKAGE', appSlug)
 conf.set_quoted('LOCALE_DIR',  join_paths(get_option('prefix'), get_option('localedir')))
 conf.set_quoted('LOCALEDIR',   join_paths(get_option('prefix'), get_option('localedir')))
-conf.set('ENABLE_NLS', cc.has_header('libintl.h'))
+# glib's own flags, since libintl.h is outside the compiler's default path on
+# the BSDs, and glib/gi18n.h reaches it that way anyhow.
+conf.set('ENABLE_NLS', cc.has_header('libintl.h', dependencies: glib))
 conf.set('HAVE_GETTEXT', true)
 conf.set('HAVE_LOCALE_H', cc.has_header('locale.h'))
 

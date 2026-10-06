@@ -27,7 +27,8 @@
  * test-nemo-icon-atk-probe preloaded to ask and measure.
  *
  * Needs the built program (argv[1]), the probe (argv[2]) and a display. Runs
- * on an X server of its own. Linux only, since it works by LD_PRELOAD. */
+ * on an X server of its own. Linux and FreeBSD only, since it works by
+ * LD_PRELOAD. */
 
 #include <config.h>
 
@@ -179,8 +180,8 @@ out:
 int
 main (int argc, char *argv[])
 {
-#ifndef __linux__
-	g_print ("SKIP: drives the program through LD_PRELOAD, which is Linux only here\n");
+#if !defined (__linux__) && !defined (__FreeBSD__)
+	g_print ("SKIP: drives the program through LD_PRELOAD, which is Linux and FreeBSD only here\n");
 	return 77;
 #else
 	if (argc < 3) {

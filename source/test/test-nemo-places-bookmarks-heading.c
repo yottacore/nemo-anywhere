@@ -30,7 +30,8 @@
  * with test-nemo-places-bookmarks-heading-probe (argv[2]) preloaded to read
  * Places. Once the program has saved its settings, the file is rewritten the
  * way a person would, with that line gone and Desktop turned off so the probe
- * can tell the edit was read. Linux only, since it works by LD_PRELOAD. */
+ * can tell the edit was read. Linux and FreeBSD only, since it works by
+ * LD_PRELOAD. */
 
 #include <config.h>
 
@@ -103,10 +104,10 @@ hand_edit (const char *path, const char *text)
 int
 main (int argc, char *argv[])
 {
-#ifndef __linux__
+#if !defined (__linux__) && !defined (__FreeBSD__)
 	(void) argc;
 	(void) argv;
-	g_print ("SKIP: drives the program through LD_PRELOAD, which is Linux only here\n");
+	g_print ("SKIP: drives the program through LD_PRELOAD, which is Linux and FreeBSD only here\n");
 	return 77;
 #else
 	char *root, *home, *out, *settings, *path;
