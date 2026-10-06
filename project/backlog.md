@@ -33,31 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- On Windows the gate says the build is not set up with `-Werror` when it is.
-	- ID: 2026100518100000
-	- Type: Bug
-	- Status: Done
-	- Needs external testing: done 20261006 on vm925w at 46f9674. `pwsh cicd/cicd-win.ps1 -Gate -Yes` passed, with the build dir's flags quoted as `"-Werror"`. Native suite 144 OK, 12 skipped, 0 failed.
-	- Priority|Severity: High
-	- Opened: 20261005-181000
-	- Opened by: native gate run for 2026092813381434
-	- Related IDs: 2026092813381434
-	- Target OS: Windows
-	- Steps to reproduce: run `pwsh cicd/cicd-win.ps1 -Gate -Yes` on a Windows box with a fresh build dir.
-	- Incorrect behavior: `check-werror: cicd/artifacts/build-win does not build with -Werror`, exit 4, before anything compiles. It stops the gate, the pre-push hook on Windows and the Windows dogfood stage.
-	- Expected behavior: the check passes when the build dir was set up with `-Dwerror=true`.
-	- Reproduced: 20261005 on vm925w at 9aba9d4.
-	- Possible cause: meson quotes each flag in `build.ninja` on Windows (`"-Werror"`), and `check-werror.bash` only matches a bare `-Werror`. Test rjh7qnxw never reads a Windows `build.ninja`.
-	- Actual cause: as above. On Windows meson writes every argument in `build.ninja` inside double quotes, so `-Werror` is there as `"-Werror"`, and the check only took the bare form.
-	- Actual fix: the check takes `-Werror` bare or as one whole quoted argument. `"-Werror=address"` and a quoted argument that only starts with `-Werror` still fail.
-	- Swept: every script that reads `build.ninja` or other meson output. Only `check-werror.bash` matched a flag as a whole word. The LTO checks in `release-setup.bash` and `test-release-setup.bash`, and the sanitizer and fuzz lane checks, match a substring, so a quote around the flag does not change them, and all of them run on Linux only. `check-win-build-flags.bash` reads the lanes' own meson setup lines, not the build dir. The hosted `release-win.yml` reads nothing back.
-	- Branch: werrq
-	- Test case: rjh7qnxw. It gained Windows-style build dirs: a quoted `"-Werror"` that has to pass, and a quoted `"-Werror=address"` and a quoted `"-Werror -std=c17"` that have to fail.
-	- Verified: rjh7qnxw failed before the fix, on the quoted `"-Werror"` case, and passes after, under both GNU grep and ugrep. The check passes on the Linux `/build` dir, and on an `ARGS` line quoted by meson's own Windows quoting code, which the old check refuses.
-	- Verified 20261006: the native gate on vm925w passed its werror check and went on to build, test and smoke the app.
-	- Acceptance signoff: Self-closed: a mechanical fix to a check, rjh7qnxw pins it, and the Windows gate it blocked now passes.
-	- Closed: 20261006-102538
-
 - On Windows, a mapped drive that is not answering may stall the side pane or the trash state.
 	- ID: 2026100512334934
 	- Type: Bug
@@ -89,82 +64,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note 20261006: not reproduced on real Windows. rjhvmm6f's glib mode, on GLib's own list, took about 1 s and passed every check. With the dead X: in the desktop session, the shell gave its name in 0.03 s and its icon at once, and the recycle bin query over all drives took 0.04 s. So GLib's list does not wait on a dead mapped drive on vm925w either, and rjhvmm6f does not fail on the old code there. Under wine its glib mode still fails on the name and icon. What the change still gives is Explorer's naming and the network icon.
 	- Note 20261006: vm925w already has real mapped drives Q: and R:. The steps above must use a free letter, or deleting the key afterward removes one of them.
 
-- The app visits network shares on its own.
-	- ID: 2026093010493450
-	- Type: Task
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed 171 of 171 on sharefollow.
-	- Needs external testing: done 20261006 on vm925w at 46f9674, with X: in place of Q:, since the box has its own Q:. Steps as first written:
-		- `meson test` for rhtwm2c8 and rjhvmm6f, then both again with `NEMO_PROBE_DEAD_SHARE=\\192.168.1.<unused>\share`, a fresh last octet each run.
-		- With the dead mapped drive Q: from 2026100512334934's steps: a local folder holding a symlink to `Q:\` lists with no wait and shows no item count for it. Going into Q: itself shows no item counts and no thumbnails, with the default settings.
-	- Opened: 20260930-104934
-	- Opened by: code review 20260928 follow-up
-	- Related IDs: 2026093010493389, 2026092813381408, 2026100112000535, 2026100512334934
-	- Target OS: Linux, Windows, BSD, macOS
-	- Requirements:
-		- The app must never visits a network share on its own. Only something a person does reaches one, such as going to a share or opening a link or shortcut that points at one.
-		- Find each place that touches a share with no such action behind it, and gate it or work from what is on local disk. Icons, sort places, emblems, thumbnails, link targets, free space and the side pane are the first to check.
-		- Asked 20260930, as design.md "Speed, memory and size".
-	- Progress log:
-		- 20261005-123349: audit done and the costly paths fixed, listed under Swept. Two paths need a call and are left as they are:
-			- Question 1: on Linux and the BSDs a folder is listed by following every link in it, to read the type, size and date of what it points at. So a link onto a share that is not answering still holds up the whole folder once, before any of the gated questions. Windows lists links without following them and still gets their type; Linux can't, so a link listed that way has no type until it is looked at. Should a link onto a share be listed without following it, showing as a plain link that sorts with the files until it is opened? Links elsewhere would be looked at as now. Suggested: yes, since it is what the rule asks for.
-			- Question 2: a folder on a Linux network mount, or on a Windows drive letter mapped to a share, works as a local one once someone goes there: item counts, thumbnails, and in a picture folder every picture made ahead. A folder on a UNC path does not, and design.md says a share counts as remote for "Local files only". Should the first two follow the UNC path, so counts and thumbnails there are off by default? Suggested: yes.
-		- 20261005-160000: both answered yes. Still to do.
-		- 20261005-190000: both done on sharefollow, per the Decisions rows. Waiting for the Windows run.
-	- Decisions:
-		- 20261005: the share holding the home folder counts as local, so a home on a network mount keeps its counts, thumbnails, free space bar and bookmark checks.
-		- 20261005: a link onto the same share it sits on is not a visit, since the user is on that share already.
-		- 20261005: a bookmark on a share is taken as there and wears the plain folder icon, never the missing one. A network file system mounted at `/` does not count, or nothing would be local.
-		- 20261005: a link onto a share is listed without following it. It shows as a plain link and sorts with the files until opened. Links elsewhere are looked at as now.
-		- 20261005: a folder on a Linux network mount or a mapped Windows drive counts as a share, like a UNC path, so item counts and thumbnails there are off by default.
-	- Swept: fixed here.
-		- The share check behind every per-file question now covers a link onto a network mount on Linux and the BSDs, and onto a mapped drive on Windows. Read from the mount table and the path, never the share. That gates what already sat behind it: item counts, thumbnails and their checksums, mount and free space lookups per file, the picture folder guess, tree expanders, pictures made ahead, and on Windows shortcut icons and sort places and owner names.
-		- Bookmarks: each one that reads as missing was checked on the window's thread at every rebuild of the side pane. One on a share is not checked.
-		- File cache prune: looked for gone files on mapped drives and network mounts, where a hard mount can hold the pass for good. Now skipped, as a UNC path already was.
-		- Actions: the folder test for each selected file followed links, on the window's thread, at every selection change. One onto a share goes by the type the listing has.
-		- Custom icons and `.desktop` link icons: an icon file on a share was read on the window's thread for the first draw. It stays plain.
-		- Side pane free space: asked every 8 s for a mounted volume on a network file system. That row shows no bar now.
-	- Swept: already gated by earlier items, rechecked. The per-file item count, mount and free space questions, thumbnails through the speed settings, shortcut reads, icons and sort places, the Windows link end check, owner names, the picture folder guess, the tree's look-ahead, pictures made ahead, and the Windows listing not following links.
-	- Swept: checked, no visit without a user action.
-		- Side pane: built-in rows, mounts with no volume (icon by file system type), the network section, and Windows drive rows (fixed drives only).
-		- Tree: a root is not read until opened, and the look-ahead skips roots.
-		- Path bar, window title and the shown folder's monitor: only the folder gone to and the folders above it.
-		- File monitors: only shown folders, the bookmarks file, and the action and template folders.
-		- Crash reporter: reads and writes only its own folder beside the settings.
-		- Startup: opens the folder asked for, or home. There is no session restore.
-		- `.desktop` links read only the link file. The favorites check is an in-memory list. The clipboard reads no files.
-		- Search, typed locations, Properties, deep counts and opening a file are user actions.
-	- Swept: fixed on sharefollow, for the two answered questions.
-		- Off Windows the folder listing no longer follows a link onto a share it is not on. The link is listed as itself, reads as "link", sorts with the files and is never shown broken. Opening it, or going to it, follows it from then on. The same rule holds when one file is read again, such as one a watch says changed or a new one. Links within the same share and links elsewhere are followed as before. Windows already listed links unfollowed.
-		- A folder on a share is on it, on every platform: a network mount on Linux and the BSDs, a mapped drive or a UNC path on Windows. So is a share's mount point seen from the folder above, and a folder reached through a link onto one. The answer is kept per folder and read again when the shares change. The home share is still local.
-		- Thumbnails under "Local files only" now ask the share check, as item counts already did. They only asked whether the folder was native, so a picture behind a link onto a share was not held back.
-	- Swept: left as is.
-		- Questions 1 and 2 above: done, as the bullet before.
-		- Windows: mapped drives get their names and icons from the shell when the drive list is built, and the trash state asks every drive's recycle bin. Filed as 2026100512334934, fixed on sharefollow.
-		- A link onto a share that was opened goes back to a plain link if its folder is listed again, such as on a reload.
-		- A folder reached through a link counts as on the share only while the link's own file is known to the app, which it is when someone went through it.
-		- First run on Windows checks the user's own known folders for the default bookmarks, which may be redirected to a share. Once, and on folders the user owns.
-		- A program an action needs, given by full path, and the templates folder, are set by the user.
-		- A chain of links is placed by its first link only. autofs is not counted, since it fronts local disks as often as shares.
-	- Branch: shareaudit
-	- Commit: 701bb2a
-	- Branch: sharefollow
-	- Commit: cbd3559
-	- Test case: rjhbbg9n, Share visits test, Linux and BSD only. A scratch folder stands in for a network mount, through a test hook on the share check. One case per path: links onto it, item counts, bookmarks, the action folder test and custom icons.
-		- sharefollow added: real links listed from disk, onto the share and not, and one opened; a file, a folder and a picture inside the share; its mount point; a folder reached through a link onto it. Three older checks are commented out with the reason, since a file in a share folder is now on the share.
-	- Test case: rhd69rjr, File cache prune test, a new case: a gone file on a share keeps its row until the share is gone.
-	- Test case: rhtwm2c8, Share check does no I/O, new cases for a link onto a share and one within it, through the same hook. Windows only.
-		- sharefollow added: a file in a folder on the stand-in mapped drive, and the listing's view of a junction into it. Two older checks are commented out with the reason.
-	- Test case: rjhvmm6f, see 2026100512334934.
-	- Test case: none for the side pane free space, since a test cannot make the volume list show a fake share.
-	- Verified: rjhbbg9n and rhd69rjr fail before the fix, in every case that names a share, and pass after, on Linux. With only the action change taken out, its case alone fails. The full Linux suite passed 170 of 170. The Windows cross build is clean, and rhtwm2c8 and rhd69rjr pass under wine. Lint is clean.
-	- Verified on sharefollow: rjhbbg9n fails with each change taken out on its own (listing, folder check, mount point, thumbnails), only in that change's cases, and passes with all in. rhtwm2c8 fails with the folder check taken out and passes with it, under wine. The full Linux suite passed 171 of 171. The Windows cross build is clean, and its window comes up under wine. Lint is clean.
-	- Verified 20261006 on vm925w: rhtwm2c8 and rjhvmm6f pass in the native gate, and again with a share address nothing answers on.
-	- Verified 20261006 on vm925w: with a dead mapped drive X:, a local folder holding a folder symlink to `X:\` listed in about 1 s from launch, and the link shows `--` for its item count.
-	- Verified 20261006 on vm925w: on a live mapped drive, its folders show `--` and its pictures the plain picture icon, with the default settings. The same folder on local disk shows `3 items` and thumbnails. Going into the dead X: itself waits on the share, since that is a user action, so the live drive stood in for it.
-	- Acceptance signoff: Self-closed: both questions were answered and done as answered, the tests pass on Linux and natively on Windows, and the Windows paths were seen on screen.
-	- Closed: 20261006-104500
-
 - Two tests fail on the release build made in the jammy image.
 	- ID: 2026100520071433
 	- Type: Bug
@@ -188,6 +87,63 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: on a fresh jammy release build, x86_64, both failed before the fix and pass after. The new case fails with the old lookup on jammy, on 5 criticals. The jammy release suite passed 169 of 171, with 1 skip (ImageMagick) and rg3wt7d9 timing out under load; it passed alone in 16 s, and in the full run before. The full Linux suite in `nemo-build` passed 171 of 171. rhe0xz32 passes in the Windows cross build under wine. Lint is clean.
 	- Branch: jammytests
 	- Commit: 307c84c
+
+- On arm64 a crash report after a call through a null pointer keeps too few frames.
+	- ID: 2026100520071434
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. The Linux suite passed 171 of 171 on x86_64 on 20261006, on the merged tree, and the Windows cross build was clean.
+	- Needs external testing: rge1srj8 on an arm64 release build, at the next arm64 release run. It was only run on a debug build there.
+	- Priority|Severity: Low
+	- Opened: 20261005-200714
+	- Opened by: arm64 release build
+	- Target OS: Linux arm64
+	- Incorrect behavior: rge1srj8 fails, with fewer than 4 frames in the report.
+	- Reproduced: 20261006, arm64 debug build in the jammy image. rge1srj8 fails alone too.
+	- Possible cause: the stack after a bad jump is only recovered on x86_64, and FreeBSD amd64 since 20261005. On arm64 the return address is in the link register, and nothing reads it.
+	- Actual cause: confirmed. On arm64 a call leaves the return address in x30 and the stack as it was. The step past a bad jump only knew the x86_64 form, so the walk stopped at address 0.
+	- Actual fix: on Linux arm64 the reporter points the interrupted pc at the call, 4 bytes before x30, for the length of the walk, and puts it back after. The x86_64 and FreeBSD amd64 lines are unchanged.
+	- Swept: `nemo-crash.c` is the only place that steps past a bad jump. Windows walks with its own unwinder. FreeBSD arm64 is left out, with no box to try it on.
+	- Verified: rge1srj8 fails before the fix and passes after, on the arm64 debug build. The recovered frame resolves to the null call's line in the test, then `main` and libc.
+	- Branch: armfix
+	- Commit: 7f546d8
+	- Test case: rge1srj8.
+
+- On a slow arm64 box some tests miss their time limits.
+	- ID: 2026100520071435
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. The Linux suite passed 171 of 171 on x86_64 on 20261006, on the merged tree, so the limits held there, and the Windows cross build was clean.
+	- Needs external testing: the suite on an arm64 release build. It was only run on a debug build there.
+	- Priority|Severity: Low
+	- Opened: 20261005-200714
+	- Opened by: arm64 release build
+	- Related IDs: 2026100611482306, 2026100611482436
+	- Target OS: Linux arm64
+	- Incorrect behavior: on the emulated arm64 box, rhg7vh28 and rj9v7n76 take 0.30 to 0.39 s against a 0.25 s limit, and rhr6ggmt gives up on a compress after 60 s. rjefm41d fails even run alone. rjedw75s, rhmr6qgs and rjbpyy28 fail only in the parallel run.
+	- Reproduced: 20261006, arm64 debug build in the jammy image, 4 tests at once and alone. rj04ta3n failed there too.
+	- Possible cause: the box is about 20 times slower than x86_64. Not shown for rjefm41d.
+	- Actual cause: speed for the raw and archive tests. A race the slow box shows for the rest.
+		- rhg7vh28 and rj9v7n76: a looping file costs about 4000 small reads by design. Small seeks and reads are 50 to 100 times slower on the emulated box, plain arithmetic 3 times.
+		- rhr6ggmt: one tar.xz case at the top level, one archive per item, takes about 30 s alone and over 60 s beside other tests.
+		- rjbpyy28: the tar.xz stop takes about a minute alone, and went past the 100 s job limit beside other tests.
+		- rjefm41d: the tree opens its way down to the open folder one listing at a time, and the probe looked at its selection once. 5 runs of 6 alone found none yet; it came 100 to 300 ms later.
+		- rhmr6qgs: a window's title shows a moment before its tab bar. A drop, tear-off or close that came in between was lost, and the test then waited for it. Seen once each.
+		- rj04ta3n: the same late tree selection. Down went from the top of the tree, so the window never reached folder2.
+		- rjedw75s: not speed. Moved to 2026100611482306.
+	- Actual fix:
+		- A test helper, `test_slowness`, times small seeks and reads against a reference just above the dev box's, and is never below 1. The raw loop limit, both archive job limits and the stop time slack are multiplied by it. On the emulated box it came out 50 to 110.
+		- rjefm41d waits for the tree's selection within the step's 10 s.
+		- rhmr6qgs keeps a command until the window has its tab bar.
+		- rj04ta3n takes any move away from the start folder as the sign the tree has the keys. Down in the folder only moves the selection.
+	- Decisions:
+		- Limits scale by the speed the test measures, with no setting to raise them by hand.
+		- The reference is 3 ms, a bit over the dev box's 2 ms, so a busy dev box keeps the limits as written. A call made without asking.
+	- Swept: rjf00qfj uses the same probe's menus command, and it now waits for the tab bar as well. The other step limits in the GUI probes were left alone, since no run showed one too short.
+	- Verified: on the arm64 debug build, 4 tests at once, rhg7vh28, rj9v7n76, rhr6ggmt, rjbpyy28, rjefm41d and rhmr6qgs pass. rj04ta3n passed 3 runs of 3 beside the archive tests. The full suite there, 4 at once: 166 OK, 4 FAIL, 1 skipped, against 12 FAIL before. The 4 left are rjbkzwe7 and rhe0xz32 (2026100520071433), rgahvdsr (2026100611482436) and rjedw75s (2026100611482306).
+	- Branch: armfix
+	- Commit: 7f546d8
+	- Test case: the tests named above.
 
 - On Windows, a link drop moves the files instead of opening Make link.
 	- ID: 2026100610503900
@@ -222,63 +178,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: 20261006 on vm925w at 46f9674, ImageMagick 7.1.2. 6 consoles and 6 ImageMagick runs from the native build, none of either from the packed exe.
 	- Possible cause: read only. `nemo-magick.c` starts ImageMagick through GSubprocess, not `nemo-launch-win32.c`, so nothing hides the console. In the packed exe GLib's spawn helper sits inside the packed file system, where it cannot run.
 	- Test case: none yet, not started. rhg8y5f0 and the ImageMagick case of rjffcm7d pass on the native build, since neither looks for a window or runs the packed exe.
-
-- On arm64 a crash report after a call through a null pointer keeps too few frames.
-	- ID: 2026100520071434
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: Yes. The Linux suite on x86_64 and the Windows cross build. The x86_64 and FreeBSD code is unchanged, but neither was built with this change.
-	- Needs external testing: rge1srj8 on an arm64 release build, at the next arm64 release run. It was only run on a debug build there.
-	- Priority|Severity: Low
-	- Opened: 20261005-200714
-	- Opened by: arm64 release build
-	- Target OS: Linux arm64
-	- Incorrect behavior: rge1srj8 fails, with fewer than 4 frames in the report.
-	- Reproduced: 20261006, arm64 debug build in the jammy image. rge1srj8 fails alone too.
-	- Possible cause: the stack after a bad jump is only recovered on x86_64, and FreeBSD amd64 since 20261005. On arm64 the return address is in the link register, and nothing reads it.
-	- Actual cause: confirmed. On arm64 a call leaves the return address in x30 and the stack as it was. The step past a bad jump only knew the x86_64 form, so the walk stopped at address 0.
-	- Actual fix: on Linux arm64 the reporter points the interrupted pc at the call, 4 bytes before x30, for the length of the walk, and puts it back after. The x86_64 and FreeBSD amd64 lines are unchanged.
-	- Swept: `nemo-crash.c` is the only place that steps past a bad jump. Windows walks with its own unwinder. FreeBSD arm64 is left out, with no box to try it on.
-	- Verified: rge1srj8 fails before the fix and passes after, on the arm64 debug build. The recovered frame resolves to the null call's line in the test, then `main` and libc.
-	- Branch: armfix
-	- Commit: 7f546d8
-	- Test case: rge1srj8.
-
-- On a slow arm64 box some tests miss their time limits.
-	- ID: 2026100520071435
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: Yes. The Linux suite on x86_64 and the Windows cross build, since the test library builds there too. On a normal box the limits should stay as written: the dev box measures about 2 ms against the 3 ms reference, so the factor is 1.
-	- Needs external testing: the suite on an arm64 release build. It was only run on a debug build there.
-	- Priority|Severity: Low
-	- Opened: 20261005-200714
-	- Opened by: arm64 release build
-	- Related IDs: 2026100611482306, 2026100611482436
-	- Target OS: Linux arm64
-	- Incorrect behavior: on the emulated arm64 box, rhg7vh28 and rj9v7n76 take 0.30 to 0.39 s against a 0.25 s limit, and rhr6ggmt gives up on a compress after 60 s. rjefm41d fails even run alone. rjedw75s, rhmr6qgs and rjbpyy28 fail only in the parallel run.
-	- Reproduced: 20261006, arm64 debug build in the jammy image, 4 tests at once and alone. rj04ta3n failed there too.
-	- Possible cause: the box is about 20 times slower than x86_64. Not shown for rjefm41d.
-	- Actual cause: speed for the raw and archive tests. A race the slow box shows for the rest.
-		- rhg7vh28 and rj9v7n76: a looping file costs about 4000 small reads by design. Small seeks and reads are 50 to 100 times slower on the emulated box, plain arithmetic 3 times.
-		- rhr6ggmt: one tar.xz case at the top level, one archive per item, takes about 30 s alone and over 60 s beside other tests.
-		- rjbpyy28: the tar.xz stop takes about a minute alone, and went past the 100 s job limit beside other tests.
-		- rjefm41d: the tree opens its way down to the open folder one listing at a time, and the probe looked at its selection once. 5 runs of 6 alone found none yet; it came 100 to 300 ms later.
-		- rhmr6qgs: a window's title shows a moment before its tab bar. A drop, tear-off or close that came in between was lost, and the test then waited for it. Seen once each.
-		- rj04ta3n: the same late tree selection. Down went from the top of the tree, so the window never reached folder2.
-		- rjedw75s: not speed. Moved to 2026100611482306.
-	- Actual fix:
-		- A test helper, `test_slowness`, times small seeks and reads against a reference just above the dev box's, and is never below 1. The raw loop limit, both archive job limits and the stop time slack are multiplied by it. On the emulated box it came out 50 to 110.
-		- rjefm41d waits for the tree's selection within the step's 10 s.
-		- rhmr6qgs keeps a command until the window has its tab bar.
-		- rj04ta3n takes any move away from the start folder as the sign the tree has the keys. Down in the folder only moves the selection.
-	- Decisions:
-		- Limits scale by the speed the test measures, with no setting to raise them by hand.
-		- The reference is 3 ms, a bit over the dev box's 2 ms, so a busy dev box keeps the limits as written. A call made without asking.
-	- Swept: rjf00qfj uses the same probe's menus command, and it now waits for the tab bar as well. The other step limits in the GUI probes were left alone, since no run showed one too short.
-	- Verified: on the arm64 debug build, 4 tests at once, rhg7vh28, rj9v7n76, rhr6ggmt, rjbpyy28, rjefm41d and rhmr6qgs pass. rj04ta3n passed 3 runs of 3 beside the archive tests. The full suite there, 4 at once: 166 OK, 4 FAIL, 1 skipped, against 12 FAIL before. The 4 left are rjbkzwe7 and rhe0xz32 (2026100520071433), rgahvdsr (2026100611482436) and rjedw75s (2026100611482306).
-	- Branch: armfix
-	- Commit: 7f546d8
-	- Test case: the tests named above.
 
 - On the arm64 box the Places focus test loses its click or its rename.
 	- ID: 2026100611482306
@@ -740,6 +639,31 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- After this the core has no GTK and no nemo types, and its build shows it.
 	- Estimated effort: High
 	- Test case: none new. reww9h2r, reww9h2s and the extract leak test rjbpmcxy stay as they are, and pass before and after.
+
+- On Windows the gate says the build is not set up with `-Werror` when it is.
+	- ID: 2026100518100000
+	- Type: Bug
+	- Status: Done
+	- Needs external testing: done 20261006 on vm925w at 46f9674. `pwsh cicd/cicd-win.ps1 -Gate -Yes` passed, with the build dir's flags quoted as `"-Werror"`. Native suite 144 OK, 12 skipped, 0 failed.
+	- Priority|Severity: High
+	- Opened: 20261005-181000
+	- Opened by: native gate run for 2026092813381434
+	- Related IDs: 2026092813381434
+	- Target OS: Windows
+	- Steps to reproduce: run `pwsh cicd/cicd-win.ps1 -Gate -Yes` on a Windows box with a fresh build dir.
+	- Incorrect behavior: `check-werror: cicd/artifacts/build-win does not build with -Werror`, exit 4, before anything compiles. It stops the gate, the pre-push hook on Windows and the Windows dogfood stage.
+	- Expected behavior: the check passes when the build dir was set up with `-Dwerror=true`.
+	- Reproduced: 20261005 on vm925w at 9aba9d4.
+	- Possible cause: meson quotes each flag in `build.ninja` on Windows (`"-Werror"`), and `check-werror.bash` only matches a bare `-Werror`. Test rjh7qnxw never reads a Windows `build.ninja`.
+	- Actual cause: as above. On Windows meson writes every argument in `build.ninja` inside double quotes, so `-Werror` is there as `"-Werror"`, and the check only took the bare form.
+	- Actual fix: the check takes `-Werror` bare or as one whole quoted argument. `"-Werror=address"` and a quoted argument that only starts with `-Werror` still fail.
+	- Swept: every script that reads `build.ninja` or other meson output. Only `check-werror.bash` matched a flag as a whole word. The LTO checks in `release-setup.bash` and `test-release-setup.bash`, and the sanitizer and fuzz lane checks, match a substring, so a quote around the flag does not change them, and all of them run on Linux only. `check-win-build-flags.bash` reads the lanes' own meson setup lines, not the build dir. The hosted `release-win.yml` reads nothing back.
+	- Branch: werrq
+	- Test case: rjh7qnxw. It gained Windows-style build dirs: a quoted `"-Werror"` that has to pass, and a quoted `"-Werror=address"` and a quoted `"-Werror -std=c17"` that have to fail.
+	- Verified: rjh7qnxw failed before the fix, on the quoted `"-Werror"` case, and passes after, under both GNU grep and ugrep. The check passes on the Linux `/build` dir, and on an `ARGS` line quoted by meson's own Windows quoting code, which the old check refuses.
+	- Verified 20261006: the native gate on vm925w passed its werror check and went on to build, test and smoke the app.
+	- Acceptance signoff: Self-closed: a mechanical fix to a check, rjh7qnxw pins it, and the Windows gate it blocked now passes.
+	- Closed: 20261006-102538
 
 - Code review 20260928 item 2. The tree sidebar crashes on Shift+F10 or the Menu key.
 	- ID: 2026092813381402
@@ -2573,6 +2497,82 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: ef05a4f
 	- Test case: rjbpyy28 Archive stop time test now has a 7z case. A 4 GiB and a 16 GiB file are stopped at their first progress report. Before the fix, the 4 GiB one took 50 s and the 16 GiB one did not end in 100 s. After, both take 0.01 s. rjbw0rkq Stopped 7z leak test, which fails at 82 bytes a round when the close is left out.
 	- Acceptance signoff: waiting. The archive writer's handling of a stop changed again, this time for the 7z.
+
+- The app visits network shares on its own.
+	- ID: 2026093010493450
+	- Type: Task
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed 171 of 171 on sharefollow.
+	- Needs external testing: done 20261006 on vm925w at 46f9674, with X: in place of Q:, since the box has its own Q:. Steps as first written:
+		- `meson test` for rhtwm2c8 and rjhvmm6f, then both again with `NEMO_PROBE_DEAD_SHARE=\\192.168.1.<unused>\share`, a fresh last octet each run.
+		- With the dead mapped drive Q: from 2026100512334934's steps: a local folder holding a symlink to `Q:\` lists with no wait and shows no item count for it. Going into Q: itself shows no item counts and no thumbnails, with the default settings.
+	- Opened: 20260930-104934
+	- Opened by: code review 20260928 follow-up
+	- Related IDs: 2026093010493389, 2026092813381408, 2026100112000535, 2026100512334934
+	- Target OS: Linux, Windows, BSD, macOS
+	- Requirements:
+		- The app must never visits a network share on its own. Only something a person does reaches one, such as going to a share or opening a link or shortcut that points at one.
+		- Find each place that touches a share with no such action behind it, and gate it or work from what is on local disk. Icons, sort places, emblems, thumbnails, link targets, free space and the side pane are the first to check.
+		- Asked 20260930, as design.md "Speed, memory and size".
+	- Progress log:
+		- 20261005-123349: audit done and the costly paths fixed, listed under Swept. Two paths need a call and are left as they are:
+			- Question 1: on Linux and the BSDs a folder is listed by following every link in it, to read the type, size and date of what it points at. So a link onto a share that is not answering still holds up the whole folder once, before any of the gated questions. Windows lists links without following them and still gets their type; Linux can't, so a link listed that way has no type until it is looked at. Should a link onto a share be listed without following it, showing as a plain link that sorts with the files until it is opened? Links elsewhere would be looked at as now. Suggested: yes, since it is what the rule asks for.
+			- Question 2: a folder on a Linux network mount, or on a Windows drive letter mapped to a share, works as a local one once someone goes there: item counts, thumbnails, and in a picture folder every picture made ahead. A folder on a UNC path does not, and design.md says a share counts as remote for "Local files only". Should the first two follow the UNC path, so counts and thumbnails there are off by default? Suggested: yes.
+		- 20261005-160000: both answered yes. Still to do.
+		- 20261005-190000: both done on sharefollow, per the Decisions rows. Waiting for the Windows run.
+	- Decisions:
+		- 20261005: the share holding the home folder counts as local, so a home on a network mount keeps its counts, thumbnails, free space bar and bookmark checks.
+		- 20261005: a link onto the same share it sits on is not a visit, since the user is on that share already.
+		- 20261005: a bookmark on a share is taken as there and wears the plain folder icon, never the missing one. A network file system mounted at `/` does not count, or nothing would be local.
+		- 20261005: a link onto a share is listed without following it. It shows as a plain link and sorts with the files until opened. Links elsewhere are looked at as now.
+		- 20261005: a folder on a Linux network mount or a mapped Windows drive counts as a share, like a UNC path, so item counts and thumbnails there are off by default.
+	- Swept: fixed here.
+		- The share check behind every per-file question now covers a link onto a network mount on Linux and the BSDs, and onto a mapped drive on Windows. Read from the mount table and the path, never the share. That gates what already sat behind it: item counts, thumbnails and their checksums, mount and free space lookups per file, the picture folder guess, tree expanders, pictures made ahead, and on Windows shortcut icons and sort places and owner names.
+		- Bookmarks: each one that reads as missing was checked on the window's thread at every rebuild of the side pane. One on a share is not checked.
+		- File cache prune: looked for gone files on mapped drives and network mounts, where a hard mount can hold the pass for good. Now skipped, as a UNC path already was.
+		- Actions: the folder test for each selected file followed links, on the window's thread, at every selection change. One onto a share goes by the type the listing has.
+		- Custom icons and `.desktop` link icons: an icon file on a share was read on the window's thread for the first draw. It stays plain.
+		- Side pane free space: asked every 8 s for a mounted volume on a network file system. That row shows no bar now.
+	- Swept: already gated by earlier items, rechecked. The per-file item count, mount and free space questions, thumbnails through the speed settings, shortcut reads, icons and sort places, the Windows link end check, owner names, the picture folder guess, the tree's look-ahead, pictures made ahead, and the Windows listing not following links.
+	- Swept: checked, no visit without a user action.
+		- Side pane: built-in rows, mounts with no volume (icon by file system type), the network section, and Windows drive rows (fixed drives only).
+		- Tree: a root is not read until opened, and the look-ahead skips roots.
+		- Path bar, window title and the shown folder's monitor: only the folder gone to and the folders above it.
+		- File monitors: only shown folders, the bookmarks file, and the action and template folders.
+		- Crash reporter: reads and writes only its own folder beside the settings.
+		- Startup: opens the folder asked for, or home. There is no session restore.
+		- `.desktop` links read only the link file. The favorites check is an in-memory list. The clipboard reads no files.
+		- Search, typed locations, Properties, deep counts and opening a file are user actions.
+	- Swept: fixed on sharefollow, for the two answered questions.
+		- Off Windows the folder listing no longer follows a link onto a share it is not on. The link is listed as itself, reads as "link", sorts with the files and is never shown broken. Opening it, or going to it, follows it from then on. The same rule holds when one file is read again, such as one a watch says changed or a new one. Links within the same share and links elsewhere are followed as before. Windows already listed links unfollowed.
+		- A folder on a share is on it, on every platform: a network mount on Linux and the BSDs, a mapped drive or a UNC path on Windows. So is a share's mount point seen from the folder above, and a folder reached through a link onto one. The answer is kept per folder and read again when the shares change. The home share is still local.
+		- Thumbnails under "Local files only" now ask the share check, as item counts already did. They only asked whether the folder was native, so a picture behind a link onto a share was not held back.
+	- Swept: left as is.
+		- Questions 1 and 2 above: done, as the bullet before.
+		- Windows: mapped drives get their names and icons from the shell when the drive list is built, and the trash state asks every drive's recycle bin. Filed as 2026100512334934, fixed on sharefollow.
+		- A link onto a share that was opened goes back to a plain link if its folder is listed again, such as on a reload.
+		- A folder reached through a link counts as on the share only while the link's own file is known to the app, which it is when someone went through it.
+		- First run on Windows checks the user's own known folders for the default bookmarks, which may be redirected to a share. Once, and on folders the user owns.
+		- A program an action needs, given by full path, and the templates folder, are set by the user.
+		- A chain of links is placed by its first link only. autofs is not counted, since it fronts local disks as often as shares.
+	- Branch: shareaudit
+	- Commit: 701bb2a
+	- Branch: sharefollow
+	- Commit: cbd3559
+	- Test case: rjhbbg9n, Share visits test, Linux and BSD only. A scratch folder stands in for a network mount, through a test hook on the share check. One case per path: links onto it, item counts, bookmarks, the action folder test and custom icons.
+		- sharefollow added: real links listed from disk, onto the share and not, and one opened; a file, a folder and a picture inside the share; its mount point; a folder reached through a link onto it. Three older checks are commented out with the reason, since a file in a share folder is now on the share.
+	- Test case: rhd69rjr, File cache prune test, a new case: a gone file on a share keeps its row until the share is gone.
+	- Test case: rhtwm2c8, Share check does no I/O, new cases for a link onto a share and one within it, through the same hook. Windows only.
+		- sharefollow added: a file in a folder on the stand-in mapped drive, and the listing's view of a junction into it. Two older checks are commented out with the reason.
+	- Test case: rjhvmm6f, see 2026100512334934.
+	- Test case: none for the side pane free space, since a test cannot make the volume list show a fake share.
+	- Verified: rjhbbg9n and rhd69rjr fail before the fix, in every case that names a share, and pass after, on Linux. With only the action change taken out, its case alone fails. The full Linux suite passed 170 of 170. The Windows cross build is clean, and rhtwm2c8 and rhd69rjr pass under wine. Lint is clean.
+	- Verified on sharefollow: rjhbbg9n fails with each change taken out on its own (listing, folder check, mount point, thumbnails), only in that change's cases, and passes with all in. rhtwm2c8 fails with the folder check taken out and passes with it, under wine. The full Linux suite passed 171 of 171. The Windows cross build is clean, and its window comes up under wine. Lint is clean.
+	- Verified 20261006 on vm925w: rhtwm2c8 and rjhvmm6f pass in the native gate, and again with a share address nothing answers on.
+	- Verified 20261006 on vm925w: with a dead mapped drive X:, a local folder holding a folder symlink to `X:\` listed in about 1 s from launch, and the link shows `--` for its item count.
+	- Verified 20261006 on vm925w: on a live mapped drive, its folders show `--` and its pictures the plain picture icon, with the default settings. The same folder on local disk shows `3 items` and thumbnails. Going into the dead X: itself waits on the share, since that is a user action, so the live drive stood in for it.
+	- Acceptance signoff: Self-closed: both questions were answered and done as answered, the tests pass on Linux and natively on Windows, and the Windows paths were seen on screen.
+	- Closed: 20261006-104500
 
 - Code review 20260928 item 34. Apply the directives' new C section.
 	- ID: 2026092813381434
