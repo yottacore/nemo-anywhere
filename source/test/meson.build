@@ -1879,6 +1879,16 @@ if is_windows
     timeout: 60
   )
 
+  test('rjmc40ex Thumbnailer type win32 test',
+    executable('test-nemo-thumbnailer-type-win32',
+      [ 'test-nemo-thumbnailer-type-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: [],
+    timeout: 60
+  )
+
   test('rjkwtgrm Drop keys win32 test',
     executable('test-nemo-drop-keys-win32',
       [ 'test-nemo-drop-keys-win32.c' ],
