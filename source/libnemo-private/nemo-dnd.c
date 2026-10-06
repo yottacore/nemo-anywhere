@@ -998,8 +998,8 @@ nemo_drag_status (GdkDragContext *context,
 {
 #ifdef G_OS_WIN32
 	/* The toolkit on Windows turns an ask into no drop at all, so Windows
-	 * never makes the drop and the menu never comes up. It is told copy, the
-	 * one any drag allows, and the ask is kept on the drag. */
+	 * never makes the drop and the menu never comes up. It is told copy, which
+	 * nearly every drag allows, and the ask is kept on the drag. */
 	g_object_set_data (G_OBJECT (context), ASKED_KEY,
 			   GINT_TO_POINTER (action == GDK_ACTION_ASK));
 	if (action == GDK_ACTION_ASK) {

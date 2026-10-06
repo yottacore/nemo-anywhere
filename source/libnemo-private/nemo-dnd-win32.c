@@ -979,8 +979,8 @@ nemo_dnd_win32_enabled (void)
 GdkDragAction
 nemo_dnd_win32_action_for_keys (guint keys)
 {
-	/* A drag with the other buttons always asks, as in Explorer, whatever
-	 * else is held. */
+	/* A right drag always asks, as in Explorer, whatever else is down, and
+	 * a middle one does as on Linux. */
 	if (keys & (MK_RBUTTON | MK_MBUTTON)) {
 		return GDK_ACTION_ASK;
 	}
