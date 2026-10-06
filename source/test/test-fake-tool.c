@@ -25,7 +25,7 @@
  * named after its own exe: whether it was given a console window, how many
  * bytes reached its stdin, its folder and its arguments.
  *
- * Then, as rar ("a" or "x" first): creates the archive it was asked for, says
+ * Then, as rar or unrar ("a" or "x" first): creates the archive it was asked for, says
  * " 40%" on stdout, and with NEMO_FAKE_TOOL_FAIL says why on both outputs and
  * exits 2. As a thumbnailer: writes a 3x2 PNG to its last argument. Anything
  * else prints NEMO_FAKE_TOOL_SAYS. NEMO_FAKE_TOOL_SLEEP makes it hang after
@@ -105,7 +105,7 @@ main (int argc, char *argv[])
 		}
 	}
 
-	if (_stricmp (name, "rar") == 0 && argc > 1 &&
+	if ((_stricmp (name, "rar") == 0 || _stricmp (name, "unrar") == 0) && argc > 1 &&
 	    (strcmp (argv[1], "a") == 0 || strcmp (argv[1], "x") == 0)) {
 		for (i = 2; i < argc && strcmp (argv[1], "a") == 0; i++) {
 			size_t length = strlen (argv[i]);

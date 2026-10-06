@@ -256,16 +256,16 @@ check_extract (void)
 	dest = g_file_new_for_path (out);
 	archives = g_list_append (NULL, archive);
 
-	forget_report ("rar");
+	forget_report ("unrar");
 	job_done = FALSE;
 	nemo_extract_files (archives, dest, NEMO_EXTRACT_HERE, GTK_WINDOW (window), extract_done, NULL);
 	wait_for_job ();
 	g_list_free (archives);
 	g_free (take_messages ());
 
-	check (reported ("rar", "window=0"));
-	check (reported ("rar", "bytes=0"));
-	check (reported ("rar", "arg=x"));
+	check (reported ("unrar", "window=0"));
+	check (reported ("unrar", "bytes=0"));
+	check (reported ("unrar", "arg=x"));
 }
 
 static gboolean search_done;
@@ -378,7 +378,7 @@ write_text (const char *dir, const char *name, const char *text)
 int
 main (int argc, char *argv[])
 {
-	g_autofree char *bin = NULL, *rar = NULL, *converter = NULL, *thumb = NULL;
+	g_autofree char *bin = NULL, *rar = NULL, *unrar = NULL, *converter = NULL, *thumb = NULL;
 	g_autofree char *path = NULL, *dir = NULL, *text = NULL, *files = NULL;
 	NemoProgressInfoManager *manager;
 
@@ -398,6 +398,8 @@ main (int argc, char *argv[])
 	bin = g_build_filename (scratch, "tool bin", NULL);
 	check (g_mkdir (bin, 0755) == 0);
 	rar = place_tool (argv[1], bin, "rar");
+	/* Unpacking looks for this one first, and a real one may be on PATH. */
+	unrar = place_tool (argv[1], bin, "unrar");
 	converter = place_tool (argv[1], bin, "nemo-fake-to-txt");
 	thumb = place_tool (argv[1], bin, "fake-thumb");
 	path = g_strconcat (bin, ";", g_getenv ("PATH"), NULL);
