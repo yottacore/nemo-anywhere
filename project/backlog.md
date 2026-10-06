@@ -33,6 +33,44 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Find mode remembers the column choice and order, and shows more columns by default.
+	- ID: 2026100613285826
+	- Type: Enhancement
+	- Status: Waiting on signoff
+	- Needs local test suite run?: yes, the full Linux suite. The nearby list view, search and config tests passed, the Windows cross build was clean, and rjm2rvjn passed under wine.
+	- Priority|Severity: Avg
+	- Opened: 20261006-132858
+	- Opened by: t00mietum
+	- Related IDs: 2026100613285789
+	- Target OS: All
+	- Requirements:
+		- Before rc.1.
+		- Remember the columns picked, and the order they were dragged into.
+		- Default columns, in this order, and whether each shows by default:
+			- Name: yes
+			- Ext: yes
+			- Type: no
+			- Size: yes
+			- Modified: yes
+			- Other date columns: no
+			- Location: yes
+			- The rest: no
+	- Note: today the defaults are Name and Location only. The picked columns are saved under `search.search-visible-columns`, and only while `remember-folder-settings` is on.
+	- Decisions:
+		- Find mode remembers its columns and their order always, whatever `remember-folder-settings` says, since find results are not a folder. The recommended answer, taken when the question timed out on 20261006.
+		- The existing key stays. It holds the shown columns in their order, so it covers both the picks and the order. Empty means the defaults.
+		- Sort column and direction in find mode still follow `remember-folder-settings`, as before. Not asked for here.
+	- Done:
+		- Find mode reads and saves its columns through one place in `nemo-column-utilities.c`. A pick, a drag, Use default and Reset view all go there in find mode, and no longer touch the window's own column choice.
+		- New defaults as listed. Type and the other two dates are hidden.
+		- A column turned on goes after the shown ones, as in a folder.
+		- The search reads the same key to know whether to count hits. With remembering off a picked Hits column was never saved, so hits were never counted; now they are.
+		- README and design.md "Search" say what find mode keeps.
+	- Verified: with remembering off, find results showed Name, Ext, Size, Date modified and Location. Turning on Type and dragging it before Ext were both saved, and both came back after a restart.
+	- Branch: findfix
+	- Commit: fa73670
+	- Test case: rjm2rvjn (Find mode columns test).
+
 - Two tests fail on the release build made in the jammy image.
 	- ID: 2026100520071433
 	- Type: Bug
@@ -56,6 +94,39 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: on a fresh jammy release build, x86_64, both failed before the fix and pass after. The new case fails with the old lookup on jammy, on 5 criticals. The jammy release suite passed 169 of 171, with 1 skip (ImageMagick) and rg3wt7d9 timing out under load; it passed alone in 16 s, and in the full run before. The full Linux suite in `nemo-build` passed 171 of 171. rhe0xz32 passes in the Windows cross build under wine. Lint is clean.
 	- Branch: jammytests
 	- Commit: 307c84c
+
+- In find mode the Name column doesn't shrink as far as the column width rule says.
+	- ID: 2026100613285789
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes, the full Linux suite. The nearby list view, search and config tests passed, the Windows cross build was clean, and rexta5a8 passed under wine.
+	- Priority|Severity: Avg
+	- Opened: 20261006-132858
+	- Opened by: t00mietum
+	- Related IDs: 2026100613285826
+	- Target OS: All
+	- Requirements:
+		- Before rc.1.
+	- Steps to reproduce: search a tree where the same file name turns up in many folders, in list view.
+	- Incorrect behavior: Name stays wider than its share of the shortest names would need.
+	- Expected behavior: Name shrinks to fit the shortest `column-fit-percent` of the names, like it does in a plain folder.
+	- Reproduced: 20261006, Linux. 40 folders each with one long file name, and 10 short names beside it. In a narrow window Name stayed at the whole long name and pushed Location off the edge. With the fix it shrinks to the short names, with an ellipsis.
+	- Possible cause: the rule counts every file for Name. A plain folder can't have one name twice, but find results can, in different folders. So a repeated name gets counted many times and pulls the share its way.
+	- Suggested fix:
+		- In find mode, count each distinct name once for Name.
+		- Location already counts each distinct value once, per design.md. Check the code does the same in find mode.
+		- design.md "List view column widths" is the canonical rule, so it changes with the fix.
+	- Actual cause: confirmed. Name was always counted once per row, keyed by file, in find results too.
+	- Actual fix: how each column counts its values moved out of the list view into `nemo-column-layout.c`, where it can be tested without a screen. In find results Name now counts each distinct name once. design.md "List view column widths" says so, and so does the `column-fit-percent` description.
+	- Decisions:
+		- A name seen at two widths, such as at two depths of a grouped tree, counts at the wider. The same goes for the other columns counted by text, which used to take the last width seen. A call made without asking.
+		- In find results a file that goes leaves its name in the count until the next full recount, as the other text columns already did, since another file may share the name.
+	- Swept: Location already counted each distinct value once, find mode included; rexta5a8 now checks it. Every place the list view kept, dropped, cleared or read a column's values goes through the new code: measuring a row, a file leaving, the full recount and the layout. Icon and compact views have no column widths.
+	- Verified: rexta5a8 failed before the fix, on the 2 new find mode checks, and passes after. The case above was checked both ways.
+	- Branch: findfix
+	- Commit: fa73670
+	- Test case: rexta5a8 (Column layout test), its new tally checks.
+	- Acceptance signoff: Self-closes as Done once the full suite passes. Reproduced, and its test failed before the fix and passes after.
 
 - On arm64 a crash report after a call through a null pointer keeps too few frames.
 	- ID: 2026100520071434
@@ -131,77 +202,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Possible cause: GLib starts these through a helper program, which gives each a console window, and which hangs when run from inside the packed exe. `nemo_launch_win32_pipe` from 2026100610503901 starts a program with no window and no helper, but only with a file as stdin, so the archive and search code need more than it offers.
 	- Note: on vm925w, helpers left hung by earlier runs of packed exes were still running after the app had gone, 13 of them from one exe, along with a `gdbus.exe`. They kept that exe in use, so packing a new one over it failed.
 	- Test case: none yet, not started.
-
-- In find mode the Name column doesn't shrink as far as the column width rule says.
-	- ID: 2026100613285789
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes, the full Linux suite. The nearby list view, search and config tests passed, the Windows cross build was clean, and rexta5a8 passed under wine.
-	- Priority|Severity: Avg
-	- Opened: 20261006-132858
-	- Opened by: t00mietum
-	- Related IDs: 2026100613285826
-	- Target OS: All
-	- Requirements:
-		- Before rc.1.
-	- Steps to reproduce: search a tree where the same file name turns up in many folders, in list view.
-	- Incorrect behavior: Name stays wider than its share of the shortest names would need.
-	- Expected behavior: Name shrinks to fit the shortest `column-fit-percent` of the names, like it does in a plain folder.
-	- Reproduced: 20261006, Linux. 40 folders each with one long file name, and 10 short names beside it. In a narrow window Name stayed at the whole long name and pushed Location off the edge. With the fix it shrinks to the short names, with an ellipsis.
-	- Possible cause: the rule counts every file for Name. A plain folder can't have one name twice, but find results can, in different folders. So a repeated name gets counted many times and pulls the share its way.
-	- Suggested fix:
-		- In find mode, count each distinct name once for Name.
-		- Location already counts each distinct value once, per design.md. Check the code does the same in find mode.
-		- design.md "List view column widths" is the canonical rule, so it changes with the fix.
-	- Actual cause: confirmed. Name was always counted once per row, keyed by file, in find results too.
-	- Actual fix: how each column counts its values moved out of the list view into `nemo-column-layout.c`, where it can be tested without a screen. In find results Name now counts each distinct name once. design.md "List view column widths" says so, and so does the `column-fit-percent` description.
-	- Decisions:
-		- A name seen at two widths, such as at two depths of a grouped tree, counts at the wider. The same goes for the other columns counted by text, which used to take the last width seen. A call made without asking.
-		- In find results a file that goes leaves its name in the count until the next full recount, as the other text columns already did, since another file may share the name.
-	- Swept: Location already counted each distinct value once, find mode included; rexta5a8 now checks it. Every place the list view kept, dropped, cleared or read a column's values goes through the new code: measuring a row, a file leaving, the full recount and the layout. Icon and compact views have no column widths.
-	- Verified: rexta5a8 failed before the fix, on the 2 new find mode checks, and passes after. The case above was checked both ways.
-	- Branch: findfix
-	- Commit: fa73670
-	- Test case: rexta5a8 (Column layout test), its new tally checks.
-	- Acceptance signoff: Self-closes as Done once the full suite passes. Reproduced, and its test failed before the fix and passes after.
-
-- Find mode remembers the column choice and order, and shows more columns by default.
-	- ID: 2026100613285826
-	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Needs local test suite run?: yes, the full Linux suite. The nearby list view, search and config tests passed, the Windows cross build was clean, and rjm2rvjn passed under wine.
-	- Priority|Severity: Avg
-	- Opened: 20261006-132858
-	- Opened by: t00mietum
-	- Related IDs: 2026100613285789
-	- Target OS: All
-	- Requirements:
-		- Before rc.1.
-		- Remember the columns picked, and the order they were dragged into.
-		- Default columns, in this order, and whether each shows by default:
-			- Name: yes
-			- Ext: yes
-			- Type: no
-			- Size: yes
-			- Modified: yes
-			- Other date columns: no
-			- Location: yes
-			- The rest: no
-	- Note: today the defaults are Name and Location only. The picked columns are saved under `search.search-visible-columns`, and only while `remember-folder-settings` is on.
-	- Decisions:
-		- Find mode remembers its columns and their order always, whatever `remember-folder-settings` says, since find results are not a folder. The recommended answer, taken when the question timed out on 20261006.
-		- The existing key stays. It holds the shown columns in their order, so it covers both the picks and the order. Empty means the defaults.
-		- Sort column and direction in find mode still follow `remember-folder-settings`, as before. Not asked for here.
-	- Done:
-		- Find mode reads and saves its columns through one place in `nemo-column-utilities.c`. A pick, a drag, Use default and Reset view all go there in find mode, and no longer touch the window's own column choice.
-		- New defaults as listed. Type and the other two dates are hidden.
-		- A column turned on goes after the shown ones, as in a folder.
-		- The search reads the same key to know whether to count hits. With remembering off a picked Hits column was never saved, so hits were never counted; now they are.
-		- README and design.md "Search" say what find mode keeps.
-	- Verified: with remembering off, find results showed Name, Ext, Size, Date modified and Location. Turning on Type and dragging it before Ext were both saved, and both came back after a restart.
-	- Branch: findfix
-	- Commit: fa73670
-	- Test case: rjm2rvjn (Find mode columns test).
 
 - On the arm64 box the Places focus test loses its click or its rename.
 	- ID: 2026100611482306
