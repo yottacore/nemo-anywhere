@@ -688,6 +688,7 @@ nemo_file_clear_info (NemoFile *file)
 	file->details->is_symlink = FALSE;
 	file->details->is_hidden = FALSE;
 	file->details->is_mountpoint = FALSE;
+	file->details->link_unfollowed = FALSE;
 	file->details->uid = -1;
 	file->details->gid = -1;
 	file->details->can_read = TRUE;
@@ -2438,23 +2439,75 @@ nemo_file_is_local (NemoFile *file)
 	return nemo_directory_is_local (file->details->directory);
 }
 
-#ifdef G_OS_WIN32
-/* A folder on a share, by its spelling alone. A drive letter mapped to one
-   is not counted, so a mapped drive browses like a local one. */
+static gboolean file_on_share (NemoFile *file, guint generation);
+
+/* Kept on the folder, since the async loop asks for every file on every pass.
+   A folder reached through a link onto a share is on it too, so the answer
+   climbs through the folder's own file, as far as those already exist. */
 static gboolean
-path_is_a_share (const char *path)
+folder_on_share (NemoDirectory *directory, guint generation)
 {
-	if (path == NULL) {
+	NemoFile *self;
+	const char *path;
+
+	if (directory == NULL || directory->details->location == NULL) {
 		return FALSE;
 	}
+	if (directory->details->share_gen == generation) {
+		return directory->details->on_share;
+	}
 
-	if (g_str_has_prefix (path, "\\??\\UNC\\") || g_str_has_prefix (path, "\\\\?\\UNC\\")) {
+	path = g_file_peek_path (directory->details->location);
+
+	/* Set first, so a root that is its own file stops the climb. */
+	directory->details->share_gen = generation;
+	directory->details->on_share = path != NULL && nemo_path_is_on_a_share (path);
+
+	if (path != NULL && !directory->details->on_share) {
+		self = nemo_directory_get_existing_corresponding_file (directory);
+		if (self != NULL) {
+			directory->details->on_share = file_on_share (self, generation);
+			nemo_file_unref (self);
+		}
+	}
+
+	return directory->details->on_share;
+}
+
+static gboolean
+file_on_share (NemoFile *file, guint generation)
+{
+	NemoDirectory *directory = file->details->directory;
+	const char *folder;
+
+	if (folder_on_share (directory, generation)) {
 		return TRUE;
 	}
 
-	return (path[0] == '\\' && path[1] == '\\') || (path[0] == '/' && path[1] == '/');
+	/* peek rather than get: this is asked for every file on every pass of the
+	   async loop, so it must not allocate. */
+	folder = directory != NULL && directory->details->location != NULL ?
+		 g_file_peek_path (directory->details->location) : NULL;
+	if (folder == NULL ||
+	    (file->details->symlink_name == NULL && !file->details->is_mountpoint)) {
+		return FALSE;
+	}
+
+	/* Kept per file, since placing the target allocates. */
+	if (file->details->share_link_gen != generation) {
+		if (file->details->symlink_name != NULL) {
+			file->details->share_link_leaves =
+				nemo_share_link_leaves_for_a_share (folder, file->details->symlink_name);
+		} else {
+			g_autofree char *path = g_build_filename (folder, file->details->name, NULL);
+
+			file->details->share_link_leaves = nemo_path_is_on_a_share (path);
+		}
+		file->details->share_link_gen = generation;
+	}
+
+	return file->details->share_link_leaves;
 }
-#endif
 
 /**
  * nemo_file_is_on_a_share:
@@ -2463,50 +2516,18 @@ path_is_a_share (const char *path)
  * A share is native as far as gio is concerned, so nothing gated on "local"
  * holds it back and a folder of junctions pays a network timeout per entry -
  * twenty to fifty seconds each, one at a time, while the listing waits. This
- * covers a file sitting in a folder on a Windows share, and a link from
- * anywhere onto a share other than the one it sits on. Off Windows a share is
- * a network mount (nemo-share.c), and only the link half applies: a folder on
- * one is somewhere the user went.
+ * covers a file in a folder on a share (nemo-share.h), a link from anywhere
+ * onto a share other than the one it sits on, and the mount point of a share.
+ * The share holding home counts as local.
  *
  * Returns: %TRUE if reading @file may have to go over the network.
  */
 gboolean
 nemo_file_is_on_a_share (NemoFile *file)
 {
-	NemoDirectory *directory;
-	const char *folder = NULL;
-	guint generation;
-
 	g_return_val_if_fail (NEMO_IS_FILE (file), FALSE);
 
-	/* peek rather than get: this is asked for every file on every pass of the
-	   async loop, so it must not allocate. */
-	directory = file->details->directory;
-	if (directory != NULL && directory->details->location != NULL) {
-		folder = g_file_peek_path (directory->details->location);
-	}
-
-#ifdef G_OS_WIN32
-	if (path_is_a_share (folder)) {
-		return TRUE;
-	}
-#endif
-
-	/* A link in a folder on another machine names a path over there, which
-	   says nothing about the shares here. */
-	if (file->details->symlink_name == NULL || folder == NULL) {
-		return FALSE;
-	}
-
-	/* Kept per file, since placing the target allocates. */
-	generation = nemo_share_generation ();
-	if (file->details->share_link_gen != generation) {
-		file->details->share_link_leaves =
-			nemo_share_link_leaves_for_a_share (folder, file->details->symlink_name);
-		file->details->share_link_gen = generation;
-	}
-
-	return file->details->share_link_leaves;
+	return file_on_share (file, nemo_share_generation ());
 }
 
 static void
@@ -2711,7 +2732,7 @@ update_info_internal (NemoFile *file,
 {
 	GList *node;
 	gboolean changed;
-	gboolean is_symlink, is_hidden, is_mountpoint;
+	gboolean is_symlink, is_hidden, is_mountpoint, link_unfollowed;
 	gboolean has_permissions;
 	guint32 permissions;
 	gboolean can_read, can_write, can_execute, can_delete, can_trash, can_rename, can_mount, can_unmount, can_eject;
@@ -2835,8 +2856,15 @@ update_info_internal (NemoFile *file,
 	is_mountpoint = g_file_info_get_attribute_boolean (info, G_FILE_ATTRIBUTE_UNIX_IS_MOUNTPOINT);
 	if (file->details->is_mountpoint != is_mountpoint) {
 		changed = TRUE;
+		file->details->share_link_gen = 0;
 	}
 	file->details->is_mountpoint = is_mountpoint;
+
+	link_unfollowed = g_file_info_get_attribute_boolean (info, NEMO_FILE_ATTRIBUTE_LINK_UNFOLLOWED);
+	if (file->details->link_unfollowed != link_unfollowed) {
+		changed = TRUE;
+	}
+	file->details->link_unfollowed = link_unfollowed;
 
 	has_permissions = g_file_info_has_attribute (info, G_FILE_ATTRIBUTE_UNIX_MODE);
 	permissions = g_file_info_get_attribute_uint32 (info, G_FILE_ATTRIBUTE_UNIX_MODE);;
@@ -5187,8 +5215,8 @@ nemo_file_should_show_thumbnail (NemoFile *file)
         /* file system says we should treat file as if it's local */
         return TRUE;
     }
-    /* local files is the only left to check */
-    return nemo_file_is_local (file);
+    /* local files is the only left to check, and a share is not local */
+    return nemo_file_is_local (file) && !nemo_file_is_on_a_share (file);
 }
 
 /* A refresh. The file cache forgets its copy and the freedesktop one stops
@@ -8111,7 +8139,8 @@ update_description_for_link (NemoFile *file, char *string)
 
 	if (nemo_file_is_symbolic_link (file) && !nemo_file_is_in_favorites (file)) {
 		g_assert (!nemo_file_is_broken_symbolic_link (file));
-		if (string == NULL) {
+		if (string == NULL || file->details->link_unfollowed) {
+			g_free (string);
 			return g_strdup (_("link"));
 		}
 		/* Note to localizers: convert file type string for file
@@ -8361,6 +8390,29 @@ nemo_file_is_symbolic_link (NemoFile *file)
 	return file->details->is_symlink;
 }
 
+/* A link onto a share is listed as itself (nemo-dir-enum.h). Opening it or
+   going to it is someone asking, so from then on it is followed. */
+void
+nemo_file_look_at_link (NemoFile *file)
+{
+	g_return_if_fail (NEMO_IS_FILE (file));
+
+	file->details->link_look_wanted = TRUE;
+	if (file->details->link_unfollowed) {
+		nemo_file_invalidate_attributes (file,
+						 NEMO_FILE_ATTRIBUTE_INFO |
+						 NEMO_FILE_ATTRIBUTE_LINK_INFO);
+	}
+}
+
+gboolean
+nemo_file_link_is_unfollowed (NemoFile *file)
+{
+	g_return_val_if_fail (NEMO_IS_FILE (file), FALSE);
+
+	return file->details->link_unfollowed;
+}
+
 gboolean
 nemo_file_is_mountpoint (NemoFile *file)
 {
@@ -8422,6 +8474,11 @@ nemo_file_is_broken_symbolic_link (NemoFile *file)
 	}
 
 	g_return_val_if_fail (NEMO_IS_FILE (file), FALSE);
+
+	/* Nobody has looked where it goes, so it is not known to be broken. */
+	if (file->details->link_unfollowed) {
+		return FALSE;
+	}
 
 	/* Non-broken symbolic links return the target's type for get_file_type. */
 	if (nemo_file_get_file_type (file) == G_FILE_TYPE_SYMBOLIC_LINK) {

@@ -55,33 +55,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjh7qnxw. It gained Windows-style build dirs: a quoted `"-Werror"` that has to pass, and a quoted `"-Werror=address"` and a quoted `"-Werror -std=c17"` that have to fail.
 	- Verified: rjh7qnxw failed before the fix, on the quoted `"-Werror"` case, and passes after, under both GNU grep and ugrep. The check passes on the Linux `/build` dir, and on an `ARGS` line quoted by meson's own Windows quoting code, which the old check refuses.
 
-- Code review 20260928.
-	- ID: 2026092813381400
-	- Type: Task
-	- Status: Started
-	- Opened: 20260928-133814
-	- Opened by: code review 20260928
-	- Requirements:
-		- Everything changed from 20260917 to 20260927, reviewed or not, plus the ground the 20260919 round did not reach where it changed since.
-		- Items 1 to 45 below carry this ID as their parent. Technical detail is in the private notes under the same numbers.
-	- Progress log:
-		- 20260928-133814: Filed 33 defects and 12 enhancements. Of the defects, 4 are regressions or missed twins of an earlier fix (items 4, 12, 21, 22), item 15 reopens three closures, and the rest are new ground. 19 were reproduced, some only in part. The others were only read, and each says so.
-	- Decisions:
-		- Not release-ready. Items 1, 3, 5, 6, 7 and 16 give a wrong result with no error, or change files the user did not ask to change.
-		- Handlers that outlive their widget have come back a third time (20260919 items 3 and 10, now item 22). Per the fix rules, that class wants a table in design.md.
-		- Decided against: a same-size, same-time twin showing another file's picture. Already recorded as designed.
-		- Decided against: shortcut reads on the main thread when opening one, and an edited shortcut losing its item ID list. Both recorded as known gaps.
-		- Decided against: the archive password showing in the process list. design.md says so.
-		- Decided against: a small copy leaving a partial file on a failed write. GLib's own copy does the same.
-		- Decided against: Escape not restoring the selection, Ctrl+Shift+T, and Control kept for F1, tab keys, Ctrl+H and Ctrl+M on macOS. All settled earlier.
-		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
-	- Test case: none, review round.
-
 - On Windows, a mapped drive that is not answering may stall the side pane or the trash state.
 	- ID: 2026100512334934
 	- Type: Bug
-	- Status: Queued
-	- Needs external testing: all of it. A Windows box with a drive letter mapped to a share that does not answer, such as an unused address on the local subnet.
+	- Status: Waiting for testing
+	- Needs external testing: on vm925w, wiht a native build of sharefollow.
+		- `meson test` for rjhvmm6f and also rhtwm2c8. Both pass.
+		- Again with `NEMO_PROBE_DEAD_SHARE=\\192.168.1.<unused>\share`, a fresh last octet each run. Both pass, and rjhvmm6f prints the mount list and trash state each under 2 s.
+		- Red before: `test-nemo-drives-win32.exe glib` with the same variable runs GLib's own drive list through the same checks. It should take about 20 s and fail.
+		- A dead mapped drive: under `HKCU\Network\Q` set `RemotePath` to `\\192.168.1.<unused>\share`, `ProviderName` to `Microsoft Windows Network`, `ProviderType` to 0x20000, `ConnectionType` to 1, `DeferFlags` to 4 and `UserName` to empty, then sign out and in. Explorer shows Q: as disconnected. Start the app: the window and side pane come up with no wait, Q: is under Devices as `share (\\192.168.1.<unused>) (Q:)` with the network folder icon, and the trash icon is right. Delete the key afterward.
 	- Priority|Severity: Low
 	- Opened: 20261005-123349
 	- Opened by: share audit 2026093010493450
@@ -89,15 +71,25 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Target OS: Windows
 	- Incorrect behavior: read only. GLib builds its drive list through the shell, asking for each drive's display name when the list is made and for its icon when the side pane draws it. The trash state asks the recycle bin of every drive. Either may go to a mapped drive's share, on the window's thread.
 	- Expected behavior: a mapped drive is named and drawn from its letter and what Windows keeps locally, and the trash state never asks a share.
-	- Reproduced: no. Read from GLib's source and the Windows docs; not timed.
-	- Test case: none yet. Needs a Windows box with a dead mapped drive.
+	- Reproduced: no. Read from GLib's source and the Windows docs; not timed. A share that does not answer cannot be made here, since a UNC path fails at once with no network client.
+	- Actual cause: read, not timed. GLib's Windows volume monitor makes a mount for every drive letter each time the list is asked for, and asks the shell for each one's name as it does, and for its icon at the first draw. Seven places in the app ask for that list on the window's thread, the side pane at every rebuild. The trash state asked for every bin at once, mapped drives' too, at each look and every 3 s while watched.
+	- Actual fix: on Windows the app makes its own mount per drive letter. A mapped drive is known from its entry in the object table, and is named from its letter and the share path in that entry, the way Explorer names one, with the network folder icon. Only a local drive is asked for its type and shell name. Every mount list goes through one call. The trash state adds up the bins of the fixed drives one at a time.
+	- Swept: every `g_volume_monitor_get_mounts` caller, 7 of them: side pane, tree, path bar, bookmark list, view menus, mount lookup by location, and the async loop's mount match. The 2 drive type questions in the side pane. Both bin queries, now one function. Lint rjhw99yh fails on a new mount list outside that call, or a bin query with no root.
+	- Swept: left as is. GTK's own file chooser lists drives through GLib, but only once someone opens one. A per-file mount lookup is gated by the share check, and a mapped drive's files are on a share now. The side pane reads the volume label of fixed drives only.
+	- Branch: sharefollow
+	- Commit: cbd3559
+	- Test case: rjhvmm6f, Mapped drive not asked, Windows only. A free drive letter is pointed at a share for the run. It checks the letter reads as remote, its share path and name, its icons, and times the mount list and the trash state.
+	- Test case: rjhw99yh, lint, no mount list or bin query that asks every drive.
+	- Verified: rjhvmm6f passes in the cross build under wine, and its glib mode fails there on the name and icon. The timing there proves nothing, since the fake share fails fast. rjhw99yh failed on a reverted call site and a NULL bin root, and passes on the branch.
 
 - The app visits network shares on its own.
 	- ID: 2026093010493450
 	- Type: Task
-	- Status: Queued
-	- Needs local test suite run?: no. The full Linux suite passed 170 of 170 on shareaudit.
-	- Needs external testing: rhtwm2c8 natively on Windows. A link onto a mapped drive letter has no test, since a test cannot map one; on a box, a local folder holding a symlink to a mapped drive that is not answering should list with no wait and show no item count for it.
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. The full Linux suite passed 171 of 171 on sharefollow.
+	- Needs external testing: on vm925w, with a native build of sharefollow.
+		- `meson test` for rhtwm2c8 and rjhvmm6f, then both again with `NEMO_PROBE_DEAD_SHARE=\\192.168.1.<unused>\share`, a fresh last octet each run.
+		- With the dead mapped drive Q: from 2026100512334934's steps: a local folder holding a symlink to `Q:\` lists with no wait and shows no item count for it. Going into Q: itself shows no item counts and no thumbnails, with the default settings.
 	- Opened: 20260930-104934
 	- Opened by: code review 20260928 follow-up
 	- Related IDs: 2026093010493389, 2026092813381408, 2026100112000535, 2026100512334934
@@ -111,6 +103,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Question 1: on Linux and the BSDs a folder is listed by following every link in it, to read the type, size and date of what it points at. So a link onto a share that is not answering still holds up the whole folder once, before any of the gated questions. Windows lists links without following them and still gets their type; Linux can't, so a link listed that way has no type until it is looked at. Should a link onto a share be listed without following it, showing as a plain link that sorts with the files until it is opened? Links elsewhere would be looked at as now. Suggested: yes, since it is what the rule asks for.
 			- Question 2: a folder on a Linux network mount, or on a Windows drive letter mapped to a share, works as a local one once someone goes there: item counts, thumbnails, and in a picture folder every picture made ahead. A folder on a UNC path does not, and design.md says a share counts as remote for "Local files only". Should the first two follow the UNC path, so counts and thumbnails there are off by default? Suggested: yes.
 		- 20261005-160000: both answered yes. Still to do.
+		- 20261005-190000: both done on sharefollow, per the Decisions rows. Waiting for the Windows run.
 	- Decisions:
 		- 20261005: the share holding the home folder counts as local, so a home on a network mount keeps its counts, thumbnails, free space bar and bookmark checks.
 		- 20261005: a link onto the same share it sits on is not a visit, since the user is on that share already.
@@ -134,19 +127,53 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Startup: opens the folder asked for, or home. There is no session restore.
 		- `.desktop` links read only the link file. The favorites check is an in-memory list. The clipboard reads no files.
 		- Search, typed locations, Properties, deep counts and opening a file are user actions.
+	- Swept: fixed on sharefollow, for the two answered questions.
+		- Off Windows the folder listing no longer follows a link onto a share it is not on. The link is listed as itself, reads as "link", sorts with the files and is never shown broken. Opening it, or going to it, follows it from then on. The same rule holds when one file is read again, such as one a watch says changed or a new one. Links within the same share and links elsewhere are followed as before. Windows already listed links unfollowed.
+		- A folder on a share is on it, on every platform: a network mount on Linux and the BSDs, a mapped drive or a UNC path on Windows. So is a share's mount point seen from the folder above, and a folder reached through a link onto one. The answer is kept per folder and read again when the shares change. The home share is still local.
+		- Thumbnails under "Local files only" now ask the share check, as item counts already did. They only asked whether the folder was native, so a picture behind a link onto a share was not held back.
 	- Swept: left as is.
-		- Questions 1 and 2 above, until done per the Decisions.
-		- Windows: mapped drives get their names and icons from the shell when the drive list is built, and the trash state asks every drive's recycle bin. Filed as 2026100512334934.
+		- Questions 1 and 2 above: done, as the bullet before.
+		- Windows: mapped drives get their names and icons from the shell when the drive list is built, and the trash state asks every drive's recycle bin. Filed as 2026100512334934, fixed on sharefollow.
+		- A link onto a share that was opened goes back to a plain link if its folder is listed again, such as on a reload.
+		- A folder reached through a link counts as on the share only while the link's own file is known to the app, which it is when someone went through it.
 		- First run on Windows checks the user's own known folders for the default bookmarks, which may be redirected to a share. Once, and on folders the user owns.
 		- A program an action needs, given by full path, and the templates folder, are set by the user.
 		- A chain of links is placed by its first link only. autofs is not counted, since it fronts local disks as often as shares.
 	- Branch: shareaudit
 	- Commit: 701bb2a
+	- Branch: sharefollow
+	- Commit: cbd3559
 	- Test case: rjhbbg9n, Share visits test, Linux and BSD only. A scratch folder stands in for a network mount, through a test hook on the share check. One case per path: links onto it, item counts, bookmarks, the action folder test and custom icons.
+		- sharefollow added: real links listed from disk, onto the share and not, and one opened; a file, a folder and a picture inside the share; its mount point; a folder reached through a link onto it. Three older checks are commented out with the reason, since a file in a share folder is now on the share.
 	- Test case: rhd69rjr, File cache prune test, a new case: a gone file on a share keeps its row until the share is gone.
 	- Test case: rhtwm2c8, Share check does no I/O, new cases for a link onto a share and one within it, through the same hook. Windows only.
+		- sharefollow added: a file in a folder on the stand-in mapped drive, and the listing's view of a junction into it. Two older checks are commented out with the reason.
+	- Test case: rjhvmm6f, see 2026100512334934.
 	- Test case: none for the side pane free space, since a test cannot make the volume list show a fake share.
 	- Verified: rjhbbg9n and rhd69rjr fail before the fix, in every case that names a share, and pass after, on Linux. With only the action change taken out, its case alone fails. The full Linux suite passed 170 of 170. The Windows cross build is clean, and rhtwm2c8 and rhd69rjr pass under wine. Lint is clean.
+	- Verified on sharefollow: rjhbbg9n fails with each change taken out on its own (listing, folder check, mount point, thumbnails), only in that change's cases, and passes with all in. rhtwm2c8 fails with the folder check taken out and passes with it, under wine. The full Linux suite passed 171 of 171. The Windows cross build is clean, and its window comes up under wine. Lint is clean.
+
+- Code review 20260928.
+	- ID: 2026092813381400
+	- Type: Task
+	- Status: Started
+	- Opened: 20260928-133814
+	- Opened by: code review 20260928
+	- Requirements:
+		- Everything changed from 20260917 to 20260927, reviewed or not, plus the ground the 20260919 round did not reach where it changed since.
+		- Items 1 to 45 below carry this ID as their parent. Technical detail is in the private notes under the same numbers.
+	- Progress log:
+		- 20260928-133814: Filed 33 defects and 12 enhancements. Of the defects, 4 are regressions or missed twins of an earlier fix (items 4, 12, 21, 22), item 15 reopens three closures, and the rest are new ground. 19 were reproduced, some only in part. The others were only read, and each says so.
+	- Decisions:
+		- Not release-ready. Items 1, 3, 5, 6, 7 and 16 give a wrong result with no error, or change files the user did not ask to change.
+		- Handlers that outlive their widget have come back a third time (20260919 items 3 and 10, now item 22). Per the fix rules, that class wants a table in design.md.
+		- Decided against: a same-size, same-time twin showing another file's picture. Already recorded as designed.
+		- Decided against: shortcut reads on the main thread when opening one, and an edited shortcut losing its item ID list. Both recorded as known gaps.
+		- Decided against: the archive password showing in the process list. design.md says so.
+		- Decided against: a small copy leaving a partial file on a failed write. GLib's own copy does the same.
+		- Decided against: Escape not restoring the selection, Ctrl+Shift+T, and Control kept for F1, tab keys, Ctrl+H and Ctrl+M on macOS. All settled earlier.
+		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
+	- Test case: none, review round.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202

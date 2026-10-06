@@ -243,7 +243,7 @@ bookmark_location_mounted_callback (G_GNUC_UNUSED NemoBookmark *bookmark,
 {
     gboolean ret = FALSE;
 
-    GList *volumes = g_volume_monitor_get_mounts (bookmarks->volume_monitor);
+    GList *volumes = nemo_get_mounts (bookmarks->volume_monitor);
     GList *iter = volumes;
 
     while (iter != NULL) {

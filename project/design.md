@@ -608,6 +608,9 @@ Measured on 2026-09-20 with the Linux release build on a desktop machine. Each i
 
 - The program never goes to a network share on its own. Only something a person does reaches one, such as going to a share or opening a link or shortcut that points at one. A share that is not answering can hold each question for about twenty seconds, so an icon, sort place or emblem for something on a share comes from what is on local disk, or stays plain.
 	- On Windows a share is a UNC path or a drive letter mapped to one. On Linux and the BSDs it is a mount of a network file system, read from the mount table rather than asked. A link counts when it leads onto a share other than the one it sits on. The share holding the home folder counts as local, since the program works there from its first window on.
+	- A folder on a share counts as one too, wherever it was reached from, so item counts and thumbnails there are off by default, as "Local files only" says.
+	- On Linux and the BSDs a folder is listed by following each link in it, to show what it points at. A link onto a share is the exception. It is listed as the link itself, a plain link that sorts with the files, until someone opens it. Windows lists every link that way already and still gets its type.
+	- On Windows the side pane names and draws a mapped drive from its letter and what Windows keeps for it locally, and the trash state asks only the local drives' bins.
 
 - On Windows the packed exe took 3.4 s to start on 2026-08-19, down from 14.2 s. See [Startup time](design_docs/20260930-145641_windows_exe_packing.md#startup-time).
 

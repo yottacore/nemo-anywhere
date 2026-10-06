@@ -20,6 +20,7 @@
 
 #include <config.h>
 #include "nemo-dir-enum.h"
+#include "nemo-share.h"
 
 #include <string.h>
 
@@ -369,6 +370,297 @@ nemo_enumerate_children_finish (GFile         *dir,
 	g_return_val_if_fail (g_task_is_valid (result, dir), NULL);
 
 	return g_task_propagate_pointer (G_TASK (result), error);
+}
+
+#ifndef G_OS_WIN32
+
+static gboolean
+is_link (GFileInfo *info)
+{
+	return g_file_info_get_attribute_boolean (info, G_FILE_ATTRIBUTE_STANDARD_IS_SYMLINK);
+}
+
+/* own describes the link itself. Hands back own, marked, when the link leads
+   onto a share, and otherwise what it points at, as a following query would
+   have. A link whose end is gone keeps its own info, as GLib does. */
+static GFileInfo *
+follow_unless_share (GFile        *link,
+                     const char   *folder,
+                     GFileInfo    *own,
+                     const char   *attributes,
+                     GCancellable *cancellable)
+{
+	const char *target;
+	GFileInfo *followed;
+
+	target = g_file_info_get_attribute_byte_string (own, G_FILE_ATTRIBUTE_STANDARD_SYMLINK_TARGET);
+	if (nemo_share_link_leaves_for_a_share (folder, target)) {
+		g_file_info_unset_attribute_mask (own);
+		g_file_info_set_attribute_boolean (own, NEMO_FILE_ATTRIBUTE_LINK_UNFOLLOWED, TRUE);
+		return own;
+	}
+
+	followed = g_file_query_info (link, attributes, G_FILE_QUERY_INFO_NONE, cancellable, NULL);
+	if (followed == NULL) {
+		return own;
+	}
+	g_object_unref (own);
+	return followed;
+}
+
+/* The link's own target is needed to place it, whatever the caller asked. */
+static char *
+with_link_attributes (const char *attributes)
+{
+	return g_strconcat (attributes, ",", G_FILE_ATTRIBUTE_STANDARD_IS_SYMLINK, ",",
+			    G_FILE_ATTRIBUTE_STANDARD_SYMLINK_TARGET, NULL);
+}
+
+#define NEMO_TYPE_LISTING_ENUMERATOR (nemo_listing_enumerator_get_type ())
+G_DECLARE_FINAL_TYPE (NemoListingEnumerator, nemo_listing_enumerator, NEMO, LISTING_ENUMERATOR, GFileEnumerator)
+
+struct _NemoListingEnumerator {
+	GFileEnumerator parent_instance;
+
+	GFileEnumerator *inner;
+	char *attributes;
+	char *folder;
+};
+
+G_DEFINE_TYPE (NemoListingEnumerator, nemo_listing_enumerator, G_TYPE_FILE_ENUMERATOR)
+
+/* Runs on GIO's worker thread, like the walk it wraps. */
+static GFileInfo *
+listing_next_file (GFileEnumerator  *enumerator,
+		   GCancellable     *cancellable,
+		   GError          **error)
+{
+	NemoListingEnumerator *self = NEMO_LISTING_ENUMERATOR (enumerator);
+	GFileInfo *info;
+	GFile *link;
+
+	info = g_file_enumerator_next_file (self->inner, cancellable, error);
+	if (info == NULL || !is_link (info)) {
+		return info;
+	}
+
+	link = g_file_enumerator_get_child (self->inner, info);
+	info = follow_unless_share (link, self->folder, info, self->attributes, cancellable);
+	g_object_unref (link);
+
+	return info;
+}
+
+static gboolean
+listing_close (GFileEnumerator  *enumerator,
+	       GCancellable     *cancellable,
+	       GError          **error)
+{
+	NemoListingEnumerator *self = NEMO_LISTING_ENUMERATOR (enumerator);
+
+	return g_file_enumerator_close (self->inner, cancellable, error);
+}
+
+static void
+listing_finalize (GObject *object)
+{
+	NemoListingEnumerator *self = NEMO_LISTING_ENUMERATOR (object);
+
+	g_clear_object (&self->inner);
+	g_free (self->attributes);
+	g_free (self->folder);
+
+	G_OBJECT_CLASS (nemo_listing_enumerator_parent_class)->finalize (object);
+}
+
+static void
+nemo_listing_enumerator_init (G_GNUC_UNUSED NemoListingEnumerator *self)
+{
+}
+
+static void
+nemo_listing_enumerator_class_init (NemoListingEnumeratorClass *klass)
+{
+	G_OBJECT_CLASS (klass)->finalize = listing_finalize;
+	G_FILE_ENUMERATOR_CLASS (klass)->next_file = listing_next_file;
+	G_FILE_ENUMERATOR_CLASS (klass)->close_fn = listing_close;
+}
+
+static void
+listing_opened (GObject      *source,
+		GAsyncResult *result,
+		gpointer      user_data)
+{
+	GTask *task = user_data;
+	GError *error = NULL;
+	GFileEnumerator *inner;
+	NemoListingEnumerator *self;
+
+	inner = nemo_enumerate_children_finish (G_FILE (source), result, &error);
+	if (inner == NULL) {
+		g_task_return_error (task, error);
+		g_object_unref (task);
+		return;
+	}
+
+	self = g_object_new (NEMO_TYPE_LISTING_ENUMERATOR, "container", source, NULL);
+	self->inner = inner;
+	self->attributes = g_strdup (g_task_get_task_data (task));
+	self->folder = g_strdup (g_file_peek_path (G_FILE (source)));
+
+	g_task_return_pointer (task, self, g_object_unref);
+	g_object_unref (task);
+}
+
+typedef struct {
+	char *attributes;
+	gboolean follow;
+} QueryRequest;
+
+static void
+query_request_free (gpointer data)
+{
+	QueryRequest *request = data;
+
+	g_free (request->attributes);
+	g_free (request);
+}
+
+static void
+query_in_thread (GTask        *task,
+		 gpointer      source,
+		 gpointer      task_data,
+		 GCancellable *cancellable)
+{
+	QueryRequest *request = task_data;
+	GError *error = NULL;
+	GFileInfo *info;
+
+	info = nemo_query_listing_info (G_FILE (source), request->attributes, request->follow,
+					cancellable, &error);
+	if (info != NULL) {
+		g_task_return_pointer (task, info, g_object_unref);
+	} else {
+		g_task_return_error (task, error);
+	}
+}
+
+#endif /* !G_OS_WIN32 */
+
+/* Following a link on Windows means opening whatever it points at, and a link
+   to a share that is not answering costs twenty seconds per entry with the
+   whole listing stuck behind it. Windows puts the directory bit on the link
+   itself, so the type still comes out right without the trip. */
+void
+nemo_enumerate_listing_async (GFile               *dir,
+			      const char          *attributes,
+			      int                  io_priority,
+			      GCancellable        *cancellable,
+			      GAsyncReadyCallback  callback,
+			      gpointer             user_data)
+{
+#ifdef G_OS_WIN32
+	nemo_enumerate_children_async (dir, attributes, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS,
+				       io_priority, cancellable, callback, user_data);
+#else
+	GTask *task;
+
+	if (g_file_peek_path (dir) == NULL) {
+		nemo_enumerate_children_async (dir, attributes, G_FILE_QUERY_INFO_NONE,
+					       io_priority, cancellable, callback, user_data);
+		return;
+	}
+
+	task = g_task_new (dir, cancellable, callback, user_data);
+	g_task_set_priority (task, io_priority);
+	g_task_set_source_tag (task, nemo_enumerate_listing_async);
+	g_task_set_task_data (task, g_strdup (attributes), g_free);
+
+	{
+		g_autofree char *wanted = with_link_attributes (attributes);
+
+		nemo_enumerate_children_async (dir, wanted, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS,
+					       io_priority, cancellable, listing_opened, task);
+	}
+#endif
+}
+
+/* Returns: (transfer full): unref with g_object_unref */
+GFileInfo *
+nemo_query_listing_info (GFile         *file,
+			 const char    *attributes,
+			 gboolean       follow,
+			 GCancellable  *cancellable,
+			 GError       **error)
+{
+#ifdef G_OS_WIN32
+	(void) follow;
+	return g_file_query_info (file, attributes, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS,
+				  cancellable, error);
+#else
+	g_autofree char *wanted = NULL;
+	g_autoptr (GFile) parent = NULL;
+	GFileInfo *own;
+
+	if (follow || g_file_peek_path (file) == NULL) {
+		return g_file_query_info (file, attributes, G_FILE_QUERY_INFO_NONE, cancellable, error);
+	}
+
+	wanted = with_link_attributes (attributes);
+	own = g_file_query_info (file, wanted, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, cancellable, error);
+	if (own == NULL || !is_link (own)) {
+		return own;
+	}
+
+	parent = g_file_get_parent (file);
+	if (parent == NULL || g_file_peek_path (parent) == NULL) {
+		return own;
+	}
+
+	return follow_unless_share (file, g_file_peek_path (parent), own, attributes, cancellable);
+#endif
+}
+
+void
+nemo_query_listing_info_async (GFile               *file,
+			       const char          *attributes,
+			       gboolean             follow,
+			       int                  io_priority,
+			       GCancellable        *cancellable,
+			       GAsyncReadyCallback  callback,
+			       gpointer             user_data)
+{
+#ifdef G_OS_WIN32
+	(void) follow;
+	g_file_query_info_async (file, attributes, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS,
+				 io_priority, cancellable, callback, user_data);
+#else
+	GTask *task = g_task_new (file, cancellable, callback, user_data);
+	QueryRequest *request = g_new0 (QueryRequest, 1);
+
+	request->attributes = g_strdup (attributes);
+	request->follow = follow;
+	g_task_set_priority (task, io_priority);
+	g_task_set_source_tag (task, nemo_query_listing_info_async);
+	g_task_set_task_data (task, request, query_request_free);
+	g_task_run_in_thread (task, query_in_thread);
+	g_object_unref (task);
+#endif
+}
+
+/* Returns: (transfer full): unref with g_object_unref */
+GFileInfo *
+nemo_query_listing_info_finish (GFile         *file,
+				GAsyncResult  *result,
+				GError       **error)
+{
+#ifdef G_OS_WIN32
+	return g_file_query_info_finish (file, result, error);
+#else
+	g_return_val_if_fail (g_task_is_valid (result, file), NULL);
+
+	return g_task_propagate_pointer (G_TASK (result), error);
+#endif
 }
 
 GFileType

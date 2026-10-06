@@ -1198,6 +1198,28 @@ fCheckSignShift(){
 }
 fRun fCheckSignShift
 
+## On Windows GLib's mount list asks the shell for every drive letter's name as
+## it is made, so a letter mapped to a share that is not answering held the side
+## pane for the network timeout. Every list goes through nemo_get_mounts, and no
+## bin is asked for with a NULL root, which takes in every drive, mapped too.
+## Test ID: rjhw99yh
+fCheckMountList(){
+	local bad bins
+
+	bad="$(grep -rn -E '(^|[^A-Za-z0-9_])g_volume_monitor_get_mounts[[:space:]]*\(' \
+		source/src source/libnemo-private source/eel --include='*.c' \
+		| grep -v -E '^source/libnemo-private/nemo-file-utilities\.c:[0-9]+:[[:space:]]*return g_volume_monitor_get_mounts \(monitor\);' || true)"
+	bins="$(grep -rn -E 'SHQueryRecycleBin[AW]?[[:space:]]*\([[:space:]]*NULL' \
+		source/src source/libnemo-private --include='*.c' || true)"
+	if [[ -n "$bad" || -n "$bins" ]]; then
+		fEcho "FAIL: a mount list or bin query that asks every drive; use nemo_get_mounts, one root per bin"
+		[[ -z "$bad" ]] || printf '%s\n' "$bad"
+		[[ -z "$bins" ]] || printf '%s\n' "$bins"
+		exit 2
+	fi
+}
+fRun fCheckMountList
+
 ## Under MSYS2, use the Windows git that made this checkout - the msys one has
 ## its own HOME/config, so its line-ending view marks every CRLF file modified.
 GIT=(git)

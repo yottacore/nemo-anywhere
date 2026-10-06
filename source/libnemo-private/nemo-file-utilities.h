@@ -144,6 +144,13 @@ void nemo_get_x_content_types_for_mount_async (GMount *mount,
 						   gpointer user_data);
 
 gchar *nemo_get_mount_icon_name (GMount *mount);
+
+/* g_volume_monitor_get_mounts, except on Windows, where GLib's list asks the
+   shell about every drive letter and so waits on any mapped to a share that
+   is not answering (nemo-drives-win32.h). Every list of mounts goes through
+   here.
+   Returns: (transfer full): free with g_list_free_full and g_object_unref */
+GList *nemo_get_mounts (GVolumeMonitor *monitor);
 gchar *nemo_get_volume_icon_name (GVolume *volume);
 gchar *nemo_get_drive_icon_name (GDrive *drive);
 

@@ -28,6 +28,7 @@
 
 #include "nemo-global-preferences.h"
 #include "nemo-dir-enum.h"
+#include "nemo-drives-win32.h"
 #include "nemo-lib-self-check-functions.h"
 #include "nemo-metadata.h"
 #include "nemo-file.h"
@@ -2333,6 +2334,18 @@ nemo_uri_is_at_or_under (const char *uri, const char *root)
 	       uri[root_len] == '\0' || uri[root_len] == '/';
 }
 
+/* Returns: (transfer full): free with g_list_free_full and g_object_unref */
+GList *
+nemo_get_mounts (GVolumeMonitor *monitor)
+{
+#ifdef G_OS_WIN32
+    (void) monitor;
+    return nemo_drives_win32_get_mounts ();
+#else
+    return g_volume_monitor_get_mounts (monitor);
+#endif
+}
+
 /* Returns: (transfer full): unref with g_object_unref */
 GMount *
 nemo_get_mount_for_location_safe (GFile *location)
@@ -2344,7 +2357,7 @@ nemo_get_mount_for_location_safe (GFile *location)
 
 
     monitor = g_volume_monitor_get ();
-    mounts = g_volume_monitor_get_mounts (monitor);
+    mounts = nemo_get_mounts (monitor);
 
     mounts = g_list_sort (mounts, (GCompareFunc) sort_by_length);
 
