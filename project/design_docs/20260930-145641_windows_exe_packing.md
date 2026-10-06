@@ -122,6 +122,8 @@ The packed exe shares its virtual filesystem with every program it starts, by pu
 
 - The programs offered under "Open with" go the same way. A store app has no command line and is left to the toolkit.
 
+- Tools whose output the app reads are the exception: the archive programs, the search converters, the thumbnailers and ImageMagick. Neither broker can hand over a pipe, so these are started directly, with no console window, and run with the hooks, which they don't mind. GLib's own way of starting them goes through a helper program that never starts them from inside the packed exe.
+
 - `nemo-launch-win32.c` is the one place that starts another program on Windows. A check in the C lint fails any other.
 
 ### Antivirus and signing
