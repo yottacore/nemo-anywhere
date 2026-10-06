@@ -262,8 +262,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, a window first opened on a share shows the C:\ bookmark as `\` with a plain folder icon.
 	- ID: 2026100610370021
 	- Type: Bug
-	- Status: Queued
-	- Needs external testing: a Windows box with a share to open.
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes, the full Linux suite. Bookmarks now ask for their folder's info on every platform. rjm9n8sr and the bookmark, places and share tests passed on Linux.
+	- Needs external testing: done 20261006 on vm925w, as in Verified. The side pane itself was not looked at.
 	- Priority|Severity: Low
 	- Opened: 20261006-103700
 	- Opened by: Windows pass for 2026093010493450
@@ -273,7 +274,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: the drive root bookmark reads `\` and has the plain outline folder icon. The bookmarks file is written with no labels.
 	- Expected behavior: `C:\` with the blue folder icon, as when the first folder is on local disk. Then the file has `file:///C:/ C:\` and the other labels.
 	- Reproduced: 20261006 on vm925w at 46f9674, starting on a mapped drive and on a UNC path. Starting on a local folder gives the right label and icon.
-	- Test case: none yet, not started.
+	- Actual cause: a bookmark takes its name and icon from its folder's info, and never asked for it. It came only when a window happened to load that folder. A window opened anywhere on C: loads `C:\` for the path bar, and one opened in home lists Desktop, Documents and the rest. On a share neither happens, so `C:\` kept the last part of its path, which is `\`, and the default icon. With no name changed, the list was never saved, so the file kept the unlabeled defaults.
+	- Actual fix: a bookmark asks for its folder's info when it first connects to it, unless the folder is on a share or not a local path. Nothing new is asked of a share.
+	- Decisions:
+		- A call made without asking: this also gives Desktop, Documents and the other default bookmarks their own icons on every start, as a window opened in home already did. Before, they kept the plain folder icon when the first window was anywhere else.
+	- Swept: `nemo_bookmark_connect_file` is where every bookmark gets its file; the side pane, the bookmarks menu and the editor all go through it. The share gate is the same `nemo_file_is_on_a_share` the rest of the app uses.
+	- Verified: rjm9n8sr fails before the fix and passes after, on Linux and natively on vm925w. On vm925w, started on `\\localhost\c$\Users\Public` and on a drive mapped to it, `C:\` got its name and icon, and the bookmarks file was saved with every label. The Windows cross build is clean, and lint passes.
+	- Branch: smallwin
+	- Commit: 19cf1e1
+	- Test case: rjm9n8sr, Bookmark name and icon test. Home gets "Home" and the home icon, the system drive's root gets `C:\` on Windows, and a folder on a share is not asked about.
 
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440
@@ -297,8 +306,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The dogfood launcher's Desktop step fails when none of the shortcut folders exist.
 	- ID: 2026100610503902
 	- Type: Bug
-	- Status: Queued
-	- Needs external testing: a Windows box.
+	- Status: Done
+	- Needs local test suite run?: no. The launcher is not part of the suite; its test runs in the lint stage, which passed.
+	- Needs external testing: done 20261006 on vm925w, as in Verified.
 	- Priority|Severity: Low
 	- Opened: 20261006-105039
 	- Opened by: real-Windows validation, old-format item
@@ -309,12 +319,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: it says there is nowhere to put a shortcut, or makes the Start Menu folder, and goes on.
 	- Reproduced: 20261006 on vm925w at 46f9674, with a profile that has no Start Menu folder. A real profile always has one, so this is unlikely outside a test.
 	- Possible cause: `fRefreshShortcuts` uses the first folder in its list without checking the list has one.
-	- Test case: none yet, not started.
+	- Actual cause: the new shortcut went in the first shortcut folder that exists. With none, the list was empty. With only one, the list came back as a plain string, so its first character was used as the folder, such as `C`. With only the all-users Start Menu, it aimed at a folder that needs admin.
+	- Actual fix: a new shortcut always goes in the user's own Start Menu, and that folder is made first if missing.
+	- Swept: the launcher's other first-item reads and filtered lists. Each is wrapped as a list, or takes the first match on purpose. The loop over the folder list takes an empty list or a string fine.
+	- Verified: rjm8ks2e fails before the fix and passes after. On vm925w the step made a real shortcut in a profile with no folders and in one with only a Desktop, and rjm8ks2e passed there too.
+	- Branch: smallwin
+	- Commit: c28882c
+	- Test case: rjm8ks2e, `cicd/utility/test-runfm-shortcuts.ps1`, in the lint stage. No folders, one folder, the all-users Start Menu alone, all folders, an old shortcut repointed, and another program's left alone.
+	- Acceptance signoff: Self-closed: the intent was clear, the fix does that and no more, and its test failed before and passes after.
+	- Closed: 20261006-160047
 
 - On Windows, a GLib critical about `g_strv_length` shows in the tool start test.
 	- ID: 2026100615255231
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes, the full Linux suite. rfhnaccg, redrqe60 and the other search and thumbnail tests passed on Linux.
+	- Needs external testing: done 20261006 on vm925w, as in Verified.
 	- Priority|Severity: Low
 	- Opened: 20261006-152552
 	- Opened by: 2026100612483725
@@ -325,7 +345,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: no critical.
 	- Reproduced: 20261006, in 2 runs of 2 on vm925w with the full PATH. Not looked for with the gate's own PATH or under wine.
 	- Possible cause: not traced. The new launcher code has no such call. The search engine, the thumbnail code and the data folder lookup all have one, and none of the lists they read looks able to be NULL.
-	- Test case: none yet.
+	- Note: the PATH plays no part. It shows with MSYS2's own PATH as well, every run.
+	- Actual cause: the test writes a search helper whose TryExec is a Windows path with single backslashes. In a key file a backslash starts an escape, and `\U` is not one, so the TryExec list reads as nothing at all. The search engine passed that straight to `g_strv_length` and then took the helper without checking its program. Thumbnailer files had the same gap with no critical: an unreadable TryExec read as no TryExec.
+	- Actual fix: a search helper or thumbnailer whose TryExec can't be read is skipped, with a warning naming the file, the same as one whose Exec can't be read. rjm4ctwh now doubles the backslashes, as a hand-written file has to.
+	- Decisions:
+		- A call made without asking: skip such a file rather than read the backslashes as plain text. Exec lines already worked that way, and the key file format wants them doubled.
+	- Swept: every `g_key_file_get_string_list` and TryExec read. Actions, `.desktop` links and the thumbnailer MimeType already check for nothing read. Bookmark emblems can be NULL only from a hand-edited metadata file; left alone.
+	- Verified: the new cases in rfhnaccg and redrqe60 fail before the fix and pass after, on Linux. On vm925w rjm4ctwh has no critical now and passes, and rfhnaccg and redrqe60's new case pass. The Windows cross build is clean, and lint passes.
+	- Branch: smallwin
+	- Commit: d837594
+	- Test case: rfhnaccg, Search helpers test: no GLib critical, and the bad helper is named and skipped. redrqe60, Thumbnail factory test, `badtry` case: a thumbnailer with an unreadable TryExec is not used.
 
 - On Windows, thumbnailer programs are never used.
 	- ID: 2026100615255268
