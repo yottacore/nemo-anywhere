@@ -871,9 +871,8 @@ fCheckGlibSpawn(){
 	allowed+='nemo-extension-config-widget.c:on_config_clicked '		# no extensions on Windows, so no link to click
 	allowed+='nemo-file-utilities.c:update_xdg_user_dir '				# no such program on Windows
 	allowed+='nemo-thumbnail-problem-bar.c:thumbnail_problem_bar_response_cb '	# same, sh and pkexec
-	allowed+='nemo-action.c:nemo_action_activate '						# backlog 2026100615255305
+	allowed+='nemo-action.c:nemo_action_activate '						# Windows goes through nemo-launch-win32.c
 	allowed+='nemo-action.c:check_exec_condition '						# same
-	allowed+='nemo-window-menus.c:open_in_terminal_other '				# same
 	local bad
 
 	bad="$(find source/src source/libnemo-private source/libnemo-extension source/eel \( -name '*.c' -o -name '*.h' \) -exec awk -v allowed="$allowed" '

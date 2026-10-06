@@ -1296,44 +1296,6 @@ action_new_folder_callback (G_GNUC_UNUSED GtkAction *action,
 }
 
 static void
-open_in_terminal_other (const gchar *path)
-{
-    gchar *gsetting_terminal;
-    gchar **token;
-    gchar **argv;
-    gint i;
-
-    gsetting_terminal = nemo_desktop_settings_get_terminal_exec ();
-
-    /* Off a desktop that publishes one, and with nothing set, this comes back
-       empty and the spawn below silently did nothing - while launching a
-       program in a terminal fell back to a scan of the known ones. Agree. */
-    if (gsetting_terminal == NULL || *gsetting_terminal == '\0') {
-        g_free (gsetting_terminal);
-        gsetting_terminal = eel_gnome_get_fallback_terminal_exec ();
-    }
-
-    if (gsetting_terminal == NULL) {
-        g_message ("Could not find a terminal emulator");
-        return;
-    }
-
-    token = g_strsplit (gsetting_terminal, " ", 0);
-    argv = g_new (gchar *, g_strv_length (token) + 1);
-    for (i = 0; token[i] != NULL; i++) {
-        argv[i] = token[i];
-    }
-    argv[i] = NULL;
-
-    g_spawn_async (path, argv, NULL, G_SPAWN_SEARCH_PATH, NULL, NULL, NULL, NULL);
-
-    g_free (gsetting_terminal);
-    g_strfreev (token);
-    g_free (argv);
-}
-
-
-static void
 action_open_terminal_callback(G_GNUC_UNUSED GtkAction *action, gpointer callback_data)
 {
     NemoWindow *window;
@@ -1347,7 +1309,7 @@ action_open_terminal_callback(G_GNUC_UNUSED GtkAction *action, gpointer callback
     gchar *uri = nemo_view_get_backing_uri (view);
     GFile *gfile = g_file_new_for_uri (uri);
     path = g_file_get_path (gfile);
-    open_in_terminal_other (path);
+    nemo_view_open_in_terminal (path);
     g_free (uri);
     g_free (path);
     g_object_unref (gfile);

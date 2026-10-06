@@ -54,6 +54,14 @@ gboolean nemo_launch_win32_pipe        (const gchar * const  *argv,
 					GBytes              **output,
 					gboolean             *timed_out);
 
+/* A program named by the user, such as a custom action's command. A console
+ * program runs with no window, started from here like a tool, unless
+ * @in_console asks for a console window. Anything else goes the way
+ * nemo_launch_win32_run does, from our folder. */
+gboolean nemo_launch_win32_spawn       (const gchar * const  *argv,
+					gboolean              in_console,
+					GError              **error);
+
 /* A tool run with no console window whose output is read as it comes, for
  * nemo-tool-run.c. Of @flags only STDOUT_PIPE, STDERR_PIPE and STDERR_MERGE
  * mean anything. stdin and every stream not piped go to NUL.
