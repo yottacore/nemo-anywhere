@@ -602,7 +602,7 @@ nemo_launch_win32_pipe (const gchar * const  *argv,
 		handed[2] = nowhere;
 
 		/* Only these three go to the child. Several thumbnails start at
-		 * once, and one that took another's pipe would hold it open. */
+		 * once, and one that took another's pipe would keep it open. */
 		if (InitializeProcThreadAttributeList (attributes, 1, 0, &attributes_size) &&
 		    UpdateProcThreadAttribute (attributes, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
 					       handed, sizeof handed, NULL, NULL)) {
@@ -666,7 +666,7 @@ nemo_launch_win32_pipe (const gchar * const  *argv,
 		}
 	}
 
-	/* What it wrote last. Something it started itself may still hold the pipe,
+	/* What it wrote last. Something it started itself may still have the pipe open,
 	 * so this stops at what is there rather than waiting for the end. */
 	take_output (out_read, got);
 	CloseHandle (out_read);
