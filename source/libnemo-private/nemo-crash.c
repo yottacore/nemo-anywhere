@@ -56,6 +56,15 @@
 #if defined (__linux__) && defined (__x86_64__)
 #include <ucontext.h>
 #define CRASH_STEP_BAD_JUMP 1
+typedef greg_t crash_reg_t;
+#define CRASH_PC(uc) ((uc)->uc_mcontext.gregs[REG_RIP])
+#define CRASH_SP(uc) ((uc)->uc_mcontext.gregs[REG_RSP])
+#elif defined (__FreeBSD__) && defined (__x86_64__)
+#include <ucontext.h>
+#define CRASH_STEP_BAD_JUMP 1
+typedef __register_t crash_reg_t;
+#define CRASH_PC(uc) ((uc)->uc_mcontext.mc_rip)
+#define CRASH_SP(uc) ((uc)->uc_mcontext.mc_rsp)
 #endif
 #endif
 #endif
@@ -352,6 +361,14 @@ is_real_fault (int sig, const siginfo_t *info)
 	if (info == NULL || info->si_code <= 0)
 		return FALSE;
 
+	/* Linux numbers every sent code at or below zero. The BSDs do not. */
+	if (info->si_code == SI_USER || info->si_code == SI_QUEUE)
+		return FALSE;
+#ifdef SI_LWP
+	if (info->si_code == SI_LWP)
+		return FALSE;
+#endif
+
 	return sig == SIGSEGV || sig == SIGBUS || sig == SIGILL || sig == SIGFPE;
 }
 
@@ -385,24 +402,22 @@ write_header (int fd, int sig, const siginfo_t *info)
    interrupted registers back out of this very context. Pointing them at the
    caller for the length of the walk recovers the rest. */
 static gboolean
-step_past_bad_jump (int sig, const siginfo_t *info, ucontext_t *uc, greg_t saved[2])
+step_past_bad_jump (int sig, const siginfo_t *info, ucontext_t *uc, crash_reg_t saved[2])
 {
-	greg_t *regs = uc->uc_mcontext.gregs;
-
 	if (sig != SIGSEGV || !is_real_fault (sig, info))
 		return FALSE;
 
-	if ((greg_t) (gsize) info->si_addr != regs[REG_RIP])
+	if ((crash_reg_t) (gsize) info->si_addr != CRASH_PC (uc))
 		return FALSE;
 
-	saved[0] = regs[REG_RIP];
-	saved[1] = regs[REG_RSP];
+	saved[0] = CRASH_PC (uc);
+	saved[1] = CRASH_SP (uc);
 
 	/* One byte back, inside the call. A signal frame's address is looked up
 	   as it stands, not as a return address, and a call that is the last
 	   thing in its function returns into the next one. */
-	regs[REG_RIP] = *(greg_t *) (gsize) regs[REG_RSP] - 1;
-	regs[REG_RSP] += 8;
+	CRASH_PC (uc) = *(crash_reg_t *) (gsize) CRASH_SP (uc) - 1;
+	CRASH_SP (uc) += 8;
 
 	return TRUE;
 }
@@ -419,7 +434,7 @@ crash_signal_handler (int sig, siginfo_t *info, void *context)
 	sigset_t unblock;
 	int fd;
 #ifdef CRASH_STEP_BAD_JUMP
-	greg_t saved[2];
+	crash_reg_t saved[2];
 	gboolean stepped;
 #endif
 
@@ -465,8 +480,8 @@ crash_signal_handler (int sig, siginfo_t *info, void *context)
 #ifdef CRASH_STEP_BAD_JUMP
 	/* Put back before anything can return into it. */
 	if (stepped) {
-		((ucontext_t *) context)->uc_mcontext.gregs[REG_RIP] = saved[0];
-		((ucontext_t *) context)->uc_mcontext.gregs[REG_RSP] = saved[1];
+		CRASH_PC ((ucontext_t *) context) = saved[0];
+		CRASH_SP ((ucontext_t *) context) = saved[1];
 	}
 #endif
 

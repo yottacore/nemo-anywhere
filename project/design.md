@@ -60,6 +60,7 @@ Status: kept current as decisions change, rather than written once. Last read th
 - [Building](#building)
 	- [Building on Linux](#building-on-linux)
 	- [Building on Windows](#building-on-windows)
+	- [Building on FreeBSD](#building-on-freebsd)
 - [Delivery](#delivery)
 	- [Branches and the merge gate](#branches-and-the-merge-gate)
 	- [Versions and build numbers](#versions-and-build-numbers)
@@ -739,6 +740,26 @@ A cross-compile lane also exists, for checking a Windows build from the Linux bo
 - `cicd/win/Dockerfile` builds the `nemo-winbuild` container: the mingw toolchain, the native GLib code generators that have to run on the build host, wine, and the baked sysroot. `cicd/win/win64.cross.txt` is the meson cross file, with wine as the exe wrapper.
 
 Deliberately off for Windows either way: XMP and exempi, which are not packaged for mingw, and the Unix-only pieces (`gio-unix`, `x11`, SELinux, Tracker), which are guarded in meson by `host_machine.system()` and in the affected C files by `#ifdef`.
+
+### Building on FreeBSD
+
+FreeBSD 15.1 on amd64 is the known-good baseline. The build is native, with the base system's clang, and there is no container, so the versions are whatever `pkg` has at the time.
+
+- Toolchain and libraries: `pkg install meson ninja pkgconf python3 gettext-tools intltool itstool gobject-introspection gtk3 json-glib libgsf exempi libexif libarchive sqlite3`. Base has its own libarchive, but only the package has the pkg-config file meson looks for.
+
+- Configure and build as an ordinary user:
+	- `meson setup build source`
+	- `ninja -C build`
+
+- The binary is at `build/src/nemo-anywhere`, as on Linux. It builds with no warnings under `-Dwerror=true`.
+
+- The action layout editor wants `py312-pygobject` at run time.
+
+- The test suite also wants `xorg-vfbserver xdpyinfo openbox ImageMagick7-nox11 7-zip`, plus `rar` for the rar cases. There is no `xvfb-run`, so `meson test -C build` runs with `DISPLAY` set to an X server of its own and `DBUS_SESSION_BUS_ADDRESS=disabled:`, as `cicd/linux/run-tests.bash` does on Linux. A test that needs a display to itself starts its own Xvfb.
+
+- What differs from Linux:
+	- gdk-pixbuf as packaged there has no BMP, ICO, XPM or PNM loader, so those pictures get no thumbnail yet.
+	- The leak tests and the allocation count read glibc's heap, so they skip.
 
 ## Delivery
 

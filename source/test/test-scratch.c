@@ -14,6 +14,10 @@
 #include <gio/gio.h>
 
 #ifndef G_OS_WIN32
+#include <fcntl.h>
+#include <signal.h>
+#include <stdio.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #endif
 
@@ -279,6 +283,115 @@ test_scratch_config_home (const char *tmpl)
 	return dir;
 }
 
+#ifndef G_OS_WIN32
+static volatile pid_t kept_child = 0;
+
+/* A test timed out is stopped through its keeper, so the test has to hear
+   of it too, or it and the server are left running. */
+static void
+pass_on (int sig)
+{
+	if (kept_child > 0) {
+		kill (kept_child, sig);
+	}
+}
+
+/* No xvfb-run, which is Debian's and not on the BSDs. Xvfb picks a free number
+   itself through -displayfd, and this process stays behind as its keeper while
+   a forked copy runs the test. Returns in that copy, or here on any failure. */
+static void
+own_display_by_hand (const char *screen)
+{
+	char *xvfb = g_find_program_in_path ("Xvfb");
+	char number[32];
+	size_t got = 0;
+	ssize_t n;
+	int fds[2], status;
+	pid_t server, child, waited;
+
+	if (xvfb == NULL || pipe (fds) != 0) {
+		g_free (xvfb);
+		return;
+	}
+
+	server = fork ();
+	if (server == 0) {
+		char fd_text[16];
+		int null_fd = open ("/dev/null", O_WRONLY);
+
+		close (fds[0]);
+		if (null_fd >= 0) {
+			dup2 (null_fd, STDOUT_FILENO);
+			dup2 (null_fd, STDERR_FILENO);
+		}
+		snprintf (fd_text, sizeof fd_text, "%d", fds[1]);
+		execl (xvfb, "Xvfb", "-displayfd", fd_text, "-nolisten", "tcp",
+		       "-screen", "0", screen != NULL ? screen : "1280x1024x24", (char *) NULL);
+		_exit (127);
+	}
+	g_free (xvfb);
+	close (fds[1]);
+	if (server < 0) {
+		close (fds[0]);
+		return;
+	}
+
+	/* The number and a newline, written once the server is listening. */
+	while (got < sizeof number - 1 &&
+	       ((n = read (fds[0], number + got, sizeof number - 1 - got)) > 0 ||
+	        (n < 0 && errno == EINTR))) {
+		if (n > 0) {
+			got += (size_t) n;
+			if (memchr (number, '\n', got) != NULL) {
+				break;
+			}
+		}
+	}
+	close (fds[0]);
+	number[got] = '\0';
+	if (got == 0 || number[0] < '0' || number[0] > '9') {
+		kill (server, SIGTERM);
+		waitpid (server, NULL, 0);
+		return;
+	}
+	number[strcspn (number, "\n")] = '\0';
+
+	child = fork ();
+	if (child < 0) {
+		kill (server, SIGTERM);
+		waitpid (server, NULL, 0);
+		return;
+	}
+	if (child == 0) {
+		char *display = g_strconcat (":", number, NULL);
+
+		g_setenv ("DISPLAY", display, TRUE);
+		g_free (display);
+		return;
+	}
+
+	kept_child = child;
+	signal (SIGTERM, pass_on);
+	signal (SIGINT, pass_on);
+	signal (SIGHUP, pass_on);
+	while ((waited = waitpid (child, &status, 0)) < 0 && errno == EINTR) {
+	}
+	kill (server, SIGTERM);
+	waitpid (server, NULL, 0);
+	if (waited < 0) {
+		_exit (1);
+	}
+
+	/* Die the way the test did, so a crash still reads as one. _exit, since
+	   the scratch dirs and the rest are the child's to clean up. */
+	if (WIFSIGNALED (status)) {
+		signal (WTERMSIG (status), SIG_DFL);
+		raise (WTERMSIG (status));
+	}
+	_exit (WIFEXITED (status) ? WEXITSTATUS (status) : 1);
+}
+#endif
+
 void
 test_own_display (int argc, char **argv, const char *screen)
 {
@@ -292,6 +405,8 @@ test_own_display (int argc, char **argv, const char *screen)
 	}
 	xvfb_run = g_find_program_in_path ("xvfb-run");
 	if (xvfb_run == NULL) {
+		g_setenv ("NEMO_TEST_OWN_DISPLAY", "1", TRUE);
+		own_display_by_hand (screen);
 		return;
 	}
 	g_setenv ("NEMO_TEST_OWN_DISPLAY", "1", TRUE);

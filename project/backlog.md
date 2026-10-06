@@ -479,6 +479,52 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Estimated effort: High
 	- Test case: none new. reww9h2r, reww9h2s and the extract leak test rjbpmcxy stay as they are, and pass before and after.
 
+- On FreeBSD, BMP, ICO, XPM and PNM pictures get no thumbnail.
+	- ID: 2026100517134043
+	- Type: Bug
+	- Status: Queued
+	- Needs external testing: a FreeBSD box.
+	- Priority|Severity: Low
+	- Opened: 20261005-171341
+	- Opened by: old-format item "Target: BSD"
+	- Related IDs: old-format item "Target: BSD"
+	- Target OS: FreeBSD
+	- Steps to reproduce: open a folder holding a BMP on FreeBSD 15.1.
+	- Incorrect behavior: read only. The picture keeps its plain icon.
+	- Expected behavior: a thumbnail, as on Linux and Windows.
+	- Reproduced: no. Read from the loaders the gdk-pixbuf package installs, and seen in the thumbnail tests, where saving a BMP fails there.
+	- Possible cause: gdk-pixbuf 2.44 as packaged there has loaders for GIF, HEIF, JPEG, JPEG XL, PNG, TIFF, SVG and WMF only. The ImageMagick list in `nemo-magick.c` covers none of the missing ones.
+	- Test case: none yet, not started.
+
+- A FreeBSD package.
+	- ID: 2026100517134081
+	- Type: Feature
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261005-171341
+	- Opened by: old-format item "Target: BSD"
+	- Related IDs: old-format item "Target: BSD"
+	- Target OS: FreeBSD
+	- Requirements:
+		- A FreeBSD build from the release cut, handed to the local cut like any build done elsewhere.
+		- Packed so `install.bash` can fetch it on BSD, which it already expects as a `-bsd-` file.
+		- A `pkg` file or a port, so the dependencies come with it. Which one is open.
+	- Test case: none yet, not started.
+
+- FreeBSD in the pipeline.
+	- ID: 2026100517134118
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261005-171341
+	- Opened by: old-format item "Target: BSD"
+	- Related IDs: old-format item "Target: BSD", 2026100517134081
+	- Target OS: FreeBSD
+	- Requirements:
+		- A stage that sends the tree to the FreeBSD box, builds with `-Dwerror=true`, runs the suite on an X server of its own, and checks `--version`, under the host lock.
+		- `cicd/linux/run-tests.bash` assumes the container's `/src`, `xvfb-run` and GNU `find -printf`. Either it learns FreeBSD, or a runner of its own does the same job.
+	- Test case: none yet, not started.
+
 - Code review 20260928 item 2. The tree sidebar crashes on Shift+F10 or the Menu key.
 	- ID: 2026092813381402
 	- Type: Bug
@@ -2712,9 +2758,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: if arm64 builds turn out much slower, they go behind an `--include-arm` flag rather than the `--no-arm` the engine has now.
 	- Test case: none yet, not started.
 
-- 🔘 Target: BSD
+- 🛠️ Target: BSD
 	- Opened: 20260730-185314
-	- Test case: none yet, not started.
+	- Done: 20261005. Builds on FreeBSD 15.1 with clang, with no warnings under `-Werror`. `--version` answers, a window comes up, and the suite passes there: 157 pass, 14 skip, none fail. Dependencies and steps are in design.md, "Building on FreeBSD".
+	- Done: 20261005. Fixed for FreeBSD: the program finding its own path, which new windows and the data dirs depend on; the crash reporter taking a sent signal for a fault, and its stack after a bad jump; and translations being switched off at setup.
+	- Done: 20261005. The 7 tests that drive the program through a preloaded probe now run on FreeBSD too. A test that needs a display to itself starts its own Xvfb where there is no `xvfb-run`.
+	- Note: 20261005. Skipped on FreeBSD: the 11 leak tests and the allocation count, which read glibc's heap, the checksum attribute test, which found no extended attributes on the temp dir, and the link move test, which needs a second file system.
+	- Note: 20261005. Left as their own items: a FreeBSD package `2026100517134081`, FreeBSD in the pipeline `2026100517134118`, and BMP and other thumbnails there `2026100517134043`.
+	- Test case: the existing suite, run on FreeBSD. rg3wt7d8, rgahvdsr, rhtq57n4, rge1srj8, rg3wt7d9, rhmr6qgr, rhf905br and rjffcm7d failed there before the fixes adn pass after. No new test.
 
 - 🔘 Target: macOS
 	- Opened: 20260730-185314

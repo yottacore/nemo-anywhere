@@ -52,6 +52,11 @@
 #include <windows.h>
 #endif
 
+#if defined(__FreeBSD__) || defined(__DragonFly__)
+#include <sys/types.h>
+#include <sys/sysctl.h>
+#endif
+
 #define NEMO_USER_DIRECTORY_NAME NEMO_APP_SLUG
 
 #define DESKTOP_DIRECTORY_NAME "Desktop"
@@ -1131,9 +1136,23 @@ nemo_get_exe_path (void)
 		}
 	}
 #else
-	exe = g_file_read_link ("/proc/self/exe", NULL);
+#if defined(__FreeBSD__) || defined(__DragonFly__)
+	/* procfs is not mounted there by default */
+	{
+		int mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1 };
+		char path[4096];
+		size_t len = sizeof (path);
+
+		if (sysctl (mib, G_N_ELEMENTS (mib), path, &len, NULL, 0) == 0 && len > 1) {
+			exe = g_strndup (path, len);
+		}
+	}
+#endif
 	if (exe == NULL) {
-		/* BSD */
+		exe = g_file_read_link ("/proc/self/exe", NULL);
+	}
+	if (exe == NULL) {
+		/* NetBSD, or FreeBSD with procfs */
 		exe = g_file_read_link ("/proc/curproc/file", NULL);
 	}
 #endif

@@ -3,7 +3,7 @@
  * the folder as a new tab and shows it. A tab moved out to a window of its own
  * starts a new copy with the view and selection on its command line.
  *
- * On Linux every copy also has test-nemo-tab-move-probe (argv[2]) preloaded,
+ * On Linux and FreeBSD every copy also has test-nemo-tab-move-probe (argv[2]) preloaded,
  * which reports the view and selection each window shows, so a move that kept
  * the folder but lost either one fails. The probe also drags a tab off to
  * empty screen: a second tab goes to a new copy, and the only tab stays put,
@@ -570,7 +570,7 @@ main (int argc, char *argv[])
 	alpha_uri = g_filename_to_uri (alpha, NULL, NULL);
 	beta_uri = g_filename_to_uri (beta, NULL, NULL);
 
-#ifdef __linux__
+#if defined (__linux__) || defined (__FreeBSD__)
 	/* Every copy from here on has the probe, and so does any copy it starts. */
 	if (argc >= 3) {
 		probe_dir = test_scratch_dir ("nemo-tabmove-probe-XXXXXX", NULL);
