@@ -85,9 +85,10 @@ fRun(){
 	mkdir -p "$OUT"
 	rm -f "${OUT:?}/${name}"
 	scp -q "${sshOpts[@]}" "${armHost}:${remoteDir}/cicd/artifacts/release/${name}" "${OUT}/${name}"
-	## The container idles on the box otherwise, and that box is emulated. The
-	## next run starts a fresh one, as release.bash builds from an empty dir anyway.
-	ssh "${sshOpts[@]}" "$armHost" "docker rm -f nemo-build-jammy >/dev/null 2>&1 || true"
+	## Stopped, since anything left running costs the host several times over on an
+	## emulated box. Its build dir stays for a test run; the next release run
+	## replaces the container.
+	ssh "${sshOpts[@]}" "$armHost" "docker stop nemo-build-jammy >/dev/null 2>&1 || true"
 
 	fWriteReleaseSums "$OUT" "$SLUG" "$ver"
 

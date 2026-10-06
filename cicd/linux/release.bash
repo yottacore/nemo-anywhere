@@ -77,6 +77,10 @@ if ! docker exec "$CONTAINER" true 2>/dev/null; then
 	docker run -d --init --ulimit core=0 --name "$CONTAINER" --shm-size=2g \
 		-v "${ROOT}:/src" "$IMAGE" sleep infinity >/dev/null
 fi
+## -j alone does not hold the build to that many cores: every LTO link runs 4
+## jobs of its own, and ninja runs several links at once. Same cap the engine
+## puts on its containers.
+docker update --cpus "$jobs" "$CONTAINER" >/dev/null 2>&1 || true
 fEcho_Clean "$(docker exec "$CONTAINER" sh -c '. /etc/os-release; printf "%s, glibc %s, gtk %s" "$PRETTY_NAME" "$(ldd --version | head -1 | grep -oE "[0-9]+\.[0-9]+$")" "$(pkg-config --modversion gtk+-3.0)"')"
 
 ## The asset name says arm64 where the kernel says aarch64.
