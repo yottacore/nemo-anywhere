@@ -175,6 +175,44 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Decided against: warn-only packagers, lint scoped by file, the launcher's names, and three flagged words in hand-written prose. All settled earlier.
 	- Test case: none, review round.
 
+- Two tests fail on the release build made in the jammy image.
+	- ID: 2026100520071433
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261005-200714
+	- Opened by: arm64 release build
+	- Target OS: Linux
+	- Steps to reproduce: run the suite against a release build from `nemo-build-jammy`, x86_64 or arm64.
+	- Incorrect behavior: rjbkzwe7 (move job leak) and rhe0xz32 (thumbnail hold) fail. The day to day build in `nemo-build` passes both.
+	- Reproduced: 20261005, x86_64 and arm64 jammy release builds.
+	- Possible cause: not looked at. The jammy image has older GLib and GTK, and the release build has LTO on.
+	- Test case: rjbkzwe7 and rhe0xz32 themselves.
+
+- On arm64 a crash report after a call through a null pointer keeps too few frames.
+	- ID: 2026100520071434
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261005-200714
+	- Opened by: arm64 release build
+	- Target OS: Linux arm64
+	- Incorrect behavior: rge1srj8 fails, with fewer than 4 frames in the report.
+	- Possible cause: the stack after a bad jump is only recovered on x86_64, and FreeBSD amd64 since 20261005. On arm64 the return address is in the link register, and nothing reads it.
+	- Test case: rge1srj8.
+
+- On a slow arm64 box some tests miss their time limits.
+	- ID: 2026100520071435
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261005-200714
+	- Opened by: arm64 release build
+	- Target OS: Linux arm64
+	- Incorrect behavior: on the emulated arm64 box, rhg7vh28 and rj9v7n76 take 0.30 to 0.39 s against a 0.25 s limit, and rhr6ggmt gives up on a compress after 60 s. rjefm41d fails even run alone. rjedw75s, rhmr6qgs and rjbpyy28 fail only in the parallel run.
+	- Possible cause: the box is about 20 times slower than x86_64. Not shown for rjefm41d.
+	- Test case: the tests named above.
+
 - On FreeBSD, BMP, ICO, XPM and PNM pictures get no thumbnail.
 	- ID: 2026100517134043
 	- Type: Bug
@@ -218,7 +256,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Target OS: FreeBSD
 	- Requirements:
 		- A stage that sends the tree to the FreeBSD box, builds with `-Dwerror=true`, runs the suite on an X server of its own, and checks `--version`, under the host lock.
-		- `cicd/linux/run-tests.bash` assumes the container's `/src`, `xvfb-run` and GNU `find -printf`. Either it learns FreeBSD, or a runner of its own does the same job.
+		- `cicd/linux/run-tests.bash` assumes the container's `/src`, a Linux-only display wrapper and GNU `find -printf`. Either it learns FreeBSD, or a runner of its own does the same job.
 	- Test case: none yet, not started.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
@@ -2788,14 +2826,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified 20261005: two builds of one commit gave the same tarball. It installs with `install.bash` on Debian 13 arm64, answers `--version` and opens its window.
 	- Note 20261005: on an emulated arm64 box a release build takes about 67 minutes at 4 cores, against under 4 minutes for x86_64 at the same 4 cores.
 	- Note 20261005: the test suite passes 160 of 171 on the arm64 release build. One failure belongs to arm64: a crash report after a call through a null pointer keeps too few frames, since that stack is only recovered on x86_64. Most of the rest are time limits the slow box misses, and 2 fail on the x86_64 release build too.
-	- Note 20261005: left for later: calling it from the pipeline, and arm64 `.deb` and `.rpm` packages. The pipeline question is whether it runs by default with `--no-arm` to skip it, or behind `--include-arm` as the note above says, given the hour it takes.
+	- Note 20261005: left for later: calling it from the pipeline, and arm64 `.deb` and `.rpm` packages. It goes behind `--include-arm`, per the note above, since it takes an hour.
 	- Test case: rhtrxr81 has both installers fetch the arm64 build under the name the release lanes give it, on either box. rjcma0t3 checks the arm64 package sources are pinned too.
 
 - 🛠️ Target: BSD
 	- Opened: 20260730-185314
 	- Done: 20261005. Builds on FreeBSD 15.1 with clang, with no warnings under `-Werror`. `--version` answers, a window comes up, and the suite passes there: 157 pass, 14 skip, none fail. Dependencies and steps are in design.md, "Building on FreeBSD".
 	- Done: 20261005. Fixed for FreeBSD: the program finding its own path, which new windows and the data dirs depend on; the crash reporter taking a sent signal for a fault, and its stack after a bad jump; and translations being switched off at setup.
-	- Done: 20261005. The 7 tests that drive the program through a preloaded probe now run on FreeBSD too. A test that needs a display to itself starts its own Xvfb where there is no `xvfb-run`.
+	- Done: 20261005. The 7 tests that drive the program through a preloaded library now run on FreeBSD too, and so do the tests that need a display to themselves.
 	- Note: 20261005. Skipped on FreeBSD: the 11 leak tests and the allocation count, which read glibc's heap, the checksum attribute test, which found no extended attributes on the temp dir, and the link move test, which needs a second file system.
 	- Note: 20261005. Left as their own items: a FreeBSD package `2026100517134081`, FreeBSD in the pipeline `2026100517134118`, and BMP and other thumbnails there `2026100517134043`.
 	- Test case: the existing suite, run on FreeBSD. rg3wt7d8, rgahvdsr, rhtq57n4, rge1srj8, rg3wt7d9, rhmr6qgr, rhf905br and rjffcm7d failed there before the fixes adn pass after. No new test.
