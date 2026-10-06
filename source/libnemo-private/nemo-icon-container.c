@@ -3486,6 +3486,11 @@ button_release_event (GtkWidget *widget,
 	}
 
 	if (event->button == details->drag_button) {
+#ifdef G_OS_WIN32
+		gboolean menu = event->button == CONTEXTUAL_MENU_BUTTON &&
+				details->drag_state == DRAG_STATE_MOVE_OR_COPY &&
+				!details->drag_started;
+#endif
 		details->drag_button = 0;
 
 		switch (details->drag_state) {
@@ -3508,6 +3513,11 @@ button_release_event (GtkWidget *widget,
 		}
 
 		clear_drag_state (container);
+#ifdef G_OS_WIN32
+		if (menu) {
+			g_signal_emit (container, signals[CONTEXT_CLICK_SELECTION], 0, event);
+		}
+#endif
 		return TRUE;
 	}
 
@@ -5103,6 +5113,19 @@ handle_icon_button_press (NemoIconContainer *container,
 		}
 	}
 
+#ifdef G_OS_WIN32
+	/* As in Explorer, the right button drags too, so its menu waits for the
+	 * release. */
+	if (event->button == CONTEXTUAL_MENU_BUTTON) {
+		details->drag_button = event->button;
+		details->drag_icon = icon;
+		details->drag_x = event->x;
+		details->drag_y = event->y;
+		details->drag_state = DRAG_STATE_MOVE_OR_COPY;
+		details->drag_started = FALSE;
+	}
+#endif
+
 	/* Modify the selection as appropriate. Selection is modified
 	 * the same way for contextual menu as it would be without.
 	 */
@@ -5139,6 +5162,7 @@ handle_icon_button_press (NemoIconContainer *container,
 		}
 	}
 
+#ifndef G_OS_WIN32
 	if (event->button == CONTEXTUAL_MENU_BUTTON) {
 		clear_drag_state (container);
 
@@ -5146,7 +5170,7 @@ handle_icon_button_press (NemoIconContainer *container,
 			       signals[CONTEXT_CLICK_SELECTION], 0,
 			       event);
 	}
-
+#endif
 
 	return TRUE;
 }

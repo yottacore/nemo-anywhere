@@ -568,7 +568,7 @@ drag_motion_callback (GtkWidget *widget,
 				       dest->details->tree_view);
 	}
 
-	gdk_drag_status (context, action, time);
+	nemo_drag_status (context, action, time);
 
 	return TRUE;
 }
@@ -629,7 +629,7 @@ receive_uris (NemoTreeViewDragDest *dest,
 	drop_target = get_drop_target_uri_at_pos (dest, x, y);
 	g_assert (drop_target != NULL);
 
-	real_action = gdk_drag_context_get_selected_action (context);
+	real_action = nemo_drag_selected_action (context);
 
 	if (real_action == GDK_ACTION_ASK) {
 		if (nemo_drag_selection_includes_special_link (dest->details->drag_list)) {
@@ -711,7 +711,7 @@ receive_dropped_uri_list (NemoTreeViewDragDest *dest,
 	g_signal_emit (dest, signals[HANDLE_URI_LIST], 0,
 		       (char*) gtk_selection_data_get_data (dest->details->drag_data),
 		       drop_target,
-		       gdk_drag_context_get_selected_action (context),
+		       nemo_drag_selected_action (context),
 		       x, y);
 
 	g_free (drop_target);
@@ -735,7 +735,7 @@ receive_dropped_text (NemoTreeViewDragDest *dest,
 	text = gtk_selection_data_get_text (dest->details->drag_data);
 	g_signal_emit (dest, signals[HANDLE_TEXT], 0,
 		       (char *) text, drop_target,
-		       gdk_drag_context_get_selected_action (context),
+		       nemo_drag_selected_action (context),
 		       x, y);
 
 	g_free (text);
@@ -760,7 +760,7 @@ receive_dropped_raw (NemoTreeViewDragDest *dest,
 	g_signal_emit (dest, signals[HANDLE_RAW], 0,
 		       raw_data, length, drop_target,
 		       dest->details->direct_save_uri,
-		       gdk_drag_context_get_selected_action (context),
+		       nemo_drag_selected_action (context),
 		       x, y);
 
 	g_free (drop_target);
@@ -783,7 +783,7 @@ receive_dropped_netscape_url (NemoTreeViewDragDest *dest,
 	g_signal_emit (dest, signals[HANDLE_NETSCAPE_URL], 0,
 		       (char*) gtk_selection_data_get_data (dest->details->drag_data),
 		       drop_target,
-		       gdk_drag_context_get_selected_action (context),
+		       nemo_drag_selected_action (context),
 		       x, y);
 
 	g_free (drop_target);

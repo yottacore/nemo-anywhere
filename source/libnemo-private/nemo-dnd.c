@@ -555,6 +555,18 @@ nemo_drag_default_drop_action_for_icons (GdkDragContext *context,
         return;
     }
 
+#ifdef G_OS_WIN32
+	/* A held modifier says outright what to do, and on Windows it cannot
+	 * reach us any other way - see nemo_dnd_win32_modifier_action. The
+	 * toolkit there always offers copy and move, so a link or the menu has
+	 * to go before the checks below, where it would be on X11. */
+	forced = nemo_dnd_win32_modifier_action ();
+	if (forced == GDK_ACTION_LINK || forced == GDK_ACTION_ASK) {
+		*action = forced;
+		return;
+	}
+#endif
+
 	actions = gdk_drag_context_get_actions (context) & (GDK_ACTION_MOVE | GDK_ACTION_COPY);
 	if (actions == 0) {
 		 /* We can't use copy or move, just go with the suggested action. */
@@ -643,12 +655,6 @@ nemo_drag_default_drop_action_for_icons (GdkDragContext *context,
 		g_object_unref (dropped_directory);
 	}
 	source_deletable = source_is_deletable (dropped);
-
-#ifdef G_OS_WIN32
-	/* A held modifier says outright what to do, and on Windows it cannot
-	 * reach us any other way - see nemo_dnd_win32_modifier_action. */
-	forced = nemo_dnd_win32_modifier_action ();
-#endif
 
 	if (forced != 0) {
 		*action = forced;
@@ -979,6 +985,51 @@ append_drop_action_menu_item (GtkWidget          *menu,
 			  damd);
 
 	gtk_widget_show (menu_item);
+}
+
+#ifdef G_OS_WIN32
+#define ASKED_KEY "nemo-drag-asked"
+#endif
+
+void
+nemo_drag_status (GdkDragContext *context,
+		  GdkDragAction   action,
+		  guint32         time)
+{
+#ifdef G_OS_WIN32
+	/* The toolkit on Windows turns an ask into no drop at all, so Windows
+	 * never makes the drop and the menu never comes up. It is told copy, which
+	 * nearly every drag allows, and the ask is kept on the drag. */
+	g_object_set_data (G_OBJECT (context), ASKED_KEY,
+			   GINT_TO_POINTER (action == GDK_ACTION_ASK));
+	if (action == GDK_ACTION_ASK) {
+		action = GDK_ACTION_COPY;
+	}
+#endif
+	gdk_drag_status (context, action, time);
+}
+
+GdkDragAction
+nemo_drag_selected_action (GdkDragContext *context)
+{
+#ifdef G_OS_WIN32
+	if (g_object_get_data (G_OBJECT (context), ASKED_KEY) != NULL) {
+		return GDK_ACTION_ASK;
+	}
+#endif
+	return gdk_drag_context_get_selected_action (context);
+}
+
+GdkDragAction
+nemo_drag_offered_actions (GdkDragContext *context)
+{
+#ifdef G_OS_WIN32
+	/* What the toolkit says there is fixed, and leaves out link. */
+	(void) context;
+	return GDK_ACTION_MOVE | GDK_ACTION_COPY | GDK_ACTION_LINK;
+#else
+	return gdk_drag_context_get_actions (context);
+#endif
 }
 
 /* Pops up a menu of actions to perform on dropped files */

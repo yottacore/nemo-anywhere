@@ -1060,11 +1060,12 @@ motion_notify_callback (GtkWidget *widget,
 
         /* We also want to further restrict rubber-banding to be initiated only in blank areas of the row.
          * This allows DnD to operate on a new selection like before, when the motion begins over text or
-         * icons */
-        if (is_new_self_selection && gtk_tree_view_is_blank_at_pos (GTK_TREE_VIEW (widget),
-                                                                    view->details->drag_x,
-                                                                    view->details->drag_y,
-                                                                    NULL, NULL, NULL, NULL)) {
+         * icons. The right button, which drags only on Windows, never bands. */
+        if (view->details->drag_button != 3 && is_new_self_selection &&
+            gtk_tree_view_is_blank_at_pos (GTK_TREE_VIEW (widget),
+                                           view->details->drag_x,
+                                           view->details->drag_y,
+                                           NULL, NULL, NULL, NULL)) {
             /* If this is a candidate for rubber-banding, track that state in the view, and allow the event
              * to continue into Gtk (which handles rubber-band selection for us) */
             view->details->rubber_banding = TRUE;
@@ -1682,9 +1683,20 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 				view->details->drag_y = event->y;
 			}
 
+#ifdef G_OS_WIN32
+			/* As in Explorer, the right button drags too, so its menu
+			 * waits for the release. */
+			if (event->button == 3 && event->type == GDK_BUTTON_PRESS) {
+				view->details->drag_started = FALSE;
+				view->details->drag_button = event->button;
+				view->details->drag_x = event->x;
+				view->details->drag_y = event->y;
+			}
+#else
 			if (event->button == 3) {
 				do_popup_menu (widget, view, event);
 			}
+#endif
 		}
 
 		gtk_tree_path_free (path);
@@ -1725,6 +1737,14 @@ button_release_callback (G_GNUC_UNUSED GtkWidget *widget,
 
 	if (event->button == view->details->drag_button) {
 		stop_drag_check (view);
+#ifdef G_OS_WIN32
+		if (event->button == 3) {
+			if (!view->details->drag_started) {
+				do_popup_menu (widget, view, event);
+			}
+			return FALSE;
+		}
+#endif
 		if (!view->details->drag_started &&
 		    !view->details->ignore_button_release) {
 			nemo_list_view_did_not_drag (view, event);

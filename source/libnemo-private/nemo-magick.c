@@ -26,6 +26,11 @@
 
 #include <string.h>
 
+#ifdef G_OS_WIN32
+#include <glib/gstdio.h>
+#include "nemo-launch-win32.h"
+#endif
+
 #define TIMEOUT_SECONDS 30
 
 /* ImageMagick holds all of its input in memory before decoding it, so past
@@ -183,6 +188,7 @@ nemo_magick_argv (const char *program, const char *coder, int size)
 	return (gchar **) g_ptr_array_free (argv, FALSE);
 }
 
+#ifndef G_OS_WIN32
 typedef struct {
 	GSubprocess *proc;
 	GMainLoop   *loop;
@@ -223,6 +229,7 @@ run_finished (GObject *source, GAsyncResult *result, gpointer data)
 	g_subprocess_communicate_finish (G_SUBPROCESS (source), result, &run->out, NULL, NULL);
 	g_main_loop_quit (run->loop);
 }
+#endif
 
 static GdkPixbuf *
 decode_png (GBytes *bytes)
@@ -244,28 +251,44 @@ decode_png (GBytes *bytes)
 	return pixbuf != NULL ? g_object_ref (pixbuf) : NULL;
 }
 
-/* Returns: (transfer full): unref with g_object_unref */
-GdkPixbuf *
-nemo_magick_load_uri (const char *uri, int size, GCancellable *cancellable)
+#ifdef G_OS_WIN32
+/* GLib starts a program through a helper of its own, which has no console, so
+ * each run opened a console window. Packed into the single exe the helper never
+ * starts the program at all and the thumbnail waits on it for good. */
+static GdkPixbuf *
+run_magick (char **argv, const char *path, GCancellable *cancellable)
 {
-	g_autofree char *path = NULL;
+	g_autoptr (GBytes) out = NULL;
+	GStatBuf info;
+	gboolean late = FALSE;
+
+	if (g_stat (path, &info) != 0 || info.st_size > MAX_FILE_BYTES) {
+		return NULL;
+	}
+
+	if (!nemo_launch_win32_pipe ((const gchar * const *) argv, path, TIMEOUT_SECONDS,
+				     cancellable, &out, &late)) {
+		if (late) {
+			g_warning ("ImageMagick took longer than %d seconds, gave up on %s",
+				   TIMEOUT_SECONDS, path);
+		}
+		return NULL;
+	}
+
+	return decode_png (out);
+}
+#else
+static GdkPixbuf *
+run_magick (char **argv, const char *path, GCancellable *cancellable)
+{
 	g_autoptr (GMappedFile) mapped = NULL;
 	g_autoptr (GBytes) input = NULL;
-	g_auto (GStrv) argv = NULL;
-	const char *program, *coder;
 	GMainContext *context;
 	GSource *timeout;
 	GSource *stop = NULL;
 	GdkPixbuf *pixbuf = NULL;
 	Run run = { 0 };
 
-	if (!nemo_magick_type_ok (uri) || g_cancellable_is_cancelled (cancellable)) {
-		return NULL;
-	}
-	path = g_filename_from_uri (uri, NULL, NULL);
-	if (path == NULL) {
-		return NULL;
-	}
 	/* Mapped rather than read, so the file is not copied on its way down the
 	 * pipe. A stdin that is the file itself would be cheaper still, but GLib
 	 * only offers that on Unix. */
@@ -274,10 +297,6 @@ nemo_magick_load_uri (const char *uri, int size, GCancellable *cancellable)
 		return NULL;
 	}
 	input = g_mapped_file_get_bytes (mapped);
-
-	program = nemo_magick_program ();
-	coder = nemo_magick_coder (path);
-	argv = nemo_magick_argv (program, coder, CLAMP (size, 1, 4096));
 
 	/* Private context so the wait and the timeout run here rather than on
 	 * whatever context this worker thread happens to be running under. */
@@ -326,4 +345,26 @@ nemo_magick_load_uri (const char *uri, int size, GCancellable *cancellable)
 	g_main_context_unref (context);
 
 	return pixbuf;
+}
+#endif
+
+/* Returns: (transfer full): unref with g_object_unref */
+GdkPixbuf *
+nemo_magick_load_uri (const char *uri, int size, GCancellable *cancellable)
+{
+	g_autofree char *path = NULL;
+	g_auto (GStrv) argv = NULL;
+
+	if (!nemo_magick_type_ok (uri) || g_cancellable_is_cancelled (cancellable)) {
+		return NULL;
+	}
+	path = g_filename_from_uri (uri, NULL, NULL);
+	if (path == NULL) {
+		return NULL;
+	}
+
+	argv = nemo_magick_argv (nemo_magick_program (), nemo_magick_coder (path),
+				 CLAMP (size, 1, 4096));
+
+	return run_magick (argv, path, cancellable);
 }

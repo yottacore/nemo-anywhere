@@ -826,7 +826,7 @@ action_from_effect (DWORD effect)
  * next click there does nothing. The toolkit's own drag ends by handing the
  * widget a release of its own; this is the same thing. */
 static void
-release_grab (GtkWidget *widget)
+release_grab (GtkWidget *widget, guint button)
 {
 	GdkWindow *window;
 	GdkDevice *pointer;
@@ -861,7 +861,7 @@ release_grab (GtkWidget *widget)
 	release->button.y_root = root_y;
 	release->button.axes = NULL;
 	release->button.state = state;
-	release->button.button = GDK_BUTTON_PRIMARY;
+	release->button.button = button;
 	gdk_event_set_device (release, pointer);
 
 	gtk_main_do_event (release);
@@ -977,25 +977,62 @@ nemo_dnd_win32_enabled (void)
 }
 
 GdkDragAction
+nemo_dnd_win32_action_for_keys (guint keys)
+{
+	/* A right drag always asks, as in Explorer, whatever else is down, and
+	 * a middle one does as on Linux. */
+	if (keys & (MK_RBUTTON | MK_MBUTTON)) {
+		return GDK_ACTION_ASK;
+	}
+	if ((keys & MK_CONTROL) && (keys & MK_SHIFT)) {
+		return GDK_ACTION_LINK;
+	}
+	if (keys & MK_CONTROL) {
+		return GDK_ACTION_COPY;
+	}
+	if (keys & MK_SHIFT) {
+		return GDK_ACTION_MOVE;
+	}
+	if (keys & MK_ALT) {
+		return GDK_ACTION_ASK;
+	}
+
+	return 0;
+}
+
+static gboolean
+held (int key)
+{
+	return (GetAsyncKeyState (key) & 0x8000) != 0;
+}
+
+GdkDragAction
 nemo_dnd_win32_modifier_action (void)
 {
 	/* Async, not GetKeyState: that reads our own thread's message queue, and
 	 * during a drag from another program the keys go to whoever holds the
-	 * capture, so our queue may never have seen them. */
-	gboolean control = (GetAsyncKeyState (VK_CONTROL) & 0x8000) != 0;
-	gboolean shift = (GetAsyncKeyState (VK_SHIFT) & 0x8000) != 0;
+	 * capture, so our queue may never have seen them. It reads the buttons
+	 * as they are on the mouse, before any swap. */
+	gboolean swapped = GetSystemMetrics (SM_SWAPBUTTON) != 0;
+	guint keys = 0;
 
-	if (control && shift) {
-		return 0;	/* a shortcut, which the caller works out for itself */
+	if (held (VK_CONTROL)) {
+		keys |= MK_CONTROL;
 	}
-	if (control) {
-		return GDK_ACTION_COPY;
+	if (held (VK_SHIFT)) {
+		keys |= MK_SHIFT;
 	}
-	if (shift) {
-		return GDK_ACTION_MOVE;
+	if (held (VK_MENU)) {
+		keys |= MK_ALT;
+	}
+	if (held (swapped ? VK_LBUTTON : VK_RBUTTON)) {
+		keys |= MK_RBUTTON;
+	}
+	if (held (VK_MBUTTON)) {
+		keys |= MK_MBUTTON;
 	}
 
-	return 0;
+	return nemo_dnd_win32_action_for_keys (keys);
 }
 
 void
@@ -1022,6 +1059,7 @@ nemo_dnd_win32_drag (GtkWidget       *widget,
 	DWORD effect = DROPEFFECT_NONE;
 	HRESULT hr;
 	gboolean own, moved_by_target;
+	guint button;
 
 	if (performed != NULL) {
 		*performed = 0;
@@ -1052,7 +1090,14 @@ nemo_dnd_win32_drag (GtkWidget       *widget,
 	source = g_new0 (DropSource, 1);
 	source->iface.lpVtbl = &source_vtbl;
 	source->ref = 1;
-	source->button = (GetKeyState (VK_RBUTTON) & 0x8000) ? MK_RBUTTON : MK_LBUTTON;
+	/* Not the middle button: Windows' drag does not reliably end on its release. */
+	if (GetKeyState (VK_RBUTTON) & 0x8000) {
+		source->button = MK_RBUTTON;
+		button = GDK_BUTTON_SECONDARY;
+	} else {
+		source->button = MK_LBUTTON;
+		button = GDK_BUTTON_PRIMARY;
+	}
 
 	hr = DoDragDrop (data, &source->iface, effects_from_actions (actions), &effect);
 
@@ -1066,7 +1111,7 @@ nemo_dnd_win32_drag (GtkWidget       *widget,
 	IDropSource_Release (&source->iface);
 	IDataObject_Release (data);
 
-	release_grab (widget);
+	release_grab (widget, button);
 
 	if (hr == DRAGDROP_S_DROP && (effect & DROPEFFECT_MOVE) && !own && !moved_by_target) {
 		remove_moved_sources (widget, uri_list);

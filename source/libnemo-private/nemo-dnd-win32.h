@@ -49,10 +49,15 @@ gboolean nemo_dnd_win32_drag (GtkWidget       *widget,
  * call above declines, and nothing here is used. */
 gboolean nemo_dnd_win32_enabled (void);
 
-/* The action the held modifiers ask for, or 0 for none. Windows says control
- * copies and shift moves. The toolkit reports the same suggested action either
- * way for a drag from another program, so the keys have to be read here. */
+/* The action the held keys and buttons ask for, or 0 for none. Control copies,
+ * shift moves, both make a link, and alt or a drag with the right or middle
+ * button asks. The toolkit offers copy and move whatever is held, so the keys
+ * have to be read here. */
 GdkDragAction nemo_dnd_win32_modifier_action (void);
+
+/* The same answer for @keys, a mask of the MK_ flags a drop target is handed,
+ * MK_ALT included. */
+GdkDragAction nemo_dnd_win32_action_for_keys (guint keys);
 
 /* Called before the toolkit starts, to put it on the protocol our drags speak.
  * Does nothing when the above is off. */

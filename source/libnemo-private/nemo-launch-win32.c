@@ -478,3 +478,211 @@ nemo_launch_win32_run_command (const gchar  *command_line,
 
 	return started;
 }
+
+/* One argument the way the C runtime splits a command line back up. */
+static void
+append_argument (GString *line, const gchar *arg)
+{
+	const gchar *p;
+
+	if (line->len > 0) {
+		g_string_append_c (line, ' ');
+	}
+
+	if (arg[0] != '\0' && strpbrk (arg, " \t\n\v\"") == NULL) {
+		g_string_append (line, arg);
+		return;
+	}
+
+	g_string_append_c (line, '"');
+	for (p = arg; ; p++) {
+		gsize slashes = 0;
+
+		while (*p == '\\') {
+			slashes++;
+			p++;
+		}
+
+		if (*p == '\0') {
+			for (gsize i = 0; i < slashes * 2; i++) {
+				g_string_append_c (line, '\\');
+			}
+			break;
+		}
+
+		if (*p == '"') {
+			slashes = slashes * 2 + 1;
+		}
+		for (gsize i = 0; i < slashes; i++) {
+			g_string_append_c (line, '\\');
+		}
+		g_string_append_c (line, *p);
+	}
+	g_string_append_c (line, '"');
+}
+
+/* Everything the program has written so far, without waiting for more. */
+static void
+take_output (HANDLE pipe, GByteArray *got)
+{
+	guint8 buffer[16384];
+	DWORD waiting = 0, count = 0;
+
+	while (PeekNamedPipe (pipe, NULL, 0, NULL, &waiting, NULL) && waiting > 0) {
+		if (!ReadFile (pipe, buffer, MIN (waiting, (DWORD) sizeof buffer), &count, NULL) ||
+		    count == 0) {
+			break;
+		}
+		g_byte_array_append (got, buffer, count);
+	}
+}
+
+/* Started directly, so in the single-exe build it is hooked like anything else
+ * started that way. Neither broker can hand over a pipe, and a program that only
+ * reads one file and writes to us does not mind the hooks. */
+gboolean
+nemo_launch_win32_pipe (const gchar * const  *argv,
+			const gchar          *input_path,
+			guint                 timeout_seconds,
+			GCancellable         *cancellable,
+			GBytes              **output,
+			gboolean             *timed_out)
+{
+	SECURITY_ATTRIBUTES inherit = { sizeof inherit, NULL, TRUE };
+	HANDLE input = INVALID_HANDLE_VALUE, nowhere = INVALID_HANDLE_VALUE;
+	HANDLE out_read = NULL, out_write = NULL;
+	HANDLE handed[3];
+	LPPROC_THREAD_ATTRIBUTE_LIST attributes = NULL;
+	SIZE_T attributes_size = 0;
+	STARTUPINFOEXW startup;
+	PROCESS_INFORMATION process;
+	GByteArray *got;
+	GString *line;
+	wchar_t *wexe, *wline, *winput;
+	gint64 deadline;
+	gboolean started = FALSE, ended = FALSE, stopped = FALSE, late = FALSE;
+	DWORD code = 1;
+	guint i;
+
+	*output = NULL;
+	if (timed_out != NULL) {
+		*timed_out = FALSE;
+	}
+	g_return_val_if_fail (argv != NULL && argv[0] != NULL && input_path != NULL, FALSE);
+
+	line = g_string_new (NULL);
+	for (i = 0; argv[i] != NULL; i++) {
+		append_argument (line, argv[i]);
+	}
+	wexe = g_utf8_to_utf16 (argv[0], -1, NULL, NULL, NULL);
+	wline = g_utf8_to_utf16 (line->str, -1, NULL, NULL, NULL);
+	winput = g_utf8_to_utf16 (input_path, -1, NULL, NULL, NULL);
+	g_string_free (line, TRUE);
+
+	/* The file itself is the program's stdin, so nothing is copied through a
+	 * pipe on the way, and it still never sees a name. */
+	if (wexe != NULL && wline != NULL && winput != NULL) {
+		input = CreateFileW (winput, GENERIC_READ,
+				     FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+				     &inherit, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+		nowhere = CreateFileW (L"NUL", GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
+				       &inherit, OPEN_EXISTING, 0, NULL);
+	}
+
+	/* A big buffer, so a whole thumbnail fits and the program is never left
+	 * waiting on us to read. */
+	if (input != INVALID_HANDLE_VALUE && nowhere != INVALID_HANDLE_VALUE &&
+	    CreatePipe (&out_read, &out_write, &inherit, 1024 * 1024)) {
+		SetHandleInformation (out_read, HANDLE_FLAG_INHERIT, 0);
+
+		InitializeProcThreadAttributeList (NULL, 1, 0, &attributes_size);
+		attributes = g_malloc (attributes_size);
+		handed[0] = input;
+		handed[1] = out_write;
+		handed[2] = nowhere;
+
+		/* Only these three go to the child. Several thumbnails start at
+		 * once, and one that took another's pipe would keep it open. */
+		if (InitializeProcThreadAttributeList (attributes, 1, 0, &attributes_size) &&
+		    UpdateProcThreadAttribute (attributes, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
+					       handed, sizeof handed, NULL, NULL)) {
+			memset (&startup, 0, sizeof startup);
+			startup.StartupInfo.cb = sizeof startup;
+			startup.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+			startup.StartupInfo.hStdInput = input;
+			startup.StartupInfo.hStdOutput = out_write;
+			startup.StartupInfo.hStdError = nowhere;
+			startup.lpAttributeList = attributes;
+
+			/* No window: a console program started from one without a
+			 * console gets a new console window each time otherwise. */
+			started = CreateProcessW (wexe, wline, NULL, NULL, TRUE,
+						  CREATE_NO_WINDOW | CREATE_DEFAULT_ERROR_MODE |
+						  CREATE_UNICODE_ENVIRONMENT | EXTENDED_STARTUPINFO_PRESENT,
+						  NULL, NULL, &startup.StartupInfo, &process);
+			DeleteProcThreadAttributeList (attributes);
+		}
+		g_free (attributes);
+		CloseHandle (out_write);
+	}
+
+	if (input != INVALID_HANDLE_VALUE) {
+		CloseHandle (input);
+	}
+	if (nowhere != INVALID_HANDLE_VALUE) {
+		CloseHandle (nowhere);
+	}
+	g_free (winput);
+	g_free (wline);
+	g_free (wexe);
+
+	if (!started) {
+		if (out_read != NULL) {
+			CloseHandle (out_read);
+		}
+		return FALSE;
+	}
+	CloseHandle (process.hThread);
+
+	got = g_byte_array_new ();
+	deadline = g_get_monotonic_time () + (gint64) timeout_seconds * G_USEC_PER_SEC;
+
+	while (TRUE) {
+		DWORD state;
+
+		take_output (out_read, got);
+
+		state = WaitForSingleObject (process.hProcess, 10);
+		if (state != WAIT_TIMEOUT) {
+			break;
+		}
+
+		if (!ended && g_cancellable_is_cancelled (cancellable)) {
+			stopped = ended = TRUE;
+			TerminateProcess (process.hProcess, 1);
+		} else if (!ended && g_get_monotonic_time () > deadline) {
+			late = ended = TRUE;
+			TerminateProcess (process.hProcess, 1);
+		}
+	}
+
+	/* What it wrote last. Something it started itself may still have the pipe open,
+	 * so this stops at what is there rather than waiting for the end. */
+	take_output (out_read, got);
+	CloseHandle (out_read);
+
+	GetExitCodeProcess (process.hProcess, &code);
+	CloseHandle (process.hProcess);
+
+	if (timed_out != NULL) {
+		*timed_out = late;
+	}
+
+	if (stopped || late || code != 0) {
+		g_byte_array_unref (got);
+		return FALSE;
+	}
+
+	*output = g_byte_array_free_to_bytes (got);
+	return TRUE;
+}

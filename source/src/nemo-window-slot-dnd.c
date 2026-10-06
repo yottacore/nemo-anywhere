@@ -127,7 +127,7 @@ slot_proxy_drag_motion (GtkWidget          *widget,
     gtk_drag_unhighlight (widget);
   }
 
-  gdk_drag_status (context, action, time);
+  nemo_drag_status (context, action, time);
 
   return TRUE;
 }
@@ -249,18 +249,18 @@ slot_proxy_handle_drop (GtkWidget                *widget,
       nemo_view_drop_proxy_received_uris (target_view,
                                               uri_list,
                                               target_uri,
-                                              gdk_drag_context_get_selected_action (context));
+                                              nemo_drag_selected_action (context));
       g_list_free_full (uri_list, g_free);
     } else if (drag_info->info == NEMO_ICON_DND_URI_LIST) {
       nemo_view_drop_proxy_received_uris (target_view,
                                               drag_info->data.uri_list,
                                               target_uri,
-                                              gdk_drag_context_get_selected_action (context));
+                                              nemo_drag_selected_action (context));
     } if (drag_info->info == NEMO_ICON_DND_NETSCAPE_URL) {
       nemo_view_handle_netscape_url_drop (target_view,
                                               drag_info->data.netscape_url,
                                               target_uri,
-                                              gdk_drag_context_get_selected_action (context),
+                                              nemo_drag_selected_action (context),
                                               0, 0);
     }
 

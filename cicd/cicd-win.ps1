@@ -304,7 +304,13 @@ function fGuiSmoke {
 ## PATH. A crash would otherwise stop the run behind a modal box.
 function fTests {
 	$jobs = [Math]::Max(1, [Environment]::ProcessorCount / 2 -as [int])
-	fMingw "NEMO_NO_CRASH_DIALOG=1 meson test -C $BuildRel --no-rebuild --num-processes $jobs --print-errorlogs"
+	## The login shell keeps only the system folders of the Windows PATH, so a
+	## test that looks for an installed program, ImageMagick say, never found it.
+	$savedPathType = $env:MSYS2_PATH_TYPE
+	$env:MSYS2_PATH_TYPE = "inherit"
+	try {
+		fMingw "NEMO_NO_CRASH_DIALOG=1 meson test -C $BuildRel --no-rebuild --num-processes $jobs --print-errorlogs"
+	} finally { $env:MSYS2_PATH_TYPE = $savedPathType }
 	if ($script:MingwRc -ne 0) { fDie "test suite failed (exit $($script:MingwRc))" }
 	fEcho "OK: test suite"
 	## The installer's in-use check needs a real process to find, so it runs
