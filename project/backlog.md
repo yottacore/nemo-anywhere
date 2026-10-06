@@ -33,6 +33,35 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- On Windows, a link drop moves the files instead of opening Make link.
+	- ID: 2026100610503900
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The Linux suite passed 171 of 171 on 20261006 on the merged tree, and the Windows cross build was clean.
+	- Needs external testing: done 20261006 on vm925w, as in Verified.
+	- Priority|Severity: Avg
+	- Opened: 20261006-105039
+	- Opened by: real-Windows validation, old-format item
+	- Related IDs: old-format items "Real-Windows validation" and the Alt drop that opens Make link
+	- Target OS: Windows
+	- Steps to reproduce: in a folder holding a file and a folder, drag the file onto the folder with Ctrl+Shift held. Again with Alt held, and again with the right button.
+	- Incorrect behavior: Ctrl+Shift moves the file, in the list and icon views; the move question of the test guard shows "Move: 1 item". Alt moves it in the list view and does nothing in the icon view, with no drop menu. A right-button drag does nothing. Ctrl alone copies, as it should.
+	- Expected behavior: Ctrl+Shift opens Make link for the drop. Alt, or the right button, opens the drop menu, whose "Link here..." opens Make link, as the Done item for the Alt drop describes.
+	- Reproduced: 20261006 on vm925w at 46f9674, with the native build, in the list and icon views.
+	- Possible cause: not looked at. The list view starts its drags with move, copy and link but not ask, so Alt has no menu to ask for there. Why Ctrl+Shift comes through as a move on Windows is open.
+	- Actual cause: Windows offers copy and move for every drop, whatever keys are down, so the app reads the keys itself. It read Ctrl+Shift as nothing, and the drop then moved, as a plain drop on the same drive does. Alt and the right button were not read at all. An ask handed to the toolkit there becomes no drop, so the menu could not have come up anyway. And a right press opened the item menu at once, so a right drag never started.
+	- Decisions:
+		- On Windows the item menu now opens when the right button comes up, as in Explorer, so a right drag can start. A right click on the background still opens its menu at once. A call made without asking.
+		- A drag started with the middle button still does nothing on Windows. Its drag did not always end when the button came up.
+	- Actual fix: Ctrl+Shift makes a link, and Alt or a right drag opens the drop menu, in both views and the side pane. The ask reaches Windows as a copy and comes back out as an ask at the drop. Ctrl and Shift alone are unchanged, and nothing changes off Windows.
+	- Swept: every place a drop target sets or reads the drop action, in the icon view, list view, side pane, tree and tab drops. The side pane's drop menu now offers Link on Windows too. A drop from another program goes through the same code. Not changed: drags out of the side pane and tree, which start with the left button only.
+	- Verified: on vm925w, native build, list and icon views. Ctrl+Shift opens Make link. Alt and a right drag open the drop menu, whose "Link here..." opens Make link and "Move here" moves. Ctrl copies, a plain drag moves, and a right click with no drag opens the item menu. Native gate at b65a25b passed, 147 OK, 0 failed, 11 skipped. After 319bd9b, the drop tests, a right drag, Ctrl+Shift and a plain drag again.
+	- Note: not tried, a drop from Explorer with these keys. Once in about 20 drags the drop had not happened a second after the button came up. A rerun was fine.
+	- Branch: windrop
+	- Commit: 80f2efa, e97485a, 319bd9b
+	- Test case: rjkwtgrm, Drop keys win32 test, Windows only. What each mix of keys and buttons asks for, and that an ask reaches Windows as a copy and comes back as an ask. Fails before the fix and passes after.
+	- Acceptance signoff: wants a look, since the item menu now opens on release on Windows.
+
 - On Windows, a mapped drive that is not answering may stall the side pane or the trash state.
 	- ID: 2026100512334934
 	- Type: Bug
@@ -145,61 +174,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 7f546d8
 	- Test case: the tests named above.
 
-- On Windows, a link drop moves the files instead of opening Make link.
-	- ID: 2026100610503900
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: the Linux suite and the Windows cross build. The drop code both share changed, though every change is behind the Windows guard or passes straight through off Windows.
-	- Needs external testing: done 20261006 on vm925w, as in Verified.
-	- Priority|Severity: Avg
-	- Opened: 20261006-105039
-	- Opened by: real-Windows validation, old-format item
-	- Related IDs: old-format items "Real-Windows validation" and the Alt drop that opens Make link
-	- Target OS: Windows
-	- Steps to reproduce: in a folder holding a file and a folder, drag the file onto the folder with Ctrl+Shift held. Again with Alt held, and again with the right button.
-	- Incorrect behavior: Ctrl+Shift moves the file, in the list and icon views; the move question of the test guard shows "Move: 1 item". Alt moves it in the list view and does nothing in the icon view, with no drop menu. A right-button drag does nothing. Ctrl alone copies, as it should.
-	- Expected behavior: Ctrl+Shift opens Make link for the drop. Alt, or the right button, opens the drop menu, whose "Link here..." opens Make link, as the Done item for the Alt drop describes.
-	- Reproduced: 20261006 on vm925w at 46f9674, with the native build, in the list and icon views.
-	- Possible cause: not looked at. The list view starts its drags with move, copy and link but not ask, so Alt has no menu to ask for there. Why Ctrl+Shift comes through as a move on Windows is open.
-	- Actual cause: Windows offers copy and move for every drop, whatever keys are down, so the app reads the keys itself. It read Ctrl+Shift as nothing, and the drop then moved, as a plain drop on the same drive does. Alt and the right button were not read at all. An ask handed to the toolkit there becomes no drop, so the menu could not have come up anyway. And a right press opened the item menu at once, so a right drag never started.
-	- Decisions:
-		- On Windows the item menu now opens when the right button comes up, as in Explorer, so a right drag can start. A right click on the background still opens its menu at once. A call made without asking.
-		- A drag started with the middle button still does nothing on Windows. Its drag did not always end when the button came up.
-	- Actual fix: Ctrl+Shift makes a link, and Alt or a right drag opens the drop menu, in both views and the side pane. The ask reaches Windows as a copy and comes back out as an ask at the drop. Ctrl and Shift alone are unchanged, and nothing changes off Windows.
-	- Swept: every place a drop target sets or reads the drop action, in the icon view, list view, side pane, tree and tab drops. The side pane's drop menu now offers Link on Windows too. A drop from another program goes through the same code. Not changed: drags out of the side pane and tree, which start with the left button only.
-	- Verified: on vm925w, native build, list and icon views. Ctrl+Shift opens Make link. Alt and a right drag open the drop menu, whose "Link here..." opens Make link and "Move here" moves. Ctrl copies, a plain drag moves, and a right click with no drag opens the item menu. Native gate at b65a25b passed, 147 OK, 0 failed, 11 skipped. After 319bd9b, the drop tests, a right drag, Ctrl+Shift and a plain drag again.
-	- Note: not tried, a drop from Explorer with these keys. Once in about 20 drags the drop had not happened a second after the button came up. A rerun was fine.
-	- Branch: windrop
-	- Commit: 80f2efa, e97485a, 319bd9b
-	- Test case: rjkwtgrm, Drop keys win32 test, Windows only. What each mix of keys and buttons asks for, and that an ask reaches Windows as a copy and comes back as an ask. Fails before the fix and passes after.
-	- Acceptance signoff: wants a look, since the item menu now opens on release on Windows.
-
-- On Windows, ImageMagick thumbnails open a console window each, and the packed exe makes none.
-	- ID: 2026100610503901
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: the Linux suite, since the Linux side of the ImageMagick code moved into its own function, and the Windows cross build.
-	- Needs external testing: done 20261006 on vm925w, as in Verified.
-	- Priority|Severity: Avg
-	- Opened: 20261006-105039
-	- Opened by: real-Windows validation, old-format item
-	- Related IDs: old-format item "Real-Windows validation"
-	- Target OS: Windows
-	- Steps to reproduce: with ImageMagick 7 installed, open a folder of TGA, PCX, QOI, DDS, JPEG 2000 and SGI pictures in the icon view. Once with the native build, once with the packed exe.
-	- Incorrect behavior: the native build makes all six thumbnails, but a console window opens and closes for each one. With Windows Terminal as the default terminal that is a Terminal window each time. The packed exe never starts ImageMagick, and the pictures keep their plain icons.
-	- Expected behavior: thumbnails from both, and no window but the app's own.
-	- Reproduced: 20261006 on vm925w at 46f9674, ImageMagick 7.1.2. 6 consoles and 6 ImageMagick runs from the native build, none of either from the packed exe.
-	- Possible cause: read only. `nemo-magick.c` starts ImageMagick through GSubprocess, not `nemo-launch-win32.c`, so nothing hides the console. In the packed exe GLib's spawn helper sits inside the packed file system, where it cannot run.
-	- Actual cause:
-		- Native build: GLib starts a program with pipes through a helper program of its own. The app has no console, so the helper has none either, and Windows gives each console program it starts a new console window.
-		- Packed exe: the helper does run from inside the packed file system, but it never starts ImageMagick and never answers. So the first 4 thumbnails each kept a worker busy for good, and nothing more was thumbnailed. Why it hangs there was not traced.
-	- Actual fix: `nemo-launch-win32.c` starts ImageMagick itself, with no console window and no helper. The picture file is its stdin, so nothing is copied and it still never sees a file name. Stop and the time limit end it as before. Linux is unchanged.
-	- Swept: by reading, the other programs started through GLib with pipes on Windows have the same 2 problems: the archive tools when compressing and extracting, the search text converters, and thumbnailer programs. Filed as 2026100612483725. Opening a new window already avoids the helper.
-	- Verified: on vm925w with ImageMagick 7.1.2, the native build and a packed exe of this branch both made all 6 thumbnails, with no console window. rhg8y5f0 and rjffcm7d pass natively with ImageMagick on the PATH.
-	- Branch: windrop
-	- Commit: 5bb4c8f
-	- Test case: rjkybspg, ImageMagick start win32 test, Windows only. A stand-in for ImageMagick, first on the PATH, says whether it got a console window, what reached its stdin and which arguments it had. A failed run and a stopped one come back empty, and a stopped one ends it. Fails before the fix, on the window, and passes after. The packed exe has no test of its own.
-
 - On Windows, programs started through GLib with pipes open a console window each, and may never start in the packed exe.
 	- ID: 2026100612483725
 	- Type: Bug
@@ -293,31 +267,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: 20261006 on vm925w at 46f9674, with a profile that has no Start Menu folder. A real profile always has one, so this is unlikely outside a test.
 	- Possible cause: `fRefreshShortcuts` uses the first folder in its list without checking the list has one.
 	- Test case: none yet, not started.
-
-- In the native Windows gate the ImageMagick thumbnail test always skips.
-	- ID: 2026100610503903
-	- Type: Bug
-	- Status: Done
-	- Needs external testing: done 20261006 on vm925w, as in Verified.
-	- Priority|Severity: Low
-	- Opened: 20261006-105039
-	- Opened by: real-Windows validation, old-format item
-	- Related IDs: 2026100610503901
-	- Target OS: Windows
-	- Steps to reproduce: install ImageMagick, so `magick` is on the Windows PATH, then run `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
-	- Incorrect behavior: rhg8y5f0 skips with "no ImageMagick that writes JPEG 2000". The MSYS2 login shell the tests run under drops the Windows PATH.
-	- Expected behavior: the test finds ImageMagick when the box has it. It passes when run with the Windows PATH kept.
-	- Reproduced: 20261006 on vm925w at 46f9674.
-	- Possible cause: `MSYS2_PATH_TYPE` is not set to `inherit` for the test run, so only the MSYS2 and system folders are on the PATH.
-	- Actual cause: the gate runs the tests in MSYS2's login shell, which keeps only the system folders of the Windows PATH unless told to keep all of it.
-	- Actual fix: the gate keeps the Windows PATH for the test run only, after MSYS2's own folders. The build and lint still run with MSYS2's PATH alone.
-	- Swept: left as is, the build, lint and staging steps, which want MSYS2's own tools.
-	- Verified: native gate on vm925w at b65a25b passed. rhg8y5f0 ran and passed instead of skipping. 147 OK, 0 failed, 11 skipped, all 11 for having no screen.
-	- Branch: windrop
-	- Commit: b65a25b
-	- Test case: rhg8y5f0 itself, which skipped before the fix and runs after on a box with ImageMagick. No test of its own, since what it shows depends on what the box has installed.
-	- Acceptance signoff: Self-closed: mechanical, and the gate passes with rhg8y5f0 run.
-	- Closed: 20261006-125848
 
 - A FreeBSD package.
 	- ID: 2026100517134081
@@ -763,6 +712,34 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. rj043mnp covers it.
 	- Closed: 20261003-112426
+
+- On Windows, ImageMagick thumbnails open a console window each, and the packed exe makes none.
+	- ID: 2026100610503901
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The Linux suite passed 171 of 171 on 20261006 on the merged tree, and the Windows cross build was clean.
+	- Needs external testing: done 20261006 on vm925w, as in Verified.
+	- Priority|Severity: Avg
+	- Opened: 20261006-105039
+	- Opened by: real-Windows validation, old-format item
+	- Related IDs: old-format item "Real-Windows validation"
+	- Target OS: Windows
+	- Steps to reproduce: with ImageMagick 7 installed, open a folder of TGA, PCX, QOI, DDS, JPEG 2000 and SGI pictures in the icon view. Once with the native build, once with the packed exe.
+	- Incorrect behavior: the native build makes all six thumbnails, but a console window opens and closes for each one. With Windows Terminal as the default terminal that is a Terminal window each time. The packed exe never starts ImageMagick, and the pictures keep their plain icons.
+	- Expected behavior: thumbnails from both, and no window but the app's own.
+	- Reproduced: 20261006 on vm925w at 46f9674, ImageMagick 7.1.2. 6 consoles and 6 ImageMagick runs from the native build, none of either from the packed exe.
+	- Possible cause: read only. `nemo-magick.c` starts ImageMagick through GSubprocess, not `nemo-launch-win32.c`, so nothing hides the console. In the packed exe GLib's spawn helper sits inside the packed file system, where it cannot run.
+	- Actual cause:
+		- Native build: GLib starts a program with pipes through a helper program of its own. The app has no console, so the helper has none either, and Windows gives each console program it starts a new console window.
+		- Packed exe: the helper does run from inside the packed file system, but it never starts ImageMagick and never answers. So the first 4 thumbnails each kept a worker busy for good, and nothing more was thumbnailed. Why it hangs there was not traced.
+	- Actual fix: `nemo-launch-win32.c` starts ImageMagick itself, with no console window and no helper. The picture file is its stdin, so nothing is copied and it still never sees a file name. Stop and the time limit end it as before. Linux is unchanged.
+	- Swept: by reading, the other programs started through GLib with pipes on Windows have the same 2 problems: the archive tools when compressing and extracting, the search text converters, and thumbnailer programs. Filed as 2026100612483725. Opening a new window already avoids the helper.
+	- Verified: on vm925w with ImageMagick 7.1.2, the native build and a packed exe of this branch both made all 6 thumbnails, with no console window. rhg8y5f0 and rjffcm7d pass natively with ImageMagick on the PATH.
+	- Branch: windrop
+	- Commit: 5bb4c8f
+	- Test case: rjkybspg, ImageMagick start win32 test, Windows only. A stand-in for ImageMagick, first on the PATH, says whether it got a console window, what reached its stdin and which arguments it had. A failed run and a stopped one come back empty, and a stopped one ends it. Fails before the fix, on the window, and passes after. The packed exe has no test of its own.
+	- Acceptance signoff: Self-closed: the fix does what the item asked, and rjkybspg failed before and passes after.
+	- Closed: 20261006-200000
 
 - Moving the only tab to another window can crash the window it left.
 	- ID: 2026100413510329
@@ -1408,6 +1385,31 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- In the native Windows gate the ImageMagick thumbnail test always skips.
+	- ID: 2026100610503903
+	- Type: Bug
+	- Status: Done
+	- Needs external testing: done 20261006 on vm925w, as in Verified.
+	- Priority|Severity: Low
+	- Opened: 20261006-105039
+	- Opened by: real-Windows validation, old-format item
+	- Related IDs: 2026100610503901
+	- Target OS: Windows
+	- Steps to reproduce: install ImageMagick, so `magick` is on the Windows PATH, then run `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
+	- Incorrect behavior: rhg8y5f0 skips with "no ImageMagick that writes JPEG 2000". The MSYS2 login shell the tests run under drops the Windows PATH.
+	- Expected behavior: the test finds ImageMagick when the box has it. It passes when run with the Windows PATH kept.
+	- Reproduced: 20261006 on vm925w at 46f9674.
+	- Possible cause: `MSYS2_PATH_TYPE` is not set to `inherit` for the test run, so only the MSYS2 and system folders are on the PATH.
+	- Actual cause: the gate runs the tests in MSYS2's login shell, which keeps only the system folders of the Windows PATH unless told to keep all of it.
+	- Actual fix: the gate keeps the Windows PATH for the test run only, after MSYS2's own folders. The build and lint still run with MSYS2's PATH alone.
+	- Swept: left as is, the build, lint and staging steps, which want MSYS2's own tools.
+	- Verified: native gate on vm925w at b65a25b passed. rhg8y5f0 ran and passed instead of skipping. 147 OK, 0 failed, 11 skipped, all 11 for having no screen.
+	- Branch: windrop
+	- Commit: b65a25b
+	- Test case: rhg8y5f0 itself, which skipped before the fix and runs after on a box with ImageMagick. No test of its own, since what it shows depends on what the box has installed.
+	- Acceptance signoff: Self-closed: mechanical, and the gate passes with rhg8y5f0 run.
+	- Closed: 20261006-125848
 
 - The Linux release build runs its link-time step on one core, with a warning every build.
 	- ID: 2026100514300212
