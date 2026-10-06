@@ -40,16 +40,36 @@ gboolean nemo_launch_win32_via_shell   (const gchar *exe,
 gboolean nemo_launch_win32_via_service (const gchar *command_line,
 					const gchar *workdir);
 
-/* Runs @argv, the program by its full path first, with the file at @input_path
- * as its stdin and no console window, and hands back what it wrote to stdout.
- * Ends it after @timeout_seconds, setting *@timed_out, or once @cancellable is
- * cancelled. FALSE if it could not start, was ended or did not exit 0.
- * @output: (out) (transfer full): unref with g_bytes_unref */
+/* Runs @argv with no console window, with the file at @input_path as its stdin,
+ * or NUL when that is NULL, and hands back what it wrote to stdout, or drops it
+ * when @output is NULL. A bare program name is looked up beside our exe, then on
+ * PATH. Ends it after @timeout_seconds, setting *@timed_out, or once
+ * @cancellable is cancelled. FALSE if it could not start, was ended or did not
+ * exit 0.
+ * @output: (out) (optional) (transfer full): unref with g_bytes_unref */
 gboolean nemo_launch_win32_pipe        (const gchar * const  *argv,
 					const gchar          *input_path,
 					guint                 timeout_seconds,
 					GCancellable         *cancellable,
 					GBytes              **output,
 					gboolean             *timed_out);
+
+/* A tool run with no console window whose output is read as it comes, for
+ * nemo-tool-run.c. Of @flags only STDOUT_PIPE, STDERR_PIPE and STDERR_MERGE
+ * mean anything. stdin and every stream not piped go to NUL.
+ * Returns: (transfer full): free with nemo_launch_win32_child_free */
+typedef struct _NemoLaunchWin32Child NemoLaunchWin32Child;
+
+NemoLaunchWin32Child *nemo_launch_win32_child_start (const gchar * const  *argv,
+						     const gchar          *workdir,
+						     GSubprocessFlags      flags,
+						     GError              **error);
+/* Returns: (transfer none): NULL when not piped. Reads take a cancellable. */
+GInputStream *nemo_launch_win32_child_get_stdout (NemoLaunchWin32Child *child);
+GInputStream *nemo_launch_win32_child_get_stderr (NemoLaunchWin32Child *child);
+void          nemo_launch_win32_child_force_exit (NemoLaunchWin32Child *child);
+/* Waits for it to end and gives its exit code. */
+gint          nemo_launch_win32_child_wait       (NemoLaunchWin32Child *child);
+void          nemo_launch_win32_child_free       (NemoLaunchWin32Child *child);
 
 #endif /* NEMO_LAUNCH_WIN32_H */

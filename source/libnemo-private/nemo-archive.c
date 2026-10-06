@@ -2642,7 +2642,7 @@ archive_written (ArchiveJob *job)
    or one about some other file, still fails the job. */
 static gboolean
 only_dangling_warned (ArchiveJob  *job,
-		      GSubprocess *process,
+		      NemoToolRun *process,
 		      GString     *output)
 {
 	GList *known;
@@ -2650,13 +2650,13 @@ only_dangling_warned (ArchiveJob  *job,
 
 	/* The ones already in as links are passed over again by the real run. */
 	if ((job->dangling == NULL && job->dangling_first == NULL) ||
-	    output_full (output) || !g_subprocess_get_if_exited (process)) {
+	    output_full (output) || !nemo_tool_run_get_if_exited (process)) {
 		return FALSE;
 	}
 
 	known = g_list_concat (g_list_copy (job->dangling), g_list_copy (job->dangling_first));
 	only = nemo_archive_only_skipped_links (job->backend,
-						g_subprocess_get_exit_status (process),
+						nemo_tool_run_get_exit_status (process),
 						output->str, known) &&
 	       archive_written (job);
 	g_list_free (known);
@@ -2696,9 +2696,9 @@ read_stderr (gpointer data)
 
 /* Returns: (transfer full): hand it to nemo_archive_tool_stderr_finish, which joins it */
 GThread *
-nemo_archive_tool_stderr_start (GSubprocess *process)
+nemo_archive_tool_stderr_start (NemoToolRun *process)
 {
-	GInputStream *in = g_subprocess_get_stderr_pipe (process);
+	GInputStream *in = nemo_tool_run_get_stderr (process);
 
 	if (in == NULL) {
 		return NULL;
@@ -2717,32 +2717,27 @@ nemo_archive_tool_stderr_finish (GThread *reader)
 /* Starts a tool line in the base folder and reads what it prints until it
    ends, moving the progress bar as it goes. The caller waits on what comes
    back. NULL if it could not be started. */
-static GSubprocess *
+static NemoToolRun *
 start_tool (ArchiveJob  *job,
 	    char       **argv,
 	    const char  *base_path,
 	    GString     *output,
 	    GError     **error)
 {
-	GSubprocessLauncher *launcher;
-	GSubprocess *process;
+	NemoToolRun *process;
 	GInputStream *out;
 	GThread *err_reader;
 	char *err_text;
 	char buffer[4096];
 
-	launcher = g_subprocess_launcher_new (G_SUBPROCESS_FLAGS_STDOUT_PIPE |
-					      nemo_archive_tool_stderr_flag ());
-	g_subprocess_launcher_set_cwd (launcher, base_path);
-
-	process = g_subprocess_launcher_spawnv (launcher, (const gchar * const *) argv, error);
-	g_object_unref (launcher);
-
+	process = nemo_tool_run_start ((const gchar * const *) argv, base_path,
+				       G_SUBPROCESS_FLAGS_STDOUT_PIPE | nemo_archive_tool_stderr_flag (),
+				       error);
 	if (process == NULL) {
 		return NULL;
 	}
 
-	out = g_subprocess_get_stdout_pipe (process);
+	out = nemo_tool_run_get_stdout (process);
 	err_reader = nemo_archive_tool_stderr_start (process);
 
 	while (TRUE) {
@@ -2762,7 +2757,7 @@ start_tool (ArchiveJob  *job,
 	}
 
 	if (job_aborted (job)) {
-		g_subprocess_force_exit (process);
+		nemo_tool_run_force_exit (process);
 	}
 
 	err_text = nemo_archive_tool_stderr_finish (err_reader);
@@ -2787,7 +2782,7 @@ put_in_dangling_first (ArchiveJob *job,
 		       const char *base_path,
 		       const char *archive_path)
 {
-	GSubprocess *process = NULL;
+	NemoToolRun *process = NULL;
 	GString *output;
 	char **argv;
 	gboolean ok = FALSE;
@@ -2805,8 +2800,8 @@ put_in_dangling_first (ArchiveJob *job,
 		process = start_tool (job, argv, base_path, output, NULL);
 	}
 	if (process != NULL) {
-		ok = g_subprocess_wait_check (process, NULL, NULL);
-		g_object_unref (process);
+		ok = nemo_tool_run_wait_check (process, NULL);
+		nemo_tool_run_free (process);
 	}
 
 	if (!ok && !job_aborted (job)) {
@@ -2834,7 +2829,7 @@ run_command (ArchiveJob *job)
 	GList *names = NULL;
 	GList *leave_out;
 	GList *l;
-	GSubprocess *process;
+	NemoToolRun *process;
 	GError *error = NULL;
 	GString *output;
 	gboolean ok = FALSE;
@@ -2939,7 +2934,7 @@ run_command (ArchiveJob *job)
 		goto out;
 	}
 
-	ok = g_subprocess_wait_check (process, NULL, &error);
+	ok = nemo_tool_run_wait_check (process, &error);
 	if (!ok && !job_aborted (job) && only_dangling_warned (job, process, output)) {
 		ok = TRUE;
 	}
@@ -2954,7 +2949,7 @@ run_command (ArchiveJob *job)
 
 	g_clear_error (&error);
 	g_string_free (output, TRUE);
-	g_object_unref (process);
+	nemo_tool_run_free (process);
 
  out:
 	g_strfreev (argv);

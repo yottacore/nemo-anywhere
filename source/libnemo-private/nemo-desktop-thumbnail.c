@@ -53,6 +53,10 @@
 #include <libnemo-private/nemo-raw.h>
 #include <libnemo-private/nemo-magick.h>
 
+#ifdef G_OS_WIN32
+#include <libnemo-private/nemo-launch-win32.h>
+#endif
+
 #define SECONDS_BETWEEN_STATS 10
 
 /* Generous for a slow but working helper, bounded for one that has hung. */
@@ -1311,6 +1315,31 @@ expand_thumbnailing_script (const char *script,
   return NULL;
 }
 
+#ifdef G_OS_WIN32
+/* GLib starts a program through a helper of its own, which gave a console
+ * thumbnailer a console window each time, and which never started it at all
+ * from inside the single exe. */
+static gboolean
+run_thumbnailer_script (const char *command_line, GCancellable *cancellable)
+{
+  gchar **argv = NULL;
+  gboolean late = FALSE;
+  gboolean ok;
+
+  if (!g_shell_parse_argv (command_line, NULL, &argv, NULL))
+    return FALSE;
+
+  ok = nemo_launch_win32_pipe ((const gchar * const *) argv, NULL, THUMBNAILER_TIMEOUT_SECONDS,
+                               cancellable, NULL, &late);
+  g_strfreev (argv);
+
+  if (late)
+    g_warning ("Thumbnailer took longer than %d seconds, gave up on it: %s",
+               THUMBNAILER_TIMEOUT_SECONDS, command_line);
+
+  return ok;
+}
+#else
 typedef struct {
   GSubprocess *proc;
   GMainLoop   *loop;
@@ -1425,6 +1454,7 @@ run_thumbnailer_script (const char *command_line, GCancellable *cancellable)
 
   return ok;
 }
+#endif
 
 /**
  * nemo_desktop_thumbnail_factory_generate_thumbnail:

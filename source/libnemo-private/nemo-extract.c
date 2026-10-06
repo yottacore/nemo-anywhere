@@ -1398,8 +1398,7 @@ run_unpack_command (ExtractJob         *job,
 		    NemoExtractBackend  backend,
 		    GString            *tail)
 {
-	GSubprocessLauncher *launcher;
-	GSubprocess *process;
+	NemoToolRun *process;
 	GInputStream *out;
 	GThread *err_reader;
 	char *err_text;
@@ -1407,29 +1406,24 @@ run_unpack_command (ExtractJob         *job,
 	char buffer[4096];
 	gboolean ran;
 
-	launcher = g_subprocess_launcher_new (G_SUBPROCESS_FLAGS_STDIN_PIPE |
-					      G_SUBPROCESS_FLAGS_STDOUT_PIPE |
-					      nemo_archive_tool_stderr_flag ());
-	g_subprocess_launcher_set_cwd (launcher, base_path);
-
-	process = g_subprocess_launcher_spawnv (launcher, (const gchar * const *) argv, &error);
-	g_object_unref (launcher);
-
+	/* The stdin pipe comes already ended, since nothing is going to answer
+	   a prompt. */
+	process = nemo_tool_run_start ((const gchar * const *) argv, base_path,
+				       G_SUBPROCESS_FLAGS_STDIN_PIPE |
+				       G_SUBPROCESS_FLAGS_STDOUT_PIPE |
+				       nemo_archive_tool_stderr_flag (),
+				       &error);
 	if (process == NULL) {
 		g_string_assign (tail, error != NULL ? error->message : "");
 		g_clear_error (&error);
 		return FALSE;
 	}
 
-	/* Nothing is going to answer a prompt, so hand it an ended stdin rather
-	   than a pipe nobody ever writes to. */
-	g_output_stream_close (g_subprocess_get_stdin_pipe (process), NULL, NULL);
-
 	nemo_progress_info_take_status (job->progress,
 					g_strdup_printf (_("Unpacking with %s"),
 							 backend == NEMO_EXTRACT_BACKEND_RAR ? "rar" : "7z"));
 
-	out = g_subprocess_get_stdout_pipe (process);
+	out = nemo_tool_run_get_stdout (process);
 	err_reader = nemo_archive_tool_stderr_start (process);
 
 	for (;;) {
@@ -1451,7 +1445,7 @@ run_unpack_command (ExtractJob         *job,
 	}
 
 	if (job_aborted (job)) {
-		g_subprocess_force_exit (process);
+		nemo_tool_run_force_exit (process);
 	}
 
 	/* Both tools say a wrong password on stderr. */
@@ -1467,14 +1461,14 @@ run_unpack_command (ExtractJob         *job,
 	}
 	g_free (err_text);
 
-	ran = g_subprocess_wait_check (process, NULL, &error);
+	ran = nemo_tool_run_wait_check (process, &error);
 
 	if (!ran && tail->len == 0 && error != NULL) {
 		g_string_assign (tail, error->message);
 	}
 
 	g_clear_error (&error);
-	g_object_unref (process);
+	nemo_tool_run_free (process);
 
 	return ran;
 }

@@ -92,6 +92,7 @@ nemo_private_sources = [
   'nemo-small-copy.c',
   'nemo-thumbnail-memory.c',
   'nemo-thumbnails.c',
+  'nemo-tool-run.c',
   'nemo-trash-monitor.c',
   'nemo-tree-view-drag-dest.c',
   'nemo-ui-utilities.c',
@@ -125,6 +126,7 @@ if is_windows
   nemo_private_sources += 'nemo-search-engine-win32.c'
   nemo_private_sources += 'nemo-associations-win32.c'
   nemo_private_sources += 'nemo-launch-win32.c'
+  nemo_private_deps += dependency('gio-windows-2.0', version: glib_version)
   nemo_private_sources += 'nemo-clipboard-win32.c'
   nemo_private_sources += 'nemo-dnd-win32.c'
   nemo_private_sources += 'nemo-shell-icon-win32.c'
