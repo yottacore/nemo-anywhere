@@ -22,7 +22,7 @@
 */
 
 /* Reads stdin to the end, then writes <name>.report in NEMO_FAKE_TOOL_DIR,
- * named after its own exe: whether it was given a console window, how many
+ * named after the program it was started as: whether it was given a console window, how many
  * bytes reached its stdin, its folder and its arguments.
  *
  * Then, as rar or unrar ("a" or "x" first): creates the archive it was asked for, says
@@ -71,9 +71,9 @@ int
 main (int argc, char *argv[])
 {
 	const char *dir = getenv ("NEMO_FAKE_TOOL_DIR");
-	char exe[MAX_PATH], name[MAX_PATH], cwd[MAX_PATH], report_path[2 * MAX_PATH];
+	char name[MAX_PATH], cwd[MAX_PATH], report_path[2 * MAX_PATH];
 	char buffer[4096], *dot;
-	const char *base;
+	const char *base, *slash;
 	size_t got, total = 0;
 	FILE *report;
 	int i;
@@ -85,8 +85,12 @@ main (int argc, char *argv[])
 		total += got;
 	}
 
-	GetModuleFileNameA (NULL, exe, sizeof exe);
-	base = strrchr (exe, '\\') != NULL ? strrchr (exe, '\\') + 1 : exe;
+	/* argv[0], since the single exe runs a program packed inside it from a
+	 * copy with a made-up name. */
+	base = argv[0];
+	if ((slash = strrchr (base, '\\')) != NULL || (slash = strrchr (base, '/')) != NULL) {
+		base = slash + 1;
+	}
 	snprintf (name, sizeof name, "%s", base);
 	if ((dot = strrchr (name, '.')) != NULL) {
 		*dot = '\0';
