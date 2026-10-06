@@ -148,6 +148,13 @@ nemo_icon_info_new_for_icon_info (GtkIconInfo *icon_info,
 	char *basename, *p;
 
 	icon = nemo_icon_info_create ();
+	icon->orig_scale = scale;
+
+	/* A theme with neither the icon nor text-x-generic. The default file
+	 * picture is drawn instead. */
+	if (icon_info == NULL) {
+		return icon;
+	}
 
 	icon->pixbuf = gtk_icon_info_load_icon (icon_info, NULL);
 
@@ -160,8 +167,6 @@ nemo_icon_info_new_for_icon_info (GtkIconInfo *icon_info,
 		}
 		icon->icon_name = basename;
 	}
-
-    icon->orig_scale = scale;
 
 	return icon;
 }
@@ -341,8 +346,10 @@ nemo_icon_info_lookup (GIcon *icon,
                                                                  scale,
                                                                  GTK_ICON_LOOKUP_FORCE_SIZE);
 
-            pixbuf = gtk_icon_info_load_icon (gtkicon_info, NULL);
-            g_object_unref (gtkicon_info);
+            if (gtkicon_info != NULL) {
+                pixbuf = gtk_icon_info_load_icon (gtkicon_info, NULL);
+                g_object_unref (gtkicon_info);
+            }
         }
 
         icon_info = nemo_icon_info_new_for_pixbuf (pixbuf, scale);
@@ -389,7 +396,7 @@ nemo_icon_info_lookup (GIcon *icon,
         }
 
         icon_info = nemo_icon_info_new_for_icon_info (gtkicon_info, scale);
-        g_object_unref (gtkicon_info);
+        g_clear_object (&gtkicon_info);
 
         key = icon_key_new (icon, size);
         g_hash_table_insert (themed_icon_cache, key, icon_info);
