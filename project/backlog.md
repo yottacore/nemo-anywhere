@@ -313,9 +313,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, thumbnailer programs are never used.
 	- ID: 2026100615255268
 	- Type: Bug
-	- Status: Stalled
-	- Needs local test suite run?: yes, the full Linux suite. Linux takes the same paths as before. The thumbnail factory, thumbnail jobs, thumbnail stop, search content and search helper tests passed on Linux.
-	- Needs external testing: done 20261006 on vm925w, as in Verified. The single exe still needs 2026100617051745 fixed.
+	- Status: Done
+	- Needs local test suite run?: done 20261007, 176 of 176 on this branch.
+	- Needs external testing: done 20261006 on vm925w, as in Verified.
 	- Priority|Severity: Low
 	- Opened: 20261006-152552
 	- Opened by: 2026100612483725
@@ -331,20 +331,24 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual cause: as in Possible cause. The list of types not to thumbnail is by real type too, so on Windows it never matched either.
 	- Progress log:
 		- 20261006: in the single exe the gsf-office thumbnailer is now started, and stops at "Cannot load library libgsf-1-114.dll", a message box that stays up until the 30 second limit ends it. Filed as 2026100617051745. Before this fix it was never started, so the file only showed its plain icon. Question: merge this fix now, so each office file in view in the single exe shows that box for 30 seconds until 2026100617051745 is fixed, or hold it until then? Suggested: hold it. Its commits are apart from 2026100615255305's on the branch.
+		- 20261007: 2026100617051745 is settled. The single exe starts its helpers as before, a MacType user adds the exe to MacType's exclusion list, and a helper stuck on the box ends with the app. So the hold is over.
 	- Decisions:
 		- A call made without asking: on Windows a type in the list of types not to thumbnail matches by either the extension or the real type.
 	- Actual fix: the content search already turned an extension into a real type on Windows, with a short table for office formats Windows may not know. That moved to `nemo_content_type_get_mime_type` in `nemo-file-utilities.c`, and the search and the thumbnail factory both use it now. The factory looks a thumbnailer up by the extension first, then by the real type. The table is unchanged.
 	- Swept: every thumbnailer lookup in the factory (whether one can be made, whether to try, and making it) and the list of types not to thumbnail. ImageMagick, PSD, raw and picture loading already took the extension. The share check comes before any of these. On a share, with the default "Local files only", no thumbnail is tried at all, and rjmc40ex checks that for the same file through the drive's admin share.
 	- Verified: rjmc40ex fails before the fix and passes after, natively on vm925w and under wine. rjm4ctwh and rjmb3j8p pass natively. The whole native suite on vm925w: 151 OK, 0 fail, 12 skipped. The build from the box's tree, unpacked, drew the thumbnail from inside the OpenDocument file in the icon view. The single exe has the thumbnailer, its descriptor and libgsf in it, but see the progress log. The cross build, the Linux build and the lint stage are clean.
-	- Branch: thumbwin. Kept off dev until 2026100617051745 is fixed, so the single exe shows no error box per office file.
+	- Verified: 20261007, on this branch with 2026100617051745 in: rjmc40ex passes natively, the native suite on vm925w has 155 OK, and the full Linux suite 176 of 176. Outside a MacType session the single exe drew the thumbnails, as in 2026100617051745.
+	- Branch: thumbwin
 	- Commit: b2cfe15 to f279168
 	- Test case: rjmc40ex, Thumbnailer type win32 test, Windows only. An OpenDocument file with a red thumbnail inside, through the gsf-office thumbnailer that comes with the app: the app's own type for it is `.odt`, a thumbnailer is found and makes the thumbnail, the list of types not to thumbnail turns it off by real type, and the same file through a share is not thumbnailed with the default settings.
+	- Acceptance signoff: Self-closed: rjmc40ex red and green, and both suites pass.
+	- Closed: 20261007-115304
 
 - In the single exe on Windows, a program packed inside it that needs libgsf cannot start.
 	- ID: 2026100617051745
 	- Type: Bug
-	- Status: Waiting for answers
-	- Needs external testing: by hand on vm925w, in the desktop session where MacType runs, once the question below is answered.
+	- Status: Waiting on signoff
+	- Needs external testing: done 20261007 on vm925w, as in Verified.
 	- Priority|Severity: Avg
 	- Opened: 20261006-170517
 	- Opened by: 2026100615255268
@@ -366,14 +370,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- (b) Start these helpers as the single exe itself, with a mode for each. Costs the packer's start, about 2.5 s, per thumbnail or searched file.
 			- (c) Read office thumbnails, and the text of Word, Excel and PowerPoint files, inside the app, with no helper program.
 			- Suggested: (a) now, and (c) if it comes up again. Separately, a helper whose box is still up when the app quits should end with it.
-	- Verified: the runs in Reproduced and Actual cause, on vm925w. No code change, since the cause is outside the app.
+		- 20261007: the question timed out, and the suggested answer was taken.
+	- Decisions:
+		- Taken when the question timed out: (a). The single exe starts its helpers as before, and README tells MacType users to add the exe to MacType's exclusion list. Reading office files inside the app (c) waits until this comes up again.
+		- A helper the app starts and waits on or reads from ends with the app, however the app ends: a thumbnailer, a search converter, an archive tool, ImageMagick, an action's condition. A user's own program started for an action keeps running, as on Linux.
+	- Actual fix: README, under Current limitations, says to add the portable exe to MacType's exclusion list, and that the installed copy is not affected. On Windows the launcher puts each helper in a job that Windows ends along with the app. The helper goes in before it runs, so anything it starts goes too.
+	- Swept: every direct start in `nemo-launch-win32.c`. The pipe for thumbnailers, ImageMagick and conditions, and the tool runs behind archive, extract, search converters and thumbnailers, are in the job. An action's console program is left out. The shell and service routes start programs outside the app, which are never helpers.
+	- Verified: the runs in Reproduced and Actual cause, on vm925w. rjpatrck fails before the fix and passes after, natively on vm925w and under wine. On vm925w in the desktop session with MacType running, a single exe built from this branch showed the box for 3 OpenDocument files. Closing the app ended all 3 helpers, and so did killing it. The native suite on vm925w: 155 OK, 0 fail, 12 skipped. The full Linux suite: 176 of 176. Not tried: the installed copy under MacType. It is not packed, so it is read as unaffected.
 	- Branch: thumbwin
-	- Test case: none. The fault needs MacType running in a Windows desktop session. Checked by hand on vm925w.
+	- Commit: f38660a to f8a6223
+	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session.
 
 - On Windows, the gdk-pixbuf and SVG thumbnailer descriptors in a natively staged build name `/mingw64/bin/gdk-pixbuf-thumbnailer`, which is never found.
 	- ID: 2026100617051845
 	- Type: Bug
-	- Status: Waiting for answers
+	- Status: Done
 	- Needs local test suite run?: no. Only the Windows staging script changed, and its test runs in the lint stage.
 	- Needs external testing: done 20261007 on vm925w, as in Verified.
 	- Priority|Severity: Low
@@ -389,12 +400,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual cause: as in Possible cause.
 	- Progress log:
 		- 20261007: question. With 2026100615255268 in, these descriptors match pictures and SVG files on Windows. So each picture's thumbnail starts gdk-pixbuf-thumbnailer, one program per picture, before the app's own image loading is tried. Linux does the same. On Windows the app's own loading covers the same types with no program, and in the single exe under MacType (2026100617051745) every picture would show the error box. Keep bare names, as asked, or leave the gdk-pixbuf and SVG descriptors out of both Windows bundles? Suggested: leave them out.
-	- Actual fix: `stage-native.bash` copies the descriptors through a new shared step that drops the folder from `TryExec` and `Exec`, and stops the staging if one still names a folder. `fetch-sysroot.bash` keeps its own rewrite, since it runs alone in the image build.
-	- Swept: `fetch-sysroot.bash` already rewrote the cross sysroot. `pack-zip.bash` and the wine runner copy from that sysroot. `pack-portable.ps1` packs the staged tree as it is.
-	- Verified: rjnyer4p passes. It fails with the old `stage-native.bash` (2 checks) and with the rewrite taken out of the new step (4 checks). On vm925w the stager wrote `/mingw64/bin/gdk-pixbuf-thumbnailer` for the gdk-pixbuf and SVG descriptors before the fix and the bare name after, from MSYS2's own files. The office descriptor was bare both times.
+		- 20261007: the question timed out, and the suggested answer was taken.
+	- Decisions:
+		- Taken when the question timed out: the gdk-pixbuf and SVG descriptors are left out of every Windows bundle, since the app draws pictures and SVG files itself. Any descriptor that runs gdk-pixbuf-thumbnailer counts, whatever its file is called.
+		- A call made without asking: gdk-pixbuf-thumbnailer itself is left out too, since nothing would start it.
+	- Actual fix: a shared staging step leaves out every descriptor that runs gdk-pixbuf-thumbnailer, gives the rest bare program names, and stops the staging if one still names a folder. The native stager, the zip and the wine runner all go through it. `fetch-sysroot.bash` does the same to the cross sysroot with its own commands, since it runs alone in the image build.
+	- Swept: the native stage, which the single exe and the hosted release build both pack, the zip, the wine runner and the cross sysroot. `pack-portable.ps1` packs the staged tree as it is.
+	- Verified: rjnyer4p passes, and fails on the scripts as they were before this change (12 checks). On vm925w the native stage has only the office descriptor and no gdk-pixbuf-thumbnailer. A single exe packed from it drew a PNG and an SVG thumbnail in the desktop session, with no helper started for either. The zip from the cross build has only the office descriptor too.
+	- Note: the current cross build image still has the gdk-pixbuf descriptors in its sysroot until it is rebuilt. The zip and the wine runner leave them out either way.
 	- Branch: thumbwin
-	- Commit: 48ccf5d
-	- Test case: rjnyer4p, `cicd/utility/test-thumbnailers.bash`, in the lint stage. Copies descriptors written like MSYS2's, checks the bare names and that an argument with a slash is left alone, and checks that `stage-native.bash` stages them through the shared step.
+	- Commit: 48ccf5d, f38660a
+	- Test case: rjnyer4p, `cicd/utility/test-thumbnailers.bash`, in the lint stage. On descriptors written like MSYS2's: the gdk-pixbuf, SVG and a WebP one are left out, a longer name that starts the same is kept, the rest get bare names, and an argument with a slash is left alone. Runs `fetch-sysroot.bash`'s own block on the same files and compares. Checks that the native stager, the zip and the wine runner use the shared step and bundle no gdk-pixbuf-thumbnailer.
+	- Acceptance signoff: Self-closed: the suggested answer, rjnyer4p red and green.
+	- Closed: 20261007-115304
 
 - On the arm64 box the keyboard menu test's icon view step can time out beside other tests.
 	- ID: 2026100708355547

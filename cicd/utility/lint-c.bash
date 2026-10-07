@@ -834,6 +834,7 @@ fCheckWinLaunch(){
 	allowed+='nemo-view-win32.c:nemo_view_win32_open_in_explorer '	# explore verb, for the item that says Explorer on it
 	allowed+='nemo-view-win32.c:explorer_select_by_command_line '	# names explorer.exe, but starts it through the broker
 	allowed+='test-nemo-raise-win32.c:start_copy '					# a test starting copies of itself detached from its console
+	allowed+='test-nemo-helper-end-win32.c:start_app '				# a test starting a copy of itself to play the app
 	local bad
 
 	bad="$(find source \( -name '*.c' -o -name '*.h' \) -exec awk -v allowed="$allowed" '

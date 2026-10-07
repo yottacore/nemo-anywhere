@@ -123,6 +123,9 @@ The packed exe shares its virtual filesystem with every program it starts, by pu
 - The programs offered under "Open with" go the same way. A store app has no command line and is left to the toolkit.
 
 - Tools whose output the app reads are the exception: the archive programs, the search converters, the thumbnailers and ImageMagick. Neither broker can hand over a pipe, so these are started directly, with no console window, and run with the hooks, which they don't mind. GLib's own way of starting them goes through a helper program that never starts them from inside the packed exe.
+	- They end with the app, however it ends. Each one goes into a job that Windows ends when the app's handle to it closes, before it runs, so anything it starts goes too. A program the user asked for, such as an action's command, isn't a helper and keeps running.
+
+- MacType, a font tool, loads into every program on the desktop and breaks the packer's hand-over: a helper started from the packed exe can load none of the libraries packed beside it, and shows the packer's "Cannot load library" box. Nothing in the app or the pack is wrong. The fix is to add the exe to MacType's exclusion list, which README says. The zip isn't packed, so it isn't affected.
 
 - `nemo-launch-win32.c` is the one place that starts another program on Windows. A check in the C lint fails any other.
 

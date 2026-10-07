@@ -254,6 +254,8 @@ Current limitations:
 
 - The Windows exe is not code-signed yet, so Windows may warn the first time it runs.
 
+- If you use MacType on Windows, add the portable exe's file name to MacType's exclusion list (the `[UnloadDll]` section of its profile). With MacType loaded into it, the portable exe can't start the helper programs packed inside it, so office files get no thumbnails and each one shows a "Cannot load library" box until it times out. The installed copy from the install script is not packed and isn't affected.
+
 - Settings from a pre-1.0 install do not carry over.
 
 - macOS and BSD are not built yet.
