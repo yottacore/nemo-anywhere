@@ -57,70 +57,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: jammytests
 	- Commit: 307c84c
 
-- In find mode the Name column doesn't shrink as far as the column width rule says.
-	- ID: 2026100613285789
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes, the full Linux suite. The nearby list view, search and config tests passed, the Windows cross build was clean, and rexta5a8 passed under wine.
-	- Priority|Severity: Avg
-	- Opened: 20261006-132858
-	- Opened by: t00mietum
-	- Related IDs: 2026100613285826
-	- Target OS: All
-	- Requirements:
-		- Before rc.1.
-	- Steps to reproduce: search a tree where the same file name turns up in many folders, in list view.
-	- Incorrect behavior: Name stays wider than its share of the shortest names would need.
-	- Expected behavior: Name shrinks to fit the shortest `column-fit-percent` of the names, like it does in a plain folder.
-	- Reproduced: 20261006, Linux. 40 folders each with one long file name, and 10 short names beside it. In a narrow window Name stayed at the whole long name and pushed Location off the edge. With the fix it shrinks to the short names, with an ellipsis.
-	- Possible cause: the rule counts every file for Name. A plain folder can't have one name twice, but find results can, in different folders. So a repeated name gets counted many times and pulls the share its way.
-	- Suggested fix:
-		- In find mode, count each distinct name once for Name.
-		- Location already counts each distinct value once, per design.md. Check the code does the same in find mode.
-		- design.md "List view column widths" is the canonical rule, so it changes with the fix.
-	- Actual cause: confirmed. Name was always counted once per row, keyed by file, in find results too.
-	- Actual fix: how each column counts its values moved out of the list view into `nemo-column-layout.c`, where it can be tested without a screen. In find results Name now counts each distinct name once. design.md "List view column widths" says so, and so does the `column-fit-percent` description.
-	- Decisions:
-		- A name seen at two widths, such as at two depths of a grouped tree, counts at the wider. The same goes for the other columns counted by text, which used to take the last width seen. A call made without asking.
-		- In find results a file that goes leaves its name in the count until the next full recount, as the other text columns already did, since another file may share the name.
-	- Swept: Location already counted each distinct value once, find mode included; rexta5a8 now checks it. Every place the list view kept, dropped, cleared or read a column's values goes through the new code: measuring a row, a file leaving, the full recount and the layout. Icon and compact views have no column widths.
-	- Verified: rexta5a8 failed before the fix, on the 2 new find mode checks, and passes after. The case above was checked both ways.
-	- Branch: findfix
-	- Commit: fa73670
-	- Test case: rexta5a8 (Column layout test), its new tally checks.
-	- Acceptance signoff: Self-closes as Done once the full suite passes. Reproduced, and its test failed before the fix and passes after.
-
-- On Windows, programs started through GLib with pipes open a console window each, and may never start in the packed exe.
-	- ID: 2026100612483725
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes, the full Linux suite. Linux still starts these through GSubprocess with the same flags, by way of a small wrapper. The archive, extract, search and thumbnail tests passed on Linux.
-	- Needs external testing: done 20261006 on vm925w, as in Verified.
-	- Priority|Severity: Avg
-	- Opened: 20261006-124837
-	- Opened by: 2026100610503901
-	- Related IDs: 2026100610503901, 2026100615255231, 2026100615255268, 2026100615255305
-	- Target OS: Windows
-	- Steps to reproduce: with 7-Zip installed, compress a folder to 7z from the native build, then from the packed exe. Same for extracting it, and for a content search that reads a Word file.
-	- Incorrect behavior: read only. On the native build each run should open a console window. In the packed exe the job should wait for good.
-	- Expected behavior: no window but the app's own, and the job runs in both.
-	- Reproduced: 20261006 by rjm4ctwh, natively on vm925w and under wine. Each stand-in tool got a console window, and a stop did not end a compress while the tool said nothing, so the job hung until the tool quit on its own.
-	- Possible cause: GLib starts these through a helper program, which gives each a console window, and which hangs when run from inside the packed exe. `nemo_launch_win32_pipe` from 2026100610503901 starts a program with no window and no helper, but only with a file as stdin, so the archive and search code need more than it offers.
-	- Actual cause: the archive tools, the search converters and the thumbnailer programs all went through GLib's spawn, the same cause as 2026100610503901. A stop also waited on the tool's next line, since GLib's pipe read on Windows can't be stopped.
-	- Actual fix: `nemo-launch-win32.c` starts these too, with no console window and no helper. Output comes back through pipes that can be read as it comes and that a stop interrupts. The compress, extract and search code go through a small wrapper, `nemo-tool-run.c`, which is GSubprocess everywhere but Windows. Thumbnailer programs go through the same call as ImageMagick. Tool stderr stays apart from stdout on Windows, as before.
-	- Swept: every GSubprocess and `g_spawn_*` call that Windows can reach.
-		- Now through the launcher: compress (`start_tool`, both the links-first run and the main one), extract (`run_unpack_command`), search converters (`get_stream_from_helper`), thumbnailer programs (`run_thumbnailer_script`). ImageMagick already was.
-		- Still through GLib on Windows, with no pipes: a new window or tab (`nemo-new-process.c`, our own exe, which has no console window to show), custom action commands and their conditions (`nemo-action.c`), and the window's Open in terminal (`nemo-window-menus.c`). The last two are filed as 2026100615255305.
-		- Reachable, but the program does not exist on Windows, so nothing starts: `xdg-user-dirs-update` (`nemo-file-utilities.c`) and the thumbnail cache fix through `pkexec` (`nemo-thumbnail-problem-bar.c`).
-		- Not built or not reached on Windows: `pkexec` and the terminal in `nemo-view.c`, the action layout editor, the extension restart, and the extension list and its config links, which are empty there.
-		- Lint rjm8a6xr now fails on any GLib program start that is not on this list. It failed with the old extract code in place.
-	- Verified: rjm4ctwh fails before the fix and passes after, natively on vm925w and under wine. Natively it passed with the box's full PATH too. The whole native suite: 148 OK, 0 fail, 12 skipped. rhr6ggmt ran with the real 7-Zip. The packed exe: rjm4ctwh, packed into one exe with a stand-in converter and thumbnailer inside it, passed in session 0 and in the desktop session. The cross build and the Linux build are clean, and the lint stage passes.
-	- Note: on vm925w, helpers left hung by earlier runs of packed exes were still running after the app had gone, 13 of them from one exe, along with a `gdbus.exe`. They kept that exe in use, so packing a new one over it failed. None were left by 20261006 afternoon.
-	- Note: thumbnailer programs are likely never used on Windows, filed as 2026100615255268. rjm4ctwh calls the thumbnail code with a real type to reach them.
-	- Branch: toolpipes
-	- Commit: 00770f3 to 303409c
-	- Test case: rjm4ctwh, Tool start win32 test, Windows only. Stand-ins first on PATH say whether they got a console window, what reached stdin and which arguments they had. Through the real jobs it compresses to rar, fails with both outputs in the error, stops a compress while the tool says nothing, extracts a rar only the tool reads, searches through a converter and makes a thumbnail through a thumbnailer program. Lint rjm8a6xr keeps new GLib program starts off Windows.
-
 - On Windows, a path with single backslashes in a file or setting a user writes is read as escapes.
 	- ID: 2026100702343600
 	- Type: Bug
@@ -236,61 +172,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: armfix
 	- Commit: 7f546d8
 	- Test case: the tests named above.
-
-- On Windows, a window first opened on a share shows the C:\ bookmark as `\` with a plain folder icon.
-	- ID: 2026100610370021
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes, the full Linux suite. Bookmarks now ask for their folder's info on every platform. rjm9n8sr and the bookmark, places and share tests passed on Linux.
-	- Needs external testing: done 20261006 on vm925w, as in Verified. The side pane itself was not looked at.
-	- Priority|Severity: Low
-	- Opened: 20261006-103700
-	- Opened by: Windows pass for 2026093010493450
-	- Related IDs: 2026093010493450
-	- Target OS: Windows
-	- Steps to reproduce: with a fresh settings folder, start the app on a mapped drive such as `Y:\`, or on a UNC path. Look at the first entry under Bookmarks.
-	- Incorrect behavior: the drive root bookmark reads `\` and has the plain outline folder icon. The bookmarks file is written with no labels.
-	- Expected behavior: `C:\` with the blue folder icon, as when the first folder is on local disk. Then the file has `file:///C:/ C:\` and the other labels.
-	- Reproduced: 20261006 on vm925w at 46f9674, starting on a mapped drive and on a UNC path. Starting on a local folder gives the right label and icon.
-	- Actual cause: a bookmark takes its name and icon from its folder's info, and never asked for it. It came only when a window happened to load that folder. A window opened anywhere on C: loads `C:\` for the path bar, and one opened in home lists Desktop, Documents and the rest. On a share neither happens, so `C:\` kept the last part of its path, which is `\`, and the default icon. With no name changed, the list was never saved, so the file kept the unlabeled defaults.
-	- Actual fix: a bookmark asks for its folder's info when it first connects to it, unless the folder is on a share or not a local path. Nothing new is asked of a share.
-	- Decisions:
-		- A call made without asking: this also gives Desktop, Documents and the other default bookmarks their own icons on every start, as a window opened in home already did. Before, they kept the plain folder icon when the first window was anywhere else. OK'd 20261006.
-	- Swept: `nemo_bookmark_connect_file` is where every bookmark gets its file; the side pane, the bookmarks menu and the editor all go through it. The share gate is the same `nemo_file_is_on_a_share` the rest of the app uses.
-	- Verified: rjm9n8sr fails before the fix and passes after, on Linux and natively on vm925w. On vm925w, started on `\\localhost\c$\Users\Public` and on a drive mapped to it, `C:\` got its name and icon, and the bookmarks file was saved with every label. The Windows cross build is clean, and lint passes.
-	- Branch: smallwin
-	- Commit: 19cf1e1
-	- Test case: rjm9n8sr, Bookmark name and icon test. Home gets "Home" and the home icon, the system drive's root gets `C:\` on Windows, and a folder on a share is not asked about.
-
-- On Windows, custom actions and the window's Open in terminal start programs through GLib, not the launcher.
-	- ID: 2026100615255305
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes, the full Linux suite. Linux keeps the same calls, and the toolbar button now shares the view's code, which is the same text. rhtq57n3 and the two terminal tests passed on Linux.
-	- Needs external testing: done 20261006 on vm925w, as in Verified.
-	- Priority|Severity: Low
-	- Opened: 20261006-152553
-	- Opened by: 2026100612483725
-	- Related IDs: 2026100612483725, 2026100610503901
-	- Target OS: Windows
-	- Steps to reproduce: add a custom action whose command, or whose condition, is a console program, then open the menu it is in. Separately, use the toolbar's terminal button.
-	- Incorrect behavior: read only. An action's console program should open a console window each run, and a condition runs each time the menu is built. In the packed exe the program is started with the packer's hooks. The toolbar's terminal button looks only for Linux terminals, so it does nothing unless one of those is on the PATH, alacritty or wezterm say, and then starts it through GLib.
-	- Expected behavior: actions start the way the rest of the app starts programs on Windows, and the toolbar's terminal button opens the same terminal as the view's menu.
-	- Reproduced: no. Read from the code.
-	- Possible cause: `nemo-action.c` uses `g_spawn_command_line_async` and `g_spawn_command_line_sync`, and `open_in_terminal_other` in `nemo-window-menus.c` has no Windows branch. The view's own `open_in_terminal` does.
-	- Reproduced: 20261006 by rjmb3j8p, natively on vm925w. A condition's program and an action's command each got a console window and were started through GLib's helper. A terminal action found no terminal and did nothing.
-	- Actual cause: as in Possible cause. An action with Terminal=true also looked only for Linux terminals on Windows.
-	- Decisions:
-		- Calls made without asking. A console program in an action runs with no window, started from the app the way tools are, so in the single exe it is hooked like they are. A program with windows of its own goes through the brokers like an app opened from the menus. A terminal action runs its program in a console window of its own, through the brokers.
-		- A condition on Windows gets 10 seconds, then it counts as no and a warning is logged. The menu waits on it, and Linux has no limit.
-	- Actual fix: on Windows an action's command goes through a new `nemo_launch_win32_spawn`, which checks whether the program is a console one. Conditions go through `nemo_launch_win32_pipe`, which gives the exit status. The toolbar button calls the view's `open_in_terminal`, and the copy in `nemo-window-menus.c` is gone. The Windows terminal opener no longer crashes on a folder with no path when the terminal is Windows Terminal.
-	- Swept:
-		- GLib program starts: lint rjm8a6xr. With the old window menu code back it fails.
-		- Programs started through `g_app_info_launch` from a command line, which the lint does not see: scripts and the bulk rename tool can reach it on Windows, filed as 2026100616310432. Launching an executable file and the tree's launch need Unix permissions, so Windows never gets there. The file-roller drop needs file-roller.
-	- Verified: rjmb3j8p fails before the fix and passes after, natively on vm925w, in session 0 and in the desktop session. It passes under wine. The toolbar's terminal button, clicked in the desktop session on vm925w, started the terminal set in preferences, in the folder, from Explorer. The whole native suite on vm925w, with 2026100615255268 in too: 151 OK, 0 fail, 12 skipped. The cross build, the Linux build and the lint stage are clean.
-	- Branch: winacts
-	- Commit: efc89d0, 8444910
-	- Test case: rjmb3j8p, Action start win32 test, Windows only. Stand-ins in the action's folder say whether they got a console window and what started them. Conditions with a program, a batch file and a missing program; a command; a terminal command; a command with windows of its own. Lint rjm8a6xr keeps the window menu's terminal off GLib.
 
 - On Windows, thumbnailer programs are never used.
 	- ID: 2026100615255268
@@ -469,6 +350,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026100615255305
 	- Related IDs: 2026100615255305, 2026100612483725
 	- Target OS: Windows
+	- Note: the bulk rename half is done under 2026100702343600, on branch winpaths. Scripts are left.
 	- Steps to reproduce: put a console program or a batch file in the scripts folder and run it from the Scripts menu. Separately, set a bulk rename tool and rename more than one file.
 	- Incorrect behavior: read only. Both go through `nemo_launch_application_from_command`, then GLib's app launch, which starts the program through GLib's helper. So a console program should get a console window, and in the single exe it may never start.
 	- Expected behavior: both start the way the rest of the app starts programs on Windows.
@@ -920,6 +802,70 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. rj043mnp covers it.
 	- Closed: 20261003-112426
+
+- In find mode the Name column doesn't shrink as far as the column width rule says.
+	- ID: 2026100613285789
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: done 20261007, 174 of 174. The nearby list view, search and config tests passed, the Windows cross build was clean, and rexta5a8 passed under wine.
+	- Priority|Severity: Avg
+	- Opened: 20261006-132858
+	- Opened by: t00mietum
+	- Related IDs: 2026100613285826
+	- Target OS: All
+	- Requirements:
+		- Before rc.1.
+	- Steps to reproduce: search a tree where the same file name turns up in many folders, in list view.
+	- Incorrect behavior: Name stays wider than its share of the shortest names would need.
+	- Expected behavior: Name shrinks to fit the shortest `column-fit-percent` of the names, like it does in a plain folder.
+	- Reproduced: 20261006, Linux. 40 folders each with one long file name, and 10 short names beside it. In a narrow window Name stayed at the whole long name and pushed Location off the edge. With the fix it shrinks to the short names, with an ellipsis.
+	- Possible cause: the rule counts every file for Name. A plain folder can't have one name twice, but find results can, in different folders. So a repeated name gets counted many times and pulls the share its way.
+	- Suggested fix:
+		- In find mode, count each distinct name once for Name.
+		- Location already counts each distinct value once, per design.md. Check the code does the same in find mode.
+		- design.md "List view column widths" is the canonical rule, so it changes with the fix.
+	- Actual cause: confirmed. Name was always counted once per row, keyed by file, in find results too.
+	- Actual fix: how each column counts its values moved out of the list view into `nemo-column-layout.c`, where it can be tested without a screen. In find results Name now counts each distinct name once. design.md "List view column widths" says so, and so does the `column-fit-percent` description.
+	- Decisions:
+		- A name seen at two widths, such as at two depths of a grouped tree, counts at the wider. The same goes for the other columns counted by text, which used to take the last width seen. A call made without asking.
+		- In find results a file that goes leaves its name in the count until the next full recount, as the other text columns already did, since another file may share the name.
+	- Swept: Location already counted each distinct value once, find mode included; rexta5a8 now checks it. Every place the list view kept, dropped, cleared or read a column's values goes through the new code: measuring a row, a file leaving, the full recount and the layout. Icon and compact views have no column widths.
+	- Verified: rexta5a8 failed before the fix, on the 2 new find mode checks, and passes after. The case above was checked both ways.
+	- Branch: findfix
+	- Commit: fa73670
+	- Test case: rexta5a8 (Column layout test), its new tally checks.
+	- Acceptance signoff: Self-closes as Done once the full suite passes. Reproduced, and its test failed before the fix and passes after.
+
+- On Windows, programs started through GLib with pipes open a console window each, and may never start in the packed exe.
+	- ID: 2026100612483725
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: done 20261007, 174 of 174. Linux still starts these through GSubprocess with the same flags, by way of a small wrapper. The archive, extract, search and thumbnail tests passed on Linux.
+	- Needs external testing: done 20261006 on vm925w, as in Verified.
+	- Priority|Severity: Avg
+	- Opened: 20261006-124837
+	- Opened by: 2026100610503901
+	- Related IDs: 2026100610503901, 2026100615255231, 2026100615255268, 2026100615255305
+	- Target OS: Windows
+	- Steps to reproduce: with 7-Zip installed, compress a folder to 7z from the native build, then from the packed exe. Same for extracting it, and for a content search that reads a Word file.
+	- Incorrect behavior: read only. On the native build each run should open a console window. In the packed exe the job should wait for good.
+	- Expected behavior: no window but the app's own, and the job runs in both.
+	- Reproduced: 20261006 by rjm4ctwh, natively on vm925w and under wine. Each stand-in tool got a console window, and a stop did not end a compress while the tool said nothing, so the job hung until the tool quit on its own.
+	- Possible cause: GLib starts these through a helper program, which gives each a console window, and which hangs when run from inside the packed exe. `nemo_launch_win32_pipe` from 2026100610503901 starts a program with no window and no helper, but only with a file as stdin, so the archive and search code need more than it offers.
+	- Actual cause: the archive tools, the search converters and the thumbnailer programs all went through GLib's spawn, the same cause as 2026100610503901. A stop also waited on the tool's next line, since GLib's pipe read on Windows can't be stopped.
+	- Actual fix: `nemo-launch-win32.c` starts these too, with no console window and no helper. Output comes back through pipes that can be read as it comes and that a stop interrupts. The compress, extract and search code go through a small wrapper, `nemo-tool-run.c`, which is GSubprocess everywhere but Windows. Thumbnailer programs go through the same call as ImageMagick. Tool stderr stays apart from stdout on Windows, as before.
+	- Swept: every GSubprocess and `g_spawn_*` call that Windows can reach.
+		- Now through the launcher: compress (`start_tool`, both the links-first run and the main one), extract (`run_unpack_command`), search converters (`get_stream_from_helper`), thumbnailer programs (`run_thumbnailer_script`). ImageMagick already was.
+		- Still through GLib on Windows, with no pipes: a new window or tab (`nemo-new-process.c`, our own exe, which has no console window to show), custom action commands and their conditions (`nemo-action.c`), and the window's Open in terminal (`nemo-window-menus.c`). The last two are filed as 2026100615255305.
+		- Reachable, but the program does not exist on Windows, so nothing starts: `xdg-user-dirs-update` (`nemo-file-utilities.c`) and the thumbnail cache fix through `pkexec` (`nemo-thumbnail-problem-bar.c`).
+		- Not built or not reached on Windows: `pkexec` and the terminal in `nemo-view.c`, the action layout editor, the extension restart, and the extension list and its config links, which are empty there.
+		- Lint rjm8a6xr now fails on any GLib program start that is not on this list. It failed with the old extract code in place.
+	- Verified: rjm4ctwh fails before the fix and passes after, natively on vm925w and under wine. Natively it passed with the box's full PATH too. The whole native suite: 148 OK, 0 fail, 12 skipped. rhr6ggmt ran with the real 7-Zip. The packed exe: rjm4ctwh, packed into one exe with a stand-in converter and thumbnailer inside it, passed in session 0 and in the desktop session. The cross build and the Linux build are clean, and the lint stage passes.
+	- Note: on vm925w, helpers left hung by earlier runs of packed exes were still running after the app had gone, 13 of them from one exe, along with a `gdbus.exe`. They kept that exe in use, so packing a new one over it failed. None were left by 20261006 afternoon.
+	- Note: thumbnailer programs are likely never used on Windows, filed as 2026100615255268. rjm4ctwh calls the thumbnail code with a real type to reach them.
+	- Branch: toolpipes
+	- Commit: 00770f3 to 303409c
+	- Test case: rjm4ctwh, Tool start win32 test, Windows only. Stand-ins first on PATH say whether they got a console window, what reached stdin and which arguments they had. Through the real jobs it compresses to rar, fails with both outputs in the error, stops a compress while the tool says nothing, extracts a rar only the tool reads, searches through a converter and makes a thumbnail through a thumbnailer program. Lint rjm8a6xr keeps new GLib program starts off Windows.
 
 - On Windows, a link drop moves the files instead of opening Make link.
 	- ID: 2026100610503900
@@ -1624,6 +1570,61 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- On Windows, a window first opened on a share shows the C:\ bookmark as `\` with a plain folder icon.
+	- ID: 2026100610370021
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: done 20261007, 174 of 174. Bookmarks now ask for their folder's info on every platform. rjm9n8sr and the bookmark, places and share tests passed on Linux.
+	- Needs external testing: done 20261006 on vm925w, as in Verified. The side pane itself was not looked at.
+	- Priority|Severity: Low
+	- Opened: 20261006-103700
+	- Opened by: Windows pass for 2026093010493450
+	- Related IDs: 2026093010493450
+	- Target OS: Windows
+	- Steps to reproduce: with a fresh settings folder, start the app on a mapped drive such as `Y:\`, or on a UNC path. Look at the first entry under Bookmarks.
+	- Incorrect behavior: the drive root bookmark reads `\` and has the plain outline folder icon. The bookmarks file is written with no labels.
+	- Expected behavior: `C:\` with the blue folder icon, as when the first folder is on local disk. Then the file has `file:///C:/ C:\` and the other labels.
+	- Reproduced: 20261006 on vm925w at 46f9674, starting on a mapped drive and on a UNC path. Starting on a local folder gives the right label and icon.
+	- Actual cause: a bookmark takes its name and icon from its folder's info, and never asked for it. It came only when a window happened to load that folder. A window opened anywhere on C: loads `C:\` for the path bar, and one opened in home lists Desktop, Documents and the rest. On a share neither happens, so `C:\` kept the last part of its path, which is `\`, and the default icon. With no name changed, the list was never saved, so the file kept the unlabeled defaults.
+	- Actual fix: a bookmark asks for its folder's info when it first connects to it, unless the folder is on a share or not a local path. Nothing new is asked of a share.
+	- Decisions:
+		- A call made without asking: this also gives Desktop, Documents and the other default bookmarks their own icons on every start, as a window opened in home already did. Before, they kept the plain folder icon when the first window was anywhere else. OK'd 20261006.
+	- Swept: `nemo_bookmark_connect_file` is where every bookmark gets its file; the side pane, the bookmarks menu and the editor all go through it. The share gate is the same `nemo_file_is_on_a_share` the rest of the app uses.
+	- Verified: rjm9n8sr fails before the fix and passes after, on Linux and natively on vm925w. On vm925w, started on `\\localhost\c$\Users\Public` and on a drive mapped to it, `C:\` got its name and icon, and the bookmarks file was saved with every label. The Windows cross build is clean, and lint passes.
+	- Branch: smallwin
+	- Commit: 19cf1e1
+	- Test case: rjm9n8sr, Bookmark name and icon test. Home gets "Home" and the home icon, the system drive's root gets `C:\` on Windows, and a folder on a share is not asked about.
+
+- On Windows, custom actions and the window's Open in terminal start programs through GLib, not the launcher.
+	- ID: 2026100615255305
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: done 20261007, 174 of 174. Linux keeps the same calls, and the toolbar button now shares the view's code, which is the same text. rhtq57n3 and the two terminal tests passed on Linux.
+	- Needs external testing: done 20261006 on vm925w, as in Verified.
+	- Priority|Severity: Low
+	- Opened: 20261006-152553
+	- Opened by: 2026100612483725
+	- Related IDs: 2026100612483725, 2026100610503901
+	- Target OS: Windows
+	- Steps to reproduce: add a custom action whose command, or whose condition, is a console program, then open the menu it is in. Separately, use the toolbar's terminal button.
+	- Incorrect behavior: read only. An action's console program should open a console window each run, and a condition runs each time the menu is built. In the packed exe the program is started with the packer's hooks. The toolbar's terminal button looks only for Linux terminals, so it does nothing unless one of those is on the PATH, alacritty or wezterm say, and then starts it through GLib.
+	- Expected behavior: actions start the way the rest of the app starts programs on Windows, and the toolbar's terminal button opens the same terminal as the view's menu.
+	- Reproduced: no. Read from the code.
+	- Possible cause: `nemo-action.c` uses `g_spawn_command_line_async` and `g_spawn_command_line_sync`, and `open_in_terminal_other` in `nemo-window-menus.c` has no Windows branch. The view's own `open_in_terminal` does.
+	- Reproduced: 20261006 by rjmb3j8p, natively on vm925w. A condition's program and an action's command each got a console window and were started through GLib's helper. A terminal action found no terminal and did nothing.
+	- Actual cause: as in Possible cause. An action with Terminal=true also looked only for Linux terminals on Windows.
+	- Decisions:
+		- Calls made without asking. A console program in an action runs with no window, started from the app the way tools are, so in the single exe it is hooked like they are. A program with windows of its own goes through the brokers like an app opened from the menus. A terminal action runs its program in a console window of its own, through the brokers.
+		- A condition on Windows gets 10 seconds, then it counts as no and a warning is logged. The menu waits on it, and Linux has no limit.
+	- Actual fix: on Windows an action's command goes through a new `nemo_launch_win32_spawn`, which checks whether the program is a console one. Conditions go through `nemo_launch_win32_pipe`, which gives the exit status. The toolbar button calls the view's `open_in_terminal`, and the copy in `nemo-window-menus.c` is gone. The Windows terminal opener no longer crashes on a folder with no path when the terminal is Windows Terminal.
+	- Swept:
+		- GLib program starts: lint rjm8a6xr. With the old window menu code back it fails.
+		- Programs started through `g_app_info_launch` from a command line, which the lint does not see: scripts and the bulk rename tool can reach it on Windows, filed as 2026100616310432. Launching an executable file and the tree's launch need Unix permissions, so Windows never gets there. The file-roller drop needs file-roller.
+	- Verified: rjmb3j8p fails before the fix and passes after, natively on vm925w, in session 0 and in the desktop session. It passes under wine. The toolbar's terminal button, clicked in the desktop session on vm925w, started the terminal set in preferences, in the folder, from Explorer. The whole native suite on vm925w, with 2026100615255268 in too: 151 OK, 0 fail, 12 skipped. The cross build, the Linux build and the lint stage are clean.
+	- Branch: winacts
+	- Commit: efc89d0, 8444910
+	- Test case: rjmb3j8p, Action start win32 test, Windows only. Stand-ins in the action's folder say whether they got a console window and what started them. Conditions with a program, a batch file and a missing program; a command; a terminal command; a command with windows of its own. Lint rjm8a6xr keeps the window menu's terminal off GLib.
 
 - On Windows, a GLib critical about `g_strv_length` shows in the tool start test.
 	- ID: 2026100615255231
