@@ -238,6 +238,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: every place that names the OS part of an asset: both installers, `release-files.bash`, `release-table.py` and design.md "Installing".
 	- Verified: on FreeBSD 15.1, the pkg installed with `pkg install` with `gdk-pixbuf-extra` removed first, which brought it back, and with `pkg add`. The installed app answered `--version` and opened its window, and `pkg delete` left nothing behind. `install.bash --from` installed the tarball into a scratch home there and removed it. Two release builds gave the same tarball and the same pkg. rjphng6y, rhtrxr81, rjf2v5d5 and rjcma0tt pass.
 	- Branch: bsdpkg
+	- Commit: 6f96777
 	- Test case: rjphng6y, FreeBSD package check, in the packages stage: the manifest's name, version and dependencies, where every file goes, and that the tarball has the same app files. rhtrxr81 now has both installers ask for the `-bsd-` tarball on FreeBSD, rjcma0tt checks the pkg's stamp at a release cut, and rjf2v5d5 the FreeBSD row.
 
 - FreeBSD in the pipeline.
@@ -261,6 +262,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: on vmFreeBSD the lane built the tree with `-Dwerror=true` and ran the suite, 163 OK, 14 skipped, then `--version`. On Linux `run-tests.bash` built and ran 2 tests and `--version` in the build image, with and without the display wrapper. The first FreeBSD run stopped on folders 2 tests left behind, filed as 2026100713082288.
 	- Needs local test suite run?: yes. A full `cicd/cicd.bash --include-bsd --no-publish` on the merged tree. The new stage lines in `cicd.bash` have only been read.
 	- Branch: bsdpkg
+	- Commit: 6f96777
 	- Test case: rjphnh77, FreeBSD lane test, in the lint stage: what is sent, what the runner is handed, a failing suite failing the lane, the tarball's stamp and order over 2 runs, the sums file, and the lock's wrap. The suite run on FreeBSD is the test of `run-tests.bash` there.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
