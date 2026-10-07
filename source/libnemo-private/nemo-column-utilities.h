@@ -54,5 +54,14 @@ char **nemo_search_columns_get_default_visible (void);
 char **nemo_search_columns_get_default_order   (void);
 void   nemo_search_columns_save                (const char *const *visible_in_order);
 
+/* Their sort column and direction, kept the same way. */
+gboolean nemo_search_sort_get    (char       **attribute,
+				  gboolean    *reversed);
+void     nemo_search_sort_save   (const char  *attribute,
+				  gboolean     reversed,
+				  const char  *default_attribute,
+				  gboolean     default_reversed);
+void     nemo_search_sort_forget (void);
+
 
 #endif /* NEMO_COLUMN_UTILITIES_H */

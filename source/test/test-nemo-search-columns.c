@@ -1,7 +1,8 @@
 /* Find results keep their own columns, in the order they were dragged into,
  * whatever remember-folder-settings says, since they are not a folder. With
  * nothing saved they show Name, Ext, Size, Modified and Location, in that
- * order, with Type and the other dates hidden. */
+ * order, with Type and the other dates hidden. Their sort column and
+ * direction are kept the same way. */
 
 #include <config.h>
 
@@ -97,6 +98,50 @@ main (int argc, char *argv[])
 
 		nemo_search_columns_save (none);
 		check (list_is (nemo_search_columns_get_visible (), shown));
+	}
+
+	/* The sort column and direction are kept the same way. */
+	{
+		char *attr = NULL;
+		gboolean reversed = FALSE;
+
+		check (!nemo_search_sort_get (&attr, &reversed));
+		check (attr == NULL);
+
+		check (!nemo_global_preferences_get_remember_folder_settings ());
+		nemo_search_sort_save ("size", TRUE, "name", FALSE);
+		check (nemo_search_sort_get (&attr, &reversed));
+		check (g_strcmp0 (attr, "size") == 0 && reversed);
+		g_clear_pointer (&attr, g_free);
+		check (file_mentions ("search-sort-column: size"));
+		check (file_mentions ("search-reverse-sort: true"));
+
+		nemo_config_set_boolean (nemo_preferences, NEMO_PREFERENCES_REMEMBER_FOLDER_SETTINGS, TRUE);
+		check (nemo_search_sort_get (&attr, &reversed));
+		check (g_strcmp0 (attr, "size") == 0 && reversed);
+		g_clear_pointer (&attr, g_free);
+		nemo_config_set_boolean (nemo_preferences, NEMO_PREFERENCES_REMEMBER_FOLDER_SETTINGS, FALSE);
+
+		/* Only the direction off the default still keeps both. */
+		nemo_search_sort_save ("name", TRUE, "name", FALSE);
+		check (nemo_search_sort_get (&attr, &reversed));
+		check (g_strcmp0 (attr, "name") == 0 && reversed);
+		g_clear_pointer (&attr, g_free);
+
+		/* The default itself leaves nothing saved, so a changed default
+		 * still reaches find results. */
+		nemo_search_sort_save ("name", FALSE, "name", FALSE);
+		check (!nemo_search_sort_get (&attr, &reversed));
+		check (!file_mentions ("search-sort-column"));
+		check (!file_mentions ("search-reverse-sort"));
+
+		/* Reset view and Use default. */
+		nemo_search_sort_save ("date_modified", FALSE, "name", FALSE);
+		check (file_mentions ("search-sort-column: date_modified"));
+		nemo_search_sort_forget ();
+		check (!nemo_search_sort_get (&attr, &reversed));
+		check (attr == NULL);
+		check (!file_mentions ("search-sort-column"));
 	}
 
 	nemo_config_shutdown ();
