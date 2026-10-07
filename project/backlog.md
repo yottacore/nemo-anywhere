@@ -115,6 +115,25 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: the removable drive half is split out as 2026100708294146.
 	- Test case: rjhvmm6f checks that the drive list and the trash state ask nothing of a mapped drive. A share that dies while connected needs a second host and a firewall rule, so it was timed by hand.
 
+- On the arm64 box the keyboard menu test's icon view step can time out beside other tests.
+	- ID: 2026100708355547
+	- Type: Bug
+	- Status: Can't reproduce
+	- Priority|Severity: Low
+	- Opened: 20261007-083555
+	- Opened by: 2026100611482306
+	- Related IDs: 2026100520071435
+	- Target OS: Linux arm64
+	- Steps to reproduce: run the full suite on the arm64 debug build in the jammy image, 4 at once.
+	- Incorrect behavior: rjefm41d's icon view case timed out at step 5, waiting for the menu the Menu key opens. Seen once. It passed 3 runs of 3 alone.
+	- Expected behavior: passes.
+	- Reproduced: 20261007, once, in the full suite.
+	- Possible cause: the suite shares one display, and a menu whose grab goes to another test's window stays down. The Places focus probe does not wait for its menu to show, for that reason. Not shown here.
+	- Note: 20261007, it passed in the full suite on a fresh arm64 release build at 585f825, in 29.7 s. It had passed 3 runs of 3 alone before that.
+	- Note: 20261007, the probe and test were read. At step 5 the probe looks for a menu on screen every 100 ms for 10 s, so it does wait for the menu to show. The test runs on an X server of its own, not the suite's. Two tests that pick the same display number at once don't end up sharing it: the one whose server fails tries the next number. So the possible cause above doesn't apply.
+	- Note: 20261007, not ruled out: the Menu key made no menu at all once, on a loaded box. GTK 3 doesn't show a menu whose pointer grab fails, and the probe presses the key only once. Nothing points at that, and pressing again would hide it rather than explain it.
+	- Test case: rjefm41d itself.
+
 - On Windows, a path with single backslashes in a file or setting a user writes is read as escapes.
 	- ID: 2026100702343600
 	- Type: Bug
@@ -175,25 +194,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- rjm4ctwh, Tool start win32 test: a search helper and a thumbnailer by full path with single backslashes, and a helper with them doubled.
 		- rjmb3j8p, Action start win32 test: an action with full paths in its command, condition and dependencies.
 		- rjmqp83c, lint-c.bash `UserText`: no direct call outside the shared code.
-
-- On the arm64 box the keyboard menu test's icon view step can time out beside other tests.
-	- ID: 2026100708355547
-	- Type: Bug
-	- Status: Can't reproduce
-	- Priority|Severity: Low
-	- Opened: 20261007-083555
-	- Opened by: 2026100611482306
-	- Related IDs: 2026100520071435
-	- Target OS: Linux arm64
-	- Steps to reproduce: run the full suite on the arm64 debug build in the jammy image, 4 at once.
-	- Incorrect behavior: rjefm41d's icon view case timed out at step 5, waiting for the menu the Menu key opens. Seen once. It passed 3 runs of 3 alone.
-	- Expected behavior: passes.
-	- Reproduced: 20261007, once, in the full suite.
-	- Possible cause: the suite shares one display, and a menu whose grab goes to another test's window stays down. The Places focus probe does not wait for its menu to show, for that reason. Not shown here.
-	- Note: 20261007, it passed in the full suite on a fresh arm64 release build at 585f825, in 29.7 s. It had passed 3 runs of 3 alone before that.
-	- Note: 20261007, the probe and test were read. At step 5 the probe looks for a menu on screen every 100 ms for 10 s, so it does wait for the menu to show. The test runs on an X server of its own, not the suite's. Two tests that pick the same display number at once don't end up sharing it: the one whose server fails tries the next number. So the possible cause above doesn't apply.
-	- Note: 20261007, not ruled out: the Menu key made no menu at all once, on a loaded box. GTK 3 doesn't show a menu whose pointer grab fails, and the probe presses the key only once. Nothing points at that, and pressing again would hide it rather than explain it.
-	- Test case: rjefm41d itself.
 
 - A FreeBSD package.
 	- ID: 2026100517134081
