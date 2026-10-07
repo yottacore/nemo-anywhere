@@ -31,6 +31,16 @@ fSkip(){
 	exit 0
 }
 
+## Windows can refuse to run a script with non-ASCII bytes in it, a BOM included.
+## Runs ahead of the pwsh check, so a box without pwsh still gets it.
+## Test ID: rjmn9fh2
+nonAscii="$(git ls-files -z '*.ps1' '*.psm1' '*.psd1' | xargs -0 -r grep -nP '[^\x00-\x7F]' || true)"
+if [[ -n "$nonAscii" ]]; then
+	printf '%s\n' "$nonAscii"
+	fEcho "FAILED: PowerShell lint: non-ASCII bytes in a PowerShell file" >&2
+	exit 1
+fi
+
 command -v pwsh >/dev/null 2>&1 || fSkip "pwsh not installed"
 pwsh -NoProfile -Command 'exit ([int](-not (Get-Module -ListAvailable PSScriptAnalyzer)))' \
 	|| fSkip "PSScriptAnalyzer module not installed"

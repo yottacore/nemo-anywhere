@@ -1,4 +1,4 @@
-﻿##	Purpose:
+##	Purpose:
 ##		- Runs inside Windows Sandbox as the logon command, straight off the
 ##		  mapped share. Copies the packed exe to local disk (the mapped folder
 ##		  is slow to execute from), then loops: pick up share\jobs\*.ps1
@@ -11,7 +11,7 @@
 ##	History:
 ##		- 2026-08-30: Created (backlog: GUI testing without touching the live session).
 
-##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
+##	Copyright (c) 2026 t00mietum
 ##	Licensed under The MIT License (MIT). Full text at:
 ##		https://mit-license.org/
 ##	SPDX-License-Identifier: MIT

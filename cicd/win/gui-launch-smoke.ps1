@@ -1,4 +1,4 @@
-﻿##	Purpose:
+##	Purpose:
 ##		- GUI launch smoke for the native Windows build: start the exe on a
 ##		  scratch folder, wait for its main window, see that it is still alive a
 ##		  few seconds later, then end it by its pid. The --version smoke never
@@ -17,7 +17,7 @@
 ##		pwsh -NoProfile -File cicd/win/gui-launch-smoke.ps1 -Exe <exe> -RuntimeBin <dir> [-Seconds <n>]
 ##	Test ID: rhtwm2cc
 
-##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
+##	Copyright (c) 2026 t00mietum
 ##	Licensed under The MIT License (MIT). Full text at:
 ##		https://mit-license.org/
 ##	SPDX-License-Identifier: MIT

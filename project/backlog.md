@@ -33,44 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- Find mode remembers the column choice and order, and shows more columns by default.
-	- ID: 2026100613285826
-	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Needs local test suite run?: yes, the full Linux suite. The nearby list view, search and config tests passed, the Windows cross build was clean, and rjm2rvjn passed under wine.
-	- Priority|Severity: Avg
-	- Opened: 20261006-132858
-	- Opened by: t00mietum
-	- Related IDs: 2026100613285789
-	- Target OS: All
-	- Requirements:
-		- Before rc.1.
-		- Remember the columns picked, and the order they were dragged into.
-		- Default columns, in this order, and whether each shows by default:
-			- Name: yes
-			- Ext: yes
-			- Type: no
-			- Size: yes
-			- Modified: yes
-			- Other date columns: no
-			- Location: yes
-			- The rest: no
-	- Note: today the defaults are Name and Location only. The picked columns are saved under `search.search-visible-columns`, and only while `remember-folder-settings` is on.
-	- Decisions:
-		- Find mode remembers its columns and their order always, whatever `remember-folder-settings` says, since find results are not a folder. The recommended answer, taken when the question timed out on 20261006.
-		- The existing key stays. It holds the shown columns in their order, so it covers both the picks and the order. Empty means the defaults.
-		- Sort column and direction in find mode still follow `remember-folder-settings`, as before. Not asked for here.
-	- Done:
-		- Find mode reads and saves its columns through one place in `nemo-column-utilities.c`. A pick, a drag, Use default and Reset view all go there in find mode, and no longer touch the window's own column choice.
-		- New defaults as listed. Type and the other two dates are hidden.
-		- A column turned on goes after the shown ones, as in a folder.
-		- The search reads the same key to know whether to count hits. With remembering off a picked Hits column was never saved, so hits were never counted; now they are.
-		- README and design.md "Search" say what find mode keeps.
-	- Verified: with remembering off, find results showed Name, Ext, Size, Date modified and Location. Turning on Type and dragging it before Ext were both saved, and both came back after a restart.
-	- Branch: findfix
-	- Commit: fa73670
-	- Test case: rjm2rvjn (Find mode columns test).
-
 - Two tests fail on the release build made in the jammy image.
 	- ID: 2026100520071433
 	- Type: Bug
@@ -234,7 +196,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual cause: a bookmark takes its name and icon from its folder's info, and never asked for it. It came only when a window happened to load that folder. A window opened anywhere on C: loads `C:\` for the path bar, and one opened in home lists Desktop, Documents and the rest. On a share neither happens, so `C:\` kept the last part of its path, which is `\`, and the default icon. With no name changed, the list was never saved, so the file kept the unlabeled defaults.
 	- Actual fix: a bookmark asks for its folder's info when it first connects to it, unless the folder is on a share or not a local path. Nothing new is asked of a share.
 	- Decisions:
-		- A call made without asking: this also gives Desktop, Documents and the other default bookmarks their own icons on every start, as a window opened in home already did. Before, they kept the plain folder icon when the first window was anywhere else.
+		- A call made without asking: this also gives Desktop, Documents and the other default bookmarks their own icons on every start, as a window opened in home already did. Before, they kept the plain folder icon when the first window was anywhere else. OK'd 20261006.
 	- Swept: `nemo_bookmark_connect_file` is where every bookmark gets its file; the side pane, the bookmarks menu and the editor all go through it. The share gate is the same `nemo_file_is_on_a_share` the rest of the app uses.
 	- Verified: rjm9n8sr fails before the fix and passes after, on Linux and natively on vm925w. On vm925w, started on `\\localhost\c$\Users\Public` and on a drive mapped to it, `C:\` got its name and icon, and the bookmarks file was saved with every label. The Windows cross build is clean, and lint passes.
 	- Branch: smallwin
@@ -343,6 +305,46 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: 20261006 on vm925w, in the desktop session, with the message box seen.
 	- Possible cause: not known. libgsf-1-114.dll and everything it needs are in the pack. gdk-pixbuf-thumbnailer started the same way loaded its libraries, all of which the app itself has loaded. Loading libgsf in the app first did not help, so that is not the difference.
 	- Test case: none yet.
+
+- Find mode remembers the column choice and order, and shows more columns by default.
+	- ID: 2026100613285826
+	- Type: Enhancement
+	- Status: Queued
+	- Needs local test suite run?: yes, the full Linux suite. The nearby list view, search and config tests passed, the Windows cross build was clean, and rjm2rvjn passed under wine.
+	- Priority|Severity: Avg
+	- Opened: 20261006-132858
+	- Opened by: t00mietum
+	- Related IDs: 2026100613285789
+	- Target OS: All
+	- Requirements:
+		- Before rc.1.
+		- Remember the columns picked, and the order they were dragged into.
+		- Default columns, in this order, and whether each shows by default:
+			- Name: yes
+			- Ext: yes
+			- Type: no
+			- Size: yes
+			- Modified: yes
+			- Other date columns: no
+			- Location: yes
+			- The rest: no
+		- Remember the sort column and direction always too, like the columns.
+	- Note: today the defaults are Name and Location only. The picked columns are saved under `search.search-visible-columns`, and only while `remember-folder-settings` is on.
+	- Decisions:
+		- Find mode remembers its columns and their order always, whatever `remember-folder-settings` says, since find results are not a folder. The recommended answer, taken when the question timed out on 20261006, and OK'd the same day.
+		- The existing key stays. It holds the shown columns in their order, so it covers both the picks and the order. Empty means the defaults.
+		- Sort column and direction in find mode are kept always too. Asked and answered yes, 20261006. Not done yet.
+	- Signoff: the columns part, 20261006.
+	- Done:
+		- Find mode reads and saves its columns through one place in `nemo-column-utilities.c`. A pick, a drag, Use default and Reset view all go there in find mode, and no longer touch the window's own column choice.
+		- New defaults as listed. Type and the other two dates are hidden.
+		- A column turned on goes after the shown ones, as in a folder.
+		- The search reads the same key to know whether to count hits. With remembering off a picked Hits column was never saved, so hits were never counted; now they are.
+		- README and design.md "Search" say what find mode keeps.
+	- Verified: with remembering off, find results showed Name, Ext, Size, Date modified and Location. Turning on Type and dragging it before Ext were both saved, and both came back after a restart.
+	- Branch: findfix
+	- Commit: fa73670
+	- Test case: rjm2rvjn (Find mode columns test).
 
 - On the arm64 box the Places focus test loses its click or its rename.
 	- ID: 2026100611482306
