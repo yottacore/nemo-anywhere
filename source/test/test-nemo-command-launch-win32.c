@@ -93,7 +93,10 @@ started_by (const char *tool, const char *parent)
 static gboolean
 started_by_broker (const char *tool)
 {
-	return started_by (tool, "explorer.exe") || started_by (tool, "WmiPrvSE.exe");
+	g_autofree char *text = g_ascii_strdown (report_of (tool), -1);
+
+	return strstr (text, "\nparent=explorer.exe\n") != NULL ||
+	       strstr (text, "\nparent=wmiprvse.exe\n") != NULL;
 }
 
 static char *
