@@ -206,7 +206,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - In the single exe on Windows, a program packed inside it that needs libgsf cannot start.
 	- ID: 2026100617051745
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for answers
+	- Needs external testing: by hand on vm925w, in the desktop session where MacType runs, once the question below is answered.
 	- Priority|Severity: Avg
 	- Opened: 20261006-170517
 	- Opened by: 2026100615255268
@@ -217,7 +218,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the packed program finds the libraries packed beside it, as gdk-pixbuf-thumbnailer and gdbus do.
 	- Reproduced: 20261006 on vm925w, in the desktop session, with the message box seen.
 	- Possible cause: not known. libgsf-1-114.dll and everything it needs are in the pack. gdk-pixbuf-thumbnailer started the same way loaded its libraries, all of which the app itself has loaded. Loading libgsf in the app first did not help, so that is not the difference.
-	- Test case: none yet.
+	- Reproduced: 20261007 on vm925w, in the desktop session, with a single exe built from this branch. 3 OpenDocument files, 3 thumbnailers, 3 boxes. Outside the desktop session the same exe made the thumbnails.
+	- Actual cause: MacType, a font tool installed on vm925w. It loads into every program in the desktop session and hooks how they start programs. With it loaded in the single exe, a program packed inside the exe and started from it can load none of the libraries packed beside it. It is not libgsf. A small packed test program could not load zlib or bz2 either, and gsf-office-thumbnailer failed the same way under it.
+		- With the exe renamed to a name on MacType's exclusion list, the single exe drew all 3 thumbnails in the desktop session.
+		- The single exe started as itself, rather than a program packed inside it, loads its libraries with MacType loaded.
+		- Ruled out: a library missing from the pack, the temp folder spelled in its short form, the PATH, elevation, and the start flags (no window, handles, detached).
+	- Progress log:
+		- 20261007: cause found, as in Actual cause. Nothing in the app or the pack is wrong, but any MacType user gets the box for every office file, and for every picture too if 2026100617051845 keeps bare names. Question: which way?
+			- (a) Leave the code. README says to add the exe's name to MacType's exclusion list.
+			- (b) Start these helpers as the single exe itself, with a mode for each. Costs the packer's start, about 2.5 s, per thumbnail or searched file.
+			- (c) Read office thumbnails, and the text of Word, Excel and PowerPoint files, inside the app, with no helper program.
+			- Suggested: (a) now, and (c) if it comes up again. Separately, a helper whose box is still up when the app quits should end with it.
+	- Verified: the runs in Reproduced and Actual cause, on vm925w. No code change, since the cause is outside the app.
+	- Branch: thumbwin
+	- Test case: none. The fault needs MacType running in a Windows desktop session. Checked by hand on vm925w.
 
 - Find mode remembers the column choice and order, and shows more columns by default.
 	- ID: 2026100613285826
@@ -328,7 +342,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, the gdk-pixbuf and SVG thumbnailer descriptors in a natively staged build name `/mingw64/bin/gdk-pixbuf-thumbnailer`, which is never found.
 	- ID: 2026100617051845
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for answers
+	- Needs local test suite run?: no. Only the Windows staging script changed, and its test runs in the lint stage.
+	- Needs external testing: done 20261007 on vm925w, as in Verified.
 	- Priority|Severity: Low
 	- Opened: 20261006-170518
 	- Opened by: 2026100615255268
@@ -339,7 +355,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: a bare name, as in the cross build.
 	- Reproduced: 20261006 on vm925w, in the staged folder and in the app's debug output.
 	- Possible cause: no rewrite in `stage-native.bash`. Pictures and SVG files still get thumbnails from the app's own image loading, so little shows.
-	- Test case: none yet.
+	- Actual cause: as in Possible cause.
+	- Progress log:
+		- 20261007: question. With 2026100615255268 in, these descriptors match pictures and SVG files on Windows. So each picture's thumbnail starts gdk-pixbuf-thumbnailer, one program per picture, before the app's own image loading is tried. Linux does the same. On Windows the app's own loading covers the same types with no program, and in the single exe under MacType (2026100617051745) every picture would show the error box. Keep bare names, as asked, or leave the gdk-pixbuf and SVG descriptors out of both Windows bundles? Suggested: leave them out.
+	- Actual fix: `stage-native.bash` copies the descriptors through a new shared step that drops the folder from `TryExec` and `Exec`, and stops the staging if one still names a folder. `fetch-sysroot.bash` keeps its own rewrite, since it runs alone in the image build.
+	- Swept: `fetch-sysroot.bash` already rewrote the cross sysroot. `pack-zip.bash` and the wine runner copy from that sysroot. `pack-portable.ps1` packs the staged tree as it is.
+	- Verified: rjnyer4p passes. It fails with the old `stage-native.bash` (2 checks) and with the rewrite taken out of the new step (4 checks). On vm925w the stager wrote `/mingw64/bin/gdk-pixbuf-thumbnailer` for the gdk-pixbuf and SVG descriptors before the fix and the bare name after, from MSYS2's own files. The office descriptor was bare both times.
+	- Branch: thumbwin
+	- Commit: 48ccf5d
+	- Test case: rjnyer4p, `cicd/utility/test-thumbnailers.bash`, in the lint stage. Copies descriptors written like MSYS2's, checks the bare names and that an argument with a slash is left alone, and checks that `stage-native.bash` stages them through the shared step.
 
 - On Windows, scripts and the bulk rename tool start through GLib, not the launcher.
 	- ID: 2026100616310432
