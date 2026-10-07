@@ -24,8 +24,15 @@
  * shows its first folder it clicks the place $NEMO_FOCUS_PLACE names, twice,
  * renames it from its menu, and writes what it saw to $NEMO_FOCUS_OUT, one
  * "ok" or "FAIL" line per check and "done" at the end. The clicks go through
- * GTK's own event path, so the tree view's handlers run as for a mouse. */
+ * GTK's own event path, so the tree view's handlers run as for a mouse.
+ *
+ * Two orders a slow box can give are made to happen on every box. The first
+ * click comes while the first folder is still loading, and that load ends
+ * before the window has looked at the place's folder, which it does from an
+ * idle (2026100611482306). And the menu is put away before the window hears
+ * of its grab. */
 
+#include <dlfcn.h>
 #include <stdio.h>
 
 #include <gtk/gtk.h>
@@ -39,6 +46,149 @@ static GtkWidget  *places;
 static GtkWidget  *places_pane;
 static int         step;
 static int         waited;
+static GFile      *first_folder;
+static gboolean    first_listing_open;
+static gboolean    catching_idles;
+static gboolean    idles_open;
+static GList      *held;
+static GList      *held_idles;
+
+/* An answer from GIO, kept back until its gate opens. */
+typedef struct {
+	GAsyncReadyCallback callback;
+	gpointer            user_data;
+	gboolean           *gate;
+	GObject            *source;
+	GAsyncResult       *result;
+} Held;
+
+static void
+answer_cb (GObject *source, GAsyncResult *result, gpointer data)
+{
+	Held *hold = data;
+
+	if (*hold->gate) {
+		hold->callback (source, result, hold->user_data);
+		g_free (hold);
+		return;
+	}
+	hold->source = g_object_ref (source);
+	hold->result = g_object_ref (result);
+	held = g_list_append (held, hold);
+}
+
+static Held *
+hold_answer (GAsyncReadyCallback callback, gpointer user_data, gboolean *gate)
+{
+	Held *hold = g_new0 (Held, 1);
+
+	hold->callback = callback;
+	hold->user_data = user_data;
+	hold->gate = gate;
+	return hold;
+}
+
+static void
+open_gate (gboolean *gate)
+{
+	GList *l, *next;
+
+	*gate = TRUE;
+	for (l = held; l != NULL; l = next) {
+		Held *hold = l->data;
+
+		next = l->next;
+		if (hold->gate != gate) {
+			continue;
+		}
+		held = g_list_delete_link (held, l);
+		hold->callback (hold->source, hold->result, hold->user_data);
+		g_object_unref (hold->source);
+		g_object_unref (hold->result);
+		g_free (hold);
+	}
+}
+
+typedef void (*EnumerateFunc) (GFile *, const char *, GFileQueryInfoFlags, int, GCancellable *,
+			       GAsyncReadyCallback, gpointer);
+typedef guint (*IdleAddFunc) (GSourceFunc, gpointer);
+
+/* The first folder's listing, until the first click is in. */
+void
+g_file_enumerate_children_async (GFile *file, const char *attributes, GFileQueryInfoFlags flags,
+				 int io_priority, GCancellable *cancellable,
+				 GAsyncReadyCallback callback, gpointer user_data)
+{
+	static EnumerateFunc real;
+
+	if (real == NULL) {
+		real = (EnumerateFunc) dlsym (RTLD_NEXT, "g_file_enumerate_children_async");
+	}
+	if (first_folder != NULL && !first_listing_open && g_file_equal (file, first_folder)) {
+		real (file, attributes, flags, io_priority, cancellable, answer_cb,
+		      hold_answer (callback, user_data, &first_listing_open));
+		return;
+	}
+	real (file, attributes, flags, io_priority, cancellable, callback, user_data);
+}
+
+static gboolean
+held_idle_dispatch (G_GNUC_UNUSED GSource *source, GSourceFunc callback, gpointer data)
+{
+	return callback (data);
+}
+
+static GSourceFuncs held_idle_funcs = { .dispatch = held_idle_dispatch };
+
+/* Idles the app asks for during the first click are real sources, so the app
+ * can still remove one, but none is ready until the gate opens. */
+guint
+g_idle_add (GSourceFunc function, gpointer data)
+{
+	static IdleAddFunc real;
+	GSource *source;
+	guint id;
+
+	if (real == NULL) {
+		real = (IdleAddFunc) dlsym (RTLD_NEXT, "g_idle_add");
+	}
+	if (!catching_idles || !g_main_context_is_owner (g_main_context_default ())) {
+		return real (function, data);
+	}
+	source = g_source_new (&held_idle_funcs, sizeof (GSource));
+	g_source_set_priority (source, G_PRIORITY_DEFAULT_IDLE);
+	g_source_set_callback (source, function, data, NULL);
+	g_source_set_ready_time (source, -1);
+	id = g_source_attach (source, NULL);
+	held_idles = g_list_prepend (held_idles, source);
+
+	return id;
+}
+
+static void
+open_idles (void)
+{
+	GList *l;
+
+	if (idles_open) {
+		return;
+	}
+	idles_open = TRUE;
+	for (l = held_idles; l != NULL; l = l->next) {
+		if (!g_source_is_destroyed (l->data)) {
+			g_source_set_ready_time (l->data, 0);
+		}
+	}
+	g_list_free_full (held_idles, (GDestroyNotify) g_source_unref);
+	held_idles = NULL;
+}
+
+static void
+first_loaded_cb (G_GNUC_UNUSED GtkWidget *view, G_GNUC_UNUSED gboolean all_seen,
+		 G_GNUC_UNUSED gpointer data)
+{
+	open_idles ();
+}
 
 static void
 report (gboolean passed, const char *what)
@@ -293,11 +443,25 @@ finish (void)
 	fflush (out);
 }
 
+/* The window hears of the menu's grab, and of its end, before Rename starts.
+ * A real click on the item comes after both. */
+static void
+settle (void)
+{
+	int i;
+
+	gdk_display_sync (gtk_widget_get_display (window));
+	for (i = 0; i < 1000 && gdk_events_pending (); i++) {
+		gtk_main_iteration_do (FALSE);
+	}
+}
+
 /* Each step waits for what the one before set going. Up to ten seconds each. */
 static gboolean
 tick (G_GNUC_UNUSED gpointer data)
 {
 	GtkWidget *entry, *item;
+	gboolean clicked;
 
 	if (++waited > 100) {
 		report (FALSE, "timed out waiting");
@@ -324,13 +488,26 @@ tick (G_GNUC_UNUSED gpointer data)
 		if (places == NULL || places_pane == NULL) {
 			return G_SOURCE_CONTINUE;
 		}
-		/* Bookmarks are listed a moment after the window shows. */
-		if (!click_place (1)) {
+		if (find_widget ("NemoView") == NULL) {
 			return G_SOURCE_CONTINUE;
 		}
+		/* Bookmarks are listed a moment after the window shows. */
+		catching_idles = TRUE;
+		clicked = click_place (1);
+		catching_idles = FALSE;
+		if (!clicked) {
+			return G_SOURCE_CONTINUE;
+		}
+		g_signal_connect (find_widget ("NemoView"), "end_loading", G_CALLBACK (first_loaded_cb), NULL);
+		open_gate (&first_listing_open);
 		break;
 	}
 	case 1:
+		/* Never longer than this, should the first folder's load want one
+		 * of them. */
+		if (waited > 30) {
+			open_idles ();
+		}
 		/* The driver puts three files in each folder. */
 		if (!title_starts (second_name) || rows_in_view () < 3) {
 			return G_SOURCE_CONTINUE;
@@ -357,6 +534,9 @@ tick (G_GNUC_UNUSED gpointer data)
 		report (focus_in_view (), "a click on the open folder's place keeps the focus in it");
 		report (selected_in_view () == 0, "and clears its selection");
 		click_place (3);
+		/* Run past the next tick's time, as a slow box does, so that tick
+		 * comes before the window hears of the menu's grab. */
+		g_usleep (150 * 1000);
 		break;
 	case 3:
 		item = places_menu_rename_item ();
@@ -364,6 +544,7 @@ tick (G_GNUC_UNUSED gpointer data)
 			return G_SOURCE_CONTINUE;
 		}
 		gtk_menu_shell_deactivate (GTK_MENU_SHELL (gtk_widget_get_parent (item)));
+		settle ();
 		gtk_menu_item_activate (GTK_MENU_ITEM (item));
 		break;
 	case 4:
@@ -400,6 +581,15 @@ probe_start (void)
 	out = fopen (path, "w");
 	if (out == NULL) {
 		return;
+	}
+	/* The driver makes both folders side by side, named as their titles. */
+	{
+		GFile *second = g_file_new_for_uri (place_uri);
+		GFile *parent = g_file_get_parent (second);
+
+		first_folder = g_file_get_child (parent, first_name);
+		g_object_unref (parent);
+		g_object_unref (second);
 	}
 	g_timeout_add (100, tick, NULL);
 }

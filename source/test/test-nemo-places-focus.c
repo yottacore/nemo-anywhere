@@ -26,6 +26,8 @@
  * preloaded, clicks that bookmark, clicks it again, and renames it. After a
  * click the focus is in the folder with nothing selected, Places never takes
  * it except while a rename is under way, and the end of a rename hands it back.
+ * The first click comes while the first folder is still loading, and it must
+ * still go where it was sent.
  *
  * Needs the built program (argv[1]), the probe (argv[2]) and a display. Linux
  * and FreeBSD only, since it works by LD_PRELOAD. */
@@ -73,19 +75,34 @@ stop (GPid pid)
 	g_spawn_close_pid (pid);
 }
 
+/* One blue pixel. */
+static const guint8 pixel_png[] = {
+	0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+	0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53,
+	0xde, 0x00, 0x00, 0x00, 0x0c, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x63, 0x90, 0xd3, 0x38, 0x01,
+	0x00, 0x01, 0x76, 0x01, 0x0f, 0xf2, 0x94, 0x99, 0xe3, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e,
+	0x44, 0xae, 0x42, 0x60, 0x82,
+};
+
 static void
-make_folder (const char *root, const char *name)
+make_folder (const char *root, const char *name, gboolean pictures)
 {
 	char *folder = g_build_filename (root, name, NULL);
-	const char *files[] = { "apple.txt", "banana.txt", "cherry.txt" };
+	const char *names[] = { "apple", "banana", "cherry" };
 	guint i;
 
 	g_mkdir_with_parents (folder, 0700);
-	for (i = 0; i < G_N_ELEMENTS (files); i++) {
-		char *path = g_build_filename (folder, files[i], NULL);
+	for (i = 0; i < G_N_ELEMENTS (names); i++) {
+		char *file = g_strconcat (names[i], pictures ? ".png" : ".txt", NULL);
+		char *path = g_build_filename (folder, file, NULL);
 
-		check (g_file_set_contents (path, files[i], -1, NULL));
+		if (pictures) {
+			check (g_file_set_contents (path, (const char *) pixel_png, sizeof pixel_png, NULL));
+		} else {
+			check (g_file_set_contents (path, file, -1, NULL));
+		}
 		g_free (path);
+		g_free (file);
 	}
 	g_free (folder);
 }
@@ -116,8 +133,10 @@ main (int argc, char *argv[])
 	}
 
 	root = test_scratch_dir ("nemo-places-focus-XXXXXX", NULL);
-	make_folder (root, "first");
-	make_folder (root, "second");
+	/* A folder of pictures switches to icon view once it has loaded, which
+	 * must not happen when the load ends after a click elsewhere. */
+	make_folder (root, "first", TRUE);
+	make_folder (root, "second", FALSE);
 	first = g_build_filename (root, "first", NULL);
 	second = g_build_filename (root, "second", NULL);
 	second_uri = g_filename_to_uri (second, NULL, NULL);
