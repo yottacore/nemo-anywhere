@@ -2,10 +2,12 @@
 
 ##	- Purpose: Check that the arm64 release build runs only with --include-arm,
 ##	  that --no-arm still leaves it out, and that the engine finds an artifact
-##	  whose name has the version in it. A copy of cicd.bash runs a whole
-##	  pipeline in a scratch dir, every stage a stand-in, with one arm64 and one
-##	  other cross target. Then the real config.bash is read: its arm64 entry has
-##	  to name release-arm64.bash and the tarball that script writes.
+##	  whose name has the version in it. The arm64 packages and their check run
+##	  only when the arm64 build did. A copy of cicd.bash runs a whole pipeline
+##	  in a scratch dir, every stage a stand-in, with one arm64 and one other
+##	  cross target, packager and check. Then the real config.bash is read: its
+##	  arm64 entry has to name release-arm64.bash and the tarball that script
+##	  writes, and its arm64 packager and check have to ask for arm64.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-cicd-arm.bash
 ##	- Test ID: rjph39cv
@@ -57,7 +59,15 @@ cat > "${scratch}/cicd/config.bash" <<-EOF
 	RELEASE_ARTIFACT_DIR="out"
 	RELEASE_COLLECT=0
 	VERSION_MANIFEST="meson.build"
-	PACKAGE_ENABLE=0
+	PACKAGE_ENABLE=1
+	PACKAGE_CMDS=(
+		"Other packages (stand-in)|mkdir -p out && touch out/pkg-other"
+		"Linux arm64 packages (stand-in)|mkdir -p out && touch out/pkg-arm64"
+	)
+	PACKAGE_CHECKS=(
+		"Other check (stand-in)|mkdir -p out && touch out/check-other"
+		"Check (arm64, stand-in)|mkdir -p out && touch out/check-arm64"
+	)
 	PRIVATE_RUNNER=""
 	PROFILE_ENABLE=0
 	PROFILE_OUT_DIR="profiling"
@@ -86,13 +96,19 @@ fPipeline(){
 		return 0
 	fi
 	[[ -f "${scratch}/out/app.exe" ]] || fFail "[$*]: the other cross target did not run"
+	[[ -f "${scratch}/out/pkg-other" && -f "${scratch}/out/check-other" ]] || fFail "[$*]: the other packager or check did not run"
 	case "$want" in
 		arm)
 			[[ -f "${scratch}/out/app-${ver}-linux-arm64.tar.gz" ]] || fFail "[$*]: the arm64 build did not run"
 			[[ "$out" == *"OK: Linux arm64 (stand-in): out/app-${ver}-linux-arm64.tar.gz"* ]] || fFail "[$*]: the arm64 artifact was not found under its versioned name"
+			[[ -f "${scratch}/out/pkg-arm64" ]] || fFail "[$*]: the arm64 packages were not made"
+			[[ -f "${scratch}/out/check-arm64" ]] || fFail "[$*]: the arm64 check did not run"
 			;;
 		"no arm")
 			[[ ! -e "${scratch}/out/app-${ver}-linux-arm64.tar.gz" ]] || fFail "[$*]: the arm64 build ran"
+			[[ ! -e "${scratch}/out/pkg-arm64" ]] || fFail "[$*]: arm64 packages were made with no arm64 build"
+			[[ ! -e "${scratch}/out/check-arm64" ]] || fFail "[$*]: the arm64 check ran with no arm64 build"
+			[[ "$out" != *"Linux arm64 packages"* ]] || fFail "[$*]: the plan lists the arm64 packages"
 			;;
 	esac
 	[[ -z "$text" || "$out" == *"$text"* ]] || fFail "[$*]: no '${text}' in the plan"
@@ -107,7 +123,9 @@ fPipeline "no arm" "(no arm64, --no-arm)"               --no-arm
 ## --no-cross leaves out every cross target, arm64 too.
 rm -rf "${scratch}/out"
 out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync --include-arm --no-cross 2>&1 </dev/null)" || fFail "--include-arm --no-cross failed"
-[[ ! -e "${scratch}/out" ]] || fFail "--no-cross still ran a cross target"
+[[ ! -e "${scratch}/out/app.exe" && ! -e "${scratch}/out/app-${ver}-linux-arm64.tar.gz" ]] || fFail "--no-cross still ran a cross target"
+[[ ! -e "${scratch}/out/pkg-arm64" && ! -e "${scratch}/out/check-arm64" ]] || fFail "--include-arm --no-cross still made or checked arm64 packages"
+[[ -f "${scratch}/out/pkg-other" ]] || fFail "--include-arm --no-cross left out the other packages"
 [[ "$out" == *"(skipped, arm64 too)"* ]] || fFail "--include-arm --no-cross does not say arm64 is skipped"
 
 help="$(bash "${root}/cicd/cicd.bash" --help)"
@@ -132,6 +150,17 @@ else
 	[[ "$cmd" == "bash cicd/linux/release-arm64.bash" ]] || fFail "the arm64 entry runs '${cmd}'"
 	grep -qF "\"\${SLUG}-\${ver}-linux-arm64.tar.gz\"" "${root}/cicd/linux/release-arm64.bash" || fFail "release-arm64.bash no longer names its tarball the way this check expects"
 fi
+
+## The real packagers and checks: one arm64 entry each, asking for arm64.
+for list in PACKAGE_CMDS PACKAGE_CHECKS; do
+	entries="$(bash -c 'root="$1"; source "$1/cicd/config.bash"; declare -n l="$2"; printf "%s\n" "${l[@]}"' _ "$root" "$list")"
+	armEntries="$(grep -E 'arm64|aarch64' <<< "$entries" || true)"
+	if [[ "$(grep -c . <<< "$armEntries")" != 1 || -z "$armEntries" ]]; then
+		fFail "${list} should have one arm64 entry, has: ${armEntries:-none}"
+	elif [[ "${armEntries#*|}" != *" --arch arm64" ]]; then
+		fFail "the arm64 entry in ${list} runs '${armEntries#*|}'"
+	fi
+done
 
 if ((failures)); then
 	fEcho "FAILED: arm64 in the pipeline, ${failures} problem(s)"

@@ -244,6 +244,34 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 6f96777
 	- Test case: rjphnh77, FreeBSD lane test, in the lint stage: what is sent, what the runner is handed, a failing suite failing the lane, the tarball's stamp and order over 2 runs, the sums file, and the lock's wrap. The suite run on FreeBSD is the test of `run-tests.bash` there.
 
+- Linux arm64 `.deb` and `.rpm` packages.
+	- ID: 2026100714244880
+	- Type: Feature
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. Only pipeline scripts changed, and the lint stage passed.
+	- Needs external testing: one `cicd.bash --include-arm --no-publish` run, to see the arm64 lane bring the dependency line back and stage 6 make and check both arm64 packages.
+	- Priority|Severity: Low
+	- Opened: 20261007-142448
+	- Opened by: old-format item "Linux arm64 release build"
+	- Related IDs: old-format item "Linux arm64 release build"
+	- Target OS: Linux arm64
+	- Requirements:
+		- An arm64 `.deb` and `.rpm` from the arm64 release build, beside the x86_64 ones.
+		- The `.deb`'s dependency versions read off the arm64 libraries, on the arm64 box, the way the x86_64 ones are read in its release container.
+		- Behind `--include-arm`, with the rest of the arm64 lane.
+	- Decisions:
+		- The arm64 box only reads the dependency line, right after its build while its release container is still up. Both arches are packaged on the main box with the same tools.
+		- The line is kept with the tarball's checksum. A line read off any other build is not used, and the `.deb` gets the short list with no versions and a warning, the same fallback the x86_64 one has.
+		- A failed read only warns, so it doesn't throw away an hour's build.
+		- The arm64 packages and their prefix check run only when the arm64 build ran in that same run. So `--no-arm`, `--no-cross` and `--quick` leave them out too, and a stale tarball is never packaged.
+	- Done 20261007: the arm64 lane reads the `.deb`'s dependencies in the release container on the arm64 box and brings them back with the tarball. `package.bash` gained `--arch` and `--depends-only`, and stage 6 makes the arm64 `.deb` and `.rpm` and runs the prefix check on them.
+	- Note 20261007: the `.rpm` spec no longer names its arch, since `rpmbuild` refuses an arch the box can't build for even with nothing to compile. The arch comes from the target instead. The x86_64 `.rpm` comes out byte for byte the same as before.
+	- Verified 20261007: rjpxzs6x, rjph1pxd and rjph39cv pass. rjpxzs6x failed with the arch named in the spec, with every arch read in the local container, with no checksum check, and with `--depends-only` guessing or reading another arch. rjph1pxd failed with no read, with the read after the container stops, with a failed read left fatal, and with an old list kept. rjph39cv failed on the pipeline and config as they were, and with `--no-cross` ignored.
+	- Verified 20261007: against the arm64 tarball already built on the arm64 box. The line read there matches the x86_64 one, since both images have the same library versions. The `.deb` says arm64 and the `.rpm` aarch64, both come out the same twice and carry the tarball's date, and the prefix check passes on all 3. On Debian 13 arm64, apt finds every dependency of the `.deb`, and the program in it answers `--version`.
+	- Branch: armpkg
+	- Commit: 6ec5be9
+	- Test case: rjpxzs6x checks where each arch's `.deb` gets its dependencies, and that the arm64 packages name their arch and repeat byte for byte. rjph1pxd checks the lane reads the line on the box and keeps it with the tarball's checksum. rjph39cv checks the pipeline makes and checks arm64 packages only when it built arm64.
+
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440
 	- Type: Bug
@@ -282,21 +310,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: 20261007, the probe and test were read. At step 5 the probe looks for a menu on screen every 100 ms for 10 s, so it does wait for the menu to show. The test runs on an X server of its own, not the suite's. Two tests that pick the same display number at once don't end up sharing it: the one whose server fails tries the next number. So the possible cause above doesn't apply.
 	- Note: 20261007, not ruled out: the Menu key made no menu at all once, on a loaded box. GTK 3 doesn't show a menu whose pointer grab fails, and the probe presses the key only once. Nothing points at that, and pressing again would hide it rather than explain it.
 	- Test case: rjefm41d itself.
-
-- Linux arm64 `.deb` and `.rpm` packages.
-	- ID: 2026100714244880
-	- Type: Feature
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261007-142448
-	- Opened by: old-format item "Linux arm64 release build"
-	- Related IDs: old-format item "Linux arm64 release build"
-	- Target OS: Linux arm64
-	- Requirements:
-		- An arm64 `.deb` and `.rpm` from the arm64 release build, beside the x86_64 ones.
-		- The `.deb`'s dependency versions read off the arm64 libraries, on the arm64 box, the way the x86_64 ones are read in its release container.
-		- Behind `--include-arm`, with the rest of the arm64 lane.
-	- Test case: none yet, not started.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202

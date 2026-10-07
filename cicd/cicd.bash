@@ -28,8 +28,9 @@
 ##	   --no-sync           skip the remote sync stage
 ##	   --no-fmt            skip the formatter stage
 ##	   --no-cross          skip cross-target release builds, arm64 included
-##	   --include-arm       add the arm64 release build, which runs on another
-##	                       box and takes about an hour (off by default)
+##	   --include-arm       add the arm64 release build and its packages; the
+##	                       build runs on another box and takes about an hour
+##	                       (off by default)
 ##	   --no-arm            leave the arm64 build out, even with --include-arm
 ##	   --no-package        skip the packages stage (.deb/.rpm/installer)
 ##	   --no-private        skip the private runner (PRIVATE_RUNNER in config.bash)
@@ -160,6 +161,22 @@ if ((! include_arm || no_arm)) && declare -p CROSS_TARGETS &>/dev/null; then
 	for t in "${CROSS_TARGETS[@]}"; do case "$t" in *arm64*|*aarch64*) arm_note=" (no arm64; --include-arm adds it)" ;; *) kept+=("$t") ;; esac; done
 	CROSS_TARGETS=("${kept[@]}")
 	if ((no_arm)) && [[ -n "$arm_note" ]]; then arm_note=" (no arm64, --no-arm)"; fi
+fi
+## arm64 packages and their checks are made from this run's arm64 build, so they
+## go wherever it goes.
+arm_built=0
+if ((BUILD_CROSS)) && declare -p CROSS_TARGETS &>/dev/null; then
+	for t in "${CROSS_TARGETS[@]}"; do case "$t" in *arm64*|*aarch64*) arm_built=1 ;; esac; done
+fi
+if ((! arm_built)) && declare -p PACKAGE_CMDS &>/dev/null; then
+	kept=()
+	for t in "${PACKAGE_CMDS[@]}"; do case "$t" in *arm64*|*aarch64*) ;; *) kept+=("$t") ;; esac; done
+	PACKAGE_CMDS=("${kept[@]}")
+fi
+if ((! arm_built)) && declare -p PACKAGE_CHECKS &>/dev/null; then
+	kept=()
+	for t in "${PACKAGE_CHECKS[@]}"; do case "$t" in *arm64*|*aarch64*) ;; *) kept+=("$t") ;; esac; done
+	PACKAGE_CHECKS=("${kept[@]}")
 fi
 declare -p PACKAGE_ENABLE &>/dev/null || PACKAGE_ENABLE=0        ## tolerate a config predating the packages stage
 declare -p DOGFOOD_CROSS_DESTS &>/dev/null || DOGFOOD_CROSS_DESTS=()   ## ditto, cross dogfood

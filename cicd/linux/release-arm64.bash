@@ -3,6 +3,9 @@
 ##	- Purpose: Build the Linux arm64 release tarball on an arm64 box, bring it
 ##	  back to cicd/artifacts/release beside the x86_64 one, and rewrite the sums
 ##	  file over both.
+##	- The .deb's dependency line is read there too, in the same container, off
+##	  the arm64 libraries, and kept beside this side's artifacts
+##	  (fDebDependsFile). package.bash --arch arm64 makes the packages from both.
 ##	- Nothing here cross-builds GTK, so the build runs on an arm64 Linux box with
 ##	  docker. release.bash runs there as it is, in an image built from the same
 ##	  Dockerfile, so the arm64 build has the same glibc floor and the same
@@ -55,7 +58,7 @@ sshOpts=(-o ConnectTimeout=8 -o BatchMode=yes -o LogLevel=ERROR)
 ## Every remote command is put together on this side.
 # shellcheck disable=SC2029
 fRun(){
-	local ver name started secs
+	local ver name started secs depsFile deps
 
 	ver="$(grep -oP "(?<![_[:alnum:]])version\s*:\s*'\K[^']+" "${ROOT}/source/meson.build" | head -1)"
 	[[ -n "$ver" ]] || fDie "no version in source/meson.build"
@@ -84,6 +87,18 @@ fRun(){
 	mkdir -p "$OUT"
 	rm -f "${OUT:?}/${name}"
 	scp -q "${sshOpts[@]}" "${armHost}:${remoteDir}/cicd/artifacts/release/${name}" "${OUT}/${name}"
+
+	## A failed read costs only the versions in the .deb, not the hour's build.
+	depsFile="$(fDebDependsFile "$ROOT" "$name")"
+	rm -f "$depsFile"
+	if deps="$(ssh "${sshOpts[@]}" "$armHost" "cd ${remoteDir} && bash cicd/linux/package.bash --depends-only --from cicd/artifacts/release/${name}")" && [[ -n "$deps" ]]; then
+		mkdir -p "$(dirname "$depsFile")"
+		{ (cd "$OUT" && sha256sum "$name"); printf '%s\n' "$deps"; } > "$depsFile"
+		fEcho_Clean "arm64 .deb depends: ${deps}"
+	else
+		fEcho "WARNING: could not read the arm64 dependencies on ${armHost}; the arm64 .deb will get a conservative list"
+	fi
+
 	## Stopped, since anything left running costs the host several times over on an
 	## emulated box. Its build dir stays for a test run; the next release run
 	## replaces the container.
@@ -116,3 +131,4 @@ fMain "${@}"
 
 ##	History:
 ##		- 2026-10-05: Created.
+##		- 2026-10-07: Reads the arm64 .deb's dependencies on the box.

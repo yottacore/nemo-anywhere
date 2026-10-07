@@ -10,6 +10,9 @@
 ##	  though only FreeBSD is built.
 ##	- fWriteReleaseSums <dir> <slug> <ver> -> rewrites <slug>-<ver>-sha256sums.txt
 ##	  in <dir> over every <slug>-<ver>-* file there.
+##	- fDebDependsFile <repo root> <tarball name> -> where the .deb's Depends
+##	  line for a tarball built on another box is kept. Outside the release dir,
+##	  so it is never summed or uploaded.
 ##	- Syntax: source this file; it defines functions only.
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
@@ -50,7 +53,12 @@ fWriteReleaseSums(){
 	chmod 644 "${dir}/${sums}"	# mktemp makes it 0600
 }
 
+## The arm64 lane writes it, package.bash reads it. First line the tarball's
+## sha256, so a list read off another build is never used.
+fDebDependsFile(){ printf '%s/cicd/artifacts/deb-depends/%s.txt\n' "$1" "${2%.tar.gz}"; }
+
 
 ##	History:
 ##		- 2026-10-05: Created, out of release.bash, for the arm64 lane.
 ##		- 2026-10-07: fReleaseOs, for the FreeBSD lane.
+##		- 2026-10-07: fDebDependsFile, for arm64 packages.
