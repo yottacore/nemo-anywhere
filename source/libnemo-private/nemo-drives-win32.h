@@ -41,6 +41,14 @@ typedef enum {
    drive is asked for its type. */
 NemoDriveWin32Kind nemo_drive_win32_kind (char letter);
 
+/* Whether a drive has a disk in it, asked with the shell's insert-disk prompt
+   off, so an empty card reader just says no. */
+gboolean nemo_drive_win32_has_media (char letter);
+
+/* Whether a drive's bin may be asked about: a fixed drive, or a removable one
+   with a disk in it. A share is never asked. */
+gboolean nemo_drive_win32_bin_askable (char letter);
+
 /* \\server\share for a letter mapped to a share, read from the same entry.
    NULL when it is not one, or the entry does not say.
    Returns: (transfer full): free with g_free. */
