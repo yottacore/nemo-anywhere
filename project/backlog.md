@@ -161,9 +161,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, a path with single backslashes in a file or setting a user writes is read as escapes.
 	- ID: 2026100702343600
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on signoff
 	- Needs local test suite run?: no. The full Linux suite passed on the final tree, 174 of 174.
-	- Needs external testing: by hand on Windows, in the desktop session: a link file's properties page edited and saved, with a path in it. The bulk rename and Open With checks passed on 20261007.
+	- Needs external testing: none left. The link properties save passed on 20261007, and so did the bulk rename and Open With checks.
 	- Priority|Severity: Avg
 	- Opened: 20261007-023436
 	- Opened by: t00mietum
@@ -179,11 +179,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the helper is used when the program is there.
 	- Reproduced: 20261007, under wine. Search helpers, thumbnailers, actions and link files written with single backslashes were skipped or lost their values, and an archive command line with a path in it lost its backslashes.
 	- Actual cause: the key file reader and GLib's command line splitter both read a backslash as an escape, on Windows too. Every key file read and every split of a command line a user writes went through one or the other.
+		- Link page, 20261007: Windows has no type registered for `.desktop`, so a link file's type there is the bare extension. Every check that asks for the link file type said no. The list showed the link emblem only because that check also looks at the name. So on Windows the page was never offered, and a link file's Name, Icon and URL were never read either.
 	- Actual fix: one shared reader and splitter, `nemo-user-text.c`, used at every site.
 		- On Windows a key file value is read as written. A list splits on semicolons. A command line splits on blanks, and double quotes group words.
 		- A path put into such a line is quoted to match.
 		- Off Windows it calls the same GLib functions as before.
 		- A new lint check fails on a direct call outside the shared code, unless listed with its reason.
+		- Link page, 20261007: on Windows the shared type checks map `.desktop` to the link file type when nothing has registered it. The link checks all go through them now.
 	- Decisions:
 		- A call made without asking: a value whose backslashes all come in pairs was written by a key file writer, so each pair reads as one. One lone backslash anywhere means the whole value is read as written. So `C:\\Tools\\x.exe` and `C:\Tools\x.exe` both work, and so do `\\server\share` and its doubled form. The one spelling both readings share is a bare `\\server`, which reads as `\server`; it names no share, so nothing is lost.
 		- A call made without asking: on Windows a semicolon in a list always splits, so `C:\Data\;D:\` is 2 folders. A list item cannot hold a semicolon there.
@@ -194,6 +196,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A call made without asking: a link file whose URL is a Windows path opens that path. `C:` read as a URI scheme before.
 		- A call made without asking: the app writes a link file value as is on Windows when that reads back the same, and with every backslash doubled when not.
 		- A call made without asking: theme index files and the bookmark metadata file stay on the key file reader. A theme follows the spec, and the app writes the metadata itself.
+		- A call made without asking, 20261007: on Windows a launcher (Type=Application) is not treated as one, since nothing there runs its Exec. It takes no drops and opens like any other file, as it did before.
 	- Swept:
 		- Actions: every value, the command and the exec condition, the action folder prefix, paths put into the command.
 		- Search helpers and thumbnailers: TryExec, Exec, MimeType, and the paths put into the command.
@@ -204,15 +207,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Bulk rename tool on Windows.
 		- Already fine: the terminal command on Windows is split without escapes, `windows.associations` lines go to Windows whole, terminal candidates and folders a search skips are plain names or paths.
 		- The settings layer adds no escapes of its own. See the note.
+		- Link file type checks, 20261007: the properties page and its icon save, desktop file renames and the shortcut emblem, reading link info, opening a link, dropping on a link file, the view's link menus and icon captions, and the drop target lookup in the link code. No other place compares against the link file type.
 	- Note: SHCL reads `\t`, `\n`, `\\`, `\"` and `\'` as escapes inside double quotes, so a hand-written `"C:\temp\new"` in the settings file reads with a tab and a line break. Bare and single-quoted text is read as written. A file with no format line is read by the 2.x rules at startup, where a backslash in bare text is an escape too (2026100314515200). Left for the SHCL upgrade that drops backslash escapes.
 	- Verified: each new test case below failed under wine before the fix and passes after. Natively on vm925w the 6 tests pass, and the whole suite was 152 OK, 0 failed, 11 skipped, with no `g_strv_length` critical. The Windows suite under wine fails the same 17 tests as before this change, all link and registry gaps in wine. The new lint check failed with one direct read put back. The rule cases in rjmpxtbg failed with pairs not halved, and with a backslash read as an escape. Lint is clean here and on vm925w.
 	- Verified: 20261007, Windows, at 585f825, in the desktop session on vm925w: a bulk rename tool set as a quoted full path with a space in it ran on 2 selected files, one with `&` in its name, and got each as a full path. A custom command typed in Open With as a full path was taken, and ran on the file.
 	- Note: 20261007, failed on vm925w: the properties window of a `.desktop` link file has no URL or Comment field, so the save could not be tried. Going by the code, the page is offered only when the file's type reads as a link file, and Windows has no type registered for `.desktop`. The app still shows the file as a link in the list.
-	- Branch: winpaths
-	- Commit: d824d17, f34cc1c, 59295bb
+	- Note: 20261007, a link file with a URL opens the properties of what it points to, on every platform, as upstream did. So its URL field is offered only while URL is empty. A launcher's Command field goes through the same save code.
+	- Verified: 20261007, Windows, at 90a9109, in the desktop session on vm925w: the list showed a link file by its Name. A launcher's properties had Description, Command and Comment. `"C:\Program Files\Thing\thing.exe" C:\data\in.txt` typed as Command and `notes in C:\temp\new` as Comment were both saved as typed, with single backslashes, and read back the same when the window was opened again. A link file with no URL had the URL field, and a full path typed there was saved as typed.
+	- Verified: 20261007, rjpr3nzy failed under wine with the type fix taken out, and passes under wine and natively on vm925w. Linux suite 178 of 178. The Windows suite under wine fails the same 17 tests as before. Lint is clean.
+	- Branch: winpaths, lnkprops
+	- Commit: d824d17, f34cc1c, 59295bb, 90a9109
 	- Test case:
 		- rjmpxtbg, Windows paths in user text test, new: the Windows rules on every platform, key files through each platform's reader and writer, link files, and an action file.
 		- rexkeyng, Command template test, `check_windows_paths`: an archive line with paths.
+		- rjpr3nzy, Link file type test, new: a `.desktop` link file reads as one on every platform, gets the properties page, and has its Name and URL read. A launcher only counts as one where it can run.
 		- rfhnaccg, Search helpers test: on Windows every helper is written with single backslashes.
 		- redrqe60, Thumbnail factory test, `badtry` case: on Windows a thumbnailer naming a real program that way is used.
 		- rjm4ctwh, Tool start win32 test: a search helper and a thumbnailer by full path with single backslashes, and a helper with them doubled.
