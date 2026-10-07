@@ -177,6 +177,14 @@ CROSS_TARGETS=(
 #		"Windows ARM64 (zig)|windows-arm64|target/aarch64-pc-windows-gnullvm/release/${EXE_NAME}.exe|cargo zigbuild --release --target aarch64-pc-windows-gnullvm"
 #	)
 
+## FreeBSD, on the FreeBSD box, behind --include-bsd: it needs that box and its
+## host lock, and adds a build and the suite there plus a release build. The
+## test command runs in stage 3 after the sanitizer suite. The release command
+## runs in stage 5 after the cross targets and brings back the -bsd- tarball and
+## the pkg file; the sums from stage 6 on cover both. See bsd/lane.bash.
+BSD_TEST_CMD=(bash cicd/bsd/lane.bash --tests)
+BSD_RELEASE_CMD=(bash cicd/bsd/lane.bash --release)
+
 ## Stage 5 (after builds): collect versioned artifacts + sha256sums.
 ## The artifacts themselves come from the per-platform release lanes, not from this
 ## engine stage: cicd/linux/release.bash writes the Linux tarball + the sums file
@@ -218,7 +226,9 @@ VERSION_MANIFEST="source/meson.build"
 ##     a scratch home, offline.
 ##   - Every file the tarball, .deb and .rpm install has to carry the app's name,
 ##     and the action layout editor's launcher has to work from a moved prefix.
-## Deferred: BSD .pkg, macOS .pkg, AppImage, Flatpak - no toolchain here yet.
+##   - The FreeBSD pkg, made on that box by the FreeBSD lane, is checked
+##     against the tarball beside it when there is one for this version.
+## Deferred: macOS .pkg, AppImage, Flatpak - no toolchain here yet.
 PACKAGE_ENABLE=1
 PACKAGE_CMDS=(
 	"Linux .deb + .rpm|bash cicd/linux/package.bash"
@@ -227,6 +237,7 @@ PACKAGE_CMDS=(
 PACKAGE_CHECKS=(
 	"Installer check|bash cicd/linux/test-installers.bash"
 	"Prefix check|bash cicd/linux/test-prefix.bash"
+	"FreeBSD package check|bash cicd/bsd/test-pkg.bash"
 )
 
 ## Stage 6, after the packages: builds that need another box's OS or signing

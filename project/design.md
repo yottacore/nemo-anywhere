@@ -770,6 +770,15 @@ FreeBSD 15.1 on amd64 is the known-good baseline. The build is native, with the 
 - What differs from Linux:
 	- The leak tests and the allocation count read glibc's heap, so they skip.
 
+- The pipeline builds and tests on the FreeBSD box too, behind `--include-bsd`. `cicd/bsd/lane.bash` sends the working tree there over ssh under the host lock, and runs the same `cicd/linux/run-tests.bash` the Linux gate runs. Where there is no `xvfb-run` that script starts an X server of its own.
+
+- The release is two files made from one build: a `-bsd-` tarball of the relocatable prefix, which `install.bash` fetches on BSD, and a `pkg` file of the same prefix.
+	- The pkg puts the prefix at `/usr/local/nemo-anywhere`, where a system install from `install.bash` goes on BSD, plus the command in `/usr/local/bin`, the menu entry and the app icon. The icon goes only in the shared theme, since pkg's icon cache trigger leaves empty folders behind in the app folder on a delete.
+	- Its dependencies are the packages that own the libraries the binaries link, read off the build box, plus `gdk-pixbuf-extra`. No base system package is named.
+	- `pkg install ./nemo-anywhere-<version>-bsd-x86_64.pkg` fetches any dependency that is missing. `pkg add` installs it only when they are all there already.
+	- pkg takes no dash in a version, so `1.0.0-beta2` is `1.0.0.beta2` there, which pkg sorts below `1.0.0`.
+	- The build runs on the FreeBSD box, since only `pkg create` makes a pkg file. The tarball is packed back on the Linux box, where GNU tar gives it the same fixed stamp and order as the Linux one. The pkg's files have the same stamp.
+
 ## Delivery
 
 The guiding constraint is that the git host is dumb hosting plus release storage, with as few third-party tools as possible. The whole pipeline runs locally, from `cicd/cicd.bash` on Linux and `cicd/cicd-win.ps1` on Windows.
@@ -785,6 +794,8 @@ The one deliberate exception is a release-only workflow, `.github/workflows/rele
 - The Windows gate runs the same lints, build, test suite and smoke test.
 
 - `--quick` skips the slow stages: the cross build, packages, the profiler, fuzzing, the sanitizer suite, screenshots and the demo. The native build, the full suite and dogfood still run. On Windows `-Quick` changes nothing yet, since none of those run there.
+
+- `--include-bsd` adds the FreeBSD lane: the build and suite on the FreeBSD box in the test stage, and its tarball and pkg in the release stage. It is off by default, since it needs that box and its lock. Asked for, it runs under `--quick` too.
 
 - The same hook blocks a push to main unless `source/meson.build` is a strict version increase over what is already there.
 
@@ -852,7 +863,7 @@ Linux is a thin relocatable prefix of a couple of MB that uses the distro's own 
 
 Windows is one self-contained `nemo-anywhere.exe` with the whole runtime packed inside it by Enigma Virtual Box, as an in-memory virtual filesystem with nothing extracted at run time. No library folder, no launcher, nothing installed or registered: an exe to copy anywhere. A plain zip of the same files is published beside it. See [20260930-145641_windows_exe_packing.md](design_docs/20260930-145641_windows_exe_packing.md).
 
-Packaging builds from what the release lanes already produced and never rebuilds. The Linux tarball becomes a `.deb` and an `.rpm`, both installing the same relocatable prefix under `/opt` plus a launcher, a menu entry and icons in the shared theme. The `.deb`'s dependency versions are read off the built binaries inside the release container rather than on a development box, so the package claims the floor the binary was actually built against; `rpmbuild` derives its own from the ELF. BSD, macOS, AppImage and Flatpak wait on a toolchain.
+Packaging builds from what the release lanes already produced and never rebuilds. The Linux tarball becomes a `.deb` and an `.rpm`, both installing the same relocatable prefix under `/opt` plus a launcher, a menu entry and icons in the shared theme. The `.deb`'s dependency versions are read off the built binaries inside the release container rather than on a development box, so the package claims the floor the binary was actually built against; `rpmbuild` derives its own from the ELF. The FreeBSD pkg is made on the FreeBSD box with the build, since only `pkg create` makes one, as [Building on FreeBSD](#building-on-freebsd) says. macOS, AppImage and Flatpak wait on a toolchain.
 
 A packager that fails only warns, so one broken format does not cost the others. The installer and prefix checks run after the packagers and stop the run on a failure, before dogfood and publish.
 
@@ -868,7 +879,7 @@ Cutting a release tags `v<version>` from a clean main and uploads the artifacts.
 
 - The OS and architecture are detected, not asked for. Every run prints what it is about to do and waits for a yes. Downloads are checksum-verified before anything is unpacked, so a bad download can never replace a working install. A release with no checksums file stops the install before the plan, `--yes` or not, and only `--no-verify` gets past it. An archive given with `--from` is not checked. Reinstalling replaces in place, and `--uninstall` removes exactly what was added.
 
-- Because they read the releases page, the packaging stage has to produce exactly these names: `nemo-anywhere-<version>-<os>-<arch>.tar.gz` for unix and `.zip` for Windows, with `<os>` one of `linux` or `windows` and `<arch>` one of `x86_64` or `arm64`, plus `nemo-anywhere-<version>-sha256sums.txt` beside them in `sha256sum` format. The portable Windows exe is `nemo-anywhere-<version>-windows-x86_64-portable.exe`, built by the hosted workflow and given its line in the same sums file by the local cut. Each archive holds one top-level folder, whose entry point is `bin/nemo-anywhere` on unix and `nemo-anywhere.exe` at the root on Windows.
+- Because they read the releases page, the packaging stage has to produce exactly these names: `nemo-anywhere-<version>-<os>-<arch>.tar.gz` for unix and `.zip` for Windows, with `<os>` one of `linux`, `bsd` or `windows` and `<arch>` one of `x86_64` or `arm64`, plus `nemo-anywhere-<version>-sha256sums.txt` beside them in `sha256sum` format. The installers ask for `bsd` on every BSD, and the one built is FreeBSD. Its pkg file is `nemo-anywhere-<version>-bsd-<arch>.pkg`, beside the tarball. The portable Windows exe is `nemo-anywhere-<version>-windows-x86_64-portable.exe`, built by the hosted workflow and given its line in the same sums file by the local cut. Each archive holds one top-level folder, whose entry point is `bin/nemo-anywhere` on unix and `nemo-anywhere.exe` at the root on Windows.
 
 ### Dogfooding
 

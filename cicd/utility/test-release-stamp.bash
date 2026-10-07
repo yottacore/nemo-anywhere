@@ -7,7 +7,8 @@
 ##	- Runs a copy of release.bash, tag only, in a scratch repo with a dev commit
 ##	  merged --no-ff into main at a later date. Stand-in artifacts are stamped
 ##	  with one date or the other, as the real lanes stamp them.
-##	- Needs git and python3; exit 77 without them. The .deb case needs dpkg-deb.
+##	- Needs git and python3; exit 77 without them. The .deb case needs dpkg-deb,
+##	  the FreeBSD pkg case zstd.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-release-stamp.bash
 ##	- Test ID: rjcma0tt
@@ -65,7 +66,8 @@ GIT_AUTHOR_DATE="@${mergeDate}" GIT_COMMITTER_DATE="@${mergeDate}" fGit merge -q
 art="${repo}/cicd/artifacts/release"
 ver="9.9.9"
 
-## $1 tarball stamp, $2 zip exe stamp, $3 .deb stamp or empty for none.
+## $1 tarball stamp, $2 zip exe stamp, $3 .deb stamp or empty for none, $4
+## FreeBSD pkg stamp or empty for none.
 fArtifacts(){
 	rm -rf "$art"; mkdir -p "$art" "${scratch}/pfx/nemo-anywhere-${ver}-linux-x86_64/bin"
 	printf 'x\n' > "${scratch}/pfx/nemo-anywhere-${ver}-linux-x86_64/bin/nemo-anywhere"
@@ -91,6 +93,18 @@ fArtifacts(){
 		printf 'Package: nemo-anywhere\nVersion: %s\nArchitecture: amd64\nMaintainer: x <x@example.invalid>\nDescription: x\n' "$ver" > "${scratch}/deb/DEBIAN/control"
 		SOURCE_DATE_EPOCH="$3" dpkg-deb --build --root-owner-group "${scratch}/deb" "${art}/nemo-anywhere-${ver}-linux-x86_64.deb" >/dev/null
 	fi
+	## A pkg is a tar.zst with its manifest first. pkg create dates the files
+	## and leaves its own +MANIFEST at 0.
+	if [[ -n "${4:-}" ]]; then
+		rm -rf "${scratch}/pkg"; mkdir -p "${scratch}/pkg/usr/local/bin"
+		printf '{}\n' > "${scratch}/pkg/+MANIFEST"
+		printf 'x\n' > "${scratch}/pkg/usr/local/bin/nemo-anywhere"
+		tar -cf "${scratch}/pkg.tar" -C "${scratch}/pkg" --owner=0 --group=0 --numeric-owner --mtime="@0" +MANIFEST
+		tar -rf "${scratch}/pkg.tar" -C "${scratch}/pkg" --owner=0 --group=0 --numeric-owner --mtime="@$4" usr
+		zstd -q -f "${scratch}/pkg.tar" -o "${art}/nemo-anywhere-${ver}-bsd-x86_64.pkg"
+	fi
+	## Named .pkg too, but no tar: the check has no reader for it and must not fail it.
+	printf 'xar!stand-in\n' > "${art}/nemo-anywhere-${ver}-macos-x86_64.pkg"
 	( cd "$art" && sha256sum nemo-anywhere-${ver}-* > "nemo-anywhere-${ver}-sha256sums.txt" )
 }
 
@@ -124,7 +138,15 @@ if command -v dpkg-deb >/dev/null 2>&1; then
 else
 	fEcho ".deb case skipped: no dpkg-deb"
 fi
-fArtifacts "$mergeDate" "$mergeDate" "$haveDeb"
+havePkg=""
+if command -v zstd >/dev/null 2>&1; then
+	havePkg="$mergeDate"
+	fArtifacts "$mergeDate" "$mergeDate" "$haveDeb" "$devDate"
+	fRelease refuses "FreeBSD pkg from dev, the rest from main"
+else
+	fEcho "FreeBSD pkg case skipped: no zstd"
+fi
+fArtifacts "$mergeDate" "$mergeDate" "$haveDeb" "$havePkg"
 fRelease tags "all built from the merge"
 
 if ((failures)); then fEcho "${failures} release stamp check(s) failed"; exit 1; fi

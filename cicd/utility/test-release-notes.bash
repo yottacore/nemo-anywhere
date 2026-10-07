@@ -101,12 +101,16 @@ winZip="${app}-windows-x86_64.zip"
 winExe="${app}-windows-x86_64-portable.exe"
 sums="${app}-sha256sums.txt"
 
-fAssets "${scratch}/full.json" "${linuxFiles[@]}" "$sums" "$winZip" "$winExe"
+bsdFiles=("${app}-bsd-x86_64.pkg" "${app}-bsd-x86_64.tar.gz")
+
+fAssets "${scratch}/full.json" "${linuxFiles[@]}" "$sums" "$winZip" "$winExe" "${bsdFiles[@]}"
 notes="$(fNotes "$ver" "${scratch}/full.json")"
 fWantCell "$notes" "full set" Linux x86_64 "$(fLink tar.gz "${app}-linux-x86_64.tar.gz"), $(fLink deb "${app}-linux-x86_64.deb"), $(fLink rpm "${app}-linux-x86_64.rpm")"
 fWantCell "$notes" "full set" Windows x86_64 "$(fLink zip "$winZip"), $(fLink "portable exe" "$winExe")"
+fWantCell "$notes" "full set" FreeBSD x86_64 "$(fLink tar.gz "${app}-bsd-x86_64.tar.gz"), $(fLink pkg "${app}-bsd-x86_64.pkg")"
 fWant "$notes" "checksums under the table" "Checksums: $(fLink "$sums" "$sums")"
-[[ "$notes" == *"| Linux"*"| Windows"* ]] || fFail "full set: Windows row comes before Linux"
+fWant "$notes" "no BSD file left out of the table" '!Other files'
+[[ "$notes" == *"| Linux"*"| Windows"*"| FreeBSD"* ]] || fFail "full set: rows not in the order Linux, Windows, FreeBSD"
 ## Changelog, then the table, then the build number, last.
 order="$(grep -n -E '^(- Something new\.|### Downloads|---|Build [0-9a-z]+)$' <<< "$notes" | cut -d: -f2 | tr '\n' '|')"
 expectBuild="$(python3 "${root}/source/build-number.py")"
@@ -118,8 +122,8 @@ fWant "$notes" "older section left out" '!- Old.'
 if command -v pandoc >/dev/null 2>&1; then
 	html="$(pandoc -f gfm -t html <<< "$notes")"
 	tds="$(grep -o '<td' <<< "$html" | wc -l)"
-	if [[ "$(grep -c '<table>' <<< "$html")" == 1 && "$tds" == 4 && "$html" != *"| Linux"* ]]; then fEcho "OK: renders as a 2 by 2 table"
-	else fFail "pandoc does not read one 2 by 2 table: ${html}"
+	if [[ "$(grep -c '<table>' <<< "$html")" == 1 && "$tds" == 6 && "$html" != *"| Linux"* ]]; then fEcho "OK: renders as a 3 by 2 table"
+	else fFail "pandoc does not read one 3 by 2 table: ${html}"
 	fi
 else
 	fEcho "render check skipped: no pandoc"

@@ -2,8 +2,8 @@
 """Print the build stamp in each release artifact, or check them against one.
 
 Every lane stamps SOURCE_DATE_EPOCH, the commit date of what was built, into its
-output: tar entry times, the .deb and .rpm file times, the rpm build time and the
-PE header of a Windows exe. So the stamp says which commit an artifact came from,
+output: tar entry times, the .deb and .rpm file times, the rpm build time, the
+FreeBSD pkg's entry times and the PE header of a Windows exe. So the stamp says which commit an artifact came from,
 and the build number in it follows from the same date.
 
 Syntax: release-stamps.py [--expect EPOCH] [--exe NAME] FILE...
@@ -91,6 +91,23 @@ def rpm_stamps(path):
     return stamps
 
 
+def pkg_stamps(path):
+    """A FreeBSD pkg is a tar, zstd by default. pkg dates its own +MANIFEST
+    entries 0, so only the packed files count. Anything else called .pkg, such
+    as a macOS installer, is left unchecked."""
+    with open(path, "rb") as f:
+        data = f.read()
+    if data[:4] == b"\x28\xb5\x2f\xfd":
+        if not shutil.which("zstd"):
+            return None
+        data = subprocess.run(["zstd", "-dc"], input=data, capture_output=True, check=True).stdout
+    try:
+        with tarfile.open(fileobj=io.BytesIO(data), mode="r:*") as tar:
+            return {m.mtime for m in tar if not m.name.lstrip("/").startswith("+")}
+    except tarfile.TarError:
+        return None
+
+
 def zip_stamps(path, exe):
     stamps = set()
     with zipfile.ZipFile(path) as z:
@@ -113,6 +130,8 @@ def stamps_for(path, exe):
         return rpm_stamps(path)
     if lower.endswith(".zip"):
         return zip_stamps(path, exe)
+    if lower.endswith(".pkg"):
+        return pkg_stamps(path)
     return None
 
 
