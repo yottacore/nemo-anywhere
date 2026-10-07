@@ -1,4 +1,4 @@
-﻿##	Purpose:
+##	Purpose:
 ##		- Pack the staged native Windows runtime bundle (cicd/artifacts/win-run)
 ##		  into ONE self-contained exe via Enigma Virtual Box: every dll, schema,
 ##		  icon, and theme rides inside the exe in an in-memory virtual file
@@ -23,7 +23,7 @@
 ##		- 2026-09-03: -FlattenOnly.
 ##		- 2026-08-02: Created (backlog: ultra-portable single-exe Windows).
 
-##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
+##	Copyright (c) 2026 t00mietum
 ##	Licensed under The MIT License (MIT). Full text at:
 ##		https://mit-license.org/
 ##	SPDX-License-Identifier: MIT

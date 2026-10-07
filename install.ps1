@@ -27,7 +27,7 @@
 ##		(system, via sudo; /usr/local/nemo-anywhere on BSD).
 ##	History: At bottom of script.
 
-##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
+##	Copyright (c) 2026 t00mietum
 ##	Licensed under The MIT License (MIT). Full text at:
 ##		https://mit-license.org/
 ##	SPDX-License-Identifier: MIT
@@ -104,7 +104,7 @@ param(
 )
 
 
-#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+#------------------------------------------------------------------------------
 # Configuration
 
 $Repo    = "yottacore/nemo-anywhere"
@@ -120,7 +120,7 @@ $runningAsScriptFile = -not [string]::IsNullOrEmpty($MyInvocation.MyCommand.Path
 $state = @{ failed = $false; work = $null }
 
 
-#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+#------------------------------------------------------------------------------
 # Output helpers
 
 ## Same shape as install.bash: fEcho prints a bracketed status line,
@@ -164,7 +164,7 @@ function fFileError {
 }
 
 
-#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+#------------------------------------------------------------------------------
 # Functions - both platforms
 
 function fConfirm {
@@ -252,7 +252,7 @@ function fResolveTag {
 }
 
 
-#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+#------------------------------------------------------------------------------
 # Functions - Windows
 
 ## Names of the running processes executing something inside the given folder -
@@ -379,7 +379,7 @@ function fPathRemove {
 }
 
 
-#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+#------------------------------------------------------------------------------
 # Functions - unix
 
 ## Every unix file step runs through here, so the privileged and plain paths
@@ -461,7 +461,7 @@ function fRefreshCaches {
 }
 
 
-#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+#------------------------------------------------------------------------------
 # Script entry point
 
 ## Everything runs from here, so preferences and strict mode last only for the
@@ -556,7 +556,7 @@ function fMain {
 	if ((Split-Path -Leaf $prefix) -ne $leafName) { fFail "refusing to touch a folder not named '${leafName}': ${prefix}" }
 
 
-	#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+	#------------------------------------------------------------------------------
 	# Uninstall
 
 	if ($Uninstall) {
@@ -626,7 +626,7 @@ function fMain {
 	}
 
 
-	#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+	#------------------------------------------------------------------------------
 	# Resolve what to install
 
 	$archiveExt = if ($os -eq "windows") { "zip" } else { "tar.gz" }
@@ -709,7 +709,7 @@ function fMain {
 	fConfirm
 
 
-	#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+	#------------------------------------------------------------------------------
 	# Download and verify
 
 	fEcho_Clean ""
@@ -753,7 +753,7 @@ function fMain {
 	}
 
 
-	#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+	#------------------------------------------------------------------------------
 	# Install
 
 	fEcho_Clean ""
@@ -891,7 +891,7 @@ function fMain {
 
 
 
-	#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+	#------------------------------------------------------------------------------
 	# Done
 
 	fEcho_Clean ""

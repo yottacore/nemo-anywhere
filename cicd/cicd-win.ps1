@@ -1,4 +1,4 @@
-﻿##	Purpose:
+##	Purpose:
 ##		- Windows-native CI/CD pipeline for Nemo Anywhere. A PowerShell companion to
 ##		  the Linux cicd.bash - it does the same shape of work, but builds the app
 ##		  NATIVELY on Windows with MSYS2/MinGW-w64 (meson + ninja) rather than in a
@@ -52,7 +52,7 @@
 ##		   -Help           show this help
 ##	History: At bottom of script.
 
-##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
+##	Copyright (c) 2026 t00mietum
 ##	Licensed under The MIT License (MIT). Full text at:
 ##		https://mit-license.org/
 ##	SPDX-License-Identifier: MIT
@@ -114,7 +114,7 @@ if (-not $IsWindows) {
 $Unattended = ($Yes -or $Quiet)
 
 
-#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+#------------------------------------------------------------------------------
 # Configuration (Windows-native; config.bash stays the Linux source of truth).
 
 ## Repo root = the parent of this script's cicd/ dir. Git and bash run here.
@@ -171,11 +171,11 @@ $SignTsUrl      = if ($env:NEMO_SIGN_TS_URL) { $env:NEMO_SIGN_TS_URL } else { "h
 $LogDir = Join-Path $Root "cicd\artifacts\lint-win"
 
 
-#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+#------------------------------------------------------------------------------
 # Output helpers (mirror cicd.bash: fEcho / fEcho_Clean / fSection)
 
 $script:WasLastEchoBlank = $false
-$script:Letterbox = "•" * 73
+$script:Letterbox = ([string][char]0x2022) * 73
 $script:Transcribing = $false
 
 function fEcho_Clean {
@@ -190,7 +190,7 @@ function fWarn     { param([string]$Msg); fEcho "WARNING: $Msg" }
 function fDie      { param([string]$Msg); fEcho "FAILED: $Msg"; exit 1 }
 
 
-#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+#------------------------------------------------------------------------------
 # Functions
 
 ## Convert a Windows path to the MSYS2 form the mingw64 bash expects (C:\x -> /c/x).
@@ -610,7 +610,7 @@ function fPublish {
 }
 
 
-#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+#------------------------------------------------------------------------------
 # Entry point
 
 function fMain {
