@@ -319,7 +319,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, scripts and the bulk rename tool start through GLib, not the launcher.
 	- ID: 2026100616310432
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes, the full Linux suite. On Linux a program started by a double-click or from the tree now gets its path quoted, as the other callers already did. The Linux build is clean.
+	- Needs external testing: on vm925w in the desktop session, by hand: a `.bat` in the scripts folder run from the Scripts menu on 2 selected files, one with `&` in its name. A console program double-clicked in the file list. Edit in the templates page of preferences. rjnzpkk7 in the desktop session.
 	- Priority|Severity: Low
 	- Opened: 20261006-163104
 	- Opened by: 2026100615255305
@@ -331,6 +333,38 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: both start the way the rest of the app starts programs on Windows.
 	- Reproduced: no. Read from the code.
 	- Possible cause: `nemo_launch_application_from_command` has no Windows branch, and lint rjm8a6xr looks only at GLib's spawn calls, not at `g_app_info_launch`.
+	- Reproduced: 20261007 by rjnzpkk7, natively on vm925w. A script run the way the Scripts menu runs one was started by GLib's helper, with a console window, and lost its last arguments. A batch file at a path with a space in it never started at all through the launcher's own route.
+	- Actual cause: as in Possible cause. Opening an executable file from the file list, and editing a template in preferences, went through GLib's app launch too. A batch file was handed to `CreateProcessW` as is, which runs it through cmd with the line as given, and cmd then drops the first and last quote. A `&` or `%` in an argument was read by cmd as well, through either route.
+	- Decisions:
+		- A call made without asking: a script runs the way an action does. A console program or batch file runs with no window, as a script does on Linux. A program with windows of its own starts from outside the app, so it does not get the `NEMO_SCRIPT_` variables.
+		- A call made without asking: a program opened from the file list starts the way a double-click in Explorer starts it, so a console program gets its console window.
+		- A call made without asking: every argument to a batch file is quoted, and a `%` in one is never read as a variable, the way Rust's standard library does it since its batch file fix.
+	- Actual fix: on Windows the shared command start splits the line the Windows way and goes through the launcher, with each file as an argument of its own. Paths put in such a line are quoted to match. A program opened from the file list and a template opened for editing go to the shell's open. The launcher runs a batch file through cmd by name, with cmd's own quoting.
+		- Lint rjm8a6xr now also looks at GLib's app launch calls and GTK's show-uri, with the sites Windows never reaches on its list.
+	- Swept:
+		- Every caller of the shared command start: scripts, the file-roller drop, a program opened from the file list or the tree, the run after making a file executable. Bulk rename and actions already had their own Windows branch.
+		- Every GLib app launch and show-uri call in the app, by the widened lint. Listed: a store app, which the shell starts; the Linux-only terminal and desktop file starts; 2 help links, which nothing on Windows opens.
+		- Both launcher routes for a batch file, with no window and in a console.
+	- Note: on Windows the Scripts menu lists only files GLib calls executable, which is `.exe`, `.bat` and `.com` in lower case. Filed as 2026100707554200.
+	- Verified: rjnzpkk7 fails before the fix and passes after, natively on vm925w in session 0. With the old shared start all 15 checks failed. With the launcher before the batch fix the batch case failed, and with the first batch fix the batch run in a console lost `R&D %PATH% 100%`. rjmb3j8p and rjm4ctwh pass natively. The widened lint failed with 4 list entries taken out, on a show-uri, a default app launch, an app launch by URI and a launch from a command line. The cross build and the Linux build are clean.
+	- Branch: winlow
+	- Commit: 00f70b0, 9a52a33, bb92f8b
+	- Test case: rjnzpkk7, Command launch win32 test, Windows only. A console program, a batch file at a path with spaces, and a batch file in a console, each given a name with a space, a full path with single backslashes, `R&D %PATH% 100%` and an apostrophe: arguments as given, the folder in view as working folder, no window or a console of its own, and who started it. Lint rjm8a6xr for the GLib launch calls.
+
+- On Windows, the Scripts menu lists only `.exe`, `.bat` and `.com` files named in lower case.
+	- ID: 2026100707554200
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261007-075542
+	- Opened by: 2026100616310432
+	- Related IDs: 2026100616310432
+	- Target OS: Windows
+	- Steps to reproduce: put `tidy.cmd`, `tidy.ps1` and `TIDY.BAT` in the scripts folder and open the Scripts menu.
+	- Incorrect behavior: read only. None of the 3 is listed.
+	- Expected behavior: anything Windows runs as a program is listed, whatever the case of its extension.
+	- Reproduced: no. Read from the code: the menu takes a file only when the app calls it launchable, and on Windows GLib calls a type executable only for those 3 extensions, compared as written.
+	- Possible cause: as in Reproduced. The `PATHEXT` list is what Windows itself uses.
 	- Test case: none yet.
 
 - A FreeBSD package.
