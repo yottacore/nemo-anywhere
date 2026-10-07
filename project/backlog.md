@@ -219,45 +219,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Possible cause: not known. libgsf-1-114.dll and everything it needs are in the pack. gdk-pixbuf-thumbnailer started the same way loaded its libraries, all of which the app itself has loaded. Loading libgsf in the app first did not help, so that is not the difference.
 	- Test case: none yet.
 
-- Find mode remembers the column choice and order, and shows more columns by default.
-	- ID: 2026100613285826
-	- Type: Enhancement
+- With per-folder settings off, Reset view keeps a folder's sort column.
+	- ID: 2026100706523594
+	- Type: Bug
 	- Status: Queued
-	- Needs local test suite run?: yes, the full Linux suite. The nearby list view, search and config tests passed, the Windows cross build was clean, and rjm2rvjn passed under wine.
-	- Priority|Severity: Avg
-	- Opened: 20261006-132858
-	- Opened by: t00mietum
-	- Related IDs: 2026100613285789
+	- Priority|Severity: Low
+	- Opened: 20261007-065235
+	- Opened by: 2026100613285826
+	- Related IDs: 2026100613285826
 	- Target OS: All
-	- Requirements:
-		- Before rc.1.
-		- Remember the columns picked, and the order they were dragged into.
-		- Default columns, in this order, and whether each shows by default:
-			- Name: yes
-			- Ext: yes
-			- Type: no
-			- Size: yes
-			- Modified: yes
-			- Other date columns: no
-			- Location: yes
-			- The rest: no
-		- Remember the sort column and direction always too, like the columns.
-	- Note: today the defaults are Name and Location only. The picked columns are saved under `search.search-visible-columns`, and only while `remember-folder-settings` is on.
-	- Decisions:
-		- Find mode remembers its columns and their order always, whatever `remember-folder-settings` says, since find results are not a folder. The recommended answer, taken when the question timed out on 20261006, and OK'd the same day.
-		- The existing key stays. It holds the shown columns in their order, so it covers both the picks and the order. Empty means the defaults.
-		- Sort column and direction in find mode are kept always too. Asked and answered yes, 20261006. Not done yet.
-	- Signoff: the columns part, 20261006.
-	- Done:
-		- Find mode reads and saves its columns through one place in `nemo-column-utilities.c`. A pick, a drag, Use default and Reset view all go there in find mode, and no longer touch the window's own column choice.
-		- New defaults as listed. Type and the other two dates are hidden.
-		- A column turned on goes after the shown ones, as in a folder.
-		- The search reads the same key to know whether to count hits. With remembering off a picked Hits column was never saved, so hits were never counted; now they are.
-		- README and design.md "Search" say what find mode keeps.
-	- Verified: with remembering off, find results showed Name, Ext, Size, Date modified and Location. Turning on Type and dragging it before Ext were both saved, and both came back after a restart.
-	- Branch: findfix
-	- Commit: fa73670
-	- Test case: rjm2rvjn (Find mode columns test).
+	- Steps to reproduce: with "Remember per-folder settings" off, in list view, sort a folder by Size, then View, Reset view to defaults.
+	- Incorrect behavior: the folder stays sorted by Size. Only the direction goes back to the default.
+	- Expected behavior: the folder goes back to the default sort order, Name.
+	- Reproduced: 20261007, Linux.
+	- Possible cause: Reset view clears the window's sort column by setting it to nothing, and the window's setter ignores nothing, so the old column stays.
 
 - On Windows, the C lint finds problems in files nobody changed, so a lint there that covers them fails.
 	- ID: 2026100703330508
@@ -1488,6 +1463,57 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: `test-nemo-psd`: rows at the least length are read, one byte less is refused, and a file of empty rows, 30000 by 30000 as psd and 60000 by 60000 as psb, is refused in under a second. Fuzz seed `zero-rows`, and `short-literal` reworked so it still reaches the literal-run bound.
 	- Branch: psdrows
 	- Commit: 24d99cd
+
+- Find mode remembers the column choice and order, and shows more columns by default.
+	- ID: 2026100613285826
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: done 20261007, 174 of 174, with the sort part in.
+	- Priority|Severity: Avg
+	- Opened: 20261006-132858
+	- Opened by: t00mietum
+	- Related IDs: 2026100613285789
+	- Target OS: All
+	- Requirements:
+		- Before rc.1.
+		- Remember the columns picked, and the order they were dragged into.
+		- Default columns, in this order, and whether each shows by default:
+			- Name: yes
+			- Ext: yes
+			- Type: no
+			- Size: yes
+			- Modified: yes
+			- Other date columns: no
+			- Location: yes
+			- The rest: no
+		- Remember the sort column and direction always too, like the columns.
+	- Note: today the defaults are Name and Location only. The picked columns are saved under `search.search-visible-columns`, and only while `remember-folder-settings` is on.
+	- Decisions:
+		- Find mode remembers its columns and their order always, whatever `remember-folder-settings` says, since find results are not a folder. The recommended answer, taken when the question timed out on 20261006, and OK'd the same day.
+		- The existing key stays. It holds the shown columns in their order, so it covers both the picks and the order. Empty means the defaults.
+		- Sort column and direction in find mode are kept always too. Asked and answered yes, 20261006. Not done yet.
+			- Done 20261007, in the existing `search.search-sort-column` and `search.search-reverse-sort` keys. No new key.
+		- Use default in the column menu puts find mode's sort back too, as Reset view does. In a folder Use default still only resets the columns.
+		- With no sort saved, find results take the default sort order and its direction, as a folder does. Before, the direction was always ascending there. Picking the default itself saves nothing, so a later change of the default still reaches find results. A call made without asking.
+	- Signoff: the columns part, 20261006.
+	- Done:
+		- Find mode reads and saves its columns through one place in `nemo-column-utilities.c`. A pick, a drag, Use default and Reset view all go there in find mode, and no longer touch the window's own column choice.
+		- New defaults as listed. Type and the other two dates are hidden.
+		- A column turned on goes after the shown ones, as in a folder.
+		- The search reads the same key to know whether to count hits. With remembering off a picked Hits column was never saved, so hits were never counted; now they are.
+		- README and design.md "Search" say what find mode keeps.
+		- Find mode reads and saves its sort through the same place. With remembering off it used the window's sort, which is the one every folder in the window shares, so sorting find results changed the folder's sort too. It no longer touches the window's sort at all.
+		- Reset view in find mode no longer clears the window's columns and sort, which belong to the folders. It still resets the zoom.
+		- README and design.md "Search" now say find mode keeps its sort too.
+	- Swept: every place the list view reads, saves or resets a sort: a header click, loading a view, Use default and Reset view. Icon view sorting is not by column and was left alone.
+	- Verified: with remembering off, find results showed Name, Ext, Size, Date modified and Location. Turning on Type and dragging it before Ext were both saved, and both came back after a restart.
+		- 20261007, with remembering off: before the change, sorting find results by Size and going back left the folder sorted by Size. After it the folder kept Name. Size and then Size reversed were saved, and both came back after a restart. Use default and Reset view in find mode went back to Name and left nothing saved. A folder sorted by Size kept it through a visit to find mode, which showed Name. With remembering on, find results kept their own sort and the folder kept its own.
+		- rjm2rvjn failed to build before the change and passes after. The nearby list view, search and config tests passed, the Windows cross build was clean, and rjm2rvjn passed under wine.
+	- Branch: findfix, findsort
+	- Commit: fa73670, 270e666
+	- Test case: rjm2rvjn (Find mode columns test), with the sort cases added.
+	- Acceptance signoff: Self-closed: does what was asked, checked before and after the change, and rjm2rvjn passes.
+	- Closed: 20261007-065235
 
 - The keyboard menu opens at the pane's top left, not beside the selected item.
 	- ID: 2026100408414402

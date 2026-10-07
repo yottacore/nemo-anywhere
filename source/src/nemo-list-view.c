@@ -263,6 +263,7 @@ static char **get_column_order                                   (NemoListView *
 static char **get_default_column_order                           (NemoListView *list_view);
 
 static void   set_columns_settings_from_metadata_and_preferences (NemoListView *list_view);
+static void   set_sort_order_from_metadata_and_preferences       (NemoListView *list_view);
 static void   queue_update_visible_icons (NemoListView *view, gint delay);
 static gint   nemo_list_view_get_icon_size (NemoView *view);
 static void   mark_visible_files (NemoListView *view);
@@ -2098,14 +2099,17 @@ sort_column_changed_callback (GtkTreeSortable *sortable,
 										  g_quark_from_string (get_default_sort_order (file, &default_sort_reversed)));
 	default_sort_attr = nemo_list_model_get_attribute_from_sort_column_id (view->details->model, default_sort_column_id);
 
-        if (!nemo_global_preferences_get_remember_folder_settings ())
+        /* Find results keep their sort whatever remember-folder-settings says,
+           and never in the window, which holds the folders' when that is off.
+           Theirs is saved below, with the direction. */
+        if (!nemo_file_is_in_search (file)) {
+            if (!nemo_global_preferences_get_remember_folder_settings ()) {
                 nemo_window_set_ignore_meta_sort_column (nemo_view_get_nemo_window (NEMO_VIEW (view)),
                                                          g_quark_to_string (sort_attr));
-        else if (nemo_file_is_in_search (file)) {
-            nemo_config_set_string (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_SORT_COLUMN, g_quark_to_string (sort_attr));
-        } else {
-            nemo_folder_settings_set (file, NEMO_METADATA_KEY_LIST_VIEW_SORT_COLUMN,
-                                      g_quark_to_string (default_sort_attr), g_quark_to_string (sort_attr));
+            } else {
+                nemo_folder_settings_set (file, NEMO_METADATA_KEY_LIST_VIEW_SORT_COLUMN,
+                                          g_quark_to_string (default_sort_attr), g_quark_to_string (sort_attr));
+            }
         }
 
 	default_reversed_attr = (default_sort_reversed ? (char *)"true" : (char *)"false");
@@ -2132,11 +2136,12 @@ sort_column_changed_callback (GtkTreeSortable *sortable,
 		}
 	}
 
-    if (!nemo_global_preferences_get_remember_folder_settings ()) {
+    if (nemo_file_is_in_search (file)) {
+        nemo_search_sort_save (g_quark_to_string (sort_attr), reversed == GTK_SORT_DESCENDING,
+                               g_quark_to_string (default_sort_attr), default_sort_reversed);
+    } else if (!nemo_global_preferences_get_remember_folder_settings ()) {
         nemo_window_set_ignore_meta_sort_direction (nemo_view_get_nemo_window (NEMO_VIEW (view)),
                                                     reversed ? SORT_DESCENDING : SORT_ASCENDING);
-    } else if (nemo_file_is_in_search (file)) {
-        nemo_config_set_boolean (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_REVERSE_SORT, reversed);
     } else {
         reversed_attr = (reversed ? (char *)"true" : (char *)"false");
         nemo_folder_settings_set (file, NEMO_METADATA_KEY_LIST_VIEW_SORT_REVERSED,
@@ -2461,6 +2466,8 @@ column_header_menu_use_default (G_GNUC_UNUSED GtkMenuItem *menu_item,
 
     if (nemo_file_is_in_search (file)) {
         nemo_search_columns_save (NULL);
+        nemo_search_sort_forget ();
+        set_sort_order_from_metadata_and_preferences (list_view);
     } else if (!nemo_global_preferences_get_remember_folder_settings ()) {
         NemoWindow *window = nemo_view_get_nemo_window (NEMO_VIEW (list_view));
         nemo_window_set_ignore_meta_visible_columns (window, NULL);
@@ -4491,21 +4498,28 @@ set_sort_order_from_metadata_and_preferences (NemoListView *list_view)
 	const gchar *default_sort_order;
 
 	file = nemo_view_get_directory_as_file (NEMO_VIEW (list_view));
+	default_sort_order = get_default_sort_order (file, &default_sort_reversed);
 
-        if (!nemo_global_preferences_get_remember_folder_settings ())
-                sort_attribute = g_strdup (nemo_window_get_ignore_meta_sort_column (nemo_view_get_nemo_window (NEMO_VIEW (list_view))));
-        else if (nemo_file_is_in_search (file)) {
-            sort_attribute = nemo_config_get_string (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_SORT_COLUMN);
+        if (nemo_file_is_in_search (file)) {
+            if (!nemo_search_sort_get (&sort_attribute, &sort_reversed)) {
+                sort_reversed = default_sort_reversed;
+            }
+        } else if (!nemo_global_preferences_get_remember_folder_settings ()) {
+            gint dir = nemo_window_get_ignore_meta_sort_direction (nemo_view_get_nemo_window (NEMO_VIEW (list_view)));
+
+            sort_attribute = g_strdup (nemo_window_get_ignore_meta_sort_column (nemo_view_get_nemo_window (NEMO_VIEW (list_view))));
+            sort_reversed = dir > SORT_NULL ? dir == SORT_DESCENDING : default_sort_reversed;
         } else {
             sort_attribute = nemo_folder_settings_get (file,
                                                        NEMO_METADATA_KEY_LIST_VIEW_SORT_COLUMN,
                                                        NULL);
+            sort_reversed = nemo_folder_settings_get_boolean (file,
+                                                              NEMO_METADATA_KEY_LIST_VIEW_SORT_REVERSED,
+                                                              default_sort_reversed);
         }
 	sort_column_id = nemo_list_model_get_sort_column_id_from_attribute (list_view->details->model,
 									  g_quark_from_string (sort_attribute));
 	g_free (sort_attribute);
-
-	default_sort_order = get_default_sort_order (file, &default_sort_reversed);
 
 	if (sort_column_id == -1) {
 		sort_column_id =
@@ -4513,16 +4527,6 @@ set_sort_order_from_metadata_and_preferences (NemoListView *list_view)
 									 g_quark_from_string (default_sort_order));
 	}
 
-    if (!nemo_global_preferences_get_remember_folder_settings ()) {
-        gint dir = nemo_window_get_ignore_meta_sort_direction (nemo_view_get_nemo_window (NEMO_VIEW (list_view)));
-        sort_reversed = dir > SORT_NULL ? dir == SORT_DESCENDING : default_sort_reversed;
-    } else if (nemo_file_is_in_search (file)) {
-        sort_reversed = nemo_config_get_boolean (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_REVERSE_SORT);
-    } else {
-        sort_reversed = nemo_folder_settings_get_boolean (file,
-                                                          NEMO_METADATA_KEY_LIST_VIEW_SORT_REVERSED,
-                                                          default_sort_reversed);
-    }
     gtk_tree_sortable_set_sort_column_id (GTK_TREE_SORTABLE (list_view->details->model),
                                                              sort_column_id,
                                                              sort_reversed ? GTK_SORT_DESCENDING : GTK_SORT_ASCENDING);
@@ -5268,21 +5272,22 @@ nemo_list_view_reset_to_defaults (NemoView *view)
                                      columns_reordered_callback,
                                      NEMO_LIST_VIEW (view));
 
-    /* Find results keep their columns whatever remember-folder-settings says. */
+    /* Find results keep their columns and sort whatever
+       remember-folder-settings says, so the window's, which are the folders'
+       when that is off, stay as they are. The zoom is still the window's. */
     if (nemo_file_is_in_search (file)) {
         nemo_search_columns_save (NULL);
-    }
-
-    if (!nemo_global_preferences_get_remember_folder_settings ()) {
+        nemo_search_sort_forget ();
+        if (!nemo_global_preferences_get_remember_folder_settings ()) {
+            nemo_window_forget_ignore_meta_icon_sizes (nemo_view_get_nemo_window (NEMO_VIEW (view)));
+        }
+    } else if (!nemo_global_preferences_get_remember_folder_settings ()) {
         NemoWindow *window = nemo_view_get_nemo_window (NEMO_VIEW (view));
         nemo_window_set_ignore_meta_sort_column (window, NULL);
         nemo_window_set_ignore_meta_sort_direction (window, SORT_NULL);
         nemo_window_forget_ignore_meta_icon_sizes (window);
         nemo_window_set_ignore_meta_column_order (window, NULL);
         nemo_window_set_ignore_meta_visible_columns (window, NULL);
-    } else if (nemo_file_is_in_search (file)) {
-        nemo_config_reset (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_SORT_COLUMN);
-        nemo_config_reset (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_REVERSE_SORT);
     } else {
         nemo_folder_settings_forget (file);
     }
