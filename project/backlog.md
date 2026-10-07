@@ -121,6 +121,65 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 00770f3 to 303409c
 	- Test case: rjm4ctwh, Tool start win32 test, Windows only. Stand-ins first on PATH say whether they got a console window, what reached stdin and which arguments they had. Through the real jobs it compresses to rar, fails with both outputs in the error, stops a compress while the tool says nothing, extracts a rar only the tool reads, searches through a converter and makes a thumbnail through a thumbnailer program. Lint rjm8a6xr keeps new GLib program starts off Windows.
 
+- On Windows, a path with single backslashes in a file or setting a user writes is read as escapes.
+	- ID: 2026100702343600
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. The full Linux suite passed on the final tree, 174 of 174.
+	- Needs external testing: by hand on Windows, in the desktop session. A bulk rename tool set as a full path with spaces, quoted, on 2 files. A custom command in Open With typed as a full path. A link file's properties page edited and saved, with a path in it.
+	- Priority|Severity: Avg
+	- Opened: 20261007-023436
+	- Opened by: t00mietum
+	- Related IDs: 2026100615255231, 2026100616310432, 2026100314515200
+	- Target OS: Windows
+	- Requirements:
+		- Any string a user writes or edits takes a Windows path as is. A backslash there is never an escape.
+		- Covers search helper and thumbnailer files, actions, command lines and other paths in settings, and any other text file the app reads that a user may write by hand.
+		- A string the app only writes and reads itself may keep escapes, but should use something other than backslashes where it can.
+	- Note: users almost never mean `\n` or `\t`, and a path read as escapes breaks quietly. Same reason the SHCL upgrade ignores backslash escapes.
+	- Steps to reproduce: on Windows, write a search helper with `TryExec=C:\Tools\pdftotext.exe`.
+	- Incorrect behavior: the helper is skipped as unreadable.
+	- Expected behavior: the helper is used when the program is there.
+	- Reproduced: 20261007, under wine. Search helpers, thumbnailers, actions and link files written with single backslashes were skipped or lost their values, and an archive command line with a path in it lost its backslashes.
+	- Actual cause: the key file reader and GLib's command line splitter both read a backslash as an escape, on Windows too. Every key file read and every split of a command line a user writes went through one or the other.
+	- Actual fix: one shared reader and splitter, `nemo-user-text.c`, used at every site.
+		- On Windows a key file value is read as written. A list splits on semicolons. A command line splits on blanks, and double quotes group words.
+		- A path put into such a line is quoted to match.
+		- Off Windows it calls the same GLib functions as before.
+		- A new lint check fails on a direct call outside the shared code, unless listed with its reason.
+	- Decisions:
+		- A call made without asking: a value whose backslashes all come in pairs was written by a key file writer, so each pair reads as one. One lone backslash anywhere means the whole value is read as written. So `C:\\Tools\\x.exe` and `C:\Tools\x.exe` both work, and so do `\\server\share` and its doubled form. The one spelling both readings share is a bare `\\server`, which reads as `\server`; it names no share, so nothing is lost.
+		- A call made without asking: on Windows a semicolon in a list always splits, so `C:\Data\;D:\` is 2 folders. A list item cannot hold a semicolon there.
+		- A call made without asking: on Windows `""` inside double quotes is one quote, and a single quote is an ordinary character, as in Windows' own rules. An unclosed quote is an error, as before.
+		- A call made without asking: the rule covers every value in those files on Windows, names and comments too, not only paths. One rule is easier to explain.
+		- A call made without asking: on Windows an action with `Quote=single` gets double quotes, since a single quote groups nothing there. With no `Quote`, each path gets quotes of its own.
+		- A call made without asking: on Windows the bulk rename tool gets each file as a path rather than a URI, since a Windows program opens paths. It starts through the app's own launcher, which is half of 2026100616310432.
+		- A call made without asking: a link file whose URL is a Windows path opens that path. `C:` read as a URI scheme before.
+		- A call made without asking: the app writes a link file value as is on Windows when that reads back the same, and with every backslash doubled when not.
+		- A call made without asking: theme index files and the bookmark metadata file stay on the key file reader. A theme follows the spec, and the app writes the metadata itself.
+	- Swept:
+		- Actions: every value, the command and the exec condition, the action folder prefix, paths put into the command.
+		- Search helpers and thumbnailers: TryExec, Exec, MimeType, and the paths put into the command.
+		- Link files: every value read, and the values the app writes.
+		- The link properties page and the action list in preferences.
+		- Archive command lines in the settings, all 4.
+		- Open With: the custom command check and the name taken from it. Its tip on Windows says to quote a path with spaces.
+		- Bulk rename tool on Windows.
+		- Already fine: the terminal command on Windows is split without escapes, `windows.associations` lines go to Windows whole, terminal candidates and folders a search skips are plain names or paths.
+		- The settings layer adds no escapes of its own. See the note.
+	- Note: SHCL reads `\t`, `\n`, `\\`, `\"` and `\'` as escapes inside double quotes, so a hand-written `"C:\temp\new"` in the settings file reads with a tab and a line break. Bare and single-quoted text is read as written. A file with no format line is read by the 2.x rules at startup, where a backslash in bare text is an escape too (2026100314515200). Left for the SHCL upgrade that drops backslash escapes.
+	- Verified: each new test case below failed under wine before the fix and passes after. Natively on vm925w the 6 tests pass, and the whole suite was 152 OK, 0 failed, 11 skipped, with no `g_strv_length` critical. The Windows suite under wine fails the same 17 tests as before this change, all link and registry gaps in wine. The new lint check failed with one direct read put back. The rule cases in rjmpxtbg failed with pairs not halved, and with a backslash read as an escape. Lint is clean here and on vm925w.
+	- Branch: winpaths
+	- Commit: d824d17, f34cc1c, 59295bb
+	- Test case:
+		- rjmpxtbg, Windows paths in user text test, new: the Windows rules on every platform, key files through each platform's reader and writer, link files, and an action file.
+		- rexkeyng, Command template test, `check_windows_paths`: an archive line with paths.
+		- rfhnaccg, Search helpers test: on Windows every helper is written with single backslashes.
+		- redrqe60, Thumbnail factory test, `badtry` case: on Windows a thumbnailer naming a real program that way is used.
+		- rjm4ctwh, Tool start win32 test: a search helper and a thumbnailer by full path with single backslashes, and a helper with them doubled.
+		- rjmb3j8p, Action start win32 test: an action with full paths in its command, condition and dependencies.
+		- rjmqp83c, lint-c.bash `UserText`: no direct call outside the shared code.
+
 - On arm64 a crash report after a call through a null pointer keeps too few frames.
 	- ID: 2026100520071434
 	- Type: Bug
@@ -263,24 +322,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: b2cfe15 to f279168
 	- Test case: rjmc40ex, Thumbnailer type win32 test, Windows only. An OpenDocument file with a red thumbnail inside, through the gsf-office thumbnailer that comes with the app: the app's own type for it is `.odt`, a thumbnailer is found and makes the thumbnail, the list of types not to thumbnail turns it off by real type, and the same file through a share is not thumbnailed with the default settings.
 
-- On Windows, a path with single backslashes in a file or setting a user writes is read as escapes.
-	- ID: 2026100702343600
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261007-023436
-	- Opened by: t00mietum
-	- Related IDs: 2026100615255231
-	- Target OS: Windows
-	- Requirements:
-		- Any string a user writes or edits takes a Windows path as is. A backslash there is never an escape.
-		- Covers search helper and thumbnailer files, actions, command lines and other paths in settings, and any other text file the app reads that a user may write by hand.
-		- A string the app only writes and reads itself may keep escapes, but should use something other than backslashes where it can.
-	- Note: users almost never mean `\n` or `\t`, and a path read as escapes breaks quietly. Same reason the SHCL upgrade ignores backslash escapes.
-	- Steps to reproduce: on Windows, write a search helper with `TryExec=C:\Tools\pdftotext.exe`.
-	- Incorrect behavior: the helper is skipped as unreadable.
-	- Expected behavior: the helper is used when the program is there.
-
 - In the single exe on Windows, a program packed inside it that needs libgsf cannot start.
 	- ID: 2026100617051745
 	- Type: Bug
@@ -337,32 +378,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: fa73670
 	- Test case: rjm2rvjn (Find mode columns test).
 
-- On Windows, a GLib critical about `g_strv_length` shows in the tool start test.
-	- ID: 2026100615255231
+- On Windows, the C lint finds problems in files nobody changed, so a lint there that covers them fails.
+	- ID: 2026100703330508
 	- Type: Bug
 	- Status: Queued
-	- Needs local test suite run?: yes, the full Linux suite. rfhnaccg, redrqe60 and the other search and thumbnail tests passed on Linux.
-	- Needs external testing: done 20261006 on vm925w, as in Verified.
 	- Priority|Severity: Low
-	- Opened: 20261006-152552
-	- Opened by: 2026100612483725
-	- Related IDs: 2026100612483725
+	- Opened: 20261007-033305
+	- Opened by: 2026100702343600
+	- Related IDs: 2026100702343600
 	- Target OS: Windows
-	- Steps to reproduce: run rjm4ctwh natively on vm925w with the box's full PATH.
-	- Incorrect behavior: the test passes, but its log has `g_strv_length: assertion 'str_array != NULL' failed` once, after the extract step.
-	- Expected behavior: no critical.
-	- Reproduced: 20261006, in 2 runs of 2 on vm925w with the full PATH. Not looked for with the gate's own PATH or under wine.
-	- Possible cause: not traced. The new launcher code has no such call. The search engine, the thumbnail code and the data folder lookup all have one, and none of the lists they read looks able to be NULL.
-	- Note: the PATH plays no part. It shows with MSYS2's own PATH as well, every run.
-	- Actual cause: the test writes a search helper whose TryExec is a Windows path with single backslashes. In a key file a backslash starts an escape, and `\U` is not one, so the TryExec list reads as nothing at all. The search engine passed that straight to `g_strv_length` and then took the helper without checking its program. Thumbnailer files had the same gap with no critical: an unreadable TryExec read as no TryExec.
-	- Actual fix: a search helper or thumbnailer whose TryExec can't be read is skipped, with a warning naming the file, the same as one whose Exec can't be read. rjm4ctwh now doubles the backslashes, as a hand-written file has to.
-	- Decisions:
-		- First a call made without asking: skip such a file, since the key file format wants backslashes doubled. Changed 20261006: on Windows single backslashes are read as plain path characters, in TryExec and Exec both. Done under 2026100702343600.
-	- Swept: every `g_key_file_get_string_list` and TryExec read. Actions, `.desktop` links and the thumbnailer MimeType already check for nothing read. Bookmark emblems can be NULL only from a hand-edited metadata file; left alone.
-	- Verified: the new cases in rfhnaccg and redrqe60 fail before the fix and pass after, on Linux. On vm925w rjm4ctwh has no critical now and passes, and rfhnaccg and redrqe60's new case pass. The Windows cross build is clean, and lint passes.
-	- Branch: smallwin
-	- Commit: d837594
-	- Test case: rfhnaccg, Search helpers test: no GLib critical, and the bad helper is named and skipped. redrqe60, Thumbnail factory test, `badtry` case: a thumbnailer with an unreadable TryExec is not used.
+	- Steps to reproduce: on vm925w, in the MSYS2 shell, run `cicd/utility/lint-c.bash` with a base old enough to take in the files below, such as the box's `dogfood` branch.
+	- Incorrect behavior: cppcheck 2.21 there reports `leakNoVarFunctionCall` at `nemo-archive.c:2657`, `invalidPrintfArgType_sint` at `test-heap.c:253`, and `ignoredReturnValue` twice in `test-nemo-tab-move-probe.c`. cppcheck on Linux reports none of them. The lint on `dev`, which covers the whole tree, should fail there the same way. Not tried.
+	- Expected behavior: a clean lint on both.
+	- Reproduced: 20261007 on vm925w, against `dogfood`.
+	- Possible cause: the printf one is cppcheck's GTK library file reading `G_GINT64_FORMAT` as `%li`, where a 64-bit number is `long long` on Windows. The same two in `nemo-desktop-thumbnail.c` were suppressed under 2026100702343600. The others are newer checks.
+	- Test case: none yet.
 
 - On the arm64 box the Places focus test loses its click or its rename.
 	- ID: 2026100611482306
@@ -1594,6 +1624,38 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- On Windows, a GLib critical about `g_strv_length` shows in the tool start test.
+	- ID: 2026100615255231
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: done 20261007, 174 of 174.
+	- Needs external testing: done 20261006 and 20261007 on vm925w, as in Verified.
+	- Priority|Severity: Low
+	- Opened: 20261006-152552
+	- Opened by: 2026100612483725
+	- Related IDs: 2026100612483725, 2026100702343600
+	- Target OS: Windows
+	- Steps to reproduce: run rjm4ctwh natively on vm925w with the box's full PATH.
+	- Incorrect behavior: the test passes, but its log has `g_strv_length: assertion 'str_array != NULL' failed` once, after the extract step.
+	- Expected behavior: no critical.
+	- Reproduced: 20261006, in 2 runs of 2 on vm925w with the full PATH. Not looked for with the gate's own PATH or under wine.
+	- Possible cause: not traced. The new launcher code has no such call. The search engine, the thumbnail code and the data folder lookup all have one, and none of the lists they read looks able to be NULL.
+	- Note: the PATH plays no part. It shows with MSYS2's own PATH as well, every run.
+	- Actual cause: the test writes a search helper whose TryExec is a Windows path with single backslashes. In a key file a backslash starts an escape, and `\U` is not one, so the TryExec list reads as nothing at all. The search engine passed that straight to `g_strv_length` and then took the helper without checking its program. Thumbnailer files had the same gap with no critical: an unreadable TryExec read as no TryExec.
+	- Actual fix: a search helper or thumbnailer whose TryExec can't be read is skipped, with a warning naming the file, the same as one whose Exec can't be read. rjm4ctwh now doubles the backslashes, as a hand-written file has to.
+		- 20261007: on Windows TryExec and Exec are read as written, through the shared reader from 2026100702343600, so single backslashes work there. The skip stays for Linux, and for text that is not UTF-8. rjm4ctwh writes them single again, plus one helper with them doubled.
+	- Decisions:
+		- First a call made without asking: skip such a file, since the key file format wants backslashes doubled. Changed 20261006: on Windows single backslashes are read as plain path characters, in TryExec and Exec both. Done 20261007 with 2026100702343600, whose Decisions say how a file with doubled backslashes reads.
+	- Swept: every `g_key_file_get_string_list` and TryExec read. Actions, `.desktop` links and the thumbnailer MimeType already check for nothing read. Bookmark emblems can be NULL only from a hand-edited metadata file; left alone.
+	- Verified: the new cases in rfhnaccg and redrqe60 fail before the fix and pass after, on Linux. On vm925w rjm4ctwh has no critical now and passes, and rfhnaccg and redrqe60's new case pass. The Windows cross build is clean, and lint passes.
+		- 20261007: the Windows cases fail under wine before the change and pass after. On vm925w all three pass with the full PATH, with no `g_strv_length` critical, and the whole native suite passed.
+	- Branch: smallwin, then winpaths
+	- Commit: d837594, then d824d17
+	- Test case: rfhnaccg, Search helpers test: no GLib critical, and the bad helper is named and skipped. redrqe60, Thumbnail factory test, `badtry` case: a thumbnailer with an unreadable TryExec is not used.
+		- 20261007: on Windows rfhnaccg writes every helper with single backslashes, and redrqe60's `badtry` case uses a thumbnailer naming a real program that way. rjm4ctwh names its helper and thumbnailer by full path, single and doubled.
+	- Acceptance signoff: Self-closed: the reading was asked for on 20261006, and the new cases fail before the fix and pass after, natively too.
+	- Closed: 20261007-033050
 
 - The runtime environment test fails on a jammy build with the extension library shared.
 	- ID: 2026100611482436
