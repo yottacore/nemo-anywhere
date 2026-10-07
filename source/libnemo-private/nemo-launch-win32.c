@@ -570,35 +570,38 @@ append_batch_argument (GString *line, const gchar *arg)
 	g_string_append_c (line, '"');
 }
 
-/* A batch file goes to cmd by name. Handed to CreateProcessW itself, it runs
- * as cmd /c plus the line, and cmd then drops the first and last quote, so a
- * path with a space in it was never found. /s makes that drop the outer pair
- * added here, and nothing else. */
+/* Returns: (transfer full): free with g_free */
 static gchar *
-batch_command_line (const gchar *program, const gchar * const *argv, wchar_t **wexe)
+system_cmd (void)
 {
 	wchar_t system[MAX_PATH];
 	UINT length = GetSystemDirectoryW (system, G_N_ELEMENTS (system));
 	gchar *dir, *cmd;
-	GString *line;
 
 	if (length == 0 || length >= G_N_ELEMENTS (system)) {
 		return NULL;
 	}
 	dir = g_utf16_to_utf8 (system, -1, NULL, NULL, NULL);
-	if (dir == NULL) {
-		return NULL;
-	}
-	cmd = g_build_filename (dir, "cmd.exe", NULL);
+	cmd = dir != NULL ? g_build_filename (dir, "cmd.exe", NULL) : NULL;
 	g_free (dir);
-	*wexe = g_utf8_to_utf16 (cmd, -1, NULL, NULL, NULL);
-	g_free (cmd);
+	return cmd;
+}
 
-	line = g_string_new ("cmd.exe /d /e:on /v:off /s /c \"");
+/* A batch file goes to cmd by name. Handed to CreateProcessW or the shell, it
+ * runs as cmd /c plus the line, and cmd then drops the first and last quote,
+ * so a path with a space in it was never found. /s makes that drop the outer
+ * pair added here, and nothing else.
+ * Returns: (transfer full): free with g_free */
+static gchar *
+batch_arguments (const gchar *program, const gchar * const *argv)
+{
+	GString *line = g_string_new (NULL);
+
 	append_batch_argument (line, program);
 	for (guint i = 1; argv[i] != NULL; i++) {
 		append_batch_argument (line, argv[i]);
 	}
+	g_string_prepend (line, "/d /e:on /v:off /s /c \"");
 	g_string_append_c (line, '"');
 
 	return g_string_free (line, FALSE);
@@ -694,10 +697,15 @@ spawn_hidden (const gchar * const  *argv,
 	}
 
 	if (is_batch_file (program)) {
-		gchar *text = batch_command_line (program, argv, &wexe);
+		gchar *cmd = system_cmd ();
+		gchar *tail = batch_arguments (program, argv);
+		gchar *text = g_strconcat ("cmd.exe ", tail, NULL);
 
-		wline = text != NULL ? g_utf8_to_utf16 (text, -1, NULL, NULL, NULL) : NULL;
+		wexe = cmd != NULL ? g_utf8_to_utf16 (cmd, -1, NULL, NULL, NULL) : NULL;
+		wline = g_utf8_to_utf16 (text, -1, NULL, NULL, NULL);
 		g_free (text);
+		g_free (tail);
+		g_free (cmd);
 	} else {
 		line = g_string_new (NULL);
 		append_argument (line, program);
@@ -935,6 +943,15 @@ nemo_launch_win32_spawn (const gchar * const  *argv,
 		}
 		close_valid (process);
 		close_valid (nowhere);
+	} else if (is_batch_file (program)) {
+		gchar *cmd = system_cmd ();
+		gchar *args = batch_arguments (program, argv);
+		gchar *cwd = g_get_current_dir ();
+
+		started = cmd != NULL && nemo_launch_win32_run (cmd, args, cwd, error);
+		g_free (cwd);
+		g_free (args);
+		g_free (cmd);
 	} else {
 		GString *args = g_string_new (NULL);
 		gchar *cwd = g_get_current_dir ();

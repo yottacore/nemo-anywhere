@@ -111,7 +111,7 @@ int
 main (int argc, char *argv[])
 {
 	g_autofree char *scratch = NULL, *work = NULL, *cwd_line = NULL;
-	g_autofree char *quiet = NULL, *console = NULL, *viacmd = NULL, *batch = NULL;
+	g_autofree char *quiet = NULL, *console = NULL, *viacmd = NULL, *batch = NULL, *batch2 = NULL;
 	g_autofree char *quoted = NULL;
 	const char *names[] = { "two words", "C:\\plain\\path", "R&D %PATH% 100%", "it's", NULL };
 	GdkScreen *screen;
@@ -147,6 +147,9 @@ main (int argc, char *argv[])
 	viacmd = place (argv[1], "viacmd.exe");
 	batch = g_build_filename (dir, "run it.cmd", NULL);
 	check (g_file_set_contents (batch, "@\"%~dp0viacmd.exe\" %*\r\n", -1, NULL));
+	g_free (place (argv[1], "viacmd2.exe"));
+	batch2 = g_build_filename (dir, "run it too.cmd", NULL);
+	check (g_file_set_contents (batch2, "@\"%~dp0viacmd2.exe\" %*\r\n", -1, NULL));
 
 	if (!gtk_init_check (&argc, &argv)) {
 		g_print ("SKIP: no display\n");
@@ -192,6 +195,16 @@ main (int argc, char *argv[])
 	check (wait_for_report ("console", "arg=two words"));
 	check (reported ("console", "window=1"));
 	check (started_by_broker ("console"));
+	g_clear_pointer (&quoted, g_free);
+
+	g_print ("batch file in a terminal\n");
+	quoted = nemo_user_text_quote (batch2);
+	nemo_launch_application_from_command_array (screen, quoted, TRUE, names);
+	check (wait_for_report ("viacmd2", "arg=it's"));
+	check (reported ("viacmd2", "arg=two words"));
+	check (reported ("viacmd2", "arg=R&D %PATH% 100%"));
+	check (reported ("viacmd2", "window=1"));
+	check (started_by ("viacmd2", "cmd.exe"));
 	g_clear_pointer (&quoted, g_free);
 
 	g_chdir (scratch);
