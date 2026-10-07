@@ -250,36 +250,96 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Possible cause: the printf one is cppcheck's GTK library file reading `G_GINT64_FORMAT` as `%li`, where a 64-bit number is `long long` on Windows. The same two in `nemo-desktop-thumbnail.c` were suppressed under 2026100702343600. The others are newer checks.
 	- Test case: none yet.
 
-- On the arm64 box the Places focus test loses its click or its rename.
-	- ID: 2026100611482306
+- On Linux arm64 (jammy), the Windows paths in user text test fails 2 checks.
+	- ID: 2026100708355447
 	- Type: Bug
 	- Status: Queued
 	- Priority|Severity: Low
+	- Opened: 20261007-083554
+	- Opened by: 2026100611482306
+	- Related IDs: 2026100702343600
+	- Target OS: Linux arm64, maybe any jammy build
+	- Steps to reproduce: run rjmpxtbg on the arm64 debug build in the jammy image.
+	- Incorrect behavior: `test-nemo-user-text.c:217` (a value with a single backslash comes back with no error) and `:222` (the translated name) fail. Not tried on an x86_64 jammy build.
+	- Expected behavior: passes, as on trixie.
+	- Reproduced: 20261007, arm64 jammy debug build, in the full suite, 4 at once.
+	- Possible cause: jammy's GLib 2.72 reads key files differently from trixie's 2.84, in escapes or in locale names. Not looked at.
+	- Test case: rjmpxtbg itself.
+
+- On the arm64 box the keyboard menu test's icon view step can time out beside other tests.
+	- ID: 2026100708355547
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261007-083555
+	- Opened by: 2026100611482306
+	- Related IDs: 2026100520071435
+	- Target OS: Linux arm64
+	- Steps to reproduce: run the full suite on the arm64 debug build in the jammy image, 4 at once.
+	- Incorrect behavior: rjefm41d's icon view case timed out at step 5, waiting for the menu the Menu key opens. Seen once. It passed 3 runs of 3 alone.
+	- Expected behavior: passes.
+	- Reproduced: 20261007, once, in the full suite.
+	- Possible cause: the suite shares one display, and a menu whose grab goes to another test's window stays down. The Places focus probe does not wait for its menu to show, for that reason. Not shown here.
+	- Test case: rjefm41d itself.
+
+- On the arm64 box the Places focus test loses its click or its rename.
+	- ID: 2026100611482306
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The Linux suite passed 175 of 175 on 20261007.
+	- Needs external testing: done 20261007 on vmDebARM64.
+	- Priority|Severity: Low
 	- Opened: 20261006-114823
 	- Opened by: 2026100520071435
-	- Related IDs: 2026100520071435
+	- Related IDs: 2026100520071435, 2026100708355447, 2026100708355547
 	- Target OS: Linux arm64
 	- Incorrect behavior: rjedw75s times out at different steps, alone or beside other tests. 2 ways seen. A click on the Second place selects its row, but the window stays on First for a minute. Or Rename from the place's menu opens the edit field, and it closes again within 100 ms, with the focus back in the folder.
 	- Reproduced: 20261006, arm64 debug build in the jammy image, 4 runs of 6. Once the window sat on the same step for over 3 minutes with the box idle, so it is not speed.
+		- 20261007, same build: 6 runs of 6 alone, all at the click.
 	- Possible cause: for the rename, a focus change from the menu's grab reaching the window late and ending the edit. Draining the X server's events before the rename starts would show it. For the click, not looked at.
-	- Test case: rjedw75s.
+	- Actual cause: one bug in the app and one race in the test.
+		- The click: a bug in the app. A click on a place while the open folder is still loading starts the move to the place. The window looks at the place's folder from an idle, so on a busy or slow box the open folder's load can end first. The end of that load ended the move too, and the window stayed where it was. A folder of pictures switching itself to icon view at the end of its load did the same. Any user could hit it with a slow folder.
+		- The rename: the test. The probe starts Rename from a timer. The menu's grab takes the keyboard from the window, and on a slow box that timer ran before the window heard of it. Heard late, it ended the edit. A real click on the item always comes after the grab.
+	- Actual fix:
+		- The window no longer ends a move, or switches a folder of pictures to icon view, when the open folder's load ends while another location is on its way in.
+		- The probe catches up with the X server before it starts Rename.
+	- Swept: every place in `nemo-window-manage-views.c` that ends a move. The end of a load and the picture folder switch are fixed. A reload asked for meanwhile already waits for the move. A folder that is gone, a view switch by hand, and a failed move end it on purpose.
+	- Verified: on x86_64, rjedw75s fails 3 runs of 3 with either app change taken out, and at the rename with the probe change taken out. It passes after. On the arm64 box it passed 8 runs of 8 alone, and in the full suite there, 4 at once: 171 OK, 2 FAIL, 2 skipped. The 2 are filed as 2026100708355447 and 2026100708355547. Linux suite 175 of 175.
+	- Branch: vmbugs
+	- Commit: 632c295, 4893cf4
+	- Test case: rjedw75s, Places focus test. It now makes both orders happen on every box: the first folder is still loading at the first click, and its load ends before the window looks at the place. The menu is put away before the window hears of its grab. The first folder holds pictures, so the switch to icon view is covered too.
+	- Acceptance signoff: Self-closed: rjedw75s red before and green after on x86_64, and green on the arm64 box where it failed.
+	- Closed: 20261007-083555
 
 - On FreeBSD, BMP, ICO, XPM and PNM pictures get no thumbnail.
 	- ID: 2026100517134043
 	- Type: Bug
-	- Status: Queued
-	- Needs external testing: a FreeBSD box.
+	- Status: Done
+	- Needs local test suite run?: no. The Linux suite passed 175 of 175 on 20261007.
+	- Needs external testing: done 20261007 on vmFreeBSD.
 	- Priority|Severity: Low
 	- Opened: 20261005-171341
 	- Opened by: old-format item "Target: BSD"
-	- Related IDs: old-format item "Target: BSD"
+	- Related IDs: old-format item "Target: BSD", 2026100517134081
 	- Target OS: FreeBSD
 	- Steps to reproduce: open a folder holding a BMP on FreeBSD 15.1.
 	- Incorrect behavior: read only. The picture keeps its plain icon.
 	- Expected behavior: a thumbnail, as on Linux and Windows.
-	- Reproduced: no. Read from the loaders the gdk-pixbuf package installs, and seen in the thumbnail tests, where saving a BMP fails there.
+	- Reproduced: 20261007 on FreeBSD 15.1, with ImageMagick installed. The thumbnail factory made no picture for a BMP, ICO, XPM or PPM file.
 	- Possible cause: gdk-pixbuf 2.44 as packaged there has loaders for GIF, HEIF, JPEG, JPEG XL, PNG, TIFF, SVG and WMF only. The ImageMagick list in `nemo-magick.c` covers none of the missing ones.
-	- Test case: none yet, not started.
+	- Actual cause: gdk-pixbuf has left the ANI, BMP, ICO, ICNS, PNM, QTIF, TGA, XBM and XPM loaders out of its default build since 2.42.11. FreeBSD has them in a package of their own, `gdk-pixbuf-extra`, which was not installed. Any other system on a default build has the same gap.
+	- Decisions:
+		- A call made without asking: ImageMagick gets these formats only when gdk-pixbuf has no loader for the extension, not after a loader fails on a file. Linux and Windows, which have the loaders, are unchanged.
+		- ANI, ICNS and QTIF are left out, since ImageMagick does not read them. TGA was already on its list.
+	- Actual fix: both. BMP, ICO, CUR, XPM, XBM and the PNM family go to ImageMagick when gdk-pixbuf has no loader for the extension. gdk-pixbuf is asked once, at run time, which extensions it reads, so nothing depends on the OS. design.md "Building on FreeBSD" names `gdk-pixbuf-extra` as a run-time package, and the thumbnails design doc has the rule.
+	- Swept: every ImageMagick check in the thumbnail factory (can make, make) goes through `nemo_magick_type_ok`, which uses the same lookup. Windows uses the same list.
+	- Verified: rjnz8zfz fails before the fix and passes after, on Linux and on FreeBSD 15.1. The new case in rhg8y5f0 failed before on FreeBSD too. On FreeBSD the app showed BMP, ICO, PGM and PPM thumbnails. With `gdk-pixbuf-extra` installed there afterward, both tests pass and gdk-pixbuf reads those formats itself. FreeBSD suite 161 OK, 14 skipped. Linux suite 175 of 175.
+	- Note: the FreeBSD package, 2026100517134081, should depend on `gdk-pixbuf-extra`.
+	- Branch: vmbugs
+	- Commit: 1e233a2
+	- Test case: rjnz8zfz, ImageMagick for missing pixbuf loaders test, Linux and FreeBSD. gdk-pixbuf runs on a copy of its loader list with only PNG left, and BMP, ICO, XPM and PPM files still get thumbnails, through ImageMagick. rhg8y5f0 also checks that ImageMagick gets a BMP or XPM only where gdk-pixbuf has no loader for it.
+	- Acceptance signoff: Self-closed: rjnz8zfz red before and green after on Linux and FreeBSD, and the thumbnails seen in the app on FreeBSD.
+	- Closed: 20261007-082508
 
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440

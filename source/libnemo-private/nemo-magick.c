@@ -81,7 +81,7 @@ static const struct {
 };
 
 /* Formats gdk-pixbuf reads itself when it has the loader. Since 2.42.11 a
- * default build leaves these loaders out, and systems ship them as a package
+ * default build leaves these loaders out, and systems put them in a package
  * of their own that may not be there, so these are handed over only when no
  * loader claims the extension. */
 static const struct {
@@ -132,7 +132,9 @@ list_pixbuf_extensions (G_GNUC_UNUSED gpointer data)
 		}
 		extensions = gdk_pixbuf_format_get_extensions (l->data);
 		for (i = 0; extensions != NULL && extensions[i] != NULL; i++) {
-			g_hash_table_add (found, g_ascii_strdown (extensions[i], -1));
+			char *lower = g_ascii_strdown (extensions[i], -1);
+
+			g_hash_table_add (found, lower);
 		}
 	}
 	g_slist_free (formats);
