@@ -391,7 +391,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: on Windows the Scripts menu lists only files GLib calls executable, which is `.exe`, `.bat` and `.com` in lower case. Filed as 2026100707554200.
 	- Verified: rjnzpkk7 fails before the fix and passes after, natively on vm925w in session 0. With the old shared start all 15 checks failed. With the launcher before the batch fix the batch case failed, and with the first batch fix the batch run in a console lost `R&D %PATH% 100%`. rjmb3j8p and rjm4ctwh pass natively. In the desktop session, a console program double-clicked in the file list was started by Explorer, with a console window, in its own folder. The whole native suite: 152 OK, 0 failed, 12 skipped. The full Linux suite passed, 174 of 174. The widened lint failed with 4 list entries taken out, on a show-uri, a default app launch, an app launch by URI and a launch from a command line. The cross build and the Linux build are clean.
 	- Branch: winlow
-	- Commit: 00f70b0, 9a52a33, bb92f8b
+	- Commit: 00f70b0, 9a52a33, bb92f8b, 3613db3
 	- Test case: rjnzpkk7, Command launch win32 test, Windows only. A console program, a batch file at a path with spaces, and a batch file in a console, each given a name with a space, a full path with single backslashes, `R&D %PATH% 100%` and an apostrophe: arguments as given, the folder in view as working folder, no window or a console of its own, and who started it. Lint rjm8a6xr for the GLib launch calls.
 
 - On Windows, the Scripts menu lists only `.exe`, `.bat` and `.com` files named in lower case.
