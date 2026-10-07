@@ -399,6 +399,9 @@ main (int argc, char *argv[])
 		g_printerr ("FAIL: no scratch folder\n");
 		return 1;
 	}
+	/* GLib's user data folder on Windows is the real Local AppData unless
+	   this is set, and the helper and thumbnailer files go there. */
+	g_setenv ("XDG_DATA_HOME", scratch, TRUE);
 	g_setenv ("NEMO_FAKE_TOOL_DIR", scratch, TRUE);
 	/* Unpacking clears its own staging folder, which the guard would ask about. */
 	g_setenv ("NEMO_TESTGUARD_ALL_DELETES", "0", TRUE);
