@@ -62,9 +62,10 @@ cp "${REPO}/source/search-helpers/"*.nemo_search_helper \
 
 ## Runtime helper exes that GLib/GTK spawn or that nemo discovers as thumbnailers.
 ## bin is on PATH in the launched app, so these resolve; the thumbnailer .thumbnailer
-## descriptors come across with share/thumbnailers below.
+## descriptors come across with share/thumbnailers below. No gdk-pixbuf-thumbnailer,
+## since its descriptors are left out (include/thumbnailers.bash).
 helper_exes=(gdbus.exe gspawn-win64-helper.exe gspawn-win64-helper-console.exe
-	gdk-pixbuf-thumbnailer.exe gsf-office-thumbnailer.exe)
+	gsf-office-thumbnailer.exe)
 for h in "${helper_exes[@]}"; do
 	[[ -f "${MINGW}/bin/${h}" ]] && cp "${MINGW}/bin/${h}" "${DEST}/mingw64/bin/"
 done

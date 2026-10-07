@@ -137,6 +137,9 @@ done
 #	Normalize thumbnailer descriptors. Some bake an absolute /mingw64/bin/ exec
 #	path (dead in every real Windows layout); others already use a bare name. Strip
 #	the prefix so the exec resolves off PATH, where the thumbnailer exes always sit.
+#	The ones run by gdk-pixbuf-thumbnailer go, as in every Windows bundle: the app
+#	draws those pictures itself. cicd/utility/include/thumbnailers.bash has the
+#	same rules for the bundles; this script runs alone in the image build.
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 
 thumbDir="$SYSROOT/mingw64/share/thumbnailers"
@@ -149,6 +152,12 @@ if [[ -d "$thumbDir" ]]; then
 	if ((${#thumbFiles[@]})); then
 		fEcho "Normalizing thumbnailer exec paths"
 		sed -i 's#/mingw64/bin/##g' "${thumbFiles[@]}"
+		for t in "${thumbFiles[@]}"; do
+			if grep -q -E '^(TryExec|Exec)=gdk-pixbuf-thumbnailer([[:space:]]|$)' "$t"; then
+				fEcho "Leaving out ${t##*/}"
+				rm -f "$t"
+			fi
+		done
 	fi
 fi
 

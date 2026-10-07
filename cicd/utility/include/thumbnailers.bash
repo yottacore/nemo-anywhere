@@ -1,13 +1,19 @@
 #!/usr/bin/env bash
 
-##	- Purpose: Copy thumbnailer descriptors into a Windows bundle with bare
-##	  program names. MSYS2 ships some with `/mingw64/bin/...`, which names
-##	  nothing on a real Windows box, so the app skips them as missing.
-##	  fetch-sysroot.bash does the same for the cross sysroot with its own sed,
-##	  since it runs alone inside the image build.
-##	- fStageThumbnailers <src-dir> <dest-dir> -> copies every *.thumbnailer,
-##	  strips the folder off TryExec and Exec, and returns 1 when one still
-##	  names a folder.
+##	- Purpose: Copy thumbnailer descriptors into a Windows bundle.
+##	  - The ones run by gdk-pixbuf-thumbnailer (gdk-pixbuf's own, librsvg's)
+##	    are left out. The app draws the same pictures and SVG files itself,
+##	    with no program per file, and in the single exe a program packed
+##	    inside it can hit the packer's error box (2026100617051745).
+##	  - The rest get bare program names. MSYS2 ships some with
+##	    `/mingw64/bin/...`, which names nothing on a real Windows box.
+##	  - fetch-sysroot.bash does the same to the cross sysroot with its own
+##	    commands, since it runs alone inside the image build.
+##	- fIsPixbufThumbnailer <file> -> true when its TryExec or Exec program is
+##	  gdk-pixbuf-thumbnailer, with or without a folder or `.exe`.
+##	- fStageThumbnailers <src-dir> <dest-dir> -> copies every other
+##	  *.thumbnailer, strips the folder off TryExec and Exec, and returns 1 when
+##	  one still names a folder.
 ##	- Syntax: source this file; it defines functions only.
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
@@ -15,6 +21,10 @@
 ##		https://mit-license.org/
 ##	SPDX-License-Identifier: MIT
 
+
+fIsPixbufThumbnailer(){
+	grep -q -i -E '^(TryExec|Exec)=([^ ]*[/\\])?gdk-pixbuf-thumbnailer(\.exe)?([[:space:]]|$)' "$1"
+}
 
 fStageThumbnailers(){
 	local src="$1" dest="$2"
@@ -24,6 +34,7 @@ fStageThumbnailers(){
 	mkdir -p "$dest"
 	for d in "$src"/*.thumbnailer; do
 		[[ -f "$d" ]] || continue
+		if fIsPixbufThumbnailer "$d"; then continue; fi
 		cp "$d" "$dest/"
 		descriptors+=("$dest/${d##*/}")
 	done

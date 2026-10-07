@@ -658,6 +658,38 @@ close_valid (HANDLE handle)
 	}
 }
 
+/* Kill on close, so whatever is in it ends with us, however we end: a quit, a
+ * crash or a kill. A packed helper stuck on the packer's error box otherwise
+ * stayed up for good. The handle is never closed by hand, and is not
+ * inheritable, so nothing we start keeps it open.
+ * Returns: (transfer none): NULL when Windows refused one */
+static HANDLE
+helpers_job (void)
+{
+	static gsize once = 0;
+	static HANDLE job = NULL;
+
+	if (g_once_init_enter (&once)) {
+		JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits;
+		HANDLE made = CreateJobObjectW (NULL, NULL);
+
+		memset (&limits, 0, sizeof limits);
+		limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+		if (made != NULL &&
+		    !SetInformationJobObject (made, JobObjectExtendedLimitInformation, &limits, sizeof limits)) {
+			CloseHandle (made);
+			made = NULL;
+		}
+		if (made == NULL) {
+			g_debug ("no job for helper programs: %lu", (unsigned long) GetLastError ());
+		}
+		job = made;
+		g_once_init_leave (&once, 1);
+	}
+
+	return job;
+}
+
 /* Started directly, so in the single-exe build it is hooked like anything else
  * started that way. Neither broker can hand over a pipe, and a tool that only
  * reads files and writes to us does not mind the hooks. GLib's own spawn goes
@@ -665,16 +697,22 @@ close_valid (HANDLE handle)
  * own, and which never starts the tool at all from inside the single exe.
  *
  * Only the three handles given are inherited, so tools started at the same time
- * never hold each other's pipes open. */
+ * never hold each other's pipes open.
+ *
+ * A helper, which the app waits on or reads from, goes in helpers_job before it
+ * runs an instruction, so anything it starts is in there too. A user's own
+ * program is left out and outlives us, as it does on Linux. */
 static gboolean
 spawn_hidden (const gchar * const  *argv,
 	      const gchar          *workdir,
 	      HANDLE                in,
 	      HANDLE                out,
 	      HANDLE                err,
+	      gboolean              helper,
 	      HANDLE               *process_out,
 	      GError              **error)
 {
+	HANDLE job = helper ? helpers_job () : NULL;
 	LPPROC_THREAD_ATTRIBUTE_LIST attributes = NULL;
 	SIZE_T attributes_size = 0;
 	STARTUPINFOEXW startup;
@@ -746,10 +784,24 @@ spawn_hidden (const gchar * const  *argv,
 
 			started = CreateProcessW (wexe, wline, NULL, NULL, TRUE,
 						  CREATE_NO_WINDOW | CREATE_DEFAULT_ERROR_MODE |
-						  CREATE_UNICODE_ENVIRONMENT | EXTENDED_STARTUPINFO_PRESENT,
+						  CREATE_UNICODE_ENVIRONMENT | EXTENDED_STARTUPINFO_PRESENT |
+						  (job != NULL ? CREATE_SUSPENDED : 0),
 						  NULL, wdir, &startup.StartupInfo, &process);
 		}
 		DeleteProcThreadAttributeList (attributes);
+	}
+
+	if (started && job != NULL) {
+		/* Not fatal: the helper still runs, only without the tie. */
+		if (!AssignProcessToJobObject (job, process.hProcess)) {
+			g_debug ("helper %s not in the job: %lu", program, (unsigned long) GetLastError ());
+		}
+		if (ResumeThread (process.hThread) == (DWORD) -1) {
+			TerminateProcess (process.hProcess, 1);
+			CloseHandle (process.hThread);
+			CloseHandle (process.hProcess);
+			started = FALSE;
+		}
 	}
 
 	if (started) {
@@ -833,7 +885,7 @@ nemo_launch_win32_pipe (const gchar * const  *argv,
 			SetHandleInformation (out_read, HANDLE_FLAG_INHERIT, 0);
 		}
 		started = spawn_hidden (argv, NULL, input, out_write != NULL ? out_write : nowhere,
-					nowhere, &process, NULL);
+					nowhere, TRUE, &process, NULL);
 		close_valid (out_write);
 	}
 
@@ -939,7 +991,7 @@ nemo_launch_win32_spawn (const gchar * const  *argv,
 			set_failed (error, program);
 			started = FALSE;
 		} else {
-			started = spawn_hidden (argv, NULL, nowhere, nowhere, nowhere, &process, error);
+			started = spawn_hidden (argv, NULL, nowhere, nowhere, nowhere, FALSE, &process, error);
 		}
 		close_valid (process);
 		close_valid (nowhere);
@@ -1013,7 +1065,7 @@ nemo_launch_win32_child_start (const gchar * const  *argv,
 		err = err_theirs != INVALID_HANDLE_VALUE ? err_theirs
 		    : (flags & G_SUBPROCESS_FLAGS_STDERR_MERGE) != 0 ? out
 		    : nowhere;
-		ok = spawn_hidden (argv, workdir, nowhere, out, err, &process, error);
+		ok = spawn_hidden (argv, workdir, nowhere, out, err, TRUE, &process, error);
 	}
 
 	close_valid (nowhere);
