@@ -13,6 +13,9 @@
 #include <libnemo-private/nemo-file-operations.h>
 
 #include <glib.h>
+#ifdef G_OS_WIN32
+#include <libnemo-private/nemo-launch-win32.h>
+#endif
 
 G_DEFINE_TYPE (NemoTemplateConfigWidget, nemo_template_config_widget, NEMO_TYPE_CONFIG_BASE_WIDGET);
 
@@ -484,6 +487,15 @@ on_edit_template_clicked (G_GNUC_UNUSED GtkWidget *button, gpointer user_data)
     }
 
     TemplateInfo *info = g_object_get_data (G_OBJECT (row), "template-info");
+
+#ifdef G_OS_WIN32
+    GError *error = NULL;
+
+    if (!nemo_launch_win32_open_path (info->path, NULL, &error)) {
+        g_warning ("Could not open '%s': %s", info->path, error->message);
+        g_clear_error (&error);
+    }
+#else
     GFile *file = g_file_new_for_path (info->path);
     gchar *uri = g_file_get_uri (file);
     g_object_unref (file);
@@ -494,6 +506,7 @@ on_edit_template_clicked (G_GNUC_UNUSED GtkWidget *button, gpointer user_data)
     g_object_unref (context);
 
     g_free (uri);
+#endif
 }
 
 static void

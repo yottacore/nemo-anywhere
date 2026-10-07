@@ -49,6 +49,7 @@
 #include <libnemo-private/nemo-signaller.h>
 #ifdef G_OS_WIN32
 #include <libnemo-private/nemo-associations-win32.h>
+#include <libnemo-private/nemo-launch-win32.h>
 #endif
 #include <libnemo-private/nemo-mime-application-chooser.h>
 #ifdef G_OS_WIN32
@@ -1140,6 +1141,30 @@ activate_parameters_special_free (ActivateParametersSpecial *parameters_special)
     g_free (parameters_special);
 }
 
+/* On Windows the way a double-click in the shell starts it, so a console
+ * program gets its console window there as it would from Explorer. */
+static void
+launch_executable (G_GNUC_UNUSED GdkScreen *screen,
+		   const char *path,
+		   const char *directory,
+		   G_GNUC_UNUSED gboolean in_terminal)
+{
+#ifdef G_OS_WIN32
+	GError *error = NULL;
+
+	if (!nemo_launch_win32_open_path (path, directory, &error)) {
+		g_warning ("Could not start '%s': %s", path, error->message);
+		g_clear_error (&error);
+	}
+#else
+	char *quoted_path = g_shell_quote (path);
+
+	(void) directory;
+	nemo_launch_application_from_command (screen, quoted_path, in_terminal, NULL);
+	g_free (quoted_path);
+#endif
+}
+
 static void
 make_exec_callback (NemoFile *file,
                        G_GNUC_UNUSED GFile *res_loc,
@@ -1150,8 +1175,8 @@ make_exec_callback (NemoFile *file,
 
     if (error == NULL) {
         gchar *path = nemo_file_get_path (params->file);
-        nemo_launch_application_from_command (gtk_widget_get_screen (GTK_WIDGET (params->parent_window)),
-                                              path, FALSE, NULL);
+        launch_executable (gtk_widget_get_screen (GTK_WIDGET (params->parent_window)),
+                           path, NULL, FALSE);
         g_free (path);
     }
     nemo_report_error_setting_permissions (file, error, NULL);
@@ -1606,7 +1631,7 @@ activate_files (ActivateParameters *parameters)
 	GList *l;
 	int count;
 	char *uri;
-	char *executable_path, *quoted_path;
+	char *executable_path;
 	char *old_working_dir;
 	ActivationAction action;
 	GdkScreen *screen;
@@ -1698,12 +1723,10 @@ activate_files (ActivateParameters *parameters)
 
 		uri = nemo_file_get_activation_uri (file);
 		executable_path = g_filename_from_uri (uri, NULL, NULL);
-		quoted_path = g_shell_quote (executable_path);
 
-		DEBUG ("Launching file path %s", quoted_path);
+		DEBUG ("Launching file path %s", executable_path);
 
-		nemo_launch_application_from_command (screen, quoted_path, FALSE, NULL);
-		g_free (quoted_path);
+		launch_executable (screen, executable_path, parameters->activation_directory, FALSE);
 		g_free (executable_path);
 		g_free (uri);
 
@@ -1715,13 +1738,11 @@ activate_files (ActivateParameters *parameters)
 
 		uri = nemo_file_get_activation_uri (file);
 		executable_path = g_filename_from_uri (uri, NULL, NULL);
-		quoted_path = g_shell_quote (executable_path);
 
-		DEBUG ("Launching in terminal file quoted path %s", quoted_path);
+		DEBUG ("Launching in terminal file path %s", executable_path);
 
-		nemo_launch_application_from_command (screen, quoted_path, TRUE, NULL);
+		launch_executable (screen, executable_path, parameters->activation_directory, TRUE);
 
-		g_free (quoted_path);
 		g_free (executable_path);
 		g_free (uri);
 	}
