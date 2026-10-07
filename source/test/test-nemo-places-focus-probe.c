@@ -32,6 +32,9 @@
  * idle (2026100611482306). And the menu is put away before the window hears
  * of its grab. */
 
+/* RTLD_NEXT. */
+#define _GNU_SOURCE
+
 #include <dlfcn.h>
 #include <stdio.h>
 
