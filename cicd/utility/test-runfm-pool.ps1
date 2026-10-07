@@ -14,7 +14,7 @@
 ##		pwsh -NoProfile -File cicd/utility/test-runfm-pool.ps1
 ##	Test ID: rhtrxr83
 
-##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
+##	Copyright (c) 2026 t00mietum
 ##	Licensed under The MIT License (MIT). Full text at:
 ##		https://mit-license.org/
 ##	SPDX-License-Identifier: MIT

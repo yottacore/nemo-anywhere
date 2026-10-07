@@ -26,6 +26,7 @@
 #include "nemo-global-preferences.h"
 #include "nemo-column-utilities.h"
 #include "nemo-tool-run.h"
+#include "nemo-user-text.h"
 
 #include <limits.h>
 #include <stdlib.h>
@@ -175,9 +176,9 @@ process_search_helper_file (const gchar *path)
         goto done;
     }
 
-    /* A bare backslash, as in a Windows path, is a bad escape to GKeyFile, and
-       the whole list comes back NULL. Unchecked is not the same as found. */
-    try_exec_list = g_key_file_get_string_list (key_file, SEARCH_HELPER_GROUP, "TryExec", NULL, &error);
+    /* Off Windows a bare backslash is a bad escape to GKeyFile, and the whole
+       list comes back NULL. Unchecked is not the same as found. */
+    try_exec_list = nemo_user_text_get_string_list (key_file, SEARCH_HELPER_GROUP, "TryExec", NULL, &error);
 
     if (try_exec_list == NULL) {
         g_warning ("Nemo search_helper TryExec could not be read (%s) - %s",
@@ -206,14 +207,14 @@ process_search_helper_file (const gchar *path)
     }
 
     n_types = 0;
-    mime_types = g_key_file_get_string_list (key_file, SEARCH_HELPER_GROUP, "MimeType", &n_types, NULL);
+    mime_types = nemo_user_text_get_string_list (key_file, SEARCH_HELPER_GROUP, "MimeType", &n_types, NULL);
 
     if (n_types == 0) {
         g_warning ("Nemo search_helper no mimetypes defined - %s", path);
         goto done;
     }
 
-    exec_format = g_key_file_get_string (key_file, SEARCH_HELPER_GROUP, "Exec", NULL);
+    exec_format = nemo_user_text_get_string (key_file, SEARCH_HELPER_GROUP, "Exec", NULL);
 
     if (exec_format == NULL) {
         g_warning ("Nemo search_helper could not retrieve Exec field - %s", path);
@@ -768,7 +769,7 @@ get_stream_from_helper (SearchHelper *helper,
     gchar *ptr, *path, *quoted, *resolved;
 
     path = g_file_get_path (file);
-    quoted = g_shell_quote (path);
+    quoted = nemo_user_text_quote (path);
     g_free (path);
 
     command_line = g_string_new (helper->exec_format);
@@ -785,10 +786,10 @@ get_stream_from_helper (SearchHelper *helper,
         return NULL;
     }
 
-    if (!g_shell_parse_argv (command_line->str,
-                             NULL,
-                             &argv,
-                             error)) {
+    if (!nemo_user_text_split_command (command_line->str,
+                                       NULL,
+                                       &argv,
+                                       error)) {
         g_string_free (command_line, TRUE);
         g_free (quoted);
         return NULL;

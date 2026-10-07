@@ -555,6 +555,8 @@ Two settings decide how the app looks: a light or dark mode, and the widget and 
 
 - Both `/` and `\` work in typed locations on every platform, without reserving `\`. On Windows both are already native. On POSIX `\` is a legal filename character - files created over SMB shares really do contain it - so it is not reserved and no escape syntax is introduced. Typed input is normalized by fallback instead: the literal path is tried first, and only if it does not resolve is a `\` to `/` retry attempted. Pasted Windows paths work and real backslash filenames keep working.
 
+- On Windows, text a user writes takes a Windows path as written. That covers action, search helper, thumbnailer and link files, and the command lines and paths in the settings. A backslash there is a path character, never an escape: nobody means `\n` or `\t` in a path, and a path read as escapes breaks without a word. A file already written with every backslash doubled still reads right. A command line splits on blanks, and double quotes group words. On Linux those files keep the freedesktop spec's escapes. Text only the app writes and reads may keep escapes.
+
 - Desktop settings schemas are optional at runtime. Upstream read several Cinnamon and GNOME schemas that only exist on those desktops, and a missing schema is a hard abort in GLib. The app now looks a schema up before opening it, prefers the real one wherever the session provides it, and uses its own value everywhere else. Cinnamon integration is preserved and every other environment starts clean.
 
 - Virtual locations - network, computer, trash - are shown only where the running platform actually supports them, extending the runtime scheme check the codebase already had.

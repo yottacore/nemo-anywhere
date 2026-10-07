@@ -1352,6 +1352,15 @@ test('rhdg25n0 Uptime test',
   args: []
 )
 
+test('rjmpxtbg Windows paths in user text test',
+  executable('test-nemo-user-text',
+    [ 'test-nemo-user-text.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
 test('rexkeyng Command template test',
   executable('test-nemo-command-template',
     [ 'test-nemo-command-template.c' ],

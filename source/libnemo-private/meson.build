@@ -100,6 +100,7 @@ nemo_private_sources = [
   'nemo-undo-signal-handlers.c',
   'nemo-undo-transaction.c',
   'nemo-undo.c',
+  'nemo-user-text.c',
   'nemo-vfs-directory.c',
   'nemo-vfs-file.c',
   'nemo-widget-action.c',

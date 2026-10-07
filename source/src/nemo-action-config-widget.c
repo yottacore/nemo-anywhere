@@ -13,6 +13,7 @@
 #include <libnemo-private/nemo-action-manager.h>
 #include <libnemo-private/nemo-file-utilities.h>
 #include <libnemo-private/nemo-action-symbols.h>
+#include <libnemo-private/nemo-user-text.h>
 #include "nemo-global-preferences.h"
 
 G_DEFINE_TYPE (NemoActionConfigWidget, nemo_action_config_widget, NEMO_TYPE_CONFIG_BASE_WIDGET);
@@ -117,34 +118,32 @@ make_action_proxy (const gchar *filename, const gchar *fullpath)
 
     ActionProxy *proxy = g_new0 (ActionProxy, 1);
 
-    gchar *name = g_key_file_get_locale_string (key_file,
-                                                ACTION_FILE_GROUP,
-                                                KEY_NAME,
-                                                NULL,
-                                                NULL);
+    gchar *name = nemo_user_text_get_locale_string (key_file,
+                                                    ACTION_FILE_GROUP,
+                                                    KEY_NAME,
+                                                    NULL);
     if (name != NULL)
         proxy->name = g_strdup (name);
 
-    gchar *comment = g_key_file_get_locale_string (key_file,
-                                            ACTION_FILE_GROUP,
-                                            KEY_COMMENT,
-                                            NULL,
-                                            NULL);
+    gchar *comment = nemo_user_text_get_locale_string (key_file,
+                                                       ACTION_FILE_GROUP,
+                                                       KEY_COMMENT,
+                                                       NULL);
     if (comment != NULL)
         proxy->comment = g_strdup (comment);
 
 
-    gchar *icon_name = g_key_file_get_string (key_file,
-                                              ACTION_FILE_GROUP,
-                                              KEY_ICON_NAME,
-                                              NULL);
+    gchar *icon_name = nemo_user_text_get_string (key_file,
+                                                  ACTION_FILE_GROUP,
+                                                  KEY_ICON_NAME,
+                                                  NULL);
     if (icon_name != NULL)
         proxy->icon_name = g_strdup (icon_name);
 
-    gchar *stock_id = g_key_file_get_string (key_file,
-                                             ACTION_FILE_GROUP,
-                                             KEY_STOCK_ID,
-                                             NULL);
+    gchar *stock_id = nemo_user_text_get_string (key_file,
+                                                 ACTION_FILE_GROUP,
+                                                 KEY_STOCK_ID,
+                                                 NULL);
 
     if (stock_id != NULL)
         proxy->stock_id = g_strdup (stock_id);

@@ -32,6 +32,7 @@
 #include "nemo-file.h"
 #include "nemo-program-choosing.h"
 #include "nemo-icon-names.h"
+#include "nemo-user-text.h"
 #include <eel/eel-vfs-extensions.h>
 #include <glib/gi18n.h>
 #include <gio/gio.h>
@@ -166,9 +167,9 @@ slurp_key_string (const char *uri,
 	}
 
 	if (localize) {
-		result = g_key_file_get_locale_string (key_file, MAIN_GROUP, keyname, NULL, NULL);		
+		result = nemo_user_text_get_locale_string (key_file, MAIN_GROUP, keyname, NULL);
 	} else {
-		result = g_key_file_get_string (key_file, MAIN_GROUP, keyname, NULL);		
+		result = nemo_user_text_get_string (key_file, MAIN_GROUP, keyname, NULL);
 	}
 	g_key_file_free (key_file);
 
@@ -313,13 +314,13 @@ nemo_link_local_set_key (const char *uri,
 		return FALSE;
 	}
 	if (localize) {
-		g_key_file_set_locale_string (key_file,
-					      MAIN_GROUP,
-					      key,
-					      get_language (), 
-					      value);
+		nemo_user_text_set_locale_string (key_file,
+						  MAIN_GROUP,
+						  key,
+						  get_language (),
+						  value);
 	} else {
-		g_key_file_set_string (key_file, MAIN_GROUP, key, value);
+		nemo_user_text_set_string (key_file, MAIN_GROUP, key, value);
 	}
 	
 	
@@ -361,21 +362,33 @@ nemo_link_get_link_uri_from_desktop (GKeyFile *key_file, const char *desktop_fil
 
 	retval = NULL;
 
-	type = g_key_file_get_string (key_file, MAIN_GROUP, "Type", NULL);
+	type = nemo_user_text_get_string (key_file, MAIN_GROUP, "Type", NULL);
 	if (type == NULL) {
 		return NULL;
 	}
 
 	if (strcmp (type, "URL") == 0) {
 		/* Some old broken desktop files use this nonstandard feature, we need handle it though */
-		retval = g_key_file_get_string (key_file, MAIN_GROUP, "Exec", NULL);
+		retval = nemo_user_text_get_string (key_file, MAIN_GROUP, "Exec", NULL);
 	} else if ((strcmp (type, NEMO_LINK_GENERIC_TAG) == 0) ||
 		   (strcmp (type, NEMO_LINK_MOUNT_TAG) == 0) ||
 		   (strcmp (type, NEMO_LINK_TRASH_TAG) == 0) ||
 		   (strcmp (type, NEMO_LINK_HOME_TAG) == 0)) {
-		retval = g_key_file_get_string (key_file, MAIN_GROUP, "URL", NULL);
+		retval = nemo_user_text_get_string (key_file, MAIN_GROUP, "URL", NULL);
 	}
 	g_free (type);
+
+#ifdef G_OS_WIN32
+	/* "C:" reads as a URI scheme below. */
+	if (retval != NULL && g_path_is_absolute (retval)) {
+		char *uri = g_filename_to_uri (retval, NULL, NULL);
+
+		if (uri != NULL) {
+			g_free (retval);
+			retval = uri;
+		}
+	}
+#endif
 
 	if (retval != NULL && desktop_file_uri != NULL) {
 		/* Handle local file names.
@@ -406,7 +419,7 @@ nemo_link_get_link_uri_from_desktop (GKeyFile *key_file, const char *desktop_fil
 static char *
 nemo_link_get_link_name_from_desktop (GKeyFile *key_file)
 {
-	return g_key_file_get_locale_string (key_file, MAIN_GROUP, "Name", NULL, NULL);
+	return nemo_user_text_get_locale_string (key_file, MAIN_GROUP, "Name", NULL);
 }
 
 static GIcon *
@@ -417,7 +430,7 @@ nemo_link_get_link_icon_from_desktop (GKeyFile *key_file)
 	GIcon *icon;
 
 	/* Look at the Icon: key */
-	icon_str = g_key_file_get_string (key_file, MAIN_GROUP, "Icon", NULL);
+	icon_str = nemo_user_text_get_string (key_file, MAIN_GROUP, "Icon", NULL);
 
 	/* if it's an absolute path, return a GFileIcon for that path */
 	if (icon_str != NULL && g_path_is_absolute (icon_str)) {
@@ -429,7 +442,7 @@ nemo_link_get_link_icon_from_desktop (GKeyFile *key_file)
 		goto out;
 	}
 
-	type = g_key_file_get_string (key_file, MAIN_GROUP, "Type", NULL);
+	type = nemo_user_text_get_string (key_file, MAIN_GROUP, "Type", NULL);
 
 	if (icon_str == NULL) {
 		if (g_strcmp0 (type, "Application") == 0) {
@@ -571,7 +584,7 @@ nemo_link_get_link_info_given_file_contents (const char  *file_contents,
 	*icon = nemo_link_get_link_icon_from_desktop (key_file);
 
 	*is_launcher = FALSE;
-	type = g_key_file_get_string (key_file, MAIN_GROUP, "Type", NULL);
+	type = nemo_user_text_get_string (key_file, MAIN_GROUP, "Type", NULL);
 	if (g_strcmp0 (type, "Application") == 0 &&
 	    g_key_file_has_key (key_file, MAIN_GROUP, "Exec", NULL)) {
 		*is_launcher = TRUE;
@@ -579,16 +592,16 @@ nemo_link_get_link_info_given_file_contents (const char  *file_contents,
 	g_free (type);
 
 	*is_foreign = FALSE;
-	only_show_in = g_key_file_get_string_list (key_file, MAIN_GROUP,
-						   "OnlyShowIn", NULL, NULL);
+	only_show_in = nemo_user_text_get_string_list (key_file, MAIN_GROUP,
+						       "OnlyShowIn", NULL, NULL);
 	if (session && only_show_in && !(string_array_contains (only_show_in, session) ||
                                      string_array_contains (only_show_in, "GNOME"))) {
 		*is_foreign = TRUE;
 	}
 	g_strfreev (only_show_in);
 
-	not_show_in = g_key_file_get_string_list (key_file, MAIN_GROUP,
-						  "NotShowIn", NULL, NULL);
+	not_show_in = nemo_user_text_get_string_list (key_file, MAIN_GROUP,
+						      "NotShowIn", NULL, NULL);
 	if (session && not_show_in && string_array_contains (not_show_in, session)) {
 		*is_foreign = TRUE;
 	}

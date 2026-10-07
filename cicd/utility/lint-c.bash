@@ -1258,6 +1258,37 @@ fCheckMountList(){
 }
 fRun fCheckMountList
 
+## A file or command line a user writes takes a Windows path as written there,
+## and GKeyFile and g_shell_parse_argv both read a backslash as an escape. So
+## those go through nemo-user-text.c, and the rest are on this list with why
+## the text is not the user's.
+## Test ID: rjmqp83c
+fCheckUserText(){
+	local allowed=' '
+	allowed+='nemo-user-text.c:nemo_user_text_get_string '						# the one place that calls them
+	allowed+='nemo-user-text.c:nemo_user_text_get_locale_string '				# same
+	allowed+='nemo-user-text.c:nemo_user_text_get_string_list '				# same
+	allowed+='nemo-user-text.c:nemo_user_text_split_command '					# same
+	allowed+='nemo-appearance.c:icon_theme_index '								# a theme's index.theme, which follows the spec
+	allowed+='nemo-appearance.c:scan_add '										# same
+	allowed+='nemo-bookmark-list.c:load_bookmark_metadata_file '				# written by the app itself
+	local bad
+
+	bad="$(find source/src source/libnemo-private source/libnemo-extension source/eel \( -name '*.c' -o -name '*.h' \) -exec awk -v allowed="$allowed" '
+		FNR == 1 { fn = ""; base = FILENAME; sub(/.*\//, "", base) }
+		/^[a-zA-Z_][a-zA-Z0-9_]* *\(/ { fn = $1; sub(/\(.*/, "", fn) }
+		/(^|[^A-Za-z0-9_])(g_key_file_get_(locale_)?string(_list)?|g_shell_parse_argv) *\(/ {
+			if (index(allowed, " " base ":" fn " ") == 0) print FILENAME ":" FNR ": " $0
+		}
+	' {} +)"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: user text read through GKeyFile or g_shell_parse_argv; use nemo-user-text.h, or add it to the list in lint-c.bash"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fRun fCheckUserText
+
 ## Under MSYS2, use the Windows git that made this checkout - the msys one has
 ## its own HOME/config, so its line-ending view marks every CRLF file modified.
 GIT=(git)
