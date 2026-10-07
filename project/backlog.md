@@ -222,7 +222,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - With per-folder settings off, Reset view keeps a folder's sort column.
 	- ID: 2026100706523594
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
+	- Needs local test suite run?: done 20261007, 175 of 175.
 	- Priority|Severity: Low
 	- Opened: 20261007-065235
 	- Opened by: 2026100613285826
@@ -233,6 +234,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the folder goes back to the default sort order, Name.
 	- Reproduced: 20261007, Linux.
 	- Possible cause: Reset view clears the window's sort column by setting it to nothing, and the window's setter ignores nothing, so the old column stays.
+	- Actual cause: as above. The direction has its own "not set" value, so it did go back.
+	- Actual fix: the window's sort column setter takes nothing as "forget it", so Reset view drops the column and the folder goes back to the default sort.
+	- Swept: Reset view in the icon and compact views with per-folder settings off and on, and in the list view with them on. All were already right. The other window settings a reset clears (zoom, column order, shown columns) already take nothing. The window's view type setter also ignores nothing, but no caller ever hands it nothing. Find mode's own sort was not touched.
+	- Test case: rjnzamsq. It covers the list, icon and compact views, each with per-folder settings off and on.
+	- Verified: rjnzamsq failed before the fix, in the list view with per-folder settings off only, and passes after, 4 runs in a row. The nearby list view, column, search and held view tests pass. Full Linux suite 175 of 175. Lint is clean.
+	- Branch: sortreset
+	- Commit: 90e48b1
+	- Acceptance signoff: Self-closed: the intent was clear, and rjnzamsq checks it.
+	- Closed: 20261007-073556
 
 - On Windows, the C lint finds problems in files nobody changed, so a lint there that covers them fails.
 	- ID: 2026100703330508
