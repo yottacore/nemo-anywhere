@@ -1387,6 +1387,16 @@ test('rjmpxtbg Windows paths in user text test',
   args: []
 )
 
+test('rjpr3nzy Link file type test',
+  executable('test-nemo-link-type',
+    [ 'test-nemo-link-type.c', '../src/nemo-desktop-item-properties.c' ],
+    include_directories: [ rootInclude, include_directories('../src') ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+    c_args: nemo_definitions,
+  ),
+  args: []
+)
+
 test('rexkeyng Command template test',
   executable('test-nemo-command-template',
     [ 'test-nemo-command-template.c' ],

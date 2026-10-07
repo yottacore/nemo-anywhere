@@ -838,9 +838,12 @@ get_activation_action (NemoFile *file, gboolean is_desktop)
 	ActivationAction action;
 	char *activation_uri;
 
+#ifdef G_OS_UNIX
+	/* Elsewhere a launcher opens like any other file, since nothing runs it. */
 	if (nemo_file_is_nemo_link (file)) {
 		return ACTIVATION_ACTION_LAUNCH_DESKTOP_FILE;
 	}
+#endif
 
 	activation_uri = nemo_file_get_activation_uri (file);
 	if (activation_uri == NULL) {

@@ -3707,14 +3707,6 @@ file_is_shortcut (NemoFile *file)
 	if (name_has_lnk (file->details->name)) {
 		return TRUE;
 	}
-#ifdef G_OS_WIN32
-	/* mime_type is the extension on Windows rather than a media type, so the
-	   .desktop test below never answers yes there. */
-	if (name_has_extension (file->details->name, ".desktop")) {
-		return TRUE;
-	}
-#endif
-
 	return is_desktop_file (file);
 }
 
@@ -8682,10 +8674,8 @@ nemo_file_get_symbolic_link_target_uri (NemoFile *file)
 gboolean
 nemo_file_is_nemo_link (NemoFile *file)
 {
-	if (file->details->mime_type == NULL) {
-		return FALSE;
-	}
-	return g_content_type_equals (file->details->mime_type, "application/x-desktop");
+	/* Equal, not is_a: a .theme file is a kind of desktop file and no link. */
+	return nemo_content_type_equals (file->details->mime_type, "application/x-desktop");
 }
 
 /**
