@@ -42,7 +42,7 @@ typedef enum {
 NemoDriveWin32Kind nemo_drive_win32_kind (char letter);
 
 /* Whether a drive has a disk in it, asked with the shell's insert-disk prompt
-   off, so an empty card reader just says no. */
+   off, so an empty card reader says no. */
 gboolean nemo_drive_win32_has_media (char letter);
 
 /* Whether a drive's bin may be asked about: a fixed drive, or a removable one
