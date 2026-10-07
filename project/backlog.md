@@ -36,8 +36,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Two tests fail on the release build made in the jammy image.
 	- ID: 2026100520071433
 	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: rjbkzwe7 and rhe0xz32 on the arm64 release build in the jammy image on vmDebARM64. rhe0xz32 in one native Windows suite run.
+	- Status: Done
+	- Needs external testing: none left. Ran on vmDebARM64 and vm925w on 20261007.
 	- Priority|Severity: Avg
 	- Opened: 20261005-200714
 	- Opened by: arm64 release build
@@ -54,15 +54,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: the other heap reader, the list read check in rdjjz89r, has a 4 MB margin and passed on jammy. Both icon lookup paths, by name and from a file, have the guard.
 	- Test case: rjbkzwe7 and rhe0xz32 themselves. rhe0xz32 has a new case for a lookup that finds no icon, which only an older GTK reaches.
 	- Verified: on a fresh jammy release build, x86_64, both failed before the fix and pass after. The new case fails with the old lookup on jammy, on 5 criticals. The jammy release suite passed 169 of 171, with 1 skip (ImageMagick) and rg3wt7d9 timing out under load; it passed alone in 16 s, and in the full run before. The full Linux suite in `nemo-build` passed 171 of 171. rhe0xz32 passes in the Windows cross build under wine. Lint is clean.
+	- Verified: 20261007, at 585f825: rjbkzwe7 and rhe0xz32 pass on a fresh arm64 release build in the jammy image on vmDebARM64, and the whole suite there had no failures, 174 OK, 2 skipped (ImageMagick, not in the image). rhe0xz32 passes natively on vm925w, in a native suite with no failures, 154 OK, 11 skipped.
 	- Branch: jammytests
 	- Commit: 307c84c
+	- Acceptance signoff: Self-closed: both tests failed before the fix and pass after, on x86_64 and arm64 jammy release builds and natively on Windows, and nothing is left to judge on screen.
+	- Closed: 20261007-121720
 
 - On Windows, a path with single backslashes in a file or setting a user writes is read as escapes.
 	- ID: 2026100702343600
 	- Type: Bug
-	- Status: Waiting for testing
+	- Status: Queued
 	- Needs local test suite run?: no. The full Linux suite passed on the final tree, 174 of 174.
-	- Needs external testing: by hand on Windows, in the desktop session. A bulk rename tool set as a full path with spaces, quoted, on 2 files. A custom command in Open With typed as a full path. A link file's properties page edited and saved, with a path in it.
+	- Needs external testing: by hand on Windows, in the desktop session: a link file's properties page edited and saved, with a path in it. The bulk rename and Open With checks passed on 20261007.
 	- Priority|Severity: Avg
 	- Opened: 20261007-023436
 	- Opened by: t00mietum
@@ -105,6 +108,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The settings layer adds no escapes of its own. See the note.
 	- Note: SHCL reads `\t`, `\n`, `\\`, `\"` and `\'` as escapes inside double quotes, so a hand-written `"C:\temp\new"` in the settings file reads with a tab and a line break. Bare and single-quoted text is read as written. A file with no format line is read by the 2.x rules at startup, where a backslash in bare text is an escape too (2026100314515200). Left for the SHCL upgrade that drops backslash escapes.
 	- Verified: each new test case below failed under wine before the fix and passes after. Natively on vm925w the 6 tests pass, and the whole suite was 152 OK, 0 failed, 11 skipped, with no `g_strv_length` critical. The Windows suite under wine fails the same 17 tests as before this change, all link and registry gaps in wine. The new lint check failed with one direct read put back. The rule cases in rjmpxtbg failed with pairs not halved, and with a backslash read as an escape. Lint is clean here and on vm925w.
+	- Verified: 20261007, Windows, at 585f825, in the desktop session on vm925w: a bulk rename tool set as a quoted full path with a space in it ran on 2 selected files, one with `&` in its name, and got each as a full path. A custom command typed in Open With as a full path was taken, and ran on the file.
+	- Note: 20261007, failed on vm925w: the properties window of a `.desktop` link file has no URL or Comment field, so the save could not be tried. Going by the code, the page is offered only when the file's type reads as a link file, and Windows has no type registered for `.desktop`. The app still shows the file as a link in the list.
 	- Branch: winpaths
 	- Commit: d824d17, f34cc1c, 59295bb
 	- Test case:
@@ -119,9 +124,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On arm64 a crash report after a call through a null pointer keeps too few frames.
 	- ID: 2026100520071434
 	- Type: Bug
-	- Status: Waiting for testing
+	- Status: Done
 	- Needs local test suite run?: no. The Linux suite passed 171 of 171 on x86_64 on 20261006, on the merged tree, and the Windows cross build was clean.
-	- Needs external testing: rge1srj8 on an arm64 release build, at the next arm64 release run. It was only run on a debug build there.
+	- Needs external testing: none left. Ran on an arm64 release build on 20261007.
 	- Priority|Severity: Low
 	- Opened: 20261005-200714
 	- Opened by: arm64 release build
@@ -133,16 +138,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual fix: on Linux arm64 the reporter points the interrupted pc at the call, 4 bytes before x30, for the length of the walk, and puts it back after. The x86_64 and FreeBSD amd64 lines are unchanged.
 	- Swept: `nemo-crash.c` is the only place that steps past a bad jump. Windows walks with its own unwinder. FreeBSD arm64 is left out, with no box to try it on.
 	- Verified: rge1srj8 fails before the fix and passes after, on the arm64 debug build. The recovered frame resolves to the null call's line in the test, then `main` and libc.
+	- Verified: 20261007, at 585f825: rge1srj8 passes on a fresh arm64 release build in the jammy image on vmDebARM64, in a full suite with no failures.
 	- Branch: armfix
 	- Commit: 7f546d8
 	- Test case: rge1srj8.
+	- Acceptance signoff: Self-closed: reproduced, rge1srj8 failed before the fix and passes after, on the debug and release builds, and nothing is left to judge on screen.
+	- Closed: 20261007-121720
 
 - On a slow arm64 box some tests miss their time limits.
 	- ID: 2026100520071435
 	- Type: Bug
-	- Status: Waiting for testing
+	- Status: Done
 	- Needs local test suite run?: no. The Linux suite passed 171 of 171 on x86_64 on 20261006, on the merged tree, so the limits held there, and the Windows cross build was clean.
-	- Needs external testing: the suite on an arm64 release build. It was only run on a debug build there.
+	- Needs external testing: none left. Ran on an arm64 release build on 20261007.
 	- Priority|Severity: Low
 	- Opened: 20261005-200714
 	- Opened by: arm64 release build
@@ -169,9 +177,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The reference is 3 ms, a bit over the dev box's 2 ms, so a busy dev box keeps the limits as written. A call made without asking.
 	- Swept: rjf00qfj uses the same probe's menus command, and it now waits for the tab bar as well. The other step limits in the GUI probes were left alone, since no run showed one too short.
 	- Verified: on the arm64 debug build, 4 tests at once, rhg7vh28, rj9v7n76, rhr6ggmt, rjbpyy28, rjefm41d and rhmr6qgs pass. rj04ta3n passed 3 runs of 3 beside the archive tests. The full suite there, 4 at once: 166 OK, 4 FAIL, 1 skipped, against 12 FAIL before. The 4 left are rjbkzwe7 and rhe0xz32 (2026100520071433), rgahvdsr (2026100611482436) and rjedw75s (2026100611482306).
+	- Verified: 20261007, at 585f825: on a fresh arm64 release build in the jammy image on vmDebARM64, 4 tests at once, the whole suite had no failures, 174 OK, 2 skipped (ImageMagick, not in the image), in 438 s. Every test named above passed, rjefm41d included.
 	- Branch: armfix
 	- Commit: 7f546d8
 	- Test case: the tests named above.
+	- Acceptance signoff: Self-closed: the limits now follow the box's measured speed, and the whole suite passes on the slow box's release build with nothing to judge on screen.
+	- Closed: 20261007-121720
 
 - On Windows, the trash icon leaves out removable drives.
 	- ID: 2026100708294146
@@ -193,6 +204,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: by default Windows keeps no Recycle Bin on a removable drive and deletes there for good. The `RecycleBinDrives` policy gives them one.
 	- Swept: every other volume and bin call. The shortcut icon check already turns the prompt off, the side pane asks only fixed drives for their label, and the link check asks only the folder in view.
 	- Verified: rjhvmm6f fails under wine with the old fixed-only rule, on 2 drives set as removable, and passes with the fix. Natively on vm925w it passes in session 0 and in the desktop session: the empty optical drive answered empty in 1 ms, no dialog came up, and the trash state took 11 ms with b23 blocked behind Q: and R:. The cross build is clean.
+	- Note: 20261007, still no removable drive on either box: vm925w has 2 fixed drives, an empty optical drive and 2 mapped drives, and b29w has only C:. rjhvmm6f passes in the native suite on vm925w at 585f825.
 	- Branch: winlow
 	- Commit: 0dab690
 	- Test case: rjhvmm6f, Mapped drive not asked, new bin cases: a fixed drive's bin is asked, a removable one's only with a disk in it, an empty drive answers in under 2 s, and no share or optical drive is asked.
@@ -200,9 +212,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, scripts and the bulk rename tool start through GLib, not the launcher.
 	- ID: 2026100616310432
 	- Type: Bug
-	- Status: Waiting for testing
+	- Status: Done
 	- Needs local test suite run?: done 20261007, 174 of 174. On Linux a program started from the tree or after making it executable now gets its path quoted, as the other callers already did.
-	- Needs external testing: on vm925w in the desktop session, by hand: a `.bat` in the scripts folder run from the Scripts menu on 2 selected files, one with `&` in its name. Edit in the templates page of preferences.
+	- Needs external testing: none left. Ran on vm925w on 20261007.
 	- Priority|Severity: Low
 	- Opened: 20261006-163104
 	- Opened by: 2026100615255305
@@ -228,16 +240,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Both launcher routes for a batch file, with no window and in a console.
 	- Note: on Windows the Scripts menu lists only files GLib calls executable, which is `.exe`, `.bat` and `.com` in lower case. Filed as 2026100707554200.
 	- Verified: rjnzpkk7 fails before the fix and passes after, natively on vm925w in session 0. With the old shared start all 15 checks failed. With the launcher before the batch fix the batch case failed, and with the first batch fix the batch run in a console lost `R&D %PATH% 100%`. rjmb3j8p and rjm4ctwh pass natively. In the desktop session, a console program double-clicked in the file list was started by Explorer, with a console window, in its own folder. The whole native suite: 152 OK, 0 failed, 12 skipped. The full Linux suite passed, 174 of 174. The widened lint failed with 4 list entries taken out, on a show-uri, a default app launch, an app launch by URI and a launch from a command line. The cross build and the Linux build are clean.
+	- Verified: 20261007, Windows, at 585f825, in the desktop session on vm925w: a `.bat` in the scripts folder ran from the Scripts menu on 2 selected files, one named `R&D notes.txt`, and got both names whole, in the folder in view. Edit content on the templates page handed the template to the shell's open, started by Explorer, and a `.png` template opened in its viewer. For `.txt` and `.ini` that box has no default program, so Windows asked which app to use, the same as when Explorer opens those files. rjnzpkk7 passes in the native suite there.
 	- Branch: winlow
 	- Commit: 00f70b0, 9a52a33, bb92f8b, 3613db3
 	- Test case: rjnzpkk7, Command launch win32 test, Windows only. A console program, a batch file at a path with spaces, and a batch file in a console, each given a name with a space, a full path with single backslashes, `R&D %PATH% 100%` and an apostrophe: arguments as given, the folder in view as working folder, no window or a console of its own, and who started it. Lint rjm8a6xr for the GLib launch calls.
+	- Acceptance signoff: Self-closed: rjnzpkk7 passes natively, and both paths were seen working on screen on Windows.
+	- Closed: 20261007-112231
 
 - On Windows, the Scripts menu lists only `.exe`, `.bat` and `.com` files named in lower case.
 	- ID: 2026100707554200
 	- Type: Bug
-	- Status: Waiting for testing
+	- Status: Done
 	- Needs local test suite run?: no. Windows only; the Linux suite passed on the branch.
-	- Needs external testing: on vm925w, rjp4ch0y in the native suite. By hand in the desktop session: `tidy.cmd`, `TIDY.BAT` and `hello.vbs` in the scripts folder are listed in the Scripts menu, and each runs from it on a selected file. `tidy.ps1` is not listed.
+	- Needs external testing: none left. Ran on vm925w on 20261007.
 	- Priority|Severity: Low
 	- Opened: 20261007-075542
 	- Opened by: 2026100616310432
@@ -257,16 +272,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A call made without asking: a double-click on such a file now runs it, through the shell's open, the way Explorer does. Going by the code, a `.cmd` or a capitalized `.BAT` went to the app chooser's default before.
 	- Swept: both callers of the launchable check, the Scripts menu and a double-click. No other code asks GLib whether a type can run. The launcher already matched `.bat` and `.cmd` in any case.
 	- Verified: rjp4ch0y failed under wine before the fix, 11 checks, and passes after. The Windows cross build is clean.
+	- Verified: 20261007, Windows, at 585f825: rjp4ch0y passes natively on vm925w, and the whole native suite had no failures, 154 OK, 11 skipped. In the desktop session `tidy.cmd`, `TIDY.BAT` and `hello.vbs` were listed in the Scripts menu, and each ran from it on a selected file, in the folder in view. With the stock `PATHEXT`, `tidy.ps1` was not listed. vm925w's own `PATHEXT` adds `.PS1`, so there it is listed, as the Decisions row says.
 	- Branch: smallfix
 	- Commit: 5c3b248
 	- Test case: rjp4ch0y, Launchable win32 test, Windows only: names on the default Windows list in mixed case are launchable, `.ps1`, `.txt`, a name with no extension and a folder named `.exe` are not, a user's own list with odd case and spaces is followed, and cmd's list is used when `PATHEXT` is unset.
+	- Acceptance signoff: Self-closed: rjp4ch0y passes natively, and the Scripts menu was seen on screen on Windows.
+	- Closed: 20261007-112231
 
 - On Linux arm64 (jammy), the Windows paths in user text test fails 2 checks.
 	- ID: 2026100708355447
 	- Type: Bug
-	- Status: Waiting for testing
+	- Status: Done
 	- Needs local test suite run?: no. Done on jammy and trixie, as in Verified.
-	- Needs external testing: rjmpxtbg on the arm64 jammy build on vmDebARM64.
+	- Needs external testing: none left. Ran on vmDebARM64 on 20261007.
 	- Priority|Severity: Low
 	- Opened: 20261007-083554
 	- Opened by: 2026100611482306
@@ -286,9 +304,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A call made without asking: the newer GLib's reading is the one kept everywhere, jammy and Windows included. The release build runs on both old and new systems, so one rule is less surprising.
 	- Swept: every reader in `nemo-user-text.c`. A list already came back empty on 2.72. Theme index files and the bookmark metadata file still read through GKeyFile directly, on purpose (2026100702343600), so a theme's `Name[C]` still follows the GLib it runs on.
 	- Verified: on a fresh x86_64 jammy debug build, rjmpxtbg failed before the fix and passes after, with no language set, `C.UTF-8` and `de_DE.UTF-8`. The 2 new C cases fail there before the fix, and under wine before the fix too. The jammy suite: 174 OK, 2 skipped (ImageMagick), 0 failed. The trixie suite: 176 of 176. The Windows cross build is clean, and rjmpxtbg passes under wine.
+	- Verified: 20261007, at 585f825: rjmpxtbg passes on a fresh arm64 release build in the jammy image on vmDebARM64, in a full suite with no failures, and natively on vm925w.
 	- Branch: smallfix
 	- Commit: 5c3b248
 	- Test case: rjmpxtbg, Windows paths in user text test. New cases: a `key[C]` line is never read, and a C translation is written as the plain value.
+	- Acceptance signoff: Self-closed: reproduced, rjmpxtbg failed before the fix and passes after, on x86_64 and arm64 jammy builds, and nothing is left to judge on screen.
+	- Closed: 20261007-121720
 
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440
