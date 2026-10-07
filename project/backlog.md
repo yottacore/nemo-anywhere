@@ -304,7 +304,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The window no longer ends a move, or switches a folder of pictures to icon view, when the open folder's load ends while another location is on its way in.
 		- The probe catches up with the X server before it starts Rename.
 	- Swept: every place in `nemo-window-manage-views.c` that ends a move. The end of a load and the picture folder switch are fixed. A reload asked for meanwhile already waits for the move. A folder that is gone, a view switch by hand, and a failed move end it on purpose.
-	- Verified: on x86_64, rjedw75s fails 3 runs of 3 with either app change taken out, and at the rename with the probe change taken out. It passes after. On the arm64 box it passed 8 runs of 8 alone, and in the full suite there, 4 at once: 171 OK, 2 FAIL, 2 skipped. The 2 are filed as 2026100708355447 and 2026100708355547. Linux suite 175 of 175.
+	- Verified: on x86_64, rjedw75s fails 3 runs of 3 with either app change taken out, and at the rename with the probe change taken out. It passes after. On the arm64 box it passed 8 runs of 8 alone, and in the full suite there, 4 at once: 171 OK, 2 FAIL, 2 skipped. The 2 are filed as 2026100708355447 and 2026100708355547. Linux suite 175 of 175, and the Windows cross build is clean.
 	- Branch: vmbugs
 	- Commit: 632c295, 4893cf4
 	- Test case: rjedw75s, Places focus test. It now makes both orders happen on every box: the first folder is still loading at the first click, and its load ends before the window looks at the place. The menu is put away before the window hears of its grab. The first folder holds pictures, so the switch to icon view is covered too.
@@ -333,10 +333,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- ANI, ICNS and QTIF are left out, since ImageMagick does not read them. TGA was already on its list.
 	- Actual fix: both. BMP, ICO, CUR, XPM, XBM and the PNM family go to ImageMagick when gdk-pixbuf has no loader for the extension. gdk-pixbuf is asked once, at run time, which extensions it reads, so nothing depends on the OS. design.md "Building on FreeBSD" names `gdk-pixbuf-extra` as a run-time package, and the thumbnails design doc has the rule.
 	- Swept: every ImageMagick check in the thumbnail factory (can make, make) goes through `nemo_magick_type_ok`, which uses the same lookup. Windows uses the same list.
-	- Verified: rjnz8zfz fails before the fix and passes after, on Linux and on FreeBSD 15.1. The new case in rhg8y5f0 failed before on FreeBSD too. On FreeBSD the app showed BMP, ICO, PGM and PPM thumbnails. With `gdk-pixbuf-extra` installed there afterward, both tests pass and gdk-pixbuf reads those formats itself. FreeBSD suite 161 OK, 14 skipped. Linux suite 175 of 175.
+	- Verified: rjnz8zfz fails before the fix and passes after, on Linux and on FreeBSD 15.1. The new case in rhg8y5f0 failed before on FreeBSD too. On FreeBSD the app showed BMP, ICO, PGM and PPM thumbnails. With `gdk-pixbuf-extra` installed there afterward, both tests pass and gdk-pixbuf reads those formats itself. FreeBSD suite 161 OK, 14 skipped. Linux suite 175 of 175, and the Windows cross build is clean.
 	- Note: the FreeBSD package, 2026100517134081, should depend on `gdk-pixbuf-extra`.
 	- Branch: vmbugs
-	- Commit: 1e233a2
+	- Commit: 1e233a2, 6c2c6ed
 	- Test case: rjnz8zfz, ImageMagick for missing pixbuf loaders test, Linux and FreeBSD. gdk-pixbuf runs on a copy of its loader list with only PNG left, and BMP, ICO, XPM and PPM files still get thumbnails, through ImageMagick. rhg8y5f0 also checks that ImageMagick gets a BMP or XPM only where gdk-pixbuf has no loader for it.
 	- Acceptance signoff: Self-closed: rjnz8zfz red before and green after on Linux and FreeBSD, and the thumbnails seen in the app on FreeBSD.
 	- Closed: 20261007-082508
