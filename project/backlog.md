@@ -340,6 +340,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: both callers of the launchable check, the Scripts menu and a double-click. No other code asks GLib whether a type can run. The launcher already matched `.bat` and `.cmd` in any case.
 	- Verified: rjp4ch0y failed under wine before the fix, 11 checks, and passes after. The Windows cross build is clean.
 	- Branch: smallfix
+	- Commit: 5c3b248
 	- Test case: rjp4ch0y, Launchable win32 test, Windows only: names on the default Windows list in mixed case are launchable, `.ps1`, `.txt`, a name with no extension and a folder named `.exe` are not, a user's own list with odd case and spaces is followed, and cmd's list is used when `PATHEXT` is unset.
 
 - On Linux arm64 (jammy), the Windows paths in user text test fails 2 checks.
@@ -368,6 +369,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: every reader in `nemo-user-text.c`. A list already came back empty on 2.72. Theme index files and the bookmark metadata file still read through GKeyFile directly, on purpose (2026100702343600), so a theme's `Name[C]` still follows the GLib it runs on.
 	- Verified: on a fresh x86_64 jammy debug build, rjmpxtbg failed before the fix and passes after, with no language set, `C.UTF-8` and `de_DE.UTF-8`. The 2 new C cases fail there before the fix, and under wine before the fix too. The jammy suite: 174 OK, 2 skipped (ImageMagick), 0 failed. The trixie suite: 176 of 176. The Windows cross build is clean, and rjmpxtbg passes under wine.
 	- Branch: smallfix
+	- Commit: 5c3b248
 	- Test case: rjmpxtbg, Windows paths in user text test. New cases: a `key[C]` line is never read, and a C translation is written as the plain value.
 
 - On the arm64 box the keyboard menu test's icon view step can time out beside other tests.
