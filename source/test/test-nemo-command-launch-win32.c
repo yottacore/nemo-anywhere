@@ -99,6 +99,15 @@ started_by_broker (const char *tool)
 	       strstr (text, "\nparent=wmiprvse.exe\n") != NULL;
 }
 
+/* Wine gives a batch file's child a console window of its own. */
+static gboolean
+under_wine (void)
+{
+	HMODULE ntdll = GetModuleHandleW (L"ntdll.dll");
+
+	return ntdll != NULL && GetProcAddress (ntdll, "wine_get_version") != NULL;
+}
+
 static char *
 place (const char *from_path, const char *name)
 {
@@ -187,7 +196,7 @@ main (int argc, char *argv[])
 	check (reported ("viacmd", "arg=two words"));
 	check (reported ("viacmd", "arg=C:\\plain\\path"));
 	check (reported ("viacmd", "arg=R&D %PATH% 100%"));
-	check (reported ("viacmd", "window=0"));
+	check (under_wine () || reported ("viacmd", "window=0"));
 	check (reported ("viacmd", cwd_line));
 	check (started_by ("viacmd", "cmd.exe"));
 	g_clear_pointer (&quoted, g_free);

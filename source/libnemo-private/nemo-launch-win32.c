@@ -587,10 +587,10 @@ system_cmd (void)
 	return cmd;
 }
 
-/* A batch file goes to cmd by name. Handed to CreateProcessW or the shell, it
- * runs as cmd /c plus the line, and cmd then drops the first and last quote,
- * so a path with a space in it was never found. /s makes that drop the outer
- * pair added here, and nothing else.
+/* A batch file goes to cmd by name. Handed to CreateProcessW, it runs as
+ * cmd /c plus the line, and cmd then drops the first and last quote, so a path
+ * with a space in it was never found. The shell's route handed a & or % in an
+ * argument to cmd as is. /s makes cmd drop only the outer pair added here.
  * Returns: (transfer full): free with g_free */
 static gchar *
 batch_arguments (const gchar *program, const gchar * const *argv)
@@ -948,7 +948,12 @@ nemo_launch_win32_spawn (const gchar * const  *argv,
 		gchar *args = batch_arguments (program, argv);
 		gchar *cwd = g_get_current_dir ();
 
-		started = cmd != NULL && nemo_launch_win32_run (cmd, args, cwd, error);
+		if (cmd != NULL) {
+			started = nemo_launch_win32_run (cmd, args, cwd, error);
+		} else {
+			set_failed (error, program);
+			started = FALSE;
+		}
 		g_free (cwd);
 		g_free (args);
 		g_free (cmd);
