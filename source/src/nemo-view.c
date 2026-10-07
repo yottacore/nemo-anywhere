@@ -52,6 +52,8 @@
 #ifdef G_OS_WIN32
 #include "nemo-view-win32.h"
 #include <libnemo-private/nemo-clipboard-win32.h>
+#include <libnemo-private/nemo-launch-win32.h>
+#include <libnemo-private/nemo-user-text.h>
 #endif
 #include <gdk/gdkkeysyms.h>
 #include <gtk/gtk.h>
@@ -8022,6 +8024,49 @@ action_open_in_terminal_callback(G_GNUC_UNUSED GtkAction *action,
     }
 }
 
+#ifdef G_OS_WIN32
+/* The tool is a line the user typed, split the Windows way, and each file goes
+   after it as an argument of its own, as a path a Windows program can open. */
+static void
+invoke_external_bulk_rename_utility (G_GNUC_UNUSED NemoView *view,
+				     GList *selection)
+{
+	char *bulk_rename_tool = get_bulk_rename_tool ();
+	char **tool_argv = NULL;
+	GPtrArray *args;
+	GError *error = NULL;
+	GList *walk;
+	int i;
+
+	if (!nemo_user_text_split_command (bulk_rename_tool, NULL, &tool_argv, &error)) {
+		g_warning ("The bulk rename tool '%s' cannot be run as written: %s",
+			   bulk_rename_tool, error->message);
+		g_clear_error (&error);
+		g_free (bulk_rename_tool);
+		return;
+	}
+
+	args = g_ptr_array_new_with_free_func (g_free);
+	for (i = 0; tool_argv[i] != NULL; i++) {
+		g_ptr_array_add (args, g_strdup (tool_argv[i]));
+	}
+	for (walk = selection; walk != NULL; walk = walk->next) {
+		char *path = nemo_file_get_path (NEMO_FILE (walk->data));
+
+		g_ptr_array_add (args, path != NULL ? path : nemo_file_get_uri (NEMO_FILE (walk->data)));
+	}
+	g_ptr_array_add (args, NULL);
+
+	if (!nemo_launch_win32_spawn ((const gchar * const *) args->pdata, FALSE, &error)) {
+		g_warning ("The bulk rename tool '%s' did not start: %s", bulk_rename_tool, error->message);
+		g_clear_error (&error);
+	}
+
+	g_ptr_array_free (args, TRUE);
+	g_strfreev (tool_argv);
+	g_free (bulk_rename_tool);
+}
+#else
 static void
 invoke_external_bulk_rename_utility (NemoView *view,
 				     GList *selection)
@@ -8061,6 +8106,7 @@ invoke_external_bulk_rename_utility (NemoView *view,
 						  cmd->str, FALSE, NULL);
 	g_string_free (cmd, TRUE);
 }
+#endif
 
 static void
 real_action_undo (NemoView *view)

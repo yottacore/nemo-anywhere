@@ -27,7 +27,8 @@
  * Stand-ins in the action's folder say whether they got a window and what
  * started them: a console program runs from the app with no window, or in a
  * console of its own when the action asks for a terminal, and a program with
- * windows of its own is started from outside the app. */
+ * windows of its own is started from outside the app. An action written with
+ * full Windows paths, single backslashes, reads and runs as written. */
 
 #include <config.h>
 
@@ -141,6 +142,22 @@ load_action (const char *name, const char *exec, const char *condition, gboolean
 	return action;
 }
 
+/* As a user on Windows writes one: full paths, single backslashes. */
+static NemoAction *
+load_as_written (const char *name, const char *keys)
+{
+	g_autofree char *file = g_strdup_printf ("%s.nemo_action", name);
+	g_autofree char *path = g_build_filename (dir, file, NULL);
+	g_autofree char *text = g_strdup_printf ("[Nemo Action]\n"
+						 "Name=%s\n"
+						 "Selection=any\n"
+						 "Extensions=any;\n"
+						 "%s", name, keys);
+
+	check (g_file_set_contents (path, text, -1, NULL));
+	return nemo_action_new (name, path);
+}
+
 static gboolean
 shown (NemoAction *action, NemoFile *parent)
 {
@@ -164,6 +181,8 @@ main (int argc, char *argv[])
 {
 	g_autofree char *scratch = NULL, *uri = NULL;
 	NemoAction *yes, *no, *cmd_yes, *cmd_no, *missing, *quiet, *console, *windowed;
+	NemoAction *full, *gone;
+	g_autofree char *keys = NULL, *wanted = NULL;
 	NemoFile *parent;
 
 	if (argc < 3) {
@@ -194,6 +213,8 @@ main (int argc, char *argv[])
 	place (argv[1], "quiet.exe");
 	place (argv[1], "console.exe");
 	place (argv[2], "windowed.exe");
+	place (argv[1], "full.exe");
+	place (argv[1], "cond2.exe");
 	write_text ("yes.cmd", "@exit /b 0\r\n");
 	write_text ("no.cmd", "@exit /b 3\r\n");
 
@@ -217,6 +238,15 @@ main (int argc, char *argv[])
 	quiet = load_action ("quiet", "quiet.exe \"two words\"", NULL, FALSE);
 	console = load_action ("console", "console.exe \"two words\"", NULL, TRUE);
 	windowed = load_action ("windowed", "windowed.exe \"two words\"", NULL, FALSE);
+
+	keys = g_strdup_printf ("Exec=\"%s\\full.exe\" \"two words\" C:\\plain\\path %%P\n"
+				"Conditions=exec \"%s\\cond2.exe\";\n"
+				"Dependencies=%s\\full.exe;\n", dir, dir, dir);
+	full = load_as_written ("full", keys);
+	g_free (keys);
+	/* Only a program found by its full path keeps this one out. */
+	keys = g_strdup_printf ("Exec=full.exe\nDependencies=!%s\\full.exe;\n", dir);
+	gone = load_as_written ("gone", keys);
 
 	g_print ("conditions\n");
 	check (shown (yes, parent));
@@ -247,6 +277,19 @@ main (int argc, char *argv[])
 	check (wait_for_report ("windowed", "arg=two words"));
 	check (started_by_broker ("windowed"));
 
+	g_print ("full paths as written on Windows\n");
+	check (full != NULL);
+	check (gone == NULL);
+	check (shown (full, parent));
+	check (reported ("cond2", "window=0"));
+	run (full, parent);
+	wanted = g_strdup_printf ("arg=%s", dir);
+	check (wait_for_report ("full", wanted));
+	check (reported ("full", "arg=two words"));
+	check (reported ("full", "arg=C:\\plain\\path"));
+
+	g_clear_object (&full);
+	g_clear_object (&gone);
 	g_clear_object (&yes);
 	g_clear_object (&no);
 	g_clear_object (&cmd_yes);

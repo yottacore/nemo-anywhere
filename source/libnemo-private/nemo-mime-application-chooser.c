@@ -31,6 +31,7 @@
 
 #include "nemo-file.h"
 #include "nemo-signaller.h"
+#include "nemo-user-text.h"
 #ifdef G_OS_WIN32
 #include "nemo-associations-win32.h"
 #endif
@@ -316,7 +317,7 @@ validate_entry (GtkEntry *entry, const gchar *str)
     gint argcp = 0;
     gchar **argvp = NULL;
     gboolean ret = FALSE;
-    if (g_shell_parse_argv (str, &argcp, &argvp, NULL)) {
+    if (nemo_user_text_split_command (str, &argcp, &argvp, NULL)) {
         if (argcp > 0) {
             gchar *path_exec = g_find_program_in_path (argvp[0]);
             if (path_exec) {
@@ -343,9 +344,15 @@ validate_entry (GtkEntry *entry, const gchar *str)
         gtk_entry_set_icon_from_icon_name (entry,
                                            GTK_ENTRY_ICON_SECONDARY,
                                            "stop");
+#ifdef G_OS_WIN32
+        gtk_entry_set_icon_tooltip_text (entry,
+                                         GTK_ENTRY_ICON_SECONDARY,
+                                         _("Not a valid executable. Put a path with spaces in double quotes."));
+#else
         gtk_entry_set_icon_tooltip_text (entry,
                                          GTK_ENTRY_ICON_SECONDARY,
                                          _("Not a valid executable.  Spaces in the file path must be escaped with backslash (\\)."));
+#endif
     }
 
     return ret;
@@ -359,7 +366,7 @@ get_nice_name (const gchar *entry)
     gint argcp = 0;
     gchar **argvp = NULL;
 
-    if (g_shell_parse_argv (entry, &argcp, &argvp, NULL)) {
+    if (nemo_user_text_split_command (entry, &argcp, &argvp, NULL)) {
         if (argcp > 0) {
             exec_path = argvp[0];
             GFile *file = g_file_new_for_path (exec_path);

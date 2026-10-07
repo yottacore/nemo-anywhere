@@ -52,6 +52,7 @@
 #include <libnemo-private/nemo-psd.h>
 #include <libnemo-private/nemo-raw.h>
 #include <libnemo-private/nemo-magick.h>
+#include <libnemo-private/nemo-user-text.h>
 
 #ifdef G_OS_WIN32
 #include <libnemo-private/nemo-launch-win32.h>
@@ -192,7 +193,7 @@ thumbnailer_load (Thumbnailer *thumb)
       return NULL;
     }
 
-  thumb->command = g_key_file_get_string (key_file, THUMBNAILER_ENTRY_GROUP, "Exec", NULL);
+  thumb->command = nemo_user_text_get_string (key_file, THUMBNAILER_ENTRY_GROUP, "Exec", NULL);
   if (!thumb->command)
     {
       g_warning ("Invalid thumbnailer: missing Exec key\n");
@@ -202,7 +203,7 @@ thumbnailer_load (Thumbnailer *thumb)
       return NULL;
     }
 
-  thumb->mime_types = g_key_file_get_string_list (key_file, THUMBNAILER_ENTRY_GROUP, "MimeType", NULL, NULL);
+  thumb->mime_types = nemo_user_text_get_string_list (key_file, THUMBNAILER_ENTRY_GROUP, "MimeType", NULL, NULL);
   if (!thumb->mime_types)
     {
       g_warning ("Invalid thumbnailer: missing MimeType key\n");
@@ -212,8 +213,8 @@ thumbnailer_load (Thumbnailer *thumb)
       return NULL;
     }
 
-  thumb->try_exec = g_key_file_get_string (key_file, THUMBNAILER_ENTRY_GROUP, "TryExec", NULL);
-  /* A bad escape, such as a bare backslash in a Windows path, reads as NULL. */
+  thumb->try_exec = nemo_user_text_get_string (key_file, THUMBNAILER_ENTRY_GROUP, "TryExec", NULL);
+  /* Off Windows a bad escape, such as a bare backslash, reads as NULL. */
   if (thumb->try_exec == NULL && g_key_file_has_key (key_file, THUMBNAILER_ENTRY_GROUP, "TryExec", NULL))
     {
       g_warning ("Invalid thumbnailer: TryExec could not be read\n");
@@ -1277,7 +1278,7 @@ expand_thumbnailing_script (const char *script,
 
       switch (*p) {
       case 'u':
-	quoted = g_shell_quote (inuri);
+	quoted = nemo_user_text_quote (inuri);
 	g_string_append (str, quoted);
 	g_free (quoted);
 	got_in = TRUE;
@@ -1287,7 +1288,7 @@ expand_thumbnailing_script (const char *script,
 	localfile = g_filename_from_uri (inuri, NULL, NULL);
 	if (localfile)
 	  {
-	    quoted = g_shell_quote (localfile);
+	    quoted = nemo_user_text_quote (localfile);
 	    g_string_append (str, quoted);
 	    got_in = TRUE;
 	    g_free (quoted);
@@ -1296,7 +1297,7 @@ expand_thumbnailing_script (const char *script,
 	p++;
 	break;
       case 'o':
-	quoted = g_shell_quote (outfile);
+	quoted = nemo_user_text_quote (outfile);
 	g_string_append (str, quoted);
 	g_free (quoted);
 	p++;
@@ -1335,7 +1336,7 @@ run_thumbnailer_script (const char *command_line, GCancellable *cancellable)
   gboolean late = FALSE;
   gboolean ok;
 
-  if (!g_shell_parse_argv (command_line, NULL, &argv, NULL))
+  if (!nemo_user_text_split_command (command_line, NULL, &argv, NULL))
     return FALSE;
 
   ok = nemo_launch_win32_pipe ((const gchar * const *) argv, NULL, THUMBNAILER_TIMEOUT_SECONDS,
@@ -1404,7 +1405,7 @@ run_thumbnailer_script (const char *command_line, GCancellable *cancellable)
   gchar **argv = NULL;
   gboolean ok;
 
-  if (!g_shell_parse_argv (command_line, NULL, &argv, NULL))
+  if (!nemo_user_text_split_command (command_line, NULL, &argv, NULL))
     return FALSE;
 
   /* Private context so the wait and the timeout run here rather than on

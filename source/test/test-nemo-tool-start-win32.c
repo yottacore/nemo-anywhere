@@ -26,7 +26,9 @@
  * say whether they got a window. Through the real jobs: compress to rar, with
  * the tool's own words in the error when it fails and a stop that ends it
  * while it says nothing; unpack a rar that only the tool reads; a content
- * search through a converter; and a thumbnail from a thumbnailer program. */
+ * search through a converter; and a thumbnail from a thumbnailer program. The
+ * converter and the thumbnailer are also named by a Windows path as written
+ * there, with single backslashes, and once with them doubled. */
 
 #include <config.h>
 
@@ -291,15 +293,17 @@ search_finished (G_GNUC_UNUSED NemoSearchEngine *engine, G_GNUC_UNUSED gpointer 
 /* The converter's output is what the search reads, so finding the word
    proves its stdout came back. */
 static void
-check_search (void)
+check_search (const char *ext, const char *tool)
 {
-	g_autofree char *docs = g_build_filename (scratch, "docs", NULL);
-	g_autofree char *doc = g_build_filename (docs, "t.nemofake", NULL);
+	g_autofree char *docs = g_build_filename (scratch, ext, NULL);
+	g_autofree char *base = g_strconcat ("t.", ext, NULL);
+	g_autofree char *doc = g_build_filename (docs, base, NULL);
 	g_autofree char *uri = g_filename_to_uri (docs, NULL, NULL);
 	NemoSearchEngine *engine = nemo_search_engine_advanced_new ();
 	NemoQuery *query = nemo_query_new ();
 	int spins = 0;
 
+	search_done = FALSE;
 	check (g_mkdir (docs, 0755) == 0);
 	/* Not text, or it would be read without the converter. A type nothing
 	   shipped has a converter for, so only ours is tried. */
@@ -320,9 +324,9 @@ check_search (void)
 	}
 
 	check (search_done);
-	check (g_list_length (found) == 1 && g_strcmp0 (found->data, "t.nemofake") == 0);
-	check (reported ("nemo-fake-to-txt", "window=0"));
-	check (reported ("nemo-fake-to-txt", "bytes=0"));
+	check (g_list_length (found) == 1 && g_strcmp0 (found->data, base) == 0);
+	check (reported (tool, "window=0"));
+	check (reported (tool, "bytes=0"));
 
 	g_list_free_full (found, g_free);
 	found = NULL;
@@ -331,9 +335,10 @@ check_search (void)
 }
 
 static void
-check_thumbnailer (void)
+check_thumbnailer (const char *mime, const char *tool)
 {
-	g_autofree char *path = g_build_filename (scratch, "pic.fake", NULL);
+	g_autofree char *name = g_strconcat (tool, ".fake", NULL);
+	g_autofree char *path = g_build_filename (scratch, name, NULL);
 	g_autofree char *uri = g_filename_to_uri (path, NULL, NULL);
 	g_autofree char *input = g_strdup_printf ("arg=%s", path);
 	NemoDesktopThumbnailFactory *factory;
@@ -342,16 +347,14 @@ check_thumbnailer (void)
 	check (g_file_set_contents (path, "picture", -1, NULL));
 
 	factory = nemo_desktop_thumbnail_factory_new (NEMO_DESKTOP_THUMBNAIL_SIZE_LARGE);
-	pixbuf = nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (factory, uri,
-									    "application/x-nemo-fake",
-									    128, NULL);
+	pixbuf = nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (factory, uri, mime, 128, NULL);
 	check (pixbuf != NULL);
 	if (pixbuf != NULL) {
 		check (gdk_pixbuf_get_width (pixbuf) == 3 && gdk_pixbuf_get_height (pixbuf) == 2);
 		g_object_unref (pixbuf);
 	}
-	check (reported ("fake-thumb", "window=0"));
-	check (reported ("fake-thumb", input));
+	check (reported (tool, "window=0"));
+	check (reported (tool, input));
 	g_object_unref (factory);
 }
 
@@ -380,7 +383,8 @@ int
 main (int argc, char *argv[])
 {
 	g_autofree char *bin = NULL, *rar = NULL, *unrar = NULL, *converter = NULL, *thumb = NULL;
-	g_autofree char *path = NULL, *dir = NULL, *text = NULL, *files = NULL, *try_exec = NULL;
+	g_autofree char *converter2 = NULL, *thumb2 = NULL, *doubled = NULL;
+	g_autofree char *path = NULL, *dir = NULL, *text = NULL, *files = NULL;
 	g_auto (GStrv) parts = NULL;
 	NemoProgressInfoManager *manager;
 
@@ -406,26 +410,39 @@ main (int argc, char *argv[])
 	/* Unpacking looks for this one first, and a real one may be on PATH. */
 	unrar = place_tool (argv[1], bin, "unrar");
 	converter = place_tool (argv[1], bin, "nemo-fake-to-txt");
+	converter2 = place_tool (argv[1], bin, "nemo-fake2-to-txt");
 	thumb = place_tool (argv[1], bin, "fake-thumb");
+	thumb2 = place_tool (argv[1], bin, "fake-thumb2");
 	path = g_strconcat (bin, ";", g_getenv ("PATH"), NULL);
 	g_setenv ("PATH", path, TRUE);
 
 	files = g_build_filename (scratch, "files", NULL);
 	write_text (files, "a.txt", "some text");
 
+	/* A Windows path as written there, in TryExec and in Exec. The folder has
+	   a space, so Exec quotes it. */
 	dir = g_build_filename (g_get_user_data_dir (), NEMO_APP_SLUG, "search-helpers", NULL);
-	/* Key file text, so each backslash doubled, as a user writing one has to. */
-	parts = g_strsplit (converter, "\\", -1);
-	try_exec = g_strjoinv ("\\\\", parts);
-	text = g_strdup_printf ("[Nemo Search Helper]\nTryExec=%s;\nExec=nemo-fake-to-txt %%s\n"
-				"MimeType=application/x-ext-nemofake;\nPriority=100\n", try_exec);
+	text = g_strdup_printf ("[Nemo Search Helper]\nTryExec=%s;\nExec=\"%s\" %%s\n"
+				"MimeType=application/x-ext-nemofake;\nPriority=100\n", converter, converter);
 	write_text (dir, "fake.nemo_search_helper", text);
+	g_free (text);
+
+	/* One already written with each backslash doubled, as GKeyFile wants. */
+	parts = g_strsplit (converter2, "\\", -1);
+	doubled = g_strjoinv ("\\\\", parts);
+	text = g_strdup_printf ("[Nemo Search Helper]\nTryExec=%s;\nExec=\"%s\" %%s\n"
+				"MimeType=application/x-ext-nemofake2;\nPriority=100\n", doubled, doubled);
+	write_text (dir, "fake2.nemo_search_helper", text);
+	g_free (text);
 	g_free (dir);
 
-	/* A bare name, as the shipped thumbnailers have. */
+	/* A bare name, as the shipped thumbnailers have, and a full path. */
 	dir = g_build_filename (g_get_user_data_dir (), "thumbnailers", NULL);
 	write_text (dir, "fake.thumbnailer",
 		    "[Thumbnailer Entry]\nExec=fake-thumb %i %o\nMimeType=application/x-nemo-fake;\n");
+	text = g_strdup_printf ("[Thumbnailer Entry]\nTryExec=%s\nExec=\"%s\" %%i %%o\n"
+				"MimeType=application/x-nemo-fake2;\n", thumb2, thumb2);
+	write_text (dir, "fake2.thumbnailer", text);
 
 	if (!gtk_init_check (&argc, &argv)) {
 		g_print ("SKIP: no display\n");
@@ -445,9 +462,13 @@ main (int argc, char *argv[])
 	g_print ("unpack\n");
 	check_extract ();
 	g_print ("search\n");
-	check_search ();
+	check_search ("nemofake", "nemo-fake-to-txt");
+	g_print ("search, backslashes doubled\n");
+	check_search ("nemofake2", "nemo-fake2-to-txt");
 	g_print ("thumbnailer\n");
-	check_thumbnailer ();
+	check_thumbnailer ("application/x-nemo-fake", "fake-thumb");
+	g_print ("thumbnailer by full path\n");
+	check_thumbnailer ("application/x-nemo-fake2", "fake-thumb2");
 
 	/* Only goes once nothing runs from it, so the stopped one has ended. */
 	check (g_remove (rar) == 0);
