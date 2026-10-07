@@ -308,6 +308,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified 20261007: rjpxzs6x, rjph1pxd and rjph39cv pass. rjpxzs6x failed with the arch named in the spec, with every arch read in the local container, with no checksum check, and with `--depends-only` guessing or reading another arch. rjph1pxd failed with no read, with the read after the container stops, with a failed read left fatal, and with an old list kept. rjph39cv failed on the pipeline and config as they were, and with `--no-cross` ignored.
 	- Verified 20261007: against the arm64 tarball already built on the arm64 box. The line read there matches the x86_64 one, since both images have the same library versions. The `.deb` says arm64 and the `.rpm` aarch64, both come out the same twice and carry the tarball's date, and the prefix check passes on all 3. On Debian 13 arm64, apt finds every dependency of the `.deb`, and the program in it answers `--version`.
 	- Branch: armpkg
+	- Commit: 6ec5be9
 	- Test case: rjpxzs6x checks where each arch's `.deb` gets its dependencies, and that the arm64 packages name their arch and repeat byte for byte. rjph1pxd checks the lane reads the line on the box and keeps it with the tarball's checksum. rjph39cv checks the pipeline makes and checks arm64 packages only when it built arm64.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
