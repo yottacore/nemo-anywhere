@@ -286,6 +286,7 @@ main (int argc, char *argv[])
 {
 	g_autoptr(GError) error = NULL;
 	g_autofree char *scratch = NULL;
+	g_autofree char *tool_path = NULL;
 
 	if (argc == 4 && strcmp (argv[1], "--app") == 0) {
 		tool = argv[3];
@@ -296,7 +297,11 @@ main (int argc, char *argv[])
 		g_printerr ("usage: %s <test-fake-tool.exe>\n", argv[0]);
 		return 77;
 	}
-	tool = argv[1];
+	/* One spelling everywhere. Mixed slashes made the tool name its report
+	 * after part of the folder. */
+	tool_path = g_canonicalize_filename (argv[1], NULL);
+	g_strdelimit (tool_path, "/", '\\');
+	tool = tool_path;
 
 	scratch = test_scratch_dir ("nemo-helper-end-XXXXXX", &error);
 	if (scratch == NULL) {
