@@ -203,33 +203,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 19cf1e1
 	- Test case: rjm9n8sr, Bookmark name and icon test. Home gets "Home" and the home icon, the system drive's root gets `C:\` on Windows, and a folder on a share is not asked about.
 
-- On Windows, a GLib critical about `g_strv_length` shows in the tool start test.
-	- ID: 2026100615255231
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes, the full Linux suite. rfhnaccg, redrqe60 and the other search and thumbnail tests passed on Linux.
-	- Needs external testing: done 20261006 on vm925w, as in Verified.
-	- Priority|Severity: Low
-	- Opened: 20261006-152552
-	- Opened by: 2026100612483725
-	- Related IDs: 2026100612483725
-	- Target OS: Windows
-	- Steps to reproduce: run rjm4ctwh natively on vm925w with the box's full PATH.
-	- Incorrect behavior: the test passes, but its log has `g_strv_length: assertion 'str_array != NULL' failed` once, after the extract step.
-	- Expected behavior: no critical.
-	- Reproduced: 20261006, in 2 runs of 2 on vm925w with the full PATH. Not looked for with the gate's own PATH or under wine.
-	- Possible cause: not traced. The new launcher code has no such call. The search engine, the thumbnail code and the data folder lookup all have one, and none of the lists they read looks able to be NULL.
-	- Note: the PATH plays no part. It shows with MSYS2's own PATH as well, every run.
-	- Actual cause: the test writes a search helper whose TryExec is a Windows path with single backslashes. In a key file a backslash starts an escape, and `\U` is not one, so the TryExec list reads as nothing at all. The search engine passed that straight to `g_strv_length` and then took the helper without checking its program. Thumbnailer files had the same gap with no critical: an unreadable TryExec read as no TryExec.
-	- Actual fix: a search helper or thumbnailer whose TryExec can't be read is skipped, with a warning naming the file, the same as one whose Exec can't be read. rjm4ctwh now doubles the backslashes, as a hand-written file has to.
-	- Decisions:
-		- A call made without asking: skip such a file rather than read the backslashes as plain text. Exec lines already worked that way, and the key file format wants them doubled.
-	- Swept: every `g_key_file_get_string_list` and TryExec read. Actions, `.desktop` links and the thumbnailer MimeType already check for nothing read. Bookmark emblems can be NULL only from a hand-edited metadata file; left alone.
-	- Verified: the new cases in rfhnaccg and redrqe60 fail before the fix and pass after, on Linux. On vm925w rjm4ctwh has no critical now and passes, and rfhnaccg and redrqe60's new case pass. The Windows cross build is clean, and lint passes.
-	- Branch: smallwin
-	- Commit: d837594
-	- Test case: rfhnaccg, Search helpers test: no GLib critical, and the bad helper is named and skipped. redrqe60, Thumbnail factory test, `badtry` case: a thumbnailer with an unreadable TryExec is not used.
-
 - On Windows, custom actions and the window's Open in terminal start programs through GLib, not the launcher.
 	- ID: 2026100615255305
 	- Type: Bug
@@ -290,6 +263,24 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: b2cfe15 to f279168
 	- Test case: rjmc40ex, Thumbnailer type win32 test, Windows only. An OpenDocument file with a red thumbnail inside, through the gsf-office thumbnailer that comes with the app: the app's own type for it is `.odt`, a thumbnailer is found and makes the thumbnail, the list of types not to thumbnail turns it off by real type, and the same file through a share is not thumbnailed with the default settings.
 
+- On Windows, a path with single backslashes in a file or setting a user writes is read as escapes.
+	- ID: 2026100702343600
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261007-023436
+	- Opened by: t00mietum
+	- Related IDs: 2026100615255231
+	- Target OS: Windows
+	- Requirements:
+		- Any string a user writes or edits takes a Windows path as is. A backslash there is never an escape.
+		- Covers search helper and thumbnailer files, actions, command lines and other paths in settings, and any other text file the app reads that a user may write by hand.
+		- A string the app only writes and reads itself may keep escapes, but should use something other than backslashes where it can.
+	- Note: users almost never mean `\n` or `\t`, and a path read as escapes breaks quietly. Same reason the SHCL upgrade ignores backslash escapes.
+	- Steps to reproduce: on Windows, write a search helper with `TryExec=C:\Tools\pdftotext.exe`.
+	- Incorrect behavior: the helper is skipped as unreadable.
+	- Expected behavior: the helper is used when the program is there.
+
 - In the single exe on Windows, a program packed inside it that needs libgsf cannot start.
 	- ID: 2026100617051745
 	- Type: Bug
@@ -345,6 +336,33 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: findfix
 	- Commit: fa73670
 	- Test case: rjm2rvjn (Find mode columns test).
+
+- On Windows, a GLib critical about `g_strv_length` shows in the tool start test.
+	- ID: 2026100615255231
+	- Type: Bug
+	- Status: Queued
+	- Needs local test suite run?: yes, the full Linux suite. rfhnaccg, redrqe60 and the other search and thumbnail tests passed on Linux.
+	- Needs external testing: done 20261006 on vm925w, as in Verified.
+	- Priority|Severity: Low
+	- Opened: 20261006-152552
+	- Opened by: 2026100612483725
+	- Related IDs: 2026100612483725
+	- Target OS: Windows
+	- Steps to reproduce: run rjm4ctwh natively on vm925w with the box's full PATH.
+	- Incorrect behavior: the test passes, but its log has `g_strv_length: assertion 'str_array != NULL' failed` once, after the extract step.
+	- Expected behavior: no critical.
+	- Reproduced: 20261006, in 2 runs of 2 on vm925w with the full PATH. Not looked for with the gate's own PATH or under wine.
+	- Possible cause: not traced. The new launcher code has no such call. The search engine, the thumbnail code and the data folder lookup all have one, and none of the lists they read looks able to be NULL.
+	- Note: the PATH plays no part. It shows with MSYS2's own PATH as well, every run.
+	- Actual cause: the test writes a search helper whose TryExec is a Windows path with single backslashes. In a key file a backslash starts an escape, and `\U` is not one, so the TryExec list reads as nothing at all. The search engine passed that straight to `g_strv_length` and then took the helper without checking its program. Thumbnailer files had the same gap with no critical: an unreadable TryExec read as no TryExec.
+	- Actual fix: a search helper or thumbnailer whose TryExec can't be read is skipped, with a warning naming the file, the same as one whose Exec can't be read. rjm4ctwh now doubles the backslashes, as a hand-written file has to.
+	- Decisions:
+		- First a call made without asking: skip such a file, since the key file format wants backslashes doubled. Changed 20261006: on Windows single backslashes are read as plain path characters, in TryExec and Exec both. Done under 2026100702343600.
+	- Swept: every `g_key_file_get_string_list` and TryExec read. Actions, `.desktop` links and the thumbnailer MimeType already check for nothing read. Bookmark emblems can be NULL only from a hand-edited metadata file; left alone.
+	- Verified: the new cases in rfhnaccg and redrqe60 fail before the fix and pass after, on Linux. On vm925w rjm4ctwh has no critical now and passes, and rfhnaccg and redrqe60's new case pass. The Windows cross build is clean, and lint passes.
+	- Branch: smallwin
+	- Commit: d837594
+	- Test case: rfhnaccg, Search helpers test: no GLib critical, and the bad helper is named and skipped. redrqe60, Thumbnail factory test, `badtry` case: a thumbnailer with an unreadable TryExec is not used.
 
 - On the arm64 box the Places focus test loses its click or its rename.
 	- ID: 2026100611482306
