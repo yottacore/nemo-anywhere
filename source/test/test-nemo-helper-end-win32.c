@@ -122,7 +122,7 @@ play_app (const char *how)
 	}
 
 	/* Its report is written once it runs, so it is past being started and put
-	 * in the job by then. Seen any earlier, a kill could land in between. */
+	 * in the job by then. Seen any earlier, a kill could slip in between. */
 	for (gint64 end = g_get_monotonic_time () + (gint64) (FIND_SECONDS * test_slowness () * G_USEC_PER_SEC);
 	     pid == 0 && g_get_monotonic_time () < end; ) {
 		if (g_file_test (report, G_FILE_TEST_EXISTS)) {
