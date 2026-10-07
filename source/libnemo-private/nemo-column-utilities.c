@@ -510,7 +510,7 @@ nemo_search_sort_get (char **attribute, gboolean *reversed)
 	return TRUE;
 }
 
-/* Every load of find results lands here or in save, so leave the file alone
+/* Every load of find results comes through here or save, so leave the file alone
  * when nothing changes. */
 void
 nemo_search_sort_forget (void)
