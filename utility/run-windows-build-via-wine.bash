@@ -76,8 +76,9 @@ fi
 # fresh build -> fresh exe, every run the container is up
 if container_up; then
 	docker exec "$CONTAINER" sh -c '
-		cp /build-win/src/nemo-anywhere.exe /src/cicd/artifacts/win-run/app/'
-	docker exec "$CONTAINER" chown -R "$(id -u):$(id -g)" /src/cicd/artifacts/win-run/app
+		cp /build-win/src/nemo-anywhere.exe /src/cicd/artifacts/win-run/app/
+		cp /build-win/session-bus/gdbus.exe /src/cicd/artifacts/win-run/mingw64/bin/ 2>/dev/null || true'
+	docker exec "$CONTAINER" chown -R "$(id -u):$(id -g)" /src/cicd/artifacts/win-run/app /src/cicd/artifacts/win-run/mingw64/bin
 else
 	fEcho "WARNING: container '$CONTAINER' not running - using the staged snapshot as-is"
 	[[ -f "${DEST}/mingw64/share/glib-2.0/schemas/gschemas.compiled" ]] || glib-compile-schemas "${DEST}/mingw64/share/glib-2.0/schemas"

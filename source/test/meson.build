@@ -1936,6 +1936,16 @@ if is_windows
     timeout: 120
   )
 
+  test('rjprdfjb Session bus cleanup win32 test',
+    executable('test-nemo-session-bus-win32',
+      [ 'test-nemo-session-bus-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gio, glib, test_scratch ],
+    ),
+    args: [ session_bus_exe ],
+    timeout: 120
+  )
+
   test('rjpatrck Helper end win32 test',
     executable('test-nemo-helper-end-win32',
       [ 'test-nemo-helper-end-win32.c' ],

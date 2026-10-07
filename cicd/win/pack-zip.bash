@@ -97,6 +97,7 @@ docker exec "$CONTAINER" sh -c "
 	## The app's own binaries and data go on top, so a build always wins over
 	## anything of the same name from the sysroot.
 	cp ${BUILD}/src/${SLUG}.exe /tmp/${name}/
+	cp ${BUILD}/session-bus/gdbus.exe /tmp/${name}/
 	find ${BUILD} -maxdepth 3 -name '*.dll' -exec cp {} /tmp/${name}/ \; 2>/dev/null || true
 	if [ -d /src/source/data ]; then
 		mkdir -p /tmp/${name}/share/${SLUG}
