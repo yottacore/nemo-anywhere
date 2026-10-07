@@ -1193,6 +1193,21 @@ if not is_windows
     timeout: 120
   )
 
+  # Preloaded too; it sorts and resets from inside the program.
+  reset_sort_probe = shared_module('test-nemo-reset-sort-probe',
+    [ 'test-nemo-reset-sort-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('rjnzamsq Reset view sort test',
+    executable('test-nemo-reset-sort',
+      [ 'test-nemo-reset-sort.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, reset_sort_probe ],
+    timeout: 180
+  )
+
   test('rhtq57n4 Clean start test',
     executable('test-nemo-startup-clean',
       [ 'test-nemo-startup-clean.c' ],
@@ -1899,6 +1914,16 @@ if is_windows
     ),
     args: [ fake_tool,
             executable('test-fake-tool-windowed', [ 'test-fake-tool.c' ], win_subsystem: 'windows') ],
+    timeout: 60
+  )
+
+  test('rjnzpkk7 Command launch win32 test',
+    executable('test-nemo-command-launch-win32',
+      [ 'test-nemo-command-launch-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: [ fake_tool ],
     timeout: 60
   )
 

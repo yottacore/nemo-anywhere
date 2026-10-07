@@ -126,7 +126,8 @@ read_through (const char *name)
 	char *path = at (name);
 	char *contents = NULL;
 
-	g_file_get_contents (path, &contents, NULL, NULL);
+	/* NULL when it is not there. */
+	(void) g_file_get_contents (path, &contents, NULL, NULL);
 	g_free (path);
 
 	return contents;

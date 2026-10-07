@@ -64,6 +64,41 @@ nemo_drive_win32_kind (char letter)
 	}
 }
 
+gboolean
+nemo_drive_win32_has_media (char letter)
+{
+	wchar_t wroot[4] = { (wchar_t) letter, L':', L'\\', L'\0' };
+	DWORD old_mode = 0;
+	BOOL found;
+
+	if (!g_ascii_isalpha (letter)) {
+		return FALSE;
+	}
+
+	SetThreadErrorMode (SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX, &old_mode);
+	found = GetVolumeInformationW (wroot, NULL, 0, NULL, NULL, NULL, NULL, 0);
+	SetThreadErrorMode (old_mode, NULL);
+
+	return found;
+}
+
+gboolean
+nemo_drive_win32_bin_askable (char letter)
+{
+	switch (nemo_drive_win32_kind (letter)) {
+	case NEMO_DRIVE_WIN32_FIXED:
+		return TRUE;
+	case NEMO_DRIVE_WIN32_REMOVABLE:
+		return nemo_drive_win32_has_media (letter);
+	case NEMO_DRIVE_WIN32_NONE:
+	case NEMO_DRIVE_WIN32_OPTICAL:
+	case NEMO_DRIVE_WIN32_REMOTE:
+	case NEMO_DRIVE_WIN32_OTHER:
+	default:
+		return FALSE;
+	}
+}
+
 static char *
 device_of (char letter)
 {

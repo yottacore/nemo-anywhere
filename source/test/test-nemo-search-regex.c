@@ -15,6 +15,18 @@
 
 static gboolean done;
 
+static gboolean
+put (const char *dir, const char *name, const char *text)
+{
+	g_autofree char *path = g_build_filename (dir, name, NULL);
+
+	if (!g_file_set_contents (path, text, -1, NULL)) {
+		g_printerr ("FAIL: could not write %s\n", path);
+		return FALSE;
+	}
+	return TRUE;
+}
+
 static void
 finished_cb (G_GNUC_UNUSED NemoSearchEngine *engine, G_GNUC_UNUSED gpointer data)
 {
@@ -26,19 +38,16 @@ main (int argc, char *argv[])
 {
 	NemoSearchEngine *engine;
 	NemoQuery        *query;
-	char             *dir, *child, *uri;
+	char             *dir, *uri;
 	int               spins = 0;
 
 	gtk_init_check (&argc, &argv);
 
 	/* A directory with a file or two to iterate over. */
 	dir = test_scratch_dir ("nemo-search-regex-XXXXXX", NULL);
-	child = g_build_filename (dir, "somefile.txt", NULL);
-	g_file_set_contents (child, "x", 1, NULL);
-	g_free (child);
-	child = g_build_filename (dir, "another.txt", NULL);
-	g_file_set_contents (child, "y", 1, NULL);
-	g_free (child);
+	if (!put (dir, "somefile.txt", "x") || !put (dir, "another.txt", "y")) {
+		return 1;
+	}
 
 	engine = nemo_search_engine_advanced_new ();
 	g_signal_connect (engine, "finished", G_CALLBACK (finished_cb), NULL);

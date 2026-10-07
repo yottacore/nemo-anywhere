@@ -1437,6 +1437,7 @@ nemo_window_pane_remove_slot_unsafe (NemoWindowPane *pane,
 	/* The notebook's own remove already set the tab strip, preference included. */
 	pane->slots = g_list_remove (pane->slots, slot);
 	gtk_widget_destroy (GTK_WIDGET (slot));
+	/* cppcheck-suppress doubleFree ; drops the ref taken above, the destroy only drops the notebook's */
 	g_object_unref (slot);
 }
 

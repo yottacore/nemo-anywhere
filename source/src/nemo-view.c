@@ -53,8 +53,8 @@
 #include "nemo-view-win32.h"
 #include <libnemo-private/nemo-clipboard-win32.h>
 #include <libnemo-private/nemo-launch-win32.h>
-#include <libnemo-private/nemo-user-text.h>
 #endif
+#include <libnemo-private/nemo-user-text.h>
 #include <gdk/gdkkeysyms.h>
 #include <gtk/gtk.h>
 #include <glib.h>
@@ -6161,7 +6161,7 @@ run_script_callback (G_GNUC_UNUSED GtkAction *action, gpointer callback_data)
 	g_assert (local_file_path != NULL);
 	g_free (file_uri);
 
-	quoted_path = g_shell_quote (local_file_path);
+	quoted_path = nemo_user_text_quote (local_file_path);
 
 	old_working_dir = change_to_view_directory (launch_parameters->directory_view);
 
@@ -12002,7 +12002,7 @@ nemo_view_move_copy_items (NemoView *view,
 		nemo_file_unref (target_file);
 
         unescaped = g_uri_unescape_string (target_uri, "");
-		quoted_uri = g_shell_quote (unescaped);
+		quoted_uri = nemo_user_text_quote (unescaped);
 
 		command = g_strconcat ("file-roller -a ", quoted_uri, NULL);
 
@@ -12011,7 +12011,7 @@ nemo_view_move_copy_items (NemoView *view,
 
 		for (l = item_uris; l != NULL; l = l->next) {
             unescaped = g_uri_unescape_string ((char *) l->data, "");
-            quoted_uri = g_shell_quote (unescaped);
+            quoted_uri = nemo_user_text_quote (unescaped);
 
 			tmp = g_strconcat (command, " ", quoted_uri, NULL);
 			g_free (command);

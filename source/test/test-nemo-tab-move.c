@@ -327,7 +327,8 @@ probe_state (GPid pid)
 	char *path = g_strdup_printf ("%s/%d", probe_dir, (int) pid);
 	char *text = NULL;
 
-	g_file_get_contents (path, &text, NULL, NULL);
+	/* NULL until the probe has written it. */
+	(void) g_file_get_contents (path, &text, NULL, NULL);
 	g_free (path);
 
 	return text;
@@ -441,8 +442,7 @@ check_closed_cleanly (GPid *pid, const char *log_path, const char *what)
 			failures++;
 		}
 	}
-	g_file_get_contents (log_path, &log, NULL, NULL);
-	if (log != NULL && strstr (log, "CRITICAL") != NULL) {
+	if (g_file_get_contents (log_path, &log, NULL, NULL) && strstr (log, "CRITICAL") != NULL) {
 		g_printerr ("FAIL the window %s logged criticals:\n%s", what, log);
 		failures++;
 	}
