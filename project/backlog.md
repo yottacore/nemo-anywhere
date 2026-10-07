@@ -70,38 +70,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: f38660a to f8a6223
 	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session.
 
-- A FreeBSD package.
-	- ID: 2026100517134081
-	- Type: Feature
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The FreeBSD suite passed 163 OK, 14 skipped, on the branch.
-	- Needs external testing: the files go up with the next release cut, after a pipeline run with `--include-bsd`, as in 2026100517134118.
-	- Priority|Severity: Low
-	- Opened: 20261005-171341
-	- Opened by: old-format item "Target: BSD"
-	- Related IDs: old-format item "Target: BSD"
-	- Target OS: FreeBSD
-	- Requirements:
-		- A FreeBSD build from the release cut, handed to the local cut like any build done elsewhere.
-		- Packed so `install.bash` can fetch it on BSD, which it already expects as a `-bsd-` file.
-		- A `pkg` file or a port, so the dependencies come with it. Which one is open.
-	- Progress log:
-		- 20261007: `pkg add` on a file stops at a missing dependency, and only looks for one in the file's own folder. `pkg install ./<file>.pkg` fetches it from the package repository. So design.md names `pkg install` for a first install, and `pkg add` installs it once the dependencies are there. Question: does that meet the decision below, or should the install line differ?
-	- Decisions:
-		- 20261006: a `pkg` file, made with `pkg create` from the release build and installed with `pkg add`, with the dependencies in its manifest. A port can be its own item later. This was taken as the recommended answer when the question timed out on 20261006.
-		- 20261007, calls made without asking:
-			- One build gives two files: the `-bsd-` tarball `install.bash` fetches, and `nemo-anywhere-<version>-bsd-<arch>.pkg`.
-			- The pkg puts the app at `/usr/local/nemo-anywhere`, where `install.bash --target system` puts it on BSD, rather than under `/usr/local/lib` as many ports do.
-			- The pkg version has a dot for each dash (`1.0.0.beta2`), since pkg takes no dash there. pkg sorts it below `1.0.0`.
-			- The dependencies are read off the build box: the package that owns each library the binaries link, plus `gdk-pixbuf-extra`. PyGObject for the action layout editor is named in the install message, since the `.deb` only recommends it.
-			- The Downloads table shows the `bsd` files in a FreeBSD row.
-	- Done: `cicd/bsd/release.bash` makes the release build on the FreeBSD box, checks `--version` and the extension load test, stages the prefix and makes the pkg. `cicd/bsd/lane.bash --release` runs it there from the Linux box, packs the tarball with the same stamp and order as the Linux one, and rewrites the sums file. The release stamp check reads the pkg too.
-	- Swept: every place that names the OS part of an asset: both installers, `release-files.bash`, `release-table.py` and design.md "Installing".
-	- Verified: on FreeBSD 15.1, the pkg installed with `pkg install` with `gdk-pixbuf-extra` removed first, which brought it back, and with `pkg add`. The installed app answered `--version` and opened its window, and `pkg delete` left nothing behind. `install.bash --from` installed the tarball into a scratch home there and removed it. Two release builds gave the same tarball and the same pkg. rjphng6y, rhtrxr81, rjf2v5d5 and rjcma0tt pass.
-	- Branch: bsdpkg
-	- Commit: 6f96777
-	- Test case: rjphng6y, FreeBSD package check, in the packages stage: the manifest's name, version and dependencies, where every file goes, and that the tarball has the same app files. rhtrxr81 now has both installers ask for the `-bsd-` tarball on FreeBSD, rjcma0tt checks the pkg's stamp at a release cut, and rjf2v5d5 the FreeBSD row.
-
 - On Windows, the trash icon leaves out removable drives.
 	- ID: 2026100708294146
 	- Type: Bug
@@ -281,6 +249,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the session bus removes its file when it ends.
 	- Reproduced: 20261007 on vm925w, a new one after each run of the installed copy.
 	- Possible cause: the session bus GLib starts on Windows writes the file and is ended, not stopped, when the app goes.
+	- Test case: none yet, not started.
+
+- Linux arm64 `.deb` and `.rpm` packages.
+	- ID: 2026100714244880
+	- Type: Feature
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261007-142448
+	- Opened by: old-format item "Linux arm64 release build"
+	- Related IDs: old-format item "Linux arm64 release build"
+	- Target OS: Linux arm64
+	- Requirements:
+		- An arm64 `.deb` and `.rpm` from the arm64 release build, beside the x86_64 ones.
+		- The `.deb`'s dependency versions read off the arm64 libraries, on the arm64 box, the way the x86_64 ones are read in its release container.
+		- Behind `--include-arm`, with the rest of the arm64 lane.
 	- Test case: none yet, not started.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
@@ -2157,6 +2140,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: every connection to the store is opened in one place, the prune's own and the test hook's included, and nothing else in the app uses sqlite. Once a connection is set up it has the -shm file locked and never empties it again.
 	- Note: closing the store when the app quits would narrow the window for a normal quit, but not for a crash or a killed copy, and worker threads can still be using it then. Left alone.
 	- Note: reported to SQLite on their forum, 20261005.
+	- Note: 20261007, fixed upstream, probably not in a release yet. The wait stays.
 	- Branch: cacheio
 	- Commit: e9ac264, 18be0d2
 	- Test case: rjch1a9a, File cache opened by many at once test. On Windows it now first leaves a view of a new -shm file with no lock behind it, as a quitting copy would, and lets it go after 300 ms; the store has to open. Fails before the fix at once with the disk I/O error, and passes after.
@@ -3206,6 +3190,41 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: reproduced, red without the check and green with it, and nothing on screen.
 	- Closed: 20261005-075207
 
+- A FreeBSD package.
+	- ID: 2026100517134081
+	- Type: Feature
+	- Status: Done
+	- Needs local test suite run?: no. The FreeBSD suite passed 163 OK, 14 skipped, on the branch.
+	- Needs external testing: the files go up with the next release cut, after a pipeline run with `--include-bsd`, as in 2026100517134118.
+	- Priority|Severity: Low
+	- Opened: 20261005-171341
+	- Opened by: old-format item "Target: BSD"
+	- Related IDs: old-format item "Target: BSD"
+	- Target OS: FreeBSD
+	- Requirements:
+		- A FreeBSD build from the release cut, handed to the local cut like any build done elsewhere.
+		- Packed so `install.bash` can fetch it on BSD, which it already expects as a `-bsd-` file.
+		- A `pkg` file or a port, so the dependencies come with it. Which one is open.
+	- Progress log:
+		- 20261007: `pkg add` on a file stops at a missing dependency, and only looks for one in the file's own folder. `pkg install ./<file>.pkg` fetches it from the package repository. So design.md names `pkg install` for a first install, and `pkg add` installs it once the dependencies are there. Question: does that meet the decision below, or should the install line differ?
+		- 20261007: answered, `pkg install` is OK.
+	- Decisions:
+		- 20261006: a `pkg` file, made with `pkg create` from the release build and installed with `pkg add`, with the dependencies in its manifest. A port can be its own item later. This was taken as the recommended answer when the question timed out on 20261006.
+		- 20261007, calls made without asking:
+			- One build gives two files: the `-bsd-` tarball `install.bash` fetches, and `nemo-anywhere-<version>-bsd-<arch>.pkg`.
+			- The pkg puts the app at `/usr/local/nemo-anywhere`, where `install.bash --target system` puts it on BSD, rather than under `/usr/local/lib` as many ports do.
+			- The pkg version has a dot for each dash (`1.0.0.beta2`), since pkg takes no dash there. pkg sorts it below `1.0.0`.
+			- The dependencies are read off the build box: the package that owns each library the binaries link, plus `gdk-pixbuf-extra`. PyGObject for the action layout editor is named in the install message, since the `.deb` only recommends it.
+			- The Downloads table shows the `bsd` files in a FreeBSD row.
+	- Done: `cicd/bsd/release.bash` makes the release build on the FreeBSD box, checks `--version` and the extension load test, stages the prefix and makes the pkg. `cicd/bsd/lane.bash --release` runs it there from the Linux box, packs the tarball with the same stamp and order as the Linux one, and rewrites the sums file. The release stamp check reads the pkg too.
+	- Swept: every place that names the OS part of an asset: both installers, `release-files.bash`, `release-table.py` and design.md "Installing".
+	- Verified: on FreeBSD 15.1, the pkg installed with `pkg install` with `gdk-pixbuf-extra` removed first, which brought it back, and with `pkg add`. The installed app answered `--version` and opened its window, and `pkg delete` left nothing behind. `install.bash --from` installed the tarball into a scratch home there and removed it. Two release builds gave the same tarball and the same pkg. rjphng6y, rhtrxr81, rjf2v5d5 and rjcma0tt pass.
+	- Branch: bsdpkg
+	- Commit: 6f96777
+	- Test case: rjphng6y, FreeBSD package check, in the packages stage: the manifest's name, version and dependencies, where every file goes, and that the tarball has the same app files. rhtrxr81 now has both installers ask for the `-bsd-` tarball on FreeBSD, rjcma0tt checks the pkg's stamp at a release cut, and rjf2v5d5 the FreeBSD row.
+	- Acceptance signoff: 20261007, `pkg install ./<file>.pkg` for a first install is OK.
+	- Closed: 20261007-142448
+
 - A stopped 7z made without the 7-Zip program takes as long to end as the rest of the file would have taken.
 	- ID: 2026100308563234
 	- Type: Enhancement
@@ -3716,40 +3735,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified 20261007: at 150% and 125% the toolbar, status bar and Places icons came out at 24 and 20, with every row and bar the same height as before. Changing the scale from 150% to 125% with a window open took the icons down with the text. Linux looks the same as before at 144.
 	- Note 20261007: still on the whole step: padding, borders, text field and button heights, scroll bars, check boxes, the clear icon in the location bar and the eject icon in Places. The tree pane and menus pick up a new scale when next filled, not at once.
 	- Note 20261007: waiting on signoff, since it changes how the app looks on Windows. rjpbjt68 passed on Linux and in the cross build; it still wants a run in the native Windows suite.
+	- Signoff 20261007: OK for toolbar and Places icons to grow at fractional scales on Windows. Only the native run of rjpbjt68 is left.
 	- Test case: rjpbjt68 checks the sums, that an icon follows the scale up and back down and keeps a size the code set, and that a font DPI of 144 moves no icon off Windows.
-
-- 🔬 A Windows installer exe that installs, or updates an install already there.
-	- Opened: 20260919-132409
-	- Design: [20260930-145641_windows_exe_packing.md](design_docs/20260930-145641_windows_exe_packing.md).
-	- Note: Windows has the portable exe and the zip today, and `install.ps1` for an install with a menu entry and PATH.
-	- Note: wants signing first, or it trips the same warnings the exe does.
-	- Note 20261007: built unsigned with NSIS, the recommended answer when the question timed out. Signing stays with its own item.
-	- Done 20261007: `nemo-anywhere-<version>-windows-x86_64-setup.exe` is made from the release zip in the packaging stage, so it installs the same files `install.ps1` does. It installs into the same folder, with the same Start menu shortcut and user PATH entry, and adds an uninstaller and an entry in Settings, Apps. It goes in the release and the sums file with the rest.
-	- Decisions 20261007: for this account only, with no admin rights, no machine-wide choice and no folder choice. A UAC prompt to install a file manager would be the surprise, it matches the script's default, and the two installers always find each other's install. `install.ps1 -Target system` still covers a machine-wide install.
-	- Done 20261007: `install.ps1` 1.4.0 keeps the setup's uninstaller and Apps entry when it reinstalls over a setup install, and `-Uninstall` removes the entry too.
-	- Note 20261007: a user PATH too long for the setup to change safely, about 1000 characters, is left alone, and the setup says so. Both installers write the PATH back as an expandable string, so one stored as a plain string keeps its text but not its type.
-	- Note 20261007: like any NSIS uninstall run without admin rights, one small `Un.exe` stays in `%TEMP%\~nsu*.tmp` until the next NSIS uninstall or a temp cleanup. Only a delayed self-delete through a command prompt gets around it, and antivirus watches for that. Left as is for signoff.
-	- Verified 20261007: rjphqx48 passes. It fails with the PATH length guard taken out, with empty PATH entries dropped, and with the Apps entry left behind on uninstall. Two builds of one commit give the same bytes.
-	- Verified 20261007: on a Windows box, as a standard user: a fresh install, which then runs by name from a new terminal's PATH; setup over setup; `install.ps1` over setup, then the setup's uninstaller; `install.ps1` fresh with setup over it, then `install.ps1 -Uninstall`. With the folder held open, the setup and the uninstaller both stop and leave the install whole, and both work once it is closed. Every removal left the folder, shortcut and Apps entry gone and the PATH exactly as found. The welcome, finish and uninstall pages show as they should, and Run on the finish page starts the app.
-	- Note 20261007: waiting on signoff, since it adds README text and writes to the registry.
-	- Branch: winsetup
-	- Test case: rjphqx48 runs the setup under wine: install, install over it and uninstall, against no PATH, a PATH with empty entries, a variable and trailing separators, one already listing the folder, one that just fits, one 1 character over and one too long. Files must match the zip, and the PATH must come back exactly.
-
-- 🔬 Linux arm64 release build. Needs an arm64 GTK3 build environment; nothing cross-compiles it today, so the installers' arm64 path has nothing to fetch.
-	- Opened: 20260804-133646
-	- Note: if arm64 builds turn out much slower, they go behind an `--include-arm` flag rather than the `--no-arm` the engine has now.
-	- Done 20261005: `cicd/linux/release-arm64.bash` builds `nemo-anywhere-<version>-linux-arm64.tar.gz` on an arm64 Linux box with docker, and adds it to the sums file. It sends the working tree over and runs `release.bash` there, in an image from the same Dockerfile, so the glibc floor and the library versions match the x86_64 build. The Dockerfile pins the arm64 package sources to the same snapshot.
-	- Done 20261005: `release.bash` names the asset `arm64` where the kernel says `aarch64`, which is the name the installers ask for. `package.bash` now only picks up a tarball for its own box's arch.
-	- Verified 20261005: two builds of one commit gave the same tarball. It installs with `install.bash` on Debian 13 arm64, answers `--version` and opens its window.
-	- Note 20261005: on an emulated arm64 box a release build takes about 67 minutes at 4 cores, against under 4 minutes for x86_64 at the same 4 cores.
-	- Note 20261005: the test suite passes 160 of 171 on the arm64 release build. One failure belongs to arm64: a crash report after a call through a null pointer keeps too few frames, since that stack is only recovered on x86_64. Most of the rest are time limits the slow box misses, and 2 fail on the x86_64 release build too.
-	- Note 20261005: left for later: calling it from the pipeline, and arm64 `.deb` and `.rpm` packages. It goes behind `--include-arm`, per the note above, since it takes an hour.
-	- Done 20261007: the pipeline builds it with `cicd.bash --include-arm`, after the Windows build, and leaves it out otherwise. `--no-arm` still leaves it out, even beside `--include-arm`. `--no-cross` and `--quick` leave it out with the other cross builds. The plan shown at the start of a run says when arm64 is left out.
-	- Note 20261007: it went in as one more cross build rather than a stage of its own, so the options and the plan that cover cross builds cover it too. The pipeline now fills the version into a cross build's file name, which the arm64 tarball needs.
-	- Note 20261007: arm64 `.deb` and `.rpm` are left out, since they are not a small change. The `.deb`'s dependency versions are read off the build in the x86_64 release container, so an arm64 one needs the arm64 libraries to read them from, on the arm64 box. They can be an item of their own.
-	- Verified 20261007: rjph39cv and rjph1pxd pass. rjph39cv failed on the pipeline as it was, and with the version left out of the file name. rjph1pxd failed with each of these broken in turn: clearing the old tree on the box, ignored files left out, the stamp passed over, the lock name, the arm64 check, the sums file and stopping the build container.
-	- Note 20261007: no real `--include-arm` run yet. The lane itself built and passed the suite on the arm64 box on 20261007, and the pipeline only calls it.
-	- Test case: rhtrxr81 has both installers fetch the arm64 build under the name the release lanes give it, on either box. rjcma0t3 checks the arm64 package sources are pinned too. rjph39cv checks the pipeline builds arm64 only with `--include-arm` and finds the tarball under its versioned name. rjph1pxd checks what the lane sends to the arm64 box and what it brings back.
 
 - 🔘 Target: macOS
 	- Opened: 20260730-185314
@@ -5657,6 +5644,43 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: none, no check yet that each icon name exists in the icon themes.
 
 #### Done - Features and enhancements
+
+- ✅ A Windows installer exe that installs, or updates an install already there.
+	- Opened: 20260919-132409
+	- Design: [20260930-145641_windows_exe_packing.md](design_docs/20260930-145641_windows_exe_packing.md).
+	- Note: Windows has the portable exe and the zip today, and `install.ps1` for an install with a menu entry and PATH.
+	- Note: wants signing first, or it trips the same warnings the exe does.
+	- Note 20261007: built unsigned with NSIS, the recommended answer when the question timed out. Signing stays with its own item.
+	- Done 20261007: `nemo-anywhere-<version>-windows-x86_64-setup.exe` is made from the release zip in the packaging stage, so it installs the same files `install.ps1` does. It installs into the same folder, with the same Start menu shortcut and user PATH entry, and adds an uninstaller and an entry in Settings, Apps. It goes in the release and the sums file with the rest.
+	- Decisions 20261007: for this account only, with no admin rights, no machine-wide choice and no folder choice. A UAC prompt to install a file manager would be the surprise, it matches the script's default, and the two installers always find each other's install. `install.ps1 -Target system` still covers a machine-wide install.
+	- Done 20261007: `install.ps1` 1.4.0 keeps the setup's uninstaller and Apps entry when it reinstalls over a setup install, and `-Uninstall` removes the entry too.
+	- Note 20261007: a user PATH too long for the setup to change safely, about 1000 characters, is left alone, and the setup says so. Both installers write the PATH back as an expandable string, so one stored as a plain string keeps its text but not its type.
+	- Note 20261007: like any NSIS uninstall run without admin rights, one small `Un.exe` stays in `%TEMP%\~nsu*.tmp` until the next NSIS uninstall or a temp cleanup. Only a delayed self-delete through a command prompt gets around it, and antivirus watches for that. Left as is for signoff.
+	- Verified 20261007: rjphqx48 passes. It fails with the PATH length guard taken out, with empty PATH entries dropped, and with the Apps entry left behind on uninstall. Two builds of one commit give the same bytes.
+	- Verified 20261007: on a Windows box, as a standard user: a fresh install, which then runs by name from a new terminal's PATH; setup over setup; `install.ps1` over setup, then the setup's uninstaller; `install.ps1` fresh with setup over it, then `install.ps1 -Uninstall`. With the folder held open, the setup and the uninstaller both stop and leave the install whole, and both work once it is closed. Every removal left the folder, shortcut and Apps entry gone and the PATH exactly as found. The welcome, finish and uninstall pages show as they should, and Run on the finish page starts the app.
+	- Note 20261007: waiting on signoff, since it adds README text and writes to the registry.
+	- Signoff 20261007: the one `Un.exe` left in `%TEMP%` is OK.
+	- Closed: 20261007-142448
+	- Branch: winsetup
+	- Test case: rjphqx48 runs the setup under wine: install, install over it and uninstall, against no PATH, a PATH with empty entries, a variable and trailing separators, one already listing the folder, one that just fits, one 1 character over and one too long. Files must match the zip, and the PATH must come back exactly.
+
+- ✅ Linux arm64 release build. Needs an arm64 GTK3 build environment; nothing cross-compiles it today, so the installers' arm64 path has nothing to fetch.
+	- Opened: 20260804-133646
+	- Note: if arm64 builds turn out much slower, they go behind an `--include-arm` flag rather than the `--no-arm` the engine has now.
+	- Done 20261005: `cicd/linux/release-arm64.bash` builds `nemo-anywhere-<version>-linux-arm64.tar.gz` on an arm64 Linux box with docker, and adds it to the sums file. It sends the working tree over and runs `release.bash` there, in an image from the same Dockerfile, so the glibc floor and the library versions match the x86_64 build. The Dockerfile pins the arm64 package sources to the same snapshot.
+	- Done 20261005: `release.bash` names the asset `arm64` where the kernel says `aarch64`, which is the name the installers ask for. `package.bash` now only picks up a tarball for its own box's arch.
+	- Verified 20261005: two builds of one commit gave the same tarball. It installs with `install.bash` on Debian 13 arm64, answers `--version` and opens its window.
+	- Note 20261005: on an emulated arm64 box a release build takes about 67 minutes at 4 cores, against under 4 minutes for x86_64 at the same 4 cores.
+	- Note 20261005: the test suite passes 160 of 171 on the arm64 release build. One failure belongs to arm64: a crash report after a call through a null pointer keeps too few frames, since that stack is only recovered on x86_64. Most of the rest are time limits the slow box misses, and 2 fail on the x86_64 release build too.
+	- Note 20261005: left for later: calling it from the pipeline, and arm64 `.deb` and `.rpm` packages. It goes behind `--include-arm`, per the note above, since it takes an hour.
+	- Done 20261007: the pipeline builds it with `cicd.bash --include-arm`, after the Windows build, and leaves it out otherwise. `--no-arm` still leaves it out, even beside `--include-arm`. `--no-cross` and `--quick` leave it out with the other cross builds. The plan shown at the start of a run says when arm64 is left out.
+	- Note 20261007: it went in as one more cross build rather than a stage of its own, so the options and the plan that cover cross builds cover it too. The pipeline now fills the version into a cross build's file name, which the arm64 tarball needs.
+	- Note 20261007: arm64 `.deb` and `.rpm` are left out, since they are not a small change. The `.deb`'s dependency versions are read off the build in the x86_64 release container, so an arm64 one needs the arm64 libraries to read them from, on the arm64 box. They can be an item of their own.
+	- Note 20261007: moved to their own item, 2026100714244880, so this one closes.
+	- Closed: 20261007-142448
+	- Verified 20261007: rjph39cv and rjph1pxd pass. rjph39cv failed on the pipeline as it was, and with the version left out of the file name. rjph1pxd failed with each of these broken in turn: clearing the old tree on the box, ignored files left out, the stamp passed over, the lock name, the arm64 check, the sums file and stopping the build container.
+	- Note 20261007: no real `--include-arm` run yet. The lane itself built and passed the suite on the arm64 box on 20261007, and the pipeline only calls it.
+	- Test case: rhtrxr81 has both installers fetch the arm64 build under the name the release lanes give it, on either box. rjcma0t3 checks the arm64 package sources are pinned too. rjph39cv checks the pipeline builds arm64 only with `--include-arm` and finds the tarball under its versioned name. rjph1pxd checks what the lane sends to the arm64 box and what it brings back.
 
 - ✅ Target: BSD
 	- Opened: 20260730-185314
