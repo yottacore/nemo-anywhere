@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <gio/gio.h>
+#include <pango/pangocairo.h>
 
 #ifndef G_OS_WIN32
 #include <fcntl.h>
@@ -135,6 +136,24 @@ remove_made (const char *path, const char *base)
 	g_object_unref (file);
 }
 
+/* Newer GTK 3 starts pango's font map in gtk_init, and pango runs FcInit in a
+   thread. With no usable system font cache that thread writes one under
+   XDG_CACHE_HOME, which is usually a scratch dir, and fontconfig makes the
+   dir again if it is gone. So it has to be done before anything is removed.
+   A test that never made a font map is not given one here. */
+static void
+wait_for_font_setup (void)
+{
+	PangoFontFamily **families = NULL;
+	int count = 0;
+
+	if (g_type_from_name ("PangoFcFontMap") == 0) {
+		return;
+	}
+	pango_font_map_list_families (pango_cairo_font_map_get_default (), &families, &count);
+	g_free (families);
+}
+
 /* TRUE while canon sits inside one of the directories this process made. */
 static gboolean
 inside_a_made_dir (const char *canon)
@@ -167,6 +186,7 @@ test_scratch_remove_tree (const char *path)
 		return FALSE;
 	}
 
+	wait_for_font_setup ();
 	file = g_file_new_for_path (canon);
 	info = g_file_query_info (file, WALK_ATTRIBUTES,
 				  G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, NULL, NULL);
@@ -198,6 +218,7 @@ test_scratch_cleanup (void)
 	}
 #endif
 
+	wait_for_font_setup ();
 	for (i = 0; i < made->len; i++) {
 		remove_made (g_ptr_array_index (made, i), g_ptr_array_index (made_in, i));
 	}
