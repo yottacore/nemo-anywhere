@@ -29,6 +29,13 @@
 #include "nemo-program-choosing.h"
 #include "nemo-ui-utilities.h"
 
+#ifdef G_OS_WIN32
+#include "nemo-launch-win32.h"
+
+/* Asked every time the menu is built, so one that hangs must not keep it. */
+#define EXEC_CONDITION_SECONDS 10
+#endif
+
 #define DEBUG_FLAG NEMO_DEBUG_ACTIONS
 #include <libnemo-private/nemo-debug.h>
 
@@ -1528,6 +1535,24 @@ nemo_action_activate (NemoAction *action,
 
     DEBUG ("Action Spawning: %s", exec->str);
 
+#ifdef G_OS_WIN32
+    {
+        gchar **argvp;
+
+        /* Through the launcher, so a console program gets no window, or one
+           of its own when the action wants a terminal. */
+        if (!g_shell_parse_argv (exec->str, NULL, &argvp, &error)) {
+            DEBUG ("Could not parse action command: %s", error->message);
+            g_clear_error (&error);
+        } else {
+            if (!nemo_launch_win32_spawn ((const gchar * const *) argvp, priv->run_in_terminal, &error)) {
+                DEBUG ("Error spawning action: %s", error->message);
+                g_clear_error (&error);
+            }
+            g_strfreev (argvp);
+        }
+    }
+#else
     if (priv->run_in_terminal) {
         gint argcp;
         gchar **argvp;
@@ -1550,6 +1575,7 @@ nemo_action_activate (NemoAction *action,
             g_error_free (error);
         }
     }
+#endif
 
     g_string_free (exec, TRUE);
 }
@@ -1724,6 +1750,28 @@ check_exec_condition (NemoAction  *action,
 
     return_code = -1;
 
+#ifdef G_OS_WIN32
+    {
+        gchar **argv;
+        gboolean timed_out = FALSE;
+
+        /* No console window each time the menu is built. Anything that did not
+           start, ran too long or did not exit 0 is a no. */
+        if (!g_shell_parse_argv (exec->str, NULL, &argv, &error)) {
+            DEBUG ("Could not parse exec condition: %s", error->message);
+            g_clear_error (&error);
+            g_string_free (exec, TRUE);
+            return FALSE;
+        }
+        return_code = nemo_launch_win32_pipe ((const gchar * const *) argv, NULL, EXEC_CONDITION_SECONDS,
+                                              NULL, NULL, &timed_out) ? 0 : 1;
+        if (timed_out) {
+            g_warning ("Action condition '%s' still running after %d seconds, taken as no",
+                       exec->str, EXEC_CONDITION_SECONDS);
+        }
+        g_strfreev (argv);
+    }
+#else
     if (!g_spawn_command_line_sync (exec->str,
                                     NULL,
                                     NULL,
@@ -1737,6 +1785,7 @@ check_exec_condition (NemoAction  *action,
             g_string_free (exec, TRUE);
             return FALSE;
         }
+#endif
 
     DEBUG ("Action checking exec condition '%s' returned: %d", exec->str, return_code);
 

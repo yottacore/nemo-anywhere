@@ -801,6 +801,67 @@ nemo_launch_win32_pipe (const gchar * const  *argv,
 	return TRUE;
 }
 
+/* Batch files answer as console programs. Anything that is not a program
+ * at all, a script say, answers 0 and is left to the shell and its file types. */
+static gboolean
+is_console_program (const gchar *program)
+{
+	wchar_t *wide = g_utf8_to_utf16 (program, -1, NULL, NULL, NULL);
+	DWORD_PTR type = 0;
+
+	if (wide != NULL) {
+		type = SHGetFileInfoW (wide, 0, NULL, 0, SHGFI_EXETYPE);
+		g_free (wide);
+	}
+
+	return type != 0 && HIWORD (type) == 0;
+}
+
+gboolean
+nemo_launch_win32_spawn (const gchar * const  *argv,
+			 gboolean              in_console,
+			 GError              **error)
+{
+	gchar *program;
+	gboolean started;
+
+	g_return_val_if_fail (argv != NULL && argv[0] != NULL, FALSE);
+
+	program = g_path_is_absolute (argv[0]) ? g_strdup (argv[0]) : g_find_program_in_path (argv[0]);
+	if (program == NULL) {
+		SetLastError (ERROR_FILE_NOT_FOUND);
+		set_failed (error, argv[0]);
+		return FALSE;
+	}
+
+	if (!in_console && is_console_program (program)) {
+		HANDLE nowhere = open_nowhere ();
+		HANDLE process = NULL;
+
+		if (nowhere == INVALID_HANDLE_VALUE) {
+			set_failed (error, program);
+			started = FALSE;
+		} else {
+			started = spawn_hidden (argv, NULL, nowhere, nowhere, nowhere, &process, error);
+		}
+		close_valid (process);
+		close_valid (nowhere);
+	} else {
+		GString *args = g_string_new (NULL);
+		gchar *cwd = g_get_current_dir ();
+
+		for (guint i = 1; argv[i] != NULL; i++) {
+			append_argument (args, argv[i]);
+		}
+		started = nemo_launch_win32_run (program, args->len > 0 ? args->str : NULL, cwd, error);
+		g_free (cwd);
+		g_string_free (args, TRUE);
+	}
+
+	g_free (program);
+	return started;
+}
+
 struct _NemoLaunchWin32Child {
 	HANDLE        process;
 	GInputStream *out;

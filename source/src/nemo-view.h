@@ -438,5 +438,7 @@ void              nemo_view_pop_up_location_context_menu (NemoView    *view,
 void              nemo_view_grab_focus                 (NemoView      *view);
 void              nemo_view_update_menus               (NemoView      *view);
 void              nemo_view_new_folder                 (NemoView      *view);
+/* The same terminal for the window's button as for the view's menus. */
+void              nemo_view_open_in_terminal           (const gchar   *path);
 
 #endif /* NEMO_VIEW_H */

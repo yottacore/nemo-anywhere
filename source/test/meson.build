@@ -1855,6 +1855,8 @@ if is_windows
     args: [ executable('test-fake-magick', [ 'test-fake-magick.c' ]) ]
   )
 
+  fake_tool = executable('test-fake-tool', [ 'test-fake-tool.c' ])
+
   test('rjm4ctwh Tool start win32 test',
     executable('test-nemo-tool-start-win32',
       [ 'test-nemo-tool-start-win32.c' ],
@@ -1862,8 +1864,19 @@ if is_windows
       dependencies: [ gtk, nemo_private, test_scratch ],
       c_args: nemo_definitions,
     ),
-    args: [ executable('test-fake-tool', [ 'test-fake-tool.c' ]) ],
+    args: [ fake_tool ],
     timeout: 120
+  )
+
+  test('rjmb3j8p Action start win32 test',
+    executable('test-nemo-action-start-win32',
+      [ 'test-nemo-action-start-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: [ fake_tool,
+            executable('test-fake-tool-windowed', [ 'test-fake-tool.c' ], win_subsystem: 'windows') ],
+    timeout: 60
   )
 
   test('rjkwtgrm Drop keys win32 test',

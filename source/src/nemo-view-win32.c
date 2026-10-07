@@ -208,7 +208,7 @@ nemo_view_win32_open_terminal (const gchar *path)
 
 	/* wt ignores the working directory it is handed, so it needs the folder
 	   spelled out - unless the user gave it arguments of their own. */
-	if (args == NULL && g_str_has_suffix (exe, "wt.exe")) {
+	if (args == NULL && path != NULL && g_str_has_suffix (exe, "wt.exe")) {
 		gchar *quoted = nemo_view_win32_quote_arg (path);
 
 		args = g_strconcat ("-d ", quoted, NULL);

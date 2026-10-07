@@ -7859,6 +7859,12 @@ open_in_terminal (const gchar *path)
 }
 #endif
 
+void
+nemo_view_open_in_terminal (const gchar *path)
+{
+    open_in_terminal (path);
+}
+
 static void
 action_paste_files_into_callback (G_GNUC_UNUSED GtkAction *action,
 				  gpointer callback_data)
