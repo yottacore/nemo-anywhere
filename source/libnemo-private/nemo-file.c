@@ -8252,10 +8252,17 @@ nemo_file_is_launchable (NemoFile *file)
 	gboolean type_can_be_executable;
 
 	type_can_be_executable = FALSE;
+#ifdef G_OS_WIN32
+	/* GLib takes only .exe, .com and .bat, in lower case. Windows runs by
+	   name whatever PATHEXT lists. */
+	type_can_be_executable = file->details->name != NULL &&
+		nemo_name_is_on_pathext (file->details->name, g_getenv ("PATHEXT"));
+#else
 	if (file->details->mime_type != NULL) {
 		type_can_be_executable =
 			g_content_type_can_be_executable (file->details->mime_type);
 	}
+#endif
 
 	return type_can_be_executable &&
 		nemo_file_can_get_permissions (file) &&

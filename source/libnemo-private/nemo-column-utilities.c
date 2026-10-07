@@ -489,3 +489,74 @@ nemo_search_columns_save (const char *const *visible_in_order)
 			      NEMO_PREFERENCES_SEARCH_VISIBLE_COLUMNS,
 			      visible_in_order);
 }
+
+/* Returns FALSE with nothing saved, and then *attribute is NULL.
+ * Returns: (transfer full) in *attribute: free with g_free */
+gboolean
+nemo_search_sort_get (char **attribute, gboolean *reversed)
+{
+	char *saved = nemo_config_get_string (nemo_search_preferences,
+					      NEMO_PREFERENCES_SEARCH_SORT_COLUMN);
+
+	if (saved == NULL || saved[0] == '\0') {
+		g_free (saved);
+		*attribute = NULL;
+		return FALSE;
+	}
+
+	*attribute = saved;
+	*reversed = nemo_config_get_boolean (nemo_search_preferences,
+					     NEMO_PREFERENCES_SEARCH_REVERSE_SORT);
+	return TRUE;
+}
+
+/* Every load of find results comes through here or save, so leave the file alone
+ * when nothing changes. */
+void
+nemo_search_sort_forget (void)
+{
+	char *saved = nemo_config_get_string (nemo_search_preferences,
+					      NEMO_PREFERENCES_SEARCH_SORT_COLUMN);
+
+	if (saved != NULL && saved[0] != '\0') {
+		nemo_config_reset (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_SORT_COLUMN);
+	}
+	g_free (saved);
+
+	if (nemo_config_get_boolean (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_REVERSE_SORT)) {
+		nemo_config_reset (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_REVERSE_SORT);
+	}
+}
+
+/* The default is kept as nothing, as a folder's is, so a new default sort
+ * order still reaches find results. */
+void
+nemo_search_sort_save (const char *attribute,
+		       gboolean    reversed,
+		       const char *default_attribute,
+		       gboolean    default_reversed)
+{
+	if (attribute == NULL ||
+	    (g_strcmp0 (attribute, default_attribute) == 0 && reversed == default_reversed)) {
+		nemo_search_sort_forget ();
+		return;
+	}
+
+	{
+		char *saved = NULL;
+		gboolean saved_reversed = FALSE;
+		gboolean same = nemo_search_sort_get (&saved, &saved_reversed) &&
+				g_strcmp0 (saved, attribute) == 0 &&
+				saved_reversed == reversed;
+
+		g_free (saved);
+		if (same) {
+			return;
+		}
+	}
+
+	nemo_config_set_string (nemo_search_preferences,
+				NEMO_PREFERENCES_SEARCH_SORT_COLUMN, attribute);
+	nemo_config_set_boolean (nemo_search_preferences,
+				 NEMO_PREFERENCES_SEARCH_REVERSE_SORT, reversed);
+}

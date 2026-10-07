@@ -191,7 +191,7 @@ main (int argc, char *argv[])
 			g_free (state);
 			g_usleep (100 * 1000);
 			state = NULL;
-			g_file_get_contents (state_path, &state, NULL, NULL);
+			(void) g_file_get_contents (state_path, &state, NULL, NULL);
 		}
 	}
 	if (state == NULL || strstr (state, "view=list\n") == NULL) {

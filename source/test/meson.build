@@ -1193,6 +1193,21 @@ if not is_windows
     timeout: 120
   )
 
+  # Preloaded too; it sorts and resets from inside the program.
+  reset_sort_probe = shared_module('test-nemo-reset-sort-probe',
+    [ 'test-nemo-reset-sort-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('rjnzamsq Reset view sort test',
+    executable('test-nemo-reset-sort',
+      [ 'test-nemo-reset-sort.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, reset_sort_probe ],
+    timeout: 180
+  )
+
   test('rhtq57n4 Clean start test',
     executable('test-nemo-startup-clean',
       [ 'test-nemo-startup-clean.c' ],
@@ -1555,6 +1570,20 @@ test('rhg8y5f0 ImageMagick thumbnail test',
   args: []
 )
 
+# Runs on a copy of the loader list the system's gdk-pixbuf reads.
+if not is_windows
+  test('rjnz8zfz ImageMagick for missing pixbuf loaders test',
+    executable('test-nemo-magick-extras',
+      [ 'test-nemo-magick-extras.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+      c_args: [ '-DPIXBUF_LOADERS_CACHE="@0@"'.format(
+        dependency('gdk-pixbuf-2.0').get_variable(pkgconfig: 'gdk_pixbuf_cache_file', default_value: '')) ],
+    ),
+    args: []
+  )
+endif
+
 test('rhe0xz32 Thumbnail hold test',
   executable('test-nemo-thumbnail-hold',
     [ 'test-nemo-thumbnail-hold.c' ],
@@ -1896,6 +1925,25 @@ if is_windows
     ),
     args: [],
     timeout: 60
+  )
+
+  test('rjnzpkk7 Command launch win32 test',
+    executable('test-nemo-command-launch-win32',
+      [ 'test-nemo-command-launch-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: [ fake_tool ],
+    timeout: 60
+  )
+
+  test('rjp4ch0y Launchable win32 test',
+    executable('test-nemo-launchable-win32',
+      [ 'test-nemo-launchable-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: []
   )
 
   test('rjkwtgrm Drop keys win32 test',

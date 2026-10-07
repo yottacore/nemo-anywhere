@@ -28,7 +28,9 @@
  * fails fast, so the timing proves little and the rest still holds.
  *
  * Run with "glib" to put GLib's own mount list through the same checks. With a
- * dead share that is the one that waits. */
+ * dead share that is the one that waits.
+ *
+ * The trash state reads a removable drive's bin only with a disk in it. */
 
 #include <config.h>
 
@@ -153,6 +155,64 @@ check_trash_state (gboolean slow_share)
 	}
 }
 
+/* A fixed drive's bin is asked about, and a removable one's only with a disk
+ * in it. An empty drive says so at once, with no insert-disk prompt; an empty
+ * optical drive stands in for an empty card reader. A share is never asked,
+ * not even whether it has a disk. */
+static void
+check_bins (char mapped_letter)
+{
+	DWORD drives = GetLogicalDrives ();
+	gboolean removable_seen = FALSE, empty_seen = FALSE;
+	int bit;
+
+	check (!nemo_drive_win32_bin_askable (mapped_letter));
+
+	for (bit = 0; bit < 26; bit++) {
+		char letter = (char) ('A' + bit);
+		NemoDriveWin32Kind kind;
+		gboolean media, askable;
+		gint64 started;
+		double seconds;
+
+		if (!(drives & (1u << bit)) || letter == mapped_letter) {
+			continue;
+		}
+		kind = nemo_drive_win32_kind (letter);
+		if (kind == NEMO_DRIVE_WIN32_REMOTE) {
+			check (!nemo_drive_win32_bin_askable (letter));
+			continue;
+		}
+
+		started = g_get_monotonic_time ();
+		media = nemo_drive_win32_has_media (letter);
+		seconds = seconds_since (started);
+		askable = nemo_drive_win32_bin_askable (letter);
+		g_print ("  %c: kind %d, %s, bin %s, %.3fs\n", letter, kind,
+			 media ? "disk in" : "empty", askable ? "asked" : "not asked", seconds);
+
+		if (kind == NEMO_DRIVE_WIN32_FIXED) {
+			check (media && askable);
+		} else if (kind == NEMO_DRIVE_WIN32_REMOVABLE) {
+			removable_seen = TRUE;
+			check (askable == media);
+		} else {
+			check (!askable);
+		}
+		if (!media) {
+			empty_seen = TRUE;
+			check (seconds < 2.0);
+		}
+	}
+
+	if (!removable_seen) {
+		g_print ("  no removable drive here\n");
+	}
+	if (!empty_seen) {
+		g_print ("  no empty drive here\n");
+	}
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -181,6 +241,7 @@ main (int argc, char *argv[])
 
 	check_mounts (glib, letter, dead != NULL);
 	if (!glib) {
+		check_bins (letter);
 		check_trash_state (dead != NULL);
 	}
 

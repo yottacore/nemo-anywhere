@@ -3140,3 +3140,27 @@ nemo_content_type_is_a (const char *content_type, const char *mime_type)
 	return FALSE;
 #endif
 }
+
+gboolean
+nemo_name_is_on_pathext (const char *name, const char *pathext)
+{
+	const char *dot;
+	g_auto (GStrv) entries = NULL;
+	guint i;
+
+	g_return_val_if_fail (name != NULL, FALSE);
+
+	dot = strrchr (name, '.');
+	if (dot == NULL || dot[1] == '\0') {
+		return FALSE;
+	}
+
+	entries = g_strsplit (pathext != NULL ? pathext : ".COM;.EXE;.BAT;.CMD", ";", -1);
+	for (i = 0; entries[i] != NULL; i++) {
+		if (g_ascii_strcasecmp (g_strstrip (entries[i]), dot) == 0) {
+			return TRUE;
+		}
+	}
+
+	return FALSE;
+}

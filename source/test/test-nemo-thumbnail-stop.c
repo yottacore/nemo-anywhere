@@ -79,7 +79,9 @@ run_hung (const char *pid_file)
 {
 	g_autofree char *pid = g_strdup_printf ("%d", (int) getpid ());
 
-	g_file_set_contents (pid_file, pid, -1, NULL);
+	if (!g_file_set_contents (pid_file, pid, -1, NULL)) {
+		g_printerr ("could not write %s\n", pid_file);
+	}
 	g_usleep (60 * G_USEC_PER_SEC);
 
 	return 0;
@@ -463,7 +465,7 @@ feed_slowly (gpointer data)
 	if (fd < 0) {
 		return NULL;
 	}
-	g_file_set_contents (feed->opened, "", 0, NULL);
+	check (g_file_set_contents (feed->opened, "", 0, NULL));
 
 	if (write (fd, header, sizeof header) == (ssize_t) sizeof header) {
 		for (i = 0; i < (int) (pixels / sizeof block); i++) {

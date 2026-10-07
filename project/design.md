@@ -375,7 +375,7 @@ Archives are written by libarchive, with the `7z` and `rar` commands as optional
 
 - Results can be grouped under the folder holding them. It is a heading row per folder that actually has a match, labeled with the path under the folder searched, rather than a full tree of every folder in between - a tree puts rows on screen for folders with nothing in them, and reading that path off one row is what a person actually wants. The heading rows are built by the view rather than the model, so a folder nobody asked to open is never read, monitored or walked. Flat is still the default and switching redraws from the results in hand rather than searching again.
 
-- Find results keep their own list columns and the order they were dragged into, whatever "Remember per-folder settings" says. They are not a folder, so there is no folder to keep them with. With nothing picked they show Name, Ext, Size, Date modified and Location, in that order. Type and the other two dates are hidden.
+- Find results keep their own list columns, the order they were dragged into, and their sort column and direction, whatever "Remember per-folder settings" says. They are not a folder, so there is no folder to keep them with. They also never touch the sort a folder uses, so leaving find mode gives the folder its own sort back. With nothing picked they show Name, Ext, Size, Date modified and Location, in that order. Type and the other two dates are hidden. With no sort picked they take the default sort order, as a folder does. Reset view and the column menu's Use default put back both the columns and the sort.
 
 - On Windows the search index is used when asked, through a switch that is off by default. It answers for any folder the index covers; a folder outside it, a network location, a regular expression or a case-sensitive content match goes to the ordinary walk unchanged. Off by default because the index only knows what it has been told to watch, and a search that quietly misses a folder is worse than a slow one.
 
@@ -763,10 +763,11 @@ FreeBSD 15.1 on amd64 is the known-good baseline. The build is native, with the 
 
 - The action layout editor wants `py312-pygobject` at run time.
 
+- BMP, ICO, XPM, XBM and PNM thumbnails want `gdk-pixbuf-extra` at run time. gdk-pixbuf has left those loaders out of a default build since 2.42.11, and FreeBSD's package follows that. Without it the app hands those formats to ImageMagick when that is installed, and otherwise they keep their plain icon.
+
 - The test suite also wants `xorg-vfbserver xdpyinfo openbox ImageMagick7-nox11 7-zip`, plus `rar` for the rar cases. There is no `xvfb-run`, so `meson test -C build` runs with `DISPLAY` set to an X server of its own and `DBUS_SESSION_BUS_ADDRESS=disabled:`, as `cicd/linux/run-tests.bash` does on Linux. A test that needs a display to itself starts its own Xvfb.
 
 - What differs from Linux:
-	- gdk-pixbuf as packaged there has no BMP, ICO, XPM or PNM loader, so those pictures get no thumbnail yet.
 	- The leak tests and the allocation count read glibc's heap, so they skip.
 
 ## Delivery

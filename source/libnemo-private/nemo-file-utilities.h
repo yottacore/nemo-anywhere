@@ -230,4 +230,9 @@ gboolean nemo_content_type_is_a (const char *content_type, const char *mime_type
    Safe from any thread.
    Returns: (transfer full): free with g_free */
 char *nemo_content_type_get_mime_type (const char *content_type);
+
+/* TRUE when Windows runs a file by this name as a program: its extension is on
+   @pathext, a PATHEXT list, in any case. NULL means cmd's own list when
+   PATHEXT is unset. */
+gboolean nemo_name_is_on_pathext (const char *name, const char *pathext);
 #endif /* NEMO_FILE_UTILITIES_H */

@@ -855,7 +855,9 @@ fRun fCheckWinLaunch
 ## GLib's own spawn on Windows goes through a helper program, which gives a
 ## console tool a console window and never starts it at all from the single
 ## exe. Off Windows it is fine, so every call that starts a program is on this
-## list with why Windows never reaches it, or why it does no harm there.
+## list with why Windows never reaches it, or why it does no harm there. GLib's
+## app launch spawns the same way for anything but a store app, and so does
+## GTK's show-uri through it.
 ## Test ID: rjm8a6xr
 fCheckGlibSpawn(){
 	local allowed=' '
@@ -873,12 +875,19 @@ fCheckGlibSpawn(){
 	allowed+='nemo-thumbnail-problem-bar.c:thumbnail_problem_bar_response_cb '	# same, sh and pkexec
 	allowed+='nemo-action.c:nemo_action_activate '						# Windows goes through nemo-launch-win32.c
 	allowed+='nemo-action.c:check_exec_condition '						# same
+	allowed+='nemo-program-choosing.c:nemo_launch_application_by_uri '	# Windows: only a store app, which the shell starts
+	allowed+='nemo-program-choosing.c:launch_application_from_command_internal '	# not built on Windows
+	allowed+='nemo-program-choosing.c:nemo_launch_desktop_file '			# same
+	allowed+='eel-gnome-extensions.c:eel_gnome_open_terminal_on_screen '	# its one caller is not built on Windows
+	allowed+='nemo-template-config-widget.c:on_edit_template_clicked '		# Windows goes through nemo-launch-win32.c
+	allowed+='nemo-view.c:pattern_select_response_cb '					# a help: link, which nothing on Windows opens
+	allowed+='nemo-window-menus.c:action_nemo_manual_callback '			# same
 	local bad
 
 	bad="$(find source/src source/libnemo-private source/libnemo-extension source/eel \( -name '*.c' -o -name '*.h' \) -exec awk -v allowed="$allowed" '
 		FNR == 1 { fn = ""; base = FILENAME; sub(/.*\//, "", base) }
 		/^[a-zA-Z_][a-zA-Z0-9_]* *\(/ { fn = $1; sub(/\(.*/, "", fn) }
-		/(^|[^A-Za-z0-9_])(g_subprocess_newv?|g_subprocess_launcher_spawnv?|g_spawn_(async|sync|command_line_async|command_line_sync|async_with_pipes|async_with_fds|async_with_pipes_and_fds)) *\(/ {
+		/(^|[^A-Za-z0-9_])(g_subprocess_newv?|g_subprocess_launcher_spawnv?|g_spawn_(async|sync|command_line_async|command_line_sync|async_with_pipes|async_with_fds|async_with_pipes_and_fds)|g_app_info_launch(_uris(_async)?|_default_for_uri(_async)?)?|g_desktop_app_info_launch_uris_as_manager(_with_fds)?|gtk_show_uri(_on_window)?) *\(/ {
 			if (index(allowed, " " base ":" fn " ") == 0) print FILENAME ":" FNR ": " $0
 		}
 	' {} +)"
@@ -1266,7 +1275,6 @@ fRun fCheckMountList
 fCheckUserText(){
 	local allowed=' '
 	allowed+='nemo-user-text.c:nemo_user_text_get_string '						# the one place that calls them
-	allowed+='nemo-user-text.c:nemo_user_text_get_locale_string '				# same
 	allowed+='nemo-user-text.c:nemo_user_text_get_string_list '				# same
 	allowed+='nemo-user-text.c:nemo_user_text_split_command '					# same
 	allowed+='nemo-appearance.c:icon_theme_index '								# a theme's index.theme, which follows the spec
@@ -1399,11 +1407,15 @@ fEcho "C lint (cppcheck, check-only) over ${#files[@]} file(s) ${scope}..."
 ## -j on its own drops the cross-file checks (the ctu* ones); a build dir keeps
 ## them, with the same findings as one process. Half the cores, since something
 ## else is usually running. The dir is relative so MSYS2 hands it over as is.
+## unix64 on every host: gtk.cfg writes G_GINT64_FORMAT and friends as Linux has
+## them, so under MSYS2's own win64 every one of them read as a wrong printf
+## type. The compiler checks the real formats on Windows. .cppcheck-defines.cfg
+## has the macros it cannot see.
 jobs=$(( $(nproc 2>/dev/null || echo 2) / 2 ))
 ((jobs >= 1)) || jobs=1
 mkdir -p cicd/artifacts
 cacheDir="$(mktemp -d cicd/artifacts/cppcheck.XXXXXX)"
-cppcheck --enable=warning,portability --library=gtk --inline-suppr \
+cppcheck --enable=warning,portability --platform=unix64 --library=gtk --library=.cppcheck-defines.cfg --inline-suppr \
 	--suppressions-list=.cppcheck-suppressions -j "$jobs" --cppcheck-build-dir="$cacheDir" \
 	--quiet --error-exitcode=2 "${files[@]}"
 fEcho "OK: C lint: no findings"

@@ -2654,6 +2654,7 @@ only_dangling_warned (ArchiveJob  *job,
 		return FALSE;
 	}
 
+	/* cppcheck-suppress leakNoVarFunctionCall ; g_list_concat takes both copies, freed below */
 	known = g_list_concat (g_list_copy (job->dangling), g_list_copy (job->dangling_first));
 	only = nemo_archive_only_skipped_links (job->backend,
 						nemo_tool_run_get_exit_status (process),

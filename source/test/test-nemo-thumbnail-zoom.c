@@ -58,7 +58,9 @@ run_gated_thumbnailer (const char *gate_dir, const char *input, const char *outp
 	int spins, pixels = atoi (size);
 	gboolean saved;
 
-	g_file_set_contents (started, "", 0, NULL);
+	if (!g_file_set_contents (started, "", 0, NULL)) {
+		g_printerr ("could not write %s\n", started);
+	}
 
 	for (spins = 0; spins < 60000 && !g_file_test (open, G_FILE_TEST_EXISTS); spins++) {
 		g_usleep (1000);

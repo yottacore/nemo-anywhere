@@ -173,6 +173,143 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 7f546d8
 	- Test case: the tests named above.
 
+- On Windows, the trash icon leaves out removable drives.
+	- ID: 2026100708294146
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. Windows only. The full Linux suite passed on the branch, 174 of 174, before this change.
+	- Needs external testing: a real removable drive, on a box that has one. A USB stick under the `RecycleBinDrives` policy with an item in its bin: the trash icon shows full. An empty USB card reader that keeps its drive letter: no insert-disk prompt, and nothing waits.
+	- Priority|Severity: Low
+	- Opened: 20261007-082941
+	- Opened by: 2026100613231440
+	- Related IDs: 2026100613231440, 2026100512334934
+	- Target OS: Windows
+	- Steps to reproduce: turn on the Recycle Bin for removable drives, delete a file on a USB stick, so that its bin is the only one with anything in it.
+	- Incorrect behavior: the trash icon shows empty.
+	- Expected behavior: the trash icon shows full, with no prompt to insert a disk for an empty card reader.
+	- Reproduced: under wine, with a drive letter set as removable: its bin was not counted. Neither vm925w nor b29w has a removable drive with a letter. b29w's card reader gets a letter only with a card in it.
+	- Actual cause: the trash state read fixed drives only, on purpose, so an empty card reader could not bring up the shell's insert-disk prompt (2026100512334934).
+	- Actual fix: a removable drive's bin is read when the drive has a disk in it. The check asks the drive for its volume wiht the critical error prompt off, so an empty one says no. The bin read itself runs with the prompt off too, for a card pulled in between. Optical drives and shares are still never asked.
+	- Note: by default Windows keeps no Recycle Bin on a removable drive and deletes there for good. The `RecycleBinDrives` policy gives them one.
+	- Swept: every other volume and bin call. The shortcut icon check already turns the prompt off, the side pane asks only fixed drives for their label, and the link check asks only the folder in view.
+	- Verified: rjhvmm6f fails under wine with the old fixed-only rule, on 2 drives set as removable, and passes with the fix. Natively on vm925w it passes in session 0 and in the desktop session: the empty optical drive answered empty in 1 ms, no dialog came up, and the trash state took 11 ms with b23 blocked behind Q: and R:. The cross build is clean.
+	- Branch: winlow
+	- Commit: 0dab690
+	- Test case: rjhvmm6f, Mapped drive not asked, new bin cases: a fixed drive's bin is asked, a removable one's only with a disk in it, an empty drive answers in under 2 s, and no share or optical drive is asked.
+
+- On Windows, scripts and the bulk rename tool start through GLib, not the launcher.
+	- ID: 2026100616310432
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: done 20261007, 174 of 174. On Linux a program started from the tree or after making it executable now gets its path quoted, as the other callers already did.
+	- Needs external testing: on vm925w in the desktop session, by hand: a `.bat` in the scripts folder run from the Scripts menu on 2 selected files, one with `&` in its name. Edit in the templates page of preferences.
+	- Priority|Severity: Low
+	- Opened: 20261006-163104
+	- Opened by: 2026100615255305
+	- Related IDs: 2026100615255305, 2026100612483725
+	- Target OS: Windows
+	- Note: the bulk rename half is done under 2026100702343600, on branch winpaths. Scripts are left.
+	- Steps to reproduce: put a console program or a batch file in the scripts folder and run it from the Scripts menu. Separately, set a bulk rename tool and rename more than one file.
+	- Incorrect behavior: read only. Both go through `nemo_launch_application_from_command`, then GLib's app launch, which starts the program through GLib's helper. So a console program should get a console window, and in the single exe it may never start.
+	- Expected behavior: both start the way the rest of the app starts programs on Windows.
+	- Reproduced: no. Read from the code.
+	- Possible cause: `nemo_launch_application_from_command` has no Windows branch, and lint rjm8a6xr looks only at GLib's spawn calls, not at `g_app_info_launch`.
+	- Reproduced: 20261007 by rjnzpkk7, natively on vm925w. A script run the way the Scripts menu runs one was started by GLib's helper, with a console window, and lost its last arguments. A batch file at a path with a space in it never started at all through the launcher's own route.
+	- Actual cause: as in Possible cause. Opening an executable file from the file list, and editing a template in preferences, went through GLib's app launch too. A note on 2026100615255305 says Windows never opens a program that way; it does, since GLib calls a `.exe` executable there. A batch file was handed to `CreateProcessW` as is, which runs it through cmd with the line as given, and cmd then drops the first and last quote. A `&` or `%` in an argument was read by cmd as well, through either route.
+	- Decisions:
+		- A call made without asking: a script runs the way an action does. A console program or batch file runs with no window, as a script does on Linux. A program with windows of its own starts from outside the app, so it does not get the `NEMO_SCRIPT_` variables.
+		- A call made without asking: a program opened from the file list starts the way a double-click in Explorer starts it, so a console program gets its console window.
+		- A call made without asking: every argument to a batch file is quoted, and a `%` in one is never read as a variable, the way Rust's standard library does it since its batch file fix.
+	- Actual fix: on Windows the shared command start splits the line the Windows way and goes through the launcher, with each file as an argument of its own. Paths put in such a line are quoted to match. A program opened from the file list and a template opened for editing go to the shell's open. The launcher runs a batch file through cmd by name, with cmd's own quoting.
+		- Lint rjm8a6xr now looks at GLib's app launch calls and also GTK's show-uri, with the sites Windows never reaches on its list.
+	- Swept:
+		- Every caller of the shared command start: scripts, the file-roller drop, a program opened from the file list or the tree, the run after making a file executable. Bulk rename and actions already had their own Windows branch.
+		- Every GLib app launch and show-uri call in the app, by the widened lint. Listed: a store app, which the shell starts; the Linux-only terminal and desktop file starts; 2 help links, which nothing on Windows opens.
+		- Both launcher routes for a batch file, with no window and in a console.
+	- Note: on Windows the Scripts menu lists only files GLib calls executable, which is `.exe`, `.bat` and `.com` in lower case. Filed as 2026100707554200.
+	- Verified: rjnzpkk7 fails before the fix and passes after, natively on vm925w in session 0. With the old shared start all 15 checks failed. With the launcher before the batch fix the batch case failed, and with the first batch fix the batch run in a console lost `R&D %PATH% 100%`. rjmb3j8p and rjm4ctwh pass natively. In the desktop session, a console program double-clicked in the file list was started by Explorer, with a console window, in its own folder. The whole native suite: 152 OK, 0 failed, 12 skipped. The full Linux suite passed, 174 of 174. The widened lint failed with 4 list entries taken out, on a show-uri, a default app launch, an app launch by URI and a launch from a command line. The cross build and the Linux build are clean.
+	- Branch: winlow
+	- Commit: 00f70b0, 9a52a33, bb92f8b, 3613db3
+	- Test case: rjnzpkk7, Command launch win32 test, Windows only. A console program, a batch file at a path with spaces, and a batch file in a console, each given a name with a space, a full path with single backslashes, `R&D %PATH% 100%` and an apostrophe: arguments as given, the folder in view as working folder, no window or a console of its own, and who started it. Lint rjm8a6xr for the GLib launch calls.
+
+- On Windows, the Scripts menu lists only `.exe`, `.bat` and `.com` files named in lower case.
+	- ID: 2026100707554200
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. Windows only; the Linux suite passed on the branch.
+	- Needs external testing: on vm925w, rjp4ch0y in the native suite. By hand in the desktop session: `tidy.cmd`, `TIDY.BAT` and `hello.vbs` in the scripts folder are listed in the Scripts menu, and each runs from it on a selected file. `tidy.ps1` is not listed.
+	- Priority|Severity: Low
+	- Opened: 20261007-075542
+	- Opened by: 2026100616310432
+	- Related IDs: 2026100616310432
+	- Target OS: Windows
+	- Steps to reproduce: put `tidy.cmd`, `tidy.ps1` and `TIDY.BAT` in the scripts folder and open the Scripts menu.
+	- Incorrect behavior: read only. None of the 3 is listed.
+	- Expected behavior: anything Windows runs as a program is listed, whatever the case of its extension.
+	- Reproduced: no. Read from the code: the menu takes a file only when the app calls it launchable, and on Windows GLib calls a type executable only for those 3 extensions, compared as written.
+	- Possible cause: as in Reproduced. The `PATHEXT` list is what Windows itself uses.
+	- Reproduced: 20261007 under wine, by rjp4ch0y: `tidy.cmd`, `TIDY.BAT`, `Tool.EXE`, `old.Com`, `hello.vbs`, `Build.JS` and `snap.msc` were not launchable, and `plain.exe` was.
+	- Actual cause: as in Possible cause. The Scripts menu and a double-click both ask whether a file is launchable, and on Windows that came down to GLib's 3 lower-case extensions.
+	- Actual fix: on Windows a file is launchable when its extension is on `PATHEXT`, in any case. With no `PATHEXT` set, cmd's own list is used: `.COM`, `.EXE`, `.BAT` and `.CMD`.
+	- Note: what the launcher does with each type, read from its code. A program is started directly, a batch file through cmd in either case, and anything else, such as `.vbs`, `.js` or `.msc`, goes to the shell's open for its type, as cmd does for a `PATHEXT` type. A `.ps1` is not on the default list, and on a stock Windows its open is Notepad, so it is not listed unless a user adds it to `PATHEXT`.
+	- Decisions:
+		- A call made without asking: the user's own `PATHEXT` is followed as is. A type added there is listed, and runs by its type's open, as it would typed into cmd.
+		- A call made without asking: a double-click on such a file now runs it, through the shell's open, the way Explorer does. Going by the code, a `.cmd` or a capitalized `.BAT` went to the app chooser's default before.
+	- Swept: both callers of the launchable check, the Scripts menu and a double-click. No other code asks GLib whether a type can run. The launcher already matched `.bat` and `.cmd` in any case.
+	- Verified: rjp4ch0y failed under wine before the fix, 11 checks, and passes after. The Windows cross build is clean.
+	- Branch: smallfix
+	- Commit: 5c3b248
+	- Test case: rjp4ch0y, Launchable win32 test, Windows only: names on the default Windows list in mixed case are launchable, `.ps1`, `.txt`, a name with no extension and a folder named `.exe` are not, a user's own list with odd case and spaces is followed, and cmd's list is used when `PATHEXT` is unset.
+
+- On Linux arm64 (jammy), the Windows paths in user text test fails 2 checks.
+	- ID: 2026100708355447
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. Done on jammy and trixie, as in Verified.
+	- Needs external testing: rjmpxtbg on the arm64 jammy build on vmDebARM64.
+	- Priority|Severity: Low
+	- Opened: 20261007-083554
+	- Opened by: 2026100611482306
+	- Related IDs: 2026100702343600
+	- Target OS: Linux arm64, maybe any jammy build
+	- Steps to reproduce: run rjmpxtbg on the arm64 debug build in the jammy image.
+	- Incorrect behavior: `test-nemo-user-text.c:217` (a value with a single backslash comes back with no error) and `:222` (the translated name) fail. Not tried on an x86_64 jammy build.
+	- Expected behavior: passes, as on trixie.
+	- Reproduced: 20261007, arm64 jammy debug build, in the full suite, 4 at once.
+		- 20261007, x86_64 jammy build too, both checks, with no language set. With `LANG=C.UTF-8` only the first. So the release suite would fail here at rc.1.
+	- Possible cause: jammy's GLib 2.72 reads key files differently from trixie's 2.84, in escapes or in locale names. Not looked at.
+	- Actual cause: the app read key files differently on jammy, in 2 ways. Both reach users there, not only the test.
+		- A value with a bad escape, such as `C:\Tools\new`, came back half read, with the error set too. GLib 2.84 gives no value. Most callers pass no error, so on jammy they used the half-read value where trixie skips it.
+		- GLib 2.84 reads the C language as the plain value and never looks at a `key[C]` line. 2.72 takes `key[C]` when nothing better matches. The app's own Windows reader did the same as 2.72.
+	- Actual fix: the shared reader in `nemo-user-text.c` gives no value whenever GLib reports an error, and walks the languages itself on every platform, stopping at C. Writing a C translation sets the plain value, as 2.84 does.
+	- Decisions:
+		- A call made without asking: the newer GLib's reading is the one kept everywhere, jammy and Windows included. The release build runs on both old and new systems, so one rule is less surprising.
+	- Swept: every reader in `nemo-user-text.c`. A list already came back empty on 2.72. Theme index files and the bookmark metadata file still read through GKeyFile directly, on purpose (2026100702343600), so a theme's `Name[C]` still follows the GLib it runs on.
+	- Verified: on a fresh x86_64 jammy debug build, rjmpxtbg failed before the fix and passes after, with no language set, `C.UTF-8` and `de_DE.UTF-8`. The 2 new C cases fail there before the fix, and under wine before the fix too. The jammy suite: 174 OK, 2 skipped (ImageMagick), 0 failed. The trixie suite: 176 of 176. The Windows cross build is clean, and rjmpxtbg passes under wine.
+	- Branch: smallfix
+	- Commit: 5c3b248
+	- Test case: rjmpxtbg, Windows paths in user text test. New cases: a `key[C]` line is never read, and a C translation is written as the plain value.
+
+- On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
+	- ID: 2026100613231440
+	- Type: Bug
+	- Status: Can't reproduce
+	- Needs external testing: done 20261007 on vm925w, as in Reproduced.
+	- Priority|Severity: Low
+	- Opened: 20261006-132314
+	- Opened by: signoff of 2026100512334934
+	- Related IDs: 2026100512334934, 2026093010493450
+	- Target OS: Windows
+	- Steps to reproduce:
+		- Map a drive to a live share and open the app. Stop the share's server, or drop the network, with the app still open. Rebuild the side pane, open a new window, and watch the trash icon.
+		- Delete a file on a USB stick, so that its bin is the only one with anything in it.
+	- Incorrect behavior: not seen. 2026100512334934 was tried only with a drive that was already dead at logon, and nothing waited. A drive that dies while connected may behave differently in the shell. The trash icon shows empty when only a removable drive's bin has items, since the trash state reads fixed drives only.
+	- Expected behavior: no wait on the window's thread for a share that stops answering. The trash icon shows full when any local bin has items, with no prompt to insert a disk for an empty card reader.
+	- Reproduced: no, for the stall. 20261007 on vm925w, in the desktop session, 3 runs: W: mapped to `\\b23\root` and live, the app open on a local folder, then a firewall rule blocking b23 port 445 both ways. After that a plain `dir W:\` waited 33 s and failed, while the open window answered every check, the slowest in 52 ms, over 90 s. In that time: 20 s of trash polls, a bookmark added, which rebuilt the side pane with W: in it, and a second window, which showed in 1.1 s against 1.7 s for the first with the share live. The box's own Q: and R:, mapped to b23 too, were also dead then. The rule was removed after each run.
+	- Possible cause: removable drives were left out of the trash state on purpose in 2026100512334934, so an empty card reader can't bring up the shell's insert-disk prompt. A check for media first might let them back in.
+	- Note: the removable drive half is split out as 2026100708294146.
+	- Test case: rjhvmm6f checks that the drive list and the trash state ask nothing of a mapped drive. A share that dies while connected needs a second host and a firewall rule, so it was timed by hand.
+
 - On Windows, thumbnailer programs are never used.
 	- ID: 2026100615255268
 	- Type: Bug
@@ -233,112 +370,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: thumbwin
 	- Test case: none. The fault needs MacType running in a Windows desktop session. Checked by hand on vm925w.
 
-- Find mode remembers the column choice and order, and shows more columns by default.
-	- ID: 2026100613285826
-	- Type: Enhancement
-	- Status: Queued
-	- Needs local test suite run?: yes, the full Linux suite. The nearby list view, search and config tests passed, the Windows cross build was clean, and rjm2rvjn passed under wine.
-	- Priority|Severity: Avg
-	- Opened: 20261006-132858
-	- Opened by: t00mietum
-	- Related IDs: 2026100613285789
-	- Target OS: All
-	- Requirements:
-		- Before rc.1.
-		- Remember the columns picked, and the order they were dragged into.
-		- Default columns, in this order, and whether each shows by default:
-			- Name: yes
-			- Ext: yes
-			- Type: no
-			- Size: yes
-			- Modified: yes
-			- Other date columns: no
-			- Location: yes
-			- The rest: no
-		- Remember the sort column and direction always too, like the columns.
-	- Note: today the defaults are Name and Location only. The picked columns are saved under `search.search-visible-columns`, and only while `remember-folder-settings` is on.
-	- Decisions:
-		- Find mode remembers its columns and their order always, whatever `remember-folder-settings` says, since find results are not a folder. The recommended answer, taken when the question timed out on 20261006, and OK'd the same day.
-		- The existing key stays. It holds the shown columns in their order, so it covers both the picks and the order. Empty means the defaults.
-		- Sort column and direction in find mode are kept always too. Asked and answered yes, 20261006. Not done yet.
-	- Signoff: the columns part, 20261006.
-	- Done:
-		- Find mode reads and saves its columns through one place in `nemo-column-utilities.c`. A pick, a drag, Use default and Reset view all go there in find mode, and no longer touch the window's own column choice.
-		- New defaults as listed. Type and the other two dates are hidden.
-		- A column turned on goes after the shown ones, as in a folder.
-		- The search reads the same key to know whether to count hits. With remembering off a picked Hits column was never saved, so hits were never counted; now they are.
-		- README and design.md "Search" say what find mode keeps.
-	- Verified: with remembering off, find results showed Name, Ext, Size, Date modified and Location. Turning on Type and dragging it before Ext were both saved, and both came back after a restart.
-	- Branch: findfix
-	- Commit: fa73670
-	- Test case: rjm2rvjn (Find mode columns test).
-
-- On Windows, the C lint finds problems in files nobody changed, so a lint there that covers them fails.
-	- ID: 2026100703330508
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261007-033305
-	- Opened by: 2026100702343600
-	- Related IDs: 2026100702343600
-	- Target OS: Windows
-	- Steps to reproduce: on vm925w, in the MSYS2 shell, run `cicd/utility/lint-c.bash` with a base old enough to take in the files below, such as the box's `dogfood` branch.
-	- Incorrect behavior: cppcheck 2.21 there reports `leakNoVarFunctionCall` at `nemo-archive.c:2657`, `invalidPrintfArgType_sint` at `test-heap.c:253`, and `ignoredReturnValue` twice in `test-nemo-tab-move-probe.c`. cppcheck on Linux reports none of them. The lint on `dev`, which covers the whole tree, should fail there the same way. Not tried.
-	- Expected behavior: a clean lint on both.
-	- Reproduced: 20261007 on vm925w, against `dogfood`.
-	- Possible cause: the printf one is cppcheck's GTK library file reading `G_GINT64_FORMAT` as `%li`, where a 64-bit number is `long long` on Windows. The same two in `nemo-desktop-thumbnail.c` were suppressed under 2026100702343600. The others are newer checks.
-	- Test case: none yet.
-
-- On the arm64 box the Places focus test loses its click or its rename.
-	- ID: 2026100611482306
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261006-114823
-	- Opened by: 2026100520071435
-	- Related IDs: 2026100520071435
-	- Target OS: Linux arm64
-	- Incorrect behavior: rjedw75s times out at different steps, alone or beside other tests. 2 ways seen. A click on the Second place selects its row, but the window stays on First for a minute. Or Rename from the place's menu opens the edit field, and it closes again within 100 ms, with the focus back in the folder.
-	- Reproduced: 20261006, arm64 debug build in the jammy image, 4 runs of 6. Once the window sat on the same step for over 3 minutes with the box idle, so it is not speed.
-	- Possible cause: for the rename, a focus change from the menu's grab reaching the window late and ending the edit. Draining the X server's events before the rename starts would show it. For the click, not looked at.
-	- Test case: rjedw75s.
-
-- On FreeBSD, BMP, ICO, XPM and PNM pictures get no thumbnail.
-	- ID: 2026100517134043
-	- Type: Bug
-	- Status: Queued
-	- Needs external testing: a FreeBSD box.
-	- Priority|Severity: Low
-	- Opened: 20261005-171341
-	- Opened by: old-format item "Target: BSD"
-	- Related IDs: old-format item "Target: BSD"
-	- Target OS: FreeBSD
-	- Steps to reproduce: open a folder holding a BMP on FreeBSD 15.1.
-	- Incorrect behavior: read only. The picture keeps its plain icon.
-	- Expected behavior: a thumbnail, as on Linux and Windows.
-	- Reproduced: no. Read from the loaders the gdk-pixbuf package installs, and seen in the thumbnail tests, where saving a BMP fails there.
-	- Possible cause: gdk-pixbuf 2.44 as packaged there has loaders for GIF, HEIF, JPEG, JPEG XL, PNG, TIFF, SVG and WMF only. The ImageMagick list in `nemo-magick.c` covers none of the missing ones.
-	- Test case: none yet, not started.
-
-- On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
-	- ID: 2026100613231440
-	- Type: Bug
-	- Status: Queued
-	- Needs external testing: a Windows box with a mapped drive to a share that can be stopped, such as vm925w with a share on b23.
-	- Priority|Severity: Low
-	- Opened: 20261006-132314
-	- Opened by: signoff of 2026100512334934
-	- Related IDs: 2026100512334934, 2026093010493450
-	- Target OS: Windows
-	- Steps to reproduce:
-		- Map a drive to a live share and open the app. Stop the share's server, or drop the network, with the app still open. Rebuild the side pane, open a new window, and watch the trash icon.
-		- Delete a file on a USB stick, so that its bin is the only one with anything in it.
-	- Incorrect behavior: not seen. 2026100512334934 was tried only with a drive that was already dead at logon, and nothing waited. A drive that dies while connected may behave differently in the shell. The trash icon shows empty when only a removable drive's bin has items, since the trash state reads fixed drives only.
-	- Expected behavior: no wait on the window's thread for a share that stops answering. The trash icon shows full when any local bin has items, with no prompt to insert a disk for an empty card reader.
-	- Reproduced: no.
-	- Possible cause: removable drives were left out of the trash state on purpose in 2026100512334934, so an empty card reader can't bring up the shell's insert-disk prompt. A check for media first might let them back in.
-	- Test case: none yet, not started.
-
 - On Windows, the gdk-pixbuf and SVG thumbnailer descriptors in a natively staged build name `/mingw64/bin/gdk-pixbuf-thumbnailer`, which is never found.
 	- ID: 2026100617051845
 	- Type: Bug
@@ -365,22 +396,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 48ccf5d
 	- Test case: rjnyer4p, `cicd/utility/test-thumbnailers.bash`, in the lint stage. Copies descriptors written like MSYS2's, checks the bare names and that an argument with a slash is left alone, and checks that `stage-native.bash` stages them through the shared step.
 
-- On Windows, scripts and the bulk rename tool start through GLib, not the launcher.
-	- ID: 2026100616310432
+- On the arm64 box the keyboard menu test's icon view step can time out beside other tests.
+	- ID: 2026100708355547
 	- Type: Bug
 	- Status: Queued
 	- Priority|Severity: Low
-	- Opened: 20261006-163104
-	- Opened by: 2026100615255305
-	- Related IDs: 2026100615255305, 2026100612483725
-	- Target OS: Windows
-	- Note: the bulk rename half is done under 2026100702343600, on branch winpaths. Scripts are left.
-	- Steps to reproduce: put a console program or a batch file in the scripts folder and run it from the Scripts menu. Separately, set a bulk rename tool and rename more than one file.
-	- Incorrect behavior: read only. Both go through `nemo_launch_application_from_command`, then GLib's app launch, which starts the program through GLib's helper. So a console program should get a console window, and in the single exe it may never start.
-	- Expected behavior: both start the way the rest of the app starts programs on Windows.
-	- Reproduced: no. Read from the code.
-	- Possible cause: `nemo_launch_application_from_command` has no Windows branch, and lint rjm8a6xr looks only at GLib's spawn calls, not at `g_app_info_launch`.
-	- Test case: none yet.
+	- Opened: 20261007-083555
+	- Opened by: 2026100611482306
+	- Related IDs: 2026100520071435
+	- Target OS: Linux arm64
+	- Steps to reproduce: run the full suite on the arm64 debug build in the jammy image, 4 at once.
+	- Incorrect behavior: rjefm41d's icon view case timed out at step 5, waiting for the menu the Menu key opens. Seen once. It passed 3 runs of 3 alone.
+	- Expected behavior: passes.
+	- Reproduced: 20261007, once, in the full suite.
+	- Possible cause: the suite shares one display, and a menu whose grab goes to another test's window stays down. The Places focus probe does not wait for its menu to show, for that reason. Not shown here.
+	- Test case: rjefm41d itself.
 
 - A FreeBSD package.
 	- ID: 2026100517134081
@@ -1513,6 +1543,57 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: psdrows
 	- Commit: 24d99cd
 
+- Find mode remembers the column choice and order, and shows more columns by default.
+	- ID: 2026100613285826
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: done 20261007, 174 of 174, with the sort part in.
+	- Priority|Severity: Avg
+	- Opened: 20261006-132858
+	- Opened by: t00mietum
+	- Related IDs: 2026100613285789
+	- Target OS: All
+	- Requirements:
+		- Before rc.1.
+		- Remember the columns picked, and the order they were dragged into.
+		- Default columns, in this order, and whether each shows by default:
+			- Name: yes
+			- Ext: yes
+			- Type: no
+			- Size: yes
+			- Modified: yes
+			- Other date columns: no
+			- Location: yes
+			- The rest: no
+		- Remember the sort column and direction always too, like the columns.
+	- Note: today the defaults are Name and Location only. The picked columns are saved under `search.search-visible-columns`, and only while `remember-folder-settings` is on.
+	- Decisions:
+		- Find mode remembers its columns and their order always, whatever `remember-folder-settings` says, since find results are not a folder. The recommended answer, taken when the question timed out on 20261006, and OK'd the same day.
+		- The existing key stays. It holds the shown columns in their order, so it covers both the picks and the order. Empty means the defaults.
+		- Sort column and direction in find mode are kept always too. Asked and answered yes, 20261006. Not done yet.
+			- Done 20261007, in the existing `search.search-sort-column` and `search.search-reverse-sort` keys. No new key.
+		- Use default in the column menu puts find mode's sort back too, as Reset view does. In a folder Use default still only resets the columns.
+		- With no sort saved, find results take the default sort order and its direction, as a folder does. Before, the direction was always ascending there. Picking the default itself saves nothing, so a later change of the default still reaches find results. A call made without asking.
+	- Signoff: the columns part, 20261006.
+	- Done:
+		- Find mode reads and saves its columns through one place in `nemo-column-utilities.c`. A pick, a drag, Use default and Reset view all go there in find mode, and no longer touch the window's own column choice.
+		- New defaults as listed. Type and the other two dates are hidden.
+		- A column turned on goes after the shown ones, as in a folder.
+		- The search reads the same key to know whether to count hits. With remembering off a picked Hits column was never saved, so hits were never counted; now they are.
+		- README and design.md "Search" say what find mode keeps.
+		- Find mode reads and saves its sort through the same place. With remembering off it used the window's sort, which is the one every folder in the window shares, so sorting find results changed the folder's sort too. It no longer touches the window's sort at all.
+		- Reset view in find mode no longer clears the window's columns and sort, which belong to the folders. It still resets the zoom.
+		- README and design.md "Search" now say find mode keeps its sort too.
+	- Swept: every place the list view reads, saves or resets a sort: a header click, loading a view, Use default and Reset view. Icon view sorting is not by column and was left alone.
+	- Verified: with remembering off, find results showed Name, Ext, Size, Date modified and Location. Turning on Type and dragging it before Ext were both saved, and both came back after a restart.
+		- 20261007, with remembering off: before the change, sorting find results by Size and going back left the folder sorted by Size. After it the folder kept Name. Size and then Size reversed were saved, and both came back after a restart. Use default and Reset view in find mode went back to Name and left nothing saved. A folder sorted by Size kept it through a visit to find mode, which showed Name. With remembering on, find results kept their own sort and the folder kept its own.
+		- rjm2rvjn failed to build before the change and passes after. The nearby list view, search and config tests passed, the Windows cross build was clean, and rjm2rvjn passed under wine.
+	- Branch: findfix, findsort
+	- Commit: fa73670, 270e666
+	- Test case: rjm2rvjn (Find mode columns test), with the sort cases added.
+	- Acceptance signoff: Self-closed: does what was asked, checked before and after the change, and rjm2rvjn passes.
+	- Closed: 20261007-065235
+
 - The keyboard menu opens at the pane's top left, not beside the selected item.
 	- ID: 2026100408414402
 	- Type: Enhancement
@@ -1594,6 +1675,124 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- On the arm64 box the Places focus test loses its click or its rename.
+	- ID: 2026100611482306
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The Linux suite passed 175 of 175 on 20261007.
+	- Needs external testing: done 20261007 on vmDebARM64.
+	- Priority|Severity: Low
+	- Opened: 20261006-114823
+	- Opened by: 2026100520071435
+	- Related IDs: 2026100520071435, 2026100708355447, 2026100708355547
+	- Target OS: Linux arm64
+	- Incorrect behavior: rjedw75s times out at different steps, alone or beside other tests. 2 ways seen. A click on the Second place selects its row, but the window stays on First for a minute. Or Rename from the place's menu opens the edit field, and it closes again within 100 ms, with the focus back in the folder.
+	- Reproduced: 20261006, arm64 debug build in the jammy image, 4 runs of 6. Once the window sat on the same step for over 3 minutes with the box idle, so it is not speed.
+		- 20261007, same build: 6 runs of 6 alone, all at the click.
+	- Possible cause: for the rename, a focus change from the menu's grab reaching the window late and ending the edit. Draining the X server's events before the rename starts would show it. For the click, not looked at.
+	- Actual cause: one bug in the app and one race in the test.
+		- The click: a bug in the app. A click on a place while the open folder is still loading starts the move to the place. The window looks at the place's folder from an idle, so on a busy or slow box the open folder's load can end first. The end of that load ended the move too, and the window stayed where it was. A folder of pictures switching itself to icon view at the end of its load did the same. Any user could hit it with a slow folder.
+		- The rename: the test. The probe starts Rename from a timer. The menu's grab takes the keyboard from the window, and on a slow box that timer ran before the window heard of it. Heard late, it ended the edit. A real click on the item always comes after the grab.
+	- Actual fix:
+		- The window no longer ends a move, or switches a folder of pictures to icon view, when the open folder's load ends while another location is on its way in.
+		- The probe catches up with the X server before it starts Rename.
+	- Swept: every place in `nemo-window-manage-views.c` that ends a move. The end of a load and the picture folder switch are fixed. A reload asked for meanwhile already waits for the move. A folder that is gone, a view switch by hand, and a failed move end it on purpose.
+	- Verified: on x86_64, rjedw75s fails 3 runs of 3 with either app change taken out, and at the rename with the probe change taken out. It passes after. On the arm64 box it passed 8 runs of 8 alone, and in the full suite there, 4 at once: 171 OK, 2 FAIL, 2 skipped. The 2 are filed as 2026100708355447 and 2026100708355547. Linux suite 175 of 175, and the Windows cross build is clean.
+	- Branch: vmbugs
+	- Commit: 632c295, 4893cf4
+	- Test case: rjedw75s, Places focus test. It now makes both orders happen on every box: the first folder is still loading at the first click, and its load ends before the window looks at the place. The menu is put away before the window hears of its grab. The first folder holds pictures, so the switch to icon view is covered too.
+	- Acceptance signoff: Self-closed: rjedw75s red before and green after on x86_64, and green on the arm64 box where it failed.
+	- Closed: 20261007-083555
+
+- On FreeBSD, BMP, ICO, XPM and PNM pictures get no thumbnail.
+	- ID: 2026100517134043
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The Linux suite passed 175 of 175 on 20261007.
+	- Needs external testing: done 20261007 on vmFreeBSD.
+	- Priority|Severity: Low
+	- Opened: 20261005-171341
+	- Opened by: old-format item "Target: BSD"
+	- Related IDs: old-format item "Target: BSD", 2026100517134081
+	- Target OS: FreeBSD
+	- Steps to reproduce: open a folder holding a BMP on FreeBSD 15.1.
+	- Incorrect behavior: read only. The picture keeps its plain icon.
+	- Expected behavior: a thumbnail, as on Linux and Windows.
+	- Reproduced: 20261007 on FreeBSD 15.1, with ImageMagick installed. The thumbnail factory made no picture for a BMP, ICO, XPM or PPM file.
+	- Possible cause: gdk-pixbuf 2.44 as packaged there has loaders for GIF, HEIF, JPEG, JPEG XL, PNG, TIFF, SVG and WMF only. The ImageMagick list in `nemo-magick.c` covers none of the missing ones.
+	- Actual cause: gdk-pixbuf has left the ANI, BMP, ICO, ICNS, PNM, QTIF, TGA, XBM and XPM loaders out of its default build since 2.42.11. FreeBSD has them in a package of their own, `gdk-pixbuf-extra`, which was not installed. Any other system on a default build has the same gap.
+	- Decisions:
+		- A call made without asking: ImageMagick gets these formats only when gdk-pixbuf has no loader for the extension, not after a loader fails on a file. Linux and Windows, which have the loaders, are unchanged.
+		- ANI, ICNS and QTIF are left out, since ImageMagick does not read them. TGA was already on its list.
+	- Actual fix: both. BMP, ICO, CUR, XPM, XBM and the PNM family go to ImageMagick when gdk-pixbuf has no loader for the extension. gdk-pixbuf is asked once, at run time, which extensions it reads, so nothing depends on the OS. design.md "Building on FreeBSD" names `gdk-pixbuf-extra` as a run-time package, and the thumbnails design doc has the rule.
+	- Swept: every ImageMagick check in the thumbnail factory (can make, make) goes through `nemo_magick_type_ok`, which uses the same lookup. Windows uses the same list.
+	- Verified: rjnz8zfz fails before the fix and passes after, on Linux and on FreeBSD 15.1. The new case in rhg8y5f0 failed before on FreeBSD too. On FreeBSD the app showed BMP, ICO, PGM and PPM thumbnails. With `gdk-pixbuf-extra` installed there afterward, both tests pass and gdk-pixbuf reads those formats itself. FreeBSD suite 161 OK, 14 skipped. Linux suite 175 of 175, and the Windows cross build is clean.
+	- Note: the FreeBSD package, 2026100517134081, should depend on `gdk-pixbuf-extra`.
+	- Branch: vmbugs
+	- Commit: 1e233a2, 6c2c6ed
+	- Test case: rjnz8zfz, ImageMagick for missing pixbuf loaders test, Linux and FreeBSD. gdk-pixbuf runs on a copy of its loader list with only PNG left, and BMP, ICO, XPM and PPM files still get thumbnails, through ImageMagick. rhg8y5f0 also checks that ImageMagick gets a BMP or XPM only where gdk-pixbuf has no loader for it.
+	- Acceptance signoff: Self-closed: rjnz8zfz red before and green after on Linux and FreeBSD, and the thumbnails seen in the app on FreeBSD.
+	- Closed: 20261007-082508
+
+- On Windows, the C lint finds problems in files nobody changed, so a lint there that covers them fails.
+	- ID: 2026100703330508
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261007-033305
+	- Opened by: 2026100702343600
+	- Related IDs: 2026100702343600
+	- Target OS: Windows
+	- Steps to reproduce: on vm925w, in the MSYS2 shell, run `cicd/utility/lint-c.bash` with a base old enough to take in the files below, such as the box's `dogfood` branch.
+	- Incorrect behavior: cppcheck 2.21 there reports `leakNoVarFunctionCall` at `nemo-archive.c:2657`, `invalidPrintfArgType_sint` at `test-heap.c:253`, and `ignoredReturnValue` twice in `test-nemo-tab-move-probe.c`. cppcheck on Linux reports none of them. The lint on `dev`, which covers the whole tree, should fail there the same way. Not tried.
+	- Expected behavior: a clean lint on both.
+	- Reproduced: 20261007 on vm925w, against `dogfood`.
+	- Possible cause: the printf one is cppcheck's GTK library file reading `G_GINT64_FORMAT` as `%li`, where a 64-bit number is `long long` on Windows. The same two in `nemo-desktop-thumbnail.c` were suppressed under 2026100702343600. The others are newer checks.
+	- Reproduced: 20261007 on vm925w, over the whole tree: 73 findings in 33 files. 32 `invalidPrintfArgType_sint` and 10 `_uint`, 20 `ignoredReturnValue`, 2 `syntaxError`, 3 `doubleFree`, 2 `leakNoVarFunctionCall`, 2 `nullPointerRedundantCheck`, a `nullPointer` and a `memleak`.
+	- Actual cause: cppcheck 2.21 knows more than 2.17.1, and runs as a 64-bit Windows program there.
+		- printf: gtk.cfg writes the 64-bit formats as Linux has them, `%li` and `%lu`. On Windows a `long` is 32 bits, so every 64-bit number printed with them looked wrong. The compiler checks the real formats on both.
+		- `ignoredReturnValue`: 2.21 knows a file read or write can fail. Tests ignored it when writing their fixtures, and the cache ignored it when marking itself damaged.
+		- `syntaxError`: 2.21 stops on an `#if` that names a function-like macro it has not seen, clang's `__has_feature` and Tracker's version check.
+		- The rest are false positives, but 2: two checks in the cache test read the thumbnail before checking it was there.
+	- Actual fix:
+		- The lint runs cppcheck as a 64-bit Unix target on every host, as Linux always has, and gives it the 2 macros in a small file beside the suppression list. The 2 printf suppressions added under 2026100702343600 are gone.
+		- Test fixtures check their writes. A helper process or probe that cannot write the file its parent waits for says so. A read whose missing file means "not there yet" says so in the code. The cache warns when it cannot mark itself damaged. The cache test checks the thumbnail is there before comparing it.
+		- 7 false positives are suppressed on their own line, each with its reason: a widget destroyed and then unreffed, where the ref is ours (3), 2 list copies handed to a concat, a free func set to NULL on purpose, and a thread freed by its join.
+	- Decisions:
+		- A call made without asking: the printf class is fixed in the lint's command line, not with a suppression at each of its 42 findings.
+	- Swept: the whole tree, on vm925w with cppcheck 2.21 and on Linux with 2.17.1. No other cppcheck run in the pipeline.
+	- Verified: whole-tree C lint on vm925w, 73 findings before and none after. Full `lint.bash` on vm925w passes. The same whole-tree lint on Linux has no findings. The platform flag cleared the printf class and the macro file the 2 syntax errors, each tried alone on vm925w first. The cross build and the Linux build are clean. The full Linux suite passed, 174 of 174, and the whole native suite on vm925w, 152 OK, 0 failed, 12 skipped.
+	- Branch: winlow
+	- Commit: 10fb6ce
+	- Test case: the lint stage's cppcheck pass over the whole tree, on vm925w and on Linux.
+	- Acceptance signoff: Self-closed: lint fix, and the whole-tree lint passes on both.
+	- Closed: 20261007-083300
+
+- With per-folder settings off, Reset view keeps a folder's sort column.
+	- ID: 2026100706523594
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: done 20261007, 175 of 175.
+	- Priority|Severity: Low
+	- Opened: 20261007-065235
+	- Opened by: 2026100613285826
+	- Related IDs: 2026100613285826
+	- Target OS: All
+	- Steps to reproduce: with "Remember per-folder settings" off, in list view, sort a folder by Size, then View, Reset view to defaults.
+	- Incorrect behavior: the folder stays sorted by Size. Only the direction goes back to the default.
+	- Expected behavior: the folder goes back to the default sort order, Name.
+	- Reproduced: 20261007, Linux.
+	- Possible cause: Reset view clears the window's sort column by setting it to nothing, and the window's setter ignores nothing, so the old column stays.
+	- Actual cause: as above. The direction has its own "not set" value, so it did go back.
+	- Actual fix: the window's sort column setter takes nothing as "forget it", so Reset view drops the column and the folder goes back to the default sort.
+	- Swept: Reset view in the icon and compact views with per-folder settings off and on, and in the list view with them on. All were already right. The other window settings a reset clears (zoom, column order, shown columns) already take nothing. The window's view type setter also ignores nothing, but no caller ever hands it nothing. Find mode's own sort was not touched.
+	- Test case: rjnzamsq. It covers the list, icon and compact views, each with per-folder settings off and on.
+	- Verified: rjnzamsq failed before the fix, in the list view with per-folder settings off only, and passes after, 4 runs in a row. The nearby list view, column, search and held view tests pass. Full Linux suite 175 of 175. Lint is clean.
+	- Branch: sortreset
+	- Commit: 90e48b1
+	- Acceptance signoff: Self-closed: the intent was clear, and rjnzamsq checks it.
+	- Closed: 20261007-073556
 
 - On Windows, a window first opened on a share shows the C:\ bookmark as `\` with a plain folder icon.
 	- ID: 2026100610370021

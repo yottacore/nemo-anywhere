@@ -2774,11 +2774,10 @@ nemo_window_get_ignore_meta_sort_column (NemoWindow *window)
 void
 nemo_window_set_ignore_meta_sort_column (NemoWindow *window, const gchar *column)
 {
-    if (column != NULL) {
-        gchar *old_column = window->details->ignore_meta_sort_column;
-        window->details->ignore_meta_sort_column = g_strdup (column);
-        g_free (old_column);
-    }
+    /* NULL is how a reset forgets it, back to the default sort. */
+    gchar *old_column = window->details->ignore_meta_sort_column;
+    window->details->ignore_meta_sort_column = g_strdup (column);
+    g_free (old_column);
 }
 
 gint

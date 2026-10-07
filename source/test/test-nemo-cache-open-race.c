@@ -161,6 +161,7 @@ release_later (gpointer user_data)
 	g_thread_join (thread);
 	sqlite3_close (reader);
 
+	/* cppcheck-suppress memleak ; g_thread_join dropped the thread */
 	return NULL;
 }
 

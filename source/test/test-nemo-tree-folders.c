@@ -250,8 +250,8 @@ main (int argc, char *argv[])
 	{
 		char *file = g_build_filename (root_dir, "tree", "files-only", "a.txt", NULL);
 		char *top = g_build_filename (root_dir, "tree", "top.txt", NULL);
-		g_file_set_contents (file, "x", 1, NULL);
-		g_file_set_contents (top, "x", 1, NULL);
+		check (g_file_set_contents (file, "x", 1, NULL));
+		check (g_file_set_contents (top, "x", 1, NULL));
 		g_free (file);
 		g_free (top);
 	}

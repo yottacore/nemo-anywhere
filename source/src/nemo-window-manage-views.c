@@ -1598,8 +1598,10 @@ nemo_window_report_load_complete (NemoWindow *window,
 	g_assert (slot != NULL);
 
 	/* Only handle this if we're expecting it.
-	 * Don't handle it if its from an old view we've switched from */
-	if (view == slot->content_view) {
+	 * Don't handle it if its from an old view we've switched from.
+	 * Nor while another location is on its way in: that change has not
+	 * reported underway yet, and ending it here loses it (2026100611482306). */
+	if (view == slot->content_view && slot->pending_location == NULL) {
 		if (slot->pending_scroll_to != NULL) {
 			nemo_view_scroll_to_file (slot->content_view,
 						      slot->pending_scroll_to);
@@ -1941,7 +1943,9 @@ nemo_window_slot_check_image_view (NemoWindowSlot *slot)
 	NemoFile *file;
 	char *saved_id;
 
-	if (slot->location == NULL || slot->content_view == NULL ||
+	/* A load that ends while another location is on its way in is the old
+	 * folder's, and a switch now would lose the new one (2026100611482306). */
+	if (slot->location == NULL || slot->content_view == NULL || slot->pending_location != NULL ||
 	    (slot->image_view_checked != NULL &&
 	     g_file_equal (slot->image_view_checked, slot->location))) {
 		return;
