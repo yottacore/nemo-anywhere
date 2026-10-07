@@ -192,6 +192,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Possible cause: the suite shares one display, and a menu whose grab goes to another test's window stays down. The Places focus probe does not wait for its menu to show, for that reason. Not shown here.
 	- Test case: rjefm41d itself.
 
+- On Windows every launch leaves a small `gdbus-nonce-file-*` in the temp folder.
+	- ID: 2026100714014948
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261007-140149
+	- Opened by: Windows installer exe item
+	- Target OS: Windows
+	- Steps to reproduce: start the app and close it a few times, then look in `%TEMP%`.
+	- Incorrect behavior: one 16 byte `gdbus-nonce-file-<random>` per run is left. One test box had about 60 of them, going back a week.
+	- Expected behavior: the session bus removes its file when it ends.
+	- Reproduced: 20261007 on vm925w, a new one after each run of the installed copy.
+	- Possible cause: the session bus GLib starts on Windows writes the file and is ended, not stopped, when the app goes.
+	- Test case: none yet, not started.
+
 - A FreeBSD package.
 	- ID: 2026100517134081
 	- Type: Feature
@@ -3658,12 +3673,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note 20261007: waiting on signoff, since it changes how the app looks on Windows. rjpbjt68 passed on Linux and in the cross build; it still wants a run in the native Windows suite.
 	- Test case: rjpbjt68 checks the sums, that an icon follows the scale up and back down and keeps a size the code set, and that a font DPI of 144 moves no icon off Windows.
 
-- 🔘 A Windows installer exe that installs, or updates an install already there.
+- 🔬 A Windows installer exe that installs, or updates an install already there.
 	- Opened: 20260919-132409
 	- Design: [20260930-145641_windows_exe_packing.md](design_docs/20260930-145641_windows_exe_packing.md).
 	- Note: Windows has the portable exe and the zip today, and `install.ps1` for an install with a menu entry and PATH.
 	- Note: wants signing first, or it trips the same warnings the exe does.
-	- Test case: none yet, not started.
+	- Note 20261007: built unsigned with NSIS, the recommended answer when the question timed out. Signing stays with its own item.
+	- Done 20261007: `nemo-anywhere-<version>-windows-x86_64-setup.exe` is made from the release zip in the packaging stage, so it installs the same files `install.ps1` does. It installs into the same folder, with the same Start menu shortcut and user PATH entry, and adds an uninstaller and an entry in Settings, Apps. It goes in the release and the sums file with the rest.
+	- Decisions 20261007: for this account only, with no admin rights, no machine-wide choice and no folder choice. A UAC prompt to install a file manager would be the surprise, it matches the script's default, and the two installers always find each other's install. `install.ps1 -Target system` still covers a machine-wide install.
+	- Done 20261007: `install.ps1` 1.4.0 keeps the setup's uninstaller and Apps entry when it reinstalls over a setup install, and `-Uninstall` removes the entry too.
+	- Note 20261007: a user PATH too long for the setup to change safely, about 1000 characters, is left alone, and the setup says so. Both installers write the PATH back as an expandable string, so one stored as a plain string keeps its text but not its type.
+	- Note 20261007: like any NSIS uninstall run without admin rights, one small `Un.exe` stays in `%TEMP%\~nsu*.tmp` until the next NSIS uninstall or a temp cleanup. Only a delayed self-delete through a command prompt gets around it, and antivirus watches for that. Left as is for signoff.
+	- Verified 20261007: rjphqx48 passes. It fails with the PATH length guard taken out, with empty PATH entries dropped, and with the Apps entry left behind on uninstall. Two builds of one commit give the same bytes.
+	- Verified 20261007: on a Windows box, as a standard user: a fresh install, which then runs by name from a new terminal's PATH; setup over setup; `install.ps1` over setup, then the setup's uninstaller; `install.ps1` fresh with setup over it, then `install.ps1 -Uninstall`. With the folder held open, the setup and the uninstaller both stop and leave the install whole, and both work once it is closed. Every removal left the folder, shortcut and Apps entry gone and the PATH exactly as found. The welcome, finish and uninstall pages show as they should, and Run on the finish page starts the app.
+	- Note 20261007: waiting on signoff, since it adds README text and writes to the registry.
+	- Branch: winsetup
+	- Test case: rjphqx48 runs the setup under wine: install, install over it and uninstall, against no PATH, a PATH with empty entries, a variable and trailing separators, one already listing the folder, one that just fits, one 1 character over and one too long. Files must match the zip, and the PATH must come back exactly.
 
 - 🛠️ Linux arm64 release build. Needs an arm64 GTK3 build environment; nothing cross-compiles it today, so the installers' arm64 path has nothing to fetch.
 	- Opened: 20260804-133646

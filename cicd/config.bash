@@ -208,19 +208,24 @@ VERSION_MANIFEST="source/meson.build"
 ##     package claims the same floor the binary was built against.
 ##   - The Windows .zip is flattened out of the cross-build - exe at the folder
 ##     root beside its DLLs, which is the layout install.ps1 expects.
+##   - The Windows setup exe is made from that zip with makensis, in the
+##     cross-build container, so it installs exactly what install.ps1 does.
 ##   - Both installers then install, reinstall and uninstall the Linux tarball in
 ##     a scratch home, offline.
 ##   - Every file the tarball, .deb and .rpm install has to carry the app's name,
 ##     and the action layout editor's launcher has to work from a moved prefix.
+##   - The setup exe is run under wine there: install, update, uninstall.
 ## Deferred: BSD .pkg, macOS .pkg, AppImage, Flatpak - no toolchain here yet.
 PACKAGE_ENABLE=1
 PACKAGE_CMDS=(
 	"Linux .deb + .rpm|bash cicd/linux/package.bash"
 	"Windows .zip|bash cicd/win/pack-zip.bash"
+	"Windows setup exe|bash cicd/win/pack-setup.bash"
 )
 PACKAGE_CHECKS=(
 	"Installer check|bash cicd/linux/test-installers.bash"
 	"Prefix check|bash cicd/linux/test-prefix.bash"
+	"Setup exe check|docker exec nemo-winbuild bash /src/cicd/win/test-setup.bash"
 )
 
 ## Stage 6, after the packages: builds that need another box's OS or signing
