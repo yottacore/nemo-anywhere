@@ -160,9 +160,15 @@ RELEASE_NATIVE_OSARCH="linux-x86_64"
 ## the cross build dir lives only in the container.
 ## Then the exe is opened under wine and its main window looked for, about twenty
 ## seconds, since nothing else here ever starts the Windows build's GUI.
+## Linux arm64 is built on an arm64 box over ssh, not cross-compiled, and takes
+## about an hour on the emulated one, so the engine leaves it out unless the run
+## has --include-arm. Its tarball name has the version in it; the engine fills
+## in @VER@. No arm64 .deb or .rpm yet: package.bash reads the .deb's
+## dependencies off the x86_64 build.
 BUILD_CROSS=1
 CROSS_TARGETS=(
 	"Windows x86_64 (mingw)|windows-x86_64|cicd/artifacts/cross/nemo-anywhere.exe|rm -f cicd/artifacts/cross/nemo-anywhere.exe && bash cicd/win/build-cross.bash && mkdir -p cicd/artifacts/cross && docker cp nemo-winbuild:/build-win/src/nemo-anywhere.exe cicd/artifacts/cross/nemo-anywhere.exe && docker exec nemo-winbuild bash /src/cicd/win/gui-smoke.bash"
+	"Linux arm64 (arm64 box)|linux-arm64|cicd/artifacts/release/${EXE_NAME}-@VER@-linux-arm64.tar.gz|bash cicd/linux/release-arm64.bash"
 )
 #	Rust-era original (reference only - cargo/zig cross, not applicable to meson):
 #	CROSS_TARGETS=(

@@ -179,7 +179,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On the arm64 box the keyboard menu test's icon view step can time out beside other tests.
 	- ID: 2026100708355547
 	- Type: Bug
-	- Status: Queued
+	- Status: Can't reproduce
 	- Priority|Severity: Low
 	- Opened: 20261007-083555
 	- Opened by: 2026100611482306
@@ -190,6 +190,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: passes.
 	- Reproduced: 20261007, once, in the full suite.
 	- Possible cause: the suite shares one display, and a menu whose grab goes to another test's window stays down. The Places focus probe does not wait for its menu to show, for that reason. Not shown here.
+	- Note: 20261007, it passed in the full suite on a fresh arm64 release build at 585f825, in 29.7 s. It had passed 3 runs of 3 alone before that.
+	- Note: 20261007, the probe and test were read. At step 5 the probe looks for a menu on screen every 100 ms for 10 s, so it does wait for the menu to show. The test runs on an X server of its own, not the suite's. Two tests that pick the same display number at once don't end up sharing it: the one whose server fails tries the next number. So the possible cause above doesn't apply.
+	- Note: 20261007, not ruled out: the Menu key made no menu at all once, on a loaded box. GTK 3 doesn't show a menu whose pointer grab fails, and the probe presses the key only once. Nothing points at that, and pressing again would hide it rather than explain it.
 	- Test case: rjefm41d itself.
 
 - A FreeBSD package.
@@ -3665,7 +3668,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: wants signing first, or it trips the same warnings the exe does.
 	- Test case: none yet, not started.
 
-- 🛠️ Linux arm64 release build. Needs an arm64 GTK3 build environment; nothing cross-compiles it today, so the installers' arm64 path has nothing to fetch.
+- 🔬 Linux arm64 release build. Needs an arm64 GTK3 build environment; nothing cross-compiles it today, so the installers' arm64 path has nothing to fetch.
 	- Opened: 20260804-133646
 	- Note: if arm64 builds turn out much slower, they go behind an `--include-arm` flag rather than the `--no-arm` the engine has now.
 	- Done 20261005: `cicd/linux/release-arm64.bash` builds `nemo-anywhere-<version>-linux-arm64.tar.gz` on an arm64 Linux box with docker, and adds it to the sums file. It sends the working tree over and runs `release.bash` there, in an image from the same Dockerfile, so the glibc floor and the library versions match the x86_64 build. The Dockerfile pins the arm64 package sources to the same snapshot.
@@ -3674,7 +3677,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note 20261005: on an emulated arm64 box a release build takes about 67 minutes at 4 cores, against under 4 minutes for x86_64 at the same 4 cores.
 	- Note 20261005: the test suite passes 160 of 171 on the arm64 release build. One failure belongs to arm64: a crash report after a call through a null pointer keeps too few frames, since that stack is only recovered on x86_64. Most of the rest are time limits the slow box misses, and 2 fail on the x86_64 release build too.
 	- Note 20261005: left for later: calling it from the pipeline, and arm64 `.deb` and `.rpm` packages. It goes behind `--include-arm`, per the note above, since it takes an hour.
-	- Test case: rhtrxr81 has both installers fetch the arm64 build under the name the release lanes give it, on either box. rjcma0t3 checks the arm64 package sources are pinned too.
+	- Done 20261007: the pipeline builds it with `cicd.bash --include-arm`, after the Windows build, and leaves it out otherwise. `--no-arm` still leaves it out, even beside `--include-arm`. `--no-cross` and `--quick` leave it out with the other cross builds. The plan shown at the start of a run says when arm64 is left out.
+	- Note 20261007: it went in as one more cross build rather than a stage of its own, so the options and the plan that cover cross builds cover it too. The pipeline now fills the version into a cross build's file name, which the arm64 tarball needs.
+	- Note 20261007: arm64 `.deb` and `.rpm` are left out, since they are not a small change. The `.deb`'s dependency versions are read off the build in the x86_64 release container, so an arm64 one needs the arm64 libraries to read them from, on the arm64 box. They can be an item of their own.
+	- Verified 20261007: rjph39cv and rjph1pxd pass. rjph39cv failed on the pipeline as it was, and with the version left out of the file name. rjph1pxd failed with each of these broken in turn: clearing the old tree on the box, ignored files left out, the stamp passed over, the lock name, the arm64 check, the sums file and stopping the build container.
+	- Note 20261007: no real `--include-arm` run yet. The lane itself built and passed the suite on the arm64 box on 20261007, and the pipeline only calls it.
+	- Test case: rhtrxr81 has both installers fetch the arm64 build under the name the release lanes give it, on either box. rjcma0t3 checks the arm64 package sources are pinned too. rjph39cv checks the pipeline builds arm64 only with `--include-arm` and finds the tarball under its versioned name. rjph1pxd checks what the lane sends to the arm64 box and what it brings back.
 
 - 🔘 Target: macOS
 	- Opened: 20260730-185314
