@@ -272,7 +272,9 @@ The table below is the rule for a handler connected to one of the settings group
 
 Each window is its own process by default, and every launch is a fresh one. A crash then takes one window rather than all of them, and two versions can be open side by side, which is what trying a build next to the one in daily use needs.
 
-- The copies still find each other. Each queues on the one bus name, so a caller from outside always reaches the oldest and the rest are read off the queue. That is how `--quit` and Close All Windows reach every copy, and how `--reset` knows one is running.
+- The copies still find each other. Each queues on the one bus name, so a caller from outside always reaches the oldest. That is how `--quit` and Close All Windows reach every copy, how `--reset` knows one is running, and how a tab's menu lists the windows of other copies.
+	- The list of copies comes from numbered slot names. Each copy takes the first free slot and queues on every slot below it, so the slot of a copy that ends passes up to a live one and the taken slots never have a gap. Asking who owns each slot in turn, up to the first free one, finds every copy.
+	- The queue itself is not read, since GLib's bus on Windows answers both ways of reading it with an empty list.
 
 - What it costs: a tab cannot really move to a window in another process, only be handed over, and its back and forward history stays behind. On Windows a new window carries the packed program's startup time rather than appearing at once. Those two are why it is a setting - turning it off puts new windows back inside one process. Launches from outside stay separate either way.
 

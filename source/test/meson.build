@@ -175,6 +175,16 @@ test('rhtq57n0 Job queue test',
   args: []
 )
 
+test('rjptygcj Instance list test',
+  executable('test-nemo-instance-list',
+    [ 'test-nemo-instance-list.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: [],
+  timeout: 60
+)
+
 # The heap is read through glibc, so elsewhere these skip.
 if not is_windows
   leaks = executable('test-nemo-leaks',
