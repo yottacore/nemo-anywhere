@@ -40,6 +40,10 @@
 ##	                       refuses one by default)
 ##	   --shots             refresh README screenshots (off by default)
 ##	   --demo              re-record the demo video (off by default)
+##	   --include-bsd       build, test and pack on the FreeBSD box too: the
+##	                       suite in stage 3, the tarball and pkg in stage 5
+##	                       (off by default, since it needs that box and its
+##	                       lock; --quick does not turn it off)
 ##	   --quick             skip the slow stages: cross builds, packages, private
 ##	                       runner, profiler, fuzzing, sanitizers, scroll harness,
 ##	                       screenshots, demo video, remote dogfood. The native
@@ -118,6 +122,7 @@ stamp="$(date +%Y%m%d-%H%M%S)"
 fSetSourceDate "${root}"
 
 ## Parse options.
+include_bsd=0
 assume_yes=0; quick=0; gate=0; no_arm=0; no_sync=0; allow_dirty=0; cli_message=""
 while (($#)); do case "$1" in
 	-y|--yes)                 assume_yes=1; shift ;;
@@ -136,6 +141,7 @@ while (($#)); do case "$1" in
 	--allow-dirty)            allow_dirty=1; shift ;;
 	--shots)                  SHOTS_ENABLE=1; shift ;;
 	--demo)                   DEMO_ENABLE=1; shift ;;
+	--include-bsd)            include_bsd=1; shift ;;
 	--quick)                  quick=1; BUILD_CROSS=0; PROFILE_ENABLE=0; PACKAGE_ENABLE=0; shift ;;   ## skip the slow stages
 	--message=*|--msg=*|-m=*) cli_message="${1#*=}"; shift ;;
 	-m|--message|--msg)       cli_message="${2-}"; shift; (($#)) && shift ;;
@@ -383,6 +389,11 @@ elif [[ -n "${SANITIZE_CMD+x}" ]] && ((${#SANITIZE_CMD[@]})); then
 else
 	fEcho_Clean "Sanitizers ..........: (skipped)"
 fi
+if ((include_bsd)); then
+	fEcho_Clean "FreeBSD .............: ${BSD_TEST_CMD[*]}, then ${BSD_RELEASE_CMD[*]}"
+else
+	fEcho_Clean "FreeBSD .............: (off; --include-bsd)"
+fi
 if ((PROFILE_ENABLE)); then
 	fEcho_Clean "Profiler ............: ${PROFILE_SECS}s run -> flamegraph SVG (headless)"
 	fEcho_Clean "  output dir ........: ${profile_dir}"
@@ -401,7 +412,7 @@ if ((PACKAGE_ENABLE)) && ((! quick)); then
 	fEcho_Clean "Packages ............:"
 	for entry in "${PACKAGE_CMDS[@]:-}"; do [[ -n "$entry" ]] && fEcho_Clean "    - ${entry%%|*}"; done
 	for entry in "${PACKAGE_CHECKS[@]:-}"; do [[ -n "$entry" ]] && fEcho_Clean "    - ${entry%%|*} (stops the run on failure)"; done
-	fEcho_Clean "  deferred ..........: BSD, macOS, AppImage, Flatpak - no toolchain on this box"
+	fEcho_Clean "  deferred ..........: macOS, AppImage, Flatpak - no toolchain on this box"
 else
 	fEcho_Clean "Packages ............: $( ((quick)) && echo '(skipped --quick)' || echo '(disabled)')"
 fi
@@ -531,6 +542,11 @@ if ((! quick)) && [[ -n "${SANITIZE_CMD+x}" ]] && ((${#SANITIZE_CMD[@]})); then
 elif ((quick)); then
 	fEcho_Clean "sanitizers skipped (--quick)"
 fi
+## The same build and suite on the FreeBSD box, opt-in.
+if ((include_bsd)); then
+	"${BSD_TEST_CMD[@]}"
+	fEcho "OK: FreeBSD suite"
+fi
 if [[ -n "${DENY_CMD+x}" ]] && ((${#DENY_CMD[@]})); then
 	if "${DENY_PROBE[@]}" >/dev/null 2>&1; then
 		## Advisory-only for now: report license/advisory/duplicate findings
@@ -635,6 +651,12 @@ if ((BUILD_CROSS)) && ((${#CROSS_TARGETS[@]})); then
 		fEcho "OK: ${local_label}: ${art} ($(du -h "${art}" | cut -f1))"
 		built_arts+=("${osarch}|${art}")
 	done
+fi
+
+if ((include_bsd)); then
+	fSection "5/8  Release build: FreeBSD"
+	"${BSD_RELEASE_CMD[@]}"
+	fEcho "OK: FreeBSD tarball and pkg"
 fi
 
 ## Collect the built binaries under versioned names + a sha256 checksums file,

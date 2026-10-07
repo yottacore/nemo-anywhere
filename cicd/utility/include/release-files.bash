@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 
-##	- Purpose: The names and the sums file the Linux release lanes share, so the
-##	  x86_64 and arm64 lanes cannot drift apart from each other or from what
-##	  the installers ask for (design.md, Delivery).
+##	- Purpose: The names and the sums file the release lanes share, so the
+##	  Linux x86_64 and arm64 lanes and the FreeBSD one cannot drift apart from
+##	  each other or from what the installers ask for (design.md, Delivery).
 ##	- fReleaseArch <uname -m> -> the arch part of an asset name: x86_64 or
 ##	  arm64. Returns 1 for anything else. The installers map the same way.
+##	- fReleaseOs <uname -s> -> the OS part of a unix asset name: linux or bsd.
+##	  Returns 1 for anything else. Every BSD maps to bsd, as in the installers,
+##	  though only FreeBSD is built.
 ##	- fWriteReleaseSums <dir> <slug> <ver> -> rewrites <slug>-<ver>-sha256sums.txt
 ##	  in <dir> over every <slug>-<ver>-* file there.
 ##	- Syntax: source this file; it defines functions only.
@@ -19,6 +22,14 @@ fReleaseArch(){
 	case "${1:-}" in
 		x86_64|amd64)  echo "x86_64" ;;
 		aarch64|arm64) echo "arm64" ;;
+		*) return 1 ;;
+	esac
+}
+
+fReleaseOs(){
+	case "${1,,}" in
+		linux*) echo "linux" ;;
+		freebsd*|openbsd*|netbsd*|dragonfly*) echo "bsd" ;;
 		*) return 1 ;;
 	esac
 }
@@ -42,3 +53,4 @@ fWriteReleaseSums(){
 
 ##	History:
 ##		- 2026-10-05: Created, out of release.bash, for the arm64 lane.
+##		- 2026-10-07: fReleaseOs, for the FreeBSD lane.

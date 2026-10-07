@@ -9,7 +9,8 @@
 ##	  finds before the cmdlets, that go through the same curl.
 ##	- The made-up builds are named the way the release lanes name them, and a
 ##	  uname on PATH has the installers ask for the other arch once as well, so
-##	  both arches are checked on either box.
+##	  both arches are checked on either box. The same uname has them ask for
+##	  the FreeBSD build once, under the name the FreeBSD lane gives it.
 ##	- Every install goes to a scratch home and a user prefix; neither installer
 ##	  reaches for sudo without --target system, which is never passed here.
 ##	- Linux only: install.bash does not run on Windows, and install.ps1 there
@@ -40,6 +41,7 @@ fi
 # shellcheck source=../utility/include/release-files.bash
 source "${root}/cicd/utility/include/release-files.bash"
 arch="$(fReleaseArch "$(uname -m)")" || { fEcho "installer download check skipped: no build for $(uname -m)"; exit 77; }
+os="$(fReleaseOs "$(uname -s)")"
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/${exeName}-download-check.XXXXXX")"
 trap 'rm -rf "${scratch}"' EXIT
@@ -77,10 +79,12 @@ if [[ -n "$out" ]]; then cp "$file" "$out"; else cat "$file"; fi
 EOF
 chmod +x "${shimDir}/curl"
 
-## Answers -m with $UNAME_SHIM_M when that is set; the real uname does the rest.
+## Answers -m with $UNAME_SHIM_M and -s with $UNAME_SHIM_S when set; the real
+## uname does the rest.
 cat > "${shimDir}/uname" <<'EOF'
 #!/usr/bin/env bash
 if [[ "${1:-}" == "-m" && -n "${UNAME_SHIM_M:-}" ]]; then echo "$UNAME_SHIM_M"; exit 0; fi
+if [[ "${1:-}" == "-s" && -n "${UNAME_SHIM_S:-}" ]]; then echo "$UNAME_SHIM_S"; exit 0; fi
 for u in $(type -ap uname); do [[ "$u" -ef "$0" ]] || exec "$u" "$@"; done
 exit 127
 EOF
@@ -134,7 +138,7 @@ fMakeFixture(){
 
 	for tag in "$@"; do
 		ver="${tag#v}"
-		name="${exeName}-${ver}-linux-${arch}"
+		name="${exeName}-${ver}-${os}-${arch}"
 		asset="${name}.tar.gz"
 		sums="${exeName}-${ver}-sha256sums.txt"
 		tree="${dir}/build/${name}"
@@ -163,7 +167,7 @@ fMakeFixture(){
 ## channel, $5 answer to the question ("" = pass the yes option instead), $6
 ## "unverified" to pass the option that installs a release with no sums file.
 ## Leaves the exit code in $runRc and the transcript in ${home}/run.log.
-home=""; runRc=0; unameM=""
+home=""; runRc=0; unameM=""; unameS=""
 fRun(){
 	local installer="$1" label="$2" fixture="$3" channel="$4" answer="$5" unverified="${6:-}"
 	local -a cmd
@@ -182,7 +186,7 @@ fRun(){
 	## A proxy that answers nothing, so a request that slips past the stand-ins
 	## fails here instead of reaching GitHub.
 	local runEnv=(env -u DISPLAY -u no_proxy -u NO_PROXY HOME="$home" XDG_DATA_HOME="${home}/.local/share"
-		TMPDIR="${home}/tmp" PATH="${shimDir}:${PATH}" CURL_SHIM_ROOT="$fixture" UNAME_SHIM_M="$unameM"
+		TMPDIR="${home}/tmp" PATH="${shimDir}:${PATH}" CURL_SHIM_ROOT="$fixture" UNAME_SHIM_M="$unameM" UNAME_SHIM_S="$unameS"
 		https_proxy="http://127.0.0.1:9" HTTPS_PROXY="http://127.0.0.1:9")
 	runRc=0
 	if [[ -z "$answer" ]]; then
@@ -233,7 +237,7 @@ fExpectSaid(){
 ## $1 what, $2 fixture, $3 tag whose build and sums had to be fetched.
 fExpectFetched(){
 	local log="${2}/requests.log"
-	grep -q -F "/${3}/${exeName}-${3#v}-linux-${arch}.tar.gz" "$log" || fFail "${1}: never downloaded the ${3} build"
+	grep -q -F "/${3}/${exeName}-${3#v}-${os}-${arch}.tar.gz" "$log" || fFail "${1}: never downloaded the ${3} build"
 	grep -q -F "/${3}/${exeName}-${3#v}-sha256sums.txt" "$log" || fFail "${1}: never downloaded the ${3} sums"
 	! grep -q -F "releases/latest" "$log" || fFail "${1}: asked for releases/latest, which fails with no stable release"
 	return 0
@@ -341,6 +345,18 @@ for inst in "${installers[@]}"; do
 	fExpectFetched "${inst} on ${unameM}" "$otherArch" v1.0.0
 done
 unameM=""; arch="$hostArch"
+
+## FreeBSD on amd64, which uname calls it there.
+unameS="FreeBSD"; unameM="amd64"
+os="$(fReleaseOs "$unameS")"; arch="$(fReleaseArch "$unameM")"
+freebsd="${scratch}/freebsd"
+fMakeFixture "$freebsd" v1.0.0
+for inst in "${installers[@]}"; do
+	fRun "$inst" freebsd "$freebsd" stable ""
+	fExpectInstall "${inst} on FreeBSD" 1.0.0
+	fExpectFetched "${inst} on FreeBSD" "$freebsd" v1.0.0
+done
+unameS=""; unameM=""; arch="$hostArch"; os="$(fReleaseOs "$(uname -s)")"
 
 if ((failures)); then
 	fEcho "FAILED: installer download check, ${failures} problem(s)"

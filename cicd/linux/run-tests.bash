@@ -2,7 +2,7 @@
 
 ##	- Purpose: Run the regression suite and the launch smoke inside the reference
 ##	  build container. Handed to docker-run.bash by cicd's test stage; not meant to
-##	  be run on the host.
+##	  be run on the host. The FreeBSD lane runs it on that box too (bsd/lane.bash).
 ##	- Builds first, since the gate has no build stage of its own. What gets built
 ##	  is the working tree, not the commit being pushed, so an unfinished edit
 ##	  sitting there stops the gate here. Building the pushed sha in a detached
@@ -14,6 +14,8 @@
 ##	- Warnings are errors here, as in every pipeline build, and not in a plain
 ##	  meson setup of the tree. Someone building from source with a newer compiler
 ##	  gets a warning, not a failed build.
+##	- The source is the tree this script sits in. Where there is no xvfb-run, as
+##	  on FreeBSD, the run starts an X server of its own for both steps.
 ##	- Syntax: run-tests.bash [meson test arguments]
 
 ##	Copyright (c) 2026 Bubbles
@@ -27,6 +29,8 @@ case "${1:-}" in
 	-h|--help) sed -n '/^##\t- Purpose:/,/^##\tCopyright/p' "${BASH_SOURCE[0]}" | sed '$d; s/^##\t\{0,1\}//'; exit 0 ;;
 esac
 
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+src="$(cd "${here}/../../source" && pwd)"
 build="${BUILD_DIR:-/build}"
 jobs="${NEMO_TEST_JOBS:-2}"
 
@@ -40,11 +44,11 @@ setupArgs=(-Dwerror=true ${SETUP_ARGS:-})
 
 ## A container recreated from the image has no build directory yet.
 if [[ -f "${build}/build.ninja" ]]; then
-	meson setup --reconfigure "${build}" /src/source "${setupArgs[@]}"
+	meson setup --reconfigure "${build}" "${src}" "${setupArgs[@]}"
 else
-	meson setup "${build}" /src/source "${setupArgs[@]}"
+	meson setup "${build}" "${src}" "${setupArgs[@]}"
 fi
-bash "$(dirname "${BASH_SOURCE[0]}")/../utility/check-werror.bash" "${build}"
+bash "${here}/../utility/check-werror.bash" "${build}"
 
 if ! ninja -C "${build}" -j "${jobs}"; then
 	echo "[ the build here is the working tree, unfinished edits included ]" >&2
@@ -60,11 +64,30 @@ export DBUS_SESSION_BUS_ADDRESS='disabled:'
 ## here instead of piling up in /tmp. A failed run leaves it for a look.
 TMPDIR="$(mktemp -d /tmp/nemo-suite-XXXXXX)"
 export TMPDIR
-trap 'rmdir "${TMPDIR}" 2>/dev/null || true' EXIT
+xvfbLog=""
+fCleanup(){
+	rmdir "${TMPDIR}" 2>/dev/null || true
+	if [[ -n "${XVFB_PID:-}" ]]; then kill "${XVFB_PID}" 2>/dev/null || true; fi
+	if [[ -n "${xvfbLog}" ]]; then rm -f "${xvfbLog}"; fi
+}
+trap fCleanup EXIT
 
-xvfb-run -a meson test -C "${build}" --no-rebuild --num-processes "${jobs}" --print-errorlogs "$@"
+if command -v xvfb-run >/dev/null 2>&1; then
+	fUnderX(){ xvfb-run -a "$@"; }
+else
+	# shellcheck source=../utility/include/xvfb.bash
+	source "${here}/../utility/include/xvfb.bash"
+	## Outside TMPDIR, or the leftover check below would count it.
+	xvfbLog="$(mktemp /tmp/nemo-suite-xvfb-XXXXXX)"
+	fXvfbStart 120 1280x1024x24 "${xvfbLog}" || { echo "[ no free display from :120 up ]" >&2; exit 1; }
+	export DISPLAY="${XVFB_DISPLAY}"
+	fUnderX(){ "$@"; }
+fi
 
-leftover="$(find "${TMPDIR}" -mindepth 1 -maxdepth 1 -printf '%f\n' || true)"
+fUnderX meson test -C "${build}" --no-rebuild --num-processes "${jobs}" --print-errorlogs "$@"
+
+## ls, since BSD find has no -printf.
+leftover="$(ls -A "${TMPDIR}" || true)"
 if [[ -n "${leftover}" ]]; then
 	echo "[ tests left these behind in ${TMPDIR} ]" >&2
 	echo "${leftover}" >&2
@@ -73,4 +96,4 @@ fi
 
 ## The suite covers the program's insides; this covers the argument that has to
 ## answer before any of them are reached.
-xvfb-run -a "${build}/src/nemo-anywhere" --version
+fUnderX "${build}/src/nemo-anywhere" --version

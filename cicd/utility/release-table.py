@@ -18,11 +18,12 @@ import json
 import re
 import sys
 
-# Rows in the order the targets are worked on.
-OS_NAMES = {"linux": "Linux", "windows": "Windows", "freebsd": "FreeBSD", "macos": "macOS"}
+# Rows in the order the targets are worked on. The installers ask for "bsd" on
+# every BSD, and the one built is FreeBSD.
+OS_NAMES = {"linux": "Linux", "windows": "Windows", "bsd": "FreeBSD", "macos": "macOS"}
 ARCH_ORDER = ["x86_64", "arm64"]
 # Within a cell: the plain archive, then the packages, then the rest by name.
-EXT_ORDER = ["tar.gz", "deb", "rpm", "zip", "exe", "dmg"]
+EXT_ORDER = ["tar.gz", "deb", "rpm", "pkg", "zip", "exe", "dmg"]
 
 # <anything>-<os>-<cpu>[-<variant>...].<ext>, the version left out on purpose:
 # a prerelease has hyphens in it and a renamed one has dots where it had others.

@@ -192,10 +192,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Possible cause: the suite shares one display, and a menu whose grab goes to another test's window stays down. The Places focus probe does not wait for its menu to show, for that reason. Not shown here.
 	- Test case: rjefm41d itself.
 
+- When the system font cache is out of date, tests leave a fontconfig folder in the suite's temp dir.
+	- ID: 2026100713082288
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261007-130822
+	- Opened by: 2026100517134118
+	- Related IDs: 2026100517134118
+	- Target OS: FreeBSD, and any box whose system font cache is older than its fonts.
+	- Steps to reproduce: run the suite through `cicd/linux/run-tests.bash` on such a box.
+	- Incorrect behavior: `nemo-emblems-test-*` and `nemo-link-job-home-*` were left in the run's temp dir, each holding only a `fontconfig` folder, so the run failed on its leftover check. Every test passed.
+	- Expected behavior: nothing left behind.
+	- Reproduced: 20261007 on vmFreeBSD, once. `fc-list` run with an empty cache dir wrote a user font cache there.
+	- Possible cause: fontconfig writes its user cache under XDG_CACHE_HOME, which the tests point at a scratch dir, and pango sets up its fonts in a thread of its own. A cache write that comes while the scratch dir is being removed at exit leaves it behind. Not shown.
+	- Note: `fc-cache -s` as root brought vmFreeBSD's system cache up to date, and the next run left nothing.
+	- Test case: none yet. The leftover check in `run-tests.bash` is what caught it.
+
 - A FreeBSD package.
 	- ID: 2026100517134081
 	- Type: Feature
-	- Status: Queued
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The FreeBSD suite passed 163 OK, 14 skipped, on the branch.
+	- Needs external testing: the files go up with the next release cut, after a pipeline run with `--include-bsd`, as in 2026100517134118.
 	- Priority|Severity: Low
 	- Opened: 20261005-171341
 	- Opened by: old-format item "Target: BSD"
@@ -205,14 +224,26 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A FreeBSD build from the release cut, handed to the local cut like any build done elsewhere.
 		- Packed so `install.bash` can fetch it on BSD, which it already expects as a `-bsd-` file.
 		- A `pkg` file or a port, so the dependencies come with it. Which one is open.
+	- Progress log:
+		- 20261007: `pkg add` on a file stops at a missing dependency, and only looks for one in the file's own folder. `pkg install ./<file>.pkg` fetches it from the package repository. So design.md names `pkg install` for a first install, and `pkg add` installs it once the dependencies are there. Question: does that meet the decision below, or should the install line differ?
 	- Decisions:
 		- 20261006: a `pkg` file, made with `pkg create` from the release build and installed with `pkg add`, with the dependencies in its manifest. A port can be its own item later. This was taken as the recommended answer when the question timed out on 20261006.
-	- Test case: none yet, not started.
+		- 20261007, calls made without asking:
+			- One build gives two files: the `-bsd-` tarball `install.bash` fetches, and `nemo-anywhere-<version>-bsd-<arch>.pkg`.
+			- The pkg puts the app at `/usr/local/nemo-anywhere`, where `install.bash --target system` puts it on BSD, rather than under `/usr/local/lib` as many ports do.
+			- The pkg version has a dot for each dash (`1.0.0.beta2`), since pkg takes no dash there. pkg sorts it below `1.0.0`.
+			- The dependencies are read off the build box: the package that owns each library the binaries link, plus `gdk-pixbuf-extra`. PyGObject for the action layout editor is named in the install message, since the `.deb` only recommends it.
+			- The Downloads table shows the `bsd` files in a FreeBSD row.
+	- Done: `cicd/bsd/release.bash` makes the release build on the FreeBSD box, checks `--version` and the extension load test, stages the prefix and makes the pkg. `cicd/bsd/lane.bash --release` runs it there from the Linux box, packs the tarball with the same stamp and order as the Linux one, and rewrites the sums file. The release stamp check reads the pkg too.
+	- Swept: every place that names the OS part of an asset: both installers, `release-files.bash`, `release-table.py` and design.md "Installing".
+	- Verified: on FreeBSD 15.1, the pkg installed with `pkg install` with `gdk-pixbuf-extra` removed first, which brought it back, and with `pkg add`. The installed app answered `--version` and opened its window, and `pkg delete` left nothing behind. `install.bash --from` installed the tarball into a scratch home there and removed it. Two release builds gave the same tarball and the same pkg. rjphng6y, rhtrxr81, rjf2v5d5 and rjcma0tt pass.
+	- Branch: bsdpkg
+	- Test case: rjphng6y, FreeBSD package check, in the packages stage: the manifest's name, version and dependencies, where every file goes, and that the tarball has the same app files. rhtrxr81 now has both installers ask for the `-bsd-` tarball on FreeBSD, rjcma0tt checks the pkg's stamp at a release cut, and rjf2v5d5 the FreeBSD row.
 
 - FreeBSD in the pipeline.
 	- ID: 2026100517134118
 	- Type: Task
-	- Status: Queued
+	- Status: Waiting for testing
 	- Priority|Severity: Low
 	- Opened: 20261005-171341
 	- Opened by: old-format item "Target: BSD"
@@ -221,7 +252,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- A stage that sends the tree to the FreeBSD box, builds with `-Dwerror=true`, runs the suite on an X server of its own, and checks `--version`, under the host lock.
 		- `cicd/linux/run-tests.bash` assumes the container's `/src`, a Linux-only display wrapper and GNU `find -printf`. Either it learns FreeBSD, or a runner of its own does the same job.
-	- Test case: none yet, not started.
+	- Decisions:
+		- 20261007, calls made without asking:
+			- Opt-in, as `--include-bsd`, the way the arm64 lane is meant to be. `--quick` leaves it on when it is asked for. The gate does not run it.
+			- `run-tests.bash` learned FreeBSD, rather than a second runner: it finds the source beside itself, starts an X server of its own where the Linux display wrapper is missing, and lists leftovers with `ls`.
+			- A box that does not answer fails the run, as in the arm64 lane.
+	- Done: `cicd/bsd/lane.bash --tests` sends the working tree the way `release-arm64.bash` does and runs `run-tests.bash` there, under the host lock's wrap. With `--include-bsd`, stage 3 runs it after the sanitizer suite, and stage 5 runs the release half from 2026100517134081.
+	- Verified: on vmFreeBSD the lane built the tree with `-Dwerror=true` and ran the suite, 163 OK, 14 skipped, then `--version`. On Linux `run-tests.bash` built and ran 2 tests and `--version` in the build image, with and without the display wrapper. The first FreeBSD run stopped on folders 2 tests left behind, filed as 2026100713082288.
+	- Needs local test suite run?: yes. A full `cicd/cicd.bash --include-bsd --no-publish` on the merged tree. The new stage lines in `cicd.bash` have only been read.
+	- Branch: bsdpkg
+	- Test case: rjphnh77, FreeBSD lane test, in the lint stage: what is sent, what the runner is handed, a failing suite failing the lane, the tarball's stamp and order over 2 runs, the sums file, and the lock's wrap. The suite run on FreeBSD is the test of `run-tests.bash` there.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202

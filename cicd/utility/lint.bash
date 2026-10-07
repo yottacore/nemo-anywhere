@@ -55,6 +55,7 @@ bash "${here}/../linux/test-release-image-pin.bash"
 fTest bash "${here}/../linux/test-release-setup.bash"
 fTest bash "${here}/test-release-stamp.bash"
 fTest bash "${here}/test-release-notes.bash"
+fTest bash "${here}/../bsd/test-lane.bash"
 py=""
 for cand in python3 python; do
 	if command -v "$cand" >/dev/null 2>&1; then py="$cand"; break; fi
