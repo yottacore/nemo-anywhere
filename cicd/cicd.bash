@@ -27,8 +27,10 @@
 ##	       --msg MSG       alias for --message
 ##	   --no-sync           skip the remote sync stage
 ##	   --no-fmt            skip the formatter stage
-##	   --no-cross          skip cross-target release builds
-##	   --no-arm            skip the ARM64 release builds + packages (x86_64 only)
+##	   --no-cross          skip cross-target release builds, arm64 included
+##	   --include-arm       add the arm64 release build, which runs on another
+##	                       box and takes about an hour (off by default)
+##	   --no-arm            leave the arm64 build out, even with --include-arm
 ##	   --no-package        skip the packages stage (.deb/.rpm/installer)
 ##	   --no-private        skip the private runner (PRIVATE_RUNNER in config.bash)
 ##	   --no-profile        skip the profiler stage
@@ -118,7 +120,7 @@ stamp="$(date +%Y%m%d-%H%M%S)"
 fSetSourceDate "${root}"
 
 ## Parse options.
-assume_yes=0; quick=0; gate=0; no_arm=0; no_sync=0; allow_dirty=0; cli_message=""
+assume_yes=0; quick=0; gate=0; no_arm=0; include_arm=0; no_sync=0; allow_dirty=0; cli_message=""
 while (($#)); do case "$1" in
 	-y|--yes)                 assume_yes=1; shift ;;
 	-q|--quiet)               assume_yes=1; shift ;;            ## publish runs quiet whatever this says
@@ -126,7 +128,8 @@ while (($#)); do case "$1" in
 	--no-sync)                no_sync=1; shift ;;
 	--no-fmt)                 FMT_CMD=(); shift ;;
 	--no-cross)               BUILD_CROSS=0; shift ;;
-	--no-arm)                 no_arm=1; shift ;;                ## drop ARM64 builds + packages
+	--include-arm)            include_arm=1; shift ;;
+	--no-arm)                 no_arm=1; shift ;;                ## wins over --include-arm
 	--no-package)             PACKAGE_ENABLE=0; shift ;;
 	--no-private)             PRIVATE_RUNNER=""; shift ;;
 	--no-profile)             PROFILE_ENABLE=0; shift ;;
@@ -143,12 +146,14 @@ while (($#)); do case "$1" in
 	*) echo "unknown option: $1 (try --help)" >&2; exit 2 ;;
 esac; done
 
-## --no-arm: drop the ARM64 cross targets so the run (and its packages) stay
-## x86_64-only. Native x86_64 is untouched; the Windows/Linux x86_64 crosses stay.
-if ((no_arm)) && declare -p CROSS_TARGETS &>/dev/null; then
+## ARM64 cross targets are opt-in: here the arm64 box is emulated and takes about
+## an hour. Native x86_64 is untouched; the Windows/Linux x86_64 crosses stay.
+arm_note=""
+if ((! include_arm || no_arm)) && declare -p CROSS_TARGETS &>/dev/null; then
 	kept=()
-	for t in "${CROSS_TARGETS[@]}"; do case "$t" in *arm64*|*aarch64*) ;; *) kept+=("$t") ;; esac; done
+	for t in "${CROSS_TARGETS[@]}"; do case "$t" in *arm64*|*aarch64*) arm_note=" (no arm64; --include-arm adds it)" ;; *) kept+=("$t") ;; esac; done
 	CROSS_TARGETS=("${kept[@]}")
+	if ((no_arm)) && [[ -n "$arm_note" ]]; then arm_note=" (no arm64, --no-arm)"; fi
 fi
 declare -p PACKAGE_ENABLE &>/dev/null || PACKAGE_ENABLE=0        ## tolerate a config predating the packages stage
 declare -p DOGFOOD_CROSS_DESTS &>/dev/null || DOGFOOD_CROSS_DESTS=()   ## ditto, cross dogfood
@@ -392,10 +397,10 @@ else
 fi
 fEcho_Clean "Release (native) ....: ${RELEASE_NATIVE_CMD[*]} -> ${RELEASE_NATIVE_BIN}"
 if ((BUILD_CROSS)) && ((${#CROSS_TARGETS[@]})); then
-	fEcho_Clean "Release (cross) .....:$( ((no_arm)) && echo ' (x86_64 only, --no-arm)')"
+	fEcho_Clean "Release (cross) .....:${arm_note}"
 	for t in "${CROSS_TARGETS[@]}"; do fEcho_Clean "    - ${t%%|*}"; done
 else
-	fEcho_Clean "Release (cross) .....: (skipped)"
+	fEcho_Clean "Release (cross) .....: (skipped$( ((include_arm && ! no_arm)) && echo ', arm64 too'))"
 fi
 if ((PACKAGE_ENABLE)) && ((! quick)); then
 	fEcho_Clean "Packages ............:"
@@ -629,6 +634,7 @@ built_arts=("${RELEASE_NATIVE_OSARCH:-native}|${RELEASE_NATIVE_BIN}")
 if ((BUILD_CROSS)) && ((${#CROSS_TARGETS[@]})); then
 	for t in "${CROSS_TARGETS[@]}"; do
 		local_label="${t%%|*}"; rest="${t#*|}"; osarch="${rest%%|*}"; rest="${rest#*|}"; art="${rest%%|*}"; cmd="${rest#*|}"
+		art="${art//@VER@/${ver}}"   ## for a lane that puts the version in the file name
 		fSection "5/8  Release build: ${local_label}"
 		eval "${cmd}"
 		[[ -f "${art}" ]] || fDie "missing artifact for ${local_label}: ${art}"
