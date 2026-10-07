@@ -224,6 +224,13 @@ GFile   *nemo_archive_mount_location (GFile *archive);
    Safe from any thread. */
 gboolean nemo_content_type_is_a (const char *content_type, const char *mime_type);
 
+/* The MIME type of a content type, which on Windows is a file extension. The
+   formats a search converter or a thumbnailer ships for are known there even
+   when nothing installed has registered them.
+   Safe from any thread.
+   Returns: (transfer full): free with g_free */
+char *nemo_content_type_get_mime_type (const char *content_type);
+
 /* TRUE when Windows runs a file by this name as a program: its extension is on
    @pathext, a PATHEXT list, in any case. NULL means cmd's own list when
    PATHEXT is unset. */

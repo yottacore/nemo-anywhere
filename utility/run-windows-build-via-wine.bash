@@ -60,14 +60,16 @@ if [[ ! -x "${DEST}/app/nemo-anywhere.exe" ]] || (( restage )); then
 		cd /opt/win-sysroot/mingw64
 		cp bin/*.dll "$D/mingw64/bin/"
 		cp bin/gdbus.exe bin/gspawn-win64-helper.exe bin/gspawn-win64-helper-console.exe "$D/mingw64/bin/" 2>/dev/null || true
-		# thumbnailer exes + their .thumbnailer descriptors: bin is on WINEPATH so
-		# g_find_program_in_path resolves them, share/thumbnailers is a data dir so
-		# nemo discovers the descriptors (image thumbs via gdk-pixbuf, office, svg)
-		cp bin/gdk-pixbuf-thumbnailer.exe bin/gsf-office-thumbnailer.exe "$D/mingw64/bin/" 2>/dev/null || true
+		# thumbnailer exe + descriptors: bin is on WINEPATH so g_find_program_in_path
+		# resolves it, share/thumbnailers is a data dir so nemo finds the descriptors.
+		# Pictures and SVG are drawn by the app itself, as in the bundles.
+		cp bin/gsf-office-thumbnailer.exe "$D/mingw64/bin/" 2>/dev/null || true
 		cp -r lib/gdk-pixbuf-2.0 "$D/mingw64/lib/"
 		cp -r share/glib-2.0/schemas "$D/mingw64/share/glib-2.0/"
-		cp -r share/icons share/themes share/thumbnailers "$D/mingw64/share/"
+		cp -r share/icons share/themes "$D/mingw64/share/"
 		cp -r etc "$D/mingw64/"'
+	docker exec "$CONTAINER" bash -c 'source /src/cicd/utility/include/thumbnailers.bash &&
+		fStageThumbnailers /opt/win-sysroot/mingw64/share/thumbnailers /src/cicd/artifacts/win-run/mingw64/share/thumbnailers'
 	docker exec "$CONTAINER" chown -R "$(id -u):$(id -g)" /src/cicd/artifacts/win-run
 fi
 

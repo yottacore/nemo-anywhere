@@ -38,6 +38,8 @@ fEcho(){ echo "[ $* ]"; }
 source "${REPO}/cicd/utility/include/source-date.bash"
 # shellcheck source=../utility/include/pixbuf-loaders.bash
 source "${REPO}/cicd/utility/include/pixbuf-loaders.bash"
+# shellcheck source=../utility/include/thumbnailers.bash
+source "${REPO}/cicd/utility/include/thumbnailers.bash"
 fSetSourceDate "$REPO"
 
 [[ -f "${BUILD}/src/nemo-anywhere.exe" ]] || { fEcho "FAILED: no exe at ${BUILD}/src/nemo-anywhere.exe"; exit 1; }
@@ -60,9 +62,10 @@ cp "${REPO}/source/search-helpers/"*.nemo_search_helper \
 
 ## Runtime helper exes that GLib/GTK spawn or that nemo discovers as thumbnailers.
 ## bin is on PATH in the launched app, so these resolve; the thumbnailer .thumbnailer
-## descriptors come across with share/thumbnailers below.
+## descriptors come across with share/thumbnailers below. No gdk-pixbuf-thumbnailer,
+## since its descriptors are left out (include/thumbnailers.bash).
 helper_exes=(gdbus.exe gspawn-win64-helper.exe gspawn-win64-helper-console.exe
-	gdk-pixbuf-thumbnailer.exe gsf-office-thumbnailer.exe)
+	gsf-office-thumbnailer.exe)
 for h in "${helper_exes[@]}"; do
 	[[ -f "${MINGW}/bin/${h}" ]] && cp "${MINGW}/bin/${h}" "${DEST}/mingw64/bin/"
 done
@@ -105,9 +108,9 @@ cp "${MINGW}/share/glib-2.0/schemas/gschema.dtd"   "${DEST}/mingw64/share/glib-2
 glib-compile-schemas "${DEST}/mingw64/share/glib-2.0/schemas" >/dev/null 2>&1 || true
 
 ## Data: themes and the thumbnailer descriptors.
-for d in themes thumbnailers; do
-	[[ -d "${MINGW}/share/${d}" ]] && cp -r "${MINGW}/share/${d}" "${DEST}/mingw64/share/"
-done
+[[ -d "${MINGW}/share/themes" ]] && cp -r "${MINGW}/share/themes" "${DEST}/mingw64/share/"
+fStageThumbnailers "${MINGW}/share/thumbnailers" "${DEST}/mingw64/share/thumbnailers" \
+	|| { fEcho "FAILED: thumbnailer descriptors"; exit 1; }
 
 ## Icons: hicolor only. The sysroot's Adwaita and AdwaitaLegacy are 2693 files
 ## (including 33 X11 cursors that do nothing on Windows) to answer the ~180

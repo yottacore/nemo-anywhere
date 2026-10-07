@@ -86,12 +86,11 @@ docker exec "$CONTAINER" sh -c "
 
 	cp bin/*.dll /tmp/${name}/
 	for h in gdbus.exe gspawn-win64-helper.exe gspawn-win64-helper-console.exe \
-	         gdk-pixbuf-thumbnailer.exe gsf-office-thumbnailer.exe; do
+	         gsf-office-thumbnailer.exe; do
 		[ -f \"bin/\$h\" ] && cp \"bin/\$h\" /tmp/${name}/ || true
 	done
 	cp -r lib/gdk-pixbuf-2.0 /tmp/${name}/lib/
 	cp -r share/icons share/themes /tmp/${name}/share/
-	[ -d share/thumbnailers ] && cp -r share/thumbnailers /tmp/${name}/share/ || true
 	[ -d share/glib-2.0/schemas ] && { mkdir -p /tmp/${name}/share/glib-2.0; cp -r share/glib-2.0/schemas /tmp/${name}/share/glib-2.0/; } || true
 	[ -d etc ] && cp -r etc /tmp/${name}/ || true
 
@@ -103,6 +102,12 @@ docker exec "$CONTAINER" sh -c "
 		mkdir -p /tmp/${name}/share/${SLUG}
 	fi
 "
+
+## The same descriptors as the native bundle, from a sysroot made before
+## fetch-sysroot.bash left the gdk-pixbuf ones out too.
+docker exec "$CONTAINER" bash -c 'source /src/cicd/utility/include/thumbnailers.bash && fStageThumbnailers "$1" "$2"' \
+	_ "${SYSROOT}/share/thumbnailers" "/tmp/${name}/share/thumbnailers" \
+	|| fDie "thumbnailer descriptors"
 
 ## GTK needs its schemas compiled; the output is architecture-independent, so the
 ## container's own tool produces a file the Windows build reads fine.

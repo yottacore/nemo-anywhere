@@ -1167,61 +1167,13 @@ compare_helper_priority (gconstpointer a,
     return ((const SearchHelper *) b)->priority - ((const SearchHelper *) a)->priority;
 }
 
-#ifdef G_OS_WIN32
-/* Win32 calls a file's type its extension, and an extension Windows has no
- * registration for comes back as application/x-ext-<ext>. The formats a
- * converter ships for are known here regardless of what is installed. */
-static gchar *
-content_type_to_document_mime (const gchar *content_type)
-{
-    static const struct {
-        const gchar *ext;
-        const gchar *mime;
-    } known[] = {
-        { "doc",  "application/msword" },
-        { "dot",  "application/msword" },
-        { "xls",  "application/vnd.ms-excel" },
-        { "xlt",  "application/vnd.ms-excel" },
-        { "ppt",  "application/vnd.ms-powerpoint" },
-        { "pps",  "application/vnd.ms-powerpoint" },
-        { "docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
-        { "xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
-        { "pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
-        { "odt",  "application/vnd.oasis.opendocument.text" },
-        { "ods",  "application/vnd.oasis.opendocument.spreadsheet" },
-        { "odp",  "application/vnd.oasis.opendocument.presentation" },
-        { "odg",  "application/vnd.oasis.opendocument.graphics" },
-        { "epub", "application/epub+zip" },
-        { "pdf",  "application/pdf" },
-    };
-    gchar *mime = g_content_type_get_mime_type (content_type);
-    const gchar *ext = NULL;
-    guint i;
-
-    if (mime == NULL) {
-        ext = content_type[0] == '.' ? content_type + 1 : content_type;
-    } else if (g_str_has_prefix (mime, "application/x-ext-")) {
-        ext = mime + strlen ("application/x-ext-");
-    }
-
-    for (i = 0; ext != NULL && i < G_N_ELEMENTS (known); i++) {
-        if (g_ascii_strcasecmp (ext, known[i].ext) == 0) {
-            g_free (mime);
-            return g_strdup (known[i].mime);
-        }
-    }
-
-    return mime != NULL ? mime : g_strdup (content_type);
-}
-#endif
-
 /* Every helper for the type, best first. */
 static GList *
 lookup_helpers_for_content_type (const gchar *content_type)
 {
     SearchHelperFindData find_data = { NULL, content_type };
 #ifdef G_OS_WIN32
-    g_autofree gchar *mime = content_type_to_document_mime (content_type);
+    g_autofree gchar *mime = nemo_content_type_get_mime_type (content_type);
 
     find_data.content_type = mime;
 #endif

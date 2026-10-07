@@ -44,8 +44,8 @@ gboolean nemo_launch_win32_via_service (const gchar *command_line,
  * or NUL when that is NULL, and hands back what it wrote to stdout, or drops it
  * when @output is NULL. A bare program name is looked up beside our exe, then on
  * PATH. Ends it after @timeout_seconds, setting *@timed_out, or once
- * @cancellable is cancelled. FALSE if it could not start, was ended or did not
- * exit 0.
+ * @cancellable is cancelled, or when the app ends. FALSE if it could not start,
+ * was ended or did not exit 0.
  * @output: (out) (optional) (transfer full): unref with g_bytes_unref */
 gboolean nemo_launch_win32_pipe        (const gchar * const  *argv,
 					const gchar          *input_path,
@@ -57,14 +57,15 @@ gboolean nemo_launch_win32_pipe        (const gchar * const  *argv,
 /* A program named by the user, such as a custom action's command. A console
  * program runs with no window, started from here like a tool, unless
  * @in_console asks for a console window. Anything else goes the way
- * nemo_launch_win32_run does, from our folder. */
+ * nemo_launch_win32_run does, from our folder. Either way it outlives the app. */
 gboolean nemo_launch_win32_spawn       (const gchar * const  *argv,
 					gboolean              in_console,
 					GError              **error);
 
 /* A tool run with no console window whose output is read as it comes, for
  * nemo-tool-run.c. Of @flags only STDOUT_PIPE, STDERR_PIPE and STDERR_MERGE
- * mean anything. stdin and every stream not piped go to NUL.
+ * mean anything. stdin and every stream not piped go to NUL. It ends when the
+ * app does.
  * Returns: (transfer full): free with nemo_launch_win32_child_free */
 typedef struct _NemoLaunchWin32Child NemoLaunchWin32Child;
 
