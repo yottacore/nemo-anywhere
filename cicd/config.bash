@@ -163,8 +163,8 @@ RELEASE_NATIVE_OSARCH="linux-x86_64"
 ## Linux arm64 is built on an arm64 box over ssh, not cross-compiled, and takes
 ## about an hour on the emulated one, so the engine leaves it out unless the run
 ## has --include-arm. Its tarball name has the version in it; the engine fills
-## in @VER@. No arm64 .deb or .rpm yet: package.bash reads the .deb's
-## dependencies off the x86_64 build.
+## in @VER@. The lane also reads the arm64 .deb's dependencies on that box, for
+## the arm64 packages in stage 6.
 BUILD_CROSS=1
 CROSS_TARGETS=(
 	"Windows x86_64 (mingw)|windows-x86_64|cicd/artifacts/cross/nemo-anywhere.exe|rm -f cicd/artifacts/cross/nemo-anywhere.exe && bash cicd/win/build-cross.bash && mkdir -p cicd/artifacts/cross && docker cp nemo-winbuild:/build-win/src/nemo-anywhere.exe cicd/artifacts/cross/nemo-anywhere.exe && docker exec nemo-winbuild bash /src/cicd/win/gui-smoke.bash"
@@ -220,6 +220,11 @@ VERSION_MANIFEST="source/meson.build"
 ##     relocatable prefix under /opt plus a launcher, menu entry and icons. The
 ##     .deb's dependency versions are read in the Ubuntu release container so the
 ##     package claims the same floor the binary was built against.
+##   - The arm64 .deb and .rpm are made here the same way, from the tarball the
+##     arm64 lane brought back, with the dependency line it read in the release
+##     container on the arm64 box. The engine runs that step and its prefix
+##     check only when the arm64 build ran (entries with arm64 in them), so
+##     never on a stale one.
 ##   - The Windows .zip is flattened out of the cross-build - exe at the folder
 ##     root beside its DLLs, which is the layout install.ps1 expects.
 ##   - The Windows setup exe is made from that zip with makensis, in the
@@ -236,12 +241,14 @@ VERSION_MANIFEST="source/meson.build"
 PACKAGE_ENABLE=1
 PACKAGE_CMDS=(
 	"Linux .deb + .rpm|bash cicd/linux/package.bash"
+	"Linux arm64 .deb + .rpm|bash cicd/linux/package.bash --arch arm64"
 	"Windows .zip|bash cicd/win/pack-zip.bash"
 	"Windows setup exe|bash cicd/win/pack-setup.bash"
 )
 PACKAGE_CHECKS=(
 	"Installer check|bash cicd/linux/test-installers.bash"
 	"Prefix check|bash cicd/linux/test-prefix.bash"
+	"Prefix check (arm64)|bash cicd/linux/test-prefix.bash --arch arm64"
 	"FreeBSD package check|bash cicd/bsd/test-pkg.bash"
 	"Setup exe check|docker exec nemo-winbuild bash /src/cicd/win/test-setup.bash"
 )

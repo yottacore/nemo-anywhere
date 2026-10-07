@@ -9,12 +9,20 @@
 ##	  dpkg-shlibdeps IN THE RELEASE CONTAINER, not on this box: the package has to
 ##	  claim the same floor the binary was built against, and this host is newer.
 ##	  rpmbuild works those out from the ELF itself, so the .rpm needs no help.
+##	- A tarball for another arch can't be read here. Its list comes from the
+##	  release container on a box of that arch: release-arm64.bash runs this
+##	  script there with --depends-only and keeps the line beside this side's
+##	  artifacts (fDebDependsFile). Without one that matches the tarball, the
+##	  .deb gets the conservative list, with a warning.
 ##	- A missing packaging tool warns and skips that format; it never fails the run.
 ##	- Syntax:
 ##	  cicd/linux/package.bash [options]
 ##	  Options:
 ##	   --from TARBALL   package this tarball (default: newest in the release dir
-##	                    built for this box's arch)
+##	                    built for --arch)
+##	   --arch ARCH      x86_64 or arm64 (default: this box's)
+##	   --depends-only   print the .deb's Depends line, read in the release
+##	                    container, and stop; fails rather than guess
 ##	   --no-deb         skip the .deb
 ##	   --no-rpm         skip the .rpm
 
@@ -43,26 +51,35 @@ source "${ROOT}/cicd/utility/include/source-date.bash"
 # shellcheck source=../utility/include/release-files.bash
 source "${ROOT}/cicd/utility/include/release-files.bash"
 
-tarball=""; do_deb=1; do_rpm=1
+tarball=""; do_deb=1; do_rpm=1; wantArch=""; dependsOnly=0
 while (($#)); do case "$1" in
 	--from)      tarball="${2:?--from needs a path}"; shift 2 ;;
 	--from=*)    tarball="${1#*=}"; shift ;;
+	--arch)      wantArch="${2:?--arch needs x86_64 or arm64}"; shift 2 ;;
+	--arch=*)    wantArch="${1#*=}"; shift ;;
+	--depends-only) dependsOnly=1; shift ;;
 	--no-deb)    do_deb=0; shift ;;
 	--no-rpm)    do_rpm=0; shift ;;
 	-h|--help)   sed -n '/^##	- Purpose:/,/^##	History:/p' "${BASH_SOURCE[0]}" | sed '$d; s/^##	\{0,1\}//'; exit 0 ;;
 	*)           fDie "unknown option: $1 (try --help)" ;;
 esac; done
 
+hostArch="$(fReleaseArch "$(uname -m)")" || hostArch=""
+if [[ -n "$wantArch" ]]; then
+	wantArch="$(fReleaseArch "$wantArch")" || fDie "--arch takes x86_64 or arm64"
+fi
+
 if [[ -z "$tarball" ]]; then
 	## Newest matching tarball. The glob is guarded so an empty dir says so
-	## rather than passing the literal pattern on to tar. Only this box's arch:
-	## the .deb's dependencies are read in the release container here, which
-	## cannot read an arm64 binary's, and the arm64 one is usually the newest.
-	hostArch="$(fReleaseArch "$(uname -m)")" || fDie "no release name for a $(uname -m) box; pass --from"
+	## rather than passing the literal pattern on to tar. One arch only, this
+	## box's unless asked: the arm64 one is usually the newest, and its
+	## dependencies are not read the same way.
+	wantArch="${wantArch:-$hostArch}"
+	[[ -n "$wantArch" ]] || fDie "no release name for a $(uname -m) box; pass --arch or --from"
 	shopt -s nullglob
-	candidates=("${OUT}/${SLUG}"-*-linux-"${hostArch}".tar.gz)
+	candidates=("${OUT}/${SLUG}"-*-linux-"${wantArch}".tar.gz)
 	shopt -u nullglob
-	((${#candidates[@]})) || fDie "no linux-${hostArch} release tarball in cicd/artifacts/release - run cicd/linux/release.bash first"
+	((${#candidates[@]})) || fDie "no linux-${wantArch} release tarball in cicd/artifacts/release - run its release lane first"
 	tarball="${candidates[0]}"
 	for cand in "${candidates[@]}"; do
 		if [[ "$cand" -nt "$tarball" ]]; then tarball="$cand"; fi
@@ -75,6 +92,78 @@ base="$(basename "$tarball" .tar.gz)"
 ver="${base#"${SLUG}"-}"; ver="${ver%%-linux-*}"
 arch="${base##*-linux-}"
 [[ -n "$ver" && -n "$arch" ]] || fDie "cannot read version/arch out of $(basename "$tarball")"
+[[ -z "$wantArch" || "$arch" == "$wantArch" ]] || fDie "$(basename "$tarball") is not a ${wantArch} build"
+
+## Runtime dependencies, read off the real binaries at the glibc floor they were
+## built against, in the release container. Prints nothing when it can't.
+fDependsFromContainer(){
+	docker exec "$CONTAINER" true 2>/dev/null || return 0
+	## -l for the prefix's own lib dir, if the build has one, so a bundled
+	## extension library resolves; --ignore-missing-info so it is then
+	## skipped rather than treated as an unpackaged dependency and made fatal.
+	docker exec -i "$CONTAINER" sh -c '
+		set -e
+		d=$(mktemp -d); cd "$d"
+		tar -xzf - >/dev/null
+		cd */
+		mkdir -p debian
+		printf "Source: pkg\n\nPackage: pkg\nArchitecture: any\n" > debian/control
+		: > debian/pkg.substvars
+		libargs=""
+		for ld in lib/*/; do
+			if [ -d "$ld" ]; then libargs="$libargs -l$PWD/$ld"; fi
+		done
+		dpkg-shlibdeps -O --ignore-missing-info $libargs \
+			-Tdebian/pkg.substvars bin/* 2>/dev/null
+	' < "$tarball" | sed -n 's/^shlibs:Depends=//p' | head -1 || true
+}
+
+## The line the other arch's box read, if it was read off these very bytes.
+fDependsFromFile(){
+	local file sum want
+	file="$(fDebDependsFile "$ROOT" "$(basename "$tarball")")"
+	if [[ ! -f "$file" ]]; then
+		fEcho "WARNING: no ${arch} dependency list for $(basename "$tarball") from its build box" >&2
+		return 0
+	fi
+	sum="$(sha256sum < "$tarball")"; sum="${sum%% *}"
+	want="$(head -1 "$file")"; want="${want%% *}"
+	if [[ "$sum" != "$want" ]]; then
+		fEcho "WARNING: the ${arch} dependency list was read off another build of $(basename "$tarball")" >&2
+		return 0
+	fi
+	sed -n 2p "$file"
+}
+
+## Falls back to a conservative list with a warning when the real one can't be
+## had, so a package still gets built.
+## Only the dependency line reaches stdout - anything it says to the console goes
+## to stderr, or it would end up inside the control file's Depends field.
+deb_depends(){
+	local line=""
+
+	if [[ "$arch" == "$hostArch" ]]; then
+		line="$(fDependsFromContainer)"
+	else
+		line="$(fDependsFromFile)"
+	fi
+
+	if [[ -z "$line" ]]; then
+		fEcho "WARNING: could not read the ${arch} dependencies; using a conservative list" >&2
+		line="libc6, libglib2.0-0, libgtk-3-0, libgdk-pixbuf-2.0-0, libpango-1.0-0, libcairo2, libjson-glib-1.0-0, libarchive13, libexif12, libgsf-1-114"
+	fi
+	printf '%s' "$line"
+}
+
+## For the other arch's lane: only the line, read here where the libraries are
+## that arch's. No fallback, since a guess would pass for a real reading.
+if ((dependsOnly)); then
+	[[ "$arch" == "$hostArch" ]] || fDie "$(basename "$tarball") is ${arch}; read its dependencies on a ${arch} box"
+	line="$(fDependsFromContainer)"
+	[[ -n "$line" ]] || fDie "could not read dependencies in ${CONTAINER}"
+	printf '%s\n' "$line"
+	exit 0
+fi
 
 ## dpkg-deb and rpmbuild both read this and stamp it instead of the clock, so the
 ## same tarball packages to the same bytes twice.
@@ -128,42 +217,6 @@ build_tree(){
 		mkdir -p "${root}/usr/share/icons/hicolor/${size}/apps"
 		cp -a "$src" "${root}/usr/share/icons/hicolor/${size}/apps/"
 	done
-}
-
-## Runtime dependencies, read off the real binaries at the glibc floor they were
-## built against. Falls back to a conservative list with a warning when the
-## release container is not up, so a package still gets built.
-## Only the dependency line reaches stdout - anything it says to the console goes
-## to stderr, or it would end up inside the control file's Depends field.
-deb_depends(){
-	local line=""
-
-	if docker exec "$CONTAINER" true 2>/dev/null; then
-		## -l for the prefix's own lib dir, if the build has one, so a bundled
-		## extension library resolves; --ignore-missing-info so it is then
-		## skipped rather than treated as an unpackaged dependency and made fatal.
-		line="$(docker exec -i "$CONTAINER" sh -c '
-			set -e
-			d=$(mktemp -d); cd "$d"
-			tar -xzf - >/dev/null
-			cd */
-			mkdir -p debian
-			printf "Source: pkg\n\nPackage: pkg\nArchitecture: any\n" > debian/control
-			: > debian/pkg.substvars
-			libargs=""
-			for ld in lib/*/; do
-				if [ -d "$ld" ]; then libargs="$libargs -l$PWD/$ld"; fi
-			done
-			dpkg-shlibdeps -O --ignore-missing-info $libargs \
-				-Tdebian/pkg.substvars bin/* 2>/dev/null
-		' < "$tarball" | sed -n 's/^shlibs:Depends=//p' | head -1)" || line=""
-	fi
-
-	if [[ -z "$line" ]]; then
-		fEcho "WARNING: could not read dependencies from ${CONTAINER}; using a conservative list" >&2
-		line="libc6, libglib2.0-0, libgtk-3-0, libgdk-pixbuf-2.0-0, libpango-1.0-0, libcairo2, libjson-glib-1.0-0, libarchive13, libexif12, libgsf-1-114"
-	fi
-	printf '%s' "$line"
 }
 
 ## du reports allocated blocks, which this filesystem rounds hard; the apparent
@@ -270,7 +323,8 @@ if ((do_rpm)); then
 			echo "Summary:        ${NAME} file manager"
 			echo "License:        GPL-2.0-only"
 			echo "URL:            https://github.com/yottacore/${SLUG}"
-			echo "BuildArch:      ${rpm_arch}"
+			## No BuildArch: rpmbuild refuses one this box can't build for, even
+			## with nothing to compile. --target below sets the arch.
 			echo ""
 			echo "%description"
 			echo "A portable fork of Nemo that runs on any desktop, or none."
@@ -324,3 +378,5 @@ fEcho_Clean
 ##		  carried over, which never applied to a meson build.
 ##		- 2026-10-05: Picks this box's arch by default, now an arm64 tarball can
 ##		  sit beside the x86_64 one.
+##		- 2026-10-07: --arch, --depends-only, and the arm64 .deb's dependencies
+##		  from the arm64 box.
