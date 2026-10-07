@@ -69,6 +69,9 @@ helper_exes=(gdbus.exe gspawn-win64-helper.exe gspawn-win64-helper-console.exe
 for h in "${helper_exes[@]}"; do
 	[[ -f "${MINGW}/bin/${h}" ]] && cp "${MINGW}/bin/${h}" "${DEST}/mingw64/bin/"
 done
+## Our own gdbus.exe in place of GLib's, since GLib's session bus leaves a file
+## in TEMP every time (source/session-bus).
+cp "${BUILD}/session-bus/gdbus.exe" "${DEST}/mingw64/bin/"
 
 ## gdk-pixbuf loaders (dlopen'd at runtime - not in the app's ldd), then rebuild the
 ## cache so it points at these staged loaders rather than the host's absolute paths.
