@@ -26,6 +26,7 @@
 #include <string.h>
 
 #include "nemo-config.h"
+#include "nemo-user-text.h"
 
 #define TOKEN_OPEN  "{{"
 #define TOKEN_CLOSE "}}"
@@ -180,7 +181,7 @@ nemo_command_template_expand (const char             *template_text,
 
 	g_return_val_if_fail (template_text != NULL, NULL);
 
-	if (!g_shell_parse_argv (template_text, NULL, &parts, &parse_error)) {
+	if (!nemo_user_text_split_command (template_text, NULL, &parts, &parse_error)) {
 		g_set_error (error, NEMO_COMMAND_TEMPLATE_ERROR,
 			     NEMO_COMMAND_TEMPLATE_ERROR_PARSE,
 			     "%s", parse_error->message);

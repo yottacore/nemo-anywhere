@@ -31,6 +31,8 @@ The `Nemo Search Helper` group name is mandatory.
 
 These definition files can be placed in `<datadir>/nemo-anywhere/search-helpers` where `<datadir>` can be some directory in XDG_DATA_DIRS or under the user's data directory (`~/.local/share/nemo-anywhere/search-helpers`, `%LOCALAPPDATA%\nemo-anywhere\search-helpers` on Windows). The user directory is *always* processed last.
 
+On Windows a path goes in as written, single backslashes and all, as in `TryExec=C:\Tools\pdftotext.exe;` and `Exec="C:\Program Files\xpdf\pdftotext.exe" %s -`. Double quotes group a path with spaces. A file with every backslash doubled reads the same.
+
 When more than one helper claims a type, the one with the highest `Priority` runs; the next is only tried when it could not read the file at all.
 
 ##### Built-in converters:

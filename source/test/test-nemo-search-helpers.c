@@ -584,13 +584,23 @@ finished_cb (G_GNUC_UNUSED NemoSearchEngine *engine, G_GNUC_UNUSED gpointer data
 	search_done = TRUE;
 }
 
+/* On Windows the program's path goes in as a user would write it there, with
+   single backslashes, and quoted in Exec. */
 static void
 write_helper_definition (const char *dir, const char *name, const char *helper, const char *mimes)
 {
 	char *exe = helper_path (helper);
 	char *path = g_build_filename (dir, name, NULL);
+#ifdef G_OS_WIN32
+	char *body;
+
+	g_strdelimit (exe, "/", '\\');
+	body = g_strdup_printf ("[Nemo Search Helper]\nTryExec=%s;\nExec=\"%s\" %%s\nMimeType=%s\nPriority=100\n",
+				exe, exe, mimes);
+#else
 	char *body = g_strdup_printf ("[Nemo Search Helper]\nTryExec=%s;\nExec=%s %%s\nMimeType=%s\nPriority=100\n",
 				      exe, exe, mimes);
+#endif
 
 	if (!g_file_set_contents (path, body, -1, NULL)) {
 		g_error ("could not write %s", path);
@@ -678,7 +688,7 @@ test_engine (const char *data_home)
 
 	/* A Windows path with its backslashes not doubled is a bad escape, and
 	   GKeyFile hands back no list at all. That has to skip the helper, not
-	   take it unchecked. */
+	   take it unchecked. On Windows it is a path naming no program. */
 	path = g_build_filename (dir, "badtry.nemo_search_helper", NULL);
 	check (g_file_set_contents (path, "[Nemo Search Helper]\nTryExec=C:\\Tools\\nope.exe;\n"
 				    "Exec=nope %s\nMimeType=application/msword;\nPriority=200\n", -1, NULL),
@@ -697,7 +707,11 @@ test_engine (const char *data_home)
 
 	g_log_set_default_handler (old_handler, NULL);
 	check (glib_criticals == 0, "no GLib criticals while loading helpers");
+#ifdef G_OS_WIN32
+	check (badtry_warnings == 0, "a helper whose TryExec names no program is skipped quietly");
+#else
 	check (badtry_warnings > 0, "a helper with an unreadable TryExec is named and skipped");
+#endif
 }
 
 int

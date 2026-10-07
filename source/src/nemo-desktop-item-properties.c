@@ -34,6 +34,7 @@
 #include <libnemo-extension/nemo-file-info.h>
 #include <libnemo-private/nemo-file.h>
 #include <libnemo-private/nemo-file-attributes.h>
+#include <libnemo-private/nemo-user-text.h>
 
 #define MAIN_GROUP "Desktop Entry"
 
@@ -231,9 +232,9 @@ nemo_desktop_item_properties_exec_drag_data_received (G_GNUC_UNUSED GtkWidget *w
 	if (nemo_file_is_mime_type (file, "application/x-desktop")) {
 		key_file = _g_key_file_new_from_uri (uri, G_KEY_FILE_NONE, NULL);
 		if (key_file != NULL) {
-			type = g_key_file_get_string (key_file, MAIN_GROUP, "Type", NULL);
+			type = nemo_user_text_get_string (key_file, MAIN_GROUP, "Type", NULL);
 			if (type != NULL && strcmp (type, "Application") == 0) {
-				exec = g_key_file_get_string (key_file, MAIN_GROUP, "Exec", NULL);
+				exec = nemo_user_text_get_string (key_file, MAIN_GROUP, "Exec", NULL);
 				if (exec != NULL) {
 					g_free (uri);
 					uri = exec;
@@ -274,9 +275,9 @@ save_entry (GtkEntry *entry, GKeyFile *key_file, const char *uri)
 	
 	if (item_entry->localized) {
 		languages = (gchar **) g_get_language_names ();
-		g_key_file_set_locale_string (key_file, MAIN_GROUP, item_entry->field, languages[0], val);
+		nemo_user_text_set_locale_string (key_file, MAIN_GROUP, item_entry->field, languages[0], val);
 	} else {
-		g_key_file_set_string (key_file, MAIN_GROUP, item_entry->field, val);
+		nemo_user_text_set_string (key_file, MAIN_GROUP, item_entry->field, val);
 	}
 
 	error = NULL;
@@ -345,15 +346,15 @@ build_grid (GtkWidget *container,
                 gtk_widget_set_hexpand (entry, TRUE);
 
 		if (item_entry->localized) {
-			val = g_key_file_get_locale_string (key_file,
-							    MAIN_GROUP,
-							    item_entry->field,
-							    NULL, NULL);
+			val = nemo_user_text_get_locale_string (key_file,
+								MAIN_GROUP,
+								item_entry->field,
+								NULL);
 		} else {
-			val = g_key_file_get_string (key_file,
-						     MAIN_GROUP,
-						     item_entry->field,
-						     NULL);
+			val = nemo_user_text_get_string (key_file,
+							 MAIN_GROUP,
+							 item_entry->field,
+							 NULL);
 		}
 		
 		item_entry->current_value = g_strdup (val?val:"");
@@ -414,7 +415,7 @@ create_page (GKeyFile *key_file, GtkWidget *box)
 	
 	entries = NULL;
 
-	type = g_key_file_get_string (key_file, MAIN_GROUP, "Type", NULL);
+	type = nemo_user_text_get_string (key_file, MAIN_GROUP, "Type", NULL);
 	
 	if (g_strcmp0 (type, "Link") == 0) {
 		entries = g_list_prepend (entries,
