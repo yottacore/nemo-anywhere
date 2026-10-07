@@ -21,6 +21,7 @@
 	- [Programs the app starts](#programs-the-app-starts)
 	- [Antivirus and signing](#antivirus-and-signing)
 	- [The zip](#the-zip)
+	- [The setup exe](#the-setup-exe)
 - [Alternative ideas](#alternative-ideas)
 	- [Unconsidered](#unconsidered)
 	- [Rejected](#rejected)
@@ -38,6 +39,8 @@ On Windows, nemo-anywhere is one `nemo-anywhere.exe` with the whole GTK runtime 
 - The packer is Enigma Virtual Box. It keeps the runtime as a virtual filesystem in memory, with nothing extracted at run time.
 
 - A plain zip of the same files is published beside it, for antivirus false alarms and while the exe is unsigned.
+
+- A setup exe installs the zip's files for one user, for anyone who wants an install with an uninstaller.
 
 - Two costs came with the packer, and both are handled: a slow start, and hooks that follow every program the app starts. See [Design](#design).
 
@@ -71,7 +74,7 @@ On Windows, nemo-anywhere is one `nemo-anywhere.exe` with the whole GTK runtime 
 
 ### Non-goals
 
-- An installer. `install.ps1` already covers an install with a menu entry and PATH, and a Windows installer exe is its own backlog item.
+- An installer inside the portable exe. Installing is the setup exe's job, and `install.ps1`'s.
 
 - Code signing. It's its own backlog item, blocked on having any signing identity.
 
@@ -143,6 +146,26 @@ The packed exe shares its virtual filesystem with every program it starts, by pu
 
 - `install.ps1` fetches the zip, not the exe, and installs it with a menu entry and a name on PATH.
 
+### The setup exe
+
+- It's made from the release zip with NSIS, in the packaging stage on Linux, so it carries exactly the files `install.ps1` installs. Two builds of one commit give the same bytes.
+
+- It installs for the current account only and never asks for admin rights. That matches the script's default and Windows' own user installs, and a setup that raises a UAC prompt for a file manager would be a surprise. There's no machine-wide choice.
+
+- Everything it writes is what `install.ps1` writes for a user install: the folder under `%LOCALAPPDATA%\Programs`, the Start menu shortcut, and the folder on the user PATH. It adds `uninstall.exe` in the folder and an entry in Settings, Apps. The folder can't be changed, so the two installers always find each other's install.
+
+- An install already there is replaced the same way the script does it: the new files go in a folder beside it, then two renames swap them. A folder that something has open can't be renamed, so it waits 10 seconds for the app's session bus to finish, then asks to close the app. Nothing is half replaced.
+
+- The uninstaller moves the folder aside the same way before removing it, then the shortcut, the PATH entry and the Apps entry. Settings stay.
+
+- NSIS strings hold 1023 characters. A user PATH that won't fit with the folder added is left alone, and the setup says so, rather than written back cut short.
+
+- `install.ps1` keeps the setup's uninstaller and Apps entry when it reinstalls over a setup install, and `-Uninstall` removes the entry.
+
+- It's 64-bit like the app, so Windows doesn't redirect its registry or folders.
+
+- It's unsigned, like the exe, until there's a signing identity.
+
 ## Alternative ideas
 
 ### Unconsidered
@@ -166,6 +189,10 @@ The packed exe shares its virtual filesystem with every program it starts, by pu
 - Letting the packer run 32-bit programs. They start, but hooked like everything else.
 
 - Shrinking the exe with UPX or a similar compressor. Packers of that kind trip antivirus.
+
+- A machine-wide setup. It needs elevation, and `install.ps1 -Target system` already covers it.
+
+- Building the setup on the Windows box from its own staged files. Those are a native build, not the zip `install.ps1` installs, and the hosted workflow only builds the portable exe.
 
 ### Superseded
 
@@ -209,7 +236,6 @@ The packed exe shares its virtual filesystem with every program it starts, by pu
 
 - Signing, once there is an identity (backlog: Windows code signing).
 
-- A Windows installer exe, after signing.
 
 ## Related backlog issues
 

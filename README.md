@@ -254,7 +254,7 @@ Current limitations:
 
 - The Windows exe is not code-signed yet, so Windows may warn the first time it runs.
 
-- If you use MacType on Windows, add the portable exe's file name to MacType's exclusion list (the `[UnloadDll]` section of its profile). With MacType loaded into it, the portable exe can't start the helper programs packed inside it, so office files get no thumbnails and each one shows a "Cannot load library" box until it times out. The installed copy from the install script is not packed and isn't affected.
+- If you use MacType on Windows, add the portable exe's file name to MacType's exclusion list (the `[UnloadDll]` section of its profile). With MacType loaded into it, the portable exe can't start the helper programs packed inside it, so office files get no thumbnails and each one shows a "Cannot load library" box until it times out. An installed copy, from the setup exe or the install script, is not packed and isn't affected.
 
 - Settings from a pre-1.0 install do not carry over.
 
@@ -294,7 +294,9 @@ Everything is on the [releases page](https://github.com/yottacore/nemo-anywhere/
 
 ### Packages and installers
 
-- **Windows**: download `nemo-anywhere-<version>-windows-x86_64-portable.exe` and run it. That is the whole program - the runtime is inside it. Nothing is installed and nothing is registered. Releases up to 1.0.0-beta2 name it plain `nemo-anywhere.exe`.
+- **Windows**: run `nemo-anywhere-<version>-windows-x86_64-setup.exe`. It installs for your account only and needs no admin rights. It uses the same folder, Start menu entry and PATH entry as the PowerShell script below, so either one can update or remove what the other put there. To remove it, use Settings -> Apps. It isn't signed yet, so SmartScreen will probably ask before it runs. Releases after 1.0.0-beta2 have it.
+
+- **Windows, portable**: download `nemo-anywhere-<version>-windows-x86_64-portable.exe` and run it. That is the whole program - the runtime is inside it. Nothing is installed and nothing is registered. Releases up to 1.0.0-beta2 name it plain `nemo-anywhere.exe`.
 
 - **Debian, Ubuntu, Mint**: Run `sudo apt install ./nemo-anywhere-<version>-linux-x86_64.deb`.
 

@@ -108,7 +108,7 @@ param(
 # Configuration
 
 $Repo    = "yottacore/nemo-anywhere"
-$InstallerVersion = "1.3.2"
+$InstallerVersion = "1.4.0"
 $AppName = "Nemo Anywhere"
 $ExeName = "nemo-anywhere"
 
@@ -301,6 +301,17 @@ function fWaitUntilFree {
 function fRenameFolder {
 	param([string]$From, [string]$To)
 	[System.IO.Directory]::Move($From, $To)
+}
+
+## The setup exe adds an uninstaller to the install folder and an entry in
+## Settings, Apps that runs it. Both installers lay down the same folder, so a
+## reinstall from here keeps that uninstaller, and an uninstall from here takes
+## the entry out too. Otherwise each would leave the other a broken entry.
+function fSetupEntry {
+	param([string]$Key, [string]$Folder)
+	if (-not $Key -or -not (Test-Path -LiteralPath $Key)) { return $false }
+	$loc = [string](Get-Item -LiteralPath $Key).GetValue("InstallLocation", "")
+	return $loc.TrimEnd('\') -ieq $Folder.TrimEnd('\')
 }
 
 function fMakeShortcut {
@@ -508,6 +519,7 @@ function fMain {
 	## GUI package layout, both platforms: the whole folder in one place, reached by
 	## a menu entry and a name on PATH (a file manager gets started both ways).
 	$priv = $false
+	$setupKey = ""
 	if ($os -eq "windows") {
 		if ($Target -eq "system") {
 			## ProgramW6432 is the 64-bit folder even from a 32-bit shell.
@@ -523,6 +535,8 @@ function fMain {
 			$prefix    = Join-Path $env:LOCALAPPDATA "Programs\$AppName"
 			$menuDir   = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
 			$pathScope = "User"
+			## Same key name the setup exe writes. It only ever installs for one user.
+			$setupKey  = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\${ExeName}"
 		}
 		$shortcut = Join-Path $menuDir "${AppName}.lnk"
 		$exePath  = Join-Path $prefix "${ExeName}.exe"
@@ -567,10 +581,12 @@ function fMain {
 		if ($os -eq "windows") {
 			$haveShortcut = Test-Path -LiteralPath $shortcut
 			$havePath     = fPathContains $pathScope $prefix
-			$haveAnything = $havePrefix -or $haveShortcut -or $havePath
+			$haveEntry    = fSetupEntry $setupKey $prefix
+			$haveAnything = $havePrefix -or $haveShortcut -or $havePath -or $haveEntry
 			fEcho_Clean ("Folder ....: {0}{1}" -f $prefix,   $(if ($havePrefix)   { "" } else { "   (not present)" }))
 			fEcho_Clean ("Shortcut ..: {0}{1}" -f $shortcut, $(if ($haveShortcut) { "" } else { "   (not present)" }))
 			fEcho_Clean ("PATH ......: {0} ({1}){2}" -f $prefix, $pathScope, $(if ($havePath) { "" } else { "   (not present)" }))
+			if ($haveEntry) { fEcho_Clean "Apps entry : the one the setup exe added" }
 		} else {
 			$haveLauncher = Test-Path -LiteralPath $launcher
 			$linkTarget   = fLinkTarget $symlink
@@ -601,6 +617,7 @@ function fMain {
 			if ($haveShortcut) { Remove-Item -LiteralPath $shortcut -Force; fEcho_Clean "removed ${shortcut}" }
 			if ($havePrefix)   { Remove-Item -LiteralPath $prefix -Recurse -Force; fEcho_Clean "removed ${prefix}" }
 			if (fPathRemove $pathScope $prefix) { fEcho_Clean "removed ${prefix} from the ${pathScope} PATH" }
+			if ($haveEntry) { Remove-Item -LiteralPath $setupKey -Recurse -Force; fEcho_Clean "removed the Settings, Apps entry" }
 			$settings = "%APPDATA%\${ExeName}"
 		} else {
 			## Only unlink a symlink that actually points into our prefix.
@@ -695,9 +712,12 @@ function fMain {
 	fEcho_Clean "Verify ....: ${verifyDesc}"
 	$replaces = if (Test-Path -LiteralPath $prefix) { "   (replaces the install already there)" } else { "" }
 	if ($os -eq "windows") {
+		$uninstaller = Join-Path $prefix "uninstall.exe"
+		$keepSetup   = (fSetupEntry $setupKey $prefix) -and (Test-Path -LiteralPath $uninstaller)
 		fEcho_Clean ("Folder ....: {0}{1}" -f $prefix, $replaces)
 		fEcho_Clean "Shortcut ..: ${shortcut}"
 		fEcho_Clean "PATH ......: adds ${prefix} to the ${pathScope} PATH"
+		if ($keepSetup) { fEcho_Clean "Apps entry : keeps the one the setup exe added, and its uninstaller" }
 	} else {
 		fEcho_Clean ("Prefix ....: {0}{1}" -f $prefix, $replaces)
 		fEcho_Clean "Launcher ..: ${launcher}"
@@ -812,6 +832,7 @@ function fMain {
 			} catch {
 				fFileError $_ "could not stage the new install" $staging
 			}
+			if ($keepSetup) { Copy-Item -LiteralPath $uninstaller -Destination $staging -Force }
 			if (Test-Path -LiteralPath $prefix) {
 				try {
 					fRenameFolder $prefix $backup
@@ -835,6 +856,10 @@ function fMain {
 		}
 		if (Test-Path -LiteralPath $backup) { Remove-Item -LiteralPath $backup -Recurse -Force }
 		fEcho_Clean "folder installed at ${prefix}"
+		if ($keepSetup) {
+			if ($relVersion) { Set-ItemProperty -LiteralPath $setupKey -Name "DisplayVersion" -Value $relVersion }
+			fEcho_Clean "kept the setup's uninstaller and its Settings, Apps entry"
+		}
 
 		try {
 			New-Item -ItemType Directory -Path $menuDir -Force | Out-Null
@@ -958,3 +983,6 @@ if ($state.failed -and $runningAsScriptFile) { exit 1 }
 ##		  staging folder beside the install folder. On Windows an install
 ##		  folder with a file held open is no longer split in two by the move
 ##		  aside.
+##		- 2026-10-07 JC: Works alongside the Windows setup exe. A reinstall over
+##		  its install keeps its uninstaller and Settings, Apps entry, and
+##		  -Uninstall removes that entry too.
