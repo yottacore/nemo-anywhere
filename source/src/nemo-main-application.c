@@ -121,6 +121,7 @@ struct _NemoMainApplicationPriv {
 
 	GDBusConnection *instance_connection;
 	guint instance_name_id;
+	guint instance_slots;
 	guint instance_actions_id;
 	guint instance_tabs_id;
 
@@ -140,10 +141,7 @@ publish_instance (NemoMainApplication *self)
 	}
 	self->priv->instance_connection = g_object_ref (connection);
 
-	self->priv->instance_name_id = g_bus_own_name_on_connection (connection,
-	                                                             NEMO_INSTANCE_BUS_NAME,
-	                                                             G_BUS_NAME_OWNER_FLAGS_NONE,
-	                                                             NULL, NULL, NULL, NULL);
+	self->priv->instance_slots = nemo_instance_publish (connection, &self->priv->instance_name_id);
 
 	/* GApplication may already serve the same group at this path; then the
 	 * export fails and nothing is missing. */
@@ -218,10 +216,9 @@ unpublish_instance (NemoMainApplication *self)
 		return;
 	}
 
-	if (self->priv->instance_name_id != 0) {
-		g_bus_unown_name (self->priv->instance_name_id);
-		self->priv->instance_name_id = 0;
-	}
+	nemo_instance_unpublish (connection, self->priv->instance_name_id, self->priv->instance_slots);
+	self->priv->instance_name_id = 0;
+	self->priv->instance_slots = 0;
 	if (self->priv->instance_actions_id != 0) {
 		g_dbus_connection_unexport_action_group (connection, self->priv->instance_actions_id);
 		self->priv->instance_actions_id = 0;
@@ -238,44 +235,13 @@ static GStrv
 other_instances (GApplication *application)
 {
 	GDBusConnection *connection;
-	GVariant *reply;
-	GStrv names = NULL;
-	GPtrArray *others;
-	const char *me;
-	int i;
 
 	connection = g_application_get_dbus_connection (application);
 	if (connection == NULL) {
 		return NULL;
 	}
 
-	reply = g_dbus_connection_call_sync (connection,
-	                                     "org.freedesktop.DBus", "/org/freedesktop/DBus",
-	                                     "org.freedesktop.DBus", "ListQueuedOwners",
-	                                     g_variant_new ("(s)", NEMO_INSTANCE_BUS_NAME),
-	                                     G_VARIANT_TYPE ("(as)"),
-	                                     G_DBUS_CALL_FLAGS_NONE, -1, NULL, NULL);
-	if (reply == NULL) {
-		/* No owner at all is an error reply, and means nobody is running. */
-		return g_new0 (char *, 1);
-	}
-
-	g_variant_get (reply, "(^as)", &names);
-	g_variant_unref (reply);
-
-	me = g_dbus_connection_get_unique_name (connection);
-	others = g_ptr_array_new ();
-	for (i = 0; names[i] != NULL; i++) {
-		if (g_strcmp0 (names[i], me) != 0) {
-			g_ptr_array_add (others, names[i]);
-		} else {
-			g_free (names[i]);
-		}
-	}
-	g_free (names);
-	g_ptr_array_add (others, NULL);
-
-	return (GStrv) g_ptr_array_free (others, FALSE);
+	return nemo_instance_list_others (connection);
 }
 
 /* Returns: (transfer full): free with g_strfreev */
