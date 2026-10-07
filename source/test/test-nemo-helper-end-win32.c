@@ -72,6 +72,20 @@ child_named (DWORD parent, const wchar_t *name)
 	return found;
 }
 
+/* Where the fake tool says it ran. NEMO_FAKE_TOOL_DIR is set before the app
+ * copy starts. */
+static char *
+report_path (void)
+{
+	g_autofree char *base = g_path_get_basename (tool);
+	char *dot = strrchr (base, '.');
+
+	if (dot != NULL) {
+		*dot = '\0';
+	}
+	return g_strdup_printf ("%s\\%s.report", g_getenv ("NEMO_FAKE_TOOL_DIR"), base);
+}
+
 static gpointer
 pipe_thread (G_GNUC_UNUSED gpointer data)
 {
@@ -89,6 +103,7 @@ play_app (const char *how)
 	const gchar *argv[] = { tool, NULL };
 	g_autofree char *base = g_path_get_basename (tool);
 	g_autofree wchar_t *name = g_utf8_to_utf16 (base, -1, NULL, NULL, NULL);
+	g_autofree char *report = report_path ();
 	NemoLaunchWin32Child *child = NULL;
 	GError *error = NULL;
 	char line[16] = "";
@@ -106,9 +121,13 @@ play_app (const char *how)
 		g_clear_error (&error);
 	}
 
-	for (gint64 end = g_get_monotonic_time () + FIND_SECONDS * G_USEC_PER_SEC;
+	/* Its report is written once it runs, so it is past being started and put
+	 * in the job by then. Seen any earlier, a kill could land in between. */
+	for (gint64 end = g_get_monotonic_time () + (gint64) (FIND_SECONDS * test_slowness () * G_USEC_PER_SEC);
 	     pid == 0 && g_get_monotonic_time () < end; ) {
-		pid = child_named (GetCurrentProcessId (), name);
+		if (g_file_test (report, G_FILE_TEST_EXISTS)) {
+			pid = child_named (GetCurrentProcessId (), name);
+		}
 		if (pid == 0) {
 			g_usleep (20000);
 		}
@@ -141,9 +160,12 @@ start_app (App *app, const char *how)
 	SECURITY_ATTRIBUTES inherit = { sizeof inherit, NULL, TRUE };
 	STARTUPINFOW startup = { 0 };
 	HANDLE app_in, app_out, from_app;
+	g_autofree char *report = NULL;
 	size_t size;
 
 	memset (app, 0, sizeof *app);
+	report = report_path ();
+	g_remove (report);
 	if (GetModuleFileNameW (NULL, exe, MAX_PATH) == 0 || whow == NULL || wtool == NULL ||
 	    !CreatePipe (&app_in, &app->to_app, &inherit, 0)) {
 		return FALSE;
