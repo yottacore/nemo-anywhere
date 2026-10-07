@@ -46,7 +46,7 @@
 #include "test-check.h"
 
 #define FIND_SECONDS 10
-#define END_SECONDS 10
+#define END_SECONDS 5
 
 static const char *tool;
 
