@@ -139,6 +139,33 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- rjmb3j8p, Action start win32 test: an action with full paths in its command, condition and dependencies.
 		- rjmqp83c, lint-c.bash `UserText`: no direct call outside the shared code.
 
+- On Windows, the list of running copies is always empty, so `--quit` and Close All Windows reach no other copy.
+	- ID: 2026100715211104
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Priority|Severity: Avg
+	- Opened: 20261007-152111
+	- Opened by: 2026100714014948
+	- Related IDs: 2026100714014948
+	- Target OS: Windows
+	- Steps to reproduce: start 2 copies, then run `nemo-anywhere --quit` from a third.
+	- Incorrect behavior: both copies stay open. Asked for the copies queued on `org.NemoAnywhere`, the bus answers an empty list with 2 copies in it. The `--reset` check for a running copy reads the same list, so it likely sees none either. Not tried.
+	- Expected behavior: as in design.md, "One process per window": `--quit` and Close All Windows reach every copy, and `--reset` knows one is running.
+	- Reproduced: 20261007 on vm925w in the desktop session, with the release zip, with GLib's `gdbus.exe` and with ours. Also under wine.
+	- Possible cause: the bus GLib starts on Windows answers that question wrong. It lists only the copies waiting behind the first, never the first, and reads each waiting entry as the wrong kind of record, so the list comes back empty. Still that way in GLib's main branch. Linux uses another bus program, which answers right. Asking who owns the name works on that bus, and the name passes to the next copy when the first quits.
+	- Reproduced: 20261007 on vm925w in the desktop session, with the release zip. With 2 copies running, `--reset` went ahead and removed the settings file. `--quit` from a third copy closed neither, and Close all windows in one closed only taht one. `--reset` and `--quit` the same under wine.
+	- Actual cause: in GLib's bus, not the app. ListQueuedOwners is wrong as in Possible cause. ListNames, the other way to list who is on the bus, is broken too: it lists the records kept for each copy and name, not their names, so it comes back empty. Queueing on a name, the handoff, and asking who owns a given name all work.
+	- Decisions:
+		- Numbered slot names, rather than a name per copy read through ListNames, since GLib's bus answers ListNames wrong too. Also rather than copies telling each other they exist, which needs every copy to answer, and in time. Waits on signoff for that, and because it changes how design.md says the copies find each other.
+		- A copy of an older build takes no slot, so a newer build's list leaves it out. On Linux an older build still finds newer copies, through the queue they all still join.
+	- Actual fix: the list no longer reads the queue. Each copy also takes the first free slot name, `org.NemoAnywhere.Slot0` and up, and queues on every slot below it. When a copy ends, even by a crash, its slot passes up to a live copy, so the taken slots never have a gap. The list asks who owns each slot in turn, up to the first free one. One way on every platform, using only what both buses get right. The shared name is as it was, so a caller from outside still reaches the oldest copy.
+	- Verified: rjptygcj fails with the old queue read under wine and natively on vm925w, and passes with the fix there and on Linux. On Linux it also failed with the lower slots taken without queueing. In the desktop session on vm925w, the release zip from this branch with 2 copies running: `--reset` refused and kept the settings, `--quit` from a third copy closed both, Close all windows in one copy closed both. Same for `--reset` and `--quit` under wine. Full Linux suite 180 of 180. Windows cross build clean. Lint clean.
+	- Note: the tab menu on Windows listed no window of another copy, for the same reason. Not checked there since the fix.
+	- Swept: every reader of the list. `--quit`, Close all windows, the `--reset` check, and the tab menu's list of other copies' windows, all through the one function. The tab move test reads the queue itself, but runs on Linux only, where the queue answers right.
+	- Branch: qlist
+	- Commit: 7403892
+	- Test case: rjptygcj, Instance list test, every platform. 3 copies join the session bus the way the app does, and each lists the others. One drops off as a crash would and its slot passes up, then the first leaves and a newcomer joins. Each time the copies left list exactly each other.
+
 - On Windows every launch leaves a small `gdbus-nonce-file-*` in the temp folder.
 	- ID: 2026100714014948
 	- Type: Bug
@@ -255,33 +282,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: 20261007, the probe and test were read. At step 5 the probe looks for a menu on screen every 100 ms for 10 s, so it does wait for the menu to show. The test runs on an X server of its own, not the suite's. Two tests that pick the same display number at once don't end up sharing it: the one whose server fails tries the next number. So the possible cause above doesn't apply.
 	- Note: 20261007, not ruled out: the Menu key made no menu at all once, on a loaded box. GTK 3 doesn't show a menu whose pointer grab fails, and the probe presses the key only once. Nothing points at that, and pressing again would hide it rather than explain it.
 	- Test case: rjefm41d itself.
-
-- On Windows, the list of running copies is always empty, so `--quit` and Close All Windows reach no other copy.
-	- ID: 2026100715211104
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Priority|Severity: Avg
-	- Opened: 20261007-152111
-	- Opened by: 2026100714014948
-	- Related IDs: 2026100714014948
-	- Target OS: Windows
-	- Steps to reproduce: start 2 copies, then run `nemo-anywhere --quit` from a third.
-	- Incorrect behavior: both copies stay open. Asked for the copies queued on `org.NemoAnywhere`, the bus answers an empty list with 2 copies in it. The `--reset` check for a running copy reads the same list, so it likely sees none either. Not tried.
-	- Expected behavior: as in design.md, "One process per window": `--quit` and Close All Windows reach every copy, and `--reset` knows one is running.
-	- Reproduced: 20261007 on vm925w in the desktop session, with the release zip, with GLib's `gdbus.exe` and with ours. Also under wine.
-	- Possible cause: the bus GLib starts on Windows answers that question wrong. It lists only the copies waiting behind the first, never the first, and reads each waiting entry as the wrong kind of record, so the list comes back empty. Still that way in GLib's main branch. Linux uses another bus program, which answers right. Asking who owns the name works on that bus, and the name passes to the next copy when the first quits.
-	- Reproduced: 20261007 on vm925w in the desktop session, with the release zip. With 2 copies running, `--reset` went ahead and removed the settings file. `--quit` from a third copy closed neither, and Close all windows in one closed only taht one. `--reset` and `--quit` the same under wine.
-	- Actual cause: in GLib's bus, not the app. ListQueuedOwners is wrong as in Possible cause. ListNames, the other way to list who is on the bus, is broken too: it lists the records kept for each copy and name, not their names, so it comes back empty. Queueing on a name, the handoff, and asking who owns a given name all work.
-	- Decisions:
-		- Numbered slot names, rather than a name per copy read through ListNames, since GLib's bus answers ListNames wrong too. Also rather than copies telling each other they exist, which needs every copy to answer, and in time. Waits on signoff for that, and because it changes how design.md says the copies find each other.
-		- A copy of an older build takes no slot, so a newer build's list leaves it out. On Linux an older build still finds newer copies, through the queue they all still join.
-	- Actual fix: the list no longer reads the queue. Each copy also takes the first free slot name, `org.NemoAnywhere.Slot0` and up, and queues on every slot below it. When a copy ends, even by a crash, its slot passes up to a live copy, so the taken slots never have a gap. The list asks who owns each slot in turn, up to the first free one. One way on every platform, using only what both buses get right. The shared name is as it was, so a caller from outside still reaches the oldest copy.
-	- Verified: rjptygcj fails with the old queue read under wine and natively on vm925w, and passes with the fix there and on Linux. On Linux it also failed with the lower slots taken without queueing. In the desktop session on vm925w, the release zip from this branch with 2 copies running: `--reset` refused and kept the settings, `--quit` from a third copy closed both, Close all windows in one copy closed both. Same for `--reset` and `--quit` under wine. Full Linux suite 180 of 180. Windows cross build clean. Lint clean.
-	- Note: the tab menu on Windows listed no window of another copy, for the same reason. Not checked there since the fix.
-	- Swept: every reader of the list. `--quit`, Close all windows, the `--reset` check, and the tab menu's list of other copies' windows, all through the one function. The tab move test reads the queue itself, but runs on Linux only, where the queue answers right.
-	- Branch: qlist
-	- Commit: 7403892
-	- Test case: rjptygcj, Instance list test, every platform. 3 copies join the session bus the way the app does, and each lists the others. One drops off as a crash would and its slot passes up, then the first leaves and a newcomer joins. Each time the copies left list exactly each other.
 
 - Linux arm64 `.deb` and `.rpm` packages.
 	- ID: 2026100714244880
