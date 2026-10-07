@@ -219,10 +219,16 @@ gboolean nemo_archive_mount_supported (void);
 GFile   *nemo_archive_mount_location (GFile *archive);
 
 /* g_content_type_is_a, but also right on Windows for a mime pattern such as
-   "image/" plus a star. A content type there is a file extension, which never
-   matches one.
+   "image/" plus a star, and for the types nemo_content_type_get_mime_type
+   knows when nothing has registered them, such as a .desktop link file. A
+   content type there is a file extension, which never matches one.
    Safe from any thread. */
 gboolean nemo_content_type_is_a (const char *content_type, const char *mime_type);
+
+/* g_content_type_equals, with the same Windows mapping as above. NULL is equal
+   to nothing.
+   Safe from any thread. */
+gboolean nemo_content_type_equals (const char *content_type, const char *mime_type);
 
 /* The MIME type of a content type, which on Windows is a file extension. The
    formats a search converter or a thumbnailer ships for are known there even

@@ -49,12 +49,7 @@
 static gboolean
 is_link_mime_type (const char *mime_type)
 {
-	if (mime_type != NULL &&
-	     g_ascii_strcasecmp (mime_type, "application/x-desktop") == 0) {
-		return TRUE;
-	}
-
-	return FALSE;
+	return nemo_content_type_equals (mime_type, "application/x-desktop");
 }
 
 static gboolean
@@ -563,7 +558,6 @@ nemo_link_get_link_info_given_file_contents (const char  *file_contents,
 						 gboolean    *is_foreign)
 {
 	GKeyFile *key_file;
-	char *type;
 	char **only_show_in;
 	char **not_show_in;
 	const gchar *session;
@@ -584,12 +578,15 @@ nemo_link_get_link_info_given_file_contents (const char  *file_contents,
 	*icon = nemo_link_get_link_icon_from_desktop (key_file);
 
 	*is_launcher = FALSE;
-	type = nemo_user_text_get_string (key_file, MAIN_GROUP, "Type", NULL);
-	if (g_strcmp0 (type, "Application") == 0 &&
-	    g_key_file_has_key (key_file, MAIN_GROUP, "Exec", NULL)) {
-		*is_launcher = TRUE;
+#ifdef G_OS_UNIX
+	{
+		/* nemo_launch_desktop_file runs nothing elsewhere. */
+		g_autofree char *type = nemo_user_text_get_string (key_file, MAIN_GROUP, "Type", NULL);
+
+		*is_launcher = g_strcmp0 (type, "Application") == 0 &&
+			g_key_file_has_key (key_file, MAIN_GROUP, "Exec", NULL);
 	}
-	g_free (type);
+#endif
 
 	*is_foreign = FALSE;
 	only_show_in = nemo_user_text_get_string_list (key_file, MAIN_GROUP,
