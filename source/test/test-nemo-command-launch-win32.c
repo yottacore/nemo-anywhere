@@ -26,7 +26,8 @@
  * the Scripts menu runs one: the script's path quoted, the selected names as
  * parameters, from the folder in view. A console program or batch file runs
  * from the app with no window, and in a console of its own when a terminal is
- * asked for. */
+ * asked for. A batch file at a path with spaces never started, and cmd would
+ * have run what follows a & in a file name. */
 
 #include <config.h>
 
@@ -112,7 +113,7 @@ main (int argc, char *argv[])
 	g_autofree char *scratch = NULL, *work = NULL, *cwd_line = NULL;
 	g_autofree char *quiet = NULL, *console = NULL, *viacmd = NULL, *batch = NULL;
 	g_autofree char *quoted = NULL;
-	const char *names[] = { "two words", "C:\\plain\\path", "it's", NULL };
+	const char *names[] = { "two words", "C:\\plain\\path", "R&D %PATH% 100%", "it's", NULL };
 	GdkScreen *screen;
 
 	if (argc < 2) {
@@ -167,6 +168,7 @@ main (int argc, char *argv[])
 	check (wait_for_report ("quiet", "arg=it's"));
 	check (reported ("quiet", "arg=two words"));
 	check (reported ("quiet", "arg=C:\\plain\\path"));
+	check (reported ("quiet", "arg=R&D %PATH% 100%"));
 	check (reported ("quiet", "window=0"));
 	check (reported ("quiet", cwd_line));
 	check (started_by ("quiet", self_name));
@@ -178,6 +180,7 @@ main (int argc, char *argv[])
 	check (wait_for_report ("viacmd", "arg=it's"));
 	check (reported ("viacmd", "arg=two words"));
 	check (reported ("viacmd", "arg=C:\\plain\\path"));
+	check (reported ("viacmd", "arg=R&D %PATH% 100%"));
 	check (reported ("viacmd", "window=0"));
 	check (reported ("viacmd", cwd_line));
 	check (started_by ("viacmd", "cmd.exe"));

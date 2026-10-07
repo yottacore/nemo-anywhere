@@ -522,6 +522,88 @@ append_argument (GString *line, const gchar *arg)
 	g_string_append_c (line, '"');
 }
 
+static gboolean
+is_batch_file (const gchar *program)
+{
+	const gchar *dot = strrchr (program, '.');
+
+	return dot != NULL && (g_ascii_strcasecmp (dot, ".bat") == 0 || g_ascii_strcasecmp (dot, ".cmd") == 0);
+}
+
+/* cmd reads a batch file's line itself, with rules of its own. Every argument
+ * is quoted, so & | < > ^ in a file name stay text, a quote is doubled, and a
+ * % is followed by an empty %cd:~,% so no %NAME% in it is ever expanded. The
+ * same as Rust's std does since CVE-2024-24576. Backslashes before a quote are
+ * doubled for the program the script hands the argument on to. */
+static void
+append_batch_argument (GString *line, const gchar *arg)
+{
+	gsize slashes = 0;
+
+	if (line->len > 0) {
+		g_string_append_c (line, ' ');
+	}
+
+	g_string_append_c (line, '"');
+	for (const gchar *p = arg; *p != '\0'; p++) {
+		if (*p == '\\') {
+			slashes++;
+		} else {
+			if (*p == '"') {
+				for (gsize i = 0; i < slashes; i++) {
+					g_string_append_c (line, '\\');
+				}
+				g_string_append_c (line, '"');
+			}
+			slashes = 0;
+		}
+
+		if (*p == '%') {
+			g_string_append (line, "%%cd:~,%");
+		} else {
+			g_string_append_c (line, *p);
+		}
+	}
+	for (gsize i = 0; i < slashes; i++) {
+		g_string_append_c (line, '\\');
+	}
+	g_string_append_c (line, '"');
+}
+
+/* A batch file goes to cmd by name. Handed to CreateProcessW itself, it runs
+ * as cmd /c plus the line, and cmd then drops the first and last quote, so a
+ * path with a space in it was never found. /s makes that drop the outer pair
+ * added here, and nothing else. */
+static gchar *
+batch_command_line (const gchar *program, const gchar * const *argv, wchar_t **wexe)
+{
+	wchar_t system[MAX_PATH];
+	UINT length = GetSystemDirectoryW (system, G_N_ELEMENTS (system));
+	gchar *dir, *cmd;
+	GString *line;
+
+	if (length == 0 || length >= G_N_ELEMENTS (system)) {
+		return NULL;
+	}
+	dir = g_utf16_to_utf8 (system, -1, NULL, NULL, NULL);
+	if (dir == NULL) {
+		return NULL;
+	}
+	cmd = g_build_filename (dir, "cmd.exe", NULL);
+	g_free (dir);
+	*wexe = g_utf8_to_utf16 (cmd, -1, NULL, NULL, NULL);
+	g_free (cmd);
+
+	line = g_string_new ("cmd.exe /d /e:on /v:off /s /c \"");
+	append_batch_argument (line, program);
+	for (guint i = 1; argv[i] != NULL; i++) {
+		append_batch_argument (line, argv[i]);
+	}
+	g_string_append_c (line, '"');
+
+	return g_string_free (line, FALSE);
+}
+
 /* Opened both ways, so one handle stands in for a missing stdin and for output
  * nobody reads. There is no console to pass on anyway. */
 static HANDLE
@@ -599,7 +681,7 @@ spawn_hidden (const gchar * const  *argv,
 	guint n_handed = 0, i, j;
 	GString *line;
 	gchar *program;
-	wchar_t *wexe, *wline, *wdir = NULL;
+	wchar_t *wexe = NULL, *wline = NULL, *wdir = NULL;
 	gboolean started = FALSE;
 
 	/* A bare name is found the way the rest of the app finds one, the exe's
@@ -611,17 +693,24 @@ spawn_hidden (const gchar * const  *argv,
 		return FALSE;
 	}
 
-	line = g_string_new (NULL);
-	append_argument (line, program);
-	for (i = 1; argv[i] != NULL; i++) {
-		append_argument (line, argv[i]);
+	if (is_batch_file (program)) {
+		gchar *text = batch_command_line (program, argv, &wexe);
+
+		wline = text != NULL ? g_utf8_to_utf16 (text, -1, NULL, NULL, NULL) : NULL;
+		g_free (text);
+	} else {
+		line = g_string_new (NULL);
+		append_argument (line, program);
+		for (i = 1; argv[i] != NULL; i++) {
+			append_argument (line, argv[i]);
+		}
+		wexe = g_utf8_to_utf16 (program, -1, NULL, NULL, NULL);
+		wline = g_utf8_to_utf16 (line->str, -1, NULL, NULL, NULL);
+		g_string_free (line, TRUE);
 	}
-	wexe = g_utf8_to_utf16 (program, -1, NULL, NULL, NULL);
-	wline = g_utf8_to_utf16 (line->str, -1, NULL, NULL, NULL);
 	if (workdir != NULL) {
 		wdir = g_utf8_to_utf16 (workdir, -1, NULL, NULL, NULL);
 	}
-	g_string_free (line, TRUE);
 
 	/* The list refuses the same handle twice. */
 	for (i = 0; i < G_N_ELEMENTS (given); i++) {
