@@ -2,7 +2,7 @@
  *
  * When no session bus is up, GLib on Windows starts "gdbus.exe
  * _win32_run_session_bus" from beside its gio dll, and that is all the bundle
- * ever runs gdbus for. So this is shipped under that name.
+ * ever runs gdbus for. So this goes in the bundle under that name.
  *
  * The bus is still GLib's own. Its daemon drops its server without stopping it,
  * and the server's start keeps a reference to itself until a stop, so the
