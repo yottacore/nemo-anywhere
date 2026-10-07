@@ -232,6 +232,64 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 00f70b0, 9a52a33, bb92f8b, 3613db3
 	- Test case: rjnzpkk7, Command launch win32 test, Windows only. A console program, a batch file at a path with spaces, and a batch file in a console, each given a name with a space, a full path with single backslashes, `R&D %PATH% 100%` and an apostrophe: arguments as given, the folder in view as working folder, no window or a console of its own, and who started it. Lint rjm8a6xr for the GLib launch calls.
 
+- On Windows, the Scripts menu lists only `.exe`, `.bat` and `.com` files named in lower case.
+	- ID: 2026100707554200
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. Windows only; the Linux suite passed on the branch.
+	- Needs external testing: on vm925w, rjp4ch0y in the native suite. By hand in the desktop session: `tidy.cmd`, `TIDY.BAT` and `hello.vbs` in the scripts folder are listed in the Scripts menu, and each runs from it on a selected file. `tidy.ps1` is not listed.
+	- Priority|Severity: Low
+	- Opened: 20261007-075542
+	- Opened by: 2026100616310432
+	- Related IDs: 2026100616310432
+	- Target OS: Windows
+	- Steps to reproduce: put `tidy.cmd`, `tidy.ps1` and `TIDY.BAT` in the scripts folder and open the Scripts menu.
+	- Incorrect behavior: read only. None of the 3 is listed.
+	- Expected behavior: anything Windows runs as a program is listed, whatever the case of its extension.
+	- Reproduced: no. Read from the code: the menu takes a file only when the app calls it launchable, and on Windows GLib calls a type executable only for those 3 extensions, compared as written.
+	- Possible cause: as in Reproduced. The `PATHEXT` list is what Windows itself uses.
+	- Reproduced: 20261007 under wine, by rjp4ch0y: `tidy.cmd`, `TIDY.BAT`, `Tool.EXE`, `old.Com`, `hello.vbs`, `Build.JS` and `snap.msc` were not launchable, and `plain.exe` was.
+	- Actual cause: as in Possible cause. The Scripts menu and a double-click both ask whether a file is launchable, and on Windows that came down to GLib's 3 lower-case extensions.
+	- Actual fix: on Windows a file is launchable when its extension is on `PATHEXT`, in any case. With no `PATHEXT` set, cmd's own list is used: `.COM`, `.EXE`, `.BAT` and `.CMD`.
+	- Note: what the launcher does with each type, read from its code. A program is started directly, a batch file through cmd in either case, and anything else, such as `.vbs`, `.js` or `.msc`, goes to the shell's open for its type, as cmd does for a `PATHEXT` type. A `.ps1` is not on the default list, and on a stock Windows its open is Notepad, so it is not listed unless a user adds it to `PATHEXT`.
+	- Decisions:
+		- A call made without asking: the user's own `PATHEXT` is followed as is. A type added there is listed, and runs by its type's open, as it would typed into cmd.
+		- A call made without asking: a double-click on such a file now runs it, through the shell's open, the way Explorer does. Going by the code, a `.cmd` or a capitalized `.BAT` went to the app chooser's default before.
+	- Swept: both callers of the launchable check, the Scripts menu and a double-click. No other code asks GLib whether a type can run. The launcher already matched `.bat` and `.cmd` in any case.
+	- Verified: rjp4ch0y failed under wine before the fix, 11 checks, and passes after. The Windows cross build is clean.
+	- Branch: smallfix
+	- Commit: 5c3b248
+	- Test case: rjp4ch0y, Launchable win32 test, Windows only: names on the default Windows list in mixed case are launchable, `.ps1`, `.txt`, a name with no extension and a folder named `.exe` are not, a user's own list with odd case and spaces is followed, and cmd's list is used when `PATHEXT` is unset.
+
+- On Linux arm64 (jammy), the Windows paths in user text test fails 2 checks.
+	- ID: 2026100708355447
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. Done on jammy and trixie, as in Verified.
+	- Needs external testing: rjmpxtbg on the arm64 jammy build on vmDebARM64.
+	- Priority|Severity: Low
+	- Opened: 20261007-083554
+	- Opened by: 2026100611482306
+	- Related IDs: 2026100702343600
+	- Target OS: Linux arm64, maybe any jammy build
+	- Steps to reproduce: run rjmpxtbg on the arm64 debug build in the jammy image.
+	- Incorrect behavior: `test-nemo-user-text.c:217` (a value with a single backslash comes back with no error) and `:222` (the translated name) fail. Not tried on an x86_64 jammy build.
+	- Expected behavior: passes, as on trixie.
+	- Reproduced: 20261007, arm64 jammy debug build, in the full suite, 4 at once.
+		- 20261007, x86_64 jammy build too, both checks, with no language set. With `LANG=C.UTF-8` only the first. So the release suite would fail here at rc.1.
+	- Possible cause: jammy's GLib 2.72 reads key files differently from trixie's 2.84, in escapes or in locale names. Not looked at.
+	- Actual cause: the app read key files differently on jammy, in 2 ways. Both reach users there, not only the test.
+		- A value with a bad escape, such as `C:\Tools\new`, came back half read, with the error set too. GLib 2.84 gives no value. Most callers pass no error, so on jammy they used the half-read value where trixie skips it.
+		- GLib 2.84 reads the C language as the plain value and never looks at a `key[C]` line. 2.72 takes `key[C]` when nothing better matches. The app's own Windows reader did the same as 2.72.
+	- Actual fix: the shared reader in `nemo-user-text.c` gives no value whenever GLib reports an error, and walks the languages itself on every platform, stopping at C. Writing a C translation sets the plain value, as 2.84 does.
+	- Decisions:
+		- A call made without asking: the newer GLib's reading is the one kept everywhere, jammy and Windows included. The release build runs on both old and new systems, so one rule is less surprising.
+	- Swept: every reader in `nemo-user-text.c`. A list already came back empty on 2.72. Theme index files and the bookmark metadata file still read through GKeyFile directly, on purpose (2026100702343600), so a theme's `Name[C]` still follows the GLib it runs on.
+	- Verified: on a fresh x86_64 jammy debug build, rjmpxtbg failed before the fix and passes after, with no language set, `C.UTF-8` and `de_DE.UTF-8`. The 2 new C cases fail there before the fix, and under wine before the fix too. The jammy suite: 174 OK, 2 skipped (ImageMagick), 0 failed. The trixie suite: 176 of 176. The Windows cross build is clean, and rjmpxtbg passes under wine.
+	- Branch: smallfix
+	- Commit: 5c3b248
+	- Test case: rjmpxtbg, Windows paths in user text test. New cases: a `key[C]` line is never read, and a C translation is written as the plain value.
+
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440
 	- Type: Bug
@@ -313,38 +371,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: 20261006 on vm925w, in the staged folder and in the app's debug output.
 	- Possible cause: no rewrite in `stage-native.bash`. Pictures and SVG files still get thumbnails from the app's own image loading, so little shows.
 	- Test case: none yet.
-
-- On Windows, the Scripts menu lists only `.exe`, `.bat` and `.com` files named in lower case.
-	- ID: 2026100707554200
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261007-075542
-	- Opened by: 2026100616310432
-	- Related IDs: 2026100616310432
-	- Target OS: Windows
-	- Steps to reproduce: put `tidy.cmd`, `tidy.ps1` and `TIDY.BAT` in the scripts folder and open the Scripts menu.
-	- Incorrect behavior: read only. None of the 3 is listed.
-	- Expected behavior: anything Windows runs as a program is listed, whatever the case of its extension.
-	- Reproduced: no. Read from the code: the menu takes a file only when the app calls it launchable, and on Windows GLib calls a type executable only for those 3 extensions, compared as written.
-	- Possible cause: as in Reproduced. The `PATHEXT` list is what Windows itself uses.
-	- Test case: none yet.
-
-- On Linux arm64 (jammy), the Windows paths in user text test fails 2 checks.
-	- ID: 2026100708355447
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261007-083554
-	- Opened by: 2026100611482306
-	- Related IDs: 2026100702343600
-	- Target OS: Linux arm64, maybe any jammy build
-	- Steps to reproduce: run rjmpxtbg on the arm64 debug build in the jammy image.
-	- Incorrect behavior: `test-nemo-user-text.c:217` (a value with a single backslash comes back with no error) and `:222` (the translated name) fail. Not tried on an x86_64 jammy build.
-	- Expected behavior: passes, as on trixie.
-	- Reproduced: 20261007, arm64 jammy debug build, in the full suite, 4 at once.
-	- Possible cause: jammy's GLib 2.72 reads key files differently from trixie's 2.84, in escapes or in locale names. Not looked at.
-	- Test case: rjmpxtbg itself.
 
 - On the arm64 box the keyboard menu test's icon view step can time out beside other tests.
 	- ID: 2026100708355547

@@ -1927,6 +1927,15 @@ if is_windows
     timeout: 60
   )
 
+  test('rjp4ch0y Launchable win32 test',
+    executable('test-nemo-launchable-win32',
+      [ 'test-nemo-launchable-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: []
+  )
+
   test('rjkwtgrm Drop keys win32 test',
     executable('test-nemo-drop-keys-win32',
       [ 'test-nemo-drop-keys-win32.c' ],

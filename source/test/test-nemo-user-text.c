@@ -197,10 +197,11 @@ check_key_files (void)
 	const char *lang = g_get_language_names ()[0];
 	gboolean translated = g_strcmp0 (lang, "C") != 0;
 	g_autofree char *text = g_strdup_printf ("[G]\nA=C:\\Tools\\new\nB=C:\\\\Tools\\\\new\n"
-						 "L=C:\\\\x;D:\\\\y;\nN=plain\nN[%s]=C:\\\\Loc\\\\x\n", lang);
+						 "L=C:\\\\x;D:\\\\y;\nN=plain\nN[%s]=C:\\\\Loc\\\\x\n"
+						 "P=plain\nP[C]=c\n", lang);
 	GKeyFile *key_file = g_key_file_new ();
 	GError *error = NULL;
-	g_autofree char *a = NULL, *b = NULL, *name = NULL;
+	g_autofree char *a = NULL, *b = NULL, *name = NULL, *plain = NULL, *c_back = NULL;
 	g_auto (GStrv) list = NULL;
 	const char *dirs[] = { "C:\\x", "D:\\y", NULL };
 
@@ -220,6 +221,14 @@ check_key_files (void)
 	check (g_strcmp0 (b, "C:\\Tools\\new") == 0);
 	check (same_list (list, dirs));
 	check (g_strcmp0 (name, translated ? "C:\\Loc\\x" : "plain") == 0);
+
+	/* C is the plain value whatever the GLib, so a key[C] line is never read
+	   and never written. */
+	plain = nemo_user_text_get_locale_string (key_file, "G", "P", NULL);
+	check (g_strcmp0 (plain, "plain") == 0);
+	nemo_user_text_set_locale_string (key_file, "G", "P", "C", "set");
+	c_back = g_key_file_get_value (key_file, "G", "P", NULL);
+	check (g_strcmp0 (c_back, "set") == 0);
 
 	check (nemo_user_text_get_string (key_file, "G", "missing", &error) == NULL);
 	check (g_error_matches (error, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_KEY_NOT_FOUND));
