@@ -1570,6 +1570,20 @@ test('rhg8y5f0 ImageMagick thumbnail test',
   args: []
 )
 
+# Runs on a copy of the loader list the system's gdk-pixbuf reads.
+if not is_windows
+  test('rjnz8zfz ImageMagick for missing pixbuf loaders test',
+    executable('test-nemo-magick-extras',
+      [ 'test-nemo-magick-extras.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+      c_args: [ '-DPIXBUF_LOADERS_CACHE="@0@"'.format(
+        dependency('gdk-pixbuf-2.0').get_variable(pkgconfig: 'gdk_pixbuf_cache_file', default_value: '')) ],
+    ),
+    args: []
+  )
+endif
+
 test('rhe0xz32 Thumbnail hold test',
   executable('test-nemo-thumbnail-hold',
     [ 'test-nemo-thumbnail-hold.c' ],

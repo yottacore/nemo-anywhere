@@ -763,10 +763,11 @@ FreeBSD 15.1 on amd64 is the known-good baseline. The build is native, with the 
 
 - The action layout editor wants `py312-pygobject` at run time.
 
+- BMP, ICO, XPM, XBM and PNM thumbnails want `gdk-pixbuf-extra` at run time. gdk-pixbuf has left those loaders out of a default build since 2.42.11, and FreeBSD's package follows that. Without it the app hands those formats to ImageMagick when that is installed, and otherwise they keep their plain icon.
+
 - The test suite also wants `xorg-vfbserver xdpyinfo openbox ImageMagick7-nox11 7-zip`, plus `rar` for the rar cases. There is no `xvfb-run`, so `meson test -C build` runs with `DISPLAY` set to an X server of its own and `DBUS_SESSION_BUS_ADDRESS=disabled:`, as `cicd/linux/run-tests.bash` does on Linux. A test that needs a display to itself starts its own Xvfb.
 
 - What differs from Linux:
-	- gdk-pixbuf as packaged there has no BMP, ICO, XPM or PNM loader, so those pictures get no thumbnail yet.
 	- The leak tests and the allocation count read glibc's heap, so they skip.
 
 ## Delivery

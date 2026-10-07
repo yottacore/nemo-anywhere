@@ -39,7 +39,8 @@
 const char *nemo_magick_program (void);
 
 /* The ImageMagick format name for a file name or uri, by its extension, or
- * NULL when it is not on the list. */
+ * NULL when it is not on the list. A few formats are on it only while
+ * gdk-pixbuf has no loader for them. */
 const char *nemo_magick_coder   (const char *name);
 
 /* A local file on the list, and a program to hand it to. */

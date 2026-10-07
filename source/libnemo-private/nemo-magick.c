@@ -80,6 +80,25 @@ static const struct {
 	{ "x3f",  "X3F" },
 };
 
+/* Formats gdk-pixbuf reads itself when it has the loader. Since 2.42.11 a
+ * default build leaves these loaders out, and systems put them in a package
+ * of their own that may not be there, so these are handed over only when no
+ * loader claims the extension. */
+static const struct {
+	const char *extension;
+	const char *coder;
+} pixbuf_extras[] = {
+	{ "bmp", "BMP" },
+	{ "ico", "ICO" },
+	{ "cur", "CUR" },
+	{ "xpm", "XPM" },
+	{ "xbm", "XBM" },
+	{ "pnm", "PNM" },
+	{ "pbm", "PBM" },
+	{ "pgm", "PGM" },
+	{ "ppm", "PPM" },
+};
+
 static gpointer
 find_program (G_GNUC_UNUSED gpointer data)
 {
@@ -95,6 +114,41 @@ find_program (G_GNUC_UNUSED gpointer data)
 #endif
 
 	return found;
+}
+
+static gpointer
+list_pixbuf_extensions (G_GNUC_UNUSED gpointer data)
+{
+	GHashTable *found = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+	GSList *formats = gdk_pixbuf_get_formats ();
+	GSList *l;
+
+	for (l = formats; l != NULL; l = l->next) {
+		g_auto (GStrv) extensions = NULL;
+		guint i;
+
+		if (gdk_pixbuf_format_is_disabled (l->data)) {
+			continue;
+		}
+		extensions = gdk_pixbuf_format_get_extensions (l->data);
+		for (i = 0; extensions != NULL && extensions[i] != NULL; i++) {
+			char *lower = g_ascii_strdown (extensions[i], -1);
+
+			g_hash_table_add (found, lower);
+		}
+	}
+	g_slist_free (formats);
+
+	return found;
+}
+
+static gboolean
+pixbuf_reads (const char *extension)
+{
+	static GOnce once = G_ONCE_INIT;
+	g_autofree char *lower = g_ascii_strdown (extension, -1);
+
+	return g_hash_table_contains (g_once (&once, list_pixbuf_extensions, NULL), lower);
 }
 
 /* Returns: (transfer none): kept for the life of the process */
@@ -135,6 +189,12 @@ nemo_magick_coder (const char *name)
 	for (i = 0; i < G_N_ELEMENTS (formats); i++) {
 		if (g_ascii_strcasecmp (dot + 1, formats[i].extension) == 0) {
 			return formats[i].coder;
+		}
+	}
+
+	for (i = 0; i < G_N_ELEMENTS (pixbuf_extras); i++) {
+		if (g_ascii_strcasecmp (dot + 1, pixbuf_extras[i].extension) == 0) {
+			return pixbuf_reads (pixbuf_extras[i].extension) ? NULL : pixbuf_extras[i].coder;
 		}
 	}
 
