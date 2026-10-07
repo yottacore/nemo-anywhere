@@ -239,7 +239,18 @@ nemo_user_text_get_string (GKeyFile     *key_file,
 
 	return value;
 #else
-	return g_key_file_get_string (key_file, group, key, error);
+	GError *local = NULL;
+	gchar *value = g_key_file_get_string (key_file, group, key, &local);
+
+	/* GLib 2.72 hands back a value read past a bad escape, with the error
+	   set too. 2.84 gives nothing; take that on every version. */
+	if (local != NULL) {
+		g_free (value);
+		g_propagate_error (error, local);
+		return NULL;
+	}
+
+	return value;
 #endif
 }
 
@@ -250,16 +261,15 @@ nemo_user_text_get_locale_string (GKeyFile     *key_file,
 				  const gchar  *key,
 				  GError      **error)
 {
-#ifdef G_OS_WIN32
 	const gchar * const *languages = g_get_language_names ();
 	guint i;
 
-	for (i = 0; languages[i] != NULL; i++) {
+	/* C is the plain value, as GLib reads it since 2.84. Older GLib takes a
+	   key[C] line, so the walk is ours on every version and platform. */
+	for (i = 0; languages[i] != NULL && strcmp (languages[i], "C") != 0; i++) {
 		gchar *full = g_strdup_printf ("%s[%s]", key, languages[i]);
-		gchar *raw = g_key_file_get_value (key_file, group, full, NULL);
-		gchar *value = raw != NULL ? checked_value (raw, full, NULL) : NULL;
+		gchar *value = nemo_user_text_get_string (key_file, group, full, NULL);
 
-		g_free (raw);
 		g_free (full);
 		if (value != NULL) {
 			return value;
@@ -267,9 +277,6 @@ nemo_user_text_get_locale_string (GKeyFile     *key_file,
 	}
 
 	return nemo_user_text_get_string (key_file, group, key, error);
-#else
-	return g_key_file_get_locale_string (key_file, group, key, NULL, error);
-#endif
 }
 
 /* Returns: (transfer full): free with g_strfreev */
@@ -346,14 +353,11 @@ nemo_user_text_set_locale_string (GKeyFile    *key_file,
 				  const gchar *locale,
 				  const gchar *value)
 {
-#ifdef G_OS_WIN32
-	gchar *full = g_strdup_printf ("%s[%s]", key, locale);
+	/* C goes in as the plain value, where the reader looks for it. */
+	gchar *full = strcmp (locale, "C") == 0 ? g_strdup (key) : g_strdup_printf ("%s[%s]", key, locale);
 
 	nemo_user_text_set_string (key_file, group, full, value);
 	g_free (full);
-#else
-	g_key_file_set_locale_string (key_file, group, key, locale, value);
-#endif
 }
 
 gboolean

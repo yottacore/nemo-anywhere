@@ -42,7 +42,8 @@ gchar   *nemo_user_text_get_string        (GKeyFile     *key_file,
 					   GError      **error);
 
 /* The same in the best language the file has, the way
- * g_key_file_get_locale_string picks one.
+ * g_key_file_get_locale_string picks one since GLib 2.84: C is the plain
+ * value, never a key[C] line.
  * Returns: (transfer full): free with g_free */
 gchar   *nemo_user_text_get_locale_string (GKeyFile     *key_file,
 					   const gchar  *group,

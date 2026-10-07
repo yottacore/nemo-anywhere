@@ -1275,7 +1275,6 @@ fRun fCheckMountList
 fCheckUserText(){
 	local allowed=' '
 	allowed+='nemo-user-text.c:nemo_user_text_get_string '						# the one place that calls them
-	allowed+='nemo-user-text.c:nemo_user_text_get_locale_string '				# same
 	allowed+='nemo-user-text.c:nemo_user_text_get_string_list '				# same
 	allowed+='nemo-user-text.c:nemo_user_text_split_command '					# same
 	allowed+='nemo-appearance.c:icon_theme_index '								# a theme's index.theme, which follows the spec
