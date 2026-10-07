@@ -3582,11 +3582,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: a later SHCL may back up and convert a file in an older format itself. Look for a call that does or helps with that before wiring in a new version. If it does the job, use it in place of ours in `nemo-config.c`. Never run both on the same file.
 	- Test case: none yet, not started.
 
-- 🔘 A fractional display scale is only applied to text, so widgets, icons and spacing stay at the whole step below it.
+- 🔬 A fractional display scale is only applied to text, so widgets, icons and spacing stay at the whole step below it.
 	- Opened: 20260821-150232
 	- Cause: the toolkit scales in whole numbers. At 150% the type is right and everything around it is a third too small.
 	- Probable fix: our own stylesheet, with padding, icon sizes and the like driven from the leftover fraction. Only do it once someone has looked at it on a scaled display.
-	- Test case: none yet, not started.
+	- Verified 20261007: looked at on a Windows box at 100%, 125% and 150%, and on Linux at a font DPI of 144. Type is right at every scale. Rows that follow the text come out 8 to 16% short of 150%: list rows 36 pixels against 39, Places rows 31 against 34.5, the menu bar 39 against 46.5. Everything of fixed size stays at its 100% size, a third short: every icon, text fields and buttons at 34, column headings at 25, the toolbar band at 40.
+	- Note 20261007: the stylesheet was decided against. GTK 3 has no way to scale a theme by a fraction. A sheet of our own would have to restate every padding and height the chosen theme sets, so it would fight that theme, and an icon scaled through CSS is a stretched picture. Other GTK 3 apps on Windows leave all of this at the whole step, most of them the text too.
+	- Note 20261007: Linux and BSD are left as they are. A font DPI there is the desktop's text size, the same thing a large text setting changes, and every GTK 3 app leaves icons alone under it. Desktops with real fractional scaling hand GTK a whole step and scale the result themselves.
+	- Done 20261007: on Windows, icons named at one of GTK's fixed sizes are asked for at the leftover fraction, so 16 pixels becomes 24 at 150% and 20 at 125%, drawn at that size so they stay sharp. That covers the toolbar, status bar, path bar, buttons, dialogs, Places, the tree pane and menu icons. A size the code chose itself is kept, and file icons in the views keep the size the zoom gives them.
+	- Verified 20261007: at 150% and 125% the toolbar, status bar and Places icons came out at 24 and 20, with every row and bar the same height as before. Changing the scale from 150% to 125% with a window open took the icons down with the text. Linux looks the same as before at 144.
+	- Note 20261007: still on the whole step: padding, borders, text field and button heights, scroll bars, check boxes, the clear icon in the location bar and the eject icon in Places. The tree pane and menus pick up a new scale when next filled, not at once.
+	- Note 20261007: waiting on signoff, since it changes how the app looks on Windows. rjpbjt68 passed on Linux and in the cross build; it still wants a run in the native Windows suite.
+	- Test case: rjpbjt68 checks the sums, that an icon follows the scale up and back down and keeps a size the code set, and that a font DPI of 144 moves no icon off Windows.
 
 - 🔘 A Windows installer exe that installs, or updates an install already there.
 	- Opened: 20260919-132409

@@ -820,6 +820,17 @@ if is_windows
   )
 endif
 
+# Both platforms: on Windows icons follow the scale, elsewhere they must not.
+test('rjpbjt68 Icon display scale test',
+  executable('test-nemo-ui-scale',
+    [ 'test-nemo-ui-scale.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private ],
+    c_args: nemo_definitions,
+  ),
+  args: []
+)
+
 if is_windows
   test('rexrjb60 DPI win32 test',
     executable('test-nemo-dpi-win32',

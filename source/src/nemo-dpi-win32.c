@@ -31,6 +31,7 @@
 
 #include <gtk/gtk.h>
 #include <gdk/gdkwin32.h>
+#include <libnemo-private/nemo-ui-scale.h>
 
 #include <windows.h>
 
@@ -251,6 +252,9 @@ nemo_dpi_win32_init (void)
 	started = TRUE;
 
 	gdk_window_add_filter (NULL, message_filter, NULL);
+
+	/* Icons take the fraction the font DPI carries over the whole step. */
+	nemo_ui_scale_install ();
 
 	screen = gdk_screen_get_default ();
 	if (screen != NULL) {
