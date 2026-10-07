@@ -321,7 +321,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, thumbnailer programs are never used.
 	- ID: 2026100615255268
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for answers
+	- Needs local test suite run?: yes, the full Linux suite. Linux takes the same paths as before. The thumbnail factory, thumbnail jobs, thumbnail stop, search content and search helper tests passed on Linux.
+	- Needs external testing: done 20261006 on vm925w, as in Verified. The single exe still needs 2026100617051745 fixed.
 	- Priority|Severity: Low
 	- Opened: 20261006-152552
 	- Opened by: 2026100612483725
@@ -332,6 +334,49 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the thumbnail from inside the file, as on Linux.
 	- Reproduced: no. Read from the code.
 	- Possible cause: on Windows a file's type is its extension, such as `.odt`. The thumbnail code looks thumbnailers up by that, but their list is by real type, such as `application/vnd.oasis.opendocument.text`, so nothing matches. Pictures get theirs another way.
+	- Reproduced: 20261006 on vm925w. rjmc40ex fails natively and under wine. The packed exe from that morning showed an OpenDocument file with a thumbnail inside it as a plain icon in the icon view.
+	- Actual cause: as in Possible cause. The list of types not to thumbnail is by real type too, so on Windows it never matched either.
+	- Progress log:
+		- 20261006: in the single exe the gsf-office thumbnailer is now started, and stops at "Cannot load library libgsf-1-114.dll", a message box that stays up until the 30 second limit ends it. Filed as 2026100617051745. Before this fix it was never started, so the file only showed its plain icon. Question: merge this fix now, so each office file in view in the single exe shows that box for 30 seconds until 2026100617051745 is fixed, or hold it until then? Suggested: hold it. Its commits are apart from 2026100615255305's on the branch.
+	- Decisions:
+		- A call made without asking: on Windows a type in the list of types not to thumbnail matches by either the extension or the real type.
+	- Actual fix: the content search already turned an extension into a real type on Windows, with a short table for office formats Windows may not know. That moved to `nemo_content_type_get_mime_type` in `nemo-file-utilities.c`, and the search and the thumbnail factory both use it now. The factory looks a thumbnailer up by the extension first, then by the real type. The table is unchanged.
+	- Swept: every thumbnailer lookup in the factory (whether one can be made, whether to try, and making it) and the list of types not to thumbnail. ImageMagick, PSD, raw and picture loading already took the extension. The share check comes before any of these. On a share, with the default "Local files only", no thumbnail is tried at all, and rjmc40ex checks that for the same file through the drive's admin share.
+	- Verified: rjmc40ex fails before the fix and passes after, natively on vm925w and under wine. rjm4ctwh and rjmb3j8p pass natively. The whole native suite on vm925w: 151 OK, 0 fail, 12 skipped. The build from the box's tree, unpacked, drew the thumbnail from inside the OpenDocument file in the icon view. The single exe has the thumbnailer, its descriptor and libgsf in it, but see the progress log. The cross build, the Linux build and the lint stage are clean.
+	- Branch: winacts
+	- Commit: b2cfe15 to f279168
+	- Test case: rjmc40ex, Thumbnailer type win32 test, Windows only. An OpenDocument file with a red thumbnail inside, through the gsf-office thumbnailer that comes with the app: the app's own type for it is `.odt`, a thumbnailer is found and makes the thumbnail, the list of types not to thumbnail turns it off by real type, and the same file through a share is not thumbnailed with the default settings.
+
+- In the single exe on Windows, a program packed inside it that needs libgsf cannot start.
+	- ID: 2026100617051745
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261006-170517
+	- Opened by: 2026100615255268
+	- Related IDs: 2026100615255268, 2026100612483725
+	- Target OS: Windows
+	- Steps to reproduce: in the single exe, open a folder with an OpenDocument file that has a thumbnail inside, in the icon view, with 2026100615255268's fix in.
+	- Incorrect behavior: the gsf-office thumbnailer starts, from a temporary copy the packer makes, and shows the packer's message box "Cannot load library libgsf-1-114.dll". It waits there until the thumbnail's 30 second limit ends it. The search converters for Word, Excel and PowerPoint files need the same library, so a content search through them likely does the same. Not tried.
+	- Expected behavior: the packed program finds the libraries packed beside it, as gdk-pixbuf-thumbnailer and gdbus do.
+	- Reproduced: 20261006 on vm925w, in the desktop session, with the message box seen.
+	- Possible cause: not known. libgsf-1-114.dll and everything it needs are in the pack. gdk-pixbuf-thumbnailer started the same way loaded its libraries, all of which the app itself has loaded. Loading libgsf in the app first did not help, so that is not the difference.
+	- Test case: none yet.
+
+- On Windows, the gdk-pixbuf and SVG thumbnailer descriptors in a natively staged build name `/mingw64/bin/gdk-pixbuf-thumbnailer`, which is never found.
+	- ID: 2026100617051845
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261006-170518
+	- Opened by: 2026100615255268
+	- Related IDs: 2026100615255268
+	- Target OS: Windows
+	- Steps to reproduce: stage a native build with `stage-native.bash`, as the release build does, and read `share/thumbnailers/gdk-pixbuf-thumbnailer.thumbnailer`.
+	- Incorrect behavior: `TryExec` and `Exec` are `/mingw64/bin/gdk-pixbuf-thumbnailer`, so the app skips them with "Ignoring thumbnailer with missing binary". The cross build's sysroot gets them rewritten to a bare name by `fetch-sysroot.bash`. The staging step copies them as MSYS2 has them.
+	- Expected behavior: a bare name, as in the cross build.
+	- Reproduced: 20261006 on vm925w, in the staged folder and in the app's debug output.
+	- Possible cause: no rewrite in `stage-native.bash`. Pictures and SVG files still get thumbnails from the app's own image loading, so little shows.
 	- Test case: none yet.
 
 - On Windows, custom actions and the window's Open in terminal start programs through GLib, not the launcher.
@@ -359,9 +404,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept:
 		- GLib program starts: lint rjm8a6xr. With the old window menu code back it fails.
 		- Programs started through `g_app_info_launch` from a command line, which the lint does not see: scripts and the bulk rename tool can reach it on Windows, filed as 2026100616310432. Launching an executable file and the tree's launch need Unix permissions, so Windows never gets there. The file-roller drop needs file-roller.
-	- Verified: rjmb3j8p fails before the fix and passes after, natively on vm925w, in session 0 and in the desktop session. It passes under wine. The toolbar's terminal button, clicked in the desktop session on vm925w, started the terminal set in preferences, in the folder, from Explorer. The cross build, the Linux build and the lint stage are clean.
+	- Verified: rjmb3j8p fails before the fix and passes after, natively on vm925w, in session 0 and in the desktop session. It passes under wine. The toolbar's terminal button, clicked in the desktop session on vm925w, started the terminal set in preferences, in the folder, from Explorer. The whole native suite on vm925w, with 2026100615255268 in too: 151 OK, 0 fail, 12 skipped. The cross build, the Linux build and the lint stage are clean.
 	- Branch: winacts
-	- Commit: efc89d0
+	- Commit: efc89d0, 8444910
 	- Test case: rjmb3j8p, Action start win32 test, Windows only. Stand-ins in the action's folder say whether they got a console window and what started them. Conditions with a program, a batch file and a missing program; a command; a terminal command; a command with windows of its own. Lint rjm8a6xr keeps the window menu's terminal off GLib.
 
 - On Windows, scripts and the bulk rename tool start through GLib, not the launcher.
