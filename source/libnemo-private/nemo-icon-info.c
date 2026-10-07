@@ -23,6 +23,7 @@
 #include "nemo-icon-info.h"
 #include "nemo-icon-names.h"
 #include "nemo-default-file-icon.h"
+#include "nemo-ui-scale.h"
 #include <gtk/gtk.h>
 #include <gio/gio.h>
 
@@ -787,7 +788,7 @@ nemo_get_icon_size_for_stock_size (GtkIconSize size)
   gint w, h;
 
   if (gtk_icon_size_lookup (size, &w, &h)) {
-    return MAX (w, h);
+    return nemo_ui_scale_pixels (MAX (w, h), nemo_ui_scale_leftover ());
   }
   return NEMO_ICON_SIZE_STANDARD;
 }

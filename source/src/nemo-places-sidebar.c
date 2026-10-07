@@ -73,6 +73,7 @@
 
 #define DEBUG_FLAG NEMO_DEBUG_PLACES
 #include <libnemo-private/nemo-debug.h>
+#include <libnemo-private/nemo-ui-scale.h>
 
 #define EXPANDER_PAD_COLUMN_WIDTH 4
 #define EJECT_COLUMN_MIN_WIDTH 22
@@ -4293,10 +4294,14 @@ icon_cell_renderer_func (G_GNUC_UNUSED GtkTreeViewColumn *column,
 			      "visible", FALSE,
 			      NULL);
 	} else {
+		/* Asked per row, so a display scale change is followed on the
+		   next layout with nothing to listen for. */
 		g_object_set (cell,
 			      "visible", TRUE,
                   "xpad", 3,
                   "ypad", 2,
+			      "stock-size", nemo_ui_scale_icon_size (GTK_ICON_SIZE_MENU,
+								     nemo_ui_scale_leftover ()),
 			      NULL);
 	}
 }

@@ -522,7 +522,7 @@ This rule has been rewritten several times and will probably move again, so the 
 
 #### Scaling and startup
 
-- Scaling is the app's own job, not something done to it. The window declares itself per-monitor DPI aware, so a scaled display gets it drawn at that scale rather than drawn small and stretched, and moving it to a monitor at another scale redraws rather than restretches. The toolkit scales in whole steps, which leaves 125% or 150% short, so text is sized against the monitor's true DPI on top of that. Type comes out right at any scale; the widgets around it are still on the whole step below, which is the open item. On Linux and BSD the desktop publishes its own scaling and the toolkit follows it.
+- Scaling is the app's own job, not something done to it. The window declares itself per-monitor DPI aware, so a scaled display gets it drawn at that scale rather than drawn small and stretched, and moving it to a monitor at another scale redraws rather than restretches. The toolkit scales in whole steps, which leaves 125% or 150% short, so text is sized against the monitor's true DPI on top of that. On Windows the icons named at one of the toolkit's fixed sizes are asked for at that fraction too, so at 150% a 16 pixel icon is drawn at 24 and stays sharp. Padding, borders and the height of a text field or button come from the theme, and also stay on the whole step. GTK 3 cannot scale a theme by a fraction, and rewriting a theme's sizes would fight the look it was drawn for. At 150% that leaves rows that follow the text about a tenth short, and fixed heights a third short. File icons in the views keep the size the zoom gives them. On Linux and BSD the desktop publishes its own scaling and the toolkit follows it. A font DPI there is a text setting, so icons stay as every GTK 3 app draws them.
 
 - A launch shows something at every stage. The window is put on screen at its remembered size and place as soon as it exists, before the first folder resolves, with its panes still empty. On Windows, where getting that far takes measurably longer, a small panel appears first - drawn with the platform's own toolkit, since it has to be up before GTK is - and leaves as soon as the real window has drawn.
 
@@ -883,5 +883,3 @@ Each platform's pipeline publishes one build to a shared drop folder for that pl
 ## Open questions
 
 - How far to push a clean internal platform-abstraction boundary, against per-target `#ifdef`s in the shared files. Both conventions are in the tree today.
-
-- Whether a fractional display scale should drive widget sizing and spacing through a stylesheet of the app's own, since the toolkit will only scale in whole steps.
