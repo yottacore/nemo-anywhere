@@ -76,8 +76,7 @@ check_round_trip (NemoCacheDb *db)
 	check (nemo_cache_db_thumbnail_store (db, "file:///one.png", &id, &in, image));
 
 	check (nemo_cache_db_thumbnail_lookup (db, "file:///one.png", &id, &out, &back));
-	check (back != NULL);
-	check (g_bytes_equal (back, image));
+	check (back != NULL && g_bytes_equal (back, image));
 	check (out.size == 256);
 	check (out.width == 256 && out.height == 256);
 	check (out.format == NEMO_THUMBNAIL_FORMAT_JPEG);
@@ -126,8 +125,7 @@ check_moved_file_keeps_thumbnail (NemoCacheDb *db)
 	check (nemo_cache_db_thumbnail_store (db, "file:///before/pic.jpg", &id, &in, image));
 
 	check (nemo_cache_db_thumbnail_lookup (db, "file:///after/pic.jpg", &id, &out, &back));
-	check (back != NULL);
-	check (g_bytes_equal (back, image));
+	check (back != NULL && g_bytes_equal (back, image));
 	g_bytes_unref (back);
 
 	/* The new path is linked now, so it answers on its own without the

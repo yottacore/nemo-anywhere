@@ -205,7 +205,7 @@ main (int argc, char *argv[])
 	manager = nemo_progress_info_manager_new ();
 
 	path = g_build_filename (tmp, "doomed.txt", NULL);
-	g_file_set_contents (path, "x", 1, NULL);
+	check (g_file_set_contents (path, "x", 1, NULL));
 
 	check_pause_says_who ();
 	run_case (path, FALSE);

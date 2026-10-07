@@ -1408,11 +1408,15 @@ fEcho "C lint (cppcheck, check-only) over ${#files[@]} file(s) ${scope}..."
 ## -j on its own drops the cross-file checks (the ctu* ones); a build dir keeps
 ## them, with the same findings as one process. Half the cores, since something
 ## else is usually running. The dir is relative so MSYS2 hands it over as is.
+## unix64 on every host: gtk.cfg writes G_GINT64_FORMAT and friends as Linux has
+## them, so under MSYS2's own win64 every one of them read as a wrong printf
+## type. The compiler checks the real formats on Windows. .cppcheck-defines.cfg
+## has the macros it cannot see.
 jobs=$(( $(nproc 2>/dev/null || echo 2) / 2 ))
 ((jobs >= 1)) || jobs=1
 mkdir -p cicd/artifacts
 cacheDir="$(mktemp -d cicd/artifacts/cppcheck.XXXXXX)"
-cppcheck --enable=warning,portability --library=gtk --inline-suppr \
+cppcheck --enable=warning,portability --platform=unix64 --library=gtk --library=.cppcheck-defines.cfg --inline-suppr \
 	--suppressions-list=.cppcheck-suppressions -j "$jobs" --cppcheck-build-dir="$cacheDir" \
 	--quiet --error-exitcode=2 "${files[@]}"
 fEcho "OK: C lint: no findings"
