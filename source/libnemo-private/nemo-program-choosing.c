@@ -29,6 +29,8 @@
 #include "nemo-global-preferences.h"
 #ifdef G_OS_WIN32
 #include "nemo-associations-win32.h"
+#include "nemo-launch-win32.h"
+#include "nemo-user-text.h"
 #endif
 #include "nemo-icon-info.h"
 #include "nemo-recent.h"
@@ -223,6 +225,7 @@ nemo_launch_application_by_uri (GAppInfo *application,
 	g_list_free_full (locations, g_object_unref);
 }
 
+#ifndef G_OS_WIN32
 static void
 launch_application_from_command_internal (const gchar *full_command,
 					  GdkScreen *screen,
@@ -249,6 +252,74 @@ launch_application_from_command_internal (const gchar *full_command,
 		}
 	}
 }					  
+#endif
+
+#ifdef G_OS_WIN32
+/* GLib's launch from a command line goes through its spawn helper, which gives
+ * a console program a console window and may never start it in the single
+ * exe. Its split also reads a backslash as an escape. So the line is split the
+ * Windows way and each parameter is an argument of its own. */
+static void
+launch_from_command (G_GNUC_UNUSED GdkScreen *screen,
+		     const char *command_string,
+		     gboolean use_terminal,
+		     const char * const *parameters)
+{
+	char **command_argv = NULL;
+	GPtrArray *args;
+	GError *error = NULL;
+	int i;
+
+	if (!nemo_user_text_split_command (command_string, NULL, &command_argv, &error)) {
+		g_warning ("Cannot run '%s': %s", command_string, error->message);
+		g_clear_error (&error);
+		return;
+	}
+
+	args = g_ptr_array_new ();
+	for (i = 0; command_argv[i] != NULL; i++) {
+		g_ptr_array_add (args, command_argv[i]);
+	}
+	for (i = 0; parameters != NULL && parameters[i] != NULL; i++) {
+		g_ptr_array_add (args, (gpointer) parameters[i]);
+	}
+	g_ptr_array_add (args, NULL);
+
+	if (!nemo_launch_win32_spawn ((const gchar * const *) args->pdata, use_terminal, &error)) {
+		g_warning ("Could not start '%s': %s", command_argv[0], error->message);
+		g_clear_error (&error);
+	}
+
+	g_ptr_array_free (args, TRUE);
+	g_strfreev (command_argv);
+}
+#else
+static void
+launch_from_command (GdkScreen *screen,
+		     const char *command_string,
+		     gboolean use_terminal,
+		     const char * const *parameters)
+{
+	char *full_command, *tmp;
+	char *quoted_parameter;
+	int i;
+
+	full_command = g_strdup (command_string);
+
+	for (i = 0; parameters != NULL && parameters[i] != NULL; i++) {
+		quoted_parameter = g_shell_quote (parameters[i]);
+		tmp = g_strconcat (full_command, " ", quoted_parameter, NULL);
+		g_free (quoted_parameter);
+
+		g_free (full_command);
+		full_command = tmp;
+	}
+
+	launch_application_from_command_internal (full_command, screen, use_terminal);
+
+	g_free (full_command);
+}
+#endif
 
 /**
  * nemo_launch_application_from_command:
@@ -257,7 +328,7 @@ launch_application_from_command_internal (const gchar *full_command,
  * a parameter.
  * 
  * @command_string: The application to be launched, with any desired
- * command-line options.
+ * command-line options. A path in it is quoted with nemo_user_text_quote.
  * @...: Passed as parameters to the application after quoting each of them.
  */
 void
@@ -266,40 +337,33 @@ nemo_launch_application_from_command (GdkScreen  *screen,
 					  gboolean use_terminal,
 					  ...)
 {
-	char *full_command, *tmp;
-	char *quoted_parameter; 
+	GPtrArray *parameters;
 	char *parameter;
 	va_list ap;
 
-	full_command = g_strdup (command_string);
+	parameters = g_ptr_array_new ();
 
 	va_start (ap, use_terminal);
-
 	while ((parameter = va_arg (ap, char *)) != NULL) {
-		quoted_parameter = g_shell_quote (parameter);
-		tmp = g_strconcat (full_command, " ", quoted_parameter, NULL);
-		g_free (quoted_parameter);
-
-		g_free (full_command);
-		full_command = tmp;
-
+		g_ptr_array_add (parameters, parameter);
 	}
-
 	va_end (ap);
+	g_ptr_array_add (parameters, NULL);
 
-	launch_application_from_command_internal (full_command, screen, use_terminal);
-	
-	g_free (full_command);
+	launch_from_command (screen, command_string, use_terminal,
+			     (const char * const *) parameters->pdata);
+
+	g_ptr_array_free (parameters, TRUE);
 }
 
 /**
- * nemo_launch_application_from_command:
+ * nemo_launch_application_from_command_array:
  * 
  * Fork off a process to launch an application with a given uri as
  * a parameter.
  * 
  * @command_string: The application to be launched, with any desired
- * command-line options.
+ * command-line options. A path in it is quoted with nemo_user_text_quote.
  * @parameters: Passed as parameters to the application after quoting each of them.
  */
 void
@@ -308,26 +372,7 @@ nemo_launch_application_from_command_array (GdkScreen  *screen,
 						gboolean use_terminal,
 						const char * const * parameters)
 {
-	char *full_command, *tmp;
-	char *quoted_parameter; 
-	const char * const *p;
-
-	full_command = g_strdup (command_string);
-
-	if (parameters != NULL) {
-		for (p = parameters; *p != NULL; p++) {
-			quoted_parameter = g_shell_quote (*p);
-			tmp = g_strconcat (full_command, " ", quoted_parameter, NULL);
-			g_free (quoted_parameter);
-
-			g_free (full_command);
-			full_command = tmp;
-		}
-	}
-
-	launch_application_from_command_internal (full_command, screen, use_terminal);
-
-	g_free (full_command);
+	launch_from_command (screen, command_string, use_terminal, parameters);
 }
 
 void

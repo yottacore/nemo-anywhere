@@ -508,6 +508,7 @@ nemo_tab_move_menu_item_new (NemoWindowSlot *slot)
 		gtk_menu_shell_append (GTK_MENU_SHELL (submenu), gtk_separator_menu_item_new ());
 	}
 	/* The items own the targets now. */
+	/* cppcheck-suppress nullPointer ; a NULL free func is allowed, and is the point */
 	g_ptr_array_set_free_func (targets, NULL);
 	g_ptr_array_unref (targets);
 

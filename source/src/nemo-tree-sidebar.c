@@ -53,6 +53,7 @@
 #include <libnemo-private/nemo-action-manager.h>
 #include <libnemo-private/nemo-action.h>
 #include <libnemo-private/nemo-ui-utilities.h>
+#include <libnemo-private/nemo-user-text.h>
 
 #include <string.h>
 #include <eel/eel-gtk-extensions.h>
@@ -388,8 +389,11 @@ got_activation_uri_callback (NemoFile *file, gpointer callback_data)
 				 view->details->activation_flags);
 			g_object_unref (location);
 		} else {
+			char *quoted_path = nemo_user_text_quote (file_uri);
+
 			DEBUG ("Tree sidebar, launching application for %s", file_uri);
-			nemo_launch_application_from_command (screen, file_uri, FALSE, NULL);
+			nemo_launch_application_from_command (screen, quoted_path, FALSE, NULL);
+			g_free (quoted_path);
 			g_free (file_uri);
 		}
 		   

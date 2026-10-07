@@ -98,6 +98,7 @@ pop_up_at_item (GtkWidget *view, const GdkRectangle *item, int *x, int *y)
 	gtk_menu_popdown (GTK_MENU (menu));
 	settle ();
 	gtk_widget_destroy (menu);
+	/* cppcheck-suppress doubleFree ; the ref_sink above is ours to drop */
 	g_object_unref (menu);
 
 	return shown;

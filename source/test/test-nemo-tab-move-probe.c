@@ -175,7 +175,9 @@ tick (G_GNUC_UNUSED gpointer data)
 	g_string_append_printf (state, "\nwindows=%d\ntore=%d\n", windows, tore ? 1 : 0);
 
 	if (g_strcmp0 (state->str, last) != 0) {
-		g_file_set_contents (out_path, state->str, -1, NULL);
+		if (!g_file_set_contents (out_path, state->str, -1, NULL)) {
+			g_printerr ("probe: could not write %s\n", out_path);
+		}
 		g_free (last);
 		last = g_strdup (state->str);
 	}
@@ -434,7 +436,9 @@ check_menus (int times)
 	open_and_close (report, "back", open_back_menu, times);
 	open_and_close (report, "up", open_up_menu, times);
 	open_and_close (report, "columns", open_column_menu, times);
-	g_file_set_contents (path, report->str, -1, NULL);
+	if (!g_file_set_contents (path, report->str, -1, NULL)) {
+		g_printerr ("probe: could not write %s\n", path);
+	}
 	g_free (path);
 	g_string_free (report, TRUE);
 }

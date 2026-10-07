@@ -81,7 +81,9 @@ poke (G_GNUC_UNUSED gpointer user_data)
 		text = g_strdup ("changed\n");
 	}
 
-	g_file_set_contents (g_getenv ("NEMO_QUIT_OUT"), text, -1, NULL);
+	if (!g_file_set_contents (g_getenv ("NEMO_QUIT_OUT"), text, -1, NULL)) {
+		g_printerr ("could not write %s\n", g_getenv ("NEMO_QUIT_OUT"));
+	}
 	g_free (text);
 
 	return G_SOURCE_REMOVE;

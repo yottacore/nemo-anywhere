@@ -36,7 +36,7 @@ main (void)
 	/* a file living in the external target - this is what must NOT be seen
 	 * as a child to be recursed into and deleted */
 	victim = g_build_filename (target, "precious.txt", NULL);
-	g_file_set_contents (victim, "keep me", -1, NULL);
+	check (g_file_set_contents (victim, "keep me", -1, NULL));
 
 	if (symlink (target, link) != 0) {
 		g_printerr ("SKIP: symlink() unavailable\n");

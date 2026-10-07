@@ -1806,7 +1806,6 @@ nemo_desktop_thumbnail_factory_save_thumbnail (NemoDesktopThumbnailFactory *fact
     }
   close (tmp_fd);
   
-  /* cppcheck-suppress invalidPrintfArgType_sint ; MSYS2 cppcheck reads G_GINT64_FORMAT as %li */
   g_snprintf (mtime_str, 21, "%" G_GINT64_FORMAT, (gint64) original_mtime);
   width = gdk_pixbuf_get_option (thumbnail, "tEXt::Thumb::Image::Width");
   height = gdk_pixbuf_get_option (thumbnail, "tEXt::Thumb::Image::Height");
@@ -1914,7 +1913,6 @@ nemo_desktop_thumbnail_factory_create_failed_thumbnail (NemoDesktopThumbnailFact
     }
   close (tmp_fd);
   
-  /* cppcheck-suppress invalidPrintfArgType_sint ; MSYS2 cppcheck reads G_GINT64_FORMAT as %li */
   g_snprintf (mtime_str, 21, "%" G_GINT64_FORMAT, (gint64) mtime);
   pixbuf = gdk_pixbuf_new (GDK_COLORSPACE_RGB, TRUE, 8, 1, 1);
   saved_ok  = gdk_pixbuf_save (pixbuf,

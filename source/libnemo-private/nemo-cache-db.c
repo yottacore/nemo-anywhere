@@ -213,7 +213,9 @@ mark_damaged (void)
 		return;
 
 	marker = damaged_marker_path (path);
-	g_file_set_contents (marker, "", 0, NULL);
+	if (!g_file_set_contents (marker, "", 0, NULL)) {
+		g_warning ("could not mark the file cache damaged at %s", marker);
+	}
 }
 
 static void
