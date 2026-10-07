@@ -219,23 +219,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- rjmb3j8p, Action start win32 test: an action with full paths in its command, condition and dependencies.
 		- rjmqp83c, lint-c.bash `UserText`: no direct call outside the shared code.
 
-- When the system font cache is out of date, tests leave a fontconfig folder in the suite's temp dir.
-	- ID: 2026100713082288
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261007-130822
-	- Opened by: 2026100517134118
-	- Related IDs: 2026100517134118
-	- Target OS: FreeBSD, and any box whose system font cache is older than its fonts.
-	- Steps to reproduce: run the suite through `cicd/linux/run-tests.bash` on such a box.
-	- Incorrect behavior: `nemo-emblems-test-*` and `nemo-link-job-home-*` were left in the run's temp dir, each holding only a `fontconfig` folder, so the run failed on its leftover check. Every test passed.
-	- Expected behavior: nothing left behind.
-	- Reproduced: 20261007 on vmFreeBSD, once. `fc-list` run with an empty cache dir wrote a user font cache there.
-	- Possible cause: fontconfig writes its user cache under XDG_CACHE_HOME, which the tests point at a scratch dir, and pango sets up its fonts in a thread of its own. A cache write that comes while the scratch dir is being removed at exit leaves it behind. Not shown.
-	- Note: `fc-cache -s` as root brought vmFreeBSD's system cache up to date, and the next run left nothing.
-	- Test case: none yet. The leftover check in `run-tests.bash` is what caught it.
-
 - On Windows every launch leaves a small `gdbus-nonce-file-*` in the temp folder.
 	- ID: 2026100714014948
 	- Type: Bug
@@ -1525,6 +1508,33 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- When the system font cache is out of date, tests leave a fontconfig folder in the suite's temp dir.
+	- ID: 2026100713082288
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261007-130822
+	- Opened by: 2026100517134118
+	- Related IDs: 2026100517134118
+	- Target OS: FreeBSD, and any box whose system font cache is older than its fonts.
+	- Steps to reproduce: run the suite through `cicd/linux/run-tests.bash` on such a box.
+	- Incorrect behavior: `nemo-emblems-test-*` and `nemo-link-job-home-*` were left in the run's temp dir, each holding only a `fontconfig` folder, so the run failed on its leftover check. Every test passed.
+	- Expected behavior: nothing left behind.
+	- Reproduced: 20261007 on vmFreeBSD, once. `fc-list` run with an empty cache dir wrote a user font cache there.
+	- Possible cause: fontconfig writes its user cache under XDG_CACHE_HOME, which the tests point at a scratch dir, and pango sets up its fonts in a thread of its own. A cache write that comes while the scratch dir is being removed at exit leaves it behind. Not shown.
+	- Note: `fc-cache -s` as root brought vmFreeBSD's system cache up to date, and the next run left nothing.
+	- Reproduced 20261007: on vmFreeBSD with a font config that has no usable system cache. With the emblems and link copy tests 4 at a time, each of 2 batches of 120 link copy runs left a few `nemo-link-job-home-*` folders holding only `fontconfig`.
+	- Actual cause: GTK 3.24.52, the FreeBSD one, makes pango's font map inside `gtk_init`, and pango runs fontconfig's setup in a thread of its own. With no usable system font cache, that thread writes a user cache under XDG_CACHE_HOME, which the tests point at a scratch dir. A short test reached its exit cleanup while the thread was still going. Fontconfig then made the removed folder again for its next cache file, or a file was written after the cleanup had listed the folder, so the folder could not be removed.
+		- On Debian 13 (GTK 3.24.49) these 2 tests set up no fonts at all, so Linux never showed it. About 30 other tests there do write a user font cache, and none of them left anything behind.
+	- Actual fix: the scratch cleanup, and the early removal helper, wait for pango's font setup to finish before removing anything. A test that never made a font map is not given one.
+	- Swept: every test that points HOME or XDG_CACHE_HOME at a scratch dir. The ones that do it in their own process all end in the same cleanup, so the one wait covers them. The ones that point a started copy of the app at it wait for that copy to exit first, and its font thread ends with it.
+	- Branch: fcleft
+	- Commit: 08eebc8
+	- Test case: rjprhm52. A child starts a font map under a font config with no system cache, so a user cache is always written, runs the cleanup at once, and checks the scratch dir is still gone once the fonts are set up. It skips where pango does not use fontconfig.
+	- Verified: rjprhm52 failed before the fix, on all 3 of its runs on Linux and on vmFreeBSD, and passes after on both. On vmFreeBSD the 4-at-a-time runs above left nothing in 480 runs after the fix. Linux suite 178 of 178 with an out-of-date font cache, FreeBSD lane 164 OK and 14 skipped, nothing left behind on either. The Windows cross build compiles and links the test library.
+	- Acceptance signoff: Self-closed: a fix to the test library only, reproduced, rjprhm52 red before and green after.
+	- Closed: 20261007-151025
 
 - On Windows, thumbnailer programs are never used.
 	- ID: 2026100615255268

@@ -387,6 +387,15 @@ if not is_windows
     ),
     args: []
   )
+
+  test('rjprhm52 Scratch cleanup waits for the font cache test',
+    executable('test-nemo-scratch-fonts',
+      [ 'test-nemo-scratch-fonts.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: []
+  )
 endif
 
 test('rek3gd31 Search invalid regex test',
