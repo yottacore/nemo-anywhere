@@ -378,7 +378,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Compression reset: link and filesystem choices in the archive options.
 	- ID: 2026100516274163
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting on signoff
 	- Opened: 20261005-162747
 	- Opened by: compression reset split
 	- Parent ID: 2026092910143202
@@ -394,8 +394,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Open: whether the old remembered values carry over to the new choices.
 	- Decisions:
 		- 20261006: old remembered values map over. Store links on becomes Store as symlinks, follow links on becomes Follow, anything else Ignore. The old keys are dropped once read. This was taken as the recommended answer when the question timed out on 20261006.
+		- 20261007: "never on by default" is read as never remembered. Every dialog starts with Follow other filesystems off.
+		- 20261007: an old store links that was never changed counts as on, its old default. So a file with only follow links on in it maps to Store as symlinks, which is what the job did with it.
+		- 20261007: Junctions is remembered as "like Symlinks" until it's changed by hand, so it keeps following the table until then.
+		- 20261007: which store choices a writer has comes from whether it claims to store links. The library keeps every link as a symlink, so a junction there can only be stored as a symlink. rar keeps a junction as a junction, per its own docs for `-ol`.
+		- 20261007, a call made without asking: until the dialog and job items, the old dialog shows Ignore as both link boxes off. A new user's store box now starts off, where it used to start on. With both off, today's job puts a linked file's content in and leaves linked folders out, so an archive made with the defaults no longer keeps links. 2026100516274423 makes Ignore leave every link out.
 	- Estimated effort: Avg
-	- Test case: new core test cases for the junction default table and the fall back to Ignore. rhae85g0, Archive settings test, for the remembered choices. IDs when written.
+	- Actual effort: Avg
+	- Progress log:
+		- 20261007-204818: built. Signoff asked for the interim default above.
+	- Done: the choices are in the core, `arc-link-options.h`, with the junction defaults table and the fall back to Ignore. A choice the writer can't do reads as Ignore for that writer but is kept, so a format that can do it gets it back. The remembered values are new settings `last-symlinks`, `last-junctions` and `last-follow-nested`. `nemo-archive-host.c` reads and writes them and maps the old 2 over. The old dialog and job go on through the Symlinks choice: Store is the store box, Follow the follow box.
+	- Swept: every place that read or wrote the old 2 keys, which was only the Compress dialog and the settings test. The only defaults the job takes come through the dialog. Junctions and the filesystem options don't reach the job yet.
+	- Verified: 20261007, Linux build with warnings as errors, full Linux suite 181 of 181, the Windows cross build, lint clean apart from rj3ytv0b. rjq9mv0w, rhae85g0 and the schema test pass under wine. Each of 8 faults went red in one of the 2 tests.
+	- Needs external testing: what rar and the library do with a junction when storing links is from their docs and code, not seen on Windows. 2026100516274423 is where it gets used.
+	- Branch: arclinks2
+	- Commit: 9f5b8c6
+	- Test case: rjq9mv0w, Archive core test, for the junction defaults table, the fall back to Ignore, a hand change sticking, and the follow bits. rhae85g0, Archive settings test, for the old values mapped over and dropped in each mix, what is and isn't remembered, and the fall back agreeing with each writer's claim for every format.
 
 - Compression reset: the background scan behind the size totals.
 	- ID: 2026100516274275
@@ -595,6 +609,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- After this the core has no GTK and no nemo types, and its build shows it.
 	- Estimated effort: High
 	- Test case: none new. reww9h2r, reww9h2s and the extract leak test rjbpmcxy stay as they are, and pass before and after.
+
+- The Archive settings test's restart does not read the file again.
+	- ID: 2026100720481882
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261007-204818
+	- Opened by: 2026100516274163
+	- Target OS: Linux, Windows
+	- Steps to reproduce: in rhae85g0, `test_survives_a_restart` calls `nemo_config_shutdown` then `nemo_config_init`.
+	- Incorrect behavior: init returns at once, since the store is still marked ready, so nothing is read back from the file. Shutdown also drops the file watch, and init doesn't make a new one, so a later hand edit is never seen in that run.
+	- Expected behavior: the values are read back from the file, as the test says.
+	- Reproduced: 20261007, a hand edit written after that test was never picked up in the same run.
+	- Test case: rhae85g0 itself, once it reads the file again.
 
 - The arm64 lane test fails under MSYS2 on Windows, so the native gate stops in its lint stage.
 	- ID: 2026100720224968
