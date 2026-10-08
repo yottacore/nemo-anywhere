@@ -561,6 +561,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- So after changing one grayed setting turns its master off, the others under it are still gray. To un-gray them all with their stored values at once, turn the master back on and then off again. A little clumsy, but well worth it.
 		- The same works for an "enable X" master and a "disable X" master, just inverted.
 	- Note: the problem this solves. In this app now, and in many others, a setting that can't be edited first means hunting down which master switch is stopping it, then changing that. Changing it also brings back every stored value under it, when maybe only the one was wanted.
+	- Progress log:
+		- 20261008: Open: the rule as first written, "own value when the override is set or the master is off", un-grays every setting under a master as soon as one edit turns the master off. That breaks the "others stay gray" requirement. Option: read only the setting's own override. Then the master shows on when no setting under it overrides, and setting the master by hand clears or sets every override under it.
+	- Decisions:
+		- 20261008: whether a setting is grayed is saved in the settings file, so a restart shows the same grays.
+		- 20261008: one standard way for every such setting. Each one under a master keeps its own manual value, and an override flag saying it no longer follows the master. Only non-default values are stored, as with every other key.
+		- 20261008: the app knows which settings sit under which master from one table, likely the schema file.
+		- 20261008: one generic function answers "what value does this setting use, and is it grayed". Nothing reads a child setting around it.
+		- 20261008: setting the master by hand sets every override under it to match.
 	- Test case: still needs one.
 
 - The Archive settings test's restart does not read the file again.
