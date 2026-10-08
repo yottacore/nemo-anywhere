@@ -141,41 +141,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- rjmb3j8p, Action start win32 test: an action with full paths in its command, condition and dependencies.
 		- rjmqp83c, lint-c.bash `UserText`: no direct call outside the shared code.
 
-- On Windows, the list of running copies is always empty, so `--quit` and Close All Windows reach no other copy.
-	- ID: 2026100715211104
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: the tab menu's list of other copies' windows, on vm925w with 2 copies open.
-	- Priority|Severity: Avg
-	- Opened: 20261007-152111
-	- Opened by: 2026100714014948
-	- Related IDs: 2026100714014948
-	- Target OS: Windows
-	- Steps to reproduce: start 2 copies, then run `nemo-anywhere --quit` from a third.
-	- Incorrect behavior: both copies stay open. Asked for the copies queued on `org.NemoAnywhere`, the bus answers an empty list with 2 copies in it. The `--reset` check for a running copy reads the same list, so it likely sees none either. Not tried.
-	- Expected behavior: as in design.md, "One process per window": `--quit` and Close All Windows reach every copy, and `--reset` knows one is running.
-	- Reproduced: 20261007 on vm925w in the desktop session, with the release zip, with GLib's `gdbus.exe` and with ours. Also under wine.
-	- Possible cause: the bus GLib starts on Windows answers that question wrong. It lists only the copies waiting behind the first, never the first, and reads each waiting entry as the wrong kind of record, so the list comes back empty. Still that way in GLib's main branch. Linux uses another bus program, which answers right. Asking who owns the name works on that bus, and the name passes to the next copy when the first quits.
-	- Reproduced: 20261007 on vm925w in the desktop session, with the release zip. With 2 copies running, `--reset` went ahead and removed the settings file. `--quit` from a third copy closed neither, and Close all windows in one closed only taht one. `--reset` and `--quit` the same under wine.
-	- Actual cause: in GLib's bus, not the app. ListQueuedOwners is wrong as in Possible cause. ListNames, the other way to list who is on the bus, is broken too: it lists the records kept for each copy and name, not their names, so it comes back empty. Queueing on a name, the handoff, and asking who owns a given name all work.
-	- Decisions:
-		- Numbered slot names, rather than a name per copy read through ListNames, since GLib's bus answers ListNames wrong too. Also rather than copies telling each other they exist, which needs every copy to answer, and in time. Waits on signoff for that, and because it changes how design.md says the copies find each other.
-		- A copy of an older build takes no slot, so a newer build's list leaves it out. On Linux an older build still finds newer copies, through the queue they all still join.
-		- Signoff: 20261007, both OK'd.
-	- Actual fix: the list no longer reads the queue. Each copy also takes the first free slot name, `org.NemoAnywhere.Slot0` and up, and queues on every slot below it. When a copy ends, even by a crash, its slot passes up to a live copy, so the taken slots never have a gap. The list asks who owns each slot in turn, up to the first free one. One way on every platform, using only what both buses get right. The shared name is as it was, so a caller from outside still reaches the oldest copy.
-	- Verified: rjptygcj fails with the old queue read under wine and natively on vm925w, and passes with the fix there and on Linux. On Linux it also failed with the lower slots taken without queueing. In the desktop session on vm925w, the release zip from this branch with 2 copies running: `--reset` refused and kept the settings, `--quit` from a third copy closed both, Close all windows in one copy closed both. Same for `--reset` and `--quit` under wine. Full Linux suite 180 of 180. Windows cross build clean. Lint clean.
-	- Note: the tab menu on Windows listed no window of another copy, for the same reason. Not checked there since the fix.
-	- Swept: every reader of the list. `--quit`, Close all windows, the `--reset` check, and the tab menu's list of other copies' windows, all through the one function. The tab move test reads the queue itself, but runs on Linux only, where the queue answers right.
-	- Branch: qlist
-	- Commit: 7403892
-	- Test case: rjptygcj, Instance list test, every platform. 3 copies join the session bus the way the app does, and each lists the others. One drops off as a crash would and its slot passes up, then the first leaves and a newcomer joins. Each time the copies left list exactly each other.
-
 - On Windows every launch leaves a small `gdbus-nonce-file-*` in the temp folder.
 	- ID: 2026100714014948
 	- Type: Bug
-	- Status: Waiting for testing
+	- Status: Waiting on signoff
 	- Needs local test suite run?: no. The 2 new files build on Windows only, and the Linux build configures as before.
-	- Needs external testing: the native gate on vm925w, so MSYS2's compiler builds the stand-in and rjprdfjb with warnings as errors. The cross build was clean, and the cross-built test passed on vm925w.
+	- Needs external testing: done 20261007 on vm925w. The native gate built the stand-in and rjprdfjb with warnings as errors and no warnings, and rjprdfjb passed. 159 tests passed, 12 skipped, none failed.
 	- Priority|Severity: Low
 	- Opened: 20261007-140149
 	- Opened by: Windows installer exe item
@@ -731,6 +702,37 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. rj043mnp covers it.
 	- Closed: 20261003-112426
+
+- On Windows, the list of running copies is always empty, so `--quit` and Close All Windows reach no other copy.
+	- ID: 2026100715211104
+	- Type: Bug
+	- Status: Done
+	- Needs external testing: done 20261007 on vm925w, as in Verified.
+	- Priority|Severity: Avg
+	- Opened: 20261007-152111
+	- Opened by: 2026100714014948
+	- Related IDs: 2026100714014948
+	- Target OS: Windows
+	- Steps to reproduce: start 2 copies, then run `nemo-anywhere --quit` from a third.
+	- Incorrect behavior: both copies stay open. Asked for the copies queued on `org.NemoAnywhere`, the bus answers an empty list with 2 copies in it. The `--reset` check for a running copy reads the same list, so it likely sees none either. Not tried.
+	- Expected behavior: as in design.md, "One process per window": `--quit` and Close All Windows reach every copy, and `--reset` knows one is running.
+	- Reproduced: 20261007 on vm925w in the desktop session, with the release zip, with GLib's `gdbus.exe` and with ours. Also under wine.
+	- Possible cause: the bus GLib starts on Windows answers that question wrong. It lists only the copies waiting behind the first, never the first, and reads each waiting entry as the wrong kind of record, so the list comes back empty. Still that way in GLib's main branch. Linux uses another bus program, which answers right. Asking who owns the name works on that bus, and the name passes to the next copy when the first quits.
+	- Reproduced: 20261007 on vm925w in the desktop session, with the release zip. With 2 copies running, `--reset` went ahead and removed the settings file. `--quit` from a third copy closed neither, and Close all windows in one closed only taht one. `--reset` and `--quit` the same under wine.
+	- Actual cause: in GLib's bus, not the app. ListQueuedOwners is wrong as in Possible cause. ListNames, the other way to list who is on the bus, is broken too: it lists the records kept for each copy and name, not their names, so it comes back empty. Queueing on a name, the handoff, and asking who owns a given name all work.
+	- Decisions:
+		- Numbered slot names, rather than a name per copy read through ListNames, since GLib's bus answers ListNames wrong too. Also rather than copies telling each other they exist, which needs every copy to answer, and in time. Waits on signoff for that, and because it changes how design.md says the copies find each other.
+		- A copy of an older build takes no slot, so a newer build's list leaves it out. On Linux an older build still finds newer copies, through the queue they all still join.
+		- Signoff: 20261007, both OK'd.
+	- Actual fix: the list no longer reads the queue. Each copy also takes the first free slot name, `org.NemoAnywhere.Slot0` and up, and queues on every slot below it. When a copy ends, even by a crash, its slot passes up to a live copy, so the taken slots never have a gap. The list asks who owns each slot in turn, up to the first free one. One way on every platform, using only what both buses get right. The shared name is as it was, so a caller from outside still reaches the oldest copy.
+	- Verified: rjptygcj fails with the old queue read under wine and natively on vm925w, and passes with the fix there and on Linux. On Linux it also failed with the lower slots taken without queueing. In the desktop session on vm925w, the release zip from this branch with 2 copies running: `--reset` refused and kept the settings, `--quit` from a third copy closed both, Close all windows in one copy closed both. Same for `--reset` and `--quit` under wine. Full Linux suite 180 of 180. Windows cross build clean. Lint clean.
+	- Note: the tab menu on Windows listed no window of another copy, for the same reason. Not checked there since the fix.
+	- Verified 20261007: in the desktop session on vm925w, with 2 copies of a native build of dev open, the tab menu's Move tab to list in one copy showed the other copy's window.
+	- Swept: every reader of the list. `--quit`, Close all windows, the `--reset` check, and the tab menu's list of other copies' windows, all through the one function. The tab move test reads the queue itself, but runs on Linux only, where the queue answers right.
+	- Branch: qlist
+	- Commit: 7403892
+	- Test case: rjptygcj, Instance list test, every platform. 3 copies join the session bus the way the app does, and each lists the others. One drops off as a crash would and its slot passes up, then the first leaves and a newcomer joins. Each time the copies left list exactly each other.
+	- Closed: 20261007-195820
 
 - Two tests fail on the release build made in the jammy image.
 	- ID: 2026100520071433
@@ -3803,20 +3805,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: a later SHCL may back up and convert a file in an older format itself. Look for a call that does or helps with that before wiring in a new version. If it does the job, use it in place of ours in `nemo-config.c`. Never run both on the same file.
 	- Test case: none yet, not started.
 
-- 🔬 A fractional display scale is only applied to text, so widgets, icons and spacing stay at the whole step below it.
-	- Opened: 20260821-150232
-	- Cause: the toolkit scales in whole numbers. At 150% the type is right and everything around it is a third too small.
-	- Probable fix: our own stylesheet, with padding, icon sizes and the like driven from the leftover fraction. Only do it once someone has looked at it on a scaled display.
-	- Verified 20261007: looked at on a Windows box at 100%, 125% and 150%, and on Linux at a font DPI of 144. Type is right at every scale. Rows that follow the text come out 8 to 16% short of 150%: list rows 36 pixels against 39, Places rows 31 against 34.5, the menu bar 39 against 46.5. Everything of fixed size stays at its 100% size, a third short: every icon, text fields and buttons at 34, column headings at 25, the toolbar band at 40.
-	- Note 20261007: the stylesheet was decided against. GTK 3 has no way to scale a theme by a fraction. A sheet of our own would have to restate every padding and height the chosen theme sets, so it would fight that theme, and an icon scaled through CSS is a stretched picture. Other GTK 3 apps on Windows leave all of this at the whole step, most of them the text too.
-	- Note 20261007: Linux and BSD are left as they are. A font DPI there is the desktop's text size, the same thing a large text setting changes, and every GTK 3 app leaves icons alone under it. Desktops with real fractional scaling hand GTK a whole step and scale the result themselves.
-	- Done 20261007: on Windows, icons named at one of GTK's fixed sizes are asked for at the leftover fraction, so 16 pixels becomes 24 at 150% and 20 at 125%, drawn at that size so they stay sharp. That covers the toolbar, status bar, path bar, buttons, dialogs, Places, the tree pane and menu icons. A size the code chose itself is kept, and file icons in the views keep the size the zoom gives them.
-	- Verified 20261007: at 150% and 125% the toolbar, status bar and Places icons came out at 24 and 20, with every row and bar the same height as before. Changing the scale from 150% to 125% with a window open took the icons down with the text. Linux looks the same as before at 144.
-	- Note 20261007: still on the whole step: padding, borders, text field and button heights, scroll bars, check boxes, the clear icon in the location bar and the eject icon in Places. The tree pane and menus pick up a new scale when next filled, not at once.
-	- Note 20261007: waiting on signoff, since it changes how the app looks on Windows. rjpbjt68 passed on Linux and in the cross build; it still wants a run in the native Windows suite.
-	- Signoff 20261007: OK for toolbar and Places icons to grow at fractional scales on Windows. Only the native run of rjpbjt68 is left.
-	- Test case: rjpbjt68 checks the sums, that an icon follows the scale up and back down and keeps a size the code set, and that a font DPI of 144 moves no icon off Windows.
-
 - 🔘 Target: macOS
 	- Opened: 20260730-185314
 	- Test case: none yet, not started.
@@ -5723,6 +5711,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: none, no check yet that each icon name exists in the icon themes.
 
 #### Done - Features and enhancements
+
+- ✅ A fractional display scale is only applied to text, so widgets, icons and spacing stay at the whole step below it.
+	- Opened: 20260821-150232
+	- Cause: the toolkit scales in whole numbers. At 150% the type is right and everything around it is a third too small.
+	- Probable fix: our own stylesheet, with padding, icon sizes and the like driven from the leftover fraction. Only do it once someone has looked at it on a scaled display.
+	- Verified 20261007: looked at on a Windows box at 100%, 125% and 150%, and on Linux at a font DPI of 144. Type is right at every scale. Rows that follow the text come out 8 to 16% short of 150%: list rows 36 pixels against 39, Places rows 31 against 34.5, the menu bar 39 against 46.5. Everything of fixed size stays at its 100% size, a third short: every icon, text fields and buttons at 34, column headings at 25, the toolbar band at 40.
+	- Note 20261007: the stylesheet was decided against. GTK 3 has no way to scale a theme by a fraction. A sheet of our own would have to restate every padding and height the chosen theme sets, so it would fight that theme, and an icon scaled through CSS is a stretched picture. Other GTK 3 apps on Windows leave all of this at the whole step, most of them the text too.
+	- Note 20261007: Linux and BSD are left as they are. A font DPI there is the desktop's text size, the same thing a large text setting changes, and every GTK 3 app leaves icons alone under it. Desktops with real fractional scaling hand GTK a whole step and scale the result themselves.
+	- Done 20261007: on Windows, icons named at one of GTK's fixed sizes are asked for at the leftover fraction, so 16 pixels becomes 24 at 150% and 20 at 125%, drawn at that size so they stay sharp. That covers the toolbar, status bar, path bar, buttons, dialogs, Places, the tree pane and menu icons. A size the code chose itself is kept, and file icons in the views keep the size the zoom gives them.
+	- Verified 20261007: at 150% and 125% the toolbar, status bar and Places icons came out at 24 and 20, with every row and bar the same height as before. Changing the scale from 150% to 125% with a window open took the icons down with the text. Linux looks the same as before at 144.
+	- Note 20261007: still on the whole step: padding, borders, text field and button heights, scroll bars, check boxes, the clear icon in the location bar and the eject icon in Places. The tree pane and menus pick up a new scale when next filled, not at once.
+	- Note 20261007: waiting on signoff, since it changes how the app looks on Windows. rjpbjt68 passed on Linux and in the cross build; it still wants a run in the native Windows suite.
+	- Signoff 20261007: OK for toolbar and Places icons to grow at fractional scales on Windows. Only the native run of rjpbjt68 is left.
+	- Verified 20261007: rjpbjt68 passed in the native Windows suite.
+	- Closed: 20261007-195820
+	- Test case: rjpbjt68 checks the sums, that an icon follows the scale up and back down and keeps a size the code set, and that a font DPI of 144 moves no icon off Windows.
 
 - ✅ A Windows installer exe that installs, or updates an install already there.
 	- Opened: 20260919-132409
