@@ -405,7 +405,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261007-204818: built. Signoff asked for the interim default above.
 	- Done: the choices are in the core, `arc-link-options.h`, with the junction defaults table and the fall back to Ignore. A choice the writer can't do reads as Ignore for that writer but is kept, so a format that can do it gets it back. The remembered values are new settings `last-symlinks`, `last-junctions` and `last-follow-nested`. `nemo-archive-host.c` reads and writes them and maps the old 2 over. The old dialog and job go on through the Symlinks choice: Store is the store box, Follow the follow box.
 	- Swept: every place that read or wrote the old 2 keys, which was only the Compress dialog and the settings test. The only defaults the job takes come through the dialog. Junctions and the filesystem options don't reach the job yet.
-	- Verified: 20261007, Linux build with warnings as errors, full Linux suite 181 of 181, the Windows cross build, lint clean apart from rj3ytv0b. rjq9mv0w, rhae85g0 and the schema test pass under wine. Each of 8 faults went red in one of the 2 tests.
+	- Verified: 20261007, Linux build with warnings as errors, full Linux suite 181 of 181, the Windows cross build, lint clean apart from rj3ytv0b. rjq9mv0w, rhae85g0 and the schema test pass under wine.
 	- Needs external testing: what rar and the library do with a junction when storing links is from their docs and code, not seen on Windows. 2026100516274423 is where it gets used.
 	- Branch: arclinks2
 	- Commit: 9f5b8c6
