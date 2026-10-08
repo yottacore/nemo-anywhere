@@ -1,9 +1,9 @@
 # The archive core. GLib and GIO only, with no GTK and nothing of the app, so
 # it could leave for a project of its own. lint-c.bash holds it to that. See
 # Modularity in project/design_docs/20260929-101432_compression.md.
-arc_core_sources = [ 'arc-host.c', 'arc-link-options.c', 'arc-mounts.c', 'arc-path-list.c', 'arc-settings.c' ]
+arc_core_sources = [ 'arc-entry.c', 'arc-host.c', 'arc-link-options.c', 'arc-mounts.c', 'arc-path-list.c', 'arc-scan.c', 'arc-settings.c' ]
 if is_windows
-  arc_core_sources += [ 'arc-mounts-win32.c' ]
+  arc_core_sources += [ 'arc-entry-win32.c', 'arc-mounts-win32.c' ]
 endif
 
 arc_core_lib = static_library('arc-core',

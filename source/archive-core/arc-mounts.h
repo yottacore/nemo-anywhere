@@ -70,6 +70,10 @@ void           arc_mount_table_free           (ArcMountTable *table);
 ArcFsKind      arc_mount_table_kind           (const ArcMountTable *table,
 					       const char          *base,
 					       const char          *path);
+/* The mounts in it, by where they are, as handed in or read. */
+gsize          arc_mount_table_count          (const ArcMountTable *table);
+const char    *arc_mount_table_path           (const ArcMountTable *table,
+					       gsize                i);
 /* TRUE when path is where something is mounted. */
 gboolean       arc_mount_table_is_mount_point (const ArcMountTable *table,
 					       const char          *path);

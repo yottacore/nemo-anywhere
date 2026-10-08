@@ -91,6 +91,14 @@ arc_walk_children (const ArcHost        *host,
 	return host->walk.children (host->data, dir, attributes, flags, cancellable, error);
 }
 
+gboolean
+arc_leaves_for_share (const ArcHost *host,
+		      const char    *folder,
+		      const char    *path)
+{
+	return !HAS (host, shares, leaves_for) || host->shares.leaves_for (host->data, folder, path);
+}
+
 /* Returns: (transfer full): free with arc_run_free */
 ArcRun *
 arc_run_start (const ArcHost       *host,

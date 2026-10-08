@@ -1539,6 +1539,19 @@ test('rjq9mv0w Archive core test',
   args: []
 )
 
+# The scan behind the archive size totals on a scratch tree, with a host the
+# test makes and with the app's own. The app is linked for the scratch folder
+# and its host only; the scan never sees it.
+test('rjqef159 Archive scan test',
+  executable('test-arc-scan',
+    [ 'test-arc-scan.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ arc_core, gtk, nemo_private, test_scratch ],
+  ),
+  env: [ 'DISPLAY=', 'WAYLAND_DISPLAY=' ],
+  args: []
+)
+
 test('rg40vg48 Data dirs test',
   executable('test-nemo-data-dirs',
     [ 'test-nemo-data-dirs.c' ],

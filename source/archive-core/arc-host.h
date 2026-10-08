@@ -20,8 +20,8 @@
 
 /* The core links GLib and GIO and none of the app around it, so it could
  * leave for a project of its own. Everything else it needs comes through an
- * ArcHost: progress, new files, the folder walk, other programs, command
- * lines, deletes and questions. The job queue stays in the app, which runs
+ * ArcHost: progress, new files, the folder walk, whether a path is on a
+ * share, other programs, command lines, deletes and questions. The job queue stays in the app, which runs
  * the core's work on the job's thread. Modularity, in
  * project/design_docs/20260929-101432_compression.md, has the layers.
  *
@@ -64,6 +64,15 @@ typedef struct {
 				      GCancellable        *cancellable,
 				      GError             **error);
 } ArcWalk;
+
+/* Whether going from folder to path, where a link leads or a folder mounted
+   there, means visiting a network share the folder isn't on. Answered from
+   the text and the mount table, never by asking the share, since the app
+   never visits one on its own. Any thread. Fallback: TRUE, so nothing that
+   might be a share is visited. */
+typedef struct {
+	gboolean (*leaves_for) (gpointer data, const char *folder, const char *path);
+} ArcShares;
 
 /* Another program, run with its output read as it goes. On Windows the app
    has one place that may start a program, so the core never starts one
@@ -164,6 +173,7 @@ typedef struct {
 	ArcProgress progress;
 	ArcChanges  changes;
 	ArcWalk     walk;
+	ArcShares   shares;
 	ArcPrograms programs;
 	ArcCommands commands;
 	ArcDeletes  deletes;
@@ -185,6 +195,8 @@ GFileEnumerator *arc_walk_children       (const ArcHost        *host,
 					  GFileQueryInfoFlags   flags,
 					  GCancellable         *cancellable,
 					  GError              **error);
+
+gboolean         arc_leaves_for_share    (const ArcHost *host, const char *folder, const char *path);
 
 /* Returns: (transfer full): free with arc_run_free */
 ArcRun          *arc_run_start           (const ArcHost       *host,
