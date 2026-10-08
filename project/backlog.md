@@ -33,26 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- On Windows, let the copies of the app talk to each other with no session bus.
-	- ID: 2026100815215479
-	- Type: Enhancement
-	- Status: Waiting for answers
-	- Priority|Severity: Avg
-	- Opened: 20261008-152154
-	- Opened by: t00mietum
-	- Related IDs: 2026100714014948, 2026100617051745, 2026100715211104
-	- Target OS: Windows
-	- Requirements:
-		- Nothing starts a session bus on Windows, so no `gdbus.exe` is in any Windows bundle.
-		- What the bus does there today still works: the list of other copies behind the tab menu and `--reset`, asking the other copies to quit, and moving a tab into a window of another copy.
-		- One named pipe per copy, under a name per user and per logon session, in place of the bus calls. The bus code stays as is on Linux, the BSDs and macOS, behind the same calls.
-		- An action's `dbus` condition never passes on Windows. Nothing there owns such names anyway.
-	- Note: GLib stays on every platform. GTK 3 is built on it, and so is nearly all of the app. The session bus is a separate thing. On Linux the desktop already runs one, and other programs reach the app through it, so it stays there.
-	- Note: our `gdbus.exe` is a packed program too, so under MacType the single exe likely can't start the bus either, the same as in 2026100617051745. Not tried.
-	- Estimated effort: Avg
-	- Progress log:
-		- 20261008: filed. Open: whether to do it. It ends the leftover nonce files of 2026100714014948 at the cause, and the last packed program the single exe starts on its own, besides GLib's spawn helpers if anything still uses them.
-
 - Compression reset: link and filesystem choices in the archive options.
 	- ID: 2026100516274163
 	- Type: Enhancement
@@ -280,13 +260,36 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A helper the app starts and waits on or reads from ends with the app, however the app ends: a thumbnailer, a search converter, an archive tool, ImageMagick, an action's condition. A user's own program started for an action keeps running, as on Linux.
 		- 20261008: (c), on every platform, so there is one code path. The app reads office thumbnails itself, and the text of Word, Excel, PowerPoint, OpenDocument and EPUB files. That replaces the gsf-office thumbnailer and the 4 search converters. For those types the app's own reader comes before any thumbnailer or search helper installed on the system.
 		- 20261008: no libgsf. The zip-based formats, OOXML, OpenDocument and EPUB, are read through libarchive, which the app already links. The old binary Word, Excel and PowerPoint files are a container format of their own, and a small reader of ours replaces libgsf there. The converters' own record parsing moves over as it is. libgsf, the thumbnailer and the 4 converter programs leave every bundle.
-		- 20261008: a bad file now crashes the app rather than a helper, so the readers stay in the fuzz stage, and each read runs off the window's thread with a size cap.
+		- 20261008: a bad file must never crash the app. The readers check every read against the bounds of the file, cap sizes, counts and nesting depth, and trust no length the file gives. They stay in the fuzz stage and the sanitizer suite, and each read runs off the window's thread.
 	- Actual fix: README, under Current limitations, says to add the portable exe to MacType's exclusion list, and that the installed copy is not affected. On Windows the launcher puts each helper in a job that Windows ends along with the app. The helper goes in before it runs, so anything it starts goes too. This is the (a) half. (c) is not started.
 	- Swept: every direct start in `nemo-launch-win32.c`. The pipe for thumbnailers, ImageMagick and conditions, and the tool runs behind archive, extract, search converters and thumbnailers, are in the job. An action's console program is left out. The shell and service routes start programs outside the app, which are never helpers.
 	- Verified: the runs in Reproduced and Actual cause, on vm925w. rjpatrck fails before the fix and passes after, natively on vm925w and under wine. On vm925w in the desktop session with MacType running, a single exe built from this branch showed the box for 3 OpenDocument files. Closing the app ended all 3 helpers, and so did killing it. The native suite on vm925w: 155 OK, 0 fail, 12 skipped. The full Linux suite: 176 of 176. Not tried: the installed copy under MacType. It is not packed, so it is read as unaffected.
 	- Branch: thumbwin
 	- Commit: f38660a to f8a6223
 	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session. (c) still needs its own: a thumbnail and the text from a small file of each type, on every platform, and a check that no program is started for them.
+
+- After an `smb://` address is typed, nothing shows that the app is working on it.
+	- ID: 2026100816170921
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261008-161710
+	- Opened by: t00mietum
+	- Target OS: All
+	- Steps to reproduce: type an `smb://` address in the path bar and press Enter.
+	- Incorrect behavior: the app looks into the address for a while with no sign of it. Then a login prompt, or the share's contents, suddenly show up. In the meantime it looks like nothing happened, so the user may start something else until the share comes back.
+	- Expected behavior: a clear sign that the app is busy with the address, until it is done or stopped.
+	- Requirements:
+		- A sign that doesn't rely on the mouse pointer. A pointer can change too, like Windows' "working in the background" pointer. But not one that says the app is blocked, like the macOS beachball, unless it is.
+		- Maybe also one or more of:
+			- The program icon moving smoothly in a circle over the path bar, attached to the window.
+			- The path bar and the content pane, or even everything visible, slowly fading between disabled text (gray but still legible) and normal text, at about 0.5 Hz.
+			- The app takes no input until one of:
+				- The network step fails or times out.
+				- The user presses Escape, which stops the background attempt to connect and fetch.
+		- README says what changed.
+	- Reproduced: No.
+	- Test case: still needs one.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
@@ -517,6 +520,45 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: 20261007, reopened. In the pipeline's native suite on b29w at 7c1debd, rhr6ggmt failed its `beside-rar` row on both passes: rar there took `sub/a.txt` beside the picked `a.txt`. That row passed natively before `-r0` went in. Not fixed yet.
 	- Test case: rev86z08, Archive options test, for the added `-r0` after an `-r`, and none on the extract lines. rhr6ggmt, the picked `a.txt` beside `sub/a.txt` rows again with an edited rar line that keeps `-r`.
 
+- On Windows, let the copies of the app talk to each other with no session bus.
+	- ID: 2026100815215479
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261008-152154
+	- Opened by: t00mietum
+	- Related IDs: 2026100714014948, 2026100617051745, 2026100715211104
+	- Target OS: Windows
+	- Requirements:
+		- Nothing starts a session bus on Windows, so no `gdbus.exe` is in any Windows bundle.
+		- What the bus does there today still works: the list of other copies behind the tab menu and `--reset`, asking the other copies to quit, and moving a tab into a window of another copy.
+		- One named pipe per copy, under a name per user and per logon session, in place of the bus calls. The bus code stays as is on Linux and the BSDs, behind the same calls.
+		- An action's `dbus` condition never passes on Windows. Nothing there owns such names anyway.
+	- Note: GLib stays on every platform. GTK 3 is built on it, and so is nearly all of the app. The session bus is a separate thing. On Linux the desktop already runs one, and other programs reach the app through it, so it stays there.
+	- Note: our `gdbus.exe` is a packed program too, so under MacType the single exe likely can't start the bus either, the same as in 2026100617051745. Not tried.
+	- Estimated effort: Avg
+	- Progress log:
+		- 20261008: filed. Open: whether to do it. It ends the leftover nonce files of 2026100714014948 at the cause, and the last packed program the single exe starts on its own, besides GLib's spawn helpers if anything still uses them.
+		- 20261008: going ahead. Open: the BSDs. For now they keep the bus, like Linux.
+	- Decisions:
+		- 20261008: Windows drops the session bus for named pipes, or something like them. Linux keeps the bus.
+
+- A setting that another setting makes moot is grayed, but can still be changed.
+	- ID: 2026100816170959
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261008-161710
+	- Opened by: t00mietum
+	- Target OS: All
+	- Requirements:
+		- When a setting is moot because of a master setting somewhere else, it is grayed out, but not disabled.
+		- It can still be changed. Once it is:
+			- It goes back to its normal color at once.
+			- The master setting that made it moot is set to whatever un-grays it. For example an auto switch turns off, or a dropdown goes to "Custom".
+			- The other settings under the same master that haven't been changed stay gray. They show and use their automatic values, not values stored one by one.
+	- Test case: still needs one.
+
 - The Archive settings test's restart does not read the file again.
 	- ID: 2026100720481882
 	- Type: Bug
@@ -530,6 +572,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the values are read back from the file, as the test says.
 	- Reproduced: 20261007, a hand edit written after that test was never picked up in the same run.
 	- Test case: rhae85g0 itself, once it reads the file again.
+
+- Rename Preferences to Settings.
+	- ID: 2026100816170996
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261008-161710
+	- Opened by: t00mietum
+	- Target OS: All
+	- Requirements:
+		- Everywhere the app says Preferences, it says Settings: menus, the dialog's title, and the docs.
+	- Note: the file is already `settings.shcl`.
+	- Test case: still needs one.
 
 - On Windows, a path with single backslashes in a file or setting a user writes is read as escapes.
 	- ID: 2026100702343600
