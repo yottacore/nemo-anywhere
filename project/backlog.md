@@ -372,6 +372,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Done: `source/archive-core/` is a static library with GLib and GIO only. `arc-host.h` has a table of calls per nemo part, and `arc-settings.h` the settings as values. A call the host leaves out does nothing on disk and answers no question. Layout is in the design doc's Modularity section.
 	- Swept: every nemo and eel call in `nemo-archive.c` and `nemo-extract.c` has a table entry, or is a value in the settings, or is a Windows link check that moves with the code. The lint rules that scan the app's folders don't scan the new one, so a lint check of its own covers the core.
 	- Branch: arccore
+	- Commit: f840871
 	- Test case: rjq9mv0w, Archive core test. rjq9mx02, a lint check that keeps GTK and nemo out of the core and its test, and keeps deletes, folder walks, program starts and command line splitting out of the core.
 	- Verified: 20261007, Linux build with warnings as errors, and the Windows cross build, both clean. rjq9mv0w passes on Linux, and under wine with no display. It links no GTK on either. Lint clean apart from rj3ytv0b.
 	- Acceptance signoff: Self-closed: the change does what the item asked and no more, and its tests pass.
