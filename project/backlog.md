@@ -374,7 +374,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Compression reset: tell a nested filesystem from another one.
 	- ID: 2026100516274200
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting on signoff
 	- Opened: 20261005-162747
 	- Opened by: compression reset split
 	- Parent ID: 2026092910143202
@@ -387,12 +387,24 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Windows has no nested kind. A folder mount point and a junction are the same kind of reparse point, and one that points at a whole volume counts as a mount point only.
 		- Read from the mount table and the path, never from a share. Written in the core.
 	- Estimated effort: Avg
-	- Test case: new core test cases read from a made-up mount table. IDs when written.
+	- Actual effort: Avg
+	- Progress log:
+		- 20261007-202500: asked whether both calls under Decisions are OK.
+	- Decisions:
+		- 20261007: a Windows reparse point is a mount point only when its target names a volume, as `\??\Volume{...}\`. One that leads to a drive's root, such as `C:\`, stays a junction, so it needs Junctions as well as the filesystem option. Read the other way, a junction to `C:\` from inside `C:\` would be on the same filesystem with no option needed, and the whole drive would be walked with junctions off. A call made without asking.
+		- 20261007: one disk mounted in 2 places, such as a bind mount, is nested, since the same volume is on both sides. A call made without asking.
+	- Done: `source/archive-core/arc-mounts.h`. It takes a copy of the mount table and the text of 2 paths, and reads nothing on either path. A ZFS pool goes by its dataset name, an APFS container by its disk name, anything else by its device. Something with no device behind it, such as tmpfs or a share, is never nested. The Windows table is in `arc-mounts-win32.c`: each volume by its own name and by every letter and folder it's mounted at. A mapped drive or a share has no volume, so it goes by its drive letter or its `\\server\share`. A test hands in a made-up table.
+	- Note: a Btrfs subvolume that isn't mounted on its own reads as the same filesystem, since the mount table has nothing on it.
+	- Swept: the only other mount table reader is `nemo-share.c`, which looks for shares only and stays as it is. The archive code has no filesystem check today.
+	- Verified: 20261007, Linux build with warnings as errors, the Windows cross build, and the core built with clang. rjq9mv0w passes on Linux, under ASan and UBSan, and under wine. The real mount table gives nested for 2 ZFS datasets in one pool and for 2 Btrfs subvolumes, and other for tmpfs and an ext4 disk. Under wine the Windows reader found C: and Z:.
+	- Branch: arcsizes
+	- Commit: 042a7ea
+	- Test case: rjq9mv0w, Archive core test. Made-up Linux and Windows mount tables: ZFS, Btrfs, APFS, a bind mount, tmpfs, NFS, one mount over another, a folder mount on Windows, volume names, long path forms, shares and mapped drives. Also the real table, read once.
 
 - Compression reset: path list and sixteen size totals.
 	- ID: 2026100516274237
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
 	- Opened: 20261005-162747
 	- Opened by: compression reset split
 	- Parent ID: 2026092910143202
@@ -406,7 +418,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Gives the total for the options as set, and each option's size change: that total less the entry with only that option off.
 		- No disk access here. The background scan feeds it. Written in the core.
 	- Estimated effort: Low
-	- Test case: new core test cases on made-up paths, the two worked examples in the design included. IDs when written.
+	- Actual effort: Low
+	- Done: `source/archive-core/arc-path-list.h`. The path text goes in large blocks and the index is open addressing over one array, so a path costs no allocation of its own. The follow options and what a path needs share one set of bits. A path already in the list keeps the bytes it came with.
+	- Note: 20261007, 5 million paths of about 55 characters, on an optimized build: 1.0 s to add them all, about 210 ns each, and 1.7 s to find each again in another order, about 340 ns each. About 100 bytes a path, its text included. GLib's own hash table took 1.6 s to add, 1.5 s to find, and 130 bytes a path. At 3 million: 0.57 s to add and 1.1 s to find.
+	- Swept: nothing in the archive code counts sizes or checks filesystems today, so there is no older copy to replace.
+	- Verified: 20261007, Linux build with warnings as errors, the Windows cross build, and the core built with clang. rjq9mv0w passes on Linux, under ASan and UBSan, and under wine.
+	- Branch: arcsizes
+	- Commit: 042a7ea
+	- Test case: rjq9mv0w, Archive core test. The 2 worked examples with their paths in both orders, every total and change checked against the rule over 12000 random paths, and 200000 paths added and found again. `test-arc-core bench N` times N paths.
+	- Acceptance signoff: Self-closed: the change does what the item asked and no more, and its tests pass.
+	- Closed: 20261007-202500
 
 - Compression reset: the background scan behind the size totals.
 	- ID: 2026100516274275
