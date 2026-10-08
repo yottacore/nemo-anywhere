@@ -12,7 +12,8 @@
 ##	  kept here against the tarball's sha256 before the build container is
 ##	  stopped, a failed read only warns and leaves no list, and a box that is
 ##	  not arm64 is refused before anything is sent.
-##	- Runs in the lint stage.
+##	- Runs in the lint stage. Skipped under MSYS2, where the lane never runs and
+##	  sha256sum marks every line binary.
 ##	- Syntax: cicd/linux/test-release-arm64.bash
 ##	- Test ID: rjph1pxd
 
@@ -28,6 +29,7 @@ fEcho(){ echo "[ $* ]"; }
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "${here}/../.." && pwd)"
 
+if [[ "$(uname -o 2>/dev/null)" == "Msys" ]]; then fEcho "arm64 lane check skipped: Linux only"; exit 77; fi
 if ! command -v git >/dev/null 2>&1 || ! command -v sha256sum >/dev/null 2>&1; then
 	fEcho "arm64 lane check skipped: needs git and sha256sum"
 	exit 77
