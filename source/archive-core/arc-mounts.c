@@ -28,6 +28,7 @@
 #include "arc-mounts.h"
 
 typedef struct {
+	char *path;	/* as handed in */
 	char *where;	/* as compare_form makes it */
 	char *device;	/* the same, on Windows */
 	char *pool;	/* NULL when it can't be nested with anything */
@@ -131,6 +132,7 @@ arc_mount_table_new (const ArcMountEntry *entries,
 			continue;
 		}
 		mount = &table->mounts[table->n_mounts++];
+		mount->path = g_strdup (entries[i].mount_path);
 		mount->where = compare_form (entries[i].mount_path, windows);
 		if (windows) {
 			mount->device = entries[i].device != NULL ? compare_form (entries[i].device, TRUE) : NULL;
@@ -150,6 +152,7 @@ arc_mount_table_free (ArcMountTable *table)
 		return;
 	}
 	for (i = 0; i < table->n_mounts; i++) {
+		g_free (table->mounts[i].path);
 		g_free (table->mounts[i].where);
 		g_free (table->mounts[i].device);
 		g_free (table->mounts[i].pool);
@@ -261,6 +264,22 @@ arc_mount_table_kind (const ArcMountTable *table,
 	g_free (base_text);
 	g_free (path_text);
 	return kind;
+}
+
+gsize
+arc_mount_table_count (const ArcMountTable *table)
+{
+	return table->n_mounts;
+}
+
+/* Returns: (transfer none) */
+const char *
+arc_mount_table_path (const ArcMountTable *table,
+		      gsize                i)
+{
+	g_return_val_if_fail (i < table->n_mounts, NULL);
+
+	return table->mounts[i].path;
 }
 
 gboolean

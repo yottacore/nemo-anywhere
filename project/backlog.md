@@ -414,7 +414,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Compression reset: the background scan behind the size totals.
 	- ID: 2026100516274275
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting on signoff
+	- Needs local test suite run?: Yes. The 19 archive, config, share and scratch tests passed; the rest of the suite was not run.
+	- Needs external testing: a native Windows suite run where symlinks can be made (Developer Mode, or elevated), for the symlink, junction and junction loop rows of rjqef159. wine says yes to a symlink and makes nothing, and makes no junction, so only plain folders, the made-up mounts and the share were seen there. By hand on vm925w: a small volume, such as a VHD, mounted at a folder inside itself, scanned with every option on. The scan ends and each file counts once.
 	- Opened: 20261005-162747
 	- Opened by: compression reset split
 	- Parent ID: 2026092910143202
@@ -430,8 +432,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Open: whether the scan may follow a link onto a network share before OK, given the share rule.
 	- Decisions:
 		- 20261006: the scan behind the live totals never follows a link onto a share before OK. The total says it leaves that out. OK is the user action, so the job's own pre-scan follows it. This was taken as the recommended answer when the question timed out on 20261006.
+		- 20261007: a share mounted in a folder is left out before OK too, the same as a link onto one, and counted with them. The folder it's in is listed by names only, so the share isn't looked at. A call made without asking.
+		- 20261007: a selected folder that is itself a mount point, such as a USB drive's folder, needs its filesystem option, since the path from the folder the selection is in crosses into it. With Follow other filesystems off it adds nothing to the total. A call made without asking.
 	- Estimated effort: High
-	- Test case: new core test cases on a scratch tree with folder and file links, a loop, a link that leads nowhere, and an option changed mid-scan. Junctions on Windows. IDs when written.
+	- Actual effort: High
+	- Progress log:
+		- 20261007-213500: built in the core, with the app's walk and share check in its host. Asked whether both calls under Decisions are OK.
+	- Done: `source/archive-core/arc-scan.h`. It walks on its own thread and reports changed totals to the thread that started it, at most every 0.25 s. A folder is known by its file ID, keeps the first path it's found by, and isn't walked again by a path that needs no fewer options, which is what ends a loop. A link's target is read a name at a time and checked for a share at each link on the way. Turning an option off backs the walk out of what needs it; turning one on starts it again unless a finished walk already covered it. Freeing it stops it and frees the list and totals. `arc-entry-win32.c` reads a reparse point to tell a junction, a symlink and a volume's mount point apart. The host gained a share check, which nemo answers through `nemo-share.c`, and `nemo_archive_host_init` fills in nemo's walk and share check.
+	- Note: the count of what was left out for being on a share goes by where it leads, so 2 links to one place count once.
+	- Swept: nothing walked for the size totals before. The job's own walks in `nemo-archive.c`, for its list of what goes in and for the delete check, move onto this scan in 2026100516274423.
+	- Verified: 20261007, Linux build with warnings as errors, the Windows cross build, lint clean apart from rj3ytv0b. rjqef159 and rjq9mv0w pass on Linux, under ASan and UBSan with the leak check, with 12 copies of rjqef159 at once, and under wine. The 19 archive, config, share and scratch tests pass.
+	- Branch: arcscan
+	- Test case: rjqef159, Archive scan test. A scratch tree with folder and file links, a link back up that loops, a link to itself, one that leads nowhere, a `.lnk`, made-up nested, other and share mounts, a link chain onto the share, and on Windows a junction and a junction loop. Every mix's totals, changes, file and share counts, an option turned off and one turned on mid-scan, a folder reached by a link before and after its own path, the gap between reports, Cancel from outside and inside a report, a host with no walk or share check, and the app's own host. rjq9mv0w gained the share check's fallback and forwarding.
 
 - Compression reset: link choices and filesystem options in the Compress dialog.
 	- ID: 2026100516274386

@@ -20,9 +20,13 @@
 
 #include <config.h>
 
+#include <string.h>
+
 #include "nemo-archive-host.h"
 #include "nemo-archive-commands.h"
 #include "nemo-config.h"
+#include "nemo-dir-enum.h"
+#include "nemo-share.h"
 
 /* The old pair meant one choice for both kinds of link, so Junctions is left
    to follow Symlinks. An old store links that was never changed reads as its
@@ -92,4 +96,35 @@ nemo_archive_link_options_save (const ArcLinkOptions *options)
 			      options->junctions_set ? (gint) options->junctions
 						     : NEMO_ARCHIVE_JUNCTIONS_LIKE_SYMLINKS);
 	nemo_config_set_boolean (group, NEMO_ARCHIVE_STATE_KEY_FOLLOW_NESTED, options->follow_nested);
+}
+
+static GFileEnumerator *
+walk_children (gpointer              data,
+	       GFile                *dir,
+	       const char           *attributes,
+	       GFileQueryInfoFlags   flags,
+	       GCancellable         *cancellable,
+	       GError              **error)
+{
+	(void) data;
+	return nemo_enumerate_children (dir, attributes, flags, cancellable, error);
+}
+
+static gboolean
+leaves_for_share (gpointer    data,
+		  const char *folder,
+		  const char *path)
+{
+	(void) data;
+	return nemo_share_link_leaves_for_a_share (folder, path);
+}
+
+void
+nemo_archive_host_init (ArcHost *host)
+{
+	g_return_if_fail (host != NULL);
+
+	memset (host, 0, sizeof *host);
+	host->walk.children = walk_children;
+	host->shares.leaves_for = leaves_for_share;
 }

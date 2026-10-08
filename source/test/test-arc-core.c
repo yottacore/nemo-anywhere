@@ -114,6 +114,15 @@ fake_children (gpointer             d,
 	return NULL;
 }
 
+static gboolean
+fake_leaves_for (gpointer    d,
+		 const char *folder,
+		 const char *path)
+{
+	saw (d, "leaves_for", path);
+	return strcmp (folder, "/here") != 0;
+}
+
 /* A run is whatever the host says it is. This one is a counter. */
 struct _ArcRun {
 	int exit_status;
@@ -245,6 +254,7 @@ static const ArcHost fake_host = {
 	.progress = { fake_status, fake_details, fake_fraction, fake_pulse },
 	.changes = { fake_file_added },
 	.walk = { fake_children },
+	.shares = { fake_leaves_for },
 	.programs = { fake_start, fake_stdout, fake_stderr, fake_force_exit,
 		      fake_wait_check, fake_if_exited, fake_exit_status, fake_run_free },
 	.commands = { fake_expand, fake_warn_unused },
@@ -283,6 +293,9 @@ check_fallbacks (const ArcHost *host,
 	check (arc_walk_children (host, file, "standard::*", G_FILE_QUERY_INFO_NONE, NULL, &error) == NULL);
 	check (error_is_not_supported (error));
 	g_clear_error (&error);
+
+	/* Can't say, so taken as a share: nothing is visited that might be. */
+	check (arc_leaves_for_share (host, "/here", "/here/x"));
 
 	check (arc_run_start (host, argv, NULL, G_SUBPROCESS_FLAGS_NONE, &error) == NULL);
 	check (error_is_not_supported (error));
@@ -361,6 +374,10 @@ check_forwarding (GFile *file)
 	g_clear_error (&error);
 	check (g_strcmp0 (seen.last_text, "standard::name") == 0);
 
+	check (!arc_leaves_for_share (host, "/here", "/mnt/nas"));
+	check (g_strcmp0 (seen.last_text, "/mnt/nas") == 0);
+	check (arc_leaves_for_share (host, "/there", "/mnt/nas"));
+
 	run = arc_run_start (host, argv, "/nowhere", G_SUBPROCESS_FLAGS_STDOUT_PIPE, &error);
 	check (run == &fake_run_object);
 	check (g_strcmp0 (seen.last_text, "7z") == 0);
@@ -417,7 +434,7 @@ check_forwarding (GFile *file)
 
 	/* Every call reached the host, in order, and each only once. */
 	check (g_strcmp0 (seen.calls,
-			  "status details fraction pulse file_added children "
+			  "status details fraction pulse file_added children leaves_for leaves_for "
 			  "start stdout stderr force_exit wait_check if_exited exit_status free "
 			  "expand warn_unused remove_own remove_tree trash_by_user "
 			  "error warning conflict password password ") == 0);
@@ -873,6 +890,9 @@ check_mounts_posix (void)
 	check (arc_mount_table_kind (table, "/Volumes/Data", "/Volumes/Sys/x") == ARC_FS_NESTED);
 	check (arc_mount_table_kind (table, "/Volumes/Data", "/Volumes/Stick") == ARC_FS_OTHER);
 	check (arc_mount_table_kind (table, "/", "/odd dir/x") == ARC_FS_OTHER);
+	check (arc_mount_table_count (table) == G_N_ELEMENTS (entries));
+	check (g_strcmp0 (arc_mount_table_path (table, 18), "/odd dir") == 0);
+	check (arc_mount_table_count (none) == 0);
 	check (arc_mount_table_is_mount_point (table, "/tank/data/"));
 	check (arc_mount_table_is_mount_point (table, "/"));
 	check (!arc_mount_table_is_mount_point (table, "/tank/data/x"));

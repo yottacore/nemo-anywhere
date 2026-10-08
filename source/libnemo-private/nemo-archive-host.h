@@ -28,6 +28,7 @@
 
 #include <glib.h>
 
+#include "arc-host.h"
 #include "arc-link-options.h"
 
 G_BEGIN_DECLS
@@ -36,6 +37,10 @@ G_BEGIN_DECLS
    store links and follow links values are mapped over, then dropped. */
 void nemo_archive_link_options_load (ArcLinkOptions       *options);
 void nemo_archive_link_options_save (const ArcLinkOptions *options);
+
+/* An ArcHost with what the core has been given so far: the folder walk,
+   which gets past MAX_PATH on Windows, and the share check. */
+void nemo_archive_host_init         (ArcHost              *host);
 
 G_END_DECLS
 
