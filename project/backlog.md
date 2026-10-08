@@ -448,7 +448,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Compression reset: 7-Zip first for 7z, and `-spd` on an edited 7-Zip line.
 	- ID: 2026100516274312
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 180 of 180.
+	- Needs external testing: rev86z08 and rhr6ggmt natively on vm925w, with 7-Zip installed. There a 7z that stores links goes to the library and has to keep them.
 	- Opened: 20261005-162747
 	- Opened by: compression reset split
 	- Parent ID: 2026092910143202
@@ -460,12 +462,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The library still writes 7z when 7-Zip isn't installed, or when the job stores links on Windows. That job runs on one thread.
 		- `-spd` is added at run time when the line runs 7-Zip and doesn't have it, for compress and for the archive's path when extracting. The saved line isn't changed, and a line that runs another program is left alone.
 	- Estimated effort: Avg
-	- Test case: rev86z08, Archive options test, for which writer gets 7z and for the added `-spd`. rhr6ggmt and reww9h2s, rows with an edited 7-Zip line and a name with `*` or `?`.
+	- Progress log:
+		- 20261007: 7z goes to 7-Zip first. The library's 7z writer now offers storing links, so on Windows a 7z job that stores links goes to it, on one thread. A 7-Zip line gets `-spd` at run time when it lacks it, for compress, the links run, and extract.
+	- Decisions:
+		- 20261007, a call made without asking: when no writer can do every preference, storing links is the last one given up, since it changes what goes in. So on Windows a solid 7z that stores links goes to the library and isn't solid.
+		- 20261007, a call made without asking: a line runs 7-Zip when its program is named 7z, 7za, 7zr, 7zz or 7zG, with or without `.exe`. A line that starts some other program first, such as `nice 7z`, is left alone.
+	- Verified: rev86z08, rhr6ggmt and reww9h2s fail with the run-time switch and the 7-Zip-first order taken out, and pass with them. Full Linux suite 180 of 180. Windows cross build clean, and rev86z08 passes under wine, which has no 7-Zip.
+	- Swept: both builders that turn a settings line into a command, the compress one (real run and links run) and the extract one. The tests that wanted the library's 7z writer (rjbpyy28, rjbw0rkq and the library rows of rhr6ggmt) now hide 7-Zip to reach it.
+	- Branch: runflags
+	- Commit: f079fde
+	- Test case: rev86z08, Archive options test, for which writer gets 7z and for the added `-spd`, directly and through edited lines. rhr6ggmt, the `*` and `?` rows again with a 7-Zip line without `-spd`, and a library 7z row that stores links. reww9h2s, an `s?.7z` extracted with an edited 7-Zip line.
 
 - Compression reset: `-r0` on an edited rar line.
 	- ID: 2026100516274349
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
 	- Opened: 20261005-162747
 	- Opened by: compression reset split
 	- Parent ID: 2026092910143202
@@ -476,7 +487,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- `-r0` is added at run time when the compress line runs rar, after anything the line has, so an `-r` left in it no longer takes same-named files from the folders below.
 		- The saved line isn't changed. The extract lines never had `-r`.
 	- Estimated effort: Low
-	- Test case: rev86z08, Archive options test, for the added `-r0`. rhr6ggmt, the picked `a.txt` beside `sub/a.txt` rows again with an edited rar line that keeps `-r`.
+	- Progress log:
+		- 20261007: `-r0` goes in at run time, last before the `--`, on every compress line that runs rar or WinRAR.
+	- Verified: with an edited line that keeps `-r`, rhr6ggmt took `sub/a.txt` too before the fix and passes after. rev86z08 the same. Full Linux suite 180 of 180.
+	- Note: rar on Windows not run. rar.txt is one file for every platform and says the same there.
+	- Swept: the compress builder covers the real run and the links run. The extract lines get no `-r0`.
+	- Branch: runflags
+	- Commit: f079fde
+	- Test case: rev86z08, Archive options test, for the added `-r0` after an `-r`, and none on the extract lines. rhr6ggmt, the picked `a.txt` beside `sub/a.txt` rows again with an edited rar line that keeps `-r`.
+	- Acceptance signoff: Self-closed: the intent was clear, and its tests fail before the fix and pass after.
+	- Closed: 20261007-195812
 
 - Compression reset: link choices and filesystem options in the Compress dialog.
 	- ID: 2026100516274386
