@@ -320,7 +320,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Compression reset: a place in the tree for the archive core, and its interfaces.
 	- ID: 2026100516274126
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
 	- Opened: 20261005-162747
 	- Opened by: compression reset split
 	- Parent ID: 2026092910143202
@@ -333,7 +333,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- On Windows the walk still has to get past MAX_PATH, so nemo hands its own walk in.
 		- A test target for the core that runs with no display.
 	- Estimated effort: Avg
-	- Test case: a new core test that builds without GTK and runs with no display. ID when written.
+	- Actual effort: Avg
+	- Decisions:
+		- 20261007: running another program gets a table of its own too. The archive code runs 7-Zip and rar, and on Windows only the app's launcher may start a program.
+		- 20261007: the job queue has no table. nemo queues the job and runs the core's work on the job's thread, and progress comes back through the progress table.
+		- 20261007: the Extract conflict and password questions are calls in the host too, with the stock dialogs, since the core asks them from the job.
+		- 20261007: expanding a command line stays nemo's and goes through the host, since the backslash rule for a line a person wrote is nemo's and also its other programs share that code.
+		- 20261007: no nemo glue yet. The first item that calls the core from nemo writes it, in one file, as the design doc says.
+	- Done: `source/archive-core/` is a static library with GLib and GIO only. `arc-host.h` has a table of calls per nemo part, and `arc-settings.h` the settings as values. A call the host leaves out does nothing on disk and answers no question. Layout is in the design doc's Modularity section.
+	- Swept: every nemo and eel call in `nemo-archive.c` and `nemo-extract.c` has a table entry, or is a value in the settings, or is a Windows link check that moves with the code. The lint rules that scan the app's folders don't scan the new one, so a lint check of its own covers the core.
+	- Branch: arccore
+	- Commit: f840871
+	- Test case: rjq9mv0w, Archive core test. rjq9mx02, a lint check that keeps GTK and nemo out of the core and its test, and keeps deletes, folder walks, program starts and command line splitting out of the core.
+	- Verified: 20261007, Linux build with warnings as errors, and the Windows cross build, both clean. rjq9mv0w passes on Linux, and under wine with no display. It links no GTK on either. Lint clean apart from rj3ytv0b.
+	- Acceptance signoff: Self-closed: the change does what the item asked and no more, and its tests pass.
+	- Closed: 20261007-195741
 
 - Compression reset: link and filesystem choices in the archive options.
 	- ID: 2026100516274163
