@@ -207,6 +207,41 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 9f5b8c6
 	- Test case: rjq9mv0w, Archive core test, for the junction defaults table, the fall back to Ignore, a hand change sticking, and the follow bits. rhae85g0, Archive settings test, for the old values mapped over and dropped in each mix, what is and isn't remembered, and the fall back agreeing with each writer's claim for every format.
 
+- Compression reset: the background scan behind the size totals.
+	- ID: 2026100516274275
+	- Type: Enhancement
+	- Status: Waiting on signoff
+	- Needs local test suite run?: Yes. The 19 archive, config, share and scratch tests passed; the rest of the suite was not run.
+	- Needs external testing: a native Windows suite run where symlinks can be made (Developer Mode, or elevated), for the symlink, junction and junction loop rows of rjqef159. wine says yes to a symlink and makes nothing, and makes no junction, so only plain folders, the made-up mounts and the share were seen there. By hand on vm925w: a small volume, such as a VHD, mounted at a folder inside itself, scanned with every option on. The scan ends and each file counts once.
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274163, 2026100516274200, 2026100516274237
+	- Target OS: Linux, Windows
+	- Design: [Background scan](design_docs/20260929-101432_compression.md#background-scan).
+	- Requirements:
+		- Walks the selection and everything below it by the 4 follow options, and hands each path to the path list with its flags.
+		- Canonical paths. A link loop still ends. A `.lnk` is never followed.
+		- An option made less inclusive mid-scan backs out of the paths it now leaves out, without stopping. One made more inclusive restarts the scan, which adds only paths not seen yet.
+		- Reports changed totals through a callback, at most every 0.25 s.
+		- Cancel stops it and frees the list and the totals. Written in the core.
+		- Open: whether the scan may follow a link onto a network share before OK, given the share rule.
+	- Decisions:
+		- 20261006: the scan behind the live totals never follows a link onto a share before OK. The total says it leaves that out. OK is the user action, so the job's own pre-scan follows it. This was taken as the recommended answer when the question timed out on 20261006.
+		- 20261007: a share mounted in a folder is left out before OK too, the same as a link onto one, and counted with them. The folder it's in is listed by names only, so the share isn't looked at. A call made without asking.
+		- 20261007: a selected folder that is itself a mount point, such as a USB drive's folder, needs its filesystem option, since the path from the folder the selection is in crosses into it. With Follow other filesystems off it adds nothing to the total. A call made without asking.
+	- Estimated effort: High
+	- Actual effort: High
+	- Progress log:
+		- 20261007-213500: built in the core, with the app's walk and share check in its host. Asked whether both calls under Decisions are OK.
+	- Done: `source/archive-core/arc-scan.h`. It walks on its own thread and reports changed totals to the thread that started it, at most every 0.25 s. A folder is known by its file ID, keeps the first path it's found by, and isn't walked again by a path that needs no fewer options, which is what ends a loop. A link's target is read a name at a time and checked for a share at each link on the way. Turning an option off backs the walk out of what needs it; turning one on starts it again unless a finished walk already covered it. Freeing it stops it and frees the list and totals. `arc-entry-win32.c` reads a reparse point to tell a junction, a symlink and a volume's mount point apart. The host gained a share check, which nemo answers through `nemo-share.c`, and `nemo_archive_host_init` fills in nemo's walk and share check.
+	- Note: the count of what was left out for being on a share goes by where it leads, so 2 links to one place count once.
+	- Swept: nothing walked for the size totals before. The job's own walks in `nemo-archive.c`, for its list of what goes in and for the delete check, move onto this scan in 2026100516274423.
+	- Verified: 20261007, Linux build with warnings as errors, the Windows cross build, lint clean apart from rj3ytv0b. rjqef159 and rjq9mv0w pass on Linux, under ASan and UBSan with the leak check, with 12 copies of rjqef159 at once, and under wine. The 19 archive, config, share and scratch tests pass.
+	- Branch: arcscan
+	- Commit: 47a9ad0
+	- Test case: rjqef159, Archive scan test. A scratch tree with folder and file links, a link back up that loops, a link to itself, one that leads nowhere, a `.lnk`, made-up nested, other and share mounts, a link chain onto the share, and on Windows a junction and a junction loop. Every mix's totals, changes, file and share counts, an option turned off and one turned on mid-scan, a folder reached by a link before and after its own path, the gap between reports, Cancel from outside and inside a report, a host with no walk or share check, and the app's own host. rjq9mv0w gained the share check's fallback and forwarding.
+
 - On Windows every launch leaves a small `gdbus-nonce-file-*` in the temp folder.
 	- ID: 2026100714014948
 	- Type: Bug
@@ -264,6 +299,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: both builders that turn a settings line into a command, the compress one (real run and links run) and the extract one. The tests that wanted the library's 7z writer (rjbpyy28, rjbw0rkq and the library rows of rhr6ggmt) now hide 7-Zip to reach it.
 	- Branch: runflags
 	- Commit: f079fde
+	- Note: 20261007, in the pipeline's native suite on b29w at 7c1debd, rev86z08 and reww9h2s passed, and rhr6ggmt failed only its rar row (2026100516274349). Whether b29w has 7-Zip was not checked, so this stays here.
 	- Test case: rev86z08, Archive options test, for which writer gets 7z and for the added `-spd`, directly and through edited lines. rhr6ggmt, the `*` and `?` rows again with a 7-Zip line without `-spd`, and a library 7z row that stores links. reww9h2s, an `s?.7z` extracted with an edited 7-Zip line.
 
 - On Windows, the trash icon leaves out removable drives.
@@ -290,59 +326,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: winlow
 	- Commit: 0dab690
 	- Test case: rjhvmm6f, Mapped drive not asked, new bin cases: a fixed drive's bin is asked, a removable one's only with a disk in it, an empty drive answers in under 2 s, and no share or optical drive is asked.
-
-- FreeBSD in the pipeline.
-	- ID: 2026100517134118
-	- Type: Task
-	- Status: Waiting for testing
-	- Priority|Severity: Low
-	- Opened: 20261005-171341
-	- Opened by: old-format item "Target: BSD"
-	- Related IDs: old-format item "Target: BSD", 2026100517134081
-	- Target OS: FreeBSD
-	- Requirements:
-		- A stage that sends the tree to the FreeBSD box, builds with `-Dwerror=true`, runs the suite on an X server of its own, and checks `--version`, under the host lock.
-		- `cicd/linux/run-tests.bash` assumes the container's `/src`, a Linux-only display wrapper and GNU `find -printf`. Either it learns FreeBSD, or a runner of its own does the same job.
-	- Decisions:
-		- 20261007, calls made without asking:
-			- Opt-in, as `--include-bsd`, the way the arm64 lane is meant to be. `--quick` leaves it on when it is asked for. The gate does not run it.
-			- `run-tests.bash` learned FreeBSD, rather than a second runner: it finds the source beside itself, starts an X server of its own where the Linux display wrapper is missing, and lists leftovers with `ls`.
-			- A box that does not answer fails the run, as in the arm64 lane.
-	- Done: `cicd/bsd/lane.bash --tests` sends the working tree the way `release-arm64.bash` does and runs `run-tests.bash` there, under the host lock's wrap. With `--include-bsd`, stage 3 runs it after the sanitizer suite, and stage 5 runs the release half from 2026100517134081.
-	- Verified: on vmFreeBSD the lane built the tree with `-Dwerror=true` and ran the suite, 163 OK, 14 skipped, then `--version`. On Linux `run-tests.bash` built and ran 2 tests and `--version` in the build image, with and without the display wrapper. The first FreeBSD run stopped on folders 2 tests left behind, filed as 2026100713082288.
-	- Needs local test suite run?: yes. A full `cicd/cicd.bash --include-bsd --no-publish` on the merged tree. The new stage lines in `cicd.bash` have only been read.
-	- Branch: bsdpkg
-	- Commit: 6f96777
-	- Test case: rjphnh77, FreeBSD lane test, in the lint stage: what is sent, what the runner is handed, a failing suite failing the lane, the tarball's stamp and order over 2 runs, the sums file, and the lock's wrap. The suite run on FreeBSD is the test of `run-tests.bash` there.
-
-- Linux arm64 `.deb` and `.rpm` packages.
-	- ID: 2026100714244880
-	- Type: Feature
-	- Status: Waiting for testing
-	- Needs local test suite run?: no. Only pipeline scripts changed, and the lint stage passed.
-	- Needs external testing: one `cicd.bash --include-arm --no-publish` run, to see the arm64 lane bring the dependency line back and stage 6 make and check both arm64 packages.
-	- Priority|Severity: Low
-	- Opened: 20261007-142448
-	- Opened by: old-format item "Linux arm64 release build"
-	- Related IDs: old-format item "Linux arm64 release build"
-	- Target OS: Linux arm64
-	- Requirements:
-		- An arm64 `.deb` and `.rpm` from the arm64 release build, beside the x86_64 ones.
-		- The `.deb`'s dependency versions read off the arm64 libraries, on the arm64 box, the way the x86_64 ones are read in its release container.
-		- Behind `--include-arm`, with the rest of the arm64 lane.
-	- Decisions:
-		- The arm64 box only reads the dependency line, right after its build while its release container is still up. Both arches are packaged on the main box with the same tools.
-		- The line is kept with the tarball's checksum. A line read off any other build is not used, and the `.deb` gets the short list with no versions and a warning, the same fallback the x86_64 one has.
-		- A failed read only warns, so it doesn't throw away an hour's build.
-		- 20261007: the README question timed out, and the suggested answer was taken. README names the arm64 files once a release has them.
-		- The arm64 packages and their prefix check run only when the arm64 build ran in that same run. So `--no-arm`, `--no-cross` and `--quick` leave them out too, and a stale tarball is never packaged.
-	- Done 20261007: the arm64 lane reads the `.deb`'s dependencies in the release container on the arm64 box and brings them back with the tarball. `package.bash` gained `--arch` and `--depends-only`, and stage 6 makes the arm64 `.deb` and `.rpm` and runs the prefix check on them.
-	- Note 20261007: the `.rpm` spec no longer names its arch, since `rpmbuild` refuses an arch the box can't build for even with nothing to compile. The arch comes from the target instead. The x86_64 `.rpm` comes out byte for byte the same as before.
-	- Verified 20261007: rjpxzs6x, rjph1pxd and rjph39cv pass. rjpxzs6x failed with the arch named in the spec, with every arch read in the local container, with no checksum check, and with `--depends-only` guessing or reading another arch. rjph1pxd failed with no read, with the read after the container stops, with a failed read left fatal, and with an old list kept. rjph39cv failed on the pipeline and config as they were, and with `--no-cross` ignored.
-	- Verified 20261007: against the arm64 tarball already built on the arm64 box. The line read there matches the x86_64 one, since both images have the same library versions. The `.deb` says arm64 and the `.rpm` aarch64, both come out the same twice and carry the tarball's date, and the prefix check passes on all 3. On Debian 13 arm64, apt finds every dependency of the `.deb`, and the program in it answers `--version`.
-	- Branch: armpkg
-	- Commit: 6ec5be9
-	- Test case: rjpxzs6x checks where each arch's `.deb` gets its dependencies, and that the arm64 packages name their arch and repeat byte for byte. rjph1pxd checks the lane reads the line on the box and keeps it with the tarball's checksum. rjph39cv checks the pipeline makes and checks arm64 packages only when it built arm64.
 
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440
@@ -410,41 +393,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
 		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
-
-- Compression reset: the background scan behind the size totals.
-	- ID: 2026100516274275
-	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Needs local test suite run?: Yes. The 19 archive, config, share and scratch tests passed; the rest of the suite was not run.
-	- Needs external testing: a native Windows suite run where symlinks can be made (Developer Mode, or elevated), for the symlink, junction and junction loop rows of rjqef159. wine says yes to a symlink and makes nothing, and makes no junction, so only plain folders, the made-up mounts and the share were seen there. By hand on vm925w: a small volume, such as a VHD, mounted at a folder inside itself, scanned with every option on. The scan ends and each file counts once.
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Prereq IDs: 2026100516274163, 2026100516274200, 2026100516274237
-	- Target OS: Linux, Windows
-	- Design: [Background scan](design_docs/20260929-101432_compression.md#background-scan).
-	- Requirements:
-		- Walks the selection and everything below it by the 4 follow options, and hands each path to the path list with its flags.
-		- Canonical paths. A link loop still ends. A `.lnk` is never followed.
-		- An option made less inclusive mid-scan backs out of the paths it now leaves out, without stopping. One made more inclusive restarts the scan, which adds only paths not seen yet.
-		- Reports changed totals through a callback, at most every 0.25 s.
-		- Cancel stops it and frees the list and the totals. Written in the core.
-		- Open: whether the scan may follow a link onto a network share before OK, given the share rule.
-	- Decisions:
-		- 20261006: the scan behind the live totals never follows a link onto a share before OK. The total says it leaves that out. OK is the user action, so the job's own pre-scan follows it. This was taken as the recommended answer when the question timed out on 20261006.
-		- 20261007: a share mounted in a folder is left out before OK too, the same as a link onto one, and counted with them. The folder it's in is listed by names only, so the share isn't looked at. A call made without asking.
-		- 20261007: a selected folder that is itself a mount point, such as a USB drive's folder, needs its filesystem option, since the path from the folder the selection is in crosses into it. With Follow other filesystems off it adds nothing to the total. A call made without asking.
-	- Estimated effort: High
-	- Actual effort: High
-	- Progress log:
-		- 20261007-213500: built in the core, with the app's walk and share check in its host. Asked whether both calls under Decisions are OK.
-	- Done: `source/archive-core/arc-scan.h`. It walks on its own thread and reports changed totals to the thread that started it, at most every 0.25 s. A folder is known by its file ID, keeps the first path it's found by, and isn't walked again by a path that needs no fewer options, which is what ends a loop. A link's target is read a name at a time and checked for a share at each link on the way. Turning an option off backs the walk out of what needs it; turning one on starts it again unless a finished walk already covered it. Freeing it stops it and frees the list and totals. `arc-entry-win32.c` reads a reparse point to tell a junction, a symlink and a volume's mount point apart. The host gained a share check, which nemo answers through `nemo-share.c`, and `nemo_archive_host_init` fills in nemo's walk and share check.
-	- Note: the count of what was left out for being on a share goes by where it leads, so 2 links to one place count once.
-	- Swept: nothing walked for the size totals before. The job's own walks in `nemo-archive.c`, for its list of what goes in and for the delete check, move onto this scan in 2026100516274423.
-	- Verified: 20261007, Linux build with warnings as errors, the Windows cross build, lint clean apart from rj3ytv0b. rjqef159 and rjq9mv0w pass on Linux, under ASan and UBSan with the leak check, with 12 copies of rjqef159 at once, and under wine. The 19 archive, config, share and scratch tests pass.
-	- Branch: arcscan
-	- Commit: 47a9ad0
-	- Test case: rjqef159, Archive scan test. A scratch tree with folder and file links, a link back up that loops, a link to itself, one that leads nowhere, a `.lnk`, made-up nested, other and share mounts, a link chain onto the share, and on Windows a junction and a junction loop. Every mix's totals, changes, file and share counts, an option turned off and one turned on mid-scan, a folder reached by a link before and after its own path, the gap between reports, Cancel from outside and inside a report, a host with no walk or share check, and the app's own host. rjq9mv0w gained the share check's fallback and forwarding.
 
 - Compression reset: link choices and filesystem options in the Compress dialog.
 	- ID: 2026100516274386
@@ -623,6 +571,30 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Estimated effort: High
 	- Test case: none new. reww9h2r, reww9h2s and the extract leak test rjbpmcxy stay as they are, and pass before and after.
 
+- Compression reset: `-r0` on an edited rar line.
+	- ID: 2026100516274349
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Related IDs: 2026100410431108
+	- Target OS: Linux, Windows
+	- Design: [Recursion in an edited rar line](design_docs/20260929-101432_compression.md#recursion-in-an-edited-rar-line).
+	- Requirements:
+		- `-r0` is added at run time when the compress line runs rar, after anything the line has, so an `-r` left in it no longer takes same-named files from the folders below.
+		- The saved line isn't changed. The extract lines never had `-r`.
+	- Estimated effort: Low
+	- Progress log:
+		- 20261007: `-r0` goes in at run time, last before the `--`, on every compress line that runs rar or WinRAR.
+	- Verified: with an edited line that keeps `-r`, rhr6ggmt took `sub/a.txt` too before the fix and passes after. rev86z08 the same. Full Linux suite 180 of 180.
+	- Note: rar on Windows not run. rar.txt is one file for every platform and says the same there.
+	- Swept: the compress builder covers the real run and the links run. The extract lines get no `-r0`.
+	- Branch: runflags
+	- Commit: f079fde
+	- Note: 20261007, reopened. In the pipeline's native suite on b29w at 7c1debd, rhr6ggmt failed its `beside-rar` row on both passes: rar there took `sub/a.txt` beside the picked `a.txt`. That row passed natively before `-r0` went in. Not fixed this round.
+	- Test case: rev86z08, Archive options test, for the added `-r0` after an `-r`, and none on the extract lines. rhr6ggmt, the picked `a.txt` beside `sub/a.txt` rows again with an edited rar line that keeps `-r`.
+
 - The Archive settings test's restart does not read the file again.
 	- ID: 2026100720481882
 	- Type: Bug
@@ -636,6 +608,65 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the values are read back from the file, as the test says.
 	- Reproduced: 20261007, a hand edit written after that test was never picked up in the same run.
 	- Test case: rhae85g0 itself, once it reads the file again.
+
+- FreeBSD in the pipeline.
+	- ID: 2026100517134118
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261005-171341
+	- Opened by: old-format item "Target: BSD"
+	- Related IDs: old-format item "Target: BSD", 2026100517134081
+	- Target OS: FreeBSD
+	- Requirements:
+		- A stage that sends the tree to the FreeBSD box, builds with `-Dwerror=true`, runs the suite on an X server of its own, and checks `--version`, under the host lock.
+		- `cicd/linux/run-tests.bash` assumes the container's `/src`, a Linux-only display wrapper and GNU `find -printf`. Either it learns FreeBSD, or a runner of its own does the same job.
+	- Decisions:
+		- 20261007, calls made without asking:
+			- Opt-in, as `--include-bsd`, the way the arm64 lane is meant to be. `--quick` leaves it on when it is asked for. The gate does not run it.
+			- `run-tests.bash` learned FreeBSD, rather than a second runner: it finds the source beside itself, starts an X server of its own where the Linux display wrapper is missing, and lists leftovers with `ls`.
+			- A box that does not answer fails the run, as in the arm64 lane.
+	- Done: `cicd/bsd/lane.bash --tests` sends the working tree the way `release-arm64.bash` does and runs `run-tests.bash` there, under the host lock's wrap. With `--include-bsd`, stage 3 runs it after the sanitizer suite, and stage 5 runs the release half from 2026100517134081.
+	- Verified: on vmFreeBSD the lane built the tree with `-Dwerror=true` and ran the suite, 163 OK, 14 skipped, then `--version`. On Linux `run-tests.bash` built and ran 2 tests and `--version` in the build image, with and without the display wrapper. The first FreeBSD run stopped on folders 2 tests left behind, filed as 2026100713082288.
+	- Needs local test suite run?: yes. A full `cicd/cicd.bash --include-bsd --no-publish` on the merged tree. The new stage lines in `cicd.bash` have only been read.
+	- Branch: bsdpkg
+	- Commit: 6f96777
+	- Test case: rjphnh77, FreeBSD lane test, in the lint stage: what is sent, what the runner is handed, a failing suite failing the lane, the tarball's stamp and order over 2 runs, the sums file, and the lock's wrap. The suite run on FreeBSD is the test of `run-tests.bash` there.
+	- Verified 20261007: `cicd.bash -y --include-arm --include-bsd --no-publish --no-private` at 7c1debd. Stage 3 ran the FreeBSD suite, 167 OK, 14 skipped, and stage 5 made the FreeBSD tarball and `.pkg`, which passed its package check.
+	- Acceptance signoff: Self-closed: the pipeline run it waited on passed.
+	- Closed: 20261007-223145
+
+- Linux arm64 `.deb` and `.rpm` packages.
+	- ID: 2026100714244880
+	- Type: Feature
+	- Status: Done
+	- Needs local test suite run?: no. Only pipeline scripts changed, and the lint stage passed.
+	- Needs external testing: one `cicd.bash --include-arm --no-publish` run, to see the arm64 lane bring the dependency line back and stage 6 make and check both arm64 packages.
+	- Priority|Severity: Low
+	- Opened: 20261007-142448
+	- Opened by: old-format item "Linux arm64 release build"
+	- Related IDs: old-format item "Linux arm64 release build"
+	- Target OS: Linux arm64
+	- Requirements:
+		- An arm64 `.deb` and `.rpm` from the arm64 release build, beside the x86_64 ones.
+		- The `.deb`'s dependency versions read off the arm64 libraries, on the arm64 box, the way the x86_64 ones are read in its release container.
+		- Behind `--include-arm`, with the rest of the arm64 lane.
+	- Decisions:
+		- The arm64 box only reads the dependency line, right after its build while its release container is still up. Both arches are packaged on the main box with the same tools.
+		- The line is kept with the tarball's checksum. A line read off any other build is not used, and the `.deb` gets the short list with no versions and a warning, the same fallback the x86_64 one has.
+		- A failed read only warns, so it doesn't throw away an hour's build.
+		- 20261007: the README question timed out, and the suggested answer was taken. README names the arm64 files once a release has them.
+		- The arm64 packages and their prefix check run only when the arm64 build ran in that same run. So `--no-arm`, `--no-cross` and `--quick` leave them out too, and a stale tarball is never packaged.
+	- Done 20261007: the arm64 lane reads the `.deb`'s dependencies in the release container on the arm64 box and brings them back with the tarball. `package.bash` gained `--arch` and `--depends-only`, and stage 6 makes the arm64 `.deb` and `.rpm` and runs the prefix check on them.
+	- Note 20261007: the `.rpm` spec no longer names its arch, since `rpmbuild` refuses an arch the box can't build for even with nothing to compile. The arch comes from the target instead. The x86_64 `.rpm` comes out byte for byte the same as before.
+	- Verified 20261007: rjpxzs6x, rjph1pxd and rjph39cv pass. rjpxzs6x failed with the arch named in the spec, with every arch read in the local container, with no checksum check, and with `--depends-only` guessing or reading another arch. rjph1pxd failed with no read, with the read after the container stops, with a failed read left fatal, and with an old list kept. rjph39cv failed on the pipeline and config as they were, and with `--no-cross` ignored.
+	- Verified 20261007: against the arm64 tarball already built on the arm64 box. The line read there matches the x86_64 one, since both images have the same library versions. The `.deb` says arm64 and the `.rpm` aarch64, both come out the same twice and carry the tarball's date, and the prefix check passes on all 3. On Debian 13 arm64, apt finds every dependency of the `.deb`, and the program in it answers `--version`.
+	- Branch: armpkg
+	- Commit: 6ec5be9
+	- Test case: rjpxzs6x checks where each arch's `.deb` gets its dependencies, and that the arm64 packages name their arch and repeat byte for byte. rjph1pxd checks the lane reads the line on the box and keeps it with the tarball's checksum. rjph39cv checks the pipeline makes and checks arm64 packages only when it built arm64.
+	- Verified 20261007: `cicd.bash -y --include-arm --include-bsd --no-publish --no-private` at 7c1debd. The arm64 lane brought the dependency line back from the arm64 box, and stage 6 made the arm64 `.deb` and `.rpm` and passed the prefix check on both.
+	- Acceptance signoff: Self-closed: the pipeline run it waited on passed.
+	- Closed: 20261007-223145
 
 - The arm64 lane test fails under MSYS2 on Windows, so the native gate stops in its lint stage.
 	- ID: 2026100720224968
@@ -715,31 +746,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjq9mv0w, Archive core test. The 2 worked examples with their paths in both orders, every total and change checked against the rule over 12000 random paths, and 200000 paths added and found again. `test-arc-core bench N` times N paths.
 	- Acceptance signoff: Self-closed: the change does what the item asked and no more, and its tests pass.
 	- Closed: 20261007-202500
-
-- Compression reset: `-r0` on an edited rar line.
-	- ID: 2026100516274349
-	- Type: Enhancement
-	- Status: Done
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Related IDs: 2026100410431108
-	- Target OS: Linux, Windows
-	- Design: [Recursion in an edited rar line](design_docs/20260929-101432_compression.md#recursion-in-an-edited-rar-line).
-	- Requirements:
-		- `-r0` is added at run time when the compress line runs rar, after anything the line has, so an `-r` left in it no longer takes same-named files from the folders below.
-		- The saved line isn't changed. The extract lines never had `-r`.
-	- Estimated effort: Low
-	- Progress log:
-		- 20261007: `-r0` goes in at run time, last before the `--`, on every compress line that runs rar or WinRAR.
-	- Verified: with an edited line that keeps `-r`, rhr6ggmt took `sub/a.txt` too before the fix and passes after. rev86z08 the same. Full Linux suite 180 of 180.
-	- Note: rar on Windows not run. rar.txt is one file for every platform and says the same there.
-	- Swept: the compress builder covers the real run and the links run. The extract lines get no `-r0`.
-	- Branch: runflags
-	- Commit: f079fde
-	- Test case: rev86z08, Archive options test, for the added `-r0` after an `-r`, and none on the extract lines. rhr6ggmt, the picked `a.txt` beside `sub/a.txt` rows again with an edited rar line that keeps `-r`.
-	- Acceptance signoff: Self-closed: the intent was clear, and its tests fail before the fix and pass after.
-	- Closed: 20261007-195812
 
 - On Windows the gate says the build is not set up with `-Werror` when it is.
 	- ID: 2026100518100000
