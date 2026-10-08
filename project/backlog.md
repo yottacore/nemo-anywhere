@@ -36,7 +36,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows every launch leaves a small `gdbus-nonce-file-*` in the temp folder.
 	- ID: 2026100714014948
 	- Type: Bug
-	- Status: Waiting for answers
+	- Status: Waiting for testing
 	- Needs local test suite run?: no. The 2 new files build on Windows only, and the Linux build configures as before.
 	- Needs external testing: the native gate on vm925w, so MSYS2's compiler builds the stand-in and rjprdfjb with warnings as errors. The cross build was clean, and the cross-built test passed on vm925w.
 	- Priority|Severity: Low
@@ -57,6 +57,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Decisions:
 		- A stand-in for GLib's `gdbus.exe` rather than clearing old files at startup, since the cause is in GLib and this removes the file the same run. Waits on signoff for that, and because every Windows bundle now has a file of ours under GLib's name.
 		- Answer: 20261007, "If we really need it". It isn't needed for anything but the leftover files. Asked which of 3 to keep: the stand-in, a sweep of old files at startup, or neither.
+		- 20261007: asked again, the question timed out, and the suggested answer was taken. The stand-in stays.
 	- Verified: rjprdfjb fails with GLib's `gdbus.exe` and passes with ours, natively on vm925w and under wine. It also failed with the dead folder clear taken out. In the desktop session on vm925w, the release zip from this branch with 2 copies, the first closed, a third killed, then the second closed: the bus ended a few seconds later, and no new file or folder was left. A folder from a bus killed earlier was removed by the next bus. The same run with GLib's `gdbus.exe` put back left 1 new file. The native staging script put ours in the bundle on vm925w. Lint clean.
 	- Swept: every place a Windows bundle is made. The native stage, which the portable exe is packed from, the release zip, which the setup exe is made from, and the wine runner.
 	- Branch: nonce
@@ -156,6 +157,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: 20261007, failed on vm925w: the properties window of a `.desktop` link file has no URL or Comment field, so the save could not be tried. Going by the code, the page is offered only when the file's type reads as a link file, and Windows has no type registered for `.desktop`. The app still shows the file as a link in the list.
 	- Note: 20261007, a link file with a URL opens the properties of what it points to, on every platform, as upstream did. So its URL field is offered only while URL is empty. A launcher's Command field goes through the same save code.
 		- 20261007, asked again with more detail, after "More info please".
+		- 20261007: the question timed out, and the suggested answer was taken. A link file with a URL keeps opening its target's properties, as upstream.
 	- Verified: 20261007, Windows, at 90a9109, in the desktop session on vm925w: the list showed a link file by its Name. A launcher's properties had Description, Command and Comment. `"C:\Program Files\Thing\thing.exe" C:\data\in.txt` typed as Command and `notes in C:\temp\new` as Comment were both saved as typed, with single backslashes, and read back the same when the window was opened again. A link file with no URL had the URL field, and a full path typed there was saved as typed.
 	- Verified: 20261007, rjpr3nzy failed under wine with the type fix taken out, and passes under wine and natively on vm925w. Linux suite 178 of 178. The Windows suite under wine fails the same 17 tests as before. Lint is clean.
 	- Branch: winpaths, lnkprops
@@ -267,6 +269,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The arm64 box only reads the dependency line, right after its build while its release container is still up. Both arches are packaged on the main box with the same tools.
 		- The line is kept with the tarball's checksum. A line read off any other build is not used, and the `.deb` gets the short list with no versions and a warning, the same fallback the x86_64 one has.
 		- A failed read only warns, so it doesn't throw away an hour's build.
+		- 20261007: the README question timed out, and the suggested answer was taken. README names the arm64 files once a release has them.
 		- The arm64 packages and their prefix check run only when the arm64 build ran in that same run. So `--no-arm`, `--no-cross` and `--quick` leave them out too, and a stale tarball is never packaged.
 	- Done 20261007: the arm64 lane reads the `.deb`'s dependencies in the release container on the arm64 box and brings them back with the tarball. `package.bash` gained `--arch` and `--depends-only`, and stage 6 makes the arm64 `.deb` and `.rpm` and runs the prefix check on them.
 	- Note 20261007: the `.rpm` spec no longer names its arch, since `rpmbuild` refuses an arch the box can't build for even with nothing to compile. The arch comes from the target instead. The x86_64 `.rpm` comes out byte for byte the same as before.
