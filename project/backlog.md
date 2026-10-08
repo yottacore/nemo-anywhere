@@ -443,6 +443,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: nothing walked for the size totals before. The job's own walks in `nemo-archive.c`, for its list of what goes in and for the delete check, move onto this scan in 2026100516274423.
 	- Verified: 20261007, Linux build with warnings as errors, the Windows cross build, lint clean apart from rj3ytv0b. rjqef159 and rjq9mv0w pass on Linux, under ASan and UBSan with the leak check, with 12 copies of rjqef159 at once, and under wine. The 19 archive, config, share and scratch tests pass.
 	- Branch: arcscan
+	- Commit: 47a9ad0
 	- Test case: rjqef159, Archive scan test. A scratch tree with folder and file links, a link back up that loops, a link to itself, one that leads nowhere, a `.lnk`, made-up nested, other and share mounts, a link chain onto the share, and on Windows a junction and a junction loop. Every mix's totals, changes, file and share counts, an option turned off and one turned on mid-scan, a folder reached by a link before and after its own path, the gap between reports, Cancel from outside and inside a report, a host with no walk or share check, and the app's own host. rjq9mv0w gained the share check's fallback and forwarding.
 
 - Compression reset: link choices and filesystem options in the Compress dialog.
