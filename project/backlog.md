@@ -73,7 +73,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, a path with single backslashes in a file or setting a user writes is read as escapes.
 	- ID: 2026100702343600
 	- Type: Bug
-	- Status: Waiting on signoff
+	- Status: Done
 	- Needs local test suite run?: no. The full Linux suite passed on the final tree, 174 of 174.
 	- Needs external testing: none left. The link properties save passed on 20261007, and so did the bulk rename and Open With checks.
 	- Priority|Severity: Avg
@@ -144,7 +144,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Compression reset: tell a nested filesystem from another one.
 	- ID: 2026100516274200
 	- Type: Enhancement
-	- Status: Waiting on signoff
+	- Status: Done
 	- Opened: 20261005-162747
 	- Opened by: compression reset split
 	- Parent ID: 2026092910143202
