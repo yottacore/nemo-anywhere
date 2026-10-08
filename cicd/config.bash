@@ -80,8 +80,7 @@ TOOL_PINS=(
 ## point in computing CICD_MAX_JOBS is that a pipeline run leaves the box usable.
 ## Warnings are errors in every pipeline build; linux/run-tests.bash says why.
 DEBUG_BUILD_CMD=(bash "${DOCKER_RUN}" "debug build" "
-	if [ -f /build/build.ninja ]; then meson setup --reconfigure -Dwerror=true /build /src/source
-	else meson setup -Dwerror=true /build /src/source; fi && bash /src/cicd/utility/check-werror.bash /build && ninja -C /build -j ${CICD_MAX_JOBS:-2}
+	bash /src/cicd/utility/meson-setup.bash /build /src/source -Dwerror=true && bash /src/cicd/utility/check-werror.bash /build && ninja -C /build -j ${CICD_MAX_JOBS:-2}
 ")
 
 ## Stage 3: regression tests - READY. The meson suite, then a headless launch and

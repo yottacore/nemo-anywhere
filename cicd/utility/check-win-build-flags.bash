@@ -62,7 +62,8 @@ fCheckLane(){
 
 	[[ -f "$file" ]] || { fFail "${file}: not found"; return; }
 
-	line="$(grep -n -F 'meson setup' "$file" | head -1 || true)"
+	## meson-setup.bash is our wrapper; the flags still sit on its line.
+	line="$(grep -n -E '(^|[^#])(meson setup|meson-setup\.bash) ' "$file" | grep -v -E '^[0-9]+:[[:space:]]*#' | head -1 || true)"
 	[[ -n "$line" ]] || { fFail "${file}: no meson setup line"; return; }
 
 	for flag in "$@"; do

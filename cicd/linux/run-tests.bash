@@ -42,12 +42,7 @@ esac
 # shellcheck disable=SC2206  ## word splitting is the point; the sanitizer lane passes -D options.
 setupArgs=(-Dwerror=true ${SETUP_ARGS:-})
 
-## A container recreated from the image has no build directory yet.
-if [[ -f "${build}/build.ninja" ]]; then
-	meson setup --reconfigure "${build}" "${src}" "${setupArgs[@]}"
-else
-	meson setup "${build}" "${src}" "${setupArgs[@]}"
-fi
+bash "${here}/../utility/meson-setup.bash" "${build}" "${src}" "${setupArgs[@]}"
 bash "${here}/../utility/check-werror.bash" "${build}"
 
 if ! ninja -C "${build}" -j "${jobs}"; then
