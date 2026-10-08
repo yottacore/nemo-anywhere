@@ -11,6 +11,10 @@
 #include <gio/gio.h>
 
 #include <libnemo-private/nemo-archive.h>
+#include <libnemo-private/nemo-archive-commands.h>
+#include <libnemo-private/nemo-command-template.h>
+#include <libnemo-private/nemo-config.h>
+#include <libnemo-private/nemo-extract.h>
 #include <libnemo-private/nemo-global-preferences.h>
 
 #include "test-scratch.h"
@@ -288,6 +292,55 @@ check_volume_collapse (const char *scratch)
 	}
 }
 
+/* 7-Zip first for 7z, since the library's writer runs on one thread. The
+   library still gets it where 7-Zip is missing, and on Windows for a job
+   that keeps links, which 7-Zip leaves out there. */
+static void
+check_7z_writer (void)
+{
+	NemoArchiveOptions options;
+	gboolean seven = nemo_archive_backend_present (NEMO_ARCHIVE_BACKEND_7Z);
+	NemoArchiveBackend plain = seven ? NEMO_ARCHIVE_BACKEND_7Z : NEMO_ARCHIVE_BACKEND_LIBARCHIVE;
+
+	if (!seven) {
+		g_printerr ("note: no 7z command here, 7-Zip first not checked\n");
+	}
+
+	nemo_archive_options_init (&options);
+	options.store_links = FALSE;
+	check (nemo_archive_pick_backend (NEMO_ARCHIVE_FORMAT_7Z, &options) == plain);
+
+	/* Solid as well, which only 7-Zip has, so links win over it. */
+	options.store_links = TRUE;
+	options.solid = TRUE;
+#ifdef G_OS_WIN32
+	check (nemo_archive_pick_backend (NEMO_ARCHIVE_FORMAT_7Z, &options) ==
+	       NEMO_ARCHIVE_BACKEND_LIBARCHIVE);
+#else
+	check (nemo_archive_pick_backend (NEMO_ARCHIVE_FORMAT_7Z, &options) == plain);
+#endif
+
+	/* A password still needs 7-Zip, links or not. */
+	options.password = g_strdup ("secret");
+	check (nemo_archive_pick_backend (NEMO_ARCHIVE_FORMAT_7Z, &options) ==
+	       (seven ? NEMO_ARCHIVE_BACKEND_7Z : NEMO_ARCHIVE_BACKEND_NONE));
+	nemo_archive_options_clear (&options);
+
+	/* Other formats keep the library first. */
+	nemo_archive_options_init (&options);
+	check (nemo_archive_pick_backend (NEMO_ARCHIVE_FORMAT_ZIP, &options) ==
+	       NEMO_ARCHIVE_BACKEND_LIBARCHIVE);
+
+	nemo_archive_hide_backend (NEMO_ARCHIVE_BACKEND_7Z, TRUE);
+	check (!nemo_archive_backend_present (NEMO_ARCHIVE_BACKEND_7Z));
+	options.store_links = FALSE;
+	check (nemo_archive_pick_backend (NEMO_ARCHIVE_FORMAT_7Z, &options) ==
+	       NEMO_ARCHIVE_BACKEND_LIBARCHIVE);
+	nemo_archive_hide_backend (NEMO_ARCHIVE_BACKEND_7Z, FALSE);
+	check (nemo_archive_backend_present (NEMO_ARCHIVE_BACKEND_7Z) == seven);
+	nemo_archive_options_clear (&options);
+}
+
 static void
 check_backends (void)
 {
@@ -363,6 +416,12 @@ check_backends (void)
 	check ((nemo_archive_backend_caps (NEMO_ARCHIVE_FORMAT_7Z, NEMO_ARCHIVE_BACKEND_7Z) &
 		NEMO_ARCHIVE_CAP_STORE_LINKS) != 0);
 #endif
+	/* The library's 7z writer keeps links, which is what it is still used
+	   for on Windows. */
+	check ((nemo_archive_backend_caps (NEMO_ARCHIVE_FORMAT_7Z, NEMO_ARCHIVE_BACKEND_LIBARCHIVE) &
+		NEMO_ARCHIVE_CAP_STORE_LINKS) != 0);
+
+	check_7z_writer ();
 }
 
 static int
@@ -657,6 +716,167 @@ check_commands (void)
 	check_links_command ();
 }
 
+/* Split on spaces, for lines with none inside an argument. */
+static char **
+words (const char *line)
+{
+	return g_strsplit (line, " ", -1);
+}
+
+/* What a line from the settings gets at run time, whatever was typed. */
+static void
+check_run_switches (void)
+{
+	char **argv;
+
+	/* 7-Zip by any of its names, before the "--". */
+	argv = nemo_archive_add_run_switches (words ("7z a -y -- o.7z a*"), TRUE);
+	check (arg_index (argv, "-spd") == 3);
+	check (arg_index (argv, "--") == 4);
+	check (g_strv_length (argv) == 7);
+	g_strfreev (argv);
+
+	argv = nemo_archive_add_run_switches (words ("/opt/7zip/7zz x -- a?.7z"), FALSE);
+	check (arg_index (argv, "-spd") == 2);
+	g_strfreev (argv);
+
+	argv = nemo_archive_add_run_switches (words ("7Za.EXE a o.7z a*"), TRUE);
+	check (arg_index (argv, "-spd") == 4);
+	g_strfreev (argv);
+
+	/* Once is enough, however it was typed. */
+	argv = nemo_archive_add_run_switches (words ("7z a -SPD -- o.7z -spd"), TRUE);
+	check (!has_arg (argv, "-spd") || arg_index (argv, "-spd") == 5);
+	check (g_strv_length (argv) == 6);
+	g_strfreev (argv);
+
+	/* rar: -r0 last, so an -r typed into the line is undone. Compress only,
+	   since the unpack lines never had -r. */
+	argv = nemo_archive_add_run_switches (words ("rar a -r -y -- o.rar a.txt"), TRUE);
+	check (arg_index (argv, "-r0") == 4);
+	check (arg_index (argv, "--") == 5);
+	check (!has_arg (argv, "-spd"));
+	g_strfreev (argv);
+
+	argv = nemo_archive_add_run_switches (words ("/usr/bin/rar x -y -- o.rar dest/"), FALSE);
+	check (!has_arg (argv, "-r0"));
+	check (g_strv_length (argv) == 6);
+	g_strfreev (argv);
+
+	/* Another program is left alone, even one that runs 7-Zip itself. */
+	argv = nemo_archive_add_run_switches (words ("nice 7z a -- o.7z a*"), TRUE);
+	check (!has_arg (argv, "-spd"));
+	check (g_strv_length (argv) == 6);
+	g_strfreev (argv);
+
+	argv = nemo_archive_add_run_switches (words ("unrar x -- o.rar"), TRUE);
+	check (!has_arg (argv, "-r0"));
+	g_strfreev (argv);
+
+	check (nemo_archive_add_run_switches (NULL, TRUE) == NULL);
+}
+
+/* The same through the four lines in the settings, edited the way that once
+   let a wildcard or a recursion through. The saved lines stay as typed. */
+static void
+check_edited_lines (void)
+{
+	NemoConfigGroup *group = nemo_config_get_group (NEMO_ARCHIVE_COMMANDS_GROUP);
+	const char *no_spd =
+		"{{PROGRAM}} a {{FORMAT}} {{LEVEL}} {{THREADS}} -y -bsp1 -sccUTF-8 "
+		"{{PASSWORD}} {{SPLIT}} {{SOLID}} {{LINKS}} -- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}";
+	const char *with_r =
+		"{{PROGRAM}} a -r {{LEVEL}} {{THREADS}} -y -scfr {{PASSWORD}} {{SPLIT}} {{SOLID}} "
+		"{{DEDUPE}} {{RECOVERY}} {{LOCK}} {{LINKS}} -- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}";
+	const char *unpack_no_spd = "{{PROGRAM}} x -y -bsp1 {{PASSWORD}} -o{{TARGET_FOLDER}} -- {{SOURCE_ARCHIVE}}";
+	NemoArchiveOptions options;
+	GList *names = g_list_append (NULL, (gpointer) "a*");
+	char **argv;
+	char *text;
+
+	nemo_config_set_string (group, NEMO_ARCHIVE_COMMAND_KEY_7Z, no_spd);
+	nemo_config_set_string (group, NEMO_ARCHIVE_COMMAND_KEY_RAR, with_r);
+	nemo_config_set_string (group, NEMO_EXTRACT_COMMAND_KEY_7Z, unpack_no_spd);
+
+	nemo_archive_options_init (&options);
+	options.format = NEMO_ARCHIVE_FORMAT_7Z;
+	argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_7Z, options.format, &options,
+					   "/usr/bin/7z", "/tmp/out.7z", names, names);
+	check (argv != NULL);
+	check (has_arg (argv, "-spd"));
+	check (arg_index (argv, "-spd") < arg_index (argv, "--"));
+	check (has_arg (argv, "-x!a*"));
+	g_strfreev (argv);
+
+	argv = nemo_archive_build_links_command (NEMO_ARCHIVE_BACKEND_7Z, options.format, &options,
+						 "/usr/bin/7z", "/tmp/out.7z", names);
+	check (has_arg (argv, "-spd"));
+	g_strfreev (argv);
+	nemo_archive_options_clear (&options);
+
+	nemo_archive_options_init (&options);
+	options.format = NEMO_ARCHIVE_FORMAT_RAR;
+	argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_RAR, options.format, &options,
+					   "/usr/bin/rar", "/tmp/out.rar", names, NULL);
+	check (argv != NULL);
+	check (arg_index (argv, "-r0") > arg_index (argv, "-r"));
+	check (arg_index (argv, "-r0") < arg_index (argv, "--"));
+	g_strfreev (argv);
+	nemo_archive_options_clear (&options);
+
+	argv = nemo_extract_build_command (NEMO_EXTRACT_BACKEND_7Z, "/usr/bin/7z", "/tmp/a?.7z",
+					   "/tmp/out", NULL);
+	check (argv != NULL);
+	check (arg_index (argv, "-spd") >= 0 && arg_index (argv, "-spd") < arg_index (argv, "--"));
+	g_strfreev (argv);
+
+	/* The rar unpack line never had -r, and rar's -spd is no such thing. */
+	argv = nemo_extract_build_command (NEMO_EXTRACT_BACKEND_RAR, "/usr/bin/unrar", "/tmp/a.rar",
+					   "/tmp/out", NULL);
+	check (!has_arg (argv, "-r0"));
+	check (!has_arg (argv, "-spd"));
+	g_strfreev (argv);
+
+	text = nemo_command_template_from_config (NEMO_ARCHIVE_COMMANDS_GROUP,
+						  NEMO_ARCHIVE_COMMAND_KEY_7Z,
+						  NEMO_ARCHIVE_COMMAND_7Z_DEFAULT);
+	check (g_strcmp0 (text, no_spd) == 0);
+	g_free (text);
+	text = nemo_command_template_from_config (NEMO_ARCHIVE_COMMANDS_GROUP,
+						  NEMO_ARCHIVE_COMMAND_KEY_RAR,
+						  NEMO_ARCHIVE_COMMAND_RAR_DEFAULT);
+	check (g_strcmp0 (text, with_r) == 0);
+	g_free (text);
+	text = nemo_command_template_from_config (NEMO_ARCHIVE_COMMANDS_GROUP,
+						  NEMO_EXTRACT_COMMAND_KEY_7Z,
+						  NEMO_EXTRACT_COMMAND_7Z_DEFAULT);
+	check (g_strcmp0 (text, unpack_no_spd) == 0);
+	g_free (text);
+
+	/* The built-in lines already have -spd, and get it only once. */
+	nemo_config_reset (group, NEMO_ARCHIVE_COMMAND_KEY_7Z);
+	nemo_config_reset (group, NEMO_ARCHIVE_COMMAND_KEY_RAR);
+	nemo_config_reset (group, NEMO_EXTRACT_COMMAND_KEY_7Z);
+
+	nemo_archive_options_init (&options);
+	options.format = NEMO_ARCHIVE_FORMAT_7Z;
+	argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_7Z, options.format, &options,
+					   "/usr/bin/7z", "/tmp/out.7z", names, NULL);
+	{
+		int seen = 0;
+		int i;
+
+		for (i = 0; argv != NULL && argv[i] != NULL; i++) {
+			seen += g_strcmp0 (argv[i], "-spd") == 0;
+		}
+		check (seen == 1);
+	}
+	g_strfreev (argv);
+	nemo_archive_options_clear (&options);
+
+	g_list_free (names);
+}
+
 /* What the two tools print when they pass over a link that leads nowhere,
    taken from 7-Zip 25.01 and RAR 7.20. Only that, and only for links the
    scan found, is a warning to live with; anything else fails the archive. */
@@ -828,6 +1048,7 @@ int
 main (void)
 {
 	char *scratch = test_scratch_dir ("nemo-archive-XXXXXX", NULL);
+	char *config_home;
 
 	check_extensions ();
 	check_names ();
@@ -839,7 +1060,14 @@ main (void)
 	check_commands ();
 	check_skipped_links ();
 	check_cpu_share ();
+	check_run_switches ();
 
+	config_home = test_scratch_config_home ("nemo-archive-config-XXXXXX");
+	nemo_config_init ();
+	check_edited_lines ();
+	nemo_config_shutdown ();
+
+	g_free (config_home);
 	g_free (scratch);
 
 	if (failures > 0) {

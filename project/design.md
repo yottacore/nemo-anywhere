@@ -367,7 +367,7 @@ Copying a link asks what should be at the far end, once per operation, on every 
 
 #### Archives
 
-Archives are written by libarchive, with the `7z` and `rar` commands as optional extras rather than the primary route. Encryption and splitting are requirements, and a job that nothing installed can do is refused rather than written weaker. Unpacking reads far more formats than writing does, and never lets an archive write outside the folder picked.
+Archives are written by libarchive, with the `7z` and `rar` commands as optional extras rather than the primary route. 7z is the exception: it goes to 7-Zip where that's installed, since the library writes 7z on one thread. Encryption and splitting are requirements, and a job that nothing installed can do is refused rather than written weaker. Unpacking reads far more formats than writing does, and never lets an archive write outside the folder picked.
 
 - How it works today, and the planned Compress dialog reset with its link choices, size totals and the split of the archive code from the rest of the app, are in [20260929-101432_compression.md](design_docs/20260929-101432_compression.md).
 

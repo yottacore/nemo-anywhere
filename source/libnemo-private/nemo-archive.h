@@ -119,6 +119,11 @@ gboolean           nemo_archive_backend_present  (NemoArchiveBackend backend);
 NemoArchiveBackend nemo_archive_pick_backend     (NemoArchiveFormat         format,
 						  const NemoArchiveOptions *options);
 
+/* For tests: answer as if the program were not installed, so the library's
+   own 7z writer can still be reached on a box that has 7-Zip. */
+void               nemo_archive_hide_backend     (NemoArchiveBackend backend,
+						  gboolean           hidden);
+
 /* Name handling for the dialog: the extension follows the format, and a
  * selection suggests a name - or, when the selection is part of a folder rather
  * than one item or all of it, no name at all, which leaves the field for the
@@ -156,6 +161,13 @@ char   **nemo_archive_build_links_command (NemoArchiveBackend        backend,
 					   const char               *program,
 					   const char               *archive_path,
 					   GList                    *names);
+
+/* Switches a command line from the settings gets at run time, whatever was
+   typed there: -spd when it runs 7-Zip and lacks it, and -r0 last when it
+   runs rar to compress. The saved line is never changed. Takes argv and
+   returns the one to use; free with g_strfreev. */
+char   **nemo_archive_add_run_switches (char     **argv,
+					gboolean   compressing);
 
 /* A tool's stderr is folded into its stdout on Unix only. Elsewhere it gets
    a pipe of its own, read on a thread from start to finish, and the caller

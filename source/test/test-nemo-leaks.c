@@ -713,6 +713,7 @@ main (int argc, char *argv[])
 		/* Or a 7z goes to the 7-Zip program, where it is installed. */
 		if (format == NEMO_ARCHIVE_FORMAT_7Z) {
 			zip.options.store_links = FALSE;
+			nemo_archive_hide_backend (NEMO_ARCHIVE_BACKEND_7Z, TRUE);
 			check (nemo_archive_pick_backend (format, &zip.options) ==
 			       NEMO_ARCHIVE_BACKEND_LIBARCHIVE);
 		}
@@ -721,6 +722,7 @@ main (int argc, char *argv[])
 		skipped = run_case (which, zip_cancel_round, &zip, ANY_LEAK);
 		g_signal_handler_disconnect (manager, watch_id);
 		teardown_zip (&zip);
+		nemo_archive_hide_backend (NEMO_ARCHIVE_BACKEND_7Z, FALSE);
 	} else if (strcmp (which, "extract") == 0) {
 		ExtractCase extract = { 0 };
 

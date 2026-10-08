@@ -10,12 +10,15 @@
  * where they were kept.
  *
  * After the crossed rows, per format: a link that leads nowhere, and names
- * with * or ? that 7z or rar could read as patterns.
+ * with * or ? that 7z or rar could read as patterns. Last, some of those
+ * again with the 7-Zip and rar lines edited in the settings.
  */
 
 #include "test.h"
 
 #include <libnemo-private/nemo-archive.h>
+#include <libnemo-private/nemo-archive-commands.h>
+#include <libnemo-private/nemo-config.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-link-copy.h>
 #include <libnemo-private/nemo-progress-info-manager.h>
@@ -895,7 +898,7 @@ dangling_kept (NemoArchiveFormat format, NemoArchiveBackend backend,
    followed. Where it cannot, it is passed over with a warning that names it,
    and the rest of the archive stands. 7z and rar end such a run with a
    warning status, which is not a failed archive. library picks the library's
-   7z writer, by leaving solid off. */
+   7z writer, with 7-Zip hidden. */
 static void
 check_dangling (const char *tmp, NemoArchiveFormat format, gboolean store, gboolean delete_sources,
 		gboolean split, gboolean library, GtkWidget *window, NemoProgressInfoManager *manager)
@@ -955,6 +958,7 @@ check_dangling (const char *tmp, NemoArchiveFormat format, gboolean store, gbool
 	options.delete_sources = delete_sources;
 	if (library) {
 		options.solid = FALSE;
+		nemo_archive_hide_backend (NEMO_ARCHIVE_BACKEND_7Z, TRUE);
 	}
 	/* One volume, renamed back to the name asked for, so it reads back. */
 	options.split_size = split ? SPLIT_BYTES : 0;
@@ -971,6 +975,7 @@ check_dangling (const char *tmp, NemoArchiveFormat format, gboolean store, gbool
 #endif
 
 	ok = run_single (sources, dest, &options, window, manager, &warnings, &errors, &asked, said);
+	nemo_archive_hide_backend (NEMO_ARCHIVE_BACKEND_7Z, FALSE);
 	check (ok);
 	check (errors == 0);
 
@@ -1437,6 +1442,50 @@ check_patterns (const char *tmp, const char *outside, NemoArchiveFormat format,
 }
 #endif
 
+/* The same cases with the lines in the settings edited the way that once let
+   a pattern through: 7-Zip without -spd, and rar with -r. The app adds what
+   the line needs at run time. */
+static int
+check_edited_lines (const char *tmp, const char *outside,
+		    GtkWidget *window, NemoProgressInfoManager *manager)
+{
+	NemoConfigGroup *group = nemo_config_get_group (NEMO_ARCHIVE_COMMANDS_GROUP);
+	char *edited = g_build_filename (tmp, "edited", NULL);
+	int runs = 0;
+
+	g_mkdir_with_parents (edited, 0700);
+	nemo_config_set_string (group, NEMO_ARCHIVE_COMMAND_KEY_7Z,
+				"{{PROGRAM}} a {{FORMAT}} {{LEVEL}} {{THREADS}} -y -bsp1 -sccUTF-8 "
+				"{{PASSWORD}} {{SPLIT}} {{SOLID}} {{LINKS}} -- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}");
+	nemo_config_set_string (group, NEMO_ARCHIVE_COMMAND_KEY_RAR,
+				"{{PROGRAM}} a -r {{LEVEL}} {{THREADS}} -y -scfr {{PASSWORD}} {{SPLIT}} "
+				"{{SOLID}} {{DEDUPE}} {{RECOVERY}} {{LOCK}} {{LINKS}} -- "
+				"{{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}");
+
+#ifndef G_OS_WIN32
+	if (with_links && nemo_archive_backend_present (NEMO_ARCHIVE_BACKEND_7Z)) {
+		check_patterns (edited, outside, NEMO_ARCHIVE_FORMAT_7Z, window, manager);
+		runs += 2;
+	} else {
+		g_printerr ("note: no 7z command or no links here, edited 7-Zip line not checked\n");
+	}
+#else
+	(void) outside;
+#endif
+	if (nemo_archive_format_available (NEMO_ARCHIVE_FORMAT_RAR)) {
+		check_beside (edited, NEMO_ARCHIVE_FORMAT_RAR, window, manager);
+		runs++;
+	} else {
+		g_printerr ("note: no rar command here, edited rar line not checked\n");
+	}
+
+	nemo_config_reset (group, NEMO_ARCHIVE_COMMAND_KEY_7Z);
+	nemo_config_reset (group, NEMO_ARCHIVE_COMMAND_KEY_RAR);
+	g_free (edited);
+
+	return runs;
+}
+
 /* On Windows the delete goes to the real Recycle Bin, not the scratch trash, and
    every run used to leave some hundreds of items there. Take back out whatever
    came from under this run's home. */
@@ -1575,6 +1624,8 @@ main (int argc, char *argv[])
 							window, manager);
 					number++;
 				}
+				check_dangling (tmp, format, TRUE, FALSE, FALSE, TRUE, window, manager);
+				number++;
 			}
 			check_dangling_alone (tmp, format, window, manager);
 			check_dangling_deep (tmp, format, window, manager);
@@ -1588,6 +1639,7 @@ main (int argc, char *argv[])
 		check_beside (tmp, format, window, manager);
 		number++;
 	}
+	number += check_edited_lines (tmp, outside, window, manager);
 
 	purge_recycled (home);
 
