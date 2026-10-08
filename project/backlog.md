@@ -737,6 +737,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. rj043mnp covers it.
 	- Closed: 20261003-112426
 
+- The sanitizer suite fails the 2 ImageMagick tests on a leak, so every full pipeline run stops at stage 3.
+	- ID: 2026100720031110
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261007-200311
+	- Opened by: full pipeline run
+	- Target OS: Linux
+	- Steps to reproduce: run `cicd/cicd.bash` in full, or `cicd/linux/test-sanitizers.bash` (rjfgk2mp) by itself, on dev at aa50aee.
+	- Incorrect behavior: rhg8y5f0 (`test-nemo-magick`) and rjnz8zfz (`test-nemo-magick-extras`) say "all checks passed", then fail on the leak check: 73 bytes in 17 blocks and 22 bytes in 5 blocks, from `g_malloc`. 166 OK and 12 skipped otherwise.
+	- Expected behavior: the sanitizer suite passes, as it did on 20261005.
+	- Reproduced: 20261007, Linux, at 74285e7. Both tests fail with the same byte counts.
+	- Actual cause: in the 2 tests, not the app. Each has its own copy of a check for whether gdk-pixbuf has a loader by a given name. The copy compares the name gdk-pixbuf hands back and never frees it, once for every loader it looks at. Every byte in both reports comes from there. The check came in with 1e233a2, after the last clean run.
+	- Origin: 1e233a2 (bmp thumbs via magick), 20261007. Confirmed.
+	- Actual fix: one shared loader check in the test library, which frees the name. Both tests use it, and so do the 2 other tests that had their own copy of the same loop.
+	- Swept: every `gdk_pixbuf_format_get_*` call in the tree. The app's 5 free what they get or keep it in a table for good, and the other 2 test copies freed theirs. No allocated string is passed straight into a compare anywhere else in `source/`. The app files changed since the last clean run (`nemo-magick.c`, `nemo-tool-run.c`, `nemo-launch-win32.c`, `nemo-user-text.c`) show no leak; both reports point only at the test copies.
+	- Verified: before the fix, both tests fail under the sanitizers, and the reports name the loader check in each test. After it, both pass, and so do rhf905br and rjffcm7d, which use the shared check now. The whole sanitizer suite passed, 169 OK, 12 skipped, 0 fail. The 4 tests pass on the plain build too. Windows cross build clean.
+	- Branch: magleak
+	- Commit: 1f89301
+	- Test case: rhg8y5f0 and rjnz8zfz in the sanitizer suite (rjfgk2mp). Both fail before the fix and pass after.
+	- Acceptance signoff: Self-closed: a leak in test code, both tests failed before the fix and pass after.
+	- Closed: 20261007-201213
+
 - On Windows, the list of running copies is always empty, so `--quit` and Close All Windows reach no other copy.
 	- ID: 2026100715211104
 	- Type: Bug
