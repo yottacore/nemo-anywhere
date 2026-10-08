@@ -1,7 +1,9 @@
 /* The archive core on its own: no GTK, no display, nothing of the app. Each
  * call it makes on its host reaches the host with the host's data and comes
  * back with the host's answer, and a host that leaves a call out gets a
- * fallback that removes nothing, starts nothing and answers no question. */
+ * fallback that removes nothing, starts nothing and answers no question.
+ * Then the size totals on made-up paths, and nested or other filesystems
+ * from made-up mount tables. */
 
 #include <stdlib.h>
 #include <string.h>
@@ -9,6 +11,8 @@
 #include <gio/gio.h>
 
 #include "arc-host.h"
+#include "arc-mounts.h"
+#include "arc-path-list.h"
 #include "arc-settings.h"
 #include "test-check.h"
 
@@ -449,14 +453,411 @@ check_settings (void)
 	check (copy.lines[ARC_LINE_EXTRACT_RAR] == NULL);
 }
 
+#define SYM ARC_FOLLOW_SYMLINKS
+#define JUNC ARC_FOLLOW_JUNCTIONS
+#define NEST ARC_FOLLOW_NESTED_FS
+#define OTHER ARC_FOLLOW_OTHER_FS
+
+static guint
+mixes_counting (const ArcPathList *list,
+		guint64            bytes)
+{
+	guint64 totals[ARC_MIX_COUNT];
+	guint mixes = 0;
+	guint mix;
+
+	arc_path_list_totals (list, totals);
+	for (mix = 0; mix < ARC_MIX_COUNT; mix++) {
+		if (totals[mix] == bytes) {
+			mixes |= 1u << mix;
+		} else {
+			check (totals[mix] == 0);
+		}
+	}
+	return mixes;
+}
+
+/* The 2 worked examples in "Size totals", each with its paths in both
+   orders, since which path the scan finds first mustn't matter. */
+static void
+check_worked_examples (void)
+{
+	guint order;
+
+	for (order = 0; order < 2; order++) {
+		ArcPathList *list = arc_path_list_new ();
+		guint counted = 0;
+		guint64 bytes = 0;
+
+		/* A file in v2/, also reached through current -> v2. The
+		   direct path needs nothing, so it counts in all 16. */
+		if (order == 0) {
+			check (arc_path_list_add (list, "/sel/v2/a.txt", 100, 0));
+			check (!arc_path_list_add (list, "/sel/v2/a.txt", 100, SYM));
+		} else {
+			check (arc_path_list_add (list, "/sel/v2/a.txt", 100, SYM));
+			check (!arc_path_list_add (list, "/sel/v2/a.txt", 100, 0));
+		}
+		check (mixes_counting (list, 100) == 0xffff);
+		check (arc_path_list_find (list, "/sel/v2/a.txt", &bytes, &counted));
+		check (bytes == 100 && counted == 0xffff);
+		check (arc_path_list_change (list, ARC_FOLLOW_ALL, SYM) == 0);
+		arc_path_list_free (list);
+
+		/* Reached only through a symlink one way and only through a
+		   junction the other: counts wherever either is followed. */
+		list = arc_path_list_new ();
+		if (order == 0) {
+			arc_path_list_add (list, "C:\\data\\b.bin", 7, SYM);
+			arc_path_list_add (list, "C:\\data\\b.bin", 7, JUNC);
+		} else {
+			arc_path_list_add (list, "C:\\data\\b.bin", 7, JUNC);
+			arc_path_list_add (list, "C:\\data\\b.bin", 7, SYM);
+		}
+		check (arc_path_list_count (list) == 1);
+		check (arc_path_list_total (list, 0) == 0);
+		check (arc_path_list_total (list, NEST | OTHER) == 0);
+		check (arc_path_list_total (list, SYM) == 7);
+		check (arc_path_list_total (list, JUNC | OTHER) == 7);
+		/* every mix but the 4 with neither */
+		check (mixes_counting (list, 7) == 0xeeee);
+		/* Turning off either one alone leaves the other way in. */
+		check (arc_path_list_change (list, SYM | JUNC, SYM) == 0);
+		check (arc_path_list_change (list, SYM | JUNC, JUNC) == 0);
+		check (arc_path_list_change (list, SYM, SYM) == 7);
+		check (arc_path_list_change (list, SYM, JUNC) == 0);
+		arc_path_list_free (list);
+	}
+}
+
+/* One path that needs 2 options counts in both changes. A file's bytes come
+   from the first path to it. */
+static void
+check_changes (void)
+{
+	ArcPathList *list = arc_path_list_new ();
+	guint64 bytes = 0;
+
+	arc_path_list_add (list, "/sel/both", 50, SYM | JUNC);
+	arc_path_list_add (list, "/sel/plain", 1000, 0);
+	arc_path_list_add (list, "/sel/far/x", 3, OTHER);
+	arc_path_list_add (list, "/sel/plain", 999999, SYM);
+
+	check (arc_path_list_total (list, 0) == 1000);
+	check (arc_path_list_total (list, SYM | JUNC) == 1050);
+	check (arc_path_list_total (list, ARC_FOLLOW_ALL) == 1053);
+	check (arc_path_list_change (list, SYM | JUNC, SYM) == 50);
+	check (arc_path_list_change (list, SYM | JUNC, JUNC) == 50);
+	check (arc_path_list_change (list, SYM | JUNC, OTHER) == 0);
+	check (arc_path_list_change (list, ARC_FOLLOW_ALL, OTHER) == 3);
+	check (arc_path_list_change (list, ARC_FOLLOW_ALL, NEST) == 0);
+	check (arc_path_list_find (list, "/sel/plain", &bytes, NULL) && bytes == 1000);
+	check (!arc_path_list_find (list, "/sel/plai", NULL, NULL));
+	check (!arc_path_list_find (list, "/sel/plain/", NULL, NULL));
+	check (!arc_path_list_find (list, "", NULL, NULL));
+
+	arc_path_list_free (list);
+}
+
+/* Made-up paths with made-up needs against a plain count of the rule: a mix
+   counts a file when it follows everything one of its paths needs. */
+static void
+check_against_rule (void)
+{
+	ArcPathList *list = arc_path_list_new ();
+	GRand *rand = g_rand_new_with_seed (20261007);
+	enum { FILES = 3000, PATHS = 12000 };
+	guint64 *bytes = g_new0 (guint64, FILES);
+	guint *ways = g_new0 (guint, FILES);	/* one bit per needs value seen */
+	guint64 want[ARC_MIX_COUNT] = { 0 };
+	guint64 got[ARC_MIX_COUNT];
+	guint i, mix, option;
+	int wrong = 0;
+
+	for (i = 0; i < FILES; i++) {
+		bytes[i] = (guint64) g_rand_int_range (rand, 0, 1 << 30) * 7;
+	}
+	for (i = 0; i < PATHS; i++) {
+		guint file = (guint) g_rand_int_range (rand, 0, FILES);
+		guint needs = (guint) g_rand_int_range (rand, 0, ARC_MIX_COUNT);
+		char *path = g_strdup_printf ("/made/up/%u/%u/file-%u", file % 17, file % 5, file);
+		gboolean is_new = arc_path_list_add (list, path, bytes[file], needs);
+
+		if (is_new != (ways[file] == 0)) {
+			wrong++;
+		}
+		ways[file] |= 1u << needs;
+		g_free (path);
+	}
+	for (mix = 0; mix < ARC_MIX_COUNT; mix++) {
+		for (i = 0; i < FILES; i++) {
+			guint needs;
+
+			for (needs = 0; needs < ARC_MIX_COUNT; needs++) {
+				if ((ways[i] & (1u << needs)) && (needs & ~mix) == 0) {
+					want[mix] += bytes[i];
+					break;
+				}
+			}
+		}
+	}
+	arc_path_list_totals (list, got);
+	for (mix = 0; mix < ARC_MIX_COUNT; mix++) {
+		if (got[mix] != want[mix]) {
+			wrong++;
+		}
+		for (option = 1; option < ARC_MIX_COUNT; option <<= 1) {
+			guint64 change = (mix & option) ? want[mix] - want[mix & ~option] : 0;
+
+			if (arc_path_list_change (list, mix, option) != change) {
+				wrong++;
+			}
+		}
+	}
+	check (wrong == 0);
+	check (want[ARC_FOLLOW_ALL] > want[0] && want[0] > 0);
+
+	g_rand_free (rand);
+	g_free (bytes);
+	g_free (ways);
+	arc_path_list_free (list);
+}
+
+/* Enough paths to grow everything many times over, each found again, and
+   each found once only. */
+static void
+check_many_paths (guint n)
+{
+	ArcPathList *list = arc_path_list_new ();
+	char path[200];
+	guint i;
+	int wrong = 0;
+	guint64 bytes;
+
+	for (i = 0; i < n; i++) {
+		g_snprintf (path, sizeof path, "/home/someone/photos/%u/%u/IMG_%08u.jpg", i % 97, i % 13, i);
+		if (!arc_path_list_add (list, path, i, 0)) {
+			wrong++;
+		}
+	}
+	for (i = 0; i < n; i++) {
+		g_snprintf (path, sizeof path, "/home/someone/photos/%u/%u/IMG_%08u.jpg", i % 97, i % 13, i);
+		if (!arc_path_list_find (list, path, &bytes, NULL) || bytes != i) {
+			wrong++;
+		}
+		if (arc_path_list_add (list, path, 0, SYM)) {
+			wrong++;
+		}
+	}
+	g_snprintf (path, sizeof path, "/home/someone/photos/0/0/IMG_%08u.jpg", n);
+	check (!arc_path_list_find (list, path, NULL, NULL));
+	check (wrong == 0);
+	check (arc_path_list_count (list) == n);
+	check (arc_path_list_total (list, 0) == (guint64) n * (n - 1) / 2);
+
+	arc_path_list_free (list);
+}
+
+/* Resident KB, where there is a /proc to ask. 0 elsewhere. */
+static guint64
+resident_kb (void)
+{
+	char *text = NULL;
+	const char *line;
+	guint64 kb = 0;
+
+	if (g_file_get_contents ("/proc/self/status", &text, NULL, NULL) &&
+	    (line = strstr (text, "VmRSS:")) != NULL) {
+		kb = g_ascii_strtoull (line + 6, NULL, 10);
+	}
+	g_free (text);
+	return kb;
+}
+
+/* test-arc-core bench N: N made-up paths in, then each found in another
+   order. */
+static int
+bench (guint n)
+{
+	ArcPathList *list;
+	GPtrArray *paths = g_ptr_array_new_with_free_func (g_free);
+	gint64 start, added, found;
+	guint64 kb;
+	guint i, hits = 0;
+
+	for (i = 0; i < n; i++) {
+		g_ptr_array_add (paths, g_strdup_printf ("/mnt/data/projects/p%04u/src/module_%03u/file_%08u.c",
+							 i % 5000, i % 300, i));
+	}
+	kb = resident_kb ();
+	start = g_get_monotonic_time ();
+	list = arc_path_list_new ();
+	for (i = 0; i < n; i++) {
+		arc_path_list_add (list, paths->pdata[i], i, i & ARC_FOLLOW_ALL);
+	}
+	added = g_get_monotonic_time ();
+	kb = resident_kb () - kb;
+	for (i = 0; i < n; i++) {
+		hits += arc_path_list_find (list, paths->pdata[(i * 7919u) % n], NULL, NULL);
+	}
+	found = g_get_monotonic_time ();
+
+	g_print ("%u paths: add %.0f ms (%.0f ns each), find %.0f ms (%.0f ns each), %u found, "
+		 "%" G_GUINT64_FORMAT " MB (%.0f bytes each)\n",
+		 n, (added - start) / 1000.0, (added - start) * 1000.0 / n,
+		 (found - added) / 1000.0, (found - added) * 1000.0 / n, hits,
+		 kb / 1024, kb * 1024.0 / n);
+
+	g_ptr_array_unref (paths);
+	arc_path_list_free (list);
+	return hits == n ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+static void
+check_mounts_posix (void)
+{
+	const ArcMountEntry entries[] = {
+		{ "/", "/dev/sda1", "ext4" },
+		{ "/tank", "tank", "zfs" },
+		{ "/tank/data", "tank/data", "zfs" },
+		{ "/tank/data/.zfs/snapshot/s1", "tank/data@s1", "zfs" },
+		{ "/backup", "backup/main", "zfs" },
+		{ "/mnt/b", "/dev/sdb1", "btrfs" },
+		{ "/mnt/b/home", "/dev/sdb1", "btrfs" },
+		{ "/mnt/c", "/dev/sdc1", "btrfs" },
+		{ "/srv/www", "/dev/sda1", "ext4" },
+		{ "/tmp", "tmpfs", "tmpfs" },
+		{ "/run", "tmpfs", "tmpfs" },
+		{ "/nas", "server:/export", "nfs4" },
+		{ "/nas/again", "server:/export", "nfs4" },
+		{ "/mnt/over", "/dev/sdd1", "ext4" },
+		{ "/mnt/over", "tank/over", "zfs" },
+		{ "/Volumes/Data", "/dev/disk3s5", "apfs" },
+		{ "/Volumes/Sys", "/dev/disk3s1s1", "apfs" },
+		{ "/Volumes/Stick", "/dev/disk4s1", "apfs" },
+		{ "/odd dir", "/dev/sde1", "xfs" },
+	};
+	ArcMountTable *table = arc_mount_table_new (entries, G_N_ELEMENTS (entries), FALSE);
+	ArcMountTable *none = arc_mount_table_new (NULL, 0, FALSE);
+
+	check (arc_mount_table_kind (table, "/home/me", "/home/me/docs") == ARC_FS_SAME);
+	check (arc_mount_table_kind (table, "/home/me", "/") == ARC_FS_SAME);
+	check (arc_mount_table_kind (table, "/", "/tankard/x") == ARC_FS_SAME);
+	check (arc_mount_table_kind (table, "/home/me", "/tank") == ARC_FS_OTHER);
+	check (arc_mount_table_kind (table, "/tank", "/tank/x/y") == ARC_FS_SAME);
+	check (arc_mount_table_kind (table, "/tank/x", "/tank/data/y") == ARC_FS_NESTED);
+	check (arc_mount_table_kind (table, "/tank/data", "/tank/x") == ARC_FS_NESTED);
+	check (arc_mount_table_kind (table, "/tank/data/", "/tank/data/.zfs/snapshot/s1/f") == ARC_FS_NESTED);
+	check (arc_mount_table_kind (table, "/tank", "/backup/x") == ARC_FS_OTHER);
+	check (arc_mount_table_kind (table, "/mnt/b", "/mnt/b/home/me") == ARC_FS_NESTED);
+	check (arc_mount_table_kind (table, "/mnt/b", "/mnt/c") == ARC_FS_OTHER);
+	check (arc_mount_table_kind (table, "/mnt/b", "/mnt/b/homework") == ARC_FS_SAME);
+	check (arc_mount_table_kind (table, "/home", "/srv/www/index.html") == ARC_FS_NESTED);
+	check (arc_mount_table_kind (table, "/home", "/tmp/x") == ARC_FS_OTHER);
+	check (arc_mount_table_kind (table, "/tmp", "/run/x") == ARC_FS_OTHER);
+	check (arc_mount_table_kind (table, "/nas/a", "/nas/again/b") == ARC_FS_OTHER);
+	check (arc_mount_table_kind (table, "/nas/a", "/nas/b") == ARC_FS_SAME);
+	check (arc_mount_table_kind (table, "/home", "/nas") == ARC_FS_OTHER);
+	/* The later mount at one place is the one on top. */
+	check (arc_mount_table_kind (table, "/tank", "/mnt/over/x") == ARC_FS_NESTED);
+	check (arc_mount_table_kind (table, "/Volumes/Data", "/Volumes/Sys/x") == ARC_FS_NESTED);
+	check (arc_mount_table_kind (table, "/Volumes/Data", "/Volumes/Stick") == ARC_FS_OTHER);
+	check (arc_mount_table_kind (table, "/", "/odd dir/x") == ARC_FS_OTHER);
+	check (arc_mount_table_is_mount_point (table, "/tank/data/"));
+	check (arc_mount_table_is_mount_point (table, "/"));
+	check (!arc_mount_table_is_mount_point (table, "/tank/data/x"));
+	/* Paths are case sensitive here. */
+	check (arc_mount_table_kind (table, "/", "/TANK/x") == ARC_FS_SAME);
+	check (arc_mount_table_kind (none, "/a", "/b") == ARC_FS_SAME);
+
+	arc_mount_table_free (table);
+	arc_mount_table_free (none);
+}
+
+static void
+check_mounts_windows (void)
+{
+	const ArcMountEntry entries[] = {
+		{ "\\\\?\\Volume{aaaa}\\", "\\\\?\\Volume{aaaa}\\", NULL },
+		{ "C:\\", "\\\\?\\Volume{aaaa}\\", NULL },
+		{ "\\\\?\\Volume{bbbb}\\", "\\\\?\\Volume{bbbb}\\", NULL },
+		{ "D:\\", "\\\\?\\Volume{bbbb}\\", NULL },
+		{ "C:\\mnt\\d\\", "\\\\?\\Volume{bbbb}\\", NULL },
+		/* Nothing is nested on Windows, whatever it is. */
+		{ "E:\\", "\\\\?\\Volume{cccc}\\", "zfs" },
+		{ "C:\\mnt\\e\\", "\\\\?\\Volume{cccc}\\", "zfs" },
+	};
+	ArcMountTable *table = arc_mount_table_new (entries, G_N_ELEMENTS (entries), TRUE);
+
+	check (arc_mount_table_kind (table, "C:\\Users\\me", "c:/users/ME/x") == ARC_FS_SAME);
+	check (arc_mount_table_kind (table, "C:\\Users", "D:\\x") == ARC_FS_OTHER);
+	check (arc_mount_table_kind (table, "C:\\Users", "C:\\mnt\\d\\x") == ARC_FS_OTHER);
+	check (arc_mount_table_kind (table, "C:\\Users", "C:\\mnt\\dx") == ARC_FS_SAME);
+	check (arc_mount_table_kind (table, "D:\\", "C:\\mnt\\d\\x") == ARC_FS_SAME);
+	check (arc_mount_table_kind (table, "E:\\", "C:\\mnt\\e") == ARC_FS_SAME);
+	check (arc_mount_table_kind (table, "D:\\", "C:\\mnt\\e") == ARC_FS_OTHER);
+	check (arc_mount_table_kind (table, "C:\\x", "\\\\?\\Volume{AAAA}\\y") == ARC_FS_SAME);
+	check (arc_mount_table_kind (table, "C:\\x", "\\??\\Volume{bbbb}\\y") == ARC_FS_OTHER);
+	check (arc_mount_table_kind (table, "C:\\x", "\\\\?\\C:\\y") == ARC_FS_SAME);
+	check (arc_mount_table_kind (table, "\\\\?\\D:\\x", "C:\\mnt\\d") == ARC_FS_SAME);
+	/* A share or a mapped drive has no volume. Told apart by root alone. */
+	check (arc_mount_table_kind (table, "C:\\x", "\\\\nas\\share\\y") == ARC_FS_OTHER);
+	check (arc_mount_table_kind (table, "\\\\nas\\share\\x", "\\\\NAS\\Share\\y\\z") == ARC_FS_SAME);
+	check (arc_mount_table_kind (table, "\\\\nas\\share\\x", "\\\\?\\UNC\\nas\\share") == ARC_FS_SAME);
+	check (arc_mount_table_kind (table, "\\\\nas\\share", "\\\\nas\\other") == ARC_FS_OTHER);
+	check (arc_mount_table_kind (table, "Z:\\x", "z:/y") == ARC_FS_SAME);
+	check (arc_mount_table_kind (table, "Z:\\x", "Y:\\x") == ARC_FS_OTHER);
+	check (arc_mount_table_kind (table, "Z:\\x", "C:\\x") == ARC_FS_OTHER);
+	/* Where a volume is mounted, by any of its names. */
+	check (arc_mount_table_is_mount_point (table, "\\??\\Volume{BBBB}\\"));
+	check (arc_mount_table_is_mount_point (table, "d:"));
+	check (arc_mount_table_is_mount_point (table, "C:/mnt/d"));
+	check (!arc_mount_table_is_mount_point (table, "C:\\mnt"));
+	check (!arc_mount_table_is_mount_point (table, "C:\\mnt\\d\\x"));
+	/* Only a target naming a volume makes a reparse point a mount point. */
+	check (arc_target_is_volume ("\\??\\Volume{0d1c2b3a-0000-0000-0000-100000000000}\\"));
+	check (arc_target_is_volume ("\\\\?\\volume{x}"));
+	check (!arc_target_is_volume ("\\??\\Volume{x}\\folder"));
+	check (!arc_target_is_volume ("\\??\\C:\\"));
+	check (!arc_target_is_volume ("D:\\"));
+	check (!arc_target_is_volume ("\\??\\Volume{"));
+	check (!arc_target_is_volume ("\\\\?\\Volume}"));
+	check (!arc_target_is_volume (""));
+
+	arc_mount_table_free (table);
+}
+
+/* The real table. All that can be said of every box is that a folder is on
+   its own filesystem. */
+static void
+check_mounts_read (void)
+{
+	ArcMountTable *table = arc_mount_table_read ();
+	char *here = g_get_current_dir ();
+	char *below = g_build_filename (here, "x", NULL);
+
+	check (table != NULL);
+	check (arc_mount_table_kind (table, here, here) == ARC_FS_SAME);
+	check (arc_mount_table_kind (table, here, below) == ARC_FS_SAME);
+
+	g_free (here);
+	g_free (below);
+	arc_mount_table_free (table);
+}
+
 int
-main (void)
+main (int    argc,
+      char **argv)
 {
 	ArcHost empty = { 0 };
 	GError *error = NULL;
 	char *path = NULL;
 	GFile *file;
 	int fd;
+
+	if (argc == 3 && strcmp (argv[1], "bench") == 0) {
+		return bench ((guint) g_ascii_strtoull (argv[2], NULL, 10));
+	}
 
 	g_log_set_handler ("Archive core", G_LOG_LEVEL_WARNING, count_warning, NULL);
 
@@ -473,6 +874,13 @@ main (void)
 	check_fallbacks (&empty, file);
 	check_forwarding (file);
 	check_settings ();
+	check_worked_examples ();
+	check_changes ();
+	check_against_rule ();
+	check_many_paths (200000);
+	check_mounts_posix ();
+	check_mounts_windows ();
+	check_mounts_read ();
 
 	g_object_unref (file);
 	g_remove (path);
