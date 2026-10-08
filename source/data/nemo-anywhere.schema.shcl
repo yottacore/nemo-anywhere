@@ -61,12 +61,23 @@ field: archive.last-dedupe
 field: archive.last-follow-links
 	type: bool
 	default: false
+	desc: Replaced by last-symlinks. Read once, then dropped
+
+field: archive.last-follow-nested
+	type: bool
+	default: true
 	desc: What the Compress dialog starts from next time
 
 field: archive.last-format
 	type: string
 	default: zip
 	desc: What the Compress dialog starts from next time
+
+field: archive.last-junctions
+	type: string
+	allowed: like-symlinks, ignore, follow, store-as-junctions, store-as-symlinks
+	default: like-symlinks
+	desc: What the Compress dialog starts from next time. Windows only
 
 field: archive.last-level
 	type: int
@@ -101,6 +112,12 @@ field: archive.last-split-size
 field: archive.last-store-links
 	type: bool
 	default: true
+	desc: Replaced by last-symlinks. Read once, then dropped
+
+field: archive.last-symlinks
+	type: string
+	allowed: ignore, follow, store-as-symlinks
+	default: ignore
 	desc: What the Compress dialog starts from next time
 
 field: compact-view.all-columns-have-same-width

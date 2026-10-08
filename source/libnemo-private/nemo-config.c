@@ -1840,6 +1840,25 @@ key_is_stored (const NemoConfigKey *k)
 	return key_status (k) != SHCL_NOT_FOUND;
 }
 
+gboolean
+nemo_config_is_set (NemoConfigGroup *group, const char *key)
+{
+	const NemoConfigKey *k;
+
+	if (group == NULL) {
+		g_critical ("nemo-config: '%s' read before the config store was opened", key);
+		return FALSE;
+	}
+
+	k = find_key (group->name, key);
+	if (k == NULL) {
+		g_critical ("nemo-config: no such key '%s' in group '%s'",
+		            key, group->name);
+		return FALSE;
+	}
+	return key_is_stored (k);
+}
+
 void
 nemo_config_reset_all (void)
 {

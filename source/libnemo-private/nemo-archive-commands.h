@@ -55,11 +55,25 @@
 #define NEMO_ARCHIVE_STATE_KEY_SPLIT_SIZE   "last-split-size"
 #define NEMO_ARCHIVE_STATE_KEY_SOLID        "last-solid"
 #define NEMO_ARCHIVE_STATE_KEY_DEDUPE       "last-dedupe"
-#define NEMO_ARCHIVE_STATE_KEY_STORE_LINKS  "last-store-links"
-#define NEMO_ARCHIVE_STATE_KEY_FOLLOW_LINKS "last-follow-links"
+#define NEMO_ARCHIVE_STATE_KEY_SYMLINKS      "last-symlinks"
+#define NEMO_ARCHIVE_STATE_KEY_JUNCTIONS     "last-junctions"
+#define NEMO_ARCHIVE_STATE_KEY_FOLLOW_NESTED "last-follow-nested"
 #define NEMO_ARCHIVE_STATE_KEY_RECOVERY     "last-recovery"
 #define NEMO_ARCHIVE_STATE_KEY_LOCK         "last-lock"
 #define NEMO_ARCHIVE_STATE_KEY_EACH         "last-each"
+
+/* Follow other filesystems has no key. It's never on by default, so it isn't
+   remembered either. */
+
+/* Junctions takes its default from Symlinks until it's changed by hand. */
+#define NEMO_ARCHIVE_JUNCTIONS_LIKE_SYMLINKS (-1)
+
+/* The 2 boxes Symlinks replaced. Read once, mapped over and dropped, by
+   nemo_archive_link_options_load. */
+#define NEMO_ARCHIVE_STATE_KEY_STORE_LINKS  "last-store-links"
+#define NEMO_ARCHIVE_STATE_KEY_FOLLOW_LINKS "last-follow-links"
+#define NEMO_ARCHIVE_RETIRED_LINK_KEY \
+	"Replaced by last-symlinks. Read once, then dropped"
 
 #define NEMO_ARCHIVE_STATE_DEFAULT_FORMAT      "zip"
 #define NEMO_ARCHIVE_STATE_DEFAULT_SPLIT_SIZE  "2 GiB"

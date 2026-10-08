@@ -35,6 +35,7 @@
 #include <gio/gio.h>
 
 #include "nemo-tool-run.h"
+#include "arc-link-options.h"
 
 typedef enum {
 	NEMO_ARCHIVE_FORMAT_ZIP,
@@ -116,6 +117,12 @@ char    *nemo_archive_find_command (const char * const *names,
 NemoArchiveCaps    nemo_archive_backend_caps     (NemoArchiveFormat  format,
 						  NemoArchiveBackend backend);
 gboolean           nemo_archive_backend_present  (NemoArchiveBackend backend);
+/* The ArcLinkStores a writer has, from whether it claims to store links. A
+   store choice outside them is Ignore for that writer. The format's is the
+   union over the writers installed. */
+guint              nemo_archive_backend_link_stores (NemoArchiveFormat  format,
+						     NemoArchiveBackend backend);
+guint              nemo_archive_format_link_stores  (NemoArchiveFormat  format);
 NemoArchiveBackend nemo_archive_pick_backend     (NemoArchiveFormat         format,
 						  const NemoArchiveOptions *options);
 
