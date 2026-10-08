@@ -4,6 +4,7 @@ nemo_private_sources = [
   'nemo-appearance.c',
   'nemo-action.c',
   'nemo-archive.c',
+  'nemo-archive-host.c',
   'nemo-bookmark.c',
   'nemo-cell-renderer-disk.c',
   'nemo-centered-placement-grid.c',
@@ -110,7 +111,7 @@ nemo_private_sources = [
 ]
 
 nemo_private_deps = [
-  archive, blake3, eel, execinfo, gail, gio_unix, glib, gmodule, gtk, json, math,
+  arc_core, archive, blake3, eel, execinfo, gail, gio_unix, glib, gmodule, gtk, json, math,
   nemo_extension, sqlite, win_shell, x11
 ]
 

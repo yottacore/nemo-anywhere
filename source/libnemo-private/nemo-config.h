@@ -138,6 +138,8 @@ void       nemo_config_set_enum    (NemoConfigGroup *group, const char *key, gin
 
 /* Drop the key so its default applies again. */
 void       nemo_config_reset       (NemoConfigGroup *group, const char *key);
+/* TRUE when the file has the key, so a read gives its value, not the default. */
+gboolean   nemo_config_is_set      (NemoConfigGroup *group, const char *key);
 /* Drop every stored key - what --reset does. */
 void       nemo_config_reset_all   (void);
 /* Drop stored values naming a POSIX absolute path. Windows only, and only for

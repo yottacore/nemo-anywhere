@@ -444,6 +444,48 @@ nemo_archive_format_caps (NemoArchiveFormat format)
 	return caps;
 }
 
+/* A writer that claims to store links stores a symlink as one. What becomes
+   of a junction follows from how it keeps links: the library writes every
+   link as a symlink, and rar's -ol keeps a junction a junction. 7-Zip claims
+   links only where there are no junctions. */
+guint
+nemo_archive_backend_link_stores (NemoArchiveFormat  format,
+				  NemoArchiveBackend backend)
+{
+	if ((nemo_archive_backend_caps (format, backend) & NEMO_ARCHIVE_CAP_STORE_LINKS) == 0) {
+		return 0;
+	}
+
+	switch (backend) {
+	case NEMO_ARCHIVE_BACKEND_LIBARCHIVE:
+		return ARC_STORES_SYMLINKS | ARC_STORES_JUNCTIONS_AS_SYMLINKS;
+	case NEMO_ARCHIVE_BACKEND_RAR:
+		return ARC_STORES_SYMLINKS | ARC_STORES_JUNCTIONS;
+	case NEMO_ARCHIVE_BACKEND_7Z:
+		return ARC_STORES_SYMLINKS;
+	case NEMO_ARCHIVE_BACKEND_NONE:
+	default:
+		return 0;
+	}
+}
+
+guint
+nemo_archive_format_link_stores (NemoArchiveFormat format)
+{
+	guint stores = 0;
+	guint i;
+
+	g_return_val_if_fail (format_is_valid (format), 0);
+
+	for (i = 0; i < G_N_ELEMENTS (backend_order); i++) {
+		if (nemo_archive_backend_present (backend_order[i])) {
+			stores |= nemo_archive_backend_link_stores (format, backend_order[i]);
+		}
+	}
+
+	return stores;
+}
+
 /* Two kinds of option. Encryption and splitting change whether the archive is
    what was asked for at all, so a backend that cannot do them is not a
    candidate - writing a readable archive when one was asked to be locked is the

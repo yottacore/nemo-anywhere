@@ -35,6 +35,7 @@
 #include <eel/eel-stock-dialogs.h>
 #include <libnemo-private/nemo-archive.h>
 #include <libnemo-private/nemo-archive-commands.h>
+#include <libnemo-private/nemo-archive-host.h>
 #include <libnemo-private/nemo-config.h>
 #include <libnemo-private/nemo-global-preferences.h>
 
@@ -63,6 +64,10 @@ typedef struct {
 
 	GtkWidget *compress_button;
 	GtkWidget *options_scroll;
+
+	/* The link choices as remembered. Only Symlinks has boxes here yet, so
+	   the rest go back to the settings as they came. */
+	ArcLinkOptions links;
 
 	GList     *files;		/* GFile *, owned */
 	gboolean   whole_folder;	/* the selection is all the folder shows */
@@ -509,7 +514,7 @@ build_options (ArchiveDialog *self,
 	self->dedupe_check = add_check (grid, row++, _("Store _duplicate files once"), FALSE);
 
 	self->store_links_check = add_check (grid, row++,
-					     _("Store s_ymlinks and junctions as links"), TRUE);
+					     _("Store s_ymlinks and junctions as links"), FALSE);
 	g_signal_connect (self->store_links_check, "toggled", G_CALLBACK (option_toggled), self);
 
 	self->follow_links_check = add_check (grid, row++,
@@ -545,8 +550,11 @@ restore_remembered (ArchiveDialog *self)
 	set_check (self->split_check, group, NEMO_ARCHIVE_STATE_KEY_SPLIT);
 	set_check (self->solid_check, group, NEMO_ARCHIVE_STATE_KEY_SOLID);
 	set_check (self->dedupe_check, group, NEMO_ARCHIVE_STATE_KEY_DEDUPE);
-	set_check (self->store_links_check, group, NEMO_ARCHIVE_STATE_KEY_STORE_LINKS);
-	set_check (self->follow_links_check, group, NEMO_ARCHIVE_STATE_KEY_FOLLOW_LINKS);
+	nemo_archive_link_options_load (&self->links);
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (self->store_links_check),
+				      self->links.symlinks == ARC_LINK_STORE_SYMLINK);
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (self->follow_links_check),
+				      self->links.symlinks == ARC_LINK_FOLLOW);
 	set_check (self->recovery_check, group, NEMO_ARCHIVE_STATE_KEY_RECOVERY);
 	set_check (self->lock_check, group, NEMO_ARCHIVE_STATE_KEY_LOCK);
 
@@ -588,8 +596,10 @@ remember_settings (ArchiveDialog *self)
 	save_check (self->split_check, group, NEMO_ARCHIVE_STATE_KEY_SPLIT);
 	save_check (self->solid_check, group, NEMO_ARCHIVE_STATE_KEY_SOLID);
 	save_check (self->dedupe_check, group, NEMO_ARCHIVE_STATE_KEY_DEDUPE);
-	save_check (self->store_links_check, group, NEMO_ARCHIVE_STATE_KEY_STORE_LINKS);
-	save_check (self->follow_links_check, group, NEMO_ARCHIVE_STATE_KEY_FOLLOW_LINKS);
+	arc_link_options_set_symlinks (&self->links, arc_link_choice_from_boxes (
+		gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (self->store_links_check)),
+		gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (self->follow_links_check))));
+	nemo_archive_link_options_save (&self->links);
 	save_check (self->recovery_check, group, NEMO_ARCHIVE_STATE_KEY_RECOVERY);
 	save_check (self->lock_check, group, NEMO_ARCHIVE_STATE_KEY_LOCK);
 	save_check (self->each_check, group, NEMO_ARCHIVE_STATE_KEY_EACH);
@@ -826,6 +836,7 @@ nemo_archive_dialog_show (GtkWindow *parent_window,
 	g_return_if_fail (files != NULL);
 
 	self = g_new0 (ArchiveDialog, 1);
+	arc_link_options_init (&self->links);
 
 	for (l = files; l != NULL; l = l->next) {
 		self->files = g_list_prepend (self->files, g_object_ref (G_FILE (l->data)));

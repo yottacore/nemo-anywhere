@@ -8,6 +8,7 @@
 
 #include "nemo-config.h"
 #include "nemo-archive-commands.h"
+#include "arc-link-options.h"
 
 static const NemoConfigEnumValue enum_ActivationChoice[] = {
 	{ "launch", 0 },
@@ -26,6 +27,22 @@ static const NemoConfigEnumValue enum_AppearanceMode[] = {
 static const NemoConfigEnumValue enum_ClickPolicy[] = {
 	{ "single", 0 },
 	{ "double", 1 },
+	{ NULL, 0 }
+};
+
+static const NemoConfigEnumValue enum_ArchiveSymlinks[] = {
+	{ "ignore", ARC_LINK_IGNORE },
+	{ "follow", ARC_LINK_FOLLOW },
+	{ "store-as-symlinks", ARC_LINK_STORE_SYMLINK },
+	{ NULL, 0 }
+};
+
+static const NemoConfigEnumValue enum_ArchiveJunctions[] = {
+	{ "like-symlinks", NEMO_ARCHIVE_JUNCTIONS_LIKE_SYMLINKS },
+	{ "ignore", ARC_LINK_IGNORE },
+	{ "follow", ARC_LINK_FOLLOW },
+	{ "store-as-junctions", ARC_LINK_STORE_JUNCTION },
+	{ "store-as-symlinks", ARC_LINK_STORE_SYMLINK },
 	{ NULL, 0 }
 };
 
@@ -132,15 +149,18 @@ static const NemoConfigKey nemo_config_keys[] = {
 	{ NEMO_ARCHIVE_COMMANDS_GROUP, NEMO_ARCHIVE_STATE_KEY_EACH, NEMO_CONFIG_BOOL, "false", NULL, NULL, "What the Compress dialog starts from next time", NEMO_CONFIG_KEY_STATE },
 	{ NEMO_ARCHIVE_COMMANDS_GROUP, NEMO_ARCHIVE_STATE_KEY_ENCRYPT_NAMES, NEMO_CONFIG_BOOL, "false", NULL, NULL, "What the Compress dialog starts from next time", NEMO_CONFIG_KEY_STATE },
 	{ NEMO_ARCHIVE_COMMANDS_GROUP, NEMO_ARCHIVE_STATE_KEY_DEDUPE, NEMO_CONFIG_BOOL, "false", NULL, NULL, "What the Compress dialog starts from next time", NEMO_CONFIG_KEY_STATE },
-	{ NEMO_ARCHIVE_COMMANDS_GROUP, NEMO_ARCHIVE_STATE_KEY_FOLLOW_LINKS, NEMO_CONFIG_BOOL, "false", NULL, NULL, "What the Compress dialog starts from next time", NEMO_CONFIG_KEY_STATE },
+	{ NEMO_ARCHIVE_COMMANDS_GROUP, NEMO_ARCHIVE_STATE_KEY_FOLLOW_LINKS, NEMO_CONFIG_BOOL, "false", NULL, NULL, NEMO_ARCHIVE_RETIRED_LINK_KEY, NEMO_CONFIG_KEY_STATE },
+	{ NEMO_ARCHIVE_COMMANDS_GROUP, NEMO_ARCHIVE_STATE_KEY_FOLLOW_NESTED, NEMO_CONFIG_BOOL, "true", NULL, NULL, "What the Compress dialog starts from next time", NEMO_CONFIG_KEY_STATE },
 	{ NEMO_ARCHIVE_COMMANDS_GROUP, NEMO_ARCHIVE_STATE_KEY_FORMAT, NEMO_CONFIG_STRING, NEMO_ARCHIVE_STATE_DEFAULT_FORMAT, NULL, NULL, "What the Compress dialog starts from next time", NEMO_CONFIG_KEY_STATE },
+	{ NEMO_ARCHIVE_COMMANDS_GROUP, NEMO_ARCHIVE_STATE_KEY_JUNCTIONS, NEMO_CONFIG_ENUM, "like-symlinks", NULL, enum_ArchiveJunctions, "What the Compress dialog starts from next time. Windows only", NEMO_CONFIG_KEY_STATE },
 	{ NEMO_ARCHIVE_COMMANDS_GROUP, NEMO_ARCHIVE_STATE_KEY_LEVEL, NEMO_CONFIG_INT, "5", NULL, NULL, "What the Compress dialog starts from next time", NEMO_CONFIG_KEY_STATE },
 	{ NEMO_ARCHIVE_COMMANDS_GROUP, NEMO_ARCHIVE_STATE_KEY_LOCK, NEMO_CONFIG_BOOL, "false", NULL, NULL, "What the Compress dialog starts from next time", NEMO_CONFIG_KEY_STATE },
 	{ NEMO_ARCHIVE_COMMANDS_GROUP, NEMO_ARCHIVE_STATE_KEY_RECOVERY, NEMO_CONFIG_BOOL, "true", NULL, NULL, "What the Compress dialog starts from next time", NEMO_CONFIG_KEY_STATE },
 	{ NEMO_ARCHIVE_COMMANDS_GROUP, NEMO_ARCHIVE_STATE_KEY_SOLID, NEMO_CONFIG_BOOL, "false", NULL, NULL, "What the Compress dialog starts from next time", NEMO_CONFIG_KEY_STATE },
 	{ NEMO_ARCHIVE_COMMANDS_GROUP, NEMO_ARCHIVE_STATE_KEY_SPLIT, NEMO_CONFIG_BOOL, "false", NULL, NULL, "What the Compress dialog starts from next time", NEMO_CONFIG_KEY_STATE },
 	{ NEMO_ARCHIVE_COMMANDS_GROUP, NEMO_ARCHIVE_STATE_KEY_SPLIT_SIZE, NEMO_CONFIG_STRING, NEMO_ARCHIVE_STATE_DEFAULT_SPLIT_SIZE, NULL, NULL, "What the Compress dialog starts from next time", NEMO_CONFIG_KEY_STATE },
-	{ NEMO_ARCHIVE_COMMANDS_GROUP, NEMO_ARCHIVE_STATE_KEY_STORE_LINKS, NEMO_CONFIG_BOOL, "true", NULL, NULL, "What the Compress dialog starts from next time", NEMO_CONFIG_KEY_STATE },
+	{ NEMO_ARCHIVE_COMMANDS_GROUP, NEMO_ARCHIVE_STATE_KEY_STORE_LINKS, NEMO_CONFIG_BOOL, "true", NULL, NULL, NEMO_ARCHIVE_RETIRED_LINK_KEY, NEMO_CONFIG_KEY_STATE },
+	{ NEMO_ARCHIVE_COMMANDS_GROUP, NEMO_ARCHIVE_STATE_KEY_SYMLINKS, NEMO_CONFIG_ENUM, "ignore", NULL, enum_ArchiveSymlinks, "What the Compress dialog starts from next time", NEMO_CONFIG_KEY_STATE },
 	{ "compact-view", "all-columns-have-same-width", NEMO_CONFIG_BOOL, "false", NULL, NULL, NULL, NEMO_CONFIG_KEY_NONE },
 	{ "compact-view", "default-icon-size", NEMO_CONFIG_INT, "100", NULL, NULL, "Icon size as a per cent of the standard 64 pixels", NEMO_CONFIG_KEY_NONE },
 	{ "debug", "testguard-all-deletes", NEMO_CONFIG_BOOL, "true", NULL, NULL, "Ask before every trash and delete, naming the code that asked. Scaffolding for finding a removal nothing accounts for", NEMO_CONFIG_KEY_NONE },

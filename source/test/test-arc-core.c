@@ -2,8 +2,8 @@
  * call it makes on its host reaches the host with the host's data and comes
  * back with the host's answer, and a host that leaves a call out gets a
  * fallback that removes nothing, starts nothing and answers no question.
- * Then the size totals on made-up paths, and nested or other filesystems
- * from made-up mount tables. */
+ * Then the size totals on made-up paths, nested or other filesystems from
+ * made-up mount tables, and the link choices against what a writer stores. */
 
 #include <stdlib.h>
 #include <string.h>
@@ -11,6 +11,7 @@
 #include <gio/gio.h>
 
 #include "arc-host.h"
+#include "arc-link-options.h"
 #include "arc-mounts.h"
 #include "arc-path-list.h"
 #include "arc-settings.h"
@@ -458,6 +459,115 @@ check_settings (void)
 #define NEST ARC_FOLLOW_NESTED_FS
 #define OTHER ARC_FOLLOW_OTHER_FS
 
+#define J2J ARC_STORES_JUNCTIONS
+#define J2S ARC_STORES_JUNCTIONS_AS_SYMLINKS
+#define S2S ARC_STORES_SYMLINKS
+
+/* "Junction defaults" in the compression design doc, row by row. */
+static void
+check_junction_table (void)
+{
+	static const struct {
+		guint         stores;
+		ArcLinkChoice want;
+	} rows[] = {
+		{ J2J,       ARC_LINK_STORE_JUNCTION },
+		{ J2J | J2S, ARC_LINK_STORE_JUNCTION },
+		{ J2S,       ARC_LINK_STORE_SYMLINK },
+		{ 0,         ARC_LINK_IGNORE },
+	};
+	guint i;
+
+	for (i = 0; i < G_N_ELEMENTS (rows); i++) {
+		guint stores = rows[i].stores | S2S;
+		ArcLinkOptions options;
+
+		check (arc_junctions_default (ARC_LINK_STORE_SYMLINK, stores) == rows[i].want);
+		check (arc_junctions_default (ARC_LINK_STORE_SYMLINK, rows[i].stores) == rows[i].want);
+		check (arc_junctions_default (ARC_LINK_IGNORE, stores) == ARC_LINK_IGNORE);
+		check (arc_junctions_default (ARC_LINK_FOLLOW, stores) == ARC_LINK_FOLLOW);
+
+		/* The same through the options, with Junctions never touched. */
+		arc_link_options_init (&options);
+		arc_link_options_set_symlinks (&options, ARC_LINK_STORE_SYMLINK);
+		check (arc_link_options_junctions (&options, stores) == rows[i].want);
+		arc_link_options_set_symlinks (&options, ARC_LINK_FOLLOW);
+		check (arc_link_options_junctions (&options, stores) == ARC_LINK_FOLLOW);
+		arc_link_options_set_symlinks (&options, ARC_LINK_IGNORE);
+		check (arc_link_options_junctions (&options, stores) == ARC_LINK_IGNORE);
+	}
+}
+
+static void
+check_link_options (void)
+{
+	ArcLinkOptions options;
+	guint all = S2S | J2J | J2S;
+
+	arc_link_options_init (&options);
+	check (options.symlinks == ARC_LINK_IGNORE);
+	check (!options.junctions_set);
+	check (options.follow_nested);
+	check (!options.follow_other);
+	check (arc_link_options_follow (&options, all) == NEST);
+
+	/* A hand change to Junctions sticks through later Symlinks changes. */
+	arc_link_options_set_symlinks (&options, ARC_LINK_FOLLOW);
+	arc_link_options_set_junctions (&options, ARC_LINK_IGNORE);
+	check (options.junctions_set);
+	check (arc_link_options_junctions (&options, all) == ARC_LINK_IGNORE);
+	arc_link_options_set_symlinks (&options, ARC_LINK_STORE_SYMLINK);
+	check (arc_link_options_junctions (&options, all) == ARC_LINK_IGNORE);
+	arc_link_options_set_symlinks (&options, ARC_LINK_FOLLOW);
+	check (arc_link_options_junctions (&options, all) == ARC_LINK_IGNORE);
+	check (arc_link_options_follow (&options, all) == (SYM | NEST));
+
+	/* Any store choice the writer has, whatever Symlinks is. */
+	arc_link_options_set_symlinks (&options, ARC_LINK_IGNORE);
+	arc_link_options_set_junctions (&options, ARC_LINK_STORE_SYMLINK);
+	check (arc_link_options_junctions (&options, all) == ARC_LINK_STORE_SYMLINK);
+	arc_link_options_set_junctions (&options, ARC_LINK_FOLLOW);
+	check (arc_link_options_follow (&options, all) == (JUNC | NEST));
+
+	/* A store the writer can't do is Ignore, and only for that writer: the
+	   choice itself stays for one that can. */
+	arc_link_options_init (&options);
+	arc_link_options_set_symlinks (&options, ARC_LINK_STORE_SYMLINK);
+	check (arc_link_options_symlinks (&options, 0) == ARC_LINK_IGNORE);
+	check (arc_link_options_symlinks (&options, J2J | J2S) == ARC_LINK_IGNORE);
+	check (options.symlinks == ARC_LINK_STORE_SYMLINK);
+	check (arc_link_options_symlinks (&options, S2S) == ARC_LINK_STORE_SYMLINK);
+
+	arc_link_options_set_junctions (&options, ARC_LINK_STORE_JUNCTION);
+	check (arc_link_options_junctions (&options, S2S | J2S) == ARC_LINK_IGNORE);
+	check (arc_link_options_junctions (&options, J2J) == ARC_LINK_STORE_JUNCTION);
+	arc_link_options_set_junctions (&options, ARC_LINK_STORE_SYMLINK);
+	check (arc_link_options_junctions (&options, S2S | J2J) == ARC_LINK_IGNORE);
+	check (arc_link_options_junctions (&options, J2S) == ARC_LINK_STORE_SYMLINK);
+
+	/* Follow and Ignore need nothing of the writer. Store counts as Ignore
+	   for the follow bits. */
+	arc_link_options_init (&options);
+	arc_link_options_set_symlinks (&options, ARC_LINK_FOLLOW);
+	check (arc_link_options_symlinks (&options, 0) == ARC_LINK_FOLLOW);
+	check (arc_link_options_junctions (&options, 0) == ARC_LINK_FOLLOW);
+	check (arc_link_options_follow (&options, 0) == (SYM | JUNC | NEST));
+	arc_link_options_set_symlinks (&options, ARC_LINK_STORE_SYMLINK);
+	check (arc_link_options_follow (&options, all) == NEST);
+	options.follow_nested = FALSE;
+	options.follow_other = TRUE;
+	check (arc_link_options_follow (&options, all) == OTHER);
+
+	/* The 2 old boxes. Store plus follow was store, since a stored link
+	   never got followed. */
+	check (arc_link_choice_from_boxes (FALSE, FALSE) == ARC_LINK_IGNORE);
+	check (arc_link_choice_from_boxes (FALSE, TRUE) == ARC_LINK_FOLLOW);
+	check (arc_link_choice_from_boxes (TRUE, FALSE) == ARC_LINK_STORE_SYMLINK);
+	check (arc_link_choice_from_boxes (TRUE, TRUE) == ARC_LINK_STORE_SYMLINK);
+
+	check_junction_table ();
+}
+
 static guint
 mixes_counting (const ArcPathList *list,
 		guint64            bytes)
@@ -881,6 +991,7 @@ main (int    argc,
 	check_mounts_posix ();
 	check_mounts_windows ();
 	check_mounts_read ();
+	check_link_options ();
 
 	g_object_unref (file);
 	g_remove (path);
