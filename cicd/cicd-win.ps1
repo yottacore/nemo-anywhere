@@ -252,7 +252,7 @@ function fBuild {
 	$sh = @"
 command -v make >/dev/null 2>&1 || { echo "no make in MSYS2, so LTO would run serially: pacman -S make"; exit 3; }
 export SOURCE_DATE_EPOCH="`$(git log -1 --format=%ct 2>/dev/null || echo 0)"
-if [ -f $BuildRel/build.ninja ]; then meson setup --reconfigure -Dwerror=true $BuildRel source; else meson setup -Dxmp=false -Dwerror=true $BuildRel source; fi
+SETUP_FRESH=-Dxmp=false bash cicd/utility/meson-setup.bash $BuildRel source -Dwerror=true || exit 5
 bash cicd/utility/check-werror.bash $BuildRel || exit 4
 find $BuildRel -name '*.a' -type f | while read -r lib; do ar t "`$lib" >/dev/null 2>&1 || { echo "dropped stale `$lib"; rm -f "`$lib"; }; done
 ninja -C $BuildRel -j $jobs

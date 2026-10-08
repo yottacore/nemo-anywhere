@@ -92,15 +92,11 @@ esac
 ## targets add the linker half. It is passed here because meson warns about any
 ## -fsanitize set from meson.build.
 setupArgs=(-Dfuzzing=true -Db_sanitize=address -Db_lundef=false -Dc_args=-fsanitize=fuzzer-no-link -Dwerror=true)
-if [[ -f "${build}/build.ninja" ]] && grep -qF -- '-fsanitize=fuzzer-no-link' "${build}/build.ninja"; then
-	CC=clang meson setup --reconfigure "${build}" "${src}" "${setupArgs[@]}"
-elif [[ -f "${build}/build.ninja" ]]; then
-	## meson 1.7 ignores a c_args added on reconfigure, so a tree set up
-	## without it starts over.
-	CC=clang meson setup --wipe "${build}" "${src}" "${setupArgs[@]}"
-else
-	CC=clang meson setup "${build}" "${src}" "${setupArgs[@]}"
-fi
+## meson 1.7 ignores a c_args added on reconfigure, so a tree set up
+## without it starts over.
+wipe=0
+if [[ -f "${build}/build.ninja" ]] && ! grep -qF -- '-fsanitize=fuzzer-no-link' "${build}/build.ninja"; then wipe=1; fi
+CC=clang MESON_WIPE="${wipe}" bash "$(dirname "${BASH_SOURCE[0]}")/../utility/meson-setup.bash" "${build}" "${src}" "${setupArgs[@]}"
 bash "$(dirname "${BASH_SOURCE[0]}")/../utility/check-werror.bash" "${build}"
 
 ## Only the targets themselves. Building the whole tree here costs minutes and

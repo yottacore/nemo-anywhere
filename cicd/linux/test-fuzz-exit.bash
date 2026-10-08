@@ -31,7 +31,7 @@ if [[ "${1:-}" != "--inside" ]]; then
 	## Copies, not the container's /src, which may be another clone.
 	rc=0
 	# shellcheck disable=SC2016  ## expanded by the shell in the container
-	tar -C "${here}/.." -cf - linux/fuzz.bash linux/test-fuzz-exit.bash utility/check-werror.bash \
+	tar -C "${here}/.." -cf - linux/fuzz.bash linux/test-fuzz-exit.bash utility/check-werror.bash utility/meson-setup.bash \
 		| timeout -k 5 360 docker exec -i nemo-build bash -c \
 			'd="$(mktemp -d /tmp/test_fuzz-exit.XXXXXX)" && tar -C "$d" -xf - && { rc=0; bash "$d/linux/test-fuzz-exit.bash" --inside "$d/linux" || rc=$?; rm -rf -- "$d"; exit "$rc"; }' \
 		|| rc=$?
