@@ -141,6 +141,36 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- rjmb3j8p, Action start win32 test: an action with full paths in its command, condition and dependencies.
 		- rjmqp83c, lint-c.bash `UserText`: no direct call outside the shared code.
 
+- Compression reset: tell a nested filesystem from another one.
+	- ID: 2026100516274200
+	- Type: Enhancement
+	- Status: Waiting on signoff
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274126
+	- Target OS: Linux, Windows
+	- Design: [Nested and other filesystems](design_docs/20260929-101432_compression.md#nested-and-other-filesystems).
+	- Requirements:
+		- For a folder, or where a link leads, say whether it is on the same filesystem as the folder the selection is in, a nested one, or another one.
+		- Nested means the same pool or volume on both sides of the mount: one ZFS pool, one Btrfs filesystem, one APFS container. Anything else is another filesystem.
+		- Windows has no nested kind. A folder mount point and a junction are the same kind of reparse point, and one that points at a whole volume counts as a mount point only.
+		- Read from the mount table and the path, never from a share. Written in the core.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Progress log:
+		- 20261007-202500: asked whether both calls under Decisions are OK.
+	- Decisions:
+		- 20261007: a Windows reparse point is a mount point only when its target names a volume, as `\??\Volume{...}\`. One that leads to a drive's root, such as `C:\`, stays a junction, so it needs Junctions as well as the filesystem option. Read the other way, a junction to `C:\` from inside `C:\` would be on the same filesystem with no option needed, and the whole drive would be walked with junctions off. A call made without asking.
+		- 20261007: one disk mounted in 2 places, such as a bind mount, is nested, since the same volume is on both sides. A call made without asking.
+	- Done: `source/archive-core/arc-mounts.h`. It takes a copy of the mount table and the text of 2 paths, and reads nothing on either path. A ZFS pool goes by its dataset name, an APFS container by its disk name, anything else by its device. Something with no device behind it, such as tmpfs or a share, is never nested. The Windows table is in `arc-mounts-win32.c`: each volume by its own name and by every letter and folder it's mounted at. A mapped drive or a share has no volume, so it goes by its drive letter or its `\\server\share`. A test hands in a made-up table.
+	- Note: a Btrfs subvolume that isn't mounted on its own reads as the same filesystem, since the mount table has nothing on it.
+	- Swept: the only other mount table reader is `nemo-share.c`, which looks for shares only and stays as it is. The archive code has no filesystem check today.
+	- Verified: 20261007, Linux build with warnings as errors, the Windows cross build, and the core built with clang. rjq9mv0w passes on Linux, under ASan and UBSan, and under wine. The real mount table gives nested for 2 ZFS datasets in one pool and for 2 Btrfs subvolumes, and other for tmpfs and an ext4 disk. Under wine the Windows reader found C: and Z:.
+	- Branch: arcsizes
+	- Commit: 042a7ea
+	- Test case: rjq9mv0w, Archive core test. Made-up Linux and Windows mount tables: ZFS, Btrfs, APFS, a bind mount, tmpfs, NFS, one mount over another, a folder mount on Windows, volume names, long path forms, shares and mapped drives. Also the real table, read once.
+
 - On Windows every launch leaves a small `gdbus-nonce-file-*` in the temp folder.
 	- ID: 2026100714014948
 	- Type: Bug
@@ -171,6 +201,34 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: nonce
 	- Commit: 257a39c, 48b567b
 	- Test case: rjprdfjb, Session bus cleanup win32 test, Windows only. Starts the given bus exe the way GLib does, with TEMP pointed at a scratch folder. 2 clients queue on the app's name, the first leaves and the second gets the name. Once the bus ends nothing may be left in TEMP. Then a bus is killed, and the next one has to clear what it left.
+
+- Compression reset: 7-Zip first for 7z, and `-spd` on an edited 7-Zip line.
+	- ID: 2026100516274312
+	- Type: Enhancement
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 180 of 180.
+	- Needs external testing: rev86z08 and rhr6ggmt natively on vm925w, with 7-Zip installed. There a 7z that stores links goes to the library and has to keep them.
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Related IDs: 2026092813381416
+	- Target OS: Linux, Windows
+	- Design: [7-Zip first for 7z](design_docs/20260929-101432_compression.md#7-zip-first-for-7z) and [Wildcards in an edited 7-Zip line](design_docs/20260929-101432_compression.md#wildcards-in-an-edited-7-zip-line).
+	- Requirements:
+		- Where 7-Zip is installed, a 7z job goes to it rather than the library, on as many threads as the settings allow. Its own percent done moves the progress bar.
+		- The library still writes 7z when 7-Zip isn't installed, or when the job stores links on Windows. That job runs on one thread.
+		- `-spd` is added at run time when the line runs 7-Zip and doesn't have it, for compress and for the archive's path when extracting. The saved line isn't changed, and a line that runs another program is left alone.
+	- Estimated effort: Avg
+	- Progress log:
+		- 20261007: 7z goes to 7-Zip first. The library's 7z writer now offers storing links, so on Windows a 7z job that stores links goes to it, on one thread. A 7-Zip line gets `-spd` at run time when it lacks it, for compress, the links run, and extract.
+	- Decisions:
+		- 20261007, a call made without asking: when no writer can do every preference, storing links is the last one given up, since it changes what goes in. So on Windows a solid 7z that stores links goes to the library and isn't solid.
+		- 20261007, a call made without asking: a line runs 7-Zip when its program is named 7z, 7za, 7zr, 7zz or 7zG, with or without `.exe`. A line that starts some other program first, such as `nice 7z`, is left alone.
+	- Verified: rev86z08, rhr6ggmt and reww9h2s fail with the run-time switch and the 7-Zip-first order taken out, and pass with them. Full Linux suite 180 of 180. Windows cross build clean, and rev86z08 passes under wine, which has no 7-Zip.
+	- Swept: both builders that turn a settings line into a command, the compress one (real run and links run) and the extract one. The tests that wanted the library's 7z writer (rjbpyy28, rjbw0rkq and the library rows of rhr6ggmt) now hide 7-Zip to reach it.
+	- Branch: runflags
+	- Commit: f079fde
+	- Test case: rev86z08, Archive options test, for which writer gets 7z and for the added `-spd`, directly and through edited lines. rhr6ggmt, the `*` and `?` rows again with a 7-Zip line without `-spd`, and a library 7z row that stores links. reww9h2s, an `s?.7z` extracted with an edited 7-Zip line.
 
 - On Windows, the trash icon leaves out removable drives.
 	- ID: 2026100708294146
@@ -317,38 +375,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
 
-- Compression reset: a place in the tree for the archive core, and its interfaces.
-	- ID: 2026100516274126
-	- Type: Enhancement
-	- Status: Done
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Target OS: Linux, Windows
-	- Design: [Modularity](design_docs/20260929-101432_compression.md#modularity) and [Roadmap](design_docs/20260929-101432_compression.md#roadmap).
-	- Requirements:
-		- Its own folder and library target for the core, with no GTK and no nemo types. Nothing moves into it yet.
-		- An interface for each nemo part the archive and extract code call today: the job queue, progress info and the file-changes queue; command templates and settings; the directory walk; trash and the delete guard; eel's stock dialogs.
-		- The core takes its settings as values, and reports progress, questions and file changes through callbacks. It asks its caller to delete and never deletes on its own.
-		- On Windows the walk still has to get past MAX_PATH, so nemo hands its own walk in.
-		- A test target for the core that runs with no display.
-	- Estimated effort: Avg
-	- Actual effort: Avg
-	- Decisions:
-		- 20261007: running another program gets a table of its own too. The archive code runs 7-Zip and rar, and on Windows only the app's launcher may start a program.
-		- 20261007: the job queue has no table. nemo queues the job and runs the core's work on the job's thread, and progress comes back through the progress table.
-		- 20261007: the Extract conflict and password questions are calls in the host too, with the stock dialogs, since the core asks them from the job.
-		- 20261007: expanding a command line stays nemo's and goes through the host, since the backslash rule for a line a person wrote is nemo's and also its other programs share that code.
-		- 20261007: no nemo glue yet. The first item that calls the core from nemo writes it, in one file, as the design doc says.
-	- Done: `source/archive-core/` is a static library with GLib and GIO only. `arc-host.h` has a table of calls per nemo part, and `arc-settings.h` the settings as values. A call the host leaves out does nothing on disk and answers no question. Layout is in the design doc's Modularity section.
-	- Swept: every nemo and eel call in `nemo-archive.c` and `nemo-extract.c` has a table entry, or is a value in the settings, or is a Windows link check that moves with the code. The lint rules that scan the app's folders don't scan the new one, so a lint check of its own covers the core.
-	- Branch: arccore
-	- Commit: f840871
-	- Test case: rjq9mv0w, Archive core test. rjq9mx02, a lint check that keeps GTK and nemo out of the core and its test, and keeps deletes, folder walks, program starts and command line splitting out of the core.
-	- Verified: 20261007, Linux build with warnings as errors, and the Windows cross build, both clean. rjq9mv0w passes on Linux, and under wine with no display. It links no GTK on either. Lint clean apart from rj3ytv0b.
-	- Acceptance signoff: Self-closed: the change does what the item asked and no more, and its tests pass.
-	- Closed: 20261007-195741
-
 - Compression reset: link and filesystem choices in the archive options.
 	- ID: 2026100516274163
 	- Type: Enhancement
@@ -371,64 +397,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Estimated effort: Avg
 	- Test case: new core test cases for the junction default table and the fall back to Ignore. rhae85g0, Archive settings test, for the remembered choices. IDs when written.
 
-- Compression reset: tell a nested filesystem from another one.
-	- ID: 2026100516274200
-	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Prereq IDs: 2026100516274126
-	- Target OS: Linux, Windows
-	- Design: [Nested and other filesystems](design_docs/20260929-101432_compression.md#nested-and-other-filesystems).
-	- Requirements:
-		- For a folder, or where a link leads, say whether it is on the same filesystem as the folder the selection is in, a nested one, or another one.
-		- Nested means the same pool or volume on both sides of the mount: one ZFS pool, one Btrfs filesystem, one APFS container. Anything else is another filesystem.
-		- Windows has no nested kind. A folder mount point and a junction are the same kind of reparse point, and one that points at a whole volume counts as a mount point only.
-		- Read from the mount table and the path, never from a share. Written in the core.
-	- Estimated effort: Avg
-	- Actual effort: Avg
-	- Progress log:
-		- 20261007-202500: asked whether both calls under Decisions are OK.
-	- Decisions:
-		- 20261007: a Windows reparse point is a mount point only when its target names a volume, as `\??\Volume{...}\`. One that leads to a drive's root, such as `C:\`, stays a junction, so it needs Junctions as well as the filesystem option. Read the other way, a junction to `C:\` from inside `C:\` would be on the same filesystem with no option needed, and the whole drive would be walked with junctions off. A call made without asking.
-		- 20261007: one disk mounted in 2 places, such as a bind mount, is nested, since the same volume is on both sides. A call made without asking.
-	- Done: `source/archive-core/arc-mounts.h`. It takes a copy of the mount table and the text of 2 paths, and reads nothing on either path. A ZFS pool goes by its dataset name, an APFS container by its disk name, anything else by its device. Something with no device behind it, such as tmpfs or a share, is never nested. The Windows table is in `arc-mounts-win32.c`: each volume by its own name and by every letter and folder it's mounted at. A mapped drive or a share has no volume, so it goes by its drive letter or its `\\server\share`. A test hands in a made-up table.
-	- Note: a Btrfs subvolume that isn't mounted on its own reads as the same filesystem, since the mount table has nothing on it.
-	- Swept: the only other mount table reader is `nemo-share.c`, which looks for shares only and stays as it is. The archive code has no filesystem check today.
-	- Verified: 20261007, Linux build with warnings as errors, the Windows cross build, and the core built with clang. rjq9mv0w passes on Linux, under ASan and UBSan, and under wine. The real mount table gives nested for 2 ZFS datasets in one pool and for 2 Btrfs subvolumes, and other for tmpfs and an ext4 disk. Under wine the Windows reader found C: and Z:.
-	- Branch: arcsizes
-	- Commit: 042a7ea
-	- Test case: rjq9mv0w, Archive core test. Made-up Linux and Windows mount tables: ZFS, Btrfs, APFS, a bind mount, tmpfs, NFS, one mount over another, a folder mount on Windows, volume names, long path forms, shares and mapped drives. Also the real table, read once.
-
-- Compression reset: path list and sixteen size totals.
-	- ID: 2026100516274237
-	- Type: Enhancement
-	- Status: Done
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Prereq IDs: 2026100516274126
-	- Target OS: Linux, Windows
-	- Design: [Path list](design_docs/20260929-101432_compression.md#path-list) and [Size totals](design_docs/20260929-101432_compression.md#size-totals).
-	- Requirements:
-		- One entry per file: its path, its bytes, and which of the 16 totals already count it. Adding a path and finding one stay fast at millions of paths.
-		- Each path to a file has 4 flags: symlinked, junctioned, nested filesystem, other filesystem. They describe the path, not the file.
-		- One total per mix of the 4 follow options. A path adds the file's bytes to each mix that follows all of its flags and doesn't count the file yet.
-		- Gives the total for the options as set, and each option's size change: that total less the entry with only that option off.
-		- No disk access here. The background scan feeds it. Written in the core.
-	- Estimated effort: Low
-	- Actual effort: Low
-	- Done: `source/archive-core/arc-path-list.h`. The path text goes in large blocks and the index is open addressing over one array, so a path costs no allocation of its own. The follow options and what a path needs share one set of bits. A path already in the list keeps the bytes it came with.
-	- Note: 20261007, 5 million paths of about 55 characters, on an optimized build: 1.0 s to add them all, about 210 ns each, and 1.7 s to find each again in another order, about 340 ns each. About 100 bytes a path, its text included. GLib's own hash table took 1.6 s to add, 1.5 s to find, and 130 bytes a path. At 3 million: 0.57 s to add and 1.1 s to find.
-	- Swept: nothing in the archive code counts sizes or checks filesystems today, so there is no older copy to replace.
-	- Verified: 20261007, Linux build with warnings as errors, the Windows cross build, and the core built with clang. rjq9mv0w passes on Linux, under ASan and UBSan, and under wine.
-	- Branch: arcsizes
-	- Commit: 042a7ea
-	- Test case: rjq9mv0w, Archive core test. The 2 worked examples with their paths in both orders, every total and change checked against the rule over 12000 random paths, and 200000 paths added and found again. `test-arc-core bench N` times N paths.
-	- Acceptance signoff: Self-closed: the change does what the item asked and no more, and its tests pass.
-	- Closed: 20261007-202500
-
 - Compression reset: the background scan behind the size totals.
 	- ID: 2026100516274275
 	- Type: Enhancement
@@ -450,59 +418,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261006: the scan behind the live totals never follows a link onto a share before OK. The total says it leaves that out. OK is the user action, so the job's own pre-scan follows it. This was taken as the recommended answer when the question timed out on 20261006.
 	- Estimated effort: High
 	- Test case: new core test cases on a scratch tree with folder and file links, a loop, a link that leads nowhere, and an option changed mid-scan. Junctions on Windows. IDs when written.
-
-- Compression reset: 7-Zip first for 7z, and `-spd` on an edited 7-Zip line.
-	- ID: 2026100516274312
-	- Type: Enhancement
-	- Status: Waiting for testing
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 180 of 180.
-	- Needs external testing: rev86z08 and rhr6ggmt natively on vm925w, with 7-Zip installed. There a 7z that stores links goes to the library and has to keep them.
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Related IDs: 2026092813381416
-	- Target OS: Linux, Windows
-	- Design: [7-Zip first for 7z](design_docs/20260929-101432_compression.md#7-zip-first-for-7z) and [Wildcards in an edited 7-Zip line](design_docs/20260929-101432_compression.md#wildcards-in-an-edited-7-zip-line).
-	- Requirements:
-		- Where 7-Zip is installed, a 7z job goes to it rather than the library, on as many threads as the settings allow. Its own percent done moves the progress bar.
-		- The library still writes 7z when 7-Zip isn't installed, or when the job stores links on Windows. That job runs on one thread.
-		- `-spd` is added at run time when the line runs 7-Zip and doesn't have it, for compress and for the archive's path when extracting. The saved line isn't changed, and a line that runs another program is left alone.
-	- Estimated effort: Avg
-	- Progress log:
-		- 20261007: 7z goes to 7-Zip first. The library's 7z writer now offers storing links, so on Windows a 7z job that stores links goes to it, on one thread. A 7-Zip line gets `-spd` at run time when it lacks it, for compress, the links run, and extract.
-	- Decisions:
-		- 20261007, a call made without asking: when no writer can do every preference, storing links is the last one given up, since it changes what goes in. So on Windows a solid 7z that stores links goes to the library and isn't solid.
-		- 20261007, a call made without asking: a line runs 7-Zip when its program is named 7z, 7za, 7zr, 7zz or 7zG, with or without `.exe`. A line that starts some other program first, such as `nice 7z`, is left alone.
-	- Verified: rev86z08, rhr6ggmt and reww9h2s fail with the run-time switch and the 7-Zip-first order taken out, and pass with them. Full Linux suite 180 of 180. Windows cross build clean, and rev86z08 passes under wine, which has no 7-Zip.
-	- Swept: both builders that turn a settings line into a command, the compress one (real run and links run) and the extract one. The tests that wanted the library's 7z writer (rjbpyy28, rjbw0rkq and the library rows of rhr6ggmt) now hide 7-Zip to reach it.
-	- Branch: runflags
-	- Commit: f079fde
-	- Test case: rev86z08, Archive options test, for which writer gets 7z and for the added `-spd`, directly and through edited lines. rhr6ggmt, the `*` and `?` rows again with a 7-Zip line without `-spd`, and a library 7z row that stores links. reww9h2s, an `s?.7z` extracted with an edited 7-Zip line.
-
-- Compression reset: `-r0` on an edited rar line.
-	- ID: 2026100516274349
-	- Type: Enhancement
-	- Status: Done
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Related IDs: 2026100410431108
-	- Target OS: Linux, Windows
-	- Design: [Recursion in an edited rar line](design_docs/20260929-101432_compression.md#recursion-in-an-edited-rar-line).
-	- Requirements:
-		- `-r0` is added at run time when the compress line runs rar, after anything the line has, so an `-r` left in it no longer takes same-named files from the folders below.
-		- The saved line isn't changed. The extract lines never had `-r`.
-	- Estimated effort: Low
-	- Progress log:
-		- 20261007: `-r0` goes in at run time, last before the `--`, on every compress line that runs rar or WinRAR.
-	- Verified: with an edited line that keeps `-r`, rhr6ggmt took `sub/a.txt` too before the fix and passes after. rev86z08 the same. Full Linux suite 180 of 180.
-	- Note: rar on Windows not run. rar.txt is one file for every platform and says the same there.
-	- Swept: the compress builder covers the real run and the links run. The extract lines get no `-r0`.
-	- Branch: runflags
-	- Commit: f079fde
-	- Test case: rev86z08, Archive options test, for the added `-r0` after an `-r`, and none on the extract lines. rhr6ggmt, the picked `a.txt` beside `sub/a.txt` rows again with an edited rar line that keeps `-r`.
-	- Acceptance signoff: Self-closed: the intent was clear, and its tests fail before the fix and pass after.
-	- Closed: 20261007-195812
 
 - Compression reset: link choices and filesystem options in the Compress dialog.
 	- ID: 2026100516274386
@@ -680,6 +595,110 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- After this the core has no GTK and no nemo types, and its build shows it.
 	- Estimated effort: High
 	- Test case: none new. reww9h2r, reww9h2s and the extract leak test rjbpmcxy stay as they are, and pass before and after.
+
+- The arm64 lane test fails under MSYS2 on Windows, so the native gate stops in its lint stage.
+	- ID: 2026100720224968
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261007-202249
+	- Opened by: native gate run on vm925w
+	- Target OS: Windows
+	- Incorrect behavior: rjph1pxd looks for 2 spaces before the file name in a checksum line. MSYS2's `sha256sum` writes ` *name`, so the test fails there.
+	- Expected behavior: the arm64 lane only runs from the Linux pipeline, so its test skips on Windows the way its 2 sibling lane tests already do.
+	- Actual fix: rjph1pxd exits 77 under MSYS2, as "Linux only".
+	- Swept: the other release lane tests, `test-release-notes.bash` and `bsd/test-lane.bash`, already skip there.
+	- Verified: the native gate on vm925w passed with it, 159 OK, 12 skipped. It still passes on Linux.
+	- Branch: armskip
+	- Commit: b218d6e
+	- Test case: rjph1pxd itself.
+	- Acceptance signoff: Self-closed: mechanical.
+	- Closed: 20261007-202249
+
+- Compression reset: a place in the tree for the archive core, and its interfaces.
+	- ID: 2026100516274126
+	- Type: Enhancement
+	- Status: Done
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Target OS: Linux, Windows
+	- Design: [Modularity](design_docs/20260929-101432_compression.md#modularity) and [Roadmap](design_docs/20260929-101432_compression.md#roadmap).
+	- Requirements:
+		- Its own folder and library target for the core, with no GTK and no nemo types. Nothing moves into it yet.
+		- An interface for each nemo part the archive and extract code call today: the job queue, progress info and the file-changes queue; command templates and settings; the directory walk; trash and the delete guard; eel's stock dialogs.
+		- The core takes its settings as values, and reports progress, questions and file changes through callbacks. It asks its caller to delete and never deletes on its own.
+		- On Windows the walk still has to get past MAX_PATH, so nemo hands its own walk in.
+		- A test target for the core that runs with no display.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Decisions:
+		- 20261007: running another program gets a table of its own too. The archive code runs 7-Zip and rar, and on Windows only the app's launcher may start a program.
+		- 20261007: the job queue has no table. nemo queues the job and runs the core's work on the job's thread, and progress comes back through the progress table.
+		- 20261007: the Extract conflict and password questions are calls in the host too, with the stock dialogs, since the core asks them from the job.
+		- 20261007: expanding a command line stays nemo's and goes through the host, since the backslash rule for a line a person wrote is nemo's and also its other programs share that code.
+		- 20261007: no nemo glue yet. The first item that calls the core from nemo writes it, in one file, as the design doc says.
+	- Done: `source/archive-core/` is a static library with GLib and GIO only. `arc-host.h` has a table of calls per nemo part, and `arc-settings.h` the settings as values. A call the host leaves out does nothing on disk and answers no question. Layout is in the design doc's Modularity section.
+	- Swept: every nemo and eel call in `nemo-archive.c` and `nemo-extract.c` has a table entry, or is a value in the settings, or is a Windows link check that moves with the code. The lint rules that scan the app's folders don't scan the new one, so a lint check of its own covers the core.
+	- Branch: arccore
+	- Commit: f840871
+	- Test case: rjq9mv0w, Archive core test. rjq9mx02, a lint check that keeps GTK and nemo out of the core and its test, and keeps deletes, folder walks, program starts and command line splitting out of the core.
+	- Verified: 20261007, Linux build with warnings as errors, and the Windows cross build, both clean. rjq9mv0w passes on Linux, and under wine with no display. It links no GTK on either. Lint clean apart from rj3ytv0b.
+	- Acceptance signoff: Self-closed: the change does what the item asked and no more, and its tests pass.
+	- Closed: 20261007-195741
+
+- Compression reset: path list and sixteen size totals.
+	- ID: 2026100516274237
+	- Type: Enhancement
+	- Status: Done
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274126
+	- Target OS: Linux, Windows
+	- Design: [Path list](design_docs/20260929-101432_compression.md#path-list) and [Size totals](design_docs/20260929-101432_compression.md#size-totals).
+	- Requirements:
+		- One entry per file: its path, its bytes, and which of the 16 totals already count it. Adding a path and finding one stay fast at millions of paths.
+		- Each path to a file has 4 flags: symlinked, junctioned, nested filesystem, other filesystem. They describe the path, not the file.
+		- One total per mix of the 4 follow options. A path adds the file's bytes to each mix that follows all of its flags and doesn't count the file yet.
+		- Gives the total for the options as set, and each option's size change: that total less the entry with only that option off.
+		- No disk access here. The background scan feeds it. Written in the core.
+	- Estimated effort: Low
+	- Actual effort: Low
+	- Done: `source/archive-core/arc-path-list.h`. The path text goes in large blocks and the index is open addressing over one array, so a path costs no allocation of its own. The follow options and what a path needs share one set of bits. A path already in the list keeps the bytes it came with.
+	- Note: 20261007, 5 million paths of about 55 characters, on an optimized build: 1.0 s to add them all, about 210 ns each, and 1.7 s to find each again in another order, about 340 ns each. About 100 bytes a path, its text included. GLib's own hash table took 1.6 s to add, 1.5 s to find, and 130 bytes a path. At 3 million: 0.57 s to add and 1.1 s to find.
+	- Swept: nothing in the archive code counts sizes or checks filesystems today, so there is no older copy to replace.
+	- Verified: 20261007, Linux build with warnings as errors, the Windows cross build, and the core built with clang. rjq9mv0w passes on Linux, under ASan and UBSan, and under wine.
+	- Branch: arcsizes
+	- Commit: 042a7ea
+	- Test case: rjq9mv0w, Archive core test. The 2 worked examples with their paths in both orders, every total and change checked against the rule over 12000 random paths, and 200000 paths added and found again. `test-arc-core bench N` times N paths.
+	- Acceptance signoff: Self-closed: the change does what the item asked and no more, and its tests pass.
+	- Closed: 20261007-202500
+
+- Compression reset: `-r0` on an edited rar line.
+	- ID: 2026100516274349
+	- Type: Enhancement
+	- Status: Done
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Related IDs: 2026100410431108
+	- Target OS: Linux, Windows
+	- Design: [Recursion in an edited rar line](design_docs/20260929-101432_compression.md#recursion-in-an-edited-rar-line).
+	- Requirements:
+		- `-r0` is added at run time when the compress line runs rar, after anything the line has, so an `-r` left in it no longer takes same-named files from the folders below.
+		- The saved line isn't changed. The extract lines never had `-r`.
+	- Estimated effort: Low
+	- Progress log:
+		- 20261007: `-r0` goes in at run time, last before the `--`, on every compress line that runs rar or WinRAR.
+	- Verified: with an edited line that keeps `-r`, rhr6ggmt took `sub/a.txt` too before the fix and passes after. rev86z08 the same. Full Linux suite 180 of 180.
+	- Note: rar on Windows not run. rar.txt is one file for every platform and says the same there.
+	- Swept: the compress builder covers the real run and the links run. The extract lines get no `-r0`.
+	- Branch: runflags
+	- Commit: f079fde
+	- Test case: rev86z08, Archive options test, for the added `-r0` after an `-r`, and none on the extract lines. rhr6ggmt, the picked `a.txt` beside `sub/a.txt` rows again with an edited rar line that keeps `-r`.
+	- Acceptance signoff: Self-closed: the intent was clear, and its tests fail before the fix and pass after.
+	- Closed: 20261007-195812
 
 - On Windows the gate says the build is not set up with `-Werror` when it is.
 	- ID: 2026100518100000
