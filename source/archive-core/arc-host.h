@@ -132,7 +132,7 @@ typedef enum {
 	ARC_CONFLICT_AUTO_RENAME
 } ArcConflictResponse;
 
-/* An entry that would land on something already there. */
+/* An entry whose place is already taken. */
 typedef struct {
 	const char *archive_name;
 	const char *entry_name;
