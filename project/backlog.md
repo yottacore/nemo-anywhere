@@ -171,6 +171,42 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 042a7ea
 	- Test case: rjq9mv0w, Archive core test. Made-up Linux and Windows mount tables: ZFS, Btrfs, APFS, a bind mount, tmpfs, NFS, one mount over another, a folder mount on Windows, volume names, long path forms, shares and mapped drives. Also the real table, read once.
 
+- Compression reset: link and filesystem choices in the archive options.
+	- ID: 2026100516274163
+	- Type: Enhancement
+	- Status: Waiting on signoff
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274126
+	- Target OS: Linux, Windows
+	- Design: [Link options](design_docs/20260929-101432_compression.md#link-options) and [Junction defaults](design_docs/20260929-101432_compression.md#junction-defaults).
+	- Requirements:
+		- Symlinks: Ignore, the default, Follow, or Store as symlinks.
+		- Junctions, Windows only: Ignore, Follow, Store as junctions, or Store as symlinks. Its default follows Symlinks by the table in the design. A hand change sticks.
+		- Follow nested filesystems, on by default. Follow other filesystems, never on by default.
+		- A store choice the writer can't do falls back to Ignore.
+		- These replace the store links and follow links options and their remembered values. Written in the core.
+		- Open: whether the old remembered values carry over to the new choices.
+	- Decisions:
+		- 20261006: old remembered values map over. Store links on becomes Store as symlinks, follow links on becomes Follow, anything else Ignore. The old keys are dropped once read. This was taken as the recommended answer when the question timed out on 20261006.
+		- 20261007: "never on by default" is read as never remembered. Every dialog starts with Follow other filesystems off.
+		- 20261007: an old store links that was never changed counts as on, its old default. So a file with only follow links on in it maps to Store as symlinks, which is what the job did with it.
+		- 20261007: Junctions is remembered as "like Symlinks" until it's changed by hand, so it keeps following the table until then.
+		- 20261007: which store choices a writer has comes from whether it claims to store links. The library keeps every link as a symlink, so a junction there can only be stored as a symlink. rar keeps a junction as a junction, per its own docs for `-ol`.
+		- 20261007, a call made without asking: until the dialog and job items, the old dialog shows Ignore as both link boxes off. A new user's store box now starts off, where it used to start on. With both off, today's job puts a linked file's content in and leaves linked folders out, so an archive made with the defaults no longer keeps links. 2026100516274423 makes Ignore leave every link out.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Progress log:
+		- 20261007-204818: built. Signoff asked for the interim default above.
+	- Done: the choices are in the core, `arc-link-options.h`, with the junction defaults table and the fall back to Ignore. A choice the writer can't do reads as Ignore for that writer but is kept, so a format that can do it gets it back. The remembered values are new settings `last-symlinks`, `last-junctions` and `last-follow-nested`. `nemo-archive-host.c` reads and writes them and maps the old 2 over. The old dialog and job go on through the Symlinks choice: Store is the store box, Follow the follow box.
+	- Swept: every place that read or wrote the old 2 keys, which was only the Compress dialog and the settings test. The only defaults the job takes come through the dialog. Junctions and the filesystem options don't reach the job yet.
+	- Verified: 20261007, Linux build with warnings as errors, full Linux suite 181 of 181, the Windows cross build, lint clean apart from rj3ytv0b. rjq9mv0w, rhae85g0 and the schema test pass under wine.
+	- Needs external testing: what rar and the library do with a junction when storing links is from their docs and code, not seen on Windows. 2026100516274423 is where it gets used.
+	- Branch: arclinks2
+	- Commit: 9f5b8c6
+	- Test case: rjq9mv0w, Archive core test, for the junction defaults table, the fall back to Ignore, a hand change sticking, and the follow bits. rhae85g0, Archive settings test, for the old values mapped over and dropped in each mix, what is and isn't remembered, and the fall back agreeing with each writer's claim for every format.
+
 - On Windows every launch leaves a small `gdbus-nonce-file-*` in the temp folder.
 	- ID: 2026100714014948
 	- Type: Bug
@@ -374,42 +410,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
 		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
-
-- Compression reset: link and filesystem choices in the archive options.
-	- ID: 2026100516274163
-	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Prereq IDs: 2026100516274126
-	- Target OS: Linux, Windows
-	- Design: [Link options](design_docs/20260929-101432_compression.md#link-options) and [Junction defaults](design_docs/20260929-101432_compression.md#junction-defaults).
-	- Requirements:
-		- Symlinks: Ignore, the default, Follow, or Store as symlinks.
-		- Junctions, Windows only: Ignore, Follow, Store as junctions, or Store as symlinks. Its default follows Symlinks by the table in the design. A hand change sticks.
-		- Follow nested filesystems, on by default. Follow other filesystems, never on by default.
-		- A store choice the writer can't do falls back to Ignore.
-		- These replace the store links and follow links options and their remembered values. Written in the core.
-		- Open: whether the old remembered values carry over to the new choices.
-	- Decisions:
-		- 20261006: old remembered values map over. Store links on becomes Store as symlinks, follow links on becomes Follow, anything else Ignore. The old keys are dropped once read. This was taken as the recommended answer when the question timed out on 20261006.
-		- 20261007: "never on by default" is read as never remembered. Every dialog starts with Follow other filesystems off.
-		- 20261007: an old store links that was never changed counts as on, its old default. So a file with only follow links on in it maps to Store as symlinks, which is what the job did with it.
-		- 20261007: Junctions is remembered as "like Symlinks" until it's changed by hand, so it keeps following the table until then.
-		- 20261007: which store choices a writer has comes from whether it claims to store links. The library keeps every link as a symlink, so a junction there can only be stored as a symlink. rar keeps a junction as a junction, per its own docs for `-ol`.
-		- 20261007, a call made without asking: until the dialog and job items, the old dialog shows Ignore as both link boxes off. A new user's store box now starts off, where it used to start on. With both off, today's job puts a linked file's content in and leaves linked folders out, so an archive made with the defaults no longer keeps links. 2026100516274423 makes Ignore leave every link out.
-	- Estimated effort: Avg
-	- Actual effort: Avg
-	- Progress log:
-		- 20261007-204818: built. Signoff asked for the interim default above.
-	- Done: the choices are in the core, `arc-link-options.h`, with the junction defaults table and the fall back to Ignore. A choice the writer can't do reads as Ignore for that writer but is kept, so a format that can do it gets it back. The remembered values are new settings `last-symlinks`, `last-junctions` and `last-follow-nested`. `nemo-archive-host.c` reads and writes them and maps the old 2 over. The old dialog and job go on through the Symlinks choice: Store is the store box, Follow the follow box.
-	- Swept: every place that read or wrote the old 2 keys, which was only the Compress dialog and the settings test. The only defaults the job takes come through the dialog. Junctions and the filesystem options don't reach the job yet.
-	- Verified: 20261007, Linux build with warnings as errors, full Linux suite 181 of 181, the Windows cross build, lint clean apart from rj3ytv0b. rjq9mv0w, rhae85g0 and the schema test pass under wine.
-	- Needs external testing: what rar and the library do with a junction when storing links is from their docs and code, not seen on Windows. 2026100516274423 is where it gets used.
-	- Branch: arclinks2
-	- Commit: 9f5b8c6
-	- Test case: rjq9mv0w, Archive core test, for the junction defaults table, the fall back to Ignore, a hand change sticking, and the follow bits. rhae85g0, Archive settings test, for the old values mapped over and dropped in each mix, what is and isn't remembered, and the fall back agreeing with each writer's claim for every format.
 
 - Compression reset: the background scan behind the size totals.
 	- ID: 2026100516274275
