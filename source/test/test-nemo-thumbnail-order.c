@@ -55,23 +55,6 @@ static gboolean counting;
    dimensions. */
 static const char *twin_ext = "bmp";
 
-static gboolean
-can_write_bmp (void)
-{
-	GSList *formats = gdk_pixbuf_get_formats ();
-	GSList *l;
-	gboolean found = FALSE;
-
-	for (l = formats; l != NULL && !found; l = l->next) {
-		g_autofree char *name = gdk_pixbuf_format_get_name (l->data);
-
-		found = g_strcmp0 (name, "bmp") == 0 && gdk_pixbuf_format_is_writable (l->data);
-	}
-	g_slist_free (formats);
-
-	return found;
-}
-
 static void
 file_changed (NemoFile *file, gpointer data)
 {
@@ -342,7 +325,7 @@ main (int argc, char **argv)
 
 	/* Both get one time read up front, or a second can tick over between
 	   them. */
-	if (!can_write_bmp ()) {
+	if (!test_pixbuf_writes ("bmp")) {
 		twin_ext = "png";
 	}
 	twin_time = (guint64) (g_get_real_time () / G_USEC_PER_SEC) - 7200;

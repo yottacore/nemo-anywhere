@@ -80,21 +80,6 @@ png_only_loaders (const char *dir)
 	return path;
 }
 
-static gboolean
-pixbuf_has (const char *name)
-{
-	GSList *formats = gdk_pixbuf_get_formats ();
-	gboolean found = FALSE;
-	GSList *l;
-
-	for (l = formats; l != NULL && !found; l = l->next) {
-		found = g_strcmp0 (gdk_pixbuf_format_get_name (l->data), name) == 0;
-	}
-	g_slist_free (formats);
-
-	return found;
-}
-
 static void
 test_coder (void)
 {
@@ -194,7 +179,7 @@ main (void)
 		return 77;
 	}
 	g_setenv ("GDK_PIXBUF_MODULE_FILE", loaders, TRUE);
-	if (!pixbuf_has ("png") || pixbuf_has ("bmp")) {
+	if (!test_pixbuf_reads ("png") || test_pixbuf_reads ("bmp")) {
 		g_print ("nemo-magick-extras: could not leave gdk-pixbuf with PNG and no BMP, skipping\n");
 		return 77;
 	}

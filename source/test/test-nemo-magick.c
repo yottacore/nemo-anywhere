@@ -38,21 +38,6 @@
 #include "test-scratch.h"
 #include "test-check.h"
 
-static gboolean
-pixbuf_has (const char *name)
-{
-	GSList *formats = gdk_pixbuf_get_formats ();
-	gboolean found = FALSE;
-	GSList *l;
-
-	for (l = formats; l != NULL && !found; l = l->next) {
-		found = g_strcmp0 (gdk_pixbuf_format_get_name (l->data), name) == 0;
-	}
-	g_slist_free (formats);
-
-	return found;
-}
-
 static void
 test_coder (void)
 {
@@ -70,8 +55,8 @@ test_coder (void)
 	check (nemo_magick_coder (NULL) == NULL);
 
 	/* Handed over only while gdk-pixbuf has no loader of its own. */
-	check ((nemo_magick_coder ("/a/b.bmp") == NULL) == pixbuf_has ("bmp"));
-	check ((nemo_magick_coder ("/a/b.xpm") == NULL) == pixbuf_has ("xpm"));
+	check ((nemo_magick_coder ("/a/b.bmp") == NULL) == test_pixbuf_reads ("bmp"));
+	check ((nemo_magick_coder ("/a/b.xpm") == NULL) == test_pixbuf_reads ("xpm"));
 
 	check (!nemo_magick_type_ok ("sftp://host/a/b.jp2"));
 	check (!nemo_magick_type_ok ("file:///a/b.svg"));

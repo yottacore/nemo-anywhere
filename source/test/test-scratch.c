@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <gio/gio.h>
+#include <gdk-pixbuf/gdk-pixbuf.h>
 #include <pango/pangocairo.h>
 
 #ifndef G_OS_WIN32
@@ -370,6 +371,40 @@ test_slowness (void)
 	}
 
 	return slowness;
+}
+
+/* Returns: (transfer none): owned by gdk-pixbuf */
+static GdkPixbufFormat *
+pixbuf_format (const char *name)
+{
+	GSList *formats = gdk_pixbuf_get_formats ();
+	GdkPixbufFormat *found = NULL;
+	GSList *l;
+
+	for (l = formats; l != NULL && found == NULL; l = l->next) {
+		g_autofree char *format_name = gdk_pixbuf_format_get_name (l->data);
+
+		if (g_strcmp0 (format_name, name) == 0) {
+			found = l->data;
+		}
+	}
+	g_slist_free (formats);
+
+	return found;
+}
+
+gboolean
+test_pixbuf_reads (const char *name)
+{
+	return pixbuf_format (name) != NULL;
+}
+
+gboolean
+test_pixbuf_writes (const char *name)
+{
+	GdkPixbufFormat *format = pixbuf_format (name);
+
+	return format != NULL && gdk_pixbuf_format_is_writable (format);
 }
 
 #ifndef G_OS_WIN32

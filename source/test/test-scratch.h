@@ -44,6 +44,11 @@ void  test_own_display (int argc, char **argv, const char *screen);
    failing on an emulated one that is slow at everything. */
 double test_slowness (void);
 
+/* Whether the gdk-pixbuf in use has a loader named name ("bmp", "xpm"),
+   and whether that loader can save. */
+gboolean test_pixbuf_reads  (const char *name);
+gboolean test_pixbuf_writes (const char *name);
+
 /* Removes every directory made so far. Runs on its own at exit. */
 void  test_scratch_cleanup (void);
 
