@@ -68,7 +68,8 @@
    -y answers the prompts a program with no console would otherwise wait on
    forever; -bsp1 is what puts 7-Zip's percentage on stdout for the progress
    bar; -spd makes 7-Zip take a name with * or ? in it as that name, not a
-   pattern (rar has no such switch); -sccUTF-8 and rar's -scfr make the names
+   pattern (rar has no such switch), and a line edited without it still gets
+   it at run time; -sccUTF-8 and rar's -scfr make the names
    either one prints UTF-8, where on Windows they would come out in the
    console's code page and match no file; "--" stops switch parsing, so a file
    whose name starts with a dash is read as a file; and "x" rather than "e" on
@@ -83,7 +84,8 @@
 
 /* No -r: a folder named on the line goes in whole without it, and with it
    rar reads every name as a pattern for each folder below, so a picked a.txt
-   brings sub/a.txt too, and every name it walks past is opened. */
+   brings sub/a.txt too, and every name it walks past is opened. An -r typed
+   into an edited line is undone by the -r0 added last at run time. */
 #define NEMO_ARCHIVE_COMMAND_RAR_DEFAULT \
 	"{{PROGRAM}} a {{LEVEL}} {{THREADS}} -y -scfr " \
 	"{{PASSWORD}} {{SPLIT}} {{SOLID}} {{DEDUPE}} {{RECOVERY}} {{LOCK}} {{LINKS}} " \

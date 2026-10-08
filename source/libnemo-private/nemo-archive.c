@@ -96,7 +96,7 @@ static const FormatInfo formats[NEMO_ARCHIVE_N_FORMATS] = {
 	  FALSE, 0 },
 
 	{ "7z", N_("7z"), ".7z",
-	  TRUE,  NEMO_ARCHIVE_CAP_LEVEL,
+	  TRUE,  NEMO_ARCHIVE_CAP_LEVEL | NEMO_ARCHIVE_CAP_STORE_LINKS,
 	  TRUE,  NEMO_ARCHIVE_CAP_LEVEL | NEMO_ARCHIVE_CAP_PASSWORD | NEMO_ARCHIVE_CAP_ENCRYPT_NAMES |
 		 NEMO_ARCHIVE_CAP_SPLIT | NEMO_ARCHIVE_CAP_SOLID | NEMO_ARCHIVE_CAP_STORE_LINKS,
 	  FALSE, 0 },
@@ -242,6 +242,7 @@ nemo_archive_format_from_id (const char        *id,
 static GMutex   probe_lock;
 static char    *probed_program[4];
 static gboolean probed[4];
+static gboolean hidden_backend[4];
 
 /* Returns: (transfer full): free with g_free */
 char *
@@ -297,6 +298,7 @@ backend_program (NemoArchiveBackend backend)
 {
 	static const char * const seven_zip_names[] = { "7z", "7zz", "7za", NULL };
 	static const char * const rar_names[] = { "rar", NULL };
+	const char *program;
 
 	if (backend != NEMO_ARCHIVE_BACKEND_7Z && backend != NEMO_ARCHIVE_BACKEND_RAR) {
 		return NULL;
@@ -312,10 +314,22 @@ backend_program (NemoArchiveBackend backend)
 		}
 		probed[backend] = TRUE;
 	}
+	program = hidden_backend[backend] ? NULL : probed_program[backend];
 
 	g_mutex_unlock (&probe_lock);
 
-	return probed_program[backend];
+	return program;
+}
+
+void
+nemo_archive_hide_backend (NemoArchiveBackend backend,
+			   gboolean           hidden)
+{
+	g_return_if_fail (backend == NEMO_ARCHIVE_BACKEND_7Z || backend == NEMO_ARCHIVE_BACKEND_RAR);
+
+	g_mutex_lock (&probe_lock);
+	hidden_backend[backend] = hidden;
+	g_mutex_unlock (&probe_lock);
 }
 
 gboolean
@@ -385,6 +399,14 @@ backend_writes_format (NemoArchiveFormat  format,
 static const NemoArchiveBackend backend_order[] = {
 	NEMO_ARCHIVE_BACKEND_LIBARCHIVE,
 	NEMO_ARCHIVE_BACKEND_7Z,
+	NEMO_ARCHIVE_BACKEND_RAR
+};
+
+/* Except 7z, which goes to 7-Zip where it's installed: libarchive's 7z writer
+   turns down a threads option, so it compresses on one thread. */
+static const NemoArchiveBackend backend_order_7z[] = {
+	NEMO_ARCHIVE_BACKEND_7Z,
+	NEMO_ARCHIVE_BACKEND_LIBARCHIVE,
 	NEMO_ARCHIVE_BACKEND_RAR
 };
 
@@ -474,14 +496,18 @@ NemoArchiveBackend
 nemo_archive_pick_backend (NemoArchiveFormat         format,
 			   const NemoArchiveOptions *options)
 {
+	const NemoArchiveBackend *order;
 	NemoArchiveCaps needed;
 	NemoArchiveCaps preferred;
-	int pass;
+	NemoArchiveCaps targets[3];
+	guint pass;
 	guint i;
 
 	g_return_val_if_fail (format_is_valid (format), NEMO_ARCHIVE_BACKEND_NONE);
 	g_return_val_if_fail (options != NULL, NEMO_ARCHIVE_BACKEND_NONE);
 
+	G_STATIC_ASSERT (G_N_ELEMENTS (backend_order_7z) == G_N_ELEMENTS (backend_order));
+	order = format == NEMO_ARCHIVE_FORMAT_7Z ? backend_order_7z : backend_order;
 	needed = required_caps (options);
 
 	/* A preference nothing can honor for this format is dropped before
@@ -490,11 +516,18 @@ nemo_archive_pick_backend (NemoArchiveFormat         format,
 	   the preferences that ARE available. */
 	preferred = preferred_caps (options) & nemo_archive_format_caps (format);
 
-	for (pass = 0; pass < 2; pass++) {
-		NemoArchiveCaps target = (pass == 0) ? (needed | preferred) : needed;
+	/* Storing links changes what goes in, where the rest only tunes how, so
+	   it is the last preference given up. A 7z on Windows that stores links
+	   goes to the library rather than 7-Zip, which leaves them out. */
+	targets[0] = needed | preferred;
+	targets[1] = needed | (preferred & NEMO_ARCHIVE_CAP_STORE_LINKS);
+	targets[2] = needed;
+
+	for (pass = 0; pass < G_N_ELEMENTS (targets); pass++) {
+		NemoArchiveCaps target = targets[pass];
 
 		for (i = 0; i < G_N_ELEMENTS (backend_order); i++) {
-			NemoArchiveBackend backend = backend_order[i];
+			NemoArchiveBackend backend = order[i];
 
 			if (!nemo_archive_backend_present (backend) ||
 			    !backend_writes_format (format, backend)) {
@@ -1961,6 +1994,74 @@ rar_name (const char *prefix, const char *name)
 	return g_strconcat (prefix, name[0] == '@' ? "./" : "", name, NULL);
 }
 
+/* By the program's own name, so a line pointed at another build still counts,
+   and one that runs something else is left alone. */
+static gboolean
+runs_one_of (char              **argv,
+	     const char * const *names)
+{
+	char *base = g_path_get_basename (argv[0]);
+	gsize len = strlen (base);
+	gboolean found = FALSE;
+	int i;
+
+	if (len > 4 && g_ascii_strcasecmp (base + len - 4, ".exe") == 0) {
+		base[len - 4] = '\0';
+	}
+	for (i = 0; names[i] != NULL && !found; i++) {
+		found = g_ascii_strcasecmp (base, names[i]) == 0;
+	}
+	g_free (base);
+
+	return found;
+}
+
+/* Returns: (transfer full): free with g_strfreev */
+char **
+nemo_archive_add_run_switches (char     **argv,
+			       gboolean   compressing)
+{
+	static const char * const seven_zip[] = { "7z", "7za", "7zr", "7zz", "7zg", NULL };
+	static const char * const rar[] = { "rar", "winrar", NULL };
+	const char *add = NULL;
+	char **out;
+	guint end, len, i;
+
+	if (argv == NULL || argv[0] == NULL) {
+		return argv;
+	}
+
+	/* Both programs take a switch anywhere before the "--", so the end of
+	   the switches is the last place one goes, and the last -r rar sees is
+	   the one it takes. */
+	end = 1;
+	while (argv[end] != NULL && strcmp (argv[end], "--") != 0) {
+		end++;
+	}
+
+	if (runs_one_of (argv, seven_zip)) {
+		add = "-spd";
+		for (i = 1; i < end; i++) {
+			if (g_ascii_strcasecmp (argv[i], add) == 0) {
+				return argv;
+			}
+		}
+	} else if (compressing && runs_one_of (argv, rar)) {
+		add = "-r0";
+	} else {
+		return argv;
+	}
+
+	len = g_strv_length (argv);
+	out = g_new (char *, len + 2);
+	memcpy (out, argv, end * sizeof (char *));
+	out[end] = g_strdup (add);
+	memcpy (out + end + 1, argv + end, (len - end + 1) * sizeof (char *));
+	g_free (argv);
+
+	return out;
+}
+
 /* links_only is the run ahead of the real one that keeps the links that lead
    nowhere. It keeps every link it is handed, and leaves the switches that the
    real run adds, or that would stop it adding, to the real run. */
@@ -2132,6 +2233,7 @@ build_command (NemoArchiveBackend        backend,
 			g_clear_error (&error);
 		} else {
 			nemo_command_template_warn_unused (key, text, tokens);
+			argv = nemo_archive_add_run_switches (argv, TRUE);
 		}
 	}
 

@@ -447,6 +447,7 @@ nemo_extract_build_command (NemoExtractBackend  backend,
 			   switch at all an encrypted archive waits for a console
 			   that is not there, and the job hangs. */
 			nemo_command_template_warn_unused (key, text, tokens);
+			argv = nemo_archive_add_run_switches (argv, FALSE);
 		}
 	}
 

@@ -239,6 +239,9 @@ main (int argc, char *argv[])
 	small = make_sparse_file (tmp, "small.bin", 4 * GIB);
 	big = make_sparse_file (tmp, "big.bin", 16 * GIB);
 
+	/* The library's writers, 7z included, which goes to 7-Zip where it is
+	   installed. */
+	nemo_archive_hide_backend (NEMO_ARCHIVE_BACKEND_7Z, TRUE);
 	check_format (manager, window, small, big, tmp, NEMO_ARCHIVE_FORMAT_TAR_GZ, "tar.gz");
 	check_format (manager, window, small, big, tmp, NEMO_ARCHIVE_FORMAT_TAR_XZ, "tar.xz");
 	check_format (manager, window, small, big, tmp, NEMO_ARCHIVE_FORMAT_7Z, "7z");
