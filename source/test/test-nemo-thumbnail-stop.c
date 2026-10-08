@@ -481,23 +481,6 @@ feed_slowly (gpointer data)
 	return NULL;
 }
 
-static gboolean
-can_read_bmp (void)
-{
-	GSList *formats = gdk_pixbuf_get_formats ();
-	GSList *l;
-	gboolean found = FALSE;
-
-	for (l = formats; l != NULL && !found; l = l->next) {
-		g_autofree char *name = gdk_pixbuf_format_get_name (l->data);
-
-		found = g_strcmp0 (name, "bmp") == 0;
-	}
-	g_slist_free (formats);
-
-	return found;
-}
-
 static void
 check_pixbuf_read_stops (NemoDesktopThumbnailFactory *factory)
 {
@@ -511,7 +494,7 @@ check_pixbuf_read_stops (NemoDesktopThumbnailFactory *factory)
 
 	/* gdk-pixbuf 2.44 as FreeBSD builds it has no BMP loader. The read then
 	   fails before it opens the pipe, and the feeder waits on it forever. */
-	if (!can_read_bmp ()) {
+	if (!test_pixbuf_reads ("bmp")) {
 		g_print ("  gdk-pixbuf read skipped: no BMP loader\n");
 		return;
 	}
