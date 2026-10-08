@@ -556,7 +556,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- It can still be changed. Once it is:
 			- It goes back to its normal color at once.
 			- The master setting that made it moot is set to whatever un-grays it. For example an auto switch turns off, or a dropdown goes to "Custom".
-			- The other settings under the same master that haven't been changed stay gray. They show and use their automatic values, not values stored one by one.
+			- The other settings under the same master that haven't been changed stay gray. They still show and use their automatic values, not values stored one by one.
+		- When the master setting is turned off by hand, or a master default that overrides stored values is removed, every setting under it un-grays and takes back its stored value.
+		- So after changing one grayed setting turns its master off, the others under it are still gray. To un-gray them all with their stored values at once, turn the master back on and then off again. A little clumsy, but well worth it.
+		- The same works for an "enable X" master and a "disable X" master, just inverted.
+	- Note: the problem this solves. In this app now, and in many others, a setting that can't be edited first means hunting down which master switch is stopping it, then changing that. Changing it also brings back every stored value under it, when maybe only the one was wanted.
 	- Test case: still needs one.
 
 - The Archive settings test's restart does not read the file again.
