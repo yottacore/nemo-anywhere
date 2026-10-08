@@ -1299,6 +1299,52 @@ fCheckUserText(){
 }
 fRun fCheckUserText
 
+## The archive core links nothing of the app, so it could leave for a project
+## of its own, and it never deletes, walks a folder, starts a program or reads
+## a command line by itself: it asks its host (arc-host.h), which is how the
+## delete guard, the long-path walk and the one Windows launcher still see all
+## of it. Win32 calls in it go in its own *-win32.c. Its test links the core
+## alone. The rules above scan the app's folders only, so this one is the
+## core's.
+## Test ID: rjq9mx02
+fCheckArcCore(){
+	local dir='source/archive-core' test='source/test/test-arc-core.c'
+	local appNames='(^|[^A-Za-z0-9_])(nemo|eel|gtk|gdk|NEMO|EEL|GTK|GDK)_[A-Za-z0-9_]|(^|[^A-Za-z0-9_])(Nemo|Eel|Gtk|Gdk)[A-Z]|#[[:space:]]*include[[:space:]]*[<"](gtk/|gdk/|eel/|libnemo|nemo-|config\.h)'
+	local ownWay='(^|[^A-Za-z0-9_>.])(g_file_delete|g_file_trash|g_unlink|g_remove|g_rmdir|unlink|rmdir|remove|_wunlink|_wremove|_wrmdir|DeleteFileW|DeleteFileA|RemoveDirectoryW|RemoveDirectoryA|SHFileOperationW|g_file_enumerate_children[a-z_]*|g_dir_open|opendir|FindFirstFileW|FindFirstFileExW|g_subprocess_newv?|g_subprocess_launcher[a-z_]*|g_spawn_[a-z_]+|g_app_info_launch[a-z_]*|CreateProcessW|ShellExecuteW|ShellExecuteExW|g_shell_parse_argv|g_key_file_[a-z_]+)[[:space:]]*\('
+	local winHeaders='#[[:space:]]*include[[:space:]]*<(windows|win[a-z0-9]*|shl[a-z]*|shellapi|shobjidl|objbase|ole[a-z0-9]*)\.h>'
+	local appDeps='gtk|gdk|x11|eel|nemo_private|nemo_definitions|libnemo_extension|test_scratch|rootInclude'
+	local -a files=() bad=()
+	local line entry
+
+	mapfile -t files < <(find "$dir" \( -name '*.c' -o -name '*.h' \) | sort)
+	if ((${#files[@]} == 0)) || [[ ! -f "$test" ]]; then
+		fEcho "FAIL: no archive core sources, or no ${test}, to check"
+		exit 2
+	fi
+
+	while IFS= read -r line; do
+		if [[ -n "$line" ]]; then bad+=("$line"); fi
+	done < <(
+		grep -nE "$appNames" "${files[@]}" "$test" || true
+		grep -nE "$ownWay" "${files[@]}" || true
+		grep -nE "$winHeaders" "${files[@]}" | grep -vE '^[^:]*-win32\.c:' || true
+		grep -nwHE "$appDeps" "${dir}/meson.build" || true
+		entry="$(awk '/executable\(.test-arc-core./ { on = 1 } on { print } on && /^  \),/ { exit }' source/test/meson.build)"
+		if [[ -z "$entry" ]]; then
+			echo "source/test/meson.build: no test-arc-core executable"
+		else
+			grep -nwE "$appDeps" <<<"$entry" | sed 's|^|source/test/meson.build, test-arc-core: |' || true
+		fi
+	)
+
+	if ((${#bad[@]})); then
+		fEcho "FAIL: the archive core uses the app, or does on its own what it has to ask its host for"
+		printf '%s\n' "${bad[@]}"
+		exit 2
+	fi
+}
+fRun fCheckArcCore
+
 ## Under MSYS2, use the Windows git that made this checkout - the msys one has
 ## its own HOME/config, so its line-ending view marks every CRLF file modified.
 GIT=(git)
