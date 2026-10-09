@@ -70,6 +70,8 @@ nemo_private_sources = [
   'nemo-image-folders.c',
   'nemo-instances.c',
   'nemo-office.c',
+  'nemo-office-ole.c',
+  'nemo-ole2.c',
   'nemo-psd.c',
   'nemo-raw.c',
   'nemo-magick.c',

@@ -44,6 +44,8 @@ The converters in this folder are plain C on libgsf and are built and shipped on
 - `nemo-anywhere-xls-to-txt` - Excel 5 through 2003 (`.xls`).
 - `nemo-anywhere-ppt-to-txt` - PowerPoint 97 through 2003 (`.ppt`).
 
+The app reads `.doc`, `.xls` and `.ppt` itself now as well, before any helper, so these 3 only run for a file it could not read.
+
 The definitions under `third-party/` name programs that may or may not be installed (pdftotext, exiftool and so on) and are skipped when they are not.
 
 ##### Debugging:

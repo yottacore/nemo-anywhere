@@ -309,7 +309,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Read the old binary Word, Excel and PowerPoint files inside the app, with a container reader of our own.
 	- ID: 2026100909260511
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 187 of 188 with 1 skipped as on dev.
+	- Needs external testing: rjvtggme and rjvtghmd in the native suite on vm925w. Then the single exe in the desktop session on vm925w with MacType running: a .doc, .xls and .ppt with a bitmap preview in the icon view, and a content search through them. Thumbnails and matches, and no box. The 6 files rjvtggme writes will do, if no real ones are at hand.
 	- Priority|Severity: Avg
 	- Opened: 20261009-092605
 	- Opened by: 2026100617051745
@@ -322,7 +324,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A thumbnail from the file's summary stream where the old thumbnailer gave one.
 		- For these types the app's reader comes before any installed thumbnailer or search helper.
 		- Bounds-checked reads, capped sizes, counts and depth, no trusted lengths, fuzzed, and run off the window's thread, as for 2026100909260472.
-	- Test case: still needs one. The text of a small file of each type on every platform, and a check that no helper program is started for them.
+	- Estimated effort: Avg
+	- Progress log:
+		- 20261009: done. A container reader of the app's own reads a stream from the top storage by name. The office reader sends a file that starts like a compound file to it, and the text comes from whichever of Word, Excel or PowerPoint the file's streams say it is. The thumbnail factory and content search already ask the office reader first, so these 3 types only had to be added to the types it takes.
+		- 20261009: the old thumbnailer handed the preview in the summary stream to gdk-pixbuf, which drew neither kind, then to ImageMagick's `convert`. On Linux with ImageMagick that drew a bitmap preview, and a metafile one only where ImageMagick has WMF support. Under wine, standing in for Windows, it drew neither. So a bitmap preview is drawn here, on every platform, and a metafile one isn't.
+		- 20261009: a bare Excel record stream with no container, which the xls converter also read, is read here too.
+		- 20261009: the text is what the converters gave, checked over the test's 6 files and about 900 cut short and bit-flipped copies of them: the same text every time both gave some. Where libgsf refused a damaged file, the reader here often still gives some text, and then the helpers get no turn.
+	- Decisions:
+		- 20261009: thumbnails only from a bitmap preview. No loader that comes with the app draws WMF or EMF. A file with a metafile preview or none goes on to an installed thumbnailer, as before.
+		- 20261009: BMP joins PNG and JPEG for the zip formats' pictures too, since it is the same picture decoder.
+		- 20261009: the caps. Sector numbers are checked against the file, and a chain is followed no further than its stream's size needs, so a loop costs no more than a straight one. The sibling tree is walked with a stack and a seen mark, so there is no depth to cap. Each stream read is capped at 64 MB, the summary stream at 16 MB, the directory at 32768 entries and the small streams' space at 64 MB. PowerPoint record nesting stays capped at 64, as in the converter. The text stops at the length asked for, before each piece is converted, so pieces that all point at the same text can't multiply it.
+	- Verified: rjvtggme fails with the office reader's types as on dev: no thumbnail, and the stand-in thumbnailer and helpers ran. It passes with them. It also fails with the DIFAT chain not followed, with the sibling tree read as a flat list, with the sector size taken as 512, with small streams read as big ones, and with the text cap removed. rjvtggme, rjvtghmd, rjvb97aa and rjvb97bb pass under the sanitizer build. The fuzz target ran 5 minutes on 4 workers, about 10 million inputs, with no find. rjvtggme, rjvtghmd and rjvb97aa pass under wine. Full Linux suite 187 of 188, 1 skipped. Windows cross build clean.
+	- Note: the test writes its files with a compound file writer of its own, so 2026100909260549 can move the tests and fuzz targets that use libgsf to it and to `nemo-ole2.c`. The 4 converters, `fuzz-doc`, `fuzz-xls` and `fuzz-ppt` are untouched.
+	- Note: rjcbfcx7, the fuzz exit check, now expects fuzz-ole2 too. It reads the seeds from the clone the shared build container has, so it fails until the new seeds are there.
+	- Swept: every place that picks a thumbnailer or a search helper by type goes through `nemo_office_type_ok`: the factory's `can_make` and its generate, and the search walk. The Windows type table already maps doc, dot, xls, xlt, ppt and pps.
+	- Branch: ole2
+	- Test case: rjvtggme, Old office files read in the app test. A small .doc in Word 97 and in Word 95 form, a .xls in a compound file and a bare one, a .ppt, and a .doc with a metafile preview, written for the purpose. The text of each through the reader and through a real content search, and the bitmap preview through the thumbnail factory, at the size asked for. A stand-in thumbnailer and search helper for these types leave a mark if run, and none may. Then cut short and bit-flipped files, files whose lengths and links lie, and a piece flood. rjvtghmd replays the fuzz seeds, and rjvtgjmb is the fuzz target.
 
 - Take libgsf, the gsf-office thumbnailer and the 4 search converters out of every bundle and the build.
 	- ID: 2026100909260549

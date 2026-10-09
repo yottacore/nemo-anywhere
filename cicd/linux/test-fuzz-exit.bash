@@ -126,6 +126,7 @@ fExpect fuzz-doc OK
 fExpect fuzz-psd FOUND oom
 fExpect fuzz-raw OK
 fExpect fuzz-office OK
+fExpect fuzz-ole2 OK
 fExpect fuzz-lnk OK
 fExpect fuzz-lnk-edit OK
 

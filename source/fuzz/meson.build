@@ -73,6 +73,14 @@ fuzzOffice = executable('fuzz-office',
   link_args: fuzzLinkArgs,
 )
 
+fuzzOle2 = executable('fuzz-ole2',
+  [ 'fuzz-ole2.c' ] + fuzzDriver,
+  include_directories: [ rootInclude, ],
+  dependencies: [ gtk, nemo_private ],
+  c_args:    fuzzCArgs,
+  link_args: fuzzLinkArgs,
+)
+
 fuzzRaw = executable('fuzz-raw',
   [ 'fuzz-raw.c' ] + fuzzDriver,
   include_directories: [ rootInclude, ],
@@ -200,6 +208,23 @@ fuzzOfficeCorpus = files(
   'corpus/office/huge-png',
 )
 
+fuzzOle2Corpus = files(
+  'corpus/ole2/empty',
+  'corpus/ole2/doc-text',
+  'corpus/ole2/doc-thumb',
+  'corpus/ole2/doc95-v4',
+  'corpus/ole2/ppt-text',
+  'corpus/ole2/ppt-thumb',
+  'corpus/ole2/wmf-thumb',
+  'corpus/ole2/bare-xls',
+  'corpus/ole2/xls-text',
+  'corpus/ole2/word-pieces',
+  'corpus/ole2/word-utf16',
+  'corpus/ole2/biff-numbers',
+  'corpus/ole2/ppt-deep',
+  'corpus/ole2/summary-dib',
+)
+
 fuzzXlsCorpus = files(
   'corpus/xls/empty',
   'corpus/xls/bof-eof',
@@ -273,6 +298,7 @@ if not get_option('fuzzing')
   test('rhe0xz30 Photoshop fuzz corpus test',        fuzzPsd,             args: fuzzPsdCorpus,             env: fuzzTestEnv)
   test('rhqmm0ar Camera raw fuzz corpus test',       fuzzRaw,             args: fuzzRawCorpus,             env: fuzzTestEnv)
   test('rjvb97bb Office zip fuzz corpus test',       fuzzOffice,          args: fuzzOfficeCorpus,          env: fuzzTestEnv)
+  test('rjvtghmd Old office fuzz corpus test',       fuzzOle2,            args: fuzzOle2Corpus,            env: fuzzTestEnv)
   test('rhatwe0r Workbook fuzz corpus test',         fuzzXls,             args: fuzzXlsCorpus,             env: fuzzTestEnv)
   test('rhatwe0s Presentation fuzz corpus test',     fuzzPpt,             args: fuzzPptCorpus,             env: fuzzTestEnv)
   test('rhatwe0t Word document fuzz corpus test',    fuzzDoc,             args: fuzzDocCorpus,             env: fuzzTestEnv)

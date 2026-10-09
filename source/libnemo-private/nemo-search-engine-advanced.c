@@ -968,7 +968,7 @@ search_for_content_hits (SearchThreadData *data,
         return TRUE;
     }
 
-    /* Not a zip after all. The helpers get their turn. */
+    /* Not a file the app reads after all. The helpers get their turn. */
     if (error != NULL && in_app) {
         DEBUG ("Not read in the app: %s", error->message);
         g_error_free (error);

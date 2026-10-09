@@ -1629,6 +1629,18 @@ test('rjvb97aa Office files read in the app test',
   timeout: 120
 )
 
+# The .doc, .xls and .ppt are written here, with no libgsf.
+test('rjvtggme Old office files read in the app test',
+  executable('test-nemo-office-ole',
+    [ 'test-nemo-office-ole.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+    c_args: nemo_definitions,
+  ),
+  args: [],
+  timeout: 120
+)
+
 testRaw = executable('test-nemo-raw',
   [ 'test-nemo-raw.c' ],
   include_directories: [ rootInclude, ],

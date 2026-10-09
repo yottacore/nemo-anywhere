@@ -1,6 +1,6 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 
-/* nemo-office.h - thumbnails and text of zip-based office files.
+/* nemo-office.h - thumbnails and text of office files.
 
    Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu).
 
@@ -20,8 +20,9 @@
    Boston, MA 02110-1335, USA.
 */
 
-/* OOXML, OpenDocument and EPUB files are zips. Read here through libarchive,
- * so no helper program is started for them. Everything in the file is taken
+/* OOXML, OpenDocument and EPUB files are zips, read here through libarchive.
+ * The older .doc, .xls and .ppt are OLE2 compound files, read through
+ * nemo-ole2.c. No helper program is started for any of them. Everything in the file is taken
  * as hostile: no length it gives is trusted, and sizes, counts and path
  * lengths are capped. Blocking, so never on the window's thread. */
 
@@ -36,8 +37,8 @@
 gboolean   nemo_office_type_ok       (const char *content_type);
 
 /* The picture the file keeps of itself, fitted to size on its longer side:
- * Thumbnails/thumbnail.png, the OOXML package thumbnail, or an EPUB cover.
- * PNG and JPEG only. NULL when there is none, it doesn't read, or @stream
+ * Thumbnails/thumbnail.png, the OOXML package thumbnail, an EPUB cover, or
+ * the bitmap in an OLE2 file's summary stream. PNG, JPEG and BMP only. NULL when there is none, it doesn't read, or @stream
  * can't seek.
  * Returns: (transfer full): unref with g_object_unref */
 GdkPixbuf *nemo_office_thumbnail     (GInputStream *stream,
@@ -49,7 +50,8 @@ GdkPixbuf *nemo_office_thumbnail_uri (const char   *uri,
 				      GCancellable *cancellable);
 
 /* The text for content search, tags stripped, at most @max_len bytes and not
- * always valid UTF-8. NULL with @error set when it isn't a zip at all.
+ * always valid UTF-8. NULL with @error set when it is neither a zip nor a
+ * compound file with Word, Excel or PowerPoint text in it.
  * Returns: (transfer full): free with g_free */
 char      *nemo_office_text          (GInputStream *stream,
 				      gsize         max_len,
