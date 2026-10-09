@@ -69,6 +69,11 @@ Every group like this works the same way, through one table and one function.
 
 - A grayed setting stays gray after a restart.
 
+- The flyover tip of every input control, and of its label, has:
+	- The setting's description, if it has one.
+	- A blank line, when anything follows it.
+	- The values in play, as `Current value: ...`, `Stored value: ...` and `Default value: ...`. These lines show only when the 3 values aren't all the same.
+
 ## Goals
 
 - Change one setting in one step, without hunting for what is blocking it.
@@ -186,6 +191,13 @@ Clearing every flag on a hand change of the master stops that. It's the only tim
 
 - A change in the file picked up while the dialog is open redraws the same way.
 
+- The values in the flyover tip:
+	- Current value is what the app uses right now. For a grayed child, that is its automatic value.
+	- Stored value is the child's own value, kept for when it un-grays. For a setting with no master, it is the same as the current value.
+	- Default value is the built-in default.
+	- A switch shows On or Off, and a dropdown shows the text of its entry, so each line reads as the control does.
+	- The tip is built when it opens, so it never shows values from before a change.
+
 ### Tests
 
 - The function, for every mode, flag and kind of master, including an inverted switch and a preset dropdown.
@@ -202,7 +214,7 @@ Clearing every flag on a hand change of the master stops that. It's the only tim
 
 ### Open questions
 
-- Whether a grayed child gets a tooltip naming its master, and saying that a change turns it off.
+- Whether the flyover tip of a grayed child also names its master, and says that a change turns it off.
 
 ## Alternative ideas
 

@@ -561,6 +561,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- When the master setting is turned off by hand, or a master default that overrides stored values is removed, every setting under it un-grays and takes back its stored value.
 		- So after changing one grayed setting turns its master off, the others under it are still gray. To un-gray them all with their stored values at once, turn the master back on and then off again. A little clumsy, but well worth it.
 		- The same works for an "enable X" master and a "disable X" master, just inverted.
+		- The flyover tip of every input control, and of its label, has:
+			- The setting's description, if it has one.
+			- A blank line, when anything follows it.
+			- The values in play: "Current value: ABC", "Stored value: DEF", "Default value: GHI". Each line only shows if its value is different from either of the other two.
 	- Note: the problem this solves. In this app now, and in many others, a setting that can't be edited first means hunting down which master switch is stopping it, then changing that. Changing it also brings back every stored value under it, when maybe only the one was wanted.
 	- Progress log:
 		- 20261008: "own value when the override is set or the master is off" would un-gray every setting under a master once one edit turns the master off. Settled on the rule in Decisions instead, which is what was meant.
