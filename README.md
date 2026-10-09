@@ -383,6 +383,8 @@ This repository, although also a hard fork, retains all original copyright and l
 
 The sound files the demo recorder mixes into its video are third-party, under their own terms, and are not part of the application. Sources and licenses are in `cicd/utility/demo-video/sounds/LICENSES.txt`.
 
+The design docs in `project/design_docs/` are under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) instead, as each one says at the end.
+
 > Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)<br>
 > Upstream code Copyrights © [Nemo authors](https://github.com/linuxmint/nemo/graphs/contributors).<br />
 > Licensed under [GNU GPL v2](https://opensource.org/license/GPL-2.0) license. No warranty.
