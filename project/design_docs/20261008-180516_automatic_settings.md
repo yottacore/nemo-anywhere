@@ -255,4 +255,4 @@ A mixed switch goes to automatic on a click, since that is the state a person re
 
 ## Related backlog issues
 
-- A setting that another setting makes moot is grayed, but can still be changed (2026100816170959). Queued. Its requirements describe the superseded design and want rewriting to this one.
+- A setting with an automatic value can be changed on its own, with no master switch to find first (2026100816170959). Queued.

@@ -245,3 +245,9 @@ None.
 - 2026092813381418: a relative symlink between two shares of one server does not resolve.
 
 - 2026092813381440: the shortcut path choice code is only reached by tests.
+
+---
+
+> Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
+>
+> Licensed under [GNU GPL v2](https://opensource.org/license/GPL-2.0) license. No warranty.

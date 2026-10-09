@@ -252,4 +252,10 @@ Clearing every flag on a hand change of the master stops that. It's the only tim
 
 ## Related backlog issues
 
-- A setting that another setting makes moot is grayed, but can still be changed (2026100816170959). Queued.
+- A setting with an automatic value can be changed on its own, with no master switch to find first (2026100816170959). Queued.
+
+---
+
+> Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
+>
+> Licensed under [GNU GPL v2](https://opensource.org/license/GPL-2.0) license. No warranty.
