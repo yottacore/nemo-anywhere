@@ -65,6 +65,14 @@ fuzzPsd = executable('fuzz-psd',
   link_args: fuzzLinkArgs,
 )
 
+fuzzOffice = executable('fuzz-office',
+  [ 'fuzz-office.c' ] + fuzzDriver,
+  include_directories: [ rootInclude, ],
+  dependencies: [ gtk, nemo_private ],
+  c_args:    fuzzCArgs,
+  link_args: fuzzLinkArgs,
+)
+
 fuzzRaw = executable('fuzz-raw',
   [ 'fuzz-raw.c' ] + fuzzDriver,
   include_directories: [ rootInclude, ],
@@ -178,6 +186,20 @@ fuzzRawCorpus = files(
   'corpus/raw/olympus-loop',
 )
 
+fuzzOfficeCorpus = files(
+  'corpus/office/empty',
+  'corpus/office/docx-text',
+  'corpus/office/docx-thumb',
+  'corpus/office/odt-text',
+  'corpus/office/odt-thumb',
+  'corpus/office/epub3-cover',
+  'corpus/office/epub2-cover',
+  'corpus/office/rels-climb',
+  'corpus/office/truncated',
+  'corpus/office/huge-jpeg',
+  'corpus/office/huge-png',
+)
+
 fuzzXlsCorpus = files(
   'corpus/xls/empty',
   'corpus/xls/bof-eof',
@@ -250,6 +272,7 @@ if not get_option('fuzzing')
   test('rh0808ba Command template fuzz corpus test', fuzzCommandTemplate, args: fuzzCommandTemplateCorpus, env: fuzzTestEnv)
   test('rhe0xz30 Photoshop fuzz corpus test',        fuzzPsd,             args: fuzzPsdCorpus,             env: fuzzTestEnv)
   test('rhqmm0ar Camera raw fuzz corpus test',       fuzzRaw,             args: fuzzRawCorpus,             env: fuzzTestEnv)
+  test('rjvb97bb Office zip fuzz corpus test',       fuzzOffice,          args: fuzzOfficeCorpus,          env: fuzzTestEnv)
   test('rhatwe0r Workbook fuzz corpus test',         fuzzXls,             args: fuzzXlsCorpus,             env: fuzzTestEnv)
   test('rhatwe0s Presentation fuzz corpus test',     fuzzPpt,             args: fuzzPptCorpus,             env: fuzzTestEnv)
   test('rhatwe0t Word document fuzz corpus test',    fuzzDoc,             args: fuzzDocCorpus,             env: fuzzTestEnv)

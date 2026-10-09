@@ -376,6 +376,7 @@ Archives are written by libarchive, with the `7z` and `rar` commands as optional
 ### Search
 
 - Content search converts documents itself, in C, on libraries the app already links. The old helpers were a Python script, a shell script and a LibreOffice call, none of which exists on a stock Windows machine and each a dependency the install could not promise. Word, Excel and PowerPoint in both their old binary and newer zip-of-xml forms, OpenDocument and EPUB are covered. The definition-file mechanism stays, so a helper for anything else can still be dropped in.
+	- The zip based ones, OOXML, OpenDocument and EPUB, are read inside the app through libarchive, ahead of any helper for those types, so no program is started for them. The text is the same as the old converter gave. A file that turns out not to be a zip goes to the helpers as before.
 
 - Results can be grouped under the folder holding them. It is a heading row per folder that actually has a match, labeled with the path under the folder searched, rather than a full tree of every folder in between - a tree puts rows on screen for folders with nothing in them, and reading that path off one row is what a person actually wants. The heading rows are built by the view rather than the model, so a folder nobody asked to open is never read, monitored or walked. Flat is still the default and switching redraws from the results in hand rather than searching again.
 

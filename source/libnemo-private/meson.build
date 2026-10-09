@@ -69,6 +69,7 @@ nemo_private_sources = [
   'nemo-file-xattr.c',
   'nemo-image-folders.c',
   'nemo-instances.c',
+  'nemo-office.c',
   'nemo-psd.c',
   'nemo-raw.c',
   'nemo-magick.c',
