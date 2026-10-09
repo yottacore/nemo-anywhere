@@ -107,9 +107,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - After an `smb://` address is typed, nothing shows that the app is working on it.
 	- ID: 2026100816170921
 	- Type: Bug
-	- Status: Waiting for testing
+	- Status: Waiting on signoff
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 183 of 183.
-	- Needs external testing: on vm925w, type a `\\server\share` path to a server that is slow or not there. The path bar should show a spinner and "Connecting to server...", the pointer should be the arrow with the busy circle and not the hourglass, and Escape should stop it. Also rhtwm2c8 in the native suite.
+	- Needs external testing: done 20261009 on vm925w. It was: type a `\\server\share` path to a server that is slow or not there. The path bar should show a spinner and "Connecting to server...", the pointer should be the arrow with the busy circle and not the hourglass, and Escape should stop it. Also rhtwm2c8 in the native suite.
 	- Priority|Severity: Avg
 	- Opened: 20261008-161710
 	- Opened by: t00mietum
@@ -136,6 +136,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual fix: while the look-up or the mount behind a new address is still out, the path bar shows a spinner and "Connecting to <host>...", or "Connecting to the network..." when there's no host. It goes away when the address answers, fails or is stopped. Meanwhile the pointer is the busy arrow, never the watch, and Escape in the window stops the attempt. The host comes from the address text and the mount table only, so nothing new reaches out to a share. A place on this machine shows no sign.
 	- Swept: every location change starts in one place, so the path bar, Places, bookmarks, links, back and forward, and new windows and tabs all get the sign. A tab in the back shows it when it comes to the front. Opening a file on a share that isn't mounted goes through the open code, which has its own wait dialog wiht a Cancel button. Connect to Server has its own spinner.
 	- Verified: rjv9ks2z fails before the fix, on the sign, the pointer and Escape, and passes after. Full Linux suite 183 of 183. Windows cross build clean, and rhtwm2c8 passes under wine with the new UNC case.
+	- Verified: 20261009, Windows, on vm925w. rhtwm2c8 passes in the native suite at 398c999. With the single exe built at 49a54f8, in the desktop session, `\\10.255.255.1\share` typed in the path bar showed the spinner and "Connecting to 10.255.255.1...", and the pointer over the window was the busy arrow, never the hourglass. Escape took the sign away and the pointer went back to the plain arrow. A server name that doesn't resolve showed the sign until the look-up failed a few seconds later, then the error, with the sign gone.
+	- Note: 20261009, left at signoff for how the sign looks.
 	- Note: with the toolbar turned off there's no path bar, so only the pointer shows it.
 	- Note: read, not tried: the Stop button also never takes Reload's place while a folder loads, since the same check is behind it. Left alone here.
 	- Branch: smbbusy
@@ -145,9 +147,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Read the thumbnail and the text of OOXML, OpenDocument and EPUB files inside the app.
 	- ID: 2026100909260472
 	- Type: Enhancement
-	- Status: Waiting for testing
+	- Status: Done
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 185 of 185.
-	- Needs external testing: rjvb97aa natively on vm925w. Then the single exe in the desktop session on vm925w with MacType running: a .docx, .odt and .epub that have a thumbnail inside, in the icon view, and a content search through them. Thumbnails and matches, and no box.
+	- Needs external testing: done 20261009 on vm925w. It was: rjvb97aa natively on vm925w. Then the single exe in the desktop session on vm925w with MacType running: a .docx, .odt and .epub that have a thumbnail inside, in the icon view, and a content search through them. Thumbnails and matches, and no box.
 	- Priority|Severity: Avg
 	- Opened: 20261009-092605
 	- Opened by: 2026100617051745
@@ -168,17 +170,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Decisions:
 		- 20261009: no nesting depth to cap here. Members are not opened inside members, and the tag stripping keeps no stack. The caps are the members walked, the bytes unpacked, each index file and picture, the path length and parts, and the picture's sides and pixels, checked from its header before it is decoded.
 	- Verified: rjvb97aa fails with the factory and the search engine as on dev, on Linux and under wine: no thumbnail, no match, and the stand-in helpers ran. It passes with them. rjvb97aa and the fuzz seed replay pass under the sanitizer build, with rfhnaccg and redrqe60. The fuzz target ran 5 minutes, about 6.5 million inputs, with no find. rjmc40ex passes under wine. Full Linux suite 185 of 185. Windows cross build clean.
+	- Verified: 20261009, Windows, on vm925w. rjvb97aa and rjvb97bb pass in the native suite at 398c999 and again at 49a54f8. The single exe built at 49a54f8, in the desktop session with MacType running and loaded into the app, drew the pictures stored in a .docx, an .odt and an .epub in the icon view. A content search found a word in all 3, and another word only in the .odt. The app started no other program, and no box came up.
+	- Note: 20261009, cppcheck 2.21 from MSYS2 on vm925w, over the whole tree, flags `test-nemo-office.c:495`: the return value of `g_file_set_contents` is not used. cppcheck 2.17 on Linux finds nothing there. A branch only lints its own changed files, so this shows on Windows only for a push to dev or main.
 	- Note: rjcbfcx7, the fuzz exit check, now expects fuzz-office too. It reads the seeds from the clone the shared build container has, so it fails until the new seeds are there. It passed run against this branch.
 	- Swept: every place that picks a thumbnailer or a search helper by type: the factory's `can_make` and its generate, and the search walk. The Windows index search reads no files itself. `nemo_can_thumbnail_internally` covers pictures only.
 	- Branch: offzip
 	- Commit: 5f51e63, 60d342a
 	- Test case: rjvb97aa, Office files read in the app test. A small .docx, .xlsx, .pptx, .odt, .ods, .odp, .odg and 2 EPUBs, written for the purpose, each give their own picture through the thumbnail factory, at the size asked for, and their text through the reader and through a real content search. A stand-in thumbnailer and search helper for all these types leave a mark if run, and none may. Then cut short and bit-flipped files. rjvb97bb replays the fuzz seeds, and rjvb97cb is the fuzz target.
+	- Acceptance signoff: Self-closed: rjvb97aa passes natively, and the thumbnails and search were seen working on Windows with MacType running.
+	- Closed: 20261009-133954
 
 - A settings change in one copy of the app shows in every other running copy at once.
 	- ID: 2026100907390779
 	- Type: Enhancement
-	- Status: Waiting for testing
-	- Needs external testing: 2 copies of the app on vm925w with a setting changed in one, seen in the other before the save. rjvdch2z is Linux and BSD only since 2026100815215479. On Windows a settings change going across is checked by rjvks1yf.
+	- Status: Done
+	- Needs external testing: done 20261009 on vm925w. It was: 2 copies of the app on vm925w with a setting changed in one, seen in the other before the save. rjvdch2z is Linux and BSD only since 2026100815215479. On Windows a settings change going across is checked by rjvks1yf.
 	- Priority|Severity: Avg
 	- Opened: 20261009-073907
 	- Opened by: t00mietum
@@ -200,17 +206,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- A setting going back to its default goes over as a removed line, ready for 2026100816170959.
 			- Random wallpaper: not applicable yet, since that feature isn't built.
 	- Verified: rjvdch2z passes on Linux, also with the CPUs loaded, and under wine. It fails with the copies not sharing (the change only shows 2 to 2.6 s later, once the file has it), with the newer-change check taken out, with the receiving copy saving, with taken values dropped on a reload, and with the stale save left in the file. Full Linux suite, quit and tab move included, and the Windows cross build pass with warnings as errors. Lint clean.
+	- Verified: 20261009, Windows, on vm925w. rjvks1yf, which checks a settings change going across, passes in the native suite at 398c999 and again at 49a54f8. With 3 copies from the release zip at 398c999 in the desktop session, the statusbar turned off in one was gone from the other 2 within 0.7 s, while the settings file still had its old time. The save came about 2.5 s after the change.
+	- Note: 20261009, cppcheck 2.21 from MSYS2 on vm925w, over the whole tree, flags `test-nemo-config-share.c:174` and `:176` as leaks, a `g_strdup` handed to `g_idle_add`. Not looked into. cppcheck 2.17 on Linux finds nothing there. A branch only lints its own changed files, so this shows on Windows only for a push to dev or main.
 	- Swept: every setter, reset and the drop of a default value go through one place. Quit now sends through the same call as settings. The other stores beside the settings file, such as shortcuts and bookmarks, don't share; not asked for.
 	- Branch: livecfg
 	- Commit: 0113cc1
 	- Test case: rjvdch2z, Settings shared between copies test. 2 copies on one bus and one settings file. A set, a reset and a list reach the other copy before the save, and its handler runs once. The copy that only took a change never writes it, even when the sender dies first. Both copies setting one key at once agree, before and after the saves, also when the losing copy saved last. A hand edit read before the save keeps the change, and a change made just before quitting still arrives.
+	- Acceptance signoff: Self-closed: rjvdch2z passes on Linux, rjvks1yf natively on Windows, and a change was seen reaching the other copies on Windows before the save.
+	- Closed: 20261009-133954
 
 - On Windows, let the copies of the app talk to each other with no session bus.
 	- ID: 2026100815215479
 	- Type: Enhancement
-	- Status: Waiting for testing
+	- Status: Waiting on signoff
 	- Needs local test suite run?: no. The full Linux suite passed.
-	- Needs external testing: natively on Windows. rjvks1yf through the native gate, which also builds the new files with warnings as errors and its own cppcheck. Then the release zip in a desktop session with 2 or 3 copies: the tab menu lists the other copies' windows and a tab moves over, a setting changed in one shows in the others before the save, Close all windows and `--quit` close them all, and `--reset` refuses while one runs. Throughout, no `gdbus.exe` runs and no new `gdbus-nonce-file-*` turns up in `%TEMP%`. Also an elevated copy and an ordinary one: neither lists the other. And how long the list takes on a box with a lot running.
+	- Needs external testing: done 20261009 on vm925w. It was: natively on Windows. rjvks1yf through the native gate, which also builds the new files with warnings as errors and its own cppcheck. Then the release zip in a desktop session with 2 or 3 copies: the tab menu lists the other copies' windows and a tab moves over, a setting changed in one shows in the others before the save, Close all windows and `--quit` close them all, and `--reset` refuses while one runs. Throughout, no `gdbus.exe` runs and no new `gdbus-nonce-file-*` turns up in `%TEMP%`. Also an elevated copy and an ordinary one: neither lists the other. And how long the list takes on a box with a lot running.
 	- Priority|Severity: Avg
 	- Opened: 20261008-152154
 	- Opened by: t00mietum
@@ -238,6 +248,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261008: Windows drops the session bus for named pipes, or something like them. Linux keeps the bus.
 	- Note: rjptygcj and rjvdch2z test the bus, so they run on Linux and the BSDs only now. On Windows rjvks1yf covers the list and a settings change going across. rjvdch2z's edge cases are in nemo-config and the same everywhere.
 	- Verified: rjvks1yf passes under wine. It fails against the app built from dev: a bus starts and no copy is listed. It also fails with the bus address left alone at startup, with the action condition or the power inhibit asking for the bus, with the condition passing, with nothing listed, with the tab calls not served, with settings not shared, and with quit not acted on. The new lint check fails on an unlisted call. Full Linux suite, rjptygcj, rjvdch2z, the tab move and the instances tests included, passes with warnings as errors. Windows release cross build clean with warnings as errors. The release zip has no `gdbus.exe`, and its app passes rjvks1yf under wine.
+	- Verified: 20261009, Windows, on vm925w. rjvks1yf passes in the native gate's suite at 398c999 and again at 49a54f8, built with warnings as errors. cppcheck 2.21 over the whole tree there has no finding in the new files.
+	- Verified: 20261009, the release zip at 398c999 in the desktop session on vm925w, 3 copies:
+		- The tab menu in one listed the other 2 windows by title, and a tab moved into one of them.
+		- The statusbar turned off in one was gone from the other 2 within 0.7 s, before the save.
+		- File, Close all windows in one closed all 3 within 1 s. `--quit` closed 2 others. `--reset` refused with exit 1 while copies ran, and the settings file stayed.
+		- No `gdbus.exe` ran at any point, and no new `gdbus-nonce-file-*` turned up in `%TEMP%`.
+		- An elevated copy and an ordinary one: their pipes are under different logon sessions. The ordinary copy's tab menu listed no other window, and `--quit` from either ended only the copies on its own side.
+		- With 228 processes running, the tab menu, which lists the other copies, came up in 26 to 41 ms. The file list's own menu, which lists nothing, took 16 to 23 ms.
+	- Note: 20261009, left at signoff for the elevated and ordinary copies not seeing each other.
 	- Swept: every call that can ask for the session bus in the app's own code, by the lint check's pattern: GApplication's registration, the previewer, the power inhibit, the freedesktop interface, the action condition, and the tracker search, which isn't built on Windows. GLib's notifications on Windows use the app's own connection, which is none. Every place a Windows bundle is made: the native stage, which the portable exe is packed from, the release zip, which the setup exe is made from, and the wine runner, which also drops a `gdbus.exe` left in an older snapshot.
 	- Branch: winpipe
 	- Commit: f721cc6
@@ -271,9 +290,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Compression reset: 7-Zip first for 7z, and `-spd` on an edited 7-Zip line.
 	- ID: 2026100516274312
 	- Type: Enhancement
-	- Status: Waiting for testing
+	- Status: Done
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 180 of 180.
-	- Needs external testing: rev86z08 and rhr6ggmt natively on vm925w, with 7-Zip installed. There a 7z that stores links goes to the library and has to keep them.
+	- Needs external testing: done 20261009 on vm925w and b29w. It was: rev86z08 and rhr6ggmt natively on vm925w, with 7-Zip installed. There a 7z that stores links goes to the library and has to keep them.
 	- Opened: 20261005-162747
 	- Opened by: compression reset split
 	- Parent ID: 2026092910143202
@@ -295,7 +314,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: runflags
 	- Commit: f079fde
 	- Note: 20261007, in the pipeline's native suite on b29w at 7c1debd, rev86z08 and reww9h2s passed, and rhr6ggmt failed only its rar row (2026100516274349). Whether b29w has 7-Zip was not checked, so this stays here.
+	- Note: 20261009, both vm925w and b29w have 7-Zip installed, in `C:\Program Files\7-Zip`, with a shim for it on PATH. So the b29w run above had it too.
+	- Verified: 20261009, natively on vm925w at 398c999, rev86z08 passes and rhr6ggmt's 7z rows pass, the library 7z row that stores links included. rhr6ggmt failed only its rar row (2026100516274349). At 49a54f8 both pass whole, on vm925w and on b29w.
 	- Test case: rev86z08, Archive options test, for which writer gets 7z and for the added `-spd`, directly and through edited lines. rhr6ggmt, the `*` and `?` rows again with a 7-Zip line without `-spd`, and a library 7z row that stores links. reww9h2s, an `s?.7z` extracted with an edited 7-Zip line.
+	- Acceptance signoff: Self-closed: works as the design says, and rev86z08 and rhr6ggmt pass natively with 7-Zip installed.
+	- Closed: 20261009-133954
 
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440
@@ -723,7 +746,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Compression reset: `-r0` on an edited rar line.
 	- ID: 2026100516274349
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
 	- Opened: 20261005-162747
 	- Opened by: compression reset split
 	- Parent ID: 2026092910143202
@@ -739,10 +762,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: with an edited line that keeps `-r`, rhr6ggmt took `sub/a.txt` too before the fix and passes after. rev86z08 the same. Full Linux suite 180 of 180.
 	- Note: rar on Windows not run. rar.txt is one file for every platform and says the same there.
 	- Swept: the compress builder covers the real run and the links run. The extract lines get no `-r0`.
-	- Branch: runflags
-	- Commit: f079fde
+	- Branch: runflags, wintests
+	- Commit: f079fde, 49a54f8
 	- Note: 20261007, reopened. In the pipeline's native suite on b29w at 7c1debd, rhr6ggmt failed its `beside-rar` row on both passes: rar there took `sub/a.txt` beside the picked `a.txt`. That row passed natively before `-r0` went in. Not fixed yet.
-	- Test case: rev86z08, Archive options test, for the added `-r0` after an `-r`, and none on the extract lines. rhr6ggmt, the picked `a.txt` beside `sub/a.txt` rows again with an edited rar line that keeps `-r`.
+	- Reproduced: 20261009, natively on vm925w and b29w at 398c999, the same row on both passes.
+	- Actual cause: on both boxes PATH finds a `rar.cmd` wrapper, and WinRAR's own folder isn't on PATH. The check for which program a line runs only took `.exe` off the name, so `rar.cmd` didn't count as rar and no `-r0` went in. rar 7.23 itself takes `-r0` on Windows as it does on Linux, run directly and through the wrapper.
+	- Actual fix: on Windows, any `PATHEXT` extension comes off the program's name before it is matched, so a `rar.cmd` or `7z.bat` counts as the program it wraps. Elsewhere only `.exe` comes off, as before. The same check picks 7-Zip lines for `-spd`.
+	- Swept: the one check serves the compress builder, its links run and the extract builder. Nothing else in the app tells programs apart by name.
+	- Verified: 20261009, rev86z08's new Windows cases fail under wine without the fix, 2 checks, and pass with it. rhr6ggmt passes natively at 49a54f8 on vm925w and b29w, and rev86z08 on both. The Linux build with warnings as errors is clean, rev86z08 passes there, and the whole-tree C lint is clean.
+	- Test case: rev86z08, Archive options test, for the added `-r0` after an `-r`, and none on the extract lines. On Windows also a `rar.cmd` and a `7Z.Bat` wrapper, and a `rar.txt` that isn't one. rhr6ggmt, the picked `a.txt` beside `sub/a.txt` rows again with an edited rar line that keeps `-r`.
+	- Acceptance signoff: Self-closed: reproduced on both boxes, the new rev86z08 cases fail before the fix and pass after, and rhr6ggmt passes natively.
+	- Closed: 20261009-133954
 
 - On Windows the gate says the build is not set up with `-Werror` when it is.
 	- ID: 2026100518100000
