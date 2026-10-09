@@ -72,6 +72,7 @@ Every group like this works the same way, through one table and one function.
 - The flyover tip of every input control, and of its label, has:
 	- The setting's description, if it has one.
 	- A blank line, when anything follows it.
+	- For a grayed child, a line naming its master and what a change does to it, such as `Follows Automatic layout. Changing this turns it off.` or `Follows Layout. Changing this sets it to Custom.`
 	- The values in play, as `Current value: ...`, `Stored value: ...` and `Default value: ...`. These lines show only when the 3 values aren't all the same.
 
 ## Goals
@@ -214,7 +215,7 @@ Clearing every flag on a hand change of the master stops that. It's the only tim
 
 ### Open questions
 
-- Whether the flyover tip of a grayed child also names its master, and says that a change turns it off.
+- None right now.
 
 ## Alternative ideas
 
