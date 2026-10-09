@@ -562,13 +562,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The same works for an "enable X" master and a "disable X" master, just inverted.
 	- Note: the problem this solves. In this app now, and in many others, a setting that can't be edited first means hunting down which master switch is stopping it, then changing that. Changing it also brings back every stored value under it, when maybe only the one was wanted.
 	- Progress log:
-		- 20261008: Open: the rule as first written, "own value when the override is set or the master is off", un-grays every setting under a master as soon as one edit turns the master off. That breaks the "others stay gray" requirement. Option: read only the setting's own override. Then the master shows on when no setting under it overrides, and setting the master by hand clears or sets every override under it.
+		- 20261008: "own value when the override is set or the master is off" would un-gray every setting under a master once one edit turns the master off. Settled on the rule in Decisions instead, which is what was meant.
+		- 20261008: 2 ways to store it:
+			- (a) Only the override flags. The master shows on when no setting under it overrides, and setting it by hand sets or clears every flag under it. Master off by hand writes one line per setting under it.
+			- (b) The master keeps its own value, plus a second setting: `overridesAll`, `overridesNone` or `overridesSome`. All means every setting under it uses its own value, None means every one is gray and automatic, Some means only those with their override flag set use their own value. Setting the master by hand writes 2 lines, whatever the number of settings under it.
+			- Leaning (b). The catch: old flags left from an earlier Some would come back the next time it goes to Some. So setting the master by hand also drops every flag under it, which in a file that keeps only non-default values means deleting lines, not writing them.
+		- Open: (a) or (b).
 	- Decisions:
 		- 20261008: whether a setting is grayed is saved in the settings file, so a restart shows the same grays.
 		- 20261008: one standard way for every such setting. Each one under a master keeps its own manual value, and an override flag saying it no longer follows the master. Only non-default values are stored, as with every other key.
 		- 20261008: the app knows which settings sit under which master from one table, likely the schema file.
 		- 20261008: one generic function answers "what value does this setting use, and is it grayed". Nothing reads a child setting around it.
-		- 20261008: setting the master by hand sets every override under it to match.
+		- 20261008: a setting under a master is grayed and automatic unless its own override applies. Changing a grayed setting un-grays only that one, and turns the master off or to "Custom" on its own. Only setting the master by hand changes every setting under it.
 	- Test case: still needs one.
 
 - The Archive settings test's restart does not read the file again.
