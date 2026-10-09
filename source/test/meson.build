@@ -175,25 +175,29 @@ test('rhtq57n0 Job queue test',
   args: []
 )
 
-test('rjptygcj Instance list test',
-  executable('test-nemo-instance-list',
-    [ 'test-nemo-instance-list.c' ],
-    include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private, test_scratch ],
-  ),
-  args: [],
-  timeout: 60
-)
+# The bus half of the link between copies. Windows has no bus; its pipes are
+# rjvks1yf's.
+if not is_windows
+  test('rjptygcj Instance list test',
+    executable('test-nemo-instance-list',
+      [ 'test-nemo-instance-list.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: [],
+    timeout: 60
+  )
 
-test('rjvdch2z Settings shared between copies test',
-  executable('test-nemo-config-share',
-    [ 'test-nemo-config-share.c' ],
-    include_directories: [ rootInclude, shclInclude, ],
-    dependencies: [ gtk, nemo_private, test_scratch ],
-  ),
-  args: [],
-  timeout: 120
-)
+  test('rjvdch2z Settings shared between copies test',
+    executable('test-nemo-config-share',
+      [ 'test-nemo-config-share.c' ],
+      include_directories: [ rootInclude, shclInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: [],
+    timeout: 120
+  )
+endif
 
 # The heap is read through glibc, so elsewhere these skip.
 if not is_windows
@@ -2006,14 +2010,26 @@ if is_windows
     timeout: 120
   )
 
-  test('rjprdfjb Session bus cleanup win32 test',
-    executable('test-nemo-session-bus-win32',
-      [ 'test-nemo-session-bus-win32.c' ],
+  # Commented out: nothing starts a session bus on Windows now, so the
+  # gdbus.exe stand-in it tests is gone (2026100815215479).
+  # test('rjprdfjb Session bus cleanup win32 test',
+  #   executable('test-nemo-session-bus-win32',
+  #     [ 'test-nemo-session-bus-win32.c' ],
+  #     include_directories: [ rootInclude, ],
+  #     dependencies: [ gio, glib, test_scratch ],
+  #   ),
+  #   args: [ session_bus_exe ],
+  #   timeout: 120
+  # )
+
+  test('rjvks1yf Copies reach each other with no bus win32 test',
+    executable('test-nemo-copies-win32',
+      [ 'test-nemo-copies-win32.c' ],
       include_directories: [ rootInclude, ],
-      dependencies: [ gio, glib, test_scratch ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
     ),
-    args: [ session_bus_exe ],
-    timeout: 120
+    args: [ nemo ],
+    timeout: 300
   )
 
   test('rjpatrck Helper end win32 test',

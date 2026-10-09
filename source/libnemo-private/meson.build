@@ -136,6 +136,7 @@ if is_windows
   nemo_private_sources += 'nemo-dnd-win32.c'
   nemo_private_sources += 'nemo-shell-icon-win32.c'
   nemo_private_sources += 'nemo-drives-win32.c'
+  nemo_private_sources += 'nemo-instances-win32.c'
 endif
 nemo_private_sources += 'nemo-lnk.c'
 

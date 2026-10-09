@@ -1284,12 +1284,18 @@ prepend_env_dir (const char *var, const char *dir, const char *fallback)
  * comes off XDG_DATA_DIRS, and GLib caches that list the first time anything
  * asks for it, so this has to run before anything else does.
  *
- * Nothing to do on Windows: the layout is flat and GLib there already reads the
- * share dir beside the exe. */
+ * On Windows the layout is flat and GLib there already reads the share dir
+ * beside the exe. What it does need is to be told there is no session bus.
+ * The copies talk over named pipes there, and GLib starts a bus of its own
+ * (gdbus.exe) the first time anything asks for one, GApplication's
+ * registration included. "disabled:" is no transport, so every ask fails at
+ * once instead. */
 void
 nemo_setup_runtime_environment (void)
 {
-#ifndef G_OS_WIN32
+#ifdef G_OS_WIN32
+	g_setenv ("DBUS_SESSION_BUS_ADDRESS", "disabled:", TRUE);
+#else
 	char *exe;
 	char *bindir;
 	char *base;
@@ -1651,6 +1657,10 @@ nemo_is_file_roller_installed (void)
 static GDBusConnection *
 get_dbus_connection (void)
 {
+#ifdef G_OS_WIN32
+	/* Nothing there takes the inhibit, and asking for the bus would start one. */
+	return NULL;
+#else
 	static GDBusConnection *conn = NULL;
 
 	if (conn == NULL) {
@@ -1665,6 +1675,7 @@ get_dbus_connection (void)
 	}
 
 	return conn;
+#endif
 }
 
 /**

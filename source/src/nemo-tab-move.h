@@ -39,9 +39,8 @@ void nemo_window_take_tab (NemoWindow         *window,
                            guint32             event_time);
 
 /* Serves the list of this process's windows and the hand-over to other
- * copies, at the instance path. Returns the registration id, or 0. */
-guint nemo_tab_move_export (GDBusConnection *connection,
-                            const char      *object_path);
+ * copies. Before nemo_instances_start. */
+void nemo_tab_move_serve (void);
 
 /* "Move tab to", with a submenu of every other window and a new one. */
 GtkWidget *nemo_tab_move_menu_item_new (NemoWindowSlot *slot);

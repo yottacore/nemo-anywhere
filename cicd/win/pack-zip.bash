@@ -85,7 +85,8 @@ docker exec "$CONTAINER" sh -c "
 	cd ${SYSROOT}
 
 	cp bin/*.dll /tmp/${name}/
-	for h in gdbus.exe gspawn-win64-helper.exe gspawn-win64-helper-console.exe \
+	## No gdbus.exe: nothing starts a session bus on Windows.
+	for h in gspawn-win64-helper.exe gspawn-win64-helper-console.exe \
 	         gsf-office-thumbnailer.exe; do
 		[ -f \"bin/\$h\" ] && cp \"bin/\$h\" /tmp/${name}/ || true
 	done
@@ -97,7 +98,6 @@ docker exec "$CONTAINER" sh -c "
 	## The app's own binaries and data go on top, so a build always wins over
 	## anything of the same name from the sysroot.
 	cp ${BUILD}/src/${SLUG}.exe /tmp/${name}/
-	cp ${BUILD}/session-bus/gdbus.exe /tmp/${name}/
 	find ${BUILD} -maxdepth 3 -name '*.dll' -exec cp {} /tmp/${name}/ \; 2>/dev/null || true
 	if [ -d /src/source/data ]; then
 		mkdir -p /tmp/${name}/share/${SLUG}

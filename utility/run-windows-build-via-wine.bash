@@ -59,7 +59,7 @@ if [[ ! -x "${DEST}/app/nemo-anywhere.exe" ]] || (( restage )); then
 		mkdir -p "$D/mingw64/bin" "$D/mingw64/lib" "$D/mingw64/share/glib-2.0" "$D/app"
 		cd /opt/win-sysroot/mingw64
 		cp bin/*.dll "$D/mingw64/bin/"
-		cp bin/gdbus.exe bin/gspawn-win64-helper.exe bin/gspawn-win64-helper-console.exe "$D/mingw64/bin/" 2>/dev/null || true
+		cp bin/gspawn-win64-helper.exe bin/gspawn-win64-helper-console.exe "$D/mingw64/bin/" 2>/dev/null || true
 		# thumbnailer exe + descriptors: bin is on WINEPATH so g_find_program_in_path
 		# resolves it, share/thumbnailers is a data dir so nemo finds the descriptors.
 		# Pictures and SVG are drawn by the app itself, as in the bundles.
@@ -77,7 +77,9 @@ fi
 if container_up; then
 	docker exec "$CONTAINER" sh -c '
 		cp /build-win/src/nemo-anywhere.exe /src/cicd/artifacts/win-run/app/
-		cp /build-win/session-bus/gdbus.exe /src/cicd/artifacts/win-run/mingw64/bin/ 2>/dev/null || true'
+		# Nothing starts a session bus on Windows; a snapshot staged before that
+		# still has one.
+		rm -f /src/cicd/artifacts/win-run/mingw64/bin/gdbus.exe'
 	docker exec "$CONTAINER" chown -R "$(id -u):$(id -g)" /src/cicd/artifacts/win-run/app /src/cicd/artifacts/win-run/mingw64/bin
 else
 	fEcho "WARNING: container '$CONTAINER' not running - using the staged snapshot as-is"

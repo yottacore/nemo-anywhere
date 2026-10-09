@@ -275,6 +275,7 @@ Each window is its own process by default, and every launch is a fresh one. A cr
 - The copies still find each other. Each queues on the one bus name, so a caller from outside always reaches the oldest. That is how `--quit` and Close All Windows reach every copy, how `--reset` knows one is running, how a tab's menu lists the windows of other copies, and how a settings change reaches the other copies.
 	- The list of copies comes from numbered slot names. Each copy takes the first free slot and queues on every slot below it, so the slot of a copy that ends passes up to a live one and the taken slots never have a gap. Asking who owns each slot in turn, up to the first free one, finds every copy.
 	- The queue itself is not read, since GLib's bus on Windows answers both ways of reading it with an empty list.
+	- That is Linux and the BSDs. Windows has no session bus, so each copy serves a named pipe instead, with the same calls going over it. The name has the user, the logon session and the process in it, so 2 users or 2 sessions on one box never see each other. Only the same user gets in. The list of copies is every process in the session with a pipe by that name, and a pipe goes with its process, however that ends.
 
 - What it costs: a tab cannot really move to a window in another process, only be handed over, and its back and forward history stays behind. On Windows a new window carries the packed program's startup time rather than appearing at once. Those two are why it is a setting - turning it off puts new windows back inside one process. Launches from outside stay separate either way.
 
@@ -282,7 +283,7 @@ Each window is its own process by default, and every launch is a fresh one. A cr
 
 - A selection has to be sayable on a command line for another process to show it, so `--select` takes the folder around an item with the item selected. "Show in folder" from other programs goes through it.
 
-- D-Bus needed no per-platform gating. GLib autolaunches a per-user session bus on Windows as well, shared across processes, so the freedesktop file-manager interface gets a real connection everywhere.
+- Nothing asks for a session bus on Windows. GLib would start one of its own there (`gdbus.exe`), and nothing outside the app would talk on it. So the copies use named pipes there, the freedesktop file-manager interface is Linux and BSD only, and an action's `dbus` condition never passes on Windows.
 
 ## Features
 
@@ -595,7 +596,7 @@ On Windows the gaps are filled natively rather than by porting gvfs:
 
 - The app never starts another program itself. The single-exe build carries its whole runtime inside it, and anything it starts would inherit that. So the desktop is asked to do the starting, for every launch. See [Programs the app starts](design_docs/20260930-145641_windows_exe_packing.md#programs-the-app-starts).
 
-- The session bus GLib starts when none is up is still GLib's, but it runs from a small `gdbus.exe` of ours, which sits where GLib looks for its own. GLib's bus never removes the file it writes in TEMP, so one was left for every bus started. Ours gives the bus a TEMP folder of its own and removes it when the bus ends. A bus that was killed leaves its folder, and the next bus removes it.
+- No session bus is started, and no `gdbus.exe` is in any Windows bundle. The copies talk over named pipes; see [One process per window](#one-process-per-window). That also ends the file GLib's bus used to leave in TEMP each time it ended.
 
 - The clipboard and outbound drags are the app's own rather than the toolkit's. The toolkit only puts its own target names into a drag, and nothing outside it reads those; the one format every Windows program does read has no name to register it under, so it cannot be added from outside. A drag now carries what Explorer's own drags carry, with the app's own formats riding alongside, so drops back into our own window behave exactly as before. One switch turns the whole thing off and puts every drag back on the toolkit's. Control copies and shift moves, following Windows, read from the keyboard directly because the toolkit reports the same suggested action either way.
 
@@ -656,7 +657,7 @@ What it does not do:
 
 - It never elevates itself. Open as Administrator on Windows and Open as Root on Linux start a new copy through UAC or pkexec, which ask in their own right. The copy that asked stays as it was.
 
-Other programs on the session bus can reach one interface, the freedesktop one, which only shows folders and properties. Nothing on the bus can copy, move, trash or delete. Nemo's own interface for that served its desktop, and it was removed.
+Other programs on the session bus can reach one interface, the freedesktop one, which only shows folders and properties. Nothing on the bus can copy, move, trash or delete. Nemo's own interface for that served its desktop, and it was removed. On Windows there is no bus, and a copy's pipe lets in only the same user, from the same integrity level or above, so an elevated copy and an ordinary one keep apart.
 
 Extensions and actions run with the user's rights. An extension is loaded into the process and can do anything the program can, so one is only worth installing from someone trusted with that much. A command line kept in the settings file is run as written.
 

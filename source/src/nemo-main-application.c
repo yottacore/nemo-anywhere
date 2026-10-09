@@ -119,12 +119,7 @@ struct _NemoMainApplicationPriv {
 	gboolean open_in_tabs;
 	gboolean select;
 
-	GDBusConnection *instance_connection;
-	guint instance_name_id;
-	guint instance_slots;
-	guint instance_actions_id;
-	guint instance_tabs_id;
-	guint instance_settings_id;
+	gboolean instance_published;
 
 	/* A tab moved here from another copy, carried on the command line. */
 	gchar *tab_view;
@@ -134,25 +129,8 @@ struct _NemoMainApplicationPriv {
 static void
 publish_instance (NemoMainApplication *self)
 {
-	GDBusConnection *connection;
-
-	connection = g_application_get_dbus_connection (G_APPLICATION (self));
-	if (connection == NULL) {
-		return;
-	}
-	self->priv->instance_connection = g_object_ref (connection);
-
-	self->priv->instance_settings_id = nemo_instance_share_settings (connection);
-	self->priv->instance_slots = nemo_instance_publish (connection, &self->priv->instance_name_id);
-
-	/* GApplication may already serve the same group at this path; then the
-	 * export fails and nothing is missing. */
-	self->priv->instance_actions_id = g_dbus_connection_export_action_group (connection,
-	                                                                         NEMO_INSTANCE_OBJECT_PATH,
-	                                                                         G_ACTION_GROUP (self),
-	                                                                         NULL);
-
-	self->priv->instance_tabs_id = nemo_tab_move_export (connection, NEMO_INSTANCE_OBJECT_PATH);
+	nemo_tab_move_serve ();
+	self->priv->instance_published = nemo_instances_start (G_APPLICATION (self));
 }
 
 /* The activation file has to name a path, and a portable copy has no path until
@@ -171,7 +149,7 @@ refresh_dbus_service_file (G_GNUC_UNUSED NemoMainApplication *self)
 	gboolean same;
 
 	/* No connection means no session bus, so nothing would read it. */
-	if (self->priv->instance_connection == NULL) {
+	if (g_application_get_dbus_connection (G_APPLICATION (self)) == NULL) {
 		return;
 	}
 
@@ -207,45 +185,22 @@ refresh_dbus_service_file (G_GNUC_UNUSED NemoMainApplication *self)
 #endif
 }
 
-/* At finalize the application is no longer registered, so the connection is
- * the one kept from publishing, not asked for again. */
+/* At finalize the application is no longer registered; the bus connection
+ * is the one kept from publishing. */
 static void
 unpublish_instance (NemoMainApplication *self)
 {
-	GDBusConnection *connection = self->priv->instance_connection;
-
-	if (connection == NULL) {
-		return;
+	if (self->priv->instance_published) {
+		nemo_instances_stop ();
+		self->priv->instance_published = FALSE;
 	}
-
-	nemo_instance_unshare_settings (connection, self->priv->instance_settings_id);
-	self->priv->instance_settings_id = 0;
-	nemo_instance_unpublish (connection, self->priv->instance_name_id, self->priv->instance_slots);
-	self->priv->instance_name_id = 0;
-	self->priv->instance_slots = 0;
-	if (self->priv->instance_actions_id != 0) {
-		g_dbus_connection_unexport_action_group (connection, self->priv->instance_actions_id);
-		self->priv->instance_actions_id = 0;
-	}
-	if (self->priv->instance_tabs_id != 0) {
-		g_dbus_connection_unregister_object (connection, self->priv->instance_tabs_id);
-		self->priv->instance_tabs_id = 0;
-	}
-	g_clear_object (&self->priv->instance_connection);
 }
 
-/* Unique bus names of every other running copy; NULL with no bus. */
+/* Every other running copy; NULL when they cannot be reached. */
 static GStrv
-other_instances (GApplication *application)
+other_instances (G_GNUC_UNUSED GApplication *application)
 {
-	GDBusConnection *connection;
-
-	connection = g_application_get_dbus_connection (application);
-	if (connection == NULL) {
-		return NULL;
-	}
-
-	return nemo_instance_list_others (connection);
+	return nemo_instances_list_others ();
 }
 
 /* Returns: (transfer full): free with g_strfreev */
@@ -255,22 +210,13 @@ nemo_main_application_other_instances (void)
 	return other_instances (g_application_get_default ());
 }
 
-/* Asks every other copy to quit. FALSE only when there is no bus to ask on. */
+/* Asks every other copy to quit. FALSE only when they cannot be reached. */
 static gboolean
-quit_other_instances (GApplication *application)
+quit_other_instances (G_GNUC_UNUSED GApplication *application)
 {
-	GDBusConnection *connection;
-
-	connection = g_application_get_dbus_connection (application);
-	if (connection == NULL) {
-		return FALSE;
-	}
-
 	/* What GDBusActionGroup sends for the exported quit action. */
-	nemo_instance_send_to_others (connection, "org.gtk.Actions", "Activate",
-	                              g_variant_new_parsed ("('quit', @av [], @a{sv} {})"));
-
-	return TRUE;
+	return nemo_instances_send_to_others ("org.gtk.Actions", "Activate",
+	                                      g_variant_new_parsed ("('quit', @av [], @a{sv} {})"));
 }
 
 static void
@@ -1064,7 +1010,8 @@ nemo_main_application_local_command_line (GApplication *application,
 
 	/* Non-unique: this is always the primary instance, whatever else is
 	 * running. Registering still gets the bus connection the copies find
-	 * each other on. */
+	 * each other on, where they use one, and runs startup, which puts this
+	 * copy in the list. */
 	if (!g_application_register (application, NULL, &error)) {
 		g_printerr ("Could not register nemo: %s\n", error->message);
 		g_clear_error (&error);
@@ -1225,7 +1172,10 @@ nemo_main_application_continue_startup (NemoApplication *app)
 {
 	NemoMainApplication *self = NEMO_MAIN_APPLICATION (app);
 
+#ifndef G_OS_WIN32
+	/* Would start a session bus on Windows, where nobody asks for it. */
 	self->priv->fdb_manager = nemo_freedesktop_dbus_new ();
+#endif
 	publish_instance (self);
 	refresh_dbus_service_file (self);
 
