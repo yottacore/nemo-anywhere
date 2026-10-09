@@ -410,7 +410,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - A settings change in one copy of the app shows in every other running copy at once.
 	- ID: 2026100907390779
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs external testing: a native Windows run of rjvdch2z, and 2 copies of the app on vm925w with a setting changed in one, seen in the other before the save.
 	- Priority|Severity: Avg
 	- Opened: 20261009-073907
 	- Opened by: t00mietum
@@ -423,7 +424,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- The folder or path changed. Then each copy picks again. With "random per window/tab/pane" on, each window, tab or pane gets its own pseudorandom pick.
 		- With every window in one process this comes for free. With a process per window, tell the other copies over the same channel the tab moves use, rather than through the settings file.
 	- Note: today the other copies only see a change through the file watch, after the 2 s save delay plus however long the watch takes. Watching the file stays, for hand edits.
-	- Test case: still needs one.
+	- Progress log:
+		- 20261009: done. A change goes to the other copies through the same calls quit and the tab move use, so 2026100815215479 moves it to named pipes with the rest. How the edge cases go:
+			- A copy that takes a change never saves for it. It writes it only along with a change of its own, the same as the sender would.
+			- 2 copies changing one setting at once both end with the later change, and so does the file. If the copy that lost had saved first, the one that won saves again.
+			- A copy still starting gets the change from the file after the save. A copy that quits sends what it hasn't sent yet, then saves. If the sender crashes before its save, the others keep the change in memory and write it with their next change.
+			- The file watch seeing the same change again takes nothing and runs no handlers. A hand edit read before the sender's save keeps the change.
+			- A setting going back to its default goes over as a removed line, ready for 2026100816170959.
+			- Random wallpaper: not applicable yet, since that feature isn't built.
+	- Verified: rjvdch2z passes on Linux, also with the CPUs loaded, and under wine. It fails with the copies not sharing (the change only shows 2 to 2.6 s later, once the file has it), with the newer-change check taken out, with the receiving copy saving, with taken values dropped on a reload, and with the stale save left in the file. Full Linux suite, quit and tab move included, and the Windows cross build pass with warnings as errors. Lint clean.
+	- Swept: every setter, reset and the drop of a default value go through one place. Quit now sends through the same call as settings. The other stores beside the settings file, such as shortcuts and bookmarks, don't share; not asked for.
+	- Branch: livecfg
+	- Commit: 0113cc1
+	- Test case: rjvdch2z, Settings shared between copies test. 2 copies on one bus and one settings file. A set, a reset and a list reach the other copy before the save, and its handler runs once. The copy that only took a change never writes it, even when the sender dies first. Both copies setting one key at once agree, before and after the saves, also when the losing copy saved last. A hand edit read before the save keeps the change, and a change made just before quitting still arrives.
 
 - Read the old binary Word, Excel and PowerPoint files inside the app, with a container reader of our own.
 	- ID: 2026100909260511
