@@ -375,6 +375,22 @@ nemo_launch_application_from_command_array (GdkScreen  *screen,
 	launch_from_command (screen, command_string, use_terminal, parameters);
 }
 
+/* On Windows GTK's own way goes through GLib's spawn helper, a program of its
+ * own in the single exe. */
+gboolean
+nemo_show_uri (GtkWindow   *parent_window,
+	       const char  *uri,
+	       GError     **error)
+{
+#ifdef G_OS_WIN32
+	(void) parent_window;
+	return nemo_launch_win32_open_uri (uri, error);
+#else
+	return gtk_show_uri (parent_window != NULL ? gtk_window_get_screen (parent_window) : NULL,
+			     uri, gtk_get_current_event_time (), error);
+#endif
+}
+
 void
 nemo_launch_desktop_file (G_GNUC_UNUSED GdkScreen   *screen,
 			      const char  *desktop_file_uri,

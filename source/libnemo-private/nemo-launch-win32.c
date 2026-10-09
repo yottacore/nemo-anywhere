@@ -173,10 +173,10 @@ worth_asking_the_shell (const gchar *exe)
 	return g_file_test (exe, G_FILE_TEST_EXISTS);
 }
 
-gboolean
-nemo_launch_win32_via_shell (const gchar *exe,
-			     const gchar *args,
-			     const gchar *workdir)
+static gboolean
+shell_execute (const gchar *exe,
+	       const gchar *args,
+	       const gchar *workdir)
 {
 	IShellDispatch2 *shell;
 	VARIANT vargs, vdir, vverb, vshow;
@@ -185,7 +185,7 @@ nemo_launch_win32_via_shell (const gchar *exe,
 	HRESULT hr;
 	gboolean needs_leave;
 
-	if (!worth_asking_the_shell (exe) || !com_enter (&needs_leave)) {
+	if (!com_enter (&needs_leave)) {
 		return FALSE;
 	}
 
@@ -220,6 +220,14 @@ nemo_launch_win32_via_shell (const gchar *exe,
 	}
 
 	return SUCCEEDED (hr);
+}
+
+gboolean
+nemo_launch_win32_via_shell (const gchar *exe,
+			     const gchar *args,
+			     const gchar *workdir)
+{
+	return worth_asking_the_shell (exe) && shell_execute (exe, args, workdir);
 }
 
 /* Win32_Process::Create. The provider host does the creating, so the child is
@@ -445,6 +453,68 @@ nemo_launch_win32_open_path (const gchar  *path,
 
 	if (!started) {
 		set_failed (error, path);
+	}
+
+	return started;
+}
+
+/* A scheme nobody handles gets a box from Explorer, the same as a missing
+ * file, so the registry is asked first. A one-letter scheme is a drive. */
+static gboolean
+scheme_has_handler (const gchar *uri)
+{
+	gchar *scheme = g_uri_parse_scheme (uri);
+	wchar_t *wscheme = scheme != NULL && strlen (scheme) > 1
+		? g_utf8_to_utf16 (scheme, -1, NULL, NULL, NULL) : NULL;
+	gboolean found = wscheme != NULL &&
+		RegGetValueW (HKEY_CLASSES_ROOT, wscheme, L"URL Protocol", RRF_RT_REG_SZ,
+			      NULL, NULL, NULL) == ERROR_SUCCESS;
+
+	g_free (wscheme);
+	g_free (scheme);
+	return found;
+}
+
+gboolean
+nemo_launch_win32_open_uri (const gchar  *uri,
+			    GError      **error)
+{
+	gchar *path;
+	wchar_t *wuri;
+	gboolean started;
+	DWORD failure;
+
+	g_return_val_if_fail (uri != NULL, FALSE);
+
+	path = g_filename_from_uri (uri, NULL, NULL);
+	if (path != NULL) {
+		started = nemo_launch_win32_open_path (path, NULL, error);
+		g_free (path);
+		return started;
+	}
+
+	if (!scheme_has_handler (uri)) {
+		g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
+			     _("Nothing is set to open \"%s\""), uri);
+		return FALSE;
+	}
+
+	if (shell_execute (uri, NULL, NULL)) {
+		return TRUE;
+	}
+
+	/* As for a file: nothing else finds the handler for us. */
+	wuri = g_utf8_to_utf16 (uri, -1, NULL, NULL, NULL);
+	nemo_launch_win32_user_environ_enter ();
+	started = wuri != NULL &&
+		  (INT_PTR) ShellExecuteW (NULL, NULL, wuri, NULL, NULL, SW_SHOWNORMAL) > 32;
+	failure = GetLastError ();
+	nemo_launch_win32_user_environ_leave ();
+	g_free (wuri);
+
+	if (!started) {
+		SetLastError (failure);
+		set_failed (error, uri);
 	}
 
 	return started;
@@ -1066,6 +1136,51 @@ nemo_launch_win32_spawn (const gchar * const  *argv,
 		g_string_free (args, TRUE);
 	}
 
+	g_free (program);
+	return started;
+}
+
+/* Started here and not through a broker: the single exe started as itself
+ * loads its own files whatever hooks it got, and a direct start keeps our
+ * token and lets the new window come to the front. GLib's spawn goes through
+ * its helper, a program packed in the single exe, and under MacType that one
+ * can't load its libraries. */
+gboolean
+nemo_launch_win32_new_copy (const gchar * const  *argv,
+			    GError              **error)
+{
+	GString *line;
+	gchar *program;
+	gboolean started;
+	DWORD failure;
+
+	g_return_val_if_fail (argv != NULL && argv[0] != NULL, FALSE);
+
+	program = g_path_is_absolute (argv[0]) ? g_strdup (argv[0]) : g_find_program_in_path (argv[0]);
+	if (program == NULL) {
+		SetLastError (ERROR_FILE_NOT_FOUND);
+		set_failed (error, argv[0]);
+		return FALSE;
+	}
+
+	line = g_string_new (NULL);
+	append_argument (line, program);
+	for (guint i = 1; argv[i] != NULL; i++) {
+		append_argument (line, argv[i]);
+	}
+
+	/* It makes its own settings again, from the user's. */
+	nemo_launch_win32_user_environ_enter ();
+	started = direct_start (line->str, NULL);
+	failure = GetLastError ();
+	nemo_launch_win32_user_environ_leave ();
+
+	if (!started) {
+		SetLastError (failure);
+		set_failed (error, program);
+	}
+
+	g_string_free (line, TRUE);
 	g_free (program);
 	return started;
 }

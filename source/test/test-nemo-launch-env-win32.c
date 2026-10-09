@@ -229,20 +229,14 @@ main (int argc, char *argv[])
 	/* A new copy of ours, the way nemo-new-process.c starts one. */
 	{
 		g_autofree char *out = dump_path (scratch, "copy.txt");
-		char *run[] = { self, (char *) "--dump", out, NULL };
-		GPid pid = 0;
+		const char *run[] = { self, "--dump", out, NULL };
 
-		env = nemo_get_user_environ ();
-		check (g_spawn_async (NULL, run, env, G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD,
-				      NULL, NULL, &pid, &error));
+		check (nemo_launch_win32_new_copy (run, &error));
 		g_clear_error (&error);
-		g_strfreev (env);
 		lines = wait_for_dump (out);
 		check_not_ours ("copy", lines, TRUE);
 		g_strfreev (lines);
-		if (pid != 0) {
-			g_spawn_close_pid (pid);
-		}
+		check_ours_still ();
 	}
 
 	/* A helper keeps the app's settings. */
