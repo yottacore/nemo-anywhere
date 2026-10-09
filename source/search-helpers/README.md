@@ -35,16 +35,9 @@ On Windows a path goes in as written, single backslashes and all, as in `TryExec
 
 When more than one helper claims a type, the one with the highest `Priority` runs; the next is only tried when it could not read the file at all.
 
-##### Built-in converters:
+##### Office files:
 
-The converters in this folder are plain C on libgsf and are built and shipped on every platform, so these formats need nothing installed:
-
-- `nemo-anywhere-mso-to-txt` - any zip-of-xml document: Word, Excel and PowerPoint 2007+ (`.docx`, `.xlsx`, `.pptx`), OpenDocument (`.odt`, `.ods`, `.odp`, `.odg`) and EPUB. The app reads these types itself now, before any helper, so this one only runs for a file the app could not open as a zip.
-- `nemo-anywhere-doc-to-txt` - Word 6 through 2003 (`.doc`).
-- `nemo-anywhere-xls-to-txt` - Excel 5 through 2003 (`.xls`).
-- `nemo-anywhere-ppt-to-txt` - PowerPoint 97 through 2003 (`.ppt`).
-
-The app reads `.doc`, `.xls` and `.ppt` itself now as well, before any helper, so these 3 only run for a file it could not read.
+The app reads Word, Excel and PowerPoint files, old and new, OpenDocument and EPUB itself, before any helper, so no helper is needed for them. A helper installed for one of those types runs only for a file the app could not read.
 
 The definitions under `third-party/` name programs that may or may not be installed (pdftotext, exiftool and so on) and are skipped when they are not.
 

@@ -159,7 +159,7 @@ What the project is trying to be, roughly in priority order:
 
 - Filesystem access: GIO everywhere, with native backends filling the gaps that have no portable answer - the Windows Recycle Bin, Windows network browsing, and Windows shell shortcuts.
 
-- Other libraries: libarchive for reading and writing archives, libexif, libgsf and exempi for file property extraction, json-glib for the metadata store, SQLite for the file cache, and two vendored pieces: one header for the settings format and the blake3 hash. Deliberately absent: xapp, cinnamon-desktop, and GSettings for the app's own settings.
+- Other libraries: libarchive for reading and writing archives and the zip based office files, libexif and exempi for file property extraction, json-glib for the metadata store, SQLite for the file cache, and two vendored pieces: one header for the settings format and the blake3 hash. Deliberately absent: xapp, cinnamon-desktop, and GSettings for the app's own settings.
 
 - Optional at runtime: gvfs on Linux, for network shares, trash and remote mounts. Where it is absent the affected entries hide themselves rather than fail.
 
@@ -732,7 +732,7 @@ Stock Debian 13 is the known-good baseline, in `cicd/linux/Dockerfile.dev` (imag
 
 - The pipeline makes that container on first use if there is none: it builds the image, then runs it with the repo mounted at `/src`, `--shm-size=2g` so parallel gcc has room, `--init` to reap stray processes, and `--ulimit core=0` so a crash leaves no core file in the tree. The release and cross-build containers are made the same way by their own scripts.
 
-- Toolchain and development libraries: `meson ninja-build gcc pkg-config gobject-introspection intltool itstool python3-gi`, `libgtk-3-dev libglib2.0-dev libpango1.0-dev libatk1.0-dev libgail-3-dev`, `libjson-glib-dev libgirepository1.0-dev libgsf-1-dev libexempi-dev libexif-dev`, `libarchive-dev libsqlite3-dev`, `libx11-dev libxext-dev libxrender-dev`.
+- Toolchain and development libraries: `meson ninja-build gcc pkg-config gobject-introspection intltool itstool python3-gi`, `libgtk-3-dev libglib2.0-dev libpango1.0-dev libatk1.0-dev libgail-3-dev`, `libjson-glib-dev libgirepository1.0-dev libexempi-dev libexif-dev`, `libarchive-dev libsqlite3-dev`, `libx11-dev libxext-dev libxrender-dev`.
 
 - `clang` and `llvm` are only needed to build the fuzz targets against libFuzzer with `-Dfuzzing=true`. Everything else builds with gcc, and without the option the fuzz targets still build and replay their seed corpus as ordinary tests. See [Testing](#testing).
 
@@ -753,7 +753,7 @@ Release builds do not use this container. They are built against an older glibc,
 
 The Windows build is native, not cross-compiled: MSYS2 with the mingw64 GTK3 toolchain, which is what both the Windows development box and the hosted release workflow use.
 
-- `pacman -S --needed mingw-w64-x86_64-{gcc,meson,ninja,pkgconf,gtk3,json-glib,libarchive,libexif,libgsf,cppcheck,gettext} intltool git`, then `meson setup -Dxmp=false build source` and `ninja -C build`.
+- `pacman -S --needed mingw-w64-x86_64-{gcc,meson,ninja,pkgconf,gtk3,json-glib,libarchive,libexif,cppcheck,gettext} intltool git`, then `meson setup -Dxmp=false build source` and `ninja -C build`.
 
 - Enigma Virtual Box is needed only for the single-exe artifact. Without it everything still builds, tests and stages, and only the packing step skips. See [20260930-145641_windows_exe_packing.md](design_docs/20260930-145641_windows_exe_packing.md).
 
@@ -769,7 +769,7 @@ Deliberately off for Windows either way: XMP and exempi, which are not packaged 
 
 FreeBSD 15.1 on amd64 is the known-good baseline. The build is native, with the base system's clang, and there is no container, so the versions are whatever `pkg` has at the time.
 
-- Toolchain and libraries: `pkg install meson ninja pkgconf python3 gettext-tools intltool itstool gobject-introspection gtk3 json-glib libgsf exempi libexif libarchive sqlite3`. Base has its own libarchive, but only the package has the pkg-config file meson looks for.
+- Toolchain and libraries: `pkg install meson ninja pkgconf python3 gettext-tools intltool itstool gobject-introspection gtk3 json-glib exempi libexif libarchive sqlite3`. Base has its own libarchive, but only the package has the pkg-config file meson looks for.
 
 - Configure and build as an ordinary user:
 	- `meson setup build source`

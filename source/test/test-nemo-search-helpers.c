@@ -1,22 +1,27 @@
-/* The document converters behind "Containing:". Each format is written out
- * minimally with libgsf, the converter is run on it, and its output has to
+/* The text behind "Containing:" for office files, read in the app. Each
+ * format is written out minimally, with libarchive for the zips and the tests'
+ * own compound file writer for the rest, and the text the app reads has to
  * carry the words that went in - and not the ones from parts it must skip.
- * Then the search engine itself is pointed at the same files, with helper
- * definitions naming the freshly built converters, and has to find each one
- * by a word inside it. */
+ * These were the cases of the converter programs that read them before.
+ * Then the search engine itself is pointed at the same files, with a
+ * helper definition that can't be used in the helper folder, and has to find
+ * each one by a word inside it. */
 
 #include <config.h>
 
 #include <string.h>
+#include <archive.h>
+#include <archive_entry.h>
 #include <glib.h>
 #include <gio/gio.h>
 #include <gtk/gtk.h>
-#include <gsf/gsf.h>
 #include <libnemo-private/nemo-global-preferences.h>
+#include <libnemo-private/nemo-office.h>
 #include <libnemo-private/nemo-search-engine-advanced.h>
 #include <libnemo-private/nemo-query.h>
 
 #include "test-scratch.h"
+#include "test-ole2-writer.h"
 
 static int failures;
 static char *tmpdir;
@@ -33,116 +38,72 @@ check (gboolean ok, const char *what)
 }
 
 static char *
-helper_path (const char *name)
+read_text (const char *file)
 {
-	const char *dir = g_getenv ("NEMO_SEARCH_HELPER_DIR");
-
-	if (dir == NULL) {
-		g_error ("NEMO_SEARCH_HELPER_DIR is not set");
-	}
-
-#ifdef G_OS_WIN32
-	return g_strdup_printf ("%s/nemo-anywhere-%s-to-txt.exe", dir, name);
-#else
-	return g_strdup_printf ("%s/nemo-anywhere-%s-to-txt", dir, name);
-#endif
-}
-
-/* Runs a converter and hands back what it printed. */
-static char *
-convert (const char *helper, const char *file)
-{
-	char *exe = helper_path (helper);
-	char *argv[] = { exe, (char *) file, NULL };
-	char *out = NULL, *err = NULL;
-	int status = 0;
+	g_autoptr (GFile) location = g_file_new_for_path (file);
 	GError *error = NULL;
+	char *out = nemo_office_text_file (location, 1024 * 1024, NULL, &error);
 
-	if (!g_spawn_sync (NULL, argv, NULL, G_SPAWN_DEFAULT, NULL, NULL, &out, &err, &status, &error)) {
-		g_print ("could not run %s: %s\n", exe, error->message);
-		g_error_free (error);
+	if (out == NULL) {
+		g_print ("could not read %s: %s\n", file, error != NULL ? error->message : "no error");
+		g_clear_error (&error);
 		out = g_strdup ("");
-	} else if (status != 0) {
-		g_print ("%s exited %d: %s\n", exe, status, err ? err : "");
 	}
 
-	g_free (err);
-	g_free (exe);
 	return out;
 }
 
-/* Same, but gives up after a bound. A converter that never returns is the
- * failure some of these cases are looking for, and a test that hangs waiting
- * for one says much less than a test that reports it. */
+/* Same, but gives up after a bound. A read that never returns is the failure
+ * some of these cases are looking for, and a test that hangs waiting for one
+ * says much less than a test that reports it. */
 typedef struct {
-	GMainLoop  *loop;
-	GSubprocess *proc;
-	char       *out;
-	gboolean    timed_out;
-} BoundedRun;
+	char      *file;
+	char      *out;
+	gboolean   done;
+} BoundedRead;
 
-static void
-bounded_finished (GObject *source, GAsyncResult *result, gpointer data)
+static gpointer
+bounded_read (gpointer data)
 {
-	BoundedRun *run = data;
+	BoundedRead *run = data;
 
-	g_subprocess_communicate_utf8_finish (G_SUBPROCESS (source), result, &run->out, NULL, NULL);
-	g_main_loop_quit (run->loop);
+	run->out = read_text (run->file);
+	g_atomic_int_set (&run->done, TRUE);
+	return NULL;
 }
 
+/* TRUE if the read finished inside the bound. What it gave goes to *out. */
 static gboolean
-bounded_expired (gpointer data)
+reads_within (const char *file, guint seconds, char **out)
 {
-	BoundedRun *run = data;
+	BoundedRead *run = g_new0 (BoundedRead, 1);
+	gint64 deadline = g_get_monotonic_time () + (gint64) seconds * G_USEC_PER_SEC;
+	GThread *thread;
 
-	run->timed_out = TRUE;
-	g_subprocess_force_exit (run->proc);
-	return G_SOURCE_REMOVE;
-}
+	run->file = g_strdup (file);
+	thread = g_thread_new ("bounded-read", bounded_read, run);
+	while (!g_atomic_int_get (&run->done) && g_get_monotonic_time () < deadline) {
+		g_usleep (10000);
+	}
 
-/* TRUE if the converter finished inside the bound. What it printed goes to
- * *out, so a case with a bound on it never needs a second, unbounded run. */
-static gboolean
-converts_within (const char *helper, const char *file, guint seconds, char **out)
-{
-	char *exe = helper_path (helper);
-	BoundedRun run = { NULL, NULL, NULL, FALSE };
-	GError *error = NULL;
-	guint timer;
-
-	run.proc = g_subprocess_new (G_SUBPROCESS_FLAGS_STDOUT_PIPE | G_SUBPROCESS_FLAGS_STDERR_SILENCE,
-				     &error, exe, file, NULL);
-	g_free (exe);
-	if (run.proc == NULL) {
-		g_print ("could not run %s converter: %s\n", helper, error->message);
-		g_error_free (error);
+	if (!g_atomic_int_get (&run->done)) {
+		/* Left running, and the run with it; the test is failing anyway. */
+		g_thread_unref (thread);
+		*out = g_strdup ("");
 		return FALSE;
 	}
 
-	run.loop = g_main_loop_new (NULL, FALSE);
-	timer = g_timeout_add_seconds (seconds, bounded_expired, &run);
-	g_subprocess_communicate_utf8_async (run.proc, NULL, NULL, bounded_finished, &run);
-	g_main_loop_run (run.loop);
-
-	if (!run.timed_out) {
-		g_source_remove (timer);
-	}
-	g_main_loop_unref (run.loop);
-	g_object_unref (run.proc);
-
-	if (out != NULL) {
-		*out = run.out != NULL ? run.out : g_strdup ("");
-	} else {
-		g_free (run.out);
-	}
-
-	return !run.timed_out;
+	g_thread_join (thread);
+	*out = run->out;
+	g_free (run->file);
+	g_free (run);
+	return TRUE;
 }
 
 static void
-expect (const char *helper, const char *file, const char *const present[], const char *const absent[])
+expect (const char *file, const char *const present[], const char *const absent[])
 {
-	char *out = convert (helper, file);
+	char *out = read_text (file);
 	const char *base = strrchr (file, G_DIR_SEPARATOR) ? strrchr (file, G_DIR_SEPARATOR) + 1 : file;
 	int i;
 
@@ -169,44 +130,33 @@ path_for (const char *name)
 	return g_build_filename (tmpdir, name, NULL);
 }
 
-static void
-write_zip_child (GsfOutfile *zip, const char *name, const char *body)
-{
-	GsfOutput *child;
-	char **parts = g_strsplit (name, "/", 2);
-
-	if (parts[1] != NULL) {
-		GsfOutput *dir = gsf_outfile_new_child (zip, parts[0], TRUE);
-
-		write_zip_child (GSF_OUTFILE (dir), parts[1], body);
-		gsf_output_close (dir);
-		g_object_unref (dir);
-	} else {
-		child = gsf_outfile_new_child (zip, parts[0], FALSE);
-		gsf_output_write (child, strlen (body), (const guint8 *) body);
-		gsf_output_close (child);
-		g_object_unref (child);
-	}
-
-	g_strfreev (parts);
-}
-
 static char *
 write_zip (const char *name, const char *const names[], const char *const bodies[])
 {
 	char *path = path_for (name);
-	GsfOutput *out = gsf_output_stdio_new (path, NULL);
-	GsfOutfile *zip = gsf_outfile_zip_new (out, NULL);
+	struct archive *a = archive_write_new ();
 	int i;
 
-	g_object_unref (out);
-
-	for (i = 0; names[i] != NULL; i++) {
-		write_zip_child (zip, names[i], bodies[i]);
+	archive_write_set_format_zip (a);
+	if (archive_write_open_filename (a, path) != ARCHIVE_OK) {
+		g_error ("could not write %s: %s", path, archive_error_string (a));
 	}
 
-	gsf_output_close (GSF_OUTPUT (zip));
-	g_object_unref (zip);
+	for (i = 0; names[i] != NULL; i++) {
+		struct archive_entry *entry = archive_entry_new ();
+		gsize len = strlen (bodies[i]);
+
+		archive_entry_set_pathname (entry, names[i]);
+		archive_entry_set_filetype (entry, AE_IFREG);
+		archive_entry_set_perm (entry, 0644);
+		archive_entry_set_size (entry, (la_int64_t) len);
+		check (archive_write_header (a, entry) == ARCHIVE_OK, "zip member header written");
+		check (archive_write_data (a, bodies[i], len) == (la_ssize_t) len, "zip member written");
+		archive_entry_free (entry);
+	}
+
+	check (archive_write_close (a) == ARCHIVE_OK, "zip closed");
+	archive_write_free (a);
 	return path;
 }
 
@@ -214,22 +164,27 @@ static char *
 write_ole (const char *name, const char *const names[], GByteArray *const bodies[])
 {
 	char *path = path_for (name);
-	GsfOutput *out = gsf_output_stdio_new (path, NULL);
-	GsfOutfile *ole = gsf_outfile_msole_new (out);
-	int i;
+	OleEntry entries[MAX_ENTRIES];
+	OleLayout lay = { 9, { 0 }, { 0 }, 0, 0 };
+	GBytes *file;
+	guint n;
 
-	g_object_unref (out);
-
-	for (i = 0; names[i] != NULL; i++) {
-		GsfOutput *child = gsf_outfile_new_child (ole, names[i], FALSE);
-
-		gsf_output_write (child, bodies[i]->len, bodies[i]->data);
-		gsf_output_close (child);
-		g_object_unref (child);
+	for (n = 0; names[n] != NULL; n++) {
+		g_assert (n < MAX_ENTRIES);
+		entries[n].name = names[n];
+		entries[n].data = g_bytes_new (bodies[n]->data, bodies[n]->len);
+		entries[n].parent = -1;
 	}
 
-	gsf_output_close (GSF_OUTPUT (ole));
-	g_object_unref (ole);
+	file = test_ole2_write (entries, n, &lay);
+	if (!g_file_set_contents (path, g_bytes_get_data (file, NULL), (gssize) g_bytes_get_size (file), NULL)) {
+		g_error ("could not write %s", path);
+	}
+
+	g_bytes_unref (file);
+	while (n-- > 0) {
+		g_bytes_unref (entries[n].data);
+	}
 	return path;
 }
 
@@ -312,15 +267,15 @@ test_zip_formats (void)
 	char *path;
 
 	path = write_zip ("t.docx", docx_names, docx_bodies);
-	expect ("mso", path, docx_present, docx_absent);
+	expect (path, docx_present, docx_absent);
 	g_free (path);
 
 	path = write_zip ("t.odt", odt_names, odt_bodies);
-	expect ("mso", path, odt_present, odt_absent);
+	expect (path, odt_present, odt_absent);
 	g_free (path);
 
 	path = write_zip ("t.epub", epub_names, epub_bodies);
-	expect ("mso", path, epub_present, epub_absent);
+	expect (path, epub_present, epub_absent);
 	g_free (path);
 }
 
@@ -406,16 +361,16 @@ test_xls (void)
 	biff_record (wb, 0x000A, p);
 
 	path = write_ole ("t.xls", names, bodies);
-	expect ("xls", path, present, NULL);
+	expect (path, present, NULL);
 	g_free (path);
 	g_byte_array_free (wb, TRUE);
 }
 
 /* An SST that says it holds four billion strings and then stops. The count is
- * read straight off the file, so nothing but the converter's own progress test
- * keeps it from reading the same exhausted record once per claimed string. The
- * converter is spawned per file, so one workbook like this in a folder used to
- * tie up a core for the length of a search. */
+ * read straight off the file, so nothing but the parser's own progress test
+ * keeps it from reading the same exhausted record once per claimed string.
+ * In the converter program that read these before, one workbook like this in
+ * a folder used to tie up a core for the length of a search. */
 static void
 test_xls_truncated_sst (void)
 {
@@ -444,7 +399,7 @@ test_xls_truncated_sst (void)
 	put_bytes (p, "Whisk\x79");
 	biff_record (wb, 0x00FC, p);
 
-	/* A record after it, so the converter has to get past the SST to read it. */
+	/* A record after it, so the parser has to get past the SST to read it. */
 	p = g_byte_array_new ();
 	put16 (p, 0);
 	put16 (p, 0);
@@ -458,8 +413,8 @@ test_xls_truncated_sst (void)
 	biff_record (wb, 0x000A, p);
 
 	path = write_ole ("truncated-sst.xls", names, bodies);
-	check (converts_within ("xls", path, 10, &out),
-	       "a truncated shared-string table does not hang the xls converter");
+	check (reads_within (path, 10, &out),
+	       "a truncated shared-string table does not hang the Excel reader");
 	check (strstr (out, present[0]) != NULL,
 	       "the records after a truncated shared-string table are still read");
 	g_free (out);
@@ -499,7 +454,7 @@ test_ppt (void)
 	g_byte_array_append (doc, inner->data, inner->len);
 
 	path = write_ole ("t.ppt", names, bodies);
-	expect ("ppt", path, present, absent);
+	expect (path, present, absent);
 	g_free (path);
 	g_byte_array_free (inner, TRUE);
 	g_byte_array_free (doc, TRUE);
@@ -548,7 +503,7 @@ test_doc (void)
 	}
 
 	path = write_ole ("t.doc", names, bodies);
-	expect ("doc", path, present, NULL);
+	expect (path, present, NULL);
 	g_free (path);
 
 	/* Word 95: no piece table, text between fcMin and fcMac */
@@ -560,7 +515,7 @@ test_doc (void)
 	memcpy (word->data + 0x200, "Papa", 4);
 
 	path = write_ole ("old.doc", old_names, old_bodies);
-	expect ("doc", path, old_present, NULL);
+	expect (path, old_present, NULL);
 	g_free (path);
 
 	g_byte_array_free (word, TRUE);
@@ -582,33 +537,6 @@ static void
 finished_cb (G_GNUC_UNUSED NemoSearchEngine *engine, G_GNUC_UNUSED gpointer data)
 {
 	search_done = TRUE;
-}
-
-/* On Windows the program's path goes in as a user would write it there, with
-   single backslashes, and quoted in Exec. */
-static void
-write_helper_definition (const char *dir, const char *name, const char *helper, const char *mimes)
-{
-	char *exe = helper_path (helper);
-	char *path = g_build_filename (dir, name, NULL);
-#ifdef G_OS_WIN32
-	char *body;
-
-	g_strdelimit (exe, "/", '\\');
-	body = g_strdup_printf ("[Nemo Search Helper]\nTryExec=%s;\nExec=\"%s\" %%s\nMimeType=%s\nPriority=100\n",
-				exe, exe, mimes);
-#else
-	char *body = g_strdup_printf ("[Nemo Search Helper]\nTryExec=%s;\nExec=%s %%s\nMimeType=%s\nPriority=100\n",
-				      exe, exe, mimes);
-#endif
-
-	if (!g_file_set_contents (path, body, -1, NULL)) {
-		g_error ("could not write %s", path);
-	}
-
-	g_free (body);
-	g_free (path);
-	g_free (exe);
 }
 
 static int glib_criticals;
@@ -679,12 +607,6 @@ test_engine (const char *data_home)
 	GLogFunc old_handler;
 
 	g_mkdir_with_parents (dir, 0700);
-	write_helper_definition (dir, "zip.nemo_search_helper", "mso",
-				 "application/vnd.openxmlformats-officedocument.wordprocessingml.document;"
-				 "application/vnd.oasis.opendocument.text;application/epub+zip;");
-	write_helper_definition (dir, "xls.nemo_search_helper", "xls", "application/vnd.ms-excel;");
-	write_helper_definition (dir, "ppt.nemo_search_helper", "ppt", "application/vnd.ms-powerpoint;");
-	write_helper_definition (dir, "doc.nemo_search_helper", "doc", "application/msword;");
 
 	/* A Windows path with its backslashes not doubled is a bad escape, and
 	   GKeyFile hands back no list at all. That has to skip the helper, not
@@ -726,7 +648,6 @@ main (int argc, char *argv[])
 
 	gtk_init_check (&argc, &argv);
 	nemo_global_preferences_init ();
-	gsf_init ();
 
 	tmpdir = test_scratch_dir ("nemo-helpers-XXXXXX", &error);
 	if (tmpdir == NULL) {
@@ -758,7 +679,6 @@ main (int argc, char *argv[])
 		g_object_unref (dir);
 	}
 
-	gsf_shutdown ();
 	g_free (tmpdir);
 
 	return failures == 0 ? 0 : 1;

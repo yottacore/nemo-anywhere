@@ -16,7 +16,7 @@
 ##		   6. dogfood       (drop the single exe into the synced app dir)
 ##		   7. publish       (stash -> pull -> add -> commit -> push, current branch)
 ##		- The build needs MSYS2 with the mingw64 GTK toolchain (gtk3, meson, ninja,
-##		  json-glib, libexif, libgsf). A missing toolchain warn-skips the build/stage
+##		  json-glib, libexif, libarchive). A missing toolchain warn-skips the build/stage
 ##		  (so sync + publish still run) unless -BuildStrict makes it a hard failure.
 ##		- The staged bundle is a whole folder (nemo is a GTK prefix): the single exe
 ##		  (extension lib folded in) in app\, and the mingw64 DLL dependency CLOSURE +
@@ -223,7 +223,7 @@ function fMingw {
 function fToolchainMissing {
 	if (-not (Test-Path -LiteralPath $MsysBash)) { return "MSYS2 not found at $MsysRoot" }
 	fMingw "command -v gcc meson ninja pkg-config >/dev/null 2>&1 && pkg-config --exists gtk+-3.0 json-glib-1.0 libexif" -Quiet
-	if ($script:MingwRc -ne 0) { return "mingw64 toolchain incomplete (need gtk3, meson, ninja, json-glib, libexif, libgsf via pacman)" }
+	if ($script:MingwRc -ne 0) { return "mingw64 toolchain incomplete (need gtk3, meson, ninja, json-glib, libexif, libarchive via pacman)" }
 	return $null
 }
 

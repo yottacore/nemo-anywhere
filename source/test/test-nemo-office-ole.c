@@ -20,8 +20,8 @@
    Boston, MA 02110-1335, USA.
 */
 
-/* Small Word, Excel and PowerPoint files, written here with a compound file
- * writer of the test's own, have to give their text through the reader and
+/* Small Word, Excel and PowerPoint files, written with the tests' own
+ * compound file writer in test-ole2-writer.c, have to give their text through the reader and
  * through a real content search, and the bitmap in thier summary stream
  * through the thumbnail factory. A thumbnailer and a search helper for these
  * types are installed, both this program run with --ran, which leaves a
@@ -45,13 +45,9 @@
 
 #include "test-scratch.h"
 #include "test-check.h"
+#include "test-ole2-writer.h"
 
 #define MARK_ENV "NEMO_OFFICE_TEST_MARK"
-
-#define FREESECT   0xffffffffu
-#define ENDOFCHAIN 0xfffffffeu
-#define FATSECT    0xfffffffdu
-#define DIFSECT    0xfffffffcu
 
 static char *files_dir;
 
@@ -109,209 +105,6 @@ zeros (GByteArray *a, gsize n)
 		g_byte_array_append (a, nothing, (guint) take);
 		n -= take;
 	}
-}
-
-/* The compound file writer. Entries are streams, or storages when data is
-   NULL, under the top storage or under an earlier storage. */
-
-typedef struct {
-	const char *name;
-	GBytes     *data;
-	int         parent;	/* -1: the top storage */
-} OleEntry;
-
-#define MAX_ENTRIES 8
-
-typedef struct {
-	guint   shift;
-	/* Filled in by the writer, for the tests that break a file on purpose. */
-	guint32 start[MAX_ENTRIES];
-	guint32 fat_sector[256];
-	guint   n_fat;
-	guint32 dir_start;
-} OleLayout;
-
-static guint32
-put_chain (GByteArray *body, GArray *table, gsize unit, const guint8 *data, gsize len)
-{
-	guint32 n = (guint32) ((len + unit - 1) / unit), start = table->len, i;
-
-	if (n == 0) {
-		return ENDOFCHAIN;
-	}
-
-	for (i = 0; i < n; i++) {
-		guint32 next = i + 1 < n ? start + i + 1 : ENDOFCHAIN;
-		gsize take = MIN (unit, len - i * unit);
-
-		g_byte_array_append (body, data + i * unit, (guint) take);
-		zeros (body, unit - take);
-		g_array_append_val (table, next);
-	}
-
-	return start;
-}
-
-static void
-put_dir_entry (GByteArray *dir, const char *name, guint8 type, guint32 right, guint32 child,
-	       guint32 start, guint64 size)
-{
-	gsize begin = dir->len;
-	guint16 name_bytes = 0;
-
-	if (name != NULL) {
-		gsize units;
-
-		put_utf16 (dir, name);
-		units = (dir->len - begin) / 2;
-		put16 (dir, 0);
-		name_bytes = (guint16) ((units + 1) * 2);
-	}
-	zeros (dir, 64 - (dir->len - begin));
-	put16 (dir, name_bytes);
-	g_byte_array_append (dir, &type, 1);
-	g_byte_array_append (dir, (const guint8 *) "\001", 1);
-	put32 (dir, FREESECT);
-	put32 (dir, right);
-	put32 (dir, child);
-	zeros (dir, 16 + 4 + 16);
-	put32 (dir, start);
-	put32 (dir, (guint32) (size & 0xffffffffu));
-	put32 (dir, (guint32) (size >> 32));
-}
-
-static GBytes *
-write_ole (const OleEntry *entries, guint n_entries, OleLayout *lay)
-{
-	gsize ss = (gsize) 1 << lay->shift, per = ss / 4;
-	g_autoptr (GByteArray) body = g_byte_array_new ();
-	g_autoptr (GByteArray) mini = g_byte_array_new ();
-	g_autoptr (GByteArray) minifat_bytes = g_byte_array_new ();
-	g_autoptr (GByteArray) dir = g_byte_array_new ();
-	g_autoptr (GByteArray) out = g_byte_array_new ();
-	g_autoptr (GArray) fat = g_array_new (FALSE, FALSE, sizeof (guint32));
-	g_autoptr (GArray) minifat = g_array_new (FALSE, FALSE, sizeof (guint32));
-	guint32 mini_start, minifat_start, n_minifat, n_fat, n_difat, first_fat, i, j;
-	guint32 first_child[MAX_ENTRIES + 1], next_sibling[MAX_ENTRIES + 1];
-
-	g_assert (n_entries <= MAX_ENTRIES);
-
-	for (i = 0; i < n_entries; i++) {
-		gsize len = 0;
-		const guint8 *data;
-
-		if (entries[i].data == NULL) {
-			lay->start[i] = ENDOFCHAIN;
-			continue;
-		}
-		data = g_bytes_get_data (entries[i].data, &len);
-		if (len < 4096) {
-			lay->start[i] = put_chain (mini, minifat, 64, data, len);
-		} else {
-			lay->start[i] = put_chain (body, fat, ss, data, len);
-		}
-	}
-
-	mini_start = put_chain (body, fat, ss, mini->data, mini->len);
-	for (i = 0; i < minifat->len; i++) {
-		put32 (minifat_bytes, g_array_index (minifat, guint32, i));
-	}
-	n_minifat = (guint32) ((minifat_bytes->len + ss - 1) / ss);
-	minifat_start = put_chain (body, fat, ss, minifat_bytes->data, minifat_bytes->len);
-
-	/* Each storage's children as a chain through their right links. Index
-	   0 is the top storage, entry i is i + 1. */
-	for (i = 0; i <= n_entries; i++) {
-		first_child[i] = FREESECT;
-		next_sibling[i] = FREESECT;
-	}
-	for (i = n_entries; i-- > 0;) {
-		guint parent = entries[i].parent < 0 ? 0 : (guint) entries[i].parent + 1;
-
-		next_sibling[i + 1] = first_child[parent];
-		first_child[parent] = i + 1;
-	}
-
-	put_dir_entry (dir, "Root Entry", 5, FREESECT, first_child[0], mini->len > 0 ? mini_start : ENDOFCHAIN, mini->len);
-	for (i = 0; i < n_entries; i++) {
-		gsize len = entries[i].data != NULL ? g_bytes_get_size (entries[i].data) : 0;
-
-		put_dir_entry (dir, entries[i].name, entries[i].data != NULL ? 2 : 1, next_sibling[i + 1],
-			       first_child[i + 1], lay->start[i], len);
-	}
-	while (dir->len % ss != 0) {
-		put_dir_entry (dir, NULL, 0, FREESECT, FREESECT, 0, 0);
-	}
-	lay->dir_start = put_chain (body, fat, ss, dir->data, dir->len);
-
-	/* Enough FAT sectors to list every sector, themselves and the DIFAT's
-	   included. */
-	n_fat = 1;
-	for (;;) {
-		n_difat = n_fat > 109 ? (guint32) ((n_fat - 109 + per - 2) / (per - 1)) : 0;
-		if (fat->len + n_fat + n_difat <= n_fat * per) {
-			break;
-		}
-		n_fat++;
-	}
-	g_assert (n_fat <= G_N_ELEMENTS (lay->fat_sector));
-
-	first_fat = fat->len;
-	for (i = 0; i < n_fat; i++) {
-		guint32 mark = FATSECT;
-
-		lay->fat_sector[i] = first_fat + i;
-		g_array_append_val (fat, mark);
-	}
-	for (i = 0; i < n_difat; i++) {
-		guint32 mark = DIFSECT;
-
-		g_array_append_val (fat, mark);
-	}
-	lay->n_fat = n_fat;
-	while (fat->len < n_fat * per) {
-		guint32 free_one = FREESECT;
-
-		g_array_append_val (fat, free_one);
-	}
-
-	/* The header. */
-	g_byte_array_append (out, (const guint8 *) "\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1", 8);
-	zeros (out, 16);
-	put16 (out, 0x3e);
-	put16 (out, lay->shift == 12 ? 4 : 3);
-	put16 (out, 0xfffe);
-	put16 (out, (guint16) lay->shift);
-	put16 (out, 6);
-	zeros (out, 6);
-	put32 (out, lay->shift == 12 ? (guint32) (dir->len / ss) : 0);
-	put32 (out, n_fat);
-	put32 (out, lay->dir_start);
-	put32 (out, 0);
-	put32 (out, 4096);
-	put32 (out, minifat->len > 0 ? minifat_start : ENDOFCHAIN);
-	put32 (out, n_minifat);
-	put32 (out, n_difat > 0 ? first_fat + n_fat : ENDOFCHAIN);
-	put32 (out, n_difat);
-	for (i = 0; i < 109; i++) {
-		put32 (out, i < n_fat ? first_fat + i : FREESECT);
-	}
-	zeros (out, ss - out->len);
-
-	g_byte_array_append (out, body->data, body->len);
-	for (i = 0; i < n_fat * per; i++) {
-		put32 (out, g_array_index (fat, guint32, i));
-	}
-	for (i = 0; i < n_difat; i++) {
-		for (j = 0; j + 1 < per; j++) {
-			guint32 k = 109 + i * (guint32) (per - 1) + j;
-
-			put32 (out, k < n_fat ? first_fat + k : FREESECT);
-		}
-		put32 (out, i + 1 < n_difat ? first_fat + n_fat + i + 1 : ENDOFCHAIN);
-	}
-
-	return g_byte_array_free_to_bytes (g_steal_pointer (&out));
 }
 
 /* Where FAT entry @sector sits in the written file. */
@@ -668,14 +461,14 @@ sample_bytes (const char *file, OleLayout *lay_out)
 			{ "WordDocument", word, -1 },
 		};
 
-		result = write_ole (entries, G_N_ELEMENTS (entries), &lay);
+		result = test_ole2_write (entries, G_N_ELEMENTS (entries), &lay);
 	} else if (strcmp (file, "t95.doc") == 0) {
 		g_autoptr (GBytes) word = word95_stream ("golf hotel india");
 		const OleEntry entries[] = { { "WordDocument", word, -1 } };
 
 		/* Version 4, 4096 byte sectors. */
 		lay.shift = 12;
-		result = write_ole (entries, G_N_ELEMENTS (entries), &lay);
+		result = test_ole2_write (entries, G_N_ELEMENTS (entries), &lay);
 	} else if (strcmp (file, "t.xls") == 0) {
 		g_autoptr (GBytes) book = workbook_stream ();
 		g_autoptr (GBytes) picture = dib (0x20d020, 30, 40, 32, FALSE);
@@ -685,7 +478,7 @@ sample_bytes (const char *file, OleLayout *lay_out)
 			{ "\005SummaryInformation", summary, -1 },
 		};
 
-		result = write_ole (entries, G_N_ELEMENTS (entries), &lay);
+		result = test_ole2_write (entries, G_N_ELEMENTS (entries), &lay);
 	} else if (strcmp (file, "bare.xls") == 0) {
 		result = bare_workbook ();
 	} else if (strcmp (file, "t.ppt") == 0) {
@@ -697,7 +490,7 @@ sample_bytes (const char *file, OleLayout *lay_out)
 			{ "PowerPoint Document", show, -1 },
 		};
 
-		result = write_ole (entries, G_N_ELEMENTS (entries), &lay);
+		result = test_ole2_write (entries, G_N_ELEMENTS (entries), &lay);
 	} else if (strcmp (file, "wmf.doc") == 0) {
 		g_autoptr (GBytes) word = word95_stream ("kilo lima");
 		g_autoptr (GBytes) picture = metafile ();
@@ -707,7 +500,7 @@ sample_bytes (const char *file, OleLayout *lay_out)
 			{ "\005SummaryInformation", summary, -1 },
 		};
 
-		result = write_ole (entries, G_N_ELEMENTS (entries), &lay);
+		result = test_ole2_write (entries, G_N_ELEMENTS (entries), &lay);
 	}
 
 	g_assert (result != NULL);
@@ -743,6 +536,14 @@ helper_ran (void)
 	return g_file_test (mark, G_FILE_TEST_EXISTS);
 }
 
+static void
+forget_mark (void)
+{
+	g_autofree char *mark = mark_path ();
+
+	g_unlink (mark);
+}
+
 static char *
 content_type_of (const char *path)
 {
@@ -775,13 +576,18 @@ test_sample (NemoDesktopThumbnailFactory *factory, const Sample *s)
 	check (nemo_office_type_ok (type));
 	check (nemo_desktop_thumbnail_factory_can_make (factory, uri, type));
 
-	/* With no bitmap, the factory would go on to the stand-in thumbnailer,
-	   so only the reader is asked. */
+	/* With no bitmap, or a metafile, the reader gives nothing, and then the
+	   stand-in thumbnailer for these types gets its turn. It draws nothing. */
 	if (s->rgb == 0) {
 		GdkPixbuf *none = nemo_office_thumbnail_uri (uri, 128, NULL);
 
 		check (none == NULL);
 		g_clear_object (&none);
+		none = nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (factory, uri, type, 128, NULL);
+		check (none == NULL);
+		g_clear_object (&none);
+		check (helper_ran ());
+		forget_mark ();
 	} else {
 		GdkPixbuf *pixbuf = nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (factory, uri, type, 128, NULL);
 
@@ -841,7 +647,7 @@ finished (G_GNUC_UNUSED NemoSearchEngine *engine, G_GNUC_UNUSED gpointer data)
 }
 
 static void
-search_for (const Sample *s)
+search_for (const Sample *s, guint want, gboolean helper_runs)
 {
 	NemoSearchEngine *engine = nemo_search_engine_advanced_new ();
 	NemoQuery *query = nemo_query_new ();
@@ -867,13 +673,48 @@ search_for (const Sample *s)
 
 	g_print ("search for %s: %u found\n", s->word, g_list_length (found));
 	check (search_done);
-	check (g_list_length (found) == 1 && g_strcmp0 (found->data, s->file) == 0);
+	check (g_list_length (found) == want && (want == 0 || g_strcmp0 (found->data, s->file) == 0));
 
 	g_list_free_full (found, g_free);
 	found = NULL;
 	g_object_unref (engine);
 
-	check (!helper_ran ());
+	check (helper_ran () == helper_runs);
+}
+
+/* Not a compound file at all, with the name of one. The app can't read it,
+   so the stand-in thumbnailer and search helper installed for these types get
+   their turn. Neither gives anything. */
+static const char junk[] = "\001\002\377\000 nothingreadsme \000\376\375";
+
+static void
+test_unreadable (NemoDesktopThumbnailFactory *factory, const char *file)
+{
+	g_autofree char *path = g_build_filename (files_dir, file, NULL);
+	g_autofree char *uri = g_filename_to_uri (path, NULL, NULL);
+	g_autofree char *type = NULL;
+	const Sample none = { file, 0, 0, 0, "nothingreadsme", NULL, NULL };
+	GdkPixbuf *pixbuf;
+
+	/* Not text either, which Windows would search as text when nothing
+	   there has registered the extension. */
+	check (g_file_set_contents (path, junk, sizeof junk, NULL));
+	type = content_type_of (path);
+	g_print ("%s (%s), not a compound file\n", file, type != NULL ? type : "no type");
+	check (nemo_office_type_ok (type));
+
+	pixbuf = nemo_office_thumbnail_uri (uri, 128, NULL);
+	check (pixbuf == NULL);
+	g_clear_object (&pixbuf);
+	pixbuf = nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (factory, uri, type, 128, NULL);
+	check (pixbuf == NULL);
+	g_clear_object (&pixbuf);
+	check (helper_ran ());
+	forget_mark ();
+
+	search_for (&none, 0, TRUE);
+	forget_mark ();
+	check (g_unlink (path) == 0);
 }
 
 static void
@@ -1110,7 +951,7 @@ main (int argc, char *argv[])
 		test_sample (factory, &samples[i]);
 	}
 	for (i = 0; i < G_N_ELEMENTS (samples); i++) {
-		search_for (&samples[i]);
+		search_for (&samples[i], 1, FALSE);
 	}
 
 	test_damaged ("t.doc");
@@ -1119,6 +960,9 @@ main (int argc, char *argv[])
 	test_damaged ("bare.xls");
 	test_lies ();
 	test_piece_flood ();
+	test_unreadable (factory, "junk.doc");
+	test_unreadable (factory, "junk.xls");
+	test_unreadable (factory, "junk.ppt");
 
 	g_object_unref (factory);
 	g_free (files_dir);

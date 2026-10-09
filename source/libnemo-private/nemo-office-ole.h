@@ -21,7 +21,7 @@
 */
 
 /* Used by nemo-office.c, which is what the rest of the app calls. The
- * record parsing is what the nemo-anywhere-*-to-txt converters did, with
+ * record parsing is what the old *-to-txt converter programs did, with
  * the text capped. Each text call gives at most @max_len bytes, not always
  * valid UTF-8, with the formats' control characters made spaces and line
  * breaks. */

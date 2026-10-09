@@ -31,7 +31,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-CODE_DIRS = ("archive-core", "eel", "libnemo-private", "libnemo-extension", "src", "search-helpers", "test", "fuzz")
+CODE_DIRS = ("archive-core", "eel", "libnemo-private", "libnemo-extension", "src", "test", "fuzz")
 POINTER_TYPEDEFS = {"gpointer", "gconstpointer", "GStrv"}
 NOT_NAMES = {"if", "for", "while", "switch", "return", "sizeof", "defined"}
 CALL = re.compile(r"\b([A-Za-z_]\w*)\s*\(")

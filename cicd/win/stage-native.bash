@@ -49,24 +49,22 @@ rm -rf "${DEST}"
 mkdir -p "${DEST}/app" "${DEST}/mingw64/bin" "${DEST}/mingw64/lib" \
 	"${DEST}/mingw64/share/glib-2.0" "${DEST}/mingw64/etc"
 
-## App: the main exe (the extension lib is statically linked in, so no sibling dll)
-## plus the search converters, which sit beside it so a program lookup finds them
-## before PATH is even consulted. Their definitions go under share the way the
-## Linux install lays them out.
+## App: the main exe (the extension lib is statically linked in, so no sibling
+## dll). Office files are read in the app, so there are no converters. The
+## search helper definitions for programs a box may have go under share the way
+## the Linux install lays them out.
 cp "${BUILD}/src/"*.exe "${DEST}/app/"
-cp "${BUILD}/search-helpers/"*.exe "${DEST}/app/"
 mkdir -p "${DEST}/mingw64/share/nemo-anywhere/search-helpers"
-cp "${REPO}/source/search-helpers/"*.nemo_search_helper \
-	"${REPO}/source/search-helpers/third-party/"*.nemo_search_helper \
+cp "${REPO}/source/search-helpers/third-party/"*.nemo_search_helper \
 	"${DEST}/mingw64/share/nemo-anywhere/search-helpers/"
 
 ## Runtime helper exes that GLib/GTK spawn or that nemo discovers as thumbnailers.
 ## bin is on PATH in the launched app, so these resolve; the thumbnailer .thumbnailer
 ## descriptors come across with share/thumbnailers below. No gdk-pixbuf-thumbnailer,
-## since its descriptors are left out (include/thumbnailers.bash). No gdbus.exe:
+## since its descriptors are left out (include/thumbnailers.bash), and no
+## gsf-office-thumbnailer, since the app reads office files itself. No gdbus.exe:
 ## nothing starts a session bus on Windows, the copies use named pipes.
-helper_exes=(gspawn-win64-helper.exe gspawn-win64-helper-console.exe
-	gsf-office-thumbnailer.exe)
+helper_exes=(gspawn-win64-helper.exe gspawn-win64-helper-console.exe)
 for h in "${helper_exes[@]}"; do
 	[[ -f "${MINGW}/bin/${h}" ]] && cp "${MINGW}/bin/${h}" "${DEST}/mingw64/bin/"
 done
