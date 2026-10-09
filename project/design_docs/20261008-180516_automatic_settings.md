@@ -256,3 +256,7 @@ A mixed switch goes to automatic on a click, since that is the state a person re
 ## Related backlog issues
 
 - A setting with an automatic value can be changed on its own, with no master switch to find first (2026100816170959). Queued.
+
+---
+
+> Copyright © 2026 Yottacore
