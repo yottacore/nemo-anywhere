@@ -763,6 +763,22 @@ check_run_switches (void)
 	check (g_strv_length (argv) == 6);
 	g_strfreev (argv);
 
+#ifdef G_OS_WIN32
+	/* PATH finds a wrapper like rar.cmd ahead of the exe, and it runs the
+	   same program. */
+	argv = nemo_archive_add_run_switches (words ("C:\\Tools\\rar.cmd a -r -y -- o.rar a.txt"), TRUE);
+	check (arg_index (argv, "-r0") == 4);
+	g_strfreev (argv);
+
+	argv = nemo_archive_add_run_switches (words ("7Z.Bat a -- o.7z a*"), TRUE);
+	check (arg_index (argv, "-spd") == 2);
+	g_strfreev (argv);
+
+	argv = nemo_archive_add_run_switches (words ("rar.txt a -r -- o.rar a.txt"), TRUE);
+	check (!has_arg (argv, "-r0"));
+	g_strfreev (argv);
+#endif
+
 	/* Another program is left alone, even one that runs 7-Zip itself. */
 	argv = nemo_archive_add_run_switches (words ("nice 7z a -- o.7z a*"), TRUE);
 	check (!has_arg (argv, "-spd"));
