@@ -101,11 +101,14 @@ typedef gboolean (*NemoConfigSetMapping) (const GValue          *value,
                                           NemoConfigValue       *config_value,
                                           gpointer               user_data);
 
-/* Load the file (or start empty) and hand out groups. Idempotent. */
+/* Load the file (or start empty) and hand out groups. Idempotent while
+ * running. After nemo_config_shutdown() it starts over: the file is read and
+ * watched again, and the groups handed out before stay valid. */
 void             nemo_config_init            (void);
 /* Write any pending change out now, without tearing anything down. */
 void             nemo_config_flush           (void);
-/* Flush, then stop watching the file. Call before the process ends. */
+/* Flush, then stop watching the file. Call before the process ends. Values
+ * can still be read until then. */
 void             nemo_config_shutdown        (void);
 NemoConfigGroup *nemo_config_get_group       (const char *group);
 /* Absolute path of the settings file, for diagnostics. Free with g_free. */

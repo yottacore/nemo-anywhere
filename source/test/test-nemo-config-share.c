@@ -171,8 +171,10 @@ read_commands (G_GNUC_UNUSED gpointer data)
 
 	while (fgets (line, sizeof line, stdin) != NULL) {
 		line[strcspn (line, "\r\n")] = '\0';
+		/* cppcheck-suppress leakNoVarFunctionCall ; run_command frees it */
 		g_idle_add (run_command, g_strdup (line));
 	}
+	/* cppcheck-suppress leakNoVarFunctionCall ; run_command frees it */
 	g_idle_add (run_command, g_strdup ("quit"));
 	return NULL;
 }

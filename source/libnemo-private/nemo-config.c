@@ -80,6 +80,7 @@ static char       *last_written;       /* what we last put on disk, to ignore ou
 static gsize       last_written_len;   /* byte length - the file may legally hold a NUL */
 static GHashTable *config_groups;      /* name -> NemoConfigGroup (owned) */
 static gboolean    config_ready;
+static gboolean    config_stopped;     /* shut down; the next init starts over */
 static GHashTable *pending_keys;       /* set of const NemoConfigKey*, changed but not yet on disk */
 static gboolean    save_failing;
 static GThread    *config_thread;      /* whoever called init - the UI thread */
@@ -98,6 +99,7 @@ typedef struct {
 } Stamp;
 
 static Stamp      *key_stamps;         /* by key table index; 0 is never changed */
+static gsize       key_count;
 static gint64      clock_seen;         /* newest stamp made or taken */
 static guint64     own_origin;
 static GHashTable *outgoing;           /* set of const NemoConfigKey*, changed here, not sent yet */
@@ -1482,14 +1484,67 @@ nemo_config_take_shared (GVariant *changes)
 
 /* Lifecycle */
 
+static void
+watch_file (void)
+{
+	GFile *file = g_file_new_for_path (config_path);
+
+	config_monitor = g_file_monitor_file (file, G_FILE_MONITOR_NONE, NULL, NULL);
+	if (config_monitor != NULL)
+		g_signal_connect (config_monitor, "changed",
+		                  G_CALLBACK (config_file_changed), NULL);
+	g_object_unref (file);
+}
+
+/* Init after shutdown in one process. Everything but the groups is as a new
+ * process would have it, so the file is read and watched again. The groups
+ * stay, since callers keep them and their handlers for the life of the
+ * process, and they hear of every value the file changed. */
+static void
+restart (void)
+{
+	GHashTable *before, *after;
+	gboolean    rewrite;
+	guint       retry;
+
+	/* A set made since the shutdown is saved like any other. */
+	nemo_config_flush ();
+
+	g_mutex_lock (&config_lock);
+	retry = save_timeout_id;
+	save_timeout_id = 0;
+	g_hash_table_remove_all (pending_keys);
+	g_hash_table_remove_all (outgoing);
+	g_hash_table_remove_all (held_keys);
+	g_hash_table_remove_all (beaten_keys);
+	memset (key_stamps, 0, key_count * sizeof *key_stamps);
+	save_failing = FALSE;
+	before = snapshot_locked ();
+	load_locked (TRUE);
+	rewrite = rewrite_due;
+	after = snapshot_locked ();
+	g_mutex_unlock (&config_lock);
+
+	if (retry != 0)
+		g_source_remove (retry);
+	if (rewrite)
+		save_now (NULL);
+	announce_changes (before, after);
+
+	watch_file ();
+	config_stopped = FALSE;
+}
+
 void
 nemo_config_init (void)
 {
-	GFile    *file;
 	gboolean  rewrite;
 
-	if (config_ready)
+	if (config_ready) {
+		if (config_stopped)
+			restart ();
 		return;
+	}
 
 	g_mutex_init (&config_lock);
 	config_thread = g_thread_self ();
@@ -1510,6 +1565,7 @@ nemo_config_init (void)
 		for (k = nemo_config_keys; k->key != NULL; k++)
 			count++;
 		key_stamps = g_new0 (Stamp, count);
+		key_count = count;
 	}
 	own_origin = ((guint64) g_random_int () << 32) | g_random_int ();
 
@@ -1522,12 +1578,7 @@ nemo_config_init (void)
 		save_now (NULL);
 
 	/* Hand-editing the file is the point, so pick edits up while we run. */
-	file = g_file_new_for_path (config_path);
-	config_monitor = g_file_monitor_file (file, G_FILE_MONITOR_NONE, NULL, NULL);
-	if (config_monitor != NULL)
-		g_signal_connect (config_monitor, "changed",
-		                  G_CALLBACK (config_file_changed), NULL);
-	g_object_unref (file);
+	watch_file ();
 
 	config_ready = TRUE;
 }
@@ -1565,6 +1616,7 @@ nemo_config_shutdown (void)
 
 	nemo_config_flush ();
 	g_clear_object (&config_monitor);
+	config_stopped = TRUE;
 }
 
 gboolean

@@ -559,8 +559,8 @@ main (int argc, char *argv[])
 	if (argc > 1 && g_strcmp0 (argv[1], "--ran") == 0) {
 		const char *at = g_getenv (MARK_ENV);
 
-		if (at != NULL) {
-			g_file_set_contents (at, "ran\n", -1, NULL);
+		if (at != NULL && !g_file_set_contents (at, "ran\n", -1, NULL)) {
+			return 1;
 		}
 		return 0;
 	}

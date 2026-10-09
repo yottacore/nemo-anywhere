@@ -39,6 +39,34 @@
 #include <glib/gi18n.h>
 
 #include "nemo-launch-win32.h"
+#include "nemo-file-utilities.h"
+
+/* Every start in this file holds it, so a helper starting while a user's
+ * program has the user's environment in place still gets ours. */
+static GRecMutex start_lock;
+static char    **swapped_out;
+static guint     swap_depth;
+
+void
+nemo_launch_win32_user_environ_enter (void)
+{
+	g_rec_mutex_lock (&start_lock);
+	if (swap_depth++ == 0) {
+		swapped_out = nemo_swap_in_user_environ ();
+	}
+}
+
+void
+nemo_launch_win32_user_environ_leave (void)
+{
+	g_return_if_fail (swap_depth > 0);
+
+	if (--swap_depth == 0) {
+		nemo_restore_own_environ (swapped_out);
+		swapped_out = NULL;
+	}
+	g_rec_mutex_unlock (&start_lock);
+}
 
 static void
 release (gpointer com_object)
@@ -408,8 +436,10 @@ nemo_launch_win32_open_path (const gchar  *path,
 	 * falls back to doing it in-process even though the child stays hooked. */
 	wpath = g_utf8_to_utf16 (path, -1, NULL, NULL, NULL);
 	wdir = workdir != NULL ? g_utf8_to_utf16 (workdir, -1, NULL, NULL, NULL) : NULL;
+	nemo_launch_win32_user_environ_enter ();
 	started = wpath != NULL &&
 		  (INT_PTR) ShellExecuteW (NULL, NULL, wpath, NULL, wdir, SW_SHOWNORMAL) > 32;
+	nemo_launch_win32_user_environ_leave ();
 	g_free (wdir);
 	g_free (wpath);
 
@@ -439,7 +469,9 @@ nemo_launch_win32_run (const gchar  *exe,
 		? g_strdup_printf ("\"%s\" %s", exe, args)
 		: g_strdup_printf ("\"%s\"", exe);
 
+	nemo_launch_win32_user_environ_enter ();
 	started = nemo_launch_win32_via_service (line, workdir) || direct_start (line, workdir);
+	nemo_launch_win32_user_environ_leave ();
 
 	if (!started) {
 		set_failed (error, line);
@@ -471,7 +503,9 @@ nemo_launch_win32_run_command (const gchar  *command_line,
 
 	/* The line as it was built, not as it was split, so nothing about the
 	 * quoting has to survive a round trip. */
+	nemo_launch_win32_user_environ_enter ();
 	started = nemo_launch_win32_via_service (command_line, workdir) || direct_start (command_line, workdir);
+	nemo_launch_win32_user_environ_leave ();
 
 	if (!started) {
 		set_failed (error, command_line);
@@ -782,11 +816,22 @@ spawn_hidden (const gchar * const  *argv,
 			startup.StartupInfo.hStdError = err;
 			startup.lpAttributeList = attributes;
 
+			/* A helper keeps ours. */
+			if (helper) {
+				g_rec_mutex_lock (&start_lock);
+			} else {
+				nemo_launch_win32_user_environ_enter ();
+			}
 			started = CreateProcessW (wexe, wline, NULL, NULL, TRUE,
 						  CREATE_NO_WINDOW | CREATE_DEFAULT_ERROR_MODE |
 						  CREATE_UNICODE_ENVIRONMENT | EXTENDED_STARTUPINFO_PRESENT |
 						  (job != NULL ? CREATE_SUSPENDED : 0),
 						  NULL, wdir, &startup.StartupInfo, &process);
+			if (helper) {
+				g_rec_mutex_unlock (&start_lock);
+			} else {
+				nemo_launch_win32_user_environ_leave ();
+			}
 		}
 		DeleteProcThreadAttributeList (attributes);
 	}

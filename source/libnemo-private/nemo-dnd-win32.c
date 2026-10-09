@@ -37,6 +37,7 @@
 #include "nemo-dnd-win32.h"
 
 #include "nemo-file-operations.h"
+#include "nemo-file-utilities.h"
 
 #include <string.h>
 
@@ -1039,7 +1040,7 @@ void
 nemo_dnd_win32_prepare (void)
 {
 	if (nemo_dnd_win32_enabled ()) {
-		g_setenv (OLE_DND_ENV, "1", TRUE);
+		nemo_setenv_own (OLE_DND_ENV, "1", TRUE);
 	}
 }
 

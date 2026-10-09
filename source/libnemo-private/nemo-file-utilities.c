@@ -1278,6 +1278,111 @@ prepend_env_dir (const char *var, const char *dir, const char *fallback)
 }
 #endif
 
+typedef struct {
+	char *var;
+	char *before;	/* NULL when it was not set */
+} OwnSetting;
+
+static GMutex     own_settings_lock;
+static GPtrArray *own_settings;
+
+void
+nemo_setenv_own (const char *var, const char *value, gboolean overwrite)
+{
+	const char *now = g_getenv (var);
+	guint i;
+
+	if (now != NULL && !overwrite) {
+		return;
+	}
+
+	g_mutex_lock (&own_settings_lock);
+	if (own_settings == NULL) {
+		own_settings = g_ptr_array_new ();
+	}
+	for (i = 0; i < own_settings->len; i++) {
+		if (strcmp (((OwnSetting *) own_settings->pdata[i])->var, var) == 0) {
+			break;
+		}
+	}
+	/* Only the first time counts: after that the value is already ours. */
+	if (i == own_settings->len) {
+		OwnSetting *setting = g_new0 (OwnSetting, 1);
+
+		setting->var = g_strdup (var);
+		setting->before = g_strdup (now);
+		g_ptr_array_add (own_settings, setting);
+	}
+	g_setenv (var, value, TRUE);
+	g_mutex_unlock (&own_settings_lock);
+}
+
+/* Returns: (transfer full): free with g_strfreev */
+char **
+nemo_get_user_environ (void)
+{
+	char **env = g_get_environ ();
+	guint i;
+
+	g_mutex_lock (&own_settings_lock);
+	for (i = 0; own_settings != NULL && i < own_settings->len; i++) {
+		const OwnSetting *setting = own_settings->pdata[i];
+
+		env = setting->before != NULL
+			? g_environ_setenv (env, setting->var, setting->before, TRUE)
+			: g_environ_unsetenv (env, setting->var);
+	}
+	g_mutex_unlock (&own_settings_lock);
+
+	return env;
+}
+
+/* Each entry is NAME=VALUE, or a bare NAME for one that was not set.
+ * Returns: (transfer full): free with nemo_restore_own_environ */
+char **
+nemo_swap_in_user_environ (void)
+{
+	GPtrArray *saved = g_ptr_array_new ();
+	guint i;
+
+	g_mutex_lock (&own_settings_lock);
+	for (i = 0; own_settings != NULL && i < own_settings->len; i++) {
+		const OwnSetting *setting = own_settings->pdata[i];
+		const char *now = g_getenv (setting->var);
+
+		g_ptr_array_add (saved, now != NULL
+			? g_strconcat (setting->var, "=", now, NULL)
+			: g_strdup (setting->var));
+		if (setting->before != NULL) {
+			g_setenv (setting->var, setting->before, TRUE);
+		} else {
+			g_unsetenv (setting->var);
+		}
+	}
+	g_mutex_unlock (&own_settings_lock);
+	g_ptr_array_add (saved, NULL);
+
+	return (char **) g_ptr_array_free (saved, FALSE);
+}
+
+void
+nemo_restore_own_environ (char **saved)
+{
+	guint i;
+
+	for (i = 0; saved != NULL && saved[i] != NULL; i++) {
+		char *eq = strchr (saved[i], '=');
+
+		if (eq != NULL) {
+			*eq = '\0';
+			g_setenv (saved[i], eq + 1, TRUE);
+		} else {
+			g_unsetenv (saved[i]);
+		}
+	}
+	g_strfreev (saved);
+}
+
 /* A relocatable prefix used to be entered through a shell wrapper that set this
  * up, which meant two files where one would do. The program does it for itself
  * now. Everything scanned per data dir - actions, search helpers, icons, mime -
@@ -1294,7 +1399,7 @@ void
 nemo_setup_runtime_environment (void)
 {
 #ifdef G_OS_WIN32
-	g_setenv ("DBUS_SESSION_BUS_ADDRESS", "disabled:", TRUE);
+	nemo_setenv_own ("DBUS_SESSION_BUS_ADDRESS", "disabled:", TRUE);
 #else
 	char *exe;
 	char *bindir;
