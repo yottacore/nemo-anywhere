@@ -766,6 +766,7 @@ epub_cover_name (Source *src, GBytes *container)
 	return name;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GdkPixbuf *
 nemo_office_thumbnail (GInputStream *stream, int size, GCancellable *cancellable)
 {
@@ -821,6 +822,7 @@ nemo_office_thumbnail (GInputStream *stream, int size, GCancellable *cancellable
 	return pixbuf;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GdkPixbuf *
 nemo_office_thumbnail_uri (const char *uri, int size, GCancellable *cancellable)
 {
@@ -961,6 +963,7 @@ decode_entities (GString *text)
 	g_string_truncate (text, w);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_office_text (GInputStream *stream, gsize max_len, GCancellable *cancellable, GError **error)
 {
@@ -1035,6 +1038,7 @@ nemo_office_text (GInputStream *stream, gsize max_len, GCancellable *cancellable
 	return g_string_free (strip.out, FALSE);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_office_text_file (GFile *file, gsize max_len, GCancellable *cancellable, GError **error)
 {
