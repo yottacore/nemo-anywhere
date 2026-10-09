@@ -173,6 +173,38 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 41adfa7
 	- Test case: rjv9ks2z, Connecting sign while a share mounts test. An `smb://` mount answers only when the test says so. It checks the sign and the host it names, the pointer, that the window still takes input, Escape, and the sign going away after a stop and after a failed mount. It also checks the host named for a set of addresses, and that a local folder shows no sign. rhtwm2c8 checks the server named for a UNC path on Windows.
 
+- Read the thumbnail and the text of OOXML, OpenDocument and EPUB files inside the app.
+	- ID: 2026100909260472
+	- Type: Enhancement
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 185 of 185.
+	- Needs external testing: rjvb97aa natively on vm925w. Then the single exe in the desktop session on vm925w with MacType running: a .docx, .odt and .epub that have a thumbnail inside, in the icon view, and a content search through them. Thumbnails and matches, and no box.
+	- Priority|Severity: Avg
+	- Opened: 20261009-092605
+	- Opened by: 2026100617051745
+	- Parent ID: 2026100617051745
+	- Related IDs: 2026100909260511, 2026100909260549
+	- Target OS: All
+	- Requirements:
+		- These are zip files, read through libarchive, which the app already links.
+		- The thumbnail stored in the file: `Thumbnails/thumbnail.png` in OpenDocument, the package's thumbnail part in OOXML, and the cover image in EPUB.
+		- The text for content search, as `nemo-anywhere-mso-to-txt` gives it today.
+		- For these types the app's reader comes before any installed thumbnailer or search helper.
+		- A bad file must never crash the app. Every read is checked against the file's bounds, sizes, counts and nesting depth are capped, and no length the file gives is trusted. The readers are in the fuzz stage and the sanitizer suite, and run off the window's thread.
+	- Estimated effort: Avg
+	- Progress log:
+		- 20261009: done. A new reader in the app takes OpenDocument and its templates, OOXML with its templates and macro-enabled kinds, and EPUB. The thumbnail factory asks it before any thumbnailer, and content search before any helper. The picture is fitted to the size asked for, up as well as down, as the gsf-office thumbnailer did. Only PNG and JPEG are drawn, so an OOXML thumbnail kept as WMF or EMF still goes to an installed thumbnailer.
+		- 20261009: a file of these types that has no thumbnail inside, or doesn't read as a zip, still goes on to an installed thumbnailer. For search only a file that doesn't read as a zip goes on to the helpers. Those fall-backs go with the programs in 2026100909260549.
+		- 20261009: the text is what the converter gave, run a piece at a time rather than on the whole file. One difference: a tag left open at the very end is dropped, where the converter kept it as text.
+	- Decisions:
+		- 20261009: no nesting depth to cap here. Members are not opened inside members, and the tag stripping keeps no stack. The caps are the members walked, the bytes unpacked, each index file and picture, the path length and parts, and the picture's sides and pixels, checked from its header before it is decoded.
+	- Verified: rjvb97aa fails with the factory and the search engine as on dev, on Linux and under wine: no thumbnail, no match, and the stand-in helpers ran. It passes with them. rjvb97aa and the fuzz seed replay pass under the sanitizer build, with rfhnaccg and redrqe60. The fuzz target ran 5 minutes, about 6.5 million inputs, with no find. rjmc40ex passes under wine. Full Linux suite 185 of 185. Windows cross build clean.
+	- Note: rjcbfcx7, the fuzz exit check, now expects fuzz-office too. It reads the seeds from the clone the shared build container has, so it fails until the new seeds are there. It passed run against this branch.
+	- Swept: every place that picks a thumbnailer or a search helper by type: the factory's `can_make` and its generate, and the search walk. The Windows index search reads no files itself. `nemo_can_thumbnail_internally` covers pictures only.
+	- Branch: offzip
+	- Commit: 5f51e63, 60d342a
+	- Test case: rjvb97aa, Office files read in the app test. A small .docx, .xlsx, .pptx, .odt, .ods, .odp, .odg and 2 EPUBs, written for the purpose, each give their own picture through the thumbnail factory, at the size asked for, and their text through the reader and through a real content search. A stand-in thumbnailer and search helper for all these types leave a mark if run, and none may. Then cut short and bit-flipped files. rjvb97bb replays the fuzz seeds, and rjvb97cb is the fuzz target.
+
 - On Windows, the trash icon leaves out removable drives.
 	- ID: 2026100708294146
 	- Type: Bug
@@ -265,24 +297,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: 20261007, the probe and test were read. At step 5 the probe looks for a menu on screen every 100 ms for 10 s, so it does wait for the menu to show. The test runs on an X server of its own, not the suite's. Two tests that pick the same display number at once don't end up sharing it: the one whose server fails tries the next number. So the possible cause above doesn't apply.
 	- Note: 20261007, not ruled out: the Menu key made no menu at all once, on a loaded box. GTK 3 doesn't show a menu whose pointer grab fails, and the probe presses the key only once. Nothing points at that, and pressing again would hide it rather than explain it.
 	- Test case: rjefm41d itself.
-
-- Read the thumbnail and the text of OOXML, OpenDocument and EPUB files inside the app.
-	- ID: 2026100909260472
-	- Type: Enhancement
-	- Status: Started
-	- Priority|Severity: Avg
-	- Opened: 20261009-092605
-	- Opened by: 2026100617051745
-	- Parent ID: 2026100617051745
-	- Related IDs: 2026100909260511, 2026100909260549
-	- Target OS: All
-	- Requirements:
-		- These are zip files, read through libarchive, which the app already links.
-		- The thumbnail stored in the file: `Thumbnails/thumbnail.png` in OpenDocument, the package's thumbnail part in OOXML, and the cover image in EPUB.
-		- The text for content search, as `nemo-anywhere-mso-to-txt` gives it today.
-		- For these types the app's reader comes before any installed thumbnailer or search helper.
-		- A bad file must never crash the app. Every read is checked against the file's bounds, sizes, counts and nesting depth are capped, and no length the file gives is trusted. The readers are in the fuzz stage and the sanitizer suite, and run off the window's thread.
-	- Test case: still needs one. A thumbnail and the text from a small file of each type, on every platform, and a check that no helper program is started for them.
 
 - In the single exe on Windows, a program packed inside it that needs libgsf cannot start.
 	- ID: 2026100617051745
@@ -443,6 +457,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- No libgsf in the build, the sysroot, the MSYS2 package lists, the deb's Depends or any bundle.
 		- No `gsf-office-thumbnailer` and no `nemo-anywhere-*-to-txt` programs or their helper definitions in any bundle.
 		- The tests and fuzz targets that use libgsf to write or read files move to the app's own readers and a writer that needs no libgsf.
+	- Note: rjmc40ex skips when no gsf-office thumbnailer is found, but its .odt now gets its thumbnail from the app's reader. Its skip goes, and its check that a thumbnailer is found by extension needs another type.
 	- Test case: still needs one. A check that no program is started for an office file, for thumbnails and for content search, and a bundle check that none of these files are in it.
 
 - The Archive settings test's restart does not read the file again.
