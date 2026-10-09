@@ -32,6 +32,16 @@ gboolean nemo_launch_win32_run_command (const gchar  *command_line,
 gchar   *nemo_launch_win32_split_command (const gchar  *command_line,
 					  gchar       **args);
 
+/* Another copy of the app, for a new window or a tab moved out to one. It is
+ * started from here, with the user's environment, and outlives the app. */
+gboolean nemo_launch_win32_new_copy    (const gchar * const  *argv,
+					GError              **error);
+
+/* A link such as https: or help:, opened by whatever the user has set for its
+ * scheme. G_IO_ERROR_NOT_SUPPORTED when nothing is. */
+gboolean nemo_launch_win32_open_uri    (const gchar  *uri,
+					GError      **error);
+
 /* The user's environment in place of ours, around a call that starts a program
  * of theirs and takes no environment, such as ShellExecuteW. Our own settings
  * for this process are undone until the leave. Always paired, on one thread. */

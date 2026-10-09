@@ -2072,6 +2072,16 @@ if is_windows
     timeout: 120
   )
 
+  test('rjw1ks5h New window start win32 test',
+    executable('test-nemo-new-copy-win32',
+      [ 'test-nemo-new-copy-win32.c', '../src/nemo-new-process.c' ],
+      include_directories: [ rootInclude, include_directories('../src') ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+      c_args: nemo_definitions,
+    ),
+    timeout: 120
+  )
+
   test('rjmb3j8p Action start win32 test',
     executable('test-nemo-action-start-win32',
       [ 'test-nemo-action-start-win32.c' ],

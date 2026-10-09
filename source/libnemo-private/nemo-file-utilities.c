@@ -610,6 +610,12 @@ static GFileMonitor *cached_xdg_dirs_monitor = NULL;
 static void
 update_xdg_user_dir (const char *type, const char *path)
 {
+#ifdef G_OS_WIN32
+    /* No such program here, and the user folders are the shell's to move.
+       GLib's spawn would start its helper all the same. */
+    (void) type;
+    (void) path;
+#else
     char *argv[5];
     int i;
 
@@ -631,6 +637,7 @@ update_xdg_user_dir (const char *type, const char *path)
                   G_SPAWN_STDERR_TO_DEV_NULL,
                   NULL, NULL,
                   NULL, NULL, NULL, NULL);
+#endif
 }
 
 static void

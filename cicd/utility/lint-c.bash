@@ -863,22 +863,23 @@ fRun fCheckWinLaunch
 ## exe. Off Windows it is fine, so every call that starts a program is on this
 ## list with why Windows never reaches it, or why it does no harm there. GLib's
 ## app launch spawns the same way for anything but a store app, and so does
-## GTK's show-uri through it.
+## GTK's show-uri through it, which an About box or a link button calls on a
+## click unless told otherwise.
 ## Test ID: rjm8a6xr
 fCheckGlibSpawn(){
 	local allowed=' '
 	allowed+='nemo-tool-run.c:nemo_tool_run_start '						# Windows goes through nemo-launch-win32.c
 	allowed+='nemo-magick.c:run_magick '								# same
 	allowed+='nemo-desktop-thumbnail.c:run_thumbnailer_script '			# same
-	allowed+='nemo-new-process.c:spawn_argv '							# our own exe, which has no console window to show
+	allowed+='nemo-new-process.c:spawn_argv '							# Windows goes through nemo-launch-win32.c
 	allowed+='nemo-view.c:open_as_root '								# not built on Windows
 	allowed+='nemo-view.c:open_in_terminal '							# same
 	allowed+='nemo-action-config-widget.c:on_layout_editor_clicked '	# same
 	allowed+='nemo-extension-config-widget.c:on_restart_clicked '		# same
 	allowed+='nemo-extension-config-widget.c:detect_extensions '		# same
 	allowed+='nemo-extension-config-widget.c:on_config_clicked '		# no extensions on Windows, so no link to click
-	allowed+='nemo-file-utilities.c:update_xdg_user_dir '				# no such program on Windows
-	allowed+='nemo-thumbnail-problem-bar.c:thumbnail_problem_bar_response_cb '	# same, sh and pkexec
+	allowed+='nemo-file-utilities.c:update_xdg_user_dir '				# not on Windows
+	allowed+='nemo-thumbnail-problem-bar.c:thumbnail_problem_bar_response_cb '	# the bar never shows on Windows, with no passwd entry to check
 	allowed+='nemo-action.c:nemo_action_activate '						# Windows goes through nemo-launch-win32.c
 	allowed+='nemo-action.c:check_exec_condition '						# same
 	allowed+='nemo-program-choosing.c:nemo_launch_application_by_uri '	# Windows: only a store app, which the shell starts
@@ -886,14 +887,15 @@ fCheckGlibSpawn(){
 	allowed+='nemo-program-choosing.c:nemo_launch_desktop_file '			# same
 	allowed+='eel-gnome-extensions.c:eel_gnome_open_terminal_on_screen '	# its one caller is not built on Windows
 	allowed+='nemo-template-config-widget.c:on_edit_template_clicked '		# Windows goes through nemo-launch-win32.c
-	allowed+='nemo-view.c:pattern_select_response_cb '					# a help: link, which nothing on Windows opens
-	allowed+='nemo-window-menus.c:action_nemo_manual_callback '			# same
+	allowed+='nemo-program-choosing.c:nemo_show_uri '					# Windows goes through nemo-launch-win32.c
+	allowed+='nemo-window-menus.c:action_about_nemo_callback '			# its links go through nemo_show_uri
+	allowed+='nemo-extension-config-widget.c:refresh_widget '			# no extensions on Windows, so no link to click
 	local bad
 
 	bad="$(find source/src source/libnemo-private source/libnemo-extension source/eel \( -name '*.c' -o -name '*.h' \) -exec awk -v allowed="$allowed" '
 		FNR == 1 { fn = ""; base = FILENAME; sub(/.*\//, "", base) }
 		/^[a-zA-Z_][a-zA-Z0-9_]* *\(/ { fn = $1; sub(/\(.*/, "", fn) }
-		/(^|[^A-Za-z0-9_])(g_subprocess_newv?|g_subprocess_launcher_spawnv?|g_spawn_(async|sync|command_line_async|command_line_sync|async_with_pipes|async_with_fds|async_with_pipes_and_fds)|g_app_info_launch(_uris(_async)?|_default_for_uri(_async)?)?|g_desktop_app_info_launch_uris_as_manager(_with_fds)?|gtk_show_uri(_on_window)?) *\(/ {
+		/(^|[^A-Za-z0-9_])(g_subprocess_newv?|g_subprocess_launcher_spawnv?|g_spawn_(async|sync|command_line_async|command_line_sync|async_with_pipes|async_with_fds|async_with_pipes_and_fds)|g_app_info_launch(_uris(_async)?|_default_for_uri(_async)?)?|g_desktop_app_info_launch_uris_as_manager(_with_fds)?|gtk_show_uri(_on_window)?|gtk_show_about_dialog|gtk_about_dialog_new|gtk_link_button_new(_with_label)?) *\(|GTK_TYPE_(ABOUT_DIALOG|LINK_BUTTON)([^A-Z_]|$)/ {
 			if (index(allowed, " " base ":" fn " ") == 0) print FILENAME ":" FNR ": " $0
 		}
 	' {} +)"

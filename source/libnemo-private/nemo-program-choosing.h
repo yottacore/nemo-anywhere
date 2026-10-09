@@ -54,5 +54,10 @@ void nemo_launch_desktop_file		 (GdkScreen                         *screen,
 						  const char                        *desktop_file_uri,
 						  const GList                       *parameter_uris,
 						  GtkWindow                         *parent_window);
+
+/* A link from one of our windows, such as help or the About box. */
+gboolean nemo_show_uri                      (GtkWindow                         *parent_window,
+						  const char                        *uri,
+						  GError                           **error);
 						  
 #endif /* NEMO_PROGRAM_CHOOSING_H */

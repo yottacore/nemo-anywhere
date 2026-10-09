@@ -328,6 +328,21 @@ action_preferences_callback (G_GNUC_UNUSED GtkAction *action,
 	nemo_file_management_properties_dialog_show (window, NULL);
 }
 
+static gboolean
+about_link_activated (GtkAboutDialog *about,
+		      const gchar    *uri,
+		      G_GNUC_UNUSED gpointer user_data)
+{
+	GError *error = NULL;
+
+	if (!nemo_show_uri (GTK_WINDOW (about), uri, &error)) {
+		eel_show_error_dialog (_("Could not open the link."), error->message, GTK_WINDOW (about));
+		g_error_free (error);
+	}
+
+	return TRUE;
+}
+
 static void
 action_about_nemo_callback (G_GNUC_UNUSED GtkAction *action,
 				gpointer user_data)
@@ -347,6 +362,7 @@ action_about_nemo_callback (G_GNUC_UNUSED GtkAction *action,
 		   "along with Nemo; if not, write to the Free Software Foundation, Inc., "
 		   "51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA")
 	};
+	GtkWidget *about;
 	gchar *license_trans;
 	gchar *uptime;
 	gchar *running;
@@ -362,7 +378,7 @@ action_about_nemo_callback (G_GNUC_UNUSED GtkAction *action,
 				  "your computer and online."),
 				"\n\n", running, NULL);
 
-	gtk_show_about_dialog (GTK_WINDOW (user_data),
+	about = g_object_new (GTK_TYPE_ABOUT_DIALOG,
 			       "program-name", _("Nemo Anywhere"),
 			       "version", NEMO_VERSION_STRING,
 			       "copyright", "Copyright \xc2\xa9 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)\n"
@@ -372,7 +388,14 @@ action_about_nemo_callback (G_GNUC_UNUSED GtkAction *action,
 			       "license", license_trans,
 			       "wrap-license", TRUE,
 			      "logo-icon-name", "nemo-anywhere",
+			      "transient-for", user_data,
+			      "modal", TRUE,
+			      "destroy-with-parent", TRUE,
 			      NULL);
+	/* On Windows GTK's own handler opens them through GLib's spawn helper. */
+	g_signal_connect (about, "activate-link", G_CALLBACK (about_link_activated), NULL);
+	g_signal_connect (about, "response", G_CALLBACK (gtk_widget_destroy), NULL);
+	gtk_window_present (GTK_WINDOW (about));
 
 	g_free (license_trans);
 	g_free (comments);
@@ -416,9 +439,7 @@ action_nemo_manual_callback (GtkAction *action,
 		helpuri = "help:gnome-help/files";
 	}
 
-	gtk_show_uri (gtk_window_get_screen (GTK_WINDOW (window)),
-		      helpuri,
-		      gtk_get_current_event_time (), &error);
+	nemo_show_uri (GTK_WINDOW (window), helpuri, &error);
 
 	if (error) {
 		dialog = gtk_message_dialog_new (GTK_WINDOW (window),
