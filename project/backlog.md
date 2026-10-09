@@ -564,6 +564,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The flyover tip of every input control, and of its label, has:
 			- The setting's description, if it has one.
 			- A blank line, when anything follows it.
+			- For a grayed setting, its master's name, and that changing it turns the master off, or to Custom.
 			- The values in play: "Current value: ABC", "Stored value: DEF", "Default value: GHI". Each line only shows if its value is different from either of the other two.
 	- Note: the problem this solves. In this app now, and in many others, a setting that can't be edited first means hunting down which master switch is stopping it, then changing that. Changing it also brings back every stored value under it, when maybe only the one was wanted.
 	- Progress log:
