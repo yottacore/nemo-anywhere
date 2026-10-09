@@ -330,7 +330,7 @@ finished (G_GNUC_UNUSED NemoSearchEngine *engine, G_GNUC_UNUSED gpointer data)
 }
 
 static void
-search_for (const Sample *s, guint want)
+search_for (const Sample *s, guint want, gboolean helper_runs)
 {
 	NemoSearchEngine *engine = nemo_search_engine_advanced_new ();
 	NemoQuery *query = nemo_query_new ();
@@ -362,13 +362,13 @@ search_for (const Sample *s, guint want)
 	found = NULL;
 	g_object_unref (engine);
 
-	check (!helper_ran ());
+	check (helper_ran () == helper_runs);
 }
 
-/* No picture the app can draw: none at all, a metafile, or not a zip. No
-   thumbnail comes of it, and the stand-in thumbnailer for these types is not
-   run. Not a zip has no text either, and the stand-in search helper is not run
-   for it. */
+/* No picture the app can draw: none at all, a metafile, or not a zip. The
+   reader is asked first and gives nothing, and then the stand-in thumbnailer
+   installed for these types gets its turn. Not a zip has no text either, so
+   the stand-in search helper gets its turn for it. */
 static const Member odt_bare[] = {
 	{ "mimetype", "application/vnd.oasis.opendocument.text" },
 	{ "content.xml", "<office:document-content><office:body><office:text><text:p>bare text</text:p></office:text></office:body></office:document-content>" },
@@ -383,6 +383,14 @@ static const Member docx_wmf[] = {
 };
 
 static void
+forget_mark (void)
+{
+	g_autofree char *mark = mark_path ();
+
+	g_unlink (mark);
+}
+
+static void
 no_thumbnail (NemoDesktopThumbnailFactory *factory, const char *path)
 {
 	g_autofree char *uri = g_filename_to_uri (path, NULL, NULL);
@@ -391,10 +399,17 @@ no_thumbnail (NemoDesktopThumbnailFactory *factory, const char *path)
 
 	g_print ("%s (%s), no picture\n", path, type != NULL ? type : "no type");
 	check (nemo_office_type_ok (type));
+	pixbuf = nemo_office_thumbnail_uri (uri, 128, NULL);
+	check (pixbuf == NULL);
+	g_clear_object (&pixbuf);
+
+	/* The stand-in draws nothing, so there is still no thumbnail. */
+	forget_mark ();
 	pixbuf = nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (factory, uri, type, 128, NULL);
 	check (pixbuf == NULL);
 	g_clear_object (&pixbuf);
-	check (!helper_ran ());
+	check (helper_ran ());
+	forget_mark ();
 }
 
 static void
@@ -412,7 +427,8 @@ test_no_picture (NemoDesktopThumbnailFactory *factory)
 	   there has registered the extension. */
 	check (g_file_set_contents (junk, "\001\002\377\000 nothingreadsme \000\376\375", 23, NULL));
 	no_thumbnail (factory, junk);
-	search_for (&none, 0);
+	search_for (&none, 0, TRUE);
+	forget_mark ();
 
 	check (g_unlink (bare) == 0 && g_unlink (wmf) == 0 && g_unlink (junk) == 0);
 }
@@ -580,7 +596,7 @@ main (int argc, char *argv[])
 		test_sample (factory, &samples[i]);
 	}
 	for (i = 0; i < G_N_ELEMENTS (samples); i++) {
-		search_for (&samples[i], 1);
+		search_for (&samples[i], 1, FALSE);
 	}
 
 	test_no_picture (factory);

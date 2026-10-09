@@ -37,7 +37,7 @@ When more than one helper claims a type, the one with the highest `Priority` run
 
 ##### Office files:
 
-The app reads Word, Excel and PowerPoint files, old and new, OpenDocument and EPUB itself, so no helper is needed or used for them. A helper defined for one of those types is never run.
+The app reads Word, Excel and PowerPoint files, old and new, OpenDocument and EPUB itself, before any helper, so no helper is needed for them. A helper installed for one of those types runs only for a file the app could not read.
 
 The definitions under `third-party/` name programs that may or may not be installed (pdftotext, exiftool and so on) and are skipped when they are not.
 

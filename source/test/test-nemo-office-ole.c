@@ -536,6 +536,14 @@ helper_ran (void)
 	return g_file_test (mark, G_FILE_TEST_EXISTS);
 }
 
+static void
+forget_mark (void)
+{
+	g_autofree char *mark = mark_path ();
+
+	g_unlink (mark);
+}
+
 static char *
 content_type_of (const char *path)
 {
@@ -568,13 +576,18 @@ test_sample (NemoDesktopThumbnailFactory *factory, const Sample *s)
 	check (nemo_office_type_ok (type));
 	check (nemo_desktop_thumbnail_factory_can_make (factory, uri, type));
 
-	/* With no bitmap, or a metafile, there is no thumbnail, and the
-	   stand-in thumbnailer for these types is not run either. */
+	/* With no bitmap, or a metafile, the reader gives nothing, and then the
+	   stand-in thumbnailer for these types gets its turn. It draws nothing. */
 	if (s->rgb == 0) {
-		GdkPixbuf *none = nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (factory, uri, type, 128, NULL);
+		GdkPixbuf *none = nemo_office_thumbnail_uri (uri, 128, NULL);
 
 		check (none == NULL);
 		g_clear_object (&none);
+		none = nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (factory, uri, type, 128, NULL);
+		check (none == NULL);
+		g_clear_object (&none);
+		check (helper_ran ());
+		forget_mark ();
 	} else {
 		GdkPixbuf *pixbuf = nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (factory, uri, type, 128, NULL);
 
@@ -634,7 +647,7 @@ finished (G_GNUC_UNUSED NemoSearchEngine *engine, G_GNUC_UNUSED gpointer data)
 }
 
 static void
-search_for (const Sample *s, guint want)
+search_for (const Sample *s, guint want, gboolean helper_runs)
 {
 	NemoSearchEngine *engine = nemo_search_engine_advanced_new ();
 	NemoQuery *query = nemo_query_new ();
@@ -666,11 +679,12 @@ search_for (const Sample *s, guint want)
 	found = NULL;
 	g_object_unref (engine);
 
-	check (!helper_ran ());
+	check (helper_ran () == helper_runs);
 }
 
 /* Not a compound file at all, with the name of one. The app can't read it,
-   and nothing else may try: no thumbnail, no match, and no program run. */
+   so the stand-in thumbnailer and search helper installed for these types get
+   their turn. Neither gives anything. */
 static const char junk[] = "\001\002\377\000 nothingreadsme \000\376\375";
 
 static void
@@ -689,12 +703,17 @@ test_unreadable (NemoDesktopThumbnailFactory *factory, const char *file)
 	g_print ("%s (%s), not a compound file\n", file, type != NULL ? type : "no type");
 	check (nemo_office_type_ok (type));
 
+	pixbuf = nemo_office_thumbnail_uri (uri, 128, NULL);
+	check (pixbuf == NULL);
+	g_clear_object (&pixbuf);
 	pixbuf = nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (factory, uri, type, 128, NULL);
 	check (pixbuf == NULL);
 	g_clear_object (&pixbuf);
-	check (!helper_ran ());
+	check (helper_ran ());
+	forget_mark ();
 
-	search_for (&none, 0);
+	search_for (&none, 0, TRUE);
+	forget_mark ();
 	check (g_unlink (path) == 0);
 }
 
@@ -932,7 +951,7 @@ main (int argc, char *argv[])
 		test_sample (factory, &samples[i]);
 	}
 	for (i = 0; i < G_N_ELEMENTS (samples); i++) {
-		search_for (&samples[i], 1);
+		search_for (&samples[i], 1, FALSE);
 	}
 
 	test_damaged ("t.doc");
