@@ -263,10 +263,13 @@ update_cursor (NemoWindow *window)
 
 	slot = nemo_window_get_active_slot (window);
 
-	if (slot && slot->allow_stop) {
-		cursor = gdk_cursor_new (GDK_WATCH);
-                gdk_window_set_cursor (gtk_widget_get_window (GTK_WIDGET (window)), cursor);
-		g_object_unref (cursor);
+	if (slot && nemo_window_slot_is_connecting (slot)) {
+		/* "progress", the arrow with a spinner: the window still takes
+		 * input, so never the watch, which reads as blocked. */
+		cursor = gdk_cursor_new_from_name (gtk_widget_get_display (GTK_WIDGET (window)),
+						   "progress");
+		gdk_window_set_cursor (gtk_widget_get_window (GTK_WIDGET (window)), cursor);
+		g_clear_object (&cursor);
 	} else {
 #ifdef G_OS_WIN32
 		/* Reset to the arrow explicitly rather than clearing to NULL, so
@@ -279,6 +282,14 @@ update_cursor (NemoWindow *window)
                 gdk_window_set_cursor (gtk_widget_get_window (GTK_WIDGET (window)), NULL);
 #endif
         }
+}
+
+void
+nemo_window_sync_pointer (NemoWindow *window)
+{
+	if (gtk_widget_get_realized (GTK_WIDGET (window))) {
+		update_cursor (window);
+	}
 }
 
 void
@@ -1460,6 +1471,13 @@ nemo_window_key_press_event (GtkWidget *widget,
 		if (gtk_window_propagate_key_event (GTK_WINDOW (window), event)) {
 			return TRUE;
 		}
+	}
+
+	if (event->keyval == GDK_KEY_Escape &&
+	    (event->state & gtk_accelerator_get_default_mod_mask ()) == 0 &&
+	    nemo_window_slot_is_connecting (active_slot)) {
+		nemo_window_slot_stop_loading (active_slot);
+		return TRUE;
 	}
 
 	for (i = 0; i < G_N_ELEMENTS (extra_window_keybindings); i++) {

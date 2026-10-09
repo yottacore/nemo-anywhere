@@ -1278,6 +1278,7 @@ nemo_window_pane_sync_location_widgets (NemoWindowPane *pane)
 	}
 
     nemo_toolbar_update_for_location (NEMO_TOOLBAR (pane->tool_bar));
+    nemo_window_slot_sync_connecting (slot);
 }
 
 static void

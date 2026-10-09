@@ -1238,6 +1238,21 @@ if not is_windows
     timeout: 180
   )
 
+  # Preloaded too; it holds an smb:// mount and looks at the window meanwhile.
+  connecting_probe = shared_module('test-nemo-connecting-probe',
+    [ 'test-nemo-connecting-probe.c' ],
+    dependencies: [ gtk, cc.find_library('dl', required: false) ],
+  )
+  test('rjv9ks2z Connecting sign while a share mounts test',
+    executable('test-nemo-connecting',
+      [ 'test-nemo-connecting.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: [ nemo, connecting_probe ],
+    timeout: 180
+  )
+
   test('rhtq57n4 Clean start test',
     executable('test-nemo-startup-clean',
       [ 'test-nemo-startup-clean.c' ],

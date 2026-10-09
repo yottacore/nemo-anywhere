@@ -62,10 +62,13 @@ struct _NemoToolbarPriv {
 	GtkWidget *location_bar;
     GtkWidget *root_bar;
     GtkWidget *stack;
+    GtkWidget *connecting_spinner;
+    GtkWidget *connecting_label;
 
 	gboolean show_main_bar;
 	gboolean show_location_entry;
     gboolean show_root_bar;
+    gboolean connecting;
 };
 
 enum {
@@ -105,24 +108,26 @@ nemo_toolbar_update_root_state (NemoToolbar *self)
 }
 
 static void
+sync_stack (NemoToolbar *self)
+{
+    const char *child = self->priv->connecting ? "connecting" :
+                        self->priv->show_location_entry ? "location_bar" : "path_bar";
+
+    gtk_stack_set_visible_child_name (GTK_STACK (self->priv->stack), child);
+}
+
+static void
 toolbar_update_appearance (NemoToolbar *self)
 {
 	GtkWidget *widgetitem;
 	gboolean icon_toolbar;
-	gboolean show_location_entry;
 
     nemo_toolbar_update_root_state (self);
-
-	show_location_entry = self->priv->show_location_entry;
 
 	gtk_widget_set_visible (GTK_WIDGET(self->priv->toolbar),
 				self->priv->show_main_bar);
 
-    if (show_location_entry) {
-        gtk_stack_set_visible_child_name (GTK_STACK (self->priv->stack), "location_bar");
-    } else {
-        gtk_stack_set_visible_child_name (GTK_STACK (self->priv->stack), "path_bar");
-    }
+    sync_stack (self);
 
     gtk_widget_set_visible (self->priv->root_bar,
                 self->priv->show_root_bar);
@@ -322,6 +327,17 @@ nemo_toolbar_constructed (GObject *obj)
     /* Entry-Like Location Bar */
     self->priv->location_bar = nemo_location_bar_new ();
     gtk_stack_add_named(GTK_STACK (self->priv->stack), GTK_WIDGET (self->priv->location_bar), "location_bar");
+
+    /* Stands in for both bars while a typed or clicked address is still being reached. */
+    box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
+    gtk_widget_set_margin_start (box, 6);
+    self->priv->connecting_spinner = gtk_spinner_new ();
+    gtk_box_pack_start (GTK_BOX (box), self->priv->connecting_spinner, FALSE, FALSE, 0);
+    self->priv->connecting_label = gtk_label_new (NULL);
+    gtk_label_set_ellipsize (GTK_LABEL (self->priv->connecting_label), PANGO_ELLIPSIZE_END);
+    gtk_label_set_xalign (GTK_LABEL (self->priv->connecting_label), 0.0);
+    gtk_box_pack_start (GTK_BOX (box), self->priv->connecting_label, TRUE, TRUE, 0);
+    gtk_stack_add_named (GTK_STACK (self->priv->stack), box, "connecting");
     gtk_widget_show_all (hbox);
 
     tool_box = gtk_tool_item_new ();
@@ -503,6 +519,28 @@ GtkWidget *
 nemo_toolbar_get_location_bar (NemoToolbar *self)
 {
 	return self->priv->location_bar;
+}
+
+/* host as from nemo_share_host_to_reach, or NULL once nothing is waiting. */
+void
+nemo_toolbar_set_connecting (NemoToolbar *self,
+                             const char  *host)
+{
+    g_return_if_fail (NEMO_IS_TOOLBAR (self));
+
+    if (host != NULL) {
+        g_autofree char *text = *host != '\0' ?
+            g_strdup_printf (_("Connecting to %s..."), host) :
+            g_strdup (_("Connecting to the network..."));
+
+        gtk_label_set_text (GTK_LABEL (self->priv->connecting_label), text);
+        gtk_spinner_start (GTK_SPINNER (self->priv->connecting_spinner));
+    } else if (self->priv->connecting) {
+        gtk_spinner_stop (GTK_SPINNER (self->priv->connecting_spinner));
+    }
+
+    self->priv->connecting = host != NULL;
+    sync_stack (self);
 }
 
 gboolean

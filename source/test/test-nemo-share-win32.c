@@ -149,6 +149,21 @@ run_share (void)
 	check (seconds < 0.5);
 
 	check (!share_by_uri ("file:///C:/Windows/notepad.exe"));
+
+	/* The connecting sign names the server, from the path alone. */
+	{
+		GFile *unc = g_file_new_for_path ("\\\\192.0.2.1\\share\\deep");
+		GFile *local = g_file_new_for_path ("C:\\Windows");
+		char *host = nemo_share_host_to_reach (unc);
+		char *none = nemo_share_host_to_reach (local);
+
+		check (g_strcmp0 (host, "192.0.2.1") == 0);
+		check (none == NULL);
+		g_free (host);
+		g_free (none);
+		g_object_unref (unc);
+		g_object_unref (local);
+	}
 	/* Commented out 20261005: a folder on a mapped drive now counts as a
 	   share (decision 20261005 on 2026093010493450), so this only held while
 	   Z: was not mapped on the box. The mapped case is the "nas" folder below.
