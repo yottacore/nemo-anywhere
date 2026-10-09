@@ -551,6 +551,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261008-161710
 	- Opened by: t00mietum
 	- Target OS: All
+	- Design: [20261008-171206_settings_under_a_master.md](design_docs/20261008-171206_settings_under_a_master.md).
 	- Requirements:
 		- When a setting is moot because of a master setting somewhere else, it is grayed out, but not disabled.
 		- It can still be changed. Once it is:
