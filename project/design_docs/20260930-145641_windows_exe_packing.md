@@ -262,3 +262,9 @@ The packed exe shares its virtual filesystem with every program it starts, by pu
 - Real-Windows validation: the paths still not exercised there. Open.
 
 - Launching `app\nemo-anywhere.exe` straight from the dogfood folder throws missing-dll dialogs. Canceled.
+
+---
+
+> Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
+>
+> Licensed under [GNU GPL v2](https://opensource.org/license/GPL-2.0) license. No warranty.

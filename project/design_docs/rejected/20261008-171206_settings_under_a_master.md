@@ -53,6 +53,7 @@ Every group like this works the same way, through one table and one function.
 
 - A setting under a master that is moot right now:
 	- Is grayed out, but not disabled. It can still be clicked, focused and changed.
+		- As long as that makes sense. There could be situations where truly disabling controls is the only thing that makes sense.
 	- Shows and uses its automatic value, not its own stored value.
 
 - Changing a grayed setting:
@@ -251,4 +252,10 @@ Clearing every flag on a hand change of the master stops that. It's the only tim
 
 ## Related backlog issues
 
-- A setting that another setting makes moot is grayed, but can still be changed (2026100816170959). Queued.
+- A setting with an automatic value can be changed on its own, with no master switch to find first (2026100816170959). Queued.
+
+---
+
+> Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
+>
+> Licensed under [GNU GPL v2](https://opensource.org/license/GPL-2.0) license. No warranty.

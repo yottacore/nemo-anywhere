@@ -115,3 +115,9 @@ None.
 - Windows: two kinds of hidden file, two options. Done.
 
 - Ctrl+H toggles dot-files and Windows hidden files together. Done.
+
+---
+
+> Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
+>
+> Licensed under [GNU GPL v2](https://opensource.org/license/GPL-2.0) license. No warranty.

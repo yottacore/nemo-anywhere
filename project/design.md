@@ -315,7 +315,7 @@ Application settings live in `settings.shcl`, in whichever directory the platfor
 
 - A few settings are file-only, with nothing in Preferences.
 
-- A setting that another setting makes moot is grayed but can still be changed. Changing it turns its master off by itself and leaves the rest of the group alone. How masters, their groups and the stored state work is in [20261008-171206_settings_under_a_master.md](design_docs/20261008-171206_settings_under_a_master.md).
+- A setting the program can work out by itself is automatic when nothing is stored for it, and changing it stores a value for that one only. A group's switch or presets dropdown is never stored, it's read from the settings under it. Nothing is grayed for being automatic. Details are in [20261008-180516_automatic_settings.md](design_docs/20261008-180516_automatic_settings.md).
 
 - Keyboard shortcuts are kept beside the settings in `accels`, in GTK's own format. Upstream Nemo keeps its shortcuts in `~/.gnome2/accels/nemo`. The first start with no `accels` reads that file, so custom shortcuts carry over, and writes `accels` straight away. That `accels` exists is what marks the old file as read, so it is read once and never written. `--reset` empties `accels` rather than removing it, for the same reason.
 
