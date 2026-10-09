@@ -36,7 +36,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows every launch leaves a small `gdbus-nonce-file-*` in the temp folder.
 	- ID: 2026100714014948
 	- Type: Bug
-	- Status: Waiting on signoff
+	- Status: Moot
 	- Needs local test suite run?: no. The 2 new files build on Windows only, and the Linux build configures as before.
 	- Needs external testing: done 20261007 on vm925w. The native gate built the stand-in and rjprdfjb with warnings as errors and no warnings, and rjprdfjb passed. 159 tests passed, 12 skipped, none failed.
 	- Priority|Severity: Low
@@ -58,11 +58,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A stand-in for GLib's `gdbus.exe` rather than clearing old files at startup, since the cause is in GLib and this removes the file the same run. Left at signoff for that, and because every Windows bundle now has a file of ours under GLib's name.
 		- 20261007: the stand-in is only there for the leftover files. Weighed it against a sweep of old files at startup, or doing neither. Kept the stand-in.
 		- 20261008: the bus itself may go on Windows, in 2026100815215479. If it does, the stand-in and its test go with it, and this item is Moot.
+		- 20261009: Moot. Nothing starts a session bus on Windows any more (2026100815215479), so nothing writes the file, and the stand-in is gone from every bundle. rjprdfjb is commented out for the same reason.
 	- Verified: rjprdfjb fails with GLib's `gdbus.exe` and passes with ours, natively on vm925w and under wine. It also failed with the dead folder clear taken out. In the desktop session on vm925w, the release zip from this branch with 2 copies, the first closed, a third killed, then the second closed: the bus ended a few seconds later, and no new file or folder was left. A folder from a bus killed earlier was removed by the next bus. The same run with GLib's `gdbus.exe` put back left 1 new file. The native staging script put ours in the bundle on vm925w. Lint clean.
 	- Swept: every place a Windows bundle is made. The native stage, which the portable exe is packed from, the release zip, which the setup exe is made from, and the wine runner.
 	- Branch: nonce
 	- Commit: 257a39c, 48b567b
-	- Test case: rjprdfjb, Session bus cleanup win32 test, Windows only. Starts the given bus exe the way GLib does, with TEMP pointed at a scratch folder. 2 clients queue on the app's name, the first leaves and the second gets the name. Once the bus ends nothing may be left in TEMP. Then a bus is killed, and the next one has to clear what it left.
+	- Test case: rjprdfjb, Session bus cleanup win32 test, Windows only. Starts the given bus exe the way GLib does, with TEMP pointed at a scratch folder. 2 clients queue on the app's name, the first leaves and the second gets the name. Once the bus ends nothing may be left in TEMP. Then a bus is killed, and the next one has to clear what it left. Commented out since 20261009, with the stand-in gone. rjvks1yf checks no bus starts at all.
+	- Closed: 20261009-122647
 
 - Compression reset: link and filesystem choices in the archive options.
 	- ID: 2026100516274163
@@ -373,11 +375,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, let the copies of the app talk to each other with no session bus.
 	- ID: 2026100815215479
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. The full Linux suite passed.
+	- Needs external testing: natively on Windows. rjvks1yf through the native gate, which also builds the new files with warnings as errors and its own cppcheck. Then the release zip in a desktop session with 2 or 3 copies: the tab menu lists the other copies' windows and a tab moves over, a setting changed in one shows in the others before the save, Close all windows and `--quit` close them all, and `--reset` refuses while one runs. Throughout, no `gdbus.exe` runs and no new `gdbus-nonce-file-*` turns up in `%TEMP%`. Also an elevated copy and an ordinary one: neither lists the other. And how long the list takes on a box with a lot running.
 	- Priority|Severity: Avg
 	- Opened: 20261008-152154
 	- Opened by: t00mietum
-	- Related IDs: 2026100714014948, 2026100617051745, 2026100715211104
+	- Related IDs: 2026100714014948, 2026100617051745, 2026100715211104, 2026100907390779
 	- Target OS: Windows
 	- Requirements:
 		- Nothing starts a session bus on Windows, so no `gdbus.exe` is in any Windows bundle.
@@ -390,8 +394,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261008: filed. Open: whether to do it. It ends the leftover nonce files of 2026100714014948 at the cause, and the last packed program the single exe starts on its own, besides GLib's spawn helpers if anything still uses them.
 		- 20261008: going ahead. Open: the BSDs. For now they keep the bus, like Linux.
+		- 20261009: done, waiting on a native run. Each copy serves a named pipe with the user's SID, the logon session and the process ID in its name. The calls the bus carried go over it unchanged: the list, quit, the tab move and settings changes, all behind the same calls on every platform. How it went:
+			- The list is every process in the session that has a pipe by that name. Asking Windows for the pipe names directly is quicker, but wine can't, and the test has to run there too. A pipe goes with its process however it ends, so nothing is left to clean up.
+			- Only the user gets into a pipe, and nothing at a lower integrity level can write to it. The other end checks the pipe belongs to the user before saying anything, since pipe names are shared by every session on the box.
+			- An elevated copy is in a logon session of its own, so it and an ordinary copy don't see each other. Before, they may have shared the bus. Left at signoff for that.
+			- A message nobody waits on, quit and settings, is answered as soon as it arrives, so a sender never waits on the other copy being busy.
+			- GApplication asks for the bus as it registers, and nothing in GLib turns that off. So the app sets the bus address to `disabled:` at startup on Windows. The previewer, the power inhibit during file operations, the freedesktop interface and the action condition each also stop asking there, and a lint check holds that list.
+			- With no bus to start, our `gdbus.exe` stand-in from 2026100714014948 is gone from every bundle, and so is GLib's. That item is Moot.
 	- Decisions:
 		- 20261008: Windows drops the session bus for named pipes, or something like them. Linux keeps the bus.
+	- Note: rjptygcj and rjvdch2z test the bus, so they run on Linux and the BSDs only now. On Windows rjvks1yf covers the list and a settings change going across. rjvdch2z's edge cases are in nemo-config and the same everywhere.
+	- Verified: rjvks1yf passes under wine. It fails against the app built from dev: a bus starts and no copy is listed. It also fails with the bus address left alone at startup, with the action condition or the power inhibit asking for the bus, with the condition passing, with nothing listed, with the tab calls not served, with settings not shared, and with quit not acted on. The new lint check fails on an unlisted call. Full Linux suite, rjptygcj, rjvdch2z, the tab move and the instances tests included, passes with warnings as errors. Windows release cross build clean with warnings as errors. The release zip has no `gdbus.exe`, and its app passes rjvks1yf under wine.
+	- Swept: every call that can ask for the session bus in the app's own code, by the lint check's pattern: GApplication's registration, the previewer, the power inhibit, the freedesktop interface, the action condition, and the tracker search, which isn't built on Windows. GLib's notifications on Windows use the app's own connection, which is none. Every place a Windows bundle is made: the native stage, which the portable exe is packed from, the release zip, which the setup exe is made from, and the wine runner, which also drops a `gdbus.exe` left in an older snapshot.
+	- Branch: winpipe
+	- Commit: f721cc6
+	- Test case: rjvks1yf, Copies reach each other with no bus win32 test, Windows only. 2 copies of the app list each other, a third refuses `--reset`, a tab moves into one, and a settings change made by the test reaches both before any save. `--quit` ends both, and a killed copy leaves nothing behind. No `gdbus.exe` may start under any of them, no bus may come up, and no nonce file may be left. Also lint rjvmbv00.
 
 - A setting with an automatic value can be changed on its own, with no master switch to find first.
 	- ID: 2026100816170959
