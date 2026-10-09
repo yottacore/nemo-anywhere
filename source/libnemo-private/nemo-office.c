@@ -1,6 +1,6 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 
-/* nemo-office.c - thumbnails and text of zip-based office files.
+/* nemo-office.c - thumbnails and text of office files.
 
    Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu).
 
@@ -23,6 +23,7 @@
 #include <config.h>
 
 #include "nemo-office.h"
+#include "nemo-office-ole.h"
 #include "nemo-file-utilities.h"
 
 #include <errno.h>
@@ -43,6 +44,7 @@
 #define MAX_SIDE         16384
 #define MAX_PIXELS       (40 * 1000 * 1000)
 #define MAX_JPEG_MARKERS 1000
+#define MAX_BIFF_BYTES   (64 * 1024 * 1024)
 
 gboolean
 nemo_office_type_ok (const char *content_type)
@@ -65,7 +67,9 @@ nemo_office_type_ok (const char *content_type)
 		return FALSE;
 	}
 
-	return g_str_has_prefix (mime, "application/vnd.oasis.opendocument.") ||
+	return strcmp (mime, "application/msword") == 0 || strcmp (mime, "application/vnd.ms-excel") == 0 ||
+	       strcmp (mime, "application/vnd.ms-powerpoint") == 0 ||
+	       g_str_has_prefix (mime, "application/vnd.oasis.opendocument.") ||
 	       g_str_has_prefix (mime, "application/vnd.openxmlformats-officedocument.") ||
 	       (g_str_has_prefix (mime, "application/vnd.ms-") && g_str_has_suffix (mime, ".macroenabled.12")) ||
 	       strcmp (mime, "application/epub+zip") == 0;
@@ -554,6 +558,38 @@ jpeg_size (const guint8 *p, gsize len, guint32 *w, guint32 *h)
 	return FALSE;
 }
 
+/* What the summary stream of a .doc, .xls or .ppt gives, made a file. */
+static gboolean
+bmp_size (const guint8 *p, gsize len, guint32 *w, guint32 *h)
+{
+	guint32 header;
+	gint64 height;
+
+	if (len < 26 || p[0] != 'B' || p[1] != 'M') {
+		return FALSE;
+	}
+
+	header = (guint32) p[14] | ((guint32) p[15] << 8) | ((guint32) p[16] << 16) | ((guint32) p[17] << 24);
+	if (header == 12) {
+		*w = (guint32) p[18] | ((guint32) p[19] << 8);
+		*h = (guint32) p[20] | ((guint32) p[21] << 8);
+		return TRUE;
+	}
+	if (len < 30) {
+		return FALSE;
+	}
+
+	/* Width is signed and must be over 0. A height under 0 is a picture
+	   stored top row first. */
+	*w = (guint32) p[18] | ((guint32) p[19] << 8) | ((guint32) p[20] << 16) | ((guint32) p[21] << 24);
+	height = (gint32) ((guint32) p[22] | ((guint32) p[23] << 8) | ((guint32) p[24] << 16) | ((guint32) p[25] << 24));
+	if (*w > G_MAXINT32) {
+		return FALSE;
+	}
+	*h = (guint32) ABS (height);
+	return TRUE;
+}
+
 typedef struct {
 	int      size;
 	gboolean refused;
@@ -596,6 +632,8 @@ decode_image (GBytes *bytes, int size, GCancellable *cancellable)
 		type = "png";
 	} else if (jpeg_size (p, len, &w, &h)) {
 		type = "jpeg";
+	} else if (bmp_size (p, len, &w, &h)) {
+		type = "bmp";
 	} else {
 		return NULL;
 	}
@@ -766,6 +804,41 @@ epub_cover_name (Source *src, GBytes *container)
 	return name;
 }
 
+/* The first bytes, which tell a compound file or a bare workbook from a zip. */
+static gsize
+peek_head (GInputStream *in, guint8 *buf, gsize len, GCancellable *cancellable)
+{
+	gsize got = 0;
+
+	if (!g_seekable_seek (G_SEEKABLE (in), 0, G_SEEK_SET, cancellable, NULL) ||
+	    !g_input_stream_read_all (in, buf, len, &got, cancellable, NULL)) {
+		return 0;
+	}
+
+	return got;
+}
+
+static GdkPixbuf *
+ole_thumbnail (GInputStream *stream, int size, GCancellable *cancellable)
+{
+	g_autoptr (NemoOle2) ole = nemo_ole2_open (stream, cancellable, NULL);
+	g_autoptr (GBytes) bmp = NULL;
+	GdkPixbuf *pixbuf = NULL;
+
+	if (ole != NULL) {
+		bmp = nemo_office_ole_preview (ole);
+	}
+	if (bmp != NULL) {
+		pixbuf = decode_image (bmp, size, cancellable);
+	}
+
+	if (g_cancellable_is_cancelled (cancellable)) {
+		g_clear_object (&pixbuf);
+	}
+
+	return pixbuf;
+}
+
 /* Returns: (transfer full): unref with g_object_unref */
 GdkPixbuf *
 nemo_office_thumbnail (GInputStream *stream, int size, GCancellable *cancellable)
@@ -778,10 +851,18 @@ nemo_office_thumbnail (GInputStream *stream, int size, GCancellable *cancellable
 	};
 	GdkPixbuf *pixbuf = NULL;
 	char *name = NULL;
+	guint8 head[8] = { 0 };
+	gsize head_len;
 	guint i;
 
 	if (size <= 0 || !source_init (&src, stream, cancellable)) {
 		return NULL;
+	}
+
+	head_len = peek_head (stream, head, sizeof head, cancellable);
+	if (nemo_ole2_magic (head, head_len)) {
+		g_free (src.buf);
+		return ole_thumbnail (stream, size, cancellable);
 	}
 
 	if (!zip_get (&src, wants, G_N_ELEMENTS (wants))) {
@@ -963,6 +1044,55 @@ decode_entities (GString *text)
 	g_string_truncate (text, w);
 }
 
+static char *
+ole_text (GInputStream *stream, gsize max_len, GCancellable *cancellable, GError **error)
+{
+	g_autoptr (NemoOle2) ole = nemo_ole2_open (stream, cancellable, error);
+	char *text;
+
+	if (ole == NULL) {
+		return NULL;
+	}
+
+	text = nemo_office_ole_text (ole, max_len);
+
+	if (g_cancellable_set_error_if_cancelled (cancellable, error)) {
+		g_free (text);
+		return NULL;
+	}
+	if (text == NULL) {
+		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA, "No Word, Excel or PowerPoint text in this file");
+	}
+
+	return text;
+}
+
+static char *
+bare_biff_text (GInputStream *stream, gsize max_len, GCancellable *cancellable, GError **error)
+{
+	g_autoptr (GByteArray) bytes = g_byte_array_new ();
+	guint8 chunk[16 * 1024];
+
+	if (!g_seekable_seek (G_SEEKABLE (stream), 0, G_SEEK_SET, cancellable, error)) {
+		return NULL;
+	}
+
+	while (bytes->len < MAX_BIFF_BYTES) {
+		gssize n = g_input_stream_read (stream, chunk, MIN (sizeof chunk, MAX_BIFF_BYTES - bytes->len),
+						cancellable, error);
+
+		if (n < 0) {
+			return NULL;
+		}
+		if (n == 0) {
+			break;
+		}
+		g_byte_array_append (bytes, chunk, (guint) n);
+	}
+
+	return nemo_office_biff_text (bytes->data, bytes->len, max_len);
+}
+
 /* Returns: (transfer full): free with g_free */
 char *
 nemo_office_text (GInputStream *stream, gsize max_len, GCancellable *cancellable, GError **error)
@@ -972,13 +1102,24 @@ nemo_office_text (GInputStream *stream, gsize max_len, GCancellable *cancellable
 	struct archive_entry *entry;
 	Strip strip = { NULL, max_len, FALSE, FALSE, FALSE };
 	guint8 chunk[16 * 1024];
-	gsize read_total = 0;
+	guint8 head[8] = { 0 };
+	gsize read_total = 0, head_len;
 	guint seen = 0;
 	int status;
 
 	if (!source_init (&src, stream, cancellable)) {
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED, "Can't seek in this file");
 		return NULL;
+	}
+
+	head_len = peek_head (stream, head, sizeof head, cancellable);
+	if (nemo_ole2_magic (head, head_len)) {
+		g_free (src.buf);
+		return ole_text (stream, max_len, cancellable, error);
+	}
+	if (nemo_office_biff_magic (head, head_len)) {
+		g_free (src.buf);
+		return bare_biff_text (stream, max_len, cancellable, error);
 	}
 
 	a = zip_open (&src);
