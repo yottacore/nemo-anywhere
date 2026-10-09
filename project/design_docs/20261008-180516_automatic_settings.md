@@ -1,5 +1,6 @@
 <!-- markdownlint-disable MD007 -- Unordered list indentation -->
 <!-- markdownlint-disable MD010 -- No hard tabs -->
+<!-- markdownlint-disable MD033 -- No inline html -->
 <!-- markdownlint-disable MD041 -- First line in a file should be a top-level heading -->
 <!-- markdownlint-disable MD055 -- Table pipe style -->
 
@@ -33,6 +34,7 @@
 - [Research findings](#research-findings)
 - [Roadmap](#roadmap)
 - [Related backlog issues](#related-backlog-issues)
+- [Copyright and license](#copyright-and-license)
 
 <!-- /TOC -->
 
@@ -257,6 +259,7 @@ A mixed switch goes to automatic on a click, since that is the state a person re
 
 - A setting with an automatic value can be changed on its own, with no master switch to find first (2026100816170959). Queued.
 
----
+## Copyright and license
 
-> Copyright © 2026 Yottacore
+> Copyright © 2026 Yottacore<br>
+> Licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) license. No warranty.
