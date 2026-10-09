@@ -33,6 +33,37 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- On Windows every launch leaves a small `gdbus-nonce-file-*` in the temp folder.
+	- ID: 2026100714014948
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The 2 new files build on Windows only, and the Linux build configures as before.
+	- Needs external testing: done 20261007 on vm925w. The native gate built the stand-in and rjprdfjb with warnings as errors and no warnings, and rjprdfjb passed. 159 tests passed, 12 skipped, none failed.
+	- Priority|Severity: Low
+	- Opened: 20261007-140149
+	- Opened by: Windows installer exe item
+	- Related IDs: 2026100617051745, 2026100715211104, 2026100815215479
+	- Target OS: Windows
+	- Steps to reproduce: start the app and close it a few times, then look in `%TEMP%`.
+	- Incorrect behavior: one 16 byte `gdbus-nonce-file-<random>` per run is left. One test box had about 60 of them, going back a week.
+	- Expected behavior: the session bus removes its file when it ends.
+	- Reproduced: 20261007 on vm925w, a new one after each run of the installed copy.
+	- Possible cause: the session bus GLib starts on Windows writes the file and is ended, not stopped, when the app goes.
+	- Reproduced: 20261007 on vm925w in the desktop session, with the release zip. 2 copies, the first closed, then the second: the bus ended about 3 seconds after the second, and left 1 new file. Also under wine.
+	- Actual cause: in GLib, not the app. The bus is stopped, not ended: it quits by itself a few seconds after the last copy leaves. But GLib's bus drops its server without stopping it, and the server keeps a reference to itself until it is stopped, so it never goes away and never removes the file. It is still that way in GLib's main branch, and nobody has reported it there.
+		- The bus is not in the job that ends helpers with the app. GLib starts it, not the launcher. It stayed up when the copy that started it closed and when a later copy was killed, and the second copy took over the app's bus name.
+	- Actual fix: GLib looks for `gdbus.exe` beside its own library to start the bus, and nothing else in the bundle uses gdbus. So every Windows bundle now has a small `gdbus.exe` of ours instead. It runs GLib's own bus with TEMP pointed at a folder of its own, and removes that folder when the bus ends. A bus that was killed leaves its folder, and the next bus removes it. Nothing else in TEMP is touched.
+		- Note: it uses a function GLib exports for its own gdbus but keeps out of its headers. If GLib drops it, the build fails rather than the bundle.
+	- Decisions:
+		- A stand-in for GLib's `gdbus.exe` rather than clearing old files at startup, since the cause is in GLib and this removes the file the same run. Left at signoff for that, and because every Windows bundle now has a file of ours under GLib's name.
+		- 20261007: the stand-in is only there for the leftover files. Weighed it against a sweep of old files at startup, or doing neither. Kept the stand-in.
+		- 20261008: the bus itself may go on Windows, in 2026100815215479. If it does, the stand-in and its test go with it, and this item is Moot.
+	- Verified: rjprdfjb fails with GLib's `gdbus.exe` and passes with ours, natively on vm925w and under wine. It also failed with the dead folder clear taken out. In the desktop session on vm925w, the release zip from this branch with 2 copies, the first closed, a third killed, then the second closed: the bus ended a few seconds later, and no new file or folder was left. A folder from a bus killed earlier was removed by the next bus. The same run with GLib's `gdbus.exe` put back left 1 new file. The native staging script put ours in the bundle on vm925w. Lint clean.
+	- Swept: every place a Windows bundle is made. The native stage, which the portable exe is packed from, the release zip, which the setup exe is made from, and the wine runner.
+	- Branch: nonce
+	- Commit: 257a39c, 48b567b
+	- Test case: rjprdfjb, Session bus cleanup win32 test, Windows only. Starts the given bus exe the way GLib does, with TEMP pointed at a scratch folder. 2 clients queue on the app's name, the first leaves and the second gets the name. Once the bus ends nothing may be left in TEMP. Then a bus is killed, and the next one has to clear what it left.
+
 - Compression reset: link and filesystem choices in the archive options.
 	- ID: 2026100516274163
 	- Type: Enhancement
@@ -104,36 +135,68 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 47a9ad0
 	- Test case: rjqef159, Archive scan test. A scratch tree with folder and file links, a link back up that loops, a link to itself, one that leads nowhere, a `.lnk`, made-up nested, other and share mounts, a link chain onto the share, and on Windows a junction and a junction loop. Every mix's totals, changes, file and share counts, an option turned off and one turned on mid-scan, a folder reached by a link before and after its own path, the gap between reports, Cancel from outside and inside a report, a host with no walk or share check, and the app's own host. rjq9mv0w gained the share check's fallback and forwarding.
 
-- On Windows every launch leaves a small `gdbus-nonce-file-*` in the temp folder.
-	- ID: 2026100714014948
+- After an `smb://` address is typed, nothing shows that the app is working on it.
+	- ID: 2026100816170921
 	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The 2 new files build on Windows only, and the Linux build configures as before.
-	- Needs external testing: done 20261007 on vm925w. The native gate built the stand-in and rjprdfjb with warnings as errors and no warnings, and rjprdfjb passed. 159 tests passed, 12 skipped, none failed.
-	- Priority|Severity: Low
-	- Opened: 20261007-140149
-	- Opened by: Windows installer exe item
-	- Related IDs: 2026100617051745, 2026100715211104, 2026100815215479
-	- Target OS: Windows
-	- Steps to reproduce: start the app and close it a few times, then look in `%TEMP%`.
-	- Incorrect behavior: one 16 byte `gdbus-nonce-file-<random>` per run is left. One test box had about 60 of them, going back a week.
-	- Expected behavior: the session bus removes its file when it ends.
-	- Reproduced: 20261007 on vm925w, a new one after each run of the installed copy.
-	- Possible cause: the session bus GLib starts on Windows writes the file and is ended, not stopped, when the app goes.
-	- Reproduced: 20261007 on vm925w in the desktop session, with the release zip. 2 copies, the first closed, then the second: the bus ended about 3 seconds after the second, and left 1 new file. Also under wine.
-	- Actual cause: in GLib, not the app. The bus is stopped, not ended: it quits by itself a few seconds after the last copy leaves. But GLib's bus drops its server without stopping it, and the server keeps a reference to itself until it is stopped, so it never goes away and never removes the file. It is still that way in GLib's main branch, and nobody has reported it there.
-		- The bus is not in the job that ends helpers with the app. GLib starts it, not the launcher. It stayed up when the copy that started it closed and when a later copy was killed, and the second copy took over the app's bus name.
-	- Actual fix: GLib looks for `gdbus.exe` beside its own library to start the bus, and nothing else in the bundle uses gdbus. So every Windows bundle now has a small `gdbus.exe` of ours instead. It runs GLib's own bus with TEMP pointed at a folder of its own, and removes that folder when the bus ends. A bus that was killed leaves its folder, and the next bus removes it. Nothing else in TEMP is touched.
-		- Note: it uses a function GLib exports for its own gdbus but keeps out of its headers. If GLib drops it, the build fails rather than the bundle.
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 183 of 183.
+	- Needs external testing: on vm925w, type a `\\server\share` path to a server that is slow or not there. The path bar should show a spinner and "Connecting to server...", the pointer should be the arrow with the busy circle and not the hourglass, and Escape should stop it. Also rhtwm2c8 in the native suite.
+	- Priority|Severity: Avg
+	- Opened: 20261008-161710
+	- Opened by: t00mietum
+	- Target OS: All
+	- Steps to reproduce: type an `smb://` address in the path bar and press Enter.
+	- Incorrect behavior: the app looks into the address for a while with no sign of it. Then a login prompt, or the share's contents, suddenly show up. In the meantime it looks like nothing happened, so the user may start something else until the share comes back.
+	- Expected behavior: a clear sign that the app is busy with the address, until it is done or stopped.
+	- Requirements:
+		- A sign that doesn't rely on the mouse pointer. A pointer can change too, like Windows' "working in the background" pointer. But not one that says the app is blocked, like the macOS beachball, unless it is.
+		- Maybe also one or more of:
+			- The program icon moving smoothly in a circle over the path bar, attached to the window.
+			- The path bar and the content pane, or even everything visible, slowly fading between disabled text (gray but still legible) and normal text, at about 0.5 Hz.
+			- The app takes no input until one of:
+				- The network step fails or times out.
+				- The user presses Escape, which stops the background attempt to connect and fetch.
+		- README says what changed.
+	- Reproduced: 20261009 on Linux, with an `smb://` mount that never answers. The path bar, the pointer and the window stay as they were the whole time, and Escape does nothing.
+	- Actual cause: nothing in the window follows the look-up and the mount of a new address. The "Loading..." bar only shows once there's a view, which is after the mount. The busy pointer never showed for the tab in front, since its check compares against the Stop action being enabled, and that never changes.
+	- Actual effort: Avg
 	- Decisions:
-		- A stand-in for GLib's `gdbus.exe` rather than clearing old files at startup, since the cause is in GLib and this removes the file the same run. Left at signoff for that, and because every Windows bundle now has a file of ours under GLib's name.
-		- 20261007: the stand-in is only there for the leftover files. Weighed it against a sweep of old files at startup, or doing neither. Kept the stand-in.
-		- 20261008: the bus itself may go on Windows, in 2026100815215479. If it does, the stand-in and its test go with it, and this item is Moot.
-	- Verified: rjprdfjb fails with GLib's `gdbus.exe` and passes with ours, natively on vm925w and under wine. It also failed with the dead folder clear taken out. In the desktop session on vm925w, the release zip from this branch with 2 copies, the first closed, a third killed, then the second closed: the bus ended a few seconds later, and no new file or folder was left. A folder from a bus killed earlier was removed by the next bus. The same run with GLib's `gdbus.exe` put back left 1 new file. The native staging script put ours in the bundle on vm925w. Lint clean.
-	- Swept: every place a Windows bundle is made. The native stage, which the portable exe is packed from, the release zip, which the setup exe is made from, and the wine runner.
-	- Branch: nonce
-	- Commit: 257a39c, 48b567b
-	- Test case: rjprdfjb, Session bus cleanup win32 test, Windows only. Starts the given bus exe the way GLib does, with TEMP pointed at a scratch folder. 2 clients queue on the app's name, the first leaves and the second gets the name. Once the bus ends nothing may be left in TEMP. Then a bus is killed, and the next one has to clear what it left.
+		- Decided: the base sign only. A spinner and short text such as "Connecting to <host>..." in the path bar until the address resolves, fails, times out or is canceled. The window stays usable. The pointer may show the background-working cursor while over the window, never a blocked one. Escape, with focus in the window, cancels the pending attempt.
+		- Decided: it covers any address that has to be mounted or reached over the network first. That's smb, sftp, ftp, dav and the like through gvfs on Linux, and UNC paths and mapped drives on Windows.
+		- Punted: the program icon circling over the path bar, the slow fade between gray and normal text, and taking no input until the attempt ends.
+	- Actual fix: while the look-up or the mount behind a new address is still out, the path bar shows a spinner and "Connecting to <host>...", or "Connecting to the network..." when there's no host. It goes away when the address answers, fails or is stopped. Meanwhile the pointer is the busy arrow, never the watch, and Escape in the window stops the attempt. The host comes from the address text and the mount table only, so nothing new reaches out to a share. A place on this machine shows no sign.
+	- Swept: every location change starts in one place, so the path bar, Places, bookmarks, links, back and forward, and new windows and tabs all get the sign. A tab in the back shows it when it comes to the front. Opening a file on a share that isn't mounted goes through the open code, which has its own wait dialog wiht a Cancel button. Connect to Server has its own spinner.
+	- Verified: rjv9ks2z fails before the fix, on the sign, the pointer and Escape, and passes after. Full Linux suite 183 of 183. Windows cross build clean, and rhtwm2c8 passes under wine with the new UNC case.
+	- Note: with the toolbar turned off there's no path bar, so only the pointer shows it.
+	- Note: read, not tried: the Stop button also never takes Reload's place while a folder loads, since the same check is behind it. Left alone here.
+	- Branch: smbbusy
+	- Commit: 41adfa7
+	- Test case: rjv9ks2z, Connecting sign while a share mounts test. An `smb://` mount answers only when the test says so. It checks the sign and the host it names, the pointer, that the window still takes input, Escape, and the sign going away after a stop and after a failed mount. It also checks the host named for a set of addresses, and that a local folder shows no sign. rhtwm2c8 checks the server named for a UNC path on Windows.
+
+- On Windows, the trash icon leaves out removable drives.
+	- ID: 2026100708294146
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. Windows only. The full Linux suite passed on the branch, 174 of 174, before this change.
+	- Needs external testing: a real removable drive, on a box that has one. A USB stick under the `RecycleBinDrives` policy with an item in its bin: the trash icon shows full. An empty USB card reader that keeps its drive letter: no insert-disk prompt, and nothing waits.
+	- Priority|Severity: Low
+	- Opened: 20261007-082941
+	- Opened by: 2026100613231440
+	- Related IDs: 2026100613231440, 2026100512334934
+	- Target OS: Windows
+	- Steps to reproduce: turn on the Recycle Bin for removable drives, delete a file on a USB stick, so that its bin is the only one with anything in it.
+	- Incorrect behavior: the trash icon shows empty.
+	- Expected behavior: the trash icon shows full, with no prompt to insert a disk for an empty card reader.
+	- Reproduced: under wine, with a drive letter set as removable: its bin was not counted. Neither vm925w nor b29w has a removable drive with a letter. b29w's card reader gets a letter only with a card in it.
+	- Actual cause: the trash state read fixed drives only, on purpose, so an empty card reader could not bring up the shell's insert-disk prompt (2026100512334934).
+	- Actual fix: a removable drive's bin is read when the drive has a disk in it. The check asks the drive for its volume wiht the critical error prompt off, so an empty one says no. The bin read itself runs with the prompt off too, for a card pulled in between. Optical drives and shares are still never asked.
+	- Note: by default Windows keeps no Recycle Bin on a removable drive and deletes there for good. The `RecycleBinDrives` policy gives them one.
+	- Swept: every other volume and bin call. The shortcut icon check already turns the prompt off, the side pane asks only fixed drives for their label, and the link check asks only the folder in view.
+	- Verified: rjhvmm6f fails under wine with the old fixed-only rule, on 2 drives set as removable, and passes with the fix. Natively on vm925w it passes in session 0 and in the desktop session: the empty optical drive answered empty in 1 ms, no dialog came up, and the trash state took 11 ms with b23 blocked behind Q: and R:. The cross build is clean.
+	- Note: 20261007, still no removable drive on either box: vm925w has 2 fixed drives, an empty optical drive and 2 mapped drives, and b29w has only C:. rjhvmm6f passes in the native suite on vm925w at 585f825.
+	- Branch: winlow
+	- Commit: 0dab690
+	- Test case: rjhvmm6f, Mapped drive not asked, new bin cases: a fixed drive's bin is asked, a removable one's only with a disk in it, an empty drive answers in under 2 s, and no share or optical drive is asked.
 
 - Compression reset: 7-Zip first for 7z, and `-spd` on an edited 7-Zip line.
 	- ID: 2026100516274312
@@ -163,31 +226,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: f079fde
 	- Note: 20261007, in the pipeline's native suite on b29w at 7c1debd, rev86z08 and reww9h2s passed, and rhr6ggmt failed only its rar row (2026100516274349). Whether b29w has 7-Zip was not checked, so this stays here.
 	- Test case: rev86z08, Archive options test, for which writer gets 7z and for the added `-spd`, directly and through edited lines. rhr6ggmt, the `*` and `?` rows again with a 7-Zip line without `-spd`, and a library 7z row that stores links. reww9h2s, an `s?.7z` extracted with an edited 7-Zip line.
-
-- On Windows, the trash icon leaves out removable drives.
-	- ID: 2026100708294146
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: no. Windows only. The full Linux suite passed on the branch, 174 of 174, before this change.
-	- Needs external testing: a real removable drive, on a box that has one. A USB stick under the `RecycleBinDrives` policy with an item in its bin: the trash icon shows full. An empty USB card reader that keeps its drive letter: no insert-disk prompt, and nothing waits.
-	- Priority|Severity: Low
-	- Opened: 20261007-082941
-	- Opened by: 2026100613231440
-	- Related IDs: 2026100613231440, 2026100512334934
-	- Target OS: Windows
-	- Steps to reproduce: turn on the Recycle Bin for removable drives, delete a file on a USB stick, so that its bin is the only one with anything in it.
-	- Incorrect behavior: the trash icon shows empty.
-	- Expected behavior: the trash icon shows full, with no prompt to insert a disk for an empty card reader.
-	- Reproduced: under wine, with a drive letter set as removable: its bin was not counted. Neither vm925w nor b29w has a removable drive with a letter. b29w's card reader gets a letter only with a card in it.
-	- Actual cause: the trash state read fixed drives only, on purpose, so an empty card reader could not bring up the shell's insert-disk prompt (2026100512334934).
-	- Actual fix: a removable drive's bin is read when the drive has a disk in it. The check asks the drive for its volume wiht the critical error prompt off, so an empty one says no. The bin read itself runs with the prompt off too, for a card pulled in between. Optical drives and shares are still never asked.
-	- Note: by default Windows keeps no Recycle Bin on a removable drive and deletes there for good. The `RecycleBinDrives` policy gives them one.
-	- Swept: every other volume and bin call. The shortcut icon check already turns the prompt off, the side pane asks only fixed drives for their label, and the link check asks only the folder in view.
-	- Verified: rjhvmm6f fails under wine with the old fixed-only rule, on 2 drives set as removable, and passes with the fix. Natively on vm925w it passes in session 0 and in the desktop session: the empty optical drive answered empty in 1 ms, no dialog came up, and the trash state took 11 ms with b23 blocked behind Q: and R:. The cross build is clean.
-	- Note: 20261007, still no removable drive on either box: vm925w has 2 fixed drives, an empty optical drive and 2 mapped drives, and b29w has only C:. rjhvmm6f passes in the native suite on vm925w at 585f825.
-	- Branch: winlow
-	- Commit: 0dab690
-	- Test case: rjhvmm6f, Mapped drive not asked, new bin cases: a fixed drive's bin is asked, a removable one's only with a disk in it, an empty drive answers in under 2 s, and no share or optical drive is asked.
 
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440
@@ -268,43 +306,118 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: f38660a to f8a6223
 	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session. (c) still needs its own: a thumbnail and the text from a small file of each type, on every platform, and a check that no program is started for them.
 
-- After an `smb://` address is typed, nothing shows that the app is working on it.
-	- ID: 2026100816170921
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 183 of 183.
-	- Needs external testing: on vm925w, type a `\\server\share` path to a server that is slow or not there. The path bar should show a spinner and "Connecting to server...", the pointer should be the arrow with the busy circle and not the hourglass, and Escape should stop it. Also rhtwm2c8 in the native suite.
+- On Windows, let the copies of the app talk to each other with no session bus.
+	- ID: 2026100815215479
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261008-152154
+	- Opened by: t00mietum
+	- Related IDs: 2026100714014948, 2026100617051745, 2026100715211104
+	- Target OS: Windows
+	- Requirements:
+		- Nothing starts a session bus on Windows, so no `gdbus.exe` is in any Windows bundle.
+		- What the bus does there today still works: the list of other copies behind the tab menu and `--reset`, asking the other copies to quit, and moving a tab into a window of another copy.
+		- One named pipe per copy, under a name per user and per logon session, in place of the bus calls. The bus code stays as is on Linux and the BSDs, behind the same calls.
+		- An action's `dbus` condition never passes on Windows. Nothing there owns such names anyway.
+	- Note: GLib stays on every platform. GTK 3 is built on it, and so is nearly all of the app. The session bus is a separate thing. On Linux the desktop already runs one, and other programs reach the app through it, so it stays there.
+	- Note: our `gdbus.exe` is a packed program too, so under MacType the single exe likely can't start the bus either, the same as in 2026100617051745. Not tried.
+	- Estimated effort: Avg
+	- Progress log:
+		- 20261008: filed. Open: whether to do it. It ends the leftover nonce files of 2026100714014948 at the cause, and the last packed program the single exe starts on its own, besides GLib's spawn helpers if anything still uses them.
+		- 20261008: going ahead. Open: the BSDs. For now they keep the bus, like Linux.
+	- Decisions:
+		- 20261008: Windows drops the session bus for named pipes, or something like them. Linux keeps the bus.
+
+- A setting with an automatic value can be changed on its own, with no master switch to find first.
+	- ID: 2026100816170959
+	- Type: Enhancement
+	- Status: Queued
 	- Priority|Severity: Avg
 	- Opened: 20261008-161710
 	- Opened by: t00mietum
 	- Target OS: All
-	- Steps to reproduce: type an `smb://` address in the path bar and press Enter.
-	- Incorrect behavior: the app looks into the address for a while with no sign of it. Then a login prompt, or the share's contents, suddenly show up. In the meantime it looks like nothing happened, so the user may start something else until the share comes back.
-	- Expected behavior: a clear sign that the app is busy with the address, until it is done or stopped.
+	- Design: [20261008-180516_automatic_settings.md](design_docs/20261008-180516_automatic_settings.md).
 	- Requirements:
-		- A sign that doesn't rely on the mouse pointer. A pointer can change too, like Windows' "working in the background" pointer. But not one that says the app is blocked, like the macOS beachball, unless it is.
-		- Maybe also one or more of:
-			- The program icon moving smoothly in a circle over the path bar, attached to the window.
-			- The path bar and the content pane, or even everything visible, slowly fading between disabled text (gray but still legible) and normal text, at about 0.5 Hz.
-			- The app takes no input until one of:
-				- The network step fails or times out.
-				- The user presses Escape, which stops the background attempt to connect and fetch.
-		- README says what changed.
-	- Reproduced: 20261009 on Linux, with an `smb://` mount that never answers. The path bar, the pointer and the window stay as they were the whole time, and Escape does nothing.
-	- Actual cause: nothing in the window follows the look-up and the mount of a new address. The "Loading..." bar only shows once there's a view, which is after the mount. The busy pointer never showed for the tab in front, since its check compares against the Stop action being enabled, and that never changes.
-	- Actual effort: Avg
+		- A setting the program can work out by itself is automatic when nothing is stored for it. It shows and uses what its rule or preset gives right now.
+		- Changing it stores the new value, for that setting only. Nothing else changes.
+		- Every such setting has its own way back to automatic:
+			- A list choice gets `Automatic` as its first entry.
+			- On or off becomes a 3-entry dropdown: `Automatic`, `On`, `Off`.
+			- A number, text, color or file gets a small clear icon while set by hand. While automatic the field shows the rule's value in a lighter style, and can still be typed in.
+		- Nothing is grayed or disabled for being automatic. A small mark says it is.
+		- A group's switch or presets dropdown is never stored. It is worked out from the settings under it every time it's drawn.
+			- A switch is on when all are automatic, off when none are, and mixed when some are.
+			- A presets dropdown shows the preset they all match, else Custom. Custom can't be picked.
+		- Using the group control changes every setting under it at once:
+			- Switch on, or a mixed switch clicked: all go automatic.
+			- Switch off: each stores the value it shows now, so nothing on screen moves.
+			- A preset picked: each stores that preset's value.
+		- A hand edit to the settings file works the same. A line sets a value, no line means automatic.
+		- The flyover tip of every input control, and of its label, has:
+			- The setting's description, if it has one.
+			- A blank line, when anything follows it.
+			- For an automatic-capable setting, whether it's automatic or set by hand, and what automatic would give.
+			- "Current value" and "Default value" lines, only when they differ.
+	- Note: the problem this solves. In this app now, and in many others, a setting that can't be edited first means hunting down which master switch is stopping it, then changing that. Changing it also brings back every stored value under it, when maybe only the one was wanted.
+	- Progress log:
+		- 20261008: "own value when the override is set or the master is off" would un-gray every setting under a master once one edit turns the master off. Settled on the rule in Decisions instead, which is what was meant.
+		- 20261008: 2 ways to store it:
+			- (a) Only the override flags. The master shows on when no setting under it overrides, and setting it by hand sets or clears every flag under it. Master off by hand writes one line per setting under it.
+			- (b) The master keeps its own value, plus a second setting: `overridesAll`, `overridesNone` or `overridesSome`. All means every setting under it uses its own value, None means every one is gray and automatic, Some means only those with their override flag set use their own value. Setting the master by hand writes 2 lines, whatever the number of settings under it.
+			- The catch with (b): old flags left from an earlier Some would come back the next time it goes to Some. So setting the master by hand also drops every flag under it, which in a file that keeps only non-default values means deleting lines, not writing them.
+		- 20261008: went with (b).
+		- 20261008: changed my mind on all of the above. No grays, and nothing stored for a group. A setting is automatic by storing nothing, and the switch or dropdown is read from the settings under it. Old design moved to [rejected](design_docs/rejected/20261008-171206_settings_under_a_master.md).
 	- Decisions:
-		- Decided: the base sign only. A spinner and short text such as "Connecting to <host>..." in the path bar until the address resolves, fails, times out or is canceled. The window stays usable. The pointer may show the background-working cursor while over the window, never a blocked one. Escape, with focus in the window, cancels the pending attempt.
-		- Decided: it covers any address that has to be mounted or reached over the network first. That's smb, sftp, ftp, dav and the like through gvfs on Linux, and UNC paths and mapped drives on Windows.
-		- Punted: the program icon circling over the path bar, the slow fade between gray and normal text, and taking no input until the attempt ends.
-	- Actual fix: while the look-up or the mount behind a new address is still out, the path bar shows a spinner and "Connecting to <host>...", or "Connecting to the network..." when there's no host. It goes away when the address answers, fails or is stopped. Meanwhile the pointer is the busy arrow, never the watch, and Escape in the window stops the attempt. The host comes from the address text and the mount table only, so nothing new reaches out to a share. A place on this machine shows no sign.
-	- Swept: every location change starts in one place, so the path bar, Places, bookmarks, links, back and forward, and new windows and tabs all get the sign. A tab in the back shows it when it comes to the front. Opening a file on a share that isn't mounted goes through the open code, which has its own wait dialog wiht a Cancel button. Connect to Server has its own spinner.
-	- Verified: rjv9ks2z fails before the fix, on the sign, the pointer and Escape, and passes after. Full Linux suite 183 of 183. Windows cross build clean, and rhtwm2c8 passes under wine with the new UNC case.
-	- Note: with the toolbar turned off there's no path bar, so only the pointer shows it.
-	- Note: read, not tried: the Stop button also never takes Reload's place while a folder loads, since the same check is behind it. Left alone here.
-	- Branch: smbbusy
-	- Commit: 41adfa7
-	- Test case: rjv9ks2z, Connecting sign while a share mounts test. An `smb://` mount answers only when the test says so. It checks the sign and the host it names, the pointer, that the window still takes input, Escape, and the sign going away after a stop and after a failed mount. It also checks the host named for a set of addresses, and that a local folder shows no sign. rhtwm2c8 checks the server named for a UNC path on Windows.
+		- 20261008: one table lists every automatic-capable setting, its rule, and its group. One function gives the value in use and whether it's automatic. Nothing reads such a setting around it, and a lint check refuses code that does.
+		- 20261008: going back to automatic throws the hand-set value away. Going manual starts from what is showing.
+		- 20261008: settings that only count while a feature is on, like the choices under "Show tooltips", are not part of this. They stay as they are.
+	- Test case: still needs one.
+
+- A settings change in one copy of the app shows in every other running copy at once.
+	- ID: 2026100907390779
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261009-073907
+	- Opened by: t00mietum
+	- Related IDs: 2026100815215479, 2026100816170959
+	- Target OS: All
+	- Requirements:
+		- A change made in one copy applies to every other running copy right away, with no wait for the settings file to be saved and noticed.
+		- Exception, for a randomly picked wallpaper if that gets added. A change in another copy doesn't pick a new one, unless:
+			- One specific file was picked. Then every copy shows it.
+			- The folder or path changed. Then each copy picks again. With "random per window/tab/pane" on, each window, tab or pane gets its own pseudorandom pick.
+		- With every window in one process this comes for free. With a process per window, tell the other copies over the same channel the tab moves use, rather than through the settings file.
+	- Note: today the other copies only see a change through the file watch, after the 2 s save delay plus however long the watch takes. Watching the file stays, for hand edits.
+	- Test case: still needs one.
+
+- The Archive settings test's restart does not read the file again.
+	- ID: 2026100720481882
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261007-204818
+	- Opened by: 2026100516274163
+	- Target OS: Linux, Windows
+	- Steps to reproduce: in rhae85g0, `test_survives_a_restart` calls `nemo_config_shutdown` then `nemo_config_init`.
+	- Incorrect behavior: init returns at once, since the store is still marked ready, so nothing is read back from the file. Shutdown also drops the file watch, and init doesn't make a new one, so a later hand edit is never seen in that run.
+	- Expected behavior: the values are read back from the file, as the test says.
+	- Reproduced: 20261007, a hand edit written after that test was never picked up in the same run.
+	- Test case: rhae85g0 itself, once it reads the file again.
+
+- Rename Preferences to Settings.
+	- ID: 2026100816170996
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261008-161710
+	- Opened by: t00mietum
+	- Target OS: All
+	- Requirements:
+		- Everywhere the app says Preferences, it says Settings: menus, the dialog's title, and the docs.
+	- Note: the file is already `settings.shcl`.
+	- Test case: still needs one.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
@@ -535,364 +648,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: 20261007, reopened. In the pipeline's native suite on b29w at 7c1debd, rhr6ggmt failed its `beside-rar` row on both passes: rar there took `sub/a.txt` beside the picked `a.txt`. That row passed natively before `-r0` went in. Not fixed yet.
 	- Test case: rev86z08, Archive options test, for the added `-r0` after an `-r`, and none on the extract lines. rhr6ggmt, the picked `a.txt` beside `sub/a.txt` rows again with an edited rar line that keeps `-r`.
 
-- On Windows, let the copies of the app talk to each other with no session bus.
-	- ID: 2026100815215479
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261008-152154
-	- Opened by: t00mietum
-	- Related IDs: 2026100714014948, 2026100617051745, 2026100715211104
-	- Target OS: Windows
-	- Requirements:
-		- Nothing starts a session bus on Windows, so no `gdbus.exe` is in any Windows bundle.
-		- What the bus does there today still works: the list of other copies behind the tab menu and `--reset`, asking the other copies to quit, and moving a tab into a window of another copy.
-		- One named pipe per copy, under a name per user and per logon session, in place of the bus calls. The bus code stays as is on Linux and the BSDs, behind the same calls.
-		- An action's `dbus` condition never passes on Windows. Nothing there owns such names anyway.
-	- Note: GLib stays on every platform. GTK 3 is built on it, and so is nearly all of the app. The session bus is a separate thing. On Linux the desktop already runs one, and other programs reach the app through it, so it stays there.
-	- Note: our `gdbus.exe` is a packed program too, so under MacType the single exe likely can't start the bus either, the same as in 2026100617051745. Not tried.
-	- Estimated effort: Avg
-	- Progress log:
-		- 20261008: filed. Open: whether to do it. It ends the leftover nonce files of 2026100714014948 at the cause, and the last packed program the single exe starts on its own, besides GLib's spawn helpers if anything still uses them.
-		- 20261008: going ahead. Open: the BSDs. For now they keep the bus, like Linux.
-	- Decisions:
-		- 20261008: Windows drops the session bus for named pipes, or something like them. Linux keeps the bus.
-
-- A setting with an automatic value can be changed on its own, with no master switch to find first.
-	- ID: 2026100816170959
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261008-161710
-	- Opened by: t00mietum
-	- Target OS: All
-	- Design: [20261008-180516_automatic_settings.md](design_docs/20261008-180516_automatic_settings.md).
-	- Requirements:
-		- A setting the program can work out by itself is automatic when nothing is stored for it. It shows and uses what its rule or preset gives right now.
-		- Changing it stores the new value, for that setting only. Nothing else changes.
-		- Every such setting has its own way back to automatic:
-			- A list choice gets `Automatic` as its first entry.
-			- On or off becomes a 3-entry dropdown: `Automatic`, `On`, `Off`.
-			- A number, text, color or file gets a small clear icon while set by hand. While automatic the field shows the rule's value in a lighter style, and can still be typed in.
-		- Nothing is grayed or disabled for being automatic. A small mark says it is.
-		- A group's switch or presets dropdown is never stored. It is worked out from the settings under it every time it's drawn.
-			- A switch is on when all are automatic, off when none are, and mixed when some are.
-			- A presets dropdown shows the preset they all match, else Custom. Custom can't be picked.
-		- Using the group control changes every setting under it at once:
-			- Switch on, or a mixed switch clicked: all go automatic.
-			- Switch off: each stores the value it shows now, so nothing on screen moves.
-			- A preset picked: each stores that preset's value.
-		- A hand edit to the settings file works the same. A line sets a value, no line means automatic.
-		- The flyover tip of every input control, and of its label, has:
-			- The setting's description, if it has one.
-			- A blank line, when anything follows it.
-			- For an automatic-capable setting, whether it's automatic or set by hand, and what automatic would give.
-			- "Current value" and "Default value" lines, only when they differ.
-	- Note: the problem this solves. In this app now, and in many others, a setting that can't be edited first means hunting down which master switch is stopping it, then changing that. Changing it also brings back every stored value under it, when maybe only the one was wanted.
-	- Progress log:
-		- 20261008: "own value when the override is set or the master is off" would un-gray every setting under a master once one edit turns the master off. Settled on the rule in Decisions instead, which is what was meant.
-		- 20261008: 2 ways to store it:
-			- (a) Only the override flags. The master shows on when no setting under it overrides, and setting it by hand sets or clears every flag under it. Master off by hand writes one line per setting under it.
-			- (b) The master keeps its own value, plus a second setting: `overridesAll`, `overridesNone` or `overridesSome`. All means every setting under it uses its own value, None means every one is gray and automatic, Some means only those with their override flag set use their own value. Setting the master by hand writes 2 lines, whatever the number of settings under it.
-			- The catch with (b): old flags left from an earlier Some would come back the next time it goes to Some. So setting the master by hand also drops every flag under it, which in a file that keeps only non-default values means deleting lines, not writing them.
-		- 20261008: went with (b).
-		- 20261008: changed my mind on all of the above. No grays, and nothing stored for a group. A setting is automatic by storing nothing, and the switch or dropdown is read from the settings under it. Old design moved to [rejected](design_docs/rejected/20261008-171206_settings_under_a_master.md).
-	- Decisions:
-		- 20261008: one table lists every automatic-capable setting, its rule, and its group. One function gives the value in use and whether it's automatic. Nothing reads such a setting around it, and a lint check refuses code that does.
-		- 20261008: going back to automatic throws the hand-set value away. Going manual starts from what is showing.
-		- 20261008: settings that only count while a feature is on, like the choices under "Show tooltips", are not part of this. They stay as they are.
-	- Test case: still needs one.
-
-- A settings change in one copy of the app shows in every other running copy at once.
-	- ID: 2026100907390779
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261009-073907
-	- Opened by: t00mietum
-	- Related IDs: 2026100815215479, 2026100816170959
-	- Target OS: All
-	- Requirements:
-		- A change made in one copy applies to every other running copy right away, with no wait for the settings file to be saved and noticed.
-		- Exception, for a randomly picked wallpaper if that gets added. A change in another copy doesn't pick a new one, unless:
-			- One specific file was picked. Then every copy shows it.
-			- The folder or path changed. Then each copy picks again. With "random per window/tab/pane" on, each window, tab or pane gets its own pseudorandom pick.
-		- With every window in one process this comes for free. With a process per window, tell the other copies over the same channel the tab moves use, rather than through the settings file.
-	- Note: today the other copies only see a change through the file watch, after the 2 s save delay plus however long the watch takes. Watching the file stays, for hand edits.
-	- Test case: still needs one.
-
-- The Archive settings test's restart does not read the file again.
-	- ID: 2026100720481882
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261007-204818
-	- Opened by: 2026100516274163
-	- Target OS: Linux, Windows
-	- Steps to reproduce: in rhae85g0, `test_survives_a_restart` calls `nemo_config_shutdown` then `nemo_config_init`.
-	- Incorrect behavior: init returns at once, since the store is still marked ready, so nothing is read back from the file. Shutdown also drops the file watch, and init doesn't make a new one, so a later hand edit is never seen in that run.
-	- Expected behavior: the values are read back from the file, as the test says.
-	- Reproduced: 20261007, a hand edit written after that test was never picked up in the same run.
-	- Test case: rhae85g0 itself, once it reads the file again.
-
-- Rename Preferences to Settings.
-	- ID: 2026100816170996
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261008-161710
-	- Opened by: t00mietum
-	- Target OS: All
-	- Requirements:
-		- Everywhere the app says Preferences, it says Settings: menus, the dialog's title, and the docs.
-	- Note: the file is already `settings.shcl`.
-	- Test case: still needs one.
-
-- On Windows, a path with single backslashes in a file or setting a user writes is read as escapes.
-	- ID: 2026100702343600
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed on the final tree, 174 of 174.
-	- Needs external testing: none left. The link properties save passed on 20261007, and so did the bulk rename and Open With checks.
-	- Priority|Severity: Avg
-	- Opened: 20261007-023436
-	- Opened by: t00mietum
-	- Related IDs: 2026100615255231, 2026100616310432, 2026100314515200
-	- Target OS: Windows
-	- Requirements:
-		- Any string a user writes or edits takes a Windows path as is. A backslash there is never an escape.
-		- Covers search helper and thumbnailer files, actions, command lines and other paths in settings, and any other text file the app reads that a user may write by hand.
-		- A string the app only writes and reads itself may keep escapes, but should use something other than backslashes where it can.
-	- Note: users almost never mean `\n` or `\t`, and a path read as escapes breaks quietly. Same reason the SHCL upgrade ignores backslash escapes.
-	- Steps to reproduce: on Windows, write a search helper with `TryExec=C:\Tools\pdftotext.exe`.
-	- Incorrect behavior: the helper is skipped as unreadable.
-	- Expected behavior: the helper is used when the program is there.
-	- Reproduced: 20261007, under wine. Search helpers, thumbnailers, actions and link files written with single backslashes were skipped or lost their values, and an archive command line with a path in it lost its backslashes.
-	- Actual cause: the key file reader and GLib's command line splitter both read a backslash as an escape, on Windows too. Every key file read and every split of a command line a user writes went through one or the other.
-		- Link page, 20261007: Windows has no type registered for `.desktop`, so a link file's type there is the bare extension. Every check that asks for the link file type said no. The list showed the link emblem only because that check also looks at the name. So on Windows the page was never offered, and a link file's Name, Icon and URL were never read either.
-	- Actual fix: one shared reader and splitter, `nemo-user-text.c`, used at every site.
-		- On Windows a key file value is read as written. A list splits on semicolons. A command line splits on blanks, and double quotes group words.
-		- A path put into such a line is quoted to match.
-		- Off Windows it calls the same GLib functions as before.
-		- A new lint check fails on a direct call outside the shared code, unless listed with its reason.
-		- Link page, 20261007: on Windows the shared type checks map `.desktop` to the link file type when nothing has registered it. The link checks all go through them now.
-	- Decisions:
-		- A value whose backslashes all come in pairs was written by a key file writer, so each pair reads as one. One lone backslash anywhere means the whole value is read as written. So `C:\\Tools\\x.exe` and `C:\Tools\x.exe` both work, and so do `\\server\share` and its doubled form. The one spelling both readings share is a bare `\\server`, which reads as `\server`; it names no share, so nothing is lost.
-		- On Windows a semicolon in a list always splits, so `C:\Data\;D:\` is 2 folders. A list item cannot hold a semicolon there.
-		- On Windows `""` inside double quotes is one quote, and a single quote is an ordinary character, as in Windows' own rules. An unclosed quote is an error, as before.
-		- The rule covers every value in those files on Windows, names and comments too, not only paths. One rule is easier to explain.
-		- On Windows an action with `Quote=single` gets double quotes, since a single quote groups nothing there. With no `Quote`, each path gets quotes of its own.
-		- On Windows the bulk rename tool gets each file as a path rather than a URI, since a Windows program opens paths. It starts through the app's own launcher, which is half of 2026100616310432.
-		- A link file whose URL is a Windows path opens that path. `C:` read as a URI scheme before.
-		- The app writes a link file value as is on Windows when that reads back the same, and with every backslash doubled when not.
-		- Theme index files and the bookmark metadata file stay on the key file reader. A theme follows the spec, and the app writes the metadata itself.
-		- 20261007: on Windows a launcher (Type=Application) is not treated as one, since nothing there runs its Exec. It takes no drops and opens like any other file, as it did before.
-	- Swept:
-		- Actions: every value, the command and the exec condition, the action folder prefix, paths put into the command.
-		- Search helpers and thumbnailers: TryExec, Exec, MimeType, and the paths put into the command.
-		- Link files: every value read, and the values the app writes.
-		- The link properties page and the action list in preferences.
-		- Archive command lines in the settings, all 4.
-		- Open With: the custom command check and the name taken from it. Its tip on Windows says to quote a path with spaces.
-		- Bulk rename tool on Windows.
-		- Already fine: the terminal command on Windows is split without escapes, `windows.associations` lines go to Windows whole, terminal candidates and folders a search skips are plain names or paths.
-		- The settings layer adds no escapes of its own. See the note.
-		- Link file type checks, 20261007: the properties page and its icon save, desktop file renames and the shortcut emblem, reading link info, opening a link, dropping on a link file, the view's link menus and icon captions, and the drop target lookup in the link code. No other place compares against the link file type.
-	- Note: SHCL reads `\t`, `\n`, `\\`, `\"` and `\'` as escapes inside double quotes, so a hand-written `"C:\temp\new"` in the settings file reads with a tab and a line break. Bare and single-quoted text is read as written. A file with no format line is read by the 2.x rules at startup, where a backslash in bare text is an escape too (2026100314515200). Left for the SHCL upgrade that drops backslash escapes.
-	- Verified: each new test case below failed under wine before the fix and passes after. Natively on vm925w the 6 tests pass, and the whole suite was 152 OK, 0 failed, 11 skipped, with no `g_strv_length` critical. The Windows suite under wine fails the same 17 tests as before this change, all link and registry gaps in wine. The new lint check failed with one direct read put back. The rule cases in rjmpxtbg failed with pairs not halved, and with a backslash read as an escape. Lint is clean here and on vm925w.
-	- Verified: 20261007, Windows, at 585f825, in the desktop session on vm925w: a bulk rename tool set as a quoted full path with a space in it ran on 2 selected files, one with `&` in its name, and got each as a full path. A custom command typed in Open With as a full path was taken, and ran on the file.
-	- Note: 20261007, failed on vm925w: the properties window of a `.desktop` link file has no URL or Comment field, so the save could not be tried. Going by the code, the page is offered only when the file's type reads as a link file, and Windows has no type registered for `.desktop`. The app still shows the file as a link in the list.
-	- Note: 20261007, a link file with a URL opens the properties of what it points to, on every platform, as upstream did. So its URL field is offered only while URL is empty. A launcher's Command field goes through the same save code.
-		- 20261007: decided a link file with a URL keeps opening its target's properties, as upstream.
-	- Verified: 20261007, Windows, at 90a9109, in the desktop session on vm925w: the list showed a link file by its Name. A launcher's properties had Description, Command and Comment. `"C:\Program Files\Thing\thing.exe" C:\data\in.txt` typed as Command and `notes in C:\temp\new` as Comment were both saved as typed, with single backslashes, and read back the same when the window was opened again. A link file with no URL had the URL field, and a full path typed there was saved as typed.
-	- Verified: 20261007, rjpr3nzy failed under wine with the type fix taken out, and passes under wine and natively on vm925w. Linux suite 178 of 178. The Windows suite under wine fails the same 17 tests as before. Lint is clean.
-	- Branch: winpaths, lnkprops
-	- Commit: d824d17, f34cc1c, 59295bb, 90a9109
-	- Test case:
-		- rjmpxtbg, Windows paths in user text test, new: the Windows rules on every platform, key files through each platform's reader and writer, link files, and an action file.
-		- rexkeyng, Command template test, `check_windows_paths`: an archive line with paths.
-		- rjpr3nzy, Link file type test, new: a `.desktop` link file reads as one on every platform, gets the properties page, and has its Name and URL read. A launcher only counts as one where it can run.
-		- rfhnaccg, Search helpers test: on Windows every helper is written with single backslashes.
-		- redrqe60, Thumbnail factory test, `badtry` case: on Windows a thumbnailer naming a real program that way is used.
-		- rjm4ctwh, Tool start win32 test: a search helper and a thumbnailer by full path with single backslashes, and a helper with them doubled.
-		- rjmb3j8p, Action start win32 test: an action with full paths in its command, condition and dependencies.
-		- rjmqp83c, lint-c.bash `UserText`: no direct call outside the shared code.
-		- Both platforms: rjmpxtbg, rexkeyng, rjpr3nzy, rfhnaccg and redrqe60 run in the Linux suite and the Windows suite. rjm4ctwh and rjmb3j8p are Windows only, since they start programs the Windows way. All of them passed in both suites at 7c1debd.
-	- Acceptance signoff: 20261008.
-	- Closed: 20261008-152154
-
-- Compression reset: tell a nested filesystem from another one.
-	- ID: 2026100516274200
-	- Type: Enhancement
-	- Status: Done
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Prereq IDs: 2026100516274126
-	- Target OS: Linux, Windows
-	- Design: [Nested and other filesystems](design_docs/20260929-101432_compression.md#nested-and-other-filesystems).
-	- Requirements:
-		- For a folder, or where a link leads, say whether it is on the same filesystem as the folder the selection is in, a nested one, or another one.
-		- Nested means the same pool or volume on both sides of the mount: one ZFS pool, one Btrfs filesystem, one APFS container. Anything else is another filesystem.
-		- Windows has no nested kind. A folder mount point and a junction are the same kind of reparse point, and one that points at a whole volume counts as a mount point only.
-		- Read from the mount table and the path, never from a share. Written in the core.
-	- Estimated effort: Avg
-	- Actual effort: Avg
-	- Progress log:
-		- 20261007-202500: built. Left at signoff for the 2 calls under Decisions.
-		- 20261008: signed off as is.
-	- Decisions:
-		- 20261007: a Windows reparse point is a mount point only when its target names a volume, as `\??\Volume{...}\`. One that leads to a drive's root, such as `C:\`, stays a junction, so it needs Junctions as well as the filesystem option. Read the other way, a junction to `C:\` from inside `C:\` would be on the same filesystem with no option needed, and the whole drive would be walked with junctions off.
-		- 20261007: one disk mounted in 2 places, such as a bind mount, is nested, since the same volume is on both sides.
-	- Done: `source/archive-core/arc-mounts.h`. It takes a copy of the mount table and the text of 2 paths, and reads nothing on either path. A ZFS pool goes by its dataset name, an APFS container by its disk name, anything else by its device. Something with no device behind it, such as tmpfs or a share, is never nested. The Windows table is in `arc-mounts-win32.c`: each volume by its own name and by every letter and folder it's mounted at. A mapped drive or a share has no volume, so it goes by its drive letter or its `\\server\share`. A test hands in a made-up table.
-	- Note: a Btrfs subvolume that isn't mounted on its own reads as the same filesystem, since the mount table has nothing on it.
-	- Swept: the only other mount table reader is `nemo-share.c`, which looks for shares only and stays as it is. The archive code has no filesystem check today.
-	- Verified: 20261007, Linux build with warnings as errors, the Windows cross build, and the core built with clang. rjq9mv0w passes on Linux, under ASan and UBSan, and under wine. The real mount table gives nested for 2 ZFS datasets in one pool and for 2 Btrfs subvolumes, and other for tmpfs and an ext4 disk. Under wine the Windows reader found C: and Z:.
-	- Branch: arcsizes
-	- Commit: 042a7ea
-	- Test case: rjq9mv0w, Archive core test. Made-up Linux and Windows mount tables: ZFS, Btrfs, APFS, a bind mount, tmpfs, NFS, one mount over another, a folder mount on Windows, volume names, long path forms, shares and mapped drives. Also the real table, read once.
-		- Both platforms: it runs in the Linux suite and the Windows suite, and both made-up tables are checked on each, so the 2 calls under Decisions are pinned on both. On Windows the real table is the Windows one. It passed in both suites at 7c1debd.
-	- Acceptance signoff: 20261008.
-	- Closed: 20261008-152154
-
-- FreeBSD in the pipeline.
-	- ID: 2026100517134118
-	- Type: Task
-	- Status: Done
-	- Priority|Severity: Low
-	- Opened: 20261005-171341
-	- Opened by: old-format item "Target: BSD"
-	- Related IDs: old-format item "Target: BSD", 2026100517134081
-	- Target OS: FreeBSD
-	- Requirements:
-		- A stage that sends the tree to the FreeBSD box, builds with `-Dwerror=true`, runs the suite on an X server of its own, and checks `--version`, under the host lock.
-		- `cicd/linux/run-tests.bash` assumes the container's `/src`, a Linux-only display wrapper and GNU `find -printf`. Either it learns FreeBSD, or a runner of its own does the same job.
-	- Decisions:
-		- 20261007:
-			- Opt-in, as `--include-bsd`, the way the arm64 lane is meant to be. `--quick` leaves it on when it is asked for. The gate does not run it.
-			- `run-tests.bash` learned FreeBSD, rather than a second runner: it finds the source beside itself, starts an X server of its own where the Linux display wrapper is missing, and lists leftovers with `ls`.
-			- A box that does not answer fails the run, as in the arm64 lane.
-	- Done: `cicd/bsd/lane.bash --tests` sends the working tree the way `release-arm64.bash` does and runs `run-tests.bash` there, under the host lock's wrap. With `--include-bsd`, stage 3 runs it after the sanitizer suite, and stage 5 runs the release half from 2026100517134081.
-	- Verified: on vmFreeBSD the lane built the tree with `-Dwerror=true` and ran the suite, 163 OK, 14 skipped, then `--version`. On Linux `run-tests.bash` built and ran 2 tests and `--version` in the build image, with and without the display wrapper. The first FreeBSD run stopped on folders 2 tests left behind, filed as 2026100713082288.
-	- Needs local test suite run?: yes. A full `cicd/cicd.bash --include-bsd --no-publish` on the merged tree. The new stage lines in `cicd.bash` have only been read.
-	- Branch: bsdpkg
-	- Commit: 6f96777
-	- Test case: rjphnh77, FreeBSD lane test, in the lint stage: what is sent, what the runner is handed, a failing suite failing the lane, the tarball's stamp and order over 2 runs, the sums file, and the lock's wrap. The suite run on FreeBSD is the test of `run-tests.bash` there.
-	- Verified 20261007: `cicd.bash -y --include-arm --include-bsd --no-publish --no-private` at 7c1debd. Stage 3 ran the FreeBSD suite, 167 OK, 14 skipped, and stage 5 made the FreeBSD tarball and `.pkg`, which passed its package check.
-	- Acceptance signoff: Self-closed: the pipeline run it waited on passed.
-	- Closed: 20261007-223145
-
-- Linux arm64 `.deb` and `.rpm` packages.
-	- ID: 2026100714244880
-	- Type: Feature
-	- Status: Done
-	- Needs local test suite run?: no. Only pipeline scripts changed, and the lint stage passed.
-	- Needs external testing: one `cicd.bash --include-arm --no-publish` run, to see the arm64 lane bring the dependency line back and stage 6 make and check both arm64 packages.
-	- Priority|Severity: Low
-	- Opened: 20261007-142448
-	- Opened by: old-format item "Linux arm64 release build"
-	- Related IDs: old-format item "Linux arm64 release build"
-	- Target OS: Linux arm64
-	- Requirements:
-		- An arm64 `.deb` and `.rpm` from the arm64 release build, beside the x86_64 ones.
-		- The `.deb`'s dependency versions read off the arm64 libraries, on the arm64 box, the way the x86_64 ones are read in its release container.
-		- Behind `--include-arm`, with the rest of the arm64 lane.
-	- Decisions:
-		- The arm64 box only reads the dependency line, right after its build while its release container is still up. Both arches are packaged on the main box with the same tools.
-		- The line is kept with the tarball's checksum. A line read off any other build is not used, and the `.deb` gets the short list with no versions and a warning, the same fallback the x86_64 one has.
-		- A failed read only warns, so it doesn't throw away an hour's build.
-		- 20261007: README names the arm64 files once a release has them.
-		- The arm64 packages and their prefix check run only when the arm64 build ran in that same run. So `--no-arm`, `--no-cross` and `--quick` leave them out too, and a stale tarball is never packaged.
-	- Done 20261007: the arm64 lane reads the `.deb`'s dependencies in the release container on the arm64 box and brings them back with the tarball. `package.bash` gained `--arch` and `--depends-only`, and stage 6 makes the arm64 `.deb` and `.rpm` and runs the prefix check on them.
-	- Note 20261007: the `.rpm` spec no longer names its arch, since `rpmbuild` refuses an arch the box can't build for even with nothing to compile. The arch comes from the target instead. The x86_64 `.rpm` comes out byte for byte the same as before.
-	- Verified 20261007: rjpxzs6x, rjph1pxd and rjph39cv pass. rjpxzs6x failed with the arch named in the spec, with every arch read in the local container, with no checksum check, and with `--depends-only` guessing or reading another arch. rjph1pxd failed with no read, with the read after the container stops, with a failed read left fatal, and with an old list kept. rjph39cv failed on the pipeline and config as they were, and with `--no-cross` ignored.
-	- Verified 20261007: against the arm64 tarball already built on the arm64 box. The line read there matches the x86_64 one, since both images have the same library versions. The `.deb` says arm64 and the `.rpm` aarch64, both come out the same twice and have the tarball's date, and the prefix check passes on all 3. On Debian 13 arm64, apt finds every dependency of the `.deb`, and the program in it answers `--version`.
-	- Branch: armpkg
-	- Commit: 6ec5be9
-	- Test case: rjpxzs6x checks where each arch's `.deb` gets its dependencies, and that the arm64 packages name their arch and repeat byte for byte. rjph1pxd checks the lane reads the line on the box and keeps it with the tarball's checksum. rjph39cv checks the pipeline makes and checks arm64 packages only when it built arm64.
-	- Verified 20261007: `cicd.bash -y --include-arm --include-bsd --no-publish --no-private` at 7c1debd. The arm64 lane brought the dependency line back from the arm64 box, and stage 6 made the arm64 `.deb` and `.rpm` and passed the prefix check on both.
-	- Acceptance signoff: Self-closed: the pipeline run it waited on passed.
-	- Closed: 20261007-223145
-
-- The arm64 lane test fails under MSYS2 on Windows, so the native gate stops in its lint stage.
-	- ID: 2026100720224968
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Low
-	- Opened: 20261007-202249
-	- Opened by: native gate run on vm925w
-	- Target OS: Windows
-	- Incorrect behavior: rjph1pxd looks for 2 spaces before the file name in a checksum line. MSYS2's `sha256sum` writes ` *name`, so the test fails there.
-	- Expected behavior: the arm64 lane only runs from the Linux pipeline, so its test skips on Windows the way its 2 sibling lane tests already do.
-	- Actual fix: rjph1pxd exits 77 under MSYS2, as "Linux only".
-	- Swept: the other release lane tests, `test-release-notes.bash` and `bsd/test-lane.bash`, already skip there.
-	- Verified: the native gate on vm925w passed with it, 159 OK, 12 skipped. It still passes on Linux.
-	- Branch: armskip
-	- Commit: b218d6e
-	- Test case: rjph1pxd itself.
-	- Acceptance signoff: Self-closed: mechanical.
-	- Closed: 20261007-202249
-
-- Compression reset: a place in the tree for the archive core, and its interfaces.
-	- ID: 2026100516274126
-	- Type: Enhancement
-	- Status: Done
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Target OS: Linux, Windows
-	- Design: [Modularity](design_docs/20260929-101432_compression.md#modularity) and [Roadmap](design_docs/20260929-101432_compression.md#roadmap).
-	- Requirements:
-		- Its own folder and library target for the core, with no GTK and no nemo types. Nothing moves into it yet.
-		- An interface for each nemo part the archive and extract code call today: the job queue, progress info and the file-changes queue; command templates and settings; the directory walk; trash and the delete guard; eel's stock dialogs.
-		- The core takes its settings as values, and reports progress, questions and file changes through callbacks. It asks its caller to delete and never deletes on its own.
-		- On Windows the walk still has to get past MAX_PATH, so nemo hands its own walk in.
-		- A test target for the core that runs with no display.
-	- Estimated effort: Avg
-	- Actual effort: Avg
-	- Decisions:
-		- 20261007: running another program gets a table of its own too. The archive code runs 7-Zip and rar, and on Windows only the app's launcher may start a program.
-		- 20261007: the job queue has no table. nemo queues the job and runs the core's work on the job's thread, and progress comes back through the progress table.
-		- 20261007: the Extract conflict and password questions are calls in the host too, with the stock dialogs, since the core asks them from the job.
-		- 20261007: expanding a command line stays nemo's and goes through the host, since the backslash rule for a line a person wrote is nemo's and also its other programs share that code.
-		- 20261007: no nemo glue yet. The first item that calls the core from nemo writes it, in one file, as the design doc says.
-	- Done: `source/archive-core/` is a static library with GLib and GIO only. `arc-host.h` has a table of calls per nemo part, and `arc-settings.h` the settings as values. A call the host leaves out does nothing on disk and answers no question. Layout is in the design doc's Modularity section.
-	- Swept: every nemo and eel call in `nemo-archive.c` and `nemo-extract.c` has a table entry, or is a value in the settings, or is a Windows link check that moves with the code. The lint rules that scan the app's folders don't scan the new one, so a lint check of its own covers the core.
-	- Branch: arccore
-	- Commit: f840871
-	- Test case: rjq9mv0w, Archive core test. rjq9mx02, a lint check that keeps GTK and nemo out of the core and its test, and keeps deletes, folder walks, program starts and command line splitting out of the core.
-	- Verified: 20261007, Linux build with warnings as errors, and the Windows cross build, both clean. rjq9mv0w passes on Linux, and under wine with no display. It links no GTK on either. Lint clean apart from rj3ytv0b.
-	- Acceptance signoff: Self-closed: the change does what the item asked and no more, and its tests pass.
-	- Closed: 20261007-195741
-
-- Compression reset: path list and sixteen size totals.
-	- ID: 2026100516274237
-	- Type: Enhancement
-	- Status: Done
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Prereq IDs: 2026100516274126
-	- Target OS: Linux, Windows
-	- Design: [Path list](design_docs/20260929-101432_compression.md#path-list) and [Size totals](design_docs/20260929-101432_compression.md#size-totals).
-	- Requirements:
-		- One entry per file: its path, its bytes, and which of the 16 totals already count it. Adding a path and finding one stay fast at millions of paths.
-		- Each path to a file has 4 flags: symlinked, junctioned, nested filesystem, other filesystem. They describe the path, not the file.
-		- One total per mix of the 4 follow options. A path adds the file's bytes to each mix that follows all of its flags and doesn't count the file yet.
-		- Gives the total for the options as set, and each option's size change: that total less the entry with only that option off.
-		- No disk access here. The background scan feeds it. Written in the core.
-	- Estimated effort: Low
-	- Actual effort: Low
-	- Done: `source/archive-core/arc-path-list.h`. The path text goes in large blocks and the index is open addressing over one array, so a path costs no allocation of its own. The follow options and what a path needs share one set of bits. A path already in the list keeps the bytes it came with.
-	- Note: 20261007, 5 million paths of about 55 characters, on an optimized build: 1.0 s to add them all, about 210 ns each, and 1.7 s to find each again in another order, about 340 ns each. About 100 bytes a path, its text included. GLib's own hash table took 1.6 s to add, 1.5 s to find, and 130 bytes a path. At 3 million: 0.57 s to add and 1.1 s to find.
-	- Swept: nothing in the archive code counts sizes or checks filesystems today, so there is no older copy to replace.
-	- Verified: 20261007, Linux build with warnings as errors, the Windows cross build, and the core built with clang. rjq9mv0w passes on Linux, under ASan and UBSan, and under wine.
-	- Branch: arcsizes
-	- Commit: 042a7ea
-	- Test case: rjq9mv0w, Archive core test. The 2 worked examples with their paths in both orders, every total and change checked against the rule over 12000 random paths, and 200000 paths added and found again. `test-arc-core bench N` times N paths.
-	- Acceptance signoff: Self-closed: the change does what the item asked and no more, and its tests pass.
-	- Closed: 20261007-202500
-
 - On Windows the gate says the build is not set up with `-Werror` when it is.
 	- ID: 2026100518100000
 	- Type: Bug
@@ -969,6 +724,79 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. rj043mnp covers it.
 	- Closed: 20261003-112426
+
+- On Windows, a path with single backslashes in a file or setting a user writes is read as escapes.
+	- ID: 2026100702343600
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the final tree, 174 of 174.
+	- Needs external testing: none left. The link properties save passed on 20261007, and so did the bulk rename and Open With checks.
+	- Priority|Severity: Avg
+	- Opened: 20261007-023436
+	- Opened by: t00mietum
+	- Related IDs: 2026100615255231, 2026100616310432, 2026100314515200
+	- Target OS: Windows
+	- Requirements:
+		- Any string a user writes or edits takes a Windows path as is. A backslash there is never an escape.
+		- Covers search helper and thumbnailer files, actions, command lines and other paths in settings, and any other text file the app reads that a user may write by hand.
+		- A string the app only writes and reads itself may keep escapes, but should use something other than backslashes where it can.
+	- Note: users almost never mean `\n` or `\t`, and a path read as escapes breaks quietly. Same reason the SHCL upgrade ignores backslash escapes.
+	- Steps to reproduce: on Windows, write a search helper with `TryExec=C:\Tools\pdftotext.exe`.
+	- Incorrect behavior: the helper is skipped as unreadable.
+	- Expected behavior: the helper is used when the program is there.
+	- Reproduced: 20261007, under wine. Search helpers, thumbnailers, actions and link files written with single backslashes were skipped or lost their values, and an archive command line with a path in it lost its backslashes.
+	- Actual cause: the key file reader and GLib's command line splitter both read a backslash as an escape, on Windows too. Every key file read and every split of a command line a user writes went through one or the other.
+		- Link page, 20261007: Windows has no type registered for `.desktop`, so a link file's type there is the bare extension. Every check that asks for the link file type said no. The list showed the link emblem only because that check also looks at the name. So on Windows the page was never offered, and a link file's Name, Icon and URL were never read either.
+	- Actual fix: one shared reader and splitter, `nemo-user-text.c`, used at every site.
+		- On Windows a key file value is read as written. A list splits on semicolons. A command line splits on blanks, and double quotes group words.
+		- A path put into such a line is quoted to match.
+		- Off Windows it calls the same GLib functions as before.
+		- A new lint check fails on a direct call outside the shared code, unless listed with its reason.
+		- Link page, 20261007: on Windows the shared type checks map `.desktop` to the link file type when nothing has registered it. The link checks all go through them now.
+	- Decisions:
+		- A value whose backslashes all come in pairs was written by a key file writer, so each pair reads as one. One lone backslash anywhere means the whole value is read as written. So `C:\\Tools\\x.exe` and `C:\Tools\x.exe` both work, and so do `\\server\share` and its doubled form. The one spelling both readings share is a bare `\\server`, which reads as `\server`; it names no share, so nothing is lost.
+		- On Windows a semicolon in a list always splits, so `C:\Data\;D:\` is 2 folders. A list item cannot hold a semicolon there.
+		- On Windows `""` inside double quotes is one quote, and a single quote is an ordinary character, as in Windows' own rules. An unclosed quote is an error, as before.
+		- The rule covers every value in those files on Windows, names and comments too, not only paths. One rule is easier to explain.
+		- On Windows an action with `Quote=single` gets double quotes, since a single quote groups nothing there. With no `Quote`, each path gets quotes of its own.
+		- On Windows the bulk rename tool gets each file as a path rather than a URI, since a Windows program opens paths. It starts through the app's own launcher, which is half of 2026100616310432.
+		- A link file whose URL is a Windows path opens that path. `C:` read as a URI scheme before.
+		- The app writes a link file value as is on Windows when that reads back the same, and with every backslash doubled when not.
+		- Theme index files and the bookmark metadata file stay on the key file reader. A theme follows the spec, and the app writes the metadata itself.
+		- 20261007: on Windows a launcher (Type=Application) is not treated as one, since nothing there runs its Exec. It takes no drops and opens like any other file, as it did before.
+	- Swept:
+		- Actions: every value, the command and the exec condition, the action folder prefix, paths put into the command.
+		- Search helpers and thumbnailers: TryExec, Exec, MimeType, and the paths put into the command.
+		- Link files: every value read, and the values the app writes.
+		- The link properties page and the action list in preferences.
+		- Archive command lines in the settings, all 4.
+		- Open With: the custom command check and the name taken from it. Its tip on Windows says to quote a path with spaces.
+		- Bulk rename tool on Windows.
+		- Already fine: the terminal command on Windows is split without escapes, `windows.associations` lines go to Windows whole, terminal candidates and folders a search skips are plain names or paths.
+		- The settings layer adds no escapes of its own. See the note.
+		- Link file type checks, 20261007: the properties page and its icon save, desktop file renames and the shortcut emblem, reading link info, opening a link, dropping on a link file, the view's link menus and icon captions, and the drop target lookup in the link code. No other place compares against the link file type.
+	- Note: SHCL reads `\t`, `\n`, `\\`, `\"` and `\'` as escapes inside double quotes, so a hand-written `"C:\temp\new"` in the settings file reads with a tab and a line break. Bare and single-quoted text is read as written. A file with no format line is read by the 2.x rules at startup, where a backslash in bare text is an escape too (2026100314515200). Left for the SHCL upgrade that drops backslash escapes.
+	- Verified: each new test case below failed under wine before the fix and passes after. Natively on vm925w the 6 tests pass, and the whole suite was 152 OK, 0 failed, 11 skipped, with no `g_strv_length` critical. The Windows suite under wine fails the same 17 tests as before this change, all link and registry gaps in wine. The new lint check failed with one direct read put back. The rule cases in rjmpxtbg failed with pairs not halved, and with a backslash read as an escape. Lint is clean here and on vm925w.
+	- Verified: 20261007, Windows, at 585f825, in the desktop session on vm925w: a bulk rename tool set as a quoted full path with a space in it ran on 2 selected files, one with `&` in its name, and got each as a full path. A custom command typed in Open With as a full path was taken, and ran on the file.
+	- Note: 20261007, failed on vm925w: the properties window of a `.desktop` link file has no URL or Comment field, so the save could not be tried. Going by the code, the page is offered only when the file's type reads as a link file, and Windows has no type registered for `.desktop`. The app still shows the file as a link in the list.
+	- Note: 20261007, a link file with a URL opens the properties of what it points to, on every platform, as upstream did. So its URL field is offered only while URL is empty. A launcher's Command field goes through the same save code.
+		- 20261007: decided a link file with a URL keeps opening its target's properties, as upstream.
+	- Verified: 20261007, Windows, at 90a9109, in the desktop session on vm925w: the list showed a link file by its Name. A launcher's properties had Description, Command and Comment. `"C:\Program Files\Thing\thing.exe" C:\data\in.txt` typed as Command and `notes in C:\temp\new` as Comment were both saved as typed, with single backslashes, and read back the same when the window was opened again. A link file with no URL had the URL field, and a full path typed there was saved as typed.
+	- Verified: 20261007, rjpr3nzy failed under wine with the type fix taken out, and passes under wine and natively on vm925w. Linux suite 178 of 178. The Windows suite under wine fails the same 17 tests as before. Lint is clean.
+	- Branch: winpaths, lnkprops
+	- Commit: d824d17, f34cc1c, 59295bb, 90a9109
+	- Test case:
+		- rjmpxtbg, Windows paths in user text test, new: the Windows rules on every platform, key files through each platform's reader and writer, link files, and an action file.
+		- rexkeyng, Command template test, `check_windows_paths`: an archive line with paths.
+		- rjpr3nzy, Link file type test, new: a `.desktop` link file reads as one on every platform, gets the properties page, and has its Name and URL read. A launcher only counts as one where it can run.
+		- rfhnaccg, Search helpers test: on Windows every helper is written with single backslashes.
+		- redrqe60, Thumbnail factory test, `badtry` case: on Windows a thumbnailer naming a real program that way is used.
+		- rjm4ctwh, Tool start win32 test: a search helper and a thumbnailer by full path with single backslashes, and a helper with them doubled.
+		- rjmb3j8p, Action start win32 test: an action with full paths in its command, condition and dependencies.
+		- rjmqp83c, lint-c.bash `UserText`: no direct call outside the shared code.
+		- Both platforms: rjmpxtbg, rexkeyng, rjpr3nzy, rfhnaccg and redrqe60 run in the Linux suite and the Windows suite. rjm4ctwh and rjmb3j8p are Windows only, since they start programs the Windows way. All of them passed in both suites at 7c1debd.
+	- Acceptance signoff: 20261008.
+	- Closed: 20261008-152154
 
 - The sanitizer suite fails the 2 ImageMagick tests on a leak, so every full pipeline run stops at stage 3.
 	- ID: 2026100720031110
@@ -1869,6 +1697,25 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- The arm64 lane test fails under MSYS2 on Windows, so the native gate stops in its lint stage.
+	- ID: 2026100720224968
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261007-202249
+	- Opened by: native gate run on vm925w
+	- Target OS: Windows
+	- Incorrect behavior: rjph1pxd looks for 2 spaces before the file name in a checksum line. MSYS2's `sha256sum` writes ` *name`, so the test fails there.
+	- Expected behavior: the arm64 lane only runs from the Linux pipeline, so its test skips on Windows the way its 2 sibling lane tests already do.
+	- Actual fix: rjph1pxd exits 77 under MSYS2, as "Linux only".
+	- Swept: the other release lane tests, `test-release-notes.bash` and `bsd/test-lane.bash`, already skip there.
+	- Verified: the native gate on vm925w passed with it, 159 OK, 12 skipped. It still passes on Linux.
+	- Branch: armskip
+	- Commit: b218d6e
+	- Test case: rjph1pxd itself.
+	- Acceptance signoff: Self-closed: mechanical.
+	- Closed: 20261007-202249
 
 - When the system font cache is out of date, tests leave a fontconfig folder in the suite's temp dir.
 	- ID: 2026100713082288
@@ -3561,6 +3408,65 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: reproduced, red without the check and green with it, and nothing on screen.
 	- Closed: 20261005-075207
 
+- FreeBSD in the pipeline.
+	- ID: 2026100517134118
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261005-171341
+	- Opened by: old-format item "Target: BSD"
+	- Related IDs: old-format item "Target: BSD", 2026100517134081
+	- Target OS: FreeBSD
+	- Requirements:
+		- A stage that sends the tree to the FreeBSD box, builds with `-Dwerror=true`, runs the suite on an X server of its own, and checks `--version`, under the host lock.
+		- `cicd/linux/run-tests.bash` assumes the container's `/src`, a Linux-only display wrapper and GNU `find -printf`. Either it learns FreeBSD, or a runner of its own does the same job.
+	- Decisions:
+		- 20261007:
+			- Opt-in, as `--include-bsd`, the way the arm64 lane is meant to be. `--quick` leaves it on when it is asked for. The gate does not run it.
+			- `run-tests.bash` learned FreeBSD, rather than a second runner: it finds the source beside itself, starts an X server of its own where the Linux display wrapper is missing, and lists leftovers with `ls`.
+			- A box that does not answer fails the run, as in the arm64 lane.
+	- Done: `cicd/bsd/lane.bash --tests` sends the working tree the way `release-arm64.bash` does and runs `run-tests.bash` there, under the host lock's wrap. With `--include-bsd`, stage 3 runs it after the sanitizer suite, and stage 5 runs the release half from 2026100517134081.
+	- Verified: on vmFreeBSD the lane built the tree with `-Dwerror=true` and ran the suite, 163 OK, 14 skipped, then `--version`. On Linux `run-tests.bash` built and ran 2 tests and `--version` in the build image, with and without the display wrapper. The first FreeBSD run stopped on folders 2 tests left behind, filed as 2026100713082288.
+	- Needs local test suite run?: yes. A full `cicd/cicd.bash --include-bsd --no-publish` on the merged tree. The new stage lines in `cicd.bash` have only been read.
+	- Branch: bsdpkg
+	- Commit: 6f96777
+	- Test case: rjphnh77, FreeBSD lane test, in the lint stage: what is sent, what the runner is handed, a failing suite failing the lane, the tarball's stamp and order over 2 runs, the sums file, and the lock's wrap. The suite run on FreeBSD is the test of `run-tests.bash` there.
+	- Verified 20261007: `cicd.bash -y --include-arm --include-bsd --no-publish --no-private` at 7c1debd. Stage 3 ran the FreeBSD suite, 167 OK, 14 skipped, and stage 5 made the FreeBSD tarball and `.pkg`, which passed its package check.
+	- Acceptance signoff: Self-closed: the pipeline run it waited on passed.
+	- Closed: 20261007-223145
+
+- Linux arm64 `.deb` and `.rpm` packages.
+	- ID: 2026100714244880
+	- Type: Feature
+	- Status: Done
+	- Needs local test suite run?: no. Only pipeline scripts changed, and the lint stage passed.
+	- Needs external testing: one `cicd.bash --include-arm --no-publish` run, to see the arm64 lane bring the dependency line back and stage 6 make and check both arm64 packages.
+	- Priority|Severity: Low
+	- Opened: 20261007-142448
+	- Opened by: old-format item "Linux arm64 release build"
+	- Related IDs: old-format item "Linux arm64 release build"
+	- Target OS: Linux arm64
+	- Requirements:
+		- An arm64 `.deb` and `.rpm` from the arm64 release build, beside the x86_64 ones.
+		- The `.deb`'s dependency versions read off the arm64 libraries, on the arm64 box, the way the x86_64 ones are read in its release container.
+		- Behind `--include-arm`, with the rest of the arm64 lane.
+	- Decisions:
+		- The arm64 box only reads the dependency line, right after its build while its release container is still up. Both arches are packaged on the main box with the same tools.
+		- The line is kept with the tarball's checksum. A line read off any other build is not used, and the `.deb` gets the short list with no versions and a warning, the same fallback the x86_64 one has.
+		- A failed read only warns, so it doesn't throw away an hour's build.
+		- 20261007: README names the arm64 files once a release has them.
+		- The arm64 packages and their prefix check run only when the arm64 build ran in that same run. So `--no-arm`, `--no-cross` and `--quick` leave them out too, and a stale tarball is never packaged.
+	- Done 20261007: the arm64 lane reads the `.deb`'s dependencies in the release container on the arm64 box and brings them back with the tarball. `package.bash` gained `--arch` and `--depends-only`, and stage 6 makes the arm64 `.deb` and `.rpm` and runs the prefix check on them.
+	- Note 20261007: the `.rpm` spec no longer names its arch, since `rpmbuild` refuses an arch the box can't build for even with nothing to compile. The arch comes from the target instead. The x86_64 `.rpm` comes out byte for byte the same as before.
+	- Verified 20261007: rjpxzs6x, rjph1pxd and rjph39cv pass. rjpxzs6x failed with the arch named in the spec, with every arch read in the local container, with no checksum check, and with `--depends-only` guessing or reading another arch. rjph1pxd failed with no read, with the read after the container stops, with a failed read left fatal, and with an old list kept. rjph39cv failed on the pipeline and config as they were, and with `--no-cross` ignored.
+	- Verified 20261007: against the arm64 tarball already built on the arm64 box. The line read there matches the x86_64 one, since both images have the same library versions. The `.deb` says arm64 and the `.rpm` aarch64, both come out the same twice and have the tarball's date, and the prefix check passes on all 3. On Debian 13 arm64, apt finds every dependency of the `.deb`, and the program in it answers `--version`.
+	- Branch: armpkg
+	- Commit: 6ec5be9
+	- Test case: rjpxzs6x checks where each arch's `.deb` gets its dependencies, and that the arm64 packages name their arch and repeat byte for byte. rjph1pxd checks the lane reads the line on the box and keeps it with the tarball's checksum. rjph39cv checks the pipeline makes and checks arm64 packages only when it built arm64.
+	- Verified 20261007: `cicd.bash -y --include-arm --include-bsd --no-publish --no-private` at 7c1debd. The arm64 lane brought the dependency line back from the arm64 box, and stage 6 made the arm64 `.deb` and `.rpm` and passed the prefix check on both.
+	- Acceptance signoff: Self-closed: the pipeline run it waited on passed.
+	- Closed: 20261007-223145
+
 - A FreeBSD package.
 	- ID: 2026100517134081
 	- Type: Feature
@@ -3612,6 +3518,100 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: ef05a4f
 	- Test case: rjbpyy28 Archive stop time test now has a 7z case. A 4 GiB and a 16 GiB file are stopped at their first progress report. Before the fix, the 4 GiB one took 50 s and the 16 GiB one did not end in 100 s. After, both take 0.01 s. rjbw0rkq Stopped 7z leak test, which fails at 82 bytes a round when the close is left out.
 	- Acceptance signoff: waiting. The archive writer's handling of a stop changed again, this time for the 7z.
+
+- Compression reset: tell a nested filesystem from another one.
+	- ID: 2026100516274200
+	- Type: Enhancement
+	- Status: Done
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274126
+	- Target OS: Linux, Windows
+	- Design: [Nested and other filesystems](design_docs/20260929-101432_compression.md#nested-and-other-filesystems).
+	- Requirements:
+		- For a folder, or where a link leads, say whether it is on the same filesystem as the folder the selection is in, a nested one, or another one.
+		- Nested means the same pool or volume on both sides of the mount: one ZFS pool, one Btrfs filesystem, one APFS container. Anything else is another filesystem.
+		- Windows has no nested kind. A folder mount point and a junction are the same kind of reparse point, and one that points at a whole volume counts as a mount point only.
+		- Read from the mount table and the path, never from a share. Written in the core.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Progress log:
+		- 20261007-202500: built. Left at signoff for the 2 calls under Decisions.
+		- 20261008: signed off as is.
+	- Decisions:
+		- 20261007: a Windows reparse point is a mount point only when its target names a volume, as `\??\Volume{...}\`. One that leads to a drive's root, such as `C:\`, stays a junction, so it needs Junctions as well as the filesystem option. Read the other way, a junction to `C:\` from inside `C:\` would be on the same filesystem with no option needed, and the whole drive would be walked with junctions off.
+		- 20261007: one disk mounted in 2 places, such as a bind mount, is nested, since the same volume is on both sides.
+	- Done: `source/archive-core/arc-mounts.h`. It takes a copy of the mount table and the text of 2 paths, and reads nothing on either path. A ZFS pool goes by its dataset name, an APFS container by its disk name, anything else by its device. Something with no device behind it, such as tmpfs or a share, is never nested. The Windows table is in `arc-mounts-win32.c`: each volume by its own name and by every letter and folder it's mounted at. A mapped drive or a share has no volume, so it goes by its drive letter or its `\\server\share`. A test hands in a made-up table.
+	- Note: a Btrfs subvolume that isn't mounted on its own reads as the same filesystem, since the mount table has nothing on it.
+	- Swept: the only other mount table reader is `nemo-share.c`, which looks for shares only and stays as it is. The archive code has no filesystem check today.
+	- Verified: 20261007, Linux build with warnings as errors, the Windows cross build, and the core built with clang. rjq9mv0w passes on Linux, under ASan and UBSan, and under wine. The real mount table gives nested for 2 ZFS datasets in one pool and for 2 Btrfs subvolumes, and other for tmpfs and an ext4 disk. Under wine the Windows reader found C: and Z:.
+	- Branch: arcsizes
+	- Commit: 042a7ea
+	- Test case: rjq9mv0w, Archive core test. Made-up Linux and Windows mount tables: ZFS, Btrfs, APFS, a bind mount, tmpfs, NFS, one mount over another, a folder mount on Windows, volume names, long path forms, shares and mapped drives. Also the real table, read once.
+		- Both platforms: it runs in the Linux suite and the Windows suite, and both made-up tables are checked on each, so the 2 calls under Decisions are pinned on both. On Windows the real table is the Windows one. It passed in both suites at 7c1debd.
+	- Acceptance signoff: 20261008.
+	- Closed: 20261008-152154
+
+- Compression reset: a place in the tree for the archive core, and its interfaces.
+	- ID: 2026100516274126
+	- Type: Enhancement
+	- Status: Done
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Target OS: Linux, Windows
+	- Design: [Modularity](design_docs/20260929-101432_compression.md#modularity) and [Roadmap](design_docs/20260929-101432_compression.md#roadmap).
+	- Requirements:
+		- Its own folder and library target for the core, with no GTK and no nemo types. Nothing moves into it yet.
+		- An interface for each nemo part the archive and extract code call today: the job queue, progress info and the file-changes queue; command templates and settings; the directory walk; trash and the delete guard; eel's stock dialogs.
+		- The core takes its settings as values, and reports progress, questions and file changes through callbacks. It asks its caller to delete and never deletes on its own.
+		- On Windows the walk still has to get past MAX_PATH, so nemo hands its own walk in.
+		- A test target for the core that runs with no display.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Decisions:
+		- 20261007: running another program gets a table of its own too. The archive code runs 7-Zip and rar, and on Windows only the app's launcher may start a program.
+		- 20261007: the job queue has no table. nemo queues the job and runs the core's work on the job's thread, and progress comes back through the progress table.
+		- 20261007: the Extract conflict and password questions are calls in the host too, with the stock dialogs, since the core asks them from the job.
+		- 20261007: expanding a command line stays nemo's and goes through the host, since the backslash rule for a line a person wrote is nemo's and also its other programs share that code.
+		- 20261007: no nemo glue yet. The first item that calls the core from nemo writes it, in one file, as the design doc says.
+	- Done: `source/archive-core/` is a static library with GLib and GIO only. `arc-host.h` has a table of calls per nemo part, and `arc-settings.h` the settings as values. A call the host leaves out does nothing on disk and answers no question. Layout is in the design doc's Modularity section.
+	- Swept: every nemo and eel call in `nemo-archive.c` and `nemo-extract.c` has a table entry, or is a value in the settings, or is a Windows link check that moves with the code. The lint rules that scan the app's folders don't scan the new one, so a lint check of its own covers the core.
+	- Branch: arccore
+	- Commit: f840871
+	- Test case: rjq9mv0w, Archive core test. rjq9mx02, a lint check that keeps GTK and nemo out of the core and its test, and keeps deletes, folder walks, program starts and command line splitting out of the core.
+	- Verified: 20261007, Linux build with warnings as errors, and the Windows cross build, both clean. rjq9mv0w passes on Linux, and under wine with no display. It links no GTK on either. Lint clean apart from rj3ytv0b.
+	- Acceptance signoff: Self-closed: the change does what the item asked and no more, and its tests pass.
+	- Closed: 20261007-195741
+
+- Compression reset: path list and sixteen size totals.
+	- ID: 2026100516274237
+	- Type: Enhancement
+	- Status: Done
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274126
+	- Target OS: Linux, Windows
+	- Design: [Path list](design_docs/20260929-101432_compression.md#path-list) and [Size totals](design_docs/20260929-101432_compression.md#size-totals).
+	- Requirements:
+		- One entry per file: its path, its bytes, and which of the 16 totals already count it. Adding a path and finding one stay fast at millions of paths.
+		- Each path to a file has 4 flags: symlinked, junctioned, nested filesystem, other filesystem. They describe the path, not the file.
+		- One total per mix of the 4 follow options. A path adds the file's bytes to each mix that follows all of its flags and doesn't count the file yet.
+		- Gives the total for the options as set, and each option's size change: that total less the entry with only that option off.
+		- No disk access here. The background scan feeds it. Written in the core.
+	- Estimated effort: Low
+	- Actual effort: Low
+	- Done: `source/archive-core/arc-path-list.h`. The path text goes in large blocks and the index is open addressing over one array, so a path costs no allocation of its own. The follow options and what a path needs share one set of bits. A path already in the list keeps the bytes it came with.
+	- Note: 20261007, 5 million paths of about 55 characters, on an optimized build: 1.0 s to add them all, about 210 ns each, and 1.7 s to find each again in another order, about 340 ns each. About 100 bytes a path, its text included. GLib's own hash table took 1.6 s to add, 1.5 s to find, and 130 bytes a path. At 3 million: 0.57 s to add and 1.1 s to find.
+	- Swept: nothing in the archive code counts sizes or checks filesystems today, so there is no older copy to replace.
+	- Verified: 20261007, Linux build with warnings as errors, the Windows cross build, and the core built with clang. rjq9mv0w passes on Linux, under ASan and UBSan, and under wine.
+	- Branch: arcsizes
+	- Commit: 042a7ea
+	- Test case: rjq9mv0w, Archive core test. The 2 worked examples with their paths in both orders, every total and change checked against the rule over 12000 random paths, and 200000 paths added and found again. `test-arc-core bench N` times N paths.
+	- Acceptance signoff: Self-closed: the change does what the item asked and no more, and its tests pass.
+	- Closed: 20261007-202500
 
 - The app visits network shares on its own.
 	- ID: 2026093010493450
