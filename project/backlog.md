@@ -271,7 +271,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - After an `smb://` address is typed, nothing shows that the app is working on it.
 	- ID: 2026100816170921
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 183 of 183.
+	- Needs external testing: on vm925w, type a `\\server\share` path to a server that is slow or not there. The path bar should show a spinner and "Connecting to server...", the pointer should be the arrow with the busy circle and not the hourglass, and Escape should stop it. Also rhtwm2c8 in the native suite.
 	- Priority|Severity: Avg
 	- Opened: 20261008-161710
 	- Opened by: t00mietum
@@ -288,8 +290,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 				- The network step fails or times out.
 				- The user presses Escape, which stops the background attempt to connect and fetch.
 		- README says what changed.
-	- Reproduced: No.
-	- Test case: still needs one.
+	- Reproduced: 20261009 on Linux, with an `smb://` mount that never answers. The path bar, the pointer and the window stay as they were the whole time, and Escape does nothing.
+	- Actual cause: nothing in the window follows the look-up and the mount of a new address. The "Loading..." bar only shows once there's a view, which is after the mount. The busy pointer never showed for the tab in front, since its check compares against the Stop action being enabled, and that never changes.
+	- Actual effort: Avg
+	- Decisions:
+		- Decided: the base sign only. A spinner and short text such as "Connecting to <host>..." in the path bar until the address resolves, fails, times out or is canceled. The window stays usable. The pointer may show the background-working cursor while over the window, never a blocked one. Escape, with focus in the window, cancels the pending attempt.
+		- Decided: it covers any address that has to be mounted or reached over the network first. That's smb, sftp, ftp, dav and the like through gvfs on Linux, and UNC paths and mapped drives on Windows.
+		- Punted: the program icon circling over the path bar, the slow fade between gray and normal text, and taking no input until the attempt ends.
+	- Actual fix: while the look-up or the mount behind a new address is still out, the path bar shows a spinner and "Connecting to <host>...", or "Connecting to the network..." when there's no host. It goes away when the address answers, fails or is stopped. Meanwhile the pointer is the busy arrow, never the watch, and Escape in the window stops the attempt. The host comes from the address text and the mount table only, so nothing new reaches out to a share. A place on this machine shows no sign.
+	- Swept: every location change starts in one place, so the path bar, Places, bookmarks, links, back and forward, and new windows and tabs all get the sign. A tab in the back shows it when it comes to the front. Opening a file on a share that isn't mounted goes through the open code, which has its own wait dialog wiht a Cancel button. Connect to Server has its own spinner.
+	- Verified: rjv9ks2z fails before the fix, on the sign, the pointer and Escape, and passes after. Full Linux suite 183 of 183. Windows cross build clean, and rhtwm2c8 passes under wine with the new UNC case.
+	- Note: with the toolbar turned off there's no path bar, so only the pointer shows it.
+	- Note: read, not tried: the Stop button also never takes Reload's place while a folder loads, since the same check is behind it. Left alone here.
+	- Branch: smbbusy
+	- Commit: 41adfa7
+	- Test case: rjv9ks2z, Connecting sign while a share mounts test. An `smb://` mount answers only when the test says so. It checks the sign and the host it names, the pointer, that the window still takes input, Escape, and the sign going away after a stop and after a failed mount. It also checks the host named for a set of addresses, and that a local folder shows no sign. rhtwm2c8 checks the server named for a UNC path on Windows.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
