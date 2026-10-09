@@ -1603,6 +1603,18 @@ test('rhe0xz31 Photoshop reader test',
   args: []
 )
 
+# The stand-in thumbnailer and search helper are this program run again.
+test('rjvb97aa Office files read in the app test',
+  executable('test-nemo-office',
+    [ 'test-nemo-office.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch, archive ],
+    c_args: nemo_definitions,
+  ),
+  args: [],
+  timeout: 120
+)
+
 testRaw = executable('test-nemo-raw',
   [ 'test-nemo-raw.c' ],
   include_directories: [ rootInclude, ],

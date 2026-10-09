@@ -24,6 +24,7 @@
 #include "nemo-file-utilities.h"
 #include "nemo-search-engine-advanced.h"
 #include "nemo-global-preferences.h"
+#include "nemo-office.h"
 #include "nemo-column-utilities.h"
 #include "nemo-tool-run.h"
 #include "nemo-user-text.h"
@@ -883,6 +884,7 @@ static gchar *
 load_contents (SearchThreadData *data,
                GFile            *file,
                SearchHelper     *helper,
+               gboolean          in_app,
                GError          **error)
 {
     // TODO: Use flock/mmap for local files?
@@ -891,6 +893,10 @@ load_contents (SearchThreadData *data,
     GString *str;
 
     helper_proc = NULL;
+
+    if (in_app) {
+        return nemo_office_text_file (file, MAX_CONTENT_SCAN_BYTES, data->cancellable, error);
+    }
 
     if (helper != NULL) {
         stream = get_stream_from_helper (helper, file, &helper_proc, error);
@@ -939,11 +945,13 @@ load_contents (SearchThreadData *data,
     return g_string_free (str, FALSE);
 }
 
-/* TRUE when the file could be read (hits or not), FALSE when it could not. */
+/* TRUE when the file could be read (hits or not), FALSE when it could not.
+ * in_app reads an office file here rather than through a helper. */
 static gboolean
 search_for_content_hits (SearchThreadData *data,
                          GFile            *file,
-                         SearchHelper     *helper)
+                         SearchHelper     *helper,
+                         gboolean          in_app)
 {
     GMatchInfo *match_info;
     GError *error;
@@ -952,12 +960,20 @@ search_for_content_hits (SearchThreadData *data,
 
     error = NULL;
 
-    contents = load_contents (data, file, helper, &error);
+    contents = load_contents (data, file, helper, in_app, &error);
 
     if (g_cancellable_is_cancelled (data->cancellable)) {
         g_clear_error (&error);
         g_free (contents);
         return TRUE;
+    }
+
+    /* Not a zip after all. The helpers get their turn. */
+    if (error != NULL && in_app) {
+        DEBUG ("Not read in the app: %s", error->message);
+        g_error_free (error);
+        g_free (contents);
+        return FALSE;
     }
 
     if (error != NULL) {
@@ -1273,8 +1289,9 @@ visit_directory (GFile *dir, SearchThreadData *data)
                     }
 
                     if (content_type_is_text (content_type, child, data->cancellable)) {
-                        search_for_content_hits (data, child, NULL);
-                    } else {
+                        search_for_content_hits (data, child, NULL, FALSE);
+                    } else if (!nemo_office_type_ok (content_type) ||
+                               !search_for_content_hits (data, child, NULL, TRUE)) {
                         GList *helpers = lookup_helpers_for_content_type (content_type);
                         if (helpers != NULL) {
                             GList *i;
@@ -1282,7 +1299,7 @@ visit_directory (GFile *dir, SearchThreadData *data)
                             /* The next helper is only tried when this one could
                              * not read the file at all. */
                             for (i = helpers; i != NULL; i = i->next) {
-                                if (search_for_content_hits (data, child, i->data)) {
+                                if (search_for_content_hits (data, child, i->data, FALSE)) {
                                     break;
                                 }
                             }

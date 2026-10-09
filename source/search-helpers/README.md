@@ -39,7 +39,7 @@ When more than one helper claims a type, the one with the highest `Priority` run
 
 The converters in this folder are plain C on libgsf and are built and shipped on every platform, so these formats need nothing installed:
 
-- `nemo-anywhere-mso-to-txt` - any zip-of-xml document: Word, Excel and PowerPoint 2007+ (`.docx`, `.xlsx`, `.pptx`), OpenDocument (`.odt`, `.ods`, `.odp`, `.odg`) and EPUB.
+- `nemo-anywhere-mso-to-txt` - any zip-of-xml document: Word, Excel and PowerPoint 2007+ (`.docx`, `.xlsx`, `.pptx`), OpenDocument (`.odt`, `.ods`, `.odp`, `.odg`) and EPUB. The app reads these types itself now, before any helper, so this one only runs for a file the app could not open as a zip.
 - `nemo-anywhere-doc-to-txt` - Word 6 through 2003 (`.doc`).
 - `nemo-anywhere-xls-to-txt` - Excel 5 through 2003 (`.xls`).
 - `nemo-anywhere-ppt-to-txt` - PowerPoint 97 through 2003 (`.ppt`).

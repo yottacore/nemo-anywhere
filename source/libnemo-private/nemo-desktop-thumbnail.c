@@ -49,6 +49,7 @@
 #include <glib/gstdio.h>
 #include <libnemo-private/nemo-posix-compat.h>
 #include <libnemo-private/nemo-file-utilities.h>
+#include <libnemo-private/nemo-office.h>
 #include <libnemo-private/nemo-psd.h>
 #include <libnemo-private/nemo-raw.h>
 #include <libnemo-private/nemo-magick.h>
@@ -1224,6 +1225,7 @@ nemo_desktop_thumbnail_factory_can_make (NemoDesktopThumbnailFactory *factory,
   g_mutex_unlock (&factory->priv->lock);
 
   return thumb != NULL || mimetype_supported_by_gdk_pixbuf (mime_type) ||
+         nemo_office_type_ok (mime_type) ||
          nemo_psd_type_ok (mime_type) || nemo_raw_type_ok (mime_type) ||
          nemo_magick_type_ok (uri);
 }
@@ -1566,8 +1568,12 @@ nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (NemoDesktopThumbnailF
         script = g_strdup (thumb->command);
     }
   g_mutex_unlock (&factory->priv->lock);
-  
-  if (script)
+
+  /* Ahead of any installed thumbnailer, so no program is started for these. */
+  if (!disabled && nemo_office_type_ok (mime_type))
+    pixbuf = nemo_office_thumbnail_uri (uri, size, cancellable);
+
+  if (script && pixbuf == NULL && !g_cancellable_is_cancelled (cancellable))
     {
       int fd;
 
@@ -1588,9 +1594,8 @@ nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (NemoDesktopThumbnailF
 	  g_unlink (tmpname);
 	  g_free (tmpname);
 	}
-
-      g_free (script);
     }
+  g_free (script);
 
   /* Fall back to gdk-pixbuf */
   if (!disabled && pixbuf == NULL && mimetype_supported_by_gdk_pixbuf (mime_type))

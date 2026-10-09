@@ -41,6 +41,7 @@ targets=(
 	"rhatwe0x|fuzz-doc|doc"
 	"rhe0xz33|fuzz-psd|psd"
 	"rhqmm0as|fuzz-raw|raw"
+	"rjvb97cb|fuzz-office|office"
 	"rhmxm5aj|fuzz-lnk|lnk"
 	"rjfa5fnh|fuzz-lnk-edit|lnk-edit"
 )
