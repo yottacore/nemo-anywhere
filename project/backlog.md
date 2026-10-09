@@ -266,6 +266,24 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: 20261007, not ruled out: the Menu key made no menu at all once, on a loaded box. GTK 3 doesn't show a menu whose pointer grab fails, and the probe presses the key only once. Nothing points at that, and pressing again would hide it rather than explain it.
 	- Test case: rjefm41d itself.
 
+- Read the thumbnail and the text of OOXML, OpenDocument and EPUB files inside the app.
+	- ID: 2026100909260472
+	- Type: Enhancement
+	- Status: Started
+	- Priority|Severity: Avg
+	- Opened: 20261009-092605
+	- Opened by: 2026100617051745
+	- Parent ID: 2026100617051745
+	- Related IDs: 2026100909260511, 2026100909260549
+	- Target OS: All
+	- Requirements:
+		- These are zip files, read through libarchive, which the app already links.
+		- The thumbnail stored in the file: `Thumbnails/thumbnail.png` in OpenDocument, the package's thumbnail part in OOXML, and the cover image in EPUB.
+		- The text for content search, as `nemo-anywhere-mso-to-txt` gives it today.
+		- For these types the app's reader comes before any installed thumbnailer or search helper.
+		- A bad file must never crash the app. Every read is checked against the file's bounds, sizes, counts and nesting depth are capped, and no length the file gives is trusted. The readers are in the fuzz stage and the sanitizer suite, and run off the window's thread.
+	- Test case: still needs one. A thumbnail and the text from a small file of each type, on every platform, and a check that no helper program is started for them.
+
 - In the single exe on Windows, a program packed inside it that needs libgsf cannot start.
 	- ID: 2026100617051745
 	- Type: Bug
@@ -293,6 +311,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- (c) Read office thumbnails, and the text of Word, Excel and PowerPoint files, inside the app, with no helper program.
 		- 20261007: went with (a), plus ending a stuck helper with the app. Punted (c).
 		- 20261008: changed my mind, (c). The app has to live with outside programs like MacType that sit between it and Windows, so the fewer programs it starts, the better. Back to Queued for it.
+		- 20261009: (c) split into 2026100909260472 (zip formats through libarchive), 2026100909260511 (our own OLE2 reader for the old binary files) and 2026100909260549 (libgsf, the thumbnailer and the converters leave the build and every bundle). This stays Queued until they close.
 	- Decisions:
 		- 20261007: (a). README tells MacType users to add the exe to MacType's exclusion list. Replaced by (c) on 20261008. The README note stays until the single exe starts no packed program at all, which also needs 2026100815215479.
 		- A helper the app starts and waits on or reads from ends with the app, however the app ends: a thumbnailer, a search converter, an archive tool, ImageMagick, an action's condition. A user's own program started for an action keeps running, as on Linux.
@@ -391,6 +410,40 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- With every window in one process this comes for free. With a process per window, tell the other copies over the same channel the tab moves use, rather than through the settings file.
 	- Note: today the other copies only see a change through the file watch, after the 2 s save delay plus however long the watch takes. Watching the file stays, for hand edits.
 	- Test case: still needs one.
+
+- Read the old binary Word, Excel and PowerPoint files inside the app, with a container reader of our own.
+	- ID: 2026100909260511
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261009-092605
+	- Opened by: 2026100617051745
+	- Parent ID: 2026100617051745
+	- Related IDs: 2026100909260472, 2026100909260549
+	- Target OS: All
+	- Requirements:
+		- A small OLE2 container reader of our own, in place of libgsf. It finds a stream by name and reads it whole, with the sector chains walked under caps.
+		- The text of `.doc`, `.xls` and `.ppt` for content search, with the record parsing of the 3 converters moved over as it is.
+		- A thumbnail from the file's summary stream where the old thumbnailer gave one.
+		- For these types the app's reader comes before any installed thumbnailer or search helper.
+		- Bounds-checked reads, capped sizes, counts and depth, no trusted lengths, fuzzed, and run off the window's thread, as for 2026100909260472.
+	- Test case: still needs one. The text of a small file of each type on every platform, and a check that no helper program is started for them.
+
+- Take libgsf, the gsf-office thumbnailer and the 4 search converters out of every bundle and the build.
+	- ID: 2026100909260549
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261009-092605
+	- Opened by: 2026100617051745
+	- Parent ID: 2026100617051745
+	- Prereq IDs: 2026100909260472, 2026100909260511
+	- Target OS: All
+	- Requirements:
+		- No libgsf in the build, the sysroot, the MSYS2 package lists, the deb's Depends or any bundle.
+		- No `gsf-office-thumbnailer` and no `nemo-anywhere-*-to-txt` programs or their helper definitions in any bundle.
+		- The tests and fuzz targets that use libgsf to write or read files move to the app's own readers and a writer that needs no libgsf.
+	- Test case: still needs one. A check that no program is started for an office file, for thumbnails and for content search, and a bundle check that none of these files are in it.
 
 - The Archive settings test's restart does not read the file again.
 	- ID: 2026100720481882
