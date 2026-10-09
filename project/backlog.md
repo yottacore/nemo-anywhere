@@ -413,7 +413,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, cppcheck 2.21 finds 3 things in 2 test files that the Linux lint passes.
 	- ID: 2026100914350100
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
+	- Needs external testing: a whole-tree `lint-c.bash` on vm925w, with MSYS2's cppcheck 2.21, as in Steps to reproduce. No findings.
 	- Priority|Severity: Low
 	- Opened: 20261009-143501
 	- Opened by: 2026100815215479
@@ -422,13 +424,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: `test-nemo-config-share.c:174` and `:176` report leakNoVarFunctionCall for a `g_strdup` handed to `g_idle_add`. `test-nemo-office.c:495` reports ignoredReturnValue for `g_file_set_contents`. Linux has cppcheck 2.17 and finds none of them. Only a push on dev or main lints the whole tree there, so a Windows push of either would stop on these.
 	- Expected behavior: both lints pass the same tree.
 	- Reproduced: 20261009 on vm925w.
+		- 20261009, also on Linux, with cppcheck 2.21.1 run over the whole tree the way `lint-c.bash` runs it: the same 3, and one more at `test-nemo-office-ole.c:918`, which came in after the vm925w run. The line in `test-nemo-office.c` is 563 now.
 	- Note: b29w's MSYS2 has no `cmp`, so rjnyer4p fails 2 cases there and its lint stage stops. diffutils needs to go on that box.
+	- Actual cause: 2.21's GLib config marks `g_file_set_contents` as a call whose answer must be used, and says `g_idle_add` doesn't take the data it's handed. So any allocation passed to it reads as a leak, the GLib way with `g_idle_add_full` and `g_free` included.
+	- Actual fix: the stand-in helper in both office tests now exits 1 when it can't write its mark. The 2 `g_idle_add` lines in the shared settings test get an inline suppression with the reason: `run_command` frees the line on every path.
+	- Swept: the whole tree under 2.21.1, which finds only these 4. Every bare `g_file_set_contents`: 2 more, the crash marker in `nemo-crash.c` and the shortcuts file `--reset` empties in `nemo-main-application.c`. Neither version reports them, at the normal or the exhaustive check level, so they stay as they are. Every `g_strdup` handed straight to `g_idle_add`: only these 2.
 	- Test case: the C lint stage on Windows, whole tree.
+	- Verified: cppcheck 2.21.1 over the whole tree: 4 findings on dev, none on the branch. `lint-c.bash` whole tree with Linux's 2.17.1: none. Lint clean apart from rj3ytv0b, which always fails in a worktree.
+	- Branch: lowtrio
+	- Commit: 270dd0d
 
 - On Windows, programs the app starts get its session bus switched off.
 	- ID: 2026100912374782
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
+	- Needs external testing: rjvzdd4w in the native suite on vm925w, once as usual and once elevated, since an elevated copy opens a file through the shell from inside itself. Then the packed exe on vm925w, elevated and not: open a `.bat` that writes `set` to a file, from the file list and as an action. The file should have none of `DBUS_SESSION_BUS_ADDRESS=disabled:`, `FREETYPE_PROPERTIES` or `GDK_WIN32_USE_EXPERIMENTAL_OLE2_DND`.
 	- Priority|Severity: Low
 	- Opened: 20261009-123747
 	- Opened by: 2026100815215479
@@ -438,8 +449,24 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: it inherits the `DBUS_SESSION_BUS_ADDRESS=disabled:` the app sets for itself at startup, so it can't find or start a session bus. A value the user had set before is lost too.
 	- Expected behavior: a user's program gets the environment it would have had without the app. The app's own copies and helpers may keep the setting.
 	- Reproduced: No. From reading the launch code.
+		- 20261009, under wine: a console program started the way an action starts one got `disabled:` and the app's 2 other settings, with the start as on dev.
 	- Possible cause: the setting is made with the process environment, and the launcher passes that environment on.
-	- Test case: still needs one. A started program reads back its own environment.
+	- Actual cause: as in Possible cause. The app makes 3 settings for itself at startup: no session bus, the font hinting, and the drag protocol. Any program started from inside the app gets all 3: a console program for an action, the last-resort direct start, the shell's open when the app is elevated, and a new copy of the app, which then took them for the user's own. A program Explorer or the management service starts gets their environment, not ours.
+	- Decisions:
+		- 20261009: the 3 settings stay in the app's own environment, since GLib reads the bus one there. Each is recorded with what was there before. A start of a user's program from inside the app puts those back for the moment, then the app's again.
+		- 20261009: helpers keep the app's settings, as Expected behavior allows: thumbnailers, tools, converters and action conditions. A new copy of the app gets the user's environment and makes its own settings again.
+		- 20261009: everything else in the app's environment still goes along, the script variables of the Scripts menu included.
+	- Actual fix: one record of the app's own settings, in `nemo-file-utilities.c`. In `nemo-launch-win32.c` every start of a user's program from inside the app runs with the user's values in place. Every start there takes one lock, so a helper starting meanwhile still gets the app's. "Open as Administrator" and Explorer for a folder in `nemo-view-win32.c` do the same. A new window in its own process is started with the user's environment.
+	- Swept: every process start outside the tests, by grep for `CreateProcess`, `ShellExecute`, `g_spawn`, `g_subprocess`, `g_app_info_launch` and `gtk_show_uri`.
+		- The user's values: the direct start, the shell open fallback and a hidden console program in `nemo-launch-win32.c`, `runas` and `explore` in `nemo-view-win32.c`, and `nemo-new-process.c`.
+		- The app's, as helpers: `nemo-tool-run.c`, `nemo-desktop-thumbnail.c`, `nemo-magick.c` and the action condition in `nemo-action.c`.
+		- Not ours to start: a store app, which `nemo-program-choosing.c` hands to GIO and Windows starts outside the app, and the shell and management service starts.
+		- Not reached on Windows: `gtk_show_uri` with the `help:` links, which nothing handles there, and an extension's config program, since Windows loads no extensions. The rest are in Linux-only branches.
+		- Every `g_setenv` in the app: the 3 are recorded now. The Scripts menu variables are meant for the script, and `G_MESSAGES_DEBUG` is only set under `--debug` with an old GLib. On Linux and the BSDs a relocated prefix puts its own share and bin folders on the lists a started program gets. Not this item.
+	- Test case: rjvzdd4w, Launch environment win32 test. The test itself, run with `--dump`, writes what it got. It is started as an action's console program, as a named program, by opening a `.bat`, as a new copy and as a helper.
+	- Verified: under wine rjvzdd4w fails 5 checks with the swap taken out and passes with it, 6 runs. Its new copy case makes the same start as `nemo-new-process.c`, so it checks the user's environment, not that file. Under wine the named program and the open go through the shell or the service, so for those only the 2 settings nothing else makes are checked. rjvks1yf, rjpatrck, rjmb3j8p, rjm4ctwh, rjnzpkk7, rjp4ch0y and rffkjp10 pass under wine. The Windows cross build is clean.
+	- Branch: lowtrio
+	- Commit: 270dd0d
 
 - When 2 copies change one setting at once, a late message can leave them with different values.
 	- ID: 2026100911403858
@@ -459,7 +486,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The Archive settings test's restart does not read the file again.
 	- ID: 2026100720481882
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
 	- Priority|Severity: Low
 	- Opened: 20261007-204818
 	- Opened by: 2026100516274163
@@ -468,7 +496,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: init returns at once, since the store is still marked ready, so nothing is read back from the file. Shutdown also drops the file watch, and init doesn't make a new one, so a later hand edit is never seen in that run.
 	- Expected behavior: the values are read back from the file, as the test says.
 	- Reproduced: 20261007, a hand edit written after that test was never picked up in the same run.
-	- Test case: rhae85g0 itself, once it reads the file again.
+		- 20261009: a line added to the file between the shutdown and the init was not read, and one added after the init was never seen.
+	- Actual cause: shutdown drops the file watch but leaves the store marked ready, so the next init returns at once.
+	- Decisions:
+		- 20261009: Options were to fix only the test, which could start itself again the way rjcev513 does, or to make init after shutdown a real restart. The store, since a shutdown and init pair that does nothing reads like a restart and isn't one.
+		- 20261009: init after shutdown reads the file and watches it again, and drops what only the old run knew: changes not saved, values held for other copies, and stamps. The groups stay, since callers keep them for the whole run, and their handlers hear of every value the file changed. Shutdown flushes every time it is called, as before.
+	- Actual fix: as in Decisions, in `nemo-config.c`.
+	- Swept: every caller of `nemo_config_init` and `nemo_config_shutdown`. The app inits once and shuts down once, at exit, from `nemo_global_preferences_finalize`, so nothing it does changes. Of the 27 tests that call them, rhae85g0 is the only one that inits again in the same process. rjcev513 and rh325v70 start themselves again for a second run.
+	- Test case: rhae85g0. A line written to the file between the shutdown and the init has to be read back, and one written after the init has to be picked up by the watch.
+	- Verified: rhae85g0 fails 3 checks with the store change taken out and passes with it. It passes under wine too. rdjjz89r, rjc4dd8z, rjcev513, rg6a49ar and rjvdch2z pass. Full Linux suite 188 of 188.
+	- Acceptance signoff: Self-closed: rhae85g0 reproduces it and passes.
+	- Branch: lowtrio
+	- Commit: 270dd0d
+	- Closed: 20261009-224900
 
 - Rename Preferences to Settings.
 	- ID: 2026100816170996
