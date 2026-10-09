@@ -38,6 +38,7 @@
 #include "nemo-dir-enum.h"
 #include "nemo-file-changes-queue.h"
 #include "nemo-file-operations.h"
+#include "nemo-file-utilities.h"
 #include "nemo-global-preferences.h"
 #include "nemo-job-queue.h"
 #include "nemo-link-win32.h"
@@ -2037,19 +2038,26 @@ rar_name (const char *prefix, const char *name)
 }
 
 /* By the program's own name, so a line pointed at another build still counts,
-   and one that runs something else is left alone. */
+   and one that runs something else is left alone. On Windows PATH can find a
+   wrapper such as rar.cmd before the real exe, so any PATHEXT type counts. */
 static gboolean
 runs_one_of (char              **argv,
 	     const char * const *names)
 {
 	char *base = g_path_get_basename (argv[0]);
-	gsize len = strlen (base);
+	char *dot = strrchr (base, '.');
 	gboolean found = FALSE;
 	int i;
 
-	if (len > 4 && g_ascii_strcasecmp (base + len - 4, ".exe") == 0) {
-		base[len - 4] = '\0';
+#ifdef G_OS_WIN32
+	if (dot != NULL && dot != base && nemo_name_is_on_pathext (base, g_getenv ("PATHEXT"))) {
+		*dot = '\0';
 	}
+#else
+	if (dot != NULL && dot != base && g_ascii_strcasecmp (dot, ".exe") == 0) {
+		*dot = '\0';
+	}
+#endif
 	for (i = 0; names[i] != NULL && !found; i++) {
 		found = g_ascii_strcasecmp (base, names[i]) == 0;
 	}
