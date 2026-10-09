@@ -1,5 +1,6 @@
 <!-- markdownlint-disable MD007 -- Unordered list indentation -->
 <!-- markdownlint-disable MD010 -- No hard tabs -->
+<!-- markdownlint-disable MD033 -- No inline html -->
 <!-- markdownlint-disable MD055 -- Table pipe style [Expected: leading_and_trailing; Actual: leading_only; Missing trailing pipe] -->
 <!-- markdownlint-disable MD041 -- First line in a file should be a top-level heading -->
 
@@ -29,6 +30,7 @@
 - [Research findings](#research-findings)
 - [Roadmap](#roadmap)
 - [Related backlog issues](#related-backlog-issues)
+- [Copyright and license](#copyright-and-license)
 
 <!-- /TOC -->
 
@@ -236,7 +238,6 @@ The packed exe shares its virtual filesystem with every program it starts, by pu
 
 - Signing, once there is an identity (backlog: Windows code signing).
 
-
 ## Related backlog issues
 
 - Ultra-portable Windows: a single self-contained executable. Done.
@@ -263,8 +264,7 @@ The packed exe shares its virtual filesystem with every program it starts, by pu
 
 - Launching `app\nemo-anywhere.exe` straight from the dogfood folder throws missing-dll dialogs. Canceled.
 
----
+## Copyright and license
 
-> Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
->
-> Licensed under [GNU GPL v2](https://opensource.org/license/GPL-2.0) license. No warranty.
+> Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)<br>
+> Licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) license. No warranty.
