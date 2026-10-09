@@ -142,7 +142,7 @@ main (int argc, char *argv[])
 	/* Freetype's default v40 interpreter hints lighter/thinner than native
 	 * Windows text; v35 is the classic grid-fitted GDI/ClearType look.
 	 * Must be set before pango and freetype start; a user-set env still wins. */
-	g_setenv ("FREETYPE_PROPERTIES", "truetype:interpreter-version=35", FALSE);
+	nemo_setenv_own ("FREETYPE_PROPERTIES", "truetype:interpreter-version=35", FALSE);
 
 	/* Our drags speak the protocol that reaches other programs, so the toolkit
 	 * has to be listening on the same one. Only read at startup. */

@@ -2063,6 +2063,15 @@ if is_windows
     timeout: 120
   )
 
+  test('rjvzdd4w Launch environment win32 test',
+    executable('test-nemo-launch-env-win32',
+      [ 'test-nemo-launch-env-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    timeout: 120
+  )
+
   test('rjmb3j8p Action start win32 test',
     executable('test-nemo-action-start-win32',
       [ 'test-nemo-action-start-win32.c' ],

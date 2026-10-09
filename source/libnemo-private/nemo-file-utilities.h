@@ -102,6 +102,21 @@ const char * const * nemo_get_system_data_dirs   (void);
 char *       nemo_get_exe_path                   (void);
 /* Point the runtime at our own prefix. Must be the first thing main does. */
 void         nemo_setup_runtime_environment      (void);
+/* Sets @var for this process only. A program of the user's, or a new copy of
+ * ours, starts with what was there before. */
+void         nemo_setenv_own                     (const char *var,
+                                                  const char *value,
+                                                  gboolean    overwrite);
+/* This process's environment with every nemo_setenv_own undone, for a program
+ * of the user's or a new copy of ours.
+ * Returns: (transfer full): free with g_strfreev */
+char       **nemo_get_user_environ               (void);
+/* Undoes nemo_setenv_own in this process for a moment, for a call that starts
+ * a program and takes no environment. Hand the result back to
+ * nemo_restore_own_environ, which frees it.
+ * Returns: (transfer full): free with nemo_restore_own_environ */
+char       **nemo_swap_in_user_environ           (void);
+void         nemo_restore_own_environ            (char **saved);
 
 char *   nemo_get_data_file_path                 (const char *partial_path);
 

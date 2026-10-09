@@ -88,13 +88,44 @@ test_defaults (void)
 	g_free (text);
 }
 
+static int changes = 0;
+
+static void
+count_change (NemoConfigGroup *group,
+	      const char      *key,
+	      gpointer         data)
+{
+	(void) group;
+	(void) key;
+	(void) data;
+	changes++;
+}
+
+static void
+append_to_file (const char *line)
+{
+	char *path = nemo_config_get_path ();
+	char *text = NULL;
+	char *more;
+
+	check (g_file_get_contents (path, &text, NULL, NULL));
+	more = g_strconcat (text != NULL ? text : "", line, NULL);
+	check (g_file_set_contents (path, more, -1, NULL));
+	g_free (more);
+	g_free (text);
+	g_free (path);
+}
+
 /* Written, then read back through a fresh load of the file. */
 static void
 test_survives_a_restart (void)
 {
 	NemoConfigGroup *group = nemo_config_get_group (NEMO_ARCHIVE_COMMANDS_GROUP);
+	NemoConfigGroup *prefs;
 	char *text;
 	guint i;
+	gulong id;
+	int spins = 0;
 
 	if (group == NULL) {
 		return;
@@ -108,7 +139,24 @@ test_survives_a_restart (void)
 	nemo_config_set_string (group, NEMO_ARCHIVE_STATE_KEY_SPLIT_SIZE, "700 MiB");
 
 	nemo_config_shutdown ();
+	/* Written while stopped, so only a fresh read of the file has it. */
+	prefs = nemo_config_get_group ("preferences");
+	changes = 0;
+	id = g_signal_connect (prefs, "changed", G_CALLBACK (count_change), NULL);
+	append_to_file ("preferences.always-show-tabs: true\n");
 	nemo_config_init ();
+	check (nemo_config_get_boolean (prefs, "always-show-tabs"));
+	check (changes > 0);
+
+	/* And the file is watched again. */
+	changes = 0;
+	append_to_file ("preferences.show-full-path-titles: true\n");
+	while (changes == 0 && spins++ < 2500) {
+		g_main_context_iteration (NULL, FALSE);
+		g_usleep (2000);
+	}
+	check (nemo_config_get_boolean (prefs, "show-full-path-titles"));
+	g_signal_handler_disconnect (prefs, id);
 
 	group = nemo_config_get_group (NEMO_ARCHIVE_COMMANDS_GROUP);
 	check (group != NULL);
@@ -190,19 +238,6 @@ file_mentions (const char *key)
 	g_free (text);
 	g_free (path);
 	return found;
-}
-
-static int changes = 0;
-
-static void
-count_change (NemoConfigGroup *group,
-	      const char      *key,
-	      gpointer         data)
-{
-	(void) group;
-	(void) key;
-	(void) data;
-	changes++;
 }
 
 static void
@@ -419,7 +454,6 @@ main (void)
 	nemo_config_init ();
 
 	test_defaults ();
-	/* Before the restart, which leaves no watch on the file. */
 	test_old_boxes ();
 	test_link_choices_kept ();
 	test_fall_back_follows_claims ();

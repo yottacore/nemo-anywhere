@@ -98,6 +98,8 @@ spawn_argv (char    **argv,
             GError  **error)
 {
 	GSpawnChildSetupFunc setup = NULL;
+	/* It makes its own settings again, and has to see the user's to do it. */
+	char **env = nemo_get_user_environ ();
 	GPid pid;
 	gboolean ok;
 
@@ -107,9 +109,10 @@ spawn_argv (char    **argv,
 
 	/* Reaping it ourselves keeps GLib off its helper process on Windows and
 	 * off a zombie here. */
-	ok = g_spawn_async (NULL, argv, NULL,
+	ok = g_spawn_async (NULL, argv, env,
 	                    G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD,
 	                    setup, NULL, &pid, error);
+	g_strfreev (env);
 	if (ok) {
 		g_child_watch_add (pid, child_exited, NULL);
 	}

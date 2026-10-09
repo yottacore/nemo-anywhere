@@ -121,7 +121,10 @@ nemo_view_win32_open_elevated (const gchar *path)
 
 	quoted = nemo_view_win32_quote_arg (path);
 	wpath = (wchar_t *) g_utf8_to_utf16 (quoted, -1, NULL, NULL, NULL);
+	/* The copy makes its own settings again, and keeps what it finds as the user's. */
+	nemo_launch_win32_user_environ_enter ();
 	res = ShellExecuteW (NULL, L"runas", exe, wpath, NULL, SW_SHOWNORMAL);
+	nemo_launch_win32_user_environ_leave ();
 	shell_execute_ok (res, "Open as Administrator", path);
 	g_free (wpath);
 	g_free (quoted);
@@ -266,7 +269,11 @@ nemo_view_win32_open_in_explorer (const gchar *path,
 	}
 
 	if (is_directory) {
-		HINSTANCE res = ShellExecuteW (NULL, L"explore", wpath, NULL, NULL, SW_SHOWNORMAL);
+		HINSTANCE res;
+
+		nemo_launch_win32_user_environ_enter ();
+		res = ShellExecuteW (NULL, L"explore", wpath, NULL, NULL, SW_SHOWNORMAL);
+		nemo_launch_win32_user_environ_leave ();
 
 		shell_execute_ok (res, "Open with Explorer", path);
 		g_free (wpath);

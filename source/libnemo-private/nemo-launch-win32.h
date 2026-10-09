@@ -32,6 +32,12 @@ gboolean nemo_launch_win32_run_command (const gchar  *command_line,
 gchar   *nemo_launch_win32_split_command (const gchar  *command_line,
 					  gchar       **args);
 
+/* The user's environment in place of ours, around a call that starts a program
+ * of theirs and takes no environment, such as ShellExecuteW. Our own settings
+ * for this process are undone until the leave. Always paired, on one thread. */
+void     nemo_launch_win32_user_environ_enter (void);
+void     nemo_launch_win32_user_environ_leave (void);
+
 /* The two brokers on their own. Exposed so a probe can tell which of them the
  * box actually allows, rather than watching one cover for the other. */
 gboolean nemo_launch_win32_via_shell   (const gchar *exe,
