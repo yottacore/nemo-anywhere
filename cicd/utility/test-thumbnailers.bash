@@ -2,7 +2,8 @@
 
 ##	- Purpose: Check the thumbnailer descriptors every Windows bundle gets.
 ##	  The ones run by gdk-pixbuf-thumbnailer (gdk-pixbuf's and librsvg's) are
-##	  left out, since the app draws those pictures itself, and the rest name
+##	  left out, since the app draws those pictures itself, and so is
+##	  gsf-office's, since the app reads office files itself. The rest name
 ##	  bare programs. MSYS2's say `/mingw64/bin/...`, which the app never finds.
 ##	  Runs fStageThumbnailers on descriptors written like MSYS2's, and
 ##	  fetch-sysroot.bash's own rules on the same, and checks that the native
@@ -55,6 +56,12 @@ TryExec=gsf-office-thumbnailer
 Exec=gsf-office-thumbnailer -i %i -o %o -s %s
 MimeType=application/vnd.oasis.opendocument.text;
 END
+cat > "${src}/gsf-office-msys.thumbnailer" <<'END'
+[Thumbnailer Entry]
+TryExec=/mingw64/bin/gsf-office-thumbnailer.exe
+Exec=/mingw64/bin/gsf-office-thumbnailer.exe -i %i -o %o -s %s
+MimeType=application/msword;
+END
 cat > "${src}/other.thumbnailer" <<'END'
 [Thumbnailer Entry]
 TryExec=/ucrt64/bin/some-thumbnailer
@@ -84,8 +91,11 @@ fGone(){
 fGone "$dest" gdk-pixbuf-thumbnailer.thumbnailer fStageThumbnailers
 fGone "$dest" librsvg.thumbnailer fStageThumbnailers
 fGone "$dest" webp.thumbnailer fStageThumbnailers
-fWant gsf-office.thumbnailer "TryExec=gsf-office-thumbnailer"
-fWant gsf-office.thumbnailer "Exec=gsf-office-thumbnailer -i %i -o %o -s %s"
+## Kept with a bare name until 2026100909260549, which leaves it out.
+# fWant gsf-office.thumbnailer "TryExec=gsf-office-thumbnailer"
+# fWant gsf-office.thumbnailer "Exec=gsf-office-thumbnailer -i %i -o %o -s %s"
+fGone "$dest" gsf-office.thumbnailer fStageThumbnailers
+fGone "$dest" gsf-office-msys.thumbnailer fStageThumbnailers
 ## Only the program loses its folder, not an argument.
 fWant other.thumbnailer "Exec=some-thumbnailer --in /tmp/x/%i %o"
 fWant other.thumbnailer "MimeType=x/y;"
@@ -110,13 +120,15 @@ else
 	fi
 	fGone "$thumbs" gdk-pixbuf-thumbnailer.thumbnailer fetch-sysroot.bash
 	fGone "$thumbs" librsvg.thumbnailer fetch-sysroot.bash
-	for f in gsf-office.thumbnailer lookalike.thumbnailer; do
-		cmp -s "${thumbs}/${f}" "${dest}/${f}" || fFail "fetch-sysroot.bash and fStageThumbnailers differ on ${f}"
-	done
+	fGone "$thumbs" gsf-office.thumbnailer fetch-sysroot.bash
+	## gsf-office.thumbnailer was compared here too until 2026100909260549.
+	cmp -s "${thumbs}/lookalike.thumbnailer" "${dest}/lookalike.thumbnailer" \
+		|| fFail "fetch-sysroot.bash and fStageThumbnailers differ on lookalike.thumbnailer"
 fi
 
 ## Every bundle has to use the shared step. None may copy the folder as is, or
-## carry gdk-pixbuf-thumbnailer.exe, which nothing would start.
+## carry gdk-pixbuf-thumbnailer.exe or gsf-office-thumbnailer.exe, which
+## nothing would start.
 fUses(){
 	local script="$1" pattern="$2" rel="${1#"${root}"/}"
 	grep -qE "$pattern" "$script" || fFail "${rel} does not stage descriptors through fStageThumbnailers"
@@ -125,6 +137,9 @@ fUses(){
 	fi
 	if grep -nF 'gdk-pixbuf-thumbnailer.exe' "$script"; then
 		fFail "${rel} still bundles gdk-pixbuf-thumbnailer.exe"
+	fi
+	if grep -nF 'gsf-office-thumbnailer.exe' "$script"; then
+		fFail "${rel} still bundles gsf-office-thumbnailer.exe"
 	fi
 }
 fUses "${root}/cicd/win/stage-native.bash" '^fStageThumbnailers "\$\{MINGW\}/share/thumbnailers" "\$\{DEST\}/mingw64/share/thumbnailers"'
@@ -136,4 +151,4 @@ if ((failures)); then
 	fEcho "FAILED: thumbnailer staging, ${failures} problem(s)"
 	exit 1
 fi
-fEcho "OK: Windows bundles leave out the gdk-pixbuf descriptors and name bare programs"
+fEcho "OK: Windows bundles leave out the gdk-pixbuf and gsf-office descriptors and name bare programs"

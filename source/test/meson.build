@@ -8,6 +8,16 @@ test_scratch = declare_dependency(
   ),
 )
 
+# The compound file the old Word, Excel and PowerPoint files are kept in,
+# written with no library.
+test_ole2 = declare_dependency(
+  link_with: static_library('test-ole2-writer',
+    [ 'test-ole2-writer.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ glib ],
+  ),
+)
+
 # Heap growth over repeated operations, for the leak tests.
 test_heap = declare_dependency(
   link_with: static_library('test-heap',
@@ -1629,12 +1639,12 @@ test('rjvb97aa Office files read in the app test',
   timeout: 120
 )
 
-# The .doc, .xls and .ppt are written here, with no libgsf.
+# The .doc, .xls and .ppt are written here, with no library.
 test('rjvtggme Old office files read in the app test',
   executable('test-nemo-office-ole',
     [ 'test-nemo-office-ole.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private, test_scratch ],
+    dependencies: [ gtk, nemo_private, test_scratch, test_ole2 ],
     c_args: nemo_definitions,
   ),
   args: [],
@@ -1905,17 +1915,16 @@ if not is_windows
   )
 endif
 
-# The document converters, run on files written for the purpose.
-test('rfhnaccg Search helpers test',
+# The cases the old converter programs had, now read in the app, on files
+# written for the purpose.
+test('rfhnaccg Office text and search helpers test',
   executable('test-nemo-search-helpers',
     [ 'test-nemo-search-helpers.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private, libgsf, test_scratch ],
+    dependencies: [ gtk, nemo_private, archive, test_scratch, test_ole2 ],
     c_args: nemo_definitions,
   ),
   args: [],
-  env: [ 'NEMO_SEARCH_HELPER_DIR=' + search_helper_dir ],
-  depends: search_helper_exes,
 )
 
 test('rjm9n8sr Bookmark name and icon test',

@@ -20,11 +20,12 @@
    Boston, MA 02110-1335, USA.
 */
 
-/* On Windows a file's type is its extension, ".odt", while thumbnailers and
+/* On Windows a file's type is its extension, ".pdf", while thumbnailers and
  * the list of types not to thumbnail name MIME types, so no thumbnailer was
- * ever found. Uses the gsf-office thumbnailer the app ships, on an
- * OpenDocument file holding a red 5x4 thumbnail. And the same file reached as a
- * share is not thumbnailed with the default settings. */
+ * ever found. A stand-in thumbnailer for PDF, this program run with --draw,
+ * draws a green 5x4 picture. An OpenDocument file holding a red 5x4 thumbnail
+ * gets it from the app's own reader, by its extension too. And the same file
+ * reached as a share is not thumbnailed with the default settings. */
 
 #include <config.h>
 
@@ -76,7 +77,53 @@ static const guchar odt[] = {
 	0x00, 0x00, 0x00,
 };
 
+#define GREEN 0x20d020
+#define RED   0xd02020
+
 static gboolean ready;
+
+/* The stand-in thumbnailer: a 5x4 picture of one color, to @out, whatever
+   the input. */
+static int
+draw (const char *out)
+{
+	GdkPixbuf *pixbuf = gdk_pixbuf_new (GDK_COLORSPACE_RGB, FALSE, 8, 5, 4);
+	gboolean ok;
+
+	gdk_pixbuf_fill (pixbuf, ((guint32) GREEN << 8) | 0xff);
+	ok = gdk_pixbuf_save (pixbuf, out, "png", NULL, NULL);
+	g_object_unref (pixbuf);
+	return ok ? 0 : 1;
+}
+
+static void
+install_thumbnailer (const char *home, const char *self)
+{
+	g_autofree char *dir = g_build_filename (home, "thumbnailers", NULL);
+	g_autofree char *absolute = g_canonicalize_filename (self, NULL);
+	g_autofree char *exe = g_str_has_suffix (absolute, ".exe") ? g_strdup (absolute) : g_strconcat (absolute, ".exe", NULL);
+	g_autofree char *entry = g_strdup_printf ("[Thumbnailer Entry]\nTryExec=%s\nExec=\"%s\" --draw %%i %%o\nMimeType=application/pdf;\n",
+						  exe, exe);
+	g_autofree char *path = g_build_filename (dir, "stand-in.thumbnailer", NULL);
+
+	g_mkdir_with_parents (dir, 0755);
+	check (g_file_set_contents (path, entry, -1, NULL));
+}
+
+static void
+check_picture (GdkPixbuf *pixbuf, int width, int height, guint32 rgb)
+{
+	const guchar *pixel;
+
+	check (pixbuf != NULL);
+	if (pixbuf == NULL) {
+		return;
+	}
+	pixel = gdk_pixbuf_read_pixels (pixbuf);
+	check (gdk_pixbuf_get_width (pixbuf) == width && gdk_pixbuf_get_height (pixbuf) == height);
+	check (ABS (pixel[0] - (int) ((rgb >> 16) & 0xff)) < 48 && ABS (pixel[1] - (int) ((rgb >> 8) & 0xff)) < 48 &&
+	       ABS (pixel[2] - (int) (rgb & 0xff)) < 48);
+}
 
 static void
 file_ready (G_GNUC_UNUSED NemoFile *file, G_GNUC_UNUSED gpointer data)
@@ -111,30 +158,36 @@ spin (void)
 int
 main (int argc, char *argv[])
 {
-	g_autofree char *scratch = NULL, *path = NULL, *uri = NULL, *share = NULL, *thumbnailer = NULL;
-	g_autofree char *type = NULL;
+	g_autofree char *scratch = NULL, *path = NULL, *uri = NULL, *share = NULL;
+	g_autofree char *pdf = NULL, *pdf_uri = NULL;
+	g_autofree char *type = NULL, *pdf_type = NULL;
 	NemoDesktopThumbnailFactory *factory;
-	NemoFile *file, *share_file;
+	NemoFile *file, *share_file, *pdf_file;
 	GdkPixbuf *pixbuf;
 	g_autofree char *share_uri = NULL;
-	const char *disable[] = { "application/vnd.oasis.opendocument.text", NULL };
+	const char *disable[] = { "application/vnd.oasis.opendocument.text", "application/pdf", NULL };
 	const char *none[] = { NULL };
+
+	if (argc == 4 && g_strcmp0 (argv[1], "--draw") == 0) {
+		return draw (argv[3]);
+	}
 
 	scratch = test_scratch_config_home ("nemo-thumbnailer-type-XXXXXX");
 	if (scratch == NULL) {
 		g_printerr ("FAIL: no scratch folder\n");
 		return 1;
 	}
-
-	thumbnailer = g_find_program_in_path ("gsf-office-thumbnailer");
-	if (thumbnailer == NULL) {
-		g_print ("SKIP: no gsf-office-thumbnailer\n");
-		return 77;
-	}
+	/* Only the stand-in, none of the box's own. */
+	g_setenv ("XDG_DATA_HOME", scratch, TRUE);
+	g_setenv ("XDG_DATA_DIRS", scratch, TRUE);
+	install_thumbnailer (scratch, argv[0]);
 
 	path = g_build_filename (scratch, "note.odt", NULL);
 	check (g_file_set_contents (path, (const char *) odt, sizeof odt, NULL));
 	uri = g_filename_to_uri (path, NULL, NULL);
+	pdf = g_build_filename (scratch, "paper.pdf", NULL);
+	check (g_file_set_contents (pdf, "%PDF-1.4\n%%EOF\n", -1, NULL));
+	pdf_uri = g_filename_to_uri (pdf, NULL, NULL);
 
 	if (!gtk_init_check (&argc, &argv)) {
 		g_print ("SKIP: no display\n");
@@ -146,20 +199,27 @@ main (int argc, char *argv[])
 	file = ready_file (path);
 	type = nemo_file_get_mime_type (file);
 	check (g_strcmp0 (type, ".odt") == 0);
+	pdf_file = ready_file (pdf);
+	pdf_type = nemo_file_get_mime_type (pdf_file);
+	check (g_strcmp0 (pdf_type, ".pdf") == 0);
+
+	factory = nemo_desktop_thumbnail_factory_new (NEMO_DESKTOP_THUMBNAIL_SIZE_LARGE);
 
 	g_print ("thumbnailer\n");
-	factory = nemo_desktop_thumbnail_factory_new (NEMO_DESKTOP_THUMBNAIL_SIZE_LARGE);
+	check (nemo_desktop_thumbnail_factory_can_make (factory, pdf_uri, ".pdf"));
+	pixbuf = nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (factory, pdf_uri, ".pdf", 128, NULL);
+	/* As the thumbnailer drew it. */
+	check_picture (pixbuf, 5, 4, GREEN);
+	g_clear_object (&pixbuf);
+	check (nemo_can_thumbnail (pdf_file));
+	check (nemo_file_should_show_thumbnail (pdf_file));
+
+	g_print ("office reader\n");
 	check (nemo_desktop_thumbnail_factory_can_make (factory, uri, ".odt"));
 	pixbuf = nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (factory, uri, ".odt", 128, NULL);
-	check (pixbuf != NULL);
-	if (pixbuf != NULL) {
-		const guchar *pixel = gdk_pixbuf_read_pixels (pixbuf);
-
-		/* Scaled up to the size asked for, and the red of the one inside. */
-		check (gdk_pixbuf_get_width (pixbuf) == 128 && gdk_pixbuf_get_height (pixbuf) == 102);
-		check (pixel[0] > 150 && pixel[1] < 80 && pixel[2] < 80);
-		g_object_unref (pixbuf);
-	}
+	/* Scaled up to the size asked for, as the reader does. */
+	check_picture (pixbuf, 128, 102, RED);
+	g_clear_object (&pixbuf);
 	check (nemo_can_thumbnail (file));
 	check (nemo_file_should_show_thumbnail (file));
 
@@ -168,6 +228,10 @@ main (int argc, char *argv[])
 	spin ();
 	check (!nemo_desktop_thumbnail_factory_can_make (factory, uri, ".odt"));
 	pixbuf = nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (factory, uri, ".odt", 128, NULL);
+	check (pixbuf == NULL);
+	g_clear_object (&pixbuf);
+	check (!nemo_desktop_thumbnail_factory_can_make (factory, pdf_uri, ".pdf"));
+	pixbuf = nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (factory, pdf_uri, ".pdf", 128, NULL);
 	check (pixbuf == NULL);
 	g_clear_object (&pixbuf);
 	nemo_config_set_strv (nemo_config_get_group ("thumbnailers"), "disable", none);
@@ -183,6 +247,7 @@ main (int argc, char *argv[])
 	check (!nemo_file_should_show_thumbnail (share_file));
 
 	nemo_file_unref (share_file);
+	nemo_file_unref (pdf_file);
 	nemo_file_unref (file);
 	g_object_unref (factory);
 

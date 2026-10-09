@@ -84,10 +84,13 @@ docker exec "$CONTAINER" sh -c "
 	mkdir -p /tmp/${name}/lib /tmp/${name}/share
 	cd ${SYSROOT}
 
-	cp bin/*.dll /tmp/${name}/
+	## Not libgsf, which a sysroot made before fetch-sysroot.bash dropped it
+	## still has. Nothing in the app links it.
+	for d in bin/*.dll; do
+		case \"\${d##*/}\" in libgsf-*) ;; *) cp \"\$d\" /tmp/${name}/ ;; esac
+	done
 	## No gdbus.exe: nothing starts a session bus on Windows.
-	for h in gspawn-win64-helper.exe gspawn-win64-helper-console.exe \
-	         gsf-office-thumbnailer.exe; do
+	for h in gspawn-win64-helper.exe gspawn-win64-helper-console.exe; do
 		[ -f \"bin/\$h\" ] && cp \"bin/\$h\" /tmp/${name}/ || true
 	done
 	cp -r lib/gdk-pixbuf-2.0 /tmp/${name}/lib/

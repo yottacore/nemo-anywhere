@@ -116,7 +116,7 @@ fStamp(){ fPeTimestamp <(docker exec "$CONTAINER" head -c 4096 "${BUILD}/src/nem
 ## clock, which is what the whole stamp exists to avoid.
 fStrip(){
 	docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" "$CONTAINER" \
-		sh -c "x86_64-w64-mingw32-strip --strip-debug ${BUILD}/src/*.exe ${BUILD}/search-helpers/*.exe" \
+		sh -c "x86_64-w64-mingw32-strip --strip-debug ${BUILD}/src/*.exe" \
 		|| fDie "could not strip the cross-built exes"
 }
 

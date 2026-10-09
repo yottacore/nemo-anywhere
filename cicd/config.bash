@@ -236,6 +236,9 @@ VERSION_MANIFEST="source/meson.build"
 ##     against the tarball beside it when there is one for this version.
 ##   - The setup exe is run under wine in the cross-build container: install,
 ##     update, uninstall.
+##   - No bundle has libgsf, the gsf-office thumbnailer or the old search
+##     converters, and no package depends on libgsf. The prefix check runs
+##     that on the Linux files of its arch.
 ## Deferred: macOS .pkg, AppImage, Flatpak - no toolchain here yet.
 PACKAGE_ENABLE=1
 PACKAGE_CMDS=(
@@ -249,6 +252,8 @@ PACKAGE_CHECKS=(
 	"Prefix check|bash cicd/linux/test-prefix.bash"
 	"Prefix check (arm64)|bash cicd/linux/test-prefix.bash --arch arm64"
 	"FreeBSD package check|bash cicd/bsd/test-pkg.bash"
+	"Windows bundle check|bash cicd/utility/test-bundle-left-out.bash windows"
+	"FreeBSD bundle check|bash cicd/utility/test-bundle-left-out.bash bsd"
 	"Setup exe check|docker exec nemo-winbuild bash /src/cicd/win/test-setup.bash"
 )
 

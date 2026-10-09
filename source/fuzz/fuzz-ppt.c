@@ -21,26 +21,23 @@
 */
 
 /* Records nest, so the walk recurses on a length the file gives it. Depth is
- * the only bound. Same arrangement as fuzz-xls.c: the helper source is
- * included whole and its main renamed out of the way. */
+ * the only bound. The bytes are the PowerPoint Document stream, handed to the
+ * app's parser the same as fuzz-xls.c does for Excel. */
+
+#include <config.h>
 
 #include <stdint.h>
 
-#define main nemo_ppt_to_txt_main
-#include "../search-helpers/nemo-ppt-to-txt.c"
-#undef main
+#include <glib.h>
+
+#include <libnemo-private/nemo-office-ole.h>
 
 int LLVMFuzzerTestOneInput (const uint8_t *data, size_t size);
 
 int
 LLVMFuzzerTestOneInput (const uint8_t *data, size_t size)
 {
-	GString *out = g_string_new (NULL);
-
-	walk_records (data, size, out, 0);
-	helper_clean (out);
-
-	g_string_free (out, TRUE);
+	g_free (nemo_office_ppt_text (data, size, 64 * 1024));
 
 	return 0;
 }

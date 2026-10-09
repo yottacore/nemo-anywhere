@@ -110,28 +110,28 @@ if not is_windows
   )
 endif
 
-# The three binary Office parsers. Each helper is a program of its own, so the
-# target includes its source whole and renames the main out of the way rather
-# than turning the parser into a library nothing else would use. The zip-of-xml
-# helper is left out: libgsf does the parsing there, and fuzzing it would be
-# fuzzing libgsf.
+# The three old binary Office parsers in the app, each on one stream.
+# fuzz-ole2 reaches them through the compound file as well.
 fuzzXls = executable('fuzz-xls',
   [ 'fuzz-xls.c' ] + fuzzDriver,
-  dependencies: [ libgsf, gio, glib ],
+  include_directories: [ rootInclude, ],
+  dependencies: [ gtk, nemo_private ],
   c_args:    fuzzCArgs,
   link_args: fuzzLinkArgs,
 )
 
 fuzzPpt = executable('fuzz-ppt',
   [ 'fuzz-ppt.c' ] + fuzzDriver,
-  dependencies: [ libgsf, gio, glib ],
+  include_directories: [ rootInclude, ],
+  dependencies: [ gtk, nemo_private ],
   c_args:    fuzzCArgs,
   link_args: fuzzLinkArgs,
 )
 
 fuzzDoc = executable('fuzz-doc',
   [ 'fuzz-doc.c' ] + fuzzDriver,
-  dependencies: [ libgsf, gio, glib ],
+  include_directories: [ rootInclude, ],
+  dependencies: [ gtk, nemo_private ],
   c_args:    fuzzCArgs,
   link_args: fuzzLinkArgs,
 )

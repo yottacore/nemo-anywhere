@@ -345,19 +345,53 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Take libgsf, the gsf-office thumbnailer and the 4 search converters out of every bundle and the build.
 	- ID: 2026100909260549
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
+	- Needs external testing:
+		- The native suite on vm925w, for rjmc40ex, rjvb97aa, rjvtggme and rfhnaccg, and the seed replays rhatwe0r, rhatwe0s and rhatwe0t.
+		- The single exe built from this branch, in the desktop session on vm925w with MacType running: an .odt with no picture inside, a .doc with a metafile preview, and a content search through office files. Plain icons where there is no picture, the matches, no box, and no other program started. The staged `win-flat` has no libgsf dll, no gsf-office files and no `*-to-txt` exe.
+		- A full pipeline with `--include-arm --include-bsd`: both prefix checks, "Windows bundle check" and "FreeBSD bundle check" pass. The FreeBSD pkg made before this change depends on libgsf, so "FreeBSD bundle check" stops a run until the FreeBSD lane makes a new one.
+		- The Windows release workflow on the next tag, with libgsf gone from its package list.
 	- Priority|Severity: Avg
 	- Opened: 20261009-092605
 	- Opened by: 2026100617051745
 	- Parent ID: 2026100617051745
 	- Prereq IDs: 2026100909260472, 2026100909260511
+	- Related IDs: 2026100914514406
 	- Target OS: All
 	- Requirements:
 		- No libgsf in the build, the sysroot, the MSYS2 package lists, the deb's Depends or any bundle.
 		- No `gsf-office-thumbnailer` and no `nemo-anywhere-*-to-txt` programs or their helper definitions in any bundle.
 		- The tests and fuzz targets that use libgsf to write or read files move to the app's own readers and a writer that needs no libgsf.
 	- Note: rjmc40ex skips when no gsf-office thumbnailer is found, but its .odt now gets its thumbnail from the app's reader. Its skip goes, and its check that a thumbnailer is found by extension needs another type.
-	- Test case: still needs one. A check that no program is started for an office file, for thumbnails and for content search, and a bundle check that none of these files are in it.
+	- Progress log:
+		- 20261009: done. The 4 converters, their definitions and the libgsf dependency are gone from the build. The fuzz targets for the Excel, PowerPoint and Word parsers now run the app's own parsers, with the same seeds. The converter test runs its old cases through the app's reader, on files written with libarchive and with the compound file writer from 2026100909260511, which now sits in a file of its own for both tests. rjmc40ex lost its skip. It finds a stand-in thumbnailer for PDF by extension, and its .odt gets the reader's picture.
+		- 20261009: libgsf is out of the cross sysroot's package list, the MSYS2 lists, the build images and the deb's fallback Depends line. The Windows bundles leave out gsf-office's thumbnailer descriptor, the same way as gdk-pixbuf's, since MSYS2 on a box with libgsf still has it.
+		- 20261009: the `nemo-winbuild:init` image still has libgsf and gsf-office's descriptor in its sysroot. The next image build leaves them out. Until then the zip leaves the libgsf dlls out itself. The Linux images still have libgsf-1-dev installed, which nothing links now, so they need no rebuild.
+		- 20261009: README's MacType note stays. As far as can be read here, the single exe still starts a packed program: GLib's spawn helper, for a new window or a tab moved to its own window. Filed as 2026100914514406. Not tried under MacType.
+	- Decisions:
+		- 20261009: no installed thumbnailer or search helper runs for these types at all, even when the app's reader gives nothing. A file with no picture inside, a metafile preview, or a file that doesn't read shows its plain icon and gives no text. This replaces the fall-backs left in 2026100909260472 and 2026100909260511, which were there only while the programs were. Thumbnailers and helpers for every other type work as before.
+		- 20261009: catdoc's search helper definition for .doc went too, since nothing would run it now.
+	- Swept: every bundle and lane that copied the programs, the dlls or the descriptors: the native stage, the zip, the cross build's strip, the wine runner, the Linux tarball, deb and rpm through meson's install, and the FreeBSD pkg, whose deps come from what the binaries link. Every place a thumbnailer or helper is picked by type goes through `nemo_office_type_ok` in the factory and the search walk.
+	- Verified: 20261009, the app and every test built with libgsf's development files removed from the build container and from the cross sysroot. Full Linux suite 188 of 188. rjvb97aa and rjvtggme fail with the factory and search walk as on dev: the stand-in thumbnailer and search helper ran for the files with no picture and the ones that don't read. They pass with the change. rjmc40ex fails with the extension lookup taken out and passes with it, under wine. rjmc40ex, rjvb97aa, rjvtggme, rfhnaccg and the 5 office seed replays pass under wine. All 12 fuzz targets ran 20 s each with no find. The bundle check fails on every bundle in the release folder from before the change, and passes on a fresh install of this branch and on a zip packed from the old sysroot. Its self-test fails with the name and dependency checks taken out. rjnyer4p fails with gsf-office's descriptors kept. Lint clean apart from rj3ytv0b, which always fails in a worktree.
+	- Branch: nogsf
+	- Test case: rjvwpz9d, Bundle check: no libgsf, gsf-office thumbnailer, converter or their definitions in the tarball, deb, rpm, zip or FreeBSD pkg, and no Depends, Requires or pkg dep on libgsf. The prefix check rhtq57n5 runs it on each arch's Linux files, and its self-test runs in the lint stage. rjvb97aa and rjvtggme: files with no picture inside, a metafile preview, and files that don't read get no thumbnail and no match, and the stand-in thumbnailer and search helper are not run. rjmc40ex and rfhnaccg as in Progress log.
+
+- In the single exe on Windows, a new window or a tab moved to its own window starts through GLib's spawn helper, a program packed inside the exe.
+	- ID: 2026100914514406
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261009-145144
+	- Opened by: 2026100909260549
+	- Related IDs: 2026100617051745, 2026100909260549
+	- Target OS: Windows
+	- Steps to reproduce: in the single exe, in the desktop session on vm925w with MacType running, open a folder in a new window, or move a tab to a new window.
+	- Incorrect behavior: not seen. `nemo-new-process.c` starts the new copy with `g_spawn_async`, not through `nemo-launch-win32.c`. On Windows GLib does that through `gspawn-win64-helper.exe` unless the call asks for nothing the helper is needed for, and this one does: no inherited input and no left-open handles. That helper is packed in the single exe, so under MacType it likely can't load its libraries, as in 2026100617051745.
+	- Expected behavior: the new window opens, and the single exe starts no packed program.
+	- Reproduced: no. Read only, from the call and GLib's spawn code.
+	- Note: a few other `g_spawn` calls are built on Windows too, such as the one for an extension's settings program and the one that renames a user folder. Actions and the action layout editor have their own Windows route. Each needs the same look. README's MacType note stays until none is left.
+	- Test case: still needs one. A Windows test that the new-window start goes through the launcher and that no spawn helper process appears.
 
 - On Windows, cppcheck 2.21 finds 3 things in 2 test files that the Linux lint passes.
 	- ID: 2026100914350100

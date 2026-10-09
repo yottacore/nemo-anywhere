@@ -968,7 +968,7 @@ search_for_content_hits (SearchThreadData *data,
         return TRUE;
     }
 
-    /* Not a file the app reads after all. The helpers get their turn. */
+    /* Not a file the app could read. No helper gets a turn for these types. */
     if (error != NULL && in_app) {
         DEBUG ("Not read in the app: %s", error->message);
         g_error_free (error);
@@ -1290,8 +1290,9 @@ visit_directory (GFile *dir, SearchThreadData *data)
 
                     if (content_type_is_text (content_type, child, data->cancellable)) {
                         search_for_content_hits (data, child, NULL, FALSE);
-                    } else if (!nemo_office_type_ok (content_type) ||
-                               !search_for_content_hits (data, child, NULL, TRUE)) {
+                    } else if (nemo_office_type_ok (content_type)) {
+                        search_for_content_hits (data, child, NULL, TRUE);
+                    } else {
                         GList *helpers = lookup_helpers_for_content_type (content_type);
                         if (helpers != NULL) {
                             GList *i;

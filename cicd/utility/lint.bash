@@ -48,6 +48,7 @@ bash "${here}/test-cicd-help.bash"
 bash "${here}/test-cicd-arm.bash"
 bash "${here}/test-werror.bash"
 bash "${here}/test-thumbnailers.bash"
+fTest bash "${here}/test-bundle-left-out.bash" --self-test
 fTest bash "${here}/test-docker-run.bash"
 fTest bash "${here}/../win/test-gui-smoke.bash"
 fTest bash "${here}/../linux/test-fuzz-exit.bash"

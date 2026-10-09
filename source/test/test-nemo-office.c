@@ -330,7 +330,7 @@ finished (G_GNUC_UNUSED NemoSearchEngine *engine, G_GNUC_UNUSED gpointer data)
 }
 
 static void
-search_for (const Sample *s)
+search_for (const Sample *s, guint want)
 {
 	NemoSearchEngine *engine = nemo_search_engine_advanced_new ();
 	NemoQuery *query = nemo_query_new ();
@@ -356,13 +356,65 @@ search_for (const Sample *s)
 
 	g_print ("search for %s: %u found\n", s->word, g_list_length (found));
 	check (search_done);
-	check (g_list_length (found) == 1 && g_strcmp0 (found->data, s->file) == 0);
+	check (g_list_length (found) == want && (want == 0 || g_strcmp0 (found->data, s->file) == 0));
 
 	g_list_free_full (found, g_free);
 	found = NULL;
 	g_object_unref (engine);
 
 	check (!helper_ran ());
+}
+
+/* No picture the app can draw: none at all, a metafile, or not a zip. No
+   thumbnail comes of it, and the stand-in thumbnailer for these types is not
+   run. Not a zip has no text either, and the stand-in search helper is not run
+   for it. */
+static const Member odt_bare[] = {
+	{ "mimetype", "application/vnd.oasis.opendocument.text" },
+	{ "content.xml", "<office:document-content><office:body><office:text><text:p>bare text</text:p></office:text></office:body></office:document-content>" },
+	{ NULL, NULL }
+};
+
+static const Member docx_wmf[] = {
+	{ "_rels/.rels", "<Relationships><Relationship Id=\"t\" Type=\"http://schemas.openxmlformats.org/package/2006/relationships/metadata/thumbnail\" Target=\"docProps/thumbnail.wmf\"/></Relationships>" },
+	{ "docProps/thumbnail.wmf", "\xd7\xcd\xc6\x9a\x00\x00 not drawn here" },
+	{ "word/document.xml", "<w:document><w:body><w:p><w:r><w:t>wmf text</w:t></w:r></w:p></w:body></w:document>" },
+	{ NULL, NULL }
+};
+
+static void
+no_thumbnail (NemoDesktopThumbnailFactory *factory, const char *path)
+{
+	g_autofree char *uri = g_filename_to_uri (path, NULL, NULL);
+	g_autofree char *type = content_type_of (path);
+	GdkPixbuf *pixbuf;
+
+	g_print ("%s (%s), no picture\n", path, type != NULL ? type : "no type");
+	check (nemo_office_type_ok (type));
+	pixbuf = nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (factory, uri, type, 128, NULL);
+	check (pixbuf == NULL);
+	g_clear_object (&pixbuf);
+	check (!helper_ran ());
+}
+
+static void
+test_no_picture (NemoDesktopThumbnailFactory *factory)
+{
+	g_autofree char *bare = write_zip ("bare.odt", odt_bare, NULL);
+	g_autofree char *wmf = write_zip ("wmf.docx", docx_wmf, NULL);
+	g_autofree char *junk = g_build_filename (files_dir, "junk.docx", NULL);
+	const Sample none = { "junk.docx", NULL, NULL, 0, 0, 0, NULL, "nothingreadsme", NULL, NULL };
+
+	no_thumbnail (factory, bare);
+	no_thumbnail (factory, wmf);
+
+	/* Not text either, which Windows would search as text when nothing
+	   there has registered the extension. */
+	check (g_file_set_contents (junk, "\001\002\377\000 nothingreadsme \000\376\375", 23, NULL));
+	no_thumbnail (factory, junk);
+	search_for (&none, 0);
+
+	check (g_unlink (bare) == 0 && g_unlink (wmf) == 0 && g_unlink (junk) == 0);
 }
 
 /* Cut short, bit-flipped and not a zip. Cut short gives nothing, since the
@@ -528,9 +580,10 @@ main (int argc, char *argv[])
 		test_sample (factory, &samples[i]);
 	}
 	for (i = 0; i < G_N_ELEMENTS (samples); i++) {
-		search_for (&samples[i]);
+		search_for (&samples[i], 1);
 	}
 
+	test_no_picture (factory);
 	test_damaged ();
 
 	g_object_unref (factory);

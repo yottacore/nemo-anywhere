@@ -6,7 +6,9 @@
 ##	  to the same rule when dpkg-deb and rpm are on the box. And the action
 ##	  layout editor's launcher, copied into a prefix somewhere else, runs the
 ##	  editor beside it rather than the one it was configured with, under the
-##	  name the program spawns it by.
+##	  name the program spawns it by. And none of the tarball, .deb and .rpm has
+##	  the office programs and libgsf the app no longer ships, through
+##	  cicd/utility/test-bundle-left-out.bash.
 ##	- A missing tarball skips with exit 77.
 ##	- Syntax: cicd/linux/test-prefix.bash [tarball | --arch ARCH]
 ##	  The default is this version's x86_64 tarball; --arch picks another
@@ -94,6 +96,12 @@ if [[ -f "$rpm_file" ]] && command -v rpm >/dev/null 2>&1; then
 else
 	fEcho_Clean "no .rpm or no rpm; the .rpm not checked"
 fi
+
+## The office programs the app no longer ships, and libgsf (2026100909260549).
+kind="${tarball##*/}"; kind="${kind%.tar.gz}"; kind="linux-${kind##*-linux-}"
+rc=0
+bash "${root}/cicd/utility/test-bundle-left-out.bash" --dir "$(dirname "$tarball")" "$kind" || rc=$?
+[[ "$rc" == 0 || "$rc" == 77 ]] || fFail "bundle check on ${kind} (exit ${rc})"
 
 ## The program spawns the editor by this name out of its own bin folder, so
 ## the name has to be in the program and on the file.

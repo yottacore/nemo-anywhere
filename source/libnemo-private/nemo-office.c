@@ -917,7 +917,7 @@ nemo_office_thumbnail_uri (const char *uri, int size, GCancellable *cancellable)
 	return nemo_office_thumbnail (G_INPUT_STREAM (in), size, cancellable);
 }
 
-/* What nemo-anywhere-mso-to-txt left out, matched against each part of a
+/* What the old mso-to-txt converter left out, matched against each part of a
    member's path: styles, settings, layouts and the like. */
 static const char *const skip_names[] = {
 	"styles.xml", "theme", "_rels", "printerSettings", "media", "drawings",

@@ -1569,9 +1569,14 @@ nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (NemoDesktopThumbnailF
     }
   g_mutex_unlock (&factory->priv->lock);
 
-  /* Ahead of any installed thumbnailer, so no program is started for these. */
-  if (!disabled && nemo_office_type_ok (mime_type))
-    pixbuf = nemo_office_thumbnail_uri (uri, size, cancellable);
+  /* Only the app's own reader, so no program is started for these, even
+     when the file has no picture it can draw. */
+  if (nemo_office_type_ok (mime_type))
+    {
+      g_clear_pointer (&script, g_free);
+      if (!disabled)
+        pixbuf = nemo_office_thumbnail_uri (uri, size, cancellable);
+    }
 
   if (script && pixbuf == NULL && !g_cancellable_is_cancelled (cancellable))
     {
