@@ -851,14 +851,16 @@ nemo_office_thumbnail (GInputStream *stream, int size, GCancellable *cancellable
 	};
 	GdkPixbuf *pixbuf = NULL;
 	char *name = NULL;
-	guint8 head[8];
+	guint8 head[8] = { 0 };
+	gsize head_len;
 	guint i;
 
 	if (size <= 0 || !source_init (&src, stream, cancellable)) {
 		return NULL;
 	}
 
-	if (nemo_ole2_magic (head, peek_head (stream, head, sizeof head, cancellable))) {
+	head_len = peek_head (stream, head, sizeof head, cancellable);
+	if (nemo_ole2_magic (head, head_len)) {
 		g_free (src.buf);
 		return ole_thumbnail (stream, size, cancellable);
 	}
@@ -1100,7 +1102,7 @@ nemo_office_text (GInputStream *stream, gsize max_len, GCancellable *cancellable
 	struct archive_entry *entry;
 	Strip strip = { NULL, max_len, FALSE, FALSE, FALSE };
 	guint8 chunk[16 * 1024];
-	guint8 head[8];
+	guint8 head[8] = { 0 };
 	gsize read_total = 0, head_len;
 	guint seen = 0;
 	int status;

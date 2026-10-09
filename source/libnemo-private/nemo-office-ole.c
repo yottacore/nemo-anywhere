@@ -270,6 +270,7 @@ word_text (Out *out, const guint8 *doc, gsize doc_len, const guint8 *table, gsiz
 	}
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_office_word_text (const guint8 *doc, gsize doc_len, const guint8 *table, gsize table_len, gsize max_len)
 {
@@ -614,6 +615,7 @@ nemo_office_biff_magic (const guint8 *p, gsize len)
 	return type == REC_BOF8 || type == REC_BOF2 || type == REC_BOF3 || type == REC_BOF4;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_office_biff_text (const guint8 *data, gsize len, gsize max_len)
 {
@@ -662,6 +664,7 @@ walk_records (const guint8 *data, gsize len, Out *out, int depth)
 	}
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_office_ppt_text (const guint8 *data, gsize len, gsize max_len)
 {
@@ -671,6 +674,7 @@ nemo_office_ppt_text (const guint8 *data, gsize len, gsize max_len)
 	return out_finish (&out);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_office_ole_text (NemoOle2 *ole, gsize max_len)
 {
@@ -790,6 +794,7 @@ dib_to_bmp (const guint8 *dib, gsize len)
 	return g_bytes_new_take (bmp, len + 14);
 }
 
+/* Returns: (transfer full): unref with g_bytes_unref */
 GBytes *
 nemo_office_summary_preview (const guint8 *p, gsize len)
 {
@@ -837,6 +842,7 @@ nemo_office_summary_preview (const guint8 *p, gsize len)
 	return NULL;
 }
 
+/* Returns: (transfer full): unref with g_bytes_unref */
 GBytes *
 nemo_office_ole_preview (NemoOle2 *ole)
 {

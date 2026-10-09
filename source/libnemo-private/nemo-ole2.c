@@ -230,6 +230,7 @@ load_dir (NemoOle2 *ole, guint32 start)
 	return ole->n_dir > 0 && ole->dir[0x42] == ENTRY_ROOT;
 }
 
+/* Returns: (transfer full): free with nemo_ole2_free */
 NemoOle2 *
 nemo_ole2_open (GInputStream *stream, GCancellable *cancellable, GError **error)
 {
@@ -413,6 +414,7 @@ read_mini (NemoOle2 *ole, guint32 start, gsize len)
 	return g_bytes_new_take (buf, done);
 }
 
+/* Returns: (transfer full): unref with g_bytes_unref */
 GBytes *
 nemo_ole2_read (NemoOle2 *ole, const char *name, gsize cap)
 {
