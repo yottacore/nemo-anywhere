@@ -315,6 +315,8 @@ Application settings live in `settings.shcl`, in whichever directory the platfor
 
 - A few settings are file-only, with nothing in Preferences.
 
+- A setting that another setting makes moot is grayed but can still be changed. Changing it turns its master off by itself and leaves the rest of the group alone. How masters, their groups and the stored state work is in [20261008-171206_settings_under_a_master.md](design_docs/20261008-171206_settings_under_a_master.md).
+
 - Keyboard shortcuts are kept beside the settings in `accels`, in GTK's own format. Upstream Nemo keeps its shortcuts in `~/.gnome2/accels/nemo`. The first start with no `accels` reads that file, so custom shortcuts carry over, and writes `accels` straight away. That `accels` exists is what marks the old file as read, so it is read once and never written. `--reset` empties `accels` rather than removing it, for the same reason.
 
 - What a rename starts out with selected is a checkbox under Behavior. The default selects the whole name, extension included, since a person pressing F2 usually means to replace the name outright and a re-typed extension is cheaper than one silently kept. Turned off, only the part before the extension is selected.
