@@ -117,13 +117,15 @@ fRun fCheckOverwriteAsk
 ## These four checks hold that. A new entry on any of their lists wants a
 ## reason, and whoever adds one should be able to say what window starts it.
 
-## Bus methods: the freedesktop file manager interface, and the tab hand-over
-## between our own windows, which lists windows and opens a folder in a tab.
+## Bus methods: the freedesktop file manager interface, the tab hand-over
+## between our own windows, which lists windows and opens a folder in a tab, and
+## settings changes passed between our own copies, which only change what a
+## copy holds in memory, the same as an edit to the settings file it watches.
 ## None of them touches a file. Tests are left out: a test that stands in for
 ## another program's server is not something the app exports.
 ## Test ID: rh3qr9y8
 fCheckBusMethods(){
-	local allowed=' ShowFolders ShowItems ShowItemProperties ListWindows TakeTab '
+	local allowed=' ShowFolders ShowItems ShowItemProperties ListWindows TakeTab TakeSettings '
 	local name bad=""
 
 	while read -r name; do

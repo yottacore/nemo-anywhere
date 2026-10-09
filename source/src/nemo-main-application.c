@@ -124,6 +124,7 @@ struct _NemoMainApplicationPriv {
 	guint instance_slots;
 	guint instance_actions_id;
 	guint instance_tabs_id;
+	guint instance_settings_id;
 
 	/* A tab moved here from another copy, carried on the command line. */
 	gchar *tab_view;
@@ -141,6 +142,7 @@ publish_instance (NemoMainApplication *self)
 	}
 	self->priv->instance_connection = g_object_ref (connection);
 
+	self->priv->instance_settings_id = nemo_instance_share_settings (connection);
 	self->priv->instance_slots = nemo_instance_publish (connection, &self->priv->instance_name_id);
 
 	/* GApplication may already serve the same group at this path; then the
@@ -216,6 +218,8 @@ unpublish_instance (NemoMainApplication *self)
 		return;
 	}
 
+	nemo_instance_unshare_settings (connection, self->priv->instance_settings_id);
+	self->priv->instance_settings_id = 0;
 	nemo_instance_unpublish (connection, self->priv->instance_name_id, self->priv->instance_slots);
 	self->priv->instance_name_id = 0;
 	self->priv->instance_slots = 0;
@@ -256,26 +260,15 @@ static gboolean
 quit_other_instances (GApplication *application)
 {
 	GDBusConnection *connection;
-	GStrv others;
-	int i;
 
-	others = other_instances (application);
-	if (others == NULL) {
+	connection = g_application_get_dbus_connection (application);
+	if (connection == NULL) {
 		return FALSE;
 	}
 
-	connection = g_application_get_dbus_connection (application);
-	for (i = 0; others[i] != NULL; i++) {
-		GDBusActionGroup *group;
-
-		group = g_dbus_action_group_get (connection, others[i], NEMO_INSTANCE_OBJECT_PATH);
-		g_action_group_activate_action (G_ACTION_GROUP (group), "quit", NULL);
-		g_object_unref (group);
-	}
-	/* The requests are only queued; a copy about to exit has to see them out. */
-	g_dbus_connection_flush_sync (connection, NULL, NULL);
-
-	g_strfreev (others);
+	/* What GDBusActionGroup sends for the exported quit action. */
+	nemo_instance_send_to_others (connection, "org.gtk.Actions", "Activate",
+	                              g_variant_new_parsed ("('quit', @av [], @a{sv} {})"));
 
 	return TRUE;
 }
