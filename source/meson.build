@@ -319,9 +319,6 @@ subdir('libnemo-private')
 # subdir('po')
 subdir('src')
 subdir('search-helpers')
-if is_windows
-  subdir('session-bus')
-endif
 
 # No test needs a session bus, and connecting to a stale one hangs the run - the
 # address file outlives the bus it names. A copy hung here for 30s that way.

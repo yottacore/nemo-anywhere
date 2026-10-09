@@ -101,8 +101,9 @@ Function ${un}fGuardDir
 FunctionEnd
 
 ## Rename is all or nothing: if anything in the folder is open, nothing moves.
-## The session bus the app starts runs from the folder and outlives the window
-## by a few seconds, so give it 10 before asking.
+## A copy that is closing takes a moment, and the session bus an older build
+## started runs from the folder and outlives its window by a few seconds, so
+## give it 10 before asking.
 Function ${un}fMoveAside
 	StrCpy $1 0
 	${Do}

@@ -152,7 +152,9 @@ dbus_condition_free (gpointer data)
 {
     DBusCondition *cond = (DBusCondition *) data;
     g_free (cond->name);
-    g_bus_unwatch_name (cond->watch_id);
+    if (cond->watch_id != 0) {
+        g_bus_unwatch_name (cond->watch_id);
+    }
 
     g_free (cond);
 }
@@ -341,6 +343,7 @@ setup_dbus_condition (NemoAction *action, const gchar *condition)
     cond->exists = FALSE;
     cond->action = action;
     priv->dbus = g_list_append (priv->dbus, cond);
+#ifndef G_OS_WIN32
     cond->watch_id = g_bus_watch_name (G_BUS_TYPE_SESSION,
                                        cond->name,
                                        0,
@@ -348,6 +351,13 @@ setup_dbus_condition (NemoAction *action, const gchar *condition)
                                        on_dbus_disappeared,
                                        cond,
                                        NULL);
+#else
+    /* No session bus there, so no name on it ever has an owner. Watching
+     * would start a bus just to say so. */
+    (void) on_dbus_appeared;
+    (void) on_dbus_disappeared;
+    priv->dbus_satisfied = FALSE;
+#endif
 
     g_strfreev (split);
 }

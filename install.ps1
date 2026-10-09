@@ -279,9 +279,10 @@ function fHoldersOf {
 	return @($names | Sort-Object -Unique)
 }
 
-## The session bus the app starts lives in the install folder and outlives the
-## window by a few seconds, so closing the app is not enough on its own. Wait it
-## out, then say what is actually holding the folder rather than blaming the app.
+## A copy that is closing takes a moment, and the session bus an older build
+## started lives in the install folder and outlives its window by a few seconds,
+## so closing the app is not enough on its own. Wait it out, then say what is
+## actually holding the folder rather than blaming the app.
 function fWaitUntilFree {
 	param([string]$Folder, [int]$Seconds = 10)
 	for ($i = 0; $i -lt $Seconds; $i++) {

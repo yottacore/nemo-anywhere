@@ -121,11 +121,13 @@ fRun fCheckOverwriteAsk
 ## between our own windows, which lists windows and opens a folder in a tab, and
 ## settings changes passed between our own copies, which only change what a
 ## copy holds in memory, the same as an edit to the settings file it watches.
-## None of them touches a file. Tests are left out: a test that stands in for
+## Activate is the actions call GLib's bus export answers, written out for the
+## Windows pipes, where the only action is quit (see fCheckAppActions). None
+## of them touches a file. Tests are left out: a test that stands in for
 ## another program's server is not something the app exports.
 ## Test ID: rh3qr9y8
 fCheckBusMethods(){
-	local allowed=' ShowFolders ShowItems ShowItemProperties ListWindows TakeTab TakeSettings '
+	local allowed=' ShowFolders ShowItems ShowItemProperties ListWindows TakeTab TakeSettings Activate '
 	local name bad=""
 
 	while read -r name; do
@@ -902,6 +904,36 @@ fCheckGlibSpawn(){
 	fi
 }
 fRun fCheckGlibSpawn
+
+## Nothing may ask for the session bus on Windows. GLib starts a bus of its own
+## there (gdbus.exe) the first time anything does, and the copies use named
+## pipes instead (nemo-instances-win32.c). The app also sets the bus address to
+## "disabled:" at startup, which is what keeps GApplication off it, but every
+## call that would ask is on this list with why Windows never reaches it.
+## Test ID: rjvmbv00
+fCheckSessionBus(){
+	local allowed=' '
+	allowed+='nemo-action.c:setup_dbus_condition '					# not on Windows, where the condition never passes
+	allowed+='nemo-file-utilities.c:get_dbus_connection '			# not on Windows
+	allowed+='nemo-previewer.c:nemo_previewer_init '				# same
+	allowed+='nemo-freedesktop-dbus.c:nemo_freedesktop_dbus_init '	# never made on Windows
+	allowed+='nemo-search-engine-tracker.c:nemo_search_engine_tracker_new '	# not built on Windows
+	local bad
+
+	bad="$(find source/src source/libnemo-private source/libnemo-extension source/eel source/archive-core \( -name '*.c' -o -name '*.h' \) -exec awk -v allowed="$allowed" '
+		FNR == 1 { fn = ""; base = FILENAME; sub(/.*\//, "", base) }
+		/^[a-zA-Z_][a-zA-Z0-9_]* *\(/ { fn = $1; sub(/\(.*/, "", fn) }
+		/(^|[^A-Za-z0-9_])(g_bus_(get|get_sync|own_name|own_name_with_closures|watch_name|watch_name_with_closures)|g_dbus_address_get_for_bus_sync|g_dbus_proxy_new_for_bus(_sync)?|g_dbus_object_manager_client_new_for_bus(_sync)?|[a-z0-9_]+_proxy_new_for_bus(_sync)?|tracker_sparql_connection_bus_new) *\(/ {
+			if (index(allowed, " " base ":" fn " ") == 0) print FILENAME ":" FNR ": " $0
+		}
+	' {} +)"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: a call that asks for the session bus, which on Windows starts one, and not on the list in lint-c.bash"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fRun fCheckSessionBus
 
 ## A right-click on a path button pops its menu inside the press. It used to
 ## wait for the folder's attributes and pop up from their callback, which came
