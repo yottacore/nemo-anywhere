@@ -33,77 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- Compression reset: link and filesystem choices in the archive options.
-	- ID: 2026100516274163
-	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Prereq IDs: 2026100516274126
-	- Target OS: Linux, Windows
-	- Design: [Link options](design_docs/20260929-101432_compression.md#link-options) and [Junction defaults](design_docs/20260929-101432_compression.md#junction-defaults).
-	- Requirements:
-		- Symlinks: Ignore, the default, Follow, or Store as symlinks.
-		- Junctions, Windows only: Ignore, Follow, Store as junctions, or Store as symlinks. Its default follows Symlinks by the table in the design. A hand change sticks.
-		- Follow nested filesystems, on by default. Follow other filesystems, never on by default.
-		- A store choice the writer can't do falls back to Ignore.
-		- These replace the store links and follow links options and their remembered values. Written in the core.
-		- Open: whether the old remembered values map over to the new choices.
-	- Decisions:
-		- 20261006: old remembered values map over. Store links on becomes Store as symlinks, follow links on becomes Follow, anything else Ignore. The old keys are dropped once read.
-		- 20261007: "never on by default" is read as never remembered. Every dialog starts with Follow other filesystems off.
-		- 20261007: an old store links that was never changed counts as on, its old default. So a file with only follow links on in it maps to Store as symlinks, which is what the job did with it.
-		- 20261007: Junctions is remembered as "like Symlinks" until it's changed by hand, so it keeps following the table until then.
-		- 20261007: which store choices a writer has comes from whether it claims to store links. The library keeps every link as a symlink, so a junction there can only be stored as a symlink. rar keeps a junction as a junction, per its own docs for `-ol`.
-		- 20261007: until the dialog and job items, the old dialog shows Ignore as both link boxes off. A new user's store box now starts off, where it used to start on. With both off, today's job puts a linked file's content in and leaves linked folders out, so an archive made with the defaults no longer keeps links. 2026100516274423 makes Ignore leave every link out.
-	- Estimated effort: Avg
-	- Actual effort: Avg
-	- Progress log:
-		- 20261007-204818: built. Left at signoff for the interim default above.
-	- Done: the choices are in the core, `arc-link-options.h`, with the junction defaults table and the fall back to Ignore. A choice the writer can't do reads as Ignore for that writer but is kept, so a format that can do it gets it back. The remembered values are new settings `last-symlinks`, `last-junctions` and `last-follow-nested`. `nemo-archive-host.c` reads and writes them and maps the old 2 over. The old dialog and job go on through the Symlinks choice: Store is the store box, Follow the follow box.
-	- Swept: every place that read or wrote the old 2 keys, which was only the Compress dialog and the settings test. The only defaults the job takes come through the dialog. Junctions and the filesystem options don't reach the job yet.
-	- Verified: 20261007, Linux build with warnings as errors, full Linux suite 181 of 181, the Windows cross build, lint clean apart from rj3ytv0b. rjq9mv0w, rhae85g0 and the schema test pass under wine.
-	- Needs external testing: what rar and the library do with a junction when storing links is from their docs and code, not seen on Windows. 2026100516274423 is where it gets used.
-	- Branch: arclinks2
-	- Commit: 9f5b8c6
-	- Test case: rjq9mv0w, Archive core test, for the junction defaults table, the fall back to Ignore, a hand change sticking, and the follow bits. rhae85g0, Archive settings test, for the old values mapped over and dropped in each mix, what is and isn't remembered, and the fall back agreeing with each writer's claim for every format.
-
-- Compression reset: the background scan behind the size totals.
-	- ID: 2026100516274275
-	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Needs local test suite run?: Yes. The 19 archive, config, share and scratch tests passed; the rest of the suite was not run.
-	- Needs external testing: a native Windows suite run where symlinks can be made (Developer Mode, or elevated), for the symlink, junction and junction loop rows of rjqef159. wine says yes to a symlink and makes nothing, and makes no junction, so only plain folders, the made-up mounts and the share were seen there. By hand on vm925w: a small volume, such as a VHD, mounted at a folder inside itself, scanned with every option on. The scan ends and each file counts once.
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Prereq IDs: 2026100516274163, 2026100516274200, 2026100516274237
-	- Target OS: Linux, Windows
-	- Design: [Background scan](design_docs/20260929-101432_compression.md#background-scan).
-	- Requirements:
-		- Walks the selection and everything below it by the 4 follow options, and hands each path to the path list with its flags.
-		- Canonical paths. A link loop still ends. A `.lnk` is never followed.
-		- An option made less inclusive mid-scan backs out of the paths it now leaves out, without stopping. One made more inclusive restarts the scan, which adds only paths not seen yet.
-		- Reports changed totals through a callback, at most every 0.25 s.
-		- Cancel stops it and frees the list and the totals. Written in the core.
-		- Open: whether the scan may follow a link onto a network share before OK, given the share rule.
-	- Decisions:
-		- 20261006: the scan behind the live totals never follows a link onto a share before OK. The total says it leaves that out. OK is the user action, so the job's own pre-scan follows it.
-		- 20261007: a share mounted in a folder is left out before OK too, the same as a link onto one, and counted with them. The folder it's in is listed by names only, so the share isn't looked at.
-		- 20261007: a selected folder that is itself a mount point, such as a USB drive's folder, needs its filesystem option, since the path from the folder the selection is in crosses into it. With Follow other filesystems off it adds nothing to the total.
-	- Estimated effort: High
-	- Actual effort: High
-	- Progress log:
-		- 20261007-213500: built in the core, with the app's walk and share check in its host. Left at signoff for the 2 calls under Decisions.
-	- Done: `source/archive-core/arc-scan.h`. It walks on its own thread and reports changed totals to the thread that started it, at most every 0.25 s. A folder is known by its file ID, keeps the first path it's found by, and isn't walked again by a path that needs no fewer options, which is what ends a loop. A link's target is read a name at a time and checked for a share at each link on the way. Turning an option off backs the walk out of what needs it; turning one on starts it again unless a finished walk already covered it. Freeing it stops it and frees the list and totals. `arc-entry-win32.c` reads a reparse point to tell a junction, a symlink and a volume's mount point apart. The host gained a share check, which nemo answers through `nemo-share.c`, and `nemo_archive_host_init` fills in nemo's walk and share check.
-	- Note: the count of what was left out for being on a share goes by where it leads, so 2 links to one place count once.
-	- Swept: nothing walked for the size totals before. The job's own walks in `nemo-archive.c`, for its list of what goes in and for the delete check, move onto this scan in 2026100516274423.
-	- Verified: 20261007, Linux build with warnings as errors, the Windows cross build, lint clean apart from rj3ytv0b. rjqef159 and rjq9mv0w pass on Linux, under ASan and UBSan with the leak check, with 12 copies of rjqef159 at once, and under wine. The 19 archive, config, share and scratch tests pass.
-	- Branch: arcscan
-	- Commit: 47a9ad0
-	- Test case: rjqef159, Archive scan test. A scratch tree with folder and file links, a link back up that loops, a link to itself, one that leads nowhere, a `.lnk`, made-up nested, other and share mounts, a link chain onto the share, and on Windows a junction and a junction loop. Every mix's totals, changes, file and share counts, an option turned off and one turned on mid-scan, a folder reached by a link before and after its own path, the gap between reports, Cancel from outside and inside a report, a host with no walk or share check, and the app's own host. rjq9mv0w gained the share check's fallback and forwarding.
-
 - After an `smb://` address is typed, nothing shows that the app is working on it.
 	- ID: 2026100816170921
 	- Type: Bug
@@ -143,77 +72,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: smbbusy
 	- Commit: 41adfa7
 	- Test case: rjv9ks2z, Connecting sign while a share mounts test. An `smb://` mount answers only when the test says so. It checks the sign and the host it names, the pointer, that the window still takes input, Escape, and the sign going away after a stop and after a failed mount. It also checks the host named for a set of addresses, and that a local folder shows no sign. rhtwm2c8 checks the server named for a UNC path on Windows.
-
-- Read the thumbnail and the text of OOXML, OpenDocument and EPUB files inside the app.
-	- ID: 2026100909260472
-	- Type: Enhancement
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 185 of 185.
-	- Needs external testing: done 20261009 on vm925w. It was: rjvb97aa natively on vm925w. Then the single exe in the desktop session on vm925w with MacType running: a .docx, .odt and .epub that have a thumbnail inside, in the icon view, and a content search through them. Thumbnails and matches, and no box.
-	- Priority|Severity: Avg
-	- Opened: 20261009-092605
-	- Opened by: 2026100617051745
-	- Parent ID: 2026100617051745
-	- Related IDs: 2026100909260511, 2026100909260549
-	- Target OS: All
-	- Requirements:
-		- These are zip files, read through libarchive, which the app already links.
-		- The thumbnail stored in the file: `Thumbnails/thumbnail.png` in OpenDocument, the package's thumbnail part in OOXML, and the cover image in EPUB.
-		- The text for content search, as `nemo-anywhere-mso-to-txt` gives it today.
-		- For these types the app's reader comes before any installed thumbnailer or search helper.
-		- A bad file must never crash the app. Every read is checked against the file's bounds, sizes, counts and nesting depth are capped, and no length the file gives is trusted. The readers are in the fuzz stage and the sanitizer suite, and run off the window's thread.
-	- Estimated effort: Avg
-	- Progress log:
-		- 20261009: done. A new reader in the app takes OpenDocument and its templates, OOXML with its templates and macro-enabled kinds, and EPUB. The thumbnail factory asks it before any thumbnailer, and content search before any helper. The picture is fitted to the size asked for, up as well as down, as the gsf-office thumbnailer did. Only PNG and JPEG are drawn, so an OOXML thumbnail kept as WMF or EMF still goes to an installed thumbnailer.
-		- 20261009: a file of these types that has no thumbnail inside, or doesn't read as a zip, still goes on to an installed thumbnailer. For search only a file that doesn't read as a zip goes on to the helpers. Those fall-backs go with the programs in 2026100909260549.
-		- 20261009: the text is what the converter gave, run a piece at a time rather than on the whole file. One difference: a tag left open at the very end is dropped, where the converter kept it as text.
-	- Decisions:
-		- 20261009: no nesting depth to cap here. Members are not opened inside members, and the tag stripping keeps no stack. The caps are the members walked, the bytes unpacked, each index file and picture, the path length and parts, and the picture's sides and pixels, checked from its header before it is decoded.
-	- Verified: rjvb97aa fails with the factory and the search engine as on dev, on Linux and under wine: no thumbnail, no match, and the stand-in helpers ran. It passes with them. rjvb97aa and the fuzz seed replay pass under the sanitizer build, with rfhnaccg and redrqe60. The fuzz target ran 5 minutes, about 6.5 million inputs, with no find. rjmc40ex passes under wine. Full Linux suite 185 of 185. Windows cross build clean.
-	- Verified: 20261009, Windows, on vm925w. rjvb97aa and rjvb97bb pass in the native suite at 398c999 and again at 49a54f8. The single exe built at 49a54f8, in the desktop session with MacType running and loaded into the app, drew the pictures stored in a .docx, an .odt and an .epub in the icon view. A content search found a word in all 3, and another word only in the .odt. The app started no other program, and no box came up.
-	- Note: 20261009, cppcheck 2.21 from MSYS2 on vm925w, over the whole tree, flags `test-nemo-office.c:495`: the return value of `g_file_set_contents` is not used. cppcheck 2.17 on Linux finds nothing there. A branch only lints its own changed files, so this shows on Windows only for a push to dev or main.
-	- Note: rjcbfcx7, the fuzz exit check, now expects fuzz-office too. It reads the seeds from the clone the shared build container has, so it fails until the new seeds are there. It passed run against this branch.
-	- Swept: every place that picks a thumbnailer or a search helper by type: the factory's `can_make` and its generate, and the search walk. The Windows index search reads no files itself. `nemo_can_thumbnail_internally` covers pictures only.
-	- Branch: offzip
-	- Commit: 5f51e63, 60d342a
-	- Test case: rjvb97aa, Office files read in the app test. A small .docx, .xlsx, .pptx, .odt, .ods, .odp, .odg and 2 EPUBs, written for the purpose, each give their own picture through the thumbnail factory, at the size asked for, and their text through the reader and through a real content search. A stand-in thumbnailer and search helper for all these types leave a mark if run, and none may. Then cut short and bit-flipped files. rjvb97bb replays the fuzz seeds, and rjvb97cb is the fuzz target.
-	- Acceptance signoff: Self-closed: rjvb97aa passes natively, and the thumbnails and search were seen working on Windows with MacType running.
-	- Closed: 20261009-133954
-
-- A settings change in one copy of the app shows in every other running copy at once.
-	- ID: 2026100907390779
-	- Type: Enhancement
-	- Status: Done
-	- Needs external testing: done 20261009 on vm925w. It was: 2 copies of the app on vm925w with a setting changed in one, seen in the other before the save. rjvdch2z is Linux and BSD only since 2026100815215479. On Windows a settings change going across is checked by rjvks1yf.
-	- Priority|Severity: Avg
-	- Opened: 20261009-073907
-	- Opened by: t00mietum
-	- Related IDs: 2026100815215479, 2026100816170959
-	- Target OS: All
-	- Requirements:
-		- A change made in one copy applies to every other running copy right away, with no wait for the settings file to be saved and noticed.
-		- Exception, for a randomly picked wallpaper if that gets added. A change in another copy doesn't pick a new one, unless:
-			- One specific file was picked. Then every copy shows it.
-			- The folder or path changed. Then each copy picks again. With "random per window/tab/pane" on, each window, tab or pane gets its own pseudorandom pick.
-		- With every window in one process this comes for free. With a process per window, tell the other copies over the same channel the tab moves use, rather than through the settings file.
-	- Note: today the other copies only see a change through the file watch, after the 2 s save delay plus however long the watch takes. Watching the file stays, for hand edits.
-	- Progress log:
-		- 20261009: done. A change goes to the other copies through the same calls quit and the tab move use, so 2026100815215479 moves it to named pipes with the rest. How the edge cases go:
-			- A copy that takes a change never saves for it. It writes it only along with a change of its own, the same as the sender would.
-			- 2 copies changing one setting at once both end with the later change, and so does the file. If the copy that lost had saved first, the one that won saves again.
-			- A copy still starting gets the change from the file after the save. A copy that quits sends what it hasn't sent yet, then saves. If the sender crashes before its save, the others keep the change in memory and write it with their next change.
-			- The file watch seeing the same change again takes nothing and runs no handlers. A hand edit read before the sender's save keeps the change.
-			- A setting going back to its default goes over as a removed line, ready for 2026100816170959.
-			- Random wallpaper: not applicable yet, since that feature isn't built.
-	- Verified: rjvdch2z passes on Linux, also with the CPUs loaded, and under wine. It fails with the copies not sharing (the change only shows 2 to 2.6 s later, once the file has it), with the newer-change check taken out, with the receiving copy saving, with taken values dropped on a reload, and with the stale save left in the file. Full Linux suite, quit and tab move included, and the Windows cross build pass with warnings as errors. Lint clean.
-	- Verified: 20261009, Windows, on vm925w. rjvks1yf, which checks a settings change going across, passes in the native suite at 398c999 and again at 49a54f8. With 3 copies from the release zip at 398c999 in the desktop session, the statusbar turned off in one was gone from the other 2 within 0.7 s, while the settings file still had its old time. The save came about 2.5 s after the change.
-	- Note: 20261009, cppcheck 2.21 from MSYS2 on vm925w, over the whole tree, flags `test-nemo-config-share.c:174` and `:176` as leaks, a `g_strdup` handed to `g_idle_add`. Not looked into. cppcheck 2.17 on Linux finds nothing there. A branch only lints its own changed files, so this shows on Windows only for a push to dev or main.
-	- Swept: every setter, reset and the drop of a default value go through one place. Quit now sends through the same call as settings. The other stores beside the settings file, such as shortcuts and bookmarks, don't share; not asked for.
-	- Branch: livecfg
-	- Commit: 0113cc1
-	- Test case: rjvdch2z, Settings shared between copies test. 2 copies on one bus and one settings file. A set, a reset and a list reach the other copy before the save, and its handler runs once. The copy that only took a change never writes it, even when the sender dies first. Both copies setting one key at once agree, before and after the saves, also when the losing copy saved last. A hand edit read before the save keeps the change, and a change made just before quitting still arrives.
-	- Acceptance signoff: Self-closed: rjvdch2z passes on Linux, rjvks1yf natively on Windows, and a change was seen reaching the other copies on Windows before the save.
-	- Closed: 20261009-133954
 
 - On Windows, let the copies of the app talk to each other with no session bus.
 	- ID: 2026100815215479
@@ -262,6 +120,42 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: f721cc6
 	- Test case: rjvks1yf, Copies reach each other with no bus win32 test, Windows only. 2 copies of the app list each other, a third refuses `--reset`, a tab moves into one, and a settings change made by the test reaches both before any save. `--quit` ends both, and a killed copy leaves nothing behind. No `gdbus.exe` may start under any of them, no bus may come up, and no nonce file may be left. Also lint rjvmbv00.
 
+- Compression reset: link and filesystem choices in the archive options.
+	- ID: 2026100516274163
+	- Type: Enhancement
+	- Status: Waiting on signoff
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274126
+	- Target OS: Linux, Windows
+	- Design: [Link options](design_docs/20260929-101432_compression.md#link-options) and [Junction defaults](design_docs/20260929-101432_compression.md#junction-defaults).
+	- Requirements:
+		- Symlinks: Ignore, the default, Follow, or Store as symlinks.
+		- Junctions, Windows only: Ignore, Follow, Store as junctions, or Store as symlinks. Its default follows Symlinks by the table in the design. A hand change sticks.
+		- Follow nested filesystems, on by default. Follow other filesystems, never on by default.
+		- A store choice the writer can't do falls back to Ignore.
+		- These replace the store links and follow links options and their remembered values. Written in the core.
+		- Open: whether the old remembered values map over to the new choices.
+	- Decisions:
+		- 20261006: old remembered values map over. Store links on becomes Store as symlinks, follow links on becomes Follow, anything else Ignore. The old keys are dropped once read.
+		- 20261007: "never on by default" is read as never remembered. Every dialog starts with Follow other filesystems off.
+		- 20261007: an old store links that was never changed counts as on, its old default. So a file with only follow links on in it maps to Store as symlinks, which is what the job did with it.
+		- 20261007: Junctions is remembered as "like Symlinks" until it's changed by hand, so it keeps following the table until then.
+		- 20261007: which store choices a writer has comes from whether it claims to store links. The library keeps every link as a symlink, so a junction there can only be stored as a symlink. rar keeps a junction as a junction, per its own docs for `-ol`.
+		- 20261007: until the dialog and job items, the old dialog shows Ignore as both link boxes off. A new user's store box now starts off, where it used to start on. With both off, today's job puts a linked file's content in and leaves linked folders out, so an archive made with the defaults no longer keeps links. 2026100516274423 makes Ignore leave every link out.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Progress log:
+		- 20261007-204818: built. Left at signoff for the interim default above.
+	- Done: the choices are in the core, `arc-link-options.h`, with the junction defaults table and the fall back to Ignore. A choice the writer can't do reads as Ignore for that writer but is kept, so a format that can do it gets it back. The remembered values are new settings `last-symlinks`, `last-junctions` and `last-follow-nested`. `nemo-archive-host.c` reads and writes them and maps the old 2 over. The old dialog and job go on through the Symlinks choice: Store is the store box, Follow the follow box.
+	- Swept: every place that read or wrote the old 2 keys, which was only the Compress dialog and the settings test. The only defaults the job takes come through the dialog. Junctions and the filesystem options don't reach the job yet.
+	- Verified: 20261007, Linux build with warnings as errors, full Linux suite 181 of 181, the Windows cross build, lint clean apart from rj3ytv0b. rjq9mv0w, rhae85g0 and the schema test pass under wine.
+	- Needs external testing: what rar and the library do with a junction when storing links is from their docs and code, not seen on Windows. 2026100516274423 is where it gets used.
+	- Branch: arclinks2
+	- Commit: 9f5b8c6
+	- Test case: rjq9mv0w, Archive core test, for the junction defaults table, the fall back to Ignore, a hand change sticking, and the follow bits. rhae85g0, Archive settings test, for the old values mapped over and dropped in each mix, what is and isn't remembered, and the fall back agreeing with each writer's claim for every format.
+
 - On Windows, the trash icon leaves out removable drives.
 	- ID: 2026100708294146
 	- Type: Bug
@@ -286,39 +180,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: winlow
 	- Commit: 0dab690
 	- Test case: rjhvmm6f, Mapped drive not asked, new bin cases: a fixed drive's bin is asked, a removable one's only with a disk in it, an empty drive answers in under 2 s, and no share or optical drive is asked.
-
-- Compression reset: 7-Zip first for 7z, and `-spd` on an edited 7-Zip line.
-	- ID: 2026100516274312
-	- Type: Enhancement
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 180 of 180.
-	- Needs external testing: done 20261009 on vm925w and b29w. It was: rev86z08 and rhr6ggmt natively on vm925w, with 7-Zip installed. There a 7z that stores links goes to the library and has to keep them.
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Related IDs: 2026092813381416
-	- Target OS: Linux, Windows
-	- Design: [7-Zip first for 7z](design_docs/20260929-101432_compression.md#7-zip-first-for-7z) and [Wildcards in an edited 7-Zip line](design_docs/20260929-101432_compression.md#wildcards-in-an-edited-7-zip-line).
-	- Requirements:
-		- Where 7-Zip is installed, a 7z job goes to it rather than the library, on as many threads as the settings allow. Its own percent done moves the progress bar.
-		- The library still writes 7z when 7-Zip isn't installed, or when the job stores links on Windows. That job runs on one thread.
-		- `-spd` is added at run time when the line runs 7-Zip and doesn't have it, for compress and for the archive's path when extracting. The saved line isn't changed, and a line that runs another program is left alone.
-	- Estimated effort: Avg
-	- Progress log:
-		- 20261007: 7z goes to 7-Zip first. The library's 7z writer now offers storing links, so on Windows a 7z job that stores links goes to it, on one thread. A 7-Zip line gets `-spd` at run time when it lacks it, for compress, the links run, and extract.
-	- Decisions:
-		- 20261007: when no writer can do every preference, storing links is the last one given up, since it changes what goes in. So on Windows a solid 7z that stores links goes to the library and isn't solid.
-		- 20261007: a line runs 7-Zip when its program is named 7z, 7za, 7zr, 7zz or 7zG, with or without `.exe`. A line that starts some other program first, such as `nice 7z`, is left alone.
-	- Verified: rev86z08, rhr6ggmt and reww9h2s fail with the run-time switch and the 7-Zip-first order taken out, and pass with them. Full Linux suite 180 of 180. Windows cross build clean, and rev86z08 passes under wine, which has no 7-Zip.
-	- Swept: both builders that turn a settings line into a command, the compress one (real run and links run) and the extract one. The tests that wanted the library's 7z writer (rjbpyy28, rjbw0rkq and the library rows of rhr6ggmt) now hide 7-Zip to reach it.
-	- Branch: runflags
-	- Commit: f079fde
-	- Note: 20261007, in the pipeline's native suite on b29w at 7c1debd, rev86z08 and reww9h2s passed, and rhr6ggmt failed only its rar row (2026100516274349). Whether b29w has 7-Zip was not checked, so this stays here.
-	- Note: 20261009, both vm925w and b29w have 7-Zip installed, in `C:\Program Files\7-Zip`, with a shim for it on PATH. So the b29w run above had it too.
-	- Verified: 20261009, natively on vm925w at 398c999, rev86z08 passes and rhr6ggmt's 7z rows pass, the library 7z row that stores links included. rhr6ggmt failed only its rar row (2026100516274349). At 49a54f8 both pass whole, on vm925w and on b29w.
-	- Test case: rev86z08, Archive options test, for which writer gets 7z and for the added `-spd`, directly and through edited lines. rhr6ggmt, the `*` and `?` rows again with a 7-Zip line without `-spd`, and a library 7z row that stores links. reww9h2s, an `s?.7z` extracted with an edited 7-Zip line.
-	- Acceptance signoff: Self-closed: works as the design says, and rev86z08 and rhr6ggmt pass natively with 7-Zip installed.
-	- Closed: 20261009-133954
 
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440
@@ -480,6 +341,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: rjmc40ex skips when no gsf-office thumbnailer is found, but its .odt now gets its thumbnail from the app's reader. Its skip goes, and its check that a thumbnailer is found by extension needs another type.
 	- Test case: still needs one. A check that no program is started for an office file, for thumbnails and for content search, and a bundle check that none of these files are in it.
 
+- On Windows, cppcheck 2.21 finds 3 things in 2 test files that the Linux lint passes.
+	- ID: 2026100914350100
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261009-143501
+	- Opened by: 2026100815215479
+	- Target OS: Windows
+	- Steps to reproduce: a whole-tree `lint-c.bash` on vm925w, whose MSYS2 has cppcheck 2.21.
+	- Incorrect behavior: `test-nemo-config-share.c:174` and `:176` report leakNoVarFunctionCall for a `g_strdup` handed to `g_idle_add`. `test-nemo-office.c:495` reports ignoredReturnValue for `g_file_set_contents`. Linux has cppcheck 2.17 and finds none of them. Only a push on dev or main lints the whole tree there, so a Windows push of either would stop on these.
+	- Expected behavior: both lints pass the same tree.
+	- Reproduced: 20261009 on vm925w.
+	- Note: b29w's MSYS2 has no `cmp`, so rjnyer4p fails 2 cases there and its lint stage stops. diffutils needs to go on that box.
+	- Test case: the C lint stage on Windows, whole tree.
+
 - On Windows, programs the app starts get its session bus switched off.
 	- ID: 2026100912374782
 	- Type: Bug
@@ -537,6 +413,42 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Everywhere the app says Preferences, it says Settings: menus, the dialog's title, and the docs.
 	- Note: the file is already `settings.shcl`.
 	- Test case: still needs one.
+
+- Compression reset: the background scan behind the size totals.
+	- ID: 2026100516274275
+	- Type: Enhancement
+	- Status: Queued
+	- Needs local test suite run?: Yes. The 19 archive, config, share and scratch tests passed; the rest of the suite was not run.
+	- Needs external testing: a native Windows suite run where symlinks can be made (Developer Mode, or elevated), for the symlink, junction and junction loop rows of rjqef159. wine says yes to a symlink and makes nothing, and makes no junction, so only plain folders, the made-up mounts and the share were seen there. By hand on vm925w: a small volume, such as a VHD, mounted at a folder inside itself, scanned with every option on. The scan ends and each file counts once.
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274163, 2026100516274200, 2026100516274237
+	- Target OS: Linux, Windows
+	- Design: [Background scan](design_docs/20260929-101432_compression.md#background-scan).
+	- Requirements:
+		- Walks the selection and everything below it by the 4 follow options, and hands each path to the path list with its flags.
+		- Canonical paths. A link loop still ends. A `.lnk` is never followed.
+		- An option made less inclusive mid-scan backs out of the paths it now leaves out, without stopping. One made more inclusive restarts the scan, which adds only paths not seen yet.
+		- Reports changed totals through a callback, at most every 0.25 s.
+		- Cancel stops it and frees the list and the totals. Written in the core.
+		- Open: whether the scan may follow a link onto a network share before OK, given the share rule.
+	- Decisions:
+		- 20261006: the scan behind the live totals never follows a link onto a share before OK. The total says it leaves that out. OK is the user action, so the job's own pre-scan follows it.
+		- 20261007: a share mounted in a folder is left out before OK too, the same as a link onto one, and counted with them. The folder it's in is listed by names only, so the share isn't looked at.
+		- 20261007: a selected folder that is itself a mount point, such as a USB drive's folder, needs its filesystem option, since the path from the folder the selection is in crosses into it. With Follow other filesystems off it adds nothing to the total.
+	- Estimated effort: High
+	- Actual effort: High
+	- Progress log:
+		- 20261007-213500: built in the core, with the app's walk and share check in its host. Left at signoff for the 2 calls under Decisions.
+		- 20261009: back to Queued. rjqef159 fails natively on vm925w and b29w, the first native run it's had. Totals come out 8192 bytes high for several mixes, such as `mix 15, sub-mix 9: 31487 for 23295`, and the file count for the mix is off. 6 checks fail each run. Not looked into yet. The by-hand VHD check waits on this.
+	- Done: `source/archive-core/arc-scan.h`. It walks on its own thread and reports changed totals to the thread that started it, at most every 0.25 s. A folder is known by its file ID, keeps the first path it's found by, and isn't walked again by a path that needs no fewer options, which is what ends a loop. A link's target is read a name at a time and checked for a share at each link on the way. Turning an option off backs the walk out of what needs it; turning one on starts it again unless a finished walk already covered it. Freeing it stops it and frees the list and totals. `arc-entry-win32.c` reads a reparse point to tell a junction, a symlink and a volume's mount point apart. The host gained a share check, which nemo answers through `nemo-share.c`, and `nemo_archive_host_init` fills in nemo's walk and share check.
+	- Note: the count of what was left out for being on a share goes by where it leads, so 2 links to one place count once.
+	- Swept: nothing walked for the size totals before. The job's own walks in `nemo-archive.c`, for its list of what goes in and for the delete check, move onto this scan in 2026100516274423.
+	- Verified: 20261007, Linux build with warnings as errors, the Windows cross build, lint clean apart from rj3ytv0b. rjqef159 and rjq9mv0w pass on Linux, under ASan and UBSan with the leak check, with 12 copies of rjqef159 at once, and under wine. The 19 archive, config, share and scratch tests pass.
+	- Branch: arcscan
+	- Commit: 47a9ad0
+	- Test case: rjqef159, Archive scan test. A scratch tree with folder and file links, a link back up that loops, a link to itself, one that leads nowhere, a `.lnk`, made-up nested, other and share mounts, a link chain onto the share, and on Windows a junction and a junction loop. Every mix's totals, changes, file and share counts, an option turned off and one turned on mid-scan, a folder reached by a link before and after its own path, the gap between reports, Cancel from outside and inside a report, a host with no walk or share check, and the app's own host. rjq9mv0w gained the share check's fallback and forwarding.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
@@ -742,37 +654,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- After this the core has no GTK and no nemo types, and its build shows it.
 	- Estimated effort: High
 	- Test case: none new. reww9h2r, reww9h2s and the extract leak test rjbpmcxy stay as they are, and pass before and after.
-
-- Compression reset: `-r0` on an edited rar line.
-	- ID: 2026100516274349
-	- Type: Enhancement
-	- Status: Done
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Related IDs: 2026100410431108
-	- Target OS: Linux, Windows
-	- Design: [Recursion in an edited rar line](design_docs/20260929-101432_compression.md#recursion-in-an-edited-rar-line).
-	- Requirements:
-		- `-r0` is added at run time when the compress line runs rar, after anything the line has, so an `-r` left in it no longer takes same-named files from the folders below.
-		- The saved line isn't changed. The extract lines never had `-r`.
-	- Estimated effort: Low
-	- Progress log:
-		- 20261007: `-r0` goes in at run time, last before the `--`, on every compress line that runs rar or WinRAR.
-	- Verified: with an edited line that keeps `-r`, rhr6ggmt took `sub/a.txt` too before the fix and passes after. rev86z08 the same. Full Linux suite 180 of 180.
-	- Note: rar on Windows not run. rar.txt is one file for every platform and says the same there.
-	- Swept: the compress builder covers the real run and the links run. The extract lines get no `-r0`.
-	- Branch: runflags, wintests
-	- Commit: f079fde, 49a54f8
-	- Note: 20261007, reopened. In the pipeline's native suite on b29w at 7c1debd, rhr6ggmt failed its `beside-rar` row on both passes: rar there took `sub/a.txt` beside the picked `a.txt`. That row passed natively before `-r0` went in. Not fixed yet.
-	- Reproduced: 20261009, natively on vm925w and b29w at 398c999, the same row on both passes.
-	- Actual cause: on both boxes PATH finds a `rar.cmd` wrapper, and WinRAR's own folder isn't on PATH. The check for which program a line runs only took `.exe` off the name, so `rar.cmd` didn't count as rar and no `-r0` went in. rar 7.23 itself takes `-r0` on Windows as it does on Linux, run directly and through the wrapper.
-	- Actual fix: on Windows, any `PATHEXT` extension comes off the program's name before it is matched, so a `rar.cmd` or `7z.bat` counts as the program it wraps. Elsewhere only `.exe` comes off, as before. The same check picks 7-Zip lines for `-spd`.
-	- Swept: the one check serves the compress builder, its links run and the extract builder. Nothing else in the app tells programs apart by name.
-	- Verified: 20261009, rev86z08's new Windows cases fail under wine without the fix, 2 checks, and pass with it. rhr6ggmt passes natively at 49a54f8 on vm925w and b29w, and rev86z08 on both. The Linux build with warnings as errors is clean, rev86z08 passes there, and the whole-tree C lint is clean.
-	- Test case: rev86z08, Archive options test, for the added `-r0` after an `-r`, and none on the extract lines. On Windows also a `rar.cmd` and a `7Z.Bat` wrapper, and a `rar.txt` that isn't one. rhr6ggmt, the picked `a.txt` beside `sub/a.txt` rows again with an edited rar line that keeps `-r`.
-	- Acceptance signoff: Self-closed: reproduced on both boxes, the new rev86z08 cases fail before the fix and pass after, and rhr6ggmt passes natively.
-	- Closed: 20261009-133954
 
 - On Windows the gate says the build is not set up with `-Werror` when it is.
 	- ID: 2026100518100000
@@ -1690,6 +1571,77 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: `test-nemo-psd`: rows at the least length are read, one byte less is refused, and a file of empty rows, 30000 by 30000 as psd and 60000 by 60000 as psb, is refused in under a second. Fuzz seed `zero-rows`, and `short-literal` reworked so it still reaches the literal-run bound.
 	- Branch: psdrows
 	- Commit: 24d99cd
+
+- Read the thumbnail and the text of OOXML, OpenDocument and EPUB files inside the app.
+	- ID: 2026100909260472
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 185 of 185.
+	- Needs external testing: done 20261009 on vm925w. It was: rjvb97aa natively on vm925w. Then the single exe in the desktop session on vm925w with MacType running: a .docx, .odt and .epub that have a thumbnail inside, in the icon view, and a content search through them. Thumbnails and matches, and no box.
+	- Priority|Severity: Avg
+	- Opened: 20261009-092605
+	- Opened by: 2026100617051745
+	- Parent ID: 2026100617051745
+	- Related IDs: 2026100909260511, 2026100909260549
+	- Target OS: All
+	- Requirements:
+		- These are zip files, read through libarchive, which the app already links.
+		- The thumbnail stored in the file: `Thumbnails/thumbnail.png` in OpenDocument, the package's thumbnail part in OOXML, and the cover image in EPUB.
+		- The text for content search, as `nemo-anywhere-mso-to-txt` gives it today.
+		- For these types the app's reader comes before any installed thumbnailer or search helper.
+		- A bad file must never crash the app. Every read is checked against the file's bounds, sizes, counts and nesting depth are capped, and no length the file gives is trusted. The readers are in the fuzz stage and the sanitizer suite, and run off the window's thread.
+	- Estimated effort: Avg
+	- Progress log:
+		- 20261009: done. A new reader in the app takes OpenDocument and its templates, OOXML with its templates and macro-enabled kinds, and EPUB. The thumbnail factory asks it before any thumbnailer, and content search before any helper. The picture is fitted to the size asked for, up as well as down, as the gsf-office thumbnailer did. Only PNG and JPEG are drawn, so an OOXML thumbnail kept as WMF or EMF still goes to an installed thumbnailer.
+		- 20261009: a file of these types that has no thumbnail inside, or doesn't read as a zip, still goes on to an installed thumbnailer. For search only a file that doesn't read as a zip goes on to the helpers. Those fall-backs go with the programs in 2026100909260549.
+		- 20261009: the text is what the converter gave, run a piece at a time rather than on the whole file. One difference: a tag left open at the very end is dropped, where the converter kept it as text.
+	- Decisions:
+		- 20261009: no nesting depth to cap here. Members are not opened inside members, and the tag stripping keeps no stack. The caps are the members walked, the bytes unpacked, each index file and picture, the path length and parts, and the picture's sides and pixels, checked from its header before it is decoded.
+	- Verified: rjvb97aa fails with the factory and the search engine as on dev, on Linux and under wine: no thumbnail, no match, and the stand-in helpers ran. It passes with them. rjvb97aa and the fuzz seed replay pass under the sanitizer build, with rfhnaccg and redrqe60. The fuzz target ran 5 minutes, about 6.5 million inputs, with no find. rjmc40ex passes under wine. Full Linux suite 185 of 185. Windows cross build clean.
+	- Verified: 20261009, Windows, on vm925w. rjvb97aa and rjvb97bb pass in the native suite at 398c999 and again at 49a54f8. The single exe built at 49a54f8, in the desktop session with MacType running and loaded into the app, drew the pictures stored in a .docx, an .odt and an .epub in the icon view. A content search found a word in all 3, and another word only in the .odt. The app started no other program, and no box came up.
+	- Note: 20261009, cppcheck 2.21 from MSYS2 on vm925w, over the whole tree, flags `test-nemo-office.c:495`: the return value of `g_file_set_contents` is not used. cppcheck 2.17 on Linux finds nothing there. A branch only lints its own changed files, so this shows on Windows only for a push to dev or main.
+	- Note: rjcbfcx7, the fuzz exit check, now expects fuzz-office too. It reads the seeds from the clone the shared build container has, so it fails until the new seeds are there. It passed run against this branch.
+	- Swept: every place that picks a thumbnailer or a search helper by type: the factory's `can_make` and its generate, and the search walk. The Windows index search reads no files itself. `nemo_can_thumbnail_internally` covers pictures only.
+	- Branch: offzip
+	- Commit: 5f51e63, 60d342a
+	- Test case: rjvb97aa, Office files read in the app test. A small .docx, .xlsx, .pptx, .odt, .ods, .odp, .odg and 2 EPUBs, written for the purpose, each give their own picture through the thumbnail factory, at the size asked for, and their text through the reader and through a real content search. A stand-in thumbnailer and search helper for all these types leave a mark if run, and none may. Then cut short and bit-flipped files. rjvb97bb replays the fuzz seeds, and rjvb97cb is the fuzz target.
+	- Acceptance signoff: Self-closed: rjvb97aa passes natively, and the thumbnails and search were seen working on Windows with MacType running.
+	- Closed: 20261009-133954
+
+- A settings change in one copy of the app shows in every other running copy at once.
+	- ID: 2026100907390779
+	- Type: Enhancement
+	- Status: Done
+	- Needs external testing: done 20261009 on vm925w. It was: 2 copies of the app on vm925w with a setting changed in one, seen in the other before the save. rjvdch2z is Linux and BSD only since 2026100815215479. On Windows a settings change going across is checked by rjvks1yf.
+	- Priority|Severity: Avg
+	- Opened: 20261009-073907
+	- Opened by: t00mietum
+	- Related IDs: 2026100815215479, 2026100816170959
+	- Target OS: All
+	- Requirements:
+		- A change made in one copy applies to every other running copy right away, with no wait for the settings file to be saved and noticed.
+		- Exception, for a randomly picked wallpaper if that gets added. A change in another copy doesn't pick a new one, unless:
+			- One specific file was picked. Then every copy shows it.
+			- The folder or path changed. Then each copy picks again. With "random per window/tab/pane" on, each window, tab or pane gets its own pseudorandom pick.
+		- With every window in one process this comes for free. With a process per window, tell the other copies over the same channel the tab moves use, rather than through the settings file.
+	- Note: today the other copies only see a change through the file watch, after the 2 s save delay plus however long the watch takes. Watching the file stays, for hand edits.
+	- Progress log:
+		- 20261009: done. A change goes to the other copies through the same calls quit and the tab move use, so 2026100815215479 moves it to named pipes with the rest. How the edge cases go:
+			- A copy that takes a change never saves for it. It writes it only along with a change of its own, the same as the sender would.
+			- 2 copies changing one setting at once both end with the later change, and so does the file. If the copy that lost had saved first, the one that won saves again.
+			- A copy still starting gets the change from the file after the save. A copy that quits sends what it hasn't sent yet, then saves. If the sender crashes before its save, the others keep the change in memory and write it with their next change.
+			- The file watch seeing the same change again takes nothing and runs no handlers. A hand edit read before the sender's save keeps the change.
+			- A setting going back to its default goes over as a removed line, ready for 2026100816170959.
+			- Random wallpaper: not applicable yet, since that feature isn't built.
+	- Verified: rjvdch2z passes on Linux, also with the CPUs loaded, and under wine. It fails with the copies not sharing (the change only shows 2 to 2.6 s later, once the file has it), with the newer-change check taken out, with the receiving copy saving, with taken values dropped on a reload, and with the stale save left in the file. Full Linux suite, quit and tab move included, and the Windows cross build pass with warnings as errors. Lint clean.
+	- Verified: 20261009, Windows, on vm925w. rjvks1yf, which checks a settings change going across, passes in the native suite at 398c999 and again at 49a54f8. With 3 copies from the release zip at 398c999 in the desktop session, the statusbar turned off in one was gone from the other 2 within 0.7 s, while the settings file still had its old time. The save came about 2.5 s after the change.
+	- Note: 20261009, cppcheck 2.21 from MSYS2 on vm925w, over the whole tree, flags `test-nemo-config-share.c:174` and `:176` as leaks, a `g_strdup` handed to `g_idle_add`. Not looked into. cppcheck 2.17 on Linux finds nothing there. A branch only lints its own changed files, so this shows on Windows only for a push to dev or main.
+	- Swept: every setter, reset and the drop of a default value go through one place. Quit now sends through the same call as settings. The other stores beside the settings file, such as shortcuts and bookmarks, don't share; not asked for.
+	- Branch: livecfg
+	- Commit: 0113cc1
+	- Test case: rjvdch2z, Settings shared between copies test. 2 copies on one bus and one settings file. A set, a reset and a list reach the other copy before the save, and its handler runs once. The copy that only took a change never writes it, even when the sender dies first. Both copies setting one key at once agree, before and after the saves, also when the losing copy saved last. A hand edit read before the save keeps the change, and a change made just before quitting still arrives.
+	- Acceptance signoff: Self-closed: rjvdch2z passes on Linux, rjvks1yf natively on Windows, and a change was seen reaching the other copies on Windows before the save.
+	- Closed: 20261009-133954
 
 - Find mode remembers the column choice and order, and shows more columns by default.
 	- ID: 2026100613285826
@@ -3644,6 +3596,70 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: ef05a4f
 	- Test case: rjbpyy28 Archive stop time test now has a 7z case. A 4 GiB and a 16 GiB file are stopped at their first progress report. Before the fix, the 4 GiB one took 50 s and the 16 GiB one did not end in 100 s. After, both take 0.01 s. rjbw0rkq Stopped 7z leak test, which fails at 82 bytes a round when the close is left out.
 	- Acceptance signoff: waiting. The archive writer's handling of a stop changed again, this time for the 7z.
+
+- Compression reset: 7-Zip first for 7z, and `-spd` on an edited 7-Zip line.
+	- ID: 2026100516274312
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 180 of 180.
+	- Needs external testing: done 20261009 on vm925w and b29w. It was: rev86z08 and rhr6ggmt natively on vm925w, with 7-Zip installed. There a 7z that stores links goes to the library and has to keep them.
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Related IDs: 2026092813381416
+	- Target OS: Linux, Windows
+	- Design: [7-Zip first for 7z](design_docs/20260929-101432_compression.md#7-zip-first-for-7z) and [Wildcards in an edited 7-Zip line](design_docs/20260929-101432_compression.md#wildcards-in-an-edited-7-zip-line).
+	- Requirements:
+		- Where 7-Zip is installed, a 7z job goes to it rather than the library, on as many threads as the settings allow. Its own percent done moves the progress bar.
+		- The library still writes 7z when 7-Zip isn't installed, or when the job stores links on Windows. That job runs on one thread.
+		- `-spd` is added at run time when the line runs 7-Zip and doesn't have it, for compress and for the archive's path when extracting. The saved line isn't changed, and a line that runs another program is left alone.
+	- Estimated effort: Avg
+	- Progress log:
+		- 20261007: 7z goes to 7-Zip first. The library's 7z writer now offers storing links, so on Windows a 7z job that stores links goes to it, on one thread. A 7-Zip line gets `-spd` at run time when it lacks it, for compress, the links run, and extract.
+	- Decisions:
+		- 20261007: when no writer can do every preference, storing links is the last one given up, since it changes what goes in. So on Windows a solid 7z that stores links goes to the library and isn't solid.
+		- 20261007: a line runs 7-Zip when its program is named 7z, 7za, 7zr, 7zz or 7zG, with or without `.exe`. A line that starts some other program first, such as `nice 7z`, is left alone.
+	- Verified: rev86z08, rhr6ggmt and reww9h2s fail with the run-time switch and the 7-Zip-first order taken out, and pass with them. Full Linux suite 180 of 180. Windows cross build clean, and rev86z08 passes under wine, which has no 7-Zip.
+	- Swept: both builders that turn a settings line into a command, the compress one (real run and links run) and the extract one. The tests that wanted the library's 7z writer (rjbpyy28, rjbw0rkq and the library rows of rhr6ggmt) now hide 7-Zip to reach it.
+	- Branch: runflags
+	- Commit: f079fde
+	- Note: 20261007, in the pipeline's native suite on b29w at 7c1debd, rev86z08 and reww9h2s passed, and rhr6ggmt failed only its rar row (2026100516274349). Whether b29w has 7-Zip was not checked, so this stays here.
+	- Note: 20261009, both vm925w and b29w have 7-Zip installed, in `C:\Program Files\7-Zip`, with a shim for it on PATH. So the b29w run above had it too.
+	- Verified: 20261009, natively on vm925w at 398c999, rev86z08 passes and rhr6ggmt's 7z rows pass, the library 7z row that stores links included. rhr6ggmt failed only its rar row (2026100516274349). At 49a54f8 both pass whole, on vm925w and on b29w.
+	- Test case: rev86z08, Archive options test, for which writer gets 7z and for the added `-spd`, directly and through edited lines. rhr6ggmt, the `*` and `?` rows again with a 7-Zip line without `-spd`, and a library 7z row that stores links. reww9h2s, an `s?.7z` extracted with an edited 7-Zip line.
+	- Acceptance signoff: Self-closed: works as the design says, and rev86z08 and rhr6ggmt pass natively with 7-Zip installed.
+	- Closed: 20261009-133954
+
+- Compression reset: `-r0` on an edited rar line.
+	- ID: 2026100516274349
+	- Type: Enhancement
+	- Status: Done
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Related IDs: 2026100410431108
+	- Target OS: Linux, Windows
+	- Design: [Recursion in an edited rar line](design_docs/20260929-101432_compression.md#recursion-in-an-edited-rar-line).
+	- Requirements:
+		- `-r0` is added at run time when the compress line runs rar, after anything the line has, so an `-r` left in it no longer takes same-named files from the folders below.
+		- The saved line isn't changed. The extract lines never had `-r`.
+	- Estimated effort: Low
+	- Progress log:
+		- 20261007: `-r0` goes in at run time, last before the `--`, on every compress line that runs rar or WinRAR.
+	- Verified: with an edited line that keeps `-r`, rhr6ggmt took `sub/a.txt` too before the fix and passes after. rev86z08 the same. Full Linux suite 180 of 180.
+	- Note: rar on Windows not run. rar.txt is one file for every platform and says the same there.
+	- Swept: the compress builder covers the real run and the links run. The extract lines get no `-r0`.
+	- Branch: runflags, wintests
+	- Commit: f079fde, 49a54f8
+	- Note: 20261007, reopened. In the pipeline's native suite on b29w at 7c1debd, rhr6ggmt failed its `beside-rar` row on both passes: rar there took `sub/a.txt` beside the picked `a.txt`. That row passed natively before `-r0` went in. Not fixed yet.
+	- Reproduced: 20261009, natively on vm925w and b29w at 398c999, the same row on both passes.
+	- Actual cause: on both boxes PATH finds a `rar.cmd` wrapper, and WinRAR's own folder isn't on PATH. The check for which program a line runs only took `.exe` off the name, so `rar.cmd` didn't count as rar and no `-r0` went in. rar 7.23 itself takes `-r0` on Windows as it does on Linux, run directly and through the wrapper.
+	- Actual fix: on Windows, any `PATHEXT` extension comes off the program's name before it is matched, so a `rar.cmd` or `7z.bat` counts as the program it wraps. Elsewhere only `.exe` comes off, as before. The same check picks 7-Zip lines for `-spd`.
+	- Swept: the one check serves the compress builder, its links run and the extract builder. Nothing else in the app tells programs apart by name.
+	- Verified: 20261009, rev86z08's new Windows cases fail under wine without the fix, 2 checks, and pass with it. rhr6ggmt passes natively at 49a54f8 on vm925w and b29w, and rev86z08 on both. The Linux build with warnings as errors is clean, rev86z08 passes there, and the whole-tree C lint is clean.
+	- Test case: rev86z08, Archive options test, for the added `-r0` after an `-r`, and none on the extract lines. On Windows also a `rar.cmd` and a `7Z.Bat` wrapper, and a `rar.txt` that isn't one. rhr6ggmt, the picked `a.txt` beside `sub/a.txt` rows again with an edited rar line that keeps `-r`.
+	- Acceptance signoff: Self-closed: reproduced on both boxes, the new rev86z08 cases fail before the fix and pass after, and rhr6ggmt passes natively.
+	- Closed: 20261009-133954
 
 - Compression reset: tell a nested filesystem from another one.
 	- ID: 2026100516274200
