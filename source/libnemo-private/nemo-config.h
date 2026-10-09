@@ -148,6 +148,20 @@ void       nemo_config_drop_foreign_paths (void);
 /* Every key declared for this group, NULL-terminated. Free with g_strfreev. */
 char     **nemo_config_list_keys   (NemoConfigGroup *group);
 
+/* Changes made here, for the other running copies, so they need not wait for
+ * the save and the file watch. Called on the main thread, a moment after the
+ * change, with a NEMO_CONFIG_SHARED_TYPE value that is only valid during the
+ * call. NULL stops it. Whatever was waiting goes to the old func first. */
+#define NEMO_CONFIG_SHARED_TYPE "(ta(sxbaay))"
+typedef void (*NemoConfigShareFunc) (GVariant *changes, gpointer user_data);
+
+void       nemo_config_set_share_func (NemoConfigShareFunc func,
+                                       gpointer            user_data,
+                                       GDestroyNotify      destroy);
+/* Changes from another copy. Held in memory only: the copy that made them
+   saves them. */
+void       nemo_config_take_shared    (GVariant *changes);
+
 void nemo_config_bind              (NemoConfigGroup      *group,
                                     const char           *key,
                                     gpointer              object,

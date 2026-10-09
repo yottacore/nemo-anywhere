@@ -185,6 +185,16 @@ test('rjptygcj Instance list test',
   timeout: 60
 )
 
+test('rjvdch2z Settings shared between copies test',
+  executable('test-nemo-config-share',
+    [ 'test-nemo-config-share.c' ],
+    include_directories: [ rootInclude, shclInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: [],
+  timeout: 120
+)
+
 # The heap is read through glibc, so elsewhere these skip.
 if not is_windows
   leaks = executable('test-nemo-leaks',

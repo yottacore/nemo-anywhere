@@ -272,7 +272,7 @@ The table below is the rule for a handler connected to one of the settings group
 
 Each window is its own process by default, and every launch is a fresh one. A crash then takes one window rather than all of them, and two versions can be open side by side, which is what trying a build next to the one in daily use needs.
 
-- The copies still find each other. Each queues on the one bus name, so a caller from outside always reaches the oldest. That is how `--quit` and Close All Windows reach every copy, how `--reset` knows one is running, and how a tab's menu lists the windows of other copies.
+- The copies still find each other. Each queues on the one bus name, so a caller from outside always reaches the oldest. That is how `--quit` and Close All Windows reach every copy, how `--reset` knows one is running, how a tab's menu lists the windows of other copies, and how a settings change reaches the other copies.
 	- The list of copies comes from numbered slot names. Each copy takes the first free slot and queues on every slot below it, so the slot of a copy that ends passes up to a live one and the taken slots never have a gap. Asking who owns each slot in turn, up to the first free one, finds every copy.
 	- The queue itself is not read, since GLib's bus on Windows answers both ways of reading it with an empty list.
 
@@ -306,6 +306,13 @@ Application settings live in `settings.shcl`, in whichever directory the platfor
 
 - Edits made while the app is running are picked up straight away, so hand-editing behaves like using the dialog.
 	- A save reads the file first. A hand edit the app has not picked up yet is taken in, and a setting changed both ways keeps the change made in the app, the same as when the edit is picked up first. A file removed by hand goes back to defaults, apart from changes made in the app and not yet saved.
+
+- A change made in one copy shows in every other running copy at once. It goes to them the way a tab move does, not through the file, so nobody waits for the save and the file watch.
+	- The copy that made a change saves it. The others hold it in memory until the file has it, so a change is one write, not one per copy. A copy that saves for a change of its own writes waht it holds as well, which is what the others would write.
+	- Each change carries the time it was made. 2 copies that change one setting at the same moment both keep the later one. If the copy that lost had already saved its own, the one that won saves again.
+	- Going back to the default goes over as a removed line, the same as in the file.
+	- A copy that is still starting, and not yet in the list of copies, gets the change from the file after the save. A copy that quits tells the others what it has not sent yet, then saves. One that crashes before its save leaves the change in the others' memory only, and the next of them to save a change of its own writes it.
+	- The file watch stays, for hand edits. A change that already came over is not taken again when the file catches up, so its handlers run once.
 
 - The file ends with SHCL's info block, which names the format it was written in. A file in an older format is copied beside it as `settings_backup_<YYYYmmDD-HHMMSS>_format-v<N>.shcl`, and a new `settings.shcl` is written with the settings this release knows, converted by SHCL. A file with no format line is read as 2.x at startup, since every file a 2.x release wrote has none, and it is rewritten when today's rules would read it differently. The cost is a hand-written file the app never saved, which has no info block either: an unquoted backslash in it, as in `C:\temp`, is read the 2.x way, and the file as written is in the backup. A file with no format line that turns up while the app is running is a hand edit and is read by today's rules, unless the 2.x file from startup could not be saved over yet. A file in a newer format is used but never saved over, so running an older build does not undo a newer one's settings.
 

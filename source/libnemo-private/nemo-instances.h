@@ -34,7 +34,8 @@ G_BEGIN_DECLS
    owns each slot in turn, up to the first free one, finds every copy. See
    design.md, "One process per window". The actions ride at the path
    GApplication would use, so an older copy that still registers the old way
-   is reachable the same way. Tab moves are served at the same path. */
+   is reachable the same way. Tab moves and settings changes are served at
+   the same path. */
 #define NEMO_INSTANCE_BUS_NAME    "org.NemoAnywhere"
 #define NEMO_INSTANCE_SLOT_PREFIX NEMO_INSTANCE_BUS_NAME ".Slot"
 #define NEMO_INSTANCE_OBJECT_PATH "/org/NemoAnywhere"
@@ -53,6 +54,22 @@ void   nemo_instance_unpublish (GDBusConnection *connection,
    not say.
    Returns: (transfer full): free with g_strfreev. */
 GStrv  nemo_instance_list_others (GDBusConnection *connection);
+
+/* One call to every other copy, at the instance path, with no answer waited
+   for. Takes a floating parameters. */
+void   nemo_instance_send_to_others (GDBusConnection *connection,
+                                     const char      *interface_name,
+                                     const char      *method_name,
+                                     GVariant        *parameters);
+
+/* Takes setting changes from the other copies and sends them this copy's.
+   Before nemo_instance_publish, so no copy finds this one before it can take
+   them. Returns the registration id for nemo_instance_unshare_settings, or 0. */
+guint  nemo_instance_share_settings   (GDBusConnection *connection);
+
+/* Sends what is still waiting, then stops. */
+void   nemo_instance_unshare_settings (GDBusConnection *connection,
+                                       guint            registration_id);
 
 G_END_DECLS
 
