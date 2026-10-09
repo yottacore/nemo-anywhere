@@ -53,6 +53,7 @@ Every group like this works the same way, through one table and one function.
 
 - A setting under a master that is moot right now:
 	- Is grayed out, but not disabled. It can still be clicked, focused and changed.
+		- As long as that makes sense. There could be situations where truly disabling controls is the only thing that makes sense.
 	- Shows and uses its automatic value, not its own stored value.
 
 - Changing a grayed setting:
