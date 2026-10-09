@@ -156,6 +156,44 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 9f5b8c6
 	- Test case: rjq9mv0w, Archive core test, for the junction defaults table, the fall back to Ignore, a hand change sticking, and the follow bits. rhae85g0, Archive settings test, for the old values mapped over and dropped in each mix, what is and isn't remembered, and the fall back agreeing with each writer's claim for every format.
 
+- In the single exe on Windows, a new window or a tab moved to its own window starts through GLib's spawn helper, a program packed inside the exe.
+	- ID: 2026100914514406
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
+	- Needs external testing:
+		- rjw1ks5h and rjvzdd4w in the native suite on vm925w.
+		- The single exe built from this branch, in the desktop session on vm925w with MacType running. Open a folder in a new window, open an item in a new window, and move a tab to a new window. Each window opens, no "Cannot load library" box shows, and no `gspawn-win64-helper` process turns up. Then the About box's 2 links open in the browser, and Help shows its error, with no box either way. If a box shows, README's MacType note comes back.
+	- Priority|Severity: Avg
+	- Opened: 20261009-145144
+	- Opened by: 2026100909260549
+	- Related IDs: 2026100617051745, 2026100909260549, 2026100912374782
+	- Target OS: Windows
+	- Steps to reproduce: in the single exe, in the desktop session on vm925w with MacType running, open a folder in a new window, or move a tab to a new window.
+	- Incorrect behavior: not seen. `nemo-new-process.c` starts the new copy with `g_spawn_async`, not through `nemo-launch-win32.c`. On Windows GLib does that through `gspawn-win64-helper.exe` unless the call asks for nothing the helper is needed for, and this one does: no inherited input and no left-open handles. That helper is packed in the single exe, so under MacType it likely can't load its libraries, as in 2026100617051745.
+	- Expected behavior: the new window opens, and the single exe starts no packed program.
+	- Reproduced: 20261009, in part. The new copy's parent is GLib's spawn helper, not the app, under wine with rjw1ks5h. Not tried under MacType.
+	- Actual cause: as in Incorrect behavior. The helper loads GLib, a library packed in the single exe. The About box's links went the same way, through GTK, to the browser.
+	- Actual effort: Avg
+	- Progress log:
+		- 20261009: done, waiting on a native run and on MacType. Whether the single exe now starts no packed program: as far as can be read and checked here, yes. The only programs packed in it are the app and GLib's 2 spawn helpers, and nothing left in the app reaches the helpers on Windows. So README's MacType note is gone, and design doc "Windows exe packing" says why. Not tried under MacType.
+		- 20261009: Options for later: leave the 2 helpers out of the Windows bundles, as `gdbus.exe` was. Then anything that still reached them would fail for everyone, not only under MacType. Left in for now.
+		- 20261009: left at signoff for the README change, once the tests pass.
+	- Actual fix: on Windows the new copy is started from `nemo-launch-win32.c`, directly. It is the single exe started as itself, which MacType doesn't stop. It gets the user's environment, as in 2026100912374782, and makes its own settings again. Links from Help and the About box go through the launcher too: to the shell when the registry has a handler for the scheme, otherwise an error. Renaming a user folder no longer calls a program on Windows. README's MacType note is gone.
+	- Note: a few other `g_spawn` calls are built on Windows too, such as the one for an extension's settings program and the one that renames a user folder. Actions and the action layout editor have their own Windows route. Each needs the same look. README's MacType note stays until none is left.
+	- Swept: every call that starts a program through GLib or GTK in the app, from lint rjm8a6xr's list.
+		- Through the launcher now: the new window and the tab moved out, the 2 help links, and the About box's links.
+		- Through the launcher already: tools, ImageMagick, thumbnailers, actions and their conditions, templates, and Open with. A store app under Open with is started by the shell's own activation, with no spawn.
+		- Not built on Windows: open as root, the terminal, the layout editor, the extension list and restart, desktop files, and command lines. Now also the user folder rename.
+		- Never reached on Windows: an extension's settings program, since there are no extensions and so no link; the thumbnail cache bar, which never shows with no passwd entry; and eel's terminal, whose one caller isn't built.
+		- GTK's own: the file chooser's "Open With File Manager" asks GLib for a folder's handler, and GLib on Windows finds none, so nothing starts. Checked on vm925w and under wine. The help: scheme has no handler on vm925w either.
+		- The lint list now also covers an About box and a link button, since a click on either calls GTK's show-uri. Test programs are left out, since they aren't in the exe.
+	- Verified: rjw1ks5h fails on dev's `nemo-new-process.c` under wine: each of the 3 copies is started by something other than the app. It passes after, 7 runs. It also fails with the user's environment not put in place for the copy, and with the scheme check taken out. rjvzdd4w, rjvks1yf, rjpatrck, rjm4ctwh, rjp4ch0y, rffkjp10 and rg3wt7d8 pass under wine. rjnzpkk7 and rjmb3j8p fail only their known console window checks, as before. Full Linux suite 188 of 188, and the Windows cross build clean, both with warnings as errors. C lint clean, and rjm8a6xr fails with the About box, the link button or `nemo_show_uri` left off its list.
+	- Verified: 20261009 on vm925w, read only: GLib finds Firefox for https:, and nothing for help: or for a folder.
+	- Branch: newwin
+	- Commit: bbf8c15
+	- Test case: rjw1ks5h, New window start win32 test. The test stands in for the new copy. For a new window, one with a selection, and a tab moved out, the copy must be started by the app itself, with the user's environment, and no spawn helper may be running. It also opens a link of a scheme it sets up for the user, and one nothing handles, which must fail. rjvzdd4w's new copy case now starts the same way.
+
 - Read the old binary Word, Excel and PowerPoint files inside the app, with a container reader of our own.
 	- ID: 2026100909260511
 	- Type: Enhancement
@@ -391,44 +429,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: thumbwin
 	- Commit: f38660a to f8a6223
 	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session. (c) still needs its own: a thumbnail and the text from a small file of each type, on every platform, and a check that no program is started for them.
-
-- In the single exe on Windows, a new window or a tab moved to its own window starts through GLib's spawn helper, a program packed inside the exe.
-	- ID: 2026100914514406
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
-	- Needs external testing:
-		- rjw1ks5h and rjvzdd4w in the native suite on vm925w.
-		- The single exe built from this branch, in the desktop session on vm925w with MacType running. Open a folder in a new window, open an item in a new window, and move a tab to a new window. Each window opens, no "Cannot load library" box shows, and no `gspawn-win64-helper` process turns up. Then the About box's 2 links open in the browser, and Help shows its error, with no box either way. If a box shows, README's MacType note comes back.
-	- Priority|Severity: Avg
-	- Opened: 20261009-145144
-	- Opened by: 2026100909260549
-	- Related IDs: 2026100617051745, 2026100909260549, 2026100912374782
-	- Target OS: Windows
-	- Steps to reproduce: in the single exe, in the desktop session on vm925w with MacType running, open a folder in a new window, or move a tab to a new window.
-	- Incorrect behavior: not seen. `nemo-new-process.c` starts the new copy with `g_spawn_async`, not through `nemo-launch-win32.c`. On Windows GLib does that through `gspawn-win64-helper.exe` unless the call asks for nothing the helper is needed for, and this one does: no inherited input and no left-open handles. That helper is packed in the single exe, so under MacType it likely can't load its libraries, as in 2026100617051745.
-	- Expected behavior: the new window opens, and the single exe starts no packed program.
-	- Reproduced: 20261009, in part. The new copy's parent is GLib's spawn helper, not the app, under wine with rjw1ks5h. Not tried under MacType.
-	- Actual cause: as in Incorrect behavior. The helper loads GLib, a library packed in the single exe. The About box's links went the same way, through GTK, to the browser.
-	- Actual effort: Avg
-	- Progress log:
-		- 20261009: done, waiting on a native run and on MacType. Whether the single exe now starts no packed program: as far as can be read and checked here, yes. The only programs packed in it are the app and GLib's 2 spawn helpers, and nothing left in the app reaches the helpers on Windows. So README's MacType note is gone, and design doc "Windows exe packing" says why. Not tried under MacType.
-		- 20261009: Options for later: leave the 2 helpers out of the Windows bundles, as `gdbus.exe` was. Then anything that still reached them would fail for everyone, not only under MacType. Left in for now.
-		- 20261009: left at signoff for the README change, once the tests pass.
-	- Actual fix: on Windows the new copy is started from `nemo-launch-win32.c`, directly. It is the single exe started as itself, which MacType doesn't stop. It gets the user's environment, as in 2026100912374782, and makes its own settings again. Links from Help and the About box go through the launcher too: to the shell when the registry has a handler for the scheme, otherwise an error. Renaming a user folder no longer calls a program on Windows. README's MacType note is gone.
-	- Note: a few other `g_spawn` calls are built on Windows too, such as the one for an extension's settings program and the one that renames a user folder. Actions and the action layout editor have their own Windows route. Each needs the same look. README's MacType note stays until none is left.
-	- Swept: every call that starts a program through GLib or GTK in the app, from lint rjm8a6xr's list.
-		- Through the launcher now: the new window and the tab moved out, the 2 help links, and the About box's links.
-		- Through the launcher already: tools, ImageMagick, thumbnailers, actions and their conditions, templates, and Open with. A store app under Open with is started by the shell's own activation, with no spawn.
-		- Not built on Windows: open as root, the terminal, the layout editor, the extension list and restart, desktop files, and command lines. Now also the user folder rename.
-		- Never reached on Windows: an extension's settings program, since there are no extensions and so no link; the thumbnail cache bar, which never shows with no passwd entry; and eel's terminal, whose one caller isn't built.
-		- GTK's own: the file chooser's "Open With File Manager" asks GLib for a folder's handler, and GLib on Windows finds none, so nothing starts. Checked on vm925w and under wine. The help: scheme has no handler on vm925w either.
-		- The lint list now also covers an About box and a link button, since a click on either calls GTK's show-uri. Test programs are left out, since they aren't in the exe.
-	- Verified: rjw1ks5h fails on dev's `nemo-new-process.c` under wine: each of the 3 copies is started by something other than the app. It passes after, 7 runs. It also fails with the user's environment not put in place for the copy, and with the scheme check taken out. rjvzdd4w, rjvks1yf, rjpatrck, rjm4ctwh, rjp4ch0y, rffkjp10 and rg3wt7d8 pass under wine. rjnzpkk7 and rjmb3j8p fail only their known console window checks, as before. Full Linux suite 188 of 188, and the Windows cross build clean, both with warnings as errors. C lint clean, and rjm8a6xr fails with the About box, the link button or `nemo_show_uri` left off its list.
-	- Verified: 20261009 on vm925w, read only: GLib finds Firefox for https:, and nothing for help: or for a folder.
-	- Branch: newwin
-	- Commit: bbf8c15
-	- Test case: rjw1ks5h, New window start win32 test. The test stands in for the new copy. For a new window, one with a selection, and a tab moved out, the copy must be started by the app itself, with the user's environment, and no spawn helper may be running. It also opens a link of a scheme it sets up for the user, and one nothing handles, which must fail. rjvzdd4w's new copy case now starts the same way.
 
 - A setting with an automatic value can be changed on its own, with no master switch to find first.
 	- ID: 2026100816170959
