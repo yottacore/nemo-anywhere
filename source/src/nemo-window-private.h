@@ -185,6 +185,7 @@ NemoWindowPane * nemo_window_get_active_pane                     (NemoWindow *wi
 /* sync window GUI with current slot. Used when changing slots,
  * and when updating the slot state.
  */
+void nemo_window_sync_pointer          (NemoWindow *window);
 void nemo_window_sync_allow_stop       (NemoWindow *window,
 					    NemoWindowSlot *slot);
 void nemo_window_sync_title            (NemoWindow *window,

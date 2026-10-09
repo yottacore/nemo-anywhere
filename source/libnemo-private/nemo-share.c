@@ -375,6 +375,86 @@ nemo_share_link_leaves_for_a_share (const char *link_folder,
 	return leaves;
 }
 
+/* gvfs and friends. A scheme for a device, such as mtp, stays local. */
+static const char * const network_schemes[] = {
+	"smb", "sftp", "ssh", "ftp", "ftps", "ftpis", "dav", "davs", "dav+sd",
+	"davs+sd", "afp", "nfs", "network", "dns-sd", "http", "https",
+	"google-drive", "onedrive",
+	NULL
+};
+
+/* scheme://user@host:port/... -> host, or "" with no host. */
+static char *
+host_of_uri (const char *uri)
+{
+	const char *start, *end, *at, *stop;
+	char *host;
+
+	start = strstr (uri, "://");
+	if (start == NULL) {
+		return g_strdup ("");
+	}
+	start += 3;
+	end = start + strcspn (start, "/?#");
+
+	for (at = end; at > start; at--) {
+		if (at[-1] == '@') {
+			start = at;
+			break;
+		}
+	}
+
+	if (*start == '[') {
+		start++;
+		stop = memchr (start, ']', end - start);
+	} else {
+		stop = memchr (start, ':', end - start);
+	}
+	if (stop != NULL) {
+		end = stop;
+	}
+
+	host = g_uri_unescape_segment (start, end, NULL);
+	return host != NULL ? host : g_strndup (start, end - start);
+}
+
+/* Returns: (transfer full): free with g_free */
+char *
+nemo_share_host_to_reach (GFile *location)
+{
+	g_autofree char *raw_scheme = NULL;
+	g_autofree char *scheme = NULL;
+	g_autofree char *uri = NULL;
+	char *root, *host;
+	const char *end;
+
+	g_return_val_if_fail (G_IS_FILE (location), NULL);
+
+	if (g_file_is_native (location)) {
+		root = nemo_share_root_of (g_file_peek_path (location));
+		if (root == NULL || !is_sep (root[0]) || !is_sep (root[1])) {
+			return root;
+		}
+
+		end = root + 2;
+		while (*end != '\0' && !is_sep (*end)) {
+			end++;
+		}
+		host = g_strndup (root + 2, end - (root + 2));
+		g_free (root);
+		return host;
+	}
+
+	raw_scheme = g_file_get_uri_scheme (location);
+	scheme = raw_scheme != NULL ? g_ascii_strdown (raw_scheme, -1) : NULL;
+	if (scheme == NULL || !g_strv_contains (network_schemes, scheme)) {
+		return NULL;
+	}
+
+	uri = g_file_get_uri (location);
+	return host_of_uri (uri);
+}
+
 guint
 nemo_share_generation (void)
 {

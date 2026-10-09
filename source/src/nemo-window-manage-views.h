@@ -32,6 +32,11 @@
 
 void nemo_window_manage_views_close_slot (NemoWindowSlot *slot);
 
+/* Whether the slot waits on a share or a network address before it can show it. */
+gboolean nemo_window_slot_is_connecting (NemoWindowSlot *slot);
+/* Shows or clears the sign in the slot's path bar, when it is the pane's active slot. */
+void nemo_window_slot_sync_connecting (NemoWindowSlot *slot);
+
 
 /* NemoWindowInfo implementation: */
 void nemo_window_report_location_change   (NemoWindow     *window);

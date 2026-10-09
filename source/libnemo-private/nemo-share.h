@@ -21,7 +21,7 @@
 #ifndef NEMO_SHARE_H
 #define NEMO_SHARE_H
 
-#include <glib.h>
+#include <gio/gio.h>
 
 G_BEGIN_DECLS
 
@@ -43,6 +43,13 @@ char    *nemo_share_root_of (const char *path);
    text alone, so only the first link of a chain is read. */
 gboolean nemo_share_link_leaves_for_a_share (const char *link_folder,
                                              const char *target);
+
+/* What a visit to location has to reach over the network first: the server
+   of a share or of a network address, a mount point for a share mounted with
+   no server in its path, or "" for the network as a whole. NULL when the
+   visit stays on this machine. Read from the text and the mount table only.
+   Returns: (transfer full): free with g_free. */
+char    *nemo_share_host_to_reach (GFile *location);
 
 /* Moves on whenever the shares seen change, so an answer kept per file knows
    to ask again. Never 0. */

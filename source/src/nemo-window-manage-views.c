@@ -35,6 +35,7 @@
 #include "nemo-pathbar.h"
 #include "nemo-window-private.h"
 #include "nemo-window-slot.h"
+#include "nemo-toolbar.h"
 #include "nemo-trash-bar.h"
 #include "nemo-view-factory.h"
 #include "nemo-x-content-bar.h"
@@ -62,6 +63,7 @@
 #include <libnemo-private/nemo-module.h>
 #include <libnemo-private/nemo-monitor.h>
 #include <libnemo-private/nemo-search-directory.h>
+#include <libnemo-private/nemo-share.h>
 
 #define DEBUG_FLAG NEMO_DEBUG_WINDOW
 #include <libnemo-private/nemo-debug.h>
@@ -609,6 +611,42 @@ nemo_window_slot_content_view_matches_iid (NemoWindowSlot *slot,
 	return g_strcmp0 (nemo_view_get_view_id (slot->content_view), iid) == 0;
 }
 
+/* While the lookup or the mount behind a change is still out, the host it
+   waits on. NULL for anything on this machine, and once it has answered. */
+static char *
+pending_host (NemoWindowSlot *slot)
+{
+	if (slot->pending_location == NULL ||
+	    (slot->determine_view_file == NULL && slot->mount_cancellable == NULL)) {
+		return NULL;
+	}
+
+	return nemo_share_host_to_reach (slot->pending_location);
+}
+
+gboolean
+nemo_window_slot_is_connecting (NemoWindowSlot *slot)
+{
+	g_autofree char *host = pending_host (slot);
+
+	return host != NULL;
+}
+
+void
+nemo_window_slot_sync_connecting (NemoWindowSlot *slot)
+{
+	g_autofree char *host = NULL;
+
+	if (slot->pane == NULL || slot != slot->pane->active_slot ||
+	    !NEMO_IS_TOOLBAR (slot->pane->tool_bar)) {
+		return;
+	}
+
+	host = pending_host (slot);
+	nemo_toolbar_set_connecting (NEMO_TOOLBAR (slot->pane->tool_bar), host);
+	nemo_window_sync_pointer (nemo_window_slot_get_window (slot));
+}
+
 static gboolean
 report_callback (NemoWindowSlot *slot,
 		 GError *error)
@@ -764,6 +802,9 @@ begin_location_change (NemoWindowSlot        *slot,
 				       NEMO_FILE_ATTRIBUTE_MOUNT,
                                        got_file_info_for_view_selection_callback,
 				       slot);
+
+	/* Already answered, if the file was known. */
+	nemo_window_slot_sync_connecting (slot);
 }
 
 typedef struct {
@@ -859,6 +900,7 @@ got_file_info_for_view_selection_callback (NemoFile *file,
 		g_object_unref (mount_op);
 
 		nemo_file_unref (file);
+		nemo_window_slot_sync_connecting (slot);
 
 		return;
 	}
@@ -891,6 +933,9 @@ got_file_info_for_view_selection_callback (NemoFile *file,
 
 	nemo_file_unref (parent_file);
 	location = slot->pending_location;
+
+	/* Reached or failed, either way nothing waits on the host now. */
+	nemo_window_slot_sync_connecting (slot);
 
 	view_id = NULL;
 	handed_view_id = g_steal_pointer (&slot->pending_view_id);
@@ -1643,6 +1688,7 @@ end_location_change (NemoWindowSlot *slot)
 	slot->pending_scroll_to = NULL;
 
 	free_location_change (slot);
+	nemo_window_slot_sync_connecting (slot);
 }
 
 static void
@@ -1820,7 +1866,10 @@ nemo_window_slot_stop_loading (NemoWindowSlot *slot)
 
 	window = nemo_window_slot_get_window (slot);
 
-	nemo_view_stop_loading (slot->content_view);
+	/* A window opened straight onto a share has no view until it answers. */
+	if (slot->content_view != NULL) {
+		nemo_view_stop_loading (slot->content_view);
+	}
 
 	if (slot->new_content_view != NULL) {
 		window->details->temporarily_ignore_view_signals = TRUE;
