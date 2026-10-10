@@ -14,6 +14,8 @@
 ##		  PATH read and write are swapped for a variable.
 ##		- Reads ACLs rather than opening files as another account, since an
 ##		  elevated shell reads through a deny.
+##		- The installed folder also goes through test-bundle-exes.ps1, since
+##		  install.ps1 must add no program of its own.
 ##		- Windows only; anywhere else it exits 77. Runs in cicd-win.ps1's test
 ##		  stage.
 ##	Syntax:
@@ -165,6 +167,9 @@ try {
 		$missing = @($items | Where-Object { -not (fUsersCanRun $_.FullName) })
 		foreach ($item in $missing) { fProblem "Users cannot read and run $($item.FullName.Substring($prefix.Length).TrimStart('\'))" }
 		Write-Host "  $($items.Count - $missing.Count) of $($items.Count) installed items let Users read and run"
+		## install.ps1 puts in place what the zip has and no program of its own.
+		& pwsh -NoProfile -File (Join-Path $PSScriptRoot "..\utility\test-bundle-exes.ps1") -Path $prefix
+		if ($LASTEXITCODE -ne 0) { fProblem "the install has a program besides the app" }
 	}
 	if (-not $script:fakePath.Contains($prefix)) { fProblem "the install folder did not go on PATH" }
 } finally {

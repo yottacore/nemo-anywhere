@@ -8,8 +8,8 @@
 ##	- Native /mingw64/bin holds EVERY installed package's DLLs, so a blind
 ##	  bin/*.dll copy would be enormous. We copy only the dependency closure:
 ##	  ldd is recursive on PE, so one pass per binary yields its full static
-##	  import set; we union the closures of the app exes, the pixbuf loaders
-##	  (dlopen'd, so not in the app's own ldd), and the runtime helper exes.
+##	  import set; we union the closures of the app exes and the pixbuf loaders
+##	  (dlopen'd, so not in the app's own ldd).
 ##	- Layout produced under DEST (matches the win-run snapshot n8runfm reads):
 ##	    app/       nemo-anywhere.exe (single exe on Windows; extension lib is folded in)
 ##	    mingw64/bin, lib/gdk-pixbuf-2.0, share/{glib-2.0/schemas,icons,themes,thumbnailers}, etc
@@ -58,16 +58,12 @@ mkdir -p "${DEST}/mingw64/share/nemo-anywhere/search-helpers"
 cp "${REPO}/source/search-helpers/third-party/"*.nemo_search_helper \
 	"${DEST}/mingw64/share/nemo-anywhere/search-helpers/"
 
-## Runtime helper exes that GLib/GTK spawn or that nemo discovers as thumbnailers.
-## bin is on PATH in the launched app, so these resolve; the thumbnailer .thumbnailer
-## descriptors come across with share/thumbnailers below. No gdk-pixbuf-thumbnailer,
-## since its descriptors are left out (include/thumbnailers.bash), and no
-## gsf-office-thumbnailer, since the app reads office files itself. No gdbus.exe:
-## nothing starts a session bus on Windows, the copies use named pipes.
-helper_exes=(gspawn-win64-helper.exe gspawn-win64-helper-console.exe)
-for h in "${helper_exes[@]}"; do
-	[[ -f "${MINGW}/bin/${h}" ]] && cp "${MINGW}/bin/${h}" "${DEST}/mingw64/bin/"
-done
+## No program but the app's own exe (2026100917220603). Everything else the app
+## starts is on disk outside the bundle, through nemo-launch-win32.c, never
+## GLib's spawn helpers. No gdk-pixbuf-thumbnailer, since its descriptors are
+## left out (include/thumbnailers.bash), no gsf-office-thumbnailer, since the
+## app reads office files itself, and no gdbus.exe, since the copies use named
+## pipes. pack-portable.ps1 refuses a flat tree with any other exe.
 
 ## gdk-pixbuf loaders (dlopen'd at runtime - not in the app's ldd), then rebuild the
 ## cache so it points at these staged loaders rather than the host's absolute paths.
@@ -75,9 +71,8 @@ cp -r "${MINGW}/lib/gdk-pixbuf-2.0" "${DEST}/mingw64/lib/"
 
 ## Dependency closure. ldd is recursive on PE; keep only /mingw64 paths (System32 and
 ## the app-local dlls stay out of the bundle's mingw64/bin). Collect over every binary
-## that gets loaded: the app exe, the helper exes, and each pixbuf loader.
+## that gets loaded: the app exe and each pixbuf loader.
 closure_bins=("${DEST}/app/"*.exe)
-for h in "${helper_exes[@]}"; do [[ -f "${DEST}/mingw64/bin/${h}" ]] && closure_bins+=("${DEST}/mingw64/bin/${h}"); done
 while IFS= read -r loader; do closure_bins+=("$loader"); done < <(find "${DEST}/mingw64/lib/gdk-pixbuf-2.0" -name '*.dll')
 
 ## app/ on PATH so ldd resolves any app-local deps; collect the unique /mingw64 dlls.

@@ -8026,9 +8026,10 @@ action_open_in_terminal_callback(G_GNUC_UNUSED GtkAction *action,
 /* The tool is a line the user typed, split the Windows way, and each file goes
    after it as an argument of its own, as a path a Windows program can open. */
 static void
-invoke_external_bulk_rename_utility (G_GNUC_UNUSED NemoView *view,
+invoke_external_bulk_rename_utility (NemoView *view,
 				     GList *selection)
 {
+	GtkWindow *window = nemo_view_get_containing_window (view);
 	char *bulk_rename_tool = get_bulk_rename_tool ();
 	char **tool_argv = NULL;
 	GPtrArray *args;
@@ -8037,8 +8038,7 @@ invoke_external_bulk_rename_utility (G_GNUC_UNUSED NemoView *view,
 	int i;
 
 	if (!nemo_user_text_split_command (bulk_rename_tool, NULL, &tool_argv, &error)) {
-		g_warning ("The bulk rename tool '%s' cannot be run as written: %s",
-			   bulk_rename_tool, error->message);
+		nemo_show_start_error (window, error);
 		g_clear_error (&error);
 		g_free (bulk_rename_tool);
 		return;
@@ -8056,7 +8056,7 @@ invoke_external_bulk_rename_utility (G_GNUC_UNUSED NemoView *view,
 	g_ptr_array_add (args, NULL);
 
 	if (!nemo_launch_win32_spawn ((const gchar * const *) args->pdata, FALSE, &error)) {
-		g_warning ("The bulk rename tool '%s' did not start: %s", bulk_rename_tool, error->message);
+		nemo_show_start_error (window, error);
 		g_clear_error (&error);
 	}
 

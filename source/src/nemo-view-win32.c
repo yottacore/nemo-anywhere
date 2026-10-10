@@ -15,6 +15,7 @@
 
 #include <libnemo-private/nemo-config.h>
 #include <libnemo-private/nemo-launch-win32.h>
+#include <libnemo-private/nemo-program-choosing.h>
 
 #include <glib/gi18n.h>
 #include <windows.h>
@@ -24,14 +25,25 @@
 /* ShellExecuteW returns >32 on success; anything at or below is an error code.
    Ignoring it meant a refused UAC prompt or a missing shell just did nothing. */
 static gboolean
-shell_execute_ok (HINSTANCE result, const gchar *what, const gchar *target)
+shell_execute_ok (HINSTANCE result, DWORD failure, const gchar *what, const gchar *target)
 {
+	GError *error = NULL;
+	gchar *reason;
+
 	if ((INT_PTR) result > 32) {
 		return TRUE;
 	}
 
 	g_warning ("%s failed for '%s' (ShellExecute code %d)",
 		   what, target, (int) (INT_PTR) result);
+	/* No to the UAC prompt is an answer, not a failure. */
+	if (failure != ERROR_CANCELLED) {
+		reason = g_win32_error_message (failure);
+		g_set_error (&error, G_IO_ERROR, G_IO_ERROR_FAILED, _("Could not start \"%s\": %s"), target, reason);
+		nemo_show_start_error (NULL, error);
+		g_error_free (error);
+		g_free (reason);
+	}
 	return FALSE;
 }
 
@@ -113,6 +125,7 @@ nemo_view_win32_open_elevated (const gchar *path)
 	gchar *quoted;
 	wchar_t *wpath;
 	HINSTANCE res;
+	DWORD failure;
 
 	if (GetModuleFileNameW (NULL, exe, MAX_PATH) == 0) {
 		g_warning ("Open as Administrator: cannot find our own executable");
@@ -124,8 +137,9 @@ nemo_view_win32_open_elevated (const gchar *path)
 	/* The copy makes its own settings again, and keeps what it finds as the user's. */
 	nemo_launch_win32_user_environ_enter ();
 	res = ShellExecuteW (NULL, L"runas", exe, wpath, NULL, SW_SHOWNORMAL);
+	failure = GetLastError ();
 	nemo_launch_win32_user_environ_leave ();
-	shell_execute_ok (res, "Open as Administrator", path);
+	shell_execute_ok (res, failure, "Open as Administrator", path);
 	g_free (wpath);
 	g_free (quoted);
 }
@@ -219,7 +233,7 @@ nemo_view_win32_open_terminal (const gchar *path)
 	}
 
 	if (!nemo_launch_win32_run (exe, args, path, &error)) {
-		g_warning ("Open in Terminal failed for '%s': %s", path, error->message);
+		nemo_show_start_error (NULL, error);
 		g_clear_error (&error);
 	}
 
@@ -240,7 +254,7 @@ explorer_select_by_command_line (const gchar *path)
 
 	ok = nemo_launch_win32_run ("explorer.exe", params, NULL, &error);
 	if (!ok) {
-		g_warning ("Open with Explorer failed for '%s': %s", path, error->message);
+		nemo_show_start_error (NULL, error);
 		g_clear_error (&error);
 	}
 
@@ -270,12 +284,14 @@ nemo_view_win32_open_in_explorer (const gchar *path,
 
 	if (is_directory) {
 		HINSTANCE res;
+		DWORD failure;
 
 		nemo_launch_win32_user_environ_enter ();
 		res = ShellExecuteW (NULL, L"explore", wpath, NULL, NULL, SW_SHOWNORMAL);
+		failure = GetLastError ();
 		nemo_launch_win32_user_environ_leave ();
 
-		shell_execute_ok (res, "Open with Explorer", path);
+		shell_execute_ok (res, failure, "Open with Explorer", path);
 		g_free (wpath);
 		return;
 	}

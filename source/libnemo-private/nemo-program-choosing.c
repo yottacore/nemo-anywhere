@@ -208,7 +208,7 @@ nemo_launch_application_by_uri (GAppInfo *application,
 #endif
 
     if (!result && error != NULL) {
-        g_warning ("Failed to launch application: %s", error->message);
+        nemo_show_start_error (parent_window, error);
         g_clear_error (&error);
     }
 
@@ -271,7 +271,7 @@ launch_from_command (G_GNUC_UNUSED GdkScreen *screen,
 	int i;
 
 	if (!nemo_user_text_split_command (command_string, NULL, &command_argv, &error)) {
-		g_warning ("Cannot run '%s': %s", command_string, error->message);
+		nemo_show_start_error (NULL, error);
 		g_clear_error (&error);
 		return;
 	}
@@ -286,7 +286,7 @@ launch_from_command (G_GNUC_UNUSED GdkScreen *screen,
 	g_ptr_array_add (args, NULL);
 
 	if (!nemo_launch_win32_spawn ((const gchar * const *) args->pdata, use_terminal, &error)) {
-		g_warning ("Could not start '%s': %s", command_argv[0], error->message);
+		nemo_show_start_error (NULL, error);
 		g_clear_error (&error);
 	}
 
@@ -374,6 +374,39 @@ nemo_launch_application_from_command_array (GdkScreen  *screen,
 {
 	launch_from_command (screen, command_string, use_terminal, parameters);
 }
+
+void
+nemo_show_start_error (GtkWindow    *parent_window,
+		       const GError *error)
+{
+	g_return_if_fail (error != NULL);
+
+	eel_show_error_dialog (_("The program could not be started."), error->message, parent_window);
+}
+
+#ifdef G_OS_WIN32
+static gboolean
+show_helper_failed (gpointer message)
+{
+	eel_show_error_dialog (_("A helper program could not be started."), message, NULL);
+	return G_SOURCE_REMOVE;
+}
+
+/* From whichever thread asked for the thumbnail or the search. */
+static void
+helper_failed (G_GNUC_UNUSED const gchar *program,
+	       const gchar               *message)
+{
+	/* cppcheck-suppress leakNoVarFunctionCall ; the idle frees it with g_free */
+	g_idle_add_full (G_PRIORITY_DEFAULT_IDLE, show_helper_failed, g_strdup (message), g_free);
+}
+
+void
+nemo_show_helper_start_errors (void)
+{
+	nemo_launch_win32_set_failed_func (helper_failed);
+}
+#endif
 
 /* On Windows GTK's own way goes through GLib's spawn helper, a program of its
  * own in the single exe. */

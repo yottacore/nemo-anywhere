@@ -24,6 +24,7 @@
 
 #include <eel/eel-vfs-extensions.h>
 #include <libnemo-private/nemo-file.h>
+#include <libnemo-private/nemo-program-choosing.h>
 
 #include "nemo-application.h"
 #include "nemo-main-application.h"
@@ -413,8 +414,8 @@ move_to_new_window (NemoWindowSlot *slot,
 			nemo_tab_state_free (state);
 			return;
 		}
-		g_warning ("Could not start a new process for the window, opening it here: %s",
-		           error->message);
+		/* Said, so a start that is broken is seen, and the tab still moves. */
+		nemo_show_start_error (GTK_WINDOW (gtk_widget_get_toplevel (GTK_WIDGET (slot))), error);
 		g_error_free (error);
 	}
 

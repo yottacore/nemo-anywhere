@@ -11,6 +11,7 @@
 #include "nemo-global-preferences.h"
 #include <libnemo-private/nemo-file-utilities.h>
 #include <libnemo-private/nemo-file-operations.h>
+#include <libnemo-private/nemo-program-choosing.h>
 
 #include <glib.h>
 #ifdef G_OS_WIN32
@@ -492,7 +493,7 @@ on_edit_template_clicked (G_GNUC_UNUSED GtkWidget *button, gpointer user_data)
     GError *error = NULL;
 
     if (!nemo_launch_win32_open_path (info->path, NULL, &error)) {
-        g_warning ("Could not open '%s': %s", info->path, error->message);
+        nemo_show_start_error (GTK_WINDOW (gtk_widget_get_toplevel (row)), error);
         g_clear_error (&error);
     }
 #else

@@ -33,6 +33,48 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- In the single exe on Windows, a new window or a tab moved to its own window starts through GLib's spawn helper, a program packed inside the exe.
+	- ID: 2026100914514406
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
+	- Needs external testing:
+		- rjw1ks5h and rjvzdd4w in the native suite on vm925w. Failed 20261009, see Progress log. Done 20261009 after the test fix, passed.
+		- Done 20261009 on vm925w, passed. It was: the single exe built from this branch, in the desktop session on vm925w with MacType running. Open a folder in a new window, open an item in a new window, and move a tab to a new window. Each window opens, no "Cannot load library" box shows, and no `gspawn-win64-helper` process turns up. Then the About box's 2 links open in the browser, and Help shows its error, with no box either way. If a box shows, README's MacType note comes back.
+	- Priority|Severity: Avg
+	- Opened: 20261009-145144
+	- Opened by: 2026100909260549
+	- Related IDs: 2026100617051745, 2026100909260549, 2026100912374782
+	- Target OS: Windows
+	- Steps to reproduce: in the single exe, in the desktop session on vm925w with MacType running, open a folder in a new window, or move a tab to a new window.
+	- Incorrect behavior: not seen. `nemo-new-process.c` starts the new copy with `g_spawn_async`, not through `nemo-launch-win32.c`. On Windows GLib does that through `gspawn-win64-helper.exe` unless the call asks for nothing the helper is needed for, and this one does: no inherited input and no left-open handles. That helper is packed in the single exe, so under MacType it likely can't load its libraries, as in 2026100617051745.
+	- Expected behavior: the new window opens, and the single exe starts no packed program.
+	- Reproduced: 20261009, in part. The new copy's parent is GLib's spawn helper, not the app, under wine with rjw1ks5h. Not tried under MacType.
+	- Actual cause: as in Incorrect behavior. The helper loads GLib, a library packed in the single exe. The About box's links went the same way, through GTK, to the browser.
+	- Actual effort: Avg
+	- Progress log:
+		- 20261009: done, waiting on a native run and on MacType. Whether the single exe now starts no packed program: as far as can be read and checked here, yes. The only programs packed in it are the app and GLib's 2 spawn helpers, and nothing left in the app reaches the helpers on Windows. So README's MacType note is gone, and design doc "Windows exe packing" says why. Not tried under MacType.
+		- 20261009: Options for later: leave the 2 helpers out of the Windows bundles, as `gdbus.exe` was. Then anything that still reached them would fail for everyone, not only under MacType. Left in for now.
+		- 20261009: left at signoff for the README change, once the tests pass.
+		- 20261009: back to Queued. rjw1ks5h fails natively on vm925w, 3 runs out of 3, at line 386: the link through a scheme registered for the user never reports back. Its 3 new copy cases pass. The copy the shell starts is the test program itself, which can't find its DLLs outside the build's PATH and stops at Windows' "libarchive-13.dll was not found" box. Same cause as the 2 failing rows of rjvzdd4w in 2026100912374782. The single exe check under MacType passed, so README's MacType note stays out.
+		- 20261009: the test was at fault, not the app. Explorer starts a scheme's program with its own PATH, which has none of the build's libraries, so the test program exited at once with "DLL not found" (0xC0000135). The link case now starts test-env-dump, a small program that needs none. Left at signoff for the README change.
+	- Actual fix: on Windows the new copy is started from `nemo-launch-win32.c`, directly. It is the single exe started as itself, which MacType doesn't stop. It gets the user's environment, as in 2026100912374782, and makes its own settings again. Links from Help and the About box go through the launcher too: to the shell when the registry has a handler for the scheme, otherwise an error. Renaming a user folder no longer calls a program on Windows. README's MacType note is gone.
+	- Note: a few other `g_spawn` calls are built on Windows too, such as the one for an extension's settings program and the one that renames a user folder. Actions and the action layout editor have their own Windows route. Each needs the same look. README's MacType note stays until none is left.
+	- Swept: every call that starts a program through GLib or GTK in the app, from lint rjm8a6xr's list.
+		- Through the launcher now: the new window and the tab moved out, the 2 help links, and the About box's links.
+		- Through the launcher already: tools, ImageMagick, thumbnailers, actions and their conditions, templates, and Open with. A store app under Open with is started by the shell's own activation, with no spawn.
+		- Not built on Windows: open as root, the terminal, the layout editor, the extension list and restart, desktop files, and command lines. Now also the user folder rename.
+		- Never reached on Windows: an extension's settings program, since there are no extensions and so no link; the thumbnail cache bar, which never shows with no passwd entry; and eel's terminal, whose one caller isn't built.
+		- GTK's own: the file chooser's "Open With File Manager" asks GLib for a folder's handler, and GLib on Windows finds none, so nothing starts. Checked on vm925w and under wine. The help: scheme has no handler on vm925w either.
+		- The lint list now also covers an About box and a link button, since a click on either calls GTK's show-uri. Test programs are left out, since they aren't in the exe.
+	- Verified: rjw1ks5h fails on dev's `nemo-new-process.c` under wine: each of the 3 copies is started by something other than the app. It passes after, 7 runs. It also fails with the user's environment not put in place for the copy, and with the scheme check taken out. rjvzdd4w, rjvks1yf, rjpatrck, rjm4ctwh, rjp4ch0y, rffkjp10 and rg3wt7d8 pass under wine. rjnzpkk7 and rjmb3j8p fail only their known console window checks, as before. Full Linux suite 188 of 188, and the Windows cross build clean, both with warnings as errors. C lint clean, and rjm8a6xr fails with the About box, the link button or `nemo_show_uri` left off its list.
+	- Verified: 20261009 on vm925w, read only: GLib finds Firefox for https:, and nothing for help: or for a folder.
+	- Verified: 20261009 on vm925w at dev 186065a. Native suite 164 OK, 3 FAIL, 11 skipped. rjw1ks5h fails as in Progress log, elevated and not. The single exe from the same commit, in the desktop session with MacType running and loaded into the app: a folder in a new window, Home from Places in a new window, a new window, and a tab moved to a new window each opened as a copy started by the app itself. Both About box links opened in Firefox, and Help showed its own error. No "Cannot load library" box, and no spawn helper or other packed program ran at any point.
+	- Verified: 20261009 on vm925w, the branch winlaunch. rjw1ks5h passes 3 of 3, elevated and at medium integrity in the desktop session. Before the fix, the test program run with only the system folders on PATH exited 0xC0000135, and the copy Explorer started from the old test sat in the desktop session and never wrote its report.
+	- Branch: newwin, winlaunch
+	- Commit: bbf8c15, 205074b
+	- Test case: rjw1ks5h, New window start win32 test. The test stands in for the new copy. For a new window, one with a selection, and a tab moved out, the copy must be started by the app itself, with the user's environment, and no spawn helper may be running. It also opens a link of a scheme it sets up for the user, and one nothing handles, which must fail. rjvzdd4w's new copy case now starts the same way.
+
 - After an `smb://` address is typed, nothing shows that the app is working on it.
 	- ID: 2026100816170921
 	- Type: Bug
@@ -121,6 +163,44 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 7c4e340, 6748a54
 	- Test case: rjvwpz9d, Bundle check: no libgsf, gsf-office thumbnailer, converter or their definitions in the tarball, deb, rpm, zip or FreeBSD pkg, and no Depends, Requires or pkg dep on libgsf. The prefix check rhtq57n5 runs it on each arch's Linux files, and its self-test runs in the lint stage. rjvb97aa and rjvtggme: files with a picture or text get it from the reader, and the stand-in thumbnailer and search helper installed for these types are not run. Files with no picture inside, a metafile preview, and files that don't read get nothing from the reader, and then the stand-ins run. rjmc40ex and rfhnaccg as in Progress log.
 
+- On Windows, every bundle has only the app's own exe, so no form of the app starts a program from inside its bundle.
+	- ID: 2026100917220603
+	- Type: Enhancement
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
+	- Priority|Severity: Avg
+	- Opened: 20261009-172206
+	- Opened by: t00mietum
+	- Prereq IDs: 2026100914514406
+	- Related IDs: 2026100617051745, 2026100909260549, 2026100914514406
+	- Target OS: Windows
+	- Requirements:
+		- The zip, the copy `install.ps1` puts in place and the single exe are the same here. The app starts only copies of itself and programs on disk outside its bundle, always through `nemo-launch-win32.c`.
+		- `gspawn-win64-helper.exe` and `gspawn-win64-helper-console.exe` leave all 3 bundles. They're the last programs in them besides the app.
+		- A bundle check refuses any `.exe` but the app in each of the 3, beside rjvwpz9d.
+		- Every place that starts a program shows the error when the start fails, so a start path that was missed is reported and not silent.
+		- The native suite covers each start path with the helpers gone: new window, a tab moved out, the About and Help links, Open With, actions, thumbnails and the archive tools. Add tests only where one is missing.
+	- Note: the point is one behavior for all 3. Kept in the zip but not the single exe, a test on the zip would hide a fault only the single exe has. With them gone everywhere, a missed path fails the same way in each and shows in any native run, not only under MacType.
+	- Note: no hook detection or warning for MacType and tools like it. With no packed program started, there's nothing for them to break.
+	- Note: waits on 2026100914514406's native check under MacType. If a box shows there, that comes first.
+	- Needs external testing:
+		- Done 20261009 on vm925w, passed: the native suite, the install checks, and a stage and pack of the single exe.
+		- Left: each of the 3 forms in the desktop session on vm925w with MacType running, the zip, the copy `install.ps1` puts in place and the single exe. A new window, a tab moved out, both About links and Help, Open With, an action, thumbnails of a picture and an office file, and an archive made and unpacked. No "Cannot load library" box, no `gspawn-` process, and a start made to fail on purpose shows its error.
+	- Estimated effort: Avg
+	- Progress log:
+		- 20261009: done, waiting on the MacType check. The 2 helpers are left out of the native stage, the zip and the wine runner. A start the user asked for that fails shows the error in a dialog. A helper that won't start, such as a thumbnailer or a search converter, is said once per program, since a box per file would be worse than none. A new window or a tab moved out that can't get its own process still opens in this one, after the error. Left at signoff after testing, for the new error dialogs.
+		- 20261009: Options for later: with nothing in the single exe that a started program needs, the packer's sharing with started programs might be turned off. That could take the packer's hooks out of what the app starts. Not tried.
+	- Swept: every start outside the tests, from the calls into `nemo-launch-win32.c`, `nemo_new_process_spawn*` and `nemo_show_uri`.
+		- Shows the error now: Open With, scripts and command lines, opening a program file, a template, an action and its command, bulk rename, Open in Terminal, Explorer, Open as Administrator, a new window and a tab moved out.
+		- Showed it already: the About links and Help, and making or unpacking an archive.
+		- Said once per program: thumbnailers, ImageMagick, action conditions and search converters.
+		- Left as it was: a shortcut the shell can't open falls back to opening it the usual way, which says so if that fails too.
+	- Verified: 20261009 on vm925w at d483f63: native suite 166 OK, 11 skipped, and only rjqef159 failed, as on dev (2026100516274275). The install checks pass, and the installed folder has no program but the app. The native stage has no exe but the app, the flat tree passes the check, and the single exe packs and starts.
+	- Verified: the zip packed from the branch passes the check, 2850 files, and the same zip with a spawn helper added is refused. The check's self-test fails with programs in subfolders let through. Under wine rjm4ctwh fails with archive tools, converters and thumbnailers started through GLib's spawn, and with the once per program rule taken out. rjnzpkk7 fails with the old log line in place of the dialog. rjvzdd4w, rjw1ks5h, rjm4ctwh and rjnzpkk7 pass under wine. Full Linux suite 188 of 188 and the Windows cross build clean, both with warnings as errors, and lint clean.
+	- Branch: winlaunch
+	- Commit: b1bb561, b02da5e, d483f63, 6c72feb
+	- Test case: rjwc3jkm, Windows bundle exe check. It reads the release zip in the packages stage, the flat tree before the single exe is packed, and the folder `install.ps1` installs in rj72n4xb. The start paths: rjw1ks5h for a new window, a tab moved out and links, rjvzdd4w for Open With, a named program and an open file, rjmb3j8p for actions, rjm4ctwh for archive tools, converters and thumbnailers, which must be started by the app and not a spawn helper, and a helper that won't start is told once. rjnzpkk7 checks that a failed start shows its error.
+
 - On Windows, the trash icon leaves out removable drives.
 	- ID: 2026100708294146
 	- Type: Bug
@@ -185,46 +265,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: 20261007, not ruled out: the Menu key made no menu at all once, on a loaded box. GTK 3 doesn't show a menu whose pointer grab fails, and the probe presses the key only once. Nothing points at that, and pressing again would hide it rather than explain it.
 	- Test case: rjefm41d itself.
 
-- In the single exe on Windows, a new window or a tab moved to its own window starts through GLib's spawn helper, a program packed inside the exe.
-	- ID: 2026100914514406
-	- Type: Bug
-	- Status: Queued
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
-	- Needs external testing:
-		- rjw1ks5h and rjvzdd4w in the native suite on vm925w. Failed 20261009, see Progress log.
-		- Done 20261009 on vm925w, passed. It was: the single exe built from this branch, in the desktop session on vm925w with MacType running. Open a folder in a new window, open an item in a new window, and move a tab to a new window. Each window opens, no "Cannot load library" box shows, and no `gspawn-win64-helper` process turns up. Then the About box's 2 links open in the browser, and Help shows its error, with no box either way. If a box shows, README's MacType note comes back.
-	- Priority|Severity: Avg
-	- Opened: 20261009-145144
-	- Opened by: 2026100909260549
-	- Related IDs: 2026100617051745, 2026100909260549, 2026100912374782
-	- Target OS: Windows
-	- Steps to reproduce: in the single exe, in the desktop session on vm925w with MacType running, open a folder in a new window, or move a tab to a new window.
-	- Incorrect behavior: not seen. `nemo-new-process.c` starts the new copy with `g_spawn_async`, not through `nemo-launch-win32.c`. On Windows GLib does that through `gspawn-win64-helper.exe` unless the call asks for nothing the helper is needed for, and this one does: no inherited input and no left-open handles. That helper is packed in the single exe, so under MacType it likely can't load its libraries, as in 2026100617051745.
-	- Expected behavior: the new window opens, and the single exe starts no packed program.
-	- Reproduced: 20261009, in part. The new copy's parent is GLib's spawn helper, not the app, under wine with rjw1ks5h. Not tried under MacType.
-	- Actual cause: as in Incorrect behavior. The helper loads GLib, a library packed in the single exe. The About box's links went the same way, through GTK, to the browser.
-	- Actual effort: Avg
-	- Progress log:
-		- 20261009: done, waiting on a native run and on MacType. Whether the single exe now starts no packed program: as far as can be read and checked here, yes. The only programs packed in it are the app and GLib's 2 spawn helpers, and nothing left in the app reaches the helpers on Windows. So README's MacType note is gone, and design doc "Windows exe packing" says why. Not tried under MacType.
-		- 20261009: Options for later: leave the 2 helpers out of the Windows bundles, as `gdbus.exe` was. Then anything that still reached them would fail for everyone, not only under MacType. Left in for now.
-		- 20261009: left at signoff for the README change, once the tests pass.
-		- 20261009: back to Queued. rjw1ks5h fails natively on vm925w, 3 runs out of 3, at line 386: the link through a scheme registered for the user never reports back. Its 3 new copy cases pass. The copy the shell starts is the test program itself, which can't find its DLLs outside the build's PATH and stops at Windows' "libarchive-13.dll was not found" box. Same cause as the 2 failing rows of rjvzdd4w in 2026100912374782. The single exe check under MacType passed, so README's MacType note stays out.
-	- Actual fix: on Windows the new copy is started from `nemo-launch-win32.c`, directly. It is the single exe started as itself, which MacType doesn't stop. It gets the user's environment, as in 2026100912374782, and makes its own settings again. Links from Help and the About box go through the launcher too: to the shell when the registry has a handler for the scheme, otherwise an error. Renaming a user folder no longer calls a program on Windows. README's MacType note is gone.
-	- Note: a few other `g_spawn` calls are built on Windows too, such as the one for an extension's settings program and the one that renames a user folder. Actions and the action layout editor have their own Windows route. Each needs the same look. README's MacType note stays until none is left.
-	- Swept: every call that starts a program through GLib or GTK in the app, from lint rjm8a6xr's list.
-		- Through the launcher now: the new window and the tab moved out, the 2 help links, and the About box's links.
-		- Through the launcher already: tools, ImageMagick, thumbnailers, actions and their conditions, templates, and Open with. A store app under Open with is started by the shell's own activation, with no spawn.
-		- Not built on Windows: open as root, the terminal, the layout editor, the extension list and restart, desktop files, and command lines. Now also the user folder rename.
-		- Never reached on Windows: an extension's settings program, since there are no extensions and so no link; the thumbnail cache bar, which never shows with no passwd entry; and eel's terminal, whose one caller isn't built.
-		- GTK's own: the file chooser's "Open With File Manager" asks GLib for a folder's handler, and GLib on Windows finds none, so nothing starts. Checked on vm925w and under wine. The help: scheme has no handler on vm925w either.
-		- The lint list now also covers an About box and a link button, since a click on either calls GTK's show-uri. Test programs are left out, since they aren't in the exe.
-	- Verified: rjw1ks5h fails on dev's `nemo-new-process.c` under wine: each of the 3 copies is started by something other than the app. It passes after, 7 runs. It also fails with the user's environment not put in place for the copy, and with the scheme check taken out. rjvzdd4w, rjvks1yf, rjpatrck, rjm4ctwh, rjp4ch0y, rffkjp10 and rg3wt7d8 pass under wine. rjnzpkk7 and rjmb3j8p fail only their known console window checks, as before. Full Linux suite 188 of 188, and the Windows cross build clean, both with warnings as errors. C lint clean, and rjm8a6xr fails with the About box, the link button or `nemo_show_uri` left off its list.
-	- Verified: 20261009 on vm925w, read only: GLib finds Firefox for https:, and nothing for help: or for a folder.
-	- Verified: 20261009 on vm925w at dev 186065a. Native suite 164 OK, 3 FAIL, 11 skipped. rjw1ks5h fails as in Progress log, elevated and not. The single exe from the same commit, in the desktop session with MacType running and loaded into the app: a folder in a new window, Home from Places in a new window, a new window, and a tab moved to a new window each opened as a copy started by the app itself. Both About box links opened in Firefox, and Help showed its own error. No "Cannot load library" box, and no spawn helper or other packed program ran at any point.
-	- Branch: newwin
-	- Commit: bbf8c15
-	- Test case: rjw1ks5h, New window start win32 test. The test stands in for the new copy. For a new window, one with a selection, and a tab moved out, the copy must be started by the app itself, with the user's environment, and no spawn helper may be running. It also opens a link of a scheme it sets up for the user, and one nothing handles, which must fail. rjvzdd4w's new copy case now starts the same way.
-
 - In the single exe on Windows, a program packed inside it that needs libgsf cannot start.
 	- ID: 2026100617051745
 	- Type: Bug
@@ -265,29 +305,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: thumbwin
 	- Commit: f38660a to f8a6223
 	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session. (c) still needs its own: a thumbnail and the text from a small file of each type, on every platform, and a check that no program is started for them.
-
-- On Windows, every bundle has only the app's own exe, so no form of the app starts a program from inside its bundle.
-	- ID: 2026100917220603
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261009-172206
-	- Opened by: t00mietum
-	- Prereq IDs: 2026100914514406
-	- Related IDs: 2026100617051745, 2026100909260549, 2026100914514406
-	- Target OS: Windows
-	- Requirements:
-		- The zip, the copy `install.ps1` puts in place and the single exe are the same here. The app starts only copies of itself and programs on disk outside its bundle, always through `nemo-launch-win32.c`.
-		- `gspawn-win64-helper.exe` and `gspawn-win64-helper-console.exe` leave all 3 bundles. They're the last programs in them besides the app.
-		- A bundle check refuses any `.exe` but the app in each of the 3, beside rjvwpz9d.
-		- Every place that starts a program shows the error when the start fails, so a start path that was missed is reported and not silent.
-		- The native suite covers each start path with the helpers gone: new window, a tab moved out, the About and Help links, Open With, actions, thumbnails and the archive tools. Add tests only where one is missing.
-	- Note: the point is one behavior for all 3. Kept in the zip but not the single exe, a test on the zip would hide a fault only the single exe has. With them gone everywhere, a missed path fails the same way in each and shows in any native run, not only under MacType.
-	- Note: no hook detection or warning for MacType and tools like it. With no packed program started, there's nothing for them to break.
-	- Note: waits on 2026100914514406's native check under MacType. If a box shows there, that comes first.
-	- Needs external testing: the native suite on vm925w, then each of the 3 forms in the desktop session with MacType running.
-	- Estimated effort: Avg
-	- Test case: still needs one. The bundle check, and the start path tests named above.
 
 - A setting with an automatic value can be changed on its own, with no master switch to find first.
 	- ID: 2026100816170959
@@ -333,43 +350,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261008: going back to automatic throws the hand-set value away. Going manual starts from what is showing.
 		- 20261008: settings that only count while a feature is on, like the choices under "Show tooltips", are not part of this. They stay as they are.
 	- Test case: still needs one.
-
-- On Windows, programs the app starts get its session bus switched off.
-	- ID: 2026100912374782
-	- Type: Bug
-	- Status: Queued
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
-	- Needs external testing: rjvzdd4w in the native suite on vm925w, once as usual and once elevated, since an elevated copy opens a file through the shell from inside itself. Failed 20261009, see Progress log. Then the packed exe on vm925w, elevated and not: open a `.bat` that writes `set` to a file, from the file list and as an action. The file should have none of `DBUS_SESSION_BUS_ADDRESS=disabled:`, `FREETYPE_PROPERTIES` or `GDK_WIN32_USE_EXPERIMENTAL_OLE2_DND`. Done 20261009 on vm925w, passed.
-	- Priority|Severity: Low
-	- Opened: 20261009-123747
-	- Opened by: 2026100815215479
-	- Related IDs: 2026100815215479
-	- Target OS: Windows
-	- Steps to reproduce: start another GLib program from the app on Windows, as a helper, an Open With, or an action.
-	- Incorrect behavior: it inherits the `DBUS_SESSION_BUS_ADDRESS=disabled:` the app sets for itself at startup, so it can't find or start a session bus. A value the user had set before is lost too.
-	- Expected behavior: a user's program gets the environment it would have had without the app. The app's own copies and helpers may keep the setting.
-	- Reproduced: No. From reading the launch code.
-		- 20261009, under wine: a console program started the way an action starts one got `disabled:` and the app's 2 other settings, with the start as on dev.
-	- Possible cause: the setting is made with the process environment, and the launcher passes that environment on.
-	- Actual cause: as in Possible cause. The app makes 3 settings for itself at startup: no session bus, the font hinting, and the drag protocol. Any program started from inside the app gets all 3: a console program for an action, the last-resort direct start, the shell's open when the app is elevated, and a new copy of the app, which then took them for the user's own. A program Explorer or the management service starts gets their environment, not ours.
-	- Decisions:
-		- 20261009: the 3 settings stay in the app's own environment, since GLib reads the bus one there. Each is recorded with what was there before. A start of a user's program from inside the app puts those back for the moment, then the app's again.
-		- 20261009: helpers keep the app's settings, as Expected behavior allows: thumbnailers, tools, converters and action conditions. A new copy of the app gets the user's environment and makes its own settings again.
-		- 20261009: everything else in the app's environment still goes along, the script variables of the Scripts menu included.
-	- Progress log:
-		- 20261009: back to Queued. rjvzdd4w fails natively on vm925w, elevated and not, 3 runs out of 3: "run" and "open" never write what they saw. The spawn, copy and helper rows pass. Both failing routes have Explorer start the test program itself, which can't find its DLLs outside the build's PATH and stops at Windows' "DLL was not found" box, so nothing is written. Same cause as rjw1ks5h in 2026100914514406. The packed exe check passed.
-	- Actual fix: one record of the app's own settings, in `nemo-file-utilities.c`. In `nemo-launch-win32.c` every start of a user's program from inside the app runs with the user's values in place. Every start there takes one lock, so a helper starting meanwhile still gets the app's. "Open as Administrator" and Explorer for a folder in `nemo-view-win32.c` do the same. A new window in its own process is started with the user's environment.
-	- Swept: every process start outside the tests, by grep for `CreateProcess`, `ShellExecute`, `g_spawn`, `g_subprocess`, `g_app_info_launch` and `gtk_show_uri`.
-		- The user's values: the direct start, the shell open fallback and a hidden console program in `nemo-launch-win32.c`, `runas` and `explore` in `nemo-view-win32.c`, and `nemo-new-process.c`.
-		- The app's, as helpers: `nemo-tool-run.c`, `nemo-desktop-thumbnail.c`, `nemo-magick.c` and the action condition in `nemo-action.c`.
-		- Not ours to start: a store app, which `nemo-program-choosing.c` hands to GIO and Windows starts outside the app, and the shell and management service starts.
-		- Not reached on Windows: `gtk_show_uri` with the `help:` links, which nothing handles there, and an extension's config program, since Windows loads no extensions. The rest are in Linux-only branches.
-		- Every `g_setenv` in the app: the 3 are recorded now. The Scripts menu variables are meant for the script, and `G_MESSAGES_DEBUG` is only set under `--debug` with an old GLib. On Linux and the BSDs a relocated prefix puts its own share and bin folders on the lists a started program gets. Not this item.
-	- Test case: rjvzdd4w, Launch environment win32 test. The test itself, run with `--dump`, writes what it got. It is started as an action's console program, as a named program, by opening a `.bat`, as a new copy and as a helper.
-	- Verified: under wine rjvzdd4w fails 5 checks with the swap taken out and passes with it, 6 runs. Its new copy case makes the same start as `nemo-new-process.c`, so it checks the user's environment, not that file. Under wine the named program and the open go through the shell or the service, so for those only the 2 settings nothing else makes are checked. rjvks1yf, rjpatrck, rjmb3j8p, rjm4ctwh, rjnzpkk7, rjp4ch0y and rffkjp10 pass under wine. The Windows cross build is clean.
-	- Verified: 20261009 on vm925w at dev 186065a, the single exe from the same commit, with a scratch settings folder. Not elevated: the `.bat` opened from the file list and run by an action each wrote a `set` with none of the 3. Elevated: the same, with the action's run elevated and the file list's open run unelevated through the shell. rjvzdd4w fails, as in Progress log.
-	- Branch: lowtrio
-	- Commit: 270dd0d
 
 - The settings shared between copies test can fail on a loaded box.
 	- ID: 2026100915055910
@@ -1878,6 +1858,47 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- On Windows, programs the app starts get its session bus switched off.
+	- ID: 2026100912374782
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
+	- Needs external testing: rjvzdd4w in the native suite on vm925w, once as usual and once elevated, since an elevated copy opens a file through the shell from inside itself. Failed 20261009, see Progress log, and passed after the test fix. Then the packed exe on vm925w, elevated and not: open a `.bat` that writes `set` to a file, from the file list and as an action. The file should have none of `DBUS_SESSION_BUS_ADDRESS=disabled:`, `FREETYPE_PROPERTIES` or `GDK_WIN32_USE_EXPERIMENTAL_OLE2_DND`. Done 20261009 on vm925w, passed.
+	- Priority|Severity: Low
+	- Opened: 20261009-123747
+	- Opened by: 2026100815215479
+	- Related IDs: 2026100815215479
+	- Target OS: Windows
+	- Steps to reproduce: start another GLib program from the app on Windows, as a helper, an Open With, or an action.
+	- Incorrect behavior: it inherits the `DBUS_SESSION_BUS_ADDRESS=disabled:` the app sets for itself at startup, so it can't find or start a session bus. A value the user had set before is lost too.
+	- Expected behavior: a user's program gets the environment it would have had without the app. The app's own copies and helpers may keep the setting.
+	- Reproduced: No. From reading the launch code.
+		- 20261009, under wine: a console program started the way an action starts one got `disabled:` and the app's 2 other settings, with the start as on dev.
+	- Possible cause: the setting is made with the process environment, and the launcher passes that environment on.
+	- Actual cause: as in Possible cause. The app makes 3 settings for itself at startup: no session bus, the font hinting, and the drag protocol. Any program started from inside the app gets all 3: a console program for an action, the last-resort direct start, the shell's open when the app is elevated, and a new copy of the app, which then took them for the user's own. A program Explorer or the management service starts gets their environment, not ours.
+	- Decisions:
+		- 20261009: the 3 settings stay in the app's own environment, since GLib reads the bus one there. Each is recorded with what was there before. A start of a user's program from inside the app puts those back for the moment, then the app's again.
+		- 20261009: helpers keep the app's settings, as Expected behavior allows: thumbnailers, tools, converters and action conditions. A new copy of the app gets the user's environment and makes its own settings again.
+		- 20261009: everything else in the app's environment still goes along, the script variables of the Scripts menu included.
+	- Progress log:
+		- 20261009: back to Queued. rjvzdd4w fails natively on vm925w, elevated and not, 3 runs out of 3: "run" and "open" never write what they saw. The spawn, copy and helper rows pass. Both failing routes have Explorer start the test program itself, which can't find its DLLs outside the build's PATH and stops at Windows' "DLL was not found" box, so nothing is written. Same cause as rjw1ks5h in 2026100914514406. The packed exe check passed.
+		- 20261009: the test was at fault, not the app. The program Explorer or the service starts gets their PATH, with none of the build's libraries on it. "run" and "open" now start test-env-dump, a small program that needs none. It writes its whole environment, so the checks are the same as before.
+	- Actual fix: one record of the app's own settings, in `nemo-file-utilities.c`. In `nemo-launch-win32.c` every start of a user's program from inside the app runs with the user's values in place. Every start there takes one lock, so a helper starting meanwhile still gets the app's. "Open as Administrator" and Explorer for a folder in `nemo-view-win32.c` do the same. A new window in its own process is started with the user's environment.
+	- Swept: every process start outside the tests, by grep for `CreateProcess`, `ShellExecute`, `g_spawn`, `g_subprocess`, `g_app_info_launch` and `gtk_show_uri`.
+		- The user's values: the direct start, the shell open fallback and a hidden console program in `nemo-launch-win32.c`, `runas` and `explore` in `nemo-view-win32.c`, and `nemo-new-process.c`.
+		- The app's, as helpers: `nemo-tool-run.c`, `nemo-desktop-thumbnail.c`, `nemo-magick.c` and the action condition in `nemo-action.c`.
+		- Not ours to start: a store app, which `nemo-program-choosing.c` hands to GIO and Windows starts outside the app, and the shell and management service starts.
+		- Not reached on Windows: `gtk_show_uri` with the `help:` links, which nothing handles there, and an extension's config program, since Windows loads no extensions. The rest are in Linux-only branches.
+		- Every `g_setenv` in the app: the 3 are recorded now. The Scripts menu variables are meant for the script, and `G_MESSAGES_DEBUG` is only set under `--debug` with an old GLib. On Linux and the BSDs a relocated prefix puts its own share and bin folders on the lists a started program gets. Not this item.
+	- Test case: rjvzdd4w, Launch environment win32 test. test-env-dump writes what it got. It is started as an action's console program, as a named program, by opening a `.bat`, as a new copy and as a helper.
+	- Verified: under wine rjvzdd4w fails 5 checks with the swap taken out and passes with it, 6 runs. Its new copy case makes the same start as `nemo-new-process.c`, so it checks the user's environment, not that file. Under wine the named program and the open go through the shell or the service, so for those only the 2 settings nothing else makes are checked. rjvks1yf, rjpatrck, rjmb3j8p, rjm4ctwh, rjnzpkk7, rjp4ch0y and rffkjp10 pass under wine. The Windows cross build is clean.
+	- Verified: 20261009 on vm925w at dev 186065a, the single exe from the same commit, with a scratch settings folder. Not elevated: the `.bat` opened from the file list and run by an action each wrote a `set` with none of the 3. Elevated: the same, with the action's run elevated and the file list's open run unelevated through the shell. rjvzdd4w fails, as in Progress log.
+	- Verified: 20261009 on vm925w, the branch winlaunch. rjvzdd4w passes 3 of 3, elevated and at medium integrity in the desktop session. Under wine it still fails with the swap taken out, 8 checks, and passes with it.
+	- Branch: lowtrio, winlaunch
+	- Commit: 270dd0d, 205074b
+	- Acceptance signoff: Self-closed: nothing users see changed. Only the test was wrong, and rjvzdd4w passes natively.
+	- Closed: 20261009-190518
 
 - On Windows, cppcheck 2.21 finds 3 things in 2 test files that the Linux lint passes.
 	- ID: 2026100914350100

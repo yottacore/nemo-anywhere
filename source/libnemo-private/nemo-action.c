@@ -1566,11 +1566,11 @@ nemo_action_activate (NemoAction *action,
         /* Through the launcher, so a console program gets no window, or one
            of its own when the action wants a terminal. */
         if (!nemo_user_text_split_command (exec->str, NULL, &argvp, &error)) {
-            DEBUG ("Could not parse action command: %s", error->message);
+            nemo_show_start_error (window, error);
             g_clear_error (&error);
         } else {
             if (!nemo_launch_win32_spawn ((const gchar * const *) argvp, priv->run_in_terminal, &error)) {
-                DEBUG ("Error spawning action: %s", error->message);
+                nemo_show_start_error (window, error);
                 g_clear_error (&error);
             }
             g_strfreev (argvp);

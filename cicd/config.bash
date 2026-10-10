@@ -253,6 +253,7 @@ PACKAGE_CHECKS=(
 	"Prefix check (arm64)|bash cicd/linux/test-prefix.bash --arch arm64"
 	"FreeBSD package check|bash cicd/bsd/test-pkg.bash"
 	"Windows bundle check|bash cicd/utility/test-bundle-left-out.bash windows"
+	"Windows bundle exe check|(command -v pwsh >/dev/null 2>&1 || exit 77; pwsh -NoProfile -File cicd/utility/test-bundle-exes.ps1)"
 	"FreeBSD bundle check|bash cicd/utility/test-bundle-left-out.bash bsd"
 	"Setup exe check|docker exec nemo-winbuild bash /src/cicd/win/test-setup.bash"
 )

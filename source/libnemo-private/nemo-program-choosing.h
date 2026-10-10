@@ -55,6 +55,16 @@ void nemo_launch_desktop_file		 (GdkScreen                         *screen,
 						  const GList                       *parameter_uris,
 						  GtkWindow                         *parent_window);
 
+/* Every start the user asked for that failed, so a way of starting things
+ * that was missed is seen rather than doing nothing. */
+void nemo_show_start_error                  (GtkWindow                         *parent_window,
+						  const GError                      *error);
+
+#ifdef G_OS_WIN32
+/* A helper that will not start, once per program. */
+void nemo_show_helper_start_errors          (void);
+#endif
+
 /* A link from one of our windows, such as help or the About box. */
 gboolean nemo_show_uri                      (GtkWindow                         *parent_window,
 						  const char                        *uri,
