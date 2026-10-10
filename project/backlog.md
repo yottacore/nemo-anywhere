@@ -166,7 +166,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, every bundle has only the app's own exe, so no form of the app starts a program from inside its bundle.
 	- ID: 2026100917220603
 	- Type: Enhancement
-	- Status: Waiting for testing
+	- Status: Waiting on signoff
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
 	- Priority|Severity: Avg
 	- Opened: 20261009-172206
@@ -185,11 +185,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: waits on 2026100914514406's native check under MacType. If a box shows there, that comes first.
 	- Needs external testing:
 		- Done 20261009 on vm925w, passed: the native suite, the install checks, and a stage and pack of the single exe.
-		- Left: each of the 3 forms in the desktop session on vm925w with MacType running, the zip, the copy `install.ps1` puts in place and the single exe. A new window, a tab moved out, both About links and Help, Open With, an action, thumbnails of a picture and an office file, and an archive made and unpacked. No "Cannot load library" box, no `gspawn-` process, and a start made to fail on purpose shows its error.
+		- Done 20261010 on vm925w, passed. It was: each of the 3 forms in the desktop session on vm925w with MacType running, the zip, the copy `install.ps1` puts in place and the single exe. A new window, a tab moved out, both About links and Help, Open With, an action, thumbnails of a picture and an office file, and an archive made and unpacked. No "Cannot load library" box, no `gspawn-` process, and a start made to fail on purpose shows its error.
 	- Estimated effort: Avg
 	- Progress log:
 		- 20261009: done, waiting on the MacType check. The 2 helpers are left out of the native stage, the zip and the wine runner. A start the user asked for that fails shows the error in a dialog. A helper that won't start, such as a thumbnailer or a search converter, is said once per program, since a box per file would be worse than none. A new window or a tab moved out that can't get its own process still opens in this one, after the error. Left at signoff after testing, for the new error dialogs.
 		- 20261009: Options for later: with nothing in the single exe that a started program needs, the packer's sharing with started programs might be turned off. That could take the packer's hooks out of what the app starts. Not tried.
+		- 20261010: done. The packer's sharing with started programs is off. Nothing left in the single exe is needed by a program it starts, and a new copy is the single exe started from its own file, which loads the same as a double-click. A check refuses a pack project with sharing on.
+		- 20261010: all 3 forms passed under MacType. Still left at signoff for the new error dialogs.
+		- 20261010: Options for later: the launcher's comments and its lint check's comment still give the packer's hooks as the reason for the brokers. The brokers have other reasons too, like the window in front and the error report, so whether they stay is its own call.
+	- Decisions:
+		- 20261010: try turning off the packer's sharing with started programs, now that nothing in the single exe is needed by a program it starts.
+	- Note: the start error shows the command line inside a second pair of quotes, as in `Could not start ""C:\...\no-such-program.exe" C:\...\notes.txt"`.
 	- Swept: every start outside the tests, from the calls into `nemo-launch-win32.c`, `nemo_new_process_spawn*` and `nemo_show_uri`.
 		- Shows the error now: Open With, scripts and command lines, opening a program file, a template, an action and its command, bulk rename, Open in Terminal, Explorer, Open as Administrator, a new window and a tab moved out.
 		- Showed it already: the About links and Help, and making or unpacking an archive.
@@ -197,9 +203,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Left as it was: a shortcut the shell can't open falls back to opening it the usual way, which says so if that fails too.
 	- Verified: 20261009 on vm925w at d483f63: native suite 166 OK, 11 skipped, and only rjqef159 failed, as on dev (2026100516274275). The install checks pass, and the installed folder has no program but the app. The native stage has no exe but the app, the flat tree passes the check, and the single exe packs and starts.
 	- Verified: the zip packed from the branch passes the check, 2850 files, and the same zip with a spawn helper added is refused. The check's self-test fails with programs in subfolders let through. Under wine rjm4ctwh fails with archive tools, converters and thumbnailers started through GLib's spawn, and with the once per program rule taken out. rjnzpkk7 fails with the old log line in place of the dialog. rjvzdd4w, rjw1ks5h, rjm4ctwh and rjnzpkk7 pass under wine. Full Linux suite 188 of 188 and the Windows cross build clean, both with warnings as errors, and lint clean.
-	- Branch: winlaunch
-	- Commit: b1bb561, b02da5e, d483f63, 6c72feb
-	- Test case: rjwc3jkm, Windows bundle exe check. It reads the release zip in the packages stage, the flat tree before the single exe is packed, and the folder `install.ps1` installs in rj72n4xb. The start paths: rjw1ks5h for a new window, a tab moved out and links, rjvzdd4w for Open With, a named program and an open file, rjmb3j8p for actions, rjm4ctwh for archive tools, converters and thumbnailers, which must be started by the app and not a spawn helper, and a helper that won't start is told once. rjnzpkk7 checks that a failed start shows its error.
+	- Verified: 20261010 on vm925w, branch evbshare, in the desktop session with MacType loaded into the app. The single exe, the zip and the copy `install.ps1` put in place each passed: an action, a new window and a tab moved out (each a copy the app started itself), Help's error, both About links in Firefox, Open With Notepad, thumbnails of a png and an .odt in icon view, a zip made and extracted, and an action naming a missing program showing its error. No "Cannot load library" box and no `gspawn-` process in any of them.
+	- Verified: 20261010 on vm925w, single exe with sharing off against one packed from the same files with it on. A program the app started directly couldn't see the packed files with it off, and could with it on. A 32-bit program from an action ran with it off. With it on, the same start crashed the app inside the packer's own code.
+	- Verified: rjxn0ekh passes on Linux and on vm925w, and fails with the pack project's sharing put back on. It also refuses the project dev's pack script writes.
+	- Branch: winlaunch, evbshare
+	- Commit: b1bb561, b02da5e, d483f63, 6c72feb, f80970a
+	- Test case: rjwc3jkm, Windows bundle exe check. It reads the release zip in the packages stage, the flat tree before the single exe is packed, and the folder `install.ps1` installs in rj72n4xb. The start paths: rjw1ks5h for a new window, a tab moved out and links, rjvzdd4w for Open With, a named program and an open file, rjmb3j8p for actions, rjm4ctwh for archive tools, converters and thumbnailers, which must be started by the app and not a spawn helper, and a helper that won't start is told once. rjnzpkk7 checks that a failed start shows its error. rjxn0ekh, Pack project options check: the single exe's pack project must have sharing with started programs off.
 
 - On Windows, the trash icon leaves out removable drives.
 	- ID: 2026100708294146

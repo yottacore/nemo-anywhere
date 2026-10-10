@@ -44,7 +44,7 @@ On Windows, nemo-anywhere is one `nemo-anywhere.exe` with the whole GTK runtime 
 
 - A setup exe installs the zip's files for one user, for anyone who wants an install with an uninstaller.
 
-- Two costs came with the packer, and both are handled: a slow start, and hooks that follow every program the app starts. See [Design](#design).
+- Two costs came with the packer, and both are handled: a slow start, and hooks that followed every program the app started, until sharing with started programs was turned off. See [Design](#design).
 
 ## Specification
 
@@ -118,6 +118,8 @@ The packed exe shares its virtual filesystem with every program it starts, by pu
 
 - Sharing can't just be turned off. The app's own helpers, the document converters for search, the thumbnailers and two toolkit helpers, live inside the virtual filesystem and need it to find their libraries.
 	- None of them is in a bundle now. The converters and the office thumbnailer went when the app started reading office files itself, and the 2 toolkit helpers with 2026100917220603.
+	- So sharing is off since 2026100917220603. A program the app starts gets no hooks and can't see the packed files, and a 32-bit one starts like any other. A check refuses a pack project with sharing on, so it can't come back by accident.
+	- The brokers below came first, as the way around the hooks, and are still how a program gets started.
 
 - So the app never starts another program itself. It asks one of two brokers outside its own process tree:
 	- The desktop shell first. It passes arguments, brings the new window forward, and is the ordinary way a file gets opened.
@@ -128,7 +130,7 @@ The packed exe shares its virtual filesystem with every program it starts, by pu
 
 - The programs offered under "Open with" go the same way. A store app has no command line and is left to the toolkit.
 
-- Tools whose output the app reads are the exception: the archive programs, the search converters, the thumbnailers and ImageMagick. Neither broker can hand over a pipe, so these are started directly, with no console window, and run with the hooks, which they don't mind. GLib's own way of starting them goes through a helper program that never starts them from inside the packed exe.
+- Tools whose output the app reads are the exception: the archive programs, the search converters, the thumbnailers and ImageMagick. Neither broker can hand over a pipe, so these are started directly, with no console window. They ran with the hooks while sharing was on, which they didn't mind. GLib's own way of starting them goes through a helper program that never starts them from inside the packed exe.
 	- They end with the app, however it ends. Each one goes into a job that Windows ends when the app's handle to it closes, before it runs, so anything it starts goes too. A program the user asked for, such as an action's command, isn't a helper and keeps running.
 
 - A new copy of the app, for a new window or a tab moved out to one, is started directly too. The packed exe started as itself finds its own libraries whatever hooks it got, and a direct start keeps the new window in front. A link, such as one in the About box, goes to the shell like a file does, once the registry shows something handles its scheme. GLib's own way for both goes through its helper, which is a program packed inside the exe.
@@ -187,8 +189,6 @@ The packed exe shares its virtual filesystem with every program it starts, by pu
 
 - Unpacking to a real folder at run time. It breaks the dogfood launcher's one file per build, and swaps one thing security software dislikes for another.
 
-- Turning off the packer's sharing with started programs. The app's own helpers need it.
-
 - A small launcher of our own between the app and the program. The hooks follow the whole process tree, so the launcher and everything it starts are hooked too.
 
 - Launch flags or a command prompt in between. Detaching, a hidden `cmd.exe`, `start /b`, and the shell's open verb called in-process all leave the program hooked.
@@ -204,6 +204,8 @@ The packed exe shares its virtual filesystem with every program it starts, by pu
 - Building the setup on the Windows box from its own staged files. Those are a native build, not the zip `install.ps1` installs, and the hosted workflow only builds the portable exe.
 
 ### Superseded
+
+- Leaving the packer's sharing with started programs on. The app's own helpers needed it, until none was left in the exe.
 
 - A library folder beside the exe, started through a `.vbs` launcher that set the library path. The single exe removed the whole arrangement.
 
@@ -237,11 +239,15 @@ The packed exe shares its virtual filesystem with every program it starts, by pu
 
 - A packed test program that had started a 32-bit program kept a processor busy waiting on it, for nine days, until the child was killed.
 
+- With sharing off, a program the app starts directly can't see the packed files, and loads only what it would load anyway. With sharing on it saw them, and a plain `ping` came up with about 10 extra system libraries the hooks pulled in.
+
+- With sharing on and MacType running, starting a 32-bit program from an action crashed the whole app, inside the packer's own code. With sharing off it starts and runs.
+
+- With sharing off, the packed app used 16 ms of processor time over 10 s while 2 programs it had started were still running.
+
 ## Roadmap
 
-- Find out whether the released exe keeps a processor busy the same way while a program it started is still running.
-
-- Run ImageMagick thumbnails under the packed exe on Windows. No console window should flash up, and `magick.exe` should work with the hooks in it.
+- Run ImageMagick thumbnails under the packed exe on Windows. No console window should flash up.
 
 - Signing, once there is an identity (backlog: Windows code signing).
 
