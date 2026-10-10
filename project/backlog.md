@@ -359,51 +359,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: f38660a to f8a6223
 	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session. (c) still needs its own: a thumbnail and the text from a small file of each type, on every platform, and a check that no program is started for them.
 
-- A setting with an automatic value can be changed on its own, with no master switch to find first.
-	- ID: 2026100816170959
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261008-161710
-	- Opened by: t00mietum
-	- Target OS: All
-	- Design: [20261008-180516_automatic_settings.md](design_docs/20261008-180516_automatic_settings.md).
-	- Requirements:
-		- A setting the program can work out by itself is automatic when nothing is stored for it. It shows and uses what its rule or preset gives right now.
-		- Changing it stores the new value, for that setting only. Nothing else changes.
-		- Every such setting has its own way back to automatic:
-			- A list choice gets `Automatic` as its first entry.
-			- On or off becomes a 3-entry dropdown: `Automatic`, `On`, `Off`.
-			- A number, text, color or file gets a small clear icon while set by hand. While automatic the field shows the rule's value in a lighter style, and can still be typed in.
-		- Nothing is grayed or disabled for being automatic. A small mark says it is.
-		- A group's switch or presets dropdown is never stored. It is worked out from the settings under it every time it's drawn.
-			- A switch is on when all are automatic, off when none are, and mixed when some are.
-			- A presets dropdown shows the preset they all match, else Custom. Custom can't be picked.
-		- Using the group control changes every setting under it at once:
-			- Switch on, or a mixed switch clicked: all go automatic.
-			- Switch off: each stores the value it shows now, so nothing on screen moves.
-			- A preset picked: each stores that preset's value.
-		- A hand edit to the settings file works the same. A line sets a value, no line means automatic.
-		- The flyover tip of every input control, and of its label, has:
-			- The setting's description, if it has one.
-			- A blank line, when anything follows it.
-			- For an automatic-capable setting, whether it's automatic or set by hand, and what automatic would give.
-			- "Current value" and "Default value" lines, only when they differ.
-	- Note: the problem this solves. In this app now, and in many others, a setting that can't be edited first means hunting down which master switch is stopping it, then changing that. Changing it also brings back every stored value under it, when maybe only the one was wanted.
-	- Progress log:
-		- 20261008: "own value when the override is set or the master is off" would un-gray every setting under a master once one edit turns the master off. Settled on the rule in Decisions instead, which is what was meant.
-		- 20261008: 2 ways to store it:
-			- (a) Only the override flags. The master shows on when no setting under it overrides, and setting it by hand sets or clears every flag under it. Master off by hand writes one line per setting under it.
-			- (b) The master keeps its own value, plus a second setting: `overridesAll`, `overridesNone` or `overridesSome`. All means every setting under it uses its own value, None means every one is gray and automatic, Some means only those with their override flag set use their own value. Setting the master by hand writes 2 lines, whatever the number of settings under it.
-			- The catch with (b): old flags left from an earlier Some would come back the next time it goes to Some. So setting the master by hand also drops every flag under it, which in a file that keeps only non-default values means deleting lines, not writing them.
-		- 20261008: went with (b).
-		- 20261008: changed my mind on all of the above. No grays, and nothing stored for a group. A setting is automatic by storing nothing, and the switch or dropdown is read from the settings under it. Old design moved to [rejected](design_docs/rejected/20261008-171206_settings_under_a_master.md).
-	- Decisions:
-		- 20261008: one table lists every automatic-capable setting, its rule, and its group. One function gives the value in use and whether it's automatic. Nothing reads such a setting around it, and a lint check refuses code that does.
-		- 20261008: going back to automatic throws the hand-set value away. Going manual starts from what is showing.
-		- 20261008: settings that only count while a feature is on, like the choices under "Show tooltips", are not part of this. They stay as they are.
-	- Test case: still needs one.
-
 - On Linux and the BSDs, programs a relocated install starts get its own folders in their search paths.
 	- ID: 2026100916102200
 	- Type: Bug
@@ -4512,6 +4467,51 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: none, a code review.
 	- Acceptance signoff: Self-closed: all 45 items under it are Done.
 	- Closed: 20261006-165500
+
+- A setting with an automatic value can be changed on its own, with no master switch to find first.
+	- ID: 2026100816170959
+	- Type: Enhancement
+	- Status: Deferred
+	- Priority|Severity: Avg
+	- Opened: 20261008-161710
+	- Opened by: t00mietum
+	- Target OS: All
+	- Requirements:
+		- A setting the program can work out by itself is automatic when nothing is stored for it. It shows and uses what its rule or preset gives right now.
+		- Changing it stores the new value, for that setting only. Nothing else changes.
+		- Every such setting has its own way back to automatic:
+			- A list choice gets `Automatic` as its first entry.
+			- On or off becomes a 3-entry dropdown: `Automatic`, `On`, `Off`.
+			- A number, text, color or file gets a small clear icon while set by hand. While automatic the field shows the rule's value in a lighter style, and can still be typed in.
+		- Nothing is grayed or disabled for being automatic. A small mark says it is.
+		- A group's switch or presets dropdown is never stored. It is worked out from the settings under it every time it's drawn.
+			- A switch is on when all are automatic, off when none are, and mixed when some are.
+			- A presets dropdown shows the preset they all match, else Custom. Custom can't be picked.
+		- Using the group control changes every setting under it at once:
+			- Switch on, or a mixed switch clicked: all go automatic.
+			- Switch off: each stores the value it shows now, so nothing on screen moves.
+			- A preset picked: each stores that preset's value.
+		- A hand edit to the settings file works the same. A line sets a value, no line means automatic.
+		- The flyover tip of every input control, and of its label, has:
+			- The setting's description, if it has one.
+			- A blank line, when anything follows it.
+			- For an automatic-capable setting, whether it's automatic or set by hand, and what automatic would give.
+			- "Current value" and "Default value" lines, only when they differ.
+	- Note: the problem this solves. In this app now, and in many others, a setting that can't be edited first means hunting down which master switch is stopping it, then changing that. Changing it also brings back every stored value under it, when maybe only the one was wanted.
+	- Progress log:
+		- 20261008: "own value when the override is set or the master is off" would un-gray every setting under a master once one edit turns the master off. Settled on the rule in Decisions instead, which is what was meant.
+		- 20261008: 2 ways to store it:
+			- (a) Only the override flags. The master shows on when no setting under it overrides, and setting it by hand sets or clears every flag under it. Master off by hand writes one line per setting under it.
+			- (b) The master keeps its own value, plus a second setting: `overridesAll`, `overridesNone` or `overridesSome`. All means every setting under it uses its own value, None means every one is gray and automatic, Some means only those with their override flag set use their own value. Setting the master by hand writes 2 lines, whatever the number of settings under it.
+			- The catch with (b): old flags left from an earlier Some would come back the next time it goes to Some. So setting the master by hand also drops every flag under it, which in a file that keeps only non-default values means deleting lines, not writing them.
+		- 20261008: went with (b).
+		- 20261008: changed my mind on all of the above. No grays, and nothing stored for a group. A setting is automatic by storing nothing, and the switch or dropdown is read from the settings under it. Old design moved to [rejected](design_docs/rejected/20261008-171206_settings_under_a_master.md).
+	- Decisions:
+		- 20261008: one table lists every automatic-capable setting, its rule, and its group. One function gives the value in use and whether it's automatic. Nothing reads such a setting around it, and a lint check refuses code that does.
+		- 20261008: going back to automatic throws the hand-set value away. Going manual starts from what is showing.
+		- 20261008: settings that only count while a feature is on, like the choices under "Show tooltips", are not part of this. They stay as they are.
+		- 20261010: changed my mind. How the settings dialog works stays as it is for now, and the design doc for this is gone. If this comes back, start from silkterm's version of that doc, read only.
+	- Test case: still needs one.
 
 - On Windows every launch leaves a small `gdbus-nonce-file-*` in the temp folder.
 	- ID: 2026100714014948
