@@ -271,7 +271,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, every bundle has only the app's own exe, so no form of the app starts a program from inside its bundle.
 	- ID: 2026100917220603
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
 	- Priority|Severity: Avg
 	- Opened: 20261009-172206
 	- Opened by: t00mietum
@@ -287,9 +288,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: the point is one behavior for all 3. Kept in the zip but not the single exe, a test on the zip would hide a fault only the single exe has. With them gone everywhere, a missed path fails the same way in each and shows in any native run, not only under MacType.
 	- Note: no hook detection or warning for MacType and tools like it. With no packed program started, there's nothing for them to break.
 	- Note: waits on 2026100914514406's native check under MacType. If a box shows there, that comes first.
-	- Needs external testing: the native suite on vm925w, then each of the 3 forms in the desktop session with MacType running.
+	- Needs external testing:
+		- Done 20261009 on vm925w, passed: the native suite, the install checks, and a stage and pack of the single exe.
+		- Left: each of the 3 forms in the desktop session on vm925w with MacType running, the zip, the copy `install.ps1` puts in place and the single exe. A new window, a tab moved out, both About links and Help, Open With, an action, thumbnails of a picture and an office file, and an archive made and unpacked. No "Cannot load library" box, no `gspawn-` process, and a start made to fail on purpose shows its error.
 	- Estimated effort: Avg
-	- Test case: still needs one. The bundle check, and the start path tests named above.
+	- Progress log:
+		- 20261009: done, waiting on the MacType check. The 2 helpers are left out of the native stage, the zip and the wine runner. A start the user asked for that fails shows the error in a dialog. A helper that won't start, such as a thumbnailer or a search converter, is said once per program, since a box per file would be worse than none. A new window or a tab moved out that can't get its own process still opens in this one, after the error. Left at signoff after testing, for the new error dialogs.
+		- 20261009: Options for later: with nothing in the single exe that a started program needs, the packer's sharing with started programs might be turned off. That could take the packer's hooks out of what the app starts. Not tried.
+	- Swept: every start outside the tests, from the calls into `nemo-launch-win32.c`, `nemo_new_process_spawn*` and `nemo_show_uri`.
+		- Shows the error now: Open With, scripts and command lines, opening a program file, a template, an action and its command, bulk rename, Open in Terminal, Explorer, Open as Administrator, a new window and a tab moved out.
+		- Showed it already: the About links and Help, and making or unpacking an archive.
+		- Said once per program: thumbnailers, ImageMagick, action conditions and search converters.
+		- Left as it was: a shortcut the shell can't open falls back to opening it the usual way, which says so if that fails too.
+	- Verified: 20261009 on vm925w at d483f63: native suite 166 OK, 11 skipped, and only rjqef159 failed, as on dev (2026100516274275). The install checks pass, and the installed folder has no program but the app. The native stage has no exe but the app, the flat tree passes the check, and the single exe packs and starts.
+	- Verified: the zip packed from the branch passes the check, 2850 files, and the same zip with a spawn helper added is refused. The check's self-test fails with programs in subfolders let through. Under wine rjm4ctwh fails with archive tools, converters and thumbnailers started through GLib's spawn, and with the once per program rule taken out. rjnzpkk7 fails with the old log line in place of the dialog. rjvzdd4w, rjw1ks5h, rjm4ctwh and rjnzpkk7 pass under wine. Full Linux suite 188 of 188 and the Windows cross build clean, both with warnings as errors, and lint clean.
+	- Branch: winlaunch
+	- Commit: b1bb561, b02da5e, d483f63
+	- Test case: rjwc3jkm, Windows bundle exe check. It reads the release zip in the packages stage, the flat tree before the single exe is packed, and the folder `install.ps1` installs in rj72n4xb. The start paths: rjw1ks5h for a new window, a tab moved out and links, rjvzdd4w for Open With, a named program and an open file, rjmb3j8p for actions, rjm4ctwh for archive tools, converters and thumbnailers, which must be started by the app and not a spawn helper, and a helper that won't start is told once. rjnzpkk7 checks that a failed start shows its error.
 
 - A setting with an automatic value can be changed on its own, with no master switch to find first.
 	- ID: 2026100816170959
