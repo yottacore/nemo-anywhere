@@ -75,8 +75,9 @@ if command -v pwsh >/dev/null 2>&1; then
 	pwsh -NoProfile -File "${here}/test-runfm-pool.ps1"
 	pwsh -NoProfile -File "${here}/test-runfm-shortcuts.ps1"
 	pwsh -NoProfile -File "${here}/test-bundle-exes.ps1" -SelfTest
+	pwsh -NoProfile -File "${here}/test-evb-project.ps1" -SelfTest
 else
-	echo "[ install.ps1 PATH, n8runfm pool and shortcut, and bundle exe tests skipped: no pwsh ]"
+	echo "[ install.ps1 PATH, n8runfm pool and shortcut, bundle exe and evb project tests skipped: no pwsh ]"
 fi
 ## Under MSYS2 install.ps1 would be installing into the real Windows profile.
 if [[ "$(uname -o 2>/dev/null)" == "Msys" ]]; then
