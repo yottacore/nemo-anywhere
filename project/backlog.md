@@ -359,6 +359,122 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: f38660a to f8a6223
 	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session. (c) still needs its own: a thumbnail and the text from a small file of each type, on every platform, and a check that no program is started for them.
 
+- F2 renaming in photo icon view doesn't work.
+	- ID: 2026101009150764
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261010-091507
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+	- Steps to reproduce: in a folder of photos in icon view, select a photo and press F2.
+	- Incorrect behavior: F2 renaming doesn't work.
+	- Expected behavior: the name opens for editing, like in the other views.
+	- Reproduced: No.
+	- Test case: TBD
+
+- Tooltip text lies on top of foreground windows.
+	- ID: 2026101009150765
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261010-091507
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+	- Incorrect behavior: a tooltip from the app shows on top of other windows that are in front of it.
+	- Expected behavior: other windows in front of the app cover its tooltips.
+	- Reproduced: No.
+	- Progress log:
+		- 20261010: Options: possible easy fix, don't even show tooltips when the app doesn't have the focus.
+	- Test case: TBD
+
+- Allow creating folders with path separators in the name, to make a nested structure in one go.
+	- ID: 2026101009150766
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261010-091507
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+		- A new folder name with path separators creates each folder in the path, nested.
+	- Test case: TBD
+
+- Settings: the dialog is too long.
+	- ID: 2026101009150767
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261010-091507
+	- Opened by: t00mietum
+	- Related IDs: 2026101009150769
+	- Requirements:
+		- Before the next cut.
+		- Allow Behavior to overflow with a scrollbar, and size the dialog to the next-longest tab.
+			- Consider breaking the content up into related settings under a couple or more nested tabs, or sub-tabs.
+	- Test case: TBD
+
+- Settings: Views|Current needs to look more clearly disabled when it's disabled.
+	- ID: 2026101009150768
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261010-091507
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+		- Go back to the previous method of letting the tab be activated, but disable all the content.
+	- Progress log:
+		- 20261010: the old-format item "Preferences|Views: with Remember per-folder settings off, the Current tab still opens on a dead page" made the tab refuse the switch. Back then the tab opened on an empty gray pane, so the controls have to show, disabled.
+	- Test case: TBD. `test-nemo-prefs-current` checks the switch is refused, so it changes with this.
+
+- Settings: show nested tabs in the tab list on the left.
+	- ID: 2026101009150769
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261010-091507
+	- Opened by: t00mietum
+	- Related IDs: 2026101009150767, 2026101009150770, 2026101009150771
+	- Requirements:
+		- Before the next cut.
+		- Sub-tabs, or nested tabs:
+			- Nested tabs show in the same list, without having to be on the parent tab to see them.
+				- The extra vertical space allows this. Any dialog with tabs on top keeps the existing method, where the parent tab has to be active to see its sub-tabs.
+			- A nested tab's text is indented to the right, under its parent tab.
+			- Any level of nesting, although after some practical point it would be bad UX design.
+			- With any form of nested tabs, one sub-tab is always showing while the parent tab is active. That sub-tab gets the same "active tab" color as the parent to show it.
+	- Test case: TBD
+
+- Settings: Ctrl+PgUp, Ctrl+PgDn, Ctrl+Tab and Ctrl+Shift+Tab step through sub-tabs.
+	- ID: 2026101009150770
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261010-091507
+	- Opened by: t00mietum
+	- Prereq IDs: 2026101009150769
+	- Requirements:
+		- Before the next cut.
+		- These keys work as normal, except when the active tab has sub-tabs they work on the sub-tabs instead.
+			- Past the last sub-tab, cycling moves to the next parent tab.
+	- Test case: TBD
+
+- Settings: tabs can't get input focus.
+	- ID: 2026101009150771
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261010-091507
+	- Opened by: t00mietum
+	- Related IDs: 2026101009150769
+	- Requirements:
+		- Before the next cut.
+		- A tab can be clicked with the mouse, but doesn't get input focus. Otherwise tabs are only indicators of which tab is active.
+	- Test case: TBD
+
 - On Linux and the BSDs, programs a relocated install starts get its own folders in their search paths.
 	- ID: 2026100916102200
 	- Type: Bug
