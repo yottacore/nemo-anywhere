@@ -397,6 +397,7 @@ static void
 helper_failed (G_GNUC_UNUSED const gchar *program,
 	       const gchar               *message)
 {
+	/* cppcheck-suppress leakNoVarFunctionCall ; the idle frees it with g_free */
 	g_idle_add_full (G_PRIORITY_DEFAULT_IDLE, show_helper_failed, g_strdup (message), g_free);
 }
 

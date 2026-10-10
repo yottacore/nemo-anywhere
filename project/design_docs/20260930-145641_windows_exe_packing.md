@@ -117,6 +117,7 @@ On Windows, nemo-anywhere is one `nemo-anywhere.exe` with the whole GTK runtime 
 The packed exe shares its virtual filesystem with every program it starts, by putting its hooks into each one. A program that runs sandboxed child processes of its own, which is anything built on Chromium, can't start them with the hooks in place, and reports a crash. A 32-bit program never starts at all, and nothing says so.
 
 - Sharing can't just be turned off. The app's own helpers, the document converters for search, the thumbnailers and two toolkit helpers, live inside the virtual filesystem and need it to find their libraries.
+	- None of them is in a bundle now. The converters and the office thumbnailer went when the app started reading office files itself, and the 2 toolkit helpers with 2026100917220603.
 
 - So the app never starts another program itself. It asks one of two brokers outside its own process tree:
 	- The desktop shell first. It passes arguments, brings the new window forward, and is the ordinary way a file gets opened.
@@ -134,6 +135,9 @@ The packed exe shares its virtual filesystem with every program it starts, by pu
 
 - MacType, a font tool, loads into every program on the desktop and breaks the packer's hand-over: a helper started from the packed exe can load none of the libraries packed beside it, and shows the packer's "Cannot load library" box. Nothing in the app or the pack is wrong. The fix is to add the exe to MacType's exclusion list, which README says. The zip isn't packed, so it isn't affected.
 	- Since 2026100914514406 the packed exe starts no program packed inside it. Office files are read in the app, there is no session bus, and new windows and links go the ways above. So README no longer asks for the exclusion.
+
+- No Windows bundle has a program in it but the app, since 2026100917220603. That holds for the zip, the copy `install.ps1` puts in place and the single exe alike, so a start that still reached for one fails the same way in all 3, not only under MacType. GLib's 2 spawn helpers were the last ones. A check refuses any other `.exe` when the zip and the single exe are packed.
+	- A start that fails says so. One the user asked for shows the error in a dialog. A helper that won't start is reported once per program, not once per file.
 
 - `nemo-launch-win32.c` is the one place that starts another program on Windows. A check in the C lint fails any other.
 
