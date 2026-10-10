@@ -25,10 +25,11 @@
  * answers "not mounted", and a mount of one is held until this file lets it
  * go, so the window waits exactly as long as the probe wants. It types an
  * smb:// address into the location bar, looks at the path bar and the
- * pointer, tries a shortcut, a click and a drop, presses Escape, then tries
- * again and lets the mount fail, and last closes the window mid-attempt. One
- * "ok" or "FAIL" line per check goes to $NEMO_CONNECTING_OUT, and "done" at
- * the end. */
+ * pointer, watches the window fade, tries a shortcut, a click and a drop,
+ * presses Escape, then tries again and lets the mount fail, tries once more
+ * with animations off, and last closes the window mid-attempt. One "ok" or
+ * "FAIL" line per check goes to $NEMO_CONNECTING_OUT, and "done" at the
+ * end. */
 
 #define _GNU_SOURCE
 #include <dlfcn.h>
@@ -52,6 +53,16 @@ static int        presses;
 static int        tabs_before;
 static gboolean   clicked;
 static gboolean   no_drop_target;
+
+/* The folder view as the window draws it, against the view on its own. */
+#define SHOTS 3
+static guchar    *shots[SHOTS];
+static int        sizes[SHOTS];
+static int        covered[SHOTS];
+static gboolean   closed;
+static int        ticks;
+static int        polls;
+static GPollFunc  real_poll;
 
 static gboolean
 fake (GFile *file)
@@ -364,6 +375,156 @@ click_view (void)
 	clicked = TRUE;
 }
 
+/* The program's own frame clock callbacks, counted from start to removal
+   whatever removes them. GTK's own never pass through here. */
+typedef struct {
+	GtkTickCallback callback;
+	gpointer        data;
+	GDestroyNotify  notify;
+} Tick;
+
+static gboolean
+tick_relay (GtkWidget *widget, GdkFrameClock *clock, gpointer data)
+{
+	Tick *tick = data;
+
+	return tick->callback (widget, clock, tick->data);
+}
+
+static void
+tick_gone (gpointer data)
+{
+	Tick *tick = data;
+
+	ticks--;
+	if (tick->notify != NULL) {
+		tick->notify (tick->data);
+	}
+	g_free (tick);
+}
+
+guint
+gtk_widget_add_tick_callback (GtkWidget       *widget,
+			      GtkTickCallback  callback,
+			      gpointer         user_data,
+			      GDestroyNotify   notify)
+{
+	guint (*real) (GtkWidget *, GtkTickCallback, gpointer, GDestroyNotify);
+	Tick *tick = g_new (Tick, 1);
+
+	tick->callback = callback;
+	tick->data = user_data;
+	tick->notify = notify;
+	ticks++;
+	real = dlsym (RTLD_NEXT, "gtk_widget_add_tick_callback");
+	return real (widget, tick_relay, tick, tick_gone);
+}
+
+static gint
+count_poll (GPollFD *fds, guint nfds, gint timeout)
+{
+	polls++;
+	return real_poll (fds, nfds, timeout);
+}
+
+/* The middle of the folder view, inset so the view's own edges stay out. */
+static gboolean
+view_box (GtkWidget *view, GdkRectangle *box)
+{
+	box->width = gtk_widget_get_allocated_width (view) - 40;
+	box->height = gtk_widget_get_allocated_height (view) - 40;
+	return box->width > 0 && box->height > 0 &&
+		gtk_widget_translate_coordinates (view, window, 20, 20, &box->x, &box->y);
+}
+
+static guchar *
+render (GtkWidget *widget, int x, int y, int width, int height)
+{
+	cairo_surface_t *surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, width, height);
+	cairo_t *cr = cairo_create (surface);
+	guchar *pixels = g_new (guchar, (gsize) width * height * 4);
+	int stride, row;
+
+	cairo_translate (cr, -x, -y);
+	gtk_widget_draw (widget, cr);
+	cairo_destroy (cr);
+	cairo_surface_flush (surface);
+	stride = cairo_image_surface_get_stride (surface);
+	for (row = 0; row < height; row++) {
+		memcpy (pixels + (gsize) row * width * 4,
+			cairo_image_surface_get_data (surface) + (gsize) row * stride, (gsize) width * 4);
+	}
+	cairo_surface_destroy (surface);
+	return pixels;
+}
+
+static int
+pixels_apart (const guchar *a, const guchar *b, int count)
+{
+	int i, c, apart = 0;
+
+	for (i = 0; i < count; i++) {
+		for (c = 0; c < 4; c++) {
+			if (ABS (a[i * 4 + c] - b[i * 4 + c]) > 2) {
+				apart++;
+				break;
+			}
+		}
+	}
+	return apart;
+}
+
+/* Keeps the window's drawing of the view in shots[n], and how many of its
+   pixels differ from the view drawn alone, which nothing covers. -1 when
+   there's no view to look at. */
+static void
+shoot (int n)
+{
+	GtkWidget *view = find_widget ("NemoView", TRUE);
+	GdkRectangle box;
+	guchar *alone;
+
+	g_clear_pointer (&shots[n], g_free);
+	sizes[n] = 0;
+	covered[n] = -1;
+	if (view == NULL || !view_box (view, &box)) {
+		return;
+	}
+	shots[n] = render (window, box.x, box.y, box.width, box.height);
+	sizes[n] = box.width * box.height;
+	alone = render (view, 20, 20, box.width, box.height);
+	covered[n] = pixels_apart (shots[n], alone, sizes[n]);
+	g_free (alone);
+}
+
+/* How many pixels two of the shots differ by, or -1 if they can't be put
+   side by side. */
+static int
+shots_apart (int a, int b)
+{
+	if (shots[a] == NULL || shots[b] == NULL || sizes[a] != sizes[b]) {
+		return -1;
+	}
+	return pixels_apart (shots[a], shots[b], sizes[a]);
+}
+
+/* Half a second after an attempt ends, then a second in which nothing may
+   cover the view, and none of the program's frame clock callbacks may be
+   left. */
+static gboolean
+fade_gone (const char *what)
+{
+	if (waited == 5) {
+		shoot (0);
+	}
+	if (waited < 15) {
+		return FALSE;
+	}
+	shoot (1);
+	report (covered[0] == 0 && covered[1] == 0 && ticks == 0, what);
+	return TRUE;
+}
+
 /* Set, and not the watch. A named cursor reads back as a pixmap one. */
 static gboolean
 pointer_busy_not_blocked (void)
@@ -404,7 +565,7 @@ static void
 closed_cb (G_GNUC_UNUSED GCancellable *cancellable, G_GNUC_UNUSED gpointer data)
 {
 	report (TRUE, "closing the window stops the attempt");
-	finish ();
+	closed = TRUE;
 }
 
 /* Each step waits for what the one before set going. Up to ten seconds each. */
@@ -417,9 +578,9 @@ tick (G_GNUC_UNUSED gpointer data)
 
 	if (++waited > 100) {
 		report (FALSE, step == 0 ? "the folder never showed" :
-			step == 1 || step == 7 || step == 10 ? "the mount never started" :
-			step == 4 ? "Escape stops the attempt" :
-			step == 11 ? "closing the window stops the attempt" :
+			step == 1 || step == 8 || step == 11 ? "the mount never started" :
+			step == 5 ? "Escape stops the attempt" :
+			step == 13 ? "closing the window stops the attempt" :
 			"timed out");
 		finish ();
 		return G_SOURCE_REMOVE;
@@ -478,15 +639,26 @@ tick (G_GNUC_UNUSED gpointer data)
 		press_key (GDK_KEY_t, GDK_CONTROL_MASK);
 		break;
 	case 3:
-		if (waited < 3) {
+		/* A fade takes 2 s to go and come back, so 3 looks 0.3 s apart
+		   can't all match. */
+		if (waited == 1 || waited == 4 || waited == 7) {
+			shoot ((waited - 1) / 3);
+		}
+		if (waited < 7) {
 			return G_SOURCE_CONTINUE;
 		}
+		report (ticks > 0 && covered[0] >= 0 && covered[1] >= 0 && covered[2] >= 0 &&
+			MAX (covered[0], MAX (covered[1], covered[2])) > 50 &&
+			MAX (shots_apart (0, 1), MAX (shots_apart (1, 2), shots_apart (0, 2))) > 50,
+			"the window fades while it waits");
+		break;
+	case 4:
 		report (tab_count () == tabs_before, "a shortcut does nothing while it waits");
 		report (clicked && presses == 0, "a click in the window goes nowhere while it waits");
 		report (clicked && no_drop_target, "a drop onto the window finds no target while it waits");
 		press_escape ();
 		break;
-	case 4:
+	case 5:
 		if (held != NULL && !g_cancellable_is_cancelled (g_task_get_cancellable (held))) {
 			return G_SOURCE_CONTINUE;
 		}
@@ -495,15 +667,17 @@ tick (G_GNUC_UNUSED gpointer data)
 			let_go (G_IO_ERROR, G_IO_ERROR_CANCELLED, "Cancelled");
 		}
 		break;
-	case 5:
-		if (waited < 3) {
+	case 6:
+		if (waited == 3) {
+			report (text == NULL && find_widget ("NemoPathBar", TRUE) != NULL && pointer_plain (),
+				"the sign and the pointer go back once stopped");
+		}
+		if (!fade_gone ("the fade stops and the window looks as before once stopped")) {
 			return G_SOURCE_CONTINUE;
 		}
-		report (text == NULL && find_widget ("NemoPathBar", TRUE) != NULL && pointer_plain (),
-			"the sign and the pointer go back once stopped");
 		click_view ();
 		break;
-	case 6:
+	case 7:
 		if (waited < 3) {
 			return G_SOURCE_CONTINUE;
 		}
@@ -511,12 +685,12 @@ tick (G_GNUC_UNUSED gpointer data)
 			"clicks and drops reach the view again once stopped");
 		go_to ("smb://someone@otherhost:445/share");
 		break;
-	case 7:
+	case 8:
 		if (mounts < 2) {
 			return G_SOURCE_CONTINUE;
 		}
 		break;
-	case 8:
+	case 9:
 		if (waited < 3) {
 			return G_SOURCE_CONTINUE;
 		}
@@ -524,28 +698,55 @@ tick (G_GNUC_UNUSED gpointer data)
 			"the path bar shows \"Connecting to otherhost...\"");
 		let_go (G_IO_ERROR, G_IO_ERROR_TIMED_OUT, "Timed out");
 		break;
-	case 9:
-		if (waited < 5) {
+	case 10:
+		if (waited == 5) {
+			report (text == NULL, "the sign goes when the attempt fails");
+			close_dialogs ();
+		}
+		if (!fade_gone ("the fade stops and the window looks as before when the attempt fails")) {
 			return G_SOURCE_CONTINUE;
 		}
-		report (text == NULL, "the sign goes when the attempt fails");
-		close_dialogs ();
+		g_object_set (gtk_settings_get_default (), "gtk-enable-animations", FALSE, NULL);
 		go_to ("smb://thirdhost/share");
 		break;
-	case 10:
+	case 11:
 		if (mounts < 3) {
 			return G_SOURCE_CONTINUE;
 		}
+		break;
+	case 12:
+		if (waited == 3 || waited == 8) {
+			shoot (waited == 3 ? 0 : 1);
+		}
+		if (waited < 8) {
+			return G_SOURCE_CONTINUE;
+		}
+		report (ticks == 0 && covered[0] > 50 && covered[1] > 50 && shots_apart (0, 1) == 0,
+			"with animations off the window looks grayed and stays still while it waits");
+		/* Kept going past its last window, to see what is left running. */
+		g_application_hold (g_application_get_default ());
 		/* As the title bar's close button would. */
 		g_cancellable_connect (g_task_get_cancellable (held), G_CALLBACK (closed_cb), NULL, NULL);
 		gtk_window_close (GTK_WINDOW (window));
 		break;
-	case 11:
-		/* closed_cb reports, if the program is still here to see it. */
-		if (window == NULL && g_cancellable_is_cancelled (g_task_get_cancellable (held))) {
-			return G_SOURCE_REMOVE;
+	case 13:
+		/* closed_cb reports. */
+		if (window == NULL && closed) {
+			break;
 		}
 		return G_SOURCE_CONTINUE;
+	case 14:
+		if (waited == 5) {
+			polls = 0;
+		}
+		if (waited < 15) {
+			return G_SOURCE_CONTINUE;
+		}
+		/* A fade left behind would wake the app many times a second. This
+		   probe's own tick is 10 of them. */
+		report (ticks == 0 && polls <= 20, "nothing of the fade runs on after the window closes");
+		finish ();
+		return G_SOURCE_REMOVE;
 	}
 
 	step++;
@@ -565,5 +766,7 @@ probe_start (void)
 	if (out == NULL) {
 		return;
 	}
+	real_poll = g_main_context_get_poll_func (NULL);
+	g_main_context_set_poll_func (NULL, count_poll);
 	g_timeout_add (100, tick, NULL);
 }

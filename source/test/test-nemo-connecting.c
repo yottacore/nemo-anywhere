@@ -1,7 +1,8 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 
 /* test-nemo-connecting.c - the window says it is connecting while a share
-   mounts, takes no input but Escape meanwhile, and Escape stops it.
+   mounts, fades and takes no input but Escape meanwhile, and Escape stops
+   it.
 
    Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu).
 
@@ -180,8 +181,8 @@ run_window (const char *exe, const char *probe)
 		goto out;
 	}
 
-	/* The probe gives each step ten seconds, and there are twelve. */
-	for (i = 0; i < 1300 && alive (pid) && !done; i++) {
+	/* The probe gives each step ten seconds, and there are fifteen. */
+	for (i = 0; i < 1600 && alive (pid) && !done; i++) {
 		g_usleep (100 * 1000);
 		g_free (text);
 		text = NULL;
@@ -207,8 +208,8 @@ run_window (const char *exe, const char *probe)
 		}
 		g_strfreev (lines);
 	}
-	if (done && results != 13) {
-		g_printerr ("FAIL %d results, expected 13\n", results);
+	if (done && results != 18) {
+		g_printerr ("FAIL %d results, expected 18\n", results);
 		failures++;
 	}
 
