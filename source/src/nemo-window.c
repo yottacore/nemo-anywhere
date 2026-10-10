@@ -265,6 +265,87 @@ waiting_on_share (NemoWindow *window)
 	return slot != NULL && nemo_window_slot_is_connecting (slot);
 }
 
+/* The covered part fades between the theme's grayed look and normal, one
+   round trip every 2 s, so the window reads as busy and not hung. The level
+   is stepped so a slow fade doesn't repaint the window on every frame. */
+#define COVER_GRAY_ALPHA 0.5
+#define COVER_STEPS 20
+
+static gboolean
+cover_draw (GtkWidget  *cover,
+	    cairo_t    *cr,
+	    NemoWindow *window)
+{
+	GtkStyleContext *context = gtk_widget_get_style_context (GTK_WIDGET (window));
+	double alpha = COVER_GRAY_ALPHA * window->details->cover_level / COVER_STEPS;
+	GdkRGBA bg;
+
+	if (alpha <= 0) {
+		return FALSE;
+	}
+
+	if (gtk_style_context_lookup_color (context, "theme_bg_color", &bg)) {
+		cairo_set_source_rgba (cr, bg.red, bg.green, bg.blue, bg.alpha * alpha);
+		cairo_paint (cr);
+	} else {
+		cairo_push_group (cr);
+		gtk_render_background (context, cr, 0, 0,
+				       gtk_widget_get_allocated_width (cover),
+				       gtk_widget_get_allocated_height (cover));
+		cairo_pop_group_to_source (cr);
+		cairo_paint_with_alpha (cr, alpha);
+	}
+	return FALSE;
+}
+
+static gboolean
+cover_tick (GtkWidget     *cover,
+	    GdkFrameClock *clock,
+	    gpointer       data)
+{
+	NemoWindowDetails *details = NEMO_WINDOW (data)->details;
+	gint64 now = gdk_frame_clock_get_frame_time (clock);
+	guint level;
+
+	if (details->cover_start == 0) {
+		details->cover_start = now;
+	}
+	level = (guint) (COVER_STEPS * (1 - cos ((now - details->cover_start) * G_PI / G_USEC_PER_SEC)) / 2 + 0.5);
+	if (level != details->cover_level) {
+		details->cover_level = level;
+		gtk_widget_queue_draw (cover);
+	}
+	return G_SOURCE_CONTINUE;
+}
+
+/* The fade lives exactly as long as the cover is on screen. */
+static void
+cover_map (GtkWidget  *cover,
+	   NemoWindow *window)
+{
+	gboolean animate = TRUE;
+
+	g_object_get (gtk_widget_get_settings (cover), "gtk-enable-animations", &animate, NULL);
+	window->details->cover_start = 0;
+	if (!animate) {
+		window->details->cover_level = COVER_STEPS;
+	} else if (window->details->cover_tick == 0) {
+		window->details->cover_level = 0;
+		window->details->cover_tick = gtk_widget_add_tick_callback (cover, cover_tick, window, NULL);
+	}
+}
+
+static void
+cover_unmap (GtkWidget  *cover,
+	     NemoWindow *window)
+{
+	if (window->details->cover_tick != 0) {
+		gtk_widget_remove_tick_callback (cover, window->details->cover_tick);
+		window->details->cover_tick = 0;
+	}
+	window->details->cover_level = 0;
+}
+
 static void
 sync_input_cover (NemoWindow *window)
 {
@@ -280,7 +361,8 @@ update_cursor (NemoWindow *window)
 
 	if (waiting_on_share (window)) {
 		/* "progress", the arrow with a spinner. Never the watch, since
-		 * Escape and the title bar still work. */
+		 * Escape and the title bar still work, and the fade already says
+		 * the rest is held. */
 		cursor = gdk_cursor_new_from_name (gtk_widget_get_display (GTK_WIDGET (window)),
 						   "progress");
 		gdk_window_set_cursor (gtk_widget_get_window (GTK_WIDGET (window)), cursor);
@@ -825,9 +907,9 @@ nemo_window_constructed (GObject *self)
 	gtk_widget_show (grid);
 	gtk_container_add (GTK_CONTAINER (overlay), grid);
 
-	/* Takes the clicks, scrolls and drops while a share connects, and draws
-	   nothing, so nothing looks grayed. An overlay child is also what GTK
-	   finds first for a drop. */
+	/* Takes the clicks, scrolls and drops while a share connects, and fades
+	   what it covers. Nothing is made insensitive, which would also take the
+	   focus away. An overlay child is also what GTK finds first for a drop. */
 	window->details->input_cover = gtk_event_box_new ();
 	gtk_event_box_set_visible_window (GTK_EVENT_BOX (window->details->input_cover), FALSE);
 	gtk_widget_add_events (window->details->input_cover,
@@ -837,6 +919,12 @@ nemo_window_constructed (GObject *self)
 	gtk_widget_set_no_show_all (window->details->input_cover, TRUE);
 	g_signal_connect (window->details->input_cover, "event",
 			  G_CALLBACK (gtk_true), NULL);
+	g_signal_connect_after (window->details->input_cover, "draw",
+				G_CALLBACK (cover_draw), window);
+	g_signal_connect (window->details->input_cover, "map",
+			  G_CALLBACK (cover_map), window);
+	g_signal_connect (window->details->input_cover, "unmap",
+			  G_CALLBACK (cover_unmap), window);
 	gtk_overlay_add_overlay (GTK_OVERLAY (overlay), window->details->input_cover);
 
 	/* Statusbar is packed in the subclasses */

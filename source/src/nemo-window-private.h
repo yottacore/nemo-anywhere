@@ -102,6 +102,9 @@ struct NemoWindowDetails
 
         /* Over everything but the title bar while the active slot connects. */
         GtkWidget *input_cover;
+        guint cover_tick;
+        guint cover_level;
+        gint64 cover_start;
 
         guint extensions_toolbar_merge_id;
         GtkActionGroup *extensions_toolbar_action_group;
