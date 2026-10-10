@@ -36,11 +36,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - In the single exe on Windows, a new window or a tab moved to its own window starts through GLib's spawn helper, a program packed inside the exe.
 	- ID: 2026100914514406
 	- Type: Bug
-	- Status: Waiting for testing
+	- Status: Queued
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
 	- Needs external testing:
-		- rjw1ks5h and rjvzdd4w in the native suite on vm925w.
-		- The single exe built from this branch, in the desktop session on vm925w with MacType running. Open a folder in a new window, open an item in a new window, and move a tab to a new window. Each window opens, no "Cannot load library" box shows, and no `gspawn-win64-helper` process turns up. Then the About box's 2 links open in the browser, and Help shows its error, with no box either way. If a box shows, README's MacType note comes back.
+		- rjw1ks5h and rjvzdd4w in the native suite on vm925w. Failed 20261009, see Progress log.
+		- Done 20261009 on vm925w, passed. It was: the single exe built from this branch, in the desktop session on vm925w with MacType running. Open a folder in a new window, open an item in a new window, and move a tab to a new window. Each window opens, no "Cannot load library" box shows, and no `gspawn-win64-helper` process turns up. Then the About box's 2 links open in the browser, and Help shows its error, with no box either way. If a box shows, README's MacType note comes back.
 	- Priority|Severity: Avg
 	- Opened: 20261009-145144
 	- Opened by: 2026100909260549
@@ -56,6 +56,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261009: done, waiting on a native run and on MacType. Whether the single exe now starts no packed program: as far as can be read and checked here, yes. The only programs packed in it are the app and GLib's 2 spawn helpers, and nothing left in the app reaches the helpers on Windows. So README's MacType note is gone, and design doc "Windows exe packing" says why. Not tried under MacType.
 		- 20261009: Options for later: leave the 2 helpers out of the Windows bundles, as `gdbus.exe` was. Then anything that still reached them would fail for everyone, not only under MacType. Left in for now.
 		- 20261009: left at signoff for the README change, once the tests pass.
+		- 20261009: back to Queued. rjw1ks5h fails natively on vm925w, 3 runs out of 3, at line 386: the link through a scheme registered for the user never reports back. Its 3 new copy cases pass. The copy the shell starts is the test program itself, which can't find its DLLs outside the build's PATH and stops at Windows' "libarchive-13.dll was not found" box. Same cause as the 2 failing rows of rjvzdd4w in 2026100912374782. The single exe check under MacType passed, so README's MacType note stays out.
 	- Actual fix: on Windows the new copy is started from `nemo-launch-win32.c`, directly. It is the single exe started as itself, which MacType doesn't stop. It gets the user's environment, as in 2026100912374782, and makes its own settings again. Links from Help and the About box go through the launcher too: to the shell when the registry has a handler for the scheme, otherwise an error. Renaming a user folder no longer calls a program on Windows. README's MacType note is gone.
 	- Note: a few other `g_spawn` calls are built on Windows too, such as the one for an extension's settings program and the one that renames a user folder. Actions and the action layout editor have their own Windows route. Each needs the same look. README's MacType note stays until none is left.
 	- Swept: every call that starts a program through GLib or GTK in the app, from lint rjm8a6xr's list.
@@ -67,6 +68,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The lint list now also covers an About box and a link button, since a click on either calls GTK's show-uri. Test programs are left out, since they aren't in the exe.
 	- Verified: rjw1ks5h fails on dev's `nemo-new-process.c` under wine: each of the 3 copies is started by something other than the app. It passes after, 7 runs. It also fails with the user's environment not put in place for the copy, and with the scheme check taken out. rjvzdd4w, rjvks1yf, rjpatrck, rjm4ctwh, rjp4ch0y, rffkjp10 and rg3wt7d8 pass under wine. rjnzpkk7 and rjmb3j8p fail only their known console window checks, as before. Full Linux suite 188 of 188, and the Windows cross build clean, both with warnings as errors. C lint clean, and rjm8a6xr fails with the About box, the link button or `nemo_show_uri` left off its list.
 	- Verified: 20261009 on vm925w, read only: GLib finds Firefox for https:, and nothing for help: or for a folder.
+	- Verified: 20261009 on vm925w at dev 186065a. Native suite 164 OK, 3 FAIL, 11 skipped. rjw1ks5h fails as in Progress log, elevated and not. The single exe from the same commit, in the desktop session with MacType running and loaded into the app: a folder in a new window, Home from Places in a new window, a new window, and a tab moved to a new window each opened as a copy started by the app itself. Both About box links opened in Firefox, and Help showed its own error. No "Cannot load library" box, and no spawn helper or other packed program ran at any point.
 	- Branch: newwin
 	- Commit: bbf8c15
 	- Test case: rjw1ks5h, New window start win32 test. The test stands in for the new copy. For a new window, one with a selection, and a tab moved out, the copy must be started by the app itself, with the user's environment, and no spawn helper may be running. It also opens a link of a scheme it sets up for the user, and one nothing handles, which must fail. rjvzdd4w's new copy case now starts the same way.
@@ -74,9 +76,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Read the old binary Word, Excel and PowerPoint files inside the app, with a container reader of our own.
 	- ID: 2026100909260511
 	- Type: Enhancement
-	- Status: Waiting for testing
+	- Status: Done
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 187 of 188 with 1 skipped as on dev.
-	- Needs external testing: rjvtggme and rjvtghmd in the native suite on vm925w. Then the single exe in the desktop session on vm925w with MacType running: a .doc, .xls and .ppt with a bitmap preview in the icon view, and a content search through them. Thumbnails and matches, and no box. The 6 files rjvtggme writes will do, if no real ones are at hand.
+	- Needs external testing: done 20261009 on vm925w. It was: rjvtggme and rjvtghmd in the native suite on vm925w. Then the single exe in the desktop session on vm925w with MacType running: a .doc, .xls and .ppt with a bitmap preview in the icon view, and a content search through them. Thumbnails and matches, and no box. The 6 files rjvtggme writes will do, if no real ones are at hand.
 	- Priority|Severity: Avg
 	- Opened: 20261009-092605
 	- Opened by: 2026100617051745
@@ -103,9 +105,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: the test writes its files with a compound file writer of its own, so 2026100909260549 can move the tests and fuzz targets that use libgsf to it and to `nemo-ole2.c`. The 4 converters, `fuzz-doc`, `fuzz-xls` and `fuzz-ppt` are untouched.
 	- Note: rjcbfcx7, the fuzz exit check, now expects fuzz-ole2 too. It reads the seeds from the clone the shared build container has, so it fails until the new seeds are there.
 	- Swept: every place that picks a thumbnailer or a search helper by type goes through `nemo_office_type_ok`: the factory's `can_make` and its generate, and the search walk. The Windows type table already maps doc, dot, xls, xlt, ppt and pps.
+	- Verified: 20261009 on vm925w at dev 186065a. rjvtggme and rjvtghmd pass in the native suite. The single exe from the same commit, in the desktop session with MacType running and loaded into the app, on the 6 files rjvtggme writes: the icon view drew the bitmap previews of the .doc, .xls and .ppt, and plain icons for the Word 95 .doc, the bare .xls and the .doc with a metafile preview. A content search for a word from each of the 6 found that file alone. The app started no other program, and no box came up.
 	- Branch: ole2
 	- Commit: 8dc2001, 261d743
 	- Test case: rjvtggme, Old office files read in the app test. A small .doc in Word 97 and in Word 95 form, a .xls in a compound file and a bare one, a .ppt, and a .doc with a metafile preview, written for the purpose. The text of each through the reader and through a real content search, and the bitmap preview through the thumbnail factory, at the size asked for. A stand-in thumbnailer and search helper for these types leave a mark if run, and none may. Then cut short and bit-flipped files, files whose lengths and links lie, and a piece flood. rjvtghmd replays the fuzz seeds, and rjvtgjmb is the fuzz target.
+	- Acceptance signoff: Self-closed: rjvtggme and rjvtghmd pass natively, and the thumbnails and search were seen working on Windows with MacType running.
+	- Closed: 20261009-182153
 
 - Take libgsf, the gsf-office thumbnailer and the 4 search converters out of every bundle and the build.
 	- ID: 2026100909260549
@@ -113,8 +118,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Status: Waiting for testing
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
 	- Needs external testing:
-		- The native suite on vm925w, for rjmc40ex, rjvb97aa, rjvtggme and rfhnaccg, and the seed replays rhatwe0r, rhatwe0s and rhatwe0t.
-		- The single exe built from this branch, in the desktop session on vm925w with MacType running: an .odt with no picture inside, a .doc with a metafile preview, and a content search through office files, on a box with no thumbnailer or search helper installed for these types. Plain icons where there is no picture, the matches, no box, and no other program started. The staged `win-flat` has no libgsf dll, no gsf-office files and no `*-to-txt` exe.
+		- Done 20261009 on vm925w, passed. It was: the native suite on vm925w, for rjmc40ex, rjvb97aa, rjvtggme and rfhnaccg, and the seed replays rhatwe0r, rhatwe0s and rhatwe0t.
+		- Done 20261009 on vm925w, passed. It was: the single exe built from this branch, in the desktop session on vm925w with MacType running: an .odt with no picture inside, a .doc with a metafile preview, and a content search through office files, on a box with no thumbnailer or search helper installed for these types. Plain icons where there is no picture, the matches, no box, and no other program started. The staged `win-flat` has no libgsf dll, no gsf-office files and no `*-to-txt` exe.
 		- A full pipeline with `--include-arm --include-bsd`: both prefix checks, "Windows bundle check" and "FreeBSD bundle check" pass. The FreeBSD pkg made before this change depends on libgsf, so "FreeBSD bundle check" stops a run until the FreeBSD lane makes a new one.
 		- The Windows release workflow on the next tag, with libgsf gone from its package list.
 	- Priority|Severity: Avg
@@ -140,6 +145,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261009: catdoc's search helper definition stays. It names a program installed on the system, not one the app bundled.
 	- Swept: every bundle and lane that copied the programs, the dlls or the descriptors: the native stage, the zip, the cross build's strip, the wine runner, the Linux tarball, deb and rpm through meson's install, and the FreeBSD pkg, whose deps come from what the binaries link. The factory and the search walk are as on dev: the reader first for these types, then anything installed.
 	- Verified: 20261009, the app and every test built with libgsf's development files removed from the build container and from the cross sysroot. Full Linux suite 188 of 188. rjvb97aa and rjvtggme fail with the fall-backs taken out, since then the stand-in thumbnailer and search helper never run for the files with no picture and the ones that don't read. They also fail with the reader skipped in the factory, since then the stand-in runs for files that have a picture. They pass as on the branch. rjmc40ex fails with the extension lookup taken out and passes with it, under wine. rjmc40ex, rjvb97aa, rjvtggme, rfhnaccg and the 5 office seed replays pass under wine, where the stand-ins are seen to run too. All 12 fuzz targets ran 20 s each with no find. The bundle check fails on every bundle in the release folder from before the change, and passes on a fresh install of this branch and on a zip packed from the old sysroot. Its self-test fails with the name and dependency checks taken out. rjnyer4p fails with gsf-office's descriptors kept. Lint clean apart from rj3ytv0b, which always fails in a worktree.
+	- Verified: 20261009 on vm925w at dev 186065a. rjmc40ex, rjvb97aa, rjvtggme, rfhnaccg, rjvtghmd, rhatwe0r, rhatwe0s and rhatwe0t pass in the native suite. The staged `win-run` and `win-flat` have no libgsf dll, no gsf-office file and no `*-to-txt` exe; catdoc's helper definition is still there, as decided. The single exe from the same commit, in the desktop session with MacType running and loaded into the app: an .odt with no picture inside and a .doc with a metafile preview show plain icons, and a content search found a word in each, and in each of the other office files. The app started no other program, and no box came up.
 	- Branch: nogsf
 	- Commit: 7c4e340, 6748a54
 	- Test case: rjvwpz9d, Bundle check: no libgsf, gsf-office thumbnailer, converter or their definitions in the tarball, deb, rpm, zip or FreeBSD pkg, and no Depends, Requires or pkg dep on libgsf. The prefix check rhtq57n5 runs it on each arch's Linux files, and its self-test runs in the lint stage. rjvb97aa and rjvtggme: files with a picture or text get it from the reader, and the stand-in thumbnailer and search helper installed for these types are not run. Files with no picture inside, a metafile preview, and files that don't read get nothing from the reader, and then the stand-ins run. rjmc40ex and rfhnaccg as in Progress log.
@@ -172,9 +178,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, cppcheck 2.21 finds 3 things in 2 test files that the Linux lint passes.
 	- ID: 2026100914350100
 	- Type: Bug
-	- Status: Waiting for testing
+	- Status: Done
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
-	- Needs external testing: a whole-tree `lint-c.bash` on vm925w, with MSYS2's cppcheck 2.21, as in Steps to reproduce. No findings.
+	- Needs external testing: done 20261009 on vm925w. It was: a whole-tree `lint-c.bash` on vm925w, with MSYS2's cppcheck 2.21, as in Steps to reproduce. No findings.
 	- Priority|Severity: Low
 	- Opened: 20261009-143501
 	- Opened by: 2026100815215479
@@ -190,15 +196,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: the whole tree under 2.21.1, which finds only these 4. Every bare `g_file_set_contents`: 2 more, the crash marker in `nemo-crash.c` and the shortcuts file `--reset` empties in `nemo-main-application.c`. Neither version reports them, at the normal or the exhaustive check level, so they stay as they are. Every `g_strdup` handed straight to `g_idle_add`: only these 2.
 	- Test case: the C lint stage on Windows, whole tree.
 	- Verified: cppcheck 2.21.1 over the whole tree: 4 findings on dev, none on the branch. `lint-c.bash` whole tree with Linux's 2.17.1: none. Lint clean apart from rj3ytv0b, which always fails in a worktree.
+	- Verified: 20261009 on vm925w at dev 186065a: whole-tree `lint-c.bash` with MSYS2's cppcheck 2.21.0, 710 files, no findings, and every other check in it OK.
 	- Branch: lowtrio
 	- Commit: 270dd0d
+	- Acceptance signoff: Self-closed: lint fix, and the Windows whole-tree lint is clean.
+	- Closed: 20261009-182153
 
 - On Windows, programs the app starts get its session bus switched off.
 	- ID: 2026100912374782
 	- Type: Bug
-	- Status: Waiting for testing
+	- Status: Queued
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
-	- Needs external testing: rjvzdd4w in the native suite on vm925w, once as usual and once elevated, since an elevated copy opens a file through the shell from inside itself. Then the packed exe on vm925w, elevated and not: open a `.bat` that writes `set` to a file, from the file list and as an action. The file should have none of `DBUS_SESSION_BUS_ADDRESS=disabled:`, `FREETYPE_PROPERTIES` or `GDK_WIN32_USE_EXPERIMENTAL_OLE2_DND`.
+	- Needs external testing: rjvzdd4w in the native suite on vm925w, once as usual and once elevated, since an elevated copy opens a file through the shell from inside itself. Failed 20261009, see Progress log. Then the packed exe on vm925w, elevated and not: open a `.bat` that writes `set` to a file, from the file list and as an action. The file should have none of `DBUS_SESSION_BUS_ADDRESS=disabled:`, `FREETYPE_PROPERTIES` or `GDK_WIN32_USE_EXPERIMENTAL_OLE2_DND`. Done 20261009 on vm925w, passed.
 	- Priority|Severity: Low
 	- Opened: 20261009-123747
 	- Opened by: 2026100815215479
@@ -215,6 +224,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261009: the 3 settings stay in the app's own environment, since GLib reads the bus one there. Each is recorded with what was there before. A start of a user's program from inside the app puts those back for the moment, then the app's again.
 		- 20261009: helpers keep the app's settings, as Expected behavior allows: thumbnailers, tools, converters and action conditions. A new copy of the app gets the user's environment and makes its own settings again.
 		- 20261009: everything else in the app's environment still goes along, the script variables of the Scripts menu included.
+	- Progress log:
+		- 20261009: back to Queued. rjvzdd4w fails natively on vm925w, elevated and not, 3 runs out of 3: "run" and "open" never write what they saw. The spawn, copy and helper rows pass. Both failing routes have Explorer start the test program itself, which can't find its DLLs outside the build's PATH and stops at Windows' "DLL was not found" box, so nothing is written. Same cause as rjw1ks5h in 2026100914514406. The packed exe check passed.
 	- Actual fix: one record of the app's own settings, in `nemo-file-utilities.c`. In `nemo-launch-win32.c` every start of a user's program from inside the app runs with the user's values in place. Every start there takes one lock, so a helper starting meanwhile still gets the app's. "Open as Administrator" and Explorer for a folder in `nemo-view-win32.c` do the same. A new window in its own process is started with the user's environment.
 	- Swept: every process start outside the tests, by grep for `CreateProcess`, `ShellExecute`, `g_spawn`, `g_subprocess`, `g_app_info_launch` and `gtk_show_uri`.
 		- The user's values: the direct start, the shell open fallback and a hidden console program in `nemo-launch-win32.c`, `runas` and `explore` in `nemo-view-win32.c`, and `nemo-new-process.c`.
@@ -224,6 +235,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Every `g_setenv` in the app: the 3 are recorded now. The Scripts menu variables are meant for the script, and `G_MESSAGES_DEBUG` is only set under `--debug` with an old GLib. On Linux and the BSDs a relocated prefix puts its own share and bin folders on the lists a started program gets. Not this item.
 	- Test case: rjvzdd4w, Launch environment win32 test. The test itself, run with `--dump`, writes what it got. It is started as an action's console program, as a named program, by opening a `.bat`, as a new copy and as a helper.
 	- Verified: under wine rjvzdd4w fails 5 checks with the swap taken out and passes with it, 6 runs. Its new copy case makes the same start as `nemo-new-process.c`, so it checks the user's environment, not that file. Under wine the named program and the open go through the shell or the service, so for those only the 2 settings nothing else makes are checked. rjvks1yf, rjpatrck, rjmb3j8p, rjm4ctwh, rjnzpkk7, rjp4ch0y and rffkjp10 pass under wine. The Windows cross build is clean.
+	- Verified: 20261009 on vm925w at dev 186065a, the single exe from the same commit, with a scratch settings folder. Not elevated: the `.bat` opened from the file list and run by an action each wrote a `set` with none of the 3. Elevated: the same, with the action's run elevated and the file list's open run unelevated through the shell. rjvzdd4w fails, as in Progress log.
 	- Branch: lowtrio
 	- Commit: 270dd0d
 
