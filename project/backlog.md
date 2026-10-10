@@ -286,6 +286,38 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: 20261007, not ruled out: the Menu key made no menu at all once, on a loaded box. GTK 3 doesn't show a menu whose pointer grab fails, and the probe presses the key only once. Nothing points at that, and pressing again would hide it rather than explain it.
 	- Test case: rjefm41d itself.
 
+- On Windows, the zip and the copy `install.ps1` puts in place draw with GTK's default theme and font.
+	- ID: 2026101007562511
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261010-075625
+	- Opened by: 2026100917220603
+	- Related IDs: 2026100917220603
+	- Target OS: Windows
+	- Steps to reproduce: extract the release zip, or install with `install.ps1`, and start the app. Then start the single exe built from the same commit.
+	- Incorrect behavior: the zip and the installed copy show GTK's plain default look and font. The single exe shows Fluent and Segoe UI 9.
+	- Expected behavior: all 3 forms look the same.
+	- Reproduced: 20261010 on vm925w, with all 3 forms built from one commit.
+	- Possible cause: `stage-native.bash` writes `settings.ini` and the font config, and `pack-zip.bash` doesn't.
+	- Test case: TBD
+
+- On Windows, a file dragged onto the window from another program may not drop.
+	- ID: 2026101007562587
+	- Type: Bug
+	- Status: Queued
+	- Needs external testing: vm925w, in the desktop session. Drag a file from Explorer onto the folder view, the Places side bar and a tab.
+	- Priority|Severity: Avg
+	- Opened: 20261010-075625
+	- Opened by: 2026100816170921
+	- Related IDs: 2026100816170921
+	- Target OS: Windows
+	- Steps to reproduce: drag a file from another program onto the window, with nothing connecting.
+	- Incorrect behavior: a small program written to drag a file in had its drop refused by the window, while the desktop took the same drag.
+	- Expected behavior: the window takes the drop, as on Linux.
+	- Reproduced: No. Not tried with Explorer yet, so the drag program may be at fault.
+	- Test case: TBD
+
 - In the single exe on Windows, a program packed inside it that needs libgsf cannot start.
 	- ID: 2026100617051745
 	- Type: Bug
