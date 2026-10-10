@@ -303,7 +303,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261009 on vm925w at d483f63: native suite 166 OK, 11 skipped, and only rjqef159 failed, as on dev (2026100516274275). The install checks pass, and the installed folder has no program but the app. The native stage has no exe but the app, the flat tree passes the check, and the single exe packs and starts.
 	- Verified: the zip packed from the branch passes the check, 2850 files, and the same zip with a spawn helper added is refused. The check's self-test fails with programs in subfolders let through. Under wine rjm4ctwh fails with archive tools, converters and thumbnailers started through GLib's spawn, and with the once per program rule taken out. rjnzpkk7 fails with the old log line in place of the dialog. rjvzdd4w, rjw1ks5h, rjm4ctwh and rjnzpkk7 pass under wine. Full Linux suite 188 of 188 and the Windows cross build clean, both with warnings as errors, and lint clean.
 	- Branch: winlaunch
-	- Commit: b1bb561, b02da5e, d483f63
+	- Commit: b1bb561, b02da5e, d483f63, 6c72feb
 	- Test case: rjwc3jkm, Windows bundle exe check. It reads the release zip in the packages stage, the flat tree before the single exe is packed, and the folder `install.ps1` installs in rj72n4xb. The start paths: rjw1ks5h for a new window, a tab moved out and links, rjvzdd4w for Open With, a named program and an open file, rjmb3j8p for actions, rjm4ctwh for archive tools, converters and thumbnailers, which must be started by the app and not a spawn helper, and a helper that won't start is told once. rjnzpkk7 checks that a failed start shows its error.
 
 - A setting with an automatic value can be changed on its own, with no master switch to find first.
