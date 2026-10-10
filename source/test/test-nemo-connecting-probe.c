@@ -633,7 +633,7 @@ tick (G_GNUC_UNUSED gpointer data)
 		view = find_widget ("NemoView", TRUE);
 		report (view != NULL && gtk_widget_is_sensitive (view) && gtk_grab_get_current () == NULL &&
 			gtk_window_group_get_current_grab (gtk_window_get_group (GTK_WINDOW (window))) == NULL,
-			"nothing is grayed, and no grab holds the app's other windows");
+			"nothing is made insensitive, and no grab holds the app's other windows");
 		/* The click first, since a new tab would take the view away. */
 		click_view ();
 		press_key (GDK_KEY_t, GDK_CONTROL_MASK);
