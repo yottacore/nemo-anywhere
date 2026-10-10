@@ -29,7 +29,8 @@
  *
  * Links from the About box go through the same file now, so a scheme of our
  * own is set up for the user and opened, and one nothing handles must fail
- * without starting anything. */
+ * without starting anything. Explorer starts the scheme's program with its own
+ * PATH, so that one is test-env-dump, the argument, which needs no library. */
 
 #include <config.h>
 
@@ -53,6 +54,7 @@
 
 #define WAIT_SECONDS 30
 #define REPORT "copy-report.txt"
+#define URI_REPORT "env-dump.txt"
 #define USERS_BUS "nemo-test:the-users-own"
 #define PASSED_ON "NEMO_TEST_NEW_COPY_PASSED_ON"
 
@@ -144,9 +146,9 @@ copy_folder (int argc, char *argv[])
 
 /* Returns: (transfer full): free with g_strfreev, NULL if nothing came */
 static char **
-wait_for_report (const char *dir)
+wait_for_report (const char *dir, const char *name)
 {
-	char *path = g_build_filename (dir, REPORT, NULL);
+	char *path = g_build_filename (dir, name, NULL);
 	gint64 until = g_get_monotonic_time () + WAIT_SECONDS * G_USEC_PER_SEC;
 	char *text = NULL;
 	char **lines = NULL;
@@ -219,19 +221,19 @@ classes_root (void)
 		? HKEY_CLASSES_ROOT : HKEY_CURRENT_USER;
 }
 
-/* A scheme of the test's own, for the user only, that runs this program. */
+/* A scheme of the test's own, for the user only, that runs the dumper. */
 static gboolean
-register_scheme (HKEY root, const wchar_t *key, const char *self)
+register_scheme (HKEY root, const wchar_t *key, const char *dumper)
 {
-	wchar_t *wself = g_utf8_to_utf16 (self, -1, NULL, NULL, NULL);
+	wchar_t *wdumper = g_utf8_to_utf16 (dumper, -1, NULL, NULL, NULL);
 	wchar_t command[2048];
 	wchar_t sub[256];
 	HKEY handle;
 	gboolean ok;
 
-	_snwprintf (command, G_N_ELEMENTS (command), L"\"%ls\" --uri \"%%1\"", wself);
+	_snwprintf (command, G_N_ELEMENTS (command), L"\"%ls\" --uri \"%%1\"", wdumper);
 	command[G_N_ELEMENTS (command) - 1] = L'\0';
-	g_free (wself);
+	g_free (wdumper);
 
 	ok = RegCreateKeyExW (root, key, 0, NULL, 0, KEY_WRITE, NULL, &handle, NULL) == ERROR_SUCCESS;
 	if (ok) {
@@ -251,28 +253,11 @@ register_scheme (HKEY root, const wchar_t *key, const char *self)
 	return ok;
 }
 
-/* The scheme's link holds the report folder in hex, so nothing on the way
- * can change it. */
-static int
-report_for_uri (const char *uri, int argc, char *argv[])
-{
-	const char *colon = strchr (uri, ':');
-	GString *dir = g_string_new (NULL);
-	int code;
-
-	for (const char *p = colon != NULL ? colon + 1 : ""; g_ascii_isxdigit (p[0]) && g_ascii_isxdigit (p[1]); p += 2) {
-		g_string_append_c (dir, (char) (g_ascii_xdigit_value (p[0]) * 16 + g_ascii_xdigit_value (p[1])));
-	}
-	code = dir->len > 0 ? report (dir->str, argc, argv) : 1;
-	g_string_free (dir, TRUE);
-	return code;
-}
-
 int
 main (int argc, char *argv[])
 {
 	g_autofree char *scratch = NULL;
-	g_autofree char *self = NULL;
+	g_autofree char *dumper = NULL;
 	g_autofree char *started_in = copy_folder (argc, argv);
 	GError *error = NULL;
 	char **lines;
@@ -280,12 +265,13 @@ main (int argc, char *argv[])
 	if (started_in != NULL) {
 		return report (started_in, argc, argv);
 	}
-	if (argc == 3 && strcmp (argv[1], "--uri") == 0) {
-		return report_for_uri (argv[2], argc, argv);
+	if (argc != 2) {
+		g_printerr ("usage: %s <test-env-dump.exe>\n", argv[0]);
+		return 77;
 	}
 
 	scratch = test_scratch_dir ("nemo-new-copy-XXXXXX", NULL);
-	self = g_canonicalize_filename (argv[0], NULL);
+	dumper = g_canonicalize_filename (argv[1], NULL);
 	if (scratch == NULL) {
 		g_printerr ("FAIL: no scratch folder\n");
 		return 1;
@@ -307,7 +293,7 @@ main (int argc, char *argv[])
 
 		check (nemo_new_process_spawn (location, NULL, &error));
 		g_clear_error (&error);
-		lines = wait_for_report (dir);
+		lines = wait_for_report (dir, REPORT);
 		check_copy ("new window", lines);
 		g_strfreev (lines);
 		g_object_unref (location);
@@ -323,7 +309,7 @@ main (int argc, char *argv[])
 		check (g_file_set_contents (item, "x", 1, NULL));
 		check (nemo_new_process_spawn (location, selection, &error));
 		g_clear_error (&error);
-		lines = wait_for_report (dir);
+		lines = wait_for_report (dir, REPORT);
 		check_copy ("new window with a selection", lines);
 		check (has_line (lines, "arg=--select"));
 		g_strfreev (lines);
@@ -339,7 +325,7 @@ main (int argc, char *argv[])
 
 		check (nemo_new_process_spawn_tab (location, "OAFIID:Nemo_File_Manager_List_View", selected, &error));
 		g_clear_error (&error);
-		lines = wait_for_report (dir);
+		lines = wait_for_report (dir, REPORT);
 		check_copy ("tab moved out", lines);
 		check (has_line (lines, "arg=--tab-view"));
 		check (has_line (lines, "arg=OAFIID:Nemo_File_Manager_List_View"));
@@ -376,14 +362,20 @@ main (int argc, char *argv[])
 			g_string_append_printf (uri, "%02x", (guchar) *p);
 		}
 
-		if (register_scheme (root, key, self)) {
+		if (register_scheme (root, key, dumper)) {
 			check (nemo_launch_win32_open_uri (uri->str, &error));
 			if (error != NULL) {
 				g_printerr ("%s\n", error->message);
 			}
 			g_clear_error (&error);
-			lines = wait_for_report (dir);
+			/* The link's own text, so it is known which start this was. */
+			lines = wait_for_report (dir, URI_REPORT);
 			check (lines != NULL);
+			if (lines != NULL) {
+				g_autofree char *arg = g_strdup_printf ("arg=%s", uri->str);
+
+				check (has_line (lines, arg));
+			}
 			g_strfreev (lines);
 			check (helpers_of (GetCurrentProcessId ()) == 0);
 		} else {

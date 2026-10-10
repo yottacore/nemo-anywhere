@@ -2019,6 +2019,8 @@ if is_windows
   )
 
   fake_tool = executable('test-fake-tool', [ 'test-fake-tool.c' ])
+  # Explorer starts it with its own PATH, so it links nothing of the build's.
+  env_dump = executable('test-env-dump', [ 'test-env-dump.c' ], link_args: [ '-lshell32' ])
 
   test('rjm4ctwh Tool start win32 test',
     executable('test-nemo-tool-start-win32',
@@ -2069,6 +2071,7 @@ if is_windows
       include_directories: [ rootInclude, ],
       dependencies: [ gtk, nemo_private, test_scratch ],
     ),
+    args: [ env_dump ],
     timeout: 120
   )
 
@@ -2079,6 +2082,7 @@ if is_windows
       dependencies: [ gtk, nemo_private, test_scratch ],
       c_args: nemo_definitions,
     ),
+    args: [ env_dump ],
     timeout: 120
   )
 

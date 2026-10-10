@@ -22,11 +22,12 @@
 */
 
 /* The app turns the session bus off for itself, and sets 2 more things only it
- * needs. This program, run with --dump, writes down what it was started with.
+ * needs. test-env-dump, the argument, writes down what it was started with.
  * It is started each way the app starts a user's program, and once as a
  * helper, which keeps the app's settings. The routes through Explorer or the
  * management service hand it their own environment, so for those only the 2
- * settings nobody else makes are checked. */
+ * settings nobody else makes are checked. That environment has none of the
+ * build's libraries on PATH, which is why the dumper needs none. */
 
 #include <config.h>
 
@@ -47,33 +48,7 @@
 #define USERS_BUS "nemo-test:the-users-own"
 #define PASSED_ON "NEMO_TEST_LAUNCH_PASSED_ON"
 
-static const char *const watched[] = {
-	"DBUS_SESSION_BUS_ADDRESS",
-	"FREETYPE_PROPERTIES",
-	"GDK_WIN32_USE_EXPERIMENTAL_OLE2_DND",
-	PASSED_ON,
-};
-
-static int
-dump (const char *to)
-{
-	GString *text = g_string_new (NULL);
-	guint i;
-	gboolean ok;
-
-	for (i = 0; i < G_N_ELEMENTS (watched); i++) {
-		const char *value = g_getenv (watched[i]);
-
-		if (value != NULL) {
-			g_string_append_printf (text, "%s=%s\n", watched[i], value);
-		}
-	}
-	ok = g_file_set_contents (to, text->str, (gssize) text->len, NULL);
-	g_string_free (text, TRUE);
-	return ok ? 0 : 1;
-}
-
-/* What the started copy wrote, as NAME=VALUE lines; NULL if it never did.
+/* What the dumper wrote, as NAME=VALUE lines; NULL if it never did.
  * Returns: (transfer full): free with g_strfreev */
 static char **
 wait_for_dump (const char *path)
@@ -140,16 +115,17 @@ int
 main (int argc, char *argv[])
 {
 	g_autofree char *scratch = NULL;
-	g_autofree char *self = NULL;
+	g_autofree char *dumper = NULL;
 	char **lines, **env;
 	GError *error = NULL;
 
-	if (argc == 3 && strcmp (argv[1], "--dump") == 0) {
-		return dump (argv[2]);
+	if (argc != 2) {
+		g_printerr ("usage: %s <test-env-dump.exe>\n", argv[0]);
+		return 77;
 	}
 
 	scratch = test_scratch_dir ("nemo-launch-env-XXXXXX", NULL);
-	self = g_canonicalize_filename (argv[0], NULL);
+	dumper = g_canonicalize_filename (argv[1], NULL);
 	if (scratch == NULL) {
 		g_printerr ("FAIL: no scratch folder\n");
 		return 1;
@@ -188,7 +164,7 @@ main (int argc, char *argv[])
 	/* A console program of the user's, as an action starts one. */
 	{
 		g_autofree char *out = dump_path (scratch, "spawn.txt");
-		const char *run[] = { self, "--dump", out, NULL };
+		const char *run[] = { dumper, out, NULL };
 
 		check (nemo_launch_win32_spawn (run, FALSE, &error));
 		g_clear_error (&error);
@@ -201,9 +177,9 @@ main (int argc, char *argv[])
 	/* A named program, as Open With and the terminal do. */
 	{
 		g_autofree char *out = dump_path (scratch, "run.txt");
-		g_autofree char *args = g_strdup_printf ("--dump \"%s\"", out);
+		g_autofree char *args = g_strdup_printf ("\"%s\"", out);
 
-		check (nemo_launch_win32_run (self, args, scratch, &error));
+		check (nemo_launch_win32_run (dumper, args, scratch, &error));
 		g_clear_error (&error);
 		lines = wait_for_dump (out);
 		check_not_ours ("run", lines, FALSE);
@@ -215,7 +191,7 @@ main (int argc, char *argv[])
 	{
 		g_autofree char *out = dump_path (scratch, "open.txt");
 		g_autofree char *bat = dump_path (scratch, "dump.bat");
-		g_autofree char *body = g_strdup_printf ("@\"%s\" --dump \"%s\"\r\n", self, out);
+		g_autofree char *body = g_strdup_printf ("@\"%s\" \"%s\"\r\n", dumper, out);
 
 		check (g_file_set_contents (bat, body, -1, NULL));
 		check (nemo_launch_win32_open_path (bat, scratch, &error));
@@ -229,7 +205,7 @@ main (int argc, char *argv[])
 	/* A new copy of ours, the way nemo-new-process.c starts one. */
 	{
 		g_autofree char *out = dump_path (scratch, "copy.txt");
-		const char *run[] = { self, "--dump", out, NULL };
+		const char *run[] = { dumper, out, NULL };
 
 		check (nemo_launch_win32_new_copy (run, &error));
 		g_clear_error (&error);
@@ -242,7 +218,7 @@ main (int argc, char *argv[])
 	/* A helper keeps the app's settings. */
 	{
 		g_autofree char *out = dump_path (scratch, "helper.txt");
-		const char *run[] = { self, "--dump", out, NULL };
+		const char *run[] = { dumper, out, NULL };
 
 		check (nemo_launch_win32_pipe (run, NULL, WAIT_SECONDS, NULL, NULL, NULL));
 		lines = wait_for_dump (out);
