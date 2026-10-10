@@ -48,6 +48,7 @@ fi
 bash "${here}/../hooks/test-pre-push.bash"
 bash "${here}/test-package-checks.bash"
 bash "${here}/test-lint-scope.bash"
+bash "${here}/test-lint-image.bash"
 bash "${here}/test-cicd-help.bash"
 bash "${here}/test-cicd-arm.bash"
 bash "${here}/test-werror.bash"

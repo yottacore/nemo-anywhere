@@ -1661,6 +1661,31 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: psdrows
 	- Commit: 24d99cd
 
+- Run the lint tools from a container, at fixed versions.
+	- ID: 2026101009515961
+	- Type: Task
+	- Status: Done
+	- Needs local test suite run?: no, nothing under `source/` changed. The lint stage passed.
+	- Priority|Severity: Avg
+	- Opened: 20261010-095159
+	- Opened by: t00mietum
+	- Target OS: Linux
+	- Requirements:
+		- cppcheck, shellcheck, ruff and PSScriptAnalyzer give the same findings on any Linux box with docker.
+		- A small image close to the host, Debian trixie slim.
+		- No docker, or MSYS2, still lints with the host's tools.
+	- Decisions:
+		- A separate `nemo-lint` image, not part of `nemo-build-deps`. Rebuilding that one for GTK reasons shouldn't move the lint versions.
+		- Only the 4 tool checkers go in it. The rest of `lint.bash` has script tests that need docker, ssh or the private tree, so it stays on the host.
+		- Not for the other boxes. FreeBSD has no docker, macOS would need a VM, and vm925w has its hypervisor off. Lint gives the same answer anywhere, so one box is enough.
+	- Actual effort: Avg
+	- Progress log:
+		- 20261010: done. `cicd/linux/Dockerfile.lint` pins the base by digest and every tool by version and hash, at the versions this box had, so nothing new turned up. The image is tagged by a hash of that file, built the first time it's needed, and old tags are removed after. `NEMO_LINT_HOST=1` uses the host's tools.
+	- Branch: lintimg
+	- Test case: rjxyddbk (`test-lint-image.bash`, lint stage). The tag follows the Dockerfile, old tags go and the new one stays, every way of not having the image falls back to the host, a worktree's git dir gets mounted, the Dockerfile's pins, and that `lint.bash` runs each checker through the image.
+	- Acceptance signoff: Self-closed: rjxyddbk, and the lint stage on this branch.
+	- Closed: 20261010-095159
+
 - Read the old binary Word, Excel and PowerPoint files inside the app, with a container reader of our own.
 	- ID: 2026100909260511
 	- Type: Enhancement
