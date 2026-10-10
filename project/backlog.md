@@ -33,129 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- After an `smb://` address is typed, nothing shows that the app is working on it.
-	- ID: 2026100816170921
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 183 of 183.
-	- Needs external testing: done 20261009 on vm925w. It was: type a `\\server\share` path to a server that is slow or not there. The path bar should show a spinner and "Connecting to server...", the pointer should be the arrow with the busy circle and not the hourglass, and Escape should stop it. Also rhtwm2c8 in the native suite.
-	- Priority|Severity: Avg
-	- Opened: 20261008-161710
-	- Opened by: t00mietum
-	- Target OS: All
-	- Steps to reproduce: type an `smb://` address in the path bar and press Enter.
-	- Incorrect behavior: the app looks into the address for a while with no sign of it. Then a login prompt, or the share's contents, suddenly show up. In the meantime it looks like nothing happened, so the user may start something else until the share comes back.
-	- Expected behavior: a clear sign that the app is busy with the address, until it is done or stopped.
-	- Requirements:
-		- A sign that doesn't rely on the mouse pointer. A pointer can change too, like Windows' "working in the background" pointer. But not one that says the app is blocked, like the macOS beachball, unless it is.
-		- Maybe also one or more of:
-			- The program icon moving smoothly in a circle over the path bar, attached to the window.
-			- The path bar and the content pane, or even everything visible, slowly fading between disabled text (gray but still legible) and normal text, at about 0.5 Hz.
-			- The app takes no input until one of:
-				- The network step fails or times out.
-				- The user presses Escape, which stops the background attempt to connect and fetch.
-		- README says what changed.
-	- Reproduced: 20261009 on Linux, with an `smb://` mount that never answers. The path bar, the pointer and the window stay as they were the whole time, and Escape does nothing.
-	- Actual cause: nothing in the window follows the look-up and the mount of a new address. The "Loading..." bar only shows once there's a view, which is after the mount. The busy pointer never showed for the tab in front, since its check compares against the Stop action being enabled, and that never changes.
-	- Actual effort: Avg
-	- Decisions:
-		- Decided: the base sign only. A spinner and short text such as "Connecting to <host>..." in the path bar until the address resolves, fails, times out or is canceled. The window stays usable. The pointer may show the background-working cursor while over the window, never a blocked one. Escape, with focus in the window, cancels the pending attempt.
-		- Decided: it covers any address that has to be mounted or reached over the network first. That's smb, sftp, ftp, dav and the like through gvfs on Linux, and UNC paths and mapped drives on Windows.
-		- Punted: the program icon circling over the path bar, the slow fade between gray and normal text, and taking no input until the attempt ends.
-	- Actual fix: while the look-up or the mount behind a new address is still out, the path bar shows a spinner and "Connecting to <host>...", or "Connecting to the network..." when there's no host. It goes away when the address answers, fails or is stopped. Meanwhile the pointer is the busy arrow, never the watch, and Escape in the window stops the attempt. The host comes from the address text and the mount table only, so nothing new reaches out to a share. A place on this machine shows no sign.
-	- Swept: every location change starts in one place, so the path bar, Places, bookmarks, links, back and forward, and new windows and tabs all get the sign. A tab in the back shows it when it comes to the front. Opening a file on a share that isn't mounted goes through the open code, which has its own wait dialog wiht a Cancel button. Connect to Server has its own spinner.
-	- Verified: rjv9ks2z fails before the fix, on the sign, the pointer and Escape, and passes after. Full Linux suite 183 of 183. Windows cross build clean, and rhtwm2c8 passes under wine with the new UNC case.
-	- Verified: 20261009, Windows, on vm925w. rhtwm2c8 passes in the native suite at 398c999. With the single exe built at 49a54f8, in the desktop session, `\\10.255.255.1\share` typed in the path bar showed the spinner and "Connecting to 10.255.255.1...", and the pointer over the window was the busy arrow, never the hourglass. Escape took the sign away and the pointer went back to the plain arrow. A server name that doesn't resolve showed the sign until the look-up failed a few seconds later, then the error, with the sign gone.
-	- Note: 20261009, left at signoff for how the sign looks.
-	- Note: with the toolbar turned off there's no path bar, so only the pointer shows it.
-	- Note: read, not tried: the Stop button also never takes Reload's place while a folder loads, since the same check is behind it. Left alone here.
-	- Branch: smbbusy
-	- Commit: 41adfa7
-	- Test case: rjv9ks2z, Connecting sign while a share mounts test. An `smb://` mount answers only when the test says so. It checks the sign and the host it names, the pointer, that the window still takes input, Escape, and the sign going away after a stop and after a failed mount. It also checks the host named for a set of addresses, and that a local folder shows no sign. rhtwm2c8 checks the server named for a UNC path on Windows.
-
-- On Windows, let the copies of the app talk to each other with no session bus.
-	- ID: 2026100815215479
-	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The full Linux suite passed.
-	- Needs external testing: done 20261009 on vm925w. It was: natively on Windows. rjvks1yf through the native gate, which also builds the new files with warnings as errors and its own cppcheck. Then the release zip in a desktop session with 2 or 3 copies: the tab menu lists the other copies' windows and a tab moves over, a setting changed in one shows in the others before the save, Close all windows and `--quit` close them all, and `--reset` refuses while one runs. Throughout, no `gdbus.exe` runs and no new `gdbus-nonce-file-*` turns up in `%TEMP%`. Also an elevated copy and an ordinary one: neither lists the other. And how long the list takes on a box with a lot running.
-	- Priority|Severity: Avg
-	- Opened: 20261008-152154
-	- Opened by: t00mietum
-	- Related IDs: 2026100714014948, 2026100617051745, 2026100715211104, 2026100907390779
-	- Target OS: Windows
-	- Requirements:
-		- Nothing starts a session bus on Windows, so no `gdbus.exe` is in any Windows bundle.
-		- What the bus does there today still works: the list of other copies behind the tab menu and `--reset`, asking the other copies to quit, and moving a tab into a window of another copy.
-		- One named pipe per copy, under a name per user and per logon session, in place of the bus calls. The bus code stays as is on Linux and the BSDs, behind the same calls.
-		- An action's `dbus` condition never passes on Windows. Nothing there owns such names anyway.
-	- Note: GLib stays on every platform. GTK 3 is built on it, and so is nearly all of the app. The session bus is a separate thing. On Linux the desktop already runs one, and other programs reach the app through it, so it stays there.
-	- Note: our `gdbus.exe` is a packed program too, so under MacType the single exe likely can't start the bus either, the same as in 2026100617051745. Not tried.
-	- Estimated effort: Avg
-	- Progress log:
-		- 20261008: filed. Open: whether to do it. It ends the leftover nonce files of 2026100714014948 at the cause, and the last packed program the single exe starts on its own, besides GLib's spawn helpers if anything still uses them.
-		- 20261008: going ahead. Open: the BSDs. For now they keep the bus, like Linux.
-		- 20261009: done, waiting on a native run. Each copy serves a named pipe with the user's SID, the logon session and the process ID in its name. The calls the bus carried go over it unchanged: the list, quit, the tab move and settings changes, all behind the same calls on every platform. How it went:
-			- The list is every process in the session that has a pipe by that name. Asking Windows for the pipe names directly is quicker, but wine can't, and the test has to run there too. A pipe goes with its process however it ends, so nothing is left to clean up.
-			- Only the user gets into a pipe, and nothing at a lower integrity level can write to it. The other end checks the pipe belongs to the user before saying anything, since pipe names are shared by every session on the box.
-			- An elevated copy is in a logon session of its own, so it and an ordinary copy don't see each other. Before, they may have shared the bus. Left at signoff for that.
-			- A message nobody waits on, quit and settings, is answered as soon as it arrives, so a sender never waits on the other copy being busy.
-			- GApplication asks for the bus as it registers, and nothing in GLib turns that off. So the app sets the bus address to `disabled:` at startup on Windows. The previewer, the power inhibit during file operations, the freedesktop interface and the action condition each also stop asking there, and a lint check holds that list.
-			- With no bus to start, our `gdbus.exe` stand-in from 2026100714014948 is gone from every bundle, and so is GLib's. That item is Moot.
-	- Decisions:
-		- 20261008: Windows drops the session bus for named pipes, or something like them. Linux keeps the bus.
-	- Note: rjptygcj and rjvdch2z test the bus, so they run on Linux and the BSDs only now. On Windows rjvks1yf covers the list and a settings change going across. rjvdch2z's edge cases are in nemo-config and the same everywhere.
-	- Verified: rjvks1yf passes under wine. It fails against the app built from dev: a bus starts and no copy is listed. It also fails with the bus address left alone at startup, with the action condition or the power inhibit asking for the bus, with the condition passing, with nothing listed, with the tab calls not served, with settings not shared, and with quit not acted on. The new lint check fails on an unlisted call. Full Linux suite, rjptygcj, rjvdch2z, the tab move and the instances tests included, passes with warnings as errors. Windows release cross build clean with warnings as errors. The release zip has no `gdbus.exe`, and its app passes rjvks1yf under wine.
-	- Verified: 20261009, Windows, on vm925w. rjvks1yf passes in the native gate's suite at 398c999 and again at 49a54f8, built with warnings as errors. cppcheck 2.21 over the whole tree there has no finding in the new files.
-	- Verified: 20261009, the release zip at 398c999 in the desktop session on vm925w, 3 copies:
-		- The tab menu in one listed the other 2 windows by title, and a tab moved into one of them.
-		- The statusbar turned off in one was gone from the other 2 within 0.7 s, before the save.
-		- File, Close all windows in one closed all 3 within 1 s. `--quit` closed 2 others. `--reset` refused with exit 1 while copies ran, and the settings file stayed.
-		- No `gdbus.exe` ran at any point, and no new `gdbus-nonce-file-*` turned up in `%TEMP%`.
-		- An elevated copy and an ordinary one: their pipes are under different logon sessions. The ordinary copy's tab menu listed no other window, and `--quit` from either ended only the copies on its own side.
-		- With 228 processes running, the tab menu, which lists the other copies, came up in 26 to 41 ms. The file list's own menu, which lists nothing, took 16 to 23 ms.
-	- Note: 20261009, left at signoff for the elevated and ordinary copies not seeing each other.
-	- Swept: every call that can ask for the session bus in the app's own code, by the lint check's pattern: GApplication's registration, the previewer, the power inhibit, the freedesktop interface, the action condition, and the tracker search, which isn't built on Windows. GLib's notifications on Windows use the app's own connection, which is none. Every place a Windows bundle is made: the native stage, which the portable exe is packed from, the release zip, which the setup exe is made from, and the wine runner, which also drops a `gdbus.exe` left in an older snapshot.
-	- Branch: winpipe
-	- Commit: f721cc6
-	- Test case: rjvks1yf, Copies reach each other with no bus win32 test, Windows only. 2 copies of the app list each other, a third refuses `--reset`, a tab moves into one, and a settings change made by the test reaches both before any save. `--quit` ends both, and a killed copy leaves nothing behind. No `gdbus.exe` may start under any of them, no bus may come up, and no nonce file may be left. Also lint rjvmbv00.
-
-- Compression reset: link and filesystem choices in the archive options.
-	- ID: 2026100516274163
-	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Prereq IDs: 2026100516274126
-	- Target OS: Linux, Windows
-	- Design: [Link options](design_docs/20260929-101432_compression.md#link-options) and [Junction defaults](design_docs/20260929-101432_compression.md#junction-defaults).
-	- Requirements:
-		- Symlinks: Ignore, the default, Follow, or Store as symlinks.
-		- Junctions, Windows only: Ignore, Follow, Store as junctions, or Store as symlinks. Its default follows Symlinks by the table in the design. A hand change sticks.
-		- Follow nested filesystems, on by default. Follow other filesystems, never on by default.
-		- A store choice the writer can't do falls back to Ignore.
-		- These replace the store links and follow links options and their remembered values. Written in the core.
-		- Open: whether the old remembered values map over to the new choices.
-	- Decisions:
-		- 20261006: old remembered values map over. Store links on becomes Store as symlinks, follow links on becomes Follow, anything else Ignore. The old keys are dropped once read.
-		- 20261007: "never on by default" is read as never remembered. Every dialog starts with Follow other filesystems off.
-		- 20261007: an old store links that was never changed counts as on, its old default. So a file with only follow links on in it maps to Store as symlinks, which is what the job did with it.
-		- 20261007: Junctions is remembered as "like Symlinks" until it's changed by hand, so it keeps following the table until then.
-		- 20261007: which store choices a writer has comes from whether it claims to store links. The library keeps every link as a symlink, so a junction there can only be stored as a symlink. rar keeps a junction as a junction, per its own docs for `-ol`.
-		- 20261007: until the dialog and job items, the old dialog shows Ignore as both link boxes off. A new user's store box now starts off, where it used to start on. With both off, today's job puts a linked file's content in and leaves linked folders out, so an archive made with the defaults no longer keeps links. 2026100516274423 makes Ignore leave every link out.
-	- Estimated effort: Avg
-	- Actual effort: Avg
-	- Progress log:
-		- 20261007-204818: built. Left at signoff for the interim default above.
-	- Done: the choices are in the core, `arc-link-options.h`, with the junction defaults table and the fall back to Ignore. A choice the writer can't do reads as Ignore for that writer but is kept, so a format that can do it gets it back. The remembered values are new settings `last-symlinks`, `last-junctions` and `last-follow-nested`. `nemo-archive-host.c` reads and writes them and maps the old 2 over. The old dialog and job go on through the Symlinks choice: Store is the store box, Follow the follow box.
-	- Swept: every place that read or wrote the old 2 keys, which was only the Compress dialog and the settings test. The only defaults the job takes come through the dialog. Junctions and the filesystem options don't reach the job yet.
-	- Verified: 20261007, Linux build with warnings as errors, full Linux suite 181 of 181, the Windows cross build, lint clean apart from rj3ytv0b. rjq9mv0w, rhae85g0 and the schema test pass under wine.
-	- Needs external testing: what rar and the library do with a junction when storing links is from their docs and code, not seen on Windows. 2026100516274423 is where it gets used.
-	- Branch: arclinks2
-	- Commit: 9f5b8c6
-	- Test case: rjq9mv0w, Archive core test, for the junction defaults table, the fall back to Ignore, a hand change sticking, and the follow bits. rhae85g0, Archive settings test, for the old values mapped over and dropped in each mix, what is and isn't remembered, and the fall back agreeing with each writer's claim for every format.
-
 - In the single exe on Windows, a new window or a tab moved to its own window starts through GLib's spawn helper, a program packed inside the exe.
 	- ID: 2026100914514406
 	- Type: Bug
@@ -388,6 +265,48 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: 20261007, the probe and test were read. At step 5 the probe looks for a menu on screen every 100 ms for 10 s, so it does wait for the menu to show. The test runs on an X server of its own, not the suite's. Two tests that pick the same display number at once don't end up sharing it: the one whose server fails tries the next number. So the possible cause above doesn't apply.
 	- Note: 20261007, not ruled out: the Menu key made no menu at all once, on a loaded box. GTK 3 doesn't show a menu whose pointer grab fails, and the probe presses the key only once. Nothing points at that, and pressing again would hide it rather than explain it.
 	- Test case: rjefm41d itself.
+
+- After an `smb://` address is typed, nothing shows that the app is working on it.
+	- ID: 2026100816170921
+	- Type: Bug
+	- Status: Queued
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 183 of 183.
+	- Needs external testing: done 20261009 on vm925w, for the sign. It was: type a `\\server\share` path to a server that is slow or not there. The path bar should show a spinner and "Connecting to server...", the pointer should be the arrow with the busy circle and not the hourglass, and Escape should stop it. Also rhtwm2c8 in the native suite.
+	- Priority|Severity: Avg
+	- Opened: 20261008-161710
+	- Opened by: t00mietum
+	- Target OS: All
+	- Steps to reproduce: type an `smb://` address in the path bar and press Enter.
+	- Incorrect behavior: the app looks into the address for a while with no sign of it. Then a login prompt, or the share's contents, suddenly show up. In the meantime it looks like nothing happened, so the user may start something else until the share comes back.
+	- Expected behavior: a clear sign that the app is busy with the address, until it is done or stopped.
+	- Requirements:
+		- A sign that doesn't rely on the mouse pointer. A pointer can change too, like Windows' "working in the background" pointer. But not one that says the app is blocked, like the macOS beachball, unless it is.
+		- Maybe also one or more of:
+			- The program icon moving smoothly in a circle over the path bar, attached to the window.
+			- The path bar and the content pane, or even everything visible, slowly fading between disabled text (gray but still legible) and normal text, at about 0.5 Hz.
+			- The app takes no input until one of:
+				- The network step fails or times out.
+				- The user presses Escape, which stops the background attempt to connect and fetch.
+		- README says what changed.
+	- Reproduced: 20261009 on Linux, with an `smb://` mount that never answers. The path bar, the pointer and the window stay as they were the whole time, and Escape does nothing.
+	- Actual cause: nothing in the window follows the look-up and the mount of a new address. The "Loading..." bar only shows once there's a view, which is after the mount. The busy pointer never showed for the tab in front, since its check compares against the Stop action being enabled, and that never changes.
+	- Actual effort: Avg
+	- Decisions:
+		- Decided: the base sign only. A spinner and short text such as "Connecting to <host>..." in the path bar until the address resolves, fails, times out or is canceled. The window stays usable. The pointer may show the background-working cursor while over the window, never a blocked one. Escape, with focus in the window, cancels the pending attempt.
+		- Decided: it covers any address that has to be mounted or reached over the network first. That's smb, sftp, ftp, dav and the like through gvfs on Linux, and UNC paths and mapped drives on Windows.
+		- Punted: the program icon circling over the path bar, the slow fade between gray and normal text, and taking no input until the attempt ends.
+		- 20261009: changed my mind on taking no input. Once the share answers, the view is replaced, so anything done in the window meanwhile can be lost. While the attempt is out the window takes no input but Escape, which stops it. The title bar still moves and closes it, and closing stops the attempt. Other windows of the app stay usable.
+	- Actual fix: while the look-up or the mount behind a new address is still out, the path bar shows a spinner and "Connecting to <host>...", or "Connecting to the network..." when there's no host. It goes away when the address answers, fails or is stopped. Meanwhile the pointer is the busy arrow, never the watch, and Escape in the window stops the attempt. The host comes from the address text and the mount table only, so nothing new reaches out to a share. A place on this machine shows no sign.
+	- Swept: every location change starts in one place, so the path bar, Places, bookmarks, links, back and forward, and new windows and tabs all get the sign. A tab in the back shows it when it comes to the front. Opening a file on a share that isn't mounted goes through the open code, which has its own wait dialog wiht a Cancel button. Connect to Server has its own spinner.
+	- Verified: rjv9ks2z fails before the fix, on the sign, the pointer and Escape, and passes after. Full Linux suite 183 of 183. Windows cross build clean, and rhtwm2c8 passes under wine with the new UNC case.
+	- Verified: 20261009, Windows, on vm925w. rhtwm2c8 passes in the native suite at 398c999. With the single exe built at 49a54f8, in the desktop session, `\\10.255.255.1\share` typed in the path bar showed the spinner and "Connecting to 10.255.255.1...", and the pointer over the window was the busy arrow, never the hourglass. Escape took the sign away and the pointer went back to the plain arrow. A server name that doesn't resolve showed the sign until the look-up failed a few seconds later, then the error, with the sign gone.
+	- Note: 20261009, left at signoff for how the sign looks.
+	- Note: 20261009, the sign's look is signed off. Back to Queued for taking no input meanwhile.
+	- Note: with the toolbar turned off there's no path bar, so only the pointer shows it.
+	- Note: read, not tried: the Stop button also never takes Reload's place while a folder loads, since the same check is behind it. Left alone here.
+	- Branch: smbbusy
+	- Commit: 41adfa7
+	- Test case: rjv9ks2z, Connecting sign while a share mounts test. An `smb://` mount answers only when the test says so. It checks the sign and the host it names, the pointer, that the window still takes input, Escape, and the sign going away after a stop and after a failed mount. It also checks the host named for a set of addresses, and that a local folder shows no sign. rhtwm2c8 checks the server named for a UNC path on Windows.
 
 - In the single exe on Windows, a program packed inside it that needs libgsf cannot start.
 	- ID: 2026100617051745
@@ -1713,6 +1632,55 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: `test-nemo-psd`: rows at the least length are read, one byte less is refused, and a file of empty rows, 30000 by 30000 as psd and 60000 by 60000 as psb, is refused in under a second. Fuzz seed `zero-rows`, and `short-literal` reworked so it still reaches the literal-run bound.
 	- Branch: psdrows
 	- Commit: 24d99cd
+
+- On Windows, let the copies of the app talk to each other with no session bus.
+	- ID: 2026100815215479
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed.
+	- Needs external testing: done 20261009 on vm925w. It was: natively on Windows. rjvks1yf through the native gate, which also builds the new files with warnings as errors and its own cppcheck. Then the release zip in a desktop session with 2 or 3 copies: the tab menu lists the other copies' windows and a tab moves over, a setting changed in one shows in the others before the save, Close all windows and `--quit` close them all, and `--reset` refuses while one runs. Throughout, no `gdbus.exe` runs and no new `gdbus-nonce-file-*` turns up in `%TEMP%`. Also an elevated copy and an ordinary one: neither lists the other. And how long the list takes on a box with a lot running.
+	- Priority|Severity: Avg
+	- Opened: 20261008-152154
+	- Opened by: t00mietum
+	- Related IDs: 2026100714014948, 2026100617051745, 2026100715211104, 2026100907390779
+	- Target OS: Windows
+	- Requirements:
+		- Nothing starts a session bus on Windows, so no `gdbus.exe` is in any Windows bundle.
+		- What the bus does there today still works: the list of other copies behind the tab menu and `--reset`, asking the other copies to quit, and moving a tab into a window of another copy.
+		- One named pipe per copy, under a name per user and per logon session, in place of the bus calls. The bus code stays as is on Linux and the BSDs, behind the same calls.
+		- An action's `dbus` condition never passes on Windows. Nothing there owns such names anyway.
+	- Note: GLib stays on every platform. GTK 3 is built on it, and so is nearly all of the app. The session bus is a separate thing. On Linux the desktop already runs one, and other programs reach the app through it, so it stays there.
+	- Note: our `gdbus.exe` is a packed program too, so under MacType the single exe likely can't start the bus either, the same as in 2026100617051745. Not tried.
+	- Estimated effort: Avg
+	- Progress log:
+		- 20261008: filed. Open: whether to do it. It ends the leftover nonce files of 2026100714014948 at the cause, and the last packed program the single exe starts on its own, besides GLib's spawn helpers if anything still uses them.
+		- 20261008: going ahead. Open: the BSDs. For now they keep the bus, like Linux.
+		- 20261009: done, waiting on a native run. Each copy serves a named pipe with the user's SID, the logon session and the process ID in its name. The calls the bus carried go over it unchanged: the list, quit, the tab move and settings changes, all behind the same calls on every platform. How it went:
+			- The list is every process in the session that has a pipe by that name. Asking Windows for the pipe names directly is quicker, but wine can't, and the test has to run there too. A pipe goes with its process however it ends, so nothing is left to clean up.
+			- Only the user gets into a pipe, and nothing at a lower integrity level can write to it. The other end checks the pipe belongs to the user before saying anything, since pipe names are shared by every session on the box.
+			- An elevated copy is in a logon session of its own, so it and an ordinary copy don't see each other. Before, they may have shared the bus. Left at signoff for that.
+			- A message nobody waits on, quit and settings, is answered as soon as it arrives, so a sender never waits on the other copy being busy.
+			- GApplication asks for the bus as it registers, and nothing in GLib turns that off. So the app sets the bus address to `disabled:` at startup on Windows. The previewer, the power inhibit during file operations, the freedesktop interface and the action condition each also stop asking there, and a lint check holds that list.
+			- With no bus to start, our `gdbus.exe` stand-in from 2026100714014948 is gone from every bundle, and so is GLib's. That item is Moot.
+	- Decisions:
+		- 20261008: Windows drops the session bus for named pipes, or something like them. Linux keeps the bus.
+	- Note: rjptygcj and rjvdch2z test the bus, so they run on Linux and the BSDs only now. On Windows rjvks1yf covers the list and a settings change going across. rjvdch2z's edge cases are in nemo-config and the same everywhere.
+	- Verified: rjvks1yf passes under wine. It fails against the app built from dev: a bus starts and no copy is listed. It also fails with the bus address left alone at startup, with the action condition or the power inhibit asking for the bus, with the condition passing, with nothing listed, with the tab calls not served, with settings not shared, and with quit not acted on. The new lint check fails on an unlisted call. Full Linux suite, rjptygcj, rjvdch2z, the tab move and the instances tests included, passes with warnings as errors. Windows release cross build clean with warnings as errors. The release zip has no `gdbus.exe`, and its app passes rjvks1yf under wine.
+	- Verified: 20261009, Windows, on vm925w. rjvks1yf passes in the native gate's suite at 398c999 and again at 49a54f8, built with warnings as errors. cppcheck 2.21 over the whole tree there has no finding in the new files.
+	- Verified: 20261009, the release zip at 398c999 in the desktop session on vm925w, 3 copies:
+		- The tab menu in one listed the other 2 windows by title, and a tab moved into one of them.
+		- The statusbar turned off in one was gone from the other 2 within 0.7 s, before the save.
+		- File, Close all windows in one closed all 3 within 1 s. `--quit` closed 2 others. `--reset` refused with exit 1 while copies ran, and the settings file stayed.
+		- No `gdbus.exe` ran at any point, and no new `gdbus-nonce-file-*` turned up in `%TEMP%`.
+		- An elevated copy and an ordinary one: their pipes are under different logon sessions. The ordinary copy's tab menu listed no other window, and `--quit` from either ended only the copies on its own side.
+		- With 228 processes running, the tab menu, which lists the other copies, came up in 26 to 41 ms. The file list's own menu, which lists nothing, took 16 to 23 ms.
+	- Note: 20261009, left at signoff for the elevated and ordinary copies not seeing each other.
+	- Acceptance signoff: 20261009, elevated and ordinary copies kept apart.
+	- Swept: every call that can ask for the session bus in the app's own code, by the lint check's pattern: GApplication's registration, the previewer, the power inhibit, the freedesktop interface, the action condition, and the tracker search, which isn't built on Windows. GLib's notifications on Windows use the app's own connection, which is none. Every place a Windows bundle is made: the native stage, which the portable exe is packed from, the release zip, which the setup exe is made from, and the wine runner, which also drops a `gdbus.exe` left in an older snapshot.
+	- Branch: winpipe
+	- Commit: f721cc6
+	- Test case: rjvks1yf, Copies reach each other with no bus win32 test, Windows only. 2 copies of the app list each other, a third refuses `--reset`, a tab moves into one, and a settings change made by the test reaches both before any save. `--quit` ends both, and a killed copy leaves nothing behind. No `gdbus.exe` may start under any of them, no bus may come up, and no nonce file may be left. Also lint rjvmbv00.
+	- Closed: 20261009-173500
 
 - Read the thumbnail and the text of OOXML, OpenDocument and EPUB files inside the app.
 	- ID: 2026100909260472
@@ -3765,6 +3733,44 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: ef05a4f
 	- Test case: rjbpyy28 Archive stop time test now has a 7z case. A 4 GiB and a 16 GiB file are stopped at their first progress report. Before the fix, the 4 GiB one took 50 s and the 16 GiB one did not end in 100 s. After, both take 0.01 s. rjbw0rkq Stopped 7z leak test, which fails at 82 bytes a round when the close is left out.
 	- Acceptance signoff: waiting. The archive writer's handling of a stop changed again, this time for the 7z.
+
+- Compression reset: link and filesystem choices in the archive options.
+	- ID: 2026100516274163
+	- Type: Enhancement
+	- Status: Done
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274126
+	- Target OS: Linux, Windows
+	- Design: [Link options](design_docs/20260929-101432_compression.md#link-options) and [Junction defaults](design_docs/20260929-101432_compression.md#junction-defaults).
+	- Requirements:
+		- Symlinks: Ignore, the default, Follow, or Store as symlinks.
+		- Junctions, Windows only: Ignore, Follow, Store as junctions, or Store as symlinks. Its default follows Symlinks by the table in the design. A hand change sticks.
+		- Follow nested filesystems, on by default. Follow other filesystems, never on by default.
+		- A store choice the writer can't do falls back to Ignore.
+		- These replace the store links and follow links options and their remembered values. Written in the core.
+		- Open: whether the old remembered values map over to the new choices.
+	- Decisions:
+		- 20261006: old remembered values map over. Store links on becomes Store as symlinks, follow links on becomes Follow, anything else Ignore. The old keys are dropped once read.
+		- 20261007: "never on by default" is read as never remembered. Every dialog starts with Follow other filesystems off.
+		- 20261007: an old store links that was never changed counts as on, its old default. So a file with only follow links on in it maps to Store as symlinks, which is what the job did with it.
+		- 20261007: Junctions is remembered as "like Symlinks" until it's changed by hand, so it keeps following the table until then.
+		- 20261007: which store choices a writer has comes from whether it claims to store links. The library keeps every link as a symlink, so a junction there can only be stored as a symlink. rar keeps a junction as a junction, per its own docs for `-ol`.
+		- 20261007: until the dialog and job items, the old dialog shows Ignore as both link boxes off. A new user's store box now starts off, where it used to start on. With both off, today's job puts a linked file's content in and leaves linked folders out, so an archive made with the defaults no longer keeps links. 2026100516274423 makes Ignore leave every link out.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Progress log:
+		- 20261007-204818: built. Left at signoff for the interim default above.
+	- Acceptance signoff: 20261009, interim default included. 2026100516274423 replaces it.
+	- Done: the choices are in the core, `arc-link-options.h`, with the junction defaults table and the fall back to Ignore. A choice the writer can't do reads as Ignore for that writer but is kept, so a format that can do it gets it back. The remembered values are new settings `last-symlinks`, `last-junctions` and `last-follow-nested`. `nemo-archive-host.c` reads and writes them and maps the old 2 over. The old dialog and job go on through the Symlinks choice: Store is the store box, Follow the follow box.
+	- Swept: every place that read or wrote the old 2 keys, which was only the Compress dialog and the settings test. The only defaults the job takes come through the dialog. Junctions and the filesystem options don't reach the job yet.
+	- Verified: 20261007, Linux build with warnings as errors, full Linux suite 181 of 181, the Windows cross build, lint clean apart from rj3ytv0b. rjq9mv0w, rhae85g0 and the schema test pass under wine.
+	- Needs external testing: what rar and the library do with a junction when storing links is from their docs and code, not seen on Windows. 2026100516274423 is where it gets used.
+	- Branch: arclinks2
+	- Commit: 9f5b8c6
+	- Test case: rjq9mv0w, Archive core test, for the junction defaults table, the fall back to Ignore, a hand change sticking, and the follow bits. rhae85g0, Archive settings test, for the old values mapped over and dropped in each mix, what is and isn't remembered, and the fall back agreeing with each writer's claim for every format.
+	- Closed: 20261009-173500
 
 - Compression reset: 7-Zip first for 7z, and `-spd` on an edited 7-Zip line.
 	- ID: 2026100516274312
