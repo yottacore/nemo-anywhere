@@ -26,10 +26,14 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 fTest(){ local rc=0; "$@" || rc=$?; [[ "$rc" == "0" || "$rc" == "77" ]] || exit "$rc"; }
 
-bash "${here}/lint-c.bash" "$@"
-bash "${here}/lint-bash.bash"
-bash "${here}/lint-python.bash"
-bash "${here}/lint-powershell.bash"
+root="$(cd "${here}/../.." && pwd)"
+# shellcheck source=include/lint-image.bash
+source "${here}/include/lint-image.bash"
+img="$(fLintImage "$root")"
+fLintRun "$root" "$img" bash "${here}/lint-c.bash" "$@"
+fLintRun "$root" "$img" bash "${here}/lint-bash.bash"
+fLintRun "$root" "$img" bash "${here}/lint-python.bash"
+fLintRun "$root" "$img" bash "${here}/lint-powershell.bash"
 bash "${here}/lint-identity.bash"
 bash "${here}/lint-prose.bash"
 ## Its fixture is full of symlinks, which MSYS2 cannot make without the symlink
@@ -44,6 +48,7 @@ fi
 bash "${here}/../hooks/test-pre-push.bash"
 bash "${here}/test-package-checks.bash"
 bash "${here}/test-lint-scope.bash"
+bash "${here}/test-lint-image.bash"
 bash "${here}/test-cicd-help.bash"
 bash "${here}/test-cicd-arm.bash"
 bash "${here}/test-werror.bash"

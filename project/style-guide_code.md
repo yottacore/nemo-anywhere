@@ -167,6 +167,8 @@ Where a piece of reasoning is longer than a few lines, it goes at the top of the
 
 `cicd/utility/lint.bash` is the gate's lint stage. It runs `lint-c.bash`, which is cppcheck plus the checks on user-facing strings and on the delete guards, then `lint-bash.bash`, which is shellcheck over the project's own scripts, and the Python, PowerShell, identity and prose checks after it. A finding from any of them fails the gate. Where a tool itself is missing, that step warns and is skipped, so a box without cppcheck, python or shellcheck cannot hard-block a push; `CPPCHECK_STRICT=1` and `SHELLCHECK_STRICT=1` turn those misses into failures.
 
+On Linux, cppcheck, shellcheck, ruff and PSScriptAnalyzer run inside the `nemo-lint` image from `cicd/linux/Dockerfile.lint`, at fixed versions, so two boxes give the same findings. The image is built the first time it's needed, and again whenever that file changes. Without docker, or with `NEMO_LINT_HOST=1`, the host's own tools are used. Under MSYS2 they always are.
+
 - `alloca`, and therefore `g_newa`. Use `g_new0` and `g_free` even for three ints.
 
 - Any cppcheck finding at all, including informational ones. A known false positive gets an inline suppression with the reason written next to it.
