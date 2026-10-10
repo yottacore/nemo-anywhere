@@ -637,13 +637,14 @@ nemo_window_slot_sync_connecting (NemoWindowSlot *slot)
 {
 	g_autofree char *host = NULL;
 
-	if (slot->pane == NULL || slot != slot->pane->active_slot ||
-	    !NEMO_IS_TOOLBAR (slot->pane->tool_bar)) {
+	if (slot->pane == NULL || slot != slot->pane->active_slot) {
 		return;
 	}
 
-	host = pending_host (slot);
-	nemo_toolbar_set_connecting (NEMO_TOOLBAR (slot->pane->tool_bar), host);
+	if (NEMO_IS_TOOLBAR (slot->pane->tool_bar)) {
+		host = pending_host (slot);
+		nemo_toolbar_set_connecting (NEMO_TOOLBAR (slot->pane->tool_bar), host);
+	}
 	nemo_window_sync_pointer (nemo_window_slot_get_window (slot));
 }
 

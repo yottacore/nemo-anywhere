@@ -255,17 +255,32 @@ nemo_window_new_tab (NemoWindow *window)
 	}
 }
 
+/* Once the share answers the view is replaced, so anything done in the
+   window meanwhile could be lost. Escape and the title bar still work. */
+static gboolean
+waiting_on_share (NemoWindow *window)
+{
+	NemoWindowSlot *slot = nemo_window_get_active_slot (window);
+
+	return slot != NULL && nemo_window_slot_is_connecting (slot);
+}
+
+static void
+sync_input_cover (NemoWindow *window)
+{
+	if (window->details->input_cover != NULL) {
+		gtk_widget_set_visible (window->details->input_cover, waiting_on_share (window));
+	}
+}
+
 static void
 update_cursor (NemoWindow *window)
 {
-	NemoWindowSlot *slot;
 	GdkCursor *cursor;
 
-	slot = nemo_window_get_active_slot (window);
-
-	if (slot && nemo_window_slot_is_connecting (slot)) {
-		/* "progress", the arrow with a spinner: the window still takes
-		 * input, so never the watch, which reads as blocked. */
+	if (waiting_on_share (window)) {
+		/* "progress", the arrow with a spinner. Never the watch, since
+		 * Escape and the title bar still work. */
 		cursor = gdk_cursor_new_from_name (gtk_widget_get_display (GTK_WIDGET (window)),
 						   "progress");
 		gdk_window_set_cursor (gtk_widget_get_window (GTK_WIDGET (window)), cursor);
@@ -287,6 +302,8 @@ update_cursor (NemoWindow *window)
 void
 nemo_window_sync_pointer (NemoWindow *window)
 {
+	sync_input_cover (window);
+
 	if (gtk_widget_get_realized (GTK_WIDGET (window))) {
 		update_cursor (window);
 	}
@@ -777,6 +794,7 @@ static void
 nemo_window_constructed (GObject *self)
 {
 	NemoWindow *window;
+	GtkWidget *overlay;
 	GtkWidget *grid;
 	GtkWidget *menu;
 	GtkWidget *hpaned;
@@ -798,10 +816,28 @@ nemo_window_constructed (GObject *self)
 	 */
 	gtk_application_window_set_show_menubar (GTK_APPLICATION_WINDOW (self), FALSE);
 
+	overlay = gtk_overlay_new ();
+	gtk_widget_show (overlay);
+	gtk_container_add (GTK_CONTAINER (window), overlay);
+
 	grid = gtk_grid_new ();
 	gtk_orientable_set_orientation (GTK_ORIENTABLE (grid), GTK_ORIENTATION_VERTICAL);
 	gtk_widget_show (grid);
-	gtk_container_add (GTK_CONTAINER (window), grid);
+	gtk_container_add (GTK_CONTAINER (overlay), grid);
+
+	/* Takes the clicks, scrolls and drops while a share connects, and draws
+	   nothing, so nothing looks grayed. An overlay child is also what GTK
+	   finds first for a drop. */
+	window->details->input_cover = gtk_event_box_new ();
+	gtk_event_box_set_visible_window (GTK_EVENT_BOX (window->details->input_cover), FALSE);
+	gtk_widget_add_events (window->details->input_cover,
+			       GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK |
+			       GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK |
+			       GDK_POINTER_MOTION_MASK | GDK_TOUCH_MASK);
+	gtk_widget_set_no_show_all (window->details->input_cover, TRUE);
+	g_signal_connect (window->details->input_cover, "event",
+			  G_CALLBACK (gtk_true), NULL);
+	gtk_overlay_add_overlay (GTK_OVERLAY (overlay), window->details->input_cover);
 
 	/* Statusbar is packed in the subclasses */
 
@@ -1363,7 +1399,7 @@ static void
 nemo_window_realize (GtkWidget *widget)
 {
 	GTK_WIDGET_CLASS (nemo_window_parent_class)->realize (widget);
-	update_cursor (NEMO_WINDOW (widget));
+	nemo_window_sync_pointer (NEMO_WINDOW (widget));
 }
 
 static void
@@ -1439,6 +1475,15 @@ nemo_window_key_press_event (GtkWidget *widget,
 	active_slot = nemo_window_get_active_slot (window);
 	view = active_slot->content_view;
 
+	/* Ahead of the focus widget, the accelerators and the menu bar. */
+	if (nemo_window_slot_is_connecting (active_slot)) {
+		if (event->keyval == GDK_KEY_Escape &&
+		    (event->state & gtk_accelerator_get_default_mod_mask ()) == 0) {
+			nemo_window_slot_stop_loading (active_slot);
+		}
+		return TRUE;
+	}
+
       /**
        * Disable the GTK Emoji Chooser
        */
@@ -1471,13 +1516,6 @@ nemo_window_key_press_event (GtkWidget *widget,
 		if (gtk_window_propagate_key_event (GTK_WINDOW (window), event)) {
 			return TRUE;
 		}
-	}
-
-	if (event->keyval == GDK_KEY_Escape &&
-	    (event->state & gtk_accelerator_get_default_mod_mask ()) == 0 &&
-	    nemo_window_slot_is_connecting (active_slot)) {
-		nemo_window_slot_stop_loading (active_slot);
-		return TRUE;
 	}
 
 	for (i = 0; i < G_N_ELEMENTS (extra_window_keybindings); i++) {
@@ -1532,6 +1570,10 @@ nemo_window_key_release_event (GtkWidget *widget,
                              GdkEventKey *event)
 {
     NemoWindow *window = NEMO_WINDOW (widget);
+
+    if (waiting_on_share (window)) {
+        return TRUE;
+    }
 
     /* Conditions to show the menu via the alt key is that it must have been pressed and
      * released without any other key events in between, and we must not have hidden the

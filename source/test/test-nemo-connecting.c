@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 
 /* test-nemo-connecting.c - the window says it is connecting while a share
-   mounts, and Escape stops it.
+   mounts, takes no input but Escape meanwhile, and Escape stops it.
 
    Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu).
 
@@ -180,8 +180,8 @@ run_window (const char *exe, const char *probe)
 		goto out;
 	}
 
-	/* The probe gives each step ten seconds, and there are eight. */
-	for (i = 0; i < 900 && alive (pid) && !done; i++) {
+	/* The probe gives each step ten seconds, and there are twelve. */
+	for (i = 0; i < 1300 && alive (pid) && !done; i++) {
 		g_usleep (100 * 1000);
 		g_free (text);
 		text = NULL;
@@ -207,8 +207,8 @@ run_window (const char *exe, const char *probe)
 		}
 		g_strfreev (lines);
 	}
-	if (done && results != 8) {
-		g_printerr ("FAIL %d results, expected 8\n", results);
+	if (done && results != 13) {
+		g_printerr ("FAIL %d results, expected 13\n", results);
 		failures++;
 	}
 
@@ -225,6 +225,14 @@ out:
 int
 main (int argc, char *argv[])
 {
+#if defined (__linux__) || defined (__FreeBSD__)
+	/* The click and drop checks go by what is under the pointer. Before any
+	 * scratch dir, since a relaunch never cleans up after this copy. */
+	if (argc >= 3) {
+		test_own_display (argc, argv, "1280x900x24");
+	}
+#endif
+
 	check_hosts ();
 
 #if !defined (__linux__) && !defined (__FreeBSD__)

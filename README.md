@@ -218,7 +218,7 @@ These are the features that make Nemo worth porting:
 
 - Every folder follows one set of view defaults, unless per-folder settings are turned on.
 
-- Going to a network address, such as `smb://`, `sftp://` or a `\\server\share` path, shows a spinner and "Connecting to server..." in the path bar until the server answers or gives up. The window stays usable in the meantime, and Escape stops the attempt.
+- Going to a network address, such as `smb://`, `sftp://` or a `\\server\share` path, shows a spinner and "Connecting to server..." in the path bar until the server answers or gives up. Meanwhile that window takes no other input, so nothing done in it is lost when the share opens. Escape stops the attempt, and other windows stay usable.
 
 - Window size and zoom are remembered for each monitor, by its resolution and DPI. A window dragged to another monitor takes the size and zoom last used there. (Coming soon.)
 
