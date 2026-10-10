@@ -7,7 +7,8 @@
  *   - the copy that only took the change never writes the file, even when
  *     the copy that made it dies before its save
  *   - both copies setting one key at the same moment end with the same value,
- *     in memory and on disk, also when the one that lost saved last
+ *     in memory and on disk, also when the one that lost saved last, and when
+ *     its message came after its save
  *   - a hand edit read before the save keeps the change that came over
  *   - a change made just before its copy quits still arrives
  * Starts a bus under dbus-run-session where the environment has none. */
@@ -90,9 +91,44 @@ typedef struct {
 	GMainLoop *loop;
 	GDBusConnection *bus;
 	guint shared_id, slots, settings_id;
+	char *settings;
+	/* What it would have sent while muted, or NULL when it isn't. */
+	GPtrArray *muted;
 } Copy;
 
 static Copy copy;
+
+static char *file_value (const char *path, const char *key);
+
+static void
+send_unless_muted (GVariant *changes, G_GNUC_UNUSED gpointer data)
+{
+	if (copy.muted != NULL) {
+		g_ptr_array_add (copy.muted, g_variant_ref (changes));
+		return;
+	}
+	nemo_instance_send_to_others (copy.bus, "org.NemoAnywhere.Settings", "TakeSettings", changes);
+}
+
+/* Blocks, so nothing from the bus or the file watch is taken meanwhile. */
+static void
+wait_until_file_has (const char *key, const char *value)
+{
+	char *line_key = g_strdup_printf ("preferences.%s", key);
+	gint64 end = g_get_monotonic_time () + 60 * G_USEC_PER_SEC;
+
+	for (;;) {
+		char *now = file_value (copy.settings, line_key);
+		gboolean has = g_strcmp0 (now, value) == 0;
+
+		g_free (now);
+		if (has || g_get_monotonic_time () > end) {
+			break;
+		}
+		g_usleep (20 * 1000);
+	}
+	g_free (line_key);
+}
 
 static gboolean
 run_command (gpointer data)
@@ -155,6 +191,21 @@ run_command (gpointer data)
 		g_usleep (g_ascii_strtoull (words[1], NULL, 10) * 1000);
 	} else if (n == 1 && strcmp (words[0], "flush") == 0) {
 		nemo_config_flush ();
+	} else if (n == 3 && strcmp (words[0], "until") == 0) {
+		wait_until_file_has (words[1], words[2]);
+	} else if (n == 1 && strcmp (words[0], "mute") == 0) {
+		/* From here on through the test's own sender, which can hold a
+		   message back. */
+		copy.muted = g_ptr_array_new_with_free_func ((GDestroyNotify) g_variant_unref);
+		nemo_config_set_share_func (send_unless_muted, NULL, NULL);
+	} else if (n == 1 && strcmp (words[0], "unmute") == 0 && copy.muted != NULL) {
+		GPtrArray *held = copy.muted;
+
+		copy.muted = NULL;
+		for (guint i = 0; i < held->len; i++) {
+			send_unless_muted (g_ptr_array_index (held, i), NULL);
+		}
+		g_ptr_array_free (held, TRUE);
 	} else if (n == 1 && strcmp (words[0], "quit") == 0) {
 		g_main_loop_quit (copy.loop);
 	}
@@ -206,7 +257,7 @@ run_copy (const char *address)
 	g_thread_unref (g_thread_new ("commands", read_commands, NULL));
 	path = nemo_config_get_path ();
 	say ("ready %s", path);
-	g_free (path);
+	copy.settings = path;
 
 	g_main_loop_run (copy.loop);
 
@@ -216,6 +267,7 @@ run_copy (const char *address)
 	nemo_instance_unpublish (copy.bus, copy.shared_id, copy.slots);
 	g_dbus_connection_flush_sync (copy.bus, NULL, NULL);
 	nemo_config_shutdown ();
+	g_free (copy.settings);
 	say ("bye");
 	return 0;
 }
@@ -374,16 +426,17 @@ stop (Peer *peer)
 	return bye != NULL && clean;
 }
 
-/* The key's value in the file, list items joined by commas, or NULL when it
-   has none. Read the way the store reads it, through the store's own SHCL. */
+/* The key's value in the file at @path, list items joined by commas, or NULL
+   when it has none. Read the way the store reads it, through the store's own
+   SHCL. */
 static char *
-file_value (const char *key)
+file_value (const char *path, const char *key)
 {
 	char *text = NULL;
 	gsize len = 0;
 	char *value = NULL;
 
-	if (g_file_get_contents (settings_path, &text, &len, NULL)) {
+	if (g_file_get_contents (path, &text, &len, NULL)) {
 		shcl_doc *doc = shcl_parse (text, len);
 		shcl_read_str_arr read = shcl_read_string_array (doc, key, strlen (key));
 
@@ -406,7 +459,7 @@ file_value (const char *key)
 static gboolean
 file_has (const char *key, const char *value)
 {
-	char *now = file_value (key);
+	char *now = file_value (settings_path, key);
 	gboolean has = g_strcmp0 (now, value) == 0;
 
 	g_free (now);
@@ -645,41 +698,76 @@ test_sender_killed (Peer *b, const char *self, const char *address)
 	check (file_has ("preferences." BOOL_KEY, "true"));
 }
 
-/* The copy that lost saves after the one that won, before it hears of the
-   winner, so the file ends with the value that lost. The winner knows that one
-   and writes its own over it. */
+/* Both copies and the file have @value within the wait. */
 static void
-test_stale_save_repaired (Peer *a, Peer *b)
+check_agree (Peer *a, Peer *b, const char *value, const char *after)
 {
-	gint64 when = g_get_monotonic_time () + 300 * 1000;
-	gint64 end;
+	gint64 end = wait_limit ();
 	char *va = NULL, *vb = NULL;
 	gboolean same = FALSE;
 
-	/* b sets a moment later, so b's is the newer change. */
-	tell (a, "at %" G_GINT64_FORMAT ";set " STRING_KEY " lost;hold 150;flush", when);
-	tell (b, "at %" G_GINT64_FORMAT ";set " STRING_KEY " won;flush", when + 2000);
-
-	end = wait_limit ();
 	while (!same && g_get_monotonic_time () < end) {
 		g_usleep (200 * 1000);
 		g_free (va);
 		g_free (vb);
 		va = ask (a, "value", STRING_KEY);
 		vb = ask (b, "value", STRING_KEY);
-		same = g_strcmp0 (va, "won") == 0 && g_strcmp0 (vb, "won") == 0 &&
-		       file_has ("preferences." STRING_KEY, "won");
+		same = g_strcmp0 (va, value) == 0 && g_strcmp0 (vb, value) == 0 &&
+		       file_has ("preferences." STRING_KEY, value);
 	}
 	check (same);
 	if (!same) {
-		char *in_file = file_value ("preferences." STRING_KEY);
+		char *in_file = file_value (settings_path, "preferences." STRING_KEY);
 
-		g_printerr ("after a stale save: a has '%s', b has '%s', the file '%s'\n",
-		            va, vb, in_file);
+		g_printerr ("after %s: a has '%s', b has '%s', the file '%s'\n",
+		            after, va, vb, in_file);
 		g_free (in_file);
 	}
 	g_free (va);
 	g_free (vb);
+}
+
+/* The copy that lost saves after the one that won, before it hears of the
+   winner, so the file ends with the value that lost. The winner knows that one
+   and writes its own over it. */
+static void
+test_stale_save_repaired (Peer *a, Peer *b)
+{
+	char *seen;
+
+	/* a's set comes first, so b's is the newer change. Then a saves only once
+	   b's is in the file, and before it takes b's message. */
+	tell (a, "set " STRING_KEY " lost;until " STRING_KEY " won;flush");
+	seen = wait_for (a, "changed " STRING_KEY " lost");
+	check (seen != NULL);
+	g_free (seen);
+	tell (b, "set " STRING_KEY " won;flush");
+
+	check_agree (a, b, "won", "a stale save");
+}
+
+/* As above, but a's message reaches b only after b has read a's save back from
+   the file, so b can't know yet that the value in it lost. */
+static void
+test_late_message_repaired (Peer *a, Peer *b)
+{
+	char *seen;
+
+	tell (a, "mute;set " STRING_KEY " late-lost;until " STRING_KEY " late-won;flush");
+	seen = wait_for (a, "changed " STRING_KEY " late-lost");
+	check (seen != NULL);
+	g_free (seen);
+	tell (b, "set " STRING_KEY " late-won;flush");
+
+	seen = wait_for (b, "changed " STRING_KEY " late-lost");
+	check (seen != NULL);
+	g_free (seen);
+	seen = wait_for (a, "changed " STRING_KEY " late-won");
+	check (seen != NULL);
+	g_free (seen);
+	tell (a, "unmute");
+
+	check_agree (a, b, "late-won", "a message that came after the save");
 }
 
 /* Kept open for the whole run: GLib's bus on Windows ends a few seconds after
@@ -759,6 +847,7 @@ main (int argc, char **argv)
 	test_same_key_at_once (&a, &b);
 	test_held_through_hand_edit (&a, &b);
 	test_stale_save_repaired (&a, &b);
+	test_late_message_repaired (&a, &b);
 	test_sender_killed (&b, self, address);
 
 	/* Said on the way out: a's flush tells b before it saves. */

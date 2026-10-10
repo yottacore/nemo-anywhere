@@ -109,6 +109,7 @@ static gpointer    share_data;
 static GDestroyNotify share_destroy;
 static GHashTable *held_keys;          /* const NemoConfigKey* -> what the file had, for a value taken from another copy */
 static GHashTable *beaten_keys;        /* const NemoConfigKey* -> a value another copy sent that lost to ours */
+static GHashTable *set_here;           /* const NemoConfigKey* -> what we set, while our stamp is the newest */
 
 static void schedule_save (const NemoConfigKey *k);
 static void emit_changed  (const char *group, const char *key);
@@ -1359,6 +1360,8 @@ changed_here_locked (const NemoConfigKey *k, PendingValue *was)
 		/* Ours now, and saved by us. */
 		g_hash_table_remove (held_keys, k);
 		g_hash_table_remove (beaten_keys, k);
+		g_hash_table_replace (set_here, (gpointer) k, now);
+		now = NULL;
 		if (share_func != NULL) {
 			g_hash_table_add (outgoing, (gpointer) k);
 			/* Batched, so a burst of sets is one message, and on the main
@@ -1368,7 +1371,8 @@ changed_here_locked (const NemoConfigKey *k, PendingValue *was)
 		}
 	}
 	pending_value_free (was);
-	pending_value_free (now);
+	if (now != NULL)
+		pending_value_free (now);
 }
 
 void
@@ -1438,14 +1442,23 @@ nemo_config_take_shared (GVariant *changes)
 		stamp = &key_stamps[key_index (k)];
 
 		if (!stamp_beats (when, origin, stamp)) {
+			PendingValue *ours = g_hash_table_lookup (set_here, k);
+
 			/* Set at the same moment as ours, and ours won. */
 			if (!same_value (theirs, mine)) {
 				g_hash_table_replace (beaten_keys, (gpointer) k, theirs);
 				theirs = NULL;
+			} else if (ours != NULL && !same_value (ours, mine)) {
+				/* Their save reached us before this did, and we read theirs
+				 * from the file. Ours still wins, and is ours to write. */
+				apply_value_locked (ours);
+				schedule_save (k);
+				g_ptr_array_add (changed, (gpointer) k);
 			}
 		} else if (!same_value (theirs, mine)) {
 			stamp->when = when;
 			stamp->origin = origin;
+			g_hash_table_remove (set_here, k);
 			/* Theirs is newer than whatever was set here, so it is theirs to
 			 * save and to tell about. */
 			g_hash_table_remove (pending_keys, k);
@@ -1465,6 +1478,7 @@ nemo_config_take_shared (GVariant *changes)
 		} else {
 			stamp->when = when;
 			stamp->origin = origin;
+			g_hash_table_remove (set_here, k);
 		}
 		if (theirs != NULL)
 			pending_value_free (theirs);
@@ -1517,6 +1531,7 @@ restart (void)
 	g_hash_table_remove_all (outgoing);
 	g_hash_table_remove_all (held_keys);
 	g_hash_table_remove_all (beaten_keys);
+	g_hash_table_remove_all (set_here);
 	memset (key_stamps, 0, key_count * sizeof *key_stamps);
 	save_failing = FALSE;
 	before = snapshot_locked ();
@@ -1557,6 +1572,8 @@ nemo_config_init (void)
 	held_keys     = g_hash_table_new_full (g_direct_hash, g_direct_equal,
 	                                       NULL, pending_value_free);
 	beaten_keys   = g_hash_table_new_full (g_direct_hash, g_direct_equal,
+	                                       NULL, pending_value_free);
+	set_here      = g_hash_table_new_full (g_direct_hash, g_direct_equal,
 	                                       NULL, pending_value_free);
 	{
 		const NemoConfigKey *k;
