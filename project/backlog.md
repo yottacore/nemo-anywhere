@@ -188,10 +188,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - In the single exe on Windows, a new window or a tab moved to its own window starts through GLib's spawn helper, a program packed inside the exe.
 	- ID: 2026100914514406
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on signoff
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
 	- Needs external testing:
-		- rjw1ks5h and rjvzdd4w in the native suite on vm925w. Failed 20261009, see Progress log.
+		- rjw1ks5h and rjvzdd4w in the native suite on vm925w. Failed 20261009, see Progress log. Done 20261009 after the test fix, passed.
 		- Done 20261009 on vm925w, passed. It was: the single exe built from this branch, in the desktop session on vm925w with MacType running. Open a folder in a new window, open an item in a new window, and move a tab to a new window. Each window opens, no "Cannot load library" box shows, and no `gspawn-win64-helper` process turns up. Then the About box's 2 links open in the browser, and Help shows its error, with no box either way. If a box shows, README's MacType note comes back.
 	- Priority|Severity: Avg
 	- Opened: 20261009-145144
@@ -209,6 +209,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261009: Options for later: leave the 2 helpers out of the Windows bundles, as `gdbus.exe` was. Then anything that still reached them would fail for everyone, not only under MacType. Left in for now.
 		- 20261009: left at signoff for the README change, once the tests pass.
 		- 20261009: back to Queued. rjw1ks5h fails natively on vm925w, 3 runs out of 3, at line 386: the link through a scheme registered for the user never reports back. Its 3 new copy cases pass. The copy the shell starts is the test program itself, which can't find its DLLs outside the build's PATH and stops at Windows' "libarchive-13.dll was not found" box. Same cause as the 2 failing rows of rjvzdd4w in 2026100912374782. The single exe check under MacType passed, so README's MacType note stays out.
+		- 20261009: the test was at fault, not the app. Explorer starts a scheme's program with its own PATH, which has none of the build's libraries, so the test program exited at once with "DLL not found" (0xC0000135). The link case now starts test-env-dump, a small program that needs none. Left at signoff for the README change.
 	- Actual fix: on Windows the new copy is started from `nemo-launch-win32.c`, directly. It is the single exe started as itself, which MacType doesn't stop. It gets the user's environment, as in 2026100912374782, and makes its own settings again. Links from Help and the About box go through the launcher too: to the shell when the registry has a handler for the scheme, otherwise an error. Renaming a user folder no longer calls a program on Windows. README's MacType note is gone.
 	- Note: a few other `g_spawn` calls are built on Windows too, such as the one for an extension's settings program and the one that renames a user folder. Actions and the action layout editor have their own Windows route. Each needs the same look. README's MacType note stays until none is left.
 	- Swept: every call that starts a program through GLib or GTK in the app, from lint rjm8a6xr's list.
@@ -221,8 +222,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: rjw1ks5h fails on dev's `nemo-new-process.c` under wine: each of the 3 copies is started by something other than the app. It passes after, 7 runs. It also fails with the user's environment not put in place for the copy, and with the scheme check taken out. rjvzdd4w, rjvks1yf, rjpatrck, rjm4ctwh, rjp4ch0y, rffkjp10 and rg3wt7d8 pass under wine. rjnzpkk7 and rjmb3j8p fail only their known console window checks, as before. Full Linux suite 188 of 188, and the Windows cross build clean, both with warnings as errors. C lint clean, and rjm8a6xr fails with the About box, the link button or `nemo_show_uri` left off its list.
 	- Verified: 20261009 on vm925w, read only: GLib finds Firefox for https:, and nothing for help: or for a folder.
 	- Verified: 20261009 on vm925w at dev 186065a. Native suite 164 OK, 3 FAIL, 11 skipped. rjw1ks5h fails as in Progress log, elevated and not. The single exe from the same commit, in the desktop session with MacType running and loaded into the app: a folder in a new window, Home from Places in a new window, a new window, and a tab moved to a new window each opened as a copy started by the app itself. Both About box links opened in Firefox, and Help showed its own error. No "Cannot load library" box, and no spawn helper or other packed program ran at any point.
-	- Branch: newwin
-	- Commit: bbf8c15
+	- Verified: 20261009 on vm925w, the branch winlaunch. rjw1ks5h passes 3 of 3, elevated and at medium integrity in the desktop session. Before the fix, the test program run with only the system folders on PATH exited 0xC0000135, and the copy Explorer started from the old test sat in the desktop session and never wrote its report.
+	- Branch: newwin, winlaunch
+	- Commit: bbf8c15, 205074b
 	- Test case: rjw1ks5h, New window start win32 test. The test stands in for the new copy. For a new window, one with a selection, and a tab moved out, the copy must be started by the app itself, with the user's environment, and no spawn helper may be running. It also opens a link of a scheme it sets up for the user, and one nothing handles, which must fail. rjvzdd4w's new copy case now starts the same way.
 
 - In the single exe on Windows, a program packed inside it that needs libgsf cannot start.
@@ -337,9 +339,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, programs the app starts get its session bus switched off.
 	- ID: 2026100912374782
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
-	- Needs external testing: rjvzdd4w in the native suite on vm925w, once as usual and once elevated, since an elevated copy opens a file through the shell from inside itself. Failed 20261009, see Progress log. Then the packed exe on vm925w, elevated and not: open a `.bat` that writes `set` to a file, from the file list and as an action. The file should have none of `DBUS_SESSION_BUS_ADDRESS=disabled:`, `FREETYPE_PROPERTIES` or `GDK_WIN32_USE_EXPERIMENTAL_OLE2_DND`. Done 20261009 on vm925w, passed.
+	- Needs external testing: rjvzdd4w in the native suite on vm925w, once as usual and once elevated, since an elevated copy opens a file through the shell from inside itself. Failed 20261009, see Progress log, and passed after the test fix. Then the packed exe on vm925w, elevated and not: open a `.bat` that writes `set` to a file, from the file list and as an action. The file should have none of `DBUS_SESSION_BUS_ADDRESS=disabled:`, `FREETYPE_PROPERTIES` or `GDK_WIN32_USE_EXPERIMENTAL_OLE2_DND`. Done 20261009 on vm925w, passed.
 	- Priority|Severity: Low
 	- Opened: 20261009-123747
 	- Opened by: 2026100815215479
@@ -358,6 +360,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261009: everything else in the app's environment still goes along, the script variables of the Scripts menu included.
 	- Progress log:
 		- 20261009: back to Queued. rjvzdd4w fails natively on vm925w, elevated and not, 3 runs out of 3: "run" and "open" never write what they saw. The spawn, copy and helper rows pass. Both failing routes have Explorer start the test program itself, which can't find its DLLs outside the build's PATH and stops at Windows' "DLL was not found" box, so nothing is written. Same cause as rjw1ks5h in 2026100914514406. The packed exe check passed.
+		- 20261009: the test was at fault, not the app. The program Explorer or the service starts gets their PATH, with none of the build's libraries on it. "run" and "open" now start test-env-dump, a small program that needs none. It writes its whole environment, so the checks are the same as before.
 	- Actual fix: one record of the app's own settings, in `nemo-file-utilities.c`. In `nemo-launch-win32.c` every start of a user's program from inside the app runs with the user's values in place. Every start there takes one lock, so a helper starting meanwhile still gets the app's. "Open as Administrator" and Explorer for a folder in `nemo-view-win32.c` do the same. A new window in its own process is started with the user's environment.
 	- Swept: every process start outside the tests, by grep for `CreateProcess`, `ShellExecute`, `g_spawn`, `g_subprocess`, `g_app_info_launch` and `gtk_show_uri`.
 		- The user's values: the direct start, the shell open fallback and a hidden console program in `nemo-launch-win32.c`, `runas` and `explore` in `nemo-view-win32.c`, and `nemo-new-process.c`.
@@ -365,11 +368,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Not ours to start: a store app, which `nemo-program-choosing.c` hands to GIO and Windows starts outside the app, and the shell and management service starts.
 		- Not reached on Windows: `gtk_show_uri` with the `help:` links, which nothing handles there, and an extension's config program, since Windows loads no extensions. The rest are in Linux-only branches.
 		- Every `g_setenv` in the app: the 3 are recorded now. The Scripts menu variables are meant for the script, and `G_MESSAGES_DEBUG` is only set under `--debug` with an old GLib. On Linux and the BSDs a relocated prefix puts its own share and bin folders on the lists a started program gets. Not this item.
-	- Test case: rjvzdd4w, Launch environment win32 test. The test itself, run with `--dump`, writes what it got. It is started as an action's console program, as a named program, by opening a `.bat`, as a new copy and as a helper.
+	- Test case: rjvzdd4w, Launch environment win32 test. test-env-dump writes what it got. It is started as an action's console program, as a named program, by opening a `.bat`, as a new copy and as a helper.
 	- Verified: under wine rjvzdd4w fails 5 checks with the swap taken out and passes with it, 6 runs. Its new copy case makes the same start as `nemo-new-process.c`, so it checks the user's environment, not that file. Under wine the named program and the open go through the shell or the service, so for those only the 2 settings nothing else makes are checked. rjvks1yf, rjpatrck, rjmb3j8p, rjm4ctwh, rjnzpkk7, rjp4ch0y and rffkjp10 pass under wine. The Windows cross build is clean.
 	- Verified: 20261009 on vm925w at dev 186065a, the single exe from the same commit, with a scratch settings folder. Not elevated: the `.bat` opened from the file list and run by an action each wrote a `set` with none of the 3. Elevated: the same, with the action's run elevated and the file list's open run unelevated through the shell. rjvzdd4w fails, as in Progress log.
-	- Branch: lowtrio
-	- Commit: 270dd0d
+	- Verified: 20261009 on vm925w, the branch winlaunch. rjvzdd4w passes 3 of 3, elevated and at medium integrity in the desktop session. Under wine it still fails with the swap taken out, 8 checks, and passes with it.
+	- Branch: lowtrio, winlaunch
+	- Commit: 270dd0d, 205074b
+	- Acceptance signoff: Self-closed: nothing users see changed. Only the test was wrong, and rjvzdd4w passes natively.
+	- Closed: 20261009-190518
 
 - The settings shared between copies test can fail on a loaded box.
 	- ID: 2026100915055910
