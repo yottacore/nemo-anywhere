@@ -374,17 +374,27 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The settings shared between copies test can fail on a loaded box.
 	- ID: 2026100915055910
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261009-150559
 	- Opened by: 2026100909260549
-	- Related IDs: 2026100907390779
+	- Related IDs: 2026100907390779, 2026100911403858
 	- Target OS: Linux
 	- Steps to reproduce: run the full Linux suite, 8 at once, with a Windows cross build running beside it.
 	- Incorrect behavior: rjvdch2z failed once at 35.6 s, at `test-nemo-config-share.c:557` and `:573`: the second copy did not have the value the first one set.
 	- Expected behavior: passes.
 	- Reproduced: once, 20261009, on the `nogsf` branch, which doesn't touch settings. It passed in the full suite on the same branch earlier that day, and 3 runs of 3 alone, at 31 to 34 s each.
-	- Test case: rjvdch2z itself.
+	- Reproduced: 20261009, Linux, 80 runs, 8 at once, with the CPUs and the disk kept busy. 7 failed. 4 in the same-key rounds, with the 2 copies left swapped, as in the first report. 3 in the stale save case.
+	- Actual cause: 2 causes.
+		- 5 of the 7 were 2026100911403858. The copy whose change won read the other copy's stale save from the file before that copy's message came, and kept the value that lost.
+		- 2 of the 7 were the test's own timing. It started the 2 sets 2 ms apart by the clock. Under load the copy meant to set first got there last, so its change was the newer one and rightly won in both copies and the file. The test expected the other value.
+	- Actual fix: the settings fix from 2026100911403858. The stale save case now waits for the first copy's change before telling the second copy to set, and the first copy saves once the second one's value is in the file, not after a fixed wait.
+	- Verified: 20261009, same load as above, 80 of 80 passed with both fixes. Full Linux suite passes, 188 of 188.
+	- Branch: cfgshare
+	- Commit: 3eaea36
+	- Test case: rjvdch2z itself. 7 of 80 failed under load before the fixes, none of 80 after.
+	- Acceptance signoff: Self-closed: reproduced, and the same loaded runs pass after the fix.
+	- Closed: 20261009-200137
 
 - On Linux and the BSDs, programs a relocated install starts get its own folders in their search paths.
 	- ID: 2026100916102200
@@ -404,17 +414,27 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - When 2 copies change one setting at once, a late message can leave them with different values.
 	- ID: 2026100911403858
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261009-114038
 	- Opened by: 2026100907390779
-	- Related IDs: 2026100907390779
+	- Related IDs: 2026100907390779, 2026100915055910
 	- Target OS: All
 	- Steps to reproduce: 2 copies set the same key at nearly the same moment, and the message from one reaches the other only after that copy has saved and its file event has come back.
 	- Incorrect behavior: the repair that makes the later change win in both copies is missed, so the 2 copies keep different values until the next change or restart.
 	- Expected behavior: both copies end with the later change.
 	- Reproduced: No. Seen only by reading the code. The test for the parent item never hit it, in about 30 runs, 12 at once and 6 under load.
-	- Test case: still needs one. rjvdch2z with a held-back message, once the copies can delay one.
+	- Reproduced: 20261009, Linux. 5 of 80 runs of rjvdch2z under load ended with the copies on different values, which is 2026100915055910. Every time with a held-back message, 3 of 3.
+	- Actual cause: the copy whose change won had already saved, so nothing of its own was waiting. It read the other copy's stale save from the file and took that value. When the late message came it matched what the copy now had, so nothing was put right. The other copy had taken the winning change and kept waiting for a save that never came. Both copies' saves tend to run at the same moment, so the file event and the message come within a few ms of each other.
+	- Actual fix: each copy keeps the value it set while its change is the newest. A late message with an older change that matches what the copy now has, while its own value differs, means the file had the losing value. The copy puts its own back and saves it, and the other copy then reads it from the file. Same code on every platform, below the session bus and the named pipes.
+	- Swept: both orders a losing value can come in. Message first was already repaired, file first is this fix. Taking a newer change from another copy, or a restart, drops the kept value.
+	- Verified: 20261009, rjvdch2z's new case fails before the fix, 3 of 3, and passes after. Under load, 80 of 80 runs pass. Full Linux suite, 188 of 188. Windows cross build with warnings as errors, and rjvks1yf under wine 3 of 3. C lint clean.
+	- Note: not run natively on Windows. The change is in the settings store, not in the link between copies.
+	- Branch: cfgshare
+	- Commit: 3eaea36
+	- Test case: rjvdch2z, Settings shared between copies test, the late message case. One copy holds its message back until the other has read its stale save from the file, then lets it go. Both copies and the file must end with the later change.
+	- Acceptance signoff: Self-closed: the new case fails before the fix and passes after, and the loaded runs that hit it pass.
+	- Closed: 20261009-200137
 
 - Rename Preferences to Settings.
 	- ID: 2026100816170996
