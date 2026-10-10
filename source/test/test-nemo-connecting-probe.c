@@ -25,9 +25,10 @@
  * answers "not mounted", and a mount of one is held until this file lets it
  * go, so the window waits exactly as long as the probe wants. It types an
  * smb:// address into the location bar, looks at the path bar and the
- * pointer, presses Escape, then tries again and lets the mount fail. One "ok"
- * or "FAIL" line per check goes to $NEMO_CONNECTING_OUT, and "done" at the
- * end. */
+ * pointer, tries a shortcut, a click and a drop, presses Escape, then tries
+ * again and lets the mount fail, and last closes the window mid-attempt. One
+ * "ok" or "FAIL" line per check goes to $NEMO_CONNECTING_OUT, and "done" at
+ * the end. */
 
 #define _GNU_SOURCE
 #include <dlfcn.h>
@@ -46,6 +47,11 @@ static gboolean   sign_seen_early;
 static GTask     *held;
 static int        mounts;
 static int        held_tag;
+
+static int        presses;
+static int        tabs_before;
+static gboolean   clicked;
+static gboolean   no_drop_target;
 
 static gboolean
 fake (GFile *file)
@@ -236,8 +242,9 @@ go_to (const char *address)
 	g_signal_emit_by_name (entry, "activate");
 }
 
+/* Keys always arrive at the toplevel, so this is the path a real one takes. */
 static void
-press_escape (void)
+press_key (guint keyval, GdkModifierType state)
 {
 	GdkDisplay *display = gtk_widget_get_display (window);
 	GdkEvent *event = gdk_event_new (GDK_KEY_PRESS);
@@ -247,16 +254,114 @@ press_escape (void)
 	event->key.window = g_object_ref (gtk_widget_get_window (window));
 	event->key.send_event = TRUE;
 	event->key.time = GDK_CURRENT_TIME;
-	event->key.keyval = GDK_KEY_Escape;
+	event->key.keyval = keyval;
+	event->key.state = state;
 	if (gdk_keymap_get_entries_for_keyval (gdk_keymap_get_for_display (display),
-					       GDK_KEY_Escape, &keys, &n_keys) && n_keys > 0) {
+					       keyval, &keys, &n_keys) && n_keys > 0) {
 		event->key.hardware_keycode = keys[0].keycode;
+		event->key.group = keys[0].group;
 	}
 	g_free (keys);
 	gdk_event_set_device (event, gdk_seat_get_keyboard (gdk_display_get_default_seat (display)));
 
 	gtk_main_do_event (event);
 	gdk_event_free (event);
+}
+
+static void
+press_escape (void)
+{
+	press_key (GDK_KEY_Escape, 0);
+}
+
+static int
+tab_count (void)
+{
+	GtkWidget *notebook = find_widget ("NemoNotebook", TRUE);
+
+	return notebook != NULL ? gtk_notebook_get_n_pages (GTK_NOTEBOOK (notebook)) : -1;
+}
+
+static gboolean
+press_hook (G_GNUC_UNUSED GSignalInvocationHint *hint,
+	    G_GNUC_UNUSED guint                  n_params,
+	    const GValue                        *params,
+	    G_GNUC_UNUSED gpointer               data)
+{
+	GtkWidget *widget = g_value_get_object (&params[0]);
+
+	if (window != NULL && gtk_widget_get_toplevel (widget) == window) {
+		presses++;
+	}
+	return TRUE;
+}
+
+/* Clicks the middle of the folder view as the server would deliver it: to
+   whatever window is under the pointer there. Also notes whether a file
+   dropped there would find a target, since GTK hands a drop to the widget
+   under the pointer or one of its parents. */
+static void
+click_view (void)
+{
+	GdkDisplay *display = gtk_widget_get_display (window);
+	GdkDevice *pointer = gdk_seat_get_pointer (gdk_display_get_default_seat (display));
+	GtkWidget *view = find_widget ("NemoView", TRUE);
+	GtkWidget *under = NULL;
+	GdkWindow *target;
+	GtkAllocation allocation;
+	int x, y, root_x, root_y, i;
+
+	presses = 0;
+	clicked = FALSE;
+	no_drop_target = FALSE;
+	if (view == NULL) {
+		return;
+	}
+	gtk_widget_get_allocation (view, &allocation);
+	gtk_widget_translate_coordinates (view, window, allocation.width / 2,
+					  allocation.height / 2, &x, &y);
+	gdk_window_get_root_coords (gtk_widget_get_window (window), x, y, &root_x, &root_y);
+	gdk_device_warp (pointer, gdk_screen_get_default (), root_x, root_y);
+
+	target = gdk_device_get_window_at_position (pointer, &x, &y);
+	if (target == NULL) {
+		return;
+	}
+
+	/* GtkWindow takes a drop of its own on X11, but never a file. */
+	gdk_window_get_user_data (target, (gpointer *) &under);
+	no_drop_target = under != NULL;
+	for (; under != NULL; under = gtk_widget_get_parent (under)) {
+		GtkTargetList *targets = gtk_drag_dest_get_target_list (under);
+
+		if (targets != NULL &&
+		    gtk_target_list_find (targets, gdk_atom_intern_static_string ("text/uri-list"), NULL)) {
+			no_drop_target = FALSE;
+		}
+	}
+
+	/* What the window does not ask for goes on to its parent. */
+	if ((gdk_window_get_events (target) & GDK_BUTTON_PRESS_MASK) == 0) {
+		presses++;
+	}
+
+	for (i = 0; i < 2; i++) {
+		GdkEvent *event = gdk_event_new (i == 0 ? GDK_BUTTON_PRESS : GDK_BUTTON_RELEASE);
+
+		event->button.window = g_object_ref (target);
+		event->button.send_event = TRUE;
+		event->button.time = GDK_CURRENT_TIME;
+		event->button.x = x;
+		event->button.y = y;
+		event->button.x_root = root_x;
+		event->button.y_root = root_y;
+		event->button.button = 1;
+		event->button.state = i == 0 ? 0 : GDK_BUTTON1_MASK;
+		gdk_event_set_device (event, pointer);
+		gtk_main_do_event (event);
+		gdk_event_free (event);
+	}
+	clicked = TRUE;
 }
 
 /* Set, and not the watch. A named cursor reads back as a pixmap one. */
@@ -295,17 +400,26 @@ finish (void)
 	fflush (out);
 }
 
+static void
+closed_cb (G_GNUC_UNUSED GCancellable *cancellable, G_GNUC_UNUSED gpointer data)
+{
+	report (TRUE, "closing the window stops the attempt");
+	finish ();
+}
+
 /* Each step waits for what the one before set going. Up to ten seconds each. */
 static gboolean
 tick (G_GNUC_UNUSED gpointer data)
 {
 	gboolean spinning = FALSE;
 	const char *text = window != NULL ? sign_text (&spinning) : NULL;
+	GtkWidget *view;
 
 	if (++waited > 100) {
 		report (FALSE, step == 0 ? "the folder never showed" :
-			step == 1 || step == 4 ? "the mount never started" :
-			step == 3 ? "Escape stops the attempt" :
+			step == 1 || step == 7 || step == 10 ? "the mount never started" :
+			step == 4 ? "Escape stops the attempt" :
+			step == 11 ? "closing the window stops the attempt" :
 			"timed out");
 		finish ();
 		return G_SOURCE_REMOVE;
@@ -331,6 +445,10 @@ tick (G_GNUC_UNUSED gpointer data)
 			return G_SOURCE_CONTINUE;
 		}
 		report (!sign_seen_early, "a local folder shows no connecting sign");
+		g_signal_connect (window, "destroy", G_CALLBACK (gtk_widget_destroyed), &window);
+		g_signal_add_emission_hook (g_signal_lookup ("button-press-event", GTK_TYPE_WIDGET),
+					    0, press_hook, NULL, NULL);
+		tabs_before = tab_count ();
 		go_to ("smb://fakehost/share");
 		break;
 	}
@@ -347,11 +465,28 @@ tick (G_GNUC_UNUSED gpointer data)
 		report (g_strcmp0 (text, "Connecting to fakehost...") == 0 && spinning,
 			"the path bar shows a turning spinner and \"Connecting to fakehost...\"");
 		report (pointer_busy_not_blocked (), "the pointer shows work in the background, not a blocked app");
-		report (gtk_widget_is_sensitive (window) && gtk_grab_get_current () == NULL,
-			"the window takes input while it waits");
-		press_escape ();
+		/* Was "the window takes input while it waits", until 20261009, when
+		 * the window started taking no input but Escape meanwhile.
+		 * report (gtk_widget_is_sensitive (window) && gtk_grab_get_current () == NULL,
+		 *	"the window takes input while it waits"); */
+		view = find_widget ("NemoView", TRUE);
+		report (view != NULL && gtk_widget_is_sensitive (view) && gtk_grab_get_current () == NULL &&
+			gtk_window_group_get_current_grab (gtk_window_get_group (GTK_WINDOW (window))) == NULL,
+			"nothing is grayed, and no grab holds the app's other windows");
+		/* The click first, since a new tab would take the view away. */
+		click_view ();
+		press_key (GDK_KEY_t, GDK_CONTROL_MASK);
 		break;
 	case 3:
+		if (waited < 3) {
+			return G_SOURCE_CONTINUE;
+		}
+		report (tab_count () == tabs_before, "a shortcut does nothing while it waits");
+		report (clicked && presses == 0, "a click in the window goes nowhere while it waits");
+		report (clicked && no_drop_target, "a drop onto the window finds no target while it waits");
+		press_escape ();
+		break;
+	case 4:
 		if (held != NULL && !g_cancellable_is_cancelled (g_task_get_cancellable (held))) {
 			return G_SOURCE_CONTINUE;
 		}
@@ -360,20 +495,28 @@ tick (G_GNUC_UNUSED gpointer data)
 			let_go (G_IO_ERROR, G_IO_ERROR_CANCELLED, "Cancelled");
 		}
 		break;
-	case 4:
+	case 5:
 		if (waited < 3) {
 			return G_SOURCE_CONTINUE;
 		}
 		report (text == NULL && find_widget ("NemoPathBar", TRUE) != NULL && pointer_plain (),
 			"the sign and the pointer go back once stopped");
+		click_view ();
+		break;
+	case 6:
+		if (waited < 3) {
+			return G_SOURCE_CONTINUE;
+		}
+		report (clicked && presses > 0 && !no_drop_target,
+			"clicks and drops reach the view again once stopped");
 		go_to ("smb://someone@otherhost:445/share");
 		break;
-	case 5:
+	case 7:
 		if (mounts < 2) {
 			return G_SOURCE_CONTINUE;
 		}
 		break;
-	case 6:
+	case 8:
 		if (waited < 3) {
 			return G_SOURCE_CONTINUE;
 		}
@@ -381,14 +524,28 @@ tick (G_GNUC_UNUSED gpointer data)
 			"the path bar shows \"Connecting to otherhost...\"");
 		let_go (G_IO_ERROR, G_IO_ERROR_TIMED_OUT, "Timed out");
 		break;
-	case 7:
+	case 9:
 		if (waited < 5) {
 			return G_SOURCE_CONTINUE;
 		}
 		report (text == NULL, "the sign goes when the attempt fails");
 		close_dialogs ();
-		finish ();
-		return G_SOURCE_REMOVE;
+		go_to ("smb://thirdhost/share");
+		break;
+	case 10:
+		if (mounts < 3) {
+			return G_SOURCE_CONTINUE;
+		}
+		/* As the title bar's close button would. */
+		g_cancellable_connect (g_task_get_cancellable (held), G_CALLBACK (closed_cb), NULL, NULL);
+		gtk_window_close (GTK_WINDOW (window));
+		break;
+	case 11:
+		/* closed_cb reports, if the program is still here to see it. */
+		if (window == NULL && g_cancellable_is_cancelled (g_task_get_cancellable (held))) {
+			return G_SOURCE_REMOVE;
+		}
+		return G_SOURCE_CONTINUE;
 	}
 
 	step++;

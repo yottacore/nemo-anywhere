@@ -33,6 +33,56 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- After an `smb://` address is typed, nothing shows that the app is working on it.
+	- ID: 2026100816170921
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
+	- Needs external testing: on vm925w, in the desktop session, with the single exe. Type `\\10.255.255.1\share` in the path bar. While the sign shows, a click, a right-click, a click on a menu, Ctrl+T, F10, a tab click and a file dragged in from Explorer should all do nothing, and nothing should look grayed. The title bar should still move the window, and its close button should close it. Escape should stop the attempt, and then a click and a drop should work again. Also rhtwm2c8 in the native suite. The sign itself was checked there on 20261009.
+	- Priority|Severity: Avg
+	- Opened: 20261008-161710
+	- Opened by: t00mietum
+	- Target OS: All
+	- Steps to reproduce: type an `smb://` address in the path bar and press Enter.
+	- Incorrect behavior: the app looks into the address for a while with no sign of it. Then a login prompt, or the share's contents, suddenly show up. In the meantime it looks like nothing happened, so the user may start something else until the share comes back.
+	- Expected behavior: a clear sign that the app is busy with the address, until it is done or stopped.
+	- Requirements:
+		- A sign that doesn't rely on the mouse pointer. A pointer can change too, like Windows' "working in the background" pointer. But not one that says the app is blocked, like the macOS beachball, unless it is.
+		- Maybe also one or more of:
+			- The program icon moving smoothly in a circle over the path bar, attached to the window.
+			- The path bar and the content pane, or even everything visible, slowly fading between disabled text (gray but still legible) and normal text, at about 0.5 Hz.
+			- The app takes no input until one of:
+				- The network step fails or times out.
+				- The user presses Escape, which stops the background attempt to connect and fetch.
+		- README says what changed.
+	- Reproduced: 20261009 on Linux, with an `smb://` mount that never answers. The path bar, the pointer and the window stay as they were the whole time, and Escape does nothing.
+	- Actual cause: nothing in the window follows the look-up and the mount of a new address. The "Loading..." bar only shows once there's a view, which is after the mount. The busy pointer never showed for the tab in front, since its check compares against the Stop action being enabled, and that never changes.
+	- Actual effort: Avg
+	- Decisions:
+		- Decided: the base sign only. A spinner and short text such as "Connecting to <host>..." in the path bar until the address resolves, fails, times out or is canceled. The window stays usable. The pointer may show the background-working cursor while over the window, never a blocked one. Escape, with focus in the window, cancels the pending attempt.
+		- Decided: it covers any address that has to be mounted or reached over the network first. That's smb, sftp, ftp, dav and the like through gvfs on Linux, and UNC paths and mapped drives on Windows.
+		- Punted: the program icon circling over the path bar, the slow fade between gray and normal text, and taking no input until the attempt ends.
+		- 20261009: changed my mind on taking no input. Once the share answers, the view is replaced, so anything done in the window meanwhile can be lost. While the attempt is out the window takes no input but Escape, which stops it. The title bar still moves and closes it, and closing stops the attempt. Other windows of the app stay usable.
+		- 20261009: the block is an invisible cover over everything below the title bar, plus the window dropping every key but Escape. The cover takes the clicks, scrolls and drops, and draws nothing, so nothing is grayed. Options were a GTK grab or making the content insensitive. Insensitive grays everything. A grab does nothing for keys or drops, and it would also hold dialogs and Properties windows tied to this window.
+		- 20261009: the block follows the window's front tab, the same as the pointer. A share opening in a tab in the back blocks nothing until that tab comes to the front, since only that tab's view gets replaced.
+	- Actual fix: while the look-up or the mount behind a new address is still out, the path bar shows a spinner and "Connecting to <host>...", or "Connecting to the network..." when there's no host. It goes away when the address answers, fails or is stopped. Meanwhile the pointer is the busy arrow, never the watch, and Escape in the window stops the attempt. The host comes from the address text and the mount table only, so nothing new reaches out to a share. A place on this machine shows no sign.
+	- Actual fix: 20261009, while the attempt is out the window also takes no input but Escape. Clicks, scrolls and drops anywhere below the title bar go nowhere, and every key but Escape is dropped before the shortcuts and the menu bar see it. Nothing is grayed, and the pointer stays the busy arrow.
+	- Swept: every location change starts in one place, so the path bar, Places, bookmarks, links, back and forward, and new windows and tabs all get the sign. A tab in the back shows it when it comes to the front. Opening a file on a share that isn't mounted goes through the open code, which has its own wait dialog wiht a Cancel button. Connect to Server has its own spinner.
+	- Swept: 20261009, the menu bar, the toolbar, Places, the tabs, the folder view and the status bar all sit under the cover, so a click, a right-click, a scroll or a drop on any of them goes nowhere. The menu bar's own key, the Alt key and every shortcut go through the window first. Other windows of the app, Properties and dialogs included, are not held. The password prompt for a share is its own window, so it should still take input. Read, not tried.
+	- Verified: rjv9ks2z fails before the fix, on the sign, the pointer and Escape, and passes after. Full Linux suite 183 of 183. Windows cross build clean, and rhtwm2c8 passes under wine with the new UNC case.
+	- Verified: 20261009, Windows, on vm925w. rhtwm2c8 passes in the native suite at 398c999. With the single exe built at 49a54f8, in the desktop session, `\\10.255.255.1\share` typed in the path bar showed the spinner and "Connecting to 10.255.255.1...", and the pointer over the window was the busy arrow, never the hourglass. Escape took the sign away and the pointer went back to the plain arrow. A server name that doesn't resolve showed the sign until the look-up failed a few seconds later, then the error, with the sign gone.
+	- Note: 20261009, left at signoff for how the sign looks.
+	- Note: 20261009, the sign's look is signed off. Back to Queued for taking no input meanwhile.
+	- Verified: 20261009, rjv9ks2z fails before the change on the shortcut, the click and the drop, and passes after, 3 runs of 3. Full Linux suite 188 of 188. Windows cross build clean, and rhtwm2c8 passes under wine.
+	- Verified: 20261009 on Linux, while blocked: a right-click, a click on the File menu, F10, Ctrl+T, a tab click, Ctrl+PageUp, a column header click and a file dragged in from another window all did nothing, and nothing looked grayed. Each of them worked again after Escape. The title bar moved the window, and its close button closed it and stopped the attempt, with the other window left running.
+	- Note: 20261009, rjv9ks2z's check that the window takes input while it waits is commented out, since the window now takes none.
+	- Note: 20261009, left at signoff for the pointer. Options: keep the busy arrow, or the watch now that the window takes no input. Kept the arrow, since Escape and the title bar still work, and the arrow was signed off with the sign.
+	- Note: with the toolbar turned off there's no path bar, so only the pointer shows it.
+	- Note: read, not tried: the Stop button also never takes Reload's place while a folder loads, since the same check is behind it. Left alone here.
+	- Branch: smbbusy, smbhalt
+	- Commit: 41adfa7, 114c595
+	- Test case: rjv9ks2z, Connecting sign while a share mounts test. An `smb://` mount answers only when the test says so. It checks the sign and the host it names, the pointer, that nothing is grayed, that a shortcut, a click and a drop do nothing while it waits and work again after, Escape, closing the window mid-attempt, and the sign going away after a stop and after a failed mount. It also checks the host named for a set of addresses, and that a local folder shows no sign. rhtwm2c8 checks the server named for a UNC path on Windows.
+
 - Take libgsf, the gsf-office thumbnailer and the 4 search converters out of every bundle and the build.
 	- ID: 2026100909260549
 	- Type: Enhancement
@@ -174,48 +224,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: newwin
 	- Commit: bbf8c15
 	- Test case: rjw1ks5h, New window start win32 test. The test stands in for the new copy. For a new window, one with a selection, and a tab moved out, the copy must be started by the app itself, with the user's environment, and no spawn helper may be running. It also opens a link of a scheme it sets up for the user, and one nothing handles, which must fail. rjvzdd4w's new copy case now starts the same way.
-
-- After an `smb://` address is typed, nothing shows that the app is working on it.
-	- ID: 2026100816170921
-	- Type: Bug
-	- Status: Queued
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 183 of 183.
-	- Needs external testing: done 20261009 on vm925w, for the sign. It was: type a `\\server\share` path to a server that is slow or not there. The path bar should show a spinner and "Connecting to server...", the pointer should be the arrow with the busy circle and not the hourglass, and Escape should stop it. Also rhtwm2c8 in the native suite.
-	- Priority|Severity: Avg
-	- Opened: 20261008-161710
-	- Opened by: t00mietum
-	- Target OS: All
-	- Steps to reproduce: type an `smb://` address in the path bar and press Enter.
-	- Incorrect behavior: the app looks into the address for a while with no sign of it. Then a login prompt, or the share's contents, suddenly show up. In the meantime it looks like nothing happened, so the user may start something else until the share comes back.
-	- Expected behavior: a clear sign that the app is busy with the address, until it is done or stopped.
-	- Requirements:
-		- A sign that doesn't rely on the mouse pointer. A pointer can change too, like Windows' "working in the background" pointer. But not one that says the app is blocked, like the macOS beachball, unless it is.
-		- Maybe also one or more of:
-			- The program icon moving smoothly in a circle over the path bar, attached to the window.
-			- The path bar and the content pane, or even everything visible, slowly fading between disabled text (gray but still legible) and normal text, at about 0.5 Hz.
-			- The app takes no input until one of:
-				- The network step fails or times out.
-				- The user presses Escape, which stops the background attempt to connect and fetch.
-		- README says what changed.
-	- Reproduced: 20261009 on Linux, with an `smb://` mount that never answers. The path bar, the pointer and the window stay as they were the whole time, and Escape does nothing.
-	- Actual cause: nothing in the window follows the look-up and the mount of a new address. The "Loading..." bar only shows once there's a view, which is after the mount. The busy pointer never showed for the tab in front, since its check compares against the Stop action being enabled, and that never changes.
-	- Actual effort: Avg
-	- Decisions:
-		- Decided: the base sign only. A spinner and short text such as "Connecting to <host>..." in the path bar until the address resolves, fails, times out or is canceled. The window stays usable. The pointer may show the background-working cursor while over the window, never a blocked one. Escape, with focus in the window, cancels the pending attempt.
-		- Decided: it covers any address that has to be mounted or reached over the network first. That's smb, sftp, ftp, dav and the like through gvfs on Linux, and UNC paths and mapped drives on Windows.
-		- Punted: the program icon circling over the path bar, the slow fade between gray and normal text, and taking no input until the attempt ends.
-		- 20261009: changed my mind on taking no input. Once the share answers, the view is replaced, so anything done in the window meanwhile can be lost. While the attempt is out the window takes no input but Escape, which stops it. The title bar still moves and closes it, and closing stops the attempt. Other windows of the app stay usable.
-	- Actual fix: while the look-up or the mount behind a new address is still out, the path bar shows a spinner and "Connecting to <host>...", or "Connecting to the network..." when there's no host. It goes away when the address answers, fails or is stopped. Meanwhile the pointer is the busy arrow, never the watch, and Escape in the window stops the attempt. The host comes from the address text and the mount table only, so nothing new reaches out to a share. A place on this machine shows no sign.
-	- Swept: every location change starts in one place, so the path bar, Places, bookmarks, links, back and forward, and new windows and tabs all get the sign. A tab in the back shows it when it comes to the front. Opening a file on a share that isn't mounted goes through the open code, which has its own wait dialog wiht a Cancel button. Connect to Server has its own spinner.
-	- Verified: rjv9ks2z fails before the fix, on the sign, the pointer and Escape, and passes after. Full Linux suite 183 of 183. Windows cross build clean, and rhtwm2c8 passes under wine with the new UNC case.
-	- Verified: 20261009, Windows, on vm925w. rhtwm2c8 passes in the native suite at 398c999. With the single exe built at 49a54f8, in the desktop session, `\\10.255.255.1\share` typed in the path bar showed the spinner and "Connecting to 10.255.255.1...", and the pointer over the window was the busy arrow, never the hourglass. Escape took the sign away and the pointer went back to the plain arrow. A server name that doesn't resolve showed the sign until the look-up failed a few seconds later, then the error, with the sign gone.
-	- Note: 20261009, left at signoff for how the sign looks.
-	- Note: 20261009, the sign's look is signed off. Back to Queued for taking no input meanwhile.
-	- Note: with the toolbar turned off there's no path bar, so only the pointer shows it.
-	- Note: read, not tried: the Stop button also never takes Reload's place while a folder loads, since the same check is behind it. Left alone here.
-	- Branch: smbbusy
-	- Commit: 41adfa7
-	- Test case: rjv9ks2z, Connecting sign while a share mounts test. An `smb://` mount answers only when the test says so. It checks the sign and the host it names, the pointer, that the window still takes input, Escape, and the sign going away after a stop and after a failed mount. It also checks the host named for a set of addresses, and that a local folder shows no sign. rhtwm2c8 checks the server named for a UNC path on Windows.
 
 - In the single exe on Windows, a program packed inside it that needs libgsf cannot start.
 	- ID: 2026100617051745

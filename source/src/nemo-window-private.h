@@ -100,6 +100,9 @@ struct NemoWindowDetails
         /* Toolbar holder */
         GtkWidget *toolbar_holder;
 
+        /* Over everything but the title bar while the active slot connects. */
+        GtkWidget *input_cover;
+
         guint extensions_toolbar_merge_id;
         GtkActionGroup *extensions_toolbar_action_group;
 
@@ -185,6 +188,7 @@ NemoWindowPane * nemo_window_get_active_pane                     (NemoWindow *wi
 /* sync window GUI with current slot. Used when changing slots,
  * and when updating the slot state.
  */
+/* Pointer and input follow whether the active slot is connecting. */
 void nemo_window_sync_pointer          (NemoWindow *window);
 void nemo_window_sync_allow_stop       (NemoWindow *window,
 					    NemoWindowSlot *slot);
