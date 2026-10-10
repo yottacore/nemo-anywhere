@@ -430,6 +430,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: f38660a to f8a6223
 	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session. (c) still needs its own: a thumbnail and the text from a small file of each type, on every platform, and a check that no program is started for them.
 
+- On Windows, every bundle has only the app's own exe, so no form of the app starts a program from inside its bundle.
+	- ID: 2026100917220603
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261009-172206
+	- Opened by: t00mietum
+	- Prereq IDs: 2026100914514406
+	- Related IDs: 2026100617051745, 2026100909260549, 2026100914514406
+	- Target OS: Windows
+	- Requirements:
+		- The zip, the copy `install.ps1` puts in place and the single exe are the same here. The app starts only copies of itself and programs on disk outside its bundle, always through `nemo-launch-win32.c`.
+		- `gspawn-win64-helper.exe` and `gspawn-win64-helper-console.exe` leave all 3 bundles. They're the last programs in them besides the app.
+		- A bundle check refuses any `.exe` but the app in each of the 3, beside rjvwpz9d.
+		- Every place that starts a program shows the error when the start fails, so a start path that was missed is reported and not silent.
+		- The native suite covers each start path with the helpers gone: new window, a tab moved out, the About and Help links, Open With, actions, thumbnails and the archive tools. Add tests only where one is missing.
+	- Note: the point is one behavior for all 3. Kept in the zip but not the single exe, a test on the zip would hide a fault only the single exe has. With them gone everywhere, a missed path fails the same way in each and shows in any native run, not only under MacType.
+	- Note: no hook detection or warning for MacType and tools like it. With no packed program started, there's nothing for them to break.
+	- Note: waits on 2026100914514406's native check under MacType. If a box shows there, that comes first.
+	- Needs external testing: the native suite on vm925w, then each of the 3 forms in the desktop session with MacType running.
+	- Estimated effort: Avg
+	- Test case: still needs one. The bundle check, and the start path tests named above.
+
 - A setting with an automatic value can be changed on its own, with no master switch to find first.
 	- ID: 2026100816170959
 	- Type: Enhancement
