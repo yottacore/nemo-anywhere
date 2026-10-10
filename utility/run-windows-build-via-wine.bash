@@ -59,7 +59,6 @@ if [[ ! -x "${DEST}/app/nemo-anywhere.exe" ]] || (( restage )); then
 		mkdir -p "$D/mingw64/bin" "$D/mingw64/lib" "$D/mingw64/share/glib-2.0" "$D/app"
 		cd /opt/win-sysroot/mingw64
 		cp bin/*.dll "$D/mingw64/bin/"
-		cp bin/gspawn-win64-helper.exe bin/gspawn-win64-helper-console.exe "$D/mingw64/bin/" 2>/dev/null || true
 		# Thumbnailer descriptors come below: share/thumbnailers is a data dir.
 		# Pictures, SVG and office files are drawn by the app itself, as in the
 		# bundles.

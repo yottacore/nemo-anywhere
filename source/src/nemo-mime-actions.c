@@ -1156,7 +1156,7 @@ launch_executable (G_GNUC_UNUSED GdkScreen *screen,
 	GError *error = NULL;
 
 	if (!nemo_launch_win32_open_path (path, directory, &error)) {
-		g_warning ("Could not start '%s': %s", path, error->message);
+		nemo_show_start_error (NULL, error);
 		g_clear_error (&error);
 	}
 #else

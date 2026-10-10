@@ -363,6 +363,48 @@ set_failed (GError      **error,
 	g_free (reason);
 }
 
+static GMutex                    failed_lock;
+static GHashTable               *failed_programs;
+static NemoLaunchWin32FailedFunc failed_func;
+
+void
+nemo_launch_win32_set_failed_func (NemoLaunchWin32FailedFunc func)
+{
+	g_mutex_lock (&failed_lock);
+	failed_func = func;
+	g_mutex_unlock (&failed_lock);
+}
+
+/* A helper the app waits on has no window to report to, and one that will not
+ * start would otherwise fail without a word, once per file. So it is said once,
+ * by name, and a program that was missed from a bundle shows up. */
+void
+nemo_launch_win32_report_failed (const gchar  *program,
+				 const GError *error)
+{
+	NemoLaunchWin32FailedFunc func = NULL;
+	gboolean first;
+
+	g_return_if_fail (program != NULL && error != NULL);
+
+	g_mutex_lock (&failed_lock);
+	if (failed_programs == NULL) {
+		failed_programs = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+	}
+	first = g_hash_table_add (failed_programs, g_utf8_casefold (program, -1));
+	if (first) {
+		func = failed_func;
+	}
+	g_mutex_unlock (&failed_lock);
+
+	if (first) {
+		g_warning ("%s", error->message);
+		if (func != NULL) {
+			func (program, error->message);
+		}
+	}
+}
+
 /* Returns: (transfer full): free with g_free, and @args too */
 gchar *
 nemo_launch_win32_split_command (const gchar  *command_line,
@@ -966,6 +1008,7 @@ nemo_launch_win32_pipe (const gchar * const  *argv,
 	wchar_t *winput;
 	gint64 deadline;
 	gboolean started = FALSE, ended = FALSE, stopped = FALSE, late = FALSE;
+	GError *error = NULL;
 	DWORD code = 1;
 
 	if (output != NULL) {
@@ -1000,7 +1043,7 @@ nemo_launch_win32_pipe (const gchar * const  *argv,
 			SetHandleInformation (out_read, HANDLE_FLAG_INHERIT, 0);
 		}
 		started = spawn_hidden (argv, NULL, input, out_write != NULL ? out_write : nowhere,
-					nowhere, TRUE, &process, NULL);
+					nowhere, TRUE, &process, &error);
 		close_valid (out_write);
 	}
 
@@ -1010,6 +1053,10 @@ nemo_launch_win32_pipe (const gchar * const  *argv,
 	close_valid (nowhere);
 
 	if (!started) {
+		if (error != NULL) {
+			nemo_launch_win32_report_failed (argv[0], error);
+			g_error_free (error);
+		}
 		close_valid (out_read);
 		return FALSE;
 	}

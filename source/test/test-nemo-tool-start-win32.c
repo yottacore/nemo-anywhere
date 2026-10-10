@@ -28,7 +28,10 @@
  * while it says nothing; unpack a rar that only the tool reads; a content
  * search through a converter; and a thumbnail from a thumbnailer program. The
  * converter and the thumbnailer are also named by a Windows path as written
- * there, with single backslashes, and once with them doubled. */
+ * there, with single backslashes, and once with them doubled.
+ *
+ * Each is started by the app itself, never through GLib's spawn helper, which
+ * no bundle has. A helper that will not start is told once, not per file. */
 
 #include <config.h>
 
@@ -43,6 +46,7 @@
 #include <libnemo-private/nemo-desktop-thumbnail.h>
 #include <libnemo-private/nemo-extract.h>
 #include <libnemo-private/nemo-global-preferences.h>
+#include <libnemo-private/nemo-launch-win32.h>
 #include <libnemo-private/nemo-progress-info.h>
 #include <libnemo-private/nemo-progress-info-manager.h>
 #include <libnemo-private/nemo-query.h>
@@ -59,6 +63,8 @@ static gboolean job_done;
 static gboolean job_ok;
 static NemoProgressInfo *stopping;
 static gint64 stopped_at;
+static char *started_here;
+static int helper_failures;
 
 static char *
 report_of (const char *tool)
@@ -77,6 +83,13 @@ reported (const char *tool, const char *line)
 	g_autofree char *wanted = g_strdup_printf ("%s\n", line);
 
 	return strstr (text, wanted) != NULL;
+}
+
+/* By this program, as the app, and not by a spawn helper in between. */
+static gboolean
+ours (const char *tool)
+{
+	return reported (tool, started_here);
 }
 
 static void
@@ -185,6 +198,7 @@ check_compress (void)
 	check (reported ("rar", "bytes=0"));
 	check (reported ("rar", cwd));
 	check (reported ("rar", "arg=a"));
+	check (ours ("rar"));
 	g_free (take_messages ());
 
 	/* Both outputs reach the error, which is all a tool has to say why. */
@@ -268,6 +282,7 @@ check_extract (void)
 	check (reported ("unrar", "window=0"));
 	check (reported ("unrar", "bytes=0"));
 	check (reported ("unrar", "arg=x"));
+	check (ours ("unrar"));
 }
 
 static gboolean search_done;
@@ -327,6 +342,7 @@ check_search (const char *ext, const char *tool)
 	check (g_list_length (found) == 1 && g_strcmp0 (found->data, base) == 0);
 	check (reported (tool, "window=0"));
 	check (reported (tool, "bytes=0"));
+	check (ours (tool));
 
 	g_list_free_full (found, g_free);
 	found = NULL;
@@ -355,7 +371,40 @@ check_thumbnailer (const char *mime, const char *tool)
 	}
 	check (reported (tool, "window=0"));
 	check (reported (tool, input));
+	check (ours (tool));
 	g_object_unref (factory);
+}
+
+static void
+count_failed (G_GNUC_UNUSED const gchar *program, G_GNUC_UNUSED const gchar *message)
+{
+	helper_failures++;
+}
+
+/* Said once per program, so a thumbnailer missing from a bundle is seen
+ * without a box for every file. One that runs and says no is not a failure. */
+static void
+check_failed_start (const char *tool)
+{
+	g_autofree char *missing = g_build_filename (scratch, "no such helper.exe", NULL);
+	g_autofree char *other = g_build_filename (scratch, "no such helper 2.exe", NULL);
+	const char *gone[] = { missing, "x", NULL };
+	const char *gone2[] = { other, NULL };
+	const char *says_no[] = { tool, NULL };
+
+	nemo_launch_win32_set_failed_func (count_failed);
+	check (!nemo_launch_win32_pipe (gone, NULL, 5, NULL, NULL, NULL));
+	check (helper_failures == 1);
+	check (!nemo_launch_win32_pipe (gone, NULL, 5, NULL, NULL, NULL));
+	check (helper_failures == 1);
+	check (!nemo_launch_win32_pipe (gone2, NULL, 5, NULL, NULL, NULL));
+	check (helper_failures == 2);
+
+	g_setenv ("NEMO_FAKE_TOOL_EXIT", "3", TRUE);
+	check (!nemo_launch_win32_pipe (says_no, NULL, 5, NULL, NULL, NULL));
+	g_unsetenv ("NEMO_FAKE_TOOL_EXIT");
+	check (helper_failures == 2);
+	nemo_launch_win32_set_failed_func (NULL);
 }
 
 static char *
@@ -386,12 +435,17 @@ main (int argc, char *argv[])
 	g_autofree char *converter2 = NULL, *thumb2 = NULL, *doubled = NULL;
 	g_autofree char *path = NULL, *dir = NULL, *text = NULL, *files = NULL;
 	g_auto (GStrv) parts = NULL;
+	g_autofree char *self = NULL;
 	NemoProgressInfoManager *manager;
 
 	if (argc < 2) {
 		g_printerr ("usage: %s <stand-in tool.exe>\n", argv[0]);
 		return 1;
 	}
+
+	self = g_path_get_basename (argv[0]);
+	started_here = g_str_has_suffix (self, ".exe")
+		? g_strdup_printf ("parent=%s", self) : g_strdup_printf ("parent=%s.exe", self);
 
 	/* Before anything caches the real data folders. */
 	scratch = test_scratch_config_home ("nemo-tool-start-XXXXXX");
@@ -472,6 +526,8 @@ main (int argc, char *argv[])
 	check_thumbnailer ("application/x-nemo-fake", "fake-thumb");
 	g_print ("thumbnailer by full path\n");
 	check_thumbnailer ("application/x-nemo-fake2", "fake-thumb2");
+	g_print ("a helper that will not start\n");
+	check_failed_start (thumb);
 
 	/* Only goes once nothing runs from it, so the stopped one has ended. */
 	check (g_remove (rar) == 0);

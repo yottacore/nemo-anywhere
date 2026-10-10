@@ -28,6 +28,9 @@
 #include "nemo-column-utilities.h"
 #include "nemo-tool-run.h"
 #include "nemo-user-text.h"
+#ifdef G_OS_WIN32
+#include "nemo-launch-win32.h"
+#endif
 
 #include <limits.h>
 #include <stdlib.h>
@@ -763,6 +766,7 @@ get_stream_from_helper (SearchHelper *helper,
                         GError      **error)
 {
     NemoToolRun *helper_proc;
+    GError *start_error = NULL;
     GSubprocessFlags flags;
     GInputStream *stream;
     GString *command_line;
@@ -810,7 +814,13 @@ get_stream_from_helper (SearchHelper *helper,
         flags |= G_SUBPROCESS_FLAGS_STDERR_SILENCE;
     }
 
-    helper_proc = nemo_tool_run_start ((const gchar * const *) argv, NULL, flags, error);
+    helper_proc = nemo_tool_run_start ((const gchar * const *) argv, NULL, flags, &start_error);
+    if (helper_proc == NULL) {
+#ifdef G_OS_WIN32
+        nemo_launch_win32_report_failed (argv[0], start_error);
+#endif
+        g_propagate_error (error, start_error);
+    }
 
     stream = NULL;
 

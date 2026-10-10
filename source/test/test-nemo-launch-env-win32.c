@@ -36,7 +36,9 @@
 
 #include <glib.h>
 #include <glib/gstdio.h>
+#include <windows.h>
 
+#include <libnemo-private/nemo-associations-win32.h>
 #include <libnemo-private/nemo-dnd-win32.h>
 #include <libnemo-private/nemo-file-utilities.h>
 #include <libnemo-private/nemo-launch-win32.h>
@@ -74,6 +76,22 @@ seen (char **lines, const char *name)
 	return g_environ_getenv (lines, name);
 }
 
+/* Started by the app itself or by a broker, never through GLib's spawn
+ * helper, which no bundle has. A helper that already quit leaves no name, so
+ * a start from here is checked by id. */
+static void
+check_no_helper (const char *how, char **lines, gboolean in_process)
+{
+	const char *parent = seen (lines, "parent_name");
+	g_autofree char *us = g_strdup_printf ("%lu", (unsigned long) GetCurrentProcessId ());
+
+	if (parent == NULL || g_ascii_strncasecmp (parent, "gspawn-", 7) == 0 ||
+	    (in_process && g_strcmp0 (seen (lines, "parent"), us) != 0)) {
+		g_printerr ("FAIL: %s: started by %s\n", how, parent != NULL ? parent : "(nothing known)");
+		failures++;
+	}
+}
+
 /* None of the app's own settings reached it. */
 static void
 check_not_ours (const char *how, char **lines, gboolean in_process)
@@ -85,6 +103,7 @@ check_not_ours (const char *how, char **lines, gboolean in_process)
 		failures++;
 		return;
 	}
+	check_no_helper (how, lines, in_process);
 
 	bus = seen (lines, "DBUS_SESSION_BUS_ADDRESS");
 	g_print ("%s: bus %s\n", how, bus != NULL ? bus : "(unset)");
@@ -187,6 +206,22 @@ main (int argc, char *argv[])
 		check_ours_still ();
 	}
 
+	/* Open With, from the program's command line in the registry. The file
+	 * is where the dumper writes. */
+	{
+		g_autofree char *out = dump_path (scratch, "open with.txt");
+		g_autofree char *command = g_strdup_printf ("\"%s\" \"%%1\"", dumper);
+		GList *files = g_list_prepend (NULL, g_file_new_for_path (out));
+
+		check (nemo_associations_win32_launch (command, files, &error));
+		g_clear_error (&error);
+		lines = wait_for_dump (out);
+		check_not_ours ("open with", lines, FALSE);
+		g_strfreev (lines);
+		g_list_free_full (files, g_object_unref);
+		check_ours_still ();
+	}
+
 	/* A file opened with whatever its type opens with. */
 	{
 		g_autofree char *out = dump_path (scratch, "open.txt");
@@ -226,6 +261,7 @@ main (int argc, char *argv[])
 		if (lines != NULL) {
 			check (g_strcmp0 (seen (lines, "DBUS_SESSION_BUS_ADDRESS"), "disabled:") == 0);
 			check (g_strcmp0 (seen (lines, "GDK_WIN32_USE_EXPERIMENTAL_OLE2_DND"), "1") == 0);
+			check_no_helper ("helper", lines, TRUE);
 		}
 		g_strfreev (lines);
 	}

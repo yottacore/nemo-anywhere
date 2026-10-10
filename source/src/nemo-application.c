@@ -57,6 +57,7 @@
 #include <libnemo-private/nemo-directory-private.h>
 #include <libnemo-private/nemo-file-utilities.h>
 #include <libnemo-private/nemo-file-operations.h>
+#include <libnemo-private/nemo-program-choosing.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-lib-self-check-functions.h>
 #include <libnemo-private/nemo-module.h>
@@ -494,8 +495,8 @@ nemo_application_open_in_new_window (NemoApplication *application,
 		if (nemo_new_process_spawn (location, selection, &error)) {
 			return NULL;
 		}
-		g_warning ("Could not start a new process for the window, opening it here: %s",
-		           error->message);
+		/* Said, so a start that is broken is seen, and the window still opens. */
+		nemo_show_start_error (NULL, error);
 		g_error_free (error);
 	}
 
@@ -640,6 +641,8 @@ nemo_application_startup (GApplication *app)
 	 * has to follow the monitor. Before any widget is built, so nothing is
 	 * measured at the wrong size and then reflowed. */
 	nemo_dpi_win32_init ();
+
+	nemo_show_helper_start_errors ();
 #endif
 
 	nemo_archive_mount_init ();

@@ -10,9 +10,8 @@
 ##		      relative to their own dll, so this layout needs no env wiring at
 ##		      all - the flat tree double-click-runs as-is, and is also the layout
 ##		      the release .zip contract in project/design.md expects.
-##		   2. Generate an .evb project over that tree and run enigmavbconsole.
-##		      Virtual exes stay runnable (nemo spawns its helper exes) and the
-##		      virtual system is shared with child processes.
+##		   2. Refuse any program in that tree but the app, then generate an .evb
+##		      project over it and run enigmavbconsole.
 ##		- Output: <out-dir>\nemo-anywhere.exe, then a --version smoke with a
 ##		  bare System32-only PATH proves it truly self-contained.
 ##		- -FlattenOnly stops after step 1, which is what the sandbox wants: it
@@ -176,6 +175,11 @@ function fMain {
 	if (-not $evb) { fDie "Enigma Virtual Box not found (enigmavbconsole.exe) - install it first" }
 
 	fFlatten
+
+	## Nothing packed may be a program but the app: one started from inside
+	## the exe can't load its libraries under hooking tools like MacType.
+	& pwsh -NoProfile -File (Join-Path $Root "cicd\utility\test-bundle-exes.ps1") -Path $FlatDir
+	if ($LASTEXITCODE -ne 0) { fDie "the flat tree has a program besides the app" }
 
 	New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
 	$inExe   = Join-Path $FlatDir "$ExeName.exe"

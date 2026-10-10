@@ -29,8 +29,8 @@
  *   test-env-dump --uri <scheme:hex>  writes env-dump.txt in the folder the hex
  *                                     spells, as UTF-8 bytes
  *
- * Lines are parent=<pid>, arg=<each argument>, then NAME=VALUE for every
- * variable, in UTF-8. Written aside and renamed, so a reader never sees half. */
+ * Lines are parent=<pid>, parent_name=<its exe>, arg=<each argument>, then
+ * NAME=VALUE for every variable, in UTF-8. Written aside and renamed, so a reader never sees half. */
 
 #include <stdio.h>
 #include <string.h>
@@ -41,13 +41,15 @@
 
 #define URI_NAME L"env-dump.txt"
 
+/* The parent's id, and its exe's name in @name. */
 static DWORD
-parent_pid (void)
+parent_of_self (wchar_t *name, size_t size)
 {
 	HANDLE snapshot = CreateToolhelp32Snapshot (TH32CS_SNAPPROCESS, 0);
 	PROCESSENTRY32W entry;
 	DWORD self = GetCurrentProcessId (), parent = 0;
 
+	name[0] = L'\0';
 	if (snapshot == INVALID_HANDLE_VALUE) {
 		return 0;
 	}
@@ -55,6 +57,13 @@ parent_pid (void)
 	for (BOOL more = Process32FirstW (snapshot, &entry); more; more = Process32NextW (snapshot, &entry)) {
 		if (entry.th32ProcessID == self) {
 			parent = entry.th32ParentProcessID;
+		}
+	}
+	entry.dwSize = sizeof entry;
+	for (BOOL more = Process32FirstW (snapshot, &entry); more && parent != 0; more = Process32NextW (snapshot, &entry)) {
+		if (entry.th32ProcessID == parent) {
+			_snwprintf (name, size, L"%ls", entry.szExeFile);
+			name[size - 1] = L'\0';
 		}
 	}
 	CloseHandle (snapshot);
@@ -76,7 +85,9 @@ static int
 dump (const wchar_t *path, int argc, wchar_t **argv)
 {
 	wchar_t aside[MAX_PATH + 16];
+	wchar_t parent_name[MAX_PATH];
 	wchar_t *block = GetEnvironmentStringsW ();
+	DWORD parent;
 	FILE *out;
 
 	if (_snwprintf (aside, MAX_PATH + 16, L"%ls.part", path) < 0) {
@@ -88,7 +99,10 @@ dump (const wchar_t *path, int argc, wchar_t **argv)
 		return 1;
 	}
 
-	fprintf (out, "parent=%lu\n", (unsigned long) parent_pid ());
+	parent = parent_of_self (parent_name, MAX_PATH);
+	fprintf (out, "parent=%lu\nparent_name=", (unsigned long) parent);
+	put_utf8 (out, parent_name);
+	fputc ('\n', out);
 	for (int i = 1; i < argc; i++) {
 		fputs ("arg=", out);
 		put_utf8 (out, argv[i]);

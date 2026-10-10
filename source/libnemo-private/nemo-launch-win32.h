@@ -78,6 +78,15 @@ gboolean nemo_launch_win32_spawn       (const gchar * const  *argv,
 					gboolean              in_console,
 					GError              **error);
 
+/* Told once per program that a helper could not be started. May be called
+ * from any thread. */
+typedef void (*NemoLaunchWin32FailedFunc) (const gchar *program,
+					   const gchar *message);
+
+void     nemo_launch_win32_set_failed_func (NemoLaunchWin32FailedFunc func);
+void     nemo_launch_win32_report_failed   (const gchar  *program,
+					    const GError *error);
+
 /* A tool run with no console window whose output is read as it comes, for
  * nemo-tool-run.c. Of @flags only STDOUT_PIPE, STDERR_PIPE and STDERR_MERGE
  * mean anything. stdin and every stream not piped go to NUL. It ends when the

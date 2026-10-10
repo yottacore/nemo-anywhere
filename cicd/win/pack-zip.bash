@@ -89,10 +89,8 @@ docker exec "$CONTAINER" sh -c "
 	for d in bin/*.dll; do
 		case \"\${d##*/}\" in libgsf-*) ;; *) cp \"\$d\" /tmp/${name}/ ;; esac
 	done
-	## No gdbus.exe: nothing starts a session bus on Windows.
-	for h in gspawn-win64-helper.exe gspawn-win64-helper-console.exe; do
-		[ -f \"bin/\$h\" ] && cp \"bin/\$h\" /tmp/${name}/ || true
-	done
+	## No program but the app: not gdbus.exe, and not GLib's spawn helpers
+	## (2026100917220603). test-bundle-exes.ps1 refuses any other.
 	cp -r lib/gdk-pixbuf-2.0 /tmp/${name}/lib/
 	cp -r share/icons share/themes /tmp/${name}/share/
 	[ -d share/glib-2.0/schemas ] && { mkdir -p /tmp/${name}/share/glib-2.0; cp -r share/glib-2.0/schemas /tmp/${name}/share/glib-2.0/; } || true
