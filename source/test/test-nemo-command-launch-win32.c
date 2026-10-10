@@ -90,6 +90,33 @@ started_by (const char *tool, const char *parent)
 	return strstr (text, wanted) != NULL;
 }
 
+/* What the error dialogs left up said, closed as they are read. */
+static char *
+take_messages (void)
+{
+	GString *said = g_string_new (NULL);
+	GList *windows, *l;
+
+	while (g_main_context_iteration (NULL, FALSE)) {
+	}
+
+	windows = gtk_window_list_toplevels ();
+	for (l = windows; l != NULL; l = l->next) {
+		char *text = NULL;
+
+		if (!GTK_IS_MESSAGE_DIALOG (l->data)) {
+			continue;
+		}
+		g_object_get (l->data, "secondary-text", &text, NULL);
+		g_string_append_printf (said, "%s\n", text != NULL ? text : "");
+		g_free (text);
+		gtk_widget_destroy (GTK_WIDGET (l->data));
+	}
+	g_list_free (windows);
+
+	return g_string_free (said, FALSE);
+}
+
 static gboolean
 started_by_broker (const char *tool)
 {
@@ -218,6 +245,21 @@ main (int argc, char *argv[])
 	check (reported ("viacmd2", "window=1"));
 	check (started_by ("viacmd2", "cmd.exe"));
 	g_clear_pointer (&quoted, g_free);
+
+	/* A start that fails says why, so a way of starting things that was
+	   missed is seen. It used to go only to a log nobody reads. */
+	g_print ("a program that is not there\n");
+	{
+		g_autofree char *missing = g_build_filename (dir, "not here.exe", NULL);
+		g_autofree char *said = NULL;
+
+		g_free (take_messages ());
+		quoted = nemo_user_text_quote (missing);
+		nemo_launch_application_from_command_array (screen, quoted, FALSE, names);
+		said = take_messages ();
+		check (strstr (said, "not here.exe") != NULL);
+		g_clear_pointer (&quoted, g_free);
+	}
 
 	g_chdir (scratch);
 	g_free (self_name);
