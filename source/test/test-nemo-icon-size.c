@@ -53,7 +53,7 @@ main (void)
 	check (nemo_icon_size_at_position (-5.0) == NEMO_ICON_SIZE_MIN);
 	check (nemo_icon_size_at_position (999.0) == NEMO_ICON_SIZE_MAX);
 
-	/* Per cent, which is what both settings and the preferences window use. */
+	/* Per cent, which is what both the settings file and the settings window use. */
 	check (nemo_icon_size_from_percent (100) == NEMO_ICON_SIZE_STANDARD);
 	check (nemo_icon_size_from_percent (500) == NEMO_ICON_SIZE_IMAGES);
 	check (nemo_icon_size_from_percent (1000) == NEMO_ICON_SIZE_MAX);

@@ -159,7 +159,7 @@ class IconChooserDialog(Gtk.Dialog):
 class DisabledActions:
     """Which actions are switched off, read out of the app's own config file.
     Read-only on purpose: the app owns that file, and turning an action on or off
-    belongs on its Preferences page, which is where a change here is seen live."""
+    belongs on its Settings page, which is where a change here is seen live."""
 
     KEY = "plugins.disabled-actions"
 
@@ -378,7 +378,7 @@ class NemoActionsOrganizer(Gtk.Box):
         self.down_button.connect("clicked", self.down_button_clicked)
 
         self.nemo_plugin_settings = DisabledActions()
-        # Actions are switched on and off in the app's preferences, so follow it.
+        # Actions are switched on and off in the app's settings, so follow it.
         self.nemo_plugin_settings.connect("changed", self.on_disabled_settings_list_changed)
 
         # Icon MenuButton

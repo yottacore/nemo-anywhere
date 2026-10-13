@@ -1360,8 +1360,8 @@ static const GtkActionEntry main_entries[] = {
   /* tooltip */                  N_("Close this folder"),
                                  G_CALLBACK (action_close_window_slot_callback) },
                                { "Preferences", "preferences-system-symbolic",
-                                 N_("Prefere_nces"),
-                                 "<Primary>comma", N_("Edit Nemo preferences"),
+                                 N_("_Settings"),
+                                 "<Primary>comma", N_("Edit Nemo settings"),
                                  G_CALLBACK (action_preferences_callback) },
 #ifdef TEXT_CHANGE_UNDO
   /* name, stock id, label */  { "Undo", NULL, N_("_Undo"),

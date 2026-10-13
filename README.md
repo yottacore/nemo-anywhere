@@ -252,7 +252,7 @@ Current limitations:
 
 - For now, every trash and delete asks first with a detailed dialog noting exactly what is about to go, where, and why - which is wired into all possible trash/delete/move code paths. It is an extra safety net for all prereleases whether needed or not.
 
-	- It can be safely turned off in Preferences.
+	- It can be safely turned off in Settings.
 
 - The Windows exe is not code-signed yet, so Windows may warn the first time it runs.
 
@@ -272,7 +272,7 @@ Details are in these docs:
 
 ## Icon themes
 
-24 icon sets, light and dark, are built into the Windows build, so there's nothing to download. Linux and BSD builds use the icon themes the desktop already has. Pick one in **Preferences -> Appearance**; the Style picker moves the Icons picker to match, so a Windows 11 window frame does not come with macOS icons unless you ask for it.
+24 icon sets, light and dark, are built into the Windows build, so there's nothing to download. Linux and BSD builds use the icon themes the desktop already has. Pick one in **Settings -> Appearance**; the Style picker moves the Icons picker to match, so a Windows 11 window frame does not come with macOS icons unless you ask for it.
 
 ![Icon themes](assets/icon-gallery.png)
 

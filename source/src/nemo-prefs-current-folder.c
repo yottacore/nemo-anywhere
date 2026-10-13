@@ -335,9 +335,8 @@ refresh (CurrentTab *tab)
 		gtk_label_set_text (GTK_LABEL (tab->path_label), "");
 	}
 
-	if (!remembering ()) {
-		gtk_notebook_set_current_page (GTK_NOTEBOOK (tab->notebook), 0);
-	}
+	/* The tab still opens with remembering off, so the controls show what is
+	   turned off rather than a blank pane. */
 	gtk_widget_set_sensitive (tab->current_tab_label, remembering ());
 	gtk_widget_set_sensitive (tab->current_page, remembering () && tab->folder != NULL);
 
@@ -555,15 +554,6 @@ active_window_changed (GtkApplication *app, G_GNUC_UNUSED GParamSpec *pspec, Cur
 	}
 }
 
-/* An insensitive page still switches on a click, so the tab has to refuse it here. */
-static void
-page_switching (GtkNotebook *notebook, GtkWidget *page, G_GNUC_UNUSED guint page_num, CurrentTab *tab)
-{
-	if (page == tab->current_page && !remembering ()) {
-		g_signal_stop_emission_by_name (notebook, "switch-page");
-	}
-}
-
 /* connected after, so the new page is already the current one */
 static void
 page_switched_after (G_GNUC_UNUSED GtkNotebook *notebook, G_GNUC_UNUSED GtkWidget *page, G_GNUC_UNUSED guint page_num, CurrentTab *tab)
@@ -635,7 +625,6 @@ nemo_prefs_current_folder_setup (GtkBuilder *builder,
 	g_signal_connect (tab->copy_to_current_button, "clicked", G_CALLBACK (copy_to_current_clicked), tab);
 	g_signal_connect (tab->copy_to_default_button, "clicked", G_CALLBACK (copy_to_default_clicked), tab);
 	g_signal_connect (tab->forget_button, "clicked", G_CALLBACK (forget_clicked), tab);
-	g_signal_connect (tab->notebook, "switch-page", G_CALLBACK (page_switching), tab);
 	g_signal_connect_after (tab->notebook, "switch-page", G_CALLBACK (page_switched_after), tab);
 	g_signal_connect (dialog, "notify::is-active", G_CALLBACK (dialog_activated), tab);
 	g_signal_connect (dialog, "destroy", G_CALLBACK (dialog_destroyed), tab);

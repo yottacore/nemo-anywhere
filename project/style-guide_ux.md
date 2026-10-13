@@ -89,6 +89,8 @@ The file list is where the keyboard belongs. Anything that leaves the focus some
 
 - Column headings, tabs and path buttons never keep the focus. A click on one puts the keyboard back in the file list. Tab and Shift+Tab pass over the tab strip.
 
+- Tabs in a dialog never take the focus either, including the page list down the left of Settings. Ctrl+Page Up and Ctrl+Page Down step through them.
+
 - Closing the path entry returns the focus to the file list. Clicking anywhere else closes it. Switching to another program does not, so a half-typed path survives the trip.
 
 - A click on a place in the sidebar leaves the keyboard in the sidebar. Whoever clicked it may want the next place down.
@@ -97,13 +99,13 @@ The file list is where the keyboard belongs. Anything that leaves the focus some
 
 - A trash or delete key within a second of a window appearing or taking the focus is ignored. That key was meant for whatever window had the focus a moment ago.
 
-- One keystroke should do the obvious whole job. Ctrl+H shows both kinds of hidden file on Windows at once, and preferences can still set the two apart.
+- One keystroke should do the obvious whole job. Ctrl+H shows both kinds of hidden file on Windows at once, and Settings can still set the two apart.
 
-- A tab that is grayed out must also refuse to switch. GTK switches to an insensitive page on a click, so graying the page alone leaves a dead pane on screen.
+- A tab that is grayed out still opens, and shows its controls grayed out, so it is plain what is turned off. Its page must never be blank.
 
 ## What a platform cannot do
 
-- A whole feature a platform does not have is left out on that platform. The Windows preferences page is not built into the other platforms' dialogs. A menu entry for a service that is not running hides rather than failing.
+- A whole feature a platform does not have is left out on that platform. The Windows settings page is not built into the other platforms' dialogs. A menu entry for a service that is not running hides rather than failing.
 
 - A choice inside a dialog that only some machines can use is grayed, not hidden, so the dialog keeps the same layout everywhere.
 
@@ -145,6 +147,6 @@ How theme lookup works is in [design.md, Appearance and themes](design.md#appear
 
 - `lint-c.bash` also fails if a delete or an overwrite in `nemo-file-operations.c` can get past the delete guards without being seen. It also fails if something other than a window could start a trash, delete or move, such as a new bus method.
 
-- `test-nemo-prefs-widgets` fails if a preferences widget the code looks up by name has gone missing from the layout file.
+- `test-nemo-prefs-widgets` fails if a settings widget the code looks up by name has gone missing from the layout file.
 
 Everything else here is checked by eye, so a change that touches the interface gets looked at on screen, in both a light and a dark theme.

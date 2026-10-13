@@ -169,7 +169,7 @@ fCheckJobCallers(){
 	allowed+='source/src/nemo-places-sidebar.c '		# empty trash, drops
 	allowed+='source/src/nemo-trash-bar.c '			# empty trash button
 	allowed+='source/src/nemo-mime-actions.c '			# broken link dialog
-	allowed+='source/src/nemo-template-config-widget.c '	# remove button in preferences
+	allowed+='source/src/nemo-template-config-widget.c '	# remove button in settings
 	allowed+='source/libnemo-private/nemo-archive.c '	# compress dialog, delete originals
 	allowed+='source/libnemo-private/nemo-file-undo-operations.c '	# undo
 	allowed+='source/libnemo-private/nemo-dnd-win32.c '	# a move dragged out of a window
@@ -623,7 +623,7 @@ fCheckWindowIcon(){
 
 	stray="$(grep -n -E 'gtk_window_set_icon(_name)? \(' source/src/nemo-window*.c source/src/nemo-file-management-properties.c || true)"
 	if [[ -n "$stray" ]]; then
-		fEcho "FAIL: a main window or the preferences sets its own icon over the program's:"
+		fEcho "FAIL: a main window or the settings window sets its own icon over the program's:"
 		fEcho "${stray}"
 		exit 2
 	fi
@@ -1401,6 +1401,7 @@ done
 if ((listOnly)); then
 	:
 elif [[ -n "$PY" ]]; then
+	"$PY" cicd/utility/lint-ui-case.py --self-test
 	"$PY" cicd/utility/lint-ui-case.py source
 	## Same reasoning: the demo recorder's settings keys and columns go stale
 	## silently, and nothing C has to change for that to happen.

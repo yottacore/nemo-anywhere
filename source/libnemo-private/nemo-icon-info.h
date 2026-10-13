@@ -125,8 +125,8 @@ gint  nemo_icon_size_clamp                       (gint size);
 gdouble nemo_icon_size_position                  (gint size);
 gint  nemo_icon_size_at_position                 (gdouble position);
 
-/* A size as a per cent of the standard size, which is how both settings and
- * the preferences window express one. */
+/* A size as a per cent of the standard size, which is how both the settings
+ * file and the settings window express one. */
 gint  nemo_icon_size_from_percent                (gint percent);
 gint  nemo_icon_size_percent                     (gint size);
 

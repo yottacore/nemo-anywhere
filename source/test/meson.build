@@ -761,7 +761,7 @@ test('rgak6kmg App resources test',
 
 # The resource has to be compiled straight in for the same reason the exe does:
 # nothing else references the self-registering object, so the linker drops it.
-test('rf2w8yxr Preferences widgets test',
+test('rf2w8yxr Settings widgets test',
   executable('test-nemo-prefs-widgets',
     [ 'test-nemo-prefs-widgets.c' ] + gresources,
     include_directories: [ rootInclude, ],
@@ -770,7 +770,7 @@ test('rf2w8yxr Preferences widgets test',
   args: []
 )
 
-test('rhtmbdmd Preferences dialog test',
+test('rhtmbdmd Settings dialog test',
   executable('test-nemo-prefs-dialog',
     [ 'test-nemo-prefs-dialog.c', '../src/nemo-file-management-properties.c' ] + gresources,
     include_directories: [ rootInclude, include_directories('../src') ],
@@ -790,7 +790,7 @@ test('rhtmbdme Search box Enter test',
   args: []
 )
 
-test('rhtmbdmf Preferences Current tab test',
+test('rhtmbdmf Settings Current tab test',
   executable('test-nemo-prefs-current',
     [ 'test-nemo-prefs-current.c', '../src/nemo-prefs-current-folder.c' ] + gresources,
     include_directories: [ rootInclude, include_directories('../src') ],

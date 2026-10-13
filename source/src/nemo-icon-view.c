@@ -878,7 +878,7 @@ get_sort_criterion_by_sort_type (NemoFileSortType sort_type)
 }
 
 /* Both settings are a per cent of the standard size, which is how the
-   preferences window shows them. */
+   settings window shows them. */
 static gint
 get_default_icon_size (NemoIconView *icon_view)
 {

@@ -113,7 +113,7 @@ static const char *const deflist_list_view_default_visible_columns[] = { "name",
 #endif
 /* The actions that only do anything under Cinnamon: they call cinnamon-settings,
  * the desktop editor, or org.Cinnamon over the bus. Off unless someone turns them
- * on, and still listed in Preferences > Actions so a Cinnamon user can. */
+ * on, and still listed in Settings > Actions so a Cinnamon user can. */
 static const char *const deflist_plugins_disabled_actions[] = {
 	"90_new-launcher.nemo_action",
 	"90_new-workspace.nemo_action",

@@ -77,6 +77,7 @@ gchar *               eel_gtk_tree_view_column_clipped_text          (GtkTreeVie
 /* Focus */
 void                  eel_gtk_widget_refuse_focus                     (GtkWidget *widget);
 void                  eel_gtk_notebook_keep_focus_off_tabs            (GtkNotebook *notebook);
+void                  eel_gtk_list_box_keep_focus_off_rows            (GtkListBox *box);
 gboolean              eel_gtk_focus_is_within                         (GtkWidget *container);
 void                  eel_gtk_tooltips_need_focus                     (void);
 

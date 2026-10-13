@@ -1,6 +1,6 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 
-/* test-nemo-prefs-dialog.c - the Preferences window as it opens.
+/* test-nemo-prefs-dialog.c - the Settings window as it opens.
 
    Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu).
 
@@ -24,8 +24,10 @@
  * short by a small screen does not look complete. Close sits in a bar outside
  * the scrolling and is the default, and Escape closes. The window is never
  * more than nine tenths of the work area, and its floor grows with the text
- * scale, which is how Windows passes a fractional display scale. The pages
- * that build their own widgets are left empty here. */
+ * scale, which is how Windows passes a fractional display scale. No tab, in
+ * the list on the left or on Views, ever holds the keyboard, and Ctrl+Page Up
+ * and Down step through the list. The pages that build their own widgets are
+ * left empty here. */
 
 #include <config.h>
 
@@ -162,6 +164,156 @@ test_widgets (GtkWidget *dialog)
 	check (close_bar != NULL && gtk_widget_is_ancestor (close_button, close_bar));
 }
 
+/* With another window holding the keyboard, GTK reports focus moves that did
+ * not happen, so the Tab walk below asks for it first and waits. */
+static gboolean
+take_keyboard (GtkWidget *window)
+{
+	int i;
+
+	gtk_window_present (GTK_WINDOW (window));
+	for (i = 0; i < 500 && !gtk_window_has_toplevel_focus (GTK_WINDOW (window)); i++) {
+		if (i % 10 == 0 && gtk_widget_get_mapped (window)) {
+			gdk_window_focus (gtk_widget_get_window (window), GDK_CURRENT_TIME);
+		}
+		g_usleep (10000);
+		while (gtk_events_pending ()) {
+			gtk_main_iteration ();
+		}
+	}
+
+	return gtk_window_has_toplevel_focus (GTK_WINDOW (window));
+}
+
+static void
+collect_rows (GtkWidget *widget, gpointer data)
+{
+	GPtrArray *rows = data;
+
+	if (GTK_IS_LIST_BOX_ROW (widget) || GTK_IS_LIST_BOX (widget)) {
+		g_ptr_array_add (rows, widget);
+	}
+	if (GTK_IS_CONTAINER (widget)) {
+		gtk_container_forall (GTK_CONTAINER (widget), collect_rows, data);
+	}
+}
+
+static gboolean
+is_a_tab (GtkWidget *focus, GtkWidget *sidebar)
+{
+	return focus != NULL &&
+	       (GTK_IS_NOTEBOOK (focus) || focus == sidebar || gtk_widget_is_ancestor (focus, sidebar));
+}
+
+/* Returns whether the key has a keycode, which GTK's own key bindings need. */
+static gboolean
+send_key (GtkWidget *dialog, guint keyval, GdkModifierType state)
+{
+	GdkEvent *event;
+	GdkKeymapKey *keys = NULL;
+	gint n_keys = 0;
+	gboolean coded = FALSE;
+
+	event = gdk_event_new (GDK_KEY_PRESS);
+	event->key.window = g_object_ref (gtk_widget_get_window (dialog));
+	event->key.keyval = keyval;
+	event->key.state = state;
+	/* Key bindings are looked up by keycode, not keyval. */
+	if (gdk_keymap_get_entries_for_keyval (gdk_keymap_get_for_display (gdk_display_get_default ()),
+					       keyval, &keys, &n_keys) && n_keys > 0) {
+		event->key.hardware_keycode = (guint16) keys[0].keycode;
+		event->key.group = (guint8) keys[0].group;
+		coded = TRUE;
+	}
+	g_free (keys);
+	event->key.time = GDK_CURRENT_TIME;
+	gdk_event_set_device (event, gdk_seat_get_keyboard (gdk_display_get_default_seat (gdk_display_get_default ())));
+	gtk_main_do_event (event);
+	gdk_event_free (event);
+	settle ();
+
+	return coded;
+}
+
+static void
+test_tabs_take_no_focus (GtkWidget *dialog)
+{
+	GtkWidget *sidebar = find_named (dialog, "page_sidebar");
+	GtkWidget *notebook = find_named (dialog, "views_notebook");
+	GtkWidget *remember = find_named (dialog, "remember_folder_settings_checkbutton");
+	GtkWidget *stack = find_named (dialog, "page_stack");
+	GPtrArray *rows = g_ptr_array_new ();
+	GHashTable *seen = g_hash_table_new (NULL, NULL);
+	guint i;
+
+	check (sidebar != NULL && notebook != NULL && remember != NULL && stack != NULL);
+	if (sidebar == NULL || notebook == NULL || remember == NULL || stack == NULL) {
+		g_ptr_array_free (rows, TRUE);
+		g_hash_table_destroy (seen);
+		return;
+	}
+
+	collect_rows (sidebar, rows);
+	check (rows->len > 1);
+	for (i = 0; i < rows->len; i++) {
+		check (!gtk_widget_get_can_focus (rows->pdata[i]));
+	}
+
+	/* Tab right round the dialog, twice, never stopping on a tab. */
+	if (take_keyboard (dialog)) {
+		gtk_window_set_focus (GTK_WINDOW (dialog), NULL);
+		for (i = 0; i < 400; i++) {
+			GtkWidget *focus;
+
+			if (!gtk_widget_child_focus (dialog, GTK_DIR_TAB_FORWARD)) {
+				continue;
+			}
+			focus = gtk_window_get_focus (GTK_WINDOW (dialog));
+			if (is_a_tab (focus, sidebar)) {
+				g_print ("FAIL: Tab stopped on a tab: %s\n", G_OBJECT_TYPE_NAME (focus));
+				failures++;
+				break;
+			}
+			g_hash_table_add (seen, focus);
+		}
+		g_print ("Tab visited %u widgets\n", g_hash_table_size (seen));
+		check (g_hash_table_size (seen) > 3);
+	} else {
+		g_print ("SKIP: the Tab walk, since the dialog never got the keyboard\n");
+	}
+
+	/* A click on a Views tab asks the notebook for the focus. */
+	gtk_widget_grab_focus (notebook);
+	check (!is_a_tab (gtk_window_get_focus (GTK_WINDOW (dialog)), sidebar));
+
+	/* The list steps with Ctrl+Page Up and Down, and wraps round. */
+	gtk_widget_grab_focus (remember);
+	check (g_strcmp0 (gtk_stack_get_visible_child_name (GTK_STACK (stack)), "views") == 0);
+	send_key (dialog, GDK_KEY_Page_Down, GDK_CONTROL_MASK);
+	check (g_strcmp0 (gtk_stack_get_visible_child_name (GTK_STACK (stack)), "behavior") == 0);
+	send_key (dialog, GDK_KEY_Page_Up, GDK_CONTROL_MASK);
+	check (g_strcmp0 (gtk_stack_get_visible_child_name (GTK_STACK (stack)), "views") == 0);
+	send_key (dialog, GDK_KEY_Page_Up, GDK_CONTROL_MASK);
+	check (g_strcmp0 (gtk_stack_get_visible_child_name (GTK_STACK (stack)), "plugins") == 0);
+	send_key (dialog, GDK_KEY_Page_Down, GDK_CONTROL_MASK);
+	check (g_strcmp0 (gtk_stack_get_visible_child_name (GTK_STACK (stack)), "views") == 0);
+
+	/* Inside the Views tabs the keys stay theirs. Under wine GDK has no
+	   keyboard layout, so no binding ever matches there. */
+	gtk_notebook_set_current_page (GTK_NOTEBOOK (notebook), 0);
+	gtk_widget_child_focus (gtk_notebook_get_nth_page (GTK_NOTEBOOK (notebook), 0), GTK_DIR_TAB_FORWARD);
+	if (send_key (dialog, GDK_KEY_Page_Down, GDK_CONTROL_MASK)) {
+		check (gtk_notebook_get_current_page (GTK_NOTEBOOK (notebook)) == 1);
+	} else {
+		g_print ("SKIP: Ctrl+Page Down in the Views tabs, since the key has no keycode\n");
+	}
+	check (g_strcmp0 (gtk_stack_get_visible_child_name (GTK_STACK (stack)), "views") == 0);
+	gtk_notebook_set_current_page (GTK_NOTEBOOK (notebook), 0);
+
+	g_ptr_array_free (rows, TRUE);
+	g_hash_table_destroy (seen);
+}
+
 static void
 test_escape_closes (GtkWidget *dialog)
 {
@@ -249,6 +401,7 @@ main (int argc, char *argv[])
 	check (dialog != NULL);
 	if (dialog != NULL) {
 		test_widgets (dialog);
+		test_tabs_take_no_focus (dialog);
 		test_escape_closes (dialog);
 	}
 

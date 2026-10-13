@@ -1,4 +1,4 @@
-/* The preferences dialog is built from a resource and wired by widget name, so
+/* The settings dialog is built from a resource and wired by widget name, so
  * a renamed or mistyped id only shows up when someone opens the dialog. This
  * loads the same resource and checks the ids the code asks for by name.
  *
@@ -158,6 +158,6 @@ main (int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	g_print ("preferences widgets: all checks passed\n");
+	g_print ("settings widgets: all checks passed\n");
 	return EXIT_SUCCESS;
 }
