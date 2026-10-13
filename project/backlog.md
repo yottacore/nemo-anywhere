@@ -513,17 +513,32 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - With Split into volumes ticked and a volume size that can't be read, Compress writes one archive with no volumes.
 	- ID: 2026101308213019
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
 	- Priority|Severity: Avg
 	- Opened: 20261013-082130
 	- Opened by: 2026100516274609
-	- Related IDs: 2026100516274609
+	- Related IDs: 2026100516274609, 2026100516274646
 	- Target OS: Linux, Windows
 	- Steps to reproduce: Compress, Options, tick Split into volumes, type "4,000 MiB" or "lots" as the volume size, then Compress.
 	- Incorrect behavior: the Compress dialog drops a size it can't read, so the job is asked for no volumes and writes one file. Nothing says so.
 	- Expected behavior: Compress is grayed, or the size is marked, until it reads. Splitting is a requirement, per the design's standing rules.
-	- Reproduced: No. Read in the code only.
-	- Test case: TBD
+	- Reproduced: 20261013, Linux. With "lots" Compress stayed lit, the dialog closed on Compress and remembered Split as ticked. "4,000 MiB" and "0.0001 KiB" were refused or read as 0, and "nan", "inf" and "1e3" were taken.
+	- Actual cause: the dialog reads the size only when it builds the job, and drops it when it doesn't read. The size reader also took anything strtod takes, and a size that came out under a byte as 0, which means no volumes.
+	- Actual fix: with Split into volumes ticked, a size that doesn't read is marked in red with a tip, and Compress is grayed until it reads. A response that gets past the grayed button puts the dialog back. The size reader takes plain digits only, and refuses a size under a byte or too big to hold.
+	- Progress log:
+		- 20261013-084544: fixed. Left at signoff for the look of the marked size, and for one call: a typed size takes the comma the presets show, between groups of 3 digits only, so "4,000 MiB" reads and "1,5 GiB" is marked, since it could mean 1.5. 2026100516274609 had it that a typed comma isn't taken. A "." between groups, as some languages write it, still reads as a decimal point.
+	- Swept: every typed field in Compress and Extract, for a requirement dropped with nothing said.
+		- The name: an empty one already grays Compress.
+		- The password: a format that can't take one grays the field. It now also shows as empty there, 2026100516274646, so it no longer looks set.
+		- The password typed again before a delete: a mismatch says so and asks again.
+		- The compression level: a slider, so nothing to misread. A preference, not a requirement.
+		- The command lines in the settings: a 7-Zip or rar line edited with no {{PASSWORD}} or {{SPLIT}} wrote a readable archive, or one file, while a password or volumes were asked for, with only a log line. Fixed here: the job is refused and its error says which marker is missing. A line missing any other marker still runs, with the log line, since those are preferences.
+		- Extract: the password asked for while extracting is handed to the program, and a line edited with no {{PASSWORD}} makes the extract fail. Nothing is written wrong, so not this kind. Read in the code, not run.
+	- Verified: 20261013, the new size checks in rhtmbdmj and the reader checks in rev86z08 failed before the fix and pass after. rexkeyng and rewygsbg failed with the marker check taken out, where the job wrote the archive with no password, and pass with it. rev86z08, rhae85g0, rexkeyng, rewygsbg and rhtmbdmj pass under wine, which has no 7-Zip, so the size and edited line rows are skipped there. Full Linux suite 196 of 196, the Windows cross build, lint clean apart from rj3ytv0b.
+	- Branch: optreset
+	- Commit: c0a7ede
+	- Test case: rhtmbdmj, Compress dialog height test: "lots" marks the size and grays Compress, "4,000 MiB" reads, unticking Split or a format that can't split clears it, and a response past the grayed button keeps the dialog up. rev86z08, Archive options test, check_typed_sizes: grouped sizes read, a misplaced comma, a sign, an exponent, hex, nan, inf, a size under a byte and one too big are refused. rexkeyng, Command template test: a line with no {{PASSWORD}} or {{SPLIT}} is refused while one is asked for and runs while it isn't. rewygsbg, Archive job test: a 7z with a password and such a line fails, writes nothing and names the marker.
 
 - On Windows, a file dragged onto the window from another program may not drop.
 	- ID: 2026101007562587
@@ -702,7 +717,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Compression reset: Options opens by itself, gets a reset button, and unticks what the writer can't do.
 	- ID: 2026100516274646
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
+	- Needs external testing: the dialog on a real Windows desktop, opening by itself on a short screen. Under wine it opened and reset with neither 7-Zip nor rar.
 	- Opened: 20261005-162747
 	- Opened by: compression reset split
 	- Parent ID: 2026092910143202
@@ -714,7 +731,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A button beside Options puts every choice under it back to default, drops the remembered ones from the settings file, and collapses Options. It is disabled when all are at default.
 		- An option the writer can't do is unticked and disabled. That doesn't overwrite the remembered choice, so switching back restores it.
 	- Estimated effort: Avg
-	- Test case: rhtmbdmj, cases for opening by itself, the reset, and a format that forces an option off. rhae85g0, Archive settings test, for remembered choices kept through a forced off and dropped by the reset.
+	- Actual effort: Avg
+	- Progress log:
+		- 20261013-084544: built. Left at signoff for the look, and for these calls:
+			- The button is a flat "Reset" to the right of Options, with Alt+E. It sits a few pixels lower than the Options label, and makes the closed dialog a little taller.
+			- Options opens once the dialog is on screen, the way a click opens it, so it scrolls on a short screen. The dialog shows closed for a moment first.
+			- The password and the delete box count as choices under Options: either one set lights Reset, and Reset clears them. Neither is remembered.
+			- The format and Compress each item separately sit above Options, so Reset leaves them alone.
+			- A password the format can't take shows as none rather than as dots in a grayed field.
+			- Follow nested and other filesystems show off as well as grayed when nothing selected has a folder or link. rhtmbdmj's check that nested stays ticked there is commented out with the reason.
+			- The compression level is a slider, so a format with no levels leaves it where it was, grayed.
+	- Done: the dialog keeps the choices under Options as chosen, and every box shows what the format can do of them, the same way a grayed store choice from 2026100516274386 shows as Ignore. A box the format can't do is unticked and grayed, and comes back with a format that can. What's remembered is what was chosen, so a forced off doesn't overwrite it. Options opens by itself when what's remembered isn't the defaults, a forced off one included. Reset puts everything under Options back, drops the remembered ones from the settings file, and closes Options; it's grayed while everything is at its default. Compress each item separately, grayed for one item, no longer overwrites what was remembered for it either.
+	- Swept: every control under Options goes through the one kept-and-shown path: the 7 boxes, the password, the level, the volume size, the 2 radio groups, the 2 filesystem boxes and the delete box. The dialog's two callers, the view and the test. Saving and loading moved into `nemo-archive-host.c` beside the link choices, which were the only other place the keys were read or written. Reset drops the 2 retired link keys too.
+	- Verified: 20261013, rhtmbdmj and rhae85g0 went red with each of: no opening by itself, the lock left out of the default check, Symlinks left out of the reset, a forced off box left ticked, a forced off written back over the choice, Options left open after Reset, Reset always lit, the password not counted, and a preset saved with its note. Both pass on Linux and under wine. Full Linux suite 196 of 196, the Windows cross build, lint clean apart from rj3ytv0b.
+	- Branch: optreset
+	- Commit: c0a7ede
+	- Test case: rhtmbdmj, Compress dialog height test: closed with Reset grayed at the defaults, Reset lit by a change and by a password alone, Reset clearing them and closing Options, opening by itself for remembered choices with the buttons on screen, Reset dropping them from the settings file, and a remembered lock the format can't do opening Options, shown off and grayed, and back on with rar. rhae85g0, Archive settings test, test_choices: the defaults match the settings table, each choice off its default counts, a forced off shows off and leaves the choice, saving keeps it with a preset as its size, and the reset drops every key under Options and nothing else.
 
 - Compression reset: move the compress code into the archive core.
 	- ID: 2026100516274683
