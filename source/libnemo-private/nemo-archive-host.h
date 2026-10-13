@@ -26,10 +26,11 @@
 #ifndef NEMO_ARCHIVE_HOST_H
 #define NEMO_ARCHIVE_HOST_H
 
-#include <glib.h>
+#include <gtk/gtk.h>
 
 #include "arc-host.h"
 #include "arc-link-options.h"
+#include "nemo-progress-info.h"
 
 G_BEGIN_DECLS
 
@@ -72,10 +73,23 @@ void     nemo_archive_choices_shown      (const NemoArchiveChoices *chosen,
 					  gboolean                  has_password,
 					  NemoArchiveChoices       *shown);
 
-/* An ArcHost with what the core has been given so far: the folder walk,
-   which gets past MAX_PATH on Windows, the share check, and the command
-   lines, which are read by the app's rules for a line a person wrote. */
+/* An ArcHost with what needs nothing of a job: the folder walk, which gets
+   past MAX_PATH on Windows, the share check, the command lines, which are
+   read by the app's rules for a line a person wrote, and other programs,
+   which on Windows start from the one place that may start them. */
 void nemo_archive_host_init         (ArcHost              *host);
+
+/* What a job's calls reach: its progress, and the window its dialogs and the
+   trash go over. */
+typedef struct {
+	NemoProgressInfo *progress;
+	GtkWindow        *parent_window;	/* NULL once it closed */
+} NemoArchiveHostJob;
+
+/* The same, plus progress, new files, deletes of what the job wrote, the
+   trash, and the dialogs, for a job. job has to outlive the host. */
+void nemo_archive_host_init_job     (ArcHost              *host,
+				     NemoArchiveHostJob   *job);
 
 /* The command lines and the thread count as set now. Clear it with
    arc_settings_clear. */

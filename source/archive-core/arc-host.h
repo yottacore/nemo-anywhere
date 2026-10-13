@@ -18,11 +18,12 @@
    along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
-/* The core links GLib and GIO and none of the app around it, so it could
- * leave for a project of its own. Everything else it needs comes through an
- * ArcHost: progress, new files, the folder walk, whether a path is on a
- * share, other programs, command lines, deletes and questions. The job queue stays in the app, which runs
- * the core's work on the job's thread. Modularity, in
+/* The core links GLib, GIO and libarchive and none of the app around it, so
+ * it could leave for a project of its own. Everything else it needs comes
+ * through an ArcHost: progress, new files, the folder walk, whether a path is
+ * on a share, other programs, command lines, deletes, questions and the
+ * pre-scan's bar. The job queue stays in the app, which runs the core's work
+ * on the job's thread. Modularity, in
  * project/design_docs/20260929-101432_compression.md, has the layers.
  *
  * Call through the arc_* functions at the bottom, not the tables. Each passes
@@ -46,6 +47,14 @@ typedef struct {
 	void (*fraction) (gpointer data, double done, double total);
 	void (*pulse)    (gpointer data);
 } ArcProgress;
+
+/* The pre-scan's own bar, above the job's, with what it found so far. Job's
+   thread. Fallback: nothing shown. */
+typedef struct {
+	void (*start) (gpointer data);
+	void (*found) (gpointer data, guint files, guint64 bytes);
+	void (*end)   (gpointer data);
+} ArcPrescan;
 
 /* A file the job made, for a folder view to show. Job's thread. Fallback:
    nobody told. */
@@ -119,9 +128,10 @@ typedef struct {
 } ArcCommands;
 
 /* The core never deletes anything on its own. remove_own is for a file this
-   job wrote, such as a half-written archive or one of its volumes, and
-   remove_tree for a folder it extracted into or a file the person chose to
-   replace; both on the job's thread, and the app's delete guard sees both.
+   job wrote, such as a half-written archive, one of its volumes or a list of
+   names it handed a program, and remove_tree for a folder it extracted into
+   or a file the person chose to replace, which goes through the app's
+   delete guard; both on the job's thread.
    trash_by_user is for the originals once the archive checked out, on the
    main thread, and goes through the app's ordinary trash or delete, which
    asks. Fallback: nothing removed, and the two removes answer FALSE. */
@@ -178,6 +188,7 @@ typedef struct {
 	ArcCommands commands;
 	ArcDeletes  deletes;
 	ArcAsk      ask;
+	ArcPrescan  prescan;
 	gpointer    data;
 } ArcHost;
 
@@ -185,6 +196,10 @@ void             arc_status              (const ArcHost *host, const char *text)
 void             arc_details             (const ArcHost *host, const char *text);
 void             arc_fraction            (const ArcHost *host, double done, double total);
 void             arc_pulse               (const ArcHost *host);
+
+void             arc_prescan_start       (const ArcHost *host);
+void             arc_prescan_found       (const ArcHost *host, guint files, guint64 bytes);
+void             arc_prescan_end         (const ArcHost *host);
 
 void             arc_file_added          (const ArcHost *host, GFile *file);
 

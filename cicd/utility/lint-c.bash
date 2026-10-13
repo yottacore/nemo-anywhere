@@ -170,7 +170,7 @@ fCheckJobCallers(){
 	allowed+='source/src/nemo-trash-bar.c '			# empty trash button
 	allowed+='source/src/nemo-mime-actions.c '			# broken link dialog
 	allowed+='source/src/nemo-template-config-widget.c '	# remove button in settings
-	allowed+='source/libnemo-private/nemo-archive.c '	# compress dialog, delete originals
+	allowed+='source/libnemo-private/nemo-archive-host.c '	# compress dialog, delete originals
 	allowed+='source/libnemo-private/nemo-file-undo-operations.c '	# undo
 	allowed+='source/libnemo-private/nemo-dnd-win32.c '	# a move dragged out of a window
 	local file bad=""
@@ -198,7 +198,7 @@ fCheckRawDeletes(){
 	allowed+='source/libnemo-private/nemo-delete-guard.c '		# the guarded delete the jobs use
 	allowed+='source/libnemo-private/nemo-trash-win32.c '		# the recycle bin, behind the jobs
 	allowed+='source/libnemo-private/nemo-link-win32.c '		# its own probe, and a link it failed to finish
-	allowed+='source/libnemo-private/nemo-archive.c '			# an archive it was writing, and its list files
+	allowed+='source/libnemo-private/nemo-archive-host.c '		# an archive the core was writing, and its list files
 	allowed+='source/libnemo-private/nemo-crash.c '			# old crash reports
 	allowed+='source/libnemo-private/nemo-cache-db.c '		# a damaged cache file it is replacing
 	allowed+='source/libnemo-private/nemo-desktop-thumbnail.c '	# thumbnail cache
@@ -748,7 +748,7 @@ fCheckByUser(){
 	allowed+='source/src/nemo-places-sidebar.c '		# empty trash command
 	allowed+='source/src/nemo-trash-bar.c '			# empty trash button
 	allowed+='source/src/nemo-mime-actions.c '			# move to trash button in the launcher dialog
-	allowed+='source/libnemo-private/nemo-archive.c '	# delete originals, ticked in the compress dialog; still asks
+	allowed+='source/libnemo-private/nemo-archive-host.c '	# delete originals, ticked in the compress dialog; still asks
 	local file bad=""
 
 	while read -r file; do

@@ -34,6 +34,7 @@
 #include "nemo-tool-run.h"
 #include "nemo-progress-info.h"
 #include "arc-command.h"
+#include "arc-compress.h"
 #include "arc-link-options.h"
 #include "arc-mounts.h"
 #include "arc-verify.h"
@@ -105,15 +106,14 @@ typedef ArcOptions NemoArchiveOptions;
 #define nemo_archive_format_size          arc_format_size
 #define nemo_archive_can_verify           arc_can_verify
 #define nemo_archive_should_confirm_password arc_should_confirm_password
+#define nemo_archive_set_mounts_for_test  arc_compress_set_mounts_for_test
+#define nemo_archive_tool_stderr_flag     arc_tool_stderr_flag
+#define nemo_archive_tool_stderr_finish   arc_tool_stderr_finish
 
 typedef void (* NemoArchiveCallback) (GFile    *archive_file,
 				      gboolean  success,
 				      gpointer  callback_data);
 
-/* For tests: the job's walk tells filesystems apart by the table this
-   makes, called on the job's thread, rather than the system's. NULL puts
-   the system's back. */
-void               nemo_archive_set_mounts_for_test (ArcMountTable *(*mounts) (void));
 /* For tests: called on the job's thread each time its pre-scan reports to
    the progress info, the start and the end included. NULL for none. */
 void               nemo_archive_set_prescan_watch_for_test (void (*watch) (NemoProgressInfo *info));
@@ -134,13 +134,8 @@ char   **nemo_archive_build_links_command (NemoArchiveBackend        backend,
 					   const char               *archive_path,
 					   GList                    *names);
 
-/* A tool's stderr is folded into its stdout on Unix only. Elsewhere it gets
-   a pipe of its own, read on a thread from start to finish, and the caller
-   puts what it said after the rest. finish takes NULL, and returns NULL where
-   there was no pipe; caller frees. */
-GSubprocessFlags nemo_archive_tool_stderr_flag   (void);
-GThread         *nemo_archive_tool_stderr_start  (NemoToolRun *process);
-char            *nemo_archive_tool_stderr_finish (GThread     *reader);
+/* arc_tool_stderr_start for a run started here, which the app's host runs. */
+GThread *nemo_archive_tool_stderr_start (NemoToolRun *process);
 
 /* arc_verify with the app's host. */
 gboolean nemo_archive_verify (GFile                    *archive_file,

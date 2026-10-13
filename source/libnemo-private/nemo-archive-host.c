@@ -22,14 +22,19 @@
 
 #include <string.h>
 
+#include <eel/eel-stock-dialogs.h>
+
 #include "nemo-archive-host.h"
 #include "nemo-archive.h"
 #include "nemo-archive-commands.h"
 #include "nemo-command-template.h"
 #include "nemo-config.h"
 #include "nemo-dir-enum.h"
+#include "nemo-file-changes-queue.h"
+#include "nemo-file-operations.h"
 #include "nemo-global-preferences.h"
 #include "nemo-share.h"
+#include "nemo-tool-run.h"
 
 /* The old pair meant one choice for both kinds of link, so Junctions is left
    to follow Symlinks. An old store links that was never changed reads as its
@@ -370,6 +375,61 @@ warn_unused (gpointer               data,
 	g_free (marks);
 }
 
+/* An ArcRun is a NemoToolRun here. */
+static ArcRun *
+run_start (gpointer            data,
+	   const char * const *argv,
+	   const char         *cwd,
+	   GSubprocessFlags    flags,
+	   GError            **error)
+{
+	(void) data;
+	return (ArcRun *) nemo_tool_run_start (argv, cwd, flags, error);
+}
+
+static GInputStream *
+run_stdout (ArcRun *run)
+{
+	return nemo_tool_run_get_stdout ((NemoToolRun *) run);
+}
+
+static GInputStream *
+run_stderr (ArcRun *run)
+{
+	return nemo_tool_run_get_stderr ((NemoToolRun *) run);
+}
+
+static void
+run_force_exit (ArcRun *run)
+{
+	nemo_tool_run_force_exit ((NemoToolRun *) run);
+}
+
+static gboolean
+run_wait_check (ArcRun  *run,
+		GError **error)
+{
+	return nemo_tool_run_wait_check ((NemoToolRun *) run, error);
+}
+
+static gboolean
+run_if_exited (ArcRun *run)
+{
+	return nemo_tool_run_get_if_exited ((NemoToolRun *) run);
+}
+
+static int
+run_exit_status (ArcRun *run)
+{
+	return nemo_tool_run_get_exit_status ((NemoToolRun *) run);
+}
+
+static void
+run_free (ArcRun *run)
+{
+	nemo_tool_run_free ((NemoToolRun *) run);
+}
+
 void
 nemo_archive_host_init (ArcHost *host)
 {
@@ -380,6 +440,159 @@ nemo_archive_host_init (ArcHost *host)
 	host->shares.leaves_for = leaves_for_share;
 	host->commands.expand = expand_line;
 	host->commands.warn_unused = warn_unused;
+	host->programs.start = run_start;
+	host->programs.stdout_pipe = run_stdout;
+	host->programs.stderr_pipe = run_stderr;
+	host->programs.force_exit = run_force_exit;
+	host->programs.wait_check = run_wait_check;
+	host->programs.if_exited = run_if_exited;
+	host->programs.exit_status = run_exit_status;
+	host->programs.free = run_free;
+}
+
+static void
+job_status (gpointer    data,
+	    const char *text)
+{
+	NemoArchiveHostJob *job = data;
+
+	nemo_progress_info_set_status (job->progress, text);
+}
+
+static void
+job_details (gpointer    data,
+	     const char *text)
+{
+	NemoArchiveHostJob *job = data;
+
+	nemo_progress_info_set_details (job->progress, text);
+}
+
+static void
+job_fraction (gpointer data,
+	      double   done,
+	      double   total)
+{
+	NemoArchiveHostJob *job = data;
+
+	nemo_progress_info_set_progress (job->progress, done, total);
+}
+
+static void
+job_pulse (gpointer data)
+{
+	NemoArchiveHostJob *job = data;
+
+	nemo_progress_info_pulse_progress (job->progress);
+}
+
+static void (*prescan_watch) (NemoProgressInfo *info);
+
+void
+nemo_archive_set_prescan_watch_for_test (void (*watch) (NemoProgressInfo *info))
+{
+	prescan_watch = watch;
+}
+
+static void
+job_prescan_start (gpointer data)
+{
+	NemoArchiveHostJob *job = data;
+
+	nemo_progress_info_start_prescan (job->progress);
+}
+
+static void
+job_prescan_found (gpointer data,
+		   guint    files,
+		   guint64  bytes)
+{
+	NemoArchiveHostJob *job = data;
+
+	nemo_progress_info_set_prescan_found (job->progress, files, bytes);
+	if (prescan_watch != NULL) {
+		prescan_watch (job->progress);
+	}
+}
+
+static void
+job_prescan_end (gpointer data)
+{
+	NemoArchiveHostJob *job = data;
+
+	nemo_progress_info_end_prescan (job->progress);
+}
+
+static void
+job_file_added (gpointer  data,
+		GFile    *file)
+{
+	(void) data;
+	nemo_file_changes_queue_file_added (file);
+}
+
+/* Only ever an archive this job was writing, one of its volumes or one of
+   its list files. */
+static gboolean
+job_remove_own (gpointer  data,
+		GFile    *file)
+{
+	(void) data;
+	return g_file_delete (file, NULL, NULL);
+}
+
+/* The box was ticked in the Compress dialog, so this is a delete a person
+   asked for, and it goes through the ordinary trash-or-delete with its own
+   confirmation rather than anything quieter here. */
+static void
+job_trash_by_user (gpointer  data,
+		   GList    *files)
+{
+	NemoArchiveHostJob *job = data;
+
+	nemo_file_operations_trash_or_delete_by_user (files, job->parent_window, NULL, NULL);
+}
+
+static void
+job_error (gpointer    data,
+	   const char *primary,
+	   const char *details)
+{
+	NemoArchiveHostJob *job = data;
+
+	eel_show_error_dialog (primary, details, job->parent_window);
+}
+
+static void
+job_warning (gpointer    data,
+	     const char *primary,
+	     const char *details)
+{
+	NemoArchiveHostJob *job = data;
+
+	eel_show_warning_dialog (primary, details, job->parent_window);
+}
+
+void
+nemo_archive_host_init_job (ArcHost            *host,
+			    NemoArchiveHostJob *job)
+{
+	g_return_if_fail (host != NULL && job != NULL);
+
+	nemo_archive_host_init (host);
+	host->progress.status = job_status;
+	host->progress.details = job_details;
+	host->progress.fraction = job_fraction;
+	host->progress.pulse = job_pulse;
+	host->prescan.start = job_prescan_start;
+	host->prescan.found = job_prescan_found;
+	host->prescan.end = job_prescan_end;
+	host->changes.file_added = job_file_added;
+	host->deletes.remove_own = job_remove_own;
+	host->deletes.trash_by_user = job_trash_by_user;
+	host->ask.error = job_error;
+	host->ask.warning = job_warning;
+	host->data = job;
 }
 
 /* The built-in line where one was emptied, or before the settings are up. */
