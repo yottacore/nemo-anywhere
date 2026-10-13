@@ -172,6 +172,38 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 07b76a2
 	- Test case: rhtmbdmf, Settings Current tab test. Its 2 checks that the switch is refused are commented out with the reason. It now checks the tab opens on grayed controls, and stays up when remembering is turned off.
 
+- Allow creating folders with path separators in the name, to make a nested structure in one go.
+	- ID: 2026101009150766
+	- Type: Enhancement
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 193 of 194. The one failure, rjv9ks2z, is the connecting sign's look with animations off, and it passed on its own.
+	- Needs external testing: by hand on Windows, New folder in a window, then a path with backslashes typed into the box. Not tried. rk56fsaw passed natively on b29w.
+	- Priority|Severity: Avg
+	- Opened: 20261010-091507
+	- Opened by: t00mietum
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- A new folder name with path separators creates each folder in the path, nested.
+	- Actual effort: Avg
+	- Progress log:
+		- 20261013: done. Left at signoff for the new error messages and the calls under Decisions.
+	- Decisions:
+		- A name splits at `/` on every platform, and at `\` on Windows too, since neither can be in a name there. Elsewhere a backslash stays part of the name. The Windows setting for `/` in typed locations doesn't change this.
+		- Only the first name of a folder New folder made counts, typed in the box it opens or later. Renaming any other folder with a `/` in the name is refused, as before.
+		- Folders already there along the path are used as they are. Only the last one being there is the usual "already used" error.
+		- A leading separator, 2 separators in a row, and `.` or `..` as a folder name are refused with a message, and the folder keeps waiting for its first name. A trailing separator is dropped.
+		- The folder New folder made becomes the first folder of the path that isn't there yet, so nothing gets removed on the way.
+		- Undo takes away every folder the path made, the first one included, deepest first, and stops at the first one that isn't empty any more. Redo makes them again.
+		- After that the top folder of the path is selected, the one in the folder being shown, whether it was made or already there.
+		- The tree's New folder names its folder in Properties, so the same goes for the name typed there.
+	- Swept: every way to make a folder and name it. Ctrl+Shift+N, the menu and the toolbar button go through the window's New folder, which is the view's. The view's background menu, and New folder on a folder in the location bar's menu, go through the view too. The tree's New folder names the folder in Properties. The 3 places a name is typed: the icon view, the list view and Properties. Redo of a plain New folder makes no name and is left alone. Templates make files only, and no drag makes a folder. The "Create folder" button in Copy to, Move to, the archive dialog and the templates setting is the GTK file chooser's own.
+	- Verified: rk56ftav and rk56g0rq fail before the change and pass after. rk56fsaw passes on Linux, under wine and natively on b29w. Its backslash checks fail under wine without the Windows rule.
+	- Branch: nestdir
+	- Commit: bcdd716
+	- Test case: rk56fsaw, New folder named with a path: the split on each platform, and the job itself, with folders already there, the last one there, a file on the way, a trailing separator, the backslash, undo and redo. rk56ftav and rk56g0rq, the same in the icon view and the list view: New folder, a path typed in the box, the top folder selected, and undo. Linux and FreeBSD only.
+	- Acceptance signoff: Left at signoff for the error messages and the calls under Decisions.
+
 - After an `smb://` address is typed, nothing shows that the app is working on it.
 	- ID: 2026100816170921
 	- Type: Bug
@@ -415,38 +447,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: thumbwin
 	- Commit: f38660a to f8a6223
 	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session. (c) still needs its own: a thumbnail and the text from a small file of each type, on every platform, and a check that no program is started for them.
-
-- Allow creating folders with path separators in the name, to make a nested structure in one go.
-	- ID: 2026101009150766
-	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 193 of 194. The one failure, rjv9ks2z, is the connecting sign's look with animations off, and it passed on its own.
-	- Needs external testing: by hand on Windows, New folder in a window, then a path with backslashes typed into the box. Not tried. rk56fsaw passed natively on b29w.
-	- Priority|Severity: Avg
-	- Opened: 20261010-091507
-	- Opened by: t00mietum
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-		- A new folder name with path separators creates each folder in the path, nested.
-	- Actual effort: Avg
-	- Progress log:
-		- 20261013: done. Left at signoff for the new error messages and the calls under Decisions.
-	- Decisions:
-		- A name splits at `/` on every platform, and at `\` on Windows too, since neither can be in a name there. Elsewhere a backslash stays part of the name. The Windows setting for `/` in typed locations doesn't change this.
-		- Only the first name of a folder New folder made counts, typed in the box it opens or later. Renaming any other folder with a `/` in the name is refused, as before.
-		- Folders already there along the path are used as they are. Only the last one being there is the usual "already used" error.
-		- A leading separator, 2 separators in a row, and `.` or `..` as a folder name are refused with a message, and the folder keeps waiting for its first name. A trailing separator is dropped.
-		- The folder New folder made becomes the first folder of the path that isn't there yet, so nothing gets removed on the way.
-		- Undo takes away every folder the path made, the first one included, deepest first, and stops at the first one that isn't empty any more. Redo makes them again.
-		- After that the top folder of the path is selected, the one in the folder being shown, whether it was made or already there.
-		- The tree's New folder names its folder in Properties, so the same goes for the name typed there.
-	- Swept: every way to make a folder and name it. Ctrl+Shift+N, the menu and the toolbar button go through the window's New folder, which is the view's. The view's background menu, and New folder on a folder in the location bar's menu, go through the view too. The tree's New folder names the folder in Properties. The 3 places a name is typed: the icon view, the list view and Properties. Redo of a plain New folder makes no name and is left alone. Templates make files only, and no drag makes a folder. The "Create folder" button in Copy to, Move to, the archive dialog and the templates setting is the GTK file chooser's own.
-	- Verified: rk56ftav and rk56g0rq fail before the change and pass after. rk56fsaw passes on Linux, under wine and natively on b29w. Its backslash checks fail under wine without the Windows rule.
-	- Branch: nestdir
-	- Commit: bcdd716
-	- Test case: rk56fsaw, New folder named with a path: the split on each platform, and the job itself, with folders already there, the last one there, a file on the way, a trailing separator, the backslash, undo and redo. rk56ftav and rk56g0rq, the same in the icon view and the list view: New folder, a path typed in the box, the top folder selected, and undo. Linux and FreeBSD only.
-	- Acceptance signoff: Left at signoff for the error messages and the calls under Decisions.
 
 - Settings: the dialog is too long.
 	- ID: 2026101009150767
