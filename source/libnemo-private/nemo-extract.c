@@ -103,6 +103,13 @@ typedef struct {
 	   backend can often still open it, given one. */
 	gboolean            maybe_encrypted;
 
+	/* Where libarchive stopped at a rar link it can't read, and what it
+	   had placed and passed by then. A command then unpacks the whole
+	   archive, and only what libarchive never got to is placed from it. */
+	char               *long_link;
+	guint               placed;
+	GHashTable         *handled;		/* entry paths, cleaned */
+
 	char               *password;
 	gboolean            password_asked;
 	gboolean            password_declined;
@@ -347,6 +354,9 @@ backend_program (NemoExtractBackend backend)
 	static char *probed_program[4];
 
 	if (backend != NEMO_EXTRACT_BACKEND_7Z && backend != NEMO_EXTRACT_BACKEND_RAR) {
+		return NULL;
+	}
+	if (arc_backend_hidden (backend == NEMO_EXTRACT_BACKEND_7Z ? ARC_BACKEND_7Z : ARC_BACKEND_RAR)) {
 		return NULL;
 	}
 
@@ -1085,6 +1095,50 @@ write_entry_data (ExtractJob     *job,
 	return ok;
 }
 
+/* Nothing after the link can be read, so a command takes the archive over,
+   whatever is on disk already. */
+static ExtractResult
+stopped_at_long_link (ExtractJob           *job,
+		      struct archive_entry *entry)
+{
+	const char *path = archive_entry_pathname_utf8 (entry);
+
+	if (path == NULL) {
+		path = archive_entry_pathname (entry);
+	}
+	job->long_link = path != NULL ? nemo_extract_sanitize_path (path) : NULL;
+	if (job->long_link == NULL) {
+		job->long_link = g_strdup ("");
+	}
+
+	return EXTRACT_UNSUPPORTED;
+}
+
+/* Says where the reader stopped and what had been unpacked by then, so a
+   part of the archive doesn't pass for all of it. */
+static char *
+long_link_text (ExtractJob *job,
+		gboolean    installed)
+{
+	GString *text = g_string_new (NULL);
+
+	g_string_append_printf (text, _("\"%s\" has a link whose target is too long for the built-in reader."),
+				job->current_name);
+	if (job->placed > 0) {
+		g_string_append_c (text, ' ');
+		g_string_append_printf (text, ngettext ("Unpacking stopped at \"%s\", after %'u file.",
+							"Unpacking stopped at \"%s\", after %'u files.",
+							job->placed),
+					job->long_link, job->placed);
+	}
+	if (!installed) {
+		g_string_append_c (text, ' ');
+		g_string_append (text, _("Install 7-Zip or RAR to unpack all of it."));
+	}
+
+	return g_string_free (text, FALSE);
+}
+
 static ExtractResult
 extract_with_libarchive (ExtractJob *job,
 			 GFile      *archive)
@@ -1141,6 +1195,11 @@ extract_with_libarchive (ExtractJob *job,
 		}
 
 		next = archive_read_next_header (a, &entry);
+		if ((next == ARCHIVE_EOF || next < ARCHIVE_WARN) && !job->password_declined &&
+		    arc_rar_stopped_at_long_target (a, entry)) {
+			result = stopped_at_long_link (job, entry);
+			break;
+		}
 		if (next == ARCHIVE_EOF) {
 			break;
 		}
@@ -1176,6 +1235,9 @@ extract_with_libarchive (ExtractJob *job,
 		}
 
 		filetype = archive_entry_filetype (entry);
+		if (filetype != AE_IFDIR) {
+			g_hash_table_add (job->handled, g_strdup (rel));
+		}
 		mtime = archive_entry_mtime_is_set (entry) ? (gint64) archive_entry_mtime (entry) : 0;
 		size = archive_entry_size_is_set (entry) ? (guint64) archive_entry_size (entry) : 0;
 
@@ -1212,6 +1274,7 @@ extract_with_libarchive (ExtractJob *job,
 			if (target != NULL) {
 				if (g_file_make_symbolic_link (target, link_target, job->cancellable, NULL)) {
 					note_created (job, target);
+					job->placed++;
 				}
 				g_object_unref (target);
 			}
@@ -1248,6 +1311,7 @@ extract_with_libarchive (ExtractJob *job,
 				if (g_file_copy (source, target, G_FILE_COPY_OVERWRITE | G_FILE_COPY_ALL_METADATA,
 						 job->cancellable, NULL, NULL, NULL)) {
 					note_created (job, target);
+					job->placed++;
 				}
 				g_object_unref (source);
 			}
@@ -1262,6 +1326,7 @@ extract_with_libarchive (ExtractJob *job,
 		} else {
 			apply_entry_metadata (job, target, mtime, archive_entry_perm (entry));
 			note_created (job, target);
+			job->placed++;
 		}
 
 		g_object_unref (target);
@@ -1320,6 +1385,14 @@ scan_percent (const char *text,
 	return found;
 }
 
+/* Placed, or asked about, before libarchive stopped at a link it can't read. */
+static gboolean
+handled_before_stop (ExtractJob *job,
+		     const char *rel)
+{
+	return job->long_link != NULL && g_hash_table_contains (job->handled, rel);
+}
+
 /* Moves everything a command left in the staging folder into place, asking the
    same questions the entry-by-entry path asks. */
 static void
@@ -1357,7 +1430,21 @@ place_staged_tree (ExtractJob *job,
 
 		name = g_file_info_get_name (info);
 		child = g_file_get_child (staging_dir, name);
-		rel = rel_prefix[0] != '\0' ? g_strconcat (rel_prefix, "/", name, NULL) : g_strdup (name);
+		/* The names are the program's, so they get the same cleaning an
+		   entry read here gets. */
+		{
+			char *joined = rel_prefix[0] != '\0' ? g_strconcat (rel_prefix, "/", name, NULL)
+							     : g_strdup (name);
+
+			rel = nemo_extract_sanitize_path (joined);
+			g_free (joined);
+		}
+
+		if (rel == NULL) {
+			g_object_unref (child);
+			g_object_unref (info);
+			continue;
+		}
 
 		nemo_progress_info_set_details (job->progress, rel);
 
@@ -1365,7 +1452,7 @@ place_staged_tree (ExtractJob *job,
 			if (dir_for_rel (job, rel) != NULL) {
 				place_staged_tree (job, child, rel);
 			}
-		} else {
+		} else if (!handled_before_stop (job, rel)) {
 			GFile *target = target_for_entry (job, rel, FALSE,
 							  (guint64) g_file_info_get_size (info),
 							  (gint64) g_file_info_get_attribute_uint64 (info, G_FILE_ATTRIBUTE_TIME_MODIFIED));
@@ -1618,6 +1705,9 @@ extract_one (ExtractJob *job,
 	job->archive_failed = FALSE;
 	job->wrote_anything = FALSE;
 	job->maybe_encrypted = FALSE;
+	g_clear_pointer (&job->long_link, g_free);
+	job->placed = 0;
+	g_hash_table_remove_all (job->handled);
 
 	g_free (job->current_name);
 	job->current_name = g_file_get_basename (archive);
@@ -1687,6 +1777,16 @@ extract_one (ExtractJob *job,
 				? g_strconcat (passed, "\n\n", details, NULL)
 				: g_strdup (passed != NULL ? passed : details);
 
+			if (job->long_link != NULL) {
+				char *note = long_link_text (job, count > 0);
+				char *both = text != NULL ? g_strconcat (note, "\n\n", text, NULL)
+							  : g_strdup (note);
+
+				g_free (note);
+				g_free (text);
+				text = both;
+			}
+
 			job_fail (job, _("The archive could not be unpacked."),
 				  text != NULL ? text :
 				  _("Nothing installed here can read this archive."));
@@ -1730,6 +1830,8 @@ extract_job_done (gpointer user_data)
 	g_clear_object (&job->progress);
 	g_clear_object (&job->cancellable);
 	g_clear_pointer (&job->dir_map, g_hash_table_destroy);
+	g_clear_pointer (&job->handled, g_hash_table_destroy);
+	g_free (job->long_link);
 	g_free (job->current_name);
 	g_free (job->password);
 	g_free (job->error_message);
@@ -1836,6 +1938,7 @@ nemo_extract_files (GList               *archives,
 	job->destination_dir = g_object_ref (destination_dir);
 	job->layout = layout;
 	job->dir_map = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, dir_map_value_free);
+	job->handled = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 	job->done_callback = done_callback;
 	job->done_callback_data = done_callback_data;
 

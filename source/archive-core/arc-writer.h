@@ -137,9 +137,11 @@ gboolean    arc_stores_symlinks     (const ArcOptions *options,
 				     ArcBackend        backend);
 
 /* For tests: answer as if the program were not installed, so the library's
-   own 7z writer can still be reached on a box that has 7-Zip. */
+   own 7z writer can still be reached on a box that has 7-Zip. Extracting
+   goes by it too. */
 void        arc_hide_backend        (ArcBackend backend,
 				     gboolean   hidden);
+gboolean    arc_backend_hidden      (ArcBackend backend);
 /* For tests: 7-Zip keeps links, or doesn't as on Windows. */
 void        arc_set_7z_keeps_links  (gboolean keeps);
 

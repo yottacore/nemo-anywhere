@@ -257,6 +257,20 @@ arc_hide_backend (ArcBackend backend,
 	g_mutex_unlock (&probe_lock);
 }
 
+gboolean
+arc_backend_hidden (ArcBackend backend)
+{
+	gboolean hidden;
+
+	g_return_val_if_fail (backend == ARC_BACKEND_7Z || backend == ARC_BACKEND_RAR, FALSE);
+
+	g_mutex_lock (&probe_lock);
+	hidden = hidden_backend[backend];
+	g_mutex_unlock (&probe_lock);
+
+	return hidden;
+}
+
 void
 arc_set_7z_keeps_links (gboolean keeps)
 {

@@ -51,6 +51,23 @@ gboolean arc_verify (const ArcHost    *host,
 		     GCancellable     *cancellable,
 		     char            **reason);
 
+/* libarchive 3.8.9 and older reads a rar link's target length as one byte,
+   so it can't read a link whose target, as rar keeps it, is 128 bytes or
+   more, and reads nothing from there on. Fixed upstream in bb42a8c, after
+   3.8.9. Taking 3.8.10 as the first release with the fix is a guess. The
+   check before a delete and extracting both go by these, so they move
+   together. */
+gboolean arc_rar_target_unreadable      (gsize stored_length);
+
+struct archive;
+struct archive_entry;
+
+/* Whether a read that ended, on an error or as if at the end, stopped at
+   such a link: entry, as archive_read_next_header left it, is a link in a
+   rar with a target that long. */
+gboolean arc_rar_stopped_at_long_target (struct archive       *a,
+					 struct archive_entry *entry);
+
 G_END_DECLS
 
 #endif /* ARC_VERIFY_H */
