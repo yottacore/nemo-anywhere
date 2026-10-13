@@ -649,8 +649,8 @@ maybe_publish (ArcScan *scan)
 	if ((++scan->visits & 63) == 0 &&
 	    g_get_monotonic_time () - scan->published_at >= PUBLISH_GAP_USECS) {
 		publish (scan, FALSE);
-		if (scan->visited != NULL) {
-			scan->visited (scan->visited_data);
+		if (scan->visited != NULL && scan->out != NULL) {
+			scan->visited (scan->visited_data, scan->out->files, scan->out->bytes);
 		}
 	}
 }

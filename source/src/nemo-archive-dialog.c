@@ -938,7 +938,7 @@ build_options (ArchiveDialog *self,
 	gtk_widget_set_name (self->lock_check, "lock");
 
 	self->delete_check = add_choice (self, grid, row++,
-					 _("De_lete the originals once the archive checks out"),
+					 _("De_lete originals after verification"),
 					 &self->delete_sources);
 	gtk_widget_set_name (self->delete_check, "delete-originals");
 	gtk_widget_set_tooltip_text (self->delete_check,

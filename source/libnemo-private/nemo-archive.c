@@ -158,6 +158,7 @@ typedef struct {
 	GList              *verified;		/* GFile *, sources safe to remove */
 	char               *verify_trouble;	/* why the first one that failed did */
 	gboolean            unit_empty;		/* nothing in it could go in */
+	gboolean            bar_pulses;		/* a run whose percent isn't the unit's */
 
 	char               *error_message;
 	char               *error_details;
@@ -363,6 +364,14 @@ void
 nemo_archive_set_mounts_for_test (ArcMountTable *(*mounts) (void))
 {
 	mounts_for_test = mounts;
+}
+
+static void (*prescan_watch) (NemoProgressInfo *info);
+
+void
+nemo_archive_set_prescan_watch_for_test (void (*watch) (NemoProgressInfo *info))
+{
+	prescan_watch = watch;
 }
 
 gboolean
@@ -1101,6 +1110,9 @@ typedef struct {
 	GHashTable   *seen_dirs;	/* file ids, so a link loop terminates */
 	GCancellable *cancellable;
 	gboolean      whole;		/* nothing was passed over on the way */
+	/* Left out by the options, so not in the archive, and not read past. */
+	guint         left_folders;
+	guint         left_files;
 	gboolean      links_locked;	/* a link kept as a link can't be listed */
 	gboolean      locked_link;	/* and one is expected */
 	ArcLinkChoice             symlinks;
@@ -1125,6 +1137,17 @@ expect (VerifyWalk *walk,
 
 static gboolean listing_holds_folder (GHashTable *listing, GHashTable *folders,
 				      const char *rel_path);
+
+static void
+left_out (VerifyWalk *walk,
+	  GFileInfo  *info)
+{
+	if (g_file_info_get_file_type (info) == G_FILE_TYPE_DIRECTORY) {
+		walk->left_folders++;
+	} else {
+		walk->left_files++;
+	}
+}
 
 typedef enum {
 	NOT_A_LINK,
@@ -1295,7 +1318,7 @@ verify_walk_item (VerifyWalk *walk,
 	case A_JUNCTION:
 		choice = sort == A_SYMLINK ? walk->symlinks : walk->junctions;
 		if (choice == ARC_LINK_IGNORE) {
-			walk->whole = FALSE;
+			left_out (walk, info);
 			return;
 		}
 		if (choice != ARC_LINK_FOLLOW) {
@@ -1333,8 +1356,8 @@ verify_walk_item (VerifyWalk *walk,
 	    (g_file_info_get_file_type (effective) == G_FILE_TYPE_DIRECTORY &&
 	     g_file_info_get_attribute_uint32 (effective, G_FILE_ATTRIBUTE_UNIX_DEVICE) != device)) {
 		if (!listing_holds_folder (walk->listing, walk->folders, rel_path)) {
+			left_out (walk, effective);
 			g_object_unref (effective);
-			walk->whole = FALSE;
 			return;
 		}
 	}
@@ -1391,9 +1414,13 @@ add_ancestors (GHashTable *folders,
 	}
 }
 
-/* Every entry the archive holds, by path, with its size where one is recorded
-   and -1 where none is. NULL when the file will not open as an archive.
-   @folders_out gets the ancestor set, owned by the caller. */
+typedef struct {
+	gint64   size;		/* -1 where none is recorded */
+	gboolean is_dir;
+} Listed;
+
+/* Every entry the archive holds, by path. NULL when the file will not open
+   as an archive. @folders_out gets the ancestor set, owned by the caller. */
 static GHashTable *
 archive_listing (const char *path,
 		 const char *password,
@@ -1423,15 +1450,16 @@ archive_listing (const char *path,
 		   is not UTF-8, so a name past ASCII would match nothing. */
 		const char *raw = archive_entry_pathname_utf8 (entry);
 		char *name = normal_archive_path (raw != NULL ? raw : archive_entry_pathname (entry));
-		gint64 *size = g_new (gint64, 1);
+		Listed *listed = g_new (Listed, 1);
 
 		/* No size is not a wrong size: rar keeps a second copy of a file
 		   as a reference to the first, which is read back with none. */
-		*size = archive_entry_size_is_set (entry) ?
+		listed->size = archive_entry_size_is_set (entry) ?
 			(gint64) archive_entry_size (entry) : -1;
+		listed->is_dir = archive_entry_filetype (entry) == AE_IFDIR;
 
 		add_ancestors (*folders_out, name);
-		g_hash_table_replace (listing, name, size);
+		g_hash_table_replace (listing, name, listed);
 	}
 
 	archive_read_free (a);
@@ -1508,6 +1536,90 @@ nemo_archive_should_confirm_password (const NemoArchiveOptions *options)
 	       options->password != NULL && options->password[0] != '\0';
 }
 
+/* "2 folders and 3 files", leaving out a kind there are none of. */
+static char *
+count_words (guint folders,
+	     guint files)
+{
+	char *folder_words = g_strdup_printf (ngettext ("%'u folder", "%'u folders", folders), folders);
+	char *file_words = g_strdup_printf (ngettext ("%'u file", "%'u files", files), files);
+	char *words;
+
+	if (folders > 0 && files > 0) {
+		/* TRANSLATORS: "2 folders" and "3 files" */
+		words = g_strdup_printf (_("%s and %s"), folder_words, file_words);
+	} else {
+		words = g_strdup (folders > 0 ? folder_words : file_words);
+	}
+
+	g_free (folder_words);
+	g_free (file_words);
+	return words;
+}
+
+/* Why the archive doesn't match the selection, in counts: what was selected
+   and isn't in it, and what is in it and wasn't selected. Sizes only when
+   the counts match, since a count off already says the sizes will be. NULL
+   when it matches. */
+static char *
+mismatch_reason (guint   missing_folders,
+		 guint   missing_files,
+		 guint   extra_folders,
+		 guint   extra_files,
+		 guint64 selected_bytes,
+		 guint64 archived_bytes,
+		 guint   resized)
+{
+	GString *said = g_string_new (NULL);
+	guint missing = missing_folders + missing_files;
+	guint extra = extra_folders + extra_files;
+	char *words;
+
+	if (missing > 0) {
+		words = count_words (missing_folders, missing_files);
+		g_string_append_printf (said, ngettext ("%s that was selected is not in the archive.",
+							"%s that were selected are not in the archive.",
+							missing),
+					words);
+		g_free (words);
+	}
+	if (extra > 0) {
+		if (said->len > 0) {
+			g_string_append_c (said, ' ');
+		}
+		words = count_words (extra_folders, extra_files);
+		g_string_append_printf (said, ngettext ("%s in the archive was not selected.",
+							"%s in the archive were not selected.",
+							extra),
+					words);
+		g_free (words);
+	}
+
+	if (missing == 0 && extra == 0) {
+		if (selected_bytes != archived_bytes) {
+			char *selected = g_format_size_full (selected_bytes, G_FORMAT_SIZE_LONG_FORMAT);
+			char *archived = g_format_size_full (archived_bytes, G_FORMAT_SIZE_LONG_FORMAT);
+
+			g_string_append_printf (said, _("The selection is %s, but the archive holds %s."),
+						selected, archived);
+			g_free (archived);
+			g_free (selected);
+		} else if (resized > 0) {
+			/* The same total from sizes that differ. */
+			g_string_append_printf (said, ngettext ("%'u file in the archive is not the size of the one selected.",
+								"%'u files in the archive are not the size of the ones selected.",
+								resized),
+						resized);
+		}
+	}
+
+	if (said->len == 0) {
+		g_string_free (said, TRUE);
+		return NULL;
+	}
+	return g_string_free (said, FALSE);
+}
+
 gboolean
 nemo_archive_verify (GFile                    *archive_file,
 		     GList                    *sources,
@@ -1519,6 +1631,7 @@ nemo_archive_verify (GFile                    *archive_file,
 	VerifyWalk walk = { 0 };
 	GHashTable *listing = NULL;
 	GHashTable *folders = NULL;
+	GHashTable *roots = NULL;	/* the selection's own names */
 	GHashTableIter iter;
 	gpointer key;
 	gpointer value;
@@ -1566,6 +1679,7 @@ nemo_archive_verify (GFile                    *archive_file,
 	}
 	walk.listing = listing;
 	walk.folders = folders;
+	roots = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 
 	for (l = sources; l != NULL; l = l->next) {
 		GFile *file = G_FILE (l->data);
@@ -1573,6 +1687,7 @@ nemo_archive_verify (GFile                    *archive_file,
 		GFileInfo *info, *above;
 		char *name;
 
+		g_hash_table_add (roots, g_file_get_basename (file));
 		info = g_file_query_info (file, SCAN_ATTRIBUTES,
 					  G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS,
 					  cancellable, NULL);
@@ -1605,27 +1720,62 @@ nemo_archive_verify (GFile                    *archive_file,
 		trouble = g_strdup (_("Something in the selection could not go into an archive, so not all of it is in there."));
 	}
 
-	g_hash_table_iter_init (&iter, walk.expected);
-	while (trouble == NULL && g_hash_table_iter_next (&iter, &key, &value)) {
-		const char *rel_path = key;
-		const Expected *item = value;
-		gint64 *stored;
+	if (trouble == NULL) {
+		guint missing_folders = walk.left_folders;
+		guint missing_files = walk.left_files;
+		guint extra_folders = 0;
+		guint extra_files = 0;
+		guint64 selected_bytes = 0;
+		guint64 archived_bytes = 0;
+		guint resized = 0;
 
-		if (item->is_dir) {
-			if (!listing_holds_folder (listing, folders, rel_path)) {
-				trouble = g_strdup_printf (_("The folder \"%s\" is not in the archive."),
-							   rel_path);
+		g_hash_table_iter_init (&iter, walk.expected);
+		while (g_hash_table_iter_next (&iter, &key, &value)) {
+			const char *rel_path = key;
+			const Expected *item = value;
+			const Listed *stored;
+
+			if (item->is_dir) {
+				if (!listing_holds_folder (listing, folders, rel_path)) {
+					missing_folders++;
+				}
+				continue;
 			}
-			continue;
+
+			stored = g_hash_table_lookup (listing, rel_path);
+			if (stored == NULL) {
+				missing_files++;
+			} else if (item->size >= 0 && stored->size >= 0) {
+				selected_bytes += (guint64) item->size;
+				archived_bytes += (guint64) stored->size;
+				if (stored->size != item->size) {
+					resized++;
+				}
+			}
 		}
 
-		stored = g_hash_table_lookup (listing, rel_path);
-		if (stored == NULL) {
-			trouble = g_strdup_printf (_("\"%s\" is not in the archive."), rel_path);
-		} else if (item->size >= 0 && *stored >= 0 && *stored != item->size) {
-			trouble = g_strdup_printf (_("\"%s\" is a different size in the archive."),
-						   rel_path);
+		/* Under the selection's own names. The job writes a new
+		   archive, so anything beside them came from another writer,
+		   and says nothing about the originals. */
+		g_hash_table_iter_init (&iter, listing);
+		while (g_hash_table_iter_next (&iter, &key, &value)) {
+			const Listed *stored = value;
+			const char *slash = strchr (key, '/');
+			char *root = g_strndup (key, slash != NULL ? (gsize) (slash - (const char *) key) : strlen (key));
+			gboolean under = g_hash_table_contains (roots, root);
+
+			g_free (root);
+			if (under && !g_hash_table_contains (walk.expected, key)) {
+				if (stored->is_dir) {
+					extra_folders++;
+				} else {
+					extra_files++;
+				}
+			}
 		}
+
+		trouble = mismatch_reason (missing_folders, missing_files, extra_folders, extra_files,
+					   selected_bytes, archived_bytes, resized);
 	}
 
 	if (trouble == NULL && g_hash_table_size (walk.expected) == 0) {
@@ -1636,6 +1786,9 @@ nemo_archive_verify (GFile                    *archive_file,
 	g_hash_table_destroy (folders);
 
  out:
+	if (roots != NULL) {
+		g_hash_table_destroy (roots);
+	}
 	if (walk.expected != NULL) {
 		g_hash_table_destroy (walk.expected);
 	}
@@ -2010,9 +2163,16 @@ set_unit_status (ArchiveJob *job,
 }
 
 static void
-pulse (gpointer data)
+prescan_found (gpointer data,
+	       guint    files,
+	       guint64  bytes)
 {
-	nemo_progress_info_pulse_progress (((ArchiveJob *) data)->progress);
+	ArchiveJob *job = data;
+
+	nemo_progress_info_set_prescan_found (job->progress, files, bytes);
+	if (prescan_watch != NULL) {
+		prescan_watch (job->progress);
+	}
 }
 
 /* The job's own walk, through the archive core, by the link and filesystem
@@ -2042,12 +2202,18 @@ prescan (ArchiveJob *job)
 		job_fail (job, _("The archive could not be created."),
 			  _("The selection is not on this computer, so it can't be compressed here."));
 	} else {
+		nemo_progress_info_start_prescan (job->progress);
+		prescan_found (job, 0, 0);
 		nemo_archive_host_init (&host);
 		job->list = arc_scan_list (&host, base, (const char * const *) paths->pdata,
 					   &job->options.links,
 					   nemo_archive_backend_link_stores (job->options.format, job->backend),
 					   mounts_for_test != NULL ? mounts_for_test () : NULL,
-					   job->cancellable, pulse, job);
+					   job->cancellable, prescan_found, job);
+		if (job->list != NULL) {
+			prescan_found (job, job->list->files, job->list->bytes);
+		}
+		nemo_progress_info_end_prescan (job->progress);
 	}
 
 	g_ptr_array_unref (paths);
@@ -3198,7 +3364,9 @@ start_tool (ArchiveJob  *job,
 
 		take_output (output, buffer, (gsize) count);
 
-		if (scan_percent (buffer, (gsize) count, &percent)) {
+		if (job->bar_pulses) {
+			nemo_progress_info_pulse_progress (job->progress);
+		} else if (scan_percent (buffer, (gsize) count, &percent)) {
 			nemo_progress_info_set_progress (job->progress, percent, 100);
 		}
 	}
@@ -3576,8 +3744,11 @@ run_command (ArchiveJob *job)
 	if (plan.links->len > 0) {
 		GPtrArray *none = g_ptr_array_new ();
 
+		/* Its 0 to 100 would only go back to 0 for the rest. */
+		job->bar_pulses = plan.roots->len > 0;
 		any = run_tool (job, program, base_path, archive_path, plan.links, none,
 				TRUE, TRUE, NULL, output, NULL);
+		job->bar_pulses = FALSE;
 		g_ptr_array_unref (none);
 		/* Left out after all, and named. */
 		if (!any && !job_aborted (job)) {
@@ -3777,6 +3948,8 @@ start_unit (ArchiveJob  *job,
 	job->total_bytes = 0;
 	job->done_bytes = 0;
 	job->file_count = 0;
+	/* Not the last archive's full bar while this one's pre-scan runs. */
+	nemo_progress_info_set_progress (job->progress, 0, 1);
 
 	nemo_progress_info_take_details (job->progress,
 					 g_file_get_basename (unit->destination));

@@ -27,6 +27,7 @@
 
 #include "test-scratch.h"
 #include "test-check.h"
+#include "nemo-progress-info-widget.h"
 
 #define ARCHIVE_TIMEOUT_SECONDS 30
 
@@ -1130,6 +1131,358 @@ check_unreadable_sources (const char *tmp,
 }
 #endif
 
+/* The check refuses with reason, and says why. */
+static void
+check_says (GFile                    *archive,
+	    GList                    *sources,
+	    const NemoArchiveOptions *options,
+	    const char               *words)
+{
+	char *reason = NULL;
+
+	check (!nemo_archive_verify (archive, sources, options, NEMO_ARCHIVE_BACKEND_LIBARCHIVE,
+				     NULL, &reason));
+	if (g_strcmp0 (reason, words) != 0) {
+		g_printerr ("FAIL: the check said \"%s\", not \"%s\"\n",
+			    reason != NULL ? reason : "(nothing)", words);
+		failures++;
+	}
+	g_free (reason);
+}
+
+static void
+remove_file (const char *dir,
+	     const char *name)
+{
+	char *path = g_build_filename (dir, name, NULL);
+
+	check (g_remove (path) == 0);
+	g_free (path);
+}
+
+/* A failed delete check says what didn't match: how many selected folders
+   and files aren't in the archive, how many in it weren't selected, and
+   when those match, the sizes. */
+static void
+check_reasons (const char *tmp,
+	       GtkWidget  *window)
+{
+	static const char * const names[] = { "a.txt", "deep", "empty", NULL };
+	char *dir = g_build_filename (tmp, "reasons", NULL);
+	char *deep = g_build_filename (dir, "deep", NULL);
+	char *empty = g_build_filename (dir, "empty", NULL);
+	char *newer = g_build_filename (deep, "newer", NULL);
+	char *inner = g_build_filename (deep, "inner", NULL);
+	char *path = g_build_filename (tmp, "reasons.zip", NULL);
+	char *flat_path = g_build_filename (tmp, "reasons-flat.zip", NULL);
+	char *dropped_path = g_build_filename (tmp, "reasons-dropped.zip", NULL);
+	GFile *archive = g_file_new_for_path (path);
+	GFile *flat = g_file_new_for_path (flat_path);
+	GFile *dropped = g_file_new_for_path (dropped_path);
+	GList *sources;
+	NemoArchiveOptions options;
+	char *selected, *archived, *words;
+
+	g_mkdir_with_parents (inner, 0700);
+	g_mkdir_with_parents (empty, 0700);
+	write_file (dir, "a.txt", "alpha");
+	write_file (deep, "b.txt", "bravo");
+	write_file (inner, "d.txt", "delta");
+
+	sources = sources_in (dir, names);
+	nemo_archive_options_init (&options);
+	options.format = NEMO_ARCHIVE_FORMAT_ZIP;
+	compress_to (sources, archive, &options, window);
+	check (nemo_archive_verify (archive, sources, &options, NEMO_ARCHIVE_BACKEND_LIBARCHIVE,
+				    NULL, NULL));
+
+	/* Not in the archive: a file, a folder, and both. */
+	check (rewrite_without (path, dropped_path, "a.txt"));
+	check_says (dropped, sources, &options, "1 file that was selected is not in the archive.");
+	check (rewrite_without (path, flat_path, NULL));
+	check_says (flat, sources, &options, "1 folder that was selected is not in the archive.");
+	g_mkdir_with_parents (newer, 0700);
+	write_file (newer, "x.txt", "xray");
+	write_file (deep, "c.txt", "charlie");
+	check_says (archive, sources, &options,
+		    "1 folder and 2 files that were selected are not in the archive.");
+
+	/* In the archive and not selected. */
+	remove_file (newer, "x.txt");
+	check (g_rmdir (newer) == 0);
+	remove_file (deep, "c.txt");
+	remove_file (deep, "b.txt");
+	check_says (archive, sources, &options, "1 file in the archive was not selected.");
+	write_file (deep, "b.txt", "bravo");
+	remove_file (inner, "d.txt");
+	check (g_rmdir (inner) == 0);
+	check_says (archive, sources, &options, "1 folder and 1 file in the archive were not selected.");
+	g_mkdir_with_parents (inner, 0700);
+	write_file (inner, "d.txt", "delta");
+
+	/* Both ways at once. */
+	remove_file (deep, "b.txt");
+	write_file (deep, "c.txt", "charlie");
+	check_says (archive, sources, &options,
+		    "1 file that was selected is not in the archive. "
+		    "1 file in the archive was not selected.");
+	remove_file (deep, "c.txt");
+	write_file (deep, "b.txt", "bravo");
+	check (nemo_archive_verify (archive, sources, &options, NEMO_ARCHIVE_BACKEND_LIBARCHIVE,
+				    NULL, NULL));
+
+	/* Counts that match, and sizes that don't. */
+	write_file (dir, "a.txt", "alpha and then some");
+	selected = g_format_size_full (29, G_FORMAT_SIZE_LONG_FORMAT);
+	archived = g_format_size_full (15, G_FORMAT_SIZE_LONG_FORMAT);
+	words = g_strdup_printf ("The selection is %s, but the archive holds %s.", selected, archived);
+	check_says (archive, sources, &options, words);
+	g_free (words);
+	g_free (archived);
+	g_free (selected);
+
+	/* The size is left out when a count is off. */
+	write_file (deep, "c.txt", "charlie");
+	check_says (archive, sources, &options, "1 file that was selected is not in the archive.");
+	remove_file (deep, "c.txt");
+
+	/* The same total from 2 sizes that differ. */
+	write_file (dir, "a.txt", "alph");
+	write_file (deep, "b.txt", "bravo!");
+	check_says (archive, sources, &options,
+		    "2 files in the archive are not the size of the ones selected.");
+	write_file (dir, "a.txt", "alpha");
+	write_file (deep, "b.txt", "bravo");
+
+#ifndef G_OS_WIN32
+	/* A link the options leave out is a selected file not in the archive. */
+	{
+		char *link_path = g_build_filename (deep, "dangling", NULL);
+		GFile *link_file = g_file_new_for_path (link_path);
+
+		check (g_file_make_symbolic_link (link_file, "nowhere", NULL, NULL));
+		options.links.symlinks = ARC_LINK_IGNORE;
+		compress_to (sources, archive, &options, window);
+		check_says (archive, sources, &options, "1 file that was selected is not in the archive.");
+		g_remove (link_path);
+		g_object_unref (link_file);
+		g_free (link_path);
+	}
+#endif
+
+	nemo_archive_options_clear (&options);
+	g_list_free_full (sources, g_object_unref);
+	g_object_unref (dropped);
+	g_object_unref (flat);
+	g_object_unref (archive);
+	g_free (dropped_path);
+	g_free (flat_path);
+	g_free (path);
+	g_free (inner);
+	g_free (newer);
+	g_free (empty);
+	g_free (deep);
+	g_free (dir);
+}
+
+/* What the job's pre-scan has told the progress info, seen on the job's
+   thread each time it does. */
+static struct {
+	char             *destination;
+	NemoProgressInfo *info;
+	guint             reports;
+	guint             not_running;
+	guint             written_first;
+	guint             midway;	/* some found, not all yet */
+	guint             all_files;
+	guint             files;
+	guint64           bytes;
+} prescan_seen;
+
+static void
+watch_prescan (NemoProgressInfo *info)
+{
+	guint files = 0;
+	guint64 bytes = 0;
+
+	if (prescan_seen.info == NULL) {
+		prescan_seen.info = g_object_ref (info);
+	}
+	prescan_seen.reports++;
+	if (!nemo_progress_info_get_prescan (info, NULL, &files, &bytes)) {
+		prescan_seen.not_running++;
+	}
+	if (g_file_test (prescan_seen.destination, G_FILE_TEST_EXISTS)) {
+		prescan_seen.written_first++;
+	}
+	if (files > 0 && files < prescan_seen.all_files) {
+		prescan_seen.midway++;
+	}
+	prescan_seen.files = files;
+	prescan_seen.bytes = bytes;
+}
+
+/* The pre-scan reports what it has found, through the core's walk, before
+   the first file is written, and is over once the job is. Enough files that
+   the walk reports midway too. */
+static void
+check_prescan_reports (const char        *tmp,
+		       NemoArchiveFormat  format,
+		       const char        *name,
+		       GtkWidget         *window)
+{
+	char *dir = g_build_filename (tmp, "prescan", NULL);
+	char *many = g_build_filename (dir, "many", NULL);
+	char *path = g_build_filename (tmp, name, NULL);
+	GFile *destination = g_file_new_for_path (path);
+	GList *sources;
+	NemoArchiveOptions options;
+	guint64 bytes = 0;
+	guint i;
+
+	g_mkdir_with_parents (many, 0700);
+	for (i = 0; i < 150; i++) {
+		char *file_name = g_strdup_printf ("f%03u.txt", i);
+		char *text = g_strnfill (i % 7 + 1, 'x');
+
+		write_file (many, file_name, text);
+		bytes += i % 7 + 1;
+		g_free (text);
+		g_free (file_name);
+	}
+	sources = g_list_append (NULL, g_file_new_for_path (many));
+
+	memset (&prescan_seen, 0, sizeof prescan_seen);
+	prescan_seen.destination = path;
+	prescan_seen.all_files = 150;
+	nemo_archive_set_prescan_watch_for_test (watch_prescan);
+
+	nemo_archive_options_init (&options);
+	options.format = format;
+	compress_to (sources, destination, &options, window);
+	nemo_archive_set_prescan_watch_for_test (NULL);
+
+	check (g_file_test (path, G_FILE_TEST_EXISTS));
+	check (prescan_seen.reports >= 3);
+	check (prescan_seen.not_running == 0);
+	check (prescan_seen.written_first == 0);
+	check (prescan_seen.midway > 0);
+	check (prescan_seen.files == 150);
+	check (prescan_seen.bytes == bytes);
+	check (prescan_seen.info != NULL &&
+	       !nemo_progress_info_get_prescan (prescan_seen.info, NULL, NULL, NULL));
+	g_clear_object (&prescan_seen.info);
+
+	nemo_archive_options_clear (&options);
+	g_list_free_full (sources, g_object_unref);
+	g_object_unref (destination);
+	g_remove (path);
+	g_free (path);
+	g_free (many);
+	g_free (dir);
+}
+
+static gboolean
+time_up (gpointer data)
+{
+	*(gboolean *) data = TRUE;
+	return G_SOURCE_REMOVE;
+}
+
+/* Runs the main loop for a while. With since, says whether the pre-scan
+   bar ever showed sooner than half a second after it. */
+static gboolean
+run_for (guint       msec,
+	 GtkWidget  *bar,
+	 gint64      since)
+{
+	gboolean done = FALSE;
+	gboolean early = FALSE;
+
+	g_timeout_add (msec, time_up, &done);
+	while (!done) {
+		g_main_context_iteration (NULL, TRUE);
+		if (since != 0 && gtk_widget_get_visible (bar) &&
+		    g_get_monotonic_time () - since < G_USEC_PER_SEC / 2) {
+			early = TRUE;
+		}
+	}
+	return early;
+}
+
+static GtkWidget *
+find_named (GtkWidget  *widget,
+	    const char *name)
+{
+	GList *children, *l;
+	GtkWidget *found = NULL;
+
+	if (g_strcmp0 (gtk_widget_get_name (widget), name) == 0) {
+		return widget;
+	}
+	if (!GTK_IS_CONTAINER (widget)) {
+		return NULL;
+	}
+	children = gtk_container_get_children (GTK_CONTAINER (widget));
+	for (l = children; l != NULL && found == NULL; l = l->next) {
+		found = find_named (l->data, name);
+	}
+	g_list_free (children);
+	return found;
+}
+
+/* The second bar shows only once the pre-scan has run half a second, so
+   one that's over sooner never flashes it, and it goes when the walk ends. */
+static void
+check_prescan_bar (void)
+{
+	NemoProgressInfo *info = nemo_progress_info_new ();
+	GtkWidget *window = gtk_offscreen_window_new ();
+	GtkWidget *widget = nemo_progress_info_widget_new (info);
+	GtkWidget *bar = find_named (widget, "prescan");
+	GtkWidget *found = find_named (widget, "prescan-found");
+	gint64 since = 0;
+	char *size, *words;
+
+	gtk_container_add (GTK_CONTAINER (window), widget);
+	gtk_widget_show_all (window);
+	check (bar != NULL && found != NULL);
+	if (bar == NULL || found == NULL) {
+		goto out;
+	}
+	nemo_progress_info_start (info);
+	check (!gtk_widget_get_visible (bar));
+
+	/* Over quickly. */
+	nemo_progress_info_start_prescan (info);
+	nemo_progress_info_set_prescan_found (info, 2, 10);
+	nemo_progress_info_end_prescan (info);
+	run_for (800, bar, 0);
+	check (!gtk_widget_get_visible (bar));
+
+	/* Still going after half a second. */
+	nemo_progress_info_start_prescan (info);
+	nemo_progress_info_get_prescan (info, &since, NULL, NULL);
+	nemo_progress_info_set_prescan_found (info, 3, 1234);
+	check (!run_for (900, bar, since));
+	check (gtk_widget_get_visible (bar));
+	size = g_format_size (1234);
+	words = g_strdup_printf ("Found 3 files, %s", size);
+	check (g_strcmp0 (gtk_label_get_text (GTK_LABEL (found)), words) == 0);
+	g_free (words);
+	g_free (size);
+
+	nemo_progress_info_end_prescan (info);
+	run_for (300, bar, 0);
+	check (!gtk_widget_get_visible (bar));
+
+ out:
+	nemo_progress_info_finish (info);
+	run_for (200, bar, 0);
+	gtk_widget_destroy (window);
+	g_object_unref (info);
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -1166,6 +1519,12 @@ main (int argc, char *argv[])
 	check_archive_of_archive (each_dir, window);
 	check_verify (tmp, window);
 	check_verify_followed (tmp, window);
+	check_reasons (tmp, window);
+	check_prescan_reports (tmp, NEMO_ARCHIVE_FORMAT_ZIP, "prescan.zip", window);
+	if (nemo_archive_backend_present (NEMO_ARCHIVE_BACKEND_RAR)) {
+		check_prescan_reports (tmp, NEMO_ARCHIVE_FORMAT_RAR, "prescan.rar", window);
+	}
+	check_prescan_bar ();
 	handler = g_log_set_handler ("GLib", G_LOG_LEVEL_WARNING, count_glib_warning, NULL);
 	check_cancel (tmp, NEMO_ARCHIVE_FORMAT_ZIP, 0, window);
 	check_cancel (tmp, NEMO_ARCHIVE_FORMAT_7Z, 1024 * 1024, window);

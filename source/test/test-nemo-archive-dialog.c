@@ -388,7 +388,8 @@ probe_groups (gpointer data)
 
 /* A 7z with a password keeps a link's target where the password locks it,
    and the check can't list past it, so with links kept the delete box is
-   grayed. Plain files have no link to keep. Store is remembered. */
+   grayed. Plain files have no link to keep. Store is remembered. The box's
+   own name is checked here too. */
 static gboolean
 probe_locked_links (gpointer data)
 {
@@ -408,6 +409,8 @@ probe_locked_links (gpointer data)
 		 NEMO_ARCHIVE_CAP_STORE_LINKS);
 
 	set_format (dialog, "7z");
+	check (g_strcmp0 (gtk_button_get_label (GTK_BUTTON (named (dialog, "delete-originals"))),
+			  "De_lete originals after verification") == 0);
 	check (can_click (dialog, "delete-originals"));
 	gtk_entry_set_text (GTK_ENTRY (password), "secret");
 	check (can_click (dialog, "delete-originals") == !locks);

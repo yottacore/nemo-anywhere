@@ -35,6 +35,7 @@
 #include <gio/gio.h>
 
 #include "nemo-tool-run.h"
+#include "nemo-progress-info.h"
 #include "arc-link-options.h"
 #include "arc-mounts.h"
 
@@ -145,6 +146,9 @@ void               nemo_archive_set_7z_keeps_links (gboolean keeps);
    makes, called on the job's thread, rather than the system's. NULL puts
    the system's back. */
 void               nemo_archive_set_mounts_for_test (ArcMountTable *(*mounts) (void));
+/* For tests: called on the job's thread each time its pre-scan reports to
+   the progress info, the start and the end included. NULL for none. */
+void               nemo_archive_set_prescan_watch_for_test (void (*watch) (NemoProgressInfo *info));
 
 /* Name handling for the dialog: the extension follows the format, and a
  * selection suggests a name - or, when the selection is part of a folder rather
