@@ -48,7 +48,7 @@ typedef struct {
 	guint    follow;	/* the options as last set */
 	guint    files;		/* in the list, for any mix */
 	guint    shares;	/* links and folders left out for being on a share */
-	guint    unreadable;	/* folders that couldn't be listed */
+	guint    unreadable;	/* folders that couldn't be listed, and names that couldn't be looked at */
 	/* Every path the options allow was walked, so the total for them and
 	   each change are exact. */
 	gboolean done;
