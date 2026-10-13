@@ -876,11 +876,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Compression reset: move the compress code into the archive core.
 	- ID: 2026100516274683
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting on signoff
+	- Needs local test suite run?: No. The full Linux suite passed on the branch, 196 of 196.
+	- Needs external testing: None left. rewygsbg passes natively on b29w. rhr6ggmt fails the same 2 rows there on dev and on the branch, filed as 2026101313374036.
 	- Opened: 20261005-162747
 	- Opened by: compression reset split
 	- Parent ID: 2026092910143202
 	- Prereq IDs: 2026100516274349, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646
+	- Related IDs: 2026100516275399, 2026101313374036
 	- Target OS: Linux, Windows
 	- Design: [Modularity](design_docs/20260929-101432_compression.md#modularity) and [Roadmap](design_docs/20260929-101432_compression.md#roadmap).
 	- Requirements:
@@ -888,7 +891,41 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Writer choice, command lines, writing, and the check before a delete go to the core. The Compress dialog and the progress bars go to the GTK layer. Menus, the job queue, settings, trash and the delete guard stay in nemo.
 		- Each piece moves once.
 	- Estimated effort: High
+	- Actual effort: High
+	- Progress log:
+		- 20261013-133740: moved, in 3 commits along the design's pieces, each building and passing the tests: writer choice and command lines, then the check before a delete, then writing. Left at signoff for these calls:
+			- The GTK layer is read as the GTK code outside the core: the Compress dialog in `nemo-archive-dialog.c` and the progress widget, which the core reaches only through its host. Both stay where they are. A library of their own would mean the dialog no longer reads nemo's settings and share check by itself, which is a rewrite, not a move. What moved toward the dialog is how tall its options may grow.
+			- nemo calls the moved code by its old names, from a list in `nemo-archive.h`, so the callers and the tests didn't change. Options for later: rename the callers to the core's names and drop the list.
+		- 20261013: rhr6ggmt failed once in a parallel run on Linux, in a rar row that keeps links with a password: the 2 links were missing from the archive. It didn't come back in 9 more runs of the branch, 6 of them side by side, or in 3 of dev.
+	- Decisions:
+		- A job reads the command lines and the thread count once, when it's made, and keeps its copy. Before, each line was read as it was built.
+		- The core names its 4 command lines, and nemo's settings keys are those names.
+		- The pre-scan's bar is a table of its own on the host, since the core test fills the other tables in order.
+		- An edited line missing `{{PASSWORD}}` or `{{SPLIT}}` is found by the core looking for the 2 markers, rather than by asking the host which tokens went unused.
+		- The core has its own copy of the Windows checks for where a link leads and for a PATHEXT name, as the design says.
+	- Done: `arc-writer`, `arc-command`, `arc-volumes`, `arc-verify` and `arc-compress` in `source/archive-core/`, which now links libarchive. `nemo-archive.c` keeps the job queue, the progress window and the callback, and `nemo-archive-host.c` fills a job's host with the progress, the pre-scan's bar, new files, other programs, deletes of what the job wrote, the trash and the dialogs. The lint's lists of who may delete and trash name `nemo-archive-host.c` in place of `nemo-archive.c`. No test changed. Extract code wasn't touched, and still calls the shared helpers by their old names.
+	- Swept: every `nemo_archive_` name in the tree has an alias or a definition. No core file names anything of nemo's. `test-nemo-archive-settings.c` still says the password prompt's rule is in `nemo-archive.c`; left, since the tests stay as they are.
+	- Verified: 20261013. On dev and on the branch, the same tests pass: rev86z08, rhae85g0, rewygsbg, rj4jewn6, rjbpyy28, rhr6ggmt, rhtmbdmj, rjq9mv0w, rjqef159, rexkeyng, reww9h2r, reww9h2s and the 4 archive leak tests on Linux; the 12 of them that aren't leak tests under ASan and UBSan with the leak check; and the 11 that build for Windows under wine. rhr6ggmt makes 315 runs on Linux and 52 under wine on both. Natively on b29w, rewygsbg passes on both and rhr6ggmt gives the same output on both. The full Linux suite on the branch: 196 of 196. The Windows cross build with warnings as errors, and the C lint, pass after each commit.
+	- Branch: arcmove
+	- Commit: 6fe9214, a6ee2ed, c97da18
 	- Test case: none new. rev86z08, rhae85g0, rewygsbg, rj4jewn6, rjbpyy28, rhr6ggmt, rhtmbdmj and the core tests stay as they are, and pass before and after.
+
+- On Windows, rhr6ggmt keeps a junction it should delete in 2 rar rows of one archive per item.
+	- ID: 2026101313374036
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261013-133740
+	- Opened by: native run for 2026100516274683
+	- Related IDs: 2026100516274683
+	- Target OS: Windows
+	- Test environment: b29w, the cross-built test run natively, at dev 7d3021a.
+	- Steps to reproduce:
+		- Run rhr6ggmt, Archive option combinations, natively on b29w.
+	- Incorrect behavior: 2 rar rows with junctions stored, one archive per item and delete on fail. In both, `jlink` is still there after the delete. One says "The original files were kept." and that `sub` has no archive. The other says 1 selected file isn't in the archive, and also gets the wrong number of warnings.
+	- Expected behavior: `jlink` goes to the trash once its archive checks out, as on Linux.
+	- Reproduced: 20261013 on b29w, the same 2 rows on dev and on the arcmove branch. The last native run before this, at arcprog, passed every row.
+	- Test case: rhr6ggmt, Archive option combinations, natively on Windows.
 
 - Compression reset: move the extract code into the archive core.
 	- ID: 2026100516275399
