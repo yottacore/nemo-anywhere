@@ -68,13 +68,18 @@ typedef struct {
 	GtkWidget *delete_check;
 
 	GtkWidget *compress_button;
+	GtkWidget *expander;
+	GtkWidget *reset_button;
 	GtkWidget *options_scroll;
 
-	/* The link choices as chosen. What the buttons show is what the format
-	   can do with them, so a store it can't do shows as Ignore here and
-	   comes back with a format that can. */
-	ArcLinkOptions links;
-	gboolean   showing_links;	/* set while the buttons are made to match */
+	/* The choices under Options as chosen. What the controls show is what
+	   the format can do with them, so a box it can't do shows off, a store
+	   it can't do shows as Ignore, and either comes back with a format that
+	   can. The password and the delete box are never remembered. */
+	NemoArchiveChoices chosen;
+	char      *password;
+	gboolean   delete_sources;
+	gboolean   showing;		/* set while the controls are made to match */
 
 	GList     *files;		/* GFile *, owned */
 	gboolean   whole_folder;	/* the selection is all the folder shows */
@@ -136,21 +141,58 @@ compressing_each (ArchiveDialog *self)
 	       gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (self->each_check));
 }
 
+static GtkWidget *
+split_entry (ArchiveDialog *self)
+{
+	return gtk_bin_get_child (GTK_BIN (self->split_combo));
+}
+
+/* Splitting is a requirement, so a size that can't be read stops Compress
+   rather than writing one file. */
+static gboolean
+size_unreadable (ArchiveDialog *self)
+{
+	return gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (self->split_check)) &&
+	       !nemo_archive_parse_size (gtk_entry_get_text (GTK_ENTRY (split_entry (self))), NULL);
+}
+
 /* Part of a folder gets no suggested name, so the field starts empty and there
    is nothing to compress into until it is filled in. Separate archives take
    their names from the items, so an empty field stops nothing. */
 static void
-update_name_validity (ArchiveDialog *self)
+update_validity (ArchiveDialog *self)
 {
 	gboolean each = compressing_each (self);
+	gboolean bad_size = size_unreadable (self);
+	GtkStyleContext *style = gtk_widget_get_style_context (split_entry (self));
 
 	gtk_widget_set_sensitive (self->name_entry, !each);
 	set_row_sensitive (self->name_label, !each);
 
+	if (bad_size) {
+		gtk_style_context_add_class (style, GTK_STYLE_CLASS_ERROR);
+		gtk_widget_set_tooltip_text (split_entry (self),
+					     _("Not a size that can be read. Try one like 700 MiB or 4.5 GiB."));
+	} else {
+		gtk_style_context_remove_class (style, GTK_STYLE_CLASS_ERROR);
+		gtk_widget_set_tooltip_text (split_entry (self), NULL);
+	}
+
 	if (self->compress_button != NULL) {
 		gtk_widget_set_sensitive (self->compress_button,
-					  each ||
-					  gtk_entry_get_text_length (GTK_ENTRY (self->name_entry)) > 0);
+					  !bad_size &&
+					  (each || gtk_entry_get_text_length (GTK_ENTRY (self->name_entry)) > 0));
+	}
+}
+
+static void
+show_check (GtkWidget *check,
+	    gboolean   on,
+	    gboolean   can)
+{
+	if (check != NULL) {
+		gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (check), on && can);
+		gtk_widget_set_sensitive (check, can);
 	}
 }
 
@@ -174,7 +216,8 @@ set_store_tip (GtkWidget                *button,
 	gtk_widget_set_tooltip_text (button, tip);
 }
 
-/* The buttons show the choices as this format and these options can do them. */
+/* The buttons show the choices as this format and these options can do them.
+   Called with self->showing set. */
 static void
 show_link_choices (ArchiveDialog            *self,
 		   NemoArchiveFormat         format,
@@ -183,17 +226,15 @@ show_link_choices (ArchiveDialog            *self,
 	guint stores = nemo_archive_options_link_stores (format, wanted);
 	gboolean can_store;
 
-	self->showing_links = TRUE;
-
 	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (
-		self->symlinks[arc_link_options_symlinks (&self->links, stores)]), TRUE);
+		self->symlinks[arc_link_options_symlinks (&self->chosen.links, stores)]), TRUE);
 	can_store = (stores & ARC_STORES_SYMLINKS) != 0;
 	gtk_widget_set_sensitive (self->symlinks[ARC_LINK_STORE_SYMLINK], can_store);
 	set_store_tip (self->symlinks[ARC_LINK_STORE_SYMLINK], can_store, format, wanted);
 
 	if (self->junctions[ARC_LINK_IGNORE] != NULL) {
 		gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (
-			self->junctions[arc_link_options_junctions (&self->links, stores)]), TRUE);
+			self->junctions[arc_link_options_junctions (&self->chosen.links, stores)]), TRUE);
 		can_store = (stores & ARC_STORES_JUNCTIONS) != 0;
 		gtk_widget_set_sensitive (self->junctions[ARC_LINK_STORE_JUNCTION], can_store);
 		gtk_widget_set_tooltip_text (self->junctions[ARC_LINK_STORE_JUNCTION], can_store
@@ -205,16 +246,24 @@ show_link_choices (ArchiveDialog            *self,
 	}
 
 	/* Only a folder or a link has anything mounted below it. */
-	if (self->nested_check != NULL) {
-		gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (self->nested_check),
-					      self->links.follow_nested);
-		gtk_widget_set_sensitive (self->nested_check, self->links_or_folders);
-	}
-	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (self->other_check),
-				      self->links.follow_other);
-	gtk_widget_set_sensitive (self->other_check, self->links_or_folders);
+	show_check (self->nested_check, self->chosen.links.follow_nested, self->links_or_folders);
+	show_check (self->other_check, self->chosen.links.follow_other, self->links_or_folders);
+}
 
-	self->showing_links = FALSE;
+static gboolean
+has_password (ArchiveDialog *self, NemoArchiveCaps caps)
+{
+	return (caps & NEMO_ARCHIVE_CAP_PASSWORD) != 0 &&
+	       self->password != NULL && self->password[0] != '\0';
+}
+
+/* Reset has nothing to do once everything is at its default. */
+static gboolean
+all_at_default (ArchiveDialog *self)
+{
+	return nemo_archive_choices_at_default (&self->chosen) &&
+	       (self->password == NULL || self->password[0] == '\0') &&
+	       !self->delete_sources;
 }
 
 /* Everything that depends on the chosen format: which options that format can
@@ -224,51 +273,61 @@ update_for_format (ArchiveDialog *self)
 {
 	NemoArchiveFormat format = current_format (self);
 	NemoArchiveCaps caps = nemo_archive_format_caps (format);
+	NemoArchiveChoices shown = { 0 };
 	NemoArchiveOptions checkable;
-	gboolean has_password;
-	gboolean hidden_names;
-	gboolean splitting;
+	const char *password_shown;
+	gboolean can_delete;
 	char *name;
+
+	nemo_archive_choices_shown (&self->chosen, caps, has_password (self, caps), &shown);
+	self->showing = TRUE;
 
 	set_row_sensitive (self->level_scale, (caps & NEMO_ARCHIVE_CAP_LEVEL) != 0);
 	set_row_sensitive (self->level_label, (caps & NEMO_ARCHIVE_CAP_LEVEL) != 0);
+
+	/* A password the format can't take shows as none, like a box. */
 	set_row_sensitive (self->password_entry, (caps & NEMO_ARCHIVE_CAP_PASSWORD) != 0);
 	set_row_sensitive (self->password_label, (caps & NEMO_ARCHIVE_CAP_PASSWORD) != 0);
-	set_row_sensitive (self->split_check, (caps & NEMO_ARCHIVE_CAP_SPLIT) != 0);
-	set_row_sensitive (self->solid_check, (caps & NEMO_ARCHIVE_CAP_SOLID) != 0);
-	set_row_sensitive (self->dedupe_check, (caps & NEMO_ARCHIVE_CAP_DEDUPE) != 0);
-	set_row_sensitive (self->recovery_check, (caps & NEMO_ARCHIVE_CAP_RECOVERY) != 0);
-	set_row_sensitive (self->lock_check, (caps & NEMO_ARCHIVE_CAP_LOCK) != 0);
+	password_shown = (caps & NEMO_ARCHIVE_CAP_PASSWORD) != 0 && self->password != NULL
+		? self->password : "";
+	if (g_strcmp0 (gtk_entry_get_text (GTK_ENTRY (self->password_entry)), password_shown) != 0) {
+		gtk_entry_set_text (GTK_ENTRY (self->password_entry), password_shown);
+	}
 
 	/* Encrypting the names is only meaningful once there is a password, and
 	   the volume size only once splitting is asked for. */
-	has_password = gtk_entry_get_text_length (GTK_ENTRY (self->password_entry)) > 0 &&
-		       (caps & NEMO_ARCHIVE_CAP_PASSWORD) != 0;
-	set_row_sensitive (self->encrypt_names_check,
-			   has_password && (caps & NEMO_ARCHIVE_CAP_ENCRYPT_NAMES) != 0);
-
-	splitting = (caps & NEMO_ARCHIVE_CAP_SPLIT) != 0 &&
-		    gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (self->split_check));
-	set_row_sensitive (self->split_combo, splitting);
+	show_check (self->encrypt_names_check, shown.encrypt_names,
+		    has_password (self, caps) && (caps & NEMO_ARCHIVE_CAP_ENCRYPT_NAMES) != 0);
+	show_check (self->split_check, shown.split, (caps & NEMO_ARCHIVE_CAP_SPLIT) != 0);
+	set_row_sensitive (self->split_combo, shown.split);
+	show_check (self->solid_check, shown.solid, (caps & NEMO_ARCHIVE_CAP_SOLID) != 0);
+	show_check (self->dedupe_check, shown.dedupe, (caps & NEMO_ARCHIVE_CAP_DEDUPE) != 0);
+	show_check (self->recovery_check, shown.recovery, (caps & NEMO_ARCHIVE_CAP_RECOVERY) != 0);
+	show_check (self->lock_check, shown.lock, (caps & NEMO_ARCHIVE_CAP_LOCK) != 0);
 
 	/* The box is only offered for an archive that can be checked afterwards,
 	   and nemo_archive_can_verify is the one place that decides. */
-	hidden_names = has_password &&
-		       (caps & NEMO_ARCHIVE_CAP_ENCRYPT_NAMES) != 0 &&
-		       gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (self->encrypt_names_check));
 	nemo_archive_options_init (&checkable);
-	checkable.split_size = splitting ? 1 : 0;
-	checkable.encrypt_names = hidden_names;
-	checkable.password = hidden_names ? g_strdup ("x") : NULL;
-	set_row_sensitive (self->delete_check, nemo_archive_can_verify (&checkable));
+	checkable.split_size = shown.split ? 1 : 0;
+	checkable.encrypt_names = shown.encrypt_names;
+	checkable.password = shown.encrypt_names ? g_strdup ("x") : NULL;
+	can_delete = nemo_archive_can_verify (&checkable);
+	show_check (self->delete_check, self->delete_sources, can_delete);
 
 	/* The store choices go by the writers that can also do the password and
 	   volumes asked for. */
-	if (has_password && checkable.password == NULL) {
+	if (has_password (self, caps) && checkable.password == NULL) {
 		checkable.password = g_strdup ("x");
 	}
 	show_link_choices (self, format, &checkable);
 	nemo_archive_options_clear (&checkable);
+	nemo_archive_choices_clear (&shown);
+
+	if (self->reset_button != NULL) {
+		gtk_widget_set_sensitive (self->reset_button, !all_at_default (self));
+	}
+
+	self->showing = FALSE;
 
 	if (!self->name_edited) {
 		name = nemo_archive_suggest_name (self->files, self->whole_folder, format);
@@ -288,7 +347,7 @@ update_for_format (ArchiveDialog *self)
 
 	g_free (name);
 
-	update_name_validity (self);
+	update_validity (self);
 }
 
 static void
@@ -300,48 +359,61 @@ format_changed (GtkComboBox *combo,
 	update_for_format (user_data);
 }
 
+/* Only a click is a choice. Making the controls match a format is not. Each
+   box has the choice it stands for. */
 static void
-option_toggled (GtkToggleButton *button,
-		gpointer         user_data)
+choice_toggled (GtkToggleButton *button,
+		ArchiveDialog   *self)
 {
-	(void) button;
+	gboolean *choice = g_object_get_data (G_OBJECT (button), "nemo-choice");
 
-	update_for_format (user_data);
+	if (self->showing) {
+		return;
+	}
+
+	*choice = gtk_toggle_button_get_active (button);
+	update_for_format (self);
 }
 
-/* Only a click is a choice. Making the buttons match a format is not. */
 static void
 link_choice_toggled (GtkToggleButton *button,
 		     ArchiveDialog   *self)
 {
 	ArcLinkChoice choice;
 
-	if (self->showing_links || !gtk_toggle_button_get_active (button)) {
+	if (self->showing || !gtk_toggle_button_get_active (button)) {
 		return;
 	}
 
 	choice = GPOINTER_TO_INT (g_object_get_data (G_OBJECT (button), "nemo-link-choice"));
 	if (GTK_WIDGET (button) == self->symlinks[choice]) {
-		arc_link_options_set_symlinks (&self->links, choice);
+		arc_link_options_set_symlinks (&self->chosen.links, choice);
 	} else {
-		arc_link_options_set_junctions (&self->links, choice);
+		arc_link_options_set_junctions (&self->chosen.links, choice);
 	}
 
 	update_for_format (self);
 }
 
 static void
-filesystem_toggled (GtkToggleButton *button,
-		    ArchiveDialog   *self)
+level_changed (GtkRange      *range,
+	       ArchiveDialog *self)
 {
-	if (self->showing_links) {
-		return;
+	if (!self->showing) {
+		self->chosen.level = (int) gtk_range_get_value (range);
+		update_for_format (self);
 	}
+}
 
-	if (GTK_WIDGET (button) == self->nested_check) {
-		self->links.follow_nested = gtk_toggle_button_get_active (button);
-	} else {
-		self->links.follow_other = gtk_toggle_button_get_active (button);
+static void
+split_size_changed (GtkComboBox   *combo,
+		    ArchiveDialog *self)
+{
+	if (!self->showing) {
+		g_free (self->chosen.split_size);
+		self->chosen.split_size = g_strdup (gtk_entry_get_text (GTK_ENTRY (
+			gtk_bin_get_child (GTK_BIN (combo)))));
+		update_for_format (self);
 	}
 }
 
@@ -368,12 +440,14 @@ link_group_mnemonic (GtkWidget *button,
 }
 
 static void
-password_changed (GtkEditable *editable,
-		  gpointer     user_data)
+password_changed (GtkEditable   *editable,
+		  ArchiveDialog *self)
 {
-	(void) editable;
-
-	update_for_format (user_data);
+	if (!self->showing) {
+		g_free (self->password);
+		self->password = g_strdup (gtk_entry_get_text (GTK_ENTRY (editable)));
+		update_for_format (self);
+	}
 }
 
 static void
@@ -382,7 +456,7 @@ each_toggled (GtkToggleButton *button,
 {
 	(void) button;
 
-	update_name_validity (user_data);
+	update_validity (user_data);
 }
 
 static void
@@ -395,7 +469,7 @@ name_changed (GtkEditable *editable,
 		self->name_edited = TRUE;
 	}
 
-	update_name_validity (self);
+	update_validity (self);
 }
 
 /* One labelled row in the options grid. */
@@ -429,6 +503,22 @@ add_check (GtkWidget  *grid,
 	check = gtk_check_button_new_with_mnemonic (label_text);
 	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (check), active);
 	gtk_grid_attach (GTK_GRID (grid), check, 0, row, 2, 1);
+
+	return check;
+}
+
+/* A box that stands for one of the choices. */
+static GtkWidget *
+add_choice (ArchiveDialog *self,
+	    GtkWidget     *grid,
+	    int            row,
+	    const char    *label_text,
+	    gboolean      *choice)
+{
+	GtkWidget *check = add_check (grid, row, label_text, *choice);
+
+	g_object_set_data (G_OBJECT (check), "nemo-choice", choice);
+	g_signal_connect (check, "toggled", G_CALLBACK (choice_toggled), self);
 
 	return check;
 }
@@ -625,6 +715,62 @@ expander_toggled (GObject       *expander,
 	}
 }
 
+/* The level and the size are the 2 that aren't boxes, so they're set here
+   rather than by update_for_format. */
+static void
+show_level_and_size (ArchiveDialog *self)
+{
+	int preset = nemo_archive_volume_preset_find (self->chosen.split_size);
+
+	self->showing = TRUE;
+	gtk_range_set_value (GTK_RANGE (self->level_scale), self->chosen.level);
+	if (preset >= 0) {
+		gtk_combo_box_set_active (GTK_COMBO_BOX (self->split_combo), preset);
+	} else {
+		gtk_entry_set_text (GTK_ENTRY (split_entry (self)),
+				    self->chosen.split_size != NULL ? self->chosen.split_size : "");
+	}
+	self->showing = FALSE;
+}
+
+/* Every choice under Options back to its default, the remembered ones
+   dropped from the settings file, and Options closed. */
+static void
+reset_clicked (GtkButton     *button,
+	       ArchiveDialog *self)
+{
+	(void) button;
+
+	nemo_archive_choices_clear (&self->chosen);
+	nemo_archive_choices_init (&self->chosen);
+	g_clear_pointer (&self->password, g_free);
+	self->delete_sources = FALSE;
+	nemo_archive_choices_forget ();
+
+	show_level_and_size (self);
+	update_for_format (self);
+
+	/* The button grays out under the focus. */
+	gtk_widget_grab_focus (self->expander);
+	gtk_expander_set_expanded (GTK_EXPANDER (self->expander), FALSE);
+}
+
+/* Once, when the dialog is first on screen, so opening goes the same way as
+   a click: the options scroll on a short screen and the dialog keeps its
+   place. */
+static gboolean
+open_remembered (GtkWidget     *widget,
+		 GdkEvent      *event,
+		 ArchiveDialog *self)
+{
+	(void) event;
+
+	g_signal_handlers_disconnect_by_func (widget, open_remembered, self);
+	gtk_expander_set_expanded (GTK_EXPANDER (self->expander), TRUE);
+
+	return FALSE;
+}
+
 static void
 build_options (ArchiveDialog *self,
 	       GtkWidget     *box)
@@ -643,14 +789,31 @@ build_options (ArchiveDialog *self,
 	};
 #endif
 	GtkWidget *expander;
+	GtkWidget *header;
 	GtkWidget *grid;
 	const char *preset;
 	int row = 0;
 	guint i;
 
+	/* Reset sits beside Options rather than in its title, where a click
+	   would only open and close it. */
+	header = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
+	gtk_box_pack_start (GTK_BOX (box), header, FALSE, FALSE, 0);
+
 	expander = gtk_expander_new_with_mnemonic (_("_Options"));
-	gtk_box_pack_start (GTK_BOX (box), expander, FALSE, FALSE, 0);
+	self->expander = expander;
+	gtk_box_pack_start (GTK_BOX (header), expander, TRUE, TRUE, 0);
 	g_signal_connect (expander, "notify::expanded", G_CALLBACK (expander_toggled), self);
+
+	self->reset_button = gtk_button_new_with_mnemonic (_("R_eset"));
+	gtk_widget_set_name (self->reset_button, "reset-options");
+	gtk_button_set_relief (GTK_BUTTON (self->reset_button), GTK_RELIEF_NONE);
+	gtk_widget_set_valign (self->reset_button, GTK_ALIGN_START);
+	gtk_widget_set_tooltip_text (self->reset_button,
+				     _("Puts every option back to its default, and forgets the ones "
+				       "remembered from last time."));
+	gtk_box_pack_end (GTK_BOX (header), self->reset_button, FALSE, FALSE, 0);
+	g_signal_connect (self->reset_button, "clicked", G_CALLBACK (reset_clicked), self);
 	g_signal_connect (self->dialog, "size-allocate", G_CALLBACK (dialog_size_allocated), self);
 
 	grid = gtk_grid_new ();
@@ -679,6 +842,7 @@ build_options (ArchiveDialog *self,
 	gtk_scale_add_mark (GTK_SCALE (self->level_scale), NEMO_ARCHIVE_LEVEL_MAX,
 			    GTK_POS_BOTTOM, _("Smallest"));
 	self->level_label = add_row (grid, row++, _("Co_mpression"), self->level_scale);
+	g_signal_connect (self->level_scale, "value-changed", G_CALLBACK (level_changed), self);
 
 	self->password_entry = gtk_entry_new ();
 	gtk_entry_set_visibility (GTK_ENTRY (self->password_entry), FALSE);
@@ -688,12 +852,11 @@ build_options (ArchiveDialog *self,
 	self->password_label = add_row (grid, row++, _("Pass_word"), self->password_entry);
 	g_signal_connect (self->password_entry, "changed", G_CALLBACK (password_changed), self);
 
-	self->encrypt_names_check = add_check (grid, row++, _("Encrypt the _file names too"), FALSE);
-	g_signal_connect (self->encrypt_names_check, "toggled", G_CALLBACK (option_toggled), self);
+	self->encrypt_names_check = add_choice (self, grid, row++, _("Encrypt the _file names too"),
+						&self->chosen.encrypt_names);
 
-	self->split_check = add_check (grid, row++, _("Split into _volumes"), FALSE);
+	self->split_check = add_choice (self, grid, row++, _("Split into _volumes"), &self->chosen.split);
 	gtk_widget_set_name (self->split_check, "split");
-	g_signal_connect (self->split_check, "toggled", G_CALLBACK (option_toggled), self);
 
 	self->split_combo = gtk_combo_box_text_new_with_entry ();
 	gtk_widget_set_name (self->split_combo, "volume-size");
@@ -703,9 +866,12 @@ build_options (ArchiveDialog *self,
 	gtk_combo_box_set_active (GTK_COMBO_BOX (self->split_combo),
 				  nemo_archive_volume_preset_find (NEMO_ARCHIVE_STATE_DEFAULT_SPLIT_SIZE));
 	add_row (grid, row++, _("Volume si_ze"), self->split_combo);
+	g_signal_connect (self->split_combo, "changed", G_CALLBACK (split_size_changed), self);
 
-	self->solid_check = add_check (grid, row++, _("_Solid archive"), FALSE);
-	self->dedupe_check = add_check (grid, row++, _("Store _duplicate files once"), FALSE);
+	self->solid_check = add_choice (self, grid, row++, _("_Solid archive"), &self->chosen.solid);
+	gtk_widget_set_name (self->solid_check, "solid");
+	self->dedupe_check = add_choice (self, grid, row++, _("Store _duplicate files once"),
+					 &self->chosen.dedupe);
 
 	add_link_group (self, grid, row++, "symlinks", _("S_ymlinks"),
 			symlink_buttons, G_N_ELEMENTS (symlink_buttons), self->symlinks);
@@ -715,25 +881,30 @@ build_options (ArchiveDialog *self,
 #else
 	/* Windows has no nested kind: a volume mounted in a folder is another
 	   filesystem there. */
-	self->nested_check = add_check (grid, row++, _("Follow nes_ted filesystems"), TRUE);
+	self->nested_check = add_choice (self, grid, row++, _("Follow nes_ted filesystems"),
+					 &self->chosen.links.follow_nested);
 	gtk_widget_set_name (self->nested_check, "follow-nested");
 	gtk_widget_set_tooltip_text (self->nested_check,
 				     _("Goes into a filesystem mounted from the same pool or disk, "
 				       "such as a ZFS dataset or a Btrfs subvolume."));
-	g_signal_connect (self->nested_check, "toggled", G_CALLBACK (filesystem_toggled), self);
 #endif
-	self->other_check = add_check (grid, row++, _("Follow ot_her filesystems"), FALSE);
+	self->other_check = add_choice (self, grid, row++, _("Follow ot_her filesystems"),
+					&self->chosen.links.follow_other);
 	gtk_widget_set_name (self->other_check, "follow-other");
 	gtk_widget_set_tooltip_text (self->other_check,
 				     _("Goes into another drive or a share mounted below, or one a "
 				       "link leads to. Off each time this opens."));
-	g_signal_connect (self->other_check, "toggled", G_CALLBACK (filesystem_toggled), self);
 
-	self->recovery_check = add_check (grid, row++, _("Add a _recovery record"), TRUE);
-	self->lock_check = add_check (grid, row++, _("Loc_k the archive against changes"), FALSE);
+	self->recovery_check = add_choice (self, grid, row++, _("Add a _recovery record"),
+					   &self->chosen.recovery);
+	gtk_widget_set_name (self->recovery_check, "recovery");
+	self->lock_check = add_choice (self, grid, row++, _("Loc_k the archive against changes"),
+				       &self->chosen.lock);
+	gtk_widget_set_name (self->lock_check, "lock");
 
-	self->delete_check = add_check (grid, row++,
-					_("De_lete the originals once the archive checks out"), FALSE);
+	self->delete_check = add_choice (self, grid, row++,
+					 _("De_lete the originals once the archive checks out"),
+					 &self->delete_sources);
 	gtk_widget_set_tooltip_text (self->delete_check,
 				     _("The archive is read back first. Unless every file is in "
 				       "there at the same size, nothing is deleted."));
@@ -741,57 +912,34 @@ build_options (ArchiveDialog *self,
 
 /* What the dialog starts from next time. The password is never written
    anywhere, and the delete box has to be ticked afresh each time - neither is
-   a setting so much as a decision about one archive. */
+   a setting so much as a decision about one archive. Everything else under
+   Options is shown once the format is set. */
 static void
 restore_remembered (ArchiveDialog *self)
 {
 	NemoConfigGroup *group = nemo_config_get_group (NEMO_ARCHIVE_COMMANDS_GROUP);
-	char *split_size;
-	int preset;
 
 	if (group == NULL) {
 		return;
 	}
 
-	gtk_range_set_value (GTK_RANGE (self->level_scale),
-			     nemo_config_get_int (group, NEMO_ARCHIVE_STATE_KEY_LEVEL));
-
-	set_check (self->encrypt_names_check, group, NEMO_ARCHIVE_STATE_KEY_ENCRYPT_NAMES);
-	set_check (self->split_check, group, NEMO_ARCHIVE_STATE_KEY_SPLIT);
-	set_check (self->solid_check, group, NEMO_ARCHIVE_STATE_KEY_SOLID);
-	set_check (self->dedupe_check, group, NEMO_ARCHIVE_STATE_KEY_DEDUPE);
-	/* Shown once the format is set. */
-	nemo_archive_link_options_load (&self->links);
-	set_check (self->recovery_check, group, NEMO_ARCHIVE_STATE_KEY_RECOVERY);
-	set_check (self->lock_check, group, NEMO_ARCHIVE_STATE_KEY_LOCK);
+	nemo_archive_choices_load (&self->chosen);
+	show_level_and_size (self);
 
 	/* Ticking a box nothing can act on would just be confusing, so the one
 	   that depends on the selection is only put back where it applies. */
 	if (gtk_widget_get_sensitive (self->each_check)) {
 		set_check (self->each_check, group, NEMO_ARCHIVE_STATE_KEY_EACH);
 	}
-
-	/* A preset shows with its note, and a typed size as typed. */
-	split_size = nemo_config_get_string (group, NEMO_ARCHIVE_STATE_KEY_SPLIT_SIZE);
-	preset = nemo_archive_volume_preset_find (split_size);
-	if (preset >= 0) {
-		gtk_combo_box_set_active (GTK_COMBO_BOX (self->split_combo), preset);
-	} else if (split_size != NULL && split_size[0] != '\0') {
-		GtkWidget *entry = gtk_bin_get_child (GTK_BIN (self->split_combo));
-
-		gtk_entry_set_text (GTK_ENTRY (entry), split_size);
-	}
-	g_free (split_size);
 }
 
+/* As chosen, so one the format or the selection turned off is still there
+   next time. */
 static void
 remember_settings (ArchiveDialog *self)
 {
 	NemoConfigGroup *group = nemo_config_get_group (NEMO_ARCHIVE_COMMANDS_GROUP);
-	GtkWidget *entry;
 	const char *id;
-	const char *split_size;
-	int preset;
 
 	if (group == NULL) {
 		return;
@@ -802,78 +950,57 @@ remember_settings (ArchiveDialog *self)
 		nemo_config_set_string (group, NEMO_ARCHIVE_STATE_KEY_FORMAT, id);
 	}
 
-	nemo_config_set_int (group, NEMO_ARCHIVE_STATE_KEY_LEVEL,
-			     (int) gtk_range_get_value (GTK_RANGE (self->level_scale)));
-
-	save_check (self->encrypt_names_check, group, NEMO_ARCHIVE_STATE_KEY_ENCRYPT_NAMES);
-	save_check (self->split_check, group, NEMO_ARCHIVE_STATE_KEY_SPLIT);
-	save_check (self->solid_check, group, NEMO_ARCHIVE_STATE_KEY_SOLID);
-	save_check (self->dedupe_check, group, NEMO_ARCHIVE_STATE_KEY_DEDUPE);
-	nemo_archive_link_options_save (&self->links);
-	save_check (self->recovery_check, group, NEMO_ARCHIVE_STATE_KEY_RECOVERY);
-	save_check (self->lock_check, group, NEMO_ARCHIVE_STATE_KEY_LOCK);
-	save_check (self->each_check, group, NEMO_ARCHIVE_STATE_KEY_EACH);
-
-	/* A preset is kept as its size alone, so it still reads in another
-	   language. */
-	entry = gtk_bin_get_child (GTK_BIN (self->split_combo));
-	split_size = gtk_entry_get_text (GTK_ENTRY (entry));
-	preset = nemo_archive_volume_preset_find (split_size);
-	if (preset >= 0) {
-		nemo_archive_volume_preset ((guint) preset, &split_size);
+	nemo_archive_choices_save (&self->chosen);
+	if (gtk_widget_get_sensitive (self->each_check)) {
+		save_check (self->each_check, group, NEMO_ARCHIVE_STATE_KEY_EACH);
 	}
-	nemo_config_set_string (group, NEMO_ARCHIVE_STATE_KEY_SPLIT_SIZE, split_size);
 }
 
+/* What the controls show, which is what the format can do of what was
+   chosen. A size that can't be read never gets here: Compress is grayed. */
 static void
 collect_options (ArchiveDialog      *self,
 		 NemoArchiveOptions *options)
 {
+	NemoArchiveChoices shown = { 0 };
 	NemoArchiveCaps caps;
 	ArcLinkChoice symlinks;
-	const char *password;
 
 	nemo_archive_options_init (options);
 
 	options->format = current_format (self);
 	caps = nemo_archive_format_caps (options->format);
+	nemo_archive_choices_shown (&self->chosen, caps, has_password (self, caps), &shown);
 
-	options->level = (int) gtk_range_get_value (GTK_RANGE (self->level_scale));
+	options->level = shown.level;
 
-	password = gtk_entry_get_text (GTK_ENTRY (self->password_entry));
-	if ((caps & NEMO_ARCHIVE_CAP_PASSWORD) != 0 && password != NULL && password[0] != '\0') {
-		options->password = g_strdup (password);
-		options->encrypt_names = (caps & NEMO_ARCHIVE_CAP_ENCRYPT_NAMES) != 0 &&
-			gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (self->encrypt_names_check));
+	if (has_password (self, caps)) {
+		options->password = g_strdup (self->password);
+		options->encrypt_names = shown.encrypt_names;
 	}
 
-	if ((caps & NEMO_ARCHIVE_CAP_SPLIT) != 0 &&
-	    gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (self->split_check))) {
-		GtkWidget *entry = gtk_bin_get_child (GTK_BIN (self->split_combo));
+	if (shown.split) {
 		guint64 bytes = 0;
 
-		if (nemo_archive_parse_size (gtk_entry_get_text (GTK_ENTRY (entry)), &bytes)) {
+		if (nemo_archive_parse_size (gtk_entry_get_text (GTK_ENTRY (split_entry (self))), &bytes)) {
 			options->split_size = bytes;
 		}
 	}
 
-	options->solid = (caps & NEMO_ARCHIVE_CAP_SOLID) != 0 &&
-		gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (self->solid_check));
-	options->dedupe = (caps & NEMO_ARCHIVE_CAP_DEDUPE) != 0 &&
-		gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (self->dedupe_check));
+	options->solid = shown.solid;
+	options->dedupe = shown.dedupe;
 	/* The job takes Symlinks only, as the 2 boxes it had. Junctions and the
 	   filesystem options reach it with 2026100516274423. */
-	symlinks = arc_link_options_symlinks (&self->links,
+	symlinks = arc_link_options_symlinks (&self->chosen.links,
 					      nemo_archive_options_link_stores (options->format, options));
 	options->store_links = symlinks == ARC_LINK_STORE_SYMLINK;
 	options->follow_link_dirs = symlinks == ARC_LINK_FOLLOW;
-	options->recovery_record = (caps & NEMO_ARCHIVE_CAP_RECOVERY) != 0 &&
-		gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (self->recovery_check));
-	options->lock = (caps & NEMO_ARCHIVE_CAP_LOCK) != 0 &&
-		gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (self->lock_check));
+	options->recovery_record = shown.recovery;
+	options->lock = shown.lock;
 
-	options->delete_sources = gtk_widget_get_sensitive (self->delete_check) &&
-		gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (self->delete_check));
+	options->delete_sources = gtk_widget_get_sensitive (self->delete_check) && self->delete_sources;
+
+	nemo_archive_choices_clear (&shown);
 }
 
 /* Typed a second time before the originals are deleted. See
@@ -1033,6 +1160,8 @@ dialog_free (ArchiveDialog *self)
 	}
 
 	g_list_free_full (self->files, g_object_unref);
+	nemo_archive_choices_clear (&self->chosen);
+	g_free (self->password);
 	g_free (self);
 }
 
@@ -1056,7 +1185,7 @@ nemo_archive_dialog_show (GtkWindow *parent_window,
 	g_return_if_fail (files != NULL);
 
 	self = g_new0 (ArchiveDialog, 1);
-	arc_link_options_init (&self->links);
+	nemo_archive_choices_init (&self->chosen);
 
 	for (l = files; l != NULL; l = l->next) {
 		self->files = g_list_prepend (self->files, g_object_ref (G_FILE (l->data)));
@@ -1144,6 +1273,12 @@ nemo_archive_dialog_show (GtkWindow *parent_window,
 		   that is no longer available falls back to the first one. */
 		restore_remembered (self);
 
+		/* By what's remembered, so one the format turns off counts. */
+		if (!nemo_archive_choices_at_default (&self->chosen)) {
+			g_signal_connect_after (self->dialog, "map-event",
+						G_CALLBACK (open_remembered), self);
+		}
+
 		if (group != NULL) {
 			format_id = nemo_config_get_string (group, NEMO_ARCHIVE_STATE_KEY_FORMAT);
 		}
@@ -1171,6 +1306,13 @@ nemo_archive_dialog_show (GtkWindow *parent_window,
 		}
 
 		each = compressing_each (self);
+
+		/* A response sent some other way than the button can still
+		   get past it grayed. */
+		if (size_unreadable (self)) {
+			gtk_widget_grab_focus (split_entry (self));
+			continue;
+		}
 
 		name = gtk_entry_get_text (GTK_ENTRY (self->name_entry));
 		if (!each && (name == NULL || name[0] == '\0')) {

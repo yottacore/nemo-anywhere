@@ -9,6 +9,8 @@
 #include "test.h"
 
 #include <libnemo-private/nemo-archive.h>
+#include <libnemo-private/nemo-archive-commands.h>
+#include <libnemo-private/nemo-config.h>
 #include <libnemo-private/nemo-dir-enum.h>
 #include <libnemo-private/nemo-progress-info.h>
 #include <libnemo-private/nemo-progress-info-manager.h>
@@ -747,6 +749,90 @@ check_cancel (const char        *tmp,
 	g_free (source_dir);
 }
 
+static gboolean
+error_says (const char *words)
+{
+	GList *windows, *l;
+	gboolean found = FALSE;
+
+	windows = gtk_window_list_toplevels ();
+	for (l = windows; l != NULL; l = l->next) {
+		char *text = NULL;
+
+		if (!GTK_IS_MESSAGE_DIALOG (l->data)) {
+			continue;
+		}
+		g_object_get (l->data, "secondary-text", &text, NULL);
+		if (text != NULL && strstr (text, words) != NULL) {
+			found = TRUE;
+		}
+		g_free (text);
+	}
+	g_list_free (windows);
+
+	return found;
+}
+
+/* A password is a requirement, so a 7-Zip line edited past {{PASSWORD}} fails
+   the job and says why, rather than writing an archive anyone can open. */
+static void
+check_edited_line (const char *tmp,
+		   GtkWidget  *window)
+{
+	static const char * const names[] = { "one.txt", NULL };
+	char *source_dir = g_build_filename (tmp, "items", NULL);
+	char *out_dir = g_build_filename (tmp, "edited", NULL);
+	char *path = g_build_filename (out_dir, "locked.7z", NULL);
+	GFile *destination = g_file_new_for_path (path);
+	GList *sources = sources_in (source_dir, names);
+	NemoArchiveOptions options;
+	char *config_home;
+	char **parts;
+	char *line;
+
+	nemo_archive_options_init (&options);
+	options.format = NEMO_ARCHIVE_FORMAT_7Z;
+	options.password = g_strdup ("secret");
+
+	if (nemo_archive_pick_backend (options.format, &options) != NEMO_ARCHIVE_BACKEND_7Z) {
+		g_printerr ("note: no 7z command here, an edited line not checked\n");
+		goto out;
+	}
+
+	config_home = test_scratch_config_home ("nemo-archive-test-config-XXXXXX");
+	nemo_config_init ();
+	parts = g_strsplit (NEMO_ARCHIVE_COMMAND_7Z_DEFAULT, "{{PASSWORD}}", -1);
+	line = g_strjoinv ("", parts);
+	nemo_config_set_string (nemo_config_get_group (NEMO_ARCHIVE_COMMANDS_GROUP),
+				NEMO_ARCHIVE_COMMAND_KEY_7Z, line);
+	g_mkdir_with_parents (out_dir, 0700);
+
+	job_finished = FALSE;
+	job_succeeded = TRUE;
+	nemo_archive_create (sources, destination, &options, GTK_WINDOW (window),
+			     archive_done, NULL);
+	wait_for_end ();
+
+	check (!job_succeeded);
+	check (count_entries (out_dir) == 0);
+	check (error_says ("{{PASSWORD}}"));
+	close_dialogs ();
+
+	nemo_config_reset (nemo_config_get_group (NEMO_ARCHIVE_COMMANDS_GROUP),
+			   NEMO_ARCHIVE_COMMAND_KEY_7Z);
+	nemo_config_shutdown ();
+	g_strfreev (parts);
+	g_free (line);
+	g_free (config_home);
+ out:
+	nemo_archive_options_clear (&options);
+	g_list_free_full (sources, g_object_unref);
+	g_object_unref (destination);
+	g_free (path);
+	g_free (out_dir);
+	g_free (source_dir);
+}
+
 #ifndef G_OS_WIN32
 /* A source that cannot be read fails the job, and the failure takes what was
    written so far with it. */
@@ -862,6 +948,7 @@ main (int argc, char *argv[])
 #ifndef G_OS_WIN32
 	check_unreadable_sources (tmp, window);
 #endif
+	check_edited_line (tmp, window);
 
 	g_free (each_dir);
 	g_free (one_dir);
