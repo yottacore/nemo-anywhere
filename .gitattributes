@@ -26,3 +26,7 @@ source/gresources/nemo-themes.gresource.xml text eol=lf
 
 # Fuzz seeds are bytes, whatever they look like. A CRLF checkout would change them.
 source/fuzz/corpus/** -text
+
+# The GTK settings and font config copied into every Windows bundle. The zip is
+# made on Linux and the single exe on Windows, and both have to get the same bytes.
+cicd/win/bundle-etc/** text eol=lf

@@ -129,6 +129,10 @@ docker cp "${CONTAINER}:/tmp/${name}" "${work}/${name}" >/dev/null
 docker exec "$CONTAINER" rm -rf "/tmp/${name}"
 
 [[ -f "${work}/${name}/${SLUG}.exe" ]] || fDie "flattened tree has no ${SLUG}.exe"
+## The GTK settings and font config the single exe has. The sysroot's etc has
+## neither, and without them the zip drew with Adwaita (2026101007562511).
+mkdir -p "${work}/${name}/etc"
+cp -r "${ROOT}/cicd/win/bundle-etc/." "${work}/${name}/etc/"
 ## Copied from the sysroot, where fetch-sysroot.bash only warns when it cannot
 ## make one.
 fCheckLoadersCache "${work}/${name}/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache" \
@@ -150,3 +154,4 @@ fEcho_Clean
 
 ##	History:
 ##		- 2026-08-04: Created, so the Windows one-liner installer has an asset.
+##		- 2026-10-13: GTK settings and font config from cicd/win/bundle-etc.

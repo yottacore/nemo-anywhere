@@ -236,6 +236,7 @@ VERSION_MANIFEST="source/meson.build"
 ##     against the tarball beside it when there is one for this version.
 ##   - The setup exe is run under wine in the cross-build container: install,
 ##     update, uninstall.
+##   - The zip has the GTK settings and font config the single exe has.
 ##   - No bundle has libgsf, the gsf-office thumbnailer or the old search
 ##     converters, and no package depends on libgsf. The prefix check runs
 ##     that on the Linux files of its arch.
@@ -254,6 +255,7 @@ PACKAGE_CHECKS=(
 	"FreeBSD package check|bash cicd/bsd/test-pkg.bash"
 	"Windows bundle check|bash cicd/utility/test-bundle-left-out.bash windows"
 	"Windows bundle exe check|(command -v pwsh >/dev/null 2>&1 || exit 77; pwsh -NoProfile -File cicd/utility/test-bundle-exes.ps1)"
+	"Windows bundle settings check|(command -v pwsh >/dev/null 2>&1 || exit 77; pwsh -NoProfile -File cicd/utility/test-bundle-settings.ps1)"
 	"FreeBSD bundle check|bash cicd/utility/test-bundle-left-out.bash bsd"
 	"Setup exe check|docker exec nemo-winbuild bash /src/cicd/win/test-setup.bash"
 )

@@ -65,7 +65,8 @@ if [[ ! -x "${DEST}/app/nemo-anywhere.exe" ]] || (( restage )); then
 		cp -r lib/gdk-pixbuf-2.0 "$D/mingw64/lib/"
 		cp -r share/glib-2.0/schemas "$D/mingw64/share/glib-2.0/"
 		cp -r share/icons share/themes "$D/mingw64/share/"
-		cp -r etc "$D/mingw64/"'
+		cp -r etc "$D/mingw64/"
+		cp -r /src/cicd/win/bundle-etc/. "$D/mingw64/etc/"'
 	docker exec "$CONTAINER" bash -c 'source /src/cicd/utility/include/thumbnailers.bash &&
 		fStageThumbnailers /opt/win-sysroot/mingw64/share/thumbnailers /src/cicd/artifacts/win-run/mingw64/share/thumbnailers'
 	docker exec "$CONTAINER" chown -R "$(id -u):$(id -g)" /src/cicd/artifacts/win-run
