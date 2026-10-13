@@ -57,6 +57,10 @@ struct _NemoProgressInfo
     char *initial_details;
 	double progress;
 	gboolean activity_mode;
+	/* A walk before the work itself, which has no total. */
+	gint64 prescan_since;	/* monotonic, 0 when none runs */
+	guint prescan_files;
+	guint64 prescan_bytes;
 	gboolean started;
 	gboolean finished;
 	gboolean paused;
@@ -664,6 +668,81 @@ nemo_progress_info_pulse_progress (NemoProgressInfo *info)
     }
 
 	g_mutex_unlock (&info->info_lock);
+}
+
+void
+nemo_progress_info_start_prescan (NemoProgressInfo *info)
+{
+	g_mutex_lock (&info->info_lock);
+
+	info->prescan_since = g_get_monotonic_time ();
+	info->prescan_files = 0;
+	info->prescan_bytes = 0;
+	info->changed_at_idle = TRUE;
+	queue_idle (info, FALSE);
+
+	g_mutex_unlock (&info->info_lock);
+}
+
+void
+nemo_progress_info_set_prescan_found (NemoProgressInfo *info,
+				      guint             files,
+				      guint64           bytes)
+{
+	g_mutex_lock (&info->info_lock);
+
+	if (info->prescan_since != 0) {
+		info->prescan_files = files;
+		info->prescan_bytes = bytes;
+		info->progress_at_idle = TRUE;
+		queue_idle (info, FALSE);
+	}
+
+	while (info->paused) {
+		g_cond_wait (&info->cond, &info->info_lock);
+	}
+
+	g_mutex_unlock (&info->info_lock);
+}
+
+void
+nemo_progress_info_end_prescan (NemoProgressInfo *info)
+{
+	g_mutex_lock (&info->info_lock);
+
+	if (info->prescan_since != 0) {
+		info->prescan_since = 0;
+		info->changed_at_idle = TRUE;
+		queue_idle (info, FALSE);
+	}
+
+	g_mutex_unlock (&info->info_lock);
+}
+
+gboolean
+nemo_progress_info_get_prescan (NemoProgressInfo *info,
+				gint64           *since,
+				guint            *files,
+				guint64          *bytes)
+{
+	gboolean running;
+
+	g_mutex_lock (&info->info_lock);
+
+	running = info->prescan_since != 0;
+	if (since != NULL) {
+		*since = info->prescan_since;
+	}
+	if (files != NULL) {
+		*files = info->prescan_files;
+	}
+	if (bytes != NULL) {
+		*bytes = info->prescan_bytes;
+	}
+
+	g_mutex_unlock (&info->info_lock);
+
+	return running;
 }
 
 void

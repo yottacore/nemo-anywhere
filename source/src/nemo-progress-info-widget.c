@@ -39,6 +39,10 @@ enum {
 #define STOP_ICON "media-playback-stop-symbolic"
 #define PAUSE_ICON "media-playback-pause-symbolic"
 
+/* A walk that's over by then never flashes a bar, so plain files show
+   none. */
+#define PRESCAN_BAR_DELAY_USECS (G_USEC_PER_SEC / 2)
+
 static GParamSpec *properties[NUM_PROPERTIES] = { NULL };
 
 G_DEFINE_TYPE (NemoProgressInfoWidget, nemo_progress_info_widget,
@@ -61,6 +65,59 @@ update_data (NemoProgressInfoWidget *self)
 	g_free (markup);
 }
 
+static void update_prescan (NemoProgressInfoWidget *self, gboolean pulse);
+
+static gboolean
+prescan_due (gpointer data)
+{
+	NemoProgressInfoWidget *self = data;
+
+	self->priv->prescan_timer = 0;
+	update_prescan (self, FALSE);
+
+	return G_SOURCE_REMOVE;
+}
+
+static void
+update_prescan (NemoProgressInfoWidget *self,
+		gboolean                pulse)
+{
+	NemoProgressInfoWidgetPriv *priv = self->priv;
+	gint64 since, waited;
+	guint files;
+	guint64 bytes;
+	char *size, *text, *markup;
+
+	if (!nemo_progress_info_get_prescan (priv->info, &since, &files, &bytes)) {
+		g_clear_handle_id (&priv->prescan_timer, g_source_remove);
+		gtk_widget_hide (priv->prescan_box);
+		return;
+	}
+
+	waited = g_get_monotonic_time () - since;
+	if (waited < PRESCAN_BAR_DELAY_USECS) {
+		if (priv->prescan_timer == 0) {
+			priv->prescan_timer = g_timeout_add ((guint) ((PRESCAN_BAR_DELAY_USECS - waited) / 1000) + 1,
+							     prescan_due, self);
+		}
+		return;
+	}
+
+	size = g_format_size (bytes);
+	text = g_strdup_printf (ngettext ("Found %'u file, %s", "Found %'u files, %s", files),
+				files, size);
+	markup = g_markup_printf_escaped ("<span size='small'>%s</span>", text);
+	gtk_label_set_markup (GTK_LABEL (priv->prescan_label), markup);
+	g_free (markup);
+	g_free (text);
+	g_free (size);
+
+	if (pulse || !gtk_widget_get_visible (priv->prescan_box)) {
+		gtk_progress_bar_pulse (GTK_PROGRESS_BAR (priv->prescan_bar));
+	}
+	gtk_widget_show (priv->prescan_box);
+}
+
 static void
 update_progress (NemoProgressInfoWidget *self)
 {
@@ -72,6 +129,15 @@ update_progress (NemoProgressInfoWidget *self)
 	} else {
 		gtk_progress_bar_set_fraction (GTK_PROGRESS_BAR (self->priv->progress_bar), progress);
 	}
+
+	update_prescan (self, TRUE);
+}
+
+static void
+on_info_changed (NemoProgressInfoWidget *self)
+{
+	update_data (self);
+	update_prescan (self, FALSE);
 }
 
 static void
@@ -201,6 +267,22 @@ nemo_progress_info_widget_constructed (GObject *obj)
 	gtk_box_pack_start (GTK_BOX (vbox), label, TRUE, FALSE, 2);
 	priv->status = label;
 
+	priv->prescan_box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 4);
+	gtk_widget_set_name (priv->prescan_box, "prescan");
+	gtk_widget_set_no_show_all (priv->prescan_box, TRUE);
+	gtk_box_pack_start (GTK_BOX (vbox), priv->prescan_box, TRUE, FALSE, 2);
+
+	priv->prescan_bar = gtk_progress_bar_new ();
+	gtk_progress_bar_set_pulse_step (GTK_PROGRESS_BAR (priv->prescan_bar), 0.05);
+	gtk_box_pack_start (GTK_BOX (priv->prescan_box), priv->prescan_bar, TRUE, FALSE, 0);
+	gtk_widget_show (priv->prescan_bar);
+
+	priv->prescan_label = gtk_label_new (NULL);
+	gtk_widget_set_name (priv->prescan_label, "prescan-found");
+	gtk_label_set_xalign (GTK_LABEL (priv->prescan_label), 0.0);
+	gtk_box_pack_start (GTK_BOX (priv->prescan_box), priv->prescan_label, TRUE, FALSE, 0);
+	gtk_widget_show (priv->prescan_label);
+
 	progress_bar = gtk_progress_bar_new ();
 	priv->progress_bar = progress_bar;
 	gtk_progress_bar_set_pulse_step (GTK_PROGRESS_BAR (progress_bar), 0.05);
@@ -234,7 +316,7 @@ nemo_progress_info_widget_constructed (GObject *obj)
 	update_data (self);
 	update_progress (self);
 
-    g_signal_connect_swapped (priv->info, "changed", G_CALLBACK (update_data), self);
+    g_signal_connect_swapped (priv->info, "changed", G_CALLBACK (on_info_changed), self);
     g_signal_connect_swapped (priv->info, "progress-changed", G_CALLBACK (update_progress), self);
 
     gboolean started = nemo_progress_info_get_is_started (self->priv->info);
@@ -249,6 +331,10 @@ nemo_progress_info_widget_dispose (GObject *obj)
 {
 	NemoProgressInfoWidget *self = NEMO_PROGRESS_INFO_WIDGET (obj);
 
+	g_clear_handle_id (&self->priv->prescan_timer, g_source_remove);
+	if (self->priv->info != NULL) {
+		g_signal_handlers_disconnect_by_data (self->priv->info, self);
+	}
 	g_clear_object (&self->priv->info);
 
 	G_OBJECT_CLASS (nemo_progress_info_widget_parent_class)->dispose (obj);

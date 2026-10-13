@@ -128,7 +128,8 @@ typedef struct {
 	guint      files;
 } ArcScanList;
 
-typedef void (*ArcScanVisited) (gpointer data);
+/* files and bytes are what the list has so far. */
+typedef void (*ArcScanVisited) (gpointer data, guint files, guint64 bytes);
 
 /* One pass by links on the calling thread. stores is what the writer can
    store, so a store choice it can't do is Ignore. A link that leads nowhere
