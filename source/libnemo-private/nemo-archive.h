@@ -36,6 +36,7 @@
 
 #include "nemo-tool-run.h"
 #include "arc-link-options.h"
+#include "arc-mounts.h"
 
 typedef enum {
 	NEMO_ARCHIVE_FORMAT_ZIP,
@@ -81,8 +82,8 @@ typedef struct {
 	guint64           split_size;		/* bytes per volume; 0 means one file */
 	gboolean          solid;
 	gboolean          dedupe;
-	gboolean          store_links;
-	gboolean          follow_link_dirs;	/* descend into a linked folder */
+	/* As chosen. A store choice the writer can't do is Ignore. */
+	ArcLinkOptions    links;
 	gboolean          recovery_record;
 	gboolean          lock;
 	gboolean          delete_sources;	/* only once the archive verifies */
@@ -140,6 +141,10 @@ void               nemo_archive_hide_backend     (NemoArchiveBackend backend,
 						  gboolean           hidden);
 /* For tests: 7-Zip keeps links, or doesn't as on Windows. */
 void               nemo_archive_set_7z_keeps_links (gboolean keeps);
+/* For tests: the job's walk tells filesystems apart by the table this
+   makes, called on the job's thread, rather than the system's. NULL puts
+   the system's back. */
+void               nemo_archive_set_mounts_for_test (ArcMountTable *(*mounts) (void));
 
 /* Name handling for the dialog: the extension follows the format, and a
  * selection suggests a name - or, when the selection is part of a folder rather

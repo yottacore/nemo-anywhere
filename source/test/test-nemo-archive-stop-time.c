@@ -141,7 +141,7 @@ time_stop (NemoProgressInfoManager *manager,
 
 	nemo_archive_options_init (&options);
 	options.format = format;
-	options.store_links = FALSE;
+	options.links.symlinks = ARC_LINK_IGNORE;
 	check (nemo_archive_pick_backend (format, &options) == NEMO_ARCHIVE_BACKEND_LIBARCHIVE);
 
 	watch_id = g_signal_connect (manager, "new-progress-info",

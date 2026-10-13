@@ -712,7 +712,7 @@ main (int argc, char *argv[])
 		setup_zip (&zip, tmp, format);
 		/* Or a 7z goes to the 7-Zip program, where it is installed. */
 		if (format == NEMO_ARCHIVE_FORMAT_7Z) {
-			zip.options.store_links = FALSE;
+			zip.options.links.symlinks = ARC_LINK_IGNORE;
 			nemo_archive_hide_backend (NEMO_ARCHIVE_BACKEND_7Z, TRUE);
 			check (nemo_archive_pick_backend (format, &zip.options) ==
 			       NEMO_ARCHIVE_BACKEND_LIBARCHIVE);

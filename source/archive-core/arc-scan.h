@@ -38,6 +38,7 @@
 #include <gio/gio.h>
 
 #include "arc-host.h"
+#include "arc-link-options.h"
 #include "arc-mounts.h"
 #include "arc-path-list.h"
 
@@ -90,6 +91,58 @@ void     arc_scan_free         (ArcScan             *scan);
 guint64  arc_scan_report_total  (const ArcScanReport *report);
 guint64  arc_scan_report_change (const ArcScanReport *report,
 				 ArcFollow            option);
+
+/* The job's own walk after OK, and the list it writes from. "After OK" in
+   project/design_docs/20260929-101432_compression.md. */
+typedef enum {
+	ARC_ITEM_FILE,
+	ARC_ITEM_FOLDER,
+	ARC_ITEM_LINK,		/* goes in as a link */
+} ArcItemKind;
+
+typedef struct {
+	ArcItemKind  kind;
+	char        *name;	/* in the archive, its parts joined by / */
+	char        *path;	/* where it's read from; for a link, the link */
+	char        *target;	/* a link's own text */
+	gboolean     junction;
+	guint64      bytes;
+	gint64       mtime;	/* seconds, 0 when not known */
+	guint32      mode;	/* permission bits, 0 when not known */
+	guint        needs;	/* the ArcFollow bits its path took */
+} ArcItem;
+
+typedef struct {
+	GPtrArray *items;	/* ArcItem *, in the order walked */
+	/* Names the options left out: a link by its choice, a link or a
+	   mounted folder by the filesystem options. */
+	GPtrArray *left_out;
+	/* Names that couldn't be listed or looked at, and what can't go in an
+	   archive at all, such as a socket. */
+	GPtrArray *unreadable;
+	guint64    bytes;
+	guint      files;
+} ArcScanList;
+
+typedef void (*ArcScanVisited) (gpointer data);
+
+/* One pass by links on the calling thread. stores is what the writer can
+   store, so a store choice it can't do is Ignore. A link that leads nowhere
+   goes in as a link when its choice is Follow or a store, and is left out
+   under Ignore. Links onto a share are followed, since OK was the person's
+   action. visited, which may be NULL, is called now and then as it goes.
+   NULL when cancellable was cancelled.
+   Returns: (transfer full): free with arc_scan_list_free */
+ArcScanList *arc_scan_list      (const ArcHost        *host,
+				 const char           *base,
+				 const char * const   *paths,
+				 const ArcLinkOptions *links,
+				 guint                 stores,
+				 ArcMountTable        *mounts,
+				 GCancellable         *cancellable,
+				 ArcScanVisited        visited,
+				 gpointer              visited_data);
+void         arc_scan_list_free (ArcScanList          *list);
 
 G_END_DECLS
 

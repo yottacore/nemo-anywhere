@@ -28,7 +28,8 @@
  *
  * Then the link choices: which groups show for the selection, which store
  * choices each format and its options leave, the Junctions defaults, and the
- * volume sizes with their notes. */
+ * volume sizes with their notes. And that the link and filesystem choices
+ * as set reach the job. */
 
 #include <config.h>
 
@@ -46,7 +47,13 @@
 #include <libnemo-private/nemo-archive-host.h>
 #include <libnemo-private/nemo-config.h>
 #include <libnemo-private/nemo-global-preferences.h>
+#include <libnemo-private/nemo-progress-info-manager.h>
 #include <libnemo-private/nemo-share.h>
+
+#include <glib/gstdio.h>
+
+#include <archive.h>
+#include <archive_entry.h>
 
 #include "arc-scan.h"
 
@@ -1202,6 +1209,94 @@ close_parent (gpointer data)
 	return G_SOURCE_REMOVE;
 }
 
+/* Compress with the filesystem options changed from their defaults: what
+   the job wrote follows them, not the defaults or Symlinks alone. */
+static gboolean
+probe_to_job (gpointer data)
+{
+	Case *c = data;
+	GtkWidget *dialog = find_dialog ();
+
+	c->ran = TRUE;
+	check (dialog != NULL);
+	if (dialog == NULL) {
+		return G_SOURCE_REMOVE;
+	}
+	set_format (dialog, "zip");
+	click (dialog, "symlinks-follow");
+#ifdef G_OS_WIN32
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (named (dialog, "follow-other")), FALSE);
+#else
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (named (dialog, "follow-nested")), FALSE);
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (named (dialog, "follow-other")), TRUE);
+#endif
+	gtk_dialog_response (GTK_DIALOG (dialog), GTK_RESPONSE_OK);
+
+	return G_SOURCE_REMOVE;
+}
+
+/* Returns: (transfer full) */
+static GHashTable *
+names_in (const char *path)
+{
+	GHashTable *names = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+	struct archive *a = archive_read_new ();
+	struct archive_entry *entry;
+
+	archive_read_support_format_all (a);
+	if (archive_read_open_filename (a, path, 16384) == ARCHIVE_OK) {
+		while (archive_read_next_header (a, &entry) == ARCHIVE_OK) {
+			/* cppcheck-suppress leakNoVarFunctionCall ; names owns its keys and frees them */
+			g_hash_table_add (names, g_strdup (archive_entry_pathname (entry)));
+		}
+	}
+	archive_read_free (a);
+	return names;
+}
+
+static void
+check_reaches_job (GList *files, GFile *dir)
+{
+	NemoProgressInfoManager *manager = nemo_progress_info_manager_new ();
+	Case folder = { TRUE, NULL, FALSE };
+	char *archive = in_tree ("sel.zip");
+	gint64 end;
+	GHashTable *names;
+
+	nemo_archive_set_mounts_for_test (tree_mounts);
+	run_case (probe_to_job, &folder, files, dir);
+
+	end = g_get_monotonic_time () + (gint64) (30 * test_slowness () * G_USEC_PER_SEC);
+	while (nemo_progress_info_manager_get_all_infos (manager) != NULL &&
+	       g_get_monotonic_time () < end) {
+		g_main_context_iteration (NULL, FALSE);
+		g_usleep (2000);
+	}
+	check (nemo_progress_info_manager_get_all_infos (manager) == NULL);
+
+	names = names_in (archive);
+	check (g_hash_table_contains (names, "sel/a.bin"));
+	check (g_hash_table_contains (names, "sel/sub/b.bin"));
+	check (!g_hash_table_contains (names, "sel/nest/c.bin"));
+#ifdef G_OS_WIN32
+	check (!g_hash_table_contains (names, "sel/other/d.bin"));
+	check (!g_hash_table_contains (names, "sel/share/e.bin"));
+#else
+	/* The job follows onto a share, since OK said to. */
+	check (g_hash_table_contains (names, "sel/other/d.bin"));
+	check (g_hash_table_contains (names, "sel/share/e.bin"));
+	check (g_hash_table_contains (names, "sel/flink"));
+	check (g_hash_table_contains (names, "sel/dlink/g.bin"));
+	check (!g_hash_table_contains (names, "sel/tonest/h.bin"));
+#endif
+	g_hash_table_destroy (names);
+
+	nemo_archive_set_mounts_for_test (NULL);
+	g_remove (archive);
+	g_free (archive);
+	g_object_unref (manager);
+}
+
 static void
 check_scan_sizes (const char *scratch)
 {
@@ -1261,6 +1356,10 @@ check_scan_sizes (const char *scratch)
 	on_share = g_file_new_for_path (on_share_path);
 	files = g_list_prepend (NULL, on_share);
 	run_case (probe_on_share, &plain, files, dir);
+	g_list_free (files);
+
+	files = g_list_prepend (NULL, sel);
+	check_reaches_job (files, dir);
 	g_list_free (files);
 
 	nemo_archive_dialog_set_mounts_for_test (NULL);

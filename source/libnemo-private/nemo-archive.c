@@ -33,7 +33,10 @@
 
 #include <eel/eel-stock-dialogs.h>
 
+#include "arc-entry.h"
+#include "arc-scan.h"
 #include "nemo-archive-commands.h"
+#include "nemo-archive-host.h"
 #include "nemo-command-template.h"
 #include "nemo-dir-enum.h"
 #include "nemo-file-changes-queue.h"
@@ -56,6 +59,7 @@
 	G_FILE_ATTRIBUTE_STANDARD_SYMLINK_TARGET "," \
 	G_FILE_ATTRIBUTE_UNIX_MODE "," \
 	G_FILE_ATTRIBUTE_TIME_MODIFIED "," \
+	G_FILE_ATTRIBUTE_UNIX_DEVICE "," \
 	G_FILE_ATTRIBUTE_ID_FILE
 
 typedef struct {
@@ -150,7 +154,8 @@ typedef struct {
 	NemoArchiveOptions  options;
 	NemoArchiveBackend  backend;
 
-	GList              *entries;		/* ArchiveEntry * */
+	ArcScanList        *list;		/* what the library writes */
+	GList              *entries;		/* ArchiveEntry *, for 7z and rar */
 	GList              *left_out;		/* char *, linked folders not followed */
 	GList              *dangling;		/* char *, links that lead nowhere, left out */
 	GList              *dangling_first;	/* char *, the ones a run of their own keeps */
@@ -348,6 +353,14 @@ nemo_archive_set_7z_keeps_links (gboolean keeps)
 	seven_zip_keeps_links = keeps;
 }
 
+static ArcMountTable *(*mounts_for_test) (void);
+
+void
+nemo_archive_set_mounts_for_test (ArcMountTable *(*mounts) (void))
+{
+	mounts_for_test = mounts;
+}
+
 gboolean
 nemo_archive_backend_present (NemoArchiveBackend backend)
 {
@@ -520,6 +533,42 @@ required_caps (const NemoArchiveOptions *options)
 	return caps;
 }
 
+/* A store choice as chosen, before any writer has it fall back to Ignore.
+   Junctions only count on Windows, the only place there are any. */
+static gboolean
+wants_store (const ArcLinkOptions *links)
+{
+	if (links->symlinks == ARC_LINK_STORE_SYMLINK) {
+		return TRUE;
+	}
+#ifdef G_OS_WIN32
+	return links->junctions_set &&
+	       (links->junctions == ARC_LINK_STORE_SYMLINK || links->junctions == ARC_LINK_STORE_JUNCTION);
+#else
+	return FALSE;
+#endif
+}
+
+/* 7z and rar still go by the 2 boxes the Symlinks choice replaced: store
+   links, or follow linked folders. With neither, a file link is followed
+   and a linked folder left out. Junctions and the filesystem options don't
+   reach them until they write from the job's list, 2026100516274460. */
+static gboolean
+boxes_store (const NemoArchiveOptions *options,
+	     NemoArchiveFormat         format,
+	     NemoArchiveBackend        backend)
+{
+	return arc_link_options_symlinks (&options->links,
+					  nemo_archive_backend_link_stores (format, backend)) ==
+	       ARC_LINK_STORE_SYMLINK;
+}
+
+static gboolean
+boxes_follow (const NemoArchiveOptions *options)
+{
+	return options->links.symlinks == ARC_LINK_FOLLOW;
+}
+
 static NemoArchiveCaps
 preferred_caps (const NemoArchiveOptions *options)
 {
@@ -531,7 +580,7 @@ preferred_caps (const NemoArchiveOptions *options)
 	if (options->dedupe) {
 		caps |= NEMO_ARCHIVE_CAP_DEDUPE;
 	}
-	if (options->store_links) {
+	if (wants_store (&options->links)) {
 		caps |= NEMO_ARCHIVE_CAP_STORE_LINKS;
 	}
 	if (options->recovery_record) {
@@ -634,12 +683,13 @@ nemo_archive_links_cost_threads (NemoArchiveFormat         format,
 		return FALSE;
 	}
 
-	/* A shallow copy is enough: only the flag changes, and nothing is
+	/* A shallow copy is enough: only the choice changes, and nothing is
 	   freed. */
 	with_links = *options;
-	with_links.store_links = TRUE;
+	with_links.links.junctions_set = FALSE;
+	with_links.links.symlinks = ARC_LINK_STORE_SYMLINK;
 	storing = nemo_archive_pick_backend (format, &with_links);
-	with_links.store_links = FALSE;
+	with_links.links.symlinks = ARC_LINK_IGNORE;
 	not_storing = nemo_archive_pick_backend (format, &with_links);
 
 	return storing == NEMO_ARCHIVE_BACKEND_LIBARCHIVE && not_storing != storing;
@@ -653,8 +703,7 @@ nemo_archive_options_init (NemoArchiveOptions *options)
 	memset (options, 0, sizeof (NemoArchiveOptions));
 	options->format = NEMO_ARCHIVE_FORMAT_ZIP;
 	options->level = NEMO_ARCHIVE_LEVEL_DEFAULT;
-	options->store_links = TRUE;
-	options->follow_link_dirs = FALSE;
+	arc_link_options_init (&options->links);
 	options->recovery_record = TRUE;
 }
 
@@ -1088,6 +1137,11 @@ typedef struct {
 	const NemoArchiveOptions *options;
 	NemoArchiveBackend        backend;
 	guint                     through_links;	/* followed linked folders we are in */
+	/* For the library's rules. */
+	ArcLinkChoice             symlinks;
+	ArcLinkChoice             junctions;
+	GHashTable               *listing;
+	GHashTable               *folders;
 } VerifyWalk;
 
 static void
@@ -1104,13 +1158,13 @@ expect (VerifyWalk *walk,
 	g_hash_table_replace (walk->expected, g_strdup (rel_path), item);
 }
 
-static void verify_walk_item (VerifyWalk *walk, GFile *file, const char *rel_path,
-			      GFileInfo *info);
+static void boxes_walk_item (VerifyWalk *walk, GFile *file, const char *rel_path,
+			     GFileInfo *info);
 
 static void
-verify_walk_directory (VerifyWalk *walk,
-		       GFile      *dir,
-		       const char *rel_path)
+boxes_walk_directory (VerifyWalk *walk,
+		      GFile      *dir,
+		      const char *rel_path)
 {
 	GFileEnumerator *children;
 	GFileInfo *child_info;
@@ -1135,7 +1189,7 @@ verify_walk_directory (VerifyWalk *walk,
 		child = g_file_get_child (dir, g_file_info_get_name (child_info));
 		child_rel = g_strconcat (rel_path, "/", g_file_info_get_name (child_info), NULL);
 
-		verify_walk_item (walk, child, child_rel, child_info);
+		boxes_walk_item (walk, child, child_rel, child_info);
 
 		g_free (child_rel);
 		g_object_unref (child);
@@ -1146,14 +1200,15 @@ verify_walk_directory (VerifyWalk *walk,
 	g_object_unref (children);
 }
 
-/* The same rules the writing scan goes by, arrived at separately. Anything this
-   drops is something the archive was never offered, so the walk is no longer
-   whole and nothing may be deleted on the strength of it. */
+/* The same rules the writing scan for 7z and rar goes by, arrived at
+   separately. Anything this drops is something the archive was never offered,
+   so the walk is no longer whole and nothing may be deleted on the strength
+   of it. */
 static void
-verify_walk_item (VerifyWalk *walk,
-		  GFile      *file,
-		  const char *rel_path,
-		  GFileInfo  *info)
+boxes_walk_item (VerifyWalk *walk,
+		 GFile      *file,
+		 const char *rel_path,
+		 GFileInfo  *info)
 {
 	GFileInfo *effective;
 	GFileType type;
@@ -1209,7 +1264,7 @@ verify_walk_item (VerifyWalk *walk,
 		if (g_file_info_get_is_symlink (info)) {
 			walk->through_links++;
 		}
-		verify_walk_directory (walk, file, rel_path);
+		boxes_walk_directory (walk, file, rel_path);
 		if (g_file_info_get_is_symlink (info)) {
 			walk->through_links--;
 		}
@@ -1219,6 +1274,218 @@ verify_walk_item (VerifyWalk *walk,
 		walk->whole = FALSE;	/* a socket or a device node, and no way to store it */
 	}
 
+	g_object_unref (effective);
+}
+
+static gboolean listing_holds_folder (GHashTable *listing, GHashTable *folders,
+				      const char *rel_path);
+
+typedef enum {
+	NOT_A_LINK,
+	A_SYMLINK,
+	A_JUNCTION,
+	A_MOUNT,	/* Windows: a folder a volume is mounted at */
+} LinkSort;
+
+/* Read without going through it. On Windows GLib calls a junction a folder,
+   and can't tell one from a mount point. */
+static LinkSort
+link_sort (GFile     *file,
+	   GFileInfo *info)
+{
+#ifdef G_OS_WIN32
+	char *target = NULL;
+	ArcEntry entry = arc_entry_read (g_file_peek_path (file), &target);
+
+	(void) info;
+	g_free (target);
+	switch (entry) {
+	case ARC_ENTRY_SYMLINK:
+		return A_SYMLINK;
+	case ARC_ENTRY_JUNCTION:
+		return A_JUNCTION;
+	case ARC_ENTRY_MOUNT_POINT:
+		return A_MOUNT;
+	case ARC_ENTRY_MISSING:
+	case ARC_ENTRY_PLAIN:
+	default:
+		return NOT_A_LINK;
+	}
+#else
+	(void) file;
+	return g_file_info_get_is_symlink (info) ? A_SYMLINK : NOT_A_LINK;
+#endif
+}
+
+static void verify_walk_item (VerifyWalk *walk, GFile *file, const char *rel_path,
+			      GFileInfo *info, guint32 device, gboolean via_link);
+
+static void
+verify_walk_directory (VerifyWalk *walk,
+		       GFile      *dir,
+		       const char *rel_path,
+		       guint32     device,
+		       gboolean    via_link)
+{
+	GFileEnumerator *children;
+	GFileInfo *child_info;
+
+	children = nemo_enumerate_children (dir, SCAN_ATTRIBUTES,
+					    G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS,
+					    walk->cancellable, NULL);
+	if (children == NULL) {
+		walk->whole = FALSE;
+		return;
+	}
+
+	while (!g_cancellable_is_cancelled (walk->cancellable)) {
+		GFile *child;
+		char *child_rel;
+
+		child_info = g_file_enumerator_next_file (children, walk->cancellable, NULL);
+		if (child_info == NULL) {
+			break;
+		}
+
+		child = g_file_get_child (dir, g_file_info_get_name (child_info));
+		child_rel = g_strconcat (rel_path, "/", g_file_info_get_name (child_info), NULL);
+
+		verify_walk_item (walk, child, child_rel, child_info, device, via_link);
+
+		g_free (child_rel);
+		g_object_unref (child);
+		g_object_unref (child_info);
+	}
+
+	g_file_enumerator_close (children, NULL, NULL);
+	g_object_unref (children);
+}
+
+/* Once by a link is enough, and once by the plain path. The plain path is
+   walked even after a link, as the job's walk does. A folder walked already
+   is no miss, and nothing more is expected of it. */
+static gboolean
+walked_before (VerifyWalk *walk,
+	       GFileInfo  *effective,
+	       gboolean    via_link)
+{
+	const char *id;
+	guint seen;
+
+	if (g_file_info_get_file_type (effective) != G_FILE_TYPE_DIRECTORY) {
+		return FALSE;
+	}
+	id = g_file_info_get_attribute_string (effective, G_FILE_ATTRIBUTE_ID_FILE);
+	if (id == NULL) {
+		return FALSE;
+	}
+	seen = GPOINTER_TO_UINT (g_hash_table_lookup (walk->seen_dirs, id));
+	return (seen & 1) || ((seen & 2) && via_link);
+}
+
+/* effective is what it's read as, the far end of a followed link. */
+static void
+verify_walk_found (VerifyWalk *walk,
+		   GFile      *file,
+		   const char *rel_path,
+		   GFileInfo  *effective,
+		   gboolean    via_link)
+{
+	GFileType type = g_file_info_get_file_type (effective);
+
+	if (type == G_FILE_TYPE_DIRECTORY) {
+		const char *id = g_file_info_get_attribute_string (effective, G_FILE_ATTRIBUTE_ID_FILE);
+
+		if (id != NULL) {
+			guint seen = GPOINTER_TO_UINT (g_hash_table_lookup (walk->seen_dirs, id));
+
+			g_hash_table_replace (walk->seen_dirs, g_strdup (id),
+					      GUINT_TO_POINTER (seen | (via_link ? 2u : 1u)));
+		}
+
+		expect (walk, rel_path, -1, TRUE);
+		verify_walk_directory (walk, file, rel_path,
+				       g_file_info_get_attribute_uint32 (effective, G_FILE_ATTRIBUTE_UNIX_DEVICE),
+				       via_link);
+	} else if (type == G_FILE_TYPE_REGULAR) {
+		expect (walk, rel_path, g_file_info_get_size (effective), FALSE);
+	} else {
+		walk->whole = FALSE;	/* a socket or a device node, and no way to store it */
+	}
+}
+
+/* The library's rules, arrived at apart from the job's walk: a link by its
+   choice, and what a followed one leads to under the link's own name. A link
+   or a mounted folder the job's walk left out for its filesystem isn't in the
+   archive, and isn't read here either, so it's a miss. device is the one the
+   folder this is in is on, or 0, as on Windows. */
+static void
+verify_walk_item (VerifyWalk *walk,
+		  GFile      *file,
+		  const char *rel_path,
+		  GFileInfo  *info,
+		  guint32     device,
+		  gboolean    via_link)
+{
+	LinkSort sort;
+	ArcLinkChoice choice;
+	GFileInfo *effective;
+
+	if (g_cancellable_is_cancelled (walk->cancellable)) {
+		return;
+	}
+
+	sort = link_sort (file, info);
+	switch (sort) {
+	case A_SYMLINK:
+	case A_JUNCTION:
+		choice = sort == A_SYMLINK ? walk->symlinks : walk->junctions;
+		if (choice == ARC_LINK_IGNORE) {
+			walk->whole = FALSE;
+			return;
+		}
+		if (choice != ARC_LINK_FOLLOW) {
+			expect (walk, rel_path, -1, FALSE);
+			return;
+		}
+		effective = g_file_query_info (file, SCAN_ATTRIBUTES, G_FILE_QUERY_INFO_NONE,
+					       walk->cancellable, NULL);
+		if (leads_nowhere (file, effective)) {
+			g_clear_object (&effective);
+			expect (walk, rel_path, -1, FALSE);
+			return;
+		}
+		via_link = TRUE;
+		break;
+	case A_MOUNT:
+		effective = g_file_query_info (file, SCAN_ATTRIBUTES, G_FILE_QUERY_INFO_NONE,
+					       walk->cancellable, NULL);
+		if (effective == NULL) {
+			walk->whole = FALSE;
+			return;
+		}
+		break;
+	case NOT_A_LINK:
+	default:
+		effective = g_object_ref (info);
+		break;
+	}
+
+	if (walked_before (walk, effective, via_link)) {
+		g_object_unref (effective);
+		return;
+	}
+	if (sort != NOT_A_LINK ||
+	    (g_file_info_get_file_type (effective) == G_FILE_TYPE_DIRECTORY &&
+	     g_file_info_get_attribute_uint32 (effective, G_FILE_ATTRIBUTE_UNIX_DEVICE) != device)) {
+		if (!listing_holds_folder (walk->listing, walk->folders, rel_path)) {
+			g_object_unref (effective);
+			walk->whole = FALSE;
+			return;
+		}
+	}
+
+	verify_walk_found (walk, file, rel_path, effective, via_link);
 	g_object_unref (effective);
 }
 
@@ -1370,7 +1637,7 @@ nemo_archive_verify (GFile                    *archive_file,
 		     GCancellable             *cancellable,
 		     char                    **reason)
 {
-	VerifyWalk walk = { NULL, NULL, NULL, FALSE, FALSE, TRUE, NULL, NEMO_ARCHIVE_BACKEND_NONE, 0 };
+	VerifyWalk walk = { 0 };
 	GHashTable *listing = NULL;
 	GHashTable *folders = NULL;
 	GHashTableIter iter;
@@ -1411,12 +1678,19 @@ nemo_archive_verify (GFile                    *archive_file,
 	walk.expected = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
 	walk.seen_dirs = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 	walk.cancellable = cancellable;
-	walk.store_links = options->store_links &&
-		(nemo_archive_backend_caps (options->format, backend) &
-		 NEMO_ARCHIVE_CAP_STORE_LINKS) != 0;
-	walk.follow_link_dirs = options->follow_link_dirs;
+	walk.whole = TRUE;
+	walk.store_links = boxes_store (options, options->format, backend);
+	walk.follow_link_dirs = boxes_follow (options);
 	walk.options = options;
 	walk.backend = backend;
+	{
+		guint stores = nemo_archive_backend_link_stores (options->format, backend);
+
+		walk.symlinks = arc_link_options_symlinks (&options->links, stores);
+		walk.junctions = arc_link_options_junctions (&options->links, stores);
+	}
+	walk.listing = listing;
+	walk.folders = folders;
 
 	for (l = sources; l != NULL; l = l->next) {
 		GFile *file = G_FILE (l->data);
@@ -1432,7 +1706,21 @@ nemo_archive_verify (GFile                    *archive_file,
 		}
 
 		name = g_file_get_basename (file);
-		verify_walk_item (&walk, file, name, info);
+		if (backend == NEMO_ARCHIVE_BACKEND_LIBARCHIVE) {
+			GFile *parent = g_file_get_parent (file);
+			GFileInfo *above = parent != NULL
+				? g_file_query_info (parent, G_FILE_ATTRIBUTE_UNIX_DEVICE,
+						     G_FILE_QUERY_INFO_NONE, cancellable, NULL)
+				: NULL;
+
+			verify_walk_item (&walk, file, name, info,
+					  above != NULL ? g_file_info_get_attribute_uint32 (above, G_FILE_ATTRIBUTE_UNIX_DEVICE) : 0,
+					  FALSE);
+			g_clear_object (&above);
+			g_clear_object (&parent);
+		} else {
+			boxes_walk_item (&walk, file, name, info);
+		}
 
 		g_free (name);
 		g_object_unref (info);
@@ -1520,9 +1808,7 @@ job_aborted (ArchiveJob *job)
 static gboolean
 job_stores_links (ArchiveJob *job)
 {
-	return job->options.store_links &&
-	       (nemo_archive_backend_caps (job->options.format, job->backend) &
-		NEMO_ARCHIVE_CAP_STORE_LINKS) != 0;
+	return boxes_store (&job->options, job->options.format, job->backend);
 }
 
 static void
@@ -1633,7 +1919,7 @@ scan_item (ArchiveJob *job,
 			return;
 		}
 		if (g_file_info_get_file_type (effective) == G_FILE_TYPE_DIRECTORY &&
-		    !job->options.follow_link_dirs) {
+		    !boxes_follow (&job->options)) {
 			job->left_out = g_list_prepend (job->left_out, g_strdup (rel_path));
 			g_object_unref (effective);
 			return;
@@ -1899,7 +2185,7 @@ configure_writer (struct archive  *a,
 static gboolean
 write_entry_data (ArchiveJob      *job,
 		  struct archive  *a,
-		  ArchiveEntry    *entry,
+		  GFile           *file,
 		  GError         **error)
 {
 	GFileInputStream *in;
@@ -1907,7 +2193,7 @@ write_entry_data (ArchiveJob      *job,
 	gssize count;
 	gboolean ok = TRUE;
 
-	in = g_file_read (entry->file, job->cancellable, error);
+	in = g_file_read (file, job->cancellable, error);
 	if (in == NULL) {
 		return FALSE;
 	}
@@ -1939,59 +2225,57 @@ write_entry_data (ArchiveJob      *job,
 }
 
 static gboolean
-write_entry (ArchiveJob      *job,
-	     struct archive  *a,
-	     ArchiveEntry    *entry,
-	     GError         **error)
+write_item (ArchiveJob      *job,
+	    struct archive  *a,
+	    const ArcItem   *item,
+	    GError         **error)
 {
-	struct archive_entry *ae;
-	GFileType type;
-	guint32 mode;
+	struct archive_entry *ae = archive_entry_new ();
+	guint32 mode = item->mode & 0777;
 	gboolean ok = TRUE;
 
-	ae = archive_entry_new ();
-	type = g_file_info_get_file_type (entry->info);
-	mode = g_file_info_get_attribute_uint32 (entry->info, G_FILE_ATTRIBUTE_UNIX_MODE) & 0777;
+	entry_set_paths (ae, item->name, item->kind == ARC_ITEM_LINK ? item->target : NULL);
 
-	entry_set_paths (ae, entry->rel_path,
-			 entry->as_link ? g_file_info_get_symlink_target (entry->info) : NULL);
-
-	if (entry->as_link) {
+	switch (item->kind) {
+	case ARC_ITEM_LINK:
 		archive_entry_set_filetype (ae, AE_IFLNK);
 		archive_entry_set_size (ae, 0);
 		if (mode == 0) {
 			mode = 0777;
 		}
-	} else if (type == G_FILE_TYPE_DIRECTORY) {
+		break;
+	case ARC_ITEM_FOLDER:
 		archive_entry_set_filetype (ae, AE_IFDIR);
 		archive_entry_set_size (ae, 0);
 		if (mode == 0) {
 			mode = 0755;
 		}
-	} else {
+		break;
+	case ARC_ITEM_FILE:
+	default:
 		archive_entry_set_filetype (ae, AE_IFREG);
-		archive_entry_set_size (ae, g_file_info_get_size (entry->info));
+		archive_entry_set_size (ae, (la_int64_t) item->bytes);
 		/* Windows has no unix mode to read, so give the entry the one a
 		   reader on a unix box would expect. */
 		if (mode == 0) {
 			mode = 0644;
 		}
+		break;
 	}
 
 	archive_entry_set_perm (ae, mode);
-
-	if (g_file_info_has_attribute (entry->info, G_FILE_ATTRIBUTE_TIME_MODIFIED)) {
-		archive_entry_set_mtime (ae,
-					 (time_t) g_file_info_get_attribute_uint64 (entry->info,
-										   G_FILE_ATTRIBUTE_TIME_MODIFIED),
-					 0);
+	if (item->mtime != 0) {
+		archive_entry_set_mtime (ae, (time_t) item->mtime, 0);
 	}
 
 	if (archive_write_header (a, ae) != ARCHIVE_OK) {
 		g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED, "%s", archive_error_string (a));
 		ok = FALSE;
-	} else if (!entry->as_link && type == G_FILE_TYPE_REGULAR) {
-		ok = write_entry_data (job, a, entry, error);
+	} else if (item->kind == ARC_ITEM_FILE) {
+		GFile *file = g_file_new_for_path (item->path);
+
+		ok = write_entry_data (job, a, file, error);
+		g_object_unref (file);
 	}
 
 	archive_entry_free (ae);
@@ -2069,6 +2353,76 @@ unit_has_nothing (ArchiveJob *job)
 	return TRUE;
 }
 
+static void
+pulse (gpointer data)
+{
+	nemo_progress_info_pulse_progress (((ArchiveJob *) data)->progress);
+}
+
+/* The job's own walk, through the archive core, by the link and filesystem
+   choices as the writer can do them. Never the dialog's: that one stopped at
+   OK, and left out links onto a share, which OK says to follow. */
+static gboolean
+prescan (ArchiveJob *job)
+{
+	GPtrArray *paths = g_ptr_array_new_with_free_func (g_free);
+	char *base = g_file_get_path (job->base_dir);
+	ArcHost host;
+	GList *l;
+
+	nemo_progress_info_set_status (job->progress, _("Preparing to compress"));
+
+	for (l = job->sources; l != NULL; l = l->next) {
+		char *path = g_file_get_path (G_FILE (l->data));
+
+		if (path == NULL) {
+			break;
+		}
+		g_ptr_array_add (paths, path);
+	}
+	g_ptr_array_add (paths, NULL);
+
+	if (base == NULL || l != NULL) {
+		job_fail (job, _("The archive could not be created."),
+			  _("The selection is not on this computer, so it can't be compressed here."));
+	} else {
+		nemo_archive_host_init (&host);
+		job->list = arc_scan_list (&host, base, (const char * const *) paths->pdata,
+					   &job->options.links,
+					   nemo_archive_backend_link_stores (job->options.format, job->backend),
+					   mounts_for_test != NULL ? mounts_for_test () : NULL,
+					   job->cancellable, pulse, job);
+	}
+
+	g_ptr_array_unref (paths);
+	g_free (base);
+	return job->list != NULL && !job_aborted (job);
+}
+
+/* Nothing to put in. One archive per item, where the options leave the
+   item out, has no archive for that one and goes on with the rest. */
+static gboolean
+list_has_nothing (ArchiveJob *job)
+{
+	job->total_bytes = job->list->bytes;
+	job->file_count = job->list->files;
+
+	if (job->list->items->len > 0) {
+		return FALSE;
+	}
+
+	if (job->unit_count > 1 && job->list->left_out->len > 0) {
+		job->unit_empty = TRUE;
+		return TRUE;
+	}
+
+	job_fail (job, _("The archive could not be created."),
+		  job->list->left_out->len > 0
+		  ? _("The link options leave out everything in the selection.")
+		  : _("Nothing in the selection could be read."));
+	return TRUE;
+}
+
 static gboolean
 run_libarchive (ArchiveJob *job)
 {
@@ -2076,16 +2430,14 @@ run_libarchive (ArchiveJob *job)
 	StreamSink sink;
 	GFileOutputStream *out;
 	GError *error = NULL;
-	GList *l;
+	guint i;
 	gboolean ok = TRUE;
 	gboolean closed;
 
-	scan_sources (job);
-
-	if (job_aborted (job)) {
+	if (!prescan (job)) {
 		return FALSE;
 	}
-	if (unit_has_nothing (job)) {
+	if (list_has_nothing (job)) {
 		return job->unit_empty;
 	}
 
@@ -2121,17 +2473,17 @@ run_libarchive (ArchiveJob *job)
 						       job->file_count));
 	}
 
-	for (l = job->entries; ok && l != NULL; l = l->next) {
-		ArchiveEntry *entry = l->data;
+	for (i = 0; ok && i < job->list->items->len; i++) {
+		const ArcItem *item = g_ptr_array_index (job->list->items, i);
 
 		if (job_aborted (job)) {
 			ok = FALSE;
 			break;
 		}
 
-		nemo_progress_info_set_details (job->progress, entry->rel_path);
+		nemo_progress_info_set_details (job->progress, item->name);
 
-		ok = write_entry (job, a, entry, &error);
+		ok = write_item (job, a, item, &error);
 		if (!ok) {
 			job_fail_from_error (job, error);
 			g_clear_error (&error);
@@ -2401,7 +2753,7 @@ build_command (NemoArchiveBackend        backend,
 		if (format == NEMO_ARCHIVE_FORMAT_7Z) {
 			solid_v[0] = g_strdup (options->solid ? "-ms=on" : "-ms=off");
 		}
-		if ((options->store_links || links_only) &&
+		if ((boxes_store (options, format, backend) || links_only) &&
 		    (nemo_archive_backend_caps (format, backend) & NEMO_ARCHIVE_CAP_STORE_LINKS)) {
 			g_ptr_array_add (links_v, g_strdup ("-snl"));
 		}
@@ -2440,7 +2792,7 @@ build_command (NemoArchiveBackend        backend,
 		/* -ol keeps links as links. Without it rar follows them, which is
 		   what not keeping them means; -ola would keep them too, with the
 		   path made absolute, and -ol- would drop them. */
-		if (options->store_links || links_only) {
+		if (boxes_store (options, format, backend) || links_only) {
 			g_ptr_array_add (links_v, g_strdup ("-ol"));
 		}
 		/* With -r, "sub/name" means every "name" under sub. Only a line
@@ -3449,6 +3801,7 @@ archive_job_done (gpointer user_data)
 					      (gpointer *) &job->parent_window);
 	}
 
+	g_clear_pointer (&job->list, arc_scan_list_free);
 	g_list_free_full (job->entries, (GDestroyNotify) archive_entry_free_full);
 	g_list_free_full (job->units, (GDestroyNotify) archive_unit_free);
 	g_list_free_full (job->verified, g_object_unref);
@@ -3489,6 +3842,7 @@ start_unit (ArchiveJob  *job,
 static void
 finish_unit (ArchiveJob *job)
 {
+	g_clear_pointer (&job->list, arc_scan_list_free);
 	g_list_free_full (job->entries, (GDestroyNotify) archive_entry_free_full);
 	job->entries = NULL;
 	g_list_free_full (job->left_out, g_free);
@@ -3540,7 +3894,7 @@ archive_job (GIOSchedulerJob *io_job,
 				char *name = g_file_get_basename (G_FILE (job->sources->data));
 
 				job->verify_trouble = g_strdup_printf (
-					_("\"%s\" is a linked folder that was not followed, so it has no archive."),
+					_("\"%s\" is a link or a mounted folder the options leave out, so it has no archive."),
 					name);
 				g_free (name);
 			}
