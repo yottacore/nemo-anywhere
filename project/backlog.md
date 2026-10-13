@@ -153,6 +153,25 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: b1bb561, b02da5e, d483f63, 6c72feb, f80970a
 	- Test case: rjwc3jkm, Windows bundle exe check. It reads the release zip in the packages stage, the flat tree before the single exe is packed, and the folder `install.ps1` installs in rj72n4xb. The start paths: rjw1ks5h for a new window, a tab moved out and links, rjvzdd4w for Open With, a named program and an open file, rjmb3j8p for actions, rjm4ctwh for archive tools, converters and thumbnailers, which must be started by the app and not a spawn helper, and a helper that won't start is told once. rjnzpkk7 checks that a failed start shows its error. rjxn0ekh, Pack project options check: the single exe's pack project must have sharing with started programs off.
 
+- Settings: Views|Current needs to look more clearly disabled when it's disabled.
+	- ID: 2026101009150768
+	- Type: Enhancement
+	- Status: Waiting on signoff
+	- Priority|Severity: Avg
+	- Opened: 20261010-091507
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+		- Go back to the previous method of letting the tab be activated, but disable all the content.
+	- Progress log:
+		- 20261010: the old-format item "Preferences|Views: with Remember per-folder settings off, the Current tab still opens on a dead page" made the tab refuse the switch. Back then the tab opened on an empty gray pane, so the controls have to show, disabled.
+		- 20261013: the tab opens again with remembering off. It shows its controls grayed out, under the folder's path, and its label stays grayed. Turning remembering off while the tab is up leaves it up, grayed. Nothing on the page says why. Options: a line there saying per-folder settings are off. The UX style guide's rule on grayed tabs says the same now. Left at signoff for the look.
+	- Swept: the refusal was the only thing in the dialog that stopped a tab from opening.
+	- Verified: rhtmbdmf fails on dev's code, 2 checks, and passes after. Checked in the app on Linux with remembering off: the tab opens on the grayed controls and path.
+	- Branch: settings
+	- Commit: 07b76a2
+	- Test case: rhtmbdmf, Settings Current tab test. Its 2 checks that the switch is refused are commented out with the reason. It now checks the tab opens on grayed controls, and stays up when remembering is turned off.
+
 - After an `smb://` address is typed, nothing shows that the app is working on it.
 	- ID: 2026100816170921
 	- Type: Bug
@@ -423,25 +442,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Consider breaking the content up into related settings under a couple or more nested tabs, or sub-tabs.
 	- Test case: TBD
 
-- Settings: Views|Current needs to look more clearly disabled when it's disabled.
-	- ID: 2026101009150768
-	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Priority|Severity: Avg
-	- Opened: 20261010-091507
-	- Opened by: t00mietum
-	- Requirements:
-		- Before the next cut.
-		- Go back to the previous method of letting the tab be activated, but disable all the content.
-	- Progress log:
-		- 20261010: the old-format item "Preferences|Views: with Remember per-folder settings off, the Current tab still opens on a dead page" made the tab refuse the switch. Back then the tab opened on an empty gray pane, so the controls have to show, disabled.
-		- 20261013: the tab opens again with remembering off. It shows its controls grayed out, under the folder's path, and its label stays grayed. Turning remembering off while the tab is up leaves it up, grayed. Nothing on the page says why. Options: a line there saying per-folder settings are off. The UX style guide's rule on grayed tabs says the same now. Left at signoff for the look.
-	- Swept: the refusal was the only thing in the dialog that stopped a tab from opening.
-	- Verified: rhtmbdmf fails on dev's code, 2 checks, and passes after. Checked in the app on Linux with remembering off: the tab opens on the grayed controls and path.
-	- Branch: settings
-	- Commit: 07b76a2
-	- Test case: rhtmbdmf, Settings Current tab test. Its 2 checks that the switch is refused are commented out with the reason. It now checks the tab opens on grayed controls, and stays up when remembering is turned off.
-
 - Settings: show nested tabs in the tab list on the left.
 	- ID: 2026101009150769
 	- Type: Enhancement
@@ -474,28 +474,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Past the last sub-tab, cycling moves to the next parent tab.
 	- Test case: TBD
 
-- Settings: tabs can't get input focus.
-	- ID: 2026101009150771
-	- Type: Enhancement
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261010-091507
-	- Opened by: t00mietum
-	- Related IDs: 2026101009150769
-	- Requirements:
-		- Before the next cut.
-		- A tab can be clicked with the mouse, but doesn't get input focus. Otherwise tabs are only indicators of which tab is active.
-	- Decisions:
-		- Both kinds of tab: the list on the left and the Views tabs. Tab goes past both, and a click on either never leaves the focus on it.
-		- With the list out of the keyboard's reach, Ctrl+Page Up and Ctrl+Page Down step through its pages and wrap round, as the main window's tabs do. With the focus inside the Views tabs, the keys step those tabs, as before. Ctrl+Tab is left for 2026101009150770. The UX style guide says so too.
-	- Swept: the main window's tabs already kept the focus off. The Properties window's tab buttons still take it; outside Settings, so left alone.
-	- Verified: rhtmbdmd fails on dev's code: the list's rows take the focus, Tab stops on a row, the Views tabs keep the focus, and Ctrl+Page Down does nothing. It passes after, 3 runs, and under wine. Checked in the app on Linux: Tab never reaches a tab, a click opens a page from the list, and Ctrl+Page Down moves to the next page. Full Linux suite 189 of 191: one skip, and rjv9ks2z failed once under load and passes alone, 3 of 3. Windows cross build clean with warnings as errors. Lint clean.
-	- Branch: settings
-	- Commit: 07b76a2, dcdce6d
-	- Test case: rhtmbdmd, Settings dialog test.
-	- Acceptance signoff: Self-closed: does what the item asks, and rhtmbdmd failed before and passes after.
-	- Closed: 20261013-050442
-
 - On Linux and the BSDs, programs a relocated install starts get its own folders in their search paths.
 	- ID: 2026100916102200
 	- Type: Bug
@@ -510,29 +488,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: a user's program gets the environment it would have had without the app, the same as on Windows since 2026100912374782. The app's own copies and helpers may keep the added folders.
 	- Reproduced: No. From reading the startup code.
 	- Test case: still needs one. rjvzdd4w's started-program check, on Linux.
-
-- Rename Preferences to Settings.
-	- ID: 2026100816170996
-	- Type: Enhancement
-	- Status: Done
-	- Priority|Severity: Low
-	- Opened: 20261008-161710
-	- Opened by: t00mietum
-	- Target OS: All
-	- Requirements:
-		- Everywhere the app says Preferences, it says Settings: menus, the dialog's title, and the docs.
-	- Note: the file is already `settings.shcl`.
-	- Decisions:
-		- The Edit menu item is "Settings", with S as its key, which nothing else in that menu uses. The window title is "File management settings".
-		- Code names stay as they are: the `nemo-prefs-*` files, `NEMO_PREFERENCES_*`, the menu action's name, the `preferences` group in the settings file, and the `Preferences` area of `NEMO_DEBUG`. None of them shows in the app, and the settings group is in every settings file out there.
-		- "preferences" in the docs where it means a person's choices, not the window, stays. So do translator comments, `nemo.pot` and the po files.
-	- Swept: every interface string in C and the layout files, now checked by the UI case lint. README, changelog, design.md, the UX style guide, the delete guard design doc, filesystem/README.md, the delete test guard's dialog text, the 3 test names, and comments that name the window. `n8runfm.ps1`, `install.ps1`, the Windows cicd scripts, Help, About and the keyboard shortcuts window have no Preferences text. `lint-accels.py` had no entry for it.
-	- Verified: the new check reports 4 strings on dev and none on the branch. Edit, then S, opens the window, titled "File management settings". Suite, cross build and lint as in 2026101009150771.
-	- Branch: settings
-	- Commit: 07b76a2
-	- Test case: rk54j8k7, the UI case lint's self-test. The lint itself now fails on "Preferences" in any interface string.
-	- Acceptance signoff: Self-closed: a rename, and the check that pins it failed before and passes after.
-	- Closed: 20261013-050442
 
 - Compression reset: the background scan behind the size totals.
 	- ID: 2026100516274275
@@ -1719,6 +1674,28 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: `test-nemo-psd`: rows at the least length are read, one byte less is refused, and a file of empty rows, 30000 by 30000 as psd and 60000 by 60000 as psb, is refused in under a second. Fuzz seed `zero-rows`, and `short-literal` reworked so it still reaches the literal-run bound.
 	- Branch: psdrows
 	- Commit: 24d99cd
+
+- Settings: tabs can't get input focus.
+	- ID: 2026101009150771
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261010-091507
+	- Opened by: t00mietum
+	- Related IDs: 2026101009150769
+	- Requirements:
+		- Before the next cut.
+		- A tab can be clicked with the mouse, but doesn't get input focus. Otherwise tabs are only indicators of which tab is active.
+	- Decisions:
+		- Both kinds of tab: the list on the left and the Views tabs. Tab goes past both, and a click on either never leaves the focus on it.
+		- With the list out of the keyboard's reach, Ctrl+Page Up and Ctrl+Page Down step through its pages and wrap round, as the main window's tabs do. With the focus inside the Views tabs, the keys step those tabs, as before. Ctrl+Tab is left for 2026101009150770. The UX style guide says so too.
+	- Swept: the main window's tabs already kept the focus off. The Properties window's tab buttons still take it; outside Settings, so left alone.
+	- Verified: rhtmbdmd fails on dev's code: the list's rows take the focus, Tab stops on a row, the Views tabs keep the focus, and Ctrl+Page Down does nothing. It passes after, 3 runs, and under wine. Checked in the app on Linux: Tab never reaches a tab, a click opens a page from the list, and Ctrl+Page Down moves to the next page. Full Linux suite 189 of 191: one skip, and rjv9ks2z failed once under load and passes alone, 3 of 3. Windows cross build clean with warnings as errors. Lint clean.
+	- Branch: settings
+	- Commit: 07b76a2, dcdce6d
+	- Test case: rhtmbdmd, Settings dialog test.
+	- Acceptance signoff: Self-closed: does what the item asks, and rhtmbdmd failed before and passes after.
+	- Closed: 20261013-050442
 
 - Run the lint tools from a container, at fixed versions.
 	- ID: 2026101009515961
@@ -3891,6 +3868,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjf2v5d5 (`test-release-notes.bash`, lint stage).
 	- Acceptance signoff: Self-closed: reproduced, red without the check and green with it, and nothing on screen.
 	- Closed: 20261005-075207
+
+- Rename Preferences to Settings.
+	- ID: 2026100816170996
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261008-161710
+	- Opened by: t00mietum
+	- Target OS: All
+	- Requirements:
+		- Everywhere the app says Preferences, it says Settings: menus, the dialog's title, and the docs.
+	- Note: the file is already `settings.shcl`.
+	- Decisions:
+		- The Edit menu item is "Settings", with S as its key, which nothing else in that menu uses. The window title is "File management settings".
+		- Code names stay as they are: the `nemo-prefs-*` files, `NEMO_PREFERENCES_*`, the menu action's name, the `preferences` group in the settings file, and the `Preferences` area of `NEMO_DEBUG`. None of them shows in the app, and the settings group is in every settings file out there.
+		- "preferences" in the docs where it means a person's choices, not the window, stays. So do translator comments, `nemo.pot` and the po files.
+	- Swept: every interface string in C and the layout files, now checked by the UI case lint. README, changelog, design.md, the UX style guide, the delete guard design doc, filesystem/README.md, the delete test guard's dialog text, the 3 test names, and comments that name the window. `n8runfm.ps1`, `install.ps1`, the Windows cicd scripts, Help, About and the keyboard shortcuts window have no Preferences text. `lint-accels.py` had no entry for it.
+	- Verified: the new check reports 4 strings on dev and none on the branch. Edit, then S, opens the window, titled "File management settings". Suite, cross build and lint as in 2026101009150771.
+	- Branch: settings
+	- Commit: 07b76a2
+	- Test case: rk54j8k7, the UI case lint's self-test. The lint itself now fails on "Preferences" in any interface string.
+	- Acceptance signoff: Self-closed: a rename, and the check that pins it failed before and passes after.
+	- Closed: 20261013-050442
 
 - FreeBSD in the pipeline.
 	- ID: 2026100517134118
