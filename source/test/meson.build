@@ -1681,6 +1681,15 @@ test('rjq9mv0w Archive core test',
   args: []
 )
 
+# What the core's build did: no GTK or app on its include path, and no call
+# into them in the library.
+arc_core_nm = find_program('nm', required: false)
+test('rk6704r8 Archive core build test',
+  py,
+  args: [ files('check-arc-core-build.py'), meson.project_source_root(), meson.project_build_root(),
+          arc_core_lib, arc_core_nm.found() ? arc_core_nm.full_path() : '' ],
+)
+
 # The scan behind the archive size totals on a scratch tree, with a host the
 # test makes and with the app's own. The app is linked for the scratch folder
 # and its host only; the scan never sees it.

@@ -20,13 +20,10 @@
    Boston, MA 02110-1335, USA.
 */
 
-/* Reading reaches much further than writing does. libarchive opens the tar,
- * zip, 7z, rar, cab, lha, cpio, xar and iso families and the bare compressors
- * on their own, so most of what a person double-clicks needs nothing installed.
- * A 7z or rar command is still reached for where libarchive will not open the
- * file at all - a multi-volume set, or headers it cannot decrypt - and that
- * path stages into a temporary folder so the same collision handling applies
- * to both.
+/* The archive core unpacks them: arc-extract.h has the job, and
+ * arc-extract-names.h the names. The app still calls them by the names below,
+ * from before they moved. Modularity, in
+ * project/design_docs/20260929-101432_compression.md.
  */
 
 #ifndef NEMO_EXTRACT_H
@@ -35,13 +32,14 @@
 #include <gtk/gtk.h>
 #include <gio/gio.h>
 
+#include "arc-extract.h"
 #include "arc-extract-names.h"
 #include "arc-writer.h"
 
-typedef enum {
-	NEMO_EXTRACT_HERE,		/* straight into the destination folder */
-	NEMO_EXTRACT_TO_SUBFOLDER	/* each archive into a folder of its own */
-} NemoExtractLayout;
+typedef ArcExtractLayout NemoExtractLayout;
+
+#define NEMO_EXTRACT_HERE                 ARC_EXTRACT_HERE
+#define NEMO_EXTRACT_TO_SUBFOLDER         ARC_EXTRACT_TO_SUBFOLDER
 
 typedef ArcBackend NemoExtractBackend;
 

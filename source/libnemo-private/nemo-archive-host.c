@@ -22,6 +22,7 @@
 
 #include <string.h>
 
+#include <glib/gi18n.h>
 #include <eel/eel-stock-dialogs.h>
 
 #include "nemo-archive-host.h"
@@ -29,7 +30,9 @@
 #include "nemo-archive-commands.h"
 #include "nemo-command-template.h"
 #include "nemo-config.h"
+#include "nemo-delete-guard.h"
 #include "nemo-dir-enum.h"
+#include "nemo-extract-conflict-dialog.h"
 #include "nemo-file-changes-queue.h"
 #include "nemo-file-operations.h"
 #include "nemo-global-preferences.h"
@@ -541,6 +544,17 @@ job_remove_own (gpointer  data,
 	return g_file_delete (file, NULL, NULL);
 }
 
+/* A folder an archive was unpacked into, or a file the person chose to
+   replace. */
+static gboolean
+job_remove_tree (gpointer      data,
+		 GFile        *dir,
+		 GCancellable *cancellable)
+{
+	(void) data;
+	return nemo_delete_guard_remove_tree (dir, cancellable);
+}
+
 /* The box was ticked in the Compress dialog, so this is a delete a person
    asked for, and it goes through the ordinary trash-or-delete with its own
    confirmation rather than anything quieter here. */
@@ -573,6 +587,157 @@ job_warning (gpointer    data,
 	eel_show_warning_dialog (primary, details, job->parent_window);
 }
 
+typedef struct {
+	NemoArchiveHostJob *job;
+	const ArcConflict  *question;
+	ArcConflictAnswer  *answer;
+} ConflictAsk;
+
+static gboolean
+run_conflict_dialog (gpointer user_data)
+{
+	ConflictAsk *ask = user_data;
+	const ArcConflict *question = ask->question;
+	GtkWidget *dialog;
+	int response;
+
+	dialog = nemo_extract_conflict_dialog_new (ask->job->parent_window,
+						   question->archive_name,
+						   question->entry_name,
+						   question->entry_is_dir,
+						   question->entry_size,
+						   question->entry_mtime,
+						   question->destination,
+						   question->destination_dir);
+
+	response = gtk_dialog_run (GTK_DIALOG (dialog));
+
+	switch (response) {
+	case CONFLICT_RESPONSE_SKIP:
+		ask->answer->response = ARC_CONFLICT_SKIP;
+		break;
+	case CONFLICT_RESPONSE_REPLACE:
+		ask->answer->response = ARC_CONFLICT_REPLACE;
+		break;
+	case CONFLICT_RESPONSE_RENAME:
+		ask->answer->response = ARC_CONFLICT_RENAME;
+		break;
+	case CONFLICT_RESPONSE_AUTO_RENAME:
+		ask->answer->response = ARC_CONFLICT_AUTO_RENAME;
+		break;
+	default:
+		/* Cancel, or the window closed. */
+		ask->answer->response = ARC_CONFLICT_CANCEL;
+		break;
+	}
+
+	if (response == CONFLICT_RESPONSE_RENAME) {
+		ask->answer->new_name = nemo_extract_conflict_dialog_get_new_name (dialog);
+	} else if (response != GTK_RESPONSE_CANCEL && response != GTK_RESPONSE_NONE) {
+		ask->answer->apply_to_all = nemo_extract_conflict_dialog_get_apply_to_all (dialog);
+	}
+
+	gtk_widget_destroy (dialog);
+
+	return FALSE;
+}
+
+static void
+job_conflict (gpointer           data,
+	      const ArcConflict *question,
+	      ArcConflictAnswer *answer)
+{
+	NemoArchiveHostJob *job = data;
+	ConflictAsk ask = { job, question, answer };
+	gboolean paused_here;
+
+	g_return_if_fail (job->io_job != NULL);
+
+	paused_here = nemo_progress_info_pause (job->progress);
+	g_io_scheduler_job_send_to_mainloop (job->io_job, run_conflict_dialog, &ask, NULL);
+	if (paused_here) {
+		nemo_progress_info_resume (job->progress);
+	}
+
+	/* The whole job stops, and one paused by hand wakes up to stop. */
+	if (answer->response == ARC_CONFLICT_CANCEL) {
+		nemo_progress_info_cancel (job->progress);
+	}
+}
+
+typedef struct {
+	NemoArchiveHostJob *job;
+	const char         *archive_name;
+	char               *password;
+} PasswordAsk;
+
+static gboolean
+run_password_dialog (gpointer user_data)
+{
+	PasswordAsk *ask = user_data;
+	GtkWidget *dialog;
+	GtkWidget *content;
+	GtkWidget *box;
+	GtkWidget *label;
+	GtkWidget *entry;
+	char *text;
+
+	dialog = gtk_dialog_new_with_buttons (_("Password required"),
+					      ask->job->parent_window,
+					      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+					      _("_Cancel"), GTK_RESPONSE_CANCEL,
+					      _("_Unlock"), GTK_RESPONSE_OK,
+					      NULL);
+	gtk_dialog_set_default_response (GTK_DIALOG (dialog), GTK_RESPONSE_OK);
+
+	content = gtk_dialog_get_content_area (GTK_DIALOG (dialog));
+	box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
+	gtk_container_set_border_width (GTK_CONTAINER (box), 12);
+	gtk_box_pack_start (GTK_BOX (content), box, FALSE, FALSE, 0);
+
+	text = g_strdup_printf (_("\"%s\" is protected. Enter its password to unpack it."),
+				ask->archive_name);
+	label = gtk_label_new (text);
+	gtk_label_set_line_wrap (GTK_LABEL (label), TRUE);
+	gtk_label_set_xalign (GTK_LABEL (label), 0.0);
+	gtk_box_pack_start (GTK_BOX (box), label, FALSE, FALSE, 0);
+	g_free (text);
+
+	entry = gtk_entry_new ();
+	gtk_entry_set_visibility (GTK_ENTRY (entry), FALSE);
+	gtk_entry_set_activates_default (GTK_ENTRY (entry), TRUE);
+	gtk_box_pack_start (GTK_BOX (box), entry, FALSE, FALSE, 0);
+
+	gtk_widget_show_all (content);
+
+	if (gtk_dialog_run (GTK_DIALOG (dialog)) == GTK_RESPONSE_OK) {
+		ask->password = g_strdup (gtk_entry_get_text (GTK_ENTRY (entry)));
+	}
+
+	gtk_widget_destroy (dialog);
+
+	return FALSE;
+}
+
+static char *
+job_password (gpointer    data,
+	      const char *archive_name)
+{
+	NemoArchiveHostJob *job = data;
+	PasswordAsk ask = { job, archive_name, NULL };
+	gboolean paused_here;
+
+	g_return_val_if_fail (job->io_job != NULL, NULL);
+
+	paused_here = nemo_progress_info_pause (job->progress);
+	g_io_scheduler_job_send_to_mainloop (job->io_job, run_password_dialog, &ask, NULL);
+	if (paused_here) {
+		nemo_progress_info_resume (job->progress);
+	}
+
+	return ask.password;
+}
+
 void
 nemo_archive_host_init_job (ArcHost            *host,
 			    NemoArchiveHostJob *job)
@@ -589,9 +754,12 @@ nemo_archive_host_init_job (ArcHost            *host,
 	host->prescan.end = job_prescan_end;
 	host->changes.file_added = job_file_added;
 	host->deletes.remove_own = job_remove_own;
+	host->deletes.remove_tree = job_remove_tree;
 	host->deletes.trash_by_user = job_trash_by_user;
 	host->ask.error = job_error;
 	host->ask.warning = job_warning;
+	host->ask.conflict = job_conflict;
+	host->ask.password = job_password;
 	host->data = job;
 }
 
