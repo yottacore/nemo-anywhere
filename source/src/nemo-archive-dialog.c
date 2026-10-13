@@ -999,7 +999,6 @@ collect_options (ArchiveDialog      *self,
 {
 	NemoArchiveChoices shown = { 0 };
 	NemoArchiveCaps caps;
-	ArcLinkChoice symlinks;
 
 	nemo_archive_options_init (options);
 
@@ -1024,12 +1023,9 @@ collect_options (ArchiveDialog      *self,
 
 	options->solid = shown.solid;
 	options->dedupe = shown.dedupe;
-	/* The job takes Symlinks only, as the 2 boxes it had. Junctions and the
-	   filesystem options reach it with 2026100516274423. */
-	symlinks = arc_link_options_symlinks (&self->chosen.links,
-					      nemo_archive_options_link_stores (options->format, options));
-	options->store_links = symlinks == ARC_LINK_STORE_SYMLINK;
-	options->follow_link_dirs = symlinks == ARC_LINK_FOLLOW;
+	/* As chosen. The job has a store its writer can't do fall back to
+	   Ignore, as the buttons show it. */
+	options->links = self->chosen.links;
 	options->recovery_record = shown.recovery;
 	options->lock = shown.lock;
 

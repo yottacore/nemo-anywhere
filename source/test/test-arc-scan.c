@@ -3,7 +3,8 @@
  * nowhere, a .lnk, made-up nested, other and share mounts, and on Windows a
  * junction and a junction loop. Each mix's total against what that mix lets
  * in, an option turned off and one turned on mid-scan, the gap between
- * reports, Cancel, and the app's own host on the same tree. */
+ * reports, Cancel, and the app's own host on the same tree. Then the job's
+ * list from the same walk, for each link choice. */
 
 #include <stdlib.h>
 #include <string.h>
@@ -890,6 +891,167 @@ check_app_host (void)
 	g_free (share);
 }
 
+static const ArcItem *
+item_named (const ArcScanList *list,
+	    const char        *name)
+{
+	guint i;
+
+	for (i = 0; i < list->items->len; i++) {
+		const ArcItem *item = g_ptr_array_index (list->items, i);
+
+		if (strcmp (item->name, name) == 0) {
+			return item;
+		}
+	}
+	return NULL;
+}
+
+static gboolean
+named_in (GPtrArray  *names,
+	  const char *name)
+{
+	guint i;
+
+	for (i = 0; i < names->len; i++) {
+		if (strcmp (g_ptr_array_index (names, i), name) == 0) {
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+static ArcScanList *
+list_of (ArcLinkChoice symlinks,
+	 gboolean      filesystems,
+	 guint         stores)
+{
+	char *sel = at ("sel");
+	const char *paths[] = { sel, NULL };
+	ArcLinkOptions links;
+	ArcScanList *list;
+
+	arc_link_options_init (&links);
+	links.symlinks = symlinks;
+	links.follow_nested = filesystems;
+	links.follow_other = filesystems;
+	fake_reset (NULL);
+	list = arc_scan_list (&fake_host, root, paths, &links, stores, made_up_mounts (), NULL, NULL, NULL);
+	g_free (sel);
+	return list;
+}
+
+/* The job's own list. Ignore leaves links out by name, and the mounts too
+   with the filesystem options off. Store puts each link in as itself, the
+   one that leads nowhere too. Follow puts in what they lead to under their
+   own names, and the one that leads nowhere as a link. A share is followed,
+   since OK was the person's action. Junctions go by Symlinks' choice, with
+   what the library stores. */
+static void
+check_list (void)
+{
+	guint library = ARC_STORES_SYMLINKS | ARC_STORES_JUNCTIONS_AS_SYMLINKS;
+	static const char * const symlinks[] = { "flink", "dlink", "again", "self", "nowhere", "tonest",
+						 "toother", "toshare", "hop" };
+	ArcScanList *list;
+	const ArcItem *item;
+	GCancellable *stopped;
+	char *sel;
+	const char *paths[2] = { NULL, NULL };
+	ArcLinkOptions links;
+	gsize i;
+
+	list = list_of (ARC_LINK_IGNORE, FALSE, library);
+	check (list != NULL);
+	check (item_named (list, "sel/a.bin") != NULL && item_named (list, "sel/a.bin")->kind == ARC_ITEM_FILE);
+	check (item_named (list, "sel/sub/deeper/c.bin") != NULL);
+	check (item_named (list, "sel/shortcut.lnk") != NULL);
+	check (item_named (list, "sel/sub") != NULL && item_named (list, "sel/sub")->kind == ARC_ITEM_FOLDER);
+	check (item_named (list, "sel/nest/h.bin") == NULL && named_in (list->left_out, "sel/nest"));
+	check (item_named (list, "sel/other/i.bin") == NULL && named_in (list->left_out, "sel/other"));
+	check (item_named (list, "sel/share/j.bin") == NULL && named_in (list->left_out, "sel/share"));
+	for (i = 0; i < G_N_ELEMENTS (symlinks); i++) {
+		char *name = g_strconcat ("sel/", symlinks[i], NULL);
+
+		check (!link_made (symlinks[i]) || (named_in (list->left_out, name) && item_named (list, name) == NULL));
+		g_free (name);
+	}
+	check (list->files == expected_files (0));
+	check (list->bytes == expected (0));
+	check (list->unreadable->len == 0);
+	arc_scan_list_free (list);
+
+	list = list_of (ARC_LINK_STORE_SYMLINK, TRUE, library);
+	check (list != NULL);
+	for (i = 0; i < G_N_ELEMENTS (symlinks); i++) {
+		char *name = g_strconcat ("sel/", symlinks[i], NULL);
+
+		item = item_named (list, name);
+		check (!link_made (symlinks[i]) || (item != NULL && item->kind == ARC_ITEM_LINK && item->target != NULL));
+		g_free (name);
+	}
+	item = item_named (list, "sel/flink");
+	check (!link_made ("flink") || g_strcmp0 (item->target, "../outside/f.bin") == 0 ||
+	       g_strcmp0 (item->target, "..\\outside\\f.bin") == 0);
+	check (item_named (list, "sel/nest/h.bin") != NULL);
+	check (item_named (list, "sel/other/i.bin") != NULL);
+	check (item_named (list, "sel/share/inner/p.bin") != NULL);
+	check (list->left_out->len == 0);
+	item = item_named (list, "sel/jlink");
+	check (!link_made ("jlink") || (item != NULL && item->kind == ARC_ITEM_LINK && item->junction));
+	arc_scan_list_free (list);
+
+	/* A store the writer can't do is Ignore. */
+	list = list_of (ARC_LINK_STORE_SYMLINK, TRUE, 0);
+	check (!link_made ("flink") || named_in (list->left_out, "sel/flink"));
+	check (item_named (list, "sel/flink") == NULL);
+	arc_scan_list_free (list);
+
+	list = list_of (ARC_LINK_FOLLOW, TRUE, library);
+	check (list != NULL);
+	if (link_made ("flink")) {
+		char *real = at ("outside/f.bin");
+
+		item = item_named (list, "sel/flink");
+		check (item != NULL && item->kind == ARC_ITEM_FILE && item->bytes == 16 &&
+		       item->needs == ARC_FOLLOW_SYMLINKS && g_strcmp0 (item->path, real) == 0);
+		g_free (real);
+	}
+	check (!link_made ("dlink") || item_named (list, "sel/dlink/deep/q.bin") != NULL);
+	check (!link_made ("nowhere") || (item_named (list, "sel/nowhere") != NULL &&
+					  item_named (list, "sel/nowhere")->kind == ARC_ITEM_LINK));
+	check (!link_made ("self") || (item_named (list, "sel/self") != NULL &&
+				       item_named (list, "sel/self")->kind == ARC_ITEM_LINK));
+	check (!link_made ("tonest") || item_named (list, "sel/tonest/m.bin") != NULL);
+	check (!link_made ("toother") || item_named (list, "sel/toother/n.bin") != NULL);
+	/* Back up into the selection, which was walked by a path needing less. */
+	check (item_named (list, "sel/sub/loop") == NULL && !named_in (list->left_out, "sel/sub/loop"));
+	check (item_named (list, "sel/sub/loop/a.bin") == NULL);
+	check (item_named (list, "sel/share/j.bin") != NULL);
+	check (!link_made ("jlink") || item_named (list, "sel/jlink/l.bin") != NULL);
+	check (list->left_out->len == 0);
+	check (list->unreadable->len == 0);
+	arc_scan_list_free (list);
+
+	/* Follow with the filesystems off: the links that cross are left out by
+	   name, like the mounts. */
+	list = list_of (ARC_LINK_FOLLOW, FALSE, library);
+	check (!link_made ("tonest") || named_in (list->left_out, "sel/tonest"));
+	check (!link_made ("toother") || named_in (list->left_out, "sel/toother"));
+	check (item_named (list, "sel/tonest/m.bin") == NULL);
+	check (!link_made ("flink") || item_named (list, "sel/flink") != NULL);
+	arc_scan_list_free (list);
+
+	stopped = g_cancellable_new ();
+	g_cancellable_cancel (stopped);
+	sel = at ("sel");
+	paths[0] = sel;
+	arc_link_options_init (&links);
+	check (arc_scan_list (&fake_host, root, paths, &links, 0, made_up_mounts (), stopped, NULL, NULL) == NULL);
+	g_object_unref (stopped);
+	g_free (sel);
+}
+
 int
 main (int    argc,
       char **argv)
@@ -941,6 +1103,7 @@ main (int    argc,
 	check_cancel ();
 	check_bare_host ();
 	check_app_host ();
+	check_list ();
 
 	g_ptr_array_unref (fake.listed);
 	g_free (fake.share);

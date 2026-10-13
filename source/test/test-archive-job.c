@@ -12,6 +12,7 @@
 #include <libnemo-private/nemo-archive-commands.h>
 #include <libnemo-private/nemo-config.h>
 #include <libnemo-private/nemo-dir-enum.h>
+#include <libnemo-private/nemo-link-copy.h>
 #include <libnemo-private/nemo-progress-info.h>
 #include <libnemo-private/nemo-progress-info-manager.h>
 
@@ -311,12 +312,13 @@ check_predicate (void)
 	nemo_archive_options_clear (&options);
 }
 
-/* The same archive rewritten with its folder entries left out. A writer is
-   free to store only the files, and the verify has to read a folder as there
-   when something inside it is. */
+/* The same archive rewritten with its folder entries left out, or with the
+   one named left out. A writer is free to store only the files, and the
+   verify has to read a folder as there when something inside it is. */
 static gboolean
-rewrite_without_directories (const char *src,
-			     const char *dst)
+rewrite_without (const char *src,
+		 const char *dst,
+		 const char *name)
 {
 	struct archive *in  = archive_read_new ();
 	struct archive *out = archive_write_new ();
@@ -336,7 +338,8 @@ rewrite_without_directories (const char *src,
 		char buffer[8192];
 		la_ssize_t got;
 
-		if (archive_entry_filetype (entry) == AE_IFDIR) {
+		if (name == NULL ? archive_entry_filetype (entry) == AE_IFDIR
+		    : g_strcmp0 (archive_entry_pathname (entry), name) == 0) {
 			continue;
 		}
 
@@ -408,7 +411,7 @@ check_verify (const char *tmp,
 		GFile *flat = g_file_new_for_path (flat_path);
 		GList *flat_sources = sources_in (dir, kept);
 
-		check (rewrite_without_directories (path, flat_path));
+		check (rewrite_without (path, flat_path, NULL));
 
 		check (nemo_archive_verify (flat, flat_sources, &options,
 					    NEMO_ARCHIVE_BACKEND_LIBARCHIVE, NULL, &reason));
@@ -499,8 +502,8 @@ check_verify (const char *tmp,
 #ifndef G_OS_WIN32
 	/* Anything the walk had to pass over means the archive was never offered
 	   all of it, whether or not what did go in reads back cleanly. A link
-	   that leads nowhere is one of those only where the writer cannot keep
-	   it as a link. The library can, with the links box unticked too. */
+	   that leads nowhere is one of those under Ignore, and where the writer
+	   cannot keep it as a link. */
 	{
 		char *link_path = g_build_filename (deep, "dangling", NULL);
 		GFile *link_file = g_file_new_for_path (link_path);
@@ -508,7 +511,7 @@ check_verify (const char *tmp,
 		GFile *link_destination = g_file_new_for_path (link_archive);
 
 		check (g_file_make_symbolic_link (link_file, "nowhere", NULL, NULL));
-		options.store_links = FALSE;
+		options.links.symlinks = ARC_LINK_IGNORE;
 
 		job_finished = FALSE;
 		job_succeeded = FALSE;
@@ -522,9 +525,15 @@ check_verify (const char *tmp,
 					     NEMO_ARCHIVE_BACKEND_LIBARCHIVE, NULL, &reason));
 		check (reason != NULL);
 		*/
+		/* Out since 2026100516274423: that rule is Follow's and Store's
+		   now, and Ignore leaves the link out, so the check fails again.
 		check (nemo_archive_verify (link_destination, sources, &options,
 					    NEMO_ARCHIVE_BACKEND_LIBARCHIVE, NULL, &reason));
 		check (reason == NULL);
+		*/
+		check (!nemo_archive_verify (link_destination, sources, &options,
+					     NEMO_ARCHIVE_BACKEND_LIBARCHIVE, NULL, &reason));
+		check (reason != NULL);
 		g_free (reason);
 		reason = NULL;
 
@@ -537,8 +546,28 @@ check_verify (const char *tmp,
 		g_free (reason);
 		reason = NULL;
 
+		/* Follow and Store put it in as a link, so the walk is whole. */
+		{
+			static const ArcLinkChoice keeping[] = { ARC_LINK_FOLLOW, ARC_LINK_STORE_SYMLINK };
+			gsize k;
+
+			for (k = 0; k < G_N_ELEMENTS (keeping); k++) {
+				options.links.symlinks = keeping[k];
+				job_finished = FALSE;
+				job_succeeded = FALSE;
+				nemo_archive_create (sources, link_destination, &options, GTK_WINDOW (window),
+						     archive_done, NULL);
+				wait_for_job ();
+				check (nemo_archive_verify (link_destination, sources, &options,
+							    NEMO_ARCHIVE_BACKEND_LIBARCHIVE, NULL, &reason));
+				check (reason == NULL);
+				g_free (reason);
+				reason = NULL;
+			}
+		}
+
 		g_remove (link_path);
-		options.store_links = TRUE;
+		options.links.symlinks = ARC_LINK_IGNORE;
 
 		g_object_unref (link_destination);
 		g_object_unref (link_file);
@@ -555,6 +584,186 @@ check_verify (const char *tmp,
 	g_free (out);
 	g_free (empty);
 	g_free (deep);
+	g_free (dir);
+}
+
+/* Where a followed link's folder is, made up as another filesystem. */
+static char *other_fs;
+
+/* Returns: (transfer full): free with arc_mount_table_free */
+static ArcMountTable *
+other_fs_mounts (void)
+{
+#ifdef G_OS_WIN32
+	ArcMountEntry entries[] = { { other_fs, "\\\\?\\Volume{bbbb}\\", NULL } };
+#else
+	ArcMountEntry entries[] = { { other_fs, "/dev/sdz9", "ext4" } };
+#endif
+
+	return arc_mount_table_new (entries, G_N_ELEMENTS (entries),
+#ifdef G_OS_WIN32
+				    TRUE
+#else
+				    FALSE
+#endif
+				    );
+}
+
+static void
+compress_to (GList                    *sources,
+	     GFile                    *destination,
+	     const NemoArchiveOptions *options,
+	     GtkWidget                *window)
+{
+	job_finished = FALSE;
+	job_succeeded = FALSE;
+	nemo_archive_create (sources, destination, options, GTK_WINDOW (window),
+			     archive_done, NULL);
+	wait_for_job ();
+}
+
+static void
+check_refused (GFile                    *archive,
+	       GList                    *sources,
+	       const NemoArchiveOptions *options,
+	       const char               *what)
+{
+	char *reason = NULL;
+
+	if (nemo_archive_verify (archive, sources, options, NEMO_ARCHIVE_BACKEND_LIBARCHIVE,
+				 NULL, &reason)) {
+		g_printerr ("FAIL: the check passed with %s\n", what);
+		failures++;
+	}
+	check (reason != NULL);
+	g_free (reason);
+}
+
+/* With links followed, the delete check holds the archive to what they led
+   to as well, under the links' own names: a followed file that changed, one
+   that's missing from the archive, and one added since all refuse. A link
+   back into the selection adds nothing, and is no miss. Ignore refuses the
+   same archive, since the links were never in. A followed link onto another
+   filesystem with that option off was left out, so it refuses too, without
+   reading what's there; with it on, it passes. */
+static void
+check_verify_followed (const char *tmp,
+		       GtkWidget  *window)
+{
+	char *dir = g_build_filename (tmp, "verify-follow", NULL);
+	char *sel = g_build_filename (dir, "sel", NULL);
+	char *outside = g_build_filename (dir, "outside", NULL);
+	char *out_link = g_build_filename (sel, "out", NULL);
+	char *file_link = g_build_filename (sel, "f", NULL);
+	char *target = g_build_filename (outside, "f.txt", NULL);
+	char *path = g_build_filename (dir, "sel.zip", NULL);
+	char *dropped_path = g_build_filename (dir, "dropped.zip", NULL);
+	GFile *archive = g_file_new_for_path (path);
+	GFile *dropped = g_file_new_for_path (dropped_path);
+	GList *sources;
+	NemoArchiveOptions options;
+	char **entries;
+	char *reason = NULL;
+
+	g_mkdir_with_parents (sel, 0700);
+	g_mkdir_with_parents (outside, 0700);
+	if ((nemo_link_kinds_supported (dir) & NEMO_LINK_DIR_SYMLINK) == 0 ||
+	    (nemo_link_kinds_supported (dir) & NEMO_LINK_FILE_SYMLINK) == 0) {
+		g_printerr ("note: no symlinks here, followed content not checked\n");
+		goto out;
+	}
+	write_file (sel, "a.txt", "alpha");
+	write_file (outside, "f.txt", "foxtrot");
+	write_file (outside, "g.txt", "golf");
+	check (nemo_link_create (".." G_DIR_SEPARATOR_S "outside", out_link, NULL, NEMO_LINK_DIR_SYMLINK, NULL));
+	check (nemo_link_create (".." G_DIR_SEPARATOR_S "outside" G_DIR_SEPARATOR_S "f.txt", file_link, NULL,
+				 NEMO_LINK_FILE_SYMLINK, NULL));
+	{
+		char *again = g_build_filename (sel, "again", NULL);
+
+		check (nemo_link_create (".." G_DIR_SEPARATOR_S "sel", again, NULL, NEMO_LINK_DIR_SYMLINK, NULL));
+		g_free (again);
+	}
+
+	sources = g_list_append (NULL, g_file_new_for_path (sel));
+	nemo_archive_options_init (&options);
+	options.format = NEMO_ARCHIVE_FORMAT_ZIP;
+	options.links.symlinks = ARC_LINK_FOLLOW;
+	compress_to (sources, archive, &options, window);
+
+	entries = archive_entries (path);
+	check (entries != NULL && holds_entry (entries, "sel/out/f.txt") && holds_entry (entries, "sel/out/g.txt") &&
+	       holds_entry (entries, "sel/f") && holds_entry (entries, "sel/a.txt"));
+	check (entries != NULL && !holds_entry (entries, "sel/again/a.txt"));
+	g_strfreev (entries);
+	check (nemo_archive_verify (archive, sources, &options, NEMO_ARCHIVE_BACKEND_LIBARCHIVE,
+				    NULL, &reason));
+	check (reason == NULL);
+
+	/* Changed after it went in, through either link. */
+	write_file (outside, "f.txt", "foxtrot, longer");
+	check_refused (archive, sources, &options, "a followed file changed");
+	write_file (outside, "f.txt", "foxtrot");
+
+	/* Added under the followed folder. */
+	write_file (outside, "h.txt", "hotel");
+	check_refused (archive, sources, &options, "a file added under a followed folder");
+	{
+		char *added = g_build_filename (outside, "h.txt", NULL);
+
+		g_remove (added);
+		g_free (added);
+	}
+	check (nemo_archive_verify (archive, sources, &options, NEMO_ARCHIVE_BACKEND_LIBARCHIVE,
+				    NULL, NULL));
+
+	/* Missing from the archive. */
+	check (rewrite_without (path, dropped_path, "sel/out/g.txt"));
+	check_refused (dropped, sources, &options, "a followed file missing from the archive");
+
+	/* The same archive, as if the links had been ignored. */
+	options.links.symlinks = ARC_LINK_IGNORE;
+	check_refused (archive, sources, &options, "links ignored");
+	options.links.symlinks = ARC_LINK_FOLLOW;
+
+	/* The followed folder on another filesystem. */
+#ifndef G_OS_WIN32
+	{
+		char *real = realpath (outside, NULL);
+
+		other_fs = g_strdup (real);
+		free (real);
+	}
+#else
+	other_fs = g_strdup (outside);
+#endif
+	nemo_archive_set_mounts_for_test (other_fs_mounts);
+	options.links.follow_other = FALSE;
+	compress_to (sources, archive, &options, window);
+	entries = archive_entries (path);
+	check (entries != NULL && !holds_entry (entries, "sel/out/f.txt") && !holds_entry (entries, "sel/f"));
+	g_strfreev (entries);
+	check_refused (archive, sources, &options, "a followed folder on a filesystem not followed");
+
+	options.links.follow_other = TRUE;
+	compress_to (sources, archive, &options, window);
+	check (nemo_archive_verify (archive, sources, &options, NEMO_ARCHIVE_BACKEND_LIBARCHIVE,
+				    NULL, NULL));
+	nemo_archive_set_mounts_for_test (NULL);
+	g_clear_pointer (&other_fs, g_free);
+
+	nemo_archive_options_clear (&options);
+	g_list_free_full (sources, g_object_unref);
+ out:
+	g_object_unref (dropped);
+	g_object_unref (archive);
+	g_free (dropped_path);
+	g_free (path);
+	g_free (target);
+	g_free (file_link);
+	g_free (out_link);
+	g_free (outside);
+	g_free (sel);
 	g_free (dir);
 }
 
@@ -940,6 +1149,7 @@ main (int argc, char *argv[])
 	check_each_archive (source_dir, each_dir, names, window);
 	check_archive_of_archive (each_dir, window);
 	check_verify (tmp, window);
+	check_verify_followed (tmp, window);
 	handler = g_log_set_handler ("GLib", G_LOG_LEVEL_WARNING, count_glib_warning, NULL);
 	check_cancel (tmp, NEMO_ARCHIVE_FORMAT_ZIP, 0, window);
 	check_cancel (tmp, NEMO_ARCHIVE_FORMAT_7Z, 1024 * 1024, window);

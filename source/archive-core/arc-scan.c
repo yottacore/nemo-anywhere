@@ -33,10 +33,10 @@
 #define MAX_HOPS 40
 
 #define ATTRIBUTES "standard::name,standard::type,standard::size,standard::is-symlink," \
-		   "standard::symlink-target,id::file,dos::reparse-point-tag"
+		   "standard::symlink-target,id::file,dos::reparse-point-tag,time::modified,unix::mode"
 /* Answered from the folder alone, so nothing in it is looked at. */
 #define NAMES_ONLY "standard::name,standard::type"
-#define TARGET_ATTRIBUTES "standard::type,standard::size,id::file"
+#define TARGET_ATTRIBUTES "standard::type,standard::size,id::file,time::modified,unix::mode"
 
 typedef struct {
 	char    *text;		/* the canonical path its files go by */
@@ -46,6 +46,7 @@ typedef struct {
 typedef struct {
 	GFile           *dir;	/* where it really is */
 	const char      *text;	/* its Folder's */
+	char            *name;	/* in the archive; NULL above the selection */
 	guint            needs;
 	gboolean         names_only;
 	GFileEnumerator *children;	/* NULL once read to the end */
@@ -91,6 +92,11 @@ struct _ArcScan {
 	guint            follow;	/* what this pass walks by */
 	guint            visits;
 	gint64           published_at;
+	/* The job's list, and the link kinds kept as links. */
+	ArcScanList     *out;
+	guint            keep;
+	ArcScanVisited   visited;
+	gpointer         visited_data;
 
 	/* Under the lock. wanted is read without it too. */
 	GMutex           lock;
@@ -148,6 +154,72 @@ child_text (const char *folder,
 
 	set_child_text (text, folder, name);
 	return g_string_free (text, FALSE);
+}
+
+/* Returns: (transfer full) */
+static char *
+item_name (const char *folder,
+	   const char *name)
+{
+	return folder != NULL ? g_strconcat (folder, "/", name, NULL) : g_strdup (name);
+}
+
+static void
+item_free (gpointer data)
+{
+	ArcItem *item = data;
+
+	g_free (item->name);
+	g_free (item->path);
+	g_free (item->target);
+	g_free (item);
+}
+
+/* Takes name. info is what the item is read as, a link's own for a link. */
+static ArcItem *
+add_item (ArcScan     *scan,
+	  ArcItemKind  kind,
+	  char        *name,
+	  const char  *path,
+	  GFileInfo   *info,
+	  guint        needs)
+{
+	ArcItem *item = g_new0 (ArcItem, 1);
+
+	item->kind = kind;
+	item->name = name;
+	item->path = g_strdup (path);
+	item->needs = needs;
+	if (info != NULL) {
+		if (kind == ARC_ITEM_FILE && g_file_info_has_attribute (info, G_FILE_ATTRIBUTE_STANDARD_SIZE)) {
+			item->bytes = (guint64) g_file_info_get_size (info);
+		}
+		if (g_file_info_has_attribute (info, G_FILE_ATTRIBUTE_TIME_MODIFIED)) {
+			item->mtime = (gint64) g_file_info_get_attribute_uint64 (info, G_FILE_ATTRIBUTE_TIME_MODIFIED);
+		}
+		item->mode = g_file_info_get_attribute_uint32 (info, G_FILE_ATTRIBUTE_UNIX_MODE) & 07777;
+	}
+	if (kind == ARC_ITEM_FILE) {
+		scan->out->bytes += item->bytes;
+		scan->out->files++;
+	}
+	g_ptr_array_add (scan->out->items, item);
+	return item;
+}
+
+static void
+add_link_item (ArcScan    *scan,
+	       char       *name,
+	       const char *path,
+	       GFileInfo  *info,
+	       guint       kind,
+	       const char *target,
+	       guint       needs)
+{
+	ArcItem *item = add_item (scan, ARC_ITEM_LINK, name, path, info, needs);
+
+	item->target = g_strdup (target);
+	item->junction = kind == ARC_FOLLOW_JUNCTIONS;
 }
 
 /* A mix in mixes lets in everything one that follows less would. */
@@ -576,6 +648,9 @@ maybe_publish (ArcScan *scan)
 	if ((++scan->visits & 63) == 0 &&
 	    g_get_monotonic_time () - scan->published_at >= PUBLISH_GAP_USECS) {
 		publish (scan, FALSE);
+		if (scan->visited != NULL) {
+			scan->visited (scan->visited_data);
+		}
 	}
 }
 
@@ -601,6 +676,7 @@ frame_free (gpointer data)
 	}
 	g_queue_clear_full (&frame->ahead, g_object_unref);
 	g_object_unref (frame->dir);
+	g_free (frame->name);
 	g_free (frame);
 }
 
@@ -631,12 +707,15 @@ next_child (ArcScan *scan,
 	return g_queue_pop_head (&frame->ahead);
 }
 
+/* name is the folder's in the archive, taken. */
 static void
 enter (ArcScan    *scan,
        GFile      *dir,
        const char *identity,
        const char *text,
-       guint       needs)
+       guint       needs,
+       char       *name,
+       GFileInfo  *info)
 {
 	Folder *folder = folder_for (scan, identity, text);
 	const char *path = g_file_peek_path (dir);
@@ -645,9 +724,14 @@ enter (ArcScan    *scan,
 	Frame *frame;
 
 	if (walked_by_less (folder->walked, needs)) {
+		g_free (name);
 		return;
 	}
 	folder->walked |= (guint16) (1u << needs);
+
+	if (scan->out != NULL) {
+		add_item (scan, ARC_ITEM_FOLDER, g_strdup (name), path, info, needs);
+	}
 
 	names_only = !scan->shares && g_hash_table_contains (scan->share_parents, path);
 	children = arc_walk_children (&scan->host, dir, names_only ? NAMES_ONLY : ATTRIBUTES,
@@ -655,13 +739,18 @@ enter (ArcScan    *scan,
 	if (children == NULL) {
 		if (!g_cancellable_is_cancelled (scan->cancellable)) {
 			leave_out (scan, scan->unreadable, path, needs);
+			if (scan->out != NULL) {
+				g_ptr_array_add (scan->out->unreadable, g_strdup (name));
+			}
 		}
+		g_free (name);
 		return;
 	}
 
 	frame = g_new0 (Frame, 1);
 	frame->dir = g_object_ref (dir);
 	frame->text = folder->text;
+	frame->name = name;
 	frame->needs = needs;
 	frame->names_only = names_only;
 	frame->children = children;
@@ -693,14 +782,20 @@ enter_child (ArcScan    *scan,
 		needs |= crossing (scan, path);
 	}
 	if (needs & ~scan->follow) {
+		if (scan->out != NULL) {
+			g_ptr_array_add (scan->out->left_out, item_name (frame->name, name));
+		}
 		return;
 	}
 
 	if (info == NULL) {
-		mounted = g_file_query_info (child, G_FILE_ATTRIBUTE_ID_FILE, G_FILE_QUERY_INFO_NONE,
+		mounted = g_file_query_info (child, TARGET_ATTRIBUTES, G_FILE_QUERY_INFO_NONE,
 					     scan->cancellable, NULL);
 		if (mounted == NULL) {
 			leave_out (scan, scan->unreadable, path, needs);
+			if (scan->out != NULL) {
+				g_ptr_array_add (scan->out->unreadable, item_name (frame->name, name));
+			}
 			return;
 		}
 		info = mounted;
@@ -708,7 +803,7 @@ enter_child (ArcScan    *scan,
 
 	identity = identity_of (info, path);
 	text = child_text (frame->text, name);
-	enter (scan, child, identity, text, needs);
+	enter (scan, child, identity, text, needs, item_name (frame->name, name), info);
 	g_free (text);
 	g_free (identity);
 	g_clear_object (&mounted);
@@ -745,10 +840,29 @@ add_target_file (ArcScan   *scan,
 	g_clear_object (&parent);
 }
 
+/* In the job's list, under the link's own name, from where the link leads. */
+static void
+add_target_item (ArcScan    *scan,
+		 Frame      *frame,
+		 const char *name,
+		 const char *real,
+		 GFileInfo  *info,
+		 guint       needs)
+{
+	if (g_file_info_get_file_type (info) == G_FILE_TYPE_REGULAR) {
+		add_item (scan, ARC_ITEM_FILE, item_name (frame->name, name), real, info, needs);
+	} else {
+		g_ptr_array_add (scan->out->unreadable, item_name (frame->name, name));
+	}
+}
+
+/* name is the link's in frame, and info what the listing said of it. */
 static void
 follow_link (ArcScan    *scan,
 	     Frame      *frame,
 	     guint       kind,
+	     const char *name,
+	     GFileInfo  *link_info,
 	     const char *target)
 {
 	const char *folder = g_file_peek_path (frame->dir);
@@ -760,6 +874,15 @@ follow_link (ArcScan    *scan,
 
 	/* Ignore and Store both leave out where it leads. */
 	if (needs & ~scan->follow) {
+		if (scan->out != NULL && (scan->keep & kind)) {
+			char *path = child_text (folder, name);
+
+			add_link_item (scan, item_name (frame->name, name), path, link_info, kind, target,
+				       frame->needs);
+			g_free (path);
+		} else if (scan->out != NULL) {
+			g_ptr_array_add (scan->out->left_out, item_name (frame->name, name));
+		}
 		return;
 	}
 	if (!scan->shares && arc_leaves_for_share (&scan->host, folder, target)) {
@@ -772,6 +895,14 @@ follow_link (ArcScan    *scan,
 		g_free (real);
 		return;
 	case LEADS_NOWHERE:
+		/* Nothing to follow, so it goes in as itself. */
+		if (scan->out != NULL) {
+			char *path = child_text (folder, name);
+
+			add_link_item (scan, item_name (frame->name, name), path, link_info, kind, target,
+				       frame->needs);
+			g_free (path);
+		}
 		return;
 	case LEADS_HERE:
 	default:
@@ -780,20 +911,31 @@ follow_link (ArcScan    *scan,
 
 	needs |= crossing (scan, real);
 	if (needs & ~scan->follow) {
+		if (scan->out != NULL) {
+			g_ptr_array_add (scan->out->left_out, item_name (frame->name, name));
+		}
 		g_free (real);
 		return;
 	}
 
 	file = g_file_new_for_path (real);
 	info = g_file_query_info (file, TARGET_ATTRIBUTES, G_FILE_QUERY_INFO_NONE, scan->cancellable, NULL);
-	if (info != NULL && !described (info)) {
-		leave_out (scan, scan->unreadable, real, needs);
-	} else if (info != NULL && g_file_info_get_file_type (info) == G_FILE_TYPE_DIRECTORY) {
+	if (info == NULL || !described (info)) {
+		if (info != NULL) {
+			leave_out (scan, scan->unreadable, real, needs);
+		}
+		if (scan->out != NULL && !g_cancellable_is_cancelled (scan->cancellable)) {
+			g_ptr_array_add (scan->out->unreadable, item_name (frame->name, name));
+		}
+	} else if (g_file_info_get_file_type (info) == G_FILE_TYPE_DIRECTORY) {
 		identity = identity_of (info, real);
-		enter (scan, file, identity, real, needs);
+		enter (scan, file, identity, real, needs, item_name (frame->name, name), info);
 		g_free (identity);
-	} else if (info != NULL) {
+	} else {
 		add_target_file (scan, file, info, needs);
+		if (scan->out != NULL) {
+			add_target_item (scan, frame, name, real, info, needs);
+		}
 	}
 	g_clear_object (&info);
 	g_object_unref (file);
@@ -837,6 +979,27 @@ entry_of (GFileInfo   *info,
 }
 
 static void
+visit_file (ArcScan    *scan,
+	    Frame      *frame,
+	    const char *name,
+	    GFileInfo  *info)
+{
+	add_file (scan, frame->text, name, (guint64) g_file_info_get_size (info), frame->needs);
+	if (scan->out == NULL) {
+		return;
+	}
+	/* A socket or a device has nothing an archive could keep. */
+	if (g_file_info_get_file_type (info) == G_FILE_TYPE_REGULAR) {
+		char *path = child_text (g_file_peek_path (frame->dir), name);
+
+		add_item (scan, ARC_ITEM_FILE, item_name (frame->name, name), path, info, frame->needs);
+		g_free (path);
+	} else {
+		g_ptr_array_add (scan->out->unreadable, item_name (frame->name, name));
+	}
+}
+
+static void
 visit (ArcScan   *scan,
        Frame     *frame,
        GFileInfo *info)
@@ -852,22 +1015,25 @@ visit (ArcScan   *scan,
 	if (!described (info)) {
 		child = g_file_get_child (frame->dir, name);
 		leave_out (scan, scan->unreadable, g_file_peek_path (child), frame->needs);
+		if (scan->out != NULL) {
+			g_ptr_array_add (scan->out->unreadable, item_name (frame->name, name));
+		}
 		g_object_unref (child);
 		return;
 	}
 	link = might_be_link (info);
 	if (!link && g_file_info_get_file_type (info) != G_FILE_TYPE_DIRECTORY) {
-		add_file (scan, frame->text, name, (guint64) g_file_info_get_size (info), frame->needs);
+		visit_file (scan, frame, name, info);
 		return;
 	}
 	child = g_file_get_child (frame->dir, name);
 
 	switch (link ? entry_of (info, g_file_peek_path (child), &target) : ARC_ENTRY_PLAIN) {
 	case ARC_ENTRY_SYMLINK:
-		follow_link (scan, frame, ARC_FOLLOW_SYMLINKS, target);
+		follow_link (scan, frame, ARC_FOLLOW_SYMLINKS, name, info, target);
 		break;
 	case ARC_ENTRY_JUNCTION:
-		follow_link (scan, frame, ARC_FOLLOW_JUNCTIONS, target);
+		follow_link (scan, frame, ARC_FOLLOW_JUNCTIONS, name, info, target);
 		break;
 	case ARC_ENTRY_MOUNT_POINT:
 		enter_child (scan, frame, child, name, NULL);
@@ -876,11 +1042,15 @@ visit (ArcScan   *scan,
 		if (g_file_info_get_file_type (info) == G_FILE_TYPE_DIRECTORY) {
 			enter_child (scan, frame, child, name, info);
 		} else {
-			add_file (scan, frame->text, name, (guint64) g_file_info_get_size (info), frame->needs);
+			visit_file (scan, frame, name, info);
 		}
 		break;
 	case ARC_ENTRY_MISSING:
 	default:
+		/* A link that can't be read. */
+		if (scan->out != NULL) {
+			g_ptr_array_add (scan->out->unreadable, item_name (frame->name, name));
+		}
 		break;
 	}
 
@@ -911,6 +1081,8 @@ visit_by_name (ArcScan    *scan,
 		if (info != NULL) {
 			visit (scan, frame, info);
 			g_object_unref (info);
+		} else if (scan->out != NULL && !g_cancellable_is_cancelled (scan->cancellable)) {
+			g_ptr_array_add (scan->out->unreadable, item_name (frame->name, name));
 		}
 	}
 	g_object_unref (child);
@@ -983,7 +1155,7 @@ walk_pass (ArcScan *scan)
 	g_hash_table_foreach (scan->folders, forget_walked, NULL);
 
 	for (i = 0; i < scan->n_roots; i++) {
-		Frame top = { scan->roots[i].dir, scan->roots[i].text, 0, FALSE, NULL, G_QUEUE_INIT };
+		Frame top = { .dir = scan->roots[i].dir, .text = scan->roots[i].text, .ahead = G_QUEUE_INIT };
 		Pass end;
 
 		visit_by_name (scan, &top, scan->roots[i].name);
@@ -1271,4 +1443,98 @@ arc_scan_report_change (const ArcScanReport *report,
 		return 0;
 	}
 	return report->totals[follow] - report->totals[follow & ~(guint) option];
+}
+
+static void
+stop_scan (GCancellable *cancellable,
+	   gpointer      data)
+{
+	(void) cancellable;
+	g_cancellable_cancel (data);
+}
+
+/* Returns: (transfer full): free with arc_scan_list_free */
+ArcScanList *
+arc_scan_list (const ArcHost        *host,
+	       const char           *base,
+	       const char * const   *paths,
+	       const ArcLinkOptions *links,
+	       guint                 stores,
+	       ArcMountTable        *mounts,
+	       GCancellable         *cancellable,
+	       ArcScanVisited        visited,
+	       gpointer              visited_data)
+{
+	ArcScanList *list;
+	ArcScan *scan;
+	gulong stopper = 0;
+	guint follow;
+	Pass end;
+
+	g_return_val_if_fail (base != NULL, NULL);
+	g_return_val_if_fail (paths != NULL, NULL);
+	g_return_val_if_fail (links != NULL, NULL);
+
+	follow = arc_link_options_follow (links, stores);
+	scan = arc_scan_new (host, base, paths, follow, TRUE, mounts);
+
+	list = g_new0 (ArcScanList, 1);
+	list->items = g_ptr_array_new_with_free_func (item_free);
+	list->left_out = g_ptr_array_new_with_free_func (g_free);
+	list->unreadable = g_ptr_array_new_with_free_func (g_free);
+	scan->out = list;
+	if (arc_link_options_symlinks (links, stores) == ARC_LINK_STORE_SYMLINK) {
+		scan->keep |= ARC_FOLLOW_SYMLINKS;
+	}
+	switch (arc_link_options_junctions (links, stores)) {
+	case ARC_LINK_STORE_SYMLINK:
+	case ARC_LINK_STORE_JUNCTION:
+		scan->keep |= ARC_FOLLOW_JUNCTIONS;
+		break;
+	case ARC_LINK_IGNORE:
+	case ARC_LINK_FOLLOW:
+	default:
+		break;
+	}
+	scan->visited = visited;
+	scan->visited_data = visited_data;
+
+	/* Its own, since freeing the scan cancels it. */
+	if (cancellable != NULL) {
+		stopper = g_cancellable_connect (cancellable, G_CALLBACK (stop_scan),
+						 g_object_ref (scan->cancellable), g_object_unref);
+	}
+
+	prepare (scan);
+	scan->prepared = TRUE;
+	scan->follow = follow;
+	end = walk_pass (scan);
+	/* A stop between the last check and the end still counts. */
+	if (g_cancellable_is_cancelled (scan->cancellable)) {
+		end = PASS_CANCELLED;
+	}
+
+	if (cancellable != NULL) {
+		g_cancellable_disconnect (cancellable, stopper);
+	}
+	scan->out = NULL;
+	arc_scan_free (scan);
+
+	if (end != PASS_DONE) {
+		arc_scan_list_free (list);
+		return NULL;
+	}
+	return list;
+}
+
+void
+arc_scan_list_free (ArcScanList *list)
+{
+	if (list == NULL) {
+		return;
+	}
+	g_ptr_array_unref (list->items);
+	g_ptr_array_unref (list->left_out);
+	g_ptr_array_unref (list->unreadable);
+	g_free (list);
 }

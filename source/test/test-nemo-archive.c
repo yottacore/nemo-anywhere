@@ -460,11 +460,11 @@ check_7z_writer (void)
 	}
 
 	nemo_archive_options_init (&options);
-	options.store_links = FALSE;
+	options.links.symlinks = ARC_LINK_IGNORE;
 	check (nemo_archive_pick_backend (NEMO_ARCHIVE_FORMAT_7Z, &options) == plain);
 
 	/* Solid as well, which only 7-Zip has, so links win over it. */
-	options.store_links = TRUE;
+	options.links.symlinks = ARC_LINK_STORE_SYMLINK;
 	options.solid = TRUE;
 #ifdef G_OS_WIN32
 	check (nemo_archive_pick_backend (NEMO_ARCHIVE_FORMAT_7Z, &options) ==
@@ -486,7 +486,7 @@ check_7z_writer (void)
 
 	nemo_archive_hide_backend (NEMO_ARCHIVE_BACKEND_7Z, TRUE);
 	check (!nemo_archive_backend_present (NEMO_ARCHIVE_BACKEND_7Z));
-	options.store_links = FALSE;
+	options.links.symlinks = ARC_LINK_IGNORE;
 	check (nemo_archive_pick_backend (NEMO_ARCHIVE_FORMAT_7Z, &options) ==
 	       NEMO_ARCHIVE_BACKEND_LIBARCHIVE);
 	nemo_archive_hide_backend (NEMO_ARCHIVE_BACKEND_7Z, FALSE);
@@ -547,7 +547,7 @@ check_backends (void)
 	/* Storing links, a solid archive and a recovery record are preferences,
 	   not requirements: a plain tar still gets written even with all three
 	   asked for, and by libarchive, which can honor none of them. */
-	options.store_links = TRUE;
+	options.links.symlinks = ARC_LINK_STORE_SYMLINK;
 	options.solid = TRUE;
 	options.recovery_record = TRUE;
 	check (nemo_archive_pick_backend (NEMO_ARCHIVE_FORMAT_TAR, &options) ==
@@ -602,7 +602,7 @@ check_links_command (void)
 
 	nemo_archive_options_init (&options);
 	options.format = NEMO_ARCHIVE_FORMAT_RAR;
-	options.store_links = FALSE;
+	options.links.symlinks = ARC_LINK_IGNORE;
 	options.password = g_strdup ("secret");
 	options.encrypt_names = TRUE;
 	options.recovery_record = TRUE;
@@ -655,7 +655,7 @@ check_links_command (void)
 
 	nemo_archive_options_init (&options);
 	options.format = NEMO_ARCHIVE_FORMAT_7Z;
-	options.store_links = FALSE;
+	options.links.symlinks = ARC_LINK_IGNORE;
 	options.password = g_strdup ("secret");
 	options.encrypt_names = TRUE;
 
@@ -763,21 +763,20 @@ check_commands (void)
 
 		nemo_archive_options_init (&options);
 		options.format = NEMO_ARCHIVE_FORMAT_RAR;
-		options.store_links = TRUE;
+		options.links.symlinks = ARC_LINK_STORE_SYMLINK;
 		argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_RAR, options.format, &options,
 						   "rar", "/tmp/out.rar", names, NULL);
 		check (has_arg (argv, "-ol"));
 		check (!has_arg (argv, "-ola") && !has_arg (argv, "-ol-"));
 		g_strfreev (argv);
 
-		options.store_links = FALSE;
-		options.follow_link_dirs = TRUE;
+		options.links.symlinks = ARC_LINK_FOLLOW;
 		argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_RAR, options.format, &options,
 						   "rar", "/tmp/out.rar", names, NULL);
 		check (!has_prefix_arg (argv, "-ol"));
 		g_strfreev (argv);
 
-		options.follow_link_dirs = FALSE;
+		options.links.symlinks = ARC_LINK_IGNORE;
 		argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_RAR, options.format, &options,
 						   "rar", "/tmp/out.rar", names, skip);
 		check (!has_prefix_arg (argv, "-ol"));
@@ -796,7 +795,7 @@ check_commands (void)
 
 		/* Kept only where 7z claims it can keep them, which it does not
 		   on Windows. */
-		options.store_links = TRUE;
+		options.links.symlinks = ARC_LINK_STORE_SYMLINK;
 		argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_7Z, options.format, &options,
 						   "7z", "/tmp/out.7z", names, NULL);
 #ifdef G_OS_WIN32
