@@ -812,7 +812,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Compression reset: a pre-scan progress bar after OK.
 	- ID: 2026100516274535
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
+	- Needs external testing: no.
 	- Opened: 20261005-162747
 	- Opened by: compression reset split
 	- Parent ID: 2026092910143202
@@ -824,12 +826,26 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Driven by the core's progress callback.
 		- Open: when a job needs no pre-scan, such as a selection of plain files.
 	- Estimated effort: Avg
-	- Test case: rewygsbg, Archive job test, checks the pre-scan reports progress before the first file is written.
+	- Actual effort: Avg
+	- Progress log:
+		- 20261013-121500: Decided: the pre-scan still runs for plain files, since the writer works from its list. The bar shows only when the pre-scan is still going after half a second, so plain files never flash one.
+		- 20261013-124800: built. Left at signoff for these calls:
+			- The scan has no total up front, so its bar pulses, with "Found 150 files, 1.2 kB" under it. The job's own bar waits empty below it, where it pulsed before.
+			- Compress each pre-scans each archive, so each can show the bar, and the job's bar goes back to empty for each.
+			- 7z and rar with links kept beside links followed: the links run now pulses the job's bar, so the bar fills once, for the rest. Before, it filled for the links and then went back to empty.
+	- Done: while the job's pre-scan runs past half a second, the progress window shows a second bar above the job's own, with a running count of the files and bytes found. The core's scan hands the count to the job as it walks. Every writer and both ways of compressing go through the same pre-scan.
+	- Swept: both callers of the core's list walk, the job and the scan test. Every writer, through the one pre-scan. The progress window is the only place that draws a job's progress.
+	- Verified: 20261013, full Linux suite 196 of 196, the archive tests under ASan and UBSan, the Windows cross build, and rewygsbg, rhtmbdmj, rjqef159, rjq9mv0w and rev86z08 under wine. Lint clean apart from rj3ytv0b. The new checks failed with the pre-scan not marked as started, with the core's reports not passed on, and with no delay before the bar.
+	- Branch: scanbar
+	- Commit: cc3c0b0
+	- Test case: rewygsbg, Archive job test. check_prescan_reports: the pre-scan reports at its start, midway through the core's walk, and at its end with the full count and size, all before the archive exists, for zip and for rar where it's installed, and is over once the job is. check_prescan_bar: a pre-scan over within half a second never shows the bar, one still going shows it with the count found, never sooner than half a second, and the bar goes when it ends.
 
 - Compression reset: rename the delete box, and say why a delete check failed.
 	- ID: 2026100516274572
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
+	- Needs external testing: no.
 	- Opened: 20261005-162747
 	- Opened by: compression reset split
 	- Parent ID: 2026092910143202
@@ -841,7 +857,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A failed check says why: how many selected folders and files aren't in the archive, and how many in it weren't selected. When the counts match, the selected size against the archive's.
 		- The size is left out when the counts don't match.
 	- Estimated effort: Avg
-	- Test case: rewygsbg, Archive job test, cases for each kind of mismatch and the reason it gives. rhtmbdmj for the new label.
+	- Actual effort: Avg
+	- Progress log:
+		- 20261013-124800: built. Left at signoff for these calls:
+			- New wording, as whole sentences like the 7z one: "1 folder and 2 files that were selected are not in the archive.", "1 file in the archive was not selected.", "The selection is 29 bytes, but the archive holds 15 bytes." Sizes past a kilobyte also give the bytes.
+			- The counts replace naming the first file missed.
+			- Something the options leave out counts as selected and not in the archive: an ignored link as a file, and a link or mounted folder left out for its filesystem by what it leads to. Before, those said "Something in the selection could not go into an archive". That message stays for what couldn't be read, and for a socket or device.
+			- In the archive and not selected is new as a reason to keep the originals. It counts only what's under the selected names, since the job writes a new archive.
+			- When the totals match but some files differ in size, it says how many.
+			- The password prompt still says "once the archive checks out".
+	- Done: the box reads "Delete originals after verification". A failed check says how many selected folders and files aren't in the archive, and how many in it weren't selected. When the counts match, it gives the selection's size against the archive's. The 7z with a password message and the box graying for it are as they were. The delete itself and its guard are unchanged.
+	- Swept: every message the check gives, and the one place the box is made. No test read the old messages that named a file.
+	- Verified: 20261013, as 2026100516274535. rj4jewn6 still passes with 40,000 entries beside the selection. The new checks failed with the extra entries not counted, with the size given when a count is off, with an ignored link back to the old message, and with the old label.
+	- Branch: scanbar
+	- Commit: cc3c0b0
+	- Test case: rewygsbg, Archive job test, check_reasons: a file, a folder, and both missing; a file, and a folder with a file, in the archive and not selected; both ways at once; the sizes when the counts match; no size when a count is off; 2 files of other sizes with the same total; an ignored link. rhtmbdmj, Compress dialog height test, probe_locked_links: the box's label.
 
 - Compression reset: move the compress code into the archive core.
 	- ID: 2026100516274683
