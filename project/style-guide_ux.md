@@ -89,6 +89,8 @@ The file list is where the keyboard belongs. Anything that leaves the focus some
 
 - Column headings, tabs and path buttons never keep the focus. A click on one puts the keyboard back in the file list. Tab and Shift+Tab pass over the tab strip.
 
+- Tabs in a dialog never take the focus either, including the page list down the left of Settings. Ctrl+Page Up and Ctrl+Page Down step through them.
+
 - Closing the path entry returns the focus to the file list. Clicking anywhere else closes it. Switching to another program does not, so a half-typed path survives the trip.
 
 - A click on a place in the sidebar leaves the keyboard in the sidebar. Whoever clicked it may want the next place down.
@@ -99,7 +101,7 @@ The file list is where the keyboard belongs. Anything that leaves the focus some
 
 - One keystroke should do the obvious whole job. Ctrl+H shows both kinds of hidden file on Windows at once, and Settings can still set the two apart.
 
-- A tab that is grayed out must also refuse to switch. GTK switches to an insensitive page on a click, so graying the page alone leaves a dead pane on screen.
+- A tab that is grayed out still opens, and shows its controls grayed out, so it is plain what is turned off. Its page must never be blank.
 
 ## What a platform cannot do
 
