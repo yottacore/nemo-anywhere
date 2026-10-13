@@ -184,6 +184,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjv9ks2z, Connecting sign while a share mounts test. An `smb://` mount answers only when the test says so. It checks the sign and the host it names, the pointer, that nothing is grayed, that a shortcut, a click and a drop do nothing while it waits and work again after, Escape, closing the window mid-attempt, and the sign going away after a stop and after a failed mount. It also checks the host named for a set of addresses, and that a local folder shows no sign. rhtwm2c8 checks the server named for a UNC path on Windows.
 		- 20261010: "nothing is grayed" there means nothing is made insensitive. It also checks that the window fades while it waits, that the fade stops and the window looks as before after Escape and after a failed mount, that nothing of it runs on after a close, and that with animations off the window stays grayed and still.
 
+- On Windows, the zip and the copy `install.ps1` puts in place draw with GTK's default theme and font.
+	- ID: 2026101007562511
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs external testing: vm925w, in the desktop session. Start the zip, the copy `install.ps1` puts in place and the single exe, all from one commit on this branch, and compare the look and font. The single exe also needs a native stage and pack (`cicd-win.ps1`), since `stage-native.bash` changed.
+	- Priority|Severity: Avg
+	- Opened: 20261010-075625
+	- Opened by: 2026100917220603
+	- Related IDs: 2026100917220603
+	- Target OS: Windows
+	- Steps to reproduce: extract the release zip, or install with `install.ps1`, and start the app. Then start the single exe built from the same commit.
+	- Incorrect behavior: the zip and the installed copy show GTK's plain default look and font. The single exe shows Fluent and Segoe UI 9.
+	- Expected behavior: all 3 forms look the same.
+	- Reproduced: 20261010 on vm925w, with all 3 forms built from one commit.
+	- Possible cause: `stage-native.bash` writes `settings.ini` and the font config, and `pack-zip.bash` doesn't.
+	- Actual cause: confirmed. The zip has no `etc/gtk-3.0/settings.ini` and no font config, since the cross sysroot has neither and only `stage-native.bash` wrote them. With no `settings.ini` the app's "platform" theme is GTK's default, Adwaita with Adwaita icons. `install.ps1` and the setup exe copy the zip's tree as is, so they inherit it.
+	- Actual fix: the 2 files live once, in `cicd/win/bundle-etc/`. `stage-native.bash`, `pack-zip.bash` and the wine runner each copy that folder over the bundle's `etc/`. Line endings are pinned to LF so a Windows checkout gives the same bytes.
+	- Swept: every place that stages a Windows `etc/`: `stage-native.bash` (single exe, hosted release build), `pack-zip.bash` (zip, then setup exe and `install.ps1`), `utility/run-windows-build-via-wine.bash`. `pack-portable.ps1` and `pack-setup.bash` copy what those made. No other script writes `settings.ini` for Windows.
+	- Verified: 20261013, the zip from `dev` fails rk50ewvs and the zip from this branch passes. The `dev` zip came up with Adwaita and Adwaita icons, and this branch's with the bundled Fluent and Mica. The `settings.ini` and font config match what `stage-native.bash` wrote before. rj72n4xb passed with the settings check on the installed folder. Lint is clean apart from rj3ytv0b.
+	- Branch: ziptheme
+	- Commit: cb3445f
+	- Test case: rk50ewvs (`test-bundle-settings.ps1`), run on the zip in the packages stage, on the flat tree before the single exe is packed, and on the `install.ps1` copy in rj72n4xb.
+
 - Take libgsf, the gsf-office thumbnailer and the 4 search converters out of every bundle and the build.
 	- ID: 2026100909260549
 	- Type: Enhancement
@@ -285,22 +308,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: 20261007, the probe and test were read. At step 5 the probe looks for a menu on screen every 100 ms for 10 s, so it does wait for the menu to show. The test runs on an X server of its own, not the suite's. Two tests that pick the same display number at once don't end up sharing it: the one whose server fails tries the next number. So the possible cause above doesn't apply.
 	- Note: 20261007, not ruled out: the Menu key made no menu at all once, on a loaded box. GTK 3 doesn't show a menu whose pointer grab fails, and the probe presses the key only once. Nothing points at that, and pressing again would hide it rather than explain it.
 	- Test case: rjefm41d itself.
-
-- On Windows, the zip and the copy `install.ps1` puts in place draw with GTK's default theme and font.
-	- ID: 2026101007562511
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261010-075625
-	- Opened by: 2026100917220603
-	- Related IDs: 2026100917220603
-	- Target OS: Windows
-	- Steps to reproduce: extract the release zip, or install with `install.ps1`, and start the app. Then start the single exe built from the same commit.
-	- Incorrect behavior: the zip and the installed copy show GTK's plain default look and font. The single exe shows Fluent and Segoe UI 9.
-	- Expected behavior: all 3 forms look the same.
-	- Reproduced: 20261010 on vm925w, with all 3 forms built from one commit.
-	- Possible cause: `stage-native.bash` writes `settings.ini` and the font config, and `pack-zip.bash` doesn't.
-	- Test case: TBD
 
 - On Windows, a file dragged onto the window from another program may not drop.
 	- ID: 2026101007562587

@@ -204,6 +204,8 @@ function fMain {
 	## the exe can't load its libraries under hooking tools like MacType.
 	& pwsh -NoProfile -File (Join-Path $Root "cicd\utility\test-bundle-exes.ps1") -Path $FlatDir
 	if ($LASTEXITCODE -ne 0) { fDie "the flat tree has a program besides the app" }
+	& pwsh -NoProfile -File (Join-Path $Root "cicd\utility\test-bundle-settings.ps1") -Path $FlatDir
+	if ($LASTEXITCODE -ne 0) { fDie "the flat tree is missing the GTK settings or font config" }
 
 	New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
 	$inExe   = Join-Path $FlatDir "$ExeName.exe"
