@@ -1985,18 +1985,44 @@ rename_file (NemoView *view, NemoFile *new_file)
 	nemo_view_reveal_selection (view);
 }
 
+typedef struct {
+	GFile *location;
+	gboolean fresh;
+} RevealData;
+
+static void
+reveal_data_free (gpointer data, G_GNUC_UNUSED GClosure *closure)
+{
+	RevealData *reveal = data;
+
+	g_object_unref (reveal->location);
+	g_free (reveal);
+}
+
+/* A folder New folder made can take a path as its first name. */
+static void
+rename_new_file (NemoView *view, NemoFile *new_file, gboolean fresh)
+{
+	if (fresh) {
+		nemo_file_set_fresh_folder (new_file, TRUE);
+	}
+	rename_file (view, new_file);
+}
+
 static void
 reveal_newly_added_folder (NemoView *view, NemoFile *new_file,
-			   G_GNUC_UNUSED NemoDirectory *directory, GFile *target_location)
+			   G_GNUC_UNUSED NemoDirectory *directory, RevealData *reveal)
 {
 	GFile *location;
 
 	location = nemo_file_get_location (new_file);
-	if (g_file_equal (location, target_location)) {
+	if (g_file_equal (location, reveal->location)) {
+		gboolean fresh = reveal->fresh;
+
 		g_signal_handlers_disconnect_by_func (view,
 						      G_CALLBACK (reveal_newly_added_folder),
-						      (void *) target_location);
-		rename_file (view, new_file);
+						      reveal);
+		rename_new_file (view, new_file, fresh);
 	}
 	g_object_unref (location);
 }
@@ -2004,6 +2030,7 @@ reveal_newly_added_folder (NemoView *view, NemoFile *new_file,
 typedef struct {
 	NemoView *directory_view;
 	GHashTable *added_locations;
+	gboolean fresh;		/* New folder, not a new file */
 } NewFolderData;
 
 
@@ -2016,12 +2043,6 @@ track_newly_added_locations (G_GNUC_UNUSED NemoView *view, NemoFile *new_file,
 	data = user_data;
 
 	g_hash_table_insert (data->added_locations, nemo_file_get_location (new_file), NULL);
-}
-
-static void
-object_unref_closure (gpointer data, G_GNUC_UNUSED GClosure *closure)
-{
-	g_object_unref (data);
 }
 
 static void
@@ -2059,8 +2080,13 @@ new_folder_done (GFile *new_folder,
 
 	if (g_hash_table_lookup_extended (data->added_locations, new_folder, NULL, NULL)) {
 		/* The file was already added */
-		rename_file (directory_view, file);
+		rename_new_file (directory_view, file, data->fresh);
 	} else {
+		RevealData *reveal = g_new0 (RevealData, 1);
+
+		reveal->location = g_object_ref (new_folder);
+		reveal->fresh = data->fresh;
+
 		/* We need to run after the default handler adds the folder we want to
 		 * operate on. The ADD_FILE signal is registered as G_SIGNAL_RUN_LAST, so we
 		 * must use connect_after.
@@ -2068,8 +2094,8 @@ new_folder_done (GFile *new_folder,
 		g_signal_connect_data (directory_view,
 				       "add_file",
 				       G_CALLBACK (reveal_newly_added_folder),
-				       g_object_ref (new_folder),
-				       object_unref_closure,
+				       reveal,
+				       reveal_data_free,
 				       G_CONNECT_AFTER);
 	}
 	nemo_file_unref (file);
@@ -2086,6 +2112,77 @@ new_folder_done (GFile *new_folder,
 }
 
 
+static void
+select_nested_top_when_added (NemoView *view, NemoFile *new_file,
+			      G_GNUC_UNUSED NemoDirectory *directory, RevealData *reveal)
+{
+	GFile *location = nemo_file_get_location (new_file);
+
+	if (g_file_equal (location, reveal->location)) {
+		g_signal_handlers_disconnect_by_func (view,
+						      G_CALLBACK (select_nested_top_when_added),
+						      reveal);
+		nemo_view_select_file (view, new_file);
+		nemo_view_reveal_selection (view);
+	}
+	g_object_unref (location);
+}
+
+/* The top folder of the path is the one in this folder, made or already
+   there, and gets the selection the way a plain new folder does. */
+static void
+nested_folder_done (GFile *top, GError *error, gpointer callback_data)
+{
+	NemoView **weak_view = callback_data;
+	NemoView *view = *weak_view;
+	NemoFile *file;
+
+	if (view != NULL) {
+		g_object_remove_weak_pointer (G_OBJECT (view), (gpointer *) weak_view);
+	}
+	g_free (weak_view);
+
+	if (view == NULL || error != NULL || top == NULL) {
+		return;
+	}
+
+	file = nemo_file_get (top);
+	if (view->details->model != NULL &&
+	    nemo_directory_contains_file (view->details->model, file)) {
+		nemo_view_select_file (view, file);
+		nemo_view_reveal_selection (view);
+	} else {
+		RevealData *reveal = g_new0 (RevealData, 1);
+
+		reveal->location = g_object_ref (top);
+		g_signal_connect_data (view, "add_file",
+				       G_CALLBACK (select_nested_top_when_added),
+				       reveal, reveal_data_free, G_CONNECT_AFTER);
+	}
+	nemo_file_unref (file);
+}
+
+gboolean
+nemo_view_rename_new_folder_nested (NemoView *view, NemoFile *file, const char *new_name)
+{
+	NemoView **weak_view;
+
+	g_return_val_if_fail (NEMO_IS_VIEW (view), FALSE);
+
+	weak_view = g_new0 (NemoView *, 1);
+	*weak_view = view;
+	g_object_add_weak_pointer (G_OBJECT (view), (gpointer *) weak_view);
+
+	if (nemo_rename_new_folder_nested (file, new_name, nemo_view_get_containing_window (view),
+					   nested_folder_done, weak_view)) {
+		return TRUE;
+	}
+
+	g_object_remove_weak_pointer (G_OBJECT (view), (gpointer *) weak_view);
+	g_free (weak_view);
+	return FALSE;
+}
+
 static NewFolderData *
 new_folder_data_new (NemoView *directory_view)
 {
@@ -2093,6 +2190,7 @@ new_folder_data_new (NemoView *directory_view)
 
 	data = g_new (NewFolderData, 1);
 	data->directory_view = directory_view;
+	data->fresh = FALSE;
 	data->added_locations = g_hash_table_new_full (g_file_hash, (GEqualFunc)g_file_equal,
 						       g_object_unref, NULL);
 	g_object_add_weak_pointer (G_OBJECT (data->directory_view),
@@ -2125,6 +2223,7 @@ nemo_view_new_folder (NemoView *view)
 	GdkPoint *pos;
 
 	data = new_folder_data_new (view);
+	data->fresh = TRUE;
 
 	g_signal_connect_data (view,
 			       "add_file",
@@ -8901,6 +9000,7 @@ action_location_new_folder_callback (G_GNUC_UNUSED GtkAction *action,
 	}
 
 	data = new_folder_data_new (view);
+	data->fresh = TRUE;
 	g_signal_connect_data (view, "add_file",
 			       G_CALLBACK (track_newly_added_locations), data,
 			       (GClosureNotify) NULL, G_CONNECT_AFTER);

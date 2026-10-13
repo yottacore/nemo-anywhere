@@ -219,6 +219,14 @@ void     nemo_path_apply_display_separator (gchar *path);
 gchar   *nemo_location_get_display_name (GFile *location);
 gboolean nemo_path_input_is_allowed (const gchar *text);
 
+/* A new folder named with separators in it makes each folder of the path,
+   nested. "/" counts everywhere and "\\" on Windows too, since neither can be
+   in a name there. The split drops trailing separators and refuses a leading
+   one, an empty part, "." and "..". NULL with error set on a refusal.
+   Returns: (transfer full): free with g_strfreev */
+gboolean nemo_new_folder_name_has_separator (const gchar *text);
+gchar  **nemo_new_folder_path_split (const gchar *text, GError **error);
+
 /* What a rename selects before anything is typed, in characters: the whole
    name when whole is TRUE or rename-selects-whole-name is on, otherwise the
    name without its extension. An end of -1 is the end of the name. */

@@ -738,6 +738,26 @@ rename_callback (NemoFile *file, G_GNUC_UNUSED GFile *res_loc, GError *error, gp
 }
 
 static void
+nested_folder_done (G_GNUC_UNUSED GFile *top, GError *error, gpointer callback_data)
+{
+	NemoPropertiesWindow *window = NEMO_PROPERTIES_WINDOW (callback_data);
+	NemoFile *file = get_original_file (window);
+
+	/* The field took the typed path as its name, so a focus change would not
+	   send it again. Put the real one back. */
+	if (error != NULL && window->details->name_field != NULL &&
+	    file != NULL && !nemo_file_is_gone (file)) {
+		char *name = nemo_file_get_display_name (file);
+
+		gtk_entry_set_text (GTK_ENTRY (window->details->name_field), name);
+		g_object_set_data_full (G_OBJECT (window->details->name_field),
+					"original_name", name, g_free);
+	}
+
+	g_object_unref (window);
+}
+
+static void
 set_pending_name (NemoPropertiesWindow *window, const char *name)
 {
 	g_free (window->details->pending_name);
@@ -779,8 +799,14 @@ name_field_done_editing (NemoEntry *name_field, NemoPropertiesWindow *window)
 		   This is needed so that we don't save the display name to the
 		   file when nothing is changed */
 		if (strcmp (new_name, original_name) != 0) {
-			set_pending_name (window, new_name);
 			g_object_ref (window);
+			if (nemo_rename_new_folder_nested (file, new_name, GTK_WINDOW (window),
+							   nested_folder_done, window)) {
+				g_object_set_data_full (G_OBJECT (name_field), "original_name",
+							new_name, g_free);
+				return;
+			}
+			set_pending_name (window, new_name);
 			nemo_file_rename (file, new_name,
 					      rename_callback, window);
 		}

@@ -35,6 +35,7 @@
 
 #define DEBUG_FLAG NEMO_DEBUG_DIRECTORY_VIEW
 #include <libnemo-private/nemo-debug.h>
+#include <libnemo-private/nemo-file-utilities.h>
 
 #define NEW_NAME_TAG "Nemo: new name"
 #define MAXIMUM_DISPLAYED_FILE_NAME_LENGTH	50
@@ -360,4 +361,105 @@ nemo_rename_file (NemoFile *file,
 	/* Start the rename. */
 	nemo_file_rename (file, new_name,
 			      rename_callback, NULL);
+}
+
+typedef struct {
+	NemoFile *file;
+	char *typed;
+	GtkWindow *parent_window;
+	NemoNestCallback done;
+	gpointer done_data;
+} NestRename;
+
+static void
+report_nest_error (const char *typed, GError *error, GtkWindow *parent_window)
+{
+	g_autofree char *shown = eel_str_middle_truncate (typed, MAXIMUM_DISPLAYED_FILE_NAME_LENGTH);
+	g_autofree char *message = NULL;
+
+	if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_EXISTS)) {
+		message = g_strdup_printf (_("The name \"%s\" is already used in this folder. "
+					     "Please use a different name."), shown);
+	}
+
+	eel_show_error_dialog (_("The folders could not be made."),
+			       message != NULL ? message : error->message, parent_window);
+}
+
+static void
+nest_rename_done (GFile *top, GError *error, gpointer callback_data)
+{
+	NestRename *nest = callback_data;
+
+	if (error != NULL && !g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+		report_nest_error (nest->typed, error, nest->parent_window);
+	}
+
+	/* Nothing was touched, so the folder is still waiting for its first name. */
+	if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_EXISTS) ||
+	    g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_DIRECTORY)) {
+		nemo_file_set_fresh_folder (nest->file, TRUE);
+	}
+
+	if (nest->done != NULL) {
+		nest->done (top, error, nest->done_data);
+	}
+
+	if (nest->parent_window != NULL) {
+		g_object_remove_weak_pointer (G_OBJECT (nest->parent_window),
+					      (gpointer *) &nest->parent_window);
+	}
+	nemo_file_unref (nest->file);
+	g_free (nest->typed);
+	g_free (nest);
+}
+
+gboolean
+nemo_rename_new_folder_nested (NemoFile *file,
+			       const char *new_name,
+			       GtkWindow *parent_window,
+			       NemoNestCallback done,
+			       gpointer done_data)
+{
+	g_auto(GStrv) parts = NULL;
+	GError *error = NULL;
+	NestRename *nest;
+	GFile *location;
+
+	g_return_val_if_fail (NEMO_IS_FILE (file), FALSE);
+	g_return_val_if_fail (new_name != NULL, FALSE);
+
+	if (!nemo_file_take_fresh_folder (file) ||
+	    !nemo_new_folder_name_has_separator (new_name)) {
+		return FALSE;
+	}
+
+	parts = nemo_new_folder_path_split (new_name, &error);
+	if (parts == NULL) {
+		report_nest_error (new_name, error, parent_window);
+		nemo_file_set_fresh_folder (file, TRUE);
+		if (done != NULL) {
+			done (NULL, error, done_data);
+		}
+		g_error_free (error);
+		return TRUE;
+	}
+
+	nest = g_new0 (NestRename, 1);
+	nest->file = nemo_file_ref (file);
+	nest->typed = g_strdup (new_name);
+	nest->parent_window = parent_window;
+	nest->done = done;
+	nest->done_data = done_data;
+	if (parent_window != NULL) {
+		g_object_add_weak_pointer (G_OBJECT (parent_window), (gpointer *) &nest->parent_window);
+	}
+
+	location = nemo_file_get_location (file);
+	nemo_file_operations_nest_new_folder (parent_window != NULL ? GTK_WIDGET (parent_window) : NULL,
+					      location, (const char * const *) parts,
+					      nest_rename_done, nest);
+	g_object_unref (location);
+
+	return TRUE;
 }

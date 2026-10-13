@@ -66,6 +66,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - "Edit link..." changes where a symlink or junction points, and its name. On a Windows shortcut it shows the absolute, relative and portable paths, any of which can be changed or left empty to drop it. The shortcut's arguments, Start in folder and icon are kept. Only shown when one link is selected.
 
+- A new folder's first name can be a path, such as `photos/2026/june`, and each folder in it is made, nested. Folders already there along the way are used as they are. `/` works everywhere, and `\` on Windows too. Undo takes away the folders it made, deepest first, as long as each is still empty.
+
 ### Changed
 
 - Keyboard shortcuts are saved in `accels` beside the settings file. They used to go to upstream Nemo's `~/.gnome2/accels/nemo`, and only where that folder was already there, so never on Windows. Custom shortcuts in that file are read once on the first start, and it is no longer written. `--reset` clears them too.

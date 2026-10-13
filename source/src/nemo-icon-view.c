@@ -2123,6 +2123,10 @@ icon_rename_ended_cb (G_GNUC_UNUSED NemoIconContainer *container,
 		return;
 	}
 
+	if (nemo_view_rename_new_folder_nested (NEMO_VIEW (icon_view), file, new_name)) {
+		return;
+	}
+
 	nemo_rename_file (file, new_name, NULL, NULL);
 }
 

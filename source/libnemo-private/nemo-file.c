@@ -2197,6 +2197,26 @@ nemo_file_get_rename_name (NemoFile *file)
 }
 
 void
+nemo_file_set_fresh_folder (NemoFile *file, gboolean fresh)
+{
+	g_return_if_fail (NEMO_IS_FILE (file));
+
+	file->details->fresh_folder = fresh;
+}
+
+gboolean
+nemo_file_take_fresh_folder (NemoFile *file)
+{
+	gboolean fresh;
+
+	g_return_val_if_fail (NEMO_IS_FILE (file), FALSE);
+
+	fresh = file->details->fresh_folder;
+	file->details->fresh_folder = FALSE;
+	return fresh;
+}
+
+void
 nemo_file_rename (NemoFile *file,
 		      const char *new_name,
 		      NemoFileOperationCallback callback,

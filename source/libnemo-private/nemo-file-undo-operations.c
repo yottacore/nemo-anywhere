@@ -28,6 +28,7 @@
 #include <config.h>
 
 #include "nemo-file-undo-operations.h"
+#include <eel/eel-glib-extensions.h>
 
 #include <stdlib.h>
 #include <glib/gi18n.h>
@@ -686,6 +687,7 @@ struct _NemoFileUndoInfoCreateDetails {
 	char *template;
 	GFile *target_file;
 	gint length;
+	GList *made;		/* a folder named with a path, top first */
 };
 
 static void
@@ -793,13 +795,25 @@ create_empty_redo_func (NemoFileUndoInfoCreate *self,
 }
 
 static void
+nest_callback (G_GNUC_UNUSED GFile *top,
+	       GError *error,
+	       gpointer callback_data)
+{
+	file_undo_info_complete_apply (NEMO_FILE_UNDO_INFO (callback_data), error == NULL,
+				       g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED));
+}
+
+static void
 create_redo_func (NemoFileUndoInfo *info,
 		  GtkWindow *parent_window)
 {
 	NemoFileUndoInfoCreate *self = NEMO_FILE_UNDO_INFO_CREATE (info);
 	NemoFileUndoOp op_type = nemo_file_undo_info_get_op_type (info);
 
-	if (op_type == NEMO_FILE_UNDO_OP_CREATE_EMPTY_FILE) {
+	if (self->priv->made != NULL) {
+		nemo_file_operations_nest_make_again (self->priv->made, parent_window,
+						      nest_callback, self);
+	} else if (op_type == NEMO_FILE_UNDO_OP_CREATE_EMPTY_FILE) {
 		create_empty_redo_func (self, parent_window);
 	} else if (op_type == NEMO_FILE_UNDO_OP_CREATE_FOLDER) {
 		create_folder_redo_func (self, parent_window);
@@ -816,6 +830,12 @@ create_undo_func (NemoFileUndoInfo *info,
 {
 	NemoFileUndoInfoCreate *self = NEMO_FILE_UNDO_INFO_CREATE (info);
 	GList *files = NULL;
+
+	if (self->priv->made != NULL) {
+		nemo_file_operations_nest_unmake (self->priv->made, parent_window,
+						  nest_callback, self);
+		return;
+	}
 
 	files = g_list_append (files, g_object_ref (self->priv->target_file));
 	nemo_file_operations_delete (files, parent_window,
@@ -837,6 +857,7 @@ nemo_file_undo_info_create_finalize (GObject *obj)
 	NemoFileUndoInfoCreate *self = NEMO_FILE_UNDO_INFO_CREATE (obj);
 	g_clear_object (&self->priv->target_file);
 	g_free (self->priv->template);	
+	g_list_free_full (self->priv->made, g_object_unref);
 
 	G_OBJECT_CLASS (nemo_file_undo_info_create_parent_class)->finalize (obj);
 }
@@ -875,6 +896,18 @@ nemo_file_undo_info_create_set_data (NemoFileUndoInfoCreate *self,
 	self->priv->target_file = g_object_ref (file);
 	self->priv->template = g_strdup (template);
 	self->priv->length = length;
+}
+
+void
+nemo_file_undo_info_create_set_folders (NemoFileUndoInfoCreate *self,
+					GList                  *made)
+{
+	g_return_if_fail (made != NULL);
+
+	g_list_free_full (self->priv->made, g_object_unref);
+	self->priv->made = eel_g_object_list_copy (made);
+	g_clear_object (&self->priv->target_file);
+	self->priv->target_file = g_object_ref (g_list_last (made)->data);
 }
 
 /* rename */

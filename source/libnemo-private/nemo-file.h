@@ -196,6 +196,11 @@ char *                  nemo_file_get_display_name                  (NemoFile   
 char *                  nemo_file_get_status_name                   (NemoFile                   *file,
 									 gboolean                    in_search);
 char *                  nemo_file_get_rename_name                   (NemoFile                   *file);
+/* A folder New folder just made, whose first name can be a path. Taking the
+   mark clears it, and it is set again when that name changed nothing. */
+void                    nemo_file_set_fresh_folder                  (NemoFile                   *file,
+									 gboolean                    fresh);
+gboolean                nemo_file_take_fresh_folder                 (NemoFile                   *file);
 char *                  nemo_file_get_edit_name                     (NemoFile                   *file);
 char *                  nemo_file_get_name                          (NemoFile                   *file);
 const char *            nemo_file_peek_name                         (NemoFile                   *file);

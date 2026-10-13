@@ -47,6 +47,10 @@ typedef void (* NemoMountCallback)     (GVolume    *volume,
 					    gboolean    success,
 					    GObject    *callback_data_object);
 typedef void (* NemoUnmountCallback)   (gpointer    callback_data);
+/* top is the first folder of the path, the one in the folder it started in. */
+typedef void (* NemoNestCallback)      (GFile      *top,
+					    GError     *error,
+					    gpointer    callback_data);
 
 /* FIXME: int copy_action should be an enum */
 
@@ -99,6 +103,25 @@ void nemo_file_operations_new_file_from_template (GtkWidget               *paren
 						      const char              *template_uri,
 						      NemoCreateCallback   done_callback,
 						      gpointer                 data);
+
+/* A new folder named with a path. fresh_folder is the folder New folder just
+   made, and becomes the first folder of the path not there yet. parts comes
+   from nemo_new_folder_path_split. Undo removes what was made, deepest first,
+   while each is still empty. */
+void nemo_file_operations_nest_new_folder (GtkWidget                 *parent_view,
+					   GFile                     *fresh_folder,
+					   const char * const        *parts,
+					   NemoNestCallback           done_callback,
+					   gpointer                   done_callback_data);
+/* Redo and undo of that. made is top first. */
+void nemo_file_operations_nest_make_again (GList                     *made,
+					   GtkWindow                 *parent_window,
+					   NemoNestCallback           done_callback,
+					   gpointer                   done_callback_data);
+void nemo_file_operations_nest_unmake     (GList                     *made,
+					   GtkWindow                 *parent_window,
+					   NemoNestCallback           done_callback,
+					   gpointer                   done_callback_data);
 
 /* Only for a trash or delete that follows from something done in a window,
    such as undo or a drop. These always ask. Nothing outside a window may start

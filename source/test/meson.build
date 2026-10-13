@@ -713,6 +713,15 @@ make_link_job = executable('test-nemo-make-link-job',
   c_args: nemo_definitions,
 )
 
+new_folder_path = executable('test-nemo-new-folder-path',
+  [ 'test-nemo-new-folder-path.c', 'test.c' ],
+  include_directories: [ rootInclude, ],
+  dependencies: [ gtk, nemo_private, test_scratch ],
+  c_args: nemo_definitions,
+)
+
+test('rk56fsaw New folder named with a path', new_folder_path)
+
 test('rhmye3d0 Make link relative', make_link_job, args: [ 'relative' ])
 test('rhmye3d1 Make link absolute', make_link_job, args: [ 'absolute' ])
 test('rhmye3d2 Make link hardlink', make_link_job, args: [ 'hardlink' ])
@@ -1271,6 +1280,21 @@ if not is_windows
     args: [ nemo, rename_photo_probe ],
     timeout: 120
   )
+
+  # Preloaded too; it makes the folder and types its name from inside.
+  new_folder_path_probe = shared_module('test-nemo-new-folder-path-probe',
+    [ 'test-nemo-new-folder-path-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  new_folder_path_gui = executable('test-nemo-new-folder-path-gui',
+    [ 'test-nemo-new-folder-path-gui.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ glib, gio, test_scratch ],
+  )
+  test('rk56ftav New folder named with a path, icon view',
+    new_folder_path_gui, args: [ nemo, new_folder_path_probe, 'icon' ], timeout: 120)
+  test('rk56g0rq New folder named with a path, list view',
+    new_folder_path_gui, args: [ nemo, new_folder_path_probe, 'list' ], timeout: 120)
 
   # Preloaded too; it hovers and checks from inside the program.
   tooltip_focus_probe = shared_module('test-nemo-tooltip-focus-probe',
