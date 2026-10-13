@@ -697,7 +697,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Compression reset: the job follows the new link and filesystem choices.
 	- ID: 2026100516274423
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
+	- Needs external testing: no. rhr6ggmt and rewygsbg ran natively on b29w, with symlinks and junctions. rhr6ggmt's rar rows that store links failed there, and dev's test fails the same rows run the same way, see 2026101310525452.
 	- Opened: 20261005-162747
 	- Opened by: compression reset split
 	- Parent ID: 2026092910143202
@@ -712,7 +714,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The delete check compares against what was meant to go in, followed content included.
 		- Compress each goes through the same code.
 	- Estimated effort: High
-	- Test case: rhr6ggmt, Archive option combinations, rows for each link choice and filesystem option in the library formats. rewygsbg, Archive job test, for the delete check with followed content.
+	- Actual effort: High
+	- Progress log:
+		- 20261013-105254: built. Left at signoff for these calls:
+			- Ignore leaves out a link to a file too. Before, the library followed it when links weren't stored. So a selection with a link in it keeps its originals under Ignore, since the link isn't in the archive.
+			- The delete check still walks on its own, not from the job's list. It doesn't read past a link or a mounted folder the archive doesn't have.
+			- An item of Compress each that the options leave out gets no archive and stays, as a linked folder not followed did. Its note now says it's a link or a mounted folder the options leave out.
+			- The library writer refuses a selection with no path on this computer. It wrote one through GIO before; 7z and rar never could.
+			- No second progress bar, which is 2026100516274535. The one bar pulses while the list is made.
+			- A 7z with a password and links stored can't be checked, so its originals stay. That was so before, and is filed as 2026101310525352.
+	- Done: after OK the library's job walks the selection again through the archive core's scan, by the choices as its writer can do them, and writes from that list in every format it has. A link that leads nowhere goes in as a link under Follow and Store, and is left out under Ignore. Junctions, Follow nested and Follow other filesystems reach the job, and it follows a link onto a share. The delete check holds what a followed link led to, under the link's name. What goes to the trash is still only what was selected. Compress each walks once per item through the same code. 7z and rar still take only Symlinks, as the 2 boxes, until 2026100516274460.
+	- Swept: every place that set or read the 2 boxes in the options: the dialog, the program command lines, the writer choice, the one-thread flyover, both checks, and 5 tests. Both job paths, one archive and one per item. The 7z and rar walk and check keep the 2-box rules behind one pair of helpers, for 2026100516274460 to drop.
+	- Verified: 20261013, full Linux suite 196 of 196, the archive tests under ASan and UBSan, the Windows cross build, the archive tests under wine, and lint clean apart from rj3ytv0b. rhr6ggmt, rewygsbg, rjqef159 and rjq9mv0w natively on b29w; rhr6ggmt failed only the rar rows that store links, as dev's does there. Each new check went red against a fault put in the code: the job's walk ignoring the filesystem options, the dialog passing Symlinks alone, the check counting an ignored link as in, the check not following, ignored links kept as links, a link back into the selection counted as a miss, and followed content handed to the trash.
+	- Branch: arcfollow
+	- Commit: 870bf41
+	- Test case: rhr6ggmt, Archive option combinations: the crossed rows take each Symlinks choice, Follow nested and other filesystems, and on Windows each Junctions choice, with sub on a nested filesystem and the linked folder on another one. Each Symlinks choice in the library's formats with and without a delete, on a link to a file, one to a folder and 2 that lead nowhere, and one picked alone. The library rows for the old rule are commented out with the reason. rewygsbg, Archive job test: the delete check with followed content changed, added and missing, the links ignored, a link back into the selection, and a followed folder on another filesystem with the option off and on; the old rule's row commented out with the reason. rjqef159, Archive scan test, check_list: the job's list for each choice. rhtmbdmj, Compress dialog height test: the filesystem options as set reach the job.
 
 - Compression reset: 7z and rar programs work from the job's list.
 	- ID: 2026100516274460
@@ -731,6 +747,38 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Open: a list past the command line limit on some OS. The design leaves it to testing.
 	- Estimated effort: High
 	- Test case: rhr6ggmt, the same rows for 7z and rar, plus a mixed choice such as following symlinks while storing junctions.
+
+- A 7z with a password and links stored can't be checked, so Delete originals always keeps the originals.
+	- ID: 2026101310525352
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261013-105253
+	- Opened by: 2026100516274423
+	- Related IDs: 2026100516274460
+	- Target OS: Linux, Windows
+	- Steps to reproduce [Bug]:
+		- With 7-Zip installed, compress a folder holding a symlink as 7z, with a password, Store as symlinks, and Delete originals.
+	- Incorrect behavior [Bug]: "The original files were kept", and the link is named as not in the archive. The archive is fine, and 7-Zip lists the link.
+	- Expected behavior [Bug]: the check reads the whole archive, or says up front that it can't check this one, as with hidden names.
+	- Reproduced [Bug]: yes, 20261013, Linux.
+	- Possible cause [Bug]: 7-Zip keeps a link's target in its data, which the password locks, and the library stops listing at the first one it can't read.
+	- Test case: rhr6ggmt expects the originals kept for these rows for now.
+
+- On b29w the archive test's rar rows that store links fail when the test runs outside the ssh session.
+	- ID: 2026101310525452
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261013-105254
+	- Opened by: 2026100516274423
+	- Target OS: Windows
+	- Steps to reproduce [Bug]:
+		- On b29w, start rhr6ggmt's exe from a process started outside the ssh session, with MSYS2's bin first on PATH.
+	- Incorrect behavior [Bug]: rar writes no links in the archive, so the rows that store links fail their read-back and their delete.
+	- Expected behavior [Bug]: rar keeps the links, as `Rar.exe a -ol` does by hand there.
+	- Reproduced [Bug]: yes, 20261013, with this branch's test and with dev's. Not looked into. The PATH there finds `rar.cmd`, which needs `RAR_PATH`.
+	- Test case: rhr6ggmt's rar rows, once it's found.
 
 - Compression reset: a pre-scan progress bar after OK.
 	- ID: 2026100516274535
