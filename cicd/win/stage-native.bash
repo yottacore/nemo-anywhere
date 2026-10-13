@@ -26,7 +26,7 @@ set -Eeuo pipefail
 BUILD="${1:?usage: stage-native.bash <build-dir> <dest-dir>}"
 DEST="${2:?usage: stage-native.bash <build-dir> <dest-dir>}"
 MINGW="${MINGW_PREFIX:-/mingw64}"
-REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"	# .../github, for vendor/
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"	# .../repo, for vendor/
 
 fEcho(){ echo "[ $* ]"; }
 

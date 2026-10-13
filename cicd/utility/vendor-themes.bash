@@ -29,7 +29,7 @@
 set -Eeuo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-root="$(cd "$here/../.." && pwd)"			# repo: .../github
+root="$(cd "$here/../.." && pwd)"			# repo: .../repo
 vendor="$root/vendor"
 nameList="$here/theme-icon-names.txt"
 svgMin="$here/svg-min.py"

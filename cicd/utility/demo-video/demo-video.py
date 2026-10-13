@@ -70,7 +70,7 @@ from PIL import Image, ImageDraw
 from scipy import signal as spsig
 
 ME_DIR   = Path(__file__).resolve().parent
-REPO     = ME_DIR.parents[2]                  # github/cicd/utility/demo-video -> github
+REPO     = ME_DIR.parents[2]                  # repo/cicd/utility/demo-video -> repo
 OUT_DIR  = REPO.parent / "demo-video"         # beside the repo, not in it
 SOUNDS   = ME_DIR / "sounds"
 
