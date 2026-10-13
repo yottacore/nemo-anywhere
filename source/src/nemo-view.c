@@ -9257,7 +9257,7 @@ static const GtkActionEntry directory_view_entries[] = {
    */
   /* name, stock id */         { "Reset to Defaults", NULL,
   /* label, accelerator */       N_("Reset view to _defaults"), NULL,
-  /* tooltip */                  N_("Reset sorting order and zoom level to match preferences for this view"),
+  /* tooltip */                  N_("Reset sorting order and zoom level to match settings for this view"),
 				 G_CALLBACK (action_reset_to_defaults_callback) },
   /* name, stock id */         { "Connect To Server Link", NULL,
   /* label, accelerator */       N_("Connect to this server"), NULL,

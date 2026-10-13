@@ -23,7 +23,7 @@ The config directory follows the platform, so `.config` above is the Linux spell
 
 Widget themes work the same way, in `themes/` beside it. The application creates both folders empty on first run, so the place to put something is discoverable without reading this.
 
-One icon theme is one folder with an `index.theme` in it - the ordinary freedesktop layout, exactly as any GTK icon theme comes. Drop it in whole and it appears in **Preferences -> Appearance -> Icons** next time the application starts. A drop-in of the same name as a bundled set wins, which is how one can be replaced without rebuilding anything.
+One icon theme is one folder with an `index.theme` in it - the ordinary freedesktop layout, exactly as any GTK icon theme comes. Drop it in whole and it appears in **Settings -> Appearance -> Icons** next time the application starts. A drop-in of the same name as a bundled set wins, which is how one can be replaced without rebuilding anything.
 
 ## Two optional lines in index.theme
 

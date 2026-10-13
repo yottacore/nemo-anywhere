@@ -265,7 +265,7 @@ test_bind (NemoConfigGroup *prefs)
 	nemo_config_set_boolean (prefs, "show-hidden-files", FALSE);
 }
 
-/* The preferences dialog binds every combo and radio through a mapping that
+/* The settings dialog binds every combo and radio through a mapping that
  * fills in the nick and leaves the number alone. Taking the number wrote the
  * zero-valued nick whatever was picked - for the executable-text setting that
  * meant "run it" no matter what the dialog showed. */

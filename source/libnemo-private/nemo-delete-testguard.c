@@ -44,7 +44,7 @@
 
 /* Said on every ask, so nobody takes it for a real problem with the files. */
 #define WHY_ASKED "Every pre-release asks this, as a rule. This release candidate does " \
-		  "not need it, and it can be turned off in Preferences, Behavior, Trash."
+		  "not need it, and it can be turned off in Settings, Behavior, Trash."
 
 /* Set while a job works through what it already asked about, so the two
    removal functions below it stay quiet. A job and its removals run on one

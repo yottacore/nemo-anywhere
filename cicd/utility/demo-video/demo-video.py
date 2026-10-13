@@ -24,7 +24,7 @@
 ##		of the app.
 ##		Settings changed mid-run are written straight into the settings file,
 ##		which the app live-reloads - the same thing a hand edit does, and the
-##		reason no preferences dialog has to be driven on camera.
+##		reason no settings dialog has to be driven on camera.
 ##		Everything on screen is synthetic: a throwaway HOME under a neutral path,
 ##		generated files, and no column that would print a real account name.
 ##	Syntax:

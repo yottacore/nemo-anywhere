@@ -771,6 +771,44 @@ eel_gtk_notebook_keep_focus_off_tabs (GtkNotebook *notebook)
     g_signal_connect (notebook, "grab-focus", G_CALLBACK (notebook_grab_focus_cb), NULL);
 }
 
+static void
+list_box_row_added_cb (G_GNUC_UNUSED GtkContainer *box,
+                       GtkWidget    *row,
+                       G_GNUC_UNUSED gpointer      user_data)
+{
+    eel_gtk_widget_refuse_focus (row);
+}
+
+static gboolean
+list_box_focus_cb (GtkWidget        *box,
+                   G_GNUC_UNUSED GtkDirectionType  direction,
+                   G_GNUC_UNUSED gpointer          user_data)
+{
+    // The list's own handler answers TRUE for a row that refused, which stops Tab here.
+    g_signal_stop_emission_by_name (box, "focus");
+
+    return FALSE;
+}
+
+// A list used as tabs: a click still selects a row, but Tab goes past the list
+// and nothing in it holds the keyboard.
+void
+eel_gtk_list_box_keep_focus_off_rows (GtkListBox *box)
+{
+    GList *rows, *l;
+
+    eel_gtk_widget_refuse_focus (GTK_WIDGET (box));
+
+    rows = gtk_container_get_children (GTK_CONTAINER (box));
+    for (l = rows; l != NULL; l = l->next) {
+        eel_gtk_widget_refuse_focus (l->data);
+    }
+    g_list_free (rows);
+
+    g_signal_connect_after (box, "add", G_CALLBACK (list_box_row_added_cb), NULL);
+    g_signal_connect (box, "focus", G_CALLBACK (list_box_focus_cb), NULL);
+}
+
 // Whether the toplevel's focus sits on this widget or inside it.
 gboolean
 eel_gtk_focus_is_within (GtkWidget *container)

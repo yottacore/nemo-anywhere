@@ -20,10 +20,10 @@
    Boston, MA 02110-1335, USA.
 */
 
-/* With per-folder settings off there is nothing for the Current tab to show,
- * and an insensitive page still switches on a click, so the notebook itself
- * has to refuse it. Turning the setting off while the tab is up goes back to
- * Default. Built from the real dialog resource, with no window to follow. */
+/* With per-folder settings off the Current tab still opens, and shows its
+ * controls grayed out, so it is plain what is turned off. Its label is grayed
+ * too. Turning the setting off while the tab is up leaves it up, grayed.
+ * Built from the real dialog resource, with no window to follow. */
 
 #include <config.h>
 
@@ -117,10 +117,16 @@ main (int argc, char *argv[])
 	set_remembering (FALSE);
 	nemo_prefs_current_folder_setup (builder, dialog, NULL);
 
-	/* Off: the tab is grayed, and asking for it leaves Default up. */
+	/* Off: the tab is grayed, and it opens on grayed controls. It used to
+	   refuse the switch and leave Default up, back when it opened on a blank
+	   pane; 2026101009150768 went back to opening it.
+	check (gtk_notebook_get_current_page (notebook) == 0); */
 	check (!gtk_widget_get_sensitive (current_tab));
 	gtk_notebook_set_current_page (notebook, current);
-	check (gtk_notebook_get_current_page (notebook) == 0);
+	check (gtk_notebook_get_current_page (notebook) == current);
+	check (gtk_widget_get_visible (current_page));
+	check (!gtk_widget_is_sensitive (current_page));
+	gtk_notebook_set_current_page (notebook, 0);
 
 	/* On: the tab opens. */
 	set_remembering (TRUE);
@@ -128,9 +134,12 @@ main (int argc, char *argv[])
 	gtk_notebook_set_current_page (notebook, current);
 	check (gtk_notebook_get_current_page (notebook) == current);
 
-	/* Turned off while it is up, Default comes back. */
+	/* Turned off while it is up, it stays up and grays out. Default used to
+	   come back here, for the same reason as above.
+	check (gtk_notebook_get_current_page (notebook) == 0); */
 	set_remembering (FALSE);
-	check (gtk_notebook_get_current_page (notebook) == 0);
+	check (gtk_notebook_get_current_page (notebook) == current);
+	check (!gtk_widget_is_sensitive (current_page));
 	check (!gtk_widget_get_sensitive (current_tab));
 
 	gtk_widget_destroy (dialog);
