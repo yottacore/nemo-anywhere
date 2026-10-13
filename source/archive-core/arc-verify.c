@@ -72,6 +72,7 @@ leads_nowhere (GFile     *file,
 typedef struct {
 	gint64   size;
 	gboolean is_dir;
+	gboolean long_target;	/* a link libarchive can't list, see expect_link */
 } Expected;
 
 typedef struct {
@@ -84,6 +85,7 @@ typedef struct {
 	guint         left_files;
 	gboolean      links_locked;	/* a link kept as a link can't be listed */
 	gboolean      locked_link;	/* and one is expected */
+	gboolean      long_targets_unread;
 	ArcLinkChoice             symlinks;
 	ArcLinkChoice             junctions;
 	GHashTable               *listing;
@@ -91,7 +93,7 @@ typedef struct {
 	const ArcHost            *host;		/* lists the folders */
 } VerifyWalk;
 
-static void
+static Expected *
 expect (VerifyWalk *walk,
 	const char *rel_path,
 	gint64      size,
@@ -103,6 +105,7 @@ expect (VerifyWalk *walk,
 	item->is_dir = is_dir;
 
 	g_hash_table_replace (walk->expected, g_strdup (rel_path), item);
+	return item;
 }
 
 static gboolean listing_holds_folder (GHashTable *listing, GHashTable *folders,
@@ -127,17 +130,17 @@ typedef enum {
 } LinkSort;
 
 /* Read without going through it. On Windows GLib calls a junction a folder,
-   and can't tell one from a mount point. */
+   and can't tell one from a mount point. target gets a link's target, owned
+   by the caller. */
 static LinkSort
 link_sort (GFile     *file,
-	   GFileInfo *info)
+	   GFileInfo *info,
+	   char     **target)
 {
 #ifdef G_OS_WIN32
-	char *target = NULL;
-	ArcEntry entry = arc_entry_read (g_file_peek_path (file), &target);
+	ArcEntry entry = arc_entry_read (g_file_peek_path (file), target);
 
 	(void) info;
-	g_free (target);
 	switch (entry) {
 	case ARC_ENTRY_SYMLINK:
 		return A_SYMLINK;
@@ -152,16 +155,45 @@ link_sort (GFile     *file,
 	}
 #else
 	(void) file;
-	return g_file_info_get_is_symlink (info) ? A_SYMLINK : NOT_A_LINK;
+	if (!g_file_info_get_is_symlink (info)) {
+		return NOT_A_LINK;
+	}
+	*target = g_strdup (g_file_info_get_symlink_target (info));
+	return A_SYMLINK;
 #endif
+}
+
+/* The target as rar keeps it. On Windows that's the link's own text, with
+   \??\ ahead of a whole path, which arc_entry_read takes off. */
+static gsize
+stored_target_length (const char *target)
+{
+	gsize length = strlen (target);
+
+#ifdef G_OS_WIN32
+	if (target[0] == '\\' && target[1] == '\\') {
+		return length + 6;	/* \\server is \??\UNC\server */
+	}
+	if (g_ascii_isalpha (target[0]) && target[1] == ':') {
+		return length + 4;
+	}
+#endif
+	return length;
 }
 
 static void
 expect_link (VerifyWalk *walk,
-	     const char *rel_path)
+	     const char *rel_path,
+	     const char *target)
 {
+	Expected *item;
+
 	walk->locked_link = walk->locked_link || walk->links_locked;
-	expect (walk, rel_path, -1, FALSE);
+	item = expect (walk, rel_path, -1, FALSE);
+	/* libarchive 3.8.9 and older reads a rar link's target length as one
+	   byte, so it lists nothing from a target of 128 bytes on. */
+	item->long_target = walk->long_targets_unread && target != NULL &&
+			    stored_target_length (target) >= 128;
 }
 
 static void verify_walk_item (VerifyWalk *walk, GFile *file, const char *rel_path,
@@ -277,12 +309,13 @@ verify_walk_item (VerifyWalk *walk,
 	LinkSort sort;
 	ArcLinkChoice choice;
 	GFileInfo *effective;
+	g_autofree char *target = NULL;
 
 	if (g_cancellable_is_cancelled (walk->cancellable)) {
 		return;
 	}
 
-	sort = link_sort (file, info);
+	sort = link_sort (file, info, &target);
 	switch (sort) {
 	case A_SYMLINK:
 	case A_JUNCTION:
@@ -292,14 +325,14 @@ verify_walk_item (VerifyWalk *walk,
 			return;
 		}
 		if (choice != ARC_LINK_FOLLOW) {
-			expect_link (walk, rel_path);
+			expect_link (walk, rel_path, target);
 			return;
 		}
 		effective = g_file_query_info (file, SCAN_ATTRIBUTES, G_FILE_QUERY_INFO_NONE,
 					       walk->cancellable, NULL);
 		if (leads_nowhere (file, effective)) {
 			g_clear_object (&effective);
-			expect_link (walk, rel_path);
+			expect_link (walk, rel_path, target);
 			return;
 		}
 		via_link = TRUE;
@@ -643,6 +676,9 @@ arc_verify (const ArcHost    *host,
 	walk.whole = TRUE;
 	walk.links_locked = links_locked (options) &&
 		(arc_backend_caps (options->format, backend) & ARC_CAP_STORE_LINKS);
+	/* Fixed upstream after 3.8.9, in bb42a8c. */
+	walk.long_targets_unread = options->format == ARC_FORMAT_RAR &&
+		archive_version_number () < 3008010;
 	{
 		guint stores = arc_backend_link_stores (options->format, backend);
 
@@ -700,6 +736,7 @@ arc_verify (const ArcHost    *host,
 		guint64 selected_bytes = 0;
 		guint64 archived_bytes = 0;
 		guint resized = 0;
+		guint unlisted = 0;	/* links with a target too long to list */
 
 		g_hash_table_iter_init (&iter, walk.expected);
 		while (g_hash_table_iter_next (&iter, &key, &value)) {
@@ -715,7 +752,9 @@ arc_verify (const ArcHost    *host,
 			}
 
 			stored = g_hash_table_lookup (listing, rel_path);
-			if (stored == NULL) {
+			if (stored == NULL && item->long_target) {
+				unlisted++;
+			} else if (stored == NULL) {
 				missing_files++;
 			} else if (item->size >= 0 && stored->size >= 0) {
 				selected_bytes += (guint64) item->size;
@@ -746,8 +785,17 @@ arc_verify (const ArcHost    *host,
 			}
 		}
 
-		trouble = mismatch_reason (missing_folders, missing_files, extra_folders, extra_files,
-					   selected_bytes, archived_bytes, resized);
+		/* The listing stops at such a link, so nothing after it would
+		   count right either. */
+		if (unlisted > 0) {
+			trouble = g_strdup_printf (ngettext ("%'u link has a target too long to read back from a rar, so the archive cannot be checked.",
+							     "%'u links have targets too long to read back from a rar, so the archive cannot be checked.",
+							     unlisted),
+						   unlisted);
+		} else {
+			trouble = mismatch_reason (missing_folders, missing_files, extra_folders, extra_files,
+						   selected_bytes, archived_bytes, resized);
+		}
 	}
 
 	if (trouble == NULL && g_hash_table_size (walk.expected) == 0) {

@@ -419,7 +419,18 @@ typedef struct {
 	   locked by a password the listing ends at the first link, and the
 	   delete check can't see the rest. */
 	gboolean      links_unlisted;
+	/* rar kept jlink, and libarchive can't list it, see check_long_target. */
+	gboolean      jlink_unlisted;
 } Rules;
+
+/* libarchive 3.8.9 and older reads a rar link's target length as one byte,
+   so it lists nothing from a target of 128 bytes on. Fixed upstream after
+   3.8.9. */
+static gboolean
+long_targets_unlisted (void)
+{
+	return archive_version_number () < 3008010;
+}
 
 static void
 rules_for (NemoArchiveFormat format, NemoArchiveBackend backend,
@@ -436,6 +447,7 @@ rules_for (NemoArchiveFormat format, NemoArchiveBackend backend,
 	rules->other = options->links.follow_other;
 	rules->links_unlisted = format == NEMO_ARCHIVE_FORMAT_7Z && options->password != NULL &&
 				rules->symlinks == ARC_LINK_STORE_SYMLINK;
+	rules->jlink_unlisted = FALSE;
 }
 
 static gboolean
@@ -497,7 +509,7 @@ item_whole (const Rules *rules, const char *item, gboolean each)
 	}
 	if (strcmp (item, "jlink") == 0) {
 		return rules->junctions == ARC_LINK_FOLLOW ||
-		       (rules->junctions != ARC_LINK_IGNORE && !lost);
+		       (rules->junctions != ARC_LINK_IGNORE && !lost && !rules->jlink_unlisted);
 	}
 	return TRUE;
 }
@@ -855,6 +867,14 @@ run_row (const char *tmp, const char *outside, int number,
 	   out. */
 	rules_for (format, backend, &options, &rules);
 	rules.links_unlisted = rules.links_unlisted && with_links;
+	if (with_junctions && format == NEMO_ARCHIVE_FORMAT_RAR &&
+	    (rules.junctions == ARC_LINK_STORE_JUNCTION || rules.junctions == ARC_LINK_STORE_SYMLINK)) {
+		char *jdir = g_build_filename (outside, "jdir", NULL);
+
+		/* rar keeps a junction's target as \??\C:\... */
+		rules.jlink_unlisted = long_targets_unlisted () && strlen (jdir) + 4 >= 128;
+		g_free (jdir);
+	}
 	walk_whole = TRUE;
 	lost = !each && links_lost (&rules, NULL);
 	for (l = sources; l != NULL; l = l->next) {
@@ -985,7 +1005,21 @@ run_row (const char *tmp, const char *outside, int number,
 			g_free (item);
 		}
 		check (warnings == (walk_whole ? 0 : 1));
+		/* Only the first reason is shown. */
+		for (l = sources; l != NULL; l = l->next) {
+			char *item = g_file_get_basename (G_FILE (l->data));
+			gboolean kept = !item_whole (&rules, item, TRUE);
+
+			if (kept && rules.jlink_unlisted && strcmp (item, "jlink") == 0) {
+				check (strstr (said->str, "too long to read back") != NULL);
+			}
+			g_free (item);
+			if (kept) {
+				break;
+			}
+		}
 	} else {
+		check (!rules.jlink_unlisted || strstr (said->str, "too long to read back") != NULL);
 		check (exists (items, "a.txt") == !walk_whole);
 		check (exists (items, "sub") == !walk_whole);
 		check (warnings == (walk_whole ? 0 : 1));
@@ -1539,51 +1573,66 @@ check_loop (const char *tmp, NemoArchiveFormat format,
 
 /* rar keeps a link's target in the entry's header, and libarchive 3.8.9 and
    older misreads one of 128 bytes or more and ends the listing there. What
-   the check can't list is a miss, so the originals stay. */
+   the check can't list is a miss, so the originals stay, and the warning
+   says why. junction keeps a junction to a folder with a long path, which
+   rar keeps as \??\ and the whole path. */
 static void
-check_long_target (const char *tmp, GtkWidget *window, NemoProgressInfoManager *manager)
+check_long_target (const char *tmp, gboolean junction, GtkWidget *window,
+		   NemoProgressInfoManager *manager)
 {
-	char *root = g_build_filename (tmp, "long-target", NULL);
+	char *root = g_build_filename (tmp, junction ? "long-junction" : "long-target", NULL);
 	char *held = g_build_filename (root, "held", NULL);
 	char *longer = g_build_filename (held, "far", NULL);
 	char *dest = g_build_filename (root, "held.rar", NULL);
-	char *target = g_strnfill (140, 'x');
+	char *target;
 	NemoArchiveOptions options;
-	GHashTable *found;
 	GString *said = g_string_new (NULL);
 	GList *sources;
-	gboolean readable;
+	gboolean unlisted = long_targets_unlisted ();
 	int warnings, errors, asked;
 	int before = failures;
 
 	g_mkdir_with_parents (held, 0700);
 	write_bytes (held, "a.txt", "alpha", 5);
-	check (nemo_link_create (target, longer, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
-	sources = g_list_append (NULL, g_file_new_for_path (held));
-
 	options_for (NEMO_ARCHIVE_FORMAT_RAR, &options);
-	options.links.symlinks = ARC_LINK_STORE_SYMLINK;
 	options.delete_sources = TRUE;
+	if (junction) {
+		gsize room = strlen (root) + 1;
+		char *pad = g_strnfill (room < 120 ? 128 - room : 8, 'x');
+
+		target = g_build_filename (root, pad, NULL);
+		g_mkdir_with_parents (target, 0700);
+		write_bytes (target, "d.txt", "delta", 5);
+		check (nemo_link_create (target, longer, NULL, NEMO_LINK_JUNCTION, NULL));
+		arc_link_options_set_junctions (&options.links, ARC_LINK_STORE_JUNCTION);
+		g_free (pad);
+	} else {
+		target = g_strnfill (140, 'x');
+		check (nemo_link_create (target, longer, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
+		options.links.symlinks = ARC_LINK_STORE_SYMLINK;
+	}
+	sources = g_list_append (NULL, g_file_new_for_path (held));
 
 	check (run_single (sources, dest, &options, window, manager, &warnings, &errors, &asked, said));
 	check (errors == 0);
 
-	found = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
-	read_back (dest, found);
-	readable = g_hash_table_contains (found, "held/far") && g_hash_table_contains (found, "held/a.txt");
-	if (readable) {
-		check (asked == 1);
-		check (!exists (root, "held"));
-	} else {
+	if (unlisted) {
 		check (asked == 0);
 		check (warnings == 1);
+		check (strstr (said->str, "too long to read back") != NULL);
 		check (exists (held, "a.txt"));
 		check (exists (held, "far"));
+	} else {
+		check (asked == 1);
+		check (!exists (root, "held"));
 	}
-	g_hash_table_destroy (found);
+	if (junction) {
+		check (exists (target, "d.txt"));
+	}
 
 	if (failures > before) {
-		g_printerr ("  in long-target (%s)\n%s", readable ? "listed" : "not listed", said->str);
+		g_printerr ("  in %s (%s)\n%s", junction ? "long-junction" : "long-target",
+			    archive_version_string (), said->str);
 	}
 
 	g_string_free (said, TRUE);
@@ -2111,7 +2160,7 @@ run_format (const char *tmp, const char *outside, NemoArchiveFormat format, gboo
 		check_loop (tmp, format, window, manager);
 		number++;
 		if (format == NEMO_ARCHIVE_FORMAT_RAR) {
-			check_long_target (tmp, window, manager);
+			check_long_target (tmp, FALSE, window, manager);
 			number++;
 		}
 		if (format == NEMO_ARCHIVE_FORMAT_7Z && !by_library) {
@@ -2147,6 +2196,10 @@ run_format (const char *tmp, const char *outside, NemoArchiveFormat format, gboo
 		check_patterns (tmp, outside, format, window, manager);
 		number += 2;
 #endif
+	}
+	if (with_junctions && format == NEMO_ARCHIVE_FORMAT_RAR) {
+		check_long_target (tmp, TRUE, window, manager);
+		number++;
 	}
 	check_beside (tmp, format, window, manager);
 	number++;
