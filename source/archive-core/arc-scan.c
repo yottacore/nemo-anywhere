@@ -207,7 +207,7 @@ add_item (ArcScan     *scan,
 	return item;
 }
 
-static void
+static ArcItem *
 add_link_item (ArcScan    *scan,
 	       char       *name,
 	       const char *path,
@@ -220,6 +220,7 @@ add_link_item (ArcScan    *scan,
 
 	item->target = g_strdup (target);
 	item->junction = kind == ARC_FOLLOW_JUNCTIONS;
+	return item;
 }
 
 /* A mix in mixes lets in everything one that follows less would. */
@@ -724,7 +725,11 @@ enter (ArcScan    *scan,
 	Frame *frame;
 
 	if (walked_by_less (folder->walked, needs)) {
-		g_free (name);
+		if (scan->out != NULL) {
+			g_ptr_array_add (scan->out->again, name);
+		} else {
+			g_free (name);
+		}
 		return;
 	}
 	folder->walked |= (guint16) (1u << needs);
@@ -900,7 +905,7 @@ follow_link (ArcScan    *scan,
 			char *path = child_text (folder, name);
 
 			add_link_item (scan, item_name (frame->name, name), path, link_info, kind, target,
-				       frame->needs);
+				       frame->needs)->nowhere = TRUE;
 			g_free (path);
 		}
 		return;
@@ -1482,6 +1487,7 @@ arc_scan_list (const ArcHost        *host,
 	list->items = g_ptr_array_new_with_free_func (item_free);
 	list->left_out = g_ptr_array_new_with_free_func (g_free);
 	list->unreadable = g_ptr_array_new_with_free_func (g_free);
+	list->again = g_ptr_array_new_with_free_func (g_free);
 	scan->out = list;
 	if (arc_link_options_symlinks (links, stores) == ARC_LINK_STORE_SYMLINK) {
 		scan->keep |= ARC_FOLLOW_SYMLINKS;
@@ -1536,5 +1542,6 @@ arc_scan_list_free (ArcScanList *list)
 	g_ptr_array_unref (list->items);
 	g_ptr_array_unref (list->left_out);
 	g_ptr_array_unref (list->unreadable);
+	g_ptr_array_unref (list->again);
 	g_free (list);
 }

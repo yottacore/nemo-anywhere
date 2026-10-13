@@ -106,6 +106,7 @@ typedef struct {
 	char        *path;	/* where it's read from; for a link, the link */
 	char        *target;	/* a link's own text */
 	gboolean     junction;
+	gboolean     nowhere;	/* a link that leads nowhere */
 	guint64      bytes;
 	gint64       mtime;	/* seconds, 0 when not known */
 	guint32      mode;	/* permission bits, 0 when not known */
@@ -120,6 +121,9 @@ typedef struct {
 	/* Names that couldn't be listed or looked at, and what can't go in an
 	   archive at all, such as a socket. */
 	GPtrArray *unreadable;
+	/* Folders walked already by a path that needs no more, under the name
+	   they were reached by again. A link loop ends here. */
+	GPtrArray *again;
 	guint64    bytes;
 	guint      files;
 } ArcScanList;

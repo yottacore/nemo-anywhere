@@ -386,6 +386,44 @@ probe_groups (gpointer data)
 	return G_SOURCE_REMOVE;
 }
 
+/* A 7z with a password keeps a link's target where the password locks it,
+   and the check can't list past it, so with links kept the delete box is
+   grayed. Plain files have no link to keep. Store is remembered. */
+static gboolean
+probe_locked_links (gpointer data)
+{
+	Case *c = data;
+	GtkWidget *dialog = find_dialog ();
+	GtkWidget *password;
+	gboolean locks;
+
+	c->ran = TRUE;
+	check (dialog != NULL);
+	if (dialog == NULL) {
+		return G_SOURCE_REMOVE;
+	}
+	password = named (dialog, "password");
+	locks = c->links_or_folders && nemo_archive_backend_present (NEMO_ARCHIVE_BACKEND_7Z) &&
+		(nemo_archive_backend_caps (NEMO_ARCHIVE_FORMAT_7Z, NEMO_ARCHIVE_BACKEND_7Z) &
+		 NEMO_ARCHIVE_CAP_STORE_LINKS);
+
+	set_format (dialog, "7z");
+	check (can_click (dialog, "delete-originals"));
+	gtk_entry_set_text (GTK_ENTRY (password), "secret");
+	check (can_click (dialog, "delete-originals") == !locks);
+	if (locks) {
+		click (dialog, "symlinks-follow");
+		check (can_click (dialog, "delete-originals"));
+		click (dialog, "symlinks-store");
+		check (!can_click (dialog, "delete-originals"));
+	}
+	gtk_entry_set_text (GTK_ENTRY (password), "");
+	check (can_click (dialog, "delete-originals"));
+
+	gtk_dialog_response (GTK_DIALOG (dialog), GTK_RESPONSE_CANCEL);
+	return G_SOURCE_REMOVE;
+}
+
 /* A store choice the format and its options can't do is grayed and shows as
    Ignore, and the choice comes back with options that can. 7-Zip plays its
    Windows self here, keeping no links, so a 7z with a password or volumes has
@@ -1433,8 +1471,13 @@ main (int argc, char *argv[])
 	nemo_archive_set_7z_keeps_links (TRUE);
 #endif
 
-	run_case (probe_volumes, &plain, files, dir);
 	group = nemo_config_get_group (NEMO_ARCHIVE_COMMANDS_GROUP);
+	nemo_config_set_enum (group, NEMO_ARCHIVE_STATE_KEY_SYMLINKS, ARC_LINK_STORE_SYMLINK);
+	run_case (probe_locked_links, &folder, files, dir);
+	run_case (probe_locked_links, &plain, files, dir);
+	nemo_config_reset (group, NEMO_ARCHIVE_STATE_KEY_SYMLINKS);
+
+	run_case (probe_volumes, &plain, files, dir);
 	nemo_config_set_string (group, NEMO_ARCHIVE_STATE_KEY_SPLIT_SIZE, "4480 MiB");
 	plain.volume_size = "4,480 MiB (DVD)";
 	run_case (probe_volumes, &plain, files, dir);

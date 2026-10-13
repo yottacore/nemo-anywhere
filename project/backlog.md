@@ -284,6 +284,36 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 3c069b3
 	- Test case: rk5b84ef, Settings tab list test: 3 levels deep, indent per level, a parent and its showing sub-tab lit at every depth, hidden pages and their sub-tabs dropped, pages added and retitled later, and sub-tabs under a switch they share. rhtmbdmd, Settings dialog test: the rows, the lit pair and the parent's last sub-tab in the real dialog. rhtmbdmf, Settings Current tab test.
 
+- A 7z with a password and links stored can't be checked, so Delete originals always keeps the originals.
+	- ID: 2026101310525352
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
+	- Needs external testing: no. rhr6ggmt, rewygsbg and rev86z08 passed natively on b29w.
+	- Priority|Severity: Low
+	- Opened: 20261013-105253
+	- Opened by: 2026100516274423
+	- Related IDs: 2026100516274460
+	- Target OS: Linux, Windows
+	- Steps to reproduce:
+		- With 7-Zip installed, compress a folder holding a symlink as 7z, with a password, Store as symlinks, and Delete originals.
+	- Incorrect behavior: "The original files were kept", and the link is named as not in the archive. The archive is fine, and 7-Zip lists the link.
+	- Expected behavior: the check reads the whole archive, or says up front that it can't check this one, as with hidden names.
+	- Reproduced: yes, 20261013, Linux.
+	- Possible cause: 7-Zip keeps a link's target in its data, which the password locks, and the library stops listing at the first one it can't read.
+	- Actual cause: as guessed. 7-Zip keeps a link's target as the entry's data, which the password locks. libarchive can't unlock a 7z, and at the first link it says the content is encrypted and stops for good, so nothing after it lists.
+	- Progress log:
+		- 20261013-121000: fixed. Left at signoff for these calls:
+			- The check says up front it can't check this one. Reading through 7-Zip's own listing was left out, since the design rejects checking with the program that wrote the archive.
+			- The delete box is grayed for a 7z with a password and Store as symlinks, where the selection has a link or a folder. A folder with no link in it loses the box too. Plain files keep it.
+			- New message: "A 7z with a password cannot be checked when it keeps links as links."
+	- Actual fix: the delete check gives that message when it expects a link kept as a link in a 7z with a password, before it reads anything. The Compress dialog grays the box for that case, as it does for hidden names. A selection with no link in it is checked as before, and its originals can go. Where 7-Zip keeps no links, on Windows, nothing changes.
+	- Swept: the 2 places a link is expected kept in the check, Store and a followed link that leads nowhere. The dialog's one call that decides the box. zip with a password reads its links, and rar keeps a link's target outside the locked data, so neither is affected.
+	- Verified: 20261013, the tests below on Linux and under ASan and UBSan, and rhr6ggmt and rewygsbg natively on b29w. Each new check failed with the dialog's rule taken out or with the check's flag held off.
+	- Branch: arcprog
+	- Commit: 6436ac6
+	- Test case: rhr6ggmt, Archive option combinations: the rows with a 7z, a password and links kept say why the originals stay, and check_locked_plain archives plain files and a folder with no link under the same options and deletes them. rewygsbg, Archive job test, check_predicate: the rule for 7z, zip, Store and Follow. rhtmbdmj, Compress dialog height test, probe_locked_links: the box grays with a link or folder selected and stays with plain files.
+
 - Compression reset: link choices and filesystem options in the Compress dialog.
 	- ID: 2026100516274386
 	- Type: Enhancement
@@ -422,6 +452,39 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: arcfollow
 	- Commit: 870bf41
 	- Test case: rhr6ggmt, Archive option combinations: the crossed rows take each Symlinks choice, Follow nested and other filesystems, and on Windows each Junctions choice, with sub on a nested filesystem and the linked folder on another one. Each Symlinks choice in the library's formats with and without a delete, on a link to a file, one to a folder and 2 that lead nowhere, and one picked alone. The library rows for the old rule are commented out with the reason. rewygsbg, Archive job test: the delete check with followed content changed, added and missing, the links ignored, a link back into the selection, and a followed folder on another filesystem with the option off and on; the old rule's row commented out with the reason. rjqef159, Archive scan test, check_list: the job's list for each choice. rhtmbdmj, Compress dialog height test: the filesystem options as set reach the job.
+
+- Compression reset: 7z and rar programs work from the job's list.
+	- ID: 2026100516274460
+	- Type: Enhancement
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
+	- Needs external testing: no. rhr6ggmt, rewygsbg, rjqef159, rjq9mv0w, rev86z08 and reww9h2s passed natively on b29w, with symlinks and junctions.
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274423
+	- Target OS: Linux, Windows
+	- Design: [After OK](design_docs/20260929-101432_compression.md#after-ok).
+	- Requirements:
+		- 7-Zip and rar are told what goes in from the pre-scan list, so mixed choices work, such as following symlinks while storing junctions.
+		- The 7z leave-out list of today becomes part of this. The first run for links that lead nowhere keeps working.
+		- Names stay names: `-spd` for 7-Zip, and rar keeps refusing `*` and `?`.
+		- Open: a list past the command line limit on some OS. The design leaves it to testing.
+	- Estimated effort: High
+	- Actual effort: High
+	- Progress log:
+		- 20261013-121000: built. Left at signoff for these calls:
+			- Both programs are handed the list's top names and told by name what to leave out, and walk the rest themselves. What they leave out is what the list left out, what it couldn't read, and a folder it had walked already, as through a link loop.
+			- The names go in list files, so there's no command line limit to hit. A name with a space at either end or a line break goes on the line, since 7-Zip trims list lines at both ends and rar at the end.
+			- Links kept beside links followed take 2 runs, the kept ones first. A split set can't do that, so there the kept ones are left out and named. So are links 7-Zip would reach through a linked folder, and links on Windows, where 7-Zip keeps none.
+			- rar is refused for `*` or `?` in any name it would be handed, which now includes what it's told to leave out. A link that leads nowhere with one is passed over, as before.
+			- The note for links left out now reads "It can't go in as a link with these options:" for any of them, not only those that lead nowhere.
+	- Done: 7z and rar write from the job's own list, the same pre-scan the library uses, by every link and filesystem choice. On Windows a rar can follow symlinks while it keeps junctions. The delete check walks the same way for every writer. The 2-box rules and the 7z leave-out list are gone.
+	- Swept: one archive and Compress each, both runs, the 2 public line builders the tests use, the delete check, and both places that took the 2 boxes. The rule for a link that leads nowhere and the warnings both programs give for one.
+	- Verified: 20261013, the full Linux suite (196 of 196), the archive tests under ASan and UBSan, the Windows cross build, and lint clean apart from rj3ytv0b. On b29w natively, rhr6ggmt passed all 317 runs started outside the ssh session, with the other archive tests. On Linux both programs read list files with spaces, non-ASCII, a leading dash, `@`, `#` and `;` in names. On b29w both read them, rar with a non-ASCII name and names starting with `@`. Each new check failed with a fault in the code: no names left out, a folder walked again not left out, no run ahead for kept links.
+	- Branch: arcprog
+	- Commit: 6436ac6
+	- Test case: rhr6ggmt, Archive option combinations: the crossed rows for 7z and rar go by every Symlinks choice, both filesystem options, and on Windows each Junctions choice, so rar rows mix following symlinks with keeping junctions. check_link_choice and check_dangling now run for every writer, check_loop has a followed link back up, and check_dangling_deep and check_at_names run under Follow. rjqef159, Archive scan test: a folder walked again is named, and a link that leads nowhere is marked.
 
 - After an `smb://` address is typed, nothing shows that the app is working on it.
 	- ID: 2026100816170921
@@ -702,37 +765,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: f38660a to f8a6223
 	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session. (c) still needs its own: a thumbnail and the text from a small file of each type, on every platform, and a check that no program is started for them.
 
-- A 7z with a password and links stored can't be checked, so Delete originals always keeps the originals.
-	- ID: 2026101310525352
+- Extracting a rar whose link has a target of 128 bytes or more stops at that link.
+	- ID: 2026101312094706
 	- Type: Bug
 	- Status: Queued
 	- Priority|Severity: Low
-	- Opened: 20261013-105253
-	- Opened by: 2026100516274423
-	- Related IDs: 2026100516274460
+	- Opened: 20261013-120947
+	- Opened by: 2026101310525452
 	- Target OS: Linux, Windows
-	- Steps to reproduce [Bug]:
-		- With 7-Zip installed, compress a folder holding a symlink as 7z, with a password, Store as symlinks, and Delete originals.
-	- Incorrect behavior [Bug]: "The original files were kept", and the link is named as not in the archive. The archive is fine, and 7-Zip lists the link.
-	- Expected behavior [Bug]: the check reads the whole archive, or says up front that it can't check this one, as with hidden names.
-	- Reproduced [Bug]: yes, 20261013, Linux.
-	- Possible cause [Bug]: 7-Zip keeps a link's target in its data, which the password locks, and the library stops listing at the first one it can't read.
-	- Test case: rhr6ggmt expects the originals kept for these rows for now.
-
-- On b29w the archive test's rar rows that store links fail when the test runs outside the ssh session.
-	- ID: 2026101310525452
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261013-105254
-	- Opened by: 2026100516274423
-	- Target OS: Windows
-	- Steps to reproduce [Bug]:
-		- On b29w, start rhr6ggmt's exe from a process started outside the ssh session, with MSYS2's bin first on PATH.
-	- Incorrect behavior [Bug]: rar writes no links in the archive, so the rows that store links fail their read-back and their delete.
-	- Expected behavior [Bug]: rar keeps the links, as `Rar.exe a -ol` does by hand there.
-	- Reproduced [Bug]: yes, 20261013, with this branch's test and with dev's. Not looked into. The PATH there finds `rar.cmd`, which needs `RAR_PATH`.
-	- Test case: rhr6ggmt's rar rows, once it's found.
+	- Steps to reproduce:
+		- With rar, keep a link whose target is 128 bytes or more, then a file after it, and extract that archive in the app.
+	- Incorrect behavior: libarchive 3.8.9 and older misreads the link's header. With 3.7.4, bsdtar lists nothing for an archive holding only that link, and stops with "Header CRC error" when a file follows it. With 3.8.9 it says "unsupported structure of file header extra data".
+	- Expected behavior: every entry comes out, or the app hands the archive to rar or 7-Zip.
+	- Reproduced: with bsdtar 3.7.4 on Linux and 3.8.9 on b29w, 20261013. Not tried through the app's Extract yet.
+	- Possible cause: libarchive takes the target's length as one byte when it's 2. Fixed upstream after 3.8.9 (libarchive `bb42a8c`).
+	- Test case: none yet.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
@@ -761,24 +808,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
 		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
-
-- Compression reset: 7z and rar programs work from the job's list.
-	- ID: 2026100516274460
-	- Type: Enhancement
-	- Status: Queued
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Prereq IDs: 2026100516274423
-	- Target OS: Linux, Windows
-	- Design: [After OK](design_docs/20260929-101432_compression.md#after-ok).
-	- Requirements:
-		- 7-Zip and rar are told what goes in from the pre-scan list, so mixed choices work, such as following symlinks while storing junctions.
-		- The 7z leave-out list of today becomes part of this. The first run for links that lead nowhere keeps working.
-		- Names stay names: `-spd` for 7-Zip, and rar keeps refusing `*` and `?`.
-		- Open: a list past the command line limit on some OS. The design leaves it to testing.
-	- Estimated effort: High
-	- Test case: rhr6ggmt, the same rows for 7z and rar, plus a mixed choice such as following symlinks while storing junctions.
 
 - Compression reset: a pre-scan progress bar after OK.
 	- ID: 2026100516274535
@@ -2152,6 +2181,32 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- On b29w the archive test's rar rows that store links fail when the test runs outside the ssh session.
+	- ID: 2026101310525452
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261013-105254
+	- Opened by: 2026100516274423
+	- Target OS: Windows
+	- Steps to reproduce:
+		- On b29w, start rhr6ggmt's exe from a process started outside the ssh session, with MSYS2's bin first on PATH.
+	- Incorrect behavior: rar writes no links in the archive, so the rows that store links fail their read-back and their delete.
+	- Expected behavior: rar keeps the links, as `Rar.exe a -ol` does by hand there.
+	- Reproduced: yes, 20261013, with this branch's test and with dev's. Not looked into. The PATH there finds `rar.cmd`, which needs `RAR_PATH`.
+	- Actual cause: rar keeps the links. The test made them with the scratch folder's full path as the target, and libarchive 3.8.9 and older can't read a rar link whose target is 128 bytes or more: it reads nothing past it. Started outside the ssh session, the temp folder was a long run folder, so the targets went past that. Fixed upstream after 3.8.9 (libarchive `bb42a8c`).
+		- Not the wrapper: the app found `rar.cmd` ahead of WinRAR's `Rar.exe`, and it passes `-ol` and the rest through. But it ends on its own last line's status, so rar failing with 10 read as 0.
+	- Actual fix: the test's links point by relative path, and its scratch folders have short names, since a junction's target can only be the whole path. On Windows the app now looks for the program itself first: `rar.exe` or `7z.exe` on PATH, then where the installer puts it, then anything PATH finds by the name.
+	- Decisions:
+		- libarchive's limit stays as it is. A rar the check can't list keeps its originals, and check_long_target holds to that. Extracting one is 2026101312094706.
+	- Swept: both callers of the lookup, compress and extract. The test's other links lead nowhere, point by relative path, or are left out.
+	- Verified: 20261013 on b29w, started outside the ssh session with a long temp folder: dev's rhr6ggmt failed 30 checks in the rar rows, and this branch's passed all 317 runs. rev86z08's lookup check failed with the old lookup under wine and passed after. The full Linux suite passed, 196 of 196.
+	- Branch: arcprog
+	- Commit: 6436ac6
+	- Test case: rhr6ggmt, Archive option combinations, with relative link targets, and check_long_target: a rar keeping a link with a 140-byte target and Delete originals keeps the originals unless the archive lists. rev86z08, Archive options test, check_find_command (Windows): `rar.exe` on PATH before a `rar.cmd` ahead of it, then the installed one, then the script.
+	- Acceptance signoff: Self-closed: the cause is found, and the test passes on b29w where it failed.
+	- Closed: 20261013-121000
 
 - rjv9ks2z, the connecting sign test, fails now and then in a full Linux suite run on a busy box.
 	- ID: 2026101305422316

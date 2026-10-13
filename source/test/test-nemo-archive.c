@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <gio/gio.h>
+#include <glib/gstdio.h>
 
 #include <libnemo-private/nemo-archive.h>
 #include <libnemo-private/nemo-archive-commands.h>
@@ -1212,6 +1213,88 @@ check_cpu_share (void)
 	check (threads == MAX (1, (cores * 50 + 99) / 100));
 }
 
+#ifdef G_OS_WIN32
+static void
+touch (const char *dir, const char *name)
+{
+	char *path = g_build_filename (dir, name, NULL);
+
+	g_mkdir_with_parents (dir, 0700);
+	check (g_file_set_contents (path, "", 0, NULL));
+	g_free (path);
+}
+
+static gboolean
+found_in (const char *dir, const char *name)
+{
+	static const char * const names[] = { "rar", NULL };
+	char *want = g_build_filename (dir, name, NULL);
+	char *found = nemo_archive_find_command (names, "WinRAR");
+	gboolean same = found != NULL && g_ascii_strcasecmp (found, want) == 0;
+
+	if (!same) {
+		g_printerr ("found %s, wanted %s\n", found != NULL ? found : "nothing", want);
+	}
+	g_free (found);
+	g_free (want);
+	return same;
+}
+
+/* The program itself before a script of the same name, since cmd ends a .cmd
+   on its own last line's status, which loses rar's: on PATH, then where its
+   installer puts it, then a script on PATH. */
+static void
+check_find_command (const char *scratch)
+{
+	static const char * const roots[] = { "ProgramW6432", "ProgramFiles", "ProgramFiles(x86)" };
+	char *scripts = g_build_filename (scratch, "scripts", NULL);
+	char *exes = g_build_filename (scratch, "exes", NULL);
+	char *programs = g_build_filename (scratch, "programs", NULL);
+	char *installed = g_build_filename (programs, "WinRAR", NULL);
+	char *saved_path = g_strdup (g_getenv ("PATH"));
+	char *saved[G_N_ELEMENTS (roots)];
+	char *path, *gone;
+	guint i;
+
+	touch (scripts, "rar.cmd");
+	touch (exes, "rar.exe");
+	touch (installed, "rar.exe");
+	for (i = 0; i < G_N_ELEMENTS (roots); i++) {
+		saved[i] = g_strdup (g_getenv (roots[i]));
+		g_unsetenv (roots[i]);
+	}
+	g_setenv ("ProgramW6432", programs, TRUE);
+
+	path = g_strconcat (scripts, ";", exes, NULL);
+	g_setenv ("PATH", path, TRUE);
+	check (found_in (exes, "rar.exe"));
+	g_free (path);
+
+	g_setenv ("PATH", scripts, TRUE);
+	check (found_in (installed, "rar.exe"));
+
+	gone = g_build_filename (installed, "rar.exe", NULL);
+	check (g_unlink (gone) == 0);
+	check (found_in (scripts, "rar.cmd"));
+	g_free (gone);
+
+	g_setenv ("PATH", saved_path, TRUE);
+	for (i = 0; i < G_N_ELEMENTS (roots); i++) {
+		if (saved[i] != NULL) {
+			g_setenv (roots[i], saved[i], TRUE);
+		} else {
+			g_unsetenv (roots[i]);
+		}
+		g_free (saved[i]);
+	}
+	g_free (saved_path);
+	g_free (installed);
+	g_free (programs);
+	g_free (exes);
+	g_free (scripts);
+}
+#endif
+
 int
 main (void)
 {
@@ -1232,6 +1315,9 @@ main (void)
 	check_skipped_links ();
 	check_cpu_share ();
 	check_run_switches ();
+#ifdef G_OS_WIN32
+	check_find_command (scratch);
+#endif
 
 	config_home = test_scratch_config_home ("nemo-archive-config-XXXXXX");
 	nemo_config_init ();
