@@ -4691,6 +4691,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ### Bugs
 
+- ✋ Changing from list view to any other view (e.g. icon) doesn't work. Seems stuck on list view.
+	- Trouble reproducing.
+	- Opened: 20260903-111036
+
 ### Features and enhancements
 
 - 🔘 Take SHCL 3.0.0-beta.1 from its published release, once there is one, and run the config tests against it.
@@ -4775,6 +4779,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: the desktop itself went long ago, but the icon view still has a desktop mode, desktop orphans and desktop sort order, and `--no-desktop` is still accepted and ignored. None of it runs and none of it deletes anything.
 	- Note: removing it touches about twenty files, mostly the icon view, so it wants its own pass and a look on screen after.
 	- Test case: none yet, not started.
+
+- 🔘 RC1
 
 ### Done
 
