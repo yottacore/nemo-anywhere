@@ -25,9 +25,11 @@
  * the scrolling and is the default, and Escape closes. The window is never
  * more than nine tenths of the work area, and its floor grows with the text
  * scale, which is how Windows passes a fractional display scale. No tab, in
- * the list on the left or on Views, ever holds the keyboard, and Ctrl+Page Up
- * and Down step through the list. The pages that build their own widgets are
- * left empty here. */
+ * the list on the left, ever holds the keyboard, and Ctrl+Page Up and Down,
+ * Ctrl+Tab and Ctrl+Shift+Tab step through the list, sub-tabs included.
+ * Sub-tabs are indented rows, and the parent and its showing sub-tab are both
+ * lit. No page needs a scrollbar at the size the window opens. The pages that
+ * build their own widgets are left empty here. */
 
 #include <config.h>
 
@@ -36,6 +38,7 @@
 
 #include <libnemo-private/nemo-desktop-utils.h>
 #include <libnemo-private/nemo-global-preferences.h>
+#include <libnemo-private/nemo-tab-list.h>
 
 #include "nemo-file-management-properties.h"
 #include "nemo-plugin-manager.h"
@@ -239,15 +242,17 @@ static void
 test_tabs_take_no_focus (GtkWidget *dialog)
 {
 	GtkWidget *sidebar = find_named (dialog, "page_sidebar");
-	GtkWidget *notebook = find_named (dialog, "views_notebook");
+	/* Views had Default and Current as tabs on top until 2026101009150769
+	   moved them into the list as sub-tabs.
+	GtkWidget *notebook = find_named (dialog, "views_notebook"); */
 	GtkWidget *remember = find_named (dialog, "remember_folder_settings_checkbutton");
 	GtkWidget *stack = find_named (dialog, "page_stack");
 	GPtrArray *rows = g_ptr_array_new ();
 	GHashTable *seen = g_hash_table_new (NULL, NULL);
 	guint i;
 
-	check (sidebar != NULL && notebook != NULL && remember != NULL && stack != NULL);
-	if (sidebar == NULL || notebook == NULL || remember == NULL || stack == NULL) {
+	check (sidebar != NULL && remember != NULL && stack != NULL);
+	if (sidebar == NULL || remember == NULL || stack == NULL) {
 		g_ptr_array_free (rows, TRUE);
 		g_hash_table_destroy (seen);
 		return;
@@ -282,15 +287,20 @@ test_tabs_take_no_focus (GtkWidget *dialog)
 		g_print ("SKIP: the Tab walk, since the dialog never got the keyboard\n");
 	}
 
-	/* A click on a Views tab asks the notebook for the focus. */
+	/* Views' tabs on top went with 2026101009150769, and with them this
+	   check and the one below that the keys inside them stayed theirs.
 	gtk_widget_grab_focus (notebook);
-	check (!is_a_tab (gtk_window_get_focus (GTK_WINDOW (dialog)), sidebar));
+	check (!is_a_tab (gtk_window_get_focus (GTK_WINDOW (dialog)), sidebar)); */
 
-	/* The list steps with Ctrl+Page Up and Down, and wraps round. */
+	/* The list steps with Ctrl+Page Up and Down, and wraps round. Views
+	   has sub-tabs now, so the first step stays on it. */
 	gtk_widget_grab_focus (remember);
 	check (g_strcmp0 (gtk_stack_get_visible_child_name (GTK_STACK (stack)), "views") == 0);
 	send_key (dialog, GDK_KEY_Page_Down, GDK_CONTROL_MASK);
+	/* check (g_strcmp0 (gtk_stack_get_visible_child_name (GTK_STACK (stack)), "behavior") == 0); */
+	send_key (dialog, GDK_KEY_Page_Down, GDK_CONTROL_MASK);
 	check (g_strcmp0 (gtk_stack_get_visible_child_name (GTK_STACK (stack)), "behavior") == 0);
+	send_key (dialog, GDK_KEY_Page_Up, GDK_CONTROL_MASK);
 	send_key (dialog, GDK_KEY_Page_Up, GDK_CONTROL_MASK);
 	check (g_strcmp0 (gtk_stack_get_visible_child_name (GTK_STACK (stack)), "views") == 0);
 	send_key (dialog, GDK_KEY_Page_Up, GDK_CONTROL_MASK);
@@ -298,8 +308,7 @@ test_tabs_take_no_focus (GtkWidget *dialog)
 	send_key (dialog, GDK_KEY_Page_Down, GDK_CONTROL_MASK);
 	check (g_strcmp0 (gtk_stack_get_visible_child_name (GTK_STACK (stack)), "views") == 0);
 
-	/* Inside the Views tabs the keys stay theirs. Under wine GDK has no
-	   keyboard layout, so no binding ever matches there. */
+	/* The Views tabs check went here.
 	gtk_notebook_set_current_page (GTK_NOTEBOOK (notebook), 0);
 	gtk_widget_child_focus (gtk_notebook_get_nth_page (GTK_NOTEBOOK (notebook), 0), GTK_DIR_TAB_FORWARD);
 	if (send_key (dialog, GDK_KEY_Page_Down, GDK_CONTROL_MASK)) {
@@ -308,10 +317,244 @@ test_tabs_take_no_focus (GtkWidget *dialog)
 		g_print ("SKIP: Ctrl+Page Down in the Views tabs, since the key has no keycode\n");
 	}
 	check (g_strcmp0 (gtk_stack_get_visible_child_name (GTK_STACK (stack)), "views") == 0);
-	gtk_notebook_set_current_page (GTK_NOTEBOOK (notebook), 0);
+	gtk_notebook_set_current_page (GTK_NOTEBOOK (notebook), 0); */
 
 	g_ptr_array_free (rows, TRUE);
 	g_hash_table_destroy (seen);
+}
+
+/* The page showing, as stack names from the top down, such as
+   "behavior/behavior-files". */
+static char *
+showing (GtkWidget *stack)
+{
+	GString *path = g_string_new (NULL);
+
+	while (GTK_IS_STACK (stack)) {
+		const char *name = gtk_stack_get_visible_child_name (GTK_STACK (stack));
+		GtkWidget *page = gtk_stack_get_visible_child (GTK_STACK (stack));
+
+		if (path->len > 0) {
+			g_string_append_c (path, '/');
+		}
+		g_string_append (path, name != NULL ? name : "?");
+		/* Views' sub-tabs sit under the switches shared by both. */
+		stack = GTK_IS_STACK (page) ? page : find_named (page, "views_stack");
+	}
+
+	return g_string_free (path, FALSE);
+}
+
+static void
+check_showing (GtkWidget *stack, const char *expected)
+{
+	char *path = showing (stack);
+
+	if (g_strcmp0 (path, expected) != 0) {
+		g_print ("FAIL: showing %s, expected %s\n", path, expected);
+		failures++;
+	}
+	g_free (path);
+}
+
+/* The rows with the selected look, by their text, such as "Views|Default". */
+static char *
+lit_rows (GtkWidget *sidebar)
+{
+	GPtrArray *rows = g_ptr_array_new ();
+	GString *lit = g_string_new (NULL);
+	guint i;
+
+	collect_rows (sidebar, rows);
+	for (i = 0; i < rows->len; i++) {
+		GtkWidget *row = rows->pdata[i];
+
+		if (!GTK_IS_LIST_BOX_ROW (row) ||
+		    !(gtk_widget_get_state_flags (row) & GTK_STATE_FLAG_SELECTED)) {
+			continue;
+		}
+		if (lit->len > 0) {
+			g_string_append_c (lit, '|');
+		}
+		g_string_append (lit, gtk_label_get_text (GTK_LABEL (gtk_bin_get_child (GTK_BIN (row)))));
+	}
+	g_ptr_array_free (rows, TRUE);
+
+	return g_string_free (lit, FALSE);
+}
+
+static void
+check_lit (GtkWidget *sidebar, const char *expected)
+{
+	char *lit = lit_rows (sidebar);
+
+	if (g_strcmp0 (lit, expected) != 0) {
+		g_print ("FAIL: lit rows %s, expected %s\n", lit, expected);
+		failures++;
+	}
+	g_free (lit);
+}
+
+static GtkWidget *
+row_titled (GtkWidget *sidebar, const char *title)
+{
+	GPtrArray *rows = g_ptr_array_new ();
+	GtkWidget *found = NULL;
+	guint i;
+
+	collect_rows (sidebar, rows);
+	for (i = 0; i < rows->len && found == NULL; i++) {
+		if (GTK_IS_LIST_BOX_ROW (rows->pdata[i]) &&
+		    g_strcmp0 (gtk_label_get_text (GTK_LABEL (gtk_bin_get_child (rows->pdata[i]))), title) == 0) {
+			found = rows->pdata[i];
+		}
+	}
+	g_ptr_array_free (rows, TRUE);
+
+	return found;
+}
+
+static void
+click_row (GtkWidget *sidebar, const char *title)
+{
+	GtkWidget *row = row_titled (sidebar, title);
+
+	check (row != NULL);
+	if (row != NULL) {
+		g_signal_emit_by_name (gtk_widget_get_parent (row), "row-activated", row);
+		settle ();
+	}
+}
+
+/* 2026101009150767: Behavior is split into sub-tabs, and at the size it
+   opens no page needs a scrollbar. 2026101009150769: sub-tabs are rows in
+   the list, indented, and a parent and its showing sub-tab are both lit.
+   2026101009150770: the keys go through sub-tabs before the next page. */
+static void
+test_sub_tabs (GtkWidget *dialog)
+{
+	GtkWidget *sidebar = find_named (dialog, "page_sidebar");
+	GtkWidget *stack = find_named (dialog, "page_stack");
+	GtkWidget *behavior = find_named (dialog, "behavior_stack");
+	GtkWidget *row, *sub, *focus;
+	GList *pages;
+	guint count;
+	int width = 0, height = 0;
+	GdkRectangle work;
+
+	check (sidebar != NULL && stack != NULL && behavior != NULL);
+	if (sidebar == NULL || stack == NULL || behavior == NULL) {
+		return;
+	}
+
+	pages = gtk_container_get_children (GTK_CONTAINER (behavior));
+	count = g_list_length (pages);
+	g_list_free (pages);
+	g_print ("Behavior has %u sub-tabs\n", count);
+	check (count >= 2 && count <= 4);
+
+	/* Indented under the parent. */
+	row = row_titled (sidebar, "Behavior");
+	sub = row_titled (sidebar, "General");
+	check (row != NULL && sub != NULL);
+	if (row != NULL && sub != NULL) {
+		check (gtk_widget_get_margin_start (gtk_bin_get_child (GTK_BIN (sub))) >
+		       gtk_widget_get_margin_start (gtk_bin_get_child (GTK_BIN (row))));
+	}
+
+	check_showing (stack, "views/views-default");
+	check_lit (sidebar, "Views|Default");
+
+	click_row (sidebar, "Files and Trash");
+	check_showing (stack, "behavior/behavior-files");
+	check_lit (sidebar, "Behavior|Files and Trash");
+
+	/* A parent opens on the sub-tab it last showed. */
+	click_row (sidebar, "Display");
+	check_lit (sidebar, "Display");
+	click_row (sidebar, "Behavior");
+	check_showing (stack, "behavior/behavior-files");
+	check_lit (sidebar, "Behavior|Files and Trash");
+
+	click_row (sidebar, "Current");
+	check_showing (stack, "views/views-current");
+	check_lit (sidebar, "Views|Current");
+
+	/* Ctrl+Tab steps the tabs rather than the focus. Close sits outside the
+	   pages, so a page switch leaves it the focus. */
+	click_row (sidebar, "Default");
+	focus = find_named (dialog, "close_button");
+	gtk_widget_grab_focus (focus);
+	check (gtk_window_get_focus (GTK_WINDOW (dialog)) == focus);
+	send_key (dialog, GDK_KEY_Tab, GDK_CONTROL_MASK);
+	check_showing (stack, "views/views-current");
+	check (gtk_window_get_focus (GTK_WINDOW (dialog)) == focus);
+	send_key (dialog, GDK_KEY_ISO_Left_Tab, GDK_CONTROL_MASK | GDK_SHIFT_MASK);
+	check_showing (stack, "views/views-default");
+
+	/* Past the last sub-tab is the next page, and back from the first
+	   sub-tab is the last sub-tab of the page before. */
+	click_row (sidebar, "Media and programs");
+	send_key (dialog, GDK_KEY_Page_Down, GDK_CONTROL_MASK);
+	check_showing (stack, "display");
+	send_key (dialog, GDK_KEY_Page_Up, GDK_CONTROL_MASK);
+	check_showing (stack, "behavior/behavior-programs");
+	click_row (sidebar, "General");
+	send_key (dialog, GDK_KEY_Tab, GDK_CONTROL_MASK | GDK_SHIFT_MASK);
+	check_showing (stack, "views/views-current");
+	check_lit (sidebar, "Views|Current");
+
+	/* A hidden page has no row and the keys pass it by. */
+	click_row (sidebar, "Toolbar");
+	gtk_widget_hide (find_named (dialog, "scrolledwindow5"));
+	settle ();
+	check (row_titled (sidebar, "Preview") != NULL &&
+	       !gtk_widget_get_visible (row_titled (sidebar, "Preview")));
+	send_key (dialog, GDK_KEY_Page_Up, GDK_CONTROL_MASK);
+	check_showing (stack, "list-columns");
+	gtk_widget_show (find_named (dialog, "scrolledwindow5"));
+	settle ();
+	check (gtk_widget_get_visible (row_titled (sidebar, "Preview")));
+
+	/* Every page fits at the opening size, unless the screen held the
+	   window back. */
+	gtk_window_get_size (GTK_WINDOW (dialog), &width, &height);
+	nemo_desktop_utils_get_monitor_work_rect (nemo_desktop_utils_get_primary_monitor (), &work);
+	if (height < work.height * 9 / 10) {
+		const char *const leaves[] = {
+			"views_default_page", "views_current_page", "scrolledwindow1",
+			"behavior_files_scrolledwindow", "behavior_programs_scrolledwindow",
+			"scrolledwindow3", "windows_scrolledwindow", "scrolledwindow4", "scrolledwindow5", "scrolledwindow6",
+			"scrolledwindow8", "templates_scrolledwindow", "scrolledwindow7", NULL
+		};
+		int i;
+
+		for (i = 0; leaves[i] != NULL; i++) {
+			GtkWidget *page = find_named (dialog, leaves[i]);
+			GtkWidget *scrolled;
+			GtkAdjustment *adj;
+
+			check (page != NULL);
+			/* Windows is a page on Windows only. */
+			if (page == NULL || !gtk_widget_get_visible (page)) {
+				continue;
+			}
+			nemo_tab_list_show_page (NEMO_TAB_LIST (sidebar), page);
+			settle ();
+			scrolled = GTK_IS_SCROLLED_WINDOW (page) ? page : gtk_widget_get_ancestor (page, GTK_TYPE_SCROLLED_WINDOW);
+			adj = gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (scrolled));
+			if (gtk_adjustment_get_upper (adj) > gtk_adjustment_get_page_size (adj) + 1) {
+				g_print ("FAIL: %s needs %.0f of %.0f at %dx%d\n", leaves[i],
+					 gtk_adjustment_get_upper (adj), gtk_adjustment_get_page_size (adj),
+					 width, height);
+				failures++;
+			}
+		}
+	} else {
+		g_print ("SKIP: the fit check, since the window is at the screen's cap\n");
+	}
+
+	click_row (sidebar, "Default");
 }
 
 static void
@@ -402,6 +645,7 @@ main (int argc, char *argv[])
 	if (dialog != NULL) {
 		test_widgets (dialog);
 		test_tabs_take_no_focus (dialog);
+		test_sub_tabs (dialog);
 		test_escape_closes (dialog);
 	}
 

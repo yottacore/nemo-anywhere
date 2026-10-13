@@ -43,6 +43,7 @@
 #include <libnemo-private/nemo-desktop-utils.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-module.h>
+#include <libnemo-private/nemo-tab-list.h>
 
 #include "nemo-plugin-manager.h"
 #include "nemo-prefs-current-folder.h"
@@ -1152,21 +1153,6 @@ nemo_file_management_properties_dialog_setup_appearance_page (GtkBuilder *builde
 #define PREFERENCES_MIN_WIDTH 1000
 #define PREFERENCES_MIN_HEIGHT 700
 
-/* Every page in the stack, in the order the sidebar lists them. */
-static const char *const preferences_pages[] = {
-	"scrolledwindow2",		/* Views */
-	"scrolledwindow1",		/* Behavior */
-	"scrolledwindow3",		/* Display */
-	"windows_scrolledwindow",	/* Windows */
-	"scrolledwindow4",		/* List columns */
-	"scrolledwindow5",		/* Preview */
-	"scrolledwindow6",		/* Toolbar */
-	"scrolledwindow8",		/* Context menus */
-	"templates_scrolledwindow",	/* Document templates */
-	"scrolledwindow7",		/* Plugins */
-	NULL
-};
-
 /* Windows hands a fractional display scale to GTK as a font size and nothing
    else, so at 150% the text grows and a floor written in raw pixels quietly
    means two thirds of what it says. Everything measured scales itself; only the
@@ -1188,11 +1174,9 @@ text_scale (void)
 /* A scrolled window asks for almost nothing itself - that is the whole point of
    it - so what is inside it is what gets measured, plus the page's own border. */
 static GtkWidget *
-page_content (GtkBuilder *builder, const char *id, gint *border)
+page_content (GtkWidget *page, gint *border)
 {
-	GtkWidget *page = GTK_WIDGET (gtk_builder_get_object (builder, id));
-
-	if (page == NULL) {
+	if (!GTK_IS_BIN (page)) {
 		return NULL;
 	}
 
@@ -1201,10 +1185,24 @@ page_content (GtkBuilder *builder, const char *id, gint *border)
 	return gtk_bin_get_child (GTK_BIN (page));
 }
 
-/* Give the window enough for the longest page, not just the one it opens on:
-   sizing to Views alone left Display and Behavior scrolling from the start.
-   Measured rather than fixed, because the same page is a different height under
-   a different theme, font size or translation. */
+/* The pages that hold settings, sub-tabs included. A page with sub-tabs is a
+   stack of its own. */
+static void
+collect_pages (GtkWidget *stack, GPtrArray *pages)
+{
+	GList *children, *l;
+
+	children = gtk_container_get_children (GTK_CONTAINER (stack));
+	for (l = children; l != NULL; l = l->next) {
+		if (GTK_IS_STACK (l->data)) {
+			collect_pages (l->data, pages);
+		} else {
+			g_ptr_array_add (pages, l->data);
+		}
+	}
+	g_list_free (children);
+}
+
 /* Escape closes, as it does any dialog. Connected after, so a widget that
    uses the key itself, such as a cell being edited, gets it first. */
 static gboolean
@@ -1237,33 +1235,47 @@ keep_focus_off_sidebar (GtkWidget *widget, G_GNUC_UNUSED gpointer data)
 	}
 }
 
-/* With the list out of the keyboard's reach, Ctrl+Page Up and Down step
-   through its pages, wrapping as tabs do. Inside the Views tabs the notebook
-   has the keys. Connected before, since a scrolled window takes them for
-   scrolling sideways. */
+/* With the list out of the keyboard's reach, Ctrl+Page Up and Down, and
+   Ctrl+Tab and Ctrl+Shift+Tab, step through its pages, wrapping as tabs do.
+   Sub-tabs are stepped in list order, so the keys go through a page's sub-tabs
+   before the next page. Inside tabs of a notebook the notebook has the keys.
+   Connected before, since a scrolled window takes Page Up and Down for
+   scrolling sideways, and the window takes Ctrl+Tab to move the focus. */
 static gboolean
 dialog_page_keys (GtkWidget   *dialog,
 		  GdkEventKey *event,
-		  GtkStack    *stack)
+		  NemoTabList *list)
 {
+	GdkModifierType mods = event->state & gtk_accelerator_get_default_mod_mask ();
 	GtkWidget *focus;
-	GList *pages, *here;
 	int step;
-
-	if ((event->state & gtk_accelerator_get_default_mod_mask ()) != GDK_CONTROL_MASK) {
-		return GDK_EVENT_PROPAGATE;
-	}
 
 	switch (event->keyval) {
 	case GDK_KEY_Page_Up:
 	case GDK_KEY_KP_Page_Up:
-		step = -1;
+		step = mods == GDK_CONTROL_MASK ? -1 : 0;
 		break;
 	case GDK_KEY_Page_Down:
 	case GDK_KEY_KP_Page_Down:
-		step = 1;
+		step = mods == GDK_CONTROL_MASK ? 1 : 0;
+		break;
+	case GDK_KEY_Tab:
+	case GDK_KEY_KP_Tab:
+	case GDK_KEY_ISO_Left_Tab:
+		if (mods == GDK_CONTROL_MASK) {
+			step = event->keyval == GDK_KEY_ISO_Left_Tab ? -1 : 1;
+		} else if (mods == (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) {
+			step = -1;
+		} else {
+			step = 0;
+		}
 		break;
 	default:
+		step = 0;
+		break;
+	}
+
+	if (step == 0) {
 		return GDK_EVENT_PROPAGATE;
 	}
 
@@ -1272,25 +1284,15 @@ dialog_page_keys (GtkWidget   *dialog,
 		return GDK_EVENT_PROPAGATE;
 	}
 
-	pages = gtk_container_get_children (GTK_CONTAINER (stack));
-	here = g_list_find (pages, gtk_stack_get_visible_child (stack));
-	if (here != NULL) {
-		GList *next = here;
-
-		do {
-			next = step > 0 ? next->next : next->prev;
-			if (next == NULL) {
-				next = step > 0 ? pages : g_list_last (pages);
-			}
-		} while (next != here && !gtk_widget_get_visible (next->data));
-
-		gtk_stack_set_visible_child (stack, next->data);
-	}
-	g_list_free (pages);
+	nemo_tab_list_step (list, step);
 
 	return GDK_EVENT_STOP;
 }
 
+/* Give the window enough for the longest page, not just the one it opens on:
+   sizing to Views alone left Display and Behavior scrolling from the start.
+   Measured rather than fixed, because the same page is a different height under
+   a different theme, font size or translation. */
 static void
 size_dialog_to_longest_page (GtkBuilder *builder,
 			     GtkWidget  *dialog,
@@ -1305,11 +1307,14 @@ size_dialog_to_longest_page (GtkBuilder *builder,
 	gint sidebar_width = 0;
 	gint width, height;
 	gint monitor;
-	int i;
+	GPtrArray *pages = g_ptr_array_new ();
+	guint i;
 
-	for (i = 0; preferences_pages[i] != NULL; i++) {
+	collect_pages (GTK_WIDGET (gtk_builder_get_object (builder, "page_stack")), pages);
+
+	for (i = 0; i < pages->len; i++) {
 		gint border = 0;
-		GtkWidget *content = page_content (builder, preferences_pages[i], &border);
+		GtkWidget *content = page_content (pages->pdata[i], &border);
 
 		if (content == NULL) {
 			continue;
@@ -1336,9 +1341,9 @@ size_dialog_to_longest_page (GtkBuilder *builder,
 
 	/* Height depends on width - a label that fits on one line here takes two in
 	   a narrower window - so ask only once the width is settled. */
-	for (i = 0; preferences_pages[i] != NULL; i++) {
+	for (i = 0; i < pages->len; i++) {
 		gint border = 0;
-		GtkWidget *content = page_content (builder, preferences_pages[i], &border);
+		GtkWidget *content = page_content (pages->pdata[i], &border);
 		gint page_height = 0;
 
 		if (content == NULL) {
@@ -1350,6 +1355,7 @@ size_dialog_to_longest_page (GtkBuilder *builder,
 							   &page_height, NULL);
 		content_height = MAX (content_height, page_height + border);
 	}
+	g_ptr_array_free (pages, TRUE);
 
 	/* The close bar sits under every page, outside the scrolling. */
 	bar = GTK_WIDGET (gtk_builder_get_object (builder, "close_bar"));
@@ -1720,10 +1726,9 @@ nemo_file_management_properties_dialog_setup (GtkBuilder  *builder,
 	g_signal_connect_after (dialog, "key-press-event",
 				G_CALLBACK (dialog_key_press), NULL);
 	g_signal_connect (dialog, "key-press-event",
-			  G_CALLBACK (dialog_page_keys), gtk_builder_get_object (builder, "page_stack"));
+			  G_CALLBACK (dialog_page_keys), gtk_builder_get_object (builder, "page_sidebar"));
 
 	keep_focus_off_sidebar (GTK_WIDGET (gtk_builder_get_object (builder, "page_sidebar")), NULL);
-	eel_gtk_notebook_keep_focus_off_tabs (GTK_NOTEBOOK (gtk_builder_get_object (builder, "views_notebook")));
 
 	close_button = GTK_WIDGET (gtk_builder_get_object (builder, "close_button"));
 	g_signal_connect_swapped (close_button, "clicked",
@@ -1767,6 +1772,7 @@ nemo_file_management_properties_dialog_show (GtkWindow   *window,
 		return;
 	}
 
+	g_type_ensure (NEMO_TYPE_TAB_LIST);
 	builder = gtk_builder_new ();
     gtk_builder_set_translation_domain (builder, GETTEXT_PACKAGE);
 	gtk_builder_add_from_resource (builder,

@@ -89,7 +89,7 @@ The file list is where the keyboard belongs. Anything that leaves the focus some
 
 - Column headings, tabs and path buttons never keep the focus. A click on one puts the keyboard back in the file list. Tab and Shift+Tab pass over the tab strip.
 
-- Tabs in a dialog never take the focus either, including the page list down the left of Settings. Ctrl+Page Up and Ctrl+Page Down step through them.
+- Tabs in a dialog never take the focus either, including the page list down the left of Settings. Ctrl+Page Up and Ctrl+Page Down, and Ctrl+Tab and Ctrl+Shift+Tab, step through them. Where a page has sub-tabs the keys go through those first, then on to the next page.
 
 - Closing the path entry returns the focus to the file list. Clicking anywhere else closes it. Switching to another program does not, so a half-typed path survives the trip.
 
@@ -134,6 +134,8 @@ How theme lookup works is in [design.md, Appearance and themes](design.md#appear
 - 12 pixels between a label and its field. A field stops at the same right-hand margin as the rest of the section, and fields in a group start at the same point as each other. The command fields on the Behavior page are the pattern.
 
 - A button that acts on a tab's content sits at the top right of that content, not in the tab header. Each tab has its own buttons, and they do not come and go as tabs change.
+
+- In a dialog with its tabs in a list down the left, a page with sub-tabs lists them in that same list, indented under it, so they can be seen without opening the page. The page and the sub-tab showing are both lit. A dialog with its tabs on top keeps sub-tabs on the page, as tabs on top of their own. A page too long to fit is split into sub-tabs of related settings rather than left to scroll.
 
 - Two unselected tabs next to each other get a divider. Most themes draw none, and a row of tabs then reads as one strip.
 
