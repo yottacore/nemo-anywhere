@@ -27,7 +27,7 @@
  * which hovers a toolbar button, a place, an icon and a list row, first
  * focused and then with this program, run again as --thief, holding the focus.
  *
- * Needs the built program (argv[1]), the probe (argv[2]) and a display. Runs
+ * Needs the built program (argv[1]), the probe (argv[2]) adn a display. Runs
  * on an X server of its own, with no window manager, so focus moves only when
  * asked. Linux and FreeBSD only, since it works by LD_PRELOAD. */
 
