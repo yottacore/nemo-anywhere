@@ -476,6 +476,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: 20261007, not ruled out: the Menu key made no menu at all once, on a loaded box. GTK 3 doesn't show a menu whose pointer grab fails, and the probe presses the key only once. Nothing points at that, and pressing again would hide it rather than explain it.
 	- Test case: rjefm41d itself.
 
+- With Split into volumes ticked and a volume size that can't be read, Compress writes one archive with no volumes.
+	- ID: 2026101308213019
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261013-082130
+	- Opened by: 2026100516274609
+	- Related IDs: 2026100516274609
+	- Target OS: Linux, Windows
+	- Steps to reproduce: Compress, Options, tick Split into volumes, type "4,000 MiB" or "lots" as the volume size, then Compress.
+	- Incorrect behavior: the Compress dialog drops a size it can't read, so the job is asked for no volumes and writes one file. Nothing says so.
+	- Expected behavior: Compress is grayed, or the size is marked, until it reads. Splitting is a requirement, per the design's standing rules.
+	- Reproduced: No. Read in the code only.
+	- Test case: TBD
+
 - On Windows, a file dragged onto the window from another program may not drop.
 	- ID: 2026101007562587
 	- Type: Bug
@@ -564,7 +579,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Compression reset: link choices and filesystem options in the Compress dialog.
 	- ID: 2026100516274386
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
+	- Needs external testing: the dialog on a real Windows desktop with 7-Zip installed. The Windows rows were seen under wine only, with a stand-in for 7-Zip.
 	- Opened: 20261005-162747
 	- Opened by: compression reset split
 	- Parent ID: 2026092910143202
@@ -579,7 +596,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Junctions takes its default from Symlinks by the table, until it is changed by hand.
 		- The size changes in the labels come with the live totals item.
 	- Estimated effort: High
-	- Test case: test-nemo-archive-dialog (rhtmbdmj), new cases for which groups show, the junction defaults, and what is disabled per format. IDs when written.
+	- Actual effort: Avg
+	- Progress log:
+		- 20261013-082039: built. Left at signoff for the look, and for these calls:
+			- Whether the selection has a link or a folder comes from what the listing already knows, so nothing more is asked of a share.
+			- The store choices offered are the ones a writer that can also do the password and volumes can store. On Windows that is what takes Store as symlinks away from a 7z with either.
+			- A grayed choice shows as Ignore, and the choice is kept. It comes back with a format or options that can do it.
+			- The groups are labelled lists of radio buttons. The group's access key goes to the choice that's on, and arrows change it.
+	- Done: Symlinks and, on Windows, Junctions are radio groups in place of the 2 boxes, shown only when a link or a folder is selected. Follow nested filesystems, Linux only, and Follow other filesystems sit below them and are grayed for plain files. Junctions shows its default from Symlinks by the table until it's changed by hand. Follow's flyover says a `.lnk` always goes in as itself, and Store as symlinks says when it takes a 7z onto one thread. Only the Symlinks choice reaches the job yet, as the 2 boxes did, until 2026100516274423. The remembered values were already mapped over by 2026100516274163.
+	- Swept: both callers of the dialog, the view and the test. Every place that read the 2 boxes, which was only the dialog. The 7-Zip-on-Windows rule is now one switch in `nemo-archive.c`, the only place that had it.
+	- Verified: 20261013, full Linux suite 196 of 196 with warnings as errors, the Windows cross build, lint clean apart from rj3ytv0b. rhtmbdmj, rev86z08 and rhae85g0 pass under wine, rhtmbdmj with and without a stand-in for 7-Zip. Each new check went red against a fault put in the code.
+	- Branch: arcdlg
+	- Commit: c80c671
+	- Test case: rhtmbdmj, Compress dialog height test, for which groups show and what is grayed for a plain file or a folder, the store choices per format and with a password or volumes, the one-thread flyover, a grayed choice coming back, the group's access key, and on Windows the Junctions defaults and a hand change sticking. rev86z08, Archive options test, for the store choices per format and options, and when storing links costs threads.
 
 - Compression reset: the job follows the new link and filesystem choices.
 	- ID: 2026100516274423
@@ -673,7 +702,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Compression reset: volume sizes say what each is for.
 	- ID: 2026100516274609
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
 	- Opened: 20261005-162747
 	- Opened by: compression reset split
 	- Parent ID: 2026092910143202
@@ -686,7 +715,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Decisions:
 		- 20261006: the list is 25 MiB (email), 100 MiB (upload limits), 700 MiB (CD), 2 GiB (old 32-bit tools), 4,095 MiB (max FAT32 size), 4,480 MiB (DVD), 8,140 MiB (dual-layer DVD) and 23 GiB (Blu-ray).
 	- Estimated effort: Low
-	- Test case: rev86z08, Archive options test, each preset reads back as its size. rhtmbdmj for the list.
+	- Actual effort: Low
+	- Progress log:
+		- 20261013-082039: built. A preset is remembered as its size alone, such as "4095 MiB", so it still reads in another language, and a remembered size that is a preset's shows with its note. 2 GiB stays the default.
+	- Done: the list above, in the archive code beside the size reader. A preset's label reads as its size. A typed size reads as before, so a comma typed by hand still isn't taken.
+	- Verified: 20261013, full Linux suite 196 of 196. rev86z08 and rhtmbdmj pass under wine. Both went red with the preset left out of the size reader, and with a remembered preset shown as plain text.
+	- Branch: arcdlg
+	- Commit: c80c671
+	- Test case: rev86z08, Archive options test, each preset by label and by size reads back as its size, and typed sizes read as before. rhtmbdmj, Compress dialog height test, for the list in order, 2 GiB to start with, and a remembered size shown as its preset or as typed.
+	- Acceptance signoff: Self-closed: the list was decided, and the change does what it asked with its tests passing.
+	- Closed: 20261013-082039
 
 - Compression reset: Options opens by itself, gets a reset button, and unticks what the writer can't do.
 	- ID: 2026100516274646
