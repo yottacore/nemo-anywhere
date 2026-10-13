@@ -869,7 +869,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, rhr6ggmt keeps a junction it should delete in 2 rar rows of one archive per item.
 	- ID: 2026101313374036
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on signoff
 	- Priority|Severity: Avg
 	- Opened: 20261013-133740
 	- Opened by: native run for 2026100516274683
@@ -881,7 +881,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: 2 rar rows with junctions stored, one archive per item and delete on fail. In both, `jlink` is still there after the delete. One says "The original files were kept." and that `sub` has no archive. The other says 1 selected file isn't in the archive, and also gets the wrong number of warnings.
 	- Expected behavior: `jlink` goes to the trash once its archive checks out, as on Linux.
 	- Reproduced: 20261013 on b29w, the same 2 rows on dev and on the arcmove branch. The last native run before this, at arcprog, passed every row.
-	- Test case: rhr6ggmt, Archive option combinations, natively on Windows.
+		- 20261013 on b29w, the test started outside the ssh session: dev, scanbar's merge and arcprog's merge each fail the same 2 rows with a long temp folder, and pass every row with a short one. So scanbar didn't bring it in. Only the reason differs: arcprog's says "jlink" is not in the archive.
+	- Actual cause: libarchive 3.8.9 and older can't list a rar link whose target is 128 bytes or more, the same bug as 2026101310525452. rar keeps a junction's target as the whole path with `\??\` in front, and the test's temp folder decides that path's length. Under a temp folder of 72 characters it's 114 bytes and passes, under one of 138 it's 180 and fails. The check is right to keep `jlink`, since it can't see it. Its reason is wrong: it says a selected file isn't in the archive.
+	- Actual fix: when a link the archive should keep as a link isn't listed, the rar is read by libarchive 3.8.9 or older, and the link's target is 128 bytes or more, the warning says the link's target is too long to read back from a rar, so the archive can't be checked. The originals still stay. The test expects `jlink` to stay with that reason when its target is that long, and to go otherwise.
+	- Decisions:
+		- The check keeps what it can't list, as 2026101310525452 decided. Only the reason changed, so nothing the check refused before passes now.
+	- Swept: the delete check is the one place that reads an archive back before a delete. Extract and the other rar readers are 2026101312094706. The check reads a link's target for symlinks and junctions on both platforms, kept as a link or leading nowhere.
+	- Verified: 20261013 on b29w, started outside the ssh session: this branch's rhr6ggmt passed all 318 runs with a long and a short temp folder. With dev's check it fails the new long-target cases both ways, and the `jlink` row with a long one. rewygsbg, rjq9mv0w, rjqef159 and rj4jewn6 pass there. On Linux rhr6ggmt fails its long-target case with dev's check and passes with this one. The cross build with warnings as errors passes. The full Linux suite passed, 196 of 196.
+	- Branch: rarjct
+	- Commit: 45af09a
+	- Test case: rhr6ggmt, Archive option combinations. In the crossed rows, a rar keeping `jlink` as a junction with Delete originals keeps it, with the long-target reason, when its target is 128 bytes or more. check_long_target: a rar keeping a link with a 140-byte target, and on Windows a junction to a folder with a path of 128 or more, keeps the originals and says why, or deletes them where libarchive is newer than 3.8.9.
+	- Acceptance signoff: Left at signoff for the warning's wording.
 
 - Extracting a rar whose link has a target of 128 bytes or more stops at that link.
 	- ID: 2026101312094706

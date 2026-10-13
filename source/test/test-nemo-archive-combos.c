@@ -1574,8 +1574,8 @@ check_loop (const char *tmp, NemoArchiveFormat format,
 /* rar keeps a link's target in the entry's header, and libarchive 3.8.9 and
    older misreads one of 128 bytes or more and ends the listing there. What
    the check can't list is a miss, so the originals stay, and the warning
-   says why. junction keeps a junction to a folder with a long path, which
-   rar keeps as \??\ and the whole path. */
+   says why. With junction, the link is a junction to a folder with a long
+   path, which rar keeps as \??\ and the whole path. */
 static void
 check_long_target (const char *tmp, gboolean junction, GtkWidget *window,
 		   NemoProgressInfoManager *manager)
