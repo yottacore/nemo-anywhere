@@ -205,12 +205,14 @@ is_a_tab (GtkWidget *focus, GtkWidget *sidebar)
 	       (GTK_IS_NOTEBOOK (focus) || focus == sidebar || gtk_widget_is_ancestor (focus, sidebar));
 }
 
-static void
+/* Returns whether the key has a keycode, which GTK's own key bindings need. */
+static gboolean
 send_key (GtkWidget *dialog, guint keyval, GdkModifierType state)
 {
 	GdkEvent *event;
 	GdkKeymapKey *keys = NULL;
 	gint n_keys = 0;
+	gboolean coded = FALSE;
 
 	event = gdk_event_new (GDK_KEY_PRESS);
 	event->key.window = g_object_ref (gtk_widget_get_window (dialog));
@@ -221,6 +223,7 @@ send_key (GtkWidget *dialog, guint keyval, GdkModifierType state)
 					       keyval, &keys, &n_keys) && n_keys > 0) {
 		event->key.hardware_keycode = (guint16) keys[0].keycode;
 		event->key.group = (guint8) keys[0].group;
+		coded = TRUE;
 	}
 	g_free (keys);
 	event->key.time = GDK_CURRENT_TIME;
@@ -228,6 +231,8 @@ send_key (GtkWidget *dialog, guint keyval, GdkModifierType state)
 	gtk_main_do_event (event);
 	gdk_event_free (event);
 	settle ();
+
+	return coded;
 }
 
 static void
@@ -293,11 +298,15 @@ test_tabs_take_no_focus (GtkWidget *dialog)
 	send_key (dialog, GDK_KEY_Page_Down, GDK_CONTROL_MASK);
 	check (g_strcmp0 (gtk_stack_get_visible_child_name (GTK_STACK (stack)), "views") == 0);
 
-	/* Inside the Views tabs the keys stay theirs. */
+	/* Inside the Views tabs the keys stay theirs. Under wine GDK has no
+	   keyboard layout, so no binding ever matches there. */
 	gtk_notebook_set_current_page (GTK_NOTEBOOK (notebook), 0);
 	gtk_widget_child_focus (gtk_notebook_get_nth_page (GTK_NOTEBOOK (notebook), 0), GTK_DIR_TAB_FORWARD);
-	send_key (dialog, GDK_KEY_Page_Down, GDK_CONTROL_MASK);
-	check (gtk_notebook_get_current_page (GTK_NOTEBOOK (notebook)) == 1);
+	if (send_key (dialog, GDK_KEY_Page_Down, GDK_CONTROL_MASK)) {
+		check (gtk_notebook_get_current_page (GTK_NOTEBOOK (notebook)) == 1);
+	} else {
+		g_print ("SKIP: Ctrl+Page Down in the Views tabs, since the key has no keycode\n");
+	}
 	check (g_strcmp0 (gtk_stack_get_visible_child_name (GTK_STACK (stack)), "views") == 0);
 	gtk_notebook_set_current_page (GTK_NOTEBOOK (notebook), 0);
 
