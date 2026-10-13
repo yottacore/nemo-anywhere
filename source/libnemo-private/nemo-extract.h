@@ -35,51 +35,38 @@
 #include <gtk/gtk.h>
 #include <gio/gio.h>
 
+#include "arc-extract-names.h"
+#include "arc-writer.h"
+
 typedef enum {
 	NEMO_EXTRACT_HERE,		/* straight into the destination folder */
 	NEMO_EXTRACT_TO_SUBFOLDER	/* each archive into a folder of its own */
 } NemoExtractLayout;
 
-typedef enum {
-	NEMO_EXTRACT_BACKEND_NONE,
-	NEMO_EXTRACT_BACKEND_LIBARCHIVE,
-	NEMO_EXTRACT_BACKEND_7Z,
-	NEMO_EXTRACT_BACKEND_RAR
-} NemoExtractBackend;
+typedef ArcBackend NemoExtractBackend;
+
+#define NEMO_EXTRACT_BACKEND_NONE         ARC_BACKEND_NONE
+#define NEMO_EXTRACT_BACKEND_LIBARCHIVE   ARC_BACKEND_LIBARCHIVE
+#define NEMO_EXTRACT_BACKEND_7Z           ARC_BACKEND_7Z
+#define NEMO_EXTRACT_BACKEND_RAR          ARC_BACKEND_RAR
+
+#define nemo_extract_is_archive_name      arc_extract_is_archive_name
+#define nemo_extract_folder_name          arc_extract_folder_name
+#define nemo_extract_unique_name          arc_extract_unique_name
+#define nemo_extract_sanitize_path        arc_extract_sanitize_path
+#define nemo_extract_backend_present      arc_extract_backend_present
 
 typedef void (* NemoExtractCallback) (GFile    *destination_dir,
 				      gboolean  success,
 				      gpointer  callback_data);
 
-/* Whether the name looks like something we can unpack. Deliberately by name:
-   it is the only answer available on win32, where a file's "mime type" is its
-   extension, and it is what decides whether the menu items appear at all. */
-gboolean nemo_extract_is_archive_name (const char *name);
-
-/* The folder an archive unpacks into when each gets its own - the name with
-   its archive suffix taken off. Returns NULL when nothing is left. */
-char    *nemo_extract_folder_name     (const char *archive_name);
-
-/* "notes.txt" at attempt 1 -> "notes (1).txt". The extension is kept so a
-   renamed file still opens with the same program. */
-char    *nemo_extract_unique_name     (const char *name,
-				       guint       attempt);
-
-/* An archive can name an entry anything at all, including a path that climbs
-   out of the folder being unpacked into. Returns a relative, '/'-separated
-   path with the root, any drive letter and every ".." component taken off, or
-   NULL when nothing usable is left. */
-char    *nemo_extract_sanitize_path   (const char *entry_path);
-
-/* The command a 7z or rar backend would be run with. Exposed so the switches
-   can be checked without spawning anything. */
+/* arc_build_extract_command with the settings as they are now, and the app's
+   host. */
 char   **nemo_extract_build_command   (NemoExtractBackend  backend,
 				       const char         *program,
 				       const char         *archive_path,
 				       const char         *destination_path,
 				       const char         *password);
-
-gboolean nemo_extract_backend_present (NemoExtractBackend backend);
 
 /* Queues the job. archives are GFile *; every one of them is unpacked into
    destination_dir, or into a folder of its own beneath it. */

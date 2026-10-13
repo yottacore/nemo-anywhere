@@ -33,9 +33,9 @@
 
 #include <eel/eel-stock-dialogs.h>
 
+#include "arc-command.h"
 #include "nemo-archive.h"
-#include "nemo-archive-commands.h"
-#include "nemo-command-template.h"
+#include "nemo-archive-host.h"
 #include "nemo-delete-guard.h"
 #include "nemo-dir-enum.h"
 #include "nemo-extract-conflict-dialog.h"
@@ -50,20 +50,6 @@
    with a real GFile and needs no cast from a number. */
 static const char skipped_marker;
 #define SKIPPED ((gpointer) &skipped_marker)
-
-/* Suffixes we offer to unpack, longest first so ".tar.gz" is not read as ".gz".
-   Much wider than the list we can write - libarchive reads a great deal it
-   cannot produce - and a name is the only thing there is to go on, since on
-   win32 a file's mime type is its extension. */
-static const char * const archive_extensions[] = {
-	".tar.gz", ".tar.xz", ".tar.bz2", ".tar.zst", ".tar.lz", ".tar.lzma", ".tar.z",
-	".tgz", ".txz", ".tbz2", ".tbz", ".tzst",
-	".zip", ".jar", ".war", ".ear", ".cbz",
-	".7z", ".rar", ".cbr",
-	".tar", ".cab", ".iso", ".lha", ".lzh", ".cpio", ".xar", ".pax",
-	".gz", ".bz2", ".xz", ".zst", ".lz", ".lzma", ".z",
-	NULL
-};
 
 typedef enum {
 	EXTRACT_OK,
@@ -138,253 +124,8 @@ typedef struct {
 } StreamSource;
 
 /*
- * Names
- */
-
-/* 7z numbers a split archive "name.7z.001", so the name to read the format off
-   is the one underneath. Three digits is what it writes, including for the only
-   volume. Returns how much of the end to ignore, or 0 for an ordinary name. */
-static gsize
-volume_suffix_len (const char *name, gsize len)
-{
-	gsize i;
-
-	if (len < 5 || name[len - 4] != '.') {
-		return 0;
-	}
-
-	for (i = len - 3; i < len; i++) {
-		if (!g_ascii_isdigit (name[i])) {
-			return 0;
-		}
-	}
-
-	return 4;
-}
-
-static const char *
-matching_extension (const char *name)
-{
-	gsize len;
-	int i;
-
-	if (name == NULL) {
-		return NULL;
-	}
-
-	len = strlen (name);
-	len -= volume_suffix_len (name, len);
-
-	for (i = 0; archive_extensions[i] != NULL; i++) {
-		gsize ext_len = strlen (archive_extensions[i]);
-
-		/* A suffix only, and never the whole name - ".zip" on its own is
-		   a file called .zip, not an archive of nothing. Length-limited,
-		   since a volume number may still be sitting past `len`. */
-		if (len > ext_len &&
-		    g_ascii_strncasecmp (name + len - ext_len, archive_extensions[i], ext_len) == 0) {
-			return archive_extensions[i];
-		}
-	}
-
-	return NULL;
-}
-
-gboolean
-nemo_extract_is_archive_name (const char *name)
-{
-	return matching_extension (name) != NULL;
-}
-
-/* Where unpacking a split archive has to start. Any other volume answers with
-   its ".001" sibling, and a name that is not a volume answers with itself. A
-   missing sibling is left alone, so the failure reads as the archive it was. */
-static GFile *
-first_volume (GFile *archive)
-{
-	char *name = g_file_get_basename (archive);
-	gsize len = name != NULL ? strlen (name) : 0;
-	GFile *parent;
-	GFile *first = NULL;
-	char *wanted;
-
-	if (name == NULL || volume_suffix_len (name, len) == 0 ||
-	    strcmp (name + len - 3, "001") == 0) {
-		g_free (name);
-		return g_object_ref (archive);
-	}
-
-	parent = g_file_get_parent (archive);
-	if (parent == NULL) {
-		g_free (name);
-		return g_object_ref (archive);
-	}
-
-	wanted = g_strdup_printf ("%.*s001", (int) (len - 3), name);
-	first = g_file_get_child (parent, wanted);
-
-	if (!g_file_query_exists (first, NULL)) {
-		g_clear_object (&first);
-		first = g_object_ref (archive);
-	}
-
-	g_free (wanted);
-	g_free (name);
-	g_object_unref (parent);
-
-	return first;
-}
-
-/* Returns: (transfer full): free with g_free */
-char *
-nemo_extract_folder_name (const char *archive_name)
-{
-	const char *extension;
-	char *base;
-	gsize len;
-
-	g_return_val_if_fail (archive_name != NULL, NULL);
-
-	extension = matching_extension (archive_name);
-	if (extension == NULL) {
-		return NULL;
-	}
-
-	len = strlen (archive_name);
-	len -= volume_suffix_len (archive_name, len);
-
-	base = g_strndup (archive_name, len - strlen (extension));
-
-	if (base[0] == '\0') {
-		g_free (base);
-		return NULL;
-	}
-
-	return base;
-}
-
-/* Returns: (transfer full): free with g_free */
-char *
-nemo_extract_unique_name (const char *name,
-			  guint       attempt)
-{
-	const char *dot;
-
-	g_return_val_if_fail (name != NULL, NULL);
-
-	/* A leading dot is the start of a hidden name, not an extension. */
-	dot = name[0] != '\0' ? strrchr (name + 1, '.') : NULL;
-
-	if (dot == NULL) {
-		return g_strdup_printf ("%s (%u)", name, attempt);
-	}
-
-	return g_strdup_printf ("%.*s (%u)%s", (int) (dot - name), name, attempt, dot);
-}
-
-/* Returns: (transfer full): free with g_free */
-char *
-nemo_extract_sanitize_path (const char *entry_path)
-{
-	char *normalized;
-	char *valid = NULL;
-	char **parts;
-	GPtrArray *kept;
-	char *result;
-	int i;
-
-	g_return_val_if_fail (entry_path != NULL, NULL);
-
-	if (!g_utf8_validate (entry_path, -1, NULL)) {
-		valid = g_utf8_make_valid (entry_path, -1);
-		entry_path = valid;
-	}
-
-	/* Archives written on Windows sometimes separate with backslashes, and
-	   a backslash is not a name character on either platform once it is a
-	   path inside an archive. */
-	normalized = g_strdelimit (g_strdup (entry_path), "\\", '/');
-	parts = g_strsplit (normalized, "/", -1);
-	kept = g_ptr_array_new ();
-
-	for (i = 0; parts[i] != NULL; i++) {
-		const char *part = parts[i];
-		gsize len = strlen (part);
-
-		/* Empty means a leading, trailing or doubled separator; "." is
-		   nothing; ".." would climb out of the folder being unpacked
-		   into, and a drive letter would leave it altogether. */
-		if (len == 0 || g_strcmp0 (part, ".") == 0 || g_strcmp0 (part, "..") == 0) {
-			continue;
-		}
-		if (len == 2 && part[1] == ':' && g_ascii_isalpha (part[0])) {
-			continue;
-		}
-
-		g_ptr_array_add (kept, (gpointer) part);
-	}
-
-	g_ptr_array_add (kept, NULL);
-	result = g_strjoinv ("/", (char **) kept->pdata);
-
-	g_ptr_array_free (kept, TRUE);
-	g_strfreev (parts);
-	g_free (normalized);
-	g_free (valid);
-
-	if (result[0] == '\0') {
-		g_free (result);
-		return NULL;
-	}
-
-	return result;
-}
-
-/*
  * Backends
  */
-
-static const char *
-backend_program (NemoExtractBackend backend)
-{
-	static const char * const seven_zip_names[] = { "7z", "7zz", "7za", NULL };
-	static const char * const rar_names[] = { "unrar", "rar", NULL };
-	static GMutex probe_lock;
-	static gboolean probed[4];
-	static char *probed_program[4];
-
-	if (backend != NEMO_EXTRACT_BACKEND_7Z && backend != NEMO_EXTRACT_BACKEND_RAR) {
-		return NULL;
-	}
-	if (arc_backend_hidden (backend == NEMO_EXTRACT_BACKEND_7Z ? ARC_BACKEND_7Z : ARC_BACKEND_RAR)) {
-		return NULL;
-	}
-
-	g_mutex_lock (&probe_lock);
-
-	if (!probed[backend]) {
-		if (backend == NEMO_EXTRACT_BACKEND_7Z) {
-			probed_program[backend] = nemo_archive_find_command (seven_zip_names, "7-Zip");
-		} else {
-			probed_program[backend] = nemo_archive_find_command (rar_names, "WinRAR");
-		}
-		probed[backend] = TRUE;
-	}
-
-	g_mutex_unlock (&probe_lock);
-
-	return probed_program[backend];
-}
-
-gboolean
-nemo_extract_backend_present (NemoExtractBackend backend)
-{
-	if (backend == NEMO_EXTRACT_BACKEND_LIBARCHIVE) {
-		return TRUE;
-	}
-
-	return backend_program (backend) != NULL;
-}
 
 /* Returns: (transfer full): free with g_strfreev */
 char **
@@ -394,80 +135,15 @@ nemo_extract_build_command (NemoExtractBackend  backend,
 			    const char         *destination_path,
 			    const char         *password)
 {
-	char *program_v[2]     = { NULL, NULL };
-	char *password_v[2]    = { NULL, NULL };
-	char *archive_v[2]     = { NULL, NULL };
-	char *folder_v[2]      = { NULL, NULL };
-	char *folder_sep_v[2]  = { NULL, NULL };
-	const char *key, *fallback;
-	GError *error = NULL;
+	ArcSettings settings = { { NULL }, 0 };
+	ArcHost host;
 	char **argv;
-	char *text;
-	gboolean has_password;
 
-	g_return_val_if_fail (program != NULL, NULL);
-	g_return_val_if_fail (archive_path != NULL, NULL);
-	g_return_val_if_fail (destination_path != NULL, NULL);
-
-	has_password = password != NULL && password[0] != '\0';
-
-	if (backend == NEMO_EXTRACT_BACKEND_7Z) {
-		key = NEMO_EXTRACT_COMMAND_KEY_7Z;
-		fallback = NEMO_EXTRACT_COMMAND_7Z_DEFAULT;
-
-		/* Always answered, never asked: with no password switch at all
-		   an encrypted archive stops for one on a console we do not
-		   have, and the job would hang instead of failing. */
-		password_v[0] = has_password ? g_strconcat ("-p", password, NULL)
-					    : g_strdup ("-p");
-	} else if (backend == NEMO_EXTRACT_BACKEND_RAR) {
-		key = NEMO_EXTRACT_COMMAND_KEY_RAR;
-		fallback = NEMO_EXTRACT_COMMAND_RAR_DEFAULT;
-
-		password_v[0] = has_password ? g_strconcat ("-p", password, NULL)
-					    : g_strdup ("-p-");
-	} else {
-		return NULL;
-	}
-
-	program_v[0] = g_strdup (program);
-	archive_v[0] = g_strdup (archive_path);
-	folder_v[0] = g_strdup (destination_path);
-	folder_sep_v[0] = g_strconcat (destination_path, G_DIR_SEPARATOR_S, NULL);
-
-	{
-		const NemoCommandToken tokens[] = {
-			{ "PROGRAM",                      (const char *const *) program_v,    FALSE },
-			{ "PASSWORD",                     (const char *const *) password_v,   TRUE },
-			{ "SOURCE_ARCHIVE",               (const char *const *) archive_v,    FALSE },
-			{ "TARGET_FOLDER",                (const char *const *) folder_v,     FALSE },
-			{ "TARGET_FOLDER_WITH_SEPARATOR", (const char *const *) folder_sep_v, FALSE },
-			{ NULL, NULL, FALSE }
-		};
-
-		text = nemo_command_template_from_config (NEMO_ARCHIVE_COMMANDS_GROUP, key, fallback);
-		argv = nemo_command_template_expand (text, tokens, &error);
-
-		if (argv == NULL) {
-			g_warning ("The %s command line cannot be run as written (%s): %s",
-				   key, error->message, text);
-			g_clear_error (&error);
-		} else {
-			/* Dropping {{PASSWORD}} is the one that bites: with no
-			   switch at all an encrypted archive waits for a console
-			   that is not there, and the job hangs. */
-			nemo_command_template_warn_unused (key, text, tokens);
-			argv = nemo_archive_add_run_switches (argv, FALSE);
-		}
-	}
-
-	g_free (text);
-	g_free (program_v[0]);
-	g_free (password_v[0]);
-	g_free (archive_v[0]);
-	g_free (folder_v[0]);
-	g_free (folder_sep_v[0]);
-
+	nemo_archive_settings_load (&settings);
+	nemo_archive_host_init (&host);
+	argv = arc_build_extract_command (&settings, &host, backend, program, archive_path,
+					  destination_path, password);
+	arc_settings_clear (&settings);
 	return argv;
 }
 
@@ -479,8 +155,7 @@ static guint
 command_backends_for (const char         *name,
 		      NemoExtractBackend *order)
 {
-	const char *extension = matching_extension (name);
-	gboolean is_rar = g_strcmp0 (extension, ".rar") == 0 || g_strcmp0 (extension, ".cbr") == 0;
+	gboolean is_rar = arc_extract_is_rar_name (name);
 	NemoExtractBackend first = is_rar ? NEMO_EXTRACT_BACKEND_RAR : NEMO_EXTRACT_BACKEND_7Z;
 	NemoExtractBackend second = is_rar ? NEMO_EXTRACT_BACKEND_7Z : NEMO_EXTRACT_BACKEND_RAR;
 	guint count = 0;
@@ -1570,7 +1245,7 @@ extract_with_command (ExtractJob         *job,
 		      NemoExtractBackend  backend,
 		      char              **out_details)
 {
-	const char *program = backend_program (backend);
+	const char *program = arc_extract_program (backend);
 	char *archive_path;
 	char *base_path;
 	char *staging_path = NULL;
@@ -1918,7 +1593,7 @@ nemo_extract_files (GList               *archives,
 		GHashTable *seen = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 
 		for (l = archives; l != NULL; l = l->next) {
-			GFile *archive = first_volume (G_FILE (l->data));
+			GFile *archive = arc_extract_first_volume (G_FILE (l->data));
 			char *uri = g_file_get_uri (archive);
 
 			if (g_hash_table_contains (seen, uri)) {
