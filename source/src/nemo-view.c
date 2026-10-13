@@ -7173,18 +7173,26 @@ compress_files (NemoView *view,
 {
 	GList *locations = NULL;
 	GList *l;
+	gboolean links_or_folders = FALSE;
 
 	if (files == NULL) {
 		return;
 	}
 
+	/* From what the listing already knows, so a selection on a slow share
+	   doesn't wait on a question per item. */
 	for (l = files; l != NULL; l = l->next) {
-		locations = g_list_prepend (locations, nemo_file_get_location (NEMO_FILE (l->data)));
+		NemoFile *file = NEMO_FILE (l->data);
+
+		locations = g_list_prepend (locations, nemo_file_get_location (file));
+		links_or_folders = links_or_folders ||
+				   nemo_file_is_directory (file) ||
+				   nemo_file_is_symbolic_link (file);
 	}
 	locations = g_list_reverse (locations);
 
 	nemo_archive_dialog_show (GTK_WINDOW (nemo_view_get_nemo_window (view)),
-				  locations, default_dir, whole_folder);
+				  locations, default_dir, whole_folder, links_or_folders);
 
 	g_list_free_full (locations, g_object_unref);
 }

@@ -32,7 +32,7 @@ import tempfile
 # Names that keep their capital wherever they stand.
 NAMES = set("""
 Windows Linux BSD FreeBSD OpenBSD NetBSD macOS Mac OS Unix POSIX Unicode ASCII
-GNOME Cinnamon Expo GTK GLib GIO GVfs Adwaita Segoe GNU
+GNOME Cinnamon Expo GTK GLib GIO GVfs Adwaita Segoe GNU Btrfs
 Nemo Nemo's Anywhere Nautilus Explorer
 Trash Home Desktop Documents Downloads Music Pictures Videos Public
 Network Recent Favorites Favourites
@@ -70,6 +70,7 @@ KEEP = set([
     "These files are on a Video DVD.",
     "These files are on an Audio CD.",
     "These files are on an Audio DVD.",
+    "23 GiB (Blu-ray)",
     # Sentences that name a menu item, a tab or a sidebar, which keeps its own
     # capital the same way a proper noun does.
     "Move or copy files previously selected by a Cut or Copy command",

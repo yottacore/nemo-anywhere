@@ -1,6 +1,6 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 
-/* test-nemo-archive-dialog.c - the Compress dialog on a short screen.
+/* test-nemo-archive-dialog.c - the Compress dialog.
 
    Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu).
 
@@ -24,11 +24,16 @@
  * The options now scroll in whatever room the screen leaves. The real dialog
  * gives the closed height, frame included, and what the options want; the room
  * for those is worked out for 540, 768 and 1080 pixel work areas, and the dialog
- * is opened for real on the test screen, where nothing should be cut. */
+ * is opened for real on the test screen, where nothing should be cut.
+ *
+ * Then the link choices: which groups show for the selection, which store
+ * choices each format and its options leave, the Junctions defaults, and the
+ * volume sizes with their notes. */
 
 #include <config.h>
 
 #include <stdlib.h>
+#include <string.h>
 #include <gtk/gtk.h>
 #ifdef GDK_WINDOWING_X11
 #include <signal.h>
@@ -37,6 +42,8 @@
 #endif
 
 #include <libnemo-private/nemo-archive.h>
+#include <libnemo-private/nemo-archive-commands.h>
+#include <libnemo-private/nemo-config.h>
 #include <libnemo-private/nemo-global-preferences.h>
 
 #include "nemo-archive-dialog.h"
@@ -238,6 +245,288 @@ probe_dialog (gpointer data)
 	return G_SOURCE_REMOVE;
 }
 
+static GtkWidget *
+find_named (GtkWidget *widget, const char *name)
+{
+	GList *children, *l;
+	GtkWidget *found = NULL;
+
+	if (g_strcmp0 (gtk_widget_get_name (widget), name) == 0) {
+		return widget;
+	}
+	if (!GTK_IS_CONTAINER (widget)) {
+		return NULL;
+	}
+
+	children = gtk_container_get_children (GTK_CONTAINER (widget));
+	for (l = children; l != NULL && found == NULL; l = l->next) {
+		found = find_named (l->data, name);
+	}
+	g_list_free (children);
+
+	return found;
+}
+
+typedef struct {
+	gboolean    links_or_folders;
+	const char *volume_size;	/* what the size entry should start with */
+	gboolean    ran;
+} Case;
+
+static GtkWidget *
+named (GtkWidget *dialog, const char *name)
+{
+	GtkWidget *widget = find_named (dialog, name);
+
+	if (widget == NULL) {
+		g_printerr ("no widget named %s\n", name);
+	}
+	check (widget != NULL);
+
+	return widget;
+}
+
+static gboolean
+is_on (GtkWidget *dialog, const char *name)
+{
+	GtkWidget *widget = named (dialog, name);
+
+	return widget != NULL && gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (widget));
+}
+
+static gboolean
+can_click (GtkWidget *dialog, const char *name)
+{
+	GtkWidget *widget = named (dialog, name);
+
+	return widget != NULL && gtk_widget_get_sensitive (widget);
+}
+
+/* A radio group is shown or hidden as a whole, by the box it's in. */
+static gboolean
+group_shown (GtkWidget *dialog, const char *name)
+{
+	GtkWidget *widget = named (dialog, name);
+
+	return widget != NULL && gtk_widget_get_visible (gtk_widget_get_parent (widget));
+}
+
+static void
+click (GtkWidget *dialog, const char *name)
+{
+	GtkWidget *widget = named (dialog, name);
+
+	if (widget != NULL) {
+		gtk_button_clicked (GTK_BUTTON (widget));
+	}
+}
+
+static void
+set_format (GtkWidget *dialog, const char *id)
+{
+	check (gtk_combo_box_set_active_id (GTK_COMBO_BOX (named (dialog, "format")), id));
+}
+
+static gboolean
+tip_says (GtkWidget *dialog, const char *name, const char *words)
+{
+	GtkWidget *widget = named (dialog, name);
+	char *tip = widget != NULL ? gtk_widget_get_tooltip_text (widget) : NULL;
+	gboolean says = tip != NULL && strstr (tip, words) != NULL;
+
+	g_free (tip);
+
+	return says;
+}
+
+/* The groups show only where there's a link or a folder, and the filesystem
+   options are there either way but do nothing for plain files. */
+static gboolean
+probe_groups (gpointer data)
+{
+	Case *c = data;
+	GtkWidget *dialog = find_dialog ();
+
+	c->ran = TRUE;
+	check (dialog != NULL);
+	if (dialog == NULL) {
+		return G_SOURCE_REMOVE;
+	}
+
+	check (group_shown (dialog, "symlinks-follow") == c->links_or_folders);
+	check (can_click (dialog, "follow-other") == c->links_or_folders);
+	check (!is_on (dialog, "follow-other"));
+	check (tip_says (dialog, "symlinks-follow", ".lnk"));
+#ifdef G_OS_WIN32
+	check (group_shown (dialog, "junctions-follow") == c->links_or_folders);
+	check (tip_says (dialog, "junctions-follow", ".lnk"));
+	check (find_named (dialog, "follow-nested") == NULL);
+#else
+	check (find_named (dialog, "junctions-follow") == NULL);
+	check (can_click (dialog, "follow-nested") == c->links_or_folders);
+	check (is_on (dialog, "follow-nested"));
+#endif
+	check (is_on (dialog, "symlinks-ignore"));
+
+	gtk_dialog_response (GTK_DIALOG (dialog), GTK_RESPONSE_CANCEL);
+	return G_SOURCE_REMOVE;
+}
+
+/* A store choice the format and its options can't do is grayed and shows as
+   Ignore, and the choice comes back with options that can. 7-Zip plays its
+   Windows self here, keeping no links, so a 7z with a password or volumes has
+   no store choice left. */
+static gboolean
+probe_stores (gpointer data)
+{
+	Case *c = data;
+	GtkWidget *dialog = find_dialog ();
+	GtkWidget *password;
+	gboolean seven = nemo_archive_backend_present (NEMO_ARCHIVE_BACKEND_7Z);
+
+	c->ran = TRUE;
+	check (dialog != NULL);
+	if (dialog == NULL) {
+		return G_SOURCE_REMOVE;
+	}
+	password = named (dialog, "password");
+
+	set_format (dialog, "tar");
+	check (can_click (dialog, "symlinks-store"));
+	click (dialog, "symlinks-store");
+	check (is_on (dialog, "symlinks-store"));
+
+	/* The group's access key goes to the choice that's on, and changes
+	   nothing. */
+	check (gtk_widget_mnemonic_activate (named (dialog, "symlinks"), FALSE));
+	check (is_on (dialog, "symlinks-store"));
+	check (gtk_window_get_focus (GTK_WINDOW (dialog)) == named (dialog, "symlinks-store"));
+
+	set_format (dialog, "7z");
+	check (can_click (dialog, "symlinks-store"));
+	check (is_on (dialog, "symlinks-store"));
+
+	/* Without 7-Zip a 7z takes no password or volumes at all. */
+	if (seven) {
+		check (tip_says (dialog, "symlinks-store", "one thread"));
+
+		gtk_entry_set_text (GTK_ENTRY (password), "secret");
+		check (!can_click (dialog, "symlinks-store"));
+		check (is_on (dialog, "symlinks-ignore"));
+		gtk_entry_set_text (GTK_ENTRY (password), "");
+		check (can_click (dialog, "symlinks-store"));
+		check (is_on (dialog, "symlinks-store"));
+
+		gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (named (dialog, "split")), TRUE);
+		check (!can_click (dialog, "symlinks-store"));
+		check (is_on (dialog, "symlinks-ignore"));
+		gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (named (dialog, "split")), FALSE);
+		check (is_on (dialog, "symlinks-store"));
+	} else {
+		g_printerr ("note: no 7z command here, a 7z with a password not checked\n");
+	}
+
+	/* A zip with a password is the library's, which keeps links. */
+	set_format (dialog, "zip");
+	gtk_entry_set_text (GTK_ENTRY (password), "secret");
+	check (can_click (dialog, "symlinks-store"));
+	check (is_on (dialog, "symlinks-store"));
+	check (!tip_says (dialog, "symlinks-store", "one thread"));
+	gtk_entry_set_text (GTK_ENTRY (password), "");
+
+	click (dialog, "symlinks-follow");
+	check (is_on (dialog, "symlinks-follow"));
+	set_format (dialog, "7z");
+	gtk_entry_set_text (GTK_ENTRY (password), "secret");
+	check (is_on (dialog, "symlinks-follow"));
+	gtk_entry_set_text (GTK_ENTRY (password), "");
+
+#ifdef G_OS_WIN32
+	/* Junctions takes its default from Symlinks by the table, here the
+	   library's: a junction as a symlink. */
+	set_format (dialog, "zip");
+	click (dialog, "symlinks-store");
+	check (is_on (dialog, "junctions-store-symlink"));
+	check (!can_click (dialog, "junctions-store-junction"));
+	click (dialog, "symlinks-follow");
+	check (is_on (dialog, "junctions-follow"));
+	click (dialog, "symlinks-ignore");
+	check (is_on (dialog, "junctions-ignore"));
+
+	/* A hand change sticks. */
+	click (dialog, "junctions-follow");
+	click (dialog, "symlinks-store");
+	check (is_on (dialog, "junctions-follow"));
+	click (dialog, "symlinks-ignore");
+	check (is_on (dialog, "junctions-follow"));
+
+	click (dialog, "junctions-store-symlink");
+	set_format (dialog, "7z");
+	if (seven) {
+		check (tip_says (dialog, "junctions-store-symlink", "one thread"));
+		gtk_entry_set_text (GTK_ENTRY (password), "secret");
+		check (!can_click (dialog, "junctions-store-symlink"));
+		check (is_on (dialog, "junctions-ignore"));
+		gtk_entry_set_text (GTK_ENTRY (password), "");
+	}
+	check (is_on (dialog, "junctions-store-symlink"));
+#endif
+
+	gtk_dialog_response (GTK_DIALOG (dialog), GTK_RESPONSE_CANCEL);
+	return G_SOURCE_REMOVE;
+}
+
+/* The decided list, each with its note, the 2 GiB one picked to start with,
+   and a remembered size shown as its preset or as it was typed. */
+static gboolean
+probe_volumes (gpointer data)
+{
+	Case *c = data;
+	GtkWidget *dialog = find_dialog ();
+	GtkWidget *combo;
+	GtkTreeModel *model;
+	GtkTreeIter iter;
+	guint i = 0;
+
+	c->ran = TRUE;
+	check (dialog != NULL);
+	if (dialog == NULL) {
+		return G_SOURCE_REMOVE;
+	}
+	combo = named (dialog, "volume-size");
+	model = gtk_combo_box_get_model (GTK_COMBO_BOX (combo));
+
+	if (gtk_tree_model_get_iter_first (model, &iter)) {
+		do {
+			char *text = NULL;
+
+			gtk_tree_model_get (model, &iter,
+					    gtk_combo_box_get_entry_text_column (GTK_COMBO_BOX (combo)),
+					    &text, -1);
+			check (g_strcmp0 (text, nemo_archive_volume_preset (i, NULL)) == 0);
+			g_free (text);
+			i++;
+		} while (gtk_tree_model_iter_next (model, &iter));
+	}
+	check (i == 8);
+	check (nemo_archive_volume_preset (i, NULL) == NULL);
+
+	check (g_strcmp0 (gtk_entry_get_text (GTK_ENTRY (gtk_bin_get_child (GTK_BIN (combo)))),
+			  c->volume_size) == 0);
+
+	gtk_dialog_response (GTK_DIALOG (dialog), GTK_RESPONSE_CANCEL);
+	return G_SOURCE_REMOVE;
+}
+
+static void
+run_case (GSourceFunc probe, Case *c, GList *files, GFile *dir)
+{
+	c->ran = FALSE;
+	g_timeout_add (300, probe, c);
+	nemo_archive_dialog_show (NULL, files, dir, FALSE, c->links_or_folders);
+	check (c->ran);
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -245,6 +534,9 @@ main (int argc, char *argv[])
 	GFile *dir, *file;
 	GList *files;
 	Probe probe = { 0 };
+	Case plain = { FALSE, "2 GiB (old 32-bit tools)", FALSE };
+	Case folder = { TRUE, "2 GiB (old 32-bit tools)", FALSE };
+	NemoConfigGroup *group;
 	GPid window_manager;
 	char *tmp;
 
@@ -273,9 +565,29 @@ main (int argc, char *argv[])
 	file = g_file_new_for_path (path);
 	files = g_list_prepend (NULL, file);
 
+	/* With the link choices showing, which is the taller dialog. */
 	g_timeout_add (300, probe_dialog, &probe);
-	nemo_archive_dialog_show (NULL, files, dir, FALSE);
+	nemo_archive_dialog_show (NULL, files, dir, FALSE, TRUE);
 	check (probe.ran);
+
+	run_case (probe_groups, &plain, files, dir);
+	run_case (probe_groups, &folder, files, dir);
+
+	nemo_archive_set_7z_keeps_links (FALSE);
+	run_case (probe_stores, &folder, files, dir);
+#ifndef G_OS_WIN32
+	nemo_archive_set_7z_keeps_links (TRUE);
+#endif
+
+	run_case (probe_volumes, &plain, files, dir);
+	group = nemo_config_get_group (NEMO_ARCHIVE_COMMANDS_GROUP);
+	nemo_config_set_string (group, NEMO_ARCHIVE_STATE_KEY_SPLIT_SIZE, "4480 MiB");
+	plain.volume_size = "4,480 MiB (DVD)";
+	run_case (probe_volumes, &plain, files, dir);
+	nemo_config_set_string (group, NEMO_ARCHIVE_STATE_KEY_SPLIT_SIZE, "1 GiB");
+	plain.volume_size = "1 GiB";
+	run_case (probe_volumes, &plain, files, dir);
+	nemo_config_reset (group, NEMO_ARCHIVE_STATE_KEY_SPLIT_SIZE);
 
 	g_list_free (files);
 	g_object_unref (file);

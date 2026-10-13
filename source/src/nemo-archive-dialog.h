@@ -29,10 +29,12 @@
 /* files are GFile *; default_dir is where the archive is offered to be put,
    normally the folder being viewed. whole_folder says the files are everything
    the folder is showing, which is what lets a multiple selection borrow the
-   folder's name. Runs the job itself when accepted. */
+   folder's name. links_or_folders says some of them are links or folders, so
+   the link choices apply. Runs the job itself when accepted. */
 void nemo_archive_dialog_show (GtkWindow *parent_window,
 			       GList     *files,
 			       GFile     *default_dir,
-			       gboolean   whole_folder);
+			       gboolean   whole_folder,
+			       gboolean   links_or_folders);
 
 #endif /* NEMO_ARCHIVE_DIALOG_H */

@@ -123,13 +123,23 @@ gboolean           nemo_archive_backend_present  (NemoArchiveBackend backend);
 guint              nemo_archive_backend_link_stores (NemoArchiveFormat  format,
 						     NemoArchiveBackend backend);
 guint              nemo_archive_format_link_stores  (NemoArchiveFormat  format);
+/* The same union, over the writers that can also do what options require: a
+   password or volumes. What the Compress dialog offers as store choices. */
+guint              nemo_archive_options_link_stores (NemoArchiveFormat         format,
+						     const NemoArchiveOptions *options);
 NemoArchiveBackend nemo_archive_pick_backend     (NemoArchiveFormat         format,
 						  const NemoArchiveOptions *options);
+/* TRUE when storing links takes the job off a program onto the library's 7z
+   writer, which compresses on one thread. */
+gboolean           nemo_archive_links_cost_threads (NemoArchiveFormat         format,
+						    const NemoArchiveOptions *options);
 
 /* For tests: answer as if the program were not installed, so the library's
    own 7z writer can still be reached on a box that has 7-Zip. */
 void               nemo_archive_hide_backend     (NemoArchiveBackend backend,
 						  gboolean           hidden);
+/* For tests: 7-Zip keeps links, or doesn't as on Windows. */
+void               nemo_archive_set_7z_keeps_links (gboolean keeps);
 
 /* Name handling for the dialog: the extension follows the format, and a
  * selection suggests a name - or, when the selection is part of a folder rather
@@ -206,6 +216,14 @@ char    *nemo_archive_volume_name (const char         *archive_name,
 GFile   *nemo_archive_collapse_volume (GFile              *destination,
 				       NemoArchiveBackend  backend);
 
+/* The volume sizes offered, with what each is for. Returns the label, or NULL
+   past the last; size gets the size alone, as a size the parser reads. */
+const char *nemo_archive_volume_preset (guint        index,
+					const char **size);
+/* Which preset text names, by its label or its size alone, or -1. */
+int      nemo_archive_volume_preset_find (const char *text);
+
+/* A preset's label reads as its size. */
 gboolean nemo_archive_parse_size (const char *text,
 				  guint64    *bytes);
 char    *nemo_archive_format_size (guint64 bytes);
