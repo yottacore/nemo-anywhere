@@ -39,6 +39,12 @@ void nemo_archive_dialog_show (GtkWindow *parent_window,
 			       gboolean   whole_folder,
 			       gboolean   links_or_folders);
 
+/* How tall the Compress dialog's options may grow before they scroll: what
+   the work area leaves under the closed dialog (frame included), and never
+   less than a strip that still shows a few rows. */
+int  nemo_archive_options_room (int work_height,
+				int closed_height);
+
 /* For tests: where each size scan gets its mount table, NULL for the
    system's, and how many scans are running. */
 void  nemo_archive_dialog_set_mounts_for_test (ArcMountTable *(*mounts) (void));

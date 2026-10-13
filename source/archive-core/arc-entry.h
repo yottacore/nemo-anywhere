@@ -44,6 +44,12 @@ typedef enum {
 ArcEntry arc_entry_read (const char  *path,
 			 char       **target);
 
+#ifdef G_OS_WIN32
+/* Whether opening path through the link finds something. FALSE only when
+   nothing is there to find. */
+gboolean arc_entry_leads_somewhere (const char *path);
+#endif
+
 G_END_DECLS
 
 #endif /* ARC_ENTRY_H */

@@ -67,6 +67,32 @@ arc_pulse (const ArcHost *host)
 }
 
 void
+arc_prescan_start (const ArcHost *host)
+{
+	if (HAS (host, prescan, start)) {
+		host->prescan.start (host->data);
+	}
+}
+
+void
+arc_prescan_found (const ArcHost *host,
+		   guint          files,
+		   guint64        bytes)
+{
+	if (HAS (host, prescan, found)) {
+		host->prescan.found (host->data, files, bytes);
+	}
+}
+
+void
+arc_prescan_end (const ArcHost *host)
+{
+	if (HAS (host, prescan, end)) {
+		host->prescan.end (host->data);
+	}
+}
+
+void
 arc_file_added (const ArcHost *host,
 		GFile         *file)
 {

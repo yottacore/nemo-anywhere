@@ -20,12 +20,9 @@
    Boston, MA 02110-1335, USA.
 */
 
-/* Two ways to write an archive, picked per request. libarchive is linked in and
- * handles the tar, zip and 7z families; it cannot write rar at all, and has no
- * write support for split volumes, solid blocks, duplicate-as-reference or 7z
- * encryption. Those go out to a 7z or rar command when the box has one. What a
- * given format can offer is therefore the union over the backends actually
- * present, which is why the dialog asks rather than assuming.
+/* The archive core writes them: arc-writer.h has the writers and what each
+ * can do. The app still calls them by the names below, from before they
+ * moved. Modularity, in project/design_docs/20260929-101432_compression.md.
  */
 
 #ifndef NEMO_ARCHIVE_H
@@ -36,142 +33,93 @@
 
 #include "nemo-tool-run.h"
 #include "nemo-progress-info.h"
+#include "arc-command.h"
+#include "arc-compress.h"
 #include "arc-link-options.h"
 #include "arc-mounts.h"
+#include "arc-verify.h"
+#include "arc-volumes.h"
+#include "arc-writer.h"
 
-typedef enum {
-	NEMO_ARCHIVE_FORMAT_ZIP,
-	NEMO_ARCHIVE_FORMAT_TAR,
-	NEMO_ARCHIVE_FORMAT_TAR_GZ,
-	NEMO_ARCHIVE_FORMAT_TAR_XZ,
-	NEMO_ARCHIVE_FORMAT_7Z,
-	NEMO_ARCHIVE_FORMAT_RAR,
-	NEMO_ARCHIVE_N_FORMATS
-} NemoArchiveFormat;
+typedef ArcFormat  NemoArchiveFormat;
+typedef ArcBackend NemoArchiveBackend;
+typedef ArcCaps    NemoArchiveCaps;
+typedef ArcOptions NemoArchiveOptions;
 
-/* Which program would write it. NONE means nothing installed here can. */
-typedef enum {
-	NEMO_ARCHIVE_BACKEND_NONE,
-	NEMO_ARCHIVE_BACKEND_LIBARCHIVE,
-	NEMO_ARCHIVE_BACKEND_7Z,
-	NEMO_ARCHIVE_BACKEND_RAR
-} NemoArchiveBackend;
+#define NEMO_ARCHIVE_FORMAT_ZIP           ARC_FORMAT_ZIP
+#define NEMO_ARCHIVE_FORMAT_TAR           ARC_FORMAT_TAR
+#define NEMO_ARCHIVE_FORMAT_TAR_GZ        ARC_FORMAT_TAR_GZ
+#define NEMO_ARCHIVE_FORMAT_TAR_XZ        ARC_FORMAT_TAR_XZ
+#define NEMO_ARCHIVE_FORMAT_7Z            ARC_FORMAT_7Z
+#define NEMO_ARCHIVE_FORMAT_RAR           ARC_FORMAT_RAR
+#define NEMO_ARCHIVE_N_FORMATS            ARC_N_FORMATS
 
-typedef enum {
-	NEMO_ARCHIVE_CAP_LEVEL         = 1 << 0,	/* compression level is meaningful */
-	NEMO_ARCHIVE_CAP_PASSWORD      = 1 << 1,
-	NEMO_ARCHIVE_CAP_ENCRYPT_NAMES = 1 << 2,	/* the file list is encrypted too */
-	NEMO_ARCHIVE_CAP_SPLIT         = 1 << 3,	/* multi-volume */
-	NEMO_ARCHIVE_CAP_SOLID         = 1 << 4,
-	NEMO_ARCHIVE_CAP_DEDUPE        = 1 << 5,	/* identical files stored once */
-	NEMO_ARCHIVE_CAP_STORE_LINKS   = 1 << 6,	/* symlinks/junctions kept as links */
-	NEMO_ARCHIVE_CAP_RECOVERY      = 1 << 7,	/* recovery record */
-	NEMO_ARCHIVE_CAP_LOCK          = 1 << 8	/* refuse later modification */
-} NemoArchiveCaps;
+#define NEMO_ARCHIVE_BACKEND_NONE         ARC_BACKEND_NONE
+#define NEMO_ARCHIVE_BACKEND_LIBARCHIVE   ARC_BACKEND_LIBARCHIVE
+#define NEMO_ARCHIVE_BACKEND_7Z           ARC_BACKEND_7Z
+#define NEMO_ARCHIVE_BACKEND_RAR          ARC_BACKEND_RAR
 
-/* Levels are 0-9 as the user sees them; each backend maps that onto its own
- * scale. 0 means store without compressing. */
-#define NEMO_ARCHIVE_LEVEL_STORE   0
-#define NEMO_ARCHIVE_LEVEL_DEFAULT 5
-#define NEMO_ARCHIVE_LEVEL_MAX     9
+#define NEMO_ARCHIVE_CAP_LEVEL            ARC_CAP_LEVEL
+#define NEMO_ARCHIVE_CAP_PASSWORD         ARC_CAP_PASSWORD
+#define NEMO_ARCHIVE_CAP_ENCRYPT_NAMES    ARC_CAP_ENCRYPT_NAMES
+#define NEMO_ARCHIVE_CAP_SPLIT            ARC_CAP_SPLIT
+#define NEMO_ARCHIVE_CAP_SOLID            ARC_CAP_SOLID
+#define NEMO_ARCHIVE_CAP_DEDUPE           ARC_CAP_DEDUPE
+#define NEMO_ARCHIVE_CAP_STORE_LINKS      ARC_CAP_STORE_LINKS
+#define NEMO_ARCHIVE_CAP_RECOVERY         ARC_CAP_RECOVERY
+#define NEMO_ARCHIVE_CAP_LOCK             ARC_CAP_LOCK
 
-typedef struct {
-	NemoArchiveFormat format;
-	gint              level;
-	char             *password;		/* NULL or empty means none */
-	gboolean          encrypt_names;
-	guint64           split_size;		/* bytes per volume; 0 means one file */
-	gboolean          solid;
-	gboolean          dedupe;
-	/* As chosen. A store choice the writer can't do is Ignore. */
-	ArcLinkOptions    links;
-	gboolean          recovery_record;
-	gboolean          lock;
-	gboolean          delete_sources;	/* only once the archive verifies */
-} NemoArchiveOptions;
+#define NEMO_ARCHIVE_LEVEL_STORE          ARC_LEVEL_STORE
+#define NEMO_ARCHIVE_LEVEL_DEFAULT        ARC_LEVEL_DEFAULT
+#define NEMO_ARCHIVE_LEVEL_MAX            ARC_LEVEL_MAX
+
+#define nemo_archive_options_init         arc_options_init
+#define nemo_archive_options_clear        arc_options_clear
+#define nemo_archive_options_copy         arc_options_copy
+#define nemo_archive_format_id            arc_format_id
+#define nemo_archive_format_name          arc_format_name
+#define nemo_archive_format_extension     arc_format_extension
+#define nemo_archive_format_from_id       arc_format_from_id
+#define nemo_archive_format_available     arc_format_available
+#define nemo_archive_format_caps          arc_format_caps
+#define nemo_archive_find_command         arc_find_command
+#define nemo_archive_backend_caps         arc_backend_caps
+#define nemo_archive_backend_present      arc_backend_present
+#define nemo_archive_backend_link_stores  arc_backend_link_stores
+#define nemo_archive_format_link_stores   arc_format_link_stores
+#define nemo_archive_options_link_stores  arc_options_link_stores
+#define nemo_archive_pick_backend         arc_pick_backend
+#define nemo_archive_links_cost_threads   arc_links_cost_threads
+#define nemo_archive_hide_backend         arc_hide_backend
+#define nemo_archive_set_7z_keeps_links   arc_set_7z_keeps_links
+#define nemo_archive_strip_extension      arc_strip_extension
+#define nemo_archive_apply_extension      arc_apply_extension
+#define nemo_archive_suggest_name         arc_suggest_name
+#define nemo_archive_each_name            arc_each_name
+#define nemo_archive_add_run_switches     arc_add_run_switches
+#define nemo_archive_only_skipped_links   arc_only_skipped_links
+#define nemo_archive_volume_name          arc_volume_name
+#define nemo_archive_collapse_volume      arc_collapse_volume
+#define nemo_archive_volume_preset        arc_volume_preset
+#define nemo_archive_volume_preset_find   arc_volume_preset_find
+#define nemo_archive_parse_size           arc_parse_size
+#define nemo_archive_format_size          arc_format_size
+#define nemo_archive_can_verify           arc_can_verify
+#define nemo_archive_should_confirm_password arc_should_confirm_password
+#define nemo_archive_set_mounts_for_test  arc_compress_set_mounts_for_test
+#define nemo_archive_tool_stderr_flag     arc_tool_stderr_flag
+#define nemo_archive_tool_stderr_finish   arc_tool_stderr_finish
 
 typedef void (* NemoArchiveCallback) (GFile    *archive_file,
 				      gboolean  success,
 				      gpointer  callback_data);
 
-void     nemo_archive_options_init  (NemoArchiveOptions *options);
-void     nemo_archive_options_clear (NemoArchiveOptions *options);
-void     nemo_archive_options_copy  (const NemoArchiveOptions *source,
-				     NemoArchiveOptions       *dest);
-
-const char        *nemo_archive_format_id        (NemoArchiveFormat format);
-const char        *nemo_archive_format_name      (NemoArchiveFormat format);
-const char        *nemo_archive_format_extension (NemoArchiveFormat format);
-gboolean           nemo_archive_format_from_id   (const char        *id,
-						  NemoArchiveFormat *format);
-
-/* What this box can actually do: the union over the backends installed. */
-gboolean           nemo_archive_format_available (NemoArchiveFormat format);
-NemoArchiveCaps    nemo_archive_format_caps      (NemoArchiveFormat format);
-
-/* Looks a command up on PATH, and on win32 also under Program Files, since
- * neither archiver's installer puts itself on PATH. Shared with the unpacking
- * side, which goes looking for the same two programs under other names. */
-char    *nemo_archive_find_command (const char * const *names,
-				    const char         *win_subdir);
-
-/* Pure, so it can be reasoned about (and tested) without probing the box. */
-NemoArchiveCaps    nemo_archive_backend_caps     (NemoArchiveFormat  format,
-						  NemoArchiveBackend backend);
-gboolean           nemo_archive_backend_present  (NemoArchiveBackend backend);
-/* The ArcLinkStores a writer has, from whether it claims to store links. A
-   store choice outside them is Ignore for that writer. The format's is the
-   union over the writers installed. */
-guint              nemo_archive_backend_link_stores (NemoArchiveFormat  format,
-						     NemoArchiveBackend backend);
-guint              nemo_archive_format_link_stores  (NemoArchiveFormat  format);
-/* The same union, over the writers that can also do what options require: a
-   password or volumes. What the Compress dialog offers as store choices. */
-guint              nemo_archive_options_link_stores (NemoArchiveFormat         format,
-						     const NemoArchiveOptions *options);
-NemoArchiveBackend nemo_archive_pick_backend     (NemoArchiveFormat         format,
-						  const NemoArchiveOptions *options);
-/* TRUE when storing links takes the job off a program onto the library's 7z
-   writer, which compresses on one thread. */
-gboolean           nemo_archive_links_cost_threads (NemoArchiveFormat         format,
-						    const NemoArchiveOptions *options);
-
-/* For tests: answer as if the program were not installed, so the library's
-   own 7z writer can still be reached on a box that has 7-Zip. */
-void               nemo_archive_hide_backend     (NemoArchiveBackend backend,
-						  gboolean           hidden);
-/* For tests: 7-Zip keeps links, or doesn't as on Windows. */
-void               nemo_archive_set_7z_keeps_links (gboolean keeps);
-/* For tests: the job's walk tells filesystems apart by the table this
-   makes, called on the job's thread, rather than the system's. NULL puts
-   the system's back. */
-void               nemo_archive_set_mounts_for_test (ArcMountTable *(*mounts) (void));
 /* For tests: called on the job's thread each time its pre-scan reports to
    the progress info, the start and the end included. NULL for none. */
 void               nemo_archive_set_prescan_watch_for_test (void (*watch) (NemoProgressInfo *info));
 
-/* Name handling for the dialog: the extension follows the format, and a
- * selection suggests a name - or, when the selection is part of a folder rather
- * than one item or all of it, no name at all, which leaves the field for the
- * user to fill in. whole_folder says the selection is everything the folder is
- * showing. */
-char    *nemo_archive_strip_extension (const char *name);
-char    *nemo_archive_apply_extension (const char       *name,
-				       NemoArchiveFormat format);
-char    *nemo_archive_suggest_name    (GList            *files,
-				       gboolean          whole_folder,
-				       NemoArchiveFormat format);
-
-/* What one item's archive is called when a selection is compressed separately.
-   NULL for a name nothing can be built from, such as a drive root. */
-char    *nemo_archive_each_name       (const char       *item_name,
-				       NemoArchiveFormat format);
-
-/* The command line a 7z or rar backend would be run with, in the base folder
-   holding the selection, with the names on the line. leave_out holds paths
-   relative to that folder, to be left out. The job hands its names in list
-   files instead. Exposed so the switches can be checked without spawning
-   anything. */
+/* arc_build_command and arc_build_links_command with the settings as they
+   are now, and the app's host. */
 char   **nemo_archive_build_command (NemoArchiveBackend        backend,
 				     NemoArchiveFormat         format,
 				     const NemoArchiveOptions *options,
@@ -179,9 +127,6 @@ char   **nemo_archive_build_command (NemoArchiveBackend        backend,
 				     const char               *archive_path,
 				     GList                    *names,
 				     GList                    *leave_out);
-
-/* The run ahead of that one, which puts in the links named in names, as
-   links, while the real run follows links. */
 char   **nemo_archive_build_links_command (NemoArchiveBackend        backend,
 					   NemoArchiveFormat         format,
 					   const NemoArchiveOptions *options,
@@ -189,76 +134,10 @@ char   **nemo_archive_build_links_command (NemoArchiveBackend        backend,
 					   const char               *archive_path,
 					   GList                    *names);
 
-/* Switches a command line from the settings gets at run time, whatever was
-   typed there: -spd when it runs 7-Zip and lacks it, and -r0 last when it
-   runs rar to compress. The saved line is never changed. Takes argv and
-   returns the one to use; free with g_strfreev. */
-char   **nemo_archive_add_run_switches (char     **argv,
-					gboolean   compressing);
+/* arc_tool_stderr_start for a run started here, which the app's host runs. */
+GThread *nemo_archive_tool_stderr_start (NemoToolRun *process);
 
-/* A tool's stderr is folded into its stdout on Unix only. Elsewhere it gets
-   a pipe of its own, read on a thread from start to finish, and the caller
-   puts what it said after the rest. finish takes NULL, and returns NULL where
-   there was no pipe; caller frees. */
-GSubprocessFlags nemo_archive_tool_stderr_flag   (void);
-GThread         *nemo_archive_tool_stderr_start  (NemoToolRun *process);
-char            *nemo_archive_tool_stderr_finish (GThread     *reader);
-
-/* Whether a 7z or rar run that ended on a warning status warned about nothing
-   but names in skipped: what it was told to leave out, and links that lead
-   nowhere, which have nothing to put in.
-   output is what the tool printed, with its backspaces already applied;
-   skipped holds paths relative to the base folder. */
-gboolean nemo_archive_only_skipped_links (NemoArchiveBackend  backend,
-					  int                 exit_status,
-					  const char         *output,
-					  GList              *skipped);
-
-/* "700 MB", "4480m", "1.5 GB" -> bytes. Returns FALSE on anything unreadable. */
-/* What the tool actually writes when splitting is on. `digits` is how wide the
-   number is: 7z always uses 3, rar picks its own. */
-char    *nemo_archive_volume_name (const char         *archive_name,
-				   NemoArchiveBackend  backend,
-				   guint               volume,
-				   guint               digits);
-
-/* Renames a split that came out as one volume back to the name asked for.
-   Returns the file the archive is in, which the caller owns. */
-GFile   *nemo_archive_collapse_volume (GFile              *destination,
-				       NemoArchiveBackend  backend);
-
-/* The volume sizes offered, with what each is for. Returns the label, or NULL
-   past the last; size gets the size alone, as a size the parser reads. */
-const char *nemo_archive_volume_preset (guint        index,
-					const char **size);
-/* Which preset text names, by its label or its size alone, or -1. */
-int      nemo_archive_volume_preset_find (const char *text);
-
-/* A preset's label reads as its size. */
-gboolean nemo_archive_parse_size (const char *text,
-				  guint64    *bytes);
-char    *nemo_archive_format_size (guint64 bytes);
-
-/* How tall the Compress dialog's options may grow before they scroll: what
-   the work area leaves under the closed dialog (frame included), and never
-   less than a strip that still shows a few rows. */
-int      nemo_archive_options_room (int work_height,
-				    int closed_height);
-
-/* Whether an archive written with these options can be read back at all, and
-   so whether deleting the originals may be offered for it. A split set, an
-   archive with its names encrypted, and a 7z with a password that keeps links
-   answer FALSE. */
-gboolean nemo_archive_can_verify (const NemoArchiveOptions *options);
-gboolean nemo_archive_should_confirm_password (const NemoArchiveOptions *options);
-
-/* Walks the sources again and reads the archive back, so that nothing may be
-   deleted on the strength of the writer saying it went well. Answers TRUE only
-   when every file that should have gone in is in there under the same relative
-   path and the same size, and nothing was left out along the way. On FALSE,
-   reason is set to a sentence naming what did not line up; the caller frees it.
-   The walk is deliberately its own, rather than the one the job wrote from -
-   checking with the same code that did the work proves very little. */
+/* arc_verify with the app's host. */
 gboolean nemo_archive_verify (GFile                    *archive_file,
 			      GList                    *sources,
 			      const NemoArchiveOptions *options,
