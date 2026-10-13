@@ -218,6 +218,15 @@ run_share (void)
 		check (nemo_file_is_on_a_share (link));
 		nemo_file_unref (link);
 
+		/* An absolute path that climbs back onto it, as the archive scan
+		   asks after each hop of a link. */
+		{
+			g_autofree char *climb = g_build_filename (dir, "elsewhere", "..", "nas", "beside", NULL);
+
+			check (nemo_share_link_leaves_for_a_share (dir, climb));
+			check (!nemo_share_link_leaves_for_a_share (inside, climb));
+		}
+
 		/* Anything in a folder on it, the same as a UNC path. */
 		started = g_get_monotonic_time ();
 		link = plain_file (inside, "plain.txt");

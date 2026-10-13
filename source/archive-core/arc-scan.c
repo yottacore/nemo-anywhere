@@ -714,6 +714,19 @@ enter_child (ArcScan    *scan,
 	g_clear_object (&mounted);
 }
 
+/* A name the system lists but won't describe can't be put in, so it counts
+   as unreadable: a file the system holds in System Volume Information, or
+   anything in a folder that can be read but not searched. */
+static gboolean
+described (GFileInfo *info)
+{
+	if (!g_file_info_has_attribute (info, G_FILE_ATTRIBUTE_STANDARD_TYPE)) {
+		return FALSE;
+	}
+	return g_file_info_get_file_type (info) == G_FILE_TYPE_DIRECTORY ||
+	       g_file_info_has_attribute (info, G_FILE_ATTRIBUTE_STANDARD_SIZE);
+}
+
 static void
 add_target_file (ArcScan   *scan,
 		 GFile     *file,
@@ -773,7 +786,9 @@ follow_link (ArcScan    *scan,
 
 	file = g_file_new_for_path (real);
 	info = g_file_query_info (file, TARGET_ATTRIBUTES, G_FILE_QUERY_INFO_NONE, scan->cancellable, NULL);
-	if (info != NULL && g_file_info_get_file_type (info) == G_FILE_TYPE_DIRECTORY) {
+	if (info != NULL && !described (info)) {
+		leave_out (scan, scan->unreadable, real, needs);
+	} else if (info != NULL && g_file_info_get_file_type (info) == G_FILE_TYPE_DIRECTORY) {
 		identity = identity_of (info, real);
 		enter (scan, file, identity, real, needs);
 		g_free (identity);
@@ -792,7 +807,7 @@ might_be_link (GFileInfo *info)
 	/* GLib can call a junction a folder even when not following links, and
 	   also a mount point a symlink, so the reparse point says which. A .lnk is
 	   none of them. */
-	return g_file_info_get_is_symlink (info) ||
+	return g_file_info_get_attribute_boolean (info, G_FILE_ATTRIBUTE_STANDARD_IS_SYMLINK) ||
 	       g_file_info_get_file_type (info) == G_FILE_TYPE_SYMBOLIC_LINK ||
 	       g_file_info_get_file_type (info) == G_FILE_TYPE_DIRECTORY ||
 	       g_file_info_get_attribute_uint32 (info, G_FILE_ATTRIBUTE_DOS_REPARSE_POINT_TAG) != 0;
@@ -827,13 +842,20 @@ visit (ArcScan   *scan,
        GFileInfo *info)
 {
 	const char *name = g_file_info_get_name (info);
-	gboolean link = might_be_link (info);
+	gboolean link;
 	char *target = NULL;
 	GFile *child;
 
 	if (name == NULL) {
 		return;
 	}
+	if (!described (info)) {
+		child = g_file_get_child (frame->dir, name);
+		leave_out (scan, scan->unreadable, g_file_peek_path (child), frame->needs);
+		g_object_unref (child);
+		return;
+	}
+	link = might_be_link (info);
 	if (!link && g_file_info_get_file_type (info) != G_FILE_TYPE_DIRECTORY) {
 		add_file (scan, frame->text, name, (guint64) g_file_info_get_size (info), frame->needs);
 		return;

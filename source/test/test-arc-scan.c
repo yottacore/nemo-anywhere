@@ -285,6 +285,7 @@ typedef struct {
 	gboolean   at_gate;
 	gboolean   open;
 	char      *share;
+	gboolean   blind;	/* see check_undescribed */
 } Fake;
 
 static Fake fake;
@@ -296,6 +297,62 @@ is_under (const char *path,
 	gsize n = strlen (top);
 
 	return strncmp (path, top, n) == 0 && (path[n] == '\0' || G_IS_DIR_SEPARATOR (path[n]));
+}
+
+/* Hands out the real listing, less what the system would leave out for a
+   name it won't describe. */
+typedef struct {
+	GFileEnumerator  parent;
+	GFileEnumerator *real;
+} Blind;
+typedef GFileEnumeratorClass BlindClass;
+
+G_DEFINE_TYPE (Blind, blind, G_TYPE_FILE_ENUMERATOR)
+
+static GFileInfo *
+blind_next_file (GFileEnumerator  *enumerator,
+		 GCancellable     *cancellable,
+		 GError          **error)
+{
+	GFileInfo *info = g_file_enumerator_next_file (((Blind *) enumerator)->real, cancellable, error);
+	const char *name = info != NULL ? g_file_info_get_name (info) : NULL;
+
+	if (g_strcmp0 (name, "b.bin") == 0) {
+		g_file_info_remove_attribute (info, G_FILE_ATTRIBUTE_STANDARD_SIZE);
+	} else if (g_strcmp0 (name, "deeper") == 0) {
+		g_file_info_remove_attribute (info, G_FILE_ATTRIBUTE_STANDARD_SIZE);
+		g_file_info_remove_attribute (info, G_FILE_ATTRIBUTE_STANDARD_TYPE);
+	}
+	return info;
+}
+
+static gboolean
+blind_close (GFileEnumerator  *enumerator,
+	     GCancellable     *cancellable,
+	     GError          **error)
+{
+	return g_file_enumerator_close (((Blind *) enumerator)->real, cancellable, error);
+}
+
+static void
+blind_finalize (GObject *object)
+{
+	g_object_unref (((Blind *) object)->real);
+	G_OBJECT_CLASS (blind_parent_class)->finalize (object);
+}
+
+static void
+blind_init (Blind *self)
+{
+	(void) self;
+}
+
+static void
+blind_class_init (BlindClass *klass)
+{
+	G_OBJECT_CLASS (klass)->finalize = blind_finalize;
+	klass->next_file = blind_next_file;
+	klass->close_fn = blind_close;
 }
 
 static GFileEnumerator *
@@ -321,6 +378,17 @@ fake_children (gpointer             data,
 	}
 	g_mutex_unlock (&fake.lock);
 
+	if (fake.blind && is_under (path, root) && g_str_has_suffix (path, G_DIR_SEPARATOR_S "sel" G_DIR_SEPARATOR_S "sub")) {
+		GFileEnumerator *real = g_file_enumerate_children (dir, attributes, flags, cancellable, error);
+		Blind *blind;
+
+		if (real == NULL) {
+			return NULL;
+		}
+		blind = g_object_new (blind_get_type (), "container", dir, NULL);
+		blind->real = real;
+		return G_FILE_ENUMERATOR (blind);
+	}
 	return g_file_enumerate_children (dir, attributes, flags, cancellable, error);
 }
 
@@ -702,6 +770,35 @@ check_reached_twice (void)
 	}
 }
 
+/* A name listed with no size, as in a folder that can be read but not
+   searched, and one with no type either, as a file the system holds in
+   System Volume Information. Neither goes in the list, nor anything below
+   them; both count as unreadable. b.bin has no size, deeper no type, so
+   c.bin is never seen. */
+static void
+check_undescribed (void)
+{
+	guint mixes[] = { 0, ARC_FOLLOW_ALL };
+	guint i;
+
+	fake.blind = TRUE;
+	for (i = 0; i < G_N_ELEMENTS (mixes); i++) {
+		Seen seen;
+		ArcScan *scan;
+
+		seen_reset (&seen);
+		fake_reset (NULL);
+		scan = scan_of (&fake_host, "sel", NULL, mixes[i]);
+		arc_scan_start (scan, saw_report, &seen);
+		check (run_until_done (&seen));
+		check (arc_scan_report_total (&seen.last) == expected (mixes[i]) - 2 - 4);
+		check (seen.last.files == expected_files (mixes[i]) - 2);
+		check (seen.last.unreadable == 2);
+		arc_scan_free (scan);
+	}
+	fake.blind = FALSE;
+}
+
 /* Cancel while the walk waits: it stops, and nothing is reported after. */
 static void
 check_cancel (void)
@@ -840,6 +937,7 @@ main (int    argc,
 	check_narrowed_mid_scan ();
 	check_widened_mid_scan ();
 	check_reached_twice ();
+	check_undescribed ();
 	check_cancel ();
 	check_bare_host ();
 	check_app_host ();

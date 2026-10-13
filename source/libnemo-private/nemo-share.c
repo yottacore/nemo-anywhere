@@ -347,17 +347,11 @@ nemo_share_link_leaves_for_a_share (const char *link_folder,
 	}
 
 	/* Placed by text: the kernel would follow any link on the way, and
-	   asking it to is the very visit this avoids. */
-#ifdef G_OS_WIN32
-	if (g_path_is_absolute (target)) {
-		full = g_strdup (target);
-	}
-#else
+	   asking it to is the very visit this avoids. An absolute one may still
+	   have a .. in it, as what is left after a link's hop does. */
 	if (g_path_is_absolute (target)) {
 		full = g_canonicalize_filename (target, NULL);
-	}
-#endif
-	else if (link_folder != NULL) {
+	} else if (link_folder != NULL) {
 		full = g_canonicalize_filename (target, link_folder);
 	} else {
 		return FALSE;
