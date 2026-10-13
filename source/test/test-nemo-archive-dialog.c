@@ -364,7 +364,10 @@ probe_groups (gpointer data)
 #else
 	check (find_named (dialog, "junctions-follow") == NULL);
 	check (can_click (dialog, "follow-nested") == c->links_or_folders);
-	check (is_on (dialog, "follow-nested"));
+	/* Commented out: grayed for the selection, it shows off since
+	   2026100516274646, as any box that can't apply does. */
+	/* check (is_on (dialog, "follow-nested")); */
+	check (is_on (dialog, "follow-nested") == c->links_or_folders);
 #endif
 	check (is_on (dialog, "symlinks-ignore"));
 
@@ -518,6 +521,255 @@ probe_volumes (gpointer data)
 	return G_SOURCE_REMOVE;
 }
 
+/* The first format that can or can't do what's asked, or NULL. */
+static const char *
+format_that (NemoArchiveCaps caps, gboolean can)
+{
+	int i;
+
+	for (i = 0; i < NEMO_ARCHIVE_N_FORMATS; i++) {
+		if (nemo_archive_format_available ((NemoArchiveFormat) i) &&
+		    ((nemo_archive_format_caps ((NemoArchiveFormat) i) & caps) == caps) == can) {
+			return nemo_archive_format_id ((NemoArchiveFormat) i);
+		}
+	}
+
+	return NULL;
+}
+
+static GtkWidget *
+compress_button (GtkWidget *dialog)
+{
+	return gtk_dialog_get_widget_for_response (GTK_DIALOG (dialog), GTK_RESPONSE_OK);
+}
+
+static gboolean
+marked (GtkWidget *widget)
+{
+	return gtk_style_context_has_class (gtk_widget_get_style_context (widget),
+					    GTK_STYLE_CLASS_ERROR);
+}
+
+static gboolean
+still_up (gpointer data)
+{
+	Case *c = data;
+	GtkWidget *dialog = find_dialog ();
+
+	c->ran = TRUE;
+	check (dialog != NULL);
+	if (dialog != NULL) {
+		gtk_dialog_response (GTK_DIALOG (dialog), GTK_RESPONSE_CANCEL);
+	}
+
+	return G_SOURCE_REMOVE;
+}
+
+/* Splitting is a requirement, so a volume size that can't be read keeps
+   Compress grayed and the size marked, rather than writing one file. */
+static gboolean
+probe_unreadable_size (gpointer data)
+{
+	Case *c = data;
+	GtkWidget *dialog = find_dialog ();
+	GtkWidget *entry;
+	const char *id = format_that (NEMO_ARCHIVE_CAP_SPLIT, TRUE);
+
+	c->ran = TRUE;
+	check (dialog != NULL);
+	if (dialog == NULL) {
+		return G_SOURCE_REMOVE;
+	}
+	if (id == NULL) {
+		g_printerr ("note: nothing here splits, volume sizes not checked\n");
+		gtk_dialog_response (GTK_DIALOG (dialog), GTK_RESPONSE_CANCEL);
+		return G_SOURCE_REMOVE;
+	}
+
+	entry = gtk_bin_get_child (GTK_BIN (named (dialog, "volume-size")));
+	set_format (dialog, id);
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (named (dialog, "split")), TRUE);
+	check (gtk_widget_get_sensitive (compress_button (dialog)));
+	check (!marked (entry));
+
+	gtk_entry_set_text (GTK_ENTRY (entry), "lots");
+	check (!gtk_widget_get_sensitive (compress_button (dialog)));
+	check (marked (entry));
+
+	/* Grouped as the presets show it. */
+	gtk_entry_set_text (GTK_ENTRY (entry), "4,000 MiB");
+	check (gtk_widget_get_sensitive (compress_button (dialog)));
+	check (!marked (entry));
+
+	/* Not splitting, the size doesn't matter. */
+	gtk_entry_set_text (GTK_ENTRY (entry), "lots");
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (named (dialog, "split")), FALSE);
+	check (gtk_widget_get_sensitive (compress_button (dialog)));
+	check (!marked (entry));
+
+	/* Nor with a format that can't split. */
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (named (dialog, "split")), TRUE);
+	check (!gtk_widget_get_sensitive (compress_button (dialog)));
+	if (format_that (NEMO_ARCHIVE_CAP_SPLIT, FALSE) != NULL) {
+		set_format (dialog, format_that (NEMO_ARCHIVE_CAP_SPLIT, FALSE));
+		check (gtk_widget_get_sensitive (compress_button (dialog)));
+		set_format (dialog, id);
+	}
+
+	/* Enter or a response from elsewhere doesn't get past it either. */
+	check (!gtk_widget_get_sensitive (compress_button (dialog)));
+	g_timeout_add (300, still_up, c);
+	c->ran = FALSE;
+	gtk_dialog_response (GTK_DIALOG (dialog), GTK_RESPONSE_OK);
+
+	return G_SOURCE_REMOVE;
+}
+
+static gboolean
+options_open (GtkWidget *dialog)
+{
+	return gtk_expander_get_expanded (GTK_EXPANDER (find_type (dialog, GTK_TYPE_EXPANDER)));
+}
+
+/* Everything at its default: Options closed and Reset grayed. A change makes
+   Reset do something, and Reset puts it back, password and all. */
+static gboolean
+probe_reset (gpointer data)
+{
+	Case *c = data;
+	GtkWidget *dialog = find_dialog ();
+	GtkWidget *password;
+	const char *id = format_that (NEMO_ARCHIVE_CAP_SOLID | NEMO_ARCHIVE_CAP_PASSWORD, TRUE);
+
+	c->ran = TRUE;
+	check (dialog != NULL);
+	if (dialog == NULL) {
+		return G_SOURCE_REMOVE;
+	}
+	password = named (dialog, "password");
+
+	check (!options_open (dialog));
+	check (!can_click (dialog, "reset-options"));
+
+	gtk_expander_set_expanded (GTK_EXPANDER (find_type (dialog, GTK_TYPE_EXPANDER)), TRUE);
+	settle ();
+	click (dialog, "symlinks-follow");
+	check (can_click (dialog, "reset-options"));
+	if (id != NULL) {
+		set_format (dialog, id);
+		click (dialog, "solid");
+		check (is_on (dialog, "solid"));
+		gtk_entry_set_text (GTK_ENTRY (password), "secret");
+	} else {
+		g_printerr ("note: no format here makes a solid archive with a password\n");
+	}
+
+	click (dialog, "reset-options");
+	settle ();
+	check (!options_open (dialog));
+	check (!can_click (dialog, "reset-options"));
+	check (is_on (dialog, "symlinks-ignore"));
+	check (!is_on (dialog, "solid"));
+	check (gtk_entry_get_text_length (GTK_ENTRY (password)) == 0);
+
+	/* A password alone is enough to reset. */
+	if (id != NULL) {
+		gtk_entry_set_text (GTK_ENTRY (password), "secret");
+		check (can_click (dialog, "reset-options"));
+		gtk_entry_set_text (GTK_ENTRY (password), "");
+		check (!can_click (dialog, "reset-options"));
+	}
+
+	gtk_dialog_response (GTK_DIALOG (dialog), GTK_RESPONSE_CANCEL);
+	return G_SOURCE_REMOVE;
+}
+
+/* Remembered choices that aren't the defaults open Options by itself, as a
+   click would, and Reset drops them from the settings file. */
+static gboolean
+probe_opens_by_itself (gpointer data)
+{
+	Case *c = data;
+	GtkWidget *dialog = find_dialog ();
+	NemoConfigGroup *group = nemo_config_get_group (NEMO_ARCHIVE_COMMANDS_GROUP);
+	GtkScrolledWindow *scroll;
+	GdkRectangle work, frame;
+
+	c->ran = TRUE;
+	check (dialog != NULL);
+	if (dialog == NULL) {
+		return G_SOURCE_REMOVE;
+	}
+
+	settle ();
+	check (options_open (dialog));
+	check (can_click (dialog, "reset-options"));
+	check (is_on (dialog, "symlinks-follow"));
+	check (g_strcmp0 (gtk_entry_get_text (GTK_ENTRY (gtk_bin_get_child (GTK_BIN (
+		named (dialog, "volume-size"))))), "4,095 MiB (max FAT32 size)") == 0);
+
+	/* Opened the way a click opens it: the options scroll in the room the
+	   screen has, and the buttons stay on it. */
+	scroll = GTK_SCROLLED_WINDOW (gtk_bin_get_child (GTK_BIN (find_type (dialog, GTK_TYPE_EXPANDER))));
+	check (gtk_scrolled_window_get_max_content_height (scroll) > 0);
+	gdk_monitor_get_workarea (gdk_display_get_monitor_at_window (gtk_widget_get_display (dialog),
+								     gtk_widget_get_window (dialog)),
+				  &work);
+	gdk_window_get_frame_extents (gtk_widget_get_window (dialog), &frame);
+	check (frame.y >= work.y && frame.y + frame.height <= work.y + work.height);
+
+	click (dialog, "reset-options");
+	settle ();
+	check (!options_open (dialog));
+	check (is_on (dialog, "symlinks-ignore"));
+	check (g_strcmp0 (gtk_entry_get_text (GTK_ENTRY (gtk_bin_get_child (GTK_BIN (
+		named (dialog, "volume-size"))))), "2 GiB (old 32-bit tools)") == 0);
+	check (!nemo_config_is_set (group, NEMO_ARCHIVE_STATE_KEY_SYMLINKS));
+	check (!nemo_config_is_set (group, NEMO_ARCHIVE_STATE_KEY_SPLIT_SIZE));
+	check (!nemo_config_is_set (group, NEMO_ARCHIVE_STATE_KEY_LOCK));
+	check (!nemo_config_is_set (group, NEMO_ARCHIVE_STATE_KEY_RECOVERY));
+	/* Not under Options. */
+	check (nemo_config_is_set (group, NEMO_ARCHIVE_STATE_KEY_FORMAT));
+
+	gtk_dialog_response (GTK_DIALOG (dialog), GTK_RESPONSE_CANCEL);
+	return G_SOURCE_REMOVE;
+}
+
+/* A remembered choice the format turns off still opens Options. It shows off
+   and grayed, and comes back with a format that can do it. */
+static gboolean
+probe_forced_off (gpointer data)
+{
+	Case *c = data;
+	GtkWidget *dialog = find_dialog ();
+	const char *can = format_that (NEMO_ARCHIVE_CAP_LOCK, TRUE);
+
+	c->ran = TRUE;
+	check (dialog != NULL);
+	if (dialog == NULL) {
+		return G_SOURCE_REMOVE;
+	}
+
+	settle ();
+	check (options_open (dialog));
+	check (can_click (dialog, "reset-options"));
+	check (!is_on (dialog, "lock"));
+	check (!can_click (dialog, "lock"));
+
+	if (can != NULL) {
+		set_format (dialog, can);
+		check (is_on (dialog, "lock"));
+		check (can_click (dialog, "lock"));
+		set_format (dialog, format_that (NEMO_ARCHIVE_CAP_LOCK, FALSE));
+		check (!is_on (dialog, "lock"));
+	} else {
+		g_printerr ("note: nothing here locks an archive, switching back not checked\n");
+	}
+
+	gtk_dialog_response (GTK_DIALOG (dialog), GTK_RESPONSE_CANCEL);
+	return G_SOURCE_REMOVE;
+}
+
 static void
 run_case (GSourceFunc probe, Case *c, GList *files, GFile *dir)
 {
@@ -588,6 +840,27 @@ main (int argc, char *argv[])
 	plain.volume_size = "1 GiB";
 	run_case (probe_volumes, &plain, files, dir);
 	nemo_config_reset (group, NEMO_ARCHIVE_STATE_KEY_SPLIT_SIZE);
+
+	run_case (probe_unreadable_size, &plain, files, dir);
+	check (!nemo_config_is_set (group, NEMO_ARCHIVE_STATE_KEY_SPLIT));
+
+	run_case (probe_reset, &folder, files, dir);
+
+	nemo_config_set_string (group, NEMO_ARCHIVE_STATE_KEY_SPLIT_SIZE, "4095 MiB");
+	nemo_config_set_enum (group, NEMO_ARCHIVE_STATE_KEY_SYMLINKS, ARC_LINK_FOLLOW);
+	nemo_config_set_boolean (group, NEMO_ARCHIVE_STATE_KEY_LOCK, TRUE);
+	nemo_config_set_string (group, NEMO_ARCHIVE_STATE_KEY_FORMAT, "tar");
+	run_case (probe_opens_by_itself, &folder, files, dir);
+	nemo_config_reset (group, NEMO_ARCHIVE_STATE_KEY_FORMAT);
+
+	/* Locking is the only remembered choice, and the format can't lock. */
+	nemo_config_set_boolean (group, NEMO_ARCHIVE_STATE_KEY_LOCK, TRUE);
+	nemo_config_set_string (group, NEMO_ARCHIVE_STATE_KEY_FORMAT,
+				format_that (NEMO_ARCHIVE_CAP_LOCK, FALSE));
+	run_case (probe_forced_off, &folder, files, dir);
+	check (nemo_config_get_boolean (group, NEMO_ARCHIVE_STATE_KEY_LOCK));
+	nemo_config_reset (group, NEMO_ARCHIVE_STATE_KEY_LOCK);
+	nemo_config_reset (group, NEMO_ARCHIVE_STATE_KEY_FORMAT);
 
 	g_list_free (files);
 	g_object_unref (file);

@@ -240,14 +240,55 @@ check_volume_presets (void)
 	       bytes == 4095ULL * 1024 * 1024);
 	check (nemo_archive_volume_preset_find ("2 GiB") == 3);
 
-	/* Typed sizes read as they always have. The grouping comma is the
-	   preset's spelling, not something the parser takes. */
+	/* Typed sizes read as they always have. */
 	check (nemo_archive_volume_preset_find ("1 GiB") == -1);
 	check (nemo_archive_volume_preset_find (NULL) == -1);
 	check (nemo_archive_parse_size ("1 GiB", &bytes) && bytes == 1024ULL * 1024 * 1024);
-	check (!nemo_archive_parse_size ("4,095 MiB", &bytes));
+	/* Commented out: a typed size takes the grouping comma the presets show
+	   since 2026101308213019, checked in check_typed_sizes. */
+	/* check (!nemo_archive_parse_size ("4,095 MiB", &bytes)); */
 	check (!nemo_archive_parse_size ("4,095 MiB (max FAT32", &bytes));
 	check (!nemo_archive_parse_size ("4095 MiB (CD)", &bytes));
+}
+
+/* A typed size that can't be read has to be refused, since the dialog can only
+   keep Compress grayed for a size the parser turns down. One that comes out
+   under a byte would mean no volumes at all. */
+static void
+check_typed_sizes (void)
+{
+	guint64 bytes;
+
+	/* Grouped as the presets are written. */
+	bytes = 0;
+	check (nemo_archive_parse_size ("4,000 MiB", &bytes) && bytes == 4000ULL * 1024 * 1024);
+	bytes = 0;
+	check (nemo_archive_parse_size ("4,095 MiB", &bytes) && bytes == 4095ULL * 1024 * 1024);
+	bytes = 0;
+	check (nemo_archive_parse_size ("1,048,576", &bytes) && bytes == 1048576);
+	bytes = 0;
+	check (nemo_archive_parse_size ("1,000.5 KiB", &bytes) && bytes == 1024512);
+
+	/* A comma anywhere else is no grouping, and "1,5" may mean 1.5. */
+	check (!nemo_archive_parse_size ("1,5 GiB", &bytes));
+	check (!nemo_archive_parse_size ("4,0000 MiB", &bytes));
+	check (!nemo_archive_parse_size ("40,00 MiB", &bytes));
+	check (!nemo_archive_parse_size (",400 MiB", &bytes));
+	check (!nemo_archive_parse_size ("400, MiB", &bytes));
+	check (!nemo_archive_parse_size ("1,,000 MiB", &bytes));
+	check (!nemo_archive_parse_size ("1.000,5 MiB", &bytes));
+
+	/* Numbers strtod takes that aren't sizes. */
+	check (!nemo_archive_parse_size ("lots", &bytes));
+	check (!nemo_archive_parse_size ("nan", &bytes));
+	check (!nemo_archive_parse_size ("inf GiB", &bytes));
+	check (!nemo_archive_parse_size ("0x10 MiB", &bytes));
+	check (!nemo_archive_parse_size ("1e3 MiB", &bytes));
+	check (!nemo_archive_parse_size ("+5 MiB", &bytes));
+	check (!nemo_archive_parse_size ("0.0001 KiB", &bytes));
+	check (!nemo_archive_parse_size ("99999999999 TiB", &bytes));
+	bytes = 0;
+	check (nemo_archive_parse_size (".5 KiB", &bytes) && bytes == 512);
 }
 
 /* The store choices the Compress dialog offers: what the writers that can do
@@ -1183,6 +1224,7 @@ main (void)
 	check_each_names ();
 	check_sizes ();
 	check_volume_presets ();
+	check_typed_sizes ();
 	check_volume_names ();
 	check_volume_collapse (scratch);
 	check_backends ();

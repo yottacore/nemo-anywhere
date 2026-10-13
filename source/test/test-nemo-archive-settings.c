@@ -443,6 +443,125 @@ test_fall_back_follows_claims (void)
 #endif
 }
 
+static gboolean
+same_choices (const NemoArchiveChoices *a,
+	      const NemoArchiveChoices *b)
+{
+	return a->level == b->level &&
+	       !a->encrypt_names == !b->encrypt_names &&
+	       !a->split == !b->split &&
+	       g_strcmp0 (a->split_size, b->split_size) == 0 &&
+	       !a->solid == !b->solid &&
+	       !a->dedupe == !b->dedupe &&
+	       a->links.symlinks == b->links.symlinks &&
+	       !a->links.junctions_set == !b->links.junctions_set &&
+	       (!a->links.junctions_set || a->links.junctions == b->links.junctions) &&
+	       !a->links.follow_nested == !b->links.follow_nested &&
+	       !a->links.follow_other == !b->links.follow_other &&
+	       !a->recovery == !b->recovery &&
+	       !a->lock == !b->lock;
+}
+
+/* What Options opens for, keeps through a format that can't do it, and
+   drops on Reset. */
+static void
+test_choices (void)
+{
+	static const char *const keys[] = {
+		"last-level", "last-encrypt-names", "last-split:", "last-split-size",
+		"last-solid", "last-dedupe", "last-symlinks", "last-junctions",
+		"last-follow-nested", "last-recovery", "last-lock",
+	};
+	NemoConfigGroup *group = nemo_config_get_group (NEMO_ARCHIVE_COMMANDS_GROUP);
+	NemoArchiveChoices fresh, loaded = { 0 }, chosen, shown = { 0 };
+	guint i;
+
+	nemo_archive_choices_forget ();
+	nemo_config_set_string (group, NEMO_ARCHIVE_STATE_KEY_FORMAT, "7z");
+	nemo_config_set_boolean (group, NEMO_ARCHIVE_STATE_KEY_EACH, TRUE);
+
+	/* Nothing remembered reads back as the defaults, which are the settings
+	   table's. */
+	nemo_archive_choices_init (&fresh);
+	check (nemo_archive_choices_at_default (&fresh));
+	nemo_archive_choices_load (&loaded);
+	check (same_choices (&loaded, &fresh));
+	check (nemo_archive_choices_at_default (&loaded));
+	check (fresh.recovery && fresh.links.follow_nested && !fresh.split &&
+	       fresh.level == NEMO_ARCHIVE_LEVEL_DEFAULT);
+
+	/* Each one off its default counts, other filesystems too. */
+	nemo_archive_choices_init (&chosen);
+	chosen.links.follow_other = TRUE;
+	check (!nemo_archive_choices_at_default (&chosen));
+	chosen.links.follow_other = FALSE;
+	chosen.recovery = FALSE;
+	check (!nemo_archive_choices_at_default (&chosen));
+	chosen.recovery = TRUE;
+	g_free (chosen.split_size);
+	chosen.split_size = g_strdup ("2 GiB (old 32-bit tools)");
+	check (nemo_archive_choices_at_default (&chosen));
+	g_free (chosen.split_size);
+	chosen.split_size = g_strdup ("2048 MiB");
+	check (!nemo_archive_choices_at_default (&chosen));
+
+	/* A format that can't lock, make solid or encrypt names shows them off,
+	   and what was chosen stays as it was. */
+	chosen.lock = TRUE;
+	chosen.solid = TRUE;
+	chosen.split = TRUE;
+	chosen.encrypt_names = TRUE;
+	g_free (chosen.split_size);
+	chosen.split_size = g_strdup ("4,095 MiB (max FAT32 size)");
+	arc_link_options_set_symlinks (&chosen.links, ARC_LINK_FOLLOW);
+	nemo_archive_choices_shown (&chosen, NEMO_ARCHIVE_CAP_LEVEL | NEMO_ARCHIVE_CAP_PASSWORD |
+				    NEMO_ARCHIVE_CAP_SPLIT, TRUE, &shown);
+	check (!shown.lock && !shown.solid && !shown.encrypt_names && shown.split && shown.recovery == FALSE);
+	check (chosen.lock && chosen.solid && chosen.encrypt_names && chosen.recovery);
+
+	/* Encrypting names needs a password as well. */
+	nemo_archive_choices_shown (&chosen, NEMO_ARCHIVE_CAP_PASSWORD | NEMO_ARCHIVE_CAP_ENCRYPT_NAMES,
+				    FALSE, &shown);
+	check (!shown.encrypt_names && !shown.split);
+	nemo_archive_choices_shown (&chosen, NEMO_ARCHIVE_CAP_PASSWORD | NEMO_ARCHIVE_CAP_ENCRYPT_NAMES,
+				    TRUE, &shown);
+	check (shown.encrypt_names);
+
+	/* Saved as chosen, the preset as its size alone. */
+	nemo_archive_choices_save (&chosen);
+	check (file_mentions ("last-lock"));
+	check (file_mentions ("last-solid"));
+	check (file_mentions ("4095 MiB"));
+	check (!file_mentions ("FAT32"));
+	nemo_archive_choices_clear (&loaded);
+	nemo_archive_choices_load (&loaded);
+	check (loaded.lock && loaded.solid && loaded.split && loaded.encrypt_names);
+	check (g_strcmp0 (loaded.split_size, "4095 MiB") == 0);
+	check (loaded.links.symlinks == ARC_LINK_FOLLOW);
+	check (!nemo_archive_choices_at_default (&loaded));
+
+	/* Reset drops them all, and nothing outside Options. */
+	nemo_archive_choices_forget ();
+	for (i = 0; i < G_N_ELEMENTS (keys); i++) {
+		if (file_mentions (keys[i])) {
+			g_printerr ("FAIL: %s still in the file after a reset\n", keys[i]);
+			failures++;
+		}
+	}
+	check (nemo_config_is_set (group, NEMO_ARCHIVE_STATE_KEY_FORMAT));
+	check (nemo_config_is_set (group, NEMO_ARCHIVE_STATE_KEY_EACH));
+	nemo_archive_choices_clear (&loaded);
+	nemo_archive_choices_load (&loaded);
+	check (same_choices (&loaded, &fresh));
+
+	nemo_config_reset (group, NEMO_ARCHIVE_STATE_KEY_FORMAT);
+	nemo_config_reset (group, NEMO_ARCHIVE_STATE_KEY_EACH);
+	nemo_archive_choices_clear (&fresh);
+	nemo_archive_choices_clear (&loaded);
+	nemo_archive_choices_clear (&chosen);
+	nemo_archive_choices_clear (&shown);
+}
+
 int
 main (void)
 {
@@ -457,6 +576,7 @@ main (void)
 	test_old_boxes ();
 	test_link_choices_kept ();
 	test_fall_back_follows_claims ();
+	test_choices ();
 	test_survives_a_restart ();
 	test_when_the_password_is_confirmed ();
 

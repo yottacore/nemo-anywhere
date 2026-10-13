@@ -371,6 +371,41 @@ check_from_config (void)
 					   "7z", "/tmp/out.7z", names, NULL);
 	check (argv == NULL);
 
+	/* A password and volumes are requirements. A line edited past one is
+	   refused while it's asked for, and runs while it isn't. */
+	nemo_config_set_string (archive, NEMO_ARCHIVE_COMMAND_KEY_7Z,
+				"7z a {{FORMAT}} {{SPLIT}} -- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}");
+	argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_7Z, options.format, &options,
+					   "7z", "/tmp/out.7z", names, NULL);
+	check (argv != NULL);
+	g_strfreev (argv);
+	options.password = g_strdup ("hunter");
+	argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_7Z, options.format, &options,
+					   "7z", "/tmp/out.7z", names, NULL);
+	check (argv == NULL);
+	g_strfreev (argv);
+	g_clear_pointer (&options.password, g_free);
+
+	nemo_config_set_string (archive, NEMO_ARCHIVE_COMMAND_KEY_7Z,
+				"7z a {{FORMAT}} {{PASSWORD}} -- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}");
+	options.split_size = 1024 * 1024;
+	argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_7Z, options.format, &options,
+					   "7z", "/tmp/out.7z", names, NULL);
+	check (argv == NULL);
+	g_strfreev (argv);
+	nemo_config_set_string (archive, NEMO_ARCHIVE_COMMAND_KEY_RAR,
+				"rar a {{PASSWORD}} -- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}");
+	argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_RAR, NEMO_ARCHIVE_FORMAT_RAR, &options,
+					   "rar", "/tmp/out.rar", names, NULL);
+	check (argv == NULL);
+	g_strfreev (argv);
+	options.split_size = 0;
+	argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_RAR, NEMO_ARCHIVE_FORMAT_RAR, &options,
+					   "rar", "/tmp/out.rar", names, NULL);
+	check (argv != NULL);
+	g_strfreev (argv);
+	nemo_config_reset (archive, NEMO_ARCHIVE_COMMAND_KEY_RAR);
+
 	nemo_config_reset (archive, NEMO_ARCHIVE_COMMAND_KEY_7Z);
 	nemo_archive_options_clear (&options);
 	g_list_free (names);

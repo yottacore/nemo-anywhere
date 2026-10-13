@@ -38,6 +38,40 @@ G_BEGIN_DECLS
 void nemo_archive_link_options_load (ArcLinkOptions       *options);
 void nemo_archive_link_options_save (const ArcLinkOptions *options);
 
+/* Every choice under Options that is remembered, as chosen. A format or a
+   selection that can't do one shows it off without changing it here, so
+   switching back puts it back. Options in
+   project/design_docs/20260929-101432_compression.md. */
+typedef struct {
+	int            level;
+	gboolean       encrypt_names;
+	gboolean       split;
+	char          *split_size;	/* a preset's size alone, or as typed */
+	gboolean       solid;
+	gboolean       dedupe;
+	ArcLinkOptions links;
+	gboolean       recovery;
+	gboolean       lock;
+} NemoArchiveChoices;
+
+void     nemo_archive_choices_init       (NemoArchiveChoices       *choices);
+void     nemo_archive_choices_clear      (NemoArchiveChoices       *choices);
+void     nemo_archive_choices_copy       (NemoArchiveChoices       *to,
+					  const NemoArchiveChoices *from);
+void     nemo_archive_choices_load       (NemoArchiveChoices       *choices);
+void     nemo_archive_choices_save       (const NemoArchiveChoices *choices);
+gboolean nemo_archive_choices_at_default (const NemoArchiveChoices *choices);
+/* Drops every remembered choice under Options from the settings file. */
+void     nemo_archive_choices_forget     (void);
+/* What shows: each choice the format can't do turned off. Encrypting the
+   names needs a password too. Links go by arc_link_options_symlinks and
+   _junctions, since what a writer can store depends on more than the
+   format. shown is cleared first, so it starts zeroed or initialized. */
+void     nemo_archive_choices_shown      (const NemoArchiveChoices *chosen,
+					  guint                     caps,
+					  gboolean                  has_password,
+					  NemoArchiveChoices       *shown);
+
 /* An ArcHost with what the core has been given so far: the folder walk,
    which gets past MAX_PATH on Windows, and the share check. */
 void nemo_archive_host_init         (ArcHost              *host);

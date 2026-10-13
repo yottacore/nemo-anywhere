@@ -844,15 +844,68 @@ nemo_archive_volume_preset_find (const char *text)
 	return found;
 }
 
+/* Digits, grouped by commas the way the presets show them or not at all, then
+   a point and more digits. "1,5" isn't a grouping, and could mean 1.5, so it
+   isn't a number here. No sign, exponent, hex, inf or nan, which strtod would
+   take. */
+static gboolean
+read_plain_number (const char  *text,
+		   double      *value,
+		   const char **end)
+{
+	GString *digits = g_string_new (NULL);
+	const char *p = text;
+	guint run = 0;
+	gboolean grouped = FALSE;
+	gboolean ok = TRUE;
+
+	for (; g_ascii_isdigit (*p) || *p == ','; p++) {
+		if (*p != ',') {
+			g_string_append_c (digits, *p);
+			run++;
+			continue;
+		}
+		/* The first group is 1 to 3 digits, every one after it 3. */
+		if (run == 0 || run > 3 || (grouped && run != 3)) {
+			ok = FALSE;
+		}
+		grouped = TRUE;
+		run = 0;
+	}
+	if (grouped && run != 3) {
+		ok = FALSE;
+	}
+
+	if (*p == '.') {
+		g_string_append_c (digits, *p++);
+		while (g_ascii_isdigit (*p)) {
+			g_string_append_c (digits, *p++);
+		}
+	}
+
+	if (!ok || strpbrk (digits->str, "0123456789") == NULL) {
+		g_string_free (digits, TRUE);
+		return FALSE;
+	}
+
+	*value = g_ascii_strtod (digits->str, NULL);
+	*end = p;
+	g_string_free (digits, TRUE);
+
+	return TRUE;
+}
+
 /* Sizes are read the way archivers write them: k, m, g and t are 1024-based,
-   and a bare number is bytes. */
+   and a bare number is bytes. Anything that comes out under a byte, or past
+   what a size can hold, is refused, since a size of 0 means no volumes. */
 gboolean
 nemo_archive_parse_size (const char *text,
 			 guint64    *bytes)
 {
 	const char *p;
-	char *end = NULL;
+	const char *end = NULL;
 	double value;
+	double total;
 	guint64 multiplier;
 	int preset;
 
@@ -873,8 +926,7 @@ nemo_archive_parse_size (const char *text,
 		return FALSE;
 	}
 
-	value = g_ascii_strtod (p, &end);
-	if (end == p || value <= 0.0) {
+	if (!read_plain_number (p, &value, &end) || value <= 0.0) {
 		return FALSE;
 	}
 
@@ -925,8 +977,14 @@ nemo_archive_parse_size (const char *text,
 		return FALSE;
 	}
 
+	/* 2^63, comfortably past any disk, and exact as a double. */
+	total = value * (double) multiplier;
+	if (total < 1.0 || total >= 9223372036854775808.0) {
+		return FALSE;
+	}
+
 	if (bytes != NULL) {
-		*bytes = (guint64) (value * (double) multiplier);
+		*bytes = (guint64) total;
 	}
 
 	return TRUE;
@@ -2238,9 +2296,40 @@ nemo_archive_add_run_switches (char     **argv,
 	return out;
 }
 
+/* A password and volumes are requirements, so a line edited past either one
+   is refused. Run anyway, it would write a readable archive, or one file. */
+static gboolean
+line_keeps_requirements (const char              *key,
+			 const char              *text,
+			 const NemoCommandToken  *tokens,
+			 GError                 **error)
+{
+	char **missing = nemo_command_template_unused (text, tokens);
+	gboolean ok = TRUE;
+	int i;
+
+	for (i = 0; missing != NULL && missing[i] != NULL && ok; i++) {
+		if (strcmp (missing[i], "PASSWORD") == 0) {
+			g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
+				     _("The %s command line in the settings has no {{PASSWORD}}, "
+				       "so the archive would not be encrypted."), key);
+			ok = FALSE;
+		} else if (strcmp (missing[i], "SPLIT") == 0) {
+			g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
+				     _("The %s command line in the settings has no {{SPLIT}}, "
+				       "so the archive would not be split into volumes."), key);
+			ok = FALSE;
+		}
+	}
+
+	g_strfreev (missing);
+	return ok;
+}
+
 /* links_only is the run ahead of the real one that keeps the links that lead
    nowhere. It keeps every link it is handed, and leaves the switches that the
-   real run adds, or that would stop it adding, to the real run. */
+   real run adds, or that would stop it adding, to the real run.
+   Returns: (transfer full): free with g_strfreev, or NULL with why in error */
 static char **
 build_command (NemoArchiveBackend        backend,
 	       NemoArchiveFormat         format,
@@ -2249,7 +2338,8 @@ build_command (NemoArchiveBackend        backend,
 	       const char               *archive_path,
 	       GList                    *names,
 	       GList                    *leave_out,
-	       gboolean                  links_only)
+	       gboolean                  links_only,
+	       GError                  **why)
 {
 	/* One slot per switch a token stands for, plus the terminator. Only the
 	   password ever needs two, and only for 7-Zip. */
@@ -2406,7 +2496,16 @@ build_command (NemoArchiveBackend        backend,
 		if (argv == NULL) {
 			g_warning ("The %s command line cannot be run as written (%s): %s",
 				   key, error->message, text);
+			g_set_error (why, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
+				     _("The %s command line in the settings can't be run as written: %s"),
+				     key, error->message);
 			g_clear_error (&error);
+		} else if (!line_keeps_requirements (key, text, tokens, &error)) {
+			g_warning ("%s", error->message);
+			g_propagate_error (why, error);
+			error = NULL;
+			g_strfreev (argv);
+			argv = NULL;
 		} else {
 			nemo_command_template_warn_unused (key, text, tokens);
 			argv = nemo_archive_add_run_switches (argv, TRUE);
@@ -2442,7 +2541,7 @@ nemo_archive_build_command (NemoArchiveBackend        backend,
 			    GList                    *leave_out)
 {
 	return build_command (backend, format, options, program, archive_path,
-			      names, leave_out, FALSE);
+			      names, leave_out, FALSE, NULL);
 }
 
 /* Returns: (transfer full): free with g_strfreev */
@@ -2455,7 +2554,7 @@ nemo_archive_build_links_command (NemoArchiveBackend        backend,
 				  GList                    *names)
 {
 	return build_command (backend, format, options, program, archive_path,
-			      names, NULL, TRUE);
+			      names, NULL, TRUE, NULL);
 }
 
 static gboolean
@@ -3198,12 +3297,12 @@ run_command (ArchiveJob *job)
 		}
 	}
 
-	argv = nemo_archive_build_command (job->backend, job->options.format, &job->options,
-					   program, archive_path, names, leave_out);
+	argv = build_command (job->backend, job->options.format, &job->options,
+			      program, archive_path, names, leave_out, FALSE, &error);
 	g_list_free (leave_out);
 
 	output = g_string_new (NULL);
-	process = start_tool (job, argv, base_path, output, &error);
+	process = argv != NULL ? start_tool (job, argv, base_path, output, &error) : NULL;
 
 	if (process == NULL) {
 		job_fail (job, _("The archive could not be created."),
