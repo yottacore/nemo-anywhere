@@ -75,6 +75,37 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: bbf8c15, 205074b
 	- Test case: rjw1ks5h, New window start win32 test. The test stands in for the new copy. For a new window, one with a selection, and a tab moved out, the copy must be started by the app itself, with the user's environment, and no spawn helper may be running. It also opens a link of a scheme it sets up for the user, and one nothing handles, which must fail. rjvzdd4w's new copy case now starts the same way.
 
+- F2 renaming in photo icon view doesn't work.
+	- ID: 2026101009150764
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 191 of 191.
+	- Priority|Severity: Avg
+	- Opened: 20261010-091507
+	- Opened by: t00mietum
+	- Target OS: all
+	- Requirements:
+		- Before the next cut.
+	- Steps to reproduce: in a folder of photos in icon view, select a photo and press F2.
+	- Incorrect behavior: F2 renaming doesn't work.
+	- Expected behavior: the name opens for editing, like in the other views.
+	- Reproduced: 20261013, Linux, 2 ways. Both leave a box nobody can type into, so F2 seems to do nothing. A plain F2 on a photo in a folder of photos at the usual size works.
+		- F2 on a photo, then the icon size changes, then F2 on the same photo again. The second box keeps the old width, and the name is centered in the new one, so it sits partly or wholly outside the box.
+		- A short window, so the name under a big photo is below what's in sight. F2 opens the box down there.
+	- Actual cause:
+		- The icon view keeps one box for renaming and hides it in between. Each F2 gives it the width of a name under an icon, which follows the icon size. GTK doesn't size a hidden box again for a new width, and the same name again changed nothing else, so the box kept its old size.
+		- A folder of photos opens at the plain size and grows to the photo size once it has loaded. That closes a rename already open. So there it takes only an F2 during the load and a second F2 to hit the first case. Zooming between 2 F2s does it in any folder.
+		- F2 never scrolled to the box.
+	- Actual fix: the box takes its new width even while hidden, and a new font too. F2 scrolls so the box is in sight.
+	- Progress log:
+		- 20261013: Options for later: the size change when a folder of photos finishes loading still closes a rename open at the time. It could reopen the box at the new size.
+		- 20261013: left at signoff. The case seen isn't known for sure. These are the 2 ways found where F2 in a folder of photos shows nothing to type into.
+	- Swept: the icon view's box is the only one of its kind, and the compact view uses it too. The list view, Places and the tree rename inside a tree cell, which GTK sizes when it shows it.
+	- Branch: f2tips
+	- Commit: f683771
+	- Test case: rk520jh7, Rename field takes a new width while hidden test. The box in a layout, renamed at one width, hidden, then given a wider and a narrower width with the same name, takes each width and holds the name. rk526bz6, F2 in a folder of pictures test, Linux only. In a short window, F2 on a photo, zoom in twice, F2 on the same photo. Both times the box is as wide as it asked for and in sight.
+	- Verified: rk520jh7 failed before the fix, 4 checks, and passes after, on Linux and under wine. rk526bz6 failed before the fix, 3 of its 6 checks, and passes after. The full Linux suite passed, 191 of 191. The Windows cross build passes. Lint is clean apart from rj3ytv0b, which always fails in a worktree.
+
 - On Windows, every bundle has only the app's own exe, so no form of the app starts a program from inside its bundle.
 	- ID: 2026100917220603
 	- Type: Enhancement
@@ -365,65 +396,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: thumbwin
 	- Commit: f38660a to f8a6223
 	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session. (c) still needs its own: a thumbnail and the text from a small file of each type, on every platform, and a check that no program is started for them.
-
-- F2 renaming in photo icon view doesn't work.
-	- ID: 2026101009150764
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 191 of 191.
-	- Priority|Severity: Avg
-	- Opened: 20261010-091507
-	- Opened by: t00mietum
-	- Target OS: all
-	- Requirements:
-		- Before the next cut.
-	- Steps to reproduce: in a folder of photos in icon view, select a photo and press F2.
-	- Incorrect behavior: F2 renaming doesn't work.
-	- Expected behavior: the name opens for editing, like in the other views.
-	- Reproduced: 20261013, Linux, 2 ways. Both leave a box nobody can type into, so F2 seems to do nothing. A plain F2 on a photo in a folder of photos at the usual size works.
-		- F2 on a photo, then the icon size changes, then F2 on the same photo again. The second box keeps the old width, and the name is centered in the new one, so it sits partly or wholly outside the box.
-		- A short window, so the name under a big photo is below what's in sight. F2 opens the box down there.
-	- Actual cause:
-		- The icon view keeps one box for renaming and hides it in between. Each F2 gives it the width of a name under an icon, which follows the icon size. GTK doesn't size a hidden box again for a new width, and the same name again changed nothing else, so the box kept its old size.
-		- A folder of photos opens at the plain size and grows to the photo size once it has loaded. That closes a rename already open. So there it takes only an F2 during the load and a second F2 to hit the first case. Zooming between 2 F2s does it in any folder.
-		- F2 never scrolled to the box.
-	- Actual fix: the box takes its new width even while hidden, and a new font too. F2 scrolls so the box is in sight.
-	- Progress log:
-		- 20261013: Options for later: the size change when a folder of photos finishes loading still closes a rename open at the time. It could reopen the box at the new size.
-		- 20261013: left at signoff. The case seen isn't known for sure. These are the 2 ways found where F2 in a folder of photos shows nothing to type into.
-	- Swept: the icon view's box is the only one of its kind, and the compact view uses it too. The list view, Places and the tree rename inside a tree cell, which GTK sizes when it shows it.
-	- Branch: f2tips
-	- Commit: f683771
-	- Test case: rk520jh7, Rename field takes a new width while hidden test. The box in a layout, renamed at one width, hidden, then given a wider and a narrower width with the same name, takes each width and holds the name. rk526bz6, F2 in a folder of pictures test, Linux only. In a short window, F2 on a photo, zoom in twice, F2 on the same photo. Both times the box is as wide as it asked for and in sight.
-	- Verified: rk520jh7 failed before the fix, 4 checks, and passes after, on Linux and under wine. rk526bz6 failed before the fix, 3 of its 6 checks, and passes after. The full Linux suite passed, 191 of 191. The Windows cross build passes. Lint is clean apart from rj3ytv0b, which always fails in a worktree.
-
-- Tooltip text lies on top of foreground windows.
-	- ID: 2026101009150765
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 191 of 191.
-	- Priority|Severity: Avg
-	- Opened: 20261010-091507
-	- Opened by: t00mietum
-	- Target OS: all
-	- Requirements:
-		- Before the next cut.
-	- Incorrect behavior: a tooltip from the app shows on top of other windows that are in front of it.
-	- Expected behavior: other windows in front of the app cover its tooltips.
-	- Reproduced: 20261013, Linux. With another program's window focused and partly over the app, a hover on the part of the app still in view showed a toolbar tooltip.
-	- Actual cause: GTK shows a tooltip on hover whether the window has the focus or not, and a tooltip sits on top of every window.
-	- Progress log:
-		- 20261010: Options: possible easy fix, don't even show tooltips when the app doesn't have the focus.
-	- Decisions:
-		- Decided: hide when unfocused. The app shows no tooltip while none of its windows has the focus, and a tooltip already up goes away when the focus leaves the app.
-	- Actual fix: as decided. Every tooltip the app shows opens in a window of its own, of the tooltip kind, and the check is there. Such a window doesn't open while none of the app's windows has the focus, and one that's open closes when the focus leaves. Moving between the app's own windows doesn't count as leaving.
-	- Swept: every tooltip source in the app goes through that one check. Plain widget tooltips: the toolbar buttons, the status bar buttons, tab names and close buttons, and dialogs such as Preferences and the search bar. The icon view's tooltips for items. The list view's tooltips for rows and for text a column cuts off. Places, for a place and for its eject button. The path bar and the tree set no tooltips of their own. The action layout editor is a separate program and isn't covered.
-	- Branch: f2tips
-	- Commit: f683771
-	- Test case: rk52yvz0, No tooltip while another program has the focus test, Linux only. A toolbar button, a place, an icon and a list row each show a tooltip with the window focused. Then another program takes the focus. The tooltip up goes, and none of the 4 shows one.
-	- Verified: rk52yvz0 failed before the fix, all 5 checks with the other program focused, and passes after. With 2 windows on Linux: a tooltip shows with the app focused, goes when another window takes the focus, doesn't show on hover while it's unfocused, and shows again once it's focused. The full Linux suite passed, 191 of 191. The Windows cross build passes. Lint is clean apart from rj3ytv0b, which always fails in a worktree.
-	- Acceptance signoff: Self-closed: the behavior was decided before the fix, and rk52yvz0 pins it.
-	- Closed: 20261013-043458
 
 - Allow creating folders with path separators in the name, to make a nested structure in one go.
 	- ID: 2026101009150766
@@ -855,6 +827,34 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. rj043mnp covers it.
 	- Closed: 20261003-112426
+
+- Tooltip text lies on top of foreground windows.
+	- ID: 2026101009150765
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 191 of 191.
+	- Priority|Severity: Avg
+	- Opened: 20261010-091507
+	- Opened by: t00mietum
+	- Target OS: all
+	- Requirements:
+		- Before the next cut.
+	- Incorrect behavior: a tooltip from the app shows on top of other windows that are in front of it.
+	- Expected behavior: other windows in front of the app cover its tooltips.
+	- Reproduced: 20261013, Linux. With another program's window focused and partly over the app, a hover on the part of the app still in view showed a toolbar tooltip.
+	- Actual cause: GTK shows a tooltip on hover whether the window has the focus or not, and a tooltip sits on top of every window.
+	- Progress log:
+		- 20261010: Options: possible easy fix, don't even show tooltips when the app doesn't have the focus.
+	- Decisions:
+		- Decided: hide when unfocused. The app shows no tooltip while none of its windows has the focus, and a tooltip already up goes away when the focus leaves the app.
+	- Actual fix: as decided. Every tooltip the app shows opens in a window of its own, of the tooltip kind, and the check is there. Such a window doesn't open while none of the app's windows has the focus, and one that's open closes when the focus leaves. Moving between the app's own windows doesn't count as leaving.
+	- Swept: every tooltip source in the app goes through that one check. Plain widget tooltips: the toolbar buttons, the status bar buttons, tab names and close buttons, and dialogs such as Preferences and the search bar. The icon view's tooltips for items. The list view's tooltips for rows and for text a column cuts off. Places, for a place and for its eject button. The path bar and the tree set no tooltips of their own. The action layout editor is a separate program and isn't covered.
+	- Branch: f2tips
+	- Commit: f683771
+	- Test case: rk52yvz0, No tooltip while another program has the focus test, Linux only. A toolbar button, a place, an icon and a list row each show a tooltip with the window focused. Then another program takes the focus. The tooltip up goes, and none of the 4 shows one.
+	- Verified: rk52yvz0 failed before the fix, all 5 checks with the other program focused, and passes after. With 2 windows on Linux: a tooltip shows with the app focused, goes when another window takes the focus, doesn't show on hover while it's unfocused, and shows again once it's focused. The full Linux suite passed, 191 of 191. The Windows cross build passes. Lint is clean apart from rj3ytv0b, which always fails in a worktree.
+	- Acceptance signoff: Self-closed: the behavior was decided before the fix, and rk52yvz0 pins it.
+	- Closed: 20261013-043458
 
 - On Windows, a path with single backslashes in a file or setting a user writes is read as escapes.
 	- ID: 2026100702343600
