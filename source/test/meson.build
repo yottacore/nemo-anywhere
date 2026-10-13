@@ -497,6 +497,15 @@ test('rjew8g59 Rename field sized before shown test',
   args: []
 )
 
+test('rk520jh7 Rename field takes a new width while hidden test',
+  executable('test-eel-editable-label-rewidth',
+    [ 'test-eel-editable-label-rewidth.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private ],
+  ),
+  args: []
+)
+
 test('rhtmbdmb Escape forgets the cursor test',
   executable('test-eel-forget-cursor',
     [ 'test-eel-forget-cursor.c' ],
@@ -1245,6 +1254,38 @@ if not is_windows
     ),
     args: [ nemo, icon_atk_probe ],
     timeout: 120
+  )
+
+  # Preloaded too; it presses F2 from inside the program.
+  rename_photo_probe = shared_module('test-nemo-rename-photo-probe',
+    [ 'test-nemo-rename-photo-probe.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk ],
+  )
+  test('rk526bz6 F2 in a folder of pictures test',
+    executable('test-nemo-rename-photo',
+      [ 'test-nemo-rename-photo.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, gtk, test_scratch ],
+    ),
+    args: [ nemo, rename_photo_probe ],
+    timeout: 120
+  )
+
+  # Preloaded too; it hovers and checks from inside the program.
+  tooltip_focus_probe = shared_module('test-nemo-tooltip-focus-probe',
+    [ 'test-nemo-tooltip-focus-probe.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk ],
+  )
+  test('rk52yvz0 No tooltip while another program has the focus test',
+    executable('test-nemo-tooltip-focus',
+      [ 'test-nemo-tooltip-focus.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, gtk, test_scratch ],
+    ),
+    args: [ nemo, tooltip_focus_probe ],
+    timeout: 150
   )
 
   # Preloaded too; it sorts and resets from inside the program.

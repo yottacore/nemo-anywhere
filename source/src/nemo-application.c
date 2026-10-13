@@ -616,6 +616,9 @@ nemo_application_startup (GApplication *app)
 	 */
 	G_APPLICATION_CLASS (nemo_application_parent_class)->startup (app);
 
+	/* No tooltip while another program has the focus. */
+	eel_gtk_tooltips_need_focus ();
+
 	/* create an undo manager */
 	self->undo_manager = nemo_undo_manager_new ();
 

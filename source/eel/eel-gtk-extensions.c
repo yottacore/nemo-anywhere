@@ -809,3 +809,90 @@ eel_gtk_primary_mask (GdkWindow *window)
     return gdk_keymap_get_modifier_mask (gdk_keymap_get_for_display (display),
                                          GDK_MODIFIER_INTENT_PRIMARY_ACCELERATOR);
 }
+
+// A tooltip is always on top, so one shown while another program has the
+// focus sits over that program's window. Every tooltip, whatever asked for
+// it, is a window with the tooltip hint, so the gate goes there.
+static gboolean
+is_tooltip_window (GtkWidget *widget)
+{
+    return gtk_window_get_type_hint (GTK_WINDOW (widget)) == GDK_WINDOW_TYPE_HINT_TOOLTIP;
+}
+
+static gboolean
+app_has_focus (void)
+{
+    GList *toplevels, *l;
+    gboolean focused = FALSE;
+
+    toplevels = gtk_window_list_toplevels ();
+    for (l = toplevels; l != NULL && !focused; l = l->next) {
+        focused = gtk_window_is_active (l->data);
+    }
+    g_list_free (toplevels);
+
+    return focused;
+}
+
+static guint hide_tooltips_id;
+
+// From an idle, since moving between two of our own windows takes the focus
+// off one before the other has it.
+static gboolean
+hide_tooltips_if_unfocused (G_GNUC_UNUSED gpointer data)
+{
+    GList *toplevels, *l;
+
+    hide_tooltips_id = 0;
+    if (app_has_focus ()) {
+        return G_SOURCE_REMOVE;
+    }
+
+    toplevels = gtk_window_list_toplevels ();
+    for (l = toplevels; l != NULL; l = l->next) {
+        if (is_tooltip_window (l->data) && gtk_widget_get_visible (l->data)) {
+            gtk_widget_hide (l->data);
+        }
+    }
+    g_list_free (toplevels);
+
+    return G_SOURCE_REMOVE;
+}
+
+static void
+window_active_changed (GtkWindow                  *window,
+                       G_GNUC_UNUSED GParamSpec   *pspec,
+                       G_GNUC_UNUSED gpointer      data)
+{
+    if (!gtk_window_is_active (window) && hide_tooltips_id == 0) {
+        hide_tooltips_id = g_idle_add (hide_tooltips_if_unfocused, NULL);
+    }
+}
+
+static void
+window_show (GtkWidget *widget)
+{
+    if (is_tooltip_window (widget)) {
+        if (!app_has_focus ()) {
+            return;
+        }
+    } else if (g_object_get_data (G_OBJECT (widget), "eel-tooltip-watch") == NULL) {
+        g_object_set_data (G_OBJECT (widget), "eel-tooltip-watch", GINT_TO_POINTER (1));
+        g_signal_connect (widget, "notify::is-active", G_CALLBACK (window_active_changed), NULL);
+    }
+
+    g_signal_chain_from_overridden_handler (widget);
+}
+
+// Once, before any window shows.
+void
+eel_gtk_tooltips_need_focus (void)
+{
+    static gboolean done;
+
+    if (done) {
+        return;
+    }
+    done = TRUE;
+    g_signal_override_class_handler ("show", GTK_TYPE_WINDOW, G_CALLBACK (window_show));
+}
