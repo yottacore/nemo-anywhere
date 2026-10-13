@@ -199,6 +199,118 @@ check_sizes (void)
 	}
 }
 
+/* Each volume size says what it's for, and still reads as its size. */
+static void
+check_volume_presets (void)
+{
+	static const struct {
+		const char *label;
+		guint64     bytes;
+	} wanted[] = {
+		{ "25 MiB (email)",             25ULL * 1024 * 1024 },
+		{ "100 MiB (upload limits)",    100ULL * 1024 * 1024 },
+		{ "700 MiB (CD)",               700ULL * 1024 * 1024 },
+		{ "2 GiB (old 32-bit tools)",   2ULL * 1024 * 1024 * 1024 },
+		{ "4,095 MiB (max FAT32 size)", 4095ULL * 1024 * 1024 },
+		{ "4,480 MiB (DVD)",            4480ULL * 1024 * 1024 },
+		{ "8,140 MiB (dual-layer DVD)", 8140ULL * 1024 * 1024 },
+		{ "23 GiB (Blu-ray)",           23ULL * 1024 * 1024 * 1024 },
+	};
+	const char *label;
+	const char *size;
+	guint64 bytes;
+	guint i;
+
+	for (i = 0; i < G_N_ELEMENTS (wanted); i++) {
+		label = nemo_archive_volume_preset (i, &size);
+		check (g_strcmp0 (label, wanted[i].label) == 0);
+
+		bytes = 0;
+		check (nemo_archive_parse_size (label, &bytes) && bytes == wanted[i].bytes);
+		bytes = 0;
+		check (nemo_archive_parse_size (size, &bytes) && bytes == wanted[i].bytes);
+
+		check (nemo_archive_volume_preset_find (label) == (int) i);
+		check (nemo_archive_volume_preset_find (size) == (int) i);
+	}
+	check (nemo_archive_volume_preset (G_N_ELEMENTS (wanted), &size) == NULL);
+
+	/* Spaces around a preset are no different. */
+	check (nemo_archive_parse_size ("  4,095 MiB (max FAT32 size) ", &bytes) &&
+	       bytes == 4095ULL * 1024 * 1024);
+	check (nemo_archive_volume_preset_find ("2 GiB") == 3);
+
+	/* Typed sizes read as they always have. The grouping comma is the
+	   preset's spelling, not something the parser takes. */
+	check (nemo_archive_volume_preset_find ("1 GiB") == -1);
+	check (nemo_archive_volume_preset_find (NULL) == -1);
+	check (nemo_archive_parse_size ("1 GiB", &bytes) && bytes == 1024ULL * 1024 * 1024);
+	check (!nemo_archive_parse_size ("4,095 MiB", &bytes));
+	check (!nemo_archive_parse_size ("4,095 MiB (max FAT32", &bytes));
+	check (!nemo_archive_parse_size ("4095 MiB (CD)", &bytes));
+}
+
+/* The store choices the Compress dialog offers: what the writers that can do
+   the password and volumes asked for can keep. */
+static void
+check_link_stores (void)
+{
+	NemoArchiveOptions options;
+	gboolean seven = nemo_archive_backend_present (NEMO_ARCHIVE_BACKEND_7Z);
+	gboolean rar = nemo_archive_backend_present (NEMO_ARCHIVE_BACKEND_RAR);
+	guint library = ARC_STORES_SYMLINKS | ARC_STORES_JUNCTIONS_AS_SYMLINKS;
+
+	if (!seven || !rar) {
+		g_printerr ("note: 7z %s, rar %s here\n", seven ? "found" : "missing",
+			    rar ? "found" : "missing");
+	}
+
+	nemo_archive_options_init (&options);
+	check (nemo_archive_options_link_stores (NEMO_ARCHIVE_FORMAT_TAR, &options) == library);
+	check (nemo_archive_options_link_stores (NEMO_ARCHIVE_FORMAT_ZIP, &options) == library);
+	check (!nemo_archive_links_cost_threads (NEMO_ARCHIVE_FORMAT_ZIP, &options));
+
+	/* 7-Zip as it is on Windows, where it keeps no links. */
+	nemo_archive_set_7z_keeps_links (FALSE);
+	check (nemo_archive_options_link_stores (NEMO_ARCHIVE_FORMAT_7Z, &options) == library);
+	check (nemo_archive_links_cost_threads (NEMO_ARCHIVE_FORMAT_7Z, &options) == seven);
+
+	/* A password or volumes need 7-Zip, so nothing is left to store with. */
+	options.password = g_strdup ("secret");
+	check (nemo_archive_options_link_stores (NEMO_ARCHIVE_FORMAT_7Z, &options) == 0);
+	check (!nemo_archive_links_cost_threads (NEMO_ARCHIVE_FORMAT_7Z, &options));
+	/* A zip with one is the library's own, which keeps them. */
+	check (nemo_archive_options_link_stores (NEMO_ARCHIVE_FORMAT_ZIP, &options) == library);
+	g_clear_pointer (&options.password, g_free);
+	options.split_size = 100ULL * 1024 * 1024;
+	check (nemo_archive_options_link_stores (NEMO_ARCHIVE_FORMAT_7Z, &options) == 0);
+	check (nemo_archive_options_link_stores (NEMO_ARCHIVE_FORMAT_ZIP, &options) == 0);
+	if (rar) {
+		check (nemo_archive_options_link_stores (NEMO_ARCHIVE_FORMAT_RAR, &options) ==
+		       (ARC_STORES_SYMLINKS | ARC_STORES_JUNCTIONS));
+	}
+
+	/* 7-Zip elsewhere keeps them, and does it on every thread. */
+	nemo_archive_set_7z_keeps_links (TRUE);
+	check (nemo_archive_options_link_stores (NEMO_ARCHIVE_FORMAT_7Z, &options) ==
+	       (seven ? ARC_STORES_SYMLINKS : 0));
+	options.split_size = 0;
+	check (!nemo_archive_links_cost_threads (NEMO_ARCHIVE_FORMAT_7Z, &options));
+
+	/* With 7-Zip hidden the library writes the 7z either way. */
+	nemo_archive_set_7z_keeps_links (FALSE);
+	nemo_archive_hide_backend (NEMO_ARCHIVE_BACKEND_7Z, TRUE);
+	check (!nemo_archive_links_cost_threads (NEMO_ARCHIVE_FORMAT_7Z, &options));
+	nemo_archive_hide_backend (NEMO_ARCHIVE_BACKEND_7Z, FALSE);
+
+#ifdef G_OS_WIN32
+	nemo_archive_set_7z_keeps_links (FALSE);
+#else
+	nemo_archive_set_7z_keeps_links (TRUE);
+#endif
+	nemo_archive_options_clear (&options);
+}
+
 static void
 check_volume_names (void)
 {
@@ -1070,9 +1182,11 @@ main (void)
 	check_names ();
 	check_each_names ();
 	check_sizes ();
+	check_volume_presets ();
 	check_volume_names ();
 	check_volume_collapse (scratch);
 	check_backends ();
+	check_link_stores ();
 	check_commands ();
 	check_skipped_links ();
 	check_cpu_share ();

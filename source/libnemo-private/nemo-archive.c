@@ -245,6 +245,15 @@ static char    *probed_program[4];
 static gboolean probed[4];
 static gboolean hidden_backend[4];
 
+/* 7-Zip on Windows keeps a link as the raw reparse data. Only 7-Zip on Windows
+   gives it back as a link; libarchive, which extracts here, reads a file of
+   junk and an empty folder. */
+#ifdef G_OS_WIN32
+static gboolean seven_zip_keeps_links = FALSE;
+#else
+static gboolean seven_zip_keeps_links = TRUE;
+#endif
+
 /* Returns: (transfer full): free with g_free */
 char *
 nemo_archive_find_command (const char * const *names,
@@ -333,6 +342,12 @@ nemo_archive_hide_backend (NemoArchiveBackend backend,
 	g_mutex_unlock (&probe_lock);
 }
 
+void
+nemo_archive_set_7z_keeps_links (gboolean keeps)
+{
+	seven_zip_keeps_links = keeps;
+}
+
 gboolean
 nemo_archive_backend_present (NemoArchiveBackend backend)
 {
@@ -360,14 +375,8 @@ nemo_archive_backend_caps (NemoArchiveFormat  format,
 		if (!info->by_7z) {
 			return 0;
 		}
-#ifdef G_OS_WIN32
-		/* 7-Zip on Windows keeps a link as the raw reparse data. Only
-		   7-Zip on Windows gives it back as a link; libarchive, which
-		   extracts here, reads a file of junk and an empty folder. */
-		return info->caps_7z & ~NEMO_ARCHIVE_CAP_STORE_LINKS;
-#else
-		return info->caps_7z;
-#endif
+		return seven_zip_keeps_links ? info->caps_7z
+					     : info->caps_7z & ~NEMO_ARCHIVE_CAP_STORE_LINKS;
 	case NEMO_ARCHIVE_BACKEND_RAR:
 		return info->by_rar ? info->caps_rar : 0;
 	case NEMO_ARCHIVE_BACKEND_NONE:
@@ -585,6 +594,57 @@ nemo_archive_pick_backend (NemoArchiveFormat         format,
 	return NEMO_ARCHIVE_BACKEND_NONE;
 }
 
+/* On Windows a 7z with a password or volumes needs 7-Zip, which keeps no
+   links there, so no store choice is left. */
+guint
+nemo_archive_options_link_stores (NemoArchiveFormat         format,
+				  const NemoArchiveOptions *options)
+{
+	NemoArchiveCaps needed;
+	guint stores = 0;
+	guint i;
+
+	g_return_val_if_fail (format_is_valid (format), 0);
+	g_return_val_if_fail (options != NULL, 0);
+
+	needed = required_caps (options);
+
+	for (i = 0; i < G_N_ELEMENTS (backend_order); i++) {
+		NemoArchiveBackend backend = backend_order[i];
+
+		if (nemo_archive_backend_present (backend) &&
+		    (nemo_archive_backend_caps (format, backend) & needed) == needed) {
+			stores |= nemo_archive_backend_link_stores (format, backend);
+		}
+	}
+
+	return stores;
+}
+
+gboolean
+nemo_archive_links_cost_threads (NemoArchiveFormat         format,
+				 const NemoArchiveOptions *options)
+{
+	NemoArchiveOptions with_links;
+	NemoArchiveBackend storing, not_storing;
+
+	g_return_val_if_fail (options != NULL, FALSE);
+
+	if (format != NEMO_ARCHIVE_FORMAT_7Z) {
+		return FALSE;
+	}
+
+	/* A shallow copy is enough: only the flag changes, and nothing is
+	   freed. */
+	with_links = *options;
+	with_links.store_links = TRUE;
+	storing = nemo_archive_pick_backend (format, &with_links);
+	with_links.store_links = FALSE;
+	not_storing = nemo_archive_pick_backend (format, &with_links);
+
+	return storing == NEMO_ARCHIVE_BACKEND_LIBARCHIVE && not_storing != storing;
+}
+
 void
 nemo_archive_options_init (NemoArchiveOptions *options)
 {
@@ -724,6 +784,66 @@ nemo_archive_each_name (const char        *item_name,
 	return g_strconcat (item_name, formats[format].extension, NULL);
 }
 
+/* Binary units, because that is what the sizes mean and what the parser has
+   always computed. The label is translated whole, since the note is. */
+static const struct {
+	const char *size;
+	const char *label;
+} volume_presets[] = {
+	{ "25 MiB",   N_("25 MiB (email)") },
+	{ "100 MiB",  N_("100 MiB (upload limits)") },
+	{ "700 MiB",  N_("700 MiB (CD)") },
+	{ "2 GiB",    N_("2 GiB (old 32-bit tools)") },
+	{ "4095 MiB", N_("4,095 MiB (max FAT32 size)") },
+	{ "4480 MiB", N_("4,480 MiB (DVD)") },
+	{ "8140 MiB", N_("8,140 MiB (dual-layer DVD)") },
+	{ "23 GiB",   N_("23 GiB (Blu-ray)") },
+};
+
+/* Returns: (transfer none) */
+const char *
+nemo_archive_volume_preset (guint        index,
+			    const char **size)
+{
+	if (index >= G_N_ELEMENTS (volume_presets)) {
+		return NULL;
+	}
+
+	if (size != NULL) {
+		*size = volume_presets[index].size;
+	}
+
+	return _(volume_presets[index].label);
+}
+
+/* The untranslated label too, so one remembered under another language still
+   reads. */
+int
+nemo_archive_volume_preset_find (const char *text)
+{
+	char *trimmed;
+	int found = -1;
+	guint i;
+
+	if (text == NULL) {
+		return -1;
+	}
+
+	trimmed = g_strstrip (g_strdup (text));
+
+	for (i = 0; i < G_N_ELEMENTS (volume_presets) && found < 0; i++) {
+		if (strcmp (trimmed, volume_presets[i].size) == 0 ||
+		    strcmp (trimmed, volume_presets[i].label) == 0 ||
+		    strcmp (trimmed, _(volume_presets[i].label)) == 0) {
+			found = (int) i;
+		}
+	}
+
+	g_free (trimmed);
+
+	return found;
+}
+
 /* Sizes are read the way archivers write them: k, m, g and t are 1024-based,
    and a bare number is bytes. */
 gboolean
@@ -734,9 +854,15 @@ nemo_archive_parse_size (const char *text,
 	char *end = NULL;
 	double value;
 	guint64 multiplier;
+	int preset;
 
 	if (text == NULL) {
 		return FALSE;
+	}
+
+	preset = nemo_archive_volume_preset_find (text);
+	if (preset >= 0) {
+		text = volume_presets[preset].size;
 	}
 
 	p = text;
