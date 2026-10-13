@@ -29,9 +29,11 @@
 
 #include <gtk/gtk.h>
 
-/* Open up a new terminal, optionally passing in a command to execute */
+/* Open up a new terminal, optionally passing in a command to execute. A NULL
+   context makes one for the screen. */
 void          eel_gnome_open_terminal_on_screen                       (const char               *command,
-								       GdkScreen                *screen);
+								       GdkScreen                *screen,
+								       GAppLaunchContext        *context);
 
 /* First of the known terminals present on PATH, or NULL if there is none.
    The fallback the launch path already used, so callers that only honored a

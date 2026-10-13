@@ -172,8 +172,9 @@ prepend_terminal_to_command_line (const char *command_line)
 /* Return a command string containing the path to a terminal on this system. */
 
 void
-eel_gnome_open_terminal_on_screen (const gchar *command,
-                                   GdkScreen   *screen)
+eel_gnome_open_terminal_on_screen (const gchar       *command,
+                                   GdkScreen         *screen,
+                                   GAppLaunchContext *context)
 {
     gchar *command_line;
     GAppInfo *app;
@@ -189,16 +190,18 @@ eel_gnome_open_terminal_on_screen (const gchar *command,
 
     app = g_app_info_create_from_commandline (command_line, NULL, 0, &error);
 
-	if (app != NULL && screen != NULL) {
+	if (app != NULL && context != NULL) {
+		g_app_info_launch (app, NULL, context, &error);
+	} else if (app != NULL && screen != NULL) {
 		display = gdk_screen_get_display (screen);
 		ctx = gdk_display_get_app_launch_context (display);
 		gdk_app_launch_context_set_screen (ctx, screen);
 
 		g_app_info_launch (app, NULL, G_APP_LAUNCH_CONTEXT (ctx), &error);
 
-		g_object_unref (app);
 		g_object_unref (ctx);
 	}
+	g_clear_object (&app);
 
 	if (error != NULL) {
 		g_message ("Could not start application on terminal: %s", error->message);

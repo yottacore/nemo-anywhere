@@ -1593,11 +1593,15 @@ nemo_action_activate (NemoAction *action,
             g_error_free (error);
         }
     } else {
-        if (!g_spawn_command_line_async (exec->str, &error)) {
+        gchar **argv = NULL;
+
+        if (!nemo_user_text_split_command (exec->str, NULL, &argv, &error) ||
+            !nemo_spawn_for_user (NULL, argv, G_SPAWN_SEARCH_PATH, NULL, &error)) {
             DEBUG ("Error spawning action: %s\n",
                    error->message);
             g_error_free (error);
         }
+        g_strfreev (argv);
     }
 #endif
 

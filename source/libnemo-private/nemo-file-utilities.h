@@ -111,6 +111,17 @@ void         nemo_setenv_own                     (const char *var,
  * of the user's or a new copy of ours.
  * Returns: (transfer full): free with g_strfreev */
 char       **nemo_get_user_environ               (void);
+/* The same for a program started through @context. */
+void         nemo_launch_context_use_user_environ (GAppLaunchContext *context);
+#ifndef G_OS_WIN32
+/* g_spawn_async with nemo_get_user_environ, for a program of the user's.
+ * G_SPAWN_SEARCH_PATH searches the user's PATH. */
+gboolean     nemo_spawn_for_user                 (const char  *workdir,
+                                                  char       **argv,
+                                                  GSpawnFlags  flags,
+                                                  GPid        *child_pid,
+                                                  GError     **error);
+#endif
 /* Undoes nemo_setenv_own in this process for a moment, for a call that starts
  * a program and takes no environment. Hand the result back to
  * nemo_restore_own_environ, which frees it.

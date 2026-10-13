@@ -503,6 +503,8 @@ on_edit_template_clicked (G_GNUC_UNUSED GtkWidget *button, gpointer user_data)
 
     GAppLaunchContext *context = G_APP_LAUNCH_CONTEXT (gdk_display_get_app_launch_context (gdk_display_get_default ()));
 
+    nemo_launch_context_use_user_environ (context);
+
     g_app_info_launch_default_for_uri_async (uri, context, NULL, NULL, NULL);
     g_object_unref (context);
 

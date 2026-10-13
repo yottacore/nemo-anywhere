@@ -27,6 +27,7 @@
 #include "nemo-program-choosing.h"
 
 #include "nemo-global-preferences.h"
+#include "nemo-file-utilities.h"
 #ifdef G_OS_WIN32
 #include "nemo-associations-win32.h"
 #include "nemo-launch-win32.h"
@@ -43,10 +44,70 @@
 #include <gio/gdesktopappinfo.h>
 #endif
 #include <stdlib.h>
+#include <string.h>
 
 #include <gdk/gdk.h>
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
+#endif
+
+/* A program of the user's gets the environment it would have had without us,
+ * not the folders a relocated install adds for itself. */
+static GdkAppLaunchContext *
+user_launch_context (GdkDisplay *display)
+{
+	GdkAppLaunchContext *context = gdk_display_get_app_launch_context (display);
+
+	nemo_launch_context_use_user_environ (G_APP_LAUNCH_CONTEXT (context));
+	return context;
+}
+
+#ifdef G_OS_UNIX
+/* Our own desktop file names the program bare, and the user's PATH need not
+ * reach a relocated bin dir. So it starts this exe by its full path instead,
+ * as a new window does. NULL when the file is not ours. */
+static GDesktopAppInfo *
+own_app_by_full_path (GDesktopAppInfo *app)
+{
+	const char *filename = g_desktop_app_info_get_filename (app);
+	char *apps_rel, *apps_dir, *dir, *exec, *exe;
+	GDesktopAppInfo *own = NULL;
+
+	if (filename == NULL) {
+		return NULL;
+	}
+
+	apps_rel = g_build_filename (nemo_get_data_dir (), "..", "applications", NULL);
+	apps_dir = g_canonicalize_filename (apps_rel, NULL);
+	dir = g_path_get_dirname (filename);
+	exec = g_desktop_app_info_get_string (app, G_KEY_FILE_DESKTOP_KEY_EXEC);
+	exe = nemo_get_exe_path ();
+
+	if (exe != NULL && exec != NULL && strcmp (dir, apps_dir) == 0 &&
+	    g_str_has_prefix (exec, NEMO_APP_SLUG) &&
+	    (exec[strlen (NEMO_APP_SLUG)] == ' ' || exec[strlen (NEMO_APP_SLUG)] == '\0')) {
+		GKeyFile *keys = g_key_file_new ();
+
+		if (g_key_file_load_from_file (keys, filename, G_KEY_FILE_KEEP_TRANSLATIONS, NULL)) {
+			char *quoted = g_shell_quote (exe);
+			char *full = g_strconcat (quoted, exec + strlen (NEMO_APP_SLUG), NULL);
+
+			g_key_file_set_string (keys, G_KEY_FILE_DESKTOP_GROUP, G_KEY_FILE_DESKTOP_KEY_EXEC, full);
+			own = g_desktop_app_info_new_from_keyfile (keys);
+			g_free (full);
+			g_free (quoted);
+		}
+		g_key_file_unref (keys);
+	}
+
+	g_free (exe);
+	g_free (exec);
+	g_free (dir);
+	g_free (apps_dir);
+	g_free (apps_rel);
+
+	return own;
+}
 #endif
 
 void
@@ -150,7 +211,7 @@ nemo_launch_application_by_uri (GAppInfo *application,
 		display = gdk_display_get_default ();
 	}
 
-	launch_context = gdk_display_get_app_launch_context (display);
+	launch_context = user_launch_context (display);
 
 	if (parent_window != NULL) {
 		gdk_app_launch_context_set_screen (launch_context,
@@ -176,13 +237,19 @@ nemo_launch_application_by_uri (GAppInfo *application,
 	error = NULL;
 
 #ifdef G_OS_UNIX
-    result = g_desktop_app_info_launch_uris_as_manager (G_DESKTOP_APP_INFO (application),
-                                                        uris,
-                                                        G_APP_LAUNCH_CONTEXT (launch_context),
-                                                        G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD,
-                                                        NULL, NULL,
-                                                        gather_pid_callback, application,
-                                                        &error);
+    {
+        GDesktopAppInfo *own = own_app_by_full_path (G_DESKTOP_APP_INFO (application));
+        GDesktopAppInfo *start = own != NULL ? own : G_DESKTOP_APP_INFO (application);
+
+        result = g_desktop_app_info_launch_uris_as_manager (start,
+                                                            uris,
+                                                            G_APP_LAUNCH_CONTEXT (launch_context),
+                                                            G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD,
+                                                            NULL, NULL,
+                                                            gather_pid_callback, start,
+                                                            &error);
+        g_clear_object (&own);
+    }
 #elif defined (G_OS_WIN32)
     {
         /* Everything with a command line goes through the broker, so the
@@ -235,22 +302,23 @@ launch_application_from_command_internal (const gchar *full_command,
 	GdkAppLaunchContext *ctx;
 	GdkDisplay *display;
 
+	display = screen != NULL ? gdk_screen_get_display (screen) : gdk_display_get_default ();
+	ctx = user_launch_context (display);
+	if (screen != NULL) {
+		gdk_app_launch_context_set_screen (ctx, screen);
+	}
+
 	if (use_terminal) {
-		eel_gnome_open_terminal_on_screen (full_command, screen);
+		eel_gnome_open_terminal_on_screen (full_command, screen, G_APP_LAUNCH_CONTEXT (ctx));
 	} else {
 		app = g_app_info_create_from_commandline (full_command, NULL, 0, NULL);
 
 		if (app != NULL) {
-			display = gdk_screen_get_display (screen);
-			ctx = gdk_display_get_app_launch_context (display);
-			gdk_app_launch_context_set_screen (ctx, screen);
-
 			g_app_info_launch (app, NULL, G_APP_LAUNCH_CONTEXT (ctx), NULL);
-
 			g_object_unref (app);
-			g_object_unref (ctx);
 		}
 	}
+	g_object_unref (ctx);
 }					  
 #endif
 
@@ -419,8 +487,21 @@ nemo_show_uri (GtkWindow   *parent_window,
 	(void) parent_window;
 	return nemo_launch_win32_open_uri (uri, error);
 #else
-	return gtk_show_uri (parent_window != NULL ? gtk_window_get_screen (parent_window) : NULL,
-			     uri, gtk_get_current_event_time (), error);
+	/* gtk_show_uri, with the user's environment for whatever it starts. */
+	GdkAppLaunchContext *context;
+	gboolean ok;
+
+	context = user_launch_context (parent_window != NULL
+				       ? gtk_widget_get_display (GTK_WIDGET (parent_window))
+				       : gdk_display_get_default ());
+	if (parent_window != NULL) {
+		gdk_app_launch_context_set_screen (context, gtk_window_get_screen (parent_window));
+	}
+	gdk_app_launch_context_set_timestamp (context, gtk_get_current_event_time ());
+	ok = g_app_info_launch_default_for_uri (uri, G_APP_LAUNCH_CONTEXT (context), error);
+	g_object_unref (context);
+
+	return ok;
 #endif
 }
 
@@ -438,6 +519,7 @@ nemo_launch_desktop_file (G_GNUC_UNUSED GdkScreen   *screen,
 	int total, count;
 	GFile *file, *desktop_file;
 	GDesktopAppInfo *app_info;
+	GDesktopAppInfo *own;
 	GdkAppLaunchContext *context;
 
 	/* Don't allow command execution from remote locations
@@ -507,19 +589,21 @@ nemo_launch_desktop_file (G_GNUC_UNUSED GdkScreen   *screen,
 	}
 
 	error = NULL;
-	context = gdk_display_get_app_launch_context (gtk_widget_get_display (GTK_WIDGET (parent_window)));
+	context = user_launch_context (gtk_widget_get_display (GTK_WIDGET (parent_window)));
 	/* TODO: Ideally we should accept a timestamp here instead of using GDK_CURRENT_TIME */
 	gdk_app_launch_context_set_timestamp (context, GDK_CURRENT_TIME);
 	gdk_app_launch_context_set_screen (context,
 					   gtk_window_get_screen (parent_window));
 
-    g_desktop_app_info_launch_uris_as_manager (app_info,
+    own = own_app_by_full_path (app_info);
+    g_desktop_app_info_launch_uris_as_manager (own != NULL ? own : app_info,
                                                (GList *) parameter_uris,
                                                G_APP_LAUNCH_CONTEXT (context),
                                                G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD,
                                                NULL, NULL,
                                                gather_pid_callback, app_info,
                                                &error);
+    g_clear_object (&own);
 
 	if (error != NULL) {
 		message = g_strconcat (_("Details: "), error->message, NULL);

@@ -352,6 +352,41 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 0dab690
 	- Test case: rjhvmm6f, Mapped drive not asked, new bin cases: a fixed drive's bin is asked, a removable one's only with a disk in it, an empty drive answers in under 2 s, and no share or optical drive is asked.
 
+- On Linux and the BSDs, programs a relocated install starts get its own folders in their search paths.
+	- ID: 2026100916102200
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 195 of 195.
+	- Needs external testing: rk583zzx in the FreeBSD lane. The code is the same there.
+	- Priority|Severity: Low
+	- Opened: 20261009-161022
+	- Opened by: 2026100912374782
+	- Related IDs: 2026100912374782
+	- Target OS: Linux, FreeBSD
+	- Steps to reproduce: from a relocated install, such as the tarball or the user target, open a file with another GLib or GTK program, or run an action.
+	- Incorrect behavior: the app adds its own folders to `XDG_DATA_DIRS`, `PATH` and `GSETTINGS_SCHEMA_DIR` at startup, and every program it starts inherits them. That program can then pick up our schemas, icons or helpers in place of its own.
+	- Expected behavior: a user's program gets the environment it would have had without the app, the same as on Windows since 2026100912374782. The app's own copies and helpers may keep the added folders.
+	- Reproduced: No. From reading the startup code.
+		- 20261013, on Linux: with the start as on dev, a program opened with, run, run in a terminal, started from a launcher, an action or a link got all 3 of the app's folders.
+	- Actual cause: the 3 lists were set for the whole process with nothing kept of what was there before, and every start passed the process environment on.
+	- Decisions:
+		- 20261013: the same design as 2026100912374782. The 3 are recorded with what was there before. A program of the user's starts with those put back, through its launch context or else its own environment list. The app's own environment never changes after startup.
+		- 20261013: helpers keep the app's lists: thumbnailers, archive tools, search converters, ImageMagick, action conditions, xdg-user-dirs-update and the action layout editor.
+		- 20261013: a new window, a tab moved out and the restart in Settings get the user's lists and add the folders again, as on Windows. The restart now starts this exe by its full path, not by name.
+		- 20261013: the install's own menu entry names the program bare, and a relocated bin folder need not be on the user's PATH. Opening something with it starts this exe by its full path, with the user's lists.
+		- 20261013: a program of the user's named without a path is looked for on the user's PATH, not the app's.
+	- Actual fix: one record of the app's own settings in `nemo-file-utilities.c` now covers the 3 lists too. Open With, opening a file, running a program or script, a terminal, launchers, actions, links from Help and the About box, a template's editor and an extension's settings program all start with the user's values. A lint check fails on any new start that neither asks for the user's values nor is listed as one of ours.
+	- Swept: every program start outside the tests, by grep for `g_spawn`, `g_subprocess`, `g_app_info_launch`, `g_desktop_app_info_launch_uris_as_manager`, `gtk_show_uri` and launch context creation.
+		- The user's values: `nemo-program-choosing.c` (Open With and opening a file, running a program, a terminal through `eel-gnome-extensions.c`, launchers, links), an action's program in `nemo-action.c`, the terminal in `nemo-view.c`, a template's editor, an extension's settings program, and the restart in Settings.
+		- The user's values, already: a new window and a tab moved out, in `nemo-new-process.c`.
+		- The app's, as helpers: `nemo-tool-run.c`, `nemo-magick.c`, `nemo-desktop-thumbnail.c`, the action condition, xdg-user-dirs-update and the action layout editor.
+		- The app's, as copies of ours: the extensions list run in Settings, which prints and quits, and the 2 starts through pkexec, which clears the environment.
+		- Not ours to start: a program GIO starts over D-Bus, and anything a gvfs daemon or an extension starts.
+	- Test case: rk583zzx, Launch environment test. A copy of the test in a made-up install starts a program each way a user's program is started and checks the 3 lists it got. A helper keeps the app's. Lint rk5884m7 checks every start in the code.
+	- Verified: rk583zzx fails before the fix on all 7 of the user's routes and passes after. Full Linux suite 195 of 195. Windows cross build clean.
+	- Branch: relenv
+	- Commit: 51be82a
+
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440
 	- Type: Bug
@@ -493,21 +528,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- These keys work as normal, except when the active tab has sub-tabs they work on the sub-tabs instead.
 			- Past the last sub-tab, cycling moves to the next parent tab.
 	- Test case: TBD
-
-- On Linux and the BSDs, programs a relocated install starts get its own folders in their search paths.
-	- ID: 2026100916102200
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261009-161022
-	- Opened by: 2026100912374782
-	- Related IDs: 2026100912374782
-	- Target OS: Linux, FreeBSD
-	- Steps to reproduce: from a relocated install, such as the tarball or the user target, open a file with another GLib or GTK program, or run an action.
-	- Incorrect behavior: the app adds its own folders to `XDG_DATA_DIRS`, `PATH` and `GSETTINGS_SCHEMA_DIR` at startup, and every program it starts inherits them. That program can then pick up our schemas, icons or helpers in place of its own.
-	- Expected behavior: a user's program gets the environment it would have had without the app, the same as on Windows since 2026100912374782. The app's own copies and helpers may keep the added folders.
-	- Reproduced: No. From reading the startup code.
-	- Test case: still needs one. rjvzdd4w's started-program check, on Linux.
 
 - Compression reset: the background scan behind the size totals.
 	- ID: 2026100516274275
@@ -2033,6 +2053,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- rjv9ks2z, the connecting sign test, fails now and then in a full Linux suite run on a busy box.
+	- ID: 2026101305422316
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261013-054223
+	- Opened by: 2026100816170921
+	- Related IDs: 2026100816170921
+	- Target OS: Linux
+	- Steps to reproduce: run the full Linux suite on a busy box, or several copies of rjv9ks2z at once on one display.
+	- Incorrect behavior: it fails in 2 full suite runs of 20261013, on "with animations off the window looks grayed and stays still while it waits". Another run that day failed on "the fade stops and the window looks as before once stopped". Run alone it passes, 3 of 3.
+	- Expected behavior: it passes however busy the box is.
+	- Reproduced: 20261013, with 6 copies at a time on one display beside a CPU load. 3 of 48 runs failed on the fade check, and other runs of that kind on the steady gray one. Each failure came with a GTK warning that the window was drawn before its new size was worked out.
+	- Actual cause: the test draws the window to compare its looks, on its own 100 ms timer. When something has asked the window to lay itself out again, GTK draws nothing until the next frame does it, and warns. On a busy box that frame can come after the timer, so the test compared an empty picture. The app was not at fault.
+	- Actual fix: the test lays the window out before it draws it, as that frame would.
+	- Swept: no other test draws a window that way, by grep for `gtk_widget_draw` in the tests.
+	- Test case: rjv9ks2z, Connecting sign while a share mounts test, itself.
+	- Verified: under the same load, 3 of 48 runs failed before and 0 of 96 after, with no GTK warning. Alone 3 of 3. Full Linux suite 195 of 195.
+	- Branch: relenv
+	- Commit: 51be82a
+	- Acceptance signoff: Self-closed: only the test changed, and the failure seen before is gone after under the same load.
+	- Closed: 20261013-063500
 
 - The settings shared between copies test can fail on a loaded box.
 	- ID: 2026100915055910

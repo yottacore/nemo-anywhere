@@ -1118,6 +1118,21 @@ if not is_windows
 endif
 
 if not is_windows
+  test('rk583zzx Launch environment test',
+    executable('test-nemo-launch-env',
+      [ 'test-nemo-launch-env.c' ],
+      include_directories: [ rootInclude, ],
+      # The copy it runs is out of reach of the build rpath.
+      c_args: nemo_definitions + (extensionShared ? [
+        '-DTEST_EXTENSION_LIB_DIR="@0@"'.format(meson.project_build_root() / 'libnemo-extension'),
+      ] : []),
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: []
+  )
+endif
+
+if not is_windows
   test('rgahvdsr Runtime environment test',
     executable('test-nemo-runtime-env',
       [ 'test-nemo-runtime-env.c' ],
