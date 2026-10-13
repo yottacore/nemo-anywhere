@@ -1027,6 +1027,10 @@ check_list (void)
 	/* Back up into the selection, which was walked by a path needing less. */
 	check (item_named (list, "sel/sub/loop") == NULL && !named_in (list->left_out, "sel/sub/loop"));
 	check (item_named (list, "sel/sub/loop/a.bin") == NULL);
+	/* Named, so a program walking for itself can be told to leave it out. */
+	check (!link_made ("sub/loop") || named_in (list->again, "sel/sub/loop"));
+	check (!link_made ("nowhere") || item_named (list, "sel/nowhere")->nowhere);
+	check (!link_made ("flink") || !item_named (list, "sel/flink")->nowhere);
 	check (item_named (list, "sel/share/j.bin") != NULL);
 	check (!link_made ("jlink") || item_named (list, "sel/jlink/l.bin") != NULL);
 	check (list->left_out->len == 0);

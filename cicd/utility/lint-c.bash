@@ -198,7 +198,7 @@ fCheckRawDeletes(){
 	allowed+='source/libnemo-private/nemo-delete-guard.c '		# the guarded delete the jobs use
 	allowed+='source/libnemo-private/nemo-trash-win32.c '		# the recycle bin, behind the jobs
 	allowed+='source/libnemo-private/nemo-link-win32.c '		# its own probe, and a link it failed to finish
-	allowed+='source/libnemo-private/nemo-archive.c '			# an archive it was writing
+	allowed+='source/libnemo-private/nemo-archive.c '			# an archive it was writing, and its list files
 	allowed+='source/libnemo-private/nemo-crash.c '			# old crash reports
 	allowed+='source/libnemo-private/nemo-cache-db.c '		# a damaged cache file it is replacing
 	allowed+='source/libnemo-private/nemo-desktop-thumbnail.c '	# thumbnail cache

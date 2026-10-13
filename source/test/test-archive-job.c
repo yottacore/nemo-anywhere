@@ -309,6 +309,22 @@ check_predicate (void)
 	options.encrypt_names = FALSE;
 	check (nemo_archive_can_verify (&options));
 
+	/* A 7z with a password that keeps links: its writer keeps a link's
+	   target where the password locks it. Where 7-Zip keeps no links the
+	   choice is Ignore. */
+	options.format = NEMO_ARCHIVE_FORMAT_7Z;
+	options.links.symlinks = ARC_LINK_STORE_SYMLINK;
+	check (nemo_archive_can_verify (&options) ==
+	       !(nemo_archive_options_link_stores (options.format, &options) & ARC_STORES_SYMLINKS));
+	options.links.symlinks = ARC_LINK_FOLLOW;
+	check (nemo_archive_can_verify (&options));
+	options.links.symlinks = ARC_LINK_STORE_SYMLINK;
+	g_clear_pointer (&options.password, g_free);
+	check (nemo_archive_can_verify (&options));
+	options.format = NEMO_ARCHIVE_FORMAT_ZIP;
+	options.password = g_strdup ("secret");
+	check (nemo_archive_can_verify (&options));
+
 	nemo_archive_options_clear (&options);
 }
 

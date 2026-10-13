@@ -28,6 +28,7 @@
 #include <stdlib.h>
 
 #include <glib/gi18n.h>
+#include <glib/gstdio.h>
 #include <archive.h>
 #include <archive_entry.h>
 
@@ -121,13 +122,6 @@ static const char * const known_extensions[] = {
 	".zip", ".tar", ".7z", ".rar", NULL
 };
 
-typedef struct {
-	GFile     *file;
-	char      *rel_path;	/* utf-8, '/'-separated, relative to the base dir */
-	GFileInfo *info;
-	gboolean   as_link;
-} ArchiveEntry;
-
 /* One archive to write, and what goes in it. A plain compress has one of
    these; compressing a selection separately has one per item. */
 typedef struct {
@@ -154,13 +148,9 @@ typedef struct {
 	NemoArchiveOptions  options;
 	NemoArchiveBackend  backend;
 
-	ArcScanList        *list;		/* what the library writes */
-	GList              *entries;		/* ArchiveEntry *, for 7z and rar */
-	GList              *left_out;		/* char *, linked folders not followed */
-	GList              *dangling;		/* char *, links that lead nowhere, left out */
-	GList              *dangling_first;	/* char *, the ones a run of their own keeps */
-	guint               through_links;	/* followed linked folders the scan is in */
-	GList              *passed_over;	/* char *, the dangling ones of every unit */
+	ArcScanList        *list;		/* what goes in */
+	GList              *passed;		/* char *, links this unit couldn't keep */
+	GList              *passed_over;	/* char *, the same for every unit */
 	guint64             total_bytes;
 	guint64             done_bytes;
 	guint               file_count;
@@ -267,16 +257,22 @@ nemo_archive_find_command (const char * const *names,
 	int i;
 	char *found;
 
+#ifdef G_OS_WIN32
+	/* The program itself before a script of the same name: cmd ends a .cmd
+	   with its own last line's status, so a failed run through one read as
+	   a good one. On PATH first, then where its installer puts it. */
 	for (i = 0; names[i] != NULL; i++) {
-		found = g_find_program_in_path (names[i]);
+		char *exe = g_strconcat (names[i], ".exe", NULL);
+
+		found = g_find_program_in_path (exe);
+		g_free (exe);
 		if (found != NULL) {
 			return found;
 		}
 	}
 
-#ifdef G_OS_WIN32
 	/* Neither installer puts itself on PATH, and both install under Program
-	   Files, so look there before giving up. */
+	   Files. */
 	{
 		static const char * const roots[] = { "ProgramW6432", "ProgramFiles", "ProgramFiles(x86)", NULL };
 		int r;
@@ -304,6 +300,14 @@ nemo_archive_find_command (const char * const *names,
 #else
 	(void) win_subdir;
 #endif
+
+	/* Anything PATH finds by the name, a wrapper script included. */
+	for (i = 0; names[i] != NULL; i++) {
+		found = g_find_program_in_path (names[i]);
+		if (found != NULL) {
+			return found;
+		}
+	}
 
 	return NULL;
 }
@@ -549,24 +553,15 @@ wants_store (const ArcLinkOptions *links)
 #endif
 }
 
-/* 7z and rar still go by the 2 boxes the Symlinks choice replaced: store
-   links, or follow linked folders. With neither, a file link is followed
-   and a linked folder left out. Junctions and the filesystem options don't
-   reach them until they write from the job's list, 2026100516274460. */
+/* Symlinks as the writer can do them, for a line built outside a job. */
 static gboolean
-boxes_store (const NemoArchiveOptions *options,
-	     NemoArchiveFormat         format,
-	     NemoArchiveBackend        backend)
+stores_symlinks (const NemoArchiveOptions *options,
+		 NemoArchiveFormat         format,
+		 NemoArchiveBackend        backend)
 {
 	return arc_link_options_symlinks (&options->links,
 					  nemo_archive_backend_link_stores (format, backend)) ==
 	       ARC_LINK_STORE_SYMLINK;
-}
-
-static gboolean
-boxes_follow (const NemoArchiveOptions *options)
-{
-	return options->links.symlinks == ARC_LINK_FOLLOW;
 }
 
 static NemoArchiveCaps
@@ -1070,32 +1065,6 @@ nemo_archive_format_size (guint64 bytes)
 	return g_strdup_printf ("%llu", (unsigned long long) bytes);
 }
 
-/* Whether a link that leads nowhere goes in as a link when links are otherwise
-   followed. The library writes one in every format it has, 7z included. 7z
-   and rar keep links all or none, so there it takes a run of its own before
-   the real one, and a split set cannot be added to afterwards. In that run
-   7-Zip refuses a path through a linked folder, and rar reads * and ? in a
-   name it is handed as a wildcard, so those stay out. */
-static gboolean
-dangling_goes_in (const NemoArchiveOptions *options,
-		  NemoArchiveBackend        backend,
-		  const char               *rel_path,
-		  gboolean                  through_link)
-{
-	if (backend == NEMO_ARCHIVE_BACKEND_LIBARCHIVE) {
-		return TRUE;
-	}
-	if ((nemo_archive_backend_caps (options->format, backend) & NEMO_ARCHIVE_CAP_STORE_LINKS) == 0 ||
-	    options->split_size > 0) {
-		return FALSE;
-	}
-	if (backend == NEMO_ARCHIVE_BACKEND_7Z) {
-		return !through_link;
-	}
-
-	return strpbrk (rel_path, "*?") == NULL;
-}
-
 /* effective is what GIO said with the link followed. With nothing at the
    other end it answers for the link itself: as a link on Linux, but on
    Windows with the link's own type, a file or a folder, so there it takes a
@@ -1131,13 +1100,9 @@ typedef struct {
 	GHashTable   *expected;		/* rel_path -> Expected * */
 	GHashTable   *seen_dirs;	/* file ids, so a link loop terminates */
 	GCancellable *cancellable;
-	gboolean      store_links;
-	gboolean      follow_link_dirs;
 	gboolean      whole;		/* nothing was passed over on the way */
-	const NemoArchiveOptions *options;
-	NemoArchiveBackend        backend;
-	guint                     through_links;	/* followed linked folders we are in */
-	/* For the library's rules. */
+	gboolean      links_locked;	/* a link kept as a link can't be listed */
+	gboolean      locked_link;	/* and one is expected */
 	ArcLinkChoice             symlinks;
 	ArcLinkChoice             junctions;
 	GHashTable               *listing;
@@ -1156,125 +1121,6 @@ expect (VerifyWalk *walk,
 	item->is_dir = is_dir;
 
 	g_hash_table_replace (walk->expected, g_strdup (rel_path), item);
-}
-
-static void boxes_walk_item (VerifyWalk *walk, GFile *file, const char *rel_path,
-			     GFileInfo *info);
-
-static void
-boxes_walk_directory (VerifyWalk *walk,
-		      GFile      *dir,
-		      const char *rel_path)
-{
-	GFileEnumerator *children;
-	GFileInfo *child_info;
-
-	children = nemo_enumerate_children (dir, SCAN_ATTRIBUTES,
-					    G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS,
-					    walk->cancellable, NULL);
-	if (children == NULL) {
-		walk->whole = FALSE;
-		return;
-	}
-
-	while (!g_cancellable_is_cancelled (walk->cancellable)) {
-		GFile *child;
-		char *child_rel;
-
-		child_info = g_file_enumerator_next_file (children, walk->cancellable, NULL);
-		if (child_info == NULL) {
-			break;
-		}
-
-		child = g_file_get_child (dir, g_file_info_get_name (child_info));
-		child_rel = g_strconcat (rel_path, "/", g_file_info_get_name (child_info), NULL);
-
-		boxes_walk_item (walk, child, child_rel, child_info);
-
-		g_free (child_rel);
-		g_object_unref (child);
-		g_object_unref (child_info);
-	}
-
-	g_file_enumerator_close (children, NULL, NULL);
-	g_object_unref (children);
-}
-
-/* The same rules the writing scan for 7z and rar goes by, arrived at
-   separately. Anything this drops is something the archive was never offered,
-   so the walk is no longer whole and nothing may be deleted on the strength
-   of it. */
-static void
-boxes_walk_item (VerifyWalk *walk,
-		 GFile      *file,
-		 const char *rel_path,
-		 GFileInfo  *info)
-{
-	GFileInfo *effective;
-	GFileType type;
-
-	if (g_cancellable_is_cancelled (walk->cancellable)) {
-		return;
-	}
-
-	if (g_file_info_get_is_symlink (info)) {
-		if (walk->store_links && g_file_info_get_symlink_target (info) != NULL) {
-			expect (walk, rel_path, -1, FALSE);
-			return;
-		}
-
-		effective = g_file_query_info (file, SCAN_ATTRIBUTES,
-					       G_FILE_QUERY_INFO_NONE,
-					       walk->cancellable, NULL);
-		if (leads_nowhere (file, effective)) {
-			g_clear_object (&effective);
-			if (g_file_info_get_symlink_target (info) != NULL &&
-			    dangling_goes_in (walk->options, walk->backend, rel_path,
-					      walk->through_links > 0)) {
-				expect (walk, rel_path, -1, FALSE);
-			} else {
-				walk->whole = FALSE;	/* nothing went in */
-			}
-			return;
-		}
-		if (g_file_info_get_file_type (effective) == G_FILE_TYPE_DIRECTORY &&
-		    !walk->follow_link_dirs) {
-			g_object_unref (effective);
-			walk->whole = FALSE;
-			return;
-		}
-	} else {
-		effective = g_object_ref (info);
-	}
-
-	type = g_file_info_get_file_type (effective);
-
-	if (type == G_FILE_TYPE_DIRECTORY) {
-		const char *id = g_file_info_get_attribute_string (effective, G_FILE_ATTRIBUTE_ID_FILE);
-
-		if (id != NULL) {
-			if (g_hash_table_contains (walk->seen_dirs, id)) {
-				g_object_unref (effective);
-				return;
-			}
-			g_hash_table_add (walk->seen_dirs, g_strdup (id));
-		}
-
-		expect (walk, rel_path, -1, TRUE);
-		if (g_file_info_get_is_symlink (info)) {
-			walk->through_links++;
-		}
-		boxes_walk_directory (walk, file, rel_path);
-		if (g_file_info_get_is_symlink (info)) {
-			walk->through_links--;
-		}
-	} else if (type == G_FILE_TYPE_REGULAR) {
-		expect (walk, rel_path, g_file_info_get_size (effective), FALSE);
-	} else {
-		walk->whole = FALSE;	/* a socket or a device node, and no way to store it */
-	}
-
-	g_object_unref (effective);
 }
 
 static gboolean listing_holds_folder (GHashTable *listing, GHashTable *folders,
@@ -1315,6 +1161,14 @@ link_sort (GFile     *file,
 	(void) file;
 	return g_file_info_get_is_symlink (info) ? A_SYMLINK : NOT_A_LINK;
 #endif
+}
+
+static void
+expect_link (VerifyWalk *walk,
+	     const char *rel_path)
+{
+	walk->locked_link = walk->locked_link || walk->links_locked;
+	expect (walk, rel_path, -1, FALSE);
 }
 
 static void verify_walk_item (VerifyWalk *walk, GFile *file, const char *rel_path,
@@ -1414,9 +1268,9 @@ verify_walk_found (VerifyWalk *walk,
 	}
 }
 
-/* The library's rules, arrived at apart from the job's walk: a link by its
-   choice, and what a followed one leads to under the link's own name. A link
-   or a mounted folder the job's walk left out for its filesystem isn't in the
+/* The job's rules, arrived at apart from its walk: a link by its choice,
+   and what a followed one leads to under the link's own name. A link or a
+   mounted folder the job's walk left out for its filesystem isn't in the
    archive, and isn't read here either, so it's a miss. device is the one the
    folder this is in is on, or 0, as on Windows. */
 static void
@@ -1445,14 +1299,14 @@ verify_walk_item (VerifyWalk *walk,
 			return;
 		}
 		if (choice != ARC_LINK_FOLLOW) {
-			expect (walk, rel_path, -1, FALSE);
+			expect_link (walk, rel_path);
 			return;
 		}
 		effective = g_file_query_info (file, SCAN_ATTRIBUTES, G_FILE_QUERY_INFO_NONE,
 					       walk->cancellable, NULL);
 		if (leads_nowhere (file, effective)) {
 			g_clear_object (&effective);
-			expect (walk, rel_path, -1, FALSE);
+			expect_link (walk, rel_path);
 			return;
 		}
 		via_link = TRUE;
@@ -1596,23 +1450,48 @@ listing_holds_folder (GHashTable *listing,
 	       g_hash_table_contains (folders, rel_path);
 }
 
-/* Whether an archive written this way could be read back at all. Nothing is
-   removed on the writer's word alone, so this is also the answer to whether the
-   Compress dialog may offer to delete the originals. Two ways it cannot: one
-   volume of a split set is not an archive on its own, and an archive with its
-   names encrypted is refused outright - libarchive will not open a -hp rar or a
-   -mhe 7z whatever password it is handed. */
+/* Why an archive written this way can't be read back at all, or NULL. One
+   volume of a split set is not an archive on its own, and libarchive will not
+   open a -hp rar or a -mhe 7z whatever password it is handed. */
+static const char *
+cannot_read_back (const NemoArchiveOptions *options)
+{
+	if (options->split_size > 0) {
+		return _("An archive split into volumes cannot be checked.");
+	}
+	if (options->encrypt_names && options->password != NULL && options->password[0] != '\0') {
+		return _("An archive with its file names encrypted cannot be checked.");
+	}
+	return NULL;
+}
+
+/* 7-Zip keeps a link's target in the file's data, which the password locks,
+   and libarchive can't unlock a 7z: it ends the listing at the first link. */
+static gboolean
+links_locked (const NemoArchiveOptions *options)
+{
+	return options->format == NEMO_ARCHIVE_FORMAT_7Z &&
+	       options->password != NULL && options->password[0] != '\0';
+}
+
+/* Whether an archive written this way could be read back. Nothing is removed
+   on the writer's word alone, so this is also the answer to whether the
+   Compress dialog may offer to delete the originals. A 7z with a password
+   that keeps links can't be: the dialog hands over the Store choice only for
+   a selection that can hold a link. */
 gboolean
 nemo_archive_can_verify (const NemoArchiveOptions *options)
 {
 	g_return_val_if_fail (options != NULL, FALSE);
 
-	if (options->split_size > 0) {
+	if (cannot_read_back (options) != NULL) {
 		return FALSE;
 	}
 
-	return !(options->encrypt_names &&
-		 options->password != NULL && options->password[0] != '\0');
+	return !(links_locked (options) &&
+		 arc_link_options_symlinks (&options->links,
+					    nemo_archive_options_link_stores (options->format, options)) ==
+		 ARC_LINK_STORE_SYMLINK);
 }
 
 /* Whether the password has to be typed a second time before the job starts.
@@ -1654,10 +1533,8 @@ nemo_archive_verify (GFile                    *archive_file,
 		*reason = NULL;
 	}
 
-	if (!nemo_archive_can_verify (options)) {
-		trouble = options->split_size > 0
-			? g_strdup (_("An archive split into volumes cannot be checked."))
-			: g_strdup (_("An archive with its file names encrypted cannot be checked."));
+	if (cannot_read_back (options) != NULL) {
+		trouble = g_strdup (cannot_read_back (options));
 		goto out;
 	}
 
@@ -1679,10 +1556,8 @@ nemo_archive_verify (GFile                    *archive_file,
 	walk.seen_dirs = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 	walk.cancellable = cancellable;
 	walk.whole = TRUE;
-	walk.store_links = boxes_store (options, options->format, backend);
-	walk.follow_link_dirs = boxes_follow (options);
-	walk.options = options;
-	walk.backend = backend;
+	walk.links_locked = links_locked (options) &&
+		(nemo_archive_backend_caps (options->format, backend) & NEMO_ARCHIVE_CAP_STORE_LINKS);
 	{
 		guint stores = nemo_archive_backend_link_stores (options->format, backend);
 
@@ -1694,7 +1569,8 @@ nemo_archive_verify (GFile                    *archive_file,
 
 	for (l = sources; l != NULL; l = l->next) {
 		GFile *file = G_FILE (l->data);
-		GFileInfo *info;
+		GFile *parent;
+		GFileInfo *info, *above;
 		char *name;
 
 		info = g_file_query_info (file, SCAN_ATTRIBUTES,
@@ -1706,28 +1582,25 @@ nemo_archive_verify (GFile                    *archive_file,
 		}
 
 		name = g_file_get_basename (file);
-		if (backend == NEMO_ARCHIVE_BACKEND_LIBARCHIVE) {
-			GFile *parent = g_file_get_parent (file);
-			GFileInfo *above = parent != NULL
-				? g_file_query_info (parent, G_FILE_ATTRIBUTE_UNIX_DEVICE,
-						     G_FILE_QUERY_INFO_NONE, cancellable, NULL)
-				: NULL;
+		parent = g_file_get_parent (file);
+		above = parent != NULL
+			? g_file_query_info (parent, G_FILE_ATTRIBUTE_UNIX_DEVICE,
+					     G_FILE_QUERY_INFO_NONE, cancellable, NULL)
+			: NULL;
 
-			verify_walk_item (&walk, file, name, info,
-					  above != NULL ? g_file_info_get_attribute_uint32 (above, G_FILE_ATTRIBUTE_UNIX_DEVICE) : 0,
-					  FALSE);
-			g_clear_object (&above);
-			g_clear_object (&parent);
-		} else {
-			boxes_walk_item (&walk, file, name, info);
-		}
-
+		verify_walk_item (&walk, file, name, info,
+				  above != NULL ? g_file_info_get_attribute_uint32 (above, G_FILE_ATTRIBUTE_UNIX_DEVICE) : 0,
+				  FALSE);
+		g_clear_object (&above);
+		g_clear_object (&parent);
 		g_free (name);
 		g_object_unref (info);
 	}
 
 	if (g_cancellable_is_cancelled (cancellable)) {
 		trouble = g_strdup (_("Checking the archive was stopped."));
+	} else if (walk.locked_link) {
+		trouble = g_strdup (_("A 7z with a password cannot be checked when it keeps links as links."));
 	} else if (!walk.whole) {
 		trouble = g_strdup (_("Something in the selection could not go into an archive, so not all of it is in there."));
 	}
@@ -1790,206 +1663,10 @@ archive_unit_free (ArchiveUnit *unit)
 	g_free (unit);
 }
 
-static void
-archive_entry_free_full (ArchiveEntry *entry)
-{
-	g_clear_object (&entry->file);
-	g_clear_object (&entry->info);
-	g_free (entry->rel_path);
-	g_free (entry);
-}
-
 static gboolean
 job_aborted (ArchiveJob *job)
 {
 	return g_cancellable_is_cancelled (job->cancellable);
-}
-
-static gboolean
-job_stores_links (ArchiveJob *job)
-{
-	return boxes_store (&job->options, job->options.format, job->backend);
-}
-
-static void
-add_entry (ArchiveJob *job,
-	   GFile      *file,
-	   const char *rel_path,
-	   GFileInfo  *info,
-	   gboolean    as_link)
-{
-	ArchiveEntry *entry = g_new0 (ArchiveEntry, 1);
-
-	entry->file = g_object_ref (file);
-	entry->rel_path = g_strdup (rel_path);
-	entry->info = g_object_ref (info);
-	entry->as_link = as_link;
-
-	job->entries = g_list_prepend (job->entries, entry);
-
-	if (!as_link && g_file_info_get_file_type (info) == G_FILE_TYPE_REGULAR) {
-		job->total_bytes += (guint64) g_file_info_get_size (info);
-		job->file_count++;
-	}
-}
-
-static void scan_item (ArchiveJob *job, GFile *file, const char *rel_path,
-		       GFileInfo *info, GHashTable *seen);
-
-static void
-scan_directory (ArchiveJob *job,
-		GFile      *dir,
-		const char *rel_path,
-		GHashTable *seen)
-{
-	GFileEnumerator *children;
-	GFileInfo *child_info;
-
-	children = nemo_enumerate_children (dir, SCAN_ATTRIBUTES,
-					      G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS,
-					      job->cancellable, NULL);
-	if (children == NULL) {
-		return;
-	}
-
-	while (!job_aborted (job)) {
-		GFile *child;
-		char *child_rel;
-
-		child_info = g_file_enumerator_next_file (children, job->cancellable, NULL);
-		if (child_info == NULL) {
-			break;
-		}
-
-		child = g_file_get_child (dir, g_file_info_get_name (child_info));
-		child_rel = g_strconcat (rel_path, "/", g_file_info_get_name (child_info), NULL);
-
-		scan_item (job, child, child_rel, child_info, seen);
-
-		g_free (child_rel);
-		g_object_unref (child);
-		g_object_unref (child_info);
-	}
-
-	g_file_enumerator_close (children, NULL, NULL);
-	g_object_unref (children);
-}
-
-/* info is what a no-follow query said about this name. A link is either stored
-   as a link or followed, and following into a folder is the case that can loop,
-   which is what the seen set is for. */
-static void
-scan_item (ArchiveJob *job,
-	   GFile      *file,
-	   const char *rel_path,
-	   GFileInfo  *info,
-	   GHashTable *seen)
-{
-	GFileInfo *effective;
-	GFileType type;
-
-	if (job_aborted (job)) {
-		return;
-	}
-
-	if (g_file_info_get_is_symlink (info)) {
-		if (job_stores_links (job) &&
-		    g_file_info_get_symlink_target (info) != NULL) {
-			add_entry (job, file, rel_path, info, TRUE);
-			return;
-		}
-
-		effective = g_file_query_info (file, SCAN_ATTRIBUTES,
-					       G_FILE_QUERY_INFO_NONE,
-					       job->cancellable, NULL);
-		/* It goes in as a link where it can, and is named at the end
-		   where it cannot. */
-		if (leads_nowhere (file, effective)) {
-			g_clear_object (&effective);
-			if (g_file_info_get_symlink_target (info) == NULL ||
-			    !dangling_goes_in (&job->options, job->backend, rel_path,
-					       job->through_links > 0)) {
-				job->dangling = g_list_prepend (job->dangling, g_strdup (rel_path));
-			} else if (job->backend == NEMO_ARCHIVE_BACKEND_LIBARCHIVE) {
-				add_entry (job, file, rel_path, info, TRUE);
-			} else {
-				job->dangling_first = g_list_prepend (job->dangling_first,
-								      g_strdup (rel_path));
-			}
-			return;
-		}
-		if (g_file_info_get_file_type (effective) == G_FILE_TYPE_DIRECTORY &&
-		    !boxes_follow (&job->options)) {
-			job->left_out = g_list_prepend (job->left_out, g_strdup (rel_path));
-			g_object_unref (effective);
-			return;
-		}
-	} else {
-		effective = g_object_ref (info);
-	}
-
-	type = g_file_info_get_file_type (effective);
-
-	if (type == G_FILE_TYPE_DIRECTORY) {
-		const char *id = g_file_info_get_attribute_string (effective, G_FILE_ATTRIBUTE_ID_FILE);
-
-		if (id != NULL) {
-			if (g_hash_table_contains (seen, id)) {
-				g_object_unref (effective);
-				return;
-			}
-			g_hash_table_add (seen, g_strdup (id));
-		}
-
-		add_entry (job, file, rel_path, effective, FALSE);
-		if (g_file_info_get_is_symlink (info)) {
-			job->through_links++;
-		}
-		scan_directory (job, file, rel_path, seen);
-		if (g_file_info_get_is_symlink (info)) {
-			job->through_links--;
-		}
-	} else if (type == G_FILE_TYPE_REGULAR) {
-		add_entry (job, file, rel_path, effective, FALSE);
-	}
-	/* Anything else - a socket, a device node - means nothing in an archive. */
-
-	g_object_unref (effective);
-}
-
-static void
-scan_sources (ArchiveJob *job)
-{
-	GHashTable *seen;
-	GList *l;
-
-	seen = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
-
-	nemo_progress_info_set_status (job->progress, _("Preparing to compress"));
-
-	for (l = job->sources; l != NULL && !job_aborted (job); l = l->next) {
-		GFile *file = G_FILE (l->data);
-		GFileInfo *info;
-		char *name;
-
-		info = g_file_query_info (file, SCAN_ATTRIBUTES,
-					  G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS,
-					  job->cancellable, NULL);
-		if (info == NULL) {
-			continue;
-		}
-
-		name = g_file_get_basename (file);
-		scan_item (job, file, name, info, seen);
-		nemo_progress_info_pulse_progress (job->progress);
-
-		g_free (name);
-		g_object_unref (info);
-	}
-
-	job->entries = g_list_reverse (job->entries);
-
-	g_hash_table_destroy (seen);
 }
 
 static gboolean
@@ -2332,27 +2009,6 @@ set_unit_status (ArchiveJob *job,
 	g_free (name);
 }
 
-/* Nothing to put in. One archive per item, where the item is a linked folder
-   that is not followed, leaves that one out and goes on with the rest. */
-static gboolean
-unit_has_nothing (ArchiveJob *job)
-{
-	if (job->entries != NULL || job->dangling_first != NULL) {
-		return FALSE;
-	}
-
-	if (job->unit_count > 1 && job->left_out != NULL) {
-		job->unit_empty = TRUE;
-		return TRUE;
-	}
-
-	job_fail (job, _("The archive could not be created."),
-		  job->left_out != NULL
-		  ? _("The selection holds only linked folders, and linked folders are not being followed.")
-		  : _("Nothing in the selection could be read."));
-	return TRUE;
-}
-
 static void
 pulse (gpointer data)
 {
@@ -2678,9 +2334,84 @@ line_keeps_requirements (const char              *key,
 	return ok;
 }
 
-/* links_only is the run ahead of the real one that keeps the links that lead
-   nowhere. It keeps every link it is handed, and leaves the switches that the
-   real run adds, or that would stop it adding, to the real run.
+/* What a program is handed, each word already in its own form: sources for
+   {{SOURCE_ITEMS}}, skips with {{LINKS}}, and moved, switches among the
+   sources that have to come before a "--". */
+typedef struct {
+	GPtrArray *sources;
+	GPtrArray *skips;
+	GPtrArray *moved;
+} ToolNames;
+
+static void
+tool_names_init (ToolNames *names)
+{
+	names->sources = g_ptr_array_new_with_free_func (g_free);
+	names->skips = g_ptr_array_new_with_free_func (g_free);
+	names->moved = g_ptr_array_new_with_free_func (g_free);
+}
+
+static void
+tool_names_clear (ToolNames *names)
+{
+	g_clear_pointer (&names->sources, g_ptr_array_unref);
+	g_clear_pointer (&names->skips, g_ptr_array_unref);
+	g_clear_pointer (&names->moved, g_ptr_array_unref);
+}
+
+/* Names on the line, as the job handed them before it wrote lists. */
+static void
+tool_names_from_lists (ToolNames          *out,
+		       NemoArchiveBackend  backend,
+		       GList              *names,
+		       GList              *leave_out)
+{
+	GList *l;
+
+	tool_names_init (out);
+	for (l = names; l != NULL; l = l->next) {
+		g_ptr_array_add (out->sources, backend == NEMO_ARCHIVE_BACKEND_RAR
+				 ? rar_name ("", l->data) : g_strdup (l->data));
+	}
+	for (l = leave_out; l != NULL; l = l->next) {
+		g_ptr_array_add (out->skips, backend == NEMO_ARCHIVE_BACKEND_RAR
+				 ? rar_name ("-x", l->data) : g_strconcat ("-x!", (char *) l->data, NULL));
+	}
+}
+
+/* 7-Zip reads @list after a "--" as a file by that name, and a switch there
+   is a name too, so ours go ahead of it wherever the line put them. */
+static void
+move_before_stop (char **argv, GPtrArray *moved)
+{
+	guint stop = 1, i, j;
+
+	while (argv[stop] != NULL && strcmp (argv[stop], "--") != 0) {
+		stop++;
+	}
+	if (argv[stop] == NULL || moved == NULL) {
+		return;
+	}
+
+	for (i = stop + 1; argv[i] != NULL; i++) {
+		gboolean ours = FALSE;
+
+		for (j = 0; j < moved->len && !ours; j++) {
+			ours = strcmp (argv[i], g_ptr_array_index (moved, j)) == 0;
+		}
+		if (ours) {
+			char *word = argv[i];
+
+			memmove (argv + stop + 1, argv + stop, (i - stop) * sizeof (char *));
+			argv[stop] = word;
+			stop++;
+		}
+	}
+}
+
+/* keep_links has the program keep links as links. links_only is the run
+   ahead of the real one, for links alone: it leaves the switches the real
+   run adds, or that would stop it adding, to the real run.
    Returns: (transfer full): free with g_strfreev, or NULL with why in error */
 static char **
 build_command (NemoArchiveBackend        backend,
@@ -2688,8 +2419,8 @@ build_command (NemoArchiveBackend        backend,
 	       const NemoArchiveOptions *options,
 	       const char               *program,
 	       const char               *archive_path,
-	       GList                    *names,
-	       GList                    *leave_out,
+	       const ToolNames          *names,
+	       gboolean                  keep_links,
 	       gboolean                  links_only,
 	       GError                  **why)
 {
@@ -2712,7 +2443,7 @@ build_command (NemoArchiveBackend        backend,
 	GError *error = NULL;
 	char **argv;
 	char *text;
-	GList *l;
+	guint i;
 	gboolean has_password;
 	int level;
 	int threads;
@@ -2720,6 +2451,7 @@ build_command (NemoArchiveBackend        backend,
 	g_return_val_if_fail (options != NULL, NULL);
 	g_return_val_if_fail (program != NULL, NULL);
 	g_return_val_if_fail (archive_path != NULL, NULL);
+	g_return_val_if_fail (names != NULL, NULL);
 
 	has_password = options->password != NULL && options->password[0] != '\0';
 	links_v = g_ptr_array_new_with_free_func (g_free);
@@ -2753,13 +2485,9 @@ build_command (NemoArchiveBackend        backend,
 		if (format == NEMO_ARCHIVE_FORMAT_7Z) {
 			solid_v[0] = g_strdup (options->solid ? "-ms=on" : "-ms=off");
 		}
-		if ((boxes_store (options, format, backend) || links_only) &&
+		if (keep_links &&
 		    (nemo_archive_backend_caps (format, backend) & NEMO_ARCHIVE_CAP_STORE_LINKS)) {
 			g_ptr_array_add (links_v, g_strdup ("-snl"));
-		}
-		/* Left alone, 7z follows every link, folders too. */
-		for (l = leave_out; l != NULL; l = l->next) {
-			g_ptr_array_add (links_v, g_strconcat ("-x!", (char *) l->data, NULL));
 		}
 	} else if (backend == NEMO_ARCHIVE_BACKEND_RAR) {
 		key = NEMO_ARCHIVE_COMMAND_KEY_RAR;
@@ -2792,7 +2520,7 @@ build_command (NemoArchiveBackend        backend,
 		/* -ol keeps links as links. Without it rar follows them, which is
 		   what not keeping them means; -ola would keep them too, with the
 		   path made absolute, and -ol- would drop them. */
-		if (boxes_store (options, format, backend) || links_only) {
+		if (keep_links) {
 			g_ptr_array_add (links_v, g_strdup ("-ol"));
 		}
 		/* With -r, "sub/name" means every "name" under sub. Only a line
@@ -2801,23 +2529,25 @@ build_command (NemoArchiveBackend        backend,
 		if (links_only) {
 			g_ptr_array_add (links_v, g_strdup ("-r-"));
 		}
-		for (l = leave_out; l != NULL; l = l->next) {
-			g_ptr_array_add (links_v, rar_name ("-x", l->data));
-		}
 	} else {
 		g_ptr_array_free (links_v, TRUE);
 		return NULL;
 	}
 
+	/* Left alone, both follow every link, folders too. */
+	for (i = 0; names->skips != NULL && i < names->skips->len; i++) {
+		g_ptr_array_add (links_v, g_strdup (g_ptr_array_index (names->skips, i)));
+	}
 	g_ptr_array_add (links_v, NULL);
 	program_v[0] = g_strdup (program);
 	archive_v[0] = g_strdup (archive_path);
 
 	sources = g_ptr_array_new_with_free_func (g_free);
-
-	for (l = names; l != NULL; l = l->next) {
-		g_ptr_array_add (sources, backend == NEMO_ARCHIVE_BACKEND_RAR
-				 ? rar_name ("", l->data) : g_strdup (l->data));
+	for (i = 0; names->moved != NULL && i < names->moved->len; i++) {
+		g_ptr_array_add (sources, g_strdup (g_ptr_array_index (names->moved, i)));
+	}
+	for (i = 0; names->sources != NULL && i < names->sources->len; i++) {
+		g_ptr_array_add (sources, g_strdup (g_ptr_array_index (names->sources, i)));
 	}
 	g_ptr_array_add (sources, NULL);
 
@@ -2860,6 +2590,7 @@ build_command (NemoArchiveBackend        backend,
 			argv = NULL;
 		} else {
 			nemo_command_template_warn_unused (key, text, tokens);
+			move_before_stop (argv, names->moved);
 			argv = nemo_archive_add_run_switches (argv, TRUE);
 		}
 	}
@@ -2892,8 +2623,14 @@ nemo_archive_build_command (NemoArchiveBackend        backend,
 			    GList                    *names,
 			    GList                    *leave_out)
 {
-	return build_command (backend, format, options, program, archive_path,
-			      names, leave_out, FALSE, NULL);
+	ToolNames words;
+	char **argv;
+
+	tool_names_from_lists (&words, backend, names, leave_out);
+	argv = build_command (backend, format, options, program, archive_path, &words,
+			      stores_symlinks (options, format, backend), FALSE, NULL);
+	tool_names_clear (&words);
+	return argv;
 }
 
 /* Returns: (transfer full): free with g_strfreev */
@@ -2905,8 +2642,14 @@ nemo_archive_build_links_command (NemoArchiveBackend        backend,
 				  const char               *archive_path,
 				  GList                    *names)
 {
-	return build_command (backend, format, options, program, archive_path,
-			      names, NULL, TRUE, NULL);
+	ToolNames words;
+	char **argv;
+
+	tool_names_from_lists (&words, backend, names, NULL);
+	argv = build_command (backend, format, options, program, archive_path, &words,
+			      TRUE, TRUE, NULL);
+	tool_names_clear (&words);
+	return argv;
 }
 
 static gboolean
@@ -3272,23 +3015,6 @@ queue_one (GFile *file)
 	nemo_file_changes_queue_file_added (file);
 }
 
-/* rar reads * and ? in any name it is handed as a wildcard, and has no switch
-   to say otherwise. Only a name we pass counts; what it finds in a folder by
-   itself is taken as it is. */
-static const char *
-first_pattern (GList *names)
-{
-	GList *l;
-
-	for (l = names; l != NULL; l = l->next) {
-		if (strpbrk (l->data, "*?") != NULL) {
-			return l->data;
-		}
-	}
-
-	return NULL;
-}
-
 /* What a tool printed, as a terminal would leave it. Both redraw their
    progress with backspaces, which would otherwise pile up for as long as the
    job runs. Past the limit the rest is dropped, and output_full says so. */
@@ -3366,32 +3092,23 @@ archive_written (ArchiveJob *job)
 	return FALSE;
 }
 
-/* A link that leads nowhere is passed over by both tools with a warning
-   status, the same way the library writer passes over it. Any other warning,
-   or one about some other file, still fails the job. */
+/* What a run left out on purpose, or knew it couldn't read, is passed over
+   by both tools with a warning status when they meet it anyway, as with a
+   link that leads nowhere. A warning about anything else still fails it. */
 static gboolean
-only_dangling_warned (ArchiveJob  *job,
-		      NemoToolRun *process,
-		      GString     *output)
+only_known_warned (ArchiveJob  *job,
+		   NemoToolRun *process,
+		   GString     *output,
+		   GList       *known)
 {
-	GList *known;
-	gboolean only;
-
-	/* The ones already in as links are passed over again by the real run. */
-	if ((job->dangling == NULL && job->dangling_first == NULL) ||
-	    output_full (output) || !nemo_tool_run_get_if_exited (process)) {
+	if (known == NULL || output_full (output) || !nemo_tool_run_get_if_exited (process)) {
 		return FALSE;
 	}
 
-	/* cppcheck-suppress leakNoVarFunctionCall ; g_list_concat takes both copies, freed below */
-	known = g_list_concat (g_list_copy (job->dangling), g_list_copy (job->dangling_first));
-	only = nemo_archive_only_skipped_links (job->backend,
+	return nemo_archive_only_skipped_links (job->backend,
 						nemo_tool_run_get_exit_status (process),
 						output->str, known) &&
 	       archive_written (job);
-	g_list_free (known);
-
-	return only;
 }
 
 GSubprocessFlags
@@ -3502,51 +3219,305 @@ start_tool (ArchiveJob  *job,
 	return process;
 }
 
-/* Neither tool keeps some links and follows the rest, so the links that lead
-   nowhere go in first, by a run that keeps links, and the real run adds the
-   rest to that archive. If this run fails they are left out after all, and
-   named, as where there is no way to keep them. */
-static void
-put_in_dangling_first (ArchiveJob *job,
-		       const char *program,
-		       const char *base_path,
-		       const char *archive_path)
+/* A name a list file would read as another: 7-Zip trims each line at both
+   ends and rar at its end, and a line break ends one. Those go on the line. */
+static gboolean
+fits_a_list (const char *name)
 {
-	NemoToolRun *process = NULL;
-	GString *output;
-	char **argv;
-	gboolean ok = FALSE;
+	gsize length = strlen (name);
 
-	if (job->dangling_first == NULL) {
+	return length > 0 && !g_ascii_isspace (name[0]) && !g_ascii_isspace (name[length - 1]) &&
+	       strpbrk (name, "\r\n") == NULL;
+}
+
+/* Returns: (transfer full): the name as handed to a program here */
+static char *
+handed_name (const char *name)
+{
+	char *out = g_strdup (name);
+
+#ifdef G_OS_WIN32
+	g_strdelimit (out, "/", '\\');
+#endif
+	return out;
+}
+
+/* One name to a line, UTF-8. Both programs take a list file, so a selection
+   of any size stays under the command line's limit.
+   Returns: (transfer full): the file's path, or NULL with error set */
+static char *
+write_list (GPtrArray  *names,
+	    GError    **error)
+{
+	GString *text = g_string_new (NULL);
+	char *path = NULL;
+	int fd;
+	guint i;
+
+	for (i = 0; i < names->len; i++) {
+		char *name = handed_name (g_ptr_array_index (names, i));
+
+		g_string_append (text, name);
+		g_string_append_c (text, '\n');
+		g_free (name);
+	}
+
+	fd = g_file_open_tmp ("nemo-archive-XXXXXX.lst", &path, error);
+	if (fd >= 0) {
+		g_close (fd, NULL);
+		if (!g_file_set_contents (path, text->str, (gssize) text->len, error)) {
+			g_unlink (path);
+			g_clear_pointer (&path, g_free);
+		}
+	}
+
+	g_string_free (text, TRUE);
+	return path;
+}
+
+/* Names that fit go in a list file, the rest on the line. lists gets the
+   files made, for the caller to remove. */
+static gboolean
+hand_names (NemoArchiveBackend   backend,
+	    GPtrArray           *roots,
+	    GPtrArray           *skips,
+	    ToolNames           *out,
+	    GPtrArray           *lists,
+	    GError             **error)
+{
+	gboolean seven = backend == NEMO_ARCHIVE_BACKEND_7Z;
+	GPtrArray *listed = g_ptr_array_new ();
+	gboolean charset = FALSE;
+	gboolean ok = TRUE;
+	guint pass, i;
+
+	tool_names_init (out);
+
+	for (pass = 0; pass < 2 && ok; pass++) {
+		GPtrArray *names = pass == 0 ? roots : skips;
+		char *path;
+
+		g_ptr_array_set_size (listed, 0);
+		for (i = 0; i < names->len; i++) {
+			const char *name = g_ptr_array_index (names, i);
+			char *word;
+
+			if (fits_a_list (name)) {
+				g_ptr_array_add (listed, (gpointer) name);
+				continue;
+			}
+			word = handed_name (name);
+			if (pass == 0) {
+				g_ptr_array_add (out->sources, seven ? g_strdup (word) : rar_name ("", word));
+			} else {
+				g_ptr_array_add (out->skips, seven ? g_strconcat ("-x!", word, NULL)
+								   : rar_name ("-x", word));
+			}
+			g_free (word);
+		}
+		if (listed->len == 0) {
+			continue;
+		}
+
+		path = write_list (listed, error);
+		if (path == NULL) {
+			ok = FALSE;
+			continue;
+		}
+		g_ptr_array_add (lists, path);
+		if (!charset) {
+			g_ptr_array_add (out->moved, g_strdup (seven ? "-scsUTF-8" : "-scfl"));
+			charset = TRUE;
+		}
+		/* rar takes @list after a "--", 7-Zip only before one. */
+		if (pass == 1) {
+			g_ptr_array_add (out->skips, g_strconcat ("-x@", path, NULL));
+		} else if (seven) {
+			g_ptr_array_add (out->moved, g_strconcat ("-i@", path, NULL));
+		} else {
+			g_ptr_array_add (out->sources, g_strconcat ("@", path, NULL));
+		}
+	}
+
+	g_ptr_array_unref (listed);
+	return ok;
+}
+
+/* How the list goes to 7-Zip or rar. Neither keeps some links and follows
+   the rest, so where both are wanted the links go in first, by a run of
+   their own that keeps links, and the real run adds the rest, with every
+   link left out. All names are the list's, so borrowed. */
+typedef struct {
+	GPtrArray *roots;	/* what the run is handed */
+	GPtrArray *skips;	/* what it leaves out, below a root */
+	GPtrArray *links;	/* the run ahead, links by name */
+	gboolean   keep;	/* the one run keeps links, as they're all stored */
+} RunPlan;
+
+static void
+plan_runs (ArchiveJob *job,
+	   RunPlan    *plan)
+{
+	const ArcScanList *list = job->list;
+	const GPtrArray *not_taken[3] = { list->left_out, list->unreadable, list->again };
+	gboolean can_keep = (nemo_archive_backend_caps (job->options.format, job->backend) &
+			     NEMO_ARCHIVE_CAP_STORE_LINKS) != 0;
+	gboolean followed = FALSE;
+	gboolean any_link = FALSE;
+	guint i, k;
+
+	plan->roots = g_ptr_array_new ();
+	plan->skips = g_ptr_array_new ();
+	plan->links = g_ptr_array_new ();
+	plan->keep = FALSE;
+
+	for (i = 0; i < list->items->len; i++) {
+		const ArcItem *item = g_ptr_array_index (list->items, i);
+
+		if (item->kind == ARC_ITEM_LINK) {
+			any_link = TRUE;
+		} else if (item->needs & (ARC_FOLLOW_SYMLINKS | ARC_FOLLOW_JUNCTIONS)) {
+			followed = TRUE;
+		}
+	}
+	plan->keep = any_link && can_keep && !followed;
+
+	/* Top-level names are the selection, and one left out just isn't
+	   handed over. */
+	for (i = 0; i < list->items->len; i++) {
+		const ArcItem *item = g_ptr_array_index (list->items, i);
+
+		if (strchr (item->name, '/') == NULL && (item->kind != ARC_ITEM_LINK || plan->keep)) {
+			g_ptr_array_add (plan->roots, item->name);
+		}
+	}
+	for (k = 0; k < G_N_ELEMENTS (not_taken); k++) {
+		for (i = 0; i < not_taken[k]->len; i++) {
+			char *name = g_ptr_array_index (not_taken[k], i);
+
+			if (strchr (name, '/') != NULL) {
+				g_ptr_array_add (plan->skips, name);
+			}
+		}
+	}
+	if (!any_link || plan->keep) {
 		return;
 	}
 
-	job->dangling_first = g_list_reverse (job->dangling_first);
-	argv = nemo_archive_build_links_command (job->backend, job->options.format, &job->options,
-						 program, archive_path, job->dangling_first);
-	output = g_string_new (NULL);
+	/* Neither adds to a split set, 7-Zip on Windows keeps no links, and
+	   7-Zip won't keep one it reaches through a linked folder. */
+	for (i = 0; i < list->items->len; i++) {
+		const ArcItem *item = g_ptr_array_index (list->items, i);
+		gboolean odd;
 
+		if (item->kind != ARC_ITEM_LINK) {
+			continue;
+		}
+		/* rar would read * or ? in it as a pattern. One that leads
+		   nowhere it just can't open, so it's passed over, as the
+		   library writer passes over one under Ignore. */
+		odd = job->backend == NEMO_ARCHIVE_BACKEND_RAR && item->nowhere &&
+		      strpbrk (item->name, "*?") != NULL;
+		if (strchr (item->name, '/') != NULL && !odd) {
+			g_ptr_array_add (plan->skips, item->name);
+		}
+		if (!can_keep || job->options.split_size > 0 || odd ||
+		    (job->backend == NEMO_ARCHIVE_BACKEND_7Z &&
+		     (item->needs & (ARC_FOLLOW_SYMLINKS | ARC_FOLLOW_JUNCTIONS)))) {
+			job->passed = g_list_prepend (job->passed, g_strdup (item->name));
+		} else {
+			g_ptr_array_add (plan->links, item->name);
+		}
+	}
+}
+
+static void
+run_plan_clear (RunPlan *plan)
+{
+	g_clear_pointer (&plan->roots, g_ptr_array_unref);
+	g_clear_pointer (&plan->skips, g_ptr_array_unref);
+	g_clear_pointer (&plan->links, g_ptr_array_unref);
+}
+
+/* rar reads * and ? in any name it is handed as a wildcard, and has no switch
+   to say otherwise. What it finds in a folder by itself is taken as it is. */
+static const char *
+first_pattern (const RunPlan *plan)
+{
+	const GPtrArray *sets[3] = { plan->roots, plan->skips, plan->links };
+	guint k, i;
+
+	for (k = 0; k < G_N_ELEMENTS (sets); k++) {
+		for (i = 0; i < sets[k]->len; i++) {
+			const char *name = g_ptr_array_index (sets[k], i);
+
+			if (strpbrk (name, "*?") != NULL) {
+				return name;
+			}
+		}
+	}
+
+	return NULL;
+}
+
+/* One run of the program over roots, leaving out skips. known is what it
+   may warn about and still pass. */
+static gboolean
+run_tool (ArchiveJob  *job,
+	  const char  *program,
+	  const char  *base_path,
+	  const char  *archive_path,
+	  GPtrArray   *roots,
+	  GPtrArray   *skips,
+	  gboolean     keep_links,
+	  gboolean     links_only,
+	  GList       *known,
+	  GString     *output,
+	  GError     **error)
+{
+	GPtrArray *lists = g_ptr_array_new_with_free_func (g_free);
+	NemoToolRun *process = NULL;
+	ToolNames words = { NULL, NULL, NULL };
+	char **argv = NULL;
+	gboolean ok = FALSE;
+	guint i;
+
+	if (hand_names (job->backend, roots, skips, &words, lists, error)) {
+		argv = build_command (job->backend, job->options.format, &job->options,
+				      program, archive_path, &words, keep_links, links_only, error);
+	}
 	if (argv != NULL) {
-		process = start_tool (job, argv, base_path, output, NULL);
+		process = start_tool (job, argv, base_path, output, error);
 	}
 	if (process != NULL) {
-		ok = nemo_tool_run_wait_check (process, NULL);
+		ok = nemo_tool_run_wait_check (process, error);
+		if (!ok && !job_aborted (job) && only_known_warned (job, process, output, known)) {
+			g_clear_error (error);
+			ok = TRUE;
+		}
 		nemo_tool_run_free (process);
 	}
 
-	if (!ok && !job_aborted (job)) {
-		char *said = output_tail (output);
-
-		g_warning ("Links that lead nowhere could not be kept, so they are left out: %s", said);
-		g_free (said);
-
-		g_file_delete (job->destination, NULL, NULL);
-		job->dangling = g_list_concat (g_list_reverse (job->dangling_first), job->dangling);
-		job->dangling_first = NULL;
+	/* Ours, made above. */
+	for (i = 0; i < lists->len; i++) {
+		g_unlink (g_ptr_array_index (lists, i));
 	}
-
-	g_string_free (output, TRUE);
+	g_ptr_array_unref (lists);
+	tool_names_clear (&words);
 	g_strfreev (argv);
+
+	return ok;
+}
+
+static GList *
+names_to_list (GList *list, GPtrArray *names)
+{
+	guint i;
+
+	for (i = 0; i < names->len; i++) {
+		list = g_list_prepend (list, g_ptr_array_index (names, i));
+	}
+	return list;
 }
 
 static gboolean
@@ -3555,14 +3526,13 @@ run_command (ArchiveJob *job)
 	const char *program = backend_program (job->backend);
 	char *base_path = NULL;
 	char *archive_path = NULL;
-	char **argv = NULL;
-	GList *names = NULL;
-	GList *leave_out;
-	GList *l;
-	NemoToolRun *process;
+	const char *pattern;
+	RunPlan plan = { NULL, NULL, NULL, FALSE };
+	GList *known = NULL;
 	GError *error = NULL;
 	GString *output;
 	gboolean ok = FALSE;
+	gboolean any = FALSE;
 
 	base_path = g_file_get_path (job->base_dir);
 	archive_path = g_file_get_path (job->destination);
@@ -3570,23 +3540,27 @@ run_command (ArchiveJob *job)
 	if (program == NULL || base_path == NULL || archive_path == NULL) {
 		job_fail (job, _("The archive could not be created."),
 			  _("This format needs a program that is not installed, or a folder on this computer."));
-		g_free (base_path);
-		g_free (archive_path);
-		return FALSE;
+		goto out;
 	}
 
-	/* Both tools follow links unless told to keep them, folders and all. The
-	   linked folders that are not to be followed have to be found first, so
-	   they can be named as left out, and so do links that lead nowhere, which
-	   go in by a run of their own where they can, and end the real run on a
-	   warning that is only about them. */
-	if (!job_stores_links (job)) {
-		scan_sources (job);
-		if (job_aborted (job) || unit_has_nothing (job)) {
-			g_free (base_path);
-			g_free (archive_path);
-			return job->unit_empty;
-		}
+	if (!prescan (job)) {
+		goto out;
+	}
+	if (list_has_nothing (job)) {
+		ok = job->unit_empty;
+		goto out;
+	}
+	plan_runs (job, &plan);
+
+	pattern = job->backend == NEMO_ARCHIVE_BACKEND_RAR ? first_pattern (&plan) : NULL;
+	if (pattern != NULL) {
+		char *details = g_strdup_printf (
+			_("\"%s\" has * or ? in its name, which rar reads as a wildcard, so other files could go in or be left out with it. Choose another format, or rename it."),
+			pattern);
+
+		job_fail (job, _("The archive could not be created."), details);
+		g_free (details);
+		goto out;
 	}
 
 	/* Both tools ADD to an archive that is already there rather than
@@ -3595,79 +3569,51 @@ run_command (ArchiveJob *job)
 		g_file_delete (job->destination, NULL, NULL);
 	}
 
-	for (l = job->sources; l != NULL; l = l->next) {
-		names = g_list_prepend (names, g_file_get_basename (G_FILE (l->data)));
-	}
-	names = g_list_reverse (names);
-
-	if (job->backend == NEMO_ARCHIVE_BACKEND_RAR) {
-		const char *pattern = first_pattern (names);
-
-		if (pattern == NULL) {
-			pattern = first_pattern (job->left_out);
-		}
-		if (pattern != NULL) {
-			char *details = g_strdup_printf (
-				_("\"%s\" has * or ? in its name, which rar reads as a wildcard, so other files could go in or be left out with it. Choose another format, or rename it."),
-				pattern);
-
-			job_fail (job, _("The archive could not be created."), details);
-			g_free (details);
-			goto out;
-		}
-	}
-
 	set_unit_status (job, g_strdup_printf (_("Compressing with %s"),
 					       job->backend == NEMO_ARCHIVE_BACKEND_RAR ? "rar" : "7z"));
 
-	put_in_dangling_first (job, program, base_path, archive_path);
-	if (job_aborted (job)) {
-		goto out;
-	}
-
-	/* Only links that went in first, and rar fails a run that adds nothing.
-	   If they did not go in after all, there is nothing. */
-	if (!job_stores_links (job) && job->entries == NULL) {
-		ok = job->dangling_first != NULL || (unit_has_nothing (job) && job->unit_empty);
-		goto out;
-	}
-
-	/* Every link the scan passed over is left out by name, whether the
-	   first run kept it or not. Left to itself, 7-Zip on Windows puts in an
-	   empty entry for each, and rar there writes a plain folder over a
-	   folder link the first run kept. rar would read * or ? in a name as a
-	   pattern, so those it is left to pass over. */
-	leave_out = g_list_copy (job->left_out);
-	for (l = job->dangling_first; l != NULL; l = l->next) {
-		leave_out = g_list_append (leave_out, l->data);
-	}
-	for (l = job->dangling; l != NULL; l = l->next) {
-		const char *name = l->data;
-
-		if (job->backend != NEMO_ARCHIVE_BACKEND_RAR || strpbrk (name, "*?") == NULL) {
-			leave_out = g_list_append (leave_out, l->data);
-		}
-	}
-
-	argv = build_command (job->backend, job->options.format, &job->options,
-			      program, archive_path, names, leave_out, FALSE, &error);
-	g_list_free (leave_out);
-
 	output = g_string_new (NULL);
-	process = argv != NULL ? start_tool (job, argv, base_path, output, &error) : NULL;
+	if (plan.links->len > 0) {
+		GPtrArray *none = g_ptr_array_new ();
 
-	if (process == NULL) {
-		job_fail (job, _("The archive could not be created."),
-			  error != NULL ? error->message : NULL);
-		g_clear_error (&error);
+		any = run_tool (job, program, base_path, archive_path, plan.links, none,
+				TRUE, TRUE, NULL, output, NULL);
+		g_ptr_array_unref (none);
+		/* Left out after all, and named. */
+		if (!any && !job_aborted (job)) {
+			char *said = output_tail (output);
+			guint i;
+
+			g_warning ("Links could not be kept, so they are left out: %s", said);
+			g_free (said);
+			g_file_delete (job->destination, NULL, NULL);
+			for (i = 0; i < plan.links->len; i++) {
+				job->passed = g_list_prepend (job->passed,
+							      g_strdup (g_ptr_array_index (plan.links, i)));
+			}
+		}
+		g_string_truncate (output, 0);
+	}
+	if (job_aborted (job)) {
 		g_string_free (output, TRUE);
 		goto out;
 	}
 
-	ok = nemo_tool_run_wait_check (process, &error);
-	if (!ok && !job_aborted (job) && only_dangling_warned (job, process, output)) {
-		ok = TRUE;
+	/* rar fails a run that adds nothing. */
+	if (plan.roots->len == 0) {
+		ok = any;
+		if (!ok) {
+			job_fail (job, _("The archive could not be created."),
+				  _("Nothing in the selection could go in."));
+		}
+		g_string_free (output, TRUE);
+		goto out;
 	}
+
+	known = names_to_list (known, plan.skips);
+	known = g_list_concat (g_list_copy (job->passed), known);
+	ok = run_tool (job, program, base_path, archive_path, plan.roots, plan.skips,
+		       plan.keep, FALSE, known, output, &error);
 	if (!ok && !job_aborted (job)) {
 		char *said = output_tail (output);
 
@@ -3676,14 +3622,12 @@ run_command (ArchiveJob *job)
 			  said[0] != '\0' ? said : (error != NULL ? error->message : NULL));
 		g_free (said);
 	}
-
 	g_clear_error (&error);
 	g_string_free (output, TRUE);
-	nemo_tool_run_free (process);
 
  out:
-	g_strfreev (argv);
-	g_list_free_full (names, g_free);
+	g_list_free (known);
+	run_plan_clear (&plan);
 	g_free (base_path);
 	g_free (archive_path);
 
@@ -3717,7 +3661,7 @@ verify_unit (ArchiveJob *job)
 	}
 }
 
-/* The links a job passed over, named for the warning. NULL if none. */
+/* The links a job couldn't keep, named for the warning. NULL if none. */
 static char *
 passed_over_note (GList *names)
 {
@@ -3730,8 +3674,8 @@ passed_over_note (GList *names)
 		return NULL;
 	}
 
-	note = g_string_new (ngettext ("It points to something that cannot be reached, so there was nothing to put in:",
-				       "They point to something that cannot be reached, so there was nothing to put in:",
+	note = g_string_new (ngettext ("It can't go in as a link with these options:",
+				       "They can't go in as links with these options:",
 				       count));
 	for (l = names; l != NULL && shown < 10; l = l->next, shown++) {
 		g_string_append_printf (note, "\n%s", (const char *) l->data);
@@ -3802,7 +3746,7 @@ archive_job_done (gpointer user_data)
 	}
 
 	g_clear_pointer (&job->list, arc_scan_list_free);
-	g_list_free_full (job->entries, (GDestroyNotify) archive_entry_free_full);
+	g_list_free_full (job->passed, g_free);
 	g_list_free_full (job->units, (GDestroyNotify) archive_unit_free);
 	g_list_free_full (job->verified, g_object_unref);
 	g_list_free_full (job->passed_over, g_free);
@@ -3830,7 +3774,6 @@ start_unit (ArchiveJob  *job,
 	job->base_dir = unit->sources != NULL ?
 		g_file_get_parent (G_FILE (unit->sources->data)) : NULL;
 
-	job->entries = NULL;
 	job->total_bytes = 0;
 	job->done_bytes = 0;
 	job->file_count = 0;
@@ -3843,14 +3786,8 @@ static void
 finish_unit (ArchiveJob *job)
 {
 	g_clear_pointer (&job->list, arc_scan_list_free);
-	g_list_free_full (job->entries, (GDestroyNotify) archive_entry_free_full);
-	job->entries = NULL;
-	g_list_free_full (job->left_out, g_free);
-	job->left_out = NULL;
-	job->passed_over = g_list_concat (job->passed_over, g_list_reverse (job->dangling));
-	job->dangling = NULL;
-	g_list_free_full (job->dangling_first, g_free);
-	job->dangling_first = NULL;
+	job->passed_over = g_list_concat (job->passed_over, g_list_reverse (job->passed));
+	job->passed = NULL;
 	job->unit_empty = FALSE;
 
 	g_clear_object (&job->base_dir);

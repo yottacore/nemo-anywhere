@@ -321,19 +321,21 @@ update_for_format (ArchiveDialog *self)
 	show_check (self->lock_check, shown.lock, (caps & NEMO_ARCHIVE_CAP_LOCK) != 0);
 
 	/* The box is only offered for an archive that can be checked afterwards,
-	   and nemo_archive_can_verify is the one place that decides. */
+	   and nemo_archive_can_verify is the one place that decides. Plain files
+	   have no links to keep, whatever the choice. */
 	nemo_archive_options_init (&checkable);
+	checkable.format = format;
 	checkable.split_size = shown.split ? 1 : 0;
 	checkable.encrypt_names = shown.encrypt_names;
-	checkable.password = shown.encrypt_names ? g_strdup ("x") : NULL;
+	checkable.password = has_password (self, caps) ? g_strdup ("x") : NULL;
+	if (self->links_or_folders) {
+		checkable.links = self->chosen.links;
+	}
 	can_delete = nemo_archive_can_verify (&checkable);
 	show_check (self->delete_check, self->delete_sources, can_delete);
 
 	/* The store choices go by the writers that can also do the password and
 	   volumes asked for. */
-	if (has_password (self, caps) && checkable.password == NULL) {
-		checkable.password = g_strdup ("x");
-	}
 	show_link_choices (self, format, &checkable);
 	nemo_archive_options_clear (&checkable);
 	nemo_archive_choices_clear (&shown);
@@ -938,6 +940,7 @@ build_options (ArchiveDialog *self,
 	self->delete_check = add_choice (self, grid, row++,
 					 _("De_lete the originals once the archive checks out"),
 					 &self->delete_sources);
+	gtk_widget_set_name (self->delete_check, "delete-originals");
 	gtk_widget_set_tooltip_text (self->delete_check,
 				     _("The archive is read back first. Unless every file is in "
 				       "there at the same size, nothing is deleted."));

@@ -164,9 +164,10 @@ char    *nemo_archive_each_name       (const char       *item_name,
 				       NemoArchiveFormat format);
 
 /* The command line a 7z or rar backend would be run with, in the base folder
-   holding the selection. leave_out holds paths relative to that folder, the
-   linked folders that are not to be followed. Exposed so the switches can be
-   checked without spawning anything. */
+   holding the selection, with the names on the line. leave_out holds paths
+   relative to that folder, to be left out. The job hands its names in list
+   files instead. Exposed so the switches can be checked without spawning
+   anything. */
 char   **nemo_archive_build_command (NemoArchiveBackend        backend,
 				     NemoArchiveFormat         format,
 				     const NemoArchiveOptions *options,
@@ -176,7 +177,7 @@ char   **nemo_archive_build_command (NemoArchiveBackend        backend,
 				     GList                    *leave_out);
 
 /* The run ahead of that one, which puts in the links named in names, as
-   links, while the real run follows links. For the links that lead nowhere. */
+   links, while the real run follows links. */
 char   **nemo_archive_build_links_command (NemoArchiveBackend        backend,
 					   NemoArchiveFormat         format,
 					   const NemoArchiveOptions *options,
@@ -200,7 +201,8 @@ GThread         *nemo_archive_tool_stderr_start  (NemoToolRun *process);
 char            *nemo_archive_tool_stderr_finish (GThread     *reader);
 
 /* Whether a 7z or rar run that ended on a warning status warned about nothing
-   but the links in skipped, which lead nowhere and so had nothing to put in.
+   but names in skipped: what it was told to leave out, and links that lead
+   nowhere, which have nothing to put in.
    output is what the tool printed, with its backspaces already applied;
    skipped holds paths relative to the base folder. */
 gboolean nemo_archive_only_skipped_links (NemoArchiveBackend  backend,
@@ -240,8 +242,9 @@ int      nemo_archive_options_room (int work_height,
 				    int closed_height);
 
 /* Whether an archive written with these options can be read back at all, and
-   so whether deleting the originals may be offered for it. A split set and an
-   archive with its names encrypted both answer FALSE. */
+   so whether deleting the originals may be offered for it. A split set, an
+   archive with its names encrypted, and a 7z with a password that keeps links
+   answer FALSE. */
 gboolean nemo_archive_can_verify (const NemoArchiveOptions *options);
 gboolean nemo_archive_should_confirm_password (const NemoArchiveOptions *options);
 
