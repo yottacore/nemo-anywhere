@@ -36,6 +36,7 @@
 #include "arc-command.h"
 #include "arc-link-options.h"
 #include "arc-mounts.h"
+#include "arc-verify.h"
 #include "arc-volumes.h"
 #include "arc-writer.h"
 
@@ -102,6 +103,8 @@ typedef ArcOptions NemoArchiveOptions;
 #define nemo_archive_volume_preset_find   arc_volume_preset_find
 #define nemo_archive_parse_size           arc_parse_size
 #define nemo_archive_format_size          arc_format_size
+#define nemo_archive_can_verify           arc_can_verify
+#define nemo_archive_should_confirm_password arc_should_confirm_password
 
 typedef void (* NemoArchiveCallback) (GFile    *archive_file,
 				      gboolean  success,
@@ -139,20 +142,7 @@ GSubprocessFlags nemo_archive_tool_stderr_flag   (void);
 GThread         *nemo_archive_tool_stderr_start  (NemoToolRun *process);
 char            *nemo_archive_tool_stderr_finish (GThread     *reader);
 
-/* Whether an archive written with these options can be read back at all, and
-   so whether deleting the originals may be offered for it. A split set, an
-   archive with its names encrypted, and a 7z with a password that keeps links
-   answer FALSE. */
-gboolean nemo_archive_can_verify (const NemoArchiveOptions *options);
-gboolean nemo_archive_should_confirm_password (const NemoArchiveOptions *options);
-
-/* Walks the sources again and reads the archive back, so that nothing may be
-   deleted on the strength of the writer saying it went well. Answers TRUE only
-   when every file that should have gone in is in there under the same relative
-   path and the same size, and nothing was left out along the way. On FALSE,
-   reason is set to a sentence naming what did not line up; the caller frees it.
-   The walk is deliberately its own, rather than the one the job wrote from -
-   checking with the same code that did the work proves very little. */
+/* arc_verify with the app's host. */
 gboolean nemo_archive_verify (GFile                    *archive_file,
 			      GList                    *sources,
 			      const NemoArchiveOptions *options,
