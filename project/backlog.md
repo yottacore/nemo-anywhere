@@ -341,6 +341,37 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 6436ac6
 	- Test case: rhr6ggmt, Archive option combinations: the rows with a 7z, a password and links kept say why the originals stay, and check_locked_plain archives plain files and a folder with no link under the same options and deletes them. rewygsbg, Archive job test, check_predicate: the rule for 7z, zip, Store and Follow. rhtmbdmj, Compress dialog height test, probe_locked_links: the box grays with a link or folder selected and stays with plain files.
 
+- Extracting a rar whose link has a target of 128 bytes or more stops at that link.
+	- ID: 2026101312094706
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Needs local test suite run?: No. The full Linux suite passed on the branch, 198 of 198.
+	- Needs external testing: None. The new test writes its rars with POSIX links, so it runs on Linux and the BSDs only. The same code runs on Windows, and the extract tests there still pass.
+	- Priority|Severity: Low
+	- Opened: 20261013-120947
+	- Opened by: 2026101310525452
+	- Related IDs: 2026101313374036, 2026100516275399
+	- Target OS: Linux, Windows
+	- Steps to reproduce:
+		- With rar, keep a link whose target is 128 bytes or more, then a file after it, and extract that archive in the app.
+	- Incorrect behavior: libarchive 3.8.9 and older misreads the link's header. With 3.7.4, bsdtar lists nothing for an archive holding only that link, and stops with "Header CRC error" when a file follows it. With 3.8.9 it says "unsupported structure of file header extra data".
+	- Expected behavior: every entry comes out, or the app hands the archive to rar or 7-Zip.
+	- Reproduced: with bsdtar 3.7.4 on Linux and 3.8.9 on b29w, 20261013. Not tried through the app's Extract yet.
+		- 20261013, through the app's Extract on Linux with libarchive 3.7.4. A rar of a file, the link and a file: the first file comes out, and the job fails with "The archive could not be read." and no reason, even with rar and 7-Zip installed. The same with the link last: the job reports success, and the link is missing.
+	- Possible cause: libarchive takes the target's length as one byte when it's 2. Fixed upstream after 3.8.9 (libarchive `bb42a8c`).
+	- Actual cause: as in Possible cause. The library stops at the link, with an error when something follows it and as if at the end when nothing does. Extracting took a stop after the first file was written as a failed archive, and the end as the end. rar and 7-Zip were tried only while nothing was written.
+	- Decisions:
+		- Decided: when the library stops at such a link and rar, unrar or 7-Zip is installed, that program extracts the whole archive, and only what the library never got to is placed from it. So nothing is asked about twice, and what was already answered stays answered. Without one, the archive fails with a message that says the link's target is too long for the built-in reader, where it stopped and after how many files, and to install 7-Zip or RAR. Easy to undo: the fallback is one branch in the extract job.
+		- The stop is told from any other by what the library left in the entry it stopped at: a link in a rar with a target of 128 bytes or more. That goes with the version check the delete check uses, from one helper, so both change together if 3.8.10 turns out not to be the first fixed release.
+		- The names a program extracts get the same cleaning as an entry the library reads, so both routes name things the same way and stay inside the folder picked.
+	- Actual fix: as in Decisions. Programs are looked up as before, on Windows the `.exe` first. A test can hide them as for compressing.
+	- Swept: the other place that reads a rar back is the check before a delete, 2026101313374036, which now goes by the same helper. The library's stop shows up at the end of a listing too, which extracting now checks as well as an error. Hard links in a rar keep their target the same way, so the check covers them too, though no test has one. A junction made on Windows is not: the library keeps no target for one, so a stop there reads as any other read error, as before.
+	- Verified: 20261013. rk65m3m4 fails on dev's extract code and passes on the branch. It also fails with the "already placed" skip off (a question about a file the job had written), with the file count off, and with the stop at the end not checked. reww9h2r, reww9h2s and rjbpmcxy pass, also under the address and undefined behavior checks. The cross build with warnings as errors passes.
+	- Branch: xmove
+	- Commit: 509ff56
+	- Test case: rk65m3m4, Extract rar long link test. Rars with a 140-byte link target: a file, the link and a file; a file and the link last; the link first. With rar there, with only 7-Zip, and with neither. With a program every entry comes out, the link with its target, and nothing is asked. With neither the job fails, nothing past the link comes out, and the message names the reason, where it stopped and after how many files, and what to install.
+	- Acceptance signoff: Left at signoff for the message wording.
+
 - Compression reset: link choices and filesystem options in the Compress dialog.
 	- ID: 2026100516274386
 	- Type: Enhancement
@@ -613,6 +644,41 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: arcmove
 	- Commit: 6fe9214, a6ee2ed, c97da18
 	- Test case: none new. rev86z08, rhae85g0, rewygsbg, rj4jewn6, rjbpyy28, rhr6ggmt, rhtmbdmj and the core tests stay as they are, and pass before and after.
+
+- Compression reset: move the extract code into the archive core.
+	- ID: 2026100516275399
+	- Type: Enhancement
+	- Status: Waiting on signoff
+	- Needs local test suite run?: No. The full Linux suite passed on the branch, 198 of 198.
+	- Needs external testing: None left. reww9h2r, reww9h2s, rjq9mv0w, rewygsbg and rhr6ggmt pass natively on b29w, with a long temp folder.
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274683
+	- Related IDs: 2026101312094706
+	- Target OS: Linux, Windows
+	- Design: [Modularity](design_docs/20260929-101432_compression.md#modularity) and [Roadmap](design_docs/20260929-101432_compression.md#roadmap).
+	- Requirements:
+		- Extracting and the cleaning of stored paths move to the core, and the conflict dialog to the GTK layer, with no change in what they do.
+		- After this the core has no GTK and no nemo types, and its build shows it.
+	- Estimated effort: High
+	- Actual effort: Avg
+	- Progress log:
+		- 20261013-151358: moved in 2 commits, after the fix for 2026101312094706: names and command lines, then the extract job. Each built and passed the tests. Left at signoff for the same 2 calls as 2026100516274683:
+			- The GTK layer is read as the GTK code outside the core. The Extract conflict dialog stays in `nemo-extract-conflict-dialog.c`, and the password box moved from `nemo-extract.c` to `nemo-archive-host.c`. The core reaches both only through its host's 2 questions.
+			- nemo calls the moved code by its old names, from a list in `nemo-extract.h`, so the callers and the tests didn't change.
+	- Decisions:
+		- A job reads the 2 extract lines once, when it's made, as a compress job does. Before, each line was read as it was built.
+		- When the conflict question is answered with Cancel, nemo's side stops the job through its progress, as before, so a job paused by hand wakes up to stop. The core cancels too, for a host that has no question.
+		- Looking up the programs that extract sits beside the lookup for the ones that compress, and a test hides both the same way.
+		- The build check reads the core's compile lines and the library itself, on top of the lint, which reads the sources.
+	- Done: `arc-extract-names` and `arc-extract` in `source/archive-core/`, plus the extract lines in `arc-command` and the program lookup in `arc-writer`. `nemo-extract.c` keeps the job queue, the progress window and the callback. `nemo-archive-host.c` answers the conflict and password questions with the 2 dialogs, and removes a replaced file or the staging folder through the delete guard. After this nothing in the core names GTK or nemo.
+	- Swept: every caller of the old names, in `nemo-view.c` and 5 tests, builds unchanged. The lint's lists of who may delete or walk folders needed nothing new, since the core asks its host for both.
+	- Verified: 20261013. reww9h2r, reww9h2s and rjbpmcxy pass on dev and after each commit, and under the address and undefined behavior checks. Each answer to the conflict question, with and without "Apply to all", leaves the same files on dev and on the branch. rk6704r8 fails with GTK in the core's dependencies, with the app's folder on its include path, and with a call to a GTK function in a core file. Under wine `test-arc-core`, `test-nemo-extract`, `test-nemo-extract-job` and `test-nemo-archive` pass. The cross build with warnings as errors passes after each commit. The full Linux suite passed, 198 of 198.
+	- Branch: xmove
+	- Commit: 93d44bc, f180fe4
+	- Test case: reww9h2r, reww9h2s and the extract leak test rjbpmcxy stay as they are, and pass before and after. rk65m3m4 from 2026101312094706. rk6704r8, Archive core build test: no GTK or app folder or define on a core file's compile line, and no call into GTK, GDK or nemo in the core library.
+	- Acceptance signoff: Left at signoff for the GTK-layer reading and the alias list, as 2026100516274683.
 
 - After an `smb://` address is typed, nothing shows that the app is working on it.
 	- ID: 2026100816170921
@@ -893,22 +959,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: f38660a to f8a6223
 	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session. (c) still needs its own: a thumbnail and the text from a small file of each type, on every platform, and a check that no program is started for them.
 
-- Extracting a rar whose link has a target of 128 bytes or more stops at that link.
-	- ID: 2026101312094706
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261013-120947
-	- Opened by: 2026101310525452
-	- Target OS: Linux, Windows
-	- Steps to reproduce:
-		- With rar, keep a link whose target is 128 bytes or more, then a file after it, and extract that archive in the app.
-	- Incorrect behavior: libarchive 3.8.9 and older misreads the link's header. With 3.7.4, bsdtar lists nothing for an archive holding only that link, and stops with "Header CRC error" when a file follows it. With 3.8.9 it says "unsupported structure of file header extra data".
-	- Expected behavior: every entry comes out, or the app hands the archive to rar or 7-Zip.
-	- Reproduced: with bsdtar 3.7.4 on Linux and 3.8.9 on b29w, 20261013. Not tried through the app's Extract yet.
-	- Possible cause: libarchive takes the target's length as one byte when it's 2. Fixed upstream after 3.8.9 (libarchive `bb42a8c`).
-	- Test case: none yet.
-
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
 	- Type: Enhancement
@@ -936,22 +986,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
 		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
-
-- Compression reset: move the extract code into the archive core.
-	- ID: 2026100516275399
-	- Type: Enhancement
-	- Status: Queued
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Prereq IDs: 2026100516274683
-	- Target OS: Linux, Windows
-	- Design: [Modularity](design_docs/20260929-101432_compression.md#modularity) and [Roadmap](design_docs/20260929-101432_compression.md#roadmap).
-	- Requirements:
-		- Extracting and the cleaning of stored paths move to the core, and the conflict dialog to the GTK layer, with no change in what they do.
-		- After this the core has no GTK and no nemo types, and its build shows it.
-	- Estimated effort: High
-	- Test case: none new. reww9h2r, reww9h2s and the extract leak test rjbpmcxy stay as they are, and pass before and after.
 
 - On Windows the gate says the build is not set up with `-Werror` when it is.
 	- ID: 2026100518100000

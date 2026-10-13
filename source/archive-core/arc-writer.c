@@ -273,6 +273,49 @@ arc_backend_present (ArcBackend backend)
 	return arc_backend_program (backend) != NULL;
 }
 
+/* Unpacking has a probe of its own, since unrar is enough to read a rar. */
+static char    *extract_program[4];
+static gboolean extract_probed[4];
+
+/* Returns: (transfer none) */
+const char *
+arc_extract_program (ArcBackend backend)
+{
+	static const char * const seven_zip_names[] = { "7z", "7zz", "7za", NULL };
+	static const char * const rar_names[] = { "unrar", "rar", NULL };
+	const char *program;
+
+	if (backend != ARC_BACKEND_7Z && backend != ARC_BACKEND_RAR) {
+		return NULL;
+	}
+
+	g_mutex_lock (&probe_lock);
+
+	if (!extract_probed[backend]) {
+		if (backend == ARC_BACKEND_7Z) {
+			extract_program[backend] = arc_find_command (seven_zip_names, "7-Zip");
+		} else {
+			extract_program[backend] = arc_find_command (rar_names, "WinRAR");
+		}
+		extract_probed[backend] = TRUE;
+	}
+	program = hidden_backend[backend] ? NULL : extract_program[backend];
+
+	g_mutex_unlock (&probe_lock);
+
+	return program;
+}
+
+gboolean
+arc_extract_backend_present (ArcBackend backend)
+{
+	if (backend == ARC_BACKEND_LIBARCHIVE) {
+		return TRUE;
+	}
+
+	return arc_extract_program (backend) != NULL;
+}
+
 ArcCaps
 arc_backend_caps (ArcFormat  format,
 		  ArcBackend backend)

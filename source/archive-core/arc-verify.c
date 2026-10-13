@@ -85,7 +85,7 @@ typedef struct {
 	guint         left_files;
 	gboolean      links_locked;	/* a link kept as a link can't be listed */
 	gboolean      locked_link;	/* and one is expected */
-	gboolean      long_targets_unread;
+	gboolean      reads_rar;
 	ArcLinkChoice             symlinks;
 	ArcLinkChoice             junctions;
 	GHashTable               *listing;
@@ -181,6 +181,31 @@ stored_target_length (const char *target)
 	return length;
 }
 
+gboolean
+arc_rar_target_unreadable (gsize stored_length)
+{
+	return stored_length >= 128 && archive_version_number () < 3008010;
+}
+
+gboolean
+arc_rar_stopped_at_long_target (struct archive       *a,
+				struct archive_entry *entry)
+{
+	const char *target;
+
+	if (entry == NULL ||
+	    (archive_format (a) & ARCHIVE_FORMAT_BASE_MASK) != ARCHIVE_FORMAT_RAR_V5) {
+		return FALSE;
+	}
+
+	/* rar keeps the target as UTF-8. */
+	target = archive_entry_symlink_utf8 (entry);
+	if (target == NULL) {
+		target = archive_entry_hardlink_utf8 (entry);
+	}
+	return target != NULL && arc_rar_target_unreadable (strlen (target));
+}
+
 static void
 expect_link (VerifyWalk *walk,
 	     const char *rel_path,
@@ -190,10 +215,8 @@ expect_link (VerifyWalk *walk,
 
 	walk->locked_link = walk->locked_link || walk->links_locked;
 	item = expect (walk, rel_path, -1, FALSE);
-	/* libarchive 3.8.9 and older reads a rar link's target length as one
-	   byte, so it lists nothing from a target of 128 bytes on. */
-	item->long_target = walk->long_targets_unread && target != NULL &&
-			    stored_target_length (target) >= 128;
+	item->long_target = walk->reads_rar && target != NULL &&
+			    arc_rar_target_unreadable (stored_target_length (target));
 }
 
 static void verify_walk_item (VerifyWalk *walk, GFile *file, const char *rel_path,
@@ -676,9 +699,7 @@ arc_verify (const ArcHost    *host,
 	walk.whole = TRUE;
 	walk.links_locked = links_locked (options) &&
 		(arc_backend_caps (options->format, backend) & ARC_CAP_STORE_LINKS);
-	/* Fixed upstream after 3.8.9, in bb42a8c. */
-	walk.long_targets_unread = options->format == ARC_FORMAT_RAR &&
-		archive_version_number () < 3008010;
+	walk.reads_rar = options->format == ARC_FORMAT_RAR;
 	{
 		guint stores = arc_backend_link_stores (options->format, backend);
 

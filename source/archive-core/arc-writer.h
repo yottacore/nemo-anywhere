@@ -111,6 +111,11 @@ char       *arc_find_command (const char * const *names,
    installed, or is hidden for a test. */
 const char *arc_backend_program (ArcBackend backend);
 
+/* The same for unpacking, which takes unrar ahead of rar. Present is always
+   TRUE for the library. */
+const char *arc_extract_program         (ArcBackend backend);
+gboolean    arc_extract_backend_present (ArcBackend backend);
+
 /* Pure, so it can be reasoned about (and tested) without probing the box. */
 ArcCaps     arc_backend_caps        (ArcFormat  format,
 				     ArcBackend backend);
@@ -137,7 +142,8 @@ gboolean    arc_stores_symlinks     (const ArcOptions *options,
 				     ArcBackend        backend);
 
 /* For tests: answer as if the program were not installed, so the library's
-   own 7z writer can still be reached on a box that has 7-Zip. */
+   own 7z writer can still be reached on a box that has 7-Zip. Unpacking
+   goes by it too. */
 void        arc_hide_backend        (ArcBackend backend,
 				     gboolean   hidden);
 /* For tests: 7-Zip keeps links, or doesn't as on Windows. */

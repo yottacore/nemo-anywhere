@@ -88,6 +88,18 @@ char  **arc_build_links_command (const ArcSettings *settings,
 				 const char        *archive_path,
 				 GList             *names);
 
+/* The command a 7z or rar backend unpacks with, from the extract lines in
+   settings. NULL for any other backend, or a line that can't be run as
+   written. Exposed so the switches can be checked without spawning
+   anything. */
+char  **arc_build_extract_command (const ArcSettings *settings,
+				   const ArcHost     *host,
+				   ArcBackend         backend,
+				   const char        *program,
+				   const char        *archive_path,
+				   const char        *destination_path,
+				   const char        *password);
+
 /* Switches a command line from the settings gets at run time, whatever was
    typed there: -spd when it runs 7-Zip and lacks it, and -r0 last when it
    runs rar to compress. The saved line is never changed. Takes argv and

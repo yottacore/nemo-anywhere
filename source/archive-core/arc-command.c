@@ -516,6 +516,93 @@ arc_build_links_command (const ArcSettings *settings,
 	return argv;
 }
 
+/* Returns: (transfer full): free with g_strfreev */
+char **
+arc_build_extract_command (const ArcSettings *settings,
+			   const ArcHost     *host,
+			   ArcBackend         backend,
+			   const char        *program,
+			   const char        *archive_path,
+			   const char        *destination_path,
+			   const char        *password)
+{
+	char *program_v[2]     = { NULL, NULL };
+	char *password_v[2]    = { NULL, NULL };
+	char *archive_v[2]     = { NULL, NULL };
+	char *folder_v[2]      = { NULL, NULL };
+	char *folder_sep_v[2]  = { NULL, NULL };
+	ArcLine line;
+	const char *key;
+	GError *error = NULL;
+	char **argv;
+	const char *text;
+	gboolean has_password;
+
+	g_return_val_if_fail (settings != NULL, NULL);
+	g_return_val_if_fail (program != NULL, NULL);
+	g_return_val_if_fail (archive_path != NULL, NULL);
+	g_return_val_if_fail (destination_path != NULL, NULL);
+
+	has_password = password != NULL && password[0] != '\0';
+
+	if (backend == ARC_BACKEND_7Z) {
+		line = ARC_LINE_EXTRACT_7Z;
+
+		/* Always answered, never asked: with no password switch at all
+		   an encrypted archive stops for one on a console we do not
+		   have, and the job would hang instead of failing. */
+		password_v[0] = has_password ? g_strconcat ("-p", password, NULL)
+					    : g_strdup ("-p");
+	} else if (backend == ARC_BACKEND_RAR) {
+		line = ARC_LINE_EXTRACT_RAR;
+
+		password_v[0] = has_password ? g_strconcat ("-p", password, NULL)
+					    : g_strdup ("-p-");
+	} else {
+		return NULL;
+	}
+
+	program_v[0] = g_strdup (program);
+	archive_v[0] = g_strdup (archive_path);
+	folder_v[0] = g_strdup (destination_path);
+	folder_sep_v[0] = g_strconcat (destination_path, G_DIR_SEPARATOR_S, NULL);
+
+	{
+		const ArcCommandToken tokens[] = {
+			{ "PROGRAM",                      (const char *const *) program_v,    FALSE },
+			{ "PASSWORD",                     (const char *const *) password_v,   TRUE },
+			{ "SOURCE_ARCHIVE",               (const char *const *) archive_v,    FALSE },
+			{ "TARGET_FOLDER",                (const char *const *) folder_v,     FALSE },
+			{ "TARGET_FOLDER_WITH_SEPARATOR", (const char *const *) folder_sep_v, FALSE },
+			{ NULL, NULL, FALSE }
+		};
+
+		key = arc_line_name (line);
+		text = settings->lines[line] != NULL ? settings->lines[line] : "";
+		argv = arc_command_expand (host, text, tokens, &error);
+
+		if (argv == NULL) {
+			g_warning ("The %s command line cannot be run as written (%s): %s",
+				   key, error->message, text);
+			g_clear_error (&error);
+		} else {
+			/* Dropping {{PASSWORD}} is the one that bites: with no
+			   switch at all an encrypted archive waits for a console
+			   that is not there, and the job hangs. */
+			arc_command_warn_unused (host, line, text, tokens);
+			argv = arc_add_run_switches (argv, FALSE);
+		}
+	}
+
+	g_free (program_v[0]);
+	g_free (password_v[0]);
+	g_free (archive_v[0]);
+	g_free (folder_v[0]);
+	g_free (folder_sep_v[0]);
+
+	return argv;
+}
+
 static gboolean
 names_skipped (const char *path,
 	       gsize       length,

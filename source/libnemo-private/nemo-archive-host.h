@@ -79,15 +79,18 @@ void     nemo_archive_choices_shown      (const NemoArchiveChoices *chosen,
    which on Windows start from the one place that may start them. */
 void nemo_archive_host_init         (ArcHost              *host);
 
-/* What a job's calls reach: its progress, and the window its dialogs and the
-   trash go over. */
+/* What a job's calls reach: its progress, the window its dialogs and the
+   trash go over, and for a job that asks questions, the I/O job they wait
+   on the main loop through. */
 typedef struct {
 	NemoProgressInfo *progress;
 	GtkWindow        *parent_window;	/* NULL once it closed */
+	GIOSchedulerJob  *io_job;		/* set on the job's thread */
 } NemoArchiveHostJob;
 
-/* The same, plus progress, new files, deletes of what the job wrote, the
-   trash, and the dialogs, for a job. job has to outlive the host. */
+/* The same, plus progress, new files, deletes of what the job wrote or
+   unpacked, the trash, and the dialogs and questions, for a job. job has to
+   outlive the host. */
 void nemo_archive_host_init_job     (ArcHost              *host,
 				     NemoArchiveHostJob   *job);
 

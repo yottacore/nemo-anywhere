@@ -1657,6 +1657,20 @@ test('reww9h2s Extract job test',
   args: []
 )
 
+# A rar with a link libarchive 3.8.9 and older can't read. Writes it with rar;
+# the links it holds are POSIX ones.
+if not is_windows
+  test('rk65m3m4 Extract rar long link test',
+    executable('test-extract-rar-links',
+      [ 'test-extract-rar-links.c', 'test.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+      c_args: nemo_definitions,
+    ),
+    args: []
+  )
+endif
+
 # The archive core with nothing of the app linked in, and no display to lean on.
 test('rjq9mv0w Archive core test',
   executable('test-arc-core',
@@ -1665,6 +1679,15 @@ test('rjq9mv0w Archive core test',
   ),
   env: [ 'DISPLAY=', 'WAYLAND_DISPLAY=' ],
   args: []
+)
+
+# What the core's build did: no GTK or app on its include path, and no call
+# into them in the library.
+arc_core_nm = find_program('nm', required: false)
+test('rk6704r8 Archive core build test',
+  py,
+  args: [ files('check-arc-core-build.py'), meson.project_source_root(), meson.project_build_root(),
+          arc_core_lib, arc_core_nm.found() ? arc_core_nm.full_path() : '' ],
 )
 
 # The scan behind the archive size totals on a scratch tree, with a host the
