@@ -954,6 +954,8 @@ new_folder_done (GFile *new_folder,
 	 * folder so the user can change its name
 	 */
 	list = g_list_prepend (NULL, nemo_file_get (new_folder));
+	/* Its first name can be a path, as with New folder in a view. */
+	nemo_file_set_fresh_folder (list->data, TRUE);
 
 	nemo_properties_window_present (list, GTK_WIDGET (data), NULL);
 

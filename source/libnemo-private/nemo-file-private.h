@@ -263,6 +263,8 @@ struct NemoFileDetails
 	eel_boolean_bit filesystem_readonly           : 1;
 	eel_boolean_bit filesystem_use_preview        : 2; /* GFilesystemPreviewType */
     eel_boolean_bit filesystem_info_is_up_to_date : 1;
+	/* Made by New folder and not named yet. */
+	eel_boolean_bit fresh_folder                  : 1;
 
     NemoFileLoadDeferredAttrs load_deferred_attrs;
     NemoFileMetaState pinning;

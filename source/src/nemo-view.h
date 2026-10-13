@@ -377,6 +377,11 @@ gboolean            nemo_view_handle_scroll_event              (NemoView  *view,
 void                nemo_view_freeze_updates                   (NemoView  *view);
 void                nemo_view_unfreeze_updates                 (NemoView  *view);
 gboolean            nemo_view_get_is_renaming                  (NemoView  *view);
+/* For the end of an in-place rename. TRUE when the name was a path for a
+   folder New folder just made, and the path is being made instead. */
+gboolean            nemo_view_rename_new_folder_nested         (NemoView   *view,
+								NemoFile   *file,
+								const char *new_name);
 void                nemo_view_set_is_renaming                  (NemoView  *view,
 								    gboolean       renaming);
 void                nemo_view_add_subdirectory                (NemoView  *view,

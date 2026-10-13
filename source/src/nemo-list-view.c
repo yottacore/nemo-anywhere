@@ -2258,7 +2258,11 @@ cell_renderer_edited (G_GNUC_UNUSED GtkCellRendererText *cell,
 			    -1);
 
 	/* Only rename if name actually changed */
-	if (strcmp (new_text, view->details->original_name) != 0) {
+	if (strcmp (new_text, view->details->original_name) != 0 &&
+	    nemo_view_rename_new_folder_nested (NEMO_VIEW (view), file, new_text)) {
+		g_free (view->details->original_name);
+		view->details->original_name = g_strdup (new_text);
+	} else if (strcmp (new_text, view->details->original_name) != 0) {
 		view->details->renaming_file = nemo_file_ref (file);
 		view->details->rename_done = FALSE;
 		nemo_rename_file (file, new_text, nemo_list_view_rename_callback, g_object_ref (view));

@@ -7764,6 +7764,318 @@ nemo_file_operations_new_file (GtkWidget *parent_view,
     add_job_to_job_queue (create_job, job, job->common.cancellable, job->common.progress, OP_KIND_CREATE);
 }
 
+typedef enum {
+	NEST_FROM_FRESH,
+	NEST_MAKE_AGAIN,
+	NEST_UNMAKE,
+} NestMode;
+
+typedef struct {
+	CommonJob common;
+	NestMode mode;
+	GFile *fresh;
+	GFile *parent;
+	char **parts;
+	GList *made;		/* top first */
+	GFile *top;
+	GError *error;
+	NemoNestCallback done_callback;
+	gpointer done_callback_data;
+} NestJob;
+
+static GFile *
+nest_child (GFile *dir, const char *name)
+{
+	GFile *child = NULL;
+
+	if (g_utf8_validate (name, -1, NULL)) {
+		child = g_file_get_child_for_display_name (dir, name, NULL);
+	}
+	return child != NULL ? child : g_file_get_child (dir, name);
+}
+
+static gboolean
+nest_job_done (gpointer user_data)
+{
+	NestJob *job = user_data;
+
+	/* Before the callback, so the fresh folder is already at its new place
+	   when the view looks for the top of the path. */
+	nemo_file_changes_consume_changes (TRUE);
+
+	if (job->done_callback != NULL) {
+		job->done_callback (job->top, job->error, job->done_callback_data);
+	}
+
+	if (job->common.undo_info != NULL) {
+		if (job->made != NULL) {
+			nemo_file_undo_info_create_set_folders (NEMO_FILE_UNDO_INFO_CREATE (job->common.undo_info),
+								job->made);
+		} else {
+			g_clear_object (&job->common.undo_info);
+		}
+	}
+
+	g_clear_object (&job->fresh);
+	g_clear_object (&job->parent);
+	g_clear_object (&job->top);
+	g_strfreev (job->parts);
+	g_list_free_full (job->made, g_object_unref);
+	g_clear_error (&job->error);
+
+	finalize_common ((CommonJob *) job);
+	return FALSE;
+}
+
+/* The fresh folder becomes the first folder of the path that is not there yet,
+   so nothing is removed on the way and the folder it was keeps its place in the
+   list. Folders already there are gone through, and only the last one being
+   there is an error. */
+static void
+nest_from_fresh (NestJob *job)
+{
+	GCancellable *cancellable = job->common.cancellable;
+	GFile *at = g_object_ref (job->parent);
+	GFile *first_missing = NULL;
+	gboolean fresh_kept = FALSE;
+	guint n = g_strv_length (job->parts);
+	guint i, missing = n;
+
+	for (i = 0; i < n; i++) {
+		GFile *next = nest_child (at, job->parts[i]);
+		GFileType type;
+
+		g_object_unref (at);
+		at = next;
+		if (i == 0) {
+			job->top = g_object_ref (at);
+		}
+
+		/* The fresh folder itself, typed as the first part. */
+		if (i == 0 && g_file_equal (at, job->fresh)) {
+			job->made = g_list_append (job->made, g_object_ref (at));
+			fresh_kept = TRUE;
+			continue;
+		}
+
+		type = g_file_query_file_type (at, G_FILE_QUERY_INFO_NONE, cancellable);
+		if (type == G_FILE_TYPE_UNKNOWN) {
+			missing = i;
+			first_missing = g_object_ref (at);
+			break;
+		}
+		if (i == n - 1) {
+			g_set_error (&job->error, G_IO_ERROR, G_IO_ERROR_EXISTS,
+				     _("\"%s\" is already there."), job->parts[i]);
+			goto out;
+		}
+		if (type != G_FILE_TYPE_DIRECTORY) {
+			g_set_error (&job->error, G_IO_ERROR, G_IO_ERROR_NOT_DIRECTORY,
+				     _("\"%s\" is a file, not a folder."), job->parts[i]);
+			goto out;
+		}
+	}
+
+	if (first_missing != NULL) {
+		GError *error = NULL;
+
+		if (fresh_kept) {
+			if (!g_file_make_directory (first_missing, cancellable, &job->error)) {
+				goto out;
+			}
+			job->made = g_list_append (job->made, g_object_ref (first_missing));
+			nemo_file_changes_queue_file_added (first_missing);
+		} else if (!g_file_move (job->fresh, first_missing, G_FILE_COPY_NOFOLLOW_SYMLINKS,
+					 cancellable, NULL, NULL, &error)) {
+			/* Another filesystem mounted along the path: make it there and
+			   let the fresh one go, which is still empty. */
+			if (!IS_IO_ERROR (error, WOULD_RECURSE) && !IS_IO_ERROR (error, NOT_SUPPORTED)) {
+				g_propagate_error (&job->error, error);
+				goto out;
+			}
+			g_clear_error (&error);
+			if (!g_file_make_directory (first_missing, cancellable, &job->error)) {
+				goto out;
+			}
+			job->made = g_list_append (job->made, g_object_ref (first_missing));
+			nemo_file_changes_queue_file_added (first_missing);
+			if (file_delete_wrapper (job->fresh, cancellable, NULL)) {
+				nemo_file_changes_queue_file_removed (job->fresh);
+			}
+		} else {
+			job->made = g_list_append (job->made, g_object_ref (first_missing));
+			nemo_file_changes_queue_file_moved (job->fresh, first_missing);
+		}
+
+		for (i = missing + 1; i < n; i++) {
+			GFile *next = nest_child (at, job->parts[i]);
+
+			g_object_unref (at);
+			at = next;
+			if (!g_file_make_directory (at, cancellable, &job->error)) {
+				goto out;
+			}
+			job->made = g_list_append (job->made, g_object_ref (at));
+			nemo_file_changes_queue_file_added (at);
+		}
+	}
+
+ out:
+	g_clear_object (&first_missing);
+	g_object_unref (at);
+}
+
+static void
+nest_make_again (NestJob *job)
+{
+	GList *l;
+
+	for (l = job->made; l != NULL; l = l->next) {
+		GError *error = NULL;
+
+		if (g_file_make_directory (l->data, job->common.cancellable, &error)) {
+			nemo_file_changes_queue_file_added (l->data);
+		} else if (!IS_IO_ERROR (error, EXISTS)) {
+			g_propagate_error (&job->error, error);
+			return;
+		} else {
+			g_clear_error (&error);
+		}
+	}
+}
+
+/* Deepest first, and a folder that is no longer empty stays, with everything
+   above it. */
+static void
+nest_unmake (NestJob *job)
+{
+	GList *l;
+
+	if (!nemo_delete_testguard_ask ("Delete", job->made)) {
+		g_set_error_literal (&job->error, G_IO_ERROR, G_IO_ERROR_CANCELLED,
+				     "called off at the delete test guard");
+		return;
+	}
+
+	nemo_delete_testguard_begin ();
+	for (l = g_list_last (job->made); l != NULL; l = l->prev) {
+		GError *error = NULL;
+
+		if (!file_delete_wrapper (l->data, job->common.cancellable, &error)) {
+			if (!IS_IO_ERROR (error, NOT_FOUND)) {
+				g_clear_error (&error);
+				break;
+			}
+			g_clear_error (&error);
+			continue;
+		}
+		nemo_file_changes_queue_file_removed (l->data);
+	}
+	nemo_delete_testguard_end ();
+}
+
+static gboolean
+nest_job (GIOSchedulerJob *io_job,
+	  G_GNUC_UNUSED GCancellable *cancellable,
+	  gpointer user_data)
+{
+	NestJob *job = user_data;
+
+	job->common.io_job = io_job;
+	nemo_progress_info_start (job->common.progress);
+
+	switch (job->mode) {
+	case NEST_FROM_FRESH:
+		nest_from_fresh (job);
+		break;
+	case NEST_MAKE_AGAIN:
+		nest_make_again (job);
+		break;
+	case NEST_UNMAKE:
+		nest_unmake (job);
+		break;
+	}
+
+	g_io_scheduler_job_send_to_mainloop_async (io_job, nest_job_done, job, NULL);
+	return FALSE;
+}
+
+static NestJob *
+nest_job_new (GtkWindow *parent_window, NestMode mode,
+	      NemoNestCallback done_callback, gpointer done_callback_data)
+{
+	NestJob *job = op_job_new (NestJob, parent_window);
+
+	job->mode = mode;
+	job->done_callback = done_callback;
+	job->done_callback_data = done_callback_data;
+	return job;
+}
+
+void
+nemo_file_operations_nest_new_folder (GtkWidget *parent_view,
+				      GFile *fresh_folder,
+				      const char * const *parts,
+				      NemoNestCallback done_callback,
+				      gpointer done_callback_data)
+{
+	GtkWindow *parent_window = NULL;
+	NestJob *job;
+
+	g_return_if_fail (G_IS_FILE (fresh_folder));
+	g_return_if_fail (parts != NULL && parts[0] != NULL);
+
+	if (parent_view != NULL) {
+		parent_window = (GtkWindow *) gtk_widget_get_ancestor (parent_view, GTK_TYPE_WINDOW);
+	}
+
+	job = nest_job_new (parent_window, NEST_FROM_FRESH, done_callback, done_callback_data);
+	job->fresh = g_object_ref (fresh_folder);
+	job->parent = g_file_get_parent (fresh_folder);
+	job->parts = g_strdupv ((char **) parts);
+
+	if (!nemo_file_undo_manager_pop_flag ()) {
+		job->common.undo_info = nemo_file_undo_info_create_new (NEMO_FILE_UNDO_OP_CREATE_FOLDER);
+	}
+
+	add_job_to_job_queue (nest_job, job, job->common.cancellable, job->common.progress, OP_KIND_CREATE);
+}
+
+static void
+nest_again_or_undo (GList *made, GtkWindow *parent_window, NestMode mode,
+		    NemoNestCallback done_callback, gpointer done_callback_data)
+{
+	NestJob *job;
+
+	nemo_file_undo_manager_pop_flag ();
+
+	job = nest_job_new (parent_window, mode, done_callback, done_callback_data);
+	job->made = eel_g_object_list_copy (made);
+	if (made != NULL) {
+		job->top = g_object_ref (made->data);
+	}
+
+	add_job_to_job_queue (nest_job, job, job->common.cancellable, job->common.progress, OP_KIND_CREATE);
+}
+
+void
+nemo_file_operations_nest_make_again (GList *made,
+				      GtkWindow *parent_window,
+				      NemoNestCallback done_callback,
+				      gpointer done_callback_data)
+{
+	nest_again_or_undo (made, parent_window, NEST_MAKE_AGAIN, done_callback, done_callback_data);
+}
+
+void
+nemo_file_operations_nest_unmake (GList *made,
+				  GtkWindow *parent_window,
+				  NemoNestCallback done_callback,
+				  gpointer done_callback_data)
+{
+	nest_again_or_undo (made, parent_window, NEST_UNMAKE, done_callback, done_callback_data);
+}
+
 static void
 delete_trash_file (CommonJob *job,
 		   GFile *file,

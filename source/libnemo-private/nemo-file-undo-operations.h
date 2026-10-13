@@ -161,6 +161,10 @@ void nemo_file_undo_info_create_set_data (NemoFileUndoInfoCreate *self,
 					      GFile                      *file,
 					      const char                 *template,
 					      gint                        length);
+/* A new folder named with a path: every folder it made, top first. Undo
+   removes them deepest first while each is still empty. */
+void nemo_file_undo_info_create_set_folders (NemoFileUndoInfoCreate *self,
+					     GList                  *made);
 
 /* rename */
 #define NEMO_TYPE_FILE_UNDO_INFO_RENAME         (nemo_file_undo_info_rename_get_type ())

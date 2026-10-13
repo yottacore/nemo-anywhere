@@ -3086,6 +3086,97 @@ nemo_path_input_is_allowed (const gchar *text)
 #endif
 }
 
+static gboolean
+is_new_folder_separator (gchar c)
+{
+#ifdef G_OS_WIN32
+    return c == '/' || c == '\\';
+#else
+    /* A backslash is a legal character in a name here. */
+    return c == '/';
+#endif
+}
+
+gboolean
+nemo_new_folder_name_has_separator (const gchar *text)
+{
+    const gchar *p;
+
+    for (p = text; p != NULL && *p != '\0'; p++) {
+        if (is_new_folder_separator (*p)) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+/* Returns: (transfer full): free with g_strfreev */
+gchar **
+nemo_new_folder_path_split (const gchar *text, GError **error)
+{
+    GPtrArray *parts;
+    const gchar *start, *p;
+    gsize len;
+
+    g_return_val_if_fail (text != NULL, NULL);
+
+    len = strlen (text);
+    while (len > 0 && is_new_folder_separator (text[len - 1])) {
+        len--;
+    }
+
+    if (text[0] == '\0') {
+        g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME,
+                             _("A new folder needs a name."));
+        return NULL;
+    }
+
+    if (is_new_folder_separator (text[0])) {
+        g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME,
+                     _("\"%s\" starts with a separator. A new folder's path starts inside this folder."),
+                     text);
+        return NULL;
+    }
+
+    parts = g_ptr_array_new_with_free_func (g_free);
+    start = text;
+    for (p = text; ; p++) {
+        gboolean at_end = (gsize) (p - text) == len;
+        gchar *part;
+
+        if (!at_end && !is_new_folder_separator (*p)) {
+            continue;
+        }
+
+        part = g_strndup (start, p - start);
+        if (part[0] == '\0') {
+            g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME,
+                         _("\"%s\" has 2 separators in a row, with no folder name between them."),
+                         text);
+            g_free (part);
+            g_ptr_array_free (parts, TRUE);
+            return NULL;
+        }
+        if (strcmp (part, ".") == 0 || strcmp (part, "..") == 0) {
+            g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME,
+                         _("\"%s\" has \"%s\" as a folder name. A new folder's path can't use \".\" or \"..\"."),
+                         text, part);
+            g_free (part);
+            g_ptr_array_free (parts, TRUE);
+            return NULL;
+        }
+        g_ptr_array_add (parts, part);
+
+        if (at_end) {
+            break;
+        }
+        start = p + 1;
+    }
+
+    g_ptr_array_add (parts, NULL);
+    return (gchar **) g_ptr_array_free (parts, FALSE);
+}
+
 /* The value of the Ext column: the tail of the name after the last dot, without
  * the dot. A dot is often just part of a name, so the tail only counts when it
  * looks the part - short, letters and digits only, at least one letter. NULL when
