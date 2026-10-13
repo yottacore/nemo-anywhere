@@ -799,6 +799,15 @@ test('rhtmbdme Search box Enter test',
   args: []
 )
 
+test('rk5b84ef Settings tab list test',
+  executable('test-nemo-tab-list',
+    [ 'test-nemo-tab-list.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private ],
+  ),
+  args: []
+)
+
 test('rhtmbdmf Settings Current tab test',
   executable('test-nemo-prefs-current',
     [ 'test-nemo-prefs-current.c', '../src/nemo-prefs-current-folder.c' ] + gresources,

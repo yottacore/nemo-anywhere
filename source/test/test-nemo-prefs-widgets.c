@@ -11,6 +11,8 @@
 #include <stdlib.h>
 #include <gtk/gtk.h>
 
+#include <libnemo-private/nemo-tab-list.h>
+
 static int failures = 0;
 
 static const char * const widget_ids[] = {
@@ -26,9 +28,11 @@ static const char * const widget_ids[] = {
 	"vbox_shortcuts",
 	"command_label_0",
 	"command_label_1",
-	"views_notebook",
+	"views_stack",
 	"views_current_page",
-	"views_current_tab",
+	"page_sidebar",
+	"remember_folder_settings_checkbutton",
+	"inherit_view_alignment",
 	"list_view_row_shading_checkbutton",
 	"rename_selects_whole_name_checkbutton",
 	"always_show_tabs_checkbutton",
@@ -59,10 +63,14 @@ static const char * const widget_ids[] = {
 	NULL
 };
 
-/* Kept in step with preferences_pages[] in nemo-file-management-properties.c. */
+/* Every page with settings on it, sub-tabs included. The dialog finds them by
+   walking the stack now, so this checks the walk sees what is meant to be
+   there, and that each is a scrolled window, which is what it measures. */
 static const char * const page_ids[] = {
 	"scrolledwindow2",
 	"scrolledwindow1",
+	"behavior_files_scrolledwindow",
+	"behavior_programs_scrolledwindow",
 	"scrolledwindow3",
 	"windows_scrolledwindow",
 	"scrolledwindow4",
@@ -88,12 +96,38 @@ is_listed (const char *id)
 	return FALSE;
 }
 
-/* Every page the stack holds, against every page the sizing measures. */
+/* Every page the stacks hold, against every page listed above. */
+static void
+check_stack (GtkContainer *stack)
+{
+	GList *children, *l;
+
+	children = gtk_container_get_children (stack);
+	for (l = children; l != NULL; l = l->next) {
+		const char *id = gtk_buildable_get_name (GTK_BUILDABLE (l->data));
+
+		if (GTK_IS_STACK (l->data)) {
+			check_stack (l->data);
+			continue;
+		}
+		if (!is_listed (id)) {
+			g_printerr ("FAIL page %s is in the stack but not sized for\n",
+				    id != NULL ? id : "(unnamed)");
+			failures++;
+		}
+		if (!GTK_IS_SCROLLED_WINDOW (l->data)) {
+			g_printerr ("FAIL page %s is not a scrolled window\n",
+				    id != NULL ? id : "(unnamed)");
+			failures++;
+		}
+	}
+	g_list_free (children);
+}
+
 static void
 check_pages_are_all_listed (GtkBuilder *builder)
 {
 	GtkContainer *stack;
-	GList *children, *l;
 	int i;
 
 	stack = GTK_CONTAINER (gtk_builder_get_object (builder, "page_stack"));
@@ -103,17 +137,7 @@ check_pages_are_all_listed (GtkBuilder *builder)
 		return;
 	}
 
-	children = gtk_container_get_children (stack);
-	for (l = children; l != NULL; l = l->next) {
-		const char *id = gtk_buildable_get_name (GTK_BUILDABLE (l->data));
-
-		if (!is_listed (id)) {
-			g_printerr ("FAIL page %s is in the stack but not sized for\n",
-				    id != NULL ? id : "(unnamed)");
-			failures++;
-		}
-	}
-	g_list_free (children);
+	check_stack (stack);
 
 	for (i = 0; page_ids[i] != NULL; i++) {
 		if (gtk_builder_get_object (builder, page_ids[i]) == NULL) {
@@ -133,6 +157,7 @@ main (int argc, char *argv[])
 
 	gtk_init (&argc, &argv);
 
+	g_type_ensure (NEMO_TYPE_TAB_LIST);
 	builder = gtk_builder_new ();
 	if (!gtk_builder_add_from_resource (builder,
 					    "/org/nemo/nemo-file-management-properties.glade",

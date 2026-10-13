@@ -31,6 +31,7 @@
 #include <gtk/gtk.h>
 
 #include <libnemo-private/nemo-global-preferences.h>
+#include <libnemo-private/nemo-tab-list.h>
 
 #include "nemo-prefs-current-folder.h"
 #include "nemo-window.h"
@@ -83,9 +84,9 @@ main (int argc, char *argv[])
 {
 	GtkBuilder *builder;
 	GtkWidget *dialog, *current_page, *current_tab;
-	GtkNotebook *notebook;
+	GtkStack *views;
+	GtkWidget *default_page;
 	GError *error = NULL;
-	int current;
 	char *tmp;
 
 	tmp = test_scratch_config_home ("nemo-prefs-current-test-XXXXXX");
@@ -98,6 +99,7 @@ main (int argc, char *argv[])
 
 	nemo_global_preferences_init ();
 
+	g_type_ensure (NEMO_TYPE_TAB_LIST);
 	builder = gtk_builder_new ();
 	if (!gtk_builder_add_from_resource (builder,
 					    "/org/nemo/nemo-file-management-properties.glade",
@@ -108,11 +110,16 @@ main (int argc, char *argv[])
 	}
 
 	dialog = GTK_WIDGET (gtk_builder_get_object (builder, "file_management_dialog"));
-	notebook = GTK_NOTEBOOK (gtk_builder_get_object (builder, "views_notebook"));
+	/* Default and Current were tabs on top until 2026101009150769 made
+	   them sub-tabs in the list, so the switches below go through the
+	   stack and the tab is the row's label. */
+	views = GTK_STACK (gtk_builder_get_object (builder, "views_stack"));
 	current_page = GTK_WIDGET (gtk_builder_get_object (builder, "views_current_page"));
-	current_tab = GTK_WIDGET (gtk_builder_get_object (builder, "views_current_tab"));
-	current = gtk_notebook_page_num (notebook, current_page);
-	check (current > 0);
+	default_page = GTK_WIDGET (gtk_builder_get_object (builder, "views_default_page"));
+	current_tab = nemo_tab_list_get_label (NEMO_TAB_LIST (gtk_builder_get_object (builder, "page_sidebar")),
+					       current_page);
+	check (views != NULL && default_page != NULL && current_page != NULL && current_tab != NULL);
+	check (current_tab != NULL && g_strcmp0 (gtk_label_get_text (GTK_LABEL (current_tab)), "Current") == 0);
 
 	set_remembering (FALSE);
 	nemo_prefs_current_folder_setup (builder, dialog, NULL);
@@ -122,23 +129,25 @@ main (int argc, char *argv[])
 	   pane; 2026101009150768 went back to opening it.
 	check (gtk_notebook_get_current_page (notebook) == 0); */
 	check (!gtk_widget_get_sensitive (current_tab));
-	gtk_notebook_set_current_page (notebook, current);
-	check (gtk_notebook_get_current_page (notebook) == current);
+	gtk_stack_set_visible_child (views, current_page);
+	check (gtk_stack_get_visible_child (views) == current_page);
 	check (gtk_widget_get_visible (current_page));
 	check (!gtk_widget_is_sensitive (current_page));
-	gtk_notebook_set_current_page (notebook, 0);
+	/* The switch that turns it back on stays live above it. */
+	check (gtk_widget_is_sensitive (GTK_WIDGET (gtk_builder_get_object (builder, "remember_folder_settings_checkbutton"))));
+	gtk_stack_set_visible_child (views, default_page);
 
 	/* On: the tab opens. */
 	set_remembering (TRUE);
 	check (gtk_widget_get_sensitive (current_tab));
-	gtk_notebook_set_current_page (notebook, current);
-	check (gtk_notebook_get_current_page (notebook) == current);
+	gtk_stack_set_visible_child (views, current_page);
+	check (gtk_stack_get_visible_child (views) == current_page);
 
 	/* Turned off while it is up, it stays up and grays out. Default used to
 	   come back here, for the same reason as above.
 	check (gtk_notebook_get_current_page (notebook) == 0); */
 	set_remembering (FALSE);
-	check (gtk_notebook_get_current_page (notebook) == current);
+	check (gtk_stack_get_visible_child (views) == current_page);
 	check (!gtk_widget_is_sensitive (current_page));
 	check (!gtk_widget_get_sensitive (current_tab));
 

@@ -30,6 +30,7 @@
 #include <libnemo-private/nemo-folder-settings.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-metadata.h>
+#include <libnemo-private/nemo-tab-list.h>
 
 #include "nemo-window.h"
 #include "nemo-window-slot.h"
@@ -94,7 +95,7 @@ static const struct {
 
 typedef struct {
 	GtkWidget      *dialog;
-	GtkWidget      *notebook;
+	GtkWidget      *views_stack;
 	GtkWidget      *current_page;
 	GtkWidget      *current_tab_label;
 	GtkWidget      *path_label;
@@ -337,7 +338,9 @@ refresh (CurrentTab *tab)
 
 	/* The tab still opens with remembering off, so the controls show what is
 	   turned off rather than a blank pane. */
-	gtk_widget_set_sensitive (tab->current_tab_label, remembering ());
+	if (tab->current_tab_label != NULL) {
+		gtk_widget_set_sensitive (tab->current_tab_label, remembering ());
+	}
 	gtk_widget_set_sensitive (tab->current_page, remembering () && tab->folder != NULL);
 
 	tab->syncing = TRUE;
@@ -554,9 +557,8 @@ active_window_changed (GtkApplication *app, G_GNUC_UNUSED GParamSpec *pspec, Cur
 	}
 }
 
-/* connected after, so the new page is already the current one */
 static void
-page_switched_after (G_GNUC_UNUSED GtkNotebook *notebook, G_GNUC_UNUSED GtkWidget *page, G_GNUC_UNUSED guint page_num, CurrentTab *tab)
+page_switched (G_GNUC_UNUSED GObject *stack, G_GNUC_UNUSED GParamSpec *pspec, CurrentTab *tab)
 {
 	refresh (tab);
 }
@@ -585,6 +587,8 @@ dialog_destroyed (G_GNUC_UNUSED GtkWidget *dialog, CurrentTab *tab)
 		g_object_unref (tab->app);
 	}
 	g_signal_handlers_disconnect_by_data (nemo_preferences, tab);
+	/* The stack picks another page as its pages go, after this. */
+	g_signal_handlers_disconnect_by_data (tab->views_stack, tab);
 	g_clear_pointer (&tab->folder, nemo_file_unref);
 	g_free (tab);
 }
@@ -599,9 +603,10 @@ nemo_prefs_current_folder_setup (GtkBuilder *builder,
 
 	tab = g_new0 (CurrentTab, 1);
 	tab->dialog = dialog;
-	tab->notebook = GTK_WIDGET (gtk_builder_get_object (builder, "views_notebook"));
+	tab->views_stack = GTK_WIDGET (gtk_builder_get_object (builder, "views_stack"));
 	tab->current_page = GTK_WIDGET (gtk_builder_get_object (builder, "views_current_page"));
-	tab->current_tab_label = GTK_WIDGET (gtk_builder_get_object (builder, "views_current_tab"));
+	tab->current_tab_label = nemo_tab_list_get_label (NEMO_TAB_LIST (gtk_builder_get_object (builder, "page_sidebar")),
+							  tab->current_page);
 	tab->path_label = GTK_WIDGET (gtk_builder_get_object (builder, "current_folder_path_label"));
 	tab->copy_to_current_button = GTK_WIDGET (gtk_builder_get_object (builder, "copy_to_current_button"));
 	tab->copy_to_default_button = GTK_WIDGET (gtk_builder_get_object (builder, "copy_to_default_button"));
@@ -625,7 +630,7 @@ nemo_prefs_current_folder_setup (GtkBuilder *builder,
 	g_signal_connect (tab->copy_to_current_button, "clicked", G_CALLBACK (copy_to_current_clicked), tab);
 	g_signal_connect (tab->copy_to_default_button, "clicked", G_CALLBACK (copy_to_default_clicked), tab);
 	g_signal_connect (tab->forget_button, "clicked", G_CALLBACK (forget_clicked), tab);
-	g_signal_connect_after (tab->notebook, "switch-page", G_CALLBACK (page_switched_after), tab);
+	g_signal_connect (tab->views_stack, "notify::visible-child", G_CALLBACK (page_switched), tab);
 	g_signal_connect (dialog, "notify::is-active", G_CALLBACK (dialog_activated), tab);
 	g_signal_connect (dialog, "destroy", G_CALLBACK (dialog_destroyed), tab);
 

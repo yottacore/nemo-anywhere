@@ -204,6 +204,56 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rk56fsaw, New folder named with a path: the split on each platform, and the job itself, with folders already there, the last one there, a file on the way, a trailing separator, the backslash, undo and redo. rk56ftav and rk56g0rq, the same in the icon view and the list view: New folder, a path typed in the box, the top folder selected, and undo. Linux and FreeBSD only.
 	- Acceptance signoff: Left at signoff for the error messages and the calls under Decisions.
 
+- Settings: the dialog is too long.
+	- ID: 2026101009150767
+	- Type: Enhancement
+	- Status: Waiting on signoff
+	- Priority|Severity: Avg
+	- Opened: 20261010-091507
+	- Opened by: t00mietum
+	- Related IDs: 2026101009150769
+	- Requirements:
+		- Before the next cut.
+		- Allow Behavior to overflow with a scrollbar, and size the dialog to the next-longest tab.
+			- Consider breaking the content up into related settings under a couple or more nested tabs, or sub-tabs.
+	- Decisions:
+		- Decided: sub-tabs. Behavior splits into 3: General (Navigation, Behavior, Windows), Files and Trash (Executable text files, Drag and drop, Trash) and Media and programs (Media handling, Bulk rename, Terminal). The other pages fit as they are, so they stay whole. The dialog still opens at its longest page, now Preview, and a page still scrolls on a screen too small for it.
+	- Progress log:
+		- 20261013: the dialog opens 774 high on a 1920x1200 screen, down from 1080, with no page needing a scrollbar. Left at signoff for the grouping and the sub-tab names.
+	- Verified: rhtmbdmd passes on Linux, 3 runs, and under wine, where the Windows page is in the dialog too. Its new check that every page fits fails with the window made 120 pixels shorter. Full Linux suite 196 of 196. Windows cross build clean with warnings as errors. Lint clean but rj3ytv0b, which needs the main clone.
+	- Branch: subtabs
+	- Commit: 3c069b3
+	- Test case: rhtmbdmd, Settings dialog test: Behavior has 2 to 4 sub-tabs, and at the size the dialog opens no page needs a scrollbar. rf2w8yxr, Settings widgets test, walks the sub-tabs and wants every page to be a scrolled window, since that is what the sizing measures.
+
+- Settings: show nested tabs in the tab list on the left.
+	- ID: 2026101009150769
+	- Type: Enhancement
+	- Status: Waiting on signoff
+	- Priority|Severity: Avg
+	- Opened: 20261010-091507
+	- Opened by: t00mietum
+	- Related IDs: 2026101009150767, 2026101009150770, 2026101009150771
+	- Requirements:
+		- Before the next cut.
+		- Sub-tabs, or nested tabs:
+			- Nested tabs show in the same list, without having to be on the parent tab to see them.
+				- The extra vertical space allows this. Any dialog with tabs on top keeps the existing method, where the parent tab has to be active to see its sub-tabs.
+			- A nested tab's text is indented to the right, under its parent tab.
+			- Any level of nesting, although after some practical point it would be bad UX design.
+			- With any form of nested tabs, one sub-tab is always showing while the parent tab is active. That sub-tab gets the same "active tab" color as the parent to show it.
+	- Decisions:
+		- Views' Default and Current move from tabs on top into the list, as its sub-tabs. One dialog with two kinds of sub-tab would surprise, and the keys in 2026101009150770 then work the same on every page. The two per-folder checkboxes stay above both sub-tabs, as "Changes to Preferences|Views" laid them out, so either sub-tab shows them.
+		- A parent shows the sub-tab it showed last. A click on the parent row opens that one.
+		- Current keeps the look from 2026101009150768: it opens on grayed controls with remembering off, and its row's text is grayed as the tab's was.
+	- Progress log:
+		- 20261013: the list replaces GTK's own page list, which can't nest, and draws with the same theme rules. Sub-tabs are indented one step per level. Left at signoff for the look, and for gray text on the lit Current row with remembering off.
+	- Note: rhtmbdmd's 2 checks on the Views tabs, and its first Ctrl+Page Down landing on Behavior, are commented out with the reason. rhtmbdmf switches Views through the sub-tabs now, with the same checks as before.
+	- Swept: the only nested tabs in Settings were the Views tabs. Properties and the main window keep tabs on top.
+	- Verified: rk5b84ef fails with only the innermost row lit, and with no indent, and passes after. rhtmbdmf fails with the Current row's text left alone. All 4 settings tests pass on Linux and under wine. In the app on Linux: a click on a sub-tab opens it and lights it and its parent, and a click on the parent goes back to its last sub-tab. Full Linux suite 196 of 196.
+	- Branch: subtabs
+	- Commit: 3c069b3
+	- Test case: rk5b84ef, Settings tab list test: 3 levels deep, indent per level, a parent and its showing sub-tab lit at every depth, hidden pages and their sub-tabs dropped, pages added and retitled later, and sub-tabs under a switch they share. rhtmbdmd, Settings dialog test: the rows, the lit pair and the parent's last sub-tab in the real dialog. rhtmbdmf, Settings Current tab test.
+
 - After an `smb://` address is typed, nothing shows that the app is working on it.
 	- ID: 2026100816170921
 	- Type: Bug
@@ -482,52 +532,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: thumbwin
 	- Commit: f38660a to f8a6223
 	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session. (c) still needs its own: a thumbnail and the text from a small file of each type, on every platform, and a check that no program is started for them.
-
-- Settings: the dialog is too long.
-	- ID: 2026101009150767
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261010-091507
-	- Opened by: t00mietum
-	- Related IDs: 2026101009150769
-	- Requirements:
-		- Before the next cut.
-		- Allow Behavior to overflow with a scrollbar, and size the dialog to the next-longest tab.
-			- Consider breaking the content up into related settings under a couple or more nested tabs, or sub-tabs.
-	- Test case: TBD
-
-- Settings: show nested tabs in the tab list on the left.
-	- ID: 2026101009150769
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261010-091507
-	- Opened by: t00mietum
-	- Related IDs: 2026101009150767, 2026101009150770, 2026101009150771
-	- Requirements:
-		- Before the next cut.
-		- Sub-tabs, or nested tabs:
-			- Nested tabs show in the same list, without having to be on the parent tab to see them.
-				- The extra vertical space allows this. Any dialog with tabs on top keeps the existing method, where the parent tab has to be active to see its sub-tabs.
-			- A nested tab's text is indented to the right, under its parent tab.
-			- Any level of nesting, although after some practical point it would be bad UX design.
-			- With any form of nested tabs, one sub-tab is always showing while the parent tab is active. That sub-tab gets the same "active tab" color as the parent to show it.
-	- Test case: TBD
-
-- Settings: Ctrl+PgUp, Ctrl+PgDn, Ctrl+Tab and Ctrl+Shift+Tab step through sub-tabs.
-	- ID: 2026101009150770
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261010-091507
-	- Opened by: t00mietum
-	- Prereq IDs: 2026101009150769
-	- Requirements:
-		- Before the next cut.
-		- These keys work as normal, except when the active tab has sub-tabs they work on the sub-tabs instead.
-			- Past the last sub-tab, cycling moves to the next parent tab.
-	- Test case: TBD
 
 - Compression reset: the background scan behind the size totals.
 	- ID: 2026100516274275
@@ -1714,6 +1718,28 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: `test-nemo-psd`: rows at the least length are read, one byte less is refused, and a file of empty rows, 30000 by 30000 as psd and 60000 by 60000 as psb, is refused in under a second. Fuzz seed `zero-rows`, and `short-literal` reworked so it still reaches the literal-run bound.
 	- Branch: psdrows
 	- Commit: 24d99cd
+
+- Settings: Ctrl+PgUp, Ctrl+PgDn, Ctrl+Tab and Ctrl+Shift+Tab step through sub-tabs.
+	- ID: 2026101009150770
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261010-091507
+	- Opened by: t00mietum
+	- Prereq IDs: 2026101009150769
+	- Requirements:
+		- Before the next cut.
+		- These keys work as normal, except when the active tab has sub-tabs they work on the sub-tabs instead.
+			- Past the last sub-tab, cycling moves to the next parent tab.
+	- Decisions:
+		- The keys walk the list in order, over the pages with no sub-tabs, wrapping round. So back from a first sub-tab is the last sub-tab of the page before. Hidden pages are skipped.
+		- Ctrl+Tab steps the tabs and leaves the focus where it was. Inside tabs on top in a page the keys stay theirs, as before, though Settings has none now.
+	- Verified: rhtmbdmd fails with Ctrl+Tab left out, and with the steps kept to the top-level pages, and passes after, 3 runs, and under wine. In the app on Linux: all 4 keys step through Views and Behavior's sub-tabs and on to the next page. Full Linux suite 196 of 196.
+	- Branch: subtabs
+	- Commit: 3c069b3
+	- Test case: rhtmbdmd, Settings dialog test: the keys through sub-tabs, past the last one to the next page, back to the page before's last sub-tab, past a hidden page, and Ctrl+Tab leaving the focus alone. rk5b84ef, Settings tab list test, steps a 3-level list.
+	- Acceptance signoff: Self-closed: does what the item asks, and rhtmbdmd failed without it and passes after.
+	- Closed: 20261013-071044
 
 - Settings: tabs can't get input focus.
 	- ID: 2026101009150771
