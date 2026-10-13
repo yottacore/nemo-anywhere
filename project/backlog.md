@@ -289,7 +289,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, the zip and the copy `install.ps1` puts in place draw with GTK's default theme and font.
 	- ID: 2026101007562511
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs external testing: vm925w, in the desktop session. Start the zip, the copy `install.ps1` puts in place and the single exe, all from one commit on this branch, and compare the look and font. The single exe also needs a native stage and pack (`cicd-win.ps1`), since `stage-native.bash` changed.
 	- Priority|Severity: Avg
 	- Opened: 20261010-075625
 	- Opened by: 2026100917220603
@@ -300,7 +301,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: all 3 forms look the same.
 	- Reproduced: 20261010 on vm925w, with all 3 forms built from one commit.
 	- Possible cause: `stage-native.bash` writes `settings.ini` and the font config, and `pack-zip.bash` doesn't.
-	- Test case: TBD
+	- Actual cause: confirmed. The zip has no `etc/gtk-3.0/settings.ini` and no font config, since the cross sysroot has neither and only `stage-native.bash` wrote them. With no `settings.ini` the app's "platform" theme is GTK's default, Adwaita with Adwaita icons. `install.ps1` and the setup exe copy the zip's tree as is, so they inherit it.
+	- Actual fix: the 2 files live once, in `cicd/win/bundle-etc/`. `stage-native.bash`, `pack-zip.bash` and the wine runner each copy that folder over the bundle's `etc/`. Line endings are pinned to LF so a Windows checkout gives the same bytes.
+	- Swept: every place that stages a Windows `etc/`: `stage-native.bash` (single exe, hosted release build), `pack-zip.bash` (zip, then setup exe and `install.ps1`), `utility/run-windows-build-via-wine.bash`. `pack-portable.ps1` and `pack-setup.bash` copy what those made. No other script writes `settings.ini` for Windows.
+	- Verified: 20261013, the zip from `dev` fails rk50ewvs and the zip from this branch passes. The `dev` zip came up with Adwaita and Adwaita icons, and this branch's with the bundled Fluent and Mica. The `settings.ini` and font config match what `stage-native.bash` wrote before. rj72n4xb passed with the settings check on the installed folder. Lint is clean apart from rj3ytv0b.
+	- Branch: ziptheme
+	- Commit: cb3445f
+	- Test case: rk50ewvs (`test-bundle-settings.ps1`), run on the zip in the packages stage, on the flat tree before the single exe is packed, and on the `install.ps1` copy in rj72n4xb.
 
 - On Windows, a file dragged onto the window from another program may not drop.
 	- ID: 2026101007562587
