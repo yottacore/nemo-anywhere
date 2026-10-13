@@ -890,6 +890,7 @@ fCheckGlibSpawn(){
 	allowed+='nemo-program-choosing.c:nemo_show_uri '					# Windows goes through nemo-launch-win32.c
 	allowed+='nemo-window-menus.c:action_about_nemo_callback '			# its links go through nemo_show_uri
 	allowed+='nemo-extension-config-widget.c:refresh_widget '			# no extensions on Windows, so no link to click
+	allowed+='nemo-file-utilities.c:nemo_spawn_for_user '				# not built on Windows
 	local bad
 
 	bad="$(find source/src source/libnemo-private source/libnemo-extension source/eel \( -name '*.c' -o -name '*.h' \) -exec awk -v allowed="$allowed" '
@@ -906,6 +907,46 @@ fCheckGlibSpawn(){
 	fi
 }
 fRun fCheckGlibSpawn
+
+## A relocated install puts its own folders on XDG_DATA_DIRS, PATH and
+## GSETTINGS_SCHEMA_DIR. A program of the user's gets those as they were, so
+## every function that starts a program or makes a launch context either asks
+## for the user's environment or is on this list as one of ours.
+## Test ID: rk5884m7
+fCheckUserEnviron(){
+	local allowed=' '
+	allowed+='nemo-tool-run.c:nemo_tool_run_start '						# helpers: archive tools, search converters
+	allowed+='nemo-magick.c:run_magick '								# helper
+	allowed+='nemo-desktop-thumbnail.c:run_thumbnailer_script '			# helper
+	allowed+='nemo-action.c:check_exec_condition '						# helper, an action's condition
+	allowed+='nemo-file-utilities.c:update_xdg_user_dir '				# xdg-user-dirs-update for our own rename
+	allowed+='nemo-action-config-widget.c:on_layout_editor_clicked '	# our own layout editor
+	allowed+='nemo-extension-config-widget.c:detect_extensions '		# a copy of ours that prints and quits
+	allowed+='nemo-view.c:open_as_root '								# a copy of ours through pkexec, which clears the environment
+	allowed+='nemo-thumbnail-problem-bar.c:thumbnail_problem_bar_response_cb '	# same
+	allowed+='eel-gnome-extensions.c:eel_gnome_open_terminal_on_screen '	# its caller hands it the user's context
+	local bad
+
+	bad="$(find source/src source/libnemo-private source/libnemo-extension source/eel \( -name '*.c' -o -name '*.h' \) ! -name '*-win32.c' -exec awk -v allowed="$allowed" '
+		function flush() {
+			if (hits != "" && !user && index(allowed, " " base ":" fn " ") == 0) printf "%s", hits
+			hits = ""; user = 0
+		}
+		FNR == 1 { flush(); fn = ""; base = FILENAME; sub(/.*\//, "", base) }
+		/^[a-zA-Z_][a-zA-Z0-9_]* *\(/ { flush(); fn = $1; sub(/\(.*/, "", fn) }
+		/(^|[^A-Za-z0-9_])(user_launch_context|nemo_launch_context_use_user_environ|nemo_get_user_environ) *\(/ { user = 1 }
+		/(^|[^A-Za-z0-9_])(g_subprocess_newv?|g_subprocess_launcher_spawnv?|g_spawn_(async|sync|command_line_async|command_line_sync|async_with_pipes|async_with_fds|async_with_pipes_and_fds)|g_app_info_launch(_uris(_async)?|_default_for_uri(_async)?)?|g_desktop_app_info_launch_uris_as_manager(_with_fds)?|gtk_show_uri(_on_window)?|gdk_display_get_app_launch_context|g_app_launch_context_new) *\(/ {
+			hits = hits FILENAME ":" FNR ": " $0 "\n"
+		}
+		END { flush() }
+	' {} +)"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: a program started with the app's own environment, and not on the list in lint-c.bash as one of ours"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fRun fCheckUserEnviron
 
 ## Nothing may ask for the session bus on Windows. GLib starts a bus of its own
 ## there (gdbus.exe) the first time anything does, and the copies use named

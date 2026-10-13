@@ -76,7 +76,7 @@ main (int argc, char *argv[])
 	gtk_init_check (&argc, &argv);
 
 	check_fallback_is (NULL);
-	eel_gnome_open_terminal_on_screen ("true", NULL);
+	eel_gnome_open_terminal_on_screen ("true", NULL, NULL);
 
 #ifndef G_OS_WIN32
 	test_fallback_scan ();

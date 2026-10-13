@@ -1280,7 +1280,8 @@ prepend_env_dir (const char *var, const char *dir, const char *fallback)
 	joined = (current != NULL && *current != '\0')
 		? g_strconcat (dir, G_SEARCHPATH_SEPARATOR_S, current, NULL)
 		: g_strdup (dir);
-	g_setenv (var, joined, TRUE);
+	/* Ours only. A program of the user's gets the list as it was. */
+	nemo_setenv_own (var, joined, TRUE);
 	g_free (joined);
 }
 #endif
@@ -1343,6 +1344,46 @@ nemo_get_user_environ (void)
 
 	return env;
 }
+
+void
+nemo_launch_context_use_user_environ (GAppLaunchContext *context)
+{
+	guint i;
+
+	g_mutex_lock (&own_settings_lock);
+	for (i = 0; own_settings != NULL && i < own_settings->len; i++) {
+		const OwnSetting *setting = own_settings->pdata[i];
+
+		if (setting->before != NULL) {
+			g_app_launch_context_setenv (context, setting->var, setting->before);
+		} else {
+			g_app_launch_context_unsetenv (context, setting->var);
+		}
+	}
+	g_mutex_unlock (&own_settings_lock);
+}
+
+#ifndef G_OS_WIN32
+gboolean
+nemo_spawn_for_user (const char  *workdir,
+		     char       **argv,
+		     GSpawnFlags  flags,
+		     GPid        *child_pid,
+		     GError     **error)
+{
+	char **env = nemo_get_user_environ ();
+	gboolean ok;
+
+	/* Found the way the user's own PATH finds it, not through our bin dir. */
+	if (flags & G_SPAWN_SEARCH_PATH) {
+		flags |= G_SPAWN_SEARCH_PATH_FROM_ENVP;
+	}
+	ok = g_spawn_async (workdir, argv, env, flags, NULL, NULL, child_pid, error);
+	g_strfreev (env);
+
+	return ok;
+}
+#endif
 
 /* Each entry is NAME=VALUE, or a bare NAME for one that was not set.
  * Returns: (transfer full): free with nemo_restore_own_environ */

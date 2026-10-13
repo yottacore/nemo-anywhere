@@ -7950,7 +7950,7 @@ open_in_terminal (const gchar *path)
     }
     argv[i] = NULL;
 
-    g_spawn_async (path, argv, NULL, G_SPAWN_SEARCH_PATH, NULL, NULL, NULL, NULL);
+    nemo_spawn_for_user (path, argv, G_SPAWN_SEARCH_PATH, NULL, NULL);
 
     g_free (gsetting_terminal);
     g_strfreev (token);

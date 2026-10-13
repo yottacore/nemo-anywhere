@@ -487,6 +487,10 @@ shoot (int n)
 	g_clear_pointer (&shots[n], g_free);
 	sizes[n] = 0;
 	covered[n] = -1;
+	/* GTK draws nothing for a widget whose new size is not worked out yet,
+	   and on a busy box the frame that would do it can come after this
+	   tick. Do it now, as that frame would. */
+	gtk_container_check_resize (GTK_CONTAINER (window));
 	if (view == NULL || !view_box (view, &box)) {
 		return;
 	}
