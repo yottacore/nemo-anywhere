@@ -352,6 +352,41 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: c0a7ede
 	- Test case: rhtmbdmj, Compress dialog height test: closed with Reset grayed at the defaults, Reset lit by a change and by a password alone, Reset clearing them and closing Options, opening by itself for remembered choices with the buttons on screen, Reset dropping them from the settings file, and a remembered lock the format can't do opening Options, shown off and grayed, and back on with rar. rhae85g0, Archive settings test, test_choices: the defaults match the settings table, each choice off its default counts, a forced off shows off and leaves the choice, saving keeps it with a preset as its size, and the reset drops every key under Options and nothing else.
 
+- Compression reset: live size totals in the Compress dialog.
+	- ID: 2026100516274498
+	- Type: Enhancement
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no.
+	- Needs external testing: the dialog on a real Windows desktop, with a junction, a symlink and a volume mounted in a folder in the selection, and a link onto a share. Under wine no links get made, so only the mounts, the share and the Junctions row were seen there.
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274275, 2026100516274386
+	- Target OS: Linux, Windows
+	- Design: [Total size](design_docs/20260929-101432_compression.md#total-size) and [Background scan](design_docs/20260929-101432_compression.md#background-scan).
+	- Requirements:
+		- The dialog starts the background scan with the options as set, and narrows or restarts it as they change.
+		- Each follow option shows its size change. "Total size to include" sits on the left of the Cancel and OK row. Both update at most every 0.25 s.
+		- Cancel or OK stops the scan and frees it.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Progress log:
+		- 20261013-092952: built. Left at signoff for the look, and for these calls:
+			- The scan counts what the options as shown would do with the format, which is what the job does. A store choice grayed to Ignore counts as Ignore, and plain files follow nothing. A choice kept but not shown isn't counted.
+			- A Follow control shows its change only while it's on, as "(+N)" after its text. Off, the scan hasn't walked what it would add, so the design's 0 isn't shown.
+			- The total says "so far" until the walk for the options as set is done. After a comma it says how many places on a share were left out, and how many couldn't be read. Its tooltip says what each means.
+			- The total is a fixed width and wraps to a second line for a note, so the dialog doesn't change width as the numbers grow. It makes the dialog a little wider.
+			- A selection on a share isn't walked before Compress at all, and the total says it isn't counted there. Stopping a walk stuck on a share that doesn't answer would hang the dialog on Cancel.
+			- With items from more than one folder, as in search results, the first item's folder is the one crossings are told from.
+			- A Compress that comes back to the dialog, such as for an empty name or a refused overwrite, keeps the scan going. The one that starts the job frees it first.
+	- Done: the dialog walks the selection on a thread of its own with the options as shown, and moves the walk along as any choice or the format changes. "Total size to include" sits left of Cancel and Compress, and each Follow control that's on shows what it adds. Both come at most every 0.25 s. Cancel, Compress and the window going all stop the walk and free it, so no report comes after.
+		- Also: the dialog closed with its parent destroyed the freed window a second time. And each opening leaked the default volume size text, since 2026100516274646.
+	- Swept: every change to the choices goes through the one place that shows them, which now hands the scan its options, so the boxes, both radio groups, the format, Reset and the password all reach it. The dialog's two callers, the view and the test. The scan's other user is its own test.
+	- Verified: 20261013, rhtmbdmj went red with each of: the scan not moved along when a choice changes, a size change shown for the wrong option, plain files following what's chosen, a selection on a share walked, the scan never freed, and the window destroyed after its parent took it. It passes on Linux, under ASan and UBSan with leak checks, 6 copies at once, and under wine. Full Linux suite 196 of 196 with warnings as errors, the Windows cross build, lint clean apart from rj3ytv0b.
+	- Branch: livesize
+	- Commit: 9fc96be
+	- Test case: rhtmbdmj, Compress dialog height test, check_scan_sizes on a scratch tree with made-up mounts, links and a share: the total and each Follow control's change match the core's own numbers for the defaults, widened, widened with a format change, narrowed, and with a store choice. Plain files count nothing followed. A selection on a share isn't walked. Cancel frees the scan, a Compress that comes back keeps it, and the parent closing mid-scan frees it with no critical.
+
 - After an `smb://` address is typed, nothing shows that the app is working on it.
 	- ID: 2026100816170921
 	- Type: Bug
@@ -696,41 +731,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Open: a list past the command line limit on some OS. The design leaves it to testing.
 	- Estimated effort: High
 	- Test case: rhr6ggmt, the same rows for 7z and rar, plus a mixed choice such as following symlinks while storing junctions.
-
-- Compression reset: live size totals in the Compress dialog.
-	- ID: 2026100516274498
-	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no.
-	- Needs external testing: the dialog on a real Windows desktop, with a junction, a symlink and a volume mounted in a folder in the selection, and a link onto a share. Under wine no links get made, so only the mounts, the share and the Junctions row were seen there.
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Prereq IDs: 2026100516274275, 2026100516274386
-	- Target OS: Linux, Windows
-	- Design: [Total size](design_docs/20260929-101432_compression.md#total-size) and [Background scan](design_docs/20260929-101432_compression.md#background-scan).
-	- Requirements:
-		- The dialog starts the background scan with the options as set, and narrows or restarts it as they change.
-		- Each follow option shows its size change. "Total size to include" sits on the left of the Cancel and OK row. Both update at most every 0.25 s.
-		- Cancel or OK stops the scan and frees it.
-	- Estimated effort: Avg
-	- Actual effort: Avg
-	- Progress log:
-		- 20261013-092952: built. Left at signoff for the look, and for these calls:
-			- The scan counts what the options as shown would do with the format, which is what the job does. A store choice grayed to Ignore counts as Ignore, and plain files follow nothing. A choice kept but not shown isn't counted.
-			- A Follow control shows its change only while it's on, as "(+N)" after its text. Off, the scan hasn't walked what it would add, so the design's 0 isn't shown.
-			- The total says "so far" until the walk for the options as set is done. After a comma it says how many places on a share were left out, and how many couldn't be read. Its tooltip says what each means.
-			- The total is a fixed width and wraps to a second line for a note, so the dialog doesn't change width as the numbers grow. It makes the dialog a little wider.
-			- A selection on a share isn't walked before Compress at all, and the total says it isn't counted there. Stopping a walk stuck on a share that doesn't answer would hang the dialog on Cancel.
-			- With items from more than one folder, as in search results, the first item's folder is the one crossings are told from.
-			- A Compress that comes back to the dialog, such as for an empty name or a refused overwrite, keeps the scan going. The one that starts the job frees it first.
-	- Done: the dialog walks the selection on a thread of its own with the options as shown, and moves the walk along as any choice or the format changes. "Total size to include" sits left of Cancel and Compress, and each Follow control that's on shows what it adds. Both come at most every 0.25 s. Cancel, Compress and the window going all stop the walk and free it, so no report comes after.
-		- Also: the dialog closed with its parent destroyed the freed window a second time. And each opening leaked the default volume size text, since 2026100516274646.
-	- Swept: every change to the choices goes through the one place that shows them, which now hands the scan its options, so the boxes, both radio groups, the format, Reset and the password all reach it. The dialog's two callers, the view and the test. The scan's other user is its own test.
-	- Verified: 20261013, rhtmbdmj went red with each of: the scan not moved along when a choice changes, a size change shown for the wrong option, plain files following what's chosen, a selection on a share walked, the scan never freed, and the window destroyed after its parent took it. It passes on Linux, under ASan and UBSan with leak checks, 6 copies at once, and under wine. Full Linux suite 196 of 196 with warnings as errors, the Windows cross build, lint clean apart from rj3ytv0b.
-	- Branch: livesize
-	- Commit: 9fc96be
-	- Test case: rhtmbdmj, Compress dialog height test, check_scan_sizes on a scratch tree with made-up mounts, links and a share: the total and each Follow control's change match the core's own numbers for the defaults, widened, widened with a format change, narrowed, and with a store choice. Plain files count nothing followed. A selection on a share isn't walked. Cancel frees the scan, a Compress that comes back keeps it, and the parent closing mid-scan frees it with no critical.
 
 - Compression reset: a pre-scan progress bar after OK.
 	- ID: 2026100516274535
