@@ -701,6 +701,13 @@ dialog_size_allocated (G_GNUC_UNUSED GtkWidget     *widget,
 	}
 }
 
+int
+nemo_archive_options_room (int work_height,
+			   int closed_height)
+{
+	return MAX (120, work_height - closed_height);
+}
+
 /* The window grows and shrinks from its top left, so opening the options walks
    the dialog down the screen and can push its buttons off the bottom. */
 static void

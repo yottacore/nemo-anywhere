@@ -21,9 +21,9 @@
 */
 
 /* Kept apart from nemo-archive.h and nemo-extract.h, and free of anything but
- * the strings, so the settings table can include it too - the default a key
- * falls back to and the default the writer runs are then the same text rather
- * than two copies that can drift. The Compress dialog's remembered settings
+ * the strings and the core's settings header, so the settings table can
+ * include it too - the default a key falls back to and the default the writer
+ * runs are then the same text rather than two copies that can drift. The Compress dialog's remembered settings
  * are named here for the same reason: the table and the dialog have to agree
  * on the key, and a typo in one of them would just be a setting that never
  * takes.
@@ -38,12 +38,15 @@
 #ifndef NEMO_ARCHIVE_COMMANDS_H
 #define NEMO_ARCHIVE_COMMANDS_H
 
+#include "arc-settings.h"
+
 #define NEMO_ARCHIVE_COMMANDS_GROUP "archive"
 
-#define NEMO_ARCHIVE_COMMAND_KEY_7Z  "create-with-7z"
-#define NEMO_ARCHIVE_COMMAND_KEY_RAR "create-with-rar"
-#define NEMO_EXTRACT_COMMAND_KEY_7Z  "extract-with-7z"
-#define NEMO_EXTRACT_COMMAND_KEY_RAR "extract-with-rar"
+/* The archive core's names for its lines, which its messages use. */
+#define NEMO_ARCHIVE_COMMAND_KEY_7Z  ARC_LINE_NAME_CREATE_7Z
+#define NEMO_ARCHIVE_COMMAND_KEY_RAR ARC_LINE_NAME_CREATE_RAR
+#define NEMO_EXTRACT_COMMAND_KEY_7Z  ARC_LINE_NAME_EXTRACT_7Z
+#define NEMO_EXTRACT_COMMAND_KEY_RAR ARC_LINE_NAME_EXTRACT_RAR
 
 /* What the Compress dialog starts from next time. Not the password, which is
    never written anywhere, and not deleting the originals, which has to be

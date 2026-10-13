@@ -42,3 +42,19 @@ arc_settings_clear (ArcSettings *settings)
 	}
 	settings->threads = 0;
 }
+
+/* Returns: (transfer none) */
+const char *
+arc_line_name (ArcLine line)
+{
+	static const char * const names[ARC_LINE_COUNT] = {
+		ARC_LINE_NAME_CREATE_7Z,
+		ARC_LINE_NAME_CREATE_RAR,
+		ARC_LINE_NAME_EXTRACT_7Z,
+		ARC_LINE_NAME_EXTRACT_RAR,
+	};
+
+	g_return_val_if_fail (line < ARC_LINE_COUNT, "");
+
+	return names[line];
+}

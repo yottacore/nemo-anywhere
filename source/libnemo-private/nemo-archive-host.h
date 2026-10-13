@@ -73,8 +73,13 @@ void     nemo_archive_choices_shown      (const NemoArchiveChoices *chosen,
 					  NemoArchiveChoices       *shown);
 
 /* An ArcHost with what the core has been given so far: the folder walk,
-   which gets past MAX_PATH on Windows, and the share check. */
+   which gets past MAX_PATH on Windows, the share check, and the command
+   lines, which are read by the app's rules for a line a person wrote. */
 void nemo_archive_host_init         (ArcHost              *host);
+
+/* The command lines and the thread count as set now. Clear it with
+   arc_settings_clear. */
+void nemo_archive_settings_load     (ArcSettings          *settings);
 
 G_END_DECLS
 

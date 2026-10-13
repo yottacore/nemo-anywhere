@@ -37,6 +37,16 @@ typedef enum {
 	ARC_LINE_COUNT
 } ArcLine;
 
+/* What each line is called in a message about it. The app keeps each one in
+   its settings under the same name. */
+#define ARC_LINE_NAME_CREATE_7Z   "create-with-7z"
+#define ARC_LINE_NAME_CREATE_RAR  "create-with-rar"
+#define ARC_LINE_NAME_EXTRACT_7Z  "extract-with-7z"
+#define ARC_LINE_NAME_EXTRACT_RAR "extract-with-rar"
+
+/* Returns: (transfer none) */
+const char *arc_line_name (ArcLine line);
+
 typedef struct {
 	/* The command lines as set, with the built-in line already in place of
 	   one that was emptied. NULL where the app has none to give. */

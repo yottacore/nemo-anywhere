@@ -25,8 +25,10 @@
 #include "nemo-archive-host.h"
 #include "nemo-archive.h"
 #include "nemo-archive-commands.h"
+#include "nemo-command-template.h"
 #include "nemo-config.h"
 #include "nemo-dir-enum.h"
+#include "nemo-global-preferences.h"
 #include "nemo-share.h"
 
 /* The old pair meant one choice for both kinds of link, so Junctions is left
@@ -321,6 +323,53 @@ leaves_for_share (gpointer    data,
 	return nemo_share_link_leaves_for_a_share (folder, path);
 }
 
+/* The core's tokens are the template's, field for field. */
+static NemoCommandToken *
+template_tokens (const ArcCommandToken *tokens)
+{
+	NemoCommandToken *out;
+	guint count = 0, i;
+
+	while (tokens != NULL && tokens[count].name != NULL) {
+		count++;
+	}
+	out = g_new0 (NemoCommandToken, count + 1);
+	for (i = 0; i < count; i++) {
+		out[i].name = tokens[i].name;
+		out[i].values = tokens[i].values;
+		out[i].warn_if_dropped = tokens[i].warn_if_dropped;
+	}
+	return out;
+}
+
+static char **
+expand_line (gpointer               data,
+	     const char            *text,
+	     const ArcCommandToken *tokens,
+	     GError               **error)
+{
+	NemoCommandToken *marks = template_tokens (tokens);
+	char **argv;
+
+	(void) data;
+	argv = nemo_command_template_expand (text, marks, error);
+	g_free (marks);
+	return argv;
+}
+
+static void
+warn_unused (gpointer               data,
+	     ArcLine                line,
+	     const char            *text,
+	     const ArcCommandToken *tokens)
+{
+	NemoCommandToken *marks = template_tokens (tokens);
+
+	(void) data;
+	nemo_command_template_warn_unused (arc_line_name (line), text, marks);
+	g_free (marks);
+}
+
 void
 nemo_archive_host_init (ArcHost *host)
 {
@@ -329,4 +378,33 @@ nemo_archive_host_init (ArcHost *host)
 	memset (host, 0, sizeof *host);
 	host->walk.children = walk_children;
 	host->shares.leaves_for = leaves_for_share;
+	host->commands.expand = expand_line;
+	host->commands.warn_unused = warn_unused;
+}
+
+/* The built-in line where one was emptied, or before the settings are up. */
+void
+nemo_archive_settings_load (ArcSettings *settings)
+{
+	static const struct {
+		ArcLine     line;
+		const char *fallback;
+	} lines[] = {
+		{ ARC_LINE_CREATE_7Z,   NEMO_ARCHIVE_COMMAND_7Z_DEFAULT },
+		{ ARC_LINE_CREATE_RAR,  NEMO_ARCHIVE_COMMAND_RAR_DEFAULT },
+		{ ARC_LINE_EXTRACT_7Z,  NEMO_EXTRACT_COMMAND_7Z_DEFAULT },
+		{ ARC_LINE_EXTRACT_RAR, NEMO_EXTRACT_COMMAND_RAR_DEFAULT },
+	};
+	guint i;
+
+	g_return_if_fail (settings != NULL);
+
+	for (i = 0; i < G_N_ELEMENTS (lines); i++) {
+		g_free (settings->lines[lines[i].line]);
+		settings->lines[lines[i].line] =
+			nemo_command_template_from_config (NEMO_ARCHIVE_COMMANDS_GROUP,
+							   arc_line_name (lines[i].line),
+							   lines[i].fallback);
+	}
+	settings->threads = (guint) nemo_global_preferences_get_cpu_thread_count ();
 }
