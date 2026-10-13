@@ -600,6 +600,17 @@ eel_editable_label_get_property (GObject     *object,
     }
 }
 
+/* GTK re-asks a widget for its size after a new width request only while it
+   is visible. Wrapped text is as wide as that request, and the icon view sets
+   it on a hidden field, so the field kept its old size. */
+static void
+eel_editable_label_width_request_changed (GObject    *object,
+                                          GParamSpec *pspec G_GNUC_UNUSED,
+                                          gpointer    data G_GNUC_UNUSED)
+{
+  gtk_widget_queue_resize (GTK_WIDGET (object));
+}
+
 static void
 eel_editable_label_init (EelEditableLabel *label)
 {
@@ -630,6 +641,9 @@ eel_editable_label_init (EelEditableLabel *label)
 		    G_CALLBACK (eel_editable_label_retrieve_surrounding_cb), label);
   g_signal_connect (G_OBJECT (label->im_context), "delete_surrounding",
 		    G_CALLBACK (eel_editable_label_delete_surrounding_cb), label);
+
+  g_signal_connect (label, "notify::width-request",
+		    G_CALLBACK (eel_editable_label_width_request_changed), NULL);
 }
 
 /**
@@ -847,6 +861,7 @@ eel_editable_label_set_font_description (EelEditableLabel *label,
     label->font_desc = NULL;
 
   eel_editable_label_clear_layout (label);
+  gtk_widget_queue_resize (GTK_WIDGET (label));
 }
 
 static void

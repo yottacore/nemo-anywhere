@@ -7087,6 +7087,25 @@ is_renaming (NemoIconContainer *container)
 	return container->details->renaming;
 }
 
+/* Under a big picture in a short window the name can be below what is in
+   sight, and a field nobody can see reads as F2 doing nothing. */
+static void
+reveal_rename_field (NemoIconContainer *container, int top, int bottom)
+{
+	GtkAdjustment *vadj = gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (container));
+	int height = gtk_widget_get_allocated_height (GTK_WIDGET (container));
+	double value = gtk_adjustment_get_value (vadj);
+
+	if (!gtk_widget_get_realized (GTK_WIDGET (container))) {
+		return;
+	}
+	if (top < value || bottom - top > height) {
+		gtk_adjustment_set_value (vadj, top);
+	} else if (bottom > value + height) {
+		gtk_adjustment_set_value (vadj, bottom - height);
+	}
+}
+
 /**
  * nemo_icon_container_start_renaming_selected_item
  * @container: An icon container widget.
@@ -7106,7 +7125,7 @@ nemo_icon_container_start_renaming_selected_item (NemoIconContainer *container,
 	PangoContext *context;
 	PangoFontDescription *desc;
 	const char *editable_text;
-	int x, y, width;
+	int x, y, width, bottom;
 	int start_offset, end_offset;
 
 	/* Check if it already in renaming mode, if so - select all */
@@ -7213,6 +7232,9 @@ nemo_icon_container_start_renaming_selected_item (NemoIconContainer *container,
 	gtk_layout_move (GTK_LAYOUT (container),
 			 details->rename_widget,
 			 x, y);
+
+	eel_canvas_w2c (EEL_CANVAS_ITEM (icon->item)->canvas, text_rect.x1, text_rect.y1, NULL, &bottom);
+	reveal_rename_field (container, y, MAX (bottom, y));
 
 	gtk_widget_set_size_request (details->rename_widget,
 				     width, -1);
