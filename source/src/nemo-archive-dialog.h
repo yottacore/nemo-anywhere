@@ -26,6 +26,8 @@
 #include <gtk/gtk.h>
 #include <gio/gio.h>
 
+#include "arc-mounts.h"
+
 /* files are GFile *; default_dir is where the archive is offered to be put,
    normally the folder being viewed. whole_folder says the files are everything
    the folder is showing, which is what lets a multiple selection borrow the
@@ -36,5 +38,10 @@ void nemo_archive_dialog_show (GtkWindow *parent_window,
 			       GFile     *default_dir,
 			       gboolean   whole_folder,
 			       gboolean   links_or_folders);
+
+/* For tests: where each size scan gets its mount table, NULL for the
+   system's, and how many scans are running. */
+void  nemo_archive_dialog_set_mounts_for_test (ArcMountTable *(*mounts) (void));
+guint nemo_archive_dialog_scans_for_test      (void);
 
 #endif /* NEMO_ARCHIVE_DIALOG_H */

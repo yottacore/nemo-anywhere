@@ -38,6 +38,9 @@
 #include <libnemo-private/nemo-archive-host.h>
 #include <libnemo-private/nemo-config.h>
 #include <libnemo-private/nemo-global-preferences.h>
+#include <libnemo-private/nemo-share.h>
+
+#include "arc-scan.h"
 
 typedef struct {
 	GtkWidget *dialog;
@@ -58,7 +61,7 @@ typedef struct {
 	GtkWidget *dedupe_check;
 	/* Indexed by ArcLinkChoice. Junctions is Windows only and Follow nested
 	   filesystems Linux only, so one of them is NULL. The 4 Follow controls
-	   are where the size changes go, 2026100516274498. */
+	   show their size changes. */
 	GtkWidget *symlinks[ARC_LINK_STORE_SYMLINK + 1];
 	GtkWidget *junctions[ARC_LINK_STORE_JUNCTION + 1];
 	GtkWidget *nested_check;
@@ -80,6 +83,15 @@ typedef struct {
 	char      *password;
 	gboolean   delete_sources;
 	gboolean   showing;		/* set while the controls are made to match */
+
+	/* Counts what the options as shown would put in, which is what the job
+	   would do with this format. Freed on Cancel, on Compress, and with the
+	   window, so no report comes after. */
+	ArcScan   *scan;
+	guint      follow;		/* ArcFollow bits as shown */
+	guint      scan_follow;		/* the same, as last handed to the scan */
+	GtkWidget *total_label;
+	gboolean   destroyed;
 
 	GList     *files;		/* GFile *, owned */
 	gboolean   whole_folder;	/* the selection is all the folder shows */
@@ -248,6 +260,9 @@ show_link_choices (ArchiveDialog            *self,
 	/* Only a folder or a link has anything mounted below it. */
 	show_check (self->nested_check, self->chosen.links.follow_nested, self->links_or_folders);
 	show_check (self->other_check, self->chosen.links.follow_other, self->links_or_folders);
+
+	/* Plain files have nothing to follow, and the groups are hidden. */
+	self->follow = self->links_or_folders ? arc_link_options_follow (&self->chosen.links, stores) : 0;
 }
 
 static gboolean
@@ -328,6 +343,13 @@ update_for_format (ArchiveDialog *self)
 	}
 
 	self->showing = FALSE;
+
+	/* Every change comes through here, a format change included, so the
+	   scan goes by what shows. */
+	if (self->scan != NULL && self->follow != self->scan_follow) {
+		self->scan_follow = self->follow;
+		arc_scan_set_follow (self->scan, self->follow);
+	}
 
 	if (!self->name_edited) {
 		name = nemo_archive_suggest_name (self->files, self->whole_folder, format);
@@ -523,6 +545,14 @@ add_choice (ArchiveDialog *self,
 	return check;
 }
 
+/* The size change goes after the control's own text. */
+static void
+keep_follow_text (GtkWidget *button)
+{
+	g_object_set_data_full (G_OBJECT (button), "nemo-follow-text",
+				g_strdup (gtk_button_get_label (GTK_BUTTON (button))), g_free);
+}
+
 typedef struct {
 	ArcLinkChoice choice;
 	const char   *label;
@@ -559,6 +589,7 @@ add_link_group (ArchiveDialog    *self,
 			gtk_widget_set_tooltip_text (button,
 				_("Puts in what each one leads to. A shortcut (.lnk) is a "
 				  "file, so it always goes in as itself."));
+			keep_follow_text (button);
 		}
 		g_signal_connect (button, "toggled", G_CALLBACK (link_choice_toggled), self);
 		g_signal_connect (button, "mnemonic-activate", G_CALLBACK (link_group_mnemonic), NULL);
@@ -884,6 +915,7 @@ build_options (ArchiveDialog *self,
 	self->nested_check = add_choice (self, grid, row++, _("Follow nes_ted filesystems"),
 					 &self->chosen.links.follow_nested);
 	gtk_widget_set_name (self->nested_check, "follow-nested");
+	keep_follow_text (self->nested_check);
 	gtk_widget_set_tooltip_text (self->nested_check,
 				     _("Goes into a filesystem mounted from the same pool or disk, "
 				       "such as a ZFS dataset or a Btrfs subvolume."));
@@ -891,6 +923,7 @@ build_options (ArchiveDialog *self,
 	self->other_check = add_choice (self, grid, row++, _("Follow ot_her filesystems"),
 					&self->chosen.links.follow_other);
 	gtk_widget_set_name (self->other_check, "follow-other");
+	keep_follow_text (self->other_check);
 	gtk_widget_set_tooltip_text (self->other_check,
 				     _("Goes into another drive or a share mounted below, or one a "
 				       "link leads to. Off each time this opens."));
@@ -923,6 +956,8 @@ restore_remembered (ArchiveDialog *self)
 		return;
 	}
 
+	/* load starts from nothing, so the defaults' volume size goes first. */
+	nemo_archive_choices_clear (&self->chosen);
 	nemo_archive_choices_load (&self->chosen);
 	show_level_and_size (self);
 
@@ -1152,6 +1187,172 @@ each_destinations (ArchiveDialog     *self,
 	return g_list_reverse (destinations);
 }
 
+static ArcMountTable *(*mounts_for_test) (void);
+static guint scans_running;
+
+void
+nemo_archive_dialog_set_mounts_for_test (ArcMountTable *(*mounts) (void))
+{
+	mounts_for_test = mounts;
+}
+
+guint
+nemo_archive_dialog_scans_for_test (void)
+{
+	return scans_running;
+}
+
+static char *
+size_text (guint64 bytes)
+{
+	return g_format_size_full (bytes, nemo_global_preferences_get_size_prefix_preference ());
+}
+
+/* What turning the option off would take out, shown only while it's on. Off,
+   the scan hasn't walked what it would add. */
+static void
+show_change (GtkWidget           *button,
+	     const ArcScanReport *report,
+	     ArcFollow            option)
+{
+	const char *text;
+
+	if (button == NULL) {
+		return;
+	}
+
+	text = g_object_get_data (G_OBJECT (button), "nemo-follow-text");
+	if (report->follow & option) {
+		char *size = size_text (arc_scan_report_change (report, option));
+		/* Translators: a Follow option, then what it adds to the archive. */
+		char *label = g_strdup_printf (_("%s (+%s)"), text, size);
+
+		gtk_button_set_label (GTK_BUTTON (button), label);
+		g_free (label);
+		g_free (size);
+	} else {
+		gtk_button_set_label (GTK_BUTTON (button), text);
+	}
+}
+
+static void
+show_total (ArchiveDialog       *self,
+	    const ArcScanReport *report)
+{
+	char *size = size_text (arc_scan_report_total (report));
+	GString *text = g_string_new (NULL);
+	GString *tip = g_string_new (_("What the options as set put in the archive."));
+
+	g_string_printf (text, report->done ? _("Total size to include: %s")
+			 : _("Total size to include: %s so far"), size);
+
+	if (report->shares > 0) {
+		g_string_append_printf (text, ngettext (", not counting %u on a share",
+							", not counting %u on a share",
+							report->shares), report->shares);
+		g_string_append (tip, " ");
+		g_string_append (tip, _("Links onto a network share, and shares mounted in a folder, "
+					"aren't counted here."));
+	}
+	if (report->unreadable > 0) {
+		g_string_append_printf (text, ngettext (", %u unreadable", ", %u unreadable",
+							report->unreadable), report->unreadable);
+		g_string_append (tip, " ");
+		g_string_append_printf (tip, ngettext ("%u folder or file couldn't be read.",
+						       "%u folders or files couldn't be read.",
+						       report->unreadable), report->unreadable);
+	}
+
+	gtk_label_set_text (GTK_LABEL (self->total_label), text->str);
+	gtk_widget_set_tooltip_text (self->total_label, tip->str);
+
+	g_string_free (tip, TRUE);
+	g_string_free (text, TRUE);
+	g_free (size);
+}
+
+/* On this thread, through its main loop. */
+static void
+scan_reported (gpointer             data,
+	       const ArcScanReport *report)
+{
+	ArchiveDialog *self = data;
+
+	show_total (self, report);
+	show_change (self->symlinks[ARC_LINK_FOLLOW], report, ARC_FOLLOW_SYMLINKS);
+	show_change (self->junctions[ARC_LINK_FOLLOW], report, ARC_FOLLOW_JUNCTIONS);
+	show_change (self->nested_check, report, ARC_FOLLOW_NESTED_FS);
+	show_change (self->other_check, report, ARC_FOLLOW_OTHER_FS);
+}
+
+/* The folder the selection is in is where the walk starts from, for telling
+   a crossing. A selection on a share isn't walked: that would be a visit the
+   person didn't ask for, and stopping a walk stuck on one would hang the
+   window. */
+static void
+start_scan (ArchiveDialog *self)
+{
+	GPtrArray *paths = g_ptr_array_new_with_free_func (g_free);
+	ArcScanReport empty = { 0 };
+	ArcHost host;
+	char *base;
+	GList *l;
+
+	for (l = self->files; l != NULL; l = l->next) {
+		char *path = g_file_get_path (G_FILE (l->data));
+
+		if (path == NULL || nemo_path_is_on_a_share (path)) {
+			if (path != NULL) {
+				gtk_label_set_text (GTK_LABEL (self->total_label),
+						    _("Total size to include: not counted on a share"));
+			} else {
+				gtk_widget_set_no_show_all (self->total_label, TRUE);
+				gtk_widget_hide (self->total_label);
+			}
+			g_free (path);
+			g_ptr_array_unref (paths);
+			return;
+		}
+		g_ptr_array_add (paths, path);
+	}
+	g_ptr_array_add (paths, NULL);
+
+	base = g_path_get_dirname (g_ptr_array_index (paths, 0));
+	nemo_archive_host_init (&host);
+	self->scan = arc_scan_new (&host, base, (const char * const *) paths->pdata, self->follow,
+				   FALSE, mounts_for_test != NULL ? mounts_for_test () : NULL);
+	self->scan_follow = self->follow;
+	scans_running++;
+
+	empty.follow = self->follow;
+	scan_reported (self, &empty);
+	arc_scan_start (self->scan, scan_reported, self);
+
+	g_free (base);
+	g_ptr_array_unref (paths);
+}
+
+static void
+stop_scan (ArchiveDialog *self)
+{
+	if (self->scan != NULL) {
+		arc_scan_free (self->scan);
+		self->scan = NULL;
+		scans_running--;
+	}
+}
+
+/* The parent going takes the dialog with it, mid-run. */
+static void
+dialog_destroyed (GtkWidget     *widget,
+		  ArchiveDialog *self)
+{
+	(void) widget;
+
+	stop_scan (self);
+	self->destroyed = TRUE;
+}
+
 static void
 dialog_free (ArchiveDialog *self)
 {
@@ -1177,6 +1378,7 @@ nemo_archive_dialog_show (GtkWindow *parent_window,
 	GtkWidget *box;
 	GtkWidget *grid;
 	GtkWidget *compress_button;
+	GtkWidget *action_area;
 	GList *l;
 	int i;
 	int row = 0;
@@ -1202,6 +1404,21 @@ nemo_archive_dialog_show (GtkWindow *parent_window,
 	gtk_dialog_set_default_response (GTK_DIALOG (self->dialog), GTK_RESPONSE_OK);
 	compress_button = gtk_dialog_get_widget_for_response (GTK_DIALOG (self->dialog), GTK_RESPONSE_OK);
 	gtk_widget_set_can_default (compress_button, TRUE);
+	g_signal_connect (self->dialog, "destroy", G_CALLBACK (dialog_destroyed), self);
+
+	/* On the left of the buttons. A set width, so the dialog doesn't change
+	   width as the numbers do; a note wraps below. */
+	action_area = gtk_dialog_get_action_area (GTK_DIALOG (self->dialog));
+	self->total_label = gtk_label_new (NULL);
+	gtk_widget_set_name (self->total_label, "total-size");
+	gtk_label_set_xalign (GTK_LABEL (self->total_label), 0.0);
+	gtk_label_set_line_wrap (GTK_LABEL (self->total_label), TRUE);
+	gtk_label_set_width_chars (GTK_LABEL (self->total_label), 34);
+	gtk_label_set_max_width_chars (GTK_LABEL (self->total_label), 34);
+	gtk_widget_set_margin_start (self->total_label, 6);
+	gtk_box_pack_start (GTK_BOX (action_area), self->total_label, TRUE, TRUE, 0);
+	gtk_button_box_set_child_secondary (GTK_BUTTON_BOX (action_area), self->total_label, TRUE);
+	gtk_button_box_set_child_non_homogeneous (GTK_BUTTON_BOX (action_area), self->total_label, TRUE);
 
 	content = gtk_dialog_get_content_area (GTK_DIALOG (self->dialog));
 	box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
@@ -1217,6 +1434,7 @@ nemo_archive_dialog_show (GtkWindow *parent_window,
 	gtk_box_pack_start (GTK_BOX (box), grid, FALSE, FALSE, 0);
 
 	self->name_entry = gtk_entry_new ();
+	gtk_widget_set_name (self->name_entry, "name");
 	gtk_entry_set_activates_default (GTK_ENTRY (self->name_entry), TRUE);
 	gtk_entry_set_width_chars (GTK_ENTRY (self->name_entry), 36);
 	self->name_label = add_row (grid, row++, _("_Name"), self->name_entry);
@@ -1287,6 +1505,8 @@ nemo_archive_dialog_show (GtkWindow *parent_window,
 			gtk_combo_box_set_active (GTK_COMBO_BOX (self->format_combo), 0);
 		}
 		g_free (format_id);
+
+		start_scan (self);
 	}
 
 	gtk_widget_show_all (self->dialog);
@@ -1301,7 +1521,8 @@ nemo_archive_dialog_show (GtkWindow *parent_window,
 		gboolean each;
 		const char *name;
 
-		if (gtk_dialog_run (GTK_DIALOG (self->dialog)) != GTK_RESPONSE_OK) {
+		/* Gone with its parent during a question asked from here. */
+		if (self->destroyed || gtk_dialog_run (GTK_DIALOG (self->dialog)) != GTK_RESPONSE_OK) {
 			break;
 		}
 
@@ -1354,6 +1575,8 @@ nemo_archive_dialog_show (GtkWindow *parent_window,
 
 		remember_settings (self);
 
+		/* The job counts again for itself. */
+		stop_scan (self);
 		gtk_widget_hide (self->dialog);
 
 		if (each) {
@@ -1370,6 +1593,9 @@ nemo_archive_dialog_show (GtkWindow *parent_window,
 		break;
 	}
 
-	gtk_widget_destroy (self->dialog);
+	stop_scan (self);
+	if (!self->destroyed) {
+		gtk_widget_destroy (self->dialog);
+	}
 	dialog_free (self);
 }

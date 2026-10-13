@@ -43,8 +43,12 @@
 
 #include <libnemo-private/nemo-archive.h>
 #include <libnemo-private/nemo-archive-commands.h>
+#include <libnemo-private/nemo-archive-host.h>
 #include <libnemo-private/nemo-config.h>
 #include <libnemo-private/nemo-global-preferences.h>
+#include <libnemo-private/nemo-share.h>
+
+#include "arc-scan.h"
 
 #include "nemo-archive-dialog.h"
 
@@ -770,6 +774,505 @@ probe_forced_off (gpointer data)
 	return G_SOURCE_REMOVE;
 }
 
+static void run_case (GSourceFunc probe, Case *c, GList *files, GFile *dir);
+
+/* The size totals, on a tree with made-up mounts around it: nest and nest2
+   in the tree's pool, other on a disk of its own, and share a share. Byte
+   counts stay under 1000 so each one reads back exactly. */
+static char *tree;
+
+static const struct {
+	const char *path;
+	gsize       bytes;
+} tree_files[] = {
+	{ "sel/a.bin",        3 },
+	{ "sel/sub/b.bin",    5 },
+	{ "sel/nest/c.bin",   7 },
+	{ "sel/other/d.bin", 11 },
+	{ "sel/share/e.bin", 13 },
+	{ "outside/f.bin",   17 },
+	{ "outside/dir/g.bin", 19 },
+	{ "nest2/h.bin",     23 },
+};
+
+#ifndef G_OS_WIN32
+static const struct {
+	const char *path;
+	const char *target;
+} tree_links[] = {
+	{ "sel/flink",   "../outside/f.bin" },
+	{ "sel/dlink",   "../outside/dir" },
+	{ "sel/tonest",  "../nest2" },
+	{ "sel/toshare", "share" },
+};
+#endif
+
+/* Returns: (transfer full) */
+static char *
+in_tree (const char *relative)
+{
+	char *path = g_build_filename (tree, relative, NULL);
+	char *c;
+
+	for (c = path; *c != '\0'; c++) {
+		if (*c == '/') {
+			*c = G_DIR_SEPARATOR;
+		}
+	}
+	return path;
+}
+
+static gboolean
+make_tree (const char *scratch)
+{
+	char *made = g_build_filename (scratch, "tree", NULL);
+	gsize i;
+
+#ifdef G_OS_WIN32
+	tree = made;
+#else
+	/* The scan goes by real paths, and the made-up mounts have to match. */
+	if (g_mkdir_with_parents (made, 0755) != 0) {
+		g_free (made);
+		return FALSE;
+	}
+	{
+		char *real = realpath (made, NULL);
+
+		g_free (made);
+		if (real == NULL) {
+			return FALSE;
+		}
+		tree = g_strdup (real);
+		free (real);
+	}
+#endif
+
+	for (i = 0; i < G_N_ELEMENTS (tree_files); i++) {
+		char *path = in_tree (tree_files[i].path);
+		char *dir = g_path_get_dirname (path);
+		char *bytes = g_malloc0 (tree_files[i].bytes);
+		gboolean ok = g_mkdir_with_parents (dir, 0755) == 0 &&
+			      g_file_set_contents (path, bytes, (gssize) tree_files[i].bytes, NULL);
+
+		g_free (bytes);
+		g_free (dir);
+		g_free (path);
+		if (!ok) {
+			return FALSE;
+		}
+	}
+
+	/* Windows needs rights for a symlink, and wine makes none, so there
+	   the links are left out of both counts alike. */
+#ifndef G_OS_WIN32
+	for (i = 0; i < G_N_ELEMENTS (tree_links); i++) {
+		char *path = in_tree (tree_links[i].path);
+		GFile *link = g_file_new_for_path (path);
+
+		check (g_file_make_symbolic_link (link, tree_links[i].target, NULL, NULL));
+		g_object_unref (link);
+		g_free (path);
+	}
+#endif
+	return TRUE;
+}
+
+/* Returns: (transfer full): free with arc_mount_table_free */
+static ArcMountTable *
+tree_mounts (void)
+{
+	char *where[5] = { in_tree (""), in_tree ("sel/nest"), in_tree ("nest2"),
+			   in_tree ("sel/other"), in_tree ("sel/share") };
+#ifdef G_OS_WIN32
+	ArcMountEntry entries[] = {
+		{ where[0], "\\\\?\\Volume{aaaa}\\", NULL },
+		{ where[1], "\\\\?\\Volume{bbbb}\\", NULL },
+		{ where[2], "\\\\?\\Volume{cccc}\\", NULL },
+		{ where[3], "\\\\?\\Volume{dddd}\\", NULL },
+		{ where[4], NULL, NULL },
+	};
+	gboolean windows = TRUE;
+#else
+	ArcMountEntry entries[] = {
+		{ where[0], "tank/tree", "zfs" },
+		{ where[1], "tank/tree/nest", "zfs" },
+		{ where[2], "tank/nest2", "zfs" },
+		{ where[3], "/dev/sdz9", "ext4" },
+		{ where[4], "//server/share", "cifs" },
+	};
+	gboolean windows = FALSE;
+#endif
+	ArcMountTable *table = arc_mount_table_new (entries, G_N_ELEMENTS (entries), windows);
+	gsize i;
+
+	for (i = 0; i < G_N_ELEMENTS (where); i++) {
+		g_free (where[i]);
+	}
+	return table;
+}
+
+static void
+saw_core (gpointer             data,
+	  const ArcScanReport *report)
+{
+	*(ArcScanReport *) data = *report;
+}
+
+/* The core's own numbers for the selection, every mix walked. */
+static gboolean
+core_report (ArcScanReport *report)
+{
+	char *sel = in_tree ("sel");
+	const char *paths[] = { sel, NULL };
+	gint64 end = g_get_monotonic_time () + (gint64) (30 * test_slowness () * G_USEC_PER_SEC);
+	ArcHost host;
+	ArcScan *scan;
+
+	memset (report, 0, sizeof *report);
+	nemo_archive_host_init (&host);
+	scan = arc_scan_new (&host, tree, paths, ARC_FOLLOW_ALL, FALSE, tree_mounts ());
+	arc_scan_start (scan, saw_core, report);
+	while (!report->done && g_get_monotonic_time () < end) {
+		g_main_context_iteration (NULL, FALSE);
+		g_usleep (2000);
+	}
+	arc_scan_free (scan);
+	g_free (sel);
+
+	return report->done;
+}
+
+static ArcScanReport core;
+
+static char *
+size_of (guint64 bytes)
+{
+	return g_format_size_full (bytes, nemo_global_preferences_get_size_prefix_preference ());
+}
+
+/* The bits the controls show. Junctions takes Symlinks' choice by the table
+   until it's set by hand, and nested is hidden on Windows, where it's left
+   at its default and nothing is nested. */
+static guint
+follow_shown (GtkWidget *dialog)
+{
+	guint follow = 0;
+
+	if (is_on (dialog, "symlinks-follow")) {
+		follow |= ARC_FOLLOW_SYMLINKS;
+	}
+#ifdef G_OS_WIN32
+	if (is_on (dialog, "junctions-follow")) {
+		follow |= ARC_FOLLOW_JUNCTIONS;
+	}
+	follow |= ARC_FOLLOW_NESTED_FS;
+#else
+	if (follow & ARC_FOLLOW_SYMLINKS) {
+		follow |= ARC_FOLLOW_JUNCTIONS;
+	}
+	if (is_on (dialog, "follow-nested")) {
+		follow |= ARC_FOLLOW_NESTED_FS;
+	}
+#endif
+	if (is_on (dialog, "follow-other")) {
+		follow |= ARC_FOLLOW_OTHER_FS;
+	}
+	return follow;
+}
+
+static char *
+total_wanted (guint follow)
+{
+	char *size = size_of (core.totals[follow]);
+	char *text = g_strdup_printf ("Total size to include: %s", size);
+
+	g_free (size);
+	return text;
+}
+
+/* Until the total is the core's for the options as shown, and final. */
+static gboolean
+wait_for_total (GtkWidget *dialog,
+		guint      follow)
+{
+	GtkLabel *label = GTK_LABEL (named (dialog, "total-size"));
+	char *wanted = total_wanted (follow);
+	gint64 end = g_get_monotonic_time () + (gint64) (30 * test_slowness () * G_USEC_PER_SEC);
+	gboolean there = FALSE;
+
+	while (!there && g_get_monotonic_time () < end) {
+		const char *text = gtk_label_get_text (label);
+
+		there = g_str_has_prefix (text, wanted) &&
+			(text[strlen (wanted)] == '\0' || text[strlen (wanted)] == ',');
+		if (!there) {
+			g_main_context_iteration (NULL, FALSE);
+			g_usleep (2000);
+		}
+	}
+	if (!there) {
+		g_printerr ("follow %u: \"%s\", wanted \"%s\"\n", follow, gtk_label_get_text (label), wanted);
+	}
+	g_free (wanted);
+	return there;
+}
+
+/* Each Follow control shows what turning it off would take out, and only
+   while it's on. */
+static gboolean
+change_shown (GtkWidget  *dialog,
+	      const char *name,
+	      const char *text,
+	      guint       follow,
+	      ArcFollow   option,
+	      gboolean    say)
+{
+	const char *label = gtk_button_get_label (GTK_BUTTON (named (dialog, name)));
+	gboolean same;
+	char *wanted;
+
+	if (follow & option) {
+		char *size = size_of (core.totals[follow] - core.totals[follow & ~(guint) option]);
+
+		wanted = g_strdup_printf ("%s (+%s)", text, size);
+		g_free (size);
+	} else {
+		wanted = g_strdup (text);
+	}
+	same = g_strcmp0 (label, wanted) == 0;
+	if (!same && say) {
+		g_printerr ("follow %u, %s: \"%s\", wanted \"%s\"\n", follow, name, label, wanted);
+	}
+	g_free (wanted);
+	return same;
+}
+
+static gboolean
+changes_shown (GtkWidget *dialog,
+	       guint      follow,
+	       gboolean   say)
+{
+	gboolean all = TRUE;
+
+	all = change_shown (dialog, "symlinks-follow", "Follow", follow, ARC_FOLLOW_SYMLINKS, say) && all;
+#ifdef G_OS_WIN32
+	all = change_shown (dialog, "junctions-follow", "Follow", follow, ARC_FOLLOW_JUNCTIONS, say) && all;
+#else
+	all = change_shown (dialog, "follow-nested", "Follow nes_ted filesystems", follow,
+			    ARC_FOLLOW_NESTED_FS, say) && all;
+#endif
+	all = change_shown (dialog, "follow-other", "Follow ot_her filesystems", follow,
+			    ARC_FOLLOW_OTHER_FS, say) && all;
+	return all;
+}
+
+/* The total can match a stale report where 2 mixes come to the same, so
+   the changes are waited for too. */
+static void
+check_sizes (GtkWidget *dialog)
+{
+	guint follow = follow_shown (dialog);
+	gint64 end = g_get_monotonic_time () + (gint64) (30 * test_slowness () * G_USEC_PER_SEC);
+
+	check (wait_for_total (dialog, follow));
+	while (!changes_shown (dialog, follow, FALSE) && g_get_monotonic_time () < end) {
+		g_main_context_iteration (NULL, FALSE);
+		g_usleep (2000);
+	}
+	if (!changes_shown (dialog, follow, TRUE)) {
+		failures++;
+	}
+	/* A final total stays put. */
+	check (wait_for_total (dialog, follow));
+}
+
+static gboolean
+still_counting (gpointer data)
+{
+	check (nemo_archive_dialog_scans_for_test () == 1);
+	return still_up (data);
+}
+
+static gboolean
+probe_sizes (gpointer data)
+{
+	Case *c = data;
+	GtkWidget *dialog = find_dialog ();
+	GtkWidget *name;
+	const char *label;
+	char *shares;
+
+	c->ran = TRUE;
+	check (dialog != NULL);
+	if (dialog == NULL) {
+		return G_SOURCE_REMOVE;
+	}
+	check (nemo_archive_dialog_scans_for_test () == 1);
+
+	/* The defaults: nested on, the rest off. */
+	check_sizes (dialog);
+
+	/* Wider, then wider again with a format change in the middle. */
+	click (dialog, "symlinks-follow");
+	check_sizes (dialog);
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (named (dialog, "follow-other")), TRUE);
+	set_format (dialog, "tar");
+	check_sizes (dialog);
+	check (follow_shown (dialog) == (ARC_FOLLOW_ALL));
+
+	/* Left out, and said so. */
+	label = gtk_label_get_text (GTK_LABEL (named (dialog, "total-size")));
+	shares = g_strdup_printf (", not counting %u on a share", core.shares);
+	check (core.shares > 0);
+	check (strstr (label, shares) != NULL);
+	g_free (shares);
+
+	/* Narrower. */
+#ifdef G_OS_WIN32
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (named (dialog, "junctions-ignore")), TRUE);
+#else
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (named (dialog, "follow-nested")), FALSE);
+#endif
+	check_sizes (dialog);
+
+	/* Stored is not followed. */
+	click (dialog, "symlinks-store");
+	check (is_on (dialog, "symlinks-store"));
+	check_sizes (dialog);
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (named (dialog, "follow-other")), FALSE);
+	check_sizes (dialog);
+
+	/* Compress that goes back to the dialog keeps counting. */
+	name = named (dialog, "name");
+	gtk_entry_set_text (GTK_ENTRY (name), "");
+	g_timeout_add (300, still_counting, c);
+	c->ran = FALSE;
+	gtk_dialog_response (GTK_DIALOG (dialog), GTK_RESPONSE_OK);
+
+	return G_SOURCE_REMOVE;
+}
+
+/* Plain files have nothing to follow. */
+static gboolean
+probe_plain_sizes (gpointer data)
+{
+	Case *c = data;
+	GtkWidget *dialog = find_dialog ();
+
+	c->ran = TRUE;
+	check (dialog != NULL);
+	if (dialog == NULL) {
+		return G_SOURCE_REMOVE;
+	}
+
+	check (wait_for_total (dialog, 0));
+	gtk_dialog_response (GTK_DIALOG (dialog), GTK_RESPONSE_CANCEL);
+	return G_SOURCE_REMOVE;
+}
+
+/* Nothing on a share is walked before Compress. */
+static gboolean
+probe_on_share (gpointer data)
+{
+	Case *c = data;
+	GtkWidget *dialog = find_dialog ();
+
+	c->ran = TRUE;
+	check (dialog != NULL);
+	if (dialog == NULL) {
+		return G_SOURCE_REMOVE;
+	}
+
+	check (nemo_archive_dialog_scans_for_test () == 0);
+	check (g_strcmp0 (gtk_label_get_text (GTK_LABEL (named (dialog, "total-size"))),
+			  "Total size to include: not counted on a share") == 0);
+	gtk_dialog_response (GTK_DIALOG (dialog), GTK_RESPONSE_CANCEL);
+	return G_SOURCE_REMOVE;
+}
+
+/* The window it was opened from closes under it, with a report due. */
+static gboolean
+close_parent (gpointer data)
+{
+	GtkWidget *parent = data;
+
+	check (nemo_archive_dialog_scans_for_test () == 1);
+	gtk_widget_destroy (parent);
+	return G_SOURCE_REMOVE;
+}
+
+static void
+check_scan_sizes (const char *scratch)
+{
+	char *share;
+	const char *shares[2] = { NULL, NULL };
+	char *sel_path, *on_share_path;
+	GFile *dir, *sel, *on_share;
+	GList *files;
+	GtkWidget *parent;
+	Case folder = { TRUE, NULL, FALSE };
+	Case plain = { FALSE, NULL, FALSE };
+	guint mix;
+
+	check (make_tree (scratch));
+	share = in_tree ("sel/share");
+	shares[0] = share;
+	nemo_share_set_roots_for_test (shares);
+	nemo_archive_dialog_set_mounts_for_test (tree_mounts);
+
+	check (core_report (&core));
+	/* Something for every option to add, or the comparisons prove little. */
+	check (core.totals[ARC_FOLLOW_OTHER_FS] > core.totals[0]);
+#ifndef G_OS_WIN32
+	check (core.totals[ARC_FOLLOW_NESTED_FS] > core.totals[0]);
+	check (core.totals[ARC_FOLLOW_SYMLINKS] > core.totals[0]);
+#endif
+	for (mix = 0; mix < ARC_MIX_COUNT; mix++) {
+		check (core.totals[mix] < 1000);
+	}
+
+	dir = g_file_new_for_path (tree);
+	sel_path = in_tree ("sel");
+	sel = g_file_new_for_path (sel_path);
+	files = g_list_prepend (NULL, sel);
+
+	folder.ran = FALSE;
+	g_timeout_add (300, probe_sizes, &folder);
+	nemo_archive_dialog_show (NULL, files, dir, FALSE, TRUE);
+	check (folder.ran);
+	check (nemo_archive_dialog_scans_for_test () == 0);
+
+	run_case (probe_plain_sizes, &plain, files, dir);
+	check (nemo_archive_dialog_scans_for_test () == 0);
+
+	/* The dialog is gone by the time the call ends, and a destroy of it
+	   then is only seen as a critical from GTK. */
+	parent = gtk_window_new (GTK_WINDOW_TOPLEVEL);
+	gtk_widget_show (parent);
+	g_timeout_add (240, close_parent, parent);
+	g_log_set_always_fatal (G_LOG_FATAL_MASK | G_LOG_LEVEL_CRITICAL);
+	nemo_archive_dialog_show (GTK_WINDOW (parent), files, dir, FALSE, TRUE);
+	g_log_set_always_fatal (G_LOG_FATAL_MASK);
+	check (nemo_archive_dialog_scans_for_test () == 0);
+	g_list_free (files);
+
+	on_share_path = in_tree ("sel/share/e.bin");
+	on_share = g_file_new_for_path (on_share_path);
+	files = g_list_prepend (NULL, on_share);
+	run_case (probe_on_share, &plain, files, dir);
+	g_list_free (files);
+
+	nemo_archive_dialog_set_mounts_for_test (NULL);
+	nemo_share_set_roots_for_test (NULL);
+	g_object_unref (on_share);
+	g_object_unref (sel);
+	g_object_unref (dir);
+	g_free (on_share_path);
+	g_free (sel_path);
+	g_free (share);
+}
+
 static void
 run_case (GSourceFunc probe, Case *c, GList *files, GFile *dir)
 {
@@ -862,10 +1365,13 @@ main (int argc, char *argv[])
 	nemo_config_reset (group, NEMO_ARCHIVE_STATE_KEY_LOCK);
 	nemo_config_reset (group, NEMO_ARCHIVE_STATE_KEY_FORMAT);
 
+	check_scan_sizes (tmp);
+
 	g_list_free (files);
 	g_object_unref (file);
 	g_object_unref (dir);
 	g_free (tmp);
+	g_free (tree);
 #ifdef GDK_WINDOWING_X11
 	if (window_manager != 0) {
 		kill (window_manager, SIGTERM);
