@@ -163,6 +163,31 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rhr6ggmt, Archive option combinations. In the crossed rows, a rar keeping `jlink` as a junction with Delete originals keeps it, with the long-target reason, when its target is 128 bytes or more. check_long_target: a rar keeping a link with a 140-byte target, and on Windows a junction to a folder with a path of 128 or more, keeps the originals and says why, or deletes them where libarchive is newer than 3.8.9.
 	- Acceptance signoff: Left at signoff for the warning's wording.
 
+- Search view and regular view need to remember their own column settings.
+	- ID: 2026101405542816
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Needs local test suite run?: yes, the full Linux suite. The nearby search, view, tab and settings tests passed, 13 of 13.
+	- Priority|Severity: Avg
+	- Opened: 20261014-055428
+	- Opened by: t00mietum
+	- Related IDs: 2026100613285826, 2026101406405845
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+	- Steps to reproduce: with "Remember per-folder settings" off, switch a folder to icon view, then search.
+	- Incorrect behavior: the find results show as icons, with no columns. Switching them to the list view and leaving find mode leaves the folder in the list view too.
+	- Expected behavior: find results open in the list view with their own columns, and a view picked for them doesn't change the folder's.
+	- Reproduced: 20261014, Linux. The view was the only thing shared. With per-folder settings off and on, the shown columns, their order, the widths and the sort each stayed apart in both directions: a column picked or hidden from the header menu, a header drag, a header click, Use default, a width drag on Name and on Ext, then leaving by the search button or by Back and Forward. The Windows build kept the columns and sort apart the same way.
+	- Actual cause: with per-folder settings off, the window has one view for everything shown in it, find results included. Find results took the window's view, and a view picked for them became the window's. With them on, nothing is kept for find results, so a new query went back to the list view.
+	- Actual fix: find results open in the list view whatever view the folder is in. A view picked for them lasts until find mode is left, through a new query too, and never becomes the window's or the folder's. A new default view from Settings still reaches the folders behind find mode. README and design.md "Search" say so.
+	- Progress log:
+		- 20261014: Options: find results could also keep a picked view for later searches, in its own setting, like the columns. Left out, since only the columns were asked for. If the columns themselves were seen leaking, the steps that showed it would help, since none of the above did.
+	- Swept: every place that picks or keeps a view: loading a location, a pick from the View menu or toolbar, a new default view, the switch for picture folders (never kept, unchanged), and a tab moved between windows (keeps the view it came with, unchanged). The list view's zoom in find results was already never kept. The icon view's zoom there still follows the window's, now only after icon view is picked for the results.
+	- Branch: colsplit
+	- Commit: 0d17dd2
+	- Test case: rk7wxqh5, Find mode view test. It puts a folder in icon view, searches, picks compact view for the results, searches again and leaves, with per-folder settings off and on. Before the fix it failed 3 checks: icons in find mode and compact left on the folder with them off, and the list view back after a new query with them on. It passes after.
+
 - On Windows, every bundle has only the app's own exe, so no form of the app starts a program from inside its bundle.
 	- ID: 2026100917220603
 	- Type: Enhancement
@@ -888,31 +913,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: thumbwin
 	- Commit: f38660a to f8a6223
 	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session. (c) still needs its own: a thumbnail and the text from a small file of each type, on every platform, and a check that no program is started for them.
-
-- Search view and regular view need to remember their own column settings.
-	- ID: 2026101405542816
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: yes, the full Linux suite. The nearby search, view, tab and settings tests passed, 13 of 13.
-	- Priority|Severity: Avg
-	- Opened: 20261014-055428
-	- Opened by: t00mietum
-	- Related IDs: 2026100613285826, 2026101406405845
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-	- Steps to reproduce: with "Remember per-folder settings" off, switch a folder to icon view, then search.
-	- Incorrect behavior: the find results show as icons, with no columns. Switching them to the list view and leaving find mode leaves the folder in the list view too.
-	- Expected behavior: find results open in the list view with their own columns, and a view picked for them doesn't change the folder's.
-	- Reproduced: 20261014, Linux. The view was the only thing shared. With per-folder settings off and on, the shown columns, their order, the widths and the sort each stayed apart in both directions: a column picked or hidden from the header menu, a header drag, a header click, Use default, a width drag on Name and on Ext, then leaving by the search button or by Back and Forward. The Windows build kept the columns and sort apart the same way.
-	- Actual cause: with per-folder settings off, the window has one view for everything shown in it, find results included. Find results took the window's view, and a view picked for them became the window's. With them on, nothing is kept for find results, so a new query went back to the list view.
-	- Actual fix: find results open in the list view whatever view the folder is in. A view picked for them lasts until find mode is left, through a new query too, and never becomes the window's or the folder's. A new default view from Settings still reaches the folders behind find mode. README and design.md "Search" say so.
-	- Progress log:
-		- 20261014: Options: find results could also keep a picked view for later searches, in its own setting, like the columns. Left out, since only the columns were asked for. If the columns themselves were seen leaking, the steps that showed it would help, since none of the above did.
-	- Swept: every place that picks or keeps a view: loading a location, a pick from the View menu or toolbar, a new default view, the switch for picture folders (never kept, unchanged), and a tab moved between windows (keeps the view it came with, unchanged). The list view's zoom in find results was already never kept. The icon view's zoom there still follows the window's, now only after icon view is picked for the results.
-	- Branch: colsplit
-	- Commit: 0d17dd2
-	- Test case: rk7wxqh5, Find mode view test. It puts a folder in icon view, searches, picks compact view for the results, searches again and leaves, with per-folder settings off and on. Before the fix it failed 3 checks: icons in find mode and compact left on the folder with them off, and the list view back after a new query with them on. It passes after.
 
 - Leaving an empty search page from history and searching again searches the whole disk.
 	- ID: 2026101406405845
