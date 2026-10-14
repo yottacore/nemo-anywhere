@@ -59,7 +59,9 @@ wait_for_dump (const char *path)
 	char *text = NULL;
 	char **lines;
 
-	while (!g_file_get_contents (path, &text, NULL, NULL)) {
+	/* The open row's file is there before the dumper writes over it. */
+	while (!g_file_get_contents (path, &text, NULL, NULL) || !g_str_has_prefix (text, "parent=")) {
+		g_clear_pointer (&text, g_free);
 		if (g_get_monotonic_time () > until) {
 			return NULL;
 		}
@@ -128,6 +130,43 @@ static char *
 dump_path (const char *dir, const char *name)
 {
 	return g_build_filename (dir, name, NULL);
+}
+
+/* Wine reads a type from the machine's classes only, where Windows takes the
+ * user's too. */
+static HKEY
+classes_root (void)
+{
+	HMODULE ntdll = GetModuleHandleW (L"ntdll.dll");
+
+	return ntdll != NULL && GetProcAddress (ntdll, "wine_get_version") != NULL
+		? HKEY_CLASSES_ROOT : HKEY_CURRENT_USER;
+}
+
+/* A file type of the test's own that opens with the dumper, which writes over
+ * the file. */
+static gboolean
+register_type (HKEY root, const wchar_t *key, const char *dumper)
+{
+	wchar_t *wdumper = g_utf8_to_utf16 (dumper, -1, NULL, NULL, NULL);
+	wchar_t command[2048];
+	wchar_t sub[256];
+	HKEY handle;
+	gboolean ok;
+
+	_snwprintf (command, G_N_ELEMENTS (command), L"\"%ls\" \"%%1\"", wdumper);
+	command[G_N_ELEMENTS (command) - 1] = L'\0';
+	g_free (wdumper);
+	_snwprintf (sub, G_N_ELEMENTS (sub), L"%ls\\shell\\open\\command", key);
+	sub[G_N_ELEMENTS (sub) - 1] = L'\0';
+
+	ok = RegCreateKeyExW (root, sub, 0, NULL, 0, KEY_WRITE, NULL, &handle, NULL) == ERROR_SUCCESS;
+	if (ok) {
+		ok = RegSetValueExW (handle, NULL, 0, REG_SZ, (const BYTE *) command,
+				     (DWORD) ((wcslen (command) + 1) * sizeof (wchar_t))) == ERROR_SUCCESS;
+		RegCloseKey (handle);
+	}
+	return ok;
 }
 
 int
@@ -222,18 +261,34 @@ main (int argc, char *argv[])
 		check_ours_still ();
 	}
 
-	/* A file opened with whatever its type opens with. */
+	/* A file opened with whatever its type opens with. Not a .bat: a user can
+	 * have those open in an editor, or in a program that is gone. */
 	{
-		g_autofree char *out = dump_path (scratch, "open.txt");
-		g_autofree char *bat = dump_path (scratch, "dump.bat");
-		g_autofree char *body = g_strdup_printf ("@\"%s\" \"%s\"\r\n", dumper, out);
+		HKEY root = classes_root ();
+		unsigned long pid = (unsigned long) GetCurrentProcessId ();
+		g_autofree char *name = g_strdup_printf ("open.nemo-env-%lu", pid);
+		g_autofree char *doc = dump_path (scratch, name);
+		wchar_t key[96];
 
-		check (g_file_set_contents (bat, body, -1, NULL));
-		check (nemo_launch_win32_open_path (bat, scratch, &error));
-		g_clear_error (&error);
-		lines = wait_for_dump (out);
-		check_not_ours ("open", lines, FALSE);
-		g_strfreev (lines);
+		_snwprintf (key, G_N_ELEMENTS (key),
+			    root == HKEY_CURRENT_USER ? L"Software\\Classes\\.nemo-env-%lu" : L".nemo-env-%lu", pid);
+		key[G_N_ELEMENTS (key) - 1] = L'\0';
+		check (g_file_set_contents (doc, "not opened yet\n", -1, NULL));
+
+		if (register_type (root, key, dumper)) {
+			check (nemo_launch_win32_open_path (doc, scratch, &error));
+			if (error != NULL) {
+				g_printerr ("%s\n", error->message);
+			}
+			g_clear_error (&error);
+			lines = wait_for_dump (doc);
+			check_not_ours ("open", lines, FALSE);
+			g_strfreev (lines);
+		} else {
+			g_printerr ("FAIL: could not set up a file type for the user\n");
+			failures++;
+		}
+		RegDeleteTreeW (root, key);
 		check_ours_still ();
 	}
 
