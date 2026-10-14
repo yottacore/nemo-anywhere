@@ -405,12 +405,13 @@ eel_pop_up_context_menu_at_item (GtkMenu            *menu,
             create_keyboard_popup_rect (widget, &rect);
         }
 
+        /* A long press opens its menu from a timer, with no current event. */
         gtk_menu_popup_at_rect (menu,
                                 window,
                                 &rect,
                                 rect_anchor,
                                 GDK_GRAVITY_NORTH_WEST,
-                                NULL);
+                                event);
     }
 
 	g_object_ref_sink (menu);
@@ -1064,9 +1065,25 @@ eel_gtk_primary_mask (GdkWindow *window)
                                          GDK_MODIFIER_INTENT_PRIMARY_ACCELERATOR);
 }
 
+static void
+hold_stop (EelMenuPress *press)
+{
+    g_clear_handle_id (&press->hold_id, g_source_remove);
+    if (press->hold_widget != NULL) {
+        g_clear_signal_handler (&press->hold_motion_id, press->hold_widget);
+        g_clear_signal_handler (&press->hold_destroy_id, press->hold_widget);
+        g_clear_object (&press->hold_widget);
+    }
+    g_clear_pointer (&press->hold_event, gdk_event_free);
+    press->hold_func = NULL;
+    press->hold_data = NULL;
+}
+
 void
 eel_menu_press_begin (EelMenuPress *press, guint button, gdouble x, gdouble y)
 {
+    hold_stop (press);
+    press->held = 0;
     press->button = button;
     press->x = x;
     press->y = y;
@@ -1083,6 +1100,11 @@ eel_menu_press_moved (EelMenuPress *press, GtkWidget *widget, gdouble x, gdouble
     if (!press->moved &&
         gtk_drag_check_threshold (widget, (gint) press->x, (gint) press->y, (gint) x, (gint) y)) {
         press->moved = TRUE;
+        /* A held press that moves is a drag or a band. */
+        if (press->hold_func != NULL) {
+            eel_menu_press_cancel (press);
+            return TRUE;
+        }
     }
 
     return press->moved;
@@ -1097,10 +1119,170 @@ eel_menu_press_end (EelMenuPress *press, GtkWidget *widget, guint button, gdoubl
     if (press->button == 0 || press->button != button) {
         return FALSE;
     }
+    /* Let go before the long-press time, so a plain click. */
+    if (press->hold_func != NULL) {
+        eel_menu_press_cancel (press);
+        return FALSE;
+    }
     click = !eel_menu_press_moved (press, widget, x, y);
     press->button = 0;
 
     return click;
+}
+
+static gboolean
+hold_menu_release_cb (GtkWidget *menu, GdkEventButton *event, gpointer data);
+
+static void
+hold_menu_closed_cb (GtkWidget *menu, gpointer data)
+{
+    g_signal_handlers_disconnect_by_func (menu, hold_menu_release_cb, data);
+    g_signal_handlers_disconnect_by_func (menu, hold_menu_closed_cb, data);
+}
+
+/* The release ending the long press keeps the menu up, wherever it is, since
+   GTK closes a menu on a release away from it once half a second has gone by.
+   Over an item it picks the item, as after a right press held down. */
+static gboolean
+hold_menu_release_cb (GtkWidget *menu, GdkEventButton *event, gpointer data)
+{
+    if (event->button != GPOINTER_TO_UINT (data)) {
+        return GDK_EVENT_PROPAGATE;
+    }
+    hold_menu_closed_cb (menu, data);
+
+    return gtk_menu_shell_get_selected_item (GTK_MENU_SHELL (menu)) == NULL;
+}
+
+static GtkWidget *
+grabbing_menu (GtkWidget *widget)
+{
+    GtkWidget *toplevel = gtk_widget_get_toplevel (widget);
+    GtkWidget *grab = NULL;
+
+    if (GTK_IS_WINDOW (toplevel)) {
+        grab = gtk_window_group_get_current_grab (gtk_window_get_group (GTK_WINDOW (toplevel)));
+    }
+    if (!GTK_IS_MENU (grab)) {
+        grab = gtk_grab_get_current ();
+    }
+
+    return GTK_IS_MENU (grab) ? grab : NULL;
+}
+
+static gboolean
+hold_timeout_cb (gpointer data)
+{
+    EelMenuPress *press = data;
+    GtkWidget *widget = g_object_ref (press->hold_widget);
+    GdkEvent *event = g_steal_pointer (&press->hold_event);
+    EelMenuPressFunc func = press->hold_func;
+    gpointer func_data = press->hold_data;
+    GdkDevice *device = gdk_event_get_device (event);
+    GdkModifierType mask = 0;
+    guint button = press->button;
+    gdouble x = press->x, y = press->y;
+    GtkWidget *menu;
+
+    press->hold_id = 0;
+    hold_stop (press);
+    press->button = 0;
+
+    /* The release can go elsewhere, as when another program takes the
+       pointer, so the button has to be down still. */
+    if (device != NULL && gtk_widget_get_mapped (widget)) {
+        gdk_window_get_device_position_double (event->button.window, device, &x, &y, &mask);
+    }
+    if ((mask & (GDK_BUTTON1_MASK << (button - 1))) != 0 &&
+        !gtk_drag_check_threshold (widget, (gint) press->x, (gint) press->y, (gint) x, (gint) y)) {
+        /* GTK times a quick release from the event the menu opens on. */
+        event->button.time += (guint32) ((g_get_monotonic_time () - press->hold_start) / 1000);
+        func (widget, &event->button, func_data);
+
+        menu = grabbing_menu (widget);
+        if (menu != NULL) {
+            g_signal_connect (menu, "button-release-event",
+                              G_CALLBACK (hold_menu_release_cb), GUINT_TO_POINTER (button));
+            g_signal_connect (menu, "deactivate",
+                              G_CALLBACK (hold_menu_closed_cb), GUINT_TO_POINTER (button));
+        } else {
+            /* No menu took the pointer, so the release comes back here. */
+            press->held = button;
+        }
+    }
+
+    gdk_event_free (event);
+    g_object_unref (widget);
+
+    return G_SOURCE_REMOVE;
+}
+
+static gboolean
+hold_motion_cb (GtkWidget *widget, GdkEventMotion *event, gpointer data)
+{
+    EelMenuPress *press = data;
+
+    if (press->hold_event != NULL && event->window == press->hold_event->button.window) {
+        eel_menu_press_moved (press, widget, event->x, event->y);
+    }
+
+    return GDK_EVENT_PROPAGATE;
+}
+
+/* A plain left press. x and y are where it was, in the event window, and
+   func opens the menu once it has been held still long enough. Any other
+   press only drops one still waiting. */
+void
+eel_menu_press_hold (EelMenuPress *press, GtkWidget *widget, GdkEventButton *event,
+                     gdouble x, gdouble y, EelMenuPressFunc func, gpointer data)
+{
+    gint delay = 500;
+
+    if (event->type != GDK_BUTTON_PRESS || event->button != GDK_BUTTON_PRIMARY ||
+        (event->state & gtk_accelerator_get_default_mod_mask ()) != 0) {
+        eel_menu_press_cancel (press);
+        return;
+    }
+
+    eel_menu_press_begin (press, event->button, x, y);
+    g_object_get (gtk_widget_get_settings (widget), "gtk-long-press-time", &delay, NULL);
+    press->hold_widget = g_object_ref (widget);
+    press->hold_event = gdk_event_copy ((GdkEvent *) event);
+    press->hold_event->button.x = x;
+    press->hold_event->button.y = y;
+    press->hold_start = g_get_monotonic_time ();
+    press->hold_func = func;
+    press->hold_data = data;
+    press->hold_motion_id = g_signal_connect (widget, "motion-notify-event",
+                                              G_CALLBACK (hold_motion_cb), press);
+    press->hold_destroy_id = g_signal_connect_swapped (widget, "destroy",
+                                                       G_CALLBACK (eel_menu_press_cancel), press);
+    press->hold_id = g_timeout_add ((guint) MAX (delay, 1), hold_timeout_cb, press);
+}
+
+/* TRUE for the release after a long press opened no menu, which then does
+   nothing else. With a menu up the release goes to the menu. */
+gboolean
+eel_menu_press_held (EelMenuPress *press, guint button)
+{
+    if (press->held == 0 || press->held != button) {
+        return FALSE;
+    }
+    press->held = 0;
+
+    return TRUE;
+}
+
+/* Drops a press still waiting to be held long enough. A right press is
+   left alone. */
+void
+eel_menu_press_cancel (EelMenuPress *press)
+{
+    if (press->hold_func == NULL) {
+        return;
+    }
+    hold_stop (press);
+    press->button = 0;
 }
 
 // A tooltip is always on top, so one shown while another program has the

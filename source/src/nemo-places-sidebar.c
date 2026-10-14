@@ -3842,6 +3842,10 @@ bookmarks_button_release_event_cb (GtkWidget *widget,
 		return TRUE;
 	}
 
+	if (eel_menu_press_held (&sidebar->menu_press, event->button)) {
+		return TRUE;
+	}
+
 	if (eel_menu_press_end (&sidebar->menu_press, widget, event->button, event->x, event->y)) {
 		bookmarks_popup_menu (sidebar, event);
 		return TRUE;
@@ -3880,6 +3884,14 @@ bookmarks_button_release_event_cb (GtkWidget *widget,
 	return FALSE;
 }
 
+static void
+bookmarks_long_press_cb (G_GNUC_UNUSED GtkWidget *widget,
+			 GdkEventButton *event,
+			 gpointer data)
+{
+	bookmarks_popup_menu (NEMO_PLACES_SIDEBAR (data), event);
+}
+
 static gboolean
 bookmarks_button_press_event_cb (GtkWidget             *widget,
 				 GdkEventButton        *event,
@@ -3895,6 +3907,7 @@ bookmarks_button_press_event_cb (GtkWidget             *widget,
 
 	if (event->type != GDK_BUTTON_PRESS) {
 		/* ignore multiple clicks */
+		eel_menu_press_cancel (&sidebar->menu_press);
 		return TRUE;
 	}
 
@@ -3907,11 +3920,14 @@ bookmarks_button_press_event_cb (GtkWidget             *widget,
 		return FALSE;
 	}
 
-	if (event->button == 3) {
-		gtk_tree_model_get (model, &iter,
-				    PLACES_SIDEBAR_COLUMN_ROW_TYPE, &row_type,
-				    -1);
+	gtk_tree_model_get (model, &iter,
+			    PLACES_SIDEBAR_COLUMN_ROW_TYPE, &row_type,
+			    -1);
 
+	if (event->button == 1 && row_type != PLACES_HEADING) {
+		eel_menu_press_hold (&sidebar->menu_press, widget, event, event->x, event->y,
+				     bookmarks_long_press_cb, sidebar);
+	} else if (event->button == 3) {
 		/* The menu opens on the release, as in the folder views. */
 		if (row_type != PLACES_HEADING) {
 			eel_menu_press_begin (&sidebar->menu_press, event->button,

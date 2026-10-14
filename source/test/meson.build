@@ -1577,6 +1577,22 @@ if not is_windows
       args: [ nemo, held_view_hooks ],
       timeout: 180
     )
+
+    # Preloaded too, and holds the button down through the X server.
+    long_press_probe = shared_module('test-nemo-long-press-probe',
+      [ 'test-nemo-long-press-probe.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, x11, xtst ],
+    )
+    test('rk80w1ds Long press menu test',
+      executable('test-nemo-long-press',
+        [ 'test-nemo-long-press.c' ],
+        include_directories: [ rootInclude, ],
+        dependencies: [ glib, gio, test_scratch ],
+      ),
+      args: [ nemo, long_press_probe ],
+      timeout: 240
+    )
   endif
 endif
 

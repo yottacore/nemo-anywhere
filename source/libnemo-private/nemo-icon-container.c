@@ -2999,6 +2999,30 @@ style_updated (GtkWidget *widget)
 	}
 }
 
+/* A left press held still. Its release goes to the menu, so the press is
+   dropped here: no drag, band, rename or click to come. */
+static void
+long_press_menu (GtkWidget *widget,
+		 GdkEventButton *event,
+		 G_GNUC_UNUSED gpointer data)
+{
+	NemoIconContainer *container = NEMO_ICON_CONTAINER (widget);
+	NemoIconContainerDetails *details = container->details;
+
+	details->band_pending = 0;
+	if (details->rubberband_info.active) {
+		stop_rubberbanding (container, GDK_CURRENT_TIME);
+	}
+	details->drag_button = 0;
+	details->drag_started = FALSE;
+	details->drag_icon = NULL;
+	details->drag_state = DRAG_STATE_INITIAL;
+	g_signal_emit (container,
+		       details->menu_on_icon ? signals[CONTEXT_CLICK_SELECTION] :
+					      signals[CONTEXT_CLICK_BACKGROUND],
+		       0, event);
+}
+
 static gboolean
 button_press_event (GtkWidget *widget,
 		    GdkEventButton *event)
@@ -3075,6 +3099,9 @@ button_press_event (GtkWidget *widget,
 		}
 
 		start_rubberbanding (container, event->x, event->y, event->button, event->time);
+		eel_menu_press_hold (&container->details->menu_press, widget, event,
+				     event->x, event->y, long_press_menu, NULL);
+		container->details->menu_on_icon = FALSE;
 		return TRUE;
 	}
 
@@ -3510,6 +3537,10 @@ button_release_event (GtkWidget *widget,
 
 	container = NEMO_ICON_CONTAINER (widget);
 	details = container->details;
+
+	if (eel_menu_press_held (&details->menu_press, event->button)) {
+		return TRUE;
+	}
 
 	if (details->rubberband_info.active && event->button == details->rubberband_info.button) {
 		details->band_pending = 0;
@@ -5240,6 +5271,15 @@ handle_icon_button_press (NemoIconContainer *container,
 			       (event->state & eel_gtk_primary_mask (event->window)) != 0);
 	}
 
+	if (event->button == DRAG_BUTTON && details->drag_button == DRAG_BUTTON) {
+		double x, y;
+
+		eel_canvas_world_to_window (EEL_CANVAS (container), event->x, event->y, &x, &y);
+		eel_menu_press_hold (&details->menu_press, GTK_WIDGET (container), event, x, y,
+				     long_press_menu, NULL);
+		details->menu_on_icon = TRUE;
+	}
+
 #ifndef G_OS_WIN32
 	/* The menu waits for the release, so the press can band. */
 	if (event->button == CONTEXTUAL_MENU_BUTTON) {
@@ -5299,6 +5339,7 @@ nemo_icon_container_clear (NemoIconContainer *container)
 	details = container->details;
 	details->layout_timestamp = UNDEFINED_TIME;
 	details->store_layout_timestamps_when_finishing_new_icons = FALSE;
+	eel_menu_press_cancel (&details->menu_press);
 
     details->fixed_text_height = -1;
 

@@ -1525,6 +1525,19 @@ do_popup_menu (GtkWidget *widget, NemoListView *view, GdkEventButton *event)
 	}
 }
 
+/* A left press held still. Its release goes to the menu, so the press is
+   dropped here: no drag, band, rename or click to come. */
+static void
+long_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callback_data)
+{
+	NemoListView *view = NEMO_LIST_VIEW (callback_data);
+
+	band_stop (view);
+	stop_drag_check (view);
+	view->details->rename_on_release = FALSE;
+	do_popup_menu (widget, view, event);
+}
+
 static void
 row_activated_callback (G_GNUC_UNUSED GtkTreeView *treeview, G_GNUC_UNUSED GtkTreePath *path,
 			G_GNUC_UNUSED GtkTreeViewColumn *column, NemoListView *view)
@@ -1803,6 +1816,7 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
             if (!gtk_tree_view_get_path_at_pos (tree_view, event->x, event->y,
                                                 NULL, NULL, NULL, NULL)) {
                 NemoWindowSlot *slot = nemo_view_get_nemo_window_slot (NEMO_VIEW (view));
+                eel_menu_press_cancel (&view->details->menu_press);
                 nemo_window_slot_go_up (slot, 0);
             }
         }
@@ -1959,6 +1973,10 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 				view->details->drag_button = event->button;
 				view->details->drag_x = event->x;
 				view->details->drag_y = event->y;
+				if (!on_expander) {
+					eel_menu_press_hold (&view->details->menu_press, widget, event,
+							     event->x, event->y, long_press_callback, view);
+				}
 			}
 
 			/* The menu waits for the release, so the press can drag. */
@@ -1998,6 +2016,10 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 		if (event->button == 1 || event->button == 3) {
 			band_arm (view, event, primary && event->button == 1);
 		}
+		if (event->button == 1) {
+			eel_menu_press_hold (&view->details->menu_press, widget, event,
+					     event->x, event->y, long_press_callback, view);
+		}
 		if (event->button == 3) {
 			eel_menu_press_begin (&view->details->menu_press, event->button,
 					      event->x, event->y);
@@ -2017,6 +2039,10 @@ button_release_callback (GtkWidget *widget,
 	NemoListView *view;
 
 	view = NEMO_LIST_VIEW (callback_data);
+
+	if (eel_menu_press_held (&view->details->menu_press, event->button)) {
+		return GDK_EVENT_STOP;
+	}
 
 	if (event->button == view->details->band.button) {
 		band_stop (view);
@@ -4969,6 +4995,7 @@ nemo_list_view_clear (NemoView *view)
 
     list_view->details->ok_to_load_deferred_attrs = FALSE;
     g_clear_object (&list_view->details->search_root);
+    eel_menu_press_cancel (&list_view->details->menu_press);
 
     if (list_view->details->update_visible_icons_id > 0) {
         g_source_remove (list_view->details->update_visible_icons_id);

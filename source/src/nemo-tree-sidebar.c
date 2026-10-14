@@ -835,11 +835,23 @@ update_menu_states (FMTreeView *view,
     return TRUE;
 }
 
+static void
+long_press_callback (G_GNUC_UNUSED GtkWidget *widget,
+                     GdkEventButton *event,
+                     gpointer data)
+{
+    popup_menu (FM_TREE_VIEW (data), event);
+}
+
 static gboolean
 button_released_callback (GtkTreeView *treeview,
                           GdkEventButton *event,
                           FMTreeView *view)
 {
+    if (eel_menu_press_held (&view->details->menu_press, event->button)) {
+        return GDK_EVENT_STOP;
+    }
+
     if (eel_menu_press_end (&view->details->menu_press, GTK_WIDGET (treeview),
                             event->button, event->x, event->y)) {
         popup_menu (view, event);
@@ -857,7 +869,16 @@ button_pressed_callback (GtkTreeView *treeview,
     g_return_val_if_fail (FM_IS_TREE_VIEW (view), GDK_EVENT_PROPAGATE);
 
     /* The menu opens on the release, as in the folder views. */
-    if (event->button == 3) {
+    if (event->button == 1) {
+        /* There is a menu only for a row. */
+        if (event->window == gtk_tree_view_get_bin_window (treeview) &&
+            gtk_tree_view_get_path_at_pos (treeview, event->x, event->y, NULL, NULL, NULL, NULL)) {
+            eel_menu_press_hold (&view->details->menu_press, GTK_WIDGET (treeview), event,
+                                 event->x, event->y, long_press_callback, view);
+        } else {
+            eel_menu_press_cancel (&view->details->menu_press);
+        }
+    } else if (event->button == 3) {
         eel_menu_press_begin (&view->details->menu_press, event->button, event->x, event->y);
         return GDK_EVENT_STOP;
     } else if (event->button == 2 && event->type == GDK_BUTTON_PRESS) {
