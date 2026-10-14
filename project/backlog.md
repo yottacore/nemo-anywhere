@@ -962,6 +962,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: the list view, the icon view (the compact view is the same code), the search box and its buttons (they already reached the same cancel), the location entry, the window's block while a share connects, and rename in both views.
 	- Verified: rk7vz6gm fails before the fix on the results' Escape in both views, and passes after, 5 runs. The 26 related tests pass, rjv9ks2z, rhtmbdmb, rjedw75s and rk526bz6 among them. Lint clean apart from rj3ytv0b, which always fails in a worktree.
 	- Branch: escrename
+	- Commit: c319d75
 	- Test case: rk7vz6gm, Escape in find mode test. In the list and icon views: Escape in the search box goes back to the folder and closes the bar. In the results, the first Escape clears a selection and stays, and the next goes back to the folder. Escape in a rename of a result ends the rename and stays in the results.
 
 - When clicking anywhere on a row in detailed list view, even when the program doesn't have focus, it should be immediately selected.
@@ -1081,6 +1082,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: how the renamer is started on Linux and Windows, and every place the settings store reads a default for a string: a read, a write that matches the default, and the list of defaults in the settings file. The key table and the schema have the new description.
 	- Verified: rk7wrme6 passes on Linux and under wine. It fails 6 checks with the found default taken out of the settings store. rk7wywt9 fails before the change, with the 3 files sent as `file://` addresses, and passes after, 5 runs. rhtmbdmd's new checks fail with the tooltips left off and pass with them. The macOS part passes a syntax check. Windows cross build clean. The 26 related tests pass, the schema drift test rfazc870 among them. Lint clean apart from rj3ytv0b, which always fails in a worktree.
 	- Branch: escrename
+	- Commit: c319d75
 	- Test case: rk7wrme6, Bulk rename default test: the pick by what's installed and by desktop, the tooltip's list, nothing written for the default, an empty value kept. rk7wywt9, Bulk renamer gets paths test: F2 on 3 files hands the renamer their paths, with a space, a percent sign and a quote in them. rhtmbdmd, Settings dialog test: the field shows the default without storing it, and the label and field have the tooltip.
 
 - rjv9ks2z, the connecting sign test, fails now and then in a full Linux suite run on a busy box.
