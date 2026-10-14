@@ -130,6 +130,7 @@ typedef struct {
     gboolean  desktop_dnd_can_delete_source;
 
 	GtkWidget *popup_menu;
+	EelMenuPress menu_press;
 
 	/* volume mounting - delayed open process */
 	gboolean mounting;
@@ -3841,6 +3842,11 @@ bookmarks_button_release_event_cb (GtkWidget *widget,
 		return TRUE;
 	}
 
+	if (eel_menu_press_end (&sidebar->menu_press, widget, event->button, event->x, event->y)) {
+		bookmarks_popup_menu (sidebar, event);
+		return TRUE;
+	}
+
 	if (clicked_eject_button (sidebar, &path)) {
 		eject_or_unmount_bookmark (sidebar, path);
 		gtk_tree_path_free (path);
@@ -3906,8 +3912,10 @@ bookmarks_button_press_event_cb (GtkWidget             *widget,
 				    PLACES_SIDEBAR_COLUMN_ROW_TYPE, &row_type,
 				    -1);
 
+		/* The menu opens on the release, as in the folder views. */
 		if (row_type != PLACES_HEADING) {
-			bookmarks_popup_menu (sidebar, event);
+			eel_menu_press_begin (&sidebar->menu_press, event->button,
+					      event->x, event->y);
 		}
 	} else if (event->button == 2) {
 		NemoWindowOpenFlags flags = 0;

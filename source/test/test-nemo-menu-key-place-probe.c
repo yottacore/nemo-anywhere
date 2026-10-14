@@ -415,6 +415,10 @@ tick (G_GNUC_UNUSED gpointer data)
 		gdk_device_warp (gdk_seat_get_pointer (seat), gtk_widget_get_screen (pane),
 				 want.x, want.y);
 		gtk_main_do_event (event);
+		/* The menu opens when the button comes up. */
+		event->type = GDK_BUTTON_RELEASE;
+		event->button.state = GDK_BUTTON3_MASK;
+		gtk_main_do_event (event);
 		gdk_event_free (event);
 		break;
 	}

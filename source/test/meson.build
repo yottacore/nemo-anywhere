@@ -1292,6 +1292,22 @@ if not is_windows
     timeout: 180
   )
 
+  # Preloaded as well; it presses and drags from inside the program.
+  drag_select_probe = shared_module('test-nemo-drag-select-probe',
+    [ 'test-nemo-drag-select-probe.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk ],
+  )
+  test('rk7yvgse Drag select test',
+    executable('test-nemo-drag-select',
+      [ 'test-nemo-drag-select.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, drag_select_probe ],
+    timeout: 240
+  )
+
   icon_atk_probe = shared_module('test-nemo-icon-atk-probe',
     [ 'test-nemo-icon-atk-probe.c' ],
     include_directories: [ rootInclude, ],

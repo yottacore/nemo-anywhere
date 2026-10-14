@@ -421,6 +421,66 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: c319d75
 	- Test case: rk7wrme6, Bulk rename default test: the pick by what's installed and by desktop, the tooltip's list, nothing written for the default, an empty value kept. rk7wywt9, Bulk renamer gets paths test: F2 on 3 files hands the renamer their paths, with a space, a percent sign and a quote in them. rhtmbdmd, Settings dialog test: the field shows the default without storing it, and the label and field have the tooltip.
 
+- When clicking anywhere on a row in detailed list view, even when the program doesn't have focus, it should be immediately selected.
+	- ID: 2026101405542891
+	- Type: Enhancement
+	- Status: Waiting on signoff
+	- Needs local test suite run?: yes, the full Linux suite. Only the drag select test and the menu, Places, tree, list and icon view tests near it were run.
+	- Needs external testing: Windows, on vm925w once it's on. A right drag from an item still moves files with the drop menu, a right drag from empty space bands, and the menus in both views, Places and the tree open when the button comes up. The Windows cross build is clean.
+	- Priority|Severity: Avg
+	- Opened: 20261014-055428
+	- Opened by: t00mietum
+	- Related IDs: 2026101405542928, 2026101405542965
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- Current behavior: Sometimes clicking on a row that doesn't have focus, in an empty part of that row, engages "drag-to-select" mode.
+		- It shouldn't do that.
+		- It should never take a second click to properly select it for dragging, even if the window is not currently focused.
+		- How to actually engage drag-to-select mode:
+			- Shift+drag (reselect)
+			- Ctrl+drag (add to selection); Cmd+drag on macOS
+			- Right-click then drag before releasing button.
+			- Start a drag in the empty area below a listing, in detailed list view.
+		- Remove the option to start a drag-select when clicking on a non-name column.
+	- Progress log:
+		- 20261014: done. A plain press anywhere on a row selects it at once, and a drag from there moves the selection, whatever column it started in. A band starts only below the rows, with Ctrl or Shift from a row that isn't selected, or with the right button. The list view draws its own band now, since GTK's started on any row not yet selected and only took the left button.
+		- Options: Ctrl+drag and Shift+drag from a selected item band too, or stay a file drag with the key picking copy or move as before; went with the file drag. From an unselected item or empty space they band. Shift replaces the selection and Ctrl adds to it (Cmd on macOS).
+		- Options: the right-click menu stays on the press and the right button never bands, or the menu waits for the release and a right drag bands; went with the release. It opens only if the pointer stayed inside the drag threshold. A right click on a row that isn't selected still selects it first. Places and the tree open their menus on the release too, so every pane works the same. Shift+F10 and the Menu key are unchanged.
+		- Options: on Windows a right drag from an item bands as it does elsewhere, or stays a file drag with the drop menu as signed off 20261006 in the Windows drop keys item; went with the file drag. So on Windows the right button bands from empty space only. The background menu there now opens on the release too, where it opened on the press.
+		- Options: a plain drag that starts on a column other than Name bands, or moves files; went with moving files.
+		- Options: a plain drag in the empty space below the rows bands, or does nothing; went with banding.
+		- Options: the first click in a window or pane that isn't active only wakes it, or counts as a click; went with counting. In a split window the first click in the other pane was swallowed whenever that pane had a selection, in the list and icon views alike, so a drag from there took 2 presses.
+		- The right button goes through one small press record shared by both views and both side panes, which opens the menu on the release unless the press moved. A long press for the menu (2026101405542965) can hang off it.
+	- Swept: the list, icon and compact views, Places and the tree, and the first click in the pane that isn't active in both views. Not changed: menus on the tab bar, path bar, toolbar and location bar, which open on the press as before.
+	- Verified: the drag select test passes in the list, icon and compact views, 3 runs in a row, and fails before the change. The keyboard menu, tree menu key, Places focus, list expander, row hover, treeview hit and icon accessible tests pass, and the drop tests rhtq57n1 and rfzh7ygg. Lint is clean as far as rj3ytv0b, and the test ID check passes. The Windows cross build is clean.
+	- Branch: dragsel
+	- Commit: 54bbf66
+	- Test case: rk7yvgse, Drag select test. In each view: a plain drag from a row or icon moves files and selects it at once, a plain drag from a selected item keeps the whole selection, Ctrl or Shift from an unselected item bands, Ctrl from a selected one moves files, a drag below the rows bands, a right press opens no menu until the release, and a right drag bands with no menu. Also Places and the tree menus on the release, and a drag in the pane that isn't active. Fails before the change and passes after. rjefm41d's right click sends the release as well now.
+
+- Drag-to-select works as it currently does in the other two views.
+	- ID: 2026101405542928
+	- Type: Enhancement
+	- Status: Waiting on signoff
+	- Needs local test suite run?: yes, with 2026101405542891.
+	- Needs external testing: Windows, with 2026101405542891.
+	- Priority|Severity: Avg
+	- Opened: 20261014-055428
+	- Opened by: t00mietum
+	- Related IDs: 2026101405542891
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- But those views also allow the new methods added for detailed list view.
+	- Progress log:
+		- 20261014: done with 2026101405542891. A plain drag from the background bands at once, as before, and a plain drag from an icon moves files. New: Ctrl or Shift and a drag from an icon that isn't selected bands, and so does a right drag, whose menu now opens on the release.
+		- Options: a Ctrl band toggles every icon it crosses, as it did, or adds to the selection; went with adding, to match the list view. Shift on the background now replaces the selection, where it used to toggle like Ctrl.
+		- The Windows, right button and first click calls are the ones in 2026101405542891.
+	- Verified: as in 2026101405542891, icon and compact views.
+	- Branch: dragsel
+	- Commit: 54bbf66
+	- Test case: rk7yvgse, Drag select test, its icon and compact view runs. Fails before the change and passes after.
+
 - A 7z with a password and links stored can't be checked, so Delete originals always keeps the originals.
 	- ID: 2026101310525352
 	- Type: Bug
@@ -1063,42 +1123,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: thumbwin
 	- Commit: f38660a to f8a6223
 	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session. (c) still needs its own: a thumbnail and the text from a small file of each type, on every platform, and a check that no program is started for them.
-
-- When clicking anywhere on a row in detailed list view, even when the program doesn't have focus, it should be immediately selected.
-	- ID: 2026101405542891
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261014-055428
-	- Opened by: t00mietum
-	- Related IDs: 2026101405542928, 2026101405542965
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-		- Current behavior: Sometimes clicking on a row that doesn't have focus, in an empty part of that row, engages "drag-to-select" mode.
-		- It shouldn't do that.
-		- It should never take a second click to properly select it for dragging, even if the window is not currently focused.
-		- How to actually engage drag-to-select mode:
-			- Shift+drag (reselect)
-			- Ctrl+drag (add to selection); Cmd+drag on macOS
-			- Right-click then drag before releasing button.
-			- Start a drag in the empty area below a listing, in detailed list view.
-		- Remove the option to start a drag-select when clicking on a non-name column.
-	- Test case: none yet.
-
-- Drag-to-select works as it currently does in the other two views.
-	- ID: 2026101405542928
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261014-055428
-	- Opened by: t00mietum
-	- Related IDs: 2026101405542891
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-		- But those views also allow the new methods added for detailed list view.
-	- Test case: none yet.
 
 - Additional ways to get right-click menu.
 	- ID: 2026101405542965
