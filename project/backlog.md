@@ -1235,6 +1235,92 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: f38660a to f8a6223
 	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session. (c) still needs its own: a thumbnail and the text from a small file of each type, on every platform, and a check that no program is started for them.
 
+- When a copy's name has to change for the drive it goes to, every non-ASCII letter turns into `_` along with the bad characters.
+	- ID: 2026101416533880
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261014-165341
+	- Opened by: 2026101319265113
+	- Target OS: All
+	- Steps to reproduce: copy `café?.txt` to a FAT, exFAT or NTFS drive mounted through fuse on Linux.
+	- Incorrect behavior: from reading the code, the copy comes out as `caf__.txt`, not `café_.txt`.
+	- Expected behavior: only the characters the drive refuses are replaced.
+	- Reproduced: No. From reading `str_replace` in `nemo-file-operations.c`.
+	- Possible cause: `str[i] < 32` on a plain `char`, which is signed on x86, so every byte of a multibyte letter tests as below 32. Inherited from upstream. It only runs after the drive refused the first name.
+	- Test case: TBD
+
+- On Windows, reserved names like `CON` and `nul.txt`, and names ending in a dot or space, are taken with no error.
+	- ID: 2026101416533917
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261014-165341
+	- Opened by: 2026101319265113
+	- Related IDs: 2026101319265113
+	- Target OS: Windows
+	- Steps to reproduce: rename a file to `CON`, `nul.txt`, `a.` or `a ` on Windows.
+	- Incorrect behavior: GLib takes all 4 with no error, on b29w.
+	- Expected behavior: the rename is refused with a message that says why, the same as for `*` and the other bad characters.
+	- Reproduced: 20261014, the GLib calls on b29w. What the app does after, and what happens to the data on a copy or move to such a name, is not tried. Check for data loss first.
+	- Test case: TBD
+
+- Renaming a template in Settings drops a disk error with no message.
+	- ID: 2026101416533954
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261014-165341
+	- Opened by: 2026101319265113
+	- Target OS: All
+	- Steps to reproduce: rename a template in Settings where the rename fails on disk, such as a read-only templates folder.
+	- Incorrect behavior: from reading the code, nothing is shown, since `nemo-template-config-widget.c` renames with no callback.
+	- Expected behavior: the usual rename error.
+	- Reproduced: No. From reading the code.
+	- Test case: TBD
+
+- rhqxx81r exits 3 under wine with 0 failures.
+	- ID: 2026101416533991
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261014-165341
+	- Opened by: 2026101319265113
+	- Target OS: Windows
+	- Test environment: wine, in `nemo-winbuild`.
+	- Steps to reproduce: run rhqxx81r under wine.
+	- Incorrect behavior: it reports 0 failures and exits 3, after a GLib warning about the console code page.
+	- Expected behavior: exit 0.
+	- Reproduced: 20261014 under wine. Not seen natively.
+	- Test case: rhqxx81r itself.
+
+- reww9h2s logs that `never-queue-file-ops` was read before the config store was opened.
+	- ID: 2026101416534029
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261014-165341
+	- Opened by: 2026101319265113
+	- Target OS: All
+	- Steps to reproduce: run reww9h2s.
+	- Incorrect behavior: "'never-queue-file-ops' read before the config store was opened" in its log. The test passes.
+	- Expected behavior: no such line. Either the test opens the store first, or the code path reads the setting too early.
+	- Reproduced: 20261014 on Linux, on dev before 2026101319265113's fix and after.
+	- Test case: reww9h2s itself.
+
+- On Windows, a file that isn't on disk yet, such as a mail attachment, can't be dropped onto the window.
+	- ID: 2026101416534066
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261014-165341
+	- Opened by: 2026101007562587
+	- Related IDs: 2026101007562587
+	- Target OS: Windows
+	- Requirements:
+		- A drop that offers file contents in place of a path (`FileGroupDescriptorW` and `FileContents`) writes the files into the folder dropped on.
+	- Test case: TBD
+
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
 	- Type: Enhancement
