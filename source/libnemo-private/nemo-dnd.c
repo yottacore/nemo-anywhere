@@ -41,6 +41,7 @@
 #include <libnemo-private/nemo-delete-testguard.h>
 #ifdef G_OS_WIN32
 #include <libnemo-private/nemo-dnd-win32.h>
+#include <libnemo-private/nemo-drop-win32.h>
 #endif
 #include <stdio.h>
 #include <string.h>
@@ -567,7 +568,7 @@ nemo_drag_default_drop_action_for_icons (GdkDragContext *context,
 	}
 #endif
 
-	actions = gdk_drag_context_get_actions (context) & (GDK_ACTION_MOVE | GDK_ACTION_COPY);
+	actions = nemo_drag_offered_actions (context) & (GDK_ACTION_MOVE | GDK_ACTION_COPY);
 	if (actions == 0) {
 		 /* We can't use copy or move, just go with the suggested action. */
 		*action = gdk_drag_context_get_suggested_action (context);
@@ -711,7 +712,7 @@ nemo_drag_default_drop_action_for_uri_list (GdkDragContext *context,
 						gchar **source_fs,
 						gboolean *can_delete_source)
 {
-	return nemo_drag_drop_action_for_uri_list (gdk_drag_context_get_actions (context),
+	return nemo_drag_drop_action_for_uri_list (nemo_drag_offered_actions (context),
 						   gdk_drag_context_get_suggested_action (context),
 						   target_uri_string, dropped_uri,
 						   source_fs, can_delete_source);
@@ -1024,9 +1025,10 @@ GdkDragAction
 nemo_drag_offered_actions (GdkDragContext *context)
 {
 #ifdef G_OS_WIN32
-	/* What the toolkit says there is fixed, and leaves out link. */
+	/* What the toolkit says there is fixed, and leaves out link. What the
+	 * program the drag came from allows is kept as it comes in. */
 	(void) context;
-	return GDK_ACTION_MOVE | GDK_ACTION_COPY | GDK_ACTION_LINK;
+	return nemo_drop_win32_offered_actions ();
 #else
 	return gdk_drag_context_get_actions (context);
 #endif

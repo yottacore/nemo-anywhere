@@ -2363,6 +2363,15 @@ if is_windows
     args: []
   )
 
+  test('rk8vn5kr Drop from another program win32 test',
+    executable('test-nemo-drop-win32',
+      [ 'test-nemo-drop-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: []
+  )
+
   test('rjkwtgrm Drop keys win32 test',
     executable('test-nemo-drop-keys-win32',
       [ 'test-nemo-drop-keys-win32.c' ],

@@ -188,6 +188,71 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 0d17dd2
 	- Test case: rk7wxqh5, Find mode view test. It puts a folder in icon view, searches, picks compact view for the results, searches again and leaves, with per-folder settings off and on. Before the fix it failed 3 checks: icons in find mode and compact left on the folder with them off, and the list view back after a new query with them on. It passes after.
 
+- After an `smb://` address is typed, nothing shows that the app is working on it.
+	- ID: 2026100816170921
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
+	- Needs external testing:
+		- Done 20261010 on vm925w, passed except the drop. It was: in the desktop session, with the single exe, type `\\10.255.255.1\share` in the path bar. While the sign shows, a click, a right-click, a click on a menu, Ctrl+T, F10, a tab click and a file dragged in from Explorer should all do nothing, and nothing should look grayed. The title bar should still move the window, and its close button should close it. Escape should stop the attempt, and then a click and a drop should work again. Also rhtwm2c8 in the native suite. The sign itself was checked there on 20261009.
+		- Done 20261014 on vm925w, passed. It was: while the sign shows, a file dragged in from Explorer does nothing, and after Escape the same drag drops it.
+	- Priority|Severity: Avg
+	- Opened: 20261008-161710
+	- Opened by: t00mietum
+	- Target OS: All
+	- Steps to reproduce: type an `smb://` address in the path bar and press Enter.
+	- Incorrect behavior: the app looks into the address for a while with no sign of it. Then a login prompt, or the share's contents, suddenly show up. In the meantime it looks like nothing happened, so the user may start something else until the share comes back.
+	- Expected behavior: a clear sign that the app is busy with the address, until it is done or stopped.
+	- Requirements:
+		- A sign that doesn't rely on the mouse pointer. A pointer can change too, like Windows' "working in the background" pointer. But not one that says the app is blocked, like the macOS beachball, unless it is.
+		- Maybe also one or more of:
+			- The program icon moving smoothly in a circle over the path bar, attached to the window.
+			- The path bar and the content pane, or even everything visible, slowly fading between disabled text (gray but still legible) and normal text, at about 0.5 Hz.
+			- The app takes no input until one of:
+				- The network step fails or times out.
+				- The user presses Escape, which stops the background attempt to connect and fetch.
+		- README says what changed.
+	- Reproduced: 20261009 on Linux, with an `smb://` mount that never answers. The path bar, the pointer and the window stay as they were the whole time, and Escape does nothing.
+	- Actual cause: nothing in the window follows the look-up and the mount of a new address. The "Loading..." bar only shows once there's a view, which is after the mount. The busy pointer never showed for the tab in front, since its check compares against the Stop action being enabled, and that never changes.
+	- Actual effort: Avg
+	- Decisions:
+		- Decided: the base sign only. A spinner and short text such as "Connecting to <host>..." in the path bar until the address resolves, fails, times out or is canceled. The window stays usable. The pointer may show the background-working cursor while over the window, never a blocked one. Escape, with focus in the window, cancels the pending attempt.
+		- Decided: it covers any address that has to be mounted or reached over the network first. That's smb, sftp, ftp, dav and the like through gvfs on Linux, and UNC paths and mapped drives on Windows.
+		- Punted: the program icon circling over the path bar, the slow fade between gray and normal text, and taking no input until the attempt ends.
+		- 20261009: changed my mind on taking no input. Once the share answers, the view is replaced, so anything done in the window meanwhile can be lost. While the attempt is out the window takes no input but Escape, which stops it. The title bar still moves and closes it, and closing stops the attempt. Other windows of the app stay usable.
+		- 20261009: the block is an invisible cover over everything below the title bar, plus the window dropping every key but Escape. The cover takes the clicks, scrolls and drops, and draws nothing, so nothing is grayed. Options were a GTK grab or making the content insensitive. Insensitive grays everything. A grab does nothing for keys or drops, and it would also hold dialogs and Properties windows tied to this window.
+			- 20261010: the cover now draws the fade in the row below. It still makes nothing insensitive.
+		- 20261009: the block follows the window's front tab, the same as the pointer. A share opening in a tab in the back blocks nothing until that tab comes to the front, since only that tab's view gets replaced.
+		- 20261010: taking no input is shown by the window slowly fading between looking disabled and normal, so it's plain that it isn't frozen, that it's busy, and that it still takes some input, namely Escape. The pointer stays the busy arrow.
+	- Actual fix: while the look-up or the mount behind a new address is still out, the path bar shows a spinner and "Connecting to <host>...", or "Connecting to the network..." when there's no host. It goes away when the address answers, fails or is stopped. Meanwhile the pointer is the busy arrow, never the watch, and Escape in the window stops the attempt. The host comes from the address text and the mount table only, so nothing new reaches out to a share. A place on this machine shows no sign.
+	- Actual fix: 20261009, while the attempt is out the window also takes no input but Escape. Clicks, scrolls and drops anywhere below the title bar go nowhere, and every key but Escape is dropped before the shortcuts and the menu bar see it. Nothing is grayed, and the pointer stays the busy arrow.
+	- Actual fix: 20261010, while the attempt is out, everything below the title bar slowly fades between the theme's grayed look and normal, one round trip every 2 seconds, the sign included. It goes back to normal at once when the attempt answers, fails, is stopped or the window closes. With animations turned off it stays grayed instead of fading. Nothing runs for it when no attempt is out.
+	- Swept: every location change starts in one place, so the path bar, Places, bookmarks, links, back and forward, and new windows and tabs all get the sign. A tab in the back shows it when it comes to the front. Opening a file on a share that isn't mounted goes through the open code, which has its own wait dialog wiht a Cancel button. Connect to Server has its own spinner.
+	- Swept: 20261009, the menu bar, the toolbar, Places, the tabs, the folder view and the status bar all sit under the cover, so a click, a right-click, a scroll or a drop on any of them goes nowhere. The menu bar's own key, the Alt key and every shortcut go through the window first. Other windows of the app, Properties and dialogs included, aren't held. The password prompt for a share is its own window, so it should still take input. Read, not tried.
+	- Swept: 20261010, the fade is drawn by the same cover, so it covers exactly what takes no input and follows the front tab the same way.
+	- Verified: rjv9ks2z fails before the fix, on the sign, the pointer and Escape, and passes after. Full Linux suite 183 of 183. Windows cross build clean, and rhtwm2c8 passes under wine with the new UNC case.
+	- Verified: 20261009, Windows, on vm925w. rhtwm2c8 passes in the native suite at 398c999. With the single exe built at 49a54f8, in the desktop session, `\\10.255.255.1\share` typed in the path bar showed the spinner and "Connecting to 10.255.255.1...", and the pointer over the window was the busy arrow, never the hourglass. Escape took the sign away and the pointer went back to the plain arrow. A server name that doesn't resolve showed the sign until the look-up failed a few seconds later, then the error, with the sign gone.
+	- Note: 20261009, left at signoff for how the sign looks.
+	- Note: 20261009, the sign's look is signed off. Back to Queued for taking no input meanwhile.
+	- Verified: 20261009, rjv9ks2z fails before the change on the shortcut, the click and the drop, and passes after, 3 runs of 3. Full Linux suite 188 of 188. Windows cross build clean, and rhtwm2c8 passes under wine.
+	- Verified: 20261009 on Linux, while blocked: a right-click, a click on the File menu, F10, Ctrl+T, a tab click, Ctrl+PageUp, a column header click and a file dragged in from another window all did nothing, and nothing looked grayed. Each of them worked again after Escape. The title bar moved the window, and its close button closed it and stopped the attempt, with the other window left running.
+	- Note: 20261009, rjv9ks2z's check that the window takes input while it waits is commented out, since the window now takes none.
+	- Note: 20261009, left at signoff for the pointer. Options: keep the busy arrow, or the watch now that the window takes no input. Kept the arrow, since Escape and the title bar still work, and the arrow was signed off with the sign.
+		- 20261010: settled by the fade row in Decisions.
+	- Note: with the toolbar turned off there's no path bar, so only the pointer shows it.
+		- 20261010: and the fade.
+	- Verified: 20261010, rjv9ks2z fails before the change on the fade and on the steady gray with animations off, and passes after, 3 runs of 3. Full Linux suite 188 of 188. Windows cross build clean, and rhtwm2c8 passes under wine.
+	- Verified: 20261010 on vm925w, the branch smbfade. rhtwm2c8 passes in the native suite. With the single exe from the same commit, in the desktop session, `\\10.255.255.1\share` typed in the path bar: the window below the title bar faded between grayed and normal about every 2 seconds, and stayed legible at its grayest. The pointer was the busy arrow. A click on a file, a right-click, a click on the File menu, F10, Ctrl+T and a click on the other tab all did nothing. The title bar moved the window. Escape took the sign away, gave the plain arrow, and the look went back to normal at once and stayed still. Then a click selected a file, a right-click showed the menu, and a tab click switched tabs. The close button closed the window mid-attempt.
+	- Note: 20261010, a drop from a test program onto the window was refused even with no attempt out, so the drop wasn't checked on Windows. Left for a drag from Explorer by hand.
+		- 20261014: that program's drag had only the plain file list, which the window refused from any program but Explorer. Fixed under 2026101007562587.
+	- Verified: 20261014 on vm925w, with the zip built from dev c10a39a, in the desktop session. With `\\10.255.255.1\share` typed in the path bar and the sign showing, a file dragged in from Explorer got the no-drop pointer and stayed where it was. After Escape the same drag moved it into the folder.
+	- Note: 20261014, left at signoff for the fade's look.
+	- Note: read, not tried: the Stop button also never takes Reload's place while a folder loads, since the same check is behind it. Left alone here.
+	- Branch: smbbusy, smbhalt, smbfade
+	- Commit: 41adfa7, 114c595, 358ef85
+	- Test case: rjv9ks2z, Connecting sign while a share mounts test. An `smb://` mount answers only when the test says so. It checks the sign and the host it names, the pointer, that nothing is grayed, that a shortcut, a click and a drop do nothing while it waits and work again after, Escape, closing the window mid-attempt, and the sign going away after a stop and after a failed mount. It also checks the host named for a set of addresses, and that a local folder shows no sign. rhtwm2c8 checks the server named for a UNC path on Windows.
+		- 20261010: "nothing is grayed" there means nothing is made insensitive. It also checks that the window fades while it waits, that the fade stops and the window looks as before after Escape and after a failed mount, that nothing of it runs on after a close, and that with animations off the window stays grayed and still.
+
 - On Windows, every bundle has only the app's own exe, so no form of the app starts a program from inside its bundle.
 	- ID: 2026100917220603
 	- Type: Enhancement
@@ -879,68 +944,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: reww9h2r, reww9h2s and the extract leak test rjbpmcxy stay as they are, and pass before and after. rk65m3m4 from 2026101312094706. rk6704r8, Archive core build test: no GTK or app folder or define on a core file's compile line, and no call into GTK, GDK or nemo in the core library.
 	- Acceptance signoff: Left at signoff for the GTK-layer reading and the alias list, as 2026100516274683.
 
-- After an `smb://` address is typed, nothing shows that the app is working on it.
-	- ID: 2026100816170921
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
-	- Needs external testing:
-		- Done 20261010 on vm925w, passed except the drop. It was: in the desktop session, with the single exe, type `\\10.255.255.1\share` in the path bar. While the sign shows, a click, a right-click, a click on a menu, Ctrl+T, F10, a tab click and a file dragged in from Explorer should all do nothing, and nothing should look grayed. The title bar should still move the window, and its close button should close it. Escape should stop the attempt, and then a click and a drop should work again. Also rhtwm2c8 in the native suite. The sign itself was checked there on 20261009.
-		- Still to do, by hand on vm925w: while the sign shows, a file dragged in from Explorer does nothing, and after Escape the same drag drops it.
-	- Priority|Severity: Avg
-	- Opened: 20261008-161710
-	- Opened by: t00mietum
-	- Target OS: All
-	- Steps to reproduce: type an `smb://` address in the path bar and press Enter.
-	- Incorrect behavior: the app looks into the address for a while with no sign of it. Then a login prompt, or the share's contents, suddenly show up. In the meantime it looks like nothing happened, so the user may start something else until the share comes back.
-	- Expected behavior: a clear sign that the app is busy with the address, until it is done or stopped.
-	- Requirements:
-		- A sign that doesn't rely on the mouse pointer. A pointer can change too, like Windows' "working in the background" pointer. But not one that says the app is blocked, like the macOS beachball, unless it is.
-		- Maybe also one or more of:
-			- The program icon moving smoothly in a circle over the path bar, attached to the window.
-			- The path bar and the content pane, or even everything visible, slowly fading between disabled text (gray but still legible) and normal text, at about 0.5 Hz.
-			- The app takes no input until one of:
-				- The network step fails or times out.
-				- The user presses Escape, which stops the background attempt to connect and fetch.
-		- README says what changed.
-	- Reproduced: 20261009 on Linux, with an `smb://` mount that never answers. The path bar, the pointer and the window stay as they were the whole time, and Escape does nothing.
-	- Actual cause: nothing in the window follows the look-up and the mount of a new address. The "Loading..." bar only shows once there's a view, which is after the mount. The busy pointer never showed for the tab in front, since its check compares against the Stop action being enabled, and that never changes.
-	- Actual effort: Avg
-	- Decisions:
-		- Decided: the base sign only. A spinner and short text such as "Connecting to <host>..." in the path bar until the address resolves, fails, times out or is canceled. The window stays usable. The pointer may show the background-working cursor while over the window, never a blocked one. Escape, with focus in the window, cancels the pending attempt.
-		- Decided: it covers any address that has to be mounted or reached over the network first. That's smb, sftp, ftp, dav and the like through gvfs on Linux, and UNC paths and mapped drives on Windows.
-		- Punted: the program icon circling over the path bar, the slow fade between gray and normal text, and taking no input until the attempt ends.
-		- 20261009: changed my mind on taking no input. Once the share answers, the view is replaced, so anything done in the window meanwhile can be lost. While the attempt is out the window takes no input but Escape, which stops it. The title bar still moves and closes it, and closing stops the attempt. Other windows of the app stay usable.
-		- 20261009: the block is an invisible cover over everything below the title bar, plus the window dropping every key but Escape. The cover takes the clicks, scrolls and drops, and draws nothing, so nothing is grayed. Options were a GTK grab or making the content insensitive. Insensitive grays everything. A grab does nothing for keys or drops, and it would also hold dialogs and Properties windows tied to this window.
-			- 20261010: the cover now draws the fade in the row below. It still makes nothing insensitive.
-		- 20261009: the block follows the window's front tab, the same as the pointer. A share opening in a tab in the back blocks nothing until that tab comes to the front, since only that tab's view gets replaced.
-		- 20261010: taking no input is shown by the window slowly fading between looking disabled and normal, so it's plain that it isn't frozen, that it's busy, and that it still takes some input, namely Escape. The pointer stays the busy arrow.
-	- Actual fix: while the look-up or the mount behind a new address is still out, the path bar shows a spinner and "Connecting to <host>...", or "Connecting to the network..." when there's no host. It goes away when the address answers, fails or is stopped. Meanwhile the pointer is the busy arrow, never the watch, and Escape in the window stops the attempt. The host comes from the address text and the mount table only, so nothing new reaches out to a share. A place on this machine shows no sign.
-	- Actual fix: 20261009, while the attempt is out the window also takes no input but Escape. Clicks, scrolls and drops anywhere below the title bar go nowhere, and every key but Escape is dropped before the shortcuts and the menu bar see it. Nothing is grayed, and the pointer stays the busy arrow.
-	- Actual fix: 20261010, while the attempt is out, everything below the title bar slowly fades between the theme's grayed look and normal, one round trip every 2 seconds, the sign included. It goes back to normal at once when the attempt answers, fails, is stopped or the window closes. With animations turned off it stays grayed instead of fading. Nothing runs for it when no attempt is out.
-	- Swept: every location change starts in one place, so the path bar, Places, bookmarks, links, back and forward, and new windows and tabs all get the sign. A tab in the back shows it when it comes to the front. Opening a file on a share that isn't mounted goes through the open code, which has its own wait dialog wiht a Cancel button. Connect to Server has its own spinner.
-	- Swept: 20261009, the menu bar, the toolbar, Places, the tabs, the folder view and the status bar all sit under the cover, so a click, a right-click, a scroll or a drop on any of them goes nowhere. The menu bar's own key, the Alt key and every shortcut go through the window first. Other windows of the app, Properties and dialogs included, aren't held. The password prompt for a share is its own window, so it should still take input. Read, not tried.
-	- Swept: 20261010, the fade is drawn by the same cover, so it covers exactly what takes no input and follows the front tab the same way.
-	- Verified: rjv9ks2z fails before the fix, on the sign, the pointer and Escape, and passes after. Full Linux suite 183 of 183. Windows cross build clean, and rhtwm2c8 passes under wine with the new UNC case.
-	- Verified: 20261009, Windows, on vm925w. rhtwm2c8 passes in the native suite at 398c999. With the single exe built at 49a54f8, in the desktop session, `\\10.255.255.1\share` typed in the path bar showed the spinner and "Connecting to 10.255.255.1...", and the pointer over the window was the busy arrow, never the hourglass. Escape took the sign away and the pointer went back to the plain arrow. A server name that doesn't resolve showed the sign until the look-up failed a few seconds later, then the error, with the sign gone.
-	- Note: 20261009, left at signoff for how the sign looks.
-	- Note: 20261009, the sign's look is signed off. Back to Queued for taking no input meanwhile.
-	- Verified: 20261009, rjv9ks2z fails before the change on the shortcut, the click and the drop, and passes after, 3 runs of 3. Full Linux suite 188 of 188. Windows cross build clean, and rhtwm2c8 passes under wine.
-	- Verified: 20261009 on Linux, while blocked: a right-click, a click on the File menu, F10, Ctrl+T, a tab click, Ctrl+PageUp, a column header click and a file dragged in from another window all did nothing, and nothing looked grayed. Each of them worked again after Escape. The title bar moved the window, and its close button closed it and stopped the attempt, with the other window left running.
-	- Note: 20261009, rjv9ks2z's check that the window takes input while it waits is commented out, since the window now takes none.
-	- Note: 20261009, left at signoff for the pointer. Options: keep the busy arrow, or the watch now that the window takes no input. Kept the arrow, since Escape and the title bar still work, and the arrow was signed off with the sign.
-		- 20261010: settled by the fade row in Decisions.
-	- Note: with the toolbar turned off there's no path bar, so only the pointer shows it.
-		- 20261010: and the fade.
-	- Verified: 20261010, rjv9ks2z fails before the change on the fade and on the steady gray with animations off, and passes after, 3 runs of 3. Full Linux suite 188 of 188. Windows cross build clean, and rhtwm2c8 passes under wine.
-	- Verified: 20261010 on vm925w, the branch smbfade. rhtwm2c8 passes in the native suite. With the single exe from the same commit, in the desktop session, `\\10.255.255.1\share` typed in the path bar: the window below the title bar faded between grayed and normal about every 2 seconds, and stayed legible at its grayest. The pointer was the busy arrow. A click on a file, a right-click, a click on the File menu, F10, Ctrl+T and a click on the other tab all did nothing. The title bar moved the window. Escape took the sign away, gave the plain arrow, and the look went back to normal at once and stayed still. Then a click selected a file, a right-click showed the menu, and a tab click switched tabs. The close button closed the window mid-attempt.
-	- Note: 20261010, a drop from a test program onto the window was refused even with no attempt out, so the drop wasn't checked on Windows. Left for a drag from Explorer by hand.
-	- Note: read, not tried: the Stop button also never takes Reload's place while a folder loads, since the same check is behind it. Left alone here.
-	- Branch: smbbusy, smbhalt, smbfade
-	- Commit: 41adfa7, 114c595, 358ef85
-	- Test case: rjv9ks2z, Connecting sign while a share mounts test. An `smb://` mount answers only when the test says so. It checks the sign and the host it names, the pointer, that nothing is grayed, that a shortcut, a click and a drop do nothing while it waits and work again after, Escape, closing the window mid-attempt, and the sign going away after a stop and after a failed mount. It also checks the host named for a set of addresses, and that a local folder shows no sign. rhtwm2c8 checks the server named for a UNC path on Windows.
-		- 20261010: "nothing is grayed" there means nothing is made insensitive. It also checks that the window fades while it waits, that the fade stops and the window looks as before after Escape and after a failed mount, that nothing of it runs on after a close, and that with animations off the window stays grayed and still.
-
 - On Windows, the zip and the copy `install.ps1` puts in place draw with GTK's default theme and font.
 	- ID: 2026101007562511
 	- Type: Bug
@@ -989,6 +992,33 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: findhist
 	- Commit: 2ee7d8b
 	- Test case: rk7y2ch7, Search in history test. It searches a folder, goes Back and Forward, leaves find mode, goes Back into the search, leaves again, searches for something else, then jumps to the first search through Back's history menu. On dev it failed at Forward, and the leave after it stayed on the empty page. It passes after. Without the search bar part of the fix, the history menu check fails. rgy4vnf0, Search folder test, also checks that a search page made again for an old address searches what it did, and that one handed a query with no folder searches nothing. Both fail with the fix taken out and pass with it.
+
+- On Windows, a file dragged onto the window from another program may not drop.
+	- ID: 2026101007562587
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs external testing:
+		- Done 20261014 on vm925w, passed. It was: in the desktop session, drag a file from Explorer onto the folder view, the Places side bar and a tab.
+		- Still to do, in the desktop session on vm925w: rk8vn5kr with the native build, and a file dragged from a program other than Explorer onto the single exe, which was not tried. The test skips where there's no monitor, as over ssh.
+	- Priority|Severity: Avg
+	- Opened: 20261010-075625
+	- Opened by: 2026100816170921
+	- Related IDs: 2026100816170921
+	- Target OS: Windows
+	- Steps to reproduce: drag a file from another program onto the window, with nothing connecting.
+	- Incorrect behavior: a small program written to drag a file in had its drop refused by the window, while the desktop took the same drag.
+	- Expected behavior: the window takes the drop, as on Linux.
+	- Reproduced: 20261014 on vm925w, in the desktop session. A file dragged from Explorer dropped on the folder view, a bookmark in Places and a tab. A drag from a small program that offered only the plain file list, the one format every Windows program reads, got the no-drop pointer over the folder view and a tab, the same as the earlier program. One that allowed only a copy was refused too.
+	- Actual cause: GTK's drop handling on Windows finds files only in the shell's id list. Explorer puts one in its drags and most other programs don't, so a drag with just the plain file list offers nothing the window takes. GTK also picks move or copy without looking at what the other program allows, and Windows refuses a move the program didn't allow.
+	- Actual effort: Avg
+	- Actual fix: the app puts its own drop target in front of GTK's on every window. A drag that has the plain file list and none of the formats GTK reads gets a uri list made from it. What the other program allows is kept, and a drop picks copy where a move isn't allowed. Explorer's drags and the app's own go through as before.
+	- Swept: every drop on a window goes through that window's one drop target, so the folder views, Places, the tabs, the path bar, the location bar and Properties are all covered. The 2 shared rules that pick move or copy read what's allowed, and the folder views, Places, the tabs and the tree all use them.
+	- Note: not covered, a drag of files that aren't on disk yet, such as a mail attachment. Nothing in the app reads those.
+	- Verified: 20261014 on vm925w, with the zip build. Before the fix, a drag from the small program was refused on the folder view and a tab. After it, the drag moved the file onto the folder view, a bookmark in Places and a tab. With only copy allowed it copied, onto the folder view and onto Places. Explorer drags still dropped, and a drag from one tab to another still moved the file.
+	- Verified: rk8vn5kr fails before the fix on 6 checks, and on 2 with what's allowed ignored, and passes after, 3 runs of 3 under wine. Windows cross build clean with warnings as errors. rhtmbdm8 and the other Linux drop tests pass.
+	- Branch: xdrag
+	- Commit: 6db861b
+	- Test case: rk8vn5kr, Drop from another program win32 test. A drag with only the plain file list is handed to the window's drop target the way Windows would: it moves within one folder, copies when only copy is allowed, and plain text is still refused. It skips where there's no monitor.
 
 - Take libgsf, the gsf-office thumbnailer and the 4 search converters out of every bundle and the build.
 	- ID: 2026100909260549
@@ -1095,22 +1125,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: 20261007, the probe and test were read. At step 5 the probe looks for a menu on screen every 100 ms for 10 s, so it does wait for the menu to show. The test runs on an X server of its own, not the suite's. Two tests that pick the same display number at once don't end up sharing it: the one whose server fails tries the next number. So the possible cause above doesn't apply.
 	- Note: 20261007, not ruled out: the Menu key made no menu at all once, on a loaded box. GTK 3 doesn't show a menu whose pointer grab fails, and the probe presses the key only once. Nothing points at that, and pressing again would hide it rather than explain it.
 	- Test case: rjefm41d itself.
-
-- On Windows, a file dragged onto the window from another program may not drop.
-	- ID: 2026101007562587
-	- Type: Bug
-	- Status: Queued
-	- Needs external testing: vm925w, in the desktop session. Drag a file from Explorer onto the folder view, the Places side bar and a tab.
-	- Priority|Severity: Avg
-	- Opened: 20261010-075625
-	- Opened by: 2026100816170921
-	- Related IDs: 2026100816170921
-	- Target OS: Windows
-	- Steps to reproduce: drag a file from another program onto the window, with nothing connecting.
-	- Incorrect behavior: a small program written to drag a file in had its drop refused by the window, while the desktop took the same drag.
-	- Expected behavior: the window takes the drop, as on Linux.
-	- Reproduced: No. Not tried with Explorer yet, so the drag program may be at fault.
-	- Test case: TBD
 
 - In the single exe on Windows, a program packed inside it that needs libgsf can't start.
 	- ID: 2026100617051745

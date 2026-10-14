@@ -35,6 +35,7 @@
 #include <config.h>
 
 #include "nemo-dnd-win32.h"
+#include "nemo-drop-win32.h"
 
 #include "nemo-file-operations.h"
 #include "nemo-file-utilities.h"
@@ -1041,6 +1042,9 @@ nemo_dnd_win32_prepare (void)
 {
 	if (nemo_dnd_win32_enabled ()) {
 		nemo_setenv_own (OLE_DND_ENV, "1", TRUE);
+		if (!nemo_drop_win32_prepare ()) {
+			g_debug ("drops from other programs will only take Explorer's");
+		}
 	}
 }
 
