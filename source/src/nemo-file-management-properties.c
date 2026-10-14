@@ -36,6 +36,7 @@
 #include <eel/eel-glib-extensions.h>
 
 #include <libnemo-private/nemo-appearance.h>
+#include <libnemo-private/nemo-bulk-rename.h>
 #include <libnemo-private/nemo-column-chooser.h>
 #include <libnemo-private/nemo-column-utilities.h>
 #include <libnemo-private/nemo-delete-testguard.h>
@@ -802,6 +803,21 @@ bind_builder_string_entry (GtkBuilder *builder,
     nemo_config_bind (settings, prefs,
                      gtk_builder_get_object (builder, widget_name),
                      "text", NEMO_CONFIG_BIND_DEFAULT);
+}
+
+/* The renamers known here, in the order the default is picked from. */
+static void
+set_bulk_rename_tips (GtkBuilder *builder)
+{
+    char *known = nemo_bulk_rename_known_commands ();
+    char *tip = g_strconcat (_("Renamer programs need only accept a quoted list of files or folders. Known or suspected to work:"),
+                             "\n\n", known, NULL);
+
+    gtk_widget_set_tooltip_text (GTK_WIDGET (gtk_builder_get_object (builder, "command_label_0")), tip);
+    gtk_widget_set_tooltip_text (GTK_WIDGET (gtk_builder_get_object (builder,
+                                 NEMO_FILE_MANAGEMENT_PROPERTIES_BULK_RENAME_WIDGET)), tip);
+    g_free (tip);
+    g_free (known);
 }
 
 static gboolean
@@ -1617,6 +1633,7 @@ nemo_file_management_properties_dialog_setup (GtkBuilder  *builder,
     bind_builder_string_entry (builder, nemo_preferences,
                          NEMO_FILE_MANAGEMENT_PROPERTIES_BULK_RENAME_WIDGET,
                          NEMO_PREFERENCES_BULK_RENAME_TOOL);
+    set_bulk_rename_tips (builder);
 
     bind_builder_string_entry (builder, nemo_config_get_group ("terminal"),
                          NEMO_FILE_MANAGEMENT_PROPERTIES_TERMINAL_EXEC_WIDGET,

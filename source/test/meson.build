@@ -113,6 +113,15 @@ test('rdjjz89r Config store test',
   timeout: 90         # a hundred external rewrites, each waiting on the file monitor
 )
 
+test('rk7wrme6 Bulk rename default test',
+  executable('test-nemo-bulk-rename',
+    [ 'test-nemo-bulk-rename.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
 # Converting runs when the store opens, so the old file goes in before that.
 test('rjc4dd8z Config format upgrade test',
   executable('test-nemo-config-format',
@@ -1311,6 +1320,36 @@ if not is_windows
       dependencies: [ glib, gio, gtk, test_scratch ],
     ),
     args: [ nemo, rename_photo_probe ],
+    timeout: 120
+  )
+
+  # Preloaded too; it searches and presses Escape from inside the program.
+  search_escape_probe = shared_module('test-nemo-search-escape-probe',
+    [ 'test-nemo-search-escape-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('rk7vz6gm Escape in find mode test',
+    executable('test-nemo-search-escape',
+      [ 'test-nemo-search-escape.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, search_escape_probe ],
+    timeout: 240
+  )
+
+  # Preloaded too; it selects the files and presses F2 from inside.
+  bulk_rename_run_probe = shared_module('test-nemo-bulk-rename-run-probe',
+    [ 'test-nemo-bulk-rename-run-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('rk7wywt9 Bulk renamer gets paths test',
+    executable('test-nemo-bulk-rename-run',
+      [ 'test-nemo-bulk-rename-run.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, bulk_rename_run_probe ],
     timeout: 120
   )
 

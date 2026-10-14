@@ -115,16 +115,29 @@ create_new_search (NemoWindowSlot *slot)
 	g_free (uri);
 }
 
-static void
-query_editor_cancel_callback (G_GNUC_UNUSED NemoQueryEditor *editor,
-			      NemoWindowSlot *slot)
+/* Back to the folder the search started from. FALSE when find mode was off. */
+gboolean
+nemo_window_slot_close_search (NemoWindowSlot *slot)
 {
 	GtkAction *search;
+
+	if (slot == NULL || slot->query_editor == NULL ||
+	    !nemo_query_editor_get_active (slot->query_editor)) {
+		return FALSE;
+	}
 
 	search = gtk_action_group_get_action (slot->pane->toolbar_action_group,
 					      NEMO_ACTION_SEARCH);
 
 	gtk_toggle_action_set_active (GTK_TOGGLE_ACTION (search), FALSE);
+	return TRUE;
+}
+
+static void
+query_editor_cancel_callback (G_GNUC_UNUSED NemoQueryEditor *editor,
+			      NemoWindowSlot *slot)
+{
+	nemo_window_slot_close_search (slot);
 }
 
 static void

@@ -2484,13 +2484,19 @@ focus_in_event_callback (G_GNUC_UNUSED GtkWidget *widget, G_GNUC_UNUSED GdkEvent
 /* Runs after the container, so Escape still cancels a rename or a stretch
    before it gets as far as the selection. */
 static gboolean
-key_press_event_callback (GtkWidget *widget, GdkEventKey *event, G_GNUC_UNUSED gpointer user_data)
+key_press_event_callback (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
 {
+	NemoView *view = NEMO_VIEW (user_data);
+
 	if (event->keyval != GDK_KEY_Escape) {
 		return FALSE;
 	}
 
-	nemo_icon_container_forget_selection (NEMO_ICON_CONTAINER (widget));
+	/* As in the list view: a selection first, then find mode. */
+	if (nemo_view_get_selection_count (view) > 0 ||
+	    !nemo_window_slot_close_search (nemo_view_get_nemo_window_slot (view))) {
+		nemo_icon_container_forget_selection (NEMO_ICON_CONTAINER (widget));
+	}
 
 	return TRUE;
 }
