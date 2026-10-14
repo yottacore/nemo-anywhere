@@ -905,13 +905,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Take libgsf, the gsf-office thumbnailer and the 4 search converters out of every bundle and the build.
 	- ID: 2026100909260549
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting for testing
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
 	- Needs external testing:
 		- Done 20261009 on vm925w, passed. It was: the native suite on vm925w, for rjmc40ex, rjvb97aa, rjvtggme and rfhnaccg, and the seed replays rhatwe0r, rhatwe0s and rhatwe0t.
 		- Done 20261009 on vm925w, passed. It was: the single exe built from this branch, in the desktop session on vm925w with MacType running: an .odt with no picture inside, a .doc with a metafile preview, and a content search through office files, on a box with no thumbnailer or search helper installed for these types. Plain icons where there is no picture, the matches, no box, and no other program started. The staged `win-flat` has no libgsf dll, no gsf-office files and no `*-to-txt` exe.
 		- Failed 20261013, see Progress log. It was: a full pipeline with `--include-arm --include-bsd`: both prefix checks, "Windows bundle check" and "FreeBSD bundle check" pass. The FreeBSD pkg made before this change depends on libgsf, so "FreeBSD bundle check" stops a run until the FreeBSD lane makes a new one.
 		- The Windows release workflow on the next tag, with libgsf gone from its package list.
+		- A full pipeline with `--include-arm --include-bsd`, after the fix to rjvwpz9d: both prefix checks, "Windows bundle check" and "FreeBSD bundle check" pass.
 	- Priority|Severity: Avg
 	- Opened: 20261009-092605
 	- Opened by: 2026100617051745
@@ -931,15 +932,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261009: at first the fall-back to an installed thumbnailer or search helper went too, for a file the reader gets nothing from. Put back: the app's reader comes before any installed one, not instead of it, as decided in 2026100617051745. Only what the app bundled goes.
 		- 20261009: README's MacType note stays. As far as can be read here, the single exe still starts a packed program: GLib's spawn helper, for a new window or a tab moved to its own window. Filed as 2026100914514406. Not tried under MacType.
 		- 20261013: back to Queued. The full pipeline at dev 5ca50b7 stopped at the x86_64 prefix check: rjvwpz9d refuses `mso-doc.nemo_search_helper` in the tarball, deb and rpm. That file is catdoc's definition, which stays, as decided here, so the check's list is wrong, not the bundles. The arm64 and FreeBSD bundle checks didn't run, since the package checks stop at the first failure. The FreeBSD lane made a new pkg in the same run.
+		- 20261014: rjvwpz9d's list no longer names catdoc's `mso-doc.nemo_search_helper`. Its self-test now has catdoc's definition in the good tarball and zip, and a bundled converter's definition, `mso-word.nemo_search_helper`, among the bad ones. Back to Waiting for testing.
 	- Decisions:
 		- 20261009: the fall-backs in 2026100909260472 and 2026100909260511 stay. For a file the app's reader gets nothing from, such as one with no picture inside, a metafile preview, or one that doesn't read, a thumbnailer or search helper installed on the system still gets its turn. So on Linux a distro's thumbnailer for .docx still runs after the reader. Only the programs the app bundled go.
 		- 20261009: catdoc's search helper definition stays. It names a program installed on the system, not one the app bundled.
 	- Swept: every bundle and lane that copied the programs, the dlls or the descriptors: the native stage, the zip, the cross build's strip, the wine runner, the Linux tarball, deb and rpm through meson's install, and the FreeBSD pkg, whose deps come from what the binaries link. The factory and the search walk are as on dev: the reader first for these types, then anything installed.
 	- Verified: 20261009, the app and every test built with libgsf's development files removed from the build container and from the cross sysroot. Full Linux suite 188 of 188. rjvb97aa and rjvtggme fail with the fall-backs taken out, since then the stand-in thumbnailer and search helper never run for the files with no picture and the ones that don't read. They also fail with the reader skipped in the factory, since then the stand-in runs for files that have a picture. They pass as on the branch. rjmc40ex fails with the extension lookup taken out and passes with it, under wine. rjmc40ex, rjvb97aa, rjvtggme, rfhnaccg and the 5 office seed replays pass under wine, where the stand-ins are seen to run too. All 12 fuzz targets ran 20 s each with no find. The bundle check fails on every bundle in the release folder from before the change, and passes on a fresh install of this branch and on a zip packed from the old sysroot. Its self-test fails with the name and dependency checks taken out. rjnyer4p fails with gsf-office's descriptors kept. Lint clean apart from rj3ytv0b, which always fails in a worktree.
 	- Verified: 20261009 on vm925w at dev 186065a. rjmc40ex, rjvb97aa, rjvtggme, rfhnaccg, rjvtghmd, rhatwe0r, rhatwe0s and rhatwe0t pass in the native suite. The staged `win-run` and `win-flat` have no libgsf dll, no gsf-office file and no `*-to-txt` exe; catdoc's helper definition is still there, as decided. The single exe from the same commit, in the desktop session with MacType running and loaded into the app: an .odt with no picture inside and a .doc with a metafile preview show plain icons, and a content search found a word in each, and in each of the other office files. The app started no other program, and no box came up.
-	- Branch: nogsf
-	- Commit: 7c4e340, 6748a54
-	- Test case: rjvwpz9d, Bundle check: no libgsf, gsf-office thumbnailer, converter or their definitions in the tarball, deb, rpm, zip or FreeBSD pkg, and no Depends, Requires or pkg dep on libgsf. The prefix check rhtq57n5 runs it on each arch's Linux files, and its self-test runs in the lint stage. rjvb97aa and rjvtggme: files with a picture or text get it from the reader, and the stand-in thumbnailer and search helper installed for these types aren't run. Files with no picture inside, a metafile preview, and files that don't read get nothing from the reader, and then the stand-ins run. rjmc40ex and rfhnaccg as in Progress log.
+	- Verified: 20261014, rjvwpz9d's self-test fails with catdoc's definition still on the list, on the good tarball and the good zip, and passes after. It also fails with `mso-word.nemo_search_helper` taken off the list. The check passes on the tarball, deb and rpm for x86_64 and arm64, the zip and the FreeBSD pkg and tarball left by the 20261013 run, each of which has catdoc's definition. Lint clean apart from rj3ytv0b, which always fails in a worktree.
+	- Branch: nogsf, tipsfix
+	- Commit: 7c4e340, 6748a54, 64f69e1
+	- Test case: rjvwpz9d, Bundle check: no libgsf, gsf-office thumbnailer, converter or their definitions in the tarball, deb, rpm, zip or FreeBSD pkg, and no Depends, Requires or pkg dep on libgsf. catdoc's definition is let through. The prefix check rhtq57n5 runs it on each arch's Linux files, and its self-test runs in the lint stage. rjvb97aa and rjvtggme: files with a picture or text get it from the reader, and the stand-in thumbnailer and search helper installed for these types aren't run. Files with no picture inside, a metafile preview, and files that don't read get nothing from the reader, and then the stand-ins run. rjmc40ex and rfhnaccg as in Progress log.
 
 - Escape should exit out of search view.
 	- ID: 2026101405542853
@@ -1007,28 +1010,40 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Rename "Ask again before every delete, move or overwrite" -> "Paranoid mode for move, overwrite, trash, and delete".
 	- ID: 2026101405543002
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261014-055430
+	- Closed: 20261014-061714
 	- Opened by: t00mietum
 	- Target OS: All
 	- Requirements:
 		- Before the next cut.
 		- With flyover text: "This enables an alternate code path that is hard to accidentally OK, on every such action even if the action isn't triggered by a user. Every pre-release has this enabled by default - by strict release rules, rather than actual need."
 	- Note: the label today ends in "(pre-release test guard)".
-	- Test case: none yet.
+	- Actual fix: the checkbox at the end of Trash on the Behavior page has the new label, and the new tip in place of the old one. A checkbox's label is part of the control, so the one tip covers both. The setting, its default and the guard's own dialog are as they were.
+	- Swept: README, changelog, design.md, the delete guard design doc, the UX style guide and the code. None of them quote the old label.
+	- Verified: rf2w8yxr fails on dev's layout, on the label and the tip, and passes after. rhtmbdmd passes. Lint clean apart from rj3ytv0b, which always fails in a worktree.
+	- Branch: tipsfix
+	- Commit: 64f69e1
+	- Test case: rf2w8yxr, Settings widgets test: the checkbox's label and tip, word for word.
+	- Acceptance signoff: Self-closed: the text given word for word, and rf2w8yxr pins it.
 
 - Flyover tip text for "Command to open a terminal" (label and control): "If empty, uses your default terminal."
 	- ID: 2026101405543039
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting on signoff
 	- Priority|Severity: Avg
 	- Opened: 20261014-055430
 	- Opened by: t00mietum
 	- Target OS: All
 	- Requirements:
 		- Before the next cut.
-	- Test case: none yet.
+	- Actual fix: the label and the entry both have the tip. The entry's old tip is gone: "Leave empty to use whatever the system offers. A program that needs arguments takes them here too; quote a path that contains spaces. The folder is passed as the working directory."
+	- Verified: rf2w8yxr fails on dev's layout, with no tip on the label and the old one on the entry, and passes after. rhtmbdmd passes. Lint clean apart from rj3ytv0b, which always fails in a worktree.
+	- Branch: tipsfix
+	- Commit: 64f69e1
+	- Test case: rf2w8yxr, Settings widgets test: the tip on the label and on the entry, word for word.
+	- Acceptance signoff: Left at signoff for the old tip's notes on arguments, quoting and the working folder, which went with it. Options: keep it as is, or add them back after the new sentence.
 
 - Pre-populate the "Bulk rename" command.
 	- ID: 2026101405543076
