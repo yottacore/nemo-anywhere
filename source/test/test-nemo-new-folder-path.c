@@ -23,10 +23,12 @@
 /* How a typed path splits, per platform, and the real job behind it: the
  * folder New folder made turns into the first missing folder of the path,
  * folders already there are gone through, and undo and redo take away and
- * put back what was made. Runs under wine too, for the backslash. */
+ * put back what was made. Runs under wine too, for the backslash and the
+ * setting that turns "/" off in typed locations. */
 
 #include "test.h"
 
+#include <libnemo-private/nemo-file.h>
 #include <libnemo-private/nemo-file-operations.h>
 #include <libnemo-private/nemo-file-undo-manager.h>
 #include <libnemo-private/nemo-file-undo-operations.h>
@@ -183,6 +185,40 @@ nest (const char *fresh, const char *typed)
 	g_free (path);
 }
 
+#ifdef G_OS_WIN32
+static void
+renamed (G_GNUC_UNUSED NemoFile *file, G_GNUC_UNUSED GFile *result, GError *error,
+	 G_GNUC_UNUSED gpointer data)
+{
+	g_clear_error (&job_error);
+	job_error = error != NULL ? g_error_copy (error) : NULL;
+	job_finished = TRUE;
+	/* A refusal answers before the rename starts. */
+	if (gtk_main_level () > 0) {
+		gtk_main_quit ();
+	}
+}
+
+/* The rename a name goes to when it doesn't nest. */
+static void
+plain_rename (const char *relative, const char *typed)
+{
+	char *path = in_root (relative);
+	GFile *location = g_file_new_for_path (path);
+	NemoFile *file = nemo_file_get (location);
+
+	job_finished = FALSE;
+	nemo_file_rename (file, typed, renamed, NULL);
+	if (!job_finished) {
+		wait_for_job ();
+	}
+	check (job_finished);
+	nemo_file_unref (file);
+	g_object_unref (location);
+	g_free (path);
+}
+#endif
+
 /* want is the parts joined with "|", or NULL for a refusal. */
 static void
 check_split (const char *typed, const char *want)
@@ -235,6 +271,22 @@ check_splits (void)
 	check_split ("\\a", NULL);
 	check_split ("a\\/b", NULL);
 	check_split ("a\\..\\b", NULL);
+
+	/* With typed locations not taking "/", a "/" is no separator either, and
+	   a name with one is left to the plain rename. */
+	nemo_config_set_boolean (nemo_windows_preferences, NEMO_PREFERENCES_ALLOW_SLASH_INPUT, FALSE);
+	check (!nemo_new_folder_name_has_separator ("a/b"));
+	check (!nemo_new_folder_name_has_separator ("a\\b/c"));
+	check (nemo_new_folder_name_has_separator ("a\\b"));
+	check_split ("a\\b", "a|b");
+	check_split ("a\\b\\", "a|b");
+	check_split ("a/b", NULL);
+	check_split ("a\\b/c", NULL);
+	check_split ("a\\b/", NULL);
+	check_split ("/a", NULL);
+	nemo_config_set_boolean (nemo_windows_preferences, NEMO_PREFERENCES_ALLOW_SLASH_INPUT, TRUE);
+	check (nemo_new_folder_name_has_separator ("a/b"));
+	check_split ("a/b", "a|b");
 #else
 	/* Only a Windows path takes the backslash as a separator. */
 	check (!nemo_new_folder_name_has_separator ("a\\b"));
@@ -330,6 +382,29 @@ check_jobs (void)
 	check (apply_undo (TRUE));
 	check (!exists ("back\\slash"));
 	check (!exists ("back"));
+
+#ifdef G_OS_WIN32
+	/* With "/" off the backslash still nests, and a "/" is refused with
+	   nothing made, like any character a name can't have. */
+	nemo_config_set_boolean (nemo_windows_preferences, NEMO_PREFERENCES_ALLOW_SLASH_INPUT, FALSE);
+	make_dir ("Untitled Folder");
+	nest ("Untitled Folder", "off\\still");
+	check (job_error == NULL);
+	check (is_dir ("off/still"));
+	check (!exists ("Untitled Folder"));
+	make_dir ("Untitled Folder");
+	check (!nemo_new_folder_name_has_separator ("slash/off"));
+	plain_rename ("Untitled Folder", "slash/off");
+	check (job_error != NULL);
+	check (is_dir ("Untitled Folder"));
+	check (!exists ("slash"));
+	check (!nemo_new_folder_name_has_separator ("mixed\\slash/off"));
+	plain_rename ("Untitled Folder", "mixed\\slash/off");
+	check (job_error != NULL);
+	check (is_dir ("Untitled Folder"));
+	check (!exists ("mixed"));
+	nemo_config_set_boolean (nemo_windows_preferences, NEMO_PREFERENCES_ALLOW_SLASH_INPUT, TRUE);
+#endif
 }
 
 int

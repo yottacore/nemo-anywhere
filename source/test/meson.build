@@ -524,6 +524,15 @@ test('rgxy149r Focus guard test',
   args: []
 )
 
+test('rk6narsh Tabs take no focus helper test',
+  executable('test-eel-tab-keys',
+    [ 'test-eel-tab-keys.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private ],
+  ),
+  args: []
+)
+
 test('rhnv1n88 Row hover tint test',
   executable('test-nemo-row-hover',
     [ 'test-nemo-row-hover.c' ],
@@ -1319,6 +1328,21 @@ if not is_windows
     new_folder_path_gui, args: [ nemo, new_folder_path_probe, 'icon' ], timeout: 120)
   test('rk56g0rq New folder named with a path, list view',
     new_folder_path_gui, args: [ nemo, new_folder_path_probe, 'list' ], timeout: 120)
+
+  # Preloaded too; it opens Properties and presses the keys from inside.
+  properties_tabs_probe = shared_module('test-nemo-properties-tabs-probe',
+    [ 'test-nemo-properties-tabs-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('rk6naqsk Properties tabs take no focus test',
+    executable('test-nemo-properties-tabs',
+      [ 'test-nemo-properties-tabs.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, properties_tabs_probe ],
+    timeout: 120
+  )
 
   # Preloaded too; it hovers and checks from inside the program.
   tooltip_focus_probe = shared_module('test-nemo-tooltip-focus-probe',

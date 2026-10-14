@@ -809,6 +809,222 @@ eel_gtk_list_box_keep_focus_off_rows (GtkListBox *box)
     g_signal_connect (box, "focus", G_CALLBACK (list_box_focus_cb), NULL);
 }
 
+#define TAB_STRIP_KEY  "eel-tab-strip"
+#define TAB_WINDOW_KEY "eel-tab-strip-window"
+
+// The notebook itself, or the stack a switcher or sidebar shows.
+static GtkWidget *
+tab_pages (GtkWidget *tabs)
+{
+    if (GTK_IS_STACK_SWITCHER (tabs)) {
+        return GTK_WIDGET (gtk_stack_switcher_get_stack (GTK_STACK_SWITCHER (tabs)));
+    }
+    if (GTK_IS_STACK_SIDEBAR (tabs)) {
+        return GTK_WIDGET (gtk_stack_sidebar_get_stack (GTK_STACK_SIDEBAR (tabs)));
+    }
+    return tabs;
+}
+
+static void
+step_tabs (GtkWidget *tabs, int step)
+{
+    GtkWidget *pages = tab_pages (tabs);
+    GList *children, *here, *next;
+
+    if (GTK_IS_NOTEBOOK (pages)) {
+        GtkNotebook *notebook = GTK_NOTEBOOK (pages);
+        int count = gtk_notebook_get_n_pages (notebook);
+        int current = gtk_notebook_get_current_page (notebook);
+        int i, page = current;
+
+        for (i = 0; i < count; i++) {
+            page = (page + step + count) % count;
+            if (gtk_widget_get_visible (gtk_notebook_get_nth_page (notebook, page))) {
+                break;
+            }
+        }
+        gtk_notebook_set_current_page (notebook, page);
+        return;
+    }
+
+    if (!GTK_IS_STACK (pages)) {
+        return;
+    }
+
+    children = gtk_container_get_children (GTK_CONTAINER (pages));
+    here = g_list_find (children, gtk_stack_get_visible_child (GTK_STACK (pages)));
+    if (here != NULL) {
+        next = here;
+        do {
+            next = step > 0 ? next->next : next->prev;
+            if (next == NULL) {
+                next = step > 0 ? children : g_list_last (children);
+            }
+        } while (next != here && !gtk_widget_get_visible (next->data));
+        gtk_stack_set_visible_child (GTK_STACK (pages), next->data);
+    }
+    g_list_free (children);
+}
+
+// Ctrl+Tab and Ctrl+Shift+Tab step too, as in Settings. Connected before the
+// window's own handler, since a scrolled window in a page takes Ctrl+Page Up
+// and Down for scrolling sideways, and the window takes Ctrl+Tab to move the
+// focus.
+static gboolean
+tab_keys_cb (GtkWidget   *window,
+             GdkEventKey *event,
+             GtkWidget   *tabs)
+{
+    GdkModifierType mods = event->state & gtk_accelerator_get_default_mod_mask ();
+    GtkWidget *focus, *around;
+    int step = 0;
+
+    switch (event->keyval) {
+    case GDK_KEY_Page_Up:
+    case GDK_KEY_KP_Page_Up:
+        step = mods == GDK_CONTROL_MASK ? -1 : 0;
+        break;
+    case GDK_KEY_Page_Down:
+    case GDK_KEY_KP_Page_Down:
+        step = mods == GDK_CONTROL_MASK ? 1 : 0;
+        break;
+    case GDK_KEY_Tab:
+    case GDK_KEY_KP_Tab:
+    case GDK_KEY_ISO_Left_Tab:
+        if (mods == GDK_CONTROL_MASK) {
+            step = event->keyval == GDK_KEY_ISO_Left_Tab ? -1 : 1;
+        } else if (mods == (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) {
+            step = -1;
+        }
+        break;
+    default:
+        break;
+    }
+
+    if (step == 0) {
+        return GDK_EVENT_PROPAGATE;
+    }
+
+    if (gtk_widget_get_toplevel (tabs) != window || !gtk_widget_is_drawable (tabs)) {
+        return GDK_EVENT_PROPAGATE;
+    }
+
+    // The tabs closest round the focus have the keys, so a notebook inside a
+    // page keeps them while the focus is in it.
+    focus = gtk_window_get_focus (GTK_WINDOW (window));
+    for (around = focus; around != NULL; around = gtk_widget_get_parent (around)) {
+        if (GTK_IS_NOTEBOOK (around) || g_object_get_data (G_OBJECT (around), TAB_STRIP_KEY) != NULL) {
+            break;
+        }
+    }
+    if (around != NULL && around != tab_pages (tabs)) {
+        return GDK_EVENT_PROPAGATE;
+    }
+
+    step_tabs (tabs, step);
+    return GDK_EVENT_STOP;
+}
+
+static void
+tabs_hierarchy_changed_cb (GtkWidget *tabs,
+                           G_GNUC_UNUSED GtkWidget *previous,
+                           G_GNUC_UNUSED gpointer   user_data)
+{
+    GtkWidget *toplevel = gtk_widget_get_toplevel (tabs);
+
+    if (!GTK_IS_WINDOW (toplevel) || g_object_get_data (G_OBJECT (tabs), TAB_WINDOW_KEY) == toplevel) {
+        return;
+    }
+
+    g_object_set_data (G_OBJECT (tabs), TAB_WINDOW_KEY, toplevel);
+    g_signal_connect_object (toplevel, "key-press-event", G_CALLBACK (tab_keys_cb), tabs, 0);
+}
+
+static void
+refuse_focus_each (GtkWidget *button, G_GNUC_UNUSED gpointer user_data)
+{
+    eel_gtk_widget_refuse_focus (button);
+}
+
+static void
+tab_button_added_cb (G_GNUC_UNUSED GtkContainer *strip,
+                     GtkWidget    *button,
+                     G_GNUC_UNUSED gpointer      user_data)
+{
+    eel_gtk_widget_refuse_focus (button);
+}
+
+static void
+refuse_focus_within (GtkWidget *widget, G_GNUC_UNUSED gpointer data)
+{
+    if (GTK_IS_LIST_BOX (widget)) {
+        eel_gtk_list_box_keep_focus_off_rows (GTK_LIST_BOX (widget));
+        return;
+    }
+
+    eel_gtk_widget_refuse_focus (widget);
+    if (GTK_IS_CONTAINER (widget)) {
+        gtk_container_forall (GTK_CONTAINER (widget), refuse_focus_within, NULL);
+    }
+}
+
+// Tabs of any kind are for the pointer: a click picks a page and leaves no
+// focus on the tab, Tab goes past them, and Ctrl+Page Up and Down, and Ctrl+Tab
+// and Ctrl+Shift+Tab, step the pages from anywhere in the window, wrapping.
+// Takes a notebook, a stack switcher or a stack sidebar. A switcher or sidebar
+// needs its stack set first. The main window steps its own tabs per pane, so
+// its notebooks only keep the focus off.
+void
+eel_gtk_tabs_keep_focus_off (GtkWidget *tabs)
+{
+    GtkWidget *pages;
+
+    g_return_if_fail (GTK_IS_NOTEBOOK (tabs) || GTK_IS_STACK_SWITCHER (tabs) || GTK_IS_STACK_SIDEBAR (tabs));
+
+    pages = tab_pages (tabs);
+    g_return_if_fail (pages != NULL);
+    if (g_object_get_data (G_OBJECT (pages), TAB_STRIP_KEY) == tabs) {
+        return;
+    }
+
+    if (GTK_IS_NOTEBOOK (tabs)) {
+        eel_gtk_notebook_keep_focus_off_tabs (GTK_NOTEBOOK (tabs));
+    } else if (GTK_IS_STACK_SWITCHER (tabs)) {
+        // A button per page, made as pages come and go.
+        gtk_container_forall (GTK_CONTAINER (tabs), refuse_focus_each, NULL);
+        g_signal_connect_after (tabs, "add", G_CALLBACK (tab_button_added_cb), NULL);
+    } else {
+        refuse_focus_within (tabs, NULL);
+    }
+
+    g_object_set_data (G_OBJECT (pages), TAB_STRIP_KEY, tabs);
+    g_signal_connect (tabs, "hierarchy-changed", G_CALLBACK (tabs_hierarchy_changed_cb), NULL);
+    tabs_hierarchy_changed_cb (tabs, NULL, NULL);
+}
+
+static void
+tabs_within_cb (GtkWidget *widget, G_GNUC_UNUSED gpointer data)
+{
+    if (GTK_IS_NOTEBOOK (widget) ||
+        (GTK_IS_STACK_SWITCHER (widget) && gtk_stack_switcher_get_stack (GTK_STACK_SWITCHER (widget)) != NULL) ||
+        (GTK_IS_STACK_SIDEBAR (widget) && gtk_stack_sidebar_get_stack (GTK_STACK_SIDEBAR (widget)) != NULL)) {
+        eel_gtk_tabs_keep_focus_off (widget);
+    }
+    if (GTK_IS_CONTAINER (widget)) {
+        gtk_container_forall (GTK_CONTAINER (widget), tabs_within_cb, NULL);
+    }
+}
+
+// The same for every tab strip inside, for GTK's own dialogs that build theirs
+// where we can't reach it by name, such as About's switcher.
+void
+eel_gtk_tabs_keep_focus_off_within (GtkWidget *container)
+{
+    g_return_if_fail (GTK_IS_CONTAINER (container));
+
+    gtk_container_forall (GTK_CONTAINER (container), tabs_within_cb, NULL);
+}
+
 // Whether the toplevel's focus sits on this widget or inside it.
 gboolean
 eel_gtk_focus_is_within (GtkWidget *container)

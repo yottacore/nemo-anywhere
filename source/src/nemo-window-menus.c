@@ -395,6 +395,7 @@ action_about_nemo_callback (G_GNUC_UNUSED GtkAction *action,
 	/* On Windows GTK's own handler opens them through GLib's spawn helper. */
 	g_signal_connect (about, "activate-link", G_CALLBACK (about_link_activated), NULL);
 	g_signal_connect (about, "response", G_CALLBACK (gtk_widget_destroy), NULL);
+	eel_gtk_tabs_keep_focus_off_within (about);
 	gtk_window_present (GTK_WINDOW (about));
 
 	g_free (license_trans);
@@ -475,6 +476,8 @@ action_show_shortcuts_window (G_GNUC_UNUSED GtkAction *action,
         shortcuts_window = GTK_WIDGET (gtk_builder_get_object (builder, "keyboard_shortcuts"));
 
         gtk_window_set_position (GTK_WINDOW (shortcuts_window), GTK_WIN_POS_CENTER);
+        /* A section too long for one page gets page buttons. */
+        eel_gtk_tabs_keep_focus_off_within (shortcuts_window);
 
         g_signal_connect (shortcuts_window, "destroy",
                           G_CALLBACK (gtk_widget_destroyed), &shortcuts_window);

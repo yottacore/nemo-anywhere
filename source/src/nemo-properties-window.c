@@ -4981,6 +4981,7 @@ create_properties_window (StartupData *startup_data)
 	stack_switcher = GTK_STACK_SWITCHER (gtk_stack_switcher_new ());
 	gtk_stack_switcher_set_stack (stack_switcher,
                               window->details->stack);
+	eel_gtk_tabs_keep_focus_off (GTK_WIDGET (stack_switcher));
 
 	gtk_stack_set_transition_type (window->details->stack,
                                GTK_STACK_TRANSITION_TYPE_SLIDE_LEFT_RIGHT);

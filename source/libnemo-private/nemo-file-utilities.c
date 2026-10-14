@@ -3131,7 +3131,10 @@ static gboolean
 is_new_folder_separator (gchar c)
 {
 #ifdef G_OS_WIN32
-    return c == '/' || c == '\\';
+    /* "/" goes with the typed location setting. Off, it's just a character a
+       name can't have. */
+    watch_separator_preferences ();
+    return c == '\\' || (c == '/' && slash_input_allowed);
 #else
     /* A backslash is a legal character in a name here. */
     return c == '/';
@@ -3142,13 +3145,17 @@ gboolean
 nemo_new_folder_name_has_separator (const gchar *text)
 {
     const gchar *p;
+    gboolean found = FALSE;
 
     for (p = text; p != NULL && *p != '\0'; p++) {
         if (is_new_folder_separator (*p)) {
-            return TRUE;
+            found = TRUE;
+        } else if (*p == '/') {
+            /* Left to the plain rename, which refuses it. */
+            return FALSE;
         }
     }
-    return FALSE;
+    return found;
 }
 
 /* Returns: (transfer full): free with g_strfreev */
@@ -3194,6 +3201,13 @@ nemo_new_folder_path_split (const gchar *text, GError **error)
             g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME,
                          _("\"%s\" has 2 separators in a row, with no folder name between them."),
                          text);
+            g_free (part);
+            g_ptr_array_free (parts, TRUE);
+            return NULL;
+        }
+        if (strchr (part, '/') != NULL) {
+            g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME,
+                                 _("Slashes are not allowed in filenames"));
             g_free (part);
             g_ptr_array_free (parts, TRUE);
             return NULL;
