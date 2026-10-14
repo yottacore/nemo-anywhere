@@ -112,7 +112,23 @@ struct NemoListViewDetails {
 	gboolean menus_ready;
 	gboolean active;
 
-    gboolean rubber_banding;
+	/* Our own band. GTK's starts on any unselected row, and with the left
+	   button only. button is the one that may start a band once it moves. */
+	struct {
+		guint button;
+		gboolean active;
+		gboolean picked;		/* rows chosen at least once */
+		gboolean keep;			/* Ctrl adds to what was there */
+		int press_x, press_y;		/* bin window */
+		int start_x, start_y;		/* tree, so it scrolls with the rows */
+		int x, y;			/* the pointer, bin window */
+		GtkTreeRowReference *from;	/* NULL when pressed below the rows */
+		GList *kept;
+		GtkTreePath *first, *last;
+		guint scroll_id;
+	} band;
+
+	EelMenuPress menu_press;
 
 	/* Escape leaves the cursor parked on the first row with its outline hidden,
 	   since GTK has no way to take the cursor away. */
@@ -977,7 +993,6 @@ win32_drag (NemoListView *view,
 				       uri_list, icon_list, surface, 0, 0, NULL);
 
 	view->details->drag_started = FALSE;
-	view->details->rubber_banding = FALSE;
 
 	if (surface != NULL) {
 		cairo_surface_destroy (surface);
@@ -989,6 +1004,288 @@ win32_drag (NemoListView *view,
 	return dragged;
 }
 #endif
+
+/* The band. A plain drag on a row moves files, so a band starts only from
+ * below the rows, with Ctrl or Shift from a row not yet selected, or with the
+ * right button. Shift and a plain band replace the selection, Ctrl adds. */
+
+static GtkTreePath *
+last_shown_row (GtkTreeView *tree_view)
+{
+	GtkTreeModel *model = gtk_tree_view_get_model (tree_view);
+	GtkTreeIter iter, child;
+	GtkTreePath *path;
+	int n;
+
+	n = model != NULL ? gtk_tree_model_iter_n_children (model, NULL) : 0;
+	if (n == 0 || !gtk_tree_model_iter_nth_child (model, &iter, NULL, n - 1)) {
+		return NULL;
+	}
+	path = gtk_tree_model_get_path (model, &iter);
+	while (gtk_tree_view_row_expanded (tree_view, path) &&
+	       (n = gtk_tree_model_iter_n_children (model, &iter)) > 0 &&
+	       gtk_tree_model_iter_nth_child (model, &child, &iter, n - 1)) {
+		iter = child;
+		gtk_tree_path_free (path);
+		path = gtk_tree_model_get_path (model, &iter);
+	}
+
+	return path;
+}
+
+static gboolean
+same_row (GtkTreePath *a, GtkTreePath *b)
+{
+	if (a == NULL || b == NULL) {
+		return a == b;
+	}
+	return gtk_tree_path_compare (a, b) == 0;
+}
+
+static void
+band_arm (NemoListView *view, GdkEventButton *event, gboolean keep)
+{
+	NemoListViewDetails *details = view->details;
+	GtkTreePath *path = NULL;
+
+	details->drag_button = 0;
+	details->band.button = event->button;
+	details->band.keep = keep;
+	details->band.press_x = details->band.x = (int) event->x;
+	details->band.press_y = details->band.y = (int) event->y;
+	gtk_tree_view_convert_bin_window_to_tree_coords (details->tree_view,
+							 details->band.x, details->band.y,
+							 &details->band.start_x, &details->band.start_y);
+	g_clear_pointer (&details->band.from, gtk_tree_row_reference_free);
+	if (gtk_tree_view_get_path_at_pos (details->tree_view, details->band.x, details->band.y,
+					   &path, NULL, NULL, NULL)) {
+		details->band.from = gtk_tree_row_reference_new (gtk_tree_view_get_model (details->tree_view),
+								 path);
+		gtk_tree_path_free (path);
+	}
+}
+
+/* Rows go by y alone. GTK can only find a row in sight, so the far end is
+   the row pressed on, kept by reference, and the near one is under the
+   pointer, which is held inside the rows while it scrolls. */
+static void
+band_select (NemoListView *view)
+{
+	NemoListViewDetails *details = view->details;
+	GtkTreeView *tree_view = details->tree_view;
+	GtkTreeSelection *selection = gtk_tree_view_get_selection (tree_view);
+	GtkTreePath *first = NULL, *last = NULL, *swap;
+	int height = gdk_window_get_height (gtk_tree_view_get_bin_window (tree_view));
+	GList *l;
+
+	if (details->band.from != NULL) {
+		first = gtk_tree_row_reference_get_path (details->band.from);
+	}
+	gtk_tree_view_get_path_at_pos (tree_view, 0, CLAMP (details->band.y, 0, MAX (height - 1, 0)),
+				       &last, NULL, NULL, NULL);
+	if (first == NULL && last != NULL) {
+		first = last_shown_row (tree_view);
+	} else if (first != NULL && last == NULL) {
+		last = last_shown_row (tree_view);
+	}
+	if (first != NULL && last != NULL && gtk_tree_path_compare (first, last) > 0) {
+		swap = first;
+		first = last;
+		last = swap;
+	}
+
+	if (details->band.picked && same_row (first, details->band.first) &&
+	    same_row (last, details->band.last)) {
+		gtk_tree_path_free (first);
+		gtk_tree_path_free (last);
+		return;
+	}
+	gtk_tree_path_free (details->band.first);
+	gtk_tree_path_free (details->band.last);
+	details->band.first = first;
+	details->band.last = last;
+	details->band.picked = TRUE;
+
+	/* One notice for the lot, since the view lists the whole selection for each. */
+	g_signal_handlers_block_by_func (selection, list_selection_changed_callback, view);
+	gtk_tree_selection_unselect_all (selection);
+	for (l = details->band.kept; l != NULL; l = l->next) {
+		GtkTreePath *path = gtk_tree_row_reference_get_path (l->data);
+
+		if (path != NULL) {
+			gtk_tree_selection_select_path (selection, path);
+			gtk_tree_path_free (path);
+		}
+	}
+	if (first != NULL && last != NULL) {
+		gtk_tree_selection_select_range (selection, first, last);
+	}
+	g_signal_handlers_unblock_by_func (selection, list_selection_changed_callback, view);
+	list_selection_changed_callback (selection, view);
+}
+
+static gboolean
+band_scroll_cb (gpointer data)
+{
+	NemoListView *view = NEMO_LIST_VIEW (data);
+	NemoListViewDetails *details = view->details;
+	GtkAdjustment *adjustment = gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (details->tree_view));
+	int height = gdk_window_get_height (gtk_tree_view_get_bin_window (details->tree_view));
+	int over = 0;
+	gdouble value;
+
+	if (details->band.y < 0) {
+		over = details->band.y;
+	} else if (details->band.y >= height) {
+		over = details->band.y - height + 1;
+	}
+	if (over == 0 || !details->band.active) {
+		details->band.scroll_id = 0;
+		return G_SOURCE_REMOVE;
+	}
+
+	value = gtk_adjustment_get_value (adjustment) + CLAMP (over, -60, 60);
+	value = CLAMP (value, gtk_adjustment_get_lower (adjustment),
+		       gtk_adjustment_get_upper (adjustment) - gtk_adjustment_get_page_size (adjustment));
+	gtk_adjustment_set_value (adjustment, value);
+	band_select (view);
+	gtk_widget_queue_draw (GTK_WIDGET (details->tree_view));
+
+	return G_SOURCE_CONTINUE;
+}
+
+static void
+band_motion (NemoListView *view, GdkEventMotion *event)
+{
+	NemoListViewDetails *details = view->details;
+	GtkTreeSelection *selection;
+	GList *rows, *l;
+
+	details->band.x = (int) event->x;
+	details->band.y = (int) event->y;
+
+	if (!details->band.active) {
+		if (!gtk_drag_check_threshold (GTK_WIDGET (details->tree_view),
+					       details->band.press_x, details->band.press_y,
+					       details->band.x, details->band.y)) {
+			return;
+		}
+		details->band.active = TRUE;
+		nemo_view_start_batching_selection_changes (NEMO_VIEW (view));
+		if (details->band.keep) {
+			selection = gtk_tree_view_get_selection (details->tree_view);
+			rows = gtk_tree_selection_get_selected_rows (selection, NULL);
+			for (l = rows; l != NULL; l = l->next) {
+				details->band.kept = g_list_prepend (details->band.kept,
+					gtk_tree_row_reference_new (gtk_tree_view_get_model (details->tree_view),
+								    l->data));
+			}
+			g_list_free_full (rows, (GDestroyNotify) gtk_tree_path_free);
+		}
+	}
+
+	band_select (view);
+	gtk_widget_queue_draw (GTK_WIDGET (details->tree_view));
+
+	if (details->band.scroll_id == 0 &&
+	    (details->band.y < 0 ||
+	     details->band.y >= gdk_window_get_height (gtk_tree_view_get_bin_window (details->tree_view)))) {
+		details->band.scroll_id = g_timeout_add (30, band_scroll_cb, view);
+	}
+}
+
+/* TRUE when it was dragging, so the release was no click. */
+static gboolean
+band_stop (NemoListView *view)
+{
+	NemoListViewDetails *details = view->details;
+	gboolean was_active = details->band.active;
+
+	if (details->band.scroll_id != 0) {
+		g_source_remove (details->band.scroll_id);
+		details->band.scroll_id = 0;
+	}
+
+	if (was_active) {
+		GtkTreeSelection *selection = gtk_tree_view_get_selection (details->tree_view);
+		GtkTreePath *end = NULL;
+		int height = gdk_window_get_height (gtk_tree_view_get_bin_window (details->tree_view));
+
+		/* The keyboard carries on from where the band ended, as GTK's does. */
+		gtk_tree_view_get_path_at_pos (details->tree_view, 0,
+					       CLAMP (details->band.y, 0, MAX (height - 1, 0)),
+					       &end, NULL, NULL, NULL);
+		if (end != NULL && gtk_tree_selection_path_is_selected (selection, end)) {
+			GList *rows = gtk_tree_selection_get_selected_rows (selection, NULL);
+			GList *l;
+
+			gtk_tree_view_set_cursor (details->tree_view, end, NULL, FALSE);
+			for (l = rows; l != NULL; l = l->next) {
+				gtk_tree_selection_select_path (selection, l->data);
+			}
+			g_list_free_full (rows, (GDestroyNotify) gtk_tree_path_free);
+		}
+		gtk_tree_path_free (end);
+
+		details->band.active = FALSE;
+		gtk_widget_queue_draw (GTK_WIDGET (details->tree_view));
+		nemo_view_stop_batching_selection_changes (NEMO_VIEW (view));
+	}
+
+	details->band.button = 0;
+	details->band.picked = FALSE;
+	g_list_free_full (details->band.kept, (GDestroyNotify) gtk_tree_row_reference_free);
+	details->band.kept = NULL;
+	g_clear_pointer (&details->band.from, gtk_tree_row_reference_free);
+	g_clear_pointer (&details->band.first, gtk_tree_path_free);
+	g_clear_pointer (&details->band.last, gtk_tree_path_free);
+
+	return was_active;
+}
+
+/* Styled as GTK styles its own, a rubberband node under the tree view. */
+static gboolean
+band_draw_callback (GtkWidget *widget, cairo_t *cr, gpointer callback_data)
+{
+	NemoListViewDetails *details = NEMO_LIST_VIEW (callback_data)->details;
+	GtkTreeView *tree_view = details->tree_view;
+	GtkWidgetPath *path;
+	GtkStyleContext *context;
+	int x0, y0, x1, y1, top_x, top;
+
+	if (!details->band.active) {
+		return GDK_EVENT_PROPAGATE;
+	}
+
+	gtk_tree_view_convert_tree_to_widget_coords (tree_view, details->band.start_x,
+						     details->band.start_y, &x0, &y0);
+	gtk_tree_view_convert_bin_window_to_widget_coords (tree_view, details->band.x,
+							   details->band.y, &x1, &y1);
+	gtk_tree_view_convert_bin_window_to_widget_coords (tree_view, 0, 0, &top_x, &top);
+
+	path = gtk_widget_path_copy (gtk_widget_get_path (widget));
+	gtk_widget_path_append_type (path, G_TYPE_NONE);
+	gtk_widget_path_iter_set_object_name (path, -1, "rubberband");
+	context = gtk_style_context_new ();
+	gtk_style_context_set_path (context, path);
+	gtk_style_context_set_parent (context, gtk_widget_get_style_context (widget));
+	gtk_style_context_set_scale (context, gtk_widget_get_scale_factor (widget));
+
+	cairo_save (cr);
+	cairo_rectangle (cr, 0, top, gtk_widget_get_allocated_width (widget),
+			 gtk_widget_get_allocated_height (widget) - top);
+	cairo_clip (cr);
+	gtk_render_background (context, cr, MIN (x0, x1), MIN (y0, y1),
+			       ABS (x1 - x0) + 1, ABS (y1 - y0) + 1);
+	gtk_render_frame (context, cr, MIN (x0, x1), MIN (y0, y1),
+			  ABS (x1 - x0) + 1, ABS (y1 - y0) + 1);
+	cairo_restore (cr);
+
+	g_object_unref (context);
+	gtk_widget_path_unref (path);
+
+	return GDK_EVENT_PROPAGATE;
+}
 
 static gboolean
 motion_notify_callback (GtkWidget *widget,
@@ -1025,50 +1322,21 @@ motion_notify_callback (GtkWidget *widget,
 		}
 	}
 
-    /* If we're already rubber-banding, we can skip all of this logic and just let the parent
-     * class continue to handle selection */
-    if (view->details->drag_button != 0 && !view->details->rubber_banding) {
-        GtkTreePath *path;
-        GtkTreeSelection *selection;
-        gboolean is_new_self_selection;
+	eel_menu_press_moved (&view->details->menu_press, widget, event->x, event->y);
 
-        selection = gtk_tree_view_get_selection (GTK_TREE_VIEW (widget));
+	/* A band whose release went elsewhere is over. */
+	if (view->details->band.button != 0 &&
+	    (event->state & (GDK_BUTTON1_MASK << (view->details->band.button - 1))) == 0) {
+		band_stop (view);
+	}
 
-        gtk_tree_view_get_path_at_pos (GTK_TREE_VIEW (widget),
-                                       view->details->drag_x,
-                                       view->details->drag_y,
-                                       &path,
-                                       NULL, NULL, NULL);
+	if (view->details->band.button != 0) {
+		band_motion (view, event);
+		return GDK_EVENT_STOP;
+	}
 
-        /* This looks complicated but it's just verbose:  We'll only consider allowing rubber-banding
-         * to begin if the following are TRUE: a) The current row is the only row currently selected,
-         * and  b) This is the first click that's been made on this row - meaning, the button-press-event
-         * that preceded this motion-event was the one that caused this row to be selected. */
-        is_new_self_selection = gtk_tree_selection_count_selected_rows (selection) == 1 &&
-                                gtk_tree_selection_path_is_selected (selection, path) &&
-                                (!view->details->double_click_path[1] ||
-                                (view->details->double_click_path[1] &&
-                                gtk_tree_path_compare (view->details->double_click_path[0],
-                                                       view->details->double_click_path[1]) != 0));
-
-        gtk_tree_path_free (path);
-
-        /* We also want to further restrict rubber-banding to be initiated only in blank areas of the row.
-         * This allows DnD to operate on a new selection like before, when the motion begins over text or
-         * icons. The right button, which drags only on Windows, never bands. */
-        if (view->details->drag_button != 3 && is_new_self_selection &&
-            gtk_tree_view_is_blank_at_pos (GTK_TREE_VIEW (widget),
-                                           view->details->drag_x,
-                                           view->details->drag_y,
-                                           NULL, NULL, NULL, NULL)) {
-            /* If this is a candidate for rubber-banding, track that state in the view, and allow the event
-             * to continue into Gtk (which handles rubber-band selection for us) */
-            view->details->rubber_banding = TRUE;
-
-            return GDK_EVENT_PROPAGATE;
-        }
-
-        /* All other cases, allow DnD to potentially begin */
+    if (view->details->drag_button != 0) {
+        /* A press on a row drags what is selected, whatever column it hit. */
         if (!source_target_list) {
             source_target_list = nemo_list_model_get_drag_target_list ();
         }
@@ -1516,6 +1784,7 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 
 	int expander_size, horizontal_separator;
 	gboolean on_expander;
+	gboolean primary;
 
 	view = NEMO_LIST_VIEW (callback_data);
 	tree_view = GTK_TREE_VIEW (widget);
@@ -1545,11 +1814,19 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 		return GDK_EVENT_PROPAGATE;
 	}
 
-    if (!nemo_view_get_active (NEMO_VIEW (view)) && gtk_tree_selection_count_selected_rows (selection) > 0) {
-        NemoWindowSlot *slot = nemo_view_get_nemo_window_slot (NEMO_VIEW (view));
-        nemo_window_slot_make_hosting_pane_active (slot);
-        return GDK_EVENT_STOP;
+    /* The click that wakes the other pane counts too. */
+    if (!nemo_view_get_active (NEMO_VIEW (view))) {
+        nemo_window_slot_make_hosting_pane_active (nemo_view_get_nemo_window_slot (NEMO_VIEW (view)));
     }
+
+	/* A second button during a band is ignored. One whose release never came
+	   is over. */
+	if (view->details->band.button != 0) {
+		if ((event->state & (GDK_BUTTON1_MASK << (view->details->band.button - 1))) != 0) {
+			return GDK_EVENT_STOP;
+		}
+		band_stop (view);
+	}
 
 	nemo_list_model_set_drag_view
 		(NEMO_LIST_MODEL (gtk_tree_view_get_model (tree_view)),
@@ -1563,9 +1840,13 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 		event->state &= ~GDK_SHIFT_MASK;
 	}
 
+	primary = (event->state & eel_gtk_primary_mask (event->window)) != 0;
+
 	call_parent = TRUE;
 	if (gtk_tree_view_get_path_at_pos (tree_view, event->x, event->y,
 					   &path, NULL, NULL, NULL)) {
+		gboolean was_selected = gtk_tree_selection_path_is_selected (selection, path);
+
         if (expanders_enabled (view)) {
     		gtk_widget_style_get (widget,
     				      "expander-size", &expander_size,
@@ -1607,8 +1888,7 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 			 * want that; we want the right click menu or single
 			 * click to apply to everything that's currently selected. */
 
-			if (event->button == 3 &&
-			    gtk_tree_selection_path_is_selected (selection, path)) {
+			if (event->button == 3 && was_selected) {
 				call_parent = FALSE;
 			}
 
@@ -1668,7 +1948,12 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 				gtk_widget_grab_focus (widget);
 			}
 
-			if ((event->button == 1 || event->button == 2) &&
+			/* Ctrl or Shift from a row not yet selected bands; from a
+			 * selected one they drag, and pick copy or move. */
+			if (event->button == 1 && !was_selected && !on_expander &&
+			    (primary || (event->state & GDK_SHIFT_MASK) != 0)) {
+				band_arm (view, event, primary);
+			} else if ((event->button == 1 || event->button == 2) &&
 			    event->type == GDK_BUTTON_PRESS) {
 				view->details->drag_started = FALSE;
 				view->details->drag_button = event->button;
@@ -1676,20 +1961,20 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 				view->details->drag_y = event->y;
 			}
 
+			/* The menu waits for the release, so the press can drag. */
+			if (event->button == 3) {
+				eel_menu_press_begin (&view->details->menu_press, event->button,
+						      event->x, event->y);
 #ifdef G_OS_WIN32
-			/* As in Explorer, the right button drags too, so its menu
-			 * waits for the release. */
-			if (event->button == 3 && event->type == GDK_BUTTON_PRESS) {
+				/* As in Explorer, a right drag from an item moves files. */
 				view->details->drag_started = FALSE;
 				view->details->drag_button = event->button;
 				view->details->drag_x = event->x;
 				view->details->drag_y = event->y;
-			}
 #else
-			if (event->button == 3) {
-				do_popup_menu (widget, view, event);
-			}
+				band_arm (view, event, FALSE);
 #endif
+			}
 		}
 
 		gtk_tree_path_free (path);
@@ -1702,13 +1987,20 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 			view->details->double_click_path[1] = view->details->double_click_path[0];
 			view->details->double_click_path[0] = NULL;
 		}
-		/* Deselect if people click outside any row. It's OK to
-		   let default code run; it won't reselect anything. */
-		gtk_tree_selection_unselect_all (gtk_tree_view_get_selection (tree_view));
+		/* Deselect if people click outside any row, unless Ctrl is
+		   held for a band that adds. It's OK to let default code run;
+		   it won't reselect anything. */
+		if (!primary || event->button != 1) {
+			gtk_tree_selection_unselect_all (gtk_tree_view_get_selection (tree_view));
+		}
 		tree_view_class->button_press_event (widget, event);
 
+		if (event->button == 1 || event->button == 3) {
+			band_arm (view, event, primary && event->button == 1);
+		}
 		if (event->button == 3) {
-			do_popup_menu (widget, view, event);
+			eel_menu_press_begin (&view->details->menu_press, event->button,
+					      event->x, event->y);
 		}
 	}
 
@@ -1718,7 +2010,7 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 }
 
 static gboolean
-button_release_callback (G_GNUC_UNUSED GtkWidget *widget,
+button_release_callback (GtkWidget *widget,
 			 GdkEventButton *event,
 			 gpointer callback_data)
 {
@@ -1726,18 +2018,23 @@ button_release_callback (G_GNUC_UNUSED GtkWidget *widget,
 
 	view = NEMO_LIST_VIEW (callback_data);
 
-    view->details->rubber_banding = FALSE;
+	if (event->button == view->details->band.button) {
+		band_stop (view);
+	}
+
+	if (eel_menu_press_end (&view->details->menu_press, widget, event->button,
+				event->x, event->y) &&
+	    !view->details->drag_started) {
+		stop_drag_check (view);
+		do_popup_menu (widget, view, event);
+		return FALSE;
+	}
 
 	if (event->button == view->details->drag_button) {
 		stop_drag_check (view);
-#ifdef G_OS_WIN32
 		if (event->button == 3) {
-			if (!view->details->drag_started) {
-				do_popup_menu (widget, view, event);
-			}
 			return FALSE;
 		}
-#endif
 		if (!view->details->drag_started &&
 		    !view->details->ignore_button_release) {
 			nemo_list_view_did_not_drag (view, event);
@@ -3995,7 +4292,8 @@ create_and_set_up_tree_view (NemoListView *view)
     gtk_widget_set_margin_start (GTK_WIDGET (view->details->tree_view), LIST_VIEW_EDGE_PADDING);
     gtk_widget_set_margin_end (GTK_WIDGET (view->details->tree_view), LIST_VIEW_EDGE_PADDING);
 
-    gtk_tree_view_set_rubber_banding (GTK_TREE_VIEW (view->details->tree_view), TRUE);
+    /* The view bands for itself; see band_arm. */
+    gtk_tree_view_set_rubber_banding (GTK_TREE_VIEW (view->details->tree_view), FALSE);
 
     gtk_tree_view_set_show_expanders (view->details->tree_view,
                                       nemo_config_get_boolean (nemo_list_view_preferences,
@@ -4084,6 +4382,8 @@ create_and_set_up_tree_view (NemoListView *view)
 				 G_CALLBACK (drag_data_get_callback), view, 0);
 	g_signal_connect_object (view->details->tree_view, "motion_notify_event",
 				 G_CALLBACK (motion_notify_callback), view, 0);
+	g_signal_connect_object (view->details->tree_view, "draw",
+				 G_CALLBACK (band_draw_callback), view, G_CONNECT_AFTER);
 	g_signal_connect_object (view->details->tree_view, "enter_notify_event",
 				 G_CALLBACK (enter_notify_callback), view, 0);
 	g_signal_connect_object (view->details->tree_view, "leave_notify_event",
@@ -5802,6 +6102,16 @@ nemo_list_view_dispose (GObject *object)
 		                             list_view->details->clipboard_handler_id);
 		list_view->details->clipboard_handler_id = 0;
 	}
+
+	if (list_view->details->band.scroll_id != 0) {
+		g_source_remove (list_view->details->band.scroll_id);
+		list_view->details->band.scroll_id = 0;
+	}
+	g_list_free_full (list_view->details->band.kept, (GDestroyNotify) gtk_tree_row_reference_free);
+	list_view->details->band.kept = NULL;
+	g_clear_pointer (&list_view->details->band.from, gtk_tree_row_reference_free);
+	g_clear_pointer (&list_view->details->band.first, gtk_tree_path_free);
+	g_clear_pointer (&list_view->details->band.last, gtk_tree_path_free);
 
     G_OBJECT_CLASS (nemo_list_view_parent_class)->dispose (object);
 }

@@ -1064,6 +1064,45 @@ eel_gtk_primary_mask (GdkWindow *window)
                                          GDK_MODIFIER_INTENT_PRIMARY_ACCELERATOR);
 }
 
+void
+eel_menu_press_begin (EelMenuPress *press, guint button, gdouble x, gdouble y)
+{
+    press->button = button;
+    press->x = x;
+    press->y = y;
+    press->moved = FALSE;
+}
+
+// Latches, so coming back to where it started is still a drag.
+gboolean
+eel_menu_press_moved (EelMenuPress *press, GtkWidget *widget, gdouble x, gdouble y)
+{
+    if (press->button == 0) {
+        return FALSE;
+    }
+    if (!press->moved &&
+        gtk_drag_check_threshold (widget, (gint) press->x, (gint) press->y, (gint) x, (gint) y)) {
+        press->moved = TRUE;
+    }
+
+    return press->moved;
+}
+
+// TRUE when this release ends a press that stayed put, so its menu opens.
+gboolean
+eel_menu_press_end (EelMenuPress *press, GtkWidget *widget, guint button, gdouble x, gdouble y)
+{
+    gboolean click;
+
+    if (press->button == 0 || press->button != button) {
+        return FALSE;
+    }
+    click = !eel_menu_press_moved (press, widget, x, y);
+    press->button = 0;
+
+    return click;
+}
+
 // A tooltip is always on top, so one shown while another program has the
 // focus sits over that program's window. Every tooltip, whatever asked for
 // it, is a window with the tooltip hint, so the gate goes there.

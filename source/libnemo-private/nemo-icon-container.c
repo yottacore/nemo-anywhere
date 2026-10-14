@@ -1233,9 +1233,10 @@ rubberband_select (NemoIconContainer *container,
 
 		is_in = nemo_icon_canvas_item_hit_test_rectangle (icon->item, canvas_rect);
 
+		/* Anything else cleared the selection before the band started. */
 		selection_changed |= icon_set_selected
 			(container, icon,
-			 is_in ^ icon->was_selected_before_rubberband);
+			 is_in || icon->was_selected_before_rubberband);
 	}
 
 	if (selection_changed) {
@@ -1369,7 +1370,10 @@ rubberband_timeout_callback (gpointer data)
 
 static void
 start_rubberbanding (NemoIconContainer *container,
-		     GdkEventButton *event)
+		     double x,
+		     double y,
+		     guint button,
+		     guint32 time)
 {
 	AtkObject *accessible;
 	NemoIconContainerDetails *details;
@@ -1391,7 +1395,7 @@ start_rubberbanding (NemoIconContainer *container,
 	}
 
 	eel_canvas_window_to_world
-		(EEL_CANVAS (container), event->x, event->y,
+		(EEL_CANVAS (container), x, y,
 		 &band_info->start_x, &band_info->start_y);
 
 	context = gtk_widget_get_style_context (GTK_WIDGET (container));
@@ -1421,10 +1425,11 @@ start_rubberbanding (NemoIconContainer *container,
 	atk_object_set_name (accessible, "selection");
 	atk_object_set_description (accessible, _("The selection rectangle"));
 
-	band_info->prev_x = event->x - gtk_adjustment_get_value (gtk_scrollable_get_hadjustment (GTK_SCROLLABLE (container)));
-	band_info->prev_y = event->y - gtk_adjustment_get_value (gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (container)));
+	band_info->prev_x = x - gtk_adjustment_get_value (gtk_scrollable_get_hadjustment (GTK_SCROLLABLE (container)));
+	band_info->prev_y = y - gtk_adjustment_get_value (gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (container)));
 
 	band_info->active = TRUE;
+	band_info->button = button;
 
 	if (band_info->timer_id == 0) {
 		band_info->timer_id = g_timeout_add
@@ -1437,7 +1442,23 @@ start_rubberbanding (NemoIconContainer *container,
 				(GDK_POINTER_MOTION_MASK
 				 | GDK_BUTTON_RELEASE_MASK
 				 | GDK_SCROLL_MASK),
-				NULL, event->time);
+				NULL, time);
+}
+
+/* The band waits for the press to move, so a click is still a click. */
+static void
+wait_for_band (NemoIconContainer *container,
+	       guint button,
+	       double x,
+	       double y,
+	       gboolean keep)
+{
+	NemoIconContainerDetails *details = container->details;
+
+	details->band_pending = button;
+	details->band_keep = keep;
+	details->band_press_x = (int) x;
+	details->band_press_y = (int) y;
 }
 
 static void
@@ -3037,9 +3058,15 @@ button_press_event (GtkWidget *widget,
 		container->details->double_click_icon[0] = NULL;
 	}
 
-	/* Button 1 does rubber banding. */
+	/* A right band can be under way. */
+	if (container->details->rubberband_info.active) {
+		return TRUE;
+	}
+
+	/* Button 1 does rubber banding. Ctrl adds to the selection, and
+	   anything else replaces it. */
 	if (event->button == RUBBERBAND_BUTTON) {
-		if (! button_event_modifies_selection (event)) {
+		if ((event->state & eel_gtk_primary_mask (event->window)) == 0) {
 			selection_changed = unselect_all (container);
 			if (selection_changed) {
 				g_signal_emit (container,
@@ -3047,7 +3074,7 @@ button_press_event (GtkWidget *widget,
 			}
 		}
 
-		start_rubberbanding (container, event);
+		start_rubberbanding (container, event->x, event->y, event->button, event->time);
 		return TRUE;
 	}
 
@@ -3066,14 +3093,18 @@ button_press_event (GtkWidget *widget,
 		return TRUE;
 	}
 
-	/* Button 3 does a contextual menu. */
+	/* Button 3 does a contextual menu, once it comes up without moving,
+	   and a band if it moves first. */
 	if (event->button == CONTEXTUAL_MENU_BUTTON) {
 		nemo_icon_container_end_renaming_mode (container, TRUE);
 		selection_changed = unselect_all (container);
 		if (selection_changed) {
 			g_signal_emit (container, signals[SELECTION_CHANGED], 0);
 		}
-		g_signal_emit (widget, signals[CONTEXT_CLICK_BACKGROUND], 0, event);
+		wait_for_band (container, event->button, event->x, event->y, FALSE);
+		eel_menu_press_begin (&container->details->menu_press, event->button,
+				      event->x, event->y);
+		container->details->menu_on_icon = FALSE;
 		return TRUE;
 	}
 
@@ -3480,9 +3511,22 @@ button_release_event (GtkWidget *widget,
 	container = NEMO_ICON_CONTAINER (widget);
 	details = container->details;
 
-	if (event->button == RUBBERBAND_BUTTON && details->rubberband_info.active) {
+	if (details->rubberband_info.active && event->button == details->rubberband_info.button) {
+		details->band_pending = 0;
+		eel_menu_press_end (&details->menu_press, widget, event->button, event->x, event->y);
 		stop_rubberbanding (container, event->time);
         return GTK_WIDGET_CLASS (nemo_icon_container_parent_class)->button_release_event (widget, event);
+	}
+
+	if (event->button == details->band_pending) {
+		details->band_pending = 0;
+	}
+	if (eel_menu_press_end (&details->menu_press, widget, event->button, event->x, event->y)) {
+		g_signal_emit (container,
+			       details->menu_on_icon ? signals[CONTEXT_CLICK_SELECTION] :
+						      signals[CONTEXT_CLICK_BACKGROUND],
+			       0, event);
+		return TRUE;
 	}
 
 	if (event->button == details->drag_button) {
@@ -3536,6 +3580,27 @@ motion_notify_event (GtkWidget *widget,
 
 	container = NEMO_ICON_CONTAINER (widget);
 	details = container->details;
+
+	eel_menu_press_moved (&details->menu_press, widget, event->x, event->y);
+
+	/* Its release went elsewhere. */
+	if (details->band_pending != 0 &&
+	    (event->state & (GDK_BUTTON1_MASK << (details->band_pending - 1))) == 0) {
+		details->band_pending = 0;
+	}
+
+	if (details->band_pending != 0 && !details->rubberband_info.active &&
+	    gtk_drag_check_threshold (widget, details->band_press_x, details->band_press_y,
+				      (int) event->x, (int) event->y)) {
+		guint button = details->band_pending;
+
+		details->band_pending = 0;
+		if (!details->band_keep && unselect_all (container)) {
+			g_signal_emit (container, signals[SELECTION_CHANGED], 0);
+		}
+		start_rubberbanding (container, details->band_press_x, details->band_press_y,
+				     button, event->time);
+	}
 
 	if (details->drag_button != 0) {
 		switch (details->drag_state) {
@@ -5162,13 +5227,29 @@ handle_icon_button_press (NemoIconContainer *container,
 		}
 	}
 
-#ifndef G_OS_WIN32
-	if (event->button == CONTEXTUAL_MENU_BUTTON) {
-		clear_drag_state (container);
+	/* Ctrl or Shift from an icon not yet selected bands; from a selected
+	   one they drag, and pick copy or move. */
+	if (event->button == DRAG_BUTTON && !details->icon_selected_on_button_down &&
+	    button_event_modifies_selection (event)) {
+		double x, y;
 
-		g_signal_emit (container,
-			       signals[CONTEXT_CLICK_SELECTION], 0,
-			       event);
+		details->drag_button = 0;
+		clear_drag_state (container);
+		eel_canvas_world_to_window (EEL_CANVAS (container), event->x, event->y, &x, &y);
+		wait_for_band (container, event->button, x, y,
+			       (event->state & eel_gtk_primary_mask (event->window)) != 0);
+	}
+
+#ifndef G_OS_WIN32
+	/* The menu waits for the release, so the press can band. */
+	if (event->button == CONTEXTUAL_MENU_BUTTON) {
+		double x, y;
+
+		clear_drag_state (container);
+		eel_canvas_world_to_window (EEL_CANVAS (container), event->x, event->y, &x, &y);
+		wait_for_band (container, event->button, x, y, FALSE);
+		eel_menu_press_begin (&details->menu_press, event->button, x, y);
+		details->menu_on_icon = TRUE;
 	}
 #endif
 

@@ -26,6 +26,7 @@
 #define NEMO_ICON_CONTAINER_PRIVATE_H
 
 #include <eel/eel-glib-extensions.h>
+#include <eel/eel-gtk-extensions.h>
 #include <libnemo-private/nemo-icon-canvas-item.h>
 #include <libnemo-private/nemo-icon-container.h>
 #include <libnemo-private/nemo-icon-dnd.h>
@@ -45,6 +46,7 @@ typedef struct {
 	int last_adj_x;
 	int last_adj_y;
 	gboolean active;
+	guint button;
 } NemoIconRubberbandInfo;
 
 typedef enum {
@@ -176,6 +178,15 @@ struct NemoIconContainerDetails {
 	gboolean drag_started;
 	StretchState stretch_start;
 	gboolean drag_allow_moves;
+
+	/* A band that starts once the press moves: a right press, or Ctrl or
+	 * Shift on an icon not yet selected. band_keep is Ctrl, which adds to
+	 * the selection where anything else replaces it. */
+	guint band_pending;
+	gboolean band_keep;
+	int band_press_x, band_press_y;
+	EelMenuPress menu_press;
+	gboolean menu_on_icon;
 
 	gboolean icon_selected_on_button_down;
 	guint double_click_button[2];

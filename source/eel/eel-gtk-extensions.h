@@ -85,4 +85,24 @@ void                  eel_gtk_tooltips_need_focus                     (void);
 
 /* Cmd on macOS, Control elsewhere */
 GdkModifierType       eel_gtk_primary_mask                            (GdkWindow *window);
+
+/* A right press opens its menu when the button comes up, so the same press can
+   drag a band instead. One that moved past the drag threshold is no click. */
+typedef struct {
+	guint    button;
+	gdouble  x;
+	gdouble  y;
+	gboolean moved;
+} EelMenuPress;
+
+void                  eel_menu_press_begin                            (EelMenuPress *press,
+                                                                       guint button,
+                                                                       gdouble x, gdouble y);
+gboolean              eel_menu_press_moved                            (EelMenuPress *press,
+                                                                       GtkWidget *widget,
+                                                                       gdouble x, gdouble y);
+gboolean              eel_menu_press_end                              (EelMenuPress *press,
+                                                                       GtkWidget *widget,
+                                                                       guint button,
+                                                                       gdouble x, gdouble y);
 #endif /* EEL_GTK_EXTENSIONS_H */

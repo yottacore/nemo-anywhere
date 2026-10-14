@@ -93,6 +93,7 @@ struct FMTreeViewDetails {
 	gulong clipboard_handler_id;
 
 	GtkWidget *popup_menu;
+	EelMenuPress menu_press;
 
 	NemoFile *popup_file;
 	guint popup_file_idle_handler;
@@ -835,14 +836,29 @@ update_menu_states (FMTreeView *view,
 }
 
 static gboolean
+button_released_callback (GtkTreeView *treeview,
+                          GdkEventButton *event,
+                          FMTreeView *view)
+{
+    if (eel_menu_press_end (&view->details->menu_press, GTK_WIDGET (treeview),
+                            event->button, event->x, event->y)) {
+        popup_menu (view, event);
+        return GDK_EVENT_STOP;
+    }
+
+    return GDK_EVENT_PROPAGATE;
+}
+
+static gboolean
 button_pressed_callback (GtkTreeView *treeview,
                          GdkEventButton *event,
                          FMTreeView *view)
 {
     g_return_val_if_fail (FM_IS_TREE_VIEW (view), GDK_EVENT_PROPAGATE);
 
+    /* The menu opens on the release, as in the folder views. */
     if (event->button == 3) {
-        popup_menu (view, event);
+        eel_menu_press_begin (&view->details->menu_press, event->button, event->x, event->y);
         return GDK_EVENT_STOP;
     } else if (event->button == 2 && event->type == GDK_BUTTON_PRESS) {
         NemoFile *file;
@@ -1620,6 +1636,9 @@ create_tree (FMTreeView *view)
 
 	g_signal_connect (G_OBJECT (view->details->tree_widget), 
 			  "button_press_event", G_CALLBACK (button_pressed_callback),
+			  view);
+	g_signal_connect (G_OBJECT (view->details->tree_widget),
+			  "button-release-event", G_CALLBACK (button_released_callback),
 			  view);
 
     g_signal_connect (G_OBJECT (view->details->tree_widget), 
