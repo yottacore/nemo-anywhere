@@ -911,6 +911,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261014: Options: find results could also keep a picked view for later searches, in its own setting, like the columns. Left out, since only the columns were asked for. If the columns themselves were seen leaking, the steps that showed it would help, since none of the above did.
 	- Swept: every place that picks or keeps a view: loading a location, a pick from the View menu or toolbar, a new default view, the switch for picture folders (never kept, unchanged), and a tab moved between windows (keeps the view it came with, unchanged). The list view's zoom in find results was already never kept. The icon view's zoom there still follows the window's, now only after icon view is picked for the results.
 	- Branch: colsplit
+	- Commit: 0d17dd2
 	- Test case: rk7wxqh5, Find mode view test. It puts a folder in icon view, searches, picks compact view for the results, searches again and leaves, with per-folder settings off and on. Before the fix it failed 3 checks: icons in find mode and compact left on the folder with them off, and the list view back after a new query with them on. It passes after.
 
 - Leaving an empty search page from history and searching again searches the whole disk.
