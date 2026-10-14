@@ -167,7 +167,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026101405542816
 	- Type: Bug
 	- Status: Waiting on signoff
-	- Needs local test suite run?: yes, the full Linux suite. The nearby search, view, tab and settings tests passed, 13 of 13.
+	- Needs local test suite run?: done 20261014 on dev at 6276301, passed 204 of 204. The nearby search, view, tab and settings tests passed, 13 of 13.
 	- Priority|Severity: Avg
 	- Opened: 20261014-055428
 	- Opened by: t00mietum
@@ -358,7 +358,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026101405542853
 	- Type: Enhancement
 	- Status: Waiting on signoff
-	- Needs local test suite run?: yes, the full Linux suite. The 26 tests around search, settings, rename, Escape and the connecting sign passed.
+	- Needs local test suite run?: done 20261014 on dev at 6276301, passed 204 of 204. The 26 tests around search, settings, rename, Escape and the connecting sign passed.
 	- Priority|Severity: Avg
 	- Opened: 20261014-055428
 	- Opened by: t00mietum
@@ -382,7 +382,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026101405543076
 	- Type: Enhancement
 	- Status: Waiting on signoff
-	- Needs local test suite run?: yes, the full Linux suite.
+	- Needs local test suite run?: done 20261014 on dev at 6276301, passed 204 of 204.
 	- Needs external testing: on vm925w, rk7wrme6 and rhtmbdmd in the native suite. Then by hand, with the single exe: the settings field and its tooltip, and F2 on several files, folders and a name with a space, with ReNamer and then Ant Renamer installed.
 	- Priority|Severity: Avg
 	- Opened: 20261014-055430
@@ -425,7 +425,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026101405542891
 	- Type: Enhancement
 	- Status: Waiting on signoff
-	- Needs local test suite run?: yes, the full Linux suite. Only the drag select test and the menu, Places, tree, list and icon view tests near it were run.
+	- Needs local test suite run?: done 20261014 on dev at 54239d1, passed 206 of 206.
 	- Needs external testing: Windows, on vm925w once it's on. A right drag from an item still moves files with the drop menu, a right drag from empty space bands, and the menus in both views, Places and the tree open when the button comes up. The Windows cross build is clean.
 	- Priority|Severity: Avg
 	- Opened: 20261014-055428
@@ -462,7 +462,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026101405542928
 	- Type: Enhancement
 	- Status: Waiting on signoff
-	- Needs local test suite run?: yes, with 2026101405542891.
+	- Needs local test suite run?: done 20261014 with 2026101405542891, passed.
 	- Needs external testing: Windows, with 2026101405542891.
 	- Priority|Severity: Avg
 	- Opened: 20261014-055428
@@ -485,7 +485,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026101405542965
 	- Type: Enhancement
 	- Status: Waiting on signoff
-	- Needs local test suite run?: yes, the full Linux suite. Only the long press test and the drag select, menu, Places, tree, list, icon and drop tests near it were run.
+	- Needs local test suite run?: done 20261014 on dev at 99e8595, passed 207 of 207.
 	- Needs external testing: Windows, on vm925w once it's on. A long press opens the menu on an item and on empty space in the list and icon views, in Places and in the tree, and the menu stays up once the button comes up. The Windows cross build is clean.
 	- Priority|Severity: Avg
 	- Opened: 20261014-055428
@@ -970,8 +970,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026101406405845
 	- Type: Bug
 	- Status: Waiting for testing
-	- Needs local test suite run?: yes, the full Linux suite and the sanitizer lane, since the remembered queries are held until exit. The nearby search, find, tab and title tests passed, 14 of 14.
-	- Needs external testing: the Windows cross build with warnings as errors.
+	- Needs local test suite run?: the sanitizer lane, since the remembered queries are held until exit. The full Linux suite passed 20261014 on dev at 54239d1, 206 of 206. The nearby search, find, tab and title tests passed, 14 of 14.
+	- Needs external testing: done 20261014, the Windows cross build with warnings as errors passed on the longpress branch, which has this fix.
 	- Priority|Severity: Avg
 	- Opened: 20261014-064058
 	- Opened by: 2026101405542816
