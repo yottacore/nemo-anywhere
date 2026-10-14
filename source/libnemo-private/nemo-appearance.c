@@ -157,7 +157,7 @@ ensure_user_dirs (void)
 	for (i = 0; i < (int) G_N_ELEMENTS (subs); i++) {
 		sub = g_build_filename (user_dir, subs[i], NULL);
 		if (g_mkdir_with_parents (sub, 0755) != 0) {
-			g_debug ("appearance: could not create %s", sub);
+			g_debug ("appearance: couldn't create %s", sub);
 		}
 		g_free (sub);
 	}

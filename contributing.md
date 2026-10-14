@@ -24,9 +24,9 @@ Thanks for looking. This is a small, independent hard fork of [linuxmint/nemo](h
 
 ## Before anything else
 
-Report issues [here](https://github.com/yottacore/nemo-anywhere/issues), never to Linux Mint or the Cinnamon team. This fork is not affiliated with them and nothing from it goes upstream. [fork.md](fork.md) has the provenance.
+Report issues [here](https://github.com/yottacore/nemo-anywhere/issues), never to Linux Mint or the Cinnamon team. This fork isn't affiliated with them and nothing from it goes upstream. [fork.md](fork.md) has the provenance.
 
-Check [project/backlog.md](project/backlog.md) first. A lot of what looks like a missing feature is already sitting there, sometimes with a note on why it has not been done.
+Check [project/backlog.md](project/backlog.md) first. A lot of what looks like a missing feature is already sitting there, sometimes with a note on why it hasn't been done.
 
 The license is GPL-2.0-only, version two and not "or later". Anything contributed comes in under that, except in `source/libnemo-extension/`, which is LGPL.
 
@@ -46,7 +46,7 @@ If it involves a file operation, say whether the source and destination were on 
 
 ## Reporting a security problem
 
-Do not open a public issue for anything that could be exploited. Use a [private security advisory](https://github.com/yottacore/nemo-anywhere/security/advisories/new), which is the only private channel this repository has.
+Don't open a public issue for anything that could be exploited. Use a [private security advisory](https://github.com/yottacore/nemo-anywhere/security/advisories/new), which is the only private channel this repository has.
 
 ## Suggesting a feature
 
@@ -56,7 +56,7 @@ Otherwise, open an issue and say what problem the feature solves rather than wha
 
 ## Sending code
 
-- Read [project/style-guide_code.md](project/style-guide_code.md). New code looks like the code beside it, and a patch that reformats what it did not need to touch will be asked to go back.
+- Read [project/style-guide_code.md](project/style-guide_code.md). New code looks like the code beside it, and a patch that reformats what it didn't need to touch will be asked to go back.
 
 - Branch off `dev`, not `main`. `main` is release-only.
 

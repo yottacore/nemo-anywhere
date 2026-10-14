@@ -1087,7 +1087,7 @@ confirm_password (ArchiveDialog *self,
 	gtk_entry_set_activates_default (GTK_ENTRY (entry), TRUE);
 	gtk_box_pack_start (GTK_BOX (box), entry, FALSE, FALSE, 0);
 
-	mismatch = gtk_label_new (_("That is not the same password."));
+	mismatch = gtk_label_new (_("That isn't the same password."));
 	gtk_label_set_xalign (GTK_LABEL (mismatch), 0.0);
 	gtk_box_pack_start (GTK_BOX (box), mismatch, FALSE, FALSE, 0);
 

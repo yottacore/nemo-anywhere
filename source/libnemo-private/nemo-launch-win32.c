@@ -359,7 +359,7 @@ set_failed (GError      **error,
 	gchar *reason = g_win32_error_message (GetLastError ());
 
 	g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-		     _("Could not start \"%s\": %s"), what, reason);
+		     _("Couldn't start \"%s\": %s"), what, reason);
 	g_free (reason);
 }
 

@@ -95,9 +95,9 @@ Copying a link asks what should be at the far end. A link can stay a link or be 
 
 - Links inside a folder whose contents are copied are kept as links, or junctions, where the destination allows. A tooltip on "Copy contents" says so.
 
-- Windows is where this mattered most. A copy there always followed the link and left the contents behind, so a link could not be copied as a link at all. POSIX already kept symlinks by default; what is new there is being able to ask for the contents instead.
+- Windows is where this mattered most. A copy there always followed the link and left the contents behind, so a link couldn't be copied as a link at all. POSIX already kept symlinks by default; what is new there is being able to ask for the contents instead.
 
-- Windows has two kinds of link where POSIX has one, and the dialog says so. A folder symlink and a junction both point at a folder, but only the symlink needs a privilege Windows normally withholds. Each row starts on the kind it found and falls back to the nearest kind that still reaches the same target, then to a plain copy. Anything the destination cannot take is grayed out rather than hidden, so the dialog does not change shape between machines.
+- Windows has two kinds of link where POSIX has one, and the dialog says so. A folder symlink and a junction both point at a folder, but only the symlink needs a privilege Windows normally withholds. Each row starts on the kind it found and falls back to the nearest kind that still reaches the same target, then to a plain copy. Anything the destination can't take is grayed out rather than hidden, so the dialog doesn't change shape between machines.
 
 - The kind of a Windows link comes from its reparse tag. Nothing else tells a junction from a folder symlink, and it also keeps cloud placeholders and store app aliases, which are reparse points too, from being read as links.
 
@@ -107,7 +107,7 @@ Copying a link asks what should be at the far end. A link can stay a link or be 
 
 ### Moving
 
-- A move always takes a link as the link. Taking the contents would empty the folder the link points at, which is not what was asked to go. A move to another drive still asks, and can make a different kind of link, but the copy option is grayed out. A move on one drive is a rename and asks nothing, so every link arrives as it was.
+- A move always takes a link as the link. Taking the contents would empty the folder the link points at, which isn't what was asked to go. A move to another drive still asks, and can make a different kind of link, but the copy option is grayed out. A move on one drive is a rename and asks nothing, so every link arrives as it was.
 
 - A drop that moves files names what it is about to do and where, and waits for an answer. Accidental drags, most of all big ones across filesystems, are one of the worst things about file managers. Moves ask by default; copies and links don't. Both are settings under Behavior. It covers every place a drop can move files: the file list, the icon view, both sidebars, the path bar and the tabs. A drop on the Trash asks under its own setting, not twice.
 
@@ -127,16 +127,16 @@ Copying a link asks what should be at the far end. A link can stay a link or be 
 
 Make link asks what to make, one row for the folders and one for the files. Folders get a junction or a symlink on Windows and a symlink elsewhere. Files get a symlink or a hardlink. Either can be a `.lnk` shortcut, labeled Shortcut. The title is in the window's title bar.
 
-- From the menu the dialog does not say where the links go, since it is always the folder in view. A link drop opens the same dialog, and there it names the folder, since a drop can be onto another folder or another window.
+- From the menu the dialog doesn't say where the links go, since it is always the folder in view. A link drop opens the same dialog, and there it names the folder, since a drop can be onto another folder or another window.
 
-- A symlink path row picks absolute or relative for whatever comes out a symlink. It is hidden when nothing does, since a junction is always absolute and a hardlink has no path, but keeps its space so the dialog does not jump. It sits a little lower than the rows above it, since it's a different kind of choice.
+- A symlink path row picks absolute or relative for whatever comes out a symlink. It is hidden when nothing does, since a junction is always absolute and a hardlink has no path, but keeps its space so the dialog doesn't jump. It sits a little lower than the rows above it, since it's a different kind of choice.
 	- Absolute is the default. Relative is there for links inside a tree: it keeps working when the whole tree is moved or mounted somewhere else, which is the usual reason to link inside one. It always has to work from the folder the link really sits in, since `..` climbs from there. So the paths as seen and the real paths, with symlinked folders resolved, are both tried, and the shortest that still reaches the target wins. Resolving alone would send a link up to the root whenever a symlinked folder on the way leads to another tree. Between two Windows drives there is no relative path, and the link keeps the absolute one.
 
 - A link made beside its original says what it is: "photo - symlink.jpg", "photo - hardlink.jpg", "folder - junction". The extension stays last so the link still opens as its type. A shortcut follows Explorer's pattern instead, "photo.jpg - shortcut.lnk". A link made in another folder keeps the original's name. A clash adds " 2", " 3" and so on.
 
 - A drop never asks the drop question for links, since the dialog is the question. Every link drop opens it, from the Alt menu or with the link keys held, in any view or sidebar.
 
-- A hardlink is never picked for anyone, even where a symlink cannot be made. It is the one choice that can cost something: an edit through one name changes a file that looks unrelated, and a program that saves by replacing the file splits the two names apart without a word. Its tooltip says so, and choosing it asks once more, every time, with Cancel as the default. Backing out goes back to the dialog with the choices as they were. See [Hardlinks](20260925-063617_dedupe_and_thumbnails.md#hardlinks) for why.
+- A hardlink is never picked for anyone, even where a symlink can't be made. It is the one choice that can cost something: an edit through one name changes a file that looks unrelated, and a program that saves by replacing the file splits the two names apart without a word. Its tooltip says so, and choosing it asks once more, every time, with Cancel as the default. Backing out goes back to the dialog with the choices as they were. See [Hardlinks](20260925-063617_dedupe_and_thumbnails.md#hardlinks) for why.
 
 - Nothing is remembered. Every open starts from the defaults, so what it offers never depends on what was done last time. A way to change the defaults may come later.
 
@@ -156,7 +156,7 @@ Make link asks what to make, one row for the folders and one for the files. Fold
 
 Edit link changes an existing link's name and where it points. It is offered only when one symlink, junction or shortcut is selected. A hardlink has no target to change.
 
-- A symlink or junction gets one target field, taken as typed, so a relative one stays relative. The new link is made under a spare name first. On Linux it is then renamed over the old one, so the old link is never missing. Windows cannot rename over a folder, so there the old link goes first, and the new one is taken back if it will not.
+- A symlink or junction gets one target field, taken as typed, so a relative one stays relative. The new link is made under a spare name first. On Linux it is then renamed over the old one, so the old link is never missing. Windows can't rename over a folder, so there the old link goes first, and the new one is taken back if it won't.
 
 - A shortcut shows its three paths, and any can be emptied to drop it. Only the paths are rewritten; its arguments, Start in folder and icon stay. What else it records about the old target goes with them, the item ID list included, since Windows would follow that first.
 
@@ -222,7 +222,7 @@ None.
 
 - Link copy dialog. Done.
 
-- When copying symlinks, make it clear that "Symlink" is not creating a new one. Done.
+- When copying symlinks, make it clear that "Symlink" isn't creating a new one. Done.
 
 - Confirm mouse-movement-based actions. Done.
 
@@ -244,7 +244,7 @@ None.
 
 - 2026092813381417: hardlinking a selected symlink links the symlink.
 
-- 2026092813381418: a relative symlink between two shares of one server does not resolve.
+- 2026092813381418: a relative symlink between two shares of one server doesn't resolve.
 
 - 2026092813381440: the shortcut path choice code is only reached by tests.
 

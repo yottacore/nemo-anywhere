@@ -66,22 +66,22 @@ nemo_report_error_loading_directory (NemoFile *file,
 	if (error->domain == G_IO_ERROR) {
 		switch (error->code) {
 		case G_IO_ERROR_PERMISSION_DENIED:
-			message = g_strdup_printf (_("You do not have the permissions necessary to view the contents of \"%s\"."),
+			message = g_strdup_printf (_("You don't have the permissions necessary to view the contents of \"%s\"."),
 						   file_name);
 			break;
 		case G_IO_ERROR_NOT_FOUND:
-			message = g_strdup_printf (_("\"%s\" could not be found. Perhaps it has recently been deleted."),
+			message = g_strdup_printf (_("\"%s\" couldn't be found. Perhaps it has recently been deleted."),
 						   file_name);
 			break;
 		default:
-			message = g_strdup_printf (_("Sorry, could not display all the contents of \"%s\": %s"), file_name,
+			message = g_strdup_printf (_("Sorry, couldn't display all the contents of \"%s\": %s"), file_name,
 						   error->message);
 		}
 	} else {
 		message = g_strdup (error->message);
 	}
 
-	eel_show_error_dialog (_("The folder contents could not be displayed."), message, parent_window);
+	eel_show_error_dialog (_("The folder contents couldn't be displayed."), message, parent_window);
 
 	g_free (file_name);
 	g_free (message);
@@ -105,7 +105,7 @@ nemo_report_error_setting_group (NemoFile *file,
 	if (error->domain == G_IO_ERROR) {
 		switch (error->code) {
 		case G_IO_ERROR_PERMISSION_DENIED:
-			message = g_strdup_printf (_("You do not have the permissions necessary to change the group of \"%s\"."),
+			message = g_strdup_printf (_("You don't have the permissions necessary to change the group of \"%s\"."),
 						   file_name);
 			break;
 		default:
@@ -118,12 +118,12 @@ nemo_report_error_setting_group (NemoFile *file,
 		g_warning ("Hit unhandled case %s:%d in nemo_report_error_setting_group", 
 			   g_quark_to_string (error->domain), error->code);
 		/* fall through */
-		message = g_strdup_printf (_("Sorry, could not change the group of \"%s\": %s"), file_name,
+		message = g_strdup_printf (_("Sorry, couldn't change the group of \"%s\": %s"), file_name,
 					   error->message);
 	}
 	
 	
-	eel_show_error_dialog (_("The group could not be changed."), message, parent_window);
+	eel_show_error_dialog (_("The group couldn't be changed."), message, parent_window);
 	
 	g_free (file_name);
 	g_free (message);
@@ -143,9 +143,9 @@ nemo_report_error_setting_owner (NemoFile *file,
 
 	file_name = nemo_file_get_display_name (file);
 
-	message = g_strdup_printf (_("Sorry, could not change the owner of \"%s\": %s"), file_name, error->message);
+	message = g_strdup_printf (_("Sorry, couldn't change the owner of \"%s\": %s"), file_name, error->message);
 
-	eel_show_error_dialog (_("The owner could not be changed."), message, parent_window);
+	eel_show_error_dialog (_("The owner couldn't be changed."), message, parent_window);
 
 	g_free (file_name);
 	g_free (message);
@@ -165,9 +165,9 @@ nemo_report_error_setting_permissions (NemoFile *file,
 
 	file_name = nemo_file_get_display_name (file);
 
-	message = g_strdup_printf (_("Sorry, could not change the permissions of \"%s\": %s"), file_name, error->message);
+	message = g_strdup_printf (_("Sorry, couldn't change the permissions of \"%s\": %s"), file_name, error->message);
 
-	eel_show_error_dialog (_("The permissions could not be changed."), message, parent_window);
+	eel_show_error_dialog (_("The permissions couldn't be changed."), message, parent_window);
 
 	g_free (file_name);
 	g_free (message);
@@ -212,16 +212,16 @@ nemo_report_error_renaming_file (NemoFile *file,
 						   original_name_truncated);
 			break;
 		case G_IO_ERROR_PERMISSION_DENIED:
-			message = g_strdup_printf (_("You do not have the permissions necessary to rename \"%s\"."),
+			message = g_strdup_printf (_("You don't have the permissions necessary to rename \"%s\"."),
 						   original_name_truncated);
 			break;
 		case G_IO_ERROR_INVALID_FILENAME:
 			if (strchr (new_name, '/') != NULL) {
-				message = g_strdup_printf (_("The name \"%s\" is not valid because it contains the character \"/\". "
+				message = g_strdup_printf (_("The name \"%s\" isn't valid because it contains the character \"/\". "
 							     "Please use a different name."),
 							   new_name_truncated);
 			} else {
-				message = g_strdup_printf (_("The name \"%s\" is not valid. "
+				message = g_strdup_printf (_("The name \"%s\" isn't valid. "
 							     "Please use a different name."),
 							   new_name_truncated);
 			}
@@ -241,7 +241,7 @@ nemo_report_error_renaming_file (NemoFile *file,
 		g_warning ("Hit unhandled case %s:%d in nemo_report_error_renaming_file", 
 			   g_quark_to_string (error->domain), error->code);
 		/* fall through */
-		message = g_strdup_printf (_("Sorry, could not rename \"%s\" to \"%s\": %s"), 
+		message = g_strdup_printf (_("Sorry, couldn't rename \"%s\" to \"%s\": %s"), 
 					   original_name_truncated, new_name_truncated,
 					   error->message);
 	}
@@ -249,7 +249,7 @@ nemo_report_error_renaming_file (NemoFile *file,
 	g_free (original_name_truncated);
 	g_free (new_name_truncated);
 
-	eel_show_error_dialog (_("The item could not be renamed."), message, parent_window);
+	eel_show_error_dialog (_("The item couldn't be renamed."), message, parent_window);
 	g_free (message);
 }
 
@@ -382,7 +382,7 @@ report_nest_error (const char *typed, GError *error, GtkWindow *parent_window)
 					     "Please use a different name."), shown);
 	}
 
-	eel_show_error_dialog (_("The folders could not be made."),
+	eel_show_error_dialog (_("The folders couldn't be made."),
 			       message != NULL ? message : error->message, parent_window);
 }
 

@@ -496,7 +496,7 @@ remember_source_filesystem (const char  *dropped_uri,
                                  &error);
 
     if (error != NULL || fs_info == NULL) {
-        g_warning ("Cannot read the filesystem of a dragged file: %s",
+        g_warning ("Can't read the filesystem of a dragged file: %s",
                    error != NULL ? error->message : "no info returned");
         g_clear_error (&error);
         *source_fs = NULL;

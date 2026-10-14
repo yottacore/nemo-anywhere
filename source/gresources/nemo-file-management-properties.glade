@@ -2375,7 +2375,7 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                                 <property name="visible">True</property>
                                                 <property name="can-focus">True</property>
                                                 <property name="receives-default">False</property>
-                                                <property name="tooltip-text" translatable="yes">Every pre-release has this on, to catch a removal nothing accounts for. It is not needed for this release candidate, and it is safe to turn off.</property>
+                                                <property name="tooltip-text" translatable="yes">Every pre-release has this on, to catch a removal nothing accounts for. It isn't needed for this release candidate, and it is safe to turn off.</property>
                                                 <property name="xalign">0</property>
                                                 <property name="draw-indicator">True</property>
                                               </object>
@@ -3832,7 +3832,7 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                             <property name="visible">True</property>
                                             <property name="can-focus">False</property>
                                             <property name="margin-start">24</property>
-                                            <property name="label" translatable="yes">&lt;i&gt;Folders the index does not cover, and content searches by pattern or by case, are still searched directly.&lt;/i&gt;</property>
+                                            <property name="label" translatable="yes">&lt;i&gt;Folders the index doesn't cover, and content searches by pattern or by case, are still searched directly.&lt;/i&gt;</property>
                                             <property name="use-markup">True</property>
                                             <property name="wrap">True</property>
                                             <property name="xalign">0</property>

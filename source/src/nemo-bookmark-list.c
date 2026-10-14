@@ -779,7 +779,7 @@ load_bookmark_metadata_file (G_GNUC_UNUSED NemoBookmarkList *list)
         g_strfreev (items);
     } else {
         if (!g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_NOENT)) {
-            g_warning ("Could not load bookmark metadata file: %s\n", error->message);
+            g_warning ("Couldn't load bookmark metadata file: %s\n", error->message);
         }
         g_error_free (error);
     }
@@ -800,7 +800,7 @@ load_files_finish (NemoBookmarkList *bookmarks,
     GList *new_list = g_task_propagate_pointer (G_TASK (res), &error);
 
     if (error != NULL && !g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND)) {
-        g_warning ("Could not load bookmarks: %s\n", error->message);
+        g_warning ("Couldn't load bookmarks: %s\n", error->message);
         g_error_free (error);
         return;
     }
@@ -959,7 +959,7 @@ save_bookmark_metadata_file (NemoBookmarkList *list)
                                  &error)) {
         ensure_proper_file_permissions (file);
     } else {
-        g_warning ("Could not save bookmark metadata file: %s\n", error->message);
+        g_warning ("Couldn't save bookmark metadata file: %s\n", error->message);
         g_error_free (error);
     }
 

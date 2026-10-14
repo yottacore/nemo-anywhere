@@ -511,10 +511,10 @@ static const char *
 cannot_read_back (const ArcOptions *options)
 {
 	if (options->split_size > 0) {
-		return _("An archive split into volumes cannot be checked.");
+		return _("An archive split into volumes can't be checked.");
 	}
 	if (options->encrypt_names && options->password != NULL && options->password[0] != '\0') {
-		return _("An archive with its file names encrypted cannot be checked.");
+		return _("An archive with its file names encrypted can't be checked.");
 	}
 	return NULL;
 }
@@ -603,8 +603,8 @@ mismatch_reason (guint   missing_folders,
 
 	if (missing > 0) {
 		words = count_words (missing_folders, missing_files);
-		g_string_append_printf (said, ngettext ("%s that was selected is not in the archive.",
-							"%s that were selected are not in the archive.",
+		g_string_append_printf (said, ngettext ("%s that was selected isn't in the archive.",
+							"%s that were selected aren't in the archive.",
 							missing),
 					words);
 		g_free (words);
@@ -614,8 +614,8 @@ mismatch_reason (guint   missing_folders,
 			g_string_append_c (said, ' ');
 		}
 		words = count_words (extra_folders, extra_files);
-		g_string_append_printf (said, ngettext ("%s in the archive was not selected.",
-							"%s in the archive were not selected.",
+		g_string_append_printf (said, ngettext ("%s in the archive wasn't selected.",
+							"%s in the archive weren't selected.",
 							extra),
 					words);
 		g_free (words);
@@ -632,8 +632,8 @@ mismatch_reason (guint   missing_folders,
 			g_free (selected);
 		} else if (resized > 0) {
 			/* The same total from sizes that differ. */
-			g_string_append_printf (said, ngettext ("%'u file in the archive is not the size of the one selected.",
-								"%'u files in the archive are not the size of the ones selected.",
+			g_string_append_printf (said, ngettext ("%'u file in the archive isn't the size of the one selected.",
+								"%'u files in the archive aren't the size of the ones selected.",
 								resized),
 						resized);
 		}
@@ -680,7 +680,7 @@ arc_verify (const ArcHost    *host,
 
 	path = g_file_get_path (archive_file);
 	if (path == NULL) {
-		trouble = g_strdup (_("The archive is not on this computer, so it cannot be read back."));
+		trouble = g_strdup (_("The archive isn't on this computer, so it can't be read back."));
 		goto out;
 	}
 
@@ -688,7 +688,7 @@ arc_verify (const ArcHost    *host,
 	g_free (path);
 
 	if (listing == NULL) {
-		trouble = g_strdup (_("The archive could not be read back."));
+		trouble = g_strdup (_("The archive couldn't be read back."));
 		goto out;
 	}
 
@@ -744,9 +744,9 @@ arc_verify (const ArcHost    *host,
 	if (g_cancellable_is_cancelled (cancellable)) {
 		trouble = g_strdup (_("Checking the archive was stopped."));
 	} else if (walk.locked_link) {
-		trouble = g_strdup (_("A 7z with a password cannot be checked when it keeps links as links."));
+		trouble = g_strdup (_("A 7z with a password can't be checked when it keeps links as links."));
 	} else if (!walk.whole) {
-		trouble = g_strdup (_("Something in the selection could not go into an archive, so not all of it is in there."));
+		trouble = g_strdup (_("Something in the selection couldn't go into an archive, so not all of it is in there."));
 	}
 
 	if (trouble == NULL) {
@@ -809,8 +809,8 @@ arc_verify (const ArcHost    *host,
 		/* The listing stops at such a link, so nothing after it would
 		   count right either. */
 		if (unlisted > 0) {
-			trouble = g_strdup_printf (ngettext ("%'u link has a target too long to read back from a rar, so the archive cannot be checked.",
-							     "%'u links have targets too long to read back from a rar, so the archive cannot be checked.",
+			trouble = g_strdup_printf (ngettext ("%'u link has a target too long to read back from a rar, so the archive can't be checked.",
+							     "%'u links have targets too long to read back from a rar, so the archive can't be checked.",
 							     unlisted),
 						   unlisted);
 		} else {

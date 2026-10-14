@@ -213,7 +213,7 @@ nemo_instance_share_settings (GDBusConnection *connection)
 	g_dbus_node_info_unref (info);
 	if (id == 0) {
 		/* Then the file watch is the only way a change gets here. */
-		g_warning ("Could not take settings changes from other copies: %s", error->message);
+		g_warning ("Couldn't take settings changes from other copies: %s", error->message);
 		g_clear_error (&error);
 		return 0;
 	}
@@ -352,7 +352,7 @@ nemo_instances_start (GApplication *application)
 		                                                          one->node->interfaces[0], &vtable,
 		                                                          one, NULL, &error);
 		if (one->registration_id == 0) {
-			g_warning ("Could not offer %s to the other copies: %s",
+			g_warning ("Couldn't offer %s to the other copies: %s",
 			           one->node->interfaces[0]->name, error->message);
 			g_clear_error (&error);
 		}
@@ -578,7 +578,7 @@ nemo_instances_start (GApplication *application)
 	/* Up before the pipe, which is what lists this copy. */
 	instances_up = TRUE;
 	if (!nemo_instances_win32_start (dispatch, &error)) {
-		g_warning ("Other copies cannot reach this one: %s", error->message);
+		g_warning ("Other copies can't reach this one: %s", error->message);
 		g_clear_error (&error);
 		instances_up = FALSE;
 		return FALSE;

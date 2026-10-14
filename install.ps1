@@ -56,7 +56,7 @@
 
 .PARAMETER From
 	Install this archive - a path or a URL - instead of fetching a release.
-	It is not checked against a checksums file.
+	It isn't checked against a checksums file.
 
 .PARAMETER NoVerify
 	Install a release that publishes no checksums file. Without it the installer
@@ -73,7 +73,7 @@
 	Print the installer's version and exit.
 
 .PARAMETER Help
-	List the options and exit. Get-Help cannot reach a script run as a one-liner,
+	List the options and exit. Get-Help can't reach a script run as a one-liner,
 	so this is the way to see them there.
 
 .EXAMPLE
@@ -153,7 +153,7 @@ function fFileError {
 	while ($ex.InnerException) { $ex = $ex.InnerException }
 	if ($ex -is [System.UnauthorizedAccessException]) {
 		if ($os -eq "windows" -and $Target -eq "system") { $hint = "Re-run from an elevated PowerShell (Run as administrator), or use -Target user." }
-		elseif ($os -eq "windows") { $hint = "Check the folder is not read-only, and that antivirus is not blocking it." }
+		elseif ($os -eq "windows") { $hint = "Check the folder isn't read-only, and that antivirus isn't blocking it." }
 		else { $hint = "Check who owns it: ls -ld $Path" }
 		fFail "${What} - permission denied: ${Path}" @($hint)
 	}
@@ -203,7 +203,7 @@ function fHelp {
 	fEcho_Clean ""
 	fEcho_Clean "  A release download is checked against the release's checksums file."
 	fEcho_Clean "  With no checksums file it stops, even with -Yes, unless -NoVerify is"
-	fEcho_Clean "  given. A -From archive is not checked."
+	fEcho_Clean "  given. A -From archive isn't checked."
 	fEcho_Clean ""
 }
 
@@ -236,7 +236,7 @@ function fResolveTag {
 		## Assigned first: irm passes a JSON array down the pipe as one object.
 		$releases = Invoke-RestMethod -Uri "https://api.github.com/repos/${Repo}/releases?per_page=100" -UseBasicParsing
 	} catch {
-		fFail "could not list the releases of ${Repo} ($(fInnerMessage $_))" @("Check the connection. GitHub also limits anonymous requests to 60 an hour.")
+		fFail "couldn't list the releases of ${Repo} ($(fInnerMessage $_))" @("Check the connection. GitHub also limits anonymous requests to 60 an hour.")
 	}
 	$tags = @(foreach ($rel in @($releases)) { if ($rel.tag_name) { [string]$rel.tag_name } })
 	if ($tags.Count -eq 0) { return $null }
@@ -357,7 +357,7 @@ public static extern System.IntPtr SendMessageTimeout(System.IntPtr hWnd, uint M
 		$ignored = [UIntPtr]::Zero
 		[NemoEnvBroadcast]::SendMessageTimeout([IntPtr]0xffff, 0x1A, [IntPtr]::Zero, "Environment", 2, 5000, [ref]$ignored) | Out-Null
 	} catch {
-		fWarn "already-running programs will not see the new PATH until you sign in again"
+		fWarn "already-running programs won't see the new PATH until you sign in again"
 	}
 }
 
@@ -551,7 +551,7 @@ function fMain {
 			## Privileged steps go through sudo; not needed when already root.
 			if ("$(& id -u)" -ne "0") {
 				if (-not (Get-Command sudo -ErrorAction SilentlyContinue)) {
-					fFail "-Target system needs root, and sudo was not found - re-run as root"
+					fFail "-Target system needs root, and sudo wasn't found - re-run as root"
 				}
 				$priv = $true
 			}
@@ -761,7 +761,7 @@ function fMain {
 		try {
 			Invoke-WebRequest -Uri $sumsUrl -OutFile $sumsFile -UseBasicParsing
 		} catch {
-			fFail "could not download ${sumsAsset} ($(fInnerMessage $_))"
+			fFail "couldn't download ${sumsAsset} ($(fInnerMessage $_))"
 		}
 		$line = Get-Content -LiteralPath $sumsFile | Where-Object { $_ -match "[ *]$([regex]::Escape($asset))$" } | Select-Object -First 1
 		if (-not $line) { fFail "${sumsAsset} has no line for ${asset}" }
@@ -786,13 +786,13 @@ function fMain {
 		try {
 			Expand-Archive -LiteralPath $archive -DestinationPath $unpacked -Force
 		} catch {
-			fFail "could not unpack the archive ($($_.Exception.Message))"
+			fFail "couldn't unpack the archive ($($_.Exception.Message))"
 		}
 	} else {
 		## tar, not Expand-Archive: the unix packages are tarballs, and tar also
 		## keeps the executable bits the launcher and symlink depend on.
 		& tar -xzf $archive -C $unpacked
-		if ($LASTEXITCODE -ne 0) { fFail "could not unpack the archive" }
+		if ($LASTEXITCODE -ne 0) { fFail "couldn't unpack the archive" }
 	}
 
 	## Archives carry one top-level folder; tolerate a flat one too.
@@ -812,7 +812,7 @@ function fMain {
 		try {
 			New-Item -ItemType Directory -Path (Split-Path -Parent $prefix) -Force | Out-Null
 		} catch {
-			fFileError $_ "could not create the install folder" (Split-Path -Parent $prefix)
+			fFileError $_ "couldn't create the install folder" (Split-Path -Parent $prefix)
 		}
 		## Stage beside the prefix, then swap with same-volume renames. Copying the
 		## new tree in before removing the old one means a cross-volume or disk-full
@@ -831,7 +831,7 @@ function fMain {
 			try {
 				Copy-Item -LiteralPath $tree -Destination $staging -Recurse -Force -ErrorAction Stop
 			} catch {
-				fFileError $_ "could not stage the new install" $staging
+				fFileError $_ "couldn't stage the new install" $staging
 			}
 			if ($keepSetup) { Copy-Item -LiteralPath $uninstaller -Destination $staging -Force }
 			if (Test-Path -LiteralPath $prefix) {
@@ -840,7 +840,7 @@ function fMain {
 				} catch {
 					## Something has the folder open that the process scan cannot see - a
 					## scanner, a shell window sitting in it, a handle from another session.
-					fFail "could not replace ${prefix} - something still has it open, close it and try again"
+					fFail "couldn't replace ${prefix} - something still has it open, close it and try again"
 				}
 			}
 			try {
@@ -852,7 +852,7 @@ function fMain {
 		} finally {
 			if (Test-Path -LiteralPath $staging) {
 				Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
-				if (Test-Path -LiteralPath $staging) { fWarn "could not remove ${staging} - delete it by hand" }
+				if (Test-Path -LiteralPath $staging) { fWarn "couldn't remove ${staging} - delete it by hand" }
 			}
 		}
 		if (Test-Path -LiteralPath $backup) { Remove-Item -LiteralPath $backup -Recurse -Force }
@@ -866,7 +866,7 @@ function fMain {
 			New-Item -ItemType Directory -Path $menuDir -Force | Out-Null
 			fMakeShortcut -LinkPath $shortcut -TargetPath $exePath -WorkDir $prefix
 		} catch {
-			fFileError $_ "could not write the Start Menu shortcut" $shortcut
+			fFileError $_ "couldn't write the Start Menu shortcut" $shortcut
 		}
 		fEcho_Clean "shortcut installed at ${shortcut}"
 
@@ -928,7 +928,7 @@ function fMain {
 	} else {
 		fEcho_Clean "Run it from the menu, or type: ${ExeName}"
 		if (-not (@($env:PATH -split ':') -contains $binDir)) {
-			fEcho_Clean "Note: ${binDir} is not on your PATH yet."
+			fEcho_Clean "Note: ${binDir} isn't on your PATH yet."
 		}
 	}
 	fEcho_Clean "Uninstall with the same command plus -Uninstall."

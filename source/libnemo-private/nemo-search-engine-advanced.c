@@ -185,7 +185,7 @@ process_search_helper_file (const gchar *path)
     try_exec_list = nemo_user_text_get_string_list (key_file, SEARCH_HELPER_GROUP, "TryExec", NULL, &error);
 
     if (try_exec_list == NULL) {
-        g_warning ("Nemo search_helper TryExec could not be read (%s) - %s",
+        g_warning ("Nemo search_helper TryExec couldn't be read (%s) - %s",
                    error != NULL ? error->message : "empty", path);
         goto done;
     }
@@ -196,7 +196,7 @@ process_search_helper_file (const gchar *path)
         abs_try_path = g_find_program_in_path (try_exec_list[i]);
 
         if (!abs_try_path) {
-            DEBUG ("Skipping search helper '%s' - program is not available (%s)", path, try_exec_list[i]);
+            DEBUG ("Skipping search helper '%s' - program isn't available (%s)", path, try_exec_list[i]);
             try_failed = TRUE;
             break;
         }
@@ -221,7 +221,7 @@ process_search_helper_file (const gchar *path)
     exec_format = nemo_user_text_get_string (key_file, SEARCH_HELPER_GROUP, "Exec", NULL);
 
     if (exec_format == NULL) {
-        g_warning ("Nemo search_helper could not retrieve Exec field - %s", path);
+        g_warning ("Nemo search_helper couldn't retrieve Exec field - %s", path);
         goto done;
     }
 
@@ -287,7 +287,7 @@ initialize_search_helpers (G_GNUC_UNUSED NemoSearchEngineAdvanced *engine)
 
         dir = g_dir_open (path, 0, &error);
         if (error != NULL) {
-            g_warning ("Could not load helper dir (%s): %s", path, error->message);
+            g_warning ("Couldn't load helper dir (%s): %s", path, error->message);
             g_clear_error (&error);
             continue;
         }
@@ -988,7 +988,7 @@ search_for_content_hits (SearchThreadData *data,
 
     if (error != NULL) {
         gchar *uri = g_file_get_uri (file);
-        g_warning ("Could not load contents of '%s' during content search: %s", uri, error->message);
+        g_warning ("Couldn't load contents of '%s' during content search: %s", uri, error->message);
         g_free (uri);
         g_error_free (error);
         g_free (contents);

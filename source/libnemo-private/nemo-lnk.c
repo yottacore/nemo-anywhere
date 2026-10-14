@@ -1753,7 +1753,7 @@ nemo_lnk_write (const char  *lnk_path,
 
 	if (g_stat (target_path, &info) != 0) {
 		g_set_error (error, G_IO_ERROR, g_io_error_from_errno (errno),
-			     _("Could not read \"%s\"."), target_path);
+			     _("Couldn't read \"%s\"."), target_path);
 		return FALSE;
 	}
 	is_dir = S_ISDIR (info.st_mode);
@@ -1917,7 +1917,7 @@ rewrite_lnk (const char *lnk_path, const char *data, gsize length, GError **erro
 		}
 		/* Past the umask, which the call above is still under. */
 		if (g_chmod (lnk_path, mode) != 0) {
-			g_warning ("could not put the permissions back on %s: %s", lnk_path, g_strerror (errno));
+			g_warning ("couldn't put the permissions back on %s: %s", lnk_path, g_strerror (errno));
 		}
 		return TRUE;
 	}
@@ -2061,7 +2061,7 @@ nemo_lnk_set_paths (const char  *lnk_path,
 	bytes = (const guint8 *) contents;
 	if (length > LNK_READ_MAX || !nemo_lnk_parse (bytes, length, &old)) {
 		g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
-			     _("\"%s\" is not a shortcut."), lnk_path);
+			     _("\"%s\" isn't a shortcut."), lnk_path);
 		goto out;
 	}
 
@@ -2074,7 +2074,7 @@ nemo_lnk_set_paths (const char  *lnk_path,
 	    ((flags & FLAG_HAS_ARGUMENTS) && !skip_string (bytes, length, &pos, unicode, &arguments_at)) ||
 	    ((flags & FLAG_HAS_ICON_LOCATION) && !skip_string (bytes, length, &pos, unicode, &icon_at))) {
 		g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
-			     _("\"%s\" is not a shortcut."), lnk_path);
+			     _("\"%s\" isn't a shortcut."), lnk_path);
 		goto out;
 	}
 

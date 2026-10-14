@@ -307,7 +307,7 @@ process_system_theme (GtkSettings *gtk_settings)
                   NULL);
 
     if (!is_known_supported_theme (theme_name)) {
-        g_debug ("Current gtk theme is not known to have nemo support (%s) - checking...", theme_name);
+        g_debug ("Current gtk theme isn't known to have nemo support (%s) - checking...", theme_name);
         add_fallback_mandatory_css_provider (theme_name);
     }
 
@@ -440,7 +440,7 @@ nemo_application_check_required_directory (NemoApplication *application,
         const char *detail_string;
         GtkDialog *dialog;
 
-        error_string = g_strdup_printf (_("Nemo could not create the required folder \"%s\"."),
+        error_string = g_strdup_printf (_("Nemo couldn't create the required folder \"%s\"."),
                                         path);
         detail_string = _("Before running Nemo, please create the following folder, or "
                           "set permissions such that Nemo can create it.");

@@ -197,7 +197,7 @@ nemo_bookmark_set_icon_to_default (NemoBookmark *bookmark)
     icon_name = construct_default_icon_from_metadata (bookmark);
 
     if (!nemo_bookmark_uri_get_exists (bookmark)) {
-        DEBUG ("%s: file does not exist, use special icon", nemo_bookmark_get_name (bookmark));
+        DEBUG ("%s: file doesn't exist, use special icon", nemo_bookmark_get_name (bookmark));
 
         g_clear_pointer (&icon_name, g_free);
 

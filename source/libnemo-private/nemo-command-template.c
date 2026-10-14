@@ -299,7 +299,7 @@ nemo_command_template_warn_unused (const char             *what,
 	   name the one that got dropped rather than leaving the dialog looking
 	   broken to somebody who edited the line months ago. */
 	joined = g_strjoinv (", ", missing);
-	g_warning ("The %s command line has nowhere to put %s, so that option is not being passed on",
+	g_warning ("The %s command line has nowhere to put %s, so that option isn't being passed on",
 		   what, joined);
 	g_free (joined);
 	g_strfreev (missing);

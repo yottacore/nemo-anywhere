@@ -2136,7 +2136,7 @@ nemo_icon_canvas_item_class_init (NemoIconCanvasItemClass *class)
         PROP_FAV_UNAVAILABLE,
         g_param_spec_boolean ("fav-unavailable",
                               "fav-unavailable",
-                              "backing file is a favorite and is not reachable",
+                              "backing file is a favorite and isn't reachable",
                       FALSE, G_PARAM_READWRITE));
 
 	item_class->update = nemo_icon_canvas_item_update;

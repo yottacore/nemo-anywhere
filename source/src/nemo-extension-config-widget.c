@@ -212,7 +212,7 @@ detect_extensions (G_GNUC_UNUSED NemoExtensionConfigWidget *widget)
             g_strfreev (lines);
         }
     } else {
-        g_printerr ("could not list extensions\n");
+        g_printerr ("couldn't list extensions\n");
     }
 #endif
 }
@@ -383,7 +383,7 @@ on_restart_clicked (G_GNUC_UNUSED GtkWidget *button, G_GNUC_UNUSED NemoExtension
 #ifdef G_OS_WIN32
     /* Nothing is loaded from outside the exe here, so there is nothing to
      * reload - see detect_extensions. */
-    g_warning ("Restart is not offered on this platform");
+    g_warning ("Restart isn't offered on this platform");
 #else
     GError *error = NULL;
     gchar *exe = nemo_get_exe_path ();
@@ -396,7 +396,7 @@ on_restart_clicked (G_GNUC_UNUSED GtkWidget *button, G_GNUC_UNUSED NemoExtension
                       exe != NULL ? exe : (gchar *) NEMO_APP_SLUG, NULL };
 
     if (!nemo_spawn_for_user (NULL, argv, G_SPAWN_SEARCH_PATH, NULL, &error)) {
-        g_warning ("Could not restart: %s", error->message);
+        g_warning ("Couldn't restart: %s", error->message);
         g_clear_error (&error);
     }
 

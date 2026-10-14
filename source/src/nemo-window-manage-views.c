@@ -1781,22 +1781,22 @@ display_view_selection_failure (G_GNUC_UNUSED NemoWindow *window, NemoFile *file
 	if (error == NULL) {
 		if (nemo_file_is_directory (file)) {
 			error_message = g_strdup_printf
-				(_("Could not display \"%s\"."),
+				(_("Couldn't display \"%s\"."),
 				 uri_for_display);
 			detail_message = g_strdup
 				(_("Nemo has no installed viewer capable of displaying the folder."));
 		} else {
 			error_message = g_strdup_printf
-				(_("Could not display \"%s\"."),
+				(_("Couldn't display \"%s\"."),
 				 uri_for_display);
 			detail_message = g_strdup
-				(_("The location is not a folder."));
+				(_("The location isn't a folder."));
 		}
 	} else if (error->domain == G_IO_ERROR) {
 		switch (error->code) {
 		case G_IO_ERROR_NOT_FOUND:
 			error_message = g_strdup_printf
-				(_("Could not find \"%s\"."),
+				(_("Couldn't find \"%s\"."),
 				 uri_for_display);
 			detail_message = g_strdup
 				(_("Please check the spelling and try again."));
@@ -1804,24 +1804,24 @@ display_view_selection_failure (G_GNUC_UNUSED NemoWindow *window, NemoFile *file
 		case G_IO_ERROR_NOT_SUPPORTED:
 			scheme_string = g_file_get_uri_scheme (location);
 
-			error_message = g_strdup_printf (_("Could not display \"%s\"."),
+			error_message = g_strdup_printf (_("Couldn't display \"%s\"."),
 							 uri_for_display);
 			if (scheme_string != NULL) {
-				detail_message = g_strdup_printf (_("Nemo cannot handle \"%s\" locations."),
+				detail_message = g_strdup_printf (_("Nemo can't handle \"%s\" locations."),
 								  scheme_string);
 			} else {
-				detail_message = g_strdup (_("Nemo cannot handle this kind of location."));
+				detail_message = g_strdup (_("Nemo can't handle this kind of location."));
 			}
 			g_free (scheme_string);
 			break;
 		case G_IO_ERROR_NOT_MOUNTED:
-			error_message = g_strdup_printf (_("Could not display \"%s\"."),
+			error_message = g_strdup_printf (_("Couldn't display \"%s\"."),
 							 uri_for_display);
 			detail_message = g_strdup (_("Unable to mount the location."));
 			break;
 
 		case G_IO_ERROR_PERMISSION_DENIED:
-			error_message = g_strdup_printf (_("Could not display \"%s\"."),
+			error_message = g_strdup_printf (_("Couldn't display \"%s\"."),
 							 uri_for_display);
 			detail_message = g_strdup (_("Access was denied."));
 			break;
@@ -1832,7 +1832,7 @@ display_view_selection_failure (G_GNUC_UNUSED NemoWindow *window, NemoFile *file
 			 * But this case is also hit for legitimate web addresses when
 			 * the proxy is set up wrong.
 			 */
-			error_message = g_strdup_printf (_("Could not display \"%s\", because the host could not be found."),
+			error_message = g_strdup_printf (_("Couldn't display \"%s\", because the host couldn't be found."),
 							 uri_for_display);
 			detail_message = g_strdup (_("Check that the spelling is correct and that your proxy settings are correct."));
 			break;
@@ -1847,7 +1847,7 @@ display_view_selection_failure (G_GNUC_UNUSED NemoWindow *window, NemoFile *file
 	}
 
 	if (error_message == NULL) {
-		error_message = g_strdup_printf (_("Could not display \"%s\"."),
+		error_message = g_strdup_printf (_("Couldn't display \"%s\"."),
 						 uri_for_display);
 		detail_message = g_strdup_printf (_("Error: %s\nPlease select another viewer and try again."), error->message);
 	}

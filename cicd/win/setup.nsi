@@ -263,11 +263,11 @@ Section "Install"
 	${If} ${Errors}
 		Rename "$Backup" "$INSTDIR"
 		RMDir /r "$Staging"
-		Abort "Could not put the new files in $INSTDIR."
+		Abort "Couldn't put the new files in $INSTDIR."
 	${EndIf}
 	RMDir /r "$Backup"
 	${If} ${FileExists} "$Backup\*.*"
-		DetailPrint "Could not remove $Backup - delete it by hand."
+		DetailPrint "Couldn't remove $Backup - delete it by hand."
 	${EndIf}
 	DetailPrint "Installed in $INSTDIR"
 
@@ -355,7 +355,7 @@ Section "Uninstall"
 		Call un.fMoveAside
 		RMDir /r "$Backup"
 		${If} ${FileExists} "$Backup\*.*"
-			DetailPrint "Could not remove $Backup - delete it by hand."
+			DetailPrint "Couldn't remove $Backup - delete it by hand."
 		${Else}
 			DetailPrint "Removed $INSTDIR"
 		${EndIf}

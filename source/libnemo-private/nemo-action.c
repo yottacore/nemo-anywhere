@@ -459,7 +459,7 @@ recalc_gsettings_conditions (NemoAction *action)
 
                     g_variant_unref (target_var);
                 } else {
-                    g_warning ("Nemo Action: gsettings value could not be parsed into a valid GVariant");
+                    g_warning ("Nemo Action: gsettings value couldn't be parsed into a valid GVariant");
                 }
             }
 
@@ -1400,7 +1400,7 @@ default_parent_path:
                 g_free (path);
             } else {
                 if (g_list_length (selection) > 0 && nemo_file_is_in_recent (NEMO_FILE (selection->data))) {
-                    g_warning_once ("The recent:// location does not support parent path (%%P) action tokens.");
+                    g_warning_once ("The recent:// location doesn't support parent path (%%P) action tokens.");
                 }
             }
             break;
@@ -1588,7 +1588,7 @@ nemo_action_activate (NemoAction *action,
                                                         (const char * const *)(argvp + sizeof (gchar)));
             g_strfreev (argvp);
         } else {
-            DEBUG ("Could not parse arguments terminal launch.  Possibly turn off Quotes and remove any from your Exec line: %s\n",
+            DEBUG ("Couldn't parse arguments terminal launch.  Possibly turn off Quotes and remove any from your Exec line: %s\n",
                    error->message);
             g_error_free (error);
         }
@@ -1786,7 +1786,7 @@ check_exec_condition (NemoAction  *action,
         /* No console window each time the menu is built. Anything that did not
            start, ran too long or did not exit 0 is a no. */
         if (!nemo_user_text_split_command (exec->str, NULL, &argv, &error)) {
-            DEBUG ("Could not parse exec condition: %s", error->message);
+            DEBUG ("Couldn't parse exec condition: %s", error->message);
             g_clear_error (&error);
             g_string_free (exec, TRUE);
             return FALSE;

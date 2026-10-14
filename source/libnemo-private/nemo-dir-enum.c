@@ -230,7 +230,7 @@ long_enumerator_open (GFile                *dir,
 	pattern = extended_search_pattern (path);
 	if (pattern == NULL) {
 		g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME,
-			     "Cannot build an extended-length pattern for \"%s\"",
+			     "Can't build an extended-length pattern for \"%s\"",
 			     path != NULL ? path : "");
 		return NULL;
 	}

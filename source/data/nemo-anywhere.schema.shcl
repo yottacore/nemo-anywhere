@@ -152,7 +152,7 @@ field: file-cache.max-age-days
 field: file-cache.drop-missing
 	type: bool
 	default: true
-	desc: Forget a local file that is gone from a folder that is still there. A folder that is missing entirely is left alone, since it may be on a drive that is not plugged in
+	desc: Forget a local file that is gone from a folder that is still there. A folder that is missing entirely is left alone, since it may be on a drive that isn't plugged in
 
 field: file-cache.save-checksum
 	type: bool

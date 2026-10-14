@@ -73,7 +73,7 @@ nemo_link_read_target (GFile   *file,
 
 	if (path == NULL) {
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-				     _("That is not a local file."));
+				     _("That isn't a local file."));
 		return FALSE;
 	}
 
@@ -98,7 +98,7 @@ nemo_link_read_target (GFile   *file,
 
 	if (*target == NULL) {
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-				     _("That is not a link."));
+				     _("That isn't a link."));
 		return FALSE;
 	}
 
@@ -291,9 +291,9 @@ nemo_link_choice_tooltip (NemoLinkKind found,
 		return NULL;
 	}
 #ifdef G_OS_WIN32
-	return _("Links inside are copied as links, and junctions as junctions. They are not followed.");
+	return _("Links inside are copied as links, and junctions as junctions. They aren't followed.");
 #else
-	return _("Links inside are copied as links. They are not followed.");
+	return _("Links inside are copied as links. They aren't followed.");
 #endif
 }
 
@@ -438,9 +438,9 @@ nemo_link_choice_ask (GtkWindow            *parent,
 	   be. Junctions without symlinks is only ever Windows without the
 	   privilege; nothing at all is a file system that keeps no links. */
 	if (is_move && supported == 0) {
-		note = gtk_label_new (_("This folder cannot hold links, so the links cannot be moved here."));
+		note = gtk_label_new (_("This folder can't hold links, so the links can't be moved here."));
 	} else if (supported == 0) {
-		note = gtk_label_new (_("This folder cannot hold links, so only a copy is possible."));
+		note = gtk_label_new (_("This folder can't hold links, so only a copy is possible."));
 	} else if ((supported & NEMO_LINK_JUNCTION) && !(supported & NEMO_LINK_DIR_SYMLINK)) {
 		note = gtk_label_new (_("Symlinks need Developer Mode turned on, or nemo running as administrator."));
 	} else if (is_move) {
@@ -918,7 +918,7 @@ confirm_hardlinks (GtkWindow *parent, int n_files)
 		ngettext ("Make a hardlink anyway?", "Make hardlinks anyway?", n_files),
 		/* As the secondary text, since without any GTK draws the title
 		   small, unlike every other question. */
-		_("A hardlink is not a copy, and not a pointer either. It is the same file "
+		_("A hardlink isn't a copy, and not a pointer either. It is the same file "
 		  "under a second name, and nothing on screen shows which files are tied "
 		  "together."),
 		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
@@ -1144,7 +1144,7 @@ nemo_link_options_ask (GtkWindow       *parent,
 
 	/* Say why something is grayed out. */
 	if (d.supported == 0) {
-		why = _("This folder cannot hold symlinks or junctions.");
+		why = _("This folder can't hold symlinks or junctions.");
 	} else if (!(d.supported & NEMO_LINK_FILE_SYMLINK)) {
 		why = _("Symlinks need Developer Mode turned on, or nemo running as administrator.");
 	}

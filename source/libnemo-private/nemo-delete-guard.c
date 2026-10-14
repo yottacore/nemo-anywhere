@@ -293,9 +293,9 @@ nemo_delete_guard_remove_link (GFile *file, GError **error)
 	path = g_file_get_path (file);
 	name = g_file_get_parse_name (file);
 	if (kind == NEMO_LINK_NONE || path == NULL || nemo_delete_guard_is_real_folder (file, NULL, NULL)) {
-		nemo_delete_guard_log ("refused to remove %s as a link, since it is not one", name);
+		nemo_delete_guard_log ("refused to remove %s as a link, since it isn't one", name);
 		g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-			     _("\"%s\" is not a link, so it was left alone."), name);
+			     _("\"%s\" isn't a link, so it was left alone."), name);
 		g_free (path);
 		g_free (name);
 		return FALSE;
@@ -311,7 +311,7 @@ nemo_delete_guard_remove_link (GFile *file, GError **error)
 	saved = errno;
 	if (result != 0) {
 		g_set_error (error, G_IO_ERROR, g_io_error_from_errno (saved),
-			     _("Could not remove the link \"%s\": %s"), name, g_strerror (saved));
+			     _("Couldn't remove the link \"%s\": %s"), name, g_strerror (saved));
 	} else {
 		nemo_delete_guard_log ("removed the link %s", name);
 	}

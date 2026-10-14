@@ -379,7 +379,7 @@ move_to_target (NemoWindowSlot *slot,
 		                             NULL, TAKE_TIMEOUT_MS, &error);
 		if (reply == NULL) {
 			/* The tab stays where it is, so nothing is lost. */
-			g_warning ("Could not move the tab to %s: %s", target->title, error->message);
+			g_warning ("Couldn't move the tab to %s: %s", target->title, error->message);
 			g_clear_error (&error);
 			moved = FALSE;
 		} else {

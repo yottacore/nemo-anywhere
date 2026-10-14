@@ -1751,7 +1751,7 @@ static char *
 unattended_note (CommonJob *job, const char *secondary)
 {
 	if (((DeleteJob *) job)->unattended) {
-		return f (_("This did not come from a trash or delete command. It came from undo, a drop or another command in a window. %s"), secondary);
+		return f (_("This didn't come from a trash or delete command. It came from undo, a drop or another command in a window. %s"), secondary);
 	}
 
 	return f ("%s", secondary);
@@ -2106,7 +2106,7 @@ delete_dir (CommonJob *job, GFile *dir,
 			details = NULL;
 
 			if (IS_IO_ERROR (error, PERMISSION_DENIED)) {
-				secondary = f (_("Files in the folder \"%B\" cannot be deleted because you do "
+				secondary = f (_("Files in the folder \"%B\" can't be deleted because you do "
 						 "not have permissions to see them."), dir);
 			} else {
 				secondary = f (_("There was an error getting information about the files in the folder \"%B\"."), dir);
@@ -2139,7 +2139,7 @@ delete_dir (CommonJob *job, GFile *dir,
 		primary = f (_("Error while deleting."));
 		details = NULL;
 		if (IS_IO_ERROR (error, PERMISSION_DENIED)) {
-			secondary = f (_("The folder \"%B\" cannot be deleted because you do not have "
+			secondary = f (_("The folder \"%B\" can't be deleted because you don't have "
 					 "permissions to read it."), dir);
 		} else {
 			secondary = f (_("There was an error reading the folder \"%B\"."), dir);
@@ -2183,7 +2183,7 @@ delete_dir (CommonJob *job, GFile *dir,
 				goto skip;
 			}
 			primary = f (_("Error while deleting."));
-			secondary = f (_("Could not remove the folder %B."), dir);
+			secondary = f (_("Couldn't remove the folder %B."), dir);
 			details = error->message;
 
 			response = run_warning (job,
@@ -2433,8 +2433,8 @@ trash_files (CommonJob *job, GList *files, guint *files_skipped)
 				goto skip;
 			}
 
-			primary = f (_("Cannot move file to trash, do you want to delete immediately?"));
-			secondary = f (_("The file \"%B\" cannot be moved to the trash."), file);
+			primary = f (_("Can't move file to trash, do you want to delete immediately?"));
+			secondary = f (_("The file \"%B\" can't be moved to the trash."), file);
 			details = NULL;
 			if (!IS_IO_ERROR (error, NOT_SUPPORTED)) {
 				details = error->message;
@@ -3349,7 +3349,7 @@ scan_dir (GFile *dir,
 			details = NULL;
 
 			if (IS_IO_ERROR (error, PERMISSION_DENIED)) {
-				secondary = f (_("Files in the folder \"%B\" cannot be handled because you do "
+				secondary = f (_("Files in the folder \"%B\" can't be handled because you do "
 						 "not have permissions to see them."), dir);
 			} else {
 				secondary = f (_("There was an error getting information about the files in the folder \"%B\"."), dir);
@@ -3388,7 +3388,7 @@ scan_dir (GFile *dir,
 		details = NULL;
 
 		if (IS_IO_ERROR (error, PERMISSION_DENIED)) {
-			secondary = f (_("The folder \"%B\" cannot be handled because you do not have "
+			secondary = f (_("The folder \"%B\" can't be handled because you don't have "
 					 "permissions to read it."), dir);
 		} else {
 			secondary = f (_("There was an error reading the folder \"%B\"."), dir);
@@ -3470,7 +3470,7 @@ scan_file (GFile *file,
 		details = NULL;
 
 		if (IS_IO_ERROR (error, PERMISSION_DENIED)) {
-			secondary = f (_("The file \"%B\" cannot be handled because you do not have "
+			secondary = f (_("The file \"%B\" can't be handled because you don't have "
 					 "permissions to read it."), file);
 		} else {
 			secondary = f (_("There was an error getting information about \"%B\"."), file);
@@ -3577,7 +3577,7 @@ verify_destination (CommonJob *job,
 		details = NULL;
 
 		if (IS_IO_ERROR (error, PERMISSION_DENIED)) {
-			secondary = f (_("You do not have permissions to access the destination folder."));
+			secondary = f (_("You don't have permissions to access the destination folder."));
 		} else {
 			secondary = f (_("There was an error getting information about the destination."));
 			details = error->message;
@@ -3616,7 +3616,7 @@ verify_destination (CommonJob *job,
 
 	if (file_type != G_FILE_TYPE_DIRECTORY) {
 		primary = f (_("Error while copying to \"%B\"."), dest);
-		secondary = f (_("The destination is not a folder."));
+		secondary = f (_("The destination isn't a folder."));
 
 		response = run_error (job,
 				      primary,
@@ -3650,7 +3650,7 @@ verify_destination (CommonJob *job,
 		if (free_size < (guint64) required_size) {
 			size_difference = required_size - free_size;
 			primary = f (_("Error while copying to \"%B\"."), dest);
-			secondary = f (_("There is not enough space on the destination. Try to remove files to make space."));
+			secondary = f (_("There isn't enough space on the destination. Try to remove files to make space."));
 
 			details = f (_("%S more space is required to copy to the destination."), size_difference);
 
@@ -4267,7 +4267,7 @@ create_dest_dir (CommonJob *job,
 		details = NULL;
 
 		if (IS_IO_ERROR (error, PERMISSION_DENIED)) {
-			secondary = f (_("The folder \"%B\" cannot be copied because you do not have "
+			secondary = f (_("The folder \"%B\" can't be copied because you don't have "
 					 "permissions to create it in the destination."), src);
 		} else {
 			secondary = f (_("There was an error creating the folder \"%B\"."), src);
@@ -4400,7 +4400,7 @@ copy_move_directory (CopyMoveJob *copy_job,
 			details = NULL;
 
 			if (IS_IO_ERROR (error, PERMISSION_DENIED)) {
-				secondary = f (_("Files in the folder \"%B\" cannot be copied because you do "
+				secondary = f (_("Files in the folder \"%B\" can't be copied because you do "
 						 "not have permissions to see them."), src);
 			} else {
 				secondary = f (_("There was an error getting information about the files in the folder \"%B\"."), src);
@@ -4445,7 +4445,7 @@ copy_move_directory (CopyMoveJob *copy_job,
 		details = NULL;
 
 		if (IS_IO_ERROR (error, PERMISSION_DENIED)) {
-			secondary = f (_("The folder \"%B\" cannot be copied because you do not have "
+			secondary = f (_("The folder \"%B\" can't be copied because you don't have "
 					 "permissions to read it."), src);
 		} else {
 			secondary = f (_("There was an error reading the folder \"%B\"."), src);
@@ -4492,7 +4492,7 @@ copy_move_directory (CopyMoveJob *copy_job,
 				goto skip;
 			}
 			primary = f (_("Error while moving \"%B\"."), src);
-			secondary = f (_("Could not remove the source folder."));
+			secondary = f (_("Couldn't remove the source folder."));
 			details = error->message;
 
 			response = run_warning (job,
@@ -4588,7 +4588,7 @@ remove_target_recursively (CommonJob *job,
 		}
 
 		primary = f (_("Error while copying \"%B\"."), src);
-		secondary = f (_("Could not remove files from the already existing folder %F."), file);
+		secondary = f (_("Couldn't remove files from the already existing folder %F."), file);
 		details = error->message;
 
 		/* set show_all to TRUE here, as we don't know how many
@@ -4629,7 +4629,7 @@ remove_target_recursively (CommonJob *job,
 			goto skip2;
 		}
 		primary = f (_("Error while copying \"%B\"."), src);
-		secondary = f (_("Could not remove the already existing file %F."), file);
+		secondary = f (_("Couldn't remove the already existing file %F."), file);
 		details = error->message;
 
 		/* set show_all to TRUE here, as we don't know how many
@@ -5100,8 +5100,8 @@ copy_move_file (CopyMoveJob *copy_job,
 		}
 
 		/*  the run_warning() frees all strings passed in automatically  */
-		primary = copy_job->is_move ? g_strdup (_("You cannot move a folder into itself."))
-					    : g_strdup (_("You cannot copy a folder into itself."));
+		primary = copy_job->is_move ? g_strdup (_("You can't move a folder into itself."))
+					    : g_strdup (_("You can't copy a folder into itself."));
 		secondary = g_strdup (_("The destination folder is inside the source folder."));
 
 		response = run_warning (job,
@@ -5133,8 +5133,8 @@ copy_move_file (CopyMoveJob *copy_job,
 		}
 
 		/*  the run_warning() frees all strings passed in automatically  */
-		primary = copy_job->is_move ? g_strdup (_("You cannot move a file over itself."))
-					    : g_strdup (_("You cannot copy a file over itself."));
+		primary = copy_job->is_move ? g_strdup (_("You can't move a file over itself."))
+					    : g_strdup (_("You can't copy a file over itself."));
 		secondary = g_strdup (_("The source file would be overwritten by the destination."));
 
 		response = run_warning (job,
@@ -5169,7 +5169,7 @@ copy_move_file (CopyMoveJob *copy_job,
 		if (!job->skip_all_error) {
 			response = run_warning (job,
 						f (_("Error while moving \"%B\"."), src),
-						f (_("A link is only ever moved as a link, and this one could not be read. It was left where it is.")),
+						f (_("A link is only ever moved as a link, and this one couldn't be read. It was left where it is.")),
 						NULL,
 						(source_info->num_files - transfer_info->num_files) > 1,
 						GTK_STOCK_CANCEL, SKIP_ALL, SKIP,
@@ -5422,7 +5422,7 @@ copy_move_file (CopyMoveJob *copy_job,
 				} else {
 					primary = f (_("Error while copying \"%B\"."), src);
 				}
-				secondary = f (_("Could not remove the already existing file with the same name in %F."), dest_dir);
+				secondary = f (_("Couldn't remove the already existing file with the same name in %F."), dest_dir);
 				details = error->message;
 
 				/* setting TRUE on show_all here, as we could have
@@ -5916,8 +5916,8 @@ move_file_prepare (CopyMoveJob *move_job,
 		}
 
 		/*  the run_warning() frees all strings passed in automatically  */
-		primary = move_job->is_move ? g_strdup (_("You cannot move a folder into itself."))
-					    : g_strdup (_("You cannot copy a folder into itself."));
+		primary = move_job->is_move ? g_strdup (_("You can't move a folder into itself."))
+					    : g_strdup (_("You can't copy a folder into itself."));
 		secondary = g_strdup (_("The destination folder is inside the source folder."));
 
 		response = run_warning (job,

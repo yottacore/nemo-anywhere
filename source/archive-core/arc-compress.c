@@ -271,7 +271,7 @@ configure_writer (struct archive *a,
 		break;
 	default:
 		g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-			     _("This archive format cannot be written here."));
+			     _("This archive format can't be written here."));
 		return FALSE;
 	}
 
@@ -291,7 +291,7 @@ configure_writer (struct archive *a,
 		    archive_write_set_options (a, "zip:encryption=aes256") != ARCHIVE_OK ||
 		    archive_write_set_passphrase (a, options->password) != ARCHIVE_OK) {
 			g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-				     _("This archive format cannot be encrypted here."));
+				     _("This archive format can't be encrypted here."));
 			return FALSE;
 		}
 	}
@@ -420,7 +420,7 @@ job_fail_from_error (ArcCompress *job,
 		return;
 	}
 
-	job_fail (job, _("The archive could not be created."),
+	job_fail (job, _("The archive couldn't be created."),
 		  error != NULL ? error->message : NULL);
 }
 
@@ -483,8 +483,8 @@ prescan (ArcCompress *job)
 	g_ptr_array_add (paths, NULL);
 
 	if (base == NULL || l != NULL) {
-		job_fail (job, _("The archive could not be created."),
-			  _("The selection is not on this computer, so it can't be compressed here."));
+		job_fail (job, _("The archive couldn't be created."),
+			  _("The selection isn't on this computer, so it can't be compressed here."));
 	} else {
 		arc_prescan_start (&job->host);
 		prescan_found (job, 0, 0);
@@ -521,7 +521,7 @@ list_has_nothing (ArcCompress *job)
 		return TRUE;
 	}
 
-	job_fail (job, _("The archive could not be created."),
+	job_fail (job, _("The archive couldn't be created."),
 		  job->list->left_out->len > 0
 		  ? _("The link options leave out everything in the selection.")
 		  : _("Nothing in the selection could be read."));
@@ -562,12 +562,12 @@ run_libarchive (ArcCompress *job)
 	a = archive_write_new ();
 
 	if (!configure_writer (a, job, &error)) {
-		job_fail (job, _("The archive could not be created."),
+		job_fail (job, _("The archive couldn't be created."),
 			  error != NULL ? error->message : NULL);
 		g_clear_error (&error);
 		ok = FALSE;
 	} else if (archive_write_open2 (a, &sink, NULL, sink_write, sink_close, NULL) != ARCHIVE_OK) {
-		job_fail (job, _("The archive could not be created."), archive_error_string (a));
+		job_fail (job, _("The archive couldn't be created."), archive_error_string (a));
 		ok = FALSE;
 	}
 
@@ -597,7 +597,7 @@ run_libarchive (ArcCompress *job)
 
 	closed = ok;
 	if (ok && archive_write_close (a) != ARCHIVE_OK) {
-		job_fail (job, _("The archive could not be created."), archive_error_string (a));
+		job_fail (job, _("The archive couldn't be created."), archive_error_string (a));
 		ok = FALSE;
 	}
 
@@ -1235,8 +1235,8 @@ run_command (ArcCompress *job)
 	archive_path = g_file_get_path (job->destination);
 
 	if (program == NULL || base_path == NULL || archive_path == NULL) {
-		job_fail (job, _("The archive could not be created."),
-			  _("This format needs a program that is not installed, or a folder on this computer."));
+		job_fail (job, _("The archive couldn't be created."),
+			  _("This format needs a program that isn't installed, or a folder on this computer."));
 		goto out;
 	}
 
@@ -1255,7 +1255,7 @@ run_command (ArcCompress *job)
 			_("\"%s\" has * or ? in its name, which rar reads as a wildcard, so other files could go in or be left out with it. Choose another format, or rename it."),
 			pattern);
 
-		job_fail (job, _("The archive could not be created."), details);
+		job_fail (job, _("The archive couldn't be created."), details);
 		g_free (details);
 		goto out;
 	}
@@ -1284,7 +1284,7 @@ run_command (ArcCompress *job)
 			char *said = output_tail (output);
 			guint i;
 
-			g_warning ("Links could not be kept, so they are left out: %s", said);
+			g_warning ("Links couldn't be kept, so they are left out: %s", said);
 			g_free (said);
 			arc_remove_own (&job->host, job->destination);
 			for (i = 0; i < plan.links->len; i++) {
@@ -1303,7 +1303,7 @@ run_command (ArcCompress *job)
 	if (plan.roots->len == 0) {
 		ok = any;
 		if (!ok) {
-			job_fail (job, _("The archive could not be created."),
+			job_fail (job, _("The archive couldn't be created."),
 				  _("Nothing in the selection could go in."));
 		}
 		g_string_free (output, TRUE);
@@ -1318,7 +1318,7 @@ run_command (ArcCompress *job)
 		char *said = output_tail (output);
 
 		/* rar can end with nothing but blank lines, which says nothing. */
-		job_fail (job, _("The archive could not be created."),
+		job_fail (job, _("The archive couldn't be created."),
 			  said[0] != '\0' ? said : (error != NULL ? error->message : NULL));
 		g_free (said);
 	}
@@ -1507,7 +1507,7 @@ arc_compress_run (ArcCompress *job)
 		start_unit (job, l->data);
 
 		if (job->base_dir == NULL) {
-			job_fail (job, _("The archive could not be created."),
+			job_fail (job, _("The archive couldn't be created."),
 				  _("The selection has no folder above it to compress from."));
 			ok = FALSE;
 		} else if (job->backend == ARC_BACKEND_LIBARCHIVE) {
@@ -1663,7 +1663,7 @@ arc_compress_can_start (ArcCompress *job)
 	g_return_val_if_fail (job != NULL, FALSE);
 
 	if (job->backend == ARC_BACKEND_NONE) {
-		job_fail (job, _("The archive could not be created."),
+		job_fail (job, _("The archive couldn't be created."),
 			  _("Nothing installed here can write this archive with the options chosen."));
 		return FALSE;
 	}

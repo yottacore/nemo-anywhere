@@ -190,11 +190,11 @@ line_keeps_requirements (const char            *name,
 			if (password) {
 				g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
 					     _("The %s command line in the settings has no {{PASSWORD}}, "
-					       "so the archive would not be encrypted."), name);
+					       "so the archive wouldn't be encrypted."), name);
 			} else {
 				g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
 					     _("The %s command line in the settings has no {{SPLIT}}, "
-					       "so the archive would not be split into volumes."), name);
+					       "so the archive wouldn't be split into volumes."), name);
 			}
 			ok = FALSE;
 		}
@@ -437,7 +437,7 @@ arc_build_tool_command (const ArcSettings  *settings,
 		argv = arc_command_expand (host, text, tokens, &error);
 
 		if (argv == NULL) {
-			g_warning ("The %s command line cannot be run as written (%s): %s",
+			g_warning ("The %s command line can't be run as written (%s): %s",
 				   name, error->message, text);
 			g_set_error (why, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
 				     _("The %s command line in the settings can't be run as written: %s"),
@@ -582,7 +582,7 @@ arc_build_extract_command (const ArcSettings *settings,
 		argv = arc_command_expand (host, text, tokens, &error);
 
 		if (argv == NULL) {
-			g_warning ("The %s command line cannot be run as written (%s): %s",
+			g_warning ("The %s command line can't be run as written (%s): %s",
 				   key, error->message, text);
 			g_clear_error (&error);
 		} else {

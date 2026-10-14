@@ -212,7 +212,7 @@ checked_value (const gchar  *raw,
 {
 	if (!g_utf8_validate (raw, -1, NULL)) {
 		g_set_error (error, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_UNKNOWN_ENCODING,
-			     "Key file key \"%s\" is not UTF-8", key);
+			     "Key file key \"%s\" isn't UTF-8", key);
 		return NULL;
 	}
 
@@ -299,7 +299,7 @@ nemo_user_text_get_string_list (GKeyFile     *key_file,
 	}
 	if (!g_utf8_validate (raw, -1, NULL)) {
 		g_set_error (error, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_UNKNOWN_ENCODING,
-			     "Key file key \"%s\" is not UTF-8", key);
+			     "Key file key \"%s\" isn't UTF-8", key);
 		g_free (raw);
 		return NULL;
 	}

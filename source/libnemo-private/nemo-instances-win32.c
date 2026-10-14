@@ -162,7 +162,7 @@ know_who_we_are (GError **error)
 		return TRUE;
 	}
 	if (!OpenProcessToken (GetCurrentProcess (), TOKEN_QUERY, &token)) {
-		set_win32_error (error, GetLastError (), "Could not read who this is");
+		set_win32_error (error, GetLastError (), "Couldn't read who this is");
 		return FALSE;
 	}
 	user = token_info (token, TokenUser);
@@ -170,7 +170,7 @@ know_who_we_are (GError **error)
 	     GetTokenInformation (token, TokenStatistics, &stats, sizeof stats, &size) &&
 	     ConvertSidToStringSidW (user->User.Sid, &text);
 	if (!ok) {
-		set_win32_error (error, GetLastError (), "Could not read who this is");
+		set_win32_error (error, GetLastError (), "Couldn't read who this is");
 		CloseHandle (token);
 		g_free (user);
 		return FALSE;
@@ -227,7 +227,7 @@ transfer (HANDLE pipe, gboolean writing, guint8 *buffer, gsize len, gint64 deadl
 		started = writing ? WriteFile (pipe, buffer + moved, chunk, NULL, &overlapped)
 		                  : ReadFile (pipe, buffer + moved, chunk, NULL, &overlapped);
 		if (!started && GetLastError () != ERROR_IO_PENDING) {
-			set_win32_error (error, GetLastError (), writing ? "Could not send" : "Could not read");
+			set_win32_error (error, GetLastError (), writing ? "Couldn't send" : "Couldn't read");
 			ok = FALSE;
 			break;
 		}
@@ -240,12 +240,12 @@ transfer (HANDLE pipe, gboolean writing, guint8 *buffer, gsize len, gint64 deadl
 			break;
 		}
 		if (!GetOverlappedResult (pipe, &overlapped, &n, FALSE)) {
-			set_win32_error (error, GetLastError (), writing ? "Could not send" : "Could not read");
+			set_win32_error (error, GetLastError (), writing ? "Couldn't send" : "Couldn't read");
 			ok = FALSE;
 			break;
 		}
 		if (n == 0) {
-			set_win32_error (error, ERROR_BROKEN_PIPE, "Could not read");
+			set_win32_error (error, ERROR_BROKEN_PIPE, "Couldn't read");
 			ok = FALSE;
 			break;
 		}
@@ -395,7 +395,7 @@ answer (Call *call, gboolean wants_reply)
 		}
 	}
 	if (!call->done) {
-		reply = g_variant_new ("(bsv)", FALSE, "The other copy did not get to it", g_variant_new ("()"));
+		reply = g_variant_new ("(bsv)", FALSE, "The other copy didn't get to it", g_variant_new ("()"));
 	} else if (call->reply == NULL) {
 		reply = g_variant_new ("(bsv)", FALSE, call->error_message, g_variant_new ("()"));
 	} else {
@@ -425,7 +425,7 @@ serve_one (gpointer data, G_GNUC_UNUSED gpointer user_data)
 	}
 	g_variant_get (request, "(&s&sbv)", &interface_name, &method_name, &wants_reply, &parameters);
 	if (!g_variant_is_of_type (parameters, G_VARIANT_TYPE_TUPLE)) {
-		reply = g_variant_new ("(bsv)", FALSE, "Parameters are not a tuple", g_variant_new ("()"));
+		reply = g_variant_new ("(bsv)", FALSE, "Parameters aren't a tuple", g_variant_new ("()"));
 	} else {
 		Call *call = g_atomic_rc_box_new0 (Call);
 
@@ -518,7 +518,7 @@ accept_clients (gpointer data)
 		 * there would be no pipe by this name and the copy would drop out
 		 * of every list. */
 		while ((next = new_instance (s, FALSE)) == INVALID_HANDLE_VALUE) {
-			g_warning ("Could not open another pipe for other copies: %lu", GetLastError ());
+			g_warning ("Couldn't open another pipe for other copies: %lu", GetLastError ());
 			if (WaitForSingleObject (s->stop, 100) == WAIT_OBJECT_0) {
 				break;
 			}
@@ -591,7 +591,7 @@ nemo_instances_win32_start (NemoInstancesDispatch   dispatch,
 		code = GetLastError ();
 		g_free (s->name);
 		g_atomic_rc_box_release (s);
-		set_win32_error (error, code, "Could not make the pipe's permissions");
+		set_win32_error (error, code, "Couldn't make the pipe's permissions");
 		return FALSE;
 	}
 
@@ -603,7 +603,7 @@ nemo_instances_win32_start (NemoInstancesDispatch   dispatch,
 		LocalFree (s->sd);
 		g_free (s->name);
 		g_atomic_rc_box_release (s);
-		set_win32_error (error, code, "Could not open a pipe for the other copies");
+		set_win32_error (error, code, "Couldn't open a pipe for the other copies");
 		return FALSE;
 	}
 	s->stop = CreateEventW (NULL, TRUE, FALSE, NULL);
@@ -725,7 +725,7 @@ open_other (const char *other, gint64 deadline, GError **error)
 		code = GetLastError ();
 		left = (deadline - g_get_monotonic_time ()) / 1000;
 		if (code != ERROR_PIPE_BUSY) {
-			set_win32_error (error, code, "Could not reach the other copy");
+			set_win32_error (error, code, "Couldn't reach the other copy");
 			break;
 		}
 		if (left <= 0) {
@@ -739,7 +739,7 @@ open_other (const char *other, gint64 deadline, GError **error)
 	if (pipe != INVALID_HANDLE_VALUE && !owned_by_user (pipe)) {
 		CloseHandle (pipe);
 		pipe = INVALID_HANDLE_VALUE;
-		g_set_error (error, G_IO_ERROR, G_IO_ERROR_PERMISSION_DENIED, "%s is not this user's", other);
+		g_set_error (error, G_IO_ERROR, G_IO_ERROR_PERMISSION_DENIED, "%s isn't this user's", other);
 	}
 	return pipe;
 }
@@ -764,7 +764,7 @@ nemo_instances_win32_call (const char  *other,
 		return NULL;
 	}
 	if (!g_str_has_prefix (other, pipe_prefix)) {
-		g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT, "%s is not a copy of this one", other);
+		g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT, "%s isn't a copy of this one", other);
 		return NULL;
 	}
 	pipe = open_other (other, deadline, error);

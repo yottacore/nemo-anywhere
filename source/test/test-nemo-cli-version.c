@@ -167,7 +167,7 @@ check_parse (const char *program, const char *flag, gboolean want_ok)
 	} else {
 		check (!g_spawn_check_wait_status (status, NULL));
 		check (strstr (out, "nemo-anywhere v") == NULL);
-		check (strstr (err, "Could not parse arguments") != NULL);
+		check (strstr (err, "Couldn't parse arguments") != NULL);
 	}
 	if (failures > before) {
 		g_printerr ("%s: out [%s] err [%s]\n", flag, out, err);

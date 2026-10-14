@@ -261,7 +261,7 @@ The packed exe shares its virtual filesystem with every program it starts, by pu
 
 - Windows: opening a file from the released build breaks the program it opens in. Done.
 
-- Windows: the released build cannot open a file whose program is 32-bit. Done.
+- Windows: the released build can't open a file whose program is 32-bit. Done.
 
 - Windows exe signing groundwork. Done.
 

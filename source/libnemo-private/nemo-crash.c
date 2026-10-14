@@ -928,7 +928,7 @@ emit_stack (const CONTEXT *context, HANDLE file)
 			   all - the commonest shape of a call through a freed object.
 			   Either way the return address is on top of the stack. */
 			if (!stack_readable (walk.Rsp, 8)) {
-				emit_str ("  (the stack cannot be read past here)\n");
+				emit_str ("  (the stack can't be read past here)\n");
 				break;
 			}
 
@@ -940,7 +940,7 @@ emit_stack (const CONTEXT *context, HANDLE file)
 			DWORD64 before = walk.Rsp;
 
 			if (!frame_readable (&walk, image_base, probe, function)) {
-				emit_str ("  (the stack cannot be read past here)\n");
+				emit_str ("  (the stack can't be read past here)\n");
 				break;
 			}
 
