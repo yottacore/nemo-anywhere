@@ -312,6 +312,73 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 3c069b3
 	- Test case: rk5b84ef, Settings tab list test: 3 levels deep, indent per level, a parent and its showing sub-tab lit at every depth, hidden pages and their sub-tabs dropped, pages added and retitled later, and sub-tabs under a switch they share. rhtmbdmd, Settings dialog test: the rows, the lit pair and the parent's last sub-tab in the real dialog. rhtmbdmf, Settings Current tab test.
 
+- Escape should exit out of search view.
+	- ID: 2026101405542853
+	- Type: Enhancement
+	- Status: Waiting on signoff
+	- Needs local test suite run?: yes, the full Linux suite. The 26 tests around search, settings, rename, Escape and the connecting sign passed.
+	- Priority|Severity: Avg
+	- Opened: 20261014-055428
+	- Opened by: t00mietum
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+	- Progress log:
+		- 20261014: Escape in the search box already left search and went back to the folder. With the results in front it only cleared the selection, so there was no way out of search from the keyboard there.
+		- 20261014: left at signoff for the 2 steps in the results. Options: leave search on the first Escape even with a selection, a one-line change.
+	- Decisions:
+		- In the results, Escape clears a selection first, as in any folder, and leaves search when nothing is selected. "Escape in the folder pane clears the selection" is a closed feature, and it still holds in the results.
+		- With the search bar open and no search run yet, Escape in the folder closes the bar, the same as from the search box.
+		- A rename in the results still takes Escape first, and so do the location bar, a share that's connecting, and dialogs.
+	- Swept: the list view, the icon view (the compact view is the same code), the search box and its buttons (they already reached the same cancel), the location entry, the window's block while a share connects, and rename in both views.
+	- Verified: rk7vz6gm fails before the fix on the results' Escape in both views, and passes after, 5 runs. The 26 related tests pass, rjv9ks2z, rhtmbdmb, rjedw75s and rk526bz6 among them. Lint clean apart from rj3ytv0b, which always fails in a worktree.
+	- Branch: escrename
+	- Commit: c319d75
+	- Test case: rk7vz6gm, Escape in find mode test. In the list and icon views: Escape in the search box goes back to the folder and closes the bar. In the results, the first Escape clears a selection and stays, and the next goes back to the folder. Escape in a rename of a result ends the rename and stays in the results.
+
+- Pre-populate the "Bulk rename" command.
+	- ID: 2026101405543076
+	- Type: Enhancement
+	- Status: Waiting on signoff
+	- Needs local test suite run?: yes, the full Linux suite.
+	- Needs external testing: on vm925w, rk7wrme6 and rhtmbdmd in the native suite. Then by hand, with the single exe: the settings field and its tooltip, and F2 on several files, folders and a name with a space, with ReNamer and then Ant Renamer installed.
+	- Priority|Severity: Avg
+	- Opened: 20261014-055430
+	- Opened by: t00mietum
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- Use the first match from the "ideal" list below that is installed on the user's system. If none are installed, populate the first "ideal" match from below.
+		- Ideal list in order of preference:
+			- Linux and BSD:
+				- DEs using GTK+: `thunar --bulk-rename`
+				- DEs using Qt: `krename`
+			- Windows:
+				- `"C:\Program Files\ReNamer\ReNamer.exe"`
+				- `"C:\Program Files\Ant Renamer\Renamer.exe" -af`
+			- macOS:
+				- `open -a NameChanger`
+				- `open -a Transnomino`
+				- `open -a Renamer`
+				- `open -a "A Better Finder Rename 12"`
+		- Flyover tip text (label and control): "Renamer programs need only accept a quoted list of files or folders. Known or suspected to work:\n\n<list of programs from above that run on the platform, with the DE's widget style listed first.>"
+	- Progress log:
+		- 20261014: the field was empty by default, so F2 on several files did nothing. On Linux the files went to the renamer as `file://` addresses. They go as paths now, as on Windows, so any renamer that takes a list of files works. A file with no local path still goes as its address.
+		- 20261014: Ant Renamer adds what follows `-af` as files. A folder would need `-aF`. Kept as listed.
+		- 20261014: Options for later: on Linux a renamer that isn't installed fails with no message, as any command line from the settings does there. Windows shows "The program couldn't be started." Not changed here.
+		- 20261014: left at signoff for the tooltip and the field's look, and for the reading of "the DE's widget style" in Decisions.
+	- Decisions:
+		- The renamer found is the setting's default, not a stored value. It's worked out once per run and never written unless changed, and typing the same command back writes nothing. An emptied field is stored as empty, which means no renamer, as before.
+		- On Linux and the BSDs the desktop's toolkit orders the list, for both the pick and the tooltip: KRename first under KDE, LXQt, Deepin and UKUI, and Thunar's first anywhere else.
+		- On Windows the paths follow the Program Files folder, which is `C:\Program Files` on nearly every machine.
+		- The tooltip lists the commands as they'd go in the field.
+		- The macOS list is in the code but not built.
+	- Swept: how the renamer is started on Linux and Windows, and every place the settings store reads a default for a string: a read, a write that matches the default, and the list of defaults in the settings file. The key table and the schema have the new description.
+	- Verified: rk7wrme6 passes on Linux and under wine. It fails 6 checks with the found default taken out of the settings store. rk7wywt9 fails before the change, with the 3 files sent as `file://` addresses, and passes after, 5 runs. rhtmbdmd's new checks fail with the tooltips left off and pass with them. The macOS part passes a syntax check. Windows cross build clean. The 26 related tests pass, the schema drift test rfazc870 among them. Lint clean apart from rj3ytv0b, which always fails in a worktree.
+	- Branch: escrename
+	- Commit: c319d75
+	- Test case: rk7wrme6, Bulk rename default test: the pick by what's installed and by desktop, the tooltip's list, nothing written for the default, an empty value kept. rk7wywt9, Bulk renamer gets paths test: F2 on 3 files hands the renamer their paths, with a space, a percent sign and a quote in them. rhtmbdmd, Settings dialog test: the field shows the default without storing it, and the label and field have the tooltip.
+
 - A 7z with a password and links stored can't be checked, so Delete originals always keeps the originals.
 	- ID: 2026101310525352
 	- Type: Bug
@@ -941,30 +1008,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 7c4e340, 6748a54
 	- Test case: rjvwpz9d, Bundle check: no libgsf, gsf-office thumbnailer, converter or their definitions in the tarball, deb, rpm, zip or FreeBSD pkg, and no Depends, Requires or pkg dep on libgsf. The prefix check rhtq57n5 runs it on each arch's Linux files, and its self-test runs in the lint stage. rjvb97aa and rjvtggme: files with a picture or text get it from the reader, and the stand-in thumbnailer and search helper installed for these types aren't run. Files with no picture inside, a metafile preview, and files that don't read get nothing from the reader, and then the stand-ins run. rjmc40ex and rfhnaccg as in Progress log.
 
-- Escape should exit out of search view.
-	- ID: 2026101405542853
-	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Needs local test suite run?: yes, the full Linux suite. The 26 tests around search, settings, rename, Escape and the connecting sign passed.
-	- Priority|Severity: Avg
-	- Opened: 20261014-055428
-	- Opened by: t00mietum
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-	- Progress log:
-		- 20261014: Escape in the search box already left search and went back to the folder. With the results in front it only cleared the selection, so there was no way out of search from the keyboard there.
-		- 20261014: left at signoff for the 2 steps in the results. Options: leave search on the first Escape even with a selection, a one-line change.
-	- Decisions:
-		- In the results, Escape clears a selection first, as in any folder, and leaves search when nothing is selected. "Escape in the folder pane clears the selection" is a closed feature, and it still holds in the results.
-		- With the search bar open and no search run yet, Escape in the folder closes the bar, the same as from the search box.
-		- A rename in the results still takes Escape first, and so do the location bar, a share that's connecting, and dialogs.
-	- Swept: the list view, the icon view (the compact view is the same code), the search box and its buttons (they already reached the same cancel), the location entry, the window's block while a share connects, and rename in both views.
-	- Verified: rk7vz6gm fails before the fix on the results' Escape in both views, and passes after, 5 runs. The 26 related tests pass, rjv9ks2z, rhtmbdmb, rjedw75s and rk526bz6 among them. Lint clean apart from rj3ytv0b, which always fails in a worktree.
-	- Branch: escrename
-	- Commit: c319d75
-	- Test case: rk7vz6gm, Escape in find mode test. In the list and icon views: Escape in the search box goes back to the folder and closes the bar. In the results, the first Escape clears a selection and stays, and the next goes back to the folder. Escape in a rename of a result ends the rename and stays in the results.
-
 - When clicking anywhere on a row in detailed list view, even when the program doesn't have focus, it should be immediately selected.
 	- ID: 2026101405542891
 	- Type: Enhancement
@@ -1041,49 +1084,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- Before the next cut.
 	- Test case: none yet.
-
-- Pre-populate the "Bulk rename" command.
-	- ID: 2026101405543076
-	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Needs local test suite run?: yes, the full Linux suite.
-	- Needs external testing: on vm925w, rk7wrme6 and rhtmbdmd in the native suite. Then by hand, with the single exe: the settings field and its tooltip, and F2 on several files, folders and a name with a space, with ReNamer and then Ant Renamer installed.
-	- Priority|Severity: Avg
-	- Opened: 20261014-055430
-	- Opened by: t00mietum
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-		- Use the first match from the "ideal" list below that is installed on the user's system. If none are installed, populate the first "ideal" match from below.
-		- Ideal list in order of preference:
-			- Linux and BSD:
-				- DEs using GTK+: `thunar --bulk-rename`
-				- DEs using Qt: `krename`
-			- Windows:
-				- `"C:\Program Files\ReNamer\ReNamer.exe"`
-				- `"C:\Program Files\Ant Renamer\Renamer.exe" -af`
-			- macOS:
-				- `open -a NameChanger`
-				- `open -a Transnomino`
-				- `open -a Renamer`
-				- `open -a "A Better Finder Rename 12"`
-		- Flyover tip text (label and control): "Renamer programs need only accept a quoted list of files or folders. Known or suspected to work:\n\n<list of programs from above that run on the platform, with the DE's widget style listed first.>"
-	- Progress log:
-		- 20261014: the field was empty by default, so F2 on several files did nothing. On Linux the files went to the renamer as `file://` addresses. They go as paths now, as on Windows, so any renamer that takes a list of files works. A file with no local path still goes as its address.
-		- 20261014: Ant Renamer adds what follows `-af` as files. A folder would need `-aF`. Kept as listed.
-		- 20261014: Options for later: on Linux a renamer that isn't installed fails with no message, as any command line from the settings does there. Windows shows "The program couldn't be started." Not changed here.
-		- 20261014: left at signoff for the tooltip and the field's look, and for the reading of "the DE's widget style" in Decisions.
-	- Decisions:
-		- The renamer found is the setting's default, not a stored value. It's worked out once per run and never written unless changed, and typing the same command back writes nothing. An emptied field is stored as empty, which means no renamer, as before.
-		- On Linux and the BSDs the desktop's toolkit orders the list, for both the pick and the tooltip: KRename first under KDE, LXQt, Deepin and UKUI, and Thunar's first anywhere else.
-		- On Windows the paths follow the Program Files folder, which is `C:\Program Files` on nearly every machine.
-		- The tooltip lists the commands as they'd go in the field.
-		- The macOS list is in the code but not built.
-	- Swept: how the renamer is started on Linux and Windows, and every place the settings store reads a default for a string: a read, a write that matches the default, and the list of defaults in the settings file. The key table and the schema have the new description.
-	- Verified: rk7wrme6 passes on Linux and under wine. It fails 6 checks with the found default taken out of the settings store. rk7wywt9 fails before the change, with the 3 files sent as `file://` addresses, and passes after, 5 runs. rhtmbdmd's new checks fail with the tooltips left off and pass with them. The macOS part passes a syntax check. Windows cross build clean. The 26 related tests pass, the schema drift test rfazc870 among them. Lint clean apart from rj3ytv0b, which always fails in a worktree.
-	- Branch: escrename
-	- Commit: c319d75
-	- Test case: rk7wrme6, Bulk rename default test: the pick by what's installed and by desktop, the tooltip's list, nothing written for the default, an empty value kept. rk7wywt9, Bulk renamer gets paths test: F2 on 3 files hands the renamer their paths, with a space, a percent sign and a quote in them. rhtmbdmd, Settings dialog test: the field shows the default without storing it, and the label and field have the tooltip.
 
 - rjv9ks2z, the connecting sign test, fails now and then in a full Linux suite run on a busy box.
 	- ID: 2026101305422316
