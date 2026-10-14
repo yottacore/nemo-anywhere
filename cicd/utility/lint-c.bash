@@ -1422,6 +1422,64 @@ fCheckArcCore(){
 }
 fRun fCheckArcCore
 
+## Tabs are for the pointer: no tab holds the keyboard, and Ctrl+Page Up and
+## Down step the pages. GTK's tabs get that from eel_gtk_tabs_keep_focus_off,
+## or eel_gtk_notebook_keep_focus_off_tabs for the main window, which steps its
+## own. The About and shortcuts windows build tabs inside, hence _within. NemoTabList keeps the focus off by itself, and whoever shows one binds
+## the keys through nemo_tab_list_step. A builder file counts against the C
+## file that loads it. Python has no helper, so tabs there fail outright.
+## Test ID: rk6nassf
+fCheckTabFocus(){
+	local gtkTabs='(^|[^A-Za-z0-9_])gtk_(notebook|stack_switcher|stack_sidebar|about_dialog)_new[[:space:]]*\(|gtk_show_about_dialog|GTK_TYPE_(ABOUT_DIALOG|SHORTCUTS_WINDOW)|G_DEFINE_TYPE[A-Z_]*[[:space:]]*\(.*GTK_TYPE_(NOTEBOOK|STACK_SWITCHER|STACK_SIDEBAR)'
+	local gtkHelper='eel_gtk_tabs_keep_focus_off|eel_gtk_notebook_keep_focus_off_tabs'
+	local listMade='(^|[^A-Za-z0-9_])nemo_tab_list_new[[:space:]]*\('
+	local listKeys='nemo_tab_list_step'
+	local -a cFiles=() uiFiles=() bad=()
+	local f base loader loaders found
+
+	mapfile -t cFiles < <(find source/src source/libnemo-private source/libnemo-extension source/eel \( -name '*.c' -o -name '*.h' \) | sort)
+	mapfile -t uiFiles < <(find source/gresources source/src source/libnemo-private \( -name '*.glade' -o -name '*.ui' \) | sort)
+	if ((${#cFiles[@]} == 0)); then
+		fEcho "FAIL: no C sources to check for tabs"
+		exit 2
+	fi
+
+	for f in "${cFiles[@]}"; do
+		if grep -qE "$gtkTabs" "$f" && ! grep -qE "$gtkHelper" "$f"; then
+			bad+=("${f}: makes tabs with no eel_gtk_tabs_keep_focus_off")
+		fi
+		if [[ "$f" != */nemo-tab-list.c ]] && grep -qE "$listMade" "$f" && ! grep -qE "$listKeys" "$f"; then
+			bad+=("${f}: shows a NemoTabList with no Ctrl+Page keys through nemo_tab_list_step")
+		fi
+	done
+
+	for f in "${uiFiles[@]}"; do
+		base="${f##*/}"
+		loaders="$(grep -lF -- "$base" "${cFiles[@]}" || true)"
+		if [[ -z "$loaders" ]] && grep -qE 'class="(Gtk(Notebook|StackSwitcher|StackSidebar|AboutDialog|ShortcutsWindow)|NemoTabList)"' "$f"; then
+			bad+=("${f}: tabs, and no C file names it to check")
+		fi
+		for loader in $loaders; do
+			if grep -qE 'class="Gtk(Notebook|StackSwitcher|StackSidebar|AboutDialog|ShortcutsWindow)"' "$f" && ! grep -qE "$gtkHelper" "$loader"; then
+				bad+=("${f}: tabs, and ${loader} loads it with no eel_gtk_tabs_keep_focus_off")
+			fi
+			if grep -qF 'class="NemoTabList"' "$f" && ! grep -qE "$listKeys" "$loader"; then
+				bad+=("${f}: a NemoTabList, and ${loader} loads it with no nemo_tab_list_step")
+			fi
+		done
+	done
+
+	found="$(find source \( -name '*.py' -o -name '*.py.in' \) -exec grep -nHE 'Gtk\.(Notebook|StackSwitcher|StackSidebar)\b' {} + || true)"
+	if [[ -n "$found" ]]; then bad+=("$found: tabs in Python, which has no helper to keep them off the keyboard"); fi
+
+	if ((${#bad[@]})); then
+		fEcho "FAIL: tabs that can take the keyboard focus, or can't be stepped with Ctrl+Page Up and Down"
+		printf '%s\n' "${bad[@]}"
+		exit 2
+	fi
+}
+fRun fCheckTabFocus
+
 ## Under MSYS2, use the Windows git that made this checkout - the msys one has
 ## its own HOME/config, so its line-ending view marks every CRLF file modified.
 GIT=(git)

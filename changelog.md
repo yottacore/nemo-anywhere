@@ -66,7 +66,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - "Edit link..." changes where a symlink or junction points, and its name. On a Windows shortcut it shows the absolute, relative and portable paths, any of which can be changed or left empty to drop it. The shortcut's arguments, Start in folder and icon are kept. Only shown when one link is selected.
 
-- A new folder's first name can be a path, such as `photos/2026/june`, and each folder in it is made, nested. Folders already there along the way are used as they are. `/` works everywhere, and `\` on Windows too. Undo takes away the folders it made, deepest first, as long as each is still empty.
+- A new folder's first name can be a path, such as `photos/2026/june`, and each folder in it is made, nested. Folders already there along the way are used as they are. `/` works everywhere, and `\` on Windows too. On Windows `/` only counts while "Accept a forward slash as a separator in typed locations" is on. Undo takes away the folders it made, deepest first, as long as each is still empty.
 
 ### Changed
 
@@ -117,6 +117,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Preferences is called Settings now, in the Edit menu and on its window.
 
 - The window title puts the folder first and the program name after it, as `Documents - Nemo Anywhere`. A name or path with a space in it is put in double quotes.
+
+- Tabs never take the keyboard focus, in Settings, Properties, About or the keyboard shortcuts window. Tab goes past them, and Ctrl+Page Up and Ctrl+Page Down, or Ctrl+Tab and Ctrl+Shift+Tab, step through the pages from anywhere in the window.
 
 ### Fixed
 

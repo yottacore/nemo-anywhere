@@ -232,8 +232,11 @@ gboolean nemo_path_input_is_allowed (const gchar *text);
 
 /* A new folder named with separators in it makes each folder of the path,
    nested. "/" counts everywhere and "\\" on Windows too, since neither can be
-   in a name there. The split drops trailing separators and refuses a leading
-   one, an empty part, "." and "..". NULL with error set on a refusal.
+   in a name there. On Windows "/" counts only while typed locations take it.
+   With that off, has_separator answers FALSE for a name with "/" in it, so the
+   plain rename refuses it. The split drops trailing separators and refuses a
+   leading one, an empty part, a "/" that isn't a separator, "." and "..". NULL
+   with error set on a refusal.
    Returns: (transfer full): free with g_strfreev */
 gboolean nemo_new_folder_name_has_separator (const gchar *text);
 gchar  **nemo_new_folder_path_split (const gchar *text, GError **error);

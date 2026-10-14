@@ -34,7 +34,6 @@
 #include <glib/gi18n.h>
 
 #include <eel/eel-glib-extensions.h>
-#include <eel/eel-gtk-extensions.h>
 
 #include <libnemo-private/nemo-appearance.h>
 #include <libnemo-private/nemo-column-chooser.h>
@@ -1219,22 +1218,6 @@ dialog_key_press (GtkWidget   *dialog,
 	return GDK_EVENT_PROPAGATE;
 }
 
-/* The page list on the left is tabs: a click picks a page, and nothing in it
-   takes the keyboard. Its scrolled window would take it in place of the list. */
-static void
-keep_focus_off_sidebar (GtkWidget *widget, G_GNUC_UNUSED gpointer data)
-{
-	if (GTK_IS_LIST_BOX (widget)) {
-		eel_gtk_list_box_keep_focus_off_rows (GTK_LIST_BOX (widget));
-		return;
-	}
-
-	eel_gtk_widget_refuse_focus (widget);
-	if (GTK_IS_CONTAINER (widget)) {
-		gtk_container_forall (GTK_CONTAINER (widget), keep_focus_off_sidebar, NULL);
-	}
-}
-
 /* With the list out of the keyboard's reach, Ctrl+Page Up and Down, and
    Ctrl+Tab and Ctrl+Shift+Tab, step through its pages, wrapping as tabs do.
    Sub-tabs are stepped in list order, so the keys go through a page's sub-tabs
@@ -1727,8 +1710,6 @@ nemo_file_management_properties_dialog_setup (GtkBuilder  *builder,
 				G_CALLBACK (dialog_key_press), NULL);
 	g_signal_connect (dialog, "key-press-event",
 			  G_CALLBACK (dialog_page_keys), gtk_builder_get_object (builder, "page_sidebar"));
-
-	keep_focus_off_sidebar (GTK_WIDGET (gtk_builder_get_object (builder, "page_sidebar")), NULL);
 
 	close_button = GTK_WIDGET (gtk_builder_get_object (builder, "close_button"));
 	g_signal_connect_swapped (close_button, "clicked",

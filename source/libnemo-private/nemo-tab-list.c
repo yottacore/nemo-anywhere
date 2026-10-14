@@ -24,6 +24,8 @@
 
 #include "nemo-tab-list.h"
 
+#include <eel/eel-gtk-extensions.h>
+
 /* Per level, on top of the theme's own padding. */
 #define SUB_TAB_INDENT 18
 
@@ -464,6 +466,13 @@ nemo_tab_list_init (NemoTabList *list)
 	gtk_list_box_set_selection_mode (GTK_LIST_BOX (list->box), GTK_SELECTION_NONE);
 	gtk_container_add (GTK_CONTAINER (scrolled), list->box);
 	g_signal_connect (list->box, "row-activated", G_CALLBACK (row_activated_cb), list);
+
+	/* Tabs are for the pointer. The scrolled window would take the focus in
+	   place of the list. Ctrl+Page Up and Down are the window's to bind, through
+	   nemo_tab_list_step. */
+	eel_gtk_widget_refuse_focus (GTK_WIDGET (list));
+	eel_gtk_widget_refuse_focus (scrolled);
+	eel_gtk_list_box_keep_focus_off_rows (GTK_LIST_BOX (list->box));
 
 	gtk_widget_show_all (scrolled);
 }
