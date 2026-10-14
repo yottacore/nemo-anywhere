@@ -58,6 +58,7 @@
 #include <libnemo-private/nemo-file-utilities.h>
 #include <libnemo-private/nemo-file-operations.h>
 #include <libnemo-private/nemo-program-choosing.h>
+#include <libnemo-private/nemo-search-directory.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-lib-self-check-functions.h>
 #include <libnemo-private/nemo-module.h>
@@ -476,6 +477,28 @@ nemo_application_window_per_process (void)
 	return nemo_config_get_boolean (nemo_preferences, NEMO_PREFERENCES_WINDOW_PER_PROCESS);
 }
 
+/* A search and its query live in the window's history, so another window gets
+ * the folder it searched, or home when nothing is known of it.
+ * Returns: (transfer full): unref with g_object_unref, or NULL */
+static GFile *
+location_for_other_window (GFile *location)
+{
+	char *uri, *folder;
+	GFile *other;
+
+	if (location == NULL || !g_file_has_uri_scheme (location, "x-nemo-search")) {
+		return location != NULL ? g_object_ref (location) : NULL;
+	}
+
+	uri = g_file_get_uri (location);
+	folder = nemo_search_directory_get_folder_uri (uri);
+	other = folder != NULL ? g_file_new_for_uri (folder) : g_file_new_for_path (g_get_home_dir ());
+	g_free (folder);
+	g_free (uri);
+
+	return other;
+}
+
 /* Every "somewhere other than this window" goes through here. By default that
  * is another process, and NULL comes back; with the setting off the window is
  * made here, already on its way to the location, and returned. A process that
@@ -490,9 +513,11 @@ nemo_application_open_in_new_window (NemoApplication *application,
 	NemoWindow *window;
 	GList *sel_list = NULL;
 	GError *error = NULL;
+	GFile *where = location_for_other_window (location);
 
 	if (nemo_application_window_per_process ()) {
-		if (nemo_new_process_spawn (location, selection, &error)) {
+		if (nemo_new_process_spawn (where, selection, &error)) {
+			g_clear_object (&where);
 			return NULL;
 		}
 		/* Said, so a start that is broken is seen, and the window still opens. */
@@ -506,8 +531,9 @@ nemo_application_open_in_new_window (NemoApplication *application,
 		sel_list = g_list_prepend (NULL, nemo_file_get (selection));
 	}
 	nemo_window_slot_open_location_full (nemo_window_get_active_slot (window),
-	                                     location, 0, sel_list, NULL, NULL);
+	                                     where, 0, sel_list, NULL, NULL);
 	nemo_file_list_free (sel_list);
+	g_clear_object (&where);
 
 	return window;
 }

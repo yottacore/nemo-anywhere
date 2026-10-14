@@ -1635,6 +1635,10 @@ update_for_new_location (NemoWindowSlot *slot)
 		nemo_window_pane_sync_location_widgets (slot->pane);
 
 		if (location_really_changed) {
+			if (slot->location_change_type == NEMO_LOCATION_CHANGE_BACK ||
+			    slot->location_change_type == NEMO_LOCATION_CHANGE_FORWARD) {
+				nemo_window_slot_recall_search_bar (slot);
+			}
 			nemo_window_pane_sync_search_widgets (slot->pane);
 		}
 	}

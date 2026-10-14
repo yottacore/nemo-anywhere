@@ -1429,6 +1429,21 @@ if not is_windows
     timeout: 180
   )
 
+  # Preloaded too; it goes Back and Forward over a search from inside the program.
+  find_history_probe = shared_module('test-nemo-find-history-probe',
+    [ 'test-nemo-find-history-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('rk7y2ch7 Search in history test',
+    executable('test-nemo-find-history',
+      [ 'test-nemo-find-history.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, find_history_probe ],
+    timeout: 180
+  )
+
   # Preloaded too; it holds an smb:// mount and looks at the window meanwhile.
   connecting_probe = shared_module('test-nemo-connecting-probe',
     [ 'test-nemo-connecting-probe.c' ],
