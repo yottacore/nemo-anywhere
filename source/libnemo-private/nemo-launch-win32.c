@@ -111,7 +111,12 @@ bstr_variant (const gchar *text)
 /* The Shell.Application object of the running desktop, which is what makes the
  * call happen in Explorer rather than here. Walking to it through the desktop's
  * own shell view is the only way to reach that instance; CoCreateInstance would
- * hand back one inside this process, hooks and all. */
+ * hand back one inside this process, hooks and all.
+ *
+ * From a session with no shell of its own, such as session 0 over ssh, the
+ * lookup still answers, with the console's desktop, which can be another
+ * user's. Their Explorer then starts the program as them, or puts up a box
+ * about a path they can't read and the call waits on it. */
 static IShellDispatch2 *
 desktop_shell (void)
 {
@@ -126,8 +131,10 @@ desktop_shell (void)
 	IShellDispatch2 *shell = NULL;
 	VARIANT nowhere;
 	LONG hwnd = 0;
+	HWND ours = GetShellWindow ();
 
-	if (FAILED (CoCreateInstance (&CLSID_ShellWindows, NULL, CLSCTX_ALL,
+	if (ours == NULL ||
+	    FAILED (CoCreateInstance (&CLSID_ShellWindows, NULL, CLSCTX_ALL,
 				      &IID_IShellWindows, (void **) &windows))) {
 		return NULL;
 	}
@@ -137,6 +144,7 @@ desktop_shell (void)
 	if (SUCCEEDED (IShellWindows_FindWindowSW (windows, &nowhere, &nowhere, SWC_DESKTOP,
 						   &hwnd, SWFO_NEEDDISPATCH, &desktop)) &&
 	    desktop != NULL &&
+	    (HWND) (LONG_PTR) hwnd == ours &&
 	    SUCCEEDED (IDispatch_QueryInterface (desktop, &IID_IServiceProvider, (void **) &provider)) &&
 	    SUCCEEDED (IServiceProvider_QueryService (provider, &SID_STopLevelBrowser,
 						      &IID_IShellBrowser, (void **) &browser)) &&

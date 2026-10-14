@@ -2,7 +2,8 @@
 
 ##	- Purpose: Check the nemo-lint image helper with a stand-in docker: the
 ##	  tag follows Dockerfile.lint, old tags go, every way of not having the
-##	  image falls back to the host tools, and a worktree's git dir is mounted.
+##	  image falls back to the host tools, MSYS2 included, and a worktree's git
+##	  dir is mounted.
 ##	  Also that Dockerfile.lint pins its base and checks every download, and
 ##	  that lint.bash runs each tool checker through the helper.
 ##	- Needs git only.
@@ -58,7 +59,12 @@ case "$1" in
 	*) exit 0 ;;
 esac
 EOF
-chmod +x "${scratch}/bin/docker"
+## uname too, so the docker cases run the same under MSYS2, and MSYS2 runs here.
+cat >"${scratch}/bin/uname" <<'EOF'
+#!/usr/bin/env bash
+echo "${STUB_UNAME:-GNU/Linux}"
+EOF
+chmod +x "${scratch}/bin/docker" "${scratch}/bin/uname"
 
 # shellcheck source=include/lint-image.bash
 source "${here}/include/lint-image.bash"
@@ -86,6 +92,8 @@ grep -q '^rmi -f' "$log" && fFail "first run builds: forced removal"
 fCase "build fails" "" STUB_BUILD=0
 fCase "daemon down" "" STUB_UP=0
 fCase "NEMO_LINT_HOST=1" "" NEMO_LINT_HOST=1 STUB_HAVE="$want"
+fCase "MSYS2" "" STUB_UNAME=Msys STUB_HAVE="$want"
+[[ -s "$log" ]] && fFail "MSYS2: asked docker anyway"
 
 ## A worktree's git dir lives in the main clone, outside what the run mounts.
 git init -q "${scratch}/main"
