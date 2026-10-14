@@ -233,8 +233,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026101009150766
 	- Type: Enhancement
 	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 193 of 194. The one failure, rjv9ks2z, is the connecting sign's look with animations off, and it passed on its own.
-	- Needs external testing: by hand on Windows, New folder in a window, then a path with backslashes typed into the box. Not tried. rk56fsaw passed natively on b29w.
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 193 of 194. The one failure, rjv9ks2z, is the connecting sign's look with animations off, and it passed on its own. On tabkeys, 200 of 200.
+	- Needs external testing: by hand on Windows, New folder in a window, then a path with backslashes typed into the box. Then the same with "Accept a forward slash as a separator in typed locations" off and a path with `/`, which is refused with the usual rename error. Not tried. rk56fsaw passed natively on b29w, with the setting on and off.
 	- Priority|Severity: Avg
 	- Opened: 20261010-091507
 	- Opened by: t00mietum
@@ -245,8 +245,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual effort: Avg
 	- Progress log:
 		- 20261013: done. Left at signoff for the new error messages and the calls under Decisions.
+		- 20261013: changed my mind on `/` on Windows. The setting for `/` in typed locations decides there too, since `/` can't be in a Windows name anyway. With it off, a name with `/` goes to the plain rename, which refuses it as it would `*` or `?`, with the rename error "Slashes are not allowed in filenames". `\` still splits. Linux and the BSDs are unchanged.
 	- Decisions:
-		- A name splits at `/` on every platform, and at `\` on Windows too, since neither can be in a name there. Elsewhere a backslash stays part of the name. The Windows setting for `/` in typed locations doesn't change this.
+		- A name splits at `/` on every platform, and at `\` on Windows too, since neither can be in a name there. Elsewhere a backslash stays part of the name. On Windows `/` splits only while "Accept a forward slash as a separator in typed locations" is on. With it off, a name with `/` in it, `\` or not, is refused like any name with a character Windows doesn't allow: the plain rename error, and nothing made.
 		- Only the first name of a folder New folder made counts, typed in the box it opens or later. Renaming any other folder with a `/` in the name is refused, as before.
 		- Folders already there along the path are used as they are. Only the last one being there is the usual "already used" error.
 		- A leading separator, 2 separators in a row, and `.` or `..` as a folder name are refused with a message, and the folder keeps waiting for its first name. A trailing separator is dropped.
@@ -254,11 +255,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Undo takes away every folder the path made, the first one included, deepest first, and stops at the first one that isn't empty any more. Redo makes them again.
 		- After that the top folder of the path is selected, the one in the folder being shown, whether it was made or already there.
 		- The tree's New folder names its folder in Properties, so the same goes for the name typed there.
-	- Swept: every way to make a folder and name it. Ctrl+Shift+N, the menu and the toolbar button go through the window's New folder, which is the view's. The view's background menu, and New folder on a folder in the location bar's menu, go through the view too. The tree's New folder names the folder in Properties. The 3 places a name is typed: the icon view, the list view and Properties. Redo of a plain New folder makes no name and is left alone. Templates make files only, and no drag makes a folder. The "Create folder" button in Copy to, Move to, the archive dialog and the templates setting is the GTK file chooser's own.
-	- Verified: rk56ftav and rk56g0rq fail before the change and pass after. rk56fsaw passes on Linux, under wine and natively on b29w. Its backslash checks fail under wine without the Windows rule.
-	- Branch: nestdir
-	- Commit: bcdd716
-	- Test case: rk56fsaw, New folder named with a path: the split on each platform, and the job itself, with folders already there, the last one there, a file on the way, a trailing separator, the backslash, undo and redo. rk56ftav and rk56g0rq, the same in the icon view and the list view: New folder, a path typed in the box, the top folder selected, and undo. Linux and FreeBSD only.
+	- Swept: the `/` setting is read where the split decides, so the icon view, the list view and Properties all follow it. Every way to make a folder and name it. Ctrl+Shift+N, the menu and the toolbar button go through the window's New folder, which is the view's. The view's background menu, and New folder on a folder in the location bar's menu, go through the view too. The tree's New folder names the folder in Properties. The 3 places a name is typed: the icon view, the list view and Properties. Redo of a plain New folder makes no name and is left alone. Templates make files only, and no drag makes a folder. The "Create folder" button in Copy to, Move to, the archive dialog and the templates setting is the GTK file chooser's own.
+	- Verified: rk56ftav and rk56g0rq fail before the change and pass after. rk56fsaw passes on Linux, under wine and natively on b29w. Its backslash checks fail under wine without the Windows rule. Its checks with the `/` setting off fail on the first change's code, 7 of them, under wine and natively on b29w, and pass after on both.
+	- Branch: nestdir, tabkeys
+	- Commit: bcdd716, a0f3752
+	- Test case: rk56fsaw, New folder named with a path: the split on each platform, and the job itself, with folders already there, the last one there, a file on the way, a trailing separator, the backslash, undo and redo. On Windows, both states of the `/` setting: with it off `/` doesn't split, a name with one is left to the plain rename and refused there, and `\` still nests. rk56ftav and rk56g0rq, the same in the icon view and the list view: New folder, a path typed in the box, the top folder selected, and undo. Linux and FreeBSD only.
 	- Acceptance signoff: Left at signoff for the error messages and the calls under Decisions.
 
 - Settings: the dialog is too long.
@@ -998,6 +999,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: 20261013 on b29w.
 	- Possible cause: as in Incorrect behavior, from reading the code.
 	- Test case: rjxyddbk itself, on Windows.
+
+
+- On Windows, a name with a character Windows doesn't allow is refused with "Input/output error".
+	- ID: 2026101319265113
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261013-192651
+	- Opened by: t00mietum
+	- Related IDs: 2026101009150766
+	- Target OS: Windows
+	- Steps to reproduce: rename a file or folder to `a*b`, or `a?b`, `a<b`, `a|b`, `a"b`.
+	- Incorrect behavior: GLib answers with a plain failure, "Error renaming file <full path>: Input/output error", so the rename error falls to its catch-all: "Sorry, could not rename ..." with that text, and a warning in the log. `a:b` fails the same way, naming the old path.
+	- Expected behavior: the rename error says which character can't be in a name, as it does for `/`.
+	- Reproduced: 20261013, the GLib answer, natively on b29w and under wine. The dialog text is from reading the code.
+	- Possible cause: GLib maps the Windows error for a bad name to EIO, so nothing tells it from a real disk error.
+	- Test case: none yet.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
@@ -2009,12 +2027,44 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Both kinds of tab: the list on the left and the Views tabs. Tab goes past both, and a click on either never leaves the focus on it.
 		- With the list out of the keyboard's reach, Ctrl+Page Up and Ctrl+Page Down step through its pages and wrap round, as the main window's tabs do. With the focus inside the Views tabs, the keys step those tabs, as before. Ctrl+Tab is left for 2026101009150770. The UX style guide says so too.
 	- Swept: the main window's tabs already kept the focus off. The Properties window's tab buttons still take it; outside Settings, so left alone.
+	- Swept later: Properties and every other tab strip, in 2026101319204761.
 	- Verified: rhtmbdmd fails on dev's code: the list's rows take the focus, Tab stops on a row, the Views tabs keep the focus, and Ctrl+Page Down does nothing. It passes after, 3 runs, and under wine. Checked in the app on Linux: Tab never reaches a tab, a click opens a page from the list, and Ctrl+Page Down moves to the next page. Full Linux suite 189 of 191: one skip, and rjv9ks2z failed once under load and passes alone, 3 of 3. Windows cross build clean with warnings as errors. Lint clean.
 	- Branch: settings
 	- Commit: 07b76a2, dcdce6d
 	- Test case: rhtmbdmd, Settings dialog test.
 	- Acceptance signoff: Self-closed: does what the item asks, and rhtmbdmd failed before and passes after.
 	- Closed: 20261013-050442
+
+
+- Tab buttons never take keyboard focus, anywhere.
+	- ID: 2026101319204761
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 200 of 200.
+	- Priority|Severity: Avg
+	- Opened: 20261013-192047
+	- Opened by: t00mietum
+	- Related IDs: 2026101009150771
+	- Target OS: All
+	- Requirements:
+		- No keyboard focus for tab buttons, in every window and dialog, the way 2026101009150771 did it for Settings.
+		- A click still switches tabs and never leaves the focus on the tab. Tab skips the tabs. Ctrl+Page Up and Ctrl+Page Down step the pages and wrap.
+	- Decisions:
+		- One helper in eel for GTK's tabs, notebooks, stack switchers and stack sidebars, so a new dialog gets all of it from one call. It binds the keys on the window, so they work from anywhere in it, a scrolled window or the Close button included. A notebook inside a page keeps the keys while the focus is in it, as in Settings.
+		- Ctrl+Tab and Ctrl+Shift+Tab step the pages too, as Settings does and the UX style guide says for tabs in a dialog.
+		- The Settings tab list keeps the focus off its rows by itself now, so any dialog showing one gets that. The keys stay with the dialog, through the list's own step, since they go through sub-tabs.
+		- The main window's tabs already kept the focus off, and step per pane through the window's own shortcuts. Left as they are.
+		- The About window has tabs only with a header bar, which depends on the desktop. Without one, Credits and License are plain buttons beside Close, and keep the focus as buttons do.
+		- A lint check fails on tabs made without the helper, in C or in a builder file, and on any tabs in Python, which has no helper.
+	- Swept: Properties, whose extension pages are pages of the same tabs. The About window's tabs. The keyboard shortcuts window, which splits its one long section into 3 pages with a button each. Settings and the main window were done already. No other notebook, stack switcher or stack sidebar in the C code, the builder files or the action layout editor. The archive dialog has an expander, no tabs. Copy to, Move to and the program chooser are GTK's own and have no tabs.
+	- Progress log:
+		- 20261013: done.
+	- Verified: rk6naqsk fails on dev's code, 6 checks: the tabs can take the focus, Tab stops on one, Ctrl+Page Down and Ctrl+Tab don't wrap, and Ctrl+Page Up from the Close button does nothing. It passes after. A click never left the focus on a tab even before, since GTK's switcher already sets that. rk6narsh passes on Linux and under wine; it fails with the helper's parts taken out one at a time. rhtmbdmd still passes, and fails with the Settings list's own refusal taken out. rk6nassf passes, and fails on tabs made without the helper in C, in a builder file and in Python. Windows cross build clean with warnings as errors. Lint clean but rj3ytv0b, which needs the main clone.
+	- Branch: tabkeys
+	- Commit: a0f3752
+	- Test case: rk6naqsk, Properties tabs take no focus test, Linux and FreeBSD only. rk6narsh, Tabs take no focus helper test: a stack switcher, a notebook, the About window and the shortcuts window. rk6nassf, the lint check.
+	- Acceptance signoff: Self-closed: does what the item asks, and rk6naqsk failed before and passes after.
+	- Closed: 20261013-193308
 
 - Run the lint tools from a container, at fixed versions.
 	- ID: 2026101009515961
