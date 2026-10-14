@@ -77,7 +77,7 @@ fHelp(){
 
 		  A release download is checked against the release's checksums file.
 		  With no checksums file it stops, even with -y, unless --no-verify is
-		  given. A --from archive is not checked.
+		  given. A --from archive isn't checked.
 
 		  User install goes to \${XDG_DATA_HOME:-~/.local/share}/${EXE_NAME}, with a
 		  launcher in ~/.local/share/applications and ${EXE_NAME} on PATH via
@@ -150,7 +150,7 @@ symlink="${bindir}/${EXE_NAME}"
 ## Privileged steps run through this; empty when we are already root.
 priv=""
 if [[ "$target" == "system" && "$(id -u)" != "0" ]]; then
-	command -v sudo >/dev/null 2>&1 || fDie "--target system needs root, and sudo was not found - re-run as root"
+	command -v sudo >/dev/null 2>&1 || fDie "--target system needs root, and sudo wasn't found - re-run as root"
 	priv="sudo"
 fi
 
@@ -353,7 +353,7 @@ if [[ -n "$from" ]]; then
 else
 	command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1 || fDie "need curl or wget to reach the releases page"
 	releases_json="$(fFetchText "https://api.github.com/repos/${REPO}/releases?per_page=100" 2>/dev/null)" \
-		|| fDie "could not list the releases of ${REPO} - check the connection. GitHub also limits anonymous requests to 60 an hour."
+		|| fDie "couldn't list the releases of ${REPO} - check the connection. GitHub also limits anonymous requests to 60 an hour."
 	tag="$(fResolveTag "$releases_json")"
 	[[ -n "$tag" ]] || fDie "no release published yet for ${REPO}"
 	version="${tag#v}"
@@ -363,7 +363,7 @@ else
 	sums_asset="${EXE_NAME}-${version}-sha256sums.txt"
 
 	tag_json="$(fFetchText "https://api.github.com/repos/${REPO}/releases/tags/${tag}")" \
-		|| fDie "could not read release ${tag} of ${REPO} from GitHub"
+		|| fDie "couldn't read release ${tag} of ${REPO} from GitHub"
 	asset_urls="$(printf '%s' "$tag_json" | fJsonValues browser_download_url || true)"
 	asset_url="$(printf '%s\n' "$asset_urls" | grep -F "/${asset}" | head -1 || true)"
 	sums_url="$(printf '%s\n' "$asset_urls" | grep -F "/${sums_asset}" | head -1 || true)"
@@ -439,7 +439,7 @@ fEcho_Clean ""
 fEcho "Installing"
 
 mkdir -p "${work}/unpacked"
-tar -xzf "$archive" -C "${work}/unpacked" || fDie "could not unpack the archive"
+tar -xzf "$archive" -C "${work}/unpacked" || fDie "couldn't unpack the archive"
 
 ## Archives carry one top-level dir; tolerate a flat one too.
 tree="${work}/unpacked"
@@ -457,19 +457,19 @@ $priv mkdir -p "$(dirname "$prefix")"
 staging="$(dirname "$prefix")/.${EXE_NAME}-install.$$"
 backup="${prefix}.old.$$"
 $priv rm -rf "$staging" "$backup"
-$priv cp -a "$tree" "$staging" || { $priv rm -rf "$staging"; fDie "could not stage the new install"; }
+$priv cp -a "$tree" "$staging" || { $priv rm -rf "$staging"; fDie "couldn't stage the new install"; }
 if [[ "$target" == "system" ]]; then
 	## Staged as the invoking user; a system prefix must not stay user-writable.
 	$priv chown -R 0:0 "$staging" 2>/dev/null || true
 	$priv chmod -R a+rX "$staging"
 fi
 if [[ -e "$prefix" ]]; then
-	$priv mv "$prefix" "$backup" || { $priv rm -rf "$staging"; fDie "could not move the existing install aside"; }
+	$priv mv "$prefix" "$backup" || { $priv rm -rf "$staging"; fDie "couldn't move the existing install aside"; }
 fi
 if ! $priv mv "$staging" "$prefix"; then
 	[[ -e "$backup" ]] && $priv mv "$backup" "$prefix"
 	$priv rm -rf "$staging"
-	fDie "could not move the new install into place"
+	fDie "couldn't move the new install into place"
 fi
 $priv rm -rf "$backup"
 fEcho_Clean "prefix installed at ${prefix}"
@@ -493,7 +493,7 @@ fEcho "Installed ${APP_NAME}${version:+ }${version}"
 fEcho_Clean "Run it from the menu, or type: ${EXE_NAME}"
 case ":${PATH}:" in
 	*":${bindir}:"*) ;;
-	*) fEcho_Clean "Note: ${bindir} is not on your PATH yet." ;;
+	*) fEcho_Clean "Note: ${bindir} isn't on your PATH yet." ;;
 esac
 fEcho_Clean "Uninstall with the same command plus --uninstall."
 fEcho_Clean ""

@@ -7947,7 +7947,7 @@ open_in_terminal (const gchar *path)
     }
 
     if (gsetting_terminal == NULL) {
-        g_message ("Could not find a terminal emulator");
+        g_message ("Couldn't find a terminal emulator");
         return;
     }
 
@@ -9314,7 +9314,7 @@ static const GtkActionEntry directory_view_entries[] = {
 				 G_CALLBACK (action_select_pattern_callback) },
   /* name, stock id */         { "Invert Selection", NULL,
   /* label, accelerator */       N_("_Invert selection"), "<Primary><shift>I",
-  /* tooltip */                  N_("Select all and only the items that are not currently selected"),
+  /* tooltip */                  N_("Select all and only the items that aren't currently selected"),
 				 G_CALLBACK (action_invert_selection_callback) },
   /* name, stock id */         { "Duplicate", NULL,
   /* label, accelerator */       N_("D_uplicate"), NULL,

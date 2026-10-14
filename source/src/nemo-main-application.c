@@ -173,7 +173,7 @@ refresh_dbus_service_file (G_GNUC_UNUSED NemoMainApplication *self)
 		GError *error = NULL;
 
 		if (!g_file_set_contents (path, wanted, -1, &error)) {
-			g_warning ("Could not write the D-Bus activation file (%s): %s",
+			g_warning ("Couldn't write the D-Bus activation file (%s): %s",
 			           path, error->message);
 			g_clear_error (&error);
 		}
@@ -803,13 +803,13 @@ do_cmdline_sanity_checks (NemoMainApplication *self,
 
 	if (perform_self_check && (remaining != NULL || kill_shell)) {
 		g_printerr ("%s\n",
-			    _("--check cannot be used with other options."));
+			    _("--check can't be used with other options."));
 		goto out;
 	}
 
 	if (kill_shell && remaining != NULL) {
 		g_printerr ("%s\n",
-			    _("--quit cannot be used with URIs."));
+			    _("--quit can't be used with URIs."));
 		goto out;
 	}
 
@@ -817,7 +817,7 @@ do_cmdline_sanity_checks (NemoMainApplication *self,
 	    !open_in_tabs &&
 	    remaining != NULL && remaining[0] != NULL && remaining[1] != NULL) {
 		g_printerr ("%s\n",
-			    _("--geometry cannot be used with more than one URI."));
+			    _("--geometry can't be used with more than one URI."));
 		goto out;
 	}
 
@@ -937,7 +937,7 @@ nemo_main_application_local_command_line (GApplication *application,
 	/* The strv form frees what it takes out. The plain one leaves every parsed
 	   option behind, since g_application_run frees only what is left. */
 	if (!g_option_context_parse_strv (context, arguments, &error)) {
-		g_printerr ("Could not parse arguments: %s\n", error->message);
+		g_printerr ("Couldn't parse arguments: %s\n", error->message);
 		g_error_free (error);
 
 		*exit_status = EXIT_FAILURE;
@@ -1013,7 +1013,7 @@ nemo_main_application_local_command_line (GApplication *application,
 	 * each other on, where they use one, and runs startup, which puts this
 	 * copy in the list. */
 	if (!g_application_register (application, NULL, &error)) {
-		g_printerr ("Could not register nemo: %s\n", error->message);
+		g_printerr ("Couldn't register nemo: %s\n", error->message);
 		g_clear_error (&error);
 
 		*exit_status = EXIT_FAILURE;
@@ -1058,7 +1058,7 @@ nemo_main_application_local_command_line (GApplication *application,
 	if (kill_shell) {
 		DEBUG ("Asking every running copy to quit");
 		if (!quit_other_instances (application)) {
-			g_printerr ("No session bus, so running copies cannot be reached.\n");
+			g_printerr ("No session bus, so running copies can't be reached.\n");
 			*exit_status = EXIT_FAILURE;
 		}
 		goto out;

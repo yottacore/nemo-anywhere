@@ -480,7 +480,7 @@ nemo_properties_window_drag_data_received (GtkWidget *widget, G_GNUC_UNUSED GdkD
 
 	if (!exactly_one) {
 		eel_show_error_dialog
-			(_("You cannot assign more than one custom icon at a time!"),
+			(_("You can't assign more than one custom icon at a time!"),
 			 _("Please drag just one image to set a custom icon."),
 			 window);
 	} else {
@@ -492,13 +492,13 @@ nemo_properties_window_drag_data_received (GtkWidget *widget, G_GNUC_UNUSED GdkD
 			f = g_file_new_for_uri (uris[0]);
 			if (!g_file_is_native (f)) {
 				eel_show_error_dialog
-					(_("The file that you dropped is not local."),
+					(_("The file that you dropped isn't local."),
 					 _("You can only use local images as custom icons."),
 					 window);
 
 			} else {
 				eel_show_error_dialog
-					(_("The file that you dropped is not an image."),
+					(_("The file that you dropped isn't an image."),
 					 _("You can only use local images as custom icons."),
 					 window);
 			}
@@ -4584,7 +4584,7 @@ create_permissions_page (NemoPropertiesWindow *window)
 		if (!all_can_set_permissions (file_list)) {
 			add_prompt_and_separator (
 				vbox,
-				_("You are not the owner, so you cannot change these permissions."));
+				_("You aren't the owner, so you can't change these permissions."));
 		}
 
 		page_grid = GTK_GRID (create_grid_with_standard_properties ());
@@ -4631,10 +4631,10 @@ create_permissions_page (NemoPropertiesWindow *window)
 	} else {
 		if (!is_multi_file_window (window)) {
 			file_name = nemo_file_get_display_name (get_target_file (window));
-			prompt_text = g_strdup_printf (_("The permissions of \"%s\" could not be determined."), file_name);
+			prompt_text = g_strdup_printf (_("The permissions of \"%s\" couldn't be determined."), file_name);
 			g_free (file_name);
 		} else {
-			prompt_text = g_strdup (_("The permissions of the selected file could not be determined."));
+			prompt_text = g_strdup (_("The permissions of the selected file couldn't be determined."));
 		}
 
 		add_prompt (vbox, prompt_text, TRUE);

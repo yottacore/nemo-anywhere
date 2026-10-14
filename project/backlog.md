@@ -151,7 +151,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: 2 rar rows with junctions stored, one archive per item and delete on fail. In both, `jlink` is still there after the delete. One says "The original files were kept." and that `sub` has no archive. The other says 1 selected file isn't in the archive, and also gets the wrong number of warnings.
 	- Expected behavior: `jlink` goes to the trash once its archive checks out, as on Linux.
 	- Reproduced: 20261013 on b29w, the same 2 rows on dev and on the arcmove branch. The last native run before this, at arcprog, passed every row.
-		- 20261013 on b29w, the test started outside the ssh session: dev, scanbar's merge and arcprog's merge each fail the same 2 rows with a long temp folder, and pass every row with a short one. So scanbar didn't bring it in. Only the reason differs: arcprog's says "jlink" is not in the archive.
+		- 20261013 on b29w, the test started outside the ssh session: dev, scanbar's merge and arcprog's merge each fail the same 2 rows with a long temp folder, and pass every row with a short one. So scanbar didn't bring it in. Only the reason differs: arcprog's says "jlink" isn't in the archive.
 	- Actual cause: libarchive 3.8.9 and older can't list a rar link whose target is 128 bytes or more, the same bug as 2026101310525452. rar keeps a junction's target as the whole path with `\??\` in front, and the test's temp folder decides that path's length. Under a temp folder of 72 characters it's 114 bytes and passes, under one of 138 it's 180 and fails. The check is right to keep `jlink`, since it can't see it. Its reason is wrong: it says a selected file isn't in the archive.
 	- Actual fix: when a link the archive should keep as a link isn't listed, the rar is read by libarchive 3.8.9 or older, and the link's target is 128 bytes or more, the warning says the link's target is too long to read back from a rar, so the archive can't be checked. The originals still stay. The test expects `jlink` to stay with that reason when its target is that long, and to go otherwise.
 	- Decisions:
@@ -366,7 +366,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The stop is told from any other by what the library left in the entry it stopped at: a link in a rar with a target of 128 bytes or more. That goes with the version check the delete check uses, from one helper, so both change together if 3.8.10 turns out not to be the first fixed release.
 		- The names a program extracts get the same cleaning as an entry the library reads, so both routes name things the same way and stay inside the folder picked.
 	- Actual fix: as in Decisions. Programs are looked up as before, on Windows the `.exe` first. A test can hide them as for compressing.
-	- Swept: the other place that reads a rar back is the check before a delete, 2026101313374036, which now goes by the same helper. The library's stop shows up at the end of a listing too, which extracting now checks as well as an error. Hard links in a rar keep their target the same way, so the check covers them too, though no test has one. A junction made on Windows is not: the library keeps no target for one, so a stop there reads as any other read error, as before.
+	- Swept: the other place that reads a rar back is the check before a delete, 2026101313374036, which now goes by the same helper. The library's stop shows up at the end of a listing too, which extracting now checks as well as an error. Hard links in a rar keep their target the same way, so the check covers them too, though no test has one. A junction made on Windows isn't: the library keeps no target for one, so a stop there reads as any other read error, as before.
 	- Verified: 20261013. rk65m3m4 fails on dev's extract code and passes on the branch. It also fails with the "already placed" skip off (a question about a file the job had written), with the file count off, and with the stop at the end not checked. reww9h2r, reww9h2s and rjbpmcxy pass, also under the address and undefined behavior checks. The cross build with warnings as errors passes.
 	- Branch: xmove
 	- Commit: 509ff56
@@ -721,7 +721,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual fix: 20261009, while the attempt is out the window also takes no input but Escape. Clicks, scrolls and drops anywhere below the title bar go nowhere, and every key but Escape is dropped before the shortcuts and the menu bar see it. Nothing is grayed, and the pointer stays the busy arrow.
 	- Actual fix: 20261010, while the attempt is out, everything below the title bar slowly fades between the theme's grayed look and normal, one round trip every 2 seconds, the sign included. It goes back to normal at once when the attempt answers, fails, is stopped or the window closes. With animations turned off it stays grayed instead of fading. Nothing runs for it when no attempt is out.
 	- Swept: every location change starts in one place, so the path bar, Places, bookmarks, links, back and forward, and new windows and tabs all get the sign. A tab in the back shows it when it comes to the front. Opening a file on a share that isn't mounted goes through the open code, which has its own wait dialog wiht a Cancel button. Connect to Server has its own spinner.
-	- Swept: 20261009, the menu bar, the toolbar, Places, the tabs, the folder view and the status bar all sit under the cover, so a click, a right-click, a scroll or a drop on any of them goes nowhere. The menu bar's own key, the Alt key and every shortcut go through the window first. Other windows of the app, Properties and dialogs included, are not held. The password prompt for a share is its own window, so it should still take input. Read, not tried.
+	- Swept: 20261009, the menu bar, the toolbar, Places, the tabs, the folder view and the status bar all sit under the cover, so a click, a right-click, a scroll or a drop on any of them goes nowhere. The menu bar's own key, the Alt key and every shortcut go through the window first. Other windows of the app, Properties and dialogs included, aren't held. The password prompt for a share is its own window, so it should still take input. Read, not tried.
 	- Swept: 20261010, the fade is drawn by the same cover, so it covers exactly what takes no input and follows the front tab the same way.
 	- Verified: rjv9ks2z fails before the fix, on the sign, the pointer and Escape, and passes after. Full Linux suite 183 of 183. Windows cross build clean, and rhtwm2c8 passes under wine with the new UNC case.
 	- Verified: 20261009, Windows, on vm925w. rhtwm2c8 passes in the native suite at 398c999. With the single exe built at 49a54f8, in the desktop session, `\\10.255.255.1\share` typed in the path bar showed the spinner and "Connecting to 10.255.255.1...", and the pointer over the window was the busy arrow, never the hourglass. Escape took the sign away and the pointer went back to the plain arrow. A server name that doesn't resolve showed the sign until the look-up failed a few seconds later, then the error, with the sign gone.
@@ -782,8 +782,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Steps to reproduce: turn on the Recycle Bin for removable drives, delete a file on a USB stick, so that its bin is the only one with anything in it.
 	- Incorrect behavior: the trash icon shows empty.
 	- Expected behavior: the trash icon shows full, with no prompt to insert a disk for an empty card reader.
-	- Reproduced: under wine, with a drive letter set as removable: its bin was not counted. Neither vm925w nor b29w has a removable drive with a letter. b29w's card reader gets a letter only with a card in it.
-	- Actual cause: the trash state read fixed drives only, on purpose, so an empty card reader could not bring up the shell's insert-disk prompt (2026100512334934).
+	- Reproduced: under wine, with a drive letter set as removable: its bin wasn't counted. Neither vm925w nor b29w has a removable drive with a letter. b29w's card reader gets a letter only with a card in it.
+	- Actual cause: the trash state read fixed drives only, on purpose, so an empty card reader couldn't bring up the shell's insert-disk prompt (2026100512334934).
 	- Actual fix: a removable drive's bin is read when the drive has a disk in it. The check asks the drive for its volume wiht the critical error prompt off, so an empty one says no. The bin read itself runs with the prompt off too, for a card pulled in between. Optical drives and shares are still never asked.
 	- Note: by default Windows keeps no Recycle Bin on a removable drive and deletes there for good. The `RecycleBinDrives` policy gives them one.
 	- Swept: every other volume and bin call. The shortcut icon check already turns the prompt off, the side pane asks only fixed drives for their label, and the link check asks only the folder in view.
@@ -826,7 +826,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: rjefm41d's icon view case timed out at step 5, waiting for the menu the Menu key opens. Seen once. It passed 3 runs of 3 alone.
 	- Expected behavior: passes.
 	- Reproduced: 20261007, once, in the full suite.
-	- Possible cause: the suite shares one display, and a menu whose grab goes to another test's window stays down. The Places focus probe does not wait for its menu to show, for that reason. Not shown here.
+	- Possible cause: the suite shares one display, and a menu whose grab goes to another test's window stays down. The Places focus probe doesn't wait for its menu to show, for that reason. Not shown here.
 	- Note: 20261007, it passed in the full suite on a fresh arm64 release build at 585f825, in 29.7 s. It had passed 3 runs of 3 alone before that.
 	- Note: 20261007, the probe and test were read. At step 5 the probe looks for a menu on screen every 100 ms for 10 s, so it does wait for the menu to show. The test runs on an X server of its own, not the suite's. Two tests that pick the same display number at once don't end up sharing it: the one whose server fails tries the next number. So the possible cause above doesn't apply.
 	- Note: 20261007, not ruled out: the Menu key made no menu at all once, on a loaded box. GTK 3 doesn't show a menu whose pointer grab fails, and the probe presses the key only once. Nothing points at that, and pressing again would hide it rather than explain it.
@@ -848,7 +848,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: No. Not tried with Explorer yet, so the drag program may be at fault.
 	- Test case: TBD
 
-- In the single exe on Windows, a program packed inside it that needs libgsf cannot start.
+- In the single exe on Windows, a program packed inside it that needs libgsf can't start.
 	- ID: 2026100617051745
 	- Type: Bug
 	- Status: Queued
@@ -862,9 +862,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: the gsf-office thumbnailer starts, from a temporary copy the packer makes, and shows the packer's message box "Cannot load library libgsf-1-114.dll". It waits there until the thumbnail's 30 second limit ends it, and if the app is closed first, it stays up after the app is gone. The search converters for Word, Excel and PowerPoint files need the same library, so a content search through them likely does the same. Not tried.
 	- Expected behavior: office files get thumbnails, and their text is searched, with no helper program started.
 	- Reproduced: 20261006 on vm925w, in the desktop session, with the message box seen.
-	- Possible cause: not known. libgsf-1-114.dll and everything it needs are in the pack. gdk-pixbuf-thumbnailer started the same way loaded its libraries, all of which the app itself has loaded. Loading libgsf in the app first did not help, so that is not the difference.
+	- Possible cause: not known. libgsf-1-114.dll and everything it needs are in the pack. gdk-pixbuf-thumbnailer started the same way loaded its libraries, all of which the app itself has loaded. Loading libgsf in the app first didn't help, so that isn't the difference.
 	- Reproduced: 20261007 on vm925w, in the desktop session, with a single exe built from this branch. 3 OpenDocument files, 3 thumbnailers, 3 boxes. Outside the desktop session the same exe made the thumbnails.
-	- Actual cause: MacType, a font tool installed on vm925w. It loads into every program in the desktop session and hooks how they start programs. With it loaded in the single exe, a program packed inside the exe and started from it can load none of the libraries packed beside it. It is not libgsf. A small packed test program could not load zlib or bz2 either, and gsf-office-thumbnailer failed the same way under it.
+	- Actual cause: MacType, a font tool installed on vm925w. It loads into every program in the desktop session and hooks how they start programs. With it loaded in the single exe, a program packed inside the exe and started from it can load none of the libraries packed beside it. It isn't libgsf. A small packed test program couldn't load zlib or bz2 either, and gsf-office-thumbnailer failed the same way under it.
 		- With the exe renamed to a name on MacType's exclusion list, the single exe drew all 3 thumbnails in the desktop session.
 		- The single exe started as itself, rather than a program packed inside it, loads its libraries with MacType loaded.
 		- Ruled out: a library missing from the pack, the temp folder spelled in its short form, the PATH, elevation, and the start flags (no window, handles, detached).
@@ -882,9 +882,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261008: (c), on every platform, so there is one code path. The app reads office thumbnails itself, and the text of Word, Excel, PowerPoint, OpenDocument and EPUB files. That replaces the gsf-office thumbnailer and the 4 search converters. For those types the app's own reader comes before any thumbnailer or search helper installed on the system.
 		- 20261008: no libgsf. The zip-based formats, OOXML, OpenDocument and EPUB, are read through libarchive, which the app already links. The old binary Word, Excel and PowerPoint files are a container format of their own, and a small reader of ours replaces libgsf there. The converters' own record parsing moves over as it is. libgsf, the thumbnailer and the 4 converter programs leave every bundle.
 		- 20261008: a bad file must never crash the app. The readers check every read against the bounds of the file, cap sizes, counts and nesting depth, and trust no length the file gives. They stay in the fuzz stage and the sanitizer suite, and each read runs off the window's thread.
-	- Actual fix: README, under Current limitations, says to add the portable exe to MacType's exclusion list, and that the installed copy is not affected. On Windows the launcher puts each helper in a job that Windows ends along with the app. The helper goes in before it runs, so anything it starts goes too. This is the (a) half. (c) is not started.
+	- Actual fix: README, under Current limitations, says to add the portable exe to MacType's exclusion list, and that the installed copy isn't affected. On Windows the launcher puts each helper in a job that Windows ends along with the app. The helper goes in before it runs, so anything it starts goes too. This is the (a) half. (c) isn't started.
 	- Swept: every direct start in `nemo-launch-win32.c`. The pipe for thumbnailers, ImageMagick and conditions, and the tool runs behind archive, extract, search converters and thumbnailers, are in the job. An action's console program is left out. The shell and service routes start programs outside the app, which are never helpers.
-	- Verified: the runs in Reproduced and Actual cause, on vm925w. rjpatrck fails before the fix and passes after, natively on vm925w and under wine. On vm925w in the desktop session with MacType running, a single exe built from this branch showed the box for 3 OpenDocument files. Closing the app ended all 3 helpers, and so did killing it. The native suite on vm925w: 155 OK, 0 fail, 12 skipped. The full Linux suite: 176 of 176. Not tried: the installed copy under MacType. It is not packed, so it is read as unaffected.
+	- Verified: the runs in Reproduced and Actual cause, on vm925w. rjpatrck fails before the fix and passes after, natively on vm925w and under wine. On vm925w in the desktop session with MacType running, a single exe built from this branch showed the box for 3 OpenDocument files. Closing the app ended all 3 helpers, and so did killing it. The native suite on vm925w: 155 OK, 0 fail, 12 skipped. The full Linux suite: 176 of 176. Not tried: the installed copy under MacType. It isn't packed, so it is read as unaffected.
 	- Branch: thumbwin
 	- Commit: f38660a to f8a6223
 	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session. (c) still needs its own: a thumbnail and the text from a small file of each type, on every platform, and a check that no program is started for them.
@@ -926,7 +926,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261009 on vm925w at dev 186065a. rjmc40ex, rjvb97aa, rjvtggme, rfhnaccg, rjvtghmd, rhatwe0r, rhatwe0s and rhatwe0t pass in the native suite. The staged `win-run` and `win-flat` have no libgsf dll, no gsf-office file and no `*-to-txt` exe; catdoc's helper definition is still there, as decided. The single exe from the same commit, in the desktop session with MacType running and loaded into the app: an .odt with no picture inside and a .doc with a metafile preview show plain icons, and a content search found a word in each, and in each of the other office files. The app started no other program, and no box came up.
 	- Branch: nogsf
 	- Commit: 7c4e340, 6748a54
-	- Test case: rjvwpz9d, Bundle check: no libgsf, gsf-office thumbnailer, converter or their definitions in the tarball, deb, rpm, zip or FreeBSD pkg, and no Depends, Requires or pkg dep on libgsf. The prefix check rhtq57n5 runs it on each arch's Linux files, and its self-test runs in the lint stage. rjvb97aa and rjvtggme: files with a picture or text get it from the reader, and the stand-in thumbnailer and search helper installed for these types are not run. Files with no picture inside, a metafile preview, and files that don't read get nothing from the reader, and then the stand-ins run. rjmc40ex and rfhnaccg as in Progress log.
+	- Test case: rjvwpz9d, Bundle check: no libgsf, gsf-office thumbnailer, converter or their definitions in the tarball, deb, rpm, zip or FreeBSD pkg, and no Depends, Requires or pkg dep on libgsf. The prefix check rhtq57n5 runs it on each arch's Linux files, and its self-test runs in the lint stage. rjvb97aa and rjvtggme: files with a picture or text get it from the reader, and the stand-in thumbnailer and search helper installed for these types aren't run. Files with no picture inside, a metafile preview, and files that don't read get nothing from the reader, and then the stand-ins run. rjmc40ex and rfhnaccg as in Progress log.
 
 - rjv9ks2z, the connecting sign test, fails now and then in a full Linux suite run on a busy box.
 	- ID: 2026101305422316
@@ -941,7 +941,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: it fails in 2 full suite runs of 20261013, on "with animations off the window looks grayed and stays still while it waits". Another run that day failed on "the fade stops and the window looks as before once stopped". Run alone it passes, 3 of 3.
 	- Expected behavior: it passes however busy the box is.
 	- Reproduced: 20261013, with 6 copies at a time on one display beside a CPU load. 3 of 48 runs failed on the fade check, and other runs of that kind on the steady gray one. Each failure came with a GTK warning that the window was drawn before its new size was worked out.
-	- Actual cause: the test draws the window to compare its looks, on its own 100 ms timer. When something has asked the window to lay itself out again, GTK draws nothing until the next frame does it, and warns. On a busy box that frame can come after the timer, so the test compared an empty picture. The app was not at fault.
+	- Actual cause: the test draws the window to compare its looks, on its own 100 ms timer. When something has asked the window to lay itself out again, GTK draws nothing until the next frame does it, and warns. On a busy box that frame can come after the timer, so the test compared an empty picture. The app wasn't at fault.
 	- Actual fix: the test lays the window out before it draws it, as that frame would.
 	- Swept: no other test draws a window that way, by grep for `gtk_widget_draw` in the tests.
 	- Test case: rjv9ks2z, Connecting sign while a share mounts test, itself.
@@ -1044,7 +1044,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
 
-- On Windows the gate says the build is not set up with `-Werror` when it is.
+- On Windows the gate says the build isn't set up with `-Werror` when it is.
 	- ID: 2026100518100000
 	- Type: Bug
 	- Status: Done
@@ -1061,7 +1061,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Possible cause: meson quotes each flag in `build.ninja` on Windows (`"-Werror"`), and `check-werror.bash` only matches a bare `-Werror`. Test rjh7qnxw never reads a Windows `build.ninja`.
 	- Actual cause: as above. On Windows meson writes every argument in `build.ninja` inside double quotes, so `-Werror` is there as `"-Werror"`, and the check only took the bare form.
 	- Actual fix: the check takes `-Werror` bare or as one whole quoted argument. `"-Werror=address"` and a quoted argument that only starts with `-Werror` still fail.
-	- Swept: every script that reads `build.ninja` or other meson output. Only `check-werror.bash` matched a flag as a whole word. The LTO checks in `release-setup.bash` and `test-release-setup.bash`, and the sanitizer and fuzz lane checks, match a substring, so a quote around the flag does not change them, and all of them run on Linux only. `check-win-build-flags.bash` reads the lanes' own meson setup lines, not the build dir. The hosted `release-win.yml` reads nothing back.
+	- Swept: every script that reads `build.ninja` or other meson output. Only `check-werror.bash` matched a flag as a whole word. The LTO checks in `release-setup.bash` and `test-release-setup.bash`, and the sanitizer and fuzz lane checks, match a substring, so a quote around the flag doesn't change them, and all of them run on Linux only. `check-win-build-flags.bash` reads the lanes' own meson setup lines, not the build dir. The hosted `release-win.yml` reads nothing back.
 	- Branch: werrq
 	- Test case: rjh7qnxw. It gained Windows-style build dirs: a quoted `"-Werror"` that has to pass, and a quoted `"-Werror=address"` and a quoted `"-Werror -std=c17"` that have to fail.
 	- Verified: rjh7qnxw failed before the fix, on the quoted `"-Werror"` case, and passes after, under both GNU grep and ugrep. The check passes on the Linux `/build` dir, and on an `ARGS` line quoted by meson's own Windows quoting code, which the old check refuses.
@@ -1179,7 +1179,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Link page, 20261007: on Windows the shared type checks map `.desktop` to the link file type when nothing has registered it. The link checks all go through them now.
 	- Decisions:
 		- A value whose backslashes all come in pairs was written by a key file writer, so each pair reads as one. One lone backslash anywhere means the whole value is read as written. So `C:\\Tools\\x.exe` and `C:\Tools\x.exe` both work, and so do `\\server\share` and its doubled form. The one spelling both readings share is a bare `\\server`, which reads as `\server`; it names no share, so nothing is lost.
-		- On Windows a semicolon in a list always splits, so `C:\Data\;D:\` is 2 folders. A list item cannot hold a semicolon there.
+		- On Windows a semicolon in a list always splits, so `C:\Data\;D:\` is 2 folders. A list item can't hold a semicolon there.
 		- On Windows `""` inside double quotes is one quote, and a single quote is an ordinary character, as in Windows' own rules. An unclosed quote is an error, as before.
 		- The rule covers every value in those files on Windows, names and comments too, not only paths. One rule is easier to explain.
 		- On Windows an action with `Quote=single` gets double quotes, since a single quote groups nothing there. With no `Quote`, each path gets quotes of its own.
@@ -1187,7 +1187,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A link file whose URL is a Windows path opens that path. `C:` read as a URI scheme before.
 		- The app writes a link file value as is on Windows when that reads back the same, and with every backslash doubled when not.
 		- Theme index files and the bookmark metadata file stay on the key file reader. A theme follows the spec, and the app writes the metadata itself.
-		- 20261007: on Windows a launcher (Type=Application) is not treated as one, since nothing there runs its Exec. It takes no drops and opens like any other file, as it did before.
+		- 20261007: on Windows a launcher (Type=Application) isn't treated as one, since nothing there runs its Exec. It takes no drops and opens like any other file, as it did before.
 	- Swept:
 		- Actions: every value, the command and the exec condition, the action folder prefix, paths put into the command.
 		- Search helpers and thumbnailers: TryExec, Exec, MimeType, and the paths put into the command.
@@ -1202,7 +1202,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: SHCL reads `\t`, `\n`, `\\`, `\"` and `\'` as escapes inside double quotes, so a hand-written `"C:\temp\new"` in the settings file reads with a tab and a line break. Bare and single-quoted text is read as written. A file with no format line is read by the 2.x rules at startup, where a backslash in bare text is an escape too (2026100314515200). Left for the SHCL upgrade that drops backslash escapes.
 	- Verified: each new test case below failed under wine before the fix and passes after. Natively on vm925w the 6 tests pass, and the whole suite was 152 OK, 0 failed, 11 skipped, with no `g_strv_length` critical. The Windows suite under wine fails the same 17 tests as before this change, all link and registry gaps in wine. The new lint check failed with one direct read put back. The rule cases in rjmpxtbg failed with pairs not halved, and with a backslash read as an escape. Lint is clean here and on vm925w.
 	- Verified: 20261007, Windows, at 585f825, in the desktop session on vm925w: a bulk rename tool set as a quoted full path with a space in it ran on 2 selected files, one with `&` in its name, and got each as a full path. A custom command typed in Open With as a full path was taken, and ran on the file.
-	- Note: 20261007, failed on vm925w: the properties window of a `.desktop` link file has no URL or Comment field, so the save could not be tried. Going by the code, the page is offered only when the file's type reads as a link file, and Windows has no type registered for `.desktop`. The app still shows the file as a link in the list.
+	- Note: 20261007, failed on vm925w: the properties window of a `.desktop` link file has no URL or Comment field, so the save couldn't be tried. Going by the code, the page is offered only when the file's type reads as a link file, and Windows has no type registered for `.desktop`. The app still shows the file as a link in the list.
 	- Note: 20261007, a link file with a URL opens the properties of what it points to, on every platform, as upstream did. So its URL field is offered only while URL is empty. A launcher's Command field goes through the same save code.
 		- 20261007: decided a link file with a URL keeps opening its target's properties, as upstream.
 	- Verified: 20261007, Windows, at 90a9109, in the desktop session on vm925w: the list showed a link file by its Name. A launcher's properties had Description, Command and Comment. `"C:\Program Files\Thing\thing.exe" C:\data\in.txt` typed as Command and `notes in C:\temp\new` as Comment were both saved as typed, with single backslashes, and read back the same when the window was opened again. A link file with no URL had the URL field, and a full path typed there was saved as typed.
@@ -1292,7 +1292,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Possible cause: not looked at. The jammy image has older GLib and GTK, and the release build has LTO on.
 	- Actual cause: two separate ones, neither a leak in our code.
 		- rjbkzwe7: GLib before 2.76 keeps freed slices in a cache of its own, which the heap reading counts as in use, as it would a thread's malloc cache. With slices handed straight to malloc the move case grows 640 bytes over 64 rounds on GLib 2.72, about what it does on 2.84, and no block is lost per round.
-		- rhe0xz32: the jammy image has no file type icon GTK can load. Its GTK names Yaru, which is not installed, and its cut-down Adwaita has mostly SVG icons and no SVG loader. GTK 3.24.33 also has no `text-x-generic` of its own, so the icon lookup found nothing and our code passed that nothing on to GTK, with 3 criticals and no icon name.
+		- rhe0xz32: the jammy image has no file type icon GTK can load. Its GTK names Yaru, which isn't installed, and its cut-down Adwaita has mostly SVG icons and no SVG loader. GTK 3.24.33 also has no `text-x-generic` of its own, so the icon lookup found nothing and our code passed that nothing on to GTK, with 3 criticals and no icon name.
 	- Actual fix: the leak tests run with `G_SLICE=always-malloc`, set next to the malloc settings they already take. The thumbnail hold test searches only an icon theme it makes itself. A lookup that finds no icon at all now draws the default file picture with no criticals.
 	- Swept: the other heap reader, the list read check in rdjjz89r, has a 4 MB margin and passed on jammy. Both icon lookup paths, by name and from a file, have the guard.
 	- Test case: rjbkzwe7 and rhe0xz32 themselves. rhe0xz32 has a new case for a lookup that finds no icon, which only an older GTK reaches.
@@ -1350,16 +1350,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Steps to reproduce: with 7-Zip installed, compress a folder to 7z from the native build, then from the packed exe. Same for extracting it, and for a content search that reads a Word file.
 	- Incorrect behavior: read only. On the native build each run should open a console window. In the packed exe the job should wait for good.
 	- Expected behavior: no window but the app's own, and the job runs in both.
-	- Reproduced: 20261006 by rjm4ctwh, natively on vm925w and under wine. Each stand-in tool got a console window, and a stop did not end a compress while the tool said nothing, so the job hung until the tool quit on its own.
+	- Reproduced: 20261006 by rjm4ctwh, natively on vm925w and under wine. Each stand-in tool got a console window, and a stop didn't end a compress while the tool said nothing, so the job hung until the tool quit on its own.
 	- Possible cause: GLib starts these through a helper program, which gives each a console window, and which hangs when run from inside the packed exe. `nemo_launch_win32_pipe` from 2026100610503901 starts a program with no window and no helper, but only with a file as stdin, so the archive and search code need more than it offers.
 	- Actual cause: the archive tools, the search converters and the thumbnailer programs all went through GLib's spawn, the same cause as 2026100610503901. A stop also waited on the tool's next line, since GLib's pipe read on Windows can't be stopped.
 	- Actual fix: `nemo-launch-win32.c` starts these too, with no console window and no helper. Output comes back through pipes that can be read as it comes and that a stop interrupts. The compress, extract and search code go through a small wrapper, `nemo-tool-run.c`, which is GSubprocess everywhere but Windows. Thumbnailer programs go through the same call as ImageMagick. Tool stderr stays apart from stdout on Windows, as before.
 	- Swept: every GSubprocess and `g_spawn_*` call that Windows can reach.
 		- Now through the launcher: compress (`start_tool`, both the links-first run and the main one), extract (`run_unpack_command`), search converters (`get_stream_from_helper`), thumbnailer programs (`run_thumbnailer_script`). ImageMagick already was.
 		- Still through GLib on Windows, with no pipes: a new window or tab (`nemo-new-process.c`, our own exe, which has no console window to show), custom action commands and their conditions (`nemo-action.c`), and the window's Open in terminal (`nemo-window-menus.c`). The last two are filed as 2026100615255305.
-		- Reachable, but the program does not exist on Windows, so nothing starts: `xdg-user-dirs-update` (`nemo-file-utilities.c`) and the thumbnail cache fix through `pkexec` (`nemo-thumbnail-problem-bar.c`).
+		- Reachable, but the program doesn't exist on Windows, so nothing starts: `xdg-user-dirs-update` (`nemo-file-utilities.c`) and the thumbnail cache fix through `pkexec` (`nemo-thumbnail-problem-bar.c`).
 		- Not built or not reached on Windows: `pkexec` and the terminal in `nemo-view.c`, the action layout editor, the extension restart, and the extension list and its config links, which are empty there.
-		- Lint rjm8a6xr now fails on any GLib program start that is not on this list. It failed with the old extract code in place.
+		- Lint rjm8a6xr now fails on any GLib program start that isn't on this list. It failed with the old extract code in place.
 	- Verified: rjm4ctwh fails before the fix and passes after, natively on vm925w and under wine. Natively it passed with the box's full PATH too. The whole native suite: 148 OK, 0 fail, 12 skipped. rhr6ggmt ran with the real 7-Zip. The packed exe: rjm4ctwh, packed into one exe with a stand-in converter and thumbnailer inside it, passed in session 0 and in the desktop session. The cross build and the Linux build are clean, and the lint stage passes.
 	- Note: on vm925w, helpers left hung by earlier runs of packed exes were still running after the app had gone, 13 of them from one exe, along with a `gdbus.exe`. They kept that exe in use, so packing a new one over it failed. None were left by 20261006 afternoon.
 	- Note: thumbnailer programs are likely never used on Windows, filed as 2026100615255268. rjm4ctwh calls the thumbnail code with a real type to reach them.
@@ -1383,15 +1383,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: Ctrl+Shift opens Make link for the drop. Alt, or the right button, opens the drop menu, whose "Link here..." opens Make link, as the Done item for the Alt drop describes.
 	- Reproduced: 20261006 on vm925w at 46f9674, with the native build, in the list and icon views.
 	- Possible cause: not looked at. The list view starts its drags with move, copy and link but not ask, so Alt has no menu to ask for there. Why Ctrl+Shift comes through as a move on Windows is open.
-	- Actual cause: Windows offers copy and move for every drop, whatever keys are down, so the app reads the keys itself. It read Ctrl+Shift as nothing, and the drop then moved, as a plain drop on the same drive does. Alt and the right button were not read at all. An ask handed to the toolkit there becomes no drop, so the menu could not have come up anyway. And a right press opened the item menu at once, so a right drag never started.
+	- Actual cause: Windows offers copy and move for every drop, whatever keys are down, so the app reads the keys itself. It read Ctrl+Shift as nothing, and the drop then moved, as a plain drop on the same drive does. Alt and the right button weren't read at all. An ask handed to the toolkit there becomes no drop, so the menu couldn't have come up anyway. And a right press opened the item menu at once, so a right drag never started.
 	- Decisions:
 		- On Windows the item menu now opens when the right button comes up, as in Explorer, so a right drag can start. A right click on the background still opens its menu at once.
-		- A drag started with the middle button still does nothing on Windows. Its drag did not always end when the button came up.
+		- A drag started with the middle button still does nothing on Windows. Its drag didn't always end when the button came up.
 		- 20261006: both of the above signed off.
 	- Actual fix: Ctrl+Shift makes a link, and Alt or a right drag opens the drop menu, in both views and the side pane. The ask reaches Windows as a copy and comes back out as an ask at the drop. Ctrl and Shift alone are unchanged, and nothing changes off Windows.
 	- Swept: every place a drop target sets or reads the drop action, in the icon view, list view, side pane, tree and tab drops. The side pane's drop menu now offers Link on Windows too. A drop from another program goes through the same code. Not changed: drags out of the side pane and tree, which start with the left button only.
 	- Verified: on vm925w, native build, list and icon views. Ctrl+Shift opens Make link. Alt and a right drag open the drop menu, whose "Link here..." opens Make link and "Move here" moves. Ctrl copies, a plain drag moves, and a right click with no drag opens the item menu. Native gate at b65a25b passed, 147 OK, 0 failed, 11 skipped. After 319bd9b, the drop tests, a right drag, Ctrl+Shift and a plain drag again.
-	- Note: not tried, a drop from Explorer with these keys. Once in about 20 drags the drop had not happened a second after the button came up. A rerun was fine.
+	- Note: not tried, a drop from Explorer with these keys. Once in about 20 drags the drop hadn't happened a second after the button came up. A rerun was fine.
 	- Branch: windrop
 	- Commit: 80f2efa, e97485a, 319bd9b
 	- Test case: rjkwtgrm, Drop keys win32 test, Windows only. What each mix of keys and buttons asks for, and that an ask reaches Windows as a copy and comes back as an ask. Fails before the fix and passes after.
@@ -1413,10 +1413,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: the native build makes all six thumbnails, but a console window opens and closes for each one. With Windows Terminal as the default terminal that is a Terminal window each time. The packed exe never starts ImageMagick, and the pictures keep their plain icons.
 	- Expected behavior: thumbnails from both, and no window but the app's own.
 	- Reproduced: 20261006 on vm925w at 46f9674, ImageMagick 7.1.2. 6 consoles and 6 ImageMagick runs from the native build, none of either from the packed exe.
-	- Possible cause: read only. `nemo-magick.c` starts ImageMagick through GSubprocess, not `nemo-launch-win32.c`, so nothing hides the console. In the packed exe GLib's spawn helper sits inside the packed file system, where it cannot run.
+	- Possible cause: read only. `nemo-magick.c` starts ImageMagick through GSubprocess, not `nemo-launch-win32.c`, so nothing hides the console. In the packed exe GLib's spawn helper sits inside the packed file system, where it can't run.
 	- Actual cause:
 		- Native build: GLib starts a program with pipes through a helper program of its own. The app has no console, so the helper has none either, and Windows gives each console program it starts a new console window.
-		- Packed exe: the helper does run from inside the packed file system, but it never starts ImageMagick and never answers. So the first 4 thumbnails each kept a worker busy for good, and nothing more was thumbnailed. Why it hangs there was not traced.
+		- Packed exe: the helper does run from inside the packed file system, but it never starts ImageMagick and never answers. So the first 4 thumbnails each kept a worker busy for good, and nothing more was thumbnailed. Why it hangs there wasn't traced.
 	- Actual fix: `nemo-launch-win32.c` starts ImageMagick itself, with no console window and no helper. The picture file is its stdin, so nothing is copied and it still never sees a file name. Stop and the time limit end it as before. Linux is unchanged.
 	- Swept: by reading, the other programs started through GLib with pipes on Windows have the same 2 problems: the archive tools when compressing and extracting, the search text converters, and thumbnailer programs. Filed as 2026100612483725. Opening a new window already avoids the helper.
 	- Verified: on vm925w with ImageMagick 7.1.2, the native build and a packed exe of this branch both made all 6 thumbnails, with no console window. rhg8y5f0 and rjffcm7d pass natively with ImageMagick on the PATH.
@@ -1444,7 +1444,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Possible cause: the tab is closed from an idle that holds its own reference. Closing the last tab closes the window, so the tab is freed after the window, and its view then takes its menus off a window that is gone (`real_unmerge_menus`).
 	- Actual cause: a tab taken out of its window was only torn down when its last reference went. The idle that closes a moved tab holds one, so for the last tab the window went first. The tab menu and a drag over a tab hold references the same way.
 	- Actual fix: a tab is torn down as it leaves its pane, while its window is still there. The tab's own teardown now runs once, since it is called again at the last reference.
-	- Swept: closing a tab by its button, Ctrl+W and the tab menu; the last tab of a pane in split view; a window closed with tabs in it; a tab moved or torn off to a new window, in its own process or in one process. GTK's own move of a tab between windows in one process keeps the tab alive and is not affected. The other timeouts and idles on windows and tabs are removed by id when those go.
+	- Swept: closing a tab by its button, Ctrl+W and the tab menu; the last tab of a pane in split view; a window closed with tabs in it; a tab moved or torn off to a new window, in its own process or in one process. GTK's own move of a tab between windows in one process keeps the tab alive and isn't affected. The other timeouts and idles on windows and tabs are removed by id when those go.
 	- Branch: tabcrash
 	- Commit: feb2ce0
 	- Test case: rhmr6qgs, Tab move between processes test. Two new sub-cases: the only tab dropped on another copy's window, and the only tab closed from the tab menu, each checking that the copy it left ends cleanly. The first failed before the fix and passes after. The second passed both ways, and guards the menu's hold on the tab.
@@ -1463,8 +1463,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: item 2026100312494905
 	- Related IDs: 2026100312494905, 2026092813381404
 	- Incorrect behavior: the rar line has `-r`, and rar then reads each selected name as a pattern for every folder below where the job runs. Picking `a.txt` in a folder that also has `sub/a.txt` puts both in the archive. rar also tries every other name it walks past, so a link that leads nowhere sitting beside the selection, not picked, makes rar warn, and the job fails and deletes the archive.
-	- Expected behavior: the archive has what was selected and nothing else, and names that were not selected play no part.
-	- Reproduced: rar's side yes, 20261004, Linux, RAR 7.20: `rar a -r -- x.rar a.txt` took `sub/a.txt` too, and said it could not open an unpicked link beside it, with exit 6. The second half on the job's side too, on winlinks: a selected file and linked folder with a link that leads nowhere beside them failed. The first half on the job's side is read only. Plausible.
+	- Expected behavior: the archive has what was selected and nothing else, and names that weren't selected play no part.
+	- Reproduced: rar's side yes, 20261004, Linux, RAR 7.20: `rar a -r -- x.rar a.txt` took `sub/a.txt` too, and said it couldn't open an unpicked link beside it, with exit 6. The second half on the job's side too, on winlinks: a selected file and linked folder with a link that leads nowhere beside them failed. The first half on the job's side is read only. Plausible.
 		- Both halves on the job's side, 20261004, Linux: picking `a.txt` and a folder put `sub/a.txt` in the archive and the job said it worked. With an unpicked link that leads nowhere beside them, the job failed and left no archive.
 	- Actual cause: rar's `-r` makes every selected name a pattern for the working folder and each folder below it, so rar looks at every name it walks past. A folder named on the line goes in whole without `-r`, as rar's own docs say.
 	- Origin: 801ed01, 20260821, which put the command lines in the settings with `-r`. Not seen by an earlier review. Confirmed.
@@ -1501,7 +1501,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: the tree view may still hold focus, per the "Places" and tree view layout item. Only "Places" changes.
 	- Note: 2026100408414402 lists the places sidebar for the keyboard menu. With no focus there, that part goes away.
 	- Actual fix: the "Places" tree refuses the keyboard focus, and so does the scrolled window around it, which would otherwise take it from Tab or F6. Opening a place hands the focus to the folder. A click on the open folder's own place also clears its selection. A rename still gets its entry, and when it ends the focus goes back to the folder. F6 now goes from the folder straight to the tree pane. The handler that moved the "Places" cursor whenever Tab passed it is gone.
-	- Swept: every way a place opens in the same window goes through one function: left click, middle click into a new tab, the menu's Open, and a volume mounted first. A new window or close-behind leaves the focus alone. Both ends of a rename, done and canceled. The tree pane is unchanged, and connecting a view still does not take the focus from it. Nothing else puts the focus in "Places".
+	- Swept: every way a place opens in the same window goes through one function: left click, middle click into a new tab, the menu's Open, and a volume mounted first. A new window or close-behind leaves the focus alone. Both ends of a rename, done and canceled. The tree pane is unchanged, and connecting a view still doesn't take the focus from it. Nothing else puts the focus in "Places".
 	- Note: the clicked place stays highlighted in "Places". That is its selection, which follows the open folder, not the focus.
 	- Branch: placesfocus2
 	- Commit: 4968d39
@@ -1524,27 +1524,27 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Steps to reproduce [Bug]:
 		- Untick "store links", then compress a folder with a link to a missing file as 7z or rar.
 	- Incorrect behavior: "could not be created", and the whole archive is gone. On Windows it happens to every 7z, whatever the checkbox says.
-	- Expected behavior: the link goes in as a link, even with "store links" unticked, wherever the format and tool can keep it. Where they cannot, it is left out with a warning that names it, and the rest of the archive stands.
+	- Expected behavior: the link goes in as a link, even with "store links" unticked, wherever the format and tool can keep it. Where they can't, it is left out with a warning that names it, and the rest of the archive stands.
 	- Reproduced: yes for the tools' exit codes, 20260928, Linux. The job side was read only. The job side too on 20260928, with the new test rows.
 		- Windows, 20261003, b29w natively: every format failed, not only rar.
-	- Actual cause: 7z exits 1 and rar exits 6 when they skip a link they cannot follow, and any non-zero exit fails the job.
+	- Actual cause: 7z exits 1 and rar exits 6 when they skip a link they can't follow, and any non-zero exit fails the job.
 		- Windows: GLib gives a link that leads nowhere the link's own type, a file or a folder, as if it had been followed. So the scan never saw one there, and every writer tried to read it.
-		- Windows: GLib does not fold a program's error output into its normal output, so what 7z and rar said about the link never reached the reader.
-		- Windows: 7-Zip puts in an empty entry for a link it cannot open, and rar's real run writes a plain folder over a folder link its first run kept.
+		- Windows: GLib doesn't fold a program's error output into its normal output, so what 7z and rar said about the link never reached the reader.
+		- Windows: 7-Zip puts in an empty entry for a link it can't open, and rar's real run writes a plain folder over a folder link its first run kept.
 		- Windows: 7z and rar print names in the console code page, and the library zip writer stores them in a local code page. A name past ASCII came out changed, and the delete check read archive names the same way.
 	- Progress log:
-		- 20260929-070928: Reworked for the decision below. Links that lead nowhere now go in as links. Leaving them out with a warning is kept only where the tool cannot keep them.
-		- 20261002-194800: the archive combinations test fails on b29w in the native suite. The four rar rows with a link that leads nowhere fail: rar says it cannot open the dead link, and it also cannot open the good link beside it ("The filename, directory name, or volume label syntax is incorrect"), so no archive is made. The 7z, zip and tar rows pass.
-		- 20261003-124500: the full log of that run shows the zip, tar and 7z dangling rows failing too. The good link's error was the test's own: it was spelled with /, which Windows does not follow at all. Fixed for Windows on arcwin.
+		- 20260929-070928: Reworked for the decision below. Links that lead nowhere now go in as links. Leaving them out with a warning is kept only where the tool can't keep them.
+		- 20261002-194800: the archive combinations test fails on b29w in the native suite. The four rar rows with a link that leads nowhere fail: rar says it can't open the dead link, and it also can't open the good link beside it ("The filename, directory name, or volume label syntax is incorrect"), so no archive is made. The 7z, zip and tar rows pass.
+		- 20261003-124500: the full log of that run shows the zip, tar and 7z dangling rows failing too. The good link's error was the test's own: it was spelled with /, which Windows doesn't follow at all. Fixed for Windows on arcwin.
 		- 20261003-124949: left at signoff rather than closed. On Windows the fix also changes what goes into archives: zip names, and the two built-in command lines.
 	- Decisions:
 		- 20260929: every format stores a link that leads nowhere as a link, where the format and tool can, even when links are otherwise followed. Leaving it out with a warning is only the fallback.
 		- 20260929: under the Compress dialog reset, "Ignore" leaves these links out too. "Follow" and "Store" keep them. Nothing changes here until the reset is built.
 	- Origin: 6c2418f, 20260820. Widened on Windows by 09506ec, 20260926 (bugs), which took link storing away from 7z there. Regression of that fix on Windows. Confirmed.
-	- Note: the zip writer did not warn either. For a link to nothing, GIO answers with the link itself rather than failing, so the scan's "dangling" branch never ran and every writer left the link out without a word.
+	- Note: the zip writer didn't warn either. For a link to nothing, GIO answers with the link itself rather than failing, so the scan's "dangling" branch never ran and every writer left the link out without a word.
 	- Actual fix: the library writer keeps each link that leads nowhere as a link, in every format it writes, 7z included, and still follows the other links. 7z and rar keep links only all or none. So those links go in first, by a run of their own that keeps links, and the real run adds the rest to that archive, following links as before. If that first run fails, the links are left out and named instead. The delete check counts a link that went in as in.
 		- Left out with the warning, as before: a split archive, since neither tool can add to one. 7z on Windows, which is never asked to keep links. A link 7-Zip would reach through a followed linked folder, since it refuses that path. Under rar, a name with * or ?, which it would read as a pattern.
-		- The real run is told to leave out every such link by name, whether the first run kept it or not. rar is not told about a name with * or ?, or one starting with @, which it would read as a list file. It passes over those with a warning status. The output reader from 334b239 still fails the job on any warning that does not name one of them.
+		- The real run is told to leave out every such link by name, whether the first run kept it or not. rar isn't told about a name with * or ?, or one starting with @, which it would read as a list file. It passes over those with a warning status. The output reader from 334b239 still fails the job on any warning that doesn't name one of them.
 		- Windows: a link counts as leading nowhere when opening through it finds nothing. The tools' error output is read beside the normal output. 7z and rar are asked for UTF-8 names in their built-in lines, the library zip writer stores UTF-8 names, and the delete check reads archive names as UTF-8. The reader takes the count line both tools end on there.
 	- Swept: every writer. The library writes zip, tar and its three compressed forms, and 7z; 7z writes 7z, and zip when split; rar writes rar. The delete check's own walk follows the same rule. Compress each goes through the same per-archive code. Unpacking has no link scan.
 		- Windows: the dangling check is one function for the scan and the delete check. Both places that start 7z or rar, compress and extract, read error output the same way, so extracting now sees a wrong password on Windows too. Extracting already read names as UTF-8; its hard link names now do as well. The other GIO link type checks are filed as 2026100312494903. A linked folder named with a leading @ has the same list file trouble under rar, filed as 2026100312494905.
@@ -1579,22 +1579,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Possible cause: each shortcut's icon comes from the Windows shell on the window's thread, one file after another, the first time the view asks for it. The only cache is in memory, so every new run pays it again.
 	- Note: 2026093010493389 already wants these lookups off the window's thread. One fix may cover both.
 	- Actual cause: as above, read from the code. The view asked the shell for each shortcut's icon the first time it drew it, and waited for the answer.
-	- Actual fix: the view gets the cached icon or nothing, at once, and the plain shortcut icon stands in. One worker thread asks the shell, and the shortcut is redrawn when an icon is found. A shortcut the shell has no icon for is remembered too, so it is not asked again. Same branch and fix as 2026093010493389.
-	- Note: the icon table in the file cache was not built. It needs a new cache table and version, its own pruning, and a choice of which sizes to keep, which is more than this fix. Until then the last known icon is kept only while the app runs, so a new run starts plain again.
-	- Note: the folder check behind the sort place and the folder icon still reads each shortcut on the window's thread. It is a local file read, cached, and was not measured.
+	- Actual fix: the view gets the cached icon or nothing, at once, and the plain shortcut icon stands in. One worker thread asks the shell, and the shortcut is redrawn when an icon is found. A shortcut the shell has no icon for is remembered too, so it isn't asked again. Same branch and fix as 2026093010493389.
+	- Note: the icon table in the file cache wasn't built. It needs a new cache table and version, its own pruning, and a choice of which sizes to keep, which is more than this fix. Until then the last known icon is kept only while the app runs, so a new run starts plain again.
+	- Note: the folder check behind the sort place and the folder icon still reads each shortcut on the window's thread. It is a local file read, cached, and wasn't measured.
 	- Branch: lnkasync
 	- Commit: 61dcecc
-	- Test case: rfhr0zw0, Shell icon test, new lookup cases: the first ask returns at once with nothing, a second one while it runs is not queued again, the window is told once when the icon is found, and the cache answers after. A file that is not a shortcut is finished with and not asked again. No case shows the wait itself, since a slow shell can't be made here.
+	- Test case: rfhr0zw0, Shell icon test, new lookup cases: the first ask returns at once with nothing, a second one while it runs isn't queued again, the window is told once when the icon is found, and the cache answers after. A file that isn't a shortcut is finished with and not asked again. No case shows the wait itself, since a slow shell can't be made here.
 	- Verified: rfhr0zw0 passes under wine, and the wine build lists a folder of shortcuts with each one's own icon. The rest as on 2026093010493389.
 	- Verified: the lookup cases in rfhr0zw0 pass on b29w on 20261002, in the native suite. The test as a whole fails on the dead share item's cases.
 	- Verified: 20261003 on b29w, rfhr0zw0 passes whole, with the fix for 2026093010493389 on lnkicon. Asking for the icons of all 335 shortcuts in both Start menu folders took under 1 ms in all. The icons came in over 28 seconds on a first run, and 3 seconds on a second.
 	- Note: before the fix the view asked for each of these on the window's thread, from the code. Not timed.
-	- Note: the folder was not opened on screen. b29w's only session is the one on its own screen.
+	- Note: the folder wasn't opened on screen. b29w's only session is the one on its own screen.
 	- Verified: 20261003 on vm925w, on screen. The Start menu Programs folder, 67 items, was listed within 300 ms of the window showing, the shortcuts with the plain shortcut icon. Their own icons were all in by 2 s. The window answered every check while they loaded.
 	- Acceptance signoff: Self-closed: rfhr0zw0 passes natively on b29w and vm925w, and the Start menu folder was seen on screen.
 	- Closed: 20261003-174609
 
-- On Windows, a local shortcut to a share that is not answering can stall the window while its icon is looked up.
+- On Windows, a local shortcut to a share that isn't answering can stall the window while its icon is looked up.
 	- ID: 2026093010493389
 	- Type: Bug
 	- Status: Done
@@ -1604,7 +1604,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: code review 20260928 follow-up
 	- Related IDs: 2026092813381408, 2026093010493450
 	- Target OS: Windows
-	- Incorrect behavior: a shortcut with no icon of its own gets one from the Windows shell, on the window's thread. The shell may go to the target for it. On a share that is not answering that is about twenty seconds per shortcut.
+	- Incorrect behavior: a shortcut with no icon of its own gets one from the Windows shell, on the window's thread. The shell may go to the target for it. On a share that isn't answering that is about twenty seconds per shortcut.
 	- Expected behavior: the share is never visited for an icon.
 		- The target path is read from the shortcut file, as the folder check already does.
 		- When the target is on a share, the icon comes from the name alone. A folder gets the folder icon, a document the icon for its extension, and a program the plain program icon.
@@ -1623,16 +1623,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: lnkasync, lnkicon
 	- Commit: 61dcecc, a9aa321
 	- Test case: rfhr0zw0, Shell icon test, new share cases: a document on a share gets the icon for its name and not the one the shortcut names, and a program on a share, or a shortcut whose icon is on a share, gets the plain program icon. The document cases fail with the share route taken out and pass with it, under wine. rhmxm5ah, Windows shortcut reader test, new cases for the icon file and the share check, on Linux.
-	- Test case: rfhr0zw0, two more cases: a shortcut made by the shell and given a record of both its drive and a share, once with this drive's serial and once with another. The first gets the icon it names. It fails before the second fix and passes after, on b29w and under wine. rhmxm5ah, a shortcut that records both is not on a share. Fails before and passes after, on Linux.
-	- Swept: the share check has one caller. Opening a shortcut tries the share only when the drive path is not there, and Edit link shows the drive path first. Both already right.
+	- Test case: rfhr0zw0, two more cases: a shortcut made by the shell and given a record of both its drive and a share, once with this drive's serial and once with another. The first gets the icon it names. It fails before the second fix and passes after, on b29w and under wine. rhmxm5ah, a shortcut that records both isn't on a share. Fails before and passes after, on Linux.
+	- Swept: the share check has one caller. Opening a shortcut tries the share only when the drive path isn't there, and Edit link shows the drive path first. Both already right.
 	- Note: the two checks that failed on b29w expected the right thing. The code was wrong there, and on any machine whose drive is shared.
 	- Verified: 20261003, rfhr0zw0 passes on b29w with all 37 checks, and fails three before the fix. It passes under wine. Full Linux suite 157 of 157. The Windows cross build has no warnings, and lint is clean.
 	- Verified: the Linux build and the shortcut reader, sort, link edit, link copy and make link tests pass. The Windows cross build compiles with no warnings. rfhr0zw0 passes under wine, and the Windows shortcut and share tests give the same results there as on dev. C lint and the test ID check are clean.
 	- Progress log:
-		- 20261002-194800: rfhr0zw0 fails two checks on b29w in the native suite: a local shortcut does not get the icon it names, and a document on a share does. The other share cases and every lookup case pass.
-		- 20261003-133500: the cause was the share record Windows writes for a shared drive. Fixed on lnkicon. The dead share check on screen was not run; the share cases in rfhr0zw0 use a share address that does not answer.
-	- Verified: 20261003 on vm925w, on screen. A local folder with a shortcut to a document on a share that does not answer, and one whose icon is on that share, opened as fast as any other folder, and the window answered every check over 8 s. The first has the document icon and the second the plain program icon. The Windows shell itself took 45 s to make the first shortcut.
-	- Acceptance signoff: Self-closed: rfhr0zw0 passes natively on b29w and vm925w, and a folder with shortcuts to a share that does not answer was seen on screen.
+		- 20261002-194800: rfhr0zw0 fails two checks on b29w in the native suite: a local shortcut doesn't get the icon it names, and a document on a share does. The other share cases and every lookup case pass.
+		- 20261003-133500: the cause was the share record Windows writes for a shared drive. Fixed on lnkicon. The dead share check on screen wasn't run; the share cases in rfhr0zw0 use a share address that doesn't answer.
+	- Verified: 20261003 on vm925w, on screen. A local folder with a shortcut to a document on a share that doesn't answer, and one whose icon is on that share, opened as fast as any other folder, and the window answered every check over 8 s. The first has the document icon and the second the plain program icon. The Windows shell itself took 45 s to make the first shortcut.
+	- Acceptance signoff: Self-closed: rfhr0zw0 passes natively on b29w and vm925w, and a folder with shortcuts to a share that doesn't answer was seen on screen.
 	- Closed: 20261003-174609
 
 - Code review 20260928 item 3. Edit link on a symlink whose name ends in .lnk turns the symlink into a plain file.
@@ -1707,11 +1707,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior [Bug]: the backslashes read doubled and the tab reads as `\t`. Nothing is backed up and no warning is given. The next save writes the wrong values in the current format, so they stay wrong and the old file is gone.
 	- Expected behavior [Bug]: every value reads as the old release read it.
 	- Reproduced [Bug]: yes, 20261003, Linux. Test rjcev513 writes the file with each old release's own code and reads it through the app.
-	- Actual cause [Bug]: the old releases wrote a backslash as `\\` outside double quotes. Format 3 reads it there as it stands. A file with no format line is converted with only the spellings both rule sets read the same way, per a decision on 2026100311512222, and these are not among them. With nothing changed, the "read two ways" warning is skipped too.
+	- Actual cause [Bug]: the old releases wrote a backslash as `\\` outside double quotes. Format 3 reads it there as it stands. A file with no format line is converted with only the spellings both rule sets read the same way, per a decision on 2026100311512222, and these aren't among them. With nothing changed, the "read two ways" warning is skipped too.
 	- Against: 2026100311512222, Decisions, "A file with no format line ... only spellings both rules agree on are changed." Replaced by the decision below.
 	- Decisions:
 		- 20261003: a file with no format line is converted as 2.x at startup.
-	- Note: design.md, "Settings", said such a file is rewritten when the old rules read it differently. These values were read differently and it was not. It now says what the code does.
+	- Note: design.md, "Settings", said such a file is rewritten when the old rules read it differently. These values were read differently and it wasn't. It now says what the code does.
 	- Progress log:
 		- 20261003-145152: with the file converted as 2.x instead, every value both old releases wrote reads right in rjcev513, and the only other change is that such a file is then backed up and rewritten. The cost is a hand-written current file with no info block and a backslash escape outside double quotes, which would then be read as 2.x. Every file the app itself wrote before format 3 has no format line.
 		- 20261003-145152: options: convert a file with no format line as 2.x at startup, since app-written old files are the common case. Or a smaller step either way: back up the file and warn whenever a value could be read two ways, even when nothing is converted.
@@ -1738,13 +1738,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: release.bash asks for link-time optimization, but the release container's build dir has it off and keeps it off. A clean build of the same commit has it on, so every binary differs from the published ones.
 	- Expected behavior: README, the Linux builds can be rebuilt from their commit to the same bytes.
 	- Reproduced: yes, 20261003, Linux. Dev `f4d2386` built in a new container from the current image, with its old build dir, gave a 2175143 byte tarball. A clean build gave 2195908 bytes. The live release container's build dir also reads link-time optimization off.
-	- Possible cause: meson 0.61's `setup --reconfigure` does not apply the option to a build dir set up without it. The current image also has a build dir saved inside it, so even a new container starts from it.
+	- Possible cause: meson 0.61's `setup --reconfigure` doesn't apply the option to a build dir set up without it. The current image also has a build dir saved inside it, so even a new container starts from it.
 	- Actual cause: on a reconfigure, the release image's meson takes plain options but drops new `b_` ones, so `b_lto` and `b_lto_threads` never reached a dir first set up without them. release.bash reconfigured whatever dir it found, and the image had one saved inside it from hand work in the container.
 	- Actual fix: the build dir is set up from nothing on every release build, by the new `cicd/linux/release-setup.bash`, which then reads back what meson recorded and stops on anything but what was asked. `--clean` is still taken but does nothing now. The release image was re-committed without its build dirs, temp files and the beta1 package's leftover config, and the release container was made again from it.
-	- Swept: the cross lane's meson keeps `b_` options on a reconfigure, and its build dir reads link-time optimization on. The fuzz lane already starts over when its flags are missing. The debug build and the suite are not release builds. The hosted Windows build runs on a fresh runner.
+	- Swept: the cross lane's meson keeps `b_` options on a reconfigure, and its build dir reads link-time optimization on. The fuzz lane already starts over when its flags are missing. The debug build and the suite aren't release builds. The hosted Windows build runs on a fresh runner.
 	- Note: the item 27 decision still holds. The image has the same packages as before; only build leftovers were removed.
 	- Note: a clean build takes about a minute here, so each pipeline run is that much longer.
-	- Note: beta1 and beta2 were built with link-time optimization off, so a rebuild of either tag does not match what was published.
+	- Note: beta1 and beta2 were built with link-time optimization off, so a rebuild of either tag doesn't match what was published.
 		- 20261004: README and design.md now say the same-bytes claim starts with the release after beta2. The release image was flattened, which took about 390 MB of old build dirs out of its layers. Its files are unchanged.
 	- Branch: cleanrel
 	- Commit: a24072f
@@ -1753,7 +1753,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: a build lane fix with nothing on screen. rjcpvcyb covers it.
 	- Closed: 20261003-172500
 
-- Code review 20260928 item 5. The installer and prefix checks cannot fail a pipeline run.
+- Code review 20260928 item 5. The installer and prefix checks can't fail a pipeline run.
 	- ID: 2026092813381405
 	- Type: Bug
 	- Status: Done
@@ -1773,7 +1773,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: gatefix
 	- Commit: 9000f48
 	- Test case: rj3yttvt, Package checks test. Fails before the fix and passes after, on Linux.
-	- Verified: the test also fails on a fix that warns instead of stopping. The installer and prefix checks both pass on the current release tarball, so the new stop does not block a run today.
+	- Verified: the test also fails on a fix that warns instead of stopping. The installer and prefix checks both pass on the current release tarball, so the new stop doesn't block a run today.
 	- Acceptance signoff: Self-closed: a pipeline check with nothing on screen. rj3yttvt covers it.
 	- Closed: 20261003-112426
 
@@ -1867,7 +1867,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual cause: dev and main only take merges, so the changes since the merge base with dev are always empty there.
 	- Against: lint scoped by file, in the review's Decisions. File scoping stays on feature branches. dev and main lint the whole tree, chosen 20260930 over the latest merge.
 	- Actual fix: on dev, main or a named base, cppcheck covers every first-party C file in the tree, plus untracked ones. Vendored code stays out, now `source/cut-n-paste-code/` as well as `vendor/`. Feature branches are unchanged.
-		- The 15 findings a whole-tree pass had are gone. The string formatter uses the standard `va_copy` in place of the glib macro cppcheck could not follow. The conflict dialog leaked two names, and now frees them. The old bus test's one false positive is suppressed inline.
+		- The 15 findings a whole-tree pass had are gone. The string formatter uses the standard `va_copy` in place of the glib macro cppcheck couldn't follow. The conflict dialog leaked two names, and now frees them. The old bus test's one false positive is suppressed inline.
 		- cppcheck runs on half the cores with a build dir, which keeps the cross-file checks. The whole tree takes about 13 seconds, against about 50 on one core.
 	- Swept: the Windows pipeline runs the same C lint through the lint stage. No other check picks its files by a diff against dev. The scope is described in the lint's header, the code style guide, the cicd config and the suppressions file. The Windows script's own wording goes with item 31.
 	- Branch: gatefix, lintall
@@ -1889,10 +1889,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: on Windows a junction, symlink or hardlink comes back as a shortcut. Elsewhere a relative symlink, hardlink or shortcut comes back as an absolute symlink.
 	- Expected behavior: redo makes what was made the first time.
 	- Reproduced: yes, 20260928, Linux. A hardlink and a folder shortcut came back as absolute symlinks, and relative symlinks as absolute ones.
-	- Actual cause: the undo record does not keep the dialog's choices.
+	- Actual cause: the undo record doesn't keep the dialog's choices.
 	- Origin: the redo code is upstream. It broke when the choices came in with 73ec92e, 20260924 (makelink). Regression. Confirmed.
 	- Actual fix: the undo record keeps the dialog's choices, and a redo makes the links with them.
-	- Swept: Make link is the only job that takes the dialog's choices. A copy's redo does not keep the link copy choice either, but every copy job asks it again when links are in it, so nothing is picked quietly. That was read, not run.
+	- Swept: Make link is the only job that takes the dialog's choices. A copy's redo doesn't keep the link copy choice either, but every copy job asks it again when links are in it, so nothing is picked quietly. That was read, not run.
 	- Branch: linkfix
 	- Commit: 342d30a
 	- Test case: rj05egmb, Make link redo. Fails before the fix and passes after, on Linux.
@@ -1911,14 +1911,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
 	- Target OS: Linux and macOS, on a case-insensitive file system.
-	- Incorrect behavior: renaming "Link" to "link" while changing its target leaves no link. The target is not touched.
+	- Incorrect behavior: renaming "Link" to "link" while changing its target leaves no link. The target isn't touched.
 	- Expected behavior: design.md, the old link is never missing.
 	- Reproduced: yes, 20260928, Linux, on a ZFS dataset that normalizes names. "café" in its two Unicode spellings is one entry there, the same way "Link" and "link" are on a case-insensitive one.
 	- Actual cause: the new link is renamed over the old name, and the old name, which is now the new link, is then removed.
 	- Origin: 1866e56, 20260925 (linkedit). New ground. Confirmed.
 	- Actual fix: before the rename, it checks whether the new name is the old link under another spelling. If it is, nothing is removed afterwards.
 	- Note: on that ZFS dataset a lookup by the other spelling can still show the old link after the rename. Checking only after the rename missed the bug, so the check comes first, and the test reads the folder listing.
-	- Swept: the Windows branch removes the old link before the rename, so it cannot hit this. A rename with no new target and a shortcut rename remove nothing.
+	- Swept: the Windows branch removes the old link before the rename, so it can't hit this. A rename with no new target and a shortcut rename remove nothing.
 	- Branch: linkfix
 	- Commit: 342d30a
 	- Test case: rhqxx81r, Link edit test, a new target under another spelling. It runs only where two spellings name one entry, and says so otherwise. Fails before the fix and passes after, on the normalizing dataset.
@@ -1939,13 +1939,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026092813381400
 	- Related IDs: 2026100112505357
 	- Target OS: Windows.
-	- Incorrect behavior: the installed folder keeps the installing user's temp folder permissions, so another user sees the shortcut and PATH entry but cannot start the program.
+	- Incorrect behavior: the installed folder keeps the installing user's temp folder permissions, so another user sees the shortcut and PATH entry but can't start the program.
 	- Reproduced: yes, 20261001, b29w, by the new test. Before the fix none of the five installed items let Users read and run.
 	- Actual cause: the unpacked tree is moved, not copied, and a move on one drive keeps the old permissions.
 	- Origin: before 20260917, kept in 7284973, 20260925. Not seen by an earlier review. Confirmed 20261001.
 	- Actual fix: the new tree is copied out of the temp folder into the staging folder beside the install, never moved, so every file takes the install folder's permissions. User and system installs take the same path.
 	- Swept: no other move in the project's PowerShell takes a tree out of a temp folder. The installer's own swap renames the staging folder inside the folder it was copied to, so it keeps the right permissions. The unix side already sets owner and mode on a system install.
-	- Note: the system target itself is not run by the test. A user install takes the same staging, under a parent that lets Users read and run where the temp folder does not.
+	- Note: the system target itself isn't run by the test. A user install takes the same staging, under a parent that lets Users read and run where the temp folder doesn't.
 	- Signoff: the fix changes the permissions of installed files, and the all-users target is checked by reading only.
 	- Branch: installacl
 	- Commit: a876603, test in 3c40b76
@@ -1981,7 +1981,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: yes, 20260928, Linux.
 	- Actual cause: rows of zero length are accepted and padded out, so the work follows the declared size, not the file.
 	- Origin: 056d3e0, 20260921 (thumbs). New ground. Confirmed.
-	- Actual fix: a packed row shorter than two bytes for every 128 of the row cannot fill it, and a file with one is now refused before any row is decoded. A row with enough bytes that still ends early is padded as before. So the work a file can cause stays in step with its size.
+	- Actual fix: a packed row shorter than two bytes for every 128 of the row can't fill it, and a file with one is now refused before any row is decoded. A row with enough bytes that still ends early is padded as before. So the work a file can cause stays in step with its size.
 	- Swept: the Photoshop reader is the only run-length row decoder among the thumbnail readers. The camera raw reader reads previews, and its own slow file is item 19.
 	- Note: the reader still takes no cancel from the thumbnail thread. That would mean a cancel through the thumbnail factory for every reader, and a small file no longer runs long enough to need one. Left as is.
 	- Note: waits on signoff because the fix picked one of two options the review offered, and a file with one short row now shows the type icon instead of a padded picture. The fuzz stage still needs a run with the changed seeds.
@@ -2201,10 +2201,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261009: a file of these types that has no thumbnail inside, or doesn't read as a zip, still goes on to an installed thumbnailer. For search only a file that doesn't read as a zip goes on to the helpers. Those fall-backs go with the programs in 2026100909260549.
 		- 20261009: the text is what the converter gave, run a piece at a time rather than on the whole file. One difference: a tag left open at the very end is dropped, where the converter kept it as text.
 	- Decisions:
-		- 20261009: no nesting depth to cap here. Members are not opened inside members, and the tag stripping keeps no stack. The caps are the members walked, the bytes unpacked, each index file and picture, the path length and parts, and the picture's sides and pixels, checked from its header before it is decoded.
+		- 20261009: no nesting depth to cap here. Members aren't opened inside members, and the tag stripping keeps no stack. The caps are the members walked, the bytes unpacked, each index file and picture, the path length and parts, and the picture's sides and pixels, checked from its header before it is decoded.
 	- Verified: rjvb97aa fails with the factory and the search engine as on dev, on Linux and under wine: no thumbnail, no match, and the stand-in helpers ran. It passes with them. rjvb97aa and the fuzz seed replay pass under the sanitizer build, with rfhnaccg and redrqe60. The fuzz target ran 5 minutes, about 6.5 million inputs, with no find. rjmc40ex passes under wine. Full Linux suite 185 of 185. Windows cross build clean.
 	- Verified: 20261009, Windows, on vm925w. rjvb97aa and rjvb97bb pass in the native suite at 398c999 and again at 49a54f8. The single exe built at 49a54f8, in the desktop session with MacType running and loaded into the app, drew the pictures stored in a .docx, an .odt and an .epub in the icon view. A content search found a word in all 3, and another word only in the .odt. The app started no other program, and no box came up.
-	- Note: 20261009, cppcheck 2.21 from MSYS2 on vm925w, over the whole tree, flags `test-nemo-office.c:495`: the return value of `g_file_set_contents` is not used. cppcheck 2.17 on Linux finds nothing there. A branch only lints its own changed files, so this shows on Windows only for a push to dev or main.
+	- Note: 20261009, cppcheck 2.21 from MSYS2 on vm925w, over the whole tree, flags `test-nemo-office.c:495`: the return value of `g_file_set_contents` isn't used. cppcheck 2.17 on Linux finds nothing there. A branch only lints its own changed files, so this shows on Windows only for a push to dev or main.
 	- Note: rjcbfcx7, the fuzz exit check, now expects fuzz-office too. It reads the seeds from the clone the shared build container has, so it fails until the new seeds are there. It passed run against this branch.
 	- Swept: every place that picks a thumbnailer or a search helper by type: the factory's `can_make` and its generate, and the search walk. The Windows index search reads no files itself. `nemo_can_thumbnail_internally` covers pictures only.
 	- Branch: offzip
@@ -2273,7 +2273,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Remember the sort column and direction always too, like the columns.
 	- Note: today the defaults are Name and Location only. The picked columns are saved under `search.search-visible-columns`, and only while `remember-folder-settings` is on.
 	- Decisions:
-		- Find mode remembers its columns and their order always, whatever `remember-folder-settings` says, since find results are not a folder. Decided 20261006.
+		- Find mode remembers its columns and their order always, whatever `remember-folder-settings` says, since find results aren't a folder. Decided 20261006.
 		- The existing key stays. It has the shown columns in their order, so it covers both the picks and the order. Empty means the defaults.
 		- Sort column and direction in find mode are kept always too. Decided 20261006. Not done yet.
 			- Done 20261007, in the existing `search.search-sort-column` and `search.search-reverse-sort` keys. No new key.
@@ -2289,7 +2289,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Find mode reads and saves its sort through the same place. With remembering off it used the window's sort, which is the one every folder in the window shares, so sorting find results changed the folder's sort too. It no longer touches the window's sort at all.
 		- Reset view in find mode no longer clears the window's columns and sort, which belong to the folders. It still resets the zoom.
 		- README and design.md "Search" now say find mode keeps its sort too.
-	- Swept: every place the list view reads, saves or resets a sort: a header click, loading a view, Use default and Reset view. Icon view sorting is not by column and was left alone.
+	- Swept: every place the list view reads, saves or resets a sort: a header click, loading a view, Use default and Reset view. Icon view sorting isn't by column and was left alone.
 	- Verified: with remembering off, find results showed Name, Ext, Size, Date modified and Location. Turning on Type and dragging it before Ext were both saved, and both came back after a restart.
 		- 20261007, with remembering off: before the change, sorting find results by Size and going back left the folder sorted by Size. After it the folder kept Name. Size and then Size reversed were saved, and both came back after a restart. Use default and Reset view in find mode went back to Name and left nothing saved. A folder sorted by Size kept it through a visit to find mode, which showed Name. With remembering on, find results kept their own sort and the folder kept its own.
 		- rjm2rvjn failed to build before the change and passes after. The nearby list view, search and config tests passed, the Windows cross build was clean, and rjm2rvjn passed under wine.
@@ -2318,7 +2318,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Decisions:
 		- The menu opens right below the item, from its left edge. With no room below, it opens above it. Decided 20261004. The item is the name cell in the list view, the icon and its label in the icon and compact views, and the row in the tree.
 		- With several items selected, the menu goes by the one the keyboard is on when that one is selected. Otherwise it goes by the first selected item in sight.
-		- A selected item scrolled out of sight gets the top left, as with nothing selected. The view is not scrolled to it.
+		- A selected item scrolled out of sight gets the top left, as with nothing selected. The view isn't scrolled to it.
 		- Ctrl+F10 opens the folder's own menu, not the selection's, so it stays at the top left. No key press opens a menu at the pointer.
 	- Note: the list, icon and compact views say where their selected item is, and the shared function puts the menu below it. The tree does the same for its keyboard row.
 	- Swept: every caller of the shared function. The list, icon and compact views' selection menu and the tree's row menu now go below the item. The folder's own menu keeps the top left. The location menu only opens from a click. The tab bar never takes the keyboard. The rename field's menu has its own placement.
@@ -2326,7 +2326,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 8f7b345
 	- Test case: `rjefm41d Keyboard menu beside the item test`, new, Linux only. It covers the list, icon and compact views, the tree, nothing selected and a right click. 7 of its 11 checks fail before the change, and all pass after. `rhtmbdma Keyboard context menu test` gained two cases, an item in sight and one scrolled out of it.
 	- Verified: in the running program, Shift+F10 and the Menu key open the menu below the selected file in the list and icon views, and below the open folder's row in the tree. With nothing selected it opens at the folder's top left, and a right click opens it at the pointer. rjefm41d passed ten runs. rj04ta3n, rhtmbdma and rjedw75s passed five each. Full Linux suite 164 of 164, lint clean, Windows cross build clean.
-	- Note: on Windows the keyboard menu takes the same placement code as on Linux. rhtmbdma is not Linux only, so its new cases run in the next native suite.
+	- Note: on Windows the keyboard menu takes the same placement code as on Linux. rhtmbdma isn't Linux only, so its new cases run in the next native suite.
 	- Acceptance signoff: Self-closed: the item said where the menu goes, the change does that, and rjefm41d pins it in every view. Below rather than over the item is in Decisions.
 	- Closed: 20261004-095546
 
@@ -2349,7 +2349,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A file with no format line came from a 2.x release, or a hand edit took the line out. At startup it is only rewritten when the old rules read it differently, and only spellings both rules agree on are changed. While running it is read as a hand edit and left alone. Its backup name says format 2.
 			- Replaced 20261003 by the decision on 2026100314515200: such a file is converted as 2.x at startup.
 		- A file in a newer format is read but never saved over. A change made meanwhile is kept and saved once the file is current again. Otherwise an older build and a newer one would keep rewriting each other's file, with a new backup each time.
-		- If the backup can't be written, the old file is not saved over.
+		- If the backup can't be written, the old file isn't saved over.
 		- The new file has only the settings this release knows, each with its comment. Anything else stays in the backup.
 	- Branch: shclfmt
 	- Commit: dd08205
@@ -2372,8 +2372,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Part of CI/CD. The test makes settings files in each older SHCL format, then checks the app's own conversion, not one done with SHCL's help.
 	- Note: rjc4dd8z only covers one hand-written 2.x file.
 	- Done: settings were written with SHCL 1.2.0 (v1.0.0-beta2 and on) and 2.0.0 before format 3. Both headers are kept in `vendor/shcl-old`, and a small writer is built against each. It writes a settings file with the setters the app used then, with and without a few hand-edited lines, and records what that release read back from it. The test opens each file in the app, then opens what the app saved in a second run, and checks every value, the backup, and the format line.
-	- Note: both old releases write these files the same way. Settings in a comma-decimal locale under 1.2.0 are not covered, since the build box has no such locale. Keys renamed since are left out; the test is about the format.
-	- Note: four values do not read right. Filed as 2026100314515200, and marked in the writer so the test fails once they do.
+	- Note: both old releases write these files the same way. Settings in a comma-decimal locale under 1.2.0 aren't covered, since the build box has no such locale. Keys renamed since are left out; the test is about the format.
+	- Note: four values don't read right. Filed as 2026100314515200, and marked in the writer so the test fails once they do.
 	- Verified: rjcev513 passes. It fails when the app converts no file with no format line at startup, and when it converts every such file as 2.x.
 	- Branch: shclold
 	- Commit: d344708
@@ -2455,7 +2455,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026100907390779, 2026100911403858
 	- Target OS: Linux
 	- Steps to reproduce: run the full Linux suite, 8 at once, with a Windows cross build running beside it.
-	- Incorrect behavior: rjvdch2z failed once at 35.6 s, at `test-nemo-config-share.c:557` and `:573`: the second copy did not have the value the first one set.
+	- Incorrect behavior: rjvdch2z failed once at 35.6 s, at `test-nemo-config-share.c:557` and `:573`: the second copy didn't have the value the first one set.
 	- Expected behavior: passes.
 	- Reproduced: once, 20261009, on the `nogsf` branch, which doesn't touch settings. It passed in the full suite on the same branch earlier that day, and 3 runs of 3 alone, at 31 to 34 s each.
 	- Reproduced: 20261009, Linux, 80 runs, 8 at once, with the CPUs and the disk kept busy. 7 failed. 4 in the same-key rounds, with the 2 copies left swapped, as in the first report. 3 in the stale save case.
@@ -2563,7 +2563,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: lint fix, and the Windows whole-tree lint is clean.
 	- Closed: 20261009-182153
 
-- The Archive settings test's restart does not read the file again.
+- The Archive settings test's restart doesn't read the file again.
 	- ID: 2026100720481882
 	- Type: Bug
 	- Status: Done
@@ -2576,7 +2576,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: init returns at once, since the store is still marked ready, so nothing is read back from the file. Shutdown also drops the file watch, and init doesn't make a new one, so a later hand edit is never seen in that run.
 	- Expected behavior: the values are read back from the file, as the test says.
 	- Reproduced: 20261007, a hand edit written after that test was never picked up in the same run.
-		- 20261009: a line added to the file between the shutdown and the init was not read, and one added after the init was never seen.
+		- 20261009: a line added to the file between the shutdown and the init wasn't read, and one added after the init was never seen.
 	- Actual cause: shutdown drops the file watch but leaves the store marked ready, so the next init returns at once.
 	- Decisions:
 		- 20261009: Options were to fix only the test, which could start itself again the way rjcev513 does, or to make init after shutdown a real restart. The store, since a shutdown and init pair that does nothing reads like a restart and isn't one.
@@ -2625,13 +2625,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Possible cause: fontconfig writes its user cache under XDG_CACHE_HOME, which the tests point at a scratch dir, and pango sets up its fonts in a thread of its own. A cache write that comes while the scratch dir is being removed at exit leaves it behind. Not shown.
 	- Note: `fc-cache -s` as root brought vmFreeBSD's system cache up to date, and the next run left nothing.
 	- Reproduced 20261007: on vmFreeBSD with a font config that has no usable system cache. With the emblems and link copy tests 4 at a time, each of 2 batches of 120 link copy runs left a few `nemo-link-job-home-*` folders holding only `fontconfig`.
-	- Actual cause: GTK 3.24.52, the FreeBSD one, makes pango's font map inside `gtk_init`, and pango runs fontconfig's setup in a thread of its own. With no usable system font cache, that thread writes a user cache under XDG_CACHE_HOME, which the tests point at a scratch dir. A short test reached its exit cleanup while the thread was still going. Fontconfig then made the removed folder again for its next cache file, or a file was written after the cleanup had listed the folder, so the folder could not be removed.
+	- Actual cause: GTK 3.24.52, the FreeBSD one, makes pango's font map inside `gtk_init`, and pango runs fontconfig's setup in a thread of its own. With no usable system font cache, that thread writes a user cache under XDG_CACHE_HOME, which the tests point at a scratch dir. A short test reached its exit cleanup while the thread was still going. Fontconfig then made the removed folder again for its next cache file, or a file was written after the cleanup had listed the folder, so the folder couldn't be removed.
 		- On Debian 13 (GTK 3.24.49) these 2 tests set up no fonts at all, so Linux never showed it. About 30 other tests there do write a user font cache, and none of them left anything behind.
-	- Actual fix: the scratch cleanup, and the early removal helper, wait for pango's font setup to finish before removing anything. A test that never made a font map is not given one.
+	- Actual fix: the scratch cleanup, and the early removal helper, wait for pango's font setup to finish before removing anything. A test that never made a font map isn't given one.
 	- Swept: every test that points HOME or XDG_CACHE_HOME at a scratch dir. The ones that do it in their own process all end in the same cleanup, so the one wait covers them. The ones that point a started copy of the app at it wait for that copy to exit first, and its font thread ends with it.
 	- Branch: fcleft
 	- Commit: 08eebc8
-	- Test case: rjprhm52. A child starts a font map under a font config with no system cache, so a user cache is always written, runs the cleanup at once, and checks the scratch dir is still gone once the fonts are set up. It skips where pango does not use fontconfig.
+	- Test case: rjprhm52. A child starts a font map under a font config with no system cache, so a user cache is always written, runs the cleanup at once, and checks the scratch dir is still gone once the fonts are set up. It skips where pango doesn't use fontconfig.
 	- Verified: rjprhm52 failed before the fix, on all 3 of its runs on Linux and on vmFreeBSD, and passes after on both. On vmFreeBSD the 4-at-a-time runs above left nothing in 480 runs after the fix. Linux suite 178 of 178 with an out-of-date font cache, FreeBSD lane 164 OK and 14 skipped, nothing left behind on either. The Windows cross build compiles and links the test library.
 	- Acceptance signoff: Self-closed: a fix to the test library only, reproduced, rjprhm52 red before and green after.
 	- Closed: 20261007-151025
@@ -2666,7 +2666,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261007, on this branch with 2026100617051745 in: rjmc40ex passes natively, the native suite on vm925w has 155 OK, and the full Linux suite 176 of 176. Outside a MacType session the single exe drew the thumbnails, as in 2026100617051745.
 	- Branch: thumbwin
 	- Commit: b2cfe15 to f279168
-	- Test case: rjmc40ex, Thumbnailer type win32 test, Windows only. An OpenDocument file with a red thumbnail inside, through the gsf-office thumbnailer that comes with the app: the app's own type for it is `.odt`, a thumbnailer is found and makes the thumbnail, the list of types not to thumbnail turns it off by real type, and the same file through a share is not thumbnailed with the default settings.
+	- Test case: rjmc40ex, Thumbnailer type win32 test, Windows only. An OpenDocument file with a red thumbnail inside, through the gsf-office thumbnailer that comes with the app: the app's own type for it is `.odt`, a thumbnailer is found and makes the thumbnail, the list of types not to thumbnail turns it off by real type, and the same file through a share isn't thumbnailed with the default settings.
 	- Acceptance signoff: Self-closed: rjmc40ex red and green, and both suites pass.
 	- Closed: 20261007-115304
 
@@ -2786,7 +2786,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: 20261007 by rjnzpkk7, natively on vm925w. A script run the way the Scripts menu runs one was started by GLib's helper, with a console window, and lost its last arguments. A batch file at a path with a space in it never started at all through the launcher's own route.
 	- Actual cause: as in Possible cause. Opening an executable file from the file list, and editing a template in preferences, went through GLib's app launch too. A note on 2026100615255305 says Windows never opens a program that way; it does, since GLib calls a `.exe` executable there. A batch file was handed to `CreateProcessW` as is, which runs it through cmd with the line as given, and cmd then drops the first and last quote. A `&` or `%` in an argument was read by cmd as well, through either route.
 	- Decisions:
-		- A script runs the way an action does. A console program or batch file runs with no window, as a script does on Linux. A program with windows of its own starts from outside the app, so it does not get the `NEMO_SCRIPT_` variables.
+		- A script runs the way an action does. A console program or batch file runs with no window, as a script does on Linux. A program with windows of its own starts from outside the app, so it doesn't get the `NEMO_SCRIPT_` variables.
 		- A program opened from the file list starts the way a double-click in Explorer starts it, so a console program gets its console window.
 		- Every argument to a batch file is quoted, and a `%` in one is never read as a variable, the way Rust's standard library does it since its batch file fix.
 	- Actual fix: on Windows the shared command start splits the line the Windows way and goes through the launcher, with each file as an argument of its own. Paths put in such a line are quoted to match. A program opened from the file list and a template opened for editing go to the shell's open. The launcher runs a batch file through cmd by name, with cmd's own quoting.
@@ -2820,19 +2820,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: anything Windows runs as a program is listed, whatever the case of its extension.
 	- Reproduced: no. Read from the code: the menu takes a file only when the app calls it launchable, and on Windows GLib calls a type executable only for those 3 extensions, compared as written.
 	- Possible cause: as in Reproduced. The `PATHEXT` list is what Windows itself uses.
-	- Reproduced: 20261007 under wine, by rjp4ch0y: `tidy.cmd`, `TIDY.BAT`, `Tool.EXE`, `old.Com`, `hello.vbs`, `Build.JS` and `snap.msc` were not launchable, and `plain.exe` was.
+	- Reproduced: 20261007 under wine, by rjp4ch0y: `tidy.cmd`, `TIDY.BAT`, `Tool.EXE`, `old.Com`, `hello.vbs`, `Build.JS` and `snap.msc` weren't launchable, and `plain.exe` was.
 	- Actual cause: as in Possible cause. The Scripts menu and a double-click both ask whether a file is launchable, and on Windows that came down to GLib's 3 lower-case extensions.
 	- Actual fix: on Windows a file is launchable when its extension is on `PATHEXT`, in any case. With no `PATHEXT` set, cmd's own list is used: `.COM`, `.EXE`, `.BAT` and `.CMD`.
-	- Note: what the launcher does with each type, read from its code. A program is started directly, a batch file through cmd in either case, and anything else, such as `.vbs`, `.js` or `.msc`, goes to the shell's open for its type, as cmd does for a `PATHEXT` type. A `.ps1` is not on the default list, and on a stock Windows its open is Notepad, so it is not listed unless a user adds it to `PATHEXT`.
+	- Note: what the launcher does with each type, read from its code. A program is started directly, a batch file through cmd in either case, and anything else, such as `.vbs`, `.js` or `.msc`, goes to the shell's open for its type, as cmd does for a `PATHEXT` type. A `.ps1` isn't on the default list, and on a stock Windows its open is Notepad, so it isn't listed unless a user adds it to `PATHEXT`.
 	- Decisions:
 		- The user's own `PATHEXT` is followed as is. A type added there is listed, and runs by its type's open, as it would typed into cmd.
 		- A double-click on such a file now runs it, through the shell's open, the way Explorer does. Going by the code, a `.cmd` or a capitalized `.BAT` went to the app chooser's default before.
 	- Swept: both callers of the launchable check, the Scripts menu and a double-click. No other code asks GLib whether a type can run. The launcher already matched `.bat` and `.cmd` in any case.
 	- Verified: rjp4ch0y failed under wine before the fix, 11 checks, and passes after. The Windows cross build is clean.
-	- Verified: 20261007, Windows, at 585f825: rjp4ch0y passes natively on vm925w, and the whole native suite had no failures, 154 OK, 11 skipped. In the desktop session `tidy.cmd`, `TIDY.BAT` and `hello.vbs` were listed in the Scripts menu, and each ran from it on a selected file, in the folder in view. With the stock `PATHEXT`, `tidy.ps1` was not listed. vm925w's own `PATHEXT` adds `.PS1`, so there it is listed, as the Decisions row says.
+	- Verified: 20261007, Windows, at 585f825: rjp4ch0y passes natively on vm925w, and the whole native suite had no failures, 154 OK, 11 skipped. In the desktop session `tidy.cmd`, `TIDY.BAT` and `hello.vbs` were listed in the Scripts menu, and each ran from it on a selected file, in the folder in view. With the stock `PATHEXT`, `tidy.ps1` wasn't listed. vm925w's own `PATHEXT` adds `.PS1`, so there it is listed, as the Decisions row says.
 	- Branch: smallfix
 	- Commit: 5c3b248
-	- Test case: rjp4ch0y, Launchable win32 test, Windows only: names on the default Windows list in mixed case are launchable, `.ps1`, `.txt`, a name with no extension and a folder named `.exe` are not, a user's own list with odd case and spaces is followed, and cmd's list is used when `PATHEXT` is unset.
+	- Test case: rjp4ch0y, Launchable win32 test, Windows only: names on the default Windows list in mixed case are launchable, `.ps1`, `.txt`, a name with no extension and a folder named `.exe` aren't, a user's own list with odd case and spaces is followed, and cmd's list is used when `PATHEXT` is unset.
 	- Acceptance signoff: Self-closed: rjp4ch0y passes natively, and the Scripts menu was seen on screen on Windows.
 	- Closed: 20261007-112231
 
@@ -2880,7 +2880,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026100520071435, 2026100708355447, 2026100708355547
 	- Target OS: Linux arm64
 	- Incorrect behavior: rjedw75s times out at different steps, alone or beside other tests. 2 ways seen. A click on the Second place selects its row, but the window stays on First for a minute. Or Rename from the place's menu opens the edit field, and it closes again within 100 ms, with the focus back in the folder.
-	- Reproduced: 20261006, arm64 debug build in the jammy image, 4 runs of 6. Once the window sat on the same step for over 3 minutes with the box idle, so it is not speed.
+	- Reproduced: 20261006, arm64 debug build in the jammy image, 4 runs of 6. Once the window sat on the same step for over 3 minutes with the box idle, so it isn't speed.
 		- 20261007, same build: 6 runs of 6 alone, all at the click.
 	- Possible cause: for the rename, a focus change from the menu's grab reaching the window late and ending the edit. Draining the X server's events before the rename starts would show it. For the click, not looked at.
 	- Actual cause: one bug in the app and one race in the test.
@@ -2913,10 +2913,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: a thumbnail, as on Linux and Windows.
 	- Reproduced: 20261007 on FreeBSD 15.1, with ImageMagick installed. The thumbnail factory made no picture for a BMP, ICO, XPM or PPM file.
 	- Possible cause: gdk-pixbuf 2.44 as packaged there has loaders for GIF, HEIF, JPEG, JPEG XL, PNG, TIFF, SVG and WMF only. The ImageMagick list in `nemo-magick.c` covers none of the missing ones.
-	- Actual cause: gdk-pixbuf has left the ANI, BMP, ICO, ICNS, PNM, QTIF, TGA, XBM and XPM loaders out of its default build since 2.42.11. FreeBSD has them in a package of their own, `gdk-pixbuf-extra`, which was not installed. Any other system on a default build has the same gap.
+	- Actual cause: gdk-pixbuf has left the ANI, BMP, ICO, ICNS, PNM, QTIF, TGA, XBM and XPM loaders out of its default build since 2.42.11. FreeBSD has them in a package of their own, `gdk-pixbuf-extra`, which wasn't installed. Any other system on a default build has the same gap.
 	- Decisions:
 		- ImageMagick gets these formats only when gdk-pixbuf has no loader for the extension, not after a loader fails on a file. Linux and Windows, which have the loaders, are unchanged.
-		- ANI, ICNS and QTIF are left out, since ImageMagick does not read them. TGA was already on its list.
+		- ANI, ICNS and QTIF are left out, since ImageMagick doesn't read them. TGA was already on its list.
 	- Actual fix: both. BMP, ICO, CUR, XPM, XBM and the PNM family go to ImageMagick when gdk-pixbuf has no loader for the extension. gdk-pixbuf is asked once, at run time, which extensions it reads, so nothing depends on the OS. design.md "Building on FreeBSD" names `gdk-pixbuf-extra` as a run-time package, and the thumbnails design doc has the rule.
 	- Swept: every ImageMagick check in the thumbnail factory (can make, make) goes through `nemo_magick_type_ok`, which uses the same lookup. Windows uses the same list.
 	- Verified: rjnz8zfz fails before the fix and passes after, on Linux and on FreeBSD 15.1. The new case in rhg8y5f0 failed before on FreeBSD too. On FreeBSD the app showed BMP, ICO, PGM and PPM thumbnails. With `gdk-pixbuf-extra` installed there afterward, both tests pass and gdk-pixbuf reads those formats itself. FreeBSD suite 161 OK, 14 skipped. Linux suite 175 of 175, and the Windows cross build is clean.
@@ -2945,11 +2945,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual cause: cppcheck 2.21 knows more than 2.17.1, and runs as a 64-bit Windows program there.
 		- printf: gtk.cfg writes the 64-bit formats as Linux has them, `%li` and `%lu`. On Windows a `long` is 32 bits, so every 64-bit number printed with them looked wrong. The compiler checks the real formats on both.
 		- `ignoredReturnValue`: 2.21 knows a file read or write can fail. Tests ignored it when writing their fixtures, and the cache ignored it when marking itself damaged.
-		- `syntaxError`: 2.21 stops on an `#if` that names a function-like macro it has not seen, clang's `__has_feature` and Tracker's version check.
+		- `syntaxError`: 2.21 stops on an `#if` that names a function-like macro it hasn't seen, clang's `__has_feature` and Tracker's version check.
 		- The rest are false positives, but 2: two checks in the cache test read the thumbnail before checking it was there.
 	- Actual fix:
 		- The lint runs cppcheck as a 64-bit Unix target on every host, as Linux always has, and gives it the 2 macros in a small file beside the suppression list. The 2 printf suppressions added under 2026100702343600 are gone.
-		- Test fixtures check their writes. A helper process or probe that cannot write the file its parent waits for says so. A read whose missing file means "not there yet" says so in the code. The cache warns when it cannot mark itself damaged. The cache test checks the thumbnail is there before comparing it.
+		- Test fixtures check their writes. A helper process or probe that can't write the file its parent waits for says so. A read whose missing file means "not there yet" says so in the code. The cache warns when it can't mark itself damaged. The cache test checks the thumbnail is there before comparing it.
 		- 7 false positives are suppressed on their own line, each with its reason: a widget destroyed and then unreffed, where the ref is ours (3), 2 list copies handed to a concat, a free func set to NULL on purpose, and a thread freed by its join.
 	- Decisions:
 		- The printf class is fixed in the lint's command line, not with a suppression at each of its 42 findings.
@@ -2978,7 +2978,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Possible cause: Reset view clears the window's sort column by setting it to nothing, and the window's setter ignores nothing, so the old column stays.
 	- Actual cause: as above. The direction has its own "not set" value, so it did go back.
 	- Actual fix: the window's sort column setter takes nothing as "forget it", so Reset view drops the column and the folder goes back to the default sort.
-	- Swept: Reset view in the icon and compact views with per-folder settings off and on, and in the list view with them on. All were already right. The other window settings a reset clears (zoom, column order, shown columns) already take nothing. The window's view type setter also ignores nothing, but no caller ever hands it nothing. Find mode's own sort was not touched.
+	- Swept: Reset view in the icon and compact views with per-folder settings off and on, and in the list view with them on. All were already right. The other window settings a reset clears (zoom, column order, shown columns) already take nothing. The window's view type setter also ignores nothing, but no caller ever hands it nothing. Find mode's own sort wasn't touched.
 	- Test case: rjnzamsq. It covers the list, icon and compact views, each with per-folder settings off and on.
 	- Verified: rjnzamsq failed before the fix, in the list view with per-folder settings off only, and passes after, 4 runs in a row. The nearby list view, column, search and held view tests pass. Full Linux suite 175 of 175. Lint is clean.
 	- Branch: sortreset
@@ -2991,7 +2991,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Type: Bug
 	- Status: Done
 	- Needs local test suite run?: done 20261007, 174 of 174. Bookmarks now ask for their folder's info on every platform. rjm9n8sr and the bookmark, places and share tests passed on Linux.
-	- Needs external testing: done 20261006 on vm925w, as in Verified. The side pane itself was not looked at.
+	- Needs external testing: done 20261006 on vm925w, as in Verified. The side pane itself wasn't looked at.
 	- Priority|Severity: Low
 	- Opened: 20261006-103700
 	- Opened by: Windows pass for 2026093010493450
@@ -3009,7 +3009,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: rjm9n8sr fails before the fix and passes after, on Linux and natively on vm925w. On vm925w, started on `\\localhost\c$\Users\Public` and on a drive mapped to it, `C:\` got its name and icon, and the bookmarks file was saved with every label. The Windows cross build is clean, and lint passes.
 	- Branch: smallwin
 	- Commit: 19cf1e1
-	- Test case: rjm9n8sr, Bookmark name and icon test. Home gets "Home" and the home icon, the system drive's root gets `C:\` on Windows, and a folder on a share is not asked about.
+	- Test case: rjm9n8sr, Bookmark name and icon test. Home gets "Home" and the home icon, the system drive's root gets `C:\` on Windows, and a folder on a share isn't asked about.
 
 - On Windows, custom actions and the window's Open in terminal start programs through GLib, not the launcher.
 	- ID: 2026100615255305
@@ -3035,7 +3035,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual fix: on Windows an action's command goes through a new `nemo_launch_win32_spawn`, which checks whether the program is a console one. Conditions go through `nemo_launch_win32_pipe`, which gives the exit status. The toolbar button calls the view's `open_in_terminal`, and the copy in `nemo-window-menus.c` is gone. The Windows terminal opener no longer crashes on a folder with no path when the terminal is Windows Terminal.
 	- Swept:
 		- GLib program starts: lint rjm8a6xr. With the old window menu code back it fails.
-		- Programs started through `g_app_info_launch` from a command line, which the lint does not see: scripts and the bulk rename tool can reach it on Windows, filed as 2026100616310432. Launching an executable file and the tree's launch need Unix permissions, so Windows never gets there. The file-roller drop needs file-roller.
+		- Programs started through `g_app_info_launch` from a command line, which the lint doesn't see: scripts and the bulk rename tool can reach it on Windows, filed as 2026100616310432. Launching an executable file and the tree's launch need Unix permissions, so Windows never gets there. The file-roller drop needs file-roller.
 	- Verified: rjmb3j8p fails before the fix and passes after, natively on vm925w, in session 0 and in the desktop session. It passes under wine. The toolbar's terminal button, clicked in the desktop session on vm925w, started the terminal set in preferences, in the folder, from Explorer. The whole native suite on vm925w, with 2026100615255268 in too: 151 OK, 0 fail, 12 skipped. The cross build, the Linux build and the lint stage are clean.
 	- Branch: winacts
 	- Commit: efc89d0, 8444910
@@ -3058,9 +3058,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: 20261006, in 2 runs of 2 on vm925w with the full PATH. Not looked for with the gate's own PATH or under wine.
 	- Possible cause: not traced. The new launcher code has no such call. The search engine, the thumbnail code and the data folder lookup all have one, and none of the lists they read looks able to be NULL.
 	- Note: the PATH plays no part. It shows with MSYS2's own PATH as well, every run.
-	- Actual cause: the test writes a search helper whose TryExec is a Windows path with single backslashes. In a key file a backslash starts an escape, and `\U` is not one, so the TryExec list reads as nothing at all. The search engine passed that straight to `g_strv_length` and then took the helper without checking its program. Thumbnailer files had the same gap with no critical: an unreadable TryExec read as no TryExec.
+	- Actual cause: the test writes a search helper whose TryExec is a Windows path with single backslashes. In a key file a backslash starts an escape, and `\U` isn't one, so the TryExec list reads as nothing at all. The search engine passed that straight to `g_strv_length` and then took the helper without checking its program. Thumbnailer files had the same gap with no critical: an unreadable TryExec read as no TryExec.
 	- Actual fix: a search helper or thumbnailer whose TryExec can't be read is skipped, with a warning naming the file, the same as one whose Exec can't be read. rjm4ctwh now doubles the backslashes, as a hand-written file has to.
-		- 20261007: on Windows TryExec and Exec are read as written, through the shared reader from 2026100702343600, so single backslashes work there. The skip stays for Linux, and for text that is not UTF-8. rjm4ctwh writes them single again, plus one helper with them doubled.
+		- 20261007: on Windows TryExec and Exec are read as written, through the shared reader from 2026100702343600, so single backslashes work there. The skip stays for Linux, and for text that isn't UTF-8. rjm4ctwh writes them single again, plus one helper with them doubled.
 	- Decisions:
 		- First decided: skip such a file, since the key file format wants backslashes doubled. 20261006: changed my mind, on Windows single backslashes are read as plain path characters, in TryExec and Exec both. Done 20261007 with 2026100702343600, whose Decisions say how a file with doubled backslashes reads.
 	- Swept: every `g_key_file_get_string_list` and TryExec read. Actions, `.desktop` links and the thumbnailer MimeType already check for nothing read. Bookmark emblems can be NULL only from a hand-edited metadata file; left alone.
@@ -3068,7 +3068,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261007: the Windows cases fail under wine before the change and pass after. On vm925w all three pass with the full PATH, with no `g_strv_length` critical, and the whole native suite passed.
 	- Branch: smallwin, then winpaths
 	- Commit: d837594, then d824d17
-	- Test case: rfhnaccg, Search helpers test: no GLib critical, and the bad helper is named and skipped. redrqe60, Thumbnail factory test, `badtry` case: a thumbnailer with an unreadable TryExec is not used.
+	- Test case: rfhnaccg, Search helpers test: no GLib critical, and the bad helper is named and skipped. redrqe60, Thumbnail factory test, `badtry` case: a thumbnailer with an unreadable TryExec isn't used.
 		- 20261007: on Windows rfhnaccg writes every helper with single backslashes, and redrqe60's `badtry` case uses a thumbnailer naming a real program that way. rjm4ctwh names its helper and thumbnailer by full path, single and doubled.
 	- Acceptance signoff: Self-closed: the reading was settled on 20261006, and the new cases fail before the fix and pass after, natively too.
 	- Closed: 20261007-033050
@@ -3081,7 +3081,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261006-114824
 	- Opened by: 2026100520071435
 	- Target OS: Linux
-	- Incorrect behavior: in rgahvdsr the copied program cannot load `libnemo-anywhere-extension.so.1`, and every check after that fails. Seen on the arm64 box in the jammy image with default build options. The release build links the library in, and the trixie build passes.
+	- Incorrect behavior: in rgahvdsr the copied program can't load `libnemo-anywhere-extension.so.1`, and every check after that fails. Seen on the arm64 box in the jammy image with default build options. The release build links the library in, and the trixie build passes.
 	- Possible cause: not looked at. meson 0.61 in the jammy image may set the build's library path differently. Not tried on x86_64 jammy.
 	- Reproduced: 20261006, x86_64 jammy image, default options. On trixie too, when the test is run outside `meson test`.
 	- Actual cause: the test copies itself into a scratch prefix. The build rpath is relative to the program's own folder (`$ORIGIN/../libnemo-extension`), so from the copy it points at nothing. Install rpath doesn't apply, since the copy comes from the build tree. Newer meson (1.7 on trixie) puts every shared library a test links on `LD_LIBRARY_PATH` for the run, which hid it. meson 0.61 only does that for `meson devenv`.
@@ -3098,7 +3098,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026100610503902
 	- Type: Bug
 	- Status: Done
-	- Needs local test suite run?: no. The launcher is not part of the suite; its test runs in the lint stage, which passed.
+	- Needs local test suite run?: no. The launcher isn't part of the suite; its test runs in the lint stage, which passed.
 	- Needs external testing: done 20261006 on vm925w, as in Verified.
 	- Priority|Severity: Low
 	- Opened: 20261006-105039
@@ -3120,11 +3120,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: the intent was clear, the fix does that and no more, and its test failed before and passes after.
 	- Closed: 20261006-160047
 
-- On Windows, a mapped drive that is not answering may stall the side pane or the trash state.
+- On Windows, a mapped drive that isn't answering may stall the side pane or the trash state.
 	- ID: 2026100512334934
 	- Type: Bug
 	- Status: Done
-	- Needs external testing: done 20261006 on vm925w at 46f9674, as below. Only the red-before step did not go red. Steps as first written:
+	- Needs external testing: done 20261006 on vm925w at 46f9674, as below. Only the red-before step didn't go red. Steps as first written:
 		- `meson test` for rjhvmm6f and also rhtwm2c8. Both pass.
 		- Again with `NEMO_PROBE_DEAD_SHARE=\\192.168.1.<unused>\share`, a fresh last octet each run. Both pass, and rjhvmm6f prints the mount list and trash state each under 2 s.
 		- Red before: `test-nemo-drives-win32.exe glib` with the same variable runs GLib's own drive list through the same checks. It should take about 20 s and fail.
@@ -3136,10 +3136,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Target OS: Windows
 	- Incorrect behavior: read only. GLib builds its drive list through the shell, asking for each drive's display name when the list is made and for its icon when the side pane draws it. The trash state asks the recycle bin of every drive. Either may go to a mapped drive's share, on the window's thread.
 	- Expected behavior: a mapped drive is named and drawn from its letter and what Windows keeps locally, and the trash state never asks a share.
-	- Reproduced: no. Read from GLib's source and the Windows docs; not timed. A share that does not answer cannot be made here, since a UNC path fails at once with no network client.
+	- Reproduced: no. Read from GLib's source and the Windows docs; not timed. A share that doesn't answer can't be made here, since a UNC path fails at once with no network client.
 	- Actual cause: read, not timed. GLib's Windows volume monitor makes a mount for every drive letter each time the list is asked for, and asks the shell for each one's name as it does, and for its icon at the first draw. Seven places in the app ask for that list on the window's thread, the side pane at every rebuild. The trash state asked for every bin at once, mapped drives' too, at each look and every 3 s while watched.
 	- Decisions:
-		- 20261006: the fix is kept, though the stall was not reproduced on real Windows. It keeps the app off shares it was not sent to, and the lint keeps it that way. Only a drive dead from logon was tried, not one that stops answering while connected.
+		- 20261006: the fix is kept, though the stall wasn't reproduced on real Windows. It keeps the app off shares it wasn't sent to, and the lint keeps it that way. Only a drive dead from logon was tried, not one that stops answering while connected.
 	- Actual fix: on Windows the app makes its own mount per drive letter. A mapped drive is known from its entry in the object table, and is named from its letter and the share path in that entry, the way Explorer names one, with the network folder icon. Only a local drive is asked for its type and shell name. Every mount list goes through one call. The trash state adds up the bins of the fixed drives one at a time.
 	- Swept: every `g_volume_monitor_get_mounts` caller, 7 of them: side pane, tree, path bar, bookmark list, view menus, mount lookup by location, and the async loop's mount match. The 2 drive type questions in the side pane. Both bin queries, now one function. Lint rjhw99yh fails on a new mount list outside that call, or a bin query with no root.
 	- Swept: left as is. GTK's own file chooser lists drives through GLib, but only once someone opens one. A per-file mount lookup is gated by the share check, and a mapped drive's files are on a share now. The side pane reads the volume label of fixed drives only.
@@ -3150,7 +3150,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: rjhvmm6f passes in the cross build under wine, and its glib mode fails there on the name and icon. The timing there proves nothing, since the fake share fails fast. rjhw99yh failed on a reverted call site and a NULL bin root, and passes on the branch.
 	- Verified 20261006 on vm925w: rjhvmm6f and rhtwm2c8 pass in the native gate, and again with a share address nothing answers on, a new one each run. The mount list took under 0.01 s and the trash state under 0.04 s.
 	- Verified 20261006 on vm925w: with a dead mapped drive X: (remembered, shown Unavailable by `net use`, and a drive letter in the session), the window came up in about 1 s with its side pane. X: is under Devices as `share (\\192.168.1.<n>) (X:)` with the network drive icon, beside the box's own mapped drives named the same way. The trash row is right. Touching X:\ itself took 21 s, so the share was dead.
-	- Note 20261006: not reproduced on real Windows. rjhvmm6f's glib mode, on GLib's own list, took about 1 s and passed every check. With the dead X: in the desktop session, the shell gave its name in 0.03 s and its icon at once, and the recycle bin query over all drives took 0.04 s. So GLib's list does not wait on a dead mapped drive on vm925w either, and rjhvmm6f does not fail on the old code there. Under wine its glib mode still fails on the name and icon. What the change still gives is Explorer's naming and the network icon.
+	- Note 20261006: not reproduced on real Windows. rjhvmm6f's glib mode, on GLib's own list, took about 1 s and passed every check. With the dead X: in the desktop session, the shell gave its name in 0.03 s and its icon at once, and the recycle bin query over all drives took 0.04 s. So GLib's list doesn't wait on a dead mapped drive on vm925w either, and rjhvmm6f doesn't fail on the old code there. Under wine its glib mode still fails on the name and icon. What the change still gives is Explorer's naming and the network icon.
 	- Note 20261006: vm925w already has real mapped drives Q: and R:. The steps above must use a free letter, or deleting the key afterward removes one of them.
 	- Acceptance signoff: 20261006, kept and closed.
 	- Closed: 20261006-213000
@@ -3169,7 +3169,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: rhg8y5f0 skips with "no ImageMagick that writes JPEG 2000". The MSYS2 login shell the tests run under drops the Windows PATH.
 	- Expected behavior: the test finds ImageMagick when the box has it. It passes when run with the Windows PATH kept.
 	- Reproduced: 20261006 on vm925w at 46f9674.
-	- Possible cause: `MSYS2_PATH_TYPE` is not set to `inherit` for the test run, so only the MSYS2 and system folders are on the PATH.
+	- Possible cause: `MSYS2_PATH_TYPE` isn't set to `inherit` for the test run, so only the MSYS2 and system folders are on the PATH.
 	- Actual cause: the gate runs the tests in MSYS2's login shell, which keeps only the system folders of the Windows PATH unless told to keep all of it.
 	- Actual fix: the gate keeps the Windows PATH for the test run only, after MSYS2's own folders. The build and lint still run with MSYS2's PATH alone.
 	- Swept: left as is, the build, lint and staging steps, which want MSYS2's own tools.
@@ -3217,7 +3217,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced [Bug]: seen 20261005 on Linux, during the demo. Reproduced on its own the same day. It takes an edit that leaves out the `window-state.sidebar-bookmark-breakpoint` line, which the demo's rewrite of the whole file did.
 	- Actual cause [Bug]:
 		- Places saves where its own Bookmarks section starts. An edit without that line puts it back to -1, its "never set" value. The reload handler took -1 as a position, so 0 bookmarks counted as more than the split and the heading showed.
-		- The share audit did not cause it. Its changes to Places and to how a bookmark is checked don't reach the heading.
+		- The share audit didn't cause it. Its changes to Places and to how a bookmark is checked don't reach the heading.
 	- Actual fix [Bug]: the split is read in one place, which takes -1 as after the last bookmark, as startup already did. Places and the Bookmarks window both read it there.
 	- Swept: the other Places headings. My computer always has Home under it. Devices is added with its first row only. Network is added only when it lists something. The Bookmarks window read the same value raw when saving an edited bookmark, where -1 would have edited the wrong row; it now uses the same reading. That one has no test of its own.
 	- Branch: bmhead
@@ -3242,7 +3242,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: in rjch1a9a, one of 20 rounds had a copy with no store, after "could not set up the file cache: disk I/O error" at 302 ms.
 	- Expected behavior: every copy gets its store, even with the rest of the suite running beside it.
 	- Reproduced: once, 20261004, vm925w at 0ad01d1, in the full native suite. Passed 5 of 5 run alone right after, and passed in the full suite at bab9a49 earlier the same day.
-		- Reproduced again 20261004 on vm925w, with rjch1a9a and the prune test run over and over, 12 at a time. rjch1a9a failed in each of three tries, 4 times in all. The message now has sqlite's own code and the system error, and said the -shm file could not be emptied because it was still mapped.
+		- Reproduced again 20261004 on vm925w, with rjch1a9a and the prune test run over and over, 12 at a time. rjch1a9a failed in each of three tries, 4 times in all. The message now has sqlite's own code and the system error, and said the -shm file couldn't be emptied because it was still mapped.
 	- Possible cause: not known. The fix for 2026100113372592 retries a busy cache, and an I/O error may need the same, or it may be something Windows does to a new file under load.
 	- Actual cause: a copy that quits without closing the store lets go of its locks on the -shm file before Windows unmaps the file from it. A copy opening at that moment finds no lock, takes itself for the first, and tries to empty the file. Windows refuses that while a view of the file is left. The sqlite in the Windows build gives up with a disk I/O error there, where older versions kept going. The app quits without closing the store too, so two windows could hit it, not only the test.
 		- With the copies closing the store before they quit, 60 runs under the same load all passed, so the old copy's view is what is in the way.
@@ -3268,7 +3268,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: native test run, 20261004
 	- Target OS: Windows
 	- Test environment: vm925w, console session, 2512 px work area.
-	- Incorrect behavior: rhtmbdmj fails at `test-nemo-archive-dialog.c` line 164. With Options opened, the scroll's max height is 2241, which is not what `nemo_archive_options_room` gives for that screen. The three made-up screen heights pass.
+	- Incorrect behavior: rhtmbdmj fails at `test-nemo-archive-dialog.c` line 164. With Options opened, the scroll's max height is 2241, which isn't what `nemo_archive_options_room` gives for that screen. The three made-up screen heights pass.
 	- Expected behavior: the test passes, or the test is shown to be wrong and fixed.
 	- Reproduced: yes, twice, 20261004, vm925w console session at bab9a49. Session 0 runs skip it for no monitor, so it may never have run on a real Windows screen before.
 		- Again 20261004 on Linux, with a window manager on the test's display: off by the 25 px frame there.
@@ -3276,7 +3276,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual cause: the test was wrong. The dialog counts its own frame in the closed height, as `nemo_archive_options_room` says it should. The test left the frame out. The Windows title bar and borders are the missing 39 px. Linux runs had no window manager, so no frame, and passed either way.
 	- Actual fix: the test takes the closed height from the dialog's outer frame. On Linux it gets its own display with a window manager, so the frame is real there too. It also checks that the opened dialog sits inside the work area.
 	- Swept: the other two dialogs sized from the work area, the delete check and Preferences, cap at a fraction of it and leave room for a frame.
-	- Note: a title bar the toolkit draws itself, as on Wayland, is not counted by the dialog's frame measure. Not seen here; on X11 this dialog got no such title bar, even with `GTK_CSD=1`.
+	- Note: a title bar the toolkit draws itself, as on Wayland, isn't counted by the dialog's frame measure. Not seen here; on X11 this dialog got no such title bar, even with `GTK_CSD=1`.
 	- Branch: dlgheight
 	- Commit: bb67758
 	- Test case: rhtmbdmj, Compress dialog height test. It failed before on vm925w and on Linux with the frame, and passes after on both. It also fails on Linux when the dialog leaves its frame out of the room.
@@ -3301,7 +3301,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Origin: inherited from upstream Nemo, in the baseline. Confirmed.
 	- Actual cause: the tab menu is attached to the tab bar, and nothing destroys it before the tab bar goes. The history menu on Back and Forward and the list header's column menu are made the same way and never attached, so they stayed for the life of the program. Up and the other toolbar buttons made an empty menu on a right-click or long press, and never showed it.
 	- Actual fix: a menu made for one open is destroyed once it closes, after the chosen item has run. The toolbar buttons make a menu only for Back and Forward.
-	- Swept: the view's file, background and path bar menus, and the places and tree sidebar menus, are made once from the window's menu definitions and kept, so they do not pile up. The keyboard menu opens those same menus. The drop menu that asks Move, Copy or Link is freed after its answer. The rename field keeps one menu and replaces it on each open. A grep for `gtk_menu_new` finds no other menu made on demand.
+	- Swept: the view's file, background and path bar menus, and the places and tree sidebar menus, are made once from the window's menu definitions and kept, so they don't pile up. The keyboard menu opens those same menus. The drop menu that asks Move, Copy or Link is freed after its answer. The rename field keeps one menu and replaces it on each open. A grep for `gtk_menu_new` finds no other menu made on demand.
 	- Test case: rjf00qfj, Menus freed after closing test. It opens and closes the tab menu, the Back history menu, the column menu and a right-click on Up five times each, and counts what is left over. It failed before the fix on all four and passes after. rhtmbdma gained three sub-cases: a menu freed once it closes, picked from or not, with the picked item still run, and the drop menu freed after its answer. Each failed with its freeing taken out.
 	- Verified: full Linux suite 168 of 168, lint clean, Windows cross build clean.
 	- Branch: tabmenu
@@ -3319,17 +3319,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261001-133725
 	- Opened by: code review 20260928 item 20
 	- Related IDs: 2026092813381420, 2026100316054301
-	- Incorrect behavior: while one connection sets up a cache file that did not exist, another opening it fails at once with "could not set up the file cache: database is locked" and that copy has no cache until it is started again. The store's own comment says a busy one waits up to 3 s.
+	- Incorrect behavior: while one connection sets up a cache file that didn't exist, another opening it fails at once with "could not set up the file cache: database is locked" and that copy has no cache until it is started again. The store's own comment says a busy one waits up to 3 s.
 	- Expected behavior: the second one waits its turn and uses the cache.
 	- Reproduced: once, 20261001, Linux, with a second connection opening a new file as a window did. Not on demand. Again 20261003, Linux: in 2 of 200 rounds of four processes setting up one new file at once, and every time while another connection held the write lock on a new file.
-	- Possible cause: the first switch of a new file to its journal mode takes a lock that sqlite does not wait for.
+	- Possible cause: the first switch of a new file to its journal mode takes a lock that sqlite doesn't wait for.
 	- Actual cause: the switch to WAL reads the file and then takes the write lock. sqlite never waits on that second step, since two readers each waiting on the other would wait for good, so it answers busy at once and the busy timeout never applies.
 		- The failure on vm925w came from the test, not the store. The test's holder committed with no wait of its own. While the store waits it keeps trying, and each try takes a read lock for a moment. One was there right as the holder committed, so the commit was refused, and the holder kept the write lock until the store gave up. The store's 3 s wait ran to 4.9 s on a busy box.
 	- Origin: 9fd0939, 20260921 (thumbdb). New ground. Confirmed.
 	- Actual fix: the setup is tried again on a busy answer, every 10 ms, for as long as the busy timeout.
 		- The test's holder now waits on a busy file like any other copy, and its commit is checked. A reader is put in the way of that commit on every run.
 	- Swept: the prune's own connection opens through the same setup. There is no other journal mode change. The store opens the file in one place, which sets the busy timeout, and a refused commit is always rolled back, so no store connection keeps a lock past one.
-	- Note: once, under a parallel full build, two copies in one round still had no store. How long they had waited was not shown then. The test now prints it, and a copy that gave up only after the whole busy timeout is listed but not counted, since that is the designed limit on a disk that slow. Not seen again in 450 rounds under the same load.
+	- Note: once, under a parallel full build, two copies in one round still had no store. How long they had waited wasn't shown then. The test now prints it, and a copy that gave up only after the whole busy timeout is listed but not counted, since that is the designed limit on a disk that slow. Not seen again in 450 rounds under the same load.
 	- Note: a busy answer to the version read at open is taken as a file from another version, and the file is wiped. Filed as 2026100316054301.
 	- Branch: quitlock, then cachelock
 	- Commit: aced497, f7c0854
@@ -3372,7 +3372,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: its tests pass on Linux and natively on Windows, and nothing is left to judge on screen.
 	- Closed: 20261004-140500
 
-- The rename field moves a window that does not exist yet when it is sized before it is shown.
+- The rename field moves a window that doesn't exist yet when it is sized before it is shown.
 	- ID: 2026100412363910
 	- Type: Bug
 	- Status: Done
@@ -3383,9 +3383,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Target OS: all
 	- Incorrect behavior: an EelEditableLabel given its size before it is realized logs a critical, since its size code moves its text window, which is only made on realize.
 	- Expected behavior: no critical. The text window takes its size when it is made.
-	- Reproduced: yes, 20261004, Linux, with the field put in a window before the window is shown. A rename in the program puts it in a view already on screen, and was not seen to log it.
+	- Reproduced: yes, 20261004, Linux, with the field put in a window before the window is shown. A rename in the program puts it in a view already on screen, and wasn't seen to log it.
 	- Possible cause: `eel_editable_label_size_allocate` calls `gdk_window_move_resize` on `text_area` without checking that the widget is realized.
-	- Actual cause: as above. GTK sizes a window's widgets before it realizes them, so a field in a window that is not yet shown is sized first, and the text window is not there to move.
+	- Actual cause: as above. GTK sizes a window's widgets before it realizes them, so a field in a window that isn't yet shown is sized first, and the text window isn't there to move.
 	- Origin: upstream.
 	- Actual fix: the size code moves the text window only once the field is realized. Realize already makes the text window at the field's place and size, and now says so at the site.
 	- Swept: the only other `gdk_window_move_resize` in a size handler, the path bar's, already checks first. The icon container's one `gdk_window_move` realizes its dialog just before. The field's other uses of the text window, on map, unmap, pointer motion and the screen position, only run once it is realized.
@@ -3409,7 +3409,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: a screen reader can read the rename field and find it on screen.
 	- Reproduced: yes, 20261004, Linux. During a rename in the icon view, the field's accessible object gave no name, no text and no extents, and logged four criticals.
 	- Possible cause: the same run-time derivation the canvas items had, in `eel_accessibility_create_derived_type`. GTK 3 registers no accessible factory for widgets, so the registry hands back the do-nothing object. The fix is likely to build it on the GTK label or widget accessible directly.
-	- Actual cause: as above. The type was derived from what the registry gave for the field's widget type, the do-nothing object, which is not a widget accessible. Every text call, the name and the state set ask for the widget and got nothing.
+	- Actual cause: as above. The type was derived from what the registry gave for the field's widget type, the do-nothing object, which isn't a widget accessible. Every text call, the name and the state set ask for the widget and got nothing.
 	- Origin: upstream.
 	- Actual fix: the field's accessible is now an ordinary type built on GTK's widget accessible, with the text and editable text parts, and GTK makes it for the field. It gives its name and text, takes an edit, and gives the field's place and each character's.
 	- Swept: `eel_accessibility_create_derived_type` has one other user, the icon container. It derives from the canvas's own registered accessible, not the do-nothing object, and works: during a rename its last child is the field. No other code in the tree derives an accessible type at run time.
@@ -3434,7 +3434,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: a screen reader can find each icon on screen.
 	- Reproduced: yes, 20261004, Linux. Asking an icon's accessible object for its extents fails a type check.
 	- Possible cause: the icon's accessible type is built on the plain one for any object, so it lacks the part that gives a position. Its picture position code still calls that part on itself.
-	- Actual cause: the icon's accessible type was built on the plain GObject one, with no position part. The canvas item accessible that has one was never used for icons. It was also derived at run time from what the registry gives a plain object, which under GTK 3 is the do-nothing object, so it could not find its own item.
+	- Actual cause: the icon's accessible type was built on the plain GObject one, with no position part. The canvas item accessible that has one was never used for icons. It was also derived at run time from what the registry gives a plain object, which under GTK 3 is the do-nothing object, so it couldn't find its own item.
 	- Origin: upstream.
 	- Actual fix: the canvas item accessible is now an ordinary type built on the GObject one, with the position part, and the icon's accessible is built on it. Icons now give their extents on screen and in the window, and the picture's place. An icon scrolled out of sight gives no place, for the picture too.
 	- Swept: the three position calls in the icon accessible, for the picture, a character and a point in the text, now all reach the canvas item's. The rubber band selection box gets the same canvas item accessible. The icon container's own accessible is built from the canvas's registered factory and already had a position. The rename field is the one other type derived at run time, and it gets the do-nothing object too; filed as 2026100412230310.
@@ -3456,9 +3456,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Target OS: Windows.
 	- Incorrect behavior: when the copy into the staging folder fails partway, such as on a full disk, the partial `<install folder>.new.<number>` folder stays next to the install. No later install removes it. The old install is still there and still runs.
 	- Expected behavior: a failed install leaves nothing behind, as install.bash does.
-	- Reproduced: yes, 20261004, b29w, by the new test. All three ways out left the staging folder. Worse, when the old folder could not be moved aside because a file in it was held open, its other files were moved one at a time into `<install folder>.old.<number>`, so the old install no longer ran.
+	- Reproduced: yes, 20261004, b29w, by the new test. All three ways out left the staging folder. Worse, when the old folder couldn't be moved aside because a file in it was held open, its other files were moved one at a time into `<install folder>.old.<number>`, so the old install no longer ran.
 	- Origin: the copy fallback from 7284973, 20260925, which item 13's fix made the path every install takes. The split old install is from the same commit: PowerShell 7's Move-Item falls back to moving file by file when a folder rename is refused. Confirmed 20261004.
-	- Sweep: every way out of the Windows install after the staging folder exists: the failed copy, the old folder that cannot be renamed, and the failed final rename.
+	- Sweep: every way out of the Windows install after the staging folder exists: the failed copy, the old folder that can't be renamed, and the failed final rename.
 	- Actual fix: the staging folder is removed on every way out once it exists, as install.bash does. The install folder renames are plain folder renames, which fail whole instead of splitting the folder. install.ps1 is 1.3.2.
 	- Swept: all three Windows ways out, through one cleanup around the whole stage and swap. install.ps1's unix half had the same gap for a failed copy and a failed move aside, and now cleans up the same way. install.bash already removed its staging folder on all three. No other PowerShell in the project moves a folder: n8runfm.ps1 moves single files on Windows, and the sandbox agent moves one job file.
 	- Branch: stageclean
@@ -3486,12 +3486,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual cause: the app asked only for the link type GIO gives a link that leads nowhere, and on Windows GIO never gives it.
 	- Origin: the inherited check, wrong on Windows since the port. Widened by ac5347f, 20260827, which lists folders without following links. Confirmed.
 	- Decisions:
-		- 20261004: a link on a share, or one whose way passes a share or a drive mapped to one, is not looked into and shows as not broken. Opening through the link, as the possible fix said, would go to the share with no user action. This follows the share rule. The archive scan keeps opening through the link, since a compress is a user action.
+		- 20261004: a link on a share, or one whose way passes a share or a drive mapped to one, isn't looked into and shows as not broken. Opening through the link, as the possible fix said, would go to the share with no user action. This follows the share rule. The archive scan keeps opening through the link, since a compress is a user action.
 	- Actual fix: on Windows the app works out where a link leads from the links themselves. Each name on the way is read from the folder above it, and each link from its own target, so nothing is opened through a link. A chain of links is followed the same way, and a loop counts as leading nowhere. The answer is kept until the file is read again, since the type column asks on every draw.
 	- Swept: every caller of the broken link check: the type text and detailed type, which sort by type also reads, the favorites toggle, and opening, which offers to move a broken link to the Trash. The emblems never asked; a link has the link emblem either way. No other check tells a broken link by GIO's type: link copy reads the reparse tag on Windows, and the archive scan has its own. The check of a drive mapped to a share now sits beside the link code and is shared with the shortcut icons.
 	- Branch: winlinks
 	- Commit: eea8dfb
-	- Test case: rjehwjw7, Link end test, Windows only: file, folder and absolute links, a junction whose folder is gone, links Windows will not follow (/ and * in a relative target), chains good and gone, a loop, links to a share directly and through another link, and the kept answer until the file is read again. Fails before the fix and passes after, natively on b29w. The share and read-again rows each fail with their part of the fix taken out.
+	- Test case: rjehwjw7, Link end test, Windows only: file, folder and absolute links, a junction whose folder is gone, links Windows won't follow (/ and * in a relative target), chains good and gone, a loop, links to a share directly and through another link, and the kept answer until the file is read again. Fails before the fix and passes after, natively on b29w. The share and read-again rows each fail with their part of the fix taken out.
 	- Verified: 20261004, rjehwjw7, rfmxrdpg and rfhr0zw0, which uses the moved drive check, pass natively on b29w. Full native suite there at eea8dfb: 141 passed, 10 skipped, none failed. Full Linux suite 164 of 164.
 	- Acceptance signoff: Self-closed: reproduced, red before the fix and green after, and swept. The broken link dialog on opening is the existing one.
 	- Closed: 20261004-104311
@@ -3506,9 +3506,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: item 2026092813381404
 	- Related IDs: 2026092813381404
 	- Target OS: Windows
-	- Incorrect behavior: a symlink keeps its target as it was typed. Windows does not follow a relative target spelled with /, so the new link opens nothing, though / works almost everywhere else on Windows.
+	- Incorrect behavior: a symlink keeps its target as it was typed. Windows doesn't follow a relative target spelled with /, so the new link opens nothing, though / works almost everywhere else on Windows.
 	- Expected behavior: a symlink made by the app leads where it was pointed.
-	- Reproduced: Windows' side yes, 20261003, b29w: such a link cannot be opened. That the app writes one is read only. Plausible.
+	- Reproduced: Windows' side yes, 20261003, b29w: such a link can't be opened. That the app writes one is read only. Plausible.
 		- The app's side too, 20261004, b29w: links it made to `sub/target.txt`, `sub/dir` and `../sub/target.txt` opened nothing.
 	- Possible fix: write a relative symlink target with backslashes, as junctions already are.
 	- Actual cause: Windows keeps a relative symlink target exactly as given and splits it only at `\`. An absolute one it rewrites itself, so only relative ones were hit.
@@ -3523,7 +3523,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: reproduced, red before the fix and green after, and swept.
 	- Closed: 20261004-104311
 
-- Under rar, a selected linked folder whose name starts with @ is not left out.
+- Under rar, a selected linked folder whose name starts with @ isn't left out.
 	- ID: 2026100312494905
 	- Type: Bug
 	- Status: Done
@@ -3533,10 +3533,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261003-124949
 	- Opened by: item 2026092813381404
 	- Related IDs: 2026092813381404
-	- Incorrect behavior: a linked folder that is not followed is left out of a rar with `-x` and its name. For a selected folder named `@x` that is `-x@x`, which rar reads as a list file called `x`, so the folder is not left out and the run may fail.
+	- Incorrect behavior: a linked folder that isn't followed is left out of a rar with `-x` and its name. For a selected folder named `@x` that is `-x@x`, which rar reads as a list file called `x`, so the folder isn't left out and the run may fail.
 	- Expected behavior: the linked folder is left out, whatever its name.
 	- Reproduced: rar's side yes, 20261003, Linux: `-x@b` makes rar look for a list file `b`. The job's side is read only. Plausible.
-		- The job's side too, 20261004, Linux: the archive could not be created, and rar said it could not open `x`.
+		- The job's side too, 20261004, Linux: the archive couldn't be created, and rar said it couldn't open `x`.
 	- Actual cause: rar reads `@name` as a list file to load after `-x`. It does the same with a selected name when nothing by that name can be opened, as with a link that leads nowhere, so such a link named with a leading @ failed its first run as well.
 	- Origin: b8e1401, 20260925, which leaves linked folders out by name. Seen by item 2026092813381404's fix, which only passed such names over. Confirmed.
 	- Actual fix: rar is handed a name that starts with @ as `./@name`, after `-x` and as a selected name. It stores it as `@name`. What rar says about `./@name` is read as being about `@name`. The job no longer passes those names over, so a link that leads nowhere named with a leading @ is left out of the real run by name, like any other.
@@ -3560,12 +3560,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: the plan says "UNVERIFIED", and with the yes flag the install goes on.
 	- Expected behavior: design.md and README, downloads are checked before anything is unpacked.
 	- Decisions:
-		- 20260928: refuse by default. An explicit override flag installs anyway. The yes flag alone does not.
+		- 20260928: refuse by default. An explicit override flag installs anyway. The yes flag alone doesn't.
 		- 20261004: the override is `--no-verify` in install.bash and `-NoVerify` in install.ps1. No other name is taken.
 	- Reproduced: yes, 20261003, Linux. Both installers installed a stable and a prerelease build that had no sums file, with the yes flag.
 	- Origin: a2b0e10, 20260723. Not seen by an earlier review. Confirmed.
 	- Actual fix: with no sums file in the release, both installers stop while resolving, before the plan and the question, and name the override. The override is `--no-verify` in install.bash and `-NoVerify` in install.ps1. With it the plan says "UNVERIFIED". A sums file that is there is still checked with the override on. Help text, README and design.md say so. Installer version 1.3.1.
-	- Swept: both installers, stable and dev channels, each through one shared branch in its resolve step. A `--from` archive, a path or a URL, never had a sums file and is still not checked; design.md and the help now say so. A sums file that fails to download, has no line for the build, or does not match still stops the install, override or not. The rename covered both installers' options, help, plan and errors, README, design.md and rhtrxr81; a grep of the repo finds the old names nowhere else.
+	- Swept: both installers, stable and dev channels, each through one shared branch in its resolve step. A `--from` archive, a path or a URL, never had a sums file and is still not checked; design.md and the help now say so. A sums file that fails to download, has no line for the build, or doesn't match still stops the install, override or not. The rename covered both installers' options, help, plan and errors, README, design.md and rhtrxr81; a grep of the repo finds the old names nowhere else.
 	- Branch: nosums, noverify (the rename)
 	- Commit: 070301a, efa8053
 	- Test case: `cicd/linux/test-install-download.bash` (rhtrxr81), the no-sums cases. Fails before the fix, passes after.
@@ -3606,7 +3606,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261003-160543
 	- Opened by: work on 2026100113372592
 	- Related IDs: 2026100113372592
-	- Incorrect behavior: when the version cannot be read at open, as when the file stays busy past the wait, the answer is taken as a file from another version. The cache files are removed and started over, while other copies may still have them open.
+	- Incorrect behavior: when the version can't be read at open, as when the file stays busy past the wait, the answer is taken as a file from another version. The cache files are removed and started over, while other copies may still have them open.
 	- Expected behavior: a failed read leaves the file alone, and that copy runs with the cache off, as for other open errors.
 	- Reproduced: yes, 20261003, Linux, with the version read answered busy on cue. The file was started over and its rows were gone.
 	- Actual cause: a version read that failed before it ran came back as -1, which the open took for another version, so it wiped the file. One that failed while running came back as 0, a file with no tables yet, and the tables and version were then written into a file nobody had read.
@@ -3630,15 +3630,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261003-085632
 	- Opened by: review of item 2026092813381423
 	- Related IDs: 2026092813381423
-	- Incorrect behavior: where a worker thread starts during the counted rounds, the reading is taken again. Memory held at that time can be given back during the new reading and cancel out a leak of one small block a round, so the test passes. A reading that comes out below zero is reported as a heap that cannot be read, and the test skips.
-	- Expected behavior: a leak of one block a round fails every time, and a leak test skips only where the heap cannot be read.
+	- Incorrect behavior: where a worker thread starts during the counted rounds, the reading is taken again. Memory held at that time can be given back during the new reading and cancel out a leak of one small block a round, so the test passes. A reading that comes out below zero is reported as a heap that can't be read, and the test skips.
+	- Expected behavior: a leak of one block a round fails every time, and a leak test skips only where the heap can't be read.
 	- Reproduced: yes, 20261003, Linux, under load. With 24 bytes leaked a round, 2 of 48 runs passed. With nothing leaked, the stopped zip and tar.gz tests skipped in about three runs of four of a suite run repeated in parallel.
 	- Origin: 377d761, on this item's branch. Confirmed.
 	- Actual cause: a reading was judged only by the thread count before and after it. GLib's pools stop a thread that sits idle, and what it gives back can fall in the reading taken again. A thread just joined is still listed for a moment, so its end can go unseen. A thread also takes some memory the first time it does a piece of work, which can come a reading after it started, so a clean run could fail too.
-	- Actual fix: GLib's pools keep their threads for the life of a leak test, so a thread only ever starts. A reading counts only where the same threads, by id, were there before and after, leaving out a thread on its way out. Growth past the limit has to show in two such readings, since a leak grows the heap in every one. A reading below zero is a reading; only a heap that cannot be read skips. Where threads come or go in every one of eight readings, the test fails and says so.
+	- Actual fix: GLib's pools keep their threads for the life of a leak test, so a thread only ever starts. A reading counts only where the same threads, by id, were there before and after, leaving out a thread on its way out. Growth past the limit has to show in two such readings, since a leak grows the heap in every one. A reading below zero is a reading; only a heap that can't be read skips. Where threads come or go in every one of eight readings, the test fails and says so.
 	- Note: a leak tied to a pool thread ending is now out of these tests' view, since pool threads no longer end.
 	- Sweep: every test that reads the heap.
-	- Swept: the leak tests are the only users of the shared reading. The config test's list read check reads the heap itself, but looks for megabytes, which a thread's memory cannot reach. The archive stop time test reads no heap. The leak tests stay inside `if not is_windows` in the test meson.build.
+	- Swept: the leak tests are the only users of the shared reading. The config test's list read check reads the heap itself, but looks for megabytes, which a thread's memory can't reach. The archive stop time test reads no heap. The leak tests stay inside `if not is_windows` in the test meson.build.
 	- Branch: leakretry
 	- Commit: bedccab
 	- Test case: rjcth67d Leak test self-check. It leaks one small block a round while threads start and end around it, and passes only where the reading calls it a leak.
@@ -3661,18 +3661,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Decisions:
 		- 20261003: the shortcut file moves beside the settings file, and its folder is made when needed. It stays in GTK's own format.
 		- 20261003: on the first start after the move, an existing `~/.gnome2/accels/nemo` is read once, so custom shortcuts are kept. The old file is left alone.
-	- Actual cause: the path was upstream's, and nothing made its folder. GTK's save gives up quietly when it cannot open the file.
-	- Actual fix: the file is `accels` beside `settings.shcl`, and the settings folder is made as before. A start that finds no `accels` reads `~/.gnome2/accels/nemo` if there, then writes `accels` at once. That `accels` exists is how "once" is known, so the old file is read on that start only and is never written. `--reset` empties `accels` rather than removing it, so the next start does not go back to the old file. Its help text still says settings and bookmarks.
+	- Actual cause: the path was upstream's, and nothing made its folder. GTK's save gives up quietly when it can't open the file.
+	- Actual fix: the file is `accels` beside `settings.shcl`, and the settings folder is made as before. A start that finds no `accels` reads `~/.gnome2/accels/nemo` if there, then writes `accels` at once. That `accels` exists is how "once" is known, so the old file is read on that start only and is never written. `--reset` empties `accels` rather than removing it, so the next start doesn't go back to the old file. Its help text still says settings and bookmarks.
 	- Note: rjch1b9a no longer makes a folder, and looks for the file in the new place.
 	- Swept: every caller of the shortcut path: the load at startup, the delayed and quit-time save, and `--reset`. `GNOME22_USER_DIR` is now only in the old-file path and the test. The other `.gnome2` use, `nemo_is_in_system_dir`, is about trusted desktop files and was left alone. `n8runfm.ps1` only passes `--reset` through. README never named the file. design.md and the changelog now say where it is.
-	- Test case: `rjcscb0t Shortcut file beside settings and carried over once test`. With no `~/.gnome2`, a change is saved to `accels` and nothing is made there. With an old file, its shortcut is used on the first start and copied into `accels`, and the old file is unchanged. A later change to the old file is not read. After `--reset`, `accels` is empty and the next start has the default. Fails before the fix and passes after, on Linux, and so does rjch1b9a.
+	- Test case: `rjcscb0t Shortcut file beside settings and carried over once test`. With no `~/.gnome2`, a change is saved to `accels` and nothing is made there. With an old file, its shortcut is used on the first start and copied into `accels`, and the old file is unchanged. A later change to the old file isn't read. After `--reset`, `accels` is empty and the next start has the default. Fails before the fix and passes after, on Linux, and so does rjch1b9a.
 	- Verified: full Linux suite 161 of 161, Windows cross build, lint clean.
 	- Branch: accelmove
 	- Commit: 3c5c3ab
 	- Acceptance signoff: Self-closed: both calls are settled in Decisions, and rjcscb0t fails before the fix and passes after.
 	- Closed: 20261003-175916
 
-- The window title does not follow a change to the path separator.
+- The window title doesn't follow a change to the path separator.
 	- ID: 2026100221072783
 	- Type: Bug
 	- Status: Done
@@ -3693,7 +3693,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: on Linux the separator changes nothing a person sees, so the title is only worth a look on Windows.
 	- Branch: grpfix
 	- Commit: 0a17659 (lint), bc533c7 (test), 5f6d314 (fix)
-	- Test case: rjahhesy, Held view settings handlers test. A change to the path separator has to make the window spell its path again. It fails without the fix. `lint-pref-handlers.py --self-test`, new cases for a key on the wrong group, a key in no group and a macro it cannot read.
+	- Test case: rjahhesy, Held view settings handlers test. A change to the path separator has to make the window spell its path again. It fails without the fix. `lint-pref-handlers.py --self-test`, new cases for a key on the wrong group, a key in no group and a macro it can't read.
 	- Verified: 20261003 on vm925w, with whole paths in the title. A change of `windows.path-separator` to slash in the settings file turned the title from `C:\Users\...` to `C:/Users/...`, and back again on the change back.
 	- Acceptance signoff: Self-closed: rjahhesy passes in the full Linux suite, and the title was seen to follow the separator on Windows.
 	- Closed: 20261003-174609
@@ -3740,9 +3740,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual cause: the save wrote the document it had in memory without looking at the file. The late event for the edit then matched the save and was ignored as the program's own write.
 	- Origin: before this branch. Code review 20260919 item 16 fixed the other direction, a change in the program lost to a hand edit. Not seen by an earlier review. Confirmed.
 	- Decisions:
-		- When both sides changed, the file wins for every key the program did not change. The program's unsaved keys go on top of a fresh read, and then it saves. No dialog. Reversible.
-		- A key changed both ways keeps the program's change. That is the rule item 16 of review 20260919 already follows when the monitor gets there first, so the answer does not depend on which comes first. The hand edit can still be the later of the two. Going by time would need a time per key, checked against the file's.
-	- Actual fix: a save reads the file first. If it is not what the program last wrote or read, it is reloaded the way the monitor does it, with the unsaved keys put back and the changed keys announced, and then the save goes ahead. A newer-format file found that way is left alone, and a removed file means defaults plus the unsaved keys, both as the monitor already does. A very short window is left between that read and the write, which no ordinary file write can close.
+		- When both sides changed, the file wins for every key the program didn't change. The program's unsaved keys go on top of a fresh read, and then it saves. No dialog. Reversible.
+		- A key changed both ways keeps the program's change. That is the rule item 16 of review 20260919 already follows when the monitor gets there first, so the answer doesn't depend on which comes first. The hand edit can still be the later of the two. Going by time would need a time per key, checked against the file's.
+	- Actual fix: a save reads the file first. If it isn't what the program last wrote or read, it is reloaded the way the monitor does it, with the unsaved keys put back and the changed keys announced, and then the save goes ahead. A newer-format file found that way is left alone, and a removed file means defaults plus the unsaved keys, both as the monitor already does. A very short window is left between that read and the write, which no ordinary file write can close.
 	- Swept: the monitor's reload and the save now share one reload. The exit flush and `--reset` go through the same save. The bookmarks file is the only other watched file the program writes; it is saved at once on each change with no delay, so it was left alone.
 	- Verified: config tests rg6a49ar, rdjjz89r, rjc4dd8z, rjcev513, reqzgh4g, rfazc870 and rf2w8yxr pass on Linux after a clean build. Lint clean.
 	- Branch: handedit
@@ -3771,8 +3771,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: linkfix
 	- Commit: 342d30a
 	- Test case: rfwwdyvg, Link copy test, a hardlink of a relative symlink made in another folder. Fails before the fix and passes after, on Linux.
-	- Verified: the link copy test passes on Linux. The Windows code builds but was not run, since wine makes no symlinks.
-	- Note: rfwwdyvg passed on b29w on 20261002, in the native suite, but it skips its symlink checks without a word when symlinks can't be made, so this case is not shown to have run.
+	- Verified: the link copy test passes on Linux. The Windows code builds but wasn't run, since wine makes no symlinks.
+	- Note: rfwwdyvg passed on b29w on 20261002, in the native suite, but it skips its symlink checks without a word when symlinks can't be made, so this case isn't shown to have run.
 	- Verified: 20261003, rfwwdyvg passed natively on vm925w with symlinks allowed, so the hardlink of a symlink case ran.
 	- Acceptance signoff: Self-closed: rfwwdyvg passes on Linux and natively on Windows with its symlink cases run.
 	- Closed: 20261003-174609
@@ -3793,7 +3793,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual cause: the save took any line starting `##` and four spaces as part of the info block wherever it was, and any `##` next to one.
 	- Actual fix: only a run of `##` lines that has the block's SHCL line or its format line is the block, the same test SHCL itself uses. Inside that run only the block's own lines come off, so a `## note` written against it stays too.
 	- Sweep: every place that takes the info block out of the file.
-	- Swept: `apply_catalog` is the only one. Nothing else strips it, and `shcl_set_banner` is not called.
+	- Swept: `apply_catalog` is the only one. Nothing else strips it, and `shcl_set_banner` isn't called.
 	- Branch: shclold
 	- Commit: e2c055b
 	- Test case: rg6a49ar Config defaults list test, new case for notes spelled like the block, at the top and right after it. Fails before the fix, passes after.
@@ -3810,7 +3810,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261001-133725
 	- Opened by: code review 20260928 item 20
 	- Related IDs: 2026092813381420, 2026100315470225
-	- Incorrect behavior: both application classes put their quit work in `quit_mainloop`, which GLib has not called since 2.32. So a shortcut map change still waiting out its 30 s is never saved, and the "still unmounting" notice is never taken down. The rest of it frees memory the exit frees anyway.
+	- Incorrect behavior: both application classes put their quit work in `quit_mainloop`, which GLib hasn't called since 2.32. So a shortcut map change still waiting out its 30 s is never saved, and the "still unmounting" notice is never taken down. The rest of it frees memory the exit frees anyway.
 	- Expected behavior: a shortcut changed just before quit is there on the next start.
 	- Reproduced: yes for the hook, 20261001, Linux. The lost shortcut and the notice left up, 20261003, Linux.
 	- Origin: upstream. Not seen by an earlier review. Confirmed.
@@ -3852,7 +3852,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: a packaging check with nothing on screen. rjcma0se covers it.
 	- Closed: 20261003-163500
 
-- Code review 20260928 item 27. The Linux release image is not pinned.
+- Code review 20260928 item 27. The Linux release image isn't pinned.
 	- ID: 2026092813381427
 	- Type: Bug
 	- Status: Done
@@ -3867,8 +3867,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual fix: the Dockerfile pins the base by digest, jammy-20260731.1, which is the base the current image was built on. apt reads the archive from snapshot.ubuntu.com as it stood on 20260804, when the current image was built.
 	- Decisions:
 		- 20261003: pin to the dates the current image was built from, not to today, so a box that builds the image matches the one that built the published releases. Moving on means moving the digest and the snapshot date together.
-		- 20261003: the image on this box is kept as it is. It was not replaced, since it builds the same bytes.
-	- Swept: the dev image (`Dockerfile.dev`) and the Windows cross build image are not release lanes, and are left unpinned.
+		- 20261003: the image on this box is kept as it is. It wasn't replaced, since it builds the same bytes.
+	- Swept: the dev image (`Dockerfile.dev`) and the Windows cross build image aren't release lanes, and are left unpinned.
 	- Branch: relrepro
 	- Commit: f3b4e94
 	- Test case: `cicd/linux/test-release-image-pin.bash` (rjcma0t3). Fails before the fix, passes after.
@@ -3890,7 +3890,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual fix: release.bash refuses to tag unless every artifact has HEAD's commit date: the tarball, .deb and .rpm file times, the rpm build time, and the stamp in the zip's own exe. The stamps are read by `cicd/utility/release-stamps.py`. So the artifacts must be built on main after the merge.
 	- Decisions:
 		- 20261003: build on main after the merge rather than tag the dev commit. The tag stays on the merge, as documented, and a rebuild of the tag then matches.
-	- Swept: the hosted Windows workflow already stamps the tag's own commit date. The Windows zip's runtime exes keep their packagers' dates, so only the app's exe is read. The sums file is not stamped.
+	- Swept: the hosted Windows workflow already stamps the tag's own commit date. The Windows zip's runtime exes keep their packagers' dates, so only the app's exe is read. The sums file isn't stamped.
 	- Branch: relrepro
 	- Commit: f3b4e94
 	- Test case: `cicd/utility/test-release-stamp.bash` (rjcma0tt). Fails before the fix, passes after.
@@ -3913,7 +3913,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Origin: 0caf474, 20260721. Not seen by an earlier review. Confirmed.
 	- Actual fix: the window list is read in full, then matched. The display is the first free one from :120 up, and is used only once its lock names the server started there and that server answers. `GUI_SMOKE_DISPLAY` moves the start.
 	- Swept: the profiler had a fixed :97 with no check, and now starts its display the same way, from one shared helper. `gui-headless.bash` already refuses a number another server holds. Its default of :99 is only for a run by hand, since the demo recorder passes its own number. `docker-run.bash`, `build-cross.bash` and one check in `lint-c.bash` piped into `grep -q`, and now don't. The Bash lint now fails on `grep -q` or `grep -m` reading a pipe. The `| head -1` sites were left, since each reads only a few short lines.
-	- Note: the lint check reads one line at a time, so a pipe split across two lines is not caught.
+	- Note: the lint check reads one line at a time, so a pipe split across two lines isn't caught.
 	- Branch: smokehang
 	- Commit: 034e095
 	- Test case: rjcbfbx8, GUI smoke check test, and rjcc6jnz, the Bash lint's pipe check. Both fail before the fix and pass after.
@@ -3929,8 +3929,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
-	- Incorrect behavior: a timeout exits with libFuzzer's default code, which the stage reads as neither a find nor a clean run, and the targets after it do not run.
-	- Reproduced: yes, 20261003, Linux. A target that hangs stopped the stage with "exited 70", and the targets after it did not run.
+	- Incorrect behavior: a timeout exits with libFuzzer's default code, which the stage reads as neither a find nor a clean run, and the targets after it don't run.
+	- Reproduced: yes, 20261003, Linux. A target that hangs stopped the stage with "exited 70", and the targets after it didn't run.
 	- Actual cause: libFuzzer gives each kind of find its own exit code, and only its own reports used the stage's find code. A hang exits 70, a memory error caught by the address checker exits 1, and running out of memory exits 71.
 	- Origin: `cicd/linux/fuzz.bash`, fuzzlines, 20260926. New ground. Confirmed.
 	- Actual fix: a hang and a memory error now exit with the stage's find code. Any failed run that saved an input also counts as a find, which covers running out of memory, since that code can't be set. The find line names the saved input. One input may run 25 seconds before it counts as a hang, set by `FUZZ_TIMEOUT`.
@@ -3999,7 +3999,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: changing row shading while a closed tab's view is still held, as a rename or unmount does, calls into a freed tree view.
 	- Reproduced: yes, 20261002, Linux. A closed tab's list view, still held, kept 25 handlers on the settings groups, row shading, its color and folder expansion among them. No crash was seen.
 	- Origin: f172064, 20260918 (row shading). Same class as code review 20260919 items 3 and 10. Regression of that class. Confirmed.
-	- Actual cause: the list view, the view it is built on and the icon view connected their settings handlers with a plain connect and removed them in finalize. A view held after its tab closes is not finalized until it is let go, but its widgets go when the tab closes, so a settings change in between ran the handlers on freed widgets.
+	- Actual cause: the list view, the view it is built on and the icon view connected their settings handlers with a plain connect and removed them in finalize. A view held after its tab closes isn't finalized until it is let go, but its widgets go when the tab closes, so a settings change in between ran the handlers on freed widgets.
 	- Actual fix: every handler on a settings group whose data is an object is now connected with `g_signal_connect_object`, so it goes when its owner is torn down, and the disconnects that went with them are gone. The two that move the icon container from one group to the other stay. The settings handler lint now reports a plain connect for an object on a settings group. design.md, "Handlers on settings groups", has the rule.
 	- Sweep: every plain connect on a settings group with an object as its data, per design.md "Handlers on settings groups".
 	- Swept: 64 connects in the list view, icon view, view base, window, icon container, icon grid container, path bar, places and tree sidebars, toolbar, action manager, job queue, both plugin settings pages and the main application. The settings handler lint over `source/` reports none left.
@@ -4035,7 +4035,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: leaks show nothing on screen. The nine leak tests and rjbpyy28 cover it. The window and theme sites have no test, since nothing in the suite reaches them; item 35's sanitizer build is where they get one.
 	- Closed: 20261003-112426
 
-- Code review 20260928 item 18. A relative symlink between two shares of one server does not resolve.
+- Code review 20260928 item 18. A relative symlink between two shares of one server doesn't resolve.
 	- ID: 2026092813381418
 	- Type: Bug
 	- Status: Done
@@ -4045,7 +4045,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
 	- Target OS: Windows.
-	- Incorrect behavior: a link from `\\srv\a\x` to `\\srv\b\y` is written as `..\..\b\y`, which Windows cannot follow above a share.
+	- Incorrect behavior: a link from `\\srv\a\x` to `\\srv\b\y` is written as `..\..\b\y`, which Windows can't follow above a share.
 	- Reproduced: yes, 20260928, in the Windows build under wine, by the relative path it writes. Not tried against a real share.
 	- Actual cause: only the first part of the two paths had to match. For a share path that is the server, but the share has to match too.
 	- Origin: 1866e56, 20260925 (linkedit). New ground. Confirmed.
@@ -4055,7 +4055,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 342d30a
 	- Test case: rfwwdyvg, Link copy test, on Windows only. Fails before the fix and passes after, under wine.
 	- Verified: the link copy test's share checks pass under wine. Its one failure there is the old one, since wine makes no symlinks.
-	- Note: rfwwdyvg passed on b29w on 20261002, in the native suite. Whether the box had two shares to link between is not shown.
+	- Note: rfwwdyvg passed on b29w on 20261002, in the native suite. Whether the box had two shares to link between isn't shown.
 	- Acceptance signoff: Self-closed: two shares of one server with a relative link between them is hard to set up by hand. rfwwdyvg covers it on Windows, run under wine.
 	- Closed: 20261003-112426
 
@@ -4110,7 +4110,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: reproduced, test fails before and passes after, sweep answered.
 	- Closed: 20261002-194800
 
-- Code review 20260928 item 33. Two tests read memory they do not own.
+- Code review 20260928 item 33. Two tests read memory they don't own.
 	- ID: 2026092813381433
 	- Type: Bug
 	- Status: Done
@@ -4186,10 +4186,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: yes, 20260928, Linux. Again 20261001, 5.9 s.
 	- Actual cause: a directory that names itself as the next one is read 32 times. Each of its entries can start a maker note or preview lookup that reads the file a few bytes at a time, and nothing bounded the total.
 	- Origin: 4809a54, 20260922 (rawthumbs). New ground. Confirmed.
-	- Actual fix: finding the previews in a file is held to a fixed number of reads, far more than any real camera file tried needed. Reading the preview that was found is not counted.
+	- Actual fix: finding the previews in a file is held to a fixed number of reads, far more than any real camera file tried needed. Reading the preview that was found isn't counted.
 	- Sweep: every reader in the raw reader that a directory entry can start.
 	- Swept: the Olympus maker note, Panasonic's preview tag, the JPEG offset tags, strip lists, values stored outside the entry, EXIF and sub-directories, and the CR3 box walk all go through the one counted read, so the cap covers each. Panasonic's tag was as slow as the maker note in a looping file and is in the test. The properties page reads EXIF through libexif from memory, not a read per entry. Search: every `read_at` call in `nemo-raw.c`, and a grep for `ifd`, `0x927C`, maker note and the EXIF loader across `source/`.
-	- Note: reading a directory in one block, and skipping a maker note already read, were also offered. Neither is needed with the cap, and the skip would not stop notes at different offsets.
+	- Note: reading a directory in one block, and skipping a maker note already read, were also offered. Neither is needed with the cap, and the skip wouldn't stop notes at different offsets.
 	- Note: waits on signoff because the fix took one of the three the review offered. A real file that needed more reads than the cap would show the type icon. The fuzz stage still needs a run with the new seed.
 	- Test case: `rhg7vh28 Camera raw reader test`: three files with a looping directory, read from disk, each under 0.25 s. They are the review's file, the same with camera settings, and Panasonic's preview tag, which took 8 s, 12 s and 0.8 s before. A tall uncompressed preview is still read after the directories. Fuzz seed `olympus-loop`.
 	- Branch: rawloop
@@ -4206,10 +4206,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026092813381400
 	- Related IDs: 2026100113372562, 2026100113372592
 	- Incorrect behavior: up to 30 s of draw counts are lost at every quit, so the age rule counts recent use short. The log is never trimmed at close.
-	- Reproduced: yes, 20260928, Linux. Nothing in the program calls the close. Again 20261001: after each quit the journal held 0.1 to 3 MB, and the draws of the last few seconds were not counted.
+	- Reproduced: yes, 20260928, Linux. Nothing in the program calls the close. Again 20261001: after each quit the journal held 0.1 to 3 MB, and the draws of the last few seconds weren't counted.
 	- Actual cause: nothing writes the store out at quit. The quit hook the review named is never called by GLib, so nothing put there would run either.
 	- Origin: 6d52b4b, 20260921 (thumbdb). New ground. Confirmed.
-	- Actual fix: at the very end of every run, after the thumbnail threads are done, the draw counts held in memory are written and the journal is folded back into the file. The store is left open until the process ends, since a worker the quit does not wait for may still be using it. A run that never used the store does not make one. The cleanup pass is stopped first, as the dead hook meant to do.
+	- Actual fix: at the very end of every run, after the thumbnail threads are done, the draw counts held in memory are written and the journal is folded back into the file. The store is left open until the process ends, since a worker the quit doesn't wait for may still be using it. A run that never used the store doesn't make one. The cleanup pass is stopped first, as the dead hook meant to do.
 	- Note: closing the window, the last window, Close all windows and `--quit` all end in that same code, on Windows too. No signal is handled, so a copy killed by one still loses the counts, as it loses a settings change.
 	- Note: the other writes held back for a moment, settings and folder metadata, are already written in the same place. The keyboard shortcut map is saved only from the dead hook, which is its own item, 2026100113372562.
 	- Note: waits on signoff because it changes what the program writes at quit, and the fix is neither of the two the review offered.
@@ -4337,9 +4337,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- `cicd/linux/run-tests.bash` assumes the container's `/src`, a Linux-only display wrapper and GNU `find -printf`. Either it learns FreeBSD, or a runner of its own does the same job.
 	- Decisions:
 		- 20261007:
-			- Opt-in, as `--include-bsd`, the way the arm64 lane is meant to be. `--quick` leaves it on when it is asked for. The gate does not run it.
+			- Opt-in, as `--include-bsd`, the way the arm64 lane is meant to be. `--quick` leaves it on when it is asked for. The gate doesn't run it.
 			- `run-tests.bash` learned FreeBSD, rather than a second runner: it finds the source beside itself, starts an X server of its own where the Linux display wrapper is missing, and lists leftovers with `ls`.
-			- A box that does not answer fails the run, as in the arm64 lane.
+			- A box that doesn't answer fails the run, as in the arm64 lane.
 	- Done: `cicd/bsd/lane.bash --tests` sends the working tree the way `release-arm64.bash` does and runs `run-tests.bash` there, under the host lock's wrap. With `--include-bsd`, stage 3 runs it after the sanitizer suite, and stage 5 runs the release half from 2026100517134081.
 	- Verified: on vmFreeBSD the lane built the tree with `-Dwerror=true` and ran the suite, 163 OK, 14 skipped, then `--version`. On Linux `run-tests.bash` built and ran 2 tests and `--version` in the build image, with and without the display wrapper. The first FreeBSD run stopped on folders 2 tests left behind, filed as 2026100713082288.
 	- Needs local test suite run?: yes. A full `cicd/cicd.bash --include-bsd --no-publish` on the merged tree. The new stage lines in `cicd.bash` have only been read.
@@ -4367,7 +4367,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Behind `--include-arm`, with the rest of the arm64 lane.
 	- Decisions:
 		- The arm64 box only reads the dependency line, right after its build while its release container is still up. Both arches are packaged on the main box with the same tools.
-		- The line is kept with the tarball's checksum. A line read off any other build is not used, and the `.deb` gets the short list with no versions and a warning, the same fallback the x86_64 one has.
+		- The line is kept with the tarball's checksum. A line read off any other build isn't used, and the `.deb` gets the short list with no versions and a warning, the same fallback the x86_64 one has.
 		- A failed read only warns, so it doesn't throw away an hour's build.
 		- 20261007: README names the arm64 files once a release has them.
 		- The arm64 packages and their prefix check run only when the arm64 build ran in that same run. So `--no-arm`, `--no-cross` and `--quick` leave them out too, and a stale tarball is never packaged.
@@ -4427,11 +4427,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026092813381423
 	- Requirements:
 		- A stop on a 7z written by the built-in writer ends about as fast as a stop on a zip or tar.gz.
-	- Note: the built-in writer is used where the 7-Zip program is missing, or where link storing is off. On a stop it fills the rest of the open entry with zeros through its compressor, into a temporary file of its own, so how the job handles the output does not reach it. A 2 GB file stopped near the start took 24 s, the same before and after item 2026092813381423. The progress bar stands still meanwhile, and the next queued job waits.
+	- Note: the built-in writer is used where the 7-Zip program is missing, or where link storing is off. On a stop it fills the rest of the open entry with zeros through its compressor, into a temporary file of its own, so how the job handles the output doesn't reach it. A 2 GB file stopped near the start took 24 s, the same before and after item 2026092813381423. The progress bar stands still meanwhile, and the next queued job waits.
 	- Actual fix: after a stop, the 7z writer is marked failed and then closed. The close skips the open entry, so there are no zeros to write, and still frees what it holds. The temporary file and compressor go when the writer is freed. A stop now ends in about 0.01 s, as fast as on a zip.
 	- Branch: stop7z
 	- Commit: ef05a4f
-	- Test case: rjbpyy28 Archive stop time test now has a 7z case. A 4 GiB and a 16 GiB file are stopped at their first progress report. Before the fix, the 4 GiB one took 50 s and the 16 GiB one did not end in 100 s. After, both take 0.01 s. rjbw0rkq Stopped 7z leak test, which fails at 82 bytes a round when the close is left out.
+	- Test case: rjbpyy28 Archive stop time test now has a 7z case. A 4 GiB and a 16 GiB file are stopped at their first progress report. Before the fix, the 4 GiB one took 50 s and the 16 GiB one didn't end in 100 s. After, both take 0.01 s. rjbw0rkq Stopped 7z leak test, which fails at 82 bytes a round when the close is left out.
 	- Acceptance signoff: waiting. The archive writer's handling of a stop changed again, this time for the 7z.
 
 - Compression reset: volume sizes say what each is for.
@@ -4566,7 +4566,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: both builders that turn a settings line into a command, the compress one (real run and links run) and the extract one. The tests that wanted the library's 7z writer (rjbpyy28, rjbw0rkq and the library rows of rhr6ggmt) now hide 7-Zip to reach it.
 	- Branch: runflags
 	- Commit: f079fde
-	- Note: 20261007, in the pipeline's native suite on b29w at 7c1debd, rev86z08 and reww9h2s passed, and rhr6ggmt failed only its rar row (2026100516274349). Whether b29w has 7-Zip was not checked, so this stays here.
+	- Note: 20261007, in the pipeline's native suite on b29w at 7c1debd, rev86z08 and reww9h2s passed, and rhr6ggmt failed only its rar row (2026100516274349). Whether b29w has 7-Zip wasn't checked, so this stays here.
 	- Note: 20261009, both vm925w and b29w have 7-Zip installed, in `C:\Program Files\7-Zip`, with a shim for it on PATH. So the b29w run above had it too.
 	- Verified: 20261009, natively on vm925w at 398c999, rev86z08 passes and rhr6ggmt's 7z rows pass, the library 7z row that stores links included. rhr6ggmt failed only its rar row (2026100516274349). At 49a54f8 both pass whole, on vm925w and on b29w.
 	- Test case: rev86z08, Archive options test, for which writer gets 7z and for the added `-spd`, directly and through edited lines. rhr6ggmt, the `*` and `?` rows again with a 7-Zip line without `-spd`, and a library 7z row that stores links. reww9h2s, an `s?.7z` extracted with an edited 7-Zip line.
@@ -4716,19 +4716,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Set 20260930, as design.md "Speed, memory and size".
 	- Progress log:
 		- 20261005-123349: audit done and the costly paths fixed, listed under Swept. Two paths need a call and are left as they are:
-			- Point 1: on Linux and the BSDs a folder is listed by following every link in it, to read the type, size and date of what it points at. So a link onto a share that is not answering still holds up the whole folder once, before any of the gated questions. Windows lists links without following them and still gets their type; Linux can't, so a link listed that way has no type until it is looked at. Option: list a link onto a share without following it, showing as a plain link that sorts with the files until it is opened. Links elsewhere would be looked at as now. It is what the rule asks for.
-			- Point 2: a folder on a Linux network mount, or on a Windows drive letter mapped to a share, works as a local one once someone goes there: item counts, thumbnails, and in a picture folder every picture made ahead. A folder on a UNC path does not, and design.md says a share counts as remote for "Local files only". Option: the first two follow the UNC path, so counts and thumbnails there are off by default.
+			- Point 1: on Linux and the BSDs a folder is listed by following every link in it, to read the type, size and date of what it points at. So a link onto a share that isn't answering still holds up the whole folder once, before any of the gated questions. Windows lists links without following them and still gets their type; Linux can't, so a link listed that way has no type until it is looked at. Option: list a link onto a share without following it, showing as a plain link that sorts with the files until it is opened. Links elsewhere would be looked at as now. It is what the rule asks for.
+			- Point 2: a folder on a Linux network mount, or on a Windows drive letter mapped to a share, works as a local one once someone goes there: item counts, thumbnails, and in a picture folder every picture made ahead. A folder on a UNC path doesn't, and design.md says a share counts as remote for "Local files only". Option: the first two follow the UNC path, so counts and thumbnails there are off by default.
 		- 20261005-160000: decided yes to both options. Still to do.
 		- 20261005-190000: both done on sharefollow, per the Decisions rows. Waiting for the Windows run.
 	- Decisions:
 		- 20261005: the share holding the home folder counts as local, so a home on a network mount keeps its counts, thumbnails, free space bar and bookmark checks.
-		- 20261005: a link onto the same share it sits on is not a visit, since the user is on that share already.
-		- 20261005: a bookmark on a share is taken as there and has the plain folder icon, never the missing one. A network file system mounted at `/` does not count, or nothing would be local.
+		- 20261005: a link onto the same share it sits on isn't a visit, since the user is on that share already.
+		- 20261005: a bookmark on a share is taken as there and has the plain folder icon, never the missing one. A network file system mounted at `/` doesn't count, or nothing would be local.
 		- 20261005: a link onto a share is listed without following it. It shows as a plain link and sorts with the files until opened. Links elsewhere are looked at as now.
 		- 20261005: a folder on a Linux network mount or a mapped Windows drive counts as a share, like a UNC path, so item counts and thumbnails there are off by default.
 	- Swept: fixed here.
 		- The share check behind every per-file question now covers a link onto a network mount on Linux and the BSDs, and onto a mapped drive on Windows. Read from the mount table and the path, never the share. That gates what already sat behind it: item counts, thumbnails and their checksums, mount and free space lookups per file, the picture folder guess, tree expanders, pictures made ahead, and on Windows shortcut icons and sort places and owner names.
-		- Bookmarks: each one that reads as missing was checked on the window's thread at every rebuild of the side pane. One on a share is not checked.
+		- Bookmarks: each one that reads as missing was checked on the window's thread at every rebuild of the side pane. One on a share isn't checked.
 		- File cache prune: looked for gone files on mapped drives and network mounts, where a hard mount can hold the pass for good. Now skipped, as a UNC path already was.
 		- Actions: the folder test for each selected file followed links, on the window's thread, at every selection change. One onto a share goes by the type the listing has.
 		- Custom icons and `.desktop` link icons: an icon file on a share was read on the window's thread for the first draw. It stays plain.
@@ -4736,7 +4736,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: already gated by earlier items, rechecked. The per-file item count, mount and free space questions, thumbnails through the speed settings, shortcut reads, icons and sort places, the Windows link end check, owner names, the picture folder guess, the tree's look-ahead, pictures made ahead, and the Windows listing not following links.
 	- Swept: checked, no visit without a user action.
 		- Side pane: built-in rows, mounts with no volume (icon by file system type), the network section, and Windows drive rows (fixed drives only).
-		- Tree: a root is not read until opened, and the look-ahead skips roots.
+		- Tree: a root isn't read until opened, and the look-ahead skips roots.
 		- Path bar, window title and the shown folder's monitor: only the folder gone to and the folders above it.
 		- File monitors: only shown folders, the bookmarks file, and the action and template folders.
 		- Crash reporter: reads and writes only its own folder beside the settings.
@@ -4744,9 +4744,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- `.desktop` links read only the link file. The favorites check is an in-memory list. The clipboard reads no files.
 		- Search, typed locations, Properties, deep counts and opening a file are user actions.
 	- Swept: fixed on sharefollow, for the two points decided.
-		- Off Windows the folder listing no longer follows a link onto a share it is not on. The link is listed as itself, reads as "link", sorts with the files and is never shown broken. Opening it, or going to it, follows it from then on. The same rule holds when one file is read again, such as one a watch says changed or a new one. Links within the same share and links elsewhere are followed as before. Windows already listed links unfollowed.
+		- Off Windows the folder listing no longer follows a link onto a share it isn't on. The link is listed as itself, reads as "link", sorts with the files and is never shown broken. Opening it, or going to it, follows it from then on. The same rule holds when one file is read again, such as one a watch says changed or a new one. Links within the same share and links elsewhere are followed as before. Windows already listed links unfollowed.
 		- A folder on a share is on it, on every platform: a network mount on Linux and the BSDs, a mapped drive or a UNC path on Windows. So is a share's mount point seen from the folder above, and a folder reached through a link onto one. The answer is kept per folder and read again when the shares change. The home share is still local.
-		- Thumbnails under "Local files only" now ask the share check, as item counts already did. They only asked whether the folder was native, so a picture behind a link onto a share was not held back.
+		- Thumbnails under "Local files only" now ask the share check, as item counts already did. They only asked whether the folder was native, so a picture behind a link onto a share wasn't held back.
 	- Swept: left as is.
 		- Points 1 and 2 above: done, as the bullet before.
 		- Windows: mapped drives get their names and icons from the shell when the drive list is built, and the trash state asks every drive's recycle bin. Filed as 2026100512334934, fixed on sharefollow.
@@ -4754,7 +4754,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A folder reached through a link counts as on the share only while the link's own file is known to the app, which it is when someone went through it.
 		- First run on Windows checks the user's own known folders for the default bookmarks, which may be redirected to a share. Once, and on folders the user owns.
 		- A program an action needs, given by full path, and the templates folder, are set by the user.
-		- A chain of links is placed by its first link only. autofs is not counted, since it fronts local disks as often as shares.
+		- A chain of links is placed by its first link only. autofs isn't counted, since it fronts local disks as often as shares.
 	- Branch: shareaudit
 	- Commit: 701bb2a
 	- Branch: sharefollow
@@ -4765,7 +4765,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rhtwm2c8, Share check does no I/O, new cases for a link onto a share and one within it, through the same hook. Windows only.
 		- sharefollow added: a file in a folder on the stand-in mapped drive, and the listing's view of a junction into it. Two older checks are commented out with the reason.
 	- Test case: rjhvmm6f, see 2026100512334934.
-	- Test case: none for the side pane free space, since a test cannot make the volume list show a fake share.
+	- Test case: none for the side pane free space, since a test can't make the volume list show a fake share.
 	- Verified: rjhbbg9n and rhd69rjr fail before the fix, in every case that names a share, and pass after, on Linux. With only the action change taken out, its case alone fails. The full Linux suite passed 170 of 170. The Windows cross build is clean, and rhtwm2c8 and rhd69rjr pass under wine. Lint is clean.
 	- Verified on sharefollow: rjhbbg9n fails with each change taken out on its own (listing, folder check, mount point, thumbnails), only in that change's cases, and passes with all in. rhtwm2c8 fails with the folder check taken out and passes with it, under wine. The full Linux suite passed 171 of 171. The Windows cross build is clean, and its window comes up under wine. Lint is clean.
 	- Verified 20261006 on vm925w: rhtwm2c8 and rjhvmm6f pass in the native gate, and again with a share address nothing answers on.
@@ -4791,7 +4791,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261005-103251: part 1 of 3. The build names c17 and runs at `-Wextra`, with `-Werror` still off. eel, the extension library and the tests now build clean at that level, on Linux and in the Windows cross build. Left for the next parts: `libnemo-private` and `src` (1441 warnings on Linux, 1530 in the cross build), then `-Werror`, then the who-frees lines.
 		- 20261005-110434: part 2 of 3. `libnemo-private` now builds clean at `-Wextra` on Linux and in the Windows cross build. Every row of the settings table names its flags. Function pointer casts became callbacks of the right type. No fallthrough or enum warnings were in this part. Left: `src`, 829 warnings on Linux and 838 in the cross build, then `-Werror`, then the who-frees lines.
-		- 20261005-113707: part 3. `src` builds clean, so the whole tree has no warnings at `-Wextra` with gcc on Linux, in the cross build and in the release image, and with clang. Both fallthroughs in the path bar are meant, and now say so. The 4 enum warnings were a slot flag held in a variable of the wrong flag type; same value, so no change in behavior. clang found 7 more that gcc does not: 3 partial initializers, 2 signed compares, and a test's struct around a flexible array. The sanitizer build found a test whose skip path left its arguments unused. Every pipeline build now treats warnings as errors and reads that back from the build dir. No bug found. Left: the who-frees lines.
+		- 20261005-113707: part 3. `src` builds clean, so the whole tree has no warnings at `-Wextra` with gcc on Linux, in the cross build and in the release image, and with clang. Both fallthroughs in the path bar are meant, and now say so. The 4 enum warnings were a slot flag held in a variable of the wrong flag type; same value, so no change in behavior. clang found 7 more that gcc doesn't: 3 partial initializers, 2 signed compares, and a test's struct around a flexible array. The sanitizer build found a test whose skip path left its arguments unused. Every pipeline build now treats warnings as errors and reads that back from the build dir. No bug found. Left: the who-frees lines.
 		- 20261005-120248: part 4. Every function a header declares that returns a pointer now says who frees it: 562 definitions across eel, `libnemo-private`, the extension library, `src` and the test helpers, 22 of them Windows-only. Before this, 29 said so in GLib's form and about 20 more in prose. A new lint check holds it for the whole tree. The comment on `nemo_view_get_selection` said to free only the list, but every view refs the files, and its callers free them with `nemo_file_list_free`; the comment now says so. No leak or double free found.
 			- Examined and left alone: `nemo_job_queue_get` hands out a ref on the shared queue that no caller drops, harmless for a queue that lives as long as the process. `nemo_file_queue_dequeue` drops the queue's ref before returning the file, and nothing calls it. `nemo_sort_columns` returns NULL and loses the list when given no order, which no caller does.
 	- Decisions:
@@ -4802,14 +4802,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261005: a build dir set up before this keeps its old std and warning level on reconfigure, so meson stops and asks for `meson setup --wipe` once.
 		- 20261005: the settings table stays positional, with the flags written out at the end of each row, since `lint-pref-handlers.py` reads the rows by position.
 		- 20261005: warnings are errors in every pipeline build and not by default. The gate and debug build, the sanitizer and fuzz lanes, the cross build, the release build and the native Windows gate pass `-Dwerror=true`. A plain `meson setup` and the hosted Windows release build leave it off, since both can meet a compiler newer than any here. The release image's older gcc is clean too, so its build has it on.
-		- 20261005: each of those lanes reads `-Werror` back out of the build dir after setup and stops if it is missing, so a reused dir or a lane that lost the flag cannot quietly build without it.
+		- 20261005: each of those lanes reads `-Werror` back out of the build dir after setup and stops if it is missing, so a reused dir or a lane that lost the flag can't quietly build without it.
 		- 20261005: vendored code keeps building at `-Wall`, and its warnings are never fatal. Only an edit to the vendored file could fix one.
-		- 20261005: who frees a result is written in GLib's own form, the one the inherited code already used: a `Returns: (transfer full)` line, or `none`, `container` or `floating`, above the definition, with the free function where it is not plain `g_free`. A doc comment that already had a Returns line gets the annotation added to it; anything else gets a one-line comment. The schemes stay as they were: objects by refcount, and strings, lists and structs freed by the caller with the function the line names. No arena was added.
-		- 20261005: the scope is every function a first-party header declares that returns a pointer, a reference the caller must not free included. Static helpers and vendored code are left out. A returned `GdkAtom` is not counted, since it is never freed.
+		- 20261005: who frees a result is written in GLib's own form, the one the inherited code already used: a `Returns: (transfer full)` line, or `none`, `container` or `floating`, above the definition, with the free function where it isn't plain `g_free`. A doc comment that already had a Returns line gets the annotation added to it; anything else gets a one-line comment. The schemes stay as they were: objects by refcount, and strings, lists and structs freed by the caller with the function the line names. No arena was added.
+		- 20261005: the scope is every function a first-party header declares that returns a pointer, a reference the caller must not free included. Static helpers and vendored code are left out. A returned `GdkAtom` isn't counted, since it is never freed.
 		- 20261005: the ownership check reads the source as text rather than through the compiler, so both sides of every `#if` are checked on any platform. A definition counts when it starts in column 0, and its comment when it ends on the line above, or one blank line above.
 	- Branch: wextra1, wextra2, wextra3, wextra4
 	- Commit: df8a8a5, a0e0ed6, e316e67, 459d24c, f8aff1f, 6d67e06, ff68a3f, a87b584, b15b7c1
-	- Test case: the `-Werror` build in every pipeline lane; a warning put back in a source file fails the gate build. rjh7qnxw checks each lane passes and reads back `-Dwerror=true` and that the defaults do not. rjcpvcyb also checks the release dir comes out with it. rjh9pts1, the ownership check's self-test over made-up files; the check then runs over the whole tree in the lint stage, and a missing line fails it.
+	- Test case: the `-Werror` build in every pipeline lane; a warning put back in a source file fails the gate build. rjh7qnxw checks each lane passes and reads back `-Dwerror=true` and that the defaults don't. rjcpvcyb also checks the release dir comes out with it. rjh9pts1, the ownership check's self-test over made-up files; the check then runs over the whole tree in the lint stage, and a missing line fails it.
 
 - Demo gif: show best features first.
 	- ID: 2026100219523841
@@ -4864,7 +4864,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: d22c7e3
 	- Test case: rhd1cv38, File cache store test, three new cases. Another connection holds the file for 1.5 s while a thumbnail thread waits in a store; 300 draw counts and a refresh on the test's thread must each take under 0.3 s, and all of it is written once the file is let go. Draw counts are written on their own with no main loop running. A thumbnail refreshed right after it was stored is never read back, over 200 tries.
 	- Verified: 20261004, Linux: rhd1cv38 fails before the change, 4 checks, with the test's thread waiting 3 s on the cache, and passes after. 48 runs of it, 16 at once, passed. rj750n43, which checks draw counts reach the file at quit, and rhd69rjr passed 6 more runs each. The full Linux suite passes 168 of 168, and lint and the Windows cross build are clean. rhd1cv38 passes under wine.
-	- Acceptance signoff: Self-closed: its test fails before and passes after, and a wait on the cache is not something to judge on screen. The calls made are in Decisions.
+	- Acceptance signoff: Self-closed: its test fails before and passes after, and a wait on the cache isn't something to judge on screen. The calls made are in Decisions.
 	- Closed: 20261004-184242
 
 - Code review 20260928 item 37. Path and file rows in the cache never age out.
@@ -4880,8 +4880,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Rows for files that still exist stay after their thumbnails are pruned, and count against the size limit. Add an age rule for rows with no thumbnail.
 	- Decisions:
 		- A name with no thumbnail goes once nothing has been stored under it for the thumbnail age limit, or 180 days, that setting's default, when the limit is off. No new setting. Without a fallback, a cache held down by the size limit alone would still fill with these rows.
-		- Its age is when a thumbnail was last stored or linked under the name. A draw of a name that still has its thumbnail does not refresh that time, so a name whose thumbnail the size rule took can go at the next pass. It costs one checksum when the file is next thumbnailed, and that read happens anyway.
-		- The tables stay at version 4, so the cache does not start over.
+		- Its age is when a thumbnail was last stored or linked under the name. A draw of a name that still has its thumbnail doesn't refresh that time, so a name whose thumbnail the size rule took can go at the next pass. It costs one checksum when the file is next thumbnailed, and that read happens anyway.
+		- The tables stay at version 4, so the cache doesn't start over.
 	- Done: each prune pass forgets names whose file has no thumbnail left and that are older than the age above, then the file records nothing points at go with the orphans. All such a row keeps is a size, a time and maybe a checksum, and the file gives those again. A name that still has a thumbnail is left to the thumbnail rules.
 	- Swept: rows with no thumbnail come only from the age and size rules and a thumbnail refresh. Names and file records are the only rows besides thumbnails and the prune's own row, and orphaned file records already went. Draw counts live on thumbnails. Everything the rule drops can be worked out again from the disk.
 	- Branch: cacheage
@@ -4900,10 +4900,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026092813381400
 	- Requirements:
 		- The fuzz target covers only the shortcut reader. Setting paths in a shortcut parses the same untrusted bytes with its own code.
-	- Done: a new fuzz target puts three sets of paths in each input: same drive with all three paths, a share path alone, and a relative path alone. An edit that works must read back with the new paths and the old name, Start in, arguments and icon. An edit that is refused must leave the file as it was. The item ID list going is a known gap and is not checked.
-	- Found: a UTF-16 string in the shortcut that would not convert, such as one with half a surrogate pair, was dropped while its flag stayed. Every string and block after it then read out of place, so the edited shortcut lost its portable path. Kept UTF-16 strings now go back byte for byte.
+	- Done: a new fuzz target puts three sets of paths in each input: same drive with all three paths, a share path alone, and a relative path alone. An edit that works must read back with the new paths and the old name, Start in, arguments and icon. An edit that is refused must leave the file as it was. The item ID list going is a known gap and isn't checked.
+	- Found: a UTF-16 string in the shortcut that wouldn't convert, such as one with half a surrogate pair, was dropped while its flag stayed. Every string and block after it then read out of place, so the edited shortcut lost its portable path. Kept UTF-16 strings now go back byte for byte.
 	- Note: the fuzz stage puts its temp files on tmpfs. The new target writes a file per input, and on disk it ran far too slowly to find anything.
-	- Swept: setting paths is the only code that writes back strings read from a shortcut, on every platform. The reader keeps a string that will not convert as none and reads on. A new shortcut is written from strings it builds itself.
+	- Swept: setting paths is the only code that writes back strings read from a shortcut, on every platform. The reader keeps a string that won't convert as none and reads on. A new shortcut is written from strings it builds itself.
 	- Branch: lnkfuzz
 	- Commit: 5b04f83 (target), 5134a9d (fix)
 	- Test case: rjfa5fnh (fuzz stage) and rjfa5fmh (seed replay in the suite). The `lone-surrogate` seed pins the fix.
@@ -4964,7 +4964,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
 	- Requirements:
-		- Four self-tests run in the lint stage with no ID, and the ID check cannot see them. Give them IDs, or record that they are exempt.
+		- Four self-tests run in the lint stage with no ID, and the ID check can't see them. Give them IDs, or record that they are exempt.
 	- Fixed: the four self-tests have IDs, kept in each tool and printed when it runs. The ID check now finds every self-test the lint stage runs, so a new one with no ID fails it. The ID check itself is the gate, not a test, and has no ID.
 	- Swept: every `--self-test` and `--check` call in `lint.bash` and `lint-c.bash`. There are no others in the lint stage.
 	- Branch: relnotes
@@ -5099,7 +5099,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Done: each started thumbnail has its own cancel, set when its file is let go or the app quits. The thumbnail factory hands it to every reader. The Photoshop and camera raw readers check it between reads and between rows. The gdk-pixbuf path feeds its loader a piece at a time and checks between pieces. A thumbnailer program or ImageMagick is ended, the same way the 30 s timeout ends one. The checksum read before a thumbnail takes the same cancel.
 	- Note: one reader can't be stopped all the way. A gdk-pixbuf loader that only decodes once it has the whole file, such as TIFF, still finishes that decode. gdk-pixbuf has no cancel for it. Reading the file stops, and JPEG and PNG decode as they read, so they stop.
 	- Note: ending a thumbnailer program ends only that program. One that starts others of its own leaves them running, as the timeout already did.
-	- Note: ImageMagick runs through GLib's process calls on every platform, as the archive tools do, and is ended through them. `nemo-launch-win32.c` starts what the user opens and keeps no hold on it, so the stop does not go through there.
+	- Note: ImageMagick runs through GLib's process calls on every platform, as the archive tools do, and is ended through them. `nemo-launch-win32.c` starts what the user opens and keeps no hold on it, so the stop doesn't go through there.
 	- Swept: every reader the thumbnail factory calls: thumbnailer programs, gdk-pixbuf, Photoshop, camera raw and ImageMagick. Reading back a stored thumbnail is small and left alone. Every caller of the changed calls: the thumbnail queue, and the Photoshop, camera raw and ImageMagick tests.
 	- Branch: thumbstop
 	- Commit: 2f6ba48
@@ -5150,12 +5150,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Requirements:
-		- Everything changed from 20260917 to 20260927, reviewed or not, plus the ground the 20260919 review did not reach where it changed since.
+		- Everything changed from 20260917 to 20260927, reviewed or not, plus the ground the 20260919 review didn't reach where it changed since.
 		- Items 1 to 45 below have this ID as their parent. Technical detail is in the private notes under the same numbers.
 	- Progress log:
 		- 20260928-133814: Filed 33 defects and 12 enhancements. Of the defects, 4 are regressions or missed twins of an earlier fix (items 4, 12, 21, 22), item 15 reopens three closures, and the rest are new ground. 19 were reproduced, some only in part. The others were only read, and each says so.
 	- Decisions:
-		- Not release-ready. Items 1, 3, 5, 6, 7 and 16 give a wrong result with no error, or change files the user did not ask to change.
+		- Not release-ready. Items 1, 3, 5, 6, 7 and 16 give a wrong result with no error, or change files the user didn't ask to change.
 		- Handlers that outlive their widget have come back a third time (20260919 items 3 and 10, now item 22). Per the fix rules, that class wants a table in design.md.
 		- Decided against: a same-size, same-time twin showing another file's picture. Already recorded as designed.
 		- Decided against: shortcut reads on the main thread when opening one, and an edited shortcut losing its item ID list. Both recorded as known gaps.
@@ -5208,7 +5208,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Decisions:
 		- 20261008: one table lists every automatic-capable setting, its rule, and its group. One function gives the value in use and whether it's automatic. Nothing reads such a setting around it, and a lint check refuses code that does.
 		- 20261008: going back to automatic throws the hand-set value away. Going manual starts from what is showing.
-		- 20261008: settings that only count while a feature is on, like the choices under "Show tooltips", are not part of this. They stay as they are.
+		- 20261008: settings that only count while a feature is on, like the choices under "Show tooltips", aren't part of this. They stay as they are.
 		- 20261010: changed my mind. How the settings dialog works stays as it is for now, and the design doc for this is gone. If this comes back, start from silkterm's version of that doc, read only.
 	- Test case: still needs one.
 
@@ -5230,7 +5230,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Possible cause: the session bus GLib starts on Windows writes the file and is ended, not stopped, when the app goes.
 	- Reproduced: 20261007 on vm925w in the desktop session, with the release zip. 2 copies, the first closed, then the second: the bus ended about 3 seconds after the second, and left 1 new file. Also under wine.
 	- Actual cause: in GLib, not the app. The bus is stopped, not ended: it quits by itself a few seconds after the last copy leaves. But GLib's bus drops its server without stopping it, and the server keeps a reference to itself until it is stopped, so it never goes away and never removes the file. It is still that way in GLib's main branch, and nobody has reported it there.
-		- The bus is not in the job that ends helpers with the app. GLib starts it, not the launcher. It stayed up when the copy that started it closed and when a later copy was killed, and the second copy took over the app's bus name.
+		- The bus isn't in the job that ends helpers with the app. GLib starts it, not the launcher. It stayed up when the copy that started it closed and when a later copy was killed, and the second copy took over the app's bus name.
 	- Actual fix: GLib looks for `gdbus.exe` beside its own library to start the bus, and nothing else in the bundle uses gdbus. So every Windows bundle now has a small `gdbus.exe` of ours instead. It runs GLib's own bus with TEMP pointed at a folder of its own, and removes that folder when the bus ends. A bus that was killed leaves its folder, and the next bus removes it. Nothing else in TEMP is touched.
 		- Note: it uses a function GLib exports for its own gdbus but keeps out of its headers. If GLib drops it, the build fails rather than the bundle.
 	- Decisions:
@@ -5270,15 +5270,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260826-103001
 	- Done: the test suite now runs and passes on a Windows box, through the pipeline and the gate. The two paths below are still open.
 	- Note: the signing path only runs in the hosted release workflow on a tag. The repo has no secrets and no variables set at all, so the signing step is skipped and a release cut today publishes an unsigned exe. That is the documented fallback, but it should be known before a build is announced.
-	- Note: the UAC consent prompt itself has not been seen; this box elevates without prompting and the session is already elevated. What is proven is that the relaunch starts an elevated copy at the right folder, not the consent dialog.
-	- Note: moving a junction to another drive is untested. The link move test covers it, but needs a second fixed drive: vm925w has one, b29w does not.
+	- Note: the UAC consent prompt itself hasn't been seen; this box elevates without prompting and the session is already elevated. What is proven is that the relaunch starts an elevated copy at the right folder, not the consent dialog.
+	- Note: moving a junction to another drive is untested. The link move test covers it, but needs a second fixed drive: vm925w has one, b29w doesn't.
 	- Note: four Windows-only tests changed in the 20260919 review round. They cross-compile, but nothing has run them on a real box since.
 	- Note: the dogfood launcher's copy, held-version and cleanup paths were reworked on 20260920 and have only been reasoned about and probed on Linux.
 	- Note: the Make link dialog, junctions and hardlinks made from it, and the junction job test have only been cross-built.
 	- Note: a link drop opening Make link, Ctrl+Shift+T, and folder shortcuts sorting with folders have only been cross-built.
-	- Note: ImageMagick thumbnails have not run on Windows. Things to see there: no console window flashes up, and the packed exe's file hooks, which every program it starts inherits, do not upset `magick.exe`.
+	- Note: ImageMagick thumbnails haven't run on Windows. Things to see there: no console window flashes up, and the packed exe's file hooks, which every program it starts inherits, don't upset `magick.exe`.
 	- Verified 20261006 on vm925w: a folder junction moves to the second fixed drive as a junction, and the folder it pointed at keeps what it holds (rh5nme6h).
-	- Verified 20261006 on vm925w: the four Windows-only tests from the 20260919 review pass, and each one fails when what it checks is wrong: rfhr0zw0, renz2428, rfmxrdpg and rgaz5cn8. The last two exit 77 when they cannot run.
+	- Verified 20261006 on vm925w: the four Windows-only tests from the 20260919 review pass, and each one fails when what it checks is wrong: rfhr0zw0, renz2428, rfmxrdpg and rgaz5cn8. The last two exit 77 when they can't run.
 	- Verified 20261006 on vm925w: the dogfood launcher copies a new build in, keeps one the sync layer restamped without copying it again, says so when nothing is new, removes a stale partial copy and leaves a fresh one, retires an old-layout copy, prunes a long pool to its budget with the first build kept, and keeps a version something is running from until it stops. Unelevated it copies the build to the fixed name in place of a symlink. `--no-update` runs what is held. rhtrxr83 passes there too.
 	- Verified 20261006 on vm925w: Make link on a folder offers Junction, with Symlink grayed and the reason given, and makes `target folder - junction`. On a file it offers Hardlink with its warning, asks again before making one, and makes `doc - hardlink.txt` as a second name for the same file. The junction job test rhmye3d3 passes natively.
 	- Verified 20261006 on vm925w: Ctrl+Shift+T on a selected folder opens it in a new tab, on a selected file opens a new tab of the folder in view without opening the file, and with nothing selected opens a new tab of the folder in view.
@@ -5296,7 +5296,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- The delete test guard stays in as a preference setting. (But off in code.) The changelog and the release notes point it out, and say where to turn it off.
 	- Note: at rc.2 the setting's default goes to off. The test guard stays in the code.
 	- Note: the changelog's vNEXT section is missing most of the work since beta2, such as Compress and Extract, the crash reporter, the delete protections and tab move.
-	- Note: `main` still has the installers from 20260804. Their stable channel asks for the latest stable release, which does not exist yet, so the README one-liners fail until this cut.
+	- Note: `main` still has the installers from 20260804. Their stable channel asks for the latest stable release, which doesn't exist yet, so the README one-liners fail until this cut.
 	- Test case: none, release step.
 
 - 🛠️ Windows: Need to figure out a way to do GUI testing and demo recording, without interrupting the live console session.
@@ -5348,7 +5348,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260926-190245
 	- Closed: 20260926-195754
 	- Reproduced: the archive combinations test on vm925w. The archive read back as `a.txt` and `big.bin` only.
-	- Cause: the archive was whole. The test reads it back with libarchive, which cannot decrypt a 7z. From 3.8, which Windows has, the header after an entry it could not read answers "failed", and the test stopped there. Linux has 3.7.
+	- Cause: the archive was whole. The test reads it back with libarchive, which can't decrypt a 7z. From 3.8, which Windows has, the header after an entry it couldn't read answers "failed", and the test stopped there. Linux has 3.7.
 	- Fixed: the test reads on past a failed entry and stops only at the end or a fatal error.
 	- Swept: the product's own listing stops on the first failed header too. It reads headers only, with the password, and a short listing keeps the originals, so it fails safe. Left as is.
 	- Verified: the combinations test passes on vm925w, and failed there before.
@@ -5358,7 +5358,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260926-173000
 	- Closed: 20260926-195754
 	- Cause: both .glade files said `domain="nemo"`, which beats the program's own domain.
-	- Fixed: the attribute is gone. The layout editor names the domain on its builder, since Python's gettext domain is not the one GTK reads.
+	- Fixed: the attribute is gone. The layout editor names the domain on its builder, since Python's gettext domain isn't the one GTK reads.
 	- Verified: the lint check fails with the attribute put back into a .glade file and passes without it.
 	- Test case: `fCheckUiDomain` in the C lint, over every .glade and .ui file.
 
@@ -5376,7 +5376,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Closed: 20260926-195754
 	- Reproduced: with links kept, 7z on Windows stored the file link as a plain file and followed the folder link.
 	- Cause: 7z on Windows was never told to keep links, on purpose, but still said it could. 7-Zip there keeps a link as raw Windows data, which libarchive reads back as a file of junk and an empty folder. libarchive is what extracts here.
-	- Fixed: on Windows 7z no longer offers to keep links, so the box is grayed for it and a linked folder not followed is left out, as with any writer that cannot keep one.
+	- Fixed: on Windows 7z no longer offers to keep links, so the box is grayed for it and a linked folder not followed is left out, as with any writer that can't keep one.
 	- Verified: the combinations test and the archive unit test pass on vm925w. The full native suite there is 132 passed, 9 skipped, none failed.
 	- Test case: `test-nemo-archive-combos`, and `check_backends` plus the 7z switch checks in `test-nemo-archive`.
 
@@ -5386,7 +5386,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Fixed: a shortcut is never opened as the end of its own chain.
 	- Test case: `test-nemo-shortcut-win32` (the open decision), Windows only.
 
-- ✅ `install.ps1` did not give back the PATH it found on uninstall when it held empty entries.
+- ✅ `install.ps1` didn't give back the PATH it found on uninstall when it held empty entries.
 	- Opened: 20260926-175808. Closed: 20260926-175808.
 	- Cause: an install folded a doubled trailing `;` into one, and an uninstall dropped every empty entry.
 	- Fixed: both keep the value as found, apart from the install folder.
@@ -5400,7 +5400,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ A canceled split 7z left its volumes behind.
 	- Opened: 20260926-190000. Closed: 20260926-190000.
-	- Cause: 7z names the volumes it has not finished `<volume>.tmp`, and the cleanup stopped at the first volume it could not find.
+	- Cause: 7z names the volumes it hasn't finished `<volume>.tmp`, and the cleanup stopped at the first volume it couldn't find.
 	- Fixed: the cleanup also removes the unfinished names.
 	- Test case: `test-archive-job` (`check_cancel`).
 
@@ -5448,7 +5448,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ A folder's modified date in the list stays old after a file is moved into it.
 	- Opened: 20260924-083500. Closed: 20260924-093600.
-	- Reproduced: in list view, dragging a file onto a folder row and moving it. The row's item count goes up, but its date does not change, even after the folder is opened in place.
+	- Reproduced: in list view, dragging a file onto a folder row and moving it. The row's item count goes up, but its date doesn't change, even after the folder is opened in place.
 	- Cause: a file added to a folder, taken out or moved in only refreshed the folder's item count. Nothing watching the folder's parent reports its new date.
 	- Fixed: the folder's own details are read again along with the count. A removal from a folder that was never opened now refreshes it too, as an add already did.
 	- Swept: add, remove and move are the only places these notices go in. Renames, links and changes made by other programs all come through them.
@@ -5492,7 +5492,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- An icon whose picture changes size is now laid out again before the next frame is drawn.
 	- Test case: `fCheckIconRelayout` in the C lint.
 
-- ✅ Scrolling down can still cause the last already cached thumbnails to render (e.g. if you scroll to the bottom soon after entering the folder), while none of the ones above (as judged by scrolling up) are not yet rendered in the file view.
+- ✅ Scrolling down can still cause the last already cached thumbnails to render (e.g. if you scroll to the bottom soon after entering the folder), while none of the ones above (as judged by scrolling up) aren't yet rendered in the file view.
 	- Opened: 20260922
 	- Closed: 20260922.
 	- ✅ Expected behavior: Render all thumbnails to the view in approximate order of the current sort order. (Only varying by threads that return earlier.)
@@ -5510,8 +5510,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Intended behavior: Depending on the sort order, whatever image is first, gets rendered as a thumbnail first. Whatever is last, gets rendered as a thumbnail last. Nothing the *user* can do, should be able to make the last icon render earlier. It goes purely sequentially.
 	- This might have nothing to do with the file reader/thumbnail render, and more to do with the thumbnail reading from the database, and rendering to the thumbnail pane. *Both* should be queued sequentially, top-down.
 	- But can be multithreaded. E.g. use up to half of available cores for reading and rendering thumbnails, but still queue them in order - even if they might wind up rendering slightly out of order. But that's due to multithreading, not user activity.
-	- A folder of pictures on a local disk is now made top down in the order the view shows it. Scrolling cannot move a file up, and a thumbnail stored on an earlier visit waits its turn too. A new sort or zoom queues the folder again in its new order. Thumbnails start once the folder has finished loading, and up to half the processors make them.
-	- A folder that is not mostly pictures, or is on a share, is still only made as it comes into view. Each screenful goes top down.
+	- A folder of pictures on a local disk is now made top down in the order the view shows it. Scrolling can't move a file up, and a thumbnail stored on an earlier visit waits its turn too. A new sort or zoom queues the folder again in its new order. Thumbnails start once the folder has finished loading, and up to half the processors make them.
+	- A folder that isn't mostly pictures, or is on a share, is still only made as it comes into view. Each screenful goes top down.
 	- Test case: `test-nemo-thumbnail-order` (`test_scrolled_to_bottom`, `test_stored_waits_its_turn`).
 
 - ✅ Randomly crashes. (At least on Windows, and before the multiple-process work.) Sometimes just with a focus change.
@@ -5527,12 +5527,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260804-133646
 	- Closed: 20260921. No longer reproduces.
 	- Note: the Windows half, and a second warning logged once per file, are fixed and filed under Done. Whether the Linux host case has the same cause as the Windows one is untested.
-	- Found: what produces that exact pair is a signal connected to a settings group that is not open yet. The group handles are NULL until the settings are read, and about seventy places connect to one. Reproduced on demand by starting with no session bus, which is what leaves the store unopened.
+	- Found: what produces that exact pair is a signal connected to a settings group that isn't open yet. The group handles are NULL until the settings are read, and about seventy places connect to one. Reproduced on demand by starting with no session bus, which is what leaves the store unopened.
 	- Not reproduced in the build container. None of these produced a single critical: with and without a session bus, with and without the desktop's own settings present (the container has the full cinnamon schema set already), with a home full of bookmarks including missing and remote ones, bare launch and with a location, with and without the desktop flag.
-	- Not reproduced on the Linux host either, with the current build run against the real session's own surroundings: the live config, gvfs and the xdg portals up, at-spi, the xapp GTK module, the XFCE environment variables, and the GTK and icon themes the session is actually set to. Bare launch, with a location, and with the desktop flag; and a second launch forwarding to a running first one, which was the best remaining theory for why the store would not be open yet.
+	- Not reproduced on the Linux host either, with the current build run against the real session's own surroundings: the live config, gvfs and the xdg portals up, at-spi, the xapp GTK module, the XFCE environment variables, and the GTK and icon themes the session is actually set to. Bare launch, with a location, and with the desktop flag; and a second launch forwarding to a running first one, which was the best remaining theory for why the store wouldn't be open yet.
 	- Also not the build version: the copy installed here from July, which predates both the resource fix and the config rewrite, is clean in the same harness.
-	- Also seen, and not the same thing: with no display at all the default icon theme is NULL, and connecting to it logs the same pair once. Only one pair, and only where there is no screen, so it is not what the real session is doing.
-	- Left to find: what the real X session has that a private display does not. Needs one capture run from inside that session; the exact command is in the private notes.
+	- Also seen, and not the same thing: with no display at all the default icon theme is NULL, and connecting to it logs the same pair once. Only one pair, and only where there is no screen, so it isn't what the real session is doing.
+	- Left to find: what the real X session has that a private display doesn't. Needs one capture run from inside that session; the exact command is in the private notes.
 	- Captured inside the real session on 20260921, with the current build: no critical at all. Not with the session's own environment, not with criticals made fatal under a debugger, and none from any of the 28 menu launches in today's session log. Likely fixed along the way by the config and startup work, but nothing pins which change did it.
 	- Test case: `test-nemo-startup-clean` (`check_no_bus`), POSIX only; the cause was never found, so it guards the symptom.
 
@@ -5555,7 +5555,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ The Windows dogfood build was 18 days old. Only a run of the Windows pipeline by hand ever updated it.
 	- Opened: 20260921. Closed: 20260921.
 	- A full pipeline run now also builds, tests and packs on whichever Windows test box answers, and drops the exe into the synced app folder. It takes the shared lock on the box first. A quick run skips it.
-	- The first run found two more bugs, fixed with it. A Windows build dir could not update a library that had lost a source file. And a folder of pictures was never seen as one on Windows, since the type check there never matched an image.
+	- The first run found two more bugs, fixed with it. A Windows build dir couldn't update a library that had lost a source file. And a folder of pictures was never seen as one on Windows, since the type check there never matched an image.
 	- Test case: `test-nemo-image-folder` for the picture type check on Windows; the pipeline stage itself is setup.
 
 - ✅ Images view:
@@ -5571,7 +5571,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Closed: 20260921.
 	- With per-folder settings off, the window held one icon size that list view shared. A list folder left its own size there, which the picture folder read as a zoom and so skipped the % setting. Changing the % in a picture folder then wrote the picture size back into it, and the next list folder picked that up. The window now holds a picture size apart from the plain one, the same pair a folder keeps when per-folder settings are on.
 	- The picture default is 250% now.
-	- The flash is gone for any folder seen lately, and for the folders one level down from the one in front. The answer is kept in memory for the last 512 folders. When a folder finishes loading, its sub-folders are counted in the background, so opening one of them picks icon view first time. Shares, links and non-local folders are not counted ahead, and a big folder is judged on its first 1000 entries. The real count after loading still has the last word.
+	- The flash is gone for any folder seen lately, and for the folders one level down from the one in front. The answer is kept in memory for the last 512 folders. When a folder finishes loading, its sub-folders are counted in the background, so opening one of them picks icon view first time. Shares, links and non-local folders aren't counted ahead, and a big folder is judged on its first 1000 entries. The real count after loading still has the last word.
 	- A folder opened cold, from a bookmark or the command line with nothing known, still switches after loading. Nothing can be known about it sooner.
 	- Test case: `test-nemo-image-folder`, `fCheckHeldIconSize` and `fCheckImageDefault` in the C lint.
 
@@ -5580,23 +5580,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Upstream Nemo is or-later, which can be narrowed to version 2 only. A few files written for the fork are version 2 only, so the whole program has to be. The text now says version 2 only.
 	- The file headers inherited from upstream still say or-later. That is right for those files and they were left alone.
 	- The lint now fails if text the program shows offers a later version.
-	- The copyright lines and the top of the license text now match the README. The two links sit in the license text, since the copyright line cannot hold a link.
+	- The copyright lines and the top of the license text now match the README. The two links sit in the license text, since the copyright line can't hold a link.
 	- Test case: `cicd/utility/lint-identity.bash`.
 
 - ✅ The "expand" Chevron next to folders should more reliably appear when a formerly empty folder gains content, especially after user-initiated actions (like drag and drop contents into a previously empty folder).
 	- Opened: 20260919-125440. Closed: 20260920.
 	- Both views only ever took the expander away. The list view dropped the placeholder row once a folder's item count came back as zero and had no branch for the count going the other way; the tree pane's look-ahead could mark a folder as having no sub-folders but never unmark one, and nothing sent it back to look.
 	- Fixed both ways round. The list view puts the placeholder back when the count rises off zero, and the tree pane looks again whenever a folder it had written off reports a change.
-	- The tree pane's look-ahead now separates "holds nothing at all" from "holds nothing it would show". The first still takes an expander away, but only the second puts one back, so a folder opened with hidden files off and found empty does not have its expander handed back by the next look.
+	- The tree pane's look-ahead now separates "holds nothing at all" from "holds nothing it would show". The first still takes an expander away, but only the second puts one back, so a folder opened with hidden files off and found empty doesn't have its expander handed back by the next look.
 	- Seen on screen in both panes: a folder copied into a folder that read as empty, which before left no expander on either side.
-	- Only an action the app itself took is covered. A folder changed by something else on the machine is not watched at all - opening it is still the only way that shows up - and that has not changed.
+	- Only an action the app itself took is covered. A folder changed by something else on the machine isn't watched at all - opening it is still the only way that shows up - and that hasn't changed.
 	- New `test-nemo-list-expander`, and a case in `test-nemo-tree-folders`.
 	- Test case: `test-nemo-list-expander`, `test-nemo-tree-folders`.
 
-- ✅ A theme change does not send the list back to measure its columns.
+- ✅ A theme change doesn't send the list back to measure its columns.
 	- Opened: 20260920-234500. Closed: 20260920.
 	- The handler for it only dropped the cached separator and indent sizes. Every width worked out before the change stayed, so a theme with a wider font left values cut off until a zoom or a folder change forced a remeasure.
-	- Fixed: the handler keeps the font and the two theme sizes as one string and compares it. Where it moved, every row is measured again; where it did not, nothing happens.
+	- Fixed: the handler keeps the font and the two theme sizes as one string and compares it. Where it moved, every row is measured again; where it didn't, nothing happens.
 	- The comparison is the point. That signal also fires for a widget state or a CSS class going on and off, and sending 50,000 rows back on each of those would cost more than the whole cache saves.
 	- Seen on screen at 17pt against the default: before the fix the Size column reads `7.7 ...` and Date modified `2021-02-1...` after the switch; after it, both are whole.
 	- `lint-c.bash` holds both halves - the handler has to remeasure, and it has to gate on what changed.
@@ -5607,7 +5607,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Cause: every row asked every column for a full text layout, and most of those layouts were of text the column had already seen. A type, an owner, a group or a set of permissions is the same string down the whole folder.
 	- Fixed: each column remembers the width it worked out for a piece of text and hands it back rather than laying it out again. Name is left out, since no two files in a folder share a name, and a column stops remembering past a couple of thousand distinct values, which is where a date would otherwise keep one entry per row.
 	- A row drawn in its own weight is measured rather than remembered. Bold and light lay out differently at the same text, and there are never many.
-	- 50,000 empty files went from 8.4 s to 5.2 s to show and from 8.9 s to 5.8 s of processor time. Over files whose names, sizes, dates and extensions all vary, the same count went from 11.0 s to 8.4 s. Peak memory did not move.
+	- 50,000 empty files went from 8.4 s to 5.2 s to show and from 8.9 s to 5.8 s of processor time. Over files whose names, sizes, dates and extensions all vary, the same count went from 11.0 s to 8.4 s. Peak memory didn't move.
 	- Nothing about the view changed: the same shots across two window widths and three zoom levels, bold rows among them, come out pixel for pixel identical.
 	- `lint-c.bash` holds the three rules that keep a remembered width right: only a normal-weight cell may reuse one, they go when the rest of the samples go, and a column stops remembering at a ceiling.
 	- What is left of the measuring is the Name column, where nothing repeats by definition. Not filed - there is no obvious way to measure fewer names while the width rule counts every one of them.
@@ -5639,8 +5639,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Fixed: no column expands. The layout already gives Name the leftover, so the row still ends flush and GTK has nothing to add.
 	- Why it looked random. Nothing about it needed a resize, which is why driving the window from 1000 to 1200 wide never showed it. It cleared only when a late row happened to change a width, and stayed put otherwise - so the same window could be clean, then have a scrollbar later with nothing touched.
 	- The earlier attempt at this had the right suspicion and no effect: it laid the columns out again, which arrives at the same numbers, sets no width, and therefore leaves GTK holding the old one. That code is gone.
-	- Also why it never reproduced before: the old probes gave every file the same name, size and date, so no column could grow after the first row and the case could not arise.
-	- `lint-c.bash` now refuses any expanding column in the list view, so this cannot come back quietly.
+	- Also why it never reproduced before: the old probes gave every file the same name, size and date, so no column could grow after the first row and the case couldn't arise.
+	- `lint-c.bash` now refuses any expanding column in the list view, so this can't come back quietly.
 	- Test case: `fCheckColumnExpand` in the C lint.
 
 - ✅ A theme icon that exists only as a symlink is never found.
@@ -5656,7 +5656,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ Fourteen `catch { }` blocks in the PowerShell scripts swallow whatever went wrong.
 	- Opened: 20260920-190000. Closed: 20260920.
 	- In `cicd-win.ps1`, `install.ps1`, `n8runfm.ps1` and `pack-portable.ps1`. All best-effort cleanup, and several read better as `-ErrorAction SilentlyContinue` on the one call inside.
-	- Fixed: thirteen are gone. Six became an `-ErrorAction` or a plain guard on the call that could fail. Five now say what went wrong, which is the part that was missing: no transcript for the run, a PATH change that running programs will not see, a packer that had already exited, a message box that could not come up, a log that could not be trimmed.
+	- Fixed: thirteen are gone. Six became an `-ErrorAction` or a plain guard on the call that could fail. Five now say what went wrong, which is the part that was missing: no transcript for the run, a PATH change that running programs won't see, a packer that had already exited, a message box that couldn't come up, a log that couldn't be trimmed.
 	- The transcript pair is now a flag rather than a catch each end, so the run no longer tries to stop a transcript that never started.
 	- Left on purpose: the logger's own catch. There is nowhere to report a failed log line, since the console is gone on a shortcut click. Suppressed at that one function with a reason, not in the settings file.
 	- The rule is on in `PSScriptAnalyzerSettings.psd1` now, so a fresh empty catch fails the lint stage.
@@ -5665,7 +5665,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Code review 20260919.
 	- Opened: 20260919-175254. Closed: 20260920.
-	- Style, performance and prose pass over the whole tree, first-party and inherited, aimed at areas the two earlier rounds did not cover. Worst first. Technical detail is kept out of this file. Numbers match the private detail notes.
+	- Style, performance and prose pass over the whole tree, first-party and inherited, aimed at areas the two earlier rounds didn't cover. Worst first. Technical detail is kept out of this file. Numbers match the private detail notes.
 	- ✅ High.
 		- ✅ Item 1. The Windows exe that gets published and signed is a debug build.
 			- Cause: neither the release workflow nor the cross build asks for a release build or for symbols to be stripped, and the project file sets no default, so meson picks debug.
@@ -5674,7 +5674,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Fixed: both Windows lanes and the Linux release lane ask for a release build with symbols stripped. The cross exe went from 15.7 MB to 8.3 MB with no debug sections. A new check reads the flags back out of the exe.
 			- Test case: `cicd/utility/check-win-build-flags.bash`.
 		- ✅ Item 2. A permanent delete out of the trash can run with no dialog.
-			- Cause: the trash branch of the confirmation is the only one of the three that does not also ask when the count alone warrants it. Move-to-trash and direct delete both do.
+			- Cause: the trash branch of the confirmation is the only one of the three that doesn't also ask when the count alone warrants it. Move-to-trash and direct delete both do.
 			- Effect: with confirmation off, a delete over a trash address started anywhere but a window goes through silently. The armed test guard hides this in current builds.
 			- Origin: the same gap as the Empty Trash one closed by `dbustrash` on 20260917, in the same file. A regression of that class rather than new ground. Confirmed.
 			- Fixed: the trash branch now asks when the count warrants it, the way its two siblings do. One function holds the decision, with a test over it.
@@ -5683,13 +5683,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Cause: the handler is connected to the windows settings group and disconnected from the preferences group, which is a different group, so it is never removed.
 			- Effect: changing the path separator after a window closes calls into a freed sidebar. Live reload makes it reachable.
 			- Origin: introduced with the path separator work; the comment directly above the disconnect describes guarding against exactly this. Confirmed.
-			- Fixed: the handler disconnects from the group it was connected to. A new whole-tree check pairs every connect with its disconnect, reading the group names out of the header, and it found a third site this item did not name.
+			- Fixed: the handler disconnects from the group it was connected to. A new whole-tree check pairs every connect with its disconnect, reading the group names out of the header, and it found a third site this item didn't name.
 			- Test case: `cicd/utility/lint-pref-handlers.py`.
 		- ✅ Item 4. A damaged spreadsheet can hang the content search helper.
 			- Cause: the shared-string loop trusts a count read from the file and tests its end against the whole stream rather than the current record, while the reader it calls stops advancing once the record runs out.
 			- Effect: a truncated workbook spins up to four billion empty passes. The helper is spawned per file, so one bad file in a folder ties up a core.
 			- Origin: written for the search helpers, never fuzzed. The three fuzz targets cover the settings file, the drag payload and command templates, not these parsers. Confirmed.
-			- Fixed: the loop has to make progress or it stops, with a truncated workbook in the fixtures. The record-end bound suggested above was not taken, because it drops strings split across continuation records.
+			- Fixed: the loop has to make progress or it stops, with a truncated workbook in the fixtures. The record-end bound suggested above wasn't taken, because it drops strings split across continuation records.
 			- Test case: `test-nemo-search-helpers` (`test_xls_truncated_sst`), and the `fuzz-xls` target.
 	- ✅ Medium.
 		- ✅ Item 5. No build in the tree uses link-time optimization.
@@ -5706,13 +5706,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Origin: spread across the suite's growth. Confirmed.
 			- Fixed: each now checks what its comment says. The link-copy one asks the file system instead of repeating a call it already made, and the network one compares host names, which is what its comment always claimed. The two Windows-only ones still need a run on a real box.
 			- Test case: none, fixes to tests.
-		- ✅ Item 8. Three tests report success when they could not run.
+		- ✅ Item 8. Three tests report success when they couldn't run.
 			- Cause: they print that they are skipping and then fall through to a success exit rather than the skip exit. A fourth returns the skip code without first reporting failures it already counted.
 			- Origin: predates the rule being written down. Confirmed.
 			- Fixed: all four return 77 on the paths where they skip, and failures already counted are reported before the skip code. Two were watched both ways; the two Windows-only ones still owe that watch on a real box.
 			- Test case: `fCheckTestSkipExit` in the C lint.
 		- ✅ Item 9. One test builds and removes its own scratch tree.
-			- Cause: it is the only test that does not go through the shared helper, and it removes the tree twice by hand. Two runs at once destroy each other.
+			- Cause: it is the only test that doesn't go through the shared helper, and it removes the tree twice by hand. Two runs at once destroy each other.
 			- Origin: written before the helper existed and never moved over. Confirmed.
 			- Fixed: it uses `test_scratch_dir` like the rest of the suite. Twelve copies at once over eight rounds: 24 of 96 failed before, none of 96 after.
 			- Test case: `fCheckTestScratchDirs` and `fCheckTestTreeWalks` in the C lint.
@@ -5726,11 +5726,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Effect: both sit under the per-file listing cost design.md already flags as the one to watch.
 			- Origin: measurement came with the column width work, shading with `ownerrows`. Confirmed by reading the hookup and the bodies, not measured.
 			- Fixed: the theme sizes and the column list are read once rather than per row, parity is worked out once per row rather than once per cell, and a renderer that already has no background is left alone. The rows look the same as before.
-			- Measured over 20,000 files. Listing did not move, at about 7.8 s of processor time either way. Paging through the folder went from 1.16 s to 1.01 s with shading off, which is the default, and did not move with it on. So the suspects here were real but small, and the listing cost is somewhere else.
+			- Measured over 20,000 files. Listing didn't move, at about 7.8 s of processor time either way. Paging through the folder went from 1.16 s to 1.01 s with shading off, which is the default, and didn't move with it on. So the suspects here were real but small, and the listing cost is somewhere else.
 			- Test case: `fCheckCellPlain` in the C lint; for the speed, `rj4jkr22 List view work per row test`, which counts the per-row and per-cell work against the cells measured.
 		- ✅ Item 12. The theme vendoring script forks per icon.
 			- Cause: the resolver is called through command substitution up to five times per icon across roughly 3,600 icons. The file's own note two hundred lines above says a substitution there is a fork and that this runs tens of thousands of times, and solves it that way for the scorer.
-			- Origin: the scorer was fixed, the resolver that calls it was not. Confirmed.
+			- Origin: the scorer was fixed, the resolver that calls it wasn't. Confirmed.
 			- Fixed: the resolver answers through a global and returns a status, the way the scorer already did. The link-stub test reads the head of the file itself instead of calling out three times, and the two `dirname` calls and the two branches picking a directory name are gone. That is about twelve forks an icon removed.
 			- New `--self-test` builds a small tree and checks resolution against it: plain name, symbolic name, context filter on and off, both alias forms, the hop limit and a missing name. It runs in the lint stage, since the build container has no git.
 			- Test case: `cicd/utility/vendor-themes.bash --self-test` for resolution; for the speed, `cicd/utility/test-vendor-forks.bash` (rj4j8jk8), which counts the processes started per icon.
@@ -5738,7 +5738,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Cause: five lines of one Windows test use a real personal path where the rest of the suite uses a placeholder.
 			- Origin: written with a live path and never anonymized. Confirmed.
 			- Fixed: the five lines say `somebody`. A checked-in `.pyc` holding a build path went with them. New `lint-identity.bash` holds it.
-			- Left alone: this file names a real account in three closed items, which is prose rather than code, so the check does not read it.
+			- Left alone: this file names a real account in three closed items, which is prose rather than code, so the check doesn't read it.
 			- Test case: `cicd/utility/lint-identity.bash`.
 		- ✅ Item 14. Six application sources have the wrong copyright marker.
 			- Cause: they use the form reserved for the shared helper scripts. Fifteen other first-party files have no copyright line at all.
@@ -5752,7 +5752,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Proof the conversion changed nothing: each file's parse tree was compared before and after, and the four files with tabs inside string literals were redone with those lines held back until it matched.
 			- Three findings that turned up with the checker are fixed too: a one-letter variable, a lambda where a def belongs, and two statements on one line.
 			- Test case: `cicd/utility/lint-python.bash`.
-		- ✅ Item 16. There is no configuration for the Python, PowerShell, Bash or C static checkers. The absent C formatter config is a settled decision and is not part of this.
+		- ✅ Item 16. There is no configuration for the Python, PowerShell, Bash or C static checkers. The absent C formatter config is a settled decision and isn't part of this.
 			- Python: `pyproject.toml` holds a narrow ruff config, and `cicd/utility/lint-python.bash` runs it in the lint stage. It warn-skips a box with no ruff, the way the Bash check does, and `RUFF_STRICT=1` makes the miss fatal. Inherited and generated Python is excluded, the same way `source/` is excluded from the Bash check.
 			- Bash: `.shellcheckrc` now holds the severity and the sourced-file handling the lint stage used to pass as flags, so an editor sees the same rules. Without it the lint stage reports seventeen findings, so it is doing real work.
 			- PowerShell: new `PSScriptAnalyzerSettings.psd1` and `cicd/utility/lint-powershell.bash`, sixth in the dispatcher. Five rules are off with a reason each; everything else is on. The one finding left is suppressed where it happens, not in the settings file.
@@ -5838,12 +5838,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- The archive seems to have been created correctly.
 	- Opened: 20260920-153000
 	- Closed: 20260920-163000
-	- Cause: with "Encrypt the file names too" ticked, rar is run with `-hp` and 7-Zip with `-mhe=on`, and libarchive will not open either. It refuses before it reads a single name, whatever password it is handed. So the check could never pass and the originals were always kept, on an archive that was in fact fine.
+	- Cause: with "Encrypt the file names too" ticked, rar is run with `-hp` and 7-Zip with `-mhe=on`, and libarchive won't open either. It refuses before it reads a single name, whatever password it is handed. So the check could never pass and the originals were always kept, on an archive that was in fact fine.
 	- Fixed: `nemo_archive_can_verify` is the one place that decides whether an archive can be read back afterwards. The Compress dialog greys the delete box on it, the same way it already did for a split archive, and the job answers with a sentence that says what the trouble actually is.
-	- Rar with no password and rar with a password both read back and delete as they should; it is only the name encryption that cannot be checked.
+	- Rar with no password and rar with a password both read back and delete as they should; it is only the name encryption that can't be checked.
 	- Test case: `test-archive-job` (`check_predicate`), `test-nemo-archive-combos`.
 
-- ✅ The settings-handler check cannot see one of the config groups.
+- ✅ The settings-handler check can't see one of the config groups.
 	- Opened: 20260919-203000
 	- Closed: 20260920-103000
 	- It matched group names ending in "preferences", so `nemo_window_state` was invisible to it and a mismatched disconnect there would have passed.
@@ -5855,7 +5855,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Closed: 20260918-170628
 	- It was a Cinnamon action that ran `gnome-disk-image-mounter`. That only attaches disk images, so a zip or 7z did nothing.
 	- Now a built-in menu item beside the Extract items. It opens the archive through gvfs, which mounts it and shows its contents. The mount shows under Network with an eject button.
-	- Checked once at startup. With no gvfs archive support, which includes Windows, the item is not shown.
+	- Checked once at startup. With no gvfs archive support, which includes Windows, the item isn't shown.
 	- Test case: `test-nemo-archive-mount` for the address; the mount itself needs gvfs.
 
 - ✅ Two tests fail on a native Windows build: the test guard arming test and the tree folders test.
@@ -5864,7 +5864,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Neither had run on Windows before. Both were added after the last real-Windows pass, and b29w is the first box to run them.
 	- Both were test problems, not product ones.
 	- The arming test looked for `/tmp/...` in text that Windows spells with backslashes. It now looks for each path the way the dialog writes it.
-	- The tree folders test hid its folder with a leading dot, which is not what hidden means on Windows. There it sets the hidden attribute instead.
+	- The tree folders test hid its folder with a leading dot, which isn't what hidden means on Windows. There it sets the hidden attribute instead.
 	- Both pass on b29w now, where they failed before.
 	- Test case: `test-nemo-delete-testguard`, `test-nemo-tree-folders`, both run by the Windows gate.
 
@@ -5912,24 +5912,24 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ Preferences|Views: with "Remember per-folder settings" off, the Current tab still opens on a dead page.
 	- Opened: 20260917-233000
 	- Closed: 20260917-234500
-	- Graying the page out is not enough. GTK switches the page on a click whatever the page's own state is, so the tab took the click and showed an empty gray pane.
+	- Graying the page out isn't enough. GTK switches the page on a click whatever the page's own state is, so the tab took the click and showed an empty gray pane.
 	- Fixed: the tab label is greyed with the setting, and the notebook refuses the switch, by mouse or by keyboard. Turning the setting off while the Current tab is up drops back to Default.
 	- Test case: `test-nemo-prefs-current`.
 
-- ✅ Unselected tabs run together, so one cannot be told from the next.
+- ✅ Unselected tabs run together, so one can't be told from the next.
 	- Opened: 20260917-233000
 	- Closed: 20260917-234500
 	- Most themes draw an unselected tab with no edge of any kind, so three open tabs read as one strip broken only by the close buttons. Nemo has the same problem.
 	- Fixed: a divider between any two adjacent tabs that are both unselected. It rides with the rest of the app styling, so it holds whatever theme is in use.
 	- Test case: none, look only, judged by eye.
 
-- ✅ Shift+Tab sometimes does not leave a notebook page.
+- ✅ Shift+Tab sometimes doesn't leave a notebook page.
 	- Opened: 20260917-143946
 	- Closed: 20260917-150800
 	- It was the test, not the guard. Nothing in the app was ever wrong and nothing in it changed.
 	- The check needs the test window to hold the keyboard. When another window has it, GTK re-grabs the widget that already had the focus and calls that a move, so the traversal stops there and the check reads as a failure. No key press can reach that state, since Shift+Tab goes to whichever window does hold the keyboard.
 	- The earlier guess about the notebook page switch was wrong. The page, its size and the tab order are all in order at the moment of the check.
-	- Fixed: the test asks for the keyboard before the check and skips rather than fails if it cannot have it. Eight copies on one display used to fail about one run in thirteen; 320 runs are now clean.
+	- Fixed: the test asks for the keyboard before the check and skips rather than fails if it can't have it. Eight copies on one display used to fail about one run in thirteen; 320 runs are now clean.
 	- The same ask fixed a quieter problem. With no window manager, which is how the suite runs, the test was skipping three runs in four while the suite still read as a pass, because its one focus request went out before the window was on screen.
 	- Test case: none, a fix to the test itself.
 
@@ -5940,7 +5940,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Fixed: a split that came out as one volume is renamed back to the name that was asked for. A real split keeps its numbering, and a run that failed now clears its volumes instead of leaving them.
 	- Test case: `test-nemo-archive` (`check_volume_collapse`).
 
-- ✅ Extract is not offered on a split archive, since ".001" is not a suffix anything recognized.
+- ✅ Extract isn't offered on a split archive, since ".001" isn't a suffix anything recognized.
 	- Opened: 20260917-213000
 	- Closed: 20260917-220000
 	- Fixed: a three-digit volume number is read past, so the format underneath decides as usual and the folder name comes out the same for every part. Selecting several parts unpacks once, from the first volume, whichever one was clicked.
@@ -5964,7 +5964,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Closed: 20260917-204500
 	- A move on one filesystem is a single `g_file_move`, and an overwrite happens inside glib, so neither reaches the delete path the guard sits on.
 	- Fixed: a move job asks once up front, naming the destination and every source that is about to leave where it is. An overwrite asks per file, naming the target whose contents are lost and the source replacing it. Both were watched on screen, with Cancel leaving the files alone.
-	- `lint-c.bash` holds the rule that `G_FILE_COPY_OVERWRITE` cannot be set without the ask above it.
+	- `lint-c.bash` holds the rule that `G_FILE_COPY_OVERWRITE` can't be set without the ask above it.
 	- Test case: `test-nemo-drop-cancel` (`check_move`), `fCheckOverwriteAsk` in the C lint.
 
 - ✅ `make_link_copy` deletes without going through the delete guard.
@@ -5977,9 +5977,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ Turning hidden files off leaves a "Loading..." row under an open tree folder that holds only hidden folders.
 	- Opened: 20260917-060256
 	- Closed: 20260917-072556
-	- The folder closes when its last row goes, so nothing loads it again, and it keeps an expander it should not have.
+	- The folder closes when its last row goes, so nothing loads it again, and it keeps an expander it shouldn't have.
 	- Found while testing the folders-only tree.
-	- One fix was tried and did not take. The cause is known; detail is in the private notes.
+	- One fix was tried and didn't take. The cause is known; detail is in the private notes.
 	- Fixed: when hiding takes a folder's last sub-folder, the folder is now checked right then and loses its expander. The check in `test-nemo-tree-folders` is switched back on.
 	- Test case: `test-nemo-tree-folders`.
 
@@ -5988,13 +5988,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Closed: 20260916-193258
 	- Places is right - it holds the width it was given. The content pane then absorbs the whole change on its own, so at 800px wide it is a 60px sliver beside a 500px tree.
 	- Measured by taking one window 1278 -> 1500 -> 800 wide: `sidebar-width` stays 240, and `sidebar-tree-width` reads 480, then 498.
-	- The arithmetic is not the suspect. `test-nemo-pane-layout` covers it and passes. Either the position never reaches the widget, or something puts it back afterwards.
+	- The arithmetic isn't the suspect. `test-nemo-pane-layout` covers it and passes. Either the position never reaches the widget, or something puts it back afterwards.
 	- Tried and rejected: giving the tree the same `set_size_request` floor the places pane has, on the theory that `shrink=FALSE` was clamping the divider to the tree's natural width. It made no difference, so it was taken back out rather than left in on a guess.
 	- Everything else on "Places and TreeView can both exist at the same time" works. This is the part left.
 	- Fixed: the position was set after GTK had already laid out the panes, so it never took. The divider is now set before the layout, and measured from where it was last placed, so a slow drag of the window edge moves it too. The split view divider gets the same treatment.
 	- Test case: `test-nemo-proportional-paned`, `test-nemo-pane-layout`.
 
-- ✅ On Windows the delete guard did not know home by its short 8.3 name, or by a path through a junction.
+- ✅ On Windows the delete guard didn't know home by its short 8.3 name, or by a path through a junction.
 	- Opened: 20260915-160031
 	- Closed: 20260915-161437
 	- The folder removal behind the guard also went into junctions, so clearing an extract's staging folder could delete what a junction inside it pointed at.
@@ -6010,16 +6010,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Tab and Shift+Tab go through the tab strip without stopping on it.
 	- Test case: `test-eel-focus-guard`.
 
-- ✅ A home folder was deleted again, with no dialog, soon after a copy of the app was opened by accident. The guards added after the first time were not enough.
+- ✅ A home folder was deleted again, with no dialog, soon after a copy of the app was opened by accident. The guards added after the first time weren't enough.
 	- Opened: 20260914-110000
 	- Closed: 20260914-121200
-	- Nothing in the window was used but About. What removed the files is not known. The app's own log, which could have said, was in the home folder that went.
+	- Nothing in the window was used but About. What removed the files isn't known. The app's own log, which could have said, was in the home folder that went.
 	- Home, any folder above it, and a folder where a drive or share is mounted are never removed now, however the job came about. A delete that reaches a mount on its way through a folder stops there.
 	- One job can no longer take most of what sits directly in home. That is refused outright rather than asked about.
 	- Every question that can remove files starts on Cancel.
 	- A delete key within a second of a window coming up or taking focus is ignored, since that is typing meant for another window.
 	- Each trash or delete line also goes to the system journal, which a rollback of home leaves alone.
-	- Test case: `test-nemo-delete-guard` (POSIX only), `test-nemo-delete-guard-win32` (Windows only), and `test-nemo-link-delete-job` in its `delete-asked` mode for Cancel first; the journal line is not checked.
+	- Test case: `test-nemo-delete-guard` (POSIX only), `test-nemo-delete-guard-win32` (Windows only), and `test-nemo-link-delete-job` in its `delete-asked` mode for Cancel first; the journal line isn't checked.
 
 - ✅ Extracting could delete what a link inside the archive pointed at.
 	- Opened: n/a
@@ -6038,29 +6038,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Closed: 20260909-104658
 	- Fixed 20260905, the copy half: an entry's own cut and copy only advertised the text, the way the toolkit always has, which is the same write that went missing for "Copy path" and file copy. The selected text is now written out as well, for every entry and text box. The regression check goes red with the fix backed out.
 	- The key half works on Windows: with the caret in the entry, with a word selected, and with the whole path selected. The menu that comes up is usable rather than merely present - Select All picked out of it selects the path.
-	- No cause was found for the key half, because it does not reproduce. The menu itself belongs to the toolkit; the only code of ours on the way to it is the entry's key handler, which passes the key through untouched.
-	- A regression check presses the menu key with the caret, with a word selected, and with the whole path selected, and fails if no menu arrives inside five seconds or if the menu that arrives has not noticed the selection. It goes red on the reported shape - the key swallowed only while something is selected. It needs a keymap that has a menu key, and reports itself skipped where there is none.
+	- No cause was found for the key half, because it doesn't reproduce. The menu itself belongs to the toolkit; the only code of ours on the way to it is the entry's key handler, which passes the key through untouched.
+	- A regression check presses the menu key with the caret, with a word selected, and with the whole path selected, and fails if no menu arrives inside five seconds or if the menu that arrives hasn't noticed the selection. It goes red on the reported shape - the key swallowed only while something is selected. It needs a keymap that has a menu key, and reports itself skipped where there is none.
 	- Test case: `test-nemo-clipboard-win32` for the copy (Windows only), `test-nemo-entry-menu` for the menu key.
 
-- ✅ When launching fresh on 'C:\opt\0-0\users\collierjr\0_links' in Windows, the view cannot be changed from list to icon (or compact) view. If you change folders, then the view can be changed.
+- ✅ When launching fresh on 'C:\opt\0-0\users\collierjr\0_links' in Windows, the view can't be changed from list to icon (or compact) view. If you change folders, then the view can be changed.
 	- Opened: 20260908-011500
 	- Closed: 20260908-042000
-	- Cause, measured on the box: a view swap waits for the new view to report it has started loading, and that waits on a question asked of every file already listed - its info, its mount and its filesystem info. At startup the folder is still empty, so the question is answered at once and the first view gets through. By the time the view button is pressed the folder is full of links, and a link to a share that is not answering costs about twenty seconds. A folder of them takes minutes.
+	- Cause, measured on the box: a view swap waits for the new view to report it has started loading, and that waits on a question asked of every file already listed - its info, its mount and its filesystem info. At startup the folder is still empty, so the question is answered at once and the first view gets through. By the time the view button is pressed the folder is full of links, and a link to a share that isn't answering costs about twenty seconds. A folder of them takes minutes.
 	- Fixed: a link to a share is no longer asked for filesystem info, the same way it was already left out of the mount question. Windows only; nothing on another platform changes, since a share there is a mount rather than a native path.
-	- Measured both ways on a folder holding one link to a share that is not there: twenty-one seconds without the fix, none with it. That is the regression check, and it needs an address on the local subnet handed to it, since a name that resolves nowhere fails at once and proves nothing.
+	- Measured both ways on a folder holding one link to a share that isn't there: twenty-one seconds without the fix, none with it. That is the regression check, and it needs an address on the local subnet handed to it, since a name that resolves nowhere fails at once and proves nothing.
 	- Explains the rest of the report too: the answer is kept on each file once it arrives, so leaving the folder and coming back makes the swap instant.
 	- Also added: setting `NEMO_DEBUG_IO` logs which question the file-loading queue is waiting on and for how long. The calls are asynchronous, so timing the call itself shows nothing - the wait is in the answer, and that has now had to be worked out from scratch three times.
 	- Test case: `fCheckShareGates` in the C lint and `test-nemo-share-win32` (Windows only); the dead-share timing in `test-nemo-metadata-ready-win32` runs only with `NEMO_PROBE_DEAD_SHARE` set.
 
-- ✅ The action layout editor does not run.
+- ✅ The action layout editor doesn't run.
 	- Opened: 20260908-000856
 	- Closed: 20260908-004448
 	- Reachable from Preferences > Actions, which spawns it, but it dies at startup: its paths were baked in at configure time and point at an install prefix a portable copy never has.
-	- Also still reads and writes the pre-fork `nemo` config and data directories, so even once it starts, the app would not see what it saved.
+	- Also still reads and writes the pre-fork `nemo` config and data directories, so even once it starts, the app wouldn't see what it saved.
 	- Fixed: it resolves its own prefix, uses the fork's config and data directories, and no longer needs the two Cinnamon libraries it imported. It comes up, lists the bundled actions, reorders them and saves where the action manager reads.
 	- The enable/disable checkboxes went with it. They read a GSettings key that no longer exists, and they duplicated Preferences > Actions, which already does the job. A switched-off action still shows grayed out here, read out of the config file.
 	- Not part of the Windows build: a /bin/sh launcher and a PyGObject script. The button that starts it is hidden there.
-	- Test case: `cicd/linux/test-prefix.bash`; the editor window itself is not driven.
+	- Test case: `cicd/linux/test-prefix.bash`; the editor window itself isn't driven.
 
 - ✅ Bottom scrollbar: missing when the view is tiny, still there after a resize when nothing overflows, flashing at every step of a resize, and now and then strobing along with the vertical one.
 	- Opened: 20260906-110200
@@ -6088,14 +6088,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: This contradicts the latest canonical column-sizing definition in 'design.md' under the section "List view column widths", as of 20260916-113519.
 	- Test case: `test-nemo-column-layout`, `fCheckMarginGuard` and `fCheckColumnExpand` in the C lint; the flash itself is judged by eye.
 
-- ✅ A running copy on Linux moved everything under the home folder to the trash, with nobody asking it to. The mounts under it cannot be trashed, so the "delete immediately?" question came up for each of those, and they went for good.
+- ✅ A running copy on Linux moved everything under the home folder to the trash, with nobody asking it to. The mounts under it can't be trashed, so the "delete immediately?" question came up for each of those, and they went for good.
 	- Opened: 20260906-110342
 	- Closed: 20260907-190000
 	- Cause: not found. The app wrote nothing about a trash or delete job, and the rollback that brought the home folder back took its own log and every other record under home with it. Every trash path in the code starts from a selection, a drop, an undo or a menu; none runs on its own.
 	- Fixed what can be. Every trash and delete job now logs its count, folder, first item, window and the key, click or drop that asked for it. A job with no input event behind it (another program, another copy, a timer) always asks first, whatever the preference says, and the question says where it came from. A job of `confirm-many-items` or more (20 by default, 0 turns it off) asks even with confirmation off.
 	- The confirmation dialogs keep their usual default button. The dialog itself is the pause.
 	- Note: superseded 20260914. Every question that can remove files now starts on Cancel. See [20260930-150859_delete_guard.md](design_docs/20260930-150859_delete_guard.md).
-	- Test case: `test-nemo-delete-guard` (`nemo_delete_guard_must_ask`), `fCheckJobCallers` and `fCheckBusMethods` in the C lint; the log line is not checked.
+	- Test case: `test-nemo-delete-guard` (`nemo_delete_guard_must_ask`), `fCheckJobCallers` and `fCheckBusMethods` in the C lint; the log line isn't checked.
 
 - ✅ Plugins are duplicated.
 	- Opened: 20260905-112901
@@ -6108,7 +6108,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ Windows: listing a drive root logs a batch of "GFileInfo created without standard::type" criticals.
 	- Opened: 20260902-190000
 	- Closed: 20260902-191500
-	- Cause: Windows will not stat a few of the files at the root of a drive - the page and swap files - so their entry comes back with no type on it at all. GLib now complains rather than answering when something asks for a missing attribute, and five places asked.
+	- Cause: Windows won't stat a few of the files at the root of a drive - the page and swap files - so their entry comes back with no type on it at all. GLib now complains rather than answering when something asks for a missing attribute, and five places asked.
 	- Fixed: the type is read through one place that answers "unknown" for an entry that has none. The listing looks the same as before; the noise is gone.
 	- The regression check lists the drive root and fails on anything logged at warning level or worse. It goes red with the fix backed out.
 	- Test case: `test-nemo-directory-load-clean`, whose drive root case is Windows only.
@@ -6116,52 +6116,52 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ Windows: file copy and paste to another program fails the same way "Copy path" did, and for the same reason.
 	- Opened: 20260830-153000
 	- Closed: 20260831-081500
-	- Found: worse than reported. Over a remote desktop session a copy in nemo did nothing at all - not just for other programs, but for nemo's own paste. The toolkit only advertises a file cut or copy and hands it over when asked; the redirector asks the moment the clipboard changes, does not get an answer in time, and puts the client's own clipboard back.
+	- Found: worse than reported. Over a remote desktop session a copy in nemo did nothing at all - not just for other programs, but for nemo's own paste. The toolkit only advertises a file cut or copy and hands it over when asked; the redirector asks the moment the clipboard changes, doesn't get an answer in time, and puts the client's own clipboard back.
 	- Found as well: even with no remote session in the way, nemo published nothing Windows understands, so Explorer could never have pasted a copy made in nemo. Nor the other way round - a copy made anywhere else offered nothing nemo was looking for, so Paste did nothing.
 	- Fixed: a file cut or copy is now written out up front in the formats Windows expects, alongside nemo's own. Paste falls back to the Windows one when nemo's is absent, so a copy made in any program can be pasted, and a cut from one moves rather than copies.
 	- Fixed as well: only one program can have the clipboard open at a time, and on a busy machine something usually does for a moment. The call was failing outright every few tries, which read as an empty clipboard. Every use retries now. This affected the text copy too.
 	- Proved on a live remote session: a copy in nemo pasted into Explorer, a copy in Explorer pasted into nemo, a cut from either moving rather than copying, and the clipboard emptied after a cut is pasted. The regression check goes red with the fix backed out.
 	- Test case: `test-nemo-clipboard-win32` (`check_files`), Windows only.
 
-- ✅ Windows network browsing cannot be proved to report a missing network or a refused share.
+- ✅ Windows network browsing can't be proved to report a missing network or a refused share.
 	- Opened: 20260804-230307
 	- Closed: 20260831-071500
 	- Fixed so far: the address building and the not-found answer, both verified against real shares. From code review 20260804.
-	- Found: the missing-network half never worked. Asking Windows to list the neighborhood on a machine with no network at all succeeds and hands back an empty list, so nemo showed a blank folder that looked like it had loaded. The branch meant to catch it could not fire.
+	- Found: the missing-network half never worked. Asking Windows to list the neighborhood on a machine with no network at all succeeds and hands back an empty list, so nemo showed a blank folder that looked like it had loaded. The branch meant to catch it couldn't fire.
 	- Fixed: when the list comes back empty, the machine is asked directly whether it has a network, and "The network is unavailable" is shown when it says no. A list with something in it is left alone - a local provider can offer entries with no network, and the remote desktop channel does.
 	- Also fixed: the browse and the lookup used to word the same failure differently, so a refused share came back reading as a missing one. One place decides now, and an answer nobody wrote a case for keeps the system's own words instead of being reworded.
 	- Proved on a throwaway machine with its network switched off: with the remote desktop provider present the one entry is listed and nothing is claimed; with it taken out of the order, so there really is nothing, the message appears. The same check goes red on that machine with the fix backed out.
-	- Also covered: every failure code's wording, and a server name that cannot exist, which is refused in about a second rather than opening as an empty folder.
+	- Also covered: every failure code's wording, and a server name that can't exist, which is refused in about a second rather than opening as an empty folder.
 	- Test case: `test-nemo-network-win32`, Windows only.
 
 - ✅ Windows: opening a file from the released build breaks the program it opens in, unless that program is already running.
 	- Opened: 20260830-141048
 	- Closed: 20260830-214500
 	- Reported against a symlink and VSCodium, which said "The window terminated unexpectedly". The link turned out to have nothing to do with it, and neither did the file: a plain text file does the same.
-	- Cause: the single-exe packer is set to share its virtual file system with child processes, so every program opened from nemo starts with the packer's hooks inside it. A program that runs its own sandboxed child processes - anything built on Chromium, which is a lot of desktop software now - cannot start those, and reports a crash. It only shows on a cold start because a second copy of such a program hands the file to the one already running and exits before it gets that far.
+	- Cause: the single-exe packer is set to share its virtual file system with child processes, so every program opened from nemo starts with the packer's hooks inside it. A program that runs its own sandboxed child processes - anything built on Chromium, which is a lot of desktop software now - can't start those, and reports a crash. It only shows on a cold start because a second copy of such a program hands the file to the one already running and exits before it gets that far.
 	- Reproduced and controlled: a bare test program packed the same way breaks the editor every time; the identical program packed with sharing off opens it every time. The unpacked build is fine, and so is the same launch made by hand.
-	- Note: sharing cannot simply be turned off. Nemo's own helpers - the document converters, the thumbnailers and two toolkit helpers - live inside that virtual file system and need it to find their libraries. The fix has to separate "our own helper" from "somebody else's program".
-	- Note: a small launcher of our own does not separate them. The hooks follow the whole process tree, not just the first step - measured: a plain helper started by the packed build reports itself hooked, and so does everything it starts. Where the helper sits on disk makes no difference, and neither does building it for the other architecture. Breaking the chain needs the program to be started by something outside our own process tree.
+	- Note: sharing can't simply be turned off. Nemo's own helpers - the document converters, the thumbnailers and two toolkit helpers - live inside that virtual file system and need it to find their libraries. The fix has to separate "our own helper" from "somebody else's program".
+	- Note: a small launcher of our own doesn't separate them. The hooks follow the whole process tree, not just the first step - measured: a plain helper started by the packed build reports itself hooked, and so does everything it starts. Where the helper sits on disk makes no difference, and neither does building it for the other architecture. Breaking the chain needs the program to be started by something outside our own process tree.
 	- Note: no launch flag or shell indirection helps either. Detaching the child, putting a hidden command prompt in the middle, `start /b` behind that, and the shell's own open verb all leave the program hooked. Only a broker outside our own process tree comes out clean.
-	- Fixed: a program is now started by one of two brokers rather than by us. The desktop shell is asked first, since it passes arguments, brings the new window forward and is the ordinary way a file gets opened. When it will not do it - an elevated session refuses the call, and there may be no shell running at all - the system's management service does it instead, which keeps the caller's rights but leaves the window behind. A plain start of our own sits behind both, so a launch can still happen on a box where neither broker answers.
-	- Also fixed: a file that is not there is refused before the shell is asked. The shell answers a missing file with a message box of its own and does not return until it is dismissed, which would have held nemo's own thread.
+	- Fixed: a program is now started by one of two brokers rather than by us. The desktop shell is asked first, since it passes arguments, brings the new window forward and is the ordinary way a file gets opened. When it won't do it - an elevated session refuses the call, and there may be no shell running at all - the system's management service does it instead, which keeps the caller's rights but leaves the window behind. A plain start of our own sits behind both, so a launch can still happen on a box where neither broker answers.
+	- Also fixed: a file that isn't there is refused before the shell is asked. The shell answers a missing file with a message box of its own and doesn't return until it is dismissed, which would have held nemo's own thread.
 	- Measured, packed and unpacked: the six ways of starting a program ourselves all come out hooked, both brokers come out clean, and opening a file from the packed build in a throwaway machine starts the program with the hooks absent.
 	- Unpacking to a real folder instead was considered and dropped - it breaks the dogfood launcher's one-file-per-build pool, and it swaps one thing security software dislikes for another.
 	- Left open: the slow cold start, which belongs to the packer and is unaffected by any of this.
 	- Test case: `fCheckWinLaunch` in the C lint and `test-nemo-launch-win32` (Windows only; the brokers run only with `NEMO_PROBE_LAUNCH` set).
 
-- ✅ Windows: the released build cannot open a file whose program is 32-bit. Nothing happens, and nothing is reported.
+- ✅ Windows: the released build can't open a file whose program is 32-bit. Nothing happens, and nothing is reported.
 	- Opened: 20260830-161500
 	- Closed: 20260830-214500
 	- Cause: the single-exe packer is set to leave programs of the other architecture alone, and in practice it stops them starting rather than letting them run unhooked. The call reports success, so nemo has nothing to report either.
 	- Measured: a 32-bit program started from a packed build never runs; the same command by hand runs fine. Allowing the other architecture does let it start, but then it gets the packer's hooks like everything else.
 	- Fixed by the item above: neither broker is subject to the packer's architecture setting, so a 32-bit program starts and runs unhooked.
-	- Test case: `fCheckWinLaunch` in the C lint and `test-nemo-launch-win32`, Windows only; a 32-bit program under the packed exe is not started.
+	- Test case: `fCheckWinLaunch` in the C lint and `test-nemo-launch-win32`, Windows only; a 32-bit program under the packed exe isn't started.
 
 - ✅ Windows: a link pointing at a folder was drawn with a file icon instead of a folder icon.
 	- Opened: 20260830-141048
 	- Closed: 20260830-150000
-	- Cause: Windows reports no type at all for a link the listing does not follow, so the toolkit handed back its plain file icon. The folder icon comes off the type, so a folder link got the document one. Both a directory symlink and a junction were affected.
+	- Cause: Windows reports no type at all for a link the listing doesn't follow, so the toolkit handed back its plain file icon. The folder icon comes off the type, so a folder link got the document one. Both a directory symlink and a junction were affected.
 	- Fixed: a link that is a folder is given the folder icon whatever the type came back as.
 	- Note: a new check pins the missing-type behavior the swap exists for, and holds a folder link to the folder icon.
 	- Test case: `test-nemo-link-info-win32`, Windows only.
@@ -6169,12 +6169,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ "Copy path as" left the clipboard holding whatever was in it before, instead of the path.
 	- Opened: 20260830-141048
 	- Closed: 20260830-152000
-	- Cause: the toolkit only advertises text on the Windows clipboard and hands it over when somebody asks for it. In a remote desktop session the redirector asks straight away, does not get an answer in time, and puts the client's own clipboard back - so the copy read as having done nothing. It affected the plain "Copy path" item too.
+	- Cause: the toolkit only advertises text on the Windows clipboard and hands it over when somebody asks for it. In a remote desktop session the redirector asks straight away, doesn't get an answer in time, and puts the client's own clipboard back - so the copy read as having done nothing. It affected the plain "Copy path" item too.
 	- Fixed: the text goes onto the clipboard up front, so there is nothing left to ask for.
 	- Note: a new check reads the clipboard the way another program would, with no message loop running.
 	- Test case: `test-nemo-clipboard-win32`, Windows only.
 
-- ✅ The context-menu key did not stand in for a right-click.
+- ✅ The context-menu key didn't stand in for a right-click.
 	- Opened: 20260830-141048
 	- Closed: 20260830-151000
 	- Cause: the key did open the menu, but the menu placed itself at the mouse pointer - which, for a key press, can be anywhere, including another window or another monitor. It read as the key having done nothing.
@@ -6192,7 +6192,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260804-133646
 	- Closed: 20260829-073319
 	- Fixed: the Windows half of the NULL-instance criticals was the missing resource bundle.
-	- Fixed: the second signature - `g_file_get_child: assertion 'name != NULL'`, one per file listed. Cause: a file's name is not filled in until late in the same update that first applies its info, and the drive-root naming read it early, so every file in the first listing logged one. It also meant a drive root shown as a child kept the bare separator as its name until something refreshed it.
+	- Fixed: the second signature - `g_file_get_child: assertion 'name != NULL'`, one per file listed. Cause: a file's name isn't filled in until late in the same update that first applies its info, and the drive-root naming read it early, so every file in the first listing logged one. It also meant a drive root shown as a child kept the bare separator as its name until something refreshed it.
 	- Note: a regression check lists a folder and fails on anything logged at warning level or worse.
 	- Note: split from "Startup logs a dozen pairs", which stays open for the Linux host.
 	- Test case: `test-nemo-directory-load-clean`.
@@ -6225,9 +6225,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ The settings schema bundled for `shcl check` is kept in step with the key table in the code by hand, and nothing notices when it drifts.
 	- Opened: 20260821-144459
 	- Closed: 20260826-180755
-	- Cause: two files have to be edited for every new setting. Miss the second and a hand-edited config validates against a schema that does not know the key.
+	- Cause: two files have to be edited for every new setting. Miss the second and a hand-edited config validates against a schema that doesn't know the key.
 	- Reproduced: turned up while adding two settings at once.
-	- Fixed: a test walks both and fails on any name, type, allowed set or default that does not line up. It reads the real key table rather than the source text, so the macro-named keys and the per-platform ones are all covered.
+	- Fixed: a test walks both and fails on any name, type, allowed set or default that doesn't line up. It reads the real key table rather than the source text, so the macro-named keys and the per-platform ones are all covered.
 	- Note: it found 13 real mismatches on its first run: 8 settings the schema had never heard of, two archive command lines missing the thread count, the two list-view column lists missing the extension column, and the sidebar width. All corrected.
 	- Test case: `test-nemo-config-schema`.
 
@@ -6240,7 +6240,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Fixed: both. The installer waits up to ten seconds, says what it is waiting on, and if it gives up names the executables actually holding the folder instead of the app.
 	- Verified on Windows against a scratch install, which turned up three more faults, all fixed:
 		- An in-place upgrade died outright. The in-use check hands back an empty list as nothing at all, and asking that for a count is an error, so every upgrade over an existing folder failed before it started. Only a first install had ever been run.
-		- The check compared two spellings of the same folder and so found nothing. It long-forms the folder it was given but takes a running program's path as reported, and those two do not have to agree.
+		- The check compared two spellings of the same folder and so found nothing. It long-forms the folder it was given but takes a running program's path as reported, and those two don't have to agree.
 		- If the swap failed anyway, for a reason no process scan can see, the failure came out as a raw runtime error. It now says which folder is stuck and what to do.
 	- Verified: the round trip is clean - install, run, close, upgrade over it, uninstall. The PATH comes back byte for byte and nothing is left behind.
 	- Test case: `cicd/win/test-install-holders.ps1`, Windows only.
@@ -6248,7 +6248,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ The installer leaves the user PATH very slightly different from how it found it.
 	- Opened: 20260818-155550
 	- Closed: 20260826-180755
-	- Cause: adding then removing the entry also drops a pre-existing trailing separator, so an install/uninstall round trip is not byte-identical. Harmless - an empty trailing entry means nothing - but it is a change nobody asked for.
+	- Cause: adding then removing the entry also drops a pre-existing trailing separator, so an install/uninstall round trip isn't byte-identical. Harmless - an empty trailing entry means nothing - but it is a change nobody asked for.
 	- Fixed: both halves keep the trailing separator through, so what an uninstall writes back is what the install found.
 	- Verified against an empty PATH, one with a trailing separator and one without.
 	- Test case: `cicd/utility/test-install-path.ps1`.
@@ -6259,18 +6259,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Found while proving the long-path manifest work. The toolkit's own directory walk is what breaks; every other call on the same path is right, which is why nothing showed up until a folder that deep was actually opened.
 	- In the window it reads as an empty folder, because each name it hands back is then checked against the folder that was asked for and none of them are in it. That is the harmless case. The one to worry about is search, which walks folders itself and would follow the wrong tree.
 	- Reproduced three ways: the failing call from two different working directories returns the contents of each in turn, while the platform's own call on the same path returns the right thing.
-	- The walk is now done here on Windows once a path is long enough that the toolkit cannot be trusted with it. Everything shorter still goes straight to the toolkit, so the ordinary case is untouched.
+	- The walk is now done here on Windows once a path is long enough that the toolkit can't be trusted with it. Everything shorter still goes straight to the toolkit, so the ordinary case is untouched.
 	- One entry point covers the lot: the file listing, search, copy, move, delete, the deep count and the archive scan all go through it.
 	- A folder 308 characters deep lists its real contents in the window now, with sizes, types and dates. New checks cover it both ways round.
 	- Test case: `test-nemo-dir-enum-win32`, Windows only.
 
-- ✅ Switching the path separator to `/` does not take effect until the folder is revisited.
+- ✅ Switching the path separator to `/` doesn't take effect until the folder is revisited.
 	- Opened: 20260826-103001
 	- Closed: 20260828-124500
 	- Note: the rest of the Paths group on the Display page applies straight away, so this one is the odd man out.
 	- Cause: the title, the location entry and the breadcrumb are only rebuilt on a location or view change, so changing how a path is spelled never asked for one.
 	- Fixed: all three now refresh as soon as the setting changes. Verified on Linux against the full-path title, which lags the same way.
-	- Two more halves showed up on Windows, where the separator can really change. The breadcrumb was redrawing a step behind - it read the separator before the setting had been taken in. And the sidebar, which spells a drive root as `C:\`, was not redrawing at all.
+	- Two more halves showed up on Windows, where the separator can really change. The breadcrumb was redrawing a step behind - it read the separator before the setting had been taken in. And the sidebar, which spells a drive root as `C:\`, wasn't redrawing at all.
 	- Both fixed. Title, breadcrumb, location bar and sidebar now all move together the moment the setting changes, with no navigation. A new check covers the ordering.
 	- Test case: `test-nemo-path-separator-win32` for the order handlers see the change in, Windows only; the refresh of title, breadcrumb and sidebar needs a full window.
 
@@ -6286,17 +6286,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260828-083458
 	- Closed: 20260828-090000
 	- Note: same folder and same symptom as the item below, which fixed only the first of two causes. The listing itself now appears in about three seconds; what came after it took another ~minute.
-	- Cause: two things chased each link off the machine, one at a time, with the folder waiting: counting a folder's items, and asking what a share is mounted under. One link to a host that is not answering cost a lot of time per query.
+	- Cause: two things chased each link off the machine, one at a time, with the folder waiting: counting a folder's items, and asking what a share is mounted under. One link to a host that isn't answering cost a lot of time per query.
 	- Fixed: the preference for item counts already says "local only" by default, but a share is native as far as the toolkit is concerned, so nothing ever held it back. Both questions are now skipped for anything on a share, or any link pointing at one.
-	- Fixed: the mount question is skipped outright there. A share is not a mount on Windows, so the answer was never of use.
-	- Verified against a host that really was not answering: over a minute before, about three seconds after. The item count for such a folder now reads "--", which is what the preference has always meant.
+	- Fixed: the mount question is skipped outright there. A share isn't a mount on Windows, so the answer was never of use.
+	- Verified against a host that really wasn't answering: over a minute before, about three seconds after. The item count for such a folder now reads "--", which is what the preference has always meant.
 	- Test case: `fCheckShareGates` in the C lint and `test-nemo-share-win32` (Windows only).
 
 - ✅ The first folder listed after launch takes a very long time when the start location is full of links.
 	- Opened: 20260827-183930
 	- Closed: 20260827-193152
 	- Seen launching straight into a folder of shortcuts and junctions. Folders opened after that are normal, so it is the first listing that pays.
-	- Measured: one link pointing at a share that is not answering costs ~20s, and the whole listing waits for it. The folder in question has one, and took over a minute to show anything at all. It is only slow the first time because Windows remembers the failure for a while afterwards.
+	- Measured: one link pointing at a share that isn't answering costs ~20s, and the whole listing waits for it. The folder in question has one, and took over a minute to show anything at all. It is only slow the first time because Windows remembers the failure for a while afterwards.
 	- Cause: listing a folder asked for each child's details with links followed, so every reparse point was chased to whatever it pointed at, over the network if that is where it led.
 	- Windows puts the directory bit on the link itself, so the type still comes out right without the trip. The listing no longer follows them there, and the same folder now appears in about a second.
 	- Trade: a link to a file reports the link's own size rather than the target's, and a link whose target is gone no longer shows as broken until it is opened.
@@ -6307,7 +6307,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260827-183930
 	- Closed: 20260827-191128
 	- Note: the yes/no dialog is behind it, so the delete reads as stuck until the popup is dragged out of the way.
-	- Cause: the prompt was the Windows shell's, not ours. GLib's trash call leaves the shell confirmation switched on, so every file was asked about twice and the second dialog was not one we could place.
+	- Cause: the prompt was the Windows shell's, not ours. GLib's trash call leaves the shell confirmation switched on, so every file was asked about twice and the second dialog wasn't one we could place.
 	- Fixed: a delete goes to the Recycle Bin through the shell directly with the confirmations off, so our own prompt is the only one and nothing covers it. Verified on Windows end to end.
 	- Note: the trash test drops its private copy of the same code and calls the app's own one, and its timeout goes to ten minutes - a full recycle bin can take four and a half.
 	- Test case: `fCheckWinTrash` in the C lint and `test-nemo-trash-win32` (Windows only).
@@ -6316,7 +6316,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260828-083458
 	- Closed: 20260828-090000
 	- Cause: it split `wt.exe` and expected the name back unchanged, but a box with Windows Terminal installed resolves it to a full path, so the check failed there and nowhere else.
-	- Fixed: it uses a name that cannot be on the path. The case where a program is found is still covered, by the check below it that looks one up first.
+	- Fixed: it uses a name that can't be on the path. The case where a program is found is still covered, by the check below it that looks one up first.
 	- Test case: none, the fix is to `test-nemo-view-win32` itself.
 
 - ✅ The config schema check goes red on a fresh Windows checkout.
@@ -6329,9 +6329,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ In dark mode the breadcrumb bar and the checked view buttons kept a light background, unreadable against everything around them.
 	- Opened: 20260819-124028
 	- Closed: 20260819-141014
-	- Cause: a bundled theme is loaded as a stylesheet of our own, but the theme *name* was left pointing at it. GTK cannot resolve a name it has never seen on disk, falls back to its packaged sheet, and drops the dark half while doing so - so the layer under ours was the light one. Anything our sheet did not itself paint showed it through.
+	- Cause: a bundled theme is loaded as a stylesheet of our own, but the theme *name* was left pointing at it. GTK can't resolve a name it has never seen on disk, falls back to its packaged sheet, and drops the dark half while doing so - so the layer under ours was the light one. Anything our sheet didn't itself paint showed it through.
 	- Fixed: the name now points at a theme GTK really has, so the base follows light/dark while our sheet sits on top. Verified against both the light and the dark base.
-	- Also fixed alongside: choosing a theme that cannot be found left the previous one on screen, so a bad name looked like nothing had happened.
+	- Also fixed alongside: choosing a theme that can't be found left the previous one on screen, so a bad name looked like nothing had happened.
 	- Test case: `test-nemo-appearance` (`test_dropin_applied`).
 
 - ✅ The three view buttons at the bottom left drew as broken-image placeholders.
@@ -6339,13 +6339,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Closed: 20260819-141014
 	- Cause: none of the app's own artwork was in the Windows bundle at all. Only the toolkit's icons were packaged, so every one of our own icon names missed - the location button in the toolbar was the same failure.
 	- Fixed: the app's artwork now rides inside the executable, the same way the bundled themes do. Costs no extra files, so nothing is added to startup time, and it works on every platform including a relocated install.
-	- Test case: `test-nemo-app-resources` for part of the bundled art; the view button icons themselves are not checked.
+	- Test case: `test-nemo-app-resources` for part of the bundled art; the view button icons themselves aren't checked.
 
 - ✅ The theme picker offered "macOS" and "Windows 10" twice in dark mode, and one of each was the light theme.
 	- Opened: n/a
 	- Closed: 20260819-141014
 	- Cause: those two themes have a dark sheet of their own upstream *and* have a separately drawn dark half that we also bundle, so both halves claimed dark.
-	- Fixed: where a light/dark pair is named, the pair wins and the redundant sheet is dropped. A theme that states which modes it suits is no longer second-guessed either, so a hand-dropped theme cannot bring the fault back.
+	- Fixed: where a light/dark pair is named, the pair wins and the redundant sheet is dropped. A theme that states which modes it suits is no longer second-guessed either, so a hand-dropped theme can't bring the fault back.
 	- Test case: `test-nemo-appearance` (`test_named_pair_listed_once`).
 
 - ✅ On Windows a drive root is named `\` everywhere except the sidebar - the window title reads `\` and the breadcrumb reads `(C:) Windows` while the sidebar has `Windows (C:)`. Seen on this box browsing `C:\`.
@@ -6353,15 +6353,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Closed: 20260818-155550
 	- The volume-label work only ever covered the sidebar, and it built its own name there. Everywhere else falls back to what Windows reports for a drive root, which is a bare separator.
 	- Three different sources were in play: the basename, which is `\` for every drive alike; the volume monitor, which says `(C:) Windows`; and the sidebar's own string.
-	- Fixed: a drive root is `C:\` everywhere - title, breadcrumb and sidebar all ask the same helper. The volume label moved to the sidebar tooltip, where it cannot be mistaken for the path.
+	- Fixed: a drive root is `C:\` everywhere - title, breadcrumb and sidebar all ask the same helper. The volume label moved to the sidebar tooltip, where it can't be mistaken for the path.
 	- Verified on Windows: a new test covers the naming, including that the first folder inside a drive keeps its own name; and all three places agree.
 	- Test case: `test-nemo-drive-root-name`, Windows only.
 
 - ✅ "Set as default" in the Open With tab did nothing on Windows, and said nothing either.
 	- Opened: n/a
 	- Closed: 20260818-155550
-	- Cause: Windows keeps the per-user default behind a hash it will not let a program write, so the call fails outright - and the result was thrown away along with the error.
-	- Fixed: the failure is reported. The choice still cannot be made on Windows; the difference is the user is told rather than left thinking it worked.
+	- Cause: Windows keeps the per-user default behind a hash it won't let a program write, so the call fails outright - and the result was thrown away along with the error.
+	- Fixed: the failure is reported. The choice still can't be made on Windows; the difference is the user is told rather than left thinking it worked.
 	- Verified on Windows: the underlying call refuses with "Setting default applications not supported yet". Looking a default up still works, but only by extension - asking by mime type answers nothing.
 	- Test case: `test-nemo-associations-win32` (`test_set_default`), Windows only.
 
@@ -6381,7 +6381,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified on Windows: the menu bar is back, and startup criticals went from 40 to 9 - none of the remainder about resources or widgets.
 	- Test case: `cicd/utility/check-win-build-flags.bash`, run on every Windows build.
 
-- ✅ The Windows executable was not marked long-path aware, so anything past the old 260-character limit was out of reach even with long paths switched on.
+- ✅ The Windows executable wasn't marked long-path aware, so anything past the old 260-character limit was out of reach even with long paths switched on.
 	- Opened: 20260818-142740
 	- Closed: 20260826-103001
 	- Cause: the exe had no application manifest, which is where that is declared.
@@ -6414,7 +6414,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 		- ✅ Item 4. Freeing an extension column object corrupts the heap.
 			- Cause: teardown frees memory the type system owns. Latent only because built columns are kept for the life of the process; any extension that discards one hits it.
-			- Fixed: it no longer frees what it does not own. Covered by a new check.
+			- Fixed: it no longer frees what it doesn't own. Covered by a new check.
 			- Test case: `test-nemo-column`.
 
 		- ✅ Item 5. An unreadable settings file is treated as empty, and a queued save can then erase it.
@@ -6441,14 +6441,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 		- ✅ Item 9. An invalid filename search pattern crashes the search.
 			- Cause: a pattern that fails to compile leaves nothing to match with, but the search runs anyway and then releases an uninitialised result for every file. Reachable by pressing Enter before the typing check catches up.
-			- Fixed: a pattern that will not compile matches nothing rather than running on. Covered by a new check.
+			- Fixed: a pattern that won't compile matches nothing rather than running on. Covered by a new check.
 			- Test case: `test-nemo-search-regex`.
 
 		- ✅ Item 10. Restoring an item from the Windows trash drops its file extension.
 			- Cause: the original name is taken from the shell display name, which hides known extensions by default, and that shortened name is what restore writes.
 			- Fixed: the real extension is taken from the backing file, so the listed name and the restored name both keep it.
 			- Verified on Windows: a recycled file is found under its full name, reports the original location it came from, and restores to it.
-			- Note: the cause does not reproduce on Windows 11. With "hide extensions for known file types" switched on, the recycle bin still reports full names, in this app and at any setting. So the repair is kept for older Windows rather than being needed here.
+			- Note: the cause doesn't reproduce on Windows 11. With "hide extensions for known file types" switched on, the recycle bin still reports full names, in this app and at any setting. So the repair is kept for older Windows rather than being needed here.
 			- Note: corrected while checking - it used to give up on any name containing a dot, so `report.2026.txt` would have been repaired to `report.2026`.
 			- Test case: `test-nemo-trash-win32`, Windows only.
 
@@ -6461,7 +6461,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- ✅ Item 12. The places sidebar keeps reacting to settings after it is destroyed.
 			- Cause: two preference handlers are left connected at teardown, so a later settings change - including a live edit of the settings file - fires on freed memory. Triggered by hiding the sidebar or switching to the tree sidebar.
 			- Fixed: both are disconnected at teardown.
-			- Test case: `cicd/utility/lint-pref-handlers.py` for a disconnect on the wrong group; a missing disconnect is not caught.
+			- Test case: `cicd/utility/lint-pref-handlers.py` for a disconnect on the wrong group; a missing disconnect isn't caught.
 
 		- ✅ Item 13. New Folder in the tree sidebar aborts the app when creation fails.
 			- Cause: the callback ignores the failure and passes nothing on, which aborts. A permission race or a dismissed error dialog triggers it.
@@ -6525,10 +6525,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- ✅ Item 25. install.bash deletes the existing install before the replacement is in place.
 			- Cause: a cross-filesystem move that fails partway leaves nothing installed, and the temporary copy is then wiped on abort.
 			- Fixed: the replacement is staged beside the existing install and swapped in, with a rollback on failure, so the old one is only dropped once the new one is there.
-			- Test case: `cicd/linux/test-installers.bash` for install over an existing copy; a failed move across file systems is not forced.
+			- Test case: `cicd/linux/test-installers.bash` for install over an existing copy; a failed move across file systems isn't forced.
 
 		- ✅ Item 26. install.ps1 can half-delete a running install.
-			- Cause: a process whose path cannot be read is treated as not running, so the delete goes ahead against a locked copy and throws partway.
+			- Cause: a process whose path can't be read is treated as not running, so the delete goes ahead against a locked copy and throws partway.
 			- Fixed: the same stage-beside-then-swap as the bash installer, and the in-use check reads paths in a way that covers protected and cross-session processes.
 			- Note: Windows file-locking edge cases still want the real-Windows pass.
 			- Test case: `cicd/win/test-install-holders.ps1`, Windows only.
@@ -6574,7 +6574,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Test case: `test-nemo-uri-under`.
 
 		- ✅ Item 35. The mount lookup matches sibling paths by prefix.
-			- Cause: the same missing boundary check, so a path can be matched to the wrong mount and then called local when it is not.
+			- Cause: the same missing boundary check, so a path can be matched to the wrong mount and then called local when it isn't.
 			- Fixed: the same boundary guard.
 			- Test case: `test-nemo-uri-under`.
 
@@ -6598,12 +6598,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- ✅ Item 39. A trashed folder whose status can't be read is shown as a healthy file.
 			- Cause: the fallback invents a regular-file entry without looking at the error, and an item deleted behind the app's back still lists as existing until the next full refresh.
 			- Fixed: a folder is shown as a folder, and something that has gone is no longer presented as readable.
-			- Verified on Windows: an item removed from the bin behind the backend's back comes back saying outright that it cannot be read.
-			- Note: the folder half is covered only by a live trashed folder listing as a folder. Forcing a folder that is present but unreadable was not attempted.
-			- Test case: `test-nemo-trash-win32` for an item gone from the bin, Windows only; a folder present but unreadable is not forced.
+			- Verified on Windows: an item removed from the bin behind the backend's back comes back saying outright that it can't be read.
+			- Note: the folder half is covered only by a live trashed folder listing as a folder. Forcing a folder that is present but unreadable wasn't attempted.
+			- Test case: `test-nemo-trash-win32` for an item gone from the bin, Windows only; a folder present but unreadable isn't forced.
 
 		- ✅ Item 40. Freshly trashed items get a wrong parent until the next poll.
-			- Cause: the top-level check does not refresh on a miss, unlike the sibling lookup, so an item not yet seen is filed under a parent that is not in the bin at all.
+			- Cause: the top-level check doesn't refresh on a miss, unlike the sibling lookup, so an item not yet seen is filed under a parent that isn't in the bin at all.
 			- Fixed: the top-level check refreshes on a miss, like the sibling lookup.
 			- Verified on Windows: a freshly recycled file reports the bin root as its parent.
 			- Test case: `test-nemo-trash-win32`, Windows only.
@@ -6619,14 +6619,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Test case: none, a drop onto the launcher editor.
 
 		- ✅ Item 43. Rename-pending activation relies on a garbage return value and leaks the selection each tick.
-			- Cause: a function that returns nothing is installed as a repeating timer, and the still-renaming early return does not free the selection it fetched.
+			- Cause: a function that returns nothing is installed as a repeating timer, and the still-renaming early return doesn't free the selection it fetched.
 			- Fixed: a proper wrapper decides whether to repeat, and the selection is freed on that path.
 			- Test case: none, list view rename timer in a full window.
 
 		- ✅ Item 44. Two invalid search patterns warn fatally and show the wrong message.
 			- Cause: the content check is handed an error the filename check already set.
 			- Fixed: the error is cleared between the two.
-			- Test case: none, two invalid patterns in the search box are not checked.
+			- Test case: none, two invalid patterns in the search box aren't checked.
 
 		- ✅ Item 45. Tree-sidebar Paste races a freed file and holds a stale view pointer.
 			- Cause: the clipboard request keeps no hold on the view, and an idle can free the target first. Paste from another program degrades to nothing, and a closed sidebar leaves a dangling pointer.
@@ -6641,7 +6641,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- ✅ Item 47. The failed-home fallback reopens the failing location instead of root.
 			- Cause: the root fallback is built and never used, so an unreadable home retries itself in a loop. The hardcoded root also resolves to the current drive on Windows.
 			- Fixed: it opens root, so an undisplayable home stops retrying.
-			- Test case: none, needs a home that cannot be shown, in a full window.
+			- Test case: none, needs a home that can't be shown, in a full window.
 
 		- ✅ Item 48. The Windows trash test writes past a buffer.
 			- Cause: a 64-bit length is written through a 32-bit pointer, so half of it is stack garbage that then sizes and indexes a buffer.
@@ -6658,7 +6658,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- ✅ Item 50. Typing a UNC path blocks the whole window on a network probe.
 			- Cause: the backslash-to-slash retry does its existence checks on the interface thread, so an unreachable host stalls for the whole network timeout before the location even opens.
 			- Fixed: input that is structurally a `\\host\share` skips the check and goes straight to the asynchronous load.
-			- Test case: none, needs a host that does not answer.
+			- Test case: none, needs a host that doesn't answer.
 
 		- ✅ Item 51. Failed thumbnails are re-decoded on every icon fetch.
 			- Cause: the app records a failure under its own name, which the system's failed flag never reads, so every failed file re-reads and re-decodes an image on each fetch. In list view that is once per row per draw.
@@ -6719,7 +6719,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 		- ✅ Item 64. A trashed-file timestamp is formatted and parsed with a type that truncates on 64-bit Windows.
 			- Fixed: the timestamp is written and read at full width, so the round-trip survives on 64-bit Windows.
-			- Verified on Windows: a freshly recycled file reports a deletion date of the right shape and in this century, which a truncated one would not be.
+			- Verified on Windows: a freshly recycled file reports a deletion date of the right shape and in this century, which a truncated one wouldn't be.
 			- Test case: `test-nemo-trash-win32`, Windows only.
 
 		- ✅ Item 65. An unreadable directory records a confirmed-empty file-type list instead of an unknown one.
@@ -6758,8 +6758,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Fixed: the guard comes first.
 			- Test case: none, null guard only.
 
-		- ✅ Item 74. Skip-all on a delete or directory copy does not mark the file skipped.
-			- Fixed: skip-all marks the file skipped, so the folder is not reported as fully removed.
+		- ✅ Item 74. Skip-all on a delete or directory copy doesn't mark the file skipped.
+			- Fixed: skip-all marks the file skipped, so the folder isn't reported as fully removed.
 			- Test case: none, needs a dialog answered with Skip All.
 
 		- ✅ Item 75. The read-only-destination path frees a null error.
@@ -6796,9 +6796,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 		- ✅ Item 83. The count-based recycle-bin monitor misses same-count changes.
 			- Fixed: the check now also watches total size, so a change that leaves the count the same is noticed.
-			- Verified on Windows: swapping one bin item for a much larger one is reported, while a quiet spell is not.
-			- Learned here: rewriting a bin item's backing file does not move the reported size - Windows answers with the size recorded when the item was recycled. An item leaving and a differently-sized one arriving does move it, which is the case the fix is for.
-			- Test case: `test-nemo-trash-win32` for the monitor, Windows only; the same-count case is not forced.
+			- Verified on Windows: swapping one bin item for a much larger one is reported, while a quiet spell isn't.
+			- Learned here: rewriting a bin item's backing file doesn't move the reported size - Windows answers with the size recorded when the item was recycled. An item leaving and a differently-sized one arriving does move it, which is the case the fix is for.
+			- Test case: `test-nemo-trash-win32` for the monitor, Windows only; the same-count case isn't forced.
 
 		- ✅ Item 84. A static global for the connect-server result is clobbered by concurrent dialogs.
 			- Fixed: the result travels with the request, so two dialogs at once no longer clobber each other.
@@ -6821,7 +6821,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Test case: none, leak only.
 
 		- ✅ Item 89. The unhandled-URI dialog leaks a file reference and tolerates null poorly.
-			- Fixed: released, and a file that is not in the cache is handled.
+			- Fixed: released, and a file that isn't in the cache is handled.
 			- Test case: none, leak only.
 
 		- ✅ Item 90. Launch dereferences the command line with no null check.
@@ -6856,11 +6856,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Fixed: it builds its own files, copies them, and checks the result.
 			- Test case: `test-nemo-copy`.
 
-		- ✅ Item 98. The editable-label test is not wired into any build, so it never runs.
+		- ✅ Item 98. The editable-label test isn't wired into any build, so it never runs.
 			- Removed: it was an interactive demo with no build wiring behind it.
 			- Test case: none, removed test.
 
-		- ✅ Item 99. The config test never makes warnings fatal, so its negative checks cannot fail.
+		- ✅ Item 99. The config test never makes warnings fatal, so its negative checks can't fail.
 			- Fixed: an unexpected complaint now fails the run.
 			- Test case: `test-nemo-config`.
 
@@ -6873,7 +6873,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Test case: none, leak only.
 
 		- ✅ Item 103. The extension simple-button leaks a surface and can use an uninitialized size.
-			- Fixed: released, and the size is seeded so an unknown icon size cannot be read before it is set.
+			- Fixed: released, and the size is seeded so an unknown icon size can't be read before it is set.
 			- Test case: none, extension API with no caller in the tree.
 
 		- ✅ Item 104. Every settings save leaks a full copy of the file into the parser arena.
@@ -6886,7 +6886,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 		- ✅ Item 107. Thumbnail creation falls back to a synchronous stat on the main thread.
 			- Fixed: the fallback lookup happens on the worker instead of the main loop.
-			- Test case: none, which thread does the lookup is not checked.
+			- Test case: none, which thread does the lookup isn't checked.
 
 		- ✅ Item 108. Every mouse-motion event rewrites the whole sidebar tree store.
 			- Fixed: only rows that actually change are touched.
@@ -6915,12 +6915,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 	- ✅ Item 4. "Make Link" on Windows can destroy an existing file, and can crash.
 		- Cause: the shortcut is saved over whatever is already there instead of reporting the clash, so the usual "another link to..." renaming never happens.
-		- Cause: dropping a link onto a location that is not a real folder returns a failure with no message attached, and reading that message crashes.
+		- Cause: dropping a link onto a location that isn't a real folder returns a failure with no message attached, and reading that message crashes.
 		- Fixed: creating a shortcut now refuses to write over anything already at that name and reports the clash, so the existing renaming retry takes over.
 		- Fixed: a link dropped somewhere with no real folder behind it now says so instead of failing silently into a crash.
 		- Verified: a file sitting at the name a new shortcut would take survives, and the clash is reported.
 		- Note: the shortcut test was failing two checks before any of this, on a correct product - it compared a short-form temporary path against the long form the system reports. Fixed alongside.
-		- Test case: `test-nemo-shortcut-win32` for the shortcut round trip, Windows only; the clash refusal is not checked.
+		- Test case: `test-nemo-shortcut-win32` for the shortcut round trip, Windows only; the clash refusal isn't checked.
 
 	- ✅ Item 5. Repairing the thumbnail cache as an administrator can change ownership of unrelated files.
 		- Cause: the repair walks symbolic links instead of skipping them, and changes ownership of whatever they point at.
@@ -6936,7 +6936,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Cause: the "is this folder inside that one" test has its two sides swapped, and reads one byte past the end of the text.
 		- Fixed: the listing always moves on, and an entry that has gone away is left out instead of ending the whole folder.
 		- Fixed: the list has a lock, and the two lookups the background threads use hand back copies rather than pointers into it.
-		- Fixed: entries are stored the other way round, mimetype first, which cannot be split in the wrong place. Entries in the old order are still read, and rewritten on the next change.
+		- Fixed: entries are stored the other way round, mimetype first, which can't be split in the wrong place. Entries in the old order are still read, and rewritten on the next change.
 		- Fixed: blank entries are dropped, and a favorite with no mimetype or an unreachable target still lists and draws.
 		- Fixed: the inside-that-one test compares the right way round and stops at the end of the text.
 		- Verified: the listing always finishes, concurrent reads are safe, and a missing target is skipped rather than ending the listing.
@@ -6956,7 +6956,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Cause: there is no time limit on an external thumbnail program, so one hung file permanently costs a worker slot until restart.
 		- Cause: a failed reload of the thumbnail helper list reads the entry it just freed.
 		- Cause: a very long, very thin image produces no thumbnail and a warning instead of a graceful fallback.
-		- Fixed: a helper that has not finished in 30 seconds is stopped, logged and moved on from, so the slot comes back. Thumbnailing on a one-thread machine no longer ends for the session.
+		- Fixed: a helper that hasn't finished in 30 seconds is stopped, logged and moved on from, so the slot comes back. Thumbnailing on a one-thread machine no longer ends for the session.
 		- Fixed: the reload walk stops at the entry it removed instead of stepping off it.
 		- Fixed: a thumbnail is never asked for at zero pixels wide or tall, so a 5000x1 image thumbnails instead of failing.
 		- Verified: a hung helper gives up its slot inside the time limit, and a very thin image thumbnails. The freed-entry read is invisible at runtime, so it rests on reading the code.
@@ -6973,35 +6973,35 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Test case: `test-nemo-trash-win32`, Windows only.
 
 	- ✅ Item 10. Windows trash items can go missing, and restore can aim at the wrong place.
-		- Cause: items the shell describes in a form the code does not expect are skipped silently, while the item count still includes them.
+		- Cause: items the shell describes in a form the code doesn't expect are skipped silently, while the item count still includes them.
 		- Cause: a long original location is cut short, and the shortened path is what a restore would use.
 		- Note: only reproducible on real Windows. Belongs with the real-Windows validation pass.
 		- Fixed: an item the shell describes in an unexpected form is now reported rather than silently dropped, and the original location is read at full length so a restore aims at the right place.
 		- Note: written and cross-built here, exercised only under wine. Belongs to the real-Windows validation pass.
-		- Test case: `test-nemo-trash-win32`, Windows only; an item in an unexpected form is not forced.
+		- Test case: `test-nemo-trash-win32`, Windows only; an item in an unexpected form isn't forced.
 
 	- ✅ Item 11. The Windows trash monitor can freeze the app.
 		- Cause: it announces changes while still holding its own lock, so a listener that closes or opens a trash view deadlocks.
-		- Fixed: the announcement is made after the lock is released, so a listener that opens or closes a trash view cannot deadlock it.
+		- Fixed: the announcement is made after the lock is released, so a listener that opens or closes a trash view can't deadlock it.
 		- Note: written and cross-built here, exercised only under wine. Belongs to the real-Windows validation pass.
 		- Test case: none, needs a listener that opens a trash view mid-change.
 
-	- ✅ Item 12. Windows network browsing builds wrong addresses and cannot report a failure.
+	- ✅ Item 12. Windows network browsing builds wrong addresses and can't report a failure.
 		- Cause: a share's address is joined to its server without a separator, so shares get malformed addresses and two servers can collide.
 		- Cause: no network, or access denied, looks exactly like an empty network - no message either way.
 		- Cause: any typed network address is presented as a valid empty folder rather than "not found".
 		- Cause: nothing limits how deep the enumeration recurses.
-		- Fixed: a share's address is joined with a separator, no-network and access-denied are reported instead of reading as an empty folder, an address that cannot be reached comes back as not found, and the enumeration is depth-limited.
+		- Fixed: a share's address is joined with a separator, no-network and access-denied are reported instead of reading as an empty folder, an address that can't be reached comes back as not found, and the enumeration is depth-limited.
 		- Verified on Windows: new test covers the address building - a share now sits under its server, and two server/share pairs that used to run together into one address stay apart.
-		- Also verified against real shares: this box serves four of its own, and the test now browses them for real - each comes back as a link to its UNC path, and each is opened to prove the link goes somewhere. The one that does not open is an empty optical drive, which the test names rather than counting against the backend.
-		- Still open: the no-network and access-denied halves. Both need a machine that fails in those specific ways, which this one does not.
+		- Also verified against real shares: this box serves four of its own, and the test now browses them for real - each comes back as a link to its UNC path, and each is opened to prove the link goes somewhere. The one that doesn't open is an empty optical drive, which the test names rather than counting against the backend.
+		- Still open: the no-network and access-denied halves. Both need a machine that fails in those specific ways, which this one doesn't.
 		- Test case: `test-nemo-network-win32`, Windows only.
 
 	- ✅ Item 13. Windows context-menu actions break on ordinary paths.
 		- Cause: "Open as Administrator" passes the folder unquoted, so anything with a space arrives as two separate locations.
 		- Cause: "Open in Terminal" at a drive root passes a trailing backslash that swallows the closing quote.
 		- Fixed: both paths quote properly, so a folder with spaces and a drive root each work.
-		- Verified on Windows: drive roots, UNC roots, spaces and embedded quotes all come out right. The two hand-offs themselves are not covered - one raises a UAC prompt and the other opens a console.
+		- Verified on Windows: drive roots, UNC roots, spaces and embedded quotes all come out right. The two hand-offs themselves aren't covered - one raises a UAC prompt and the other opens a console.
 		- Test case: `test-nemo-view-win32`, Windows only.
 
 	- ✅ Item 14. Opening a Windows shortcut can truncate its target or hang the app.
@@ -7009,7 +7009,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Cause: a shortcut pointing at itself, or at a loop of shortcuts, recurses until the app runs out of stack.
 		- Fixed: the target is read at full length, a chain of shortcuts is followed to its end with a loop guard, and a failed read leaves an error behind.
 		- Verified on Windows: new test creates and reads back a shortcut, including one aimed past the old length limit.
-		- Also found and fixed while checking it: Windows itself refuses to store a target that long, and we were not looking at the answer - so "Make Link" wrote a shortcut pointing at nothing and called it a success. It now refuses and says why, and leaves no file behind.
+		- Also found and fixed while checking it: Windows itself refuses to store a target that long, and we weren't looking at the answer - so "Make Link" wrote a shortcut pointing at nothing and called it a success. It now refuses and says why, and leaves no file behind.
 		- Test case: `test-nemo-shortcut-win32`, Windows only.
 
 	- ✅ Item 15. A duplicated line in the settings file empties a list instead of falling back.
@@ -7032,7 +7032,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ✅ Item 18. A damaged per-folder settings file is discarded without a word, then overwritten.
 		- Cause: a parse failure leaves an empty store, and the next change writes that empty store over the file.
 		- Note: costs every folder's saved view, zoom, sort and layout. A failed save is likewise ignored.
-		- Fixed: an unreadable per-folder settings file is reported and kept aside, so the next change cannot overwrite the only copy.
+		- Fixed: an unreadable per-folder settings file is reported and kept aside, so the next change can't overwrite the only copy.
 		- Test case: `test-nemo-metadata-store` (`test_damaged_file_set_aside`).
 
 	- ✅ Item 19. Setting the thumbnail size limit above two gigabytes breaks thumbnails.
@@ -7044,12 +7044,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Cause: the fallback added for unreadable folders asks for the listing in a way that blocks until the system gives up.
 		- Cause: it also treats any general failure as that same case, so a passing glitch is remembered as a made-up folder with no way to tell.
 		- Cause: a folder with many unreadable entries stops partway and shows an error over a half-listed folder.
-		- Fixed: the fallback for an unreadable folder no longer blocks the window, the skip allowance counts a run rather than a total, and a folder that could not be read is recorded as unknown rather than confirmed empty.
-		- Test case: `test-nemo-directory-load-clean` for a clean load; the fallback for a drive that does not answer is not checked.
+		- Fixed: the fallback for an unreadable folder no longer blocks the window, the skip allowance counts a run rather than a total, and a folder that couldn't be read is recorded as unknown rather than confirmed empty.
+		- Test case: `test-nemo-directory-load-clean` for a clean load; the fallback for a drive that doesn't answer isn't checked.
 
-	- ✅ Item 21. Right-clicking a path segment can offer actions the folder will not allow.
+	- ✅ Item 21. Right-clicking a path segment can offer actions the folder won't allow.
 		- Cause: the menu is now built before the folder's details have loaded, and the unknown state reads as "everything is permitted", so Delete and New Folder appear on read-only places.
-		- Fixed: a path segment whose details have not loaded no longer offers actions the folder may not allow.
+		- Fixed: a path segment whose details haven't loaded no longer offers actions the folder may not allow.
 		- Test case: none, needs a full window.
 
 	- ✅ Item 22. Changing the default zoom discards a zoom deliberately set in another tab.
@@ -7110,10 +7110,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Note: the review said three scripts had diverged output helpers; only one actually had. The others define a single matching helper, which is fine.
 		- Test case: none, script cleanup.
 
-	- ✅ Item 30. A Windows-only test reports a pass when it did not run.
+	- ✅ Item 30. A Windows-only test reports a pass when it didn't run.
 		- Cause: the trash test exits successfully unless it detects the compatibility layer used for development, so on real Windows it silently skips.
 		- Note: that is exactly where items 9 and 10 would have been caught.
-		- Fixed: it reports a skip instead of a pass when it cannot run.
+		- Fixed: it reports a skip instead of a pass when it can't run.
 		- Test case: none, the fix is to `test-nemo-trash-win32` itself.
 
 - ✅ Setting list view to 66% doesn't affect current list view. It should.
@@ -7132,7 +7132,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Fixed as well: window size and position were only written when a window was closed cleanly, so a crash - or the wine launcher replacing the running copy - threw them away. They are now saved shortly after a move or resize settles.
 	- Test case: `test-nemo-config` (`test_persistence`) and `fCheckGeometrySave` in the C lint.
 
-- ✅ Windows via Wine: error message at startup. 'The folder contents could not be displayed.', 'Sorry, could not display all the contents of "<username>": Input/output error.' Mouse cursor also stuck at "busy spinner".
+- ✅ Windows via Wine: error message at startup. 'The folder contents couldn't be displayed.', 'Sorry, couldn't display all the contents of "<username>": Input/output error.' Mouse cursor also stuck at "busy spinner".
 	- Opened: n/a
 	- Closed: 20260725-153058
 	- Reproduced: opening a home folder containing a unix symlink.
@@ -7217,7 +7217,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note 20261005: left for later: calling it from the pipeline, and arm64 `.deb` and `.rpm` packages. It goes behind `--include-arm`, per the note above, since it takes an hour.
 	- Done 20261007: the pipeline builds it with `cicd.bash --include-arm`, after the Windows build, and leaves it out otherwise. `--no-arm` still leaves it out, even beside `--include-arm`. `--no-cross` and `--quick` leave it out with the other cross builds. The plan shown at the start of a run says when arm64 is left out.
 	- Note 20261007: it went in as one more cross build rather than a stage of its own, so the options and the plan that cover cross builds cover it too. The pipeline now fills the version into a cross build's file name, which the arm64 tarball needs.
-	- Note 20261007: arm64 `.deb` and `.rpm` are left out, since they are not a small change. The `.deb`'s dependency versions are read off the build in the x86_64 release container, so an arm64 one needs the arm64 libraries to read them from, on the arm64 box. They can be an item of their own.
+	- Note 20261007: arm64 `.deb` and `.rpm` are left out, since they aren't a small change. The `.deb`'s dependency versions are read off the build in the x86_64 release container, so an arm64 one needs the arm64 libraries to read them from, on the arm64 box. They can be an item of their own.
 	- Note 20261007: moved to their own item, 2026100714244880, so this one closes.
 	- Closed: 20261007-142448
 	- Verified 20261007: rjph39cv and rjph1pxd pass. rjph39cv failed on the pipeline as it was, and with the version left out of the file name. rjph1pxd failed with each of these broken in turn: clearing the old tree on the box, ignored files left out, the stamp passed over, the lock name, the arm64 check, the sums file and stopping the build container.
@@ -7244,7 +7244,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Done 20260925: `install.bash` checks it can write where a user install goes before asking, and a failed download says so in a sentence.
 	- Verified: both installers install, reinstall and uninstall the Linux tarball into a scratch home, in the pipeline's new installer check.
 	- Verified 20261005: install.ps1 runs on Windows in both PowerShell 5.1 and 7, as a user with no admin rights. Version, help, install, reinstall and uninstall all exit 0, and the folder, the PATH entry and the Start menu entry come and go as they should.
-	- Test case: `cicd/linux/test-installers.bash`, `cicd/linux/test-install-download.bash`, `cicd/utility/test-install-path.ps1`, `cicd/win/test-install-holders.ps1`; PowerShell 5.1 is not covered.
+	- Test case: `cicd/linux/test-installers.bash`, `cicd/linux/test-install-download.bash`, `cicd/utility/test-install-path.ps1`, `cicd/win/test-install-holders.ps1`; PowerShell 5.1 isn't covered.
 
 - ✅ "Make link" dialog:
 	- Opened: 20260926-094941
@@ -7279,7 +7279,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- rar kept links as absolute links when asked to follow them, and dropped file links when asked not to keep links.
 		- 7z and rar followed linked folders with that box off.
 		- rar's copy of a duplicate file failed the check before delete, so the originals were never removed.
-		- Compressing each item separately failed the whole job when one item was a linked folder that was not followed.
+		- Compressing each item separately failed the whole job when one item was a linked folder that wasn't followed.
 	- Test case: `test-nemo-archive-combos`, for each format whose program is installed.
 
 - ✅ New menu item: "Edit link" (for all link types).
@@ -7293,7 +7293,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: a changed shortcut loses its item ID list, so Explorer follows it through the portable path. Not yet tried on real Windows.
 	- Test case: `test-nemo-link-edit`, `test-nemo-lnk` (`test_set_paths`, POSIX only).
 
-- ✅ When copying symlinks, make it clear that the option "Symlink" is not creating a new one, but copying the existing link, or link's contents. E.g.
+- ✅ When copying symlinks, make it clear that the option "Symlink" isn't creating a new one, but copying the existing link, or link's contents. E.g.
 	- Opened: n/a
 	- Currently:
 		File symlinks:  [] Symlink  [] Copy
@@ -7326,7 +7326,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: n/a
 	- Closed: 20260925-112355
 	- Done: the vendored `shcl.h` is SHCL 3, from its `dev` branch ahead of the beta tag. Three workarounds for older SHCL are gone: rewriting backslash paths before a save, rebuilding the parser memory past 256 KB, and the exit on out-of-memory.
-	- Keep: a comment is still only added when new, and raw reads still need a fence. SHCL 3 did not change either.
+	- Keep: a comment is still only added when new, and raw reads still need a fence. SHCL 3 didn't change either.
 	- Note: no settings are kept from the old format while in beta. The file is simply started fresh.
 	- Done 20260925-113403: the settings file now ends with SHCL's info block, so a later release can tell which format wrote it before converting.
 	- Test case: `test-nemo-config` (`test_backslash_paths_round_trip`, `test_many_reloads`, `test_oversized_file_refused`), `test-nemo-config-catalog` (`test_older_banner_replaced`, `test_line_after_banner`).
@@ -7336,10 +7336,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Done: hover takes the theme's selection hue, never gray, in the list and both sidebars. It is fainter than a shaded row and well short of a selected one, on light and dark themes alike. A theme that selects in gray gets a soft blue.
 	- Near white there is little room for color, so on a white row the tint is also a little darker. It still reads as pale blue.
 	- `row-hover-color` in the settings file overrides it.
-	- Not done: the text-only effect. It can be its own item if the tint is not enough.
+	- Not done: the text-only effect. It can be its own item if the tint isn't enough.
 	- Test case: `test-nemo-row-hover` (`test_bundled_themes`, `test_gray_selection`, `test_tree_view`).
 
-- ✅ Dialogs should not have titles in the dialogs themselves. The titles belong on the window decoration.
+- ✅ Dialogs shouldn't have titles in the dialogs themselves. The titles belong on the window decoration.
 	- Opened: 20260924-184213. Closed: 20260924-193625.
 	- Note: every dialog with a heading of its own now has its title in the title bar. What is left are alerts, which by long habit have an empty title bar and a bold first line, usually a question such as "Replace file?". Those stay as they are: only title-style headings move.
 	- Test case: none, a layout convention with no code change of its own to pin.
@@ -7356,7 +7356,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ Valid shortcuts to folders sort with folders.
 	- Opened: 20260924-184213. Closed: 20260924-185919.
 	- Done: a shortcut sorts with the folders when it records a folder as its target, which is also what gives it the folder icon. Every platform.
-	- Note: "valid" is taken as a shortcut that reads and says folder. The target itself is not checked, since that can stall on a share that is not answering, so a shortcut whose folder is gone still sorts as a folder until opened.
+	- Note: "valid" is taken as a shortcut that reads and says folder. The target itself isn't checked, since that can stall on a share that isn't answering, so a shortcut whose folder is gone still sorts as a folder until opened.
 	- Verified: a test sorts a folder shortcut ahead of the files and a file shortcut among them.
 	- Test case: `test-nemo-lnk-sort`, POSIX only.
 
@@ -7398,7 +7398,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Closed: 20260924-170600
 	- ✅ Add a setting in preferences to disable it.
 		- Done: a checkbox at the end of Trash on the Behavior page. It is grayed out in a build with the guard forced on.
-	- ✅ Add brief text to the dialogs, explaining why it's there: Because we have a rule to use it for all pre-releases, but is not necessary for this release candidate, and can be disabled in settings.
+	- ✅ Add brief text to the dialogs, explaining why it's there: Because we have a rule to use it for all pre-releases, but isn't necessary for this release candidate, and can be disabled in settings.
 		- Done: the note sits under the headline in every guard dialog, and says where the checkbox is.
 	- Test case: `test-nemo-delete-testguard`, `test-nemo-prefs-widgets` for the checkbox; the note text is wording only.
 
@@ -7459,7 +7459,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Done: every link type and path choice has a tooltip saying what it is good for and where it falls short.
 		- Changed: the "Shortcut paths" row is gone. A shortcut always gets all three paths.
 		- Changed: the title is in the window's title bar, and the line saying where the links go is gone, since it is always the folder in view.
-		- Changed: the "Symlink path" row is hidden when no symlink comes out, but keeps its space so the dialog does not change size.
+		- Changed: the "Symlink path" row is hidden when no symlink comes out, but keeps its space so the dialog doesn't change size.
 	- Test case: `test-nemo-lnk` (parse, resolve, `test_follow`, `test_write`, `test_portable`, `test_icon`), `test-nemo-make-link-job`, `test-nemo-link-edit`, `test-nemo-link-copy`.
 
 - ✅ Allow moving tabs to other nemo-anywhere windows.
@@ -7467,7 +7467,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Each window is its own process by default, and GTK can only move a tab within one process. A move between windows has to be handed over as the tab's location instead.
 	- Done: a tab's right-click menu has "Move tab to", which lists every other window by its title, and a new window. A tab dragged off its tab bar and dropped on another window goes to that window. Dropped anywhere else, it gets a new window, as before.
 	- Done: the folder, the view and the selection go with the tab. Back and forward history stays behind, as it does for any new window. The window that takes the tab comes to the front.
-	- Note: a drop needs to know which window is under the pointer, and Wayland does not say, so there a dropped tab always gets a new window. The menu works everywhere. A search tab cannot be moved, since the search only exists in its own window.
+	- Note: a drop needs to know which window is under the pointer, and Wayland doesn't say, so there a dropped tab always gets a new window. The menu works everywhere. A search tab can't be moved, since the search only exists in its own window.
 	- Note: not tried on real Windows yet.
 	- Swept: a tab dragged out to a new window used to lose its view and selection, and keeps them now. With the one-process setting on, a drop on another window's tab bar still moves the tab itself, history and all.
 	- Test case: `test-nemo-tab-move`, `test-nemo-window-at-point`, `test-nemo-new-process`, `fCheckBusMethods` in the C lint.
@@ -7478,14 +7478,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Pick a size below which a copy skips the clone. See [20260930-145641_moving_and_copying.md](design_docs/20260930-145641_moving_and_copying.md#clone-copies).
 	- Done: on Linux, a file under 64 KiB is read whole and written out plainly, so it is never cloned. 64 KiB is 16 blocks of 4 KiB, and a clone saves less than that below it while the file system keeps track of the shared extent for as long as both copies exist.
 	- Done: the limit is `performance.clone-min-kib` in the settings file, 0 to always clone and 1024 at most. Other platforms have nothing to skip, since only Linux clones on copy there.
-	- Note: an overwrite, a link copied as a link, or anything the plain copy cannot start goes the usual way, so conflicts and errors read the same as before.
+	- Note: an overwrite, a link copied as a link, or anything the plain copy can't start goes the usual way, so conflicts and errors read the same as before.
 	- Swept: copy and paste, drag and drop, and new files made from a template all take the plain copy. A hard link inside an archive is still copied the usual way on extract, where a clone is the closer match. Bookmarks and favorites copy their own small files and were left alone.
 	- Test case: `test-nemo-small-copy` (`check_not_cloned`, `check_modes_and_links`).
 
 - ✅ Put the drag-move scene back in the demo once the delete test guard's compile-time arm is at 0.
 	- Opened: 20260919-161500. Closed: 20260924-083500.
 	- The drag question is one of the better features to show, but while the guard is armed a move on camera brings up its dialog and call stack instead.
-	- The demo lint fails if a drag goes back in while the guard is still at 1, so this cannot be forgotten.
+	- The demo lint fails if a drag goes back in while the guard is still at 1, so this can't be forgotten.
 	- Note: unblocked 20260923. The compile-time arm is 0, and the demo turns the setting off. The lint now fails if a drag goes back in while any of the define, the demo's settings or the default would arm it.
 	- Done: the new archive from the Compress scene is dragged onto Invoices, the question asks, and Invoices is opened to show it there. Other scenes were trimmed to keep the gif under a minute; it is 58.9 seconds.
 	- Test case: none, demo content; `cicd/utility/lint-demo-script.py` fails if a drag goes back in while the guard would arm.
@@ -7500,8 +7500,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Done: the demo turns the setting off, and its lint now reads the demo's settings and the default as well as the define.
 	- ✅ If the guard in armed, skip all redundant native prompts.
 		- Opened: 20260923-065221. Closed: 20260923-162417.
-		- Note: which prompt came up twice was not noted. It was an ordinary one, not one that needs a real choice such as "cannot trash, delete instead?" or the copy links or contents question. Needs steps to reproduce if no obvious one turns up.
-		- Fixed: the drop question for a move. A drag that moves files asked "move these?", then the guard asked about the same move. Armed, the drop no longer asks; a copy still does, since the guard does not cover copies.
+		- Note: which prompt came up twice wasn't noted. It was an ordinary one, not one that needs a real choice such as "cannot trash, delete instead?" or the copy links or contents question. Needs steps to reproduce if no obvious one turns up.
+		- Fixed: the drop question for a move. A drag that moves files asked "move these?", then the guard asked about the same move. Armed, the drop no longer asks; a copy still does, since the guard doesn't cover copies.
 		- Swept: delete, trash, empty trash and the many-items ask were already replaced by the guard. The "cannot trash" and conflict questions need a real choice and stay. If another one shows up twice, reopen with the steps.
 	- ✅ Bug: The list of files can easily be too long for the dialog box.
 		- Opened: 20260923-065221. Closed: 20260923-162417.
@@ -7551,7 +7551,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- "Contents" is now two lines, Folders and Files, each with its hidden count beside it, as in "12 (and 3 hidden)". Both count up live while the folder is walked, and so does Size.
 	- Largest first was left out. The size of each file comes with the listing, so the total is final the moment the listing is, and a second pass in size order would only make it later.
 	- With several items selected, a selected folder counts as one of the folders. A lone folder shows only what is inside it.
-	- The Help button is gone. It opened GNOME help pages, which this project does not have.
+	- The Help button is gone. It opened GNOME help pages, which this project doesn't have.
 	- Test case: `test-nemo-deep-counts`; the removed Help button and the layout are dialog only.
 
 - ✅ Change window title to path (with quotes if it has spaces), then "Nemo Anywhere". Formally:
@@ -7571,7 +7571,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260922. Closed: 20260922.
 	- Already the case since 20260905, with "Open each new window as its own process" on under Behavior, which is the default. Checked again for Ctrl+N and for a tab dragged off the window: each comes up as a new process.
 	- With the setting off, both stay in the one process, as before.
-	- Test case: `test-nemo-new-process`, `test-nemo-instances`; the choice made by the setting is not pinned.
+	- Test case: `test-nemo-new-process`, `test-nemo-instances`; the choice made by the setting isn't pinned.
 
 - ✅ Thumbnail scan progress bars:
 	- Currently wrong: The "displayed" bar goes to 100% quickly, based on what is currently shown, and changes upon scrolling.
@@ -7587,7 +7587,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Placement: Between the "places|treeview|contents" buttons, and the [item count + other info] info in the middle.
 	- Opened: 20260922. Closed: 20260922.
 	- The top bar is how much of the current run of thumbnails is made. The bottom one is how many of the pictures on screen are drawn, in icon view. Hovering over either gives the counts.
-	- They come up only when a run lasts more than a moment, and go away shortly after it ends. The space stays reserved, so the status text does not jump sideways.
+	- They come up only when a run lasts more than a moment, and go away shortly after it ends. The space stays reserved, so the status text doesn't jump sideways.
 	- Test case: `test-nemo-thumbnail-jobs` for the counts; when the bars show is look only.
 
 - ✅ Thumbnails:
@@ -7595,7 +7595,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ✅ Feature: Show thumbnails for PSD format if possible. IIRC the layers are TIFF format, but maybe a special reader is needed.
 		- A small reader of our own. It reads the flattened copy of the picture a .psd or .psb keeps after its layers, so the layers are never read. Grayscale, indexed, RGB and CMYK, 8 or 16 bit. Lab and 32 bit files still show the type icon.
 	- ✅ Bug: When rendering thumbnails, there is often flashing when changing between generic icon, and rendered thumbnail.
-		- Two causes. While a thumbnail was made the icon switched to a "loading" icon, which most themes do not have, so a stand-in flashed in between. And an edited file dropped its old thumbnail for the type icon until the new one was ready. Now the type icon stays until the picture is there, and an edited file keeps its old picture until then.
+		- Two causes. While a thumbnail was made the icon switched to a "loading" icon, which most themes don't have, so a stand-in flashed in between. And an edited file dropped its old thumbnail for the type icon until the new one was ready. Now the type icon stays until the picture is there, and an edited file keeps its old picture until then.
 	- ✅ For photo folders, render a whole folder from top-down (in order listed in the view), rather than on-demand.
 		- A folder of pictures on a local disk gets every thumbnail made once it loads, in view order, behind whatever is on screen. Ones not yet shown go into the cache without being held in memory.
 	- Created 20260921-170804 by JC. Closed: 20260921.
@@ -7609,11 +7609,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The Compress dialog is taller than a 540px screen once Options is expanded, and its buttons fall off the bottom.
 	- Opened: 20260919-161500. Closed: 20260921.
-	- Found while writing the demo, at 960x540. The preferences dialog was checked down to 1024x600 and fits; this one was not.
+	- Found while writing the demo, at 960x540. The preferences dialog was checked down to 1024x600 and fits; this one wasn't.
 	- The options scroll when the screen is too short for them, so the buttons stay on screen. On a taller screen nothing changes.
 	- Test case: `test-nemo-archive-dialog`.
 
-- ✅ On Linux, the new nemo-anywhere icon is not shown for the desktop launcher. And the running program shows a generic "Folder" icon.
+- ✅ On Linux, the new nemo-anywhere icon isn't shown for the desktop launcher. And the running program shows a generic "Folder" icon.
 	- Opened: 20260921-165228
 	- Closed: 20260921.
 	- The app icons were still the old folder-and-submarine. The logo changed on 20260919 and the icons cut from it were never redone. They are now, the Windows exe icon too, and the lint fails if they drift from the logo again.
@@ -7649,7 +7649,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ Put archive extraction menu items nested into a "Extract ..." item.
 	- Opened: n/a. Closed: 20260921.
 	- The three extract items sit under one Extract submenu, in the right-click menu and the Edit menu. It shows only when every selected item is an archive, and the menu setting that hid the three items hides the submenu.
-	- Mount archive stays beside it rather than inside. It browses an archive, it does not unpack one.
+	- Mount archive stays beside it rather than inside. It browses an archive, it doesn't unpack one.
 	- New test: every menu path a setting can hide has to be in the menu files. A wrong path used to fail with no sign.
 	- Test case: `test-nemo-menu-paths`.
 
@@ -7669,7 +7669,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Store the tunables that define "mostly images" in the config file.
 	- Closed: 20260921.
 	- A folder that is mostly images opens in icon view, at the image size, unless it has a view of its own. On by default, with a checkbox under Icon view on the Views page.
-	- The two limits are in the settings file: at least 2 images, and at least 50% of the files. Sub-folders are not counted.
+	- The two limits are in the settings file: at least 2 images, and at least 50% of the files. Sub-folders aren't counted.
 	- Going back to list view by hand in such a folder is saved on it and sticks. With per-folder settings off, the switch lasts for that visit, and the next folder opens in the window's own view.
 	- It only knows once the folder has loaded, so a folder can show in list view for a moment first.
 	- Test case: `test-nemo-image-folder` (`test_wants_icon_view`), `test-nemo-prefs-widgets`, `fCheckImageDefault` in the C lint.
@@ -7712,11 +7712,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Three tables. A file's contents are one record, the names it is known by are another, and a thumbnail hangs off the contents. So a file that moved keeps its thumbnail, and a file nothing can draw is still a record - which is what a duplicate finder would read.
 	- A checksum settles what two records that looked separate really were, and folds them into one. Without one, size and timestamp together are the only guess available.
 	- Checksum settled as blake3 rather than SHA-256: GChecksum's SHA-256 is plain C at 291 MB/s, and OpenSSL's is fast but costs 4.8 MB on the Windows exe for one call. blake3 is vendored under `vendor/blake3`, runs at 2459 MB/s and builds to 65,716 bytes. It checks out against the numbers blake3 publishes, which matters because a checksum written to a file outlives this program.
-	- The cache location is its own choice, not the config one - local AppData on Windows so a thumbnail database does not sync between machines.
+	- The cache location is its own choice, not the config one - local AppData on Windows so a thumbnail database doesn't sync between machines.
 	- WebP is out: the Windows sysroot has no webp pixbuf loader, and gdk-pixbuf only ever writes png, jpeg, tiff, ico and bmp. Transparency means PNG.
 	- The checksum goes on the file in the three attributes asked for, checked from outside the program so the names really are `user.blake3.b64u`, `.bytes` and `.mtime`. On Windows they are alternate data streams, and that half passes on an NTFS drive. It passes under wine too, but for the wrong reason: a colon is an ordinary character in a Linux filename, so wine writes a second file beside the first.
 	- Thumbnails are read from the store and written to it. The freedesktop cache is still read when the store has nothing, and never written. Each one is kept at the largest size it has been shown at, and made again bigger when a zoom asks for more.
-	- A file that could not be drawn is remembered, so it is not tried again every launch.
+	- A file that couldn't be drawn is remembered, so it isn't tried again every launch.
 	- The settings are on the Preview page, under Thumbnail cache: the four asked for, a line saying how many thumbnails there are and the space they take, and the two buttons. Emptying asks first. The pruning schedule stays in the config file.
 	- [save checksum] is off by default. Its tooltip says it is fairly cheap, and that the changed ctime can wake a backup tool, though most ignore it (settled 20260921).
 	- With it on, a checksum is written onto a file when its thumbnail is made. Files already in the cache get one the next time they are drawn again.
@@ -7763,9 +7763,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- **A folder remembers both sizes, not one.** What it should look like full of pictures, and what it should look like otherwise. Zooming sets whichever matches what is in the folder at the time, so zooming a gallery never moves the size its plain sibling opens at.
 		- **Both sizes inherit, and the child picks between them by what is in the child.** One setting on a photo library gives every album under it the big size, while a folder of notes filed in the same tree still opens small. Where a parent only ever had one of the two set, the other falls back to its default (settled 20260920).
 		- Done 20260920, first part: sizes are pixels and the seven-value zoom enum is gone. The named steps are stops the slider marks and Zoom In and Zoom Out move between, the slider reaches everything in between, the range runs to 640, and both defaults are a percent. A saved size is pixels, and one saved before the change is told apart by being too small to be a real size.
-		- Done 20260920, second part: a folder of pictures opens at 500%. The count is taken once the folder has loaded, since that is the first moment anything is known about what is in it, and the size is never written back - a folder with nothing of its own keeps following the setting, and in a window that is not remembering per folder the bigger size does not follow you into the next folder.
+		- Done 20260920, second part: a folder of pictures opens at 500%. The count is taken once the folder has loaded, since that is the first moment anything is known about what is in it, and the size is never written back - a folder with nothing of its own keeps following the setting, and in a window that isn't remembering per folder the bigger size doesn't follow you into the next folder.
 		- Done 20260920, third part: the pair, and its inheritance. A folder keeps a second remembered size for when it is full of pictures, and everything that reads or writes a size picks between the two by what is in the folder. Inheriting needed nothing of its own, since a child already reads its parent's whole set and now asks it for the key that matches itself.
-		- The size rows in preferences are spin boxes now, and the image one sits beside the icon view row on both the Default and the Current tab. A seven-entry combo could not hold 500%.
+		- The size rows in preferences are spin boxes now, and the image one sits beside the icon view row on both the Default and the Current tab. A seven-entry combo couldn't hold 500%.
 		- The whole rule is under "Icon sizes" in design.md.
 		- The list view stays on the stops. Its own item covers what taking any size would need.
 		- Found while looking, and not part of this: the desktop range is five steps where everything else is seven, so clamping to the widest range puts the desktop outside its own table.
@@ -7785,7 +7785,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Merged with "Path in window title: Show the whole thing, rather than shortened version, if it will fit" (opened 20260919-083140), which asked for the window half of the same thing.
 	- The tab in front is no longer held to the width cap, so it spells its path out whenever the row can spare it. The tabs behind stay capped and take the same step as each other, and they shorten until the one in front fits. It gives way only after they have nothing left.
 	- The order above wins over the one settled on 20260918, which put initials first. Folder names with an ellipsis in the middle now outrank them, so the initials form only turns up on a shallow path where an ellipsis would cost more than the folders it replaces.
-	- The window title had a flat 52-character cut. It measures the path against the window's own width now, less room for the icon and buttons, and works it out again on every resize. A title bar's real width cannot be read, so this is a guess, but it tells a path that obviously fits from one that does not.
+	- The window title had a flat 52-character cut. It measures the path against the window's own width now, less room for the icon and buttons, and works it out again on every resize. A title bar's real width can't be read, so this is a guess, but it tells a path that obviously fits from one that doesn't.
 	- Test case: `test-nemo-path-forms` (`nemo_path_forms_fit`, `nemo_path_form_for_width`).
 
 - ✅ Archive:
@@ -7817,7 +7817,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Closed: 20260919-132409
 	- Done: cppcheck is pinned in `config.bash`, and drift warns. Fetch and pull go through `gitsby raw git` where it is installed.
 	- Done: `nemo-build` and `nemo-winbuild` are made from their Dockerfiles when missing. A fresh clone's gate used to skip every stage with a warning.
-	- Verified: the pin warned when set wrong. A throwaway container made from scratch ran a command, and a throwaway cross container built all 402 targets. The image builds themselves were not rerun.
+	- Verified: the pin warned when set wrong. A throwaway container made from scratch ran a command, and a throwaway cross container built all 402 targets. The image builds themselves weren't rerun.
 	- Test case: none, pipeline setup.
 
 - ✅ Row visualization enhancement:
@@ -7878,7 +7878,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ If preferences is too small to show everything, make the scrollbar always visible.
 	- Opened: 20260918-163716
 	- Closed: 20260918-170628
-	- Every scrolled area in the dialog, the page list included, now uses a normal scrollbar. It shows whenever something does not fit, and not otherwise.
+	- Every scrolled area in the dialog, the page list included, now uses a normal scrollbar. It shows whenever something doesn't fit, and not otherwise.
 	- Test case: `test-nemo-prefs-dialog` (no overlay scrolling).
 
 - ✅ Hi-DPI testing: Make sure preferences dialog box fits on the screen. (Or shrink and use scrollbars if not.)
@@ -7886,16 +7886,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Closed: 20260918-233500
 	- Checked on Linux at nine screen sizes and scales, from 1920x1080 down to 1024x600 at 2x, and with text alone scaled to 125%, 150% and 200%, which is what Windows does.
 	- It already fits every time. The dialog is capped at nine tenths of the screen, and both the page list and the page scroll once it is that tight.
-	- No change made. The scrollbars stay hidden until the mouse moves over them, which at 2x can make the page list look cut off when it is not.
+	- No change made. The scrollbars stay hidden until the mouse moves over them, which at 2x can make the page list look cut off when it isn't.
 	- Test case: `test-nemo-prefs-dialog` (size cap and text scale).
 
 - ✅ Make extra sure that deleting symlinks, junctions, and [.desktop, and .lnk] files only delete or trash the links, and NEVER the contents inside (e.g. never the contents inside a Windows junction). A strict "Don't follow" policy, no matter where they are encountered in a tree to be deleted, and not a user setting that can be changed.
 	- Opened: 20260908-021923 by JC.
 	- Closed: 20260918-213000
-	- Note: clearing an extract's staging folder on Windows went into a junction and deleted what it pointed at. Fixed, with a check. The delete job itself has not been checked against a junction yet.
+	- Note: clearing an extract's staging folder on Windows went into a junction and deleted what it pointed at. Fixed, with a check. The delete job itself hasn't been checked against a junction yet.
 	- Found: Windows calls a junction a plain folder. Three walks trusted that and would go into one: deleting a folder from the Recycle Bin, replacing a folder on a copy, and a generic empty-trash walk. The first was real. On Windows, taking a recycled folder that held a junction out of the bin deleted what the junction pointed at, and so did a junction recycled on its own. Seen on b29w.
 	- Found: a move to another drive, told to take a link's contents, would have moved them out of the folder the link points at. design.md says moves never follow links, so a move now always takes the link, and the dialog greys out the copy option on a move.
-	- Fixed: one check for "a real folder, not a link", used by every walk that removes things. The delete job asks it too, before it would ever walk into something that would not delete on its own. Lint fails any new walk that does not ask.
+	- Fixed: one check for "a real folder, not a link", used by every walk that removes things. The delete job asks it too, before it would ever walk into something that wouldn't delete on its own. Lint fails any new walk that doesn't ask.
 	- Tests: a new test runs the real delete and move jobs on a folder holding a folder link, a file link and a shortcut, and checks the target survives. A new Recycle Bin case covers the junction, and failed on the old code on b29w. `.desktop` and `.lnk` files were already removed as plain files.
 	- Not tested yet: a move of a junction to another drive. b29w has one drive. vm925w has two, so the move test runs there when it is back up.
 	- Test case: `test-nemo-link-delete-job`, `test-nemo-delete-from-trash`, `test-nemo-trash-win32` (`test_junction_in_bin`, Windows only), `fCheckTreeWalks` in the C lint.
@@ -7926,7 +7926,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ Archive dialog: Add an option - off by default - to delete what contents were archived, once archive is successfully created, and contents verified by relative pathname and file sizes.
 	- Opened: n/a
 	- Closed: 20260917-233000
-	- "Delete the originals once the archive checks out", last in the Options expander, off by default. It is greyed for a split archive, since one volume will not open on its own and there is nothing to check.
+	- "Delete the originals once the archive checks out", last in the Options expander, off by default. It is greyed for a split archive, since one volume won't open on its own and there is nothing to check.
 	- Verifying reads the archive back with the library and walks the selection again, separately from the walk that wrote it. Every file has to be there under the same relative path at the same size. A folder counts as there when anything inside it is, since a writer may leave the folder entries out.
 	- Anything the walk had to pass over - a dangling link, a linked folder the options said not to follow, a socket - means the archive was never offered all of it, so nothing is deleted whatever does read back.
 	- What passes goes through the ordinary trash-or-delete, so it asks again and goes to the trash rather than being gone for good.
@@ -7951,9 +7951,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Name's hundred-pixel floor is gone. The header text is the only floor now.
 		- A hand drag lasts while the folder is in view. `list-view.column-max-widths` is gone. A minor column's width is saved with the folder's settings instead, when "Remember per-folder settings" is on.
 	- Two places where the section was at odds with itself, built the way that reading of it makes sense and reworded in design.md on 20260917 to say so:
-		- Fixed-width columns were said not to be resizable by hand, and were then given a rule for what a hand resize does. They are not resizable, and that stale resize line is gone.
+		- Fixed-width columns were said not to be resizable by hand, and were then given a rule for what a hand resize does. They aren't resizable, and that stale resize line is gone.
 		- The minor class pointed at the primary class's "Default width if room" for a formula and a percentage, but that rule has no percentage in it. It points at "Min width" now: a minor column is at the 50% share at its narrowest, the `list-view.column-fit-percent` share by default, and all of its values at its widest.
-	- Settled 20260916: "Remember per-folder settings" is a new setting rather than a missing one, specced on the "Changes to Preferences|Views" item. Until it is built, the clause it gates cannot be implemented.
+	- Settled 20260916: "Remember per-folder settings" is a new setting rather than a missing one, specced on the "Changes to Preferences|Views" item. Until it is built, the clause it gates can't be implemented.
 		- Per-folder view state already persists as file metadata - visible columns, column order, sort column and direction, zoom, view type. Column widths are the one thing not stored, so that key has to be added.
 	- Note 20260917: "Remember per-folder settings" is built, so this is no longer blocked.
 	- Done: the three classes, the row split and the drag rules match the section. Ext counts as a minor column rather than a fixed one, every column gets a character of air on its right, and Name and Location share what is left of the row instead of Location taking it all.
@@ -7980,14 +7980,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Closed: 20260917-093148
 	- Note: the tree view part is its own item, under Done.
 	- Decided 20260917:
-		- "Remember per-folder settings" replaces "Ignore per-folder view preferences". While it is off, saved folder settings are not read and nothing new is saved.
+		- "Remember per-folder settings" replaces "Ignore per-folder view preferences". While it is off, saved folder settings aren't read and nothing new is saved.
 		- "Inherit view settings from parent" replaces "Inherit view type from parent". It covers all view settings, taken from the nearest parent folder that has some saved, else Default.
 		- The Current tab follows the folder in the last focused window, and shows its path.
 		- The Current tab shows what the folder actually uses. Changing a value saves the whole set for that folder and applies it at once. A "Forget" button clears what is saved.
 	- Done:
 		- Views has the two checkboxes on top, then Default and Current tabs with the same controls. The copy button sits at the right of the tabs and names the other tab. Forget shows on Current only.
 		- Folder view, sort, reverse, folders first, favorites first, the three zoom levels, text beside icons, same-width columns and folder expanders are all kept per folder now. The last five used to be global only.
-		- "Ignore per-folder view preferences" is gone from Behavior. The two replaced lines in an old settings file are not read.
+		- "Ignore per-folder view preferences" is gone from Behavior. The two replaced lines in an old settings file aren't read.
 		- Opening a folder saves nothing. Only a real change does.
 		- Changing a default no longer drops the zoom of a folder that remembers its own. It still does while remembering is off. This changes the fix for item 22 of the 20260804 review, which predates the Current tab.
 	- Test case: `test-nemo-folder-settings`, `test-nemo-prefs-widgets`.
@@ -8001,7 +8001,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ The tree view shows folders only, and a folder with no sub-folders has no expander. From "Changes to Preferences|Views".
 	- Opened: 20260916-120249
 	- Closed: 20260917-060256
-	- The "Show only folders" setting and its "Tree view defaults" section are gone. A settings file that still has the line is not harmed; it is just not read.
+	- The "Show only folders" setting and its "Tree view defaults" section are gone. A settings file that still has the line isn't harmed; it is just not read.
 	- Folders in view are checked in the background, one at a time, for any sub-folder. Shares are skipped and keep their expander until opened.
 	- No "(Empty)" row any more. Opening a folder that turns out to have nothing to show removes its expander.
 	- Left: turning hidden files off with such a folder open. Filed under Bugs.
@@ -8022,7 +8022,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Created: 20260916-112242 by JC.
 	- Closed: 20260916-193258
 	- Done: both panes show at once, each with its own remembered width. Places holds its width when the window is resized. The tree opens at twice the places width. The two buttons are back on the bottom-left as independent on/off toggles, with "Show contents only"/"Full view" beside them, and the View menu entries are toggles now rather than a radio pair.
-	- Left: the tree does not share a resize in proportion with the content panes. Filed as a bug under Bugs. Fixed since.
+	- Left: the tree doesn't share a resize in proportion with the content panes. Filed as a bug under Bugs. Fixed since.
 	- Fixed on closing: resizing the window saved the scaled tree width as the remembered one, so a narrow window shrank the tree in every later window too. Only a drag of the divider saves it now.
 	- Test case: `test-nemo-pane-layout`, `test-nemo-proportional-paned` (`check_only_a_drag_is_placed`); the two separate toggles need a full window.
 
@@ -8031,14 +8031,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Closed: 20260916-122542
 	- It depended on the folder. A place whose folder wants a different view type lost the focus, and one that reuses the view kept it, since only a new view is connected to the window.
 	- Connecting a content view always grabbed the focus. It now leaves it alone while the sidebar holds it, so the keyboard stays on the place that was clicked.
-	- Startup still puts the focus on the view, where the sidebar has not taken it yet. The tree view was never affected, which is why it already behaved.
+	- Startup still puts the focus on the view, where the sidebar hasn't taken it yet. The tree view was never affected, which is why it already behaved.
 	- Test case: `test-eel-focus-guard`, `fCheckSidebarFocus` in the C lint.
 
 - ✅ Fuzz the parsers that read untrusted input.
 	- Opened: 20260908-133615
 	- Closed: 20260916-104101
 	- Three targets, one for each parser that is ours to fix: the settings file, the drag payload, and the command lines kept in the config.
-	- The item named four parsers, and two of them turned out not to be ours. The settings parser is vendored and `.desktop` files go through GLib, so a find in either is a report upstream rather than a patch here. `.lnk` files are read by Windows itself, which leaves nothing to fuzz and could not run on the Linux host anyway.
+	- The item named four parsers, and two of them turned out not to be ours. The settings parser is vendored and `.desktop` files go through GLib, so a find in either is a report upstream rather than a patch here. `.lnk` files are read by Windows itself, which leaves nothing to fuzz and couldn't run on the Linux host anyway.
 	- Each target builds two ways. Ordinarily it replays a checked-in seed corpus as part of the suite, which keeps it compiling and keeps the seeds meaning something. With `-Dfuzzing=true` it builds against libFuzzer and the pipeline searches for a bounded time per target.
 	- The replay tests build with AddressSanitizer themselves. Without it they passed clean with a known over-read put back, which made them worth nothing; with it the drag payload test catches it.
 	- A time budget running out is a pass. A find exits on a code of its own and leaves the input behind, so the two can never be mistaken for each other.
@@ -8055,11 +8055,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Fixed: every read the unwinder is about to make is checked first. A frame that points at nothing ends the walk with a note, and the frames before it stay in the report.
 	- A stack that unwinds to itself fills the report with sixty-four identical lines, which reads the same as genuine deep recursion.
 		- Fixed on Windows: the walk stops with a note once a frame fails to move up the stack.
-	- On Linux a jump to a null pointer recovers only two frames, because the backtrace call cannot start from an address with no code at it. The handler is already handed the register state that would recover the caller and throws it away.
+	- On Linux a jump to a null pointer recovers only two frames, because the backtrace call can't start from an address with no code at it. The handler is already handed the register state that would recover the caller and throws it away.
 		- Fixed: the caller and everything above it are in the report now.
 	- The signal is handed back with a raise, which puts the reporter's own frame on top of the core file. Only a signal that was really sent needs that; a fault could simply be allowed to happen again, and the difference is in what the handler is told.
-		- Fixed: a real fault happens again with no handler in place. A sent signal is still raised, and its report no longer gives an address it does not have.
-	- A stack overflow has never been seen to produce a report on either platform - it cannot be driven under the emulator. Needs a run on real hardware before the claim stands.
+		- Fixed: a real fault happens again with no handler in place. A sent signal is still raised, and its report no longer gives an address it doesn't have.
+	- A stack overflow has never been seen to produce a report on either platform - it can't be driven under the emulator. Needs a run on real hardware before the claim stands.
 		- Linux reports one now, and a check covers it.
 	- Every case now passes on a real Windows box too, stack overflow included.
 		- The check itself had never passed there. It read the report path with the line ending still on it.
@@ -8070,7 +8070,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Closed: 20260915-161437
 	- The Windows gate runs lints, build and the launch smoke, but not the suite. That half of the Linux pipeline item was left open rather than guessed at.
 	- Blocked on there being nowhere to run it: neither Windows box holds a checkout at all, so nothing can be built or tested there as things stand.
-	- The cross build is not a stand-in. Run against the emulator the same suite gives six failures and a timeout, and the keyboard and parts of the shell do not behave there, so a green run would prove nothing and a red one would say nothing either.
+	- The cross build isn't a stand-in. Run against the emulator the same suite gives six failures and a timeout, and the keyboard and parts of the shell don't behave there, so a green run would prove nothing and a red one would say nothing either.
 	- The full Windows pipeline and the gate both run the suite before the smoke test now, and both pass on a Windows box.
 	- Four tests need a monitor, and skip when there is none, as over ssh.
 	- Test case: none, pipeline setup.
@@ -8079,7 +8079,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260914-173549
 	- Closed: 20260915-152159
 	- The launchers this project installs already say Nemo Anywhere. The man page still named the Cinnamon file manager, and now names this one.
-	- The "File Manager" menu entry on the XFCE box is the desktop's own launcher for whatever file manager is preferred, which is set to the dogfood launcher. It is not a file from this project, and it is left alone.
+	- The "File Manager" menu entry on the XFCE box is the desktop's own launcher for whatever file manager is preferred, which is set to the dogfood launcher. It isn't a file from this project, and it is left alone.
 	- Test case: none, wording only.
 
 - ✅ Searching through a search folder has no test.
@@ -8129,7 +8129,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ A crash leaves a report behind.
 	- Opened: 20260903-130431
 	- Closed: 20260909-090725
-	- Done: a crash now writes a report next to the settings file, under `crash/`. It has the version, what killed it, and the stack. The same text goes to stderr, which is what a launcher log keeps, and on Windows a message box says where the file is, since a windowed build has no stderr. The next start notes a report was left behind, and the oldest are dropped so the folder cannot grow forever.
+	- Done: a crash now writes a report next to the settings file, under `crash/`. It has the version, what killed it, and the stack. The same text goes to stderr, which is what a launcher log keeps, and on Windows a message box says where the file is, since a windowed build has no stderr. The next start notes a report was left behind, and the oldest are dropped so the folder can't grow forever.
 	- Note: split from "Randomly crashes", which stays open until a report shows the cause.
 	- Test case: `test-nemo-crash` (`check_sweep` for the startup note and the oldest dropped).
 
@@ -8141,7 +8141,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Windows shortcuts get the same treatment the Linux menu entry already had. A Start Menu or taskbar link aimed at this app is repointed at the current launcher and icon, and one is created if there is none. Both dev boxes had a link to a launcher path and an exe drop that were retired weeks ago, so clicking it did nothing.
 	- The old by-self exe drop is swept on sight, wherever a run finds one.
 	- The desktop step no longer waits on a successful launch, so a box with no build yet still gets its shortcut fixed.
-	- A launcher run from outside its deployed home writes no shortcut at all, rather than one naming a path that will not last.
+	- A launcher run from outside its deployed home writes no shortcut at all, rather than one naming a path that won't last.
 	- Both dev Windows boxes were swept: the stale run log and the last 38 MB copy from the old pool are gone, and each Start Menu and taskbar link now names a launcher and an icon that exist.
 	- Note: `exec/synced/util` is a link into the live synced tree on at least one box. Anything swept under a path that looks local can be the real file, and the sync layer then spreads the delete everywhere.
 	- A shortcut or menu entry now records the wrapper's deploy-managed path rather than whatever a PATH lookup returns. On one box PATH reached the file through two chained links, and the shortcut kept that spelling; both boxes name the plain path now.
@@ -8178,8 +8178,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ Add default user-tunable settings as comments to config file.
 	- Opened: n/a
 	- Closed: 20260906-085903
-	- Done 20260906. The settings file ends with every key that is not set, commented out, with the value used instead. Uncommenting a line sets it; setting a key takes it off the list.
-	- Notes were rewritten to say only what a user would see, and dropped entirely where the key name already says it - which is about half of them. The list in the code and the bundled schema are checked against each other so the two cannot drift.
+	- Done 20260906. The settings file ends with every key that isn't set, commented out, with the value used instead. Uncommenting a line sets it; setting a key takes it off the list.
+	- Notes were rewritten to say only what a user would see, and dropped entirely where the key name already says it - which is about half of them. The list in the code and the bundled schema are checked against each other so the two can't drift.
 	- Left off the list: keys the app writes back itself, such as a window size, a sidebar width or the last state of a search toggle. Setting one by hand only gets it overwritten.
 	- Two keys that nothing had read since the fork were dropped.
 	- Test case: `test-nemo-config-catalog`, `test-nemo-config-schema`.
@@ -8200,7 +8200,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Only give 'Name' and 'Location' columns as much space as they need, not more.
 		- Only if they run out of space, shrink column proportional to their space demanded.
 			- But never one more than 2x the other.
-	- Done 20260905. Search results now leave the rest of the row empty rather than stretching Name across it. When the two do not both fit they give in proportion to what they asked for, and neither ends more than twice the width of the other unless the narrower one did not want the extra.
+	- Done 20260905. Search results now leave the rest of the row empty rather than stretching Name across it. When the two don't both fit they give in proportion to what they asked for, and neither ends more than twice the width of the other unless the narrower one didn't want the extra.
 	- Dragging either column still pins the split, as before, and the pair then fills the row again. Clearing `search.name-location-split` in the settings file goes back to fitting the contents.
 	- Note: This may contradict the latest canonical column-sizing definition in 'design.md' under the section "List view column widths", as of 20260916-113519.
 	- Test case: none, replaced by the column width rules, which `test-nemo-column-layout` covers.
@@ -8215,7 +8215,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260722-172504
 	- Closed: 20260905-102753
 	- Done 20260905. Every launch and, by default, every new window is its own process. A command-line launch never joins a running copy, so two versions run side by side. `--quit` and Close All Windows still reach every copy.
-	- A setting under Behavior puts new windows back inside one process. The trade: a tab cannot move to a window in another process, and on Windows a new window takes the packed exe's start-up time.
+	- A setting under Behavior puts new windows back inside one process. The trade: a tab can't move to a window in another process, and on Windows a new window takes the packed exe's start-up time.
 	- Test case: `test-nemo-instances`, `fCheckNoSessionRegister` in the C lint.
 
 - ✅ Wire the Linux release lane into the pipeline engine itself, rather than leaving it a script to remember to run by hand.
@@ -8238,14 +8238,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Closed: 20260903-185727
 	- Read as a display mode, not another scope switch - the search bar already has a toggle for recursing into subfolders.
 	- Done 20260903. A toggle beside the recurse one groups results under the folder holding them, labeled with the path under the folder searched. Flat is still the default.
-	- Grouped drops the Location column, since the row above every match already says where it is. Switching either way is instant and does not run the search again.
+	- Grouped drops the Location column, since the row above every match already says where it is. Switching either way is instant and doesn't run the search again.
 	- Test case: `test-nemo-search-group`.
 
 - ✅ Confirm mouse-movement-based actions that don't already ask for some kind of confirmation. (E.g. drag and drop to a new folder)
 	- Opened: 20260730-112038
 	- Closed: 20260903-174842
 	- Note: a major enhancement to call out in README, e.g.: "Helps prevent one of the biggest pain points with GUI file managers: Accidental file & folder moves, sometimes without realizing it."
-	- Done 20260903. A drop now names what it is about to do and where, and waits for an answer. Two settings under Behavior: moves ask by default, copies and links do not.
+	- Done 20260903. A drop now names what it is about to do and where, and waits for an answer. Two settings under Behavior: moves ask by default, copies and links don't.
 	- Covers every drop that moves files: the file list, the icon view, both sidebars, the path bar and the tabs. A drop on the Trash still asks under its own setting, not twice.
 	- Test case: `test-nemo-drag-confirm` for the rule; not that every drop place asks it.
 
@@ -8285,7 +8285,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260802-011216
 	- Closed: 20260903-120000
 	- Clicking into the file list, the sidebar or anywhere else puts the buttons back.
-	- Switching to another program does not, so a half-typed path survives the trip.
+	- Switching to another program doesn't, so a half-typed path survives the trip.
 	- No effect when the entry is the permanent choice in preferences.
 	- Test case: `fCheckEntryFocusOut` in the C lint.
 
@@ -8301,7 +8301,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ In find mode the status bar shows the whole path rather than just the name.
 	- Opened: 20260730-112038
 	- Closed: 20260903-120000
-	- Only for search results, where a name on its own does not say which file was found. Ordinary folders still show the name.
+	- Only for search results, where a name on its own doesn't say which file was found. Ordinary folders still show the name.
 	- Test case: `test-nemo-status-name`.
 
 - ✅ A value too long for its column gets a mouseover tooltip with the whole value.
@@ -8336,7 +8336,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260829-071437
 	- Closed: 20260902-193949
 	- What works today: a window can be photographed without disturbing anything (it is rendered off-screen, even behind other windows), and most behavior can be driven through the settings file, which is live-reloaded. Clicks and typing reach the app but take the mouse and the focus while they run.
-	- Windows Sandbox is the way: a throwaway Windows built from the host's own image, so no second license, started from a small config file with a shared folder. A logon command inside it runs on its own desktop, which is exactly where the driving script has to be. It keeps no state and cannot reboot, so anything that spans a reboot still wants a Hyper-V guest (Hyper-V is already on; the guest would need an Enterprise evaluation image).
+	- Windows Sandbox is the way: a throwaway Windows built from the host's own image, so no second license, started from a small config file with a shared folder. A logon command inside it runs on its own desktop, which is exactly where the driving script has to be. It keeps no state and can't reboot, so anything that spans a reboot still wants a Hyper-V guest (Hyper-V is already on; the guest would need an Enterprise evaluation image).
 	- The rig is in: `cicd/win/sandbox.ps1` stages a shared folder with the app, generates the config and launches the sandbox; `sandbox-agent.ps1` runs at logon in there and works through queued job scripts, writing its results back to the share. `cicd/win/gui.ps1` is the window driver both sides use.
 	- `-Dir` takes a whole flattened build instead of the packed exe, so a rebuild can be looked at without packing first. That is the form to use while working.
 	- First run inside is clean: the app came up with its menus, icons and columns, and the first-run bookmark seeding worked on a profile that had never seen it.
@@ -8354,7 +8354,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260831-164337
 	- Closed: 20260902-190000
 	- Opening from the file list, or from the first menu item, was already right: both files reach the running editor.
-	- The Open With submenu was not. Everything on that list comes from the toolkit rather than from nemo's own reading of the registry, and those entries were started a different way - directly, as a child of nemo.
+	- The Open With submenu wasn't. Everything on that list comes from the toolkit rather than from nemo's own reading of the registry, and those entries were started a different way - directly, as a child of nemo.
 	- Two things went wrong because of it. In the packed build the editor came up with a blank window, because a program started as our child inherits the packing, and it also inherited nemo's own environment rather than the user's.
 	- Fixed: anything with a command line behind it is now started the same way, whichever list it came from. A store app is the one kind that has none, and still goes the old way.
 	- Checked in both builds: the editor is started by the desktop rather than by nemo, comes up normally, and both files open in the one window.
@@ -8367,9 +8367,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- File symlinks as: symlinks, or copies.
 		- Folder symlinks as: symlinks, junctions [Windows], or copies.
 		- Folder junctions [Windows] as: junctions, symlinks, or copies.
-	- Anything the destination cannot take is greyed out. Junction-related options not shown for non-Windows OSes. Each row starts on the same kind if that is possible, otherwise the nearest kind that still points at the original target, otherwise copies.
-	- Done, and on every platform. The dialog names only the kinds the source actually holds, and grays out anything the destination cannot take - including the case where it can take none, where it says why and only the copy is left.
-	- Windows had the real gap: a copy always followed the link and left the contents behind, so a link could not be copied at all. POSIX already kept symlinks; what is new there is being able to ask for the contents instead.
+	- Anything the destination can't take is greyed out. Junction-related options not shown for non-Windows OSes. Each row starts on the same kind if that is possible, otherwise the nearest kind that still points at the original target, otherwise copies.
+	- Done, and on every platform. The dialog names only the kinds the source actually holds, and grays out anything the destination can't take - including the case where it can take none, where it says why and only the copy is left.
+	- Windows had the real gap: a copy always followed the link and left the contents behind, so a link couldn't be copied at all. POSIX already kept symlinks; what is new there is being able to ask for the contents instead.
 	- The kind of a Windows link comes from the reparse tag. Nothing else tells a junction from a folder symlink, and it also keeps cloud placeholders and store app aliases - which are reparse points too - from being read as links.
 	- A link keeps its own spelling, so a relative one still points where it pointed. Asking for a junction is the exception: those can only name a full path, so a relative target is resolved first.
 	- A link now counts as one item in the copy rather than a folder to walk into, which is what POSIX always did and Windows never did.
@@ -8382,16 +8382,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- The toolkit does drive a drag on Windows, but the file formats other programs read were never filled in on its side, and there is no way to add them from outside it. So the drag is ours now, the way the clipboard is.
 	- Done. A drag out of either view has what Explorer's own drags have, so other programs read it. Checked in the running app both ways: dropping on Explorer, dropping a text file on an editor, and dragging inside nemo, which still moves files as before.
 	- A move out to another program now removes the original, unless that program moved it itself or the drop came back into nemo. Control copies and shift moves, the way Windows does it.
-	- Drops coming the other way, from another file manager into nemo, copy and move too. They always copied before: nothing is known about a file dragged in from elsewhere, so nemo could not tell whether it was on the same drive and fell back to copying every time.
+	- Drops coming the other way, from another file manager into nemo, copy and move too. They always copied before: nothing is known about a file dragged in from elsewhere, so nemo couldn't tell whether it was on the same drive and fell back to copying every time.
 	- Checked against Directory Opus in both directions, and between two nemo windows: a plain drag moves within a drive, control copies, shift moves.
 	- Test case: `test-nemo-dnd-win32` (Windows only), `test-nemo-drop-action`; removing the original after a move out needs a real drop.
 
 - ✅ Move all Windows-related options to a "Windows" preferences pane; and in the config file, to a grouped section.
 	- Opened: 20260831-164337
 	- Closed: 20260901-183000
-	- Some cannot move. Such as "Owner" in list columns.
+	- Some can't move. Such as "Owner" in list columns.
 	- The page has Light and dark, Theme, Paths, Hidden files and Search, and takes the slot Appearance used to have. It is hidden everywhere else, so Linux no longer offers theme or light/dark settings - those come from the desktop there. The keys still work if hand-edited.
-	- "Shortcuts" stayed on Display: .desktop launchers hide their extension too, so it is not a Windows-only setting.
+	- "Shortcuts" stayed on Display: .desktop launchers hide their extension too, so it isn't a Windows-only setting.
 	- Hidden files is a new group with two switches, for the native hidden attribute and for dot names. Both stay on the View menu on Windows, where Show Hidden Files moves the pair together; elsewhere the menu keeps the one meaning it has always had.
 	- Config keys moved to a `windows` group: path-separator, allow-slash-input, show-dot-files, use-search-index, associations, terminal-candidates. Existing settings files lose those values, which is accepted before 1.0.
 	- Test case: `test-nemo-config-schema`, `test-nemo-prefs-widgets`, `test-nemo-dot-files-win32`.
@@ -8409,7 +8409,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260831-164337
 	- Closed: 20260831-193000
 	- The shell hands back its own folder art for a shortcut to a folder, which looks nothing like the folders around it. The theme's folder icon is used instead, with the shortcut overlay on top.
-	- Whether the target is a folder is read from what the .lnk itself records, not by looking at the target - a shortcut to a share that is not answering would otherwise cost about twenty seconds on the draw path.
+	- Whether the target is a folder is read from what the .lnk itself records, not by looking at the target - a shortcut to a share that isn't answering would otherwise cost about twenty seconds on the draw path.
 	- Test case: `test-nemo-emblems`, `test-nemo-lnk`, `test-nemo-shortcut-win32`.
 
 - ✅ All .lnk files should have a .lnk overlay (similar to how Explorer does it).
@@ -8430,14 +8430,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Symlinks and junctions get a chain-link overlay, so the two never read the same.
 	- Both overlays are ours rather than the theme's. An icon added by resource path is only searched after every theme, so a theme that has its own symlink emblem would always win - and most of them draw the same arrow the shell uses for a shortcut.
 	- .desktop now behaves like .lnk: the extension is off the listing, on in the rename box, and still in the "Ext" column. One preference covers both, and it is no longer hidden on Linux.
-	- Checked on a junction. A real symlink could not be made without Developer Mode, but both are reparse points and read the same way.
+	- Checked on a junction. A real symlink couldn't be made without Developer Mode, but both are reparse points and read the same way.
 	- Test case: `test-nemo-emblems`, `test-nemo-shortcut-name`.
 
 - ✅ Preferences|Context menus still has a "Desktop" group with a "Customize" box in it. Nothing is behind it. Remove.
 	- Opened: 20260831-170000
 	- Closed: 20260831-172500
 	- Found while taking out the desktop tooltip box.
-	- The action it was meant to show never existed in this fork, so the box could only ever hide something that was not there. Gone, along with its setting.
+	- The action it was meant to show never existed in this fork, so the box could only ever hide something that wasn't there. Gone, along with its setting.
 	- Test case: none, removed feature.
 
 - ✅ Remove bottom-left buttons, and bottom-right zoom bar in list view.
@@ -8496,16 +8496,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260828-133604
 	- Closed: 20260829-090000
 	- Only relevant on Windows. The toolkit's file sits in the local profile while the settings are in the roaming one, so a roaming profile took the settings and left the bookmarks behind.
-	- Fixed: on Windows the list lives beside the settings. A list an older version kept in the toolkit's file is copied across the first time, and a reset clears both so the old list cannot come back.
+	- Fixed: on Windows the list lives beside the settings. A list an older version kept in the toolkit's file is copied across the first time, and a reset clears both so the old list can't come back.
 	- Test case: `test-nemo-first-run-win32` (`test_toolkit_list_copied_across`), Windows only.
 
-- ✅ Windows: content search cannot read documents, because the search helpers are not packaged there.
+- ✅ Windows: content search can't read documents, because the search helpers aren't packaged there.
 	- Opened: 20260828-160000
 	- Closed: 20260829-083000
 	- On Linux a helper turned a document into text so "Containing:" could search it. The Windows layout had the executable and the toolkit and nothing else, and three of the helpers were a Python script, a shell script and a LibreOffice call.
 	- Fixed: the converters are plain C and are included on every platform. Word, Excel and PowerPoint in both the old binary and the newer zip-of-xml forms, OpenDocument and EPUB. The scripts and their dependencies are gone.
 	- Fixed: a helper is looked for beside the main program before the search path, so a name that has to gain `.exe` is found all the same.
-	- Fixed: a helper's `Priority` is honoured. One helper runs per file; the next is only tried when it cannot read the file at all.
+	- Fixed: a helper's `Priority` is honoured. One helper runs per file; the next is only tried when it can't read the file at all.
 	- Added: a switch in Preferences to answer searches from the Windows Search index for folders it covers. Off by default. Folders outside the index, and content searches by pattern or by case, are still searched directly.
 	- Test case: `test-nemo-search-helpers` for the converters, `test-nemo-search-content` for helper priority and fallback (POSIX only), `test-nemo-search-win32` for the index, Windows only.
 
@@ -8514,7 +8514,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Closed: 20260828-151500
 	- The hidden-files half of this item became "Two kinds of hidden file, two options", now done - it asks for the same thing as two switches rather than one.
 	- Note: superseded in part. Make link now asks, and offers a junction or a symlink for a folder. See [20260930-145641_moving_and_copying.md](design_docs/20260930-145641_moving_and_copying.md).
-	- A link to a folder is now a junction. One place decides it, so every route into "Make symlink" gets the same answer, and a symlink is still the fallback for anything a junction cannot hold - a file, a share, a relative target.
+	- A link to a folder is now a junction. One place decides it, so every route into "Make symlink" gets the same answer, and a symlink is still the fallback for anything a junction can't hold - a file, a share, a relative target.
 	- The point of preferring one: a junction needs no privilege. Making a folder link no longer wants Developer Mode or an elevated run, and the menu item stops graying out for a folder on a machine that has neither.
 	- Verified: a folder link made from the menu reads back as a mount point rather than a symlink, and a new check covers it.
 	- Test case: `test-nemo-link-copy` (`check_link_options`, `check_kinds`), `test-nemo-make-link-job` (`check_every`).
@@ -8522,7 +8522,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ New flag: `--reset`. Clears bookmarks, resets to default state. (Maybe just delete the config file?)
 	- Opened: 20260730-112038
 	- Closed: 20260828-133604
-	- Every stored setting is dropped and the settings file itself is removed, so anything hand-written that nemo does not recognize goes too. Bookmarks and their side file go with it.
+	- Every stored setting is dropped and the settings file itself is removed, so anything hand-written that nemo doesn't recognize goes too. Bookmarks and their side file go with it.
 	- It refuses while a copy is running, and says so. That copy holds the settings in memory and would write them straight back.
 	- The first-run marker is cleared along with everything else, so the next start puts the platform defaults back.
 	- Test case: `test-nemo-instances` for `--reset`, `test-nemo-first-run-win32` (`test_reset_files`, `test_reset_all`) on Windows.
@@ -8555,16 +8555,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260828-083458
 	- Closed: 20260828-090000
 	- It was held to twice the width of the Ext column, so it read "Folde" and "Link t" in a window with plenty of room to spare.
-	- That ceiling is gone. Type still gives its width back first when the window is too narrow, and still stops at a share of Name so one long value cannot take the row.
+	- That ceiling is gone. Type still gives its width back first when the window is too narrow, and still stops at a share of Name so one long value can't take the row.
 	- Note: This may contradict the latest canonical column-sizing definition in 'design.md' under the section "List view column widths", as of 20260916-113519.
 	- Test case: none, replaced by the column width rule in design.md, whose arithmetic `test-nemo-column-layout` covers.
 
-- ✅ The preferences dialog opens too short for the Display page, and does not follow a fractional display scale.
+- ✅ The preferences dialog opens too short for the Display page, and doesn't follow a fractional display scale.
 	- Opened: 20260828-083458
 	- Closed: 20260828-090000
 	- It sized itself to the Views page alone, so every longer page opened behind a scrollbar. Measured: Views 690, Display 832, Behavior 1045, against an opening height of 700.
 	- It now measures every page and takes the longest, and the width the widest page needs, both still capped at nine tenths of the screen.
-	- The minimum size it will not go below is written in pixels for a 96dpi screen, so at 150% it quietly meant two thirds of what it said. It is scaled by the same font size Windows hands the toolkit.
+	- The minimum size it won't go below is written in pixels for a 96dpi screen, so at 150% it quietly meant two thirds of what it said. It is scaled by the same font size Windows hands the toolkit.
 	- A check now compares the page list the sizing walks against the pages the dialog actually holds. It found one missing on its first run - Document templates, whose page had no name at all.
 	- Test case: `test-nemo-prefs-dialog` (`test_size`), `test-nemo-prefs-widgets` (`check_pages_are_all_listed`).
 
@@ -8593,7 +8593,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260827-183930
 	- Closed: 20260827-194220
 	- It belongs in the search results list and nowhere else, unless it is turned on by hand.
-	- Already the case: it is in the default column order but not the default visible list, and a run against a clean config confirmed it does not appear. Wherever it was seen, it had been turned on for that folder and remembered.
+	- Already the case: it is in the default column order but not the default visible list, and a run against a clean config confirmed it doesn't appear. Wherever it was seen, it had been turned on for that folder and remembered.
 	- Test case: none, already the default, confirmed rather than changed.
 
 - ✅ A preference for which terminal "Open in Terminal" runs.
@@ -8643,7 +8643,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260827-075015
 	- Closed: 20260827-081500
 	- Fifteen keys left behind when the desktop shell came out. They are still in the schema and still appear in a generated starter config, so a user can set them and nothing happens.
-	- Two of the fifteen are not clearly dead on a quick look - one leaf name is shared with a live setting in another group - so this wants checking key by key rather than deleting the group.
+	- Two of the fifteen aren't clearly dead on a quick look - one leaf name is shared with a live setting in another group - so this wants checking key by key rather than deleting the group.
 	- Checked key by key. Twelve had no reader anywhere and are gone from the table, the schema and the preference names. Three still have live readers and stay: the deprecated manage-the-desktop switch, the grid switch, and the desktop text ellipsis limit, which shares its leaf name with the icon view's own.
 	- Test case: none, nothing checks that every key still has a reader.
 
@@ -8655,7 +8655,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- A shortcut to a folder goes to that path in the current tab.
 	- Use an appropriate icon.
 	- Note: following a shortcut through to its target already works. What is missing is treating each kind of target differently.
-	- A shortcut to a folder still opens in the current tab, the one case where the shell's way is not followed. Everything else is now handed to the shell as the shortcut, not as its target.
+	- A shortcut to a folder still opens in the current tab, the one case where the shell's way isn't followed. Everything else is now handed to the shell as the shortcut, not as its target.
 	- That is what fixes the program case. A shortcut has a command line, a working directory and a window state, and none of them survive being reduced to a target path - a shortcut to a shell with arguments used to open a bare shell. Shortcuts to virtual items (Recycle Bin, a control panel page) now open too, having no path to reduce to in the first place.
 	- Verified: a launched shortcut's arguments and working directory both arrive.
 	- Icon split off below - it is a bigger piece than the rest of this and applies to more than shortcuts.
@@ -8692,7 +8692,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Every lane now sets `SOURCE_DATE_EPOCH` to the commit date and hands it to whatever stamps a time. `zip` has no notion of it, so the staged tree gets the date set on disk and is packed in sorted order; `tar` is told explicitly; the rpm spec has to ask for it before rpm will read it.
 	- Verified by building each artifact twice from scratch: the Windows exe, the Linux tarball, the .deb, the .rpm and the Windows zip all came out byte-identical. A build with the stamp removed differed, which is the check that the mechanism is what did it.
 	- Also fixed on the way through: the Linux release lane had been failing since the staging script gained a safety guard on its destination name, which no longer matched what the release script passed it.
-	- Not covered, and cannot be: a signed exe, since the countersignature has the real time of signing.
+	- Not covered, and can't be: a signed exe, since the countersignature has the real time of signing.
 	- Test case: none, release pipeline; proving it takes two full release builds.
 
 - ✅ Windows: two kinds of hidden file, two options.
@@ -8719,7 +8719,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ Windows: "Copy path as [\|/]".
 	- Opened: 20260823-140628
 	- Closed: 20260823-145852
-	- A second clipboard item directly below the existing Copy Path one, spelling out whichever separator the paths are not currently shown with. It follows the same show/hide setting as the first, so the pair travels together.
+	- A second clipboard item directly below the existing Copy Path one, spelling out whichever separator the paths aren't currently shown with. It follows the same show/hide setting as the first, so the pair travels together.
 	- In all four places the first one appears: the Edit menu, the selection menu, the background menu and the breadcrumb menu. Hidden on every other platform.
 	- The existing Copy Path now follows the display setting too, so the pair is always "what you see" and "the other one". A remote location still contributes its uri untouched, since a uri's slashes were never separators.
 	- Test case: `test-nemo-path-list`.
@@ -8730,7 +8730,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- On the selection menu, below Open With. Shown only when exactly one thing is selected and it has a local path, since a remote location gives Explorer nothing to open.
 	- A folder opens in Explorer; anything else is revealed and picked out inside its own folder.
 	- A deliberate escape hatch rather than a dependency. The standing "depend on Explorer as little as possible" rule is about core function; this one says Explorer on the label.
-	- Two routes, because one is not enough: the shell item API, which handles any name, falling back to a command line when that is refused. Running elevated is when it gets refused, and nemo can be running elevated - "Open as administrator" puts it there.
+	- Two routes, because one isn't enough: the shell item API, which handles any name, falling back to a command line when that is refused. Running elevated is when it gets refused, and nemo can be running elevated - "Open as administrator" puts it there.
 	- Both routes verified. The item opens a window, so it sits behind `NEMO_PROBE_EXPLORER` rather than running on every pass of the suite.
 	- Test case: `test-nemo-view-win32` (`check_quote`) for the fallback command line; opening Explorer only runs with `NEMO_PROBE_EXPLORER` set, since it opens a window.
 
@@ -8738,10 +8738,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260823-130540
 	- Closed: 20260823-134341
 	- "File extension" is now just "Ext", and shows the extension without its leading dot. It sits directly right of Name, with Location next along whenever that is switched on.
-	- Location, on an ordinary folder listing, grows with Name rather than stopping at a share of it: the two split whatever the other columns leave and Name takes no more than half, so Location is never the narrower of the pair and anything Name does not need goes to Location. Dragging Location by hand ends that and pins the width, as it always did.
+	- Location, on an ordinary folder listing, grows with Name rather than stopping at a share of it: the two split whatever the other columns leave and Name takes no more than half, so Location is never the narrower of the pair and anything Name doesn't need goes to Location. Dragging Location by hand ends that and pins the width, as it always did.
 	- Date created, Date modified and Date read keep their full width. What has to give when the window is too narrow comes off Name, Location and Type first, in proportion, and only reaches the dates once those three are down to their floors.
 	- Type, and any other column with no natural length, never ends up wider than Name or Location.
-	- Zooming in or out re-measures the rows. Before this the widths were thrown away and never worked out again, so one Ctrl+= left Location taking most of the row and every date cut short. Same for a column switched on that had not been on screen to be measured.
+	- Zooming in or out re-measures the rows. Before this the widths were thrown away and never worked out again, so one Ctrl+= left Location taking most of the row and every date cut short. Same for a column switched on that hadn't been on screen to be measured.
 	- A small gap keeps the first and last columns off the window frame.
 	- All of it verified in the running app, the zoom case included.
 	- Note: This contradicts the latest canonical column-sizing definition in 'design.md' under the section "List view column widths", as of 20260916-113519.
@@ -8768,7 +8768,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ New list columns.
 	- Opened: n/a
 	- Closed: 20260822-075741
-	- "File extension", on by default, between Name and Type, dot included the way Explorer shows it. Left empty when the tail after a dot is not really an extension - folders, dot-files, too long, all digits, or not letters and digits. The refusals have a test of their own that fails with the checks taken out.
+	- "File extension", on by default, between Name and Type, dot included the way Explorer shows it. Left empty when the tail after a dot isn't really an extension - folders, dot-files, too long, all digits, or not letters and digits. The refusals have a test of their own that fails with the checks taken out.
 	- "Owner" now shows on Windows too and is on by default there - the platform reports the file's real owner, so the old fabricated-values reason to hide it no longer applied.
 	- Windows only: "Permissions source" - Inherited, Local or Mixed, read from the file's ACL - off by default, listed after Owner. Verified against files with disabled inheritance and added grants.
 	- Type now defaults to at most twice the File extension column's width.
@@ -8789,7 +8789,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Closed: 20260821-204030
 	- Alt+Enter, Ctrl+I and every Properties item now hand the selection to the shell's own sheet - the same one Explorer shows, third-party tabs included. Only Windows; Linux, BSD and macOS are untouched.
 	- Ours stays on a second item, "Advanced properties" (Ctrl+Enter), because the Windows sheet has nowhere to put a custom icon, an emblem, an annotation or the image details page. It is hidden everywhere else, where both items would open the same window.
-	- Anything the shell cannot name falls back to ours rather than doing nothing: a virtual location, a selection spanning folders (which is what a search result set is), or an item that has gone away since it was clicked.
+	- Anything the shell can't name falls back to ours rather than doing nothing: a virtual location, a selection spanning folders (which is what a search result set is), or an item that has gone away since it was clicked.
 	- The sheet runs off the main loop, so the window behind it stays live while it is open, and it is waited out rather than abandoned - the extra threads go when it closes.
 	- Verified on Windows, and the fallback rule has checks of its own.
 	- Test case: `test-nemo-properties-win32`, Windows only.
@@ -8798,11 +8798,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260821-180950
 	- Closed: 20260821-211359
 	- Menus, buttons, tab and page titles, dialog titles, column headings, tooltips, preference labels, and the bundled actions. About 330 labels in all.
-	- A mnemonic stays where it was, so the underlined letter does not move; it is simply lower case now. Keyboard shortcut text is untouched.
+	- A mnemonic stays where it was, so the underlined letter doesn't move; it is simply lower case now. Keyboard shortcut text is untouched.
 	- Names keep their capital: the platforms, the toolkit, Trash and the other places in the sidebar, file and disc formats, acronyms. So does a sentence that names a menu item or a tab, since the item itself is still called that.
 	- Left alone on purpose: the license text, which is quoted verbatim, and the name a new folder or document is given, which is written to disk rather than shown.
-	- It is checked rather than trusted, because a label copied from upstream arrives in Title Case: `cicd/utility/lint-ui-case.py` reads every translatable string in the tree and fails the lint step on any that is not a sentence. The whole exception list lives in that one file, each entry with its reason.
-	- The check found what a first pass by eye did not - the plural labels, where two spellings sit in one call, which is what had left "Copy Paths" and "Make Links" behind.
+	- It is checked rather than trusted, because a label copied from upstream arrives in Title Case: `cicd/utility/lint-ui-case.py` reads every translatable string in the tree and fails the lint step on any that isn't a sentence. The whole exception list lives in that one file, each entry with its reason.
+	- The check found what a first pass by eye didn't - the plural labels, where two spellings sit in one call, which is what had left "Copy Paths" and "Make Links" behind.
 	- Test case: `cicd/utility/lint-ui-case.py`.
 
 - ✅ One setting for how much of the machine's CPU any compression may use, as a percentage of the cores it finds. Default 50% - the best balance on a hyperthreaded CPU.
@@ -8810,7 +8810,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Closed: 20260821-144459
 	- `performance.cpu-percent`, global rather than per-format, so a later job that can be spread over cores reads the same number instead of inventing one of its own.
 	- Reaches the 7z and rar create lines through a `{{THREADS}}` marker of their own, and tar.xz through the library that writes it. Zip, gzip and the built-in 7z have no such option, so they are left alone rather than handed one they would refuse.
-	- It is the one marker that does not stand for a control in the Compress dialog, so a line edited past it says nothing - the program simply picks for itself.
+	- It is the one marker that doesn't stand for a control in the Compress dialog, so a line edited past it says nothing - the program simply picks for itself.
 	- Rounds up, so a single-core machine still gets one thread and the answer is never nothing.
 	- Verified: each program is handed the switch it spells its own way.
 	- Test case: `test-nemo-archive` (`check_cpu_share`, `check_commands`).
@@ -8819,8 +8819,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260821-140715
 	- Closed: 20260821-150232
 	- The Windows executable now has an application manifest, which is where this is declared and where Windows reads it before any of our code runs. Per-monitor v2 where it exists, per-monitor v1 and then system-wide on older builds.
-	- Without it the whole window was stretched as a bitmap on a scaled display - blurry - and a second monitor at a different scale could not be followed at all.
-	- The toolkit scales in whole steps only, so a display at 125% or 150% would come out at 100% and read smaller than every other window on that screen. Text is scaled to the monitor's real DPI on top of that, which is not restricted to whole steps, and re-reads it whenever a window moves to a monitor at another scale or a monitor is plugged in. Widgets and icons stay on the whole step.
+	- Without it the whole window was stretched as a bitmap on a scaled display - blurry - and a second monitor at a different scale couldn't be followed at all.
+	- The toolkit scales in whole steps only, so a display at 125% or 150% would come out at 100% and read smaller than every other window on that screen. Text is scaled to the monitor's real DPI on top of that, which isn't restricted to whole steps, and re-reads it whenever a window moves to a monitor at another scale or a monitor is plugged in. Widgets and icons stay on the whole step.
 	- Nothing was needed for Linux or BSD: X11 and Wayland desktops publish their own scaling and the toolkit already follows it.
 	- The manifest also declares the run level explicitly (unchanged - what we already had by having none) and the versions of Windows we have run on, so the version APIs stop reporting Windows 8 forever.
 	- Verified on this box: the running process reports per-monitor awareness and its window reports the v2 context. The scaling sum is covered by a test. This box runs at 100%, so the fraction itself rests on arithmetic. It still needs a look on a scaled display.
@@ -8838,8 +8838,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260821-140715
 	- Closed: 20260821-153301
 	- Widening: columns take the new space until one can show the longest value in it, and then that one stops. Name is the only column that keeps growing without limit, so once everything else has what it needs the rest is Name's.
-	- Narrowing, which is the same thing read backwards: Name gives its surplus back first, having had all of it. When every column is down to the longest value it holds and it still does not fit, Type gives next, on its own, to about three characters - it is the one least missed that short, where a date or a size that short says nothing. Only then does everything else give ground together, each in proportion to how wide it is, Name included.
-	- A column whose values have no natural limit either - Type, Location, Owner, Group - stops at a third of the Name column rather than taking the window for one long value. The cap and Name's width have to agree with each other, so the answer is found rather than guessed, and it does not depend on the order the columns are in.
+	- Narrowing, which is the same thing read backwards: Name gives its surplus back first, having had all of it. When every column is down to the longest value it holds and it still doesn't fit, Type gives next, on its own, to about three characters - it is the one least missed that short, where a date or a size that short says nothing. Only then does everything else give ground together, each in proportion to how wide it is, Name included.
+	- A column whose values have no natural limit either - Type, Location, Owner, Group - stops at a third of the Name column rather than taking the window for one long value. The cap and Name's width have to agree with each other, so the answer is found rather than guessed, and it doesn't depend on the order the columns are in.
 	- Narrower than the floors add up to and the view scrolls sideways, which is the right answer to a window narrower than its own contents.
 	- Every value that no longer fits now says so with an ellipsis instead of being cut off mid-letter. Only Name and Location did before.
 	- Widths follow the contents: each row is measured as it arrives and as its details fill in, and the widest seen is what a column aims for. Measured against a five thousand item folder, it costs nothing that can be told apart from the noise.
@@ -8873,7 +8873,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260819-124028
 	- Closed: 20260819-145557
 	- Luna (XP) and Aero (7) were already ours; Metro (10) and Mica (11) are new, so every bundled Windows widget theme now has icons drawn to match it. The picker pairs them automatically.
-	- Folders are yellow in all four. Aero's were blue, which is not what Windows 7 had, and a yellow folder is the one color that reads on a light background and a dark one alike.
+	- Folders are yellow in all four. Aero's were blue, which isn't what Windows 7 had, and a yellow folder is the one color that reads on a light background and a dark one alike.
 	- The XP and 7 folders were too shallow to read as folders at a glance; the body is taller in every era now.
 	- The folder itself is drawn per era rather than shared - chunky and outlined for XP and 7, flat and square for 10, rounded with the front panel falling away for 11. It is the icon a Windows generation is recognised by.
 	- The vendored Fluent icon set is gone with them: it drew blue folders and looked nothing like Windows 11, and Mica now covers that style. The Fluent *widget* theme stays. About 390 KB and 179 files lighter.
@@ -8883,7 +8883,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260819-124028
 	- Closed: 20260819-145557
 	- Numbers in path data are rounded to a step finer than a two-thousandth of the icon, which is under a tenth of a pixel at any size one is drawn. Colors fold to their short form and unreferenced ids go.
-	- Multipliers - transform matrices, gradient vectors - are deliberately left alone: rounding a scale factor moves everything it touches, which is visible where rounding a coordinate is not.
+	- Multipliers - transform matrices, gradient vectors - are deliberately left alone: rounding a scale factor moves everything it touches, which is visible where rounding a coordinate isn't.
 	- All 983 icons were compared before and after. One differs at all, by an amount invisible side by side. Checking caught a real fault first time round: an arc's two flags can be written with nothing between them, and reading path data as a plain run of numbers swallows one and silently reshapes the glyph.
 	- Test case: `cicd/utility/svg-min.py --self-test`, run by the lint step; skips with no python.
 
@@ -8931,7 +8931,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ Dimmer highlight of mouseover line. It can easily get confused with line selection.
 	- Opened: 20260802-011216
 	- Closed: 20260802-015402
-	- The hover tint on a file-pane or tree row is dimmed to well under half what the theme sets, and only on rows that are not selected.
+	- The hover tint on a file-pane or tree row is dimmed to well under half what the theme sets, and only on rows that aren't selected.
 	- Test case: `test-nemo-row-hover`.
 
 - ✅ Drag and drop onto a path button, and a fuller right-click menu on one.
@@ -8965,9 +8965,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- With it on there is no name to give, so the name field is grayed - which is also how a part of a folder gets compressed without typing one.
 	- Each item keeps its whole name, so "notes.rar" becomes "notes.rar.zip". Swapping the suffix would put the new archive on top of the file being read.
 	- However many archives it makes, it is one job: one progress bar, one Cancel, and one question about the ones already there rather than a question apiece.
-	- Formats: zip, tar, tar.gz, tar.xz and 7z are written by the built-in library, so they need nothing installed; rar is offered where the rar command is found, and 7z falls back to the 7z command for anything the library cannot write.
-	- Options, each offered only where the chosen format and the programs present can honour it: compression level, password (with the option to encrypt the file names too), splitting into volumes with an editable list of the usual sizes, solid archives, storing duplicate files once, storing symlinks and junctions as links, following linked folders (off by default, so a link loop cannot pull in the whole disk), and for rar a recovery record (on by default) and locking.
-	- An option nothing can honor is shown grayed rather than hidden, so the dialog does not change shape from one machine to the next.
+	- Formats: zip, tar, tar.gz, tar.xz and 7z are written by the built-in library, so they need nothing installed; rar is offered where the rar command is found, and 7z falls back to the 7z command for anything the library can't write.
+	- Options, each offered only where the chosen format and the programs present can honour it: compression level, password (with the option to encrypt the file names too), splitting into volumes with an editable list of the usual sizes, solid archives, storing duplicate files once, storing symlinks and junctions as links, following linked folders (off by default, so a link loop can't pull in the whole disk), and for rar a recovery record (on by default) and locking.
+	- An option nothing can honor is shown grayed rather than hidden, so the dialog doesn't change shape from one machine to the next.
 	- Encryption and splitting are treated as requirements - if nothing installed can do them the job is refused rather than quietly writing a readable archive. Everything else is a preference, honoured where possible and dropped where not.
 	- Compression runs as a normal background job: it shows in the same progress popup as copying, can be canceled, and a canceled or failed run leaves no half-written archive behind.
 	- Test case: `test-nemo-archive`, `test-archive-job` (`check_cancel`, `check_unreadable_sources`), `test-nemo-archive-combos`, `test-nemo-archive-settings`.
@@ -8975,9 +8975,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ The 7z and rar command lines are settings, not code, so a user can edit them.
 	- Opened: 20260821-124844
 	- Closed: 20260821-133318
-	- Four lines in `settings.shcl` under `archive` - create and unpack, for each of the two programs - each with `{{PLACEHOLDER}}` markers for the parts the app fills in. Point one at a different build, add a switch we do not offer, or work around a version that spells something its own way.
+	- Four lines in `settings.shcl` under `archive` - create and unpack, for each of the two programs - each with `{{PLACEHOLDER}}` markers for the parts the app fills in. Point one at a different build, add a switch we don't offer, or work around a version that spells something its own way.
 	- Every switch the Compress dialog can turn on has a marker of its own, so an edited line keeps the dialog working. Leave one out and the app says which control has gone quiet.
-	- Clearing a line puts the default one back rather than running nothing, and a line that cannot be read is refused outright rather than half-run.
+	- Clearing a line puts the default one back rather than running nothing, and a line that can't be read is refused outright rather than half-run.
 	- A password is handed to the program as a value, never written into the settings file.
 	- `{{LIKE_THIS}}` is now the convention for any setting that needs a placeholder. Braces because no shell or command prompt expands them, so a line can be pasted somewhere to try it out and come back unchanged.
 	- Test case: `test-nemo-command-template` (`check_from_config`, `check_unused`, `check_values_stay_one_argument`).
@@ -8988,18 +8988,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Three items on the selection menu and the Edit menu, shown only when everything selected is an archive: "Extract Here", "Extract Each to Its Own Folder" (singular when one is selected) and "Extract To..." with a folder chooser. Show/hide them in Preferences like the other context-menu items.
 	- "Extract Here" unpacks exactly what the archive stores, so one made from a folder brings that folder with it and ends up in one place. The folder-each item is the answer to an archive that would otherwise scatter its contents over the folder being viewed.
 	- Reading covers far more than writing does: the tar, zip, 7z, rar, cab, lha, cpio, xar and iso families and the bare compressors all open with nothing installed.
-	- A 7z or rar command is reached for when the built-in library will not open the file - a multi-volume set, or headers it cannot decrypt. Both are tried in turn, since a program being installed is no promise it can read the file.
+	- A 7z or rar command is reached for when the built-in library won't open the file - a multi-volume set, or headers it can't decrypt. Both are tried in turn, since a program being installed is no promise it can read the file.
 	- A protected archive asks for its password once, and reuses it for the rest of the selection.
 	- Collisions ask the same question copying asks, with the same answers - skip, duplicate, rename, replace, and applying that answer to everything after it. A folder arriving on a folder merges without asking. The prompt says which archive the incoming file came from, since several can be unpacked at once.
 	- An entry whose stored path climbs out of the folder being unpacked into, or names a drive, is put back inside it.
 	- Unpacking runs as a normal background job: it shows in the same progress popup as copying and can be canceled.
-	- Test case: `test-nemo-extract`, `test-extract-job`, `test-nemo-menu-paths`; collisions and password reuse need a dialog and are not covered.
+	- Test case: `test-nemo-extract`, `test-extract-job`, `test-nemo-menu-paths`; collisions and password reuse need a dialog and aren't covered.
 
 - ✅ Depend on Explorer as little as possible.
 	- Opened: 20260818-144244
 	- Closed: 20260818-155550
 	- Audited every place the Windows build reaches into the shell. The only one that handed work to Explorer was a "show this file in the file manager" call, which asked Windows for the default handler for a folder - Explorer, by definition.
-	- It was already unreachable: the only caller sits behind a desktop-view check that went permanently false when the desktop shell was removed. On Windows it would also have been asking for a handler that Windows does not answer for - nothing is registered for a folder as a type.
+	- It was already unreachable: the only caller sits behind a desktop-view check that went permanently false when the desktop shell was removed. On Windows it would also have been asking for a handler that Windows doesn't answer for - nothing is registered for a folder as a type.
 	- Removed, along with its declaration. Nothing in the tree launches Explorer now.
 	- What remains is in-process and unavoidable: the recycle bin and `.lnk` files are shell APIs called inside our own process, with no Explorer involved. Two `ShellExecute` calls stay for good reasons - one launches the terminal the user chose (found on PATH, not via the shell's associations), the other relaunches our own executable elevated, which is the only way to ask for elevation.
 	- Test case: `fCheckWinLaunch` in the C lint.
@@ -9008,7 +9008,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260815-154746
 	- Closed: 20260817-210917
 	- Observations and suggestions rather than defects. Not individually reproduced.
-	- ✅ Item 110. Two separate desktop-terminal fallbacks disagree: "Open in Terminal" honors the configured terminal, launching a terminal app does not.
+	- ✅ Item 110. Two separate desktop-terminal fallbacks disagree: "Open in Terminal" honors the configured terminal, launching a terminal app doesn't.
 		- Fixed: both paths fall back to the same scan of known terminals, so neither silently does nothing.
 		- Test case: `test-eel-terminal` (`test_fallback_scan`).
 
@@ -9028,11 +9028,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 	- ✅ Item 114. "Open in Terminal" on Windows is hardcoded with no setting, though the same item is configurable on Linux.
 		- Fixed: the list of terminals to try is a setting, tried in order.
-		- Test case: `test-nemo-view-win32` for the terminal command split, Windows only; the order the candidates are tried in is not covered.
+		- Test case: `test-nemo-view-win32` for the terminal command split, Windows only; the order the candidates are tried in isn't covered.
 
 	- ✅ Item 115. Failed Windows elevation or terminal launch is silent; the shell-execute result is ignored.
 		- Fixed: a failure is reported rather than swallowed. The path is also quoted properly now, so a folder with spaces or a drive root works.
-		- Test case: `test-nemo-view-win32` for the quoting, Windows only; the failure report needs a real launch and is not covered.
+		- Test case: `test-nemo-view-win32` for the quoting, Windows only; the failure report needs a real launch and isn't covered.
 
 	- ✅ Item 116. Selectable message-dialog text grabs focus pre-selected.
 		- Fixed: the text is still selectable but no longer takes focus pre-selected.
@@ -9061,7 +9061,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ✅ One binary only - Windows builds just the one executable. The connect-server and open-with dialogs already ran inside it, and the extensions lister has nothing to list with no plugins, so all three helpers are Linux-only now.
 		- The extension library went in with them. With no external plugins on Windows the executable was its only reader, so there is no separate library beside it any more. Linux keeps it shared, for third-party extensions.
 	- ✅ No external plugin loading on Windows (a bad plugin must never hang the app); keep the extension-management UI in-exe.
-		- The plugin folder is never read on Windows, so a stray library cannot load and hang the app. The plugins tab in Settings still appears, listing nothing.
+		- The plugin folder is never read on Windows, so a stray library can't load and hang the app. The plugins tab in Settings still appears, listing nothing.
 	- Test case: `cicd/utility/check-win-build-flags.bash` for the GUI subsystem, plus the `--version` smoke in `cicd/cicd-win.ps1`; the packing itself is a pipeline stage.
 
 - ✅ Windows look: make it feel native even though it isn't Explorer.
@@ -9087,7 +9087,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Done: the file holds only non-default values, has each key's description as a comment, and is re-read while running so a hand-edit applies immediately.
 	- Done: a schema file sits beside the app so `shcl check --schema` validates a hand-edited config (catches typos and bad values).
 	- Done: the `compat.*` fallback schemas are gone; desktop-owned settings (terminal, recent files, 12/24h clock) are read from the desktop where it publishes them, ours otherwise.
-	- Note: settings are not kept from a pre-1.0 install - nothing left can read the old store. Fresh defaults on first run after upgrading.
+	- Note: settings aren't kept from a pre-1.0 install - nothing left can read the old store. Fresh defaults on first run after upgrading.
 	- Note: nemo actions can still name any GSettings schema in a condition; that reads other programs' settings and is unaffected.
 	- Test case: `test-nemo-config`, `test-nemo-config-catalog`, `test-nemo-config-schema`.
 
@@ -9108,7 +9108,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ Include the app's own icons and data files on Windows.
 	- Opened: 20260725-153058
 	- Closed: 20260826-103001
-	- Cause: the data dir was a compile-time absolute Unix path, so the sort-menu icons, the eject icon and the emblem art did not resolve on Windows.
+	- Cause: the data dir was a compile-time absolute Unix path, so the sort-menu icons, the eject icon and the emblem art didn't resolve on Windows.
 	- Fixed: the artwork rides inside the executable as a compiled-in resource, and the data, translation and helper-program folders are found relative to the running program, with the built-in path as a fallback.
 	- Test case: `test-nemo-app-resources`, `test-nemo-runtime-env` (POSIX only), `test-nemo-appearance` (`test_app_icons_resolve`).
 
@@ -9260,7 +9260,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Closed: 20260724-143335
 	- Done: on Windows, "open in terminal" opens the native console at the folder, and "open elevated" relaunches the app through the normal elevation prompt. Linux paths unchanged. Menu labels are per-platform.
 	- Note: `.desktop` launcher files already degrade cleanly on Windows. Native `.lnk` creation is its own item, since done.
-	- Test case: `test-nemo-view-win32` (Windows only), `test-eel-terminal`; the launches themselves open a prompt or a console and are not driven.
+	- Test case: `test-nemo-view-win32` (Windows only), `test-eel-terminal`; the launches themselves open a prompt or a console and aren't driven.
 
 - ✅ Thumbnails, icon theme, and default-app association per platform.
 	- Opened: 20260718-155447
@@ -9287,7 +9287,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Verified: graceful-empty in the dev rig (no real network there). Populated browsing is part of the real-Windows validation pass.
 	- ✅ Accept `\` as a separator in typed locations on all platforms.
 		- Done: the literal path is tried first, then a `\`-to-`/` retry only if it doesn't resolve. Real backslash-named files and remote URIs are never touched.
-	- Test case: `test-nemo-metadata-store`, `test-nemo-trash-win32`, `test-nemo-network-win32` (Windows only), `test-eel-user-input`; the Network sidebar gate is not covered.
+	- Test case: `test-nemo-metadata-store`, `test-nemo-trash-win32`, `test-nemo-network-win32` (Windows only), `test-eel-user-input`; the Network sidebar gate isn't covered.
 
 - ✅ File operations (copy/move/delete/rename) on native APIs.
 	- Opened: 20260718-155447
@@ -9334,7 +9334,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Closed: 20260725-153058
 	- Done: on Windows, each fixed drive is a first-class sidebar root with a disk-usage bar, replacing the single Unix filesystem root (meaningless on Windows). Removable and network drives keep the normal devices path, which has eject.
 	- Verified: drives show as roots and open to their contents.
-	- Test case: `test-nemo-drive-root-name` for the names, Windows only; listing fixed drives as sidebar roots is not covered.
+	- Test case: `test-nemo-drive-root-name` for the names, Windows only; listing fixed drives as sidebar roots isn't covered.
 
 - ✅ Remove desktop management entirely (Nemo Anywhere is a file manager, not a desktop shell).
 	- Opened: 20260718-170501
@@ -9430,7 +9430,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✋ Code review 20260815.
 	- Opened: 20260815-154746
-	- ✋ Item 101. Carriage returns in settings values are not escaped and are stripped on reload.
+	- ✋ Item 101. Carriage returns in settings values aren't escaped and are stripped on reload.
 		- Deferred: fixing it means changing both halves of the vendored settings parser and with them the on-disk escaping, for a character no setting ever contains.
 	- ✋ Item 106. Sorting by a string attribute allocates and formats both values on every comparison.
 		- Deferred: doing it properly needs a per-file cache of the formatted value with its own invalidation - the same machinery as the icon render cache, for much less gain.
@@ -9481,9 +9481,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The whole thing should probably be left to other third-party utilities that users would have to specifically seek out, with motivation - rather than a feature they stumble upon in their file manager.
 	- Test case: none, canceled.
 
-- 🚫 In list view, a folder of pictures shows a horizontal scrollbar even when every column fits. A folder of text files the same size does not.
+- 🚫 In list view, a folder of pictures shows a horizontal scrollbar even when every column fits. A folder of text files the same size doesn't.
 	- Opened: 20260921. Closed: 20260921.
-	- Why canceled: not a bug. The columns did not fit. The pictures were 327 bytes against 4 KiB, and "327 bytes" is wider than "4.0 KiB". "Image" is wider than "Text", and the names were a character longer.
+	- Why canceled: not a bug. The columns didn't fit. The pictures were 327 bytes against 4 KiB, and "327 bytes" is wider than "4.0 KiB". "Image" is wider than "Text", and the names were a character longer.
 	- Every name in that folder is the same width, so Name has nothing it can cut short. With every column at its least, the row ran about 24px past the view. design.md says to scroll then.
 	- Text files of 327 bytes with shorter names fit, and showed no scrollbar.
 	- Test case: none, not a bug.
@@ -9494,7 +9494,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Closed: 20260920-162550
 	- Test case: none, canceled.
 
-- 🚫 Nothing in the suite can build a window, so a widget's teardown cannot be tested.
+- 🚫 Nothing in the suite can build a window, so a widget's teardown can't be tested.
 	- Opened: 20260919-210000
 	- Closed: 20260920-090000
 	- The sidebar and the view are compiled into the program, and the tests link the two libraries beside it. A fix in either is pinned by reading the source, never by running it.
@@ -9552,7 +9552,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Then by severity|priority: Critical, High, Avg, Low
 		- Then by type: Bugs, [not bugs together]
 
-	- Rows marked [Bug] are for bugs only, and rows marked [Feature] for features and enhancements. Priority and Severity share one row and one scale. Priority is for a Feature or Enhancement, and Severity for a Bug. Children are not nested. They sit at the top level and point back with Parent ID.
+	- Rows marked [Bug] are for bugs only, and rows marked [Feature] for features and enhancements. Priority and Severity share one row and one scale. Priority is for a Feature or Enhancement, and Severity for a Bug. Children aren't nested. They sit at the top level and point back with Parent ID.
 
 Template:
 

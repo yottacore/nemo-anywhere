@@ -152,7 +152,7 @@ nemo_win32_link_read_target (const char  *link_path,
 	w_path = to_utf16 (link_path);
 	if (w_path == NULL) {
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME,
-				     _("The link name could not be read."));
+				     _("The link name couldn't be read."));
 		return FALSE;
 	}
 
@@ -163,7 +163,7 @@ nemo_win32_link_read_target (const char  *link_path,
 	g_free (w_path);
 	if (handle == INVALID_HANDLE_VALUE) {
 		g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-			     _("Could not read the link (error %lu)."),
+			     _("Couldn't read the link (error %lu)."),
 			     (unsigned long) GetLastError ());
 		return FALSE;
 	}
@@ -171,7 +171,7 @@ nemo_win32_link_read_target (const char  *link_path,
 	if (!DeviceIoControl (handle, FSCTL_GET_REPARSE_POINT, NULL, 0,
 			      buffer, sizeof (buffer), &returned, NULL)) {
 		g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-			     _("Could not read the link (error %lu)."),
+			     _("Couldn't read the link (error %lu)."),
 			     (unsigned long) GetLastError ());
 		CloseHandle (handle);
 		return FALSE;
@@ -192,7 +192,7 @@ nemo_win32_link_read_target (const char  *link_path,
 		subst_length = reparse->u.MountPoint.SubstituteNameLength;
 	} else {
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-				     _("That is not a link."));
+				     _("That isn't a link."));
 		return FALSE;
 	}
 
@@ -214,7 +214,7 @@ nemo_win32_link_read_target (const char  *link_path,
 				   chars, NULL, NULL, NULL);
 	if (*target == NULL) {
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-				     _("Could not read the link."));
+				     _("Couldn't read the link."));
 		return FALSE;
 	}
 
@@ -386,7 +386,7 @@ set_link_error (GError **error,
 				     _("A file with that name already exists."));
 	} else {
 		g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-			     _("Could not create the link (error %lu)."),
+			     _("Couldn't create the link (error %lu)."),
 			     (unsigned long) win_error);
 	}
 }
@@ -797,7 +797,7 @@ nemo_win32_link_create_hard (const char  *existing_path,
 				     _("A hardlink has to be on the same drive as the original."));
 	} else if (win_error == ERROR_INVALID_FUNCTION) {
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-				     _("This drive does not support hardlinks."));
+				     _("This drive doesn't support hardlinks."));
 	} else {
 		set_link_error (error, win_error);
 	}

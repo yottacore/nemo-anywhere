@@ -218,7 +218,7 @@ thumbnailer_load (Thumbnailer *thumb)
   /* Off Windows a bad escape, such as a bare backslash, reads as NULL. */
   if (thumb->try_exec == NULL && g_key_file_has_key (key_file, THUMBNAILER_ENTRY_GROUP, "TryExec", NULL))
     {
-      g_warning ("Invalid thumbnailer: TryExec could not be read\n");
+      g_warning ("Invalid thumbnailer: TryExec couldn't be read\n");
       thumbnailer_unref (thumb);
       g_key_file_free (key_file);
 

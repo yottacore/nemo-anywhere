@@ -256,10 +256,10 @@ nemo_network_win32_set_error (GError      **error,
 	case ERROR_REM_NOT_LIST:
 		if (server != NULL) {
 			g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
-				     _("'%s' could not be found on the network"), server);
+				     _("'%s' couldn't be found on the network"), server);
 		} else {
 			g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
-					     _("The network could not be browsed"));
+					     _("The network couldn't be browsed"));
 		}
 		return;
 
@@ -274,10 +274,10 @@ nemo_network_win32_set_error (GError      **error,
 
 		if (server != NULL) {
 			g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
-				     _("'%s' could not be browsed: %s"), server, reason);
+				     _("'%s' couldn't be browsed: %s"), server, reason);
 		} else {
 			g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
-				     _("The network could not be browsed: %s"), reason);
+				     _("The network couldn't be browsed: %s"), reason);
 		}
 		g_free (reason);
 	}

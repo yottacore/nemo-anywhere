@@ -50,7 +50,7 @@ pkill -f "${DEST}/app/nemo-anywhere.exe" 2>/dev/null || true
 container_up(){ docker exec "$CONTAINER" true 2>/dev/null; }
 
 if [[ ! -x "${DEST}/app/nemo-anywhere.exe" ]] || (( restage )); then
-	container_up || { fEcho "FAILED: no staged copy and container '$CONTAINER' is not running"; exit 1; }
+	container_up || { fEcho "FAILED: no staged copy and container '$CONTAINER' isn't running"; exit 1; }
 	fEcho "Staging wine runtime from $CONTAINER"
 	docker exec "$CONTAINER" sh -c '
 		set -e

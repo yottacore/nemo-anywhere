@@ -135,7 +135,7 @@ ensure_loaded (void)
 			/* Every folder's view, zoom, sort and layout is in here. Say so,
 			 * and keep the damaged file: the next set() would otherwise write
 			 * an empty store straight over the only copy. */
-			g_warning ("nemo-metadata: cannot read %s: %s - keeping it as %s",
+			g_warning ("nemo-metadata: can't read %s: %s - keeping it as %s",
 			           path, error->message, aside);
 			g_rename (path, aside);
 			g_free (aside);
@@ -264,7 +264,7 @@ save_now (void)
 		if (g_file_set_contents (path, data, length, &error)) {
 			dirty = FALSE;
 		} else {
-			g_warning ("nemo-metadata: cannot write %s: %s", path, error->message);
+			g_warning ("nemo-metadata: can't write %s: %s", path, error->message);
 			g_clear_error (&error);
 		}
 	}

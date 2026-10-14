@@ -176,7 +176,7 @@ eel_canvas_item_set_property (GObject *gobject, guint param_id,
 	switch (param_id) {
 	case ITEM_PROP_PARENT:
 		if (item->parent != NULL) {
-		    g_warning ("Cannot set `parent' argument after item has "
+		    g_warning ("Can't set `parent' argument after item has "
 			       "already been constructed.");
 		} else if (g_value_get_object (value)) {
 			item->parent = EEL_CANVAS_ITEM (g_value_get_object (value));
@@ -475,7 +475,7 @@ eel_canvas_item_move (EelCanvasItem *item, double dx, double dy)
         g_return_if_fail (EEL_IS_CANVAS_ITEM (item));
 
         if (!EEL_CANVAS_ITEM_GET_CLASS (item)->translate) {
-                g_warning ("Item type %s does not implement translate method.\n",
+                g_warning ("Item type %s doesn't implement translate method.\n",
                            g_type_name (G_OBJECT_TYPE (item)));
                 return;
         }

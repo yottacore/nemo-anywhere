@@ -697,9 +697,9 @@ report_broken_symbolic_link (GtkWindow *parent_window, NemoFile *file)
 
 	target_path = nemo_file_get_symbolic_link_target_path (file);
 	if (target_path == NULL) {
-		detail = g_strdup (_("This link cannot be used, because it has no target."));
+		detail = g_strdup (_("This link can't be used, because it has no target."));
 	} else {
-		detail = g_strdup_printf (_("This link cannot be used, because its target "
+		detail = g_strdup_printf (_("This link can't be used, because its target "
 					    "\"%s\" doesn't exist."), target_path);
 	}
 
@@ -1439,8 +1439,8 @@ activate_desktop_file (ActivateParameters *parameters,
 		primary = _("Untrusted application launcher");
 		display_name = nemo_file_get_display_name (file);
 		secondary =
-			g_strdup_printf (_("The application launcher \"%s\" has not been marked as trusted (executable). "
-					   "If you do not know the source of this file, launching it may be unsafe."
+			g_strdup_printf (_("The application launcher \"%s\" hasn't been marked as trusted (executable). "
+					   "If you don't know the source of this file, launching it may be unsafe."
 					   ),
 					 display_name);
 
@@ -2376,7 +2376,7 @@ resolve_win32_shortcuts (GList *files, gboolean *handled)
 			if (nemo_shortcut_win32_launch (path, &error)) {
 				*handled = TRUE;
 			} else {
-				g_warning ("could not open shortcut '%s': %s", path, error->message);
+				g_warning ("couldn't open shortcut '%s': %s", path, error->message);
 				g_clear_error (&error);
 				remaining = g_list_prepend (remaining, nemo_file_ref (file));
 			}
@@ -2448,14 +2448,14 @@ resolve_lnk_shortcuts (GtkWindow *parent_window,
 		if (uri == NULL) {
 			char *name = nemo_file_get_display_name (file);
 			char *shown = nemo_lnk_display_target (&lnk);
-			char *primary = g_strdup_printf (_("Could not open the shortcut \"%s\"."), name);
+			char *primary = g_strdup_printf (_("Couldn't open the shortcut \"%s\"."), name);
 			char *secondary;
 
 			if (shown != NULL && shown[0] != '\0') {
-				secondary = g_strdup_printf (_("It points to %s, which is not on any drive or share this computer can see."),
+				secondary = g_strdup_printf (_("It points to %s, which isn't on any drive or share this computer can see."),
 							     shown);
 			} else {
-				secondary = g_strdup (_("It does not say where its target is, or it points back at itself."));
+				secondary = g_strdup (_("It doesn't say where its target is, or it points back at itself."));
 			}
 			eel_show_error_dialog (primary, secondary, parent_window);
 

@@ -82,7 +82,7 @@ create_shortcut (const char  *target_path,
 	w_lnk    = to_utf16 (lnk_path);
 	if (w_target == NULL || w_lnk == NULL) {
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-				     _("Could not encode the shortcut path."));
+				     _("Couldn't encode the shortcut path."));
 		goto out;
 	}
 
@@ -92,7 +92,7 @@ create_shortcut (const char  *target_path,
 			       &IID_IShellLinkW, (void **) &link);
 	if (FAILED (hr) || link == NULL) {
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-				     _("Could not create the shortcut object."));
+				     _("Couldn't create the shortcut object."));
 		goto uninit;
 	}
 
@@ -103,11 +103,11 @@ create_shortcut (const char  *target_path,
 	if (FAILED (hr)) {
 		if (wcslen ((const wchar_t *) w_target) >= MAX_PATH) {
 			g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME,
-				     _("A Windows shortcut cannot point at \"%s\": the path is too long."),
+				     _("A Windows shortcut can't point at \"%s\": the path is too long."),
 				     target_path);
 		} else {
 			g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME,
-				     _("A Windows shortcut cannot point at \"%s\"."),
+				     _("A Windows shortcut can't point at \"%s\"."),
 				     target_path);
 		}
 		goto release;
@@ -131,14 +131,14 @@ create_shortcut (const char  *target_path,
 	hr = IShellLinkW_QueryInterface (link, &IID_IPersistFile, (void **) &pf);
 	if (FAILED (hr) || pf == NULL) {
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-				     _("Could not access the shortcut file interface."));
+				     _("Couldn't access the shortcut file interface."));
 		goto release;
 	}
 
 	hr = IPersistFile_Save (pf, w_lnk, TRUE);
 	if (FAILED (hr)) {
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-				     _("Could not save the shortcut."));
+				     _("Couldn't save the shortcut."));
 		goto release;
 	}
 
@@ -280,7 +280,7 @@ nemo_shortcut_win32_read_target (const char  *lnk_path,
 	w_lnk = to_utf16 (lnk_path);
 	if (w_lnk == NULL) {
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-				     _("Could not encode the shortcut path."));
+				     _("Couldn't encode the shortcut path."));
 		goto out;
 	}
 
@@ -290,21 +290,21 @@ nemo_shortcut_win32_read_target (const char  *lnk_path,
 			       &IID_IShellLinkW, (void **) &link);
 	if (FAILED (hr) || link == NULL) {
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-				     _("Could not create the shortcut object."));
+				     _("Couldn't create the shortcut object."));
 		goto uninit;
 	}
 
 	hr = IShellLinkW_QueryInterface (link, &IID_IPersistFile, (void **) &pf);
 	if (FAILED (hr) || pf == NULL) {
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-				     _("Could not access the shortcut file interface."));
+				     _("Couldn't access the shortcut file interface."));
 		goto release;
 	}
 
 	hr = IPersistFile_Load (pf, w_lnk, STGM_READ);
 	if (FAILED (hr)) {
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-				     _("Could not load the shortcut."));
+				     _("Couldn't load the shortcut."));
 		goto release;
 	}
 
@@ -348,7 +348,7 @@ nemo_shortcut_win32_read_target (const char  *lnk_path,
 	if (!ok) {
 		/* Every other failure here leaves an error behind; this one did not. */
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
-				     _("The shortcut's target could not be read."));
+				     _("The shortcut's target couldn't be read."));
 	}
 
 release:
@@ -383,7 +383,7 @@ load_link (const char    *lnk_path,
 
 	if (w_lnk == NULL) {
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-				     _("Could not encode the shortcut path."));
+				     _("Couldn't encode the shortcut path."));
 		return FALSE;
 	}
 
@@ -400,7 +400,7 @@ load_link (const char    *lnk_path,
 
 	if (FAILED (hr) || *pf == NULL) {
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-				     _("Could not load the shortcut."));
+				     _("Couldn't load the shortcut."));
 		if (*pf != NULL) {
 			IPersistFile_Release (*pf);
 		}
@@ -585,7 +585,7 @@ nemo_shortcut_win32_update (const char             *lnk_path,
 	hr = IShellLinkW_SetPath (link, w_target);
 	if (FAILED (hr)) {
 		g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME,
-			     _("A Windows shortcut cannot point at \"%s\"."), info->target);
+			     _("A Windows shortcut can't point at \"%s\"."), info->target);
 		goto out;
 	}
 
@@ -596,7 +596,7 @@ nemo_shortcut_win32_update (const char             *lnk_path,
 	hr = IPersistFile_Save (pf, w_lnk, TRUE);
 	if (FAILED (hr)) {
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-				     _("Could not save the shortcut."));
+				     _("Couldn't save the shortcut."));
 		goto out;
 	}
 

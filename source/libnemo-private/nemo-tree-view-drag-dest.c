@@ -969,7 +969,7 @@ set_direct_save_uri (NemoTreeViewDragDest *dest,
 			DEBUG ("Invalid filename provided by XDS drag site");
 		}
 	} else {
-		DEBUG ("Could not retrieve XDS drop destination");
+		DEBUG ("Couldn't retrieve XDS drop destination");
 	}
 
 	return uri != NULL;

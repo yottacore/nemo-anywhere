@@ -573,7 +573,7 @@ uri_to_verified_real_path (const char *uri, GError **error)
 
 	if (!ok) {
 		g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
-			     "'%s' is not in the recycle bin", real_path);
+			     "'%s' isn't in the recycle bin", real_path);
 		g_free (real_path);
 		return NULL;
 	}
@@ -1203,7 +1203,7 @@ trash_file_delete (GFile *file, GCancellable *cancellable, GError **error)
 
 	if (uri_is_root (self->uri)) {
 		g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-			     "Cannot delete the trash root");
+			     "Can't delete the trash root");
 		return FALSE;
 	}
 
@@ -1244,7 +1244,7 @@ trash_file_move (GFile *source, GFile *destination, GFileCopyFlags flags,
 
 	if (uri_is_root (self->uri)) {
 		g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-			     "Cannot move the trash root");
+			     "Can't move the trash root");
 		return FALSE;
 	}
 
@@ -1521,7 +1521,7 @@ nemo_trash_win32_recycle (GFile *file, GError **error)
 	wide = (wchar_t *) g_utf8_to_utf16 (path, -1, NULL, &len, NULL);
 	if (wide == NULL) {
 		g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME,
-			     _("\"%s\" is not a name Windows can use."), path);
+			     _("\"%s\" isn't a name Windows can use."), path);
 		g_free (path);
 		return FALSE;
 	}

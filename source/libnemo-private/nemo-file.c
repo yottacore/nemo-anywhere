@@ -1453,7 +1453,7 @@ nemo_file_mount (NemoFile                   *file,
 		if (callback) {
 			error = NULL;
 			g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-                                             _("This file cannot be mounted"));
+                                             _("This file can't be mounted"));
 			callback (file, NULL, error, callback_data);
 			g_error_free (error);
 		}
@@ -1498,7 +1498,7 @@ nemo_file_unmount (NemoFile                   *file,
 			if (callback) {
 				error = NULL;
 				g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-						     _("This file cannot be unmounted"));
+						     _("This file can't be unmounted"));
 				callback (file, NULL, error, callback_data);
 				g_error_free (error);
 			}
@@ -1532,7 +1532,7 @@ nemo_file_eject (NemoFile                   *file,
 			if (callback) {
 				error = NULL;
 				g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-						     _("This file cannot be ejected"));
+						     _("This file can't be ejected"));
 				callback (file, NULL, error, callback_data);
 				g_error_free (error);
 			}
@@ -1565,7 +1565,7 @@ nemo_file_start (NemoFile                   *file,
 		if (callback) {
 			error = NULL;
 			g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-                                             _("This file cannot be started"));
+                                             _("This file can't be started"));
 			callback (file, NULL, error, callback_data);
 			g_error_free (error);
 		}
@@ -1617,7 +1617,7 @@ nemo_file_stop (NemoFile                   *file,
 			if (callback) {
 				error = NULL;
 				g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-						     _("This file cannot be stopped"));
+						     _("This file can't be stopped"));
 				callback (file, NULL, error, callback_data);
 				g_error_free (error);
 			}
@@ -1648,7 +1648,7 @@ nemo_file_stop (NemoFile                   *file,
 			if (callback) {
 				error = NULL;
 				g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-						     _("This file cannot be stopped"));
+						     _("This file can't be stopped"));
 				callback (file, NULL, error, callback_data);
 				g_error_free (error);
 			}
@@ -2255,7 +2255,7 @@ nemo_file_rename (NemoFile *file,
 	 * But not for .desktop files as '/' are allowed for them */
 	if (strstr (new_name, "/") != NULL && !is_renameable_desktop_file) {
 		error = g_error_new (G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
-				     _("Slashes are not allowed in filenames"));
+				     _("Slashes aren't allowed in filenames"));
 		(* callback) (file, NULL, error, callback_data);
 		g_error_free (error);
 		return;
@@ -2300,7 +2300,7 @@ nemo_file_rename (NemoFile *file,
 		 */
 		nemo_file_changed (file);
 		error = g_error_new (G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-				     _("Toplevel files cannot be renamed"));
+				     _("Toplevel files can't be renamed"));
 
 		(* callback) (file, NULL, error, callback_data);
 		g_error_free (error);
@@ -8634,7 +8634,7 @@ char *
 nemo_file_get_symbolic_link_target_path (NemoFile *file)
 {
 	if (!nemo_file_is_symbolic_link (file)) {
-		g_warning ("File has symlink target, but  is not marked as symlink");
+		g_warning ("File has symlink target, but  isn't marked as symlink");
 	}
 
 	return g_strdup (file->details->symlink_name);
@@ -8656,7 +8656,7 @@ nemo_file_get_symbolic_link_target_uri (NemoFile *file)
 	char *target_uri;
 
 	if (!nemo_file_is_symbolic_link (file)) {
-		g_warning ("File has symlink target, but  is not marked as symlink");
+		g_warning ("File has symlink target, but  isn't marked as symlink");
 	}
 
 	if (file->details->symlink_name == NULL) {

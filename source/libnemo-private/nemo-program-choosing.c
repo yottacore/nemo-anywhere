@@ -449,14 +449,14 @@ nemo_show_start_error (GtkWindow    *parent_window,
 {
 	g_return_if_fail (error != NULL);
 
-	eel_show_error_dialog (_("The program could not be started."), error->message, parent_window);
+	eel_show_error_dialog (_("The program couldn't be started."), error->message, parent_window);
 }
 
 #ifdef G_OS_WIN32
 static gboolean
 show_helper_failed (gpointer message)
 {
-	eel_show_error_dialog (_("A helper program could not be started."), message, NULL);
+	eel_show_error_dialog (_("A helper program couldn't be started."), message, NULL);
 	return G_SOURCE_REMOVE;
 }
 
@@ -532,7 +532,7 @@ nemo_launch_desktop_file (G_GNUC_UNUSED GdkScreen   *screen,
 		g_free (desktop_file_path);
 		g_object_unref (desktop_file);
 		eel_show_error_dialog
-			(_("Sorry, but you cannot execute commands from "
+			(_("Sorry, but you can't execute commands from "
 			   "a remote site."), 
 			 _("This is disabled due to security considerations."),
 			 parent_window);

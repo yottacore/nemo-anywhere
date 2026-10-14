@@ -43,7 +43,7 @@ X-Nemo-Counterpart=My-Theme-dark
 
 ## Buuf
 
-Buuf was on the list of sets to bundle and is not here, because it is CC BY-NC-SA - the NonCommercial term means it cannot ship inside anything, and it cannot sit in this repository either. It is worth having, though, so fetch it yourself from [gnome-look](https://www.gnome-look.org/p/1012233) or from [alfathmuqoddas/buuf-nestort](https://github.com/alfathmuqoddas/buuf-nestort), and unpack the theme folder into the icons directory above.
+Buuf was on the list of sets to bundle and isn't here, because it is CC BY-NC-SA - the NonCommercial term means it can't ship inside anything, and it can't sit in this repository either. It is worth having, though, so fetch it yourself from [gnome-look](https://www.gnome-look.org/p/1012233) or from [alfathmuqoddas/buuf-nestort](https://github.com/alfathmuqoddas/buuf-nestort), and unpack the theme folder into the icons directory above.
 
 Bash (Linux and BSD):
 
@@ -57,4 +57,4 @@ PowerShell (Windows):
 $dir = "$env:APPDATA\nemo-anywhere\icons"; $tgz = "$env:TEMP\buuf.tar.gz"; New-Item -ItemType Directory -Force $dir | Out-Null; curl.exe -fsSL https://github.com/alfathmuqoddas/buuf-nestort/archive/refs/heads/main.tar.gz -o $tgz; tar -xzf $tgz -C $dir --strip-components=1; Remove-Item $tgz
 ~~~
 
-Buuf is bitmap art, so it is large and it does not scale the way the bundled sets do. That is the trade for the only hand-drawn set of its kind.
+Buuf is bitmap art, so it is large and it doesn't scale the way the bundled sets do. That is the trade for the only hand-drawn set of its kind.

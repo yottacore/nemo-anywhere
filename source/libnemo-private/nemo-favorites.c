@@ -490,7 +490,7 @@ remove_favorite (NemoFavorites *favorites,
     {
         g_rec_mutex_unlock (&infos_lock);
 
-        g_debug ("NemoFavorites: remove_favorite: could not find favorite for uri '%s'", real_uri);
+        g_debug ("NemoFavorites: remove_favorite: couldn't find favorite for uri '%s'", real_uri);
         g_free (real_uri);
         return;
     }

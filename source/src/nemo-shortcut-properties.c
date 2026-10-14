@@ -97,7 +97,7 @@ save_entry (GtkEntry *entry, Editor *editor)
 	*slot = previous;
 	gtk_entry_set_text (entry, previous != NULL ? previous : "");
 
-	eel_show_error_dialog (_("The shortcut could not be changed."),
+	eel_show_error_dialog (_("The shortcut couldn't be changed."),
 			       error != NULL ? error->message : NULL,
 			       GTK_WINDOW (gtk_widget_get_toplevel (GTK_WIDGET (entry))));
 	g_clear_error (&error);
@@ -186,7 +186,7 @@ nemo_shortcut_properties_make_box (GtkSizeGroup *label_size_group,
 	g_object_unref (location);
 
 	if (!nemo_shortcut_win32_read_info (editor->lnk_path, &editor->info, &error)) {
-		g_warning ("%s: %s", editor->lnk_path, error != NULL ? error->message : "could not read the shortcut");
+		g_warning ("%s: %s", editor->lnk_path, error != NULL ? error->message : "couldn't read the shortcut");
 		g_clear_error (&error);
 	}
 

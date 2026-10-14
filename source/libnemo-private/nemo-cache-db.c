@@ -214,7 +214,7 @@ mark_damaged (void)
 
 	marker = damaged_marker_path (path);
 	if (!g_file_set_contents (marker, "", 0, NULL)) {
-		g_warning ("could not mark the file cache damaged at %s", marker);
+		g_warning ("couldn't mark the file cache damaged at %s", marker);
 	}
 }
 
@@ -457,7 +457,7 @@ open_at (const char *path, gboolean *out_rebuild)
 			      NULL);
 	if (rc != SQLITE_OK) {
 		*out_rebuild = is_corruption (rc);
-		g_autofree char *what = g_strdup_printf ("could not open the file cache %s", path);
+		g_autofree char *what = g_strdup_printf ("couldn't open the file cache %s", path);
 
 		warn_setup (handle, what, rc, NULL);
 		sqlite3_close (handle);
@@ -489,7 +489,7 @@ open_at (const char *path, gboolean *out_rebuild)
 			 &err);
 	if (rc != SQLITE_OK) {
 		*out_rebuild = is_corruption (rc);
-		warn_setup (handle, "could not set up the file cache", rc, err);
+		warn_setup (handle, "couldn't set up the file cache", rc, err);
 		sqlite3_free (err);
 		sqlite3_close (handle);
 		return NULL;
@@ -500,7 +500,7 @@ open_at (const char *path, gboolean *out_rebuild)
 	rc = read_user_version (handle, &version);
 	if (rc != SQLITE_OK) {
 		*out_rebuild = is_corruption (rc);
-		warn_setup (handle, "could not read the file cache version", rc, NULL);
+		warn_setup (handle, "couldn't read the file cache version", rc, NULL);
 		sqlite3_close (handle);
 		return NULL;
 	}
@@ -517,7 +517,7 @@ open_at (const char *path, gboolean *out_rebuild)
 	rc = sqlite3_exec (handle, SCHEMA, NULL, NULL, &err);
 	if (rc != SQLITE_OK) {
 		*out_rebuild = is_corruption (rc);
-		warn_setup (handle, "could not make the file cache tables", rc, err);
+		warn_setup (handle, "couldn't make the file cache tables", rc, err);
 		sqlite3_free (err);
 		sqlite3_close (handle);
 		return NULL;

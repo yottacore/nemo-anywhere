@@ -388,7 +388,7 @@ on_layout_editor_clicked (G_GNUC_UNUSED GtkWidget *button, G_GNUC_UNUSED NemoAct
     }
 
     if (!g_spawn_command_line_async (editor, &error)) {
-        g_warning ("Could not start the action layout editor (%s): %s",
+        g_warning ("Couldn't start the action layout editor (%s): %s",
                    editor, error->message);
         g_clear_error (&error);
     }

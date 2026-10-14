@@ -31,7 +31,7 @@ check_name (const char *name, GError **error)
 #endif
 	    ) {
 		g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME,
-			     _("\"%s\" cannot be used as a name."), name != NULL ? name : "");
+			     _("\"%s\" can't be used as a name."), name != NULL ? name : "");
 		return FALSE;
 	}
 
@@ -117,7 +117,7 @@ rename_to (const char *path, const char *new_path, GError **error)
 
 	saved = errno;
 	g_set_error (error, G_IO_ERROR, g_io_error_from_errno (saved),
-		     _("Could not rename it: %s"), g_strerror (saved));
+		     _("Couldn't rename it: %s"), g_strerror (saved));
 	return FALSE;
 }
 
@@ -172,7 +172,7 @@ nemo_link_edit_symlink (const char  *link_path,
 	kind = nemo_link_kind (file, NULL);
 	if (kind == NEMO_LINK_NONE || !nemo_link_read_target (file, &old_target, NULL)) {
 		g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-			     _("\"%s\" is not a link any more."), link_path);
+			     _("\"%s\" isn't a link any more."), link_path);
 		goto out;
 	}
 
@@ -241,7 +241,7 @@ nemo_link_edit_symlink (const char  *link_path,
 
 		remove_link (spare, NULL);
 		g_set_error (error, G_IO_ERROR, g_io_error_from_errno (saved),
-			     _("Could not put the new link in place: %s"), g_strerror (saved));
+			     _("Couldn't put the new link in place: %s"), g_strerror (saved));
 		goto out;
 	}
 	if (!same_entry && !remove_link (link_path, error)) {
@@ -385,7 +385,7 @@ nemo_link_edit_ask (GtkWindow *parent,
 
 	path = g_file_get_path (link);
 	if (path == NULL) {
-		eel_show_error_dialog (_("This link cannot be edited"),
+		eel_show_error_dialog (_("This link can't be edited"),
 				       _("Only a link in a local folder can be edited."), parent);
 		return;
 	}
@@ -394,9 +394,9 @@ nemo_link_edit_ask (GtkWindow *parent,
 
 	if (is_lnk) {
 		if (!nemo_lnk_read (path, &lnk)) {
-			char *text = g_strdup_printf (_("\"%s\" is not a shortcut that can be read."), name);
+			char *text = g_strdup_printf (_("\"%s\" isn't a shortcut that can be read."), name);
 
-			eel_show_error_dialog (_("This link cannot be edited"), text, parent);
+			eel_show_error_dialog (_("This link can't be edited"), text, parent);
 			g_free (text);
 			goto out;
 		}
@@ -408,9 +408,9 @@ nemo_link_edit_ask (GtkWindow *parent,
 
 		if (nemo_link_kind (link, NULL) == NEMO_LINK_NONE ||
 		    !nemo_link_read_target (link, &target, &error)) {
-			char *text = g_strdup_printf (_("\"%s\" is not a symlink or junction."), name);
+			char *text = g_strdup_printf (_("\"%s\" isn't a symlink or junction."), name);
 
-			eel_show_error_dialog (_("This link cannot be edited"), text, parent);
+			eel_show_error_dialog (_("This link can't be edited"), text, parent);
 			g_free (text);
 			g_clear_error (&error);
 			goto out;
@@ -486,7 +486,7 @@ nemo_link_edit_ask (GtkWindow *parent,
 		{
 			GtkWidget *message = gtk_message_dialog_new (GTK_WINDOW (dialog), GTK_DIALOG_MODAL,
 								     GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, "%s",
-								     _("The link could not be changed"));
+								     _("The link couldn't be changed"));
 
 			gtk_message_dialog_format_secondary_text (GTK_MESSAGE_DIALOG (message), "%s", error->message);
 			gtk_dialog_run (GTK_DIALOG (message));

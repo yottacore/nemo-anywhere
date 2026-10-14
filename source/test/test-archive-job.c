@@ -1198,25 +1198,25 @@ check_reasons (const char *tmp,
 
 	/* Not in the archive: a file, a folder, and both. */
 	check (rewrite_without (path, dropped_path, "a.txt"));
-	check_says (dropped, sources, &options, "1 file that was selected is not in the archive.");
+	check_says (dropped, sources, &options, "1 file that was selected isn't in the archive.");
 	check (rewrite_without (path, flat_path, NULL));
-	check_says (flat, sources, &options, "1 folder that was selected is not in the archive.");
+	check_says (flat, sources, &options, "1 folder that was selected isn't in the archive.");
 	g_mkdir_with_parents (newer, 0700);
 	write_file (newer, "x.txt", "xray");
 	write_file (deep, "c.txt", "charlie");
 	check_says (archive, sources, &options,
-		    "1 folder and 2 files that were selected are not in the archive.");
+		    "1 folder and 2 files that were selected aren't in the archive.");
 
 	/* In the archive and not selected. */
 	remove_file (newer, "x.txt");
 	check (g_rmdir (newer) == 0);
 	remove_file (deep, "c.txt");
 	remove_file (deep, "b.txt");
-	check_says (archive, sources, &options, "1 file in the archive was not selected.");
+	check_says (archive, sources, &options, "1 file in the archive wasn't selected.");
 	write_file (deep, "b.txt", "bravo");
 	remove_file (inner, "d.txt");
 	check (g_rmdir (inner) == 0);
-	check_says (archive, sources, &options, "1 folder and 1 file in the archive were not selected.");
+	check_says (archive, sources, &options, "1 folder and 1 file in the archive weren't selected.");
 	g_mkdir_with_parents (inner, 0700);
 	write_file (inner, "d.txt", "delta");
 
@@ -1224,8 +1224,8 @@ check_reasons (const char *tmp,
 	remove_file (deep, "b.txt");
 	write_file (deep, "c.txt", "charlie");
 	check_says (archive, sources, &options,
-		    "1 file that was selected is not in the archive. "
-		    "1 file in the archive was not selected.");
+		    "1 file that was selected isn't in the archive. "
+		    "1 file in the archive wasn't selected.");
 	remove_file (deep, "c.txt");
 	write_file (deep, "b.txt", "bravo");
 	check (nemo_archive_verify (archive, sources, &options, NEMO_ARCHIVE_BACKEND_LIBARCHIVE,
@@ -1243,14 +1243,14 @@ check_reasons (const char *tmp,
 
 	/* The size is left out when a count is off. */
 	write_file (deep, "c.txt", "charlie");
-	check_says (archive, sources, &options, "1 file that was selected is not in the archive.");
+	check_says (archive, sources, &options, "1 file that was selected isn't in the archive.");
 	remove_file (deep, "c.txt");
 
 	/* The same total from 2 sizes that differ. */
 	write_file (dir, "a.txt", "alph");
 	write_file (deep, "b.txt", "bravo!");
 	check_says (archive, sources, &options,
-		    "2 files in the archive are not the size of the ones selected.");
+		    "2 files in the archive aren't the size of the ones selected.");
 	write_file (dir, "a.txt", "alpha");
 	write_file (deep, "b.txt", "bravo");
 
@@ -1263,7 +1263,7 @@ check_reasons (const char *tmp,
 		check (g_file_make_symbolic_link (link_file, "nowhere", NULL, NULL));
 		options.links.symlinks = ARC_LINK_IGNORE;
 		compress_to (sources, archive, &options, window);
-		check_says (archive, sources, &options, "1 file that was selected is not in the archive.");
+		check_says (archive, sources, &options, "1 file that was selected isn't in the archive.");
 		g_remove (link_path);
 		g_object_unref (link_file);
 		g_free (link_path);

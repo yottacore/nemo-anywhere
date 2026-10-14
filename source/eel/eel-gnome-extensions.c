@@ -184,7 +184,7 @@ eel_gnome_open_terminal_on_screen (const gchar       *command,
 
     command_line = prepend_terminal_to_command_line (command);
     if (command_line == NULL) {
-        g_message ("Could not find a terminal emulator");
+        g_message ("Couldn't find a terminal emulator");
         return;
     }
 
@@ -204,7 +204,7 @@ eel_gnome_open_terminal_on_screen (const gchar       *command,
 	g_clear_object (&app);
 
 	if (error != NULL) {
-		g_message ("Could not start application on terminal: %s", error->message);
+		g_message ("Couldn't start application on terminal: %s", error->message);
 
 		g_error_free (error);
 	}

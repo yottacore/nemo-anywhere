@@ -28,11 +28,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Search results can be grouped under the folder that holds them instead of shown as one flat list, with a toggle next to the one for recursing into subfolders. Grouped results drop the Location column and switching either way happens without running the search again.
 
-- A drop that moves files asks first, naming the files and the folder they are headed for. Two settings under Behavior: moves ask by default, copies do not. The Trash keeps its own separate question rather than asking twice.
+- A drop that moves files asks first, naming the files and the folder they are headed for. Two settings under Behavior: moves ask by default, copies don't. The Trash keeps its own separate question rather than asking twice.
 
 - Content search ("Containing:") reads Word, Excel and PowerPoint documents in both their old and new formats, OpenDocument files and EPUB books, on every platform. The converters are built in, so nothing else needs installing.
 
-- Windows `.lnk` shortcuts work on Linux. One to a folder changes to that folder, and one to a file opens the file, started in the shortcut's "Start in" folder or else the file's own. Each shows its target's icon. The Windows path is matched to a drive by its volume serial, or to a share by server and name, whether the kernel or gvfs mounted it. A share that is not mounted opens as `smb://` where gvfs can. When nothing matches, a message names the path instead of a guess.
+- Windows `.lnk` shortcuts work on Linux. One to a folder changes to that folder, and one to a file opens the file, started in the shortcut's "Start in" folder or else the file's own. Each shows its target's icon. The Windows path is matched to a drive by its volume serial, or to a share by server and name, whether the kernel or gvfs mounted it. A share that isn't mounted opens as `smb://` where gvfs can. When nothing matches, a message names the path instead of a guess.
 
 - On Windows, a shortcut is drawn with the icon the shell would give it, its target's, at every view size, and without Explorer having to be running.
 
@@ -42,7 +42,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - On Windows, a switch in Settings answers searches from the Windows Search index for folders it covers. Off by default. Folders outside the index, and content searches by pattern or by case, are still searched directly.
 
-- A `--reset` flag that clears the settings and the bookmarks and puts everything back to defaults. It will not run while the app is open.
+- A `--reset` flag that clears the settings and the bookmarks and puts everything back to defaults. It won't run while the app is open.
 
 - On Windows, a first start fills the bookmark list with the drive, Desktop, Documents, Downloads, Pictures, Videos and AppData. Anything left behind by a config copied from a Linux machine is dropped at the same time.
 
@@ -54,7 +54,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Themes can be dropped in on any platform. Put a GTK theme folder in `themes`, or an icon theme in `icons`, beside the settings file and it shows up in the lists.
 
-- A small panel while Windows starts the app, saying what it is doing, so a launch that takes a moment does not look like nothing happened. It goes away the instant the real window has drawn.
+- A small panel while Windows starts the app, saying what it is doing, so a launch that takes a moment doesn't look like nothing happened. It goes away the instant the real window has drawn.
 
 - Two more owner columns for the list view: Owner name, the owner's display name, and Owner - name, which shows both. On Windows the name is the local account's full name; a domain account has none.
 
@@ -84,7 +84,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - The settings file is read with SHCL 3. A backslash in an unquoted value is now just a backslash, so a Windows path can be typed as it is, and escapes only work inside double quotes. A settings file from an earlier beta that holds a network path may read it wrong; delete it and start again. The file now ends with a short block naming its format, so a later version knows what it is reading.
 
-- The settings file now ends with a commented list of everything you have not set, each line carrying the value used instead and, where the name is not obvious, a short note. Uncomment a line to change it. Sizes, positions and other things the app remembers for itself are left off the list.
+- The settings file now ends with a commented list of everything you haven't set, each line carrying the value used instead and, where the name isn't obvious, a short note. Uncomment a line to change it. Sizes, positions and other things the app remembers for itself are left off the list.
 
 - The thumbnail cache is cleaned up every few hours, at a quiet moment, rather than growing forever: a thumbnail whose file is gone goes first, then anything not drawn for longer than the age allowed, then the least recently drawn until the rest fit in the size allowed. Both limits are on the Preview page and either can be turned off. The shared freedesktop thumbnail folder is no longer touched.
 
@@ -94,7 +94,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - The list view no longer shrinks a column past what it shows. Name keeps the width that shows all but the widest tenth of the names in the folder (a setting under list-view), a type or owner column the width that shows most of its distinct values, and a date or a size is never cut at all. Type gives a little further, down to twice the Ext column, and past that the view scrolls sideways.
 
-- Search results give the Name and Location columns only the width their contents need, leaving the rest of the row empty. Where the two do not both fit they shrink in proportion to what each asked for, and neither ends more than twice the width of the other. Dragging either column still pins a split of the whole row.
+- Search results give the Name and Location columns only the width their contents need, leaving the rest of the row empty. Where the two don't both fit they shrink in proportion to what each asked for, and neither ends more than twice the width of the other. Dragging either column still pins a split of the whole row.
 
 - `--existing-window` opens the URIs as tabs in one new window. There is no window of ours left to join, since every launch is its own process.
 
@@ -138,7 +138,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Notes
 
-- Settings do not carry over from beta1. Configuration moved out of GSettings, and nothing can read the old store once its schema is gone, so the first run after upgrading starts from defaults.
+- Settings don't carry over from beta1. Configuration moved out of GSettings, and nothing can read the old store once its schema is gone, so the first run after upgrading starts from defaults.
 
 ### Added
 

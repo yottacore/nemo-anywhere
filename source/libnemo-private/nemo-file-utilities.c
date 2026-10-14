@@ -380,7 +380,7 @@ nemo_get_user_cache_directory (void)
 				      NULL);
 
 	if (g_mkdir_with_parents (dir, DEFAULT_NEMO_DIRECTORY_MODE) != 0) {
-		g_warning ("could not make the cache dir %s: %s", dir, g_strerror (errno));
+		g_warning ("couldn't make the cache dir %s: %s", dir, g_strerror (errno));
 		g_free (dir);
 		return NULL;
 	}
@@ -418,7 +418,7 @@ migrate_legacy_user_directory (const char *user_directory)
 	g_mkdir_with_parents (parent, DEFAULT_NEMO_DIRECTORY_MODE);
 
 	if (g_rename (legacy, user_directory) != 0) {
-		g_warning ("could not move settings from %s to %s: %s",
+		g_warning ("couldn't move settings from %s to %s: %s",
 			   legacy, user_directory, g_strerror (errno));
 		return;
 	}
@@ -1822,7 +1822,7 @@ get_dbus_connection (void)
 	        conn = g_bus_get_sync (G_BUS_TYPE_SESSION, NULL, &error);
 
 		if (conn == NULL) {
-	                g_warning ("Could not connect to session bus: %s", error->message);
+	                g_warning ("Couldn't connect to session bus: %s", error->message);
 			g_error_free (error);
 		}
 	}
@@ -1876,7 +1876,7 @@ nemo_inhibit_power_manager (const char *message)
 					      &error);
 
 	if (error != NULL) {
-		g_warning ("Could not inhibit power management: %s", error->message);
+		g_warning ("Couldn't inhibit power management: %s", error->message);
 		g_error_free (error);
 		return -1;
 	}
@@ -1923,7 +1923,7 @@ nemo_uninhibit_power_manager (gint cookie)
 					      &error);
 
 	if (result == NULL) {
-		g_warning ("Could not uninhibit power management: %s", error->message);
+		g_warning ("Couldn't uninhibit power management: %s", error->message);
 		g_error_free (error);
 		return;
 	}
@@ -2135,11 +2135,11 @@ nemo_restore_files_from_trash (GList *files,
 	for (l = unhandled_files; l != NULL; l = l->next) {
 		file = NEMO_FILE (l->data);
 		file_name = nemo_file_get_display_name (file);
-		message = g_strdup_printf (_("Could not determine original location of \"%s\" "), file_name);
+		message = g_strdup_printf (_("Couldn't determine original location of \"%s\" "), file_name);
 		g_free (file_name);
 
 		eel_show_warning_dialog (message,
-					 _("The item cannot be restored from trash"),
+					 _("The item can't be restored from trash"),
 					 parent_window);
 		g_free (message);
 	}
@@ -3207,7 +3207,7 @@ nemo_new_folder_path_split (const gchar *text, GError **error)
         }
         if (strchr (part, '/') != NULL) {
             g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME,
-                                 _("Slashes are not allowed in filenames"));
+                                 _("Slashes aren't allowed in filenames"));
             g_free (part);
             g_ptr_array_free (parts, TRUE);
             return NULL;

@@ -336,7 +336,7 @@ about_link_activated (GtkAboutDialog *about,
 	GError *error = NULL;
 
 	if (!nemo_show_uri (GTK_WINDOW (about), uri, &error)) {
-		eel_show_error_dialog (_("Could not open the link."), error->message, GTK_WINDOW (about));
+		eel_show_error_dialog (_("Couldn't open the link."), error->message, GTK_WINDOW (about));
 		g_error_free (error);
 	}
 

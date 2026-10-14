@@ -167,7 +167,7 @@ nemo_view_handle_netscape_url_drop (NemoView  *view,
 	f = g_file_new_for_uri (target_uri);
 
 	if (!g_file_is_native (f)) {
-		eel_show_warning_dialog (_("Drag and drop is not supported."),
+		eel_show_warning_dialog (_("Drag and drop isn't supported."),
 					 _("Drag and drop is only supported on local file systems."),
                                          GET_ANCESTOR (view));
 		g_object_unref (f);
@@ -201,7 +201,7 @@ nemo_view_handle_netscape_url_drop (NemoView  *view,
 	    (action != GDK_ACTION_COPY) &&
 	    (action != GDK_ACTION_MOVE) &&
 	    (action != GDK_ACTION_LINK)) {
-		eel_show_warning_dialog (_("Drag and drop is not supported."),
+		eel_show_warning_dialog (_("Drag and drop isn't supported."),
 					 _("An invalid drag type was used."),
                                          GET_ANCESTOR (view));
 		g_object_unref (f);
@@ -299,7 +299,7 @@ nemo_view_handle_uri_list_drop (NemoView  *view,
 	    (action != GDK_ACTION_COPY) &&
 	    (action != GDK_ACTION_MOVE) &&
 	    (action != GDK_ACTION_LINK)) {
-		eel_show_warning_dialog (_("Drag and drop is not supported."),
+		eel_show_warning_dialog (_("Drag and drop isn't supported."),
 					 _("An invalid drag type was used."),
                                          GET_ANCESTOR (view));
 		g_free (container_uri);

@@ -114,7 +114,7 @@ remove_clicked_cb (G_GNUC_UNUSED GtkMenuItem *item,
 		if (!g_app_info_remove_supports_type (info,
 						      chooser->details->content_type,
 						      &error)) {
-			eel_show_error_dialog (_("Could not forget association"),
+			eel_show_error_dialog (_("Couldn't forget association"),
 					       error->message,
 					       GTK_WINDOW (gtk_widget_get_toplevel (GTK_WIDGET (chooser))));
 			g_error_free (error);
@@ -209,7 +209,7 @@ set_default_or_say_why (NemoMimeApplicationChooser *chooser,
 	toplevel = gtk_widget_get_toplevel (GTK_WIDGET (chooser));
 
 	{
-		char *primary = g_strdup_printf (_("Could not make \"%s\" the default application."),
+		char *primary = g_strdup_printf (_("Couldn't make \"%s\" the default application."),
 						 g_app_info_get_display_name (info));
 
 		eel_show_error_dialog (primary,

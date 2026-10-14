@@ -125,7 +125,7 @@ static void
 nemo_file_redo_info_warn_redo (NemoFileUndoInfo *self,
 				   G_GNUC_UNUSED GtkWindow *parent_window)
 {
-	g_critical ("Object %p of type %s does not implement redo_func!!", 
+	g_critical ("Object %p of type %s doesn't implement redo_func!!", 
 		    self, G_OBJECT_TYPE_NAME (self));
 }
 
@@ -133,7 +133,7 @@ static void
 nemo_file_undo_info_warn_undo (NemoFileUndoInfo *self,
 				   G_GNUC_UNUSED GtkWindow *parent_window)
 {
-	g_critical ("Object %p of type %s does not implement undo_func!!", 
+	g_critical ("Object %p of type %s doesn't implement undo_func!!", 
 		    self, G_OBJECT_TYPE_NAME (self));
 }
 

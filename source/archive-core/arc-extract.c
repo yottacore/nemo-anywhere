@@ -683,7 +683,7 @@ extract_with_libarchive (ExtractJob *job,
 
 	in = g_file_read (archive, job->cancellable, &error);
 	if (in == NULL) {
-		job_fail (job, _("The archive could not be opened."),
+		job_fail (job, _("The archive couldn't be opened."),
 			  error != NULL ? error->message : NULL);
 		g_clear_error (&error);
 		return EXTRACT_FAILED;
@@ -748,7 +748,7 @@ extract_with_libarchive (ExtractJob *job,
 				   libarchive can see but not read. */
 				result = EXTRACT_UNSUPPORTED;
 			} else {
-				job_fail (job, _("The archive could not be read."),
+				job_fail (job, _("The archive couldn't be read."),
 					  archive_error_string (a));
 				result = EXTRACT_FAILED;
 			}
@@ -849,7 +849,7 @@ extract_with_libarchive (ExtractJob *job,
 			g_free (link_rel);
 		} else if (!write_entry_data (job, a, target, &error)) {
 			if (!g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
-				job_fail (job, _("The archive could not be unpacked."),
+				job_fail (job, _("The archive couldn't be unpacked."),
 					  error != NULL ? error->message : NULL);
 				result = EXTRACT_FAILED;
 			}
@@ -865,7 +865,7 @@ extract_with_libarchive (ExtractJob *job,
 	}
 
 	if (result == EXTRACT_OK && src.error != NULL) {
-		job_fail (job, _("The archive could not be read."), src.error->message);
+		job_fail (job, _("The archive couldn't be read."), src.error->message);
 		result = EXTRACT_FAILED;
 	}
 
@@ -1120,7 +1120,7 @@ extract_with_command (ExtractJob         *job,
 	base_path = g_file_get_path (job->current_base);
 
 	if (program == NULL || archive_path == NULL || base_path == NULL) {
-		*out_details = g_strdup (_("This archive needs a program that is not installed, "
+		*out_details = g_strdup (_("This archive needs a program that isn't installed, "
 					   "or a folder on this computer."));
 		g_free (archive_path);
 		g_free (base_path);
@@ -1155,7 +1155,7 @@ extract_with_command (ExtractJob         *job,
 	}
 
 	if (staging == NULL) {
-		*out_details = g_strdup (_("A temporary folder could not be created."));
+		*out_details = g_strdup (_("A temporary folder couldn't be created."));
 		g_free (archive_path);
 		g_free (base_path);
 		return EXTRACT_FAILED;
@@ -1326,7 +1326,7 @@ extract_one (ExtractJob *job,
 				text = both;
 			}
 
-			job_fail (job, _("The archive could not be unpacked."),
+			job_fail (job, _("The archive couldn't be unpacked."),
 				  text != NULL ? text :
 				  _("Nothing installed here can read this archive."));
 			g_free (text);

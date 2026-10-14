@@ -162,7 +162,7 @@ nemo_desktop_settings_watch (const char *key, GCallback callback, gpointer user_
 		de = de_interface;
 		own = own_interface;
 	} else {
-		g_critical ("nemo-desktop-settings: '%s' is not watchable", key);
+		g_critical ("nemo-desktop-settings: '%s' isn't watchable", key);
 		return;
 	}
 

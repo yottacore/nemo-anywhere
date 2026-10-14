@@ -136,7 +136,7 @@ usage_done (GObject *source, GAsyncResult *res, gpointer user_data)
 		return;
 
 	if (!usage->opened) {
-		line = g_strdup (_("The cache could not be opened."));
+		line = g_strdup (_("The cache couldn't be opened."));
 	} else {
 		size = g_format_size_full (usage->file_bytes, G_FORMAT_SIZE_IEC_UNITS);
 		line = g_strdup_printf (g_dngettext (NULL, "%" G_GINT64_FORMAT " thumbnail, %s on disk.",
@@ -195,7 +195,7 @@ cleanup_done (NemoCachePruneResult result, gint64 removed, gpointer user_data)
 			note = g_strdup (_("It was damaged, and starts over the next time this program starts."));
 			break;
 		case NEMO_CACHE_PRUNE_FAILED:
-			note = g_strdup (_("Cleaning up did not work."));
+			note = g_strdup (_("Cleaning up didn't work."));
 			break;
 		case NEMO_CACHE_PRUNE_NOT_DUE:
 		case NEMO_CACHE_PRUNE_CANCELLED:
@@ -246,7 +246,7 @@ empty_done (GObject *source, GAsyncResult *res, gpointer user_data)
 	(void) source;
 
 	if (page != NULL)
-		refresh_usage (page, emptied ? _("Emptied.") : _("Emptying did not work."));
+		refresh_usage (page, emptied ? _("Emptied.") : _("Emptying didn't work."));
 }
 
 static void

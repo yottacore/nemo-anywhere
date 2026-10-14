@@ -82,7 +82,7 @@ show_bogus_bookmark_window (NemoWindow *window,
 	
 	prompt = _("Do you want to remove any bookmarks with the "
 		   "non-existing location from your list?");
-	detail = g_strdup_printf (_("The location \"%s\" does not exist."), uri_for_display);
+	detail = g_strdup_printf (_("The location \"%s\" doesn't exist."), uri_for_display);
 	
 	dialog = eel_show_yes_no_dialog (prompt, detail,
 					 _("Bookmark for nonexistent location"),

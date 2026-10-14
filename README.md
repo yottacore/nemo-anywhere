@@ -124,9 +124,9 @@ These are the features that make Nemo worth porting:
 
 ## What this fork adds or improves
 
-- **Cinnamon Desktop is not required**.
+- **Cinnamon Desktop isn't required**.
 
-- **Linux is not required**. Windows is a real native build, not a compatibility layer. (BSD coming soon.) You can install it from here, and Windows Store and Apple Store downloads are underway.
+- **Linux isn't required**. Windows is a real native build, not a compatibility layer. (BSD coming soon.) You can install it from here, and Windows Store and Apple Store downloads are underway.
 
 - On Windows it is one executable. The whole runtime is packed inside it, so there is nothing to install and nothing to keep in step. Copy it where you like and run it.
 
@@ -254,11 +254,11 @@ Current limitations:
 
 	- It can be safely turned off in Settings.
 
-- The Windows exe is not code-signed yet, so Windows may warn the first time it runs.
+- The Windows exe isn't code-signed yet, so Windows may warn the first time it runs.
 
-- Settings from a pre-1.0 install do not carry over.
+- Settings from a pre-1.0 install don't carry over.
 
-- macOS and BSD are not built yet.
+- macOS and BSD aren't built yet.
 
 Details are in these docs:
 
@@ -272,7 +272,7 @@ Details are in these docs:
 
 ## Icon themes
 
-24 icon sets, light and dark, are built into the Windows build, so there's nothing to download. Linux and BSD builds use the icon themes the desktop already has. Pick one in **Settings -> Appearance**; the Style picker moves the Icons picker to match, so a Windows 11 window frame does not come with macOS icons unless you ask for it.
+24 icon sets, light and dark, are built into the Windows build, so there's nothing to download. Linux and BSD builds use the icon themes the desktop already has. Pick one in **Settings -> Appearance**; the Style picker moves the Icons picker to match, so a Windows 11 window frame doesn't come with macOS icons unless you ask for it.
 
 ![Icon themes](assets/icon-gallery.png)
 
@@ -286,7 +286,7 @@ On Linux and BSD, Nemo Anywhere inherits whatever widget and icon theme is set a
 
 But on Windows, you can drop a theme folder into the icons directory beside your settings file, and it appears in the picker on the next launch - `~/.config/nemo-anywhere/icons/` on Linux and BSD, `%APPDATA%\nemo-anywhere\icons\` on Windows, `~/Library/Application Support/nemo-anywhere/icons/` on macOS. Widget themes work the same way in `themes/` beside it. Both folders are created empty on first run.
 
-[filesystem/README.md](filesystem/README.md) covers the layout, the two optional `index.theme` keys that tell the picker which modes a theme suits, and one-line fetch commands for Buuf - a set worth having that cannot be bundled, because its NonCommercial license rules it out of anything distributed.
+[filesystem/README.md](filesystem/README.md) covers the layout, the two optional `index.theme` keys that tell the picker which modes a theme suits, and one-line fetch commands for Buuf - a set worth having that can't be bundled, because its NonCommercial license rules it out of anything distributed.
 
 ## Installation
 
@@ -320,7 +320,7 @@ This one is for Windows, or anywhere else with PowerShell. It is a full installe
 & ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/yottacore/nemo-anywhere/main/install.ps1')))
 ~~~
 
-A release with no checksums file is not installed, even with `--yes`. Add `--no-verify` (`-NoVerify` in PowerShell) to install it anyway.
+A release with no checksums file isn't installed, even with `--yes`. Add `--no-verify` (`-NoVerify` in PowerShell) to install it anyway.
 
 Reinstalling over an existing copy is fine - it replaces it. `--help` also says how to remove it.
 
@@ -381,7 +381,7 @@ The [original Nemo](https://github.com/linuxmint/nemo) is the work of the Linux 
 
 This repository, although also a hard fork, retains all original copyright and license notices; see `license.txt` (originally 'COPYING'), `license-lib.txt` (originally 'COPYING.LIB'), `license-docs.txt` (originally 'COPYING-DOCS'), and `license-for-extensions.txt` (originally 'COPYING.EXTENSIONS').
 
-The sound files the demo recorder mixes into its video are third-party, under their own terms, and are not part of the application. Sources and licenses are in `cicd/utility/demo-video/sounds/LICENSES.txt`.
+The sound files the demo recorder mixes into its video are third-party, under their own terms, and aren't part of the application. Sources and licenses are in `cicd/utility/demo-video/sounds/LICENSES.txt`.
 
 The design docs in `project/design_docs/` are under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) instead, as each one says at the end.
 

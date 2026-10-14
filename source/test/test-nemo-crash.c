@@ -623,7 +623,7 @@ main (int argc, char *argv[])
 		if (result.report_path[0] != '\0') {
 			g_autofree char *text = check_report (result.report_path, ABORT_CAUSE);
 
-			check (text == NULL || strstr (text, "cannot be read past here") != NULL);
+			check (text == NULL || strstr (text, "can't be read past here") != NULL);
 		}
 	}
 	child_result_clear (&result);

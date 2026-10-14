@@ -395,7 +395,7 @@ load_locked (gboolean at_start)
 			if (!was_hands_off)
 				g_warning ("nemo-config: %s is SHCL format %" G_GINT64_FORMAT
 				           ", newer than this release reads (%d); "
-				           "settings changed here will not be saved",
+				           "settings changed here won't be saved",
 				           config_path, format, SHCL_FORMAT_MAJOR);
 		} else if (format >= 0 ? format < SHCL_FORMAT_MAJOR : at_start || still_v2) {
 			/* No format line: every file a 2.x release wrote, or a hand edit
@@ -415,7 +415,7 @@ load_locked (gboolean at_start)
 
 			if (backup == NULL) {
 				g_warning ("nemo-config: %s is in an older SHCL format and no "
-				           "backup could be written beside it; it will not be "
+				           "backup could be written beside it; it won't be "
 				           "saved over", config_path);
 				hands_off = TRUE;
 			} else {
@@ -424,7 +424,7 @@ load_locked (gboolean at_start)
 				           config_path, was, SHCL_FORMAT_MAJOR, backup);
 				if (conv.ambiguous > 0 || conv.lost > 0)
 					g_warning ("nemo-config: %zu value(s) could be read two "
-					           "ways and %zu line(s) could not be converted; "
+					           "ways and %zu line(s) couldn't be converted; "
 					           "check them against %s",
 					           conv.ambiguous, conv.lost, backup);
 				rewrite_due = TRUE;
@@ -464,8 +464,8 @@ load_locked (gboolean at_start)
 		/* Anything the parse could not keep is gone from the next save, so say
 		 * so rather than let a hand-edited line disappear without a word. */
 		if (shcl_lost_count (config_doc) > 0) {
-			g_warning ("nemo-config: %s has %zu line(s) that could not be kept; "
-			           "the next save will not carry them",
+			g_warning ("nemo-config: %s has %zu line(s) that couldn't be kept; "
+			           "the next save won't carry them",
 			           config_path, shcl_lost_count (config_doc));
 		}
 
@@ -484,7 +484,7 @@ load_locked (gboolean at_start)
 		gboolean gone = g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_NOENT);
 
 		if (!gone)
-			g_warning ("nemo-config: cannot read %s: %s",
+			g_warning ("nemo-config: can't read %s: %s",
 			           config_path, error->message);
 		g_clear_error (&error);
 
@@ -959,7 +959,7 @@ save_now (G_GNUC_UNUSED gpointer data)
 		still_v2 = FALSE;
 	} else {
 		if (!save_failing) {
-			g_warning ("nemo-config: cannot write %s: %s",
+			g_warning ("nemo-config: can't write %s: %s",
 			           config_path, error->message);
 			save_failing = TRUE;
 		}
@@ -1947,7 +1947,7 @@ nemo_config_get_enum (NemoConfigGroup *group, const char *key)
 
 	/* An unrecognized nick is a hand-edit typo - fall back to the default
 	 * rather than to whatever 0 happens to mean. */
-	g_warning ("nemo-config: '%s' is not a valid value for '%s.%s'",
+	g_warning ("nemo-config: '%s' isn't a valid value for '%s.%s'",
 	           nick, k->group, k->key);
 	g_free (nick);
 	for (v = k->enum_values; v != NULL && v->nick != NULL; v++) {
@@ -2198,7 +2198,7 @@ set_enum_by_nick (NemoConfigGroup *group, const char *key, const char *nick)
 		}
 	}
 
-	g_critical ("nemo-config: '%s' is not a valid value for '%s.%s'",
+	g_critical ("nemo-config: '%s' isn't a valid value for '%s.%s'",
 	            nick != NULL ? nick : "(null)", k->group, k->key);
 }
 
@@ -2218,7 +2218,7 @@ nemo_config_set_enum (NemoConfigGroup *group, const char *key, gint value)
 		}
 	}
 
-	g_critical ("nemo-config: %d is not a valid value for '%s.%s'",
+	g_critical ("nemo-config: %d isn't a valid value for '%s.%s'",
 	            value, k->group, k->key);
 }
 

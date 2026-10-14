@@ -913,7 +913,7 @@ function fPublishIcon {
 		}
 		return $dest
 	} catch {
-		fItem "-" "icon" "could not publish it: $($_.Exception.Message)"
+		fItem "-" "icon" "couldn't publish it: $($_.Exception.Message)"
 		return $null
 	}
 }
@@ -965,7 +965,7 @@ function fRegisterDesktopEntry {
 		$update = fFindOnPath "update-desktop-database"
 		if ($update) { & $update $appsDir 2>$null | Out-Null }
 	} catch {
-		fItem "-" "menu" "could not register the entry: $($_.Exception.Message)"
+		fItem "-" "menu" "couldn't register the entry: $($_.Exception.Message)"
 	}
 }
 
@@ -1045,7 +1045,7 @@ exec @RUN@ "$@"
 		if ($icon) { & sips -s format icns $icon --out $icns *> $null }
 		fItem "ok" "app" "written: $app"
 	} catch {
-		fItem "-" "app" "could not write the app: $($_.Exception.Message)"
+		fItem "-" "app" "couldn't write the app: $($_.Exception.Message)"
 	}
 }
 
@@ -1102,7 +1102,7 @@ function fRefreshShortcuts {
 			fItem "ok" "shortcut" "repointed $($file.FullName)"
 			$fixed++
 		} catch {
-			fItem "-" "shortcut" "could not update $($file.Name): $($_.Exception.Message)"
+			fItem "-" "shortcut" "couldn't update $($file.Name): $($_.Exception.Message)"
 		}
 	}
 
@@ -1122,7 +1122,7 @@ function fRefreshShortcuts {
 			$link.Save()
 			fItem "ok" "shortcut" "created $path"
 		} catch {
-			fItem "-" "shortcut" "could not create it: $($_.Exception.Message)"
+			fItem "-" "shortcut" "couldn't create it: $($_.Exception.Message)"
 		}
 	} elseif (-not $fixed) {
 		fItem "ok" "shortcut" "already current"
@@ -1432,7 +1432,7 @@ function fGuiShow {
 			[System.Windows.Forms.MessageBoxButtons]::OK,
 			[System.Windows.Forms.MessageBoxIcon]::$Icon) | Out-Null
 	} catch {
-		fLog "could not show a message box: $($_.Exception.Message)"
+		fLog "couldn't show a message box: $($_.Exception.Message)"
 	}
 }
 
@@ -1460,7 +1460,7 @@ function fTrimLog {
 			Set-Content -LiteralPath $Path -Value $tail -Encoding utf8
 		}
 	} catch {
-		fLog "could not trim the run log: $($_.Exception.Message)"
+		fLog "couldn't trim the run log: $($_.Exception.Message)"
 	}
 }
 

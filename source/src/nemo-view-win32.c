@@ -39,7 +39,7 @@ shell_execute_ok (HINSTANCE result, DWORD failure, const gchar *what, const gcha
 	/* No to the UAC prompt is an answer, not a failure. */
 	if (failure != ERROR_CANCELLED) {
 		reason = g_win32_error_message (failure);
-		g_set_error (&error, G_IO_ERROR, G_IO_ERROR_FAILED, _("Could not start \"%s\": %s"), target, reason);
+		g_set_error (&error, G_IO_ERROR, G_IO_ERROR_FAILED, _("Couldn't start \"%s\": %s"), target, reason);
 		nemo_show_start_error (NULL, error);
 		g_error_free (error);
 		g_free (reason);
@@ -128,7 +128,7 @@ nemo_view_win32_open_elevated (const gchar *path)
 	DWORD failure;
 
 	if (GetModuleFileNameW (NULL, exe, MAX_PATH) == 0) {
-		g_warning ("Open as Administrator: cannot find our own executable");
+		g_warning ("Open as Administrator: can't find our own executable");
 		return;
 	}
 
@@ -278,7 +278,7 @@ nemo_view_win32_open_in_explorer (const gchar *path,
 
 	wpath = (wchar_t *) g_utf8_to_utf16 (path, -1, NULL, NULL, NULL);
 	if (wpath == NULL) {
-		g_warning ("Open with Explorer: cannot convert '%s'", path);
+		g_warning ("Open with Explorer: can't convert '%s'", path);
 		return;
 	}
 
