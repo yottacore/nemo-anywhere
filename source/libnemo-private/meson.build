@@ -138,6 +138,7 @@ if is_windows
   nemo_private_deps += dependency('gio-windows-2.0', version: glib_version)
   nemo_private_sources += 'nemo-clipboard-win32.c'
   nemo_private_sources += 'nemo-dnd-win32.c'
+  nemo_private_sources += 'nemo-drop-win32.c'
   nemo_private_sources += 'nemo-shell-icon-win32.c'
   nemo_private_sources += 'nemo-drives-win32.c'
   nemo_private_sources += 'nemo-instances-win32.c'

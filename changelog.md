@@ -122,6 +122,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- On Windows, a file dragged in from a program other than Explorer was often refused, since only Explorer's own kind of file drag was read. A drag that only allows a copy was refused too, wherever a move would have been picked. Both drop now.
+
 - An owner whose account has an empty display name showed as the user name followed by a stray " - ".
 
 - The bottom scrollbar flashed at every step of a resize, could stay after one when nothing needed it, and now and then strobed along with the vertical one.

@@ -59,8 +59,8 @@ GdkDragAction nemo_dnd_win32_modifier_action (void);
  * MK_ALT included. */
 GdkDragAction nemo_dnd_win32_action_for_keys (guint keys);
 
-/* Called before the toolkit starts, to put it on the protocol our drags speak.
- * Does nothing when the above is off. */
+/* Called before the toolkit starts, to put it on the protocol our drags speak
+ * and our drop target in front of its own. Does nothing when the above is off. */
 void nemo_dnd_win32_prepare (void);
 
 /* The object a drag hands to the other program, for tests to read back. NULL if
