@@ -483,7 +483,7 @@ static const int second_to_fourth[] = { 1, 2, 3, -1 };
 static const int second[] = { 1, -1 };
 
 /* Each step waits on what the one before set going, up to ten seconds. No
-   two presses in a row land on one item, which would be a double click. */
+   two presses in a row hit one item, which would be a double click. */
 static gboolean
 list_tick (void)
 {
