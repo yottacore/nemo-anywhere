@@ -889,6 +889,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: f38660a to f8a6223
 	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session. (c) still needs its own: a thumbnail and the text from a small file of each type, on every platform, and a check that no program is started for them.
 
+- Search view and regular view need to remember their own column settings.
+	- ID: 2026101405542816
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261014-055428
+	- Opened by: t00mietum
+	- Related IDs: 2026100613285826
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+	- Test case: none yet.
+
 - Take libgsf, the gsf-office thumbnailer and the 4 search converters out of every bundle and the build.
 	- ID: 2026100909260549
 	- Type: Enhancement
@@ -927,6 +940,121 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: nogsf
 	- Commit: 7c4e340, 6748a54
 	- Test case: rjvwpz9d, Bundle check: no libgsf, gsf-office thumbnailer, converter or their definitions in the tarball, deb, rpm, zip or FreeBSD pkg, and no Depends, Requires or pkg dep on libgsf. The prefix check rhtq57n5 runs it on each arch's Linux files, and its self-test runs in the lint stage. rjvb97aa and rjvtggme: files with a picture or text get it from the reader, and the stand-in thumbnailer and search helper installed for these types aren't run. Files with no picture inside, a metafile preview, and files that don't read get nothing from the reader, and then the stand-ins run. rjmc40ex and rfhnaccg as in Progress log.
+
+- Escape should exit out of search view.
+	- ID: 2026101405542853
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261014-055428
+	- Opened by: t00mietum
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+	- Test case: none yet.
+
+- When clicking anywhere on a row in detailed list view, even when the program doesn't have focus, it should be immediately selected.
+	- ID: 2026101405542891
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261014-055428
+	- Opened by: t00mietum
+	- Related IDs: 2026101405542928, 2026101405542965
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- Current behavior: Sometimes clicking on a row that doesn't have focus, in an empty part of that row, engages "drag-to-select" mode.
+		- It shouldn't do that.
+		- It should never take a second click to properly select it for dragging, even if the window is not currently focused.
+		- How to actually engage drag-to-select mode:
+			- Shift+drag (reselect)
+			- Ctrl+drag (add to selection); Cmd+drag on macOS
+			- Right-click then drag before releasing button.
+			- Start a drag in the empty area below a listing, in detailed list view.
+		- Remove the option to start a drag-select when clicking on a non-name column.
+	- Test case: none yet.
+
+- Drag-to-select works as it currently does in the other two views.
+	- ID: 2026101405542928
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261014-055428
+	- Opened by: t00mietum
+	- Related IDs: 2026101405542891
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- But those views also allow the new methods added for detailed list view.
+	- Test case: none yet.
+
+- Additional ways to get right-click menu.
+	- ID: 2026101405542965
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261014-055428
+	- Opened by: t00mietum
+	- Related IDs: 2026101405542891
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- Left-click and hold for a while. (How long?)
+			- When it pops up, selection doesn't change on mouse release, including multiple selections.
+	- Test case: none yet.
+
+- Rename "Ask again before every delete, move or overwrite" -> "Paranoid mode for move, overwrite, trash, and delete".
+	- ID: 2026101405543002
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261014-055430
+	- Opened by: t00mietum
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- With flyover text: "This enables an alternate code path that is hard to accidentally OK, on every such action even if the action isn't triggered by a user. Every pre-release has this enabled by default - by strict release rules, rather than actual need."
+	- Note: the label today ends in "(pre-release test guard)".
+	- Test case: none yet.
+
+- Flyover tip text for "Command to open a terminal" (label and control): "If empty, uses your default terminal."
+	- ID: 2026101405543039
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261014-055430
+	- Opened by: t00mietum
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+	- Test case: none yet.
+
+- Pre-populate the "Bulk rename" command.
+	- ID: 2026101405543076
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261014-055430
+	- Opened by: t00mietum
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- Use the first match from the "ideal" list below that is installed on the user's system. If none are installed, populate the first "ideal" match from below.
+		- Ideal list in order of preference:
+			- Linux and BSD:
+				- DEs using GTK+: `thunar --bulk-rename`
+				- DEs using Qt: `krename`
+			- Windows:
+				- `"C:\Program Files\ReNamer\ReNamer.exe"`
+				- `"C:\Program Files\Ant Renamer\Renamer.exe" -af`
+			- macOS:
+				- `open -a NameChanger`
+				- `open -a Transnomino`
+				- `open -a Renamer`
+				- `open -a "A Better Finder Rename 12"`
+		- Flyover tip text (label and control): "Renamer programs need only accept a quoted list of files or folders. Known or suspected to work:\n\n<list of programs from above that run on the platform, with the DE's widget style listed first.>"
+	- Test case: none yet.
 
 - rjv9ks2z, the connecting sign test, fails now and then in a full Linux suite run on a busy box.
 	- ID: 2026101305422316
@@ -5211,6 +5339,39 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261008: settings that only count while a feature is on, like the choices under "Show tooltips", aren't part of this. They stay as they are.
 		- 20261010: changed my mind. How the settings dialog works stays as it is for now, and the design doc for this is gone. If this comes back, start from silkterm's version of that doc, read only.
 	- Test case: still needs one.
+
+- Update the existing multilanguage translation files to cover only existing and new content.
+	- ID: 2026101405543113
+	- Type: Feature
+	- Status: Deferred
+	- Opened: 20261014-055431
+	- Opened by: t00mietum
+	- Related IDs: 2026101405543151
+	- Target OS: All
+	- Requirements:
+		- After the next cut.
+	- Test case: none, deferred.
+
+- Localization.
+	- ID: 2026101405543151
+	- Type: Feature
+	- Status: Deferred
+	- Opened: 20261014-055431
+	- Opened by: t00mietum
+	- Related IDs: 2026101405543113
+	- Target OS: All
+	- Requirements:
+		- After the next cut.
+		- Chinese, Simplified
+		- Japanese
+		- Portuguese
+		- Spanish, Latin American
+		- Korean
+		- Ukrainian
+		- French
+		- German
+		- Chinese, Traditional
+	- Test case: none, deferred.
 
 - On Windows every launch leaves a small `gdbus-nonce-file-*` in the temp folder.
 	- ID: 2026100714014948
