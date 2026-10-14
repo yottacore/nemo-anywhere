@@ -143,30 +143,38 @@ classes_root (void)
 		? HKEY_CLASSES_ROOT : HKEY_CURRENT_USER;
 }
 
-/* A file type of the test's own that opens with the dumper, which writes over
- * the file. */
 static gboolean
-register_type (HKEY root, const wchar_t *key, const char *dumper)
+set_default (HKEY root, const wchar_t *key, const wchar_t *value)
+{
+	HKEY handle;
+	gboolean ok = RegCreateKeyExW (root, key, 0, NULL, 0, KEY_WRITE, NULL, &handle, NULL) == ERROR_SUCCESS;
+
+	if (ok) {
+		ok = RegSetValueExW (handle, NULL, 0, REG_SZ, (const BYTE *) value,
+				     (DWORD) ((wcslen (value) + 1) * sizeof (wchar_t))) == ERROR_SUCCESS;
+		RegCloseKey (handle);
+	}
+	return ok;
+}
+
+/* A file type of the test's own that opens with the dumper, which writes over
+ * the file. Wine wants the verb on a class the extension names, not on the
+ * extension itself. */
+static gboolean
+register_type (HKEY root, const wchar_t *ext_key, const wchar_t *class_key,
+	       const wchar_t *class_name, const char *dumper)
 {
 	wchar_t *wdumper = g_utf8_to_utf16 (dumper, -1, NULL, NULL, NULL);
 	wchar_t command[2048];
 	wchar_t sub[256];
-	HKEY handle;
-	gboolean ok;
 
 	_snwprintf (command, G_N_ELEMENTS (command), L"\"%ls\" \"%%1\"", wdumper);
 	command[G_N_ELEMENTS (command) - 1] = L'\0';
 	g_free (wdumper);
-	_snwprintf (sub, G_N_ELEMENTS (sub), L"%ls\\shell\\open\\command", key);
+	_snwprintf (sub, G_N_ELEMENTS (sub), L"%ls\\shell\\open\\command", class_key);
 	sub[G_N_ELEMENTS (sub) - 1] = L'\0';
 
-	ok = RegCreateKeyExW (root, sub, 0, NULL, 0, KEY_WRITE, NULL, &handle, NULL) == ERROR_SUCCESS;
-	if (ok) {
-		ok = RegSetValueExW (handle, NULL, 0, REG_SZ, (const BYTE *) command,
-				     (DWORD) ((wcslen (command) + 1) * sizeof (wchar_t))) == ERROR_SUCCESS;
-		RegCloseKey (handle);
-	}
-	return ok;
+	return set_default (root, ext_key, class_name) && set_default (root, sub, command);
 }
 
 int
@@ -265,17 +273,21 @@ main (int argc, char *argv[])
 	 * have those open in an editor, or in a program that is gone. */
 	{
 		HKEY root = classes_root ();
+		const wchar_t *under = root == HKEY_CURRENT_USER ? L"Software\\Classes\\" : L"";
 		unsigned long pid = (unsigned long) GetCurrentProcessId ();
 		g_autofree char *name = g_strdup_printf ("open.nemo-env-%lu", pid);
 		g_autofree char *doc = dump_path (scratch, name);
-		wchar_t key[96];
+		wchar_t ext_key[96], class_key[96], class_name[64];
 
-		_snwprintf (key, G_N_ELEMENTS (key),
-			    root == HKEY_CURRENT_USER ? L"Software\\Classes\\.nemo-env-%lu" : L".nemo-env-%lu", pid);
-		key[G_N_ELEMENTS (key) - 1] = L'\0';
+		_snwprintf (ext_key, G_N_ELEMENTS (ext_key), L"%ls.nemo-env-%lu", under, pid);
+		_snwprintf (class_name, G_N_ELEMENTS (class_name), L"NemoAnywhere.EnvTest.%lu", pid);
+		_snwprintf (class_key, G_N_ELEMENTS (class_key), L"%ls%ls", under, class_name);
+		ext_key[G_N_ELEMENTS (ext_key) - 1] = L'\0';
+		class_name[G_N_ELEMENTS (class_name) - 1] = L'\0';
+		class_key[G_N_ELEMENTS (class_key) - 1] = L'\0';
 		check (g_file_set_contents (doc, "not opened yet\n", -1, NULL));
 
-		if (register_type (root, key, dumper)) {
+		if (register_type (root, ext_key, class_key, class_name, dumper)) {
 			check (nemo_launch_win32_open_path (doc, scratch, &error));
 			if (error != NULL) {
 				g_printerr ("%s\n", error->message);
@@ -288,7 +300,8 @@ main (int argc, char *argv[])
 			g_printerr ("FAIL: could not set up a file type for the user\n");
 			failures++;
 		}
-		RegDeleteTreeW (root, key);
+		RegDeleteTreeW (root, ext_key);
+		RegDeleteTreeW (root, class_key);
 		check_ours_still ();
 	}
 
