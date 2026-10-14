@@ -217,6 +217,17 @@ arc_extract_sanitize_path (const char *entry_path)
 			continue;
 		}
 
+#ifdef G_OS_WIN32
+		/* What Windows won't take in a name becomes "_", as 7-Zip does, so
+		   both backends agree. Left as it is, ":" writes into a hidden stream
+		   of a file named by what comes before it. */
+		for (char *c = parts[i]; *c != '\0'; c++) {
+			if ((guchar) *c < 0x20 || strchr (":*?\"<>|", *c) != NULL) {
+				*c = '_';
+			}
+		}
+#endif
+
 		g_ptr_array_add (kept, (gpointer) part);
 	}
 

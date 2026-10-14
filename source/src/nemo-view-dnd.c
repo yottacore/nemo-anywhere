@@ -41,6 +41,7 @@
 
 #include <libnemo-private/nemo-clipboard.h>
 #include <libnemo-private/nemo-dnd.h>
+#include <libnemo-private/nemo-file-utilities.h>
 
 #define GET_ANCESTOR(obj) \
 	GTK_WINDOW (gtk_widget_get_ancestor (GTK_WIDGET (obj), GTK_TYPE_WINDOW))
@@ -77,6 +78,7 @@ typedef struct {
 	GdkPoint point;
 } NetscapeUrlDropLink;
 
+#ifndef G_OS_WIN32
 static void
 revert_slashes (char *string)
 {
@@ -87,6 +89,7 @@ revert_slashes (char *string)
 		string++;
 	}
 }
+#endif
 
 static void
 handle_netscape_url_drop_link_cb (GObject *source_object,
@@ -125,7 +128,12 @@ handle_netscape_url_drop_link_cb (GObject *source_object,
 
 	/* The filename can't contain slashes, strip em.
 	   (the basename of http://foo/ is http://foo/) */
+#ifdef G_OS_WIN32
+	/* A backslash is a separator here too, and a title can have ":" or "?". */
+	nemo_file_name_make_valid (link_name);
+#else
 	revert_slashes (link_name);
+#endif
 
     monitor_num = nemo_desktop_utils_get_monitor_for_widget (GTK_WIDGET (data->view));
 

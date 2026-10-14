@@ -2261,6 +2261,15 @@ nemo_file_rename (NemoFile *file,
 		return;
 	}
 
+	/* GLib on Windows answers these with a plain I/O error, and ":" can name
+	   a stream instead of failing at all. */
+	error = NULL;
+	if (!is_renameable_desktop_file && !nemo_file_name_check_chars (new_name, &error)) {
+		(* callback) (file, NULL, error, callback_data);
+		g_error_free (error);
+		return;
+	}
+
 	/* Can't rename a file that's already gone.
 	 * We need to check this here because there may be a new
 	 * file with the same name.

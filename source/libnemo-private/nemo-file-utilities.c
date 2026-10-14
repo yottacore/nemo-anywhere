@@ -3127,6 +3127,96 @@ nemo_path_input_is_allowed (const gchar *text)
 #endif
 }
 
+/* Returns: (transfer none): a pointer into name */
+const gchar *
+nemo_file_name_find_bad_char (const gchar *name)
+{
+    const gchar *p;
+
+    for (p = name; p != NULL && *p != '\0'; p++) {
+#ifdef G_OS_WIN32
+        if ((guchar) *p < 0x20 || strchr (NEMO_WINDOWS_NAME_BAD_CHARS, *p) != NULL) {
+            return p;
+        }
+#else
+        if (*p == '/') {
+            return p;
+        }
+#endif
+    }
+    return NULL;
+}
+
+/* Returns: (transfer full): free with g_free */
+gchar *
+nemo_file_name_bad_char_message (const gchar *name)
+{
+    const gchar *bad = nemo_file_name_find_bad_char (name);
+    g_autofree gchar *shown = NULL;
+
+    if (bad == NULL) {
+        return NULL;
+    }
+
+    /* 50, as the rename dialog cuts a name. */
+    shown = eel_str_middle_truncate (name, 50);
+    if ((guchar) *bad < 0x20) {
+        return g_strdup_printf (_("The name \"%s\" isn't valid because it contains a control character. "
+                                  "Please use a different name."),
+                                shown);
+    }
+    return g_strdup_printf (_("The name \"%s\" isn't valid because it contains the character \"%c\". "
+                              "Please use a different name."),
+                            shown, *bad);
+}
+
+void
+nemo_file_name_make_valid (gchar *name)
+{
+    gchar *p;
+
+    for (p = name; p != NULL && *p != '\0'; p++) {
+        if (nemo_file_name_find_bad_char (p) == p) {
+            *p = '_';
+        }
+    }
+}
+
+gboolean
+nemo_file_name_check_chars (const gchar *name, GError **error)
+{
+    g_autofree gchar *message = nemo_file_name_bad_char_message (name);
+
+    if (message == NULL) {
+        return TRUE;
+    }
+    g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME, message);
+    return FALSE;
+}
+
+/* Returns: (transfer floating) */
+GtkWidget *
+nemo_name_hint_new (void)
+{
+    GtkWidget *hint = gtk_label_new (NULL);
+
+    gtk_label_set_line_wrap (GTK_LABEL (hint), TRUE);
+    gtk_label_set_max_width_chars (GTK_LABEL (hint), 50);
+    gtk_label_set_xalign (GTK_LABEL (hint), 0.0);
+    gtk_widget_set_no_show_all (hint, TRUE);
+    return hint;
+}
+
+gboolean
+nemo_name_hint_update (GtkWidget *hint, const gchar *name)
+{
+    g_autofree gchar *message = nemo_file_name_bad_char_message (name);
+
+    gtk_label_set_text (GTK_LABEL (hint), message != NULL ? message : "");
+    gtk_widget_set_visible (hint, message != NULL);
+    return message == NULL;
+}
+
 static gboolean
 is_new_folder_separator (gchar c)
 {
@@ -3208,6 +3298,11 @@ nemo_new_folder_path_split (const gchar *text, GError **error)
         if (strchr (part, '/') != NULL) {
             g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME,
                                  _("Slashes aren't allowed in filenames"));
+            g_free (part);
+            g_ptr_array_free (parts, TRUE);
+            return NULL;
+        }
+        if (!nemo_file_name_check_chars (part, error)) {
             g_free (part);
             g_ptr_array_free (parts, TRUE);
             return NULL;

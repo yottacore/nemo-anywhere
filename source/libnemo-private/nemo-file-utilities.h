@@ -230,13 +230,34 @@ void     nemo_path_apply_display_separator (gchar *path);
 gchar   *nemo_location_get_display_name (GFile *location);
 gboolean nemo_path_input_is_allowed (const gchar *text);
 
+/* What Windows refuses in a name, besides control characters. FAT takes the
+   same set on any platform. */
+#define NEMO_WINDOWS_NAME_BAD_CHARS "/:*?\"<>\\|"
+
+/* The first character of a typed name that a file name can't have here, or
+   NULL: "/" on POSIX, the set above and control characters on Windows. GLib
+   on Windows turns most of these into a plain I/O error, so a name is checked
+   before it goes to disk. The message says which character, and is NULL for
+   a good name; free it with g_free. */
+const gchar *nemo_file_name_find_bad_char (const gchar *name);
+gchar       *nemo_file_name_bad_char_message (const gchar *name);
+gboolean     nemo_file_name_check_chars (const gchar *name, GError **error);
+/* For a name made from text no one typed as a name, such as a page title:
+   each of those characters becomes "_", in place. */
+void         nemo_file_name_make_valid (gchar *name);
+
+/* A line to put under a name entry, saying why the name won't do. Hidden while
+   it will. update answers whether the name is good. */
+GtkWidget *nemo_name_hint_new (void);
+gboolean   nemo_name_hint_update (GtkWidget *hint, const gchar *name);
+
 /* A new folder named with separators in it makes each folder of the path,
    nested. "/" counts everywhere and "\\" on Windows too, since neither can be
    in a name there. On Windows "/" counts only while typed locations take it.
    With that off, has_separator answers FALSE for a name with "/" in it, so the
    plain rename refuses it. The split drops trailing separators and refuses a
-   leading one, an empty part, a "/" that isn't a separator, "." and "..". NULL
-   with error set on a refusal.
+   leading one, an empty part, a "/" that isn't a separator, any other character
+   a name can't have, "." and "..". NULL with error set on a refusal.
    Returns: (transfer full): free with g_strfreev */
 gboolean nemo_new_folder_name_has_separator (const gchar *text);
 gchar  **nemo_new_folder_path_split (const gchar *text, GError **error);

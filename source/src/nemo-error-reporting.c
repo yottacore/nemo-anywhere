@@ -216,11 +216,8 @@ nemo_report_error_renaming_file (NemoFile *file,
 						   original_name_truncated);
 			break;
 		case G_IO_ERROR_INVALID_FILENAME:
-			if (strchr (new_name, '/') != NULL) {
-				message = g_strdup_printf (_("The name \"%s\" isn't valid because it contains the character \"/\". "
-							     "Please use a different name."),
-							   new_name_truncated);
-			} else {
+			message = nemo_file_name_bad_char_message (new_name);
+			if (message == NULL) {
 				message = g_strdup_printf (_("The name \"%s\" isn't valid. "
 							     "Please use a different name."),
 							   new_name_truncated);

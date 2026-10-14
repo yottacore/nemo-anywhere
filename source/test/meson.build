@@ -393,6 +393,15 @@ test('rj46pkw3 Conflict dialog test',
   args: []
 )
 
+test('rk8tkp4h Bad name characters test',
+  executable('test-nemo-bad-name',
+    [ 'test-nemo-bad-name.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
 test('rcgzq4qg User input parse test',
   executable('test-eel-user-input',
     [ 'test-eel-user-input.c' ],

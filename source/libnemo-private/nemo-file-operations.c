@@ -3877,8 +3877,6 @@ get_max_name_length (GFile *file_dir)
 	return max_length;
 }
 
-#define FAT_FORBIDDEN_CHARACTERS "/:*?\"<>\\|"
-
 static gboolean
 str_replace (char *str,
 	     char replacement)
@@ -3888,7 +3886,7 @@ str_replace (char *str,
 
 	success = FALSE;
 	for (i = 0; str[i] != '\0'; i++) {
-		if (strchr (FAT_FORBIDDEN_CHARACTERS, str[i]) ||
+		if (strchr (NEMO_WINDOWS_NAME_BAD_CHARS, str[i]) ||
 			str[i] < 32) {
 			success = TRUE;
 			str[i] = replacement;
