@@ -1156,7 +1156,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, rjvzdd4w's open row fails: a `.bat` opened through its file type never runs.
 	- ID: 2026101317434154
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no, only Windows files changed. The native suite on b29w passed, 170 OK, 0 fail, 14 skipped.
+	- Needs external testing: done 20261014. It was: rjvzdd4w on b29w over ssh with another user at the console, and on vm925w in that user's desktop session.
 	- Priority|Severity: Low
 	- Opened: 20261013-174342
 	- Opened by: native suite on b29w at dev 5ca50b7
@@ -1167,12 +1169,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: `nemo_launch_win32_open_path` on a `.bat` fails at line 232, and "the program never wrote what it saw". The spawn, run, Open With and copy rows pass. Same when run alone.
 	- Expected behavior: passes, or exits 77 where opening by file type can't work.
 	- Reproduced: 20261013 on b29w, twice. Not tried on dev before this round, or in a desktop session.
-	- Test case: rjvzdd4w itself.
+		- 20261014 on b29w: a `.bat` opened from the user's own desktop session never ran either, so it isn't session 0.
+		- 20261014 on b29w, with wintest at the console: rjvzdd4w hung at the "run" row, and wintest's screen got a box about a path under collierjr's profile for each start.
+	- Actual cause: 2 things, both on the box, not in the launch code.
+		- On b29w, collierjr's own "open" for `.bat` and `.cmd` names a SilkTerm install that is an empty file. So Windows hands a `.bat` to its Open With picker, which can't show in session 0 and never runs the file anywhere. The test took the box's `.bat` handler on trust.
+		- From session 0 there is no desktop of the app's own, but the shell route still finds one: the console's. With wintest logged on there, wintest's Explorer got the start, couldn't read the program under collierjr's profile, and put up a box the call then waited on.
+	- Decisions:
+		- 20261014: the open row uses a file type of the test's own, set for the user during the run, in place of `.bat`. A user's own choice for a type can't break it.
+		- 20261014: the shell route only uses the desktop of the app's own session. With none, as in session 0, the service and the direct start take over, as they already did when the shell wasn't there.
+	- Actual fix: `nemo-launch-win32.c` checks that the desktop it found is this session's shell window before asking it. rjvzdd4w opens a file of its own type that opens with its dumper, under the user's classes on Windows and the machine's under wine. The broker probe in the launch test skips the shell start when the session has no desktop.
+	- Swept: the desktop lookup is the only place the app reaches Explorer, and the run, command, open and link starts all go through it. Of the other tests, only rjw1ks5h's link start goes through the shell. It adn the rest of the native suite passed on b29w with wintest at the console.
+	- Note: not tried: a copy run as a different user inside someone else's session. The desktop found there is that session's, so the shell route still starts the program as the desktop's user.
+	- Branch: wintests3
+	- Commit: 1694aeb, bef81c9
+	- Test case: rjvzdd4w, Launch environment win32 test. The open row now uses its own file type.
+	- Verified: 20261014 on b29w over ssh, with wintest at the console: rjvzdd4w hung at the run row with the launch code as on dev, and passes 3 of 3 after. The native gate passed, suite 170 OK, 0 fail, 14 skipped. No box was left on wintest's screen and no test type was left in the registry.
+	- Verified: 20261014 on vm925w: rjvzdd4w 3 of 3 in wintest's desktop session, where the run and open rows go through Explorer, and 2 of 2 over ssh. The launch probe starts through the desktop shell in the desktop session and skips it over ssh. Under wine, 3 of 3.
+	- Acceptance signoff: Left at signoff for the shell route change, which the item didn't ask for.
 
 - On Windows, the gate's lint stage stops at rjxyddbk.
 	- ID: 2026101317434254
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
+	- Needs local test suite run?: no, only a lint stage test changed.
 	- Priority|Severity: Low
 	- Opened: 20261013-174342
 	- Opened by: native gate on b29w at dev 5ca50b7
@@ -1182,8 +1201,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: `test-lint-image.bash` fails 4 checks like "image there: got '', wanted 'nemo-lint:...'". Under MSYS2 `include/lint-image.bash` gives no image on purpose, so the host tools are used, but the test has no case for that.
 	- Expected behavior: the test skips or checks the MSYS2 path, and lint goes on.
 	- Reproduced: 20261013 on b29w.
+		- 20261014 on Linux, with `uname -o` answering Msys: the same 4 checks fail.
 	- Possible cause: as in Incorrect behavior, from reading the code.
-	- Test case: rjxyddbk itself, on Windows.
+	- Actual cause: as in Possible cause. The docker cases read the real `uname`, so under MSYS2 they all got the host answer.
+	- Actual fix: the test puts its own `uname` beside its stand-in docker. The docker cases answer as Linux on every box, and a new case answers as MSYS2 and wants the host tools with no docker call at all.
+	- Swept: every other lint stage test, by running the whole Windows lint stage on b29w. It passes to the end now. b29w's MSYS2 had no `cmp`, which stopped rjnyer4p next, so diffutils went on that box, as the note on 2026100914350100 asks.
+	- Branch: wintests3
+	- Commit: 1694aeb
+	- Test case: rjxyddbk (`test-lint-image.bash`). It fails as before with the old test under MSYS2, and the new MSYS2 case fails when the helper's MSYS2 line is taken out.
+	- Verified: 20261014, rjxyddbk passes on Linux, on Linux answering as MSYS2, and in the b29w gate at 1694aeb. That gate passed: lint to the end, build, suite 170 OK, 0 fail, 14 skipped, and both smokes.
+	- Acceptance signoff: Self-closed: a test-only fix, failed before and passes after on both platforms.
+	- Closed: 20261014-155635
 
 - On Windows, a name with a character Windows doesn't allow is refused with "Input/output error".
 	- ID: 2026101319265113
