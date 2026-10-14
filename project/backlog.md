@@ -746,7 +746,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026101007562511
 	- Type: Bug
 	- Status: Waiting for testing
-	- Needs external testing: vm925w, in the desktop session. Start the zip, the copy `install.ps1` puts in place and the single exe, all from one commit on this branch, and compare the look and font. The single exe also needs a native stage and pack (`cicd-win.ps1`), since `stage-native.bash` changed.
+	- Needs external testing:
+		- vm925w, in the desktop session. Start the zip, the copy `install.ps1` puts in place and the single exe, all from one commit on this branch, and compare the look and font.
+		- Done 20261013 on b29w at dev 5ca50b7, passed. It was: a native stage and pack (`cicd-win.ps1`), since `stage-native.bash` changed. rk50ewvs passed on win-flat and on the installed folder in rj72n4xb, and both files match `cicd/win/bundle-etc/` byte for byte.
 	- Priority|Severity: Avg
 	- Opened: 20261010-075625
 	- Opened by: 2026100917220603
@@ -964,6 +966,38 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: no leak.
 	- Reproduced: 20261013, once, in the full pipeline at dev 5ca50b7. The last full pipeline with sanitizers, 20261007 at 7c1debd, was clean.
 	- Test case: rjvdch2z itself, in the sanitizer suite.
+
+- On Windows, rjvzdd4w's open row fails: a `.bat` opened through its file type never runs.
+	- ID: 2026101317434154
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261013-174342
+	- Opened by: native suite on b29w at dev 5ca50b7
+	- Related IDs: 2026100912374782, 2026100916102200
+	- Target OS: Windows
+	- Test environment: b29w, the native suite over ssh, so in session 0 with no desktop.
+	- Steps to reproduce: run rjvzdd4w, Launch environment win32 test, natively on b29w.
+	- Incorrect behavior: `nemo_launch_win32_open_path` on a `.bat` fails at line 232, and "the program never wrote what it saw". The spawn, run, Open With and copy rows pass. Same when run alone.
+	- Expected behavior: passes, or exits 77 where opening by file type can't work.
+	- Reproduced: 20261013 on b29w, twice. Not tried on dev before this round, or in a desktop session.
+	- Test case: rjvzdd4w itself.
+
+- On Windows, the gate's lint stage stops at rjxyddbk.
+	- ID: 2026101317434254
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261013-174342
+	- Opened by: native gate on b29w at dev 5ca50b7
+	- Related IDs: 2026101009515961
+	- Target OS: Windows
+	- Steps to reproduce: run `pwsh cicd/cicd-win.ps1 -Gate -Yes` on b29w.
+	- Incorrect behavior: `test-lint-image.bash` fails 4 checks like "image there: got '', wanted 'nemo-lint:...'". Under MSYS2 `include/lint-image.bash` gives no image on purpose, so the host tools are used, but the test has no case for that.
+	- Expected behavior: the test skips or checks the MSYS2 path, and lint goes on.
+	- Reproduced: 20261013 on b29w.
+	- Possible cause: as in Incorrect behavior, from reading the code.
+	- Test case: rjxyddbk itself, on Windows.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
