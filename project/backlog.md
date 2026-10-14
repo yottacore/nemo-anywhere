@@ -1153,46 +1153,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: f38660a to f8a6223
 	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session. (c) still needs its own: a thumbnail and the text from a small file of each type, on every platform, and a check that no program is started for them.
 
-- rjv9ks2z, the connecting sign test, fails now and then in a full Linux suite run on a busy box.
-	- ID: 2026101305422316
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261013-054223
-	- Opened by: 2026100816170921
-	- Related IDs: 2026100816170921
-	- Target OS: Linux
-	- Steps to reproduce: run the full Linux suite on a busy box, or several copies of rjv9ks2z at once on one display.
-	- Incorrect behavior: it fails in 2 full suite runs of 20261013, on "with animations off the window looks grayed and stays still while it waits". Another run that day failed on "the fade stops and the window looks as before once stopped". Run alone it passes, 3 of 3.
-	- Expected behavior: it passes however busy the box is.
-	- Reproduced: 20261013, with 6 copies at a time on one display beside a CPU load. 3 of 48 runs failed on the fade check, and other runs of that kind on the steady gray one. Each failure came with a GTK warning that the window was drawn before its new size was worked out.
-	- Actual cause: the test draws the window to compare its looks, on its own 100 ms timer. When something has asked the window to lay itself out again, GTK draws nothing until the next frame does it, and warns. On a busy box that frame can come after the timer, so the test compared an empty picture. The app wasn't at fault.
-	- Actual fix: the test lays the window out before it draws it, as that frame would.
-	- Swept: no other test draws a window that way, by grep for `gtk_widget_draw` in the tests.
-	- Test case: rjv9ks2z, Connecting sign while a share mounts test, itself.
-	- Verified: under the same load, 3 of 48 runs failed before and 0 of 96 after, with no GTK warning. Alone 3 of 3. Full Linux suite 195 of 195.
-	- Branch: relenv
-	- Commit: 51be82a
-	- Acceptance signoff: Self-closed: only the test changed, and the failure seen before is gone after under the same load.
-	- Closed: 20261013-063500
-	- Progress log:
-		- 20261013: back to Queued. It failed in the sanitizer suite of the full pipeline at dev 5ca50b7, on "the window fades while it waits", after the fix. That build runs much slower, so the fix doesn't cover every timing. Not looked into yet.
-
-- rjvdch2z, the settings shared between copies test, leaks under the sanitizers.
-	- ID: 2026101315481491
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261013-154814
-	- Opened by: full pipeline at dev 5ca50b7
-	- Related IDs: 2026100815215479
-	- Target OS: Linux
-	- Steps to reproduce: run the sanitizer suite, as the full pipeline does.
-	- Incorrect behavior: LeakSanitizer reports 331 bytes in 11 allocations, 192 bytes direct in 3 objects. The stack stops at `g_malloc`, so where it comes from isn't shown. The test's own checks all pass.
-	- Expected behavior: no leak.
-	- Reproduced: 20261013, once, in the full pipeline at dev 5ca50b7. The last full pipeline with sanitizers, 20261007 at 7c1debd, was clean.
-	- Test case: rjvdch2z itself, in the sanitizer suite.
-
 - On Windows, rjvzdd4w's open row fails: a `.bat` opened through its file type never runs.
 	- ID: 2026101317434154
 	- Type: Bug
@@ -2626,6 +2586,77 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- rk6narsh, the tabs take no focus helper test, leaks under the sanitizers.
+	- ID: 2026101411100100
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261014-111001
+	- Opened by: full pipeline at dev b01d499
+	- Related IDs: 2026101319204761
+	- Target OS: Linux
+	- Steps to reproduce: run the sanitizer suite, as the full pipeline does.
+	- Incorrect behavior: LeakSanitizer reports 24 bytes in 1 allocation. The test's own checks all pass.
+	- Expected behavior: no leak.
+	- Reproduced: 20261014, every run, in the sanitizer suite.
+	- Actual cause: a GTK 3.24 bug. The shortcuts window has a popover, and when the window is destroyed while still realized, GTK drops the popover's window without taking it off the window's list. It leaks the same with the helper call taken out.
+	- Actual fix: the test unrealizes the shortcuts window before destroying it. The app's own shortcuts window leaks the same 24 bytes once per open, which is left alone.
+	- Verified: the sanitizer run of rk6narsh passes after. The ordinary run passes, and the Windows cross build is clean.
+	- Branch: sanleak
+	- Commit: 6c516f1
+	- Test case: rk6narsh itself, in the sanitizer suite.
+	- Acceptance signoff: Self-closed: only the test changed, and the leak seen before is gone after.
+	- Closed: 20261014-111000
+
+- rjvdch2z, the settings shared between copies test, leaks under the sanitizers.
+	- ID: 2026101315481491
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261013-154814
+	- Opened by: full pipeline at dev 5ca50b7
+	- Related IDs: 2026100815215479
+	- Target OS: Linux
+	- Steps to reproduce: run the sanitizer suite, as the full pipeline does.
+	- Incorrect behavior: LeakSanitizer reports 331 bytes in 11 allocations, 192 bytes direct in 3 objects. The stack stops at `g_malloc`, so where it comes from isn't shown. The test's own checks all pass.
+	- Expected behavior: no leak.
+	- Reproduced: 20261013, once, in the full pipeline at dev 5ca50b7, and again 20261014 at b01d499. The last full pipeline with sanitizers, 20261007 at 7c1debd, was clean.
+	- Test case: rjvdch2z itself, in the sanitizer suite.
+	- Actual cause: in the test. Each copy it starts gets a queue and a thread that reads its output, and neither was freed, the killed copy's included.
+	- Actual fix: once a copy has exited, the test waits for its reader to end and frees the queue.
+	- Swept: test-nemo-quit-saves is the only other test with a queue, and it frees it.
+	- Verified: the sanitizer run passes after, with no leak. The ordinary run passes too.
+	- Branch: sanleak
+	- Commit: 6c516f1
+	- Acceptance signoff: Self-closed: only the test changed, and the leak seen before is gone after.
+	- Closed: 20261014-111000
+
+- rjv9ks2z, the connecting sign test, fails now and then in a full Linux suite run on a busy box.
+	- ID: 2026101305422316
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261013-054223
+	- Opened by: 2026100816170921
+	- Related IDs: 2026100816170921
+	- Target OS: Linux
+	- Steps to reproduce: run the full Linux suite on a busy box, or several copies of rjv9ks2z at once on one display.
+	- Incorrect behavior: it fails in 2 full suite runs of 20261013, on "with animations off the window looks grayed and stays still while it waits". Another run that day failed on "the fade stops and the window looks as before once stopped". Run alone it passes, 3 of 3.
+	- Expected behavior: it passes however busy the box is.
+	- Reproduced: 20261013, with 6 copies at a time on one display beside a CPU load. 3 of 48 runs failed on the fade check, and other runs of that kind on the steady gray one. Each failure came with a GTK warning that the window was drawn before its new size was worked out.
+	- Actual cause: the test draws the window to compare its looks, on its own 100 ms timer. When something has asked the window to lay itself out again, GTK draws nothing until the next frame does it, and warns. On a busy box that frame can come after the timer, so the test compared an empty picture. The app wasn't at fault. The sanitizer failure had another cause. That lane turns animations off for the whole run in its settings.ini, so the fade never starts there and the check fails every time.
+	- Actual fix: the test lays the window out before it draws it, as that frame would. The test turns animations on itself before the fade checks, as it turns them off for the later step.
+	- Swept: no other test draws a window that way, by grep for `gtk_widget_draw` in the tests.
+	- Test case: rjv9ks2z, Connecting sign while a share mounts test, itself.
+	- Verified: under the same load, 3 of 48 runs failed before and 0 of 96 after, with no GTK warning. Alone 3 of 3. Full Linux suite 195 of 195. In the sanitizer lane, 2 of 2 failed before and 3 of 3 passed after, with no leak.
+	- Branch: relenv, sanleak
+	- Commit: 51be82a, 6c516f1
+	- Acceptance signoff: Self-closed: only the test changed, and the failure seen before is gone after under the same load.
+	- Closed: 20261014-111000
+	- Progress log:
+		- 20261013: back to Queued. It failed in the sanitizer suite of the full pipeline at dev 5ca50b7, on "the window fades while it waits", after the fix. That build runs much slower, so the fix doesn't cover every timing. Not looked into yet.
+		- 20261014: done. The sanitizer lane has animations off, which the test never set back.
 
 - On Linux and the BSDs, programs a relocated install starts get its own folders in their search paths.
 	- ID: 2026100916102200
