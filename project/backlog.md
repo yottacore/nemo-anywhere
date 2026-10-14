@@ -1188,7 +1188,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, a name with a character Windows doesn't allow is refused with "Input/output error".
 	- ID: 2026101319265113
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on signoff
+	- Needs local test suite run?: yes, the full Linux suite. The 22 tests nearest the change passed on Linux.
+	- Needs external testing: by hand on the Windows desktop. Rename to `a*b` and read the error, then the line under the name box in the paste and extract conflict dialogs and in a template's rename. Not tried.
 	- Priority|Severity: Low
 	- Opened: 20261013-192651
 	- Opened by: t00mietum
@@ -1199,7 +1201,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the rename error says which character can't be in a name, as it does for `/`.
 	- Reproduced: 20261013, the GLib answer, natively on b29w and under wine. The dialog text is from reading the code.
 	- Possible cause: GLib maps the Windows error for a bad name to EIO, so nothing tells it from a real disk error.
-	- Test case: none yet.
+	- Actual cause: as above for a rename or move. A new file or folder gets GLib's "Invalid filename", which doesn't say which character. On NTFS, `:` names a hidden stream of the file before it, so making or copying to `a:b` works and leaves an empty file `a`, checked on b29w. Nothing checked a typed name first.
+	- Progress log:
+		- 20261014: done. Left at signoff for the wording, the new line under 3 name boxes, and `_` in extracted names.
+		- 20261014: a plain rename with `/` keeps its old text, "Slashes aren't allowed in filenames", so `...0766` doesn't change. Options: give it the same sentence as the rest.
+		- 20261014: reserved names such as `CON` or `NUL`, and a trailing dot or space, aren't covered. Options: an item of their own.
+	- Decisions:
+		- One list of what a name can't have: `/` on Linux and the BSDs, and `\ / : * ? " < > |` plus control characters on Windows. A typed name is checked before it goes to disk, so a real disk error still gets its own message.
+		- A refused name says which character, in the sentence `/` already had: "The name "a*b" isn't valid because it contains the character "*". Please use a different name."
+		- Where a dialog has a name box, Rename grays out and a line under the box says why: the paste and extract conflicts, and a template's rename.
+		- A name nobody typed is fixed rather than refused. On Windows an archive entry or a dropped link's page title gets `_` for each such character, as 7-Zip does. Before, one such entry stopped the whole extract.
+	- Actual fix: the check goes before rename, a new folder named with a path, Edit link, Compress, and the 3 name boxes. Extract and dropped links replace instead.
+	- Swept: rename from the icon view, the list view, Properties, and undo all go through one call. New folder and new file are a rename of what was made, and a typed path is checked part by part. Paste: the conflict's new name. Drop: a link's page title; text and data drops have fixed or source names. Extract: entry names and the conflict's new name. Make link has no name box, and Edit link's name is checked. Compress: the archive name. Templates: the rename. Left alone: Connect to server's link name, a Linux desktop thing, and copying a file that already has such a name, which wasn't tried.
+	- Verified: rk8tkp4h and the new checks in reww9h2r and reww9h2s fail before the change and pass after, under wine and natively on b29w. On Linux they pass, with `*` and `:` still allowed in a name. rk56fsaw and rj46pkw3 pass on Linux, under wine and natively on b29w, and rhqxx81r on Linux. Compress, the template rename and dropped links are from reading only.
+	- Branch: badchar
+	- Commit: 1f580d2
+	- Test case: rk8tkp4h, Bad name characters test: the list, the message, a rename, a new folder path, Edit link, and Rename graying out with the line under the box in both conflict dialogs. reww9h2r: extracted names on Windows, and the archive core's list matching the app's. reww9h2s: an archive with `*`, `?` and `:` in names unpacks on Windows.
+	- Acceptance signoff: Left at signoff for the wording, the line under the name boxes, and `_` in extracted names.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
