@@ -10,6 +10,7 @@
 #include <config.h>
 #include "nemo-link-edit.h"
 #include "nemo-delete-guard.h"
+#include "nemo-file-utilities.h"
 #include "nemo-link-copy.h"
 #include "nemo-lnk.h"
 
@@ -24,18 +25,13 @@
 static gboolean
 check_name (const char *name, GError **error)
 {
-	if (name == NULL || name[0] == '\0' || strcmp (name, ".") == 0 || strcmp (name, "..") == 0 ||
-	    strchr (name, '/') != NULL
-#ifdef G_OS_WIN32
-	    || strchr (name, '\\') != NULL
-#endif
-	    ) {
+	if (name == NULL || name[0] == '\0' || strcmp (name, ".") == 0 || strcmp (name, "..") == 0) {
 		g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME,
 			     _("\"%s\" can't be used as a name."), name != NULL ? name : "");
 		return FALSE;
 	}
 
-	return TRUE;
+	return nemo_file_name_check_chars (name, error);
 }
 
 /* Whether a and b are one file, links not followed. On Windows that is a

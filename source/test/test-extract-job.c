@@ -103,6 +103,9 @@ write_test_zip (const char *path)
 	add_dir_entry (a, "photos/sub/");
 	add_file_entry (a, "photos/sub/two.txt", "second");
 	add_file_entry (a, "../escape.txt", "should not escape");
+	/* Fine on POSIX. Windows takes neither name. */
+	add_file_entry (a, "photos/odd*name?.txt", "odd");
+	add_file_entry (a, "photos/tag:part.txt", "tag");
 
 	check (archive_write_close (a) == ARCHIVE_OK);
 	archive_write_free (a);
@@ -198,6 +201,26 @@ check_here_layout (const char *tmp,
 	outside = g_build_filename (tmp, "escape.txt", NULL);
 	check (g_file_test (escaped, G_FILE_TEST_IS_REGULAR));
 	check (!g_file_test (outside, G_FILE_TEST_EXISTS));
+
+	{
+#ifdef G_OS_WIN32
+		/* Each character Windows won't take is "_", as 7-Zip writes it.
+		   The ":" one would otherwise be a hidden stream of "tag". */
+		char *odd = g_build_filename (dest, "photos", "odd_name_.txt", NULL);
+		char *tag = g_build_filename (dest, "photos", "tag_part.txt", NULL);
+		char *stream_host = g_build_filename (dest, "photos", "tag", NULL);
+
+		check (!g_file_test (stream_host, G_FILE_TEST_EXISTS));
+		g_free (stream_host);
+#else
+		char *odd = g_build_filename (dest, "photos", "odd*name?.txt", NULL);
+		char *tag = g_build_filename (dest, "photos", "tag:part.txt", NULL);
+#endif
+		check_contents (odd, "odd");
+		check_contents (tag, "tag");
+		g_free (odd);
+		g_free (tag);
+	}
 
 	g_free (one);
 	g_free (two);

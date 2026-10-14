@@ -12,6 +12,7 @@
 #include <gio/gio.h>
 
 #include <libnemo-private/nemo-extract.h>
+#include <libnemo-private/nemo-file-utilities.h>
 #include "test-check.h"
 #include "test-argv.h"
 
@@ -179,6 +180,35 @@ check_sanitize (void)
 	check (nemo_extract_sanitize_path ("/") == NULL);
 	check (nemo_extract_sanitize_path ("../..") == NULL);
 	check (nemo_extract_sanitize_path ("C:") == NULL);
+
+	/* A name Windows won't take is fixed up there and left alone elsewhere. */
+	text = nemo_extract_sanitize_path ("a:b/c*d?e.txt");
+#ifdef G_OS_WIN32
+	check (g_strcmp0 (text, "a_b/c_d_e.txt") == 0);
+#else
+	check (g_strcmp0 (text, "a:b/c*d?e.txt") == 0);
+#endif
+	g_free (text);
+
+	/* The archive core keeps its own list, so it has to agree with the app's
+	   on every character but the 2 separators. */
+	for (int c = 1; c < 128; c++) {
+		char name[] = { 'a', (char) c, 'b', '\0' };
+		gboolean app_refuses = nemo_file_name_find_bad_char (name) != NULL;
+		gboolean core_changes;
+
+		if (c == '/' || c == '\\') {
+			continue;
+		}
+		text = nemo_extract_sanitize_path (name);
+		core_changes = g_strcmp0 (text, name) != 0;
+		if (app_refuses != core_changes) {
+			g_printerr ("FAIL: character %d: the app %s it, the archive core %s it\n", c,
+				    app_refuses ? "refuses" : "takes", core_changes ? "changes" : "keeps");
+			failures++;
+		}
+		g_free (text);
+	}
 }
 
 static void

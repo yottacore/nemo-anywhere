@@ -34,6 +34,7 @@
 #include <eel/eel-vfs-extensions.h>
 
 #include "nemo-file.h"
+#include "nemo-file-utilities.h"
 #include "nemo-icon-info.h"
 
 struct _NemoFileConflictDialogDetails
@@ -54,6 +55,7 @@ struct _NemoFileConflictDialogDetails
 	GtkWidget *second_hbox;
 	GtkWidget *expander;
 	GtkWidget *entry;
+	GtkWidget *hint;
 	GtkWidget *checkbox;
 	GtkWidget *rename_button;
 	GtkWidget *replace_button;
@@ -380,8 +382,10 @@ entry_text_changed_cb (GtkEditable *entry,
 		       NemoFileConflictDialog *dialog)
 {
 	NemoFileConflictDialogDetails *details;
+	gboolean name_ok;
 
 	details = dialog->details;
+	name_ok = nemo_name_hint_update (details->hint, gtk_entry_get_text (GTK_ENTRY (entry)));
 
 	/* The rename button is visible only if there's text
 	 * in the entry.
@@ -390,6 +394,7 @@ entry_text_changed_cb (GtkEditable *entry,
 	     g_strcmp0 (gtk_entry_get_text (GTK_ENTRY (entry)), details->conflict_name) != 0) {
 		gtk_widget_hide (details->replace_button);
 		gtk_widget_show (details->rename_button);
+		gtk_widget_set_sensitive (details->rename_button, name_ok);
 
 		gtk_widget_set_sensitive (details->checkbox, FALSE);
 
@@ -525,8 +530,14 @@ nemo_file_conflict_dialog_init (NemoFileConflictDialog *fcd)
 	g_signal_connect (details->expander, "activate",
 			  G_CALLBACK (expander_activated_cb), dialog);
 
+	widget = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
+	gtk_container_add (GTK_CONTAINER (details->expander), widget);
+	details->hint = nemo_name_hint_new ();
+	gtk_widget_set_margin_start (details->hint, 6);
+	gtk_box_pack_end (GTK_BOX (widget), details->hint, FALSE, FALSE, 0);
+
 	hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
-	gtk_container_add (GTK_CONTAINER (details->expander), hbox);
+	gtk_box_pack_start (GTK_BOX (widget), hbox, FALSE, FALSE, 0);
 
 	widget = gtk_entry_new ();
 	gtk_box_pack_start (GTK_BOX (hbox), widget, TRUE, TRUE, 6);

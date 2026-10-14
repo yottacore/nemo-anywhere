@@ -30,6 +30,8 @@
 
 #include <eel/eel-vfs-extensions.h>
 
+#include "nemo-file-utilities.h"
+
 /* The widgets a caller reads back afterwards. Kept on the dialog rather than in
    a subclass: this is one dialog with two accessors, and a GObject type for it
    would be all boilerplate. */
@@ -38,6 +40,7 @@
 #define KEY_NAME	"nemo-extract-conflict-name"
 #define KEY_RENAME	"nemo-extract-conflict-rename-button"
 #define KEY_REPLACE	"nemo-extract-conflict-replace-button"
+#define KEY_HINT	"nemo-extract-conflict-hint"
 
 static const char *
 conflict_name (GtkWidget *dialog)
@@ -55,12 +58,14 @@ entry_text_changed_cb (GtkEditable *editable,
 	GtkWidget *checkbox = g_object_get_data (G_OBJECT (dialog), KEY_CHECKBOX);
 	const char *text = gtk_entry_get_text (GTK_ENTRY (editable));
 	gboolean renaming;
+	gboolean name_ok = nemo_name_hint_update (g_object_get_data (G_OBJECT (dialog), KEY_HINT), text);
 
 	/* A name of its own is a rename; the original name back is a replace.
 	   One of those can be applied to every conflict, the other cannot. */
 	renaming = text[0] != '\0' && g_strcmp0 (text, conflict_name (dialog)) != 0;
 
 	gtk_widget_set_visible (rename_button, renaming);
+	gtk_widget_set_sensitive (rename_button, name_ok);
 	gtk_widget_set_visible (replace_button, !renaming);
 	gtk_widget_set_sensitive (checkbox, !renaming);
 
@@ -202,6 +207,7 @@ nemo_extract_conflict_dialog_new (GtkWindow  *parent,
 	GtkWidget *widget, *reset_button;
 	GtkWidget *entry, *checkbox, *expander;
 	GtkWidget *rename_button, *replace_button;
+	GtkWidget *hint, *box_row;
 	GtkWidget *label;
 	GFileInfo *dest_info;
 	PangoAttrList *attr_list;
@@ -340,8 +346,14 @@ nemo_extract_conflict_dialog_new (GtkWindow  *parent,
 	expander = gtk_expander_new_with_mnemonic (_("_Select a new name for the destination"));
 	gtk_box_pack_start (GTK_BOX (vbox2), expander, FALSE, FALSE, 0);
 
-	box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
+	box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
 	gtk_container_add (GTK_CONTAINER (expander), box);
+	hint = nemo_name_hint_new ();
+	gtk_widget_set_margin_start (hint, 6);
+	gtk_box_pack_end (GTK_BOX (box), hint, FALSE, FALSE, 0);
+	box_row = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
+	gtk_box_pack_start (GTK_BOX (box), box_row, FALSE, FALSE, 0);
+	box = box_row;
 
 	entry = gtk_entry_new ();
 	gtk_box_pack_start (GTK_BOX (box), entry, TRUE, TRUE, 6);
@@ -364,6 +376,7 @@ nemo_extract_conflict_dialog_new (GtkWindow  *parent,
 	g_object_set_data (G_OBJECT (dialog), KEY_CHECKBOX, checkbox);
 	g_object_set_data (G_OBJECT (dialog), KEY_RENAME, rename_button);
 	g_object_set_data (G_OBJECT (dialog), KEY_REPLACE, replace_button);
+	g_object_set_data (G_OBJECT (dialog), KEY_HINT, hint);
 	g_object_set_data_full (G_OBJECT (dialog), KEY_NAME, g_strdup (dest_name), g_free);
 
 	g_signal_connect (expander, "activate", G_CALLBACK (expander_activated_cb), dialog);

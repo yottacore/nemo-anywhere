@@ -37,6 +37,7 @@
 #include <libnemo-private/nemo-archive-commands.h>
 #include <libnemo-private/nemo-archive-host.h>
 #include <libnemo-private/nemo-config.h>
+#include <libnemo-private/nemo-file-utilities.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-share.h>
 
@@ -1545,6 +1546,16 @@ nemo_archive_dialog_show (GtkWindow *parent_window,
 		if (!each && (name == NULL || name[0] == '\0')) {
 			gtk_widget_grab_focus (self->name_entry);
 			continue;
+		}
+		if (!each) {
+			g_autofree char *bad = nemo_file_name_bad_char_message (name);
+
+			if (bad != NULL) {
+				eel_show_error_dialog (_("The archive couldn't be made."), bad,
+						       GTK_WINDOW (self->dialog));
+				gtk_widget_grab_focus (self->name_entry);
+				continue;
+			}
 		}
 
 		folder = gtk_file_chooser_get_file (GTK_FILE_CHOOSER (self->folder_button));

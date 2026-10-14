@@ -321,9 +321,12 @@ on_rename_entry_changed (GtkEditable *editable, gpointer user_data)
     GtkDialog *dialog = GTK_DIALOG (user_data);
     GtkEntry *entry = GTK_ENTRY (editable);
     gchar *text = g_strdup (gtk_entry_get_text (entry));
+    gboolean name_ok = nemo_name_hint_update (g_object_get_data (G_OBJECT (dialog), "name-hint"),
+                                              gtk_entry_get_text (entry));
 
     g_strstrip (text); 
-    gtk_widget_set_sensitive (gtk_dialog_get_widget_for_response (dialog, GTK_RESPONSE_ACCEPT), *text != '\0');
+    gtk_widget_set_sensitive (gtk_dialog_get_widget_for_response (dialog, GTK_RESPONSE_ACCEPT),
+                              *text != '\0' && name_ok);
     g_free (text);
 }
 
@@ -348,6 +351,9 @@ start_renaming_selected_row (NemoTemplateConfigWidget *widget, GtkWidget *row)
     GtkWidget *entry = gtk_entry_new ();
     gtk_entry_set_activates_default (GTK_ENTRY (entry), TRUE);
     gtk_box_pack_start (GTK_BOX (content), entry, FALSE, FALSE, 0);
+    GtkWidget *hint = nemo_name_hint_new ();
+    gtk_box_pack_start (GTK_BOX (content), hint, FALSE, FALSE, 0);
+    g_object_set_data (G_OBJECT (rename_dialog), "name-hint", hint);
     gtk_entry_set_text (GTK_ENTRY (entry), info->name);
     g_signal_connect (GTK_EDITABLE (entry), "changed", G_CALLBACK (on_rename_entry_changed), rename_dialog);
 
