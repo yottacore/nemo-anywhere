@@ -1000,7 +1000,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Possible cause: as in Incorrect behavior, from reading the code.
 	- Test case: rjxyddbk itself, on Windows.
 
-
 - On Windows, a name with a character Windows doesn't allow is refused with "Input/output error".
 	- ID: 2026101319265113
 	- Type: Bug
@@ -2034,7 +2033,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rhtmbdmd, Settings dialog test.
 	- Acceptance signoff: Self-closed: does what the item asks, and rhtmbdmd failed before and passes after.
 	- Closed: 20261013-050442
-
 
 - Tab buttons never take keyboard focus, anywhere.
 	- ID: 2026101319204761
