@@ -44,6 +44,7 @@
 #include <glib/gi18n.h>
 
 #include <eel/eel-gtk-extensions.h>
+#include <eel/eel-vfs-extensions.h>
 #include <libnemo-private/nemo-clipboard.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-entry.h>
@@ -845,13 +846,15 @@ action_show_hide_search_callback (GtkAction *action,
 			restore_focus_widget (pane);
 
 			if (slot->query_editor != NULL) {
-                /* If closing the search bar, restore the original location */
-                location = g_file_new_for_uri (nemo_query_editor_get_base_uri (slot->query_editor));
+				const char *base_uri = nemo_query_editor_get_base_uri (slot->query_editor);
 
-				/* Last try: use the home directory as the return location */
-				if (location == NULL) {
+				/* Back to the folder searched. A search page nothing is known
+				   of has none, and would only go back to itself. */
+				if (base_uri != NULL && !eel_uri_is_search (base_uri)) {
+					location = g_file_new_for_uri (base_uri);
+				} else {
 					location = g_file_new_for_path (g_get_home_dir ());
-				}	
+				}
 
 				nemo_window_go_to (window, location);
 				g_object_unref (location);

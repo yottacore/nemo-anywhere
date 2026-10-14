@@ -205,6 +205,29 @@ ensure_query_editor (NemoWindowSlot *slot)
 	gtk_widget_grab_focus (GTK_WIDGET (slot->query_editor));
 }
 
+/* The history can go from one search straight to another. Find mode stays on
+   then, so the bar would keep the last one's text and folder. */
+void
+nemo_window_slot_recall_search_bar (NemoWindowSlot *slot)
+{
+	NemoDirectory *directory;
+	NemoQuery *query = NULL;
+
+	if (!nemo_query_editor_get_active (slot->query_editor)) {
+		return;
+	}
+
+	directory = nemo_directory_get (slot->location);
+	if (NEMO_IS_SEARCH_DIRECTORY (directory)) {
+		query = nemo_search_directory_get_query (NEMO_SEARCH_DIRECTORY (directory));
+	}
+	if (query != NULL) {
+		ensure_query_editor (slot);
+		g_object_unref (query);
+	}
+	nemo_directory_unref (directory);
+}
+
 void
 nemo_window_slot_set_query_editor_visible (NemoWindowSlot *slot,
 					       gboolean            visible)

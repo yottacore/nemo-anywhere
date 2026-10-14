@@ -527,6 +527,10 @@ nemo_directory_new (GFile *location)
 
 	set_directory_location (directory, location);
 
+	if (NEMO_IS_SEARCH_DIRECTORY (directory)) {
+		nemo_search_directory_recall_query (NEMO_SEARCH_DIRECTORY (directory));
+	}
+
 	g_free (uri);
 	
 	return directory;

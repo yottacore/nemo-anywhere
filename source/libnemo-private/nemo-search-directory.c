@@ -781,12 +781,70 @@ nemo_search_directory_generate_new_uri (void)
 }
 
 
+/* A search page outlives its folder object in the history, so each search
+   page's last query is kept here by its URI, for Back, Forward and the like. */
+static GHashTable *last_queries;
+
+static gboolean
+query_has_folder (NemoQuery *query)
+{
+	char *uri = nemo_query_get_location (query);
+	gboolean has = uri != NULL && uri[0] != '\0';
+
+	g_free (uri);
+	return has;
+}
+
+/* Brings back what a search page last searched, if this one was ever used. */
+void
+nemo_search_directory_recall_query (NemoSearchDirectory *search)
+{
+	char *uri = nemo_directory_get_uri (NEMO_DIRECTORY (search));
+	NemoQuery *query = last_queries != NULL ? g_hash_table_lookup (last_queries, uri) : NULL;
+
+	if (query != NULL && search->details->query == NULL) {
+		nemo_search_directory_set_query (search, query);
+		search->details->modified = FALSE;
+	}
+	g_free (uri);
+}
+
+/* The folder a search page last searched, or NULL when nothing is known of it.
+   Returns: (transfer full): free with g_free */
+char *
+nemo_search_directory_get_folder_uri (const char *search_uri)
+{
+	NemoQuery *query;
+
+	if (search_uri == NULL || last_queries == NULL) {
+		return NULL;
+	}
+	query = g_hash_table_lookup (last_queries, search_uri);
+
+	return query != NULL ? nemo_query_get_location (query) : NULL;
+}
+
 void
 nemo_search_directory_set_query (NemoSearchDirectory *search,
 				     NemoQuery *query)
 {
 	NemoDirectory *dir;
 	NemoFile *as_file;
+
+	/* With no folder the engines search from the root of the disk. */
+	if (query != NULL && !query_has_folder (query)) {
+		query = NULL;
+	}
+
+	if (query != NULL) {
+		if (last_queries == NULL) {
+			last_queries = g_hash_table_new_full (g_str_hash, g_str_equal,
+							      g_free, g_object_unref);
+		}
+		g_hash_table_replace (last_queries,
+				      nemo_directory_get_uri (NEMO_DIRECTORY (search)),
+				      g_object_ref (query));
+	}
 
 	if (search->details->query != query) {
 		search->details->modified = TRUE;

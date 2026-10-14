@@ -877,6 +877,30 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: cb3445f
 	- Test case: rk50ewvs (`test-bundle-settings.ps1`), run on the zip in the packages stage, on the flat tree before the single exe is packed, and on the `install.ps1` copy in rj72n4xb.
 
+- Leaving an empty search page from history and searching again searches the whole disk.
+	- ID: 2026101406405845
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes, the full Linux suite and the sanitizer lane, since the remembered queries are held until exit. The nearby search, find, tab and title tests passed, 14 of 14.
+	- Needs external testing: the Windows cross build with warnings as errors.
+	- Priority|Severity: Avg
+	- Opened: 20261014-064058
+	- Opened by: 2026101405542816
+	- Related IDs: 2026101405542816
+	- Target OS: All
+	- Steps to reproduce: search a folder, go Back, then Forward. An empty "Search" page shows. Click the search button, which leaves it on that page. Then search again.
+	- Incorrect behavior: the search runs from the root of the disk, and the path bar and title say "Search in "(null)"".
+	- Expected behavior: Forward shows the search it left, or the folder it was in, and a search never starts without a folder to search in.
+	- Reproduced: 20261014, Linux. Forward showed an empty "Search" page, and the search button left it on that same page.
+	- Actual cause: a search's query lives on its search page, and the page is let go once nothing shows it. The history keeps only the address, so Forward made a new page with no query and no folder. Leaving find mode goes back to the folder the bar was opened from, which on that page was the page itself. A query with no folder then searched from the root of the disk, since every search engine starts there when it's given no folder.
+	- Actual fix: each search page's last query is kept by its address, and a page made again for that address gets it back. So Back, Forward and the history menus show the search as it was left, and run it again in the same folder. A jump through the history menu from one search straight to another also puts the other's text and folder in the search bar. Another window gets the folder that was searched, rather than an empty search page, since it's usually another process. A query with no folder is dropped, so it searches nothing, and leaving a search page nothing is known of goes home. design.md "Search" says so.
+	- Progress log:
+		- 20261014: Options: a search page given on the command line, or typed, is still an empty "Search" page. It could go home at once instead. Left as is, the reason is because nothing makes such an address now, and a query there searches nothing.
+	- Swept: every way into a search page. Back and Forward, the history menus and a middle click on Back or Forward for a new tab all open the address in this process, so the query comes back. The second pane after split view is turned off and on again keeps its address the same way (read, not run). New window, a middle click for a new window, the location bar's new window and a command line all go through the one call that opens another window, which hands over the folder. A tab can't be moved, or torn off, while it shows a search. There's no closed tab or session restore to sweep. The 3 engines all start from the root with no folder, and the search page is the only caller that starts one, so the guard sits there.
+	- Branch: findhist
+	- Commit: 2ee7d8b
+	- Test case: rk7y2ch7, Search in history test. It searches a folder, goes Back and Forward, leaves find mode, goes Back into the search, leaves again, searches for something else, then jumps to the first search through Back's history menu. On dev it failed at Forward, and the leave after it stayed on the empty page. It passes after. Without the search bar part of the fix, the history menu check fails. rgy4vnf0, Search folder test, also checks that a search page made again for an old address searches what it did, and that one handed a query with no folder searches nothing. Both fail with the fix taken out and pass with it.
+
 - Take libgsf, the gsf-office thumbnailer and the 4 search converters out of every bundle and the build.
 	- ID: 2026100909260549
 	- Type: Enhancement
@@ -1039,21 +1063,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: thumbwin
 	- Commit: f38660a to f8a6223
 	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session. (c) still needs its own: a thumbnail and the text from a small file of each type, on every platform, and a check that no program is started for them.
-
-- Leaving an empty search page from history and searching again searches the whole disk.
-	- ID: 2026101406405845
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261014-064058
-	- Opened by: 2026101405542816
-	- Related IDs: 2026101405542816
-	- Target OS: All
-	- Steps to reproduce: search a folder, go Back, then Forward. An empty "Search" page shows. Click the search button, which leaves it on that page. Then search again.
-	- Incorrect behavior: the search runs from the root of the disk, and the path bar and title say "Search in "(null)"".
-	- Expected behavior: Forward shows the search it left, or the folder it was in, and a search never starts without a folder to search in.
-	- Reproduced: 20261014, Linux.
-	- Test case: none yet.
 
 - When clicking anywhere on a row in detailed list view, even when the program doesn't have focus, it should be immediately selected.
 	- ID: 2026101405542891

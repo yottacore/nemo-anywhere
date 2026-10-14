@@ -200,7 +200,8 @@ nemo_query_to_readable_string (NemoQuery *query)
     GFile *file;
     gchar *location_title, *readable;
 
-	if (!query || !query->details->file_pattern || query->details->file_pattern[0] == '\0') {
+	if (!query || !query->details->file_pattern || query->details->file_pattern[0] == '\0' ||
+	    query->details->location_uri == NULL) {
 		return g_strdup (_("Search"));
 	}
 
