@@ -2371,11 +2371,11 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                             </child>
                                             <child>
                                               <object class="GtkCheckButton" id="testguard_all_deletes_checkbutton">
-                                                <property name="label" translatable="yes">Ask again before every delete, move or overwrite (pre-release test guard)</property>
+                                                <property name="label" translatable="yes">Paranoid mode for move, overwrite, trash, and delete</property>
                                                 <property name="visible">True</property>
                                                 <property name="can-focus">True</property>
                                                 <property name="receives-default">False</property>
-                                                <property name="tooltip-text" translatable="yes">Every pre-release has this on, to catch a removal nothing accounts for. It isn't needed for this release candidate, and it is safe to turn off.</property>
+                                                <property name="tooltip-text" translatable="yes">This enables an alternate code path that is hard to accidentally OK, on every such action even if the action isn't triggered by a user. Every pre-release has this enabled by default - by strict release rules, rather than actual need.</property>
                                                 <property name="xalign">0</property>
                                                 <property name="draw-indicator">True</property>
                                               </object>
@@ -2667,6 +2667,7 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                                     <property name="visible">True</property>
                                                     <property name="can-focus">False</property>
                                                     <property name="label" translatable="yes">Command to open a terminal:</property>
+                                                    <property name="tooltip-text" translatable="yes">If empty, uses your default terminal.</property>
                                                     <property name="xalign">0</property>
                                                   </object>
                                                   <packing>
@@ -2681,7 +2682,7 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                                     <property name="can-focus">True</property>
                                                     <property name="invisible-char">●</property>
                                                     <property name="shadow-type">out</property>
-                                                    <property name="tooltip-text" translatable="yes">Leave empty to use whatever the system offers. A program that needs arguments takes them here too; quote a path that contains spaces. The folder is passed as the working directory.</property>
+                                                    <property name="tooltip-text" translatable="yes">If empty, uses your default terminal.</property>
                                                   </object>
                                                   <packing>
                                                     <property name="expand">True</property>

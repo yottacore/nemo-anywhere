@@ -4,7 +4,10 @@
  *
  * It also checks the page list the dialog sizes itself from. That list has to
  * name every page: one left out is a page the window is too short for, which
- * is what put Display behind a scrollbar from the moment it opened. */
+ * is what put Display behind a scrollbar from the moment it opened.
+ *
+ * And a few strings that were given word for word, so an edit to the layout
+ * can't reword them by accident. */
 
 #include <config.h>
 
@@ -81,6 +84,47 @@ static const char * const page_ids[] = {
 	"scrolledwindow7",
 	NULL
 };
+
+/* Wording given word for word: the guard's switch, and the terminal field's
+   tip on both its label and the entry. */
+static const struct {
+	const char *id;
+	const char *property;
+	const char *text;
+} wording[] = {
+	{ "testguard_all_deletes_checkbutton", "label",
+	  "Paranoid mode for move, overwrite, trash, and delete" },
+	{ "testguard_all_deletes_checkbutton", "tooltip-text",
+	  "This enables an alternate code path that is hard to accidentally OK, on every "
+	  "such action even if the action isn't triggered by a user. Every pre-release has "
+	  "this enabled by default - by strict release rules, rather than actual need." },
+	{ "command_label_1", "tooltip-text", "If empty, uses your default terminal." },
+	{ "terminal_exec_entry", "tooltip-text", "If empty, uses your default terminal." },
+};
+
+static void
+check_wording (GtkBuilder *builder)
+{
+	size_t i;
+
+	for (i = 0; i < G_N_ELEMENTS (wording); i++) {
+		GObject *widget = gtk_builder_get_object (builder, wording[i].id);
+		char *text = NULL;
+
+		if (widget == NULL) {
+			g_printerr ("FAIL no widget named %s\n", wording[i].id);
+			failures++;
+			continue;
+		}
+		g_object_get (widget, wording[i].property, &text, NULL);
+		if (g_strcmp0 (text, wording[i].text) != 0) {
+			g_printerr ("FAIL %s %s is \"%s\"\n", wording[i].id, wording[i].property,
+				    text != NULL ? text : "(none)");
+			failures++;
+		}
+		g_free (text);
+	}
+}
 
 static gboolean
 is_listed (const char *id)
@@ -175,6 +219,7 @@ main (int argc, char *argv[])
 	}
 
 	check_pages_are_all_listed (builder);
+	check_wording (builder);
 
 	g_object_unref (builder);
 

@@ -3,7 +3,8 @@
 ##	- Purpose: Check that no bundle has libgsf, the gsf-office thumbnailer,
 ##	  the old search converters or their helper definitions, and that no
 ##	  package depends on libgsf. The app reads office files itself
-##	  (2026100909260549).
+##	  (2026100909260549). catdoc's mso-doc definition is allowed, since it
+##	  names a program on the system.
 ##	  - Kinds, any number: linux-x86_64 and linux-arm64 (tarball, .deb and .rpm,
 ##	    with their Depends and Requires), windows (the zip, which the setup exe
 ##	    is made from), bsd (the pkg with its deps, and the tarball beside it).
@@ -39,7 +40,6 @@ BANNED = [
     "nemo-anywhere-*-to-txt", "nemo-anywhere-*-to-txt.exe",
     "epub2text.nemo_search_helper", "mso.nemo_search_helper", "mso-word.nemo_search_helper",
     "mso-ppt.nemo_search_helper", "mso-xls.nemo_search_helper", "odf.nemo_search_helper",
-    "mso-doc.nemo_search_helper",
 ]
 
 failures = []
@@ -191,9 +191,12 @@ fSelfTest(){
 
 	local tree="${scratch}/tree/${slug}"
 	mkdir -p "${tree}/bin" "${tree}/share/${slug}/search-helpers" "${tree}/lib"
-	touch "${tree}/bin/${slug}" "${tree}/share/${slug}/search-helpers/pdftotext.nemo_search_helper"
+	## catdoc's definition stays: it names a program on the system, not one we bundled.
+	touch "${tree}/bin/${slug}" "${tree}/share/${slug}/search-helpers/pdftotext.nemo_search_helper" \
+		"${tree}/share/${slug}/search-helpers/mso-doc.nemo_search_helper"
 	tar -C "${scratch}/tree" -czf "${scratch}/good.tar.gz" "${slug}"
-	for bad in bin/nemo-anywhere-xls-to-txt share/${slug}/search-helpers/odf.nemo_search_helper lib/libgsf-1.so.114; do
+	for bad in bin/nemo-anywhere-xls-to-txt share/${slug}/search-helpers/odf.nemo_search_helper \
+		share/${slug}/search-helpers/mso-word.nemo_search_helper lib/libgsf-1.so.114; do
 		touch "${tree}/${bad}"
 		tar -C "${scratch}/tree" -czf "${scratch}/bad.tar.gz" "${slug}"
 		fExpect bad "${scratch}/bad.tar.gz"
@@ -203,8 +206,9 @@ fSelfTest(){
 
 	## A zip like the Windows one, flat, with the dll at the root.
 	local flat="${scratch}/flat/${slug}-x"
-	mkdir -p "${flat}/share/thumbnailers"
-	touch "${flat}/${slug}.exe" "${flat}/libglib-2.0-0.dll" "${flat}/share/thumbnailers/librsvg.thumbnailer"
+	mkdir -p "${flat}/share/thumbnailers" "${flat}/share/${slug}/search-helpers"
+	touch "${flat}/${slug}.exe" "${flat}/libglib-2.0-0.dll" "${flat}/share/thumbnailers/librsvg.thumbnailer" \
+		"${flat}/share/${slug}/search-helpers/mso-doc.nemo_search_helper"
 	(cd "${scratch}/flat" && python3 -I -m zipfile -c "${scratch}/good.zip" "${slug}-x")
 	fExpect good "${scratch}/good.zip"
 	for bad in libgsf-1-114.dll gsf-office-thumbnailer.exe share/thumbnailers/gsf-office.thumbnailer; do
