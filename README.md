@@ -232,6 +232,10 @@ These are the features that make Nemo worth porting:
 
 	- On Windows, the search index can be used for faster searches. It is off by default, since it only knows the folders it was told to watch.
 
+	- Escape leaves search and goes back to the folder, from the search box or from the results. In the results a selection is cleared first, so it takes a second Escape.
+
+- F2 on several files at once opens a bulk renamer, and the setting comes filled in with one that's installed: Thunar's or KRename on Linux, ReNamer or Ant Renamer on Windows. Any program that takes a list of files will do.
+
 - Settings live in one plain text file you can read and edit. There's no registry, no dconf and no compiled schema. Editing it by hand does the same thing as changing the setting in the dialog.
 
 - Copy, paste and drag work with the platform's own file manager, in both directions.

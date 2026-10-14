@@ -205,7 +205,7 @@ static const NemoConfigKey nemo_config_keys[] = {
 	{ "plugins", "disabled-scripts", NEMO_CONFIG_STRING_LIST, NULL, deflist_plugins_disabled_scripts, NULL, NULL, NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "always-show-tabs", NEMO_CONFIG_BOOL, "false", NULL, NULL, "Show the tab strip even with only one tab", NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "always-use-browser", NEMO_CONFIG_BOOL, "true", NULL, NULL, "Every window is a browser window, with a toolbar and history", NEMO_CONFIG_KEY_NONE },
-	{ "preferences", "bulk-rename-tool", NEMO_CONFIG_STRING, "", NULL, NULL, "Program run for a bulk rename", NEMO_CONFIG_KEY_NONE },
+	{ "preferences", "bulk-rename-tool", NEMO_CONFIG_STRING, "", NULL, NULL, "Program run for a bulk rename. Unset means the first known renamer that's installed, or else the first known one", NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "click-double-parent-folder", NEMO_CONFIG_BOOL, "false", NULL, NULL, "Double-clicking empty space goes to the parent folder", NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "click-policy", NEMO_CONFIG_ENUM, "double", NULL, enum_ClickPolicy, "One click or two to open a file", NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "close-device-view-on-device-eject", NEMO_CONFIG_BOOL, "false", NULL, NULL, "Close the window when its device is ejected, rather than going home", NEMO_CONFIG_KEY_NONE },

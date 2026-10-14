@@ -2003,7 +2003,11 @@ key_press_callback (GtkWidget *widget, GdkEventKey *event, gpointer callback_dat
 		}
 		break;
 	case GDK_KEY_Escape:
-		forget_cursor (NEMO_LIST_VIEW (view));
+		/* A selection goes first. With none, Escape leaves find mode. */
+		if (nemo_view_get_selection_count (view) > 0 ||
+		    !nemo_window_slot_close_search (nemo_view_get_nemo_window_slot (view))) {
+			forget_cursor (NEMO_LIST_VIEW (view));
+		}
 		handled = TRUE;
 		break;
 

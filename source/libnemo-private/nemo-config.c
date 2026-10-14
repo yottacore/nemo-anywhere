@@ -44,6 +44,7 @@
 #include "shcl.h"
 
 #include "nemo-config-keys.h"
+#include "nemo-bulk-rename.h"
 #include "nemo-file-utilities.h"
 
 #define CONFIG_FILE_NAME      "settings.shcl"
@@ -203,6 +204,34 @@ static gint
 key_index (const NemoConfigKey *k)
 {
 	return (gint) (k - nemo_config_keys);
+}
+
+/* Defaults that depend on what's installed, found once on first use. The key
+ * table keeps the plain one, which is what the schema shows. Never stored
+ * unless changed, like any other default. */
+static const struct {
+	const char *group;
+	const char *key;
+	char     *(*find) (void);
+} found_defaults[] = {
+	{ "preferences", "bulk-rename-tool", nemo_bulk_rename_find_default },
+};
+static char *found_values[G_N_ELEMENTS (found_defaults)];
+
+static const char *
+default_text (const NemoConfigKey *k)
+{
+	gsize i;
+
+	for (i = 0; i < G_N_ELEMENTS (found_defaults); i++) {
+		if (strcmp (k->key, found_defaults[i].key) != 0 ||
+		    strcmp (k->group, found_defaults[i].group) != 0)
+			continue;
+		if (g_once_init_enter (&found_values[i]))
+			g_once_init_leave (&found_values[i], found_defaults[i].find ());
+		return found_values[i];
+	}
+	return k->def;
 }
 
 static const NemoConfigKey *
@@ -593,10 +622,13 @@ default_texts (guint *n_out)
 			g_free (lens);
 			break;
 		}
-		default:
+		default: {
 			/* A string, and an enum, which is stored as its nick. */
-			shcl_set_string (scratch, path, plen, k->def, strlen (k->def));
+			const char *def = default_text (k);
+
+			shcl_set_string (scratch, path, plen, def, strlen (def));
 			break;
+		}
 		}
 	}
 
@@ -1865,7 +1897,7 @@ nemo_config_get_string (NemoConfigGroup *group, const char *key)
 	else if (r.status == SHCL_EMPTY)
 		out = g_strdup ("");
 	else
-		out = g_strdup (k->def ? k->def : "");
+		out = g_strdup (default_text (k) != NULL ? default_text (k) : "");
 	release_reads_locked ();
 	g_mutex_unlock (&config_lock);
 
@@ -1965,7 +1997,9 @@ nemo_config_get_enum (NemoConfigGroup *group, const char *key)
 static gboolean
 drop_if_default (const NemoConfigKey *k, const char *as_text, char *path)
 {
-	if (k->def == NULL || g_strcmp0 (k->def, as_text) != 0)
+	const char *def = default_text (k);
+
+	if (def == NULL || g_strcmp0 (def, as_text) != 0)
 		return FALSE;
 
 	shcl_remove (config_doc, path, strlen (path));

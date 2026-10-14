@@ -8187,9 +8187,14 @@ invoke_external_bulk_rename_utility (NemoView *view,
 	bulk_rename_tool = get_bulk_rename_tool ();
 	cmd = g_string_new (bulk_rename_tool);
 	g_free (bulk_rename_tool);
+	/* Paths, as on Windows: a renamer only has to take a list of files. A
+	   place with no local path still goes as its address. */
 	for (walk = selection; walk; walk = walk->next) {
 		file = walk->data;
-		parameter = nemo_file_get_uri (file);
+		parameter = nemo_file_get_path (file);
+		if (parameter == NULL) {
+			parameter = nemo_file_get_uri (file);
+		}
 		quoted_parameter = g_shell_quote (parameter);
 		g_free (parameter);
 		cmd = g_string_append (cmd, " ");

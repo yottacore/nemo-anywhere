@@ -330,7 +330,7 @@ field: preferences.always-use-browser
 field: preferences.bulk-rename-tool
 	type: string
 	default: ""
-	desc: Program run for a bulk rename
+	desc: Program run for a bulk rename. Unset means the first known renamer that's installed, or else the first known one
 
 field: preferences.click-double-parent-folder
 	type: bool

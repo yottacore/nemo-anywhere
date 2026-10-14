@@ -36,6 +36,7 @@
 #include <stdlib.h>
 #include <gtk/gtk.h>
 
+#include <libnemo-private/nemo-bulk-rename.h>
 #include <libnemo-private/nemo-desktop-utils.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-tab-list.h>
@@ -557,6 +558,37 @@ test_sub_tabs (GtkWidget *dialog)
 	click_row (sidebar, "Default");
 }
 
+/* The field shows the renamer found here, showing it writes nothing, and the
+   label and the field both list the known ones. */
+static void
+test_bulk_rename (GtkWidget *dialog)
+{
+	GtkWidget *entry = find_named (dialog, "bulk_rename_entry");
+	GtkWidget *label = find_named (dialog, "command_label_0");
+	char *found = nemo_bulk_rename_find_default ();
+	char *known = nemo_bulk_rename_known_commands ();
+	char *tip;
+
+	check (entry != NULL && label != NULL);
+	if (entry == NULL || label == NULL) {
+		goto out;
+	}
+	check (g_strcmp0 (gtk_entry_get_text (GTK_ENTRY (entry)), found) == 0);
+	check (!nemo_config_is_set (nemo_preferences, NEMO_PREFERENCES_BULK_RENAME_TOOL));
+
+	tip = gtk_widget_get_tooltip_text (entry);
+	check (tip != NULL && g_str_has_prefix (tip, "Renamer programs need only accept a quoted list of files or folders."));
+	check (tip != NULL && g_str_has_suffix (tip, known));
+	g_free (tip);
+	tip = gtk_widget_get_tooltip_text (label);
+	check (tip != NULL && g_str_has_suffix (tip, known));
+	g_free (tip);
+
+out:
+	g_free (known);
+	g_free (found);
+}
+
 static void
 test_escape_closes (GtkWidget *dialog)
 {
@@ -646,6 +678,7 @@ main (int argc, char *argv[])
 		test_widgets (dialog);
 		test_tabs_take_no_focus (dialog);
 		test_sub_tabs (dialog);
+		test_bulk_rename (dialog);
 		test_escape_closes (dialog);
 	}
 
