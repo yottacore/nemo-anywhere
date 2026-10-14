@@ -746,7 +746,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026101007562511
 	- Type: Bug
 	- Status: Waiting for testing
-	- Needs external testing: vm925w, in the desktop session. Start the zip, the copy `install.ps1` puts in place and the single exe, all from one commit on this branch, and compare the look and font. The single exe also needs a native stage and pack (`cicd-win.ps1`), since `stage-native.bash` changed.
+	- Needs external testing:
+		- vm925w, in the desktop session. Start the zip, the copy `install.ps1` puts in place and the single exe, all from one commit on this branch, and compare the look and font.
+		- Done 20261013 on b29w at dev 5ca50b7, passed. It was: a native stage and pack (`cicd-win.ps1`), since `stage-native.bash` changed. rk50ewvs passed on win-flat and on the installed folder in rj72n4xb, and both files match `cicd/win/bundle-etc/` byte for byte.
 	- Priority|Severity: Avg
 	- Opened: 20261010-075625
 	- Opened by: 2026100917220603
@@ -764,44 +766,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: ziptheme
 	- Commit: cb3445f
 	- Test case: rk50ewvs (`test-bundle-settings.ps1`), run on the zip in the packages stage, on the flat tree before the single exe is packed, and on the `install.ps1` copy in rj72n4xb.
-
-- Take libgsf, the gsf-office thumbnailer and the 4 search converters out of every bundle and the build.
-	- ID: 2026100909260549
-	- Type: Enhancement
-	- Status: Waiting for testing
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
-	- Needs external testing:
-		- Done 20261009 on vm925w, passed. It was: the native suite on vm925w, for rjmc40ex, rjvb97aa, rjvtggme and rfhnaccg, and the seed replays rhatwe0r, rhatwe0s and rhatwe0t.
-		- Done 20261009 on vm925w, passed. It was: the single exe built from this branch, in the desktop session on vm925w with MacType running: an .odt with no picture inside, a .doc with a metafile preview, and a content search through office files, on a box with no thumbnailer or search helper installed for these types. Plain icons where there is no picture, the matches, no box, and no other program started. The staged `win-flat` has no libgsf dll, no gsf-office files and no `*-to-txt` exe.
-		- A full pipeline with `--include-arm --include-bsd`: both prefix checks, "Windows bundle check" and "FreeBSD bundle check" pass. The FreeBSD pkg made before this change depends on libgsf, so "FreeBSD bundle check" stops a run until the FreeBSD lane makes a new one.
-		- The Windows release workflow on the next tag, with libgsf gone from its package list.
-	- Priority|Severity: Avg
-	- Opened: 20261009-092605
-	- Opened by: 2026100617051745
-	- Parent ID: 2026100617051745
-	- Prereq IDs: 2026100909260472, 2026100909260511
-	- Related IDs: 2026100914514406
-	- Target OS: All
-	- Requirements:
-		- No libgsf in the build, the sysroot, the MSYS2 package lists, the deb's Depends or any bundle.
-		- No `gsf-office-thumbnailer` and no `nemo-anywhere-*-to-txt` programs or their helper definitions in any bundle.
-		- The tests and fuzz targets that use libgsf to write or read files move to the app's own readers and a writer that needs no libgsf.
-	- Note: rjmc40ex skips when no gsf-office thumbnailer is found, but its .odt now gets its thumbnail from the app's reader. Its skip goes, and its check that a thumbnailer is found by extension needs another type.
-	- Progress log:
-		- 20261009: done. The 4 converters, their definitions and the libgsf dependency are gone from the build. The fuzz targets for the Excel, PowerPoint and Word parsers now run the app's own parsers, with the same seeds. The converter test runs its old cases through the app's reader, on files written with libarchive and with the compound file writer from 2026100909260511, which now sits in a file of its own for both tests. rjmc40ex lost its skip. It finds a stand-in thumbnailer for PDF by extension, and its .odt gets the reader's picture.
-		- 20261009: libgsf is out of the cross sysroot's package list, the MSYS2 lists, the build images and the deb's fallback Depends line. The Windows bundles leave out gsf-office's thumbnailer descriptor, the same way as gdk-pixbuf's, since MSYS2 on a box with libgsf still has it.
-		- 20261009: the `nemo-winbuild:init` image still has libgsf and gsf-office's descriptor in its sysroot. The next image build leaves them out. Until then the zip leaves the libgsf dlls out itself. The Linux images still have libgsf-1-dev installed, which nothing links now, so they need no rebuild.
-		- 20261009: at first the fall-back to an installed thumbnailer or search helper went too, for a file the reader gets nothing from. Put back: the app's reader comes before any installed one, not instead of it, as decided in 2026100617051745. Only what the app bundled goes.
-		- 20261009: README's MacType note stays. As far as can be read here, the single exe still starts a packed program: GLib's spawn helper, for a new window or a tab moved to its own window. Filed as 2026100914514406. Not tried under MacType.
-	- Decisions:
-		- 20261009: the fall-backs in 2026100909260472 and 2026100909260511 stay. For a file the app's reader gets nothing from, such as one with no picture inside, a metafile preview, or one that doesn't read, a thumbnailer or search helper installed on the system still gets its turn. So on Linux a distro's thumbnailer for .docx still runs after the reader. Only the programs the app bundled go.
-		- 20261009: catdoc's search helper definition stays. It names a program installed on the system, not one the app bundled.
-	- Swept: every bundle and lane that copied the programs, the dlls or the descriptors: the native stage, the zip, the cross build's strip, the wine runner, the Linux tarball, deb and rpm through meson's install, and the FreeBSD pkg, whose deps come from what the binaries link. The factory and the search walk are as on dev: the reader first for these types, then anything installed.
-	- Verified: 20261009, the app and every test built with libgsf's development files removed from the build container and from the cross sysroot. Full Linux suite 188 of 188. rjvb97aa and rjvtggme fail with the fall-backs taken out, since then the stand-in thumbnailer and search helper never run for the files with no picture and the ones that don't read. They also fail with the reader skipped in the factory, since then the stand-in runs for files that have a picture. They pass as on the branch. rjmc40ex fails with the extension lookup taken out and passes with it, under wine. rjmc40ex, rjvb97aa, rjvtggme, rfhnaccg and the 5 office seed replays pass under wine, where the stand-ins are seen to run too. All 12 fuzz targets ran 20 s each with no find. The bundle check fails on every bundle in the release folder from before the change, and passes on a fresh install of this branch and on a zip packed from the old sysroot. Its self-test fails with the name and dependency checks taken out. rjnyer4p fails with gsf-office's descriptors kept. Lint clean apart from rj3ytv0b, which always fails in a worktree.
-	- Verified: 20261009 on vm925w at dev 186065a. rjmc40ex, rjvb97aa, rjvtggme, rfhnaccg, rjvtghmd, rhatwe0r, rhatwe0s and rhatwe0t pass in the native suite. The staged `win-run` and `win-flat` have no libgsf dll, no gsf-office file and no `*-to-txt` exe; catdoc's helper definition is still there, as decided. The single exe from the same commit, in the desktop session with MacType running and loaded into the app: an .odt with no picture inside and a .doc with a metafile preview show plain icons, and a content search found a word in each, and in each of the other office files. The app started no other program, and no box came up.
-	- Branch: nogsf
-	- Commit: 7c4e340, 6748a54
-	- Test case: rjvwpz9d, Bundle check: no libgsf, gsf-office thumbnailer, converter or their definitions in the tarball, deb, rpm, zip or FreeBSD pkg, and no Depends, Requires or pkg dep on libgsf. The prefix check rhtq57n5 runs it on each arch's Linux files, and its self-test runs in the lint stage. rjvb97aa and rjvtggme: files with a picture or text get it from the reader, and the stand-in thumbnailer and search helper installed for these types are not run. Files with no picture inside, a metafile preview, and files that don't read get nothing from the reader, and then the stand-ins run. rjmc40ex and rfhnaccg as in Progress log.
 
 - On Windows, the trash icon leaves out removable drives.
 	- ID: 2026100708294146
@@ -827,41 +791,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: winlow
 	- Commit: 0dab690
 	- Test case: rjhvmm6f, Mapped drive not asked, new bin cases: a fixed drive's bin is asked, a removable one's only with a disk in it, an empty drive answers in under 2 s, and no share or optical drive is asked.
-
-- On Linux and the BSDs, programs a relocated install starts get its own folders in their search paths.
-	- ID: 2026100916102200
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 195 of 195.
-	- Needs external testing: rk583zzx in the FreeBSD lane. The code is the same there.
-	- Priority|Severity: Low
-	- Opened: 20261009-161022
-	- Opened by: 2026100912374782
-	- Related IDs: 2026100912374782
-	- Target OS: Linux, FreeBSD
-	- Steps to reproduce: from a relocated install, such as the tarball or the user target, open a file with another GLib or GTK program, or run an action.
-	- Incorrect behavior: the app adds its own folders to `XDG_DATA_DIRS`, `PATH` and `GSETTINGS_SCHEMA_DIR` at startup, and every program it starts inherits them. That program can then pick up our schemas, icons or helpers in place of its own.
-	- Expected behavior: a user's program gets the environment it would have had without the app, the same as on Windows since 2026100912374782. The app's own copies and helpers may keep the added folders.
-	- Reproduced: No. From reading the startup code.
-		- 20261013, on Linux: with the start as on dev, a program opened with, run, run in a terminal, started from a launcher, an action or a link got all 3 of the app's folders.
-	- Actual cause: the 3 lists were set for the whole process with nothing kept of what was there before, and every start passed the process environment on.
-	- Decisions:
-		- 20261013: the same design as 2026100912374782. The 3 are recorded with what was there before. A program of the user's starts with those put back, through its launch context or else its own environment list. The app's own environment never changes after startup.
-		- 20261013: helpers keep the app's lists: thumbnailers, archive tools, search converters, ImageMagick, action conditions, xdg-user-dirs-update and the action layout editor.
-		- 20261013: a new window, a tab moved out and the restart in Settings get the user's lists and add the folders again, as on Windows. The restart now starts this exe by its full path, not by name.
-		- 20261013: the install's own menu entry names the program bare, and a relocated bin folder need not be on the user's PATH. Opening something with it starts this exe by its full path, with the user's lists.
-		- 20261013: a program of the user's named without a path is looked for on the user's PATH, not the app's.
-	- Actual fix: one record of the app's own settings in `nemo-file-utilities.c` now covers the 3 lists too. Open With, opening a file, running a program or script, a terminal, launchers, actions, links from Help and the About box, a template's editor and an extension's settings program all start with the user's values. A lint check fails on any new start that neither asks for the user's values nor is listed as one of ours.
-	- Swept: every program start outside the tests, by grep for `g_spawn`, `g_subprocess`, `g_app_info_launch`, `g_desktop_app_info_launch_uris_as_manager`, `gtk_show_uri` and launch context creation.
-		- The user's values: `nemo-program-choosing.c` (Open With and opening a file, running a program, a terminal through `eel-gnome-extensions.c`, launchers, links), an action's program in `nemo-action.c`, the terminal in `nemo-view.c`, a template's editor, an extension's settings program, and the restart in Settings.
-		- The user's values, already: a new window and a tab moved out, in `nemo-new-process.c`.
-		- The app's, as helpers: `nemo-tool-run.c`, `nemo-magick.c`, `nemo-desktop-thumbnail.c`, the action condition, xdg-user-dirs-update and the action layout editor.
-		- The app's, as copies of ours: the extensions list run in Settings, which prints and quits, and the 2 starts through pkexec, which clears the environment.
-		- Not ours to start: a program GIO starts over D-Bus, and anything a gvfs daemon or an extension starts.
-	- Test case: rk583zzx, Launch environment test. A copy of the test in a made-up install starts a program each way a user's program is started and checks the 3 lists it got. A helper keeps the app's. Lint rk5884m7 checks every start in the code.
-	- Verified: rk583zzx fails before the fix on all 7 of the user's routes and passes after. Full Linux suite 195 of 195. Windows cross build clean.
-	- Branch: relenv
-	- Commit: 51be82a
 
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440
@@ -958,6 +887,117 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: thumbwin
 	- Commit: f38660a to f8a6223
 	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session. (c) still needs its own: a thumbnail and the text from a small file of each type, on every platform, and a check that no program is started for them.
+
+- Take libgsf, the gsf-office thumbnailer and the 4 search converters out of every bundle and the build.
+	- ID: 2026100909260549
+	- Type: Enhancement
+	- Status: Queued
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
+	- Needs external testing:
+		- Done 20261009 on vm925w, passed. It was: the native suite on vm925w, for rjmc40ex, rjvb97aa, rjvtggme and rfhnaccg, and the seed replays rhatwe0r, rhatwe0s and rhatwe0t.
+		- Done 20261009 on vm925w, passed. It was: the single exe built from this branch, in the desktop session on vm925w with MacType running: an .odt with no picture inside, a .doc with a metafile preview, and a content search through office files, on a box with no thumbnailer or search helper installed for these types. Plain icons where there is no picture, the matches, no box, and no other program started. The staged `win-flat` has no libgsf dll, no gsf-office files and no `*-to-txt` exe.
+		- Failed 20261013, see Progress log. It was: a full pipeline with `--include-arm --include-bsd`: both prefix checks, "Windows bundle check" and "FreeBSD bundle check" pass. The FreeBSD pkg made before this change depends on libgsf, so "FreeBSD bundle check" stops a run until the FreeBSD lane makes a new one.
+		- The Windows release workflow on the next tag, with libgsf gone from its package list.
+	- Priority|Severity: Avg
+	- Opened: 20261009-092605
+	- Opened by: 2026100617051745
+	- Parent ID: 2026100617051745
+	- Prereq IDs: 2026100909260472, 2026100909260511
+	- Related IDs: 2026100914514406
+	- Target OS: All
+	- Requirements:
+		- No libgsf in the build, the sysroot, the MSYS2 package lists, the deb's Depends or any bundle.
+		- No `gsf-office-thumbnailer` and no `nemo-anywhere-*-to-txt` programs or their helper definitions in any bundle.
+		- The tests and fuzz targets that use libgsf to write or read files move to the app's own readers and a writer that needs no libgsf.
+	- Note: rjmc40ex skips when no gsf-office thumbnailer is found, but its .odt now gets its thumbnail from the app's reader. Its skip goes, and its check that a thumbnailer is found by extension needs another type.
+	- Progress log:
+		- 20261009: done. The 4 converters, their definitions and the libgsf dependency are gone from the build. The fuzz targets for the Excel, PowerPoint and Word parsers now run the app's own parsers, with the same seeds. The converter test runs its old cases through the app's reader, on files written with libarchive and with the compound file writer from 2026100909260511, which now sits in a file of its own for both tests. rjmc40ex lost its skip. It finds a stand-in thumbnailer for PDF by extension, and its .odt gets the reader's picture.
+		- 20261009: libgsf is out of the cross sysroot's package list, the MSYS2 lists, the build images and the deb's fallback Depends line. The Windows bundles leave out gsf-office's thumbnailer descriptor, the same way as gdk-pixbuf's, since MSYS2 on a box with libgsf still has it.
+		- 20261009: the `nemo-winbuild:init` image still has libgsf and gsf-office's descriptor in its sysroot. The next image build leaves them out. Until then the zip leaves the libgsf dlls out itself. The Linux images still have libgsf-1-dev installed, which nothing links now, so they need no rebuild.
+		- 20261009: at first the fall-back to an installed thumbnailer or search helper went too, for a file the reader gets nothing from. Put back: the app's reader comes before any installed one, not instead of it, as decided in 2026100617051745. Only what the app bundled goes.
+		- 20261009: README's MacType note stays. As far as can be read here, the single exe still starts a packed program: GLib's spawn helper, for a new window or a tab moved to its own window. Filed as 2026100914514406. Not tried under MacType.
+		- 20261013: back to Queued. The full pipeline at dev 5ca50b7 stopped at the x86_64 prefix check: rjvwpz9d refuses `mso-doc.nemo_search_helper` in the tarball, deb and rpm. That file is catdoc's definition, which stays, as decided here, so the check's list is wrong, not the bundles. The arm64 and FreeBSD bundle checks didn't run, since the package checks stop at the first failure. The FreeBSD lane made a new pkg in the same run.
+	- Decisions:
+		- 20261009: the fall-backs in 2026100909260472 and 2026100909260511 stay. For a file the app's reader gets nothing from, such as one with no picture inside, a metafile preview, or one that doesn't read, a thumbnailer or search helper installed on the system still gets its turn. So on Linux a distro's thumbnailer for .docx still runs after the reader. Only the programs the app bundled go.
+		- 20261009: catdoc's search helper definition stays. It names a program installed on the system, not one the app bundled.
+	- Swept: every bundle and lane that copied the programs, the dlls or the descriptors: the native stage, the zip, the cross build's strip, the wine runner, the Linux tarball, deb and rpm through meson's install, and the FreeBSD pkg, whose deps come from what the binaries link. The factory and the search walk are as on dev: the reader first for these types, then anything installed.
+	- Verified: 20261009, the app and every test built with libgsf's development files removed from the build container and from the cross sysroot. Full Linux suite 188 of 188. rjvb97aa and rjvtggme fail with the fall-backs taken out, since then the stand-in thumbnailer and search helper never run for the files with no picture and the ones that don't read. They also fail with the reader skipped in the factory, since then the stand-in runs for files that have a picture. They pass as on the branch. rjmc40ex fails with the extension lookup taken out and passes with it, under wine. rjmc40ex, rjvb97aa, rjvtggme, rfhnaccg and the 5 office seed replays pass under wine, where the stand-ins are seen to run too. All 12 fuzz targets ran 20 s each with no find. The bundle check fails on every bundle in the release folder from before the change, and passes on a fresh install of this branch and on a zip packed from the old sysroot. Its self-test fails with the name and dependency checks taken out. rjnyer4p fails with gsf-office's descriptors kept. Lint clean apart from rj3ytv0b, which always fails in a worktree.
+	- Verified: 20261009 on vm925w at dev 186065a. rjmc40ex, rjvb97aa, rjvtggme, rfhnaccg, rjvtghmd, rhatwe0r, rhatwe0s and rhatwe0t pass in the native suite. The staged `win-run` and `win-flat` have no libgsf dll, no gsf-office file and no `*-to-txt` exe; catdoc's helper definition is still there, as decided. The single exe from the same commit, in the desktop session with MacType running and loaded into the app: an .odt with no picture inside and a .doc with a metafile preview show plain icons, and a content search found a word in each, and in each of the other office files. The app started no other program, and no box came up.
+	- Branch: nogsf
+	- Commit: 7c4e340, 6748a54
+	- Test case: rjvwpz9d, Bundle check: no libgsf, gsf-office thumbnailer, converter or their definitions in the tarball, deb, rpm, zip or FreeBSD pkg, and no Depends, Requires or pkg dep on libgsf. The prefix check rhtq57n5 runs it on each arch's Linux files, and its self-test runs in the lint stage. rjvb97aa and rjvtggme: files with a picture or text get it from the reader, and the stand-in thumbnailer and search helper installed for these types are not run. Files with no picture inside, a metafile preview, and files that don't read get nothing from the reader, and then the stand-ins run. rjmc40ex and rfhnaccg as in Progress log.
+
+- rjv9ks2z, the connecting sign test, fails now and then in a full Linux suite run on a busy box.
+	- ID: 2026101305422316
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261013-054223
+	- Opened by: 2026100816170921
+	- Related IDs: 2026100816170921
+	- Target OS: Linux
+	- Steps to reproduce: run the full Linux suite on a busy box, or several copies of rjv9ks2z at once on one display.
+	- Incorrect behavior: it fails in 2 full suite runs of 20261013, on "with animations off the window looks grayed and stays still while it waits". Another run that day failed on "the fade stops and the window looks as before once stopped". Run alone it passes, 3 of 3.
+	- Expected behavior: it passes however busy the box is.
+	- Reproduced: 20261013, with 6 copies at a time on one display beside a CPU load. 3 of 48 runs failed on the fade check, and other runs of that kind on the steady gray one. Each failure came with a GTK warning that the window was drawn before its new size was worked out.
+	- Actual cause: the test draws the window to compare its looks, on its own 100 ms timer. When something has asked the window to lay itself out again, GTK draws nothing until the next frame does it, and warns. On a busy box that frame can come after the timer, so the test compared an empty picture. The app was not at fault.
+	- Actual fix: the test lays the window out before it draws it, as that frame would.
+	- Swept: no other test draws a window that way, by grep for `gtk_widget_draw` in the tests.
+	- Test case: rjv9ks2z, Connecting sign while a share mounts test, itself.
+	- Verified: under the same load, 3 of 48 runs failed before and 0 of 96 after, with no GTK warning. Alone 3 of 3. Full Linux suite 195 of 195.
+	- Branch: relenv
+	- Commit: 51be82a
+	- Acceptance signoff: Self-closed: only the test changed, and the failure seen before is gone after under the same load.
+	- Closed: 20261013-063500
+	- Progress log:
+		- 20261013: back to Queued. It failed in the sanitizer suite of the full pipeline at dev 5ca50b7, on "the window fades while it waits", after the fix. That build runs much slower, so the fix doesn't cover every timing. Not looked into yet.
+
+- rjvdch2z, the settings shared between copies test, leaks under the sanitizers.
+	- ID: 2026101315481491
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261013-154814
+	- Opened by: full pipeline at dev 5ca50b7
+	- Related IDs: 2026100815215479
+	- Target OS: Linux
+	- Steps to reproduce: run the sanitizer suite, as the full pipeline does.
+	- Incorrect behavior: LeakSanitizer reports 331 bytes in 11 allocations, 192 bytes direct in 3 objects. The stack stops at `g_malloc`, so where it comes from isn't shown. The test's own checks all pass.
+	- Expected behavior: no leak.
+	- Reproduced: 20261013, once, in the full pipeline at dev 5ca50b7. The last full pipeline with sanitizers, 20261007 at 7c1debd, was clean.
+	- Test case: rjvdch2z itself, in the sanitizer suite.
+
+- On Windows, rjvzdd4w's open row fails: a `.bat` opened through its file type never runs.
+	- ID: 2026101317434154
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261013-174342
+	- Opened by: native suite on b29w at dev 5ca50b7
+	- Related IDs: 2026100912374782, 2026100916102200
+	- Target OS: Windows
+	- Test environment: b29w, the native suite over ssh, so in session 0 with no desktop.
+	- Steps to reproduce: run rjvzdd4w, Launch environment win32 test, natively on b29w.
+	- Incorrect behavior: `nemo_launch_win32_open_path` on a `.bat` fails at line 232, and "the program never wrote what it saw". The spawn, run, Open With and copy rows pass. Same when run alone.
+	- Expected behavior: passes, or exits 77 where opening by file type can't work.
+	- Reproduced: 20261013 on b29w, twice. Not tried on dev before this round, or in a desktop session.
+	- Test case: rjvzdd4w itself.
+
+- On Windows, the gate's lint stage stops at rjxyddbk.
+	- ID: 2026101317434254
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261013-174342
+	- Opened by: native gate on b29w at dev 5ca50b7
+	- Related IDs: 2026101009515961
+	- Target OS: Windows
+	- Steps to reproduce: run `pwsh cicd/cicd-win.ps1 -Gate -Yes` on b29w.
+	- Incorrect behavior: `test-lint-image.bash` fails 4 checks like "image there: got '', wanted 'nemo-lint:...'". Under MSYS2 `include/lint-image.bash` gives no image on purpose, so the host tools are used, but the test has no case for that.
+	- Expected behavior: the test skips or checks the MSYS2 path, and lint goes on.
+	- Reproduced: 20261013 on b29w.
+	- Possible cause: as in Incorrect behavior, from reading the code.
+	- Test case: rjxyddbk itself, on Windows.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
@@ -2293,6 +2333,44 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
 
+- On Linux and the BSDs, programs a relocated install starts get its own folders in their search paths.
+	- ID: 2026100916102200
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 195 of 195.
+	- Needs external testing: done 20261013, passed. It was: rk583zzx in the FreeBSD lane. The code is the same there.
+	- Priority|Severity: Low
+	- Opened: 20261009-161022
+	- Opened by: 2026100912374782
+	- Related IDs: 2026100912374782
+	- Target OS: Linux, FreeBSD
+	- Steps to reproduce: from a relocated install, such as the tarball or the user target, open a file with another GLib or GTK program, or run an action.
+	- Incorrect behavior: the app adds its own folders to `XDG_DATA_DIRS`, `PATH` and `GSETTINGS_SCHEMA_DIR` at startup, and every program it starts inherits them. That program can then pick up our schemas, icons or helpers in place of its own.
+	- Expected behavior: a user's program gets the environment it would have had without the app, the same as on Windows since 2026100912374782. The app's own copies and helpers may keep the added folders.
+	- Reproduced: No. From reading the startup code.
+		- 20261013, on Linux: with the start as on dev, a program opened with, run, run in a terminal, started from a launcher, an action or a link got all 3 of the app's folders.
+	- Actual cause: the 3 lists were set for the whole process with nothing kept of what was there before, and every start passed the process environment on.
+	- Decisions:
+		- 20261013: the same design as 2026100912374782. The 3 are recorded with what was there before. A program of the user's starts with those put back, through its launch context or else its own environment list. The app's own environment never changes after startup.
+		- 20261013: helpers keep the app's lists: thumbnailers, archive tools, search converters, ImageMagick, action conditions, xdg-user-dirs-update and the action layout editor.
+		- 20261013: a new window, a tab moved out and the restart in Settings get the user's lists and add the folders again, as on Windows. The restart now starts this exe by its full path, not by name.
+		- 20261013: the install's own menu entry names the program bare, and a relocated bin folder need not be on the user's PATH. Opening something with it starts this exe by its full path, with the user's lists.
+		- 20261013: a program of the user's named without a path is looked for on the user's PATH, not the app's.
+	- Actual fix: one record of the app's own settings in `nemo-file-utilities.c` now covers the 3 lists too. Open With, opening a file, running a program or script, a terminal, launchers, actions, links from Help and the About box, a template's editor and an extension's settings program all start with the user's values. A lint check fails on any new start that neither asks for the user's values nor is listed as one of ours.
+	- Swept: every program start outside the tests, by grep for `g_spawn`, `g_subprocess`, `g_app_info_launch`, `g_desktop_app_info_launch_uris_as_manager`, `gtk_show_uri` and launch context creation.
+		- The user's values: `nemo-program-choosing.c` (Open With and opening a file, running a program, a terminal through `eel-gnome-extensions.c`, launchers, links), an action's program in `nemo-action.c`, the terminal in `nemo-view.c`, a template's editor, an extension's settings program, and the restart in Settings.
+		- The user's values, already: a new window and a tab moved out, in `nemo-new-process.c`.
+		- The app's, as helpers: `nemo-tool-run.c`, `nemo-magick.c`, `nemo-desktop-thumbnail.c`, the action condition, xdg-user-dirs-update and the action layout editor.
+		- The app's, as copies of ours: the extensions list run in Settings, which prints and quits, and the 2 starts through pkexec, which clears the environment.
+		- Not ours to start: a program GIO starts over D-Bus, and anything a gvfs daemon or an extension starts.
+	- Test case: rk583zzx, Launch environment test. A copy of the test in a made-up install starts a program each way a user's program is started and checks the 3 lists it got. A helper keeps the app's. Lint rk5884m7 checks every start in the code.
+	- Verified: rk583zzx fails before the fix on all 7 of the user's routes and passes after. Full Linux suite 195 of 195. Windows cross build clean.
+	- Branch: relenv
+	- Commit: 51be82a
+	- Verified: 20261013, full pipeline at dev 5ca50b7: rk583zzx passes in the Linux suite and in the FreeBSD suite on vmFreeBSD, 184 OK, 14 skipped there.
+	- Acceptance signoff: Self-closed: rk583zzx passed on Linux and FreeBSD.
+	- Closed: 20261013-172012
+
 - On b29w the archive test's rar rows that store links fail when the test runs outside the ssh session.
 	- ID: 2026101310525452
 	- Type: Bug
@@ -2318,29 +2396,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rhr6ggmt, Archive option combinations, with relative link targets, and check_long_target: a rar keeping a link with a 140-byte target and Delete originals keeps the originals unless the archive lists. rev86z08, Archive options test, check_find_command (Windows): `rar.exe` on PATH before a `rar.cmd` ahead of it, then the installed one, then the script.
 	- Acceptance signoff: Self-closed: the cause is found, and the test passes on b29w where it failed.
 	- Closed: 20261013-121000
-
-- rjv9ks2z, the connecting sign test, fails now and then in a full Linux suite run on a busy box.
-	- ID: 2026101305422316
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Low
-	- Opened: 20261013-054223
-	- Opened by: 2026100816170921
-	- Related IDs: 2026100816170921
-	- Target OS: Linux
-	- Steps to reproduce: run the full Linux suite on a busy box, or several copies of rjv9ks2z at once on one display.
-	- Incorrect behavior: it fails in 2 full suite runs of 20261013, on "with animations off the window looks grayed and stays still while it waits". Another run that day failed on "the fade stops and the window looks as before once stopped". Run alone it passes, 3 of 3.
-	- Expected behavior: it passes however busy the box is.
-	- Reproduced: 20261013, with 6 copies at a time on one display beside a CPU load. 3 of 48 runs failed on the fade check, and other runs of that kind on the steady gray one. Each failure came with a GTK warning that the window was drawn before its new size was worked out.
-	- Actual cause: the test draws the window to compare its looks, on its own 100 ms timer. When something has asked the window to lay itself out again, GTK draws nothing until the next frame does it, and warns. On a busy box that frame can come after the timer, so the test compared an empty picture. The app was not at fault.
-	- Actual fix: the test lays the window out before it draws it, as that frame would.
-	- Swept: no other test draws a window that way, by grep for `gtk_widget_draw` in the tests.
-	- Test case: rjv9ks2z, Connecting sign while a share mounts test, itself.
-	- Verified: under the same load, 3 of 48 runs failed before and 0 of 96 after, with no GTK warning. Alone 3 of 3. Full Linux suite 195 of 195.
-	- Branch: relenv
-	- Commit: 51be82a
-	- Acceptance signoff: Self-closed: only the test changed, and the failure seen before is gone after under the same load.
-	- Closed: 20261013-063500
 
 - The settings shared between copies test can fail on a loaded box.
 	- ID: 2026100915055910
