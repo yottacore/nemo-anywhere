@@ -882,11 +882,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - After an `smb://` address is typed, nothing shows that the app is working on it.
 	- ID: 2026100816170921
 	- Type: Bug
-	- Status: Waiting for testing
+	- Status: Waiting on signoff
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
 	- Needs external testing:
 		- Done 20261010 on vm925w, passed except the drop. It was: in the desktop session, with the single exe, type `\\10.255.255.1\share` in the path bar. While the sign shows, a click, a right-click, a click on a menu, Ctrl+T, F10, a tab click and a file dragged in from Explorer should all do nothing, and nothing should look grayed. The title bar should still move the window, and its close button should close it. Escape should stop the attempt, and then a click and a drop should work again. Also rhtwm2c8 in the native suite. The sign itself was checked there on 20261009.
-		- Still to do, by hand on vm925w: while the sign shows, a file dragged in from Explorer does nothing, and after Escape the same drag drops it.
+		- Done 20261014 on vm925w, passed. It was: while the sign shows, a file dragged in from Explorer does nothing, and after Escape the same drag drops it.
 	- Priority|Severity: Avg
 	- Opened: 20261008-161710
 	- Opened by: t00mietum
@@ -935,6 +935,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261010, rjv9ks2z fails before the change on the fade and on the steady gray with animations off, and passes after, 3 runs of 3. Full Linux suite 188 of 188. Windows cross build clean, and rhtwm2c8 passes under wine.
 	- Verified: 20261010 on vm925w, the branch smbfade. rhtwm2c8 passes in the native suite. With the single exe from the same commit, in the desktop session, `\\10.255.255.1\share` typed in the path bar: the window below the title bar faded between grayed and normal about every 2 seconds, and stayed legible at its grayest. The pointer was the busy arrow. A click on a file, a right-click, a click on the File menu, F10, Ctrl+T and a click on the other tab all did nothing. The title bar moved the window. Escape took the sign away, gave the plain arrow, and the look went back to normal at once and stayed still. Then a click selected a file, a right-click showed the menu, and a tab click switched tabs. The close button closed the window mid-attempt.
 	- Note: 20261010, a drop from a test program onto the window was refused even with no attempt out, so the drop wasn't checked on Windows. Left for a drag from Explorer by hand.
+		- 20261014: that program's drag had only the plain file list, which the window refused from any program but Explorer. Fixed under 2026101007562587.
+	- Verified: 20261014 on vm925w, with the zip built from dev c10a39a, in the desktop session. With `\\10.255.255.1\share` typed in the path bar and the sign showing, a file dragged in from Explorer got the no-drop pointer and stayed where it was. After Escape the same drag moved it into the folder.
+	- Note: 20261014, left at signoff for the fade's look.
 	- Note: read, not tried: the Stop button also never takes Reload's place while a folder loads, since the same check is behind it. Left alone here.
 	- Branch: smbbusy, smbhalt, smbfade
 	- Commit: 41adfa7, 114c595, 358ef85
@@ -1099,8 +1102,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, a file dragged onto the window from another program may not drop.
 	- ID: 2026101007562587
 	- Type: Bug
-	- Status: Queued
-	- Needs external testing: vm925w, in the desktop session. Drag a file from Explorer onto the folder view, the Places side bar and a tab.
+	- Status: Waiting for testing
+	- Needs external testing:
+		- Done 20261014 on vm925w, passed. It was: in the desktop session, drag a file from Explorer onto the folder view, the Places side bar and a tab.
+		- Still to do, in the desktop session on vm925w: rk8vn5kr with the native build, and a file dragged from a program other than Explorer onto the single exe, which was not tried. The test skips where there's no monitor, as over ssh.
 	- Priority|Severity: Avg
 	- Opened: 20261010-075625
 	- Opened by: 2026100816170921
@@ -1109,8 +1114,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Steps to reproduce: drag a file from another program onto the window, with nothing connecting.
 	- Incorrect behavior: a small program written to drag a file in had its drop refused by the window, while the desktop took the same drag.
 	- Expected behavior: the window takes the drop, as on Linux.
-	- Reproduced: No. Not tried with Explorer yet, so the drag program may be at fault.
-	- Test case: TBD
+	- Reproduced: 20261014 on vm925w, in the desktop session. A file dragged from Explorer dropped on the folder view, a bookmark in Places and a tab. A drag from a small program that offered only the plain file list, the one format every Windows program reads, got the no-drop pointer over the folder view and a tab, the same as the earlier program. One that allowed only a copy was refused too.
+	- Actual cause: GTK's drop handling on Windows finds files only in the shell's id list. Explorer puts one in its drags and most other programs don't, so a drag with just the plain file list offers nothing the window takes. GTK also picks move or copy without looking at what the other program allows, and Windows refuses a move the program didn't allow.
+	- Actual effort: Avg
+	- Actual fix: the app puts its own drop target in front of GTK's on every window. A drag that has the plain file list and none of the formats GTK reads gets a uri list made from it. What the other program allows is kept, and a drop picks copy where a move isn't allowed. Explorer's drags and the app's own go through as before.
+	- Swept: every drop on a window goes through that window's one drop target, so the folder views, Places, the tabs, the path bar, the location bar and Properties are all covered. The 2 shared rules that pick move or copy read what's allowed, and the folder views, Places, the tabs and the tree all use them.
+	- Note: not covered, a drag of files that aren't on disk yet, such as a mail attachment. Nothing in the app reads those.
+	- Verified: 20261014 on vm925w, with the zip build. Before the fix, a drag from the small program was refused on the folder view and a tab. After it, the drag moved the file onto the folder view, a bookmark in Places and a tab. With only copy allowed it copied, onto the folder view and onto Places. Explorer drags still dropped, and a drag from one tab to another still moved the file.
+	- Verified: rk8vn5kr fails before the fix on 6 checks, and on 2 with what's allowed ignored, and passes after, 3 runs of 3 under wine. Windows cross build clean with warnings as errors. rhtmbdm8 and the other Linux drop tests pass.
+	- Branch: xdrag
+	- Commit: 6db861b
+	- Test case: rk8vn5kr, Drop from another program win32 test. A drag with only the plain file list is handed to the window's drop target the way Windows would: it moves within one folder, copies when only copy is allowed, and plain text is still refused. It skips where there's no monitor.
 
 - In the single exe on Windows, a program packed inside it that needs libgsf can't start.
 	- ID: 2026100617051745
