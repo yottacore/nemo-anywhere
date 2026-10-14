@@ -1127,7 +1127,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Additional ways to get right-click menu.
 	- ID: 2026101405542965
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting on signoff
+	- Needs local test suite run?: yes, the full Linux suite. Only the long press test and the drag select, menu, Places, tree, list, icon and drop tests near it were run.
+	- Needs external testing: Windows, on vm925w once it's on. A long press opens the menu on an item and on empty space in the list and icon views, in Places and in the tree, and the menu stays up once the button comes up. The Windows cross build is clean.
 	- Priority|Severity: Avg
 	- Opened: 20261014-055428
 	- Opened by: t00mietum
@@ -1137,7 +1139,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Before the next cut.
 		- Left-click and hold for a while. (How long?)
 			- When it pops up, selection doesn't change on mouse release, including multiple selections.
-	- Test case: none yet.
+	- Progress log:
+		- 20261014: done. A plain left press held still opens the same menu a right click does, on an item or on empty space in all 3 views, and in Places and the tree. The release after it goes to the menu, so the selection stays as it was, a multiple selection too, and no rename starts and nothing opens. The menu stays up after that release, and a release over a menu item picks it, as after a right press held down.
+		- Options: GTK's long-press time, a fixed 700 ms, a fixed 1 s. Went with GTK's long-press time.
+		- Options: Ctrl or Shift held with a long press opens the menu too, or only a plain press does; went with a plain press. Ctrl and Shift already band, or pick copy or move.
+		- It hangs off the press record the right button uses since 2026101405542891, so the views and side panes share one timer.
+	- Decisions:
+		- The wait is GTK's long-press time, the `gtk-long-press-time` setting, 500 ms unless the desktop or theme sets it.
+		- A press that moved past the drag threshold is a drag or a band, and never opens the menu, even if it comes back.
+	- Swept: the list, icon and compact views, on an item and on empty space, Places and the tree, which are every place the right-click menu opens on the release. Not changed: menus on the tab bar, path bar, toolbar and location bar, which open on the press.
+	- Verified: rk80w1ds passes in the list, icon and compact views, 3 runs in a row and once with the cores loaded, and fails before the change. The drag select test rk7yvgse passes, and so do the keyboard menu, tree menu key, Places focus, Places heading, list expander, row hover, treeview hit, icon accessible, menus freed and drop tests. The Windows cross build is clean. Lint is clean as far as rj3ytv0b, and the test ID check passes.
+	- Branch: longpress
+	- Commit: 0925ff7
+	- Test case: rk80w1ds, Long press menu test. In each view: a long press on a selected item waits for GTK's long-press time and opens the menu with all 3 selected kept, the menu stays up after the release, a long press as the second slow click starts no rename, a quick click only selects, a long press on empty space opens a menu, and a band, a press that went out and came back, or a file drag held still opens none. Also Places, where the release opens nothing, and the tree. Fails before the change and passes after.
 
 - rjv9ks2z, the connecting sign test, fails now and then in a full Linux suite run on a busy box.
 	- ID: 2026101305422316
