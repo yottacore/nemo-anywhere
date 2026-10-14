@@ -436,6 +436,9 @@ check_shortcuts (void)
 	send_key (shortcuts, GDK_KEY_Page_Up);
 	check (g_strcmp0 (gtk_stack_get_visible_child_name (stack), first) == 0);
 
+	/* GTK 3.24 loses its popover's window from the list if the window is
+	   destroyed while realized, which the leak check sees. */
+	gtk_widget_unrealize (shortcuts);
 	gtk_widget_destroy (shortcuts);
 	g_object_unref (builder);
 	pump ();

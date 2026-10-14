@@ -279,6 +279,7 @@ typedef struct {
 	GSubprocess *process;
 	GOutputStream *in;
 	GAsyncQueue *lines;
+	GThread *reader;
 } Peer;
 
 static char *settings_path;
@@ -397,7 +398,7 @@ start (Peer *peer, const char *self, const char *address)
 	}
 	peer->in = g_subprocess_get_stdin_pipe (peer->process);
 	peer->lines = g_async_queue_new_full (g_free);
-	g_thread_unref (g_thread_new (peer->name, read_lines, peer));
+	peer->reader = g_thread_new (peer->name, read_lines, peer);
 
 	ready = wait_for (peer, "ready ");
 	if (ready == NULL) {
@@ -408,6 +409,16 @@ start (Peer *peer, const char *self, const char *address)
 	}
 	g_free (ready);
 	return TRUE;
+}
+
+/* Once it has exited, so the reader is at its end. */
+static void
+forget (Peer *peer)
+{
+	g_thread_join (peer->reader);
+	peer->reader = NULL;
+	g_clear_pointer (&peer->lines, g_async_queue_unref);
+	g_clear_object (&peer->process);
 }
 
 static gboolean
@@ -422,7 +433,7 @@ stop (Peer *peer)
 	/* Its reader holds stdin locked, and exit waits on that lock. */
 	g_output_stream_close (peer->in, NULL, NULL);
 	clean = g_subprocess_wait_check (peer->process, NULL, NULL);
-	g_clear_object (&peer->process);
+	forget (peer);
 	return bye != NULL && clean;
 }
 
@@ -670,7 +681,7 @@ test_held_through_hand_edit (Peer *a, Peer *b)
 static void
 test_sender_killed (Peer *b, const char *self, const char *address)
 {
-	Peer c = { "copy c", NULL, NULL, NULL };
+	Peer c = { "copy c", NULL, NULL, NULL, NULL };
 
 	if (!start (&c, self, address)) {
 		check (FALSE);
@@ -679,7 +690,7 @@ test_sender_killed (Peer *b, const char *self, const char *address)
 	check_reaches (&c, b, "set " BOOL_KEY " true", BOOL_KEY, "true", NULL);
 	g_subprocess_force_exit (c.process);
 	g_subprocess_wait (c.process, NULL, NULL);
-	g_clear_object (&c.process);
+	forget (&c);
 
 	g_usleep ((SAVE_DELAY_MS + 1500) * 1000 * test_slowness ());
 	check (!file_has ("preferences." BOOL_KEY, "true"));
@@ -819,8 +830,8 @@ session_address (int argc, char **argv)
 int
 main (int argc, char **argv)
 {
-	Peer a = { "copy a", NULL, NULL, NULL };
-	Peer b = { "copy b", NULL, NULL, NULL };
+	Peer a = { "copy a", NULL, NULL, NULL, NULL };
+	Peer b = { "copy b", NULL, NULL, NULL, NULL };
 	char *address, *self, *dir;
 
 	if (argc == 3 && strcmp (argv[1], "--copy") == 0) {

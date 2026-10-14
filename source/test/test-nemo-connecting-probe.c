@@ -614,6 +614,8 @@ tick (G_GNUC_UNUSED gpointer data)
 		g_signal_add_emission_hook (g_signal_lookup ("button-press-event", GTK_TYPE_WIDGET),
 					    0, press_hook, NULL, NULL);
 		tabs_before = tab_count ();
+		/* The sanitizer lane has them off in its settings.ini. */
+		g_object_set (gtk_settings_get_default (), "gtk-enable-animations", TRUE, NULL);
 		go_to ("smb://fakehost/share");
 		break;
 	}
