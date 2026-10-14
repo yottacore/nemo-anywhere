@@ -87,12 +87,25 @@ void                  eel_gtk_tooltips_need_focus                     (void);
 GdkModifierType       eel_gtk_primary_mask                            (GdkWindow *window);
 
 /* A right press opens its menu when the button comes up, so the same press can
-   drag a band instead. One that moved past the drag threshold is no click. */
+   drag a band instead. One that moved past the drag threshold is no click.
+   A plain left press held still for GTK's long-press time opens it too. */
+typedef void (*EelMenuPressFunc) (GtkWidget *widget, GdkEventButton *event, gpointer data);
+
 typedef struct {
 	guint    button;
 	gdouble  x;
 	gdouble  y;
 	gboolean moved;
+
+	guint             hold_id;
+	GtkWidget        *hold_widget;
+	GdkEvent         *hold_event;
+	gint64            hold_start;
+	gulong            hold_motion_id;
+	gulong            hold_destroy_id;
+	EelMenuPressFunc  hold_func;
+	gpointer          hold_data;
+	guint             held;		/* fired with no menu to take its release */
 } EelMenuPress;
 
 void                  eel_menu_press_begin                            (EelMenuPress *press,
@@ -105,4 +118,13 @@ gboolean              eel_menu_press_end                              (EelMenuPr
                                                                        GtkWidget *widget,
                                                                        guint button,
                                                                        gdouble x, gdouble y);
+void                  eel_menu_press_hold                             (EelMenuPress *press,
+                                                                       GtkWidget *widget,
+                                                                       GdkEventButton *event,
+                                                                       gdouble x, gdouble y,
+                                                                       EelMenuPressFunc func,
+                                                                       gpointer data);
+gboolean              eel_menu_press_held                             (EelMenuPress *press,
+                                                                       guint button);
+void                  eel_menu_press_cancel                           (EelMenuPress *press);
 #endif /* EEL_GTK_EXTENSIONS_H */
