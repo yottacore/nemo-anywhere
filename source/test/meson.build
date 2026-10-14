@@ -1375,6 +1375,21 @@ if not is_windows
     timeout: 180
   )
 
+  # Preloaded too; it searches, picks a view and leaves from inside the program.
+  find_view_probe = shared_module('test-nemo-find-view-probe',
+    [ 'test-nemo-find-view-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('rk7wxqh5 Find mode view test',
+    executable('test-nemo-find-view',
+      [ 'test-nemo-find-view.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, find_view_probe ],
+    timeout: 180
+  )
+
   # Preloaded too; it holds an smb:// mount and looks at the window meanwhile.
   connecting_probe = shared_module('test-nemo-connecting-probe',
     [ 'test-nemo-connecting-probe.c' ],

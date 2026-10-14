@@ -855,6 +855,20 @@ mount_not_mounted_callback (GObject *source_object,
 	g_object_unref (cancellable);
 }
 
+/* Find results aren't a folder, so they keep their own view rather than the
+ * window's: the list view, wiht find mode's own columns, or whatever view was
+ * picked while they're up, kept through a new query. */
+static char *
+find_mode_view_id (NemoWindowSlot *slot, GFile *location)
+{
+	if (slot->content_view != NULL && slot->location != NULL &&
+	    g_file_equal (slot->location, location)) {
+		return g_strdup (nemo_view_get_view_id (slot->content_view));
+	}
+
+	return g_strdup (NEMO_LIST_VIEW_IID);
+}
+
 static void
 got_file_info_for_view_selection_callback (NemoFile *file,
 					   gpointer callback_data)
@@ -951,6 +965,8 @@ got_file_info_for_view_selection_callback (NemoFile *file,
 		if (handed_view_id != NULL) {
 			view_id = g_steal_pointer (&handed_view_id);
 			handed_view = TRUE;
+		} else if (g_file_has_uri_scheme (location, "x-nemo-search")) {
+			view_id = find_mode_view_id (slot, location);
 		} else if (!nemo_global_preferences_get_remember_folder_settings ()) {
 			view_id = g_strdup (nemo_window_get_ignore_meta_view_id (window));
 
@@ -1925,6 +1941,12 @@ switch_content_view (NemoWindowSlot *slot,
 
 	file = nemo_file_get (slot->location);
 
+    /* A view picked in find mode lasts as long as the search, and is never the
+     * folder's. */
+    if (g_file_has_uri_scheme (slot->location, "x-nemo-search")) {
+        save = hold = FALSE;
+    }
+
     if (!nemo_global_preferences_get_remember_folder_settings ()) {
         if (hold) {
             nemo_window_set_ignore_meta_view_id (nemo_window_slot_get_window (slot), id);
@@ -1972,6 +1994,19 @@ nemo_window_slot_follow_default_view (NemoWindowSlot *slot,
 {
 	NemoFile *file;
 	char *saved_id;
+
+	if (slot->location == NULL) {
+		return;
+	}
+
+	/* Find results keep their own view. The folders behind them still take
+	   the new default. */
+	if (g_file_has_uri_scheme (slot->location, "x-nemo-search")) {
+		if (!nemo_global_preferences_get_remember_folder_settings ()) {
+			nemo_window_set_ignore_meta_view_id (nemo_window_slot_get_window (slot), default_id);
+		}
+		return;
+	}
 
 	file = nemo_file_get (slot->location);
 	saved_id = nemo_global_preferences_get_remember_folder_settings () ?
