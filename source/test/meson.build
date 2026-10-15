@@ -1256,6 +1256,21 @@ if not is_windows
     timeout: 180
   )
 
+  # Preloaded; it opens the expanders from inside the program.
+  list_expand_time_probe = shared_module('test-nemo-list-expand-time-probe',
+    [ 'test-nemo-list-expand-time-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('rk96k9va List view expander time test',
+    executable('test-nemo-list-expand-time',
+      [ 'test-nemo-list-expand-time.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, list_expand_time_probe ],
+    timeout: 120
+  )
+
   # Preloaded too; it clicks from inside the program.
   places_focus_probe = shared_module('test-nemo-places-focus-probe',
     [ 'test-nemo-places-focus-probe.c' ],

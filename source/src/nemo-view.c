@@ -306,6 +306,8 @@ struct NemoViewDetails
 	guint open_with_merge_id;
 
 	GList *subdirectory_list;
+	/* Opened by an expander, and none of their files shown yet. */
+	GList *unshown_subdirectories;
 
     guint copy_move_merge_ids[4];
     GtkActionGroup *copy_move_action_groups[4];
@@ -3830,11 +3832,18 @@ still_should_show_file (NemoView *view, NemoFile *file, NemoDirectory *directory
 		view_file_still_belongs (view, file, directory);
 }
 
+/* The first files of a folder wait for their thumbnails, so a screenful of
+   pictures doesn't draw plain icons and then swap them. A folder opened by its
+   expander shows its rows at once, and the thumbnails fill in. */
 static gboolean
-ready_to_load (NemoFile *file)
+ready_to_load (NemoView *view, FileAndDirectory *pending)
 {
-	return nemo_file_check_if_ready (file,
-					     NEMO_FILE_ATTRIBUTES_FOR_ICON);
+	NemoFileAttributes wanted = NEMO_FILE_ATTRIBUTES_FOR_ICON;
+
+	if (pending->directory != view->details->model) {
+		wanted &= ~NEMO_FILE_ATTRIBUTE_THUMBNAIL;
+	}
+	return nemo_file_check_if_ready (pending->file, wanted);
 }
 
 static int
@@ -3893,7 +3902,7 @@ process_new_files (NemoView *view)
 		pending = (FileAndDirectory *)node->data;
 		in_non_ready = g_hash_table_lookup (non_ready_files, pending) != NULL;
 		if (nemo_view_should_show_file (view, pending->file)) {
-			if (ready_to_load (pending->file)) {
+			if (ready_to_load (view, pending)) {
 				if (in_non_ready) {
 					g_hash_table_remove (non_ready_files, pending);
 				}
@@ -3917,7 +3926,7 @@ process_new_files (NemoView *view)
 	for (node = new_changed_files; node != NULL; node = next) {
 		next = node->next;
 		pending = (FileAndDirectory *)node->data;
-		if (!still_should_show_file (view, pending->file, pending->directory) || ready_to_load (pending->file)) {
+		if (!still_should_show_file (view, pending->file, pending->directory) || ready_to_load (view, pending)) {
 			if (g_hash_table_lookup (non_ready_files, pending) != NULL) {
 				g_hash_table_remove (non_ready_files, pending);
 				if (still_should_show_file (view, pending->file, pending->directory)) {
@@ -4285,6 +4294,14 @@ files_added_callback (NemoDirectory *directory,
 
 	queue_pending_files (view, directory, files, &view->details->new_added_files);
 
+	/* A folder opened by its expander shows its first rows at once. After
+	   that a big one comes in batches, like the view's own folder. */
+	if (files != NULL && g_list_find (view->details->unshown_subdirectories, directory) != NULL) {
+		view->details->unshown_subdirectories =
+			g_list_remove (view->details->unshown_subdirectories, directory);
+		schedule_idle_display_of_pending_files (view);
+	}
+
 	/* The number of items could have changed */
 	schedule_update_status (view);
 }
@@ -4383,6 +4400,19 @@ real_load_error (NemoView *view, GError *error)
 	view->details->reported_load_error = TRUE;
 }
 
+/* The last rows of a folder opened by its expander go in once it's all read,
+   not a batch interval later. */
+static void
+subdirectory_done_loading_callback (G_GNUC_UNUSED NemoDirectory *directory,
+				    gpointer callback_data)
+{
+	NemoView *view = NEMO_VIEW (callback_data);
+
+	if (view->details->new_added_files != NULL) {
+		schedule_idle_display_of_pending_files (view);
+	}
+}
+
 void
 nemo_view_add_subdirectory (NemoView  *view,
 				NemoDirectory*directory)
@@ -4392,6 +4422,10 @@ nemo_view_add_subdirectory (NemoView  *view,
 	g_assert (!g_list_find (view->details->subdirectory_list, directory));
 
 	nemo_directory_ref (directory);
+
+	/* Before the monitor, which hands over what is already listed at once. */
+	view->details->unshown_subdirectories =
+		g_list_prepend (view->details->unshown_subdirectories, directory);
 
 	attributes =
 		NEMO_FILE_ATTRIBUTES_FOR_ICON |
@@ -4413,6 +4447,9 @@ nemo_view_add_subdirectory (NemoView  *view,
 	g_signal_connect
 		(directory, "files_changed",
 		 G_CALLBACK (files_changed_callback), view);
+	g_signal_connect
+		(directory, "done_loading",
+		 G_CALLBACK (subdirectory_done_loading_callback), view);
 
 	view->details->subdirectory_list = g_list_prepend (
 							   view->details->subdirectory_list, directory);
@@ -4426,12 +4463,17 @@ nemo_view_remove_subdirectory (NemoView  *view,
 
 	view->details->subdirectory_list = g_list_remove (
 							  view->details->subdirectory_list, directory);
+	view->details->unshown_subdirectories =
+		g_list_remove (view->details->unshown_subdirectories, directory);
 
 	g_signal_handlers_disconnect_by_func (directory,
 					      G_CALLBACK (files_added_callback),
 					      view);
 	g_signal_handlers_disconnect_by_func (directory,
 					      G_CALLBACK (files_changed_callback),
+					      view);
+	g_signal_handlers_disconnect_by_func (directory,
+					      G_CALLBACK (subdirectory_done_loading_callback),
 					      view);
 
 	nemo_directory_file_monitor_remove (directory, &view->details->model);
