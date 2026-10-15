@@ -237,14 +237,25 @@ gboolean nemo_path_input_is_allowed (const gchar *text);
 /* The first character of a typed name that a file name can't have here, or
    NULL: "/" on POSIX, the set above and control characters on Windows. GLib
    on Windows turns most of these into a plain I/O error, so a name is checked
-   before it goes to disk. The message says which character, and is NULL for
-   a good name; free it with g_free. */
+   before it goes to disk. On Windows the message and the check also refuse a
+   device name such as "CON" or "nul.txt", and a name ending in a dot or a
+   space. The message says why, and is NULL for a good name; free it with
+   g_free. */
 const gchar *nemo_file_name_find_bad_char (const gchar *name);
 gchar       *nemo_file_name_bad_char_message (const gchar *name);
 gboolean     nemo_file_name_check_chars (const gchar *name, GError **error);
+/* How long the Windows device name at the start of name is, 0 for none. The
+   same on every platform. */
+gsize        nemo_file_name_windows_device (const gchar *name);
 /* For a name made from text no one typed as a name, such as a page title:
-   each of those characters becomes "_", in place. */
-void         nemo_file_name_make_valid (gchar *name);
+   each of those characters becomes "_", and on Windows so does each trailing
+   dot or space, and a device name gets "_" in front.
+   Returns: (transfer full): free with g_free */
+gchar       *nemo_file_name_make_valid (const gchar *name);
+/* A copy's name after the drive it goes to refused it, by the filesystem type
+   GIO gave for the drive. On FAT, exFAT, NTFS and a fuse mount, each character
+   Windows refuses becomes "_" and trailing spaces go. TRUE if it changed. */
+gboolean     nemo_file_name_make_valid_for_fs (char *filename, const char *dest_fs_type);
 
 /* A line to put under a name entry, saying why the name won't do. Hidden while
    it will. update answers whether the name is good. */

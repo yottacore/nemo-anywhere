@@ -267,6 +267,38 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjv9ks2z, Connecting sign while a share mounts test. An `smb://` mount answers only when the test says so. It checks the sign and the host it names, the pointer, that nothing is grayed, that a shortcut, a click and a drop do nothing while it waits and work again after, Escape, closing the window mid-attempt, and the sign going away after a stop and after a failed mount. It also checks the host named for a set of addresses, and that a local folder shows no sign. rhtwm2c8 checks the server named for a UNC path on Windows.
 		- 20261010: "nothing is grayed" there means nothing is made insensitive. It also checks that the window fades while it waits, that the fade stops and the window looks as before after Escape and after a failed mount, that nothing of it runs on after a close, and that with animations off the window stays grayed and still.
 
+- On Windows, reserved names like `CON` and `nul.txt`, and names ending in a dot or space, are taken with no error.
+	- ID: 2026101416533917
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 208 of 208.
+	- Needs external testing: by hand on the Windows desktop. Type `CON`, `nul.txt` and `a.` as a rename, and in the paste conflict's name box, and read the message and the line under the box. Not tried.
+	- Priority|Severity: Avg
+	- Opened: 20261014-165341
+	- Opened by: 2026101319265113
+	- Related IDs: 2026101319265113, 2026101419104655
+	- Target OS: Windows
+	- Steps to reproduce: rename a file to `CON`, `nul.txt`, `a.` or `a ` on Windows.
+	- Incorrect behavior: GLib takes all 4 with no error, on b29w.
+	- Expected behavior: the rename is refused with a message that says why, the same as for `*` and the other bad characters.
+	- Reproduced: 20261014, the GLib calls on b29w. What the app does after, and what happens to the data on a copy or move to such a name, is not tried. Check for data loss first.
+		- 20261014 on b29w, Windows 11 build 26200, through GLib and through the app's copy and move. `CON`, `nul.txt`, `aux.tar.gz`, `COM1.txt`, `LPT1`, `con .txt` and `COM¹` each make a plain file of that name. `NUL` and `nul.` are the device: a copy, a new file or a new folder says it worked and nothing is written, a rename fails with "Bad address" and a move with "File exists". `a.`, `a..` and `a ` all become `a`. With `a` already there, the conflict dialog asks about `a.` and shows `a`.
+		- Data loss: none of the user's own files. A paste with the new name `NUL` reports success and the copy is gone, while the source stays. A file called `NUL` or `CON` on a share can't be read, so a copy or move of it stops with an error and keeps it. `nul.txt` copies and moves as a plain file. So the severity stays Avg.
+	- Actual cause: nothing checked these names. Windows 11 makes most device names plain files, but `NUL` still swallows what is written, and older Windows and many programs treat all of them as devices.
+	- Decisions:
+		- On Windows a typed name is refused in the same place, and the same kind of sentence, as a bad character. That covers a device name alone or before an extension, any case, with spaces before the dot: `CON`, `PRN`, `AUX`, `NUL`, `COM0` to `COM9`, `LPT0` to `LPT9`, and `COM` and `LPT` with superscript 1 to 3. And a name ending in a dot or a space. `.` and `..` keep the messages they had.
+		- The messages: "The name "nul.txt" isn't valid because "nul" is a device name on Windows. Please use a different name." and "... because it ends in a dot." or "... ends in a space."
+		- A name nobody typed is fixed the way 7-Zip does it: each trailing dot or space becomes `_`, then a device name gets `_` in front. That's extracted entries and a dropped link's page title.
+		- Renaming a file to the name it already has is still no rename, so a file called `CON` from elsewhere doesn't get an error on F2 and Enter.
+		- A copied or moved file keeps its own name. See Swept.
+	- Actual fix: the check from 2026101319265113 also refuses device names and a trailing dot or space on Windows, so every place it runs gives the reason. The unchanged rename returns before the check now. The archive core and the dropped link title fix such names as above.
+	- Swept: the same places as 2026101319265113, which all go through the one check: rename from the icon view, the list view, Properties and undo, a new folder's typed path part by part, Edit link, Compress's name, and the line under the name box in the paste and extract conflicts and a template's rename. Extract: entry names. Drop: a link's page title. Copy, move, duplicate and make link take the source's name and were left alone: on Windows 11 a source called `NUL` or `CON` can't be read, and the rest are plain files. Not tried: Windows 10, where `nul.txt` and the rest are devices too, and a share served by Samba.
+	- Verified: 20261014, rk8tkp4h, reww9h2r and reww9h2s fail with the new rules taken out and pass with them, under wine and natively on b29w. rk8tkp4h's unchanged rename of a real `nul.txt` fails with the check before the unchanged case and passes after, on b29w. On Linux they pass with `CON` and `nul.txt` still taken. The full Linux suite passed, 208 of 208, and lint is clean but for rj3ytv0b, which fails in any worktree.
+	- Branch: winnames
+	- Commit: 08191a8
+	- Test case: rk8tkp4h, Bad name characters test: the device list, the messages and the name fix, a rename, an unchanged rename, a new folder path, and Rename graying out in both conflict dialogs. reww9h2r, Extract naming test: entry names fixed, and the archive core fixing a name the way the app does. reww9h2s, Extract job test: an archive with `NUL` and `trail.` unpacks as `_NUL` and `trail_` on Windows.
+	- Acceptance signoff: Left at signoff for the wording, and for `_` on extracted names.
+
 - On Windows, every bundle has only the app's own exe, so no form of the app starts a program from inside its bundle.
 	- ID: 2026100917220603
 	- Type: Enhancement
@@ -1216,6 +1248,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: 20261007, not ruled out: the Menu key made no menu at all once, on a loaded box. GTK 3 doesn't show a menu whose pointer grab fails, and the probe presses the key only once. Nothing points at that, and pressing again would hide it rather than explain it.
 	- Test case: rjefm41d itself.
 
+- In a move to another drive, a new name typed in the conflict dialog is lost, and Replace then overwrites the file with the old name.
+	- ID: 2026101419104655
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261014-191046
+	- Opened by: 2026101416533917
+	- Target OS: All
+	- Steps to reproduce: move `a.txt` to a folder on another drive that already has an `a.txt` and a `b`. In the conflict dialog type `b` and pick Rename. When it asks about `b`, pick Replace.
+	- Incorrect behavior: the moved file replaces the `a.txt` that was there, with no question about it, and `b` stays as it was. With Skip in place of Replace, nothing is lost. With a new name nothing has, the dialog asks about `a.txt` again.
+	- Expected behavior: the file ends up as `b`, replacing it only after the second answer.
+	- Reproduced: 20261014 on Linux, from a folder on disk to one in `/dev/shm`, and on b29w from a share to a local folder. The second dialog asking about `a.txt` again was seen on b29w.
+	- Possible cause: a move to another drive is tried as a rename first, and when that's refused it's redone as a copy and delete. What `move_file_prepare` keeps for the copy (`MoveFileCopyFallback`) is the source and the overwrite answer, not the name picked. The copy works the name out again from the source.
+	- Test case: TBD
+
 - In the single exe on Windows, a program packed inside it that needs libgsf can't start.
 	- ID: 2026100617051745
 	- Type: Bug
@@ -1256,36 +1303,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: thumbwin
 	- Commit: f38660a to f8a6223
 	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session. (c) still needs its own: a thumbnail and the text from a small file of each type, on every platform, and a check that no program is started for them.
-
-- When a copy's name has to change for the drive it goes to, every non-ASCII letter turns into `_` along with the bad characters.
-	- ID: 2026101416533880
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261014-165341
-	- Opened by: 2026101319265113
-	- Target OS: All
-	- Steps to reproduce: copy `café?.txt` to a FAT, exFAT or NTFS drive mounted through fuse on Linux.
-	- Incorrect behavior: from reading the code, the copy comes out as `caf__.txt`, not `café_.txt`.
-	- Expected behavior: only the characters the drive refuses are replaced.
-	- Reproduced: No. From reading `str_replace` in `nemo-file-operations.c`.
-	- Possible cause: `str[i] < 32` on a plain `char`, which is signed on x86, so every byte of a multibyte letter tests as below 32. Inherited from upstream. It only runs after the drive refused the first name.
-	- Test case: TBD
-
-- On Windows, reserved names like `CON` and `nul.txt`, and names ending in a dot or space, are taken with no error.
-	- ID: 2026101416533917
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261014-165341
-	- Opened by: 2026101319265113
-	- Related IDs: 2026101319265113
-	- Target OS: Windows
-	- Steps to reproduce: rename a file to `CON`, `nul.txt`, `a.` or `a ` on Windows.
-	- Incorrect behavior: GLib takes all 4 with no error, on b29w.
-	- Expected behavior: the rename is refused with a message that says why, the same as for `*` and the other bad characters.
-	- Reproduced: 20261014, the GLib calls on b29w. What the app does after, and what happens to the data on a copy or move to such a name, is not tried. Check for data loss first.
-	- Test case: TBD
 
 - Expanding folders can take too long.
 	- ID: 2026101417352261
@@ -1502,6 +1519,30 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. rj043mnp covers it.
 	- Closed: 20261003-112426
+
+- When a copy's name has to change for the drive it goes to, every non-ASCII letter turns into `_` along with the bad characters.
+	- ID: 2026101416533880
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 208 of 208.
+	- Priority|Severity: Avg
+	- Opened: 20261014-165341
+	- Opened by: 2026101319265113
+	- Target OS: All
+	- Steps to reproduce: copy `café?.txt` to a FAT, exFAT or NTFS drive mounted through fuse on Linux.
+	- Incorrect behavior: from reading the code, the copy comes out as `caf__.txt`, not `café_.txt`.
+	- Expected behavior: only the characters the drive refuses are replaced.
+	- Reproduced: 20261014 on Linux, copying and moving onto a FAT image mounted through fuse. `café?.txt` came out `caf___.txt`, since `é` is 2 bytes. Worse, once one file in a copy needed a new name, every later file with a letter outside ASCII was changed too, with no bad character of its own: `café.txt` came out `caf__.txt`, and `отчёт.txt` all `_`.
+	- Possible cause: `str[i] < 32` on a plain `char`, which is signed on x86, so every byte of a multibyte letter tests as below 32. Inherited from upstream. It only runs after the drive refused the first name.
+	- Actual cause: as in Possible cause. After the first refusal the job knows the drive type, so the fixer runs on every name after it.
+	- Actual fix: the test reads the byte unsigned. The fixer moved to `nemo-file-utilities.c` as `nemo_file_name_make_valid_for_fs`, so a test can reach it.
+	- Swept: every `char` compared below 32 or 0x20 under `source/`; this was the only one with no cast. The bad name checks from 2026101319265113 and the archive core already read bytes unsigned. All 11 callers of the fixer share the one function: copy, move, duplicate, make link, paste with a new name, and new file or folder.
+	- Verified: 20261014, the new check in rk8tkp4h fails before the fix on 3 of its 6 names and passes after, on Linux, under wine and natively on b29w. A copy and a move of `a?b.txt`, `café?.txt`, `naïve ünïcode.txt` and `отчёт.txt` onto the FAT image come out `a_b.txt`, `café_.txt` and the last 2 unchanged.
+	- Branch: winnames
+	- Commit: 08191a8
+	- Test case: rk8tkp4h, Bad name characters test, check_fs_fix: names with letters outside ASCII through the fixer for FAT, fuse, exFAT and msdos, and left alone for ext4 or no type.
+	- Acceptance signoff: Self-closed: reproduced, and its test fails before the fix and passes after.
+	- Closed: 20261014-191046
 
 - Tooltip text lies on top of foreground windows.
 	- ID: 2026101009150765

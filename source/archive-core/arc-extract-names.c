@@ -178,6 +178,36 @@ arc_extract_unique_name (const char *name,
 	return g_strdup_printf ("%.*s (%u)%s", (int) (dot - name), name, attempt, dot);
 }
 
+#ifdef G_OS_WIN32
+/* "CON", "nul.txt", "com1 .log" and the rest of Windows' device names. The
+   app keeps its own list, and reww9h2r holds the two together. */
+static gboolean
+is_device_name (const char *name)
+{
+	static const char * const devices[] = { "CON", "PRN", "AUX", "NUL" };
+	gsize len = strcspn (name, ".");
+
+	while (len > 0 && name[len - 1] == ' ') {
+		len--;
+	}
+	if (len == 3) {
+		for (guint i = 0; i < G_N_ELEMENTS (devices); i++) {
+			if (g_ascii_strncasecmp (name, devices[i], 3) == 0) {
+				return TRUE;
+			}
+		}
+		return FALSE;
+	}
+	if (len < 4 || (g_ascii_strncasecmp (name, "COM", 3) != 0 && g_ascii_strncasecmp (name, "LPT", 3) != 0)) {
+		return FALSE;
+	}
+	/* A digit, or superscript 1 to 3. */
+	return (len == 4 && g_ascii_isdigit (name[3])) ||
+	       (len == 5 && (guchar) name[3] == 0xc2 &&
+		((guchar) name[4] == 0xb9 || (guchar) name[4] == 0xb2 || (guchar) name[4] == 0xb3));
+}
+#endif
+
 /* Returns: (transfer full): free with g_free */
 char *
 arc_extract_sanitize_path (const char *entry_path)
@@ -220,11 +250,22 @@ arc_extract_sanitize_path (const char *entry_path)
 #ifdef G_OS_WIN32
 		/* What Windows won't take in a name becomes "_", as 7-Zip does, so
 		   both backends agree. Left as it is, ":" writes into a hidden stream
-		   of a file named by what comes before it. */
+		   of a file named by what comes before it, a trailing dot or space is
+		   dropped, and "NUL" writes nowhere. */
 		for (char *c = parts[i]; *c != '\0'; c++) {
 			if ((guchar) *c < 0x20 || strchr (":*?\"<>|", *c) != NULL) {
 				*c = '_';
 			}
+		}
+		for (char *c = parts[i] + len; c > parts[i] && (c[-1] == '.' || c[-1] == ' '); c--) {
+			c[-1] = '_';
+		}
+		if (is_device_name (parts[i])) {
+			char *prefixed = g_strconcat ("_", parts[i], NULL);
+
+			g_free (parts[i]);
+			parts[i] = prefixed;
+			part = prefixed;
 		}
 #endif
 

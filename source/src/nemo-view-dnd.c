@@ -129,8 +129,11 @@ handle_netscape_url_drop_link_cb (GObject *source_object,
 	/* The filename can't contain slashes, strip em.
 	   (the basename of http://foo/ is http://foo/) */
 #ifdef G_OS_WIN32
-	/* A backslash is a separator here too, and a title can have ":" or "?". */
-	nemo_file_name_make_valid (link_name);
+	/* A backslash is a separator here too, and a title can have ":" or "?",
+	   or be "NUL". */
+	link_name = nemo_file_name_make_valid (data->link_name);
+	g_free (data->link_name);
+	data->link_name = link_name;
 #else
 	revert_slashes (link_name);
 #endif

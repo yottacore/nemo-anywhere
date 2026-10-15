@@ -190,8 +190,37 @@ check_sanitize (void)
 #endif
 	g_free (text);
 
-	/* The archive core keeps its own list, so it has to agree with the app's
-	   on every character but the 2 separators. */
+	/* A device name gets "_" in front and a trailing dot or space becomes "_",
+	   as 7-Zip does. */
+	text = nemo_extract_sanitize_path ("CON/nul.txt/a./b ./c");
+#ifdef G_OS_WIN32
+	check (g_strcmp0 (text, "_CON/_nul.txt/a_/b__/c") == 0);
+#else
+	check (g_strcmp0 (text, "CON/nul.txt/a./b ./c") == 0);
+#endif
+	g_free (text);
+
+	/* The archive core keeps its own lists, so it has to fix a name the way
+	   the app does. */
+	{
+		static const char * const names[] = { "CON", "nul.txt", "Aux .log", "com9", "LPT\xc2\xb3.txt", "NUL.",
+						      "COM10", "console", "a.", "a ", "x?. ", "a.b", ".con", NULL };
+
+		for (int i = 0; names[i] != NULL; i++) {
+			g_autofree char *app = nemo_file_name_make_valid (names[i]);
+
+			text = nemo_extract_sanitize_path (names[i]);
+			if (g_strcmp0 (text, app) != 0) {
+				g_printerr ("FAIL: \"%s\": the app makes \"%s\", the archive core \"%s\"\n",
+					    names[i], app, text);
+				failures++;
+			}
+			g_free (text);
+		}
+	}
+
+	/* And it has to agree with the app's on every character but the 2
+	   separators. */
 	for (int c = 1; c < 128; c++) {
 		char name[] = { 'a', (char) c, 'b', '\0' };
 		gboolean app_refuses = nemo_file_name_find_bad_char (name) != NULL;

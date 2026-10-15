@@ -106,6 +106,9 @@ write_test_zip (const char *path)
 	/* Fine on POSIX. Windows takes neither name. */
 	add_file_entry (a, "photos/odd*name?.txt", "odd");
 	add_file_entry (a, "photos/tag:part.txt", "tag");
+	/* A device name, and a name Windows would cut to "trail". */
+	add_file_entry (a, "photos/NUL", "device");
+	add_file_entry (a, "photos/trail.", "trail");
 
 	check (archive_write_close (a) == ARCHIVE_OK);
 	archive_write_free (a);
@@ -210,16 +213,28 @@ check_here_layout (const char *tmp,
 		char *tag = g_build_filename (dest, "photos", "tag_part.txt", NULL);
 		char *stream_host = g_build_filename (dest, "photos", "tag", NULL);
 
+		char *device = g_build_filename (dest, "photos", "_NUL", NULL);
+		char *trail = g_build_filename (dest, "photos", "trail_", NULL);
+		char *cut = g_build_filename (dest, "photos", "trail", NULL);
+
 		check (!g_file_test (stream_host, G_FILE_TEST_EXISTS));
+		check (!g_file_test (cut, G_FILE_TEST_EXISTS));
 		g_free (stream_host);
+		g_free (cut);
 #else
 		char *odd = g_build_filename (dest, "photos", "odd*name?.txt", NULL);
 		char *tag = g_build_filename (dest, "photos", "tag:part.txt", NULL);
+		char *device = g_build_filename (dest, "photos", "NUL", NULL);
+		char *trail = g_build_filename (dest, "photos", "trail.", NULL);
 #endif
 		check_contents (odd, "odd");
 		check_contents (tag, "tag");
+		check_contents (device, "device");
+		check_contents (trail, "trail");
 		g_free (odd);
 		g_free (tag);
+		g_free (device);
+		g_free (trail);
 	}
 
 	g_free (one);
