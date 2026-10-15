@@ -36,7 +36,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - SMB and SFTP networking is broken.
 	- ID: 2026101417352260
 	- Type: Bug
-	- Status: Waiting on signoff
+	- Status: Reopened
+		- smb is fixed, and sftp is fixed.
+		- `ssh://hostname` also works.
+		- `sftp://hostname/folder` works.
+		- But `ssh://hostname/folder` gives an error. Is there a reason ssh shouldn't be a full-citizen alias for sftp?
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 208 of 209. rjvdch2z failed once under load and passed 3 of 3 alone.
 	- Priority|Severity: Critical
 	- Opened: 20261014-173522
@@ -117,7 +121,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - F2 renaming in photo icon view doesn't work.
 	- ID: 2026101009150764
 	- Type: Bug
-	- Status: Waiting on signoff
+	- Status: Reopened
+		- Still doesn't work.
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 191 of 191.
 	- Priority|Severity: Avg
 	- Opened: 20261010-091507
@@ -205,7 +210,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - After an `smb://` address is typed, nothing shows that the app is working on it.
 	- ID: 2026100816170921
 	- Type: Bug
-	- Status: Waiting on signoff
+	- Status: Done
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
 	- Needs external testing:
 		- Done 20261010 on vm925w, passed except the drop. It was: in the desktop session, with the single exe, type `\\10.255.255.1\share` in the path bar. While the sign shows, a click, a right-click, a click on a menu, Ctrl+T, F10, a tab click and a file dragged in from Explorer should all do nothing, and nothing should look grayed. The title bar should still move the window, and its close button should close it. Escape should stop the attempt, and then a click and a drop should work again. Also rhtwm2c8 in the native suite. The sign itself was checked there on 20261009.
@@ -302,7 +307,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Expanding folders can take too long.
 	- ID: 2026101417352261
 	- Type: Bug
-	- Status: Waiting on signoff
+	- Status: Done
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 209 of 209.
 	- Needs external testing: none for the fix. An expand on Windows and on a share wasn't timed.
 	- Priority|Severity: Avg
@@ -393,7 +398,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Settings: Views|Current needs to look more clearly disabled when it's disabled.
 	- ID: 2026101009150768
 	- Type: Enhancement
-	- Status: Waiting on signoff
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261010-091507
 	- Opened by: t00mietum
@@ -412,7 +417,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Allow creating folders with path separators in the name, to make a nested structure in one go.
 	- ID: 2026101009150766
 	- Type: Enhancement
-	- Status: Waiting on signoff
+	- Status: Done
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 193 of 194. The one failure, rjv9ks2z, is the connecting sign's look with animations off, and it passed on its own. On tabkeys, 200 of 200.
 	- Needs external testing: by hand on Windows, New folder in a window, then a path with backslashes typed into the box. Then the same with "Accept a forward slash as a separator in typed locations" off and a path with `/`, which is refused with the usual rename error. Not tried. rk56fsaw passed natively on b29w, with the setting on and off.
 	- Priority|Severity: Avg
@@ -445,7 +450,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Settings: the dialog is too long.
 	- ID: 2026101009150767
 	- Type: Enhancement
-	- Status: Waiting on signoff
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261010-091507
 	- Opened by: t00mietum
@@ -466,7 +471,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Settings: show nested tabs in the tab list on the left.
 	- ID: 2026101009150769
 	- Type: Enhancement
-	- Status: Waiting on signoff
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261010-091507
 	- Opened by: t00mietum
@@ -495,7 +500,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Flyover tip text for "Command to open a terminal" (label and control): "If empty, uses your default terminal."
 	- ID: 2026101405543039
 	- Type: Enhancement
-	- Status: Waiting on signoff
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261014-055430
 	- Opened by: t00mietum
@@ -512,7 +517,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - When clicking anywhere on a row in detailed list view, even when the program doesn't have focus, it should be immediately selected.
 	- ID: 2026101405542891
 	- Type: Enhancement
-	- Status: Waiting on signoff
+	- Status: Done
 	- Needs local test suite run?: done 20261014 on dev at 54239d1, passed 206 of 206.
 	- Needs external testing: Windows, on vm925w once it's on. A right drag from an item still moves files with the drop menu, a right drag from empty space bands, and the menus in both views, Places and the tree open when the button comes up. The Windows cross build is clean.
 	- Priority|Severity: Avg
@@ -680,7 +685,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Compression reset: link choices and filesystem options in the Compress dialog.
 	- ID: 2026100516274386
 	- Type: Enhancement
-	- Status: Waiting on signoff
+	- Status: Done
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
 	- Needs external testing: the dialog on a real Windows desktop with 7-Zip installed. The Windows rows were seen under wine only, with a stand-in for 7-Zip.
 	- Opened: 20261005-162747
@@ -748,7 +753,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Compression reset: live size totals in the Compress dialog.
 	- ID: 2026100516274498
 	- Type: Enhancement
-	- Status: Waiting on signoff
+	- Status: Done
 	- Needs local test suite run?: no.
 	- Needs external testing: the dialog on a real Windows desktop, with a junction, a symlink and a volume mounted in a folder in the selection, and a link onto a share. Under wine no links get made, so only the mounts, the share and the Junctions row were seen there.
 	- Opened: 20261005-162747
@@ -916,7 +921,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Compression reset: move the compress code into the archive core.
 	- ID: 2026100516274683
 	- Type: Enhancement
-	- Status: Waiting on signoff
+	- Status: Done
 	- Needs local test suite run?: No. The full Linux suite passed on the branch, 196 of 196.
 	- Needs external testing: None left. rewygsbg passes natively on b29w. rhr6ggmt fails the same 2 rows there on dev and on the branch, filed as 2026101313374036.
 	- Opened: 20261005-162747
@@ -953,7 +958,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Compression reset: move the extract code into the archive core.
 	- ID: 2026100516275399
 	- Type: Enhancement
-	- Status: Waiting on signoff
+	- Status: Done
 	- Needs local test suite run?: No. The full Linux suite passed on the branch, 198 of 198.
 	- Needs external testing: None left. reww9h2r, reww9h2s, rjq9mv0w, rewygsbg and rhr6ggmt pass natively on b29w, with a long temp folder.
 	- Opened: 20261005-162747
@@ -1013,7 +1018,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Leaving an empty search page from history and searching again searches the whole disk.
 	- ID: 2026101406405845
 	- Type: Bug
-	- Status: Waiting for testing
+	- Status: Done
 	- Needs local test suite run?: the sanitizer lane, since the remembered queries are held until exit. The full Linux suite passed 20261014 on dev at 54239d1, 206 of 206. The nearby search, find, tab and title tests passed, 14 of 14.
 	- Needs external testing: done 20261014, the Windows cross build with warnings as errors passed on the longpress branch, which has this fix.
 	- Priority|Severity: Avg
@@ -1064,7 +1069,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Pre-populate the "Bulk rename" command.
 	- ID: 2026101405543076
 	- Type: Enhancement
-	- Status: Waiting for testing
+	- Status: Done
 	- Needs local test suite run?: done 20261014 on dev at 6276301, passed 204 of 204.
 	- Needs external testing: on vm925w, rk7wrme6 and rhtmbdmd in the native suite. Then by hand, with the single exe: the settings field and its tooltip, and F2 on several files, folders and a name with a space, with ReNamer and then Ant Renamer installed.
 	- Priority|Severity: Avg
@@ -1109,7 +1114,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Drag-to-select works as it currently does in the other two views.
 	- ID: 2026101405542928
 	- Type: Enhancement
-	- Status: Waiting for testing
+	- Status: Done
 	- Needs local test suite run?: done 20261014 with 2026101405542891, passed.
 	- Needs external testing: Windows, with 2026101405542891.
 	- Priority|Severity: Avg
@@ -1133,7 +1138,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Additional ways to get right-click menu.
 	- ID: 2026101405542965
 	- Type: Enhancement
-	- Status: Waiting for testing
+	- Status: Done
 	- Needs local test suite run?: done 20261014 on dev at 99e8595, passed 207 of 207.
 	- Needs external testing: Windows, on vm925w once it's on. A long press opens the menu on an item and on empty space in the list and icon views, in Places and in the tree, and the menu stays up once the button comes up. The Windows cross build is clean.
 	- Priority|Severity: Avg
@@ -1163,7 +1168,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Take libgsf, the gsf-office thumbnailer and the 4 search converters out of every bundle and the build.
 	- ID: 2026100909260549
 	- Type: Enhancement
-	- Status: Waiting for testing
+	- Status: Done
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
 	- Needs external testing:
 		- Done 20261009 on vm925w, passed. It was: the native suite on vm925w, for rjmc40ex, rjvb97aa, rjvtggme and rfhnaccg, and the seed replays rhatwe0r, rhatwe0s and rhatwe0t.
@@ -1230,7 +1235,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Search view and regular view need to remember their own column settings.
 	- ID: 2026101405542816
 	- Type: Bug
-	- Status: Can't reproduce
+	- Status: Done
 	- Needs local test suite run?: done 20261014 on dev at 6276301, passed 204 of 204. The nearby search, view, tab and settings tests passed, 13 of 13.
 	- Priority|Severity: Avg
 	- Opened: 20261014-055428
