@@ -28,10 +28,12 @@
 ##	   --no-sync           skip the remote sync stage
 ##	   --no-fmt            skip the formatter stage
 ##	   --no-cross          skip cross-target release builds, arm64 included
-##	   --include-arm       add the arm64 release build and its packages; the
-##	                       build runs on another box and takes about an hour
-##	                       (off by default)
-##	   --no-arm            leave the arm64 build out, even with --include-arm
+##	   --include-arm       the arm64 release build and its packages (on by
+##	                       default). It runs on another box and takes about an
+##	                       hour. It's a cross target, so --quick and --no-cross
+##	                       leave it out even with this
+##	   --no-arm            leave the arm64 build and its packages out, even
+##	                       with --include-arm
 ##	   --no-package        skip the packages stage (.deb/.rpm/installer)
 ##	   --no-private        skip the private runner (PRIVATE_RUNNER in config.bash)
 ##	   --no-profile        skip the profiler stage
@@ -43,14 +45,15 @@
 ##	                       refuses one by default)
 ##	   --shots             refresh README screenshots (off by default)
 ##	   --demo              re-record the demo video (off by default)
-##	   --include-bsd       build, test and pack on the FreeBSD box too: the
-##	                       suite in stage 3, the tarball and pkg in stage 5
-##	                       (off by default, since it needs that box and its
-##	                       lock; --quick does not turn it off)
-##	   --quick             skip the slow stages: cross builds, packages, private
-##	                       runner, profiler, fuzzing, sanitizers, scroll harness,
-##	                       screenshots, demo video, remote dogfood. The native
-##	                       build, the full test suite and local dogfood still run.
+##	   --include-bsd       run the FreeBSD lane even with --quick (on by
+##	                       default): the build and suite on the FreeBSD box in
+##	                       stage 3, the tarball and pkg in stage 5
+##	   --no-bsd            leave the FreeBSD lane out, even with --include-bsd
+##	   --quick             skip the slow stages: cross builds (arm64 included),
+##	                       the FreeBSD lane, packages, private runner, profiler,
+##	                       fuzzing, sanitizers, scroll harness, screenshots,
+##	                       demo video, remote dogfood. The native build, the
+##	                       full test suite and local dogfood still run.
 ##	   --gate              merge gate only: format-check + lints + tests, then exit
 ##	                       (fast local stand-in for hosted CI; the pre-push hook runs it)
 ## - Reuse: copy the cicd/ directory into another project and edit config.bash.
@@ -125,8 +128,8 @@ stamp="$(date +%Y%m%d-%H%M%S)"
 fSetSourceDate "${root}"
 
 ## Parse options.
-include_bsd=0
-assume_yes=0; quick=0; gate=0; no_arm=0; include_arm=0; no_sync=0; allow_dirty=0; cli_message=""
+include_bsd=""; no_bsd=0                                          ## empty = whatever --quick says
+assume_yes=0; quick=0; gate=0; no_arm=0; include_arm=""; no_sync=0; allow_dirty=0; cli_message=""
 while (($#)); do case "$1" in
 	-y|--yes)                 assume_yes=1; shift ;;
 	-q|--quiet)               assume_yes=1; shift ;;            ## publish runs quiet whatever this says
@@ -146,6 +149,7 @@ while (($#)); do case "$1" in
 	--shots)                  SHOTS_ENABLE=1; shift ;;
 	--demo)                   DEMO_ENABLE=1; shift ;;
 	--include-bsd)            include_bsd=1; shift ;;
+	--no-bsd)                 no_bsd=1; shift ;;                ## wins over --include-bsd
 	--quick)                  quick=1; BUILD_CROSS=0; PROFILE_ENABLE=0; PACKAGE_ENABLE=0; shift ;;   ## skip the slow stages
 	--message=*|--msg=*|-m=*) cli_message="${1#*=}"; shift ;;
 	-m|--message|--msg)       cli_message="${2-}"; shift; (($#)) && shift ;;
@@ -153,12 +157,21 @@ while (($#)); do case "$1" in
 	*) echo "unknown option: $1 (try --help)" >&2; exit 2 ;;
 esac; done
 
-## ARM64 cross targets are opt-in: here the arm64 box is emulated and takes about
-## an hour. Native x86_64 is untouched; the Windows/Linux x86_64 crosses stay.
+## arm64 and FreeBSD run unless --quick, and naming one beats --quick. arm64 is
+## a cross target though, so --quick's BUILD_CROSS=0 still leaves it out.
+[[ -n "$include_arm" ]] || include_arm=$((! quick))
+[[ -n "$include_bsd" ]] || include_bsd=$((! quick))
+((! no_bsd)) || include_bsd=0
+declare -p BSD_TEST_CMD &>/dev/null || BSD_TEST_CMD=()           ## a config with no FreeBSD box
+declare -p BSD_RELEASE_CMD &>/dev/null || BSD_RELEASE_CMD=()
+((${#BSD_TEST_CMD[@]} + ${#BSD_RELEASE_CMD[@]})) || include_bsd=0
+
+## The arm64 box here is emulated and takes about an hour. Native x86_64 is
+## untouched; the Windows/Linux x86_64 crosses stay.
 arm_note=""
 if ((! include_arm || no_arm)) && declare -p CROSS_TARGETS &>/dev/null; then
 	kept=()
-	for t in "${CROSS_TARGETS[@]}"; do case "$t" in *arm64*|*aarch64*) arm_note=" (no arm64; --include-arm adds it)" ;; *) kept+=("$t") ;; esac; done
+	for t in "${CROSS_TARGETS[@]}"; do case "$t" in *arm64*|*aarch64*) arm_note=" (no arm64)" ;; *) kept+=("$t") ;; esac; done
 	CROSS_TARGETS=("${kept[@]}")
 	if ((no_arm)) && [[ -n "$arm_note" ]]; then arm_note=" (no arm64, --no-arm)"; fi
 fi
@@ -412,9 +425,13 @@ else
 	fEcho_Clean "Sanitizers ..........: (skipped)"
 fi
 if ((include_bsd)); then
-	fEcho_Clean "FreeBSD .............: ${BSD_TEST_CMD[*]}, then ${BSD_RELEASE_CMD[*]}"
+	fEcho_Clean "FreeBSD .............: ${BSD_TEST_CMD[*]:-(no tests)}, then ${BSD_RELEASE_CMD[*]:-(no release)}"
+elif ((no_bsd)); then
+	fEcho_Clean "FreeBSD .............: (skipped --no-bsd)"
+elif ((quick)); then
+	fEcho_Clean "FreeBSD .............: (skipped --quick)"
 else
-	fEcho_Clean "FreeBSD .............: (off; --include-bsd)"
+	fEcho_Clean "FreeBSD .............: (not set up)"
 fi
 if ((PROFILE_ENABLE)); then
 	fEcho_Clean "Profiler ............: ${PROFILE_SECS}s run -> flamegraph SVG (headless)"
@@ -564,10 +581,12 @@ if ((! quick)) && [[ -n "${SANITIZE_CMD+x}" ]] && ((${#SANITIZE_CMD[@]})); then
 elif ((quick)); then
 	fEcho_Clean "sanitizers skipped (--quick)"
 fi
-## The same build and suite on the FreeBSD box, opt-in.
-if ((include_bsd)); then
+## The same build and suite on the FreeBSD box.
+if ((include_bsd)) && ((${#BSD_TEST_CMD[@]})); then
 	"${BSD_TEST_CMD[@]}"
 	fEcho "OK: FreeBSD suite"
+elif ((quick)) && ((! no_bsd)); then
+	fEcho_Clean "freebsd lane skipped (--quick)"
 fi
 if [[ -n "${DENY_CMD+x}" ]] && ((${#DENY_CMD[@]})); then
 	if "${DENY_PROBE[@]}" >/dev/null 2>&1; then
@@ -676,7 +695,7 @@ if ((BUILD_CROSS)) && ((${#CROSS_TARGETS[@]})); then
 	done
 fi
 
-if ((include_bsd)); then
+if ((include_bsd)) && ((${#BSD_RELEASE_CMD[@]})); then
 	fSection "5/8  Release build: FreeBSD"
 	"${BSD_RELEASE_CMD[@]}"
 	fEcho "OK: FreeBSD tarball and pkg"
@@ -995,3 +1014,4 @@ fEcho_Clean
 
 ##	History:
 ##		- 2026-06-05 JC: Created.
+##		- 2026-10-15: arm64 and FreeBSD on by default, off under --quick; --no-bsd.

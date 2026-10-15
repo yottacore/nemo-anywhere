@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 
-##	- Purpose: Check that the arm64 release build runs only with --include-arm,
-##	  that --no-arm still leaves it out, and that the engine finds an artifact
-##	  whose name has the version in it. The arm64 packages and their check run
-##	  only when the arm64 build did. A copy of cicd.bash runs a whole pipeline
+##	- Purpose: Check that the arm64 release build and the FreeBSD lane run by
+##	  default, that --quick, --no-arm and --no-bsd leave them out, and that the
+##	  engine finds an artifact whose name has the version in it. The arm64
+##	  packages and their check run only when the arm64 build did. --include-bsd
+##	  brings FreeBSD back under --quick. A copy of cicd.bash runs a whole pipeline
 ##	  in a scratch dir, every stage a stand-in, with one arm64 and one other
 ##	  cross target, packager and check. Then the real config.bash is read: its
 ##	  arm64 entry has to name release-arm64.bash and the tarball that script
@@ -68,6 +69,8 @@ cat > "${scratch}/cicd/config.bash" <<-EOF
 		"Other check (stand-in)|mkdir -p out && touch out/check-other"
 		"Check (arm64, stand-in)|mkdir -p out && touch out/check-arm64"
 	)
+	BSD_TEST_CMD=(bash -c 'mkdir -p out && touch out/bsd-tests')
+	BSD_RELEASE_CMD=(bash -c 'mkdir -p out && touch out/bsd-release')
 	PRIVATE_RUNNER=""
 	PROFILE_ENABLE=0
 	PROFILE_OUT_DIR="profiling"
@@ -114,7 +117,7 @@ fPipeline(){
 	[[ -z "$text" || "$out" == *"$text"* ]] || fFail "[$*]: no '${text}' in the plan"
 }
 
-fPipeline "no arm" "(no arm64; --include-arm adds it)"
+fPipeline arm      ""
 fPipeline arm      ""                                   --include-arm
 fPipeline "no arm" "(no arm64, --no-arm)"               --include-arm --no-arm
 fPipeline "no arm" "(no arm64, --no-arm)"               --no-arm --include-arm
@@ -128,8 +131,41 @@ out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd
 [[ -f "${scratch}/out/pkg-other" ]] || fFail "--include-arm --no-cross left out the other packages"
 [[ "$out" == *"(skipped, arm64 too)"* ]] || fFail "--include-arm --no-cross does not say arm64 is skipped"
 
+## $1 "bsd" or "no bsd", $2 text the plan must have, rest the options.
+fBsd(){
+	local want="$1" text="$2"; shift 2
+	local out rc=0 ran=0
+	rm -rf "${scratch}/out" "${scratch}/native.bin"
+	out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync "$@" 2>&1 </dev/null)" || rc=$?
+	if [[ "$rc" != 0 ]]; then
+		fFail "[$*]: the run failed (exit ${rc}): $(tail -5 <<< "$out")"
+		return 0
+	fi
+	[[ -f "${scratch}/out/bsd-tests" && -f "${scratch}/out/bsd-release" ]] && ran=1
+	if [[ "$want" == bsd ]]; then
+		((ran)) || fFail "[$*]: the FreeBSD lane did not run both steps"
+	else
+		[[ ! -e "${scratch}/out/bsd-tests" && ! -e "${scratch}/out/bsd-release" ]] || fFail "[$*]: the FreeBSD lane ran"
+	fi
+	[[ -z "$text" || "$out" == *"$text"* ]] || fFail "[$*]: no '${text}' in the plan"
+}
+
+fBsd bsd      ""
+fBsd bsd      ""                                       --include-bsd
+fBsd "no bsd" "FreeBSD .............: (skipped --no-bsd)"   --no-bsd
+fBsd "no bsd" "FreeBSD .............: (skipped --no-bsd)"   --include-bsd --no-bsd
+fBsd "no bsd" "FreeBSD .............: (skipped --quick)"    --quick
+fBsd bsd      ""                                       --quick --include-bsd
+
+## --quick leaves arm64 out with the other cross targets, asked for or not.
+for extra in "" --include-arm; do
+	rm -rf "${scratch}/out"
+	out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync --quick ${extra:+"$extra"} 2>&1 </dev/null)" || fFail "--quick ${extra} failed"
+	[[ ! -e "${scratch}/out/app-${ver}-linux-arm64.tar.gz" && ! -e "${scratch}/out/pkg-arm64" ]] || fFail "--quick ${extra} built arm64"
+done
+
 help="$(bash "${root}/cicd/cicd.bash" --help)"
-for opt in --include-arm --no-arm; do
+for opt in --include-arm --no-arm --include-bsd --no-bsd; do
 	grep -qE "^ +${opt} " <<< "$help" || fFail "--help has no ${opt}"
 done
 
@@ -166,4 +202,4 @@ if ((failures)); then
 	fEcho "FAILED: arm64 in the pipeline, ${failures} problem(s)"
 	exit 1
 fi
-fEcho "OK: arm64 release build runs only with --include-arm"
+fEcho "OK: arm64 and FreeBSD run by default, and not under --quick"
