@@ -207,71 +207,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rhr6ggmt, Archive option combinations. In the crossed rows, a rar keeping `jlink` as a junction with Delete originals keeps it, with the long-target reason, when its target is 128 bytes or more. check_long_target: a rar keeping a link with a 140-byte target, and on Windows a junction to a folder with a path of 128 or more, keeps the originals and says why, or deletes them where libarchive is newer than 3.8.9.
 	- Acceptance signoff: Left at signoff for the warning's wording.
 
-- After an `smb://` address is typed, nothing shows that the app is working on it.
-	- ID: 2026100816170921
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
-	- Needs external testing:
-		- Done 20261010 on vm925w, passed except the drop. It was: in the desktop session, with the single exe, type `\\10.255.255.1\share` in the path bar. While the sign shows, a click, a right-click, a click on a menu, Ctrl+T, F10, a tab click and a file dragged in from Explorer should all do nothing, and nothing should look grayed. The title bar should still move the window, and its close button should close it. Escape should stop the attempt, and then a click and a drop should work again. Also rhtwm2c8 in the native suite. The sign itself was checked there on 20261009.
-		- Done 20261014 on vm925w, passed. It was: while the sign shows, a file dragged in from Explorer does nothing, and after Escape the same drag drops it.
-	- Priority|Severity: Avg
-	- Opened: 20261008-161710
-	- Opened by: t00mietum
-	- Target OS: All
-	- Steps to reproduce: type an `smb://` address in the path bar and press Enter.
-	- Incorrect behavior: the app looks into the address for a while with no sign of it. Then a login prompt, or the share's contents, suddenly show up. In the meantime it looks like nothing happened, so the user may start something else until the share comes back.
-	- Expected behavior: a clear sign that the app is busy with the address, until it is done or stopped.
-	- Requirements:
-		- A sign that doesn't rely on the mouse pointer. A pointer can change too, like Windows' "working in the background" pointer. But not one that says the app is blocked, like the macOS beachball, unless it is.
-		- Maybe also one or more of:
-			- The program icon moving smoothly in a circle over the path bar, attached to the window.
-			- The path bar and the content pane, or even everything visible, slowly fading between disabled text (gray but still legible) and normal text, at about 0.5 Hz.
-			- The app takes no input until one of:
-				- The network step fails or times out.
-				- The user presses Escape, which stops the background attempt to connect and fetch.
-		- README says what changed.
-	- Reproduced: 20261009 on Linux, with an `smb://` mount that never answers. The path bar, the pointer and the window stay as they were the whole time, and Escape does nothing.
-	- Actual cause: nothing in the window follows the look-up and the mount of a new address. The "Loading..." bar only shows once there's a view, which is after the mount. The busy pointer never showed for the tab in front, since its check compares against the Stop action being enabled, and that never changes.
-	- Actual effort: Avg
-	- Decisions:
-		- Decided: the base sign only. A spinner and short text such as "Connecting to <host>..." in the path bar until the address resolves, fails, times out or is canceled. The window stays usable. The pointer may show the background-working cursor while over the window, never a blocked one. Escape, with focus in the window, cancels the pending attempt.
-		- Decided: it covers any address that has to be mounted or reached over the network first. That's smb, sftp, ftp, dav and the like through gvfs on Linux, and UNC paths and mapped drives on Windows.
-		- Punted: the program icon circling over the path bar, the slow fade between gray and normal text, and taking no input until the attempt ends.
-		- 20261009: changed my mind on taking no input. Once the share answers, the view is replaced, so anything done in the window meanwhile can be lost. While the attempt is out the window takes no input but Escape, which stops it. The title bar still moves and closes it, and closing stops the attempt. Other windows of the app stay usable.
-		- 20261009: the block is an invisible cover over everything below the title bar, plus the window dropping every key but Escape. The cover takes the clicks, scrolls and drops, and draws nothing, so nothing is grayed. Options were a GTK grab or making the content insensitive. Insensitive grays everything. A grab does nothing for keys or drops, and it would also hold dialogs and Properties windows tied to this window.
-			- 20261010: the cover now draws the fade in the row below. It still makes nothing insensitive.
-		- 20261009: the block follows the window's front tab, the same as the pointer. A share opening in a tab in the back blocks nothing until that tab comes to the front, since only that tab's view gets replaced.
-		- 20261010: taking no input is shown by the window slowly fading between looking disabled and normal, so it's plain that it isn't frozen, that it's busy, and that it still takes some input, namely Escape. The pointer stays the busy arrow.
-	- Actual fix: while the look-up or the mount behind a new address is still out, the path bar shows a spinner and "Connecting to <host>...", or "Connecting to the network..." when there's no host. It goes away when the address answers, fails or is stopped. Meanwhile the pointer is the busy arrow, never the watch, and Escape in the window stops the attempt. The host comes from the address text and the mount table only, so nothing new reaches out to a share. A place on this machine shows no sign.
-	- Actual fix: 20261009, while the attempt is out the window also takes no input but Escape. Clicks, scrolls and drops anywhere below the title bar go nowhere, and every key but Escape is dropped before the shortcuts and the menu bar see it. Nothing is grayed, and the pointer stays the busy arrow.
-	- Actual fix: 20261010, while the attempt is out, everything below the title bar slowly fades between the theme's grayed look and normal, one round trip every 2 seconds, the sign included. It goes back to normal at once when the attempt answers, fails, is stopped or the window closes. With animations turned off it stays grayed instead of fading. Nothing runs for it when no attempt is out.
-	- Swept: every location change starts in one place, so the path bar, Places, bookmarks, links, back and forward, and new windows and tabs all get the sign. A tab in the back shows it when it comes to the front. Opening a file on a share that isn't mounted goes through the open code, which has its own wait dialog wiht a Cancel button. Connect to Server has its own spinner.
-	- Swept: 20261009, the menu bar, the toolbar, Places, the tabs, the folder view and the status bar all sit under the cover, so a click, a right-click, a scroll or a drop on any of them goes nowhere. The menu bar's own key, the Alt key and every shortcut go through the window first. Other windows of the app, Properties and dialogs included, aren't held. The password prompt for a share is its own window, so it should still take input. Read, not tried.
-	- Swept: 20261010, the fade is drawn by the same cover, so it covers exactly what takes no input and follows the front tab the same way.
-	- Verified: rjv9ks2z fails before the fix, on the sign, the pointer and Escape, and passes after. Full Linux suite 183 of 183. Windows cross build clean, and rhtwm2c8 passes under wine with the new UNC case.
-	- Verified: 20261009, Windows, on vm925w. rhtwm2c8 passes in the native suite at 398c999. With the single exe built at 49a54f8, in the desktop session, `\\10.255.255.1\share` typed in the path bar showed the spinner and "Connecting to 10.255.255.1...", and the pointer over the window was the busy arrow, never the hourglass. Escape took the sign away and the pointer went back to the plain arrow. A server name that doesn't resolve showed the sign until the look-up failed a few seconds later, then the error, with the sign gone.
-	- Note: 20261009, left at signoff for how the sign looks.
-	- Note: 20261009, the sign's look is signed off. Back to Queued for taking no input meanwhile.
-	- Verified: 20261009, rjv9ks2z fails before the change on the shortcut, the click and the drop, and passes after, 3 runs of 3. Full Linux suite 188 of 188. Windows cross build clean, and rhtwm2c8 passes under wine.
-	- Verified: 20261009 on Linux, while blocked: a right-click, a click on the File menu, F10, Ctrl+T, a tab click, Ctrl+PageUp, a column header click and a file dragged in from another window all did nothing, and nothing looked grayed. Each of them worked again after Escape. The title bar moved the window, and its close button closed it and stopped the attempt, with the other window left running.
-	- Note: 20261009, rjv9ks2z's check that the window takes input while it waits is commented out, since the window now takes none.
-	- Note: 20261009, left at signoff for the pointer. Options: keep the busy arrow, or the watch now that the window takes no input. Kept the arrow, since Escape and the title bar still work, and the arrow was signed off with the sign.
-		- 20261010: settled by the fade row in Decisions.
-	- Note: with the toolbar turned off there's no path bar, so only the pointer shows it.
-		- 20261010: and the fade.
-	- Verified: 20261010, rjv9ks2z fails before the change on the fade and on the steady gray with animations off, and passes after, 3 runs of 3. Full Linux suite 188 of 188. Windows cross build clean, and rhtwm2c8 passes under wine.
-	- Verified: 20261010 on vm925w, the branch smbfade. rhtwm2c8 passes in the native suite. With the single exe from the same commit, in the desktop session, `\\10.255.255.1\share` typed in the path bar: the window below the title bar faded between grayed and normal about every 2 seconds, and stayed legible at its grayest. The pointer was the busy arrow. A click on a file, a right-click, a click on the File menu, F10, Ctrl+T and a click on the other tab all did nothing. The title bar moved the window. Escape took the sign away, gave the plain arrow, and the look went back to normal at once and stayed still. Then a click selected a file, a right-click showed the menu, and a tab click switched tabs. The close button closed the window mid-attempt.
-	- Note: 20261010, a drop from a test program onto the window was refused even with no attempt out, so the drop wasn't checked on Windows. Left for a drag from Explorer by hand.
-		- 20261014: that program's drag had only the plain file list, which the window refused from any program but Explorer. Fixed under 2026101007562587.
-	- Verified: 20261014 on vm925w, with the zip built from dev c10a39a, in the desktop session. With `\\10.255.255.1\share` typed in the path bar and the sign showing, a file dragged in from Explorer got the no-drop pointer and stayed where it was. After Escape the same drag moved it into the folder.
-	- Note: 20261014, left at signoff for the fade's look.
-	- Note: read, not tried: the Stop button also never takes Reload's place while a folder loads, since the same check is behind it. Left alone here.
-	- Branch: smbbusy, smbhalt, smbfade
-	- Commit: 41adfa7, 114c595, 358ef85
-	- Test case: rjv9ks2z, Connecting sign while a share mounts test. An `smb://` mount answers only when the test says so. It checks the sign and the host it names, the pointer, that nothing is grayed, that a shortcut, a click and a drop do nothing while it waits and work again after, Escape, closing the window mid-attempt, and the sign going away after a stop and after a failed mount. It also checks the host named for a set of addresses, and that a local folder shows no sign. rhtwm2c8 checks the server named for a UNC path on Windows.
-		- 20261010: "nothing is grayed" there means nothing is made insensitive. It also checks that the window fades while it waits, that the fade stops and the window looks as before after Escape and after a failed mount, that nothing of it runs on after a close, and that with animations off the window stays grayed and still.
-
 - On Windows, reserved names like `CON` and `nul.txt`, and names ending in a dot or space, are taken with no error.
 	- ID: 2026101416533917
 	- Type: Bug
@@ -303,50 +238,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 08191a8
 	- Test case: rk8tkp4h, Bad name characters test: the device list, the messages and the name fix, a rename, an unchanged rename, a new folder path, and Rename graying out in both conflict dialogs. reww9h2r, Extract naming test: entry names fixed, and the archive core fixing a name the way the app does. reww9h2s, Extract job test: an archive with `NUL` and `trail.` unpacks as `_NUL` and `trail_` on Windows.
 	- Acceptance signoff: Left at signoff for the wording, and for `_` on extracted names.
-
-- Expanding folders can take too long.
-	- ID: 2026101417352261
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 209 of 209.
-	- Needs external testing: none for the fix. An expand on Windows and on a share wasn't timed.
-	- Priority|Severity: Avg
-	- Opened: 20261014-173522
-	- Opened by: t00mietum
-	- Related IDs: 2026101419191454, 2026101419191455
-	- Requirements:
-		- Before the next cut.
-	- Incorrect behavior: expanding folders can take too long.
-		- Especially on networked shares.
-		- But even on local folders, it should be essentially instant. Is it scanning for icons, other metadata, or something first?
-	- Reproduced: 20261014 on Linux. A folder of 10 is listed in 5 ms and its rows show at 205 ms.
-	- Actual cause: mostly waiting, not scanning. The rows of an opened folder were held for the 200 ms timer that batches a big folder's load, and nothing cut it short once the folder was all in. Pictures among its first 150 entries also waited for their thumbnail lookup, and the first lookup in a run opens the thumbnail store.
-	- Progress log:
-		- 20261014: where the time went, before the fix, list view on b23, optimized build, medians of 5 runs, 3 at 10,000. Folders of varied names, sizes, dates and types, 5% of them sub-folders, some pictures.
-			- Listing, with each entry's details: off the main thread. On its own 10,000 entries list in 0.52 s, about half of it guessing types from content and 0.16 s looking for thumbnails. In the app each batch of 100 also waits its turn on the main thread, so it took 1.6 s.
-			- Icons: 12 lookups, under 1 ms in all, since they're kept per type.
-			- Thumbnails: only the wait above. Making them comes later and holds nothing up.
-			- Item counts of the sub-folders: alongside the listing, done before the rows showed.
-			- Adding rows: about 0.1 ms a row on the main thread, about a third of it measuring cells.
-			- Drawing: one frame, under 20 ms after the rows.
-			- The rest is the timer.
-		- 20261014: the same after the fix. Milliseconds from the click, before -> after.
-			| Entries | Listed         | First row | All rows       | Drawn          | Main thread for rows
-			| :---    | :---           | :---      | :---           | :---           | :---
-			| 10      | 5              | 205 -> 6  | 208 -> 8       | 216 -> 24      | 6 -> 4
-			| 1,000   | 65 -> 101      | 213 -> 13 | 318 -> 188     | 336 -> 215     | 115 -> 127
-			| 10,000  | 1,580 -> 1,575 | 218 -> 13 | 1,812 -> 1,793 | 1,833 -> 1,820 | 1,144 -> 1,160
-		- 20261014: going into a folder of 10 from the window, which the fix doesn't touch, read 213 ms to its rows both before and after.
-		- 20261014: a big folder still costs what it costs to open: 10,000 entries take about 1.8 s either way, nearly all of it adding rows and the listing waiting on them. At 1,000 the listing now shares the main thread with the first rows, so it ends later, and the sub-folders' counts fill in about 30 ms after the rows.
-		- 20261014: left at signoff for pictures in an opened folder, which now show their plain icon for a moment before a stored thumbnail replaces it.
-	- Decisions:
-		- A folder opened by its expander shows its rows without waiting for thumbnails. The view's own folder still waits for its first 150.
-	- Actual fix: an opened folder's first rows go in as soon as they're listed and its last ones as soon as it's all read. A big one still comes in batches in between. Its pictures don't wait for their thumbnails.
-	- Swept: the tree pane adds a folder's rows as they come, with no timer. The view's own folder, search results included, waits the same 200 ms after it's listed. That changes every folder opened, so it's its own item, 2026101419191454. The icon views have no expanders.
-	- Verified: rk96k9va fails before the fix, all folders at 220 to 250 ms. It also fails with each of the 3 parts of the fix taken out alone. It passes after, 3 runs and 5 more with the cores loaded, best times 10 to 30 ms to the first row and 50 to 75 to all. rhb624a0, rh2af9s0, rj4jkr22, rk7yvgse and rhg6h4m0 pass. Full Linux suite 209 of 209 and the Windows cross build clean, both with warnings as errors. C lint clean, and the test ID check passes.
-	- Branch: expandfast
-	- Commit: e62f6e7f
-	- Test case: rk96k9va, List view expander time test. Opens 4 folders of 120 varied files, pictures among them, by their expanders, and 2 more whose listing comes a second per batch. The quickest of the 4, and the first, must show all rows in under 180 ms, and the quickest slow one its first row. The old wait can't come in under 200.
 
 - On Windows, every bundle has only the app's own exe, so no form of the app starts a program from inside its bundle.
 	- ID: 2026100917220603
@@ -394,164 +285,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: winlaunch, evbshare
 	- Commit: b1bb561, b02da5e, d483f63, 6c72feb, f80970a
 	- Test case: rjwc3jkm, Windows bundle exe check. It reads the release zip in the packages stage, the flat tree before the single exe is packed, and the folder `install.ps1` installs in rj72n4xb. The start paths: rjw1ks5h for a new window, a tab moved out and links, rjvzdd4w for Open With, a named program and an open file, rjmb3j8p for actions, rjm4ctwh for archive tools, converters and thumbnailers, which must be started by the app and not a spawn helper, and a helper that won't start is told once. rjnzpkk7 checks that a failed start shows its error. rjxn0ekh, Pack project options check: the single exe's pack project must have sharing with started programs off.
-
-- Settings: Views|Current needs to look more clearly disabled when it's disabled.
-	- ID: 2026101009150768
-	- Type: Enhancement
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261010-091507
-	- Opened by: t00mietum
-	- Requirements:
-		- Before the next cut.
-		- Go back to the previous method of letting the tab be activated, but disable all the content.
-	- Progress log:
-		- 20261010: the old-format item "Preferences|Views: with Remember per-folder settings off, the Current tab still opens on a dead page" made the tab refuse the switch. Back then the tab opened on an empty gray pane, so the controls have to show, disabled.
-		- 20261013: the tab opens again with remembering off. It shows its controls grayed out, under the folder's path, and its label stays grayed. Turning remembering off while the tab is up leaves it up, grayed. Nothing on the page says why. Options: a line there saying per-folder settings are off. The UX style guide's rule on grayed tabs says the same now. Left at signoff for the look.
-	- Swept: the refusal was the only thing in the dialog that stopped a tab from opening.
-	- Verified: rhtmbdmf fails on dev's code, 2 checks, and passes after. Checked in the app on Linux with remembering off: the tab opens on the grayed controls and path.
-	- Branch: settings
-	- Commit: 07b76a2
-	- Test case: rhtmbdmf, Settings Current tab test. Its 2 checks that the switch is refused are commented out with the reason. It now checks the tab opens on grayed controls, and stays up when remembering is turned off.
-
-- Allow creating folders with path separators in the name, to make a nested structure in one go.
-	- ID: 2026101009150766
-	- Type: Enhancement
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 193 of 194. The one failure, rjv9ks2z, is the connecting sign's look with animations off, and it passed on its own. On tabkeys, 200 of 200.
-	- Needs external testing: by hand on Windows, New folder in a window, then a path with backslashes typed into the box. Then the same with "Accept a forward slash as a separator in typed locations" off and a path with `/`, which is refused with the usual rename error. Not tried. rk56fsaw passed natively on b29w, with the setting on and off.
-	- Priority|Severity: Avg
-	- Opened: 20261010-091507
-	- Opened by: t00mietum
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-		- A new folder name with path separators creates each folder in the path, nested.
-	- Actual effort: Avg
-	- Progress log:
-		- 20261013: done. Left at signoff for the new error messages and the calls under Decisions.
-		- 20261013: changed my mind on `/` on Windows. The setting for `/` in typed locations decides there too, since `/` can't be in a Windows name anyway. With it off, a name with `/` goes to the plain rename, which refuses it as it would `*` or `?`, with the rename error "Slashes are not allowed in filenames". `\` still splits. Linux and the BSDs are unchanged.
-	- Decisions:
-		- A name splits at `/` on every platform, and at `\` on Windows too, since neither can be in a name there. Elsewhere a backslash stays part of the name. On Windows `/` splits only while "Accept a forward slash as a separator in typed locations" is on. With it off, a name with `/` in it, `\` or not, is refused like any name with a character Windows doesn't allow: the plain rename error, and nothing made.
-		- Only the first name of a folder New folder made counts, typed in the box it opens or later. Renaming any other folder with a `/` in the name is refused, as before.
-		- Folders already there along the path are used as they are. Only the last one being there is the usual "already used" error.
-		- A leading separator, 2 separators in a row, and `.` or `..` as a folder name are refused with a message, and the folder keeps waiting for its first name. A trailing separator is dropped.
-		- The folder New folder made becomes the first folder of the path that isn't there yet, so nothing gets removed on the way.
-		- Undo takes away every folder the path made, the first one included, deepest first, and stops at the first one that isn't empty any more. Redo makes them again.
-		- After that the top folder of the path is selected, the one in the folder being shown, whether it was made or already there.
-		- The tree's New folder names its folder in Properties, so the same goes for the name typed there.
-	- Swept: the `/` setting is read where the split decides, so the icon view, the list view and Properties all follow it. Every way to make a folder and name it. Ctrl+Shift+N, the menu and the toolbar button go through the window's New folder, which is the view's. The view's background menu, and New folder on a folder in the location bar's menu, go through the view too. The tree's New folder names the folder in Properties. The 3 places a name is typed: the icon view, the list view and Properties. Redo of a plain New folder makes no name and is left alone. Templates make files only, and no drag makes a folder. The "Create folder" button in Copy to, Move to, the archive dialog and the templates setting is the GTK file chooser's own.
-	- Verified: rk56ftav and rk56g0rq fail before the change and pass after. rk56fsaw passes on Linux, under wine and natively on b29w. Its backslash checks fail under wine without the Windows rule. Its checks with the `/` setting off fail on the first change's code, 7 of them, under wine and natively on b29w, and pass after on both.
-	- Branch: nestdir, tabkeys
-	- Commit: bcdd716, a0f3752
-	- Test case: rk56fsaw, New folder named with a path: the split on each platform, and the job itself, with folders already there, the last one there, a file on the way, a trailing separator, the backslash, undo and redo. On Windows, both states of the `/` setting: with it off `/` doesn't split, a name with one is left to the plain rename and refused there, and `\` still nests. rk56ftav and rk56g0rq, the same in the icon view and the list view: New folder, a path typed in the box, the top folder selected, and undo. Linux and FreeBSD only.
-	- Acceptance signoff: Left at signoff for the error messages and the calls under Decisions.
-
-- Settings: the dialog is too long.
-	- ID: 2026101009150767
-	- Type: Enhancement
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261010-091507
-	- Opened by: t00mietum
-	- Related IDs: 2026101009150769
-	- Requirements:
-		- Before the next cut.
-		- Allow Behavior to overflow with a scrollbar, and size the dialog to the next-longest tab.
-			- Consider breaking the content up into related settings under a couple or more nested tabs, or sub-tabs.
-	- Decisions:
-		- Decided: sub-tabs. Behavior splits into 3: General (Navigation, Behavior, Windows), Files and Trash (Executable text files, Drag and drop, Trash) and Media and programs (Media handling, Bulk rename, Terminal). The other pages fit as they are, so they stay whole. The dialog still opens at its longest page, now Preview, and a page still scrolls on a screen too small for it.
-	- Progress log:
-		- 20261013: the dialog opens 774 high on a 1920x1200 screen, down from 1080, with no page needing a scrollbar. Left at signoff for the grouping and the sub-tab names.
-	- Verified: rhtmbdmd passes on Linux, 3 runs, and under wine, where the Windows page is in the dialog too. Its new check that every page fits fails with the window made 120 pixels shorter. Full Linux suite 196 of 196. Windows cross build clean with warnings as errors. Lint clean but rj3ytv0b, which needs the main clone.
-	- Branch: subtabs
-	- Commit: 3c069b3
-	- Test case: rhtmbdmd, Settings dialog test: Behavior has 2 to 4 sub-tabs, and at the size the dialog opens no page needs a scrollbar. rf2w8yxr, Settings widgets test, walks the sub-tabs and wants every page to be a scrolled window, since that is what the sizing measures.
-
-- Settings: show nested tabs in the tab list on the left.
-	- ID: 2026101009150769
-	- Type: Enhancement
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261010-091507
-	- Opened by: t00mietum
-	- Related IDs: 2026101009150767, 2026101009150770, 2026101009150771
-	- Requirements:
-		- Before the next cut.
-		- Sub-tabs, or nested tabs:
-			- Nested tabs show in the same list, without having to be on the parent tab to see them.
-				- The extra vertical space allows this. Any dialog with tabs on top keeps the existing method, where the parent tab has to be active to see its sub-tabs.
-			- A nested tab's text is indented to the right, under its parent tab.
-			- Any level of nesting, although after some practical point it would be bad UX design.
-			- With any form of nested tabs, one sub-tab is always showing while the parent tab is active. That sub-tab gets the same "active tab" color as the parent to show it.
-	- Decisions:
-		- Views' Default and Current move from tabs on top into the list, as its sub-tabs. One dialog with two kinds of sub-tab would surprise, and the keys in 2026101009150770 then work the same on every page. The two per-folder checkboxes stay above both sub-tabs, as "Changes to Preferences|Views" laid them out, so either sub-tab shows them.
-		- A parent shows the sub-tab it showed last. A click on the parent row opens that one.
-		- Current keeps the look from 2026101009150768: it opens on grayed controls with remembering off, and its row's text is grayed as the tab's was.
-	- Progress log:
-		- 20261013: the list replaces GTK's own page list, which can't nest, and draws with the same theme rules. Sub-tabs are indented one step per level. Left at signoff for the look, and for gray text on the lit Current row with remembering off.
-	- Note: rhtmbdmd's 2 checks on the Views tabs, and its first Ctrl+Page Down landing on Behavior, are commented out with the reason. rhtmbdmf switches Views through the sub-tabs now, with the same checks as before.
-	- Swept: the only nested tabs in Settings were the Views tabs. Properties and the main window keep tabs on top.
-	- Verified: rk5b84ef fails with only the innermost row lit, and with no indent, and passes after. rhtmbdmf fails with the Current row's text left alone. All 4 settings tests pass on Linux and under wine. In the app on Linux: a click on a sub-tab opens it and lights it and its parent, and a click on the parent goes back to its last sub-tab. Full Linux suite 196 of 196.
-	- Branch: subtabs
-	- Commit: 3c069b3
-	- Test case: rk5b84ef, Settings tab list test: 3 levels deep, indent per level, a parent and its showing sub-tab lit at every depth, hidden pages and their sub-tabs dropped, pages added and retitled later, and sub-tabs under a switch they share. rhtmbdmd, Settings dialog test: the rows, the lit pair and the parent's last sub-tab in the real dialog. rhtmbdmf, Settings Current tab test.
-
-- Flyover tip text for "Command to open a terminal" (label and control): "If empty, uses your default terminal."
-	- ID: 2026101405543039
-	- Type: Enhancement
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261014-055430
-	- Opened by: t00mietum
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-	- Actual fix: the label and the entry both have the tip. The entry's old tip is gone: "Leave empty to use whatever the system offers. A program that needs arguments takes them here too; quote a path that contains spaces. The folder is passed as the working directory."
-	- Verified: rf2w8yxr fails on dev's layout, with no tip on the label and the old one on the entry, and passes after. rhtmbdmd passes. Lint clean apart from rj3ytv0b, which always fails in a worktree.
-	- Branch: tipsfix
-	- Commit: 64f69e1
-	- Test case: rf2w8yxr, Settings widgets test: the tip on the label and on the entry, word for word.
-	- Acceptance signoff: Left at signoff for the old tip's notes on arguments, quoting and the working folder, which went with it. Options: keep it as is, or add them back after the new sentence.
-
-- When clicking anywhere on a row in detailed list view, even when the program doesn't have focus, it should be immediately selected.
-	- ID: 2026101405542891
-	- Type: Enhancement
-	- Status: Done
-	- Needs local test suite run?: done 20261014 on dev at 54239d1, passed 206 of 206.
-	- Needs external testing: Windows, on vm925w once it's on. A right drag from an item still moves files with the drop menu, a right drag from empty space bands, and the menus in both views, Places and the tree open when the button comes up. The Windows cross build is clean.
-	- Priority|Severity: Avg
-	- Opened: 20261014-055428
-	- Opened by: t00mietum
-	- Related IDs: 2026101405542928, 2026101405542965
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-		- Current behavior: Sometimes clicking on a row that doesn't have focus, in an empty part of that row, engages "drag-to-select" mode.
-		- It shouldn't do that.
-		- It should never take a second click to properly select it for dragging, even if the window is not currently focused.
-		- How to actually engage drag-to-select mode:
-			- Shift+drag (reselect)
-			- Ctrl+drag (add to selection); Cmd+drag on macOS
-			- Right-click then drag before releasing button.
-			- Start a drag in the empty area below a listing, in detailed list view.
-		- Remove the option to start a drag-select when clicking on a non-name column.
-	- Progress log:
-		- 20261014: done. A plain press anywhere on a row selects it at once, and a drag from there moves the selection, whatever column it started in. A band starts only below the rows, with Ctrl or Shift from a row that isn't selected, or with the right button. The list view draws its own band now, since GTK's started on any row not yet selected and only took the left button.
-		- Options: Ctrl+drag and Shift+drag from a selected item band too, or stay a file drag with the key picking copy or move as before; went with the file drag. From an unselected item or empty space they band. Shift replaces the selection and Ctrl adds to it (Cmd on macOS).
-		- Options: the right-click menu stays on the press and the right button never bands, or the menu waits for the release and a right drag bands; went with the release. It opens only if the pointer stayed inside the drag threshold. A right click on a row that isn't selected still selects it first. Places and the tree open their menus on the release too, so every pane works the same. Shift+F10 and the Menu key are unchanged.
-		- Options: on Windows a right drag from an item bands as it does elsewhere, or stays a file drag with the drop menu as signed off 20261006 in the Windows drop keys item; went with the file drag. So on Windows the right button bands from empty space only. The background menu there now opens on the release too, where it opened on the press.
-		- Options: a plain drag that starts on a column other than Name bands, or moves files; went with moving files.
-		- Options: a plain drag in the empty space below the rows bands, or does nothing; went with banding.
-		- Options: the first click in a window or pane that isn't active only wakes it, or counts as a click; went with counting. In a split window the first click in the other pane was swallowed whenever that pane had a selection, in the list and icon views alike, so a drag from there took 2 presses.
-		- The right button goes through one small press record shared by both views and both side panes, which opens the menu on the release unless the press moved. A long press for the menu (2026101405542965) can hang off it.
-		- 20261014: signed off the Ctrl or Shift drag and the menu on the release. Explorer does the same as the Windows right drag here: a right drag of files drops with a Copy here, Move here, Create shortcuts here menu, and a right drag from empty space draws a box.
-	- Swept: the list, icon and compact views, Places and the tree, and the first click in the pane that isn't active in both views. Not changed: menus on the tab bar, path bar, toolbar and location bar, which open on the press as before.
-	- Verified: the drag select test passes in the list, icon and compact views, 3 runs in a row, and fails before the change. The keyboard menu, tree menu key, Places focus, list expander, row hover, treeview hit and icon accessible tests pass, and the drop tests rhtq57n1 and rfzh7ygg. Lint is clean as far as rj3ytv0b, and the test ID check passes. The Windows cross build is clean.
-	- Branch: dragsel
-	- Commit: 54bbf66
-	- Test case: rk7yvgse, Drag select test. In each view: a plain drag from a row or icon moves files and selects it at once, a plain drag from a selected item keeps the whole selection, Ctrl or Shift from an unselected item bands, Ctrl from a selected one moves files, a drag below the rows bands, a right press opens no menu until the release, and a right drag bands with no menu. Also Places and the tree menus on the release, and a drag in the pane that isn't active. Fails before the change and passes after. rjefm41d's right click sends the release as well now.
-	- Acceptance signoff: Left at signoff for the Windows right drag from an item.
 
 - A 7z with a password and links stored can't be checked, so Delete originals always keeps the originals.
 	- ID: 2026101310525352
@@ -682,40 +415,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rk8tkp4h, Bad name characters test: the list, the message, a rename, a new folder path, Edit link, and Rename graying out with the line under the box in both conflict dialogs. reww9h2r: extracted names on Windows, and the archive core's list matching the app's. reww9h2s: an archive with `*`, `?` and `:` in names unpacks on Windows.
 	- Acceptance signoff: Left at signoff for the wording, the line under the name boxes, and `_` in extracted names.
 
-- Compression reset: link choices and filesystem options in the Compress dialog.
-	- ID: 2026100516274386
-	- Type: Enhancement
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
-	- Needs external testing: the dialog on a real Windows desktop with 7-Zip installed. The Windows rows were seen under wine only, with a stand-in for 7-Zip.
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Prereq IDs: 2026100516274163, 2026100516274312
-	- Target OS: Linux, Windows
-	- Design: [Link handling](design_docs/20260929-101432_compression.md#link-handling).
-	- Requirements:
-		- Symlinks and Junctions radio groups replace the two link boxes. They show when the selection has a link or a folder. Junctions is Windows only.
-		- Follow nested filesystems and Follow other filesystems sit below them, disabled unless a folder or link is selected. Nested is hidden on Windows.
-		- A store choice the writer can't do is disabled. On Windows, 7z with a password or volumes disables Store as symlinks.
-		- The Follow flyover says a `.lnk` is always stored. The Store as symlinks flyover says when it forces one thread.
-		- Junctions takes its default from Symlinks by the table, until it is changed by hand.
-		- The size changes in the labels come with the live totals item.
-	- Estimated effort: High
-	- Actual effort: Avg
-	- Progress log:
-		- 20261013-082039: built. Left at signoff for the look, and for these calls:
-			- Whether the selection has a link or a folder comes from what the listing already knows, so nothing more is asked of a share.
-			- The store choices offered are the ones a writer that can also do the password and volumes can store. On Windows that is what takes Store as symlinks away from a 7z with either.
-			- A grayed choice shows as Ignore, and the choice is kept. It comes back with a format or options that can do it.
-			- The groups are labelled lists of radio buttons. The group's access key goes to the choice that's on, and arrows change it.
-	- Done: Symlinks and, on Windows, Junctions are radio groups in place of the 2 boxes, shown only when a link or a folder is selected. Follow nested filesystems, Linux only, and Follow other filesystems sit below them and are grayed for plain files. Junctions shows its default from Symlinks by the table until it's changed by hand. Follow's flyover says a `.lnk` always goes in as itself, and Store as symlinks says when it takes a 7z onto one thread. Only the Symlinks choice reaches the job yet, as the 2 boxes did, until 2026100516274423. The remembered values were already mapped over by 2026100516274163.
-	- Swept: both callers of the dialog, the view and the test. Every place that read the 2 boxes, which was only the dialog. The 7-Zip-on-Windows rule is now one switch in `nemo-archive.c`, the only place that had it.
-	- Verified: 20261013, full Linux suite 196 of 196 with warnings as errors, the Windows cross build, lint clean apart from rj3ytv0b. rhtmbdmj, rev86z08 and rhae85g0 pass under wine, rhtmbdmj with and without a stand-in for 7-Zip. Each new check went red against a fault put in the code.
-	- Branch: arcdlg
-	- Commit: c80c671
-	- Test case: rhtmbdmj, Compress dialog height test, for which groups show and what is grayed for a plain file or a folder, the store choices per format and with a password or volumes, the one-thread flyover, a grayed choice coming back, the group's access key, and on Windows the Junctions defaults and a hand change sticking. rev86z08, Archive options test, for the store choices per format and options, and when storing links costs threads.
-
 - Compression reset: Options opens by itself, gets a reset button, and unticks what the writer can't do.
 	- ID: 2026100516274646
 	- Type: Enhancement
@@ -749,41 +448,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: optreset
 	- Commit: c0a7ede
 	- Test case: rhtmbdmj, Compress dialog height test: closed with Reset grayed at the defaults, Reset lit by a change and by a password alone, Reset clearing them and closing Options, opening by itself for remembered choices with the buttons on screen, Reset dropping them from the settings file, and a remembered lock the format can't do opening Options, shown off and grayed, and back on with rar. rhae85g0, Archive settings test, test_choices: the defaults match the settings table, each choice off its default counts, a forced off shows off and leaves the choice, saving keeps it with a preset as its size, and the reset drops every key under Options and nothing else.
-
-- Compression reset: live size totals in the Compress dialog.
-	- ID: 2026100516274498
-	- Type: Enhancement
-	- Status: Done
-	- Needs local test suite run?: no.
-	- Needs external testing: the dialog on a real Windows desktop, with a junction, a symlink and a volume mounted in a folder in the selection, and a link onto a share. Under wine no links get made, so only the mounts, the share and the Junctions row were seen there.
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Prereq IDs: 2026100516274275, 2026100516274386
-	- Target OS: Linux, Windows
-	- Design: [Total size](design_docs/20260929-101432_compression.md#total-size) and [Background scan](design_docs/20260929-101432_compression.md#background-scan).
-	- Requirements:
-		- The dialog starts the background scan with the options as set, and narrows or restarts it as they change.
-		- Each follow option shows its size change. "Total size to include" sits on the left of the Cancel and OK row. Both update at most every 0.25 s.
-		- Cancel or OK stops the scan and frees it.
-	- Estimated effort: Avg
-	- Actual effort: Avg
-	- Progress log:
-		- 20261013-092952: built. Left at signoff for the look, and for these calls:
-			- The scan counts what the options as shown would do with the format, which is what the job does. A store choice grayed to Ignore counts as Ignore, and plain files follow nothing. A choice kept but not shown isn't counted.
-			- A Follow control shows its change only while it's on, as "(+N)" after its text. Off, the scan hasn't walked what it would add, so the design's 0 isn't shown.
-			- The total says "so far" until the walk for the options as set is done. After a comma it says how many places on a share were left out, and how many couldn't be read. Its tooltip says what each means.
-			- The total is a fixed width and wraps to a second line for a note, so the dialog doesn't change width as the numbers grow. It makes the dialog a little wider.
-			- A selection on a share isn't walked before Compress at all, and the total says it isn't counted there. Stopping a walk stuck on a share that doesn't answer would hang the dialog on Cancel.
-			- With items from more than one folder, as in search results, the first item's folder is the one crossings are told from.
-			- A Compress that comes back to the dialog, such as for an empty name or a refused overwrite, keeps the scan going. The one that starts the job frees it first.
-	- Done: the dialog walks the selection on a thread of its own with the options as shown, and moves the walk along as any choice or the format changes. "Total size to include" sits left of Cancel and Compress, and each Follow control that's on shows what it adds. Both come at most every 0.25 s. Cancel, Compress and the window going all stop the walk and free it, so no report comes after.
-		- Also: the dialog closed with its parent destroyed the freed window a second time. And each opening leaked the default volume size text, since 2026100516274646.
-	- Swept: every change to the choices goes through the one place that shows them, which now hands the scan its options, so the boxes, both radio groups, the format, Reset and the password all reach it. The dialog's two callers, the view and the test. The scan's other user is its own test.
-	- Verified: 20261013, rhtmbdmj went red with each of: the scan not moved along when a choice changes, a size change shown for the wrong option, plain files following what's chosen, a selection on a share walked, the scan never freed, and the window destroyed after its parent took it. It passes on Linux, under ASan and UBSan with leak checks, 6 copies at once, and under wine. Full Linux suite 196 of 196 with warnings as errors, the Windows cross build, lint clean apart from rj3ytv0b.
-	- Branch: livesize
-	- Commit: 9fc96be
-	- Test case: rhtmbdmj, Compress dialog height test, check_scan_sizes on a scratch tree with made-up mounts, links and a share: the total and each Follow control's change match the core's own numbers for the defaults, widened, widened with a format change, narrowed, and with a store choice. Plain files count nothing followed. A selection on a share isn't walked. Cancel frees the scan, a Compress that comes back keeps it, and the parent closing mid-scan frees it with no critical.
 
 - Compression reset: the job follows the new link and filesystem choices.
 	- ID: 2026100516274423
@@ -918,78 +582,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: cc3c0b0
 	- Test case: rewygsbg, Archive job test, check_reasons: a file, a folder, and both missing; a file, and a folder with a file, in the archive and not selected; both ways at once; the sizes when the counts match; no size when a count is off; 2 files of other sizes with the same total; an ignored link. rhtmbdmj, Compress dialog height test, probe_locked_links: the box's label.
 
-- Compression reset: move the compress code into the archive core.
-	- ID: 2026100516274683
-	- Type: Enhancement
-	- Status: Done
-	- Needs local test suite run?: No. The full Linux suite passed on the branch, 196 of 196.
-	- Needs external testing: None left. rewygsbg passes natively on b29w. rhr6ggmt fails the same 2 rows there on dev and on the branch, filed as 2026101313374036.
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Prereq IDs: 2026100516274349, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646
-	- Related IDs: 2026100516275399, 2026101313374036
-	- Target OS: Linux, Windows
-	- Design: [Modularity](design_docs/20260929-101432_compression.md#modularity) and [Roadmap](design_docs/20260929-101432_compression.md#roadmap).
-	- Requirements:
-		- Last, after every other reset item. The rest of the compress code moves behind the interfaces, with no change in what it does.
-		- Writer choice, command lines, writing, and the check before a delete go to the core. The Compress dialog and the progress bars go to the GTK layer. Menus, the job queue, settings, trash and the delete guard stay in nemo.
-		- Each piece moves once.
-	- Estimated effort: High
-	- Actual effort: High
-	- Progress log:
-		- 20261013-133740: moved, in 3 commits along the design's pieces, each building and passing the tests: writer choice and command lines, then the check before a delete, then writing. Left at signoff for these calls:
-			- The GTK layer is read as the GTK code outside the core: the Compress dialog in `nemo-archive-dialog.c` and the progress widget, which the core reaches only through its host. Both stay where they are. A library of their own would mean the dialog no longer reads nemo's settings and share check by itself, which is a rewrite, not a move. What moved toward the dialog is how tall its options may grow.
-			- nemo calls the moved code by its old names, from a list in `nemo-archive.h`, so the callers and the tests didn't change. Options for later: rename the callers to the core's names and drop the list.
-		- 20261013: rhr6ggmt failed once in a parallel run on Linux, in a rar row that keeps links with a password: the 2 links were missing from the archive. It didn't come back in 9 more runs of the branch, 6 of them side by side, or in 3 of dev.
-	- Decisions:
-		- A job reads the command lines and the thread count once, when it's made, and keeps its copy. Before, each line was read as it was built.
-		- The core names its 4 command lines, and nemo's settings keys are those names.
-		- The pre-scan's bar is a table of its own on the host, since the core test fills the other tables in order.
-		- An edited line missing `{{PASSWORD}}` or `{{SPLIT}}` is found by the core looking for the 2 markers, rather than by asking the host which tokens went unused.
-		- The core has its own copy of the Windows checks for where a link leads and for a PATHEXT name, as the design says.
-	- Done: `arc-writer`, `arc-command`, `arc-volumes`, `arc-verify` and `arc-compress` in `source/archive-core/`, which now links libarchive. `nemo-archive.c` keeps the job queue, the progress window and the callback, and `nemo-archive-host.c` fills a job's host with the progress, the pre-scan's bar, new files, other programs, deletes of what the job wrote, the trash and the dialogs. The lint's lists of who may delete and trash name `nemo-archive-host.c` in place of `nemo-archive.c`. No test changed. Extract code wasn't touched, and still calls the shared helpers by their old names.
-	- Swept: every `nemo_archive_` name in the tree has an alias or a definition. No core file names anything of nemo's. `test-nemo-archive-settings.c` still says the password prompt's rule is in `nemo-archive.c`; left, since the tests stay as they are.
-	- Verified: 20261013. On dev and on the branch, the same tests pass: rev86z08, rhae85g0, rewygsbg, rj4jewn6, rjbpyy28, rhr6ggmt, rhtmbdmj, rjq9mv0w, rjqef159, rexkeyng, reww9h2r, reww9h2s and the 4 archive leak tests on Linux; the 12 of them that aren't leak tests under ASan and UBSan with the leak check; and the 11 that build for Windows under wine. rhr6ggmt makes 315 runs on Linux and 52 under wine on both. Natively on b29w, rewygsbg passes on both and rhr6ggmt gives the same output on both. The full Linux suite on the branch: 196 of 196. The Windows cross build with warnings as errors, and the C lint, pass after each commit.
-	- Branch: arcmove
-	- Commit: 6fe9214, a6ee2ed, c97da18
-	- Test case: none new. rev86z08, rhae85g0, rewygsbg, rj4jewn6, rjbpyy28, rhr6ggmt, rhtmbdmj and the core tests stay as they are, and pass before and after.
-
-- Compression reset: move the extract code into the archive core.
-	- ID: 2026100516275399
-	- Type: Enhancement
-	- Status: Done
-	- Needs local test suite run?: No. The full Linux suite passed on the branch, 198 of 198.
-	- Needs external testing: None left. reww9h2r, reww9h2s, rjq9mv0w, rewygsbg and rhr6ggmt pass natively on b29w, with a long temp folder.
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Prereq IDs: 2026100516274683
-	- Related IDs: 2026101312094706
-	- Target OS: Linux, Windows
-	- Design: [Modularity](design_docs/20260929-101432_compression.md#modularity) and [Roadmap](design_docs/20260929-101432_compression.md#roadmap).
-	- Requirements:
-		- Extracting and the cleaning of stored paths move to the core, and the conflict dialog to the GTK layer, with no change in what they do.
-		- After this the core has no GTK and no nemo types, and its build shows it.
-	- Estimated effort: High
-	- Actual effort: Avg
-	- Progress log:
-		- 20261013-151358: moved in 2 commits, after the fix for 2026101312094706: names and command lines, then the extract job. Each built and passed the tests. Left at signoff for the same 2 calls as 2026100516274683:
-			- The GTK layer is read as the GTK code outside the core. The Extract conflict dialog stays in `nemo-extract-conflict-dialog.c`, and the password box moved from `nemo-extract.c` to `nemo-archive-host.c`. The core reaches both only through its host's 2 questions.
-			- nemo calls the moved code by its old names, from a list in `nemo-extract.h`, so the callers and the tests didn't change.
-	- Decisions:
-		- A job reads the 2 extract lines once, when it's made, as a compress job does. Before, each line was read as it was built.
-		- When the conflict question is answered with Cancel, nemo's side stops the job through its progress, as before, so a job paused by hand wakes up to stop. The core cancels too, for a host that has no question.
-		- Looking up the programs that extract sits beside the lookup for the ones that compress, and a test hides both the same way.
-		- The build check reads the core's compile lines and the library itself, on top of the lint, which reads the sources.
-	- Done: `arc-extract-names` and `arc-extract` in `source/archive-core/`, plus the extract lines in `arc-command` and the program lookup in `arc-writer`. `nemo-extract.c` keeps the job queue, the progress window and the callback. `nemo-archive-host.c` answers the conflict and password questions with the 2 dialogs, and removes a replaced file or the staging folder through the delete guard. After this nothing in the core names GTK or nemo.
-	- Swept: every caller of the old names, in `nemo-view.c` and 5 tests, builds unchanged. The lint's lists of who may delete or walk folders needed nothing new, since the core asks its host for both.
-	- Verified: 20261013. reww9h2r, reww9h2s and rjbpmcxy pass on dev and after each commit, and under the address and undefined behavior checks. Each answer to the conflict question, with and without "Apply to all", leaves the same files on dev and on the branch. rk6704r8 fails with GTK in the core's dependencies, with the app's folder on its include path, and with a call to a GTK function in a core file. Under wine `test-arc-core`, `test-nemo-extract`, `test-nemo-extract-job` and `test-nemo-archive` pass. The cross build with warnings as errors passes after each commit. The full Linux suite passed, 198 of 198.
-	- Branch: xmove
-	- Commit: 93d44bc, f180fe4
-	- Test case: reww9h2r, reww9h2s and the extract leak test rjbpmcxy stay as they are, and pass before and after. rk65m3m4 from 2026101312094706. rk6704r8, Archive core build test: no GTK or app folder or define on a core file's compile line, and no call into GTK, GDK or nemo in the core library.
-	- Acceptance signoff: Left at signoff for the GTK-layer reading and the alias list, as 2026100516274683.
-
 - On Windows, the zip and the copy `install.ps1` puts in place draw with GTK's default theme and font.
 	- ID: 2026101007562511
 	- Type: Bug
@@ -1014,30 +606,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: ziptheme
 	- Commit: cb3445f
 	- Test case: rk50ewvs (`test-bundle-settings.ps1`), run on the zip in the packages stage, on the flat tree before the single exe is packed, and on the `install.ps1` copy in rj72n4xb.
-
-- Leaving an empty search page from history and searching again searches the whole disk.
-	- ID: 2026101406405845
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: the sanitizer lane, since the remembered queries are held until exit. The full Linux suite passed 20261014 on dev at 54239d1, 206 of 206. The nearby search, find, tab and title tests passed, 14 of 14.
-	- Needs external testing: done 20261014, the Windows cross build with warnings as errors passed on the longpress branch, which has this fix.
-	- Priority|Severity: Avg
-	- Opened: 20261014-064058
-	- Opened by: 2026101405542816
-	- Related IDs: 2026101405542816
-	- Target OS: All
-	- Steps to reproduce: search a folder, go Back, then Forward. An empty "Search" page shows. Click the search button, which leaves it on that page. Then search again.
-	- Incorrect behavior: the search runs from the root of the disk, and the path bar and title say "Search in "(null)"".
-	- Expected behavior: Forward shows the search it left, or the folder it was in, and a search never starts without a folder to search in.
-	- Reproduced: 20261014, Linux. Forward showed an empty "Search" page, and the search button left it on that same page.
-	- Actual cause: a search's query lives on its search page, and the page is let go once nothing shows it. The history keeps only the address, so Forward made a new page with no query and no folder. Leaving find mode goes back to the folder the bar was opened from, which on that page was the page itself. A query with no folder then searched from the root of the disk, since every search engine starts there when it's given no folder.
-	- Actual fix: each search page's last query is kept by its address, and a page made again for that address gets it back. So Back, Forward and the history menus show the search as it was left, and run it again in the same folder. A jump through the history menu from one search straight to another also puts the other's text and folder in the search bar. Another window gets the folder that was searched, rather than an empty search page, since it's usually another process. A query with no folder is dropped, so it searches nothing, and leaving a search page nothing is known of goes home. design.md "Search" says so.
-	- Progress log:
-		- 20261014: Options: a search page given on the command line, or typed, is still an empty "Search" page. It could go home at once instead. Left as is, the reason is because nothing makes such an address now, and a query there searches nothing.
-	- Swept: every way into a search page. Back and Forward, the history menus and a middle click on Back or Forward for a new tab all open the address in this process, so the query comes back. The second pane after split view is turned off and on again keeps its address the same way (read, not run). New window, a middle click for a new window, the location bar's new window and a command line all go through the one call that opens another window, which hands over the folder. A tab can't be moved, or torn off, while it shows a search. There's no closed tab or session restore to sweep. The 3 engines all start from the root with no folder, and the search page is the only caller that starts one, so the guard sits there.
-	- Branch: findhist
-	- Commit: 2ee7d8b
-	- Test case: rk7y2ch7, Search in history test. It searches a folder, goes Back and Forward, leaves find mode, goes Back into the search, leaves again, searches for something else, then jumps to the first search through Back's history menu. On dev it failed at Forward, and the leave after it stayed on the empty page. It passes after. Without the search bar part of the fix, the history menu check fails. rgy4vnf0, Search folder test, also checks that a search page made again for an old address searches what it did, and that one handed a query with no folder searches nothing. Both fail with the fix taken out and pass with it.
 
 - On Windows, a file dragged onto the window from another program may not drop.
 	- ID: 2026101007562587
@@ -1066,146 +634,47 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 6db861b
 	- Test case: rk8vn5kr, Drop from another program win32 test. A drag with only the plain file list is handed to the window's drop target the way Windows would: it moves within one folder, copies when only copy is allowed, and plain text is still refused. It skips where there's no monitor.
 
-- Pre-populate the "Bulk rename" command.
-	- ID: 2026101405543076
-	- Type: Enhancement
-	- Status: Done
-	- Needs local test suite run?: done 20261014 on dev at 6276301, passed 204 of 204.
-	- Needs external testing: on vm925w, rk7wrme6 and rhtmbdmd in the native suite. Then by hand, with the single exe: the settings field and its tooltip, and F2 on several files, folders and a name with a space, with ReNamer and then Ant Renamer installed.
+- In the single exe on Windows, a program packed inside it that needs libgsf can't start.
+	- ID: 2026100617051745
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs external testing: the single exe in the desktop session on vm925w with MacType running, office files in the icon view and a content search through them. No box, and thumbnails and matches as on Linux.
 	- Priority|Severity: Avg
-	- Opened: 20261014-055430
-	- Opened by: t00mietum
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-		- Use the first match from the "ideal" list below that is installed on the user's system. If none are installed, populate the first "ideal" match from below.
-		- Ideal list in order of preference:
-			- Linux and BSD:
-				- DEs using GTK+: `thunar --bulk-rename`
-				- DEs using Qt: `krename`
-			- Windows:
-				- `"C:\Program Files\ReNamer\ReNamer.exe"`
-				- `"C:\Program Files\Ant Renamer\Renamer.exe" -af`
-			- macOS:
-				- `open -a NameChanger`
-				- `open -a Transnomino`
-				- `open -a Renamer`
-				- `open -a "A Better Finder Rename 12"`
-		- Flyover tip text (label and control): "Renamer programs need only accept a quoted list of files or folders. Known or suspected to work:\n\n<list of programs from above that run on the platform, with the DE's widget style listed first.>"
+	- Opened: 20261006-170517
+	- Opened by: 2026100615255268
+	- Related IDs: 2026100615255268, 2026100612483725, 2026100714014948, 2026100815215479
+	- Target OS: Windows
+	- Steps to reproduce: in the single exe, open a folder with an OpenDocument file that has a thumbnail inside, in the icon view, with 2026100615255268's fix in.
+	- Incorrect behavior: the gsf-office thumbnailer starts, from a temporary copy the packer makes, and shows the packer's message box "Cannot load library libgsf-1-114.dll". It waits there until the thumbnail's 30 second limit ends it, and if the app is closed first, it stays up after the app is gone. The search converters for Word, Excel and PowerPoint files need the same library, so a content search through them likely does the same. Not tried.
+	- Expected behavior: office files get thumbnails, and their text is searched, with no helper program started.
+	- Reproduced: 20261006 on vm925w, in the desktop session, with the message box seen.
+	- Possible cause: not known. libgsf-1-114.dll and everything it needs are in the pack. gdk-pixbuf-thumbnailer started the same way loaded its libraries, all of which the app itself has loaded. Loading libgsf in the app first didn't help, so that isn't the difference.
+	- Reproduced: 20261007 on vm925w, in the desktop session, with a single exe built from this branch. 3 OpenDocument files, 3 thumbnailers, 3 boxes. Outside the desktop session the same exe made the thumbnails.
+	- Actual cause: MacType, a font tool installed on vm925w. It loads into every program in the desktop session and hooks how they start programs. With it loaded in the single exe, a program packed inside the exe and started from it can load none of the libraries packed beside it. It isn't libgsf. A small packed test program couldn't load zlib or bz2 either, and gsf-office-thumbnailer failed the same way under it.
+		- With the exe renamed to a name on MacType's exclusion list, the single exe drew all 3 thumbnails in the desktop session.
+		- The single exe started as itself, rather than a program packed inside it, loads its libraries with MacType loaded.
+		- Ruled out: a library missing from the pack, the temp folder spelled in its short form, the PATH, elevation, and the start flags (no window, handles, detached).
 	- Progress log:
-		- 20261014: the field was empty by default, so F2 on several files did nothing. On Linux the files went to the renamer as `file://` addresses. They go as paths now, as on Windows, so any renamer that takes a list of files works. A file with no local path still goes as its address.
-		- 20261014: Ant Renamer adds what follows `-af` as files. A folder would need `-aF`. Kept as listed.
-		- 20261014: Options for later: on Linux a renamer that isn't installed fails with no message, as any command line from the settings does there. Windows shows "The program couldn't be started." Not changed here.
-		- 20261014: left at signoff for the tooltip and the field's look, and for the reading of "the DE's widget style" in Decisions.
-		- 20261014: Ant Renamer goes last in the list. It was already last on Windows, so nothing changed.
+		- 20261007: cause found, as in Actual cause. Nothing in the app or the pack is wrong, but any MacType user gets the box for every office file, and for every picture too if 2026100617051845 keeps bare names. 3 ways to go:
+			- (a) Leave the code. README says to add the exe's name to MacType's exclusion list.
+			- (b) Start these helpers as the single exe itself, with a mode for each. Costs the packer's start, about 2.5 s, per thumbnail or searched file.
+			- (c) Read office thumbnails, and the text of Word, Excel and PowerPoint files, inside the app, with no helper program.
+		- 20261007: went with (a), plus ending a stuck helper with the app. Punted (c).
+		- 20261008: changed my mind, (c). The app has to live with outside programs like MacType that sit between it and Windows, so the fewer programs it starts, the better. Back to Queued for it.
+		- 20261009: (c) split into 2026100909260472 (zip formats through libarchive), 2026100909260511 (our own OLE2 reader for the old binary files) and 2026100909260549 (libgsf, the thumbnailer and the converters leave the build and every bundle). This stays Queued until they close.
+		- 20261015: all 3 are Done, so this waits only on the MacType run on vm925w.
 	- Decisions:
-		- The renamer found is the setting's default, not a stored value. It's worked out once per run and never written unless changed, and typing the same command back writes nothing. An emptied field is stored as empty, which means no renamer, as before.
-		- On Linux and the BSDs the desktop's toolkit orders the list, for both the pick and the tooltip: KRename first under KDE, LXQt, Deepin and UKUI, and Thunar's first anywhere else.
-		- On Windows the paths follow the Program Files folder, which is `C:\Program Files` on nearly every machine.
-		- The tooltip lists the commands as they'd go in the field.
-		- The macOS list is in the code but not built.
-	- Swept: how the renamer is started on Linux and Windows, and every place the settings store reads a default for a string: a read, a write that matches the default, and the list of defaults in the settings file. The key table and the schema have the new description.
-	- Verified: rk7wrme6 passes on Linux and under wine. It fails 6 checks with the found default taken out of the settings store. rk7wywt9 fails before the change, with the 3 files sent as `file://` addresses, and passes after, 5 runs. rhtmbdmd's new checks fail with the tooltips left off and pass with them. The macOS part passes a syntax check. Windows cross build clean. The 26 related tests pass, the schema drift test rfazc870 among them. Lint clean apart from rj3ytv0b, which always fails in a worktree.
-	- Branch: escrename
-	- Commit: c319d75
-	- Test case: rk7wrme6, Bulk rename default test: the pick by what's installed and by desktop, the tooltip's list, nothing written for the default, an empty value kept. rk7wywt9, Bulk renamer gets paths test: F2 on 3 files hands the renamer their paths, with a space, a percent sign and a quote in them. rhtmbdmd, Settings dialog test: the field shows the default without storing it, and the label and field have the tooltip.
-	- Acceptance signoff: Signed off 20261014. KRename first on Qt desktops, and Ant Renamer with `-af`.
-
-- Drag-to-select works as it currently does in the other two views.
-	- ID: 2026101405542928
-	- Type: Enhancement
-	- Status: Done
-	- Needs local test suite run?: done 20261014 with 2026101405542891, passed.
-	- Needs external testing: Windows, with 2026101405542891.
-	- Priority|Severity: Avg
-	- Opened: 20261014-055428
-	- Opened by: t00mietum
-	- Related IDs: 2026101405542891
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-		- But those views also allow the new methods added for detailed list view.
-	- Progress log:
-		- 20261014: done with 2026101405542891. A plain drag from the background bands at once, as before, and a plain drag from an icon moves files. New: Ctrl or Shift and a drag from an icon that isn't selected bands, and so does a right drag, whose menu now opens on the release.
-		- Options: a Ctrl band toggles every icon it crosses, as it did, or adds to the selection; went with adding, to match the list view. Shift on the background now replaces the selection, where it used to toggle like Ctrl.
-		- The Windows, right button and first click calls are the ones in 2026101405542891.
-	- Verified: as in 2026101405542891, icon and compact views.
-	- Branch: dragsel
-	- Commit: 54bbf66
-	- Test case: rk7yvgse, Drag select test, its icon and compact view runs. Fails before the change and passes after.
-	- Acceptance signoff: Signed off 20261014. Ctrl adds and Shift replaces.
-
-- Additional ways to get right-click menu.
-	- ID: 2026101405542965
-	- Type: Enhancement
-	- Status: Done
-	- Needs local test suite run?: done 20261014 on dev at 99e8595, passed 207 of 207.
-	- Needs external testing: Windows, on vm925w once it's on. A long press opens the menu on an item and on empty space in the list and icon views, in Places and in the tree, and the menu stays up once the button comes up. The Windows cross build is clean.
-	- Priority|Severity: Avg
-	- Opened: 20261014-055428
-	- Opened by: t00mietum
-	- Related IDs: 2026101405542891
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-		- Left-click and hold for a while. (How long?)
-			- When it pops up, selection doesn't change on mouse release, including multiple selections.
-	- Progress log:
-		- 20261014: done. A plain left press held still opens the same menu a right click does, on an item or on empty space in all 3 views, and in Places and the tree. The release after it goes to the menu, so the selection stays as it was, a multiple selection too, and no rename starts and nothing opens. The menu stays up after that release, and a release over a menu item picks it, as after a right press held down.
-		- Options: GTK's long-press time, a fixed 700 ms, a fixed 1 s. Went with GTK's long-press time.
-		- Options: Ctrl or Shift held with a long press opens the menu too, or only a plain press does; went with a plain press. Ctrl and Shift already band, or pick copy or move.
-		- It hangs off the press record the right button uses since 2026101405542891, so the views and side panes share one timer.
-	- Decisions:
-		- The wait is GTK's long-press time, the `gtk-long-press-time` setting, 500 ms unless the desktop or theme sets it.
-		- A press that moved past the drag threshold is a drag or a band, and never opens the menu, even if it comes back.
-	- Swept: the list, icon and compact views, on an item and on empty space, Places and the tree, which are every place the right-click menu opens on the release. Not changed: menus on the tab bar, path bar, toolbar and location bar, which open on the press.
-	- Verified: rk80w1ds passes in the list, icon and compact views, 3 runs in a row and once with the cores loaded, and fails before the change. The drag select test rk7yvgse passes, and so do the keyboard menu, tree menu key, Places focus, Places heading, list expander, row hover, treeview hit, icon accessible, menus freed and drop tests. The Windows cross build is clean. Lint is clean as far as rj3ytv0b, and the test ID check passes.
-	- Branch: longpress
-	- Commit: 0925ff7
-	- Test case: rk80w1ds, Long press menu test. In each view: a long press on a selected item waits for GTK's long-press time and opens the menu with all 3 selected kept, the menu stays up after the release, a long press as the second slow click starts no rename, a quick click only selects, a long press on empty space opens a menu, and a band, a press that went out and came back, or a file drag held still opens none. Also Places, where the release opens nothing, and the tree. Fails before the change and passes after.
-	- Acceptance signoff: Signed off 20261014, GTK's long-press time.
-
-- Take libgsf, the gsf-office thumbnailer and the 4 search converters out of every bundle and the build.
-	- ID: 2026100909260549
-	- Type: Enhancement
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
-	- Needs external testing:
-		- Done 20261009 on vm925w, passed. It was: the native suite on vm925w, for rjmc40ex, rjvb97aa, rjvtggme and rfhnaccg, and the seed replays rhatwe0r, rhatwe0s and rhatwe0t.
-		- Done 20261009 on vm925w, passed. It was: the single exe built from this branch, in the desktop session on vm925w with MacType running: an .odt with no picture inside, a .doc with a metafile preview, and a content search through office files, on a box with no thumbnailer or search helper installed for these types. Plain icons where there is no picture, the matches, no box, and no other program started. The staged `win-flat` has no libgsf dll, no gsf-office files and no `*-to-txt` exe.
-		- Failed 20261013, see Progress log. It was: a full pipeline with `--include-arm --include-bsd`: both prefix checks, "Windows bundle check" and "FreeBSD bundle check" pass. The FreeBSD pkg made before this change depends on libgsf, so "FreeBSD bundle check" stops a run until the FreeBSD lane makes a new one.
-		- The Windows release workflow on the next tag, with libgsf gone from its package list.
-		- A full pipeline with `--include-arm --include-bsd`, after the fix to rjvwpz9d: both prefix checks, "Windows bundle check" and "FreeBSD bundle check" pass.
-	- Priority|Severity: Avg
-	- Opened: 20261009-092605
-	- Opened by: 2026100617051745
-	- Parent ID: 2026100617051745
-	- Prereq IDs: 2026100909260472, 2026100909260511
-	- Related IDs: 2026100914514406
-	- Target OS: All
-	- Requirements:
-		- No libgsf in the build, the sysroot, the MSYS2 package lists, the deb's Depends or any bundle.
-		- No `gsf-office-thumbnailer` and no `nemo-anywhere-*-to-txt` programs or their helper definitions in any bundle.
-		- The tests and fuzz targets that use libgsf to write or read files move to the app's own readers and a writer that needs no libgsf.
-	- Note: rjmc40ex skips when no gsf-office thumbnailer is found, but its .odt now gets its thumbnail from the app's reader. Its skip goes, and its check that a thumbnailer is found by extension needs another type.
-	- Progress log:
-		- 20261009: done. The 4 converters, their definitions and the libgsf dependency are gone from the build. The fuzz targets for the Excel, PowerPoint and Word parsers now run the app's own parsers, with the same seeds. The converter test runs its old cases through the app's reader, on files written with libarchive and with the compound file writer from 2026100909260511, which now sits in a file of its own for both tests. rjmc40ex lost its skip. It finds a stand-in thumbnailer for PDF by extension, and its .odt gets the reader's picture.
-		- 20261009: libgsf is out of the cross sysroot's package list, the MSYS2 lists, the build images and the deb's fallback Depends line. The Windows bundles leave out gsf-office's thumbnailer descriptor, the same way as gdk-pixbuf's, since MSYS2 on a box with libgsf still has it.
-		- 20261009: the `nemo-winbuild:init` image still has libgsf and gsf-office's descriptor in its sysroot. The next image build leaves them out. Until then the zip leaves the libgsf dlls out itself. The Linux images still have libgsf-1-dev installed, which nothing links now, so they need no rebuild.
-		- 20261009: at first the fall-back to an installed thumbnailer or search helper went too, for a file the reader gets nothing from. Put back: the app's reader comes before any installed one, not instead of it, as decided in 2026100617051745. Only what the app bundled goes.
-		- 20261009: README's MacType note stays. As far as can be read here, the single exe still starts a packed program: GLib's spawn helper, for a new window or a tab moved to its own window. Filed as 2026100914514406. Not tried under MacType.
-		- 20261013: back to Queued. The full pipeline at dev 5ca50b7 stopped at the x86_64 prefix check: rjvwpz9d refuses `mso-doc.nemo_search_helper` in the tarball, deb and rpm. That file is catdoc's definition, which stays, as decided here, so the check's list is wrong, not the bundles. The arm64 and FreeBSD bundle checks didn't run, since the package checks stop at the first failure. The FreeBSD lane made a new pkg in the same run.
-		- 20261014: rjvwpz9d's list no longer names catdoc's `mso-doc.nemo_search_helper`. Its self-test now has catdoc's definition in the good tarball and zip, and a bundled converter's definition, `mso-word.nemo_search_helper`, among the bad ones. Back to Waiting for testing.
-	- Decisions:
-		- 20261009: the fall-backs in 2026100909260472 and 2026100909260511 stay. For a file the app's reader gets nothing from, such as one with no picture inside, a metafile preview, or one that doesn't read, a thumbnailer or search helper installed on the system still gets its turn. So on Linux a distro's thumbnailer for .docx still runs after the reader. Only the programs the app bundled go.
-		- 20261009: catdoc's search helper definition stays. It names a program installed on the system, not one the app bundled.
-	- Swept: every bundle and lane that copied the programs, the dlls or the descriptors: the native stage, the zip, the cross build's strip, the wine runner, the Linux tarball, deb and rpm through meson's install, and the FreeBSD pkg, whose deps come from what the binaries link. The factory and the search walk are as on dev: the reader first for these types, then anything installed.
-	- Verified: 20261009, the app and every test built with libgsf's development files removed from the build container and from the cross sysroot. Full Linux suite 188 of 188. rjvb97aa and rjvtggme fail with the fall-backs taken out, since then the stand-in thumbnailer and search helper never run for the files with no picture and the ones that don't read. They also fail with the reader skipped in the factory, since then the stand-in runs for files that have a picture. They pass as on the branch. rjmc40ex fails with the extension lookup taken out and passes with it, under wine. rjmc40ex, rjvb97aa, rjvtggme, rfhnaccg and the 5 office seed replays pass under wine, where the stand-ins are seen to run too. All 12 fuzz targets ran 20 s each with no find. The bundle check fails on every bundle in the release folder from before the change, and passes on a fresh install of this branch and on a zip packed from the old sysroot. Its self-test fails with the name and dependency checks taken out. rjnyer4p fails with gsf-office's descriptors kept. Lint clean apart from rj3ytv0b, which always fails in a worktree.
-	- Verified: 20261009 on vm925w at dev 186065a. rjmc40ex, rjvb97aa, rjvtggme, rfhnaccg, rjvtghmd, rhatwe0r, rhatwe0s and rhatwe0t pass in the native suite. The staged `win-run` and `win-flat` have no libgsf dll, no gsf-office file and no `*-to-txt` exe; catdoc's helper definition is still there, as decided. The single exe from the same commit, in the desktop session with MacType running and loaded into the app: an .odt with no picture inside and a .doc with a metafile preview show plain icons, and a content search found a word in each, and in each of the other office files. The app started no other program, and no box came up.
-	- Verified: 20261014, rjvwpz9d's self-test fails with catdoc's definition still on the list, on the good tarball and the good zip, and passes after. It also fails with `mso-word.nemo_search_helper` taken off the list. The check passes on the tarball, deb and rpm for x86_64 and arm64, the zip and the FreeBSD pkg and tarball left by the 20261013 run, each of which has catdoc's definition. Lint clean apart from rj3ytv0b, which always fails in a worktree.
-	- Branch: nogsf, tipsfix
-	- Commit: 7c4e340, 6748a54, 64f69e1
-	- Test case: rjvwpz9d, Bundle check: no libgsf, gsf-office thumbnailer, converter or their definitions in the tarball, deb, rpm, zip or FreeBSD pkg, and no Depends, Requires or pkg dep on libgsf. catdoc's definition is let through. The prefix check rhtq57n5 runs it on each arch's Linux files, and its self-test runs in the lint stage. rjvb97aa and rjvtggme: files with a picture or text get it from the reader, and the stand-in thumbnailer and search helper installed for these types aren't run. Files with no picture inside, a metafile preview, and files that don't read get nothing from the reader, and then the stand-ins run. rjmc40ex and rfhnaccg as in Progress log.
+		- 20261007: (a). README tells MacType users to add the exe to MacType's exclusion list. Replaced by (c) on 20261008. The README note stays until the single exe starts no packed program at all, which also needs 2026100815215479.
+		- A helper the app starts and waits on or reads from ends with the app, however the app ends: a thumbnailer, a search converter, an archive tool, ImageMagick, an action's condition. A user's own program started for an action keeps running, as on Linux.
+		- 20261008: (c), on every platform, so there is one code path. The app reads office thumbnails itself, and the text of Word, Excel, PowerPoint, OpenDocument and EPUB files. That replaces the gsf-office thumbnailer and the 4 search converters. For those types the app's own reader comes before any thumbnailer or search helper installed on the system.
+		- 20261008: no libgsf. The zip-based formats, OOXML, OpenDocument and EPUB, are read through libarchive, which the app already links. The old binary Word, Excel and PowerPoint files are a container format of their own, and a small reader of ours replaces libgsf there. The converters' own record parsing moves over as it is. libgsf, the thumbnailer and the 4 converter programs leave every bundle.
+		- 20261008: a bad file must never crash the app. The readers check every read against the bounds of the file, cap sizes, counts and nesting depth, and trust no length the file gives. They stay in the fuzz stage and the sanitizer suite, and each read runs off the window's thread.
+	- Actual fix: README, under Current limitations, says to add the portable exe to MacType's exclusion list, and that the installed copy isn't affected. On Windows the launcher puts each helper in a job that Windows ends along with the app. The helper goes in before it runs, so anything it starts goes too. This is the (a) half. (c) isn't started.
+	- Swept: every direct start in `nemo-launch-win32.c`. The pipe for thumbnailers, ImageMagick and conditions, and the tool runs behind archive, extract, search converters and thumbnailers, are in the job. An action's console program is left out. The shell and service routes start programs outside the app, which are never helpers.
+	- Verified: the runs in Reproduced and Actual cause, on vm925w. rjpatrck fails before the fix and passes after, natively on vm925w and under wine. On vm925w in the desktop session with MacType running, a single exe built from this branch showed the box for 3 OpenDocument files. Closing the app ended all 3 helpers, and so did killing it. The native suite on vm925w: 155 OK, 0 fail, 12 skipped. The full Linux suite: 176 of 176. Not tried: the installed copy under MacType. It isn't packed, so it is read as unaffected.
+	- Branch: thumbwin
+	- Commit: f38660a to f8a6223
+	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session. (c) still needs its own: a thumbnail and the text from a small file of each type, on every platform, and a check that no program is started for them.
 
 - On Windows, the trash icon leaves out removable drives.
 	- ID: 2026100708294146
@@ -1231,32 +700,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: winlow
 	- Commit: 0dab690
 	- Test case: rjhvmm6f, Mapped drive not asked, new bin cases: a fixed drive's bin is asked, a removable one's only with a disk in it, an empty drive answers in under 2 s, and no share or optical drive is asked.
-
-- Search view and regular view need to remember their own column settings.
-	- ID: 2026101405542816
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: done 20261014 on dev at 6276301, passed 204 of 204. The nearby search, view, tab and settings tests passed, 13 of 13.
-	- Priority|Severity: Avg
-	- Opened: 20261014-055428
-	- Opened by: t00mietum
-	- Related IDs: 2026100613285826, 2026101406405845
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-	- Steps to reproduce: with "Remember per-folder settings" off, switch a folder to icon view, then search.
-	- Incorrect behavior: the find results show as icons, with no columns. Switching them to the list view and leaving find mode leaves the folder in the list view too.
-	- Expected behavior: find results open in the list view with their own columns, and a view picked for them doesn't change the folder's.
-	- Reproduced: 20261014, Linux. The view was the only thing shared. With per-folder settings off and on, the shown columns, their order, the widths and the sort each stayed apart in both directions: a column picked or hidden from the header menu, a header drag, a header click, Use default, a width drag on Name and on Ext, then leaving by the search button or by Back and Forward. The Windows build kept the columns and sort apart the same way.
-	- Actual cause: with per-folder settings off, the window has one view for everything shown in it, find results included. Find results took the window's view, and a view picked for them became the window's. With them on, nothing is kept for find results, so a new query went back to the list view.
-	- Actual fix: find results open in the list view whatever view the folder is in. A view picked for them lasts until find mode is left, through a new query too, and never becomes the window's or the folder's. A new default view from Settings still reaches the folders behind find mode. README and design.md "Search" say so.
-	- Progress log:
-		- 20261014: Options: find results could also keep a picked view for later searches, in its own setting, like the columns. Left out, since only the columns were asked for. If the columns themselves were seen leaking, the steps that showed it would help, since none of the above did.
-		- 20261014: what was seen was the columns, not the view. Can't reproduce for now. The view fix stays in.
-	- Swept: every place that picks or keeps a view: loading a location, a pick from the View menu or toolbar, a new default view, the switch for picture folders (never kept, unchanged), and a tab moved between windows (keeps the view it came with, unchanged). The list view's zoom in find results was already never kept. The icon view's zoom there still follows the window's, now only after icon view is picked for the results.
-	- Branch: colsplit
-	- Commit: 0d17dd2
-	- Test case: rk7wxqh5, Find mode view test. It puts a folder in icon view, searches, picks compact view for the results, searches again and leaves, with per-folder settings off and on. Before the fix it failed 3 checks: icons in find mode and compact left on the folder with them off, and the list view back after a new query with them on. It passes after.
 
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440
@@ -1311,47 +754,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: 20261014 on Linux, from a folder on disk to one in `/dev/shm`, and on b29w from a share to a local folder. The second dialog asking about `a.txt` again was seen on b29w.
 	- Possible cause: a move to another drive is tried as a rename first, and when that's refused it's redone as a copy and delete. What `move_file_prepare` keeps for the copy (`MoveFileCopyFallback`) is the source and the overwrite answer, not the name picked. The copy works the name out again from the source.
 	- Test case: TBD
-
-- In the single exe on Windows, a program packed inside it that needs libgsf can't start.
-	- ID: 2026100617051745
-	- Type: Bug
-	- Status: Queued
-	- Needs external testing: the single exe in the desktop session on vm925w with MacType running, office files in the icon view and a content search through them. No box, and thumbnails and matches as on Linux.
-	- Priority|Severity: Avg
-	- Opened: 20261006-170517
-	- Opened by: 2026100615255268
-	- Related IDs: 2026100615255268, 2026100612483725, 2026100714014948, 2026100815215479
-	- Target OS: Windows
-	- Steps to reproduce: in the single exe, open a folder with an OpenDocument file that has a thumbnail inside, in the icon view, with 2026100615255268's fix in.
-	- Incorrect behavior: the gsf-office thumbnailer starts, from a temporary copy the packer makes, and shows the packer's message box "Cannot load library libgsf-1-114.dll". It waits there until the thumbnail's 30 second limit ends it, and if the app is closed first, it stays up after the app is gone. The search converters for Word, Excel and PowerPoint files need the same library, so a content search through them likely does the same. Not tried.
-	- Expected behavior: office files get thumbnails, and their text is searched, with no helper program started.
-	- Reproduced: 20261006 on vm925w, in the desktop session, with the message box seen.
-	- Possible cause: not known. libgsf-1-114.dll and everything it needs are in the pack. gdk-pixbuf-thumbnailer started the same way loaded its libraries, all of which the app itself has loaded. Loading libgsf in the app first didn't help, so that isn't the difference.
-	- Reproduced: 20261007 on vm925w, in the desktop session, with a single exe built from this branch. 3 OpenDocument files, 3 thumbnailers, 3 boxes. Outside the desktop session the same exe made the thumbnails.
-	- Actual cause: MacType, a font tool installed on vm925w. It loads into every program in the desktop session and hooks how they start programs. With it loaded in the single exe, a program packed inside the exe and started from it can load none of the libraries packed beside it. It isn't libgsf. A small packed test program couldn't load zlib or bz2 either, and gsf-office-thumbnailer failed the same way under it.
-		- With the exe renamed to a name on MacType's exclusion list, the single exe drew all 3 thumbnails in the desktop session.
-		- The single exe started as itself, rather than a program packed inside it, loads its libraries with MacType loaded.
-		- Ruled out: a library missing from the pack, the temp folder spelled in its short form, the PATH, elevation, and the start flags (no window, handles, detached).
-	- Progress log:
-		- 20261007: cause found, as in Actual cause. Nothing in the app or the pack is wrong, but any MacType user gets the box for every office file, and for every picture too if 2026100617051845 keeps bare names. 3 ways to go:
-			- (a) Leave the code. README says to add the exe's name to MacType's exclusion list.
-			- (b) Start these helpers as the single exe itself, with a mode for each. Costs the packer's start, about 2.5 s, per thumbnail or searched file.
-			- (c) Read office thumbnails, and the text of Word, Excel and PowerPoint files, inside the app, with no helper program.
-		- 20261007: went with (a), plus ending a stuck helper with the app. Punted (c).
-		- 20261008: changed my mind, (c). The app has to live with outside programs like MacType that sit between it and Windows, so the fewer programs it starts, the better. Back to Queued for it.
-		- 20261009: (c) split into 2026100909260472 (zip formats through libarchive), 2026100909260511 (our own OLE2 reader for the old binary files) and 2026100909260549 (libgsf, the thumbnailer and the converters leave the build and every bundle). This stays Queued until they close.
-	- Decisions:
-		- 20261007: (a). README tells MacType users to add the exe to MacType's exclusion list. Replaced by (c) on 20261008. The README note stays until the single exe starts no packed program at all, which also needs 2026100815215479.
-		- A helper the app starts and waits on or reads from ends with the app, however the app ends: a thumbnailer, a search converter, an archive tool, ImageMagick, an action's condition. A user's own program started for an action keeps running, as on Linux.
-		- 20261008: (c), on every platform, so there is one code path. The app reads office thumbnails itself, and the text of Word, Excel, PowerPoint, OpenDocument and EPUB files. That replaces the gsf-office thumbnailer and the 4 search converters. For those types the app's own reader comes before any thumbnailer or search helper installed on the system.
-		- 20261008: no libgsf. The zip-based formats, OOXML, OpenDocument and EPUB, are read through libarchive, which the app already links. The old binary Word, Excel and PowerPoint files are a container format of their own, and a small reader of ours replaces libgsf there. The converters' own record parsing moves over as it is. libgsf, the thumbnailer and the 4 converter programs leave every bundle.
-		- 20261008: a bad file must never crash the app. The readers check every read against the bounds of the file, cap sizes, counts and nesting depth, and trust no length the file gives. They stay in the fuzz stage and the sanitizer suite, and each read runs off the window's thread.
-	- Actual fix: README, under Current limitations, says to add the portable exe to MacType's exclusion list, and that the installed copy isn't affected. On Windows the launcher puts each helper in a job that Windows ends along with the app. The helper goes in before it runs, so anything it starts goes too. This is the (a) half. (c) isn't started.
-	- Swept: every direct start in `nemo-launch-win32.c`. The pipe for thumbnailers, ImageMagick and conditions, and the tool runs behind archive, extract, search converters and thumbnailers, are in the job. An action's console program is left out. The shell and service routes start programs outside the app, which are never helpers.
-	- Verified: the runs in Reproduced and Actual cause, on vm925w. rjpatrck fails before the fix and passes after, natively on vm925w and under wine. On vm925w in the desktop session with MacType running, a single exe built from this branch showed the box for 3 OpenDocument files. Closing the app ended all 3 helpers, and so did killing it. The native suite on vm925w: 155 OK, 0 fail, 12 skipped. The full Linux suite: 176 of 176. Not tried: the installed copy under MacType. It isn't packed, so it is read as unaffected.
-	- Branch: thumbwin
-	- Commit: f38660a to f8a6223
-	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session. (c) still needs its own: a thumbnail and the text from a small file of each type, on every platform, and a check that no program is started for them.
 
 - Going into a folder shows its rows about 200 ms after it's listed.
 	- ID: 2026101419191454
@@ -1638,6 +1040,165 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. rj043mnp covers it.
 	- Closed: 20261003-112426
+
+- After an `smb://` address is typed, nothing shows that the app is working on it.
+	- ID: 2026100816170921
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
+	- Needs external testing:
+		- Done 20261010 on vm925w, passed except the drop. It was: in the desktop session, with the single exe, type `\\10.255.255.1\share` in the path bar. While the sign shows, a click, a right-click, a click on a menu, Ctrl+T, F10, a tab click and a file dragged in from Explorer should all do nothing, and nothing should look grayed. The title bar should still move the window, and its close button should close it. Escape should stop the attempt, and then a click and a drop should work again. Also rhtwm2c8 in the native suite. The sign itself was checked there on 20261009.
+		- Done 20261014 on vm925w, passed. It was: while the sign shows, a file dragged in from Explorer does nothing, and after Escape the same drag drops it.
+	- Priority|Severity: Avg
+	- Opened: 20261008-161710
+	- Opened by: t00mietum
+	- Target OS: All
+	- Steps to reproduce: type an `smb://` address in the path bar and press Enter.
+	- Incorrect behavior: the app looks into the address for a while with no sign of it. Then a login prompt, or the share's contents, suddenly show up. In the meantime it looks like nothing happened, so the user may start something else until the share comes back.
+	- Expected behavior: a clear sign that the app is busy with the address, until it is done or stopped.
+	- Requirements:
+		- A sign that doesn't rely on the mouse pointer. A pointer can change too, like Windows' "working in the background" pointer. But not one that says the app is blocked, like the macOS beachball, unless it is.
+		- Maybe also one or more of:
+			- The program icon moving smoothly in a circle over the path bar, attached to the window.
+			- The path bar and the content pane, or even everything visible, slowly fading between disabled text (gray but still legible) and normal text, at about 0.5 Hz.
+			- The app takes no input until one of:
+				- The network step fails or times out.
+				- The user presses Escape, which stops the background attempt to connect and fetch.
+		- README says what changed.
+	- Reproduced: 20261009 on Linux, with an `smb://` mount that never answers. The path bar, the pointer and the window stay as they were the whole time, and Escape does nothing.
+	- Actual cause: nothing in the window follows the look-up and the mount of a new address. The "Loading..." bar only shows once there's a view, which is after the mount. The busy pointer never showed for the tab in front, since its check compares against the Stop action being enabled, and that never changes.
+	- Actual effort: Avg
+	- Decisions:
+		- Decided: the base sign only. A spinner and short text such as "Connecting to <host>..." in the path bar until the address resolves, fails, times out or is canceled. The window stays usable. The pointer may show the background-working cursor while over the window, never a blocked one. Escape, with focus in the window, cancels the pending attempt.
+		- Decided: it covers any address that has to be mounted or reached over the network first. That's smb, sftp, ftp, dav and the like through gvfs on Linux, and UNC paths and mapped drives on Windows.
+		- Punted: the program icon circling over the path bar, the slow fade between gray and normal text, and taking no input until the attempt ends.
+		- 20261009: changed my mind on taking no input. Once the share answers, the view is replaced, so anything done in the window meanwhile can be lost. While the attempt is out the window takes no input but Escape, which stops it. The title bar still moves and closes it, and closing stops the attempt. Other windows of the app stay usable.
+		- 20261009: the block is an invisible cover over everything below the title bar, plus the window dropping every key but Escape. The cover takes the clicks, scrolls and drops, and draws nothing, so nothing is grayed. Options were a GTK grab or making the content insensitive. Insensitive grays everything. A grab does nothing for keys or drops, and it would also hold dialogs and Properties windows tied to this window.
+			- 20261010: the cover now draws the fade in the row below. It still makes nothing insensitive.
+		- 20261009: the block follows the window's front tab, the same as the pointer. A share opening in a tab in the back blocks nothing until that tab comes to the front, since only that tab's view gets replaced.
+		- 20261010: taking no input is shown by the window slowly fading between looking disabled and normal, so it's plain that it isn't frozen, that it's busy, and that it still takes some input, namely Escape. The pointer stays the busy arrow.
+	- Actual fix: while the look-up or the mount behind a new address is still out, the path bar shows a spinner and "Connecting to <host>...", or "Connecting to the network..." when there's no host. It goes away when the address answers, fails or is stopped. Meanwhile the pointer is the busy arrow, never the watch, and Escape in the window stops the attempt. The host comes from the address text and the mount table only, so nothing new reaches out to a share. A place on this machine shows no sign.
+	- Actual fix: 20261009, while the attempt is out the window also takes no input but Escape. Clicks, scrolls and drops anywhere below the title bar go nowhere, and every key but Escape is dropped before the shortcuts and the menu bar see it. Nothing is grayed, and the pointer stays the busy arrow.
+	- Actual fix: 20261010, while the attempt is out, everything below the title bar slowly fades between the theme's grayed look and normal, one round trip every 2 seconds, the sign included. It goes back to normal at once when the attempt answers, fails, is stopped or the window closes. With animations turned off it stays grayed instead of fading. Nothing runs for it when no attempt is out.
+	- Swept: every location change starts in one place, so the path bar, Places, bookmarks, links, back and forward, and new windows and tabs all get the sign. A tab in the back shows it when it comes to the front. Opening a file on a share that isn't mounted goes through the open code, which has its own wait dialog wiht a Cancel button. Connect to Server has its own spinner.
+	- Swept: 20261009, the menu bar, the toolbar, Places, the tabs, the folder view and the status bar all sit under the cover, so a click, a right-click, a scroll or a drop on any of them goes nowhere. The menu bar's own key, the Alt key and every shortcut go through the window first. Other windows of the app, Properties and dialogs included, aren't held. The password prompt for a share is its own window, so it should still take input. Read, not tried.
+	- Swept: 20261010, the fade is drawn by the same cover, so it covers exactly what takes no input and follows the front tab the same way.
+	- Verified: rjv9ks2z fails before the fix, on the sign, the pointer and Escape, and passes after. Full Linux suite 183 of 183. Windows cross build clean, and rhtwm2c8 passes under wine with the new UNC case.
+	- Verified: 20261009, Windows, on vm925w. rhtwm2c8 passes in the native suite at 398c999. With the single exe built at 49a54f8, in the desktop session, `\\10.255.255.1\share` typed in the path bar showed the spinner and "Connecting to 10.255.255.1...", and the pointer over the window was the busy arrow, never the hourglass. Escape took the sign away and the pointer went back to the plain arrow. A server name that doesn't resolve showed the sign until the look-up failed a few seconds later, then the error, with the sign gone.
+	- Note: 20261009, left at signoff for how the sign looks.
+	- Note: 20261009, the sign's look is signed off. Back to Queued for taking no input meanwhile.
+	- Verified: 20261009, rjv9ks2z fails before the change on the shortcut, the click and the drop, and passes after, 3 runs of 3. Full Linux suite 188 of 188. Windows cross build clean, and rhtwm2c8 passes under wine.
+	- Verified: 20261009 on Linux, while blocked: a right-click, a click on the File menu, F10, Ctrl+T, a tab click, Ctrl+PageUp, a column header click and a file dragged in from another window all did nothing, and nothing looked grayed. Each of them worked again after Escape. The title bar moved the window, and its close button closed it and stopped the attempt, with the other window left running.
+	- Note: 20261009, rjv9ks2z's check that the window takes input while it waits is commented out, since the window now takes none.
+	- Note: 20261009, left at signoff for the pointer. Options: keep the busy arrow, or the watch now that the window takes no input. Kept the arrow, since Escape and the title bar still work, and the arrow was signed off with the sign.
+		- 20261010: settled by the fade row in Decisions.
+	- Note: with the toolbar turned off there's no path bar, so only the pointer shows it.
+		- 20261010: and the fade.
+	- Verified: 20261010, rjv9ks2z fails before the change on the fade and on the steady gray with animations off, and passes after, 3 runs of 3. Full Linux suite 188 of 188. Windows cross build clean, and rhtwm2c8 passes under wine.
+	- Verified: 20261010 on vm925w, the branch smbfade. rhtwm2c8 passes in the native suite. With the single exe from the same commit, in the desktop session, `\\10.255.255.1\share` typed in the path bar: the window below the title bar faded between grayed and normal about every 2 seconds, and stayed legible at its grayest. The pointer was the busy arrow. A click on a file, a right-click, a click on the File menu, F10, Ctrl+T and a click on the other tab all did nothing. The title bar moved the window. Escape took the sign away, gave the plain arrow, and the look went back to normal at once and stayed still. Then a click selected a file, a right-click showed the menu, and a tab click switched tabs. The close button closed the window mid-attempt.
+	- Note: 20261010, a drop from a test program onto the window was refused even with no attempt out, so the drop wasn't checked on Windows. Left for a drag from Explorer by hand.
+		- 20261014: that program's drag had only the plain file list, which the window refused from any program but Explorer. Fixed under 2026101007562587.
+	- Verified: 20261014 on vm925w, with the zip built from dev c10a39a, in the desktop session. With `\\10.255.255.1\share` typed in the path bar and the sign showing, a file dragged in from Explorer got the no-drop pointer and stayed where it was. After Escape the same drag moved it into the folder.
+	- Note: 20261014, left at signoff for the fade's look.
+	- Note: read, not tried: the Stop button also never takes Reload's place while a folder loads, since the same check is behind it. Left alone here.
+	- Branch: smbbusy, smbhalt, smbfade
+	- Commit: 41adfa7, 114c595, 358ef85
+	- Test case: rjv9ks2z, Connecting sign while a share mounts test. An `smb://` mount answers only when the test says so. It checks the sign and the host it names, the pointer, that nothing is grayed, that a shortcut, a click and a drop do nothing while it waits and work again after, Escape, closing the window mid-attempt, and the sign going away after a stop and after a failed mount. It also checks the host named for a set of addresses, and that a local folder shows no sign. rhtwm2c8 checks the server named for a UNC path on Windows.
+		- 20261010: "nothing is grayed" there means nothing is made insensitive. It also checks that the window fades while it waits, that the fade stops and the window looks as before after Escape and after a failed mount, that nothing of it runs on after a close, and that with animations off the window stays grayed and still.
+
+- Expanding folders can take too long.
+	- ID: 2026101417352261
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 209 of 209.
+	- Needs external testing: none for the fix. An expand on Windows and on a share wasn't timed.
+	- Priority|Severity: Avg
+	- Opened: 20261014-173522
+	- Opened by: t00mietum
+	- Related IDs: 2026101419191454, 2026101419191455
+	- Requirements:
+		- Before the next cut.
+	- Incorrect behavior: expanding folders can take too long.
+		- Especially on networked shares.
+		- But even on local folders, it should be essentially instant. Is it scanning for icons, other metadata, or something first?
+	- Reproduced: 20261014 on Linux. A folder of 10 is listed in 5 ms and its rows show at 205 ms.
+	- Actual cause: mostly waiting, not scanning. The rows of an opened folder were held for the 200 ms timer that batches a big folder's load, and nothing cut it short once the folder was all in. Pictures among its first 150 entries also waited for their thumbnail lookup, and the first lookup in a run opens the thumbnail store.
+	- Progress log:
+		- 20261014: where the time went, before the fix, list view on b23, optimized build, medians of 5 runs, 3 at 10,000. Folders of varied names, sizes, dates and types, 5% of them sub-folders, some pictures.
+			- Listing, with each entry's details: off the main thread. On its own 10,000 entries list in 0.52 s, about half of it guessing types from content and 0.16 s looking for thumbnails. In the app each batch of 100 also waits its turn on the main thread, so it took 1.6 s.
+			- Icons: 12 lookups, under 1 ms in all, since they're kept per type.
+			- Thumbnails: only the wait above. Making them comes later and holds nothing up.
+			- Item counts of the sub-folders: alongside the listing, done before the rows showed.
+			- Adding rows: about 0.1 ms a row on the main thread, about a third of it measuring cells.
+			- Drawing: one frame, under 20 ms after the rows.
+			- The rest is the timer.
+		- 20261014: the same after the fix. Milliseconds from the click, before -> after.
+			| Entries | Listed         | First row | All rows       | Drawn          | Main thread for rows
+			| :---    | :---           | :---      | :---           | :---           | :---
+			| 10      | 5              | 205 -> 6  | 208 -> 8       | 216 -> 24      | 6 -> 4
+			| 1,000   | 65 -> 101      | 213 -> 13 | 318 -> 188     | 336 -> 215     | 115 -> 127
+			| 10,000  | 1,580 -> 1,575 | 218 -> 13 | 1,812 -> 1,793 | 1,833 -> 1,820 | 1,144 -> 1,160
+		- 20261014: going into a folder of 10 from the window, which the fix doesn't touch, read 213 ms to its rows both before and after.
+		- 20261014: a big folder still costs what it costs to open: 10,000 entries take about 1.8 s either way, nearly all of it adding rows and the listing waiting on them. At 1,000 the listing now shares the main thread with the first rows, so it ends later, and the sub-folders' counts fill in about 30 ms after the rows.
+		- 20261014: left at signoff for pictures in an opened folder, which now show their plain icon for a moment before a stored thumbnail replaces it.
+	- Decisions:
+		- A folder opened by its expander shows its rows without waiting for thumbnails. The view's own folder still waits for its first 150.
+	- Actual fix: an opened folder's first rows go in as soon as they're listed and its last ones as soon as it's all read. A big one still comes in batches in between. Its pictures don't wait for their thumbnails.
+	- Swept: the tree pane adds a folder's rows as they come, with no timer. The view's own folder, search results included, waits the same 200 ms after it's listed. That changes every folder opened, so it's its own item, 2026101419191454. The icon views have no expanders.
+	- Verified: rk96k9va fails before the fix, all folders at 220 to 250 ms. It also fails with each of the 3 parts of the fix taken out alone. It passes after, 3 runs and 5 more with the cores loaded, best times 10 to 30 ms to the first row and 50 to 75 to all. rhb624a0, rh2af9s0, rj4jkr22, rk7yvgse and rhg6h4m0 pass. Full Linux suite 209 of 209 and the Windows cross build clean, both with warnings as errors. C lint clean, and the test ID check passes.
+	- Branch: expandfast
+	- Commit: e62f6e7f
+	- Test case: rk96k9va, List view expander time test. Opens 4 folders of 120 varied files, pictures among them, by their expanders, and 2 more whose listing comes a second per batch. The quickest of the 4, and the first, must show all rows in under 180 ms, and the quickest slow one its first row. The old wait can't come in under 200.
+
+- Leaving an empty search page from history and searching again searches the whole disk.
+	- ID: 2026101406405845
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: the sanitizer lane, since the remembered queries are held until exit. The full Linux suite passed 20261014 on dev at 54239d1, 206 of 206. The nearby search, find, tab and title tests passed, 14 of 14.
+	- Needs external testing: done 20261014, the Windows cross build with warnings as errors passed on the longpress branch, which has this fix.
+	- Priority|Severity: Avg
+	- Opened: 20261014-064058
+	- Opened by: 2026101405542816
+	- Related IDs: 2026101405542816
+	- Target OS: All
+	- Steps to reproduce: search a folder, go Back, then Forward. An empty "Search" page shows. Click the search button, which leaves it on that page. Then search again.
+	- Incorrect behavior: the search runs from the root of the disk, and the path bar and title say "Search in "(null)"".
+	- Expected behavior: Forward shows the search it left, or the folder it was in, and a search never starts without a folder to search in.
+	- Reproduced: 20261014, Linux. Forward showed an empty "Search" page, and the search button left it on that same page.
+	- Actual cause: a search's query lives on its search page, and the page is let go once nothing shows it. The history keeps only the address, so Forward made a new page with no query and no folder. Leaving find mode goes back to the folder the bar was opened from, which on that page was the page itself. A query with no folder then searched from the root of the disk, since every search engine starts there when it's given no folder.
+	- Actual fix: each search page's last query is kept by its address, and a page made again for that address gets it back. So Back, Forward and the history menus show the search as it was left, and run it again in the same folder. A jump through the history menu from one search straight to another also puts the other's text and folder in the search bar. Another window gets the folder that was searched, rather than an empty search page, since it's usually another process. A query with no folder is dropped, so it searches nothing, and leaving a search page nothing is known of goes home. design.md "Search" says so.
+	- Progress log:
+		- 20261014: Options: a search page given on the command line, or typed, is still an empty "Search" page. It could go home at once instead. Left as is, the reason is because nothing makes such an address now, and a query there searches nothing.
+	- Swept: every way into a search page. Back and Forward, the history menus and a middle click on Back or Forward for a new tab all open the address in this process, so the query comes back. The second pane after split view is turned off and on again keeps its address the same way (read, not run). New window, a middle click for a new window, the location bar's new window and a command line all go through the one call that opens another window, which hands over the folder. A tab can't be moved, or torn off, while it shows a search. There's no closed tab or session restore to sweep. The 3 engines all start from the root with no folder, and the search page is the only caller that starts one, so the guard sits there.
+	- Branch: findhist
+	- Commit: 2ee7d8b
+	- Test case: rk7y2ch7, Search in history test. It searches a folder, goes Back and Forward, leaves find mode, goes Back into the search, leaves again, searches for something else, then jumps to the first search through Back's history menu. On dev it failed at Forward, and the leave after it stayed on the empty page. It passes after. Without the search bar part of the fix, the history menu check fails. rgy4vnf0, Search folder test, also checks that a search page made again for an old address searches what it did, and that one handed a query with no folder searches nothing. Both fail with the fix taken out and pass with it.
+
+- Search view and regular view need to remember their own column settings.
+	- ID: 2026101405542816
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: done 20261014 on dev at 6276301, passed 204 of 204. The nearby search, view, tab and settings tests passed, 13 of 13.
+	- Priority|Severity: Avg
+	- Opened: 20261014-055428
+	- Opened by: t00mietum
+	- Related IDs: 2026100613285826, 2026101406405845
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+	- Steps to reproduce: with "Remember per-folder settings" off, switch a folder to icon view, then search.
+	- Incorrect behavior: the find results show as icons, with no columns. Switching them to the list view and leaving find mode leaves the folder in the list view too.
+	- Expected behavior: find results open in the list view with their own columns, and a view picked for them doesn't change the folder's.
+	- Reproduced: 20261014, Linux. The view was the only thing shared. With per-folder settings off and on, the shown columns, their order, the widths and the sort each stayed apart in both directions: a column picked or hidden from the header menu, a header drag, a header click, Use default, a width drag on Name and on Ext, then leaving by the search button or by Back and Forward. The Windows build kept the columns and sort apart the same way.
+	- Actual cause: with per-folder settings off, the window has one view for everything shown in it, find results included. Find results took the window's view, and a view picked for them became the window's. With them on, nothing is kept for find results, so a new query went back to the list view.
+	- Actual fix: find results open in the list view whatever view the folder is in. A view picked for them lasts until find mode is left, through a new query too, and never becomes the window's or the folder's. A new default view from Settings still reaches the folders behind find mode. README and design.md "Search" say so.
+	- Progress log:
+		- 20261014: Options: find results could also keep a picked view for later searches, in its own setting, like the columns. Left out, since only the columns were asked for. If the columns themselves were seen leaking, the steps that showed it would help, since none of the above did.
+		- 20261014: what was seen was the columns, not the view. Can't reproduce for now. The view fix stays in.
+	- Swept: every place that picks or keeps a view: loading a location, a pick from the View menu or toolbar, a new default view, the switch for picture folders (never kept, unchanged), and a tab moved between windows (keeps the view it came with, unchanged). The list view's zoom in find results was already never kept. The icon view's zoom there still follows the window's, now only after icon view is picked for the results.
+	- Branch: colsplit
+	- Commit: 0d17dd2
+	- Test case: rk7wxqh5, Find mode view test. It puts a folder in icon view, searches, picks compact view for the results, searches again and leaves, with per-folder settings off and on. Before the fix it failed 3 checks: icons in find mode and compact left on the folder with them off, and the list view back after a new query with them on. It passes after.
 
 - When a copy's name has to change for the drive it goes to, every non-ASCII letter turns into `_` along with the bad characters.
 	- ID: 2026101416533880
@@ -2530,6 +2091,305 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: `test-nemo-psd`: rows at the least length are read, one byte less is refused, and a file of empty rows, 30000 by 30000 as psd and 60000 by 60000 as psb, is refused in under a second. Fuzz seed `zero-rows`, and `short-literal` reworked so it still reaches the literal-run bound.
 	- Branch: psdrows
 	- Commit: 24d99cd
+
+- Settings: Views|Current needs to look more clearly disabled when it's disabled.
+	- ID: 2026101009150768
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261010-091507
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+		- Go back to the previous method of letting the tab be activated, but disable all the content.
+	- Progress log:
+		- 20261010: the old-format item "Preferences|Views: with Remember per-folder settings off, the Current tab still opens on a dead page" made the tab refuse the switch. Back then the tab opened on an empty gray pane, so the controls have to show, disabled.
+		- 20261013: the tab opens again with remembering off. It shows its controls grayed out, under the folder's path, and its label stays grayed. Turning remembering off while the tab is up leaves it up, grayed. Nothing on the page says why. Options: a line there saying per-folder settings are off. The UX style guide's rule on grayed tabs says the same now. Left at signoff for the look.
+	- Swept: the refusal was the only thing in the dialog that stopped a tab from opening.
+	- Verified: rhtmbdmf fails on dev's code, 2 checks, and passes after. Checked in the app on Linux with remembering off: the tab opens on the grayed controls and path.
+	- Branch: settings
+	- Commit: 07b76a2
+	- Test case: rhtmbdmf, Settings Current tab test. Its 2 checks that the switch is refused are commented out with the reason. It now checks the tab opens on grayed controls, and stays up when remembering is turned off.
+
+- Allow creating folders with path separators in the name, to make a nested structure in one go.
+	- ID: 2026101009150766
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 193 of 194. The one failure, rjv9ks2z, is the connecting sign's look with animations off, and it passed on its own. On tabkeys, 200 of 200.
+	- Needs external testing: by hand on Windows, New folder in a window, then a path with backslashes typed into the box. Then the same with "Accept a forward slash as a separator in typed locations" off and a path with `/`, which is refused with the usual rename error. Not tried. rk56fsaw passed natively on b29w, with the setting on and off.
+	- Priority|Severity: Avg
+	- Opened: 20261010-091507
+	- Opened by: t00mietum
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- A new folder name with path separators creates each folder in the path, nested.
+	- Actual effort: Avg
+	- Progress log:
+		- 20261013: done. Left at signoff for the new error messages and the calls under Decisions.
+		- 20261013: changed my mind on `/` on Windows. The setting for `/` in typed locations decides there too, since `/` can't be in a Windows name anyway. With it off, a name with `/` goes to the plain rename, which refuses it as it would `*` or `?`, with the rename error "Slashes are not allowed in filenames". `\` still splits. Linux and the BSDs are unchanged.
+	- Decisions:
+		- A name splits at `/` on every platform, and at `\` on Windows too, since neither can be in a name there. Elsewhere a backslash stays part of the name. On Windows `/` splits only while "Accept a forward slash as a separator in typed locations" is on. With it off, a name with `/` in it, `\` or not, is refused like any name with a character Windows doesn't allow: the plain rename error, and nothing made.
+		- Only the first name of a folder New folder made counts, typed in the box it opens or later. Renaming any other folder with a `/` in the name is refused, as before.
+		- Folders already there along the path are used as they are. Only the last one being there is the usual "already used" error.
+		- A leading separator, 2 separators in a row, and `.` or `..` as a folder name are refused with a message, and the folder keeps waiting for its first name. A trailing separator is dropped.
+		- The folder New folder made becomes the first folder of the path that isn't there yet, so nothing gets removed on the way.
+		- Undo takes away every folder the path made, the first one included, deepest first, and stops at the first one that isn't empty any more. Redo makes them again.
+		- After that the top folder of the path is selected, the one in the folder being shown, whether it was made or already there.
+		- The tree's New folder names its folder in Properties, so the same goes for the name typed there.
+	- Swept: the `/` setting is read where the split decides, so the icon view, the list view and Properties all follow it. Every way to make a folder and name it. Ctrl+Shift+N, the menu and the toolbar button go through the window's New folder, which is the view's. The view's background menu, and New folder on a folder in the location bar's menu, go through the view too. The tree's New folder names the folder in Properties. The 3 places a name is typed: the icon view, the list view and Properties. Redo of a plain New folder makes no name and is left alone. Templates make files only, and no drag makes a folder. The "Create folder" button in Copy to, Move to, the archive dialog and the templates setting is the GTK file chooser's own.
+	- Verified: rk56ftav and rk56g0rq fail before the change and pass after. rk56fsaw passes on Linux, under wine and natively on b29w. Its backslash checks fail under wine without the Windows rule. Its checks with the `/` setting off fail on the first change's code, 7 of them, under wine and natively on b29w, and pass after on both.
+	- Branch: nestdir, tabkeys
+	- Commit: bcdd716, a0f3752
+	- Test case: rk56fsaw, New folder named with a path: the split on each platform, and the job itself, with folders already there, the last one there, a file on the way, a trailing separator, the backslash, undo and redo. On Windows, both states of the `/` setting: with it off `/` doesn't split, a name with one is left to the plain rename and refused there, and `\` still nests. rk56ftav and rk56g0rq, the same in the icon view and the list view: New folder, a path typed in the box, the top folder selected, and undo. Linux and FreeBSD only.
+	- Acceptance signoff: Left at signoff for the error messages and the calls under Decisions.
+
+- Settings: the dialog is too long.
+	- ID: 2026101009150767
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261010-091507
+	- Opened by: t00mietum
+	- Related IDs: 2026101009150769
+	- Requirements:
+		- Before the next cut.
+		- Allow Behavior to overflow with a scrollbar, and size the dialog to the next-longest tab.
+			- Consider breaking the content up into related settings under a couple or more nested tabs, or sub-tabs.
+	- Decisions:
+		- Decided: sub-tabs. Behavior splits into 3: General (Navigation, Behavior, Windows), Files and Trash (Executable text files, Drag and drop, Trash) and Media and programs (Media handling, Bulk rename, Terminal). The other pages fit as they are, so they stay whole. The dialog still opens at its longest page, now Preview, and a page still scrolls on a screen too small for it.
+	- Progress log:
+		- 20261013: the dialog opens 774 high on a 1920x1200 screen, down from 1080, with no page needing a scrollbar. Left at signoff for the grouping and the sub-tab names.
+	- Verified: rhtmbdmd passes on Linux, 3 runs, and under wine, where the Windows page is in the dialog too. Its new check that every page fits fails with the window made 120 pixels shorter. Full Linux suite 196 of 196. Windows cross build clean with warnings as errors. Lint clean but rj3ytv0b, which needs the main clone.
+	- Branch: subtabs
+	- Commit: 3c069b3
+	- Test case: rhtmbdmd, Settings dialog test: Behavior has 2 to 4 sub-tabs, and at the size the dialog opens no page needs a scrollbar. rf2w8yxr, Settings widgets test, walks the sub-tabs and wants every page to be a scrolled window, since that is what the sizing measures.
+
+- Settings: show nested tabs in the tab list on the left.
+	- ID: 2026101009150769
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261010-091507
+	- Opened by: t00mietum
+	- Related IDs: 2026101009150767, 2026101009150770, 2026101009150771
+	- Requirements:
+		- Before the next cut.
+		- Sub-tabs, or nested tabs:
+			- Nested tabs show in the same list, without having to be on the parent tab to see them.
+				- The extra vertical space allows this. Any dialog with tabs on top keeps the existing method, where the parent tab has to be active to see its sub-tabs.
+			- A nested tab's text is indented to the right, under its parent tab.
+			- Any level of nesting, although after some practical point it would be bad UX design.
+			- With any form of nested tabs, one sub-tab is always showing while the parent tab is active. That sub-tab gets the same "active tab" color as the parent to show it.
+	- Decisions:
+		- Views' Default and Current move from tabs on top into the list, as its sub-tabs. One dialog with two kinds of sub-tab would surprise, and the keys in 2026101009150770 then work the same on every page. The two per-folder checkboxes stay above both sub-tabs, as "Changes to Preferences|Views" laid them out, so either sub-tab shows them.
+		- A parent shows the sub-tab it showed last. A click on the parent row opens that one.
+		- Current keeps the look from 2026101009150768: it opens on grayed controls with remembering off, and its row's text is grayed as the tab's was.
+	- Progress log:
+		- 20261013: the list replaces GTK's own page list, which can't nest, and draws with the same theme rules. Sub-tabs are indented one step per level. Left at signoff for the look, and for gray text on the lit Current row with remembering off.
+	- Note: rhtmbdmd's 2 checks on the Views tabs, and its first Ctrl+Page Down landing on Behavior, are commented out with the reason. rhtmbdmf switches Views through the sub-tabs now, with the same checks as before.
+	- Swept: the only nested tabs in Settings were the Views tabs. Properties and the main window keep tabs on top.
+	- Verified: rk5b84ef fails with only the innermost row lit, and with no indent, and passes after. rhtmbdmf fails with the Current row's text left alone. All 4 settings tests pass on Linux and under wine. In the app on Linux: a click on a sub-tab opens it and lights it and its parent, and a click on the parent goes back to its last sub-tab. Full Linux suite 196 of 196.
+	- Branch: subtabs
+	- Commit: 3c069b3
+	- Test case: rk5b84ef, Settings tab list test: 3 levels deep, indent per level, a parent and its showing sub-tab lit at every depth, hidden pages and their sub-tabs dropped, pages added and retitled later, and sub-tabs under a switch they share. rhtmbdmd, Settings dialog test: the rows, the lit pair and the parent's last sub-tab in the real dialog. rhtmbdmf, Settings Current tab test.
+
+- Flyover tip text for "Command to open a terminal" (label and control): "If empty, uses your default terminal."
+	- ID: 2026101405543039
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261014-055430
+	- Opened by: t00mietum
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+	- Actual fix: the label and the entry both have the tip. The entry's old tip is gone: "Leave empty to use whatever the system offers. A program that needs arguments takes them here too; quote a path that contains spaces. The folder is passed as the working directory."
+	- Verified: rf2w8yxr fails on dev's layout, with no tip on the label and the old one on the entry, and passes after. rhtmbdmd passes. Lint clean apart from rj3ytv0b, which always fails in a worktree.
+	- Branch: tipsfix
+	- Commit: 64f69e1
+	- Test case: rf2w8yxr, Settings widgets test: the tip on the label and on the entry, word for word.
+	- Acceptance signoff: Left at signoff for the old tip's notes on arguments, quoting and the working folder, which went with it. Options: keep it as is, or add them back after the new sentence.
+
+- When clicking anywhere on a row in detailed list view, even when the program doesn't have focus, it should be immediately selected.
+	- ID: 2026101405542891
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: done 20261014 on dev at 54239d1, passed 206 of 206.
+	- Needs external testing: Windows, on vm925w once it's on. A right drag from an item still moves files with the drop menu, a right drag from empty space bands, and the menus in both views, Places and the tree open when the button comes up. The Windows cross build is clean.
+	- Priority|Severity: Avg
+	- Opened: 20261014-055428
+	- Opened by: t00mietum
+	- Related IDs: 2026101405542928, 2026101405542965
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- Current behavior: Sometimes clicking on a row that doesn't have focus, in an empty part of that row, engages "drag-to-select" mode.
+		- It shouldn't do that.
+		- It should never take a second click to properly select it for dragging, even if the window is not currently focused.
+		- How to actually engage drag-to-select mode:
+			- Shift+drag (reselect)
+			- Ctrl+drag (add to selection); Cmd+drag on macOS
+			- Right-click then drag before releasing button.
+			- Start a drag in the empty area below a listing, in detailed list view.
+		- Remove the option to start a drag-select when clicking on a non-name column.
+	- Progress log:
+		- 20261014: done. A plain press anywhere on a row selects it at once, and a drag from there moves the selection, whatever column it started in. A band starts only below the rows, with Ctrl or Shift from a row that isn't selected, or with the right button. The list view draws its own band now, since GTK's started on any row not yet selected and only took the left button.
+		- Options: Ctrl+drag and Shift+drag from a selected item band too, or stay a file drag with the key picking copy or move as before; went with the file drag. From an unselected item or empty space they band. Shift replaces the selection and Ctrl adds to it (Cmd on macOS).
+		- Options: the right-click menu stays on the press and the right button never bands, or the menu waits for the release and a right drag bands; went with the release. It opens only if the pointer stayed inside the drag threshold. A right click on a row that isn't selected still selects it first. Places and the tree open their menus on the release too, so every pane works the same. Shift+F10 and the Menu key are unchanged.
+		- Options: on Windows a right drag from an item bands as it does elsewhere, or stays a file drag with the drop menu as signed off 20261006 in the Windows drop keys item; went with the file drag. So on Windows the right button bands from empty space only. The background menu there now opens on the release too, where it opened on the press.
+		- Options: a plain drag that starts on a column other than Name bands, or moves files; went with moving files.
+		- Options: a plain drag in the empty space below the rows bands, or does nothing; went with banding.
+		- Options: the first click in a window or pane that isn't active only wakes it, or counts as a click; went with counting. In a split window the first click in the other pane was swallowed whenever that pane had a selection, in the list and icon views alike, so a drag from there took 2 presses.
+		- The right button goes through one small press record shared by both views and both side panes, which opens the menu on the release unless the press moved. A long press for the menu (2026101405542965) can hang off it.
+		- 20261014: signed off the Ctrl or Shift drag and the menu on the release. Explorer does the same as the Windows right drag here: a right drag of files drops with a Copy here, Move here, Create shortcuts here menu, and a right drag from empty space draws a box.
+	- Swept: the list, icon and compact views, Places and the tree, and the first click in the pane that isn't active in both views. Not changed: menus on the tab bar, path bar, toolbar and location bar, which open on the press as before.
+	- Verified: the drag select test passes in the list, icon and compact views, 3 runs in a row, and fails before the change. The keyboard menu, tree menu key, Places focus, list expander, row hover, treeview hit and icon accessible tests pass, and the drop tests rhtq57n1 and rfzh7ygg. Lint is clean as far as rj3ytv0b, and the test ID check passes. The Windows cross build is clean.
+	- Branch: dragsel
+	- Commit: 54bbf66
+	- Test case: rk7yvgse, Drag select test. In each view: a plain drag from a row or icon moves files and selects it at once, a plain drag from a selected item keeps the whole selection, Ctrl or Shift from an unselected item bands, Ctrl from a selected one moves files, a drag below the rows bands, a right press opens no menu until the release, and a right drag bands with no menu. Also Places and the tree menus on the release, and a drag in the pane that isn't active. Fails before the change and passes after. rjefm41d's right click sends the release as well now.
+	- Acceptance signoff: Left at signoff for the Windows right drag from an item.
+
+- Pre-populate the "Bulk rename" command.
+	- ID: 2026101405543076
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: done 20261014 on dev at 6276301, passed 204 of 204.
+	- Needs external testing: on vm925w, rk7wrme6 and rhtmbdmd in the native suite. Then by hand, with the single exe: the settings field and its tooltip, and F2 on several files, folders and a name with a space, with ReNamer and then Ant Renamer installed.
+	- Priority|Severity: Avg
+	- Opened: 20261014-055430
+	- Opened by: t00mietum
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- Use the first match from the "ideal" list below that is installed on the user's system. If none are installed, populate the first "ideal" match from below.
+		- Ideal list in order of preference:
+			- Linux and BSD:
+				- DEs using GTK+: `thunar --bulk-rename`
+				- DEs using Qt: `krename`
+			- Windows:
+				- `"C:\Program Files\ReNamer\ReNamer.exe"`
+				- `"C:\Program Files\Ant Renamer\Renamer.exe" -af`
+			- macOS:
+				- `open -a NameChanger`
+				- `open -a Transnomino`
+				- `open -a Renamer`
+				- `open -a "A Better Finder Rename 12"`
+		- Flyover tip text (label and control): "Renamer programs need only accept a quoted list of files or folders. Known or suspected to work:\n\n<list of programs from above that run on the platform, with the DE's widget style listed first.>"
+	- Progress log:
+		- 20261014: the field was empty by default, so F2 on several files did nothing. On Linux the files went to the renamer as `file://` addresses. They go as paths now, as on Windows, so any renamer that takes a list of files works. A file with no local path still goes as its address.
+		- 20261014: Ant Renamer adds what follows `-af` as files. A folder would need `-aF`. Kept as listed.
+		- 20261014: Options for later: on Linux a renamer that isn't installed fails with no message, as any command line from the settings does there. Windows shows "The program couldn't be started." Not changed here.
+		- 20261014: left at signoff for the tooltip and the field's look, and for the reading of "the DE's widget style" in Decisions.
+		- 20261014: Ant Renamer goes last in the list. It was already last on Windows, so nothing changed.
+	- Decisions:
+		- The renamer found is the setting's default, not a stored value. It's worked out once per run and never written unless changed, and typing the same command back writes nothing. An emptied field is stored as empty, which means no renamer, as before.
+		- On Linux and the BSDs the desktop's toolkit orders the list, for both the pick and the tooltip: KRename first under KDE, LXQt, Deepin and UKUI, and Thunar's first anywhere else.
+		- On Windows the paths follow the Program Files folder, which is `C:\Program Files` on nearly every machine.
+		- The tooltip lists the commands as they'd go in the field.
+		- The macOS list is in the code but not built.
+	- Swept: how the renamer is started on Linux and Windows, and every place the settings store reads a default for a string: a read, a write that matches the default, and the list of defaults in the settings file. The key table and the schema have the new description.
+	- Verified: rk7wrme6 passes on Linux and under wine. It fails 6 checks with the found default taken out of the settings store. rk7wywt9 fails before the change, with the 3 files sent as `file://` addresses, and passes after, 5 runs. rhtmbdmd's new checks fail with the tooltips left off and pass with them. The macOS part passes a syntax check. Windows cross build clean. The 26 related tests pass, the schema drift test rfazc870 among them. Lint clean apart from rj3ytv0b, which always fails in a worktree.
+	- Branch: escrename
+	- Commit: c319d75
+	- Test case: rk7wrme6, Bulk rename default test: the pick by what's installed and by desktop, the tooltip's list, nothing written for the default, an empty value kept. rk7wywt9, Bulk renamer gets paths test: F2 on 3 files hands the renamer their paths, with a space, a percent sign and a quote in them. rhtmbdmd, Settings dialog test: the field shows the default without storing it, and the label and field have the tooltip.
+	- Acceptance signoff: Signed off 20261014. KRename first on Qt desktops, and Ant Renamer with `-af`.
+
+- Drag-to-select works as it currently does in the other two views.
+	- ID: 2026101405542928
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: done 20261014 with 2026101405542891, passed.
+	- Needs external testing: Windows, with 2026101405542891.
+	- Priority|Severity: Avg
+	- Opened: 20261014-055428
+	- Opened by: t00mietum
+	- Related IDs: 2026101405542891
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- But those views also allow the new methods added for detailed list view.
+	- Progress log:
+		- 20261014: done with 2026101405542891. A plain drag from the background bands at once, as before, and a plain drag from an icon moves files. New: Ctrl or Shift and a drag from an icon that isn't selected bands, and so does a right drag, whose menu now opens on the release.
+		- Options: a Ctrl band toggles every icon it crosses, as it did, or adds to the selection; went with adding, to match the list view. Shift on the background now replaces the selection, where it used to toggle like Ctrl.
+		- The Windows, right button and first click calls are the ones in 2026101405542891.
+	- Verified: as in 2026101405542891, icon and compact views.
+	- Branch: dragsel
+	- Commit: 54bbf66
+	- Test case: rk7yvgse, Drag select test, its icon and compact view runs. Fails before the change and passes after.
+	- Acceptance signoff: Signed off 20261014. Ctrl adds and Shift replaces.
+
+- Additional ways to get right-click menu.
+	- ID: 2026101405542965
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: done 20261014 on dev at 99e8595, passed 207 of 207.
+	- Needs external testing: Windows, on vm925w once it's on. A long press opens the menu on an item and on empty space in the list and icon views, in Places and in the tree, and the menu stays up once the button comes up. The Windows cross build is clean.
+	- Priority|Severity: Avg
+	- Opened: 20261014-055428
+	- Opened by: t00mietum
+	- Related IDs: 2026101405542891
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- Left-click and hold for a while. (How long?)
+			- When it pops up, selection doesn't change on mouse release, including multiple selections.
+	- Progress log:
+		- 20261014: done. A plain left press held still opens the same menu a right click does, on an item or on empty space in all 3 views, and in Places and the tree. The release after it goes to the menu, so the selection stays as it was, a multiple selection too, and no rename starts and nothing opens. The menu stays up after that release, and a release over a menu item picks it, as after a right press held down.
+		- Options: GTK's long-press time, a fixed 700 ms, a fixed 1 s. Went with GTK's long-press time.
+		- Options: Ctrl or Shift held with a long press opens the menu too, or only a plain press does; went with a plain press. Ctrl and Shift already band, or pick copy or move.
+		- It hangs off the press record the right button uses since 2026101405542891, so the views and side panes share one timer.
+	- Decisions:
+		- The wait is GTK's long-press time, the `gtk-long-press-time` setting, 500 ms unless the desktop or theme sets it.
+		- A press that moved past the drag threshold is a drag or a band, and never opens the menu, even if it comes back.
+	- Swept: the list, icon and compact views, on an item and on empty space, Places and the tree, which are every place the right-click menu opens on the release. Not changed: menus on the tab bar, path bar, toolbar and location bar, which open on the press.
+	- Verified: rk80w1ds passes in the list, icon and compact views, 3 runs in a row and once with the cores loaded, and fails before the change. The drag select test rk7yvgse passes, and so do the keyboard menu, tree menu key, Places focus, Places heading, list expander, row hover, treeview hit, icon accessible, menus freed and drop tests. The Windows cross build is clean. Lint is clean as far as rj3ytv0b, and the test ID check passes.
+	- Branch: longpress
+	- Commit: 0925ff7
+	- Test case: rk80w1ds, Long press menu test. In each view: a long press on a selected item waits for GTK's long-press time and opens the menu with all 3 selected kept, the menu stays up after the release, a long press as the second slow click starts no rename, a quick click only selects, a long press on empty space opens a menu, and a band, a press that went out and came back, or a file drag held still opens none. Also Places, where the release opens nothing, and the tree. Fails before the change and passes after.
+	- Acceptance signoff: Signed off 20261014, GTK's long-press time.
+
+- Take libgsf, the gsf-office thumbnailer and the 4 search converters out of every bundle and the build.
+	- ID: 2026100909260549
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
+	- Needs external testing:
+		- Done 20261009 on vm925w, passed. It was: the native suite on vm925w, for rjmc40ex, rjvb97aa, rjvtggme and rfhnaccg, and the seed replays rhatwe0r, rhatwe0s and rhatwe0t.
+		- Done 20261009 on vm925w, passed. It was: the single exe built from this branch, in the desktop session on vm925w with MacType running: an .odt with no picture inside, a .doc with a metafile preview, and a content search through office files, on a box with no thumbnailer or search helper installed for these types. Plain icons where there is no picture, the matches, no box, and no other program started. The staged `win-flat` has no libgsf dll, no gsf-office files and no `*-to-txt` exe.
+		- Failed 20261013, see Progress log. It was: a full pipeline with `--include-arm --include-bsd`: both prefix checks, "Windows bundle check" and "FreeBSD bundle check" pass. The FreeBSD pkg made before this change depends on libgsf, so "FreeBSD bundle check" stops a run until the FreeBSD lane makes a new one.
+		- The Windows release workflow on the next tag, with libgsf gone from its package list.
+		- A full pipeline with `--include-arm --include-bsd`, after the fix to rjvwpz9d: both prefix checks, "Windows bundle check" and "FreeBSD bundle check" pass.
+	- Priority|Severity: Avg
+	- Opened: 20261009-092605
+	- Opened by: 2026100617051745
+	- Parent ID: 2026100617051745
+	- Prereq IDs: 2026100909260472, 2026100909260511
+	- Related IDs: 2026100914514406
+	- Target OS: All
+	- Requirements:
+		- No libgsf in the build, the sysroot, the MSYS2 package lists, the deb's Depends or any bundle.
+		- No `gsf-office-thumbnailer` and no `nemo-anywhere-*-to-txt` programs or their helper definitions in any bundle.
+		- The tests and fuzz targets that use libgsf to write or read files move to the app's own readers and a writer that needs no libgsf.
+	- Note: rjmc40ex skips when no gsf-office thumbnailer is found, but its .odt now gets its thumbnail from the app's reader. Its skip goes, and its check that a thumbnailer is found by extension needs another type.
+	- Progress log:
+		- 20261009: done. The 4 converters, their definitions and the libgsf dependency are gone from the build. The fuzz targets for the Excel, PowerPoint and Word parsers now run the app's own parsers, with the same seeds. The converter test runs its old cases through the app's reader, on files written with libarchive and with the compound file writer from 2026100909260511, which now sits in a file of its own for both tests. rjmc40ex lost its skip. It finds a stand-in thumbnailer for PDF by extension, and its .odt gets the reader's picture.
+		- 20261009: libgsf is out of the cross sysroot's package list, the MSYS2 lists, the build images and the deb's fallback Depends line. The Windows bundles leave out gsf-office's thumbnailer descriptor, the same way as gdk-pixbuf's, since MSYS2 on a box with libgsf still has it.
+		- 20261009: the `nemo-winbuild:init` image still has libgsf and gsf-office's descriptor in its sysroot. The next image build leaves them out. Until then the zip leaves the libgsf dlls out itself. The Linux images still have libgsf-1-dev installed, which nothing links now, so they need no rebuild.
+		- 20261009: at first the fall-back to an installed thumbnailer or search helper went too, for a file the reader gets nothing from. Put back: the app's reader comes before any installed one, not instead of it, as decided in 2026100617051745. Only what the app bundled goes.
+		- 20261009: README's MacType note stays. As far as can be read here, the single exe still starts a packed program: GLib's spawn helper, for a new window or a tab moved to its own window. Filed as 2026100914514406. Not tried under MacType.
+		- 20261013: back to Queued. The full pipeline at dev 5ca50b7 stopped at the x86_64 prefix check: rjvwpz9d refuses `mso-doc.nemo_search_helper` in the tarball, deb and rpm. That file is catdoc's definition, which stays, as decided here, so the check's list is wrong, not the bundles. The arm64 and FreeBSD bundle checks didn't run, since the package checks stop at the first failure. The FreeBSD lane made a new pkg in the same run.
+		- 20261014: rjvwpz9d's list no longer names catdoc's `mso-doc.nemo_search_helper`. Its self-test now has catdoc's definition in the good tarball and zip, and a bundled converter's definition, `mso-word.nemo_search_helper`, among the bad ones. Back to Waiting for testing.
+	- Decisions:
+		- 20261009: the fall-backs in 2026100909260472 and 2026100909260511 stay. For a file the app's reader gets nothing from, such as one with no picture inside, a metafile preview, or one that doesn't read, a thumbnailer or search helper installed on the system still gets its turn. So on Linux a distro's thumbnailer for .docx still runs after the reader. Only the programs the app bundled go.
+		- 20261009: catdoc's search helper definition stays. It names a program installed on the system, not one the app bundled.
+	- Swept: every bundle and lane that copied the programs, the dlls or the descriptors: the native stage, the zip, the cross build's strip, the wine runner, the Linux tarball, deb and rpm through meson's install, and the FreeBSD pkg, whose deps come from what the binaries link. The factory and the search walk are as on dev: the reader first for these types, then anything installed.
+	- Verified: 20261009, the app and every test built with libgsf's development files removed from the build container and from the cross sysroot. Full Linux suite 188 of 188. rjvb97aa and rjvtggme fail with the fall-backs taken out, since then the stand-in thumbnailer and search helper never run for the files with no picture and the ones that don't read. They also fail with the reader skipped in the factory, since then the stand-in runs for files that have a picture. They pass as on the branch. rjmc40ex fails with the extension lookup taken out and passes with it, under wine. rjmc40ex, rjvb97aa, rjvtggme, rfhnaccg and the 5 office seed replays pass under wine, where the stand-ins are seen to run too. All 12 fuzz targets ran 20 s each with no find. The bundle check fails on every bundle in the release folder from before the change, and passes on a fresh install of this branch and on a zip packed from the old sysroot. Its self-test fails with the name and dependency checks taken out. rjnyer4p fails with gsf-office's descriptors kept. Lint clean apart from rj3ytv0b, which always fails in a worktree.
+	- Verified: 20261009 on vm925w at dev 186065a. rjmc40ex, rjvb97aa, rjvtggme, rfhnaccg, rjvtghmd, rhatwe0r, rhatwe0s and rhatwe0t pass in the native suite. The staged `win-run` and `win-flat` have no libgsf dll, no gsf-office file and no `*-to-txt` exe; catdoc's helper definition is still there, as decided. The single exe from the same commit, in the desktop session with MacType running and loaded into the app: an .odt with no picture inside and a .doc with a metafile preview show plain icons, and a content search found a word in each, and in each of the other office files. The app started no other program, and no box came up.
+	- Verified: 20261014, rjvwpz9d's self-test fails with catdoc's definition still on the list, on the good tarball and the good zip, and passes after. It also fails with `mso-word.nemo_search_helper` taken off the list. The check passes on the tarball, deb and rpm for x86_64 and arm64, the zip and the FreeBSD pkg and tarball left by the 20261013 run, each of which has catdoc's definition. Lint clean apart from rj3ytv0b, which always fails in a worktree.
+	- Branch: nogsf, tipsfix
+	- Commit: 7c4e340, 6748a54, 64f69e1
+	- Test case: rjvwpz9d, Bundle check: no libgsf, gsf-office thumbnailer, converter or their definitions in the tarball, deb, rpm, zip or FreeBSD pkg, and no Depends, Requires or pkg dep on libgsf. catdoc's definition is let through. The prefix check rhtq57n5 runs it on each arch's Linux files, and its self-test runs in the lint stage. rjvb97aa and rjvtggme: files with a picture or text get it from the reader, and the stand-in thumbnailer and search helper installed for these types aren't run. Files with no picture inside, a metafile preview, and files that don't read get nothing from the reader, and then the stand-ins run. rjmc40ex and rfhnaccg as in Progress log.
 
 - Escape should exit out of search view.
 	- ID: 2026101405542853
@@ -5139,6 +4999,147 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: ef05a4f
 	- Test case: rjbpyy28 Archive stop time test now has a 7z case. A 4 GiB and a 16 GiB file are stopped at their first progress report. Before the fix, the 4 GiB one took 50 s and the 16 GiB one didn't end in 100 s. After, both take 0.01 s. rjbw0rkq Stopped 7z leak test, which fails at 82 bytes a round when the close is left out.
 	- Acceptance signoff: waiting. The archive writer's handling of a stop changed again, this time for the 7z.
+
+- Compression reset: link choices and filesystem options in the Compress dialog.
+	- ID: 2026100516274386
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
+	- Needs external testing: the dialog on a real Windows desktop with 7-Zip installed. The Windows rows were seen under wine only, with a stand-in for 7-Zip.
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274163, 2026100516274312
+	- Target OS: Linux, Windows
+	- Design: [Link handling](design_docs/20260929-101432_compression.md#link-handling).
+	- Requirements:
+		- Symlinks and Junctions radio groups replace the two link boxes. They show when the selection has a link or a folder. Junctions is Windows only.
+		- Follow nested filesystems and Follow other filesystems sit below them, disabled unless a folder or link is selected. Nested is hidden on Windows.
+		- A store choice the writer can't do is disabled. On Windows, 7z with a password or volumes disables Store as symlinks.
+		- The Follow flyover says a `.lnk` is always stored. The Store as symlinks flyover says when it forces one thread.
+		- Junctions takes its default from Symlinks by the table, until it is changed by hand.
+		- The size changes in the labels come with the live totals item.
+	- Estimated effort: High
+	- Actual effort: Avg
+	- Progress log:
+		- 20261013-082039: built. Left at signoff for the look, and for these calls:
+			- Whether the selection has a link or a folder comes from what the listing already knows, so nothing more is asked of a share.
+			- The store choices offered are the ones a writer that can also do the password and volumes can store. On Windows that is what takes Store as symlinks away from a 7z with either.
+			- A grayed choice shows as Ignore, and the choice is kept. It comes back with a format or options that can do it.
+			- The groups are labelled lists of radio buttons. The group's access key goes to the choice that's on, and arrows change it.
+	- Done: Symlinks and, on Windows, Junctions are radio groups in place of the 2 boxes, shown only when a link or a folder is selected. Follow nested filesystems, Linux only, and Follow other filesystems sit below them and are grayed for plain files. Junctions shows its default from Symlinks by the table until it's changed by hand. Follow's flyover says a `.lnk` always goes in as itself, and Store as symlinks says when it takes a 7z onto one thread. Only the Symlinks choice reaches the job yet, as the 2 boxes did, until 2026100516274423. The remembered values were already mapped over by 2026100516274163.
+	- Swept: both callers of the dialog, the view and the test. Every place that read the 2 boxes, which was only the dialog. The 7-Zip-on-Windows rule is now one switch in `nemo-archive.c`, the only place that had it.
+	- Verified: 20261013, full Linux suite 196 of 196 with warnings as errors, the Windows cross build, lint clean apart from rj3ytv0b. rhtmbdmj, rev86z08 and rhae85g0 pass under wine, rhtmbdmj with and without a stand-in for 7-Zip. Each new check went red against a fault put in the code.
+	- Branch: arcdlg
+	- Commit: c80c671
+	- Test case: rhtmbdmj, Compress dialog height test, for which groups show and what is grayed for a plain file or a folder, the store choices per format and with a password or volumes, the one-thread flyover, a grayed choice coming back, the group's access key, and on Windows the Junctions defaults and a hand change sticking. rev86z08, Archive options test, for the store choices per format and options, and when storing links costs threads.
+
+- Compression reset: live size totals in the Compress dialog.
+	- ID: 2026100516274498
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no.
+	- Needs external testing: the dialog on a real Windows desktop, with a junction, a symlink and a volume mounted in a folder in the selection, and a link onto a share. Under wine no links get made, so only the mounts, the share and the Junctions row were seen there.
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274275, 2026100516274386
+	- Target OS: Linux, Windows
+	- Design: [Total size](design_docs/20260929-101432_compression.md#total-size) and [Background scan](design_docs/20260929-101432_compression.md#background-scan).
+	- Requirements:
+		- The dialog starts the background scan with the options as set, and narrows or restarts it as they change.
+		- Each follow option shows its size change. "Total size to include" sits on the left of the Cancel and OK row. Both update at most every 0.25 s.
+		- Cancel or OK stops the scan and frees it.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Progress log:
+		- 20261013-092952: built. Left at signoff for the look, and for these calls:
+			- The scan counts what the options as shown would do with the format, which is what the job does. A store choice grayed to Ignore counts as Ignore, and plain files follow nothing. A choice kept but not shown isn't counted.
+			- A Follow control shows its change only while it's on, as "(+N)" after its text. Off, the scan hasn't walked what it would add, so the design's 0 isn't shown.
+			- The total says "so far" until the walk for the options as set is done. After a comma it says how many places on a share were left out, and how many couldn't be read. Its tooltip says what each means.
+			- The total is a fixed width and wraps to a second line for a note, so the dialog doesn't change width as the numbers grow. It makes the dialog a little wider.
+			- A selection on a share isn't walked before Compress at all, and the total says it isn't counted there. Stopping a walk stuck on a share that doesn't answer would hang the dialog on Cancel.
+			- With items from more than one folder, as in search results, the first item's folder is the one crossings are told from.
+			- A Compress that comes back to the dialog, such as for an empty name or a refused overwrite, keeps the scan going. The one that starts the job frees it first.
+	- Done: the dialog walks the selection on a thread of its own with the options as shown, and moves the walk along as any choice or the format changes. "Total size to include" sits left of Cancel and Compress, and each Follow control that's on shows what it adds. Both come at most every 0.25 s. Cancel, Compress and the window going all stop the walk and free it, so no report comes after.
+		- Also: the dialog closed with its parent destroyed the freed window a second time. And each opening leaked the default volume size text, since 2026100516274646.
+	- Swept: every change to the choices goes through the one place that shows them, which now hands the scan its options, so the boxes, both radio groups, the format, Reset and the password all reach it. The dialog's two callers, the view and the test. The scan's other user is its own test.
+	- Verified: 20261013, rhtmbdmj went red with each of: the scan not moved along when a choice changes, a size change shown for the wrong option, plain files following what's chosen, a selection on a share walked, the scan never freed, and the window destroyed after its parent took it. It passes on Linux, under ASan and UBSan with leak checks, 6 copies at once, and under wine. Full Linux suite 196 of 196 with warnings as errors, the Windows cross build, lint clean apart from rj3ytv0b.
+	- Branch: livesize
+	- Commit: 9fc96be
+	- Test case: rhtmbdmj, Compress dialog height test, check_scan_sizes on a scratch tree with made-up mounts, links and a share: the total and each Follow control's change match the core's own numbers for the defaults, widened, widened with a format change, narrowed, and with a store choice. Plain files count nothing followed. A selection on a share isn't walked. Cancel frees the scan, a Compress that comes back keeps it, and the parent closing mid-scan frees it with no critical.
+
+- Compression reset: move the compress code into the archive core.
+	- ID: 2026100516274683
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: No. The full Linux suite passed on the branch, 196 of 196.
+	- Needs external testing: None left. rewygsbg passes natively on b29w. rhr6ggmt fails the same 2 rows there on dev and on the branch, filed as 2026101313374036.
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274349, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646
+	- Related IDs: 2026100516275399, 2026101313374036
+	- Target OS: Linux, Windows
+	- Design: [Modularity](design_docs/20260929-101432_compression.md#modularity) and [Roadmap](design_docs/20260929-101432_compression.md#roadmap).
+	- Requirements:
+		- Last, after every other reset item. The rest of the compress code moves behind the interfaces, with no change in what it does.
+		- Writer choice, command lines, writing, and the check before a delete go to the core. The Compress dialog and the progress bars go to the GTK layer. Menus, the job queue, settings, trash and the delete guard stay in nemo.
+		- Each piece moves once.
+	- Estimated effort: High
+	- Actual effort: High
+	- Progress log:
+		- 20261013-133740: moved, in 3 commits along the design's pieces, each building and passing the tests: writer choice and command lines, then the check before a delete, then writing. Left at signoff for these calls:
+			- The GTK layer is read as the GTK code outside the core: the Compress dialog in `nemo-archive-dialog.c` and the progress widget, which the core reaches only through its host. Both stay where they are. A library of their own would mean the dialog no longer reads nemo's settings and share check by itself, which is a rewrite, not a move. What moved toward the dialog is how tall its options may grow.
+			- nemo calls the moved code by its old names, from a list in `nemo-archive.h`, so the callers and the tests didn't change. Options for later: rename the callers to the core's names and drop the list.
+		- 20261013: rhr6ggmt failed once in a parallel run on Linux, in a rar row that keeps links with a password: the 2 links were missing from the archive. It didn't come back in 9 more runs of the branch, 6 of them side by side, or in 3 of dev.
+	- Decisions:
+		- A job reads the command lines and the thread count once, when it's made, and keeps its copy. Before, each line was read as it was built.
+		- The core names its 4 command lines, and nemo's settings keys are those names.
+		- The pre-scan's bar is a table of its own on the host, since the core test fills the other tables in order.
+		- An edited line missing `{{PASSWORD}}` or `{{SPLIT}}` is found by the core looking for the 2 markers, rather than by asking the host which tokens went unused.
+		- The core has its own copy of the Windows checks for where a link leads and for a PATHEXT name, as the design says.
+	- Done: `arc-writer`, `arc-command`, `arc-volumes`, `arc-verify` and `arc-compress` in `source/archive-core/`, which now links libarchive. `nemo-archive.c` keeps the job queue, the progress window and the callback, and `nemo-archive-host.c` fills a job's host with the progress, the pre-scan's bar, new files, other programs, deletes of what the job wrote, the trash and the dialogs. The lint's lists of who may delete and trash name `nemo-archive-host.c` in place of `nemo-archive.c`. No test changed. Extract code wasn't touched, and still calls the shared helpers by their old names.
+	- Swept: every `nemo_archive_` name in the tree has an alias or a definition. No core file names anything of nemo's. `test-nemo-archive-settings.c` still says the password prompt's rule is in `nemo-archive.c`; left, since the tests stay as they are.
+	- Verified: 20261013. On dev and on the branch, the same tests pass: rev86z08, rhae85g0, rewygsbg, rj4jewn6, rjbpyy28, rhr6ggmt, rhtmbdmj, rjq9mv0w, rjqef159, rexkeyng, reww9h2r, reww9h2s and the 4 archive leak tests on Linux; the 12 of them that aren't leak tests under ASan and UBSan with the leak check; and the 11 that build for Windows under wine. rhr6ggmt makes 315 runs on Linux and 52 under wine on both. Natively on b29w, rewygsbg passes on both and rhr6ggmt gives the same output on both. The full Linux suite on the branch: 196 of 196. The Windows cross build with warnings as errors, and the C lint, pass after each commit.
+	- Branch: arcmove
+	- Commit: 6fe9214, a6ee2ed, c97da18
+	- Test case: none new. rev86z08, rhae85g0, rewygsbg, rj4jewn6, rjbpyy28, rhr6ggmt, rhtmbdmj and the core tests stay as they are, and pass before and after.
+
+- Compression reset: move the extract code into the archive core.
+	- ID: 2026100516275399
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: No. The full Linux suite passed on the branch, 198 of 198.
+	- Needs external testing: None left. reww9h2r, reww9h2s, rjq9mv0w, rewygsbg and rhr6ggmt pass natively on b29w, with a long temp folder.
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274683
+	- Related IDs: 2026101312094706
+	- Target OS: Linux, Windows
+	- Design: [Modularity](design_docs/20260929-101432_compression.md#modularity) and [Roadmap](design_docs/20260929-101432_compression.md#roadmap).
+	- Requirements:
+		- Extracting and the cleaning of stored paths move to the core, and the conflict dialog to the GTK layer, with no change in what they do.
+		- After this the core has no GTK and no nemo types, and its build shows it.
+	- Estimated effort: High
+	- Actual effort: Avg
+	- Progress log:
+		- 20261013-151358: moved in 2 commits, after the fix for 2026101312094706: names and command lines, then the extract job. Each built and passed the tests. Left at signoff for the same 2 calls as 2026100516274683:
+			- The GTK layer is read as the GTK code outside the core. The Extract conflict dialog stays in `nemo-extract-conflict-dialog.c`, and the password box moved from `nemo-extract.c` to `nemo-archive-host.c`. The core reaches both only through its host's 2 questions.
+			- nemo calls the moved code by its old names, from a list in `nemo-extract.h`, so the callers and the tests didn't change.
+	- Decisions:
+		- A job reads the 2 extract lines once, when it's made, as a compress job does. Before, each line was read as it was built.
+		- When the conflict question is answered with Cancel, nemo's side stops the job through its progress, as before, so a job paused by hand wakes up to stop. The core cancels too, for a host that has no question.
+		- Looking up the programs that extract sits beside the lookup for the ones that compress, and a test hides both the same way.
+		- The build check reads the core's compile lines and the library itself, on top of the lint, which reads the sources.
+	- Done: `arc-extract-names` and `arc-extract` in `source/archive-core/`, plus the extract lines in `arc-command` and the program lookup in `arc-writer`. `nemo-extract.c` keeps the job queue, the progress window and the callback. `nemo-archive-host.c` answers the conflict and password questions with the 2 dialogs, and removes a replaced file or the staging folder through the delete guard. After this nothing in the core names GTK or nemo.
+	- Swept: every caller of the old names, in `nemo-view.c` and 5 tests, builds unchanged. The lint's lists of who may delete or walk folders needed nothing new, since the core asks its host for both.
+	- Verified: 20261013. reww9h2r, reww9h2s and rjbpmcxy pass on dev and after each commit, and under the address and undefined behavior checks. Each answer to the conflict question, with and without "Apply to all", leaves the same files on dev and on the branch. rk6704r8 fails with GTK in the core's dependencies, with the app's folder on its include path, and with a call to a GTK function in a core file. Under wine `test-arc-core`, `test-nemo-extract`, `test-nemo-extract-job` and `test-nemo-archive` pass. The cross build with warnings as errors passes after each commit. The full Linux suite passed, 198 of 198.
+	- Branch: xmove
+	- Commit: 93d44bc, f180fe4
+	- Test case: reww9h2r, reww9h2s and the extract leak test rjbpmcxy stay as they are, and pass before and after. rk65m3m4 from 2026101312094706. rk6704r8, Archive core build test: no GTK or app folder or define on a core file's compile line, and no call into GTK, GDK or nemo in the core library.
+	- Acceptance signoff: Left at signoff for the GTK-layer reading and the alias list, as 2026100516274683.
 
 - Compression reset: volume sizes say what each is for.
 	- ID: 2026100516274609
