@@ -1187,7 +1187,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026100816170921
 	- Requirements:
 		- Before the next cut.
+		- On Windows, both `\\host\share` and `smb://host/share` are taken.
 	- Incorrect behavior: able to log in over SMB, but displaying share contents is broken.
+		- On Linux, login works and the shares list, but going into a share fails with an error.
+		- On Windows the address may be refused as a format. Not sure.
 	- Test case: none yet.
 
 - In the single exe on Windows, a program packed inside it that needs libgsf can't start.
@@ -1273,6 +1276,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: expanding folders can take too long.
 		- Especially on networked shares.
 		- But even on local folders, it should be essentially instant. Is it scanning for icons, other metadata, or something first?
+	- Note: seen with the list view's expanders on Linux. Not timed on Windows.
 	- Test case: none yet.
 
 - Settings: sub-tabs don't list on the left until the parent tab is activated.
