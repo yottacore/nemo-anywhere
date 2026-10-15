@@ -299,6 +299,50 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rk8tkp4h, Bad name characters test: the device list, the messages and the name fix, a rename, an unchanged rename, a new folder path, and Rename graying out in both conflict dialogs. reww9h2r, Extract naming test: entry names fixed, and the archive core fixing a name the way the app does. reww9h2s, Extract job test: an archive with `NUL` and `trail.` unpacks as `_NUL` and `trail_` on Windows.
 	- Acceptance signoff: Left at signoff for the wording, and for `_` on extracted names.
 
+- Expanding folders can take too long.
+	- ID: 2026101417352261
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 209 of 209.
+	- Needs external testing: none for the fix. An expand on Windows and on a share wasn't timed.
+	- Priority|Severity: Avg
+	- Opened: 20261014-173522
+	- Opened by: t00mietum
+	- Related IDs: 2026101419191454, 2026101419191455
+	- Requirements:
+		- Before the next cut.
+	- Incorrect behavior: expanding folders can take too long.
+		- Especially on networked shares.
+		- But even on local folders, it should be essentially instant. Is it scanning for icons, other metadata, or something first?
+	- Reproduced: 20261014 on Linux. A folder of 10 is listed in 5 ms and its rows show at 205 ms.
+	- Actual cause: mostly waiting, not scanning. The rows of an opened folder were held for the 200 ms timer that batches a big folder's load, and nothing cut it short once the folder was all in. Pictures among its first 150 entries also waited for their thumbnail lookup, and the first lookup in a run opens the thumbnail store.
+	- Progress log:
+		- 20261014: where the time went, before the fix, list view on b23, optimized build, medians of 5 runs, 3 at 10,000. Folders of varied names, sizes, dates and types, 5% of them sub-folders, some pictures.
+			- Listing, with each entry's details: off the main thread. On its own 10,000 entries list in 0.52 s, about half of it guessing types from content and 0.16 s looking for thumbnails. In the app each batch of 100 also waits its turn on the main thread, so it took 1.6 s.
+			- Icons: 12 lookups, under 1 ms in all, since they're kept per type.
+			- Thumbnails: only the wait above. Making them comes later and holds nothing up.
+			- Item counts of the sub-folders: alongside the listing, done before the rows showed.
+			- Adding rows: about 0.1 ms a row on the main thread, about a third of it measuring cells.
+			- Drawing: one frame, under 20 ms after the rows.
+			- The rest is the timer.
+		- 20261014: the same after the fix. Milliseconds from the click, before -> after.
+			| Entries | Listed         | First row | All rows       | Drawn          | Main thread for rows
+			| :---    | :---           | :---      | :---           | :---           | :---
+			| 10      | 5              | 205 -> 6  | 208 -> 8       | 216 -> 24      | 6 -> 4
+			| 1,000   | 65 -> 101      | 213 -> 13 | 318 -> 188     | 336 -> 215     | 115 -> 127
+			| 10,000  | 1,580 -> 1,575 | 218 -> 13 | 1,812 -> 1,793 | 1,833 -> 1,820 | 1,144 -> 1,160
+		- 20261014: going into a folder of 10 from the window, which the fix doesn't touch, read 213 ms to its rows both before and after.
+		- 20261014: a big folder still costs what it costs to open: 10,000 entries take about 1.8 s either way, nearly all of it adding rows and the listing waiting on them. At 1,000 the listing now shares the main thread with the first rows, so it ends later, and the sub-folders' counts fill in about 30 ms after the rows.
+		- 20261014: left at signoff for pictures in an opened folder, which now show their plain icon for a moment before a stored thumbnail replaces it.
+	- Decisions:
+		- A folder opened by its expander shows its rows without waiting for thumbnails. The view's own folder still waits for its first 150.
+	- Actual fix: an opened folder's first rows go in as soon as they're listed and its last ones as soon as it's all read. A big one still comes in batches in between. Its pictures don't wait for their thumbnails.
+	- Swept: the tree pane adds a folder's rows as they come, with no timer. The view's own folder, search results included, waits the same 200 ms after it's listed. That changes every folder opened, so it's its own item, 2026101419191454. The icon views have no expanders.
+	- Verified: rk96k9va fails before the fix, all folders at 220 to 250 ms. It also fails with each of the 3 parts of the fix taken out alone. It passes after, 3 runs and 5 more with the cores loaded, best times 10 to 30 ms to the first row and 50 to 75 to all. rhb624a0, rh2af9s0, rj4jkr22, rk7yvgse and rhg6h4m0 pass. Full Linux suite 209 of 209 and the Windows cross build clean, both with warnings as errors. C lint clean, and the test ID check passes.
+	- Branch: expandfast
+	- Commit: e62f6e7f
+	- Test case: rk96k9va, List view expander time test. Opens 4 folders of 120 varied files, pictures among them, by their expanders, and 2 more whose listing comes a second per batch. The quickest of the 4, and the first, must show all rows in under 180 ms, and the quickest slow one its first row. The old wait can't come in under 200.
+
 - On Windows, every bundle has only the app's own exe, so no form of the app starts a program from inside its bundle.
 	- ID: 2026100917220603
 	- Type: Enhancement
@@ -1304,19 +1348,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: f38660a to f8a6223
 	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session. (c) still needs its own: a thumbnail and the text from a small file of each type, on every platform, and a check that no program is started for them.
 
-- Expanding folders can take too long.
-	- ID: 2026101417352261
+- Going into a folder shows its rows about 200 ms after it's listed.
+	- ID: 2026101419191454
 	- Type: Bug
 	- Status: Queued
 	- Priority|Severity: Avg
-	- Opened: 20261014-173522
-	- Opened by: t00mietum
-	- Requirements:
-		- Before the next cut.
-	- Incorrect behavior: expanding folders can take too long.
-		- Especially on networked shares.
-		- But even on local folders, it should be essentially instant. Is it scanning for icons, other metadata, or something first?
-	- Note: seen with the list view's expanders on Linux. Not timed on Windows.
+	- Opened: 20261014-191914
+	- Opened by: 2026101417352261
+	- Related IDs: 2026101417352261
+	- Target OS: All
+	- Steps to reproduce: from the list view, go into a folder of 10 files.
+	- Incorrect behavior: it's listed in about 10 ms and its rows show at about 210 ms.
+	- Expected behavior: a small folder shows at once.
+	- Reproduced: 20261014 on Linux, b23.
+	- Possible cause: the view holds a folder's rows for its 200 ms batch timer, and once the folder is all in it waits that long again on purpose, to give the sub-folders' item counts a chance to come in first. 2026101417352261 fixed the same wait for a folder opened by its expander.
+	- Note: this changes how every folder opens, and design.md's speed table with it.
 	- Test case: none yet.
 
 - Settings: sub-tabs don't list on the left until the parent tab is activated.
@@ -1358,6 +1404,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- Before the next cut.
 	- Test case: not applicable, docs only.
+
+- A picture dated in the future is thumbnailed again every 2 seconds for as long as it's shown.
+	- ID: 2026101419191455
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261014-191914
+	- Opened by: 2026101417352261
+	- Related IDs: 2026101417352261
+	- Target OS: All
+	- Steps to reproduce: open a folder with a PNG whose modified date is next year.
+	- Incorrect behavior: its row changes every 2 seconds, without end, and no thumbnail is made.
+	- Expected behavior: it gets a thumbnail like any other picture.
+	- Reproduced: 20261014 on Linux, b23, a PNG dated January 2027.
+	- Possible cause: a file changed in the last 2 seconds isn't thumbnailed yet, and is looked at again 2 seconds later. A date in the future always reads as just changed.
+	- Test case: none yet.
 
 - Renaming a template in Settings drops a disk error with no message.
 	- ID: 2026101416533954
