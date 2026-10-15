@@ -344,7 +344,6 @@ static const NemoConfigKey nemo_config_keys[] = {
 	{ "window-state", "sidebar-bookmark-breakpoint", NEMO_CONFIG_INT, "-1", NULL, NULL, "Bookmark index where the dedicated sidebar section starts", NEMO_CONFIG_KEY_STATE },
 	{ "window-state", "sidebar-tree-width", NEMO_CONFIG_INT, "480", NULL, NULL, "Width of the tree view pane", NEMO_CONFIG_KEY_STATE },
 	{ "window-state", "sidebar-width", NEMO_CONFIG_INT, "240", NULL, NULL, "Width of the places pane", NEMO_CONFIG_KEY_STATE },
-	{ "window-state", "start-with-location-bar", NEMO_CONFIG_BOOL, "true", NULL, NULL, "Show the location bar in new windows", NEMO_CONFIG_KEY_NONE },
 	{ "window-state", "start-with-menu-bar", NEMO_CONFIG_BOOL, "true", NULL, NULL, "Show the menu bar in new windows", NEMO_CONFIG_KEY_NONE },
 	{ "window-state", "start-with-places", NEMO_CONFIG_BOOL, "true", NULL, NULL, "Show the places pane in new windows", NEMO_CONFIG_KEY_NONE },
 	{ "window-state", "start-with-status-bar", NEMO_CONFIG_BOOL, "true", NULL, NULL, "Show the status bar in new windows", NEMO_CONFIG_KEY_NONE },

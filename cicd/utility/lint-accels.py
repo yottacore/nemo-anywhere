@@ -49,8 +49,12 @@ CONTROL_OK = {
     "control+m",  # make link; Cmd+M minimizes
 }
 
-# Owner of a key, and the ui file that has to list it for it to work.
-OWNED = {"NewTabAccel": ("primary+shift+t", "gresources/nemo-shell-ui.xml")}
+# Owner of a key, and the ui file that has to list it, as an accelerator or a
+# menu item, for it to work.
+OWNED = {
+    "NewTabAccel": ("primary+shift+t", "gresources/nemo-shell-ui.xml"),
+    "Preferences": ("primary+comma", "gresources/nemo-shell-ui.xml"),
+}
 
 TABLE = re.compile(r"Gtk(?:Toggle|Radio)?ActionEntry\s+\w+\s*\[\s*\]\s*=\s*\{")
 MODS = {"control": "control", "ctrl": "control", "primary": "primary", "shift": "shift",
@@ -241,7 +245,8 @@ def check(root):
         if key not in owners.get(name, set()):
             problems.append(("action tables", 0, f"{name} must own {key}"))
         ui_path = root / ui
-        if ui_path.is_file() and f'<accelerator action="{name}"/>' not in ui_path.read_text(errors="replace"):
+        listed = re.compile(rf'<(?:accelerator|menuitem)\b[^>]*\baction="{re.escape(name)}"')
+        if ui_path.is_file() and not listed.search(ui_path.read_text(errors="replace")):
             problems.append((ui_path.relative_to(root.parent), 0, f"{name} is not listed, so its key does nothing"))
 
     for path in sorted(p for p in root.rglob("*") if p.suffix in UI_SUFFIXES):

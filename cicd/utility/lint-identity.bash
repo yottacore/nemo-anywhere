@@ -2,7 +2,8 @@
 
 ##	- Purpose: keep the code free of a real person's paths and of the wrong
 ##	  copyright marker. Both got in by being typed once and never looked at
-##	  again, and neither shows up in a build or a test run.
+##	  again, and neither shows up in a build or a test run. Also that the
+##	  launcher and man page use the program's own name.
 ##	- Scope is the code: source/, cicd/ and utility/. project/backlog.md is
 ##	  prose written by hand and is not this check's business.
 ##	- Syntax: lint-identity.bash
@@ -55,6 +56,19 @@ fi
 bad="$(printf '%s\n' "${files[@]}" | grep '^source/' | grep -v '^source/libnemo-extension/' | xargs -d '\n' grep -nE '"[^"]*any later version' 2>/dev/null || true)"
 if [[ -n "$bad" ]]; then
 	fEcho "FAIL: text shown to the user offers a later GPL version"
+	printf '%s\n' "$bad"
+	exit 2
+fi
+
+## The menu entry and the man page name this program. The man page still named
+## the Cinnamon file manager well after the fork.
+if [[ "$(grep -m1 '^Name=' source/data/nemo.desktop.in || true)" != 'Name=Nemo Anywhere' ]]; then
+	fEcho "FAIL: source/data/nemo.desktop.in: the launcher's first Name= must be Nemo Anywhere"
+	exit 2
+fi
+bad="$(grep -niE 'cinnamon' source/docs/nemo-anywhere.1 || true)"
+if [[ -n "$bad" ]]; then
+	fEcho "FAIL: the man page names Cinnamon"
 	printf '%s\n' "$bad"
 	exit 2
 fi
