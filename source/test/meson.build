@@ -1294,6 +1294,21 @@ if not is_windows
     timeout: 120
   )
 
+  # Preloaded too; it goes into the folders from inside the program.
+  open_time_probe = shared_module('test-nemo-open-time-probe',
+    [ 'test-nemo-open-time-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('rkbdyne7 Folder open time test',
+    executable('test-nemo-open-time',
+      [ 'test-nemo-open-time.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, open_time_probe ],
+    timeout: 120
+  )
+
   # Preloaded too; it clicks from inside the program.
   places_focus_probe = shared_module('test-nemo-places-focus-probe',
     [ 'test-nemo-places-focus-probe.c' ],

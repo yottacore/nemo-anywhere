@@ -213,6 +213,53 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rk8tkp4h, Bad name characters test: the device list, the messages and the name fix, a rename, an unchanged rename, a new folder path, and Rename graying out in both conflict dialogs. reww9h2r, Extract naming test: entry names fixed, and the archive core fixing a name the way the app does. reww9h2s, Extract job test: an archive with `NUL` and `trail.` unpacks as `_NUL` and `trail_` on Windows.
 	- Acceptance signoff: Left at signoff for the wording, and for `_` on extracted names.
 
+- Going into a folder shows its rows about 200 ms after it's listed.
+	- ID: 2026101419191454
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 215 of 215.
+	- Needs external testing: none for the fix. Going into a folder on Windows and on a share wasn't timed.
+	- Priority|Severity: Avg
+	- Opened: 20261014-191914
+	- Opened by: 2026101417352261
+	- Related IDs: 2026101417352261
+	- Target OS: All
+	- Steps to reproduce: from the list view, go into a folder of 10 files.
+	- Incorrect behavior: it's listed in about 10 ms and its rows show at about 210 ms.
+	- Expected behavior: a small folder shows at once.
+	- Reproduced: 20261014 on Linux, b23.
+	- Possible cause: the view holds a folder's rows for its 200 ms batch timer, and once the folder is all in it waits that long again on purpose, to give the sub-folders' item counts a chance to come in first. 2026101417352261 fixed the same wait for a folder opened by its expander.
+	- Note: this changes how every folder opens, and design.md's speed table with it.
+	- Actual cause: the timer, as above. Thumbnail lookups and item counts cost little of it.
+	- Progress log:
+		- 20261015: where the time went, before the fix, going into a folder from the list view on b23, optimized build, medians of 5 runs, 3 at 10,000. Folders of varied names, sizes and dates, one in 7 a picture and one in 20 a sub-folder.
+			- From the click to the folder being asked for: 1 ms.
+			- Listing: 7 ms for 10, 63 for 1,000, 1.2 s for 10,000.
+			- Thumbnail lookups of the pictures among the first 150: a few ms after the listing at 10, done within it at 1,000. The first lookup in a session opens the thumbnail store, a few tens of ms more.
+			- The timer: 200 ms after the folder is all in, or after the first rows at 10,000.
+			- Adding rows: 2 ms for 10, 90 for 1,000.
+			- Drawing: one frame, 10 to 20 ms after the rows.
+			- Item counts of the sub-folders: most came in during the wait and went in with the rows. The rest came on the update timer after.
+		- 20261015: so the thumbnail wait isn't what costs the 200 ms, and the view's own folder still waits for its first 150, per 2026101417352261's decision.
+		- 20261015: the same after the fix. Milliseconds from the click, before -> after.
+			| Entries                     | Listed         | First row | All rows       | Drawn          | Last item count | Longest stall
+			| :---                        | :---           | :---      | :---           | :---           | :---            | :---
+			| 10, text only               | 7              | 207 -> 7  | 208 -> 8       | 224 -> 18      | none            | 8 -> 10
+			| 10, a picture and a folder  | 7 -> 8         | 207 -> 17 | 212 -> 22      | 226 -> 35      | 212 -> 223      | 10 -> 9
+			| 1,000                       | 63 -> 117      | 265 -> 36 | 354 -> 161     | 372 -> 173     | 865 -> 667      | 100 -> 63
+			| 10,000                      | 1,228 -> 1,286 | 219 -> 52 | 1,648 -> 1,481 | 1,681 -> 1,503 | 1,662 -> 2,002  | 341 -> 333
+		- 20261015: a big folder still comes in batches. The longest the window stopped answering is the last batch at 10,000, the same before and after. At 1,000 the listing now shares the main thread with the first rows, so it ends later, as with the expander fix.
+		- 20261015: the item counts of sub-folders fill in about 200 ms after the rows now, on the update timer like any other change. That's about when the rows used to show. At 10,000 the last count is in about 0.3 s later than before.
+		- 20261015: the icon view goes the same way: a folder of 1,000 showed its first rows at 33 ms, down from 274, after a switch from the list view.
+		- 20261015: left at signoff for the item counts coming in after the rows, and for the dated note under design.md's speed table.
+		- Note: 20261015, not changed here. A folder's thumbnail lookups queue behind its sub-folders' item counts, so a sub-folder that counts slowly holds back the rows of the pictures listed after it, among the first 150. Seen with a held listing only.
+	- Actual fix: the view's own folder shows its first rows as soon as they're listed and its last ones as soon as it's all read. A big one still comes in batches in between. Either waits while a picture among the first files is still having its thumbnail looked up, and goes in once that's done. The 200 ms timer still shows what's ready if a lookup hangs.
+	- Swept: one place decides this for every view, so the list, icon and compact views and search results all change. The expander's own path from 2026101417352261 is kept. An empty folder finishes at once. A folder that's already all read, such as one open in another window, shows its rows at once too, read but not run. The tree pane has no timer.
+	- Verified: rkbdyne7 fails before the fix, every kind at 210 to 245 ms. It also fails with each of the 3 parts of the fix taken out alone. It passes after, 3 runs and 3 more with every core loaded, best times there 57 to 140 ms to all rows and 16 to 82 to the first. rk96k9va, rhb624a0 and rj4jkr22 pass. Full Linux suite 215 of 215 and the Windows cross build clean, both with warnings as errors. C lint clean, and the test ID check passes.
+	- Branch: openfast
+	- Commit: 50d942ba
+	- Test case: rkbdyne7, Folder open time test. Goes into 9 folders of 120 from the list view, and back up after each. 4 are varied files with pictures and a sub-folder, 3 are text only, and 2 more are listed a second per batch, one with pictures and one without. The quickest of each fast kind must show all rows in under 180 ms, and each slow one its first row. Each folder's item count, and each sub-folder's, must show right. The old wait can't come in under 200.
+
 - On Windows, every bundle has only the app's own exe, so no form of the app starts a program from inside its bundle.
 	- ID: 2026100917220603
 	- Type: Enhancement
@@ -784,23 +831,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: 20261007, not ruled out: the Menu key made no menu at all once, on a loaded box. GTK 3 doesn't show a menu whose pointer grab fails, and the probe presses the key only once. Nothing points at that, and pressing again would hide it rather than explain it.
 	- Test case: rjefm41d itself.
 
-- Going into a folder shows its rows about 200 ms after it's listed.
-	- ID: 2026101419191454
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261014-191914
-	- Opened by: 2026101417352261
-	- Related IDs: 2026101417352261
-	- Target OS: All
-	- Steps to reproduce: from the list view, go into a folder of 10 files.
-	- Incorrect behavior: it's listed in about 10 ms and its rows show at about 210 ms.
-	- Expected behavior: a small folder shows at once.
-	- Reproduced: 20261014 on Linux, b23.
-	- Possible cause: the view holds a folder's rows for its 200 ms batch timer, and once the folder is all in it waits that long again on purpose, to give the sub-folders' item counts a chance to come in first. 2026101417352261 fixed the same wait for a folder opened by its expander.
-	- Note: this changes how every folder opens, and design.md's speed table with it.
-	- Test case: none yet.
-
 - Settings: sub-tabs don't list on the left until the parent tab is activated.
 	- ID: 2026101417352262
 	- Type: Enhancement
@@ -965,6 +995,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: 20261015 on Linux, once, in a worktree's full suite run.
 	- Possible cause: a wait there isn't scaled for a slow box.
 	- Test case: rj750n43 itself.
+
+- A slow sub-folder count holds back the rows of pictures listed after it.
+	- ID: 2026101516055252
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261015-160552
+	- Opened by: 2026101419191454
+	- Related IDs: 2026101419191454
+	- Target OS: All
+	- Steps to reproduce: go into a folder whose first 150 entries have a sub-folder that's slow to count, then pictures.
+	- Incorrect behavior: a folder's thumbnail lookups queue behind its sub-folders' item counts, so the pictures' rows wait on the slow count.
+	- Expected behavior: the pictures' rows don't wait on a sub-folder count.
+	- Reproduced: 20261015 on Linux, only with a listing held back on purpose.
+	- Test case: TBD
 
 - On Windows, a file that isn't on disk yet, such as a mail attachment, can't be dropped onto the window.
 	- ID: 2026101416534066

@@ -626,6 +626,12 @@ Measured on 2026-09-20 with the Linux release build on a desktop machine. Each i
 
 - "Settled" is when the view has gone idle, with icons and column widths done.
 
+- The table is from before a folder's rows stopped waiting on a 200 ms timer. On 2026-10-15, on a busier machine where the old build came out up to 0.2 s slower than the table, both columns dropped by 0.2 to 0.3 s at every size: 0.2 s and 0.02 s for an empty folder, 0.3 s and 0.1 s at 1,000, 1.3 s and 1.1 s at 10,000.
+
+- A folder's first rows go in as soon as they're listed, and its last ones as soon as it's all read. A big folder comes in batches in between, every 200 ms at first and less often as it goes on, so the window still answers while it loads. The same goes for a folder opened by its list view expander.
+	- Pictures among the first 150 entries of the folder gone into wait for their thumbnail lookup, so they don't show a plain icon first. That's a few ms, or a few tens the first time in a session, when the thumbnail store is opened. The rows of a folder opened by its expander don't wait.
+	- The item counts of sub-folders fill in after the rows, like any other change. Nothing holds the rows for them.
+
 - Listing time grows about in step with the file count, at roughly a tenth of a millisecond per file. That is the one to watch. A big download or photo folder is where it is felt.
 
 - The 10,000 and 50,000 rows were about four times these numbers until two changes to the measuring, both covered under [List view column widths](#list-view-column-widths): the list was put into fixed-height mode, and each column now remembers the width of a value it has already laid out. Peak memory came down with the first and didn't move with the second.
