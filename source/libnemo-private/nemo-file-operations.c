@@ -4091,6 +4091,23 @@ get_target_file (GFile *src,
 	return get_target_file_with_custom_name (src, dest_dir, dest_fs_type, same_fs, NULL);
 }
 
+/* The name already picked, made fit for the file system. Working it out from
+   the source again would drop a name typed in the conflict dialog. */
+static GFile *
+get_target_file_refit (GFile *src,
+		       GFile *dest,
+		       GFile *dest_dir,
+		       const char *dest_fs_type,
+		       gboolean same_fs)
+{
+	char *name = g_file_get_basename (dest);
+	GFile *refit;
+
+	refit = get_target_file_with_custom_name (src, dest_dir, dest_fs_type, same_fs, name);
+	g_free (name);
+	return refit;
+}
+
 static gboolean
 has_fs_id (GFile *file, const char *fs_id)
 {
@@ -4148,7 +4165,8 @@ static void copy_move_file (CopyMoveJob *job,
 			    GdkPoint *point,
 			    gboolean overwrite,
 			    gboolean *skipped_file,
-			    gboolean readonly_source_fs);
+			    gboolean readonly_source_fs,
+			    GFile *picked_dest);
 
 typedef enum {
 	CREATE_DEST_DIR_RETRY,
@@ -4191,7 +4209,7 @@ create_dest_dir (CommonJob *job,
 			if (dest_dir != NULL) {
 				*dest_fs_type = query_fs_type (dest_dir, job->cancellable);
 
-				new_dest = get_target_file (src, dest_dir, *dest_fs_type, same_fs);
+				new_dest = get_target_file_refit (src, *dest, dest_dir, *dest_fs_type, same_fs);
 				g_object_unref (dest_dir);
 
 				if (!g_file_equal (*dest, new_dest)) {
@@ -4324,7 +4342,7 @@ copy_move_directory (CopyMoveJob *copy_job,
 						     g_file_info_get_name (info));
 			copy_move_file (copy_job, src_file, *dest, same_fs, FALSE, &dest_fs_type,
 					source_info, transfer_info, NULL, NULL, FALSE, &local_skipped_file,
-					readonly_source_fs);
+					readonly_source_fs, NULL);
 			g_object_unref (src_file);
 			g_object_unref (info);
 		}
@@ -4970,7 +4988,8 @@ copy_move_file (CopyMoveJob *copy_job,
 		GdkPoint *position,
 		gboolean overwrite,
 		gboolean *skipped_file,
-		gboolean readonly_source_fs)
+		gboolean readonly_source_fs,
+		GFile *picked_dest)
 {
 	GFile *dest, *new_dest;
 	GError *error;
@@ -5024,7 +5043,11 @@ copy_move_file (CopyMoveJob *copy_job,
 	 */
 	handled_invalid_filename = *dest_fs_type != NULL;
 
-	if (unique_names) {
+	/* A move's copy fallback: the target, and any overwrite, were settled when
+	   the rename was tried. */
+	if (picked_dest != NULL) {
+		dest = g_object_ref (picked_dest);
+	} else if (unique_names) {
 		dest = get_unique_target_file (src, dest_dir, same_fs, *dest_fs_type, unique_name_nr++);
 	} else if (copy_job->target_name != NULL) {
 		dest = get_target_file_with_custom_name (src, dest_dir, *dest_fs_type, same_fs,
@@ -5248,7 +5271,7 @@ copy_move_file (CopyMoveJob *copy_job,
 		if (unique_names) {
 			new_dest = get_unique_target_file (src, dest_dir, same_fs, *dest_fs_type, unique_name_nr);
 		} else {
-			new_dest = get_target_file (src, dest_dir, *dest_fs_type, same_fs);
+			new_dest = get_target_file_refit (src, dest, dest_dir, *dest_fs_type, same_fs);
 		}
 
 		if (!g_file_equal (dest, new_dest)) {
@@ -5545,7 +5568,7 @@ copy_files (CopyMoveJob *job,
 					source_info, transfer_info,
 					job->debuting_files,
 					point, FALSE, &skipped_file,
-					readonly_source_fs);
+					readonly_source_fs, NULL);
 			g_object_unref (dest);
 		}
 		i++;
@@ -5754,8 +5777,12 @@ report_move_progress (CopyMoveJob *move_job, G_GNUC_UNUSED int total, int left)
 	nemo_progress_info_pulse_progress (job->progress);
 }
 
+/* dest is where the rename was going: a name typed in the conflict dialog, a
+   Keep both name or the folder a merge goes into. overwrite was answered for
+   that file and no other. */
 typedef struct {
 	GFile *file;
+	GFile *dest;
 	gboolean overwrite;
 	gboolean has_position;
 	GdkPoint position;
@@ -5763,6 +5790,7 @@ typedef struct {
 
 static MoveFileCopyFallback *
 move_copy_file_callback_new (GFile *file,
+			     GFile *dest,
 			     gboolean overwrite,
 			     GdkPoint *position)
 {
@@ -5770,6 +5798,7 @@ move_copy_file_callback_new (GFile *file,
 
 	fallback = g_new (MoveFileCopyFallback, 1);
 	fallback->file = file;
+	fallback->dest = g_object_ref (dest);
 	fallback->overwrite = overwrite;
 	if (position) {
 		fallback->has_position = TRUE;
@@ -5779,6 +5808,15 @@ move_copy_file_callback_new (GFile *file,
 	}
 
 	return fallback;
+}
+
+static void
+move_copy_fallback_free (gpointer data)
+{
+	MoveFileCopyFallback *fallback = data;
+
+	g_object_unref (fallback->dest);
+	g_free (fallback);
 }
 
 static GList *
@@ -5942,7 +5980,7 @@ move_file_prepare (CopyMoveJob *move_job,
 		g_assert (*dest_fs_type == NULL);
 		*dest_fs_type = query_fs_type (dest_dir, job->cancellable);
 
-		new_dest = get_target_file (src, dest_dir, *dest_fs_type, same_fs);
+		new_dest = get_target_file_refit (src, dest, dest_dir, *dest_fs_type, same_fs);
 		if (!g_file_equal (dest, new_dest)) {
 			g_object_unref (dest);
 			dest = new_dest;
@@ -6028,6 +6066,7 @@ move_file_prepare (CopyMoveJob *move_job,
 		g_error_free (error);
 
 		fallback = move_copy_file_callback_new (src,
+							dest,
 							overwrite,
 							position);
 		*fallback_files = g_list_prepend (*fallback_files, fallback);
@@ -6160,14 +6199,13 @@ common = &job->common;
 			same_fs = has_fs_id (src, dest_fs_id);
 		}
 
-		/* Set overwrite to true, as the user has
-		   selected overwrite on all toplevel items */
 		skipped_file = FALSE;
 		copy_move_file (job, src, job->destination,
 				same_fs, FALSE, dest_fs_type,
 				source_info, transfer_info,
 				job->debuting_files,
-				point, fallback->overwrite, &skipped_file, FALSE);
+				point, fallback->overwrite, &skipped_file, FALSE,
+				fallback->dest);
 	}
 }
 
@@ -6288,7 +6326,7 @@ move_job (GIOSchedulerJob *io_job,
 		nemo_delete_testguard_end ();
 	}
 
-	g_list_free_full (fallbacks, g_free);
+	g_list_free_full (fallbacks, move_copy_fallback_free);
 
 	g_free (dest_fs_id);
 	g_free (dest_fs_type);

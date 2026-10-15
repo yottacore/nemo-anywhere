@@ -775,6 +775,16 @@ test('rh5nme6g Link delete leaves the target', link_delete_job, args: [ 'delete'
 test('rhtq57n2 Link delete, asked by the job', link_delete_job, args: [ 'delete-asked' ])
 test('rh5nme6h Link move leaves the target', link_delete_job, args: [ 'move' ])
 
+test('rkb48gsx Move conflict answers test',
+  executable('test-nemo-move-conflict',
+    [ 'test-nemo-move-conflict.c', 'test.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+    c_args: nemo_definitions,
+  ),
+  timeout: 120,
+)
+
 # Carries the resource for the emblem art, as the next test does.
 test('rhtmbdmc Link emblems test',
   executable('test-nemo-emblems',
