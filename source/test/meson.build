@@ -1241,6 +1241,15 @@ if not is_windows
     args: []
   )
 
+  test('rk95h61s Share folder with a local path lists test',
+    executable('test-nemo-dir-enum-remote',
+      [ 'test-nemo-dir-enum-remote.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: []
+  )
+
   # Preloaded into the program, so it links nothing of ours.
   list_view_counts = shared_module('test-nemo-list-view-counts',
     [ 'test-nemo-list-view-counts.c' ],

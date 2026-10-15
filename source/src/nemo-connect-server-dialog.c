@@ -111,7 +111,12 @@ static struct MethodInfo methods[] = {
 	{ "sftp",  SHOW_PORT | SHOW_USER, 22 },
 	{ "ftp",  SHOW_PORT | SHOW_USER, 21 },
 	{ "ftp",  IS_ANONYMOUS | SHOW_PORT, 21 },
+#ifdef G_OS_WIN32
+	/* Windows connects to a share as the session does, so a user name would go unused */
+	{ "smb",  SHOW_SHARE, 0 },
+#else
 	{ "smb",  SHOW_SHARE | SHOW_USER | SHOW_DOMAIN, 0 },
+#endif
 	{ "dav",  SHOW_PORT | SHOW_USER, 80 },
 	/* FIXME: hrm, shouldn't it work? */
 	{ "davs", SHOW_PORT | SHOW_USER, 443 },
@@ -473,7 +478,11 @@ mount_enclosing_ready_cb (GObject *source,
 
 	g_file_mount_enclosing_volume_finish (location, res, &error);
 
-	if (!error || g_error_matches (error, G_IO_ERROR, G_IO_ERROR_ALREADY_MOUNTED)) {
+	/* On Windows an smb:// address is its UNC path, an ordinary local file,
+	   which has no volume to mount and is shown as it is. */
+	if (!error || g_error_matches (error, G_IO_ERROR, G_IO_ERROR_ALREADY_MOUNTED) ||
+	    (g_file_is_native (location) &&
+	     g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED))) {
 		/* volume is mounted, show it */
 		nemo_connect_server_dialog_display_location_async (dialog, location,
 								       display_location_async_cb, NULL);

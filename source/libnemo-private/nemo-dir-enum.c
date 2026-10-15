@@ -374,6 +374,16 @@ nemo_enumerate_children_finish (GFile         *dir,
 
 #ifndef G_OS_WIN32
 
+/* A gvfs location has a path too while gvfsd-fuse runs, under
+   /run/user/<uid>/gvfs. Its enumerator refuses the sync calls the wrapper
+   below makes, and a link target there names the server's tree, not ours.
+   So only a native file is walked here; gvfs follows links on the server. */
+static const char *
+native_path (GFile *file)
+{
+	return g_file_is_native (file) ? g_file_peek_path (file) : NULL;
+}
+
 static gboolean
 is_link (GFileInfo *info)
 {
@@ -506,7 +516,7 @@ listing_opened (GObject      *source,
 	self = g_object_new (NEMO_TYPE_LISTING_ENUMERATOR, "container", source, NULL);
 	self->inner = inner;
 	self->attributes = g_strdup (g_task_get_task_data (task));
-	self->folder = g_strdup (g_file_peek_path (G_FILE (source)));
+	self->folder = g_strdup (native_path (G_FILE (source)));
 
 	g_task_return_pointer (task, self, g_object_unref);
 	g_object_unref (task);
@@ -565,7 +575,7 @@ nemo_enumerate_listing_async (GFile               *dir,
 #else
 	GTask *task;
 
-	if (g_file_peek_path (dir) == NULL) {
+	if (native_path (dir) == NULL) {
 		nemo_enumerate_children_async (dir, attributes, G_FILE_QUERY_INFO_NONE,
 					       io_priority, cancellable, callback, user_data);
 		return;
@@ -602,7 +612,7 @@ nemo_query_listing_info (GFile         *file,
 	g_autoptr (GFile) parent = NULL;
 	GFileInfo *own;
 
-	if (follow || g_file_peek_path (file) == NULL) {
+	if (follow || native_path (file) == NULL) {
 		return g_file_query_info (file, attributes, G_FILE_QUERY_INFO_NONE, cancellable, error);
 	}
 
@@ -613,11 +623,11 @@ nemo_query_listing_info (GFile         *file,
 	}
 
 	parent = g_file_get_parent (file);
-	if (parent == NULL || g_file_peek_path (parent) == NULL) {
+	if (parent == NULL || native_path (parent) == NULL) {
 		return own;
 	}
 
-	return follow_unless_share (file, g_file_peek_path (parent), own, attributes, cancellable);
+	return follow_unless_share (file, native_path (parent), own, attributes, cancellable);
 #endif
 }
 
