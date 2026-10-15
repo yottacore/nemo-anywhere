@@ -1307,6 +1307,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: the tree pane adds a folder's rows as they come, with no timer. The view's own folder, search results included, waits the same 200 ms after it's listed. That changes every folder opened, so it's its own item, 2026101419191454. The icon views have no expanders.
 	- Verified: rk96k9va fails before the fix, all folders at 220 to 250 ms. It also fails with each of the 3 parts of the fix taken out alone. It passes after, 3 runs and 5 more with the cores loaded, best times 10 to 30 ms to the first row and 50 to 75 to all. rhb624a0, rh2af9s0, rj4jkr22, rk7yvgse and rhg6h4m0 pass. Full Linux suite 209 of 209 and the Windows cross build clean, both with warnings as errors. C lint clean, and the test ID check passes.
 	- Branch: expandfast
+	- Commit: e62f6e7f
 	- Test case: rk96k9va, List view expander time test. Opens 4 folders of 120 varied files, pictures among them, by their expanders, and 2 more whose listing comes a second per batch. The quickest of the 4, and the first, must show all rows in under 180 ms, and the quickest slow one its first row. The old wait can't come in under 200.
 
 - Going into a folder shows its rows about 200 ms after it's listed.
