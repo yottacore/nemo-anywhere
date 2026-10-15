@@ -160,8 +160,8 @@ RELEASE_NATIVE_OSARCH="linux-x86_64"
 ## Then the exe is opened under wine and its main window looked for, about twenty
 ## seconds, since nothing else here ever starts the Windows build's GUI.
 ## Linux arm64 is built on an arm64 box over ssh, not cross-compiled, and takes
-## about an hour on the emulated one, so the engine leaves it out unless the run
-## has --include-arm. Its tarball name has the version in it; the engine fills
+## about an hour on the emulated one. It runs on every full run and --quick
+## leaves it out. Its tarball name has the version in it; the engine fills
 ## in @VER@. The lane also reads the arm64 .deb's dependencies on that box, for
 ## the arm64 packages in stage 6.
 BUILD_CROSS=1
@@ -176,9 +176,10 @@ CROSS_TARGETS=(
 #		"Windows ARM64 (zig)|windows-arm64|target/aarch64-pc-windows-gnullvm/release/${EXE_NAME}.exe|cargo zigbuild --release --target aarch64-pc-windows-gnullvm"
 #	)
 
-## FreeBSD, on the FreeBSD box, behind --include-bsd: it needs that box and its
-## host lock, and adds a build and the suite there plus a release build. The
-## test command runs in stage 3 after the sanitizer suite. The release command
+## FreeBSD, on the FreeBSD box, on every full run, left out by --quick or
+## --no-bsd. It needs that box and its host lock, and adds a build and the
+## suite there plus a release build. The test command runs in stage 3 after the
+## sanitizer suite. The release command
 ## runs in stage 5 after the cross targets and brings back the -bsd- tarball and
 ## the pkg file; the sums from stage 6 on cover both. See bsd/lane.bash.
 BSD_TEST_CMD=(bash cicd/bsd/lane.bash --tests)

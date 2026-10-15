@@ -791,7 +791,7 @@ FreeBSD 15.1 on amd64 is the known-good baseline. The build is native, with the 
 - What differs from Linux:
 	- The leak tests and the allocation count read glibc's heap, so they skip.
 
-- The pipeline builds and tests on the FreeBSD box too, behind `--include-bsd`. `cicd/bsd/lane.bash` sends the working tree there over ssh under the host lock, and runs the same `cicd/linux/run-tests.bash` the Linux gate runs. Where there is no `xvfb-run` that script starts an X server of its own.
+- The pipeline builds and tests on the FreeBSD box too, on every full run. `cicd/bsd/lane.bash` sends the working tree there over ssh under the host lock, and runs the same `cicd/linux/run-tests.bash` the Linux gate runs. Where there is no `xvfb-run` that script starts an X server of its own.
 
 - The release is two files made from one build: a `-bsd-` tarball of the relocatable prefix, which `install.bash` fetches on BSD, and a `pkg` file of the same prefix.
 	- The pkg puts the prefix at `/usr/local/nemo-anywhere`, where a system install from `install.bash` goes on BSD, plus the command in `/usr/local/bin`, the menu entry and the app icon. The icon goes only in the shared theme, since pkg's icon cache trigger leaves empty folders behind in the app folder on a delete.
@@ -814,9 +814,9 @@ The one deliberate exception is a release-only workflow, `.github/workflows/rele
 
 - The Windows gate runs the same lints, build, test suite and smoke test.
 
-- `--quick` skips the slow stages: the cross build, packages, the profiler, fuzzing, the sanitizer suite, screenshots and the demo. The native build, the full suite and dogfood still run. On Windows `-Quick` changes nothing yet, since none of those run there.
+- `--quick` skips the slow stages: the cross builds, arm64 included, the FreeBSD lane, packages, the profiler, fuzzing, the sanitizer suite, screenshots and the demo. The native build, the full suite and dogfood still run. On Windows `-Quick` changes nothing yet, since none of those run there.
 
-- `--include-bsd` adds the FreeBSD lane: the build and suite on the FreeBSD box in the test stage, and its tarball and pkg in the release stage. It is off by default, since it needs that box and its lock. Asked for, it runs under `--quick` too.
+- The FreeBSD lane runs the build and suite on the FreeBSD box in the test stage, and its tarball and pkg in the release stage. It runs on every full run. `--no-bsd` leaves it out, and `--include-bsd` brings it back under `--quick`.
 
 - The same hook blocks a push to main unless `source/meson.build` is a strict version increase over what is already there.
 
@@ -874,7 +874,7 @@ Linux is a thin relocatable prefix of a couple of MB that uses the distro's own 
 
 - It is built in an Ubuntu 22.04 container, never the day-to-day Debian 13 one. A binary's glibc floor is whatever it was built against, so a release built on Debian 13 would refuse to start on anything older than 2025. The floor is therefore glibc 2.35 and GTK 3.24.33, which reaches Ubuntu 22.04, Debian 12, Mint 21 and Fedora 36 onward.
 
-- The arm64 tarball is built the same way, on an arm64 Linux box with docker, from the same image file, so it has the same floor and the same library versions. Nothing here cross-builds GTK. `cicd/linux/release-arm64.bash` sends the working tree to that box, runs the same release script there, and brings the tarball back. The release script names it `arm64`, the name the installers ask for, where the kernel says `aarch64`. On an emulated box a build takes about an hour, so a pipeline run builds it only when asked to, with `cicd.bash --include-arm`. Its `.deb` and `.rpm` come with it, and only then.
+- The arm64 tarball is built the same way, on an arm64 Linux box with docker, from the same image file, so it has the same floor and the same library versions. Nothing here cross-builds GTK. `cicd/linux/release-arm64.bash` sends the working tree to that box, runs the same release script there, and brings the tarball back. The release script names it `arm64`, the name the installers ask for, where the kernel says `aarch64`. On an emulated box a build takes about an hour, so `--quick` leaves it out along with the other cross builds. Its `.deb` and `.rpm` come with it, and only then.
 
 - What makes it relocatable: the program works out where it is and points `XDG_DATA_DIRS` and `PATH` at the folder it sits in, at startup, before anything reads them. The extension API is inside the program, so there is no `lib/` folder to find. Everything looked up through the XDG data dirs - actions, search helpers, icons, mime info - then resolves wherever the folder was installed. There used to be a shell wrapper in `bin/` doing that with the real binary hidden in `libexec/`; two files where one would do, so it went.
 	- Those folders are for the program itself. A program it starts for the user, such as an Open With choice, an action, a terminal or a link, gets the lists as they were before it started. Its own helpers keep them, and a new window starts from the user's lists and adds the folders again. The install's own menu entry names the program bare, so opening something with it runs this copy by its full path.
