@@ -2929,6 +2929,26 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
 
+- `window-state.start-with-location-bar` does nothing.
+	- ID: 2026101510233435
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 210 of 210.
+	- Priority|Severity: Low
+	- Opened: 20261015-102334
+	- Target OS: All
+	- Steps to reproduce: set `window-state.start-with-location-bar: false` in `settings.shcl` and open a new window.
+	- Incorrect behavior: the location bar shows anyway. The key is in the schema and the starter list, described as "Show the location bar in new windows".
+	- Expected behavior: a key the user can set does something, or it isn't there.
+	- Reproduced: no code reads the key, upstream Nemo 6.6.4 included. Found by the new reader check in rhtg2yer.
+	- Actual cause: left over from upstream, like the desktop keys. The toolbar setting already covers the location bar.
+	- Actual fix: the key is gone from the table and the schema. A file that still has it keeps the line, and nothing reads it, the same as the removed desktop keys.
+	- Branch: testgaps
+	- Commit: b380a34
+	- Test case: rhtg2yer, the settings handler lint, which fails on a key nothing reads.
+	- Acceptance signoff: Self-closed: a key with no reader, found and checked by lint.
+	- Closed: 20261015-102334
+
 - On Windows, the gate's lint stage stops at rjxyddbk.
 	- ID: 2026101317434254
 	- Type: Bug
@@ -7845,7 +7865,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Cause: menus and toolbars referenced icon names only Mint themes have. Pre-existing gap on non-Mint, cosmetic only.
 	- Fixed: all names mapped to standard freedesktop names (mostly a straight prefix strip; the non-standard ones got closest equivalents).
 	- Verified: every mapped name present in both the Linux and Windows icon themes.
-	- Test case: none, no check yet that each icon name exists in the icon themes.
+	- Test case: rkaw04qg, the C lint fails on any `xsi-` icon name. Nothing checks that each name exists in the icon themes.
 
 #### Done - Features and enhancements
 
@@ -8310,7 +8330,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260921-165228
 	- Closed: 20260921.
 	- 500%, which is 320 pixels.
-	- Test case: none, a default value; the size math is in `test-nemo-icon-size`.
+	- Test case: rdjjz89r, `test_product_defaults` in the config store test. The size math is in `test-nemo-icon-size`.
 
 - ✅ Remove Nemo authors from the actual Help|About|License button-expanded text. That text is only for the license title, link, and text.
 	- Opened: 20260921-153217
@@ -8758,7 +8778,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Closed: 20260915-152159
 	- The launchers this project installs already say Nemo Anywhere. The man page still named the Cinnamon file manager, and now names this one.
 	- The "File Manager" menu entry on the XFCE box is the desktop's own launcher for whatever file manager is preferred, which is set to the dogfood launcher. It isn't a file from this project, and it is left alone.
-	- Test case: none, wording only.
+	- Test case: `cicd/utility/lint-identity.bash` checks the launcher's name and that the man page doesn't name Cinnamon.
 
 - ✅ Searching through a search folder has no test.
 	- Opened: 20260909-152800
@@ -9258,7 +9278,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Closed: 20260827-194220
 	- It sat between Name and Size. It stays on by default either way.
 	- Both platform defaults moved, and the schema with them.
-	- Test case: none, a default value; `test-nemo-config-schema` keeps the schema in step with it.
+	- Test case: rdjjz89r, `test_product_defaults` in the config store test. `test-nemo-config-schema` keeps the schema in step with it.
 
 - ✅ Name and Location split the search row evenly.
 	- Opened: 20260827-183930
@@ -9272,7 +9292,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Closed: 20260827-194220
 	- It belongs in the search results list and nowhere else, unless it is turned on by hand.
 	- Already the case: it is in the default column order but not the default visible list, and a run against a clean config confirmed it doesn't appear. Wherever it was seen, it had been turned on for that folder and remembered.
-	- Test case: none, already the default, confirmed rather than changed.
+	- Test case: rdjjz89r, `test_product_defaults` in the config store test.
 
 - ✅ A preference for which terminal "Open in Terminal" runs.
 	- Opened: 20260827-183930
@@ -9323,7 +9343,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Fifteen keys left behind when the desktop shell came out. They are still in the schema and still appear in a generated starter config, so a user can set them and nothing happens.
 	- Two of the fifteen aren't clearly dead on a quick look - one leaf name is shared with a live setting in another group - so this wants checking key by key rather than deleting the group.
 	- Checked key by key. Twelve had no reader anywhere and are gone from the table, the schema and the preference names. Three still have live readers and stay: the deprecated manage-the-desktop switch, the grid switch, and the desktop text ellipsis limit, which shares its leaf name with the icon view's own.
-	- Test case: none, nothing checks that every key still has a reader.
+	- Test case: rhtg2yer, the settings handler lint, fails on a key nothing reads. It found one more, 2026101510233435.
 
 - ✅ Windows: open a `.lnk` the way Explorer does, by what it points at.
 	- Opened: 20260826-103001
@@ -9361,7 +9381,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ Ctrl+, opens Preferences.
 	- Opened: 20260826-103001
 	- Closed: 20260827-110000
-	- Test case: none, a single accelerator entry.
+	- Test case: `cicd/utility/lint-accels.py` holds Ctrl+, on Preferences.
 
 - ✅ Build timestamps come from the commit being built, not the clock, so a release can be reproduced.
 	- Opened: 20260826-115717
@@ -9371,7 +9391,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified by building each artifact twice from scratch: the Windows exe, the Linux tarball, the .deb, the .rpm and the Windows zip all came out byte-identical. A build with the stamp removed differed, which is the check that the mechanism is what did it.
 	- Also fixed on the way through: the Linux release lane had been failing since the staging script gained a safety guard on its destination name, which no longer matched what the release script passed it.
 	- Not covered, and can't be: a signed exe, since the countersignature has the real time of signing.
-	- Test case: none, release pipeline; proving it takes two full release builds.
+	- Test case: `cicd/win/build-cross.bash` fails when the linker or the strip leaves the exe stamped with anything but `SOURCE_DATE_EPOCH`, and `pack-zip.bash` warns before packing one. Byte for byte, it takes two full release builds.
 
 - ✅ Windows: two kinds of hidden file, two options.
 	- Opened: 20260823-140628
@@ -9435,7 +9455,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260823-130540
 	- Closed: 20260823-134341
 	- Already the default; confirmed rather than changed.
-	- Test case: none, already the default, confirmed rather than changed.
+	- Test case: rdjjz89r, `test_product_defaults` in the config store test.
 
 - ✅ Right-click properties wording: ours is plain "Properties" and sits first; the Windows sheet reads "Windows properties (Alt+Enter)" below it. Shortcuts themselves are unchanged.
 	- Opened: n/a
@@ -9568,7 +9588,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ Default settings changed: folder expanders on in list view, binary size prefixes (KiB/MiB), and thumbnail visibility inherited from the parent folder.
 	- Opened: 20260819-124028
 	- Closed: 20260819-141014
-	- Test case: none, default values only.
+	- Test case: rdjjz89r, `test_product_defaults` in the config store test.
 
 - ✅ List columns trimmed to one row per idea.
 	- Opened: 20260819-124028
