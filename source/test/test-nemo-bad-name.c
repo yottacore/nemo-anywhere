@@ -2,8 +2,10 @@
  * Windows "\/:*?"<>|" and control characters too. GLib on Windows answers most
  * of those with a plain I/O error, and ":" names a stream, so the name is
  * checked before it goes to disk and the refusal says which character it was.
- * Covers the check itself, a rename, a nested new folder, the shortcut editor,
- * and the Rename button in both conflict dialogs. */
+ * On Windows a device name like "CON" or "nul.txt", and a name ending in a dot
+ * or a space, are refused the same way. Covers the check itself, a rename, a
+ * nested new folder, the shortcut editor, the Rename button in both conflict
+ * dialogs, and a copy's name fixed for a FAT drive. */
 
 #include <config.h>
 
@@ -66,7 +68,7 @@ check_messages (void)
 {
 	g_autofree char *good = nemo_file_name_bad_char_message ("fine.txt");
 	g_autofree char *bad = nemo_file_name_bad_char_message (BAD_NAME);
-	g_autofree char *fixed = g_strdup ("x" BAD_CHAR "y");
+	g_autofree char *fixed = nemo_file_name_make_valid ("x" BAD_CHAR "y");
 	GError *error = NULL;
 
 	check (good == NULL);
@@ -80,7 +82,6 @@ check_messages (void)
 	check (error != NULL && names_char (error->message, BAD_CHAR));
 	g_clear_error (&error);
 
-	nemo_file_name_make_valid (fixed);
 	check (g_strcmp0 (fixed, "x_y") == 0);
 
 #ifdef G_OS_WIN32
@@ -92,6 +93,100 @@ check_messages (void)
 		check (names_char (colon, ":"));
 	}
 #endif
+}
+
+/* Once a drive refuses a copy's name, only what it can't take changes. A
+   letter outside ASCII is 2 or more bytes, each above 0x7f. */
+static void
+check_fs_fix (void)
+{
+	static const struct {
+		const char *fs, *before, *after;
+	} cases[] = {
+		{ "vfat", "caf\xc3\xa9?.txt", "caf\xc3\xa9_.txt" },
+		{ "fuse", "na\xc3\xafve \xe2\x9c\x93.txt", "na\xc3\xafve \xe2\x9c\x93.txt" },
+		{ "exfat", "\xd0\xbe\xd1\x82\xd1\x87\xd1\x91\xd1\x82:\x01.txt", "\xd0\xbe\xd1\x82\xd1\x87\xd1\x91\xd1\x82__.txt" },
+		{ "msdos", "a<b>  ", "a_b_" },
+		{ "ext4", "a?b", "a?b" },
+		{ NULL, "a?b", "a?b" },
+	};
+
+	for (guint i = 0; i < G_N_ELEMENTS (cases); i++) {
+		g_autofree char *name = g_strdup (cases[i].before);
+		gboolean changed = nemo_file_name_make_valid_for_fs (name, cases[i].fs);
+
+		if (g_strcmp0 (name, cases[i].after) != 0 || changed != (g_strcmp0 (cases[i].before, cases[i].after) != 0)) {
+			g_printerr ("FAIL: \"%s\" on %s came out \"%s\", changed %d\n", cases[i].before,
+				    cases[i].fs != NULL ? cases[i].fs : "(none)", name, changed);
+			failures++;
+		}
+	}
+}
+
+/* Device names and a trailing dot or space: refused on Windows, fine
+   elsewhere. The device list itself is the same on every platform. */
+static void
+check_windows_names (void)
+{
+	static const struct {
+		const char *name;
+		gsize device;
+		const char *why, *fixed;
+	} cases[] = {
+		{ "CON", 3, "\"CON\" is a device name", "_CON" },
+		{ "nul.txt", 3, "\"nul\" is a device name", "_nul.txt" },
+		{ "Aux.tar.gz", 3, "\"Aux\" is a device name", "_Aux.tar.gz" },
+		{ "prn", 3, "\"prn\" is a device name", "_prn" },
+		{ "con .txt", 3, "\"con\" is a device name", "_con .txt" },
+		{ "COM1", 4, "\"COM1\" is a device name", "_COM1" },
+		{ "lpt0.log", 4, "\"lpt0\" is a device name", "_lpt0.log" },
+		{ "COM\xc2\xb9.txt", 5, "\"COM\xc2\xb9\" is a device name", "_COM\xc2\xb9.txt" },
+		{ "NUL.", 3, "\"NUL\" is a device name", "NUL_" },
+		{ "a.", 0, "ends in a dot", "a_" },
+		{ "a b ", 0, "ends in a space", "a b_" },
+		{ "x?. ", 0, "the character \"?\"", "x___" },
+		{ "console", 0, NULL, "console" },
+		{ "nul_.txt", 0, NULL, "nul_.txt" },
+		{ "COM10", 0, NULL, "COM10" },
+		{ "COMx.txt", 0, NULL, "COMx.txt" },
+		{ "LPT\xc2\xb4", 0, NULL, "LPT\xc2\xb4" },
+		{ ".con", 0, NULL, ".con" },
+		{ "a.b", 0, NULL, "a.b" },
+		{ "..", 0, NULL, NULL },
+		{ ".", 0, NULL, NULL },
+	};
+
+	for (guint i = 0; i < G_N_ELEMENTS (cases); i++) {
+		const char *name = cases[i].name;
+		g_autofree char *message = nemo_file_name_bad_char_message (name);
+		gsize device = nemo_file_name_windows_device (name);
+
+		if (device != cases[i].device) {
+			g_printerr ("FAIL: \"%s\" device part %u, not %u\n", name, (guint) device, (guint) cases[i].device);
+			failures++;
+		}
+#ifdef G_OS_WIN32
+		if (cases[i].why == NULL ? message != NULL : message == NULL || strstr (message, cases[i].why) == NULL) {
+			g_printerr ("FAIL: \"%s\" gave \"%s\"\n", name, message != NULL ? message : "(nothing)");
+			failures++;
+		}
+		if (cases[i].fixed != NULL) {
+			g_autofree char *fixed = nemo_file_name_make_valid (name);
+
+			if (g_strcmp0 (fixed, cases[i].fixed) != 0) {
+				g_printerr ("FAIL: \"%s\" fixed to \"%s\", not \"%s\"\n", name, fixed, cases[i].fixed);
+				failures++;
+			}
+		}
+#else
+		if (message != NULL && strchr (name, '?') == NULL) {
+			g_printerr ("FAIL: \"%s\" refused: %s\n", name, message);
+			failures++;
+		}
+#endif
+	}
+	check (nemo_file_name_windows_device (NULL) == 0);
+	check (nemo_file_name_windows_device ("") == 0);
 }
 
 static gboolean rename_finished;
@@ -133,7 +228,8 @@ check_rename (const char *root)
 #ifdef G_OS_WIN32
 	/* ":" passes under wine, which takes it as part of the name, and makes
 	   a stream on NTFS. Neither may happen. */
-	static const char * const refused[] = { "a*b.txt", "a?b", "a<b", "a>b", "a|b", "a\"b", "a:b", "a\tb", "a\\b", NULL };
+	static const char * const refused[] = { "a*b.txt", "a?b", "a<b", "a>b", "a|b", "a\"b", "a:b", "a\tb", "a\\b",
+						"CON", "nul.txt", "NUL", "com1.log", "a.", "a ", NULL };
 
 	for (int i = 0; refused[i] != NULL; i++) {
 		rename_and_wait (path, refused[i]);
@@ -151,6 +247,22 @@ check_rename (const char *root)
 
 		rename_and_wait (path, "a:b");
 		check (!g_file_test (stream_host, G_FILE_TEST_EXISTS));
+		rename_and_wait (path, "a.");
+		check (!g_file_test (stream_host, G_FILE_TEST_EXISTS));
+	}
+	rename_and_wait (path, "nul.txt");
+	check (rename_error != NULL && strstr (rename_error->message, "\"nul\" is a device name") != NULL);
+	{
+		g_autofree char *kept = g_build_filename (root, "nul.txt", NULL);
+
+		/* Windows 11 makes a plain file of it, and keeping the name it has
+		   is no rename. Wine makes the device. */
+		if (g_file_set_contents (kept, "x", -1, NULL) && g_file_test (kept, G_FILE_TEST_IS_REGULAR)) {
+			rename_and_wait (kept, "nul.txt");
+			check (rename_error == NULL);
+		} else {
+			g_print ("no plain file named nul.txt here, keeping its name not checked\n");
+		}
 	}
 #else
 	/* Legal here, and still taken. */
@@ -158,8 +270,12 @@ check_rename (const char *root)
 	check (rename_error == NULL);
 	{
 		g_autofree char *renamed = g_build_filename (root, "a*b:c?.txt", NULL);
+		g_autofree char *device = g_build_filename (root, "nul.txt", NULL);
 
 		check (g_file_test (renamed, G_FILE_TEST_IS_REGULAR));
+		rename_and_wait (renamed, "nul.txt");
+		check (rename_error == NULL);
+		check (g_file_test (device, G_FILE_TEST_IS_REGULAR));
 	}
 #endif
 	g_clear_error (&rename_error);
@@ -178,6 +294,14 @@ check_nested (void)
 	parts = nemo_new_folder_path_split ("top\\a:b", &error);
 	check (parts == NULL);
 	check (error != NULL && names_char (error->message, ":"));
+	g_clear_error (&error);
+	parts = nemo_new_folder_path_split ("top\\Con\\c", &error);
+	check (parts == NULL);
+	check (error != NULL && strstr (error->message, "\"Con\" is a device name") != NULL);
+	g_clear_error (&error);
+	parts = nemo_new_folder_path_split ("top\\a \\c", &error);
+	check (parts == NULL);
+	check (error != NULL && strstr (error->message, "ends in a space") != NULL);
 #else
 	char **parts = nemo_new_folder_path_split ("top/a*b:c", &error);
 
@@ -248,11 +372,11 @@ find_hint (GtkWidget *dialog, const char *text)
 
 /* A bad name grays Rename and says why. A good one undoes both. */
 static void
-check_rename_button (GtkWidget *dialog)
+check_rename_button (GtkWidget *dialog, const char *bad_name)
 {
 	GtkWidget *entry = find_entry (dialog);
 	GtkWidget *rename = gtk_dialog_get_widget_for_response (GTK_DIALOG (dialog), CONFLICT_RESPONSE_RENAME);
-	g_autofree char *message = nemo_file_name_bad_char_message (BAD_NAME);
+	g_autofree char *message = nemo_file_name_bad_char_message (bad_name);
 	GtkWidget *hint;
 
 	check (entry != NULL && rename != NULL);
@@ -260,7 +384,7 @@ check_rename_button (GtkWidget *dialog)
 		return;
 	}
 
-	gtk_entry_set_text (GTK_ENTRY (entry), BAD_NAME);
+	gtk_entry_set_text (GTK_ENTRY (entry), bad_name);
 	hint = find_hint (dialog, message);
 	check (hint != NULL && gtk_widget_get_visible (hint));
 	check (gtk_widget_get_visible (rename) && !gtk_widget_get_sensitive (rename));
@@ -306,11 +430,18 @@ check_dialogs (const char *root)
 
 	dialog = nemo_file_conflict_dialog_new (NULL, src, dest, dest_dir);
 	wait_for_name (NEMO_FILE_CONFLICT_DIALOG (dialog));
-	check_rename_button (dialog);
+	check_rename_button (dialog, BAD_NAME);
+#ifdef G_OS_WIN32
+	check_rename_button (dialog, "NUL");
+	check_rename_button (dialog, "a.txt.");
+#endif
 	gtk_widget_destroy (dialog);
 
 	dialog = nemo_extract_conflict_dialog_new (NULL, "photos.zip", "a.txt", FALSE, 3, 0, dest, dest_dir);
-	check_rename_button (dialog);
+	check_rename_button (dialog, BAD_NAME);
+#ifdef G_OS_WIN32
+	check_rename_button (dialog, "con.txt");
+#endif
 	gtk_widget_destroy (dialog);
 }
 
@@ -331,6 +462,8 @@ main (int argc, char **argv)
 
 	check_table ();
 	check_messages ();
+	check_windows_names ();
+	check_fs_fix ();
 	check_rename (root);
 	check_nested ();
 	check_shortcut_name (root);

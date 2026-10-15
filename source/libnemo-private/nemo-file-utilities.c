@@ -3147,39 +3147,124 @@ nemo_file_name_find_bad_char (const gchar *name)
     return NULL;
 }
 
+/* Windows' device names, alone or before an extension, with any spaces
+   between: "con", "nul.txt", "COM1 .tar.gz". Superscript 1 to 3 count after
+   COM and LPT too. */
+gsize
+nemo_file_name_windows_device (const gchar *name)
+{
+    static const char * const devices[] = { "CON", "PRN", "AUX", "NUL" };
+    gsize len;
+
+    if (name == NULL) {
+        return 0;
+    }
+    len = strcspn (name, ".");
+    while (len > 0 && name[len - 1] == ' ') {
+        len--;
+    }
+
+    if (len == 3) {
+        for (guint i = 0; i < G_N_ELEMENTS (devices); i++) {
+            if (g_ascii_strncasecmp (name, devices[i], 3) == 0) {
+                return 3;
+            }
+        }
+        return 0;
+    }
+    if (len < 4 || (g_ascii_strncasecmp (name, "COM", 3) != 0 && g_ascii_strncasecmp (name, "LPT", 3) != 0)) {
+        return 0;
+    }
+    if (len == 4 && g_ascii_isdigit (name[3])) {
+        return 4;
+    }
+    if (len == 5 && (guchar) name[3] == 0xc2 &&
+        ((guchar) name[4] == 0xb9 || (guchar) name[4] == 0xb2 || (guchar) name[4] == 0xb3)) {
+        return 5;
+    }
+    return 0;
+}
+
 /* Returns: (transfer full): free with g_free */
 gchar *
 nemo_file_name_bad_char_message (const gchar *name)
 {
     const gchar *bad = nemo_file_name_find_bad_char (name);
     g_autofree gchar *shown = NULL;
+#ifdef G_OS_WIN32
+    /* On Windows 11 most device names make a plain file, but "NUL" still takes
+       whatever is written and says it worked. Windows drops a trailing dot or
+       space, so "a." would turn into "a". */
+    gsize device = nemo_file_name_windows_device (name);
+    gsize len = name != NULL ? strlen (name) : 0;
+    gchar last = len > 0 ? name[len - 1] : '\0';
 
+    if (g_strcmp0 (name, ".") == 0 || g_strcmp0 (name, "..") == 0) {
+        last = '\0';
+    }
+    if (bad == NULL && device == 0 && last != '.' && last != ' ') {
+        return NULL;
+    }
+#else
     if (bad == NULL) {
         return NULL;
     }
+#endif
 
     /* 50, as the rename dialog cuts a name. */
     shown = eel_str_middle_truncate (name, 50);
-    if ((guchar) *bad < 0x20) {
+    if (bad != NULL && (guchar) *bad < 0x20) {
         return g_strdup_printf (_("The name \"%s\" isn't valid because it contains a control character. "
                                   "Please use a different name."),
                                 shown);
     }
+#ifdef G_OS_WIN32
+    if (bad == NULL && device > 0) {
+        return g_strdup_printf (_("The name \"%s\" isn't valid because \"%.*s\" is a device name on Windows. "
+                                  "Please use a different name."),
+                                shown, (int) device, name);
+    }
+    if (bad == NULL && last == '.') {
+        return g_strdup_printf (_("The name \"%s\" isn't valid because it ends in a dot. "
+                                  "Please use a different name."),
+                                shown);
+    }
+    if (bad == NULL) {
+        return g_strdup_printf (_("The name \"%s\" isn't valid because it ends in a space. "
+                                  "Please use a different name."),
+                                shown);
+    }
+#endif
     return g_strdup_printf (_("The name \"%s\" isn't valid because it contains the character \"%c\". "
                               "Please use a different name."),
                             shown, *bad);
 }
 
-void
-nemo_file_name_make_valid (gchar *name)
+/* Returns: (transfer full): free with g_free */
+gchar *
+nemo_file_name_make_valid (const gchar *name)
 {
+    gchar *fixed = g_strdup (name != NULL ? name : "");
     gchar *p;
 
-    for (p = name; p != NULL && *p != '\0'; p++) {
+    for (p = fixed; *p != '\0'; p++) {
         if (nemo_file_name_find_bad_char (p) == p) {
             *p = '_';
         }
     }
+#ifdef G_OS_WIN32
+    /* As 7-Zip does: each trailing dot or space, then a device name. */
+    for (p = fixed + strlen (fixed); p > fixed && (p[-1] == '.' || p[-1] == ' '); p--) {
+        p[-1] = '_';
+    }
+    if (nemo_file_name_windows_device (fixed) > 0) {
+        gchar *prefixed = g_strconcat ("_", fixed, NULL);
+
+        g_free (fixed);
+        fixed = prefixed;
+    }
+#endif
+    return fixed;
 }
 
 gboolean
@@ -3215,6 +3300,63 @@ nemo_name_hint_update (GtkWidget *hint, const gchar *name)
     gtk_label_set_text (GTK_LABEL (hint), message != NULL ? message : "");
     gtk_widget_set_visible (hint, message != NULL);
     return message == NULL;
+}
+
+static gboolean
+str_replace (char *str,
+	     char replacement)
+{
+	gboolean success;
+	int i;
+
+	success = FALSE;
+	for (i = 0; str[i] != '\0'; i++) {
+		/* Unsigned, or each byte of a letter outside ASCII reads as below 0x20. */
+		if (strchr (NEMO_WINDOWS_NAME_BAD_CHARS, str[i]) ||
+		    (guchar) str[i] < 0x20) {
+			success = TRUE;
+			str[i] = replacement;
+		}
+	}
+
+	return success;
+}
+
+gboolean
+nemo_file_name_make_valid_for_fs (char *filename,
+				  const char *dest_fs_type)
+{
+	if (dest_fs_type != NULL && filename != NULL) {
+		if (!strcmp (dest_fs_type, "fat")  ||
+		    !strcmp (dest_fs_type, "vfat") ||
+            /* The fuseblk filesystem type could be of any type
+             * in theory, but in practice is usually NTFS or exFAT.
+             * This assumption is a pragmatic way to solve
+             * https://gitlab.gnome.org/GNOME/nautilus/-/issues/1343 */
+		    !strcmp (dest_fs_type, "fuse") ||
+		    !strcmp (dest_fs_type, "exfat") ||
+		    !strcmp (dest_fs_type, "ntfs") ||
+		    !strcmp (dest_fs_type, "msdos") ||
+		    !strcmp (dest_fs_type, "msdosfs")) {
+			gboolean ret;
+			guint i, old_len;
+
+			ret = str_replace (filename, '_');
+
+			old_len = strlen (filename);
+			for (i = 0; i < old_len; i++) {
+				if (filename[i] != ' ') {
+					g_strchomp (filename);
+					ret |= (old_len != strlen (filename));
+					break;
+				}
+			}
+
+			return ret;
+		}
+	}
+
+	return FALSE;
 }
 
 static gboolean

@@ -3877,62 +3877,6 @@ get_max_name_length (GFile *file_dir)
 	return max_length;
 }
 
-static gboolean
-str_replace (char *str,
-	     char replacement)
-{
-	gboolean success;
-	int i;
-
-	success = FALSE;
-	for (i = 0; str[i] != '\0'; i++) {
-		if (strchr (NEMO_WINDOWS_NAME_BAD_CHARS, str[i]) ||
-			str[i] < 32) {
-			success = TRUE;
-			str[i] = replacement;
-		}
-	}
-
-	return success;
-}
-
-static gboolean
-make_file_name_valid_for_dest_fs (char *filename,
-				 const char *dest_fs_type)
-{
-	if (dest_fs_type != NULL && filename != NULL) {
-		if (!strcmp (dest_fs_type, "fat")  ||
-		    !strcmp (dest_fs_type, "vfat") ||
-            /* The fuseblk filesystem type could be of any type
-             * in theory, but in practice is usually NTFS or exFAT.
-             * This assumption is a pragmatic way to solve
-             * https://gitlab.gnome.org/GNOME/nautilus/-/issues/1343 */
-		    !strcmp (dest_fs_type, "fuse") ||
-		    !strcmp (dest_fs_type, "exfat") ||
-		    !strcmp (dest_fs_type, "ntfs") ||
-		    !strcmp (dest_fs_type, "msdos") ||
-		    !strcmp (dest_fs_type, "msdosfs")) {
-			gboolean ret;
-			guint i, old_len;
-
-			ret = str_replace (filename, '_');
-
-			old_len = strlen (filename);
-			for (i = 0; i < old_len; i++) {
-				if (filename[i] != ' ') {
-					g_strchomp (filename);
-					ret |= (old_len != strlen (filename));
-					break;
-				}
-			}
-
-			return ret;
-		}
-	}
-
-	return FALSE;
-}
-
 static GFile *
 get_unique_target_file (GFile *src,
 			GFile *dest_dir,
@@ -3957,7 +3901,7 @@ get_unique_target_file (GFile *src,
 
 		if (editname != NULL) {
 			new_name = get_duplicate_name (editname, count, max_length);
-			make_file_name_valid_for_dest_fs (new_name, dest_fs_type);
+			nemo_file_name_make_valid_for_fs (new_name, dest_fs_type);
 			dest = g_file_get_child_for_display_name (dest_dir, new_name, NULL);
 			g_free (new_name);
 		}
@@ -3970,7 +3914,7 @@ get_unique_target_file (GFile *src,
 
 		if (g_utf8_validate (basename, -1, NULL)) {
 			new_name = get_duplicate_name (basename, count, max_length);
-			make_file_name_valid_for_dest_fs (new_name, dest_fs_type);
+			nemo_file_name_make_valid_for_fs (new_name, dest_fs_type);
 			dest = g_file_get_child_for_display_name (dest_dir, new_name, NULL);
 			g_free (new_name);
 		}
@@ -3981,7 +3925,7 @@ get_unique_target_file (GFile *src,
 				count += atoi (end + 1);
 			}
 			new_name = g_strdup_printf ("%s.%d", basename, count);
-			make_file_name_valid_for_dest_fs (new_name, dest_fs_type);
+			nemo_file_name_make_valid_for_fs (new_name, dest_fs_type);
 			dest = g_file_get_child (dest_dir, new_name);
 			g_free (new_name);
 		}
@@ -4021,7 +3965,7 @@ get_target_file_for_link (GFile      *src,
 
 		if (editname != NULL) {
 			new_name = get_link_name (editname, kind, whole_name, count, max_length);
-			make_file_name_valid_for_dest_fs (new_name, dest_fs_type);
+			nemo_file_name_make_valid_for_fs (new_name, dest_fs_type);
 			dest = g_file_get_child_for_display_name (dest_dir, new_name, NULL);
 			g_free (new_name);
 		}
@@ -4034,7 +3978,7 @@ get_target_file_for_link (GFile      *src,
 		   shortened, since cutting it could split a character. */
 		basename = g_file_get_basename (src);
 		new_name = get_link_name (basename, kind, whole_name, count, 0);
-		make_file_name_valid_for_dest_fs (new_name, dest_fs_type);
+		nemo_file_name_make_valid_for_fs (new_name, dest_fs_type);
 		dest = g_file_get_child (dest_dir, new_name);
 		g_free (new_name);
 		g_free (basename);
@@ -4094,7 +4038,7 @@ get_target_file_with_custom_name (GFile *src,
 
 	if (custom_name != NULL) {
 		copyname = g_strdup (custom_name);
-		make_file_name_valid_for_dest_fs (copyname, dest_fs_type);
+		nemo_file_name_make_valid_for_fs (copyname, dest_fs_type);
 		dest = g_file_get_child_for_display_name (dest_dir, copyname, NULL);
 
 		g_free (copyname);
@@ -4119,7 +4063,7 @@ get_target_file_with_custom_name (GFile *src,
 			}
 
 			if (copyname) {
-				make_file_name_valid_for_dest_fs (copyname, dest_fs_type);
+				nemo_file_name_make_valid_for_fs (copyname, dest_fs_type);
 				dest = g_file_get_child_for_display_name (dest_dir, copyname, NULL);
 				g_free (copyname);
 			}
@@ -4130,7 +4074,7 @@ get_target_file_with_custom_name (GFile *src,
 
 	if (dest == NULL) {
 		basename = g_file_get_basename (src);
-		make_file_name_valid_for_dest_fs (basename, dest_fs_type);
+		nemo_file_name_make_valid_for_fs (basename, dest_fs_type);
 		dest = g_file_get_child (dest_dir, basename);
 		g_free (basename);
 	}
@@ -7431,7 +7375,7 @@ create_job (GIOSchedulerJob *io_job,
 		}
 	}
 
-	make_file_name_valid_for_dest_fs (filename, dest_fs_type);
+	nemo_file_name_make_valid_for_fs (filename, dest_fs_type);
 	if (filename_is_utf8) {
 		dest = g_file_get_child_for_display_name (job->dest_dir, filename, NULL);
 	}
@@ -7563,7 +7507,7 @@ create_job (GIOSchedulerJob *io_job,
 				g_free (suffix);
 			}
 
-			if (make_file_name_valid_for_dest_fs (new_filename, dest_fs_type)) {
+			if (nemo_file_name_make_valid_for_fs (new_filename, dest_fs_type)) {
                 g_clear_object (&dest);
 
 				if (filename_is_utf8) {
@@ -7595,7 +7539,7 @@ create_job (GIOSchedulerJob *io_job,
 				}
 			}
 
-			make_file_name_valid_for_dest_fs (filename2, dest_fs_type);
+			nemo_file_name_make_valid_for_fs (filename2, dest_fs_type);
 			if (filename_is_utf8) {
 				dest = g_file_get_child_for_display_name (job->dest_dir, filename2, NULL);
 			}
