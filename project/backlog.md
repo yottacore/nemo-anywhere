@@ -1405,6 +1405,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Before the next cut.
 	- Test case: not applicable, docs only.
 
+- rjvdch2z fails now and then in the full suite on a loaded box.
+	- ID: 2026101419352490
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261014-193524
+	- Opened by: 2026101417352260
+	- Related IDs: 2026100915055910
+	- Target OS: All
+	- Steps to reproduce: run the full Linux suite while other builds load the cores.
+	- Incorrect behavior: rjvdch2z, settings shared between copies, failed once at `test-nemo-config-share.c:623`. It passed 3 of 3 alone.
+	- Expected behavior: it passes under load.
+	- Reproduced: 20261014 on Linux, once, in a worktree's full suite run.
+	- Possible cause: a wait there isn't scaled for a slow box.
+	- Test case: rjvdch2z itself.
+
 - A picture dated in the future is thumbnailed again every 2 seconds for as long as it's shown.
 	- ID: 2026101419191455
 	- Type: Bug
