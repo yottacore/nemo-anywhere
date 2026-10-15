@@ -863,13 +863,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - README.md: move installation instructions, including development, to one or more .mds, and link to it/them.
 	- ID: 2026101417352264
 	- Type: Task
-	- Status: Queued
+	- Status: Waiting on signoff
 	- Priority|Severity: Avg
 	- Opened: 20261014-173522
 	- Opened by: t00mietum
 	- Requirements:
 		- Before the next cut.
-	- Test case: not applicable, docs only.
+	- Progress log:
+		- README's Installation section, with its 3 subsections, moved to a new `install.md` at the repo root. "Set up development environment" moved to a new `building.md` beside it. The text moved as it was; only the subsection headings went up a level.
+		- README keeps a short Installation section that links to both. Its TOC lost the moved entries.
+		- Each new file has the markdownlint header, a title and a `Copyright and license` section, in README's GPL v2 form rather than the design docs' CC BY 4.0. install.md has a TOC; building.md is too short for one.
+		- The prose lint's spelling check now covers both files.
+	- Decisions:
+		- Left at signoff for the file names and layout, the README lines that link to them, and the license line on the new files.
+	- Swept: nothing in the repo linked to the moved headings. Checked other docs, contributing.md, design.md and its Building section, the installers, the man page, the Windows setup script, `.github/` and the cicd scripts. The pre-push hook and release.bash read README only for the release badge, which stays.
+	- Branch: instdocs
+	- Test case: none new, docs only. The lint stage passes, and its prose check now reads install.md and building.md.
 
 - The program's name is typed out in many places. Set it once and use that everywhere.
 	- ID: 2026101512190015

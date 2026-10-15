@@ -57,10 +57,6 @@
 - [Icon themes](#icon-themes)
 	- [Add your own theme](#add-your-own-theme)
 - [Installation](#installation)
-	- [Packages and installers](#packages-and-installers)
-	- [Direct stable and dev install scripts](#direct-stable-and-dev-install-scripts)
-	- [DIY](#diy)
-- [Set up development environment](#set-up-development-environment)
 - [Longer-term roadmap](#longer-term-roadmap)
 - [Copyright and license](#copyright-and-license)
 
@@ -294,86 +290,7 @@ But on Windows, you can drop a theme folder into the icons directory beside your
 
 ## Installation
 
-Everything is on the [releases page](https://github.com/yottacore/nemo-anywhere/releases). Pick whichever of the three below suits you. Building from source is for working on it, not for using it.
-
-### Packages and installers
-
-- **Windows**: run `nemo-anywhere-<version>-windows-x86_64-setup.exe`. It installs for your account only and needs no admin rights. It uses the same folder, Start menu entry and PATH entry as the PowerShell script below, so either one can update or remove what the other put there. To remove it, use Settings -> Apps. It isn't signed yet, so SmartScreen will probably ask before it runs. Releases after 1.0.0-beta2 have it.
-
-- **Windows, portable**: download `nemo-anywhere-<version>-windows-x86_64-portable.exe` and run it. That is the whole program - the runtime is inside it. Nothing is installed and nothing is registered. Releases up to 1.0.0-beta2 name it plain `nemo-anywhere.exe`.
-
-- **Debian, Ubuntu, Mint**: Run `sudo apt install ./nemo-anywhere-<version>-linux-x86_64.deb`.
-
-- **Fedora, openSUSE, RHEL**: Run `sudo dnf install ./nemo-anywhere-<version>-linux-x86_64.rpm`.
-
-Both packages install to `/opt/nemo-anywhere` with a menu entry and `nemo-anywhere` on PATH, and use the GTK3 your distro already provides.
-
-### Direct stable and dev install scripts
-
-It's one command. It downloads the right build for the machine, verifies its checksum, tells you exactly what it is about to do, and waits for a yes. The defaults suit most people. Add `--help` (`-Help` in PowerShell) to see the options.
-
-This one is for Linux and WSL, and for BSD and macOS once those are built:
-
-~~~bash
-bash <(curl -fsSL https://raw.githubusercontent.com/yottacore/nemo-anywhere/main/install.bash)
-~~~
-
-This one is for Windows, or anywhere else with PowerShell. It is a full installer on its own, not a wrapper around the one above:
-
-~~~powershell
-& ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/yottacore/nemo-anywhere/main/install.ps1')))
-~~~
-
-A release with no checksums file isn't installed, even with `--yes`. Add `--no-verify` (`-NoVerify` in PowerShell) to install it anyway.
-
-Reinstalling over an existing copy is fine - it replaces it. `--help` also says how to remove it.
-
-This is where it goes:
-
-| OS      | User install (default)                 | Launcher                                                                            | (or) System install             | Launcher
-| :---    | :---                                   | :---                                                                                | :---                            | :---
-| Linux   | ~/.local/share/nemo-anywhere/          | ~/.local/share/applications/nemo-anywhere.desktop, ~/.local/bin/nemo-anywhere       | /opt/nemo-anywhere/             | /usr/local/share/applications/nemo-anywhere.desktop, /usr/local/bin/nemo-anywhere
-| Windows | %LOCALAPPDATA%\Programs\Nemo Anywhere\ | %APPDATA%\Microsoft\Windows\Start Menu\Programs\Nemo Anywhere.lnk, and a PATH entry | C:\Program Files\Nemo Anywhere\ | %ProgramData%\Microsoft\Windows\Start Menu\Programs\Nemo Anywhere.lnk, and a PATH entry
-| BSD     | *pending a BSD build*                  |                                                                                     |                                 |
-| macOS   | *pending a macOS build*                |                                                                                     |                                 |
-
-Settings go in per-platform standard locations: `~/.config/nemo-anywhere` on Linux and BSD, `%APPDATA%\nemo-anywhere` on Windows, `~/Library/Application Support/nemo-anywhere` on macOS - and are left alone by an uninstall.
-
-### DIY
-
-Extract `nemo-anywhere-<version>-linux-x86_64.tar.gz` wherever you like and run `bin/nemo-anywhere` from inside it. It is relocatable, so no fixed path is required. Verify the download against the `nemo-anywhere-<version>-sha256sums.txt` file published beside it.
-
-A Linux build needs GTK 3.24.33 or newer and glibc 2.35 or newer at runtime, which means Ubuntu 22.04, Debian 12, Mint 21, Fedora 36 or anything more recent.
-
-## Set up development environment
-
-The reference Linux build happens in a container, so no development packages are installed on your own machine and the dependency versions are pinned to something known good.
-
-You need Docker (or Podman with a Docker alias) and git. Everything else is fetched by the build. The first run builds the container image, which takes a few minutes, and later runs reuse it.
-
-~~~bash
-git clone https://github.com/yottacore/nemo-anywhere.git
-cd nemo-anywhere
-cicd/hooks/install.bash          # merge gate as a pre-push hook
-cicd/cicd.bash --gate            # build, test and lint
-~~~
-
-`--gate` is the quick check. A bare `cicd/cicd.bash` runs the whole pipeline, which ends by committing and pushing, so leave that one until you mean it.
-
-To build without the container, on a Linux box with the GTK3 development stack:
-
-~~~bash
-meson setup build source && ninja -C build
-~~~
-
-On Windows the build is native, not cross-compiled. You need [MSYS2](https://www.msys2.org/) with the mingw64 GTK3 toolchain, and [Enigma Virtual Box](https://enigmaprotector.com/en/aboutvb.html) if you want the single-exe artifact - without it the pipeline still builds and tests, it just skips packing.
-
-~~~powershell
-pacman -S --needed mingw-w64-x86_64-{gcc,meson,ninja,pkgconf,gtk3,json-glib,libarchive,libexif,cppcheck,gettext} intltool git
-pwsh cicd/cicd-win.ps1 -Gate     # lint, build and test
-~~~
-
-The full picture, meaning the exact package list, the Windows cross-compile, the release lanes and the pipeline stages, is in [project/design.md](project/design.md). How to send a change is in [contributing.md](contributing.md), and how the code is written is in [project/style-guide_code.md](project/style-guide_code.md).
+Packages, installers, the one-line install scripts, and the plain tarball are in [install.md](install.md). To build it and work on it, see [building.md](building.md).
 
 ## Longer-term roadmap
 
