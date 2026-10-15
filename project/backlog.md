@@ -828,6 +828,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: one place decides this for every view, so the list, icon and compact views and search results all change. The expander's own path from 2026101417352261 is kept. An empty folder finishes at once. A folder that's already all read, such as one open in another window, shows its rows at once too, read but not run. The tree pane has no timer.
 	- Verified: rkbdyne7 fails before the fix, every kind at 210 to 245 ms. It also fails with each of the 3 parts of the fix taken out alone. It passes after, 3 runs and 3 more with every core loaded, best times there 57 to 140 ms to all rows and 16 to 82 to the first. rk96k9va, rhb624a0 and rj4jkr22 pass. Full Linux suite 215 of 215 and the Windows cross build clean, both with warnings as errors. C lint clean, and the test ID check passes.
 	- Branch: openfast
+	- Commit: 50d942ba
 	- Test case: rkbdyne7, Folder open time test. Goes into 9 folders of 120 from the list view, and back up after each. 4 are varied files with pictures and a sub-folder, 3 are text only, and 2 more are listed a second per batch, one with pictures and one without. The quickest of each fast kind must show all rows in under 180 ms, and each slow one its first row. Each folder's item count, and each sub-folder's, must show right. The old wait can't come in under 200.
 
 - Settings: sub-tabs don't list on the left until the parent tab is activated.
