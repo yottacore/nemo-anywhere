@@ -58,7 +58,8 @@ if extensionShared
     # __sancov_* unresolved. Nothing loads it there - the fuzz targets link the
     # static libnemo-private and never touch it - so the check comes off for
     # that build flavor rather than the shipped one.
-    link_args: get_option('fuzzing') ? [] : [ '-Wl,-no-undefined' ],
+    # ld64 has no -no-undefined, and errors on an undefined symbol anyway.
+    link_args: (get_option('fuzzing') or is_macos) ? [] : [ '-Wl,-no-undefined' ],
   )
 else
   nemo_extension_lib = static_library('nemo-anywhere-extension',
@@ -81,15 +82,19 @@ if extensionExported
   # Every member goes in, since an extension may call what nemo itself never
   # does. Only the API is exported, not the rest of the exe's symbols, which
   # would cost more than the shared library it replaces.
+  # ld64 takes a plain list of names instead of a dynamic list.
   nemo_extension_dynlist = custom_target('nemo-extension-dynlist',
     input: nemo_extension_lib,
     output: 'nemo-extension.dynlist',
-    command: [ py, files('dynamic-list.py'), find_program('nm'), '@INPUT@', '@OUTPUT@' ],
+    command: [ py, files('dynamic-list.py'), find_program('nm'), '@INPUT@', '@OUTPUT@' ]
+      + (is_macos ? [ 'ld64' ] : []),
   )
   nemo_extension = declare_dependency(
     include_directories: include_directories('.'),
     link_whole: [ nemo_extension_lib ],
-    link_args: [ '-Wl,--dynamic-list=' + nemo_extension_dynlist.full_path() ],
+    link_args: [ is_macos
+      ? '-Wl,-exported_symbols_list,' + nemo_extension_dynlist.full_path()
+      : '-Wl,--dynamic-list=' + nemo_extension_dynlist.full_path() ],
     sources: [ nemo_extension_dynlist ],
     dependencies: nemo_extension_deps,
   )

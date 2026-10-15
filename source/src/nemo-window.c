@@ -62,9 +62,6 @@
 #include <gdk/gdkkeysyms.h>
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
-#ifdef HAVE_X11_XF86KEYSYM_H
-#include <X11/XF86keysym.h>
-#endif
 #include <libnemo-private/nemo-file-utilities.h>
 #include <libnemo-private/nemo-file-attributes.h>
 #include <libnemo-private/nemo-delete-guard.h>
@@ -139,23 +136,21 @@ static const struct {
 	unsigned int keyval;
 	const char *action;
 } extra_window_keybindings [] = {
-#ifdef HAVE_X11_XF86KEYSYM_H
-	{ XF86XK_AddFavorite,	NEMO_ACTION_ADD_BOOKMARK },
-	{ XF86XK_Favorites,	NEMO_ACTION_EDIT_BOOKMARKS },
-	{ XF86XK_Go,		NEMO_ACTION_EDIT_LOCATION },
-	{ XF86XK_HomePage,      NEMO_ACTION_GO_HOME },
-	{ XF86XK_OpenURL,	NEMO_ACTION_EDIT_LOCATION },
-	{ XF86XK_Refresh,	NEMO_ACTION_RELOAD },
-	{ XF86XK_Reload,	NEMO_ACTION_RELOAD },
-	{ XF86XK_Search,	NEMO_ACTION_SEARCH },
-	{ XF86XK_Start,		NEMO_ACTION_GO_HOME },
-	{ XF86XK_Stop,		NEMO_ACTION_STOP },
-	{ XF86XK_ZoomIn,	NEMO_ACTION_ZOOM_IN },
-	{ XF86XK_ZoomOut,	NEMO_ACTION_ZOOM_OUT },
-	{ XF86XK_Back,		NEMO_ACTION_BACK },
-	{ XF86XK_Forward,	NEMO_ACTION_FORWARD }
-
-#endif
+	/* The XF86 media keys, under GDK's names so no X11 header is needed. */
+	{ GDK_KEY_AddFavorite,	NEMO_ACTION_ADD_BOOKMARK },
+	{ GDK_KEY_Favorites,	NEMO_ACTION_EDIT_BOOKMARKS },
+	{ GDK_KEY_Go,		NEMO_ACTION_EDIT_LOCATION },
+	{ GDK_KEY_HomePage,      NEMO_ACTION_GO_HOME },
+	{ GDK_KEY_OpenURL,	NEMO_ACTION_EDIT_LOCATION },
+	{ GDK_KEY_Refresh,	NEMO_ACTION_RELOAD },
+	{ GDK_KEY_Reload,	NEMO_ACTION_RELOAD },
+	{ GDK_KEY_Search,	NEMO_ACTION_SEARCH },
+	{ GDK_KEY_Start,		NEMO_ACTION_GO_HOME },
+	{ GDK_KEY_Stop,		NEMO_ACTION_STOP },
+	{ GDK_KEY_ZoomIn,	NEMO_ACTION_ZOOM_IN },
+	{ GDK_KEY_ZoomOut,	NEMO_ACTION_ZOOM_OUT },
+	{ GDK_KEY_Back,		NEMO_ACTION_BACK },
+	{ GDK_KEY_Forward,	NEMO_ACTION_FORWARD }
 };
 
 void

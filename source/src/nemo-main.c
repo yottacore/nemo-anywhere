@@ -50,14 +50,14 @@
 
 #include <glib/gi18n.h>
 #include <gtk/gtk.h>
-#ifdef G_OS_UNIX
+#if HAVE_DESKTOP_APP_INFO
 #include <gio/gdesktopappinfo.h>
 #endif
 
 #ifdef HAVE_LOCALE_H
 #include <locale.h>
 #endif
-#ifdef HAVE_MALLOC_H
+#if HAVE_MALLOC_H
 #include <malloc.h>
 #endif
 #include <stdlib.h>
@@ -96,7 +96,7 @@ main (int argc, char *argv[])
 	gint retval;
 	NemoApplication *application;
 
-#if defined (HAVE_MALLOPT) && defined(M_MMAP_THRESHOLD)
+#if HAVE_MALLOPT && defined(M_MMAP_THRESHOLD)
 	/* Nemo uses lots and lots of small and medium size allocations,
 	 * and then a few large ones for the desktop background. By default
 	 * glibc uses a dynamic treshold for how large allocations should
@@ -120,7 +120,7 @@ main (int argc, char *argv[])
 	nemo_crash_handler_install ();
 
 	/* This will be done by gtk+ later, but for now, force it to GNOME */
-#ifdef G_OS_UNIX
+#if HAVE_DESKTOP_APP_INFO
 	g_desktop_app_info_set_desktop_env ("GNOME");
 #endif
 

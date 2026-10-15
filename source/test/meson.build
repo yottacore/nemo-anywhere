@@ -1153,7 +1153,8 @@ if not is_windows
   )
 endif
 
-if not is_windows
+# Desktop files and a URI handler from mimeapps.list, neither of which macOS has.
+if not is_windows and not is_macos
   test('rk583zzx Launch environment test',
     executable('test-nemo-launch-env',
       [ 'test-nemo-launch-env.c' ],
@@ -1214,14 +1215,17 @@ if not is_windows
             meson.current_source_dir() / '..' / 'build-number.py', py.full_path() ],
   )
 
-  test('rhmr6qgr Window under the pointer test',
-    executable('test-nemo-window-at-point',
-      [ 'test-nemo-window-at-point.c', '../src/nemo-window-at-point.c' ],
-      include_directories: [ rootInclude, include_directories('../src') ],
-      dependencies: [ gtk, x11, test_scratch ],
-    ),
-    args: []
-  )
+  # X11 only. GTK on macOS has no X server to ask.
+  if not is_macos
+    test('rhmr6qgr Window under the pointer test',
+      executable('test-nemo-window-at-point',
+        [ 'test-nemo-window-at-point.c', '../src/nemo-window-at-point.c' ],
+        include_directories: [ rootInclude, include_directories('../src') ],
+        dependencies: [ gtk, x11, test_scratch ],
+      ),
+      args: []
+    )
+  endif
 
   test('rhtq57n3 Action programs in their own folder test',
     executable('test-nemo-action-exec',
@@ -1508,15 +1512,17 @@ if not is_windows
     timeout: 180
   )
 
-  test('rhtq57n4 Clean start test',
-    executable('test-nemo-startup-clean',
-      [ 'test-nemo-startup-clean.c' ],
-      include_directories: [ rootInclude, ],
-      dependencies: [ glib, gio, x11, test_scratch ],
-    ),
-    args: [ nemo ],
-    timeout: 120
-  )
+  if not is_macos
+    test('rhtq57n4 Clean start test',
+      executable('test-nemo-startup-clean',
+        [ 'test-nemo-startup-clean.c' ],
+        include_directories: [ rootInclude, ],
+        dependencies: [ glib, gio, x11, test_scratch ],
+      ),
+      args: [ nemo ],
+      timeout: 120
+    )
+  endif
 
   test('rg3wt7d9 Instances test',
     executable('test-nemo-instances',
@@ -1528,37 +1534,42 @@ if not is_windows
     timeout: 120
   )
 
-  test('rj750n43 File cache written at quit test',
-    executable('test-nemo-cache-quit',
-      [ 'test-nemo-cache-quit.c' ],
-      include_directories: [ rootInclude, ],
-      dependencies: [ gtk, nemo_private, x11, test_scratch ],
-    ),
-    args: [ nemo ],
-    timeout: 180
-  )
+  if not is_macos
+    test('rj750n43 File cache written at quit test',
+      executable('test-nemo-cache-quit',
+        [ 'test-nemo-cache-quit.c' ],
+        include_directories: [ rootInclude, ],
+        dependencies: [ gtk, nemo_private, x11, test_scratch ],
+      ),
+      args: [ nemo ],
+      timeout: 180
+    )
+  endif
 
-  # Preloaded into the program, so it links nothing of ours.
-  quit_hooks = shared_module('test-nemo-quit-hooks',
-    [ 'test-nemo-quit-hooks.c' ],
-    dependencies: [ gtk ],
-  )
-  quit_saves = executable('test-nemo-quit-saves',
-    [ 'test-nemo-quit-saves.c' ],
-    c_args: nemo_definitions,
-    include_directories: [ rootInclude, ],
-    dependencies: [ glib, gio, x11, test_scratch ],
-  )
-  test('rjch1b9a Shortcut saved and notice withdrawn at quit test',
-    quit_saves,
-    args: [ nemo, quit_hooks ],
-    timeout: 120
-  )
-  test('rjcscb0t Shortcut file beside settings and carried over once test',
-    quit_saves,
-    args: [ nemo, quit_hooks, 'carry-over' ],
-    timeout: 240
-  )
+  # Closes the window through the X server.
+  if not is_macos
+    # Preloaded into the program, so it links nothing of ours.
+    quit_hooks = shared_module('test-nemo-quit-hooks',
+      [ 'test-nemo-quit-hooks.c' ],
+      dependencies: [ gtk ],
+    )
+    quit_saves = executable('test-nemo-quit-saves',
+      [ 'test-nemo-quit-saves.c' ],
+      c_args: nemo_definitions,
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, x11, test_scratch ],
+    )
+    test('rjch1b9a Shortcut saved and notice withdrawn at quit test',
+      quit_saves,
+      args: [ nemo, quit_hooks ],
+      timeout: 120
+    )
+    test('rjcscb0t Shortcut file beside settings and carried over once test',
+      quit_saves,
+      args: [ nemo, quit_hooks, 'carry-over' ],
+      timeout: 240
+    )
+  endif
 
   # Preloaded into every copy the test starts; it links nothing of ours.
   tab_move_probe = shared_module('test-nemo-tab-move-probe',
@@ -1584,7 +1595,8 @@ if not is_windows
     timeout: 120
   )
 
-  xtst = dependency('xtst', required: false)
+  # A stray XQuartz copy on a Mac has no server behind it here.
+  xtst = is_macos ? dependency('', required: false) : dependency('xtst', required: false)
   if xtst.found()
     test('rj04ta3n Tree menu key test',
       executable('test-nemo-tree-menu-key',

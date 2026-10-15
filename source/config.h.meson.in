@@ -57,7 +57,7 @@
 // Define to 1 if you have the <sys/vfs.h> header file.
 #mesondefine HAVE_SYS_VFS_H
 
-// Define to 1 if you have the <X11/XF86keysym.h> header file.
-#mesondefine HAVE_X11_XF86KEYSYM_H
+// Define to 1 if GIO has GDesktopAppInfo, the freedesktop app launcher.
+#mesondefine HAVE_DESKTOP_APP_INFO
 
 #mesondefine ENABLE_TRACKER
