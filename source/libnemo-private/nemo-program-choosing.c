@@ -40,7 +40,7 @@
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
 #include <gio/gio.h>
-#ifdef G_OS_UNIX
+#if HAVE_DESKTOP_APP_INFO
 #include <gio/gdesktopappinfo.h>
 #endif
 #include <stdlib.h>
@@ -62,7 +62,7 @@ user_launch_context (GdkDisplay *display)
 	return context;
 }
 
-#ifdef G_OS_UNIX
+#if HAVE_DESKTOP_APP_INFO
 /* Our own desktop file names the program bare, and the user's PATH need not
  * reach a relocated bin dir. So it starts this exe by its full path instead,
  * as a new window does. NULL when the file is not ours. */
@@ -158,7 +158,7 @@ nemo_launch_application (GAppInfo *application,
 	g_list_free_full (uris, g_free);
 }
 
-#ifdef G_OS_UNIX
+#if HAVE_DESKTOP_APP_INFO
 static void
 dummy_child_watch (G_GNUC_UNUSED GPid     pid,
                    G_GNUC_UNUSED gint     status,
@@ -177,7 +177,7 @@ gather_pid_callback (G_GNUC_UNUSED GDesktopAppInfo *appinfo,
 {
     g_child_watch_add(pid, dummy_child_watch, NULL);
 }
-#endif /* G_OS_UNIX */
+#endif /* HAVE_DESKTOP_APP_INFO */
 
 void
 nemo_launch_application_by_uri (GAppInfo *application, 
@@ -236,7 +236,7 @@ nemo_launch_application_by_uri (GAppInfo *application,
 	
 	error = NULL;
 
-#ifdef G_OS_UNIX
+#if HAVE_DESKTOP_APP_INFO
     {
         GDesktopAppInfo *own = own_app_by_full_path (G_DESKTOP_APP_INFO (application));
         GDesktopAppInfo *start = own != NULL ? own : G_DESKTOP_APP_INFO (application);
@@ -511,7 +511,7 @@ nemo_launch_desktop_file (G_GNUC_UNUSED GdkScreen   *screen,
 			      const GList *parameter_uris,
 			      GtkWindow   *parent_window)
 {
-#ifdef G_OS_UNIX
+#if HAVE_DESKTOP_APP_INFO
 	GError *error;
 	char *message, *desktop_file_path;
 	const GList *p;
@@ -619,12 +619,12 @@ nemo_launch_desktop_file (G_GNUC_UNUSED GdkScreen   *screen,
 	g_list_free_full (files, g_object_unref);
 	g_object_unref (context);
 	g_object_unref (app_info);
-#else /* !G_OS_UNIX */
+#else /* !HAVE_DESKTOP_APP_INFO */
 	/* .desktop launchers are a freedesktop concept; unsupported here. */
 	(void) screen;
 	(void) desktop_file_uri;
 	(void) parameter_uris;
 	eel_show_error_dialog (_("There was an error launching the application."),
 			       NULL, parent_window);
-#endif /* G_OS_UNIX */
+#endif /* HAVE_DESKTOP_APP_INFO */
 }

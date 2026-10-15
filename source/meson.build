@@ -49,7 +49,6 @@ check_headers = [
   'sys/mount.h',
   'sys/param.h',
   'sys/vfs.h',
-  'X11/XF86keysym.h',
 ]
 
 foreach h : check_headers
@@ -280,6 +279,13 @@ conf.set_quoted('LOCALEDIR',   join_paths(get_option('prefix'), get_option('loca
 conf.set('ENABLE_NLS', cc.has_header('libintl.h', dependencies: glib))
 conf.set('HAVE_GETTEXT', true)
 conf.set('HAVE_LOCALE_H', cc.has_header('locale.h'))
+# GIO's freedesktop launcher. macOS GIO has its own app info instead.
+haveDesktopAppInfo = (not is_windows and
+  cc.has_header('gio/gdesktopappinfo.h', dependencies: gio_unix))
+if not haveDesktopAppInfo and not is_windows and not is_macos
+  error('gio/gdesktopappinfo.h not found; opening files needs it here')
+endif
+conf.set10('HAVE_DESKTOP_APP_INFO', haveDesktopAppInfo)
 
 configure_file(
   input : 'config.h.meson.in',

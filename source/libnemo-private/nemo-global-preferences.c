@@ -34,7 +34,7 @@
 #include <eel/eel-string.h>
 #include <eel/eel-debug.h>
 #include <glib/gi18n.h>
-#ifdef G_OS_UNIX
+#if HAVE_DESKTOP_APP_INFO
 #include <gio/gdesktopappinfo.h>
 #endif
 
@@ -267,7 +267,7 @@ nemo_global_preferences_get_fileroller_mimetypes (void)
 
     if (g_once_init_enter (&once_init)) {
         if (nemo_is_file_roller_installed ()) {
-#ifdef G_OS_UNIX
+#if HAVE_DESKTOP_APP_INFO
             GAppInfo *app_info;
             gchar ***results;
             gchar **result;
@@ -301,7 +301,7 @@ nemo_global_preferences_get_fileroller_mimetypes (void)
 
                 g_free (results);
             }
-#endif /* G_OS_UNIX */
+#endif /* HAVE_DESKTOP_APP_INFO */
         }
 
         g_once_init_leave (&once_init, 1);

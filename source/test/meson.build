@@ -1153,7 +1153,8 @@ if not is_windows
   )
 endif
 
-if not is_windows
+# Desktop files and a URI handler from mimeapps.list, neither of which macOS has.
+if not is_windows and not is_macos
   test('rk583zzx Launch environment test',
     executable('test-nemo-launch-env',
       [ 'test-nemo-launch-env.c' ],
@@ -1521,27 +1522,30 @@ if not is_windows
     )
   endif
 
-  # Preloaded into the program, so it links nothing of ours.
-  quit_hooks = shared_module('test-nemo-quit-hooks',
-    [ 'test-nemo-quit-hooks.c' ],
-    dependencies: [ gtk ],
-  )
-  quit_saves = executable('test-nemo-quit-saves',
-    [ 'test-nemo-quit-saves.c' ],
-    c_args: nemo_definitions,
-    include_directories: [ rootInclude, ],
-    dependencies: [ glib, gio, x11, test_scratch ],
-  )
-  test('rjch1b9a Shortcut saved and notice withdrawn at quit test',
-    quit_saves,
-    args: [ nemo, quit_hooks ],
-    timeout: 120
-  )
-  test('rjcscb0t Shortcut file beside settings and carried over once test',
-    quit_saves,
-    args: [ nemo, quit_hooks, 'carry-over' ],
-    timeout: 240
-  )
+  # Closes the window through the X server.
+  if not is_macos
+    # Preloaded into the program, so it links nothing of ours.
+    quit_hooks = shared_module('test-nemo-quit-hooks',
+      [ 'test-nemo-quit-hooks.c' ],
+      dependencies: [ gtk ],
+    )
+    quit_saves = executable('test-nemo-quit-saves',
+      [ 'test-nemo-quit-saves.c' ],
+      c_args: nemo_definitions,
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, x11, test_scratch ],
+    )
+    test('rjch1b9a Shortcut saved and notice withdrawn at quit test',
+      quit_saves,
+      args: [ nemo, quit_hooks ],
+      timeout: 120
+    )
+    test('rjcscb0t Shortcut file beside settings and carried over once test',
+      quit_saves,
+      args: [ nemo, quit_hooks, 'carry-over' ],
+      timeout: 240
+    )
+  endif
 
   # Preloaded into every copy the test starts; it links nothing of ours.
   tab_move_probe = shared_module('test-nemo-tab-move-probe',
@@ -1567,7 +1571,8 @@ if not is_windows
     timeout: 120
   )
 
-  xtst = dependency('xtst', required: false)
+  # A stray XQuartz copy on a Mac has no server behind it here.
+  xtst = is_macos ? dependency('', required: false) : dependency('xtst', required: false)
   if xtst.found()
     test('rj04ta3n Tree menu key test',
       executable('test-nemo-tree-menu-key',
