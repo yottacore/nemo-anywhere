@@ -508,8 +508,8 @@ case_link_renamed (const Run *run)
 		END
 	};
 	g_autofree char *from = NULL, *to = NULL;
-	g_autofree char *target = NULL, *link = NULL, *landed = NULL;
-	g_autoptr (GFile) landed_file = NULL;
+	g_autofree char *target = NULL, *link = NULL, *moved_to = NULL;
+	g_autoptr (GFile) moved_link = NULL;
 
 	if (!(nemo_link_kinds_supported (run->from_base) & NEMO_LINK_FILE_SYMLINK) ||
 	    !(nemo_link_kinds_supported (run->to_base) & NEMO_LINK_FILE_SYMLINK)) {
@@ -527,9 +527,9 @@ case_link_renamed (const Run *run)
 
 	run_job (run->window, run->is_move, from, names, to, answers);
 
-	landed = g_build_filename (to, "m", NULL);
-	landed_file = g_file_new_for_path (landed);
-	check (nemo_link_kind (landed_file, NULL) == NEMO_LINK_FILE_SYMLINK);
+	moved_to = g_build_filename (to, "m", NULL);
+	moved_link = g_file_new_for_path (moved_to);
+	check (nemo_link_kind (moved_link, NULL) == NEMO_LINK_FILE_SYMLINK);
 	check (holds (to, "m", "payload"));
 	check (holds (to, "l", "old l"));
 	check (count_entries (to) == 2);
