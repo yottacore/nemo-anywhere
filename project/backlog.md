@@ -1405,6 +1405,25 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Before the next cut.
 	- Test case: not applicable, docs only.
 
+- The program's name is typed out in many places. Set it once and use that everywhere.
+	- ID: 2026101512190015
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261015-121900
+	- Opened by: t00mietum
+	- Requirements:
+		- Every place a person sees the name says "Nemo Anywhere", from one constant set once, such as a meson option written into `config.h`.
+		- That covers UI text, tooltips, dialogs, the About box, window titles, the launcher, the man page, installer messages and the action layout editor.
+		- Leftover bare "Nemo" meaning this program gets fixed on the way, such as the Settings menu tooltip "Edit Nemo settings".
+		- Credit to upstream Nemo stays as it is. It names the other project.
+		- A lint check refuses the name typed out anywhere but the one place.
+	- Notes:
+		- The name may have to change if the Cinnamon team won't allow it, so a rename should be a one-line edit plus a rebuild.
+		- Today there are about 60 C strings with "Nemo" in them, about 20 of them "Nemo Anywhere", plus .ui, .py and data files.
+		- The slug `nemo-anywhere`, the app id `org.NemoAnywhere` and file paths are a bigger rename. Options: give each its own constant now, or leave them for if it happens.
+	- Test case: the new lint check, plus the existing UI case check for the strings it touches.
+
 - rjvdch2z fails now and then in the full suite on a loaded box.
 	- ID: 2026101419352490
 	- Type: Bug
