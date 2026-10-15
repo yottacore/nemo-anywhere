@@ -124,38 +124,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: bbf8c15, 205074b
 	- Test case: rjw1ks5h, New window start win32 test. The test stands in for the new copy. For a new window, one with a selection, and a tab moved out, the copy must be started by the app itself, with the user's environment, and no spawn helper may be running. It also opens a link of a scheme it sets up for the user, and one nothing handles, which must fail. rjvzdd4w's new copy case now starts the same way.
 
-- F2 renaming in photo icon view doesn't work.
-	- ID: 2026101009150764
-	- Type: Bug
-	- Status: Reopened
-		- Still doesn't work.
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 191 of 191.
-	- Priority|Severity: Avg
-	- Opened: 20261010-091507
-	- Opened by: t00mietum
-	- Target OS: all
-	- Requirements:
-		- Before the next cut.
-	- Steps to reproduce: in a folder of photos in icon view, select a photo and press F2.
-	- Incorrect behavior: F2 renaming doesn't work.
-	- Expected behavior: the name opens for editing, like in the other views.
-	- Reproduced: 20261013, Linux, 2 ways. Both leave a box nobody can type into, so F2 seems to do nothing. A plain F2 on a photo in a folder of photos at the usual size works.
-		- F2 on a photo, then the icon size changes, then F2 on the same photo again. The second box keeps the old width, and the name is centered in the new one, so it sits partly or wholly outside the box.
-		- A short window, so the name under a big photo is below what's in sight. F2 opens the box down there.
-	- Actual cause:
-		- The icon view keeps one box for renaming and hides it in between. Each F2 gives it the width of a name under an icon, which follows the icon size. GTK doesn't size a hidden box again for a new width, and the same name again changed nothing else, so the box kept its old size.
-		- A folder of photos opens at the plain size and grows to the photo size once it has loaded. That closes a rename already open. So there it takes only an F2 during the load and a second F2 to hit the first case. Zooming between 2 F2s does it in any folder.
-		- F2 never scrolled to the box.
-	- Actual fix: the box takes its new width even while hidden, and a new font too. F2 scrolls so the box is in sight.
-	- Progress log:
-		- 20261013: Options for later: the size change when a folder of photos finishes loading still closes a rename open at the time. It could reopen the box at the new size.
-		- 20261013: left at signoff. The case seen isn't known for sure. These are the 2 ways found where F2 in a folder of photos shows nothing to type into.
-	- Swept: the icon view's box is the only one of its kind, and the compact view uses it too. The list view, Places and the tree rename inside a tree cell, which GTK sizes when it shows it.
-	- Branch: f2tips
-	- Commit: f683771
-	- Test case: rk520jh7, Rename field takes a new width while hidden test. The box in a layout, renamed at one width, hidden, then given a wider and a narrower width with the same name, takes each width and holds the name. rk526bz6, F2 in a folder of pictures test, Linux only. In a short window, F2 on a photo, zoom in twice, F2 on the same photo. Both times the box is as wide as it asked for and in sight.
-	- Verified: rk520jh7 failed before the fix, 4 checks, and passes after, on Linux and under wine. rk526bz6 failed before the fix, 3 of its 6 checks, and passes after. The full Linux suite passed, 191 of 191. The Windows cross build passes. Lint is clean apart from rj3ytv0b, which always fails in a worktree.
-
 - With Split into volumes ticked and a volume size that can't be read, Compress writes one archive with no volumes.
 	- ID: 2026101308213019
 	- Type: Bug
@@ -610,6 +578,53 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: xrename
 	- Commit: 83986e3d
 	- Test case: rkb48gsx, Move conflict answers test: Rename to a taken name then Replace, Rename to a free name, Skip, Replace, Replace all, Keep both, a renamed folder merge, and a renamed link, each as a move and a copy, across 2 file systems and on 1.
+
+- F2 renaming in photo icon view doesn't work.
+	- ID: 2026101009150764
+	- Type: Bug
+	- Status: Waiting for testing
+		- Still doesn't work.
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 214 of 214.
+	- Needs external testing: on vm925w, in the desktop session with the single exe. Open a folder of a few hundred camera photos that has never been opened, click a photo while the thumbnails are still being made, and press F2. The name should open for editing every time. Then, with a rename open and part of a new name typed, let the thumbnails in its row come in. The box should stay under its photo, and nothing should be saved before Enter. Keys don't reach the app under wine, so F2 itself was only tried on Linux.
+	- Priority|Severity: Avg
+	- Opened: 20261010-091507
+	- Opened by: t00mietum
+	- Target OS: all
+	- Requirements:
+		- Before the next cut.
+	- Steps to reproduce: in a folder of photos in icon view, select a photo and press F2.
+	- Incorrect behavior: F2 renaming doesn't work.
+	- Expected behavior: the name opens for editing, like in the other views.
+	- Reproduced: 20261013, Linux, 2 ways. Both leave a box nobody can type into, so F2 seems to do nothing. A plain F2 on a photo in a folder of photos at the usual size works.
+		- F2 on a photo, then the icon size changes, then F2 on the same photo again. The second box keeps the old width, and the name is centered in the new one, so it sits partly or wholly outside the box.
+		- A short window, so the name under a big photo is below what's in sight. F2 opens the box down there.
+		- 20261015, Linux, 2 more ways, both on the first visit to a folder of large camera photos, with the thumbnails still being made.
+			- Click a photo, then F2. F2 did nothing in 5 of 12 tries while the thumbnails were coming in, and Rename stayed grayed out until they were done.
+			- A rename open when a thumbnail of another shape comes in for its row closes by itself. Anything else that moves the photo, such as a wider window, does the same. What was typed so far is saved as the new name. Also seen on the Windows build under wine.
+	- Actual cause:
+		- The icon view keeps one box for renaming and hides it in between. Each F2 gives it the width of a name under an icon, which follows the icon size. GTK doesn't size a hidden box again for a new width, and the same name again changed nothing else, so the box kept its old size.
+		- A folder of photos opens at the plain size and grows to the photo size once it has loaded. That closes a rename already open. So there it takes only an F2 during the load and a second F2 to hit the first case. Zooming between 2 F2s does it in any folder.
+		- F2 never scrolled to the box.
+		- 20261015: the menus catch up with a new selection 50 ms later. Each thumbnail made is a change to a file in the folder, and each change started that wait over, at 200 ms or more. With thumbnails coming in faster than that, Rename kept the off state it had with nothing selected, and F2 did nothing. Upstream has the same wait, but its thumbnails come from a separate program, more slowly.
+		- 20261015: since thumbjump (20260922) a thumbnail of another shape lays the icons out again. A layout that moved the photo being renamed ended the rename and saved the text in the box.
+	- Actual fix: the box takes its new width even while hidden, and a new font too. F2 scrolls so the box is in sight.
+		- 20261015: a menu update already waiting is never pushed later. Changes in a row still share one update.
+		- 20261015: when a layout moves the photo being renamed, the box moves with it, and the rename and its text stay.
+	- Progress log:
+		- 20261013: Options for later: the size change when a folder of photos finishes loading still closes a rename open at the time. It could reopen the box at the new size.
+		- 20261013: left at signoff. The case seen isn't known for sure. These are the 2 ways found where F2 in a folder of photos shows nothing to type into.
+		- 20261015: "photo icon view" is a folder that's mostly images. Since imgauto it opens in list view, switches to icon view once loaded, and grows to the picture size, 500% or 320 px. It isn't a view of its own.
+		- 20261015: ruled out on a first visit to real photos: the focus going elsewhere, another shortcut taking F2, and the selection changing as the view reloads. A click before the switch to icon view is lost, but on a local disk that's the first half second.
+		- 20261015: the size change at the end of loading still ends a rename open at the time, as a zoom does. On a local disk that's within the first second. Read only, not run: it saves the text in the box. Still in Options for later.
+		- 20261015: left at Waiting for testing for the Windows check, then signoff. The case seen still isn't known for sure. If it comes back, it helps to know the platform, the folder (about how many photos, local or on a share, opened before or not), and whether the box never shows or shows and then closes.
+	- Swept: the icon view's box is the only one of its kind, and the compact view uses it too. The list view, Places and the tree rename inside a tree cell, which GTK sizes when it shows it.
+		- 20261015: 14 other waits start over on each call. None holds back something a user acts on. Drags, hovers, sizes and the selection are fed by the user, and the look-ahead and the column resample wait for a quiet spell on purpose. The menu wait is shared by every view, so the list and compact views get the fix too. The list view makes no thumbnails at its size, and F2 there worked while a folder was busy.
+		- 20261015: a layout move ended a rename in the icon view and in the desktop grid's copy of the same code. Nothing uses the grid now, so it was left as is. Drags, stretches and arrow-key moves still end a rename, through the click or key that starts them.
+	- Branch: f2tips, f2photo
+	- Commit: f683771, 8053f9a
+	- Test case: rk520jh7, Rename field takes a new width while hidden test. The box in a layout, renamed at one width, hidden, then given a wider and a narrower width with the same name, takes each width and holds the name. rk526bz6, F2 in a folder of pictures test, Linux only. In a short window, F2 on a photo, zoom in twice, F2 on the same photo. Both times the box is as wide as it asked for and in sight. rkb84h93, F2 while the folder keeps changing test, Linux only. A file in a folder of pictures changes every 15 ms, in place of thumbnails coming in. With nothing selected first, a picture is selected and F2 pressed half a second later, 3 times. Each time F2 has to work and open the box. A first try with the folder still shows F2 works there at all. rkb9fjtc, Rename stays open when the icons move test, Linux only. With part of a new name typed, a wider window moves the picture. The box has to stay open under it with the text, nothing may be saved, and Escape keeps the old name.
+	- Verified: rk520jh7 failed before the fix, 4 checks, and passes after, on Linux and under wine. rk526bz6 failed before the fix, 3 of its 6 checks, and passes after. The full Linux suite passed, 191 of 191. The Windows cross build passes. Lint is clean apart from rj3ytv0b, which always fails in a worktree.
+	- Verified: 20261015. rkb84h93 failed 5 of 5 runs before the fix, 6 checks each, with the still try passing, and passes after. rkb9fjtc failed 3 of 3 before the fix, 5 checks, the half-typed name saved among them, and passes after. Both, with rk526bz6 and rk520jh7, passed 5 of 5 and again with the processor busy. On Linux, 90 photos of 24 MP opened for the first time with thumbnails coming in about 10 a second: click and F2 renamed 10 of 10, where 5 of 12 failed before. On the Windows build under wine, a rename opened from the Edit menu stays open while a narrower window moves its photo, and saves only on Enter. Before the fix the narrower window saved the half-typed name. rk520jh7 passes under wine. Full Linux suite 214 of 214, Windows cross build clean, lint clean apart from rj3ytv0b. The menu update ran 7 or 8 times during a whole thumbnail run, under 30 ms in all.
 
 - On Windows, the zip and the copy `install.ps1` puts in place draw with GTK's default theme and font.
 	- ID: 2026101007562511

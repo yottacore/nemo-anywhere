@@ -1286,10 +1286,6 @@ nemo_icon_view_container_icon_set_position (NemoIconContainer *container,
         return;
     }
 
-    if (icon == nemo_icon_container_get_icon_being_renamed (container)) {
-        nemo_icon_container_end_renaming_mode (container, TRUE);
-    }
-
     if (nemo_icon_container_get_is_fixed_size (container)) {
         GtkAllocation alloc;
 

@@ -999,6 +999,61 @@ align_icons (NemoIconContainer *container)
     NEMO_ICON_CONTAINER_GET_CLASS (container)->align_icons (container);
 }
 
+/* Where the rename box goes for a box @width wide: over the name, or under
+   the middle of the picture when the name is below it. */
+static void
+rename_widget_place (NemoIconContainer *container, NemoIcon *icon, int width, int *x, int *y)
+{
+	EelDRect icon_rect, text_rect;
+
+	icon_rect = nemo_icon_canvas_item_get_icon_rectangle (icon->item);
+	text_rect = nemo_icon_canvas_item_get_text_rectangle (icon->item, TRUE);
+
+	if (container->details->label_position == NEMO_ICON_LABEL_POSITION_BESIDE) {
+		eel_canvas_w2c (EEL_CANVAS_ITEM (icon->item)->canvas,
+				text_rect.x0,
+				text_rect.y0,
+				x, y);
+	} else {
+		eel_canvas_w2c (EEL_CANVAS_ITEM (icon->item)->canvas,
+				(icon_rect.x0 + icon_rect.x1) / 2,
+				icon_rect.y1,
+				x, y);
+		*x = *x - width / 2 - 1;
+	}
+}
+
+/* A layout can move the icon being renamed, such as when a thumbnail of
+   another shape comes in for its row, and a new scroll region moves
+   everything. The box goes with its icon, and the rename and what was typed
+   so far stay. */
+static void
+follow_renamed_icon (NemoIconContainer *container, gboolean allocate)
+{
+	NemoIcon *icon = nemo_icon_container_get_icon_being_renamed (container);
+	GtkWidget *box = container->details->rename_widget;
+	GtkAllocation place;
+	GtkRequisition size;
+	int width;
+
+	if (icon == NULL) {
+		return;
+	}
+
+	gtk_widget_get_size_request (box, &width, NULL);
+	rename_widget_place (container, icon, width, &place.x, &place.y);
+	gtk_layout_move (GTK_LAYOUT (container), box, place.x, place.y);
+
+	/* From inside our own size_allocate, the resize the move queues is lost,
+	   so the box is placed here the way GtkLayout places a child. */
+	if (allocate) {
+		gtk_widget_get_preferred_size (box, &size, NULL);
+		place.width = size.width;
+		place.height = size.height;
+		gtk_widget_size_allocate (box, &place);
+	}
+}
+
 static void
 redo_layout_internal (NemoIconContainer *container)
 {
@@ -1028,6 +1083,7 @@ redo_layout_internal (NemoIconContainer *container)
 	}
 
 	nemo_icon_container_update_scroll_region (container);
+	follow_renamed_icon (container, FALSE);
     queue_update_visible_icons (container, container->details->ok_to_load_deferred_attrs ?
                                            NORMAL_UPDATE_VISIBLE_DELAY :
                                            INITIAL_UPDATE_VISIBLE_DELAY);
@@ -2879,6 +2935,7 @@ size_allocate (GtkWidget *widget,
 	if (need_layout_redone) {
 		nemo_icon_container_redo_layout (container);
 	}
+	follow_renamed_icon (container, TRUE);
 }
 
 static GtkSizeRequestMode
@@ -7242,7 +7299,6 @@ nemo_icon_container_start_renaming_selected_item (NemoIconContainer *container,
 {
 	NemoIconContainerDetails *details;
 	NemoIcon *icon;
-	EelDRect icon_rect;
 	EelDRect text_rect;
 	PangoContext *context;
 	PangoFontDescription *desc;
@@ -7327,7 +7383,6 @@ nemo_icon_container_start_renaming_selected_item (NemoIconContainer *container,
 						 desc);
 	pango_font_description_free (desc);
 
-	icon_rect = nemo_icon_canvas_item_get_icon_rectangle (icon->item);
     text_rect = nemo_icon_canvas_item_get_text_rectangle (icon->item, TRUE);
 
 	if (nemo_icon_container_is_layout_vertical (container) &&
@@ -7338,19 +7393,7 @@ nemo_icon_container_start_renaming_selected_item (NemoIconContainer *container,
 		width = nemo_icon_canvas_item_get_max_text_width (icon->item);
 	}
 
-	if (details->label_position == NEMO_ICON_LABEL_POSITION_BESIDE) {
-		eel_canvas_w2c (EEL_CANVAS_ITEM (icon->item)->canvas,
-				text_rect.x0,
-				text_rect.y0,
-				&x, &y);
-	} else {
-		eel_canvas_w2c (EEL_CANVAS_ITEM (icon->item)->canvas,
-				(icon_rect.x0 + icon_rect.x1) / 2,
-				icon_rect.y1,
-				&x, &y);
-		x = x - width / 2 - 1;
-	}
-
+	rename_widget_place (container, icon, width, &x, &y);
 	gtk_layout_move (GTK_LAYOUT (container),
 			 details->rename_widget,
 			 x, y);

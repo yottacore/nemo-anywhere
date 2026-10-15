@@ -1386,6 +1386,36 @@ if not is_windows
     timeout: 120
   )
 
+  rename_busy_probe = shared_module('test-nemo-rename-busy-probe',
+    [ 'test-nemo-rename-busy-probe.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk ],
+  )
+  test('rkb84h93 F2 while the folder keeps changing test',
+    executable('test-nemo-rename-photo-busy',
+      [ 'test-nemo-rename-photo.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, gtk, test_scratch ],
+    ),
+    args: [ nemo, rename_busy_probe, '11' ],
+    timeout: 120
+  )
+
+  rename_moved_probe = shared_module('test-nemo-rename-moved-probe',
+    [ 'test-nemo-rename-moved-probe.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk ],
+  )
+  test('rkb9fjtc Rename stays open when the icons move test',
+    executable('test-nemo-rename-photo-moved',
+      [ 'test-nemo-rename-photo.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, gtk, test_scratch ],
+    ),
+    args: [ nemo, rename_moved_probe, '9' ],
+    timeout: 120
+  )
+
   # Preloaded too; it searches and presses Escape from inside the program.
   search_escape_probe = shared_module('test-nemo-search-escape-probe',
     [ 'test-nemo-search-escape-probe.c' ],
