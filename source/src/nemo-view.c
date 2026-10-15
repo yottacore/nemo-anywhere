@@ -269,6 +269,8 @@ struct NemoViewDetails
 	 * after it finishes loading the directory and its view.
 	 */
 	gboolean loading;
+	/* Rows have gone in since the folder started loading. */
+	gboolean first_rows_in;
 	gboolean menu_states_untrustworthy;
 	gboolean scripts_invalid;
 	gboolean templates_invalid;
@@ -4029,6 +4031,9 @@ display_pending_files (NemoView *view)
 	}
 
 	process_new_files (view);
+	if (view->details->old_added_files != NULL) {
+		view->details->first_rows_in = TRUE;
+	}
 	process_old_files (view);
 
 	if (view->details->model != NULL
@@ -4271,6 +4276,47 @@ schedule_changes (NemoView *view)
 		g_timeout_add (UPDATE_INTERVAL_TIMEOUT_INTERVAL, changes_timeout_callback, view);
 }
 
+static gboolean
+pending_file_waits (NemoView *view, FileAndDirectory *pending)
+{
+	return still_should_show_file (view, pending->file, pending->directory) &&
+		!ready_to_load (view, pending);
+}
+
+/* The view's own folder shows its first rows as soon as they're listed and its
+   last ones as soon as it's all read, with a big one still batched by the
+   update timer in between. Either waits while one of its first files is still
+   having its thumbnail looked up. Item counts fill in after, like any change. */
+static void
+display_at_once_if_ready (NemoView *view)
+{
+	GHashTableIter iter;
+	gpointer pending;
+	GList *node;
+
+	if (!view->details->loading || view->details->model == NULL) {
+		return;
+	}
+	if (!nemo_directory_are_all_files_seen (view->details->model) &&
+	    (view->details->first_rows_in || view->details->new_added_files == NULL)) {
+		return;
+	}
+
+	for (node = view->details->new_added_files; node != NULL; node = node->next) {
+		if (pending_file_waits (view, node->data)) {
+			return;
+		}
+	}
+	g_hash_table_iter_init (&iter, view->details->non_ready_files);
+	while (g_hash_table_iter_next (&iter, &pending, NULL)) {
+		if (pending_file_waits (view, pending)) {
+			return;
+		}
+	}
+
+	schedule_idle_display_of_pending_files (view);
+}
+
 static void
 files_added_callback (NemoDirectory *directory,
 		      GList *files,
@@ -4301,6 +4347,8 @@ files_added_callback (NemoDirectory *directory,
 		view->details->unshown_subdirectories =
 			g_list_remove (view->details->unshown_subdirectories, directory);
 		schedule_idle_display_of_pending_files (view);
+	} else if (directory == view->details->model) {
+		display_at_once_if_ready (view);
 	}
 
 	/* The number of items could have changed */
@@ -4331,6 +4379,11 @@ files_changed_callback (NemoDirectory *directory,
 
 	queue_pending_files (view, directory, files, &view->details->new_changed_files);
 
+	/* One of the first files may have been waiting on its thumbnail. */
+	if (directory == view->details->model) {
+		display_at_once_if_ready (view);
+	}
+
 	/* The free space or the number of items could have changed */
 	schedule_update_status (view);
 
@@ -4349,14 +4402,7 @@ done_loading_callback (G_GNUC_UNUSED NemoDirectory *directory,
 	view = NEMO_VIEW (callback_data);
 
 	process_new_files (view);
-	if (g_hash_table_size (view->details->non_ready_files) == 0) {
-		/* Unschedule a pending update and schedule a new one with the minimal
-		 * update interval. This gives the view a short chance at gathering the
-		 * (cached) deep counts.
-		 */
-		unschedule_display_of_pending_files (view);
-		schedule_timeout_display_of_pending_files (view, UPDATE_INTERVAL_MIN);
-	}
+	display_at_once_if_ready (view);
 }
 
 static void
@@ -11744,6 +11790,7 @@ load_directory (NemoView *view,
 	g_signal_emit (view, signals[CLEAR], 0);
 
 	view->details->loading = TRUE;
+	view->details->first_rows_in = FALSE;
 
 	/* Update menus when directory is empty, before going to new
 	 * location, so they won't have any false lingering knowledge
@@ -11830,15 +11877,6 @@ finish_loading (NemoView *view)
 	/* Assume we have now all information to show window */
 	nemo_window_view_visible  (view->details->window, NEMO_VIEW (view));
 
-	if (nemo_directory_are_all_files_seen (view->details->model)) {
-		/* Unschedule a pending update and schedule a new one with the minimal
-		 * update interval. This gives the view a short chance at gathering the
-		 * (cached) deep counts.
-		 */
-		unschedule_display_of_pending_files (view);
-		schedule_timeout_display_of_pending_files (view, UPDATE_INTERVAL_MIN);
-	}
-
 	/* Start loading. */
 
 	/* Connect handlers to learn about loading progress. */
@@ -11875,6 +11913,9 @@ finish_loading (NemoView *view)
 	view->details->files_changed_handler_id = g_signal_connect
 		(view->details->model, "files_changed",
 		 G_CALLBACK (files_changed_callback), view);
+
+	/* A folder that's already all read gets no done_loading. */
+	display_at_once_if_ready (view);
 }
 
 static void
