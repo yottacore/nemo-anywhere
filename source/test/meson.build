@@ -2228,6 +2228,15 @@ test('rjm9n8sr Bookmark name and icon test',
   args: []
 )
 
+test('rkb69y1a Connect to Server address scheme test',
+  executable('test-nemo-skip-scheme',
+    [ 'test-nemo-skip-scheme.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private ],
+  ),
+  args: []
+)
+
 if is_windows
   test('rfhnacch Windows Search test',
     executable('test-nemo-search-win32',

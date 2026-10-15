@@ -37,6 +37,7 @@
 
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-icon-names.h>
+#include <libnemo-private/nemo-share.h>
 
 /* TODO:
  * - name entry + pre-fill
@@ -107,7 +108,6 @@ enum {
 
 /* Remember to fill in descriptions below */
 static struct MethodInfo methods[] = {
-	/* FIXME: we need to alias ssh to sftp */
 	{ "sftp",  SHOW_PORT | SHOW_USER, 22 },
 	{ "ftp",  SHOW_PORT | SHOW_USER, 21 },
 	{ "ftp",  IS_ANONYMOUS | SHOW_PORT, 21 },
@@ -525,7 +525,7 @@ connect_dialog_connect_to_server (NemoConnectServerDialog *dialog)
 	GtkTreeIter iter;
 	char *user, *initial_path, *server, *folder, *domain, *port_str;
 	char *t, *uri;
-	char *temp, *stripped_server;
+	char *stripped_server;
 	double port;
 
 	/* Get our method info */
@@ -537,13 +537,9 @@ connect_dialog_connect_to_server (NemoConnectServerDialog *dialog)
 
 	server = gtk_editable_get_chars (GTK_EDITABLE (dialog->details->server_entry), 0, -1);
 
-	temp = g_strconcat (meth->scheme, "://", NULL);
-	if (g_str_has_prefix (server, temp)) {
-		stripped_server = g_strdup (server + strlen (temp));
-		g_free (server);
-		server = stripped_server;
-	}
-	g_free (temp);
+	stripped_server = g_strdup (nemo_share_skip_scheme (server, meth->scheme));
+	g_free (server);
+	server = stripped_server;
 
 	user = NULL;
 	initial_path = g_strdup ("");

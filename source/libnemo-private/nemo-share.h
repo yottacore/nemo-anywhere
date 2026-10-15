@@ -51,6 +51,11 @@ gboolean nemo_share_link_leaves_for_a_share (const char *link_folder,
    Returns: (transfer full): free with g_free. */
 char    *nemo_share_host_to_reach (GFile *location);
 
+/* What follows "scheme://" when text starts with scheme, in any case, or with
+   another name gvfs takes for it, as ssh for sftp. Otherwise text itself.
+   Returns: (transfer none): points into text. */
+const char *nemo_share_skip_scheme (const char *text, const char *scheme);
+
 /* Moves on whenever the shares seen change, so an answer kept per file knows
    to ask again. Never 0. */
 guint    nemo_share_generation (void);

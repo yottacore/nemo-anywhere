@@ -449,6 +449,39 @@ nemo_share_host_to_reach (GFile *location)
 	return host_of_uri (uri);
 }
 
+/* From the SchemeAliases lines in gvfs's mount files. A GFile is already past
+   this, since gvfs makes ssh:// an sftp location itself. */
+static const char * const scheme_aliases[][2] = {
+	{ "ssh", "sftp" },
+};
+
+/* Returns: (transfer none): points into text */
+const char *
+nemo_share_skip_scheme (const char *text, const char *scheme)
+{
+	g_autofree char *named = NULL;
+	const char *end;
+	gsize i;
+
+	g_return_val_if_fail (text != NULL && scheme != NULL, text);
+
+	end = strstr (text, "://");
+	if (end == NULL || end == text) {
+		return text;
+	}
+
+	named = g_ascii_strdown (text, end - text);
+	for (i = 0; i < G_N_ELEMENTS (scheme_aliases); i++) {
+		if (strcmp (named, scheme_aliases[i][0]) == 0) {
+			g_free (named);
+			named = g_strdup (scheme_aliases[i][1]);
+			break;
+		}
+	}
+
+	return g_ascii_strcasecmp (named, scheme) == 0 ? end + 3 : text;
+}
+
 guint
 nemo_share_generation (void)
 {
