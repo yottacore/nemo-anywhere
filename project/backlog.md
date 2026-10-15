@@ -36,7 +36,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - SMB and SFTP networking is broken.
 	- ID: 2026101417352260
 	- Type: Bug
-	- Status: Reopened
+	- Status: Done
 		- smb is fixed, and sftp is fixed.
 		- `ssh://hostname` also works.
 		- `sftp://hostname/folder` works.
@@ -55,26 +55,33 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- On Windows the address may be refused as a format. Not sure.
 	- Reproduced: 20261014 on Linux, against a test Samba server and an sshd. With gvfsd-fuse running, as it does on a normal desktop, going into a share showed "The folder contents couldn't be displayed" with "Can't do synchronous next_files() on a file enumerator created asynchronously", and no files. An sftp folder did the same. With no gvfsd-fuse both listed.
 	- Reproduced: 20261014, Windows. Every `smb://` address becomes a location GLib can't open there, which the window reports as "can't handle "smb" locations" (read, not tried in the window). `\\host\share` already opened.
+	- Reproduced: 20261015 on Linux, with gvfsd-fuse running, against an sshd. `ssh://host/folder` and `ssh://host` both listed from the path bar, the command line, a bookmark and a link, mounted first or not, by host name with a key and by address with a password. gvfs takes ssh as another name for sftp, so the folder opens as `sftp://host/folder`. Connect to Server with SSH chosen and either ssh address in Server failed with "Connection failed". `sftp://host/folder` there connected.
 	- Actual cause:
 		- Linux: the folder listing took any folder with a local path for a local one, so it could read the links in it itself. While gvfsd-fuse runs, every smb and sftp folder also has a path, under `/run/user/<uid>/gvfs`. So a share was read through code that makes a call gvfs refuses, and the listing stopped there.
 		- Windows: there's no smb scheme on Windows, and nothing turned an `smb://` address into the UNC path it means.
+		- ssh, Connect to Server: the dialog only took the chosen type's own scheme off an address typed in Server, so `ssh://host/folder` went out as `sftp://ssh://host/folder`. Everywhere else gvfs makes an ssh address an sftp location before the app sees it.
 	- Origin: cbd3559 on sharefollow, 20261005, from 2026093010493450's link change. Not from smbhalt, smbfade, cfgshare or evbshare. Confirmed.
 	- Actual fix:
 		- Linux: only a folder on this machine is read that way. A gvfs folder goes to gvfs as it did before, which follows its links on the server.
 		- Windows: `smb://host/share/folder` opens `\\host\share\folder`, wherever the address comes from: the path bar, the command line, a bookmark or a link. `smb://host` lists that server's shares, and `smb:///` the network. A user name, domain or port in the address is left out, since Windows connects as the session does.
 		- Windows: Connect to Server offered no Windows share before, since smb wasn't known there. It does now, and asks only for the server and share. Connecting opens the share in a new window.
+		- ssh: Connect to Server takes off the chosen type's scheme or any other name gvfs has for it, in any case, so `ssh://` and `SFTP://` both work with SSH chosen. The other names are one list beside the network schemes, copied from gvfs's mount files, where ssh is the only one.
 	- Swept:
 		- Linux: every spot in the listing code that took a path to mean local, which is the listing, a later look at one file, and that file's folder. The thumbnail checksum reads a file through its path on purpose, behind the thumbnail settings, which already count a gvfs-fuse path as a share. The other enumerators (favorites, and trash and network on Windows) wrap nothing from gvfs. Every other place that reads a folder file by file opens it the same way.
 		- Windows: typed locations, bookmarks, the command line and dropped addresses all go through the one place smb is now known. Connect to Server builds `smb://` addresses too, fixed above.
+		- ssh: the path bar, the command line, bookmarks, the bookmark editor, links and dropped addresses all make their location through GLib, where gvfs maps ssh. Connect to Server was the only place that read the scheme as text. The 2 places that list network schemes by name, the share check and the Connect item on a link's menu, already had ssh. Windows has neither ssh nor sftp, and Connect to Server leaves SSH out there.
 	- Progress log:
 		- 20261014: Options for later: a login prompt on Windows for a share that refuses the session's own login, through Windows' credential prompt. Today such a share fails with access denied.
+		- 20261015: `ssh://hostname/folder` failed only in Connect to Server here, and `ssh://hostname` failed there too. Not seen from the path bar or the command line. If it shows up there again, the error text and where it was typed will say which step.
 	- Verified: 20261014 on Linux with gvfsd-fuse running, against a test Samba server and an sshd. Before the fix an smb share and an sftp folder both showed the error and no files. After it both list, with the logins taken through the app's own prompts. rk95h61s fails before the fix, on the listing error and the extra look at a file, and passes after. rjv9ks2z, the connecting sign test, passes. Full Linux suite 208 of 209, as above. Windows cross build with warnings as errors clean.
 	- Verified: 20261014 on vm925w, with a share made for the test and removed after. renz2428 with the new smb cases and browsing the box's own shares, rhtwm2c8 and the typed location test pass natively. renz2428 fails with smb left unregistered and passes with it. The app started on `\\localhost\nftest`, `smb://localhost/nftest`, `smb://localhost/nftest/sub%20dir` and `smb://localhost` opened the share, its folder and the server's share list. Connect to Server with Windows share, server `localhost` and share `nftest` opened the share in a new window.
+	- Verified: 20261015 on Linux. rkb69y1a fails before the fix, on 6 checks, and passes after. Connect to Server with SSH chosen opened `ssh://host/folder` and `SSH://host` after the fix. Full Linux suite 211 of 212: rj750n43 failed once, waiting on the program to quit while the cross build ran, and passed 3 of 3 alone. Lint clean apart from rj3ytv0b, which fails in any worktree. Windows cross build with warnings as errors clean.
 	- Note: on Windows the shares in an `smb://host` listing show as "Binary" with no date, the same as when reached through Network. Left alone.
-	- Branch: netfix
-	- Commit: 7dc462d
-	- Test case: rk95h61s, Share folder with a local path lists test. A folder that isn't on this machine but has a path, whose listing refuses that call the way gvfs's does, lists all 3 entries with its link followed, and one file there is looked at once, following links. renz2428, Network win32 test, test_smb_addresses: smb addresses taken as typed, parsed, as a uri and as an argument go to the UNC path, the server's share list or the network, with spaces, escapes, a user, domain and port, an IPv6 address, and upper case where typed.
-	- Acceptance signoff: Left at signoff for Connect to Server on Windows asking only for the server and share.
+	- Branch: netfix, sshalias
+	- Commit: 7dc462d, 9ec294b
+	- Closed: 20261015-132736
+	- Test case: rk95h61s, Share folder with a local path lists test. A folder that isn't on this machine but has a path, whose listing refuses that call the way gvfs's does, lists all 3 entries with its link followed, and one file there is looked at once, following links. renz2428, Network win32 test, test_smb_addresses: smb addresses taken as typed, parsed, as a uri and as an argument go to the UNC path, the server's share list or the network, with spaces, escapes, a user, domain and port, an IPv6 address, and upper case where typed. rkb69y1a, Connect to Server address scheme test: ssh and sftp addresses in any case lose the scheme with SSH chosen, other schemes and plain names are kept, and every alias gvfs's mount files declare is checked where gvfs is installed.
+	- Acceptance signoff: Self-closed: ssh is taken as sftp in Connect to Server, the one place it wasn't, and rkb69y1a fails before and passes after. It was left at signoff before for Connect to Server on Windows asking only for the server and share; the notes under Status say smb and sftp work.
 
 - In the single exe on Windows, a new window or a tab moved to its own window starts through GLib's spawn helper, a program packed inside the exe.
 	- ID: 2026100914514406
