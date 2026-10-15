@@ -743,7 +743,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - In a move to another drive, a new name typed in the conflict dialog is lost, and Replace then overwrites the file with the old name.
 	- ID: 2026101419104655
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 211 of 211.
+	- Needs external testing: rkb48gsx natively on b29w or vm925w. Its 2 drive half needs a second fixed drive and skips without one. Then the steps above by hand on b29w, from a share to a local folder. Not tried anywhere: a name typed in the conflict dialog that a FAT drive refuses, such as `a:b` on Linux, which should now keep the typed name with `_` for the bad character.
 	- Priority|Severity: High
 	- Opened: 20261014-191046
 	- Opened by: 2026101416533917
@@ -753,7 +755,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the file ends up as `b`, replacing it only after the second answer.
 	- Reproduced: 20261014 on Linux, from a folder on disk to one in `/dev/shm`, and on b29w from a share to a local folder. The second dialog asking about `a.txt` again was seen on b29w.
 	- Possible cause: a move to another drive is tried as a rename first, and when that's refused it's redone as a copy and delete. What `move_file_prepare` keeps for the copy (`MoveFileCopyFallback`) is the source and the overwrite answer, not the name picked. The copy works the name out again from the source.
-	- Test case: TBD
+	- Actual cause: as above. Replace was answered for the typed name and then used on the file with the source's name. A Keep both name, a renamed link, and a folder renamed onto another folder and merged lost their target the same way. A merge always goes through that copy, so the merge went into the wrong folder on one drive too.
+	- Actual fix: the copy fallback keeps the target picked when the rename was tried, and the copy goes there. Where a file system refuses a name and it gets fixed for that file system, the fix starts from the picked name, not the source's.
+	- Swept: copy with a renamed conflict, Skip, Replace, Replace all, and moves on one drive were already right, and the test covers each as a move and a copy, on 2 drives and on 1. Link moves and folder merges go through the same fallback and are covered. All 3 places that fix a name for the file system, in a move, a copy, and a new folder in a copy, now start from the picked name. Other moves checked and left alone, since none has a picked name to lose: undo's restore from the trash, the Windows trash, extract's staging, archive volume renames, and a new folder's typed path.
+	- Verified: 20261015, rkb48gsx fails on the tree before the fix and passes after. Before, it failed on the data loss case, the second question about `a.txt`, Keep both, the renamed link, and the merge on 2 drives and on 1. The full Linux suite passed, 211 of 211. The Windows cross build is clean and rkb48gsx passes under wine. Lint is clean but for rj3ytv0b, which fails in any worktree. The name fix for a FAT drive is from reading only.
+	- Branch: xrename
+	- Commit: 83986e3d
+	- Test case: rkb48gsx, Move conflict answers test: Rename to a taken name then Replace, Rename to a free name, Skip, Replace, Replace all, Keep both, a renamed folder merge, and a renamed link, each as a move and a copy, across 2 file systems and on 1.
 
 - Going into a folder shows its rows about 200 ms after it's listed.
 	- ID: 2026101419191454
