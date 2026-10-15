@@ -307,6 +307,27 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: b1bb561, b02da5e, d483f63, 6c72feb, f80970a
 	- Test case: rjwc3jkm, Windows bundle exe check. It reads the release zip in the packages stage, the flat tree before the single exe is packed, and the folder `install.ps1` installs in rj72n4xb. The start paths: rjw1ks5h for a new window, a tab moved out and links, rjvzdd4w for Open With, a named program and an open file, rjmb3j8p for actions, rjm4ctwh for archive tools, converters and thumbnailers, which must be started by the app and not a spawn helper, and a helper that won't start is told once. rjnzpkk7 checks that a failed start shows its error. rjxn0ekh, Pack project options check: the single exe's pack project must have sharing with started programs off.
 
+- README.md: move installation instructions, including development, to one or more .mds, and link to it/them.
+	- ID: 2026101417352264
+	- Type: Task
+	- Status: Waiting on signoff
+	- Priority|Severity: Avg
+	- Opened: 20261014-173522
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+	- Progress log:
+		- README's Installation section, with its 3 subsections, moved to a new `install.md` at the repo root. "Set up development environment" moved to a new `building.md` beside it. The text moved as it was; only the subsection headings went up a level.
+		- README keeps a short Installation section that links to both. Its TOC lost the moved entries.
+		- Each new file has the markdownlint header, a title and a `Copyright and license` section, in README's GPL v2 form rather than the design docs' CC BY 4.0. install.md has a TOC; building.md is too short for one.
+		- The prose lint's spelling check now covers both files.
+	- Decisions:
+		- Left at signoff for the file names and layout, the README lines that link to them, and the license line on the new files.
+	- Swept: nothing in the repo linked to the moved headings. Checked other docs, contributing.md, design.md and its Building section, the installers, the man page, the Windows setup script, `.github/` and the cicd scripts. The pre-push hook and release.bash read README only for the release badge, which stays.
+	- Branch: instdocs
+	- Commit: c5eb2000
+	- Test case: none new, docs only. The lint stage passes, and its prose check now reads install.md and building.md.
+
 - A 7z with a password and links stored can't be checked, so Delete originals always keeps the originals.
 	- ID: 2026101310525352
 	- Type: Bug
@@ -859,27 +880,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Shows literal label matches first, aliases second, fuzzy matches third.
 		- Matches listed like `<tab title> ⏵[ sub tab title ⏵[ etc. ⏵]] setting`, with matched portion in bold, larger, and different theme-aware color.
 	- Test case: none yet.
-
-- README.md: move installation instructions, including development, to one or more .mds, and link to it/them.
-	- ID: 2026101417352264
-	- Type: Task
-	- Status: Waiting on signoff
-	- Priority|Severity: Avg
-	- Opened: 20261014-173522
-	- Opened by: t00mietum
-	- Requirements:
-		- Before the next cut.
-	- Progress log:
-		- README's Installation section, with its 3 subsections, moved to a new `install.md` at the repo root. "Set up development environment" moved to a new `building.md` beside it. The text moved as it was; only the subsection headings went up a level.
-		- README keeps a short Installation section that links to both. Its TOC lost the moved entries.
-		- Each new file has the markdownlint header, a title and a `Copyright and license` section, in README's GPL v2 form rather than the design docs' CC BY 4.0. install.md has a TOC; building.md is too short for one.
-		- The prose lint's spelling check now covers both files.
-	- Decisions:
-		- Left at signoff for the file names and layout, the README lines that link to them, and the license line on the new files.
-	- Swept: nothing in the repo linked to the moved headings. Checked other docs, contributing.md, design.md and its Building section, the installers, the man page, the Windows setup script, `.github/` and the cicd scripts. The pre-push hook and release.bash read README only for the release badge, which stays.
-	- Branch: instdocs
-	- Commit: c5eb2000
-	- Test case: none new, docs only. The lint stage passes, and its prose check now reads install.md and building.md.
 
 - The program's name is typed out in many places. Set it once and use that everywhere.
 	- ID: 2026101512190015
