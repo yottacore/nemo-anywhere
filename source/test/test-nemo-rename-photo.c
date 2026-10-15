@@ -29,7 +29,8 @@
  *
  * Needs the built program (argv[1]), the probe (argv[2]) and a display. Runs
  * on an X server of its own. Linux and FreeBSD only, since it works by
- * LD_PRELOAD. */
+ * LD_PRELOAD. Another probe can be given, with how many results it reports
+ * as argv[3]. */
 
 #include <config.h>
 
@@ -110,11 +111,15 @@ main (int argc, char *argv[])
 	GError *error = NULL;
 	GPid pid = 0;
 	gboolean done = FALSE;
-	int i, results = 0;
+	int i, results = 0, expected = RESULTS;
 
 	if (argc < 3) {
 		g_printerr ("usage: %s <nemo-anywhere> <probe module>\n", argv[0]);
 		return 77;
+	}
+
+	if (argc > 3) {
+		expected = atoi (argv[3]);
 	}
 
 	test_own_display (argc, argv, "1280x900x24");
@@ -150,6 +155,7 @@ main (int argc, char *argv[])
 	envp = g_environ_setenv (envp, "LD_PRELOAD", argv[2], TRUE);
 	envp = g_environ_setenv (envp, "NEMO_RENAME_OUT", out, TRUE);
 	envp = g_environ_setenv (envp, "NEMO_RENAME_FOLDER", "pics", TRUE);
+	envp = g_environ_setenv (envp, "NEMO_RENAME_PATH", folder, TRUE);
 
 	/* Short, so a big picture's name starts below what is in sight. */
 	spawn_argv[0] = argv[1];
@@ -190,8 +196,8 @@ main (int argc, char *argv[])
 		}
 		g_strfreev (lines);
 	}
-	if (done && results != RESULTS) {
-		g_printerr ("FAIL %d results, expected %d\n", results, RESULTS);
+	if (done && results != expected) {
+		g_printerr ("FAIL %d results, expected %d\n", results, expected);
 		failures++;
 	}
 

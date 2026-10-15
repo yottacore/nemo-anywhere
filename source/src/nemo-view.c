@@ -232,6 +232,7 @@ struct NemoViewDetails
 
 	guint display_selection_idle_id;
 	guint update_menus_timeout_id;
+	gint64 update_menus_due;
 	guint update_status_idle_id;
 	guint reveal_selection_idle_id;
 
@@ -11569,6 +11570,8 @@ nemo_view_pop_up_location_context_menu (NemoView *view,
 static void
 real_schedule_update_menus (NemoView *view, guint update_interval)
 {
+	gint64 due;
+
 	/* Don't schedule updates after destroy (#349551),
  	 * or if we are not active.
 	 */
@@ -11578,15 +11581,23 @@ real_schedule_update_menus (NemoView *view, guint update_interval)
 	}
 
 	view->details->menu_states_untrustworthy = TRUE;
-	/* Schedule a menu update with the current update interval */
-    if (view->details->update_menus_timeout_id != 0) {
-        g_source_remove (view->details->update_menus_timeout_id);
-        view->details->update_menus_timeout_id = 0;
-    }
 
-    view->details->update_menus_timeout_id = g_timeout_add (update_interval,
-                                                            update_menus_timeout_callback,
-                                                            view);
+	due = g_get_monotonic_time () + (gint64) update_interval * 1000;
+
+	/* Never later than one already waiting. Thumbnails being made change
+	   files many times a second, and a wait started over on each change
+	   kept a new selection from the menus, so F2 did nothing. */
+	if (view->details->update_menus_timeout_id != 0) {
+		if (view->details->update_menus_due <= due) {
+			return;
+		}
+		g_source_remove (view->details->update_menus_timeout_id);
+	}
+
+	view->details->update_menus_due = due;
+	view->details->update_menus_timeout_id = g_timeout_add (update_interval,
+								update_menus_timeout_callback,
+								view);
 }
 
 static void
