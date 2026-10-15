@@ -163,31 +163,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rhr6ggmt, Archive option combinations. In the crossed rows, a rar keeping `jlink` as a junction with Delete originals keeps it, with the long-target reason, when its target is 128 bytes or more. check_long_target: a rar keeping a link with a 140-byte target, and on Windows a junction to a folder with a path of 128 or more, keeps the originals and says why, or deletes them where libarchive is newer than 3.8.9.
 	- Acceptance signoff: Left at signoff for the warning's wording.
 
-- Search view and regular view need to remember their own column settings.
-	- ID: 2026101405542816
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: done 20261014 on dev at 6276301, passed 204 of 204. The nearby search, view, tab and settings tests passed, 13 of 13.
-	- Priority|Severity: Avg
-	- Opened: 20261014-055428
-	- Opened by: t00mietum
-	- Related IDs: 2026100613285826, 2026101406405845
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-	- Steps to reproduce: with "Remember per-folder settings" off, switch a folder to icon view, then search.
-	- Incorrect behavior: the find results show as icons, with no columns. Switching them to the list view and leaving find mode leaves the folder in the list view too.
-	- Expected behavior: find results open in the list view with their own columns, and a view picked for them doesn't change the folder's.
-	- Reproduced: 20261014, Linux. The view was the only thing shared. With per-folder settings off and on, the shown columns, their order, the widths and the sort each stayed apart in both directions: a column picked or hidden from the header menu, a header drag, a header click, Use default, a width drag on Name and on Ext, then leaving by the search button or by Back and Forward. The Windows build kept the columns and sort apart the same way.
-	- Actual cause: with per-folder settings off, the window has one view for everything shown in it, find results included. Find results took the window's view, and a view picked for them became the window's. With them on, nothing is kept for find results, so a new query went back to the list view.
-	- Actual fix: find results open in the list view whatever view the folder is in. A view picked for them lasts until find mode is left, through a new query too, and never becomes the window's or the folder's. A new default view from Settings still reaches the folders behind find mode. README and design.md "Search" say so.
-	- Progress log:
-		- 20261014: Options: find results could also keep a picked view for later searches, in its own setting, like the columns. Left out, since only the columns were asked for. If the columns themselves were seen leaking, the steps that showed it would help, since none of the above did.
-	- Swept: every place that picks or keeps a view: loading a location, a pick from the View menu or toolbar, a new default view, the switch for picture folders (never kept, unchanged), and a tab moved between windows (keeps the view it came with, unchanged). The list view's zoom in find results was already never kept. The icon view's zoom there still follows the window's, now only after icon view is picked for the results.
-	- Branch: colsplit
-	- Commit: 0d17dd2
-	- Test case: rk7wxqh5, Find mode view test. It puts a folder in icon view, searches, picks compact view for the results, searches again and leaves, with per-folder settings off and on. Before the fix it failed 3 checks: icons in find mode and compact left on the folder with them off, and the list view back after a new query with them on. It passes after.
-
 - After an `smb://` address is typed, nothing shows that the app is working on it.
 	- ID: 2026100816170921
 	- Type: Bug
@@ -419,73 +394,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rf2w8yxr, Settings widgets test: the tip on the label and on the entry, word for word.
 	- Acceptance signoff: Left at signoff for the old tip's notes on arguments, quoting and the working folder, which went with it. Options: keep it as is, or add them back after the new sentence.
 
-- Escape should exit out of search view.
-	- ID: 2026101405542853
-	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Needs local test suite run?: done 20261014 on dev at 6276301, passed 204 of 204. The 26 tests around search, settings, rename, Escape and the connecting sign passed.
-	- Priority|Severity: Avg
-	- Opened: 20261014-055428
-	- Opened by: t00mietum
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-	- Progress log:
-		- 20261014: Escape in the search box already left search and went back to the folder. With the results in front it only cleared the selection, so there was no way out of search from the keyboard there.
-		- 20261014: left at signoff for the 2 steps in the results. Options: leave search on the first Escape even with a selection, a one-line change.
-	- Decisions:
-		- In the results, Escape clears a selection first, as in any folder, and leaves search when nothing is selected. "Escape in the folder pane clears the selection" is a closed feature, and it still holds in the results.
-		- With the search bar open and no search run yet, Escape in the folder closes the bar, the same as from the search box.
-		- A rename in the results still takes Escape first, and so do the location bar, a share that's connecting, and dialogs.
-	- Swept: the list view, the icon view (the compact view is the same code), the search box and its buttons (they already reached the same cancel), the location entry, the window's block while a share connects, and rename in both views.
-	- Verified: rk7vz6gm fails before the fix on the results' Escape in both views, and passes after, 5 runs. The 26 related tests pass, rjv9ks2z, rhtmbdmb, rjedw75s and rk526bz6 among them. Lint clean apart from rj3ytv0b, which always fails in a worktree.
-	- Branch: escrename
-	- Commit: c319d75
-	- Test case: rk7vz6gm, Escape in find mode test. In the list and icon views: Escape in the search box goes back to the folder and closes the bar. In the results, the first Escape clears a selection and stays, and the next goes back to the folder. Escape in a rename of a result ends the rename and stays in the results.
-
-- Pre-populate the "Bulk rename" command.
-	- ID: 2026101405543076
-	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Needs local test suite run?: done 20261014 on dev at 6276301, passed 204 of 204.
-	- Needs external testing: on vm925w, rk7wrme6 and rhtmbdmd in the native suite. Then by hand, with the single exe: the settings field and its tooltip, and F2 on several files, folders and a name with a space, with ReNamer and then Ant Renamer installed.
-	- Priority|Severity: Avg
-	- Opened: 20261014-055430
-	- Opened by: t00mietum
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-		- Use the first match from the "ideal" list below that is installed on the user's system. If none are installed, populate the first "ideal" match from below.
-		- Ideal list in order of preference:
-			- Linux and BSD:
-				- DEs using GTK+: `thunar --bulk-rename`
-				- DEs using Qt: `krename`
-			- Windows:
-				- `"C:\Program Files\ReNamer\ReNamer.exe"`
-				- `"C:\Program Files\Ant Renamer\Renamer.exe" -af`
-			- macOS:
-				- `open -a NameChanger`
-				- `open -a Transnomino`
-				- `open -a Renamer`
-				- `open -a "A Better Finder Rename 12"`
-		- Flyover tip text (label and control): "Renamer programs need only accept a quoted list of files or folders. Known or suspected to work:\n\n<list of programs from above that run on the platform, with the DE's widget style listed first.>"
-	- Progress log:
-		- 20261014: the field was empty by default, so F2 on several files did nothing. On Linux the files went to the renamer as `file://` addresses. They go as paths now, as on Windows, so any renamer that takes a list of files works. A file with no local path still goes as its address.
-		- 20261014: Ant Renamer adds what follows `-af` as files. A folder would need `-aF`. Kept as listed.
-		- 20261014: Options for later: on Linux a renamer that isn't installed fails with no message, as any command line from the settings does there. Windows shows "The program couldn't be started." Not changed here.
-		- 20261014: left at signoff for the tooltip and the field's look, and for the reading of "the DE's widget style" in Decisions.
-	- Decisions:
-		- The renamer found is the setting's default, not a stored value. It's worked out once per run and never written unless changed, and typing the same command back writes nothing. An emptied field is stored as empty, which means no renamer, as before.
-		- On Linux and the BSDs the desktop's toolkit orders the list, for both the pick and the tooltip: KRename first under KDE, LXQt, Deepin and UKUI, and Thunar's first anywhere else.
-		- On Windows the paths follow the Program Files folder, which is `C:\Program Files` on nearly every machine.
-		- The tooltip lists the commands as they'd go in the field.
-		- The macOS list is in the code but not built.
-	- Swept: how the renamer is started on Linux and Windows, and every place the settings store reads a default for a string: a read, a write that matches the default, and the list of defaults in the settings file. The key table and the schema have the new description.
-	- Verified: rk7wrme6 passes on Linux and under wine. It fails 6 checks with the found default taken out of the settings store. rk7wywt9 fails before the change, with the 3 files sent as `file://` addresses, and passes after, 5 runs. rhtmbdmd's new checks fail with the tooltips left off and pass with them. The macOS part passes a syntax check. Windows cross build clean. The 26 related tests pass, the schema drift test rfazc870 among them. Lint clean apart from rj3ytv0b, which always fails in a worktree.
-	- Branch: escrename
-	- Commit: c319d75
-	- Test case: rk7wrme6, Bulk rename default test: the pick by what's installed and by desktop, the tooltip's list, nothing written for the default, an empty value kept. rk7wywt9, Bulk renamer gets paths test: F2 on 3 files hands the renamer their paths, with a space, a percent sign and a quote in them. rhtmbdmd, Settings dialog test: the field shows the default without storing it, and the label and field have the tooltip.
-
 - When clicking anywhere on a row in detailed list view, even when the program doesn't have focus, it should be immediately selected.
 	- ID: 2026101405542891
 	- Type: Enhancement
@@ -517,63 +425,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Options: a plain drag in the empty space below the rows bands, or does nothing; went with banding.
 		- Options: the first click in a window or pane that isn't active only wakes it, or counts as a click; went with counting. In a split window the first click in the other pane was swallowed whenever that pane had a selection, in the list and icon views alike, so a drag from there took 2 presses.
 		- The right button goes through one small press record shared by both views and both side panes, which opens the menu on the release unless the press moved. A long press for the menu (2026101405542965) can hang off it.
+		- 20261014: signed off the Ctrl or Shift drag and the menu on the release. Explorer does the same as the Windows right drag here: a right drag of files drops with a Copy here, Move here, Create shortcuts here menu, and a right drag from empty space draws a box.
 	- Swept: the list, icon and compact views, Places and the tree, and the first click in the pane that isn't active in both views. Not changed: menus on the tab bar, path bar, toolbar and location bar, which open on the press as before.
 	- Verified: the drag select test passes in the list, icon and compact views, 3 runs in a row, and fails before the change. The keyboard menu, tree menu key, Places focus, list expander, row hover, treeview hit and icon accessible tests pass, and the drop tests rhtq57n1 and rfzh7ygg. Lint is clean as far as rj3ytv0b, and the test ID check passes. The Windows cross build is clean.
 	- Branch: dragsel
 	- Commit: 54bbf66
 	- Test case: rk7yvgse, Drag select test. In each view: a plain drag from a row or icon moves files and selects it at once, a plain drag from a selected item keeps the whole selection, Ctrl or Shift from an unselected item bands, Ctrl from a selected one moves files, a drag below the rows bands, a right press opens no menu until the release, and a right drag bands with no menu. Also Places and the tree menus on the release, and a drag in the pane that isn't active. Fails before the change and passes after. rjefm41d's right click sends the release as well now.
-
-- Drag-to-select works as it currently does in the other two views.
-	- ID: 2026101405542928
-	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Needs local test suite run?: done 20261014 with 2026101405542891, passed.
-	- Needs external testing: Windows, with 2026101405542891.
-	- Priority|Severity: Avg
-	- Opened: 20261014-055428
-	- Opened by: t00mietum
-	- Related IDs: 2026101405542891
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-		- But those views also allow the new methods added for detailed list view.
-	- Progress log:
-		- 20261014: done with 2026101405542891. A plain drag from the background bands at once, as before, and a plain drag from an icon moves files. New: Ctrl or Shift and a drag from an icon that isn't selected bands, and so does a right drag, whose menu now opens on the release.
-		- Options: a Ctrl band toggles every icon it crosses, as it did, or adds to the selection; went with adding, to match the list view. Shift on the background now replaces the selection, where it used to toggle like Ctrl.
-		- The Windows, right button and first click calls are the ones in 2026101405542891.
-	- Verified: as in 2026101405542891, icon and compact views.
-	- Branch: dragsel
-	- Commit: 54bbf66
-	- Test case: rk7yvgse, Drag select test, its icon and compact view runs. Fails before the change and passes after.
-
-- Additional ways to get right-click menu.
-	- ID: 2026101405542965
-	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Needs local test suite run?: done 20261014 on dev at 99e8595, passed 207 of 207.
-	- Needs external testing: Windows, on vm925w once it's on. A long press opens the menu on an item and on empty space in the list and icon views, in Places and in the tree, and the menu stays up once the button comes up. The Windows cross build is clean.
-	- Priority|Severity: Avg
-	- Opened: 20261014-055428
-	- Opened by: t00mietum
-	- Related IDs: 2026101405542891
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-		- Left-click and hold for a while. (How long?)
-			- When it pops up, selection doesn't change on mouse release, including multiple selections.
-	- Progress log:
-		- 20261014: done. A plain left press held still opens the same menu a right click does, on an item or on empty space in all 3 views, and in Places and the tree. The release after it goes to the menu, so the selection stays as it was, a multiple selection too, and no rename starts and nothing opens. The menu stays up after that release, and a release over a menu item picks it, as after a right press held down.
-		- Options: GTK's long-press time, a fixed 700 ms, a fixed 1 s. Went with GTK's long-press time.
-		- Options: Ctrl or Shift held with a long press opens the menu too, or only a plain press does; went with a plain press. Ctrl and Shift already band, or pick copy or move.
-		- It hangs off the press record the right button uses since 2026101405542891, so the views and side panes share one timer.
-	- Decisions:
-		- The wait is GTK's long-press time, the `gtk-long-press-time` setting, 500 ms unless the desktop or theme sets it.
-		- A press that moved past the drag threshold is a drag or a band, and never opens the menu, even if it comes back.
-	- Swept: the list, icon and compact views, on an item and on empty space, Places and the tree, which are every place the right-click menu opens on the release. Not changed: menus on the tab bar, path bar, toolbar and location bar, which open on the press.
-	- Verified: rk80w1ds passes in the list, icon and compact views, 3 runs in a row and once with the cores loaded, and fails before the change. The drag select test rk7yvgse passes, and so do the keyboard menu, tree menu key, Places focus, Places heading, list expander, row hover, treeview hit, icon accessible, menus freed and drop tests. The Windows cross build is clean. Lint is clean as far as rj3ytv0b, and the test ID check passes.
-	- Branch: longpress
-	- Commit: 0925ff7
-	- Test case: rk80w1ds, Long press menu test. In each view: a long press on a selected item waits for GTK's long-press time and opens the menu with all 3 selected kept, the menu stays up after the release, a long press as the second slow click starts no rename, a quick click only selects, a long press on empty space opens a menu, and a band, a press that went out and came back, or a file drag held still opens none. Also Places, where the release opens nothing, and the tree. Fails before the change and passes after.
+	- Acceptance signoff: Left at signoff for the Windows right drag from an item.
 
 - A 7z with a password and links stored can't be checked, so Delete originals always keeps the originals.
 	- ID: 2026101310525352
@@ -1088,6 +946,105 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 6db861b
 	- Test case: rk8vn5kr, Drop from another program win32 test. A drag with only the plain file list is handed to the window's drop target the way Windows would: it moves within one folder, copies when only copy is allowed, and plain text is still refused. It skips where there's no monitor.
 
+- Pre-populate the "Bulk rename" command.
+	- ID: 2026101405543076
+	- Type: Enhancement
+	- Status: Waiting for testing
+	- Needs local test suite run?: done 20261014 on dev at 6276301, passed 204 of 204.
+	- Needs external testing: on vm925w, rk7wrme6 and rhtmbdmd in the native suite. Then by hand, with the single exe: the settings field and its tooltip, and F2 on several files, folders and a name with a space, with ReNamer and then Ant Renamer installed.
+	- Priority|Severity: Avg
+	- Opened: 20261014-055430
+	- Opened by: t00mietum
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- Use the first match from the "ideal" list below that is installed on the user's system. If none are installed, populate the first "ideal" match from below.
+		- Ideal list in order of preference:
+			- Linux and BSD:
+				- DEs using GTK+: `thunar --bulk-rename`
+				- DEs using Qt: `krename`
+			- Windows:
+				- `"C:\Program Files\ReNamer\ReNamer.exe"`
+				- `"C:\Program Files\Ant Renamer\Renamer.exe" -af`
+			- macOS:
+				- `open -a NameChanger`
+				- `open -a Transnomino`
+				- `open -a Renamer`
+				- `open -a "A Better Finder Rename 12"`
+		- Flyover tip text (label and control): "Renamer programs need only accept a quoted list of files or folders. Known or suspected to work:\n\n<list of programs from above that run on the platform, with the DE's widget style listed first.>"
+	- Progress log:
+		- 20261014: the field was empty by default, so F2 on several files did nothing. On Linux the files went to the renamer as `file://` addresses. They go as paths now, as on Windows, so any renamer that takes a list of files works. A file with no local path still goes as its address.
+		- 20261014: Ant Renamer adds what follows `-af` as files. A folder would need `-aF`. Kept as listed.
+		- 20261014: Options for later: on Linux a renamer that isn't installed fails with no message, as any command line from the settings does there. Windows shows "The program couldn't be started." Not changed here.
+		- 20261014: left at signoff for the tooltip and the field's look, and for the reading of "the DE's widget style" in Decisions.
+		- 20261014: Ant Renamer goes last in the list. It was already last on Windows, so nothing changed.
+	- Decisions:
+		- The renamer found is the setting's default, not a stored value. It's worked out once per run and never written unless changed, and typing the same command back writes nothing. An emptied field is stored as empty, which means no renamer, as before.
+		- On Linux and the BSDs the desktop's toolkit orders the list, for both the pick and the tooltip: KRename first under KDE, LXQt, Deepin and UKUI, and Thunar's first anywhere else.
+		- On Windows the paths follow the Program Files folder, which is `C:\Program Files` on nearly every machine.
+		- The tooltip lists the commands as they'd go in the field.
+		- The macOS list is in the code but not built.
+	- Swept: how the renamer is started on Linux and Windows, and every place the settings store reads a default for a string: a read, a write that matches the default, and the list of defaults in the settings file. The key table and the schema have the new description.
+	- Verified: rk7wrme6 passes on Linux and under wine. It fails 6 checks with the found default taken out of the settings store. rk7wywt9 fails before the change, with the 3 files sent as `file://` addresses, and passes after, 5 runs. rhtmbdmd's new checks fail with the tooltips left off and pass with them. The macOS part passes a syntax check. Windows cross build clean. The 26 related tests pass, the schema drift test rfazc870 among them. Lint clean apart from rj3ytv0b, which always fails in a worktree.
+	- Branch: escrename
+	- Commit: c319d75
+	- Test case: rk7wrme6, Bulk rename default test: the pick by what's installed and by desktop, the tooltip's list, nothing written for the default, an empty value kept. rk7wywt9, Bulk renamer gets paths test: F2 on 3 files hands the renamer their paths, with a space, a percent sign and a quote in them. rhtmbdmd, Settings dialog test: the field shows the default without storing it, and the label and field have the tooltip.
+	- Acceptance signoff: Signed off 20261014. KRename first on Qt desktops, and Ant Renamer with `-af`.
+
+- Drag-to-select works as it currently does in the other two views.
+	- ID: 2026101405542928
+	- Type: Enhancement
+	- Status: Waiting for testing
+	- Needs local test suite run?: done 20261014 with 2026101405542891, passed.
+	- Needs external testing: Windows, with 2026101405542891.
+	- Priority|Severity: Avg
+	- Opened: 20261014-055428
+	- Opened by: t00mietum
+	- Related IDs: 2026101405542891
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- But those views also allow the new methods added for detailed list view.
+	- Progress log:
+		- 20261014: done with 2026101405542891. A plain drag from the background bands at once, as before, and a plain drag from an icon moves files. New: Ctrl or Shift and a drag from an icon that isn't selected bands, and so does a right drag, whose menu now opens on the release.
+		- Options: a Ctrl band toggles every icon it crosses, as it did, or adds to the selection; went with adding, to match the list view. Shift on the background now replaces the selection, where it used to toggle like Ctrl.
+		- The Windows, right button and first click calls are the ones in 2026101405542891.
+	- Verified: as in 2026101405542891, icon and compact views.
+	- Branch: dragsel
+	- Commit: 54bbf66
+	- Test case: rk7yvgse, Drag select test, its icon and compact view runs. Fails before the change and passes after.
+	- Acceptance signoff: Signed off 20261014. Ctrl adds and Shift replaces.
+
+- Additional ways to get right-click menu.
+	- ID: 2026101405542965
+	- Type: Enhancement
+	- Status: Waiting for testing
+	- Needs local test suite run?: done 20261014 on dev at 99e8595, passed 207 of 207.
+	- Needs external testing: Windows, on vm925w once it's on. A long press opens the menu on an item and on empty space in the list and icon views, in Places and in the tree, and the menu stays up once the button comes up. The Windows cross build is clean.
+	- Priority|Severity: Avg
+	- Opened: 20261014-055428
+	- Opened by: t00mietum
+	- Related IDs: 2026101405542891
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- Left-click and hold for a while. (How long?)
+			- When it pops up, selection doesn't change on mouse release, including multiple selections.
+	- Progress log:
+		- 20261014: done. A plain left press held still opens the same menu a right click does, on an item or on empty space in all 3 views, and in Places and the tree. The release after it goes to the menu, so the selection stays as it was, a multiple selection too, and no rename starts and nothing opens. The menu stays up after that release, and a release over a menu item picks it, as after a right press held down.
+		- Options: GTK's long-press time, a fixed 700 ms, a fixed 1 s. Went with GTK's long-press time.
+		- Options: Ctrl or Shift held with a long press opens the menu too, or only a plain press does; went with a plain press. Ctrl and Shift already band, or pick copy or move.
+		- It hangs off the press record the right button uses since 2026101405542891, so the views and side panes share one timer.
+	- Decisions:
+		- The wait is GTK's long-press time, the `gtk-long-press-time` setting, 500 ms unless the desktop or theme sets it.
+		- A press that moved past the drag threshold is a drag or a band, and never opens the menu, even if it comes back.
+	- Swept: the list, icon and compact views, on an item and on empty space, Places and the tree, which are every place the right-click menu opens on the release. Not changed: menus on the tab bar, path bar, toolbar and location bar, which open on the press.
+	- Verified: rk80w1ds passes in the list, icon and compact views, 3 runs in a row and once with the cores loaded, and fails before the change. The drag select test rk7yvgse passes, and so do the keyboard menu, tree menu key, Places focus, Places heading, list expander, row hover, treeview hit, icon accessible, menus freed and drop tests. The Windows cross build is clean. Lint is clean as far as rj3ytv0b, and the test ID check passes.
+	- Branch: longpress
+	- Commit: 0925ff7
+	- Test case: rk80w1ds, Long press menu test. In each view: a long press on a selected item waits for GTK's long-press time and opens the menu with all 3 selected kept, the menu stays up after the release, a long press as the second slow click starts no rename, a quick click only selects, a long press on empty space opens a menu, and a band, a press that went out and came back, or a file drag held still opens none. Also Places, where the release opens nothing, and the tree. Fails before the change and passes after.
+	- Acceptance signoff: Signed off 20261014, GTK's long-press time.
+
 - Take libgsf, the gsf-office thumbnailer and the 4 search converters out of every bundle and the build.
 	- ID: 2026100909260549
 	- Type: Enhancement
@@ -1155,6 +1112,32 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 0dab690
 	- Test case: rjhvmm6f, Mapped drive not asked, new bin cases: a fixed drive's bin is asked, a removable one's only with a disk in it, an empty drive answers in under 2 s, and no share or optical drive is asked.
 
+- Search view and regular view need to remember their own column settings.
+	- ID: 2026101405542816
+	- Type: Bug
+	- Status: Can't reproduce
+	- Needs local test suite run?: done 20261014 on dev at 6276301, passed 204 of 204. The nearby search, view, tab and settings tests passed, 13 of 13.
+	- Priority|Severity: Avg
+	- Opened: 20261014-055428
+	- Opened by: t00mietum
+	- Related IDs: 2026100613285826, 2026101406405845
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+	- Steps to reproduce: with "Remember per-folder settings" off, switch a folder to icon view, then search.
+	- Incorrect behavior: the find results show as icons, with no columns. Switching them to the list view and leaving find mode leaves the folder in the list view too.
+	- Expected behavior: find results open in the list view with their own columns, and a view picked for them doesn't change the folder's.
+	- Reproduced: 20261014, Linux. The view was the only thing shared. With per-folder settings off and on, the shown columns, their order, the widths and the sort each stayed apart in both directions: a column picked or hidden from the header menu, a header drag, a header click, Use default, a width drag on Name and on Ext, then leaving by the search button or by Back and Forward. The Windows build kept the columns and sort apart the same way.
+	- Actual cause: with per-folder settings off, the window has one view for everything shown in it, find results included. Find results took the window's view, and a view picked for them became the window's. With them on, nothing is kept for find results, so a new query went back to the list view.
+	- Actual fix: find results open in the list view whatever view the folder is in. A view picked for them lasts until find mode is left, through a new query too, and never becomes the window's or the folder's. A new default view from Settings still reaches the folders behind find mode. README and design.md "Search" say so.
+	- Progress log:
+		- 20261014: Options: find results could also keep a picked view for later searches, in its own setting, like the columns. Left out, since only the columns were asked for. If the columns themselves were seen leaking, the steps that showed it would help, since none of the above did.
+		- 20261014: what was seen was the columns, not the view. Can't reproduce for now. The view fix stays in.
+	- Swept: every place that picks or keeps a view: loading a location, a pick from the View menu or toolbar, a new default view, the switch for picture folders (never kept, unchanged), and a tab moved between windows (keeps the view it came with, unchanged). The list view's zoom in find results was already never kept. The icon view's zoom there still follows the window's, now only after icon view is picked for the results.
+	- Branch: colsplit
+	- Commit: 0d17dd2
+	- Test case: rk7wxqh5, Find mode view test. It puts a folder in icon view, searches, picks compact view for the results, searches again and leaves, with per-folder settings off and on. Before the fix it failed 3 checks: icons in find mode and compact left on the folder with them off, and the list view back after a new query with them on. It passes after.
+
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440
 	- Type: Bug
@@ -1193,6 +1176,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: 20261007, the probe and test were read. At step 5 the probe looks for a menu on screen every 100 ms for 10 s, so it does wait for the menu to show. The test runs on an X server of its own, not the suite's. Two tests that pick the same display number at once don't end up sharing it: the one whose server fails tries the next number. So the possible cause above doesn't apply.
 	- Note: 20261007, not ruled out: the Menu key made no menu at all once, on a loaded box. GTK 3 doesn't show a menu whose pointer grab fails, and the probe presses the key only once. Nothing points at that, and pressing again would hide it rather than explain it.
 	- Test case: rjefm41d itself.
+
+- SMB and SFTP networking is broken.
+	- ID: 2026101417352260
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Critical
+	- Opened: 20261014-173522
+	- Opened by: t00mietum
+	- Related IDs: 2026100816170921
+	- Requirements:
+		- Before the next cut.
+	- Incorrect behavior: able to log in over SMB, but displaying share contents is broken.
+	- Test case: none yet.
 
 - In the single exe on Windows, a program packed inside it that needs libgsf can't start.
 	- ID: 2026100617051745
@@ -1264,6 +1260,60 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the rename is refused with a message that says why, the same as for `*` and the other bad characters.
 	- Reproduced: 20261014, the GLib calls on b29w. What the app does after, and what happens to the data on a copy or move to such a name, is not tried. Check for data loss first.
 	- Test case: TBD
+
+- Expanding folders can take too long.
+	- ID: 2026101417352261
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261014-173522
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+	- Incorrect behavior: expanding folders can take too long.
+		- Especially on networked shares.
+		- But even on local folders, it should be essentially instant. Is it scanning for icons, other metadata, or something first?
+	- Test case: none yet.
+
+- Settings: sub-tabs don't list on the left until the parent tab is activated.
+	- ID: 2026101417352262
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261014-173522
+	- Opened by: t00mietum
+	- Related IDs: 2026101009150769
+	- Requirements:
+		- Before the next cut.
+		- Sub-tabs don't list on the left (indented from parent and first one selects by default), until the parent tab is activated.
+		- Then the expansion stays open until clicked again.
+	- Note: this changes 2026101009150769, where sub-tabs always show and a parent opens the sub-tab it showed last.
+	- Test case: none yet.
+
+- Settings: search.
+	- ID: 2026101417352263
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261014-173522
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+		- Search bar in an unscrollable top area.
+		- Shows literal label matches first, aliases second, fuzzy matches third.
+		- Matches listed like `<tab title> ⏵[ sub tab title ⏵[ etc. ⏵]] setting`, with matched portion in bold, larger, and different theme-aware color.
+	- Test case: none yet.
+
+- README.md: move installation instructions, including development, to one or more .mds, and link to it/them.
+	- ID: 2026101417352264
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261014-173522
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+	- Test case: not applicable, docs only.
 
 - Renaming a template in Settings drops a disk error with no message.
 	- ID: 2026101416533954
@@ -2293,6 +2343,32 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: `test-nemo-psd`: rows at the least length are read, one byte less is refused, and a file of empty rows, 30000 by 30000 as psd and 60000 by 60000 as psb, is refused in under a second. Fuzz seed `zero-rows`, and `short-literal` reworked so it still reaches the literal-run bound.
 	- Branch: psdrows
 	- Commit: 24d99cd
+
+- Escape should exit out of search view.
+	- ID: 2026101405542853
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: done 20261014 on dev at 6276301, passed 204 of 204. The 26 tests around search, settings, rename, Escape and the connecting sign passed.
+	- Priority|Severity: Avg
+	- Opened: 20261014-055428
+	- Opened by: t00mietum
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+	- Progress log:
+		- 20261014: Escape in the search box already left search and went back to the folder. With the results in front it only cleared the selection, so there was no way out of search from the keyboard there.
+		- 20261014: left at signoff for the 2 steps in the results. Options: leave search on the first Escape even with a selection, a one-line change.
+	- Decisions:
+		- In the results, Escape clears a selection first, as in any folder, and leaves search when nothing is selected. "Escape in the folder pane clears the selection" is a closed feature, and it still holds in the results.
+		- With the search bar open and no search run yet, Escape in the folder closes the bar, the same as from the search box.
+		- A rename in the results still takes Escape first, and so do the location bar, a share that's connecting, and dialogs.
+	- Swept: the list view, the icon view (the compact view is the same code), the search box and its buttons (they already reached the same cancel), the location entry, the window's block while a share connects, and rename in both views.
+	- Verified: rk7vz6gm fails before the fix on the results' Escape in both views, and passes after, 5 runs. The 26 related tests pass, rjv9ks2z, rhtmbdmb, rjedw75s and rk526bz6 among them. Lint clean apart from rj3ytv0b, which always fails in a worktree.
+	- Branch: escrename
+	- Commit: c319d75
+	- Test case: rk7vz6gm, Escape in find mode test. In the list and icon views: Escape in the search box goes back to the folder and closes the bar. In the results, the first Escape clears a selection and stays, and the next goes back to the folder. Escape in a rename of a result ends the rename and stays in the results.
+	- Acceptance signoff: Signed off 20261014, with 2 presses.
+	- Closed: 20261014
 
 - Rename "Ask again before every delete, move or overwrite" -> "Paranoid mode for move, overwrite, trash, and delete".
 	- ID: 2026101405543002
