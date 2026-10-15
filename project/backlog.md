@@ -878,6 +878,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Left at signoff for the file names and layout, the README lines that link to them, and the license line on the new files.
 	- Swept: nothing in the repo linked to the moved headings. Checked other docs, contributing.md, design.md and its Building section, the installers, the man page, the Windows setup script, `.github/` and the cicd scripts. The pre-push hook and release.bash read README only for the release badge, which stays.
 	- Branch: instdocs
+	- Commit: c5eb2000
 	- Test case: none new, docs only. The lint stage passes, and its prose check now reads install.md and building.md.
 
 - The program's name is typed out in many places. Set it once and use that everywhere.
