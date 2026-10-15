@@ -22,13 +22,13 @@
 */
 
 /* Preloaded into the real program by test-nemo-rename-photo, in place of
- * test-nemo-rename-photo-probe. A thumbnail of another shape landing in the
+ * test-nemo-rename-photo-probe. A thumbnail of another shape coming in for the
  * row of a picture being renamed lays the icons out again. The picture moved
  * under the rename, and a move ended it, saving whatever had been typed so
  * far. A wider window lays the icons out again the same way, on demand.
  *
  * Once the window shows $NEMO_RENAME_FOLDER at the picture size and the
- * thumbnails have had time to land, the probe selects the second picture,
+ * thumbnails have had time to come in, the probe selects the second picture,
  * presses F2, types part of a name, and widens the window. The rename has to
  * stay open, go with the picture and keep the text, and nothing may be saved
  * until Escape, which keeps the old name. One "ok" or "FAIL" line per check
@@ -254,7 +254,7 @@ tick (G_GNUC_UNUSED gpointer data)
 	since = waited - step_at;
 	switch (step) {
 	case 1:
-		/* Lets the thumbnails land first, so only the wider window moves
+		/* Lets the thumbnails come in first, so only the wider window moves
 		   the picture. */
 		if (since < 20) {
 			return G_SOURCE_CONTINUE;

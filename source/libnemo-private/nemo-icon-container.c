@@ -1024,9 +1024,9 @@ rename_widget_place (NemoIconContainer *container, NemoIcon *icon, int width, in
 }
 
 /* A layout can move the icon being renamed, such as when a thumbnail of
-   another shape lands in its row, and a new scroll region moves everything.
-   The box goes with its icon, and the rename and what was typed so far
-   stay. */
+   another shape comes in for its row, and a new scroll region moves
+   everything. The box goes with its icon, and the rename and what was typed
+   so far stay. */
 static void
 follow_renamed_icon (NemoIconContainer *container, gboolean allocate)
 {
