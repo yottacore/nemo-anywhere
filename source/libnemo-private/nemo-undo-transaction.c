@@ -41,6 +41,7 @@ static void undo_atom_list_undo_and_free         (GList                        *
 G_DEFINE_TYPE (NemoUndoTransaction, nemo_undo_transaction,
 	       G_TYPE_OBJECT);
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoUndoTransaction *
 nemo_undo_transaction_new (const char *operation_name,
 			       const char *undo_menu_item_label,
@@ -62,7 +63,7 @@ nemo_undo_transaction_new (const char *operation_name,
 }
 
 static void 
-nemo_undo_transaction_init (NemoUndoTransaction *transaction)
+nemo_undo_transaction_init (G_GNUC_UNUSED NemoUndoTransaction *transaction)
 {
 }
 

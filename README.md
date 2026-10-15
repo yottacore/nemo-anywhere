@@ -124,9 +124,9 @@ These are the features that make Nemo worth porting:
 
 ## What this fork adds or improves
 
-- **Cinnamon Desktop is not required**.
+- **Cinnamon Desktop isn't required**.
 
-- **Linux is not required**. Windows is a real native build, not a compatibility layer. (BSD coming soon.) You can install it from here, and Windows Store and Apple Store downloads are underway.
+- **Linux isn't required**. Windows is a real native build, not a compatibility layer. (BSD coming soon.) You can install it from here, and Windows Store and Apple Store downloads are underway.
 
 - On Windows it is one executable. The whole runtime is packed inside it, so there is nothing to install and nothing to keep in step. Copy it where you like and run it.
 
@@ -148,7 +148,7 @@ These are the features that make Nemo worth porting:
 
 	- Dot files and files with the hidden attribute each have a switch. Ctrl+H flips both. (They can also be independently hidden.)
 
-	- Includes right-click ptions like "Open in Windows Terminal", "Open as Administrator", "Open with Explorer", and "Copy path" with either kind of slash.
+	- Includes right-click options like "Open in Windows Terminal", "Open as Administrator", "Open with Explorer", and "Copy path" with either kind of slash.
 
 	- Light or dark follows the Windows setting. Four icon sets are drawn to match XP, 7, 10 and 11.
 
@@ -212,19 +212,29 @@ These are the features that make Nemo worth porting:
 
 - Alternate rows can be shaded, off by default. Selection and hover still show through it.
 
-- Places and the folder tree can now both open at teh same time. The tree lists folders only, and a folder with nothing under it gets no expander.
+- Places and the folder tree can now both open at the same time. The tree lists folders only, and a folder with nothing under it gets no expander.
 
 - Tabs are as wide as their title. With full paths on, a path too long to fit is shortened a step at a time, and the name of the folder itself is always kept. The active tab shows as much of the path as possible.
 
 - Every folder follows one set of view defaults, unless per-folder settings are turned on.
 
+- Going to a network address, such as `smb://`, `sftp://` or a `\\server\share` path, shows a spinner and "Connecting to server..." in the path bar until the server answers or gives up. Meanwhile that window takes no other input, so nothing done in it is lost when the share opens, and it slowly fades between grayed out and normal so it's clear it is busy and not frozen. With animations turned off it stays grayed instead. Escape stops the attempt, and other windows stay usable.
+
+- Window size and zoom are remembered for each monitor, by its resolution and DPI. A window dragged to another monitor takes the size and zoom last used there. (Coming soon.)
+
 - Search has several improvements:
 
 	- Search results can be grouped under the folder they came from. A flat list of thirty files all called `notes.txt` tells you nothing; a row per folder with the matches under it tells you where to look. It's one toggle in the search bar, and the results are the same either way.
 
+	- Search results keep the columns you pick, the order you drag them into, and how they are sorted. By default they show Name, Ext, Size, Date modified and Location. They open in the list view, whatever view the folder is in, and switching views there leaves the folder's view alone.
+
 	- Content search reads Word, Excel, PowerPoint, OpenDocument, and EPUB files by itself. It needs no helper scripts and no office suite.
 
 	- On Windows, the search index can be used for faster searches. It is off by default, since it only knows the folders it was told to watch.
+
+	- Escape leaves search and goes back to the folder, from the search box or from the results. In the results a selection is cleared first, so it takes a second Escape.
+
+- F2 on several files at once opens a bulk renamer, and the setting comes filled in with one that's installed: Thunar's or KRename on Linux, ReNamer or Ant Renamer on Windows. Any program that takes a list of files will do.
 
 - Settings live in one plain text file you can read and edit. There's no registry, no dconf and no compiled schema. Editing it by hand does the same thing as changing the setting in the dialog.
 
@@ -232,7 +242,7 @@ These are the features that make Nemo worth porting:
 
 - Features that a platform can't do is either hidden or visually disabled.
 
-- Releases can be checked. Every download is published with checksums, and the Linux builds can be rebuilt from their commit to the same bytes.
+- Releases can be checked. Every download is published with checksums, and the Linux builds can be rebuilt from their commit to the same bytes. That starts with the release after 1.0.0-beta2.
 
 - There are dozens of "minor papercut" fixes and "quality-of-life" improvements.
 
@@ -246,13 +256,13 @@ Current limitations:
 
 - For now, every trash and delete asks first with a detailed dialog noting exactly what is about to go, where, and why - which is wired into all possible trash/delete/move code paths. It is an extra safety net for all prereleases whether needed or not.
 
-	- It can be safely turned off in Preferences.
+	- It can be safely turned off in Settings.
 
-- The Windows exe is not code-signed yet, so Windows may warn the first time it runs.
+- The Windows exe isn't code-signed yet, so Windows may warn the first time it runs.
 
-- Settings from a pre-1.0 install do not carry over.
+- Settings from a pre-1.0 install don't carry over.
 
-- macOS and BSD are not built yet.
+- macOS and BSD aren't built yet.
 
 Details are in these docs:
 
@@ -266,7 +276,7 @@ Details are in these docs:
 
 ## Icon themes
 
-24 icon sets, light and dark, are built into the Windows build, so there's nothing to download. Linux and BSD builds use the icon themes the desktop already has. Pick one in **Preferences -> Appearance**; the Style picker moves the Icons picker to match, so a Windows 11 window frame does not come with macOS icons unless you ask for it.
+24 icon sets, light and dark, are built into the Windows build, so there's nothing to download. Linux and BSD builds use the icon themes the desktop already has. Pick one in **Settings -> Appearance**; the Style picker moves the Icons picker to match, so a Windows 11 window frame doesn't come with macOS icons unless you ask for it.
 
 ![Icon themes](assets/icon-gallery.png)
 
@@ -280,7 +290,7 @@ On Linux and BSD, Nemo Anywhere inherits whatever widget and icon theme is set a
 
 But on Windows, you can drop a theme folder into the icons directory beside your settings file, and it appears in the picker on the next launch - `~/.config/nemo-anywhere/icons/` on Linux and BSD, `%APPDATA%\nemo-anywhere\icons\` on Windows, `~/Library/Application Support/nemo-anywhere/icons/` on macOS. Widget themes work the same way in `themes/` beside it. Both folders are created empty on first run.
 
-[filesystem/README.md](filesystem/README.md) covers the layout, the two optional `index.theme` keys that tell the picker which modes a theme suits, and one-line fetch commands for Buuf - a set worth having that cannot be bundled, because its NonCommercial license rules it out of anything distributed.
+[filesystem/README.md](filesystem/README.md) covers the layout, the two optional `index.theme` keys that tell the picker which modes a theme suits, and one-line fetch commands for Buuf - a set worth having that can't be bundled, because its NonCommercial license rules it out of anything distributed.
 
 ## Installation
 
@@ -288,7 +298,9 @@ Everything is on the [releases page](https://github.com/yottacore/nemo-anywhere/
 
 ### Packages and installers
 
-- **Windows**: download `nemo-anywhere-<version>-windows-x86_64-portable.exe` and run it. That is the whole program - the runtime is inside it. Nothing is installed and nothing is registered. Releases up to 1.0.0-beta2 name it plain `nemo-anywhere.exe`.
+- **Windows**: run `nemo-anywhere-<version>-windows-x86_64-setup.exe`. It installs for your account only and needs no admin rights. It uses the same folder, Start menu entry and PATH entry as the PowerShell script below, so either one can update or remove what the other put there. To remove it, use Settings -> Apps. It isn't signed yet, so SmartScreen will probably ask before it runs. Releases after 1.0.0-beta2 have it.
+
+- **Windows, portable**: download `nemo-anywhere-<version>-windows-x86_64-portable.exe` and run it. That is the whole program - the runtime is inside it. Nothing is installed and nothing is registered. Releases up to 1.0.0-beta2 name it plain `nemo-anywhere.exe`.
 
 - **Debian, Ubuntu, Mint**: Run `sudo apt install ./nemo-anywhere-<version>-linux-x86_64.deb`.
 
@@ -311,6 +323,8 @@ This one is for Windows, or anywhere else with PowerShell. It is a full installe
 ~~~powershell
 & ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/yottacore/nemo-anywhere/main/install.ps1')))
 ~~~
+
+A release with no checksums file isn't installed, even with `--yes`. Add `--no-verify` (`-NoVerify` in PowerShell) to install it anyway.
 
 Reinstalling over an existing copy is fine - it replaces it. `--help` also says how to remove it.
 
@@ -355,7 +369,7 @@ meson setup build source && ninja -C build
 On Windows the build is native, not cross-compiled. You need [MSYS2](https://www.msys2.org/) with the mingw64 GTK3 toolchain, and [Enigma Virtual Box](https://enigmaprotector.com/en/aboutvb.html) if you want the single-exe artifact - without it the pipeline still builds and tests, it just skips packing.
 
 ~~~powershell
-pacman -S --needed mingw-w64-x86_64-{gcc,meson,ninja,pkgconf,gtk3,json-glib,libarchive,libexif,libgsf,cppcheck,gettext} intltool git
+pacman -S --needed mingw-w64-x86_64-{gcc,meson,ninja,pkgconf,gtk3,json-glib,libarchive,libexif,cppcheck,gettext} intltool git
 pwsh cicd/cicd-win.ps1 -Gate     # lint, build and test
 ~~~
 
@@ -371,7 +385,9 @@ The [original Nemo](https://github.com/linuxmint/nemo) is the work of the Linux 
 
 This repository, although also a hard fork, retains all original copyright and license notices; see `license.txt` (originally 'COPYING'), `license-lib.txt` (originally 'COPYING.LIB'), `license-docs.txt` (originally 'COPYING-DOCS'), and `license-for-extensions.txt` (originally 'COPYING.EXTENSIONS').
 
-The sound files the demo recorder mixes into its video are third-party, under their own terms, and are not part of the application. Sources and licenses are in `cicd/utility/demo-video/sounds/LICENSES.txt`.
+The sound files the demo recorder mixes into its video are third-party, under their own terms, and aren't part of the application. Sources and licenses are in `cicd/utility/demo-video/sounds/LICENSES.txt`.
+
+The design docs in `project/design_docs/` are under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) instead, as each one says at the end.
 
 > Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)<br>
 > Upstream code Copyrights © [Nemo authors](https://github.com/linuxmint/nemo/graphs/contributors).<br />

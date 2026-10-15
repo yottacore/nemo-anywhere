@@ -709,8 +709,8 @@ test_fresh_item_parent (void)
 }
 
 static void
-note_monitor_fired (GFileMonitor *monitor, GFile *file, GFile *other,
-		    GFileMonitorEvent event, gpointer user_data)
+note_monitor_fired (G_GNUC_UNUSED GFileMonitor *monitor, G_GNUC_UNUSED GFile *file, G_GNUC_UNUSED GFile *other,
+		    G_GNUC_UNUSED GFileMonitorEvent event, gpointer user_data)
 {
 	*(gboolean *) user_data = TRUE;
 }
@@ -967,7 +967,7 @@ test_vanished_item_not_healthy (void)
 #define TEST_SKIPPED 77
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	const char *wine_home;
 	char *home_root, *uri, *dest_path, *contents;

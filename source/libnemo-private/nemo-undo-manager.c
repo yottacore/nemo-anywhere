@@ -118,6 +118,7 @@ nemo_undo_manager_forget (NemoUndoManager *manager,
 	g_signal_emit (manager, signals[CHANGED], 0);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoUndoManager *
 nemo_undo_manager_new (void)
 {

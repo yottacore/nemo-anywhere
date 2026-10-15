@@ -318,6 +318,7 @@ nemo_search_engine_tracker_init (NemoSearchEngineTracker *engine)
 }
 
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoSearchEngine *
 nemo_search_engine_tracker_new (void)
 {
@@ -332,7 +333,7 @@ nemo_search_engine_tracker_new (void)
 #endif
 
 	if (error) {
-		g_warning ("Could not establish a connection to Tracker: %s", error->message);
+		g_warning ("Couldn't establish a connection to Tracker: %s", error->message);
 		g_error_free (error);
 		return NULL;
 	}

@@ -136,10 +136,10 @@ emit_location_changed (NemoLocationBar *bar)
 static void
 drag_data_received_callback (GtkWidget *widget,
 		       	     GdkDragContext *context,
-		       	     int x,
-		       	     int y,
+		       	     G_GNUC_UNUSED int x,
+		       	     G_GNUC_UNUSED int y,
 		       	     GtkSelectionData *data,
-		             guint info,
+		             G_GNUC_UNUSED guint info,
 		             guint32 time,
 			     gpointer callback_data)
 {
@@ -225,11 +225,11 @@ drag_data_received_callback (GtkWidget *widget,
 }
 
 static void
-drag_data_get_callback (GtkWidget *widget,
-		  	GdkDragContext *context,
+drag_data_get_callback (G_GNUC_UNUSED GtkWidget *widget,
+		  	G_GNUC_UNUSED GdkDragContext *context,
 		  	GtkSelectionData *selection_data,
 		  	guint info,
-		 	guint32 time,
+		 	G_GNUC_UNUSED guint32 time,
 			gpointer callback_data)
 {
 	NemoLocationBar *self;
@@ -325,7 +325,7 @@ nemo_location_bar_update_icon (NemoLocationBar *bar)
 }
 
 static void
-editable_changed_callback (GtkEntry *entry,
+editable_changed_callback (G_GNUC_UNUSED GtkEntry *entry,
                           gpointer user_data)
 {
        nemo_location_bar_update_icon (NEMO_LOCATION_BAR (user_data));
@@ -471,6 +471,7 @@ nemo_location_bar_init (NemoLocationBar *bar)
 	gtk_widget_show_all (GTK_WIDGET (bar));
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_location_bar_new (void)
 {
@@ -525,6 +526,7 @@ nemo_location_bar_set_location (NemoLocationBar *bar,
     nemo_location_bar_update_icon (bar);
 }
 
+/* Returns: (transfer none): owned by @location_bar */
 NemoEntry *
 nemo_location_bar_get_entry (NemoLocationBar *location_bar)
 {

@@ -12,7 +12,7 @@
 #include "test-check.h"
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	const char * const *dirs;
 	guint n;

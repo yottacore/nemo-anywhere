@@ -112,7 +112,23 @@ struct NemoListViewDetails {
 	gboolean menus_ready;
 	gboolean active;
 
-    gboolean rubber_banding;
+	/* Our own band. GTK's starts on any unselected row, and with the left
+	   button only. button is the one that may start a band once it moves. */
+	struct {
+		guint button;
+		gboolean active;
+		gboolean picked;		/* rows chosen at least once */
+		gboolean keep;			/* Ctrl adds to what was there */
+		int press_x, press_y;		/* bin window */
+		int start_x, start_y;		/* tree, so it scrolls with the rows */
+		int x, y;			/* the pointer, bin window */
+		GtkTreeRowReference *from;	/* NULL when pressed below the rows */
+		GList *kept;
+		GtkTreePath *first, *last;
+		guint scroll_id;
+	} band;
+
+	EelMenuPress menu_press;
 
 	/* Escape leaves the cursor parked on the first row with its outline hidden,
 	   since GTK has no way to take the cursor away. */
@@ -263,6 +279,7 @@ static char **get_column_order                                   (NemoListView *
 static char **get_default_column_order                           (NemoListView *list_view);
 
 static void   set_columns_settings_from_metadata_and_preferences (NemoListView *list_view);
+static void   set_sort_order_from_metadata_and_preferences       (NemoListView *list_view);
 static void   queue_update_visible_icons (NemoListView *view, gint delay);
 static gint   nemo_list_view_get_icon_size (NemoView *view);
 static void   mark_visible_files (NemoListView *view);
@@ -293,12 +310,6 @@ static const char * default_favorites_visible_columns[] = {
 
 static const char * default_favorites_columns_order[] = {
     "name", "size", "date_modified", NULL
-};
-
-/* Just the two: Name and Location share the row. Anything else is the user's
-   own addition, saved under search-visible-columns. */
-static const char * default_search_columns[] = {
-    "name", "where", NULL
 };
 
 /* Search results are either one flat list with a Location column, or one row per
@@ -585,7 +596,7 @@ start_cursor_over (NemoListView *view, GdkEventKey *event)
 }
 
 static void
-cursor_changed_callback (GtkTreeView *tree_view, gpointer user_data)
+cursor_changed_callback (G_GNUC_UNUSED GtkTreeView *tree_view, gpointer user_data)
 {
 	remember_cursor (NEMO_LIST_VIEW (user_data));
 }
@@ -609,9 +620,9 @@ list_selection_changed_callback (GtkTreeSelection *selection, gpointer user_data
 /* Move these to eel? */
 
 static void
-tree_selection_foreach_set_boolean (GtkTreeModel *model,
-				    GtkTreePath *path,
-				    GtkTreeIter *iter,
+tree_selection_foreach_set_boolean (G_GNUC_UNUSED GtkTreeModel *model,
+				    G_GNUC_UNUSED GtkTreePath *path,
+				    G_GNUC_UNUSED GtkTreeIter *iter,
 				    gpointer callback_data)
 {
 	* (gboolean *) callback_data = TRUE;
@@ -788,8 +799,8 @@ static void
 drag_data_get_callback (GtkWidget *widget,
 			GdkDragContext *context,
 			GtkSelectionData *selection_data,
-			guint info,
-			guint time)
+			G_GNUC_UNUSED guint info,
+			G_GNUC_UNUSED guint time)
 {
 	GtkTreeView *tree_view;
 	GtkTreeModel *model;
@@ -862,8 +873,7 @@ get_filtered_selection_refs (GtkTreeView *tree_view)
 static void
 ref_list_free (GList *ref_list)
 {
-	g_list_foreach (ref_list, (GFunc) gtk_tree_row_reference_free, NULL);
-	g_list_free (ref_list);
+	g_list_free_full (ref_list, (GDestroyNotify) gtk_tree_row_reference_free);
 }
 
 static void
@@ -933,8 +943,8 @@ drag_begin_callback (GtkWidget *widget,
 }
 
 static void
-drag_end_callback (GtkWidget *widget,
-             GdkDragContext *context,
+drag_end_callback (G_GNUC_UNUSED GtkWidget *widget,
+             G_GNUC_UNUSED GdkDragContext *context,
              NemoListView *view)
 {
     view->details->drag_started = FALSE;
@@ -983,7 +993,6 @@ win32_drag (NemoListView *view,
 				       uri_list, icon_list, surface, 0, 0, NULL);
 
 	view->details->drag_started = FALSE;
-	view->details->rubber_banding = FALSE;
 
 	if (surface != NULL) {
 		cairo_surface_destroy (surface);
@@ -995,6 +1004,288 @@ win32_drag (NemoListView *view,
 	return dragged;
 }
 #endif
+
+/* The band. A plain drag on a row moves files, so a band starts only from
+ * below the rows, with Ctrl or Shift from a row not yet selected, or with the
+ * right button. Shift and a plain band replace the selection, Ctrl adds. */
+
+static GtkTreePath *
+last_shown_row (GtkTreeView *tree_view)
+{
+	GtkTreeModel *model = gtk_tree_view_get_model (tree_view);
+	GtkTreeIter iter, child;
+	GtkTreePath *path;
+	int n;
+
+	n = model != NULL ? gtk_tree_model_iter_n_children (model, NULL) : 0;
+	if (n == 0 || !gtk_tree_model_iter_nth_child (model, &iter, NULL, n - 1)) {
+		return NULL;
+	}
+	path = gtk_tree_model_get_path (model, &iter);
+	while (gtk_tree_view_row_expanded (tree_view, path) &&
+	       (n = gtk_tree_model_iter_n_children (model, &iter)) > 0 &&
+	       gtk_tree_model_iter_nth_child (model, &child, &iter, n - 1)) {
+		iter = child;
+		gtk_tree_path_free (path);
+		path = gtk_tree_model_get_path (model, &iter);
+	}
+
+	return path;
+}
+
+static gboolean
+same_row (GtkTreePath *a, GtkTreePath *b)
+{
+	if (a == NULL || b == NULL) {
+		return a == b;
+	}
+	return gtk_tree_path_compare (a, b) == 0;
+}
+
+static void
+band_arm (NemoListView *view, GdkEventButton *event, gboolean keep)
+{
+	NemoListViewDetails *details = view->details;
+	GtkTreePath *path = NULL;
+
+	details->drag_button = 0;
+	details->band.button = event->button;
+	details->band.keep = keep;
+	details->band.press_x = details->band.x = (int) event->x;
+	details->band.press_y = details->band.y = (int) event->y;
+	gtk_tree_view_convert_bin_window_to_tree_coords (details->tree_view,
+							 details->band.x, details->band.y,
+							 &details->band.start_x, &details->band.start_y);
+	g_clear_pointer (&details->band.from, gtk_tree_row_reference_free);
+	if (gtk_tree_view_get_path_at_pos (details->tree_view, details->band.x, details->band.y,
+					   &path, NULL, NULL, NULL)) {
+		details->band.from = gtk_tree_row_reference_new (gtk_tree_view_get_model (details->tree_view),
+								 path);
+		gtk_tree_path_free (path);
+	}
+}
+
+/* Rows go by y alone. GTK can only find a row in sight, so the far end is
+   the row pressed on, kept by reference, and the near one is under the
+   pointer, which is held inside the rows while it scrolls. */
+static void
+band_select (NemoListView *view)
+{
+	NemoListViewDetails *details = view->details;
+	GtkTreeView *tree_view = details->tree_view;
+	GtkTreeSelection *selection = gtk_tree_view_get_selection (tree_view);
+	GtkTreePath *first = NULL, *last = NULL, *swap;
+	int height = gdk_window_get_height (gtk_tree_view_get_bin_window (tree_view));
+	GList *l;
+
+	if (details->band.from != NULL) {
+		first = gtk_tree_row_reference_get_path (details->band.from);
+	}
+	gtk_tree_view_get_path_at_pos (tree_view, 0, CLAMP (details->band.y, 0, MAX (height - 1, 0)),
+				       &last, NULL, NULL, NULL);
+	if (first == NULL && last != NULL) {
+		first = last_shown_row (tree_view);
+	} else if (first != NULL && last == NULL) {
+		last = last_shown_row (tree_view);
+	}
+	if (first != NULL && last != NULL && gtk_tree_path_compare (first, last) > 0) {
+		swap = first;
+		first = last;
+		last = swap;
+	}
+
+	if (details->band.picked && same_row (first, details->band.first) &&
+	    same_row (last, details->band.last)) {
+		gtk_tree_path_free (first);
+		gtk_tree_path_free (last);
+		return;
+	}
+	gtk_tree_path_free (details->band.first);
+	gtk_tree_path_free (details->band.last);
+	details->band.first = first;
+	details->band.last = last;
+	details->band.picked = TRUE;
+
+	/* One notice for the lot, since the view lists the whole selection for each. */
+	g_signal_handlers_block_by_func (selection, list_selection_changed_callback, view);
+	gtk_tree_selection_unselect_all (selection);
+	for (l = details->band.kept; l != NULL; l = l->next) {
+		GtkTreePath *path = gtk_tree_row_reference_get_path (l->data);
+
+		if (path != NULL) {
+			gtk_tree_selection_select_path (selection, path);
+			gtk_tree_path_free (path);
+		}
+	}
+	if (first != NULL && last != NULL) {
+		gtk_tree_selection_select_range (selection, first, last);
+	}
+	g_signal_handlers_unblock_by_func (selection, list_selection_changed_callback, view);
+	list_selection_changed_callback (selection, view);
+}
+
+static gboolean
+band_scroll_cb (gpointer data)
+{
+	NemoListView *view = NEMO_LIST_VIEW (data);
+	NemoListViewDetails *details = view->details;
+	GtkAdjustment *adjustment = gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (details->tree_view));
+	int height = gdk_window_get_height (gtk_tree_view_get_bin_window (details->tree_view));
+	int over = 0;
+	gdouble value;
+
+	if (details->band.y < 0) {
+		over = details->band.y;
+	} else if (details->band.y >= height) {
+		over = details->band.y - height + 1;
+	}
+	if (over == 0 || !details->band.active) {
+		details->band.scroll_id = 0;
+		return G_SOURCE_REMOVE;
+	}
+
+	value = gtk_adjustment_get_value (adjustment) + CLAMP (over, -60, 60);
+	value = CLAMP (value, gtk_adjustment_get_lower (adjustment),
+		       gtk_adjustment_get_upper (adjustment) - gtk_adjustment_get_page_size (adjustment));
+	gtk_adjustment_set_value (adjustment, value);
+	band_select (view);
+	gtk_widget_queue_draw (GTK_WIDGET (details->tree_view));
+
+	return G_SOURCE_CONTINUE;
+}
+
+static void
+band_motion (NemoListView *view, GdkEventMotion *event)
+{
+	NemoListViewDetails *details = view->details;
+	GtkTreeSelection *selection;
+	GList *rows, *l;
+
+	details->band.x = (int) event->x;
+	details->band.y = (int) event->y;
+
+	if (!details->band.active) {
+		if (!gtk_drag_check_threshold (GTK_WIDGET (details->tree_view),
+					       details->band.press_x, details->band.press_y,
+					       details->band.x, details->band.y)) {
+			return;
+		}
+		details->band.active = TRUE;
+		nemo_view_start_batching_selection_changes (NEMO_VIEW (view));
+		if (details->band.keep) {
+			selection = gtk_tree_view_get_selection (details->tree_view);
+			rows = gtk_tree_selection_get_selected_rows (selection, NULL);
+			for (l = rows; l != NULL; l = l->next) {
+				details->band.kept = g_list_prepend (details->band.kept,
+					gtk_tree_row_reference_new (gtk_tree_view_get_model (details->tree_view),
+								    l->data));
+			}
+			g_list_free_full (rows, (GDestroyNotify) gtk_tree_path_free);
+		}
+	}
+
+	band_select (view);
+	gtk_widget_queue_draw (GTK_WIDGET (details->tree_view));
+
+	if (details->band.scroll_id == 0 &&
+	    (details->band.y < 0 ||
+	     details->band.y >= gdk_window_get_height (gtk_tree_view_get_bin_window (details->tree_view)))) {
+		details->band.scroll_id = g_timeout_add (30, band_scroll_cb, view);
+	}
+}
+
+/* TRUE when it was dragging, so the release was no click. */
+static gboolean
+band_stop (NemoListView *view)
+{
+	NemoListViewDetails *details = view->details;
+	gboolean was_active = details->band.active;
+
+	if (details->band.scroll_id != 0) {
+		g_source_remove (details->band.scroll_id);
+		details->band.scroll_id = 0;
+	}
+
+	if (was_active) {
+		GtkTreeSelection *selection = gtk_tree_view_get_selection (details->tree_view);
+		GtkTreePath *end = NULL;
+		int height = gdk_window_get_height (gtk_tree_view_get_bin_window (details->tree_view));
+
+		/* The keyboard carries on from where the band ended, as GTK's does. */
+		gtk_tree_view_get_path_at_pos (details->tree_view, 0,
+					       CLAMP (details->band.y, 0, MAX (height - 1, 0)),
+					       &end, NULL, NULL, NULL);
+		if (end != NULL && gtk_tree_selection_path_is_selected (selection, end)) {
+			GList *rows = gtk_tree_selection_get_selected_rows (selection, NULL);
+			GList *l;
+
+			gtk_tree_view_set_cursor (details->tree_view, end, NULL, FALSE);
+			for (l = rows; l != NULL; l = l->next) {
+				gtk_tree_selection_select_path (selection, l->data);
+			}
+			g_list_free_full (rows, (GDestroyNotify) gtk_tree_path_free);
+		}
+		gtk_tree_path_free (end);
+
+		details->band.active = FALSE;
+		gtk_widget_queue_draw (GTK_WIDGET (details->tree_view));
+		nemo_view_stop_batching_selection_changes (NEMO_VIEW (view));
+	}
+
+	details->band.button = 0;
+	details->band.picked = FALSE;
+	g_list_free_full (details->band.kept, (GDestroyNotify) gtk_tree_row_reference_free);
+	details->band.kept = NULL;
+	g_clear_pointer (&details->band.from, gtk_tree_row_reference_free);
+	g_clear_pointer (&details->band.first, gtk_tree_path_free);
+	g_clear_pointer (&details->band.last, gtk_tree_path_free);
+
+	return was_active;
+}
+
+/* Styled as GTK styles its own, a rubberband node under the tree view. */
+static gboolean
+band_draw_callback (GtkWidget *widget, cairo_t *cr, gpointer callback_data)
+{
+	NemoListViewDetails *details = NEMO_LIST_VIEW (callback_data)->details;
+	GtkTreeView *tree_view = details->tree_view;
+	GtkWidgetPath *path;
+	GtkStyleContext *context;
+	int x0, y0, x1, y1, top_x, top;
+
+	if (!details->band.active) {
+		return GDK_EVENT_PROPAGATE;
+	}
+
+	gtk_tree_view_convert_tree_to_widget_coords (tree_view, details->band.start_x,
+						     details->band.start_y, &x0, &y0);
+	gtk_tree_view_convert_bin_window_to_widget_coords (tree_view, details->band.x,
+							   details->band.y, &x1, &y1);
+	gtk_tree_view_convert_bin_window_to_widget_coords (tree_view, 0, 0, &top_x, &top);
+
+	path = gtk_widget_path_copy (gtk_widget_get_path (widget));
+	gtk_widget_path_append_type (path, G_TYPE_NONE);
+	gtk_widget_path_iter_set_object_name (path, -1, "rubberband");
+	context = gtk_style_context_new ();
+	gtk_style_context_set_path (context, path);
+	gtk_style_context_set_parent (context, gtk_widget_get_style_context (widget));
+	gtk_style_context_set_scale (context, gtk_widget_get_scale_factor (widget));
+
+	cairo_save (cr);
+	cairo_rectangle (cr, 0, top, gtk_widget_get_allocated_width (widget),
+			 gtk_widget_get_allocated_height (widget) - top);
+	cairo_clip (cr);
+	gtk_render_background (context, cr, MIN (x0, x1), MIN (y0, y1),
+			       ABS (x1 - x0) + 1, ABS (y1 - y0) + 1);
+	gtk_render_frame (context, cr, MIN (x0, x1), MIN (y0, y1),
+			  ABS (x1 - x0) + 1, ABS (y1 - y0) + 1);
+	cairo_restore (cr);
+
+	g_object_unref (context);
+	gtk_widget_path_unref (path);
+
+	return GDK_EVENT_PROPAGATE;
+}
 
 static gboolean
 motion_notify_callback (GtkWidget *widget,
@@ -1031,49 +1322,21 @@ motion_notify_callback (GtkWidget *widget,
 		}
 	}
 
-    /* If we're already rubber-banding, we can skip all of this logic and just let the parent
-     * class continue to handle selection */
-    if (view->details->drag_button != 0 && !view->details->rubber_banding) {
-        GtkTreePath *path;
-        GtkTreeSelection *selection;
-        gboolean is_new_self_selection;
+	eel_menu_press_moved (&view->details->menu_press, widget, event->x, event->y);
 
-        selection = gtk_tree_view_get_selection (GTK_TREE_VIEW (widget));
+	/* A band whose release went elsewhere is over. */
+	if (view->details->band.button != 0 &&
+	    (event->state & (GDK_BUTTON1_MASK << (view->details->band.button - 1))) == 0) {
+		band_stop (view);
+	}
 
-        gtk_tree_view_get_path_at_pos (GTK_TREE_VIEW (widget),
-                                       view->details->drag_x,
-                                       view->details->drag_y,
-                                       &path,
-                                       NULL, NULL, NULL);
+	if (view->details->band.button != 0) {
+		band_motion (view, event);
+		return GDK_EVENT_STOP;
+	}
 
-        /* This looks complicated but it's just verbose:  We'll only consider allowing rubber-banding
-         * to begin if the following are TRUE: a) The current row is the only row currently selected,
-         * and  b) This is the first click that's been made on this row - meaning, the button-press-event
-         * that preceded this motion-event was the one that caused this row to be selected. */
-        is_new_self_selection = gtk_tree_selection_count_selected_rows (selection) == 1 &&
-                                gtk_tree_selection_path_is_selected (selection, path) &&
-                                (!view->details->double_click_path[1] ||
-                                (view->details->double_click_path[1] &&
-                                gtk_tree_path_compare (view->details->double_click_path[0],
-                                                       view->details->double_click_path[1]) != 0));
-
-        gtk_tree_path_free (path);
-
-        /* We also want to further restrict rubber-banding to be initiated only in blank areas of the row.
-         * This allows DnD to operate on a new selection like before, when the motion begins over text or
-         * icons */
-        if (is_new_self_selection && gtk_tree_view_is_blank_at_pos (GTK_TREE_VIEW (widget),
-                                                                    view->details->drag_x,
-                                                                    view->details->drag_y,
-                                                                    NULL, NULL, NULL, NULL)) {
-            /* If this is a candidate for rubber-banding, track that state in the view, and allow the event
-             * to continue into Gtk (which handles rubber-band selection for us) */
-            view->details->rubber_banding = TRUE;
-
-            return GDK_EVENT_PROPAGATE;
-        }
-
-        /* All other cases, allow DnD to potentially begin */
+    if (view->details->drag_button != 0) {
+        /* A press on a row drags what is selected, whatever column it hit. */
         if (!source_target_list) {
             source_target_list = nemo_list_model_get_drag_target_list ();
         }
@@ -1176,8 +1439,8 @@ query_tooltip_callback (GtkWidget *widget,
 }
 
 static gboolean
-leave_notify_callback (GtkWidget *widget,
-		       GdkEventCrossing *event,
+leave_notify_callback (G_GNUC_UNUSED GtkWidget *widget,
+		       G_GNUC_UNUSED GdkEventCrossing *event,
 		       gpointer callback_data)
 {
 	NemoListView *view;
@@ -1220,6 +1483,38 @@ enter_notify_callback (GtkWidget *widget,
 	return FALSE;
 }
 
+/* The cursor row when it is selected, since that is where the keyboard is,
+   else the first selected row in sight. */
+static gboolean
+nemo_list_view_get_selection_menu_rect (NemoView *view, GdkRectangle *rect)
+{
+	NemoListView *list_view = NEMO_LIST_VIEW (view);
+	GtkTreeView *tree_view = list_view->details->tree_view;
+	GtkTreeViewColumn *column = list_view->details->file_name_column;
+	GtkTreeSelection *selection = gtk_tree_view_get_selection (tree_view);
+	GtkTreePath *cursor = NULL;
+	GList *rows, *l;
+	gboolean found = FALSE;
+
+	gtk_tree_view_get_cursor (tree_view, &cursor, NULL);
+	if (cursor != NULL && gtk_tree_selection_path_is_selected (selection, cursor)) {
+		found = eel_gtk_tree_view_get_row_rect (tree_view, cursor, column, rect);
+	}
+	gtk_tree_path_free (cursor);
+
+	if (!found) {
+		rows = gtk_tree_selection_get_selected_rows (selection, NULL);
+		for (l = rows; l != NULL && !found; l = l->next) {
+			found = eel_gtk_tree_view_get_row_rect (tree_view, l->data, column, rect);
+		}
+		g_list_free_full (rows, (GDestroyNotify) gtk_tree_path_free);
+	}
+
+	return found &&
+	       gtk_widget_translate_coordinates (GTK_WIDGET (tree_view), GTK_WIDGET (view),
+						 rect->x, rect->y, &rect->x, &rect->y);
+}
+
 static void
 do_popup_menu (GtkWidget *widget, NemoListView *view, GdkEventButton *event)
 {
@@ -1230,15 +1525,28 @@ do_popup_menu (GtkWidget *widget, NemoListView *view, GdkEventButton *event)
 	}
 }
 
+/* A left press held still. Its release goes to the menu, so the press is
+   dropped here: no drag, band, rename or click to come. */
 static void
-row_activated_callback (GtkTreeView *treeview, GtkTreePath *path,
-			GtkTreeViewColumn *column, NemoListView *view)
+long_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callback_data)
+{
+	NemoListView *view = NEMO_LIST_VIEW (callback_data);
+
+	band_stop (view);
+	stop_drag_check (view);
+	view->details->rename_on_release = FALSE;
+	do_popup_menu (widget, view, event);
+}
+
+static void
+row_activated_callback (G_GNUC_UNUSED GtkTreeView *treeview, G_GNUC_UNUSED GtkTreePath *path,
+			G_GNUC_UNUSED GtkTreeViewColumn *column, NemoListView *view)
 {
 	activate_selected_items (view);
 }
 
 static void
-columns_reordered_callback (AtkObject *atk,
+columns_reordered_callback (G_GNUC_UNUSED AtkObject *atk,
                             gpointer user_data)
 {
     NemoListView *view = NEMO_LIST_VIEW (user_data);
@@ -1270,15 +1578,13 @@ columns_reordered_callback (AtkObject *atk,
 
     list = g_list_reverse (list);
 
-    if (!nemo_global_preferences_get_remember_folder_settings ()) {
-        nemo_window_set_ignore_meta_column_order (nemo_view_get_nemo_window (NEMO_VIEW (view)), list);
-    } else if (nemo_file_is_in_search (file)) {
+    if (nemo_file_is_in_search (file)) {
         gchar **column_array = string_array_from_string_glist (list);
 
-        nemo_config_set_strv (nemo_search_preferences,
-                             NEMO_PREFERENCES_SEARCH_VISIBLE_COLUMNS,
-                             (const gchar **) column_array);
+        nemo_search_columns_save ((const gchar * const *) column_array);
         g_strfreev (column_array);
+    } else if (!nemo_global_preferences_get_remember_folder_settings ()) {
+        nemo_window_set_ignore_meta_column_order (nemo_view_get_nemo_window (NEMO_VIEW (view)), list);
     } else {
         nemo_folder_settings_set_list (file,
                                        NEMO_METADATA_KEY_LIST_VIEW_COLUMN_ORDER,
@@ -1491,6 +1797,7 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 
 	int expander_size, horizontal_separator;
 	gboolean on_expander;
+	gboolean primary;
 
 	view = NEMO_LIST_VIEW (callback_data);
 	tree_view = GTK_TREE_VIEW (widget);
@@ -1509,6 +1816,7 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
             if (!gtk_tree_view_get_path_at_pos (tree_view, event->x, event->y,
                                                 NULL, NULL, NULL, NULL)) {
                 NemoWindowSlot *slot = nemo_view_get_nemo_window_slot (NEMO_VIEW (view));
+                eel_menu_press_cancel (&view->details->menu_press);
                 nemo_window_slot_go_up (slot, 0);
             }
         }
@@ -1520,11 +1828,19 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 		return GDK_EVENT_PROPAGATE;
 	}
 
-    if (!nemo_view_get_active (NEMO_VIEW (view)) && gtk_tree_selection_count_selected_rows (selection) > 0) {
-        NemoWindowSlot *slot = nemo_view_get_nemo_window_slot (NEMO_VIEW (view));
-        nemo_window_slot_make_hosting_pane_active (slot);
-        return GDK_EVENT_STOP;
+    /* The click that wakes the other pane counts too. */
+    if (!nemo_view_get_active (NEMO_VIEW (view))) {
+        nemo_window_slot_make_hosting_pane_active (nemo_view_get_nemo_window_slot (NEMO_VIEW (view)));
     }
+
+	/* A second button during a band is ignored. One whose release never came
+	   is over. */
+	if (view->details->band.button != 0) {
+		if ((event->state & (GDK_BUTTON1_MASK << (view->details->band.button - 1))) != 0) {
+			return GDK_EVENT_STOP;
+		}
+		band_stop (view);
+	}
 
 	nemo_list_model_set_drag_view
 		(NEMO_LIST_MODEL (gtk_tree_view_get_model (tree_view)),
@@ -1538,9 +1854,13 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 		event->state &= ~GDK_SHIFT_MASK;
 	}
 
+	primary = (event->state & eel_gtk_primary_mask (event->window)) != 0;
+
 	call_parent = TRUE;
 	if (gtk_tree_view_get_path_at_pos (tree_view, event->x, event->y,
 					   &path, NULL, NULL, NULL)) {
+		gboolean was_selected = gtk_tree_selection_path_is_selected (selection, path);
+
         if (expanders_enabled (view)) {
     		gtk_widget_style_get (widget,
     				      "expander-size", &expander_size,
@@ -1582,8 +1902,7 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 			 * want that; we want the right click menu or single
 			 * click to apply to everything that's currently selected. */
 
-			if (event->button == 3 &&
-			    gtk_tree_selection_path_is_selected (selection, path)) {
+			if (event->button == 3 && was_selected) {
 				call_parent = FALSE;
 			}
 
@@ -1594,7 +1913,7 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 				if (view->details->row_selected_on_button_down) {
 					call_parent = on_expander;
 					view->details->ignore_button_release = call_parent;
-				} else if ((event->state & GDK_CONTROL_MASK) != 0) {
+				} else if ((event->state & eel_gtk_primary_mask (event->window)) != 0) {
 					GList *selected_rows;
 					GList *l;
 
@@ -1643,16 +1962,36 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 				gtk_widget_grab_focus (widget);
 			}
 
-			if ((event->button == 1 || event->button == 2) &&
+			/* Ctrl or Shift from a row not yet selected bands; from a
+			 * selected one they drag, and pick copy or move. */
+			if (event->button == 1 && !was_selected && !on_expander &&
+			    (primary || (event->state & GDK_SHIFT_MASK) != 0)) {
+				band_arm (view, event, primary);
+			} else if ((event->button == 1 || event->button == 2) &&
 			    event->type == GDK_BUTTON_PRESS) {
 				view->details->drag_started = FALSE;
 				view->details->drag_button = event->button;
 				view->details->drag_x = event->x;
 				view->details->drag_y = event->y;
+				if (!on_expander) {
+					eel_menu_press_hold (&view->details->menu_press, widget, event,
+							     event->x, event->y, long_press_callback, view);
+				}
 			}
 
+			/* The menu waits for the release, so the press can drag. */
 			if (event->button == 3) {
-				do_popup_menu (widget, view, event);
+				eel_menu_press_begin (&view->details->menu_press, event->button,
+						      event->x, event->y);
+#ifdef G_OS_WIN32
+				/* As in Explorer, a right drag from an item moves files. */
+				view->details->drag_started = FALSE;
+				view->details->drag_button = event->button;
+				view->details->drag_x = event->x;
+				view->details->drag_y = event->y;
+#else
+				band_arm (view, event, FALSE);
+#endif
 			}
 		}
 
@@ -1666,13 +2005,24 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 			view->details->double_click_path[1] = view->details->double_click_path[0];
 			view->details->double_click_path[0] = NULL;
 		}
-		/* Deselect if people click outside any row. It's OK to
-		   let default code run; it won't reselect anything. */
-		gtk_tree_selection_unselect_all (gtk_tree_view_get_selection (tree_view));
+		/* Deselect if people click outside any row, unless Ctrl is
+		   held for a band that adds. It's OK to let default code run;
+		   it won't reselect anything. */
+		if (!primary || event->button != 1) {
+			gtk_tree_selection_unselect_all (gtk_tree_view_get_selection (tree_view));
+		}
 		tree_view_class->button_press_event (widget, event);
 
+		if (event->button == 1 || event->button == 3) {
+			band_arm (view, event, primary && event->button == 1);
+		}
+		if (event->button == 1) {
+			eel_menu_press_hold (&view->details->menu_press, widget, event,
+					     event->x, event->y, long_press_callback, view);
+		}
 		if (event->button == 3) {
-			do_popup_menu (widget, view, event);
+			eel_menu_press_begin (&view->details->menu_press, event->button,
+					      event->x, event->y);
 		}
 	}
 
@@ -1690,10 +2040,27 @@ button_release_callback (GtkWidget *widget,
 
 	view = NEMO_LIST_VIEW (callback_data);
 
-    view->details->rubber_banding = FALSE;
+	if (eel_menu_press_held (&view->details->menu_press, event->button)) {
+		return GDK_EVENT_STOP;
+	}
+
+	if (event->button == view->details->band.button) {
+		band_stop (view);
+	}
+
+	if (eel_menu_press_end (&view->details->menu_press, widget, event->button,
+				event->x, event->y) &&
+	    !view->details->drag_started) {
+		stop_drag_check (view);
+		do_popup_menu (widget, view, event);
+		return FALSE;
+	}
 
 	if (event->button == view->details->drag_button) {
 		stop_drag_check (view);
+		if (event->button == 3) {
+			return FALSE;
+		}
 		if (!view->details->drag_started &&
 		    !view->details->ignore_button_release) {
 			nemo_list_view_did_not_drag (view, event);
@@ -1723,7 +2090,7 @@ subdirectory_done_loading_callback (NemoDirectory *directory, NemoListView *view
 }
 
 static void
-row_expanded_callback (GtkTreeView *treeview, GtkTreeIter *iter, GtkTreePath *path, gpointer callback_data)
+row_expanded_callback (G_GNUC_UNUSED GtkTreeView *treeview, G_GNUC_UNUSED GtkTreeIter *iter, GtkTreePath *path, gpointer callback_data)
 {
  	NemoListView *view;
  	NemoDirectory *directory;
@@ -1794,7 +2161,7 @@ unload_file_timeout (gpointer data)
 }
 
 static void
-row_collapsed_callback (GtkTreeView *treeview, GtkTreeIter *iter, GtkTreePath *path, gpointer callback_data)
+row_collapsed_callback (G_GNUC_UNUSED GtkTreeView *treeview, GtkTreeIter *iter, G_GNUC_UNUSED GtkTreePath *path, gpointer callback_data)
 {
  	NemoListView *view;
  	NemoFile *file;
@@ -1959,7 +2326,11 @@ key_press_callback (GtkWidget *widget, GdkEventKey *event, gpointer callback_dat
 		}
 		break;
 	case GDK_KEY_Escape:
-		forget_cursor (NEMO_LIST_VIEW (view));
+		/* A selection goes first. With none, Escape leaves find mode. */
+		if (nemo_view_get_selection_count (view) > 0 ||
+		    !nemo_window_slot_close_search (nemo_view_get_nemo_window_slot (view))) {
+			forget_cursor (NEMO_LIST_VIEW (view));
+		}
 		handled = TRUE;
 		break;
 
@@ -2055,14 +2426,17 @@ sort_column_changed_callback (GtkTreeSortable *sortable,
 										  g_quark_from_string (get_default_sort_order (file, &default_sort_reversed)));
 	default_sort_attr = nemo_list_model_get_attribute_from_sort_column_id (view->details->model, default_sort_column_id);
 
-        if (!nemo_global_preferences_get_remember_folder_settings ())
+        /* Find results keep their sort whatever remember-folder-settings says,
+           and never in the window, which holds the folders' when that is off.
+           Theirs is saved below, with the direction. */
+        if (!nemo_file_is_in_search (file)) {
+            if (!nemo_global_preferences_get_remember_folder_settings ()) {
                 nemo_window_set_ignore_meta_sort_column (nemo_view_get_nemo_window (NEMO_VIEW (view)),
                                                          g_quark_to_string (sort_attr));
-        else if (nemo_file_is_in_search (file)) {
-            nemo_config_set_string (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_SORT_COLUMN, g_quark_to_string (sort_attr));
-        } else {
-            nemo_folder_settings_set (file, NEMO_METADATA_KEY_LIST_VIEW_SORT_COLUMN,
-                                      g_quark_to_string (default_sort_attr), g_quark_to_string (sort_attr));
+            } else {
+                nemo_folder_settings_set (file, NEMO_METADATA_KEY_LIST_VIEW_SORT_COLUMN,
+                                          g_quark_to_string (default_sort_attr), g_quark_to_string (sort_attr));
+            }
         }
 
 	default_reversed_attr = (default_sort_reversed ? (char *)"true" : (char *)"false");
@@ -2089,11 +2463,12 @@ sort_column_changed_callback (GtkTreeSortable *sortable,
 		}
 	}
 
-    if (!nemo_global_preferences_get_remember_folder_settings ()) {
+    if (nemo_file_is_in_search (file)) {
+        nemo_search_sort_save (g_quark_to_string (sort_attr), reversed == GTK_SORT_DESCENDING,
+                               g_quark_to_string (default_sort_attr), default_sort_reversed);
+    } else if (!nemo_global_preferences_get_remember_folder_settings ()) {
         nemo_window_set_ignore_meta_sort_direction (nemo_view_get_nemo_window (NEMO_VIEW (view)),
                                                     reversed ? SORT_DESCENDING : SORT_ASCENDING);
-    } else if (nemo_file_is_in_search (file)) {
-        nemo_config_set_boolean (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_REVERSE_SORT, reversed);
     } else {
         reversed_attr = (reversed ? (char *)"true" : (char *)"false");
         nemo_folder_settings_set (file, NEMO_METADATA_KEY_LIST_VIEW_SORT_REVERSED,
@@ -2107,8 +2482,8 @@ sort_column_changed_callback (GtkTreeSortable *sortable,
 }
 
 static gboolean
-editable_focus_out_cb (GtkWidget *widget,
-		       GdkEvent *event,
+editable_focus_out_cb (G_GNUC_UNUSED GtkWidget *widget,
+		       G_GNUC_UNUSED GdkEvent *event,
 		       gpointer user_data)
 {
 	NemoListView *view = user_data;
@@ -2120,7 +2495,7 @@ editable_focus_out_cb (GtkWidget *widget,
 }
 
 static void
-cell_renderer_editing_started_cb (GtkCellRenderer *renderer,
+cell_renderer_editing_started_cb (G_GNUC_UNUSED GtkCellRenderer *renderer,
 				  GtkCellEditable *editable,
 				  const gchar *path_str,
 				  NemoListView *list_view)
@@ -2165,7 +2540,7 @@ cell_renderer_editing_started_cb (GtkCellRenderer *renderer,
 }
 
 static void
-cell_renderer_editing_canceled (GtkCellRendererText *cell,
+cell_renderer_editing_canceled (G_GNUC_UNUSED GtkCellRendererText *cell,
 				NemoListView    *view)
 {
     view->details->editable_widget = NULL;
@@ -2174,7 +2549,7 @@ cell_renderer_editing_canceled (GtkCellRendererText *cell,
 }
 
 static void
-cell_renderer_edited (GtkCellRendererText *cell,
+cell_renderer_edited (G_GNUC_UNUSED GtkCellRendererText *cell,
 		      const char          *path_str,
 		      const char          *new_text,
 		      NemoListView    *view)
@@ -2210,7 +2585,11 @@ cell_renderer_edited (GtkCellRendererText *cell,
 			    -1);
 
 	/* Only rename if name actually changed */
-	if (strcmp (new_text, view->details->original_name) != 0) {
+	if (strcmp (new_text, view->details->original_name) != 0 &&
+	    nemo_view_rename_new_folder_nested (NEMO_VIEW (view), file, new_text)) {
+		g_free (view->details->original_name);
+		view->details->original_name = g_strdup (new_text);
+	} else if (strcmp (new_text, view->details->original_name) != 0) {
 		view->details->renaming_file = nemo_file_ref (file);
 		view->details->rename_done = FALSE;
 		nemo_rename_file (file, new_text, nemo_list_view_rename_callback, g_object_ref (view));
@@ -2229,7 +2608,7 @@ cell_renderer_edited (GtkCellRendererText *cell,
 }
 
 static char *
-get_root_uri_callback (NemoTreeViewDragDest *dest,
+get_root_uri_callback (G_GNUC_UNUSED NemoTreeViewDragDest *dest,
 		       gpointer user_data)
 {
 	NemoListView *view;
@@ -2244,9 +2623,9 @@ get_root_uri_callback (NemoTreeViewDragDest *dest,
 #define PREVENT_EXPAND TRUE
 
 static gboolean
-test_expand_row_callback (GtkTreeView *treeview,
-                          GtkTreeIter *iter,
-                          GtkTreePath *path,
+test_expand_row_callback (G_GNUC_UNUSED GtkTreeView *treeview,
+                          G_GNUC_UNUSED GtkTreeIter *iter,
+                          G_GNUC_UNUSED GtkTreePath *path,
                           gpointer     user_data)
 {
     NemoListView *view = NEMO_LIST_VIEW (user_data);
@@ -2263,7 +2642,7 @@ test_expand_row_callback (GtkTreeView *treeview,
 }
 
 static NemoFile *
-get_file_for_path_callback (NemoTreeViewDragDest *dest,
+get_file_for_path_callback (G_GNUC_UNUSED NemoTreeViewDragDest *dest,
 			    GtkTreePath *path,
 			    gpointer user_data)
 {
@@ -2280,7 +2659,7 @@ get_file_for_path_callback (NemoTreeViewDragDest *dest,
 
 /* Handles an URL received from Mozilla */
 static void
-list_view_handle_netscape_url (NemoTreeViewDragDest *dest, const char *encoded_url,
+list_view_handle_netscape_url (G_GNUC_UNUSED NemoTreeViewDragDest *dest, const char *encoded_url,
 			       const char *target_uri, GdkDragAction action, int x, int y, NemoListView *view)
 {
 	nemo_view_handle_netscape_url_drop (NEMO_VIEW (view),
@@ -2288,7 +2667,7 @@ list_view_handle_netscape_url (NemoTreeViewDragDest *dest, const char *encoded_u
 }
 
 static void
-list_view_handle_uri_list (NemoTreeViewDragDest *dest, const char *item_uris,
+list_view_handle_uri_list (G_GNUC_UNUSED NemoTreeViewDragDest *dest, const char *item_uris,
 			   const char *target_uri,
 			   GdkDragAction action, int x, int y, NemoListView *view)
 {
@@ -2297,7 +2676,7 @@ list_view_handle_uri_list (NemoTreeViewDragDest *dest, const char *item_uris,
 }
 
 static void
-list_view_handle_text (NemoTreeViewDragDest *dest, const char *text,
+list_view_handle_text (G_GNUC_UNUSED NemoTreeViewDragDest *dest, const char *text,
 		       const char *target_uri,
 		       GdkDragAction action, int x, int y, NemoListView *view)
 {
@@ -2306,7 +2685,7 @@ list_view_handle_text (NemoTreeViewDragDest *dest, const char *text,
 }
 
 static void
-list_view_handle_raw (NemoTreeViewDragDest *dest, const char *raw_data,
+list_view_handle_raw (G_GNUC_UNUSED NemoTreeViewDragDest *dest, const char *raw_data,
 		      int length, const char *target_uri, const char *direct_save_uri,
 		      GdkDragAction action, int x, int y, NemoListView *view)
 {
@@ -2316,7 +2695,7 @@ list_view_handle_raw (NemoTreeViewDragDest *dest, const char *raw_data,
 }
 
 static void
-move_copy_items_callback (NemoTreeViewDragDest *dest,
+move_copy_items_callback (G_GNUC_UNUSED NemoTreeViewDragDest *dest,
 			  const GList *item_uris,
 			  const char *target_uri,
 			  guint action,
@@ -2375,16 +2754,13 @@ column_header_menu_toggled (GtkCheckMenuItem *menu_item,
 
     list = g_list_reverse (list);
 
-    if (!nemo_global_preferences_get_remember_folder_settings ()) {
-        nemo_window_set_ignore_meta_visible_columns (nemo_view_get_nemo_window (NEMO_VIEW (list_view)), list);
-    } else if (nemo_file_is_in_search (file)) {
+    if (nemo_file_is_in_search (file)) {
         gchar **column_array = string_array_from_string_glist (list);
 
-        nemo_config_set_strv (nemo_search_preferences,
-                             NEMO_PREFERENCES_SEARCH_VISIBLE_COLUMNS,
-                             (const gchar **) column_array);
-
+        nemo_search_columns_save ((const gchar * const *) column_array);
         g_strfreev (column_array);
+    } else if (!nemo_global_preferences_get_remember_folder_settings ()) {
+        nemo_window_set_ignore_meta_visible_columns (nemo_view_get_nemo_window (NEMO_VIEW (list_view)), list);
     } else
         nemo_folder_settings_set_list (file,
                                        NEMO_METADATA_KEY_LIST_VIEW_VISIBLE_COLUMNS,
@@ -2406,7 +2782,7 @@ column_header_menu_toggled (GtkCheckMenuItem *menu_item,
 }
 
 static void
-column_header_menu_use_default (GtkMenuItem *menu_item,
+column_header_menu_use_default (G_GNUC_UNUSED GtkMenuItem *menu_item,
                                 NemoListView *list_view)
 {
 	NemoFile *file;
@@ -2419,17 +2795,17 @@ column_header_menu_use_default (GtkMenuItem *menu_item,
                                      columns_reordered_callback,
                                      list_view);
 
-    if (!nemo_global_preferences_get_remember_folder_settings ()) {
+    if (nemo_file_is_in_search (file)) {
+        nemo_search_columns_save (NULL);
+        nemo_search_sort_forget ();
+        set_sort_order_from_metadata_and_preferences (list_view);
+    } else if (!nemo_global_preferences_get_remember_folder_settings ()) {
         NemoWindow *window = nemo_view_get_nemo_window (NEMO_VIEW (list_view));
         nemo_window_set_ignore_meta_visible_columns (window, NULL);
         nemo_window_set_ignore_meta_column_order (window, NULL);
     } else {
         nemo_folder_settings_set_list (file, NEMO_METADATA_KEY_LIST_VIEW_COLUMN_ORDER, NULL);
         nemo_folder_settings_set_list (file, NEMO_METADATA_KEY_LIST_VIEW_VISIBLE_COLUMNS, NULL);
-    }
-
-    if (nemo_file_is_in_search (file)) {
-        nemo_config_reset (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_VISIBLE_COLUMNS);
     }
 
     default_columns = get_default_visible_columns (list_view);
@@ -2459,7 +2835,7 @@ column_header_menu_disable_sort (GtkMenuItem *menu_item,
 }
 
 static gboolean
-column_header_clicked (GtkWidget *column_button,
+column_header_clicked (G_GNUC_UNUSED GtkWidget *column_button,
                        GdkEventButton *event,
                        NemoListView *list_view)
 {
@@ -2561,6 +2937,7 @@ column_header_clicked (GtkWidget *column_button,
                       list_view);
 
 	gtk_widget_show_all (menu);
+	eel_gtk_menu_destroy_on_close (GTK_MENU (menu));
 	gtk_menu_popup_for_device (GTK_MENU (menu),
 	                           gdk_event_get_device ((GdkEvent *) event),
 	                           NULL, NULL, NULL, NULL, NULL,
@@ -2780,7 +3157,7 @@ shade_row (NemoListView    *view,
 }
 
 static void
-shade_row_cell_data_func (GtkTreeViewColumn *column,
+shade_row_cell_data_func (G_GNUC_UNUSED GtkTreeViewColumn *column,
                           GtkCellRenderer   *renderer,
                           GtkTreeModel      *model,
                           GtkTreeIter       *iter,
@@ -2858,8 +3235,8 @@ tree_view_style_updated (NemoListView *view)
 /* Rows stand still for the length of one redraw, which is how long the parity
    worked out for a row is good for. */
 static gboolean
-tree_view_draw_callback (GtkWidget    *widget,
-                         cairo_t      *cr,
+tree_view_draw_callback (G_GNUC_UNUSED GtkWidget    *widget,
+                         G_GNUC_UNUSED cairo_t      *cr,
                          NemoListView *view)
 {
     view->details->shade_pass++;
@@ -2868,7 +3245,7 @@ tree_view_draw_callback (GtkWidget    *widget,
 }
 
 static void
-filename_cell_data_func (GtkTreeViewColumn *column,
+filename_cell_data_func (G_GNUC_UNUSED GtkTreeViewColumn *column,
 			 GtkCellRenderer   *renderer,
 			 GtkTreeModel      *model,
 			 GtkTreeIter       *iter,
@@ -2911,7 +3288,7 @@ filename_cell_data_func (GtkTreeViewColumn *column,
 }
 
 static gboolean
-focus_in_event_callback (GtkWidget *widget, GdkEventFocus *event, gpointer user_data)
+focus_in_event_callback (G_GNUC_UNUSED GtkWidget *widget, G_GNUC_UNUSED GdkEventFocus *event, gpointer user_data)
 {
 	NemoWindowSlot *slot;
 	NemoListView *list_view = NEMO_LIST_VIEW (user_data);
@@ -3006,21 +3383,21 @@ queue_update_visible_icons(NemoListView *view,
 }
 
 static void
-handle_vadjustment_changed (GtkAdjustment *adjustment,
+handle_vadjustment_changed (G_GNUC_UNUSED GtkAdjustment *adjustment,
                             NemoListView  *view)
 {
     queue_update_visible_icons (view, NORMAL_UPDATE_VISIBLE_DELAY);
 }
 
 static gint
-get_icon_scale_callback (NemoListModel *model,
+get_icon_scale_callback (G_GNUC_UNUSED NemoListModel *model,
                          NemoListView  *view)
 {
    return gtk_widget_get_scale_factor (GTK_WIDGET (view->details->tree_view));
 }
 
 static void
-on_treeview_realized (GtkWidget *widget,
+on_treeview_realized (G_GNUC_UNUSED GtkWidget *widget,
                       gpointer   user_data)
 {
     NemoListView *view = NEMO_LIST_VIEW (user_data);
@@ -3119,20 +3496,11 @@ column_id (GtkTreeViewColumn *column)
 	return g_object_get_data (G_OBJECT (column), "column-id");
 }
 
-/* What one column has seen so far. Every column keeps its widest value. The
-   columns whose width is a judgement rather than a fact - Name, and the ones
-   with no natural length - keep every value too, so the width that shows most
-   of them can be found. Name keeps one per file, since every name counts; a
-   type or an owner keeps one per distinct text, so a value repeated down the
-   folder counts once. A date or a size keeps only the widest, because it is
-   never shown at less. */
+/* What one column has seen so far, counted per design.md: see
+   nemo_column_tally_mode_for. */
 typedef struct {
-	GHashTable *values;	/* key -> width, or NULL for a column that only needs its widest */
+	NemoColumnTally *tally;
 	GHashTable *measured;	/* cell text -> that cell's natural width; NULL for Name */
-	gint widest;
-	gint fit;		/* cached, -1 once a value has changed */
-	gint half;		/* the same for half the values */
-	gint fit_percent;	/* the share the cached fit was worked out for */
 } ColumnSamples;
 
 /* How many distinct values one column will remember the width of. A type or an
@@ -3141,14 +3509,14 @@ typedef struct {
    this the column just measures, which is what it did before. */
 #define MEASURED_TEXTS_MAX 2048
 
+static NemoColumnKind column_class (NemoListView *view, GtkTreeViewColumn *column);
+
 static void
 column_samples_free (gpointer data)
 {
 	ColumnSamples *samples = data;
 
-	if (samples->values != NULL) {
-		g_hash_table_destroy (samples->values);
-	}
+	nemo_column_tally_free (samples->tally);
 	if (samples->measured != NULL) {
 		g_hash_table_destroy (samples->measured);
 	}
@@ -3156,11 +3524,11 @@ column_samples_free (gpointer data)
 }
 
 static gboolean
-column_keeps_every_value (NemoListView      *view,
-			  GtkTreeViewColumn *column)
+showing_search (NemoListView *view)
 {
-	return column == view->details->file_name_column ||
-	       g_object_get_data (G_OBJECT (column), "unbounded") != NULL;
+	NemoFile *dir_file = nemo_view_get_directory_as_file (NEMO_VIEW (view));
+
+	return dir_file != NULL && nemo_file_is_in_search (dir_file);
 }
 
 static ColumnSamples *
@@ -3176,26 +3544,23 @@ samples_for (NemoListView      *view,
 
 	samples = g_hash_table_lookup (view->details->samples, id);
 	if (samples == NULL) {
+		gboolean is_name = column == view->details->file_name_column;
+
 		samples = g_new0 (ColumnSamples, 1);
-		samples->fit = -1;
+		/* Samples go on a folder change, so whether this is find results
+		   holds for as long as they do. */
+		samples->tally = nemo_column_tally_new (
+			nemo_column_tally_mode_for (column_class (view, column), is_name,
+						    showing_search (view)));
 
-		if (column == view->details->file_name_column) {
-			samples->values = g_hash_table_new (g_direct_hash, g_direct_equal);
-		} else {
-			/* Every column but Name shows one run of text per row, so a value
-			   seen before lays out to the same width. Name is left out: no two
-			   files in a folder share a name, so nothing would ever repeat.
-			   NEMO_MEASURE_NOCACHE turns it off, which is how the widths it
-			   hands back are checked against measuring every row. */
-			if (g_getenv ("NEMO_MEASURE_NOCACHE") == NULL) {
-				samples->measured = g_hash_table_new_full (g_str_hash, g_str_equal,
-									   g_free, NULL);
-			}
-
-			if (column_keeps_every_value (view, column)) {
-				samples->values = g_hash_table_new_full (g_str_hash, g_str_equal,
-									 g_free, NULL);
-			}
+		/* Every column but Name shows one run of text per row, so a value
+		   seen before lays out to the same width. Name is left out: in a
+		   folder no two files share a name, so nothing would ever repeat.
+		   NEMO_MEASURE_NOCACHE turns it off, which is how the widths it
+		   hands back are checked against measuring every row. */
+		if (!is_name && g_getenv ("NEMO_MEASURE_NOCACHE") == NULL) {
+			samples->measured = g_hash_table_new_full (g_str_hash, g_str_equal,
+								   g_free, NULL);
 		}
 
 		g_hash_table_insert (view->details->samples, g_strdup (id), samples);
@@ -3204,98 +3569,11 @@ samples_for (NemoListView      *view,
 	return samples;
 }
 
-/* Fold one value in. `file` keys a name and `text` keys anything else; a
-   column that keeps only its widest ignores both. TRUE when something the
-   layout reads has changed. */
-static gboolean
-note_sample (ColumnSamples *samples,
-	     NemoFile      *file,
-	     const char    *text,
-	     gint           width)
-{
-	gboolean changed = FALSE;
-	gpointer key;
-	gpointer seen;
-
-	if (samples == NULL) {
-		return FALSE;
-	}
-
-	if (samples->values == NULL) {
-		if (width > samples->widest) {
-			samples->widest = width;
-			changed = TRUE;
-		}
-		return changed;
-	}
-
-	key = file != NULL ? (gpointer) file : (gpointer) text;
-	if (key == NULL) {
-		return FALSE;
-	}
-
-	if (!g_hash_table_lookup_extended (samples->values, key, NULL, &seen) ||
-	    GPOINTER_TO_INT (seen) != width) {
-		/* The file is only ever a key, never followed, so a file that has
-		   gone leaves a stale entry and nothing worse. The text is copied. */
-		g_hash_table_insert (samples->values,
-				     file != NULL ? key : g_strdup (text),
-				     GINT_TO_POINTER (width));
-		samples->fit = -1;
-		changed = TRUE;
-	}
-
-	return changed;
-}
-
-/* The width that shows `percent` of what the column has seen, the width that
-   shows half of it, and the width that shows all of it. Worked out from the
-   values on demand and kept until one changes, so a window being resized does
-   not sort a folder per frame. */
-static void
-samples_measure (ColumnSamples *samples,
-		 gint           percent,
-		 gint          *fit,
-		 gint          *half,
-		 gint          *widest)
-{
-	if (samples == NULL) {
-		*fit = 0;
-		*half = 0;
-		*widest = 0;
-		return;
-	}
-
-	if (samples->values != NULL &&
-	    (samples->fit < 0 || samples->fit_percent != percent)) {
-		guint n = g_hash_table_size (samples->values);
-		int *widths = g_new (int, MAX (n, 1));
-		GHashTableIter iter;
-		gpointer value;
-		guint i = 0;
-
-		samples->widest = 0;
-		g_hash_table_iter_init (&iter, samples->values);
-		while (g_hash_table_iter_next (&iter, NULL, &value)) {
-			widths[i++] = GPOINTER_TO_INT (value);
-			samples->widest = MAX (samples->widest, GPOINTER_TO_INT (value));
-		}
-
-		samples->fit = nemo_column_layout_fit (widths, (int) n, percent);
-		samples->half = nemo_column_layout_fit (widths, (int) n, 50);
-		samples->fit_percent = percent;
-		g_free (widths);
-	}
-
-	*fit = samples->values != NULL ? samples->fit : samples->widest;
-	*half = samples->values != NULL ? samples->half : samples->widest;
-	*widest = samples->widest;
-}
-
 /* A file leaving the folder takes its name out of the reckoning, or a folder
    emptied of its long names would keep the width they asked for. What it held
-   in the other columns stays until resample_rows_cb, since those are kept by
-   text and another file may share it. */
+   in the other columns, and its name in find results, stays until
+   resample_rows_cb, since those are kept by text and another file may share
+   it. */
 static void
 drop_name_sample (NemoListView *view,
 		  NemoFile     *file)
@@ -3309,9 +3587,8 @@ drop_name_sample (NemoListView *view,
 	view->details->samples_stale = TRUE;
 
 	samples = g_hash_table_lookup (view->details->samples, "name");
-	if (samples != NULL && samples->values != NULL &&
-	    g_hash_table_remove (samples->values, file)) {
-		samples->fit = -1;
+	if (samples != NULL) {
+		nemo_column_tally_forget_row (samples->tally, file);
 	}
 
 	resize_columns_soon (view);
@@ -3493,7 +3770,7 @@ user_widths_settled (gpointer user_data)
 
 static void
 column_fixed_width_notify (GObject    *object,
-			   GParamSpec *pspec,
+			   G_GNUC_UNUSED GParamSpec *pspec,
 			   gpointer    user_data)
 {
 	NemoListView *view = NEMO_LIST_VIEW (user_data);
@@ -3696,7 +3973,7 @@ measure_row (GtkTreeModel *model,
 	for (l = measure_columns (view); l != NULL; l = l->next) {
 		GtkTreeViewColumn *column = l->data;
 		gboolean is_name = column == view->details->file_name_column;
-		gboolean by_text = !is_name && column_keeps_every_value (view, column);
+		gboolean by_text;
 		ColumnSamples *samples;
 		gchar *text = NULL;
 		gint width;
@@ -3706,6 +3983,11 @@ measure_row (GtkTreeModel *model,
 		}
 
 		samples = samples_for (view, column);
+		if (samples == NULL) {
+			continue;
+		}
+
+		by_text = nemo_column_tally_get_mode (samples->tally) == NEMO_COLUMN_TALLY_EACH_TEXT;
 		width = row_width_for_column (view, column, samples, model, iter,
 					      by_text ? &text : NULL);
 
@@ -3713,7 +3995,7 @@ measure_row (GtkTreeModel *model,
 			width += name_indent_for (view, path);
 		}
 
-		if (note_sample (samples, is_name ? file : NULL, text, width)) {
+		if (nemo_column_tally_note (samples->tally, file, text, width)) {
 			grew = TRUE;
 		}
 
@@ -3776,11 +4058,7 @@ resample_rows_cb (gpointer user_data)
 		while (g_hash_table_iter_next (&iter, NULL, &value)) {
 			ColumnSamples *samples = value;
 
-			if (samples->values != NULL) {
-				g_hash_table_remove_all (samples->values);
-			}
-			samples->widest = 0;
-			samples->fit = -1;
+			nemo_column_tally_clear (samples->tally);
 		}
 	}
 
@@ -3853,6 +4131,7 @@ layout_columns (NemoListView *view,
 
 	for (l = all; l != NULL; l = l->next) {
 		GtkTreeViewColumn *column = l->data;
+		ColumnSamples *samples;
 		GtkWidget *button;
 		NemoColumnMeasure measure = { 0, 0, 0, 0 };
 		gpointer dragged;
@@ -3863,8 +4142,9 @@ layout_columns (NemoListView *view,
 
 		columns[i] = column;
 
-		samples_measure (samples_for (view, column), percent,
-				 &measure.fit, &measure.half, &measure.widest);
+		samples = samples_for (view, column);
+		nemo_column_tally_measure (samples != NULL ? samples->tally : NULL, percent,
+					   &measure.fit, &measure.half, &measure.widest);
 
 		button = gtk_tree_view_column_get_button (column);
 		if (button != NULL) {
@@ -3980,7 +4260,7 @@ nemo_list_view_size_allocate (GtkWidget     *widget,
 }
 
 static void
-on_size_allocation_changed (GtkWidget    *widget,
+on_size_allocation_changed (G_GNUC_UNUSED GtkWidget    *widget,
                             GdkRectangle *allocation,
                             gpointer      user_data)
 {
@@ -4038,25 +4318,26 @@ create_and_set_up_tree_view (NemoListView *view)
     gtk_widget_set_margin_start (GTK_WIDGET (view->details->tree_view), LIST_VIEW_EDGE_PADDING);
     gtk_widget_set_margin_end (GTK_WIDGET (view->details->tree_view), LIST_VIEW_EDGE_PADDING);
 
-    gtk_tree_view_set_rubber_banding (GTK_TREE_VIEW (view->details->tree_view), TRUE);
+    /* The view bands for itself; see band_arm. */
+    gtk_tree_view_set_rubber_banding (GTK_TREE_VIEW (view->details->tree_view), FALSE);
 
     gtk_tree_view_set_show_expanders (view->details->tree_view,
                                       nemo_config_get_boolean (nemo_list_view_preferences,
                                                               NEMO_PREFERENCES_LIST_VIEW_ENABLE_EXPANSION));
-    g_signal_connect_swapped (nemo_list_view_preferences,
-                              "changed::" NEMO_PREFERENCES_LIST_VIEW_ENABLE_EXPANSION,
-                              G_CALLBACK (expanders_enabled_changed_cb),
-                              view);
+    g_signal_connect_object (nemo_list_view_preferences,
+                             "changed::" NEMO_PREFERENCES_LIST_VIEW_ENABLE_EXPANSION,
+                             G_CALLBACK (expanders_enabled_changed_cb),
+                             view, G_CONNECT_SWAPPED);
 
     row_shading_changed_callback (view);
-    g_signal_connect_swapped (nemo_list_view_preferences,
-                              "changed::" NEMO_PREFERENCES_LIST_VIEW_ROW_SHADING,
-                              G_CALLBACK (row_shading_changed_callback),
-                              view);
-    g_signal_connect_swapped (nemo_list_view_preferences,
-                              "changed::" NEMO_PREFERENCES_LIST_VIEW_ROW_SHADING_COLOR,
-                              G_CALLBACK (row_shading_changed_callback),
-                              view);
+    g_signal_connect_object (nemo_list_view_preferences,
+                             "changed::" NEMO_PREFERENCES_LIST_VIEW_ROW_SHADING,
+                             G_CALLBACK (row_shading_changed_callback),
+                             view, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_list_view_preferences,
+                             "changed::" NEMO_PREFERENCES_LIST_VIEW_ROW_SHADING_COLOR,
+                             G_CALLBACK (row_shading_changed_callback),
+                             view, G_CONNECT_SWAPPED);
     g_signal_connect_swapped (view->details->tree_view, "style-updated",
                               G_CALLBACK (tree_view_style_updated),
                               view);
@@ -4127,6 +4408,8 @@ create_and_set_up_tree_view (NemoListView *view)
 				 G_CALLBACK (drag_data_get_callback), view, 0);
 	g_signal_connect_object (view->details->tree_view, "motion_notify_event",
 				 G_CALLBACK (motion_notify_callback), view, 0);
+	g_signal_connect_object (view->details->tree_view, "draw",
+				 G_CALLBACK (band_draw_callback), view, G_CONNECT_AFTER);
 	g_signal_connect_object (view->details->tree_view, "enter_notify_event",
 				 G_CALLBACK (enter_notify_callback), view, 0);
 	g_signal_connect_object (view->details->tree_view, "leave_notify_event",
@@ -4422,7 +4705,7 @@ get_default_visible_columns (NemoListView *list_view)
     }
 
     if (nemo_file_is_in_search (file)) {
-        return g_strdupv ((gchar **) default_search_columns);
+        return nemo_search_columns_get_default_visible ();
     }
 
     return nemo_config_get_strv (nemo_list_view_preferences,
@@ -4441,22 +4724,14 @@ get_visible_columns (NemoListView *list_view)
 
 	file = nemo_view_get_directory_as_file (NEMO_VIEW (list_view));
 
+    if (nemo_file_is_in_search (file)) {
+        return nemo_search_columns_get_visible ();
+    }
+
     if (!nemo_global_preferences_get_remember_folder_settings ()) {
         visible_columns = nemo_window_get_ignore_meta_visible_columns (nemo_view_get_nemo_window (NEMO_VIEW (list_view)));
     } else {
-        if (nemo_file_is_in_search (file)) {
-            gchar **modified_cols;
-
-            modified_cols = nemo_config_get_strv (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_VISIBLE_COLUMNS);
-
-            if (g_strv_length (modified_cols) > 0) {
-                return modified_cols;
-            } else {
-                g_strfreev (modified_cols);
-            }
-        } else {
-            visible_columns = nemo_folder_settings_get_list (file, NEMO_METADATA_KEY_LIST_VIEW_VISIBLE_COLUMNS);
-        }
+        visible_columns = nemo_folder_settings_get_list (file, NEMO_METADATA_KEY_LIST_VIEW_VISIBLE_COLUMNS);
     }
 
 	if (visible_columns) {
@@ -4491,7 +4766,7 @@ get_default_column_order (NemoListView *list_view)
     }
 
     if (nemo_file_is_in_search (file)) {
-        return g_strdupv ((gchar **) default_search_columns);
+        return nemo_search_columns_get_default_order ();
     }
 
     return nemo_config_get_strv (nemo_list_view_preferences,
@@ -4510,21 +4785,14 @@ get_column_order (NemoListView *list_view)
 
 	file = nemo_view_get_directory_as_file (NEMO_VIEW (list_view));
 
+    if (nemo_file_is_in_search (file)) {
+        return nemo_search_columns_get_order ();
+    }
+
     if (!nemo_global_preferences_get_remember_folder_settings ()) {
         column_order = nemo_window_get_ignore_meta_column_order (nemo_view_get_nemo_window (NEMO_VIEW (list_view)));
     } else {
-        if (nemo_file_is_in_search (file)) {
-            gchar **modified_cols;
-            modified_cols = nemo_config_get_strv (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_VISIBLE_COLUMNS);
-
-            if (g_strv_length (modified_cols) > 0) {
-                return modified_cols;
-            } else {
-                g_strfreev (modified_cols);
-            }
-        } else {
-            column_order = nemo_folder_settings_get_list (file, NEMO_METADATA_KEY_LIST_VIEW_COLUMN_ORDER);
-        }
+        column_order = nemo_folder_settings_get_list (file, NEMO_METADATA_KEY_LIST_VIEW_COLUMN_ORDER);
     }
 
     if (column_order) {
@@ -4564,21 +4832,28 @@ set_sort_order_from_metadata_and_preferences (NemoListView *list_view)
 	const gchar *default_sort_order;
 
 	file = nemo_view_get_directory_as_file (NEMO_VIEW (list_view));
+	default_sort_order = get_default_sort_order (file, &default_sort_reversed);
 
-        if (!nemo_global_preferences_get_remember_folder_settings ())
-                sort_attribute = g_strdup (nemo_window_get_ignore_meta_sort_column (nemo_view_get_nemo_window (NEMO_VIEW (list_view))));
-        else if (nemo_file_is_in_search (file)) {
-            sort_attribute = nemo_config_get_string (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_SORT_COLUMN);
+        if (nemo_file_is_in_search (file)) {
+            if (!nemo_search_sort_get (&sort_attribute, &sort_reversed)) {
+                sort_reversed = default_sort_reversed;
+            }
+        } else if (!nemo_global_preferences_get_remember_folder_settings ()) {
+            gint dir = nemo_window_get_ignore_meta_sort_direction (nemo_view_get_nemo_window (NEMO_VIEW (list_view)));
+
+            sort_attribute = g_strdup (nemo_window_get_ignore_meta_sort_column (nemo_view_get_nemo_window (NEMO_VIEW (list_view))));
+            sort_reversed = dir > SORT_NULL ? dir == SORT_DESCENDING : default_sort_reversed;
         } else {
             sort_attribute = nemo_folder_settings_get (file,
                                                        NEMO_METADATA_KEY_LIST_VIEW_SORT_COLUMN,
                                                        NULL);
+            sort_reversed = nemo_folder_settings_get_boolean (file,
+                                                              NEMO_METADATA_KEY_LIST_VIEW_SORT_REVERSED,
+                                                              default_sort_reversed);
         }
 	sort_column_id = nemo_list_model_get_sort_column_id_from_attribute (list_view->details->model,
 									  g_quark_from_string (sort_attribute));
 	g_free (sort_attribute);
-
-	default_sort_order = get_default_sort_order (file, &default_sort_reversed);
 
 	if (sort_column_id == -1) {
 		sort_column_id =
@@ -4586,16 +4861,6 @@ set_sort_order_from_metadata_and_preferences (NemoListView *list_view)
 									 g_quark_from_string (default_sort_order));
 	}
 
-    if (!nemo_global_preferences_get_remember_folder_settings ()) {
-        gint dir = nemo_window_get_ignore_meta_sort_direction (nemo_view_get_nemo_window (NEMO_VIEW (list_view)));
-        sort_reversed = dir > SORT_NULL ? dir == SORT_DESCENDING : default_sort_reversed;
-    } else if (nemo_file_is_in_search (file)) {
-        sort_reversed = nemo_config_get_boolean (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_REVERSE_SORT);
-    } else {
-        sort_reversed = nemo_folder_settings_get_boolean (file,
-                                                          NEMO_METADATA_KEY_LIST_VIEW_SORT_REVERSED,
-                                                          default_sort_reversed);
-    }
     gtk_tree_sortable_set_sort_column_id (GTK_TREE_SORTABLE (list_view->details->model),
                                                              sort_column_id,
                                                              sort_reversed ? GTK_SORT_DESCENDING : GTK_SORT_ASCENDING);
@@ -4605,7 +4870,7 @@ static gboolean
 list_view_changed_foreach (GtkTreeModel *model,
               		   GtkTreePath  *path,
 			   GtkTreeIter  *iter,
-			   gpointer      data)
+			   G_GNUC_UNUSED gpointer      data)
 {
 	gtk_tree_model_row_changed (model, path, iter);
 	return FALSE;
@@ -4730,6 +4995,7 @@ nemo_list_view_clear (NemoView *view)
 
     list_view->details->ok_to_load_deferred_attrs = FALSE;
     g_clear_object (&list_view->details->search_root);
+    eel_menu_press_cancel (&list_view->details->menu_press);
 
     if (list_view->details->update_visible_icons_id > 0) {
         g_source_remove (list_view->details->update_visible_icons_id);
@@ -4755,8 +5021,8 @@ nemo_list_view_clear (NemoView *view)
 }
 
 static void
-nemo_list_view_rename_callback (NemoFile *file,
-				    GFile *result_location,
+nemo_list_view_rename_callback (G_GNUC_UNUSED NemoFile *file,
+				    G_GNUC_UNUSED GFile *result_location,
 				    GError *error,
 				    gpointer callback_data)
 {
@@ -4827,9 +5093,9 @@ typedef struct {
 } HasCommonParentData;
 
 static void
-tree_selection_has_common_parent_foreach_func (GtkTreeModel *model,
+tree_selection_has_common_parent_foreach_func (G_GNUC_UNUSED GtkTreeModel *model,
 						GtkTreePath *path,
-						GtkTreeIter *iter,
+						G_GNUC_UNUSED GtkTreeIter *iter,
 						gpointer user_data)
 {
 	HasCommonParentData *data;
@@ -4964,8 +5230,7 @@ nemo_list_view_get_backing_uri (NemoView *view)
 			uri = nemo_file_get_parent_uri (file);
 			nemo_file_unref (file);
 
-			g_list_foreach (paths, (GFunc) gtk_tree_path_free, NULL);
-			g_list_free (paths);
+			g_list_free_full (paths, (GDestroyNotify) gtk_tree_path_free);
 		}
 	}
 
@@ -4977,7 +5242,7 @@ nemo_list_view_get_backing_uri (NemoView *view)
 }
 
 static void
-nemo_list_view_get_selection_foreach_func (GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter, gpointer data)
+nemo_list_view_get_selection_foreach_func (GtkTreeModel *model, G_GNUC_UNUSED GtkTreePath *path, GtkTreeIter *iter, gpointer data)
 {
 	GList **list;
 	NemoFile *file;
@@ -5047,7 +5312,7 @@ nemo_list_view_update_selection (NemoView *view)
 }
 
 static void
-nemo_list_view_get_selection_for_file_transfer_foreach_func (GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter, gpointer data)
+nemo_list_view_get_selection_for_file_transfer_foreach_func (GtkTreeModel *model, G_GNUC_UNUSED GtkTreePath *path, GtkTreeIter *iter, gpointer data)
 {
 	NemoFile *file;
 	struct SelectionForeachData *selection_data;
@@ -5342,17 +5607,22 @@ nemo_list_view_reset_to_defaults (NemoView *view)
                                      columns_reordered_callback,
                                      NEMO_LIST_VIEW (view));
 
-    if (!nemo_global_preferences_get_remember_folder_settings ()) {
+    /* Find results keep their columns and sort whatever
+       remember-folder-settings says, so the window's, which are the folders'
+       when that is off, stay as they are. The zoom is still the window's. */
+    if (nemo_file_is_in_search (file)) {
+        nemo_search_columns_save (NULL);
+        nemo_search_sort_forget ();
+        if (!nemo_global_preferences_get_remember_folder_settings ()) {
+            nemo_window_forget_ignore_meta_icon_sizes (nemo_view_get_nemo_window (NEMO_VIEW (view)));
+        }
+    } else if (!nemo_global_preferences_get_remember_folder_settings ()) {
         NemoWindow *window = nemo_view_get_nemo_window (NEMO_VIEW (view));
         nemo_window_set_ignore_meta_sort_column (window, NULL);
         nemo_window_set_ignore_meta_sort_direction (window, SORT_NULL);
         nemo_window_forget_ignore_meta_icon_sizes (window);
         nemo_window_set_ignore_meta_column_order (window, NULL);
         nemo_window_set_ignore_meta_visible_columns (window, NULL);
-    } else if (nemo_file_is_in_search (file)) {
-        nemo_config_reset (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_VISIBLE_COLUMNS);
-        nemo_config_reset (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_SORT_COLUMN);
-        nemo_config_reset (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_REVERSE_SORT);
     } else {
         nemo_folder_settings_forget (file);
     }
@@ -5860,6 +6130,16 @@ nemo_list_view_dispose (GObject *object)
 		list_view->details->clipboard_handler_id = 0;
 	}
 
+	if (list_view->details->band.scroll_id != 0) {
+		g_source_remove (list_view->details->band.scroll_id);
+		list_view->details->band.scroll_id = 0;
+	}
+	g_list_free_full (list_view->details->band.kept, (GDestroyNotify) gtk_tree_row_reference_free);
+	list_view->details->band.kept = NULL;
+	g_clear_pointer (&list_view->details->band.from, gtk_tree_row_reference_free);
+	g_clear_pointer (&list_view->details->band.first, gtk_tree_path_free);
+	g_clear_pointer (&list_view->details->band.last, gtk_tree_path_free);
+
     G_OBJECT_CLASS (nemo_list_view_parent_class)->dispose (object);
 }
 
@@ -5904,34 +6184,6 @@ nemo_list_view_finalize (GObject *object)
 	}
 
 	g_free (list_view->details);
-
-	g_signal_handlers_disconnect_by_func (nemo_preferences,
-					      default_sort_order_changed_callback,
-					      list_view);
-	g_signal_handlers_disconnect_by_func (nemo_list_view_preferences,
-					      default_icon_size_changed_callback,
-					      list_view);
-	g_signal_handlers_disconnect_by_func (nemo_list_view_preferences,
-					      default_visible_columns_changed_callback,
-					      list_view);
-	g_signal_handlers_disconnect_by_func (nemo_list_view_preferences,
-					      default_column_order_changed_callback,
-					      list_view);
-    g_signal_handlers_disconnect_by_func (nemo_list_view_preferences,
-                                          expanders_enabled_changed_cb,
-                                          list_view);
-    g_signal_handlers_disconnect_by_func (nemo_list_view_preferences,
-                                          row_shading_changed_callback,
-                                          list_view);
-	g_signal_handlers_disconnect_by_func (nemo_list_view_preferences,
-					      column_fit_percent_changed_callback,
-					      list_view);
-	g_signal_handlers_disconnect_by_func (nemo_search_preferences,
-					      search_grouping_changed_callback,
-					      list_view);
-    g_signal_handlers_disconnect_by_func (nemo_preferences,
-                                          tooltip_prefs_changed_callback,
-                                          list_view);
 
 	G_OBJECT_CLASS (nemo_list_view_parent_class)->finalize (object);
 }
@@ -6010,7 +6262,7 @@ list_view_scroll_to_file (NemoView *view,
 }
 
 static void
-list_view_notify_clipboard_info (NemoClipboardMonitor *monitor,
+list_view_notify_clipboard_info (G_GNUC_UNUSED NemoClipboardMonitor *monitor,
                                  NemoClipboardInfo *info,
                                  NemoListView *view)
 {
@@ -6030,7 +6282,7 @@ list_view_notify_clipboard_info (NemoClipboardMonitor *monitor,
 
 static void
 nemo_list_view_end_loading (NemoView *view,
-				gboolean all_files_seen)
+				G_GNUC_UNUSED gboolean all_files_seen)
 {
 	NemoClipboardMonitor *monitor;
 	NemoClipboardInfo *info;
@@ -6044,7 +6296,7 @@ nemo_list_view_end_loading (NemoView *view,
 }
 
 static const char *
-nemo_list_view_get_id (NemoView *view)
+nemo_list_view_get_id (G_GNUC_UNUSED NemoView *view)
 {
 	return NEMO_LIST_VIEW_ID;
 }
@@ -6098,6 +6350,7 @@ nemo_list_view_class_init (NemoListViewClass *class)
 	nemo_view_class->using_manual_layout = nemo_list_view_using_manual_layout;
 	nemo_view_class->get_view_id = nemo_list_view_get_id;
 	nemo_view_class->get_first_visible_file = nemo_list_view_get_first_visible_file;
+	nemo_view_class->get_selection_menu_rect = nemo_list_view_get_selection_menu_rect;
 	nemo_view_class->scroll_to_file = list_view_scroll_to_file;
     nemo_view_class->click_to_rename_mode_changed = nemo_list_view_click_to_rename_mode_changed;
 }
@@ -6112,59 +6365,59 @@ nemo_list_view_init (NemoListView *list_view)
 
 	create_and_set_up_tree_view (list_view);
 
-	g_signal_connect_swapped (nemo_preferences,
-				  "changed::" NEMO_PREFERENCES_DEFAULT_SORT_ORDER,
-				  G_CALLBACK (default_sort_order_changed_callback),
-				  list_view);
-	g_signal_connect_swapped (nemo_preferences,
-				  "changed::" NEMO_PREFERENCES_DEFAULT_SORT_IN_REVERSE_ORDER,
-				  G_CALLBACK (default_sort_order_changed_callback),
-				  list_view);
-	g_signal_connect_swapped (nemo_list_view_preferences,
-				  "changed::" NEMO_PREFERENCES_LIST_VIEW_DEFAULT_ICON_SIZE,
-				  G_CALLBACK (default_icon_size_changed_callback),
-				  list_view);
-	g_signal_connect_swapped (nemo_list_view_preferences,
-				  "changed::" NEMO_PREFERENCES_LIST_VIEW_DEFAULT_VISIBLE_COLUMNS,
-				  G_CALLBACK (default_visible_columns_changed_callback),
-				  list_view);
-	g_signal_connect_swapped (nemo_list_view_preferences,
-				  "changed::" NEMO_PREFERENCES_LIST_VIEW_DEFAULT_COLUMN_ORDER,
-				  G_CALLBACK (default_column_order_changed_callback),
-				  list_view);
-	g_signal_connect_swapped (nemo_list_view_preferences,
-				  "changed::" NEMO_PREFERENCES_LIST_VIEW_COLUMN_FIT_PERCENT,
-				  G_CALLBACK (column_fit_percent_changed_callback),
-				  list_view);
-	g_signal_connect_swapped (nemo_search_preferences,
-				  "changed::" NEMO_PREFERENCES_SEARCH_GROUP_BY_FOLDER,
-				  G_CALLBACK (search_grouping_changed_callback),
-				  list_view);
+	g_signal_connect_object (nemo_preferences,
+				 "changed::" NEMO_PREFERENCES_DEFAULT_SORT_ORDER,
+				 G_CALLBACK (default_sort_order_changed_callback),
+				 list_view, G_CONNECT_SWAPPED);
+	g_signal_connect_object (nemo_preferences,
+				 "changed::" NEMO_PREFERENCES_DEFAULT_SORT_IN_REVERSE_ORDER,
+				 G_CALLBACK (default_sort_order_changed_callback),
+				 list_view, G_CONNECT_SWAPPED);
+	g_signal_connect_object (nemo_list_view_preferences,
+				 "changed::" NEMO_PREFERENCES_LIST_VIEW_DEFAULT_ICON_SIZE,
+				 G_CALLBACK (default_icon_size_changed_callback),
+				 list_view, G_CONNECT_SWAPPED);
+	g_signal_connect_object (nemo_list_view_preferences,
+				 "changed::" NEMO_PREFERENCES_LIST_VIEW_DEFAULT_VISIBLE_COLUMNS,
+				 G_CALLBACK (default_visible_columns_changed_callback),
+				 list_view, G_CONNECT_SWAPPED);
+	g_signal_connect_object (nemo_list_view_preferences,
+				 "changed::" NEMO_PREFERENCES_LIST_VIEW_DEFAULT_COLUMN_ORDER,
+				 G_CALLBACK (default_column_order_changed_callback),
+				 list_view, G_CONNECT_SWAPPED);
+	g_signal_connect_object (nemo_list_view_preferences,
+				 "changed::" NEMO_PREFERENCES_LIST_VIEW_COLUMN_FIT_PERCENT,
+				 G_CALLBACK (column_fit_percent_changed_callback),
+				 list_view, G_CONNECT_SWAPPED);
+	g_signal_connect_object (nemo_search_preferences,
+				 "changed::" NEMO_PREFERENCES_SEARCH_GROUP_BY_FOLDER,
+				 G_CALLBACK (search_grouping_changed_callback),
+				 list_view, G_CONNECT_SWAPPED);
 
-    g_signal_connect_swapped (nemo_preferences,
-                              "changed::" NEMO_PREFERENCES_TOOLTIPS_LIST_VIEW,
-                              G_CALLBACK (tooltip_prefs_changed_callback),
-                              list_view);
+    g_signal_connect_object (nemo_preferences,
+                             "changed::" NEMO_PREFERENCES_TOOLTIPS_LIST_VIEW,
+                             G_CALLBACK (tooltip_prefs_changed_callback),
+                             list_view, G_CONNECT_SWAPPED);
 
-    g_signal_connect_swapped (nemo_preferences,
-                              "changed::" NEMO_PREFERENCES_TOOLTIP_FILE_TYPE,
-                              G_CALLBACK (tooltip_prefs_changed_callback),
-                              list_view);
+    g_signal_connect_object (nemo_preferences,
+                             "changed::" NEMO_PREFERENCES_TOOLTIP_FILE_TYPE,
+                             G_CALLBACK (tooltip_prefs_changed_callback),
+                             list_view, G_CONNECT_SWAPPED);
 
-    g_signal_connect_swapped (nemo_preferences,
-                              "changed::" NEMO_PREFERENCES_TOOLTIP_MOD_DATE,
-                              G_CALLBACK (tooltip_prefs_changed_callback),
-                              list_view);
+    g_signal_connect_object (nemo_preferences,
+                             "changed::" NEMO_PREFERENCES_TOOLTIP_MOD_DATE,
+                             G_CALLBACK (tooltip_prefs_changed_callback),
+                             list_view, G_CONNECT_SWAPPED);
 
-    g_signal_connect_swapped (nemo_preferences,
-                              "changed::" NEMO_PREFERENCES_TOOLTIP_ACCESS_DATE,
-                              G_CALLBACK (tooltip_prefs_changed_callback),
-                              list_view);
+    g_signal_connect_object (nemo_preferences,
+                             "changed::" NEMO_PREFERENCES_TOOLTIP_ACCESS_DATE,
+                             G_CALLBACK (tooltip_prefs_changed_callback),
+                             list_view, G_CONNECT_SWAPPED);
 
-    g_signal_connect_swapped (nemo_preferences,
-                              "changed::" NEMO_PREFERENCES_TOOLTIP_FULL_PATH,
-                              G_CALLBACK (tooltip_prefs_changed_callback),
-                              list_view);
+    g_signal_connect_object (nemo_preferences,
+                             "changed::" NEMO_PREFERENCES_TOOLTIP_FULL_PATH,
+                             G_CALLBACK (tooltip_prefs_changed_callback),
+                             list_view, G_CONNECT_SWAPPED);
 
     tooltip_prefs_changed_callback (list_view);
 
@@ -6205,7 +6458,7 @@ nemo_list_view_create (NemoWindowSlot *slot)
 static gboolean
 nemo_list_view_supports_uri (const char *uri,
 				 GFileType file_type,
-				 const char *mime_type)
+				 G_GNUC_UNUSED const char *mime_type)
 {
 	if (file_type == G_FILE_TYPE_DIRECTORY) {
 		return TRUE;
@@ -6252,6 +6505,7 @@ nemo_list_view_register (void)
 	nemo_view_factory_register (&nemo_list_view);
 }
 
+/* Returns: (transfer none): owned by @list_view */
 GtkTreeView*
 nemo_list_view_get_tree_view (NemoListView *list_view)
 {

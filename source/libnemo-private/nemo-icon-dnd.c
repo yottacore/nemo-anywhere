@@ -378,7 +378,7 @@ drag_data_get_callback (GtkWidget *widget,
 			GtkSelectionData *selection_data,
 			guint info,
 			guint32 time,
-			gpointer data)
+			G_GNUC_UNUSED gpointer data)
 {
 	g_assert (widget != NULL);
 	g_assert (NEMO_IS_ICON_CONTAINER (widget));
@@ -581,8 +581,8 @@ nemo_icon_container_ensure_drag_data (NemoIconContainer *container,
 
 static void
 drag_end_callback (GtkWidget *widget,
-		   GdkDragContext *context,
-		   gpointer data)
+		   G_GNUC_UNUSED GdkDragContext *context,
+		   G_GNUC_UNUSED gpointer data)
 {
 	NemoIconContainer *container;
 	NemoIconDndInfo *dnd_info;
@@ -688,7 +688,7 @@ receive_dropped_netscape_url (NemoIconContainer *container, const char *encoded_
 	g_signal_emit_by_name (container, "handle_netscape_url",
 			       encoded_url,
 			       drop_target,
-			       gdk_drag_context_get_selected_action (context),
+			       nemo_drag_selected_action (context),
 			       x, y);
 
 	g_free (drop_target);
@@ -709,7 +709,7 @@ receive_dropped_uri_list (NemoIconContainer *container, const char *uri_list, Gd
 	g_signal_emit_by_name (container, "handle_uri_list",
 				 uri_list,
 				 drop_target,
-				 gdk_drag_context_get_selected_action (context),
+				 nemo_drag_selected_action (context),
 				 x, y);
 
 	g_free (drop_target);
@@ -730,7 +730,7 @@ receive_dropped_text (NemoIconContainer *container, const char *text, GdkDragCon
 	g_signal_emit_by_name (container, "handle_text",
 			       text,
 			       drop_target,
-			       gdk_drag_context_get_selected_action (context),
+			       nemo_drag_selected_action (context),
 			       x, y);
 
 	g_free (drop_target);
@@ -753,7 +753,7 @@ receive_dropped_raw (NemoIconContainer *container, const char *raw_data, int len
 			       length,
 			       drop_target,
 			       direct_save_uri,
-			       gdk_drag_context_get_selected_action (context),
+			       nemo_drag_selected_action (context),
 			       x, y);
 
 	g_free (drop_target);
@@ -1072,7 +1072,7 @@ handle_nonlocal_move (NemoIconContainer *container,
 
 static char *
 nemo_icon_container_find_drop_target (NemoIconContainer *container,
-					  GdkDragContext *context,
+					  G_GNUC_UNUSED GdkDragContext *context,
 					  int x, int y,
 					  gboolean *icon_hit,
 					  gboolean rewrite_desktop)
@@ -1403,7 +1403,7 @@ nemo_icon_container_receive_dropped_icons (NemoIconContainer *container,
 		return;
 	}
 
-	real_action = gdk_drag_context_get_selected_action (context);
+	real_action = nemo_drag_selected_action (context);
 
 	if (real_action == GDK_ACTION_ASK) {
 		/* FIXME bugzilla.gnome.org 42485: This belongs in FMDirectoryView, not here. */
@@ -1560,7 +1560,7 @@ set_drop_target (NemoIconContainer *container,
 
 static void
 nemo_icon_dnd_update_drop_target (NemoIconContainer *container,
-				      GdkDragContext *context,
+				      G_GNUC_UNUSED GdkDragContext *context,
 				      int x, int y)
 {
 	NemoIcon *icon;
@@ -1626,9 +1626,9 @@ nemo_icon_container_free_drag_data (NemoIconContainer *container)
 
 static void
 drag_leave_callback (GtkWidget *widget,
-		     GdkDragContext *context,
-		     guint32 time,
-		     gpointer data)
+		     G_GNUC_UNUSED GdkDragContext *context,
+		     G_GNUC_UNUSED guint32 time,
+		     G_GNUC_UNUSED gpointer data)
 {
 	NemoIconDndInfo *dnd_info;
 
@@ -1647,7 +1647,7 @@ drag_leave_callback (GtkWidget *widget,
 static void
 drag_begin_callback (GtkWidget      *widget,
 		     GdkDragContext *context,
-		     gpointer        data)
+		     G_GNUC_UNUSED gpointer        data)
 {
 	NemoIconContainer *container;
 	cairo_surface_t *surface;
@@ -1774,7 +1774,7 @@ nemo_icon_dnd_begin_drag (NemoIconContainer *container,
 static gboolean
 drag_highlight_draw (GtkWidget *widget,
                      cairo_t   *cr,
-                     gpointer   user_data)
+                     G_GNUC_UNUSED gpointer   user_data)
 {
 	gint width, height;
 	GdkWindow *window;
@@ -1908,7 +1908,7 @@ drag_motion_callback (GtkWidget *widget,
         gtk_widget_queue_draw (widget);
 	}
 
-	gdk_drag_status (context, action, time);
+	nemo_drag_status (context, action, time);
 
 	return TRUE;
 }
@@ -1919,7 +1919,7 @@ drag_drop_callback (GtkWidget *widget,
 		    int x,
 		    int y,
 		    guint32 time,
-		    gpointer data)
+		    G_GNUC_UNUSED gpointer data)
 {
 	NemoIconDndInfo *dnd_info;
 
@@ -1968,7 +1968,7 @@ drag_data_received_callback (GtkWidget *widget,
 			     GtkSelectionData *data,
 			     guint info,
 			     guint32 time,
-			     gpointer user_data)
+			     G_GNUC_UNUSED gpointer user_data)
 {
     	NemoDragInfo *drag_info;
 	guchar *tmp;

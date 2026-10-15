@@ -1198,7 +1198,7 @@ unselect_all (NemoIconContainer *container)
 /* Implementation of rubberband selection.  */
 static void
 rubberband_select (NemoIconContainer *container,
-		   const EelDRect *previous_rect,
+		   G_GNUC_UNUSED const EelDRect *previous_rect,
 		   const EelDRect *current_rect)
 {
 	GList *p;
@@ -1233,9 +1233,10 @@ rubberband_select (NemoIconContainer *container,
 
 		is_in = nemo_icon_canvas_item_hit_test_rectangle (icon->item, canvas_rect);
 
+		/* Anything else cleared the selection before the band started. */
 		selection_changed |= icon_set_selected
 			(container, icon,
-			 is_in ^ icon->was_selected_before_rubberband);
+			 is_in || icon->was_selected_before_rubberband);
 	}
 
 	if (selection_changed) {
@@ -1369,7 +1370,10 @@ rubberband_timeout_callback (gpointer data)
 
 static void
 start_rubberbanding (NemoIconContainer *container,
-		     GdkEventButton *event)
+		     double x,
+		     double y,
+		     guint button,
+		     guint32 time)
 {
 	AtkObject *accessible;
 	NemoIconContainerDetails *details;
@@ -1391,7 +1395,7 @@ start_rubberbanding (NemoIconContainer *container,
 	}
 
 	eel_canvas_window_to_world
-		(EEL_CANVAS (container), event->x, event->y,
+		(EEL_CANVAS (container), x, y,
 		 &band_info->start_x, &band_info->start_y);
 
 	context = gtk_widget_get_style_context (GTK_WIDGET (container));
@@ -1421,10 +1425,11 @@ start_rubberbanding (NemoIconContainer *container,
 	atk_object_set_name (accessible, "selection");
 	atk_object_set_description (accessible, _("The selection rectangle"));
 
-	band_info->prev_x = event->x - gtk_adjustment_get_value (gtk_scrollable_get_hadjustment (GTK_SCROLLABLE (container)));
-	band_info->prev_y = event->y - gtk_adjustment_get_value (gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (container)));
+	band_info->prev_x = x - gtk_adjustment_get_value (gtk_scrollable_get_hadjustment (GTK_SCROLLABLE (container)));
+	band_info->prev_y = y - gtk_adjustment_get_value (gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (container)));
 
 	band_info->active = TRUE;
+	band_info->button = button;
 
 	if (band_info->timer_id == 0) {
 		band_info->timer_id = g_timeout_add
@@ -1437,7 +1442,23 @@ start_rubberbanding (NemoIconContainer *container,
 				(GDK_POINTER_MOTION_MASK
 				 | GDK_BUTTON_RELEASE_MASK
 				 | GDK_SCROLL_MASK),
-				NULL, event->time);
+				NULL, time);
+}
+
+/* The band waits for the press to move, so a click is still a click. */
+static void
+wait_for_band (NemoIconContainer *container,
+	       guint button,
+	       double x,
+	       double y,
+	       gboolean keep)
+{
+	NemoIconContainerDetails *details = container->details;
+
+	details->band_pending = button;
+	details->band_keep = keep;
+	details->band_press_x = (int) x;
+	details->band_press_y = (int) y;
 }
 
 static void
@@ -1724,10 +1745,10 @@ compare_icons_vertical_first (NemoIconContainer *container,
 
 static gboolean
 leftmost_in_top_row (NemoIconContainer *container,
-		     NemoIcon *start_icon,
+		     G_GNUC_UNUSED NemoIcon *start_icon,
 		     NemoIcon *best_so_far,
 		     NemoIcon *candidate,
-		     void *data)
+		     G_GNUC_UNUSED void *data)
 {
 	if (best_so_far == NULL) {
 		return TRUE;
@@ -1737,10 +1758,10 @@ leftmost_in_top_row (NemoIconContainer *container,
 
 static gboolean
 rightmost_in_top_row (NemoIconContainer *container,
-		      NemoIcon *start_icon,
+		      G_GNUC_UNUSED NemoIcon *start_icon,
 		      NemoIcon *best_so_far,
 		      NemoIcon *candidate,
-		      void *data)
+		      G_GNUC_UNUSED void *data)
 {
 	if (best_so_far == NULL) {
 		return TRUE;
@@ -1751,10 +1772,10 @@ rightmost_in_top_row (NemoIconContainer *container,
 
 static gboolean
 rightmost_in_bottom_row (NemoIconContainer *container,
-			 NemoIcon *start_icon,
+			 G_GNUC_UNUSED NemoIcon *start_icon,
 			 NemoIcon *best_so_far,
 			 NemoIcon *candidate,
-			 void *data)
+			 G_GNUC_UNUSED void *data)
 {
 	if (best_so_far == NULL) {
 		return TRUE;
@@ -1801,7 +1822,7 @@ same_row_right_side_leftmost (NemoIconContainer *container,
 			      NemoIcon *start_icon,
 			      NemoIcon *best_so_far,
 			      NemoIcon *candidate,
-			      void *data)
+			      G_GNUC_UNUSED void *data)
 {
 	/* Candidates not on the start row do not qualify. */
 	if (compare_with_start_row (container, candidate) != 0) {
@@ -1832,7 +1853,7 @@ same_row_left_side_rightmost (NemoIconContainer *container,
 			      NemoIcon *start_icon,
 			      NemoIcon *best_so_far,
 			      NemoIcon *candidate,
-			      void *data)
+			      G_GNUC_UNUSED void *data)
 {
 	/* Candidates not on the start row do not qualify. */
 	if (compare_with_start_row (container, candidate) != 0) {
@@ -1860,10 +1881,10 @@ same_row_left_side_rightmost (NemoIconContainer *container,
 
 static gboolean
 next_row_leftmost (NemoIconContainer *container,
-		   NemoIcon *start_icon,
+		   G_GNUC_UNUSED NemoIcon *start_icon,
 	           NemoIcon *best_so_far,
 		   NemoIcon *candidate,
-		   void *data)
+		   G_GNUC_UNUSED void *data)
 {
 	/* sort out icons that are not below the current row */
 	if (compare_with_start_row (container, candidate) >= 0) {
@@ -1890,10 +1911,10 @@ next_row_leftmost (NemoIconContainer *container,
 
 static gboolean
 next_row_rightmost (NemoIconContainer *container,
-		    NemoIcon *start_icon,
+		    G_GNUC_UNUSED NemoIcon *start_icon,
 		    NemoIcon *best_so_far,
 		    NemoIcon *candidate,
-		    void *data)
+		    G_GNUC_UNUSED void *data)
 {
 	/* sort out icons that are not below the current row */
 	if (compare_with_start_row (container, candidate) >= 0) {
@@ -1920,10 +1941,10 @@ next_row_rightmost (NemoIconContainer *container,
 
 static gboolean
 next_column_bottommost (NemoIconContainer *container,
-			NemoIcon *start_icon,
+			G_GNUC_UNUSED NemoIcon *start_icon,
 			NemoIcon *best_so_far,
 			NemoIcon *candidate,
-			void *data)
+			G_GNUC_UNUSED void *data)
 {
 	/* sort out icons that are not on the right of the current column */
 	if (compare_with_start_column (container, candidate) >= 0) {
@@ -1950,10 +1971,10 @@ next_column_bottommost (NemoIconContainer *container,
 
 static gboolean
 previous_row_rightmost (NemoIconContainer *container,
-		        NemoIcon *start_icon,
+		        G_GNUC_UNUSED NemoIcon *start_icon,
 			NemoIcon *best_so_far,
 			NemoIcon *candidate,
-			void *data)
+			G_GNUC_UNUSED void *data)
 {
 	/* sort out icons that are not above the current row */
 	if (compare_with_start_row (container, candidate) <= 0) {
@@ -1983,7 +2004,7 @@ same_column_above_lowest (NemoIconContainer *container,
 			  NemoIcon *start_icon,
 			  NemoIcon *best_so_far,
 			  NemoIcon *candidate,
-			  void *data)
+			  G_GNUC_UNUSED void *data)
 {
 	/* Candidates not on the start column do not qualify. */
 	if (compare_with_start_column (container, candidate) != 0) {
@@ -2014,7 +2035,7 @@ same_column_below_highest (NemoIconContainer *container,
 			   NemoIcon *start_icon,
 			   NemoIcon *best_so_far,
 			   NemoIcon *candidate,
-			   void *data)
+			   G_GNUC_UNUSED void *data)
 {
 	/* Candidates not on the start column do not qualify. */
 	if (compare_with_start_column (container, candidate) != 0) {
@@ -2042,10 +2063,10 @@ same_column_below_highest (NemoIconContainer *container,
 
 static gboolean
 previous_column_highest (NemoIconContainer *container,
-			 NemoIcon *start_icon,
+			 G_GNUC_UNUSED NemoIcon *start_icon,
 			 NemoIcon *best_so_far,
 			 NemoIcon *candidate,
-			 void *data)
+			 G_GNUC_UNUSED void *data)
 {
 	/* sort out icons that are not before the current column */
 	if (compare_with_start_column (container, candidate) <= 0) {
@@ -2073,10 +2094,10 @@ previous_column_highest (NemoIconContainer *container,
 
 static gboolean
 next_column_highest (NemoIconContainer *container,
-		     NemoIcon *start_icon,
+		     G_GNUC_UNUSED NemoIcon *start_icon,
 		     NemoIcon *best_so_far,
 		     NemoIcon *candidate,
-		     void *data)
+		     G_GNUC_UNUSED void *data)
 {
 	/* sort out icons that are not after the current column */
 	if (compare_with_start_column (container, candidate) >= 0) {
@@ -2103,10 +2124,10 @@ next_column_highest (NemoIconContainer *container,
 
 static gboolean
 previous_column_lowest (NemoIconContainer *container,
-		        NemoIcon *start_icon,
+		        G_GNUC_UNUSED NemoIcon *start_icon,
 			NemoIcon *best_so_far,
 			NemoIcon *candidate,
-			void *data)
+			G_GNUC_UNUSED void *data)
 {
 	/* sort out icons that are not before the current column */
 	if (compare_with_start_column (container, candidate) <= 0) {
@@ -2133,10 +2154,10 @@ previous_column_lowest (NemoIconContainer *container,
 
 static gboolean
 last_column_lowest (NemoIconContainer *container,
-		    NemoIcon *start_icon,
+		    G_GNUC_UNUSED NemoIcon *start_icon,
 		    NemoIcon *best_so_far,
 		    NemoIcon *candidate,
-		    void *data)
+		    G_GNUC_UNUSED void *data)
 {
 	if (best_so_far == NULL) {
 		return TRUE;
@@ -2146,7 +2167,7 @@ last_column_lowest (NemoIconContainer *container,
 
 static gboolean
 closest_in_90_degrees (NemoIconContainer *container,
-		       NemoIcon *start_icon,
+		       G_GNUC_UNUSED NemoIcon *start_icon,
 		       NemoIcon *best_so_far,
 		       NemoIcon *candidate,
 		       void *data)
@@ -2762,17 +2783,6 @@ finalize (GObject *object)
 
 	details = NEMO_ICON_CONTAINER (object)->details;
 
-	g_signal_handlers_disconnect_by_func (nemo_icon_view_preferences,
-					      text_ellipsis_limit_changed_container_callback,
-					      object);
-	g_signal_handlers_disconnect_by_func (nemo_desktop_preferences,
-					      text_ellipsis_limit_changed_container_callback,
-					      object);
-
-    g_signal_handlers_disconnect_by_func (nemo_preferences,
-                                          tooltip_prefs_changed_callback,
-                                          object);
-
 	g_hash_table_destroy (details->icon_set);
 	details->icon_set = NULL;
 
@@ -2872,7 +2882,7 @@ size_allocate (GtkWidget *widget,
 }
 
 static GtkSizeRequestMode
-get_request_mode (GtkWidget *widget)
+get_request_mode (G_GNUC_UNUSED GtkWidget *widget)
 {
   /* Don't trade size at all, since we get whatever we get anyway. */
   return GTK_SIZE_REQUEST_CONSTANT_SIZE;
@@ -2989,6 +2999,30 @@ style_updated (GtkWidget *widget)
 	}
 }
 
+/* A left press held still. Its release goes to the menu, so the press is
+   dropped here: no drag, band, rename or click to come. */
+static void
+long_press_menu (GtkWidget *widget,
+		 GdkEventButton *event,
+		 G_GNUC_UNUSED gpointer data)
+{
+	NemoIconContainer *container = NEMO_ICON_CONTAINER (widget);
+	NemoIconContainerDetails *details = container->details;
+
+	details->band_pending = 0;
+	if (details->rubberband_info.active) {
+		stop_rubberbanding (container, GDK_CURRENT_TIME);
+	}
+	details->drag_button = 0;
+	details->drag_started = FALSE;
+	details->drag_icon = NULL;
+	details->drag_state = DRAG_STATE_INITIAL;
+	g_signal_emit (container,
+		       details->menu_on_icon ? signals[CONTEXT_CLICK_SELECTION] :
+					      signals[CONTEXT_CLICK_BACKGROUND],
+		       0, event);
+}
+
 static gboolean
 button_press_event (GtkWidget *widget,
 		    GdkEventButton *event)
@@ -3048,9 +3082,15 @@ button_press_event (GtkWidget *widget,
 		container->details->double_click_icon[0] = NULL;
 	}
 
-	/* Button 1 does rubber banding. */
+	/* A right band can be under way. */
+	if (container->details->rubberband_info.active) {
+		return TRUE;
+	}
+
+	/* Button 1 does rubber banding. Ctrl adds to the selection, and
+	   anything else replaces it. */
 	if (event->button == RUBBERBAND_BUTTON) {
-		if (! button_event_modifies_selection (event)) {
+		if ((event->state & eel_gtk_primary_mask (event->window)) == 0) {
 			selection_changed = unselect_all (container);
 			if (selection_changed) {
 				g_signal_emit (container,
@@ -3058,7 +3098,10 @@ button_press_event (GtkWidget *widget,
 			}
 		}
 
-		start_rubberbanding (container, event);
+		start_rubberbanding (container, event->x, event->y, event->button, event->time);
+		eel_menu_press_hold (&container->details->menu_press, widget, event,
+				     event->x, event->y, long_press_menu, NULL);
+		container->details->menu_on_icon = FALSE;
 		return TRUE;
 	}
 
@@ -3077,14 +3120,18 @@ button_press_event (GtkWidget *widget,
 		return TRUE;
 	}
 
-	/* Button 3 does a contextual menu. */
+	/* Button 3 does a contextual menu, once it comes up without moving,
+	   and a band if it moves first. */
 	if (event->button == CONTEXTUAL_MENU_BUTTON) {
 		nemo_icon_container_end_renaming_mode (container, TRUE);
 		selection_changed = unselect_all (container);
 		if (selection_changed) {
 			g_signal_emit (container, signals[SELECTION_CHANGED], 0);
 		}
-		g_signal_emit (widget, signals[CONTEXT_CLICK_BACKGROUND], 0, event);
+		wait_for_band (container, event->button, event->x, event->y, FALSE);
+		eel_menu_press_begin (&container->details->menu_press, event->button,
+				      event->x, event->y);
+		container->details->menu_on_icon = FALSE;
 		return TRUE;
 	}
 
@@ -3491,12 +3538,34 @@ button_release_event (GtkWidget *widget,
 	container = NEMO_ICON_CONTAINER (widget);
 	details = container->details;
 
-	if (event->button == RUBBERBAND_BUTTON && details->rubberband_info.active) {
+	if (eel_menu_press_held (&details->menu_press, event->button)) {
+		return TRUE;
+	}
+
+	if (details->rubberband_info.active && event->button == details->rubberband_info.button) {
+		details->band_pending = 0;
+		eel_menu_press_end (&details->menu_press, widget, event->button, event->x, event->y);
 		stop_rubberbanding (container, event->time);
         return GTK_WIDGET_CLASS (nemo_icon_container_parent_class)->button_release_event (widget, event);
 	}
 
+	if (event->button == details->band_pending) {
+		details->band_pending = 0;
+	}
+	if (eel_menu_press_end (&details->menu_press, widget, event->button, event->x, event->y)) {
+		g_signal_emit (container,
+			       details->menu_on_icon ? signals[CONTEXT_CLICK_SELECTION] :
+						      signals[CONTEXT_CLICK_BACKGROUND],
+			       0, event);
+		return TRUE;
+	}
+
 	if (event->button == details->drag_button) {
+#ifdef G_OS_WIN32
+		gboolean menu = event->button == CONTEXTUAL_MENU_BUTTON &&
+				details->drag_state == DRAG_STATE_MOVE_OR_COPY &&
+				!details->drag_started;
+#endif
 		details->drag_button = 0;
 
 		switch (details->drag_state) {
@@ -3519,6 +3588,11 @@ button_release_event (GtkWidget *widget,
 		}
 
 		clear_drag_state (container);
+#ifdef G_OS_WIN32
+		if (menu) {
+			g_signal_emit (container, signals[CONTEXT_CLICK_SELECTION], 0, event);
+		}
+#endif
 		return TRUE;
 	}
 
@@ -3537,6 +3611,27 @@ motion_notify_event (GtkWidget *widget,
 
 	container = NEMO_ICON_CONTAINER (widget);
 	details = container->details;
+
+	eel_menu_press_moved (&details->menu_press, widget, event->x, event->y);
+
+	/* Its release went elsewhere. */
+	if (details->band_pending != 0 &&
+	    (event->state & (GDK_BUTTON1_MASK << (details->band_pending - 1))) == 0) {
+		details->band_pending = 0;
+	}
+
+	if (details->band_pending != 0 && !details->rubberband_info.active &&
+	    gtk_drag_check_threshold (widget, details->band_press_x, details->band_press_y,
+				      (int) event->x, (int) event->y)) {
+		guint button = details->band_pending;
+
+		details->band_pending = 0;
+		if (!details->band_keep && unselect_all (container)) {
+			g_signal_emit (container, signals[SELECTION_CHANGED], 0);
+		}
+		start_rubberbanding (container, details->band_press_x, details->band_press_y,
+				     button, event->time);
+	}
 
 	if (details->drag_button != 0) {
 		switch (details->drag_state) {
@@ -3731,8 +3826,8 @@ reset_search_entry_timeout (NemoIconContainer *container)
  * callback.
  */
 static void
-nemo_icon_container_search_preedit_changed (GtkEntry *entry,
-						gchar *preedit,
+nemo_icon_container_search_preedit_changed (G_GNUC_UNUSED GtkEntry *entry,
+						G_GNUC_UNUSED gchar *preedit,
 						NemoIconContainer *container)
 {
 	container->details->imcontext_changed = 1;
@@ -3740,7 +3835,7 @@ nemo_icon_container_search_preedit_changed (GtkEntry *entry,
 }
 
 static void
-nemo_icon_container_search_activate (GtkEntry *entry,
+nemo_icon_container_search_activate (G_GNUC_UNUSED GtkEntry *entry,
 					 NemoIconContainer *container)
 {
 	nemo_icon_container_search_dialog_hide (container->details->search_window,
@@ -3751,7 +3846,7 @@ nemo_icon_container_search_activate (GtkEntry *entry,
 
 static gboolean
 nemo_icon_container_search_delete_event (GtkWidget *widget,
-					     GdkEventAny *event,
+					     G_GNUC_UNUSED GdkEventAny *event,
 					     NemoIconContainer *container)
 {
 	nemo_icon_container_search_dialog_hide (widget, container);
@@ -3774,8 +3869,8 @@ nemo_icon_container_search_button_press_event (GtkWidget *widget,
 }
 
 static gboolean
-nemo_icon_container_search_entry_button_press_event (GtkWidget *widget,
-							 GdkEventButton *event,
+nemo_icon_container_search_entry_button_press_event (G_GNUC_UNUSED GtkWidget *widget,
+							 G_GNUC_UNUSED GdkEventButton *event,
 							 NemoIconContainer *container)
 {
 	reset_search_entry_timeout (container);
@@ -3784,7 +3879,7 @@ nemo_icon_container_search_entry_button_press_event (GtkWidget *widget,
 }
 
 static void
-nemo_icon_container_search_populate_popup (GtkEntry *entry,
+nemo_icon_container_search_populate_popup (G_GNUC_UNUSED GtkEntry *entry,
 					       GtkMenu *menu,
 					       NemoIconContainer *container)
 {
@@ -3885,7 +3980,7 @@ nemo_icon_container_search_iter (NemoIconContainer *container,
 }
 
 static void
-nemo_icon_container_search_move (GtkWidget *window,
+nemo_icon_container_search_move (G_GNUC_UNUSED GtkWidget *window,
 				     NemoIconContainer *container,
 				     gboolean up)
 {
@@ -3952,6 +4047,8 @@ nemo_icon_container_search_key_press_event (GtkWidget *widget,
 						GdkEventKey *event,
 						NemoIconContainer *container)
 {
+	/* Same key as GTK's own list search: Cmd+G on macOS */
+	GdkModifierType primary = eel_gtk_primary_mask (event->window);
 	gboolean retval = FALSE;
 
 	g_assert (GTK_IS_WIDGET (widget));
@@ -3978,7 +4075,7 @@ nemo_icon_container_search_key_press_event (GtkWidget *widget,
 		retval = TRUE;
 	}
 
-	if (((event->state & (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) == (GDK_CONTROL_MASK | GDK_SHIFT_MASK))
+	if (((event->state & (primary | GDK_SHIFT_MASK)) == (primary | GDK_SHIFT_MASK))
 	    && (event->keyval == GDK_KEY_g || event->keyval == GDK_KEY_G)) {
 		nemo_icon_container_search_move (widget, container, TRUE);
 		retval = TRUE;
@@ -3990,7 +4087,7 @@ nemo_icon_container_search_key_press_event (GtkWidget *widget,
 		retval = TRUE;
 	}
 
-	if (((event->state & (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) == GDK_CONTROL_MASK)
+	if (((event->state & (primary | GDK_SHIFT_MASK)) == primary)
 	    && (event->keyval == GDK_KEY_g || event->keyval == GDK_KEY_G)) {
 		nemo_icon_container_search_move (widget, container, FALSE);
 		retval = TRUE;
@@ -4140,7 +4237,7 @@ nemo_icon_container_start_interactive_search (NemoIconContainer *container)
 
 static gboolean
 handle_popups (NemoIconContainer *container,
-	       GdkEventKey           *event,
+	       G_GNUC_UNUSED GdkEventKey           *event,
 	       const char            *signal)
 {
 	/* ensure we clear the drag state before showing the menu */
@@ -4282,7 +4379,7 @@ key_press_event (GtkWidget *widget,
 			break;
 		case GDK_KEY_v:
 			/* Eat Control + v to not enable type ahead */
-			if ((event->state & GDK_CONTROL_MASK) != 0) {
+			if ((event->state & eel_gtk_primary_mask (event->window)) != 0) {
 				handled = TRUE;
 			}
 			break;
@@ -4377,8 +4474,8 @@ popup_menu (GtkWidget *widget)
 }
 
 static void
-draw_canvas_background (EelCanvas *canvas,
-                        cairo_t   *cr)
+draw_canvas_background (G_GNUC_UNUSED EelCanvas *canvas,
+                        G_GNUC_UNUSED cairo_t   *cr)
 {
     /* Don't chain up to the parent to avoid clearing and redrawing.
      * This is overridden by nemo-icon-view-grid-container. */
@@ -4431,60 +4528,60 @@ text_ellipsis_limit_changed_container_callback (gpointer callback_data)
 }
 
 static void
-real_lay_down_icons (NemoIconContainer *container,
-                     GList             *icons,
-                     double start_y)
+real_lay_down_icons (G_GNUC_UNUSED NemoIconContainer *container,
+                     G_GNUC_UNUSED GList             *icons,
+                     G_GNUC_UNUSED double start_y)
 {
     g_assert_not_reached ();
 }
 
 static void
-real_icon_set_position (NemoIconContainer *container,
-                        NemoIcon          *icon,
-                        double x,
-                        double y)
+real_icon_set_position (G_GNUC_UNUSED NemoIconContainer *container,
+                        G_GNUC_UNUSED NemoIcon          *icon,
+                        G_GNUC_UNUSED double x,
+                        G_GNUC_UNUSED double y)
 {
     g_assert_not_reached ();
 }
 
 static void
-real_move_icon (NemoIconContainer *container,
-                NemoIcon *icon,
-                int x, int y,
-                double scale,
-                gboolean raise,
-                gboolean snap,
-                gboolean update_position)
+real_move_icon (G_GNUC_UNUSED NemoIconContainer *container,
+                G_GNUC_UNUSED NemoIcon *icon,
+                G_GNUC_UNUSED int x, G_GNUC_UNUSED int y,
+                G_GNUC_UNUSED double scale,
+                G_GNUC_UNUSED gboolean raise,
+                G_GNUC_UNUSED gboolean snap,
+                G_GNUC_UNUSED gboolean update_position)
 {
     g_assert_not_reached ();
 }
 
 static void
-real_update_icon (NemoIconContainer *container,
-                  NemoIcon *icon,
-                  gboolean visible)
+real_update_icon (G_GNUC_UNUSED NemoIconContainer *container,
+                  G_GNUC_UNUSED NemoIcon *icon,
+                  G_GNUC_UNUSED gboolean visible)
 {
     g_assert_not_reached ();
 }
 
 static void
-real_align_icons (NemoIconContainer *container)
+real_align_icons (G_GNUC_UNUSED NemoIconContainer *container)
 {
     g_assert_not_reached ();
 }
 
 static void
-real_icon_get_bounding_box (NemoIcon *icon,
-                            int *x1_return, int *y1_return,
-                            int *x2_return, int *y2_return,
-                            NemoIconCanvasItemBoundsUsage usage)
+real_icon_get_bounding_box (G_GNUC_UNUSED NemoIcon *icon,
+                            G_GNUC_UNUSED int *x1_return, G_GNUC_UNUSED int *y1_return,
+                            G_GNUC_UNUSED int *x2_return, G_GNUC_UNUSED int *y2_return,
+                            G_GNUC_UNUSED NemoIconCanvasItemBoundsUsage usage)
 {
     g_assert_not_reached ();
 }
 
 static void
-real_set_icon_size (NemoIconContainer *container,
-                    gint               size)
+real_set_icon_size (G_GNUC_UNUSED NemoIconContainer *container,
+                    G_GNUC_UNUSED gint               size)
 {
     g_assert_not_reached ();
 }
@@ -4888,7 +4985,7 @@ update_selected (NemoIconContainer *container)
 }
 
 static gboolean
-handle_focus_in_event (GtkWidget *widget, GdkEventFocus *event, gpointer user_data)
+handle_focus_in_event (GtkWidget *widget, G_GNUC_UNUSED GdkEventFocus *event, G_GNUC_UNUSED gpointer user_data)
 {
 	update_selected (NEMO_ICON_CONTAINER (widget));
 
@@ -4896,7 +4993,7 @@ handle_focus_in_event (GtkWidget *widget, GdkEventFocus *event, gpointer user_da
 }
 
 static gboolean
-handle_focus_out_event (GtkWidget *widget, GdkEventFocus *event, gpointer user_data)
+handle_focus_out_event (GtkWidget *widget, G_GNUC_UNUSED GdkEventFocus *event, G_GNUC_UNUSED gpointer user_data)
 {
 	/* End renaming and commit change. */
 	nemo_icon_container_end_renaming_mode (NEMO_ICON_CONTAINER (widget), TRUE);
@@ -4928,30 +5025,30 @@ nemo_icon_container_init (NemoIconContainer *container)
 	g_signal_connect (container, "focus-out-event",
 			  G_CALLBACK (handle_focus_out_event), NULL);
 
-    g_signal_connect_swapped (nemo_preferences,
-                              "changed::" NEMO_PREFERENCES_TOOLTIPS_ICON_VIEW,
-                              G_CALLBACK (tooltip_prefs_changed_callback),
-                              container);
+    g_signal_connect_object (nemo_preferences,
+                             "changed::" NEMO_PREFERENCES_TOOLTIPS_ICON_VIEW,
+                             G_CALLBACK (tooltip_prefs_changed_callback),
+                             container, G_CONNECT_SWAPPED);
 
-    g_signal_connect_swapped (nemo_preferences,
-                              "changed::" NEMO_PREFERENCES_TOOLTIP_FILE_TYPE,
-                              G_CALLBACK (tooltip_prefs_changed_callback),
-                              container);
+    g_signal_connect_object (nemo_preferences,
+                             "changed::" NEMO_PREFERENCES_TOOLTIP_FILE_TYPE,
+                             G_CALLBACK (tooltip_prefs_changed_callback),
+                             container, G_CONNECT_SWAPPED);
 
-    g_signal_connect_swapped (nemo_preferences,
-                              "changed::" NEMO_PREFERENCES_TOOLTIP_MOD_DATE,
-                              G_CALLBACK (tooltip_prefs_changed_callback),
-                              container);
+    g_signal_connect_object (nemo_preferences,
+                             "changed::" NEMO_PREFERENCES_TOOLTIP_MOD_DATE,
+                             G_CALLBACK (tooltip_prefs_changed_callback),
+                             container, G_CONNECT_SWAPPED);
 
-    g_signal_connect_swapped (nemo_preferences,
-                              "changed::" NEMO_PREFERENCES_TOOLTIP_ACCESS_DATE,
-                              G_CALLBACK (tooltip_prefs_changed_callback),
-                              container);
+    g_signal_connect_object (nemo_preferences,
+                             "changed::" NEMO_PREFERENCES_TOOLTIP_ACCESS_DATE,
+                             G_CALLBACK (tooltip_prefs_changed_callback),
+                             container, G_CONNECT_SWAPPED);
 
-    g_signal_connect_swapped (nemo_preferences,
-                              "changed::" NEMO_PREFERENCES_TOOLTIP_FULL_PATH,
-                              G_CALLBACK (tooltip_prefs_changed_callback),
-                              container);
+    g_signal_connect_object (nemo_preferences,
+                             "changed::" NEMO_PREFERENCES_TOOLTIP_FULL_PATH,
+                             G_CALLBACK (tooltip_prefs_changed_callback),
+                             container, G_CONNECT_SWAPPED);
 
     container->details->show_icon_view_tooltips = nemo_config_get_boolean (nemo_preferences,
                                                                           NEMO_PREFERENCES_TOOLTIPS_ICON_VIEW);
@@ -5112,6 +5209,19 @@ handle_icon_button_press (NemoIconContainer *container,
 		}
 	}
 
+#ifdef G_OS_WIN32
+	/* As in Explorer, the right button drags too, so its menu waits for the
+	 * release. */
+	if (event->button == CONTEXTUAL_MENU_BUTTON) {
+		details->drag_button = event->button;
+		details->drag_icon = icon;
+		details->drag_x = event->x;
+		details->drag_y = event->y;
+		details->drag_state = DRAG_STATE_MOVE_OR_COPY;
+		details->drag_started = FALSE;
+	}
+#endif
+
 	/* Modify the selection as appropriate. Selection is modified
 	 * the same way for contextual menu as it would be without.
 	 */
@@ -5148,14 +5258,40 @@ handle_icon_button_press (NemoIconContainer *container,
 		}
 	}
 
-	if (event->button == CONTEXTUAL_MENU_BUTTON) {
-		clear_drag_state (container);
+	/* Ctrl or Shift from an icon not yet selected bands; from a selected
+	   one they drag, and pick copy or move. */
+	if (event->button == DRAG_BUTTON && !details->icon_selected_on_button_down &&
+	    button_event_modifies_selection (event)) {
+		double x, y;
 
-		g_signal_emit (container,
-			       signals[CONTEXT_CLICK_SELECTION], 0,
-			       event);
+		details->drag_button = 0;
+		clear_drag_state (container);
+		eel_canvas_world_to_window (EEL_CANVAS (container), event->x, event->y, &x, &y);
+		wait_for_band (container, event->button, x, y,
+			       (event->state & eel_gtk_primary_mask (event->window)) != 0);
 	}
 
+	if (event->button == DRAG_BUTTON && details->drag_button == DRAG_BUTTON) {
+		double x, y;
+
+		eel_canvas_world_to_window (EEL_CANVAS (container), event->x, event->y, &x, &y);
+		eel_menu_press_hold (&details->menu_press, GTK_WIDGET (container), event, x, y,
+				     long_press_menu, NULL);
+		details->menu_on_icon = TRUE;
+	}
+
+#ifndef G_OS_WIN32
+	/* The menu waits for the release, so the press can band. */
+	if (event->button == CONTEXTUAL_MENU_BUTTON) {
+		double x, y;
+
+		clear_drag_state (container);
+		eel_canvas_world_to_window (EEL_CANVAS (container), event->x, event->y, &x, &y);
+		wait_for_band (container, event->button, x, y, FALSE);
+		eel_menu_press_begin (&details->menu_press, event->button, x, y);
+		details->menu_on_icon = TRUE;
+	}
+#endif
 
 	return TRUE;
 }
@@ -5184,6 +5320,7 @@ item_event_callback (EelCanvasItem *item,
     return FALSE;
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_icon_container_new (void)
 {
@@ -5202,6 +5339,7 @@ nemo_icon_container_clear (NemoIconContainer *container)
 	details = container->details;
 	details->layout_timestamp = UNDEFINED_TIME;
 	details->store_layout_timestamps_when_finishing_new_icons = FALSE;
+	eel_menu_press_cancel (&details->menu_press);
 
     details->fixed_text_height = -1;
 
@@ -5248,6 +5386,7 @@ nemo_icon_container_is_empty (NemoIconContainer *container)
 	return container->details->icons == NULL;
 }
 
+/* Returns: (transfer none): owned by @container */
 NemoIconData *
 nemo_icon_container_get_first_visible_icon (NemoIconContainer *container)
 {
@@ -5402,6 +5541,7 @@ nemo_icon_container_for_each (NemoIconContainer *container,
 			call_icon_callback, &callback_and_data);
 }
 
+/* Returns: (transfer container): free with g_list_free; the data stays the container's */
 GList *
 nemo_icon_container_get_data_in_order (NemoIconContainer *container)
 {
@@ -5572,6 +5712,7 @@ activate_selected_items_alternate (NemoIconContainer *container,
 	g_list_free (selection);
 }
 
+/* Returns: (transfer full): unref with nemo_icon_info_unref */
 NemoIconInfo *
 nemo_icon_container_get_icon_images (NemoIconContainer *container,
                                      NemoIconData      *data,
@@ -5819,7 +5960,7 @@ queue_update_visible_icons(NemoIconContainer *container,
 }
 
 static void
-handle_vadjustment_changed (GtkAdjustment *adjustment,
+handle_vadjustment_changed (G_GNUC_UNUSED GtkAdjustment *adjustment,
 			    NemoIconContainer *container)
 {
 	if (!nemo_icon_container_is_layout_vertical (container)) {
@@ -5829,7 +5970,7 @@ handle_vadjustment_changed (GtkAdjustment *adjustment,
 }
 
 static void
-handle_hadjustment_changed (GtkAdjustment *adjustment,
+handle_hadjustment_changed (G_GNUC_UNUSED GtkAdjustment *adjustment,
 			    NemoIconContainer *container)
 {
 	if (nemo_icon_container_is_layout_vertical (container)) {
@@ -6109,7 +6250,7 @@ nemo_icon_container_get_real_selection (NemoIconContainer *container)
  *
  * Get a list of the icons currently selected in @container.
  *
- * Return value: A GList of the programmer-specified data associated to each
+ * Return value: (transfer container): A GList of the programmer-specified data associated to each
  * selected icon, or NULL if no icon is selected.  The caller is expected to
  * free the list when it is not needed anymore.
  **/
@@ -6129,7 +6270,7 @@ nemo_icon_container_get_selection (NemoIconContainer *container)
  *
  * Get an exiting list of the icons currently selected in @container.
  *
- * Return value: A GList of the programmer-specified data associated to each
+ * Return value: (transfer none): A GList of the programmer-specified data associated to each
  * selected icon, or NULL if no icon is selected.  This list belongs to the
  * NemoIconContainer and should not be freed.
  **/
@@ -6204,7 +6345,7 @@ nemo_icon_container_invert_selection (NemoIconContainer *container)
 
 /* Returns an array of GdkPoints of locations of the icons. */
 static GArray *
-nemo_icon_container_get_icon_locations (NemoIconContainer *container,
+nemo_icon_container_get_icon_locations (G_GNUC_UNUSED NemoIconContainer *container,
 					    GList *icons)
 {
 	GArray *result;
@@ -6229,6 +6370,8 @@ nemo_icon_container_get_icon_locations (NemoIconContainer *container,
  * @container: An icon container widget.
  *
  * Returns an array of GdkPoints of locations of the selected icons.
+ *
+ * Returns: (transfer full): free with g_array_free (array, TRUE)
  **/
 GArray *
 nemo_icon_container_get_selected_icon_locations (NemoIconContainer *container)
@@ -6243,6 +6386,77 @@ nemo_icon_container_get_selected_icon_locations (NemoIconContainer *container)
 	g_list_free (icons);
 
 	return result;
+}
+
+/* The part of an icon and its label that is in sight, in the container's
+   own coordinates. */
+static gboolean
+icon_get_visible_rect (NemoIconContainer *container,
+		       NemoIcon *icon,
+		       GdkRectangle *rect)
+{
+	GdkRectangle icon_rect, bounds = { 0, 0, 0, 0 };
+	EelIRect canvas_bounds;
+
+	if (icon->item == NULL || !nemo_icon_container_icon_is_positioned (icon)) {
+		return FALSE;
+	}
+
+	item_get_canvas_bounds (container, EEL_CANVAS_ITEM (icon->item), &canvas_bounds, FALSE);
+	icon_rect.x = canvas_bounds.x0 - (int) gtk_adjustment_get_value
+		(gtk_scrollable_get_hadjustment (GTK_SCROLLABLE (container)));
+	icon_rect.y = canvas_bounds.y0 - (int) gtk_adjustment_get_value
+		(gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (container)));
+	icon_rect.width = canvas_bounds.x1 - canvas_bounds.x0;
+	icon_rect.height = canvas_bounds.y1 - canvas_bounds.y0;
+
+	bounds.width = gtk_widget_get_allocated_width (GTK_WIDGET (container));
+	bounds.height = gtk_widget_get_allocated_height (GTK_WIDGET (container));
+
+	return gdk_rectangle_intersect (&icon_rect, &bounds, rect);
+}
+
+/**
+ * nemo_icon_container_get_selection_menu_rect:
+ * @container: An icon container widget.
+ * @rect: (out): Where the icon sits, in the container's coordinates.
+ *
+ * The selected icon a menu opened from the keyboard belongs beside: the
+ * keyboard focus when it is selected, else the selected icon nearest the top
+ * left that is in sight.
+ *
+ * Return value: FALSE when no selected icon is in sight.
+ **/
+gboolean
+nemo_icon_container_get_selection_menu_rect (NemoIconContainer *container,
+					     GdkRectangle *rect)
+{
+	NemoIcon *focus, *icon;
+	GdkRectangle icon_rect;
+	gboolean found = FALSE;
+	GList *p;
+
+	g_return_val_if_fail (NEMO_IS_ICON_CONTAINER (container), FALSE);
+
+	focus = container->details->keyboard_focus;
+	if (focus != NULL && focus->is_selected &&
+	    icon_get_visible_rect (container, focus, rect)) {
+		return TRUE;
+	}
+
+	for (p = container->details->icons; p != NULL; p = p->next) {
+		icon = p->data;
+		if (!icon->is_selected || !icon_get_visible_rect (container, icon, &icon_rect)) {
+			continue;
+		}
+		if (!found || icon_rect.y < rect->y ||
+		    (icon_rect.y == rect->y && icon_rect.x < rect->x)) {
+			*rect = icon_rect;
+			found = TRUE;
+		}
+	}
+
+	return found;
 }
 
 /**
@@ -6401,6 +6615,8 @@ nemo_icon_container_forget_selection (NemoIconContainer *container)
  * Locate an icon, given the URI. The URI must match exactly.
  * Later we may have to have some way of figuring out if the
  * URI specifies the same object that does not require an exact match.
+ *
+ * Returns: (transfer none): owned by @container
  **/
 NemoIcon *
 nemo_icon_container_get_icon_by_uri (NemoIconContainer *container,
@@ -6635,6 +6851,7 @@ compute_stretch (StretchState *start,
 	}
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_icon_container_get_icon_uri (NemoIconContainer *container,
 				      NemoIcon *icon)
@@ -6649,6 +6866,7 @@ nemo_icon_container_get_icon_uri (NemoIconContainer *container,
 	return uri;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_icon_container_get_icon_drop_target_uri (NemoIconContainer *container,
 				   	     	  NemoIcon *icon)
@@ -6991,6 +7209,25 @@ is_renaming (NemoIconContainer *container)
 	return container->details->renaming;
 }
 
+/* Under a big picture in a short window the name can be below what is in
+   sight, and a field nobody can see reads as F2 doing nothing. */
+static void
+reveal_rename_field (NemoIconContainer *container, int top, int bottom)
+{
+	GtkAdjustment *vadj = gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (container));
+	int height = gtk_widget_get_allocated_height (GTK_WIDGET (container));
+	double value = gtk_adjustment_get_value (vadj);
+
+	if (!gtk_widget_get_realized (GTK_WIDGET (container))) {
+		return;
+	}
+	if (top < value || bottom - top > height) {
+		gtk_adjustment_set_value (vadj, top);
+	} else if (bottom > value + height) {
+		gtk_adjustment_set_value (vadj, bottom - height);
+	}
+}
+
 /**
  * nemo_icon_container_start_renaming_selected_item
  * @container: An icon container widget.
@@ -7010,7 +7247,7 @@ nemo_icon_container_start_renaming_selected_item (NemoIconContainer *container,
 	PangoContext *context;
 	PangoFontDescription *desc;
 	const char *editable_text;
-	int x, y, width;
+	int x, y, width, bottom;
 	int start_offset, end_offset;
 
 	/* Check if it already in renaming mode, if so - select all */
@@ -7118,6 +7355,9 @@ nemo_icon_container_start_renaming_selected_item (NemoIconContainer *container,
 			 details->rename_widget,
 			 x, y);
 
+	eel_canvas_w2c (EEL_CANVAS_ITEM (icon->item)->canvas, text_rect.x1, text_rect.y1, NULL, &bottom);
+	reveal_rename_field (container, y, MAX (bottom, y));
+
 	gtk_widget_set_size_request (details->rename_widget,
 				     width, -1);
 	eel_editable_label_set_text (EEL_EDITABLE_LABEL (details->rename_widget),
@@ -7147,6 +7387,7 @@ nemo_icon_container_start_renaming_selected_item (NemoIconContainer *container,
 	nemo_icon_canvas_item_set_renaming (icon->item, TRUE);
 }
 
+/* Returns: (transfer none): owned by @container */
 NemoIcon *
 nemo_icon_container_get_icon_being_renamed (NemoIconContainer *container)
 {
@@ -7274,15 +7515,15 @@ nemo_icon_container_set_is_desktop (NemoIconContainer *container,
         context = gtk_widget_get_style_context (GTK_WIDGET (container));
         gtk_style_context_add_class (context, "nemo-desktop");
 
-        g_signal_connect_swapped (nemo_desktop_preferences,
-                                  "changed::" NEMO_PREFERENCES_DESKTOP_TEXT_ELLIPSIS_LIMIT,
-                                  G_CALLBACK (text_ellipsis_limit_changed_container_callback),
-                                  container);
+        g_signal_connect_object (nemo_desktop_preferences,
+                                 "changed::" NEMO_PREFERENCES_DESKTOP_TEXT_ELLIPSIS_LIMIT,
+                                 G_CALLBACK (text_ellipsis_limit_changed_container_callback),
+                                 container, G_CONNECT_SWAPPED);
     } else {
-        g_signal_connect_swapped (nemo_icon_view_preferences,
-                                  "changed::" NEMO_PREFERENCES_ICON_VIEW_TEXT_ELLIPSIS_LIMIT,
-                                  G_CALLBACK (text_ellipsis_limit_changed_container_callback),
-                                  container);
+        g_signal_connect_object (nemo_icon_view_preferences,
+                                 "changed::" NEMO_PREFERENCES_ICON_VIEW_TEXT_ELLIPSIS_LIMIT,
+                                 G_CALLBACK (text_ellipsis_limit_changed_container_callback),
+                                 container, G_CONNECT_SWAPPED);
     }
 }
 
@@ -7358,6 +7599,8 @@ nemo_icon_container_set_label_font_offset (NemoIconContainer *container,
  * @data: Icon data
  *
  * Gets the description for the icon. This function may return NULL.
+ *
+ * Returns: (transfer full): free with g_free
  **/
 char*
 nemo_icon_container_get_icon_description (NemoIconContainer *container,
@@ -7497,7 +7740,7 @@ nemo_icon_container_accessible_do_action (AtkAction *accessible, int i)
 }
 
 static int
-nemo_icon_container_accessible_get_n_actions (AtkAction *accessible)
+nemo_icon_container_accessible_get_n_actions (G_GNUC_UNUSED AtkAction *accessible)
 {
 	return LAST_ACTION;
 }
@@ -7520,7 +7763,7 @@ nemo_icon_container_accessible_action_get_description (AtkAction *accessible,
 }
 
 static const char *
-nemo_icon_container_accessible_action_get_name (AtkAction *accessible, int i)
+nemo_icon_container_accessible_action_get_name (G_GNUC_UNUSED AtkAction *accessible, int i)
 {
 	g_assert (i < LAST_ACTION);
 
@@ -7528,7 +7771,7 @@ nemo_icon_container_accessible_action_get_name (AtkAction *accessible, int i)
 }
 
 static const char *
-nemo_icon_container_accessible_action_get_keybinding (AtkAction *accessible,
+nemo_icon_container_accessible_action_get_keybinding (G_GNUC_UNUSED AtkAction *accessible,
 							  int i)
 {
 	g_assert (i < LAST_ACTION);
@@ -7556,8 +7799,10 @@ nemo_icon_container_accessible_action_set_description (AtkAction *accessible,
 }
 
 static void
-nemo_icon_container_accessible_action_interface_init (AtkActionIface *iface)
+nemo_icon_container_accessible_action_interface_init (gpointer g_iface, G_GNUC_UNUSED gpointer iface_data)
 {
+	AtkActionIface *iface = g_iface;
+
 	iface->do_action = nemo_icon_container_accessible_do_action;
 	iface->get_n_actions = nemo_icon_container_accessible_get_n_actions;
 	iface->get_description = nemo_icon_container_accessible_action_get_description;
@@ -7597,7 +7842,7 @@ nemo_icon_container_accessible_update_selection (AtkObject *accessible)
 }
 
 static void
-nemo_icon_container_accessible_selection_changed_cb (NemoIconContainer *container,
+nemo_icon_container_accessible_selection_changed_cb (G_GNUC_UNUSED NemoIconContainer *container,
 							 gpointer data)
 {
 	g_signal_emit_by_name (data, "selection_changed");
@@ -7648,7 +7893,7 @@ nemo_icon_container_accessible_icon_removed_cb (NemoIconContainer *container,
 }
 
 static void
-nemo_icon_container_accessible_cleared_cb (NemoIconContainer *container,
+nemo_icon_container_accessible_cleared_cb (G_GNUC_UNUSED NemoIconContainer *container,
 					       gpointer data)
 {
 	g_signal_emit_by_name (data, "children_changed", 0, NULL, NULL);
@@ -7833,8 +8078,10 @@ nemo_icon_container_widget_to_file_operation_position (NemoIconContainer *contai
 }
 
 static void
-nemo_icon_container_accessible_selection_interface_init (AtkSelectionIface *iface)
+nemo_icon_container_accessible_selection_interface_init (gpointer g_iface, G_GNUC_UNUSED gpointer iface_data)
 {
+	AtkSelectionIface *iface = g_iface;
+
 	iface->add_selection = nemo_icon_container_accessible_add_selection;
 	iface->clear_selection = nemo_icon_container_accessible_clear_selection;
 	iface->ref_selection = nemo_icon_container_accessible_ref_selection;
@@ -7959,8 +8206,9 @@ nemo_icon_container_accessible_finalize (GObject *object)
 }
 
 static void
-nemo_icon_container_accessible_class_init (AtkObjectClass *klass)
+nemo_icon_container_accessible_class_init (gpointer g_class, G_GNUC_UNUSED gpointer class_data)
 {
+	AtkObjectClass *klass = g_class;
 	GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
 
 	accessible_parent_class = g_type_class_peek_parent (klass);
@@ -7981,13 +8229,13 @@ nemo_icon_container_accessible_get_type (void)
 
         if (!type) {
                 static GInterfaceInfo atk_action_info = {
-                        (GInterfaceInitFunc) nemo_icon_container_accessible_action_interface_init,
+                        nemo_icon_container_accessible_action_interface_init,
                         (GInterfaceFinalizeFunc) NULL,
                         NULL
                 };
 
                 static GInterfaceInfo atk_selection_info = {
-                        (GInterfaceInitFunc) nemo_icon_container_accessible_selection_interface_init,
+                        nemo_icon_container_accessible_selection_interface_init,
                         (GInterfaceFinalizeFunc) NULL,
                         NULL
                 };

@@ -12,7 +12,7 @@
 #include "test-check.h"
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	const gint *steps;
 	guint n_steps, i;
@@ -53,7 +53,7 @@ main (int argc, char *argv[])
 	check (nemo_icon_size_at_position (-5.0) == NEMO_ICON_SIZE_MIN);
 	check (nemo_icon_size_at_position (999.0) == NEMO_ICON_SIZE_MAX);
 
-	/* Per cent, which is what both settings and the preferences window use. */
+	/* Per cent, which is what both the settings file and the settings window use. */
 	check (nemo_icon_size_from_percent (100) == NEMO_ICON_SIZE_STANDARD);
 	check (nemo_icon_size_from_percent (500) == NEMO_ICON_SIZE_IMAGES);
 	check (nemo_icon_size_from_percent (1000) == NEMO_ICON_SIZE_MAX);
@@ -81,7 +81,7 @@ main (int argc, char *argv[])
 	for (i = 0; i < 7; i++) {
 		size = nemo_icon_size_from_legacy_level (i);
 		check (nemo_icon_size_legacy_level (size) == (gint) i);
-		check (nemo_get_list_icon_size (size) == nemo_list_icon_size_from_legacy_level (i));
+		check ((gint) nemo_get_list_icon_size (size) == nemo_list_icon_size_from_legacy_level (i));
 	}
 
 	/* A size between two steps belongs to the step at or above it. */

@@ -143,6 +143,20 @@ main (int argc, char *argv[])
 	}
 	g_chmod (exe, 0755);
 
+#ifdef TEST_EXTENSION_LIB_DIR
+	/* The build rpath is $ORIGIN relative, so from the copy it points at
+	 * nothing. Newer meson test runs set this anyway; 0.61 does not. */
+	{
+		const char *old = g_getenv ("LD_LIBRARY_PATH");
+		char *lib_path = old != NULL && *old != '\0'
+			? g_strconcat (TEST_EXTENSION_LIB_DIR, ":", old, NULL)
+			: g_strdup (TEST_EXTENSION_LIB_DIR);
+
+		g_setenv ("LD_LIBRARY_PATH", lib_path, TRUE);
+		g_free (lib_path);
+	}
+#endif
+
 	/* Nothing set: our share dir goes in front of the system default. */
 	out = run_copy (exe, NULL);
 	g_assert_nonnull (out);

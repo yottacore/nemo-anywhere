@@ -2,7 +2,8 @@
  * but that the rules layered on top of it do: a file that changed stops
  * matching, a file that moved keeps what was known about it, storing twice
  * leaves one image behind, a checksum folds two records into one, and a file
- * nothing can draw is still a record. */
+ * nothing can draw is still a record. Also that the window's thread never
+ * waits on another copy holding the file. */
 
 #include <config.h>
 
@@ -11,6 +12,8 @@
 #include <string.h>
 #include <glib.h>
 #include <glib/gstdio.h>
+
+#include <sqlite3.h>
 
 #include <libnemo-private/nemo-cache-db.h>
 
@@ -73,8 +76,7 @@ check_round_trip (NemoCacheDb *db)
 	check (nemo_cache_db_thumbnail_store (db, "file:///one.png", &id, &in, image));
 
 	check (nemo_cache_db_thumbnail_lookup (db, "file:///one.png", &id, &out, &back));
-	check (back != NULL);
-	check (g_bytes_equal (back, image));
+	check (back != NULL && g_bytes_equal (back, image));
 	check (out.size == 256);
 	check (out.width == 256 && out.height == 256);
 	check (out.format == NEMO_THUMBNAIL_FORMAT_JPEG);
@@ -123,8 +125,7 @@ check_moved_file_keeps_thumbnail (NemoCacheDb *db)
 	check (nemo_cache_db_thumbnail_store (db, "file:///before/pic.jpg", &id, &in, image));
 
 	check (nemo_cache_db_thumbnail_lookup (db, "file:///after/pic.jpg", &id, &out, &back));
-	check (back != NULL);
-	check (g_bytes_equal (back, image));
+	check (back != NULL && g_bytes_equal (back, image));
 	g_bytes_unref (back);
 
 	/* The new path is linked now, so it answers on its own without the
@@ -478,6 +479,146 @@ check_note_render (NemoCacheDb *db)
 	check (!nemo_cache_db_thumbnail_stats (db, "file:///never-stored.png", NULL, NULL));
 }
 
+/* Another copy holding the file, as a prune does, for this long. */
+#define HOLD_MS 1500
+
+/* The most one call on the window's thread may take meanwhile. Waiting on the
+ * other copy would take most of HOLD_MS. */
+#define WINDOW_WAIT_MS 300
+
+typedef struct {
+	NemoCacheDb *db;
+	const char  *uri;
+	NemoFileId   id;
+	gboolean     stored;
+} Storer;
+
+static gpointer
+store_in_thread (gpointer data)
+{
+	Storer *storer = data;
+	NemoThumbnailRecord in = record_for (256);
+	g_autoptr (GBytes) image = fake_image ('w', 64);
+
+	storer->stored = nemo_cache_db_thumbnail_store (storer->db, storer->uri, &storer->id,
+							&in, image);
+
+	return NULL;
+}
+
+/* A thumbnail thread waits on the other copy holding the store's lock, while
+ * the window counts a full batch of draws and asks for a refresh. None of
+ * that may wait. Once the other copy lets go, all of it is written. */
+static void
+check_window_never_waits (NemoCacheDb *db)
+{
+	NemoFileId drawn_id = id_for (77001, SOURCE_MTIME, NULL);
+	NemoFileId gone_id = id_for (77002, SOURCE_MTIME, NULL);
+	NemoThumbnailRecord in = record_for (256);
+	NemoThumbnailRecord out = { 0 };
+	g_autoptr (GBytes) image = fake_image ('v', 64);
+	Storer storer = { db, "file:///wait/new.png", id_for (77003, SOURCE_MTIME, NULL), FALSE };
+	struct sqlite3 *other;
+	GThread *thread;
+	gint64 held, t0, worst = 0, renders = 0;
+	int i;
+
+	check (nemo_cache_db_thumbnail_store (db, "file:///wait/drawn.png", &drawn_id, &in, image));
+	check (nemo_cache_db_thumbnail_store (db, "file:///wait/gone.png", &gone_id, &in, image));
+
+	other = nemo_cache_db_open_another ();
+	check (other != NULL);
+	if (other == NULL)
+		return;
+	check (sqlite3_exec (other, "BEGIN IMMEDIATE", NULL, NULL, NULL) == SQLITE_OK);
+	held = g_get_monotonic_time ();
+
+	thread = g_thread_new ("store", store_in_thread, &storer);
+	g_usleep (100 * 1000);
+
+	for (i = 0; i < 300; i++) {
+		g_autofree char *uri = g_strdup_printf ("file:///wait/%d.png", i);
+
+		t0 = g_get_monotonic_time ();
+		nemo_cache_db_note_render (db, i == 0 ? "file:///wait/drawn.png" : uri);
+		worst = MAX (worst, g_get_monotonic_time () - t0);
+	}
+
+	t0 = g_get_monotonic_time ();
+	nemo_cache_db_thumbnail_forget_later ("file:///wait/gone.png");
+	worst = MAX (worst, g_get_monotonic_time () - t0);
+
+	if (worst >= WINDOW_WAIT_MS * 1000)
+		g_printerr ("the window waited %.0f ms on the file cache\n", worst / 1000.0);
+	check (worst < WINDOW_WAIT_MS * 1000);
+
+	while (g_get_monotonic_time () - held < HOLD_MS * 1000)
+		g_usleep (10 * 1000);
+	sqlite3_exec (other, "ROLLBACK", NULL, NULL, NULL);
+	sqlite3_close (other);
+
+	g_thread_join (thread);
+	check (storer.stored);
+
+	nemo_cache_db_flush (db);
+	check (nemo_cache_db_thumbnail_stats (db, "file:///wait/drawn.png", &renders, NULL));
+	check (renders == 1);
+	check (!nemo_cache_db_thumbnail_lookup (db, "file:///wait/gone.png", &gone_id, &out, NULL));
+}
+
+/* Draw counts go out on their own after the wait, with nothing running the
+ * window's main loop. */
+static void
+check_draws_written_off_window (NemoCacheDb *db)
+{
+	NemoFileId id = id_for (77101, SOURCE_MTIME, NULL);
+	NemoThumbnailRecord in = record_for (256);
+	g_autoptr (GBytes) image = fake_image ('u', 64);
+	gint64 renders = 0, give_up;
+	int i;
+
+	nemo_cache_db_set_draw_wait (200);
+
+	check (nemo_cache_db_thumbnail_store (db, "file:///timed/one.png", &id, &in, image));
+	for (i = 0; i < 3; i++)
+		nemo_cache_db_note_render (db, "file:///timed/one.png");
+
+	give_up = g_get_monotonic_time () + 5 * G_USEC_PER_SEC;
+	do {
+		g_usleep (50 * 1000);
+		nemo_cache_db_thumbnail_stats (db, "file:///timed/one.png", &renders, NULL);
+	} while (renders == 0 && g_get_monotonic_time () < give_up);
+
+	check (renders == 3);
+
+	nemo_cache_db_set_draw_wait (30 * 1000);
+}
+
+/* A refresh queued by the window is never read back past, even when the
+ * writer has not got to it yet. */
+static void
+check_forget_later_in_order (NemoCacheDb *db)
+{
+	NemoThumbnailRecord in = record_for (128);
+	NemoThumbnailRecord out = { 0 };
+	g_autoptr (GBytes) image = fake_image ('t', 32);
+	int i, seen = 0;
+
+	for (i = 0; i < 200; i++) {
+		g_autofree char *uri = g_strdup_printf ("file:///order/%d.png", i);
+		NemoFileId id = id_for (78000 + i, SOURCE_MTIME, NULL);
+
+		check (nemo_cache_db_thumbnail_store (db, uri, &id, &in, image));
+		nemo_cache_db_thumbnail_forget_later (uri);
+		if (nemo_cache_db_thumbnail_lookup (db, uri, &id, &out, NULL))
+			seen++;
+	}
+
+	if (seen > 0)
+		g_printerr ("%d of 200 refreshed thumbnails read back\n", seen);
+	check (seen == 0);
+}
+
 /* A damaged file is rebuilt at open rather than taking the cache down. */
 static void
 check_corrupt_file_is_rebuilt (void)
@@ -594,6 +735,93 @@ check_second_process_sees_writes (void)
 	check (out_text != NULL && g_ascii_strtoll (out_text, NULL, 10) == 1);
 }
 
+/* sqlite's own file layer with one change: while armed, a read of the schema
+ * version is answered busy. sqlite hands every PRAGMA to the file layer first,
+ * and a failure there is what the read comes back with. */
+static sqlite3_vfs                busy_vfs;
+static sqlite3_vfs               *real_vfs;
+static sqlite3_io_methods         busy_methods;
+static const sqlite3_io_methods  *real_methods;
+static gint                       version_busy;
+
+static int
+busy_file_control (sqlite3_file *file, int op, void *arg)
+{
+	char **words = arg;
+
+	if (op == SQLITE_FCNTL_PRAGMA && g_atomic_int_get (&version_busy)
+	    && g_ascii_strcasecmp (words[1], "user_version") == 0 && words[2] == NULL)
+		return SQLITE_BUSY;
+
+	return real_methods->xFileControl (file, op, arg);
+}
+
+static int
+busy_open (sqlite3_vfs *vfs, const char *name, sqlite3_file *file, int flags, int *out_flags)
+{
+	int rc = real_vfs->xOpen (real_vfs, name, file, flags, out_flags);
+
+	(void) vfs;
+
+	if (rc != SQLITE_OK || !(flags & SQLITE_OPEN_MAIN_DB) || file->pMethods == NULL)
+		return rc;
+
+	if (real_methods == NULL) {
+		real_methods = file->pMethods;
+		busy_methods = *real_methods;
+		busy_methods.xFileControl = busy_file_control;
+	}
+	if (file->pMethods == real_methods)
+		file->pMethods = &busy_methods;
+
+	return rc;
+}
+
+/* A version that could not be read is not a version from somewhere else. The
+ * file has to stay as it is, since other copies may have it open, and this
+ * copy runs with no cache. */
+static void
+check_unread_version_keeps_file (void)
+{
+	NemoCacheDb *db;
+	guint8 digest[NEMO_CACHE_DIGEST_LEN];
+	guint8 back[NEMO_CACHE_DIGEST_LEN];
+	NemoFileId id;
+
+	memset (digest, 0x5c, sizeof (digest));
+	id = id_for (68888, SOURCE_MTIME, digest);
+
+	db = nemo_cache_db_get ();
+	check (db != NULL);
+	check (nemo_cache_db_set_digest (db, "file:///busy/kept.txt", &id));
+	nemo_cache_db_close ();
+
+	real_vfs = sqlite3_vfs_find (NULL);
+	check (real_vfs != NULL);
+	if (real_vfs == NULL)
+		return;
+	busy_vfs = *real_vfs;
+	busy_vfs.zName = "busy-version";
+	busy_vfs.xOpen = busy_open;
+	check (sqlite3_vfs_register (&busy_vfs, 1) == SQLITE_OK);
+
+	g_atomic_int_set (&version_busy, TRUE);
+	db = nemo_cache_db_get ();
+	check (db == NULL);
+	g_atomic_int_set (&version_busy, FALSE);
+	nemo_cache_db_close ();
+
+	/* Not a lookup, which would put the row back. */
+	memset (back, 0, sizeof (back));
+	db = nemo_cache_db_get ();
+	check (db != NULL);
+	check (nemo_cache_db_lookup_digest (db, "file:///busy/kept.txt", 68888, SOURCE_MTIME, back));
+	check (memcmp (back, digest, sizeof (digest)) == 0);
+
+	sqlite3_vfs_unregister (&busy_vfs);
+	nemo_cache_db_close ();
+}
+
 /* A render that failed is stored with no image, so the next run knows not to
  * try again, and a later good one replaces it. */
 static void
@@ -675,10 +903,14 @@ main (int argc, char *argv[])
 	check_note_render (db);
 	check_failure_record (db);
 	check_forget (db);
+	check_window_never_waits (db);
+	check_draws_written_off_window (db);
+	check_forget_later_in_order (db);
 
 	check_corrupt_file_is_rebuilt ();
 	check_wrong_version_is_rebuilt ();
 	check_second_process_sees_writes ();
+	check_unread_version_keeps_file ();
 
 	nemo_cache_db_close ();
 

@@ -1,7 +1,8 @@
 /* The file cache prune. Each rule is checked for what it takes and for what it
  * has to leave alone: a missing file goes but a file on a missing folder stays,
- * an old thumbnail goes but a recently drawn one stays, and the size limit takes
- * the least recently drawn first. The claim is checked from both sides, since
+ * one on a share is not looked for, an old thumbnail goes but a recently drawn
+ * one stays, an old name with no thumbnail goes but a recent one stays, and the
+ * size limit takes the least recently drawn first. The claim is checked from both sides, since
  * two processes pruning at once is what it exists to stop. */
 
 #include <config.h>
@@ -21,6 +22,7 @@
 #include <libnemo-private/nemo-cache-db.h>
 #include <libnemo-private/nemo-cache-db-prune.h>
 #include <libnemo-private/nemo-global-preferences.h>
+#include <libnemo-private/nemo-share.h>
 
 #include "test-scratch.h"
 #include "test-check.h"
@@ -262,6 +264,34 @@ check_missing (NemoCacheDb *db)
 	check (has_thumbnail (db, remote));
 }
 
+/* A file on a share is never looked for, since a host that is not answering
+ * would hold the pass. One that has gone stays until it is off the share. */
+static void
+check_missing_on_share (NemoCacheDb *db)
+{
+	g_autofree char *nas = g_build_filename (scratch, "nas", NULL);
+	g_autofree char *dir = g_build_filename (nas, "pictures", NULL);
+	g_autofree char *gone_path = g_build_filename (dir, "gone.jpg", NULL);
+	g_autofree char *gone = NULL;
+	const char *roots[] = { nas, NULL };
+	NemoCachePruneRules rules = rules_now ();
+	gint64 removed = 0;
+
+	check (g_mkdir_with_parents (dir, 0700) == 0);
+	gone = g_filename_to_uri (gone_path, NULL, NULL);
+	store (db, gone, 1005, wall (), 64);
+
+	rules.drop_missing = TRUE;
+	nemo_share_set_roots_for_test (roots);
+	check (nemo_cache_db_prune (&rules, NULL, &removed, NULL) == NEMO_CACHE_PRUNE_DONE);
+	check (paths_named (gone) == 1);
+	check (has_thumbnail (db, gone));
+
+	nemo_share_set_roots_for_test (NULL);
+	check (nemo_cache_db_prune (&rules, NULL, &removed, NULL) == NEMO_CACHE_PRUNE_DONE);
+	check (paths_named (gone) == 0);
+}
+
 /* Age counts from the last draw, or from when it was made if never drawn. */
 static void
 check_age (NemoCacheDb *db)
@@ -285,6 +315,123 @@ check_age (NemoCacheDb *db)
 
 	/* The record of the file stays; only the picture was old. */
 	check (paths_named ("file:///age/old.jpg") == 1);
+}
+
+/* A name stored with a checksum and no thumbnail, `fill` standing in for the
+ * checksum. */
+static void
+name_with_digest (NemoCacheDb *db, const char *uri, gint64 file_bytes, guint8 fill)
+{
+	NemoFileId id = { 0 };
+
+	id.bytes = file_bytes;
+	id.mtime = MTIME;
+	memset (id.digest, fill, sizeof (id.digest));
+	id.has_digest = TRUE;
+
+	check (nemo_cache_db_set_digest (db, uri, &id));
+}
+
+static gboolean
+reads_digest (NemoCacheDb *db, const char *uri, gint64 file_bytes)
+{
+	guint8 digest[NEMO_CACHE_DIGEST_LEN];
+
+	return nemo_cache_db_lookup_digest (db, uri, file_bytes, MTIME, digest);
+}
+
+static void
+backdate (const char *uri, gint64 days)
+{
+	g_autofree char *sql = g_strdup_printf ("UPDATE paths SET seen = %" G_GINT64_FORMAT
+						" WHERE uri = '%s'", wall () - days * DAY, uri);
+
+	check (query_int (sql) == 1);
+}
+
+static gint64
+files_of_size (gint64 file_bytes)
+{
+	g_autofree char *sql = g_strdup_printf ("SELECT COUNT(*) FROM files WHERE bytes = %"
+						G_GINT64_FORMAT, file_bytes);
+
+	return query_int (sql);
+}
+
+/* A name whose thumbnail has gone holds only what the file gives again, so it
+ * goes once nothing has been stored under it for the age limit, or 180 days
+ * with no limit, and its file record with it. A name that still has a
+ * thumbnail is left to the thumbnail rules, and a copy's other name keeps the
+ * record. Read back only through calls that never put a row back. */
+static void
+check_bare_names (NemoCacheDb *db)
+{
+	const char *stale = "file:///bare/stale.jpg";
+	const char *fresh = "file:///bare/fresh.jpg";
+	const char *drawn = "file:///bare/drawn.jpg";
+	const char *copy_old = "file:///bare/copy-old.txt";
+	const char *copy_new = "file:///bare/copy-new.txt";
+	const char *unlimited = "file:///bare/unlimited.txt";
+	const char *younger = "file:///bare/younger.txt";
+	NemoCachePruneRules rules = rules_now ();
+	g_autofree char *sql = NULL;
+	int i;
+
+	store (db, stale, 9001, wall (), 64);
+	store (db, fresh, 9002, wall (), 64);
+	store (db, drawn, 9003, wall (), 64);
+	check (nemo_cache_db_thumbnail_forget (db, stale));
+	check (nemo_cache_db_thumbnail_forget (db, fresh));
+	name_with_digest (db, stale, 9001, 0x11);
+	name_with_digest (db, copy_old, 9004, 0x22);
+	name_with_digest (db, copy_new, 9004, 0x22);
+	check (files_of_size (9004) == 1);
+
+	backdate (stale, 400);
+	backdate (drawn, 400);
+	backdate (copy_old, 400);
+	check (reads_digest (db, stale, 9001));
+
+	rules.max_age_secs = 180 * DAY;
+	check (nemo_cache_db_prune (&rules, NULL, NULL, NULL) == NEMO_CACHE_PRUNE_DONE);
+
+	check (!reads_digest (db, stale, 9001));
+	check (paths_named (stale) == 0);
+	check (files_of_size (9001) == 0);
+
+	check (paths_named (fresh) == 1);
+	check (paths_named (drawn) == 1);
+	check (has_thumbnail (db, drawn));
+
+	check (paths_named (copy_old) == 0);
+	check (reads_digest (db, copy_new, 9004));
+	check (files_of_size (9004) == 1);
+
+	name_with_digest (db, unlimited, 9005, 0x33);
+	name_with_digest (db, younger, 9006, 0x44);
+	backdate (unlimited, 200);
+	backdate (younger, 100);
+
+	/* More than one write's worth. */
+	for (i = 0; i < 300; i++) {
+		g_autofree char *uri = g_strdup_printf ("file:///bare/many/%03d.txt", i);
+		NemoFileId id = { 0 };
+
+		id.bytes = 9100 + i;
+		id.mtime = MTIME;
+		check (nemo_cache_db_note_file (db, uri, &id));
+	}
+	sql = g_strdup_printf ("UPDATE paths SET seen = %" G_GINT64_FORMAT
+			       " WHERE uri LIKE 'file:///bare/many/%%'", wall () - 200 * DAY);
+	check (query_int (sql) == 300);
+
+	rules = rules_now ();
+	check (nemo_cache_db_prune (&rules, NULL, NULL, NULL) == NEMO_CACHE_PRUNE_DONE);
+	check (!reads_digest (db, unlimited, 9005));
+	check (files_of_size (9005) == 0);
+	check (reads_digest (db, younger, 9006));
+	check (query_int ("SELECT COUNT(*) FROM paths WHERE uri LIKE 'file:///bare/many/%'") == 0);
+	check (query_int ("SELECT COUNT(*) FROM files WHERE bytes BETWEEN 9100 AND 9399") == 0);
 }
 
 /* Over the limit, the least recently drawn go until it fits, and the freed
@@ -347,6 +494,188 @@ check_pick_cost (NemoCacheDb *db)
 		 " rows walked, %" G_GINT64_FORMAT " sorts\n", held, rows_walked, sorts);
 	check (sorts == 0);
 	check (rows_walked >= 0 && rows_walked <= 256);
+}
+
+#define BIG_THUMBNAIL ((gint64) 256 * 1024)
+#define BATCH_BYTES   ((gint64) 1024 * 1024)
+
+static void
+check_one_batch (const char *rule, gint64 removed, gint64 expected)
+{
+	gint64 largest = nemo_cache_db_prune_largest_batch ();
+
+	g_print ("  %s: %" G_GINT64_FORMAT " removed, at most %" G_GINT64_FORMAT
+		 " bytes in one write\n", rule, removed, largest);
+	check (removed == expected);
+	check (largest > 0 && largest < BATCH_BYTES + BIG_THUMBNAIL);
+}
+
+/* Each batch holds the write lock while it deletes, and a big thumbnail takes
+ * longer to delete than a small one. So a batch ends after about a megabyte
+ * as well as after so many rows, and every rule that deletes thumbnails has to
+ * keep to that. */
+static void
+check_batch_bytes (NemoCacheDb *db)
+{
+	g_autofree char *dir = g_build_filename (scratch, "big", NULL);
+	NemoCachePruneRules rules;
+	gint64 removed = 0;
+	gint64 used;
+	int i;
+
+	check (g_mkdir_with_parents (dir, 0700) == 0);
+
+	/* Gone from a folder that is still there, so what they held is left with
+	 * no name and goes as an orphan. */
+	for (i = 0; i < 24; i++) {
+		g_autofree char *name = g_strdup_printf ("gone-%02d.jpg", i);
+		g_autofree char *path = g_build_filename (dir, name, NULL);
+		g_autofree char *uri = g_filename_to_uri (path, NULL, NULL);
+
+		store (db, uri, 7000 + i, wall (), BIG_THUMBNAIL);
+	}
+	rules = rules_now ();
+	rules.drop_missing = TRUE;
+	check (nemo_cache_db_prune (&rules, NULL, &removed, NULL) == NEMO_CACHE_PRUNE_DONE);
+	check_one_batch ("orphans", removed, 24);
+
+	for (i = 0; i < 24; i++) {
+		g_autofree char *uri = g_strdup_printf ("file:///big/old-%02d.jpg", i);
+
+		store (db, uri, 7100 + i, wall () - 400 * DAY, BIG_THUMBNAIL);
+	}
+	rules = rules_now ();
+	rules.max_age_secs = 180 * DAY;
+	check (nemo_cache_db_prune (&rules, NULL, &removed, NULL) == NEMO_CACHE_PRUNE_DONE);
+	check_one_batch ("age", removed, 24);
+
+	/* The oldest in the file, so the size rule takes these first. */
+	for (i = 0; i < 24; i++) {
+		g_autofree char *uri = g_strdup_printf ("file:///big/over-%02d.jpg", i);
+
+		store (db, uri, 7200 + i, wall () - 2 * DAY + i, BIG_THUMBNAIL);
+	}
+	nemo_cache_db_flush (db);
+	used = (query_int ("PRAGMA page_count") - query_int ("PRAGMA freelist_count"))
+		* query_int ("PRAGMA page_size");
+	rules = rules_now ();
+	rules.max_bytes = used - 16 * BIG_THUMBNAIL;
+	check (nemo_cache_db_prune (&rules, NULL, &removed, NULL) == NEMO_CACHE_PRUNE_DONE);
+	check_one_batch ("size", removed, 16);
+	check (!has_thumbnail (db, "file:///big/over-15.jpg"));
+	check (has_thumbnail (db, "file:///big/over-16.jpg"));
+}
+
+typedef struct {
+	sqlite3 *handle;
+	gint     stop;
+	gint     writes;
+	gint     failed;
+	gint     most_steps;
+	gint64   longest;
+} Waiter;
+
+/* Another window writing every 20 ms through a connection of its own, while
+ * the prune runs. Only the wait for the lock is timed, since a commit can go
+ * on to copy the journal into the file, which is the disk and not the
+ * prune. */
+static gpointer
+keep_writing (gpointer data)
+{
+	Waiter *waiter = data;
+
+	while (!g_atomic_int_get (&waiter->stop)) {
+		gint   steps = nemo_cache_db_prune_steps ();
+		gint64 began = g_get_monotonic_time ();
+		int    rc = sqlite3_exec (waiter->handle, "BEGIN IMMEDIATE", NULL, NULL, NULL);
+
+		waiter->longest = MAX (waiter->longest, g_get_monotonic_time () - began);
+		waiter->most_steps = MAX (waiter->most_steps, nemo_cache_db_prune_steps () - steps);
+		waiter->writes++;
+
+		if (rc == SQLITE_OK)
+			rc = sqlite3_exec (waiter->handle,
+					   "UPDATE prune SET removed = removed WHERE id = 1; COMMIT",
+					   NULL, NULL, NULL);
+		if (rc != SQLITE_OK) {
+			waiter->failed++;
+			sqlite3_exec (waiter->handle, "ROLLBACK", NULL, NULL, NULL);
+		}
+
+		g_usleep (20 * 1000);
+	}
+
+	return NULL;
+}
+
+#define WAITING_THUMBNAILS 32
+#define WAITING_THUMBNAIL  ((gint64) 512 * 1024)
+
+/* sqlite gives a free lock to whoever asks first, and its own wait sleeps up
+ * to 100 ms between tries. A prune that went from one write straight into the
+ * next kept a waiting window out until the whole run of writes was done, over
+ * a second with a big cache. A waiter may sit out the write it found, and
+ * never a run of them. Counted in the prune's writes rather than in time,
+ * since a loaded box slows both sides alike.
+ *
+ * A window reading the cache holds its snapshot through the pass, so the
+ * prune's commits have nothing to copy back into the file. Without that the
+ * copying leaves gaps of its own, as long as the disk makes them, and the
+ * result would turn on whether the waiter happened to wake in one. */
+static void
+check_waiting_writer (NemoCacheDb *db)
+{
+	NemoCachePruneRules rules;
+	Waiter   waiter = { 0 };
+	GThread *thread;
+	sqlite3 *reader;
+	gint64   removed = 0;
+	gint64   used;
+	gint     steps;
+	int      i;
+
+	for (i = 0; i < WAITING_THUMBNAILS; i++) {
+		g_autofree char *uri = g_strdup_printf ("file:///waiting/old-%02d.jpg", i);
+
+		store (db, uri, 8000 + i, wall () - 3 * DAY + i, WAITING_THUMBNAIL);
+	}
+	nemo_cache_db_flush (db);
+	used = (query_int ("PRAGMA page_count") - query_int ("PRAGMA freelist_count"))
+		* query_int ("PRAGMA page_size");
+
+	rules = rules_now ();
+	rules.max_bytes = used - WAITING_THUMBNAILS * WAITING_THUMBNAIL + WAITING_THUMBNAIL / 2;
+
+	reader = nemo_cache_db_open_another ();
+	waiter.handle = nemo_cache_db_open_another ();
+	check (reader != NULL && waiter.handle != NULL);
+	if (reader == NULL || waiter.handle == NULL) {
+		sqlite3_close (reader);
+		sqlite3_close (waiter.handle);
+		return;
+	}
+	check (sqlite3_exec (reader, "BEGIN; SELECT COUNT(*) FROM prune", NULL, NULL, NULL) == SQLITE_OK);
+
+	thread = g_thread_new ("waiting-writer", keep_writing, &waiter);
+	g_usleep (50 * 1000);
+
+	steps = nemo_cache_db_prune_steps ();
+	check (nemo_cache_db_prune (&rules, NULL, &removed, NULL) == NEMO_CACHE_PRUNE_DONE);
+	steps = nemo_cache_db_prune_steps () - steps;
+
+	g_atomic_int_set (&waiter.stop, 1);
+	g_thread_join (thread);
+	sqlite3_close (waiter.handle);
+	sqlite3_exec (reader, "COMMIT", NULL, NULL, NULL);
+	sqlite3_close (reader);
+
+	g_print ("  waiting writer: %d writes beside %d prune writes, longest wait %.3f s,"
+		 " at most %d prune writes in one wait\n", waiter.writes, steps,
+		 waiter.longest / 1e6, waiter.most_steps);
+	check (removed >= WAITING_THUMBNAILS);
+	check (steps >= WAITING_THUMBNAILS / 2);
+	check (waiter.failed == 0);
+	check (waiter.most_steps <= 2);
 }
 
 /* A damaged page deep in the file does not stop it opening, so the pass is what
@@ -423,9 +752,13 @@ main (int argc, char *argv[])
 	check_cancel ();
 	check_prune_now ();
 	check_missing (db);
+	check_missing_on_share (db);
 	check_age (db);
+	check_bare_names (db);
 	check_size (db);
 	check_pick_cost (db);
+	check_batch_bytes (db);
+	check_waiting_writer (db);
 	check_damage ();
 
 	nemo_cache_db_close ();

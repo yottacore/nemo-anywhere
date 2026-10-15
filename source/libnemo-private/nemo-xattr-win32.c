@@ -59,6 +59,7 @@ stream_path (const char *path, const char *name)
 	return (wchar_t *) g_utf8_to_utf16 (spec, -1, NULL, NULL, NULL);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_xattr_win32_get (const char *path, const char *name)
 {

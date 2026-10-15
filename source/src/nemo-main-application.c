@@ -119,10 +119,7 @@ struct _NemoMainApplicationPriv {
 	gboolean open_in_tabs;
 	gboolean select;
 
-	GDBusConnection *instance_connection;
-	guint instance_name_id;
-	guint instance_actions_id;
-	guint instance_tabs_id;
+	gboolean instance_published;
 
 	/* A tab moved here from another copy, carried on the command line. */
 	gchar *tab_view;
@@ -132,27 +129,8 @@ struct _NemoMainApplicationPriv {
 static void
 publish_instance (NemoMainApplication *self)
 {
-	GDBusConnection *connection;
-
-	connection = g_application_get_dbus_connection (G_APPLICATION (self));
-	if (connection == NULL) {
-		return;
-	}
-	self->priv->instance_connection = g_object_ref (connection);
-
-	self->priv->instance_name_id = g_bus_own_name_on_connection (connection,
-	                                                             NEMO_INSTANCE_BUS_NAME,
-	                                                             G_BUS_NAME_OWNER_FLAGS_NONE,
-	                                                             NULL, NULL, NULL, NULL);
-
-	/* GApplication may already serve the same group at this path; then the
-	 * export fails and nothing is missing. */
-	self->priv->instance_actions_id = g_dbus_connection_export_action_group (connection,
-	                                                                         NEMO_INSTANCE_OBJECT_PATH,
-	                                                                         G_ACTION_GROUP (self),
-	                                                                         NULL);
-
-	self->priv->instance_tabs_id = nemo_tab_move_export (connection, NEMO_INSTANCE_OBJECT_PATH);
+	nemo_tab_move_serve ();
+	self->priv->instance_published = nemo_instances_start (G_APPLICATION (self));
 }
 
 /* The activation file has to name a path, and a portable copy has no path until
@@ -160,7 +138,7 @@ publish_instance (NemoMainApplication *self)
  * written here instead, into the user's own service directory, and only when it
  * does not already describe this copy. */
 static void
-refresh_dbus_service_file (NemoMainApplication *self)
+refresh_dbus_service_file (G_GNUC_UNUSED NemoMainApplication *self)
 {
 #ifndef G_OS_WIN32
 	char *exe;
@@ -171,7 +149,7 @@ refresh_dbus_service_file (NemoMainApplication *self)
 	gboolean same;
 
 	/* No connection means no session bus, so nothing would read it. */
-	if (self->priv->instance_connection == NULL) {
+	if (g_application_get_dbus_connection (G_APPLICATION (self)) == NULL) {
 		return;
 	}
 
@@ -195,7 +173,7 @@ refresh_dbus_service_file (NemoMainApplication *self)
 		GError *error = NULL;
 
 		if (!g_file_set_contents (path, wanted, -1, &error)) {
-			g_warning ("Could not write the D-Bus activation file (%s): %s",
+			g_warning ("Couldn't write the D-Bus activation file (%s): %s",
 			           path, error->message);
 			g_clear_error (&error);
 		}
@@ -207,110 +185,38 @@ refresh_dbus_service_file (NemoMainApplication *self)
 #endif
 }
 
-/* At finalize the application is no longer registered, so the connection is
- * the one kept from publishing, not asked for again. */
+/* At finalize the application is no longer registered; the bus connection
+ * is the one kept from publishing. */
 static void
 unpublish_instance (NemoMainApplication *self)
 {
-	GDBusConnection *connection = self->priv->instance_connection;
-
-	if (connection == NULL) {
-		return;
+	if (self->priv->instance_published) {
+		nemo_instances_stop ();
+		self->priv->instance_published = FALSE;
 	}
-
-	if (self->priv->instance_name_id != 0) {
-		g_bus_unown_name (self->priv->instance_name_id);
-		self->priv->instance_name_id = 0;
-	}
-	if (self->priv->instance_actions_id != 0) {
-		g_dbus_connection_unexport_action_group (connection, self->priv->instance_actions_id);
-		self->priv->instance_actions_id = 0;
-	}
-	if (self->priv->instance_tabs_id != 0) {
-		g_dbus_connection_unregister_object (connection, self->priv->instance_tabs_id);
-		self->priv->instance_tabs_id = 0;
-	}
-	g_clear_object (&self->priv->instance_connection);
 }
 
-/* Unique bus names of every other running copy; NULL with no bus. */
+/* Every other running copy; NULL when they cannot be reached. */
 static GStrv
-other_instances (GApplication *application)
+other_instances (G_GNUC_UNUSED GApplication *application)
 {
-	GDBusConnection *connection;
-	GVariant *reply;
-	GStrv names = NULL;
-	GPtrArray *others;
-	const char *me;
-	int i;
-
-	connection = g_application_get_dbus_connection (application);
-	if (connection == NULL) {
-		return NULL;
-	}
-
-	reply = g_dbus_connection_call_sync (connection,
-	                                     "org.freedesktop.DBus", "/org/freedesktop/DBus",
-	                                     "org.freedesktop.DBus", "ListQueuedOwners",
-	                                     g_variant_new ("(s)", NEMO_INSTANCE_BUS_NAME),
-	                                     G_VARIANT_TYPE ("(as)"),
-	                                     G_DBUS_CALL_FLAGS_NONE, -1, NULL, NULL);
-	if (reply == NULL) {
-		/* No owner at all is an error reply, and means nobody is running. */
-		return g_new0 (char *, 1);
-	}
-
-	g_variant_get (reply, "(^as)", &names);
-	g_variant_unref (reply);
-
-	me = g_dbus_connection_get_unique_name (connection);
-	others = g_ptr_array_new ();
-	for (i = 0; names[i] != NULL; i++) {
-		if (g_strcmp0 (names[i], me) != 0) {
-			g_ptr_array_add (others, names[i]);
-		} else {
-			g_free (names[i]);
-		}
-	}
-	g_free (names);
-	g_ptr_array_add (others, NULL);
-
-	return (GStrv) g_ptr_array_free (others, FALSE);
+	return nemo_instances_list_others ();
 }
 
+/* Returns: (transfer full): free with g_strfreev */
 GStrv
 nemo_main_application_other_instances (void)
 {
 	return other_instances (g_application_get_default ());
 }
 
-/* Asks every other copy to quit. FALSE only when there is no bus to ask on. */
+/* Asks every other copy to quit. FALSE only when they cannot be reached. */
 static gboolean
-quit_other_instances (GApplication *application)
+quit_other_instances (G_GNUC_UNUSED GApplication *application)
 {
-	GDBusConnection *connection;
-	GStrv others;
-	int i;
-
-	others = other_instances (application);
-	if (others == NULL) {
-		return FALSE;
-	}
-
-	connection = g_application_get_dbus_connection (application);
-	for (i = 0; others[i] != NULL; i++) {
-		GDBusActionGroup *group;
-
-		group = g_dbus_action_group_get (connection, others[i], NEMO_INSTANCE_OBJECT_PATH);
-		g_action_group_activate_action (G_ACTION_GROUP (group), "quit", NULL);
-		g_object_unref (group);
-	}
-	/* The requests are only queued; a copy about to exit has to see them out. */
-	g_dbus_connection_flush_sync (connection, NULL, NULL);
-
-	g_strfreev (others);
-
-	return TRUE;
+	/* What GDBusActionGroup sends for the exported quit action. */
+	return nemo_instances_send_to_others ("org.gtk.Actions", "Activate",
+	                                      g_variant_new_parsed ("('quit', @av [], @a{sv} {})"));
 }
 
 static void
@@ -416,7 +322,7 @@ static NemoWindow *splash_watch_window;
 static gint64      splash_view_seen;
 
 static gboolean
-drop_splash_idle (gpointer data)
+drop_splash_idle (G_GNUC_UNUSED gpointer data)
 {
 	nemo_splash_hide ();
 	return G_SOURCE_REMOVE;
@@ -438,7 +344,7 @@ splash_watch_stop (void)
  * already have been painted, and a splash that outlives the load by a frame
  * that never comes is worse than one checked ten times a second. */
 static gboolean
-splash_watch_cb (gpointer data)
+splash_watch_cb (G_GNUC_UNUSED gpointer data)
 {
 	NemoWindowSlot *slot;
 	NemoView       *view;
@@ -484,7 +390,7 @@ splash_watch_cb (gpointer data)
 }
 
 static gboolean
-splash_deadline_cb (gpointer data)
+splash_deadline_cb (G_GNUC_UNUSED gpointer data)
 {
 	splash_watch_stop ();
 	nemo_splash_hide ();
@@ -549,9 +455,9 @@ nemo_main_application_create_window (NemoApplication *application,
 }
 
 static void
-mount_added_callback (GVolumeMonitor *monitor,
+mount_added_callback (G_GNUC_UNUSED GVolumeMonitor *monitor,
 		      GMount *mount,
-		      NemoMainApplication *application)
+		      G_GNUC_UNUSED NemoMainApplication *application)
 {
 	NemoDirectory *directory;
 	GFile *root;
@@ -577,7 +483,7 @@ mount_added_callback (GVolumeMonitor *monitor,
  * info.
  */
 static void
-mount_removed_callback (GVolumeMonitor *monitor,
+mount_removed_callback (G_GNUC_UNUSED GVolumeMonitor *monitor,
 			GMount *mount,
 			NemoMainApplication *application)
 {
@@ -731,7 +637,7 @@ open_tabs (NemoMainApplication *application,
     g_debug ("Opening new tab at uri %s\n", uri);
     nemo_window_go_to (window, locations[0]);
     g_free (uri);
-    for (int i = 1; i < n_files; i++) {
+    for (guint i = 1; i < n_files; i++) {
         /* open tabs in reverse order because each
          * tab is opened before the previous one */
         guint tab = n_files-i;
@@ -800,7 +706,7 @@ open_moved_tab (NemoMainApplication *self,
                 GFile               *location,
                 GdkScreen           *screen)
 {
-	NemoTabState state = { NULL };
+	NemoTabState state = { 0 };
 	NemoWindow *window;
 
 	state.uri = g_file_get_uri (location);
@@ -834,7 +740,7 @@ static void
 nemo_main_application_open (GApplication *app,
                             GFile       **files,
                             gint          n_files,
-                            const gchar  *hint)
+                            G_GNUC_UNUSED const gchar  *hint)
 {
 	NemoMainApplication *self = NEMO_MAIN_APPLICATION (app);
 
@@ -888,7 +794,7 @@ nemo_main_application_finalize (GObject *object)
 static gboolean
 do_cmdline_sanity_checks (NemoMainApplication *self,
 			  gboolean perform_self_check,
-			  gboolean version,
+			  G_GNUC_UNUSED gboolean version,
 			  gboolean kill_shell,
 			  gboolean open_in_tabs,
 			  gchar **remaining)
@@ -897,13 +803,13 @@ do_cmdline_sanity_checks (NemoMainApplication *self,
 
 	if (perform_self_check && (remaining != NULL || kill_shell)) {
 		g_printerr ("%s\n",
-			    _("--check cannot be used with other options."));
+			    _("--check can't be used with other options."));
 		goto out;
 	}
 
 	if (kill_shell && remaining != NULL) {
 		g_printerr ("%s\n",
-			    _("--quit cannot be used with URIs."));
+			    _("--quit can't be used with URIs."));
 		goto out;
 	}
 
@@ -911,7 +817,7 @@ do_cmdline_sanity_checks (NemoMainApplication *self,
 	    !open_in_tabs &&
 	    remaining != NULL && remaining[0] != NULL && remaining[1] != NULL) {
 		g_printerr ("%s\n",
-			    _("--geometry cannot be used with more than one URI."));
+			    _("--geometry can't be used with more than one URI."));
 		goto out;
 	}
 
@@ -1001,7 +907,7 @@ nemo_main_application_local_command_line (GApplication *application,
 		  N_("Quit Nemo."), NULL },
 		{ G_OPTION_REMAINING, 0, 0, G_OPTION_ARG_STRING_ARRAY, &remaining, NULL,  N_("[URI...]") },
 
-		{ NULL }
+		{ 0 }
 	};
 	GOptionContext *context;
 	GError *error = NULL;
@@ -1028,8 +934,10 @@ nemo_main_application_local_command_line (GApplication *application,
 	g_option_context_add_main_entries (context, options, NULL);
 	g_option_context_add_group (context, gtk_get_option_group (open_display));
 
-	if (!g_option_context_parse (context, &argc, &argv, &error)) {
-		g_printerr ("Could not parse arguments: %s\n", error->message);
+	/* The strv form frees what it takes out. The plain one leaves every parsed
+	   option behind, since g_application_run frees only what is left. */
+	if (!g_option_context_parse_strv (context, arguments, &error)) {
+		g_printerr ("Couldn't parse arguments: %s\n", error->message);
 		g_error_free (error);
 
 		*exit_status = EXIT_FAILURE;
@@ -1102,9 +1010,10 @@ nemo_main_application_local_command_line (GApplication *application,
 
 	/* Non-unique: this is always the primary instance, whatever else is
 	 * running. Registering still gets the bus connection the copies find
-	 * each other on. */
+	 * each other on, where they use one, and runs startup, which puts this
+	 * copy in the list. */
 	if (!g_application_register (application, NULL, &error)) {
-		g_printerr ("Could not register nemo: %s\n", error->message);
+		g_printerr ("Couldn't register nemo: %s\n", error->message);
 		g_clear_error (&error);
 
 		*exit_status = EXIT_FAILURE;
@@ -1122,7 +1031,7 @@ nemo_main_application_local_command_line (GApplication *application,
 			g_printerr ("Nemo is already running - quit it first, then --reset.\n");
 			*exit_status = EXIT_FAILURE;
 		} else {
-			char *settings;
+			char *settings, *shortcuts;
 
 			/* Clear the live store first so the flush leaves nothing queued,
 			 * then take the file itself - anything hand-written that nemo does
@@ -1134,6 +1043,12 @@ nemo_main_application_local_command_line (GApplication *application,
 			g_unlink (settings);
 			g_free (settings);
 
+			/* Emptied rather than removed, since a missing file is what
+			 * sends the next start to upstream Nemo's shortcuts. */
+			shortcuts = nemo_get_accel_map_file ();
+			g_file_set_contents (shortcuts, "", 0, NULL);
+			g_free (shortcuts);
+
 			nemo_bookmark_list_reset_files ();
 			g_print ("Settings and bookmarks cleared.\n");
 		}
@@ -1143,7 +1058,7 @@ nemo_main_application_local_command_line (GApplication *application,
 	if (kill_shell) {
 		DEBUG ("Asking every running copy to quit");
 		if (!quit_other_instances (application)) {
-			g_printerr ("No session bus, so running copies cannot be reached.\n");
+			g_printerr ("No session bus, so running copies can't be reached.\n");
 			*exit_status = EXIT_FAILURE;
 		}
 		goto out;
@@ -1208,7 +1123,7 @@ nemo_main_application_local_command_line (GApplication *application,
 }
 
 static void
-menu_state_changed_callback (NemoMainApplication *self)
+menu_state_changed_callback (G_GNUC_UNUSED NemoMainApplication *self)
 {
     if (!nemo_config_get_boolean (nemo_window_state, NEMO_WINDOW_STATE_START_WITH_MENU_BAR) &&
         !nemo_config_get_boolean (nemo_preferences, NEMO_PREFERENCES_DISABLE_MENU_WARNING)) {
@@ -1257,7 +1172,10 @@ nemo_main_application_continue_startup (NemoApplication *app)
 {
 	NemoMainApplication *self = NEMO_MAIN_APPLICATION (app);
 
+#ifndef G_OS_WIN32
+	/* Would start a session bus on Windows, where nobody asks for it. */
 	self->priv->fdb_manager = nemo_freedesktop_dbus_new ();
+#endif
 	publish_instance (self);
 	refresh_dbus_service_file (self);
 
@@ -1283,21 +1201,23 @@ nemo_main_application_continue_startup (NemoApplication *app)
 	g_signal_connect_object (self->priv->volume_monitor, "mount_added",
 				 G_CALLBACK (mount_added_callback), self, 0);
 
-    g_signal_connect_swapped (nemo_window_state, "changed::" NEMO_WINDOW_STATE_START_WITH_MENU_BAR,
-                              G_CALLBACK (menu_state_changed_callback), self);
+    g_signal_connect_object (nemo_window_state, "changed::" NEMO_WINDOW_STATE_START_WITH_MENU_BAR,
+                             G_CALLBACK (menu_state_changed_callback), self, G_CONNECT_SWAPPED);
 }
 
 static void
-nemo_desktop_application_continue_quit (NemoApplication *app)
+nemo_desktop_application_continue_quit (G_GNUC_UNUSED NemoApplication *app)
 {
 }
 
+/* A notice outlives the program on the notification server, and an unmount
+ * still running at quit would never take it down. */
 static void
-nemo_main_application_quit_mainloop (GApplication *app)
+nemo_main_application_shutdown (GApplication *app)
 {
-    nemo_main_application_notify_unmount_done (NEMO_APPLICATION (app), NULL);
+    g_application_withdraw_notification (app, NEMO_NOTIFICATION_UNMOUNT_ID_PENDING);
 
-    G_APPLICATION_CLASS (nemo_main_application_parent_class)->quit_mainloop (app);
+    G_APPLICATION_CLASS (nemo_main_application_parent_class)->shutdown (app);
 }
 
 static void
@@ -1313,7 +1233,7 @@ nemo_main_application_class_init (NemoMainApplicationClass *class)
     application_class = G_APPLICATION_CLASS (class);
     application_class->open = nemo_main_application_open;
     application_class->local_command_line = nemo_main_application_local_command_line;
-    application_class->quit_mainloop = nemo_main_application_quit_mainloop;
+    application_class->shutdown = nemo_main_application_shutdown;
 
     nemo_app_class = NEMO_APPLICATION_CLASS (class);
     nemo_app_class->open_location = nemo_main_application_open_location;
@@ -1327,6 +1247,7 @@ nemo_main_application_class_init (NemoMainApplicationClass *class)
     g_type_class_add_private (class, sizeof (NemoMainApplicationPriv));
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoApplication *
 nemo_main_application_get_singleton (void)
 {

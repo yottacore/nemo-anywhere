@@ -85,6 +85,92 @@ write_image (const char *path, int n)
 	g_object_unref (pixbuf);
 }
 
+/* Only this theme is searched, so what a file shows does not hang on what the
+ * box has. A bare Ubuntu 22.04 has no file type icon GTK can load: Yaru is
+ * named and not there, and its cut-down Adwaita is mostly SVG. */
+static void
+use_own_icon_theme (const char *tmp)
+{
+	g_autofree char *root = g_build_filename (tmp, "icons", NULL);
+	g_autofree char *dir = g_build_filename (root, "hold-test", "64x64", "mimetypes", NULL);
+	g_autofree char *index = g_build_filename (root, "hold-test", "index.theme", NULL);
+	g_autofree char *picture = g_build_filename (dir, "image-x-generic.png", NULL);
+	g_autofree char *hicolor = g_build_filename (root, "hicolor", NULL);
+	g_autofree char *hicolor_index = g_build_filename (hicolor, "index.theme", NULL);
+	GdkPixbuf *pixbuf;
+
+	check (g_mkdir_with_parents (dir, 0755) == 0);
+	check (g_file_set_contents (index,
+				    "[Icon Theme]\n"
+				    "Name=hold-test\n"
+				    "Comment=hold test\n"
+				    "Inherits=hicolor\n"
+				    "Directories=64x64/mimetypes\n"
+				    "\n"
+				    "[64x64/mimetypes]\n"
+				    "Size=64\n"
+				    "Context=MimeTypes\n"
+				    "Type=Fixed\n",
+				    -1, NULL));
+
+	/* An empty one, or GTK warns it is missing on the first icon not found. */
+	check (g_mkdir_with_parents (hicolor, 0755) == 0);
+	check (g_file_set_contents (hicolor_index, "[Icon Theme]\nName=Hicolor\nDirectories=\n", -1, NULL));
+
+	pixbuf = gdk_pixbuf_new (GDK_COLORSPACE_RGB, TRUE, 8, 64, 64);
+	gdk_pixbuf_fill (pixbuf, 0x808080ff);
+	check (gdk_pixbuf_save (pixbuf, picture, "png", NULL, NULL));
+	g_object_unref (pixbuf);
+
+	gtk_icon_theme_set_search_path (gtk_icon_theme_get_default (), (const char **) &root, 1);
+	g_object_set (gtk_settings_get_default (), "gtk-icon-theme-name", "hold-test", NULL);
+}
+
+static int criticals;
+
+static void
+count_criticals (const gchar *domain, GLogLevelFlags level, const gchar *message, gpointer data)
+{
+	if (level & G_LOG_LEVEL_CRITICAL) {
+		criticals++;
+	}
+	g_log_default_handler (domain, level, message, data);
+}
+
+/* Nothing in the theme, not even text-x-generic: the default picture, and no
+ * criticals on the way there. A named icon and one read from a file take
+ * different paths. Only an older GTK gets here, since later ones carry their
+ * own text-x-generic. */
+static void
+test_no_icon_anywhere (const char *tmp)
+{
+	g_autofree char *text = g_build_filename (tmp, "notes.txt", NULL);
+	GLogFunc old_handler;
+	NemoIconInfo *named;
+	NemoIconInfo *loaded;
+	GdkPixbuf *pixbuf;
+
+	check (g_file_set_contents (text, "not a picture\n", -1, NULL));
+
+	criticals = 0;
+	old_handler = g_log_set_default_handler (count_criticals, NULL);
+	named = nemo_icon_info_lookup_from_name ("nemo-hold-test-no-such-icon", 64, 1);
+	loaded = nemo_icon_info_lookup_from_path (text, 64, 1);
+	g_log_set_default_handler (old_handler, NULL);
+
+	check (criticals == 0);
+
+	pixbuf = nemo_icon_info_get_pixbuf (named);
+	check (pixbuf != NULL);
+	g_clear_object (&pixbuf);
+	pixbuf = nemo_icon_info_get_pixbuf (loaded);
+	check (pixbuf != NULL);
+	g_clear_object (&pixbuf);
+
+	nemo_icon_info_unref (named);
+	nemo_icon_info_unref (loaded);
+}
+
 static char *
 icon_name (NemoFile *file, NemoFileIconFlags flags)
 {
@@ -280,6 +366,7 @@ main (int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
+	use_own_icon_theme (tmp);
 	nemo_global_preferences_init ();
 
 	/* Or the first files in a folder are asked about before anything is
@@ -324,6 +411,7 @@ main (int argc, char **argv)
 		files[i] = nemo_file_get_by_uri (name);
 	}
 
+	test_no_icon_anywhere (tmp);
 	test_icon_while_made (files[0]);
 	test_old_picture_kept (files[0]);
 	test_ahead (files[1], files[2]);

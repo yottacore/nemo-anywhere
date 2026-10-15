@@ -69,8 +69,8 @@ main (int argc, char *argv[])
 
 		g_mkdir_with_parents (sub, 0755);
 		g_mkdir_with_parents (other, 0755);
-		g_file_set_contents (leaf, "x", 1, NULL);
-		g_file_set_contents (leaf2, "x", 1, NULL);
+		check (g_file_set_contents (leaf, "x", 1, NULL));
+		check (g_file_set_contents (leaf2, "x", 1, NULL));
 
 		g_free (sub);
 		g_free (other);

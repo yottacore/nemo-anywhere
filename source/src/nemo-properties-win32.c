@@ -174,7 +174,7 @@ sheet_thread (gpointer data)
 		result = SHParseDisplayName ((PCWSTR) request->paths[parsed], NULL,
 					     &absolute[parsed], 0, NULL);
 		if (FAILED (result)) {
-			g_warning ("native properties: the shell would not parse item %u (0x%lx)",
+			g_warning ("native properties: the shell wouldn't parse item %u (0x%lx)",
 				   parsed, (unsigned long) result);
 			break;
 		}

@@ -143,6 +143,11 @@ struct NemoDirectoryDetails
 
     gint max_deferred_file_count;
     gint early_load_file_count;
+
+	/* Whether the folder is on a share, and the share generation that
+	   answer was read against; 0 is not read yet. */
+	guint share_gen;
+	gboolean on_share;
 };
 
 NemoDirectory *nemo_directory_get_existing                    (GFile                     *location);

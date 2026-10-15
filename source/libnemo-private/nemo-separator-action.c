@@ -28,7 +28,7 @@ static GtkWidget *create_tool_item    (GtkAction *action);
 static gpointer parent_class;
 
 static void
-nemo_separator_action_init (NemoSeparatorAction *action)
+nemo_separator_action_init (G_GNUC_UNUSED NemoSeparatorAction *action)
 {
 }
 
@@ -45,6 +45,7 @@ nemo_separator_action_class_init (NemoSeparatorActionClass *klass)
     action_class->toolbar_item_type = GTK_TYPE_SEPARATOR_TOOL_ITEM;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GtkAction *
 nemo_separator_action_new (const gchar *name)
 {
@@ -69,7 +70,7 @@ create_menu_item (GtkAction *action)
 }
 
 static GtkWidget *
-create_tool_item (GtkAction *action)
+create_tool_item (G_GNUC_UNUSED GtkAction *action)
 {
   g_warning ("NemoSeparatorAction: Toolbar items unsupported at this time.");
   return NULL;

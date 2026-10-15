@@ -84,7 +84,7 @@ check_setting (void)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	char *tmp;
 

@@ -1,0 +1,103 @@
+/* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
+
+/* nemo-archive-host.h - the app's side of the archive core.
+
+   Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu).
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; version 2 of the
+   License.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, see <http://www.gnu.org/licenses/>.
+*/
+
+/* The core never reads the settings file. This is where its values come from
+ * and go back to. Modularity in
+ * project/design_docs/20260929-101432_compression.md.
+ */
+
+#ifndef NEMO_ARCHIVE_HOST_H
+#define NEMO_ARCHIVE_HOST_H
+
+#include <gtk/gtk.h>
+
+#include "arc-host.h"
+#include "arc-link-options.h"
+#include "nemo-progress-info.h"
+
+G_BEGIN_DECLS
+
+/* The link and filesystem choices the Compress dialog starts from. Remembered
+   store links and follow links values are mapped over, then dropped. */
+void nemo_archive_link_options_load (ArcLinkOptions       *options);
+void nemo_archive_link_options_save (const ArcLinkOptions *options);
+
+/* Every choice under Options that is remembered, as chosen. A format or a
+   selection that can't do one shows it off without changing it here, so
+   switching back puts it back. Options in
+   project/design_docs/20260929-101432_compression.md. */
+typedef struct {
+	int            level;
+	gboolean       encrypt_names;
+	gboolean       split;
+	char          *split_size;	/* a preset's size alone, or as typed */
+	gboolean       solid;
+	gboolean       dedupe;
+	ArcLinkOptions links;
+	gboolean       recovery;
+	gboolean       lock;
+} NemoArchiveChoices;
+
+void     nemo_archive_choices_init       (NemoArchiveChoices       *choices);
+void     nemo_archive_choices_clear      (NemoArchiveChoices       *choices);
+void     nemo_archive_choices_copy       (NemoArchiveChoices       *to,
+					  const NemoArchiveChoices *from);
+void     nemo_archive_choices_load       (NemoArchiveChoices       *choices);
+void     nemo_archive_choices_save       (const NemoArchiveChoices *choices);
+gboolean nemo_archive_choices_at_default (const NemoArchiveChoices *choices);
+/* Drops every remembered choice under Options from the settings file. */
+void     nemo_archive_choices_forget     (void);
+/* What shows: each choice the format can't do turned off. Encrypting the
+   names needs a password too. Links go by arc_link_options_symlinks and
+   _junctions, since what a writer can store depends on more than the
+   format. shown is cleared first, so it starts zeroed or initialized. */
+void     nemo_archive_choices_shown      (const NemoArchiveChoices *chosen,
+					  guint                     caps,
+					  gboolean                  has_password,
+					  NemoArchiveChoices       *shown);
+
+/* An ArcHost with what needs nothing of a job: the folder walk, which gets
+   past MAX_PATH on Windows, the share check, the command lines, which are
+   read by the app's rules for a line a person wrote, and other programs,
+   which on Windows start from the one place that may start them. */
+void nemo_archive_host_init         (ArcHost              *host);
+
+/* What a job's calls reach: its progress, the window its dialogs and the
+   trash go over, and for a job that asks questions, the I/O job they wait
+   on the main loop through. */
+typedef struct {
+	NemoProgressInfo *progress;
+	GtkWindow        *parent_window;	/* NULL once it closed */
+	GIOSchedulerJob  *io_job;		/* set on the job's thread */
+} NemoArchiveHostJob;
+
+/* The same, plus progress, new files, deletes of what the job wrote or
+   unpacked, the trash, and the dialogs and questions, for a job. job has to
+   outlive the host. */
+void nemo_archive_host_init_job     (ArcHost              *host,
+				     NemoArchiveHostJob   *job);
+
+/* The command lines and the thread count as set now. Clear it with
+   arc_settings_clear. */
+void nemo_archive_settings_load     (ArcSettings          *settings);
+
+G_END_DECLS
+
+#endif /* NEMO_ARCHIVE_HOST_H */

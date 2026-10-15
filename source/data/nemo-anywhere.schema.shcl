@@ -25,12 +25,12 @@ field: appearance.mode
 
 field: archive.create-with-7z
 	type: string
-	default: "{{PROGRAM}} a {{FORMAT}} {{LEVEL}} {{THREADS}} -y -bsp1 -spd {{PASSWORD}} {{SPLIT}} {{SOLID}} {{LINKS}} -- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}"
+	default: "{{PROGRAM}} a {{FORMAT}} {{LEVEL}} {{THREADS}} -y -bsp1 -spd -sccUTF-8 {{PASSWORD}} {{SPLIT}} {{SOLID}} {{LINKS}} -- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}"
 	desc: Command line 7-Zip is run with to create an archive. Each {{NAME}} stands for something the Compress dialog fills in; drop one and that option stops working. Base flags only, which the app adds to or changes as a job needs; edit only to suit a different version of the program. Empty the line for the built-in one.
 
 field: archive.create-with-rar
 	type: string
-	default: "{{PROGRAM}} a {{LEVEL}} {{THREADS}} -r -y {{PASSWORD}} {{SPLIT}} {{SOLID}} {{DEDUPE}} {{RECOVERY}} {{LOCK}} {{LINKS}} -- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}"
+	default: "{{PROGRAM}} a {{LEVEL}} {{THREADS}} -y -scfr {{PASSWORD}} {{SPLIT}} {{SOLID}} {{DEDUPE}} {{RECOVERY}} {{LOCK}} {{LINKS}} -- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}"
 	desc: Command line rar is run with to create an archive. Same placeholders as the 7-Zip line, plus {{DEDUPE}}, {{RECOVERY}} and {{LOCK}}, which only rar has. Base flags only, which the app adds to or changes as a job needs; edit only to suit a different version of the program.
 
 field: archive.extract-with-7z
@@ -61,12 +61,23 @@ field: archive.last-dedupe
 field: archive.last-follow-links
 	type: bool
 	default: false
+	desc: Replaced by last-symlinks. Read once, then dropped
+
+field: archive.last-follow-nested
+	type: bool
+	default: true
 	desc: What the Compress dialog starts from next time
 
 field: archive.last-format
 	type: string
 	default: zip
 	desc: What the Compress dialog starts from next time
+
+field: archive.last-junctions
+	type: string
+	allowed: like-symlinks, ignore, follow, store-as-junctions, store-as-symlinks
+	default: like-symlinks
+	desc: What the Compress dialog starts from next time. Windows only
 
 field: archive.last-level
 	type: int
@@ -101,6 +112,12 @@ field: archive.last-split-size
 field: archive.last-store-links
 	type: bool
 	default: true
+	desc: Replaced by last-symlinks. Read once, then dropped
+
+field: archive.last-symlinks
+	type: string
+	allowed: ignore, follow, store-as-symlinks
+	default: ignore
 	desc: What the Compress dialog starts from next time
 
 field: compact-view.all-columns-have-same-width
@@ -135,7 +152,7 @@ field: file-cache.max-age-days
 field: file-cache.drop-missing
 	type: bool
 	default: true
-	desc: Forget a local file that is gone from a folder that is still there. A folder that is missing entirely is left alone, since it may be on a drive that is not plugged in
+	desc: Forget a local file that is gone from a folder that is still there. A folder that is missing entirely is left alone, since it may be on a drive that isn't plugged in
 
 field: file-cache.save-checksum
 	type: bool
@@ -254,7 +271,7 @@ field: icon-view.thumbnail-size
 field: list-view.column-fit-percent
 	type: int
 	default: 90
-	desc: Share of the values Name and Location still show when the row is short of room, and the share other variable columns show by default. Name counts every file; the others count each distinct value once.
+	desc: Share of the values Name and Location still show when the row is short of room, and the share other variable columns show by default. Name counts every file, or each distinct name once in find results; the others count each distinct value once.
 
 field: list-view.default-column-order
 	type: string-array
@@ -313,7 +330,7 @@ field: preferences.always-use-browser
 field: preferences.bulk-rename-tool
 	type: string
 	default: ""
-	desc: Program run for a bulk rename
+	desc: Program run for a bulk rename. Unset means the first known renamer that's installed, or else the first known one
 
 field: preferences.click-double-parent-folder
 	type: bool

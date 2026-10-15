@@ -31,6 +31,7 @@ struct NemoFileQueue {
 	GHashTable *item_to_link_map;
 };
 
+/* Returns: (transfer full): free with nemo_file_queue_destroy */
 NemoFileQueue *
 nemo_file_queue_new (void)
 {
@@ -71,6 +72,7 @@ nemo_file_queue_enqueue (NemoFileQueue *queue,
 	g_hash_table_insert (queue->item_to_link_map, file, queue->tail);
 }
 
+/* Returns: (transfer none): the queue's ref is dropped, so the file lives only while someone else holds one */
 NemoFile *
 nemo_file_queue_dequeue (NemoFileQueue *queue)
 {
@@ -108,6 +110,7 @@ nemo_file_queue_remove (NemoFileQueue *queue,
 	nemo_file_unref (file);
 }
 
+/* Returns: (transfer none): owned by @queue */
 NemoFile *
 nemo_file_queue_head (NemoFileQueue *queue)
 {

@@ -36,9 +36,10 @@
  * each one after, which is what makes it safe: no value is ever re-parsed, so
  * a file named with a space, a quote or a backslash cannot become two
  * arguments or a switch. Nothing here is quoted and nothing here needs to be.
- * Note the flip side - the escaping in the template text itself is the
- * ordinary shell kind, so a literal backslash in the template must be quoted
- * or doubled. Paths arriving through tokens are unaffected.
+ * The template text itself is split by nemo_user_text_split_command: on
+ * Windows a backslash in it is a path character and double quotes group,
+ * elsewhere it is the ordinary shell kind, so there a literal backslash must
+ * be quoted or doubled. Paths arriving through tokens are unaffected.
  */
 
 #ifndef NEMO_COMMAND_TEMPLATE_H

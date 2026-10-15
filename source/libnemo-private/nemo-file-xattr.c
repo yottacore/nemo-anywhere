@@ -40,6 +40,7 @@ gio_attribute (const char *name)
 }
 #endif
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_file_xattr_get (GFile *file, const char *name)
 {

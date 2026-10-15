@@ -249,3 +249,184 @@ nemo_column_layout_item_for_kind (NemoColumnKind           kind,
 	item->fit_width = MAX (item->min_width, item->fit_width);
 	item->max_width = MAX (item->fit_width, item->max_width);
 }
+
+struct _NemoColumnTally {
+	NemoColumnTallyMode mode;
+	GHashTable *values;	/* row or text -> width; NULL for WIDEST */
+	int widest;
+	int fit;		/* cached, -1 once a value has changed */
+	int half;
+	int fit_percent;	/* the share the cached fit was worked out for */
+};
+
+NemoColumnTallyMode
+nemo_column_tally_mode_for (NemoColumnKind kind,
+			    gboolean       is_name,
+			    gboolean       in_search)
+{
+	/* A folder can't hold one name twice. Find results can, and a name
+	   counted once per folder it turns up in pulls the share its way. */
+	if (is_name && !in_search) {
+		return NEMO_COLUMN_TALLY_EACH_ROW;
+	}
+
+	return kind == NEMO_COLUMN_KIND_FIXED ? NEMO_COLUMN_TALLY_WIDEST
+					      : NEMO_COLUMN_TALLY_EACH_TEXT;
+}
+
+/* Returns: (transfer full): free with nemo_column_tally_free */
+NemoColumnTally *
+nemo_column_tally_new (NemoColumnTallyMode mode)
+{
+	NemoColumnTally *tally = g_new0 (NemoColumnTally, 1);
+
+	tally->mode = mode;
+	tally->fit = -1;
+
+	if (mode == NEMO_COLUMN_TALLY_EACH_ROW) {
+		tally->values = g_hash_table_new (g_direct_hash, g_direct_equal);
+	} else if (mode == NEMO_COLUMN_TALLY_EACH_TEXT) {
+		tally->values = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+	}
+
+	return tally;
+}
+
+void
+nemo_column_tally_free (NemoColumnTally *tally)
+{
+	if (tally == NULL) {
+		return;
+	}
+
+	if (tally->values != NULL) {
+		g_hash_table_destroy (tally->values);
+	}
+	g_free (tally);
+}
+
+NemoColumnTallyMode
+nemo_column_tally_get_mode (const NemoColumnTally *tally)
+{
+	return tally->mode;
+}
+
+gboolean
+nemo_column_tally_note (NemoColumnTally *tally,
+			gconstpointer    row,
+			const char      *text,
+			int              width)
+{
+	gconstpointer key;
+	gpointer seen;
+	gboolean known;
+
+	g_return_val_if_fail (tally != NULL, FALSE);
+
+	if (tally->values == NULL) {
+		if (width > tally->widest) {
+			tally->widest = width;
+			return TRUE;
+		}
+		return FALSE;
+	}
+
+	key = tally->mode == NEMO_COLUMN_TALLY_EACH_ROW ? row : (gconstpointer) text;
+	if (key == NULL) {
+		return FALSE;
+	}
+
+	known = g_hash_table_lookup_extended (tally->values, key, NULL, &seen);
+
+	/* A row is measured again as its details fill in, so its last width is
+	   the right one. A text can sit at more than one depth in a tree, and the
+	   widest of those is what shows it whole. */
+	if (known && (GPOINTER_TO_INT (seen) == width ||
+		      (tally->mode == NEMO_COLUMN_TALLY_EACH_TEXT &&
+		       GPOINTER_TO_INT (seen) > width))) {
+		return FALSE;
+	}
+
+	g_hash_table_insert (tally->values,
+			     tally->mode == NEMO_COLUMN_TALLY_EACH_ROW ? (gpointer) row : g_strdup (text),
+			     GINT_TO_POINTER (width));
+	tally->fit = -1;
+
+	return TRUE;
+}
+
+gboolean
+nemo_column_tally_forget_row (NemoColumnTally *tally,
+			      gconstpointer    row)
+{
+	g_return_val_if_fail (tally != NULL, FALSE);
+
+	if (tally->mode != NEMO_COLUMN_TALLY_EACH_ROW ||
+	    !g_hash_table_remove (tally->values, row)) {
+		return FALSE;
+	}
+
+	tally->fit = -1;
+
+	return TRUE;
+}
+
+void
+nemo_column_tally_clear (NemoColumnTally *tally)
+{
+	g_return_if_fail (tally != NULL);
+
+	if (tally->values != NULL) {
+		g_hash_table_remove_all (tally->values);
+	}
+	tally->widest = 0;
+	tally->fit = -1;
+}
+
+/* Worked out on demand and kept until a value changes, so a window being
+   resized does not sort a folder per frame. */
+void
+nemo_column_tally_measure (NemoColumnTally *tally,
+			   int              percent,
+			   int             *fit,
+			   int             *half,
+			   int             *widest)
+{
+	if (tally == NULL) {
+		*fit = 0;
+		*half = 0;
+		*widest = 0;
+		return;
+	}
+
+	if (tally->values == NULL) {
+		*fit = tally->widest;
+		*half = tally->widest;
+		*widest = tally->widest;
+		return;
+	}
+
+	if (tally->fit < 0 || tally->fit_percent != percent) {
+		guint n = g_hash_table_size (tally->values);
+		int *widths = g_new (int, MAX (n, 1));
+		GHashTableIter iter;
+		gpointer value;
+		guint i = 0;
+
+		tally->widest = 0;
+		g_hash_table_iter_init (&iter, tally->values);
+		while (g_hash_table_iter_next (&iter, NULL, &value)) {
+			widths[i++] = GPOINTER_TO_INT (value);
+			tally->widest = MAX (tally->widest, GPOINTER_TO_INT (value));
+		}
+
+		tally->fit = nemo_column_layout_fit (widths, (int) n, percent);
+		tally->half = nemo_column_layout_fit (widths, (int) n, 50);
+		tally->fit_percent = percent;
+		g_free (widths);
+	}
+
+	*fit = tally->fit;
+	*half = tally->half;
+	*widest = tally->widest;
+}

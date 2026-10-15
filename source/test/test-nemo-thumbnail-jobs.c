@@ -39,7 +39,7 @@
 static int batches_seen = 0;
 
 static void
-batch_started (gpointer data)
+batch_started (G_GNUC_UNUSED gpointer data)
 {
 	batches_seen++;
 }

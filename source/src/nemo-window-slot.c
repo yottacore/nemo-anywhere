@@ -86,8 +86,8 @@ sync_search_directory (NemoWindowSlot *slot)
 }
 
 static void
-sync_search_location_cb (NemoWindow *window,
-			 GError *error,
+sync_search_location_cb (G_GNUC_UNUSED NemoWindow *window,
+			 G_GNUC_UNUSED GError *error,
 			 gpointer user_data)
 {
 	NemoWindowSlot *slot = user_data;
@@ -115,22 +115,35 @@ create_new_search (NemoWindowSlot *slot)
 	g_free (uri);
 }
 
-static void
-query_editor_cancel_callback (NemoQueryEditor *editor,
-			      NemoWindowSlot *slot)
+/* Back to the folder the search started from. FALSE when find mode was off. */
+gboolean
+nemo_window_slot_close_search (NemoWindowSlot *slot)
 {
 	GtkAction *search;
+
+	if (slot == NULL || slot->query_editor == NULL ||
+	    !nemo_query_editor_get_active (slot->query_editor)) {
+		return FALSE;
+	}
 
 	search = gtk_action_group_get_action (slot->pane->toolbar_action_group,
 					      NEMO_ACTION_SEARCH);
 
 	gtk_toggle_action_set_active (GTK_TOGGLE_ACTION (search), FALSE);
+	return TRUE;
 }
 
 static void
-query_editor_changed_callback (NemoQueryEditor *editor,
-			       NemoQuery *query,
-			       gboolean reload,
+query_editor_cancel_callback (G_GNUC_UNUSED NemoQueryEditor *editor,
+			      NemoWindowSlot *slot)
+{
+	nemo_window_slot_close_search (slot);
+}
+
+static void
+query_editor_changed_callback (G_GNUC_UNUSED NemoQueryEditor *editor,
+			       G_GNUC_UNUSED NemoQuery *query,
+			       G_GNUC_UNUSED gboolean reload,
 			       NemoWindowSlot *slot)
 {
 	NemoDirectory *directory;
@@ -190,6 +203,29 @@ ensure_query_editor (NemoWindowSlot *slot)
                                   TRUE);
 
 	gtk_widget_grab_focus (GTK_WIDGET (slot->query_editor));
+}
+
+/* The history can go from one search straight to another. Find mode stays on
+   then, so the bar would keep the last one's text and folder. */
+void
+nemo_window_slot_recall_search_bar (NemoWindowSlot *slot)
+{
+	NemoDirectory *directory;
+	NemoQuery *query = NULL;
+
+	if (!nemo_query_editor_get_active (slot->query_editor)) {
+		return;
+	}
+
+	directory = nemo_directory_get (slot->location);
+	if (NEMO_IS_SEARCH_DIRECTORY (directory)) {
+		query = nemo_search_directory_get_query (NEMO_SEARCH_DIRECTORY (directory));
+	}
+	if (query != NULL) {
+		ensure_query_editor (slot);
+		g_object_unref (query);
+	}
+	nemo_directory_unref (directory);
 }
 
 void
@@ -266,7 +302,7 @@ real_inactive (NemoWindowSlot *slot)
 }
 
 static void
-floating_bar_action_cb (NemoFloatingBar *floating_bar,
+floating_bar_action_cb (G_GNUC_UNUSED NemoFloatingBar *floating_bar,
 			gint action,
 			NemoWindowSlot *slot)
 {
@@ -347,7 +383,7 @@ nemo_window_slot_init (NemoWindowSlot *slot)
 }
 
 static void
-view_end_loading_cb (NemoView       *view,
+view_end_loading_cb (G_GNUC_UNUSED NemoView       *view,
 		     		 gboolean        all_files_seen,
 		     		 NemoWindowSlot *slot)
 {
@@ -381,6 +417,13 @@ nemo_window_slot_dispose (GObject *object)
 	GtkWidget *widget;
 
 	slot = NEMO_WINDOW_SLOT (object);
+
+	/* A slot taken out of its pane is destroyed there, so this runs again at
+	   the last unref. By then the extras box went with the slot's children. */
+	if (slot->extra_location_widgets == NULL) {
+		G_OBJECT_CLASS (nemo_window_slot_parent_class)->dispose (object);
+		return;
+	}
 
 	nemo_window_slot_clear_forward_list (slot);
 	nemo_window_slot_clear_back_list (slot);
@@ -417,11 +460,9 @@ nemo_window_slot_dispose (GObject *object)
 	 * It was already here before the slot move, though */
 	nemo_file_unref (slot->viewed_file);
 
-	if (slot->location) {
-		/* TODO? why do we ref here, instead of unreffing?
-		 * It was already here before the slot migration, though */
-		g_object_ref (slot->location);
-	}
+	g_clear_pointer (&slot->pending_scroll_to, g_free);
+	/* The location is let go in finalize, since the tab label and the pane
+	   can still ask for it between a destroy and the last unref. */
 
 	g_list_free_full (slot->pending_selection, g_object_unref);
 	slot->pending_selection = NULL;
@@ -442,7 +483,19 @@ nemo_window_slot_dispose (GObject *object)
 	g_free (slot->status_text);
 	slot->status_text = NULL;
 
+	slot->extra_location_widgets = NULL;
+
 	G_OBJECT_CLASS (nemo_window_slot_parent_class)->dispose (object);
+}
+
+static void
+nemo_window_slot_finalize (GObject *object)
+{
+	NemoWindowSlot *slot = NEMO_WINDOW_SLOT (object);
+
+	g_clear_object (&slot->location);
+
+	G_OBJECT_CLASS (nemo_window_slot_parent_class)->finalize (object);
 }
 
 static void
@@ -454,6 +507,7 @@ nemo_window_slot_class_init (NemoWindowSlotClass *klass)
 	klass->inactive = real_inactive;
 
 	oclass->dispose = nemo_window_slot_dispose;
+	oclass->finalize = nemo_window_slot_finalize;
 
 	signals[ACTIVE] =
 		g_signal_new ("active",
@@ -494,6 +548,7 @@ nemo_window_slot_class_init (NemoWindowSlotClass *klass)
 			      G_TYPE_STRING);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GFile *
 nemo_window_slot_get_location (NemoWindowSlot *slot)
 {
@@ -505,6 +560,7 @@ nemo_window_slot_get_location (NemoWindowSlot *slot)
 	return NULL;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_window_slot_get_location_uri (NemoWindowSlot *slot)
 {
@@ -525,6 +581,7 @@ nemo_window_slot_make_hosting_pane_active (NemoWindowSlot *slot)
 					 slot);
 }
 
+/* Returns: (transfer none) */
 NemoWindow *
 nemo_window_slot_get_window (NemoWindowSlot *slot)
 {
@@ -775,7 +832,8 @@ nemo_window_slot_add_extra_location_widget (NemoWindowSlot *slot,
 	gtk_widget_show (slot->extra_location_widgets);
 }
 
-/* returns either the pending or the actual current uri */
+/* returns either the pending or the actual current uri
+ * Returns: (transfer full): free with g_free */
 char *
 nemo_window_slot_get_current_uri (NemoWindowSlot *slot)
 {
@@ -791,6 +849,7 @@ nemo_window_slot_get_current_uri (NemoWindowSlot *slot)
 	return NULL;
 }
 
+/* Returns: (transfer none): owned by @slot */
 NemoView *
 nemo_window_slot_get_current_view (NemoWindowSlot *slot)
 {
@@ -911,6 +970,7 @@ nemo_window_slot_should_close_with_mount (NemoWindowSlot *slot,
 	return close_with_mount;
 }
 
+/* Returns: (transfer floating) */
 NemoWindowSlot *
 nemo_window_slot_new (NemoWindowPane *pane)
 {

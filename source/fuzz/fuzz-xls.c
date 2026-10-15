@@ -24,29 +24,23 @@
  * record walk below it reads lengths and offsets straight out of that. It has
  * been wrong once already: the shared-string loop trusted a count read from
  * the file and tested the wrong end, so a truncated workbook spun for four
- * billion passes.
- *
- * The helper source is included whole rather than linked, because the parser
- * is static and there is no reason to open it up for a fuzz target. Its main
- * is renamed out of the way; the driver supplies the real one. */
+ * billion passes. The bytes go to the app's Excel parser as one bare record
+ * stream, the way it gets the Workbook stream out of a compound file. */
+
+#include <config.h>
 
 #include <stdint.h>
 
-#define main nemo_xls_to_txt_main
-#include "../search-helpers/nemo-xls-to-txt.c"
-#undef main
+#include <glib.h>
+
+#include <libnemo-private/nemo-office-ole.h>
 
 int LLVMFuzzerTestOneInput (const uint8_t *data, size_t size);
 
 int
 LLVMFuzzerTestOneInput (const uint8_t *data, size_t size)
 {
-	GString *out = g_string_new (NULL);
-
-	parse_biff (data, size, out);
-	helper_clean (out);
-
-	g_string_free (out, TRUE);
+	g_free (nemo_office_biff_text (data, size, 64 * 1024));
 
 	return 0;
 }

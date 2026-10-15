@@ -66,12 +66,14 @@ nemo_entry_init (NemoEntry *entry)
 	nemo_undo_set_up_nemo_entry_for_undo (entry);
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_entry_new (void)
 {
 	return gtk_widget_new (NEMO_TYPE_ENTRY, NULL);
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_entry_new_with_max_length (guint16 max)
 {

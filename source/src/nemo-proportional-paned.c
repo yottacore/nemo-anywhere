@@ -112,7 +112,7 @@ nemo_proportional_paned_size_allocate (GtkWidget *widget,
 }
 
 static void
-nemo_proportional_paned_init (NemoProportionalPaned *self)
+nemo_proportional_paned_init (G_GNUC_UNUSED NemoProportionalPaned *self)
 {
 }
 
@@ -131,6 +131,7 @@ nemo_proportional_paned_class_init (NemoProportionalPanedClass *klass)
 					G_TYPE_NONE, 1, G_TYPE_INT);
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_proportional_paned_new (void)
 {

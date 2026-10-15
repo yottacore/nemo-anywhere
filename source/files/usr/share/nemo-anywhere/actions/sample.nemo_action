@@ -34,6 +34,8 @@ Name=Test custom action applied to %N
 Comment=This is a test for Nemo actions.  Action will be applied to %N
 
 # What to run.  Enclose in < > to run an executable that resides in the actions folder.
+# On Windows a path goes in as written, single backslashes and all, and double
+# quotes group a path with spaces:  Exec="C:\Program Files\Tool\tool.exe" %F
 # **** REQUIRED ****
 #Exec=gedit %F
 Exec=<myaction.py -r -g %P %F %U>

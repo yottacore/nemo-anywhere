@@ -135,7 +135,7 @@ ensure_loaded (void)
 			/* Every folder's view, zoom, sort and layout is in here. Say so,
 			 * and keep the damaged file: the next set() would otherwise write
 			 * an empty store straight over the only copy. */
-			g_warning ("nemo-metadata: cannot read %s: %s - keeping it as %s",
+			g_warning ("nemo-metadata: can't read %s: %s - keeping it as %s",
 			           path, error->message, aside);
 			g_rename (path, aside);
 			g_free (aside);
@@ -264,7 +264,7 @@ save_now (void)
 		if (g_file_set_contents (path, data, length, &error)) {
 			dirty = FALSE;
 		} else {
-			g_warning ("nemo-metadata: cannot write %s: %s", path, error->message);
+			g_warning ("nemo-metadata: can't write %s: %s", path, error->message);
 			g_clear_error (&error);
 		}
 	}
@@ -277,7 +277,7 @@ save_now (void)
 }
 
 static gboolean
-save_timeout_callback (gpointer user_data)
+save_timeout_callback (G_GNUC_UNUSED gpointer user_data)
 {
 	g_mutex_lock (&store_mutex);
 	save_timeout_id = 0;
@@ -394,7 +394,8 @@ nemo_metadata_store_set_stringv (const char *uri,
 	g_mutex_unlock (&store_mutex);
 }
 
-/* returns a copy, or NULL when the key is unset or holds a list */
+/* returns a copy, or NULL when the key is unset or holds a list
+ * Returns: (transfer full): free with g_free */
 char *
 nemo_metadata_store_get_string (const char *uri,
 				const char *key)
@@ -419,6 +420,7 @@ nemo_metadata_store_get_string (const char *uri,
 	return value;
 }
 
+/* Returns: (transfer full): free with g_strfreev */
 char **
 nemo_metadata_store_get_stringv (const char *uri,
 				 const char *key)

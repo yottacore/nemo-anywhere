@@ -16,6 +16,7 @@
 ##	    --release dev|stable    which release to take (default: stable)
 ##	    --target  user|system   where to install (default: user)
 ##	    --from    PATH|URL      install this archive instead of a release
+##	    --no-verify             install a release that has no checksums file
 ##	    --uninstall             remove an existing install
 ##	    -y, --yes               don't ask before making changes
 ##	    --version               print the installer's version
@@ -33,7 +34,7 @@
 set -Eeuo pipefail
 
 REPO="yottacore/nemo-anywhere"
-INSTALLER_VERSION="1.2.0"
+INSTALLER_VERSION="1.3.1"
 APP_NAME="Nemo Anywhere"
 EXE_NAME="nemo-anywhere"
 
@@ -65,6 +66,7 @@ fHelp(){
 		    --release dev|stable    which release to take (default: stable)
 		    --target  user|system   where to install (default: user)
 		    --from    PATH|URL      install this archive instead of a release
+		    --no-verify             install a release that has no checksums file
 		    --uninstall             remove an existing install
 		    -y, --yes               don't ask before making changes
 		    --version               the installer's version
@@ -72,6 +74,10 @@ fHelp(){
 
 		  The OS and architecture are detected. With no stable release yet,
 		  stable takes the newest prerelease and says so in the plan.
+
+		  A release download is checked against the release's checksums file.
+		  With no checksums file it stops, even with -y, unless --no-verify is
+		  given. A --from archive isn't checked.
 
 		  User install goes to \${XDG_DATA_HOME:-~/.local/share}/${EXE_NAME}, with a
 		  launcher in ~/.local/share/applications and ${EXE_NAME} on PATH via
@@ -88,7 +94,7 @@ fHelp(){
 #••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 # Arguments
 
-release="stable"; target="user"; from=""; do_uninstall=0; assume_yes=0
+release="stable"; target="user"; from=""; do_uninstall=0; assume_yes=0; no_verify=0
 ## A "shift 2" with no value after the option shifts nothing, and the loop
 ## would never end, so a missing value is caught here instead.
 fNeedValue(){ [[ -n "${2:-}" ]] || fDie "$1 needs a value (try --help)"; }
@@ -100,6 +106,7 @@ while (($#)); do case "$1" in
 	--target)  fNeedValue "$@"; target="$2";  shift 2 ;;
 	--from)    fNeedValue "$@"; from="$2";    shift 2 ;;
 	--uninstall) do_uninstall=1; shift ;;
+	--no-verify) no_verify=1; shift ;;
 	-y|--yes)  assume_yes=1; shift ;;
 	--version) echo "${APP_NAME} installer ${INSTALLER_VERSION}"; exit 0 ;;
 	-h|--help) fHelp; exit 0 ;;
@@ -143,7 +150,7 @@ symlink="${bindir}/${EXE_NAME}"
 ## Privileged steps run through this; empty when we are already root.
 priv=""
 if [[ "$target" == "system" && "$(id -u)" != "0" ]]; then
-	command -v sudo >/dev/null 2>&1 || fDie "--target system needs root, and sudo was not found - re-run as root"
+	command -v sudo >/dev/null 2>&1 || fDie "--target system needs root, and sudo wasn't found - re-run as root"
 	priv="sudo"
 fi
 
@@ -346,7 +353,7 @@ if [[ -n "$from" ]]; then
 else
 	command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1 || fDie "need curl or wget to reach the releases page"
 	releases_json="$(fFetchText "https://api.github.com/repos/${REPO}/releases?per_page=100" 2>/dev/null)" \
-		|| fDie "could not list the releases of ${REPO} - check the connection. GitHub also limits anonymous requests to 60 an hour."
+		|| fDie "couldn't list the releases of ${REPO} - check the connection. GitHub also limits anonymous requests to 60 an hour."
 	tag="$(fResolveTag "$releases_json")"
 	[[ -n "$tag" ]] || fDie "no release published yet for ${REPO}"
 	version="${tag#v}"
@@ -356,7 +363,7 @@ else
 	sums_asset="${EXE_NAME}-${version}-sha256sums.txt"
 
 	tag_json="$(fFetchText "https://api.github.com/repos/${REPO}/releases/tags/${tag}")" \
-		|| fDie "could not read release ${tag} of ${REPO} from GitHub"
+		|| fDie "couldn't read release ${tag} of ${REPO} from GitHub"
 	asset_urls="$(printf '%s' "$tag_json" | fJsonValues browser_download_url || true)"
 	asset_url="$(printf '%s\n' "$asset_urls" | grep -F "/${asset}" | head -1 || true)"
 	sums_url="$(printf '%s\n' "$asset_urls" | grep -F "/${sums_asset}" | head -1 || true)"
@@ -370,7 +377,14 @@ else
 	download_url="$asset_url"
 	source_desc="$asset_url"
 	release_desc="${release} ${version}"
-	[[ -n "$sums_url" ]] && verify="sha256, against ${sums_asset}" || verify="UNVERIFIED - release publishes no checksums"
+	if [[ -n "$sums_url" ]]; then
+		verify="sha256, against ${sums_asset}"
+	elif ((no_verify)); then
+		verify="UNVERIFIED - release publishes no checksums (--no-verify)"
+	else
+		## Before the plan and the question, so -y alone never gets past it.
+		fDie "release ${tag} publishes no ${sums_asset}, so the download can't be checked - re-run with --no-verify to install it anyway"
+	fi
 fi
 
 fCheckPrefix
@@ -425,7 +439,7 @@ fEcho_Clean ""
 fEcho "Installing"
 
 mkdir -p "${work}/unpacked"
-tar -xzf "$archive" -C "${work}/unpacked" || fDie "could not unpack the archive"
+tar -xzf "$archive" -C "${work}/unpacked" || fDie "couldn't unpack the archive"
 
 ## Archives carry one top-level dir; tolerate a flat one too.
 tree="${work}/unpacked"
@@ -443,19 +457,19 @@ $priv mkdir -p "$(dirname "$prefix")"
 staging="$(dirname "$prefix")/.${EXE_NAME}-install.$$"
 backup="${prefix}.old.$$"
 $priv rm -rf "$staging" "$backup"
-$priv cp -a "$tree" "$staging" || { $priv rm -rf "$staging"; fDie "could not stage the new install"; }
+$priv cp -a "$tree" "$staging" || { $priv rm -rf "$staging"; fDie "couldn't stage the new install"; }
 if [[ "$target" == "system" ]]; then
 	## Staged as the invoking user; a system prefix must not stay user-writable.
 	$priv chown -R 0:0 "$staging" 2>/dev/null || true
 	$priv chmod -R a+rX "$staging"
 fi
 if [[ -e "$prefix" ]]; then
-	$priv mv "$prefix" "$backup" || { $priv rm -rf "$staging"; fDie "could not move the existing install aside"; }
+	$priv mv "$prefix" "$backup" || { $priv rm -rf "$staging"; fDie "couldn't move the existing install aside"; }
 fi
 if ! $priv mv "$staging" "$prefix"; then
 	[[ -e "$backup" ]] && $priv mv "$backup" "$prefix"
 	$priv rm -rf "$staging"
-	fDie "could not move the new install into place"
+	fDie "couldn't move the new install into place"
 fi
 $priv rm -rf "$backup"
 fEcho_Clean "prefix installed at ${prefix}"
@@ -479,7 +493,7 @@ fEcho "Installed ${APP_NAME}${version:+ }${version}"
 fEcho_Clean "Run it from the menu, or type: ${EXE_NAME}"
 case ":${PATH}:" in
 	*":${bindir}:"*) ;;
-	*) fEcho_Clean "Note: ${bindir} is not on your PATH yet." ;;
+	*) fEcho_Clean "Note: ${bindir} isn't on your PATH yet." ;;
 esac
 fEcho_Clean "Uninstall with the same command plus --uninstall."
 fEcho_Clean ""
@@ -493,3 +507,6 @@ fEcho_Clean ""
 ##		- 2026-09-25 JC: A failed request to GitHub says so instead of reporting
 ##		  no release, downloads fail with a sentence, and a user install checks
 ##		  it can write where it is going before asking.
+##		- 2026-10-03 JC: A release with no checksums file stops the install,
+##		  -y or not, unless --no-verify is given.
+##		- 2026-10-04 JC: The no-checksums override is named --no-verify.

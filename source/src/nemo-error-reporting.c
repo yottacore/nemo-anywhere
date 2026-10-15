@@ -35,6 +35,7 @@
 
 #define DEBUG_FLAG NEMO_DEBUG_DIRECTORY_VIEW
 #include <libnemo-private/nemo-debug.h>
+#include <libnemo-private/nemo-file-utilities.h>
 
 #define NEW_NAME_TAG "Nemo: new name"
 #define MAXIMUM_DISPLAYED_FILE_NAME_LENGTH	50
@@ -65,22 +66,22 @@ nemo_report_error_loading_directory (NemoFile *file,
 	if (error->domain == G_IO_ERROR) {
 		switch (error->code) {
 		case G_IO_ERROR_PERMISSION_DENIED:
-			message = g_strdup_printf (_("You do not have the permissions necessary to view the contents of \"%s\"."),
+			message = g_strdup_printf (_("You don't have the permissions necessary to view the contents of \"%s\"."),
 						   file_name);
 			break;
 		case G_IO_ERROR_NOT_FOUND:
-			message = g_strdup_printf (_("\"%s\" could not be found. Perhaps it has recently been deleted."),
+			message = g_strdup_printf (_("\"%s\" couldn't be found. Perhaps it has recently been deleted."),
 						   file_name);
 			break;
 		default:
-			message = g_strdup_printf (_("Sorry, could not display all the contents of \"%s\": %s"), file_name,
+			message = g_strdup_printf (_("Sorry, couldn't display all the contents of \"%s\": %s"), file_name,
 						   error->message);
 		}
 	} else {
 		message = g_strdup (error->message);
 	}
 
-	eel_show_error_dialog (_("The folder contents could not be displayed."), message, parent_window);
+	eel_show_error_dialog (_("The folder contents couldn't be displayed."), message, parent_window);
 
 	g_free (file_name);
 	g_free (message);
@@ -104,7 +105,7 @@ nemo_report_error_setting_group (NemoFile *file,
 	if (error->domain == G_IO_ERROR) {
 		switch (error->code) {
 		case G_IO_ERROR_PERMISSION_DENIED:
-			message = g_strdup_printf (_("You do not have the permissions necessary to change the group of \"%s\"."),
+			message = g_strdup_printf (_("You don't have the permissions necessary to change the group of \"%s\"."),
 						   file_name);
 			break;
 		default:
@@ -117,12 +118,12 @@ nemo_report_error_setting_group (NemoFile *file,
 		g_warning ("Hit unhandled case %s:%d in nemo_report_error_setting_group", 
 			   g_quark_to_string (error->domain), error->code);
 		/* fall through */
-		message = g_strdup_printf (_("Sorry, could not change the group of \"%s\": %s"), file_name,
+		message = g_strdup_printf (_("Sorry, couldn't change the group of \"%s\": %s"), file_name,
 					   error->message);
 	}
 	
 	
-	eel_show_error_dialog (_("The group could not be changed."), message, parent_window);
+	eel_show_error_dialog (_("The group couldn't be changed."), message, parent_window);
 	
 	g_free (file_name);
 	g_free (message);
@@ -142,9 +143,9 @@ nemo_report_error_setting_owner (NemoFile *file,
 
 	file_name = nemo_file_get_display_name (file);
 
-	message = g_strdup_printf (_("Sorry, could not change the owner of \"%s\": %s"), file_name, error->message);
+	message = g_strdup_printf (_("Sorry, couldn't change the owner of \"%s\": %s"), file_name, error->message);
 
-	eel_show_error_dialog (_("The owner could not be changed."), message, parent_window);
+	eel_show_error_dialog (_("The owner couldn't be changed."), message, parent_window);
 
 	g_free (file_name);
 	g_free (message);
@@ -164,9 +165,9 @@ nemo_report_error_setting_permissions (NemoFile *file,
 
 	file_name = nemo_file_get_display_name (file);
 
-	message = g_strdup_printf (_("Sorry, could not change the permissions of \"%s\": %s"), file_name, error->message);
+	message = g_strdup_printf (_("Sorry, couldn't change the permissions of \"%s\": %s"), file_name, error->message);
 
-	eel_show_error_dialog (_("The permissions could not be changed."), message, parent_window);
+	eel_show_error_dialog (_("The permissions couldn't be changed."), message, parent_window);
 
 	g_free (file_name);
 	g_free (message);
@@ -211,16 +212,13 @@ nemo_report_error_renaming_file (NemoFile *file,
 						   original_name_truncated);
 			break;
 		case G_IO_ERROR_PERMISSION_DENIED:
-			message = g_strdup_printf (_("You do not have the permissions necessary to rename \"%s\"."),
+			message = g_strdup_printf (_("You don't have the permissions necessary to rename \"%s\"."),
 						   original_name_truncated);
 			break;
 		case G_IO_ERROR_INVALID_FILENAME:
-			if (strchr (new_name, '/') != NULL) {
-				message = g_strdup_printf (_("The name \"%s\" is not valid because it contains the character \"/\". "
-							     "Please use a different name."),
-							   new_name_truncated);
-			} else {
-				message = g_strdup_printf (_("The name \"%s\" is not valid. "
+			message = nemo_file_name_bad_char_message (new_name);
+			if (message == NULL) {
+				message = g_strdup_printf (_("The name \"%s\" isn't valid. "
 							     "Please use a different name."),
 							   new_name_truncated);
 			}
@@ -240,7 +238,7 @@ nemo_report_error_renaming_file (NemoFile *file,
 		g_warning ("Hit unhandled case %s:%d in nemo_report_error_renaming_file", 
 			   g_quark_to_string (error->domain), error->code);
 		/* fall through */
-		message = g_strdup_printf (_("Sorry, could not rename \"%s\" to \"%s\": %s"), 
+		message = g_strdup_printf (_("Sorry, couldn't rename \"%s\" to \"%s\": %s"), 
 					   original_name_truncated, new_name_truncated,
 					   error->message);
 	}
@@ -248,7 +246,7 @@ nemo_report_error_renaming_file (NemoFile *file,
 	g_free (original_name_truncated);
 	g_free (new_name_truncated);
 
-	eel_show_error_dialog (_("The item could not be renamed."), message, parent_window);
+	eel_show_error_dialog (_("The item couldn't be renamed."), message, parent_window);
 	g_free (message);
 }
 
@@ -260,7 +258,7 @@ nemo_rename_data_free (NemoRenameData *data)
 }
 
 static void
-rename_callback (NemoFile *file, GFile *result_location,
+rename_callback (NemoFile *file, G_GNUC_UNUSED GFile *result_location,
 		 GError *error, gpointer callback_data)
 {
 	NemoRenameData *data;
@@ -360,4 +358,105 @@ nemo_rename_file (NemoFile *file,
 	/* Start the rename. */
 	nemo_file_rename (file, new_name,
 			      rename_callback, NULL);
+}
+
+typedef struct {
+	NemoFile *file;
+	char *typed;
+	GtkWindow *parent_window;
+	NemoNestCallback done;
+	gpointer done_data;
+} NestRename;
+
+static void
+report_nest_error (const char *typed, GError *error, GtkWindow *parent_window)
+{
+	g_autofree char *shown = eel_str_middle_truncate (typed, MAXIMUM_DISPLAYED_FILE_NAME_LENGTH);
+	g_autofree char *message = NULL;
+
+	if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_EXISTS)) {
+		message = g_strdup_printf (_("The name \"%s\" is already used in this folder. "
+					     "Please use a different name."), shown);
+	}
+
+	eel_show_error_dialog (_("The folders couldn't be made."),
+			       message != NULL ? message : error->message, parent_window);
+}
+
+static void
+nest_rename_done (GFile *top, GError *error, gpointer callback_data)
+{
+	NestRename *nest = callback_data;
+
+	if (error != NULL && !g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+		report_nest_error (nest->typed, error, nest->parent_window);
+	}
+
+	/* Nothing was touched, so the folder is still waiting for its first name. */
+	if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_EXISTS) ||
+	    g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_DIRECTORY)) {
+		nemo_file_set_fresh_folder (nest->file, TRUE);
+	}
+
+	if (nest->done != NULL) {
+		nest->done (top, error, nest->done_data);
+	}
+
+	if (nest->parent_window != NULL) {
+		g_object_remove_weak_pointer (G_OBJECT (nest->parent_window),
+					      (gpointer *) &nest->parent_window);
+	}
+	nemo_file_unref (nest->file);
+	g_free (nest->typed);
+	g_free (nest);
+}
+
+gboolean
+nemo_rename_new_folder_nested (NemoFile *file,
+			       const char *new_name,
+			       GtkWindow *parent_window,
+			       NemoNestCallback done,
+			       gpointer done_data)
+{
+	g_auto(GStrv) parts = NULL;
+	GError *error = NULL;
+	NestRename *nest;
+	GFile *location;
+
+	g_return_val_if_fail (NEMO_IS_FILE (file), FALSE);
+	g_return_val_if_fail (new_name != NULL, FALSE);
+
+	if (!nemo_file_take_fresh_folder (file) ||
+	    !nemo_new_folder_name_has_separator (new_name)) {
+		return FALSE;
+	}
+
+	parts = nemo_new_folder_path_split (new_name, &error);
+	if (parts == NULL) {
+		report_nest_error (new_name, error, parent_window);
+		nemo_file_set_fresh_folder (file, TRUE);
+		if (done != NULL) {
+			done (NULL, error, done_data);
+		}
+		g_error_free (error);
+		return TRUE;
+	}
+
+	nest = g_new0 (NestRename, 1);
+	nest->file = nemo_file_ref (file);
+	nest->typed = g_strdup (new_name);
+	nest->parent_window = parent_window;
+	nest->done = done;
+	nest->done_data = done_data;
+	if (parent_window != NULL) {
+		g_object_add_weak_pointer (G_OBJECT (parent_window), (gpointer *) &nest->parent_window);
+	}
+
+	location = nemo_file_get_location (file);
+	nemo_file_operations_nest_new_folder (parent_window != NULL ? GTK_WIDGET (parent_window) : NULL,
+					      location, (const char * const *) parts,
+					      nest_rename_done, nest);
+	g_object_unref (location);
+
+	return TRUE;
 }

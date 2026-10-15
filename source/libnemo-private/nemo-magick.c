@@ -26,6 +26,11 @@
 
 #include <string.h>
 
+#ifdef G_OS_WIN32
+#include <glib/gstdio.h>
+#include "nemo-launch-win32.h"
+#endif
+
 #define TIMEOUT_SECONDS 30
 
 /* ImageMagick holds all of its input in memory before decoding it, so past
@@ -75,8 +80,27 @@ static const struct {
 	{ "x3f",  "X3F" },
 };
 
+/* Formats gdk-pixbuf reads itself when it has the loader. Since 2.42.11 a
+ * default build leaves these loaders out, and systems put them in a package
+ * of their own that may not be there, so these are handed over only when no
+ * loader claims the extension. */
+static const struct {
+	const char *extension;
+	const char *coder;
+} pixbuf_extras[] = {
+	{ "bmp", "BMP" },
+	{ "ico", "ICO" },
+	{ "cur", "CUR" },
+	{ "xpm", "XPM" },
+	{ "xbm", "XBM" },
+	{ "pnm", "PNM" },
+	{ "pbm", "PBM" },
+	{ "pgm", "PGM" },
+	{ "ppm", "PPM" },
+};
+
 static gpointer
-find_program (gpointer data)
+find_program (G_GNUC_UNUSED gpointer data)
 {
 	char *found = g_find_program_in_path ("magick");
 
@@ -92,6 +116,42 @@ find_program (gpointer data)
 	return found;
 }
 
+static gpointer
+list_pixbuf_extensions (G_GNUC_UNUSED gpointer data)
+{
+	GHashTable *found = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+	GSList *formats = gdk_pixbuf_get_formats ();
+	GSList *l;
+
+	for (l = formats; l != NULL; l = l->next) {
+		g_auto (GStrv) extensions = NULL;
+		guint i;
+
+		if (gdk_pixbuf_format_is_disabled (l->data)) {
+			continue;
+		}
+		extensions = gdk_pixbuf_format_get_extensions (l->data);
+		for (i = 0; extensions != NULL && extensions[i] != NULL; i++) {
+			char *lower = g_ascii_strdown (extensions[i], -1);
+
+			g_hash_table_add (found, lower);
+		}
+	}
+	g_slist_free (formats);
+
+	return found;
+}
+
+static gboolean
+pixbuf_reads (const char *extension)
+{
+	static GOnce once = G_ONCE_INIT;
+	g_autofree char *lower = g_ascii_strdown (extension, -1);
+
+	return g_hash_table_contains (g_once (&once, list_pixbuf_extensions, NULL), lower);
+}
+
+/* Returns: (transfer none): kept for the life of the process */
 const char *
 nemo_magick_program (void)
 {
@@ -100,6 +160,7 @@ nemo_magick_program (void)
 	return g_once (&once, find_program, NULL);
 }
 
+/* Returns: (transfer none): a static string */
 const char *
 nemo_magick_coder (const char *name)
 {
@@ -131,6 +192,12 @@ nemo_magick_coder (const char *name)
 		}
 	}
 
+	for (i = 0; i < G_N_ELEMENTS (pixbuf_extras); i++) {
+		if (g_ascii_strcasecmp (dot + 1, pixbuf_extras[i].extension) == 0) {
+			return pixbuf_reads (pixbuf_extras[i].extension) ? NULL : pixbuf_extras[i].coder;
+		}
+	}
+
 	return NULL;
 }
 
@@ -141,6 +208,7 @@ nemo_magick_type_ok (const char *uri)
 	       nemo_magick_coder (uri) != NULL && nemo_magick_program () != NULL;
 }
 
+/* Returns: (transfer full): free with g_strfreev */
 gchar **
 nemo_magick_argv (const char *program, const char *coder, int size)
 {
@@ -180,11 +248,13 @@ nemo_magick_argv (const char *program, const char *coder, int size)
 	return (gchar **) g_ptr_array_free (argv, FALSE);
 }
 
+#ifndef G_OS_WIN32
 typedef struct {
 	GSubprocess *proc;
 	GMainLoop   *loop;
 	GBytes      *out;
 	gboolean     timed_out;
+	gboolean     stopped;
 } Run;
 
 static gboolean
@@ -198,6 +268,19 @@ run_timed_out (gpointer data)
 	return G_SOURCE_REMOVE;
 }
 
+/* Nothing wants the picture any more. A cancelled communicate would leave
+ * the program running, so it is ended instead, the same way as a timeout. */
+static gboolean
+run_cancelled (G_GNUC_UNUSED GCancellable *cancellable, gpointer data)
+{
+	Run *run = data;
+
+	run->stopped = TRUE;
+	g_subprocess_force_exit (run->proc);
+
+	return G_SOURCE_REMOVE;
+}
+
 static void
 run_finished (GObject *source, GAsyncResult *result, gpointer data)
 {
@@ -206,6 +289,7 @@ run_finished (GObject *source, GAsyncResult *result, gpointer data)
 	g_subprocess_communicate_finish (G_SUBPROCESS (source), result, &run->out, NULL, NULL);
 	g_main_loop_quit (run->loop);
 }
+#endif
 
 static GdkPixbuf *
 decode_png (GBytes *bytes)
@@ -227,26 +311,44 @@ decode_png (GBytes *bytes)
 	return pixbuf != NULL ? g_object_ref (pixbuf) : NULL;
 }
 
-GdkPixbuf *
-nemo_magick_load_uri (const char *uri, int size)
+#ifdef G_OS_WIN32
+/* GLib starts a program through a helper of its own, which has no console, so
+ * each run opened a console window. Packed into the single exe the helper never
+ * starts the program at all and the thumbnail waits on it for good. */
+static GdkPixbuf *
+run_magick (char **argv, const char *path, GCancellable *cancellable)
 {
-	g_autofree char *path = NULL;
+	g_autoptr (GBytes) out = NULL;
+	GStatBuf info;
+	gboolean late = FALSE;
+
+	if (g_stat (path, &info) != 0 || info.st_size > MAX_FILE_BYTES) {
+		return NULL;
+	}
+
+	if (!nemo_launch_win32_pipe ((const gchar * const *) argv, path, TIMEOUT_SECONDS,
+				     cancellable, &out, &late)) {
+		if (late) {
+			g_warning ("ImageMagick took longer than %d seconds, gave up on %s",
+				   TIMEOUT_SECONDS, path);
+		}
+		return NULL;
+	}
+
+	return decode_png (out);
+}
+#else
+static GdkPixbuf *
+run_magick (char **argv, const char *path, GCancellable *cancellable)
+{
 	g_autoptr (GMappedFile) mapped = NULL;
 	g_autoptr (GBytes) input = NULL;
-	g_auto (GStrv) argv = NULL;
-	const char *program, *coder;
 	GMainContext *context;
 	GSource *timeout;
+	GSource *stop = NULL;
 	GdkPixbuf *pixbuf = NULL;
 	Run run = { 0 };
 
-	if (!nemo_magick_type_ok (uri)) {
-		return NULL;
-	}
-	path = g_filename_from_uri (uri, NULL, NULL);
-	if (path == NULL) {
-		return NULL;
-	}
 	/* Mapped rather than read, so the file is not copied on its way down the
 	 * pipe. A stdin that is the file itself would be cheaper still, but GLib
 	 * only offers that on Unix. */
@@ -255,10 +357,6 @@ nemo_magick_load_uri (const char *uri, int size)
 		return NULL;
 	}
 	input = g_mapped_file_get_bytes (mapped);
-
-	program = nemo_magick_program ();
-	coder = nemo_magick_coder (path);
-	argv = nemo_magick_argv (program, coder, CLAMP (size, 1, 4096));
 
 	/* Private context so the wait and the timeout run here rather than on
 	 * whatever context this worker thread happens to be running under. */
@@ -276,16 +374,26 @@ nemo_magick_load_uri (const char *uri, int size)
 		g_source_set_callback (timeout, run_timed_out, &run, NULL);
 		g_source_attach (timeout, context);
 
+		if (cancellable != NULL) {
+			stop = g_cancellable_source_new (cancellable);
+			g_source_set_callback (stop, G_SOURCE_FUNC (run_cancelled), &run, NULL);
+			g_source_attach (stop, context);
+		}
+
 		/* A killed child closes its output, so the loop still ends. */
 		g_main_loop_run (run.loop);
 
 		if (run.timed_out) {
 			g_warning ("ImageMagick took longer than %d seconds, gave up on %s",
 				   TIMEOUT_SECONDS, path);
-		} else if (run.out != NULL && g_subprocess_get_successful (run.proc)) {
+		} else if (!run.stopped && run.out != NULL && g_subprocess_get_successful (run.proc)) {
 			pixbuf = decode_png (run.out);
 		}
 
+		if (stop != NULL) {
+			g_source_destroy (stop);
+			g_source_unref (stop);
+		}
 		g_source_destroy (timeout);
 		g_source_unref (timeout);
 		g_main_loop_unref (run.loop);
@@ -297,4 +405,26 @@ nemo_magick_load_uri (const char *uri, int size)
 	g_main_context_unref (context);
 
 	return pixbuf;
+}
+#endif
+
+/* Returns: (transfer full): unref with g_object_unref */
+GdkPixbuf *
+nemo_magick_load_uri (const char *uri, int size, GCancellable *cancellable)
+{
+	g_autofree char *path = NULL;
+	g_auto (GStrv) argv = NULL;
+
+	if (!nemo_magick_type_ok (uri) || g_cancellable_is_cancelled (cancellable)) {
+		return NULL;
+	}
+	path = g_filename_from_uri (uri, NULL, NULL);
+	if (path == NULL) {
+		return NULL;
+	}
+
+	argv = nemo_magick_argv (nemo_magick_program (), nemo_magick_coder (path),
+				 CLAMP (size, 1, 4096));
+
+	return run_magick (argv, path, cancellable);
 }

@@ -27,7 +27,6 @@
 struct _NemoJobQueuePriv {
 	GList *queued_jobs;
     GList *running_jobs;
-    gulong pref_changed_id;
     gboolean skip_queue;
 };
 
@@ -61,11 +60,6 @@ nemo_job_queue_finalize (GObject *obj)
 		g_list_free_full (self->priv->queued_jobs, g_free);
 		self->priv->queued_jobs = NULL;
 	}
-
-    if (self->priv->pref_changed_id != 0) {
-        g_signal_handler_disconnect (nemo_preferences, self->priv->pref_changed_id);
-        self->priv->pref_changed_id = 0;
-    }
 
 	G_OBJECT_CLASS (nemo_job_queue_parent_class)->finalize (obj);
 }
@@ -106,9 +100,9 @@ nemo_job_queue_init (NemoJobQueue *self)
     self->priv->queued_jobs = NULL;
     self->priv->running_jobs = NULL;
 
-    self->priv->pref_changed_id = g_signal_connect_swapped (nemo_preferences,
-                                                    "changed::" NEMO_PREFERENCES_NEVER_QUEUE_FILE_OPS,
-                                                    G_CALLBACK (pref_changed_cb), self);
+    g_signal_connect_object (nemo_preferences,
+                             "changed::" NEMO_PREFERENCES_NEVER_QUEUE_FILE_OPS,
+                             G_CALLBACK (pref_changed_cb), self, G_CONNECT_SWAPPED);
 
     pref_changed_cb (self);
 }
@@ -175,6 +169,7 @@ job_finished_cb (NemoJobQueue *self,
 
 static void start_job (NemoJobQueue *self, Job *job);
 
+/* Returns: (transfer full): the shared queue with one more ref; unref with g_object_unref */
 NemoJobQueue *
 nemo_job_queue_get (void)
 {
@@ -220,6 +215,7 @@ nemo_job_queue_add_new_job (NemoJobQueue         *self,
    that stops to ask can pause the right one. */
 static GPrivate current_info;
 
+/* Returns: (transfer none): owned by the running job */
 NemoProgressInfo *
 nemo_job_queue_get_current_info (void)
 {
@@ -276,6 +272,7 @@ nemo_job_queue_start_job_by_info (NemoJobQueue     *self,
         start_job (self, target->data);
 }
 
+/* Returns: (transfer none): owned by @self */
 GList *
 nemo_job_queue_get_all_jobs (NemoJobQueue *self)
 {

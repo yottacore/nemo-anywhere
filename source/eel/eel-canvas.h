@@ -52,15 +52,15 @@ G_BEGIN_DECLS
  * [0, 255].
  */
 
-#define EEL_CANVAS_COLOR(r, g, b) ((((int) (r) & 0xff) << 24)	\
-				     | (((int) (g) & 0xff) << 16)	\
-				     | (((int) (b) & 0xff) << 8)	\
+#define EEL_CANVAS_COLOR(r, g, b) ((((guint32) (r) & 0xff) << 24)	\
+				     | (((guint32) (g) & 0xff) << 16)	\
+				     | (((guint32) (b) & 0xff) << 8)	\
 				     | 0xff)
 
-#define EEL_CANVAS_COLOR_A(r, g, b, a) ((((int) (r) & 0xff) << 24)	\
-					  | (((int) (g) & 0xff) << 16)	\
-					  | (((int) (b) & 0xff) << 8)	\
-					  | ((int) (a) & 0xff))
+#define EEL_CANVAS_COLOR_A(r, g, b, a) ((((guint32) (r) & 0xff) << 24)	\
+					  | (((guint32) (g) & 0xff) << 16)	\
+					  | (((guint32) (b) & 0xff) << 8)	\
+					  | ((guint32) (a) & 0xff))
 
 
 typedef struct _EelCanvas           EelCanvas;
@@ -527,6 +527,22 @@ typedef struct _EelCanvasAccessibleClass EelCanvasAccessibleClass;
 struct _EelCanvasAccessibleClass
 {
 	GtkAccessibleClass parent_class;
+};
+
+/* An item's accessible, which gives its place on screen. An item type with
+   an accessible of its own derives it from this one. */
+GType eel_canvas_item_accessible_get_type (void);
+
+typedef struct _EelCanvasItemAccessible EelCanvasItemAccessible;
+struct _EelCanvasItemAccessible
+{
+	AtkGObjectAccessible parent;
+};
+
+typedef struct _EelCanvasItemAccessibleClass EelCanvasItemAccessibleClass;
+struct _EelCanvasItemAccessibleClass
+{
+	AtkGObjectAccessibleClass parent_class;
 };
 
 G_END_DECLS

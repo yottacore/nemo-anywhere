@@ -1,6 +1,8 @@
 /* A search run through a search folder, the way a window runs one: the folder
  * is handed a query, a monitor starts it, and the hits come back as the folder's
- * own files. The engine underneath has a test of its own. */
+ * own files. A search page brought back by its URI searches what it did before,
+ * and one with no folder searches nothing. The engine underneath has a test of
+ * its own. */
 
 #include <config.h>
 
@@ -18,7 +20,7 @@
 static int loads = 0;
 
 static void
-done_loading (NemoDirectory *directory, gpointer data)
+done_loading (G_GNUC_UNUSED NemoDirectory *directory, G_GNUC_UNUSED gpointer data)
 {
 	loads++;
 }
@@ -95,7 +97,8 @@ main (int argc, char *argv[])
 	static int client;
 	NemoDirectory *directory;
 	NemoQuery *query;
-	char *scratch, *dir, *sub, *uri, *search_uri;
+	char *scratch, *dir, *sub, *uri, *search_uri, *folder_uri;
+	gpointer gone;
 
 	scratch = test_scratch_config_home ("nemo-search-folder-home-XXXXXX");
 
@@ -153,6 +156,55 @@ main (int argc, char *argv[])
 	check (listed (directory, ".needle-hidden.txt"));
 	check (count (directory) == 3);
 
+	nemo_directory_file_monitor_remove (directory, &client);
+	gone = directory;
+	g_object_add_weak_pointer (G_OBJECT (gone), &gone);
+	nemo_directory_unref (directory);
+	check (gone == NULL);
+
+	/* Back and Forward bring a search page back after its folder object went,
+	   and it searches what it did before. */
+	folder_uri = nemo_search_directory_get_folder_uri (search_uri);
+	check (g_strcmp0 (folder_uri, uri) == 0);
+	g_free (folder_uri);
+	directory = nemo_directory_get_by_uri (search_uri);
+	query = nemo_search_directory_get_query (NEMO_SEARCH_DIRECTORY (directory));
+	check (query != NULL);
+	if (query != NULL) {
+		char *location = nemo_query_get_location (query);
+		char *pattern = nemo_query_get_file_pattern (query);
+
+		check (g_strcmp0 (location, uri) == 0);
+		check (g_strcmp0 (pattern, "needle") == 0);
+		g_free (location);
+		g_free (pattern);
+		g_object_unref (query);
+	}
+	nemo_directory_file_monitor_add (directory, &client, TRUE,
+					 NEMO_FILE_ATTRIBUTE_INFO, NULL, NULL);
+	g_signal_connect (directory, "done-loading", G_CALLBACK (done_loading), NULL);
+	check (wait_for_load (4));
+	check (listed (directory, "needle-top.txt"));
+	nemo_directory_file_monitor_remove (directory, &client);
+	nemo_directory_unref (directory);
+
+	/* A query with no folder would search from the root of the disk, so a page
+	   handed one has nothing to search. */
+	g_free (search_uri);
+	search_uri = nemo_search_directory_generate_new_uri ();
+	directory = nemo_directory_get_by_uri (search_uri);
+	query = nemo_query_new ();
+	nemo_query_set_file_pattern (query, "needle");
+	nemo_search_directory_set_query (NEMO_SEARCH_DIRECTORY (directory), query);
+	g_object_unref (query);
+	query = nemo_search_directory_get_query (NEMO_SEARCH_DIRECTORY (directory));
+	check (query == NULL);
+	g_clear_object (&query);
+	check (nemo_search_directory_get_folder_uri (search_uri) == NULL);
+	nemo_directory_file_monitor_add (directory, &client, TRUE,
+					 NEMO_FILE_ATTRIBUTE_INFO, NULL, NULL);
+	check (nemo_directory_are_all_files_seen (directory));
+	check (count (directory) == 0);
 	nemo_directory_file_monitor_remove (directory, &client);
 	nemo_directory_unref (directory);
 

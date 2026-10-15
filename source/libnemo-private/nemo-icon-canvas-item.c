@@ -275,7 +275,7 @@ static void
 nemo_icon_canvas_item_set_property (GObject        *object,
 					guint           property_id,
 					const GValue   *value,
-					GParamSpec     *pspec)
+					G_GNUC_UNUSED GParamSpec     *pspec)
 {
 	NemoIconCanvasItem *item;
 	NemoIconCanvasItemDetails *details;
@@ -393,7 +393,7 @@ static void
 nemo_icon_canvas_item_get_property (GObject        *object,
 					guint           property_id,
 					GValue         *value,
-					GParamSpec     *pspec)
+					G_GNUC_UNUSED GParamSpec     *pspec)
 {
 	NemoIconCanvasItemDetails *details;
 
@@ -454,6 +454,7 @@ get_scaled_icon_size (NemoIconCanvasItem *item,
        *height = (pixbuf == NULL) ? 0 : (gdk_pixbuf_get_height (pixbuf) / scale);
 }
 
+/* Returns: (transfer full): free with cairo_surface_destroy */
 cairo_surface_t *
 nemo_icon_canvas_item_get_drag_surface (NemoIconCanvasItem *item)
 {
@@ -1355,7 +1356,7 @@ map_surface (NemoIconCanvasItem *icon_item)
 static void
 nemo_icon_canvas_item_draw (EelCanvasItem *item,
                                 cairo_t *cr,
-                                cairo_region_t *region)
+                                G_GNUC_UNUSED cairo_region_t *region)
 {
 	NemoIconContainer *container;
 	NemoIconCanvasItem *icon_item;
@@ -1603,7 +1604,7 @@ hit_test (NemoIconCanvasItem *icon_item, EelIRect canvas_rect)
 
 /* Point handler for the icon canvas item. */
 static double
-nemo_icon_canvas_item_point (EelCanvasItem *item, double x, double y, int cx, int cy,
+nemo_icon_canvas_item_point (EelCanvasItem *item, G_GNUC_UNUSED double x, G_GNUC_UNUSED double y, int cx, int cy,
 				 EelCanvasItem **actual_item)
 {
 	EelIRect canvas_rect;
@@ -1961,6 +1962,7 @@ nemo_icon_canvas_item_hit_test_rectangle (NemoIconCanvasItem *item, EelIRect can
 	return hit_test (item, canvas_rect);
 }
 
+/* Returns: (transfer none): owned by @icon_item */
 const char *
 nemo_icon_canvas_item_get_editable_text (NemoIconCanvasItem *icon_item)
 {
@@ -2134,7 +2136,7 @@ nemo_icon_canvas_item_class_init (NemoIconCanvasItemClass *class)
         PROP_FAV_UNAVAILABLE,
         g_param_spec_boolean ("fav-unavailable",
                               "fav-unavailable",
-                              "backing file is a favorite and is not reachable",
+                              "backing file is a favorite and isn't reachable",
                       FALSE, G_PARAM_READWRITE));
 
 	item_class->update = nemo_icon_canvas_item_update;
@@ -2288,7 +2290,7 @@ nemo_icon_canvas_item_accessible_do_action (AtkAction *accessible,
 }
 
 static int
-nemo_icon_canvas_item_accessible_get_n_actions (AtkAction *accessible)
+nemo_icon_canvas_item_accessible_get_n_actions (G_GNUC_UNUSED AtkAction *accessible)
 {
 	return LAST_ACTION;
 }
@@ -2311,7 +2313,7 @@ nemo_icon_canvas_item_accessible_action_get_description (AtkAction *accessible,
 }
 
 static const char *
-nemo_icon_canvas_item_accessible_action_get_name (AtkAction *accessible, int i)
+nemo_icon_canvas_item_accessible_action_get_name (G_GNUC_UNUSED AtkAction *accessible, int i)
 {
 	g_assert (i < LAST_ACTION);
 
@@ -2319,7 +2321,7 @@ nemo_icon_canvas_item_accessible_action_get_name (AtkAction *accessible, int i)
 }
 
 static const char *
-nemo_icon_canvas_item_accessible_action_get_keybinding (AtkAction *accessible,
+nemo_icon_canvas_item_accessible_action_get_keybinding (G_GNUC_UNUSED AtkAction *accessible,
 							    int i)
 {
 	g_assert (i < LAST_ACTION);
@@ -2481,6 +2483,8 @@ nemo_icon_canvas_item_accessible_get_image_position
 	NemoIconCanvasItem *item;
 	gint x_offset, y_offset, itmp;
 
+	*x = -1;
+	*y = -1;
 	item = NEMO_ICON_CANVAS_ITEM (atk_gobject_accessible_get_object (ATK_GOBJECT_ACCESSIBLE (image)));
 	if (!item) {
 		return;
@@ -2504,6 +2508,10 @@ nemo_icon_canvas_item_accessible_get_image_position
 		}
 	}
 	atk_component_get_position (ATK_COMPONENT (image), x, y, coord_type);
+	/* Scrolled out of sight: no place, as the extents say. */
+	if (*x == G_MININT) {
+		return;
+	}
 	*x += x_offset;
 	*y += y_offset;
 }
@@ -2731,16 +2739,18 @@ nemo_icon_canvas_item_accessible_text_interface_init (AtkTextIface *iface)
 }
 
 typedef struct {
-	AtkGObjectAccessible parent;
+	EelCanvasItemAccessible parent;
 } NemoIconCanvasItemAccessible;
 
 typedef struct {
-	AtkGObjectAccessibleClass parent_class;
+	EelCanvasItemAccessibleClass parent_class;
 } NemoIconCanvasItemAccessibleClass;
 
+/* The canvas item's accessible gives the extents, which the picture and
+   text positions below are measured from. */
 G_DEFINE_TYPE_WITH_CODE (NemoIconCanvasItemAccessible,
 			 nemo_icon_canvas_item_accessible,
-			 ATK_TYPE_GOBJECT_ACCESSIBLE,
+			 eel_canvas_item_accessible_get_type (),
 			 G_IMPLEMENT_INTERFACE (ATK_TYPE_IMAGE,
 						nemo_icon_canvas_item_accessible_image_interface_init)
 			 G_IMPLEMENT_INTERFACE (ATK_TYPE_TEXT,
@@ -2843,7 +2853,7 @@ nemo_icon_canvas_item_accessible_class_init (NemoIconCanvasItemAccessibleClass *
 }
 
 static void
-nemo_icon_canvas_item_accessible_init (NemoIconCanvasItemAccessible *self)
+nemo_icon_canvas_item_accessible_init (G_GNUC_UNUSED NemoIconCanvasItemAccessible *self)
 {
 }
 
@@ -2890,7 +2900,7 @@ nemo_icon_canvas_item_accessible_factory_get_accessible_type (void)
 }
 
 static void
-nemo_icon_canvas_item_accessible_factory_init (NemoIconCanvasItemAccessibleFactory *self)
+nemo_icon_canvas_item_accessible_factory_init (G_GNUC_UNUSED NemoIconCanvasItemAccessibleFactory *self)
 {
 }
 

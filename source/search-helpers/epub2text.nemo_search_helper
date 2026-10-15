@@ -1,5 +1,0 @@
-[Nemo Search Helper]
-TryExec=nemo-anywhere-mso-to-txt;
-Exec=nemo-anywhere-mso-to-txt %s
-MimeType=application/epub+zip;
-Priority=100

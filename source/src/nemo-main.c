@@ -142,7 +142,7 @@ main (int argc, char *argv[])
 	/* Freetype's default v40 interpreter hints lighter/thinner than native
 	 * Windows text; v35 is the classic grid-fitted GDI/ClearType look.
 	 * Must be set before pango and freetype start; a user-set env still wins. */
-	g_setenv ("FREETYPE_PROPERTIES", "truetype:interpreter-version=35", FALSE);
+	nemo_setenv_own ("FREETYPE_PROPERTIES", "truetype:interpreter-version=35", FALSE);
 
 	/* Our drags speak the protocol that reaches other programs, so the toolkit
 	 * has to be listening on the same one. Only read at startup. */
@@ -198,8 +198,8 @@ main (int argc, char *argv[])
  	eel_debug_shut_down ();
 
 	/* After the shutdown list, which waits for the thumbnail threads, so the
-	 * last thumbnails they stored are folded in too. GApplication's
-	 * quit_mainloop is never called, so nothing in there can do this. */
+	 * last thumbnails they stored are folded in too. The application's
+	 * shutdown runs before that, while they may still be storing. */
 	nemo_cache_db_quit ();
 
 	return retval;

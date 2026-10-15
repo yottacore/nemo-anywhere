@@ -313,8 +313,10 @@ check_link_options (void)
 
 	/* Every open starts the same way. */
 	nemo_link_options_initial (NEMO_LINK_ANY, &options);
+	/* "&& options.lnk_parts == NEMO_LNK_ALL_PARTS" dropped: the shortcut
+	   path choice is gone (backlog 2026092813381440). */
 	check (options.folder_kind == NEMO_MAKE_JUNCTION && options.file_kind == NEMO_MAKE_SYMLINK &&
-	       !options.relative && options.lnk_parts == NEMO_LNK_ALL_PARTS);
+	       !options.relative);
 
 	/* No junctions here. */
 	nemo_link_options_initial (NEMO_LINK_FILE_SYMLINK | NEMO_LINK_DIR_SYMLINK, &options);
@@ -329,8 +331,10 @@ check_link_options (void)
 	nemo_link_options_initial (0, &options);
 	check (options.folder_kind == NEMO_MAKE_SHORTCUT && options.file_kind == NEMO_MAKE_SHORTCUT);
 
-	/* A shortcut always carries every path it can. */
+	/* A shortcut always carries every path it can. There is no choice left
+	   to check since the path choice went (backlog 2026092813381440).
 	check (options.lnk_parts == NEMO_LNK_ALL_PARTS);
+	*/
 
 	/* The path choice matters only while something comes out a symlink. A
 	   junction is always absolute, a hardlink has no path, and a shortcut

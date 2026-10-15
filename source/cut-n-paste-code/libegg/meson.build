@@ -4,7 +4,8 @@ egg_lib = static_library('egg',
   dependencies: [
     gtk,
   ],
-  install: false
+  install: false,
+  override_options: vendorWarnings,
 )
 
 egg = declare_dependency(

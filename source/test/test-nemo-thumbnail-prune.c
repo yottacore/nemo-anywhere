@@ -254,7 +254,7 @@ check_sweep_over_a_real_cache (void)
 
 	/* A file two of the thumbnails claim to be of. */
 	source = g_build_filename (root, "picture.png", NULL);
-	g_file_set_contents (source, "x", 1, NULL);
+	check (g_file_set_contents (source, "x", 1, NULL));
 
 	kept = g_build_filename (normal, "kept.png", NULL);
 	stale = g_build_filename (normal, "stale.png", NULL);

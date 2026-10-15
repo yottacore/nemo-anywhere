@@ -53,6 +53,7 @@ entry_is_for (const gchar *entry,
 	       g_ascii_strncasecmp (entry, extension, eq - entry) == 0;
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_associations_win32_get_override (const gchar *content_type)
 {
@@ -125,7 +126,8 @@ assoc_string (ASSOCSTR     what,
 }
 
 /* The shell's answer for the type: the open verb where there is one, else
- * whatever verb the type calls its default. */
+ * whatever verb the type calls its default.
+ * Returns: (transfer full): free with g_free, and @friendly_name too */
 gchar *
 nemo_associations_win32_registry_command (const gchar  *content_type,
 					  gchar       **friendly_name)
@@ -196,7 +198,8 @@ file_description (const gchar *exe)
 	return name;
 }
 
-/* What Explorer would call the program: its own description, or its file name. */
+/* What Explorer would call the program: its own description, or its file name.
+ * Returns: (transfer full): free with g_free */
 gchar *
 nemo_associations_win32_friendly_name (const gchar *command)
 {
@@ -221,7 +224,8 @@ nemo_associations_win32_friendly_name (const gchar *command)
 }
 
 /* %1 (and its spellings %l, %L, %*) become the file; %2 and up are printer
- * names and the like, which there is nothing to give. */
+ * names and the like, which there is nothing to give.
+ * Returns: (transfer full): free with g_free */
 gchar *
 nemo_associations_win32_command_for_file (const gchar *command,
 					  const gchar *path)
@@ -350,6 +354,7 @@ app_info_for_command (const gchar *command,
 	return app;
 }
 
+/* Returns: (transfer none): owned by @app */
 const gchar *
 nemo_associations_win32_command_of (GAppInfo *app)
 {
@@ -357,7 +362,8 @@ nemo_associations_win32_command_of (GAppInfo *app)
 }
 
 /* GIO's own entries answer with the same registry command line ours carry, so
- * anything with one can be started the same way. A store app has none. */
+ * anything with one can be started the same way. A store app has none.
+ * Returns: (transfer none): owned by @app */
 const gchar *
 nemo_associations_win32_command_for_app (GAppInfo *app)
 {
@@ -370,6 +376,7 @@ nemo_associations_win32_command_for_app (GAppInfo *app)
 	return command;
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_associations_win32_name_for_app (GAppInfo *app)
 {
@@ -383,6 +390,7 @@ nemo_associations_win32_name_for_app (GAppInfo *app)
 	return name;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GAppInfo *
 nemo_associations_win32_default_for_type (const gchar *content_type)
 {
@@ -451,7 +459,8 @@ nemo_associations_win32_set_default (GAppInfo    *app,
 }
 
 /* A registry walk brings the print and print-to verbs along as if they were
- * programs of their own. Their templates take a printer as %2. */
+ * programs of their own. Their templates take a printer as %2.
+ * Returns: (transfer full): @apps less the print verbs, which are unreffed and dropped */
 GList *
 nemo_associations_win32_filter_apps (GList *apps)
 {

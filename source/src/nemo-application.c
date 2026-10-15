@@ -57,6 +57,8 @@
 #include <libnemo-private/nemo-directory-private.h>
 #include <libnemo-private/nemo-file-utilities.h>
 #include <libnemo-private/nemo-file-operations.h>
+#include <libnemo-private/nemo-program-choosing.h>
+#include <libnemo-private/nemo-search-directory.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-lib-self-check-functions.h>
 #include <libnemo-private/nemo-module.h>
@@ -225,6 +227,7 @@ add_fallback_mandatory_css_provider (const gchar *theme_name)
                                                         "@");
     } else {
         /* If we can find neither, just bail out */
+        g_free (init_fallback_css);
         goto out;
     }
 
@@ -237,6 +240,7 @@ apply:
                                      final_fallback_css,
                                      -1,
                                      &error);
+    g_free (final_fallback_css);
 
     if (error) {
         g_warning ("Failed to create a fallback provider: %s", error->message);
@@ -261,7 +265,7 @@ static const char *supported_theme_hints[] = {
 static gboolean
 is_known_supported_theme (const gchar *theme_name)
 {
-    gint i;
+    guint i;
     gchar *name;
     gboolean ret;
 
@@ -304,7 +308,7 @@ process_system_theme (GtkSettings *gtk_settings)
                   NULL);
 
     if (!is_known_supported_theme (theme_name)) {
-        g_debug ("Current gtk theme is not known to have nemo support (%s) - checking...", theme_name);
+        g_debug ("Current gtk theme isn't known to have nemo support (%s) - checking...", theme_name);
         add_fallback_mandatory_css_provider (theme_name);
     }
 
@@ -340,15 +344,13 @@ init_icons_and_styles (void)
 }
 
 static gboolean
-save_accel_map (gpointer data)
+save_accel_map (G_GNUC_UNUSED gpointer data)
 {
     if (save_of_accel_map_requested) {
-        char *accel_map_filename;
-        accel_map_filename = nemo_get_accel_map_file ();
-        if (accel_map_filename) {
-            gtk_accel_map_save (accel_map_filename);
-            g_free (accel_map_filename);
-        }
+        char *accel_map_filename = nemo_get_accel_map_file ();
+
+        gtk_accel_map_save (accel_map_filename);
+        g_free (accel_map_filename);
         save_of_accel_map_requested = FALSE;
     }
 
@@ -356,9 +358,9 @@ save_accel_map (gpointer data)
 }
 
 static void 
-queue_accel_map_save_callback (GtkAccelMap *object, gchar *accel_path,
-        guint accel_key, GdkModifierType accel_mods,
-        gpointer user_data)
+queue_accel_map_save_callback (G_GNUC_UNUSED GtkAccelMap *object, G_GNUC_UNUSED gchar *accel_path,
+        G_GNUC_UNUSED guint accel_key, G_GNUC_UNUSED GdkModifierType accel_mods,
+        G_GNUC_UNUSED gpointer user_data)
 {
     if (!save_of_accel_map_requested) {
         save_of_accel_map_requested = TRUE;
@@ -372,19 +374,27 @@ init_gtk_accels (void)
 {
     char *accel_map_filename;
 
-    /* load accelerator map, and register save callback */
     accel_map_filename = nemo_get_accel_map_file ();
-    if (accel_map_filename) {
+    if (g_file_test (accel_map_filename, G_FILE_TEST_EXISTS)) {
         gtk_accel_map_load (accel_map_filename);
-        g_free (accel_map_filename);
+    } else {
+        /* First start with a file of our own: carry over any custom
+         * shortcuts from upstream's file, then write ours at once. That our
+         * file exists is what says the old one has been read. */
+        char *legacy = nemo_get_legacy_accel_map_file ();
+
+        gtk_accel_map_load (legacy);
+        gtk_accel_map_save (accel_map_filename);
+        g_free (legacy);
     }
+    g_free (accel_map_filename);
 
     g_signal_connect (gtk_accel_map_get (), "changed",
               G_CALLBACK (queue_accel_map_save_callback), NULL);
 }
 
 static void
-menu_provider_items_updated_handler (NemoMenuProvider *provider, GtkWidget* parent_window, gpointer data)
+menu_provider_items_updated_handler (G_GNUC_UNUSED NemoMenuProvider *provider, G_GNUC_UNUSED GtkWidget* parent_window, G_GNUC_UNUSED gpointer data)
 {
 
     g_signal_emit_by_name (nemo_signaller_get_current (),
@@ -431,7 +441,7 @@ nemo_application_check_required_directory (NemoApplication *application,
         const char *detail_string;
         GtkDialog *dialog;
 
-        error_string = g_strdup_printf (_("Nemo could not create the required folder \"%s\"."),
+        error_string = g_strdup_printf (_("Nemo couldn't create the required folder \"%s\"."),
                                         path);
         detail_string = _("Before running Nemo, please create the following folder, or "
                           "set permissions such that Nemo can create it.");
@@ -467,10 +477,33 @@ nemo_application_window_per_process (void)
 	return nemo_config_get_boolean (nemo_preferences, NEMO_PREFERENCES_WINDOW_PER_PROCESS);
 }
 
+/* A search and its query live in the window's history, so another window gets
+ * the folder it searched, or home when nothing is known of it.
+ * Returns: (transfer full): unref with g_object_unref, or NULL */
+static GFile *
+location_for_other_window (GFile *location)
+{
+	char *uri, *folder;
+	GFile *other;
+
+	if (location == NULL || !g_file_has_uri_scheme (location, "x-nemo-search")) {
+		return location != NULL ? g_object_ref (location) : NULL;
+	}
+
+	uri = g_file_get_uri (location);
+	folder = nemo_search_directory_get_folder_uri (uri);
+	other = folder != NULL ? g_file_new_for_uri (folder) : g_file_new_for_path (g_get_home_dir ());
+	g_free (folder);
+	g_free (uri);
+
+	return other;
+}
+
 /* Every "somewhere other than this window" goes through here. By default that
  * is another process, and NULL comes back; with the setting off the window is
  * made here, already on its way to the location, and returned. A process that
- * cannot be started falls back to a window here rather than to nothing. */
+ * cannot be started falls back to a window here rather than to nothing.
+ * Returns: (transfer none): a toplevel owned by the application, or NULL */
 NemoWindow *
 nemo_application_open_in_new_window (NemoApplication *application,
                                      GdkScreen       *screen,
@@ -480,13 +513,15 @@ nemo_application_open_in_new_window (NemoApplication *application,
 	NemoWindow *window;
 	GList *sel_list = NULL;
 	GError *error = NULL;
+	GFile *where = location_for_other_window (location);
 
 	if (nemo_application_window_per_process ()) {
-		if (nemo_new_process_spawn (location, selection, &error)) {
+		if (nemo_new_process_spawn (where, selection, &error)) {
+			g_clear_object (&where);
 			return NULL;
 		}
-		g_warning ("Could not start a new process for the window, opening it here: %s",
-		           error->message);
+		/* Said, so a start that is broken is seen, and the window still opens. */
+		nemo_show_start_error (NULL, error);
 		g_error_free (error);
 	}
 
@@ -496,12 +531,14 @@ nemo_application_open_in_new_window (NemoApplication *application,
 		sel_list = g_list_prepend (NULL, nemo_file_get (selection));
 	}
 	nemo_window_slot_open_location_full (nemo_window_get_active_slot (window),
-	                                     location, 0, sel_list, NULL, NULL);
+	                                     where, 0, sel_list, NULL, NULL);
 	nemo_file_list_free (sel_list);
+	g_clear_object (&where);
 
 	return window;
 }
 
+/* Returns: (transfer none): a toplevel owned by the application */
 NemoWindow *
 nemo_application_create_window (NemoApplication *application,
                                 GdkScreen       *screen)
@@ -570,6 +607,12 @@ nemo_application_init (NemoApplication *application)
 	g_object_unref (action);
 }
 
+static void
+destroy_window (gpointer window, G_GNUC_UNUSED gpointer user_data)
+{
+	gtk_widget_destroy (window);
+}
+
 void
 nemo_application_quit (NemoApplication *self)
 {
@@ -584,7 +627,7 @@ nemo_application_quit (NemoApplication *self)
 	GList *windows;
 
 	windows = gtk_application_get_windows (GTK_APPLICATION (app));
-	g_list_foreach (windows, (GFunc) gtk_widget_destroy, NULL);
+	g_list_foreach (windows, destroy_window, NULL);
 
     /* we have been asked to force quit */
     g_application_quit (G_APPLICATION (self));
@@ -598,6 +641,9 @@ nemo_application_startup (GApplication *app)
 	 * is called for us.
 	 */
 	G_APPLICATION_CLASS (nemo_application_parent_class)->startup (app);
+
+	/* No tooltip while another program has the focus. */
+	eel_gtk_tooltips_need_focus ();
 
 	/* create an undo manager */
 	self->undo_manager = nemo_undo_manager_new ();
@@ -624,6 +670,8 @@ nemo_application_startup (GApplication *app)
 	 * has to follow the monitor. Before any widget is built, so nothing is
 	 * measured at the wrong size and then reflowed. */
 	nemo_dpi_win32_init ();
+
+	nemo_show_helper_start_errors ();
 #endif
 
 	nemo_archive_mount_init ();
@@ -675,19 +723,16 @@ nemo_application_startup (GApplication *app)
     }
 }
 
+/* GLib stopped calling quit_mainloop in 2.32, so quit work goes here. What
+ * the exit frees anyway is left to it. The file cache is written out at the
+ * end of main (), since the thumbnail threads are still running here. */
 static void
-nemo_application_quit_mainloop (GApplication *app)
+nemo_application_shutdown (GApplication *app)
 {
-	DEBUG ("Quitting mainloop");
+	/* a shortcut change still waiting out its delay */
+	save_accel_map (NULL);
 
-    nemo_icon_info_clear_caches ();
-    save_accel_map (NULL);
-    g_object_unref (NEMO_APPLICATION (app)->undo_manager);
-    g_clear_object (&mandatory_css_provider);
-
-    nemo_application_notify_unmount_done (NEMO_APPLICATION (app), NULL);
-
-	G_APPLICATION_CLASS (nemo_application_parent_class)->quit_mainloop (app);
+	G_APPLICATION_CLASS (nemo_application_parent_class)->shutdown (app);
 }
 
 static void
@@ -707,6 +752,16 @@ nemo_application_window_removed (GtkApplication *app,
 }
 
 static void
+nemo_application_finalize (GObject *object)
+{
+	NemoApplication *self = NEMO_APPLICATION (object);
+
+	g_clear_object (&self->undo_manager);
+
+	G_OBJECT_CLASS (nemo_application_parent_class)->finalize (object);
+}
+
+static void
 nemo_application_class_init (NemoApplicationClass *class)
 {
     GObjectClass *object_class;
@@ -715,10 +770,11 @@ nemo_application_class_init (NemoApplicationClass *class)
 
     object_class = G_OBJECT_CLASS (class);
     object_class->constructor = nemo_application_constructor;
+    object_class->finalize = nemo_application_finalize;
 
     application_class = G_APPLICATION_CLASS (class);
     application_class->startup = nemo_application_startup;
-    application_class->quit_mainloop = nemo_application_quit_mainloop;
+    application_class->shutdown = nemo_application_shutdown;
 
     gtkapp_class = GTK_APPLICATION_CLASS (class);
     gtkapp_class->window_removed = nemo_application_window_removed;
@@ -726,6 +782,7 @@ nemo_application_class_init (NemoApplicationClass *class)
     g_type_class_add_private (class, sizeof (NemoApplicationPriv));
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoApplication *
 nemo_application_initialize_singleton (GType object_type,
                                        const gchar *first_property_name,
@@ -741,6 +798,7 @@ nemo_application_initialize_singleton (GType object_type,
     return application;
 }
 
+/* Returns: (transfer none) */
 NemoApplication *
 nemo_application_get_singleton (void)
 {

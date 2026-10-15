@@ -8,10 +8,13 @@
  * unpacks once, from the first volume. Needs a 7z command to write it.
  *
  * Also archives whose names hold * or ?, unpacked through the commands, which
- * must not read those names as patterns. */
+ * must not read those names as patterns, with the 7-Zip line as shipped and
+ * as edited. */
 
 #include "test.h"
 
+#include <libnemo-private/nemo-archive-commands.h>
+#include <libnemo-private/nemo-config.h>
 #include <libnemo-private/nemo-dir-enum.h>
 #include <libnemo-private/nemo-extract.h>
 
@@ -30,9 +33,9 @@ static gboolean job_finished;
 static gboolean job_succeeded;
 
 static void
-extract_done (GFile    *destination_dir,
+extract_done (G_GNUC_UNUSED GFile    *destination_dir,
 	      gboolean  success,
-	      gpointer  data)
+	      G_GNUC_UNUSED gpointer  data)
 {
 	job_succeeded = success;
 	job_finished = TRUE;
@@ -40,7 +43,7 @@ extract_done (GFile    *destination_dir,
 }
 
 static gboolean
-give_up (gpointer data)
+give_up (G_GNUC_UNUSED gpointer data)
 {
 	g_printerr ("FAIL: unpacking did not finish within %d seconds\n",
 		    EXTRACT_TIMEOUT_SECONDS);
@@ -100,6 +103,9 @@ write_test_zip (const char *path)
 	add_dir_entry (a, "photos/sub/");
 	add_file_entry (a, "photos/sub/two.txt", "second");
 	add_file_entry (a, "../escape.txt", "should not escape");
+	/* Fine on POSIX. Windows takes neither name. */
+	add_file_entry (a, "photos/odd*name?.txt", "odd");
+	add_file_entry (a, "photos/tag:part.txt", "tag");
 
 	check (archive_write_close (a) == ARCHIVE_OK);
 	archive_write_free (a);
@@ -195,6 +201,26 @@ check_here_layout (const char *tmp,
 	outside = g_build_filename (tmp, "escape.txt", NULL);
 	check (g_file_test (escaped, G_FILE_TEST_IS_REGULAR));
 	check (!g_file_test (outside, G_FILE_TEST_EXISTS));
+
+	{
+#ifdef G_OS_WIN32
+		/* Each character Windows won't take is "_", as 7-Zip writes it.
+		   The ":" one would otherwise be a hidden stream of "tag". */
+		char *odd = g_build_filename (dest, "photos", "odd_name_.txt", NULL);
+		char *tag = g_build_filename (dest, "photos", "tag_part.txt", NULL);
+		char *stream_host = g_build_filename (dest, "photos", "tag", NULL);
+
+		check (!g_file_test (stream_host, G_FILE_TEST_EXISTS));
+		g_free (stream_host);
+#else
+		char *odd = g_build_filename (dest, "photos", "odd*name?.txt", NULL);
+		char *tag = g_build_filename (dest, "photos", "tag:part.txt", NULL);
+#endif
+		check_contents (odd, "odd");
+		check_contents (tag, "tag");
+		g_free (odd);
+		g_free (tag);
+	}
 
 	g_free (one);
 	g_free (two);
@@ -560,6 +586,26 @@ check_pattern_names (const char *tmp,
 	check (!g_file_test (stray, G_FILE_TEST_EXISTS));
 	g_free (stray);
 	g_free (wanted);
+
+	/* Again with the 7-Zip line edited without -spd, which the app puts back
+	   at run time. */
+	{
+		NemoConfigGroup *group = nemo_config_get_group (NEMO_ARCHIVE_COMMANDS_GROUP);
+		char *edited = g_build_filename (tmp, "unpatterned-edited", NULL);
+
+		g_mkdir_with_parents (edited, 0700);
+		nemo_config_set_string (group, NEMO_EXTRACT_COMMAND_KEY_7Z,
+					"{{PROGRAM}} x -y -bsp1 {{PASSWORD}} -o{{TARGET_FOLDER}} -- {{SOURCE_ARCHIVE}}");
+		run_job (path, edited, NEMO_EXTRACT_TO_SUBFOLDER, window);
+		nemo_config_reset (group, NEMO_EXTRACT_COMMAND_KEY_7Z);
+		wanted = g_build_filename (edited, "s?", "one", "one.txt", NULL);
+		stray = g_build_filename (edited, "s?", "two", NULL);
+		check (g_file_test (wanted, G_FILE_TEST_IS_REGULAR));
+		check (!g_file_test (stray, G_FILE_TEST_EXISTS));
+		g_free (stray);
+		g_free (wanted);
+		g_free (edited);
+	}
 	g_free (path);
 
 	/* rar has no way to take a name as it is, so it is passed over. 7z reads
@@ -610,12 +656,17 @@ main (int argc, char *argv[])
 	GtkWidget *window;
 	char *tmp;
 	char *archive_path;
+	char *config_home;
 
 	/* Unpacking through a command clears its staging folder afterwards, and
 	   the delete test guard would stop to ask about that. */
 	g_setenv ("NEMO_TESTGUARD_ALL_DELETES", "0", TRUE);
 
 	test_init (&argc, &argv);
+
+	/* For the edited command line. */
+	config_home = test_scratch_config_home ("nemo-extract-test-home-XXXXXX");
+	nemo_config_init ();
 
 	tmp = test_scratch_dir ("nemo-extract-test-XXXXXX", NULL);
 	archive_path = g_build_filename (tmp, "photos.zip", NULL);
@@ -633,8 +684,10 @@ main (int argc, char *argv[])
 	check_pattern_names (tmp, window);
 #endif
 
+	nemo_config_shutdown ();
 	g_free (archive_path);
 	g_free (tmp);
+	g_free (config_home);
 
 	if (failures == 0) {
 		g_print ("extract: all checks passed\n");

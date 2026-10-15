@@ -250,10 +250,10 @@ slider_timeout (gpointer user_data)
 
 static void
 nemo_path_bar_slider_drag_motion (GtkWidget      *widget,
-                      GdkDragContext *context,
-                      int             x,
-                      int             y,
-                      unsigned int    time,
+                      G_GNUC_UNUSED GdkDragContext *context,
+                      G_GNUC_UNUSED int             x,
+                      G_GNUC_UNUSED int             y,
+                      G_GNUC_UNUSED unsigned int    time,
                       gpointer        user_data)
 {
     NemoPathBar *path_bar;
@@ -277,9 +277,9 @@ nemo_path_bar_slider_drag_motion (GtkWidget      *widget,
 }
 
 static void
-nemo_path_bar_slider_drag_leave (GtkWidget      *widget,
-                     GdkDragContext *context,
-                     unsigned int    time,
+nemo_path_bar_slider_drag_leave (G_GNUC_UNUSED GtkWidget      *widget,
+                     G_GNUC_UNUSED GdkDragContext *context,
+                     G_GNUC_UNUSED unsigned int    time,
                      gpointer        user_data)
 {
     NemoPathBar *path_bar;
@@ -339,9 +339,9 @@ nemo_path_bar_init (NemoPathBar *path_bar)
 
     desktop_is_home = g_file_equal (path_bar->priv->home_path, path_bar->priv->desktop_path);
 
-    g_signal_connect_swapped (nemo_preferences, "changed::" NEMO_PREFERENCES_DESKTOP_IS_HOME_DIR,
+    g_signal_connect_object (nemo_preferences, "changed::" NEMO_PREFERENCES_DESKTOP_IS_HOME_DIR,
                   G_CALLBACK(desktop_location_changed_callback),
-                  path_bar);
+                  path_bar, G_CONNECT_SWAPPED);
 
     g_signal_connect_swapped (path_bar->priv->up_slider_button, "clicked", G_CALLBACK (nemo_path_bar_scroll_up), path_bar);
     g_signal_connect_swapped (path_bar->priv->down_slider_button, "clicked", G_CALLBACK (nemo_path_bar_scroll_down), path_bar);
@@ -405,10 +405,6 @@ nemo_path_bar_finalize (GObject *object)
     g_clear_object (&path_bar->priv->xdg_templates_path);
     g_clear_object (&path_bar->priv->xdg_videos_path);
     g_clear_object (&path_bar->priv->desktop_path);
-
-    g_signal_handlers_disconnect_by_func (nemo_preferences,
-                          desktop_location_changed_callback,
-                          path_bar);
 
     G_OBJECT_CLASS (nemo_path_bar_parent_class)->finalize (object);
 }
@@ -981,7 +977,7 @@ nemo_path_bar_remove (GtkContainer *container,
 
 static void
 nemo_path_bar_forall (GtkContainer *container,
-                  gboolean      include_internals,
+                  G_GNUC_UNUSED gboolean      include_internals,
                   GtkCallback   callback,
                   gpointer      callback_data)
 {
@@ -1019,7 +1015,7 @@ nemo_path_bar_grab_notify (GtkWidget *widget,
 
 static void
 nemo_path_bar_state_changed (GtkWidget    *widget,
-                     GtkStateType  previous_state)
+                     G_GNUC_UNUSED GtkStateType  previous_state)
 {
     if (!gtk_widget_get_sensitive (widget)) {
         nemo_path_bar_stop_scrolling (NEMO_PATH_BAR (widget));
@@ -1321,7 +1317,7 @@ nemo_path_bar_slider_button_press (GtkWidget       *widget,
 }
 
 static gboolean
-nemo_path_bar_slider_button_release (GtkWidget      *widget,
+nemo_path_bar_slider_button_release (G_GNUC_UNUSED GtkWidget      *widget,
                          GdkEventButton *event,
                          NemoPathBar     *path_bar)
 {
@@ -1353,7 +1349,7 @@ reload_icons (NemoPathBar *path_bar)
 
 /* Callback used when a GtkSettings value changes */
 static void
-settings_notify_cb (GObject    *object,
+settings_notify_cb (G_GNUC_UNUSED GObject    *object,
             GParamSpec *pspec,
             NemoPathBar *path_bar)
 {
@@ -1416,8 +1412,10 @@ button_clicked_cb (GtkWidget *button,
 }
 
 static void
-button_data_free (ButtonData *button_data)
+button_data_free (gpointer data, G_GNUC_UNUSED GObject *where_the_button_was)
 {
+    ButtonData *button_data = data;
+
     g_object_unref (button_data->path);
     g_free (button_data->dir_name);
 
@@ -1520,12 +1518,14 @@ nemo_path_bar_update_button_appearance (ButtonData *button_data)
                     icon_name = nemo_file_get_control_icon_name (button_data->file);
                     break;
                 }
+                G_GNUC_FALLTHROUGH;
             case DEFAULT_LOCATION_BUTTON:
             case MOUNT_BUTTON:
                 if (button_data->mount_icon_name) {
                     icon_name = g_strdup (button_data->mount_icon_name);
                     break;
                 }
+                G_GNUC_FALLTHROUGH;
             default:
                 icon_name = NULL;
          }
@@ -1568,7 +1568,7 @@ setup_file_path_mounted_mount (GFile *location, ButtonData *button_data)
 
     result = FALSE;
     volume_monitor = g_volume_monitor_get ();
-    mounts = g_volume_monitor_get_mounts (volume_monitor);
+    mounts = nemo_get_mounts (volume_monitor);
     for (l = mounts; l != NULL; l = l->next) {
         mount = l->data;
         if (g_mount_is_shadowed (mount)) {
@@ -1657,11 +1657,11 @@ setup_button_type (ButtonData       *button_data,
 }
 
 static void
-button_drag_data_get_cb (GtkWidget          *widget,
-             GdkDragContext     *context,
+button_drag_data_get_cb (G_GNUC_UNUSED GtkWidget          *widget,
+             G_GNUC_UNUSED GdkDragContext     *context,
              GtkSelectionData   *selection_data,
              guint               info,
-             guint               time_,
+             G_GNUC_UNUSED guint               time_,
              gpointer            user_data)
 {
     ButtonData *button_data;
@@ -1896,7 +1896,7 @@ make_directory_button (NemoPathBar  *path_bar,
     nemo_path_bar_update_button_state (button_data, current_dir);
 
     g_signal_connect (button_data->button, "clicked", G_CALLBACK (button_clicked_cb), button_data);
-    g_object_weak_ref (G_OBJECT (button_data->button), (GWeakNotify) button_data_free, button_data);
+    g_object_weak_ref (G_OBJECT (button_data->button), button_data_free, button_data);
 
     uri = g_file_get_uri (path);
 
@@ -1978,7 +1978,7 @@ nemo_path_bar_check_parent_path (NemoPathBar *path_bar,
 static gboolean
 nemo_path_bar_update_path (NemoPathBar *path_bar,
                    GFile *file_path,
-                   gboolean emit_signal)
+                   G_GNUC_UNUSED gboolean emit_signal)
 {
     NemoFile *file, *parent_file;
     gboolean first_directory, last_directory;
@@ -2069,6 +2069,7 @@ nemo_path_bar_set_path (NemoPathBar *path_bar, GFile *file_path)
     return nemo_path_bar_update_path (path_bar, file_path, TRUE);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GFile *
 nemo_path_bar_get_path_for_button (NemoPathBar *path_bar,
                        GtkWidget       *button)

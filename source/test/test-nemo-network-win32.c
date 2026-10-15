@@ -264,7 +264,7 @@ test_live_shares (void)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	GFile *root, *server;
 	char *a, *b, *uri;

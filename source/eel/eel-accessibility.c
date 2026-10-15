@@ -65,7 +65,7 @@ eel_accessibility_set_up_label_widget_relation (GtkWidget *label, GtkWidget *wid
 GType
 eel_accessibility_create_derived_type (const char *type_name,
 				       GType existing_gobject_with_proxy,
-				       EelAccessibilityClassInitFn class_init)
+				       GClassInitFunc class_init)
 {
 	GType type;
 	GType parent_atk_type;
@@ -95,10 +95,7 @@ eel_accessibility_create_derived_type (const char *type_name,
 	 */
 	g_type_query (parent_atk_type, &query);
 
-	if (class_init) {
-		tinfo.class_init = (GClassInitFunc) class_init;
-	}
-
+	tinfo.class_init    = class_init;
 	tinfo.class_size    = query.class_size;
 	tinfo.instance_size = query.instance_size;
 
@@ -142,7 +139,7 @@ get_quark_gobject (void)
  * 
  * gets an AtkObject associated with a GObject
  * 
- * Return value: the associated accessible if one exists or NULL
+ * Return value: (transfer none): the associated accessible if one exists or NULL
  **/
 AtkObject *
 eel_accessibility_get_atk_object (gpointer object)
@@ -157,7 +154,7 @@ eel_accessibility_get_atk_object (gpointer object)
  * gets an AtkObject associated with a GObject and if it doesn't
  * exist creates a suitable accessible object.
  * 
- * Return value: an associated accessible.
+ * Return value: (transfer none): an associated accessible.
  **/
 AtkObject *
 eel_accessibility_for_object (gpointer object)
@@ -175,7 +172,7 @@ eel_accessibility_for_object (gpointer object)
  * gets the GObject associated with the AtkObject, for which
  * @object provides accessibility support.
  * 
- * Return value: the accessible's associated GObject
+ * Return value: (transfer none): the accessible's associated GObject
  **/
 gpointer
 eel_accessibility_get_gobject (AtkObject *object)
@@ -198,7 +195,7 @@ eel_accessibility_destroy (gpointer data)
  * 
  * used to register and return a new accessible object for something
  * 
- * Return value: @atk_object.
+ * Return value: (transfer none): @atk_object.
  **/
 AtkObject *
 eel_accessibility_set_atk_object_return (gpointer   object,
@@ -244,6 +241,7 @@ get_simple_text (gpointer object)
 	return NULL;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 eel_accessibility_text_get_text (AtkText *text,
 				 gint     start_pos,
@@ -274,6 +272,7 @@ eel_accessibility_text_get_character_at_offset (AtkText *text,
 	return c;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 eel_accessibility_text_get_text_before_offset (AtkText	      *text,
 					       gint            offset,
@@ -289,6 +288,7 @@ eel_accessibility_text_get_text_before_offset (AtkText	      *text,
 		boundary_type, offset, start_offset, end_offset);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 eel_accessibility_text_get_text_at_offset (AtkText        *text,
 					   gint            offset,
@@ -304,6 +304,7 @@ eel_accessibility_text_get_text_at_offset (AtkText        *text,
 		boundary_type, offset, start_offset, end_offset);
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar*
 eel_accessibility_text_get_text_after_offset  (AtkText	      *text,
 					       gint            offset,
@@ -335,11 +336,7 @@ eel_accessible_text_get_type (void)
 
 	if (!type) {
 		const GTypeInfo tinfo = {
-			sizeof (AtkTextIface),
-			(GBaseInitFunc) NULL,
-			(GBaseFinalizeFunc) NULL,
-			(GClassInitFunc) NULL,
-			(GClassFinalizeFunc) NULL
+			.class_size = sizeof (AtkTextIface),
 		};
 
 		type = g_type_register_static (

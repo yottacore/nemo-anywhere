@@ -104,7 +104,8 @@ void         nemo_cache_db_close (void);
 /* For the end of the process: writes out what is pending and folds the journal
  * back in, as closing does, but leaves the store open. A worker the quit does
  * not wait for may still be using it, and closing would free it under that
- * worker. Exiting closes the file. Opens nothing if the store was never used. */
+ * worker. Exiting closes the file. Opens nothing if the store was never used.
+ * The writer thread is stopped first and not started again. */
 void         nemo_cache_db_quit  (void);
 
 /* Where the database file is, whether or not it opened. Freed by the caller. */
@@ -162,17 +163,31 @@ gboolean nemo_cache_db_thumbnail_store (NemoCacheDb               *db,
 					GBytes                    *image);
 
 /* Drops the thumbnail of what `uri` points at, for a refresh asked for by
- * hand. The record of the file itself stays. */
+ * hand. The record of the file itself stays. Waits on the file, so not for the
+ * window's thread; that has forget_later. */
 gboolean nemo_cache_db_thumbnail_forget (NemoCacheDb *db, const char *uri);
+
+/* The same refresh, queued for the writer thread, so the window never waits on
+ * another copy's hold on the file. Needs no open store. A lookup or store of a
+ * thumbnail made after this returns sees it done, even before the writer gets
+ * to it. */
+void nemo_cache_db_thumbnail_forget_later (const char *uri);
 
 /* Counts a draw against whatever `uri` points at and stamps the time. Both are
  * what the pruning rules read, so this is called often and does as little as it
- * can get away with - see the note on batching in the .c file. */
+ * can get away with - see the note on batching in the .c file. Never touches
+ * the file: the counts go out on the writer thread, after 30 s or once 256
+ * files are waiting. */
 void nemo_cache_db_note_render (NemoCacheDb *db, const char *uri);
 
-/* Writes out the draw counts held in memory. Anything about to read them - a
- * prune, or the settings page - calls this first. */
+/* Writes out the draw counts and refreshes held in memory, on the calling
+ * thread. Anything about to read them - a prune, or the settings page - calls
+ * this first. */
 void nemo_cache_db_flush (NemoCacheDb *db);
+
+/* For the tests. How long draw counts wait in memory before the writer thread
+ * writes them, and how long it waits after a failed write. 30 s unless set. */
+void nemo_cache_db_set_draw_wait (gint ms);
 
 /* Draws counted against `uri` and when it was last drawn, epoch seconds. False
  * if there is no thumbnail behind that uri. Either out parameter may be NULL.
@@ -197,7 +212,9 @@ gint64 nemo_cache_db_last_used (void);
 /* What a prune pass may throw away, and when the next one is due. */
 typedef struct {
 	gint64   max_bytes;	/* the file's size to get under; 0 for no limit */
-	gint64   max_age_secs;	/* a thumbnail not drawn for this long goes; 0 to keep */
+	gint64   max_age_secs;	/* a thumbnail not drawn for this long goes; 0 to keep.
+				 * Also how long a name with no thumbnail is kept,
+				 * 180 days when 0 */
 	gboolean drop_missing;	/* forget local files gone from a folder that is not */
 	gint64   gap_min_secs;	/* the next pass is due somewhere in this range */
 	gint64   gap_max_secs;
@@ -215,9 +232,9 @@ typedef enum {
 } NemoCachePruneResult;
 
 /* One prune pass, on the calling thread, over a connection of its own. Checks
- * the file for damage, forgets missing files, drops old thumbnails and then the
- * least recently drawn until the file is small enough, and hands the freed
- * space back to the disk.
+ * the file for damage, forgets missing files and names left with no thumbnail,
+ * drops old thumbnails and then the least recently drawn until the file is small
+ * enough, and hands the freed space back to the disk.
  *
  * Only one process runs a pass at a time. The claim lives in the file itself,
  * with a heartbeat, so a process that dies part way through does not hold it
@@ -238,6 +255,19 @@ NemoCachePruneResult nemo_cache_db_prune (const NemoCachePruneRules *rules,
  * however big the table gets, since the prune runs them holding the write
  * lock. */
 gboolean nemo_cache_db_prune_pick_cost (NemoCacheDb *db, gint64 *rows_walked, gint64 *sorts);
+
+/* For the tests. The most thumbnail bytes one write of the last prune pass in
+ * this process took out. Each write holds the lock every other window waits
+ * on, so this has to stay near the batch limit however big thumbnails are. */
+gint64 nemo_cache_db_prune_largest_batch (void);
+
+/* For the tests. How many writes prune passes in this process have made so far.
+ * A store that waits through more than one or two of them was kept out. */
+gint nemo_cache_db_prune_steps (void);
+
+/* For the tests. A connection of its own to the store's file, set up the way
+ * every copy's is, as another window's would be. Close it with sqlite3_close. */
+struct sqlite3 *nemo_cache_db_open_another (void);
 
 G_END_DECLS
 

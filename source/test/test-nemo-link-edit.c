@@ -162,7 +162,7 @@ check_shortcut (const char *dir)
 	NemoLnk read;
 
 	check (g_file_set_contents (target, "x", -1, NULL));
-	check (nemo_lnk_write (lnk, target, NEMO_LNK_ALL_PARTS, NULL));
+	check (nemo_lnk_write (lnk, target, TRUE, NULL));
 	check (g_file_set_contents (clash, "c", -1, NULL));
 
 	/* ".lnk" goes back on, and the paths are left alone when not asked. */
@@ -220,7 +220,7 @@ check_symlink_named_lnk (const char *dir)
 	GError *error = NULL;
 
 	g_mkdir_with_parents (other, 0700);
-	check (nemo_lnk_write (real, other, NEMO_LNK_ALL_PARTS, NULL));
+	check (nemo_lnk_write (real, other, TRUE, NULL));
 	check (g_file_get_contents (real, &before, &before_length, NULL));
 	check (nemo_link_create (spelled, link, dir, NEMO_LINK_FILE_SYMLINK, NULL));
 

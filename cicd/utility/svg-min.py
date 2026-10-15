@@ -24,6 +24,8 @@ Syntax: svg-min.py <in.svg> <out.svg>
 --self-test minifies a made-up document that carries each of the traps above
 and checks what comes out, so a change that rounds a multiplier or loses an
 arc flag fails the lint stage rather than showing up as a misdrawn icon.
+
+Test ID: rhtrxr84
 """
 
 import math
@@ -338,6 +340,7 @@ SELF_TEST_SVG = """\
 
 
 def self_test():
+    print("[ Test %s svg-min.py --self-test ]" % re.search(r"(?m)^Test ID: (\S+)$", __doc__).group(1))
     failures = []
 
     def check(label, got, want):

@@ -26,6 +26,7 @@
 #include <string.h>
 
 #include "nemo-config.h"
+#include "nemo-user-text.h"
 
 #define TOKEN_OPEN  "{{"
 #define TOKEN_CLOSE "}}"
@@ -167,6 +168,7 @@ expand_one (const char             *arg,
 	return TRUE;
 }
 
+/* Returns: (transfer full): free with g_strfreev */
 char **
 nemo_command_template_expand (const char             *template_text,
 			      const NemoCommandToken *tokens,
@@ -179,7 +181,7 @@ nemo_command_template_expand (const char             *template_text,
 
 	g_return_val_if_fail (template_text != NULL, NULL);
 
-	if (!g_shell_parse_argv (template_text, NULL, &parts, &parse_error)) {
+	if (!nemo_user_text_split_command (template_text, NULL, &parts, &parse_error)) {
 		g_set_error (error, NEMO_COMMAND_TEMPLATE_ERROR,
 			     NEMO_COMMAND_TEMPLATE_ERROR_PARSE,
 			     "%s", parse_error->message);
@@ -214,6 +216,7 @@ nemo_command_template_expand (const char             *template_text,
 	return (char **) g_ptr_array_free (out, FALSE);
 }
 
+/* Returns: (transfer full): free with g_strfreev */
 char **
 nemo_command_template_unused (const char             *template_text,
 			      const NemoCommandToken *tokens)
@@ -254,6 +257,7 @@ nemo_command_template_unused (const char             *template_text,
 	return (char **) g_ptr_array_free (missing, FALSE);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_command_template_from_config (const char *group,
 				   const char *key,
@@ -295,7 +299,7 @@ nemo_command_template_warn_unused (const char             *what,
 	   name the one that got dropped rather than leaving the dialog looking
 	   broken to somebody who edited the line months ago. */
 	joined = g_strjoinv (", ", missing);
-	g_warning ("The %s command line has nowhere to put %s, so that option is not being passed on",
+	g_warning ("The %s command line has nowhere to put %s, so that option isn't being passed on",
 		   what, joined);
 	g_free (joined);
 	g_strfreev (missing);

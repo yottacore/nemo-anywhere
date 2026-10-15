@@ -66,7 +66,8 @@ fi
 ## from the same Dockerfile and with the same flags as by hand. Any other name is
 ## someone's own box, and a missing one is still an env miss.
 ## --init reaps orphans; --ulimit core=0 keeps crash dumps out of the mounted tree.
-if ! docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx "$container"; then
+names="$(docker ps -a --format '{{.Names}}' 2>/dev/null || true)"
+if ! grep -qx "$container" <<<"$names"; then
 	[[ "$container" == "nemo-build" ]] || skip_or_die "build container '${container}' not found"
 	repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 	if ! docker image inspect nemo-build-deps:latest >/dev/null 2>&1; then

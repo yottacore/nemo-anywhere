@@ -51,7 +51,7 @@ G_DEFINE_TYPE (NemoThumbnailProblemBar, nemo_thumbnail_problem_bar, GTK_TYPE_INF
 static void
 thumbnail_problem_bar_response_cb (GtkInfoBar *infobar,
                                           gint  response_id,
-                                      gpointer  user_data)
+                                      G_GNUC_UNUSED gpointer  user_data)
 {
     NemoThumbnailProblemBar *bar;
 
@@ -160,6 +160,7 @@ nemo_thumbnail_problem_bar_init (NemoThumbnailProblemBar *bar)
     bar->priv = NEMO_THUMBNAIL_PROBLEM_BAR_GET_PRIVATE (bar);
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_thumbnail_problem_bar_new (NemoView *view)
 {

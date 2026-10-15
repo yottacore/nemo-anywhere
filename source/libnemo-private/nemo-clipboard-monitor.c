@@ -69,6 +69,7 @@ destroy_clipboard_monitor (void)
 	}
 }
 
+/* Returns: (transfer none): kept for the life of the process */
 NemoClipboardMonitor *
 nemo_clipboard_monitor_get (void)
 {
@@ -201,6 +202,7 @@ nemo_clipboard_monitor_set_clipboard_info (NemoClipboardMonitor *monitor,
 	nemo_clipboard_monitor_emit_changed ();
 }
 
+/* Returns: (transfer none): owned by @monitor */
 NemoClipboardInfo *
 nemo_clipboard_monitor_get_clipboard_info (NemoClipboardMonitor *monitor)
 {
@@ -208,8 +210,8 @@ nemo_clipboard_monitor_get_clipboard_info (NemoClipboardMonitor *monitor)
 }
 
 void
-nemo_clear_clipboard_callback (GtkClipboard *clipboard,
-                                   gpointer      user_data)
+nemo_clear_clipboard_callback (G_GNUC_UNUSED GtkClipboard *clipboard,
+                                   G_GNUC_UNUSED gpointer      user_data)
 {
 	nemo_clipboard_monitor_set_clipboard_info 
 		(nemo_clipboard_monitor_get (), NULL);
@@ -264,10 +266,10 @@ convert_file_list_to_string (NemoClipboardInfo *info,
 }
 
 void
-nemo_get_clipboard_callback (GtkClipboard     *clipboard,
+nemo_get_clipboard_callback (G_GNUC_UNUSED GtkClipboard     *clipboard,
                                  GtkSelectionData *selection_data,
-                                 guint             info,
-                                 gpointer          user_data)
+                                 G_GNUC_UNUSED guint             info,
+                                 G_GNUC_UNUSED gpointer          user_data)
 {
 	char **uris;
 	GList *l;

@@ -36,12 +36,14 @@
 #include <eel/eel-glib-extensions.h>
 
 #include <libnemo-private/nemo-appearance.h>
+#include <libnemo-private/nemo-bulk-rename.h>
 #include <libnemo-private/nemo-column-chooser.h>
 #include <libnemo-private/nemo-column-utilities.h>
 #include <libnemo-private/nemo-delete-testguard.h>
 #include <libnemo-private/nemo-desktop-utils.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-module.h>
+#include <libnemo-private/nemo-tab-list.h>
 
 #include "nemo-plugin-manager.h"
 #include "nemo-prefs-current-folder.h"
@@ -280,7 +282,7 @@ nemo_file_management_properties_size_group_create (GtkBuilder *builder,
 
 static void
 columns_changed_callback (NemoColumnChooser *chooser,
-			  gpointer callback_data)
+			  G_GNUC_UNUSED gpointer callback_data)
 {
 	char **visible_columns;
 	char **column_order;
@@ -303,7 +305,7 @@ columns_changed_callback (NemoColumnChooser *chooser,
 static void
 free_column_names_array (GPtrArray *column_names)
 {
-	g_ptr_array_foreach (column_names, (GFunc) g_free, NULL);
+	g_ptr_array_set_free_func (column_names, g_free);
 	g_ptr_array_free (column_names, TRUE);
 }
 
@@ -349,7 +351,7 @@ create_icon_caption_combo_box_items (GtkComboBoxText *combo_box,
 }
 
 static void
-icon_captions_changed_callback (GtkComboBox *combo_box,
+icon_captions_changed_callback (G_GNUC_UNUSED GtkComboBox *combo_box,
 				gpointer user_data)
 {
 	GPtrArray *captions;
@@ -622,8 +624,8 @@ fill_appearance_combo (GtkComboBoxText *combo,
 }
 
 static void
-appearance_mode_changed (NemoConfigGroup *group,
-			 const char      *key,
+appearance_mode_changed (G_GNUC_UNUSED NemoConfigGroup *group,
+			 G_GNUC_UNUSED const char      *key,
 			 gpointer         user_data)
 {
 	GtkBuilder *builder = user_data;
@@ -740,7 +742,7 @@ set_columns_from_settings (NemoColumnChooser *chooser)
 
 static void
 use_default_callback (NemoColumnChooser *chooser,
-		      gpointer user_data)
+		      G_GNUC_UNUSED gpointer user_data)
 {
 	nemo_config_reset (nemo_list_view_preferences,
 			  NEMO_PREFERENCES_LIST_VIEW_DEFAULT_VISIBLE_COLUMNS);
@@ -801,6 +803,21 @@ bind_builder_string_entry (GtkBuilder *builder,
     nemo_config_bind (settings, prefs,
                      gtk_builder_get_object (builder, widget_name),
                      "text", NEMO_CONFIG_BIND_DEFAULT);
+}
+
+/* The renamers known here, in the order the default is picked from. */
+static void
+set_bulk_rename_tips (GtkBuilder *builder)
+{
+    char *known = nemo_bulk_rename_known_commands ();
+    char *tip = g_strconcat (_("Renamer programs need only accept a quoted list of files or folders. Known or suspected to work:"),
+                             "\n\n", known, NULL);
+
+    gtk_widget_set_tooltip_text (GTK_WIDGET (gtk_builder_get_object (builder, "command_label_0")), tip);
+    gtk_widget_set_tooltip_text (GTK_WIDGET (gtk_builder_get_object (builder,
+                                 NEMO_FILE_MANAGEMENT_PROPERTIES_BULK_RENAME_WIDGET)), tip);
+    g_free (tip);
+    g_free (known);
 }
 
 static gboolean
@@ -923,7 +940,7 @@ bind_builder_uint_enum (GtkBuilder *builder,
 static gboolean
 percent_get_mapping (GValue                *value,
 		     const NemoConfigValue *config_value,
-		     gpointer               user_data)
+		     G_GNUC_UNUSED gpointer               user_data)
 {
 	g_value_set_double (value, (gdouble) config_value->i);
 	return TRUE;
@@ -932,7 +949,7 @@ percent_get_mapping (GValue                *value,
 static gboolean
 percent_set_mapping (const GValue    *value,
 		     NemoConfigValue *config_value,
-		     gpointer         user_data)
+		     G_GNUC_UNUSED gpointer         user_data)
 {
 	config_value->i = (gint64) (g_value_get_double (value) + 0.5);
 	return TRUE;
@@ -1010,7 +1027,7 @@ bind_builder_radio (GtkBuilder *builder,
 static void
 setup_configurable_menu_items (GtkBuilder *builder)
 {
-    gint i;
+    guint i;
 
     for (i = 0; i < CONFIGURABLE_MENU_ITEM_COUNT; i++) {
         if (CONFIGURABLE_MENU_ITEM_INFO[i].config_widget_name == NULL) {
@@ -1076,7 +1093,7 @@ connect_quick_renames (GtkBuilder *builder)
 }
 
 static void
-on_dialog_destroy (GtkWidget *widget,
+on_dialog_destroy (G_GNUC_UNUSED GtkWidget *widget,
                    gpointer   user_data)
 {
     GtkBuilder *builder = GTK_BUILDER (user_data);
@@ -1086,7 +1103,7 @@ on_dialog_destroy (GtkWidget *widget,
 
 static void
 set_gtk_filechooser_sort_first (GObject *object,
-				GParamSpec *pspec)
+				G_GNUC_UNUSED GParamSpec *pspec)
 {
 	nemo_desktop_settings_set_filechooser_bool (NEMO_PREFERENCES_SORT_DIRECTORIES_FIRST,
 						   gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (object)));
@@ -1151,21 +1168,6 @@ nemo_file_management_properties_dialog_setup_appearance_page (GtkBuilder *builde
 #define PREFERENCES_MIN_WIDTH 1000
 #define PREFERENCES_MIN_HEIGHT 700
 
-/* Every page in the stack, in the order the sidebar lists them. */
-static const char *const preferences_pages[] = {
-	"scrolledwindow2",		/* Views */
-	"scrolledwindow1",		/* Behavior */
-	"scrolledwindow3",		/* Display */
-	"windows_scrolledwindow",	/* Windows */
-	"scrolledwindow4",		/* List columns */
-	"scrolledwindow5",		/* Preview */
-	"scrolledwindow6",		/* Toolbar */
-	"scrolledwindow8",		/* Context menus */
-	"templates_scrolledwindow",	/* Document templates */
-	"scrolledwindow7",		/* Plugins */
-	NULL
-};
-
 /* Windows hands a fractional display scale to GTK as a font size and nothing
    else, so at 150% the text grows and a floor written in raw pixels quietly
    means two thirds of what it says. Everything measured scales itself; only the
@@ -1187,11 +1189,9 @@ text_scale (void)
 /* A scrolled window asks for almost nothing itself - that is the whole point of
    it - so what is inside it is what gets measured, plus the page's own border. */
 static GtkWidget *
-page_content (GtkBuilder *builder, const char *id, gint *border)
+page_content (GtkWidget *page, gint *border)
 {
-	GtkWidget *page = GTK_WIDGET (gtk_builder_get_object (builder, id));
-
-	if (page == NULL) {
+	if (!GTK_IS_BIN (page)) {
 		return NULL;
 	}
 
@@ -1200,16 +1200,30 @@ page_content (GtkBuilder *builder, const char *id, gint *border)
 	return gtk_bin_get_child (GTK_BIN (page));
 }
 
-/* Give the window enough for the longest page, not just the one it opens on:
-   sizing to Views alone left Display and Behavior scrolling from the start.
-   Measured rather than fixed, because the same page is a different height under
-   a different theme, font size or translation. */
+/* The pages that hold settings, sub-tabs included. A page with sub-tabs is a
+   stack of its own. */
+static void
+collect_pages (GtkWidget *stack, GPtrArray *pages)
+{
+	GList *children, *l;
+
+	children = gtk_container_get_children (GTK_CONTAINER (stack));
+	for (l = children; l != NULL; l = l->next) {
+		if (GTK_IS_STACK (l->data)) {
+			collect_pages (l->data, pages);
+		} else {
+			g_ptr_array_add (pages, l->data);
+		}
+	}
+	g_list_free (children);
+}
+
 /* Escape closes, as it does any dialog. Connected after, so a widget that
    uses the key itself, such as a cell being edited, gets it first. */
 static gboolean
 dialog_key_press (GtkWidget   *dialog,
 		  GdkEventKey *event,
-		  gpointer     user_data)
+		  G_GNUC_UNUSED gpointer     user_data)
 {
 	if (event->keyval == GDK_KEY_Escape &&
 	    (event->state & gtk_accelerator_get_default_mod_mask ()) == 0) {
@@ -1220,6 +1234,64 @@ dialog_key_press (GtkWidget   *dialog,
 	return GDK_EVENT_PROPAGATE;
 }
 
+/* With the list out of the keyboard's reach, Ctrl+Page Up and Down, and
+   Ctrl+Tab and Ctrl+Shift+Tab, step through its pages, wrapping as tabs do.
+   Sub-tabs are stepped in list order, so the keys go through a page's sub-tabs
+   before the next page. Inside tabs of a notebook the notebook has the keys.
+   Connected before, since a scrolled window takes Page Up and Down for
+   scrolling sideways, and the window takes Ctrl+Tab to move the focus. */
+static gboolean
+dialog_page_keys (GtkWidget   *dialog,
+		  GdkEventKey *event,
+		  NemoTabList *list)
+{
+	GdkModifierType mods = event->state & gtk_accelerator_get_default_mod_mask ();
+	GtkWidget *focus;
+	int step;
+
+	switch (event->keyval) {
+	case GDK_KEY_Page_Up:
+	case GDK_KEY_KP_Page_Up:
+		step = mods == GDK_CONTROL_MASK ? -1 : 0;
+		break;
+	case GDK_KEY_Page_Down:
+	case GDK_KEY_KP_Page_Down:
+		step = mods == GDK_CONTROL_MASK ? 1 : 0;
+		break;
+	case GDK_KEY_Tab:
+	case GDK_KEY_KP_Tab:
+	case GDK_KEY_ISO_Left_Tab:
+		if (mods == GDK_CONTROL_MASK) {
+			step = event->keyval == GDK_KEY_ISO_Left_Tab ? -1 : 1;
+		} else if (mods == (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) {
+			step = -1;
+		} else {
+			step = 0;
+		}
+		break;
+	default:
+		step = 0;
+		break;
+	}
+
+	if (step == 0) {
+		return GDK_EVENT_PROPAGATE;
+	}
+
+	focus = gtk_window_get_focus (GTK_WINDOW (dialog));
+	if (focus != NULL && gtk_widget_get_ancestor (focus, GTK_TYPE_NOTEBOOK) != NULL) {
+		return GDK_EVENT_PROPAGATE;
+	}
+
+	nemo_tab_list_step (list, step);
+
+	return GDK_EVENT_STOP;
+}
+
+/* Give the window enough for the longest page, not just the one it opens on:
+   sizing to Views alone left Display and Behavior scrolling from the start.
+   Measured rather than fixed, because the same page is a different height under
+   a different theme, font size or translation. */
 static void
 size_dialog_to_longest_page (GtkBuilder *builder,
 			     GtkWidget  *dialog,
@@ -1234,11 +1306,14 @@ size_dialog_to_longest_page (GtkBuilder *builder,
 	gint sidebar_width = 0;
 	gint width, height;
 	gint monitor;
-	int i;
+	GPtrArray *pages = g_ptr_array_new ();
+	guint i;
 
-	for (i = 0; preferences_pages[i] != NULL; i++) {
+	collect_pages (GTK_WIDGET (gtk_builder_get_object (builder, "page_stack")), pages);
+
+	for (i = 0; i < pages->len; i++) {
 		gint border = 0;
-		GtkWidget *content = page_content (builder, preferences_pages[i], &border);
+		GtkWidget *content = page_content (pages->pdata[i], &border);
 
 		if (content == NULL) {
 			continue;
@@ -1265,9 +1340,9 @@ size_dialog_to_longest_page (GtkBuilder *builder,
 
 	/* Height depends on width - a label that fits on one line here takes two in
 	   a narrower window - so ask only once the width is settled. */
-	for (i = 0; preferences_pages[i] != NULL; i++) {
+	for (i = 0; i < pages->len; i++) {
 		gint border = 0;
-		GtkWidget *content = page_content (builder, preferences_pages[i], &border);
+		GtkWidget *content = page_content (pages->pdata[i], &border);
 		gint page_height = 0;
 
 		if (content == NULL) {
@@ -1279,6 +1354,7 @@ size_dialog_to_longest_page (GtkBuilder *builder,
 							   &page_height, NULL);
 		content_height = MAX (content_height, page_height + border);
 	}
+	g_ptr_array_free (pages, TRUE);
 
 	/* The close bar sits under every page, outside the scrolling. */
 	bar = GTK_WIDGET (gtk_builder_get_object (builder, "close_bar"));
@@ -1305,7 +1381,7 @@ size_dialog_to_longest_page (GtkBuilder *builder,
    internal child, hence forall. */
 static void
 show_scrollbars_when_needed (GtkWidget *widget,
-			     gpointer   unused)
+			     G_GNUC_UNUSED gpointer   unused)
 {
 	if (GTK_IS_SCROLLED_WINDOW (widget)) {
 		gtk_scrolled_window_set_overlay_scrolling (GTK_SCROLLED_WINDOW (widget), FALSE);
@@ -1557,6 +1633,7 @@ nemo_file_management_properties_dialog_setup (GtkBuilder  *builder,
     bind_builder_string_entry (builder, nemo_preferences,
                          NEMO_FILE_MANAGEMENT_PROPERTIES_BULK_RENAME_WIDGET,
                          NEMO_PREFERENCES_BULK_RENAME_TOOL);
+    set_bulk_rename_tips (builder);
 
     bind_builder_string_entry (builder, nemo_config_get_group ("terminal"),
                          NEMO_FILE_MANAGEMENT_PROPERTIES_TERMINAL_EXEC_WIDGET,
@@ -1648,6 +1725,8 @@ nemo_file_management_properties_dialog_setup (GtkBuilder  *builder,
 			  G_CALLBACK (gtk_widget_destroy), NULL);
 	g_signal_connect_after (dialog, "key-press-event",
 				G_CALLBACK (dialog_key_press), NULL);
+	g_signal_connect (dialog, "key-press-event",
+			  G_CALLBACK (dialog_page_keys), gtk_builder_get_object (builder, "page_sidebar"));
 
 	close_button = GTK_WIDGET (gtk_builder_get_object (builder, "close_button"));
 	g_signal_connect_swapped (close_button, "clicked",
@@ -1691,6 +1770,7 @@ nemo_file_management_properties_dialog_show (GtkWindow   *window,
 		return;
 	}
 
+	g_type_ensure (NEMO_TYPE_TAB_LIST);
 	builder = gtk_builder_new ();
     gtk_builder_set_translation_domain (builder, GETTEXT_PACKAGE);
 	gtk_builder_add_from_resource (builder,

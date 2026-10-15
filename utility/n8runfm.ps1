@@ -36,7 +36,7 @@
 ##	SPDX-License-Identifier: MIT
 
 
-#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+#------------------------------------------------------------------------------
 # Configuration
 
 $ProgramName = "nemo-anywhere"
@@ -260,7 +260,7 @@ $AppLog = Join-Path $LogDir "n8runfm-app.log"
 $RunningPaths = $null
 
 
-#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+#------------------------------------------------------------------------------
 # Functions
 
 ## Entry point.
@@ -913,7 +913,7 @@ function fPublishIcon {
 		}
 		return $dest
 	} catch {
-		fItem "-" "icon" "could not publish it: $($_.Exception.Message)"
+		fItem "-" "icon" "couldn't publish it: $($_.Exception.Message)"
 		return $null
 	}
 }
@@ -965,7 +965,7 @@ function fRegisterDesktopEntry {
 		$update = fFindOnPath "update-desktop-database"
 		if ($update) { & $update $appsDir 2>$null | Out-Null }
 	} catch {
-		fItem "-" "menu" "could not register the entry: $($_.Exception.Message)"
+		fItem "-" "menu" "couldn't register the entry: $($_.Exception.Message)"
 	}
 }
 
@@ -1045,7 +1045,7 @@ exec @RUN@ "$@"
 		if ($icon) { & sips -s format icns $icon --out $icns *> $null }
 		fItem "ok" "app" "written: $app"
 	} catch {
-		fItem "-" "app" "could not write the app: $($_.Exception.Message)"
+		fItem "-" "app" "couldn't write the app: $($_.Exception.Message)"
 	}
 }
 
@@ -1061,8 +1061,9 @@ function fRefreshShortcuts {
 	if (-not $cmd) { return }
 	$icon = fShortcutIcon
 
+	$startMenu = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
 	$dirs = @(
-		(Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs")
+		$startMenu
 		(Join-Path $env:APPDATA "Microsoft\Internet Explorer\Quick Launch")
 		(Join-Path $env:APPDATA "Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar")
 		(Join-Path $env:ProgramData "Microsoft\Windows\Start Menu\Programs")
@@ -1101,13 +1102,16 @@ function fRefreshShortcuts {
 			fItem "ok" "shortcut" "repointed $($file.FullName)"
 			$fixed++
 		} catch {
-			fItem "-" "shortcut" "could not update $($file.Name): $($_.Exception.Message)"
+			fItem "-" "shortcut" "couldn't update $($file.Name): $($_.Exception.Message)"
 		}
 	}
 
 	if (-not $found) {
-		$path = Join-Path $dirs[0] "Nemo Anywhere (dogfood).lnk"
+		## Never the first folder found: with one left the list unrolls to a string,
+		## and a bare test profile may have none at all.
+		$path = Join-Path $startMenu "Nemo Anywhere (dogfood).lnk"
 		try {
+			$null = New-Item -ItemType Directory -Path $startMenu -Force
 			$link = $shell.CreateShortcut($path)
 			$link.TargetPath       = $cmd.Target
 			$link.Arguments        = $cmd.Arguments
@@ -1118,7 +1122,7 @@ function fRefreshShortcuts {
 			$link.Save()
 			fItem "ok" "shortcut" "created $path"
 		} catch {
-			fItem "-" "shortcut" "could not create it: $($_.Exception.Message)"
+			fItem "-" "shortcut" "couldn't create it: $($_.Exception.Message)"
 		}
 	} elseif (-not $fixed) {
 		fItem "ok" "shortcut" "already current"
@@ -1428,7 +1432,7 @@ function fGuiShow {
 			[System.Windows.Forms.MessageBoxButtons]::OK,
 			[System.Windows.Forms.MessageBoxIcon]::$Icon) | Out-Null
 	} catch {
-		fLog "could not show a message box: $($_.Exception.Message)"
+		fLog "couldn't show a message box: $($_.Exception.Message)"
 	}
 }
 
@@ -1456,7 +1460,7 @@ function fTrimLog {
 			Set-Content -LiteralPath $Path -Value $tail -Encoding utf8
 		}
 	} catch {
-		fLog "could not trim the run log: $($_.Exception.Message)"
+		fLog "couldn't trim the run log: $($_.Exception.Message)"
 	}
 }
 
@@ -1478,7 +1482,7 @@ function fSelfHealMotw {
 }
 
 
-#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+#------------------------------------------------------------------------------
 # Script entry point
 
 Set-StrictMode -Version Latest

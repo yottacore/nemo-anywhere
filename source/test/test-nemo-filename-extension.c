@@ -29,7 +29,7 @@ check_is (const char *name, const char *expected)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	/* The ordinary cases, compound names included: only the last dot counts, and
 	   the dot itself is not part of the answer. */

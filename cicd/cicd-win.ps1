@@ -1,4 +1,4 @@
-﻿##	Purpose:
+##	Purpose:
 ##		- Windows-native CI/CD pipeline for Nemo Anywhere. A PowerShell companion to
 ##		  the Linux cicd.bash - it does the same shape of work, but builds the app
 ##		  NATIVELY on Windows with MSYS2/MinGW-w64 (meson + ninja) rather than in a
@@ -7,7 +7,7 @@
 ##		  Docker or wine is involved here. Does NOT touch cicd.bash or config.bash.
 ##		- Stages (fail-fast; any error aborts before the next stage):
 ##		   0. remote sync   (fetch; fast-forward if safely behind; abort if diverged)
-##		   1. lint          (check-only: cppcheck over the changed C files, shellcheck over the scripts)
+##		   1. lint          (check-only: every checker in cicd/utility/lint.bash)
 ##		   2. debug build   (meson setup -Dxmp=false + ninja, MSYS2 mingw64)
 ##		   3. tests         (meson test suite, the installer's in-use check, then a
 ##		                     --version smoke and a GUI launch smoke of the built exe)
@@ -16,7 +16,7 @@
 ##		   6. dogfood       (drop the single exe into the synced app dir)
 ##		   7. publish       (stash -> pull -> add -> commit -> push, current branch)
 ##		- The build needs MSYS2 with the mingw64 GTK toolchain (gtk3, meson, ninja,
-##		  json-glib, libexif, libgsf). A missing toolchain warn-skips the build/stage
+##		  json-glib, libexif, libarchive). A missing toolchain warn-skips the build/stage
 ##		  (so sync + publish still run) unless -BuildStrict makes it a hard failure.
 ##		- The staged bundle is a whole folder (nemo is a GTK prefix): the single exe
 ##		  (extension lib folded in) in app\, and the mingw64 DLL dependency CLOSURE +
@@ -52,7 +52,7 @@
 ##		   -Help           show this help
 ##	History: At bottom of script.
 
-##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
+##	Copyright (c) 2026 t00mietum
 ##	Licensed under The MIT License (MIT). Full text at:
 ##		https://mit-license.org/
 ##	SPDX-License-Identifier: MIT
@@ -114,7 +114,7 @@ if (-not $IsWindows) {
 $Unattended = ($Yes -or $Quiet)
 
 
-#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+#------------------------------------------------------------------------------
 # Configuration (Windows-native; config.bash stays the Linux source of truth).
 
 ## Repo root = the parent of this script's cicd/ dir. Git and bash run here.
@@ -171,11 +171,11 @@ $SignTsUrl      = if ($env:NEMO_SIGN_TS_URL) { $env:NEMO_SIGN_TS_URL } else { "h
 $LogDir = Join-Path $Root "cicd\artifacts\lint-win"
 
 
-#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+#------------------------------------------------------------------------------
 # Output helpers (mirror cicd.bash: fEcho / fEcho_Clean / fSection)
 
 $script:WasLastEchoBlank = $false
-$script:Letterbox = "•" * 73
+$script:Letterbox = ([string][char]0x2022) * 73
 $script:Transcribing = $false
 
 function fEcho_Clean {
@@ -190,7 +190,7 @@ function fWarn     { param([string]$Msg); fEcho "WARNING: $Msg" }
 function fDie      { param([string]$Msg); fEcho "FAILED: $Msg"; exit 1 }
 
 
-#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+#------------------------------------------------------------------------------
 # Functions
 
 ## Convert a Windows path to the MSYS2 form the mingw64 bash expects (C:\x -> /c/x).
@@ -223,7 +223,7 @@ function fMingw {
 function fToolchainMissing {
 	if (-not (Test-Path -LiteralPath $MsysBash)) { return "MSYS2 not found at $MsysRoot" }
 	fMingw "command -v gcc meson ninja pkg-config >/dev/null 2>&1 && pkg-config --exists gtk+-3.0 json-glib-1.0 libexif" -Quiet
-	if ($script:MingwRc -ne 0) { return "mingw64 toolchain incomplete (need gtk3, meson, ninja, json-glib, libexif, libgsf via pacman)" }
+	if ($script:MingwRc -ne 0) { return "mingw64 toolchain incomplete (need gtk3, meson, ninja, json-glib, libexif, libarchive via pacman)" }
 	return $null
 }
 
@@ -235,7 +235,8 @@ function fVersion {
 }
 
 ## Native build: meson setup (first time with -Dxmp=false, else --reconfigure) then
-## ninja, in the mingw64 shell. Aborts on a real build error.
+## ninja, in the mingw64 shell. Aborts on a real build error. Warnings are errors,
+## as in the Linux lanes (cicd/linux/run-tests.bash says why).
 function fBuild {
 	## -j caps at half the cores, same as the Linux engine; ninja alone takes cores+2.
 	$jobs = [Math]::Max(1, [Environment]::ProcessorCount / 2 -as [int])
@@ -251,7 +252,8 @@ function fBuild {
 	$sh = @"
 command -v make >/dev/null 2>&1 || { echo "no make in MSYS2, so LTO would run serially: pacman -S make"; exit 3; }
 export SOURCE_DATE_EPOCH="`$(git log -1 --format=%ct 2>/dev/null || echo 0)"
-if [ -f $BuildRel/build.ninja ]; then meson setup --reconfigure $BuildRel source; else meson setup -Dxmp=false $BuildRel source; fi
+SETUP_FRESH=-Dxmp=false bash cicd/utility/meson-setup.bash $BuildRel source -Dwerror=true || exit 5
+bash cicd/utility/check-werror.bash $BuildRel || exit 4
 find $BuildRel -name '*.a' -type f | while read -r lib; do ar t "`$lib" >/dev/null 2>&1 || { echo "dropped stale `$lib"; rm -f "`$lib"; }; done
 ninja -C $BuildRel -j $jobs
 "@
@@ -263,9 +265,9 @@ ninja -C $BuildRel -j $jobs
 	fEcho "OK: native build: $exe ($size)"
 }
 
-## Check-only lints over the changed C files and the project's own scripts, via
-## the shared bash helper. Each checker warn-skips when its tool isn't
-## installed; findings abort. Runs in the mingw64 shell where they live.
+## Every check-only lint, through the shared bash helper (cicd/utility/lint.bash).
+## Each checker warn-skips when its tool isn't installed; findings abort. Runs
+## in the mingw64 shell where they live.
 function fLint {
 	fMingw "bash cicd/utility/lint.bash"
 	if ($script:MingwRc -ne 0) { fDie "lint failed (exit $($script:MingwRc))" }
@@ -302,7 +304,13 @@ function fGuiSmoke {
 ## PATH. A crash would otherwise stop the run behind a modal box.
 function fTests {
 	$jobs = [Math]::Max(1, [Environment]::ProcessorCount / 2 -as [int])
-	fMingw "NEMO_NO_CRASH_DIALOG=1 meson test -C $BuildRel --no-rebuild --num-processes $jobs --print-errorlogs"
+	## The login shell keeps only the system folders of the Windows PATH, so a
+	## test that looks for an installed program, ImageMagick say, never found it.
+	$savedPathType = $env:MSYS2_PATH_TYPE
+	$env:MSYS2_PATH_TYPE = "inherit"
+	try {
+		fMingw "NEMO_NO_CRASH_DIALOG=1 meson test -C $BuildRel --no-rebuild --num-processes $jobs --print-errorlogs"
+	} finally { $env:MSYS2_PATH_TYPE = $savedPathType }
 	if ($script:MingwRc -ne 0) { fDie "test suite failed (exit $($script:MingwRc))" }
 	fEcho "OK: test suite"
 	## The installer's in-use check needs a real process to find, so it runs
@@ -312,6 +320,9 @@ function fTests {
 	## Needs Windows ACLs to read, so it sits here for the same reason.
 	& pwsh -NoProfile -File (Join-Path $Root "cicd\win\test-install-acl.ps1")
 	if ($LASTEXITCODE -ne 0) { fDie "install.ps1 ACL check failed (exit $LASTEXITCODE)" }
+	## Needs Windows file locking, and lint does not run it here.
+	& pwsh -NoProfile -File (Join-Path $Root "cicd\utility\test-install-staging.ps1")
+	if ($LASTEXITCODE -ne 0) { fDie "install.ps1 staging check failed (exit $LASTEXITCODE)" }
 }
 
 ## Path to the freshly built exe for the in-place smoke. The extension lib is folded
@@ -599,7 +610,7 @@ function fPublish {
 }
 
 
-#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+#------------------------------------------------------------------------------
 # Entry point
 
 function fMain {
@@ -647,7 +658,7 @@ function fMain {
 	fEcho_Clean "Version .....: $(fVersion)  (source/meson.build)"
 	fEcho_Clean "Toolchain ...: $(if ($toolMiss) { "MISSING - $toolMiss" } else { "mingw64 GTK toolchain OK" })"
 	fEcho_Clean "Remote sync .: $(if ($NoSync) { '(skipped)' } else { 'fetch + fast-forward check' })"
-	fEcho_Clean "Lint ........: $(if ($NoFmt) { '(skipped)' } else { 'cppcheck, check-only, changed C files' })"
+	fEcho_Clean "Lint ........: $(if ($NoFmt) { '(skipped)' } else { 'every checker in lint.bash, check-only' })"
 	fEcho_Clean "Build .......: $(if ($NoBuild) { '(skipped)' } else { 'meson + ninja, native mingw64' })"
 	fEcho_Clean "Tests .......: $(if ($NoBuild) { '(skipped)' } else { 'meson test suite + --version and GUI smokes' })"
 	fEcho_Clean "Packages ....: $(if ($NoPack -or $NoBuild) { '(skipped)' } else { 'portable single-exe (Enigma Virtual Box)' })"

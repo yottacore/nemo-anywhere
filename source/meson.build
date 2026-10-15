@@ -1,7 +1,8 @@
 # Meson build file
 
 # https://github.com/linuxmint/nemo
-project('nemo-anywhere', 'c', version : '1.0.0-beta2', meson_version : '>=0.56.0')
+project('nemo-anywhere', 'c', version : '1.0.0-beta2', meson_version : '>=0.56.0',
+  default_options : [ 'c_std=c17', 'warning_level=2' ])
 
 # Install slug: co-install alongside upstream Nemo without file/bus/schema clashes.
 appSlug = 'nemo-anywhere'
@@ -73,6 +74,17 @@ endif
 conf.set10('HAVE_BACKTRACE', have_backtrace)
 
 
+# Strict c17 turns off the POSIX and BSD calls glibc hands out by default, and the
+# tree uses plenty (symlink, lstat, realpath). This asks for the same set
+# gnu17 gave, with no GNU language extensions.
+add_project_arguments('-D_DEFAULT_SOURCE', language: 'c')
+
+# meson keeps a build dir's old defaults on --reconfigure, so one set up before
+# the std was named would go on building gnu17 with fewer warnings.
+if get_option('c_std') == 'none'
+  error('this build dir predates c_std=c17. Run: meson setup --wipe <builddir> <srcdir>')
+endif
+
 if not get_option('deprecated_warnings')
   add_global_arguments([
       '-Wno-deprecated-declarations',
@@ -126,6 +138,11 @@ archive = dependency('libarchive',                  version: '>=3.2.0')
 # file says where it is.
 sqlite  = dependency('sqlite3',                     version: '>=3.20', static: true)
 
+# Vendored code stays as it came, so it builds at -Wall rather than -Wextra, and
+# a warning in it is never fatal. A newer compiler can find one there that only
+# an edit to the vendored file would fix.
+vendorWarnings = [ 'warning_level=1', 'werror=false' ]
+
 # blake3, vendored under ../vendor. Checksums have to be cheap enough to compute
 # while a folder is being listed, and this is the only option that both hits a
 # few GB/s and fits in 100 KB of source - see vendor/README.md for the other two
@@ -146,6 +163,7 @@ if host_machine.cpu_family() in [ 'x86', 'x86_64' ]
       files('../vendor/blake3/blake3_' + set[0] + '.c'),
       c_args: blake3Defines + [ set[1] ],
       include_directories: blake3Include,
+      override_options: vendorWarnings,
     )
   endforeach
 else
@@ -164,6 +182,7 @@ blake3 = declare_dependency(
     c_args: blake3Defines,
     include_directories: blake3Include,
     link_with: blake3Simd,
+    override_options: vendorWarnings,
   ),
   include_directories: blake3Include,
 )
@@ -256,7 +275,9 @@ conf.set10('ENABLE_EMPTY_VIEW', enableEmptyView)
 conf.set_quoted('GETTEXT_PACKAGE', appSlug)
 conf.set_quoted('LOCALE_DIR',  join_paths(get_option('prefix'), get_option('localedir')))
 conf.set_quoted('LOCALEDIR',   join_paths(get_option('prefix'), get_option('localedir')))
-conf.set('ENABLE_NLS', cc.has_header('libintl.h'))
+# glib's own flags, since libintl.h is outside the compiler's default path on
+# the BSDs, and glib/gi18n.h reaches it that way anyhow.
+conf.set('ENABLE_NLS', cc.has_header('libintl.h', dependencies: glib))
 conf.set('HAVE_GETTEXT', true)
 conf.set('HAVE_LOCALE_H', cc.has_header('locale.h'))
 
@@ -290,6 +311,7 @@ po_subdir = join_paths(meson.project_source_root(), 'po')
 subdir('install-scripts')
 subdir('cut-n-paste-code/libegg')
 subdir('data')
+subdir('archive-core')
 subdir('eel')
 subdir('files')
 subdir('gresources')

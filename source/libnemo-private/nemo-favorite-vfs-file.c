@@ -36,6 +36,7 @@ struct _NemoFavoriteVfsFile
 
 static void  nemo_favorite_vfs_file_gfile_iface_init (GFileIface *iface);
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_path_to_fav_uri (const gchar *path)
 {
@@ -44,6 +45,7 @@ nemo_path_to_fav_uri (const gchar *path)
     return g_strconcat (ROOT_URI, path, NULL);
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_fav_uri_to_display_name (const gchar *uri)
 {
@@ -124,14 +126,14 @@ file_is_native (GFile *file)
 }
 
 static gboolean
-file_has_uri_scheme (GFile      *file,
+file_has_uri_scheme (G_GNUC_UNUSED GFile      *file,
                      const gchar *uri_scheme)
 {
     return g_strcmp0 (uri_scheme, URI_SCHEME) == 0;
 }
 
 static gchar *
-file_get_uri_scheme (GFile *file)
+file_get_uri_scheme (G_GNUC_UNUSED GFile *file)
 {
     return g_strdup (URI_SCHEME);
 }
@@ -330,7 +332,7 @@ file_resolve_relative_path (GFile       *file,
 static GFile *
 file_get_child_for_display_name (GFile       *file,
                                  const char  *display_name,
-                                 GError     **error)
+                                 G_GNUC_UNUSED GError     **error)
 {
     return g_file_get_child (file, display_name);
 }
@@ -1170,7 +1172,7 @@ file_replace_readwrite (GFile                      *file,
 
 static gboolean
 file_delete (GFile         *file,
-             GCancellable  *cancellable,
+             G_GNUC_UNUSED GCancellable  *cancellable,
              GError       **error)
 {
     NemoFavoriteVfsFilePrivate *priv = nemo_favorite_vfs_file_get_instance_private (NEMO_FAVORITE_VFS_FILE (file));
@@ -1440,7 +1442,7 @@ static void nemo_favorite_vfs_file_class_init (NemoFavoriteVfsFileClass *klass)
     gobject_class->finalize = nemo_favorite_vfs_file_finalize;
 }
 
-static void nemo_favorite_vfs_file_init (NemoFavoriteVfsFile *self)
+static void nemo_favorite_vfs_file_init (G_GNUC_UNUSED NemoFavoriteVfsFile *self)
 {
 }
 
@@ -1459,6 +1461,7 @@ GFile *_nemo_favorite_vfs_file_new_for_info (NemoFavoriteInfo *info)
     return G_FILE (new_file);
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *nemo_favorite_vfs_file_get_real_uri (GFile *file)
 {
     NemoFavoriteVfsFilePrivate *priv = nemo_favorite_vfs_file_get_instance_private (NEMO_FAVORITE_VFS_FILE (file));
@@ -1471,6 +1474,7 @@ gchar *nemo_favorite_vfs_file_get_real_uri (GFile *file)
     return NULL;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GFile *nemo_favorite_vfs_file_new_for_uri (const char *uri)
 {
     NemoFavoriteVfsFile *new_file;
@@ -1525,9 +1529,9 @@ GFile *nemo_favorite_vfs_file_new (void)
 }
 
 static GFile *
-favorite_vfs_lookup (GVfs       *vfs,
+favorite_vfs_lookup (G_GNUC_UNUSED GVfs       *vfs,
                      const char *identifier,
-                     gpointer    user_data)
+                     G_GNUC_UNUSED gpointer    user_data)
 {
     if (g_str_has_prefix (identifier, ROOT_URI))
     {

@@ -25,8 +25,17 @@
 #include <glib/gi18n.h>
 #include <gdk/gdk.h>
 #include "nemo-file-utilities.h"
+#include "nemo-share.h"
 #include "nemo-program-choosing.h"
 #include "nemo-ui-utilities.h"
+#include "nemo-user-text.h"
+
+#ifdef G_OS_WIN32
+#include "nemo-launch-win32.h"
+
+/* Asked every time the menu is built, so one that hangs must not keep it. */
+#define EXEC_CONDITION_SECONDS 10
+#endif
 
 #define DEBUG_FLAG NEMO_DEBUG_ACTIONS
 #include <libnemo-private/nemo-debug.h>
@@ -143,7 +152,9 @@ dbus_condition_free (gpointer data)
 {
     DBusCondition *cond = (DBusCondition *) data;
     g_free (cond->name);
-    g_bus_unwatch_name (cond->watch_id);
+    if (cond->watch_id != 0) {
+        g_bus_unwatch_name (cond->watch_id);
+    }
 
     g_free (cond);
 }
@@ -287,9 +298,9 @@ queue_recalc_dbus_conditions (NemoAction *action)
 }
 
 static void
-on_dbus_appeared (GDBusConnection *connection,
-                  const gchar     *name,
-                  const gchar     *name_owner,
+on_dbus_appeared (G_GNUC_UNUSED GDBusConnection *connection,
+                  G_GNUC_UNUSED const gchar     *name,
+                  G_GNUC_UNUSED const gchar     *name_owner,
                   gpointer         user_data)
 {
     DBusCondition *cond = user_data;
@@ -299,8 +310,8 @@ on_dbus_appeared (GDBusConnection *connection,
 }
 
 static void
-on_dbus_disappeared (GDBusConnection *connection,
-                     const gchar     *name,
+on_dbus_disappeared (G_GNUC_UNUSED GDBusConnection *connection,
+                     G_GNUC_UNUSED const gchar     *name,
                      gpointer         user_data)
 {
     DBusCondition *cond = user_data;
@@ -332,6 +343,7 @@ setup_dbus_condition (NemoAction *action, const gchar *condition)
     cond->exists = FALSE;
     cond->action = action;
     priv->dbus = g_list_append (priv->dbus, cond);
+#ifndef G_OS_WIN32
     cond->watch_id = g_bus_watch_name (G_BUS_TYPE_SESSION,
                                        cond->name,
                                        0,
@@ -339,6 +351,13 @@ setup_dbus_condition (NemoAction *action, const gchar *condition)
                                        on_dbus_disappeared,
                                        cond,
                                        NULL);
+#else
+    /* No session bus there, so no name on it ever has an owner. Watching
+     * would start a bus just to say so. */
+    (void) on_dbus_appeared;
+    (void) on_dbus_disappeared;
+    priv->dbus_satisfied = FALSE;
+#endif
 
     g_strfreev (split);
 }
@@ -440,7 +459,7 @@ recalc_gsettings_conditions (NemoAction *action)
 
                     g_variant_unref (target_var);
                 } else {
-                    g_warning ("Nemo Action: gsettings value could not be parsed into a valid GVariant");
+                    g_warning ("Nemo Action: gsettings value couldn't be parsed into a valid GVariant");
                 }
             }
 
@@ -534,7 +553,7 @@ setup_gsettings_condition (NemoAction *action,
     if (schema) {
         GSettings *settings;
         gchar **keys;
-        gint i;
+        guint i;
 
         settings = g_settings_new (split[GSETTINGS_SCHEMA_INDEX]);
         keys = g_settings_list_keys (settings);
@@ -589,7 +608,7 @@ strip_custom_modifier (const gchar *raw, gboolean *custom, gchar **out)
 }
 
 static void
-populate_patterns_and_filenames (NemoAction   *action,
+populate_patterns_and_filenames (G_GNUC_UNUSED NemoAction   *action,
                                  gchar       **array,
                                  GList       **allowed_patterns,
                                  GList       **forbidden_patterns,
@@ -605,7 +624,7 @@ populate_patterns_and_filenames (NemoAction   *action,
         return;
     }
 
-    gint i;
+    guint i;
 
     for (i = 0; i < g_strv_length (array); i++) {
         GString *str = g_string_new (array[i]);
@@ -650,22 +669,20 @@ nemo_action_constructed (GObject *object)
 
     g_key_file_load_from_file (key_file, action->key_file_path, G_KEY_FILE_NONE, NULL);
 
-    gchar *orig_label = g_key_file_get_locale_string (key_file,
-                                                      ACTION_FILE_GROUP,
-                                                      KEY_NAME,
-                                                      NULL,
-                                                      NULL);
+    gchar *orig_label = nemo_user_text_get_locale_string (key_file,
+                                                          ACTION_FILE_GROUP,
+                                                          KEY_NAME,
+                                                          NULL);
 
-    gchar *orig_tt = g_key_file_get_locale_string (key_file,
-                                                   ACTION_FILE_GROUP,
-                                                   KEY_COMMENT,
-                                                   NULL,
-                                                   NULL);
+    gchar *orig_tt = nemo_user_text_get_locale_string (key_file,
+                                                       ACTION_FILE_GROUP,
+                                                       KEY_COMMENT,
+                                                       NULL);
 
-    gchar *icon_name = g_key_file_get_string (key_file,
-                                              ACTION_FILE_GROUP,
-                                              KEY_ICON_NAME,
-                                              NULL);
+    gchar *icon_name = nemo_user_text_get_string (key_file,
+                                                  ACTION_FILE_GROUP,
+                                                  KEY_ICON_NAME,
+                                                  NULL);
 
     gicon = NULL;
 
@@ -701,40 +718,40 @@ nemo_action_constructed (GObject *object)
     }
     g_free (icon_name);
 
-    gchar *stock_id = g_key_file_get_string (key_file,
-                                             ACTION_FILE_GROUP,
-                                             KEY_STOCK_ID,
-                                             NULL);
+    gchar *stock_id = nemo_user_text_get_string (key_file,
+                                                 ACTION_FILE_GROUP,
+                                                 KEY_STOCK_ID,
+                                                 NULL);
 
 
-    gchar *exec_raw = g_key_file_get_string (key_file,
-                                             ACTION_FILE_GROUP,
-                                             KEY_EXEC,
-                                             NULL);
+    gchar *exec_raw = nemo_user_text_get_string (key_file,
+                                                 ACTION_FILE_GROUP,
+                                                 KEY_EXEC,
+                                                 NULL);
 
-    gchar *selection_string_raw = g_key_file_get_string (key_file,
-                                                         ACTION_FILE_GROUP,
-                                                         KEY_SELECTION,
-                                                         NULL);
+    gchar *selection_string_raw = nemo_user_text_get_string (key_file,
+                                                             ACTION_FILE_GROUP,
+                                                             KEY_SELECTION,
+                                                             NULL);
 
     gchar *selection_string = g_ascii_strdown (selection_string_raw, -1);
 
     g_free (selection_string_raw);
 
-    gchar *separator = g_key_file_get_string (key_file,
-                                              ACTION_FILE_GROUP,
-                                              KEY_SEPARATOR,
-                                              NULL);
+    gchar *separator = nemo_user_text_get_string (key_file,
+                                                  ACTION_FILE_GROUP,
+                                                  KEY_SEPARATOR,
+                                                  NULL);
 
-    gchar *uri_scheme = g_key_file_get_string (key_file,
-                                               ACTION_FILE_GROUP,
-                                               KEY_URI_SCHEME,
-                                               NULL);
+    gchar *uri_scheme = nemo_user_text_get_string (key_file,
+                                                   ACTION_FILE_GROUP,
+                                                   KEY_URI_SCHEME,
+                                                   NULL);
 
-    gchar *quote_type_string = g_key_file_get_string (key_file,
-                                                      ACTION_FILE_GROUP,
-                                                      KEY_QUOTE_TYPE,
-                                                      NULL);
+    gchar *quote_type_string = nemo_user_text_get_string (key_file,
+                                                          ACTION_FILE_GROUP,
+                                                          KEY_QUOTE_TYPE,
+                                                          NULL);
 
     QuoteType quote_type = QUOTE_TYPE_NONE;
 
@@ -768,27 +785,27 @@ nemo_action_constructed (GObject *object)
 
     gsize count;
 
-    gchar **ext = g_key_file_get_string_list (key_file,
-                                              ACTION_FILE_GROUP,
-                                              KEY_EXTENSIONS,
-                                              &count,
-                                              NULL);
+    gchar **ext = nemo_user_text_get_string_list (key_file,
+                                                  ACTION_FILE_GROUP,
+                                                  KEY_EXTENSIONS,
+                                                  &count,
+                                                  NULL);
 
     gsize mime_count;
 
-    gchar **mimes = g_key_file_get_string_list (key_file,
-                                                ACTION_FILE_GROUP,
-                                                KEY_MIME_TYPES,
-                                                &mime_count,
-                                                NULL);
+    gchar **mimes = nemo_user_text_get_string_list (key_file,
+                                                    ACTION_FILE_GROUP,
+                                                    KEY_MIME_TYPES,
+                                                    &mime_count,
+                                                    NULL);
 
     gsize condition_count;
 
-    gchar **conditions = g_key_file_get_string_list (key_file,
-                                                     ACTION_FILE_GROUP,
-                                                     KEY_CONDITIONS,
-                                                     &condition_count,
-                                                     NULL);
+    gchar **conditions = nemo_user_text_get_string_list (key_file,
+                                                         ACTION_FILE_GROUP,
+                                                         KEY_CONDITIONS,
+                                                         &condition_count,
+                                                         NULL);
 
     gboolean escape_space;
 
@@ -804,11 +821,11 @@ nemo_action_constructed (GObject *object)
                                               KEY_TERMINAL,
                                               NULL);
 
-    gchar **locations = g_key_file_get_string_list (key_file,
-                                                    ACTION_FILE_GROUP,
-                                                    KEY_LOCATIONS,
-                                                    NULL,
-                                                    NULL);
+    gchar **locations = nemo_user_text_get_string_list (key_file,
+                                                        ACTION_FILE_GROUP,
+                                                        KEY_LOCATIONS,
+                                                        NULL,
+                                                        NULL);
 
     populate_patterns_and_filenames (action, locations,
                                      &priv->allowed_location_patterns,
@@ -817,11 +834,11 @@ nemo_action_constructed (GObject *object)
                                      &priv->forbidden_location_filenames);
     g_strfreev (locations);
 
-    gchar **files = g_key_file_get_string_list (key_file,
-                                                ACTION_FILE_GROUP,
-                                                KEY_FILES,
-                                                NULL,
-                                                NULL);
+    gchar **files = nemo_user_text_get_string_list (key_file,
+                                                    ACTION_FILE_GROUP,
+                                                    KEY_FILES,
+                                                    NULL,
+                                                    NULL);
 
     populate_patterns_and_filenames (action, files,
                                      &priv->allowed_patterns,
@@ -918,6 +935,7 @@ nemo_action_constructed (GObject *object)
     g_key_file_free (key_file);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoAction *
 nemo_action_new (const gchar *name, 
                  const gchar *path)
@@ -940,39 +958,38 @@ nemo_action_new (const gchar *name,
         }
     }
 
-    gchar *orig_label = g_key_file_get_locale_string (key_file,
-                                                      ACTION_FILE_GROUP,
-                                                      KEY_NAME,
-                                                      NULL,
-                                                      NULL);
+    gchar *orig_label = nemo_user_text_get_locale_string (key_file,
+                                                          ACTION_FILE_GROUP,
+                                                          KEY_NAME,
+                                                          NULL);
 
-    gchar *exec_raw = g_key_file_get_string (key_file,
-                                             ACTION_FILE_GROUP,
-                                             KEY_EXEC,
-                                             NULL);
+    gchar *exec_raw = nemo_user_text_get_string (key_file,
+                                                 ACTION_FILE_GROUP,
+                                                 KEY_EXEC,
+                                                 NULL);
 
-    gchar **ext = g_key_file_get_string_list (key_file,
-                                              ACTION_FILE_GROUP,
-                                              KEY_EXTENSIONS,
-                                              NULL,
-                                              NULL);
+    gchar **ext = nemo_user_text_get_string_list (key_file,
+                                                  ACTION_FILE_GROUP,
+                                                  KEY_EXTENSIONS,
+                                                  NULL,
+                                                  NULL);
 
-    gchar **mimes = g_key_file_get_string_list (key_file,
-                                                ACTION_FILE_GROUP,
-                                                KEY_MIME_TYPES,
-                                                NULL,
-                                                NULL);
+    gchar **mimes = nemo_user_text_get_string_list (key_file,
+                                                    ACTION_FILE_GROUP,
+                                                    KEY_MIME_TYPES,
+                                                    NULL,
+                                                    NULL);
 
-    gchar **deps  = g_key_file_get_string_list (key_file,
-                                                ACTION_FILE_GROUP,
-                                                KEY_DEPENDENCIES,
-                                                NULL,
-                                                NULL);
+    gchar **deps  = nemo_user_text_get_string_list (key_file,
+                                                    ACTION_FILE_GROUP,
+                                                    KEY_DEPENDENCIES,
+                                                    NULL,
+                                                    NULL);
 
-    gchar *selection_string = g_key_file_get_string (key_file,
-                                                     ACTION_FILE_GROUP,
-                                                     KEY_SELECTION,
-                                                     NULL);
+    gchar *selection_string = nemo_user_text_get_string (key_file,
+                                                         ACTION_FILE_GROUP,
+                                                         KEY_SELECTION,
+                                                         NULL);
 
     gboolean finish = TRUE;
 
@@ -1174,6 +1191,32 @@ find_token_type (const gchar *str, TokenType *token_type)
     return NULL;
 }
 
+/* A path or device going into the Exec line, ready for how that is split. */
+static gchar *
+escape_for_exec (NemoActionPrivate *priv, const gchar *text)
+{
+#ifdef G_OS_WIN32
+    if (text == NULL)
+        return NULL;
+
+    /* Inside the quotes the action asked for only a quote needs doubling, and
+       with none it gets quotes of its own. A backslash is a path character. */
+    if (priv->quote_type == QUOTE_TYPE_DOUBLE || priv->quote_type == QUOTE_TYPE_SINGLE)
+        return eel_str_replace_substring (text, "\"", "\"\"");
+
+    return nemo_user_text_quote (text);
+#else
+    if (priv->quote_type == QUOTE_TYPE_DOUBLE) {
+        return eel_str_escape_double_quoted_content (text);
+    } else if (priv->quote_type == QUOTE_TYPE_SINGLE) {
+        // Replace literal ' with a close ', a \', and an open '
+        return eel_str_replace_substring (text, "'", "'\\''");
+    } else {
+        return eel_str_escape_shell_characters (text);
+    }
+#endif
+}
+
 static gchar *
 get_path (NemoAction *action, NemoFile *file)
 {
@@ -1190,14 +1233,7 @@ get_path (NemoAction *action, NemoFile *file)
     orig = g_file_get_path (location);
     g_object_unref (location);
 
-    if (priv->quote_type == QUOTE_TYPE_DOUBLE) {
-        ret = eel_str_escape_double_quoted_content (orig);
-    } else if (priv->quote_type == QUOTE_TYPE_SINGLE) {
-        // Replace literal ' with a close ', a \', and an open '
-        ret = eel_str_replace_substring (orig, "'", "'\\''");
-    } else {
-        ret = eel_str_escape_shell_characters (orig);
-    }
+    ret = escape_for_exec (priv, orig);
 
     g_free (orig);
 
@@ -1239,7 +1275,12 @@ insert_quote (NemoAction *action, GString *str)
 
     switch (priv->quote_type) {
         case QUOTE_TYPE_SINGLE:
+#ifdef G_OS_WIN32
+            /* A single quote is an ordinary character in a Windows line. */
+            str = g_string_append (str, "\"");
+#else
             str = g_string_append (str, "'");
+#endif
             break;
         case QUOTE_TYPE_DOUBLE:
             str = g_string_append (str, "\"");
@@ -1269,14 +1310,7 @@ get_device_path (NemoAction *action, NemoFile *file)
 
     id = g_volume_get_identifier (volume, G_VOLUME_IDENTIFIER_KIND_UNIX_DEVICE);
 
-    if (priv->quote_type == QUOTE_TYPE_DOUBLE) {
-        ret = eel_str_escape_double_quoted_content (id);
-    } else if (priv->quote_type == QUOTE_TYPE_SINGLE) {
-        // Replace literal ' with a close ', a \', and an open '
-        ret = eel_str_replace_substring (id, "'", "'\\''");
-    } else {
-        ret = eel_str_escape_shell_characters (id);
-    }
+    ret = escape_for_exec (priv, id);
 
     g_free (id);
 
@@ -1366,7 +1400,7 @@ default_parent_path:
                 g_free (path);
             } else {
                 if (g_list_length (selection) > 0 && nemo_file_is_in_recent (NEMO_FILE (selection->data))) {
-                    g_warning_once ("The recent:// location does not support parent path (%%P) action tokens.");
+                    g_warning_once ("The recent:// location doesn't support parent path (%%P) action tokens.");
                 }
             }
             break;
@@ -1514,11 +1548,10 @@ nemo_action_activate (NemoAction *action,
     exec = expand_action_string (action, selection, parent, exec, window);
 
     if (priv->use_parent_dir) {
-        /* Quote dir+separator as one token so a space (or the win32 backslash
-         * separator) survives g_shell_parse_argv; the program name follows
-         * unquoted and joins into a single word. */
+        /* Quote dir+separator as one token so a space survives the split; the
+         * program name follows unquoted and joins into a single word. */
         gchar *prefix = g_strconcat (action->parent_dir, G_DIR_SEPARATOR_S, NULL);
-        gchar *quoted = g_shell_quote (prefix);
+        gchar *quoted = nemo_user_text_quote (prefix);
         exec = g_string_prepend (exec, quoted);
         g_free (quoted);
         g_free (prefix);
@@ -1526,32 +1559,56 @@ nemo_action_activate (NemoAction *action,
 
     DEBUG ("Action Spawning: %s", exec->str);
 
+#ifdef G_OS_WIN32
+    {
+        gchar **argvp;
+
+        /* Through the launcher, so a console program gets no window, or one
+           of its own when the action wants a terminal. */
+        if (!nemo_user_text_split_command (exec->str, NULL, &argvp, &error)) {
+            nemo_show_start_error (window, error);
+            g_clear_error (&error);
+        } else {
+            if (!nemo_launch_win32_spawn ((const gchar * const *) argvp, priv->run_in_terminal, &error)) {
+                nemo_show_start_error (window, error);
+                g_clear_error (&error);
+            }
+            g_strfreev (argvp);
+        }
+    }
+#else
     if (priv->run_in_terminal) {
         gint argcp;
         gchar **argvp;
 
-        if (g_shell_parse_argv (exec->str, &argcp, &argvp, &error)) {
+        if (nemo_user_text_split_command (exec->str, &argcp, &argvp, &error)) {
             nemo_launch_application_from_command_array (gdk_screen_get_default (),
                                                         argvp[0],
                                                         TRUE,
                                                         (const char * const *)(argvp + sizeof (gchar)));
             g_strfreev (argvp);
         } else {
-            DEBUG ("Could not parse arguments terminal launch.  Possibly turn off Quotes and remove any from your Exec line: %s\n",
+            DEBUG ("Couldn't parse arguments terminal launch.  Possibly turn off Quotes and remove any from your Exec line: %s\n",
                    error->message);
             g_error_free (error);
         }
     } else {
-        if (!g_spawn_command_line_async (exec->str, &error)) {
+        gchar **argv = NULL;
+
+        if (!nemo_user_text_split_command (exec->str, NULL, &argv, &error) ||
+            !nemo_spawn_for_user (NULL, argv, G_SPAWN_SEARCH_PATH, NULL, &error)) {
             DEBUG ("Error spawning action: %s\n",
                    error->message);
             g_error_free (error);
         }
+        g_strfreev (argv);
     }
+#endif
 
     g_string_free (exec, TRUE);
 }
 
+/* Returns: (transfer none): owned by @action */
 const gchar *
 nemo_action_get_orig_label (NemoAction *action)
 {
@@ -1594,6 +1651,7 @@ nemo_action_override_icon (NemoAction  *action,
     }
 }
 
+/* Returns: (transfer none): owned by @action */
 const gchar *
 nemo_action_get_orig_tt (NemoAction *action)
 {
@@ -1710,7 +1768,7 @@ check_exec_condition (NemoAction  *action,
 
     if (use_parent_dir) {
         gchar *prefix = g_strconcat (action->parent_dir, G_DIR_SEPARATOR_S, NULL);
-        gchar *quoted = g_shell_quote (prefix);
+        gchar *quoted = nemo_user_text_quote (prefix);
         exec = g_string_prepend (exec, quoted);
         g_free (quoted);
         g_free (prefix);
@@ -1720,6 +1778,28 @@ check_exec_condition (NemoAction  *action,
 
     return_code = -1;
 
+#ifdef G_OS_WIN32
+    {
+        gchar **argv;
+        gboolean timed_out = FALSE;
+
+        /* No console window each time the menu is built. Anything that did not
+           start, ran too long or did not exit 0 is a no. */
+        if (!nemo_user_text_split_command (exec->str, NULL, &argv, &error)) {
+            DEBUG ("Couldn't parse exec condition: %s", error->message);
+            g_clear_error (&error);
+            g_string_free (exec, TRUE);
+            return FALSE;
+        }
+        return_code = nemo_launch_win32_pipe ((const gchar * const *) argv, NULL, EXEC_CONDITION_SECONDS,
+                                              NULL, NULL, &timed_out) ? 0 : 1;
+        if (timed_out) {
+            g_warning ("Action condition '%s' still running after %d seconds, taken as no",
+                       exec->str, EXEC_CONDITION_SECONDS);
+        }
+        g_strfreev (argv);
+    }
+#else
     if (!g_spawn_command_line_sync (exec->str,
                                     NULL,
                                     NULL,
@@ -1733,6 +1813,7 @@ check_exec_condition (NemoAction  *action,
             g_string_free (exec, TRUE);
             return FALSE;
         }
+#endif
 
     DEBUG ("Action checking exec condition '%s' returned: %d", exec->str, return_code);
 
@@ -1748,7 +1829,12 @@ get_is_dir (NemoFile *file)
 
     GFile *f = nemo_file_get_location (file);
 
-    if (g_file_is_native (f) && (!nemo_location_is_network_safe (f))) {
+    /* Asked on the window's thread for each selected file whenever the
+       selection changes, and the test follows a link. The type the listing
+       already has stands in for one onto a share. */
+    if (nemo_file_is_on_a_share (file)) {
+        ret = nemo_file_is_directory (file);
+    } else if (g_file_is_native (f) && (!nemo_location_is_network_safe (f))) {
         gchar *path;
 
         path = g_file_get_path (f);
@@ -1764,7 +1850,7 @@ get_is_dir (NemoFile *file)
 }
 
 static gboolean
-check_is_allowed (NemoAction *action,
+check_is_allowed (G_GNUC_UNUSED NemoAction *action,
                   NemoFile   *parent,
                   GList      *selection,
                   GList      *allowed_patterns,

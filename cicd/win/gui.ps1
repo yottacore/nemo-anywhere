@@ -1,4 +1,4 @@
-﻿##	Purpose:
+##	Purpose:
 ##		- Small GUI driver for the running app: screenshot, window rects,
 ##		  raise, click, key, type. Finds the app's window by enumerating the
 ##		  pid's visible windows and taking the largest (MainWindowHandle often
@@ -17,7 +17,7 @@
 ##		  for hover.
 ##		- 2026-08-30: Created (backlog: GUI testing without touching the live session).
 
-##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
+##	Copyright (c) 2026 t00mietum
 ##	Licensed under The MIT License (MIT). Full text at:
 ##		https://mit-license.org/
 ##	SPDX-License-Identifier: MIT

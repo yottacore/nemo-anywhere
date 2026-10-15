@@ -15,8 +15,13 @@
 ##	  noise to drown in, and a Title Case label pasted from upstream is caught
 ##	  wherever it sits. A missing python skips it the same way cppcheck does.
 ##	- Then the settings-handler check (cicd/utility/lint-pref-handlers.py), also
-##	  whole-tree, which pairs each disconnect with the connect it belongs to,
-##	  and the accelerator check (cicd/utility/lint-accels.py), whole-tree too.
+##	  whole-tree, which pairs each disconnect with the connect it belongs to
+##	  and checks each handler against its row in design.md, "Handlers on settings
+##	  groups", and each key against the group the settings table puts it in, and
+##	  the accelerator check (cicd/utility/lint-accels.py), whole-tree too.
+##	- Then the ownership check (cicd/utility/lint-ownership.py), whole-tree:
+##	  each pointer a header's function returns has a "(transfer ...)" line
+##	  above its definition.
 ##	- Runs the same everywhere bash + git + cppcheck exist (Linux host, MSYS2).
 ##	- Syntax: lint-c.bash [--list-files] [base-branch]
 ##	  --list-files prints the C files the cppcheck pass would cover, and stops.
@@ -112,22 +117,27 @@ fRun fCheckOverwriteAsk
 ## These four checks hold that. A new entry on any of their lists wants a
 ## reason, and whoever adds one should be able to say what window starts it.
 
-## Bus methods: the freedesktop file manager interface, and the tab hand-over
-## between our own windows, which lists windows and opens a folder in a tab.
-## None of them touches a file.
+## Bus methods: the freedesktop file manager interface, the tab hand-over
+## between our own windows, which lists windows and opens a folder in a tab, and
+## settings changes passed between our own copies, which only change what a
+## copy holds in memory, the same as an edit to the settings file it watches.
+## Activate is the actions call GLib's bus export answers, written out for the
+## Windows pipes, where the only action is quit (see fCheckAppActions). None
+## of them touches a file. Tests are left out: a test that stands in for
+## another program's server is not something the app exports.
 ## Test ID: rh3qr9y8
 fCheckBusMethods(){
-	local allowed=' ShowFolders ShowItems ShowItemProperties ListWindows TakeTab '
+	local allowed=' ShowFolders ShowItems ShowItemProperties ListWindows TakeTab TakeSettings Activate '
 	local name bad=""
 
 	while read -r name; do
 		[[ -z "$name" ]] && continue
 		[[ "$allowed" == *" ${name} "* ]] || bad+="${name} "
-	done <<< "$(grep -rhoE "<method name=['\"][A-Za-z0-9_]+" source | sed -E "s/.*=['\"]//" | sort -u || true)"
+	done <<< "$(grep -rhoE --exclude-dir=test "<method name=['\"][A-Za-z0-9_]+" source | sed -E "s/.*=['\"]//" | sort -u || true)"
 
 	if [[ -n "$bad" ]]; then
 		fEcho "FAIL: bus methods not on the list in lint-c.bash: ${bad% }"
-		grep -rnE "<method name=['\"]" source || true
+		grep -rnE --exclude-dir=test "<method name=['\"]" source || true
 		exit 2
 	fi
 }
@@ -159,8 +169,8 @@ fCheckJobCallers(){
 	allowed+='source/src/nemo-places-sidebar.c '		# empty trash, drops
 	allowed+='source/src/nemo-trash-bar.c '			# empty trash button
 	allowed+='source/src/nemo-mime-actions.c '			# broken link dialog
-	allowed+='source/src/nemo-template-config-widget.c '	# remove button in preferences
-	allowed+='source/libnemo-private/nemo-archive.c '	# compress dialog, delete originals
+	allowed+='source/src/nemo-template-config-widget.c '	# remove button in settings
+	allowed+='source/libnemo-private/nemo-archive-host.c '	# compress dialog, delete originals
 	allowed+='source/libnemo-private/nemo-file-undo-operations.c '	# undo
 	allowed+='source/libnemo-private/nemo-dnd-win32.c '	# a move dragged out of a window
 	local file bad=""
@@ -188,7 +198,7 @@ fCheckRawDeletes(){
 	allowed+='source/libnemo-private/nemo-delete-guard.c '		# the guarded delete the jobs use
 	allowed+='source/libnemo-private/nemo-trash-win32.c '		# the recycle bin, behind the jobs
 	allowed+='source/libnemo-private/nemo-link-win32.c '		# its own probe, and a link it failed to finish
-	allowed+='source/libnemo-private/nemo-archive.c '			# an archive it was writing
+	allowed+='source/libnemo-private/nemo-archive-host.c '		# an archive the core was writing, and its list files
 	allowed+='source/libnemo-private/nemo-crash.c '			# old crash reports
 	allowed+='source/libnemo-private/nemo-cache-db.c '		# a damaged cache file it is replacing
 	allowed+='source/libnemo-private/nemo-desktop-thumbnail.c '	# thumbnail cache
@@ -613,7 +623,7 @@ fCheckWindowIcon(){
 
 	stray="$(grep -n -E 'gtk_window_set_icon(_name)? \(' source/src/nemo-window*.c source/src/nemo-file-management-properties.c || true)"
 	if [[ -n "$stray" ]]; then
-		fEcho "FAIL: a main window or the preferences sets its own icon over the program's:"
+		fEcho "FAIL: a main window or the settings window sets its own icon over the program's:"
 		fEcho "${stray}"
 		exit 2
 	fi
@@ -738,7 +748,7 @@ fCheckByUser(){
 	allowed+='source/src/nemo-places-sidebar.c '		# empty trash command
 	allowed+='source/src/nemo-trash-bar.c '			# empty trash button
 	allowed+='source/src/nemo-mime-actions.c '			# move to trash button in the launcher dialog
-	allowed+='source/libnemo-private/nemo-archive.c '	# delete originals, ticked in the compress dialog; still asks
+	allowed+='source/libnemo-private/nemo-archive-host.c '	# delete originals, ticked in the compress dialog; still asks
 	local file bad=""
 
 	while read -r file; do
@@ -827,6 +837,9 @@ fCheckWinLaunch(){
 	allowed+='nemo-view-win32.c:nemo_view_win32_open_elevated '		# runas on our own exe, the only way to ask for elevation
 	allowed+='nemo-view-win32.c:nemo_view_win32_open_in_explorer '	# explore verb, for the item that says Explorer on it
 	allowed+='nemo-view-win32.c:explorer_select_by_command_line '	# names explorer.exe, but starts it through the broker
+	allowed+='test-nemo-raise-win32.c:start_copy '					# a test starting copies of itself detached from its console
+	allowed+='test-nemo-helper-end-win32.c:start_app '				# a test starting a copy of itself to play the app
+	allowed+='test-nemo-session-bus-win32.c:start_bus '				# a test starting the bus the way GLib does
 	local bad
 
 	bad="$(find source \( -name '*.c' -o -name '*.h' \) -exec awk -v allowed="$allowed" '
@@ -844,6 +857,126 @@ fCheckWinLaunch(){
 	fi
 }
 fRun fCheckWinLaunch
+
+## GLib's own spawn on Windows goes through a helper program, which gives a
+## console tool a console window and never starts it at all from the single
+## exe. Off Windows it is fine, so every call that starts a program is on this
+## list with why Windows never reaches it, or why it does no harm there. GLib's
+## app launch spawns the same way for anything but a store app, and so does
+## GTK's show-uri through it, which an About box or a link button calls on a
+## click unless told otherwise.
+## Test ID: rjm8a6xr
+fCheckGlibSpawn(){
+	local allowed=' '
+	allowed+='nemo-tool-run.c:nemo_tool_run_start '						# Windows goes through nemo-launch-win32.c
+	allowed+='nemo-magick.c:run_magick '								# same
+	allowed+='nemo-desktop-thumbnail.c:run_thumbnailer_script '			# same
+	allowed+='nemo-new-process.c:spawn_argv '							# Windows goes through nemo-launch-win32.c
+	allowed+='nemo-view.c:open_as_root '								# not built on Windows
+	allowed+='nemo-view.c:open_in_terminal '							# same
+	allowed+='nemo-action-config-widget.c:on_layout_editor_clicked '	# same
+	allowed+='nemo-extension-config-widget.c:on_restart_clicked '		# same
+	allowed+='nemo-extension-config-widget.c:detect_extensions '		# same
+	allowed+='nemo-extension-config-widget.c:on_config_clicked '		# no extensions on Windows, so no link to click
+	allowed+='nemo-file-utilities.c:update_xdg_user_dir '				# not on Windows
+	allowed+='nemo-thumbnail-problem-bar.c:thumbnail_problem_bar_response_cb '	# the bar never shows on Windows, with no passwd entry to check
+	allowed+='nemo-action.c:nemo_action_activate '						# Windows goes through nemo-launch-win32.c
+	allowed+='nemo-action.c:check_exec_condition '						# same
+	allowed+='nemo-program-choosing.c:nemo_launch_application_by_uri '	# Windows: only a store app, which the shell starts
+	allowed+='nemo-program-choosing.c:launch_application_from_command_internal '	# not built on Windows
+	allowed+='nemo-program-choosing.c:nemo_launch_desktop_file '			# same
+	allowed+='eel-gnome-extensions.c:eel_gnome_open_terminal_on_screen '	# its one caller is not built on Windows
+	allowed+='nemo-template-config-widget.c:on_edit_template_clicked '		# Windows goes through nemo-launch-win32.c
+	allowed+='nemo-program-choosing.c:nemo_show_uri '					# Windows goes through nemo-launch-win32.c
+	allowed+='nemo-window-menus.c:action_about_nemo_callback '			# its links go through nemo_show_uri
+	allowed+='nemo-extension-config-widget.c:refresh_widget '			# no extensions on Windows, so no link to click
+	allowed+='nemo-file-utilities.c:nemo_spawn_for_user '				# not built on Windows
+	local bad
+
+	bad="$(find source/src source/libnemo-private source/libnemo-extension source/eel \( -name '*.c' -o -name '*.h' \) -exec awk -v allowed="$allowed" '
+		FNR == 1 { fn = ""; base = FILENAME; sub(/.*\//, "", base) }
+		/^[a-zA-Z_][a-zA-Z0-9_]* *\(/ { fn = $1; sub(/\(.*/, "", fn) }
+		/(^|[^A-Za-z0-9_])(g_subprocess_newv?|g_subprocess_launcher_spawnv?|g_spawn_(async|sync|command_line_async|command_line_sync|async_with_pipes|async_with_fds|async_with_pipes_and_fds)|g_app_info_launch(_uris(_async)?|_default_for_uri(_async)?)?|g_desktop_app_info_launch_uris_as_manager(_with_fds)?|gtk_show_uri(_on_window)?|gtk_show_about_dialog|gtk_about_dialog_new|gtk_link_button_new(_with_label)?) *\(|GTK_TYPE_(ABOUT_DIALOG|LINK_BUTTON)([^A-Z_]|$)/ {
+			if (index(allowed, " " base ":" fn " ") == 0) print FILENAME ":" FNR ": " $0
+		}
+	' {} +)"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: a program started through GLib, which on Windows needs nemo-tool-run.c or nemo-launch-win32.c, and not on the list in lint-c.bash"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fRun fCheckGlibSpawn
+
+## A relocated install puts its own folders on XDG_DATA_DIRS, PATH and
+## GSETTINGS_SCHEMA_DIR. A program of the user's gets those as they were, so
+## every function that starts a program or makes a launch context either asks
+## for the user's environment or is on this list as one of ours.
+## Test ID: rk5884m7
+fCheckUserEnviron(){
+	local allowed=' '
+	allowed+='nemo-tool-run.c:nemo_tool_run_start '						# helpers: archive tools, search converters
+	allowed+='nemo-magick.c:run_magick '								# helper
+	allowed+='nemo-desktop-thumbnail.c:run_thumbnailer_script '			# helper
+	allowed+='nemo-action.c:check_exec_condition '						# helper, an action's condition
+	allowed+='nemo-file-utilities.c:update_xdg_user_dir '				# xdg-user-dirs-update for our own rename
+	allowed+='nemo-action-config-widget.c:on_layout_editor_clicked '	# our own layout editor
+	allowed+='nemo-extension-config-widget.c:detect_extensions '		# a copy of ours that prints and quits
+	allowed+='nemo-view.c:open_as_root '								# a copy of ours through pkexec, which clears the environment
+	allowed+='nemo-thumbnail-problem-bar.c:thumbnail_problem_bar_response_cb '	# same
+	allowed+='eel-gnome-extensions.c:eel_gnome_open_terminal_on_screen '	# its caller hands it the user's context
+	local bad
+
+	bad="$(find source/src source/libnemo-private source/libnemo-extension source/eel \( -name '*.c' -o -name '*.h' \) ! -name '*-win32.c' -exec awk -v allowed="$allowed" '
+		function flush() {
+			if (hits != "" && !user && index(allowed, " " base ":" fn " ") == 0) printf "%s", hits
+			hits = ""; user = 0
+		}
+		FNR == 1 { flush(); fn = ""; base = FILENAME; sub(/.*\//, "", base) }
+		/^[a-zA-Z_][a-zA-Z0-9_]* *\(/ { flush(); fn = $1; sub(/\(.*/, "", fn) }
+		/(^|[^A-Za-z0-9_])(user_launch_context|nemo_launch_context_use_user_environ|nemo_get_user_environ) *\(/ { user = 1 }
+		/(^|[^A-Za-z0-9_])(g_subprocess_newv?|g_subprocess_launcher_spawnv?|g_spawn_(async|sync|command_line_async|command_line_sync|async_with_pipes|async_with_fds|async_with_pipes_and_fds)|g_app_info_launch(_uris(_async)?|_default_for_uri(_async)?)?|g_desktop_app_info_launch_uris_as_manager(_with_fds)?|gtk_show_uri(_on_window)?|gdk_display_get_app_launch_context|g_app_launch_context_new) *\(/ {
+			hits = hits FILENAME ":" FNR ": " $0 "\n"
+		}
+		END { flush() }
+	' {} +)"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: a program started with the app's own environment, and not on the list in lint-c.bash as one of ours"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fRun fCheckUserEnviron
+
+## Nothing may ask for the session bus on Windows. GLib starts a bus of its own
+## there (gdbus.exe) the first time anything does, and the copies use named
+## pipes instead (nemo-instances-win32.c). The app also sets the bus address to
+## "disabled:" at startup, which is what keeps GApplication off it, but every
+## call that would ask is on this list with why Windows never reaches it.
+## Test ID: rjvmbv00
+fCheckSessionBus(){
+	local allowed=' '
+	allowed+='nemo-action.c:setup_dbus_condition '					# not on Windows, where the condition never passes
+	allowed+='nemo-file-utilities.c:get_dbus_connection '			# not on Windows
+	allowed+='nemo-previewer.c:nemo_previewer_init '				# same
+	allowed+='nemo-freedesktop-dbus.c:nemo_freedesktop_dbus_init '	# never made on Windows
+	allowed+='nemo-search-engine-tracker.c:nemo_search_engine_tracker_new '	# not built on Windows
+	local bad
+
+	bad="$(find source/src source/libnemo-private source/libnemo-extension source/eel source/archive-core \( -name '*.c' -o -name '*.h' \) -exec awk -v allowed="$allowed" '
+		FNR == 1 { fn = ""; base = FILENAME; sub(/.*\//, "", base) }
+		/^[a-zA-Z_][a-zA-Z0-9_]* *\(/ { fn = $1; sub(/\(.*/, "", fn) }
+		/(^|[^A-Za-z0-9_])(g_bus_(get|get_sync|own_name|own_name_with_closures|watch_name|watch_name_with_closures)|g_dbus_address_get_for_bus_sync|g_dbus_proxy_new_for_bus(_sync)?|g_dbus_object_manager_client_new_for_bus(_sync)?|[a-z0-9_]+_proxy_new_for_bus(_sync)?|tracker_sparql_connection_bus_new) *\(/ {
+			if (index(allowed, " " base ":" fn " ") == 0) print FILENAME ":" FNR ": " $0
+		}
+	' {} +)"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: a call that asks for the session bus, which on Windows starts one, and not on the list in lint-c.bash"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fRun fCheckSessionBus
 
 ## A right-click on a path button pops its menu inside the press. It used to
 ## wait for the folder's attributes and pop up from their callback, which came
@@ -936,15 +1069,17 @@ fCheckGeometrySave(){
 }
 fRun fCheckGeometrySave
 
-## A click on a place leaves the keyboard in the sidebar. Connecting a content
-## view grabbed the focus every time, so a place whose folder wanted another
-## view type took it away and one beside it did not.
+## "Places" never keeps the keyboard: its tree refuses the focus, and so does the
+## scrolled window around it, which would take it from Tab or F6. Opening a
+## place or ending a rename hands it to the folder. Only the tree pane keeps the
+## focus it was given, so connecting a content view must not grab from it, nor
+## from a rename in "Places" while it lasts.
 ## Test ID: rhtg2yej
 fCheckSidebarFocus(){
-	local src='source/src/nemo-window.c'
-	local body bad
+	local src='source/src/nemo-window.c' places='source/src/nemo-places-sidebar.c'
+	local body bad fn
 
-	[[ -f "$src" ]] || return 0
+	[[ -f "$src" && -f "$places" ]] || return 0
 
 	body="$(awk '/^nemo_window_connect_content_view \(/,/^}/' "$src")"
 	bad="$(awk '
@@ -953,8 +1088,26 @@ fCheckSidebarFocus(){
 		/(nemo_view|gtk_widget)_grab_focus *\(/ { if (!p || !t || NR - p > 4 || NR - t > 4) print }
 	' <<< "$body")"
 	if [[ -z "$body" || -n "$bad" ]]; then
-		fEcho "FAIL: ${src}: nemo_window_connect_content_view grabs the focus only while neither sidebar holds it"
+		fEcho "FAIL: ${src}: nemo_window_connect_content_view grabs the focus only while neither side pane holds it"
 		[[ -n "$bad" ]] && printf '%s\n' "$bad"
+		exit 2
+	fi
+
+	body="$(awk '/^nemo_places_sidebar_init \(/,/^}/' "$places")"
+	if ! grep -q -F 'gtk_widget_set_can_focus (GTK_WIDGET (tree_view), FALSE);' <<< "$body" ||
+	   ! grep -q -F 'gtk_widget_set_can_focus (GTK_WIDGET (sidebar), FALSE);' <<< "$body"; then
+		fEcho "FAIL: ${places}: the places tree and the scrolled window around it must refuse the keyboard focus"
+		exit 2
+	fi
+	for fn in open_selected_bookmark bookmarks_edited bookmarks_editing_canceled; do
+		body="$(fn="$fn" awk '$0 ~ "^" ENVIRON["fn"] " \\(", /^}/' "$places")"
+		if ! grep -q -F 'focus_folder_view (' <<< "$body"; then
+			fEcho "FAIL: ${places}: ${fn} must hand the focus to the folder"
+			exit 2
+		fi
+	done
+	if grep -q 'widget_class->focus *=' "$places"; then
+		fEcho "FAIL: ${places}: a focus handler on the sidebar moves its cursor on every Tab past it"
 		exit 2
 	fi
 }
@@ -1006,7 +1159,7 @@ fCheckEntryFocusOut(){
 
 	[[ -f "$src" ]] || return 0
 
-	if ! tr -d '\n' < "$src" | grep -q -E 'nemo_location_bar_get_entry \([^;]*"focus-out-event",[[:space:]]*G_CALLBACK \(toolbar_focus_out_callback\)'; then
+	if ! grep -q -E 'nemo_location_bar_get_entry \([^;]*"focus-out-event",[[:space:]]*G_CALLBACK \(toolbar_focus_out_callback\)' <<<"$(tr -d '\n' < "$src")"; then
 		fEcho "FAIL: ${src}: the path entry's focus-out-event must go to toolbar_focus_out_callback"
 		exit 2
 	fi
@@ -1114,6 +1267,219 @@ fCheckUiDomain(){
 }
 fRun fCheckUiDomain
 
+## A click or scroll takes the primary modifier (eel_gtk_primary_mask), which
+## is Cmd on macOS. Plain Control in a button or scroll handler is a click that
+## missed that change; the list view's add-to-selection on Ctrl+click did.
+## Keyboard handlers mix both on purpose and are not checked.
+## Test ID: rj9tz3mv
+fCheckClickPrimary(){
+	local bad f
+	local -a handlerFiles=()
+
+	while IFS= read -r f; do
+		[[ "$f" == source/vendor/* || "$f" == source/cut-n-paste-code/* ]] || handlerFiles+=("$f")
+	done < <(grep -rl -E 'GdkEvent(Button|Scroll)' source --include='*.c' || true)
+	if ((${#handlerFiles[@]} == 0)); then
+		fEcho "FAIL: no click or scroll handlers found; the check has lost its files"
+		exit 2
+	fi
+
+	## A function starts at a column-0 brace, or a signature line ending in one,
+	## and ends at a column-0 closing brace.
+	bad="$(awk '
+		FNR == 1 { body = 0; sig = "" }
+		body && /^}/ { body = 0; sig = ""; next }
+		body {
+			if (sig ~ /GdkEvent(Button|Scroll)/ && /GDK_CONTROL_MASK/)
+				print FILENAME ":" FNR ": " $0
+			next
+		}
+		/^\{/ { body = 1; next }
+		/^[A-Za-z_].*\)[[:space:]]*\{[[:space:]]*$/ && !/=/ { sig = sig " " $0; body = 1; next }
+		/^}/ || /;[[:space:]]*$/ || /^#/ { sig = ""; next }
+		{ sig = sig " " $0 }
+	' "${handlerFiles[@]}")"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: Control in a click or scroll handler; use eel_gtk_primary_mask"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fRun fCheckClickPrimary
+
+## Shifting into the sign bit of an int is undefined, though gcc does what was
+## meant today. The metadata list mask was 1<<31; a top bit is 1u << 31.
+## Test ID: rj9v86cj
+fCheckSignShift(){
+	local bad
+
+	bad="$(grep -rn -E '(^|[^0-9A-Za-z_.])1[[:space:]]*<<[[:space:]]*31([^0-9]|$)|\(int\)[^;]*<<[[:space:]]*24([^0-9]|$)' \
+		source --include='*.c' --include='*.h' \
+		| grep -v -E '^source/(vendor|cut-n-paste-code)/' || true)"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: a shift into the sign bit of an int; shift an unsigned value"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fRun fCheckSignShift
+
+## On Windows GLib's mount list asks the shell for every drive letter's name as
+## it is made, so a letter mapped to a share that is not answering held the side
+## pane for the network timeout. Every list goes through nemo_get_mounts, and no
+## bin is asked for with a NULL root, which takes in every drive, mapped too.
+## Test ID: rjhw99yh
+fCheckMountList(){
+	local bad bins
+
+	bad="$(grep -rn -E '(^|[^A-Za-z0-9_])g_volume_monitor_get_mounts[[:space:]]*\(' \
+		source/src source/libnemo-private source/eel --include='*.c' \
+		| grep -v -E '^source/libnemo-private/nemo-file-utilities\.c:[0-9]+:[[:space:]]*return g_volume_monitor_get_mounts \(monitor\);' || true)"
+	bins="$(grep -rn -E 'SHQueryRecycleBin[AW]?[[:space:]]*\([[:space:]]*NULL' \
+		source/src source/libnemo-private --include='*.c' || true)"
+	if [[ -n "$bad" || -n "$bins" ]]; then
+		fEcho "FAIL: a mount list or bin query that asks every drive; use nemo_get_mounts, one root per bin"
+		[[ -z "$bad" ]] || printf '%s\n' "$bad"
+		[[ -z "$bins" ]] || printf '%s\n' "$bins"
+		exit 2
+	fi
+}
+fRun fCheckMountList
+
+## A file or command line a user writes takes a Windows path as written there,
+## and GKeyFile and g_shell_parse_argv both read a backslash as an escape. So
+## those go through nemo-user-text.c, and the rest are on this list with why
+## the text is not the user's.
+## Test ID: rjmqp83c
+fCheckUserText(){
+	local allowed=' '
+	allowed+='nemo-user-text.c:nemo_user_text_get_string '						# the one place that calls them
+	allowed+='nemo-user-text.c:nemo_user_text_get_string_list '				# same
+	allowed+='nemo-user-text.c:nemo_user_text_split_command '					# same
+	allowed+='nemo-appearance.c:icon_theme_index '								# a theme's index.theme, which follows the spec
+	allowed+='nemo-appearance.c:scan_add '										# same
+	allowed+='nemo-bookmark-list.c:load_bookmark_metadata_file '				# written by the app itself
+	local bad
+
+	bad="$(find source/src source/libnemo-private source/libnemo-extension source/eel \( -name '*.c' -o -name '*.h' \) -exec awk -v allowed="$allowed" '
+		FNR == 1 { fn = ""; base = FILENAME; sub(/.*\//, "", base) }
+		/^[a-zA-Z_][a-zA-Z0-9_]* *\(/ { fn = $1; sub(/\(.*/, "", fn) }
+		/(^|[^A-Za-z0-9_])(g_key_file_get_(locale_)?string(_list)?|g_shell_parse_argv) *\(/ {
+			if (index(allowed, " " base ":" fn " ") == 0) print FILENAME ":" FNR ": " $0
+		}
+	' {} +)"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: user text read through GKeyFile or g_shell_parse_argv; use nemo-user-text.h, or add it to the list in lint-c.bash"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fRun fCheckUserText
+
+## The archive core links nothing of the app, so it could leave for a project
+## of its own, and it never deletes, walks a folder, starts a program or reads
+## a command line by itself: it asks its host (arc-host.h), which is how the
+## delete guard, the long-path walk and the one Windows launcher still see all
+## of it. Win32 calls in it go in its own *-win32.c. Its test links the core
+## alone. The rules above scan the app's folders only, so this one is the
+## core's.
+## Test ID: rjq9mx02
+fCheckArcCore(){
+	local dir='source/archive-core' test='source/test/test-arc-core.c'
+	local appNames='(^|[^A-Za-z0-9_])(nemo|eel|gtk|gdk|NEMO|EEL|GTK|GDK)_[A-Za-z0-9_]|(^|[^A-Za-z0-9_])(Nemo|Eel|Gtk|Gdk)[A-Z]|#[[:space:]]*include[[:space:]]*[<"](gtk/|gdk/|eel/|libnemo|nemo-|config\.h)'
+	local ownWay='(^|[^A-Za-z0-9_>.])(g_file_delete|g_file_trash|g_unlink|g_remove|g_rmdir|unlink|rmdir|remove|_wunlink|_wremove|_wrmdir|DeleteFileW|DeleteFileA|RemoveDirectoryW|RemoveDirectoryA|SHFileOperationW|g_file_enumerate_children[a-z_]*|g_dir_open|opendir|FindFirstFileW|FindFirstFileExW|g_subprocess_newv?|g_subprocess_launcher[a-z_]*|g_spawn_[a-z_]+|g_app_info_launch[a-z_]*|CreateProcessW|ShellExecuteW|ShellExecuteExW|g_shell_parse_argv|g_key_file_[a-z_]+)[[:space:]]*\('
+	local winHeaders='#[[:space:]]*include[[:space:]]*<(windows|win[a-z0-9]*|shl[a-z]*|shellapi|shobjidl|objbase|ole[a-z0-9]*)\.h>'
+	local appDeps='gtk|gdk|x11|eel|nemo_private|nemo_definitions|libnemo_extension|test_scratch|rootInclude'
+	local -a files=() bad=()
+	local line entry
+
+	mapfile -t files < <(find "$dir" \( -name '*.c' -o -name '*.h' \) | sort)
+	if ((${#files[@]} == 0)) || [[ ! -f "$test" ]]; then
+		fEcho "FAIL: no archive core sources, or no ${test}, to check"
+		exit 2
+	fi
+
+	while IFS= read -r line; do
+		if [[ -n "$line" ]]; then bad+=("$line"); fi
+	done < <(
+		grep -nE "$appNames" "${files[@]}" "$test" || true
+		grep -nE "$ownWay" "${files[@]}" || true
+		grep -nE "$winHeaders" "${files[@]}" | grep -vE '^[^:]*-win32\.c:' || true
+		grep -nwHE "$appDeps" "${dir}/meson.build" || true
+		entry="$(awk '/executable\(.test-arc-core./ { on = 1 } on { print } on && /^  \),/ { exit }' source/test/meson.build)"
+		if [[ -z "$entry" ]]; then
+			echo "source/test/meson.build: no test-arc-core executable"
+		else
+			grep -nwE "$appDeps" <<<"$entry" | sed 's|^|source/test/meson.build, test-arc-core: |' || true
+		fi
+	)
+
+	if ((${#bad[@]})); then
+		fEcho "FAIL: the archive core uses the app, or does on its own what it has to ask its host for"
+		printf '%s\n' "${bad[@]}"
+		exit 2
+	fi
+}
+fRun fCheckArcCore
+
+## Tabs are for the pointer: no tab holds the keyboard, and Ctrl+Page Up and
+## Down step the pages. GTK's tabs get that from eel_gtk_tabs_keep_focus_off,
+## or eel_gtk_notebook_keep_focus_off_tabs for the main window, which steps its
+## own. The About and shortcuts windows build tabs inside, hence _within. NemoTabList keeps the focus off by itself, and whoever shows one binds
+## the keys through nemo_tab_list_step. A builder file counts against the C
+## file that loads it. Python has no helper, so tabs there fail outright.
+## Test ID: rk6nassf
+fCheckTabFocus(){
+	local gtkTabs='(^|[^A-Za-z0-9_])gtk_(notebook|stack_switcher|stack_sidebar|about_dialog)_new[[:space:]]*\(|gtk_show_about_dialog|GTK_TYPE_(ABOUT_DIALOG|SHORTCUTS_WINDOW)|G_DEFINE_TYPE[A-Z_]*[[:space:]]*\(.*GTK_TYPE_(NOTEBOOK|STACK_SWITCHER|STACK_SIDEBAR)'
+	local gtkHelper='eel_gtk_tabs_keep_focus_off|eel_gtk_notebook_keep_focus_off_tabs'
+	local listMade='(^|[^A-Za-z0-9_])nemo_tab_list_new[[:space:]]*\('
+	local listKeys='nemo_tab_list_step'
+	local -a cFiles=() uiFiles=() bad=()
+	local f base loader loaders found
+
+	mapfile -t cFiles < <(find source/src source/libnemo-private source/libnemo-extension source/eel \( -name '*.c' -o -name '*.h' \) | sort)
+	mapfile -t uiFiles < <(find source/gresources source/src source/libnemo-private \( -name '*.glade' -o -name '*.ui' \) | sort)
+	if ((${#cFiles[@]} == 0)); then
+		fEcho "FAIL: no C sources to check for tabs"
+		exit 2
+	fi
+
+	for f in "${cFiles[@]}"; do
+		if grep -qE "$gtkTabs" "$f" && ! grep -qE "$gtkHelper" "$f"; then
+			bad+=("${f}: makes tabs with no eel_gtk_tabs_keep_focus_off")
+		fi
+		if [[ "$f" != */nemo-tab-list.c ]] && grep -qE "$listMade" "$f" && ! grep -qE "$listKeys" "$f"; then
+			bad+=("${f}: shows a NemoTabList with no Ctrl+Page keys through nemo_tab_list_step")
+		fi
+	done
+
+	for f in "${uiFiles[@]}"; do
+		base="${f##*/}"
+		loaders="$(grep -lF -- "$base" "${cFiles[@]}" || true)"
+		if [[ -z "$loaders" ]] && grep -qE 'class="(Gtk(Notebook|StackSwitcher|StackSidebar|AboutDialog|ShortcutsWindow)|NemoTabList)"' "$f"; then
+			bad+=("${f}: tabs, and no C file names it to check")
+		fi
+		for loader in $loaders; do
+			if grep -qE 'class="Gtk(Notebook|StackSwitcher|StackSidebar|AboutDialog|ShortcutsWindow)"' "$f" && ! grep -qE "$gtkHelper" "$loader"; then
+				bad+=("${f}: tabs, and ${loader} loads it with no eel_gtk_tabs_keep_focus_off")
+			fi
+			if grep -qF 'class="NemoTabList"' "$f" && ! grep -qE "$listKeys" "$loader"; then
+				bad+=("${f}: a NemoTabList, and ${loader} loads it with no nemo_tab_list_step")
+			fi
+		done
+	done
+
+	found="$(find source \( -name '*.py' -o -name '*.py.in' \) -exec grep -nHE 'Gtk\.(Notebook|StackSwitcher|StackSidebar)\b' {} + || true)"
+	if [[ -n "$found" ]]; then bad+=("$found: tabs in Python, which has no helper to keep them off the keyboard"); fi
+
+	if ((${#bad[@]})); then
+		fEcho "FAIL: tabs that can take the keyboard focus, or can't be stepped with Ctrl+Page Up and Down"
+		printf '%s\n' "${bad[@]}"
+		exit 2
+	fi
+}
+fRun fCheckTabFocus
+
 ## Under MSYS2, use the Windows git that made this checkout - the msys one has
 ## its own HOME/config, so its line-ending view marks every CRLF file modified.
 GIT=(git)
@@ -1134,17 +1500,25 @@ done
 if ((listOnly)); then
 	:
 elif [[ -n "$PY" ]]; then
+	"$PY" cicd/utility/lint-ui-case.py --self-test
 	"$PY" cicd/utility/lint-ui-case.py source
 	## Same reasoning: the demo recorder's settings keys and columns go stale
 	## silently, and nothing C has to change for that to happen.
 	"$PY" cicd/utility/lint-demo-script.py .
 	## Whole-tree too: a disconnect aimed at the wrong preference group removes
 	## nothing and says nothing, and the handler then runs on a freed object.
+	## So does one left for finalize while a view is still held, which is why
+	## a plain connect for an object is reported too. A handler listening on a
+	## group that does not have its key is never called, and says nothing.
 	"$PY" cicd/utility/lint-pref-handlers.py --self-test
 	"$PY" cicd/utility/lint-pref-handlers.py source
 	## A key claimed by two actions does whichever GTK merged first, and says
 	## nothing about it.
 	"$PY" cicd/utility/lint-accels.py source
+	## Who frees a returned pointer is written above the function, since C
+	## can't say it. Whole-tree, so a Windows-only file is read on Linux too.
+	"$PY" cicd/utility/lint-ownership.py --self-test
+	"$PY" cicd/utility/lint-ownership.py source
 else
 	fEcho "WARNING: UI case SKIPPED: no python" >&2
 fi
@@ -1217,11 +1591,15 @@ fEcho "C lint (cppcheck, check-only) over ${#files[@]} file(s) ${scope}..."
 ## -j on its own drops the cross-file checks (the ctu* ones); a build dir keeps
 ## them, with the same findings as one process. Half the cores, since something
 ## else is usually running. The dir is relative so MSYS2 hands it over as is.
+## unix64 on every host: gtk.cfg writes G_GINT64_FORMAT and friends as Linux has
+## them, so under MSYS2's own win64 every one of them read as a wrong printf
+## type. The compiler checks the real formats on Windows. .cppcheck-defines.cfg
+## has the macros it cannot see.
 jobs=$(( $(nproc 2>/dev/null || echo 2) / 2 ))
 ((jobs >= 1)) || jobs=1
 mkdir -p cicd/artifacts
 cacheDir="$(mktemp -d cicd/artifacts/cppcheck.XXXXXX)"
-cppcheck --enable=warning,portability --library=gtk --inline-suppr \
+cppcheck --enable=warning,portability --platform=unix64 --library=gtk --library=.cppcheck-defines.cfg --inline-suppr \
 	--suppressions-list=.cppcheck-suppressions -j "$jobs" --cppcheck-build-dir="$cacheDir" \
 	--quiet --error-exitcode=2 "${files[@]}"
 fEcho "OK: C lint: no findings"

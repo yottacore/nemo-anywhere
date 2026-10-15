@@ -36,7 +36,7 @@ is_root_uri (const char *uri)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	char *name;
 	char *tmp;

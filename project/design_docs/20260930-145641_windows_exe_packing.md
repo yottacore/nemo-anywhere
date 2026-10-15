@@ -1,5 +1,6 @@
 <!-- markdownlint-disable MD007 -- Unordered list indentation -->
 <!-- markdownlint-disable MD010 -- No hard tabs -->
+<!-- markdownlint-disable MD033 -- No inline html -->
 <!-- markdownlint-disable MD055 -- Table pipe style [Expected: leading_and_trailing; Actual: leading_only; Missing trailing pipe] -->
 <!-- markdownlint-disable MD041 -- First line in a file should be a top-level heading -->
 
@@ -21,6 +22,7 @@
 	- [Programs the app starts](#programs-the-app-starts)
 	- [Antivirus and signing](#antivirus-and-signing)
 	- [The zip](#the-zip)
+	- [The setup exe](#the-setup-exe)
 - [Alternative ideas](#alternative-ideas)
 	- [Unconsidered](#unconsidered)
 	- [Rejected](#rejected)
@@ -28,6 +30,7 @@
 - [Research findings](#research-findings)
 - [Roadmap](#roadmap)
 - [Related backlog issues](#related-backlog-issues)
+- [Copyright and license](#copyright-and-license)
 
 <!-- /TOC -->
 
@@ -39,7 +42,9 @@ On Windows, nemo-anywhere is one `nemo-anywhere.exe` with the whole GTK runtime 
 
 - A plain zip of the same files is published beside it, for antivirus false alarms and while the exe is unsigned.
 
-- Two costs came with the packer, and both are handled: a slow start, and hooks that follow every program the app starts. See [Design](#design).
+- A setup exe installs the zip's files for one user, for anyone who wants an install with an uninstaller.
+
+- Two costs came with the packer, and both are handled: a slow start, and hooks that followed every program the app started, until sharing with started programs was turned off. See [Design](#design).
 
 ## Specification
 
@@ -71,7 +76,7 @@ On Windows, nemo-anywhere is one `nemo-anywhere.exe` with the whole GTK runtime 
 
 ### Non-goals
 
-- An installer. `install.ps1` already covers an install with a menu entry and PATH, and a Windows installer exe is its own backlog item.
+- An installer inside the portable exe. Installing is the setup exe's job, and `install.ps1`'s.
 
 - Code signing. It's its own backlog item, blocked on having any signing identity.
 
@@ -112,6 +117,9 @@ On Windows, nemo-anywhere is one `nemo-anywhere.exe` with the whole GTK runtime 
 The packed exe shares its virtual filesystem with every program it starts, by putting its hooks into each one. A program that runs sandboxed child processes of its own, which is anything built on Chromium, can't start them with the hooks in place, and reports a crash. A 32-bit program never starts at all, and nothing says so.
 
 - Sharing can't just be turned off. The app's own helpers, the document converters for search, the thumbnailers and two toolkit helpers, live inside the virtual filesystem and need it to find their libraries.
+	- None of them is in a bundle now. The converters and the office thumbnailer went when the app started reading office files itself, and the 2 toolkit helpers with 2026100917220603.
+	- So sharing is off since 2026100917220603. A program the app starts gets no hooks and can't see the packed files, and a 32-bit one starts like any other. A check refuses a pack project with sharing on, so it can't come back by accident.
+	- The brokers below came first, as the way around the hooks, and are still how a program gets started.
 
 - So the app never starts another program itself. It asks one of two brokers outside its own process tree:
 	- The desktop shell first. It passes arguments, brings the new window forward, and is the ordinary way a file gets opened.
@@ -121,6 +129,17 @@ The packed exe shares its virtual filesystem with every program it starts, by pu
 - A file that isn't there is refused before the shell is asked. The shell answers a missing file with a message box of its own and doesn't return until it's dismissed.
 
 - The programs offered under "Open with" go the same way. A store app has no command line and is left to the toolkit.
+
+- Tools whose output the app reads are the exception: the archive programs, the search converters, the thumbnailers and ImageMagick. Neither broker can hand over a pipe, so these are started directly, with no console window. They ran with the hooks while sharing was on, which they didn't mind. GLib's own way of starting them goes through a helper program that never starts them from inside the packed exe.
+	- They end with the app, however it ends. Each one goes into a job that Windows ends when the app's handle to it closes, before it runs, so anything it starts goes too. A program the user asked for, such as an action's command, isn't a helper and keeps running.
+
+- A new copy of the app, for a new window or a tab moved out to one, is started directly too. The packed exe started as itself finds its own libraries whatever hooks it got, and a direct start keeps the new window in front. A link, such as one in the About box, goes to the shell like a file does, once the registry shows something handles its scheme. GLib's own way for both goes through its helper, which is a program packed inside the exe.
+
+- MacType, a font tool, loads into every program on the desktop and breaks the packer's hand-over: a helper started from the packed exe can load none of the libraries packed beside it, and shows the packer's "Cannot load library" box. Nothing in the app or the pack is wrong. The fix is to add the exe to MacType's exclusion list, which README says. The zip isn't packed, so it isn't affected.
+	- Since 2026100914514406 the packed exe starts no program packed inside it. Office files are read in the app, there is no session bus, and new windows and links go the ways above. So README no longer asks for the exclusion.
+
+- No Windows bundle has a program in it but the app, since 2026100917220603. That holds for the zip, the copy `install.ps1` puts in place and the single exe alike, so a start that still reached for one fails the same way in all 3, not only under MacType. GLib's 2 spawn helpers were the last ones. A check refuses any other `.exe` when the zip and the single exe are packed.
+	- A start that fails says so. One the user asked for shows the error in a dialog. A helper that won't start is reported once per program, not once per file.
 
 - `nemo-launch-win32.c` is the one place that starts another program on Windows. A check in the C lint fails any other.
 
@@ -138,6 +157,26 @@ The packed exe shares its virtual filesystem with every program it starts, by pu
 
 - `install.ps1` fetches the zip, not the exe, and installs it with a menu entry and a name on PATH.
 
+### The setup exe
+
+- It's made from the release zip with NSIS, in the packaging stage on Linux, so it carries exactly the files `install.ps1` installs. Two builds of one commit give the same bytes.
+
+- It installs for the current account only and never asks for admin rights. That matches the script's default and Windows' own user installs, and a setup that raises a UAC prompt for a file manager would be a surprise. There's no machine-wide choice.
+
+- Everything it writes is what `install.ps1` writes for a user install: the folder under `%LOCALAPPDATA%\Programs`, the Start menu shortcut, and the folder on the user PATH. It adds `uninstall.exe` in the folder and an entry in Settings, Apps. The folder can't be changed, so the two installers always find each other's install.
+
+- An install already there is replaced the same way the script does it: the new files go in a folder beside it, then two renames swap them. A folder that something has open can't be renamed, so it waits 10 seconds for the app's session bus to finish, then asks to close the app. Nothing is half replaced.
+
+- The uninstaller moves the folder aside the same way before removing it, then the shortcut, the PATH entry and the Apps entry. Settings stay.
+
+- NSIS strings hold 1023 characters. A user PATH that won't fit with the folder added is left alone, and the setup says so, rather than written back cut short.
+
+- `install.ps1` keeps the setup's uninstaller and Apps entry when it reinstalls over a setup install, and `-Uninstall` removes the entry.
+
+- It's 64-bit like the app, so Windows doesn't redirect its registry or folders.
+
+- It's unsigned, like the exe, until there's a signing identity.
+
 ## Alternative ideas
 
 ### Unconsidered
@@ -150,8 +189,6 @@ The packed exe shares its virtual filesystem with every program it starts, by pu
 
 - Unpacking to a real folder at run time. It breaks the dogfood launcher's one file per build, and swaps one thing security software dislikes for another.
 
-- Turning off the packer's sharing with started programs. The app's own helpers need it.
-
 - A small launcher of our own between the app and the program. The hooks follow the whole process tree, so the launcher and everything it starts are hooked too.
 
 - Launch flags or a command prompt in between. Detaching, a hidden `cmd.exe`, `start /b`, and the shell's open verb called in-process all leave the program hooked.
@@ -162,7 +199,13 @@ The packed exe shares its virtual filesystem with every program it starts, by pu
 
 - Shrinking the exe with UPX or a similar compressor. Packers of that kind trip antivirus.
 
+- A machine-wide setup. It needs elevation, and `install.ps1 -Target system` already covers it.
+
+- Building the setup on the Windows box from its own staged files. Those are a native build, not the zip `install.ps1` installs, and the hosted workflow only builds the portable exe.
+
 ### Superseded
+
+- Leaving the packer's sharing with started programs on. The app's own helpers needed it, until none was left in the exe.
 
 - A library folder beside the exe, started through a `.vbs` launcher that set the library path. The single exe removed the whole arrangement.
 
@@ -196,15 +239,17 @@ The packed exe shares its virtual filesystem with every program it starts, by pu
 
 - A packed test program that had started a 32-bit program kept a processor busy waiting on it, for nine days, until the child was killed.
 
+- With sharing off, a program the app starts directly can't see the packed files, and loads only what it would load anyway. With sharing on it saw them, and a plain `ping` came up with about 10 extra system libraries the hooks pulled in.
+
+- With sharing on and MacType running, starting a 32-bit program from an action crashed the whole app, inside the packer's own code. With sharing off it starts and runs.
+
+- With sharing off, the packed app used 16 ms of processor time over 10 s while 2 programs it had started were still running.
+
 ## Roadmap
 
-- Find out whether the released exe keeps a processor busy the same way while a program it started is still running.
-
-- Run ImageMagick thumbnails under the packed exe on Windows. No console window should flash up, and `magick.exe` should work with the hooks in it.
+- Run ImageMagick thumbnails under the packed exe on Windows. No console window should flash up.
 
 - Signing, once there is an identity (backlog: Windows code signing).
-
-- A Windows installer exe, after signing.
 
 ## Related backlog issues
 
@@ -216,7 +261,7 @@ The packed exe shares its virtual filesystem with every program it starts, by pu
 
 - Windows: opening a file from the released build breaks the program it opens in. Done.
 
-- Windows: the released build cannot open a file whose program is 32-bit. Done.
+- Windows: the released build can't open a file whose program is 32-bit. Done.
 
 - Windows exe signing groundwork. Done.
 
@@ -231,3 +276,8 @@ The packed exe shares its virtual filesystem with every program it starts, by pu
 - Real-Windows validation: the paths still not exercised there. Open.
 
 - Launching `app\nemo-anywhere.exe` straight from the dogfood folder throws missing-dll dialogs. Canceled.
+
+## Copyright and license
+
+> Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)<br>
+> Licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) license. No warranty.

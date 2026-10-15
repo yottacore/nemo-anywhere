@@ -14,13 +14,16 @@
 ##		  PATH read and write are swapped for a variable.
 ##		- Reads ACLs rather than opening files as another account, since an
 ##		  elevated shell reads through a deny.
+##		- The installed folder also goes through test-bundle-exes.ps1, since
+##		  install.ps1 must add no program of its own, and test-bundle-settings.ps1,
+##		  since it must keep the zip's GTK settings and font config.
 ##		- Windows only; anywhere else it exits 77. Runs in cicd-win.ps1's test
 ##		  stage.
 ##	Syntax:
 ##		pwsh -NoProfile -File cicd/win/test-install-acl.ps1
 ##	Test ID: rj72n4xb
 
-##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
+##	Copyright (c) 2026 t00mietum
 ##	Licensed under The MIT License (MIT). Full text at:
 ##		https://mit-license.org/
 ##	SPDX-License-Identifier: MIT
@@ -129,6 +132,8 @@ fSetOwnAcl $programs -ExtraSids @($usersSid.Value)
 
 Set-Content -LiteralPath (Join-Path $pack "nemo-anywhere.exe") -Value "not a real exe"
 Set-Content -LiteralPath (Join-Path $pack "share\icons\icon.txt") -Value "icon"
+## The zip has these too, and the install has to keep them.
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot "bundle-etc") -Destination (Join-Path $pack "etc") -Recurse
 $archive = Join-Path $root "nemo-anywhere-0.0.0-windows-x86_64.zip"
 Compress-Archive -LiteralPath $pack -DestinationPath $archive
 $script:From = $archive
@@ -165,6 +170,11 @@ try {
 		$missing = @($items | Where-Object { -not (fUsersCanRun $_.FullName) })
 		foreach ($item in $missing) { fProblem "Users cannot read and run $($item.FullName.Substring($prefix.Length).TrimStart('\'))" }
 		Write-Host "  $($items.Count - $missing.Count) of $($items.Count) installed items let Users read and run"
+		## install.ps1 puts in place what the zip has and no program of its own.
+		& pwsh -NoProfile -File (Join-Path $PSScriptRoot "..\utility\test-bundle-exes.ps1") -Path $prefix
+		if ($LASTEXITCODE -ne 0) { fProblem "the install has a program besides the app" }
+		& pwsh -NoProfile -File (Join-Path $PSScriptRoot "..\utility\test-bundle-settings.ps1") -Path $prefix
+		if ($LASTEXITCODE -ne 0) { fProblem "the install is missing the GTK settings or font config" }
 	}
 	if (-not $script:fakePath.Contains($prefix)) { fProblem "the install folder did not go on PATH" }
 } finally {

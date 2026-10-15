@@ -67,7 +67,7 @@
  * Obtains the geometry string for this window, suitable for
  * set_geometry_string(); assumes the window has NorthWest gravity
  *
- * Return value: geometry string, must be freed
+ * Return value: (transfer full): geometry string, must be freed
  **/
 char*
 eel_gtk_window_get_geometry_string (GtkWindow *window)
@@ -338,18 +338,46 @@ create_keyboard_popup_rect (GtkWidget *widget, GdkRectangle *rect)
     rect->height = 2;
 }
 
+/* The part of an item that is on screen, in the toplevel's coordinates. */
+static gboolean
+item_popup_rect (GtkWidget *widget, const GdkRectangle *item, GdkRectangle *rect)
+{
+    GdkRectangle bounds = { 0, 0, 0, 0 };
+    GdkRectangle visible;
+
+    if (item == NULL) {
+        return FALSE;
+    }
+
+    bounds.width = gtk_widget_get_allocated_width (widget);
+    bounds.height = gtk_widget_get_allocated_height (widget);
+    if (!gdk_rectangle_intersect (item, &bounds, &visible)) {
+        return FALSE;
+    }
+    if (!gtk_widget_translate_coordinates (widget, gtk_widget_get_toplevel (widget),
+                                           visible.x, visible.y, &visible.x, &visible.y)) {
+        return FALSE;
+    }
+
+    *rect = visible;
+    return TRUE;
+}
+
 /**
- * eel_pop_up_context_menu:
+ * eel_pop_up_context_menu_at_item:
+ * @item: (nullable): the item the menu is for, in @widget's coordinates.
  *
- * Pop up a context menu under the mouse, or against the focused widget when
- * there is no event behind it.
+ * Pop up a context menu under the mouse. With no event behind it, the menu
+ * opens just below @item, or against the focused widget when @item is NULL
+ * or scrolled out of view.
  * The menu is sunk after use, so it will be destroyed unless the
  * caller first ref'ed it.
  **/
 void
-eel_pop_up_context_menu (GtkMenu        *menu,
-                         GdkEvent       *event,
-                         GtkWidget      *widget)
+eel_pop_up_context_menu_at_item (GtkMenu            *menu,
+                                 GdkEvent           *event,
+                                 GtkWidget          *widget,
+                                 const GdkRectangle *item)
 {
     g_return_if_fail (GTK_IS_MENU (menu));
 
@@ -364,33 +392,86 @@ eel_pop_up_context_menu (GtkMenu        *menu,
 #endif
     {
         GdkWindow *window = gtk_widget_get_window (gtk_widget_get_toplevel (widget));
-
+        GdkGravity rect_anchor = GDK_GRAVITY_NORTH_WEST;
         GdkRectangle rect;
 
         if (event != NULL) {
             create_popup_rect (window, &rect);
+        } else if (item_popup_rect (widget, item, &rect)) {
+            /* Below the item, so it stays in sight. GTK flips the menu above
+               it when there is no room below. */
+            rect_anchor = GDK_GRAVITY_SOUTH_WEST;
         } else {
             create_keyboard_popup_rect (widget, &rect);
         }
 
+        /* A long press opens its menu from a timer, with no current event. */
         gtk_menu_popup_at_rect (menu,
                                 window,
                                 &rect,
+                                rect_anchor,
                                 GDK_GRAVITY_NORTH_WEST,
-                                GDK_GRAVITY_NORTH_WEST,
-                                NULL);
+                                event);
     }
 
 	g_object_ref_sink (menu);
 	g_object_unref (menu);
 }
 
+/**
+ * eel_pop_up_context_menu:
+ *
+ * Pop up a context menu under the mouse, or against the focused widget when
+ * there is no event behind it.
+ * The menu is sunk after use, so it will be destroyed unless the
+ * caller first ref'ed it.
+ **/
+void
+eel_pop_up_context_menu (GtkMenu        *menu,
+                         GdkEvent       *event,
+                         GtkWidget      *widget)
+{
+    eel_pop_up_context_menu_at_item (menu, event, widget, NULL);
+}
+
+static gboolean
+destroy_menu_idle (gpointer data)
+{
+    gtk_widget_destroy (GTK_WIDGET (data));
+    return G_SOURCE_REMOVE;
+}
+
+static void
+destroy_closed_menu (GtkMenuShell *menu, G_GNUC_UNUSED gpointer data)
+{
+    /* The chosen item is activated after the menu closes, and destroying the
+       menu now would drop the item's handlers before that. */
+    g_idle_add_full (G_PRIORITY_DEFAULT_IDLE, destroy_menu_idle,
+                     g_object_ref (menu), g_object_unref);
+}
+
+/**
+ * eel_gtk_menu_destroy_on_close:
+ *
+ * For a menu built each time it is opened. It is destroyed once it closes,
+ * since nothing else frees it, attached or not.
+ **/
+void
+eel_gtk_menu_destroy_on_close (GtkMenu *menu)
+{
+    g_return_if_fail (GTK_IS_MENU (menu));
+
+    g_signal_connect (menu, "deactivate", G_CALLBACK (destroy_closed_menu), NULL);
+}
+
+/* Returns: (transfer none): owned by @menu */
 GtkMenuItem *
 eel_gtk_menu_append_separator (GtkMenu *menu)
 {
 	return eel_gtk_menu_insert_separator (menu, -1);
 }
 
+/* Returns: (transfer none): owned by @menu */
 GtkMenuItem *
 eel_gtk_menu_insert_separator (GtkMenu *menu, int index)
 {
@@ -509,6 +590,38 @@ eel_gtk_get_treeview_row_text_at_pos (GtkTreeView *tree_view,
     return inside;
 }
 
+/* Where a row's cell in column sits, in the tree view's own coordinates, cut
+   to the part scrolled into view. FALSE when none of it is, or the row is not
+   shown at all, such as one inside a collapsed folder. */
+gboolean
+eel_gtk_tree_view_get_row_rect (GtkTreeView       *tree_view,
+                                GtkTreePath       *path,
+                                GtkTreeViewColumn *column,
+                                GdkRectangle      *rect)
+{
+    GdkRectangle cell, row, visible;
+
+    gtk_tree_view_get_cell_area (tree_view, path, column, &cell);
+    gtk_tree_view_get_background_area (tree_view, path, column, &row);
+    if (row.height <= 0) {
+        return FALSE;
+    }
+    /* The whole row height, so the menu clears the row and not just its text. */
+    cell.y = row.y;
+    cell.height = row.height;
+
+    gtk_tree_view_get_visible_rect (tree_view, &visible);
+    gtk_tree_view_convert_tree_to_bin_window_coords (tree_view, visible.x, visible.y,
+                                                     &visible.x, &visible.y);
+    if (!gdk_rectangle_intersect (&cell, &visible, rect)) {
+        return FALSE;
+    }
+
+    gtk_tree_view_convert_bin_window_to_widget_coords (tree_view, rect->x, rect->y,
+                                                       &rect->x, &rect->y);
+    return TRUE;
+}
+
 /* Escape in a list: nothing selected, and the cursor back on the first row
    so the next arrow key starts over, with the view left where it was. */
 void
@@ -535,7 +648,8 @@ eel_gtk_tree_view_forget_cursor (GtkTreeView *tree_view)
 
 /* The whole value of a cell too narrow to show it, or NULL if it fits. Widths
    come from the renderers rather than the column, because a column's own size
-   answer is its minimum and says nothing about text that can ellipsize. */
+   answer is its minimum and says nothing about text that can ellipsize.
+   Returns: (transfer full): free with g_free */
 gchar *
 eel_gtk_tree_view_column_clipped_text (GtkTreeViewColumn *column,
                                        GtkTreeModel      *model,
@@ -587,8 +701,8 @@ eel_gtk_get_treeview_row_text_is_under_pointer (GtkTreeView *tree_view)
 
 static void
 refuse_focus_cb (GtkWidget  *widget,
-                 GParamSpec *pspec,
-                 gpointer    user_data)
+                 G_GNUC_UNUSED GParamSpec *pspec,
+                 G_GNUC_UNUSED gpointer    user_data)
 {
     if (gtk_widget_get_can_focus (widget)) {
         gtk_widget_set_can_focus (widget, FALSE);
@@ -616,7 +730,7 @@ current_page (GtkNotebook *notebook)
 static gboolean
 notebook_focus_cb (GtkWidget        *notebook,
                    GtkDirectionType  direction,
-                   gpointer          user_data)
+                   G_GNUC_UNUSED gpointer          user_data)
 {
     GtkWidget *page = current_page (GTK_NOTEBOOK (notebook));
 
@@ -628,7 +742,7 @@ notebook_focus_cb (GtkWidget        *notebook,
 
 static void
 notebook_grab_focus_cb (GtkWidget *notebook,
-                        gpointer   user_data)
+                        G_GNUC_UNUSED gpointer   user_data)
 {
     GtkWidget *page = current_page (GTK_NOTEBOOK (notebook));
     GtkWidget *toplevel, *focus = NULL;
@@ -656,6 +770,260 @@ eel_gtk_notebook_keep_focus_off_tabs (GtkNotebook *notebook)
 {
     g_signal_connect (notebook, "focus", G_CALLBACK (notebook_focus_cb), NULL);
     g_signal_connect (notebook, "grab-focus", G_CALLBACK (notebook_grab_focus_cb), NULL);
+}
+
+static void
+list_box_row_added_cb (G_GNUC_UNUSED GtkContainer *box,
+                       GtkWidget    *row,
+                       G_GNUC_UNUSED gpointer      user_data)
+{
+    eel_gtk_widget_refuse_focus (row);
+}
+
+static gboolean
+list_box_focus_cb (GtkWidget        *box,
+                   G_GNUC_UNUSED GtkDirectionType  direction,
+                   G_GNUC_UNUSED gpointer          user_data)
+{
+    // The list's own handler answers TRUE for a row that refused, which stops Tab here.
+    g_signal_stop_emission_by_name (box, "focus");
+
+    return FALSE;
+}
+
+// A list used as tabs: a click still selects a row, but Tab goes past the list
+// and nothing in it holds the keyboard.
+void
+eel_gtk_list_box_keep_focus_off_rows (GtkListBox *box)
+{
+    GList *rows, *l;
+
+    eel_gtk_widget_refuse_focus (GTK_WIDGET (box));
+
+    rows = gtk_container_get_children (GTK_CONTAINER (box));
+    for (l = rows; l != NULL; l = l->next) {
+        eel_gtk_widget_refuse_focus (l->data);
+    }
+    g_list_free (rows);
+
+    g_signal_connect_after (box, "add", G_CALLBACK (list_box_row_added_cb), NULL);
+    g_signal_connect (box, "focus", G_CALLBACK (list_box_focus_cb), NULL);
+}
+
+#define TAB_STRIP_KEY  "eel-tab-strip"
+#define TAB_WINDOW_KEY "eel-tab-strip-window"
+
+// The notebook itself, or the stack a switcher or sidebar shows.
+static GtkWidget *
+tab_pages (GtkWidget *tabs)
+{
+    if (GTK_IS_STACK_SWITCHER (tabs)) {
+        return GTK_WIDGET (gtk_stack_switcher_get_stack (GTK_STACK_SWITCHER (tabs)));
+    }
+    if (GTK_IS_STACK_SIDEBAR (tabs)) {
+        return GTK_WIDGET (gtk_stack_sidebar_get_stack (GTK_STACK_SIDEBAR (tabs)));
+    }
+    return tabs;
+}
+
+static void
+step_tabs (GtkWidget *tabs, int step)
+{
+    GtkWidget *pages = tab_pages (tabs);
+    GList *children, *here, *next;
+
+    if (GTK_IS_NOTEBOOK (pages)) {
+        GtkNotebook *notebook = GTK_NOTEBOOK (pages);
+        int count = gtk_notebook_get_n_pages (notebook);
+        int current = gtk_notebook_get_current_page (notebook);
+        int i, page = current;
+
+        for (i = 0; i < count; i++) {
+            page = (page + step + count) % count;
+            if (gtk_widget_get_visible (gtk_notebook_get_nth_page (notebook, page))) {
+                break;
+            }
+        }
+        gtk_notebook_set_current_page (notebook, page);
+        return;
+    }
+
+    if (!GTK_IS_STACK (pages)) {
+        return;
+    }
+
+    children = gtk_container_get_children (GTK_CONTAINER (pages));
+    here = g_list_find (children, gtk_stack_get_visible_child (GTK_STACK (pages)));
+    if (here != NULL) {
+        next = here;
+        do {
+            next = step > 0 ? next->next : next->prev;
+            if (next == NULL) {
+                next = step > 0 ? children : g_list_last (children);
+            }
+        } while (next != here && !gtk_widget_get_visible (next->data));
+        gtk_stack_set_visible_child (GTK_STACK (pages), next->data);
+    }
+    g_list_free (children);
+}
+
+// Ctrl+Tab and Ctrl+Shift+Tab step too, as in Settings. Connected before the
+// window's own handler, since a scrolled window in a page takes Ctrl+Page Up
+// and Down for scrolling sideways, and the window takes Ctrl+Tab to move the
+// focus.
+static gboolean
+tab_keys_cb (GtkWidget   *window,
+             GdkEventKey *event,
+             GtkWidget   *tabs)
+{
+    GdkModifierType mods = event->state & gtk_accelerator_get_default_mod_mask ();
+    GtkWidget *focus, *around;
+    int step = 0;
+
+    switch (event->keyval) {
+    case GDK_KEY_Page_Up:
+    case GDK_KEY_KP_Page_Up:
+        step = mods == GDK_CONTROL_MASK ? -1 : 0;
+        break;
+    case GDK_KEY_Page_Down:
+    case GDK_KEY_KP_Page_Down:
+        step = mods == GDK_CONTROL_MASK ? 1 : 0;
+        break;
+    case GDK_KEY_Tab:
+    case GDK_KEY_KP_Tab:
+    case GDK_KEY_ISO_Left_Tab:
+        if (mods == GDK_CONTROL_MASK) {
+            step = event->keyval == GDK_KEY_ISO_Left_Tab ? -1 : 1;
+        } else if (mods == (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) {
+            step = -1;
+        }
+        break;
+    default:
+        break;
+    }
+
+    if (step == 0) {
+        return GDK_EVENT_PROPAGATE;
+    }
+
+    if (gtk_widget_get_toplevel (tabs) != window || !gtk_widget_is_drawable (tabs)) {
+        return GDK_EVENT_PROPAGATE;
+    }
+
+    // The tabs closest round the focus have the keys, so a notebook inside a
+    // page keeps them while the focus is in it.
+    focus = gtk_window_get_focus (GTK_WINDOW (window));
+    for (around = focus; around != NULL; around = gtk_widget_get_parent (around)) {
+        if (GTK_IS_NOTEBOOK (around) || g_object_get_data (G_OBJECT (around), TAB_STRIP_KEY) != NULL) {
+            break;
+        }
+    }
+    if (around != NULL && around != tab_pages (tabs)) {
+        return GDK_EVENT_PROPAGATE;
+    }
+
+    step_tabs (tabs, step);
+    return GDK_EVENT_STOP;
+}
+
+static void
+tabs_hierarchy_changed_cb (GtkWidget *tabs,
+                           G_GNUC_UNUSED GtkWidget *previous,
+                           G_GNUC_UNUSED gpointer   user_data)
+{
+    GtkWidget *toplevel = gtk_widget_get_toplevel (tabs);
+
+    if (!GTK_IS_WINDOW (toplevel) || g_object_get_data (G_OBJECT (tabs), TAB_WINDOW_KEY) == toplevel) {
+        return;
+    }
+
+    g_object_set_data (G_OBJECT (tabs), TAB_WINDOW_KEY, toplevel);
+    g_signal_connect_object (toplevel, "key-press-event", G_CALLBACK (tab_keys_cb), tabs, 0);
+}
+
+static void
+refuse_focus_each (GtkWidget *button, G_GNUC_UNUSED gpointer user_data)
+{
+    eel_gtk_widget_refuse_focus (button);
+}
+
+static void
+tab_button_added_cb (G_GNUC_UNUSED GtkContainer *strip,
+                     GtkWidget    *button,
+                     G_GNUC_UNUSED gpointer      user_data)
+{
+    eel_gtk_widget_refuse_focus (button);
+}
+
+static void
+refuse_focus_within (GtkWidget *widget, G_GNUC_UNUSED gpointer data)
+{
+    if (GTK_IS_LIST_BOX (widget)) {
+        eel_gtk_list_box_keep_focus_off_rows (GTK_LIST_BOX (widget));
+        return;
+    }
+
+    eel_gtk_widget_refuse_focus (widget);
+    if (GTK_IS_CONTAINER (widget)) {
+        gtk_container_forall (GTK_CONTAINER (widget), refuse_focus_within, NULL);
+    }
+}
+
+// Tabs of any kind are for the pointer: a click picks a page and leaves no
+// focus on the tab, Tab goes past them, and Ctrl+Page Up and Down, and Ctrl+Tab
+// and Ctrl+Shift+Tab, step the pages from anywhere in the window, wrapping.
+// Takes a notebook, a stack switcher or a stack sidebar. A switcher or sidebar
+// needs its stack set first. The main window steps its own tabs per pane, so
+// its notebooks only keep the focus off.
+void
+eel_gtk_tabs_keep_focus_off (GtkWidget *tabs)
+{
+    GtkWidget *pages;
+
+    g_return_if_fail (GTK_IS_NOTEBOOK (tabs) || GTK_IS_STACK_SWITCHER (tabs) || GTK_IS_STACK_SIDEBAR (tabs));
+
+    pages = tab_pages (tabs);
+    g_return_if_fail (pages != NULL);
+    if (g_object_get_data (G_OBJECT (pages), TAB_STRIP_KEY) == tabs) {
+        return;
+    }
+
+    if (GTK_IS_NOTEBOOK (tabs)) {
+        eel_gtk_notebook_keep_focus_off_tabs (GTK_NOTEBOOK (tabs));
+    } else if (GTK_IS_STACK_SWITCHER (tabs)) {
+        // A button per page, made as pages come and go.
+        gtk_container_forall (GTK_CONTAINER (tabs), refuse_focus_each, NULL);
+        g_signal_connect_after (tabs, "add", G_CALLBACK (tab_button_added_cb), NULL);
+    } else {
+        refuse_focus_within (tabs, NULL);
+    }
+
+    g_object_set_data (G_OBJECT (pages), TAB_STRIP_KEY, tabs);
+    g_signal_connect (tabs, "hierarchy-changed", G_CALLBACK (tabs_hierarchy_changed_cb), NULL);
+    tabs_hierarchy_changed_cb (tabs, NULL, NULL);
+}
+
+static void
+tabs_within_cb (GtkWidget *widget, G_GNUC_UNUSED gpointer data)
+{
+    if (GTK_IS_NOTEBOOK (widget) ||
+        (GTK_IS_STACK_SWITCHER (widget) && gtk_stack_switcher_get_stack (GTK_STACK_SWITCHER (widget)) != NULL) ||
+        (GTK_IS_STACK_SIDEBAR (widget) && gtk_stack_sidebar_get_stack (GTK_STACK_SIDEBAR (widget)) != NULL)) {
+        eel_gtk_tabs_keep_focus_off (widget);
+    }
+    if (GTK_IS_CONTAINER (widget)) {
+        gtk_container_forall (GTK_CONTAINER (widget), tabs_within_cb, NULL);
+    }
+}
+
+// The same for every tab strip inside, for GTK's own dialogs that build theirs
+// where we can't reach it by name, such as About's switcher.
+void
+eel_gtk_tabs_keep_focus_off_within (GtkWidget *container)
+{
+    g_return_if_fail (GTK_IS_CONTAINER (container));
+
+    gtk_container_forall (GTK_CONTAINER (container), tabs_within_cb, NULL);
 }
 
 // Whether the toplevel's focus sits on this widget or inside it.
@@ -695,4 +1063,311 @@ eel_gtk_primary_mask (GdkWindow *window)
 
     return gdk_keymap_get_modifier_mask (gdk_keymap_get_for_display (display),
                                          GDK_MODIFIER_INTENT_PRIMARY_ACCELERATOR);
+}
+
+static void
+hold_stop (EelMenuPress *press)
+{
+    g_clear_handle_id (&press->hold_id, g_source_remove);
+    if (press->hold_widget != NULL) {
+        g_clear_signal_handler (&press->hold_motion_id, press->hold_widget);
+        g_clear_signal_handler (&press->hold_destroy_id, press->hold_widget);
+        g_clear_object (&press->hold_widget);
+    }
+    g_clear_pointer (&press->hold_event, gdk_event_free);
+    press->hold_func = NULL;
+    press->hold_data = NULL;
+}
+
+void
+eel_menu_press_begin (EelMenuPress *press, guint button, gdouble x, gdouble y)
+{
+    hold_stop (press);
+    press->held = 0;
+    press->button = button;
+    press->x = x;
+    press->y = y;
+    press->moved = FALSE;
+}
+
+// Latches, so coming back to where it started is still a drag.
+gboolean
+eel_menu_press_moved (EelMenuPress *press, GtkWidget *widget, gdouble x, gdouble y)
+{
+    if (press->button == 0) {
+        return FALSE;
+    }
+    if (!press->moved &&
+        gtk_drag_check_threshold (widget, (gint) press->x, (gint) press->y, (gint) x, (gint) y)) {
+        press->moved = TRUE;
+        /* A held press that moves is a drag or a band. */
+        if (press->hold_func != NULL) {
+            eel_menu_press_cancel (press);
+            return TRUE;
+        }
+    }
+
+    return press->moved;
+}
+
+// TRUE when this release ends a press that stayed put, so its menu opens.
+gboolean
+eel_menu_press_end (EelMenuPress *press, GtkWidget *widget, guint button, gdouble x, gdouble y)
+{
+    gboolean click;
+
+    if (press->button == 0 || press->button != button) {
+        return FALSE;
+    }
+    /* Let go before the long-press time, so a plain click. */
+    if (press->hold_func != NULL) {
+        eel_menu_press_cancel (press);
+        return FALSE;
+    }
+    click = !eel_menu_press_moved (press, widget, x, y);
+    press->button = 0;
+
+    return click;
+}
+
+static gboolean
+hold_menu_release_cb (GtkWidget *menu, GdkEventButton *event, gpointer data);
+
+static void
+hold_menu_closed_cb (GtkWidget *menu, gpointer data)
+{
+    g_signal_handlers_disconnect_by_func (menu, hold_menu_release_cb, data);
+    g_signal_handlers_disconnect_by_func (menu, hold_menu_closed_cb, data);
+}
+
+/* The release ending the long press keeps the menu up, wherever it is, since
+   GTK closes a menu on a release away from it once half a second has gone by.
+   Over an item it picks the item, as after a right press held down. */
+static gboolean
+hold_menu_release_cb (GtkWidget *menu, GdkEventButton *event, gpointer data)
+{
+    if (event->button != GPOINTER_TO_UINT (data)) {
+        return GDK_EVENT_PROPAGATE;
+    }
+    hold_menu_closed_cb (menu, data);
+
+    return gtk_menu_shell_get_selected_item (GTK_MENU_SHELL (menu)) == NULL;
+}
+
+static GtkWidget *
+grabbing_menu (GtkWidget *widget)
+{
+    GtkWidget *toplevel = gtk_widget_get_toplevel (widget);
+    GtkWidget *grab = NULL;
+
+    if (GTK_IS_WINDOW (toplevel)) {
+        grab = gtk_window_group_get_current_grab (gtk_window_get_group (GTK_WINDOW (toplevel)));
+    }
+    if (!GTK_IS_MENU (grab)) {
+        grab = gtk_grab_get_current ();
+    }
+
+    return GTK_IS_MENU (grab) ? grab : NULL;
+}
+
+static gboolean
+hold_timeout_cb (gpointer data)
+{
+    EelMenuPress *press = data;
+    GtkWidget *widget = g_object_ref (press->hold_widget);
+    GdkEvent *event = g_steal_pointer (&press->hold_event);
+    EelMenuPressFunc func = press->hold_func;
+    gpointer func_data = press->hold_data;
+    GdkDevice *device = gdk_event_get_device (event);
+    GdkModifierType mask = 0;
+    guint button = press->button;
+    gdouble x = press->x, y = press->y;
+    GtkWidget *menu;
+
+    press->hold_id = 0;
+    hold_stop (press);
+    press->button = 0;
+
+    /* The release can go elsewhere, as when another program takes the
+       pointer, so the button has to be down still. */
+    if (device != NULL && gtk_widget_get_mapped (widget)) {
+        gdk_window_get_device_position_double (event->button.window, device, &x, &y, &mask);
+    }
+    if ((mask & (GDK_BUTTON1_MASK << (button - 1))) != 0 &&
+        !gtk_drag_check_threshold (widget, (gint) press->x, (gint) press->y, (gint) x, (gint) y)) {
+        /* GTK times a quick release from the event the menu opens on. */
+        event->button.time += (guint32) ((g_get_monotonic_time () - press->hold_start) / 1000);
+        func (widget, &event->button, func_data);
+
+        menu = grabbing_menu (widget);
+        if (menu != NULL) {
+            g_signal_connect (menu, "button-release-event",
+                              G_CALLBACK (hold_menu_release_cb), GUINT_TO_POINTER (button));
+            g_signal_connect (menu, "deactivate",
+                              G_CALLBACK (hold_menu_closed_cb), GUINT_TO_POINTER (button));
+        } else {
+            /* No menu took the pointer, so the release comes back here. */
+            press->held = button;
+        }
+    }
+
+    gdk_event_free (event);
+    g_object_unref (widget);
+
+    return G_SOURCE_REMOVE;
+}
+
+static gboolean
+hold_motion_cb (GtkWidget *widget, GdkEventMotion *event, gpointer data)
+{
+    EelMenuPress *press = data;
+
+    if (press->hold_event != NULL && event->window == press->hold_event->button.window) {
+        eel_menu_press_moved (press, widget, event->x, event->y);
+    }
+
+    return GDK_EVENT_PROPAGATE;
+}
+
+/* A plain left press. x and y are where it was, in the event window, and
+   func opens the menu once it has been held still long enough. Any other
+   press only drops one still waiting. */
+void
+eel_menu_press_hold (EelMenuPress *press, GtkWidget *widget, GdkEventButton *event,
+                     gdouble x, gdouble y, EelMenuPressFunc func, gpointer data)
+{
+    gint delay = 500;
+
+    if (event->type != GDK_BUTTON_PRESS || event->button != GDK_BUTTON_PRIMARY ||
+        (event->state & gtk_accelerator_get_default_mod_mask ()) != 0) {
+        eel_menu_press_cancel (press);
+        return;
+    }
+
+    eel_menu_press_begin (press, event->button, x, y);
+    g_object_get (gtk_widget_get_settings (widget), "gtk-long-press-time", &delay, NULL);
+    press->hold_widget = g_object_ref (widget);
+    press->hold_event = gdk_event_copy ((GdkEvent *) event);
+    press->hold_event->button.x = x;
+    press->hold_event->button.y = y;
+    press->hold_start = g_get_monotonic_time ();
+    press->hold_func = func;
+    press->hold_data = data;
+    press->hold_motion_id = g_signal_connect (widget, "motion-notify-event",
+                                              G_CALLBACK (hold_motion_cb), press);
+    press->hold_destroy_id = g_signal_connect_swapped (widget, "destroy",
+                                                       G_CALLBACK (eel_menu_press_cancel), press);
+    press->hold_id = g_timeout_add ((guint) MAX (delay, 1), hold_timeout_cb, press);
+}
+
+/* TRUE for the release after a long press opened no menu, which then does
+   nothing else. With a menu up the release goes to the menu. */
+gboolean
+eel_menu_press_held (EelMenuPress *press, guint button)
+{
+    if (press->held == 0 || press->held != button) {
+        return FALSE;
+    }
+    press->held = 0;
+
+    return TRUE;
+}
+
+/* Drops a press still waiting to be held long enough. A right press is
+   left alone. */
+void
+eel_menu_press_cancel (EelMenuPress *press)
+{
+    if (press->hold_func == NULL) {
+        return;
+    }
+    hold_stop (press);
+    press->button = 0;
+}
+
+// A tooltip is always on top, so one shown while another program has the
+// focus sits over that program's window. Every tooltip, whatever asked for
+// it, is a window with the tooltip hint, so the gate goes there.
+static gboolean
+is_tooltip_window (GtkWidget *widget)
+{
+    return gtk_window_get_type_hint (GTK_WINDOW (widget)) == GDK_WINDOW_TYPE_HINT_TOOLTIP;
+}
+
+static gboolean
+app_has_focus (void)
+{
+    GList *toplevels, *l;
+    gboolean focused = FALSE;
+
+    toplevels = gtk_window_list_toplevels ();
+    for (l = toplevels; l != NULL && !focused; l = l->next) {
+        focused = gtk_window_is_active (l->data);
+    }
+    g_list_free (toplevels);
+
+    return focused;
+}
+
+static guint hide_tooltips_id;
+
+// From an idle, since moving between two of our own windows takes the focus
+// off one before the other has it.
+static gboolean
+hide_tooltips_if_unfocused (G_GNUC_UNUSED gpointer data)
+{
+    GList *toplevels, *l;
+
+    hide_tooltips_id = 0;
+    if (app_has_focus ()) {
+        return G_SOURCE_REMOVE;
+    }
+
+    toplevels = gtk_window_list_toplevels ();
+    for (l = toplevels; l != NULL; l = l->next) {
+        if (is_tooltip_window (l->data) && gtk_widget_get_visible (l->data)) {
+            gtk_widget_hide (l->data);
+        }
+    }
+    g_list_free (toplevels);
+
+    return G_SOURCE_REMOVE;
+}
+
+static void
+window_active_changed (GtkWindow                  *window,
+                       G_GNUC_UNUSED GParamSpec   *pspec,
+                       G_GNUC_UNUSED gpointer      data)
+{
+    if (!gtk_window_is_active (window) && hide_tooltips_id == 0) {
+        hide_tooltips_id = g_idle_add (hide_tooltips_if_unfocused, NULL);
+    }
+}
+
+static void
+window_show (GtkWidget *widget)
+{
+    if (is_tooltip_window (widget)) {
+        if (!app_has_focus ()) {
+            return;
+        }
+    } else if (g_object_get_data (G_OBJECT (widget), "eel-tooltip-watch") == NULL) {
+        g_object_set_data (G_OBJECT (widget), "eel-tooltip-watch", GINT_TO_POINTER (1));
+        g_signal_connect (widget, "notify::is-active", G_CALLBACK (window_active_changed), NULL);
+    }
+
+    g_signal_chain_from_overridden_handler (widget);
+}
+
+// Once, before any window shows.
+void
+eel_gtk_tooltips_need_focus (void)
+{
+    static gboolean done;
+
+    if (done) {
+        return;
+    }
+    done = TRUE;
+    g_signal_override_class_handler ("show", GTK_TYPE_WINDOW, G_CALLBACK (window_show));
 }

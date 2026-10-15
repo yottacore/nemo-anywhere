@@ -9,6 +9,7 @@
 #include "nemo-application.h"
 #include "nemo-global-preferences.h"
 #include <libnemo-private/nemo-file-utilities.h>
+#include <libnemo-private/nemo-user-text.h>
 
 #include <glib.h>
 
@@ -80,7 +81,7 @@ get_button_for_row (GtkWidget *row)
 }
 
 static void
-on_row_activated (GtkWidget *box, GtkWidget *row, GtkWidget *widget)
+on_row_activated (G_GNUC_UNUSED GtkWidget *box, GtkWidget *row, G_GNUC_UNUSED GtkWidget *widget)
 {
     GtkWidget *button = get_button_for_row (row);
 
@@ -130,12 +131,22 @@ on_check_toggled(GtkWidget *button, ExtensionProxy *proxy)
 }
 
 static gboolean
-on_config_clicked (GtkLinkButton *button,
+on_config_clicked (G_GNUC_UNUSED GtkLinkButton *button,
                    gpointer       user_data)
 {
+#ifdef G_OS_WIN32
+    /* No extensions on Windows, so no link to click. */
+    (void) user_data;
+#else
     ExtensionProxy *proxy = (ExtensionProxy *) user_data;
+    gchar **argv = NULL;
 
-    g_spawn_command_line_async (proxy->config_exec, NULL);
+    /* The extension's program, not ours. */
+    if (nemo_user_text_split_command (proxy->config_exec, NULL, &argv, NULL)) {
+        nemo_spawn_for_user (NULL, argv, G_SPAWN_SEARCH_PATH, NULL, NULL);
+    }
+    g_strfreev (argv);
+#endif
 
     return GDK_EVENT_STOP;
 }
@@ -144,7 +155,7 @@ on_config_clicked (GtkLinkButton *button,
 #define LINE_PREFIX_LEN 17
 
 static void
-detect_extensions (NemoExtensionConfigWidget *widget)
+detect_extensions (G_GNUC_UNUSED NemoExtensionConfigWidget *widget)
 {
     gchar *out = NULL;
 
@@ -201,7 +212,7 @@ detect_extensions (NemoExtensionConfigWidget *widget)
             g_strfreev (lines);
         }
     } else {
-        g_printerr ("could not list extensions\n");
+        g_printerr ("couldn't list extensions\n");
     }
 #endif
 }
@@ -324,7 +335,7 @@ refresh_widget (NemoExtensionConfigWidget *widget)
 }
 
 static void
-on_settings_changed (NemoConfigGroup *settings, gchar *key, gpointer user_data)
+on_settings_changed (G_GNUC_UNUSED NemoConfigGroup *settings, G_GNUC_UNUSED gchar *key, gpointer user_data)
 {
     NemoExtensionConfigWidget *w = NEMO_EXTENSION_CONFIG_WIDGET (user_data);
 
@@ -333,7 +344,7 @@ on_settings_changed (NemoConfigGroup *settings, gchar *key, gpointer user_data)
 }
 
 static void
-on_enable_clicked (GtkWidget *button, NemoExtensionConfigWidget *widget)
+on_enable_clicked (G_GNUC_UNUSED GtkWidget *button, G_GNUC_UNUSED NemoExtensionConfigWidget *widget)
 {
     nemo_config_set_strv (nemo_plugin_preferences,
     		             NEMO_PLUGIN_PREFERENCES_DISABLED_EXTENSIONS,
@@ -341,7 +352,7 @@ on_enable_clicked (GtkWidget *button, NemoExtensionConfigWidget *widget)
 }
 
 static void
-on_disable_clicked (GtkWidget *button, NemoExtensionConfigWidget *widget)
+on_disable_clicked (G_GNUC_UNUSED GtkWidget *button, NemoExtensionConfigWidget *widget)
 {
     GPtrArray *new_list = g_ptr_array_new ();
 
@@ -361,7 +372,7 @@ on_disable_clicked (GtkWidget *button, NemoExtensionConfigWidget *widget)
 }
 
 static void
-on_restart_clicked (GtkWidget *button, NemoExtensionConfigWidget *widget)
+on_restart_clicked (G_GNUC_UNUSED GtkWidget *button, G_GNUC_UNUSED NemoExtensionConfigWidget *widget)
 {
     /* TODO: We should be able to get existing window locations and geometry out of
      * gtk_application_get_windows() and restore them with the proper window geometry
@@ -372,22 +383,24 @@ on_restart_clicked (GtkWidget *button, NemoExtensionConfigWidget *widget)
 #ifdef G_OS_WIN32
     /* Nothing is loaded from outside the exe here, so there is nothing to
      * reload - see detect_extensions. */
-    g_warning ("Restart is not offered on this platform");
+    g_warning ("Restart isn't offered on this platform");
 #else
     GError *error = NULL;
-    gchar *cmd;
+    gchar *exe = nemo_get_exe_path ();
+    /* This exe, not "nemo": that was quitting and starting whichever upstream
+     * Nemo happened to be installed alongside. By its path and with the
+     * user's environment, as a new window starts, so the new copy makes its
+     * own settings again. */
+    gchar *argv[] = { (gchar *) "/bin/sh", (gchar *) "-c",
+                      (gchar *) "\"$0\" --quit && sleep 1 && exec \"$0\"",
+                      exe != NULL ? exe : (gchar *) NEMO_APP_SLUG, NULL };
 
-    /* NEMO_APP_SLUG, not "nemo": this was quitting and starting whichever
-     * upstream Nemo happened to be installed alongside. */
-    cmd = g_strdup_printf ("sh -c \"%s --quit && sleep 1 && %s\"",
-                           NEMO_APP_SLUG, NEMO_APP_SLUG);
-
-    if (!g_spawn_command_line_async (cmd, &error)) {
-        g_warning ("Could not restart: %s", error->message);
+    if (!nemo_spawn_for_user (NULL, argv, G_SPAWN_SEARCH_PATH, NULL, &error)) {
+        g_warning ("Couldn't restart: %s", error->message);
         g_clear_error (&error);
     }
 
-    g_free (cmd);
+    g_free (exe);
 #endif
 }
 
@@ -402,8 +415,6 @@ nemo_extension_config_widget_finalize (GObject *object)
     }
 
     g_list_free_full (widget->initial_extension_ids, (GDestroyNotify) g_free);
-
-    g_signal_handler_disconnect (nemo_plugin_preferences, widget->bl_handler);
 
     G_OBJECT_CLASS (nemo_extension_config_widget_parent_class)->finalize (object);
 }
@@ -423,9 +434,9 @@ nemo_extension_config_widget_init (NemoExtensionConfigWidget *self)
     self->current_extensions = NULL;
     self->initial_extension_ids = NULL;
 
-    self->bl_handler = g_signal_connect (nemo_plugin_preferences,
-    		                             "changed::" NEMO_PLUGIN_PREFERENCES_DISABLED_EXTENSIONS,
-                                         G_CALLBACK (on_settings_changed), self);
+    self->bl_handler = g_signal_connect_object (nemo_plugin_preferences,
+                                                "changed::" NEMO_PLUGIN_PREFERENCES_DISABLED_EXTENSIONS,
+                                                G_CALLBACK (on_settings_changed), self, 0);
 
     GtkWidget *label = nemo_config_base_widget_get_label (NEMO_CONFIG_BASE_WIDGET (self));
 
@@ -467,6 +478,7 @@ nemo_extension_config_widget_init (NemoExtensionConfigWidget *self)
     refresh_widget (self);
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_extension_config_widget_new (void)
 {

@@ -36,13 +36,16 @@ check_sql (const char *what, const char *got, const char *expected)
 }
 
 static void
-hits_added_cb (NemoSearchEngine *engine, GList *hits, gpointer data)
+hits_added_cb (G_GNUC_UNUSED NemoSearchEngine *engine, GList *hits, G_GNUC_UNUSED gpointer data)
 {
-	n_hits += g_list_length (hits);
+	for (GList *l = hits; l != NULL; l = l->next) {
+		file_search_result_free (l->data);
+		n_hits++;
+	}
 }
 
 static void
-finished_cb (NemoSearchEngine *engine, gpointer data)
+finished_cb (G_GNUC_UNUSED NemoSearchEngine *engine, G_GNUC_UNUSED gpointer data)
 {
 	done = TRUE;
 }

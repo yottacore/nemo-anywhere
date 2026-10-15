@@ -283,7 +283,7 @@ connect_dialog_set_info_bar_error (NemoConnectServerDialog *dialog,
 	case G_IO_ERROR_NOT_FOUND:
 		folder = gtk_entry_get_text (GTK_ENTRY (dialog->details->folder_entry));
 		server = gtk_entry_get_text (GTK_ENTRY (dialog->details->server_entry));
-		str = g_strdup_printf (_("The folder \"%s\" cannot be opened on \"%s\"."),
+		str = g_strdup_printf (_("The folder \"%s\" can't be opened on \"%s\"."),
 				       folder, server);
 		label = gtk_label_new (str);
 		entry = dialog->details->folder_entry;
@@ -293,7 +293,7 @@ connect_dialog_set_info_bar_error (NemoConnectServerDialog *dialog,
 		break;
 	case G_IO_ERROR_HOST_NOT_FOUND:
 		server = gtk_entry_get_text (GTK_ENTRY (dialog->details->server_entry));
-		str = g_strdup_printf (_("The server at \"%s\" cannot be found."), server);
+		str = g_strdup_printf (_("The server at \"%s\" can't be found."), server);
 		label = gtk_label_new (str);
 		entry = dialog->details->server_entry;
 
@@ -439,7 +439,7 @@ connect_dialog_request_additional_details (NemoConnectServerDialog *self,
 static void
 display_location_async_cb (GObject *source,
 			   GAsyncResult *res,
-			   gpointer user_data)
+			   G_GNUC_UNUSED gpointer user_data)
 {
 	NemoConnectServerDialog *dialog;
 	GError *error;
@@ -673,7 +673,7 @@ connect_dialog_destroy (NemoConnectServerDialog *dialog)
 static void
 connect_dialog_response_cb (NemoConnectServerDialog *dialog,
 			    int response_id,
-			    gpointer data)
+			    G_GNUC_UNUSED gpointer data)
 {
 	switch (response_id) {
 	case RESPONSE_CONNECT:
@@ -796,7 +796,7 @@ sensitive_entry_changed_callback (GtkEditable *editable,
 }
 
 static void
-bind_visibility (NemoConnectServerDialog *dialog,
+bind_visibility (G_GNUC_UNUSED NemoConnectServerDialog *dialog,
 		 GtkWidget *source,
 		 GtkWidget *dest)
 {
@@ -1138,6 +1138,7 @@ nemo_connect_server_dialog_class_init (NemoConnectServerDialogClass *class)
 	g_type_class_add_private (class, sizeof (NemoConnectServerDialogDetails));
 }
 
+/* Returns: (transfer none): a toplevel; destroy with gtk_widget_destroy */
 GtkWidget *
 nemo_connect_server_dialog_new (NemoWindow *window)
 {
@@ -1154,7 +1155,7 @@ nemo_connect_server_dialog_new (NemoWindow *window)
 }
 
 gboolean
-nemo_connect_server_dialog_fill_details_finish (NemoConnectServerDialog *self,
+nemo_connect_server_dialog_fill_details_finish (G_GNUC_UNUSED NemoConnectServerDialog *self,
 						    GAsyncResult *result)
 {
 	return g_simple_async_result_get_op_res_gboolean (G_SIMPLE_ASYNC_RESULT (result));

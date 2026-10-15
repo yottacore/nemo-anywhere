@@ -101,11 +101,14 @@ typedef gboolean (*NemoConfigSetMapping) (const GValue          *value,
                                           NemoConfigValue       *config_value,
                                           gpointer               user_data);
 
-/* Load the file (or start empty) and hand out groups. Idempotent. */
+/* Load the file (or start empty) and hand out groups. Idempotent while
+ * running. After nemo_config_shutdown() it starts over: the file is read and
+ * watched again, and the groups handed out before stay valid. */
 void             nemo_config_init            (void);
 /* Write any pending change out now, without tearing anything down. */
 void             nemo_config_flush           (void);
-/* Flush, then stop watching the file. Call before the process ends. */
+/* Flush, then stop watching the file. Call before the process ends. Values
+ * can still be read until then. */
 void             nemo_config_shutdown        (void);
 NemoConfigGroup *nemo_config_get_group       (const char *group);
 /* Absolute path of the settings file, for diagnostics. Free with g_free. */
@@ -138,6 +141,8 @@ void       nemo_config_set_enum    (NemoConfigGroup *group, const char *key, gin
 
 /* Drop the key so its default applies again. */
 void       nemo_config_reset       (NemoConfigGroup *group, const char *key);
+/* TRUE when the file has the key, so a read gives its value, not the default. */
+gboolean   nemo_config_is_set      (NemoConfigGroup *group, const char *key);
 /* Drop every stored key - what --reset does. */
 void       nemo_config_reset_all   (void);
 /* Drop stored values naming a POSIX absolute path. Windows only, and only for
@@ -145,6 +150,20 @@ void       nemo_config_reset_all   (void);
 void       nemo_config_drop_foreign_paths (void);
 /* Every key declared for this group, NULL-terminated. Free with g_strfreev. */
 char     **nemo_config_list_keys   (NemoConfigGroup *group);
+
+/* Changes made here, for the other running copies, so they need not wait for
+ * the save and the file watch. Called on the main thread, a moment after the
+ * change, with a NEMO_CONFIG_SHARED_TYPE value that is only valid during the
+ * call. NULL stops it. Whatever was waiting goes to the old func first. */
+#define NEMO_CONFIG_SHARED_TYPE "(ta(sxbaay))"
+typedef void (*NemoConfigShareFunc) (GVariant *changes, gpointer user_data);
+
+void       nemo_config_set_share_func (NemoConfigShareFunc func,
+                                       gpointer            user_data,
+                                       GDestroyNotify      destroy);
+/* Changes from another copy. Held in memory only: the copy that made them
+   saves them. */
+void       nemo_config_take_shared    (GVariant *changes);
 
 void nemo_config_bind              (NemoConfigGroup      *group,
                                     const char           *key,

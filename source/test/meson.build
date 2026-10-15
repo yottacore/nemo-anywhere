@@ -8,6 +8,25 @@ test_scratch = declare_dependency(
   ),
 )
 
+# The compound file the old Word, Excel and PowerPoint files are kept in,
+# written with no library.
+test_ole2 = declare_dependency(
+  link_with: static_library('test-ole2-writer',
+    [ 'test-ole2-writer.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ glib ],
+  ),
+)
+
+# Heap growth over repeated operations, for the leak tests.
+test_heap = declare_dependency(
+  link_with: static_library('test-heap',
+    [ 'test-heap.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ glib ],
+  ),
+)
+
 test('5ethkhjr Search Engine test',
   executable('test-nemo-search-engine',
     [ 'test-nemo-search-engine.c' ],
@@ -94,6 +113,48 @@ test('rdjjz89r Config store test',
   timeout: 90         # a hundred external rewrites, each waiting on the file monitor
 )
 
+test('rk7wrme6 Bulk rename default test',
+  executable('test-nemo-bulk-rename',
+    [ 'test-nemo-bulk-rename.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
+# Converting runs when the store opens, so the old file goes in before that.
+test('rjc4dd8z Config format upgrade test',
+  executable('test-nemo-config-format',
+    [ 'test-nemo-config-format.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: [],
+  timeout: 60
+)
+
+# One writer per SHCL release from before format 3, each built against that
+# release's header alone, so the old files come from the old code.
+shclOldWriters = []
+foreach release : [ '1.2.0', '2.0.0' ]
+  shclOldWriters += [ release, executable('shcl-old-writer-' + release,
+    [ 'shcl-old-writer.c' ],
+    include_directories: include_directories('../../vendor/shcl-old' / release),
+    dependencies: [ math ],
+    override_options: [ 'warning_level=0' ],
+  ) ]
+endforeach
+
+test('rjcev513 Config old formats test',
+  executable('test-nemo-config-old-formats',
+    [ 'test-nemo-config-old-formats.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: shclOldWriters,
+  timeout: 60
+)
+
 # Counts allocations through its own malloc, which only glibc allows.
 if not is_windows
   test('rj4jbn1b Allocations per read test',
@@ -132,6 +193,52 @@ test('rhtq57n0 Job queue test',
   ),
   args: []
 )
+
+# The bus half of the link between copies. Windows has no bus; its pipes are
+# rjvks1yf's.
+if not is_windows
+  test('rjptygcj Instance list test',
+    executable('test-nemo-instance-list',
+      [ 'test-nemo-instance-list.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: [],
+    timeout: 60
+  )
+
+  test('rjvdch2z Settings shared between copies test',
+    executable('test-nemo-config-share',
+      [ 'test-nemo-config-share.c' ],
+      include_directories: [ rootInclude, shclInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: [],
+    timeout: 120
+  )
+endif
+
+# The heap is read through glibc, so elsewhere these skip.
+if not is_windows
+  leaks = executable('test-nemo-leaks',
+    [ 'test-nemo-leaks.c', '../src/nemo-query-editor.c' ] + gresources,
+    include_directories: [ rootInclude, include_directories('../src') ],
+    dependencies: [ gtk, nemo_private, test_scratch, test_heap ],
+    c_args: nemo_definitions,
+  )
+
+  test('rjbkzvdv Job progress leak test', leaks, args: [ 'progress' ])
+  test('rjbkzwe7 Move job leak test', leaks, args: [ 'move' ])
+  test('rjbmdd0s Clipboard drag check leak test', leaks, args: [ 'clipboard' ])
+  test('rjbmh7g1 Stopped zip leak test', leaks, args: [ 'zip-cancel' ])
+  test('rjbn18rq Search query leak test', leaks, args: [ 'query-editor' ])
+  test('rjbn19rn Bookmarks load leak test', leaks, args: [ 'bookmarks' ])
+  test('rjbn328w Bookmarks file load leak test', leaks, args: [ 'bookmarks-file' ])
+  test('rjbpmcxy Extract job leak test', leaks, args: [ 'extract' ])
+  test('rjbqagjf Stopped tar.gz leak test', leaks, args: [ 'tar.gz-cancel' ])
+  test('rjbw0rkq Stopped 7z leak test', leaks, args: [ '7z-cancel' ])
+  test('rjcth67d Leak test self-check', leaks, args: [ 'self-check' ])
+endif
 
 test('rhtq57n1 Cancelled drop leaves the files test',
   executable('test-nemo-drop-cancel',
@@ -191,9 +298,19 @@ test('rhd1cv38 File cache store test',
   executable('test-nemo-cache-db',
     [ 'test-nemo-cache-db.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private, test_scratch ],
+    dependencies: [ gtk, nemo_private, test_scratch, sqlite ],
   ),
   args: []
+)
+
+test('rjch1a9a File cache opened by many at once test',
+  executable('test-nemo-cache-open-race',
+    [ 'test-nemo-cache-open-race.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch, sqlite ],
+  ),
+  args: [],
+  timeout: 120
 )
 
 test('rhd69rjr File cache prune test',
@@ -202,7 +319,8 @@ test('rhd69rjr File cache prune test',
     include_directories: [ rootInclude, ],
     dependencies: [ gtk, nemo_private, test_scratch, sqlite ],
   ),
-  args: []
+  args: [],
+  timeout: 120
 )
 
 test('rhd4gy78 Thumbnail store test',
@@ -275,6 +393,15 @@ test('rj46pkw3 Conflict dialog test',
   args: []
 )
 
+test('rk8tkp4h Bad name characters test',
+  executable('test-nemo-bad-name',
+    [ 'test-nemo-bad-name.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
 test('rcgzq4qg User input parse test',
   executable('test-eel-user-input',
     [ 'test-eel-user-input.c' ],
@@ -307,6 +434,15 @@ if not is_windows
   test('rgy4vnf1 Scratch cleanup test',
     executable('test-nemo-scratch',
       [ 'test-nemo-scratch.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: []
+  )
+
+  test('rjprhm52 Scratch cleanup waits for the font cache test',
+    executable('test-nemo-scratch-fonts',
+      [ 'test-nemo-scratch-fonts.c' ],
       include_directories: [ rootInclude, ],
       dependencies: [ gtk, nemo_private, test_scratch ],
     ),
@@ -361,6 +497,33 @@ test('rhtmbdma Keyboard context menu test',
   args: []
 )
 
+test('rjes67yy Rename field accessible test',
+  executable('test-eel-editable-label-atk',
+    [ 'test-eel-editable-label-atk.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
+test('rjew8g59 Rename field sized before shown test',
+  executable('test-eel-editable-label-size',
+    [ 'test-eel-editable-label-size.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private ],
+  ),
+  args: []
+)
+
+test('rk520jh7 Rename field takes a new width while hidden test',
+  executable('test-eel-editable-label-rewidth',
+    [ 'test-eel-editable-label-rewidth.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private ],
+  ),
+  args: []
+)
+
 test('rhtmbdmb Escape forgets the cursor test',
   executable('test-eel-forget-cursor',
     [ 'test-eel-forget-cursor.c' ],
@@ -373,6 +536,15 @@ test('rhtmbdmb Escape forgets the cursor test',
 test('rgxy149r Focus guard test',
   executable('test-eel-focus-guard',
     [ 'test-eel-focus-guard.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private ],
+  ),
+  args: []
+)
+
+test('rk6narsh Tabs take no focus helper test',
+  executable('test-eel-tab-keys',
+    [ 'test-eel-tab-keys.c' ],
     include_directories: [ rootInclude, ],
     dependencies: [ gtk, nemo_private ],
   ),
@@ -406,13 +578,23 @@ test('rgeahzbr Entry context menu test',
   args: []
 )
 
+# Its binary files are written from literals with NULs inside, and a wrong
+# length reads past one with nothing to say so. ASan on this one executable
+# sees that; leaks are left to other tests, since GTK's own would drown it.
+testSan = []
+if not is_windows and cc.has_link_argument('-fsanitize=address')
+  testSan = [ '-fsanitize=address', '-fno-omit-frame-pointer' ]
+endif
+
 test('rffvm2bg Search content test',
   executable('test-nemo-search-content',
     [ 'test-nemo-search-content.c' ],
     include_directories: [ rootInclude, ],
     dependencies: [ gtk, nemo_private, test_scratch ],
-    c_args: nemo_definitions,
+    c_args: nemo_definitions + testSan,
+    link_args: testSan,
   ),
+  env: [ 'ASAN_OPTIONS=detect_leaks=0' ],
   args: []
 )
 
@@ -558,11 +740,22 @@ make_link_job = executable('test-nemo-make-link-job',
   c_args: nemo_definitions,
 )
 
+new_folder_path = executable('test-nemo-new-folder-path',
+  [ 'test-nemo-new-folder-path.c', 'test.c' ],
+  include_directories: [ rootInclude, ],
+  dependencies: [ gtk, nemo_private, test_scratch ],
+  c_args: nemo_definitions,
+)
+
+test('rk56fsaw New folder named with a path', new_folder_path)
+
 test('rhmye3d0 Make link relative', make_link_job, args: [ 'relative' ])
 test('rhmye3d1 Make link absolute', make_link_job, args: [ 'absolute' ])
 test('rhmye3d2 Make link hardlink', make_link_job, args: [ 'hardlink' ])
 test('rhn5ewrg Make link shortcut', make_link_job, args: [ 'shortcut' ])
-test('rhn92e10 Make link shortcut absolute', make_link_job, args: [ 'shortcut-absolute' ])
+# A shortcut always has every path since backlog 2026092813381440, so an
+# absolute-only one can no longer be asked for.
+# test('rhn92e10 Make link shortcut absolute', make_link_job, args: [ 'shortcut-absolute' ])
 test('rhnb1z7g Make link shortcut portable', make_link_job, args: [ 'shortcut-portable' ])
 test('rhnq7f38 Make link names', make_link_job, args: [ 'names' ])
 test('rhr6ggms Make link, every answer', make_link_job, args: [ 'every' ])
@@ -604,7 +797,7 @@ test('rgak6kmg App resources test',
 
 # The resource has to be compiled straight in for the same reason the exe does:
 # nothing else references the self-registering object, so the linker drops it.
-test('rf2w8yxr Preferences widgets test',
+test('rf2w8yxr Settings widgets test',
   executable('test-nemo-prefs-widgets',
     [ 'test-nemo-prefs-widgets.c' ] + gresources,
     include_directories: [ rootInclude, ],
@@ -613,7 +806,7 @@ test('rf2w8yxr Preferences widgets test',
   args: []
 )
 
-test('rhtmbdmd Preferences dialog test',
+test('rhtmbdmd Settings dialog test',
   executable('test-nemo-prefs-dialog',
     [ 'test-nemo-prefs-dialog.c', '../src/nemo-file-management-properties.c' ] + gresources,
     include_directories: [ rootInclude, include_directories('../src') ],
@@ -633,7 +826,16 @@ test('rhtmbdme Search box Enter test',
   args: []
 )
 
-test('rhtmbdmf Preferences Current tab test',
+test('rk5b84ef Settings tab list test',
+  executable('test-nemo-tab-list',
+    [ 'test-nemo-tab-list.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private ],
+  ),
+  args: []
+)
+
+test('rhtmbdmf Settings Current tab test',
   executable('test-nemo-prefs-current',
     [ 'test-nemo-prefs-current.c', '../src/nemo-prefs-current-folder.c' ] + gresources,
     include_directories: [ rootInclude, include_directories('../src') ],
@@ -715,6 +917,17 @@ if is_windows
   )
 endif
 
+# Both platforms: on Windows icons follow the scale, elsewhere they must not.
+test('rjpbjt68 Icon display scale test',
+  executable('test-nemo-ui-scale',
+    [ 'test-nemo-ui-scale.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private ],
+    c_args: nemo_definitions,
+  ),
+  args: []
+)
+
 if is_windows
   test('rexrjb60 DPI win32 test',
     executable('test-nemo-dpi-win32',
@@ -722,6 +935,18 @@ if is_windows
       include_directories: [ rootInclude, ],
       dependencies: [ gtk, nemo_private ],
       c_args: nemo_definitions,
+    ),
+    args: []
+  )
+endif
+
+# Puts three windows on screen and needs the foreground, so it skips over ssh.
+if is_windows
+  test('rjf8db1q Tab move foreground right test',
+    executable('test-nemo-raise-win32',
+      [ 'test-nemo-raise-win32.c', '../src/nemo-window-at-point-win32.c' ],
+      include_directories: [ rootInclude, include_directories('../src') ],
+      dependencies: [ gtk ],
     ),
     args: []
   )
@@ -802,6 +1027,16 @@ test('rexta5a8 Column layout test',
     [ 'test-nemo-column-layout.c', '../src/nemo-column-layout.c' ],
     include_directories: [ rootInclude, ],
     dependencies: [ gtk, nemo_private ],
+    c_args: nemo_definitions,
+  ),
+  args: []
+)
+
+test('rjm2rvjn Find mode columns test',
+  executable('test-nemo-search-columns',
+    [ 'test-nemo-search-columns.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
     c_args: nemo_definitions,
   ),
   args: []
@@ -919,11 +1154,29 @@ if not is_windows
 endif
 
 if not is_windows
+  test('rk583zzx Launch environment test',
+    executable('test-nemo-launch-env',
+      [ 'test-nemo-launch-env.c' ],
+      include_directories: [ rootInclude, ],
+      # The copy it runs is out of reach of the build rpath.
+      c_args: nemo_definitions + (extensionShared ? [
+        '-DTEST_EXTENSION_LIB_DIR="@0@"'.format(meson.project_build_root() / 'libnemo-extension'),
+      ] : []),
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: []
+  )
+endif
+
+if not is_windows
   test('rgahvdsr Runtime environment test',
     executable('test-nemo-runtime-env',
       [ 'test-nemo-runtime-env.c' ],
       include_directories: [ rootInclude, ],
-      c_args: nemo_definitions,
+      # The copy it runs is out of reach of the build rpath.
+      c_args: nemo_definitions + (extensionShared ? [
+        '-DTEST_EXTENSION_LIB_DIR="@0@"'.format(meson.project_build_root() / 'libnemo-extension'),
+      ] : []),
       dependencies: [ gtk, nemo_private, test_scratch ],
     ),
     args: []
@@ -941,13 +1194,22 @@ if not is_windows
   )
 endif
 
+cli_version = executable('test-nemo-cli-version',
+  [ 'test-nemo-cli-version.c' ],
+  include_directories: [ rootInclude, ],
+  dependencies: [ glib ],
+)
+
+if is_windows
+  test('rjgw21aw Version and option parse test',
+    cli_version,
+    args: [ nemo, meson.project_version() ],
+  )
+endif
+
 if not is_windows
   test('rh3nba2g Version with no display test',
-    executable('test-nemo-cli-version',
-      [ 'test-nemo-cli-version.c' ],
-      include_directories: [ rootInclude, ],
-      dependencies: [ glib ],
-    ),
+    cli_version,
     args: [ nemo, meson.project_version(),
             meson.current_source_dir() / '..' / 'build-number.py', py.full_path() ],
   )
@@ -973,6 +1235,15 @@ if not is_windows
     args: []
   )
 
+  test('rjhbbg9n Share visits test',
+    executable('test-nemo-share-visits',
+      [ 'test-nemo-share-visits.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: []
+  )
+
   # Preloaded into the program, so it links nothing of ours.
   list_view_counts = shared_module('test-nemo-list-view-counts',
     [ 'test-nemo-list-view-counts.c' ],
@@ -985,6 +1256,234 @@ if not is_windows
       dependencies: [ glib, gio, test_scratch ],
     ),
     args: [ nemo, list_view_counts ],
+    timeout: 180
+  )
+
+  # Preloaded too; it clicks from inside the program.
+  places_focus_probe = shared_module('test-nemo-places-focus-probe',
+    [ 'test-nemo-places-focus-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('rjedw75s Places focus test',
+    executable('test-nemo-places-focus',
+      [ 'test-nemo-places-focus.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, places_focus_probe ],
+    timeout: 120
+  )
+
+  places_bmhead_probe = shared_module('test-nemo-places-bookmarks-heading-probe',
+    [ 'test-nemo-places-bookmarks-heading-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('rjhemba0 Places bookmarks heading after a settings edit test',
+    executable('test-nemo-places-bookmarks-heading',
+      [ 'test-nemo-places-bookmarks-heading.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, places_bmhead_probe ],
+    timeout: 120
+  )
+
+  # Preloaded too; it opens the menus and measures from inside the program.
+  menu_key_place_probe = shared_module('test-nemo-menu-key-place-probe',
+    [ 'test-nemo-menu-key-place-probe.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk ],
+  )
+  test('rjefm41d Keyboard menu beside the item test',
+    executable('test-nemo-menu-key-place',
+      [ 'test-nemo-menu-key-place.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, menu_key_place_probe ],
+    timeout: 180
+  )
+
+  # Preloaded as well; it presses and drags from inside the program.
+  drag_select_probe = shared_module('test-nemo-drag-select-probe',
+    [ 'test-nemo-drag-select-probe.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk ],
+  )
+  test('rk7yvgse Drag select test',
+    executable('test-nemo-drag-select',
+      [ 'test-nemo-drag-select.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, drag_select_probe ],
+    timeout: 240
+  )
+
+  icon_atk_probe = shared_module('test-nemo-icon-atk-probe',
+    [ 'test-nemo-icon-atk-probe.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk ],
+  )
+  test('rjerav6k Icon accessible extents test',
+    executable('test-nemo-icon-atk',
+      [ 'test-nemo-icon-atk.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, icon_atk_probe ],
+    timeout: 120
+  )
+
+  # Preloaded too; it presses F2 from inside the program.
+  rename_photo_probe = shared_module('test-nemo-rename-photo-probe',
+    [ 'test-nemo-rename-photo-probe.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk ],
+  )
+  test('rk526bz6 F2 in a folder of pictures test',
+    executable('test-nemo-rename-photo',
+      [ 'test-nemo-rename-photo.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, gtk, test_scratch ],
+    ),
+    args: [ nemo, rename_photo_probe ],
+    timeout: 120
+  )
+
+  # Preloaded too; it searches and presses Escape from inside the program.
+  search_escape_probe = shared_module('test-nemo-search-escape-probe',
+    [ 'test-nemo-search-escape-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('rk7vz6gm Escape in find mode test',
+    executable('test-nemo-search-escape',
+      [ 'test-nemo-search-escape.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, search_escape_probe ],
+    timeout: 240
+  )
+
+  # Preloaded too; it selects the files and presses F2 from inside.
+  bulk_rename_run_probe = shared_module('test-nemo-bulk-rename-run-probe',
+    [ 'test-nemo-bulk-rename-run-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('rk7wywt9 Bulk renamer gets paths test',
+    executable('test-nemo-bulk-rename-run',
+      [ 'test-nemo-bulk-rename-run.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, bulk_rename_run_probe ],
+    timeout: 120
+  )
+
+  # Preloaded too; it makes the folder and types its name from inside.
+  new_folder_path_probe = shared_module('test-nemo-new-folder-path-probe',
+    [ 'test-nemo-new-folder-path-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  new_folder_path_gui = executable('test-nemo-new-folder-path-gui',
+    [ 'test-nemo-new-folder-path-gui.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ glib, gio, test_scratch ],
+  )
+  test('rk56ftav New folder named with a path, icon view',
+    new_folder_path_gui, args: [ nemo, new_folder_path_probe, 'icon' ], timeout: 120)
+  test('rk56g0rq New folder named with a path, list view',
+    new_folder_path_gui, args: [ nemo, new_folder_path_probe, 'list' ], timeout: 120)
+
+  # Preloaded too; it opens Properties and presses the keys from inside.
+  properties_tabs_probe = shared_module('test-nemo-properties-tabs-probe',
+    [ 'test-nemo-properties-tabs-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('rk6naqsk Properties tabs take no focus test',
+    executable('test-nemo-properties-tabs',
+      [ 'test-nemo-properties-tabs.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, properties_tabs_probe ],
+    timeout: 120
+  )
+
+  # Preloaded too; it hovers and checks from inside the program.
+  tooltip_focus_probe = shared_module('test-nemo-tooltip-focus-probe',
+    [ 'test-nemo-tooltip-focus-probe.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk ],
+  )
+  test('rk52yvz0 No tooltip while another program has the focus test',
+    executable('test-nemo-tooltip-focus',
+      [ 'test-nemo-tooltip-focus.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, gtk, test_scratch ],
+    ),
+    args: [ nemo, tooltip_focus_probe ],
+    timeout: 150
+  )
+
+  # Preloaded too; it sorts and resets from inside the program.
+  reset_sort_probe = shared_module('test-nemo-reset-sort-probe',
+    [ 'test-nemo-reset-sort-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('rjnzamsq Reset view sort test',
+    executable('test-nemo-reset-sort',
+      [ 'test-nemo-reset-sort.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, reset_sort_probe ],
+    timeout: 180
+  )
+
+  # Preloaded too; it searches, picks a view and leaves from inside the program.
+  find_view_probe = shared_module('test-nemo-find-view-probe',
+    [ 'test-nemo-find-view-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('rk7wxqh5 Find mode view test',
+    executable('test-nemo-find-view',
+      [ 'test-nemo-find-view.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, find_view_probe ],
+    timeout: 180
+  )
+
+  # Preloaded too; it goes Back and Forward over a search from inside the program.
+  find_history_probe = shared_module('test-nemo-find-history-probe',
+    [ 'test-nemo-find-history-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('rk7y2ch7 Search in history test',
+    executable('test-nemo-find-history',
+      [ 'test-nemo-find-history.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, find_history_probe ],
+    timeout: 180
+  )
+
+  # Preloaded too; it holds an smb:// mount and looks at the window meanwhile.
+  connecting_probe = shared_module('test-nemo-connecting-probe',
+    [ 'test-nemo-connecting-probe.c' ],
+    dependencies: [ gtk, cc.find_library('dl', required: false) ],
+  )
+  test('rjv9ks2z Connecting sign while a share mounts test',
+    executable('test-nemo-connecting',
+      [ 'test-nemo-connecting.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: [ nemo, connecting_probe ],
     timeout: 180
   )
 
@@ -1022,13 +1521,49 @@ if not is_windows
     )
   endif
 
+  # Preloaded into the program, so it links nothing of ours.
+  quit_hooks = shared_module('test-nemo-quit-hooks',
+    [ 'test-nemo-quit-hooks.c' ],
+    dependencies: [ gtk ],
+  )
+  quit_saves = executable('test-nemo-quit-saves',
+    [ 'test-nemo-quit-saves.c' ],
+    c_args: nemo_definitions,
+    include_directories: [ rootInclude, ],
+    dependencies: [ glib, gio, x11, test_scratch ],
+  )
+  test('rjch1b9a Shortcut saved and notice withdrawn at quit test',
+    quit_saves,
+    args: [ nemo, quit_hooks ],
+    timeout: 120
+  )
+  test('rjcscb0t Shortcut file beside settings and carried over once test',
+    quit_saves,
+    args: [ nemo, quit_hooks, 'carry-over' ],
+    timeout: 240
+  )
+
+  # Preloaded into every copy the test starts; it links nothing of ours.
+  tab_move_probe = shared_module('test-nemo-tab-move-probe',
+    [ 'test-nemo-tab-move-probe.c' ],
+    dependencies: [ gtk ],
+  )
   test('rhmr6qgs Tab move between processes test',
     executable('test-nemo-tab-move',
       [ 'test-nemo-tab-move.c' ],
       include_directories: [ rootInclude, ],
       dependencies: [ gtk, test_scratch ],
     ),
-    args: [ nemo ],
+    args: [ nemo, tab_move_probe ],
+    timeout: 180
+  )
+  test('rjf00qfj Menus freed after closing test',
+    executable('test-nemo-menus-freed',
+      [ 'test-nemo-menus-freed.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, test_scratch ],
+    ),
+    args: [ nemo, tab_move_probe ],
     timeout: 120
   )
 
@@ -1042,6 +1577,37 @@ if not is_windows
       ),
       args: [ nemo ],
       timeout: 120
+    )
+
+    # Preloaded into the program, so it links nothing of ours.
+    held_view_hooks = shared_module('test-nemo-held-view-hooks',
+      [ 'test-nemo-held-view-hooks.c' ],
+      dependencies: [ gtk, cc.find_library('dl', required: false) ],
+    )
+    test('rjahhesy Held view settings handlers test',
+      executable('test-nemo-held-view',
+        [ 'test-nemo-held-view.c' ],
+        include_directories: [ rootInclude, shclInclude, ],
+        dependencies: [ glib, x11, xtst, math, test_scratch ],
+      ),
+      args: [ nemo, held_view_hooks ],
+      timeout: 180
+    )
+
+    # Preloaded too, and holds the button down through the X server.
+    long_press_probe = shared_module('test-nemo-long-press-probe',
+      [ 'test-nemo-long-press-probe.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, x11, xtst ],
+    )
+    test('rk80w1ds Long press menu test',
+      executable('test-nemo-long-press',
+        [ 'test-nemo-long-press.c' ],
+        include_directories: [ rootInclude, ],
+        dependencies: [ glib, gio, test_scratch ],
+      ),
+      args: [ nemo, long_press_probe ],
+      timeout: 240
     )
   endif
 endif
@@ -1100,6 +1666,25 @@ test('rhdg25n0 Uptime test',
   args: []
 )
 
+test('rjmpxtbg Windows paths in user text test',
+  executable('test-nemo-user-text',
+    [ 'test-nemo-user-text.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
+test('rjpr3nzy Link file type test',
+  executable('test-nemo-link-type',
+    [ 'test-nemo-link-type.c', '../src/nemo-desktop-item-properties.c' ],
+    include_directories: [ rootInclude, include_directories('../src') ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+    c_args: nemo_definitions,
+  ),
+  args: []
+)
+
 test('rexkeyng Command template test',
   executable('test-nemo-command-template',
     [ 'test-nemo-command-template.c' ],
@@ -1122,7 +1707,7 @@ test('rhtmbdmj Compress dialog height test',
   executable('test-nemo-archive-dialog',
     [ 'test-nemo-archive-dialog.c', '../src/nemo-archive-dialog.c' ],
     include_directories: [ rootInclude, include_directories('../src') ],
-    dependencies: [ gtk, nemo_private, test_scratch ],
+    dependencies: [ archive, gtk, nemo_private, x11, test_scratch ],
     c_args: nemo_definitions,
   ),
   args: []
@@ -1140,8 +1725,8 @@ test('rhae85g0 Archive settings test',
 # Reads the archives it wrote back with libarchive, so it needs that library.
 test('rewygsbg Archive job test',
   executable('test-nemo-archive-job',
-    [ 'test-archive-job.c', 'test.c' ],
-    include_directories: [ rootInclude, ],
+    [ 'test-archive-job.c', 'test.c', '../src/nemo-progress-info-widget.c' ],
+    include_directories: [ rootInclude, include_directories('../src') ],
     dependencies: [ archive, gtk, nemo_private, test_scratch ],
     c_args: nemo_definitions,
   ),
@@ -1157,6 +1742,20 @@ test('rj4jewn6 Archive check cost test',
   args: [],
   timeout: 120
 )
+
+# Makes its big file sparse, which is a POSIX call.
+if not is_windows
+  test('rjbpyy28 Archive stop time test',
+    executable('test-nemo-archive-stop-time',
+      [ 'test-nemo-archive-stop-time.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+      c_args: nemo_definitions,
+    ),
+    args: [],
+    timeout: 240
+  )
+endif
 
 # Some hundreds of archives, so it gets longer than the default.
 test('rhr6ggmt Archive option combinations',
@@ -1199,6 +1798,52 @@ test('reww9h2s Extract job test',
   args: []
 )
 
+# A rar with a link libarchive 3.8.9 and older can't read. Writes it with rar;
+# the links it holds are POSIX ones.
+if not is_windows
+  test('rk65m3m4 Extract rar long link test',
+    executable('test-extract-rar-links',
+      [ 'test-extract-rar-links.c', 'test.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+      c_args: nemo_definitions,
+    ),
+    args: []
+  )
+endif
+
+# The archive core with nothing of the app linked in, and no display to lean on.
+test('rjq9mv0w Archive core test',
+  executable('test-arc-core',
+    [ 'test-arc-core.c' ],
+    dependencies: [ arc_core ],
+  ),
+  env: [ 'DISPLAY=', 'WAYLAND_DISPLAY=' ],
+  args: []
+)
+
+# What the core's build did: no GTK or app on its include path, and no call
+# into them in the library.
+arc_core_nm = find_program('nm', required: false)
+test('rk6704r8 Archive core build test',
+  py,
+  args: [ files('check-arc-core-build.py'), meson.project_source_root(), meson.project_build_root(),
+          arc_core_lib, arc_core_nm.found() ? arc_core_nm.full_path() : '' ],
+)
+
+# The scan behind the archive size totals on a scratch tree, with a host the
+# test makes and with the app's own. The app is linked for the scratch folder
+# and its host only; the scan never sees it.
+test('rjqef159 Archive scan test',
+  executable('test-arc-scan',
+    [ 'test-arc-scan.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ arc_core, gtk, nemo_private, test_scratch ],
+  ),
+  env: [ 'DISPLAY=', 'WAYLAND_DISPLAY=' ],
+  args: []
+)
+
 test('rg40vg48 Data dirs test',
   executable('test-nemo-data-dirs',
     [ 'test-nemo-data-dirs.c' ],
@@ -1235,12 +1880,42 @@ test('rhe0xz31 Photoshop reader test',
   args: []
 )
 
-test('rhg7vh28 Camera raw reader test',
-  executable('test-nemo-raw',
-    [ 'test-nemo-raw.c' ],
+# The stand-in thumbnailer and search helper are this program run again.
+test('rjvb97aa Office files read in the app test',
+  executable('test-nemo-office',
+    [ 'test-nemo-office.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private, test_scratch ],
+    dependencies: [ gtk, nemo_private, test_scratch, archive ],
+    c_args: nemo_definitions,
   ),
+  args: [],
+  timeout: 120
+)
+
+# The .doc, .xls and .ppt are written here, with no library.
+test('rjvtggme Old office files read in the app test',
+  executable('test-nemo-office-ole',
+    [ 'test-nemo-office-ole.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch, test_ole2 ],
+    c_args: nemo_definitions,
+  ),
+  args: [],
+  timeout: 120
+)
+
+testRaw = executable('test-nemo-raw',
+  [ 'test-nemo-raw.c' ],
+  include_directories: [ rootInclude, ],
+  dependencies: [ gtk, nemo_private, test_scratch ],
+)
+
+test('rhg7vh28 Camera raw reader test', testRaw, args: [])
+
+# Again with GLib clearing what a shrunk array gives up, so the fixtures can't
+# lean on bytes they no longer own.
+test('rj9v7n76 Camera raw reader test, cleared memory', testRaw,
+  env: [ 'G_DEBUG=gc-friendly' ],
   args: []
 )
 
@@ -1273,6 +1948,20 @@ test('rhg8y5f0 ImageMagick thumbnail test',
   ),
   args: []
 )
+
+# Runs on a copy of the loader list the system's gdk-pixbuf reads.
+if not is_windows
+  test('rjnz8zfz ImageMagick for missing pixbuf loaders test',
+    executable('test-nemo-magick-extras',
+      [ 'test-nemo-magick-extras.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+      c_args: [ '-DPIXBUF_LOADERS_CACHE="@0@"'.format(
+        dependency('gdk-pixbuf-2.0').get_variable(pkgconfig: 'gdk_pixbuf_cache_file', default_value: '')) ],
+    ),
+    args: []
+  )
+endif
 
 test('rhe0xz32 Thumbnail hold test',
   executable('test-nemo-thumbnail-hold',
@@ -1332,6 +2021,15 @@ if not is_windows
   )
 endif
 
+test('rjffcm7d Thumbnail stopped once nothing wants it test',
+  executable('test-nemo-thumbnail-stop',
+    [ 'test-nemo-thumbnail-stop.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
 test('rhdfp7t8 Menu paths test',
   executable('test-nemo-menu-paths',
     [ 'test-nemo-menu-paths.c' ] + gresources,
@@ -1367,6 +2065,18 @@ if is_windows
   )
   test('rhtwm2c8 Share check does no I/O', share_win32, args: [ 'share' ])
   test('rhtwm2c9 Junction to a missing folder lists', share_win32, args: [ 'dangling' ])
+
+  # Maps a free drive letter for the run, so it waits for nothing else that
+  # lists the drives.
+  test('rjhvmm6f Mapped drive not asked',
+    executable('test-nemo-drives-win32',
+      [ 'test-nemo-drives-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private ],
+    ),
+    args: [],
+    is_parallel: false,
+  )
 
   test('rhtwm2ca Permissions source test',
     executable('test-nemo-perm-source-win32',
@@ -1458,17 +2168,25 @@ if not is_windows
   )
 endif
 
-# The document converters, run on files written for the purpose.
-test('rfhnaccg Search helpers test',
+# The cases the old converter programs had, now read in the app, on files
+# written for the purpose.
+test('rfhnaccg Office text and search helpers test',
   executable('test-nemo-search-helpers',
     [ 'test-nemo-search-helpers.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private, libgsf, test_scratch ],
+    dependencies: [ gtk, nemo_private, archive, test_scratch, test_ole2 ],
     c_args: nemo_definitions,
   ),
   args: [],
-  env: [ 'NEMO_SEARCH_HELPER_DIR=' + search_helper_dir ],
-  depends: search_helper_exes,
+)
+
+test('rjm9n8sr Bookmark name and icon test',
+  executable('test-nemo-bookmark-info',
+    [ 'test-nemo-bookmark-info.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
 )
 
 if is_windows
@@ -1503,7 +2221,7 @@ if is_windows
     executable('test-nemo-shell-icon-win32',
       [ 'test-nemo-shell-icon-win32.c' ],
       include_directories: [ rootInclude, ],
-      dependencies: [ gtk, nemo_private, test_scratch ],
+      dependencies: [ gtk, nemo_private, win_shell, test_scratch ],
     ),
     args: []
   )
@@ -1511,6 +2229,15 @@ if is_windows
   test('rfmxrdpg Link type test',
     executable('test-nemo-link-info-win32',
       [ 'test-nemo-link-info-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: []
+  )
+
+  test('rjehwjw7 Link end test',
+    executable('test-nemo-link-end-win32',
+      [ 'test-nemo-link-end-win32.c' ],
       include_directories: [ rootInclude, ],
       dependencies: [ gtk, nemo_private, test_scratch ],
     ),
@@ -1531,6 +2258,141 @@ if is_windows
       [ 'test-nemo-dnd-win32.c' ],
       include_directories: [ rootInclude, ],
       dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: []
+  )
+
+  test('rjkybspg ImageMagick start win32 test',
+    executable('test-nemo-magick-win32',
+      [ 'test-nemo-magick-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: [ executable('test-fake-magick', [ 'test-fake-magick.c' ]) ]
+  )
+
+  fake_tool = executable('test-fake-tool', [ 'test-fake-tool.c' ])
+  # Explorer starts it with its own PATH, so it links nothing of the build's.
+  env_dump = executable('test-env-dump', [ 'test-env-dump.c' ], link_args: [ '-lshell32' ])
+
+  test('rjm4ctwh Tool start win32 test',
+    executable('test-nemo-tool-start-win32',
+      [ 'test-nemo-tool-start-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+      c_args: nemo_definitions,
+    ),
+    args: [ fake_tool ],
+    timeout: 120
+  )
+
+  # Commented out: nothing starts a session bus on Windows now, so the
+  # gdbus.exe stand-in it tests is gone (2026100815215479).
+  # test('rjprdfjb Session bus cleanup win32 test',
+  #   executable('test-nemo-session-bus-win32',
+  #     [ 'test-nemo-session-bus-win32.c' ],
+  #     include_directories: [ rootInclude, ],
+  #     dependencies: [ gio, glib, test_scratch ],
+  #   ),
+  #   args: [ session_bus_exe ],
+  #   timeout: 120
+  # )
+
+  test('rjvks1yf Copies reach each other with no bus win32 test',
+    executable('test-nemo-copies-win32',
+      [ 'test-nemo-copies-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: [ nemo ],
+    timeout: 300
+  )
+
+  test('rjpatrck Helper end win32 test',
+    executable('test-nemo-helper-end-win32',
+      [ 'test-nemo-helper-end-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: [ fake_tool ],
+    timeout: 120
+  )
+
+  test('rjvzdd4w Launch environment win32 test',
+    executable('test-nemo-launch-env-win32',
+      [ 'test-nemo-launch-env-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: [ env_dump ],
+    timeout: 120
+  )
+
+  test('rjw1ks5h New window start win32 test',
+    executable('test-nemo-new-copy-win32',
+      [ 'test-nemo-new-copy-win32.c', '../src/nemo-new-process.c' ],
+      include_directories: [ rootInclude, include_directories('../src') ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+      c_args: nemo_definitions,
+    ),
+    args: [ env_dump ],
+    timeout: 120
+  )
+
+  test('rjmb3j8p Action start win32 test',
+    executable('test-nemo-action-start-win32',
+      [ 'test-nemo-action-start-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: [ fake_tool,
+            executable('test-fake-tool-windowed', [ 'test-fake-tool.c' ], win_subsystem: 'windows') ],
+    timeout: 60
+  )
+
+  test('rjmc40ex Thumbnailer type win32 test',
+    executable('test-nemo-thumbnailer-type-win32',
+      [ 'test-nemo-thumbnailer-type-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: [],
+    timeout: 60
+  )
+
+  test('rjnzpkk7 Command launch win32 test',
+    executable('test-nemo-command-launch-win32',
+      [ 'test-nemo-command-launch-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: [ fake_tool ],
+    timeout: 60
+  )
+
+  test('rjp4ch0y Launchable win32 test',
+    executable('test-nemo-launchable-win32',
+      [ 'test-nemo-launchable-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: []
+  )
+
+  test('rk8vn5kr Drop from another program win32 test',
+    executable('test-nemo-drop-win32',
+      [ 'test-nemo-drop-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: []
+  )
+
+  test('rjkwtgrm Drop keys win32 test',
+    executable('test-nemo-drop-keys-win32',
+      [ 'test-nemo-drop-keys-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private ],
     ),
     args: []
   )

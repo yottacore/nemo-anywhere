@@ -12,8 +12,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <gio/gio.h>
+#include <gdk-pixbuf/gdk-pixbuf.h>
+#include <pango/pangocairo.h>
 
 #ifndef G_OS_WIN32
+#include <fcntl.h>
+#include <signal.h>
+#include <stdio.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #endif
 
@@ -131,6 +137,24 @@ remove_made (const char *path, const char *base)
 	g_object_unref (file);
 }
 
+/* Newer GTK 3 starts pango's font map in gtk_init, and pango runs FcInit in a
+   thread. With no usable system font cache that thread writes one under
+   XDG_CACHE_HOME, which is usually a scratch dir, and fontconfig makes the
+   dir again if it is gone. So it has to be done before anything is removed.
+   A test that never made a font map is not given one here. */
+static void
+wait_for_font_setup (void)
+{
+	PangoFontFamily **families = NULL;
+	int count = 0;
+
+	if (g_type_from_name ("PangoFcFontMap") == 0) {
+		return;
+	}
+	pango_font_map_list_families (pango_cairo_font_map_get_default (), &families, &count);
+	g_free (families);
+}
+
 /* TRUE while canon sits inside one of the directories this process made. */
 static gboolean
 inside_a_made_dir (const char *canon)
@@ -163,6 +187,7 @@ test_scratch_remove_tree (const char *path)
 		return FALSE;
 	}
 
+	wait_for_font_setup ();
 	file = g_file_new_for_path (canon);
 	info = g_file_query_info (file, WALK_ATTRIBUTES,
 				  G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, NULL, NULL);
@@ -194,6 +219,7 @@ test_scratch_cleanup (void)
 	}
 #endif
 
+	wait_for_font_setup ();
 	for (i = 0; i < made->len; i++) {
 		remove_made (g_ptr_array_index (made, i), g_ptr_array_index (made_in, i));
 	}
@@ -238,12 +264,14 @@ make_in (const char *base, const char *tmpl, GError **error)
 	return path;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 test_scratch_dir (const char *tmpl, GError **error)
 {
 	return make_in (g_get_tmp_dir (), tmpl, error);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 test_scratch_dir_in (const char *base, const char *tmpl, GError **error)
 {
@@ -264,6 +292,7 @@ test_scratch_point_config_at (const char *dir)
 	g_setenv ("XDG_CACHE_HOME", dir, TRUE);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 test_scratch_config_home (const char *tmpl)
 {
@@ -275,6 +304,217 @@ test_scratch_config_home (const char *tmpl)
 
 	return dir;
 }
+
+/* Small seeks and reads through GIO are what the timed tests mostly wait on,
+   and they are what an emulated box is slowest at: 50 to 100 times slower on
+   an emulated arm64 box, where plain arithmetic is only 3 times slower. So
+   they are the yardstick. The dev box takes about 2 ms; the reference sits a
+   bit above that so a busy dev box keeps the limits as written. */
+#define SLOWNESS_PAIRS             4000
+#define SLOWNESS_REFERENCE_SECONDS 0.003
+
+static int
+compare_doubles (const void *a, const void *b)
+{
+	double x = *(const double *) a;
+	double y = *(const double *) b;
+
+	return (x > y) - (x < y);
+}
+
+double
+test_slowness (void)
+{
+	static double slowness = 0;
+	g_autofree char *dir = NULL;
+	g_autofree char *path = NULL;
+	g_autofree guint8 *bytes = NULL;
+	g_autoptr (GFile) file = NULL;
+	g_autoptr (GFileInputStream) in = NULL;
+	double runs[3];
+	guint32 next = 1;
+	guint i, j;
+
+	if (slowness > 0) {
+		return slowness;
+	}
+	slowness = 1;
+
+	dir = test_scratch_dir ("nemo-slowness-XXXXXX", NULL);
+	if (dir == NULL) {
+		return slowness;
+	}
+	path = g_build_filename (dir, "yardstick", NULL);
+	bytes = g_malloc0 (65536);
+	file = g_file_new_for_path (path);
+	if (!g_file_set_contents (path, (const char *) bytes, 65536, NULL) ||
+	    (in = g_file_read (file, NULL, NULL)) == NULL) {
+		return slowness;
+	}
+
+	/* The median, so one hiccup on a fast box does not loosen every limit. */
+	for (i = 0; i < G_N_ELEMENTS (runs); i++) {
+		gint64 start = g_get_monotonic_time ();
+
+		for (j = 0; j < SLOWNESS_PAIRS; j++) {
+			next = next * 1103515245 + 12345;
+			g_seekable_seek (G_SEEKABLE (in), (next >> 8) % (65536 - 64), G_SEEK_SET, NULL, NULL);
+			g_input_stream_read (G_INPUT_STREAM (in), bytes, 64, NULL, NULL);
+		}
+		runs[i] = (double) (g_get_monotonic_time () - start) / G_USEC_PER_SEC;
+	}
+	qsort (runs, G_N_ELEMENTS (runs), sizeof runs[0], compare_doubles);
+
+	slowness = MAX (1.0, runs[1] / SLOWNESS_REFERENCE_SECONDS);
+	if (slowness >= 2) {
+		g_printerr ("  time limits scaled %.0f times for a slow box\n", slowness);
+	}
+
+	return slowness;
+}
+
+/* Returns: (transfer none): owned by gdk-pixbuf */
+static GdkPixbufFormat *
+pixbuf_format (const char *name)
+{
+	GSList *formats = gdk_pixbuf_get_formats ();
+	GdkPixbufFormat *found = NULL;
+	GSList *l;
+
+	for (l = formats; l != NULL && found == NULL; l = l->next) {
+		g_autofree char *format_name = gdk_pixbuf_format_get_name (l->data);
+
+		if (g_strcmp0 (format_name, name) == 0) {
+			found = l->data;
+		}
+	}
+	g_slist_free (formats);
+
+	return found;
+}
+
+gboolean
+test_pixbuf_reads (const char *name)
+{
+	return pixbuf_format (name) != NULL;
+}
+
+gboolean
+test_pixbuf_writes (const char *name)
+{
+	GdkPixbufFormat *format = pixbuf_format (name);
+
+	return format != NULL && gdk_pixbuf_format_is_writable (format);
+}
+
+#ifndef G_OS_WIN32
+static volatile pid_t kept_child = 0;
+
+/* A test timed out is stopped through its keeper, so the test has to hear
+   of it too, or it and the server are left running. */
+static void
+pass_on (int sig)
+{
+	if (kept_child > 0) {
+		kill (kept_child, sig);
+	}
+}
+
+/* No xvfb-run, which is Debian's and not on the BSDs. Xvfb picks a free number
+   itself through -displayfd, and this process stays behind as its keeper while
+   a forked copy runs the test. Returns in that copy, or here on any failure. */
+static void
+own_display_by_hand (const char *screen)
+{
+	char *xvfb = g_find_program_in_path ("Xvfb");
+	char number[32];
+	size_t got = 0;
+	ssize_t n;
+	int fds[2], status;
+	pid_t server, child, waited;
+
+	if (xvfb == NULL || pipe (fds) != 0) {
+		g_free (xvfb);
+		return;
+	}
+
+	server = fork ();
+	if (server == 0) {
+		char fd_text[16];
+		int null_fd = open ("/dev/null", O_WRONLY);
+
+		close (fds[0]);
+		if (null_fd >= 0) {
+			dup2 (null_fd, STDOUT_FILENO);
+			dup2 (null_fd, STDERR_FILENO);
+		}
+		snprintf (fd_text, sizeof fd_text, "%d", fds[1]);
+		execl (xvfb, "Xvfb", "-displayfd", fd_text, "-nolisten", "tcp",
+		       "-screen", "0", screen != NULL ? screen : "1280x1024x24", (char *) NULL);
+		_exit (127);
+	}
+	g_free (xvfb);
+	close (fds[1]);
+	if (server < 0) {
+		close (fds[0]);
+		return;
+	}
+
+	/* The number and a newline, written once the server is listening. */
+	while (got < sizeof number - 1 &&
+	       ((n = read (fds[0], number + got, sizeof number - 1 - got)) > 0 ||
+	        (n < 0 && errno == EINTR))) {
+		if (n > 0) {
+			got += (size_t) n;
+			if (memchr (number, '\n', got) != NULL) {
+				break;
+			}
+		}
+	}
+	close (fds[0]);
+	number[got] = '\0';
+	if (got == 0 || number[0] < '0' || number[0] > '9') {
+		kill (server, SIGTERM);
+		waitpid (server, NULL, 0);
+		return;
+	}
+	number[strcspn (number, "\n")] = '\0';
+
+	child = fork ();
+	if (child < 0) {
+		kill (server, SIGTERM);
+		waitpid (server, NULL, 0);
+		return;
+	}
+	if (child == 0) {
+		char *display = g_strconcat (":", number, NULL);
+
+		g_setenv ("DISPLAY", display, TRUE);
+		g_free (display);
+		return;
+	}
+
+	kept_child = child;
+	signal (SIGTERM, pass_on);
+	signal (SIGINT, pass_on);
+	signal (SIGHUP, pass_on);
+	while ((waited = waitpid (child, &status, 0)) < 0 && errno == EINTR) {
+	}
+	kill (server, SIGTERM);
+	waitpid (server, NULL, 0);
+	if (waited < 0) {
+		_exit (1);
+	}
+
+	/* Die the way the test did, so a crash still reads as one. _exit, since
+	   the scratch dirs and the rest are the child's to clean up. */
+	if (WIFSIGNALED (status)) {
+		signal (WTERMSIG (status), SIG_DFL);
+		raise (WTERMSIG (status));
+	}
+	_exit (WIFEXITED (status) ? WEXITSTATUS (status) : 1);
+}
+#endif
 
 void
 test_own_display (int argc, char **argv, const char *screen)
@@ -289,6 +529,8 @@ test_own_display (int argc, char **argv, const char *screen)
 	}
 	xvfb_run = g_find_program_in_path ("xvfb-run");
 	if (xvfb_run == NULL) {
+		g_setenv ("NEMO_TEST_OWN_DISPLAY", "1", TRUE);
+		own_display_by_hand (screen);
 		return;
 	}
 	g_setenv ("NEMO_TEST_OWN_DISPLAY", "1", TRUE);

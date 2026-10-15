@@ -27,8 +27,11 @@
 #include "nemo-program-choosing.h"
 
 #include "nemo-global-preferences.h"
+#include "nemo-file-utilities.h"
 #ifdef G_OS_WIN32
 #include "nemo-associations-win32.h"
+#include "nemo-launch-win32.h"
+#include "nemo-user-text.h"
 #endif
 #include "nemo-icon-info.h"
 #include "nemo-recent.h"
@@ -41,10 +44,70 @@
 #include <gio/gdesktopappinfo.h>
 #endif
 #include <stdlib.h>
+#include <string.h>
 
 #include <gdk/gdk.h>
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
+#endif
+
+/* A program of the user's gets the environment it would have had without us,
+ * not the folders a relocated install adds for itself. */
+static GdkAppLaunchContext *
+user_launch_context (GdkDisplay *display)
+{
+	GdkAppLaunchContext *context = gdk_display_get_app_launch_context (display);
+
+	nemo_launch_context_use_user_environ (G_APP_LAUNCH_CONTEXT (context));
+	return context;
+}
+
+#ifdef G_OS_UNIX
+/* Our own desktop file names the program bare, and the user's PATH need not
+ * reach a relocated bin dir. So it starts this exe by its full path instead,
+ * as a new window does. NULL when the file is not ours. */
+static GDesktopAppInfo *
+own_app_by_full_path (GDesktopAppInfo *app)
+{
+	const char *filename = g_desktop_app_info_get_filename (app);
+	char *apps_rel, *apps_dir, *dir, *exec, *exe;
+	GDesktopAppInfo *own = NULL;
+
+	if (filename == NULL) {
+		return NULL;
+	}
+
+	apps_rel = g_build_filename (nemo_get_data_dir (), "..", "applications", NULL);
+	apps_dir = g_canonicalize_filename (apps_rel, NULL);
+	dir = g_path_get_dirname (filename);
+	exec = g_desktop_app_info_get_string (app, G_KEY_FILE_DESKTOP_KEY_EXEC);
+	exe = nemo_get_exe_path ();
+
+	if (exe != NULL && exec != NULL && strcmp (dir, apps_dir) == 0 &&
+	    g_str_has_prefix (exec, NEMO_APP_SLUG) &&
+	    (exec[strlen (NEMO_APP_SLUG)] == ' ' || exec[strlen (NEMO_APP_SLUG)] == '\0')) {
+		GKeyFile *keys = g_key_file_new ();
+
+		if (g_key_file_load_from_file (keys, filename, G_KEY_FILE_KEEP_TRANSLATIONS, NULL)) {
+			char *quoted = g_shell_quote (exe);
+			char *full = g_strconcat (quoted, exec + strlen (NEMO_APP_SLUG), NULL);
+
+			g_key_file_set_string (keys, G_KEY_FILE_DESKTOP_GROUP, G_KEY_FILE_DESKTOP_KEY_EXEC, full);
+			own = g_desktop_app_info_new_from_keyfile (keys);
+			g_free (full);
+			g_free (quoted);
+		}
+		g_key_file_unref (keys);
+	}
+
+	g_free (exe);
+	g_free (exec);
+	g_free (dir);
+	g_free (apps_dir);
+	g_free (apps_rel);
+
+	return own;
+}
 #endif
 
 void
@@ -97,9 +160,9 @@ nemo_launch_application (GAppInfo *application,
 
 #ifdef G_OS_UNIX
 static void
-dummy_child_watch (GPid     pid,
-                   gint     status,
-                   gpointer user_data)
+dummy_child_watch (G_GNUC_UNUSED GPid     pid,
+                   G_GNUC_UNUSED gint     status,
+                   G_GNUC_UNUSED gpointer user_data)
 {
   /* Nothing, this is just to ensure we don't double fork
    * and break pkexec:
@@ -108,9 +171,9 @@ dummy_child_watch (GPid     pid,
 }
 
 static void
-gather_pid_callback (GDesktopAppInfo *appinfo,
+gather_pid_callback (G_GNUC_UNUSED GDesktopAppInfo *appinfo,
                      GPid            pid,
-                     gpointer        data)
+                     G_GNUC_UNUSED gpointer        data)
 {
     g_child_watch_add(pid, dummy_child_watch, NULL);
 }
@@ -148,7 +211,7 @@ nemo_launch_application_by_uri (GAppInfo *application,
 		display = gdk_display_get_default ();
 	}
 
-	launch_context = gdk_display_get_app_launch_context (display);
+	launch_context = user_launch_context (display);
 
 	if (parent_window != NULL) {
 		gdk_app_launch_context_set_screen (launch_context,
@@ -174,13 +237,19 @@ nemo_launch_application_by_uri (GAppInfo *application,
 	error = NULL;
 
 #ifdef G_OS_UNIX
-    result = g_desktop_app_info_launch_uris_as_manager (G_DESKTOP_APP_INFO (application),
-                                                        uris,
-                                                        G_APP_LAUNCH_CONTEXT (launch_context),
-                                                        G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD,
-                                                        NULL, NULL,
-                                                        gather_pid_callback, application,
-                                                        &error);
+    {
+        GDesktopAppInfo *own = own_app_by_full_path (G_DESKTOP_APP_INFO (application));
+        GDesktopAppInfo *start = own != NULL ? own : G_DESKTOP_APP_INFO (application);
+
+        result = g_desktop_app_info_launch_uris_as_manager (start,
+                                                            uris,
+                                                            G_APP_LAUNCH_CONTEXT (launch_context),
+                                                            G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD,
+                                                            NULL, NULL,
+                                                            gather_pid_callback, start,
+                                                            &error);
+        g_clear_object (&own);
+    }
 #elif defined (G_OS_WIN32)
     {
         /* Everything with a command line goes through the broker, so the
@@ -206,7 +275,7 @@ nemo_launch_application_by_uri (GAppInfo *application,
 #endif
 
     if (!result && error != NULL) {
-        g_warning ("Failed to launch application: %s", error->message);
+        nemo_show_start_error (parent_window, error);
         g_clear_error (&error);
     }
 
@@ -223,6 +292,7 @@ nemo_launch_application_by_uri (GAppInfo *application,
 	g_list_free_full (locations, g_object_unref);
 }
 
+#ifndef G_OS_WIN32
 static void
 launch_application_from_command_internal (const gchar *full_command,
 					  GdkScreen *screen,
@@ -232,23 +302,92 @@ launch_application_from_command_internal (const gchar *full_command,
 	GdkAppLaunchContext *ctx;
 	GdkDisplay *display;
 
+	display = screen != NULL ? gdk_screen_get_display (screen) : gdk_display_get_default ();
+	ctx = user_launch_context (display);
+	if (screen != NULL) {
+		gdk_app_launch_context_set_screen (ctx, screen);
+	}
+
 	if (use_terminal) {
-		eel_gnome_open_terminal_on_screen (full_command, screen);
+		eel_gnome_open_terminal_on_screen (full_command, screen, G_APP_LAUNCH_CONTEXT (ctx));
 	} else {
 		app = g_app_info_create_from_commandline (full_command, NULL, 0, NULL);
 
 		if (app != NULL) {
-			display = gdk_screen_get_display (screen);
-			ctx = gdk_display_get_app_launch_context (display);
-			gdk_app_launch_context_set_screen (ctx, screen);
-
 			g_app_info_launch (app, NULL, G_APP_LAUNCH_CONTEXT (ctx), NULL);
-
 			g_object_unref (app);
-			g_object_unref (ctx);
 		}
 	}
+	g_object_unref (ctx);
 }					  
+#endif
+
+#ifdef G_OS_WIN32
+/* GLib's launch from a command line goes through its spawn helper, which gives
+ * a console program a console window and may never start it in the single
+ * exe. Its split also reads a backslash as an escape. So the line is split the
+ * Windows way and each parameter is an argument of its own. */
+static void
+launch_from_command (G_GNUC_UNUSED GdkScreen *screen,
+		     const char *command_string,
+		     gboolean use_terminal,
+		     const char * const *parameters)
+{
+	char **command_argv = NULL;
+	GPtrArray *args;
+	GError *error = NULL;
+	int i;
+
+	if (!nemo_user_text_split_command (command_string, NULL, &command_argv, &error)) {
+		nemo_show_start_error (NULL, error);
+		g_clear_error (&error);
+		return;
+	}
+
+	args = g_ptr_array_new ();
+	for (i = 0; command_argv[i] != NULL; i++) {
+		g_ptr_array_add (args, command_argv[i]);
+	}
+	for (i = 0; parameters != NULL && parameters[i] != NULL; i++) {
+		g_ptr_array_add (args, (gpointer) parameters[i]);
+	}
+	g_ptr_array_add (args, NULL);
+
+	if (!nemo_launch_win32_spawn ((const gchar * const *) args->pdata, use_terminal, &error)) {
+		nemo_show_start_error (NULL, error);
+		g_clear_error (&error);
+	}
+
+	g_ptr_array_free (args, TRUE);
+	g_strfreev (command_argv);
+}
+#else
+static void
+launch_from_command (GdkScreen *screen,
+		     const char *command_string,
+		     gboolean use_terminal,
+		     const char * const *parameters)
+{
+	char *full_command, *tmp;
+	char *quoted_parameter;
+	int i;
+
+	full_command = g_strdup (command_string);
+
+	for (i = 0; parameters != NULL && parameters[i] != NULL; i++) {
+		quoted_parameter = g_shell_quote (parameters[i]);
+		tmp = g_strconcat (full_command, " ", quoted_parameter, NULL);
+		g_free (quoted_parameter);
+
+		g_free (full_command);
+		full_command = tmp;
+	}
+
+	launch_application_from_command_internal (full_command, screen, use_terminal);
+
+	g_free (full_command);
+}
+#endif
 
 /**
  * nemo_launch_application_from_command:
@@ -257,7 +396,7 @@ launch_application_from_command_internal (const gchar *full_command,
  * a parameter.
  * 
  * @command_string: The application to be launched, with any desired
- * command-line options.
+ * command-line options. A path in it is quoted with nemo_user_text_quote.
  * @...: Passed as parameters to the application after quoting each of them.
  */
 void
@@ -266,40 +405,33 @@ nemo_launch_application_from_command (GdkScreen  *screen,
 					  gboolean use_terminal,
 					  ...)
 {
-	char *full_command, *tmp;
-	char *quoted_parameter; 
+	GPtrArray *parameters;
 	char *parameter;
 	va_list ap;
 
-	full_command = g_strdup (command_string);
+	parameters = g_ptr_array_new ();
 
 	va_start (ap, use_terminal);
-
 	while ((parameter = va_arg (ap, char *)) != NULL) {
-		quoted_parameter = g_shell_quote (parameter);
-		tmp = g_strconcat (full_command, " ", quoted_parameter, NULL);
-		g_free (quoted_parameter);
-
-		g_free (full_command);
-		full_command = tmp;
-
+		g_ptr_array_add (parameters, parameter);
 	}
-
 	va_end (ap);
+	g_ptr_array_add (parameters, NULL);
 
-	launch_application_from_command_internal (full_command, screen, use_terminal);
-	
-	g_free (full_command);
+	launch_from_command (screen, command_string, use_terminal,
+			     (const char * const *) parameters->pdata);
+
+	g_ptr_array_free (parameters, TRUE);
 }
 
 /**
- * nemo_launch_application_from_command:
+ * nemo_launch_application_from_command_array:
  * 
  * Fork off a process to launch an application with a given uri as
  * a parameter.
  * 
  * @command_string: The application to be launched, with any desired
- * command-line options.
+ * command-line options. A path in it is quoted with nemo_user_text_quote.
  * @parameters: Passed as parameters to the application after quoting each of them.
  */
 void
@@ -308,30 +440,73 @@ nemo_launch_application_from_command_array (GdkScreen  *screen,
 						gboolean use_terminal,
 						const char * const * parameters)
 {
-	char *full_command, *tmp;
-	char *quoted_parameter; 
-	const char * const *p;
-
-	full_command = g_strdup (command_string);
-
-	if (parameters != NULL) {
-		for (p = parameters; *p != NULL; p++) {
-			quoted_parameter = g_shell_quote (*p);
-			tmp = g_strconcat (full_command, " ", quoted_parameter, NULL);
-			g_free (quoted_parameter);
-
-			g_free (full_command);
-			full_command = tmp;
-		}
-	}
-
-	launch_application_from_command_internal (full_command, screen, use_terminal);
-
-	g_free (full_command);
+	launch_from_command (screen, command_string, use_terminal, parameters);
 }
 
 void
-nemo_launch_desktop_file (GdkScreen   *screen,
+nemo_show_start_error (GtkWindow    *parent_window,
+		       const GError *error)
+{
+	g_return_if_fail (error != NULL);
+
+	eel_show_error_dialog (_("The program couldn't be started."), error->message, parent_window);
+}
+
+#ifdef G_OS_WIN32
+static gboolean
+show_helper_failed (gpointer message)
+{
+	eel_show_error_dialog (_("A helper program couldn't be started."), message, NULL);
+	return G_SOURCE_REMOVE;
+}
+
+/* From whichever thread asked for the thumbnail or the search. */
+static void
+helper_failed (G_GNUC_UNUSED const gchar *program,
+	       const gchar               *message)
+{
+	/* cppcheck-suppress leakNoVarFunctionCall ; the idle frees it with g_free */
+	g_idle_add_full (G_PRIORITY_DEFAULT_IDLE, show_helper_failed, g_strdup (message), g_free);
+}
+
+void
+nemo_show_helper_start_errors (void)
+{
+	nemo_launch_win32_set_failed_func (helper_failed);
+}
+#endif
+
+/* On Windows GTK's own way goes through GLib's spawn helper, a program of its
+ * own in the single exe. */
+gboolean
+nemo_show_uri (GtkWindow   *parent_window,
+	       const char  *uri,
+	       GError     **error)
+{
+#ifdef G_OS_WIN32
+	(void) parent_window;
+	return nemo_launch_win32_open_uri (uri, error);
+#else
+	/* gtk_show_uri, with the user's environment for whatever it starts. */
+	GdkAppLaunchContext *context;
+	gboolean ok;
+
+	context = user_launch_context (parent_window != NULL
+				       ? gtk_widget_get_display (GTK_WIDGET (parent_window))
+				       : gdk_display_get_default ());
+	if (parent_window != NULL) {
+		gdk_app_launch_context_set_screen (context, gtk_window_get_screen (parent_window));
+	}
+	gdk_app_launch_context_set_timestamp (context, gtk_get_current_event_time ());
+	ok = g_app_info_launch_default_for_uri (uri, G_APP_LAUNCH_CONTEXT (context), error);
+	g_object_unref (context);
+
+	return ok;
+#endif
+}
+
+void
+nemo_launch_desktop_file (G_GNUC_UNUSED GdkScreen   *screen,
 			      const char  *desktop_file_uri,
 			      const GList *parameter_uris,
 			      GtkWindow   *parent_window)
@@ -344,6 +519,7 @@ nemo_launch_desktop_file (GdkScreen   *screen,
 	int total, count;
 	GFile *file, *desktop_file;
 	GDesktopAppInfo *app_info;
+	GDesktopAppInfo *own;
 	GdkAppLaunchContext *context;
 
 	/* Don't allow command execution from remote locations
@@ -356,7 +532,7 @@ nemo_launch_desktop_file (GdkScreen   *screen,
 		g_free (desktop_file_path);
 		g_object_unref (desktop_file);
 		eel_show_error_dialog
-			(_("Sorry, but you cannot execute commands from "
+			(_("Sorry, but you can't execute commands from "
 			   "a remote site."), 
 			 _("This is disabled due to security considerations."),
 			 parent_window);
@@ -413,19 +589,21 @@ nemo_launch_desktop_file (GdkScreen   *screen,
 	}
 
 	error = NULL;
-	context = gdk_display_get_app_launch_context (gtk_widget_get_display (GTK_WIDGET (parent_window)));
+	context = user_launch_context (gtk_widget_get_display (GTK_WIDGET (parent_window)));
 	/* TODO: Ideally we should accept a timestamp here instead of using GDK_CURRENT_TIME */
 	gdk_app_launch_context_set_timestamp (context, GDK_CURRENT_TIME);
 	gdk_app_launch_context_set_screen (context,
 					   gtk_window_get_screen (parent_window));
 
-    g_desktop_app_info_launch_uris_as_manager (app_info,
+    own = own_app_by_full_path (app_info);
+    g_desktop_app_info_launch_uris_as_manager (own != NULL ? own : app_info,
                                                (GList *) parameter_uris,
                                                G_APP_LAUNCH_CONTEXT (context),
                                                G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD,
                                                NULL, NULL,
                                                gather_pid_callback, app_info,
                                                &error);
+    g_clear_object (&own);
 
 	if (error != NULL) {
 		message = g_strconcat (_("Details: "), error->message, NULL);

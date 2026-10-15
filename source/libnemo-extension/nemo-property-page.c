@@ -68,7 +68,7 @@ G_DEFINE_TYPE_WITH_PRIVATE (NemoPropertyPage, nemo_property_page, G_TYPE_OBJECT)
  *
  * Creates a new #NemoPropertyPage from page_widget.
  *
- * Returns: a newly created #NemoPropertyPage
+ * Returns: (transfer full): a newly created #NemoPropertyPage
  */
 NemoPropertyPage *
 nemo_property_page_new (const char *name,

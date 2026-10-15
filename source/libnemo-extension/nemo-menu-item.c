@@ -79,7 +79,7 @@ static guint signals[LAST_SIGNAL] = { 0 };
  *
  * Creates a new menu item that can be added to the toolbar or to a contextual menu.
  *
- * Returns: a newly create #NemoMenuItem
+ * Returns: (transfer full): a newly create #NemoMenuItem
  */
 NemoMenuItem *
 nemo_menu_item_new (const char *name,
@@ -111,7 +111,7 @@ nemo_menu_item_new (const char *name,
  *
  * Creates a new widget-based menu item that can be added to the toolbar or to a contextual menu.
  *
- * Returns: a newly created #NemoMenuItem that will pass widgets to an eventual NemoWidgetAction
+ * Returns: (transfer full): a newly created #NemoMenuItem that will pass widgets to an eventual NemoWidgetAction
  */
 NemoMenuItem *
 nemo_menu_item_new_widget (const char *name,
@@ -141,7 +141,7 @@ nemo_menu_item_new_widget (const char *name,
  *
  * Creates a new menu item that represents a menu separator.
  * 
- * Returns: a newly created #NemoMenuItem
+ * Returns: (transfer full): a newly created #NemoMenuItem
  */
 NemoMenuItem *
 nemo_menu_item_new_separator (const char *name)

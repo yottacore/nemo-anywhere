@@ -1,5 +1,0 @@
-[Nemo Search Helper]
-TryExec=nemo-anywhere-doc-to-txt;
-Exec=nemo-anywhere-doc-to-txt %s
-MimeType=application/msword;
-Priority=110

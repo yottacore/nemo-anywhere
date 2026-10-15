@@ -1,7 +1,8 @@
 /* Exercises the thumbnail factory's failure paths: a helper that never exits, an
- * image whose short side rounds away to nothing, and a .thumbnailer that goes bad
- * while it is being watched. Runs against a throwaway XDG_DATA_HOME so it sees
- * only its own thumbnailers, never the ones installed on the box.
+ * image whose short side rounds away to nothing, a .thumbnailer that goes bad
+ * while it is being watched, and one whose TryExec cannot be read. Runs against
+ * a throwaway XDG_DATA_HOME so it sees only its own thumbnailers, never the ones
+ * installed on the box.
  *
  * Re-runs itself as the hanging helper when handed --hang. */
 
@@ -21,6 +22,8 @@
 
 #define HANG_MIME   "application/x-nemo-hang-test"
 #define RELOAD_MIME "application/x-nemo-reload-test"
+#define BADTRY_MIME "application/x-nemo-badtry-test"
+#define GOODTRY_MIME "application/x-nemo-goodtry-test"
 
 static char *thumbnailers_dir;
 static char *work_dir;
@@ -38,8 +41,7 @@ write_thumbnailer (const char *name, const char *contents)
 	g_free (path);
 }
 
-/* Exec lines are shell-parsed, so the path to the helper needs forward slashes
- * even on Windows - a backslash would be read as an escape. */
+/* Forward slashes, which read the same on every platform. */
 static char *
 self_command (const char *self)
 {
@@ -186,6 +188,60 @@ test_thumbnailer_reload (void)
 	g_object_unref (factory);
 }
 
+/* a TryExec GKeyFile cannot read, here a Windows path with its backslashes
+   not doubled, is no reason to skip the check. On Windows that path is read
+   as written, so it is skipped for naming no program, and one naming a real
+   program the same way is used. */
+
+static void
+test_unreadable_try_exec (const char *self)
+{
+	NemoDesktopThumbnailFactory *factory;
+	char *uri;
+#ifdef G_OS_WIN32
+	char *absolute = g_canonicalize_filename (self, NULL);
+	char *contents;
+
+	if (!g_str_has_suffix (absolute, ".exe")) {
+		char *with = g_strconcat (absolute, ".exe", NULL);
+
+		g_free (absolute);
+		absolute = with;
+	}
+	contents = g_strdup_printf ("[Thumbnailer Entry]\nTryExec=%s\n"
+				    "Exec=\"%s\" --hang %%i %%o\nMimeType=" GOODTRY_MIME ";\n",
+				    absolute, absolute);
+
+	write_thumbnailer ("goodtry.thumbnailer", contents);
+	g_free (contents);
+	g_free (absolute);
+#else
+	(void) self;
+#endif
+
+	write_thumbnailer ("badtry.thumbnailer",
+			   "[Thumbnailer Entry]\nTryExec=C:\\Tools\\nope.exe\n"
+			   "Exec=true %i %o\nMimeType=" BADTRY_MIME ";\n");
+
+	factory = nemo_desktop_thumbnail_factory_new (NEMO_DESKTOP_THUMBNAIL_SIZE_NORMAL);
+	uri = write_image ("badtry-source.png", 64, 64);
+
+	check (!nemo_desktop_thumbnail_factory_can_thumbnail (factory, uri, BADTRY_MIME, 0));
+#ifdef G_OS_WIN32
+	check (nemo_desktop_thumbnail_factory_can_thumbnail (factory, uri, GOODTRY_MIME, 0));
+#endif
+
+	g_free (uri);
+	g_object_unref (factory);
+
+	uri = g_build_filename (thumbnailers_dir, "badtry.thumbnailer", NULL);
+	g_remove (uri);
+	g_free (uri);
+	uri = g_build_filename (thumbnailers_dir, "goodtry.thumbnailer", NULL);
+	g_remove (uri);
+	g_free (uri);
+}
+
 /* gdk-pixbuf sniffs image types through GIO here, so an untyped loader needs the
  * shared mime database. Hiding that away along with the box's own thumbnailers
  * made the one image this test reads back fail to load, which read as a
@@ -296,6 +352,8 @@ main (int argc, char *argv[])
 		test_thin_image ();
 	if (want ("reload", argc, argv))
 		test_thumbnailer_reload ();
+	if (want ("badtry", argc, argv))
+		test_unreadable_try_exec (self);
 
 	nemo_config_shutdown ();
 	g_free (thumbnailers_dir);

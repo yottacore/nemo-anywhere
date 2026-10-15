@@ -313,6 +313,11 @@ struct NemoViewClass {
         /* Signals used only for keybindings */
         gboolean (* trash)                         (NemoView *view);
         gboolean (* delete)                        (NemoView *view);
+
+	/* Where the selected item the keyboard menu is for sits, in the
+	   view's coordinates. FALSE when none is in sight. */
+	gboolean (* get_selection_menu_rect)   (NemoView          *view,
+						GdkRectangle      *rect);
 };
 
 /* GObject support */
@@ -372,6 +377,11 @@ gboolean            nemo_view_handle_scroll_event              (NemoView  *view,
 void                nemo_view_freeze_updates                   (NemoView  *view);
 void                nemo_view_unfreeze_updates                 (NemoView  *view);
 gboolean            nemo_view_get_is_renaming                  (NemoView  *view);
+/* For the end of an in-place rename. TRUE when the name was a path for a
+   folder New folder just made, and the path is being made instead. */
+gboolean            nemo_view_rename_new_folder_nested         (NemoView   *view,
+								NemoFile   *file,
+								const char *new_name);
 void                nemo_view_set_is_renaming                  (NemoView  *view,
 								    gboolean       renaming);
 void                nemo_view_add_subdirectory                (NemoView  *view,
@@ -433,5 +443,7 @@ void              nemo_view_pop_up_location_context_menu (NemoView    *view,
 void              nemo_view_grab_focus                 (NemoView      *view);
 void              nemo_view_update_menus               (NemoView      *view);
 void              nemo_view_new_folder                 (NemoView      *view);
+/* The same terminal for the window's button as for the view's menus. */
+void              nemo_view_open_in_terminal           (const gchar   *path);
 
 #endif /* NEMO_VIEW_H */

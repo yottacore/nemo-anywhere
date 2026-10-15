@@ -13,6 +13,7 @@
 #include <libnemo-private/nemo-action-manager.h>
 #include <libnemo-private/nemo-file-utilities.h>
 #include <libnemo-private/nemo-action-symbols.h>
+#include <libnemo-private/nemo-user-text.h>
 #include "nemo-global-preferences.h"
 
 G_DEFINE_TYPE (NemoActionConfigWidget, nemo_action_config_widget, NEMO_TYPE_CONFIG_BASE_WIDGET);
@@ -55,7 +56,7 @@ get_button_for_row (GtkWidget *row)
 }
 
 static void
-on_row_activated (GtkWidget *box, GtkWidget *row, GtkWidget *widget)
+on_row_activated (G_GNUC_UNUSED GtkWidget *box, GtkWidget *row, G_GNUC_UNUSED GtkWidget *widget)
 {
     GtkWidget *button = get_button_for_row (row);
 
@@ -117,34 +118,32 @@ make_action_proxy (const gchar *filename, const gchar *fullpath)
 
     ActionProxy *proxy = g_new0 (ActionProxy, 1);
 
-    gchar *name = g_key_file_get_locale_string (key_file,
-                                                ACTION_FILE_GROUP,
-                                                KEY_NAME,
-                                                NULL,
-                                                NULL);
+    gchar *name = nemo_user_text_get_locale_string (key_file,
+                                                    ACTION_FILE_GROUP,
+                                                    KEY_NAME,
+                                                    NULL);
     if (name != NULL)
         proxy->name = g_strdup (name);
 
-    gchar *comment = g_key_file_get_locale_string (key_file,
-                                            ACTION_FILE_GROUP,
-                                            KEY_COMMENT,
-                                            NULL,
-                                            NULL);
+    gchar *comment = nemo_user_text_get_locale_string (key_file,
+                                                       ACTION_FILE_GROUP,
+                                                       KEY_COMMENT,
+                                                       NULL);
     if (comment != NULL)
         proxy->comment = g_strdup (comment);
 
 
-    gchar *icon_name = g_key_file_get_string (key_file,
-                                              ACTION_FILE_GROUP,
-                                              KEY_ICON_NAME,
-                                              NULL);
+    gchar *icon_name = nemo_user_text_get_string (key_file,
+                                                  ACTION_FILE_GROUP,
+                                                  KEY_ICON_NAME,
+                                                  NULL);
     if (icon_name != NULL)
         proxy->icon_name = g_strdup (icon_name);
 
-    gchar *stock_id = g_key_file_get_string (key_file,
-                                             ACTION_FILE_GROUP,
-                                             KEY_STOCK_ID,
-                                             NULL);
+    gchar *stock_id = nemo_user_text_get_string (key_file,
+                                                 ACTION_FILE_GROUP,
+                                                 KEY_STOCK_ID,
+                                                 NULL);
 
     if (stock_id != NULL)
         proxy->stock_id = g_strdup (stock_id);
@@ -321,7 +320,7 @@ refresh_widget (NemoActionConfigWidget *widget)
 }
 
 static void
-on_settings_changed (NemoConfigGroup *settings, gchar *key, gpointer user_data)
+on_settings_changed (G_GNUC_UNUSED NemoConfigGroup *settings, G_GNUC_UNUSED gchar *key, gpointer user_data)
 {
     NemoActionConfigWidget *w = NEMO_ACTION_CONFIG_WIDGET (user_data);
 
@@ -329,7 +328,7 @@ on_settings_changed (NemoConfigGroup *settings, gchar *key, gpointer user_data)
 }
 
 static void
-on_enable_clicked (GtkWidget *button, NemoActionConfigWidget *widget)
+on_enable_clicked (G_GNUC_UNUSED GtkWidget *button, G_GNUC_UNUSED NemoActionConfigWidget *widget)
 {
     nemo_config_set_strv (nemo_plugin_preferences,
     		             NEMO_PLUGIN_PREFERENCES_DISABLED_ACTIONS,
@@ -337,7 +336,7 @@ on_enable_clicked (GtkWidget *button, NemoActionConfigWidget *widget)
 }
 
 static void
-on_disable_clicked (GtkWidget *button, NemoActionConfigWidget *widget)
+on_disable_clicked (G_GNUC_UNUSED GtkWidget *button, NemoActionConfigWidget *widget)
 {
     GPtrArray *new_list = g_ptr_array_new ();
 
@@ -357,7 +356,7 @@ on_disable_clicked (GtkWidget *button, NemoActionConfigWidget *widget)
 }
 
 static void
-on_open_folder_clicked (GtkWidget *button, NemoActionConfigWidget *widget)
+on_open_folder_clicked (G_GNUC_UNUSED GtkWidget *button, G_GNUC_UNUSED NemoActionConfigWidget *widget)
 {
     gchar *path = NULL;
     path = g_build_filename (g_get_user_data_dir (), NEMO_APP_SLUG, "actions", NULL);
@@ -374,7 +373,7 @@ on_open_folder_clicked (GtkWidget *button, NemoActionConfigWidget *widget)
 
 #ifndef G_OS_WIN32
 static void
-on_layout_editor_clicked (GtkWidget *button, NemoActionConfigWidget *widget)
+on_layout_editor_clicked (G_GNUC_UNUSED GtkWidget *button, G_GNUC_UNUSED NemoActionConfigWidget *widget)
 {
     GError *error = NULL;
     gchar *editor;
@@ -389,7 +388,7 @@ on_layout_editor_clicked (GtkWidget *button, NemoActionConfigWidget *widget)
     }
 
     if (!g_spawn_command_line_async (editor, &error)) {
-        g_warning ("Could not start the action layout editor (%s): %s",
+        g_warning ("Couldn't start the action layout editor (%s): %s",
                    editor, error->message);
         g_clear_error (&error);
     }
@@ -399,10 +398,10 @@ on_layout_editor_clicked (GtkWidget *button, NemoActionConfigWidget *widget)
 #endif
 
 static void
-on_dir_changed (GFileMonitor     *monitor,
-                GFile            *file,
-                GFile            *other_file,
-                GFileMonitorEvent event_type,
+on_dir_changed (G_GNUC_UNUSED GFileMonitor     *monitor,
+                G_GNUC_UNUSED GFile            *file,
+                G_GNUC_UNUSED GFile            *other_file,
+                G_GNUC_UNUSED GFileMonitorEvent event_type,
                 gpointer          user_data)
 {
     NemoActionConfigWidget *widget = NEMO_ACTION_CONFIG_WIDGET (user_data);
@@ -462,8 +461,6 @@ nemo_action_config_widget_finalize (GObject *object)
 
     g_list_free (widget->dir_monitors);
 
-    g_signal_handler_disconnect (nemo_plugin_preferences, widget->bl_handler);
-
     G_OBJECT_CLASS (nemo_action_config_widget_parent_class)->finalize (object);
 }
 
@@ -481,9 +478,9 @@ nemo_action_config_widget_init (NemoActionConfigWidget *self)
 {
     self->actions = NULL;
 
-    self->bl_handler = g_signal_connect (nemo_plugin_preferences, 
-                                         "changed::" NEMO_PLUGIN_PREFERENCES_DISABLED_ACTIONS,
-                                         G_CALLBACK (on_settings_changed), self);
+    self->bl_handler = g_signal_connect_object (nemo_plugin_preferences,
+                                                "changed::" NEMO_PLUGIN_PREFERENCES_DISABLED_ACTIONS,
+                                                G_CALLBACK (on_settings_changed), self, 0);
 
     GtkWidget *label = nemo_config_base_widget_get_label (NEMO_CONFIG_BASE_WIDGET (self));
 
@@ -530,6 +527,7 @@ nemo_action_config_widget_init (NemoActionConfigWidget *self)
     setup_dir_monitors (self);
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_action_config_widget_new (void)
 {

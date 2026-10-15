@@ -50,7 +50,7 @@ pkill -f "${DEST}/app/nemo-anywhere.exe" 2>/dev/null || true
 container_up(){ docker exec "$CONTAINER" true 2>/dev/null; }
 
 if [[ ! -x "${DEST}/app/nemo-anywhere.exe" ]] || (( restage )); then
-	container_up || { fEcho "FAILED: no staged copy and container '$CONTAINER' is not running"; exit 1; }
+	container_up || { fEcho "FAILED: no staged copy and container '$CONTAINER' isn't running"; exit 1; }
 	fEcho "Staging wine runtime from $CONTAINER"
 	docker exec "$CONTAINER" sh -c '
 		set -e
@@ -59,23 +59,27 @@ if [[ ! -x "${DEST}/app/nemo-anywhere.exe" ]] || (( restage )); then
 		mkdir -p "$D/mingw64/bin" "$D/mingw64/lib" "$D/mingw64/share/glib-2.0" "$D/app"
 		cd /opt/win-sysroot/mingw64
 		cp bin/*.dll "$D/mingw64/bin/"
-		cp bin/gdbus.exe bin/gspawn-win64-helper.exe bin/gspawn-win64-helper-console.exe "$D/mingw64/bin/" 2>/dev/null || true
-		# thumbnailer exes + their .thumbnailer descriptors: bin is on WINEPATH so
-		# g_find_program_in_path resolves them, share/thumbnailers is a data dir so
-		# nemo discovers the descriptors (image thumbs via gdk-pixbuf, office, svg)
-		cp bin/gdk-pixbuf-thumbnailer.exe bin/gsf-office-thumbnailer.exe "$D/mingw64/bin/" 2>/dev/null || true
+		# Thumbnailer descriptors come below: share/thumbnailers is a data dir.
+		# Pictures, SVG and office files are drawn by the app itself, as in the
+		# bundles.
 		cp -r lib/gdk-pixbuf-2.0 "$D/mingw64/lib/"
 		cp -r share/glib-2.0/schemas "$D/mingw64/share/glib-2.0/"
-		cp -r share/icons share/themes share/thumbnailers "$D/mingw64/share/"
-		cp -r etc "$D/mingw64/"'
+		cp -r share/icons share/themes "$D/mingw64/share/"
+		cp -r etc "$D/mingw64/"
+		cp -r /src/cicd/win/bundle-etc/. "$D/mingw64/etc/"'
+	docker exec "$CONTAINER" bash -c 'source /src/cicd/utility/include/thumbnailers.bash &&
+		fStageThumbnailers /opt/win-sysroot/mingw64/share/thumbnailers /src/cicd/artifacts/win-run/mingw64/share/thumbnailers'
 	docker exec "$CONTAINER" chown -R "$(id -u):$(id -g)" /src/cicd/artifacts/win-run
 fi
 
 # fresh build -> fresh exe, every run the container is up
 if container_up; then
 	docker exec "$CONTAINER" sh -c '
-		cp /build-win/src/nemo-anywhere.exe /src/cicd/artifacts/win-run/app/'
-	docker exec "$CONTAINER" chown -R "$(id -u):$(id -g)" /src/cicd/artifacts/win-run/app
+		cp /build-win/src/nemo-anywhere.exe /src/cicd/artifacts/win-run/app/
+		# Nothing starts a session bus on Windows; a snapshot staged before that
+		# still has one.
+		rm -f /src/cicd/artifacts/win-run/mingw64/bin/gdbus.exe'
+	docker exec "$CONTAINER" chown -R "$(id -u):$(id -g)" /src/cicd/artifacts/win-run/app /src/cicd/artifacts/win-run/mingw64/bin
 else
 	fEcho "WARNING: container '$CONTAINER' not running - using the staged snapshot as-is"
 	[[ -f "${DEST}/mingw64/share/glib-2.0/schemas/gschemas.compiled" ]] || glib-compile-schemas "${DEST}/mingw64/share/glib-2.0/schemas"

@@ -336,7 +336,7 @@ vfs_file_mount (NemoFile                   *file,
 		if (callback) {
 			error = NULL;
 			g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-                                             _("This file cannot be mounted"));
+                                             _("This file can't be mounted"));
 			callback (file, NULL, error, callback_data);
 			g_error_free (error);
 		}
@@ -514,7 +514,7 @@ vfs_file_start (NemoFile                   *file,
 		if (callback) {
 			error = NULL;
 			g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-                                             _("This file cannot be started"));
+                                             _("This file can't be started"));
 			callback (file, NULL, error, callback_data);
 			g_error_free (error);
 		}
@@ -638,7 +638,7 @@ vfs_file_poll_for_media (NemoFile *file)
 }
 
 static void
-nemo_vfs_file_init (NemoVFSFile *file)
+nemo_vfs_file_init (G_GNUC_UNUSED NemoVFSFile *file)
 {
 }
 

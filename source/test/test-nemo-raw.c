@@ -53,26 +53,30 @@ w16 (W *w, guint v)
 }
 
 static void
-w32 (W *w, guint32 v)
+put32 (const W *w, guint8 *b, guint32 v)
 {
-	guint8 b[4];
-
 	if (w->big) {
 		b[0] = v >> 24; b[1] = v >> 16; b[2] = v >> 8; b[3] = v;
 	} else {
 		b[0] = v; b[1] = v >> 8; b[2] = v >> 16; b[3] = v >> 24;
 	}
-	g_byte_array_append (w->out, b, 4);
 }
 
 static void
+w32 (W *w, guint32 v)
+{
+	guint8 b[4];
+
+	put32 (w, b, v);
+	g_byte_array_append (w->out, b, 4);
+}
+
+/* In place: GLib may clear the tail of a shrunk array (G_DEBUG=gc-friendly). */
+static void
 patch32 (W *w, guint at, guint32 v)
 {
-	guint len = w->out->len;
-
-	g_byte_array_set_size (w->out, at);
-	w32 (w, v);
-	g_byte_array_set_size (w->out, len);
+	g_assert (at + 4 <= w->out->len);
+	put32 (w, w->out->data + at, v);
 }
 
 static guint32
@@ -751,6 +755,7 @@ test_loop_work (const char *dir)
 		build_olympus_loop (TRUE),
 		build_rw2_loop (),
 	};
+	double limit = 0.25 * test_slowness ();
 	guint i;
 
 	for (i = 0; i < G_N_ELEMENTS (files); i++) {
@@ -763,13 +768,13 @@ test_loop_work (const char *dir)
 
 		check (g_file_set_contents (path, (const char *) files[i]->data, files[i]->len, NULL));
 		start = g_get_monotonic_time ();
-		pixbuf = nemo_raw_load_uri (uri, 128);
+		pixbuf = nemo_raw_load_uri (uri, 128, NULL);
 		secs = (g_get_monotonic_time () - start) / 1e6;
 		check (pixbuf == NULL);
-		if (secs >= 0.25) {
-			g_printerr ("  %s took %.2f s\n", name, secs);
+		if (secs >= limit) {
+			g_printerr ("  %s took %.2f s, over %.2f s\n", name, secs, limit);
 		}
-		check (secs < 0.25);
+		check (secs < limit);
 		g_byte_array_unref (files[i]);
 	}
 }
@@ -805,7 +810,7 @@ test_factory (const char *dir)
 	check (nemo_desktop_thumbnail_factory_can_make (factory, uri, "image/x-adobe-dng"));
 
 	pixbuf = nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (factory, uri,
-									    "image/x-adobe-dng", 128);
+									    "image/x-adobe-dng", 128, NULL);
 	check (color_is (pixbuf, 200, 30, 30));
 	/* Turned upright by the factory: 400 by 300 on its side. */
 	check (pixbuf != NULL && gdk_pixbuf_get_height (pixbuf) > gdk_pixbuf_get_width (pixbuf));
@@ -814,7 +819,7 @@ test_factory (const char *dir)
 }
 
 int
-main (int argc, char **argv)
+main (void)
 {
 	g_autofree char *home = test_scratch_config_home ("nemo-raw-XXXXXX");
 

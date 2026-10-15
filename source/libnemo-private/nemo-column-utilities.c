@@ -30,6 +30,7 @@
 #include <glib/gi18n.h>
 #include <libnemo-extension/nemo-column-provider.h>
 #include <libnemo-private/nemo-module.h>
+#include <libnemo-private/nemo-global-preferences.h>
 
 static GList *
 get_builtin_columns (void)
@@ -277,6 +278,7 @@ get_search_columns (void)
 }
 
 
+/* Returns: (transfer full): free with nemo_column_list_free */
 GList *
 nemo_get_common_columns (void)
 {
@@ -290,6 +292,7 @@ nemo_get_common_columns (void)
 	return nemo_column_list_copy (columns);
 }
 
+/* Returns: (transfer full): free with nemo_column_list_free */
 GList *
 nemo_get_all_columns (void)
 {
@@ -304,6 +307,7 @@ nemo_get_all_columns (void)
 	return with_search_columns;
 }
 
+/* Returns: (transfer full): free with nemo_column_list_free */
 GList *
 nemo_get_columns_for_file (NemoFile *file)
 {
@@ -323,6 +327,7 @@ nemo_get_columns_for_file (NemoFile *file)
 	return columns;
 }
 
+/* Returns: (transfer full): free with nemo_column_list_free */
 GList *
 nemo_column_list_copy (GList *columns) 
 {
@@ -399,6 +404,7 @@ column_compare (NemoColumn *a, NemoColumn *b, char **column_order)
 	}
 }
 
+/* Returns: (transfer full): @columns sorted in place, owned as @columns was */
 GList *
 nemo_sort_columns (GList  *columns, 
 		       char  **column_order)
@@ -411,4 +417,146 @@ nemo_sort_columns (GList  *columns,
 				      (GCompareDataFunc)column_compare,
 				      column_order);
 }
-		       
+
+/* Find results are not a folder, so they keep one set of columns of their own,
+ * whatever remember-folder-settings says. The key is the shown columns in
+ * their order; empty means these defaults. */
+static const char *const search_visible_columns[] = {
+	"name", "extension", "size", "date_modified", "where", NULL
+};
+
+static const char *const search_column_order[] = {
+	"name", "extension", "type", "size", "date_modified", "date_created",
+	"date_accessed", "where", NULL
+};
+
+static char **
+saved_search_columns (void)
+{
+	char **saved = nemo_config_get_strv (nemo_search_preferences,
+					     NEMO_PREFERENCES_SEARCH_VISIBLE_COLUMNS);
+
+	if (saved != NULL && saved[0] != NULL) {
+		return saved;
+	}
+
+	g_strfreev (saved);
+	return NULL;
+}
+
+/* Returns: (transfer full): free with g_strfreev */
+char **
+nemo_search_columns_get_default_visible (void)
+{
+	return g_strdupv ((char **) search_visible_columns);
+}
+
+/* Returns: (transfer full): free with g_strfreev */
+char **
+nemo_search_columns_get_default_order (void)
+{
+	return g_strdupv ((char **) search_column_order);
+}
+
+/* Returns: (transfer full): free with g_strfreev */
+char **
+nemo_search_columns_get_visible (void)
+{
+	char **saved = saved_search_columns ();
+
+	return saved != NULL ? saved : nemo_search_columns_get_default_visible ();
+}
+
+/* Returns: (transfer full): free with g_strfreev */
+char **
+nemo_search_columns_get_order (void)
+{
+	char **saved = saved_search_columns ();
+
+	return saved != NULL ? saved : nemo_search_columns_get_default_order ();
+}
+
+void
+nemo_search_columns_save (const char *const *visible_in_order)
+{
+	if (visible_in_order == NULL) {
+		nemo_config_reset (nemo_search_preferences,
+				   NEMO_PREFERENCES_SEARCH_VISIBLE_COLUMNS);
+		return;
+	}
+
+	nemo_config_set_strv (nemo_search_preferences,
+			      NEMO_PREFERENCES_SEARCH_VISIBLE_COLUMNS,
+			      visible_in_order);
+}
+
+/* Returns FALSE with nothing saved, and then *attribute is NULL.
+ * Returns: (transfer full) in *attribute: free with g_free */
+gboolean
+nemo_search_sort_get (char **attribute, gboolean *reversed)
+{
+	char *saved = nemo_config_get_string (nemo_search_preferences,
+					      NEMO_PREFERENCES_SEARCH_SORT_COLUMN);
+
+	if (saved == NULL || saved[0] == '\0') {
+		g_free (saved);
+		*attribute = NULL;
+		return FALSE;
+	}
+
+	*attribute = saved;
+	*reversed = nemo_config_get_boolean (nemo_search_preferences,
+					     NEMO_PREFERENCES_SEARCH_REVERSE_SORT);
+	return TRUE;
+}
+
+/* Every load of find results comes through here or save, so leave the file alone
+ * when nothing changes. */
+void
+nemo_search_sort_forget (void)
+{
+	char *saved = nemo_config_get_string (nemo_search_preferences,
+					      NEMO_PREFERENCES_SEARCH_SORT_COLUMN);
+
+	if (saved != NULL && saved[0] != '\0') {
+		nemo_config_reset (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_SORT_COLUMN);
+	}
+	g_free (saved);
+
+	if (nemo_config_get_boolean (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_REVERSE_SORT)) {
+		nemo_config_reset (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_REVERSE_SORT);
+	}
+}
+
+/* The default is kept as nothing, as a folder's is, so a new default sort
+ * order still reaches find results. */
+void
+nemo_search_sort_save (const char *attribute,
+		       gboolean    reversed,
+		       const char *default_attribute,
+		       gboolean    default_reversed)
+{
+	if (attribute == NULL ||
+	    (g_strcmp0 (attribute, default_attribute) == 0 && reversed == default_reversed)) {
+		nemo_search_sort_forget ();
+		return;
+	}
+
+	{
+		char *saved = NULL;
+		gboolean saved_reversed = FALSE;
+		gboolean same = nemo_search_sort_get (&saved, &saved_reversed) &&
+				g_strcmp0 (saved, attribute) == 0 &&
+				saved_reversed == reversed;
+
+		g_free (saved);
+		if (same) {
+			return;
+		}
+	}
+
+	nemo_config_set_string (nemo_search_preferences,
+				NEMO_PREFERENCES_SEARCH_SORT_COLUMN, attribute);
+	nemo_config_set_boolean (nemo_search_preferences,
+				 NEMO_PREFERENCES_SEARCH_REVERSE_SORT, reversed);
+}

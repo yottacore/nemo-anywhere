@@ -23,7 +23,7 @@ Most of this came out of a bug. Where a rule looks fussy, there is usually a clo
 
 - [Keyboard and focus](#keyboard-and-focus)
 
-- [What a platform cannot do](#what-a-platform-cannot-do)
+- [What a platform can't do](#what-a-platform-cant-do)
 
 - [Icons](#icons)
 
@@ -39,7 +39,7 @@ Most of this came out of a bug. Where a rule looks fussy, there is usually a clo
 
 - A name keeps its capital wherever it stands. That covers the platforms, the toolkit, formats and acronyms, and the named places in the sidebar such as Trash and Home. A command, tab or page named inside a sentence keeps its capital too, as in "the Paste command" or "Copy settings to Default".
 
-- Upstream Nemo is mostly Title Case. A label copied from it has to be brought down, and the lint gate will say so if it is not.
+- Upstream Nemo is mostly Title Case. A label copied from it has to be brought down, and the lint gate will say so if it isn't.
 
 - American spelling. "Color", "gray", "canceled".
 
@@ -51,15 +51,15 @@ Most of this came out of a bug. Where a rule looks fussy, there is usually a clo
 
 ## When to ask
 
-A question is a speed bump. It is worth it where a slip costs something that cannot be taken back, and nowhere else, since a question asked too often gets answered without being read.
+A question is a speed bump. It is worth it where a slip costs something that can't be taken back, and nowhere else, since a question asked too often gets answered without being read.
 
 - Ask before anything that removes or overwrites a file: trash, delete, and a copy or move over something already there.
 
-- Ask before a drop that moves files. A mouse drag is the easiest way to move a folder by accident, and often nobody notices it happened. Copies by drag do not ask by default, since nothing is lost. A link drop opens the Make link dialog, which is its own question.
+- Ask before a drop that moves files. A mouse drag is the easiest way to move a folder by accident, and often nobody notices it happened. Copies by drag don't ask by default, since nothing is lost. A link drop opens the Make link dialog, which is its own question.
 
 - The question names what is about to happen, to what, and where. `Move 3 items to "Archive"?`, not "Are you sure?".
 
-- Some things are refused rather than asked. Nobody deletes their home folder from a file manager on purpose, so that is not a question.
+- Some things are refused rather than asked. Nobody deletes their home folder from a file manager on purpose, so that isn't a question.
 
 - Some questions are asked whatever the preferences say: a large job, or one that no trash or delete command in a window started. The question says why it is being asked.
 
@@ -77,11 +77,11 @@ The details and the history are in [design.md, File operations](design.md#file-o
 
 - Message text in an error or question dialog can be selected and copied. People paste errors into bug reports and search boxes.
 
-- A dialog that grows, such as the archive dialog when Options opens, stays where it was on screen. It does not walk down the screen, and it stays inside the work area.
+- A dialog that grows, such as the archive dialog when Options opens, stays where it was on screen. It doesn't walk down the screen, and it stays inside the work area.
 
 - A settings window opens big enough for its largest page, so no page starts out behind a scrollbar.
 
-- Something that cannot be done is not offered and then refused. Gray it out, and where the reason is not obvious, say it in the dialog. The link copy dialog is the example: where the destination cannot hold a link, the other choices are grayed and a line says why.
+- Something that can't be done isn't offered and then refused. Gray it out, and where the reason isn't obvious, say it in the dialog. The link copy dialog is the example: where the destination can't hold a link, the other choices are grayed and a line says why.
 
 ## Keyboard and focus
 
@@ -89,7 +89,9 @@ The file list is where the keyboard belongs. Anything that leaves the focus some
 
 - Column headings, tabs and path buttons never keep the focus. A click on one puts the keyboard back in the file list. Tab and Shift+Tab pass over the tab strip.
 
-- Closing the path entry returns the focus to the file list. Clicking anywhere else closes it. Switching to another program does not, so a half-typed path survives the trip.
+- Tabs in a dialog never take the focus either, including the page list down the left of Settings. Ctrl+Page Up and Ctrl+Page Down, and Ctrl+Tab and Ctrl+Shift+Tab, step through them. Where a page has sub-tabs the keys go through those first, then on to the next page.
+
+- Closing the path entry returns the focus to the file list. Clicking anywhere else closes it. Switching to another program doesn't, so a half-typed path survives the trip.
 
 - A click on a place in the sidebar leaves the keyboard in the sidebar. Whoever clicked it may want the next place down.
 
@@ -97,13 +99,13 @@ The file list is where the keyboard belongs. Anything that leaves the focus some
 
 - A trash or delete key within a second of a window appearing or taking the focus is ignored. That key was meant for whatever window had the focus a moment ago.
 
-- One keystroke should do the obvious whole job. Ctrl+H shows both kinds of hidden file on Windows at once, and preferences can still set the two apart.
+- One keystroke should do the obvious whole job. Ctrl+H shows both kinds of hidden file on Windows at once, and Settings can still set the two apart.
 
-- A tab that is grayed out must also refuse to switch. GTK switches to an insensitive page on a click, so graying the page alone leaves a dead pane on screen.
+- A tab that is grayed out still opens, and shows its controls grayed out, so it is plain what is turned off. Its page must never be blank.
 
-## What a platform cannot do
+## What a platform can't do
 
-- A whole feature a platform does not have is left out on that platform. The Windows preferences page is not built into the other platforms' dialogs. A menu entry for a service that is not running hides rather than failing.
+- A whole feature a platform doesn't have is left out on that platform. The Windows settings page isn't built into the other platforms' dialogs. A menu entry for a service that isn't running hides rather than failing.
 
 - A choice inside a dialog that only some machines can use is grayed, not hidden, so the dialog keeps the same layout everywhere.
 
@@ -111,11 +113,11 @@ The file list is where the keyboard belongs. Anything that leaves the focus some
 
 ## Icons
 
-- Use a standard freedesktop icon name wherever one fits, so every theme has it. Names only Mint themes carry were all mapped to standard ones, and new code should not bring them back.
+- Use a standard freedesktop icon name wherever one fits, so every theme has it. Names only Mint themes carry were all mapped to standard ones, and new code shouldn't bring them back.
 
-- The app's own artwork is compiled into the program under names of its own. A theme cannot override it, which is why the link overlays live there.
+- The app's own artwork is compiled into the program under names of its own. A theme can't override it, which is why the link overlays live there.
 
-- A missing icon falls back through the theme's `Inherits` line to Adwaita and then hicolor. The result can be a glyph that does not match, but never a blank.
+- A missing icon falls back through the theme's `Inherits` line to Adwaita and then hicolor. The result can be a glyph that doesn't match, but never a blank.
 
 - A shortcut and a symlink have to look different at a glance. A shortcut gets the arrow and a symlink or junction gets a chain link.
 
@@ -131,7 +133,9 @@ How theme lookup works is in [design.md, Appearance and themes](design.md#appear
 
 - 12 pixels between a label and its field. A field stops at the same right-hand margin as the rest of the section, and fields in a group start at the same point as each other. The command fields on the Behavior page are the pattern.
 
-- A button that acts on a tab's content sits at the top right of that content, not in the tab header. Each tab has its own buttons, and they do not come and go as tabs change.
+- A button that acts on a tab's content sits at the top right of that content, not in the tab header. Each tab has its own buttons, and they don't come and go as tabs change.
+
+- In a dialog with its tabs in a list down the left, a page with sub-tabs lists them in that same list, indented under it, so they can be seen without opening the page. The page and the sub-tab showing are both lit. A dialog with its tabs on top keeps sub-tabs on the page, as tabs on top of their own. A page too long to fit is split into sub-tabs of related settings rather than left to scroll.
 
 - Two unselected tabs next to each other get a divider. Most themes draw none, and a row of tabs then reads as one strip.
 
@@ -145,6 +149,6 @@ How theme lookup works is in [design.md, Appearance and themes](design.md#appear
 
 - `lint-c.bash` also fails if a delete or an overwrite in `nemo-file-operations.c` can get past the delete guards without being seen. It also fails if something other than a window could start a trash, delete or move, such as a new bus method.
 
-- `test-nemo-prefs-widgets` fails if a preferences widget the code looks up by name has gone missing from the layout file.
+- `test-nemo-prefs-widgets` fails if a settings widget the code looks up by name has gone missing from the layout file.
 
 Everything else here is checked by eye, so a change that touches the interface gets looked at on screen, in both a light and a dark theme.

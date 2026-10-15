@@ -176,7 +176,7 @@ skip_emblem:
 }
 
 static char *
-nemo_icon_view_container_get_icon_description (NemoIconContainer *container,
+nemo_icon_view_container_get_icon_description (G_GNUC_UNUSED NemoIconContainer *container,
 						   NemoIconData      *data)
 {
 	NemoFile *file;
@@ -409,7 +409,7 @@ typedef enum {
 } SortCategory;
 
 static SortCategory
-get_sort_category (NemoFile *file)
+get_sort_category (G_GNUC_UNUSED NemoFile *file)
 {
 	return SORT_OTHER;
 }
@@ -808,7 +808,7 @@ lay_down_icons_horizontal (NemoIconContainer *container,
 static void
 lay_down_icons_vertical (NemoIconContainer *container,
              GList *icons,
-             double start_y)
+             G_GNUC_UNUSED double start_y)
 {
     GList *p, *line_start;
     NemoIcon *icon;
@@ -1896,7 +1896,7 @@ static const char * step_names[] = {
 };
 
 static void
-text_ellipsis_limit_changed_callback (gpointer callback_data)
+text_ellipsis_limit_changed_callback (G_GNUC_UNUSED gpointer callback_data)
 {
     char **pref;
     unsigned int i;
@@ -1924,7 +1924,7 @@ text_ellipsis_limit_changed_callback (gpointer callback_data)
 }
 
 static void
-desktop_text_ellipsis_limit_changed_callback (gpointer callback_data)
+desktop_text_ellipsis_limit_changed_callback (G_GNUC_UNUSED gpointer callback_data)
 {
     int pref;
 
@@ -1935,7 +1935,7 @@ desktop_text_ellipsis_limit_changed_callback (gpointer callback_data)
 static gchar *
 on_get_tooltip_text (NemoIconContainer *container,
                      NemoFile          *file,
-                     gpointer           user_data)
+                     G_GNUC_UNUSED gpointer           user_data)
 {
     gchar *tooltip_text = NULL;
 
@@ -2005,29 +2005,9 @@ nemo_icon_view_container_get_additional_text_line_count (NemoIconContainer *cont
 }
 
 static void
-finalize (GObject *object)
-{
-    g_signal_handlers_disconnect_by_func (nemo_icon_view_preferences,
-                                          text_ellipsis_limit_changed_callback,
-                                          NULL);
-
-    g_signal_handlers_disconnect_by_func (nemo_desktop_preferences,
-                                          desktop_text_ellipsis_limit_changed_callback,
-                                          NULL);
-
-    g_signal_handlers_disconnect_by_func (nemo_icon_view_preferences,
-                                          update_auto_strv_as_quarks,
-                                          &caption_attributes);
-
-    G_OBJECT_CLASS (nemo_icon_view_container_parent_class)->finalize (object);
-}
-
-static void
 nemo_icon_view_container_class_init (NemoIconViewContainerClass *klass)
 {
 	NemoIconContainerClass *ic_class;
-
-    G_OBJECT_CLASS (klass)->finalize = finalize;
 
 	ic_class = &klass->parent_class;
 
@@ -2065,6 +2045,8 @@ nemo_icon_view_container_init (NemoIconViewContainer *icon_container)
 
     g_signal_connect (icon_container, "get-tooltip-text", G_CALLBACK (on_get_tooltip_text), NULL);
 
+    /* Once for the process and never disconnected: every container reads the
+       same statics, so one being freed must not take them from the rest. */
     if (!setup_prefs) {
         g_signal_connect_swapped (nemo_icon_view_preferences,
                       "changed::" NEMO_PREFERENCES_ICON_VIEW_TEXT_ELLIPSIS_LIMIT,
@@ -2087,6 +2069,7 @@ nemo_icon_view_container_init (NemoIconViewContainer *icon_container)
     }
 }
 
+/* Returns: (transfer none): @icon_container itself */
 NemoIconContainer *
 nemo_icon_view_container_construct (NemoIconViewContainer *icon_container,
                                     NemoIconView          *view,
@@ -2126,6 +2109,7 @@ nemo_icon_view_container_construct (NemoIconViewContainer *icon_container,
 	return NEMO_ICON_CONTAINER (icon_container);
 }
 
+/* Returns: (transfer floating) */
 NemoIconContainer *
 nemo_icon_view_container_new (NemoIconView *view,
                               gboolean      is_desktop)

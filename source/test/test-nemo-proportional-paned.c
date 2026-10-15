@@ -41,6 +41,7 @@ static void
 rig_down (Rig *rig)
 {
 	gtk_widget_destroy (rig->paned);
+	/* cppcheck-suppress doubleFree ; the ref_sink in rig_up is ours to drop */
 	g_object_unref (rig->paned);
 }
 

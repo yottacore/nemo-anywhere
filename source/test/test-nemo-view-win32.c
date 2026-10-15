@@ -43,7 +43,7 @@ check_split (const char *command, const char *want_exe, const char *want_args)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	/* Ordinary paths: interior separators are literal, spaces are covered by
 	 * the surrounding quotes and nothing else changes. */

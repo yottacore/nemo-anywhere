@@ -211,6 +211,51 @@ check_passthrough (void)
 	g_clear_error (&error);
 }
 
+/* A line the user edits takes a Windows path as written there. Elsewhere it
+   keeps the shell's rules, backslash escapes included. */
+static void
+check_windows_paths (void)
+{
+	NemoCommandToken tokens[] = {
+		{ "SOURCE_ARCHIVE", one_archive, FALSE },
+		{ NULL, NULL, FALSE }
+	};
+	GError *error = NULL;
+	char **argv;
+
+	argv = nemo_command_template_expand ("C:\\Tools\\7z.exe x -oC:\\out\\new {{SOURCE_ARCHIVE}}", tokens, &error);
+	check (argv != NULL);
+
+	if (argv != NULL) {
+		check (count_args (argv) == 4);
+#ifdef G_OS_WIN32
+		check (g_strcmp0 (argv[0], "C:\\Tools\\7z.exe") == 0);
+		check (g_strcmp0 (argv[2], "-oC:\\out\\new") == 0);
+#else
+		check (g_strcmp0 (argv[0], "C:Tools7z.exe") == 0);
+		check (g_strcmp0 (argv[2], "-oC:outnew") == 0);
+#endif
+		check (g_strcmp0 (argv[3], one_archive[0]) == 0);
+		g_strfreev (argv);
+	}
+	g_clear_error (&error);
+
+	argv = nemo_command_template_expand ("\"C:\\Program Files\\7-Zip\\7z.exe\" x \\\\box\\share\\a.7z", tokens, &error);
+	check (argv != NULL);
+
+	if (argv != NULL) {
+		check (count_args (argv) == 3);
+		check (g_strcmp0 (argv[0], "C:\\Program Files\\7-Zip\\7z.exe") == 0);
+#ifdef G_OS_WIN32
+		check (g_strcmp0 (argv[2], "\\\\box\\share\\a.7z") == 0);
+#else
+		check (g_strcmp0 (argv[2], "\\boxsharea.7z") == 0);
+#endif
+		g_strfreev (argv);
+	}
+	g_clear_error (&error);
+}
+
 static void
 check_unused (void)
 {
@@ -326,6 +371,41 @@ check_from_config (void)
 					   "7z", "/tmp/out.7z", names, NULL);
 	check (argv == NULL);
 
+	/* A password and volumes are requirements. A line edited past one is
+	   refused while it's asked for, and runs while it isn't. */
+	nemo_config_set_string (archive, NEMO_ARCHIVE_COMMAND_KEY_7Z,
+				"7z a {{FORMAT}} {{SPLIT}} -- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}");
+	argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_7Z, options.format, &options,
+					   "7z", "/tmp/out.7z", names, NULL);
+	check (argv != NULL);
+	g_strfreev (argv);
+	options.password = g_strdup ("hunter");
+	argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_7Z, options.format, &options,
+					   "7z", "/tmp/out.7z", names, NULL);
+	check (argv == NULL);
+	g_strfreev (argv);
+	g_clear_pointer (&options.password, g_free);
+
+	nemo_config_set_string (archive, NEMO_ARCHIVE_COMMAND_KEY_7Z,
+				"7z a {{FORMAT}} {{PASSWORD}} -- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}");
+	options.split_size = 1024 * 1024;
+	argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_7Z, options.format, &options,
+					   "7z", "/tmp/out.7z", names, NULL);
+	check (argv == NULL);
+	g_strfreev (argv);
+	nemo_config_set_string (archive, NEMO_ARCHIVE_COMMAND_KEY_RAR,
+				"rar a {{PASSWORD}} -- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}");
+	argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_RAR, NEMO_ARCHIVE_FORMAT_RAR, &options,
+					   "rar", "/tmp/out.rar", names, NULL);
+	check (argv == NULL);
+	g_strfreev (argv);
+	options.split_size = 0;
+	argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_RAR, NEMO_ARCHIVE_FORMAT_RAR, &options,
+					   "rar", "/tmp/out.rar", names, NULL);
+	check (argv != NULL);
+	g_strfreev (argv);
+	nemo_config_reset (archive, NEMO_ARCHIVE_COMMAND_KEY_RAR);
+
 	nemo_config_reset (archive, NEMO_ARCHIVE_COMMAND_KEY_7Z);
 	nemo_archive_options_clear (&options);
 	g_list_free (names);
@@ -341,6 +421,7 @@ main (int argc, char *argv[])
 	check_values_stay_one_argument ();
 	check_refusals ();
 	check_passthrough ();
+	check_windows_paths ();
 	check_unused ();
 
 	tmp = test_scratch_config_home ("nemo-command-template-test-XXXXXX");

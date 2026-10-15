@@ -168,6 +168,15 @@ int			    nemo_drag_modifier_based_action		(int				       default_action,
 GdkDragAction		    nemo_drag_drop_action_ask		(GtkWidget			      *widget,
 									 GdkDragAction			       possible_actions);
 
+/* gdk_drag_status and gdk_drag_context_get_selected_action for a drop target,
+   which also carry an ask through on Windows. Use these in their place. */
+void			    nemo_drag_status			(GdkDragContext			      *context,
+									 GdkDragAction			       action,
+									 guint32			       time);
+GdkDragAction		    nemo_drag_selected_action		(GdkDragContext			      *context);
+/* What a drop target can choose from, for the drop menu. */
+GdkDragAction		    nemo_drag_offered_actions		(GdkDragContext			      *context);
+
 /* Whether a drop of this action into this folder is one the settings say to
    confirm. Split out from the dialog so the rule can be checked on its own. */
 gboolean		    nemo_drag_confirm_needed		(GdkDragAction			       action,

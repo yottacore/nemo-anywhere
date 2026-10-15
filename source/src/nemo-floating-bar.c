@@ -124,7 +124,7 @@ update_label (NemoFloatingBar *self)
 }
 
 static gboolean
-overlay_enter_notify_cb (GtkWidget        *parent,
+overlay_enter_notify_cb (G_GNUC_UNUSED GtkWidget        *parent,
 			 GdkEventCrossing *event,
 			 gpointer          user_data)
 {
@@ -326,6 +326,7 @@ nemo_floating_bar_set_show_spinner (NemoFloatingBar *self,
 	}
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_floating_bar_new (const gchar *label,
 			   gboolean show_spinner)

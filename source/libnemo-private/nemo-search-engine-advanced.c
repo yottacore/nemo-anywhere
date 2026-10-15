@@ -24,6 +24,13 @@
 #include "nemo-file-utilities.h"
 #include "nemo-search-engine-advanced.h"
 #include "nemo-global-preferences.h"
+#include "nemo-office.h"
+#include "nemo-column-utilities.h"
+#include "nemo-tool-run.h"
+#include "nemo-user-text.h"
+#ifdef G_OS_WIN32
+#include "nemo-launch-win32.h"
+#endif
 
 #include <limits.h>
 #include <stdlib.h>
@@ -149,8 +156,10 @@ process_search_helper_file (const gchar *path)
     gchar **try_exec_list = NULL;
     gchar *abs_try_path = NULL;
     gchar **mime_types = NULL;
+    GError *error = NULL;
     gsize n_types;
-    gint i, priority;
+    gsize i;
+    gint priority;
 
     DEBUG ("Loading search helper: %s", path);
 
@@ -171,14 +180,23 @@ process_search_helper_file (const gchar *path)
         goto done;
     }
 
-    try_exec_list = g_key_file_get_string_list (key_file, SEARCH_HELPER_GROUP, "TryExec", NULL, NULL);
+    /* Off Windows a bare backslash is a bad escape to GKeyFile, and the whole
+       list comes back NULL. Unchecked is not the same as found. */
+    try_exec_list = nemo_user_text_get_string_list (key_file, SEARCH_HELPER_GROUP, "TryExec", NULL, &error);
+
+    if (try_exec_list == NULL) {
+        g_warning ("Nemo search_helper TryExec couldn't be read (%s) - %s",
+                   error != NULL ? error->message : "empty", path);
+        goto done;
+    }
+
     gboolean try_failed = FALSE;
 
     for (i = 0; i < g_strv_length (try_exec_list); i++) {
         abs_try_path = g_find_program_in_path (try_exec_list[i]);
 
         if (!abs_try_path) {
-            DEBUG ("Skipping search helper '%s' - program is not available (%s)", path, try_exec_list[i]);
+            DEBUG ("Skipping search helper '%s' - program isn't available (%s)", path, try_exec_list[i]);
             try_failed = TRUE;
             break;
         }
@@ -193,17 +211,17 @@ process_search_helper_file (const gchar *path)
     }
 
     n_types = 0;
-    mime_types = g_key_file_get_string_list (key_file, SEARCH_HELPER_GROUP, "MimeType", &n_types, NULL);
+    mime_types = nemo_user_text_get_string_list (key_file, SEARCH_HELPER_GROUP, "MimeType", &n_types, NULL);
 
     if (n_types == 0) {
         g_warning ("Nemo search_helper no mimetypes defined - %s", path);
         goto done;
     }
 
-    exec_format = g_key_file_get_string (key_file, SEARCH_HELPER_GROUP, "Exec", NULL);
+    exec_format = nemo_user_text_get_string (key_file, SEARCH_HELPER_GROUP, "Exec", NULL);
 
     if (exec_format == NULL) {
-        g_warning ("Nemo search_helper could not retrieve Exec field - %s", path);
+        g_warning ("Nemo search_helper couldn't retrieve Exec field - %s", path);
         goto done;
     }
 
@@ -236,6 +254,7 @@ process_search_helper_file (const gchar *path)
     }
 
 done:
+    g_clear_error (&error);
     g_key_file_free (key_file);
     g_free (exec_format);
 
@@ -245,7 +264,7 @@ done:
 }
 
 static void
-initialize_search_helpers (NemoSearchEngineAdvanced *engine)
+initialize_search_helpers (G_GNUC_UNUSED NemoSearchEngineAdvanced *engine)
 {
     GList *dir_list, *d_iter;
 
@@ -268,7 +287,7 @@ initialize_search_helpers (NemoSearchEngineAdvanced *engine)
 
         dir = g_dir_open (path, 0, &error);
         if (error != NULL) {
-            g_warning ("Could not load helper dir (%s): %s", path, error->message);
+            g_warning ("Couldn't load helper dir (%s): %s", path, error->message);
             g_clear_error (&error);
             continue;
         }
@@ -416,6 +435,7 @@ struct _NemoSearchNameMatcher {
     gboolean use_regex;
 };
 
+/* Returns: (transfer full): free with nemo_search_name_matcher_free */
 NemoSearchNameMatcher *
 nemo_search_name_matcher_new (NemoQuery *query)
 {
@@ -557,7 +577,7 @@ search_thread_data_new (NemoSearchEngineAdvanced *engine,
     SearchThreadData *data;
     char *uri;
     GFile *location;
-    gint i;
+    guint i;
 
 	data = g_new0 (SearchThreadData, 1);
 
@@ -598,7 +618,7 @@ search_thread_data_new (NemoSearchEngineAdvanced *engine,
 
     data->count_hits = FALSE;
 
-    gchar **saved_search_columns = nemo_config_get_strv (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_VISIBLE_COLUMNS);
+    gchar **saved_search_columns = nemo_search_columns_get_visible ();
     if (g_strv_contains ((const gchar * const *) saved_search_columns, "search_result_count")) {
         data->count_hits = TRUE;
         DEBUG ("Counting search hits");
@@ -648,9 +668,7 @@ search_thread_data_new (NemoSearchEngineAdvanced *engine,
 static void
 search_thread_data_free (SearchThreadData *data)
 {
-	g_queue_foreach (data->directories,
-			 (GFunc)g_object_unref, NULL);
-	g_queue_free (data->directories);
+	g_queue_free_full (data->directories, g_object_unref);
 	g_hash_table_destroy (data->visited);
     g_hash_table_destroy (data->skip_folders);
 	g_object_unref (data->cancellable);
@@ -744,10 +762,11 @@ send_batch (SearchThreadData *data)
 static GInputStream *
 get_stream_from_helper (SearchHelper *helper,
                         GFile        *file,
-                        GSubprocess **proc,
+                        NemoToolRun **proc,
                         GError      **error)
 {
-    GSubprocess *helper_proc;
+    NemoToolRun *helper_proc;
+    GError *start_error = NULL;
     GSubprocessFlags flags;
     GInputStream *stream;
     GString *command_line;
@@ -755,7 +774,7 @@ get_stream_from_helper (SearchHelper *helper,
     gchar *ptr, *path, *quoted, *resolved;
 
     path = g_file_get_path (file);
-    quoted = g_shell_quote (path);
+    quoted = nemo_user_text_quote (path);
     g_free (path);
 
     command_line = g_string_new (helper->exec_format);
@@ -772,10 +791,10 @@ get_stream_from_helper (SearchHelper *helper,
         return NULL;
     }
 
-    if (!g_shell_parse_argv (command_line->str,
-                             NULL,
-                             &argv,
-                             error)) {
+    if (!nemo_user_text_split_command (command_line->str,
+                                       NULL,
+                                       &argv,
+                                       error)) {
         g_string_free (command_line, TRUE);
         g_free (quoted);
         return NULL;
@@ -795,12 +814,18 @@ get_stream_from_helper (SearchHelper *helper,
         flags |= G_SUBPROCESS_FLAGS_STDERR_SILENCE;
     }
 
-    helper_proc = g_subprocess_newv ((const gchar * const *) argv, flags, error);
+    helper_proc = nemo_tool_run_start ((const gchar * const *) argv, NULL, flags, &start_error);
+    if (helper_proc == NULL) {
+#ifdef G_OS_WIN32
+        nemo_launch_win32_report_failed (argv[0], start_error);
+#endif
+        g_propagate_error (error, start_error);
+    }
 
     stream = NULL;
 
     if (helper_proc != NULL) {
-        stream = g_subprocess_get_stdout_pipe (helper_proc);
+        stream = nemo_tool_run_get_stdout (helper_proc);
         *proc = helper_proc;
     }
 
@@ -869,14 +894,19 @@ static gchar *
 load_contents (SearchThreadData *data,
                GFile            *file,
                SearchHelper     *helper,
+               gboolean          in_app,
                GError          **error)
 {
     // TODO: Use flock/mmap for local files?
-    GSubprocess *helper_proc;
+    NemoToolRun *helper_proc;
     GInputStream *stream = NULL;
     GString *str;
 
     helper_proc = NULL;
+
+    if (in_app) {
+        return nemo_office_text_file (file, MAX_CONTENT_SCAN_BYTES, data->cancellable, error);
+    }
 
     if (helper != NULL) {
         stream = get_stream_from_helper (helper, file, &helper_proc, error);
@@ -914,12 +944,10 @@ load_contents (SearchThreadData *data,
                           data->cancellable,
                           *error == NULL ? error : NULL);
 
-    // GSubprocess owns the input stream for its STDOUT, but we own it for the text/plain stream.
+    // The run owns the input stream for its STDOUT, but we own it for the text/plain stream.
     if (helper_proc != NULL) {
-        g_subprocess_wait (helper_proc,
-                           NULL,
-                           *error == NULL ? error : NULL);
-        g_object_unref (helper_proc);
+        nemo_tool_run_wait (helper_proc);
+        nemo_tool_run_free (helper_proc);
     } else {
         g_object_unref (stream);
     }
@@ -927,11 +955,13 @@ load_contents (SearchThreadData *data,
     return g_string_free (str, FALSE);
 }
 
-/* TRUE when the file could be read (hits or not), FALSE when it could not. */
+/* TRUE when the file could be read (hits or not), FALSE when it could not.
+ * in_app reads an office file here rather than through a helper. */
 static gboolean
 search_for_content_hits (SearchThreadData *data,
                          GFile            *file,
-                         SearchHelper     *helper)
+                         SearchHelper     *helper,
+                         gboolean          in_app)
 {
     GMatchInfo *match_info;
     GError *error;
@@ -940,7 +970,7 @@ search_for_content_hits (SearchThreadData *data,
 
     error = NULL;
 
-    contents = load_contents (data, file, helper, &error);
+    contents = load_contents (data, file, helper, in_app, &error);
 
     if (g_cancellable_is_cancelled (data->cancellable)) {
         g_clear_error (&error);
@@ -948,9 +978,17 @@ search_for_content_hits (SearchThreadData *data,
         return TRUE;
     }
 
+    /* Not a file the app reads after all. The helpers get their turn. */
+    if (error != NULL && in_app) {
+        DEBUG ("Not read in the app: %s", error->message);
+        g_error_free (error);
+        g_free (contents);
+        return FALSE;
+    }
+
     if (error != NULL) {
         gchar *uri = g_file_get_uri (file);
-        g_warning ("Could not load contents of '%s' during content search: %s", uri, error->message);
+        g_warning ("Couldn't load contents of '%s' during content search: %s", uri, error->message);
         g_free (uri);
         g_error_free (error);
         g_free (contents);
@@ -1005,7 +1043,7 @@ search_for_content_hits (SearchThreadData *data,
 
 static gboolean
 hash_func_check_skip_file (gpointer key,
-                           gpointer value,
+                           G_GNUC_UNUSED gpointer value,
                            gpointer user_data)
 {
     const gchar *entry = key;
@@ -1021,7 +1059,7 @@ hash_func_check_skip_file (gpointer key,
 
 static gboolean
 hash_func_check_skip_dir (gpointer key,
-                          gpointer value,
+                          G_GNUC_UNUSED gpointer value,
                           gpointer user_data)
 {
     const gchar *entry = key;
@@ -1042,7 +1080,7 @@ hash_func_check_skip_dir (gpointer key,
 }
 
 static gboolean
-should_skip_child (SearchThreadData *data, GFileInfo *info, GFile *file, gboolean is_dir)
+should_skip_child (SearchThreadData *data, G_GNUC_UNUSED GFileInfo *info, GFile *file, gboolean is_dir)
 {
     const gchar *path = g_file_peek_path (file);
     g_autofree gchar *resolved_path = g_canonicalize_filename (path, NULL);
@@ -1155,61 +1193,13 @@ compare_helper_priority (gconstpointer a,
     return ((const SearchHelper *) b)->priority - ((const SearchHelper *) a)->priority;
 }
 
-#ifdef G_OS_WIN32
-/* Win32 calls a file's type its extension, and an extension Windows has no
- * registration for comes back as application/x-ext-<ext>. The formats a
- * converter ships for are known here regardless of what is installed. */
-static gchar *
-content_type_to_document_mime (const gchar *content_type)
-{
-    static const struct {
-        const gchar *ext;
-        const gchar *mime;
-    } known[] = {
-        { "doc",  "application/msword" },
-        { "dot",  "application/msword" },
-        { "xls",  "application/vnd.ms-excel" },
-        { "xlt",  "application/vnd.ms-excel" },
-        { "ppt",  "application/vnd.ms-powerpoint" },
-        { "pps",  "application/vnd.ms-powerpoint" },
-        { "docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
-        { "xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
-        { "pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
-        { "odt",  "application/vnd.oasis.opendocument.text" },
-        { "ods",  "application/vnd.oasis.opendocument.spreadsheet" },
-        { "odp",  "application/vnd.oasis.opendocument.presentation" },
-        { "odg",  "application/vnd.oasis.opendocument.graphics" },
-        { "epub", "application/epub+zip" },
-        { "pdf",  "application/pdf" },
-    };
-    gchar *mime = g_content_type_get_mime_type (content_type);
-    const gchar *ext = NULL;
-    guint i;
-
-    if (mime == NULL) {
-        ext = content_type[0] == '.' ? content_type + 1 : content_type;
-    } else if (g_str_has_prefix (mime, "application/x-ext-")) {
-        ext = mime + strlen ("application/x-ext-");
-    }
-
-    for (i = 0; ext != NULL && i < G_N_ELEMENTS (known); i++) {
-        if (g_ascii_strcasecmp (ext, known[i].ext) == 0) {
-            g_free (mime);
-            return g_strdup (known[i].mime);
-        }
-    }
-
-    return mime != NULL ? mime : g_strdup (content_type);
-}
-#endif
-
 /* Every helper for the type, best first. */
 static GList *
 lookup_helpers_for_content_type (const gchar *content_type)
 {
     SearchHelperFindData find_data = { NULL, content_type };
 #ifdef G_OS_WIN32
-    g_autofree gchar *mime = content_type_to_document_mime (content_type);
+    g_autofree gchar *mime = nemo_content_type_get_mime_type (content_type);
 
     find_data.content_type = mime;
 #endif
@@ -1309,8 +1299,9 @@ visit_directory (GFile *dir, SearchThreadData *data)
                     }
 
                     if (content_type_is_text (content_type, child, data->cancellable)) {
-                        search_for_content_hits (data, child, NULL);
-                    } else {
+                        search_for_content_hits (data, child, NULL, FALSE);
+                    } else if (!nemo_office_type_ok (content_type) ||
+                               !search_for_content_hits (data, child, NULL, TRUE)) {
                         GList *helpers = lookup_helpers_for_content_type (content_type);
                         if (helpers != NULL) {
                             GList *i;
@@ -1318,7 +1309,7 @@ visit_directory (GFile *dir, SearchThreadData *data)
                             /* The next helper is only tried when this one could
                              * not read the file at all. */
                             for (i = helpers; i != NULL; i = i->next) {
-                                if (search_for_content_hits (data, child, i->data)) {
+                                if (search_for_content_hits (data, child, i->data, FALSE)) {
                                     break;
                                 }
                             }
@@ -1490,6 +1481,7 @@ nemo_search_engine_advanced_init (NemoSearchEngineAdvanced *engine)
     }
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoSearchEngine *
 nemo_search_engine_advanced_new (void)
 {

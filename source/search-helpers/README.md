@@ -21,7 +21,7 @@ The `Nemo Search Helper` group name is mandatory.
   b) are executable. If these checks fail, the helper will be skipped. If only a program name is provided, it must exist in the
   user's path. This can also be an absolute path. 
 - `Exec` should provide the full command line necessary to extract the text from the file. The `%s` argument will be replaced by
-  the file name being processed during content search. Note, uris are not supported, only paths (local files).
+  the file name being processed during content search. Note, uris aren't supported, only paths (local files).
 - `MimeType`is a semicolon (`;`)-separated list of mimetypes that this search helper should be used with. It should be
   semicolon-terminated (even if there's only a single item).
 - `Priority` is a value used to break a tie when multiple helpers support the same mimetype. The higher value wins. In the
@@ -31,18 +31,15 @@ The `Nemo Search Helper` group name is mandatory.
 
 These definition files can be placed in `<datadir>/nemo-anywhere/search-helpers` where `<datadir>` can be some directory in XDG_DATA_DIRS or under the user's data directory (`~/.local/share/nemo-anywhere/search-helpers`, `%LOCALAPPDATA%\nemo-anywhere\search-helpers` on Windows). The user directory is *always* processed last.
 
-When more than one helper claims a type, the one with the highest `Priority` runs; the next is only tried when it could not read the file at all.
+On Windows a path goes in as written, single backslashes and all, as in `TryExec=C:\Tools\pdftotext.exe;` and `Exec="C:\Program Files\xpdf\pdftotext.exe" %s -`. Double quotes group a path with spaces. A file with every backslash doubled reads the same.
 
-##### Built-in converters:
+When more than one helper claims a type, the one with the highest `Priority` runs; the next is only tried when it couldn't read the file at all.
 
-The converters in this folder are plain C on libgsf and are built and shipped on every platform, so these formats need nothing installed:
+##### Office files:
 
-- `nemo-anywhere-mso-to-txt` - any zip-of-xml document: Word, Excel and PowerPoint 2007+ (`.docx`, `.xlsx`, `.pptx`), OpenDocument (`.odt`, `.ods`, `.odp`, `.odg`) and EPUB.
-- `nemo-anywhere-doc-to-txt` - Word 6 through 2003 (`.doc`).
-- `nemo-anywhere-xls-to-txt` - Excel 5 through 2003 (`.xls`).
-- `nemo-anywhere-ppt-to-txt` - PowerPoint 97 through 2003 (`.ppt`).
+The app reads Word, Excel and PowerPoint files, old and new, OpenDocument and EPUB itself, before any helper, so no helper is needed for them. A helper installed for one of those types runs only for a file the app couldn't read.
 
-The definitions under `third-party/` name programs that may or may not be installed (pdftotext, exiftool and so on) and are skipped when they are not.
+The definitions under `third-party/` name programs that may or may not be installed (pdftotext, exiftool and so on) and are skipped when they aren't.
 
 ##### Debugging:
 If something doesn't seem to be working, you can run nemo with debugging enabled:

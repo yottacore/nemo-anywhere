@@ -237,6 +237,7 @@ get_icon_container (NemoIconView *icon_view)
 	return NEMO_ICON_CONTAINER (icon_view->details->icon_container);
 }
 
+/* Returns: (transfer none): owned by @icon_view */
 NemoIconContainer *
 nemo_icon_view_get_icon_container (NemoIconView *icon_view)
 {
@@ -325,7 +326,7 @@ nemo_icon_view_clean_up (NemoIconView *icon_view)
 }
 
 static void
-action_clean_up_callback (GtkAction *action, gpointer callback_data)
+action_clean_up_callback (G_GNUC_UNUSED GtkAction *action, gpointer callback_data)
 {
 	nemo_icon_view_clean_up (NEMO_ICON_VIEW (callback_data));
 }
@@ -338,7 +339,7 @@ nemo_icon_view_using_auto_layout (NemoIconView *icon_view)
 }
 
 static void
-action_sort_radio_callback (GtkAction *action,
+action_sort_radio_callback (G_GNUC_UNUSED GtkAction *action,
 			    GtkRadioAction *current,
 			    NemoIconView *view)
 {
@@ -367,7 +368,7 @@ list_covers (NemoIconData *data, gpointer callback_data)
 }
 
 static void
-unref_cover (NemoIconData *data, gpointer callback_data)
+unref_cover (NemoIconData *data, G_GNUC_UNUSED gpointer callback_data)
 {
 	nemo_file_unref (NEMO_FILE (data));
 }
@@ -601,6 +602,7 @@ update_layout_menus (NemoIconView *view)
 }
 
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_icon_view_get_directory_sort_by (NemoIconView *icon_view,
 					  NemoFile *file)
@@ -769,7 +771,7 @@ nemo_icon_view_set_directory_auto_layout (NemoIconView *icon_view,
 }
 
 void
-nemo_icon_view_set_directory_horizontal_layout (NemoIconView *icon_view,
+nemo_icon_view_set_directory_horizontal_layout (G_GNUC_UNUSED NemoIconView *icon_view,
                                                 NemoFile     *file,
                                                 gboolean      horizontal)
 {
@@ -780,7 +782,7 @@ nemo_icon_view_set_directory_horizontal_layout (NemoIconView *icon_view,
 }
 
 gboolean
-nemo_icon_view_get_directory_horizontal_layout (NemoIconView *icon_view,
+nemo_icon_view_get_directory_horizontal_layout (G_GNUC_UNUSED NemoIconView *icon_view,
                                                 NemoFile     *file)
 {
     return nemo_file_get_boolean_metadata (file,
@@ -789,7 +791,7 @@ nemo_icon_view_get_directory_horizontal_layout (NemoIconView *icon_view,
 }
 
 void
-nemo_icon_view_set_directory_grid_adjusts (NemoIconView *icon_view,
+nemo_icon_view_set_directory_grid_adjusts (G_GNUC_UNUSED NemoIconView *icon_view,
                                            NemoFile     *file,
                                            gint          horizontal,
                                            gint          vertical)
@@ -800,7 +802,7 @@ nemo_icon_view_set_directory_grid_adjusts (NemoIconView *icon_view,
 }
 
 void
-nemo_icon_view_get_directory_grid_adjusts (NemoIconView *icon_view,
+nemo_icon_view_get_directory_grid_adjusts (G_GNUC_UNUSED NemoIconView *icon_view,
                                            NemoFile     *file,
                                            gint         *horizontal,
                                            gint         *vertical)
@@ -876,7 +878,7 @@ get_sort_criterion_by_sort_type (NemoFileSortType sort_type)
 }
 
 /* Both settings are a per cent of the standard size, which is how the
-   preferences window shows them. */
+   settings window shows them. */
 static gint
 get_default_icon_size (NemoIconView *icon_view)
 {
@@ -1082,7 +1084,7 @@ nemo_icon_view_begin_loading (NemoView *view)
 }
 
 static void
-icon_view_notify_clipboard_info (NemoClipboardMonitor *monitor,
+icon_view_notify_clipboard_info (G_GNUC_UNUSED NemoClipboardMonitor *monitor,
                                  NemoClipboardInfo *info,
                                  NemoIconView *icon_view)
 {
@@ -1402,7 +1404,7 @@ nemo_icon_view_get_selection_count (NemoView *view)
 }
 
 static void
-count_item (NemoIconData *icon_data,
+count_item (G_GNUC_UNUSED NemoIconData *icon_data,
 	    gpointer callback_data)
 {
 	guint *count;
@@ -1547,7 +1549,7 @@ nemo_icon_view_start_renaming_file (NemoView *view,
 }
 
 static const GtkActionEntry icon_view_entries[] = {
-  /* name, stock id, label */  { "Arrange Items", NULL, N_("Arran_ge items") },
+  /* name, stock id, label */  { "Arrange Items", NULL, N_("Arran_ge items"), NULL, NULL, NULL },
   /* name, stock id */         { "Clean Up", NULL,
   /* label, accelerator */       N_("_Organize by name"), NULL,
   /* tooltip */                  N_("Reposition icons to better fit in the window and avoid overlapping"),
@@ -2105,7 +2107,7 @@ icon_position_changed_callback (NemoIconContainer *container,
 
 /* Attempt to change the filename to the new text.  Notify user if operation fails. */
 static void
-icon_rename_ended_cb (NemoIconContainer *container,
+icon_rename_ended_cb (G_GNUC_UNUSED NemoIconContainer *container,
 		      NemoFile *file,
 		      const char *new_name,
 		      NemoIconView *icon_view)
@@ -2121,11 +2123,15 @@ icon_rename_ended_cb (NemoIconContainer *container,
 		return;
 	}
 
+	if (nemo_view_rename_new_folder_nested (NEMO_VIEW (icon_view), file, new_name)) {
+		return;
+	}
+
 	nemo_rename_file (file, new_name, NULL, NULL);
 }
 
 static void
-icon_rename_started_cb (NemoIconContainer *container,
+icon_rename_started_cb (G_GNUC_UNUSED NemoIconContainer *container,
 			GtkWidget *widget,
 			gpointer callback_data)
 {
@@ -2340,23 +2346,23 @@ nemo_icon_view_sort_favorites_first_changed (NemoView *directory_view)
 }
 
 static gboolean
-icon_view_can_accept_item (NemoIconContainer *container,
+icon_view_can_accept_item (G_GNUC_UNUSED NemoIconContainer *container,
 			   NemoFile *target_item,
 			   const char *item_uri,
-			   NemoView *view)
+			   G_GNUC_UNUSED NemoView *view)
 {
 	return nemo_drag_can_accept_item (target_item, item_uri);
 }
 
 static char *
-icon_view_get_container_uri (NemoIconContainer *container,
+icon_view_get_container_uri (G_GNUC_UNUSED NemoIconContainer *container,
 			     NemoView *view)
 {
 	return nemo_view_get_uri (view);
 }
 
 static void
-icon_view_move_copy_items (NemoIconContainer *container,
+icon_view_move_copy_items (G_GNUC_UNUSED NemoIconContainer *container,
 			   const GList *item_uris,
 			   GArray *relative_item_points,
 			   const char *target_dir,
@@ -2406,7 +2412,7 @@ nemo_icon_view_update_click_to_rename_mode (NemoIconView *icon_view)
 }
 
 static gboolean
-get_stored_layout_timestamp (NemoIconContainer *container,
+get_stored_layout_timestamp (G_GNUC_UNUSED NemoIconContainer *container,
 			     NemoIconData *icon_data,
 			     time_t *timestamp,
 			     NemoIconView *view)
@@ -2433,7 +2439,7 @@ get_stored_layout_timestamp (NemoIconContainer *container,
 }
 
 static gboolean
-store_layout_timestamp (NemoIconContainer *container,
+store_layout_timestamp (G_GNUC_UNUSED NemoIconContainer *container,
 			NemoIconData *icon_data,
 			const time_t *timestamp,
 			NemoIconView *view)
@@ -2463,7 +2469,7 @@ store_layout_timestamp (NemoIconContainer *container,
 }
 
 static gboolean
-focus_in_event_callback (GtkWidget *widget, GdkEventFocus *event, gpointer user_data)
+focus_in_event_callback (G_GNUC_UNUSED GtkWidget *widget, G_GNUC_UNUSED GdkEventFocus *event, gpointer user_data)
 {
 	NemoWindowSlot *slot;
 	NemoIconView *icon_view = NEMO_ICON_VIEW (user_data);
@@ -2480,26 +2486,31 @@ focus_in_event_callback (GtkWidget *widget, GdkEventFocus *event, gpointer user_
 static gboolean
 key_press_event_callback (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
 {
+	NemoView *view = NEMO_VIEW (user_data);
+
 	if (event->keyval != GDK_KEY_Escape) {
 		return FALSE;
 	}
 
-	nemo_icon_container_forget_selection (NEMO_ICON_CONTAINER (widget));
+	/* As in the list view: a selection first, then find mode. */
+	if (nemo_view_get_selection_count (view) > 0 ||
+	    !nemo_window_slot_close_search (nemo_view_get_nemo_window_slot (view))) {
+		nemo_icon_container_forget_selection (NEMO_ICON_CONTAINER (widget));
+	}
 
 	return TRUE;
 }
 
 static gboolean
-button_press_callback (GtkWidget *widget, GdkEventFocus *event, gpointer user_data)
+button_press_callback (G_GNUC_UNUSED GtkWidget *widget, GdkEventFocus *event, gpointer user_data)
 {
     NemoView *view = NEMO_VIEW (user_data);
     GdkEventButton *event_button = (GdkEventButton *)event;
     gint selection_count = nemo_view_get_selection_count (NEMO_VIEW (view));
 
-    if (!nemo_view_get_active (view) && selection_count > 0) {
-        NemoWindowSlot *slot = nemo_view_get_nemo_window_slot (view);
-        nemo_window_slot_make_hosting_pane_active (slot);
-        return GDK_EVENT_STOP;
+    /* The click that wakes the other pane counts too. */
+    if (!nemo_view_get_active (view)) {
+        nemo_window_slot_make_hosting_pane_active (nemo_view_get_nemo_window_slot (view));
     }
 
     /* double left click on blank will go to parent folder */
@@ -2600,7 +2611,7 @@ create_icon_container (NemoIconView *icon_view)
 
 /* Handles an URL received from Mozilla */
 static void
-icon_view_handle_netscape_url (NemoIconContainer *container, const char *encoded_url,
+icon_view_handle_netscape_url (G_GNUC_UNUSED NemoIconContainer *container, const char *encoded_url,
 			       const char *target_uri,
 			       GdkDragAction action, int x, int y, NemoIconView *view)
 {
@@ -2609,7 +2620,7 @@ icon_view_handle_netscape_url (NemoIconContainer *container, const char *encoded
 }
 
 static void
-icon_view_handle_uri_list (NemoIconContainer *container, const char *item_uris,
+icon_view_handle_uri_list (G_GNUC_UNUSED NemoIconContainer *container, const char *item_uris,
 			   const char *target_uri,
 			   GdkDragAction action, int x, int y, NemoIconView *view)
 {
@@ -2618,7 +2629,7 @@ icon_view_handle_uri_list (NemoIconContainer *container, const char *item_uris,
 }
 
 static void
-icon_view_handle_text (NemoIconContainer *container, const char *text,
+icon_view_handle_text (G_GNUC_UNUSED NemoIconContainer *container, const char *text,
 		       const char *target_uri,
 		       GdkDragAction action, int x, int y, NemoIconView *view)
 {
@@ -2627,12 +2638,22 @@ icon_view_handle_text (NemoIconContainer *container, const char *text,
 }
 
 static void
-icon_view_handle_raw (NemoIconContainer *container, const char *raw_data,
+icon_view_handle_raw (G_GNUC_UNUSED NemoIconContainer *container, const char *raw_data,
 		      int length, const char *target_uri, const char *direct_save_uri,
 		      GdkDragAction action, int x, int y, NemoIconView *view)
 {
 	nemo_view_handle_raw_drop (NEMO_VIEW (view),
 				       raw_data, length, target_uri, direct_save_uri, action, x, y);
+}
+
+static gboolean
+icon_view_get_selection_menu_rect (NemoView *view, GdkRectangle *rect)
+{
+	NemoIconContainer *container = get_icon_container (NEMO_ICON_VIEW (view));
+
+	return nemo_icon_container_get_selection_menu_rect (container, rect) &&
+	       gtk_widget_translate_coordinates (GTK_WIDGET (container), GTK_WIDGET (view),
+						 rect->x, rect->y, &rect->x, &rect->y);
 }
 
 static char *
@@ -2739,6 +2760,22 @@ nemo_icon_view_set_property (GObject         *object,
 }
 
 static void
+nemo_icon_view_get_property (GObject    *object,
+			     guint       prop_id,
+			     GValue     *value,
+			     GParamSpec *pspec)
+{
+	switch (prop_id) {
+	case PROP_COMPACT:
+		g_value_set_boolean (value, NEMO_ICON_VIEW (object)->details->compact);
+		break;
+	default:
+		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+		break;
+	}
+}
+
+static void
 nemo_icon_view_finalize (GObject *object)
 {
 	NemoIconView *icon_view;
@@ -2747,33 +2784,6 @@ nemo_icon_view_finalize (GObject *object)
 
 	g_clear_handle_id (&icon_view->details->render_ahead_id, g_source_remove);
 	g_free (icon_view->details);
-
-	g_signal_handlers_disconnect_by_func (nemo_preferences,
-					      default_sort_order_changed_callback,
-					      icon_view);
-	g_signal_handlers_disconnect_by_func (nemo_preferences,
-					      default_sort_in_reverse_order_changed_callback,
-					      icon_view);
-	g_signal_handlers_disconnect_by_func (nemo_preferences,
-					      image_display_policy_changed_callback,
-					      icon_view);
-
-	g_signal_handlers_disconnect_by_func (nemo_icon_view_preferences,
-					      default_icon_size_changed_callback,
-					      icon_view);
-	g_signal_handlers_disconnect_by_func (nemo_icon_view_preferences,
-					      labels_beside_icons_changed_callback,
-					      icon_view);
-	g_signal_handlers_disconnect_by_func (nemo_icon_view_preferences,
-					      text_attribute_names_changed_callback,
-					      icon_view);
-
-	g_signal_handlers_disconnect_by_func (nemo_compact_view_preferences,
-					      default_icon_size_changed_callback,
-					      icon_view);
-	g_signal_handlers_disconnect_by_func (nemo_compact_view_preferences,
-					      all_columns_same_width_changed_callback,
-					      icon_view);
 
 	G_OBJECT_CLASS (nemo_icon_view_parent_class)->finalize (object);
 }
@@ -2800,43 +2810,43 @@ nemo_icon_view_constructed (GObject *object)
                                              NEMO_ICON_LAYOUT_L_R_T_B);
     }
 
-    g_signal_connect_swapped (nemo_preferences,
+    g_signal_connect_object (nemo_preferences,
                   "changed::" NEMO_PREFERENCES_DEFAULT_SORT_ORDER,
                   G_CALLBACK (default_sort_order_changed_callback),
-                  icon_view);
-    g_signal_connect_swapped (nemo_preferences,
+                  icon_view, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_preferences,
                   "changed::" NEMO_PREFERENCES_DEFAULT_SORT_IN_REVERSE_ORDER,
                   G_CALLBACK (default_sort_in_reverse_order_changed_callback),
-                  icon_view);
-    g_signal_connect_swapped (nemo_preferences,
+                  icon_view, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_preferences,
                   "changed::" NEMO_PREFERENCES_SHOW_IMAGE_FILE_THUMBNAILS,
                   G_CALLBACK (image_display_policy_changed_callback),
-                  icon_view);
-    g_signal_connect_swapped (nemo_icon_view_preferences,
+                  icon_view, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_icon_view_preferences,
                   "changed::" NEMO_PREFERENCES_ICON_VIEW_DEFAULT_ICON_SIZE,
                   G_CALLBACK (default_icon_size_changed_callback),
-                  icon_view);
-    g_signal_connect_swapped (nemo_icon_view_preferences,
+                  icon_view, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_icon_view_preferences,
                   "changed::" NEMO_PREFERENCES_ICON_VIEW_DEFAULT_IMAGE_ICON_SIZE,
                   G_CALLBACK (default_icon_size_changed_callback),
-                  icon_view);
-    g_signal_connect_swapped (nemo_icon_view_preferences,
+                  icon_view, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_icon_view_preferences,
                   "changed::" NEMO_PREFERENCES_ICON_VIEW_LABELS_BESIDE_ICONS,
                   G_CALLBACK (labels_beside_icons_changed_callback),
-                  icon_view);
-    g_signal_connect_swapped (nemo_icon_view_preferences,
+                  icon_view, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_icon_view_preferences,
                   "changed::" NEMO_PREFERENCES_ICON_VIEW_CAPTIONS,
                   G_CALLBACK (text_attribute_names_changed_callback),
-                  icon_view);
+                  icon_view, G_CONNECT_SWAPPED);
 
-    g_signal_connect_swapped (nemo_compact_view_preferences,
+    g_signal_connect_object (nemo_compact_view_preferences,
                   "changed::" NEMO_PREFERENCES_COMPACT_VIEW_DEFAULT_ICON_SIZE,
                   G_CALLBACK (default_icon_size_changed_callback),
-                  icon_view);
-    g_signal_connect_swapped (nemo_compact_view_preferences,
+                  icon_view, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_compact_view_preferences,
                   "changed::" NEMO_PREFERENCES_COMPACT_VIEW_ALL_COLUMNS_SAME_WIDTH,
                   G_CALLBACK (all_columns_same_width_changed_callback),
-                  icon_view);
+                  icon_view, G_CONNECT_SWAPPED);
 
     g_signal_connect_object (get_icon_container (icon_view), "handle_netscape_url",
                  G_CALLBACK (icon_view_handle_netscape_url), icon_view, 0);
@@ -2867,6 +2877,7 @@ nemo_icon_view_class_init (NemoIconViewClass *klass)
 	oclass = G_OBJECT_CLASS (klass);
 
 	oclass->set_property = nemo_icon_view_set_property;
+	oclass->get_property = nemo_icon_view_get_property;
 	oclass->finalize = nemo_icon_view_finalize;
     oclass->constructed = nemo_icon_view_constructed;
 
@@ -2913,6 +2924,7 @@ nemo_icon_view_class_init (NemoIconViewClass *klass)
 	nemo_view_class->widget_to_file_operation_position = nemo_icon_view_widget_to_file_operation_position;
 	nemo_view_class->get_view_id = nemo_icon_view_get_id;
 	nemo_view_class->get_first_visible_file = icon_view_get_first_visible_file;
+	nemo_view_class->get_selection_menu_rect = icon_view_get_selection_menu_rect;
 	nemo_view_class->scroll_to_file = icon_view_scroll_to_file;
 
 	properties[PROP_COMPACT] =
@@ -2920,7 +2932,7 @@ nemo_icon_view_class_init (NemoIconViewClass *klass)
 				      "Compact",
 				      "Whether this view provides a compact listing",
 				      FALSE,
-				      G_PARAM_WRITABLE);
+				      G_PARAM_READWRITE);
 	properties[PROP_SUPPORTS_AUTO_LAYOUT] =
 		g_param_spec_boolean ("supports-auto-layout",
 				      "Supports auto layout",
@@ -2997,7 +3009,7 @@ nemo_compact_view_create (NemoWindowSlot *slot)
 static gboolean
 nemo_icon_view_supports_uri (const char *uri,
 			   GFileType file_type,
-			   const char *mime_type)
+			   G_GNUC_UNUSED const char *mime_type)
 {
 	if (file_type == G_FILE_TYPE_DIRECTORY) {
 		return TRUE;

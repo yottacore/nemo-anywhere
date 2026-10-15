@@ -139,7 +139,7 @@ launch (const char *exe, const char *root, gboolean with_bus, const char *err_pa
  * it is read. Xlib's default handler exits on that BadWindow; the read just
  * fails instead. */
 static int
-ignore_x_error (Display *display, XErrorEvent *event)
+ignore_x_error (G_GNUC_UNUSED Display *display, G_GNUC_UNUSED XErrorEvent *event)
 {
 	return 0;
 }

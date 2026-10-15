@@ -57,7 +57,7 @@ skeleton_handle_show_items_cb (NemoFreedesktopFileManager1 *object,
 			       GDBusMethodInvocation *invocation,
 			       const gchar *const *uris,
 			       const gchar *startup_id,
-			       gpointer data)
+			       G_GNUC_UNUSED gpointer data)
 {
         NemoApplication *application;
 	int i;
@@ -90,7 +90,7 @@ skeleton_handle_show_folders_cb (NemoFreedesktopFileManager1 *object,
 				 GDBusMethodInvocation *invocation,
 				 const gchar *const *uris,
 				 const gchar *startup_id,
-				 gpointer data)
+				 G_GNUC_UNUSED gpointer data)
 {
         NemoApplication *application;
 	int i;
@@ -116,7 +116,7 @@ skeleton_handle_show_item_properties_cb (NemoFreedesktopFileManager1 *object,
 					 GDBusMethodInvocation *invocation,
 					 const gchar *const *uris,
 					 const gchar *startup_id,
-					 gpointer data)
+					 G_GNUC_UNUSED gpointer data)
 {
 	GList *files;
 	int i;
@@ -139,7 +139,7 @@ skeleton_handle_show_item_properties_cb (NemoFreedesktopFileManager1 *object,
 
 static void
 bus_acquired_cb (GDBusConnection *conn,
-		 const gchar     *name,
+		 G_GNUC_UNUSED const gchar     *name,
 		 gpointer         user_data)
 {
 	NemoFreedesktopDBus *fdb = user_data;
@@ -163,17 +163,17 @@ bus_acquired_cb (GDBusConnection *conn,
 }
 
 static void
-name_acquired_cb (GDBusConnection *connection,
-		  const gchar     *name,
-		  gpointer         user_data)
+name_acquired_cb (G_GNUC_UNUSED GDBusConnection *connection,
+		  G_GNUC_UNUSED const gchar     *name,
+		  G_GNUC_UNUSED gpointer         user_data)
 {
 	DEBUG ("Acquired the name %s on the session message bus\n", name);
 }
 
 static void
-name_lost_cb (GDBusConnection *connection,
-	      const gchar     *name,
-	      gpointer         user_data)
+name_lost_cb (G_GNUC_UNUSED GDBusConnection *connection,
+	      G_GNUC_UNUSED const gchar     *name,
+	      G_GNUC_UNUSED gpointer         user_data)
 {
 	DEBUG ("Lost (or failed to acquire) the name %s on the session message bus\n", name);
 }
@@ -229,7 +229,8 @@ nemo_freedesktop_dbus_set_open_locations (NemoFreedesktopDBus *fdb,
 	nemo_freedesktop_file_manager1_set_open_locations (fdb->skeleton, locations);
 }
 
-/* Tries to own the org.freedesktop.FileManager1 service name */
+/* Tries to own the org.freedesktop.FileManager1 service name
+ * Returns: (transfer full): unref with g_object_unref */
 NemoFreedesktopDBus *
 nemo_freedesktop_dbus_new (void)
 {	

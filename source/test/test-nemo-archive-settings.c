@@ -3,6 +3,10 @@
  * writes (a typo in either would just be a setting that never takes, with
  * nothing to see), and they survive a restart.
  *
+ * Then the link choices: the old store links and follow links values mapped
+ * over and dropped, what is kept and what never is, and the fall back to
+ * Ignore agreeing with what each writer claims.
+ *
  * Also covers when the password has to be typed a second time, which is its
  * own decision in nemo-archive.c.
  *
@@ -17,6 +21,7 @@
 
 #include <libnemo-private/nemo-archive.h>
 #include <libnemo-private/nemo-archive-commands.h>
+#include <libnemo-private/nemo-archive-host.h>
 #include <libnemo-private/nemo-config.h>
 
 #include "test-scratch.h"
@@ -32,8 +37,11 @@ static const struct {
 	{ NEMO_ARCHIVE_STATE_KEY_SPLIT,         FALSE },
 	{ NEMO_ARCHIVE_STATE_KEY_SOLID,         FALSE },
 	{ NEMO_ARCHIVE_STATE_KEY_DEDUPE,        FALSE },
-	{ NEMO_ARCHIVE_STATE_KEY_STORE_LINKS,   TRUE  },
-	{ NEMO_ARCHIVE_STATE_KEY_FOLLOW_LINKS,  FALSE },
+	/* Commented out: the dialog no longer writes these 2. They are read
+	   once and dropped, which test_old_boxes covers. */
+	/* { NEMO_ARCHIVE_STATE_KEY_STORE_LINKS,   TRUE  }, */
+	/* { NEMO_ARCHIVE_STATE_KEY_FOLLOW_LINKS,  FALSE }, */
+	{ NEMO_ARCHIVE_STATE_KEY_FOLLOW_NESTED, TRUE  },
 	{ NEMO_ARCHIVE_STATE_KEY_RECOVERY,      TRUE  },
 	{ NEMO_ARCHIVE_STATE_KEY_LOCK,          FALSE },
 };
@@ -80,13 +88,44 @@ test_defaults (void)
 	g_free (text);
 }
 
+static int changes = 0;
+
+static void
+count_change (NemoConfigGroup *group,
+	      const char      *key,
+	      gpointer         data)
+{
+	(void) group;
+	(void) key;
+	(void) data;
+	changes++;
+}
+
+static void
+append_to_file (const char *line)
+{
+	char *path = nemo_config_get_path ();
+	char *text = NULL;
+	char *more;
+
+	check (g_file_get_contents (path, &text, NULL, NULL));
+	more = g_strconcat (text != NULL ? text : "", line, NULL);
+	check (g_file_set_contents (path, more, -1, NULL));
+	g_free (more);
+	g_free (text);
+	g_free (path);
+}
+
 /* Written, then read back through a fresh load of the file. */
 static void
 test_survives_a_restart (void)
 {
 	NemoConfigGroup *group = nemo_config_get_group (NEMO_ARCHIVE_COMMANDS_GROUP);
+	NemoConfigGroup *prefs;
 	char *text;
 	guint i;
+	gulong id;
+	int spins = 0;
 
 	if (group == NULL) {
 		return;
@@ -100,7 +139,24 @@ test_survives_a_restart (void)
 	nemo_config_set_string (group, NEMO_ARCHIVE_STATE_KEY_SPLIT_SIZE, "700 MiB");
 
 	nemo_config_shutdown ();
+	/* Written while stopped, so only a fresh read of the file has it. */
+	prefs = nemo_config_get_group ("preferences");
+	changes = 0;
+	id = g_signal_connect (prefs, "changed", G_CALLBACK (count_change), NULL);
+	append_to_file ("preferences.always-show-tabs: true\n");
 	nemo_config_init ();
+	check (nemo_config_get_boolean (prefs, "always-show-tabs"));
+	check (changes > 0);
+
+	/* And the file is watched again. */
+	changes = 0;
+	append_to_file ("preferences.show-full-path-titles: true\n");
+	while (changes == 0 && spins++ < 2500) {
+		g_main_context_iteration (NULL, FALSE);
+		g_usleep (2000);
+	}
+	check (nemo_config_get_boolean (prefs, "show-full-path-titles"));
+	g_signal_handler_disconnect (prefs, id);
 
 	group = nemo_config_get_group (NEMO_ARCHIVE_COMMANDS_GROUP);
 	check (group != NULL);
@@ -166,8 +222,348 @@ test_when_the_password_is_confirmed (void)
 	check_confirm (TRUE,  "hunter", TRUE);
 }
 
+static gboolean
+file_mentions (const char *key)
+{
+	char *path = nemo_config_get_path ();
+	char *text = NULL;
+	gboolean found;
+
+	nemo_config_flush ();
+	if (!g_file_get_contents (path, &text, NULL, NULL)) {
+		text = g_strdup ("");
+	}
+	found = strstr (text, key) != NULL;
+
+	g_free (text);
+	g_free (path);
+	return found;
+}
+
+static void
+clear_link_keys (NemoConfigGroup *group)
+{
+	nemo_config_reset (group, NEMO_ARCHIVE_STATE_KEY_STORE_LINKS);
+	nemo_config_reset (group, NEMO_ARCHIVE_STATE_KEY_FOLLOW_LINKS);
+	nemo_config_reset (group, NEMO_ARCHIVE_STATE_KEY_SYMLINKS);
+	nemo_config_reset (group, NEMO_ARCHIVE_STATE_KEY_JUNCTIONS);
+	nemo_config_reset (group, NEMO_ARCHIVE_STATE_KEY_FOLLOW_NESTED);
+}
+
+static void
+check_old_boxes (const char   *store,
+		 const char   *follow,
+		 ArcLinkChoice want)
+{
+	NemoConfigGroup *group = nemo_config_get_group (NEMO_ARCHIVE_COMMANDS_GROUP);
+	ArcLinkOptions options;
+
+	clear_link_keys (group);
+	nemo_config_flush ();
+
+	/* Written into the file, as an older release or a hand edit left it,
+	   then read back when the app sees the file change. */
+	if (store != NULL || follow != NULL) {
+		char *path = nemo_config_get_path ();
+		char *text = NULL;
+		GString *more;
+		gulong id;
+		int spins = 0;
+
+		check (g_file_get_contents (path, &text, NULL, NULL));
+		more = g_string_new (text);
+		if (store != NULL) {
+			g_string_append_printf (more, "%s.%s: %s\n", NEMO_ARCHIVE_COMMANDS_GROUP,
+						NEMO_ARCHIVE_STATE_KEY_STORE_LINKS,
+						strcmp (store, "on") == 0 ? "true" : "false");
+		}
+		if (follow != NULL) {
+			g_string_append_printf (more, "%s.%s: %s\n", NEMO_ARCHIVE_COMMANDS_GROUP,
+						NEMO_ARCHIVE_STATE_KEY_FOLLOW_LINKS,
+						strcmp (follow, "on") == 0 ? "true" : "false");
+		}
+
+		changes = 0;
+		id = g_signal_connect (group, "changed", G_CALLBACK (count_change), NULL);
+		check (g_file_set_contents (path, more->str, (gssize) more->len, NULL));
+		while (changes == 0 && spins++ < 2500) {
+			g_main_context_iteration (NULL, FALSE);
+			g_usleep (2000);
+		}
+		check (changes > 0);
+		g_signal_handler_disconnect (group, id);
+
+		g_string_free (more, TRUE);
+		g_free (text);
+		g_free (path);
+	}
+
+	nemo_archive_link_options_load (&options);
+	if (options.symlinks != want) {
+		g_printerr ("FAIL: store links %s, follow links %s became %d, expected %d\n",
+			    store != NULL ? store : "unset", follow != NULL ? follow : "unset",
+			    options.symlinks, want);
+		failures++;
+	}
+	check (!options.junctions_set);
+	check (options.follow_nested);
+	check (!options.follow_other);
+
+	/* Dropped, and the mapped value is what's kept now. */
+	check (!nemo_config_is_set (group, NEMO_ARCHIVE_STATE_KEY_STORE_LINKS));
+	check (!nemo_config_is_set (group, NEMO_ARCHIVE_STATE_KEY_FOLLOW_LINKS));
+	check (nemo_config_is_set (group, NEMO_ARCHIVE_STATE_KEY_SYMLINKS) ==
+	       (want != ARC_LINK_IGNORE));
+
+	check (!file_mentions (NEMO_ARCHIVE_STATE_KEY_STORE_LINKS));
+	check (!file_mentions (NEMO_ARCHIVE_STATE_KEY_FOLLOW_LINKS));
+	check (!nemo_config_is_set (group, NEMO_ARCHIVE_STATE_KEY_STORE_LINKS));
+	check (nemo_config_get_enum (group, NEMO_ARCHIVE_STATE_KEY_SYMLINKS) == (gint) want);
+}
+
+/* Store links was on unless changed, so a file with only follow links in it
+   was storing links. */
+static void
+test_old_boxes (void)
+{
+	check_old_boxes (NULL,  NULL,  ARC_LINK_IGNORE);
+	check_old_boxes ("off", NULL,  ARC_LINK_IGNORE);
+	check_old_boxes ("off", "on",  ARC_LINK_FOLLOW);
+	check_old_boxes (NULL,  "on",  ARC_LINK_STORE_SYMLINK);
+	check_old_boxes ("on",  "on",  ARC_LINK_STORE_SYMLINK);
+	check_old_boxes ("on",  NULL,  ARC_LINK_STORE_SYMLINK);
+	check_old_boxes ("on",  "off", ARC_LINK_STORE_SYMLINK);
+	check_old_boxes ("off", "off", ARC_LINK_IGNORE);
+}
+
+static void
+test_link_choices_kept (void)
+{
+	NemoConfigGroup *group = nemo_config_get_group (NEMO_ARCHIVE_COMMANDS_GROUP);
+	ArcLinkOptions options;
+	ArcLinkOptions back;
+
+	clear_link_keys (group);
+	check (!file_mentions ("last-symlinks"));
+
+	/* Nothing set is the defaults, and saving them writes nothing. */
+	nemo_archive_link_options_load (&options);
+	check (options.symlinks == ARC_LINK_IGNORE);
+	check (!options.junctions_set);
+	check (options.follow_nested);
+	check (!options.follow_other);
+	nemo_archive_link_options_save (&options);
+	check (!file_mentions ("last-symlinks"));
+	check (!file_mentions ("last-junctions"));
+	check (!file_mentions ("last-follow-nested"));
+
+	/* A Junctions change by hand is kept as that, and other filesystems
+	   never is. */
+	arc_link_options_set_symlinks (&options, ARC_LINK_FOLLOW);
+	arc_link_options_set_junctions (&options, ARC_LINK_STORE_JUNCTION);
+	options.follow_nested = FALSE;
+	options.follow_other = TRUE;
+	nemo_archive_link_options_save (&options);
+	check (file_mentions ("store-as-junctions"));
+	check (!file_mentions ("last-follow-other"));
+
+	nemo_archive_link_options_load (&back);
+	check (back.symlinks == ARC_LINK_FOLLOW);
+	check (back.junctions_set);
+	check (back.junctions == ARC_LINK_STORE_JUNCTION);
+	check (!back.follow_nested);
+	check (!back.follow_other);
+
+	/* Back to following Symlinks, by the table, once nothing is set by hand. */
+	arc_link_options_init (&options);
+	arc_link_options_set_symlinks (&options, ARC_LINK_STORE_SYMLINK);
+	nemo_archive_link_options_save (&options);
+	check (file_mentions ("store-as-symlinks"));
+	check (!file_mentions ("last-junctions"));
+	nemo_archive_link_options_load (&back);
+	check (back.symlinks == ARC_LINK_STORE_SYMLINK);
+	check (!back.junctions_set);
+
+	clear_link_keys (group);
+}
+
+/* A store choice falls back to Ignore exactly where the writer doesn't claim
+   to store links. The format's answer is the union over what's installed,
+   the same as its caps. */
+static void
+test_fall_back_follows_claims (void)
+{
+	static const NemoArchiveBackend backends[] = {
+		NEMO_ARCHIVE_BACKEND_LIBARCHIVE, NEMO_ARCHIVE_BACKEND_7Z, NEMO_ARCHIVE_BACKEND_RAR
+	};
+	ArcLinkOptions options;
+	guint format;
+	guint i;
+
+	arc_link_options_init (&options);
+	arc_link_options_set_symlinks (&options, ARC_LINK_STORE_SYMLINK);
+
+	for (format = 0; format < NEMO_ARCHIVE_N_FORMATS; format++) {
+		gboolean any = FALSE;
+
+		for (i = 0; i < G_N_ELEMENTS (backends); i++) {
+			gboolean claims = (nemo_archive_backend_caps (format, backends[i]) &
+					   NEMO_ARCHIVE_CAP_STORE_LINKS) != 0;
+			guint stores = nemo_archive_backend_link_stores (format, backends[i]);
+			ArcLinkChoice got = arc_link_options_symlinks (&options, stores);
+
+			if ((got == ARC_LINK_STORE_SYMLINK) != claims) {
+				g_printerr ("FAIL: %s by writer %d stores links %s, claims %s\n",
+					    nemo_archive_format_id (format), backends[i],
+					    got == ARC_LINK_STORE_SYMLINK ? "yes" : "no",
+					    claims ? "yes" : "no");
+				failures++;
+			}
+			if (!claims) {
+				check (stores == 0);
+			}
+			if (nemo_archive_backend_present (backends[i]) && claims) {
+				any = TRUE;
+			}
+		}
+
+		check (((nemo_archive_format_caps (format) & NEMO_ARCHIVE_CAP_STORE_LINKS) != 0) == any);
+		check (((nemo_archive_format_link_stores (format) & ARC_STORES_SYMLINKS) != 0) == any);
+	}
+
+	/* The library's 7z writer claims it, so a 7z can always store links. */
+	check ((nemo_archive_backend_link_stores (NEMO_ARCHIVE_FORMAT_7Z,
+						  NEMO_ARCHIVE_BACKEND_LIBARCHIVE) &
+		ARC_STORES_SYMLINKS) != 0);
+	check ((nemo_archive_format_link_stores (NEMO_ARCHIVE_FORMAT_7Z) & ARC_STORES_SYMLINKS) != 0);
+
+#ifdef G_OS_WIN32
+	/* 7-Zip leaves links out there. */
+	check (nemo_archive_backend_link_stores (NEMO_ARCHIVE_FORMAT_7Z, NEMO_ARCHIVE_BACKEND_7Z) == 0);
+#endif
+}
+
+static gboolean
+same_choices (const NemoArchiveChoices *a,
+	      const NemoArchiveChoices *b)
+{
+	return a->level == b->level &&
+	       !a->encrypt_names == !b->encrypt_names &&
+	       !a->split == !b->split &&
+	       g_strcmp0 (a->split_size, b->split_size) == 0 &&
+	       !a->solid == !b->solid &&
+	       !a->dedupe == !b->dedupe &&
+	       a->links.symlinks == b->links.symlinks &&
+	       !a->links.junctions_set == !b->links.junctions_set &&
+	       (!a->links.junctions_set || a->links.junctions == b->links.junctions) &&
+	       !a->links.follow_nested == !b->links.follow_nested &&
+	       !a->links.follow_other == !b->links.follow_other &&
+	       !a->recovery == !b->recovery &&
+	       !a->lock == !b->lock;
+}
+
+/* What Options opens for, keeps through a format that can't do it, and
+   drops on Reset. */
+static void
+test_choices (void)
+{
+	static const char *const keys[] = {
+		"last-level", "last-encrypt-names", "last-split:", "last-split-size",
+		"last-solid", "last-dedupe", "last-symlinks", "last-junctions",
+		"last-follow-nested", "last-recovery", "last-lock",
+	};
+	NemoConfigGroup *group = nemo_config_get_group (NEMO_ARCHIVE_COMMANDS_GROUP);
+	NemoArchiveChoices fresh, loaded = { 0 }, chosen, shown = { 0 };
+	guint i;
+
+	nemo_archive_choices_forget ();
+	nemo_config_set_string (group, NEMO_ARCHIVE_STATE_KEY_FORMAT, "7z");
+	nemo_config_set_boolean (group, NEMO_ARCHIVE_STATE_KEY_EACH, TRUE);
+
+	/* Nothing remembered reads back as the defaults, which are the settings
+	   table's. */
+	nemo_archive_choices_init (&fresh);
+	check (nemo_archive_choices_at_default (&fresh));
+	nemo_archive_choices_load (&loaded);
+	check (same_choices (&loaded, &fresh));
+	check (nemo_archive_choices_at_default (&loaded));
+	check (fresh.recovery && fresh.links.follow_nested && !fresh.split &&
+	       fresh.level == NEMO_ARCHIVE_LEVEL_DEFAULT);
+
+	/* Each one off its default counts, other filesystems too. */
+	nemo_archive_choices_init (&chosen);
+	chosen.links.follow_other = TRUE;
+	check (!nemo_archive_choices_at_default (&chosen));
+	chosen.links.follow_other = FALSE;
+	chosen.recovery = FALSE;
+	check (!nemo_archive_choices_at_default (&chosen));
+	chosen.recovery = TRUE;
+	g_free (chosen.split_size);
+	chosen.split_size = g_strdup ("2 GiB (old 32-bit tools)");
+	check (nemo_archive_choices_at_default (&chosen));
+	g_free (chosen.split_size);
+	chosen.split_size = g_strdup ("2048 MiB");
+	check (!nemo_archive_choices_at_default (&chosen));
+
+	/* A format that can't lock, make solid or encrypt names shows them off,
+	   and what was chosen stays as it was. */
+	chosen.lock = TRUE;
+	chosen.solid = TRUE;
+	chosen.split = TRUE;
+	chosen.encrypt_names = TRUE;
+	g_free (chosen.split_size);
+	chosen.split_size = g_strdup ("4,095 MiB (max FAT32 size)");
+	arc_link_options_set_symlinks (&chosen.links, ARC_LINK_FOLLOW);
+	nemo_archive_choices_shown (&chosen, NEMO_ARCHIVE_CAP_LEVEL | NEMO_ARCHIVE_CAP_PASSWORD |
+				    NEMO_ARCHIVE_CAP_SPLIT, TRUE, &shown);
+	check (!shown.lock && !shown.solid && !shown.encrypt_names && shown.split && shown.recovery == FALSE);
+	check (chosen.lock && chosen.solid && chosen.encrypt_names && chosen.recovery);
+
+	/* Encrypting names needs a password as well. */
+	nemo_archive_choices_shown (&chosen, NEMO_ARCHIVE_CAP_PASSWORD | NEMO_ARCHIVE_CAP_ENCRYPT_NAMES,
+				    FALSE, &shown);
+	check (!shown.encrypt_names && !shown.split);
+	nemo_archive_choices_shown (&chosen, NEMO_ARCHIVE_CAP_PASSWORD | NEMO_ARCHIVE_CAP_ENCRYPT_NAMES,
+				    TRUE, &shown);
+	check (shown.encrypt_names);
+
+	/* Saved as chosen, the preset as its size alone. */
+	nemo_archive_choices_save (&chosen);
+	check (file_mentions ("last-lock"));
+	check (file_mentions ("last-solid"));
+	check (file_mentions ("4095 MiB"));
+	check (!file_mentions ("FAT32"));
+	nemo_archive_choices_clear (&loaded);
+	nemo_archive_choices_load (&loaded);
+	check (loaded.lock && loaded.solid && loaded.split && loaded.encrypt_names);
+	check (g_strcmp0 (loaded.split_size, "4095 MiB") == 0);
+	check (loaded.links.symlinks == ARC_LINK_FOLLOW);
+	check (!nemo_archive_choices_at_default (&loaded));
+
+	/* Reset drops them all, and nothing outside Options. */
+	nemo_archive_choices_forget ();
+	for (i = 0; i < G_N_ELEMENTS (keys); i++) {
+		if (file_mentions (keys[i])) {
+			g_printerr ("FAIL: %s still in the file after a reset\n", keys[i]);
+			failures++;
+		}
+	}
+	check (nemo_config_is_set (group, NEMO_ARCHIVE_STATE_KEY_FORMAT));
+	check (nemo_config_is_set (group, NEMO_ARCHIVE_STATE_KEY_EACH));
+	nemo_archive_choices_clear (&loaded);
+	nemo_archive_choices_load (&loaded);
+	check (same_choices (&loaded, &fresh));
+
+	nemo_config_reset (group, NEMO_ARCHIVE_STATE_KEY_FORMAT);
+	nemo_config_reset (group, NEMO_ARCHIVE_STATE_KEY_EACH);
+	nemo_archive_choices_clear (&fresh);
+	nemo_archive_choices_clear (&loaded);
+	nemo_archive_choices_clear (&chosen);
+	nemo_archive_choices_clear (&shown);
+}
+
 int
-main (int argc, char *argv[])
+main (void)
 {
 	char *tmp;
 
@@ -177,6 +573,10 @@ main (int argc, char *argv[])
 	nemo_config_init ();
 
 	test_defaults ();
+	test_old_boxes ();
+	test_link_choices_kept ();
+	test_fall_back_follows_claims ();
+	test_choices ();
 	test_survives_a_restart ();
 	test_when_the_password_is_confirmed ();
 

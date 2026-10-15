@@ -31,6 +31,7 @@
 
 #include "nemo-file.h"
 #include "nemo-signaller.h"
+#include "nemo-user-text.h"
 #ifdef G_OS_WIN32
 #include "nemo-associations-win32.h"
 #endif
@@ -76,7 +77,7 @@ static GParamSpec *properties[NUM_PROPERTIES] = { NULL, };
 G_DEFINE_TYPE (NemoMimeApplicationChooser, nemo_mime_application_chooser, GTK_TYPE_BOX);
 
 static void
-add_clicked_cb (GtkButton *button,
+add_clicked_cb (G_GNUC_UNUSED GtkButton *button,
 		gpointer user_data)
 {
 	NemoMimeApplicationChooser *chooser = user_data;
@@ -99,7 +100,7 @@ add_clicked_cb (GtkButton *button,
 }
 
 static void
-remove_clicked_cb (GtkMenuItem *item,
+remove_clicked_cb (G_GNUC_UNUSED GtkMenuItem *item,
 		   gpointer user_data)
 {
 	NemoMimeApplicationChooser *chooser = user_data;
@@ -113,7 +114,7 @@ remove_clicked_cb (GtkMenuItem *item,
 		if (!g_app_info_remove_supports_type (info,
 						      chooser->details->content_type,
 						      &error)) {
-			eel_show_error_dialog (_("Could not forget association"),
+			eel_show_error_dialog (_("Couldn't forget association"),
 					       error->message,
 					       GTK_WINDOW (gtk_widget_get_toplevel (GTK_WIDGET (chooser))));
 			g_error_free (error);
@@ -128,7 +129,7 @@ remove_clicked_cb (GtkMenuItem *item,
 }
 
 static void
-populate_popup_cb (GtkAppChooserWidget *widget,
+populate_popup_cb (G_GNUC_UNUSED GtkAppChooserWidget *widget,
 		   GtkMenu *menu,
 		   GAppInfo *app,
 		   gpointer user_data)
@@ -163,7 +164,7 @@ default_app_for_type (NemoMimeApplicationChooser *chooser)
 }
 
 static void
-reset_clicked_cb (GtkButton *button,
+reset_clicked_cb (G_GNUC_UNUSED GtkButton *button,
                   gpointer   user_data)
 {
 	NemoMimeApplicationChooser *chooser;
@@ -208,7 +209,7 @@ set_default_or_say_why (NemoMimeApplicationChooser *chooser,
 	toplevel = gtk_widget_get_toplevel (GTK_WIDGET (chooser));
 
 	{
-		char *primary = g_strdup_printf (_("Could not make \"%s\" the default application."),
+		char *primary = g_strdup_printf (_("Couldn't make \"%s\" the default application."),
 						 g_app_info_get_display_name (info));
 
 		eel_show_error_dialog (primary,
@@ -222,7 +223,7 @@ set_default_or_say_why (NemoMimeApplicationChooser *chooser,
 }
 
 static void
-set_as_default_clicked_cb (GtkButton *button,
+set_as_default_clicked_cb (G_GNUC_UNUSED GtkButton *button,
 			   gpointer user_data)
 {
 	NemoMimeApplicationChooser *chooser = user_data;
@@ -276,7 +277,7 @@ app_info_can_add (GAppInfo *info,
 }
 
 static void
-application_selected_cb (GtkAppChooserWidget *widget,
+application_selected_cb (G_GNUC_UNUSED GtkAppChooserWidget *widget,
 			 GAppInfo *info,
 			 gpointer user_data)
 {
@@ -300,7 +301,7 @@ application_selected_cb (GtkAppChooserWidget *widget,
 
 static void
 application_activated_cb (GtkAppChooserWidget *widget,
-                                     GAppInfo *info,
+                                     G_GNUC_UNUSED GAppInfo *info,
                                      gpointer  user_data)
 {
     NemoMimeApplicationChooser *chooser = user_data;
@@ -316,7 +317,7 @@ validate_entry (GtkEntry *entry, const gchar *str)
     gint argcp = 0;
     gchar **argvp = NULL;
     gboolean ret = FALSE;
-    if (g_shell_parse_argv (str, &argcp, &argvp, NULL)) {
+    if (nemo_user_text_split_command (str, &argcp, &argvp, NULL)) {
         if (argcp > 0) {
             gchar *path_exec = g_find_program_in_path (argvp[0]);
             if (path_exec) {
@@ -343,9 +344,15 @@ validate_entry (GtkEntry *entry, const gchar *str)
         gtk_entry_set_icon_from_icon_name (entry,
                                            GTK_ENTRY_ICON_SECONDARY,
                                            "stop");
+#ifdef G_OS_WIN32
+        gtk_entry_set_icon_tooltip_text (entry,
+                                         GTK_ENTRY_ICON_SECONDARY,
+                                         _("Not a valid executable. Put a path with spaces in double quotes."));
+#else
         gtk_entry_set_icon_tooltip_text (entry,
                                          GTK_ENTRY_ICON_SECONDARY,
                                          _("Not a valid executable.  Spaces in the file path must be escaped with backslash (\\)."));
+#endif
     }
 
     return ret;
@@ -359,7 +366,7 @@ get_nice_name (const gchar *entry)
     gint argcp = 0;
     gchar **argvp = NULL;
 
-    if (g_shell_parse_argv (entry, &argcp, &argvp, NULL)) {
+    if (nemo_user_text_split_command (entry, &argcp, &argvp, NULL)) {
         if (argcp > 0) {
             exec_path = argvp[0];
             GFile *file = g_file_new_for_path (exec_path);
@@ -521,7 +528,7 @@ nemo_mime_application_chooser_apply_labels (NemoMimeApplicationChooser *chooser)
 }
 
 static gboolean
-exec_filter_func (const GtkFileFilterInfo *info, gpointer data)
+exec_filter_func (const GtkFileFilterInfo *info, G_GNUC_UNUSED gpointer data)
 {
     if (info->contains & GTK_FILE_FILTER_FILENAME) {
         if (g_file_test (info->filename, G_FILE_TEST_IS_EXECUTABLE))
@@ -532,7 +539,7 @@ exec_filter_func (const GtkFileFilterInfo *info, gpointer data)
 }
 
 static void
-on_file_chooser_button_clicked (GtkButton                  *button,
+on_file_chooser_button_clicked (G_GNUC_UNUSED GtkButton                  *button,
                                 NemoMimeApplicationChooser *chooser)
 {
     GtkWidget *dialog;
@@ -818,6 +825,7 @@ nemo_mime_application_chooser_class_init (NemoMimeApplicationChooserClass *class
 	g_type_class_add_private (class, sizeof (NemoMimeApplicationChooserDetails));
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_mime_application_chooser_new (const char *uri,
                                         GList *files,
@@ -836,6 +844,7 @@ nemo_mime_application_chooser_new (const char *uri,
 	return chooser;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GAppInfo *
 nemo_mime_application_chooser_get_info (NemoMimeApplicationChooser *chooser)
 {
@@ -845,6 +854,7 @@ nemo_mime_application_chooser_get_info (NemoMimeApplicationChooser *chooser)
         return g_object_ref (chooser->details->custom_info);
 }
 
+/* Returns: (transfer none): owned by @chooser */
 const gchar *
 nemo_mime_application_chooser_get_uri (NemoMimeApplicationChooser *chooser)
 {

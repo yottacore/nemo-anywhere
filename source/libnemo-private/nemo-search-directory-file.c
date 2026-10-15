@@ -46,8 +46,8 @@ G_DEFINE_TYPE(NemoSearchDirectoryFile, nemo_search_directory_file, NEMO_TYPE_FIL
 
 static void
 search_directory_file_monitor_add (NemoFile *file,
-				   gconstpointer client,
-				   NemoFileAttributes attributes)
+				   G_GNUC_UNUSED gconstpointer client,
+				   G_GNUC_UNUSED NemoFileAttributes attributes)
 {
 	/* No need for monitoring, we always emit changed when files
 	   are added/removed, and no other metadata changes */
@@ -57,15 +57,15 @@ search_directory_file_monitor_add (NemoFile *file,
 }
 
 static void
-search_directory_file_monitor_remove (NemoFile *file,
-				      gconstpointer client)
+search_directory_file_monitor_remove (G_GNUC_UNUSED NemoFile *file,
+				      G_GNUC_UNUSED gconstpointer client)
 {
 	/* Do nothing here, we don't have any monitors */
 }
 
 static void
 search_directory_file_call_when_ready (NemoFile *file,
-				       NemoFileAttributes file_attributes,
+				       G_GNUC_UNUSED NemoFileAttributes file_attributes,
 				       NemoFileCallback callback,
 				       gpointer callback_data)
 
@@ -78,16 +78,16 @@ search_directory_file_call_when_ready (NemoFile *file,
 }
  
 static void
-search_directory_file_cancel_call_when_ready (NemoFile *file,
-					       NemoFileCallback callback,
-					       gpointer callback_data)
+search_directory_file_cancel_call_when_ready (G_GNUC_UNUSED NemoFile *file,
+					       G_GNUC_UNUSED NemoFileCallback callback,
+					       G_GNUC_UNUSED gpointer callback_data)
 {
 	/* Do nothing here, we don't have any pending calls */
 }
 
 static gboolean
-search_directory_file_check_if_ready (NemoFile *file,
-				      NemoFileAttributes attributes)
+search_directory_file_check_if_ready (G_GNUC_UNUSED NemoFile *file,
+				      G_GNUC_UNUSED NemoFileAttributes attributes)
 {
 	return TRUE;
 }
@@ -95,7 +95,7 @@ search_directory_file_check_if_ready (NemoFile *file,
 static gboolean
 search_directory_file_get_item_count (NemoFile *file, 
 				      guint *count,
-				      gboolean *count_unreadable)
+				      G_GNUC_UNUSED gboolean *count_unreadable)
 {
 	GList *file_list;
 
@@ -163,15 +163,15 @@ search_directory_file_get_deep_counts (NemoFile *file,
 }
 
 static char *
-search_directory_file_get_where_string (NemoFile *file)
+search_directory_file_get_where_string (G_GNUC_UNUSED NemoFile *file)
 {
 	return g_strdup (_("Search"));
 }
 
 static gboolean
-search_directory_get_date (NemoFile     *file,
-                           NemoDateType  date_type,
-                           time_t       *date)
+search_directory_get_date (G_GNUC_UNUSED NemoFile     *file,
+                           G_GNUC_UNUSED NemoDateType  date_type,
+                           G_GNUC_UNUSED time_t       *date)
 {
     return FALSE;
 }

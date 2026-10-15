@@ -49,9 +49,15 @@
 #include <glib/gstdio.h>
 #include <libnemo-private/nemo-posix-compat.h>
 #include <libnemo-private/nemo-file-utilities.h>
+#include <libnemo-private/nemo-office.h>
 #include <libnemo-private/nemo-psd.h>
 #include <libnemo-private/nemo-raw.h>
 #include <libnemo-private/nemo-magick.h>
+#include <libnemo-private/nemo-user-text.h>
+
+#ifdef G_OS_WIN32
+#include <libnemo-private/nemo-launch-win32.h>
+#endif
 
 #define SECONDS_BETWEEN_STATS 10
 
@@ -188,7 +194,7 @@ thumbnailer_load (Thumbnailer *thumb)
       return NULL;
     }
 
-  thumb->command = g_key_file_get_string (key_file, THUMBNAILER_ENTRY_GROUP, "Exec", NULL);
+  thumb->command = nemo_user_text_get_string (key_file, THUMBNAILER_ENTRY_GROUP, "Exec", NULL);
   if (!thumb->command)
     {
       g_warning ("Invalid thumbnailer: missing Exec key\n");
@@ -198,7 +204,7 @@ thumbnailer_load (Thumbnailer *thumb)
       return NULL;
     }
 
-  thumb->mime_types = g_key_file_get_string_list (key_file, THUMBNAILER_ENTRY_GROUP, "MimeType", NULL, NULL);
+  thumb->mime_types = nemo_user_text_get_string_list (key_file, THUMBNAILER_ENTRY_GROUP, "MimeType", NULL, NULL);
   if (!thumb->mime_types)
     {
       g_warning ("Invalid thumbnailer: missing MimeType key\n");
@@ -208,7 +214,16 @@ thumbnailer_load (Thumbnailer *thumb)
       return NULL;
     }
 
-  thumb->try_exec = g_key_file_get_string (key_file, THUMBNAILER_ENTRY_GROUP, "TryExec", NULL);
+  thumb->try_exec = nemo_user_text_get_string (key_file, THUMBNAILER_ENTRY_GROUP, "TryExec", NULL);
+  /* Off Windows a bad escape, such as a bare backslash, reads as NULL. */
+  if (thumb->try_exec == NULL && g_key_file_has_key (key_file, THUMBNAILER_ENTRY_GROUP, "TryExec", NULL))
+    {
+      g_warning ("Invalid thumbnailer: TryExec couldn't be read\n");
+      thumbnailer_unref (thumb);
+      g_key_file_free (key_file);
+
+      return NULL;
+    }
   if (thumb->try_exec != NULL)
     {
       gchar *path_to_exec = g_find_program_in_path (thumb->try_exec);
@@ -257,7 +272,7 @@ thumbnailer_new (const gchar *path)
 }
 
 static gpointer
-init_thumbnailers_dirs (gpointer data)
+init_thumbnailers_dirs (G_GNUC_UNUSED gpointer data)
 {
   const gchar * const *data_dirs;
   gchar **thumbs_dirs;
@@ -374,15 +389,19 @@ create_loader (GFile        *file,
   return loader;
 }
 
+/* Fed to the loader a chunk at a time, so a cancel is seen between chunks
+ * even though no loader takes one. A loader that keeps everything for its
+ * close, such as TIFF, still decodes there to the end. */
 static GdkPixbuf *
-_gdk_pixbuf_new_from_uri_at_scale (const char *uri,
-				   gint        width,
-				   gint        height,
-				   gboolean    preserve_aspect_ratio)
+_gdk_pixbuf_new_from_uri_at_scale (const char   *uri,
+				   gint          width,
+				   gint          height,
+				   gboolean      preserve_aspect_ratio,
+				   GCancellable *cancellable)
 {
     gboolean result;
     guchar buffer[LOAD_BUFFER_SIZE];
-    gsize bytes_read;
+    gssize bytes_read;
     GdkPixbufLoader *loader = NULL;
     GdkPixbuf *pixbuf;	
     GdkPixbufAnimation *animation;
@@ -404,7 +423,7 @@ _gdk_pixbuf_new_from_uri_at_scale (const char *uri,
     file_info = g_file_query_info (file,
                                    G_FILE_ATTRIBUTE_PREVIEW_ICON,
                                    G_FILE_QUERY_INFO_NONE,
-                                   NULL,  /* GCancellable */
+                                   cancellable,
                                    NULL); /* return location for GError */
     if (file_info != NULL) {
         GObject *object;
@@ -415,14 +434,14 @@ _gdk_pixbuf_new_from_uri_at_scale (const char *uri,
             input_stream = g_loadable_icon_load (G_LOADABLE_ICON (object),
                                                  0,     /* size */
                                                  NULL,  /* return location for type */
-                                                 NULL,  /* GCancellable */
+                                                 cancellable,
                                                  NULL); /* return location for GError */
         }
         g_object_unref (file_info);
     }
 
     if (input_stream == NULL) {
-        input_stream = G_INPUT_STREAM (g_file_read (file, NULL, &error));
+        input_stream = G_INPUT_STREAM (g_file_read (file, cancellable, &error));
         if (input_stream == NULL) {
             if (error != NULL) {
                 g_debug ("Unable to create an input stream for %s: %s", uri, error->message);
@@ -441,7 +460,7 @@ _gdk_pixbuf_new_from_uri_at_scale (const char *uri,
 	bytes_read = g_input_stream_read (input_stream,
 					  buffer,
 					  sizeof (buffer),
-					  NULL,
+					  cancellable,
 					  &error);
         if (error != NULL) {
             g_debug ("Error reading from %s: %s", uri, error->message);
@@ -495,6 +514,11 @@ _gdk_pixbuf_new_from_uri_at_scale (const char *uri,
     }
 
     gdk_pixbuf_loader_close (loader, NULL);
+
+    /* Stopped partway, so what the loader has is only the top of it. */
+    if (g_cancellable_is_cancelled (cancellable)) {
+        result = FALSE;
+    }
 
     if (!result) {
 	g_object_unref (G_OBJECT (loader));
@@ -612,11 +636,44 @@ nemo_desktop_thumbnail_factory_is_disabled (NemoDesktopThumbnailFactory *factory
         return TRUE;
     }
 
+#ifdef G_OS_WIN32
+  {
+    g_autofree gchar *real_mime = nemo_content_type_get_mime_type (mime_type);
+
+    for (i = 0; priv->disabled_types[i]; i++)
+      {
+        if (g_strcmp0 (priv->disabled_types[i], real_mime) == 0)
+          return TRUE;
+      }
+  }
+#endif
+
   return FALSE;
 }
 
+/* On Windows a file's type is its extension, and a thumbnailer lists MIME
+ * types. Caller holds priv->lock.
+ * Returns: (transfer none) */
+static Thumbnailer *
+lookup_thumbnailer (NemoDesktopThumbnailFactory *factory,
+                    const gchar                  *mime_type)
+{
+  Thumbnailer *thumb = g_hash_table_lookup (factory->priv->mime_types_map, mime_type);
+
+#ifdef G_OS_WIN32
+  if (thumb == NULL)
+    {
+      g_autofree gchar *real_mime = nemo_content_type_get_mime_type (mime_type);
+
+      thumb = g_hash_table_lookup (factory->priv->mime_types_map, real_mime);
+    }
+#endif
+
+  return thumb;
+}
+
 static gboolean
-remove_thumbnailer_from_mime_type_map (gchar       *key,
+remove_thumbnailer_from_mime_type_map (G_GNUC_UNUSED gchar       *key,
                                        Thumbnailer *value,
                                        gchar       *path)
 {
@@ -698,9 +755,9 @@ remove_thumbnailer (NemoDesktopThumbnailFactory *factory,
 }
 
 static void
-thumbnailers_directory_changed (GFileMonitor                 *monitor,
+thumbnailers_directory_changed (G_GNUC_UNUSED GFileMonitor                 *monitor,
                                 GFile                        *file,
-                                GFile                        *other_file,
+                                G_GNUC_UNUSED GFile                        *other_file,
                                 GFileMonitorEvent             event_type,
                                 NemoDesktopThumbnailFactory *factory)
 {
@@ -790,8 +847,8 @@ nemo_desktop_thumbnail_factory_load_thumbnailers (NemoDesktopThumbnailFactory *f
 }
 
 static void
-external_thumbnailers_disabled_all_changed_cb (NemoConfigGroup              *settings,
-                                               const gchar                  *key,
+external_thumbnailers_disabled_all_changed_cb (G_GNUC_UNUSED NemoConfigGroup              *settings,
+                                               G_GNUC_UNUSED const gchar                  *key,
                                                NemoDesktopThumbnailFactory *factory)
 {
   NemoDesktopThumbnailFactoryPrivate *priv = factory->priv;
@@ -814,8 +871,8 @@ external_thumbnailers_disabled_all_changed_cb (NemoConfigGroup              *set
 }
 
 static void
-external_thumbnailers_disabled_changed_cb (NemoConfigGroup              *settings,
-                                           const gchar                  *key,
+external_thumbnailers_disabled_changed_cb (G_GNUC_UNUSED NemoConfigGroup              *settings,
+                                           G_GNUC_UNUSED const gchar                  *key,
                                            NemoDesktopThumbnailFactory *factory)
 {
   NemoDesktopThumbnailFactoryPrivate *priv = factory->priv;
@@ -854,7 +911,7 @@ external_thumbnailers_disabled_changed_cb (NemoConfigGroup              *setting
 */
 
 static void
-get_user_info (NemoDesktopThumbnailFactory *factory,
+get_user_info (G_GNUC_UNUSED NemoDesktopThumbnailFactory *factory,
                                    gboolean *adjust,
                                       uid_t *uid,
                                       gid_t *gid)
@@ -936,7 +993,7 @@ nemo_desktop_thumbnail_factory_class_init (NemoDesktopThumbnailFactoryClass *cla
  *
  * This function must be called on the main thread.
  * 
- * Return value: a new #NemoDesktopThumbnailFactory
+ * Return value: (transfer full): a new #NemoDesktopThumbnailFactory. Unref with g_object_unref.
  *
  * Since: 2.2
  **/
@@ -962,7 +1019,7 @@ nemo_desktop_thumbnail_factory_new (NemoDesktopThumbnailSize size)
  *
  * Usage of this function is threadsafe.
  *
- * Return value: The absolute path of the thumbnail, or %NULL if none exist.
+ * Return value: (transfer full): The absolute path of the thumbnail, or %NULL if none exist. Free with g_free.
  *
  * Since: 2.2
  **/
@@ -1031,7 +1088,7 @@ nemo_desktop_thumbnail_factory_lookup (NemoDesktopThumbnailFactory *factory,
  * Since: 2.2
  **/
 gboolean
-nemo_desktop_thumbnail_factory_has_valid_failed_thumbnail (NemoDesktopThumbnailFactory *factory,
+nemo_desktop_thumbnail_factory_has_valid_failed_thumbnail (G_GNUC_UNUSED NemoDesktopThumbnailFactory *factory,
 							    const char            *uri,
 							    time_t                 mtime)
 {
@@ -1163,11 +1220,12 @@ nemo_desktop_thumbnail_factory_can_make (NemoDesktopThumbnailFactory *factory,
       return FALSE;
     }
 
-  thumb = g_hash_table_lookup (factory->priv->mime_types_map, mime_type);
+  thumb = lookup_thumbnailer (factory, mime_type);
 
   g_mutex_unlock (&factory->priv->lock);
 
   return thumb != NULL || mimetype_supported_by_gdk_pixbuf (mime_type) ||
+         nemo_office_type_ok (mime_type) ||
          nemo_psd_type_ok (mime_type) || nemo_raw_type_ok (mime_type) ||
          nemo_magick_type_ok (uri);
 }
@@ -1219,7 +1277,7 @@ nemo_desktop_thumbnail_factory_can_thumbnail (NemoDesktopThumbnailFactory *facto
     }
 
   Thumbnailer *thumb;
-  thumb = g_hash_table_lookup (factory->priv->mime_types_map, mime_type);
+  thumb = lookup_thumbnailer (factory, mime_type);
 
   g_mutex_unlock (&factory->priv->lock);
 
@@ -1255,7 +1313,7 @@ expand_thumbnailing_script (const char *script,
 
       switch (*p) {
       case 'u':
-	quoted = g_shell_quote (inuri);
+	quoted = nemo_user_text_quote (inuri);
 	g_string_append (str, quoted);
 	g_free (quoted);
 	got_in = TRUE;
@@ -1265,7 +1323,7 @@ expand_thumbnailing_script (const char *script,
 	localfile = g_filename_from_uri (inuri, NULL, NULL);
 	if (localfile)
 	  {
-	    quoted = g_shell_quote (localfile);
+	    quoted = nemo_user_text_quote (localfile);
 	    g_string_append (str, quoted);
 	    got_in = TRUE;
 	    g_free (quoted);
@@ -1274,7 +1332,7 @@ expand_thumbnailing_script (const char *script,
 	p++;
 	break;
       case 'o':
-	quoted = g_shell_quote (outfile);
+	quoted = nemo_user_text_quote (outfile);
 	g_string_append (str, quoted);
 	g_free (quoted);
 	p++;
@@ -1302,10 +1360,36 @@ expand_thumbnailing_script (const char *script,
   return NULL;
 }
 
+#ifdef G_OS_WIN32
+/* GLib starts a program through a helper of its own, which gave a console
+ * thumbnailer a console window each time, and which never started it at all
+ * from inside the single exe. */
+static gboolean
+run_thumbnailer_script (const char *command_line, GCancellable *cancellable)
+{
+  gchar **argv = NULL;
+  gboolean late = FALSE;
+  gboolean ok;
+
+  if (!nemo_user_text_split_command (command_line, NULL, &argv, NULL))
+    return FALSE;
+
+  ok = nemo_launch_win32_pipe ((const gchar * const *) argv, NULL, THUMBNAILER_TIMEOUT_SECONDS,
+                               cancellable, NULL, &late);
+  g_strfreev (argv);
+
+  if (late)
+    g_warning ("Thumbnailer took longer than %d seconds, gave up on it: %s",
+               THUMBNAILER_TIMEOUT_SECONDS, command_line);
+
+  return ok;
+}
+#else
 typedef struct {
   GSubprocess *proc;
   GMainLoop   *loop;
   gboolean     timed_out;
+  gboolean     stopped;
   gboolean     ok;
 } ScriptRun;
 
@@ -1315,6 +1399,18 @@ script_timed_out (gpointer data)
   ScriptRun *run = data;
 
   run->timed_out = TRUE;
+  g_subprocess_force_exit (run->proc);
+
+  return G_SOURCE_REMOVE;
+}
+
+/* Nothing wants the picture any more, so the helper is ended like a timeout. */
+static gboolean
+script_cancelled (G_GNUC_UNUSED GCancellable *cancellable, gpointer data)
+{
+  ScriptRun *run = data;
+
+  run->stopped = TRUE;
   g_subprocess_force_exit (run->proc);
 
   return G_SOURCE_REMOVE;
@@ -1334,16 +1430,17 @@ script_finished (GObject *source, GAsyncResult *result, gpointer data)
  * of one to four - a single helper that never exits used to cost that slot for the
  * rest of the session, and four of them stopped thumbnailing altogether. */
 static gboolean
-run_thumbnailer_script (const char *command_line)
+run_thumbnailer_script (const char *command_line, GCancellable *cancellable)
 {
   GMainContext *context;
   GSource *timeout;
+  GSource *stop = NULL;
   GSubprocess *proc;
   ScriptRun run = { 0 };
   gchar **argv = NULL;
   gboolean ok;
 
-  if (!g_shell_parse_argv (command_line, NULL, &argv, NULL))
+  if (!nemo_user_text_split_command (command_line, NULL, &argv, NULL))
     return FALSE;
 
   /* Private context so the wait and the timeout run here rather than on
@@ -1371,6 +1468,13 @@ run_thumbnailer_script (const char *command_line)
   g_source_set_callback (timeout, script_timed_out, &run, NULL);
   g_source_attach (timeout, context);
 
+  if (cancellable != NULL)
+    {
+      stop = g_cancellable_source_new (cancellable);
+      g_source_set_callback (stop, G_SOURCE_FUNC (script_cancelled), &run, NULL);
+      g_source_attach (stop, context);
+    }
+
   /* Killing the child completes the wait, so the loop still ends by itself
    * and the process is reaped rather than left behind. */
   g_main_loop_run (run.loop);
@@ -1379,8 +1483,13 @@ run_thumbnailer_script (const char *command_line)
     g_warning ("Thumbnailer took longer than %d seconds, gave up on it: %s",
                THUMBNAILER_TIMEOUT_SECONDS, command_line);
 
-  ok = run.ok;
+  ok = run.ok && !run.stopped;
 
+  if (stop != NULL)
+    {
+      g_source_destroy (stop);
+      g_source_unref (stop);
+    }
   g_source_destroy (timeout);
   g_source_unref (timeout);
   g_main_loop_unref (run.loop);
@@ -1390,6 +1499,7 @@ run_thumbnailer_script (const char *command_line)
 
   return ok;
 }
+#endif
 
 /**
  * nemo_desktop_thumbnail_factory_generate_thumbnail:
@@ -1413,16 +1523,20 @@ nemo_desktop_thumbnail_factory_generate_thumbnail (NemoDesktopThumbnailFactory *
 {
   return nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (factory, uri, mime_type,
                                                                    factory->priv->size == NEMO_DESKTOP_THUMBNAIL_SIZE_LARGE
-                                                                   ? 256 : 128);
+                                                                   ? 256 : 128, NULL);
 }
 
 /* The same, at any size rather than the two the shared cache has folders for.
- * An external thumbnailer is free to hand back something smaller than asked. */
+ * An external thumbnailer is free to hand back something smaller than asked.
+ * Once @cancellable is cancelled every reader stops and the answer is NULL,
+ * which the caller tells apart from a failure by the cancellable.
+ * Returns: (transfer full): unref with g_object_unref */
 GdkPixbuf *
 nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (NemoDesktopThumbnailFactory *factory,
 							    const char            *uri,
 							    const char            *mime_type,
-							    int                    size)
+							    int                    size,
+							    GCancellable          *cancellable)
 {
   GdkPixbuf *pixbuf, *scaled, *tmp_pixbuf;
   char *script, *expanded_script;
@@ -1449,13 +1563,17 @@ nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (NemoDesktopThumbnailF
     {
       Thumbnailer *thumb;
 
-      thumb = g_hash_table_lookup (factory->priv->mime_types_map, mime_type);
+      thumb = lookup_thumbnailer (factory, mime_type);
       if (thumb)
         script = g_strdup (thumb->command);
     }
   g_mutex_unlock (&factory->priv->lock);
-  
-  if (script)
+
+  /* Ahead of any installed thumbnailer, so no program is started for these. */
+  if (!disabled && nemo_office_type_ok (mime_type))
+    pixbuf = nemo_office_thumbnail_uri (uri, size, cancellable);
+
+  if (script && pixbuf == NULL && !g_cancellable_is_cancelled (cancellable))
     {
       int fd;
 
@@ -1467,7 +1585,7 @@ nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (NemoDesktopThumbnailF
 	  close (fd);
 
 	  expanded_script = expand_thumbnailing_script (script, size, uri, tmpname);
-	  if (expanded_script != NULL && run_thumbnailer_script (expanded_script))
+	  if (expanded_script != NULL && run_thumbnailer_script (expanded_script, cancellable))
 	    {
 	      pixbuf = gdk_pixbuf_new_from_file (tmpname, NULL);
 	    }
@@ -1476,14 +1594,13 @@ nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (NemoDesktopThumbnailF
 	  g_unlink (tmpname);
 	  g_free (tmpname);
 	}
-
-      g_free (script);
     }
+  g_free (script);
 
   /* Fall back to gdk-pixbuf */
   if (!disabled && pixbuf == NULL && mimetype_supported_by_gdk_pixbuf (mime_type))
     {
-      pixbuf = _gdk_pixbuf_new_from_uri_at_scale (uri, size, size, TRUE);
+      pixbuf = _gdk_pixbuf_new_from_uri_at_scale (uri, size, size, TRUE, cancellable);
 
       if (pixbuf != NULL)
         {
@@ -1495,13 +1612,16 @@ nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (NemoDesktopThumbnailF
     }
       
   if (!disabled && pixbuf == NULL && nemo_psd_type_ok (mime_type))
-    pixbuf = nemo_psd_load_uri (uri, size);
+    pixbuf = nemo_psd_load_uri (uri, size, cancellable);
 
   if (!disabled && pixbuf == NULL && nemo_raw_type_ok (mime_type))
-    pixbuf = nemo_raw_load_uri (uri, size);
+    pixbuf = nemo_raw_load_uri (uri, size, cancellable);
 
   if (!disabled && pixbuf == NULL && nemo_magick_type_ok (uri))
-    pixbuf = nemo_magick_load_uri (uri, size);
+    pixbuf = nemo_magick_load_uri (uri, size, cancellable);
+
+  if (g_cancellable_is_cancelled (cancellable))
+    g_clear_object (&pixbuf);
 
   if (pixbuf == NULL)
     return NULL;
@@ -1859,7 +1979,7 @@ nemo_desktop_thumbnail_factory_create_failed_thumbnail (NemoDesktopThumbnailFact
  * Calculates the MD5 checksum of the uri. This can be useful
  * if you want to manually handle thumbnail files.
  *
- * Return value: A string with the MD5 digest of the uri string.
+ * Return value: (transfer full): A string with the MD5 digest of the uri string. Free with g_free.
  *
  * Since: 2.2
  * Deprecated: 2.22: Use #GChecksum instead
@@ -1879,7 +1999,7 @@ nemo_desktop_thumbnail_md5 (const char *uri)
  *
  * Returns the filename that a thumbnail of size @size for @uri would have.
  *
- * Return value: an absolute filename
+ * Return value: (transfer full): an absolute filename. Free with g_free.
  *
  * Since: 2.2
  **/

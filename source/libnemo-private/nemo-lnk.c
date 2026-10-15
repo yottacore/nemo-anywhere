@@ -352,13 +352,9 @@ nemo_lnk_parse (const guint8 *bytes, gsize length, NemoLnk *lnk)
 	    !read_string (bytes, length, &pos, unicode, &lnk->arguments)) {
 		return TRUE;
 	}
-	if (flags & FLAG_HAS_ICON_LOCATION) {
-		char *icon = NULL;
-
-		if (!read_string (bytes, length, &pos, unicode, &icon)) {
-			return TRUE;
-		}
-		g_free (icon);
+	if ((flags & FLAG_HAS_ICON_LOCATION) &&
+	    !read_string (bytes, length, &pos, unicode, &lnk->icon_location)) {
+		return TRUE;
 	}
 
 	/* Windows reads the block only when the flag says to, and so does this. */
@@ -450,6 +446,7 @@ nemo_lnk_clear (NemoLnk *lnk)
 	g_free (lnk->working_dir);
 	g_free (lnk->arguments);
 	g_free (lnk->description);
+	g_free (lnk->icon_location);
 	memset (lnk, 0, sizeof *lnk);
 }
 
@@ -459,6 +456,7 @@ nemo_lnk_is_dir (const NemoLnk *lnk)
 	return (lnk->attributes & ATTRIBUTE_DIRECTORY) != 0;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_lnk_display_target (const NemoLnk *lnk)
 {
@@ -473,6 +471,62 @@ nemo_lnk_display_target (const NemoLnk *lnk)
 	}
 
 	return g_strdup (lnk->relative_path);
+}
+
+/* \\server\share, in either slash and in the long form, but not \\?\C:\ or a
+   device. */
+static gboolean
+is_share_path (const char *path)
+{
+	char *spelled;
+	gboolean share;
+
+	if (path == NULL || strlen (path) < 2) {
+		return FALSE;
+	}
+
+	spelled = g_strdup (path);
+	g_strdelimit (spelled, "/", '\\');
+	if (g_ascii_strncasecmp (spelled, "\\\\?\\UNC\\", 8) == 0) {
+		share = TRUE;
+	} else if (g_str_has_prefix (spelled, "\\\\?\\") || g_str_has_prefix (spelled, "\\\\.\\")) {
+		share = FALSE;
+	} else {
+		share = spelled[0] == '\\' && spelled[1] == '\\';
+	}
+	g_free (spelled);
+
+	return share;
+}
+
+static gboolean
+expands_to_share (const char *windows_path)
+{
+	char *expanded;
+	gboolean share;
+
+	if (windows_path == NULL) {
+		return FALSE;
+	}
+
+	expanded = nemo_lnk_expand (windows_path);
+	share = is_share_path (expanded);
+	g_free (expanded);
+
+	return share;
+}
+
+/* The relative path is left out: it starts from the folder the shortcut is
+   in, which is never on a share when this is asked. */
+gboolean
+nemo_lnk_points_at_share (const NemoLnk *lnk)
+{
+	g_return_val_if_fail (lnk != NULL, FALSE);
+
+	return (lnk->net_share != NULL && lnk->local_path == NULL) ||
+	       is_share_path (lnk->local_path) ||
+	       expands_to_share (lnk->env_path) ||
+	       expands_to_share (lnk->icon_location);
 }
 
 /* Casefolded, since Windows names do not keep case. */
@@ -583,6 +637,7 @@ path_under (const char *path, const char *dir)
 }
 #endif
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_lnk_expand (const char *windows_path)
 {
@@ -633,6 +688,7 @@ static const char *portable_names[] = {
 };
 #endif
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_lnk_portable_path (const char *target_path)
 {
@@ -1111,7 +1167,8 @@ rooted_path (const char *windows_path)
 
 /* The order Windows itself tries: the path with environment variables when
    there is one, then the absolute path, then the path relative to the
-   shortcut. */
+   shortcut.
+   Returns: (transfer full): free with g_free */
 char *
 nemo_lnk_resolve (const char *lnk_path, const NemoLnk *lnk)
 {
@@ -1185,6 +1242,7 @@ nemo_lnk_resolve (const char *lnk_path, const NemoLnk *lnk)
 	return uri;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_lnk_resolve_dir (const NemoLnk *lnk, const char *windows_path)
 {
@@ -1313,6 +1371,7 @@ path_is_lnk (const char *path)
 	return length > 4 && g_ascii_strcasecmp (path + length - 4, ".lnk") == 0;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_lnk_follow (const char *lnk_path, NemoLnk *lnk_out)
 {
@@ -1452,6 +1511,7 @@ nemo_lnk_target_is_dir_for_path (const char *lnk_path, gint64 mtime)
 	return is_dir;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GIcon *
 nemo_lnk_icon_for_path (const char *lnk_path, gint64 mtime)
 {
@@ -1678,7 +1738,7 @@ put_env_block (GByteArray *out, const char *path)
 gboolean
 nemo_lnk_write (const char  *lnk_path,
 		const char  *target_path,
-		guint        parts,
+		gboolean     with_portable,
 		GError     **error)
 {
 	GStatBuf info;
@@ -1687,13 +1747,13 @@ nemo_lnk_write (const char  *lnk_path,
 	GFileOutputStream *stream;
 	char *dir, *relative_text, *relative_windows = NULL, *unc = NULL, *suffix = NULL;
 	char *absolute = NULL, *portable = NULL;
-	guint32 flags = FLAG_IS_UNICODE;
+	guint32 flags = FLAG_IS_UNICODE | FLAG_HAS_LINK_INFO;
 	gboolean is_dir, ok;
 	glong units;
 
 	if (g_stat (target_path, &info) != 0) {
 		g_set_error (error, G_IO_ERROR, g_io_error_from_errno (errno),
-			     _("Could not read \"%s\"."), target_path);
+			     _("Couldn't read \"%s\"."), target_path);
 		return FALSE;
 	}
 	is_dir = S_ISDIR (info.st_mode);
@@ -1729,63 +1789,41 @@ nemo_lnk_write (const char  *lnk_path,
 	}
 #endif
 
-	if (parts & NEMO_LNK_ABSOLUTE) {
-		flags |= FLAG_HAS_LINK_INFO;
-		if (unc == NULL) {
-			absolute = to_backslashes (target_path);
-		}
+	if (unc == NULL) {
+		absolute = to_backslashes (target_path);
 	}
 
 	/* Written the way Windows writes it, from the folder the shortcut is in. */
-	if (parts & NEMO_LNK_RELATIVE) {
-		dir = g_path_get_dirname (lnk_path);
-		relative_text = nemo_link_relative_target (target_path, dir);
-		g_free (dir);
-		units = relative_text != NULL ? utf16_length (relative_text) : -1;
-		if (units >= 0 && units <= G_MAXUINT16) {
-			relative_windows = to_backslashes (relative_text);
-			if (!g_str_has_prefix (relative_text, "..")) {
-				char *dotted = g_strconcat (".\\", relative_windows, NULL);
+	dir = g_path_get_dirname (lnk_path);
+	relative_text = nemo_link_relative_target (target_path, dir);
+	g_free (dir);
+	units = relative_text != NULL ? utf16_length (relative_text) : -1;
+	if (units >= 0 && units <= G_MAXUINT16) {
+		relative_windows = to_backslashes (relative_text);
+		if (!g_str_has_prefix (relative_text, "..")) {
+			char *dotted = g_strconcat (".\\", relative_windows, NULL);
 
-				g_free (relative_windows);
-				relative_windows = dotted;
-			}
-			flags |= FLAG_HAS_RELATIVE_PATH;
+			g_free (relative_windows);
+			relative_windows = dotted;
 		}
-		g_free (relative_text);
+		flags |= FLAG_HAS_RELATIVE_PATH;
 	}
+	g_free (relative_text);
 
 	/* Windows follows this block from a shortcut made anywhere, and not the
-	   other two, so a share path goes in when no variable covers the target.
-	   On Windows a plain path is kept for when the absolute one is left out. */
-	if (parts & NEMO_LNK_PORTABLE) {
+	   other two, so a share path goes in when no variable covers the target. */
+	if (with_portable) {
 		if (unc != NULL) {
 			portable = join_windows (unc, suffix);
 		} else {
 			portable = nemo_lnk_portable_path (target_path);
 		}
-#ifdef G_OS_WIN32
-		if (portable == NULL) {
-			portable = to_backslashes (target_path);
-		}
-#endif
 		units = portable != NULL ? utf16_length (portable) : -1;
 		if (units >= 0 && units < ENV_PATH_CHARS) {
 			flags |= FLAG_HAS_EXP_STRING;
 		} else {
 			g_clear_pointer (&portable, g_free);
 		}
-	}
-
-	if (!(flags & (FLAG_HAS_LINK_INFO | FLAG_HAS_RELATIVE_PATH | FLAG_HAS_EXP_STRING))) {
-		g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
-			     _("A shortcut to \"%s\" would hold no path: no environment variable "
-			       "covers it, and there is no path from the shortcut to it. Choose an "
-			       "absolute path as well."),
-			     target_path);
-		g_free (unc);
-		g_free (suffix);
-		return FALSE;
 	}
 
 	out = g_byte_array_new ();
@@ -1804,9 +1842,9 @@ nemo_lnk_write (const char  *lnk_path,
 	put_u32 (out, 0);
 	put_u32 (out, 0);
 
-	if ((flags & FLAG_HAS_LINK_INFO) && unc != NULL) {
+	if (unc != NULL) {
 		put_network_link_info (out, unc, suffix);
-	} else if (flags & FLAG_HAS_LINK_INFO) {
+	} else {
 		put_local_link_info (out, absolute, 0);
 	}
 	if (flags & FLAG_HAS_RELATIVE_PATH) {
@@ -1879,81 +1917,12 @@ rewrite_lnk (const char *lnk_path, const char *data, gsize length, GError **erro
 		}
 		/* Past the umask, which the call above is still under. */
 		if (g_chmod (lnk_path, mode) != 0) {
-			g_warning ("could not put the permissions back on %s: %s", lnk_path, g_strerror (errno));
+			g_warning ("couldn't put the permissions back on %s: %s", lnk_path, g_strerror (errno));
 		}
 		return TRUE;
 	}
 #endif
 	return g_file_set_contents (lnk_path, data, length, error);
-}
-
-gboolean
-nemo_lnk_drop_relative (const char  *lnk_path,
-			GError     **error)
-{
-	char *contents = NULL;
-	guint8 *bytes;
-	gsize length, pos, count, cut;
-	guint32 flags;
-	gboolean ok;
-	NemoLnk check;
-
-	if (!g_file_get_contents (lnk_path, &contents, &length, error)) {
-		return FALSE;
-	}
-	bytes = (guint8 *) contents;
-
-	if (!nemo_lnk_parse (bytes, length, &check)) {
-		g_free (contents);
-		g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
-			     _("\"%s\" is not a shortcut."), lnk_path);
-		return FALSE;
-	}
-	nemo_lnk_clear (&check);
-
-	flags = get_u32 (bytes + 20);
-	if (!(flags & FLAG_HAS_RELATIVE_PATH)) {
-		g_free (contents);
-		return TRUE;
-	}
-	if (!strings_start (bytes, length, &pos)) {
-		g_free (contents);
-		g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
-			     _("\"%s\" is not a shortcut."), lnk_path);
-		return FALSE;
-	}
-
-	/* The name comes first, then the relative path. */
-	if ((flags & FLAG_HAS_NAME) && pos + 2 <= length) {
-		pos += 2 + get_u16 (bytes + pos) * ((flags & FLAG_IS_UNICODE) ? 2 : 1);
-	}
-	if (pos + 2 > length) {
-		g_free (contents);
-		g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
-			     _("\"%s\" is not a shortcut."), lnk_path);
-		return FALSE;
-	}
-	count = get_u16 (bytes + pos);
-	cut = 2 + count * ((flags & FLAG_IS_UNICODE) ? 2 : 1);
-	if (cut > length - pos) {
-		g_free (contents);
-		g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
-			     _("\"%s\" is not a shortcut."), lnk_path);
-		return FALSE;
-	}
-
-	memmove (bytes + pos, bytes + pos + cut, length - pos - cut);
-	length -= cut;
-	flags &= ~FLAG_HAS_RELATIVE_PATH;
-	bytes[20] = flags & 0xff;
-	bytes[21] = (flags >> 8) & 0xff;
-	bytes[22] = (flags >> 16) & 0xff;
-	bytes[23] = flags >> 24;
-
-	ok = rewrite_lnk (lnk_path, contents, length, error);
-	g_free (contents);
-
-	return ok;
 }
 
 /* Extra data blocks that say where the target is, one way or another. Each
@@ -1990,6 +1959,50 @@ put_counted (GByteArray *out, const char *text)
 	return TRUE;
 }
 
+/* Steps past one counted string, and notes where it starts. */
+static gboolean
+skip_string (const guint8 *bytes, gsize length, gsize *pos, gboolean unicode, gsize *at)
+{
+	gsize need;
+
+	if (*pos + 2 > length) {
+		return FALSE;
+	}
+	need = get_u16 (bytes + *pos);
+	if (unicode) {
+		need *= 2;
+	}
+	if (need > length - *pos - 2) {
+		return FALSE;
+	}
+	*at = *pos;
+	*pos += 2 + need;
+
+	return TRUE;
+}
+
+/* A string kept from the old file. UTF-16 goes back byte for byte: Windows
+   does not check it, and one that will not convert still has to fill its
+   place, or every string after it reads one along. */
+static gboolean
+put_kept (GByteArray *out, const guint8 *bytes, gsize at, gboolean unicode)
+{
+	guint16 count = get_u16 (bytes + at);
+	char *text;
+	gboolean ok;
+
+	if (unicode) {
+		g_byte_array_append (out, bytes + at, 2 + 2 * (guint) count);
+		return TRUE;
+	}
+
+	text = ansi_to_utf8 (bytes + at + 2, count);
+	ok = put_counted (out, text != NULL ? text : "");
+	g_free (text);
+
+	return ok;
+}
+
 /* The drive letter a Windows path starts with, or 0. */
 static char
 drive_letter (const char *path)
@@ -2013,7 +2026,7 @@ nemo_lnk_set_paths (const char  *lnk_path,
 	gsize length, pos;
 	guint32 flags, new_flags;
 	gboolean unicode, ok = FALSE;
-	char *name = NULL, *old_relative = NULL, *working_dir = NULL, *arguments = NULL, *icon = NULL;
+	gsize name_at = 0, old_relative_at = 0, working_dir_at = 0, arguments_at = 0, icon_at = 0;
 	char *relative_windows = NULL;
 	GByteArray *out = NULL;
 	NemoLnk old = { 0 };
@@ -2048,20 +2061,20 @@ nemo_lnk_set_paths (const char  *lnk_path,
 	bytes = (const guint8 *) contents;
 	if (length > LNK_READ_MAX || !nemo_lnk_parse (bytes, length, &old)) {
 		g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
-			     _("\"%s\" is not a shortcut."), lnk_path);
+			     _("\"%s\" isn't a shortcut."), lnk_path);
 		goto out;
 	}
 
 	flags = get_u32 (bytes + 20);
 	unicode = (flags & FLAG_IS_UNICODE) != 0;
 	if (!strings_start (bytes, length, &pos) ||
-	    ((flags & FLAG_HAS_NAME) && !read_string (bytes, length, &pos, unicode, &name)) ||
-	    ((flags & FLAG_HAS_RELATIVE_PATH) && !read_string (bytes, length, &pos, unicode, &old_relative)) ||
-	    ((flags & FLAG_HAS_WORKING_DIR) && !read_string (bytes, length, &pos, unicode, &working_dir)) ||
-	    ((flags & FLAG_HAS_ARGUMENTS) && !read_string (bytes, length, &pos, unicode, &arguments)) ||
-	    ((flags & FLAG_HAS_ICON_LOCATION) && !read_string (bytes, length, &pos, unicode, &icon))) {
+	    ((flags & FLAG_HAS_NAME) && !skip_string (bytes, length, &pos, unicode, &name_at)) ||
+	    ((flags & FLAG_HAS_RELATIVE_PATH) && !skip_string (bytes, length, &pos, unicode, &old_relative_at)) ||
+	    ((flags & FLAG_HAS_WORKING_DIR) && !skip_string (bytes, length, &pos, unicode, &working_dir_at)) ||
+	    ((flags & FLAG_HAS_ARGUMENTS) && !skip_string (bytes, length, &pos, unicode, &arguments_at)) ||
+	    ((flags & FLAG_HAS_ICON_LOCATION) && !skip_string (bytes, length, &pos, unicode, &icon_at))) {
 		g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
-			     _("\"%s\" is not a shortcut."), lnk_path);
+			     _("\"%s\" isn't a shortcut."), lnk_path);
 		goto out;
 	}
 
@@ -2116,11 +2129,11 @@ nemo_lnk_set_paths (const char  *lnk_path,
 	if (relative != NULL) {
 		relative_windows = to_backslashes (relative);
 	}
-	if ((name != NULL && !put_counted (out, name)) ||
+	if (((flags & FLAG_HAS_NAME) && !put_kept (out, bytes, name_at, unicode)) ||
 	    (relative != NULL && !put_counted (out, relative_windows)) ||
-	    (working_dir != NULL && !put_counted (out, working_dir)) ||
-	    (arguments != NULL && !put_counted (out, arguments)) ||
-	    (icon != NULL && !put_counted (out, icon))) {
+	    ((flags & FLAG_HAS_WORKING_DIR) && !put_kept (out, bytes, working_dir_at, unicode)) ||
+	    ((flags & FLAG_HAS_ARGUMENTS) && !put_kept (out, bytes, arguments_at, unicode)) ||
+	    ((flags & FLAG_HAS_ICON_LOCATION) && !put_kept (out, bytes, icon_at, unicode))) {
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
 				     _("A path is too long for a shortcut."));
 		goto out;
@@ -2153,11 +2166,6 @@ nemo_lnk_set_paths (const char  *lnk_path,
 		g_byte_array_unref (out);
 	}
 	g_free (relative_windows);
-	g_free (name);
-	g_free (old_relative);
-	g_free (working_dir);
-	g_free (arguments);
-	g_free (icon);
 	g_free (contents);
 
 	return ok;

@@ -260,7 +260,7 @@ search_monitor_remove (NemoDirectory *directory,
 }
 
 static void
-cancel_call_when_ready (gpointer key, gpointer value, gpointer user_data)
+cancel_call_when_ready (gpointer key, G_GNUC_UNUSED gpointer value, gpointer user_data)
 {
 	SearchCallback *search_callback;
 	NemoFile *file;
@@ -283,6 +283,12 @@ search_callback_destroy (SearchCallback *search_callback)
 	nemo_file_list_free (search_callback->file_list);
 
 	g_free (search_callback);
+}
+
+static void
+destroy_one (gpointer data, G_GNUC_UNUSED gpointer user_data)
+{
+	search_callback_destroy (data);
 }
 
 static void
@@ -471,7 +477,7 @@ search_cancel_callback (NemoDirectory *directory,
 
 
 static void
-search_engine_hits_added (NemoSearchEngine *engine, GList *hits, 
+search_engine_hits_added (G_GNUC_UNUSED NemoSearchEngine *engine, GList *hits, 
 			  NemoSearchDirectory *search)
 {
 	GList *hit;
@@ -511,7 +517,7 @@ search_engine_hits_added (NemoSearchEngine *engine, GList *hits,
 }
 
 static void
-search_engine_hits_subtracted (NemoSearchEngine *engine, GList *hits, 
+search_engine_hits_subtracted (G_GNUC_UNUSED NemoSearchEngine *engine, GList *hits, 
 			       NemoSearchDirectory *search)
 {
 	GList *hit_list;
@@ -560,7 +566,13 @@ search_callback_add_pending_file_callbacks (SearchCallback *callback)
 }
 
 static void
-search_engine_error (NemoSearchEngine *engine, const char *error_message, NemoSearchDirectory *search)
+add_pending_one (gpointer data, G_GNUC_UNUSED gpointer user_data)
+{
+	search_callback_add_pending_file_callbacks (data);
+}
+
+static void
+search_engine_error (G_GNUC_UNUSED NemoSearchEngine *engine, const char *error_message, NemoSearchDirectory *search)
 {
 	GError *error;
 
@@ -572,15 +584,14 @@ search_engine_error (NemoSearchEngine *engine, const char *error_message, NemoSe
 }
 
 static void
-search_engine_finished (NemoSearchEngine *engine, NemoSearchDirectory *search)
+search_engine_finished (G_GNUC_UNUSED NemoSearchEngine *engine, NemoSearchDirectory *search)
 {
 	search->details->search_finished = TRUE;
 
 	nemo_directory_emit_done_loading (NEMO_DIRECTORY (search));
 
 	/* Add all file callbacks */
-	g_list_foreach (search->details->pending_callback_list, 
-			(GFunc)search_callback_add_pending_file_callbacks, NULL);
+	g_list_foreach (search->details->pending_callback_list, add_pending_one, NULL);
 	search->details->callback_list = g_list_concat (search->details->callback_list,
 							search->details->pending_callback_list);
 
@@ -660,7 +671,7 @@ search_get_file_list (NemoDirectory *directory)
 
 
 static gboolean
-search_is_editable (NemoDirectory *directory)
+search_is_editable (G_GNUC_UNUSED NemoDirectory *directory)
 {
 	return FALSE;
 }
@@ -687,15 +698,13 @@ search_dispose (GObject *object)
 	
 	if (search->details->callback_list) {
 		/* Remove callbacks */
-		g_list_foreach (search->details->callback_list,
-				(GFunc)search_callback_destroy, NULL);
+		g_list_foreach (search->details->callback_list, destroy_one, NULL);
 		g_list_free (search->details->callback_list);
 		search->details->callback_list = NULL;
 	}
 
 	if (search->details->pending_callback_list) {
-		g_list_foreach (search->details->pending_callback_list,
-				(GFunc)search_callback_destroy, NULL);
+		g_list_foreach (search->details->pending_callback_list, destroy_one, NULL);
 		g_list_free (search->details->pending_callback_list);
 		search->details->pending_callback_list = NULL;
 	}
@@ -759,6 +768,7 @@ nemo_search_directory_class_init (NemoSearchDirectoryClass *class)
 	directory_class->is_editable = search_is_editable;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_search_directory_generate_new_uri (void)
 {
@@ -771,12 +781,70 @@ nemo_search_directory_generate_new_uri (void)
 }
 
 
+/* A search page outlives its folder object in the history, so each search
+   page's last query is kept here by its URI, for Back, Forward and the like. */
+static GHashTable *last_queries;
+
+static gboolean
+query_has_folder (NemoQuery *query)
+{
+	char *uri = nemo_query_get_location (query);
+	gboolean has = uri != NULL && uri[0] != '\0';
+
+	g_free (uri);
+	return has;
+}
+
+/* Brings back what a search page last searched, if this one was ever used. */
+void
+nemo_search_directory_recall_query (NemoSearchDirectory *search)
+{
+	char *uri = nemo_directory_get_uri (NEMO_DIRECTORY (search));
+	NemoQuery *query = last_queries != NULL ? g_hash_table_lookup (last_queries, uri) : NULL;
+
+	if (query != NULL && search->details->query == NULL) {
+		nemo_search_directory_set_query (search, query);
+		search->details->modified = FALSE;
+	}
+	g_free (uri);
+}
+
+/* The folder a search page last searched, or NULL when nothing is known of it.
+   Returns: (transfer full): free with g_free */
+char *
+nemo_search_directory_get_folder_uri (const char *search_uri)
+{
+	NemoQuery *query;
+
+	if (search_uri == NULL || last_queries == NULL) {
+		return NULL;
+	}
+	query = g_hash_table_lookup (last_queries, search_uri);
+
+	return query != NULL ? nemo_query_get_location (query) : NULL;
+}
+
 void
 nemo_search_directory_set_query (NemoSearchDirectory *search,
 				     NemoQuery *query)
 {
 	NemoDirectory *dir;
 	NemoFile *as_file;
+
+	/* With no folder the engines search from the root of the disk. */
+	if (query != NULL && !query_has_folder (query)) {
+		query = NULL;
+	}
+
+	if (query != NULL) {
+		if (last_queries == NULL) {
+			last_queries = g_hash_table_new_full (g_str_hash, g_str_equal,
+							      g_free, g_object_unref);
+		}
+		g_hash_table_replace (last_queries,
+				      nemo_directory_get_uri (NEMO_DIRECTORY (search)),
+				      g_object_ref (query));
+	}
 
 	if (search->details->query != query) {
 		search->details->modified = TRUE;
@@ -799,6 +867,7 @@ nemo_search_directory_set_query (NemoSearchDirectory *search,
 	}
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoQuery *
 nemo_search_directory_get_query (NemoSearchDirectory *search)
 {

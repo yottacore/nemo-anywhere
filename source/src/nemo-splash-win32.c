@@ -374,7 +374,7 @@ make_fonts (void)
 }
 
 static DWORD WINAPI
-splash_main (LPVOID data)
+splash_main (G_GNUC_UNUSED LPVOID data)
 {
 	WNDCLASSEXW cls;
 	HINSTANCE   instance = GetModuleHandleW (NULL);

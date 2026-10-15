@@ -23,13 +23,16 @@
 /* The menu key and Ctrl+F10 have no pointer behind them. The menu once opened
  * at the pointer anyway, which can be anywhere, and read as the key doing
  * nothing. With no event it has to open against the focused widget, or
- * against the view itself when the focus is elsewhere. */
+ * against the view itself when the focus is elsewhere. Given the item the menu
+ * is for, it opens just below that item, unless the item is out of sight.
+ * A menu made for one open is freed once it closes. */
 
 #include <config.h>
 
 #include <stdlib.h>
 #include <gtk/gtk.h>
 #include <eel/eel-gtk-extensions.h>
+#include <libnemo-private/nemo-dnd.h>
 
 #include "test-check.h"
 #include "test-scratch.h"
@@ -73,14 +76,18 @@ screen_origin (GtkWidget *widget, int *x, int *y)
 
 /* Pops the menu with no event and reports where its window opened. */
 static gboolean
-pop_up (GtkWidget *view, int *x, int *y)
+pop_up_at_item (GtkWidget *view, const GdkRectangle *item, int *x, int *y)
 {
 	GtkWidget *menu = new_menu ();
 	GtkWidget *menu_window;
 	gboolean shown;
 
 	g_object_ref_sink (menu);
-	eel_pop_up_context_menu (GTK_MENU (menu), NULL, view);
+	if (item != NULL) {
+		eel_pop_up_context_menu_at_item (GTK_MENU (menu), NULL, view, item);
+	} else {
+		eel_pop_up_context_menu (GTK_MENU (menu), NULL, view);
+	}
 	settle ();
 
 	menu_window = gtk_widget_get_toplevel (menu);
@@ -91,9 +98,95 @@ pop_up (GtkWidget *view, int *x, int *y)
 	gtk_menu_popdown (GTK_MENU (menu));
 	settle ();
 	gtk_widget_destroy (menu);
+	/* cppcheck-suppress doubleFree ; the ref_sink above is ours to drop */
 	g_object_unref (menu);
 
 	return shown;
+}
+
+static gboolean
+pop_up (GtkWidget *view, int *x, int *y)
+{
+	return pop_up_at_item (view, NULL, x, y);
+}
+
+static void
+item_activated (G_GNUC_UNUSED GtkMenuItem *item, gpointer data)
+{
+	*(gboolean *) data = TRUE;
+}
+
+/* A menu made for one open goes once it closes, and the item picked in it
+   still runs. Picked, or closed with nothing picked. */
+static void
+check_destroy_on_close (GtkWidget *view, gboolean pick)
+{
+	GtkWidget *menu = new_menu ();
+	GList *items = gtk_container_get_children (GTK_CONTAINER (menu));
+	GtkWidget *item = items->data;
+	gpointer weak = menu;
+	gboolean activated = FALSE;
+
+	g_list_free (items);
+	g_signal_connect (item, "activate", G_CALLBACK (item_activated), &activated);
+	g_object_add_weak_pointer (G_OBJECT (menu), &weak);
+	eel_gtk_menu_destroy_on_close (GTK_MENU (menu));
+	gtk_menu_popup_at_widget (GTK_MENU (menu), view, GDK_GRAVITY_SOUTH_WEST,
+				  GDK_GRAVITY_NORTH_WEST, NULL);
+	settle ();
+	check (gtk_widget_get_mapped (menu));
+	if (pick) {
+		gtk_menu_shell_activate_item (GTK_MENU_SHELL (menu), item, TRUE);
+	} else {
+		gtk_menu_shell_cancel (GTK_MENU_SHELL (menu));
+	}
+	settle ();
+	check (activated == pick);
+	g_print ("menu %s: %s\n", pick ? "picked from" : "closed",
+		 weak == NULL ? "freed" : "still there");
+	check (weak == NULL);
+	if (weak != NULL) {
+		g_object_remove_weak_pointer (G_OBJECT (menu), &weak);
+		gtk_widget_destroy (menu);
+	}
+}
+
+static gpointer drop_menu;
+
+/* Closes the drop menu as Escape would, once it is open. */
+static gboolean
+close_drop_menu (G_GNUC_UNUSED gpointer data)
+{
+	GList *toplevels = gtk_window_list_toplevels ();
+	GList *l;
+
+	for (l = toplevels; l != NULL; l = l->next) {
+		GtkWidget *child = gtk_bin_get_child (GTK_BIN (l->data));
+
+		if (child != NULL && GTK_IS_MENU (child) && gtk_widget_get_mapped (child)) {
+			drop_menu = child;
+			g_object_add_weak_pointer (G_OBJECT (child), &drop_menu);
+			gtk_menu_shell_cancel (GTK_MENU_SHELL (child));
+			break;
+		}
+	}
+	g_list_free (toplevels);
+
+	return drop_menu == NULL ? G_SOURCE_CONTINUE : G_SOURCE_REMOVE;
+}
+
+/* The menu a drop asks with is made for that drop, and goes with it. */
+static void
+check_drop_menu_freed (GtkWidget *view)
+{
+	guint timeout_id = g_timeout_add (100, close_drop_menu, NULL);
+
+	check (nemo_drag_drop_action_ask (view, GDK_ACTION_COPY | GDK_ACTION_MOVE) == 0);
+	settle ();
+	check (drop_menu == NULL);
+	if (drop_menu != NULL) {
+		g_source_remove (timeout_id);
+	}
 }
 
 static gboolean
@@ -159,6 +252,30 @@ main (int argc, char *argv[])
 	screen_origin (view, &want_x, &want_y);
 	g_print ("view at %d,%d: menu at %d,%d\n", want_x, want_y, x, y);
 	check (near (x, want_x + 16) && near (y, want_y + 16));
+
+	/* An item in sight: just below it, at its left edge. */
+	{
+		GdkRectangle item = { 40, 30, 80, 20 };
+
+		check (pop_up_at_item (view, &item, &x, &y));
+		screen_origin (view, &want_x, &want_y);
+		g_print ("item at %d,%d: menu at %d,%d\n", want_x + 40, want_y + 50, x, y);
+		check (near (x, want_x + 40) && near (y, want_y + 50));
+	}
+
+	/* An item scrolled out of sight: back to the top left, as with none. */
+	{
+		GdkRectangle item = { 40, 500, 80, 20 };
+
+		check (pop_up_at_item (view, &item, &x, &y));
+		screen_origin (view, &want_x, &want_y);
+		g_print ("item out of sight: menu at %d,%d\n", x, y);
+		check (near (x, want_x + 16) && near (y, want_y + 16));
+	}
+
+	check_destroy_on_close (view, TRUE);
+	check_destroy_on_close (view, FALSE);
+	check_drop_menu_freed (view);
 
 	gtk_widget_destroy (window);
 

@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 
 ##	- Purpose: Check the one-line installers' download path, which --from skips:
-##	  which release each channel picks, the checksum check, and the question
-##	  before anything is installed. The GitHub API and the downloads are
+##	  which release each channel picks, the checksum check, a release with no
+##	  sums file, and the question before anything is installed. The GitHub API and the downloads are
 ##	  answered from a made-up release list, so nothing touches the network.
 ##	  install.bash gets a curl on PATH that serves those files, and install.ps1
 ##	  gets Invoke-RestMethod and Invoke-WebRequest functions, which PowerShell
 ##	  finds before the cmdlets, that go through the same curl.
+##	- The made-up builds are named the way the release lanes name them, and a
+##	  uname on PATH has the installers ask for the other arch once as well, so
+##	  both arches are checked on either box. The same uname has them ask for
+##	  the FreeBSD build once, under the name the FreeBSD lane gives it.
 ##	- Every install goes to a scratch home and a user prefix; neither installer
 ##	  reaches for sudo without --target system, which is never passed here.
 ##	- Linux only: install.bash does not run on Windows, and install.ps1 there
@@ -34,11 +38,10 @@ if [[ "$(uname -s)" != "Linux" ]]; then
 	fEcho "installer download check skipped: Linux only"
 	exit 77
 fi
-case "$(uname -m)" in
-	x86_64|amd64)  arch="x86_64" ;;
-	aarch64|arm64) arch="arm64" ;;
-	*) fEcho "installer download check skipped: no build for $(uname -m)"; exit 77 ;;
-esac
+# shellcheck source=../utility/include/release-files.bash
+source "${root}/cicd/utility/include/release-files.bash"
+arch="$(fReleaseArch "$(uname -m)")" || { fEcho "installer download check skipped: no build for $(uname -m)"; exit 77; }
+os="$(fReleaseOs "$(uname -s)")"
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/${exeName}-download-check.XXXXXX")"
 trap 'rm -rf "${scratch}"' EXIT
@@ -76,10 +79,21 @@ if [[ -n "$out" ]]; then cp "$file" "$out"; else cat "$file"; fi
 EOF
 chmod +x "${shimDir}/curl"
 
+## Answers -m with $UNAME_SHIM_M and -s with $UNAME_SHIM_S when set; the real
+## uname does the rest.
+cat > "${shimDir}/uname" <<'EOF'
+#!/usr/bin/env bash
+if [[ "${1:-}" == "-m" && -n "${UNAME_SHIM_M:-}" ]]; then echo "$UNAME_SHIM_M"; exit 0; fi
+if [[ "${1:-}" == "-s" && -n "${UNAME_SHIM_S:-}" ]]; then echo "$UNAME_SHIM_S"; exit 0; fi
+for u in $(type -ap uname); do [[ "$u" -ef "$0" ]] || exec "$u" "$@"; done
+exit 127
+EOF
+chmod +x "${shimDir}/uname"
+
 ## PowerShell looks a function up before a cmdlet of the same name, so these
 ## stand in for the two web cmdlets for the one run of the installer.
 cat > "${shimDir}/run-install.ps1" <<'EOF'
-param([string]$Installer, [string]$Curl, [string]$Release = "stable", [switch]$Yes)
+param([string]$Installer, [string]$Curl, [string]$Release = "stable", [switch]$Yes, [switch]$NoVerify)
 function Invoke-RestMethod {
 	param([string]$Uri, [switch]$UseBasicParsing)
 	$null = $UseBasicParsing
@@ -95,16 +109,22 @@ function Invoke-WebRequest {
 }
 ## $? rather than $LASTEXITCODE: a run that ends well leaves the exit code of
 ## whatever native tool it called last.
-& $Installer -Release $Release -Yes:$Yes
+## Only passed when set, so a run without it works on an installer that
+## predates the option.
+$extra = @{}
+if ($NoVerify) { $extra.NoVerify = $true }
+& $Installer -Release $Release -Yes:$Yes @extra
 if (-not $?) { exit 1 }
 exit 0
 EOF
 
 ## A release list with every tag given its own build, sums file and release
 ## page. $1 the fixture dir, the rest the tags, in the order the API lists them.
+## With withSums=0 no release publishes a sums file.
+withSums=1
 fMakeFixture(){
 	local dir="$1"; shift
-	local tag ver name tree sep="" asset sums
+	local tag ver name tree sep="" asset sums sumsEntry
 	mkdir -p "${dir}/assets"
 	: > "${dir}/requests.log"
 	{
@@ -118,7 +138,7 @@ fMakeFixture(){
 
 	for tag in "$@"; do
 		ver="${tag#v}"
-		name="${exeName}-${ver}-linux-${arch}"
+		name="${exeName}-${ver}-${os}-${arch}"
 		asset="${name}.tar.gz"
 		sums="${exeName}-${ver}-sha256sums.txt"
 		tree="${dir}/build/${name}"
@@ -126,13 +146,17 @@ fMakeFixture(){
 		printf '#!/bin/sh\necho %s\n' "$ver" > "${tree}/bin/${exeName}"
 		chmod +x "${tree}/bin/${exeName}"
 		tar -czf "${dir}/assets/${tag}/${asset}" -C "${dir}/build" "$name"
-		( cd "${dir}/assets/${tag}" && sha256sum "$asset" > "$sums" )
+		sumsEntry=""
+		if ((withSums)); then
+			( cd "${dir}/assets/${tag}" && sha256sum "$asset" > "$sums" )
+			sumsEntry=",
+			  {\"name\": \"${sums}\", \"browser_download_url\": \"${dl}/${tag}/${sums}\"}"
+		fi
 		## The Windows zip is listed too, so an installer has to pick by name.
 		cat > "${dir}/tag-${tag}.json" <<-EOF
 			{"tag_name": "${tag}", "assets": [
 			  {"name": "${exeName}-${ver}-windows-x86_64.zip", "browser_download_url": "${dl}/${tag}/${exeName}-${ver}-windows-x86_64.zip"},
-			  {"name": "${asset}", "browser_download_url": "${dl}/${tag}/${asset}"},
-			  {"name": "${sums}", "browser_download_url": "${dl}/${tag}/${sums}"}
+			  {"name": "${asset}", "browser_download_url": "${dl}/${tag}/${asset}"}${sumsEntry}
 			]}
 		EOF
 	done
@@ -140,11 +164,12 @@ fMakeFixture(){
 }
 
 ## Runs one installer. $1 installer (bash|pwsh), $2 label, $3 fixture, $4
-## channel, $5 answer to the question ("" = pass the yes option instead).
+## channel, $5 answer to the question ("" = pass the yes option instead), $6
+## "unverified" to pass the option that installs a release with no sums file.
 ## Leaves the exit code in $runRc and the transcript in ${home}/run.log.
-home=""; runRc=0
+home=""; runRc=0; unameM=""; unameS=""
 fRun(){
-	local installer="$1" label="$2" fixture="$3" channel="$4" answer="$5"
+	local installer="$1" label="$2" fixture="$3" channel="$4" answer="$5" unverified="${6:-}"
 	local -a cmd
 	home="${scratch}/home-${installer}-${label}"
 	mkdir -p "${home}/tmp"
@@ -152,14 +177,16 @@ fRun(){
 	if [[ "$installer" == "bash" ]]; then
 		cmd=(bash "${root}/install.bash" --release "$channel")
 		[[ -n "$answer" ]] || cmd+=(--yes)
+		[[ -z "$unverified" ]] || cmd+=(--no-verify)
 	else
 		cmd=(pwsh -NoProfile -File "${shimDir}/run-install.ps1" -Installer "${root}/install.ps1" -Curl "${shimDir}/curl" -Release "$channel")
 		[[ -n "$answer" ]] || cmd+=(-Yes)
+		[[ -z "$unverified" ]] || cmd+=(-NoVerify)
 	fi
 	## A proxy that answers nothing, so a request that slips past the stand-ins
 	## fails here instead of reaching GitHub.
 	local runEnv=(env -u DISPLAY -u no_proxy -u NO_PROXY HOME="$home" XDG_DATA_HOME="${home}/.local/share"
-		TMPDIR="${home}/tmp" PATH="${shimDir}:${PATH}" CURL_SHIM_ROOT="$fixture"
+		TMPDIR="${home}/tmp" PATH="${shimDir}:${PATH}" CURL_SHIM_ROOT="$fixture" UNAME_SHIM_M="$unameM" UNAME_SHIM_S="$unameS"
 		https_proxy="http://127.0.0.1:9" HTTPS_PROXY="http://127.0.0.1:9")
 	runRc=0
 	if [[ -z "$answer" ]]; then
@@ -172,9 +199,10 @@ fRun(){
 	return 0
 }
 
-## $1 what, then the installed version to expect, or "" for nothing installed.
+## $1 what, then the installed version to expect, or "" for nothing installed,
+## then "unverified" when there was no sums file to check against.
 fExpectInstall(){
-	local what="$1" ver="$2"
+	local what="$1" ver="$2" unverified="${3:-}"
 	local prefix="${home}/.local/share/${exeName}"
 	local launcher="${home}/.local/share/applications/${exeName}.desktop"
 	local symlink="${home}/.local/bin/${exeName}"
@@ -192,7 +220,11 @@ fExpectInstall(){
 	grep -q -F "echo ${ver}" "${prefix}/bin/${exeName}" 2>/dev/null || fFail "${what}: ${ver} is not what got installed"
 	[[ -f "$launcher" ]] || fFail "${what}: no launcher"
 	[[ "$(readlink "$symlink" || true)" == "${prefix}/bin/${exeName}" ]] || fFail "${what}: symlink does not point into the prefix"
-	grep -q "sha256 verified" "${home}/run.log" || fFail "${what}: installed without saying the checksum was verified"
+	if [[ -n "$unverified" ]]; then
+		grep -q "UNVERIFIED" "${home}/run.log" || fFail "${what}: the plan never said the install is unverified"
+	else
+		grep -q "sha256 verified" "${home}/run.log" || fFail "${what}: installed without saying the checksum was verified"
+	fi
 	return 0
 }
 
@@ -205,7 +237,7 @@ fExpectSaid(){
 ## $1 what, $2 fixture, $3 tag whose build and sums had to be fetched.
 fExpectFetched(){
 	local log="${2}/requests.log"
-	grep -q -F "/${3}/${exeName}-${3#v}-linux-${arch}.tar.gz" "$log" || fFail "${1}: never downloaded the ${3} build"
+	grep -q -F "/${3}/${exeName}-${3#v}-${os}-${arch}.tar.gz" "$log" || fFail "${1}: never downloaded the ${3} build"
 	grep -q -F "/${3}/${exeName}-${3#v}-sha256sums.txt" "$log" || fFail "${1}: never downloaded the ${3} sums"
 	! grep -q -F "releases/latest" "$log" || fFail "${1}: asked for releases/latest, which fails with no stable release"
 	return 0
@@ -224,6 +256,10 @@ tar -czf "${tampered}/assets/v1.0.0/${exeName}-1.0.0-linux-${arch}.tar.gz" -C "$
 noLine="${scratch}/no-sums-line"
 fMakeFixture "$noLine" v1.0.0
 printf '%064d  %s\n' 0 "${exeName}-1.0.0-windows-x86_64.zip" > "${noLine}/assets/v1.0.0/${exeName}-1.0.0-sha256sums.txt"
+noSums="${scratch}/no-sums"
+withSums=0
+fMakeFixture "$noSums" v1.0.0 v1.1.0-rc.1
+withSums=1
 
 installers=(bash)
 if command -v pwsh >/dev/null 2>&1; then
@@ -269,7 +305,58 @@ for inst in "${installers[@]}"; do
 		fRun "$inst" answered-yes "$mixed" stable y
 		fExpectInstall "${inst} answered yes" 1.0.0
 	fi
+
+	## No sums file: refused before anything is fetched, on either channel, and
+	## the yes option alone does not get past it.
+	for channel in stable dev; do
+		fRun "$inst" "no-sums-${channel}" "$noSums" "$channel" ""
+		[[ "$runRc" != "0" ]] || fFail "${inst} ${channel} with no sums file: exited 0"
+		opt="--no-verify"
+		[[ "$inst" == "bash" ]] || opt="-NoVerify"
+		fExpectSaid "${inst} ${channel} with no sums file" "$opt"
+		fExpectInstall "${inst} ${channel} with no sums file" ""
+		! grep -q -F ".tar.gz" "${noSums}/requests.log" || fFail "${inst} ${channel} with no sums file: downloaded the build first"
+	done
+
+	fRun "$inst" no-sums-allowed "$noSums" dev "" unverified
+	fExpectInstall "${inst} no sums file, allowed" 1.1.0-rc.1 unverified
+
+	## The option is for a missing sums file only. One that is there still counts.
+	fRun "$inst" allowed-with-sums "$mixed" stable "" unverified
+	fExpectInstall "${inst} allowed, with a sums file" 1.0.0
+	fRun "$inst" allowed-tampered "$tampered" stable "" unverified
+	[[ "$runRc" != "0" ]] || fFail "${inst} allowed, tampered build: exited 0"
+	fExpectSaid "${inst} allowed, tampered build" "checksum mismatch"
+	fExpectInstall "${inst} allowed, tampered build" ""
 done
+
+## The other arch, under the name its release lane gives it.
+hostArch="$arch"
+case "$hostArch" in
+	x86_64) unameM="aarch64" ;;
+	*)      unameM="x86_64" ;;
+esac
+arch="$(fReleaseArch "$unameM")"
+otherArch="${scratch}/other-arch"
+fMakeFixture "$otherArch" v1.0.0
+for inst in "${installers[@]}"; do
+	fRun "$inst" other-arch "$otherArch" stable ""
+	fExpectInstall "${inst} on ${unameM}" 1.0.0
+	fExpectFetched "${inst} on ${unameM}" "$otherArch" v1.0.0
+done
+unameM=""; arch="$hostArch"
+
+## FreeBSD on amd64, which uname calls it there.
+unameS="FreeBSD"; unameM="amd64"
+os="$(fReleaseOs "$unameS")"; arch="$(fReleaseArch "$unameM")"
+freebsd="${scratch}/freebsd"
+fMakeFixture "$freebsd" v1.0.0
+for inst in "${installers[@]}"; do
+	fRun "$inst" freebsd "$freebsd" stable ""
+	fExpectInstall "${inst} on FreeBSD" 1.0.0
+	fExpectFetched "${inst} on FreeBSD" "$freebsd" v1.0.0
+done
+unameS=""; unameM=""; arch="$hostArch"; os="$(fReleaseOs "$(uname -s)")"
 
 if ((failures)); then
 	fEcho "FAILED: installer download check, ${failures} problem(s)"

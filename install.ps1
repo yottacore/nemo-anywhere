@@ -16,6 +16,7 @@
 ##			-Release dev|stable     which release to take (default: stable)
 ##			-Target  user|system    where to install (default: user)
 ##			-From    PATH|URL       install this archive instead of a release
+##			-NoVerify               install a release that has no checksums file
 ##			-Uninstall              remove an existing install
 ##			-Yes                    don't ask before making changes
 ##			-Version                print the installer's version
@@ -26,7 +27,7 @@
 ##		(system, via sudo; /usr/local/nemo-anywhere on BSD).
 ##	History: At bottom of script.
 
-##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
+##	Copyright (c) 2026 t00mietum
 ##	Licensed under The MIT License (MIT). Full text at:
 ##		https://mit-license.org/
 ##	SPDX-License-Identifier: MIT
@@ -55,6 +56,11 @@
 
 .PARAMETER From
 	Install this archive - a path or a URL - instead of fetching a release.
+	It isn't checked against a checksums file.
+
+.PARAMETER NoVerify
+	Install a release that publishes no checksums file. Without it the installer
+	stops there, even with -Yes. A checksums file that is there is still checked.
 
 .PARAMETER Uninstall
 	Remove an existing install, including its launcher and PATH entry. Settings
@@ -67,7 +73,7 @@
 	Print the installer's version and exit.
 
 .PARAMETER Help
-	List the options and exit. Get-Help cannot reach a script run as a one-liner,
+	List the options and exit. Get-Help can't reach a script run as a one-liner,
 	so this is the way to see them there.
 
 .EXAMPLE
@@ -90,6 +96,7 @@ param(
 	[ValidateSet("dev", "stable")][string]$Release = "stable",
 	[ValidateSet("user", "system")][string]$Target = "user",
 	[string]$From = "",
+	[switch]$NoVerify,
 	[switch]$Uninstall,
 	[switch]$Yes,
 	[switch]$Version,
@@ -97,11 +104,11 @@ param(
 )
 
 
-#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+#------------------------------------------------------------------------------
 # Configuration
 
 $Repo    = "yottacore/nemo-anywhere"
-$InstallerVersion = "1.2.0"
+$InstallerVersion = "1.4.0"
 $AppName = "Nemo Anywhere"
 $ExeName = "nemo-anywhere"
 
@@ -113,7 +120,7 @@ $runningAsScriptFile = -not [string]::IsNullOrEmpty($MyInvocation.MyCommand.Path
 $state = @{ failed = $false; work = $null }
 
 
-#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+#------------------------------------------------------------------------------
 # Output helpers
 
 ## Same shape as install.bash: fEcho prints a bracketed status line,
@@ -146,7 +153,7 @@ function fFileError {
 	while ($ex.InnerException) { $ex = $ex.InnerException }
 	if ($ex -is [System.UnauthorizedAccessException]) {
 		if ($os -eq "windows" -and $Target -eq "system") { $hint = "Re-run from an elevated PowerShell (Run as administrator), or use -Target user." }
-		elseif ($os -eq "windows") { $hint = "Check the folder is not read-only, and that antivirus is not blocking it." }
+		elseif ($os -eq "windows") { $hint = "Check the folder isn't read-only, and that antivirus isn't blocking it." }
 		else { $hint = "Check who owns it: ls -ld $Path" }
 		fFail "${What} - permission denied: ${Path}" @($hint)
 	}
@@ -157,7 +164,7 @@ function fFileError {
 }
 
 
-#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+#------------------------------------------------------------------------------
 # Functions - both platforms
 
 function fConfirm {
@@ -185,6 +192,7 @@ function fHelp {
 	fEcho_Clean "    -Release dev|stable     which release to take (default: stable)"
 	fEcho_Clean "    -Target  user|system    where to install (default: user)"
 	fEcho_Clean "    -From    PATH|URL       install this archive instead of a release"
+	fEcho_Clean "    -NoVerify               install a release that has no checksums file"
 	fEcho_Clean "    -Uninstall              remove an existing install"
 	fEcho_Clean "    -Yes                    don't ask before making changes"
 	fEcho_Clean "    -Version                the installer's version"
@@ -192,6 +200,10 @@ function fHelp {
 	fEcho_Clean ""
 	fEcho_Clean "  The OS and architecture are detected. With no stable release yet,"
 	fEcho_Clean "  stable takes the newest prerelease and says so in the plan."
+	fEcho_Clean ""
+	fEcho_Clean "  A release download is checked against the release's checksums file."
+	fEcho_Clean "  With no checksums file it stops, even with -Yes, unless -NoVerify is"
+	fEcho_Clean "  given. A -From archive isn't checked."
 	fEcho_Clean ""
 }
 
@@ -224,7 +236,7 @@ function fResolveTag {
 		## Assigned first: irm passes a JSON array down the pipe as one object.
 		$releases = Invoke-RestMethod -Uri "https://api.github.com/repos/${Repo}/releases?per_page=100" -UseBasicParsing
 	} catch {
-		fFail "could not list the releases of ${Repo} ($(fInnerMessage $_))" @("Check the connection. GitHub also limits anonymous requests to 60 an hour.")
+		fFail "couldn't list the releases of ${Repo} ($(fInnerMessage $_))" @("Check the connection. GitHub also limits anonymous requests to 60 an hour.")
 	}
 	$tags = @(foreach ($rel in @($releases)) { if ($rel.tag_name) { [string]$rel.tag_name } })
 	if ($tags.Count -eq 0) { return $null }
@@ -240,7 +252,7 @@ function fResolveTag {
 }
 
 
-#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+#------------------------------------------------------------------------------
 # Functions - Windows
 
 ## Names of the running processes executing something inside the given folder -
@@ -267,9 +279,10 @@ function fHoldersOf {
 	return @($names | Sort-Object -Unique)
 }
 
-## The session bus the app starts lives in the install folder and outlives the
-## window by a few seconds, so closing the app is not enough on its own. Wait it
-## out, then say what is actually holding the folder rather than blaming the app.
+## A copy that is closing takes a moment, and the session bus an older build
+## started lives in the install folder and outlives its window by a few seconds,
+## so closing the app is not enough on its own. Wait it out, then say what is
+## actually holding the folder rather than blaming the app.
 function fWaitUntilFree {
 	param([string]$Folder, [int]$Seconds = 10)
 	for ($i = 0; $i -lt $Seconds; $i++) {
@@ -281,6 +294,25 @@ function fWaitUntilFree {
 		Start-Sleep -Seconds 1
 	}
 	return (fHoldersOf $Folder)
+}
+
+## Not Move-Item: when a rename is refused, pwsh 7 falls back to moving the
+## files one at a time, so a folder with one file held open ends up split in
+## two. Every caller renames within one folder, so no copy is ever needed.
+function fRenameFolder {
+	param([string]$From, [string]$To)
+	[System.IO.Directory]::Move($From, $To)
+}
+
+## The setup exe adds an uninstaller to the install folder and an entry in
+## Settings, Apps that runs it. Both installers lay down the same folder, so a
+## reinstall from here keeps that uninstaller, and an uninstall from here takes
+## the entry out too. Otherwise each would leave the other a broken entry.
+function fSetupEntry {
+	param([string]$Key, [string]$Folder)
+	if (-not $Key -or -not (Test-Path -LiteralPath $Key)) { return $false }
+	$loc = [string](Get-Item -LiteralPath $Key).GetValue("InstallLocation", "")
+	return $loc.TrimEnd('\') -ieq $Folder.TrimEnd('\')
 }
 
 function fMakeShortcut {
@@ -325,7 +357,7 @@ public static extern System.IntPtr SendMessageTimeout(System.IntPtr hWnd, uint M
 		$ignored = [UIntPtr]::Zero
 		[NemoEnvBroadcast]::SendMessageTimeout([IntPtr]0xffff, 0x1A, [IntPtr]::Zero, "Environment", 2, 5000, [ref]$ignored) | Out-Null
 	} catch {
-		fWarn "already-running programs will not see the new PATH until you sign in again"
+		fWarn "already-running programs won't see the new PATH until you sign in again"
 	}
 }
 
@@ -359,7 +391,7 @@ function fPathRemove {
 }
 
 
-#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+#------------------------------------------------------------------------------
 # Functions - unix
 
 ## Every unix file step runs through here, so the privileged and plain paths
@@ -441,7 +473,7 @@ function fRefreshCaches {
 }
 
 
-#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+#------------------------------------------------------------------------------
 # Script entry point
 
 ## Everything runs from here, so preferences and strict mode last only for the
@@ -488,6 +520,7 @@ function fMain {
 	## GUI package layout, both platforms: the whole folder in one place, reached by
 	## a menu entry and a name on PATH (a file manager gets started both ways).
 	$priv = $false
+	$setupKey = ""
 	if ($os -eq "windows") {
 		if ($Target -eq "system") {
 			## ProgramW6432 is the 64-bit folder even from a 32-bit shell.
@@ -503,6 +536,8 @@ function fMain {
 			$prefix    = Join-Path $env:LOCALAPPDATA "Programs\$AppName"
 			$menuDir   = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
 			$pathScope = "User"
+			## Same key name the setup exe writes. It only ever installs for one user.
+			$setupKey  = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\${ExeName}"
 		}
 		$shortcut = Join-Path $menuDir "${AppName}.lnk"
 		$exePath  = Join-Path $prefix "${ExeName}.exe"
@@ -516,7 +551,7 @@ function fMain {
 			## Privileged steps go through sudo; not needed when already root.
 			if ("$(& id -u)" -ne "0") {
 				if (-not (Get-Command sudo -ErrorAction SilentlyContinue)) {
-					fFail "-Target system needs root, and sudo was not found - re-run as root"
+					fFail "-Target system needs root, and sudo wasn't found - re-run as root"
 				}
 				$priv = $true
 			}
@@ -536,7 +571,7 @@ function fMain {
 	if ((Split-Path -Leaf $prefix) -ne $leafName) { fFail "refusing to touch a folder not named '${leafName}': ${prefix}" }
 
 
-	#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+	#------------------------------------------------------------------------------
 	# Uninstall
 
 	if ($Uninstall) {
@@ -547,10 +582,12 @@ function fMain {
 		if ($os -eq "windows") {
 			$haveShortcut = Test-Path -LiteralPath $shortcut
 			$havePath     = fPathContains $pathScope $prefix
-			$haveAnything = $havePrefix -or $haveShortcut -or $havePath
+			$haveEntry    = fSetupEntry $setupKey $prefix
+			$haveAnything = $havePrefix -or $haveShortcut -or $havePath -or $haveEntry
 			fEcho_Clean ("Folder ....: {0}{1}" -f $prefix,   $(if ($havePrefix)   { "" } else { "   (not present)" }))
 			fEcho_Clean ("Shortcut ..: {0}{1}" -f $shortcut, $(if ($haveShortcut) { "" } else { "   (not present)" }))
 			fEcho_Clean ("PATH ......: {0} ({1}){2}" -f $prefix, $pathScope, $(if ($havePath) { "" } else { "   (not present)" }))
+			if ($haveEntry) { fEcho_Clean "Apps entry : the one the setup exe added" }
 		} else {
 			$haveLauncher = Test-Path -LiteralPath $launcher
 			$linkTarget   = fLinkTarget $symlink
@@ -581,6 +618,7 @@ function fMain {
 			if ($haveShortcut) { Remove-Item -LiteralPath $shortcut -Force; fEcho_Clean "removed ${shortcut}" }
 			if ($havePrefix)   { Remove-Item -LiteralPath $prefix -Recurse -Force; fEcho_Clean "removed ${prefix}" }
 			if (fPathRemove $pathScope $prefix) { fEcho_Clean "removed ${prefix} from the ${pathScope} PATH" }
+			if ($haveEntry) { Remove-Item -LiteralPath $setupKey -Recurse -Force; fEcho_Clean "removed the Settings, Apps entry" }
 			$settings = "%APPDATA%\${ExeName}"
 		} else {
 			## Only unlink a symlink that actually points into our prefix.
@@ -606,7 +644,7 @@ function fMain {
 	}
 
 
-	#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+	#------------------------------------------------------------------------------
 	# Resolve what to install
 
 	$archiveExt = if ($os -eq "windows") { "zip" } else { "tar.gz" }
@@ -657,7 +695,14 @@ function fMain {
 		$sourceDesc  = $downloadUrl
 		$releaseDesc = "${Release} ${relVersion}"
 		if ($Release -eq "stable" -and $relVersion.Contains('-')) { $releaseDesc += "   (no stable release yet, so the newest prerelease)" }
-		$verifyDesc  = if ($sumsUrl) { "sha256, against ${sumsAsset}" } else { "UNVERIFIED - release publishes no checksums" }
+		if ($sumsUrl) {
+			$verifyDesc = "sha256, against ${sumsAsset}"
+		} elseif ($NoVerify) {
+			$verifyDesc = "UNVERIFIED - release publishes no checksums (-NoVerify)"
+		} else {
+			## Before the plan and the question, so -Yes alone never gets past it.
+			fFail "release ${tag} publishes no ${sumsAsset}, so the download can't be checked - re-run with -NoVerify to install it anyway"
+		}
 	}
 
 	fEcho_Clean ""
@@ -668,9 +713,12 @@ function fMain {
 	fEcho_Clean "Verify ....: ${verifyDesc}"
 	$replaces = if (Test-Path -LiteralPath $prefix) { "   (replaces the install already there)" } else { "" }
 	if ($os -eq "windows") {
+		$uninstaller = Join-Path $prefix "uninstall.exe"
+		$keepSetup   = (fSetupEntry $setupKey $prefix) -and (Test-Path -LiteralPath $uninstaller)
 		fEcho_Clean ("Folder ....: {0}{1}" -f $prefix, $replaces)
 		fEcho_Clean "Shortcut ..: ${shortcut}"
 		fEcho_Clean "PATH ......: adds ${prefix} to the ${pathScope} PATH"
+		if ($keepSetup) { fEcho_Clean "Apps entry : keeps the one the setup exe added, and its uninstaller" }
 	} else {
 		fEcho_Clean ("Prefix ....: {0}{1}" -f $prefix, $replaces)
 		fEcho_Clean "Launcher ..: ${launcher}"
@@ -682,7 +730,7 @@ function fMain {
 	fConfirm
 
 
-	#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+	#------------------------------------------------------------------------------
 	# Download and verify
 
 	fEcho_Clean ""
@@ -713,7 +761,7 @@ function fMain {
 		try {
 			Invoke-WebRequest -Uri $sumsUrl -OutFile $sumsFile -UseBasicParsing
 		} catch {
-			fFail "could not download ${sumsAsset} ($(fInnerMessage $_))"
+			fFail "couldn't download ${sumsAsset} ($(fInnerMessage $_))"
 		}
 		$line = Get-Content -LiteralPath $sumsFile | Where-Object { $_ -match "[ *]$([regex]::Escape($asset))$" } | Select-Object -First 1
 		if (-not $line) { fFail "${sumsAsset} has no line for ${asset}" }
@@ -726,7 +774,7 @@ function fMain {
 	}
 
 
-	#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+	#------------------------------------------------------------------------------
 	# Install
 
 	fEcho_Clean ""
@@ -738,13 +786,13 @@ function fMain {
 		try {
 			Expand-Archive -LiteralPath $archive -DestinationPath $unpacked -Force
 		} catch {
-			fFail "could not unpack the archive ($($_.Exception.Message))"
+			fFail "couldn't unpack the archive ($($_.Exception.Message))"
 		}
 	} else {
 		## tar, not Expand-Archive: the unix packages are tarballs, and tar also
 		## keeps the executable bits the launcher and symlink depend on.
 		& tar -xzf $archive -C $unpacked
-		if ($LASTEXITCODE -ne 0) { fFail "could not unpack the archive" }
+		if ($LASTEXITCODE -ne 0) { fFail "couldn't unpack the archive" }
 	}
 
 	## Archives carry one top-level folder; tolerate a flat one too.
@@ -764,7 +812,7 @@ function fMain {
 		try {
 			New-Item -ItemType Directory -Path (Split-Path -Parent $prefix) -Force | Out-Null
 		} catch {
-			fFileError $_ "could not create the install folder" (Split-Path -Parent $prefix)
+			fFileError $_ "couldn't create the install folder" (Split-Path -Parent $prefix)
 		}
 		## Stage beside the prefix, then swap with same-volume renames. Copying the
 		## new tree in before removing the old one means a cross-volume or disk-full
@@ -777,34 +825,48 @@ function fMain {
 		$backup  = "${prefix}.old.${PID}"
 		if (Test-Path -LiteralPath $staging) { Remove-Item -LiteralPath $staging -Recurse -Force }
 		if (Test-Path -LiteralPath $backup)  { Remove-Item -LiteralPath $backup  -Recurse -Force }
+		## Once in place the staging folder is gone, so the finally only finds one
+		## a failure left behind.
 		try {
-			Copy-Item -LiteralPath $tree -Destination $staging -Recurse -Force -ErrorAction Stop
-		} catch {
-			fFileError $_ "could not stage the new install" $staging
-		}
-		if (Test-Path -LiteralPath $prefix) {
 			try {
-				Move-Item -LiteralPath $prefix -Destination $backup -ErrorAction Stop
+				Copy-Item -LiteralPath $tree -Destination $staging -Recurse -Force -ErrorAction Stop
 			} catch {
-				## Something has the folder open that the process scan cannot see - a
-				## scanner, a shell window sitting in it, a handle from another session.
-				fFail "could not replace ${prefix} - something still has it open, close it and try again"
+				fFileError $_ "couldn't stage the new install" $staging
 			}
-		}
-		try {
-			Move-Item -LiteralPath $staging -Destination $prefix -ErrorAction Stop
-		} catch {
-			if (Test-Path -LiteralPath $backup) { Move-Item -LiteralPath $backup -Destination $prefix -ErrorAction Stop }
-			throw
+			if ($keepSetup) { Copy-Item -LiteralPath $uninstaller -Destination $staging -Force }
+			if (Test-Path -LiteralPath $prefix) {
+				try {
+					fRenameFolder $prefix $backup
+				} catch {
+					## Something has the folder open that the process scan cannot see - a
+					## scanner, a shell window sitting in it, a handle from another session.
+					fFail "couldn't replace ${prefix} - something still has it open, close it and try again"
+				}
+			}
+			try {
+				fRenameFolder $staging $prefix
+			} catch {
+				if (Test-Path -LiteralPath $backup) { fRenameFolder $backup $prefix }
+				throw
+			}
+		} finally {
+			if (Test-Path -LiteralPath $staging) {
+				Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
+				if (Test-Path -LiteralPath $staging) { fWarn "couldn't remove ${staging} - delete it by hand" }
+			}
 		}
 		if (Test-Path -LiteralPath $backup) { Remove-Item -LiteralPath $backup -Recurse -Force }
 		fEcho_Clean "folder installed at ${prefix}"
+		if ($keepSetup) {
+			if ($relVersion) { Set-ItemProperty -LiteralPath $setupKey -Name "DisplayVersion" -Value $relVersion }
+			fEcho_Clean "kept the setup's uninstaller and its Settings, Apps entry"
+		}
 
 		try {
 			New-Item -ItemType Directory -Path $menuDir -Force | Out-Null
 			fMakeShortcut -LinkPath $shortcut -TargetPath $exePath -WorkDir $prefix
 		} catch {
-			fFileError $_ "could not write the Start Menu shortcut" $shortcut
+			fFileError $_ "couldn't write the Start Menu shortcut" $shortcut
 		}
 		fEcho_Clean "shortcut installed at ${shortcut}"
 
@@ -823,19 +885,22 @@ function fMain {
 		$backup  = "${prefix}.old.${PID}"
 		fSh @("mkdir", "-p", $parent)
 		fSh @("rm", "-rf", $staging, $backup)
-		fSh @("cp", "-a", $tree, $staging)
-		if ($Target -eq "system") {
-			## Staged as the invoking user; a system prefix must not stay user-writable.
-			fSh @("chown", "-R", "0:0", $staging) -Soft
-			fSh @("chmod", "-R", "a+rX", $staging)
-		}
-		if (Test-Path -LiteralPath $prefix) { fSh @("mv", $prefix, $backup) }
 		try {
-			fSh @("mv", $staging, $prefix)
-		} catch {
-			if (Test-Path -LiteralPath $backup) { fSh @("mv", $backup, $prefix) -Soft }
-			fSh @("rm", "-rf", $staging) -Soft
-			throw
+			fSh @("cp", "-a", $tree, $staging)
+			if ($Target -eq "system") {
+				## Staged as the invoking user; a system prefix must not stay user-writable.
+				fSh @("chown", "-R", "0:0", $staging) -Soft
+				fSh @("chmod", "-R", "a+rX", $staging)
+			}
+			if (Test-Path -LiteralPath $prefix) { fSh @("mv", $prefix, $backup) }
+			try {
+				fSh @("mv", $staging, $prefix)
+			} catch {
+				if (Test-Path -LiteralPath $backup) { fSh @("mv", $backup, $prefix) -Soft }
+				throw
+			}
+		} finally {
+			if (Test-Path -LiteralPath $staging) { fSh @("rm", "-rf", $staging) -Soft }
 		}
 		fSh @("rm", "-rf", $backup)
 		fEcho_Clean "prefix installed at ${prefix}"
@@ -852,7 +917,7 @@ function fMain {
 
 
 
-	#••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+	#------------------------------------------------------------------------------
 	# Done
 
 	fEcho_Clean ""
@@ -863,7 +928,7 @@ function fMain {
 	} else {
 		fEcho_Clean "Run it from the menu, or type: ${ExeName}"
 		if (-not (@($env:PATH -split ':') -contains $binDir)) {
-			fEcho_Clean "Note: ${binDir} is not on your PATH yet."
+			fEcho_Clean "Note: ${binDir} isn't on your PATH yet."
 		}
 	}
 	fEcho_Clean "Uninstall with the same command plus -Uninstall."
@@ -912,3 +977,13 @@ if ($state.failed -and $runningAsScriptFile) { exit 1 }
 ##		- 2026-10-01 JC: The Windows install folder is copied out of the temp
 ##		  folder rather than moved, so it takes the install folder's permissions
 ##		  and other accounts can run a system install.
+##		- 2026-10-03 JC: A release with no checksums file stops the install,
+##		  -Yes or not, unless -NoVerify is given.
+##		- 2026-10-04 JC: The no-checksums override is named -NoVerify.
+##		- 2026-10-04 JC: A failed install no longer leaves its half-copied
+##		  staging folder beside the install folder. On Windows an install
+##		  folder with a file held open is no longer split in two by the move
+##		  aside.
+##		- 2026-10-07 JC: Works alongside the Windows setup exe. A reinstall over
+##		  its install keeps its uninstaller and Settings, Apps entry, and
+##		  -Uninstall removes that entry too.

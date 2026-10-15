@@ -67,7 +67,9 @@ gboolean      nemo_progress_info_get_is_paused   (NemoProgressInfo *info);
 void          nemo_progress_info_queue           (NemoProgressInfo *info);
 void          nemo_progress_info_start           (NemoProgressInfo *info);
 void          nemo_progress_info_finish          (NemoProgressInfo *info);
-void          nemo_progress_info_pause           (NemoProgressInfo *info);
+/* TRUE when this call did the pausing, so a caller that pauses for its own
+   question resumes only then, and a pause the user asked for stays. */
+gboolean      nemo_progress_info_pause           (NemoProgressInfo *info);
 void          nemo_progress_info_resume          (NemoProgressInfo *info);
 void          nemo_progress_info_set_status      (NemoProgressInfo *info,
 						      const char           *status);
@@ -83,6 +85,20 @@ void          nemo_progress_info_set_progress    (NemoProgressInfo *info,
 						      double                current,
 						      double                total);
 void          nemo_progress_info_pulse_progress  (NemoProgressInfo *info);
+
+/* A walk the job makes before its own work, such as the list an archive is
+   written from. It has no total, so it reports what it has found. Shown as a
+   second bar above the job's own. found waits while the job is paused. */
+void          nemo_progress_info_start_prescan   (NemoProgressInfo *info);
+void          nemo_progress_info_set_prescan_found (NemoProgressInfo *info,
+						      guint             files,
+						      guint64           bytes);
+void          nemo_progress_info_end_prescan     (NemoProgressInfo *info);
+/* TRUE while one runs. since is when it started, in monotonic time. */
+gboolean      nemo_progress_info_get_prescan     (NemoProgressInfo *info,
+						      gint64           *since,
+						      guint            *files,
+						      guint64          *bytes);
 
 gdouble       nemo_progress_info_get_elapsed_time (NemoProgressInfo *info);
 

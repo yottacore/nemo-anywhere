@@ -24,7 +24,8 @@
  *
  * share: the share check has to answer from the name alone. It is asked for
  * every file on every pass of the async loop, so a lookup that went to the
- * host would cost the very timeout it exists to avoid. Set
+ * host would cost the very timeout it exists to avoid. A file in a folder on a
+ * mapped drive counts, like one on a UNC path. Set
  * NEMO_PROBE_DEAD_SHARE to an unused address on the local subnet to time it
  * against one that really does not answer.
  *
@@ -42,10 +43,12 @@
 #include <glib/gstdio.h>
 #include <gtk/gtk.h>
 
+#include <libnemo-private/nemo-dir-enum.h>
 #include <libnemo-private/nemo-directory.h>
 #include <libnemo-private/nemo-file.h>
 #include <libnemo-private/nemo-file-private.h>
 #include <libnemo-private/nemo-link-win32.h>
+#include <libnemo-private/nemo-share.h>
 
 #include "test-scratch.h"
 #include "test-check.h"
@@ -93,6 +96,24 @@ link_with_target (const char *dir, const char *name, const char *target)
 	return file;
 }
 
+static NemoFile *
+plain_file (const char *dir, const char *name)
+{
+	g_autofree char *path = g_build_filename (dir, name, NULL);
+	g_autoptr (GFile) location = g_file_new_for_path (path);
+	g_autoptr (GFileInfo) info = g_file_info_new ();
+	g_autoptr (GIcon) icon = g_themed_icon_new ("text-x-generic");
+	NemoFile *file = nemo_file_get (location);
+
+	g_file_info_set_name (info, name);
+	g_file_info_set_display_name (info, name);
+	g_file_info_set_icon (info, icon);
+	g_file_info_set_file_type (info, G_FILE_TYPE_REGULAR);
+	nemo_file_update_info (file, info);
+
+	return file;
+}
+
 static int
 run_share (void)
 {
@@ -127,10 +148,27 @@ run_share (void)
 	g_print ("  two share answers took %.3fs\n", seconds);
 	check (seconds < 0.5);
 
-	/* Local, and a drive letter the shell has mapped to a share: the check
-	   reads the spelling only, and a drive letter is not a share spelling. */
 	check (!share_by_uri ("file:///C:/Windows/notepad.exe"));
+
+	/* The connecting sign names the server, from the path alone. */
+	{
+		GFile *unc = g_file_new_for_path ("\\\\192.0.2.1\\share\\deep");
+		GFile *local = g_file_new_for_path ("C:\\Windows");
+		char *host = nemo_share_host_to_reach (unc);
+		char *none = nemo_share_host_to_reach (local);
+
+		check (g_strcmp0 (host, "192.0.2.1") == 0);
+		check (none == NULL);
+		g_free (host);
+		g_free (none);
+		g_object_unref (unc);
+		g_object_unref (local);
+	}
+	/* Commented out 20261005: a folder on a mapped drive now counts as a
+	   share (decision 20261005 on 2026093010493450), so this only held while
+	   Z: was not mapped on the box. The mapped case is the "nas" folder below.
 	check (!share_by_uri ("file:///Z:/mapped/file.txt"));
+	*/
 
 	link = link_with_target (dir, "far-link", dead != NULL ? dead : "\\\\192.0.2.1\\share");
 	started = g_get_monotonic_time ();
@@ -148,6 +186,84 @@ run_share (void)
 	check (!nemo_file_is_on_a_share (link));
 	nemo_file_unref (link);
 
+	/* A folder standing in for a mapped drive. A link onto it from here is
+	   on a share, and so is anything inside it. A link from inside it to
+	   elsewhere on it still does not leave for a share. */
+	{
+		char *nas = g_build_filename (dir, "nas", NULL);
+		char *inside = g_build_filename (nas, "inside", NULL);
+		char *beside = g_build_filename (nas, "beside", NULL);
+		const char *roots[] = { nas, NULL };
+
+		g_mkdir_with_parents (inside, 0700);
+		nemo_share_set_roots_for_test (roots);
+
+		link = link_with_target (dir, "to-nas", beside);
+		check (nemo_file_is_on_a_share (link));
+		nemo_file_unref (link);
+
+		/* Commented out 20261005: a folder on a mapped drive now counts as a
+		   share (decision 20261005 on 2026093010493450), so a file there is
+		   on it whatever it points at.
+		link = link_with_target (inside, "within-nas", beside);
+		check (!nemo_file_is_on_a_share (link));
+		nemo_file_unref (link);
+		*/
+		link = link_with_target (inside, "within-nas", beside);
+		check (nemo_file_is_on_a_share (link));
+		check (!nemo_share_link_leaves_for_a_share (inside, beside));
+		nemo_file_unref (link);
+
+		link = link_with_target (dir, "nas-rel", "nas\\beside");
+		check (nemo_file_is_on_a_share (link));
+		nemo_file_unref (link);
+
+		/* An absolute path that climbs back onto it, as the archive scan
+		   asks after each hop of a link. */
+		{
+			g_autofree char *climb = g_build_filename (dir, "elsewhere", "..", "nas", "beside", NULL);
+
+			check (nemo_share_link_leaves_for_a_share (dir, climb));
+			check (!nemo_share_link_leaves_for_a_share (inside, climb));
+		}
+
+		/* Anything in a folder on it, the same as a UNC path. */
+		started = g_get_monotonic_time ();
+		link = plain_file (inside, "plain.txt");
+		check (nemo_file_is_on_a_share (link));
+		nemo_file_unref (link);
+		link = plain_file (dir, "home.txt");
+		check (!nemo_file_is_on_a_share (link));
+		nemo_file_unref (link);
+		check ((g_get_monotonic_time () - started) / 1000000.0 < 0.5);
+
+		/* The listing describes a link as itself here, never following it,
+		   so it needs no mark: its type is right already. */
+		{
+			g_autofree char *junction = g_build_filename (dir, "into-nas", NULL);
+			g_autoptr (GFile) junction_file = g_file_new_for_path (junction);
+			GError *error = NULL;
+
+			if (nemo_win32_link_create (inside, junction, NULL, NEMO_LINK_JUNCTION, &error)) {
+				GFileInfo *info = nemo_query_listing_info (junction_file, "standard::*", FALSE,
+									   NULL, NULL);
+
+				check (info != NULL && g_file_info_get_is_symlink (info) &&
+				       nemo_dir_enum_file_type (info) == G_FILE_TYPE_DIRECTORY &&
+				       !g_file_info_get_attribute_boolean (info, NEMO_FILE_ATTRIBUTE_LINK_UNFOLLOWED));
+				g_clear_object (&info);
+			} else {
+				g_print ("  note: no junction here: %s\n", error->message);
+				g_clear_error (&error);
+			}
+		}
+
+		nemo_share_set_roots_for_test (NULL);
+		g_free (beside);
+		g_free (inside);
+		g_free (nas);
+	}
+
 	g_free (host_uri);
 	g_free (far);
 	g_free (dir);
@@ -158,13 +274,13 @@ run_share (void)
 static gboolean done;
 
 static void
-ready (NemoDirectory *directory, GList *files, gpointer data)
+ready (G_GNUC_UNUSED NemoDirectory *directory, G_GNUC_UNUSED GList *files, G_GNUC_UNUSED gpointer data)
 {
 	done = TRUE;
 }
 
 static gboolean
-give_up (gpointer data)
+give_up (G_GNUC_UNUSED gpointer data)
 {
 	done = TRUE;
 	return G_SOURCE_CONTINUE;

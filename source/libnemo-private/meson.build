@@ -4,6 +4,7 @@ nemo_private_sources = [
   'nemo-appearance.c',
   'nemo-action.c',
   'nemo-archive.c',
+  'nemo-archive-host.c',
   'nemo-bookmark.c',
   'nemo-cell-renderer-disk.c',
   'nemo-centered-placement-grid.c',
@@ -48,13 +49,16 @@ nemo_private_sources = [
   'nemo-link.c',
   'nemo-merged-directory.c',
   'nemo-config.c',
+  'nemo-bulk-rename.c',
   'nemo-desktop-settings.c',
   'nemo-dir-enum.c',
   'nemo-metadata.c',
   'nemo-metadata-store.c',
   'nemo-folder-settings.c',
+  'nemo-tab-list.c',
   'nemo-network-win32.c',
   'nemo-security-win32.c',
+  'nemo-share.c',
   'nemo-link-copy.c',
   'nemo-link-edit.c',
   'nemo-link-win32.c',
@@ -66,6 +70,10 @@ nemo_private_sources = [
   'nemo-file-digest.c',
   'nemo-file-xattr.c',
   'nemo-image-folders.c',
+  'nemo-instances.c',
+  'nemo-office.c',
+  'nemo-office-ole.c',
+  'nemo-ole2.c',
   'nemo-psd.c',
   'nemo-raw.c',
   'nemo-magick.c',
@@ -91,13 +99,16 @@ nemo_private_sources = [
   'nemo-small-copy.c',
   'nemo-thumbnail-memory.c',
   'nemo-thumbnails.c',
+  'nemo-tool-run.c',
   'nemo-trash-monitor.c',
   'nemo-tree-view-drag-dest.c',
+  'nemo-ui-scale.c',
   'nemo-ui-utilities.c',
   'nemo-undo-manager.c',
   'nemo-undo-signal-handlers.c',
   'nemo-undo-transaction.c',
   'nemo-undo.c',
+  'nemo-user-text.c',
   'nemo-vfs-directory.c',
   'nemo-vfs-file.c',
   'nemo-widget-action.c',
@@ -105,7 +116,7 @@ nemo_private_sources = [
 ]
 
 nemo_private_deps = [
-  archive, blake3, eel, execinfo, gail, gio_unix, glib, gmodule, gtk, json, math,
+  arc_core, archive, blake3, eel, execinfo, gail, gio_unix, glib, gmodule, gtk, json, math,
   nemo_extension, sqlite, win_shell, x11
 ]
 
@@ -124,9 +135,13 @@ if is_windows
   nemo_private_sources += 'nemo-search-engine-win32.c'
   nemo_private_sources += 'nemo-associations-win32.c'
   nemo_private_sources += 'nemo-launch-win32.c'
+  nemo_private_deps += dependency('gio-windows-2.0', version: glib_version)
   nemo_private_sources += 'nemo-clipboard-win32.c'
   nemo_private_sources += 'nemo-dnd-win32.c'
+  nemo_private_sources += 'nemo-drop-win32.c'
   nemo_private_sources += 'nemo-shell-icon-win32.c'
+  nemo_private_sources += 'nemo-drives-win32.c'
+  nemo_private_sources += 'nemo-instances-win32.c'
 endif
 nemo_private_sources += 'nemo-lnk.c'
 

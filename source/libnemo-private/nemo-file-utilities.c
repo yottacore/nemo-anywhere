@@ -28,6 +28,7 @@
 
 #include "nemo-global-preferences.h"
 #include "nemo-dir-enum.h"
+#include "nemo-drives-win32.h"
 #include "nemo-lib-self-check-functions.h"
 #include "nemo-metadata.h"
 #include "nemo-file.h"
@@ -56,6 +57,11 @@
 #include <mach-o/dyld.h>
 #endif
 
+#if defined(__FreeBSD__) || defined(__DragonFly__)
+#include <sys/types.h>
+#include <sys/sysctl.h>
+#endif
+
 #define NEMO_USER_DIRECTORY_NAME NEMO_APP_SLUG
 
 #define DESKTOP_DIRECTORY_NAME "Desktop"
@@ -71,6 +77,7 @@ static GFile *nemo_find_file_insensitive_next (GFile *parent, const gchar *name)
    name or a uri; a path is shortened by measurement well before this. */
 #define WINDOW_TITLE_LIMIT 180
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_compute_title_for_location (GFile *location)
 {
@@ -127,6 +134,7 @@ nemo_compute_title_for_location (GFile *location)
     return title;
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_compute_title_path_for_location (GFile *location)
 {
@@ -163,7 +171,8 @@ has_space (const char *text)
    or a window switcher tells our window from any other file manager's. The
    folder goes first, since a narrow taskbar button cuts from the end. Quotes
    only go on when a space would otherwise blur where the name stops. The tabs
-   keep the bare folder title, since the window around them already says it. */
+   keep the bare folder title, since the window around them already says it.
+   Returns: (transfer full): free with g_free */
 char *
 nemo_compute_window_title (const char *location_title)
 {
@@ -208,7 +217,8 @@ nemo_get_uptime_seconds (void)
 }
 
 /* Days, hours and minutes, leaving out any that are zero. Seconds would only
-   be stale by the time anyone read them. */
+   be stale by the time anyone read them.
+   Returns: (transfer full): free with g_free */
 char *
 nemo_format_uptime (gint64 seconds)
 {
@@ -245,6 +255,7 @@ nemo_format_uptime (gint64 seconds)
 }
 
 // TODO: Maybe this can replace nemo_compute_title_for_location() all around?
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_compute_search_title_for_location (GFile *location)
 {
@@ -285,7 +296,7 @@ nemo_compute_search_title_for_location (GFile *location)
  * carrying between a user's machines, so Windows gets roaming AppData and
  * macOS its Application Support dir.
  *
- * Return value: the directory path, owned by the callee.
+ * Return value: (transfer none): the directory path, owned by the callee.
  **/
 const char *
 nemo_get_user_config_root (void)
@@ -330,7 +341,7 @@ nemo_get_user_config_root (void)
  * thumbnail database syncing between machines. macOS has a cache dir of its
  * own that the system knows it may empty.
  *
- * Return value: the directory path, owned by the callee.
+ * Return value: (transfer none): the directory path, owned by the callee.
  **/
 const char *
 nemo_get_user_cache_root (void)
@@ -364,6 +375,7 @@ nemo_get_user_cache_root (void)
 #endif
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_get_user_cache_directory (void)
 {
@@ -372,7 +384,7 @@ nemo_get_user_cache_directory (void)
 				      NULL);
 
 	if (g_mkdir_with_parents (dir, DEFAULT_NEMO_DIRECTORY_MODE) != 0) {
-		g_warning ("could not make the cache dir %s: %s", dir, g_strerror (errno));
+		g_warning ("couldn't make the cache dir %s: %s", dir, g_strerror (errno));
 		g_free (dir);
 		return NULL;
 	}
@@ -410,7 +422,7 @@ migrate_legacy_user_directory (const char *user_directory)
 	g_mkdir_with_parents (parent, DEFAULT_NEMO_DIRECTORY_MODE);
 
 	if (g_rename (legacy, user_directory) != 0) {
-		g_warning ("could not move settings from %s to %s: %s",
+		g_warning ("couldn't move settings from %s to %s: %s",
 			   legacy, user_directory, g_strerror (errno));
 		return;
 	}
@@ -423,7 +435,7 @@ migrate_legacy_user_directory (const char *user_directory)
  *
  * Get the path for the directory containing nemo settings.
  *
- * Return value: the directory path.
+ * Return value: (transfer full): the directory path. Free with g_free.
  **/
 char *
 nemo_get_user_directory (void)
@@ -452,23 +464,31 @@ nemo_get_user_directory (void)
 /**
  * nemo_get_accel_map_file:
  *
- * Get the path for the filename containing nemo accelerator map.
- * The filename need not exist.
+ * The keyboard shortcut file, beside the settings file. The folder is made
+ * here; the file need not exist.
  *
- * Return value: the filename path, or NULL if the home directory could not be found
+ * Return value: (transfer full): the filename path, freed by the caller.
  **/
 char *
 nemo_get_accel_map_file (void)
 {
-	const gchar *override;
+	g_autofree char *dir = nemo_get_user_directory ();
 
-	override = g_getenv ("GNOME22_USER_DIR");
+	return g_build_filename (dir, "accels", NULL);
+}
 
-	if (override) {
-		return g_build_filename (override, "accels/nemo", NULL);
-	} else {
-		return g_build_filename (g_get_home_dir (), ".gnome2/accels/nemo", NULL);
-	}
+/* Where upstream Nemo keeps its shortcuts, and where older builds of ours
+ * saved them too. Read once, to carry custom shortcuts over; never written.
+ * Returns: (transfer full): free with g_free */
+char *
+nemo_get_legacy_accel_map_file (void)
+{
+	const char *override = g_getenv ("GNOME22_USER_DIR");
+
+	if (override != NULL && *override != '\0')
+		return g_build_filename (override, "accels", "nemo", NULL);
+
+	return g_build_filename (g_get_home_dir (), ".gnome2", "accels", "nemo", NULL);
 }
 
 /**
@@ -476,7 +496,7 @@ nemo_get_accel_map_file (void)
  *
  * Get the path for the directory containing nemo scripts.
  *
- * Return value: the directory path containing nemo scripts
+ * Return value: (transfer full): the directory path containing nemo scripts. Free with g_free.
  **/
 char *
 nemo_get_scripts_directory_path (void)
@@ -594,6 +614,12 @@ static GFileMonitor *cached_xdg_dirs_monitor = NULL;
 static void
 update_xdg_user_dir (const char *type, const char *path)
 {
+#ifdef G_OS_WIN32
+    /* No such program here, and the user folders are the shell's to move.
+       GLib's spawn would start its helper all the same. */
+    (void) type;
+    (void) path;
+#else
     char *argv[5];
     int i;
 
@@ -615,6 +641,7 @@ update_xdg_user_dir (const char *type, const char *path)
                   G_SPAWN_STDERR_TO_DEV_NULL,
                   NULL, NULL,
                   NULL, NULL, NULL, NULL);
+#endif
 }
 
 static void
@@ -646,9 +673,9 @@ xdg_dir_changed (NemoFile *file,
 }
 
 static void
-xdg_dir_cache_changed_cb (GFileMonitor  *monitor,
-			  GFile *file,
-			  GFile *other_file,
+xdg_dir_cache_changed_cb (G_GNUC_UNUSED GFileMonitor  *monitor,
+			  G_GNUC_UNUSED GFile *file,
+			  G_GNUC_UNUSED GFile *other_file,
 			  GFileMonitorEvent event_type)
 {
 	if (event_type == G_FILE_MONITOR_EVENT_CHANGED ||
@@ -660,7 +687,7 @@ xdg_dir_cache_changed_cb (GFileMonitor  *monitor,
 static int user_dirs_changed_tag = 0;
 
 static gboolean
-emit_user_dirs_changed_idle (gpointer data)
+emit_user_dirs_changed_idle (G_GNUC_UNUSED gpointer data)
 {
 	g_signal_emit_by_name (nemo_signaller_get_current (),
 			       "user_dirs_changed");
@@ -762,6 +789,7 @@ update_xdg_dir_cache (void)
 	}
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_get_xdg_dir (const char *type)
 {
@@ -801,7 +829,7 @@ get_desktop_path (void)
  *
  * Get the path for the directory containing files on the desktop.
  *
- * Return value: the directory path.
+ * Return value: (transfer full): the directory path. Free with g_free.
  **/
 char *
 nemo_get_desktop_directory (void)
@@ -827,6 +855,7 @@ nemo_get_desktop_directory (void)
 	return desktop_directory;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GFile *
 nemo_get_desktop_location (void)
 {
@@ -846,7 +875,7 @@ nemo_get_desktop_location (void)
  *
  * Get the uri for the directory containing files on the desktop.
  *
- * Return value: the directory path.
+ * Return value: (transfer full): the directory path. Free with g_free.
  **/
 char *
 nemo_get_desktop_directory_uri (void)
@@ -861,6 +890,7 @@ nemo_get_desktop_directory_uri (void)
 	return desktop_uri;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_get_desktop_directory_uri_no_create (void)
 {
@@ -874,6 +904,7 @@ nemo_get_desktop_directory_uri_no_create (void)
 	return desktop_uri;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_get_home_directory_uri (void)
 {
@@ -893,6 +924,7 @@ nemo_should_use_templates_directory (void)
 	return res;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_get_templates_directory (void)
 {
@@ -931,6 +963,7 @@ nemo_ensure_valid_templates_directory (void)
     }
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_get_templates_directory_uri (void)
 {
@@ -942,6 +975,7 @@ nemo_get_templates_directory_uri (void)
 	return uri;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_get_searches_directory (void)
 {
@@ -981,7 +1015,7 @@ desktop_dir_changed (void)
 }
 
 static void
-desktop_dir_changed_callback (gpointer callback_data)
+desktop_dir_changed_callback (G_GNUC_UNUSED gpointer callback_data)
 {
 	desktop_dir_changed ();
 }
@@ -1090,7 +1124,7 @@ nemo_is_desktop_directory (GFile *dir)
  *
  * Get the path for the directory containing the legacy gmc desktop.
  *
- * Return value: the directory path.
+ * Return value: (transfer full): the directory path. Free with g_free.
  **/
 char *
 nemo_get_gmc_desktop_directory (void)
@@ -1098,6 +1132,7 @@ nemo_get_gmc_desktop_directory (void)
 	return g_build_filename (g_get_home_dir (), LEGACY_DESKTOP_DIRECTORY_NAME, NULL);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_get_exe_path (void)
 {
@@ -1125,9 +1160,23 @@ nemo_get_exe_path (void)
 		}
 	}
 #else
-	exe = g_file_read_link ("/proc/self/exe", NULL);
+#if defined(__FreeBSD__) || defined(__DragonFly__)
+	/* procfs is not mounted there by default */
+	{
+		int mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1 };
+		char path[4096];
+		size_t len = sizeof (path);
+
+		if (sysctl (mib, G_N_ELEMENTS (mib), path, &len, NULL, 0) == 0 && len > 1) {
+			exe = g_strndup (path, len);
+		}
+	}
+#endif
 	if (exe == NULL) {
-		/* BSD */
+		exe = g_file_read_link ("/proc/self/exe", NULL);
+	}
+	if (exe == NULL) {
+		/* NetBSD, or FreeBSD with procfs */
 		exe = g_file_read_link ("/proc/curproc/file", NULL);
 	}
 #endif
@@ -1175,6 +1224,7 @@ runtime_dir_for (const char *tail, const char *built_in)
 	return result;
 }
 
+/* Returns: (transfer none): kept for the life of the process */
 const char *
 nemo_get_data_dir (void)
 {
@@ -1188,6 +1238,7 @@ nemo_get_data_dir (void)
 	return dir;
 }
 
+/* Returns: (transfer none): kept for the life of the process */
 const char *
 nemo_get_locale_dir (void)
 {
@@ -1202,7 +1253,8 @@ nemo_get_locale_dir (void)
 }
 
 /* Where our sibling programs are - the document converters search uses. "" means
- * we could not work it out and the caller should just let PATH answer. */
+ * we could not work it out and the caller should just let PATH answer.
+ * Returns: (transfer none): kept for the life of the process */
 const char *
 nemo_get_bin_dir (void)
 {
@@ -1303,10 +1355,156 @@ prepend_env_dir (const char *var, const char *dir, const char *fallback)
 	joined = (current != NULL && *current != '\0')
 		? g_strconcat (dir, G_SEARCHPATH_SEPARATOR_S, current, NULL)
 		: g_strdup (dir);
-	g_setenv (var, joined, TRUE);
+	/* Ours only. A program of the user's gets the list as it was. */
+	nemo_setenv_own (var, joined, TRUE);
 	g_free (joined);
 }
 #endif
+
+typedef struct {
+	char *var;
+	char *before;	/* NULL when it was not set */
+} OwnSetting;
+
+static GMutex     own_settings_lock;
+static GPtrArray *own_settings;
+
+void
+nemo_setenv_own (const char *var, const char *value, gboolean overwrite)
+{
+	const char *now = g_getenv (var);
+	guint i;
+
+	if (now != NULL && !overwrite) {
+		return;
+	}
+
+	g_mutex_lock (&own_settings_lock);
+	if (own_settings == NULL) {
+		own_settings = g_ptr_array_new ();
+	}
+	for (i = 0; i < own_settings->len; i++) {
+		if (strcmp (((OwnSetting *) own_settings->pdata[i])->var, var) == 0) {
+			break;
+		}
+	}
+	/* Only the first time counts: after that the value is already ours. */
+	if (i == own_settings->len) {
+		OwnSetting *setting = g_new0 (OwnSetting, 1);
+
+		setting->var = g_strdup (var);
+		setting->before = g_strdup (now);
+		g_ptr_array_add (own_settings, setting);
+	}
+	g_setenv (var, value, TRUE);
+	g_mutex_unlock (&own_settings_lock);
+}
+
+/* Returns: (transfer full): free with g_strfreev */
+char **
+nemo_get_user_environ (void)
+{
+	char **env = g_get_environ ();
+	guint i;
+
+	g_mutex_lock (&own_settings_lock);
+	for (i = 0; own_settings != NULL && i < own_settings->len; i++) {
+		const OwnSetting *setting = own_settings->pdata[i];
+
+		env = setting->before != NULL
+			? g_environ_setenv (env, setting->var, setting->before, TRUE)
+			: g_environ_unsetenv (env, setting->var);
+	}
+	g_mutex_unlock (&own_settings_lock);
+
+	return env;
+}
+
+void
+nemo_launch_context_use_user_environ (GAppLaunchContext *context)
+{
+	guint i;
+
+	g_mutex_lock (&own_settings_lock);
+	for (i = 0; own_settings != NULL && i < own_settings->len; i++) {
+		const OwnSetting *setting = own_settings->pdata[i];
+
+		if (setting->before != NULL) {
+			g_app_launch_context_setenv (context, setting->var, setting->before);
+		} else {
+			g_app_launch_context_unsetenv (context, setting->var);
+		}
+	}
+	g_mutex_unlock (&own_settings_lock);
+}
+
+#ifndef G_OS_WIN32
+gboolean
+nemo_spawn_for_user (const char  *workdir,
+		     char       **argv,
+		     GSpawnFlags  flags,
+		     GPid        *child_pid,
+		     GError     **error)
+{
+	char **env = nemo_get_user_environ ();
+	gboolean ok;
+
+	/* Found the way the user's own PATH finds it, not through our bin dir. */
+	if (flags & G_SPAWN_SEARCH_PATH) {
+		flags |= G_SPAWN_SEARCH_PATH_FROM_ENVP;
+	}
+	ok = g_spawn_async (workdir, argv, env, flags, NULL, NULL, child_pid, error);
+	g_strfreev (env);
+
+	return ok;
+}
+#endif
+
+/* Each entry is NAME=VALUE, or a bare NAME for one that was not set.
+ * Returns: (transfer full): free with nemo_restore_own_environ */
+char **
+nemo_swap_in_user_environ (void)
+{
+	GPtrArray *saved = g_ptr_array_new ();
+	guint i;
+
+	g_mutex_lock (&own_settings_lock);
+	for (i = 0; own_settings != NULL && i < own_settings->len; i++) {
+		const OwnSetting *setting = own_settings->pdata[i];
+		const char *now = g_getenv (setting->var);
+
+		g_ptr_array_add (saved, now != NULL
+			? g_strconcat (setting->var, "=", now, NULL)
+			: g_strdup (setting->var));
+		if (setting->before != NULL) {
+			g_setenv (setting->var, setting->before, TRUE);
+		} else {
+			g_unsetenv (setting->var);
+		}
+	}
+	g_mutex_unlock (&own_settings_lock);
+	g_ptr_array_add (saved, NULL);
+
+	return (char **) g_ptr_array_free (saved, FALSE);
+}
+
+void
+nemo_restore_own_environ (char **saved)
+{
+	guint i;
+
+	for (i = 0; saved != NULL && saved[i] != NULL; i++) {
+		char *eq = strchr (saved[i], '=');
+
+		if (eq != NULL) {
+			*eq = '\0';
+			g_setenv (saved[i], eq + 1, TRUE);
+		} else {
+			g_unsetenv (saved[i]);
+		}
+	}
+	g_strfreev (saved);
+}
 
 /* A relocatable prefix used to be entered through a shell wrapper that set this
  * up, which meant two files where one would do. The program does it for itself
@@ -1314,12 +1512,18 @@ prepend_env_dir (const char *var, const char *dir, const char *fallback)
  * comes off XDG_DATA_DIRS, and GLib caches that list the first time anything
  * asks for it, so this has to run before anything else does.
  *
- * Nothing to do on Windows: the layout is flat and GLib there already reads the
- * share dir beside the exe. */
+ * On Windows the layout is flat and GLib there already reads the share dir
+ * beside the exe. What it does need is to be told there is no session bus.
+ * The copies talk over named pipes there, and GLib starts a bus of its own
+ * (gdbus.exe) the first time anything asks for one, GApplication's
+ * registration included. "disabled:" is no transport, so every ask fails at
+ * once instead. */
 void
 nemo_setup_runtime_environment (void)
 {
-#ifndef G_OS_WIN32
+#ifdef G_OS_WIN32
+	nemo_setenv_own ("DBUS_SESSION_BUS_ADDRESS", "disabled:", TRUE);
+#else
 	char *exe;
 	char *bindir;
 	char *base;
@@ -1393,7 +1597,8 @@ nemo_setup_runtime_environment (void)
  * launcher and the packed exe's environment each put our own share dir on
  * XDG_DATA_DIRS, and GLib on win32 adds the exe's share dir on top of that -
  * so anything scanned per data dir (actions, search helpers, themes) showed
- * up once per copy. */
+ * up once per copy.
+ * Returns: (transfer none): kept for the life of the process */
 const char * const *
 nemo_get_system_data_dirs (void)
 {
@@ -1433,6 +1638,7 @@ nemo_get_system_data_dirs (void)
 	return (const char * const *) dirs;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_get_data_file_path (const char *partial_path)
 {
@@ -1458,6 +1664,7 @@ nemo_get_data_file_path (const char *partial_path)
 	return NULL;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_ensure_unique_file_name (const char *directory_uri,
 				  const char *base_name,
@@ -1506,6 +1713,7 @@ nemo_ensure_unique_file_name (const char *directory_uri,
 	return res;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_unique_temporary_file_name (void)
 {
@@ -1526,6 +1734,7 @@ nemo_unique_temporary_file_name (void)
 	return file_name;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GFile *
 nemo_find_existing_uri_in_hierarchy (GFile *location)
 {
@@ -1559,7 +1768,7 @@ nemo_find_existing_uri_in_hierarchy (GFile *location)
  * originally-cased path is returned. This function performs might perform
  * I/O.
  *
- * Return value: a #GFile to a child specified by @name.
+ * Return value: (transfer full): a #GFile to a child specified by @name. Unref with g_object_unref.
  **/
 GFile *
 nemo_find_file_insensitive (GFile *parent, const gchar *name)
@@ -1703,6 +1912,10 @@ nemo_is_file_roller_installed (void)
 static GDBusConnection *
 get_dbus_connection (void)
 {
+#ifdef G_OS_WIN32
+	/* Nothing there takes the inhibit, and asking for the bus would start one. */
+	return NULL;
+#else
 	static GDBusConnection *conn = NULL;
 
 	if (conn == NULL) {
@@ -1711,12 +1924,13 @@ get_dbus_connection (void)
 	        conn = g_bus_get_sync (G_BUS_TYPE_SESSION, NULL, &error);
 
 		if (conn == NULL) {
-	                g_warning ("Could not connect to session bus: %s", error->message);
+	                g_warning ("Couldn't connect to session bus: %s", error->message);
 			g_error_free (error);
 		}
 	}
 
 	return conn;
+#endif
 }
 
 /**
@@ -1764,7 +1978,7 @@ nemo_inhibit_power_manager (const char *message)
 					      &error);
 
 	if (error != NULL) {
-		g_warning ("Could not inhibit power management: %s", error->message);
+		g_warning ("Couldn't inhibit power management: %s", error->message);
 		g_error_free (error);
 		return -1;
 	}
@@ -1811,7 +2025,7 @@ nemo_uninhibit_power_manager (gint cookie)
 					      &error);
 
 	if (result == NULL) {
-		g_warning ("Could not uninhibit power management: %s", error->message);
+		g_warning ("Couldn't uninhibit power management: %s", error->message);
 		g_error_free (error);
 		return;
 	}
@@ -1860,6 +2074,7 @@ nemo_is_in_system_dir (GFile *file)
 	return res;
 }
 
+/* Returns: (transfer full): free with g_hash_table_destroy */
 GHashTable *
 nemo_trashed_files_get_original_directories (GList *files,
 						 GList **unhandled_files)
@@ -1935,8 +2150,8 @@ typedef struct {
 } RestoreFilesData;
 
 static void
-ensure_dirs_task_ready_cb (GObject *_source,
-			   GAsyncResult *res,
+ensure_dirs_task_ready_cb (G_GNUC_UNUSED GObject *_source,
+			   G_GNUC_UNUSED GAsyncResult *res,
 			   gpointer user_data)
 {
 	NemoFile *original_dir;
@@ -1970,7 +2185,7 @@ ensure_dirs_task_ready_cb (GObject *_source,
 
 static void
 ensure_dirs_task_thread_func (GTask *task,
-			      gpointer source,
+			      G_GNUC_UNUSED gpointer source,
 			      gpointer task_data,
 			      GCancellable *cancellable)
 {
@@ -2022,11 +2237,11 @@ nemo_restore_files_from_trash (GList *files,
 	for (l = unhandled_files; l != NULL; l = l->next) {
 		file = NEMO_FILE (l->data);
 		file_name = nemo_file_get_display_name (file);
-		message = g_strdup_printf (_("Could not determine original location of \"%s\" "), file_name);
+		message = g_strdup_printf (_("Couldn't determine original location of \"%s\" "), file_name);
 		g_free (file_name);
 
 		eel_show_warning_dialog (message,
-					 _("The item cannot be restored from trash"),
+					 _("The item can't be restored from trash"),
 					 parent_window);
 		g_free (message);
 	}
@@ -2102,6 +2317,7 @@ nemo_get_x_content_types_for_mount_async (GMount *mount,
 				    data);
 }
 
+/* Returns: (transfer full): free with g_strfreev */
 char **
 nemo_get_cached_x_content_types_for_mount (GMount *mount)
 {
@@ -2144,14 +2360,14 @@ debug_icon_names (const gchar *format, ...)
 static gchar *
 get_best_name (GtkIconTheme *icon_theme,
                         GIcon        *gicon,
-                        const gchar  *dev_name,
+                        G_GNUC_UNUSED const gchar  *dev_name,
                         const gchar  *type_name)
 {
     gchar *icon_name = NULL;
 
     if (G_IS_THEMED_ICON (gicon)) {
         const gchar * const *names;
-        gint i;
+        guint i;
 
         // TODO: We should just use what gicon Gio gives us and let the theme deal with it.
         // but currently everywhere nemo needs this is looking for icon names, so this function
@@ -2185,6 +2401,7 @@ get_best_name (GtkIconTheme *icon_theme,
     return icon_name;
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_get_mount_icon_name (GMount *mount)
 {
@@ -2209,6 +2426,7 @@ nemo_get_mount_icon_name (GMount *mount)
     return icon_name;
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_get_volume_icon_name (GVolume *volume)
 {
@@ -2233,6 +2451,7 @@ nemo_get_volume_icon_name (GVolume *volume)
     return icon_name;
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_get_drive_icon_name (GDrive *drive)
 {
@@ -2256,6 +2475,7 @@ nemo_get_drive_icon_name (GDrive *drive)
     return icon_name;
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_get_best_guess_file_mimetype (const gchar *filename,
                                    GFileInfo   *info,
@@ -2399,6 +2619,19 @@ nemo_uri_is_at_or_under (const char *uri, const char *root)
 	       uri[root_len] == '\0' || uri[root_len] == '/';
 }
 
+/* Returns: (transfer full): free with g_list_free_full and g_object_unref */
+GList *
+nemo_get_mounts (GVolumeMonitor *monitor)
+{
+#ifdef G_OS_WIN32
+    (void) monitor;
+    return nemo_drives_win32_get_mounts ();
+#else
+    return g_volume_monitor_get_mounts (monitor);
+#endif
+}
+
+/* Returns: (transfer full): unref with g_object_unref */
 GMount *
 nemo_get_mount_for_location_safe (GFile *location)
 {
@@ -2409,7 +2642,7 @@ nemo_get_mount_for_location_safe (GFile *location)
 
 
     monitor = g_volume_monitor_get ();
-    mounts = g_volume_monitor_get_mounts (monitor);
+    mounts = nemo_get_mounts (monitor);
 
     mounts = g_list_sort (mounts, (GCompareFunc) sort_by_length);
 
@@ -2480,7 +2713,7 @@ nemo_path_is_network_safe (const gchar *path)
    says "(C:) Windows"; and the sidebar built "Windows (C:)" itself. The drive
    letter is the part that identifies it, so that is what all of them show now. */
 gboolean
-nemo_location_is_drive_root (GFile *location)
+nemo_location_is_drive_root (G_GNUC_UNUSED GFile *location)
 {
 #ifdef G_OS_WIN32
     g_autofree gchar *path = NULL;
@@ -2502,8 +2735,9 @@ nemo_location_is_drive_root (GFile *location)
 #endif
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
-nemo_get_drive_root_name (GFile *location)
+nemo_get_drive_root_name (G_GNUC_UNUSED GFile *location)
 {
 #ifdef G_OS_WIN32
     g_autofree gchar *path = NULL;
@@ -2535,7 +2769,8 @@ nemo_get_drive_root_name (GFile *location)
 /* Text for a list of locations (GFile *), one per line, for the clipboard.
    Anything with no local path - a remote uri - contributes its uri instead, so
    the text is never silently shorter than what was selected. Returns NULL when
-   nothing at all could be named. */
+   nothing at all could be named.
+   Returns: (transfer full): free with g_free */
 gchar *
 nemo_build_path_list_text (GList *locations,
                            gchar  separator)
@@ -2588,7 +2823,7 @@ static gchar    display_separator = '\\';
 static gboolean slash_input_allowed = TRUE;
 
 static void
-separator_preference_changed (gpointer callback_data)
+separator_preference_changed (G_GNUC_UNUSED gpointer callback_data)
 {
     g_autofree gchar *choice = nemo_config_get_string (nemo_windows_preferences,
                                                        NEMO_PREFERENCES_PATH_SEPARATOR);
@@ -2672,8 +2907,8 @@ nemo_rename_region (const char *name,
 /* Rewrites in place - both separators are one ASCII byte, so nothing moves.
    Only ever hand this a local path; a uri's slashes are not separators. */
 void
-nemo_path_apply_separator (gchar *path,
-                           gchar  separator)
+nemo_path_apply_separator (G_GNUC_UNUSED gchar *path,
+                           G_GNUC_UNUSED gchar  separator)
 {
 #ifdef G_OS_WIN32
     gchar other = (separator == '/') ? '\\' : '/';
@@ -2777,7 +3012,8 @@ path_forms_join (const gchar *anchor, gchar **items, guint count, gchar separato
    readable; only when that has run out do the folders above the last one drop
    to their initials. The root and the last folder's name survive every step,
    since those are what tell one tab from another. A path under home reads as ~
-   once it is being shortened at all. */
+   once it is being shortened at all.
+   Returns: (transfer full): free with g_strfreev */
 gchar **
 nemo_path_forms (const gchar *path,
                  gchar        separator,
@@ -2868,7 +3104,8 @@ nemo_path_forms (const gchar *path,
 }
 
 /* Windows shells never print a ~, and the drive a path is on is worth more than
-   the four characters a ~ would save. */
+   the four characters a ~ would save.
+   Returns: (transfer none): owned by GLib */
 const gchar *
 nemo_path_display_home (void)
 {
@@ -2951,7 +3188,8 @@ nemo_path_apply_display_separator (gchar *path)
 }
 
 /* The parse name of a location, spelled with the separator the user picked.
-   A remote location keeps its uri untouched. */
+   A remote location keeps its uri untouched.
+   Returns: (transfer full): free with g_free */
 gchar *
 nemo_location_get_display_name (GFile *location)
 {
@@ -2991,10 +3229,211 @@ nemo_path_input_is_allowed (const gchar *text)
 #endif
 }
 
+/* Returns: (transfer none): a pointer into name */
+const gchar *
+nemo_file_name_find_bad_char (const gchar *name)
+{
+    const gchar *p;
+
+    for (p = name; p != NULL && *p != '\0'; p++) {
+#ifdef G_OS_WIN32
+        if ((guchar) *p < 0x20 || strchr (NEMO_WINDOWS_NAME_BAD_CHARS, *p) != NULL) {
+            return p;
+        }
+#else
+        if (*p == '/') {
+            return p;
+        }
+#endif
+    }
+    return NULL;
+}
+
+/* Returns: (transfer full): free with g_free */
+gchar *
+nemo_file_name_bad_char_message (const gchar *name)
+{
+    const gchar *bad = nemo_file_name_find_bad_char (name);
+    g_autofree gchar *shown = NULL;
+
+    if (bad == NULL) {
+        return NULL;
+    }
+
+    /* 50, as the rename dialog cuts a name. */
+    shown = eel_str_middle_truncate (name, 50);
+    if ((guchar) *bad < 0x20) {
+        return g_strdup_printf (_("The name \"%s\" isn't valid because it contains a control character. "
+                                  "Please use a different name."),
+                                shown);
+    }
+    return g_strdup_printf (_("The name \"%s\" isn't valid because it contains the character \"%c\". "
+                              "Please use a different name."),
+                            shown, *bad);
+}
+
+void
+nemo_file_name_make_valid (gchar *name)
+{
+    gchar *p;
+
+    for (p = name; p != NULL && *p != '\0'; p++) {
+        if (nemo_file_name_find_bad_char (p) == p) {
+            *p = '_';
+        }
+    }
+}
+
+gboolean
+nemo_file_name_check_chars (const gchar *name, GError **error)
+{
+    g_autofree gchar *message = nemo_file_name_bad_char_message (name);
+
+    if (message == NULL) {
+        return TRUE;
+    }
+    g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME, message);
+    return FALSE;
+}
+
+/* Returns: (transfer floating) */
+GtkWidget *
+nemo_name_hint_new (void)
+{
+    GtkWidget *hint = gtk_label_new (NULL);
+
+    gtk_label_set_line_wrap (GTK_LABEL (hint), TRUE);
+    gtk_label_set_max_width_chars (GTK_LABEL (hint), 50);
+    gtk_label_set_xalign (GTK_LABEL (hint), 0.0);
+    gtk_widget_set_no_show_all (hint, TRUE);
+    return hint;
+}
+
+gboolean
+nemo_name_hint_update (GtkWidget *hint, const gchar *name)
+{
+    g_autofree gchar *message = nemo_file_name_bad_char_message (name);
+
+    gtk_label_set_text (GTK_LABEL (hint), message != NULL ? message : "");
+    gtk_widget_set_visible (hint, message != NULL);
+    return message == NULL;
+}
+
+static gboolean
+is_new_folder_separator (gchar c)
+{
+#ifdef G_OS_WIN32
+    /* "/" goes with the typed location setting. Off, it's just a character a
+       name can't have. */
+    watch_separator_preferences ();
+    return c == '\\' || (c == '/' && slash_input_allowed);
+#else
+    /* A backslash is a legal character in a name here. */
+    return c == '/';
+#endif
+}
+
+gboolean
+nemo_new_folder_name_has_separator (const gchar *text)
+{
+    const gchar *p;
+    gboolean found = FALSE;
+
+    for (p = text; p != NULL && *p != '\0'; p++) {
+        if (is_new_folder_separator (*p)) {
+            found = TRUE;
+        } else if (*p == '/') {
+            /* Left to the plain rename, which refuses it. */
+            return FALSE;
+        }
+    }
+    return found;
+}
+
+/* Returns: (transfer full): free with g_strfreev */
+gchar **
+nemo_new_folder_path_split (const gchar *text, GError **error)
+{
+    GPtrArray *parts;
+    const gchar *start, *p;
+    gsize len;
+
+    g_return_val_if_fail (text != NULL, NULL);
+
+    len = strlen (text);
+    while (len > 0 && is_new_folder_separator (text[len - 1])) {
+        len--;
+    }
+
+    if (text[0] == '\0') {
+        g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME,
+                             _("A new folder needs a name."));
+        return NULL;
+    }
+
+    if (is_new_folder_separator (text[0])) {
+        g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME,
+                     _("\"%s\" starts with a separator. A new folder's path starts inside this folder."),
+                     text);
+        return NULL;
+    }
+
+    parts = g_ptr_array_new_with_free_func (g_free);
+    start = text;
+    for (p = text; ; p++) {
+        gboolean at_end = (gsize) (p - text) == len;
+        gchar *part;
+
+        if (!at_end && !is_new_folder_separator (*p)) {
+            continue;
+        }
+
+        part = g_strndup (start, p - start);
+        if (part[0] == '\0') {
+            g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME,
+                         _("\"%s\" has 2 separators in a row, with no folder name between them."),
+                         text);
+            g_free (part);
+            g_ptr_array_free (parts, TRUE);
+            return NULL;
+        }
+        if (strchr (part, '/') != NULL) {
+            g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME,
+                                 _("Slashes aren't allowed in filenames"));
+            g_free (part);
+            g_ptr_array_free (parts, TRUE);
+            return NULL;
+        }
+        if (!nemo_file_name_check_chars (part, error)) {
+            g_free (part);
+            g_ptr_array_free (parts, TRUE);
+            return NULL;
+        }
+        if (strcmp (part, ".") == 0 || strcmp (part, "..") == 0) {
+            g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME,
+                         _("\"%s\" has \"%s\" as a folder name. A new folder's path can't use \".\" or \"..\"."),
+                         text, part);
+            g_free (part);
+            g_ptr_array_free (parts, TRUE);
+            return NULL;
+        }
+        g_ptr_array_add (parts, part);
+
+        if (at_end) {
+            break;
+        }
+        start = p + 1;
+    }
+
+    g_ptr_array_add (parts, NULL);
+    return (gchar **) g_ptr_array_free (parts, FALSE);
+}
+
 /* The value of the Ext column: the tail of the name after the last dot, without
  * the dot. A dot is often just part of a name, so the tail only counts when it
  * looks the part - short, letters and digits only, at least one letter. NULL when
- * there is not one worth showing. */
+ * there is not one worth showing.
+ * Returns: (transfer full): free with g_free */
 gchar *
 nemo_filename_get_extension (const gchar *name)
 {
@@ -3055,7 +3494,8 @@ nemo_archive_mount_supported (void)
 }
 
 /* gvfs wants the archive's own URI escaped twice as the host part:
-   archive://file%253A%252F%252F.../ */
+   archive://file%253A%252F%252F.../
+   Returns: (transfer full): unref with g_object_unref */
 GFile *
 nemo_archive_mount_location (GFile *archive)
 {
@@ -3076,6 +3516,78 @@ nemo_self_check_file_utilities (void)
 
 #endif /* !NEMO_OMIT_SELF_CHECK */
 
+#ifdef G_OS_WIN32
+/* An extension Windows has no registration for comes back as
+   application/x-ext-<ext>. */
+static const struct {
+	const char *ext;
+	const char *mime;
+} known_types[] = {
+	{ "doc",  "application/msword" },
+	{ "dot",  "application/msword" },
+	{ "xls",  "application/vnd.ms-excel" },
+	{ "xlt",  "application/vnd.ms-excel" },
+	{ "ppt",  "application/vnd.ms-powerpoint" },
+	{ "pps",  "application/vnd.ms-powerpoint" },
+	{ "docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+	{ "xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+	{ "pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
+	{ "odt",  "application/vnd.oasis.opendocument.text" },
+	{ "ods",  "application/vnd.oasis.opendocument.spreadsheet" },
+	{ "odp",  "application/vnd.oasis.opendocument.presentation" },
+	{ "odg",  "application/vnd.oasis.opendocument.graphics" },
+	{ "ott",  "application/vnd.oasis.opendocument.text-template" },
+	{ "ots",  "application/vnd.oasis.opendocument.spreadsheet-template" },
+	{ "otp",  "application/vnd.oasis.opendocument.presentation-template" },
+	{ "otg",  "application/vnd.oasis.opendocument.graphics-template" },
+	{ "dotx", "application/vnd.openxmlformats-officedocument.wordprocessingml.template" },
+	{ "xltx", "application/vnd.openxmlformats-officedocument.spreadsheetml.template" },
+	{ "potx", "application/vnd.openxmlformats-officedocument.presentationml.template" },
+	{ "ppsx", "application/vnd.openxmlformats-officedocument.presentationml.slideshow" },
+	{ "docm", "application/vnd.ms-word.document.macroEnabled.12" },
+	{ "xlsm", "application/vnd.ms-excel.sheet.macroEnabled.12" },
+	{ "pptm", "application/vnd.ms-powerpoint.presentation.macroEnabled.12" },
+	{ "epub", "application/epub+zip" },
+	{ "pdf",  "application/pdf" },
+	{ "desktop", "application/x-desktop" },
+};
+#endif
+
+/* Returns: (transfer full): free with g_free */
+char *
+nemo_content_type_get_mime_type (const char *content_type)
+{
+#ifdef G_OS_WIN32
+	const char *ext = NULL;
+	char *mime;
+	guint i;
+
+	/* Already a MIME type, which GLib there would turn into
+	   application/octet-stream. */
+	if (strchr (content_type, '/') != NULL) {
+		return g_strdup (content_type);
+	}
+
+	mime = g_content_type_get_mime_type (content_type);
+	if (mime == NULL) {
+		ext = content_type[0] == '.' ? content_type + 1 : content_type;
+	} else if (g_str_has_prefix (mime, "application/x-ext-")) {
+		ext = mime + strlen ("application/x-ext-");
+	}
+
+	for (i = 0; ext != NULL && i < G_N_ELEMENTS (known_types); i++) {
+		if (g_ascii_strcasecmp (ext, known_types[i].ext) == 0) {
+			g_free (mime);
+			return g_strdup (known_types[i].mime);
+		}
+	}
+
+	return mime != NULL ? mime : g_strdup (content_type);
+#else
+	return g_content_type_get_mime_type (content_type);
+#endif
+}
+
 gboolean
 nemo_content_type_is_a (const char *content_type, const char *mime_type)
 {
@@ -3089,12 +3601,8 @@ nemo_content_type_is_a (const char *content_type, const char *mime_type)
 
 #ifdef G_OS_WIN32
 	{
-		g_autofree char *mime = g_content_type_get_mime_type (content_type);
+		g_autofree char *mime = nemo_content_type_get_mime_type (content_type);
 		gsize len = strlen (mime_type);
-
-		if (mime == NULL) {
-			return FALSE;
-		}
 
 		if (len >= 2 && g_str_has_suffix (mime_type, "/*")) {
 			return strncmp (mime, mime_type, len - 1) == 0;
@@ -3105,4 +3613,50 @@ nemo_content_type_is_a (const char *content_type, const char *mime_type)
 #else
 	return FALSE;
 #endif
+}
+
+gboolean
+nemo_content_type_equals (const char *content_type, const char *mime_type)
+{
+	if (content_type == NULL) {
+		return FALSE;
+	}
+
+	if (g_content_type_equals (content_type, mime_type)) {
+		return TRUE;
+	}
+
+#ifdef G_OS_WIN32
+	{
+		g_autofree char *mime = nemo_content_type_get_mime_type (content_type);
+
+		return g_ascii_strcasecmp (mime, mime_type) == 0;
+	}
+#else
+	return FALSE;
+#endif
+}
+
+gboolean
+nemo_name_is_on_pathext (const char *name, const char *pathext)
+{
+	const char *dot;
+	g_auto (GStrv) entries = NULL;
+	guint i;
+
+	g_return_val_if_fail (name != NULL, FALSE);
+
+	dot = strrchr (name, '.');
+	if (dot == NULL || dot[1] == '\0') {
+		return FALSE;
+	}
+
+	entries = g_strsplit (pathext != NULL ? pathext : ".COM;.EXE;.BAT;.CMD", ";", -1);
+	for (i = 0; entries[i] != NULL; i++) {
+		if (g_ascii_strcasecmp (g_strstrip (entries[i]), dot) == 0) {
+			return TRUE;
+		}
+	}
+
+	return FALSE;
 }

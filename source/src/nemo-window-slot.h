@@ -133,8 +133,10 @@ GType   nemo_window_slot_get_type (void);
 NemoWindowSlot * nemo_window_slot_new (NemoWindowPane *pane);
 
 void    nemo_window_slot_update_title		   (NemoWindowSlot *slot);
+void    nemo_window_slot_recall_search_bar          (NemoWindowSlot *slot);
 void    nemo_window_slot_set_query_editor_visible	   (NemoWindowSlot *slot,
 							    gboolean            visible);
+gboolean nemo_window_slot_close_search		   (NemoWindowSlot *slot);
 
 GFile * nemo_window_slot_get_location		   (NemoWindowSlot *slot);
 char *  nemo_window_slot_get_location_uri		   (NemoWindowSlot *slot);

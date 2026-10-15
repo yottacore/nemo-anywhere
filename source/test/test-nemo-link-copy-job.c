@@ -32,9 +32,9 @@ static gboolean copy_finished;
 static gboolean copy_succeeded;
 
 static void
-copy_done (GHashTable *debuting_uris,
+copy_done (G_GNUC_UNUSED GHashTable *debuting_uris,
            gboolean success,
-           gpointer data)
+           G_GNUC_UNUSED gpointer data)
 {
 	copy_succeeded = success;
 	copy_finished = TRUE;
@@ -42,7 +42,7 @@ copy_done (GHashTable *debuting_uris,
 }
 
 static gboolean
-give_up (gpointer data)
+give_up (G_GNUC_UNUSED gpointer data)
 {
 	g_printerr ("FAIL: copy did not finish within %d seconds\n",
 		    COPY_TIMEOUT_SECONDS);
@@ -153,7 +153,7 @@ make_source (const char *root, const char *from, guint supported)
 	if (supported & NEMO_LINK_JUNCTION) {
 		make_link (folder, from, "junction", NEMO_LINK_JUNCTION);
 	}
-	check (nemo_lnk_write (lnk, payload, NEMO_LNK_ALL_PARTS, NULL));
+	check (nemo_lnk_write (lnk, payload, TRUE, NULL));
 
 	for (i = 0; picked[i] != NULL; i++) {
 		char *path = g_build_filename (from, picked[i], NULL);
@@ -360,7 +360,7 @@ check_shortcut_alone (const char *tmp, GtkWidget *window)
 	g_mkdir_with_parents (from, 0700);
 	g_mkdir_with_parents (to, 0700);
 	write_file (root, "target.txt", "target");
-	check (nemo_lnk_write (lnk, target, NEMO_LNK_ALL_PARTS, NULL));
+	check (nemo_lnk_write (lnk, target, TRUE, NULL));
 
 	g_unsetenv ("NEMO_LINK_COPY");
 	sources = g_list_append (NULL, g_file_new_for_path (lnk));

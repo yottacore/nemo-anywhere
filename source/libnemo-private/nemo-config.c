@@ -44,6 +44,7 @@
 #include "shcl.h"
 
 #include "nemo-config-keys.h"
+#include "nemo-bulk-rename.h"
 #include "nemo-file-utilities.h"
 
 #define CONFIG_FILE_NAME      "settings.shcl"
@@ -80,12 +81,43 @@ static char       *last_written;       /* what we last put on disk, to ignore ou
 static gsize       last_written_len;   /* byte length - the file may legally hold a NUL */
 static GHashTable *config_groups;      /* name -> NemoConfigGroup (owned) */
 static gboolean    config_ready;
+static gboolean    config_stopped;     /* shut down; the next init starts over */
 static GHashTable *pending_keys;       /* set of const NemoConfigKey*, changed but not yet on disk */
 static gboolean    save_failing;
 static GThread    *config_thread;      /* whoever called init - the UI thread */
+static gboolean    hands_off;          /* the file is read but never saved over */
+static gboolean    rewrite_due;        /* converted from an older format, not saved yet */
+static gboolean    still_v2;           /* on disk as read at startup: 2.x, not saved over */
+static guint       load_count;         /* bumped each time load_locked replaces the doc */
+
+/* Sharing with the other copies. A change is stamped, so 2 copies that set
+ * one key at the same moment both keep the same one of the 2: the later
+ * stamp, then the larger origin. The monotonic clock is the one clock every
+ * process on the machine reads alike. */
+typedef struct {
+	gint64  when;
+	guint64 origin;
+} Stamp;
+
+static Stamp      *key_stamps;         /* by key table index; 0 is never changed */
+static gsize       key_count;
+static gint64      clock_seen;         /* newest stamp made or taken */
+static guint64     own_origin;
+static GHashTable *outgoing;           /* set of const NemoConfigKey*, changed here, not sent yet */
+static guint       share_idle_id;
+static NemoConfigShareFunc share_func;
+static gpointer    share_data;
+static GDestroyNotify share_destroy;
+static GHashTable *held_keys;          /* const NemoConfigKey* -> what the file had, for a value taken from another copy */
+static GHashTable *beaten_keys;        /* const NemoConfigKey* -> a value another copy sent that lost to ours */
+static GHashTable *set_here;           /* const NemoConfigKey* -> what we set, while our stamp is the newest */
 
 static void schedule_save (const NemoConfigKey *k);
 static void emit_changed  (const char *group, const char *key);
+static gboolean reload_locked (gboolean queue_save, GHashTable **before,
+                               GHashTable **after);
+static void announce_changes (GHashTable *before, GHashTable *after);
+static void send_outgoing (void);
 
 /* Key table */
 
@@ -168,6 +200,40 @@ key_path_of (const NemoConfigKey *k)
 	return &key_paths[k - nemo_config_keys];
 }
 
+static gint
+key_index (const NemoConfigKey *k)
+{
+	return (gint) (k - nemo_config_keys);
+}
+
+/* Defaults that depend on what's installed, found once on first use. The key
+ * table keeps the plain one, which is what the schema shows. Never stored
+ * unless changed, like any other default. */
+static const struct {
+	const char *group;
+	const char *key;
+	char     *(*find) (void);
+} found_defaults[] = {
+	{ "preferences", "bulk-rename-tool", nemo_bulk_rename_find_default },
+};
+static char *found_values[G_N_ELEMENTS (found_defaults)];
+
+static const char *
+default_text (const NemoConfigKey *k)
+{
+	gsize i;
+
+	for (i = 0; i < G_N_ELEMENTS (found_defaults); i++) {
+		if (strcmp (k->key, found_defaults[i].key) != 0 ||
+		    strcmp (k->group, found_defaults[i].group) != 0)
+			continue;
+		if (g_once_init_enter (&found_values[i]))
+			g_once_init_leave (&found_values[i], found_defaults[i].find ());
+		return found_values[i];
+	}
+	return k->def;
+}
+
 static const NemoConfigKey *
 require_key (NemoConfigGroup *group, const char *key, NemoConfigType type)
 {
@@ -217,8 +283,110 @@ new_empty_doc (void)
 	return d;
 }
 
+/* The file as it was, beside it, before a format change rewrites it. Same
+ * bytes, so putting it back is a rename. Returns the name, or NULL when it
+ * could not be written, and then the old file must stay as it is.
+ *
+ * SHCL 3 only converts text. A later release may back up and convert the file
+ * itself; if it does, use that instead of this and the conversion in
+ * load_locked, never both on one file. */
+static char *
+backup_old_format (const char *text, gsize len, gint64 format)
+{
+	GDateTime *now   = g_date_time_new_now_local ();
+	char      *stamp = g_date_time_format (now, "%Y%m%d-%H%M%S");
+	char      *dir   = g_path_get_dirname (config_path);
+	char      *stem  = g_path_get_basename (config_path);
+	char      *dot   = strrchr (stem, '.');
+	char      *path  = NULL;
+	int        tries;
+
+	g_date_time_unref (now);
+	if (dot != NULL)
+		*dot = '\0';
+
+	/* Two copies starting in the same second can both get here. */
+	for (tries = 1; tries < 10; tries++) {
+		char  *name, *had = NULL;
+		gsize  had_len = 0;
+
+		name = tries == 1
+			? g_strdup_printf ("%s_backup_%s_format-v%" G_GINT64_FORMAT ".shcl",
+			                   stem, stamp, format)
+			: g_strdup_printf ("%s_backup_%s-%d_format-v%" G_GINT64_FORMAT ".shcl",
+			                   stem, stamp, tries, format);
+		path = g_build_filename (dir, name, NULL);
+		g_free (name);
+
+		if (!g_file_get_contents (path, &had, &had_len, NULL)) {
+			if (!g_file_set_contents (path, text, (gssize) len, NULL))
+				g_clear_pointer (&path, g_free);
+			break;
+		}
+		if (had_len == len && memcmp (had, text, len) == 0) {
+			g_free (had);
+			break;
+		}
+		g_free (had);
+		g_clear_pointer (&path, g_free);
+	}
+
+	g_free (stamp);
+	g_free (dir);
+	g_free (stem);
+	return path;
+}
+
+/* A converted file is written fresh, the way this release would have written
+ * it: only the keys it knows, each with its comment. Anything else stays in
+ * the backup. */
+static shcl_doc *
+known_keys_only (shcl_doc *from)
+{
+	shcl_doc            *to = new_empty_doc ();
+	const NemoConfigKey *k;
+
+	for (k = nemo_config_keys; k->key != NULL; k++) {
+		char     *path = key_path (k);
+		gsize     plen = strlen (path);
+		gboolean  set  = FALSE;
+
+		if (k->type == NEMO_CONFIG_STRING_LIST) {
+			shcl_read_str_arr r = shcl_read_string_array (from, path, plen);
+
+			if (r.status == SHCL_GOOD || r.status == SHCL_EMPTY) {
+				const char **values = g_new0 (const char *, r.n + 1);
+				size_t      *lens   = g_new0 (size_t, r.n + 1);
+				size_t       i;
+
+				for (i = 0; i < r.n; i++) {
+					values[i] = r.values[i].p;
+					lens[i]   = r.values[i].n;
+				}
+				set = shcl_set_string_array (to, path, plen, values, lens, r.n);
+				g_free (values);
+				g_free (lens);
+			}
+		} else {
+			shcl_read_str r = shcl_read_string (from, path, plen);
+
+			if (r.status == SHCL_GOOD || r.status == SHCL_EMPTY)
+				set = shcl_set_string (to, path, plen, r.value.p, r.value.n);
+		}
+		if (set && k->summary != NULL)
+			shcl_set_comment (to, path, plen, k->summary, strlen (k->summary));
+
+		shcl_reads_release (from);
+		g_free (path);
+	}
+	return to;
+}
+
+/* @at_start: a file with no format line is read as 2.x only at startup. One
+ * that turns up while running is a hand edit in progress, by today's rules,
+ * unless it is still the 2.x file startup read and could not save over. */
 static void
-load_locked (void)
+load_locked (gboolean at_start)
 {
 	char     *text = NULL;
 	gsize     len  = 0;
@@ -240,20 +408,75 @@ load_locked (void)
 	}
 
 	if (g_file_get_contents (config_path, &text, &len, &error)) {
-		size_t i, n;
+		size_t          i, n;
+		gint64          format = shcl_format_version (text, len);
+		shcl_migration  conv = { NULL, 0, 0, 0, 0 };
+		gboolean        was_hands_off = hands_off;
+
+		hands_off = FALSE;
+		rewrite_due = FALSE;
+
+		/* An older release would write over a newer format and lose what it
+		 * can't read, and the newer one would then convert it back with a
+		 * fresh backup every time. Read it, never save over it. */
+		if (format > SHCL_FORMAT_MAJOR) {
+			hands_off = TRUE;
+			if (!was_hands_off)
+				g_warning ("nemo-config: %s is SHCL format %" G_GINT64_FORMAT
+				           ", newer than this release reads (%d); "
+				           "settings changed here won't be saved",
+				           config_path, format, SHCL_FORMAT_MAJOR);
+		} else if (format >= 0 ? format < SHCL_FORMAT_MAJOR : at_start || still_v2) {
+			/* No format line: every file a 2.x release wrote, or a hand edit
+			 * that dropped the line. Taken as 2.x, since the app's own files
+			 * are the common case. If both rules read it the same, the next
+			 * save adds the line and that is all. */
+			conv = shcl_migrate_unstamped (text, len, TRUE);
+			if (format < 0 && conv.lost == 0 && conv.len == len &&
+			    memcmp (conv.text, text, len) == 0)
+				g_clear_pointer (&conv.text, free);
+		}
+		still_v2 = format < 0 && conv.text != NULL;
+
+		if (conv.text != NULL) {
+			gint64  was    = format >= 0 ? format : 2;
+			char   *backup = backup_old_format (text, len, was);
+
+			if (backup == NULL) {
+				g_warning ("nemo-config: %s is in an older SHCL format and no "
+				           "backup could be written beside it; it won't be "
+				           "saved over", config_path);
+				hands_off = TRUE;
+			} else {
+				g_message ("nemo-config: %s was SHCL format %" G_GINT64_FORMAT
+				           " and is rewritten for format %d; the old file is %s",
+				           config_path, was, SHCL_FORMAT_MAJOR, backup);
+				if (conv.ambiguous > 0 || conv.lost > 0)
+					g_warning ("nemo-config: %zu value(s) could be read two "
+					           "ways and %zu line(s) couldn't be converted; "
+					           "check them against %s",
+					           conv.ambiguous, conv.lost, backup);
+				rewrite_due = TRUE;
+			}
+			g_free (backup);
+		}
 
 		/* Out of memory, and the one case SHCL hands back. Same answer as an
 		 * unreadable file: keep what we have. */
-		fresh = shcl_parse (text, len);
+		fresh = conv.text != NULL ? shcl_parse (conv.text, conv.len)
+		                          : shcl_parse (text, len);
+		free (conv.text);
 		if (fresh == NULL) {
 			g_warning ("nemo-config: out of memory reading %s", config_path);
 			g_free (text);
+			rewrite_due = FALSE;
 			if (config_doc == NULL)
 				config_doc = new_empty_doc ();
 			return;
 		}
 		shcl_free (config_doc);
 		config_doc = fresh;
+		load_count++;
 
 		/* A broken line is skipped, not fatal - say which, once, so a
 		 * hand-edit that lost a value is not a silent mystery. */
@@ -270,9 +493,16 @@ load_locked (void)
 		/* Anything the parse could not keep is gone from the next save, so say
 		 * so rather than let a hand-edited line disappear without a word. */
 		if (shcl_lost_count (config_doc) > 0) {
-			g_warning ("nemo-config: %s has %zu line(s) that could not be kept; "
-			           "the next save will not carry them",
+			g_warning ("nemo-config: %s has %zu line(s) that couldn't be kept; "
+			           "the next save won't carry them",
 			           config_path, shcl_lost_count (config_doc));
+		}
+
+		if (rewrite_due) {
+			shcl_doc *known = known_keys_only (config_doc);
+
+			shcl_free (config_doc);
+			config_doc = known;
 		}
 
 		g_free (last_written);
@@ -283,7 +513,7 @@ load_locked (void)
 		gboolean gone = g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_NOENT);
 
 		if (!gone)
-			g_warning ("nemo-config: cannot read %s: %s",
+			g_warning ("nemo-config: can't read %s: %s",
 			           config_path, error->message);
 		g_clear_error (&error);
 
@@ -294,8 +524,16 @@ load_locked (void)
 		if (!gone && config_doc != NULL)
 			return;
 
+		if (gone) {
+			hands_off = FALSE;
+			rewrite_due = FALSE;
+			still_v2 = FALSE;
+			g_clear_pointer (&last_written, g_free);
+			last_written_len = 0;
+		}
 		shcl_free (config_doc);
 		config_doc = new_empty_doc ();
+		load_count++;
 	}
 }
 
@@ -384,10 +622,13 @@ default_texts (guint *n_out)
 			g_free (lens);
 			break;
 		}
-		default:
+		default: {
 			/* A string, and an enum, which is stored as its nick. */
-			shcl_set_string (scratch, path, plen, k->def, strlen (k->def));
+			const char *def = default_text (k);
+
+			shcl_set_string (scratch, path, plen, def, strlen (def));
 			break;
+		}
 		}
 	}
 
@@ -544,14 +785,50 @@ is_banner_line (const char *bare)
 		g_once_init_leave (&once, 1);
 	}
 
-	if (g_str_has_prefix (bare, "##    "))
+	if (g_str_has_prefix (bare, "##    ") || strcmp (bare, "##") == 0)
 		return TRUE;
-	/* A bare "##" is only ours next to the rest of the block. */
 	for (i = 0; lines[i] != NULL; i++) {
 		if (strlen (lines[i]) > 2 && strcmp (lines[i], bare) == 0)
 			return TRUE;
 	}
 	return FALSE;
+}
+
+/* Which lines are the info block. Only a run of "##" lines that names the
+ * format counts, found the way shcl_set_banner finds one: by its SHCL line or
+ * its version line, never its links. Inside the run, a line that is not one of
+ * the block's own is somebody's note and stays. */
+static gboolean *
+find_banner_lines (GPtrArray *lines)
+{
+	gboolean *banner = g_new0 (gboolean, lines->len + 1);
+	guint     start = 0;
+	guint     i;
+
+	for (i = 0; i <= lines->len; i++) {
+		const char *line = i < lines->len ? g_ptr_array_index (lines, i) : "";
+		const char *bare = line + strspn (line, " \t");
+		gboolean    named = FALSE;
+		guint       j;
+
+		if (g_str_has_prefix (bare, "##"))
+			continue;
+
+		for (j = start; j < i && !named; j++) {
+			const char *in_run = g_ptr_array_index (lines, j);
+
+			in_run += strspn (in_run, " \t");
+			named = g_str_has_prefix (in_run, "## This config file format is SHCL.") ||
+			        g_str_has_prefix (in_run, SHCL_FORMAT_LINE_HEAD);
+		}
+		for (j = start; named && j < i; j++) {
+			const char *in_run = g_ptr_array_index (lines, j);
+
+			banner[j] = is_banner_line (in_run + strspn (in_run, " \t"));
+		}
+		start = i + 1;
+	}
+	return banner;
 }
 
 /* Take any catalog already in the text out and put a fresh one on the end. An
@@ -570,6 +847,7 @@ apply_catalog (shcl_doc *doc, const char *text, gsize len, gsize *out_len)
 	const char  *p = text;
 	const char  *end = text + len;
 	char        *catalog;
+	gboolean    *banner;
 	gboolean     dropped_last = FALSE;
 	guint        i;
 
@@ -586,24 +864,18 @@ apply_catalog (shcl_doc *doc, const char *text, gsize len, gsize *out_len)
 		p = nl != NULL ? nl + 1 : end;
 	}
 
+	banner = find_banner_lines (lines);
 	p = text;
 	for (i = 0; i < lines->len; i++) {
 		const char *line = g_ptr_array_index (lines, i);
 		const char *bare = line + strspn (line, " \t");
 		gsize       whole = g_array_index (keeps, gsize, i);
-		gboolean    drop  = g_hash_table_contains (key_lines, bare) || is_banner_line (bare);
+		gboolean    drop  = g_hash_table_contains (key_lines, bare) || banner[i];
 
 		if (!drop && g_hash_table_contains (desc_lines, bare) && i + 1 < lines->len) {
 			const char *next = g_ptr_array_index (lines, i + 1);
 
 			drop = g_hash_table_contains (key_lines, next + strspn (next, " \t"));
-		}
-		if (!drop && strcmp (bare, "##") == 0) {
-			const char *prev = i > 0 ? g_ptr_array_index (lines, i - 1) : "";
-			const char *next = i + 1 < lines->len ? g_ptr_array_index (lines, i + 1) : "";
-
-			drop = is_banner_line (prev + strspn (prev, " \t")) ||
-			       is_banner_line (next + strspn (next, " \t"));
 		}
 		/* A blank that only sat between two stripped lines goes with them. */
 		if (!drop && *bare == '\0' && dropped_last)
@@ -615,6 +887,7 @@ apply_catalog (shcl_doc *doc, const char *text, gsize len, gsize *out_len)
 	}
 	g_ptr_array_free (lines, TRUE);
 	g_array_free (keeps, TRUE);
+	g_free (banner);
 
 	/* Whatever blank lines taking those out left behind. */
 	while (body->len > 0 && (body->data[body->len - 1] == '\n' ||
@@ -635,17 +908,47 @@ apply_catalog (shcl_doc *doc, const char *text, gsize len, gsize *out_len)
 }
 
 static gboolean
-save_now (gpointer data)
+save_now (G_GNUC_UNUSED gpointer data)
 {
-	char     *text = NULL;
-	char     *dir;
-	gsize     text_len;
-	GError   *error = NULL;
-	shcl_str  canon;
-	gboolean  ok;
+	char       *text = NULL;
+	char       *dir;
+	char       *on_disk = NULL;
+	gsize       text_len, disk_len = 0;
+	GError     *error = NULL;
+	GHashTable *before = NULL, *after = NULL;
+	shcl_str    canon;
+	gboolean    ok, have, gone, foreign;
+
+	/* The other copies hear of a change before the file has it, so a stale
+	 * value in the file is one they already know lost. */
+	send_outgoing ();
+
+	have = g_file_get_contents (config_path, &on_disk, &disk_len, &error);
+	gone = !have && g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_NOENT);
+	g_clear_error (&error);
 
 	g_mutex_lock (&config_lock);
 	save_timeout_id = 0;
+
+	/* A hand edit saved since the last read, and not yet reported by the
+	 * monitor, would be written over here, and its late event then looks like
+	 * our own write. Take it in first; the keys changed here still win. */
+	if (have)
+		foreign = last_written == NULL || last_written_len != disk_len ||
+		          memcmp (last_written, on_disk, disk_len) != 0;
+	else
+		foreign = gone && last_written != NULL;
+	g_free (on_disk);
+	if (foreign)
+		reload_locked (FALSE, &before, &after);
+
+	/* Load already said why. Changes stay in memory for this run. */
+	if (hands_off) {
+		g_mutex_unlock (&config_lock);
+		if (before != NULL)
+			announce_changes (before, after);
+		return G_SOURCE_REMOVE;
+	}
 
 	canon = shcl_to_canonical (config_doc);
 	/* By length throughout: SHCL is NUL-transparent, so a NUL that came in
@@ -657,6 +960,9 @@ save_now (gpointer data)
 	 * has been copied out. */
 	shcl_compact (config_doc);
 	g_mutex_unlock (&config_lock);
+
+	if (before != NULL)
+		announce_changes (before, after);
 
 	dir = g_path_get_dirname (config_path);
 	g_mkdir_with_parents (dir, 0700);
@@ -677,10 +983,15 @@ save_now (gpointer data)
 		last_written = g_memdup2 (text, text_len);
 		last_written_len = text_len;
 		g_hash_table_remove_all (pending_keys);
+		/* What other copies sent is in the file now too, written as theirs
+		 * would have it. */
+		g_hash_table_remove_all (held_keys);
 		save_failing = FALSE;
+		rewrite_due = FALSE;
+		still_v2 = FALSE;
 	} else {
 		if (!save_failing) {
-			g_warning ("nemo-config: cannot write %s: %s",
+			g_warning ("nemo-config: can't write %s: %s",
 			           config_path, error->message);
 			save_failing = TRUE;
 		}
@@ -754,36 +1065,85 @@ pending_value_free (gpointer data)
 	g_free (p);
 }
 
-/* Both of these are called with the lock held. */
+/* The key's value in @doc. Called with the lock held, as is everything down to
+ * reload_locked. */
+static PendingValue *
+read_value_locked (shcl_doc *doc, const NemoConfigKey *k)
+{
+	PendingValue *p    = g_new0 (PendingValue, 1);
+	char         *path = key_path (k);
+
+	p->key = k;
+	p->present = shcl_exists (doc, path, strlen (path)) != 0;
+
+	if (p->present) {
+		shcl_read_str_arr r = shcl_read_string_array (doc, path, strlen (path));
+		size_t            i;
+
+		p->values = g_new0 (char *, r.n + 1);
+		for (i = 0; i < r.n; i++)
+			p->values[i] = g_strndup (r.values[i].p, r.values[i].n);
+		shcl_reads_release (doc);
+	}
+
+	g_free (path);
+	return p;
+}
+
+static gboolean
+same_value (const PendingValue *a, const PendingValue *b)
+{
+	if (a->present != b->present)
+		return FALSE;
+	return !a->present || g_strv_equal ((const char *const *) a->values,
+	                                    (const char *const *) b->values);
+}
+
+static void
+apply_value_locked (const PendingValue *p)
+{
+	char  *path = key_path (p->key);
+	gsize  n    = 0;
+
+	if (!p->present) {
+		shcl_remove (config_doc, path, strlen (path));
+		g_free (path);
+		return;
+	}
+
+	while (p->values[n] != NULL)
+		n++;
+
+	if (p->key->type == NEMO_CONFIG_STRING_LIST) {
+		size_t *lens = g_new0 (size_t, n + 1);
+		gsize   i;
+
+		for (i = 0; i < n; i++)
+			lens[i] = strlen (p->values[i]);
+		shcl_set_string_array (config_doc, path, strlen (path),
+		                       (const char *const *) p->values, lens, n);
+		g_free (lens);
+	} else {
+		/* Every scalar is stored as its text form and SHCL writes strings
+		 * unquoted, so this reproduces the bool/int/enum spelling exactly. */
+		const char *v = n > 0 ? p->values[0] : "";
+
+		shcl_set_string (config_doc, path, strlen (path), v, strlen (v));
+	}
+
+	g_free (path);
+}
+
 static GList *
-capture_pending_locked (void)
+capture_keys_locked (GHashTable *keys)
 {
 	GHashTableIter  iter;
 	gpointer        k;
 	GList          *out = NULL;
 
-	g_hash_table_iter_init (&iter, pending_keys);
-	while (g_hash_table_iter_next (&iter, &k, NULL)) {
-		PendingValue      *p    = g_new0 (PendingValue, 1);
-		char              *path = key_path (k);
-		shcl_read_str_arr  r;
-
-		p->key = k;
-		p->present = shcl_exists (config_doc, path, strlen (path)) != 0;
-
-		if (p->present) {
-			size_t i;
-
-			r = shcl_read_string_array (config_doc, path, strlen (path));
-			p->values = g_new0 (char *, r.n + 1);
-			for (i = 0; i < r.n; i++)
-				p->values[i] = g_strndup (r.values[i].p, r.values[i].n);
-			release_reads_locked ();
-		}
-
-		g_free (path);
-		out = g_list_prepend (out, p);
-	}
+	g_hash_table_iter_init (&iter, keys);
+	while (g_hash_table_iter_next (&iter, &k, NULL))
+		out = g_list_prepend (out, read_value_locked (config_doc, k));
 	return out;
 }
 
@@ -792,53 +1152,123 @@ restore_pending_locked (GList *pending)
 {
 	GList *l;
 
-	for (l = pending; l != NULL; l = l->next) {
-		PendingValue *p    = l->data;
-		char         *path = key_path (p->key);
-		gsize         n    = 0;
+	for (l = pending; l != NULL; l = l->next)
+		apply_value_locked (l->data);
+}
 
-		if (!p->present) {
-			shcl_remove (config_doc, path, strlen (path));
-			g_free (path);
-			continue;
-		}
+/* A value from another copy stays in memory until the file has it, since the
+ * copy that made it saves it, not this one. Its hold keeps what the file had
+ * for the key when it was taken. Once the file says something else, somebody
+ * wrote it there since, and the file is newer than the hold. */
+static void
+settle_held_locked (GList *held)
+{
+	GList *l;
 
-		while (p->values[n] != NULL)
-			n++;
+	for (l = held; l != NULL; l = l->next) {
+		PendingValue *mine = l->data;
+		PendingValue *was  = g_hash_table_lookup (held_keys, mine->key);
+		PendingValue *now  = read_value_locked (config_doc, mine->key);
 
-		if (p->key->type == NEMO_CONFIG_STRING_LIST) {
-			size_t *lens = g_new0 (size_t, n + 1);
-			gsize   i;
-
-			for (i = 0; i < n; i++)
-				lens[i] = strlen (p->values[i]);
-			shcl_set_string_array (config_doc, path, strlen (path),
-			                       (const char *const *) p->values, lens, n);
-			g_free (lens);
-		} else {
-			/* Every scalar is stored as its text form and SHCL writes strings
-			 * unquoted, so this reproduces the bool/int/enum spelling exactly. */
-			const char *v = n > 0 ? p->values[0] : "";
-
-			shcl_set_string (config_doc, path, strlen (path), v, strlen (v));
-		}
-
-		g_free (path);
+		if (was == NULL || !same_value (now, was) || same_value (now, mine))
+			g_hash_table_remove (held_keys, mine->key);
+		else
+			apply_value_locked (mine);
+		pending_value_free (now);
 	}
 }
 
+/* 2 copies that set one key at once can each save before they hear from the
+ * other, so the file can end with the value that lost. That one is known here,
+ * and the copy whose value won writes it again. Any other value in the file is
+ * a hand edit, and it stands. */
 static void
-config_file_changed (GFileMonitor      *monitor,
-                     GFile             *file,
-                     GFile             *other,
-                     GFileMonitorEvent  event,
-                     gpointer           data)
+settle_beaten_locked (GList *beaten)
 {
-	GHashTable          *before, *after;
+	GList *l;
+
+	for (l = beaten; l != NULL; l = l->next) {
+		PendingValue *mine  = l->data;
+		PendingValue *loser = g_hash_table_lookup (beaten_keys, mine->key);
+		PendingValue *now   = read_value_locked (config_doc, mine->key);
+
+		if (loser != NULL && same_value (now, loser) && !same_value (now, mine)) {
+			apply_value_locked (mine);
+			if (key_stamps[key_index (mine->key)].origin == own_origin)
+				g_hash_table_add (pending_keys, (gpointer) mine->key);
+		} else {
+			g_hash_table_remove (beaten_keys, mine->key);
+		}
+		pending_value_free (now);
+	}
+}
+
+/* Called with the lock held. Reads the file again and puts back what was
+ * changed here and not saved yet. @queue_save is FALSE when the caller is
+ * the save. Returns whether the file wants rewriting into this format. */
+static gboolean
+reload_locked (gboolean queue_save, GHashTable **before, GHashTable **after)
+{
+	GList *pending, *held, *beaten;
+	guint  loads = load_count;
+
+	*before = snapshot_locked ();
+	pending = capture_keys_locked (pending_keys);
+	held = capture_keys_locked (held_keys);
+	beaten = capture_keys_locked (beaten_keys);
+	load_locked (FALSE);
+	/* A failed read kept the doc, and what it holds with it. */
+	if (load_count != loads) {
+		settle_held_locked (held);
+		settle_beaten_locked (beaten);
+	}
+	/* An in-app change made inside the debounce window is not on disk yet, so
+	 * the file we just read doesn't have it. Put those keys back, or the
+	 * queued save would write the reloaded document and lose them. */
+	restore_pending_locked (pending);
+	/* A save skipped while the file was hands off left nothing queued, and a
+	 * value that lost above needs writing over. */
+	if (queue_save && g_hash_table_size (pending_keys) > 0 && !hands_off &&
+	    save_timeout_id == 0)
+		schedule_save (NULL);
+	*after = snapshot_locked ();
+	g_list_free_full (pending, pending_value_free);
+	g_list_free_full (held, pending_value_free);
+	g_list_free_full (beaten, pending_value_free);
+	return rewrite_due;
+}
+
+/* Without the lock: a handler may well set something. Frees both. */
+static void
+announce_changes (GHashTable *before, GHashTable *after)
+{
 	const NemoConfigKey *k;
-	GList               *pending;
-	char                *text = NULL;
-	gsize                len = 0;
+
+	for (k = nemo_config_keys; k->key != NULL; k++) {
+		char       *path = key_path (k);
+		const char *a = g_hash_table_lookup (before, path);
+		const char *b = g_hash_table_lookup (after, path);
+
+		if (g_strcmp0 (a, b) != 0)
+			emit_changed (k->group, k->key);
+		g_free (path);
+	}
+
+	g_hash_table_destroy (before);
+	g_hash_table_destroy (after);
+}
+
+static void
+config_file_changed (G_GNUC_UNUSED GFileMonitor      *monitor,
+                     G_GNUC_UNUSED GFile             *file,
+                     G_GNUC_UNUSED GFile             *other,
+                     GFileMonitorEvent  event,
+                     G_GNUC_UNUSED gpointer           data)
+{
+	GHashTable *before, *after;
+	char       *text = NULL;
+	gsize       len = 0;
+	gboolean    rewrite;
 
 	if (event != G_FILE_MONITOR_EVENT_CHANGES_DONE_HINT &&
 	    event != G_FILE_MONITOR_EVENT_CREATED &&
@@ -858,41 +1288,310 @@ config_file_changed (GFileMonitor      *monitor,
 	}
 
 	g_mutex_lock (&config_lock);
-	before = snapshot_locked ();
-	pending = capture_pending_locked ();
-	load_locked ();
-	/* An in-app change made inside the debounce window is not on disk yet, so
-	 * the file we just read doesn't have it. Put those keys back, or the
-	 * queued save would write the reloaded document and lose them. */
-	restore_pending_locked (pending);
-	after = snapshot_locked ();
+	rewrite = reload_locked (TRUE, &before, &after);
 	g_mutex_unlock (&config_lock);
 
-	g_list_free_full (pending, pending_value_free);
+	if (rewrite)
+		save_now (NULL);
+	announce_changes (before, after);
+}
 
-	for (k = nemo_config_keys; k->key != NULL; k++) {
-		char       *path = key_path (k);
-		const char *a = g_hash_table_lookup (before, path);
-		const char *b = g_hash_table_lookup (after, path);
+/* Sharing with the other copies */
 
-		if (g_strcmp0 (a, b) != 0)
-			emit_changed (k->group, k->key);
+static gint64
+next_stamp_locked (void)
+{
+	gint64 now = g_get_monotonic_time ();
+
+	clock_seen = MAX (now, clock_seen + 1);
+	return clock_seen;
+}
+
+static gboolean
+stamp_beats (gint64 when, guint64 origin, const Stamp *than)
+{
+	return when > than->when || (when == than->when && origin > than->origin);
+}
+
+/* Returns: (transfer full): the batch to send, or NULL for none */
+static GVariant *
+take_outgoing_locked (void)
+{
+	GVariantBuilder changes;
+	GHashTableIter  iter;
+	gpointer        k;
+
+	if (g_hash_table_size (outgoing) == 0)
+		return NULL;
+
+	g_variant_builder_init (&changes, G_VARIANT_TYPE ("a(sxbaay)"));
+	g_hash_table_iter_init (&iter, outgoing);
+	while (g_hash_table_iter_next (&iter, &k, NULL)) {
+		PendingValue *v    = read_value_locked (config_doc, k);
+		char         *path = key_path (k);
+
+		g_variant_builder_add (&changes, "(sxb@aay)", path, key_stamps[key_index (k)].when,
+		                       v->present,
+		                       g_variant_new_bytestring_array ((const char *const *) v->values,
+		                                                       v->present ? -1 : 0));
 		g_free (path);
+		pending_value_free (v);
+	}
+	g_hash_table_remove_all (outgoing);
+
+	return g_variant_ref_sink (g_variant_new ("(t@a(sxbaay))", own_origin,
+	                                          g_variant_builder_end (&changes)));
+}
+
+static void
+send_outgoing (void)
+{
+	NemoConfigShareFunc func;
+	gpointer            data;
+	GVariant           *changes;
+
+	g_mutex_lock (&config_lock);
+	if (share_idle_id != 0) {
+		g_source_remove (share_idle_id);
+		share_idle_id = 0;
+	}
+	func = share_func;
+	data = share_data;
+	changes = func != NULL ? take_outgoing_locked () : NULL;
+	g_mutex_unlock (&config_lock);
+
+	if (changes != NULL) {
+		func (changes, data);
+		g_variant_unref (changes);
+	}
+}
+
+static gboolean
+send_outgoing_idle (G_GNUC_UNUSED gpointer data)
+{
+	g_mutex_lock (&config_lock);
+	share_idle_id = 0;
+	g_mutex_unlock (&config_lock);
+	send_outgoing ();
+	return G_SOURCE_REMOVE;
+}
+
+/* With the lock held, after a setter has changed @k. @was is its value before,
+ * and is freed. A set to what it already was tells nobody. */
+static void
+changed_here_locked (const NemoConfigKey *k, PendingValue *was)
+{
+	PendingValue *now = read_value_locked (config_doc, k);
+
+	schedule_save (k);
+	if (!same_value (was, now)) {
+		Stamp *stamp = &key_stamps[key_index (k)];
+
+		stamp->when = next_stamp_locked ();
+		stamp->origin = own_origin;
+		/* Ours now, and saved by us. */
+		g_hash_table_remove (held_keys, k);
+		g_hash_table_remove (beaten_keys, k);
+		g_hash_table_replace (set_here, (gpointer) k, now);
+		now = NULL;
+		if (share_func != NULL) {
+			g_hash_table_add (outgoing, (gpointer) k);
+			/* Batched, so a burst of sets is one message, and on the main
+			 * thread wherever the set came from. */
+			if (share_idle_id == 0)
+				share_idle_id = g_idle_add (send_outgoing_idle, NULL);
+		}
+	}
+	pending_value_free (was);
+	if (now != NULL)
+		pending_value_free (now);
+}
+
+void
+nemo_config_set_share_func (NemoConfigShareFunc func,
+                            gpointer            user_data,
+                            GDestroyNotify      destroy)
+{
+	gpointer       old_data;
+	GDestroyNotify old_destroy;
+
+	if (config_ready)
+		send_outgoing ();
+
+	g_mutex_lock (&config_lock);
+	old_data = share_data;
+	old_destroy = share_destroy;
+	share_func = func;
+	share_data = user_data;
+	share_destroy = destroy;
+	g_mutex_unlock (&config_lock);
+
+	if (old_destroy != NULL)
+		old_destroy (old_data);
+}
+
+void
+nemo_config_take_shared (GVariant *changes)
+{
+	GVariantIter *iter;
+	GPtrArray    *changed = g_ptr_array_new ();
+	const char   *path;
+	gint64        when;
+	gboolean      present;
+	GVariant     *values;
+	guint64       origin;
+	shcl_doc     *disk = NULL;
+	guint         i;
+
+	g_return_if_fail (g_variant_is_of_type (changes, G_VARIANT_TYPE (NEMO_CONFIG_SHARED_TYPE)));
+
+	/* A copy is listed before it reads the file only if this is reached
+	 * first; after that its file watch has whatever was saved. */
+	if (!config_ready) {
+		g_ptr_array_free (changed, TRUE);
+		return;
 	}
 
-	g_hash_table_destroy (before);
-	g_hash_table_destroy (after);
+	g_variant_get (changes, "(ta(sxbaay))", &origin, &iter);
+	g_mutex_lock (&config_lock);
+	while (g_variant_iter_next (iter, "(&sxb@aay)", &path, &when, &present, &values)) {
+		const NemoConfigKey *k = find_key (NULL, path);
+		PendingValue        *theirs, *mine;
+		Stamp               *stamp;
+
+		clock_seen = MAX (clock_seen, when);
+		if (k == NULL || origin == own_origin) {
+			g_variant_unref (values);
+			continue;
+		}
+
+		theirs = g_new0 (PendingValue, 1);
+		theirs->key = k;
+		theirs->present = present;
+		theirs->values = g_variant_dup_bytestring_array (values, NULL);
+		g_variant_unref (values);
+		mine = read_value_locked (config_doc, k);
+		stamp = &key_stamps[key_index (k)];
+
+		if (!stamp_beats (when, origin, stamp)) {
+			PendingValue *ours = g_hash_table_lookup (set_here, k);
+
+			/* Set at the same moment as ours, and ours won. */
+			if (!same_value (theirs, mine)) {
+				g_hash_table_replace (beaten_keys, (gpointer) k, theirs);
+				theirs = NULL;
+			} else if (ours != NULL && !same_value (ours, mine)) {
+				/* Their save reached us before this did, and we read theirs
+				 * from the file. Ours still wins, and is ours to write. */
+				apply_value_locked (ours);
+				schedule_save (k);
+				g_ptr_array_add (changed, (gpointer) k);
+			}
+		} else if (!same_value (theirs, mine)) {
+			stamp->when = when;
+			stamp->origin = origin;
+			g_hash_table_remove (set_here, k);
+			/* Theirs is newer than whatever was set here, so it is theirs to
+			 * save and to tell about. */
+			g_hash_table_remove (pending_keys, k);
+			g_hash_table_remove (outgoing, k);
+			if (!g_hash_table_contains (held_keys, k)) {
+				if (disk == NULL)
+					disk = last_written != NULL
+						? shcl_parse (last_written, last_written_len)
+						: NULL;
+				g_hash_table_insert (held_keys, (gpointer) k,
+				                     disk != NULL ? read_value_locked (disk, k)
+				                                  : g_new0 (PendingValue, 1));
+			}
+			g_hash_table_remove (beaten_keys, k);
+			apply_value_locked (theirs);
+			g_ptr_array_add (changed, (gpointer) k);
+		} else {
+			stamp->when = when;
+			stamp->origin = origin;
+			g_hash_table_remove (set_here, k);
+		}
+		if (theirs != NULL)
+			pending_value_free (theirs);
+		pending_value_free (mine);
+	}
+	g_mutex_unlock (&config_lock);
+	g_variant_iter_free (iter);
+	shcl_free (disk);
+
+	for (i = 0; i < changed->len; i++) {
+		const NemoConfigKey *k = g_ptr_array_index (changed, i);
+
+		emit_changed (k->group, k->key);
+	}
+	g_ptr_array_free (changed, TRUE);
 }
 
 /* Lifecycle */
 
+static void
+watch_file (void)
+{
+	GFile *file = g_file_new_for_path (config_path);
+
+	config_monitor = g_file_monitor_file (file, G_FILE_MONITOR_NONE, NULL, NULL);
+	if (config_monitor != NULL)
+		g_signal_connect (config_monitor, "changed",
+		                  G_CALLBACK (config_file_changed), NULL);
+	g_object_unref (file);
+}
+
+/* Init after shutdown in one process. Everything but the groups is as a new
+ * process would have it, so the file is read and watched again. The groups
+ * stay, since callers keep them and their handlers for the life of the
+ * process, and they hear of every value the file changed. */
+static void
+restart (void)
+{
+	GHashTable *before, *after;
+	gboolean    rewrite;
+	guint       retry;
+
+	/* A set made since the shutdown is saved like any other. */
+	nemo_config_flush ();
+
+	g_mutex_lock (&config_lock);
+	retry = save_timeout_id;
+	save_timeout_id = 0;
+	g_hash_table_remove_all (pending_keys);
+	g_hash_table_remove_all (outgoing);
+	g_hash_table_remove_all (held_keys);
+	g_hash_table_remove_all (beaten_keys);
+	g_hash_table_remove_all (set_here);
+	memset (key_stamps, 0, key_count * sizeof *key_stamps);
+	save_failing = FALSE;
+	before = snapshot_locked ();
+	load_locked (TRUE);
+	rewrite = rewrite_due;
+	after = snapshot_locked ();
+	g_mutex_unlock (&config_lock);
+
+	if (retry != 0)
+		g_source_remove (retry);
+	if (rewrite)
+		save_now (NULL);
+	announce_changes (before, after);
+
+	watch_file ();
+	config_stopped = FALSE;
+}
+
 void
 nemo_config_init (void)
 {
-	GFile *file;
+	gboolean  rewrite;
 
-	if (config_ready)
+	if (config_ready) {
+		if (config_stopped)
+			restart ();
 		return;
+	}
 
 	g_mutex_init (&config_lock);
 	config_thread = g_thread_self ();
@@ -901,18 +1600,34 @@ nemo_config_init (void)
 	                                       g_free, g_object_unref);
 	/* Keys live in a static table, so the set borrows the pointers. */
 	pending_keys  = g_hash_table_new (g_direct_hash, g_direct_equal);
+	outgoing      = g_hash_table_new (g_direct_hash, g_direct_equal);
+	held_keys     = g_hash_table_new_full (g_direct_hash, g_direct_equal,
+	                                       NULL, pending_value_free);
+	beaten_keys   = g_hash_table_new_full (g_direct_hash, g_direct_equal,
+	                                       NULL, pending_value_free);
+	set_here      = g_hash_table_new_full (g_direct_hash, g_direct_equal,
+	                                       NULL, pending_value_free);
+	{
+		const NemoConfigKey *k;
+		gsize                count = 0;
+
+		for (k = nemo_config_keys; k->key != NULL; k++)
+			count++;
+		key_stamps = g_new0 (Stamp, count);
+		key_count = count;
+	}
+	own_origin = ((guint64) g_random_int () << 32) | g_random_int ();
 
 	g_mutex_lock (&config_lock);
-	load_locked ();
+	load_locked (TRUE);
+	rewrite = rewrite_due;
 	g_mutex_unlock (&config_lock);
 
+	if (rewrite)
+		save_now (NULL);
+
 	/* Hand-editing the file is the point, so pick edits up while we run. */
-	file = g_file_new_for_path (config_path);
-	config_monitor = g_file_monitor_file (file, G_FILE_MONITOR_NONE, NULL, NULL);
-	if (config_monitor != NULL)
-		g_signal_connect (config_monitor, "changed",
-		                  G_CALLBACK (config_file_changed), NULL);
-	g_object_unref (file);
+	watch_file ();
 
 	config_ready = TRUE;
 }
@@ -924,6 +1639,10 @@ nemo_config_flush (void)
 
 	if (!config_ready)
 		return;
+
+	/* A copy on its way out tells the others before it saves, though they
+	 * would see the save as well. */
+	send_outgoing ();
 
 	/* Under the lock: a worker thread can arm this timer at any moment. */
 	g_mutex_lock (&config_lock);
@@ -946,6 +1665,7 @@ nemo_config_shutdown (void)
 
 	nemo_config_flush ();
 	g_clear_object (&config_monitor);
+	config_stopped = TRUE;
 }
 
 gboolean
@@ -964,12 +1684,14 @@ nemo_config_get_default_boolean (const char *group, const char *key)
 	return g_strcmp0 (k->def, "true") == 0;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_config_get_path (void)
 {
 	return g_strdup (config_path);
 }
 
+/* Returns: (transfer none): kept for the life of the process */
 NemoConfigGroup *
 nemo_config_get_group (const char *group)
 {
@@ -1082,7 +1804,7 @@ nemo_config_group_class_init (NemoConfigGroupClass *klass)
 }
 
 static void
-nemo_config_group_init (NemoConfigGroup *self)
+nemo_config_group_init (G_GNUC_UNUSED NemoConfigGroup *self)
 {
 }
 
@@ -1155,6 +1877,7 @@ nemo_config_get_double (NemoConfigGroup *group, const char *key)
 	return out;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_config_get_string (NemoConfigGroup *group, const char *key)
 {
@@ -1174,13 +1897,14 @@ nemo_config_get_string (NemoConfigGroup *group, const char *key)
 	else if (r.status == SHCL_EMPTY)
 		out = g_strdup ("");
 	else
-		out = g_strdup (k->def ? k->def : "");
+		out = g_strdup (default_text (k) != NULL ? default_text (k) : "");
 	release_reads_locked ();
 	g_mutex_unlock (&config_lock);
 
 	return out;
 }
 
+/* Returns: (transfer full): free with g_strfreev */
 char **
 nemo_config_get_strv (NemoConfigGroup *group, const char *key)
 {
@@ -1255,7 +1979,7 @@ nemo_config_get_enum (NemoConfigGroup *group, const char *key)
 
 	/* An unrecognized nick is a hand-edit typo - fall back to the default
 	 * rather than to whatever 0 happens to mean. */
-	g_warning ("nemo-config: '%s' is not a valid value for '%s.%s'",
+	g_warning ("nemo-config: '%s' isn't a valid value for '%s.%s'",
 	           nick, k->group, k->key);
 	g_free (nick);
 	for (v = k->enum_values; v != NULL && v->nick != NULL; v++) {
@@ -1273,7 +1997,9 @@ nemo_config_get_enum (NemoConfigGroup *group, const char *key)
 static gboolean
 drop_if_default (const NemoConfigKey *k, const char *as_text, char *path)
 {
-	if (k->def == NULL || g_strcmp0 (k->def, as_text) != 0)
+	const char *def = default_text (k);
+
+	if (def == NULL || g_strcmp0 (def, as_text) != 0)
 		return FALSE;
 
 	shcl_remove (config_doc, path, strlen (path));
@@ -1297,6 +2023,7 @@ nemo_config_set_boolean (NemoConfigGroup *group, const char *key, gboolean value
 {
 	const NemoConfigKey *k = require_key (group, key, NEMO_CONFIG_BOOL);
 	char                *path;
+	PendingValue        *was;
 	gboolean             existed;
 
 	if (k == NULL)
@@ -1304,12 +2031,13 @@ nemo_config_set_boolean (NemoConfigGroup *group, const char *key, gboolean value
 
 	path = key_path (k);
 	g_mutex_lock (&config_lock);
+	was = read_value_locked (config_doc, k);
 	existed = shcl_exists (config_doc, path, strlen (path)) != 0;
 	if (!drop_if_default (k, value ? "true" : "false", path)) {
 		shcl_set_bool (config_doc, path, strlen (path), value ? 1 : 0);
 		apply_comment_if_new (k, path, existed);
 	}
-	schedule_save (k);
+	changed_here_locked (k, was);
 	g_mutex_unlock (&config_lock);
 	g_free (path);
 
@@ -1327,6 +2055,7 @@ nemo_config_set_int64 (NemoConfigGroup *group, const char *key, gint64 value)
 {
 	const NemoConfigKey *k = require_key (group, key, NEMO_CONFIG_INT);
 	char                *path, *text;
+	PendingValue        *was;
 	gboolean             existed;
 
 	if (k == NULL)
@@ -1335,12 +2064,13 @@ nemo_config_set_int64 (NemoConfigGroup *group, const char *key, gint64 value)
 	path = key_path (k);
 	text = g_strdup_printf ("%" G_GINT64_FORMAT, value);
 	g_mutex_lock (&config_lock);
+	was = read_value_locked (config_doc, k);
 	existed = shcl_exists (config_doc, path, strlen (path)) != 0;
 	if (!drop_if_default (k, text, path)) {
 		shcl_set_int (config_doc, path, strlen (path), value);
 		apply_comment_if_new (k, path, existed);
 	}
-	schedule_save (k);
+	changed_here_locked (k, was);
 	g_mutex_unlock (&config_lock);
 	g_free (text);
 	g_free (path);
@@ -1354,16 +2084,18 @@ nemo_config_set_double (NemoConfigGroup *group, const char *key, gdouble value)
 	const NemoConfigKey *k = require_key (group, key, NEMO_CONFIG_FLOAT);
 	char                *path;
 	gboolean             existed;
+	PendingValue        *was;
 
 	if (k == NULL)
 		return;
 
 	path = key_path (k);
 	g_mutex_lock (&config_lock);
+	was = read_value_locked (config_doc, k);
 	existed = shcl_exists (config_doc, path, strlen (path)) != 0;
 	shcl_set_float (config_doc, path, strlen (path), value);
 	apply_comment_if_new (k, path, existed);
-	schedule_save (k);
+	changed_here_locked (k, was);
 	g_mutex_unlock (&config_lock);
 	g_free (path);
 
@@ -1376,6 +2108,7 @@ nemo_config_set_string (NemoConfigGroup *group, const char *key, const char *val
 	const NemoConfigKey *k = require_key (group, key, NEMO_CONFIG_STRING);
 	char                *path;
 	gboolean             existed;
+	PendingValue        *was;
 
 	if (k == NULL)
 		return;
@@ -1384,12 +2117,13 @@ nemo_config_set_string (NemoConfigGroup *group, const char *key, const char *val
 
 	path = key_path (k);
 	g_mutex_lock (&config_lock);
+	was = read_value_locked (config_doc, k);
 	existed = shcl_exists (config_doc, path, strlen (path)) != 0;
 	if (!drop_if_default (k, value, path)) {
 		shcl_set_string (config_doc, path, strlen (path), value, strlen (value));
 		apply_comment_if_new (k, path, existed);
 	}
-	schedule_save (k);
+	changed_here_locked (k, was);
 	g_mutex_unlock (&config_lock);
 	g_free (path);
 
@@ -1401,6 +2135,7 @@ nemo_config_set_strv (NemoConfigGroup *group, const char *key, const char *const
 {
 	const NemoConfigKey *k = require_key (group, key, NEMO_CONFIG_STRING_LIST);
 	char                *path;
+	PendingValue        *was;
 	gsize                n = 0, i;
 	size_t              *lens;
 	gboolean             existed;
@@ -1427,8 +2162,9 @@ nemo_config_set_strv (NemoConfigGroup *group, const char *key, const char *const
 			if (same) {
 				path = key_path (k);
 				g_mutex_lock (&config_lock);
+				was = read_value_locked (config_doc, k);
 				shcl_remove (config_doc, path, strlen (path));
-				schedule_save (k);
+				changed_here_locked (k, was);
 				g_mutex_unlock (&config_lock);
 				g_free (path);
 				emit_changed (k->group, k->key);
@@ -1443,11 +2179,12 @@ nemo_config_set_strv (NemoConfigGroup *group, const char *key, const char *const
 
 	path = key_path (k);
 	g_mutex_lock (&config_lock);
+	was = read_value_locked (config_doc, k);
 	existed = shcl_exists (config_doc, path, strlen (path)) != 0;
 	shcl_set_string_array (config_doc, path, strlen (path),
 	                       (const char *const *) value, lens, n);
 	apply_comment_if_new (k, path, existed);
-	schedule_save (k);
+	changed_here_locked (k, was);
 	g_mutex_unlock (&config_lock);
 	g_free (lens);
 	g_free (path);
@@ -1459,16 +2196,18 @@ nemo_config_set_strv (NemoConfigGroup *group, const char *key, const char *const
 static void
 store_enum_nick (const NemoConfigKey *k, const char *nick)
 {
-	char     *path = key_path (k);
-	gboolean  existed;
+	char         *path = key_path (k);
+	gboolean      existed;
+	PendingValue *was;
 
 	g_mutex_lock (&config_lock);
+	was = read_value_locked (config_doc, k);
 	existed = shcl_exists (config_doc, path, strlen (path)) != 0;
 	if (!drop_if_default (k, nick, path)) {
 		shcl_set_string (config_doc, path, strlen (path), nick, strlen (nick));
 		apply_comment_if_new (k, path, existed);
 	}
-	schedule_save (k);
+	changed_here_locked (k, was);
 	g_mutex_unlock (&config_lock);
 	g_free (path);
 
@@ -1493,7 +2232,7 @@ set_enum_by_nick (NemoConfigGroup *group, const char *key, const char *nick)
 		}
 	}
 
-	g_critical ("nemo-config: '%s' is not a valid value for '%s.%s'",
+	g_critical ("nemo-config: '%s' isn't a valid value for '%s.%s'",
 	            nick != NULL ? nick : "(null)", k->group, k->key);
 }
 
@@ -1513,7 +2252,7 @@ nemo_config_set_enum (NemoConfigGroup *group, const char *key, gint value)
 		}
 	}
 
-	g_critical ("nemo-config: %d is not a valid value for '%s.%s'",
+	g_critical ("nemo-config: %d isn't a valid value for '%s.%s'",
 	            value, k->group, k->key);
 }
 
@@ -1522,6 +2261,7 @@ nemo_config_reset (NemoConfigGroup *group, const char *key)
 {
 	const NemoConfigKey *k;
 	char                *path;
+	PendingValue        *was;
 
 	if (group == NULL) {
 		g_critical ("nemo-config: '%s' reset before the config store was opened", key);
@@ -1537,8 +2277,9 @@ nemo_config_reset (NemoConfigGroup *group, const char *key)
 
 	path = key_path (k);
 	g_mutex_lock (&config_lock);
+	was = read_value_locked (config_doc, k);
 	shcl_remove (config_doc, path, strlen (path));
-	schedule_save (k);
+	changed_here_locked (k, was);
 	g_mutex_unlock (&config_lock);
 	g_free (path);
 
@@ -1566,6 +2307,25 @@ static gboolean
 key_is_stored (const NemoConfigKey *k)
 {
 	return key_status (k) != SHCL_NOT_FOUND;
+}
+
+gboolean
+nemo_config_is_set (NemoConfigGroup *group, const char *key)
+{
+	const NemoConfigKey *k;
+
+	if (group == NULL) {
+		g_critical ("nemo-config: '%s' read before the config store was opened", key);
+		return FALSE;
+	}
+
+	k = find_key (group->name, key);
+	if (k == NULL) {
+		g_critical ("nemo-config: no such key '%s' in group '%s'",
+		            key, group->name);
+		return FALSE;
+	}
+	return key_is_stored (k);
 }
 
 void
@@ -1646,6 +2406,7 @@ nemo_config_drop_foreign_paths (void)
 #endif
 }
 
+/* Returns: (transfer full): free with g_strfreev */
 char **
 nemo_config_list_keys (NemoConfigGroup *group)
 {
@@ -1880,13 +2641,13 @@ binding_sync_to_config (ConfigBinding *b)
 }
 
 static void
-on_config_changed (NemoConfigGroup *group, const char *key, gpointer data)
+on_config_changed (G_GNUC_UNUSED NemoConfigGroup *group, G_GNUC_UNUSED const char *key, gpointer data)
 {
 	binding_sync_to_object ((ConfigBinding *) data);
 }
 
 static void
-on_property_notify (GObject *object, GParamSpec *pspec, gpointer data)
+on_property_notify (G_GNUC_UNUSED GObject *object, G_GNUC_UNUSED GParamSpec *pspec, gpointer data)
 {
 	binding_sync_to_config ((ConfigBinding *) data);
 }
@@ -1904,7 +2665,7 @@ binding_free (ConfigBinding *b)
 }
 
 static void
-binding_object_gone (gpointer data, GObject *where_the_object_was)
+binding_object_gone (gpointer data, G_GNUC_UNUSED GObject *where_the_object_was)
 {
 	ConfigBinding *b = data;
 

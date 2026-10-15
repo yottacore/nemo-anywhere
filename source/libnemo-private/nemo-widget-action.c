@@ -102,6 +102,7 @@ nemo_widget_action_constructed (GObject *object)
     G_OBJECT_CLASS (parent_class)->constructed (object);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GtkAction *
 nemo_widget_action_new (const gchar *name, 
                           GtkWidget *widget_a,
@@ -222,18 +223,19 @@ create_menu_item (GtkAction *action)
 }
 
 static GtkWidget *
-create_tool_item (GtkAction *action)
+create_tool_item (G_GNUC_UNUSED GtkAction *action)
 {
   g_warning ("NemoWidgetAction: Toolbar items unsupported at this time.");
   return NULL;
 }
 
 void
-nemo_widget_action_activate (NemoWidgetAction *action)
+nemo_widget_action_activate (G_GNUC_UNUSED NemoWidgetAction *action)
 {
 
 }
 
+/* Returns: (transfer none): owned by @action */
 GtkWidget *
 nemo_widget_action_get_widget_a (NemoWidgetAction *action)
 {
@@ -254,6 +256,7 @@ nemo_widget_action_set_widget_a (NemoWidgetAction *action, GtkWidget *widget)
     g_object_notify (G_OBJECT (action), "widget-a");
 }
 
+/* Returns: (transfer none): owned by @action */
 GtkWidget *
 nemo_widget_action_get_widget_b (NemoWidgetAction *action)
 {

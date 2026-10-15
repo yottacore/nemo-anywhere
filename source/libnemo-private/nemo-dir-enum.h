@@ -51,6 +51,41 @@ GFileEnumerator *nemo_enumerate_children_finish (GFile                *dir,
                                                  GAsyncResult         *result,
                                                  GError              **error);
 
+/* The folder listing, and a later look at one file in it. Off Windows a link
+   is followed to describe what it points at, the way GLib's own listing does,
+   except a link onto a share its folder is not on (nemo-share.h). That one is
+   described as the link itself, with this attribute set, so nothing goes to
+   the share until someone opens the link: follow is TRUE from then on. On
+   Windows a link is never followed, since there it already has the type of
+   what it points at. The listing finishes with nemo_enumerate_children_finish. */
+
+#define NEMO_FILE_ATTRIBUTE_LINK_UNFOLLOWED "nemo::link-unfollowed"
+
+void             nemo_enumerate_listing_async   (GFile                *dir,
+                                                 const char           *attributes,
+                                                 int                   io_priority,
+                                                 GCancellable         *cancellable,
+                                                 GAsyncReadyCallback   callback,
+                                                 gpointer              user_data);
+
+GFileInfo       *nemo_query_listing_info        (GFile                *file,
+                                                 const char           *attributes,
+                                                 gboolean              follow,
+                                                 GCancellable         *cancellable,
+                                                 GError              **error);
+
+void             nemo_query_listing_info_async  (GFile                *file,
+                                                 const char           *attributes,
+                                                 gboolean              follow,
+                                                 int                   io_priority,
+                                                 GCancellable         *cancellable,
+                                                 GAsyncReadyCallback   callback,
+                                                 gpointer              user_data);
+
+GFileInfo       *nemo_query_listing_info_finish (GFile                *file,
+                                                 GAsyncResult         *result,
+                                                 GError              **error);
+
 /* An entry the walk could not stat comes back with no type at all - a locked
    file at the root of a Windows drive, say - and GLib criticals on the missing
    attribute rather than answering. Read it through here instead. */

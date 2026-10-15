@@ -25,6 +25,7 @@
 #include "nemo-cache-db.h"
 
 #include "nemo-file-utilities.h"
+#include "nemo-share.h"
 
 #include <glib/gstdio.h>
 #include <sqlite3.h>
@@ -45,9 +46,18 @@
  * stuck one does not hold up a draw. */
 #define BUSY_TIMEOUT_MS 3000
 
-/* Draw counts are batched rather than written one at a time - see note_render. */
+/* How often a connection waiting on a busy file tries again. sqlite's own wait
+ * backs off to 100 ms between tries, longer than the gap the prune leaves
+ * between its writes (see make_way). */
+#define BUSY_RETRY_MS 5
+
+/* Draw counts are batched rather than written one at a time - see note_render.
+ * A write that failed is not tried again for the same wait. */
 #define RENDER_FLUSH_SECS 30
 #define RENDER_FLUSH_MAX  256
+
+#define FORGET_SQL \
+	"DELETE FROM thumbnails WHERE file_id = (SELECT file_id FROM paths WHERE uri = ?)"
 
 /* A claim on the prune nobody has touched for this long belongs to a process
  * that died part way through. */
@@ -56,6 +66,16 @@
 /* Rows per prune transaction. Small enough that a window waiting to write
  * never waits long. */
 #define PRUNE_BATCH 256
+
+/* A batch also ends after about this many bytes of thumbnails, since deleting
+ * one takes longer the bigger it is. Without it a batch of big thumbnails
+ * would hold the write lock toward the busy timeout of every other window. */
+#define PRUNE_BATCH_BYTES (1024 * 1024)
+
+/* The least the prune rests after each write, so a waiter trying every
+ * BUSY_RETRY_MS gets a try in the gap. On Windows a short sleep runs on to the
+ * next clock tick, about 16 ms, so this allows for two of those. */
+#define PRUNE_REST_MIN_MS 40
 
 /* A thumbnail's age, for both prune rules. Indexed, so picking a batch walks
  * the index rather than sorting the whole table under the write lock. The
@@ -68,8 +88,13 @@
 	"SELECT file_id, LENGTH (image) FROM thumbnails" \
 	" ORDER BY " THUMBNAIL_AGE ", file_id LIMIT " G_STRINGIFY (PRUNE_BATCH)
 #define OLDER_THAN_SQL \
-	"SELECT file_id FROM thumbnails" \
+	"SELECT file_id, LENGTH (image) FROM thumbnails" \
 	" WHERE " THUMBNAIL_AGE " < ? LIMIT " G_STRINGIFY (PRUNE_BATCH)
+
+/* How long a name with no thumbnail is kept when thumbnails have no age limit,
+ * the same as that setting's default. Without it a cache held down by its size
+ * limit alone would fill up with them. */
+#define BARE_PATH_AGE_SECS ((gint64) 180 * 24 * 60 * 60)
 
 /* Pages handed back to the disk per step while compacting. */
 #define COMPACT_STEP_PAGES 256
@@ -89,9 +114,9 @@ struct _NemoCacheDb {
 	 * without the marker nothing would ever notice. */
 	gboolean     broken;
 
-	/* uri -> draws not yet written. Guarded by `lock`. */
-	GHashTable  *pending;
-	guint        flush_id;
+	/* Prune connection only. */
+	gint64       largest_batch;
+	gint64       held_since;	/* monotonic, when the current write began */
 };
 
 /* A static GMutex needs no setup, and guards the one-time open. Not
@@ -104,6 +129,34 @@ static gboolean     the_db_tried = FALSE;
 /* Monotonic seconds of the last lookup, store or draw, for the prune's idle
  * test. 0 until something uses the store. */
 static gint last_used_secs = 0;
+
+/* The most thumbnail bytes one prune transaction took out, in the last pass
+ * this process ran. Read only by the tests, after the pass. */
+static gint64 last_largest_batch = 0;
+
+/* Writes made by prune passes in this process. Read only by the tests. */
+static gint prune_steps = 0;
+
+/* Writes the window's thread hands off: draw counts and refreshes. They have a
+ * lock of their own, never held across a call into sqlite, so the window never
+ * waits on another copy's hold on the file. The writer thread writes them out.
+ * A refresh still queued is also done by whatever takes the store's lock next
+ * to read or write a thumbnail, so none is read back after it was asked for.
+ * Lock order is the store's lock, then this one. */
+static GMutex      queue_lock;
+static GCond       queue_cond;
+static GHashTable *queued_draws = NULL;		/* uri -> draws not yet written */
+static GHashTable *queued_forgets = NULL;	/* uris whose thumbnail goes */
+static gint64      draws_due = 0;		/* monotonic; 0 with none queued */
+static gint64      retry_after = 0;		/* monotonic, after a failed write */
+static gint64      draw_wait = (gint64) RENDER_FLUSH_SECS * G_USEC_PER_SEC;
+static GThread    *writer = NULL;
+static gboolean    writer_stop = FALSE;
+static gboolean    writer_done = FALSE;		/* the process is quitting */
+
+/* When this thread's current wait on a busy file began. A thread runs one
+ * statement at a time, so it waits on one file at a time. */
+static GPrivate busy_since = G_PRIVATE_INIT (g_free);
 
 static const char SCHEMA[] =
 	"CREATE TABLE IF NOT EXISTS files ("
@@ -160,7 +213,9 @@ mark_damaged (void)
 		return;
 
 	marker = damaged_marker_path (path);
-	g_file_set_contents (marker, "", 0, NULL);
+	if (!g_file_set_contents (marker, "", 0, NULL)) {
+		g_warning ("couldn't mark the file cache damaged at %s", marker);
+	}
 }
 
 static void
@@ -270,6 +325,7 @@ commit (NemoCacheDb *db)
 	return FALSE;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_cache_db_path (void)
 {
@@ -281,21 +337,107 @@ nemo_cache_db_path (void)
 	return g_build_filename (dir, "files.db", NULL);
 }
 
+/* Answers sqlite's code. A read that failed says nothing about the version,
+ * so it must not be taken for one. */
 static int
-read_user_version (sqlite3 *handle)
+read_user_version (sqlite3 *handle, int *version)
 {
 	sqlite3_stmt *stmt = NULL;
-	int           version = 0;
+	int           rc;
 
-	if (sqlite3_prepare_v2 (handle, "PRAGMA user_version", -1, &stmt, NULL) != SQLITE_OK)
-		return -1;
-
-	if (sqlite3_step (stmt) == SQLITE_ROW)
-		version = sqlite3_column_int (stmt, 0);
+	rc = sqlite3_prepare_v2 (handle, "PRAGMA user_version", -1, &stmt, NULL);
+	if (rc == SQLITE_OK) {
+		rc = sqlite3_step (stmt);
+		if (rc == SQLITE_ROW) {
+			*version = sqlite3_column_int (stmt, 0);
+			rc = SQLITE_OK;
+		} else if (rc == SQLITE_DONE) {
+			rc = SQLITE_ERROR;
+		}
+	}
 
 	sqlite3_finalize (stmt);
 
-	return version;
+	return rc;
+}
+
+/* sqlite's message names only the kind of failure. The extended code says which
+ * step failed, such as a delete or a lock, and the system error says why. */
+static void
+warn_setup (sqlite3 *handle, const char *what, int rc, const char *err)
+{
+	g_warning ("%s: %s (sqlite code %d, system error %d)", what,
+		   err != NULL ? err : sqlite3_errstr (rc),
+		   handle != NULL ? sqlite3_extended_errcode (handle) : rc,
+		   handle != NULL ? sqlite3_system_errno (handle) : 0);
+}
+
+/* sqlite's busy handler, in place of its own timed one. The wait is timed on
+ * the clock rather than by adding up the sleeps, since a sleep of a few
+ * milliseconds runs long on Windows and on a loaded box. */
+static int
+busy_wait (void *data, int tries)
+{
+	gint64 *since = g_private_get (&busy_since);
+	gint64  now = g_get_monotonic_time ();
+
+	(void) data;
+
+	if (since == NULL) {
+		since = g_new (gint64, 1);
+		g_private_set (&busy_since, since);
+	}
+
+	if (tries == 0)
+		*since = now;
+	else if (now - *since >= (gint64) BUSY_TIMEOUT_MS * 1000)
+		return 0;
+
+	g_usleep (BUSY_RETRY_MS * 1000);
+
+	return 1;
+}
+
+/* On Windows a copy that quits without closing the store lets go of its locks
+ * on the -shm file before Windows unmaps the file from it. The next copy to
+ * open then finds no lock, takes itself for the first, and empties the file,
+ * which Windows refuses while a view of it is left (ERROR_USER_MAPPED_FILE).
+ * sqlite let that pass before 3.50 and now answers SQLITE_IOERR_TRUNCATE. The
+ * view goes once the old copy is fully gone, so it is a wait like a busy one. */
+static gboolean
+setup_worth_retry (sqlite3 *handle, int rc)
+{
+	if ((rc & 0xff) == SQLITE_BUSY)
+		return TRUE;
+
+#ifdef G_OS_WIN32
+	return rc != SQLITE_OK && sqlite3_extended_errcode (handle) == SQLITE_IOERR_TRUNCATE;
+#else
+	(void) handle;
+	return FALSE;
+#endif
+}
+
+/* The switch to WAL reads the file and only then takes the write lock, and
+ * sqlite will not wait on that second step, since two readers each waiting on
+ * the other would wait for good. So a copy that meets another one setting up
+ * the same new file is told it is locked at once, and tries again here for as
+ * long as it would wait on any other busy file. */
+static int
+exec_setup (sqlite3 *handle, const char *sql, char **err)
+{
+	gint64 give_up = g_get_monotonic_time () + BUSY_TIMEOUT_MS * 1000;
+	int    rc;
+
+	for (;;) {
+		rc = sqlite3_exec (handle, sql, NULL, NULL, err);
+		if (!setup_worth_retry (handle, rc) || g_get_monotonic_time () >= give_up)
+			return rc;
+
+		sqlite3_free (*err);
+		*err = NULL;
+		g_usleep (10 * 1000);
+	}
 }
 
 /* Opens the file and puts the schema in it. Answers NULL and leaves nothing
@@ -305,7 +447,7 @@ open_at (const char *path, gboolean *out_rebuild)
 {
 	sqlite3 *handle = NULL;
 	char    *err = NULL;
-	int      version;
+	int      version = 0;
 	int      rc;
 
 	*out_rebuild = FALSE;
@@ -315,12 +457,14 @@ open_at (const char *path, gboolean *out_rebuild)
 			      NULL);
 	if (rc != SQLITE_OK) {
 		*out_rebuild = is_corruption (rc);
-		g_warning ("could not open the file cache %s: %s", path, sqlite3_errstr (rc));
+		g_autofree char *what = g_strdup_printf ("couldn't open the file cache %s", path);
+
+		warn_setup (handle, what, rc, NULL);
 		sqlite3_close (handle);
 		return NULL;
 	}
 
-	sqlite3_busy_timeout (handle, BUSY_TIMEOUT_MS);
+	sqlite3_busy_handler (handle, busy_wait, NULL);
 
 	/* Incremental vacuum so the prune can hand space back a few pages at a
 	 * time, rather than a full VACUUM holding the write lock for as long as
@@ -331,18 +475,32 @@ open_at (const char *path, gboolean *out_rebuild)
 	 * WAL so a reading window is not blocked by a writing one, and NORMAL
 	 * because losing the last few rows to a power cut costs a re-read and
 	 * nothing else. The size limit trims the journal back after a prune has
-	 * grown it. */
-	rc = sqlite3_exec (handle,
-			   "PRAGMA auto_vacuum = INCREMENTAL;"
-			   "PRAGMA journal_mode = WAL;"
-			   "PRAGMA journal_size_limit = 67108864;"
-			   "PRAGMA synchronous = NORMAL;"
-			   "PRAGMA foreign_keys = ON;",
-			   NULL, NULL, &err);
+	 * grown it.
+	 *
+	 * The read at the end is the first one through the WAL on a new file,
+	 * which opens its -shm file, so it gets the same wait (setup_worth_retry). */
+	rc = exec_setup (handle,
+			 "PRAGMA auto_vacuum = INCREMENTAL;"
+			 "PRAGMA journal_mode = WAL;"
+			 "PRAGMA journal_size_limit = 67108864;"
+			 "PRAGMA synchronous = NORMAL;"
+			 "PRAGMA foreign_keys = ON;"
+			 "SELECT COUNT (*) FROM sqlite_master;",
+			 &err);
 	if (rc != SQLITE_OK) {
 		*out_rebuild = is_corruption (rc);
-		g_warning ("could not set up the file cache: %s", err ? err : sqlite3_errstr (rc));
+		warn_setup (handle, "couldn't set up the file cache", rc, err);
 		sqlite3_free (err);
+		sqlite3_close (handle);
+		return NULL;
+	}
+
+	/* Other copies may have the file open, so one that only could not be
+	 * read is left alone, and this copy runs without it. */
+	rc = read_user_version (handle, &version);
+	if (rc != SQLITE_OK) {
+		*out_rebuild = is_corruption (rc);
+		warn_setup (handle, "couldn't read the file cache version", rc, NULL);
 		sqlite3_close (handle);
 		return NULL;
 	}
@@ -350,7 +508,6 @@ open_at (const char *path, gboolean *out_rebuild)
 	/* 0 is a file nobody has written tables into yet. Anything else that is
 	 * not ours was written by another version, and gets the same treatment as
 	 * a damaged file. */
-	version = read_user_version (handle);
 	if (version != 0 && version != SCHEMA_VERSION) {
 		*out_rebuild = TRUE;
 		sqlite3_close (handle);
@@ -360,7 +517,7 @@ open_at (const char *path, gboolean *out_rebuild)
 	rc = sqlite3_exec (handle, SCHEMA, NULL, NULL, &err);
 	if (rc != SQLITE_OK) {
 		*out_rebuild = is_corruption (rc);
-		g_warning ("could not make the file cache tables: %s", err ? err : sqlite3_errstr (rc));
+		warn_setup (handle, "couldn't make the file cache tables", rc, err);
 		sqlite3_free (err);
 		sqlite3_close (handle);
 		return NULL;
@@ -431,11 +588,11 @@ db_open (void)
 	db = g_new0 (NemoCacheDb, 1);
 	db->handle = handle;
 	g_mutex_init (&db->lock);
-	db->pending = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 
 	return db;
 }
 
+/* Returns: (transfer none): the one store for the process, or NULL */
 NemoCacheDb *
 nemo_cache_db_get (void)
 {
@@ -848,6 +1005,353 @@ read_thumbnail (NemoCacheDb         *db,
 	return found;
 }
 
+/* Every drawn icon in a folder would otherwise be a write, and scrolling a big
+ * folder draws the same file over and over. Counts are held in memory and
+ * written in one transaction, which is also all the age rule needs - it works
+ * in days. Called with the store's lock held. */
+static gboolean
+write_draws (NemoCacheDb *db, GHashTable *draws)
+{
+	static const char sql[] =
+		"UPDATE thumbnails SET rendered = ?, renders = renders + ?"
+		" WHERE file_id = (SELECT file_id FROM paths WHERE uri = ?)";
+	sqlite3_stmt  *stmt;
+	GHashTableIter iter;
+	gpointer       uri, count;
+	gint64         now = g_get_real_time () / G_USEC_PER_SEC;
+
+	if (!begin (db))
+		return FALSE;
+
+	stmt = prep (db, sql, "draw count");
+	if (stmt == NULL) {
+		rollback (db);
+		return FALSE;
+	}
+
+	g_hash_table_iter_init (&iter, draws);
+	while (g_hash_table_iter_next (&iter, &uri, &count)) {
+		sqlite3_reset (stmt);
+		sqlite3_bind_int64 (stmt, 1, now);
+		sqlite3_bind_int64 (stmt, 2, (gint64) GPOINTER_TO_INT (count));
+		sqlite3_bind_text (stmt, 3, (const char *) uri, -1, SQLITE_STATIC);
+		db_ok (db, sqlite3_step (stmt), "draw count");
+	}
+
+	sqlite3_finalize (stmt);
+
+	return commit (db);
+}
+
+/* Called with the store's lock held. */
+static gboolean
+write_forgets (NemoCacheDb *db, GHashTable *uris)
+{
+	sqlite3_stmt  *stmt;
+	GHashTableIter iter;
+	gpointer       uri;
+	gboolean       ok = TRUE;
+
+	if (!begin (db))
+		return FALSE;
+
+	stmt = prep (db, FORGET_SQL, "forget thumbnail");
+	if (stmt == NULL) {
+		rollback (db);
+		return FALSE;
+	}
+
+	g_hash_table_iter_init (&iter, uris);
+	while (ok && g_hash_table_iter_next (&iter, &uri, NULL)) {
+		sqlite3_reset (stmt);
+		sqlite3_bind_text (stmt, 1, (const char *) uri, -1, SQLITE_STATIC);
+		ok = db_ok (db, sqlite3_step (stmt), "forget thumbnail");
+	}
+
+	sqlite3_finalize (stmt);
+
+	if (!ok) {
+		rollback (db);
+		return FALSE;
+	}
+
+	return commit (db);
+}
+
+/* With queue_lock held. */
+static void
+queue_init_locked (void)
+{
+	if (queued_draws != NULL)
+		return;
+
+	queued_draws = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+	queued_forgets = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+}
+
+/* With queue_lock held. Hands back the table and leaves an empty one. */
+static GHashTable *
+steal_locked (GHashTable **table)
+{
+	GHashTable *taken = *table;
+
+	*table = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+
+	return taken;
+}
+
+/* Writes what the window has queued: refreshes, and draw counts too when
+ * `with_draws`. Called with the store's lock held, which is what keeps a
+ * refresh in order with the reads: whoever holds it either finds the refresh
+ * still queued or already done. What could not be written goes back in the
+ * queue for later, unless the file is damaged. */
+static void
+write_queued (NemoCacheDb *db, gboolean with_draws)
+{
+	g_autoptr (GHashTable) forgets = NULL;
+	g_autoptr (GHashTable) draws = NULL;
+	gboolean forgot, drew;
+	gint64   now;
+
+	g_mutex_lock (&queue_lock);
+	queue_init_locked ();
+	if (g_hash_table_size (queued_forgets) > 0)
+		forgets = steal_locked (&queued_forgets);
+	if (with_draws && g_hash_table_size (queued_draws) > 0) {
+		draws = steal_locked (&queued_draws);
+		draws_due = 0;
+	}
+	g_mutex_unlock (&queue_lock);
+
+	if (forgets == NULL && draws == NULL)
+		return;
+
+	forgot = forgets == NULL || (!db->broken && write_forgets (db, forgets));
+	drew = draws == NULL || (!db->broken && write_draws (db, draws));
+
+	if ((forgot && drew) || db->broken)
+		return;
+
+	now = g_get_monotonic_time ();
+
+	g_mutex_lock (&queue_lock);
+
+	if (!forgot) {
+		GHashTableIter iter;
+		gpointer       uri;
+
+		g_hash_table_iter_init (&iter, forgets);
+		while (g_hash_table_iter_next (&iter, &uri, NULL)) {
+			g_hash_table_iter_steal (&iter);
+			g_hash_table_add (queued_forgets, uri);
+		}
+	}
+
+	if (!drew) {
+		GHashTableIter iter;
+		gpointer       uri, count;
+
+		g_hash_table_iter_init (&iter, draws);
+		while (g_hash_table_iter_next (&iter, &uri, &count)) {
+			gpointer more = g_hash_table_lookup (queued_draws, uri);
+
+			g_hash_table_iter_steal (&iter);
+			g_hash_table_replace (queued_draws, uri,
+					      GINT_TO_POINTER (GPOINTER_TO_INT (count) + GPOINTER_TO_INT (more)));
+		}
+
+		if (draws_due == 0)
+			draws_due = now + draw_wait;
+	}
+
+	/* Not on every draw: a file held by another copy would be asked again
+	 * and again. */
+	retry_after = now + draw_wait;
+
+	g_mutex_unlock (&queue_lock);
+}
+
+static gboolean
+forget_queued (const char *uri)
+{
+	gboolean queued;
+
+	g_mutex_lock (&queue_lock);
+	queued = queued_forgets != NULL && g_hash_table_contains (queued_forgets, uri);
+	g_mutex_unlock (&queue_lock);
+
+	return queued;
+}
+
+static void
+drop_queued (void)
+{
+	g_mutex_lock (&queue_lock);
+	if (queued_draws != NULL) {
+		g_hash_table_remove_all (queued_draws);
+		g_hash_table_remove_all (queued_forgets);
+	}
+	draws_due = 0;
+	g_mutex_unlock (&queue_lock);
+}
+
+/* With queue_lock held. When the writer next has something to do, monotonic,
+ * or G_MAXINT64 for nothing queued. */
+static gint64
+next_write_locked (void)
+{
+	gint64 at;
+
+	if (g_hash_table_size (queued_forgets) > 0 ||
+	    g_hash_table_size (queued_draws) >= RENDER_FLUSH_MAX)
+		at = 0;
+	else if (draws_due != 0)
+		at = draws_due;
+	else
+		return G_MAXINT64;
+
+	return MAX (at, retry_after);
+}
+
+static gpointer
+writer_run (gpointer data)
+{
+	(void) data;
+
+	g_mutex_lock (&queue_lock);
+
+	while (!writer_stop) {
+		gint64       at = next_write_locked ();
+		NemoCacheDb *db;
+
+		if (at == G_MAXINT64) {
+			g_cond_wait (&queue_cond, &queue_lock);
+			continue;
+		}
+
+		if (g_get_monotonic_time () < at) {
+			g_cond_wait_until (&queue_cond, &queue_lock, at);
+			continue;
+		}
+
+		g_mutex_unlock (&queue_lock);
+
+		/* Opens the store if a refresh came before anything else used it. */
+		db = nemo_cache_db_get ();
+		if (db != NULL && !db->broken) {
+			g_mutex_lock (&db->lock);
+			write_queued (db, TRUE);
+			g_mutex_unlock (&db->lock);
+		} else {
+			drop_queued ();
+		}
+
+		g_mutex_lock (&queue_lock);
+	}
+
+	g_mutex_unlock (&queue_lock);
+
+	return NULL;
+}
+
+/* With queue_lock held. The writer starts on the first thing queued. */
+static void
+wake_writer_locked (void)
+{
+	if (writer == NULL && !writer_stop && !writer_done)
+		writer = g_thread_new ("cache-writer", writer_run, NULL);
+
+	g_cond_signal (&queue_cond);
+}
+
+/* Lets the writer finish what it is writing and waits for it. What is still
+ * queued stays queued. After `for_good` no writer starts again, since the
+ * process is on its way out. */
+static void
+stop_writer (gboolean for_good)
+{
+	GThread *thread;
+
+	g_mutex_lock (&queue_lock);
+	thread = writer;
+	writer = NULL;
+	writer_stop = TRUE;
+	writer_done = writer_done || for_good;
+	g_cond_broadcast (&queue_cond);
+	g_mutex_unlock (&queue_lock);
+
+	if (thread != NULL)
+		g_thread_join (thread);
+
+	g_mutex_lock (&queue_lock);
+	writer_stop = FALSE;
+	g_mutex_unlock (&queue_lock);
+}
+
+void
+nemo_cache_db_note_render (NemoCacheDb *db, const char *uri)
+{
+	gpointer old;
+	guint    queued;
+
+	g_return_if_fail (uri != NULL);
+
+	if (db == NULL || db->broken)
+		return;
+
+	touch ();
+
+	g_mutex_lock (&queue_lock);
+
+	queue_init_locked ();
+
+	old = g_hash_table_lookup (queued_draws, uri);
+	g_hash_table_replace (queued_draws, g_strdup (uri),
+			      GINT_TO_POINTER (GPOINTER_TO_INT (old) + 1));
+	queued = g_hash_table_size (queued_draws);
+
+	if (draws_due == 0) {
+		draws_due = g_get_monotonic_time () + draw_wait;
+		wake_writer_locked ();
+	} else if (queued == RENDER_FLUSH_MAX) {
+		wake_writer_locked ();
+	}
+
+	g_mutex_unlock (&queue_lock);
+}
+
+void
+nemo_cache_db_thumbnail_forget_later (const char *uri)
+{
+	g_return_if_fail (uri != NULL);
+
+	g_mutex_lock (&queue_lock);
+	queue_init_locked ();
+	/* cppcheck-suppress leakNoVarFunctionCall ; the queue owns its keys and frees them */
+	g_hash_table_add (queued_forgets, g_strdup (uri));
+	wake_writer_locked ();
+	g_mutex_unlock (&queue_lock);
+}
+
+void
+nemo_cache_db_flush (NemoCacheDb *db)
+{
+	if (db == NULL || db->broken)
+		return;
+
+	g_mutex_lock (&db->lock);
+	write_queued (db, TRUE);
+	g_mutex_unlock (&db->lock);
+}
+
+void
+nemo_cache_db_set_draw_wait (gint ms)
+{
+	g_mutex_lock (&queue_lock);
+	draw_wait = (gint64) ms * 1000;
+	g_mutex_unlock (&queue_lock);
+}
+
 gboolean
 nemo_cache_db_thumbnail_lookup (NemoCacheDb         *db,
 				const char          *uri,
@@ -873,6 +1377,12 @@ nemo_cache_db_thumbnail_lookup (NemoCacheDb         *db,
 
 	g_mutex_lock (&db->lock);
 
+	/* A refresh asked for and not written yet still counts, even if it
+	 * could not be written now. */
+	write_queued (db, FALSE);
+	if (forget_queued (uri))
+		goto out;
+
 	fid = file_by_digest (db, id);
 	known_path = FALSE;
 	if (fid == 0) {
@@ -891,6 +1401,7 @@ nemo_cache_db_thumbnail_lookup (NemoCacheDb         *db,
 			link_path (db, uri, fid, id->mtime);
 	}
 
+out:
 	g_mutex_unlock (&db->lock);
 
 	return found;
@@ -944,6 +1455,9 @@ nemo_cache_db_thumbnail_store (NemoCacheDb               *db,
 
 	g_mutex_lock (&db->lock);
 
+	/* A queued refresh done after this write would throw it away. */
+	write_queued (db, FALSE);
+
 	if (!begin (db))
 		goto out;
 
@@ -974,6 +1488,14 @@ nemo_cache_db_thumbnail_store (NemoCacheDb               *db,
 	else
 		rollback (db);
 
+	/* Written over a refresh that is still queued, so that one is done. */
+	if (done) {
+		g_mutex_lock (&queue_lock);
+		if (queued_forgets != NULL)
+			g_hash_table_remove (queued_forgets, uri);
+		g_mutex_unlock (&queue_lock);
+	}
+
 	goto out;
 
 fail:
@@ -988,8 +1510,6 @@ out:
 gboolean
 nemo_cache_db_thumbnail_forget (NemoCacheDb *db, const char *uri)
 {
-	static const char sql[] =
-		"DELETE FROM thumbnails WHERE file_id = (SELECT file_id FROM paths WHERE uri = ?)";
 	sqlite3_stmt *stmt;
 	gboolean      done = FALSE;
 
@@ -1000,7 +1520,7 @@ nemo_cache_db_thumbnail_forget (NemoCacheDb *db, const char *uri)
 
 	g_mutex_lock (&db->lock);
 
-	stmt = prep (db, sql, "forget thumbnail");
+	stmt = prep (db, FORGET_SQL, "forget thumbnail");
 	if (stmt != NULL) {
 		sqlite3_bind_text (stmt, 1, uri, -1, SQLITE_STATIC);
 		done = db_ok (db, sqlite3_step (stmt), "forget thumbnail");
@@ -1010,110 +1530,6 @@ nemo_cache_db_thumbnail_forget (NemoCacheDb *db, const char *uri)
 	g_mutex_unlock (&db->lock);
 
 	return done;
-}
-
-/* Every drawn icon in a folder would otherwise be a write, and scrolling a big
- * folder draws the same file over and over. Counts are held in memory and
- * written in one transaction, which is also all the age rule needs - it works
- * in days. Called with the lock held. */
-static void
-flush_renders (NemoCacheDb *db)
-{
-	static const char sql[] =
-		"UPDATE thumbnails SET rendered = ?, renders = renders + ?"
-		" WHERE file_id = (SELECT file_id FROM paths WHERE uri = ?)";
-	sqlite3_stmt  *stmt;
-	GHashTableIter iter;
-	gpointer       uri, count;
-	gint64         now;
-
-	if (db->broken || g_hash_table_size (db->pending) == 0)
-		return;
-
-	now = g_get_real_time () / G_USEC_PER_SEC;
-
-	if (!begin (db))
-		return;
-
-	stmt = prep (db, sql, "draw count");
-	if (stmt == NULL) {
-		rollback (db);
-		return;
-	}
-
-	g_hash_table_iter_init (&iter, db->pending);
-	while (g_hash_table_iter_next (&iter, &uri, &count)) {
-		sqlite3_reset (stmt);
-		sqlite3_bind_int64 (stmt, 1, now);
-		sqlite3_bind_int64 (stmt, 2, (gint64) GPOINTER_TO_INT (count));
-		sqlite3_bind_text (stmt, 3, (const char *) uri, -1, SQLITE_STATIC);
-		db_ok (db, sqlite3_step (stmt), "draw count");
-	}
-
-	sqlite3_finalize (stmt);
-
-	commit (db);
-
-	g_hash_table_remove_all (db->pending);
-}
-
-static gboolean
-flush_renders_timeout (gpointer data)
-{
-	NemoCacheDb *db = data;
-
-	g_mutex_lock (&db->lock);
-	db->flush_id = 0;
-	flush_renders (db);
-	g_mutex_unlock (&db->lock);
-
-	return G_SOURCE_REMOVE;
-}
-
-void
-nemo_cache_db_note_render (NemoCacheDb *db, const char *uri)
-{
-	gpointer old;
-
-	g_return_if_fail (uri != NULL);
-
-	if (db == NULL || db->broken)
-		return;
-
-	touch ();
-
-	g_mutex_lock (&db->lock);
-
-	old = g_hash_table_lookup (db->pending, uri);
-	if (old != NULL)
-		g_hash_table_replace (db->pending, g_strdup (uri),
-				      GINT_TO_POINTER (GPOINTER_TO_INT (old) + 1));
-	else
-		g_hash_table_insert (db->pending, g_strdup (uri), GINT_TO_POINTER (1));
-
-	if (g_hash_table_size (db->pending) >= RENDER_FLUSH_MAX)
-		flush_renders (db);
-	else if (db->flush_id == 0)
-		db->flush_id = g_timeout_add_seconds (RENDER_FLUSH_SECS, flush_renders_timeout, db);
-
-	g_mutex_unlock (&db->lock);
-}
-
-void
-nemo_cache_db_flush (NemoCacheDb *db)
-{
-	if (db == NULL || db->broken)
-		return;
-
-	g_mutex_lock (&db->lock);
-
-	if (db->flush_id != 0) {
-		g_source_remove (db->flush_id);
-		db->flush_id = 0;
-	}
-	flush_renders (db);
-
-	g_mutex_unlock (&db->lock);
 }
 
 gboolean
@@ -1171,7 +1587,7 @@ nemo_cache_db_empty (NemoCacheDb *db)
 
 	g_mutex_lock (&db->lock);
 
-	g_hash_table_remove_all (db->pending);
+	drop_queued ();
 
 	done = db_ok (db, sqlite3_exec (db->handle,
 					"DELETE FROM thumbnails;"
@@ -1230,11 +1646,8 @@ nemo_cache_db_usage (NemoCacheDb *db, gint64 *n_thumbnails, gint64 *bytes)
 static void
 write_out (NemoCacheDb *db)
 {
-	if (db->flush_id != 0) {
-		g_source_remove (db->flush_id);
-		db->flush_id = 0;
-	}
-	flush_renders (db);
+	if (!db->broken)
+		write_queued (db, TRUE);
 
 	/* Folds the WAL back in, so the next launch opens one file rather than
 	 * replaying a journal that could be most of the cache. */
@@ -1245,11 +1658,23 @@ void
 nemo_cache_db_quit (void)
 {
 	NemoCacheDb *db;
+	gboolean     forgets;
 
-	/* Not get(), which would make a store for a run that never used one. */
-	g_mutex_lock (&the_db_lock);
-	db = the_db;
-	g_mutex_unlock (&the_db_lock);
+	stop_writer (TRUE);
+
+	g_mutex_lock (&queue_lock);
+	forgets = queued_forgets != NULL && g_hash_table_size (queued_forgets) > 0;
+	g_mutex_unlock (&queue_lock);
+
+	/* Not get() unless a refresh is waiting, which would make a store for a
+	 * run that never used one. */
+	if (forgets) {
+		db = nemo_cache_db_get ();
+	} else {
+		g_mutex_lock (&the_db_lock);
+		db = the_db;
+		g_mutex_unlock (&the_db_lock);
+	}
 
 	if (db == NULL)
 		return;
@@ -1263,6 +1688,9 @@ void
 nemo_cache_db_close (void)
 {
 	NemoCacheDb *db;
+
+	/* It writes through the store this frees. */
+	stop_writer (FALSE);
 
 	g_mutex_lock (&the_db_lock);
 	db = the_db;
@@ -1278,8 +1706,6 @@ nemo_cache_db_close (void)
 	write_out (db);
 	sqlite3_close (db->handle);
 	db->handle = NULL;
-
-	g_hash_table_destroy (db->pending);
 
 	g_mutex_unlock (&db->lock);
 	g_mutex_clear (&db->lock);
@@ -1370,6 +1796,38 @@ claim_pass (NemoCacheDb *db, const NemoCachePruneRules *rules, gint64 *due)
 	}
 
 	return commit (db) ? CLAIM_WON : CLAIM_ERROR;
+}
+
+static gboolean
+begin_step (NemoCacheDb *db)
+{
+	if (!begin (db))
+		return FALSE;
+
+	db->held_since = g_get_monotonic_time ();
+
+	return TRUE;
+}
+
+/* Called after each of the prune's writes. Once the lock is free sqlite gives
+ * it to whoever asks first, not to whoever has waited longest, so a pass that
+ * went straight on to its next write would keep a waiting store out until the
+ * pass was done. Resting as long as the write took lets a waiter in within
+ * about one write, and a write slowed by a busy box rests longer to match. A
+ * pass takes at least twice as long for it, which is fine for a cleanup in the
+ * background. */
+static void
+make_way (NemoCacheDb *db, GCancellable *cancellable)
+{
+	gint64 now = g_get_monotonic_time ();
+	gint64 until = now + MAX (now - db->held_since, (gint64) PRUNE_REST_MIN_MS * 1000);
+
+	g_atomic_int_inc (&prune_steps);
+
+	while (now < until && !g_cancellable_is_cancelled (cancellable)) {
+		g_usleep (MIN (until - now, 10 * 1000));
+		now = g_get_monotonic_time ();
+	}
 }
 
 /* Called inside each batch's transaction. Stamps the claim so nobody takes it
@@ -1481,8 +1939,9 @@ local_file_is_gone (const char *uri, GHashTable *folders)
 	if (path == NULL)
 		return FALSE;
 
-	/* A share can take twenty seconds to say no, once per question. */
-	if ((path[0] == '/' && path[1] == '/') || (path[0] == '\\' && path[1] == '\\'))
+	/* A share can take twenty seconds to say no, once per question, and a
+	   hard network mount can hold the pass for good. */
+	if (nemo_path_is_on_a_share (path))
 		return FALSE;
 
 	folder = g_path_get_dirname (path);
@@ -1550,7 +2009,7 @@ drop_missing_paths (NemoCacheDb *db, GCancellable *cancellable)
 		}
 
 		if (gone->len > 0) {
-			if (!begin (db))
+			if (!begin_step (db))
 				return FALSE;
 			ok = still_ours (db);
 
@@ -1570,6 +2029,8 @@ drop_missing_paths (NemoCacheDb *db, GCancellable *cancellable)
 
 			if (!ok)
 				return FALSE;
+
+			make_way (db, cancellable);
 		}
 
 		if (rowids->len < PRUNE_BATCH)
@@ -1579,37 +2040,169 @@ drop_missing_paths (NemoCacheDb *db, GCancellable *cancellable)
 	return TRUE;
 }
 
-/* Runs one batch statement inside its own transaction, with the claim checked
- * first. `sql` may carry one bound value. Answers the rows changed, or -1. */
-static gint64
-batch_delete (NemoCacheDb *db, const char *sql, gboolean bind, gint64 value, const char *what)
+/* Forgets names whose file has no thumbnail left, once nothing has stored one
+ * under them since `cutoff`. All such a row keeps is a size, a time and maybe a
+ * checksum, and the file gives those again when it is next thumbnailed. What
+ * they pointed at goes with the orphans next.
+ *
+ * Nothing indexes `seen`, so the rows are picked with no transaction open, as
+ * in drop_missing_paths, and the delete asks again in case a window stored a
+ * thumbnail since. */
+static gboolean
+drop_bare_paths (NemoCacheDb *db, GCancellable *cancellable, gint64 cutoff)
+{
+	static const char list_sql[] =
+		"SELECT rowid FROM paths p WHERE rowid > ? AND seen < ?"
+		" AND NOT EXISTS (SELECT 1 FROM thumbnails t WHERE t.file_id = p.file_id)"
+		" ORDER BY rowid LIMIT " G_STRINGIFY (PRUNE_BATCH);
+	static const char drop_sql[] =
+		"DELETE FROM paths WHERE rowid = ? AND seen < ?"
+		" AND NOT EXISTS (SELECT 1 FROM thumbnails t WHERE t.file_id = paths.file_id)";
+	g_autoptr (GArray) rowids = g_array_new (FALSE, FALSE, sizeof (gint64));
+	sqlite3_stmt      *stmt;
+	gint64             after = 0;
+	gboolean           ok;
+	guint              i;
+	int                rc;
+
+	for (;;) {
+		if (g_cancellable_is_cancelled (cancellable))
+			return FALSE;
+
+		g_array_set_size (rowids, 0);
+
+		stmt = prep (db, list_sql, "list bare paths");
+		if (stmt == NULL)
+			return FALSE;
+
+		sqlite3_bind_int64 (stmt, 1, after);
+		sqlite3_bind_int64 (stmt, 2, cutoff);
+		while ((rc = sqlite3_step (stmt)) == SQLITE_ROW) {
+			gint64 rowid = sqlite3_column_int64 (stmt, 0);
+
+			g_array_append_val (rowids, rowid);
+		}
+		sqlite3_finalize (stmt);
+
+		if (!db_ok (db, rc, "list bare paths"))
+			return FALSE;
+		if (rowids->len == 0)
+			return TRUE;
+
+		after = g_array_index (rowids, gint64, rowids->len - 1);
+
+		if (!begin_step (db))
+			return FALSE;
+		ok = still_ours (db);
+
+		stmt = ok ? prep (db, drop_sql, "drop bare path") : NULL;
+		ok = ok && stmt != NULL;
+		for (i = 0; ok && i < rowids->len; i++) {
+			sqlite3_reset (stmt);
+			sqlite3_bind_int64 (stmt, 1, g_array_index (rowids, gint64, i));
+			sqlite3_bind_int64 (stmt, 2, cutoff);
+			ok = db_ok (db, sqlite3_step (stmt), "drop bare path");
+		}
+		sqlite3_finalize (stmt);
+
+		if (ok)
+			ok = commit (db);
+		else
+			rollback (db);
+
+		if (!ok)
+			return FALSE;
+
+		make_way (db, cancellable);
+
+		if (rowids->len < PRUNE_BATCH)
+			return TRUE;
+	}
+}
+
+/* One prune transaction's worth of thumbnails. */
+typedef struct {
+	GArray  *ids;
+	gint64   bytes;
+	gboolean full;
+} Batch;
+
+/* Steps a pick whose rows are a file id and the size of its thumbnail, until
+ * the batch is full: PRUNE_BATCH rows or `max_bytes` of thumbnails. A full
+ * batch means there may be more. Finalizes the statement either way. */
+static gboolean
+pick_batch (NemoCacheDb *db, sqlite3_stmt *stmt, gint64 max_bytes, Batch *batch, const char *what)
+{
+	int rc;
+
+	g_array_set_size (batch->ids, 0);
+	batch->bytes = 0;
+	batch->full = FALSE;
+
+	while ((rc = sqlite3_step (stmt)) == SQLITE_ROW) {
+		gint64 fid = sqlite3_column_int64 (stmt, 0);
+
+		g_array_append_val (batch->ids, fid);
+		batch->bytes += sqlite3_column_int64 (stmt, 1);
+
+		if (batch->ids->len >= PRUNE_BATCH || batch->bytes >= max_bytes) {
+			batch->full = TRUE;
+			rc = SQLITE_DONE;
+			break;
+		}
+	}
+
+	sqlite3_finalize (stmt);
+
+	return db_ok (db, rc, what);
+}
+
+/* Runs `sql`, which takes one id, for each id in the batch, and adds up the
+ * rows it changed. */
+static gboolean
+delete_each (NemoCacheDb *db, const char *sql, const Batch *batch, gint64 *changed, const char *what)
 {
 	sqlite3_stmt *stmt;
-	gint64        changed = -1;
+	gboolean      ok = TRUE;
+	guint         i;
 
-	if (!begin (db))
-		return -1;
-
-	if (!still_ours (db)) {
-		rollback (db);
-		return -1;
-	}
+	if (batch->ids->len == 0)
+		return TRUE;
 
 	stmt = prep (db, sql, what);
-	if (stmt != NULL) {
-		if (bind)
-			sqlite3_bind_int64 (stmt, 1, value);
-		if (db_ok (db, sqlite3_step (stmt), what))
-			changed = sqlite3_changes (db->handle);
-		sqlite3_finalize (stmt);
+	if (stmt == NULL)
+		return FALSE;
+
+	for (i = 0; ok && i < batch->ids->len; i++) {
+		sqlite3_reset (stmt);
+		sqlite3_bind_int64 (stmt, 1, g_array_index (batch->ids, gint64, i));
+		ok = db_ok (db, sqlite3_step (stmt), what);
+		if (ok && changed != NULL)
+			*changed += sqlite3_changes (db->handle);
 	}
 
-	if (changed < 0) {
+	sqlite3_finalize (stmt);
+
+	return ok;
+}
+
+/* Commits a batch that went well and makes way for anyone waiting, or rolls
+ * it back. */
+static gboolean
+end_batch (NemoCacheDb *db, gboolean ok, const Batch *batch, GCancellable *cancellable)
+{
+	if (!ok) {
 		rollback (db);
-		return -1;
+		return FALSE;
 	}
 
-	return commit (db) ? changed : -1;
+	if (!commit (db))
+		return FALSE;
+
+	db->largest_batch = MAX (db->largest_batch, batch->bytes);
+	make_way (db, cancellable);
+
+	return TRUE;
 }
 
 /* A file record nothing points at any more goes, and its thumbnail with it.
@@ -1619,45 +2212,27 @@ static gboolean
 drop_orphans (NemoCacheDb *db, GCancellable *cancellable, gint64 *removed)
 {
 	static const char pick_sql[] =
-		"DELETE FROM doomed;"
-		"INSERT INTO doomed SELECT id FROM files f"
-		" WHERE NOT EXISTS (SELECT 1 FROM paths p WHERE p.file_id = f.id)"
-		" LIMIT " G_STRINGIFY (PRUNE_BATCH) ";";
-	gint64   picked;
-	gboolean ok;
-
-	if (!db_ok (db, sqlite3_exec (db->handle,
-				      "CREATE TEMP TABLE IF NOT EXISTS doomed (id INTEGER PRIMARY KEY)",
-				      NULL, NULL, NULL), "orphans"))
-		return FALSE;
+		"SELECT f.id, IFNULL ((SELECT LENGTH (image) FROM thumbnails t WHERE t.file_id = f.id), 0)"
+		" FROM files f WHERE NOT EXISTS (SELECT 1 FROM paths p WHERE p.file_id = f.id)"
+		" LIMIT " G_STRINGIFY (PRUNE_BATCH);
+	g_autoptr (GArray) ids = g_array_new (FALSE, FALSE, sizeof (gint64));
+	Batch              batch = { ids, 0, FALSE };
+	sqlite3_stmt      *stmt;
+	gboolean           ok;
 
 	do {
-		if (g_cancellable_is_cancelled (cancellable) || !begin (db))
+		if (g_cancellable_is_cancelled (cancellable) || !begin_step (db))
 			return FALSE;
 
-		ok = still_ours (db)
-			&& db_ok (db, sqlite3_exec (db->handle, pick_sql, NULL, NULL, NULL), "orphans");
-		picked = ok ? sqlite3_changes (db->handle) : 0;
+		ok = still_ours (db);
+		stmt = ok ? prep (db, pick_sql, "orphans") : NULL;
+		ok = stmt != NULL && pick_batch (db, stmt, PRUNE_BATCH_BYTES, &batch, "orphans");
+		ok = ok && delete_each (db, "DELETE FROM thumbnails WHERE file_id = ?", &batch, removed, "orphans");
+		ok = ok && delete_each (db, "DELETE FROM files WHERE id = ?", &batch, NULL, "orphans");
 
-		if (ok && picked > 0) {
-			ok = db_ok (db, sqlite3_exec (db->handle,
-						      "DELETE FROM thumbnails WHERE file_id IN (SELECT id FROM doomed)",
-						      NULL, NULL, NULL), "orphans");
-			if (ok)
-				*removed += sqlite3_changes (db->handle);
-			ok = ok && db_ok (db, sqlite3_exec (db->handle,
-							    "DELETE FROM files WHERE id IN (SELECT id FROM doomed)",
-							    NULL, NULL, NULL), "orphans");
-		}
-
-		if (ok)
-			ok = commit (db);
-		else
-			rollback (db);
-
-		if (!ok)
+		if (!end_batch (db, ok, &batch, cancellable))
 			return FALSE;
-	} while (picked == PRUNE_BATCH);
+	} while (batch.full);
 
 	return TRUE;
 }
@@ -1667,19 +2242,25 @@ drop_orphans (NemoCacheDb *db, GCancellable *cancellable, gint64 *removed)
 static gboolean
 drop_old (NemoCacheDb *db, GCancellable *cancellable, gint64 cutoff, gint64 *removed)
 {
-	static const char sql[] = "DELETE FROM thumbnails WHERE file_id IN (" OLDER_THAN_SQL ")";
-	gint64 changed;
+	g_autoptr (GArray) ids = g_array_new (FALSE, FALSE, sizeof (gint64));
+	Batch              batch = { ids, 0, FALSE };
+	sqlite3_stmt      *stmt;
+	gboolean           ok;
 
 	do {
-		if (g_cancellable_is_cancelled (cancellable))
+		if (g_cancellable_is_cancelled (cancellable) || !begin_step (db))
 			return FALSE;
 
-		changed = batch_delete (db, sql, TRUE, cutoff, "drop old");
-		if (changed < 0)
-			return FALSE;
+		ok = still_ours (db);
+		stmt = ok ? prep (db, OLDER_THAN_SQL, "drop old") : NULL;
+		if (stmt != NULL)
+			sqlite3_bind_int64 (stmt, 1, cutoff);
+		ok = stmt != NULL && pick_batch (db, stmt, PRUNE_BATCH_BYTES, &batch, "drop old");
+		ok = ok && delete_each (db, "DELETE FROM thumbnails WHERE file_id = ?", &batch, removed, "drop old");
 
-		*removed += changed;
-	} while (changed == PRUNE_BATCH);
+		if (!end_batch (db, ok, &batch, cancellable))
+			return FALSE;
+	} while (batch.full);
 
 	return TRUE;
 }
@@ -1710,13 +2291,11 @@ used_bytes (NemoCacheDb *db)
 static gboolean
 drop_to_size (NemoCacheDb *db, GCancellable *cancellable, gint64 max_bytes, gint64 *removed)
 {
-	static const char pick_sql[] = OLDEST_SQL;
-	static const char drop_sql[] = "DELETE FROM thumbnails WHERE file_id = ?";
-	g_autoptr (GArray) doomed = g_array_new (FALSE, FALSE, sizeof (gint64));
+	g_autoptr (GArray) ids = g_array_new (FALSE, FALSE, sizeof (gint64));
+	Batch              batch = { ids, 0, FALSE };
 	sqlite3_stmt      *stmt;
-	gint64             used, excess, freed;
+	gint64             used;
 	gboolean           ok;
-	guint              i;
 
 	for (;;) {
 		if (g_cancellable_is_cancelled (cancellable))
@@ -1728,48 +2307,23 @@ drop_to_size (NemoCacheDb *db, GCancellable *cancellable, gint64 max_bytes, gint
 		if (used <= max_bytes)
 			return TRUE;
 
-		excess = used - max_bytes;
-		freed = 0;
-		g_array_set_size (doomed, 0);
-
-		if (!begin (db))
+		if (!begin_step (db))
 			return FALSE;
+
 		ok = still_ours (db);
+		stmt = ok ? prep (db, OLDEST_SQL, "pick oldest") : NULL;
+		ok = stmt != NULL
+			&& pick_batch (db, stmt, MIN (used - max_bytes, PRUNE_BATCH_BYTES), &batch, "pick oldest");
+		ok = ok && delete_each (db, "DELETE FROM thumbnails WHERE file_id = ?", &batch, NULL, "drop oldest");
 
-		stmt = ok ? prep (db, pick_sql, "pick oldest") : NULL;
-		if (stmt != NULL) {
-			while (freed < excess && sqlite3_step (stmt) == SQLITE_ROW) {
-				gint64 fid = sqlite3_column_int64 (stmt, 0);
-
-				g_array_append_val (doomed, fid);
-				freed += sqlite3_column_int64 (stmt, 1);
-			}
-			sqlite3_finalize (stmt);
-		} else {
-			ok = FALSE;
-		}
-
-		stmt = (ok && doomed->len > 0) ? prep (db, drop_sql, "drop oldest") : NULL;
-		for (i = 0; stmt != NULL && ok && i < doomed->len; i++) {
-			sqlite3_reset (stmt);
-			sqlite3_bind_int64 (stmt, 1, g_array_index (doomed, gint64, i));
-			ok = db_ok (db, sqlite3_step (stmt), "drop oldest");
-		}
-		sqlite3_finalize (stmt);
-
-		if (ok)
-			ok = commit (db);
-		else
-			rollback (db);
-
-		if (!ok)
+		if (!end_batch (db, ok, &batch, cancellable))
 			return FALSE;
 
 		/* Nothing left to take, and what is over is names and records. */
-		if (doomed->len == 0)
+		if (batch.ids->len == 0)
 			return TRUE;
 
-		*removed += doomed->len;
+		*removed += batch.ids->len;
 	}
 }
 
@@ -1786,10 +2340,12 @@ compact (NemoCacheDb *db, GCancellable *cancellable)
 		if (g_cancellable_is_cancelled (cancellable))
 			return FALSE;
 
+		db->held_since = g_get_monotonic_time ();
 		if (!db_ok (db, sqlite3_exec (db->handle,
 					      "PRAGMA incremental_vacuum (" G_STRINGIFY (COMPACT_STEP_PAGES) ")",
 					      NULL, NULL, NULL), "compact"))
 			return FALSE;
+		make_way (db, cancellable);
 
 		before = unused;
 		unused = pragma_int (db, "PRAGMA freelist_count");
@@ -1830,8 +2386,11 @@ nemo_cache_db_prune (const NemoCachePruneRules *rules,
 	gboolean             ok;
 	gint64               removed = 0;
 	gint64               due = 0;
+	gint64               bare_age;
 
 	g_return_val_if_fail (rules != NULL, NEMO_CACHE_PRUNE_FAILED);
+
+	bare_age = rules->max_age_secs > 0 ? rules->max_age_secs : BARE_PATH_AGE_SECS;
 
 	if (removed_out != NULL)
 		*removed_out = 0;
@@ -1875,6 +2434,7 @@ nemo_cache_db_prune (const NemoCachePruneRules *rules,
 
 	ok = integrity_ok (&pruner)
 		&& (!rules->drop_missing || drop_missing_paths (&pruner, cancellable))
+		&& drop_bare_paths (&pruner, cancellable, rules->now - bare_age)
 		&& drop_orphans (&pruner, cancellable, &removed)
 		&& (rules->max_age_secs <= 0
 		    || drop_old (&pruner, cancellable, rules->now - rules->max_age_secs, &removed))
@@ -1906,6 +2466,7 @@ nemo_cache_db_prune (const NemoCachePruneRules *rules,
 
 out:
 	sqlite3_close (pruner.handle);
+	last_largest_batch = pruner.largest_batch;
 
 	if (removed_out != NULL)
 		*removed_out = removed;
@@ -1962,4 +2523,26 @@ nemo_cache_db_prune_pick_cost (NemoCacheDb *db, gint64 *rows_walked, gint64 *sor
 	g_mutex_unlock (&db->lock);
 
 	return ok;
+}
+
+gint64
+nemo_cache_db_prune_largest_batch (void)
+{
+	return last_largest_batch;
+}
+
+gint
+nemo_cache_db_prune_steps (void)
+{
+	return g_atomic_int_get (&prune_steps);
+}
+
+/* Returns: (transfer full): close with sqlite3_close */
+struct sqlite3 *
+nemo_cache_db_open_another (void)
+{
+	g_autofree char *path = nemo_cache_db_path ();
+	gboolean         rebuild;
+
+	return path != NULL ? open_at (path, &rebuild) : NULL;
 }

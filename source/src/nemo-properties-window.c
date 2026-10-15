@@ -461,10 +461,10 @@ reset_icon (NemoPropertiesWindow *properties_window)
 
 
 static void
-nemo_properties_window_drag_data_received (GtkWidget *widget, GdkDragContext *context,
-					       int x, int y,
+nemo_properties_window_drag_data_received (GtkWidget *widget, G_GNUC_UNUSED GdkDragContext *context,
+					       G_GNUC_UNUSED int x, G_GNUC_UNUSED int y,
 					       GtkSelectionData *selection_data,
-					       guint info, guint time)
+					       G_GNUC_UNUSED guint info, G_GNUC_UNUSED guint time)
 {
 	char **uris;
 	gboolean exactly_one;
@@ -480,7 +480,7 @@ nemo_properties_window_drag_data_received (GtkWidget *widget, GdkDragContext *co
 
 	if (!exactly_one) {
 		eel_show_error_dialog
-			(_("You cannot assign more than one custom icon at a time!"),
+			(_("You can't assign more than one custom icon at a time!"),
 			 _("Please drag just one image to set a custom icon."),
 			 window);
 	} else {
@@ -492,13 +492,13 @@ nemo_properties_window_drag_data_received (GtkWidget *widget, GdkDragContext *co
 			f = g_file_new_for_uri (uris[0]);
 			if (!g_file_is_native (f)) {
 				eel_show_error_dialog
-					(_("The file that you dropped is not local."),
+					(_("The file that you dropped isn't local."),
 					 _("You can only use local images as custom icons."),
 					 window);
 
 			} else {
 				eel_show_error_dialog
-					(_("The file that you dropped is not an image."),
+					(_("The file that you dropped isn't an image."),
 					 _("You can only use local images as custom icons."),
 					 window);
 			}
@@ -717,7 +717,7 @@ name_field_restore_original_name (NemoEntry *name_field)
 }
 
 static void
-rename_callback (NemoFile *file, GFile *res_loc, GError *error, gpointer callback_data)
+rename_callback (NemoFile *file, G_GNUC_UNUSED GFile *res_loc, GError *error, gpointer callback_data)
 {
 	NemoPropertiesWindow *window;
 
@@ -732,6 +732,26 @@ rename_callback (NemoFile *file, GFile *res_loc, GError *error, gpointer callbac
 		if (window->details->name_field != NULL) {
 			name_field_restore_original_name (NEMO_ENTRY (window->details->name_field));
 		}
+	}
+
+	g_object_unref (window);
+}
+
+static void
+nested_folder_done (G_GNUC_UNUSED GFile *top, GError *error, gpointer callback_data)
+{
+	NemoPropertiesWindow *window = NEMO_PROPERTIES_WINDOW (callback_data);
+	NemoFile *file = get_original_file (window);
+
+	/* The field took the typed path as its name, so a focus change would not
+	   send it again. Put the real one back. */
+	if (error != NULL && window->details->name_field != NULL &&
+	    file != NULL && !nemo_file_is_gone (file)) {
+		char *name = nemo_file_get_display_name (file);
+
+		gtk_entry_set_text (GTK_ENTRY (window->details->name_field), name);
+		g_object_set_data_full (G_OBJECT (window->details->name_field),
+					"original_name", name, g_free);
 	}
 
 	g_object_unref (window);
@@ -779,8 +799,14 @@ name_field_done_editing (NemoEntry *name_field, NemoPropertiesWindow *window)
 		   This is needed so that we don't save the display name to the
 		   file when nothing is changed */
 		if (strcmp (new_name, original_name) != 0) {
-			set_pending_name (window, new_name);
 			g_object_ref (window);
+			if (nemo_rename_new_folder_nested (file, new_name, GTK_WINDOW (window),
+							   nested_folder_done, window)) {
+				g_object_set_data_full (G_OBJECT (name_field), "original_name",
+							new_name, g_free);
+				return;
+			}
+			set_pending_name (window, new_name);
 			nemo_file_rename (file, new_name,
 					      rename_callback, window);
 		}
@@ -791,7 +817,7 @@ name_field_done_editing (NemoEntry *name_field, NemoPropertiesWindow *window)
 
 static gboolean
 name_field_focus_out (NemoEntry *name_field,
-		      GdkEventFocus *event,
+		      G_GNUC_UNUSED GdkEventFocus *event,
 		      gpointer callback_data)
 {
 	g_assert (NEMO_IS_PROPERTIES_WINDOW (callback_data));
@@ -842,7 +868,7 @@ update_properties_window_title (NemoPropertiesWindow *window)
 }
 
 static void
-clear_extension_callback (GtkWidget *page, gpointer data) {
+clear_extension_callback (GtkWidget *page, G_GNUC_UNUSED gpointer data) {
 	if (g_object_get_data (G_OBJECT (page), "is-extension-page")) {
 		gtk_widget_destroy (page);
 	}
@@ -1279,7 +1305,7 @@ attach_value_field (NemoPropertiesWindow *window,
 
 static void
 group_change_callback (NemoFile *file,
-		       GFile *res_loc,
+		       G_GNUC_UNUSED GFile *res_loc,
 		       GError *error,
 		       NemoPropertiesWindow *window)
 {
@@ -1603,7 +1629,7 @@ synch_groups_combo_box (GtkComboBox *combo_box, NemoFile *file)
 static gboolean
 combo_box_row_separator_func (GtkTreeModel *model,
 			      GtkTreeIter  *iter,
-			      gpointer      data)
+			      G_GNUC_UNUSED gpointer      data)
 {
   	gchar *text;
 	gboolean ret;
@@ -1668,6 +1694,12 @@ attach_combo_box (GtkGrid *grid,
 	return GTK_COMBO_BOX (combo_box);
 }
 
+static void
+file_unref_closure (gpointer data, G_GNUC_UNUSED GClosure *closure)
+{
+	nemo_file_unref (data);
+}
+
 static GtkComboBox*
 attach_group_combo_box (GtkGrid *grid,
 			GtkWidget *sibling,
@@ -1686,14 +1718,14 @@ attach_group_combo_box (GtkGrid *grid,
 	g_signal_connect_data (combo_box, "changed",
 			       G_CALLBACK (changed_group_callback),
 			       nemo_file_ref (file),
-			       (GClosureNotify)nemo_file_unref, 0);
+			       file_unref_closure, 0);
 
 	return combo_box;
 }
 
 static void
 owner_change_callback (NemoFile *file,
-                       GFile 	    *result_location,
+                       G_GNUC_UNUSED GFile 	    *result_location,
 		       GError        *error,
 		       NemoPropertiesWindow *window)
 {
@@ -1969,7 +2001,7 @@ attach_owner_combo_box (GtkGrid *grid,
 	g_signal_connect_data (combo_box, "changed",
 			       G_CALLBACK (changed_owner_callback),
 			       nemo_file_ref (file),
-			       (GClosureNotify)nemo_file_unref, 0);
+			       file_unref_closure, 0);
 
 	return combo_box;
 }
@@ -3293,7 +3325,7 @@ size_field_update (NemoPropertiesWindow *window)
 
 static void
 permission_change_callback (NemoFile *file,
-			    GFile *res_loc,
+			    G_GNUC_UNUSED GFile *res_loc,
 			    GError *error,
 			    gpointer callback_data)
 {
@@ -4411,7 +4443,7 @@ create_advanced_permissions (NemoPropertiesWindow *window, GtkGrid *page_grid)
 }
 
 static void
-set_recursive_permissions_done (gboolean success,
+set_recursive_permissions_done (G_GNUC_UNUSED gboolean success,
 				gpointer callback_data)
 {
 	NemoPropertiesWindow *window;
@@ -4424,7 +4456,7 @@ set_recursive_permissions_done (gboolean success,
 
 
 static void
-apply_recursive_clicked (GtkWidget *recursive_button,
+apply_recursive_clicked (G_GNUC_UNUSED GtkWidget *recursive_button,
 			 NemoPropertiesWindow *window)
 {
 	guint32 file_permission, file_permission_mask;
@@ -4552,7 +4584,7 @@ create_permissions_page (NemoPropertiesWindow *window)
 		if (!all_can_set_permissions (file_list)) {
 			add_prompt_and_separator (
 				vbox,
-				_("You are not the owner, so you cannot change these permissions."));
+				_("You aren't the owner, so you can't change these permissions."));
 		}
 
 		page_grid = GTK_GRID (create_grid_with_standard_properties ());
@@ -4599,10 +4631,10 @@ create_permissions_page (NemoPropertiesWindow *window)
 	} else {
 		if (!is_multi_file_window (window)) {
 			file_name = nemo_file_get_display_name (get_target_file (window));
-			prompt_text = g_strdup_printf (_("The permissions of \"%s\" could not be determined."), file_name);
+			prompt_text = g_strdup_printf (_("The permissions of \"%s\" couldn't be determined."), file_name);
 			g_free (file_name);
 		} else {
-			prompt_text = g_strdup (_("The permissions of the selected file could not be determined."));
+			prompt_text = g_strdup (_("The permissions of the selected file couldn't be determined."));
 		}
 
 		add_prompt (vbox, prompt_text, TRUE);
@@ -4949,6 +4981,7 @@ create_properties_window (StartupData *startup_data)
 	stack_switcher = GTK_STACK_SWITCHER (gtk_stack_switcher_new ());
 	gtk_stack_switcher_set_stack (stack_switcher,
                               window->details->stack);
+	eel_gtk_tabs_keep_focus_off (GTK_WIDGET (stack_switcher));
 
 	gtk_stack_set_transition_type (window->details->stack,
                                GTK_STACK_TRANSITION_TYPE_SLIDE_LEFT_RIGHT);
@@ -5068,7 +5101,7 @@ parent_widget_destroyed_callback (GtkWidget *widget, gpointer callback_data)
 
 static void
 cancel_call_when_ready_callback (gpointer key,
-				 gpointer value,
+				 G_GNUC_UNUSED gpointer value,
 				 gpointer user_data)
 {
 	nemo_file_cancel_call_when_ready
@@ -5471,7 +5504,7 @@ icon_chooser_update_preview (GtkFileChooser *chooser,
 }
 
 static void
-select_image_button_callback (GtkWidget *widget,
+select_image_button_callback (G_GNUC_UNUSED GtkWidget *widget,
 			      NemoPropertiesWindow *window)
 {
 	GtkWidget *dialog, *preview;

@@ -24,14 +24,12 @@ gboolean nemo_shortcut_win32_create (const char  *target_path,
                                      const char  *description,
                                      GError     **error);
 
-/* The same, with no extras, carrying the NemoLnkParts asked for. The shell
- * always writes the absolute and relative paths, so without the absolute one
- * the file is written here instead, and a relative one not asked for is taken
- * back out. Portable puts an environment variable in the path where one
- * covers it. */
-gboolean nemo_shortcut_win32_create_parts (const char  *target_path,
+/* The same, with no extras, and the absolute and relative paths the shell
+ * always writes. with_portable puts an environment variable in the path
+ * where one covers it. */
+gboolean nemo_shortcut_win32_create_paths (const char  *target_path,
                                            const char  *lnk_path,
-                                           guint        parts,
+                                           gboolean     with_portable,
                                            GError     **error);
 
 /* Read the file-system target a .lnk points at. Returns FALSE (and leaves

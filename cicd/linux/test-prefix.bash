@@ -6,9 +6,14 @@
 ##	  to the same rule when dpkg-deb and rpm are on the box. And the action
 ##	  layout editor's launcher, copied into a prefix somewhere else, runs the
 ##	  editor beside it rather than the one it was configured with, under the
-##	  name the program spawns it by.
+##	  name the program spawns it by. And none of the tarball, .deb and .rpm has
+##	  the office programs and libgsf the app no longer ships, through
+##	  cicd/utility/test-bundle-left-out.bash.
 ##	- A missing tarball skips with exit 77.
-##	- Syntax: cicd/linux/test-prefix.bash [tarball]
+##	- Syntax: cicd/linux/test-prefix.bash [tarball | --arch ARCH]
+##	  The default is this version's x86_64 tarball; --arch picks another
+##	  arch's. The only thing run is the editor's shell launcher, so any arch
+##	  checks on any box.
 ##	- Test ID: rhtq57n5
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
@@ -28,7 +33,11 @@ fEcho(){       if [[ -n "${*}" ]]; then fEcho_Clean "[ ${*} ]"; else fEcho_Clean
 readonly slug="nemo-anywhere"
 readonly editor="${slug}-action-layout-editor"
 ver="$(grep -oP "(?<![_[:alnum:]])version\s*:\s*'\K[^']+" source/meson.build | head -1 || true)"
-tarball="${1:-${root}/cicd/artifacts/release/${slug}-${ver}-linux-x86_64.tar.gz}"
+if [[ "${1:-}" == --arch ]]; then
+	tarball="${root}/cicd/artifacts/release/${slug}-${ver}-linux-${2:?--arch needs an arch}.tar.gz"
+else
+	tarball="${1:-${root}/cicd/artifacts/release/${slug}-${ver}-linux-x86_64.tar.gz}"
+fi
 if [[ ! -f "$tarball" ]]; then
 	fEcho "prefix check skipped: no ${tarball##*/} (run the release lane first)"
 	exit 77
@@ -87,6 +96,12 @@ if [[ -f "$rpm_file" ]] && command -v rpm >/dev/null 2>&1; then
 else
 	fEcho_Clean "no .rpm or no rpm; the .rpm not checked"
 fi
+
+## The office programs the app no longer ships, and libgsf (2026100909260549).
+kind="${tarball##*/}"; kind="${kind%.tar.gz}"; kind="linux-${kind##*-linux-}"
+rc=0
+bash "${root}/cicd/utility/test-bundle-left-out.bash" --dir "$(dirname "$tarball")" "$kind" || rc=$?
+[[ "$rc" == 0 || "$rc" == 77 ]] || fFail "bundle check on ${kind} (exit ${rc})"
 
 ## The program spawns the editor by this name out of its own bin folder, so
 ## the name has to be in the program and on the file.

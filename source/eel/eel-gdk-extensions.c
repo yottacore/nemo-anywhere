@@ -138,6 +138,7 @@ eel_gdk_parse_geometry (const char *string, int *x_return, int *y_return,
 	return flags;
 }
 
+/* Returns: (transfer none): owned by the display */
 GdkDevice *
 eel_gdk_get_pointer_device (void)
 {

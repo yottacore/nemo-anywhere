@@ -72,6 +72,7 @@ GFileMonitor *tz_mon;
 
 /*
  * Public functions
+ * Returns: (transfer full): free with g_free
  */
 char *
 nemo_global_preferences_get_default_folder_viewer_preference_as_iid (void)
@@ -160,6 +161,7 @@ nemo_global_preferences_get_cpu_thread_count (void)
     return MAX (1, (cores * percent + 99) / 100);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_global_preferences_get_desktop_iid (void)
 {
@@ -257,6 +259,7 @@ setup_cached_pref_keys (void)
 }
 
 
+/* Returns: (transfer none): kept for the life of the process */
 gchar **
 nemo_global_preferences_get_fileroller_mimetypes (void)
 {
@@ -309,7 +312,7 @@ nemo_global_preferences_get_fileroller_mimetypes (void)
 
 
 static void
-on_time_data_changed (gpointer user_data)
+on_time_data_changed (G_GNUC_UNUSED gpointer user_data)
 {
     prefs_current_date_format = nemo_config_get_enum (nemo_preferences, NEMO_PREFERENCES_DATE_FORMAT);
     prefs_current_24h_time_format = nemo_desktop_settings_get_clock_use_24h ();

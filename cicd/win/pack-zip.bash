@@ -84,14 +84,15 @@ docker exec "$CONTAINER" sh -c "
 	mkdir -p /tmp/${name}/lib /tmp/${name}/share
 	cd ${SYSROOT}
 
-	cp bin/*.dll /tmp/${name}/
-	for h in gdbus.exe gspawn-win64-helper.exe gspawn-win64-helper-console.exe \
-	         gdk-pixbuf-thumbnailer.exe gsf-office-thumbnailer.exe; do
-		[ -f \"bin/\$h\" ] && cp \"bin/\$h\" /tmp/${name}/ || true
+	## Not libgsf, which a sysroot made before fetch-sysroot.bash dropped it
+	## still has. Nothing in the app links it.
+	for d in bin/*.dll; do
+		case \"\${d##*/}\" in libgsf-*) ;; *) cp \"\$d\" /tmp/${name}/ ;; esac
 	done
+	## No program but the app: not gdbus.exe, and not GLib's spawn helpers
+	## (2026100917220603). test-bundle-exes.ps1 refuses any other.
 	cp -r lib/gdk-pixbuf-2.0 /tmp/${name}/lib/
 	cp -r share/icons share/themes /tmp/${name}/share/
-	[ -d share/thumbnailers ] && cp -r share/thumbnailers /tmp/${name}/share/ || true
 	[ -d share/glib-2.0/schemas ] && { mkdir -p /tmp/${name}/share/glib-2.0; cp -r share/glib-2.0/schemas /tmp/${name}/share/glib-2.0/; } || true
 	[ -d etc ] && cp -r etc /tmp/${name}/ || true
 
@@ -103,6 +104,12 @@ docker exec "$CONTAINER" sh -c "
 		mkdir -p /tmp/${name}/share/${SLUG}
 	fi
 "
+
+## The same descriptors as the native bundle, from a sysroot made before
+## fetch-sysroot.bash left the gdk-pixbuf ones out too.
+docker exec "$CONTAINER" bash -c 'source /src/cicd/utility/include/thumbnailers.bash && fStageThumbnailers "$1" "$2"' \
+	_ "${SYSROOT}/share/thumbnailers" "/tmp/${name}/share/thumbnailers" \
+	|| fDie "thumbnailer descriptors"
 
 ## GTK needs its schemas compiled; the output is architecture-independent, so the
 ## container's own tool produces a file the Windows build reads fine.
@@ -122,6 +129,10 @@ docker cp "${CONTAINER}:/tmp/${name}" "${work}/${name}" >/dev/null
 docker exec "$CONTAINER" rm -rf "/tmp/${name}"
 
 [[ -f "${work}/${name}/${SLUG}.exe" ]] || fDie "flattened tree has no ${SLUG}.exe"
+## The GTK settings and font config the single exe has. The sysroot's etc has
+## neither, and without them the zip drew with Adwaita (2026101007562511).
+mkdir -p "${work}/${name}/etc"
+cp -r "${ROOT}/cicd/win/bundle-etc/." "${work}/${name}/etc/"
 ## Copied from the sysroot, where fetch-sysroot.bash only warns when it cannot
 ## make one.
 fCheckLoadersCache "${work}/${name}/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache" \
@@ -143,3 +154,4 @@ fEcho_Clean
 
 ##	History:
 ##		- 2026-08-04: Created, so the Windows one-liner installer has an asset.
+##		- 2026-10-13: GTK settings and font config from cicd/win/bundle-etc.

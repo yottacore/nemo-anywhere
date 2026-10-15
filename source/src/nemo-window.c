@@ -50,6 +50,7 @@
 #include "nemo-statusbar.h"
 
 #include <eel/eel-debug.h>
+#include <eel/eel-glib-extensions.h>
 #include <eel/eel-gtk-extensions.h>
 #include <eel/eel-string.h>
 #include <eel/eel-vfs-extensions.h>
@@ -224,7 +225,7 @@ nemo_window_new_tab (NemoWindow *window)
 {
 	NemoWindowSlot *current_slot;
 	NemoWindowSlot *new_slot;
-	NemoWindowOpenFlags flags;
+	NemoWindowOpenSlotFlags flags;
 	GFile *location;
 	int new_slot_position;
 	char *scheme;
@@ -254,18 +255,118 @@ nemo_window_new_tab (NemoWindow *window)
 	}
 }
 
+/* Once the share answers the view is replaced, so anything done in the
+   window meanwhile could be lost. Escape and the title bar still work. */
+static gboolean
+waiting_on_share (NemoWindow *window)
+{
+	NemoWindowSlot *slot = nemo_window_get_active_slot (window);
+
+	return slot != NULL && nemo_window_slot_is_connecting (slot);
+}
+
+/* The covered part fades between the theme's grayed look and normal, one
+   round trip every 2 s, so the window reads as busy and not hung. The level
+   is stepped so a slow fade doesn't repaint the window on every frame. */
+#define COVER_GRAY_ALPHA 0.5
+#define COVER_STEPS 20
+
+static gboolean
+cover_draw (GtkWidget  *cover,
+	    cairo_t    *cr,
+	    NemoWindow *window)
+{
+	GtkStyleContext *context = gtk_widget_get_style_context (GTK_WIDGET (window));
+	double alpha = COVER_GRAY_ALPHA * window->details->cover_level / COVER_STEPS;
+	GdkRGBA bg;
+
+	if (alpha <= 0) {
+		return FALSE;
+	}
+
+	if (gtk_style_context_lookup_color (context, "theme_bg_color", &bg)) {
+		cairo_set_source_rgba (cr, bg.red, bg.green, bg.blue, bg.alpha * alpha);
+		cairo_paint (cr);
+	} else {
+		cairo_push_group (cr);
+		gtk_render_background (context, cr, 0, 0,
+				       gtk_widget_get_allocated_width (cover),
+				       gtk_widget_get_allocated_height (cover));
+		cairo_pop_group_to_source (cr);
+		cairo_paint_with_alpha (cr, alpha);
+	}
+	return FALSE;
+}
+
+static gboolean
+cover_tick (GtkWidget     *cover,
+	    GdkFrameClock *clock,
+	    gpointer       data)
+{
+	NemoWindowDetails *details = NEMO_WINDOW (data)->details;
+	gint64 now = gdk_frame_clock_get_frame_time (clock);
+	guint level;
+
+	if (details->cover_start == 0) {
+		details->cover_start = now;
+	}
+	level = (guint) (COVER_STEPS * (1 - cos ((now - details->cover_start) * G_PI / G_USEC_PER_SEC)) / 2 + 0.5);
+	if (level != details->cover_level) {
+		details->cover_level = level;
+		gtk_widget_queue_draw (cover);
+	}
+	return G_SOURCE_CONTINUE;
+}
+
+/* The fade lives exactly as long as the cover is on screen. */
+static void
+cover_map (GtkWidget  *cover,
+	   NemoWindow *window)
+{
+	gboolean animate = TRUE;
+
+	g_object_get (gtk_widget_get_settings (cover), "gtk-enable-animations", &animate, NULL);
+	window->details->cover_start = 0;
+	if (!animate) {
+		window->details->cover_level = COVER_STEPS;
+	} else if (window->details->cover_tick == 0) {
+		window->details->cover_level = 0;
+		window->details->cover_tick = gtk_widget_add_tick_callback (cover, cover_tick, window, NULL);
+	}
+}
+
+static void
+cover_unmap (GtkWidget  *cover,
+	     NemoWindow *window)
+{
+	if (window->details->cover_tick != 0) {
+		gtk_widget_remove_tick_callback (cover, window->details->cover_tick);
+		window->details->cover_tick = 0;
+	}
+	window->details->cover_level = 0;
+}
+
+static void
+sync_input_cover (NemoWindow *window)
+{
+	if (window->details->input_cover != NULL) {
+		gtk_widget_set_visible (window->details->input_cover, waiting_on_share (window));
+	}
+}
+
 static void
 update_cursor (NemoWindow *window)
 {
-	NemoWindowSlot *slot;
 	GdkCursor *cursor;
 
-	slot = nemo_window_get_active_slot (window);
-
-	if (slot && slot->allow_stop) {
-		cursor = gdk_cursor_new (GDK_WATCH);
-                gdk_window_set_cursor (gtk_widget_get_window (GTK_WIDGET (window)), cursor);
-		g_object_unref (cursor);
+	if (waiting_on_share (window)) {
+		/* "progress", the arrow with a spinner. Never the watch, since
+		 * Escape and the title bar still work, and the fade already says
+		 * the rest is held. */
+		cursor = gdk_cursor_new_from_name (gtk_widget_get_display (GTK_WIDGET (window)),
+						   "progress");
+		gdk_window_set_cursor (gtk_widget_get_window (GTK_WIDGET (window)), cursor);
+		g_clear_object (&cursor);
 	} else {
 #ifdef G_OS_WIN32
 		/* Reset to the arrow explicitly rather than clearing to NULL, so
@@ -278,6 +379,16 @@ update_cursor (NemoWindow *window)
                 gdk_window_set_cursor (gtk_widget_get_window (GTK_WIDGET (window)), NULL);
 #endif
         }
+}
+
+void
+nemo_window_sync_pointer (NemoWindow *window)
+{
+	sync_input_cover (window);
+
+	if (gtk_widget_get_realized (GTK_WIDGET (window))) {
+		update_cursor (window);
+	}
 }
 
 void
@@ -410,7 +521,7 @@ save_tree_width_cb (gpointer user_data)
 
 /* side pane helpers */
 static void
-places_size_allocate_callback (GtkWidget *widget,
+places_size_allocate_callback (G_GNUC_UNUSED GtkWidget *widget,
 			       GtkAllocation *allocation,
 			       gpointer user_data)
 {
@@ -434,7 +545,7 @@ places_size_allocate_callback (GtkWidget *widget,
 /* From the divider, not from size-allocate. The tree scales with the window,
    and saving every scaled width would lose the one that was dragged. */
 static void
-tree_placed_callback (GtkWidget *paned,
+tree_placed_callback (G_GNUC_UNUSED GtkWidget *paned,
 		      int position,
 		      gpointer user_data)
 {
@@ -696,7 +807,7 @@ nemo_window_disable_chrome_mapping (GValue                *value,
 }
 
 static gboolean
-on_button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer user_data)
+on_button_press_callback (G_GNUC_UNUSED GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 {
     NemoWindow *window = NEMO_WINDOW (user_data);
 
@@ -728,7 +839,7 @@ hide_menu_on_delay (NemoWindow *window)
 
 static gboolean
 on_menu_focus_out (GtkMenuShell *widget,
-                   GdkEvent  *event,
+                   G_GNUC_UNUSED GdkEvent  *event,
                    gpointer   user_data)
 {
     NemoWindow *window = NEMO_WINDOW (user_data);
@@ -751,7 +862,7 @@ on_menu_focus_out (GtkMenuShell *widget,
 }
 
 void
-on_menu_selection_done (GtkMenuShell *menushell,
+on_menu_selection_done (G_GNUC_UNUSED GtkMenuShell *menushell,
                         gpointer      user_data)
 {
 	NemoWindow *window = NEMO_WINDOW (user_data);
@@ -765,6 +876,7 @@ static void
 nemo_window_constructed (GObject *self)
 {
 	NemoWindow *window;
+	GtkWidget *overlay;
 	GtkWidget *grid;
 	GtkWidget *menu;
 	GtkWidget *hpaned;
@@ -786,10 +898,34 @@ nemo_window_constructed (GObject *self)
 	 */
 	gtk_application_window_set_show_menubar (GTK_APPLICATION_WINDOW (self), FALSE);
 
+	overlay = gtk_overlay_new ();
+	gtk_widget_show (overlay);
+	gtk_container_add (GTK_CONTAINER (window), overlay);
+
 	grid = gtk_grid_new ();
 	gtk_orientable_set_orientation (GTK_ORIENTABLE (grid), GTK_ORIENTATION_VERTICAL);
 	gtk_widget_show (grid);
-	gtk_container_add (GTK_CONTAINER (window), grid);
+	gtk_container_add (GTK_CONTAINER (overlay), grid);
+
+	/* Takes the clicks, scrolls and drops while a share connects, and fades
+	   what it covers. Nothing is made insensitive, which would also take the
+	   focus away. An overlay child is also what GTK finds first for a drop. */
+	window->details->input_cover = gtk_event_box_new ();
+	gtk_event_box_set_visible_window (GTK_EVENT_BOX (window->details->input_cover), FALSE);
+	gtk_widget_add_events (window->details->input_cover,
+			       GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK |
+			       GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK |
+			       GDK_POINTER_MOTION_MASK | GDK_TOUCH_MASK);
+	gtk_widget_set_no_show_all (window->details->input_cover, TRUE);
+	g_signal_connect (window->details->input_cover, "event",
+			  G_CALLBACK (gtk_true), NULL);
+	g_signal_connect_after (window->details->input_cover, "draw",
+				G_CALLBACK (cover_draw), window);
+	g_signal_connect (window->details->input_cover, "map",
+			  G_CALLBACK (cover_map), window);
+	g_signal_connect (window->details->input_cover, "unmap",
+			  G_CALLBACK (cover_unmap), window);
+	gtk_overlay_add_overlay (GTK_OVERLAY (overlay), window->details->input_cover);
 
 	/* Statusbar is packed in the subclasses */
 
@@ -969,7 +1105,7 @@ static void
 nemo_window_get_property (GObject *object,
 			      guint arg_id,
 			      GValue *value,
-			      GParamSpec *pspec)
+			      G_GNUC_UNUSED GParamSpec *pspec)
 {
 	NemoWindow *window;
 
@@ -1048,16 +1184,6 @@ nemo_window_finalize (GObject *object)
 
 	cancel_pending_geometry_save (window);
 
-    g_signal_handlers_disconnect_by_func (nemo_preferences,
-                                          nemo_window_sync_thumbnail_action,
-                                          window);
-    g_signal_handlers_disconnect_by_func (nemo_preferences,
-                                          default_folder_viewer_changed,
-                                          window);
-    g_signal_handlers_disconnect_by_func (nemo_preferences,
-                                          title_spelling_changed,
-                                          window);
-
     clear_menu_hide_delay (window);
 
 	nemo_window_finalize_menus (window);
@@ -1066,6 +1192,11 @@ nemo_window_finalize (GObject *object)
     g_clear_object (&window->details->secondary_pane_last_location);
 
 	g_clear_object (&window->details->ui_manager);
+
+	g_free (window->details->ignore_meta_view_id);
+	g_free (window->details->ignore_meta_sort_column);
+	g_list_free_full (window->details->ignore_meta_visible_columns, g_free);
+	g_list_free_full (window->details->ignore_meta_column_order, g_free);
 
 	/* nemo_window_close() should have run */
 	g_assert (window->details->panes == NULL);
@@ -1246,6 +1377,7 @@ nemo_window_close_pane (NemoWindow *window,
 	gtk_widget_destroy (GTK_WIDGET (pane));
 }
 
+/* Returns: (transfer none) */
 NemoWindowPane*
 nemo_window_get_active_pane (NemoWindow *window)
 {
@@ -1355,7 +1487,7 @@ static void
 nemo_window_realize (GtkWidget *widget)
 {
 	GTK_WIDGET_CLASS (nemo_window_parent_class)->realize (widget);
-	update_cursor (NEMO_WINDOW (widget));
+	nemo_window_sync_pointer (NEMO_WINDOW (widget));
 }
 
 static void
@@ -1430,6 +1562,15 @@ nemo_window_key_press_event (GtkWidget *widget,
 
 	active_slot = nemo_window_get_active_slot (window);
 	view = active_slot->content_view;
+
+	/* Ahead of the focus widget, the accelerators and the menu bar. */
+	if (nemo_window_slot_is_connecting (active_slot)) {
+		if (event->keyval == GDK_KEY_Escape &&
+		    (event->state & gtk_accelerator_get_default_mod_mask ()) == 0) {
+			nemo_window_slot_stop_loading (active_slot);
+		}
+		return TRUE;
+	}
 
       /**
        * Disable the GTK Emoji Chooser
@@ -1518,6 +1659,10 @@ nemo_window_key_release_event (GtkWidget *widget,
 {
     NemoWindow *window = NEMO_WINDOW (widget);
 
+    if (waiting_on_share (window)) {
+        return TRUE;
+    }
+
     /* Conditions to show the menu via the alt key is that it must have been pressed and
      * released without any other key events in between, and we must not have hidden the
      * menu on the alt key press event.  Show we check both flags here, for opposing states.
@@ -1565,7 +1710,7 @@ title_spelling_changed (NemoWindow *window)
  */
 
 static void
-sync_view_type_callback (NemoFile *file,
+sync_view_type_callback (G_GNUC_UNUSED NemoFile *file,
                          gpointer callback_data)
 {
     NemoWindow *window;
@@ -1694,7 +1839,7 @@ set_title (NemoWindow *window, NemoWindowSlot *slot)
    may not. The tabs are left alone here: the notebook fits those against its own
    allocation. */
 static void
-title_size_allocate_cb (GtkWidget *widget, GtkAllocation *allocation, gpointer user_data)
+title_size_allocate_cb (GtkWidget *widget, GtkAllocation *allocation, G_GNUC_UNUSED gpointer user_data)
 {
 	NemoWindow *window = NEMO_WINDOW (widget);
 	NemoWindowSlot *slot;
@@ -1871,7 +2016,7 @@ nemo_window_sync_create_folder_button (NemoWindow *window)
 }
 
 static void
-zoom_level_changed_callback (NemoView *view,
+zoom_level_changed_callback (G_GNUC_UNUSED NemoView *view,
                              NemoWindow *window)
 {
 	g_assert (NEMO_IS_WINDOW (window));
@@ -1913,10 +2058,12 @@ nemo_window_connect_content_view (NemoWindow *window,
         nemo_window_sync_view_type (window);
     }
 
-	/* A click in either side pane leaves the keyboard there. Only a location
-	 * that needs a different view type gets this far, so without the check a
-	 * place with its own view type would lose the focus and one beside it
-	 * would not. A pane that is not up reads as NULL, which is not within. */
+	/* A click in the tree leaves the keyboard there, and a rename in "Places"
+	 * keeps it while it lasts; "Places" holds it at no other time. Only a
+	 * location that needs a different view type gets this far, so without the
+	 * check a folder with its own view type would take the focus from the tree
+	 * and one beside it would not. A pane that is not up reads as NULL, which
+	 * is not within. */
 	if (!eel_gtk_focus_is_within (window->details->places_sidebar) &&
 	    !eel_gtk_focus_is_within (window->details->tree_sidebar)) {
 		nemo_view_grab_focus (view);
@@ -1973,6 +2120,7 @@ nemo_window_show (GtkWidget *widget)
 	gtk_ui_manager_ensure_update (window->details->ui_manager);
 }
 
+/* Returns: (transfer none): owned by @window */
 GtkUIManager *
 nemo_window_get_ui_manager (NemoWindow *window)
 {
@@ -1981,6 +2129,7 @@ nemo_window_get_ui_manager (NemoWindow *window)
 	return window->details->ui_manager;
 }
 
+/* Returns: (transfer none): owned by @window */
 GtkActionGroup *
 nemo_window_get_main_action_group (NemoWindow *window)
 {
@@ -1989,6 +2138,7 @@ nemo_window_get_main_action_group (NemoWindow *window)
 	return window->details->main_action_group;
 }
 
+/* Returns: (transfer none): owned by @window */
 NemoNavigationState *
 nemo_window_get_navigation_state (NemoWindow *window)
 {
@@ -1997,6 +2147,7 @@ nemo_window_get_navigation_state (NemoWindow *window)
 	return window->details->nav_state;
 }
 
+/* Returns: (transfer none): owned by @window */
 NemoWindowPane *
 nemo_window_get_next_pane (NemoWindow *window)
 {
@@ -2052,6 +2203,7 @@ nemo_window_slot_set_viewed_file (NemoWindowSlot *slot,
 	slot->viewed_file = file;
 }
 
+/* Returns: (transfer none): owned by @window */
 NemoWindowSlot *
 nemo_window_get_slot_for_view (NemoWindow *window,
 				   NemoView *view)
@@ -2090,6 +2242,7 @@ nemo_window_set_hidden_files_mode (NemoWindow *window,
 	g_signal_emit_by_name (window, "hidden_files_mode_changed");
 }
 
+/* Returns: (transfer none): owned by @window */
 NemoWindowSlot *
 nemo_window_get_active_slot (NemoWindow *window)
 {
@@ -2102,6 +2255,7 @@ nemo_window_get_active_slot (NemoWindow *window)
 	return window->details->active_pane->active_slot;
 }
 
+/* Returns: (transfer none): owned by @window */
 NemoWindowSlot *
 nemo_window_get_extra_slot (NemoWindow *window)
 {
@@ -2132,6 +2286,7 @@ nemo_window_get_extra_slot (NemoWindow *window)
 	return extra_pane->active_slot;
 }
 
+/* Returns: (transfer none): owned by @window */
 GList *
 nemo_window_get_panes (NemoWindow *window)
 {
@@ -2159,8 +2314,8 @@ window_set_search_action_text (NemoWindow *window,
 
 static void
 center_pane_divider (GtkWidget  *paned,
-                     GParamSpec *pspec,
-                     gpointer    user_data)
+                     G_GNUC_UNUSED GParamSpec *pspec,
+                     G_GNUC_UNUSED gpointer    user_data)
 {
     /* Make the paned think it's been manually resized, otherwise
      * things like the trash bar will force unwanted resizes */
@@ -2233,7 +2388,7 @@ nemo_window_state_event (GtkWidget *widget,
 
 static gboolean
 nemo_window_delete_event (GtkWidget *widget,
-			      GdkEventAny *event)
+			      G_GNUC_UNUSED GdkEventAny *event)
 {
 	nemo_window_close (NEMO_WINDOW (widget));
 	return FALSE;
@@ -2263,7 +2418,7 @@ nemo_window_button_press_event (GtkWidget *widget,
 }
 
 static void
-mouse_back_button_changed (gpointer callback_data)
+mouse_back_button_changed (G_GNUC_UNUSED gpointer callback_data)
 {
 	int new_back_button;
 
@@ -2277,7 +2432,7 @@ mouse_back_button_changed (gpointer callback_data)
 }
 
 static void
-mouse_forward_button_changed (gpointer callback_data)
+mouse_forward_button_changed (G_GNUC_UNUSED gpointer callback_data)
 {
 	int new_forward_button;
 
@@ -2291,7 +2446,7 @@ mouse_forward_button_changed (gpointer callback_data)
 }
 
 static void
-use_extra_mouse_buttons_changed (gpointer callback_data)
+use_extra_mouse_buttons_changed (G_GNUC_UNUSED gpointer callback_data)
 {
 	mouse_extra_buttons = nemo_config_get_boolean (nemo_preferences, NEMO_PREFERENCES_MOUSE_USE_EXTRA_BUTTONS);
 }
@@ -2385,26 +2540,26 @@ nemo_window_init (NemoWindow *window)
 
 	nemo_delete_guard_watch_window (GTK_WINDOW (window));
 
-    g_signal_connect_swapped (nemo_preferences,
+    g_signal_connect_object (nemo_preferences,
 				  "changed::" NEMO_PREFERENCES_SHOW_IMAGE_FILE_THUMBNAILS,
 				  G_CALLBACK(nemo_window_sync_thumbnail_action),
-				  window);
-    g_signal_connect_swapped (nemo_preferences,
+				  window, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_preferences,
 				  "changed::" NEMO_PREFERENCES_INHERIT_SHOW_THUMBNAILS,
 				  G_CALLBACK(nemo_window_sync_thumbnail_action),
-				  window);
-    g_signal_connect_swapped (nemo_preferences,
+				  window, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_preferences,
 				  "changed::" NEMO_PREFERENCES_DEFAULT_FOLDER_VIEWER,
 				  G_CALLBACK(default_folder_viewer_changed),
-				  window);
-    g_signal_connect_swapped (nemo_preferences,
+				  window, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_preferences,
 				  "changed::" NEMO_PREFERENCES_SHOW_FULL_PATH_TITLES,
 				  G_CALLBACK(title_spelling_changed),
-				  window);
-    g_signal_connect_swapped (nemo_preferences,
+				  window, G_CONNECT_SWAPPED);
+    g_signal_connect_object (nemo_windows_preferences,
 				  "changed::" NEMO_PREFERENCES_PATH_SEPARATOR,
 				  G_CALLBACK(title_spelling_changed),
-				  window);
+				  window, G_CONNECT_SWAPPED);
 }
 
 static void
@@ -2567,6 +2722,7 @@ nemo_window_class_init (NemoWindowClass *class)
 	g_type_class_add_private (oclass, sizeof (NemoWindowDetails));
 }
 
+/* Returns: (transfer none): a toplevel owned by @application */
 NemoWindow *
 nemo_window_new (GtkApplication *application,
                  GdkScreen *screen)
@@ -2653,6 +2809,7 @@ nemo_window_clear_secondary_pane_location (NemoWindow *window)
     g_clear_object (&window->details->secondary_pane_last_location);
 }
 
+/* Returns: (transfer none): owned by @window */
 const gchar *
 nemo_window_get_ignore_meta_view_id (NemoWindow *window)
 {
@@ -2721,38 +2878,41 @@ nemo_window_forget_ignore_meta_icon_sizes (NemoWindow *window)
     window->details->ignore_meta_list_icon_size = 0;
 }
 
+/* Returns: (transfer full): free with g_list_free_full (list, g_free) */
 GList *
 nemo_window_get_ignore_meta_visible_columns (NemoWindow *window)
 {
-    return g_list_copy_deep (window->details->ignore_meta_visible_columns, (GCopyFunc) g_strdup, NULL);
+    return eel_g_str_list_copy (window->details->ignore_meta_visible_columns);
 }
 
 void
 nemo_window_set_ignore_meta_visible_columns (NemoWindow *window, GList *list)
 {
     GList *old = window->details->ignore_meta_visible_columns;
-    window->details->ignore_meta_visible_columns = list != NULL ? g_list_copy_deep (list, (GCopyFunc) g_strdup, NULL) :
+    window->details->ignore_meta_visible_columns = list != NULL ? eel_g_str_list_copy (list) :
                                                                   NULL;
     if (old != NULL)
         g_list_free_full (old, g_free);
 }
 
+/* Returns: (transfer full): free with g_list_free_full (list, g_free) */
 GList *
 nemo_window_get_ignore_meta_column_order (NemoWindow *window)
 {
-    return g_list_copy_deep (window->details->ignore_meta_column_order, (GCopyFunc) g_strdup, NULL);
+    return eel_g_str_list_copy (window->details->ignore_meta_column_order);
 }
 
 void
 nemo_window_set_ignore_meta_column_order (NemoWindow *window, GList *list)
 {
     GList *old = window->details->ignore_meta_column_order;
-    window->details->ignore_meta_column_order = list != NULL ? g_list_copy_deep (list, (GCopyFunc) g_strdup, NULL) :
+    window->details->ignore_meta_column_order = list != NULL ? eel_g_str_list_copy (list) :
                                                                NULL;
     if (old != NULL)
         g_list_free_full (old, g_free);
 }
 
+/* Returns: (transfer none): owned by @window */
 const gchar *
 nemo_window_get_ignore_meta_sort_column (NemoWindow *window)
 {
@@ -2762,11 +2922,10 @@ nemo_window_get_ignore_meta_sort_column (NemoWindow *window)
 void
 nemo_window_set_ignore_meta_sort_column (NemoWindow *window, const gchar *column)
 {
-    if (column != NULL) {
-        gchar *old_column = window->details->ignore_meta_sort_column;
-        window->details->ignore_meta_sort_column = g_strdup (column);
-        g_free (old_column);
-    }
+    /* NULL is how a reset forgets it, back to the default sort. */
+    gchar *old_column = window->details->ignore_meta_sort_column;
+    window->details->ignore_meta_sort_column = g_strdup (column);
+    g_free (old_column);
 }
 
 gint

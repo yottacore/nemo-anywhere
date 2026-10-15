@@ -17,13 +17,16 @@
 
 #include <libnemo-private/nemo-file-utilities.h>
 
-#ifndef G_OS_WIN32
+#ifdef G_OS_WIN32
+#include <libnemo-private/nemo-launch-win32.h>
+#else
 #include <unistd.h>
 #endif
 
 /* The command line another copy needs to show what this one was asked for.
  * A selection is passed as --select when the location is its folder; when it
- * is not, the location alone is what can be said on a command line. */
+ * is not, the location alone is what can be said on a command line.
+ * Returns: (transfer full): free with g_strfreev */
 char **
 nemo_new_process_argv (GFile *location,
                        GFile *selection)
@@ -47,7 +50,8 @@ nemo_new_process_argv (GFile *location,
 }
 
 /* A tab moved out into a window of its own keeps its view and selection. The
- * options are hidden ones, and apply only to a single location. */
+ * options are hidden ones, and apply only to a single location.
+ * Returns: (transfer full): free with g_strfreev */
 char **
 nemo_new_process_argv_tab (GFile       *location,
                            const char  *view_id,
@@ -73,47 +77,51 @@ nemo_new_process_argv_tab (GFile       *location,
 	return (char **) g_ptr_array_free (argv, FALSE);
 }
 
+#ifdef G_OS_WIN32
+static gboolean
+spawn_argv (char    **argv,
+            GError  **error)
+{
+	return nemo_launch_win32_new_copy ((const gchar * const *) argv, error);
+}
+#else
 static void
 child_exited (GPid     pid,
-              gint     status,
-              gpointer user_data)
+              G_GNUC_UNUSED gint     status,
+              G_GNUC_UNUSED gpointer user_data)
 {
 	g_spawn_close_pid (pid);
 }
 
-#ifndef G_OS_WIN32
 /* Its own session, so a hangup or an interrupt aimed at the window that
  * started it does not reach it. */
 static void
-detach_from_terminal (gpointer user_data)
+detach_from_terminal (G_GNUC_UNUSED gpointer user_data)
 {
 	setsid ();
 }
-#endif
 
 static gboolean
 spawn_argv (char    **argv,
             GError  **error)
 {
-	GSpawnChildSetupFunc setup = NULL;
+	/* It makes its own settings again, and has to see the user's to do it. */
+	char **env = nemo_get_user_environ ();
 	GPid pid;
 	gboolean ok;
 
-#ifndef G_OS_WIN32
-	setup = detach_from_terminal;
-#endif
-
-	/* Reaping it ourselves keeps GLib off its helper process on Windows and
-	 * off a zombie here. */
-	ok = g_spawn_async (NULL, argv, NULL,
+	/* Reaped here, so no zombie is left. */
+	ok = g_spawn_async (NULL, argv, env,
 	                    G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD,
-	                    setup, NULL, &pid, error);
+	                    detach_from_terminal, NULL, &pid, error);
+	g_strfreev (env);
 	if (ok) {
 		g_child_watch_add (pid, child_exited, NULL);
 	}
 
 	return ok;
 }
+#endif
 
 gboolean
 nemo_new_process_spawn (GFile   *location,

@@ -45,6 +45,11 @@ gboolean              eel_check_is_wayland (void);
 void                  eel_pop_up_context_menu                         (GtkMenu              *menu,
                                                                        GdkEvent             *event,
                                                                        GtkWidget            *widget);
+void                  eel_pop_up_context_menu_at_item                 (GtkMenu              *menu,
+                                                                       GdkEvent             *event,
+                                                                       GtkWidget            *widget,
+                                                                       const GdkRectangle   *item);
+void                  eel_gtk_menu_destroy_on_close                   (GtkMenu              *menu);
 GtkMenuItem *         eel_gtk_menu_append_separator                   (GtkMenu              *menu);
 GtkMenuItem *         eel_gtk_menu_insert_separator                   (GtkMenu              *menu,
 								       int                   index);
@@ -61,6 +66,10 @@ gboolean              eel_gtk_get_treeview_row_text_at_pos           (GtkTreeVie
                                                                        gint x, gint y);
 gboolean              eel_gtk_get_treeview_row_text_is_under_pointer  (GtkTreeView *tree_view);
 void                  eel_gtk_tree_view_forget_cursor                 (GtkTreeView *tree_view);
+gboolean              eel_gtk_tree_view_get_row_rect                  (GtkTreeView *tree_view,
+                                                                       GtkTreePath *path,
+                                                                       GtkTreeViewColumn *column,
+                                                                       GdkRectangle *rect);
 gchar *               eel_gtk_tree_view_column_clipped_text          (GtkTreeViewColumn *column,
                                                                        GtkTreeModel *model,
                                                                        GtkTreeIter *iter);
@@ -68,8 +77,54 @@ gchar *               eel_gtk_tree_view_column_clipped_text          (GtkTreeVie
 /* Focus */
 void                  eel_gtk_widget_refuse_focus                     (GtkWidget *widget);
 void                  eel_gtk_notebook_keep_focus_off_tabs            (GtkNotebook *notebook);
+void                  eel_gtk_list_box_keep_focus_off_rows            (GtkListBox *box);
+void                  eel_gtk_tabs_keep_focus_off                     (GtkWidget *tabs);
+void                  eel_gtk_tabs_keep_focus_off_within              (GtkWidget *container);
 gboolean              eel_gtk_focus_is_within                         (GtkWidget *container);
+void                  eel_gtk_tooltips_need_focus                     (void);
 
 /* Cmd on macOS, Control elsewhere */
 GdkModifierType       eel_gtk_primary_mask                            (GdkWindow *window);
+
+/* A right press opens its menu when the button comes up, so the same press can
+   drag a band instead. One that moved past the drag threshold is no click.
+   A plain left press held still for GTK's long-press time opens it too. */
+typedef void (*EelMenuPressFunc) (GtkWidget *widget, GdkEventButton *event, gpointer data);
+
+typedef struct {
+	guint    button;
+	gdouble  x;
+	gdouble  y;
+	gboolean moved;
+
+	guint             hold_id;
+	GtkWidget        *hold_widget;
+	GdkEvent         *hold_event;
+	gint64            hold_start;
+	gulong            hold_motion_id;
+	gulong            hold_destroy_id;
+	EelMenuPressFunc  hold_func;
+	gpointer          hold_data;
+	guint             held;		/* fired with no menu to take its release */
+} EelMenuPress;
+
+void                  eel_menu_press_begin                            (EelMenuPress *press,
+                                                                       guint button,
+                                                                       gdouble x, gdouble y);
+gboolean              eel_menu_press_moved                            (EelMenuPress *press,
+                                                                       GtkWidget *widget,
+                                                                       gdouble x, gdouble y);
+gboolean              eel_menu_press_end                              (EelMenuPress *press,
+                                                                       GtkWidget *widget,
+                                                                       guint button,
+                                                                       gdouble x, gdouble y);
+void                  eel_menu_press_hold                             (EelMenuPress *press,
+                                                                       GtkWidget *widget,
+                                                                       GdkEventButton *event,
+                                                                       gdouble x, gdouble y,
+                                                                       EelMenuPressFunc func,
+                                                                       gpointer data);
+gboolean              eel_menu_press_held                             (EelMenuPress *press,
+                                                                       guint button);
+void                  eel_menu_press_cancel                           (EelMenuPress *press);
 #endif /* EEL_GTK_EXTENSIONS_H */

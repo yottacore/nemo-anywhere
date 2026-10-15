@@ -213,7 +213,7 @@ check_entry_text (NemoQueryEditor *editor)
 }
 
 static void
-entry_activate_cb (GtkWidget *entry, NemoQueryEditor *editor)
+entry_activate_cb (G_GNUC_UNUSED GtkWidget *entry, NemoQueryEditor *editor)
 {
     /* Enter usually beats the pending check, which is what decides whether the search
      * may run at all. Run it now rather than dropping it, or a query typed quickly is
@@ -231,7 +231,7 @@ entry_activate_cb (GtkWidget *entry, NemoQueryEditor *editor)
 }
 
 static void
-content_case_button_toggled_cb (GtkWidget *toggle, NemoQueryEditor *editor)
+content_case_button_toggled_cb (G_GNUC_UNUSED GtkWidget *toggle, NemoQueryEditor *editor)
 {
     nemo_config_set_boolean (nemo_search_preferences,
                             NEMO_PREFERENCES_SEARCH_CONTENT_CASE,
@@ -239,7 +239,7 @@ content_case_button_toggled_cb (GtkWidget *toggle, NemoQueryEditor *editor)
 }
 
 static void
-file_case_button_toggled_cb (GtkWidget *toggle, NemoQueryEditor *editor)
+file_case_button_toggled_cb (G_GNUC_UNUSED GtkWidget *toggle, NemoQueryEditor *editor)
 {
     nemo_config_set_boolean (nemo_search_preferences,
                             NEMO_PREFERENCES_SEARCH_FILE_CASE,
@@ -247,7 +247,7 @@ file_case_button_toggled_cb (GtkWidget *toggle, NemoQueryEditor *editor)
 }
 
 static void
-file_regex_button_toggled_cb (GtkWidget *toggle, NemoQueryEditor *editor)
+file_regex_button_toggled_cb (G_GNUC_UNUSED GtkWidget *toggle, NemoQueryEditor *editor)
 {
     nemo_config_set_boolean (nemo_search_preferences,
                             NEMO_PREFERENCES_SEARCH_FILES_REGEX,
@@ -256,7 +256,7 @@ file_regex_button_toggled_cb (GtkWidget *toggle, NemoQueryEditor *editor)
 }
 
 static void
-content_regex_button_toggled_cb (GtkWidget *toggle, NemoQueryEditor *editor)
+content_regex_button_toggled_cb (G_GNUC_UNUSED GtkWidget *toggle, NemoQueryEditor *editor)
 {
     nemo_config_set_boolean (nemo_search_preferences,
                             NEMO_PREFERENCES_SEARCH_CONTENT_REGEX,
@@ -265,7 +265,7 @@ content_regex_button_toggled_cb (GtkWidget *toggle, NemoQueryEditor *editor)
 }
 
 static void
-file_recurse_button_toggled_cb (GtkWidget *toggle, NemoQueryEditor *editor)
+file_recurse_button_toggled_cb (G_GNUC_UNUSED GtkWidget *toggle, NemoQueryEditor *editor)
 {
     nemo_config_set_boolean (nemo_search_preferences,
                             NEMO_PREFERENCES_SEARCH_FILES_RECURSIVELY,
@@ -275,7 +275,7 @@ file_recurse_button_toggled_cb (GtkWidget *toggle, NemoQueryEditor *editor)
 /* Purely how results are shown, so it changes no query - the list view picks the
    setting up and rebuilds from what it already has. */
 static void
-file_group_button_toggled_cb (GtkWidget *toggle, NemoQueryEditor *editor)
+file_group_button_toggled_cb (G_GNUC_UNUSED GtkWidget *toggle, NemoQueryEditor *editor)
 {
     nemo_config_set_boolean (nemo_search_preferences,
                             NEMO_PREFERENCES_SEARCH_GROUP_BY_FOLDER,
@@ -313,7 +313,7 @@ on_key_press_event (GtkWidget    *widget,
 }
 
 static void
-search_icon_clicked_cb (GtkWidget             *widget,
+search_icon_clicked_cb (G_GNUC_UNUSED GtkWidget             *widget,
                         GtkEntryIconPosition   position,
                         GdkEvent              *event,
                         gpointer               user_data)
@@ -333,7 +333,7 @@ search_icon_clicked_cb (GtkWidget             *widget,
 
 static void
 entry_focus_changed (GtkWidget  *widget,
-                     GParamSpec *spec,
+                     G_GNUC_UNUSED GParamSpec *spec,
                      gpointer    data)
 {
     NemoQueryEditor *editor = NEMO_QUERY_EDITOR (data);
@@ -344,7 +344,7 @@ entry_focus_changed (GtkWidget  *widget,
 }
 
 static void
-entry_text_changed (GtkWidget *entry, gpointer user_data)
+entry_text_changed (G_GNUC_UNUSED GtkWidget *entry, gpointer user_data)
 {
     NemoQueryEditor *editor = NEMO_QUERY_EDITOR (user_data);
 
@@ -520,6 +520,7 @@ nemo_query_editor_changed (NemoQueryEditor *editor)
 	nemo_query_editor_changed_force (editor, TRUE);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoQuery *
 nemo_query_editor_get_query (NemoQueryEditor *editor)
 {
@@ -567,6 +568,7 @@ nemo_query_editor_get_query (NemoQueryEditor *editor)
     return query;
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_query_editor_new (void)
 {
@@ -605,6 +607,8 @@ nemo_query_editor_set_query (NemoQueryEditor	*editor,
     gtk_entry_set_text (GTK_ENTRY (editor->priv->file_entry), file_pattern);
 	gtk_entry_set_text (GTK_ENTRY (editor->priv->content_entry), content_pattern);
     gtk_widget_grab_focus (editor->priv->file_entry);
+    g_free (file_pattern);
+    g_free (content_pattern);
 
 	g_free (editor->priv->current_uri);
 	editor->priv->current_uri = NULL;
@@ -690,6 +694,7 @@ nemo_query_editor_get_active (NemoQueryEditor *editor)
     return gtk_widget_get_visible (editor->priv->infobar);
 }
 
+/* Returns: (transfer none): owned by @editor */
 const gchar *
 nemo_query_editor_get_base_uri (NemoQueryEditor *editor)
 {

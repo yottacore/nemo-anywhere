@@ -34,8 +34,20 @@ char *test_scratch_config_home    (const char *tmpl);
 /* The suite shares one display, so a test whose answer depends on what else
    is on screen or who holds the pointer runs itself again under an X server
    of its own. screen is xvfb-run's -screen value, or NULL for its default.
-   Returns only when there is nothing to do or the relaunch failed. */
+   Returns only when there is nothing to do or the relaunch failed. With no
+   xvfb-run it starts Xvfb itself and returns in a forked copy that has it. */
 void  test_own_display (int argc, char **argv, const char *screen);
+
+/* How many times slower this box is than the one the suite's time limits
+   were set on, measured once per process and never below 1. A limit
+   multiplied by it still fails a real slowdown on a normal box, and stops
+   failing on an emulated one that is slow at everything. */
+double test_slowness (void);
+
+/* Whether the gdk-pixbuf in use has a loader named name ("bmp", "xpm"),
+   and whether that loader can save. */
+gboolean test_pixbuf_reads  (const char *name);
+gboolean test_pixbuf_writes (const char *name);
 
 /* Removes every directory made so far. Runs on its own at exit. */
 void  test_scratch_cleanup (void);

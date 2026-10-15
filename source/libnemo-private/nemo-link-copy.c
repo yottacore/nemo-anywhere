@@ -9,7 +9,6 @@
 
 #include <config.h>
 #include "nemo-link-copy.h"
-#include "nemo-lnk.h"
 
 #include <errno.h>
 #include <stdlib.h>
@@ -74,7 +73,7 @@ nemo_link_read_target (GFile   *file,
 
 	if (path == NULL) {
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-				     _("That is not a local file."));
+				     _("That isn't a local file."));
 		return FALSE;
 	}
 
@@ -99,7 +98,7 @@ nemo_link_read_target (GFile   *file,
 
 	if (*target == NULL) {
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-				     _("That is not a link."));
+				     _("That isn't a link."));
 		return FALSE;
 	}
 
@@ -240,6 +239,7 @@ typedef struct {
 	GtkWidget    *buttons[N_COLUMNS];
 } Row;
 
+/* Returns: (transfer none): a static string */
 const char *
 nemo_link_choice_row_label (NemoLinkKind found,
                             guint        count)
@@ -255,7 +255,8 @@ nemo_link_choice_row_label (NemoLinkKind found,
 }
 
 /* Said as what happens to this link, since "Symlink" beside a symlink read as
-   though a new one would be made. */
+   though a new one would be made.
+   Returns: (transfer none): a static string */
 const char *
 nemo_link_choice_label (NemoLinkKind found,
                         NemoLinkKind offer,
@@ -281,6 +282,7 @@ nemo_link_choice_label (NemoLinkKind found,
 		       : ngettext ("Copy as a symlink", "Copy as symlinks", count);
 }
 
+/* Returns: (transfer none): a static string */
 const char *
 nemo_link_choice_tooltip (NemoLinkKind found,
                           NemoLinkKind offer)
@@ -289,9 +291,9 @@ nemo_link_choice_tooltip (NemoLinkKind found,
 		return NULL;
 	}
 #ifdef G_OS_WIN32
-	return _("Links inside are copied as links, and junctions as junctions. They are not followed.");
+	return _("Links inside are copied as links, and junctions as junctions. They aren't followed.");
 #else
-	return _("Links inside are copied as links. They are not followed.");
+	return _("Links inside are copied as links. They aren't followed.");
 #endif
 }
 
@@ -436,9 +438,9 @@ nemo_link_choice_ask (GtkWindow            *parent,
 	   be. Junctions without symlinks is only ever Windows without the
 	   privilege; nothing at all is a file system that keeps no links. */
 	if (is_move && supported == 0) {
-		note = gtk_label_new (_("This folder cannot hold links, so the links cannot be moved here."));
+		note = gtk_label_new (_("This folder can't hold links, so the links can't be moved here."));
 	} else if (supported == 0) {
-		note = gtk_label_new (_("This folder cannot hold links, so only a copy is possible."));
+		note = gtk_label_new (_("This folder can't hold links, so only a copy is possible."));
 	} else if ((supported & NEMO_LINK_JUNCTION) && !(supported & NEMO_LINK_DIR_SYMLINK)) {
 		note = gtk_label_new (_("Symlinks need Developer Mode turned on, or nemo running as administrator."));
 	} else if (is_move) {
@@ -669,6 +671,7 @@ leads_to (const char *real_link_dir, const char *text, const char *real_target)
 }
 #endif
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_link_relative_target (const char *target_path,
                            const char *dir)
@@ -744,7 +747,6 @@ nemo_link_options_initial (guint            supported,
 	options->file_kind = (supported & NEMO_LINK_FILE_SYMLINK) ? NEMO_MAKE_SYMLINK
 								 : NEMO_MAKE_SHORTCUT;
 	options->relative = FALSE;
-	options->lnk_parts = NEMO_LNK_ALL_PARTS;
 }
 
 /* A junction is always absolute, a hardlink has no path at all, and a
@@ -794,11 +796,10 @@ read_options (MakeLinkDialog *d, NemoLinkOptions *options)
 			   : is_active (d->file_shortcut) ? NEMO_MAKE_SHORTCUT
 			   : NEMO_MAKE_SYMLINK;
 	options->relative = is_active (d->relative);
-	options->lnk_parts = NEMO_LNK_ALL_PARTS;
 }
 
 static void
-update_make_link_dialog (GtkToggleButton *button, MakeLinkDialog *d)
+update_make_link_dialog (G_GNUC_UNUSED GtkToggleButton *button, MakeLinkDialog *d)
 {
 	NemoLinkOptions options;
 	GtkWidget *path_row[3] = { d->path_label, d->absolute, d->relative };
@@ -917,7 +918,7 @@ confirm_hardlinks (GtkWindow *parent, int n_files)
 		ngettext ("Make a hardlink anyway?", "Make hardlinks anyway?", n_files),
 		/* As the secondary text, since without any GTK draws the title
 		   small, unlike every other question. */
-		_("A hardlink is not a copy, and not a pointer either. It is the same file "
+		_("A hardlink isn't a copy, and not a pointer either. It is the same file "
 		  "under a second name, and nothing on screen shows which files are tied "
 		  "together."),
 		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
@@ -1143,7 +1144,7 @@ nemo_link_options_ask (GtkWindow       *parent,
 
 	/* Say why something is grayed out. */
 	if (d.supported == 0) {
-		why = _("This folder cannot hold symlinks or junctions.");
+		why = _("This folder can't hold symlinks or junctions.");
 	} else if (!(d.supported & NEMO_LINK_FILE_SYMLINK)) {
 		why = _("Symlinks need Developer Mode turned on, or nemo running as administrator.");
 	}

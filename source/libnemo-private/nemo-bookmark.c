@@ -37,6 +37,7 @@
 #include <libnemo-private/nemo-file.h>
 #include <libnemo-private/nemo-file-utilities.h>
 #include <libnemo-private/nemo-icon-names.h>
+#include <libnemo-private/nemo-share.h>
 
 #define DEBUG_FLAG NEMO_DEBUG_BOOKMARKS
 #include <libnemo-private/nemo-debug.h>
@@ -116,7 +117,7 @@ nemo_bookmark_update_icon (NemoBookmark *bookmark)
 
 static void
 bookmark_set_name_from_ready_file (NemoBookmark *self,
-				   NemoFile *file)
+				   G_GNUC_UNUSED NemoFile *file)
 {
 	gchar *display_name;
 
@@ -196,7 +197,7 @@ nemo_bookmark_set_icon_to_default (NemoBookmark *bookmark)
     icon_name = construct_default_icon_from_metadata (bookmark);
 
     if (!nemo_bookmark_uri_get_exists (bookmark)) {
-        DEBUG ("%s: file does not exist, use special icon", nemo_bookmark_get_name (bookmark));
+        DEBUG ("%s: file doesn't exist, use special icon", nemo_bookmark_get_name (bookmark));
 
         g_clear_pointer (&icon_name, g_free);
 
@@ -289,11 +290,27 @@ bookmark_file_changed_callback (NemoFile *file,
 }
 
 static void
+bookmark_file_ready (NemoFile *file, gpointer callback_data)
+{
+	NemoBookmark *bookmark = NEMO_BOOKMARK (callback_data);
+
+	if (file != bookmark->details->file || nemo_file_is_gone (file)) {
+		return;
+	}
+
+	nemo_bookmark_update_icon (bookmark);
+	bookmark_set_name_from_ready_file (bookmark, file);
+}
+
+static void
 nemo_bookmark_disconnect_file (NemoBookmark *bookmark)
 {
 	if (bookmark->details->file != NULL) {
 		DEBUG ("%s: disconnecting file",
 		       nemo_bookmark_get_name (bookmark));
+
+		nemo_file_cancel_call_when_ready (bookmark->details->file,
+						  bookmark_file_ready, bookmark);
 
         g_signal_handlers_disconnect_by_func (bookmark->details->file,
                                               G_CALLBACK (bookmark_file_changed_callback),
@@ -322,6 +339,15 @@ nemo_bookmark_connect_file (NemoBookmark *bookmark)
         g_signal_connect_object (bookmark->details->file, "changed",
                                  G_CALLBACK (bookmark_file_changed_callback),
                                  bookmark, 0);
+
+		/* Name and icon wait on the info, which otherwise only came when a
+		   window happened to load the folder. Never asked of a share. */
+		if (g_file_is_native (bookmark->details->location) &&
+		    !nemo_file_is_on_a_share (bookmark->details->file)) {
+			nemo_file_call_when_ready (bookmark->details->file,
+						   NEMO_FILE_ATTRIBUTES_FOR_ICON,
+						   bookmark_file_ready, bookmark);
+		}
 	}
 
 	/* Set icon based on available information. */
@@ -508,6 +534,7 @@ nemo_bookmark_init (NemoBookmark *bookmark)
 							 NemoBookmarkDetails);
 }
 
+/* Returns: (transfer none): owned by @bookmark */
 const gchar *
 nemo_bookmark_get_name (NemoBookmark *bookmark)
 {
@@ -607,6 +634,7 @@ nemo_bookmark_compare_uris (gconstpointer a, gconstpointer b)
 			      bookmark_b->details->location);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoBookmark *
 nemo_bookmark_copy (NemoBookmark *bookmark)
 {
@@ -620,6 +648,7 @@ nemo_bookmark_copy (NemoBookmark *bookmark)
                                   nemo_bookmark_metadata_copy (bookmark->details->metadata) : NULL);
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_bookmark_get_icon_name (NemoBookmark *bookmark)
 {
@@ -634,6 +663,7 @@ nemo_bookmark_get_icon_name (NemoBookmark *bookmark)
 	return NULL;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GFile *
 nemo_bookmark_get_location (NemoBookmark *bookmark)
 {
@@ -650,6 +680,7 @@ nemo_bookmark_get_location (NemoBookmark *bookmark)
 	return g_object_ref (bookmark->details->location);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_bookmark_get_uri (NemoBookmark *bookmark)
 {
@@ -662,6 +693,7 @@ nemo_bookmark_get_uri (NemoBookmark *bookmark)
 	return uri;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoBookmark *
 nemo_bookmark_new (GFile                *location,
                    const gchar          *custom_name,
@@ -708,7 +740,7 @@ create_image_widget_for_bookmark (NemoBookmark *bookmark)
  *
  * Return a menu item representing a bookmark.
  * @bookmark: The bookmark the menu item represents.
- * Return value: A newly-created bookmark, not yet shown.
+ * Return value: (transfer floating): A newly-created bookmark, not yet shown.
  **/
 GtkWidget *
 nemo_bookmark_menu_item_new (NemoBookmark *bookmark)
@@ -743,7 +775,12 @@ nemo_bookmark_uri_get_exists (NemoBookmark *bookmark)
 
     path_name = g_file_get_path (bookmark->details->location);
 
-    if (g_file_is_native (bookmark->details->location) && 
+    /* Asked on the window's thread for every bookmark, on every rebuild of
+       the side pane while it reads as missing. One on a share is taken as
+       there, so it never waits on a host that is not answering. */
+    if (path_name != NULL && nemo_path_is_on_a_share (path_name)) {
+        exists = TRUE;
+    } else if (g_file_is_native (bookmark->details->location) &&
         (!nemo_location_is_network_safe (bookmark->details->location)) && g_file_test (path_name, G_FILE_TEST_EXISTS)) {
 		exists = TRUE;
 	} else {
@@ -763,6 +800,7 @@ nemo_bookmark_set_scroll_pos (NemoBookmark      *bookmark,
 	bookmark->details->scroll_file = g_strdup (uri);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_bookmark_get_scroll_pos (NemoBookmark      *bookmark)
 {
@@ -791,6 +829,7 @@ char_list_to_strv (GList *list)
     return (char **) g_ptr_array_free (array, FALSE);
 }
 
+/* Returns: (transfer full): free with nemo_bookmark_metadata_free */
 NemoBookmarkMetadata *
 nemo_bookmark_get_updated_metadata (NemoBookmark  *bookmark)
 {
@@ -818,6 +857,7 @@ nemo_bookmark_get_updated_metadata (NemoBookmark  *bookmark)
     return ret;
 }
 
+/* Returns: (transfer none): owned by @bookmark */
 NemoBookmarkMetadata *
 nemo_bookmark_get_current_metadata (NemoBookmark *bookmark)
 {
@@ -827,6 +867,7 @@ nemo_bookmark_get_current_metadata (NemoBookmark *bookmark)
     return NULL;
 }
 
+/* Returns: (transfer full): free with nemo_bookmark_metadata_free */
 NemoBookmarkMetadata *
 nemo_bookmark_metadata_new (void)
 {
@@ -835,6 +876,7 @@ nemo_bookmark_metadata_new (void)
     return meta;
 }
 
+/* Returns: (transfer full): free with nemo_bookmark_metadata_free */
 NemoBookmarkMetadata *
 nemo_bookmark_metadata_copy (NemoBookmarkMetadata *meta)
 {

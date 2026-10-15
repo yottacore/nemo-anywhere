@@ -62,10 +62,10 @@ enum {
 static guint signals[LAST_SIGNAL] = { 0 };
 
 static void
-actions_changed (GFileMonitor      *monitor,
+actions_changed (G_GNUC_UNUSED GFileMonitor      *monitor,
                  GFile             *file,
-                 GFile             *other_file,
-                 GFileMonitorEvent  event_type,
+                 G_GNUC_UNUSED GFile             *other_file,
+                 G_GNUC_UNUSED GFileMonitorEvent  event_type,
                  gpointer           user_data)
 {
     NemoActionManager *action_manager;
@@ -79,7 +79,7 @@ actions_changed (GFileMonitor      *monitor,
 }
 
 static void
-plugin_prefs_changed (NemoConfigGroup *settings, gchar *key, gpointer user_data)
+plugin_prefs_changed (G_GNUC_UNUSED NemoConfigGroup *settings, G_GNUC_UNUSED gchar *key, gpointer user_data)
 {
     g_return_if_fail (NEMO_IS_ACTION_MANAGER (user_data));
 
@@ -341,9 +341,9 @@ reload_actions_layout (NemoActionManager *action_manager)
 }
 
 static void
-nemo_config_dir_changed (GFileMonitor      *monitor,
+nemo_config_dir_changed (G_GNUC_UNUSED GFileMonitor      *monitor,
                          GFile             *file,
-                         GFile             *other_file,
+                         G_GNUC_UNUSED GFile             *other_file,
                          GFileMonitorEvent  event_type,
                          gpointer           user_data)
 {
@@ -416,7 +416,7 @@ refresh_actions (NemoActionManager *action_manager,
 }
 
 static void
-nemo_action_manager_init (NemoActionManager *action_manager)
+nemo_action_manager_init (G_GNUC_UNUSED NemoActionManager *action_manager)
 {
 }
 
@@ -436,11 +436,12 @@ nemo_action_manager_constructed (GObject *object)
     reload_actions_layout (action_manager);
     refresh_actions (action_manager, NULL);
 
-    g_signal_connect (nemo_plugin_preferences,
-                      "changed::" NEMO_PLUGIN_PREFERENCES_DISABLED_ACTIONS,
-                      G_CALLBACK (plugin_prefs_changed), action_manager);
+    g_signal_connect_object (nemo_plugin_preferences,
+                             "changed::" NEMO_PLUGIN_PREFERENCES_DISABLED_ACTIONS,
+                             G_CALLBACK (plugin_prefs_changed), action_manager, 0);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoActionManager *
 nemo_action_manager_new (void)
 {
@@ -464,7 +465,6 @@ nemo_action_manager_dispose (GObject *object)
     }
 
     g_clear_object (&priv->json_parser);
-    g_signal_handlers_disconnect_by_func (nemo_plugin_preferences, G_CALLBACK (plugin_prefs_changed), action_manager);
 
     G_OBJECT_CLASS (nemo_action_manager_parent_class)->dispose (object);
 }
@@ -500,6 +500,7 @@ nemo_action_manager_class_init (NemoActionManagerClass *klass)
                                      G_TYPE_NONE, 0);
 }
 
+/* Returns: (transfer none): owned by @action_manager */
 GList *
 nemo_action_manager_list_actions (NemoActionManager *action_manager)
 {
@@ -508,6 +509,7 @@ nemo_action_manager_list_actions (NemoActionManager *action_manager)
     return priv->action_list_dirty ? NULL : priv->actions;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoAction *
 nemo_action_manager_get_action (NemoActionManager *action_manager,
                                 const gchar       *uuid)
@@ -528,6 +530,7 @@ nemo_action_manager_get_action (NemoActionManager *action_manager,
     }
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_action_manager_get_system_directory_path (const gchar *data_dir)
 {
@@ -547,6 +550,7 @@ nemo_action_manager_get_system_directory_path (const gchar *data_dir)
     }
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_action_manager_get_user_directory_path (void)
 {
@@ -756,7 +760,7 @@ parse_level (ActionsIterData *idata,
         guint len = json_reader_count_elements (reader);
         DEBUG ("Processing %d children of '%s'.", len, path == NULL ? "root" : path);
 
-        gint i;
+        guint i;
         for (i = 0; i < len; i++) {
             if (!json_reader_read_element (reader, i)) {
                 idata->error = g_error_copy (json_reader_get_error (reader));
@@ -781,7 +785,7 @@ parse_level (ActionsIterData *idata,
 }
 
 static gboolean
-iter_actions (NemoActionManager  *action_manager,
+iter_actions (G_GNUC_UNUSED NemoActionManager  *action_manager,
               ActionsIterData    *idata)
 {
     JsonReader *reader = idata->reader;
@@ -879,7 +883,7 @@ nemo_action_manager_iterate_actions (NemoActionManager                *action_ma
 }
 
 void
-nemo_action_manager_add_action_ui (NemoActionManager   *manager,
+nemo_action_manager_add_action_ui (G_GNUC_UNUSED NemoActionManager   *manager,
                                    GtkUIManager        *ui_manager,
                                    GtkAction           *action,
                                    const gchar         *action_path,
@@ -937,7 +941,7 @@ nemo_action_manager_add_action_ui (NemoActionManager   *manager,
 }
 
 void
-nemo_action_manager_update_action_states (NemoActionManager *action_manager,
+nemo_action_manager_update_action_states (G_GNUC_UNUSED NemoActionManager *action_manager,
                                           GtkActionGroup    *action_group,
                                           GList             *selection,
                                           NemoFile          *parent,

@@ -89,6 +89,7 @@ nemo_cell_renderer_disk_class_init (NemoCellRendererDiskClass *klass)
                                                          G_PARAM_READWRITE));
 }
 
+/* Returns: (transfer floating) */
 GtkCellRenderer *
 nemo_cell_renderer_disk_new (void)
 {
@@ -163,9 +164,9 @@ use_default_color (GdkRGBA *color)
     color->alpha = 1;
 }
 
-#define _270_DEG 270.0 * (M_PI/180.0)
-#define _180_DEG 180.0 * (M_PI/180.0)
-#define  _90_DEG  90.0 * (M_PI/180.0)
+#define _270_DEG 270.0 * (G_PI/180.0)
+#define _180_DEG 180.0 * (G_PI/180.0)
+#define  _90_DEG  90.0 * (G_PI/180.0)
 #define   _0_DEG 0.0
 
 static void

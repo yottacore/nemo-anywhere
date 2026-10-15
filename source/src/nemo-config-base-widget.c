@@ -11,7 +11,7 @@
 G_DEFINE_TYPE (NemoConfigBaseWidget, nemo_config_base_widget, GTK_TYPE_BIN);
 
 static void
-nemo_config_base_widget_class_init (NemoConfigBaseWidgetClass *klass)
+nemo_config_base_widget_class_init (G_GNUC_UNUSED NemoConfigBaseWidgetClass *klass)
 {
 }
 
@@ -176,10 +176,16 @@ nemo_config_base_widget_set_default_buttons_sensitive (NemoConfigBaseWidget *wid
  * Clear the listbox and destroy all children
  */
 
+static void
+destroy_child (GtkWidget *child, G_GNUC_UNUSED gpointer data)
+{
+    gtk_widget_destroy (child);
+}
+
 void
 nemo_config_base_widget_clear_list (NemoConfigBaseWidget *widget)
 {
-    gtk_container_foreach (GTK_CONTAINER (widget->listbox), (GtkCallback) gtk_widget_destroy, NULL);
+    gtk_container_foreach (GTK_CONTAINER (widget->listbox), destroy_child, NULL);
 }
 
 

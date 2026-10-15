@@ -125,7 +125,7 @@ launch (const char *exe, const char *arg)
 /* Other tests share the display, so a window from the list can be gone before
  * it is read. Xlib's default handler exits on that BadWindow. */
 static int
-ignore_x_error (Display *display, XErrorEvent *event)
+ignore_x_error (G_GNUC_UNUSED Display *display, G_GNUC_UNUSED XErrorEvent *event)
 {
 	return 0;
 }
@@ -436,8 +436,8 @@ main (int argc, char *argv[])
 		check (!g_file_test (db_path, G_FILE_TEST_EXISTS));
 	}
 
-	/* Made before the program starts. Two copies setting up a new file at the
-	 * same moment can find it locked, and that is not what this test is about. */
+	/* Made before the program starts, so the program's own setup of a new
+	 * file is not part of what is timed here. */
 	db = nemo_cache_db_get ();
 	check (db != NULL);
 	if (db == NULL) {

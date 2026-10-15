@@ -141,6 +141,7 @@ find_variable (const char  *p,
 	}
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 eel_expand_user_input (const char *text)
 {
@@ -203,7 +204,8 @@ eel_expand_user_input (const char *text)
  * The literal text always wins - a real backslash-named file stays
  * reachable and nothing is reserved - but if the literal form is a
  * local path that doesn't exist and contains backslashes, a \ -> /
- * retry lets pasted Windows-style paths resolve. */
+ * retry lets pasted Windows-style paths resolve.
+ * Returns: (transfer full): unref with g_object_unref */
 GFile *
 eel_g_file_new_for_user_input (const char *text)
 {
@@ -263,6 +265,7 @@ eel_g_file_new_for_user_input (const char *text)
 	return location;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 eel_make_valid_utf8 (const char *name)
 {
@@ -301,6 +304,7 @@ eel_make_valid_utf8 (const char *name)
 	return g_string_free (string, FALSE);
 }
 
+/* Returns: (transfer none): points into @filename */
 char *
 eel_filename_get_extension_offset (const char *filename)
 {
@@ -340,6 +344,7 @@ eel_filename_get_extension_offset (const char *filename)
 	return end;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 eel_filename_strip_extension (const char * filename_with_extension)
 {

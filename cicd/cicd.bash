@@ -12,7 +12,7 @@
 ##	   0. remote sync (fast-forward from upstream before anything is built)
 ##	   1. format (source formatter)
 ##	   2. debug build (this is what the tests + profiler run against)
-##	   3. regression tests + lints (+ any headless harness)
+##	   3. regression tests + lints (+ fuzzing, the sanitizer suite, any headless harness)
 ##	   4. profiler (flamegraph SVG; non-gating artifact - see failure policy)
 ##	   5. release build (native + cross targets; optimized, for packaging + dogfood)
 ##	   6. packages (per-OS distributables)
@@ -27,19 +27,29 @@
 ##	       --msg MSG       alias for --message
 ##	   --no-sync           skip the remote sync stage
 ##	   --no-fmt            skip the formatter stage
-##	   --no-cross          skip cross-target release builds
-##	   --no-arm            skip the ARM64 release builds + packages (x86_64 only)
+##	   --no-cross          skip cross-target release builds, arm64 included
+##	   --include-arm       add the arm64 release build and its packages; the
+##	                       build runs on another box and takes about an hour
+##	                       (off by default)
+##	   --no-arm            leave the arm64 build out, even with --include-arm
 ##	   --no-package        skip the packages stage (.deb/.rpm/installer)
 ##	   --no-private        skip the private runner (PRIVATE_RUNNER in config.bash)
 ##	   --no-profile        skip the profiler stage
+##	   --no-sanitize       skip the test suite built with the address and
+##	                       undefined behavior sanitizers
 ##	   --no-dogfood        skip installing the native release locally
 ##	   --no-publish        skip the git backup + publish stage
 ##	   --allow-dirty       let publish commit an uncommitted working tree (it
 ##	                       refuses one by default)
 ##	   --shots             refresh README screenshots (off by default)
 ##	   --demo              re-record the demo video (off by default)
-##	   --quick             skip the slow stages: cross builds, packages, profiler,
-##	                       harness, screenshots, demo, remote dogfood. The native
+##	   --include-bsd       build, test and pack on the FreeBSD box too: the
+##	                       suite in stage 3, the tarball and pkg in stage 5
+##	                       (off by default, since it needs that box and its
+##	                       lock; --quick does not turn it off)
+##	   --quick             skip the slow stages: cross builds, packages, private
+##	                       runner, profiler, fuzzing, sanitizers, scroll harness,
+##	                       screenshots, demo video, remote dogfood. The native
 ##	                       build, the full test suite and local dogfood still run.
 ##	   --gate              merge gate only: format-check + lints + tests, then exit
 ##	                       (fast local stand-in for hosted CI; the pre-push hook runs it)
@@ -115,7 +125,8 @@ stamp="$(date +%Y%m%d-%H%M%S)"
 fSetSourceDate "${root}"
 
 ## Parse options.
-assume_yes=0; quick=0; gate=0; no_arm=0; no_sync=0; allow_dirty=0; cli_message=""
+include_bsd=0
+assume_yes=0; quick=0; gate=0; no_arm=0; include_arm=0; no_sync=0; allow_dirty=0; cli_message=""
 while (($#)); do case "$1" in
 	-y|--yes)                 assume_yes=1; shift ;;
 	-q|--quiet)               assume_yes=1; shift ;;            ## publish runs quiet whatever this says
@@ -123,15 +134,18 @@ while (($#)); do case "$1" in
 	--no-sync)                no_sync=1; shift ;;
 	--no-fmt)                 FMT_CMD=(); shift ;;
 	--no-cross)               BUILD_CROSS=0; shift ;;
-	--no-arm)                 no_arm=1; shift ;;                ## drop ARM64 builds + packages
+	--include-arm)            include_arm=1; shift ;;
+	--no-arm)                 no_arm=1; shift ;;                ## wins over --include-arm
 	--no-package)             PACKAGE_ENABLE=0; shift ;;
 	--no-private)             PRIVATE_RUNNER=""; shift ;;
 	--no-profile)             PROFILE_ENABLE=0; shift ;;
+	--no-sanitize)            SANITIZE_CMD=(); shift ;;
 	--no-dogfood)             DOGFOOD_FIXED_DESTS=(); DOGFOOD_ROTATING_DESTS=(); DOGFOOD_CROSS_DESTS=(); DOGFOOD_HOOK=(); DOGFOOD_REMOTE=(); shift ;;
 	--no-publish)             GIT_PUBLISH=(); shift ;;
 	--allow-dirty)            allow_dirty=1; shift ;;
 	--shots)                  SHOTS_ENABLE=1; shift ;;
 	--demo)                   DEMO_ENABLE=1; shift ;;
+	--include-bsd)            include_bsd=1; shift ;;
 	--quick)                  quick=1; BUILD_CROSS=0; PROFILE_ENABLE=0; PACKAGE_ENABLE=0; shift ;;   ## skip the slow stages
 	--message=*|--msg=*|-m=*) cli_message="${1#*=}"; shift ;;
 	-m|--message|--msg)       cli_message="${2-}"; shift; (($#)) && shift ;;
@@ -139,12 +153,30 @@ while (($#)); do case "$1" in
 	*) echo "unknown option: $1 (try --help)" >&2; exit 2 ;;
 esac; done
 
-## --no-arm: drop the ARM64 cross targets so the run (and its packages) stay
-## x86_64-only. Native x86_64 is untouched; the Windows/Linux x86_64 crosses stay.
-if ((no_arm)) && declare -p CROSS_TARGETS &>/dev/null; then
+## ARM64 cross targets are opt-in: here the arm64 box is emulated and takes about
+## an hour. Native x86_64 is untouched; the Windows/Linux x86_64 crosses stay.
+arm_note=""
+if ((! include_arm || no_arm)) && declare -p CROSS_TARGETS &>/dev/null; then
 	kept=()
-	for t in "${CROSS_TARGETS[@]}"; do case "$t" in *arm64*|*aarch64*) ;; *) kept+=("$t") ;; esac; done
+	for t in "${CROSS_TARGETS[@]}"; do case "$t" in *arm64*|*aarch64*) arm_note=" (no arm64; --include-arm adds it)" ;; *) kept+=("$t") ;; esac; done
 	CROSS_TARGETS=("${kept[@]}")
+	if ((no_arm)) && [[ -n "$arm_note" ]]; then arm_note=" (no arm64, --no-arm)"; fi
+fi
+## arm64 packages and their checks are made from this run's arm64 build, so they
+## go wherever it goes.
+arm_built=0
+if ((BUILD_CROSS)) && declare -p CROSS_TARGETS &>/dev/null; then
+	for t in "${CROSS_TARGETS[@]}"; do case "$t" in *arm64*|*aarch64*) arm_built=1 ;; esac; done
+fi
+if ((! arm_built)) && declare -p PACKAGE_CMDS &>/dev/null; then
+	kept=()
+	for t in "${PACKAGE_CMDS[@]}"; do case "$t" in *arm64*|*aarch64*) ;; *) kept+=("$t") ;; esac; done
+	PACKAGE_CMDS=("${kept[@]}")
+fi
+if ((! arm_built)) && declare -p PACKAGE_CHECKS &>/dev/null; then
+	kept=()
+	for t in "${PACKAGE_CHECKS[@]}"; do case "$t" in *arm64*|*aarch64*) ;; *) kept+=("$t") ;; esac; done
+	PACKAGE_CHECKS=("${kept[@]}")
 fi
 declare -p PACKAGE_ENABLE &>/dev/null || PACKAGE_ENABLE=0        ## tolerate a config predating the packages stage
 declare -p DOGFOOD_CROSS_DESTS &>/dev/null || DOGFOOD_CROSS_DESTS=()   ## ditto, cross dogfood
@@ -372,6 +404,18 @@ fEcho_Clean "CPU cap .............: $( [[ -n "${CICD_CPU_CAPPED:-}" ]] && echo "
 fEcho_Clean "Format ..............: ${FMT_CMD[*]:-(skipped)}"
 fEcho_Clean "Debug build .........: ${DEBUG_BUILD_CMD[*]}"
 fEcho_Clean "Tests ...............: ${TEST_CMD[*]}"
+if ((quick)); then
+	fEcho_Clean "Sanitizers ..........: (skipped --quick)"
+elif [[ -n "${SANITIZE_CMD+x}" ]] && ((${#SANITIZE_CMD[@]})); then
+	fEcho_Clean "Sanitizers ..........: ${SANITIZE_CMD[*]}"
+else
+	fEcho_Clean "Sanitizers ..........: (skipped)"
+fi
+if ((include_bsd)); then
+	fEcho_Clean "FreeBSD .............: ${BSD_TEST_CMD[*]}, then ${BSD_RELEASE_CMD[*]}"
+else
+	fEcho_Clean "FreeBSD .............: (off; --include-bsd)"
+fi
 if ((PROFILE_ENABLE)); then
 	fEcho_Clean "Profiler ............: ${PROFILE_SECS}s run -> flamegraph SVG (headless)"
 	fEcho_Clean "  output dir ........: ${profile_dir}"
@@ -381,16 +425,16 @@ else
 fi
 fEcho_Clean "Release (native) ....: ${RELEASE_NATIVE_CMD[*]} -> ${RELEASE_NATIVE_BIN}"
 if ((BUILD_CROSS)) && ((${#CROSS_TARGETS[@]})); then
-	fEcho_Clean "Release (cross) .....:$( ((no_arm)) && echo ' (x86_64 only, --no-arm)')"
+	fEcho_Clean "Release (cross) .....:${arm_note}"
 	for t in "${CROSS_TARGETS[@]}"; do fEcho_Clean "    - ${t%%|*}"; done
 else
-	fEcho_Clean "Release (cross) .....: (skipped)"
+	fEcho_Clean "Release (cross) .....: (skipped$( ((include_arm && ! no_arm)) && echo ', arm64 too'))"
 fi
 if ((PACKAGE_ENABLE)) && ((! quick)); then
 	fEcho_Clean "Packages ............:"
 	for entry in "${PACKAGE_CMDS[@]:-}"; do [[ -n "$entry" ]] && fEcho_Clean "    - ${entry%%|*}"; done
 	for entry in "${PACKAGE_CHECKS[@]:-}"; do [[ -n "$entry" ]] && fEcho_Clean "    - ${entry%%|*} (stops the run on failure)"; done
-	fEcho_Clean "  deferred ..........: BSD, macOS, AppImage, Flatpak - no toolchain on this box"
+	fEcho_Clean "  deferred ..........: macOS, AppImage, Flatpak - no toolchain on this box"
 else
 	fEcho_Clean "Packages ............: $( ((quick)) && echo '(skipped --quick)' || echo '(disabled)')"
 fi
@@ -511,6 +555,20 @@ if ((! quick)) && [[ -n "${FUZZ_CMD+x}" ]] && ((${#FUZZ_CMD[@]})); then
 elif ((quick)); then
 	fEcho_Clean "fuzz skipped (--quick)"
 fi
+## The suite again on a build with the address and undefined behavior
+## sanitizers. It has a build of its own, about a minute cold, so like fuzzing it
+## is left out of --quick and the gate.
+if ((! quick)) && [[ -n "${SANITIZE_CMD+x}" ]] && ((${#SANITIZE_CMD[@]})); then
+	"${SANITIZE_CMD[@]}"
+	fEcho "OK: sanitizer suite clean"
+elif ((quick)); then
+	fEcho_Clean "sanitizers skipped (--quick)"
+fi
+## The same build and suite on the FreeBSD box, opt-in.
+if ((include_bsd)); then
+	"${BSD_TEST_CMD[@]}"
+	fEcho "OK: FreeBSD suite"
+fi
 if [[ -n "${DENY_CMD+x}" ]] && ((${#DENY_CMD[@]})); then
 	if "${DENY_PROBE[@]}" >/dev/null 2>&1; then
 		## Advisory-only for now: report license/advisory/duplicate findings
@@ -609,12 +667,19 @@ built_arts=("${RELEASE_NATIVE_OSARCH:-native}|${RELEASE_NATIVE_BIN}")
 if ((BUILD_CROSS)) && ((${#CROSS_TARGETS[@]})); then
 	for t in "${CROSS_TARGETS[@]}"; do
 		local_label="${t%%|*}"; rest="${t#*|}"; osarch="${rest%%|*}"; rest="${rest#*|}"; art="${rest%%|*}"; cmd="${rest#*|}"
+		art="${art//@VER@/${ver}}"   ## for a lane that puts the version in the file name
 		fSection "5/8  Release build: ${local_label}"
 		eval "${cmd}"
 		[[ -f "${art}" ]] || fDie "missing artifact for ${local_label}: ${art}"
 		fEcho "OK: ${local_label}: ${art} ($(du -h "${art}" | cut -f1))"
 		built_arts+=("${osarch}|${art}")
 	done
+fi
+
+if ((include_bsd)); then
+	fSection "5/8  Release build: FreeBSD"
+	"${BSD_RELEASE_CMD[@]}"
+	fEcho "OK: FreeBSD tarball and pkg"
 fi
 
 ## Collect the built binaries under versioned names + a sha256 checksums file,

@@ -108,28 +108,28 @@ text_view_select_all_callback (gpointer target)
 }
 
 static void
-action_cut_callback (GtkAction *action,
+action_cut_callback (G_GNUC_UNUSED GtkAction *action,
 		     gpointer callback_data)
 {
 	cut_callback (callback_data);
 }
 
 static void
-action_copy_callback (GtkAction *action,
+action_copy_callback (G_GNUC_UNUSED GtkAction *action,
 		      gpointer callback_data)
 {
 	copy_callback (callback_data);
 }
 
 static void
-action_paste_callback (GtkAction *action,
+action_paste_callback (G_GNUC_UNUSED GtkAction *action,
 		       gpointer callback_data)
 {
 	paste_callback (callback_data);
 }
 
 static void
-action_select_all_callback (GtkAction *action,
+action_select_all_callback (G_GNUC_UNUSED GtkAction *action,
 			    gpointer callback_data)
 {
 	TargetCallbackData *target_data;
@@ -143,7 +143,7 @@ action_select_all_callback (GtkAction *action,
 }
 
 static void
-received_clipboard_contents (GtkClipboard     *clipboard,
+received_clipboard_contents (G_GNUC_UNUSED GtkClipboard     *clipboard,
 			     GtkSelectionData *selection_data,
 			     gpointer          data)
 {
@@ -259,8 +259,8 @@ text_buffer_update_sensitivity (GtkTextBuffer *buffer,
 
 static void
 text_buffer_delete_range (GtkTextBuffer *buffer,
-			  GtkTextIter   *iter1,
-			  GtkTextIter   *iter2,
+			  G_GNUC_UNUSED GtkTextIter   *iter1,
+			  G_GNUC_UNUSED GtkTextIter   *iter2,
 			  TargetCallbackData *target_data)
 {
 	text_buffer_update_sensitivity (buffer, target_data);
@@ -268,7 +268,7 @@ text_buffer_delete_range (GtkTextBuffer *buffer,
 
 static void
 text_buffer_mark_set (GtkTextBuffer *buffer,
-		      GtkTextIter *iter,
+		      G_GNUC_UNUSED GtkTextIter *iter,
 		      GtkTextMark *mark,
 		      TargetCallbackData *target_data)
 {
@@ -364,7 +364,7 @@ merge_out_clipboard_menu_items (GObject *widget_as_object,
 
 static gboolean
 focus_changed_callback (GtkWidget *widget,
-			GdkEventAny *event,
+			G_GNUC_UNUSED GdkEventAny *event,
 			gpointer callback_data)
 {
 	/* Connect the component to the container if the widget has focus. */
@@ -403,8 +403,8 @@ selection_changed_callback (GtkWidget *widget,
 }
 
 static void
-owner_change_callback (GtkClipboard        *clipboard,
-		       GdkEventOwnerChange *event,
+owner_change_callback (G_GNUC_UNUSED GtkClipboard        *clipboard,
+		       G_GNUC_UNUSED GdkEventOwnerChange *event,
 		       gpointer callback_data)
 {
 	TargetCallbackData *target_data;
@@ -579,6 +579,7 @@ convert_lines_to_str_list (char **lines, gboolean *cut)
 	return g_list_reverse (result);
 }
 
+/* Returns: (transfer full): free with g_list_free_full (list, g_free) */
 GList*
 nemo_clipboard_get_uri_list_from_selection_data (GtkSelectionData *selection_data,
 						     gboolean *cut,
@@ -607,6 +608,7 @@ nemo_clipboard_get_uri_list_from_selection_data (GtkSelectionData *selection_dat
 	return items;
 }
 
+/* Returns: (transfer none): owned by GTK */
 GtkClipboard *
 nemo_clipboard_get (GtkWidget *widget)
 {
@@ -733,6 +735,7 @@ nemo_clipboard_clear_if_colliding_uris (GtkWidget *widget,
 
 	clipboard_item_uris = nemo_clipboard_get_uri_list_from_selection_data (data, NULL,
 										   copied_files_atom);
+	gtk_selection_data_free (data);
 
 	for (l = (GList *) item_uris; l; l = l->next) {
 		/* Compare the incoming uris against what is ON the clipboard, not

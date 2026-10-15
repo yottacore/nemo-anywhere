@@ -41,7 +41,7 @@ G_DEFINE_INTERFACE (NemoColumnProvider, nemo_column_provider, G_TYPE_OBJECT)
  **/
 
 static void
-nemo_column_provider_default_init (NemoColumnProviderInterface *klass)
+nemo_column_provider_default_init (G_GNUC_UNUSED NemoColumnProviderInterface *klass)
 {
 }
 

@@ -53,6 +53,7 @@
 #include <libnemo-private/nemo-action-manager.h>
 #include <libnemo-private/nemo-action.h>
 #include <libnemo-private/nemo-ui-utilities.h>
+#include <libnemo-private/nemo-user-text.h>
 
 #include <string.h>
 #include <eel/eel-gtk-extensions.h>
@@ -92,6 +93,7 @@ struct FMTreeViewDetails {
 	gulong clipboard_handler_id;
 
 	GtkWidget *popup_menu;
+	EelMenuPress menu_press;
 
 	NemoFile *popup_file;
 	guint popup_file_idle_handler;
@@ -136,7 +138,7 @@ G_DEFINE_TYPE (FMTreeView, fm_tree_view, GTK_TYPE_SCROLLED_WINDOW)
 #define parent_class fm_tree_view_parent_class
 
 static void
-notify_clipboard_info (NemoClipboardMonitor *monitor,
+notify_clipboard_info (G_GNUC_UNUSED NemoClipboardMonitor *monitor,
                        NemoClipboardInfo *info,
                        FMTreeView *view)
 {
@@ -284,7 +286,7 @@ schedule_select_and_show_location (FMTreeView *view, char *location)
 }
 
 static void
-row_loaded_callback (GtkTreeModel     *tree_model,
+row_loaded_callback (G_GNUC_UNUSED GtkTreeModel     *tree_model,
 		     GtkTreeIter      *iter,
 		     FMTreeView *view)
 {
@@ -388,8 +390,11 @@ got_activation_uri_callback (NemoFile *file, gpointer callback_data)
 				 view->details->activation_flags);
 			g_object_unref (location);
 		} else {
+			char *quoted_path = nemo_user_text_quote (file_uri);
+
 			DEBUG ("Tree sidebar, launching application for %s", file_uri);
-			nemo_launch_application_from_command (screen, file_uri, FALSE, NULL);
+			nemo_launch_application_from_command (screen, quoted_path, FALSE, NULL);
+			g_free (quoted_path);
 			g_free (file_uri);
 		}
 		   
@@ -434,8 +439,8 @@ cancel_activation (FMTreeView *view)
 }
 
 static void
-row_activated_callback (GtkTreeView *treeview, GtkTreePath *path, 
-			GtkTreeViewColumn *column, FMTreeView *view)
+row_activated_callback (G_GNUC_UNUSED GtkTreeView *treeview, GtkTreePath *path, 
+			G_GNUC_UNUSED GtkTreeViewColumn *column, FMTreeView *view)
 {
 	if (gtk_tree_view_row_expanded (view->details->tree_widget, path)) {
 		gtk_tree_view_collapse_row (view->details->tree_widget, path);
@@ -477,7 +482,7 @@ selection_changed_timer_callback(FMTreeView *view)
 }
 
 static void
-selection_changed_callback (GtkTreeSelection *selection,
+selection_changed_callback (G_GNUC_UNUSED GtkTreeSelection *selection,
 			    FMTreeView *view)
 {
 	GdkEvent *event;
@@ -550,15 +555,15 @@ compare_rows (GtkTreeModel *model, GtkTreeIter *a, GtkTreeIter *b, gpointer call
 
 
 static char *
-get_root_uri_callback (NemoTreeViewDragDest *dest,
-		       gpointer user_data)
+get_root_uri_callback (G_GNUC_UNUSED NemoTreeViewDragDest *dest,
+		       G_GNUC_UNUSED gpointer user_data)
 {
 	/* Don't allow drops on background */
 	return NULL;
 }
 
 static NemoFile *
-get_file_for_path_callback (NemoTreeViewDragDest *dest,
+get_file_for_path_callback (G_GNUC_UNUSED NemoTreeViewDragDest *dest,
 			    GtkTreePath *path,
 			    gpointer user_data)
 {
@@ -570,12 +575,12 @@ get_file_for_path_callback (NemoTreeViewDragDest *dest,
 }
 
 static void
-move_copy_items_callback (NemoTreeViewDragDest *dest,
+move_copy_items_callback (G_GNUC_UNUSED NemoTreeViewDragDest *dest,
 			  const GList *item_uris,
 			  const char *target_uri,
 			  GdkDragAction action,
-			  int x,
-			  int y,
+			  G_GNUC_UNUSED int x,
+			  G_GNUC_UNUSED int y,
 			  gpointer user_data)
 {
 	FMTreeView *view;
@@ -626,7 +631,7 @@ add_root_for_mount (FMTreeView *view,
 }
 
 static void
-mount_added_callback (GVolumeMonitor *volume_monitor,
+mount_added_callback (G_GNUC_UNUSED GVolumeMonitor *volume_monitor,
 		      GMount *mount,
 		      FMTreeView *view)
 {
@@ -634,7 +639,7 @@ mount_added_callback (GVolumeMonitor *volume_monitor,
 }
 
 static void
-mount_removed_callback (GVolumeMonitor *volume_monitor,
+mount_removed_callback (G_GNUC_UNUSED GVolumeMonitor *volume_monitor,
 			GMount *mount,
 			FMTreeView *view)
 {
@@ -691,7 +696,7 @@ set_action_visible (GtkActionGroup *action_group,
 }
 
 static void
-clipboard_contents_received_callback (GtkClipboard     *clipboard,
+clipboard_contents_received_callback (G_GNUC_UNUSED GtkClipboard     *clipboard,
                       GtkSelectionData *selection_data,
                       gpointer          data)
 {
@@ -830,6 +835,32 @@ update_menu_states (FMTreeView *view,
     return TRUE;
 }
 
+static void
+long_press_callback (G_GNUC_UNUSED GtkWidget *widget,
+                     GdkEventButton *event,
+                     gpointer data)
+{
+    popup_menu (FM_TREE_VIEW (data), event);
+}
+
+static gboolean
+button_released_callback (GtkTreeView *treeview,
+                          GdkEventButton *event,
+                          FMTreeView *view)
+{
+    if (eel_menu_press_held (&view->details->menu_press, event->button)) {
+        return GDK_EVENT_STOP;
+    }
+
+    if (eel_menu_press_end (&view->details->menu_press, GTK_WIDGET (treeview),
+                            event->button, event->x, event->y)) {
+        popup_menu (view, event);
+        return GDK_EVENT_STOP;
+    }
+
+    return GDK_EVENT_PROPAGATE;
+}
+
 static gboolean
 button_pressed_callback (GtkTreeView *treeview,
                          GdkEventButton *event,
@@ -837,8 +868,18 @@ button_pressed_callback (GtkTreeView *treeview,
 {
     g_return_val_if_fail (FM_IS_TREE_VIEW (view), GDK_EVENT_PROPAGATE);
 
-    if (event->button == 3) {
-        popup_menu (view, event);
+    /* The menu opens on the release, as in the folder views. */
+    if (event->button == 1) {
+        /* There is a menu only for a row. */
+        if (event->window == gtk_tree_view_get_bin_window (treeview) &&
+            gtk_tree_view_get_path_at_pos (treeview, event->x, event->y, NULL, NULL, NULL, NULL)) {
+            eel_menu_press_hold (&view->details->menu_press, GTK_WIDGET (treeview), event,
+                                 event->x, event->y, long_press_callback, view);
+        } else {
+            eel_menu_press_cancel (&view->details->menu_press);
+        }
+    } else if (event->button == 3) {
+        eel_menu_press_begin (&view->details->menu_press, event->button, event->x, event->y);
         return GDK_EVENT_STOP;
     } else if (event->button == 2 && event->type == GDK_BUTTON_PRESS) {
         NemoFile *file;
@@ -878,7 +919,7 @@ button_pressed_callback (GtkTreeView *treeview,
 }
 
 static gboolean
-key_press_callback (GtkWidget   *widget,
+key_press_callback (G_GNUC_UNUSED GtkWidget   *widget,
                     GdkEventKey *event,
                     gpointer     user_data)
 {
@@ -913,21 +954,21 @@ fm_tree_view_activate_file (FMTreeView *view,
 }
 
 static void
-fm_tree_view_open_cb (GtkAction *action,
+fm_tree_view_open_cb (G_GNUC_UNUSED GtkAction *action,
 		      FMTreeView *view)
 {
 	fm_tree_view_activate_file (view, view->details->popup_file, 0);
 }
 
 static void
-fm_tree_view_open_in_new_tab_cb (GtkAction *action,
+fm_tree_view_open_in_new_tab_cb (G_GNUC_UNUSED GtkAction *action,
 				    FMTreeView *view)
 {
 	fm_tree_view_activate_file (view, view->details->popup_file, NEMO_WINDOW_OPEN_FLAG_NEW_TAB);
 }
 
 static void
-fm_tree_view_open_in_new_window_cb (GtkAction *action,
+fm_tree_view_open_in_new_window_cb (G_GNUC_UNUSED GtkAction *action,
 				    FMTreeView *view)
 {
 	fm_tree_view_activate_file (view, view->details->popup_file, NEMO_WINDOW_OPEN_FLAG_NEW_WINDOW);
@@ -950,6 +991,8 @@ new_folder_done (GFile *new_folder,
 	 * folder so the user can change its name
 	 */
 	list = g_list_prepend (NULL, nemo_file_get (new_folder));
+	/* Its first name can be a path, as with New folder in a view. */
+	nemo_file_set_fresh_folder (list->data, TRUE);
 
 	nemo_properties_window_present (list, GTK_WIDGET (data), NULL);
 
@@ -957,7 +1000,7 @@ new_folder_done (GFile *new_folder,
 }
 
 static void
-fm_tree_view_create_folder_cb (GtkAction *action,
+fm_tree_view_create_folder_cb (G_GNUC_UNUSED GtkAction *action,
 			       FMTreeView *view)
 {
 	char *parent_uri;
@@ -1000,14 +1043,14 @@ copy_or_cut_files (FMTreeView *view,
 }
 
 static void
-fm_tree_view_cut_cb (GtkAction *action,
+fm_tree_view_cut_cb (G_GNUC_UNUSED GtkAction *action,
 		     FMTreeView *view)
 {
 	copy_or_cut_files (view, TRUE);
 }
 
 static void
-fm_tree_view_copy_cb (GtkAction *action,
+fm_tree_view_copy_cb (G_GNUC_UNUSED GtkAction *action,
 		      FMTreeView *view)
 {
 	copy_or_cut_files (view, FALSE);
@@ -1045,7 +1088,7 @@ paste_clipboard_data (FMTreeView *view,
 }
 
 static void
-paste_into_clipboard_received_callback (GtkClipboard     *clipboard,
+paste_into_clipboard_received_callback (G_GNUC_UNUSED GtkClipboard     *clipboard,
 					GtkSelectionData *selection_data,
 					gpointer          data)
 {
@@ -1065,7 +1108,7 @@ paste_into_clipboard_received_callback (GtkClipboard     *clipboard,
 }
 
 static void
-fm_tree_view_paste_cb (GtkAction *action,
+fm_tree_view_paste_cb (G_GNUC_UNUSED GtkAction *action,
 		       FMTreeView *view)
 {
 	gtk_clipboard_request_contents (nemo_clipboard_get (GTK_WIDGET (view->details->tree_widget)),
@@ -1089,7 +1132,7 @@ fm_tree_view_get_containing_window (FMTreeView *view)
 }
 
 static void
-fm_tree_view_pin_unpin_cb (GtkAction *action,
+fm_tree_view_pin_unpin_cb (G_GNUC_UNUSED GtkAction *action,
                            FMTreeView *view)
 {
     nemo_file_set_pinning (view->details->popup_file,
@@ -1097,7 +1140,7 @@ fm_tree_view_pin_unpin_cb (GtkAction *action,
 }
 
 static void
-fm_tree_view_trash_cb (GtkAction *action,
+fm_tree_view_trash_cb (G_GNUC_UNUSED GtkAction *action,
 		       FMTreeView *view)
 {
 	GList *list;
@@ -1116,7 +1159,7 @@ fm_tree_view_trash_cb (GtkAction *action,
 }
 
 static void
-fm_tree_view_delete_cb (GtkAction *action,
+fm_tree_view_delete_cb (G_GNUC_UNUSED GtkAction *action,
 		        FMTreeView *view)
 {
 	GList *location_list;
@@ -1133,7 +1176,7 @@ fm_tree_view_delete_cb (GtkAction *action,
 }
 
 static void
-fm_tree_view_properties_cb (GtkAction *action,
+fm_tree_view_properties_cb (G_GNUC_UNUSED GtkAction *action,
 			    FMTreeView *view)
 {
 	GList *list;
@@ -1146,7 +1189,7 @@ fm_tree_view_properties_cb (GtkAction *action,
 }
 
 static void
-fm_tree_view_unmount_cb (GtkAction *action,
+fm_tree_view_unmount_cb (G_GNUC_UNUSED GtkAction *action,
 			 FMTreeView *view)
 {
 	NemoFile *file = view->details->popup_file;
@@ -1165,7 +1208,7 @@ fm_tree_view_unmount_cb (GtkAction *action,
 }
 
 static void
-fm_tree_view_eject_cb (GtkAction *action,
+fm_tree_view_eject_cb (G_GNUC_UNUSED GtkAction *action,
 		       FMTreeView *view)
 {
 	NemoFile *file = view->details->popup_file;
@@ -1199,7 +1242,7 @@ free_popup_file_in_idle_cb (gpointer data)
 }
 
 static void
-popup_menu_deactivated (GtkMenuShell *menu_shell, gpointer data)
+popup_menu_deactivated (G_GNUC_UNUSED GtkMenuShell *menu_shell, gpointer data)
 {
 	FMTreeView *view;
 
@@ -1263,7 +1306,7 @@ moved_to_rect_cb (GdkWindow          *window,
 
 static void
 popup_menu_realized (GtkWidget    *menu,
-                     gpointer      user_data)
+                     G_GNUC_UNUSED gpointer      user_data)
 {
     GdkWindow *toplevel;
 
@@ -1280,18 +1323,35 @@ static void
 popup_menu (FMTreeView     *view,
             GdkEventButton *event)
 {
+    GtkTreeView *tree_view = GTK_TREE_VIEW (view->details->tree_widget);
+    GtkTreePath *path;
+    GdkRectangle item;
+    gboolean have_item = FALSE;
+
     /* Every item acts on a row, so with no row there is no menu. */
     if (!update_menu_states (view, event)) {
         return;
     }
-    eel_pop_up_context_menu (GTK_MENU (view->details->popup_menu),
-                             (GdkEvent *) event,
-                             GTK_WIDGET (view->details->tree_widget));
+
+    if (event == NULL) {
+        path = popup_row (view, NULL);
+        if (path != NULL) {
+            have_item = eel_gtk_tree_view_get_row_rect (tree_view, path,
+                                                        gtk_tree_view_get_column (tree_view, 0),
+                                                        &item);
+            gtk_tree_path_free (path);
+        }
+    }
+
+    eel_pop_up_context_menu_at_item (GTK_MENU (view->details->popup_menu),
+                                     (GdkEvent *) event,
+                                     GTK_WIDGET (tree_view),
+                                     have_item ? &item : NULL);
 }
 
 /* Callback used for the GtkWidget::popup-menu signal of the shortcuts list */
 static gboolean
-popup_menu_cb (GtkAction  *widget,
+popup_menu_cb (G_GNUC_UNUSED GtkAction  *widget,
                FMTreeView *view)
 {
     popup_menu (view, NULL);
@@ -1436,18 +1496,18 @@ rebuild_menu (FMTreeView *view)
 
 
 static gint
-get_icon_scale_callback (FMTreeModel *model,
+get_icon_scale_callback (G_GNUC_UNUSED FMTreeModel *model,
                          FMTreeView  *view)
 {
    return gtk_widget_get_scale_factor (GTK_WIDGET (view->details->tree_widget));
 }
 
 static void
-icon_data_func (GtkTreeViewColumn *tree_column,
+icon_data_func (G_GNUC_UNUSED GtkTreeViewColumn *tree_column,
                   GtkCellRenderer *cell,
                      GtkTreeModel *tree_model,
                       GtkTreeIter *iter,
-                         gpointer  data)
+                         G_GNUC_UNUSED gpointer  data)
 {
     gboolean expanded;
     GIcon *icon;
@@ -1528,7 +1588,7 @@ create_tree (FMTreeView *view)
 	
 	volume_monitor = g_volume_monitor_get ();
 	view->details->volume_monitor = volume_monitor;
-	mounts = g_volume_monitor_get_mounts (volume_monitor);
+	mounts = nemo_get_mounts (volume_monitor);
 	for (l = mounts; l != NULL; l = l->next) {
 		add_root_for_mount (view, l->data);
 		g_object_unref (l->data);
@@ -1598,6 +1658,9 @@ create_tree (FMTreeView *view)
 	g_signal_connect (G_OBJECT (view->details->tree_widget), 
 			  "button_press_event", G_CALLBACK (button_pressed_callback),
 			  view);
+	g_signal_connect (G_OBJECT (view->details->tree_widget),
+			  "button-release-event", G_CALLBACK (button_released_callback),
+			  view);
 
     g_signal_connect (G_OBJECT (view->details->tree_widget), 
               "key-press-event", G_CALLBACK (key_press_callback),
@@ -1628,7 +1691,7 @@ update_filtering_from_preferences (FMTreeView *view)
 
 static void
 parent_set_callback (GtkWidget        *widget,
-		     GtkWidget        *previous_parent,
+		     G_GNUC_UNUSED GtkWidget        *previous_parent,
 		     gpointer          callback_data)
 {
 	FMTreeView *view;
@@ -1642,7 +1705,7 @@ parent_set_callback (GtkWidget        *widget,
 }
 
 static void
-loading_uri_callback (NemoWindow *window,
+loading_uri_callback (G_GNUC_UNUSED NemoWindow *window,
 		      char *location,
 		      gpointer callback_data)
 {
@@ -1724,13 +1787,13 @@ fm_tree_view_init (FMTreeView *view)
                                                                          view);
     view->details->ui_manager = gtk_ui_manager_new ();
 
-    g_signal_connect_swapped (nemo_preferences,
+    g_signal_connect_object (nemo_preferences,
                   "changed::" NEMO_PREFERENCES_SORT_DIRECTORIES_FIRST,
-                  G_CALLBACK (sort_directories_first_changed_callback), view);
+                  G_CALLBACK (sort_directories_first_changed_callback), view, G_CONNECT_SWAPPED);
                   
-    g_signal_connect_swapped (nemo_preferences,
+    g_signal_connect_object (nemo_preferences,
                   "changed::" NEMO_PREFERENCES_SORT_FAVORITES_FIRST,
-                  G_CALLBACK (sort_favorites_first_changed_callback), view);
+                  G_CALLBACK (sort_favorites_first_changed_callback), view, G_CONNECT_SWAPPED);
 
     view->details->sort_directories_first = nemo_config_get_boolean (nemo_preferences,
                                                                     NEMO_PREFERENCES_SORT_DIRECTORIES_FIRST);
@@ -1746,7 +1809,7 @@ fm_tree_view_init (FMTreeView *view)
 }
 
 static void 
-hidden_files_mode_changed_callback (NemoWindow *window,
+hidden_files_mode_changed_callback (G_GNUC_UNUSED NemoWindow *window,
                     FMTreeView *view)
 {
     update_filtering_from_preferences (view);
@@ -1819,14 +1882,6 @@ fm_tree_view_dispose (GObject *object)
     g_clear_object (&view->details->action_manager);
     g_clear_object (&view->details->ui_manager);
 
-    g_signal_handlers_disconnect_by_func (nemo_preferences,
-                          G_CALLBACK(sort_directories_first_changed_callback),
-                          view);
-    g_signal_handlers_disconnect_by_func (nemo_preferences,
-                          G_CALLBACK(sort_favorites_first_changed_callback),
-                          view);
-        
-
 	view->details->window = NULL;
 
 	G_OBJECT_CLASS (parent_class)->dispose (object);
@@ -1876,6 +1931,7 @@ fm_tree_view_set_parent_window (FMTreeView *view,
 
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_tree_sidebar_new (NemoWindow *window)
 {

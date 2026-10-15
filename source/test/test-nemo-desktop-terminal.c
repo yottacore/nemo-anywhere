@@ -86,7 +86,7 @@ check_exec (const char *want_exec, const char *want_arg)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	char *tmp, *schemas;
 	NemoConfigGroup *own;

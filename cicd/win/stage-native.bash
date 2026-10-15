@@ -8,8 +8,8 @@
 ##	- Native /mingw64/bin holds EVERY installed package's DLLs, so a blind
 ##	  bin/*.dll copy would be enormous. We copy only the dependency closure:
 ##	  ldd is recursive on PE, so one pass per binary yields its full static
-##	  import set; we union the closures of the app exes, the pixbuf loaders
-##	  (dlopen'd, so not in the app's own ldd), and the runtime helper exes.
+##	  import set; we union the closures of the app exes and the pixbuf loaders
+##	  (dlopen'd, so not in the app's own ldd).
 ##	- Layout produced under DEST (matches the win-run snapshot n8runfm reads):
 ##	    app/       nemo-anywhere.exe (single exe on Windows; extension lib is folded in)
 ##	    mingw64/bin, lib/gdk-pixbuf-2.0, share/{glib-2.0/schemas,icons,themes,thumbnailers}, etc
@@ -26,7 +26,7 @@ set -Eeuo pipefail
 BUILD="${1:?usage: stage-native.bash <build-dir> <dest-dir>}"
 DEST="${2:?usage: stage-native.bash <build-dir> <dest-dir>}"
 MINGW="${MINGW_PREFIX:-/mingw64}"
-REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"	# .../github, for vendor/
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"	# .../repo, for vendor/
 
 fEcho(){ echo "[ $* ]"; }
 
@@ -38,6 +38,8 @@ fEcho(){ echo "[ $* ]"; }
 source "${REPO}/cicd/utility/include/source-date.bash"
 # shellcheck source=../utility/include/pixbuf-loaders.bash
 source "${REPO}/cicd/utility/include/pixbuf-loaders.bash"
+# shellcheck source=../utility/include/thumbnailers.bash
+source "${REPO}/cicd/utility/include/thumbnailers.bash"
 fSetSourceDate "$REPO"
 
 [[ -f "${BUILD}/src/nemo-anywhere.exe" ]] || { fEcho "FAILED: no exe at ${BUILD}/src/nemo-anywhere.exe"; exit 1; }
@@ -47,25 +49,21 @@ rm -rf "${DEST}"
 mkdir -p "${DEST}/app" "${DEST}/mingw64/bin" "${DEST}/mingw64/lib" \
 	"${DEST}/mingw64/share/glib-2.0" "${DEST}/mingw64/etc"
 
-## App: the main exe (the extension lib is statically linked in, so no sibling dll)
-## plus the search converters, which sit beside it so a program lookup finds them
-## before PATH is even consulted. Their definitions go under share the way the
-## Linux install lays them out.
+## App: the main exe (the extension lib is statically linked in, so no sibling
+## dll). Office files are read in the app, so there are no converters. The
+## search helper definitions for programs a box may have go under share the way
+## the Linux install lays them out.
 cp "${BUILD}/src/"*.exe "${DEST}/app/"
-cp "${BUILD}/search-helpers/"*.exe "${DEST}/app/"
 mkdir -p "${DEST}/mingw64/share/nemo-anywhere/search-helpers"
-cp "${REPO}/source/search-helpers/"*.nemo_search_helper \
-	"${REPO}/source/search-helpers/third-party/"*.nemo_search_helper \
+cp "${REPO}/source/search-helpers/third-party/"*.nemo_search_helper \
 	"${DEST}/mingw64/share/nemo-anywhere/search-helpers/"
 
-## Runtime helper exes that GLib/GTK spawn or that nemo discovers as thumbnailers.
-## bin is on PATH in the launched app, so these resolve; the thumbnailer .thumbnailer
-## descriptors come across with share/thumbnailers below.
-helper_exes=(gdbus.exe gspawn-win64-helper.exe gspawn-win64-helper-console.exe
-	gdk-pixbuf-thumbnailer.exe gsf-office-thumbnailer.exe)
-for h in "${helper_exes[@]}"; do
-	[[ -f "${MINGW}/bin/${h}" ]] && cp "${MINGW}/bin/${h}" "${DEST}/mingw64/bin/"
-done
+## No program but the app's own exe (2026100917220603). Everything else the app
+## starts is on disk outside the bundle, through nemo-launch-win32.c, never
+## GLib's spawn helpers. No gdk-pixbuf-thumbnailer, since its descriptors are
+## left out (include/thumbnailers.bash), no gsf-office-thumbnailer, since the
+## app reads office files itself, and no gdbus.exe, since the copies use named
+## pipes. pack-portable.ps1 refuses a flat tree with any other exe.
 
 ## gdk-pixbuf loaders (dlopen'd at runtime - not in the app's ldd), then rebuild the
 ## cache so it points at these staged loaders rather than the host's absolute paths.
@@ -73,9 +71,8 @@ cp -r "${MINGW}/lib/gdk-pixbuf-2.0" "${DEST}/mingw64/lib/"
 
 ## Dependency closure. ldd is recursive on PE; keep only /mingw64 paths (System32 and
 ## the app-local dlls stay out of the bundle's mingw64/bin). Collect over every binary
-## that gets loaded: the app exe, the helper exes, and each pixbuf loader.
+## that gets loaded: the app exe and each pixbuf loader.
 closure_bins=("${DEST}/app/"*.exe)
-for h in "${helper_exes[@]}"; do [[ -f "${DEST}/mingw64/bin/${h}" ]] && closure_bins+=("${DEST}/mingw64/bin/${h}"); done
 while IFS= read -r loader; do closure_bins+=("$loader"); done < <(find "${DEST}/mingw64/lib/gdk-pixbuf-2.0" -name '*.dll')
 
 ## app/ on PATH so ldd resolves any app-local deps; collect the unique /mingw64 dlls.
@@ -105,9 +102,9 @@ cp "${MINGW}/share/glib-2.0/schemas/gschema.dtd"   "${DEST}/mingw64/share/glib-2
 glib-compile-schemas "${DEST}/mingw64/share/glib-2.0/schemas" >/dev/null 2>&1 || true
 
 ## Data: themes and the thumbnailer descriptors.
-for d in themes thumbnailers; do
-	[[ -d "${MINGW}/share/${d}" ]] && cp -r "${MINGW}/share/${d}" "${DEST}/mingw64/share/"
-done
+[[ -d "${MINGW}/share/themes" ]] && cp -r "${MINGW}/share/themes" "${DEST}/mingw64/share/"
+fStageThumbnailers "${MINGW}/share/thumbnailers" "${DEST}/mingw64/share/thumbnailers" \
+	|| { fEcho "FAILED: thumbnailer descriptors"; exit 1; }
 
 ## Icons: hicolor only. The sysroot's Adwaita and AdwaitaLegacy are 2693 files
 ## (including 33 X11 cursors that do nothing on Windows) to answer the ~180
@@ -126,45 +123,9 @@ for d in fonts gtk-3.0; do
 	[[ -d "${MINGW}/etc/${d}" ]] && cp -r "${MINGW}/etc/${d}" "${DEST}/mingw64/etc/"
 done
 
-## GTK settings. The stock mingw64 etc/gtk-3.0 ships no settings.ini, so GTK falls
-## back to defaults: the Adwaita-Sans alias (not bundled -> a thin host substitute)
-## rendered with slight hinting and grayscale AA. That reads thin and mushy on
-## Windows. Pin the actual Windows UI font and turn on full hinting + subpixel so
-## text looks like the rest of the desktop. (Runtime query of the user's *chosen*
-## UI font could refine this later; Segoe UI 9 is the Windows default.)
-mkdir -p "${DEST}/mingw64/etc/gtk-3.0"
-cat > "${DEST}/mingw64/etc/gtk-3.0/settings.ini" <<-'INI'
-	[Settings]
-	gtk-font-name = Segoe UI 9
-	gtk-xft-antialias = 1
-	gtk-xft-hinting = 1
-	gtk-xft-hintstyle = hintfull
-	gtk-xft-rgba = rgb
-	gtk-theme-name = Fluent
-	gtk-icon-theme-name = Mica
-INI
-
-## Fontconfig belt-and-suspenders: map the generic sans-serif to Segoe UI and force
-## the same full-hint + subpixel rendering at the fc layer, overriding the stock
-## conf.d (10-hinting-slight, 10-sub-pixel-none) that ships thin/grayscale.
-mkdir -p "${DEST}/mingw64/etc/fonts/conf.d"
-cat > "${DEST}/mingw64/etc/fonts/conf.d/99-nemo-anywhere.conf" <<-'FC'
-	<?xml version="1.0"?>
-	<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
-	<fontconfig>
-		<match target="pattern">
-			<test name="family"><string>sans-serif</string></test>
-			<edit name="family" mode="prepend" binding="strong"><string>Segoe UI</string></edit>
-		</match>
-		<match target="font">
-			<edit name="antialias" mode="assign"><bool>true</bool></edit>
-			<edit name="hinting" mode="assign"><bool>true</bool></edit>
-			<edit name="hintstyle" mode="assign"><const>hintfull</const></edit>
-			<edit name="rgba" mode="assign"><const>rgb</const></edit>
-			<edit name="lcdfilter" mode="assign"><const>lcddefault</const></edit>
-		</match>
-	</fontconfig>
-FC
+## GTK settings and the font config, the same files every Windows bundle gets.
+## Without them GTK draws with Adwaita and a thin substitute font (2026101007562511).
+cp -r "${REPO}/cicd/win/bundle-etc/." "${DEST}/mingw64/etc/"
 
 ## Launcher at the bundle root. app/nemo-anywhere.exe can't be double-clicked
 ## directly: Windows only searches the exe's own dir + System32 + PATH for the 50+

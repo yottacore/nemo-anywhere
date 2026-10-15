@@ -66,5 +66,7 @@ void           nemo_search_directory_save_to_file    (NemoSearchDirectory *searc
 NemoQuery *nemo_search_directory_get_query       (NemoSearchDirectory *search);
 void           nemo_search_directory_set_query       (NemoSearchDirectory *search,
 							  NemoQuery           *query);
+void           nemo_search_directory_recall_query    (NemoSearchDirectory *search);
+char          *nemo_search_directory_get_folder_uri  (const char          *search_uri);
 
 #endif /* NEMO_SEARCH_DIRECTORY_H */

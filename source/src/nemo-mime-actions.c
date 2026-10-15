@@ -49,6 +49,7 @@
 #include <libnemo-private/nemo-signaller.h>
 #ifdef G_OS_WIN32
 #include <libnemo-private/nemo-associations-win32.h>
+#include <libnemo-private/nemo-launch-win32.h>
 #endif
 #include <libnemo-private/nemo-mime-application-chooser.h>
 #ifdef G_OS_WIN32
@@ -148,8 +149,7 @@ launch_location_free (LaunchLocation *location)
 static void
 launch_location_list_free (GList *list)
 {
-	g_list_foreach (list, (GFunc)launch_location_free, NULL);
-	g_list_free (list);
+	g_list_free_full (list, (GDestroyNotify) launch_location_free);
 }
 
 static GList *
@@ -343,6 +343,7 @@ file_has_local_path (NemoFile *file)
 	return res;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GAppInfo *
 nemo_mime_get_default_application_for_file (NemoFile *file)
 {
@@ -421,6 +422,7 @@ file_compare_by_parent_uri (NemoFile *file_a,
 	return ret;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_mime_get_application_name (GAppInfo *app)
 {
@@ -476,6 +478,7 @@ application_compare_by_id (const GAppInfo *app_a,
 	return strcmp (id_a, id_b);
 }
 
+/* Returns: (transfer full): free with g_list_free_full (list, g_object_unref) */
 GList *
 nemo_mime_get_applications_for_file (NemoFile *file)
 {
@@ -513,6 +516,7 @@ nemo_mime_get_applications_for_file (NemoFile *file)
 	return filter_nemo_handler (result);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GAppInfo *
 nemo_mime_get_default_application_for_files (GList *files)
 {
@@ -595,8 +599,10 @@ intersect_application_lists (GList *a,
 		}
 	}
 
-	g_list_foreach (l, (GFunc) g_object_unref, NULL);
-	g_list_foreach (m, (GFunc) g_object_unref, NULL);
+	for (; l != NULL; l = l->next)
+		g_object_unref (l->data);
+	for (; m != NULL; m = m->next)
+		g_object_unref (m->data);
 
 	g_list_free (a);
 	g_list_free (b);
@@ -604,6 +610,7 @@ intersect_application_lists (GList *a,
 	return g_list_reverse (ret);
 }
 
+/* Returns: (transfer full): free with g_list_free_full (list, g_object_unref) */
 GList *
 nemo_mime_get_applications_for_files (GList *files)
 {
@@ -648,7 +655,7 @@ nemo_mime_get_applications_for_files (GList *files)
 static void
 trash_or_delete_files (GtkWindow *parent_window,
 		       const GList *files,
-		       gboolean delete_if_all_already_in_trash)
+		       G_GNUC_UNUSED gboolean delete_if_all_already_in_trash)
 {
 	GList *locations;
 	const GList *node;
@@ -690,9 +697,9 @@ report_broken_symbolic_link (GtkWindow *parent_window, NemoFile *file)
 
 	target_path = nemo_file_get_symbolic_link_target_path (file);
 	if (target_path == NULL) {
-		detail = g_strdup (_("This link cannot be used, because it has no target."));
+		detail = g_strdup (_("This link can't be used, because it has no target."));
 	} else {
-		detail = g_strdup_printf (_("This link cannot be used, because its target "
+		detail = g_strdup_printf (_("This link can't be used, because its target "
 					    "\"%s\" doesn't exist."), target_path);
 	}
 
@@ -831,9 +838,12 @@ get_activation_action (NemoFile *file, gboolean is_desktop)
 	ActivationAction action;
 	char *activation_uri;
 
+#ifdef G_OS_UNIX
+	/* Elsewhere a launcher opens like any other file, since nothing runs it. */
 	if (nemo_file_is_nemo_link (file)) {
 		return ACTIVATION_ACTION_LAUNCH_DESKTOP_FILE;
 	}
+#endif
 
 	activation_uri = nemo_file_get_activation_uri (file);
 	if (activation_uri == NULL) {
@@ -1072,7 +1082,7 @@ unpause_activation_timed_cancel (ActivateParameters *parameters)
 
 static void
 activate_mount_op_active (GtkMountOperation *operation,
-			  GParamSpec *pspec,
+			  G_GNUC_UNUSED GParamSpec *pspec,
 			  ActivateParameters *parameters)
 {
 	gboolean is_active;
@@ -1134,9 +1144,33 @@ activate_parameters_special_free (ActivateParametersSpecial *parameters_special)
     g_free (parameters_special);
 }
 
+/* On Windows the way a double-click in the shell starts it, so a console
+ * program gets its console window there as it would from Explorer. */
+static void
+launch_executable (G_GNUC_UNUSED GdkScreen *screen,
+		   const char *path,
+		   const char *directory,
+		   G_GNUC_UNUSED gboolean in_terminal)
+{
+#ifdef G_OS_WIN32
+	GError *error = NULL;
+
+	if (!nemo_launch_win32_open_path (path, directory, &error)) {
+		nemo_show_start_error (NULL, error);
+		g_clear_error (&error);
+	}
+#else
+	char *quoted_path = g_shell_quote (path);
+
+	(void) directory;
+	nemo_launch_application_from_command (screen, quoted_path, in_terminal, NULL);
+	g_free (quoted_path);
+#endif
+}
+
 static void
 make_exec_callback (NemoFile *file,
-                       GFile *res_loc,
+                       G_GNUC_UNUSED GFile *res_loc,
                       GError *error,
                      gpointer callback_data)
 {
@@ -1144,8 +1178,8 @@ make_exec_callback (NemoFile *file,
 
     if (error == NULL) {
         gchar *path = nemo_file_get_path (params->file);
-        nemo_launch_application_from_command (gtk_widget_get_screen (GTK_WIDGET (params->parent_window)),
-                                              path, FALSE, NULL);
+        launch_executable (gtk_widget_get_screen (GTK_WIDGET (params->parent_window)),
+                           path, NULL, FALSE);
         g_free (path);
     }
     nemo_report_error_setting_permissions (file, error, NULL);
@@ -1405,8 +1439,8 @@ activate_desktop_file (ActivateParameters *parameters,
 		primary = _("Untrusted application launcher");
 		display_name = nemo_file_get_display_name (file);
 		secondary =
-			g_strdup_printf (_("The application launcher \"%s\" has not been marked as trusted (executable). "
-					   "If you do not know the source of this file, launching it may be unsafe."
+			g_strdup_printf (_("The application launcher \"%s\" hasn't been marked as trusted (executable). "
+					   "If you don't know the source of this file, launching it may be unsafe."
 					   ),
 					 display_name);
 
@@ -1600,7 +1634,7 @@ activate_files (ActivateParameters *parameters)
 	GList *l;
 	int count;
 	char *uri;
-	char *executable_path, *quoted_path;
+	char *executable_path;
 	char *old_working_dir;
 	ActivationAction action;
 	GdkScreen *screen;
@@ -1692,12 +1726,10 @@ activate_files (ActivateParameters *parameters)
 
 		uri = nemo_file_get_activation_uri (file);
 		executable_path = g_filename_from_uri (uri, NULL, NULL);
-		quoted_path = g_shell_quote (executable_path);
 
-		DEBUG ("Launching file path %s", quoted_path);
+		DEBUG ("Launching file path %s", executable_path);
 
-		nemo_launch_application_from_command (screen, quoted_path, FALSE, NULL);
-		g_free (quoted_path);
+		launch_executable (screen, executable_path, parameters->activation_directory, FALSE);
 		g_free (executable_path);
 		g_free (uri);
 
@@ -1709,13 +1741,11 @@ activate_files (ActivateParameters *parameters)
 
 		uri = nemo_file_get_activation_uri (file);
 		executable_path = g_filename_from_uri (uri, NULL, NULL);
-		quoted_path = g_shell_quote (executable_path);
 
-		DEBUG ("Launching in terminal file quoted path %s", quoted_path);
+		DEBUG ("Launching in terminal file path %s", executable_path);
 
-		nemo_launch_application_from_command (screen, quoted_path, TRUE, NULL);
+		launch_executable (screen, executable_path, parameters->activation_directory, TRUE);
 
-		g_free (quoted_path);
 		g_free (executable_path);
 		g_free (uri);
 	}
@@ -1979,7 +2009,7 @@ activation_mount_not_mounted (ActivateParameters *parameters)
 
 
 static void
-activate_callback (GList *files, gpointer callback_data)
+activate_callback (G_GNUC_UNUSED GList *files, gpointer callback_data)
 {
 	ActivateParameters *parameters = callback_data;
 	GList *l, *next;
@@ -2020,7 +2050,7 @@ activate_callback (GList *files, gpointer callback_data)
 }
 
 static void
-activate_activation_uris_ready_callback (GList *files_ignore,
+activate_activation_uris_ready_callback (G_GNUC_UNUSED GList *files_ignore,
 					 gpointer callback_data)
 {
 	ActivateParameters *parameters = callback_data;
@@ -2111,6 +2141,9 @@ activation_get_activation_uris (ActivateParameters *parameters)
 		}
 
 		if (nemo_file_is_symbolic_link (file)) {
+			/* Opening a link onto a share is the visit, so it is
+			   followed now. */
+			nemo_file_look_at_link (file);
 			nemo_file_invalidate_attributes
 				(file,
 				 NEMO_FILE_ATTRIBUTE_INFO |
@@ -2221,7 +2254,7 @@ activation_mount_mountables (ActivateParameters *parameters)
 
 static void
 activation_mountable_started (NemoFile  *file,
-			      GFile         *gfile_of_file,
+			      G_GNUC_UNUSED GFile         *gfile_of_file,
 			      GError        *error,
 			      gpointer       callback_data)
 {
@@ -2343,7 +2376,7 @@ resolve_win32_shortcuts (GList *files, gboolean *handled)
 			if (nemo_shortcut_win32_launch (path, &error)) {
 				*handled = TRUE;
 			} else {
-				g_warning ("could not open shortcut '%s': %s", path, error->message);
+				g_warning ("couldn't open shortcut '%s': %s", path, error->message);
 				g_clear_error (&error);
 				remaining = g_list_prepend (remaining, nemo_file_ref (file));
 			}
@@ -2415,14 +2448,14 @@ resolve_lnk_shortcuts (GtkWindow *parent_window,
 		if (uri == NULL) {
 			char *name = nemo_file_get_display_name (file);
 			char *shown = nemo_lnk_display_target (&lnk);
-			char *primary = g_strdup_printf (_("Could not open the shortcut \"%s\"."), name);
+			char *primary = g_strdup_printf (_("Couldn't open the shortcut \"%s\"."), name);
 			char *secondary;
 
 			if (shown != NULL && shown[0] != '\0') {
-				secondary = g_strdup_printf (_("It points to %s, which is not on any drive or share this computer can see."),
+				secondary = g_strdup_printf (_("It points to %s, which isn't on any drive or share this computer can see."),
 							     shown);
 			} else {
-				secondary = g_strdup (_("It does not say where its target is, or it points back at itself."));
+				secondary = g_strdup (_("It doesn't say where its target is, or it points back at itself."));
 			}
 			eel_show_error_dialog (primary, secondary, parent_window);
 

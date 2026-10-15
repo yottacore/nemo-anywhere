@@ -43,7 +43,7 @@ How the C in this repo is written, and why. Companion to [design.md](design.md),
 
 This began as a fork of a twenty-year-old GNOME codebase. It no longer follows upstream and never will, so the inherited code is ours to improve. New code looks like the code beside it, so each file reads as one piece. Restyling or cleaning up inherited code is welcome, as its own change rather than mixed into a fix.
 
-Vendored code is left alone entirely. Do not restyle it, do not rename in it, do not "modernize" it. The vendored trees are `vendor/` at the repo root (icons, themes, the SHCL header and blake3) and `source/cut-n-paste-code/`.
+Vendored code is left alone entirely. Don't restyle it, don't rename in it, don't "modernize" it. The vendored trees are `vendor/` at the repo root (icons, themes, the SHCL header and blake3) and `source/cut-n-paste-code/`.
 
 ## No formatter config yet
 
@@ -57,7 +57,7 @@ Until one is added, the rules are written down here.
 
 - Alignment runs to the nearest tab stop with tabs, then the rest of the way with spaces. The continuation lines in the sample below are two tabs and five spaces, not twenty-one spaces.
 
-- Roughly two thirds of the files carry an Emacs mode line saying the same thing: `/* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */`. It came with the inherited code and is optional. Keep it on a file that has one; a new file does not need it.
+- Roughly two thirds of the files carry an Emacs mode line saying the same thing: `/* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */`. It came with the inherited code and is optional. Keep it on a file that has one; a new file doesn't need it.
 
 - Function definitions put the return type on its own line, the name at column zero, and the opening brace on its own line. Parameters that wrap are aligned under the first one.
 
@@ -85,7 +85,11 @@ move_proportionally (const NemoColumnLayoutItem *items,
 
 ## Language and types
 
-- The build sets no `-std`, so the compiler's default applies - gnu17 on current gcc. The inherited code uses GNU extensions freely, so do not move the tree to a strict `-std=c11` without building all of it first.
+- The build names c17, not gnu17. Nothing in the tree needs a GNU language extension. Strict c17 hides the POSIX and BSD calls glibc gives by default, so the build asks for them back with `_DEFAULT_SOURCE`, in one place.
+
+- Warnings are at `-Wextra` (meson's `warning_level=2`), and the tree builds clean there. Every pipeline build adds `-Dwerror=true`, so a new warning fails the gate. A plain `meson setup` leaves that off, so someone building with a newer compiler gets a warning, not a failed build. Vendored code builds at `-Wall`, and its warnings are never fatal.
+
+- An unused parameter gets `G_GNUC_UNUSED` in front of its type. A callback takes the arguments its caller passes. Where they differ, a small wrapper makes the call; a cast to `GFunc`, `GClosureNotify` or `GWeakNotify` hides the mismatch rather than fixing it. A `switch` case that runs on into the next one says so with `G_GNUC_FALLTHROUGH`.
 
 - Declare at first use rather than at the top of the function. `-Wno-declaration-after-statement` is passed for exactly that. Initialize at the declaration, and `= {0}` for a struct.
 
@@ -119,9 +123,9 @@ move_proportionally (const NemoColumnLayoutItem *items,
 
 - A file under `src/` or `libnemo-private/` carries a one-line description, then the copyright and the GPL-2.0-only notice, after the mode line if it has one. Two comment shapes are in use and both are fine: an indented block after the description, as in `nemo-column-layout.c`, or a star-continuation comment, as in `nemo-launch-win32.c`. Copy from whichever neighbor you are working next to rather than retyping. Tests carry no block.
 
-- `libnemo-extension/` is LGPL, not GPL-2.0-only, because it is the public API other people's extensions compile against. Do not put a GPL notice in there and do not take an LGPL one out.
+- `libnemo-extension/` is LGPL, not GPL-2.0-only, because it is the public API other people's extensions compile against. Don't put a GPL notice in there and don't take an LGPL one out.
 
-- A file that keeps an upstream copyright keeps it. Add a line, do not replace one.
+- A file that keeps an upstream copyright keeps it. Add a line, don't replace one.
 
 ## Platform-specific code
 
@@ -135,7 +139,7 @@ Reach for GLib before writing platform code at all. `GSubprocess` already termin
 
 Terse, and about why. The code says what.
 
-Comment the things that cost somebody a day: a workaround for a toolkit bug, an ordering that looks arbitrary but is not, a decision that a later reader would otherwise undo. Do not comment a line that reads fine on its own, and do not open a file with a summary of its own contents.
+Comment the things that cost somebody a day: a workaround for a toolkit bug, an ordering that looks arbitrary but isn't, a decision that a later reader would otherwise undo. Don't comment a line that reads fine on its own, and don't open a file with a summary of its own contents.
 
 No banner dividers. ASCII only, except the copyright symbol.
 
@@ -143,25 +147,27 @@ Where a piece of reasoning is longer than a few lines, it goes at the top of the
 
 ## Memory and errors
 
-- Explicit `g_free` and `g_object_unref` are the norm, because that is what the surrounding code does. `g_autofree` and `g_autoptr` appear in newer files and are fine there, but do not go converting old ones.
+- Explicit `g_free` and `g_object_unref` are the norm, because that is what the surrounding code does. `g_autofree` and `g_autoptr` appear in newer files and are fine there, but don't go converting old ones.
 
-- Failures come back as `GError`. Check them or pass them up. Do not swallow one silently.
+- Failures come back as `GError`. Check them or pass them up. Don't swallow one silently.
 
 - GLib allocators abort rather than returning NULL, so a NULL check on `g_new` is dead code.
 
 - Anything asked once per file on every pass of the async file engine must not allocate. `g_file_peek_path` over `g_file_get_path`.
 
-- A function that allocates says who frees the result, in one line in the header. The language cannot express it, so either it is written down or the next reader guesses.
+- A function that allocates says who frees the result, in one line in the header. The language can't express it, so either it is written down or the next reader guesses.
 
 - `goto out` is how cleanup is written here: one label, resources released in reverse order. Around twenty-five files do it, and it is the only sanctioned goto.
 
-- No VLAs and no `alloca`; the lint gate below rejects them. A size is either bounded, and a fixed array covers it, or it is not, and it belongs on the heap.
+- No VLAs and no `alloca`; the lint gate below rejects them. A size is either bounded, and a fixed array covers it, or it isn't, and it belongs on the heap.
 
 - Build text with `g_strdup_printf`, `g_strconcat` or `GString`. No `sprintf`, `strcpy` or `strcat`, and `g_snprintf` only with its return checked.
 
 ## What the lint gate rejects
 
-`cicd/utility/lint.bash` is the gate's lint stage. It runs `lint-c.bash`, which is cppcheck plus the checks on user-facing strings and on the delete guards, then `lint-bash.bash`, which is shellcheck over the project's own scripts, and the Python, PowerShell, identity and prose checks after it. A finding from any of them fails the gate. Where a tool itself is missing, that step warns and is skipped, so a box without cppcheck, python or shellcheck cannot hard-block a push; `CPPCHECK_STRICT=1` and `SHELLCHECK_STRICT=1` turn those misses into failures.
+`cicd/utility/lint.bash` is the gate's lint stage. It runs `lint-c.bash`, which is cppcheck plus the checks on user-facing strings and on the delete guards, then `lint-bash.bash`, which is shellcheck over the project's own scripts, and the Python, PowerShell, identity and prose checks after it. A finding from any of them fails the gate. Where a tool itself is missing, that step warns and is skipped, so a box without cppcheck, python or shellcheck can't hard-block a push; `CPPCHECK_STRICT=1` and `SHELLCHECK_STRICT=1` turn those misses into failures.
+
+On Linux, cppcheck, shellcheck, ruff and PSScriptAnalyzer run inside the `nemo-lint` image from `cicd/linux/Dockerfile.lint`, at fixed versions, so two boxes give the same findings. The image is built the first time it's needed, and again whenever that file changes. Without docker, or with `NEMO_LINT_HOST=1`, the host's own tools are used. Under MSYS2 they always are.
 
 - `alloca`, and therefore `g_newa`. Use `g_new0` and `g_free` even for three ints.
 

@@ -68,6 +68,12 @@ struct _NemoProgressInfoWidgetPriv {
     GtkWidget *status; /* GtkLabel */
     GtkWidget *details; /* GtkLabel */
     GtkWidget *progress_bar;
+
+    /* the walk before the job's own work */
+    GtkWidget *prescan_box;
+    GtkWidget *prescan_bar;
+    GtkWidget *prescan_label;
+    guint prescan_timer;
 };
 
 GType nemo_progress_info_widget_get_type (void);

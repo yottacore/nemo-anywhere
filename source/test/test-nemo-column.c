@@ -8,7 +8,7 @@
 #include <libnemo-extension/nemo-column.h>
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	NemoColumn *column;
 	gpointer    alive;

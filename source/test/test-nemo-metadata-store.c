@@ -74,9 +74,10 @@ test_damaged_file_set_aside (const char *tmpdir)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
-	char *tmpdir, *value;
+	g_autofree char *tmpdir = NULL;
+	char *value;
 	char *store_file;
 	char *contents;
 	char **listval;

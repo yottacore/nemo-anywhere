@@ -26,10 +26,14 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 fTest(){ local rc=0; "$@" || rc=$?; [[ "$rc" == "0" || "$rc" == "77" ]] || exit "$rc"; }
 
-bash "${here}/lint-c.bash" "$@"
-bash "${here}/lint-bash.bash"
-bash "${here}/lint-python.bash"
-bash "${here}/lint-powershell.bash"
+root="$(cd "${here}/../.." && pwd)"
+# shellcheck source=include/lint-image.bash
+source "${here}/include/lint-image.bash"
+img="$(fLintImage "$root")"
+fLintRun "$root" "$img" bash "${here}/lint-c.bash" "$@"
+fLintRun "$root" "$img" bash "${here}/lint-bash.bash"
+fLintRun "$root" "$img" bash "${here}/lint-python.bash"
+fLintRun "$root" "$img" bash "${here}/lint-powershell.bash"
 bash "${here}/lint-identity.bash"
 bash "${here}/lint-prose.bash"
 ## Its fixture is full of symlinks, which MSYS2 cannot make without the symlink
@@ -44,7 +48,23 @@ fi
 bash "${here}/../hooks/test-pre-push.bash"
 bash "${here}/test-package-checks.bash"
 bash "${here}/test-lint-scope.bash"
+bash "${here}/test-lint-image.bash"
+bash "${here}/test-cicd-help.bash"
+bash "${here}/test-cicd-arm.bash"
+bash "${here}/test-werror.bash"
+bash "${here}/test-thumbnailers.bash"
+fTest bash "${here}/test-bundle-left-out.bash" --self-test
 fTest bash "${here}/test-docker-run.bash"
+fTest bash "${here}/../win/test-gui-smoke.bash"
+fTest bash "${here}/../linux/test-fuzz-exit.bash"
+fTest bash "${here}/../linux/test-deb-size.bash"
+fTest bash "${here}/../linux/test-release-arm64.bash"
+fTest bash "${here}/../linux/test-package-arm64.bash"
+bash "${here}/../linux/test-release-image-pin.bash"
+fTest bash "${here}/../linux/test-release-setup.bash"
+fTest bash "${here}/test-release-stamp.bash"
+fTest bash "${here}/test-release-notes.bash"
+fTest bash "${here}/../bsd/test-lane.bash"
 py=""
 for cand in python3 python; do
 	if command -v "$cand" >/dev/null 2>&1; then py="$cand"; break; fi
@@ -58,14 +78,26 @@ fi
 if command -v pwsh >/dev/null 2>&1; then
 	pwsh -NoProfile -File "${here}/test-install-path.ps1"
 	pwsh -NoProfile -File "${here}/test-runfm-pool.ps1"
+	pwsh -NoProfile -File "${here}/test-runfm-shortcuts.ps1"
+	pwsh -NoProfile -File "${here}/test-bundle-exes.ps1" -SelfTest
+	pwsh -NoProfile -File "${here}/test-bundle-settings.ps1" -SelfTest
+	pwsh -NoProfile -File "${here}/test-evb-project.ps1" -SelfTest
 else
-	echo "[ install.ps1 PATH and n8runfm pool tests skipped: no pwsh ]"
+	echo "[ install.ps1 PATH, n8runfm pool and shortcut, bundle exe and settings, and evb project tests skipped: no pwsh ]"
 fi
 ## Under MSYS2 install.ps1 would be installing into the real Windows profile.
 if [[ "$(uname -o 2>/dev/null)" == "Msys" ]]; then
 	echo "[ installer download check skipped: Linux only ]"
 else
 	fTest bash "${here}/../linux/test-install-download.bash"
+fi
+## The Windows test stage runs it there.
+if [[ "$(uname -o 2>/dev/null)" == "Msys" ]]; then
+	echo "[ install.ps1 staging check skipped: run by the Windows test stage ]"
+elif command -v pwsh >/dev/null 2>&1; then
+	fTest pwsh -NoProfile -File "${here}/test-install-staging.ps1"
+else
+	echo "[ install.ps1 staging check skipped: no pwsh ]"
 fi
 
 ## The app icons are cut from assets/logo.png by hand, so a new logo can sit there

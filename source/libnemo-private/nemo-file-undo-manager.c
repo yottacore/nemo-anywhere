@@ -79,7 +79,7 @@ file_undo_manager_clear (NemoFileUndoManager *self)
 }
 
 static void
-trash_state_changed_cb (NemoTrashMonitor *monitor,
+trash_state_changed_cb (G_GNUC_UNUSED NemoTrashMonitor *monitor,
 			gboolean is_empty,
 			gpointer user_data)
 {
@@ -247,6 +247,7 @@ nemo_file_undo_manager_set_action (NemoFileUndoInfo *info)
 	g_signal_emit (self, signals[SIGNAL_UNDO_CHANGED], 0);
 }
 
+/* Returns: (transfer none): owned by the undo manager */
 NemoFileUndoInfo *
 nemo_file_undo_manager_get_action (void)
 {
@@ -287,6 +288,7 @@ nemo_file_undo_manager_pop_flag (void)
 	return retval;
 }
 
+/* Returns: (transfer none): kept for the life of the process */
 NemoFileUndoManager *
 nemo_file_undo_manager_get (void)
 {

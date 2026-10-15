@@ -36,6 +36,7 @@ nemo_view_factory_register (NemoViewInfo *view_info)
 	registered_views = g_list_append (registered_views, view_info);
 }
 
+/* Returns: (transfer none): a registered table entry */
 const NemoViewInfo *
 nemo_view_factory_lookup (const char *id)
 {
@@ -55,6 +56,7 @@ nemo_view_factory_lookup (const char *id)
 	return NULL;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoView *
 nemo_view_factory_create (const char *id,
 			      NemoWindowSlot *slot)
@@ -95,6 +97,7 @@ nemo_view_factory_view_supports_uri (const char *id,
 	
 }
 
+/* Returns: (transfer full): free with g_list_free_full (list, g_free) */
 GList *
 nemo_view_factory_get_views_for_uri (const char *uri,
 					 GFileType file_type,

@@ -21,9 +21,9 @@
 */
 
 /* Kept apart from nemo-archive.h and nemo-extract.h, and free of anything but
- * the strings, so the settings table can include it too - the default a key
- * falls back to and the default the writer runs are then the same text rather
- * than two copies that can drift. The Compress dialog's remembered settings
+ * the strings and the core's settings header, so the settings table can
+ * include it too - the default a key falls back to and the default the writer
+ * runs are then the same text rather than two copies that can drift. The Compress dialog's remembered settings
  * are named here for the same reason: the table and the dialog have to agree
  * on the key, and a typo in one of them would just be a setting that never
  * takes.
@@ -38,12 +38,15 @@
 #ifndef NEMO_ARCHIVE_COMMANDS_H
 #define NEMO_ARCHIVE_COMMANDS_H
 
+#include "arc-settings.h"
+
 #define NEMO_ARCHIVE_COMMANDS_GROUP "archive"
 
-#define NEMO_ARCHIVE_COMMAND_KEY_7Z  "create-with-7z"
-#define NEMO_ARCHIVE_COMMAND_KEY_RAR "create-with-rar"
-#define NEMO_EXTRACT_COMMAND_KEY_7Z  "extract-with-7z"
-#define NEMO_EXTRACT_COMMAND_KEY_RAR "extract-with-rar"
+/* The archive core's names for its lines, which its messages use. */
+#define NEMO_ARCHIVE_COMMAND_KEY_7Z  ARC_LINE_NAME_CREATE_7Z
+#define NEMO_ARCHIVE_COMMAND_KEY_RAR ARC_LINE_NAME_CREATE_RAR
+#define NEMO_EXTRACT_COMMAND_KEY_7Z  ARC_LINE_NAME_EXTRACT_7Z
+#define NEMO_EXTRACT_COMMAND_KEY_RAR ARC_LINE_NAME_EXTRACT_RAR
 
 /* What the Compress dialog starts from next time. Not the password, which is
    never written anywhere, and not deleting the originals, which has to be
@@ -55,11 +58,25 @@
 #define NEMO_ARCHIVE_STATE_KEY_SPLIT_SIZE   "last-split-size"
 #define NEMO_ARCHIVE_STATE_KEY_SOLID        "last-solid"
 #define NEMO_ARCHIVE_STATE_KEY_DEDUPE       "last-dedupe"
-#define NEMO_ARCHIVE_STATE_KEY_STORE_LINKS  "last-store-links"
-#define NEMO_ARCHIVE_STATE_KEY_FOLLOW_LINKS "last-follow-links"
+#define NEMO_ARCHIVE_STATE_KEY_SYMLINKS      "last-symlinks"
+#define NEMO_ARCHIVE_STATE_KEY_JUNCTIONS     "last-junctions"
+#define NEMO_ARCHIVE_STATE_KEY_FOLLOW_NESTED "last-follow-nested"
 #define NEMO_ARCHIVE_STATE_KEY_RECOVERY     "last-recovery"
 #define NEMO_ARCHIVE_STATE_KEY_LOCK         "last-lock"
 #define NEMO_ARCHIVE_STATE_KEY_EACH         "last-each"
+
+/* Follow other filesystems has no key. It's never on by default, so it isn't
+   remembered either. */
+
+/* Junctions takes its default from Symlinks until it's changed by hand. */
+#define NEMO_ARCHIVE_JUNCTIONS_LIKE_SYMLINKS (-1)
+
+/* The 2 boxes Symlinks replaced. Read once, mapped over and dropped, by
+   nemo_archive_link_options_load. */
+#define NEMO_ARCHIVE_STATE_KEY_STORE_LINKS  "last-store-links"
+#define NEMO_ARCHIVE_STATE_KEY_FOLLOW_LINKS "last-follow-links"
+#define NEMO_ARCHIVE_RETIRED_LINK_KEY \
+	"Replaced by last-symlinks. Read once, then dropped"
 
 #define NEMO_ARCHIVE_STATE_DEFAULT_FORMAT      "zip"
 #define NEMO_ARCHIVE_STATE_DEFAULT_SPLIT_SIZE  "2 GiB"
@@ -68,20 +85,26 @@
    -y answers the prompts a program with no console would otherwise wait on
    forever; -bsp1 is what puts 7-Zip's percentage on stdout for the progress
    bar; -spd makes 7-Zip take a name with * or ? in it as that name, not a
-   pattern (rar has no such switch); "--" stops switch parsing, so a file
+   pattern (rar has no such switch), and a line edited without it still gets
+   it at run time; -sccUTF-8 and rar's -scfr make the names
+   either one prints UTF-8, where on Windows they would come out in the
+   console's code page and match no file; "--" stops switch parsing, so a file
    whose name starts with a dash is read as a file; and "x" rather than "e" on
    the unpack lines is what keeps the paths stored in the archive. {{THREADS}}
    is the one marker that does not come from the Compress dialog - it carries
    the share of the machine's cores set once under "performance", and leaving
    it out just lets the program pick for itself, so it goes unremarked. */
 #define NEMO_ARCHIVE_COMMAND_7Z_DEFAULT \
-	"{{PROGRAM}} a {{FORMAT}} {{LEVEL}} {{THREADS}} -y -bsp1 -spd " \
+	"{{PROGRAM}} a {{FORMAT}} {{LEVEL}} {{THREADS}} -y -bsp1 -spd -sccUTF-8 " \
 	"{{PASSWORD}} {{SPLIT}} {{SOLID}} {{LINKS}} " \
 	"-- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}"
 
-/* -r is what makes a named folder mean its contents. */
+/* No -r: a folder named on the line goes in whole without it, and with it
+   rar reads every name as a pattern for each folder below, so a picked a.txt
+   brings sub/a.txt too, and every name it walks past is opened. An -r typed
+   into an edited line is undone by the -r0 added last at run time. */
 #define NEMO_ARCHIVE_COMMAND_RAR_DEFAULT \
-	"{{PROGRAM}} a {{LEVEL}} {{THREADS}} -r -y " \
+	"{{PROGRAM}} a {{LEVEL}} {{THREADS}} -y -scfr " \
 	"{{PASSWORD}} {{SPLIT}} {{SOLID}} {{DEDUPE}} {{RECOVERY}} {{LOCK}} {{LINKS}} " \
 	"-- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}"
 

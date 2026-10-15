@@ -45,7 +45,7 @@ G_DEFINE_INTERFACE (NemoLocationWidgetProvider, nemo_location_widget_provider, G
  **/
 
 static void
-nemo_location_widget_provider_default_init (NemoLocationWidgetProviderInterface *klass)
+nemo_location_widget_provider_default_init (G_GNUC_UNUSED NemoLocationWidgetProviderInterface *klass)
 {
 }
 

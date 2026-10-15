@@ -43,7 +43,7 @@ G_DEFINE_INTERFACE (NemoInfoProvider, nemo_info_provider, G_TYPE_OBJECT)
  **/
 
 static void
-nemo_info_provider_default_init (NemoInfoProviderInterface *klass)
+nemo_info_provider_default_init (G_GNUC_UNUSED NemoInfoProviderInterface *klass)
 {
 }
 

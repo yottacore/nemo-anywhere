@@ -62,10 +62,17 @@ eel_g_str_list_equal (GList *list_a, GList *list_b)
  * @list: List of strings and/or NULLs to copy.
  * Return value: Deep copy of @list.
  **/
+static gpointer
+copy_str (gconstpointer str, G_GNUC_UNUSED gpointer data)
+{
+	return g_strdup (str);
+}
+
+/* Returns: (transfer full): free with g_list_free_full (list, g_free) */
 GList *
 eel_g_str_list_copy (GList *list)
 {
-	return g_list_copy_deep (list, (GCopyFunc) g_strdup, NULL);
+	return g_list_copy_deep (list, copy_str, NULL);
 }
 
 gboolean
@@ -143,7 +150,8 @@ eel_g_lists_sort_and_check_for_intersection (GList **list_1,
  * @user_data: Data to pass to function.  
  * @failed: The GList * variable pointed to by this argument will be
  * set to the list of elements for which the predicate returned
- * false. */
+ * false.
+ * Returns: (transfer container): the nodes of @list, which is used up; free with g_list_free, and @failed too */
 
 GList *
 eel_g_list_partition (GList *list,
@@ -236,11 +244,17 @@ eel_g_hash_table_safe_for_each (GHashTable *hash_table,
  * Copy the list of objects, ref'ing each one.
  * @list: GList of objects.
  **/
+static gpointer
+copy_object_ref (gconstpointer object, G_GNUC_UNUSED gpointer data)
+{
+	return g_object_ref ((gpointer) object);
+}
+
+/* Returns: (transfer full): free with g_list_free_full (list, g_object_unref) */
 GList *
 eel_g_object_list_copy (GList *list)
 {
-	g_list_foreach (list, (GFunc) g_object_ref, NULL);
-	return g_list_copy (list);
+	return g_list_copy_deep (list, copy_object_ref, NULL);
 }
 
 #if !defined (EEL_OMIT_SELF_CHECK)

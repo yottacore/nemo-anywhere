@@ -73,7 +73,7 @@ Show the version.
 Other standard GTK options not listed here are also supported.
 
 .SH PROCESSES
-Every launch is its own process, and by default so is every new window, so a crash in one leaves the others running and two versions can be open side by side. The copies find each other over the session bus, which is how \-\-quit reaches all of them. The Behavior page of the preferences can put new windows back inside one process.
+Every launch is its own process, and by default so is every new window, so a crash in one leaves the others running and two versions can be open side by side. The copies find each other over the session bus, or on Windows over named pipes, which is how \-\-quit reaches all of them. The Behavior page of the preferences can put new windows back inside one process.
 
 .SH NOTE ON THE ROOT USER
 Run as the root user, Nemo Anywhere keeps certain safeguards and UI changes. To turn

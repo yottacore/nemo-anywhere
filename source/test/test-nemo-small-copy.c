@@ -173,10 +173,8 @@ check_modes_and_links (void)
 static int
 shared_extents (const char *name)
 {
-	struct {
-		struct fiemap map;
-		struct fiemap_extent extents[16];
-	} req;
+	const guint extentRoom = 16;
+	struct fiemap *map;
 	char *path = path_of (name);
 	int fd, shared = 0;
 	guint i;
@@ -187,22 +185,26 @@ shared_extents (const char *name)
 		return -1;
 	}
 
-	memset (&req, 0, sizeof req);
-	req.map.fm_length = FIEMAP_MAX_OFFSET;
-	req.map.fm_flags = FIEMAP_FLAG_SYNC;
-	req.map.fm_extent_count = G_N_ELEMENTS (req.extents);
-	if (ioctl (fd, FS_IOC_FIEMAP, &req.map) < 0 || req.map.fm_mapped_extents == 0) {
+	/* fm_extents is a flexible array, so the room for it comes with the
+	   allocation rather than a struct around it. */
+	map = g_malloc0 (sizeof *map + extentRoom * sizeof (struct fiemap_extent));
+	map->fm_length = FIEMAP_MAX_OFFSET;
+	map->fm_flags = FIEMAP_FLAG_SYNC;
+	map->fm_extent_count = extentRoom;
+	if (ioctl (fd, FS_IOC_FIEMAP, map) < 0 || map->fm_mapped_extents == 0) {
 		close (fd);
+		g_free (map);
 		return -1;
 	}
 	close (fd);
 
-	for (i = 0; i < req.map.fm_mapped_extents; i++) {
-		if (req.extents[i].fe_flags & FIEMAP_EXTENT_SHARED) {
+	for (i = 0; i < map->fm_mapped_extents; i++) {
+		if (map->fm_extents[i].fe_flags & FIEMAP_EXTENT_SHARED) {
 			shared = 1;
 		}
 	}
 
+	g_free (map);
 	return shared;
 }
 

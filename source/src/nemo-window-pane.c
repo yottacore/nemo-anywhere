@@ -44,6 +44,7 @@
 #include <glib/gi18n.h>
 
 #include <eel/eel-gtk-extensions.h>
+#include <eel/eel-vfs-extensions.h>
 #include <libnemo-private/nemo-clipboard.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-entry.h>
@@ -206,14 +207,14 @@ nemo_window_pane_hide_temporary_bars (NemoWindowPane *pane)
 }
 
 static void
-location_entry_changed_cb (NemoToolbar *toolbar, gboolean val, gpointer data)
+location_entry_changed_cb (G_GNUC_UNUSED NemoToolbar *toolbar, G_GNUC_UNUSED gboolean val, gpointer data)
 {
     NemoWindowPane *pane = NEMO_WINDOW_PANE (data);
     nemo_window_pane_ensure_location_bar (pane);
 }
 
 static void
-navigation_bar_cancel_callback (GtkWidget *widget,
+navigation_bar_cancel_callback (G_GNUC_UNUSED GtkWidget *widget,
 				NemoWindowPane *pane)
 {
 	GtkAction *location;
@@ -241,7 +242,7 @@ navigation_bar_cancel_callback (GtkWidget *widget,
 }
 
 static void
-navigation_bar_location_changed_callback (GtkWidget *widget,
+navigation_bar_location_changed_callback (G_GNUC_UNUSED GtkWidget *widget,
                                           GFile *location,
                                           NemoWindowPane *pane)
 {
@@ -263,8 +264,8 @@ navigation_bar_location_changed_callback (GtkWidget *widget,
 }
 
 static gboolean
-toolbar_focus_in_callback (GtkWidget *widget,
-			   GdkEventFocus *event,
+toolbar_focus_in_callback (G_GNUC_UNUSED GtkWidget *widget,
+			   G_GNUC_UNUSED GdkEventFocus *event,
 			   gpointer user_data)
 {
 	NemoWindowPane *pane = user_data;
@@ -277,8 +278,8 @@ toolbar_focus_in_callback (GtkWidget *widget,
    Escape. Losing the whole window is not that - a typed path should still be
    there on the way back. */
 static gboolean
-toolbar_focus_out_callback (GtkWidget *widget,
-			    GdkEventFocus *event,
+toolbar_focus_out_callback (G_GNUC_UNUSED GtkWidget *widget,
+			    G_GNUC_UNUSED GdkEventFocus *event,
 			    gpointer user_data)
 {
 	NemoWindowPane *pane = user_data;
@@ -297,7 +298,7 @@ toolbar_focus_out_callback (GtkWidget *widget,
 }
 
 static void
-path_bar_location_changed_callback (GtkWidget *widget,
+path_bar_location_changed_callback (G_GNUC_UNUSED GtkWidget *widget,
 				    GFile *location,
 				    NemoWindowPane *pane)
 {
@@ -369,7 +370,7 @@ path_bar_button_released_callback (GtkWidget *widget,
 	NemoWindowSlot *slot;
 	NemoWindowOpenFlags flags;
 	GFile *button_location;
-	int mask;
+	guint mask;
 	gboolean handle_button_release;
 
 	mask = event->state & gtk_accelerator_get_default_mod_mask ();
@@ -430,15 +431,15 @@ path_bar_button_released_callback (GtkWidget *widget,
 
 static void
 path_bar_button_drag_begin_callback (GtkWidget *widget,
-				     GdkEventButton *event,
-				     gpointer user_data)
+				     G_GNUC_UNUSED GdkEventButton *event,
+				     G_GNUC_UNUSED gpointer user_data)
 {
 	g_object_set_data (G_OBJECT (widget), "handle-button-release",
 			   GINT_TO_POINTER (FALSE));
 }
 
 static void
-notebook_popup_menu_new_tab_cb (GtkMenuItem *menuitem,
+notebook_popup_menu_new_tab_cb (G_GNUC_UNUSED GtkMenuItem *menuitem,
 				gpointer user_data)
 {
 	NemoWindowPane *pane;
@@ -449,7 +450,7 @@ notebook_popup_menu_new_tab_cb (GtkMenuItem *menuitem,
 
 static void
 path_bar_path_set_callback (GtkWidget *widget,
-			    GFile *location,
+			    G_GNUC_UNUSED GFile *location,
 			    NemoWindowPane *pane)
 {
 	GList *children, *l;
@@ -498,14 +499,14 @@ reorder_tab (NemoWindowPane *pane, int offset)
 }
 
 static void
-notebook_popup_menu_move_left_cb (GtkMenuItem *menuitem,
+notebook_popup_menu_move_left_cb (G_GNUC_UNUSED GtkMenuItem *menuitem,
 				  gpointer user_data)
 {
 	reorder_tab (NEMO_WINDOW_PANE (user_data), -1);
 }
 
 static void
-notebook_popup_menu_move_right_cb (GtkMenuItem *menuitem,
+notebook_popup_menu_move_right_cb (G_GNUC_UNUSED GtkMenuItem *menuitem,
 				   gpointer user_data)
 {
 	reorder_tab (NEMO_WINDOW_PANE (user_data), 1);
@@ -513,7 +514,7 @@ notebook_popup_menu_move_right_cb (GtkMenuItem *menuitem,
 
 /* emitted when the user clicks the "close" button of tabs */
 static void
-notebook_tab_close_requested (NemoNotebook *notebook,
+notebook_tab_close_requested (G_GNUC_UNUSED NemoNotebook *notebook,
 			      NemoWindowSlot *slot,
 			      NemoWindowPane *pane)
 {
@@ -521,7 +522,7 @@ notebook_tab_close_requested (NemoNotebook *notebook,
 }
 
 static void
-notebook_popup_menu_close_cb (GtkMenuItem *menuitem,
+notebook_popup_menu_close_cb (G_GNUC_UNUSED GtkMenuItem *menuitem,
 			      gpointer user_data)
 {
 	NemoWindowPane *pane;
@@ -622,17 +623,17 @@ notebook_popup_menu_show (NemoWindowPane *pane,
 		event_time = gtk_get_current_event_time ();
 	}
 
-	/* TODO is this correct? */
 	gtk_menu_attach_to_widget (GTK_MENU (popup),
 				   pane->notebook,
 				   NULL);
+	eel_gtk_menu_destroy_on_close (GTK_MENU (popup));
 
 	gtk_menu_popup (GTK_MENU (popup), NULL, NULL, NULL, NULL,
 			button, event_time);
 }
 
 static gboolean
-notebook_button_press_cb (GtkWidget *widget,
+notebook_button_press_cb (G_GNUC_UNUSED GtkWidget *widget,
                           GdkEventButton *event,
                           gpointer user_data)
 {
@@ -675,7 +676,7 @@ notebook_button_press_cb (GtkWidget *widget,
 }
 
 static gboolean
-notebook_popup_menu_cb (GtkWidget *widget,
+notebook_popup_menu_cb (G_GNUC_UNUSED GtkWidget *widget,
 			gpointer user_data)
 {
 	NemoWindowPane *pane;
@@ -691,8 +692,8 @@ notebook_popup_menu_cb (GtkWidget *widget,
 }
 
 static gboolean
-notebook_switch_page_cb (GtkNotebook *notebook,
-			 GtkWidget *page,
+notebook_switch_page_cb (G_GNUC_UNUSED GtkNotebook *notebook,
+			 G_GNUC_UNUSED GtkWidget *page,
 			 unsigned int page_num,
 			 NemoWindowPane *pane)
 {
@@ -713,9 +714,9 @@ notebook_switch_page_cb (GtkNotebook *notebook,
 }
 
 static void
-notebook_page_removed_cb (GtkNotebook *notebook,
+notebook_page_removed_cb (G_GNUC_UNUSED GtkNotebook *notebook,
 			  GtkWidget *page,
-			  guint page_num,
+			  G_GNUC_UNUSED guint page_num,
 			  gpointer user_data)
 {
 	NemoWindowPane *pane = user_data;
@@ -737,9 +738,9 @@ notebook_page_removed_cb (GtkNotebook *notebook,
 }
 
 static void
-notebook_page_added_cb (GtkNotebook *notebook,
+notebook_page_added_cb (G_GNUC_UNUSED GtkNotebook *notebook,
 			GtkWidget *page,
-			guint page_num,
+			G_GNUC_UNUSED guint page_num,
 			gpointer user_data)
 {
 	NemoWindowPane *pane;
@@ -783,9 +784,9 @@ notebook_page_added_cb (GtkNotebook *notebook,
 static GtkNotebook *
 notebook_create_window_cb (GtkNotebook *notebook,
 			   GtkWidget *page,
-			   gint x,
-			   gint y,
-			   gpointer user_data)
+			   G_GNUC_UNUSED gint x,
+			   G_GNUC_UNUSED gint y,
+			   G_GNUC_UNUSED gpointer user_data)
 {
 	NemoApplication *app;
 	NemoWindow *new_window;
@@ -803,6 +804,10 @@ notebook_create_window_cb (GtkNotebook *notebook,
 		 * to the window it was dropped on, or to a new one. */
 		nemo_tab_move_tear_off (slot);
 
+		return NULL;
+	}
+
+	if (nemo_tab_move_is_only_tab (slot)) {
 		return NULL;
 	}
 
@@ -841,13 +846,15 @@ action_show_hide_search_callback (GtkAction *action,
 			restore_focus_widget (pane);
 
 			if (slot->query_editor != NULL) {
-                /* If closing the search bar, restore the original location */
-                location = g_file_new_for_uri (nemo_query_editor_get_base_uri (slot->query_editor));
+				const char *base_uri = nemo_query_editor_get_base_uri (slot->query_editor);
 
-				/* Last try: use the home directory as the return location */
-				if (location == NULL) {
+				/* Back to the folder searched. A search page nothing is known
+				   of has none, and would only go back to itself. */
+				if (base_uri != NULL && !eel_uri_is_search (base_uri)) {
+					location = g_file_new_for_uri (base_uri);
+				} else {
 					location = g_file_new_for_path (g_get_home_dir ());
-				}	
+				}
 
 				nemo_window_go_to (window, location);
 				g_object_unref (location);
@@ -870,8 +877,8 @@ setup_search_action (NemoWindowPane *pane)
 }
 
 static void
-toolbar_action_group_activated_callback (GtkActionGroup *action_group,
-					 GtkAction *action,
+toolbar_action_group_activated_callback (G_GNUC_UNUSED GtkActionGroup *action_group,
+					 G_GNUC_UNUSED GtkAction *action,
 					 gpointer user_data)
 {
 	NemoWindowPane *pane = user_data;
@@ -949,7 +956,7 @@ only_show_active_pane_toolbar_mapping (GValue                *value,
 }
 
 static gboolean
-toolbar_check_admin_cb (NemoToolbar *toolbar, NemoWindowPane *pane)
+toolbar_check_admin_cb (G_GNUC_UNUSED NemoToolbar *toolbar, NemoWindowPane *pane)
 {
     NemoWindowSlot *slot;
 
@@ -1120,6 +1127,7 @@ nemo_window_pane_init (NemoWindowPane *pane)
 	gtk_style_context_add_class (context, "nemo-window-pane");
 }
 
+/* Returns: (transfer floating) */
 NemoWindowPane *
 nemo_window_pane_new (NemoWindow *window)
 {
@@ -1200,6 +1208,7 @@ nemo_window_pane_sync_up_actions (NemoWindowPane *pane)
     gtk_action_set_sensitive (action, allowed);
 }
 
+/* Returns: (transfer none): owned by @pane */
 GtkActionGroup *
 nemo_window_pane_get_toolbar_action_group (NemoWindowPane *pane)
 {
@@ -1272,6 +1281,7 @@ nemo_window_pane_sync_location_widgets (NemoWindowPane *pane)
 	}
 
     nemo_toolbar_update_for_location (NEMO_TOOLBAR (pane->tool_bar));
+    nemo_window_slot_sync_connecting (slot);
 }
 
 static void
@@ -1415,10 +1425,14 @@ nemo_window_pane_remove_slot_unsafe (NemoWindowPane *pane,
 	page_num = gtk_notebook_page_num (notebook, GTK_WIDGET (slot));
 	g_assert (page_num >= 0);
 
+	/* Torn down here, not on the last unref. A tab menu, a drag or an idle
+	   can still hold the slot, and when this is the last tab the window is
+	   gone before that ref is dropped, while the view's teardown still needs
+	   the window. */
+	g_object_ref (slot);
 	g_signal_handlers_block_by_func (notebook,
 					 G_CALLBACK (notebook_switch_page_cb),
 					 pane);
-	/* this will call gtk_widget_destroy on the slot */
 	gtk_notebook_remove_page (notebook, page_num);
 	g_signal_handlers_unblock_by_func (notebook,
 					   G_CALLBACK (notebook_switch_page_cb),
@@ -1426,8 +1440,12 @@ nemo_window_pane_remove_slot_unsafe (NemoWindowPane *pane,
 
 	/* The notebook's own remove already set the tab strip, preference included. */
 	pane->slots = g_list_remove (pane->slots, slot);
+	gtk_widget_destroy (GTK_WIDGET (slot));
+	/* cppcheck-suppress doubleFree ; drops the ref taken above, the destroy only drops the notebook's */
+	g_object_unref (slot);
 }
 
+/* Returns: (transfer none): owned by @pane */
 NemoWindowSlot *
 nemo_window_pane_open_slot (NemoWindowPane *pane,
 				NemoWindowOpenSlotFlags flags)

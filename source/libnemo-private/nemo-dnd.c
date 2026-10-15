@@ -41,6 +41,7 @@
 #include <libnemo-private/nemo-delete-testguard.h>
 #ifdef G_OS_WIN32
 #include <libnemo-private/nemo-dnd-win32.h>
+#include <libnemo-private/nemo-drop-win32.h>
 #endif
 #include <stdio.h>
 #include <string.h>
@@ -98,6 +99,7 @@ nemo_drag_finalize (NemoDragInfo *drag_info)
 
 /* Functions to deal with NemoDragSelectionItems.  */
 
+/* Returns: (transfer full): freed with its list by nemo_drag_destroy_selection_list */
 NemoDragSelectionItem *
 nemo_drag_selection_item_new (void)
 {
@@ -125,6 +127,7 @@ nemo_drag_destroy_selection_list (GList *list)
 	g_list_free (list);
 }
 
+/* Returns: (transfer full): free with g_strfreev */
 char **
 nemo_drag_uri_array_from_selection_list (const GList *selection_list)
 {
@@ -138,6 +141,7 @@ nemo_drag_uri_array_from_selection_list (const GList *selection_list)
 	return uris;
 }
 
+/* Returns: (transfer full): free with g_list_free_full (list, g_free) */
 GList *
 nemo_drag_uri_list_from_selection_list (const GList *selection_list)
 {
@@ -156,6 +160,7 @@ nemo_drag_uri_list_from_selection_list (const GList *selection_list)
 	return g_list_reverse (uri_list);
 }
 
+/* Returns: (transfer full): free with g_strfreev */
 char **
 nemo_drag_uri_array_from_list (const GList *uri_list)
 {
@@ -178,6 +183,7 @@ nemo_drag_uri_array_from_list (const GList *uri_list)
 	return uris;
 }
 
+/* Returns: (transfer full): free with g_list_free_full (list, g_free) */
 GList *
 nemo_drag_uri_list_from_array (const char **uris)
 {
@@ -198,7 +204,8 @@ nemo_drag_uri_list_from_array (const char **uris)
 }
 
 /* Split out from the public entry so the parser can be exercised on raw
-   bytes; GtkSelectionData is opaque and cannot be built in a test. */
+   bytes; GtkSelectionData is opaque and cannot be built in a test.
+   Returns: (transfer full): free with nemo_drag_destroy_selection_list */
 GList *
 nemo_drag_build_selection_list_from_raw (const guchar *raw, int size)
 {
@@ -284,6 +291,7 @@ nemo_drag_build_selection_list_from_raw (const guchar *raw, int size)
 	return g_list_reverse (result);
 }
 
+/* Returns: (transfer full): free with nemo_drag_destroy_selection_list */
 GList *
 nemo_drag_build_selection_list (GtkSelectionData *data)
 {
@@ -489,7 +497,7 @@ remember_source_filesystem (const char  *dropped_uri,
                                  &error);
 
     if (error != NULL || fs_info == NULL) {
-        g_warning ("Cannot read the filesystem of a dragged file: %s",
+        g_warning ("Can't read the filesystem of a dragged file: %s",
                    error != NULL ? error->message : "no info returned");
         g_clear_error (&error);
         *source_fs = NULL;
@@ -548,7 +556,19 @@ nemo_drag_default_drop_action_for_icons (GdkDragContext *context,
         return;
     }
 
-	actions = gdk_drag_context_get_actions (context) & (GDK_ACTION_MOVE | GDK_ACTION_COPY);
+#ifdef G_OS_WIN32
+	/* A held modifier says outright what to do, and on Windows it cannot
+	 * reach us any other way - see nemo_dnd_win32_modifier_action. The
+	 * toolkit there always offers copy and move, so a link or the menu has
+	 * to go before the checks below, where it would be on X11. */
+	forced = nemo_dnd_win32_modifier_action ();
+	if (forced == GDK_ACTION_LINK || forced == GDK_ACTION_ASK) {
+		*action = forced;
+		return;
+	}
+#endif
+
+	actions = nemo_drag_offered_actions (context) & (GDK_ACTION_MOVE | GDK_ACTION_COPY);
 	if (actions == 0) {
 		 /* We can't use copy or move, just go with the suggested action. */
 		*action = gdk_drag_context_get_suggested_action (context);
@@ -637,12 +657,6 @@ nemo_drag_default_drop_action_for_icons (GdkDragContext *context,
 	}
 	source_deletable = source_is_deletable (dropped);
 
-#ifdef G_OS_WIN32
-	/* A held modifier says outright what to do, and on Windows it cannot
-	 * reach us any other way - see nemo_dnd_win32_modifier_action. */
-	forced = nemo_dnd_win32_modifier_action ();
-#endif
-
 	if (forced != 0) {
 		*action = forced;
 	} else if ((same_fs && (source_deletable || *can_delete_source)) || target_is_source_parent ||
@@ -666,7 +680,8 @@ nemo_drag_default_drop_action_for_icons (GdkDragContext *context,
 }
 
 /* The first uri a text/uri-list payload names, which is all the move-or-copy
- * decision needs - a drag is one place to another, whatever it holds. */
+ * decision needs - a drag is one place to another, whatever it holds.
+ * Returns: (transfer full): free with g_free */
 char *
 nemo_drag_first_uri (GtkSelectionData *data)
 {
@@ -697,7 +712,7 @@ nemo_drag_default_drop_action_for_uri_list (GdkDragContext *context,
 						gchar **source_fs,
 						gboolean *can_delete_source)
 {
-	return nemo_drag_drop_action_for_uri_list (gdk_drag_context_get_actions (context),
+	return nemo_drag_drop_action_for_uri_list (nemo_drag_offered_actions (context),
 						   gdk_drag_context_get_suggested_action (context),
 						   target_uri_string, dropped_uri,
 						   source_fs, can_delete_source);
@@ -751,7 +766,7 @@ nemo_drag_drop_action_for_uri_list (GdkDragAction actions,
    the location and size of each icon relative to the cursor.
 */
 static void
-add_one_gnome_icon (const char *uri, const char *path_str, int x, int y, int w, int h,
+add_one_gnome_icon (const char *uri, G_GNUC_UNUSED const char *path_str, int x, int y, int w, int h,
 		    gpointer data)
 {
 	GString *result;
@@ -836,7 +851,7 @@ add_one_compatible_uri (const char *uri, int x, int y, int w, int h, gpointer da
 #endif
 
 static void
-add_one_uri (const char *uri, const char *path_str, int x, int y, int w, int h, gpointer data)
+add_one_uri (const char *uri, G_GNUC_UNUSED const char *path_str, G_GNUC_UNUSED int x, G_GNUC_UNUSED int y, G_GNUC_UNUSED int w, G_GNUC_UNUSED int h, gpointer data)
 {
 	GString *result;
 	
@@ -847,7 +862,7 @@ add_one_uri (const char *uri, const char *path_str, int x, int y, int w, int h, 
 }
 
 static void
-add_one_path (const char *uri, const char *path_str, int x, int y, int w, int h, gpointer data)
+add_one_path (G_GNUC_UNUSED const char *uri, const char *path_str, G_GNUC_UNUSED int x, G_GNUC_UNUSED int y, G_GNUC_UNUSED int w, G_GNUC_UNUSED int h, gpointer data)
 {
     GString *result;
 
@@ -857,6 +872,7 @@ add_one_path (const char *uri, const char *path_str, int x, int y, int w, int h,
     g_string_append (result, "\r\n");
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_drag_selection_payload (guint info,
 			     gpointer container_context,
@@ -891,11 +907,11 @@ nemo_drag_selection_payload (guint info,
 /* Common function for drag_data_get_callback calls.
  * Returns FALSE if it doesn't handle drag data */
 gboolean
-nemo_drag_drag_data_get (GtkWidget *widget,
-			GdkDragContext *context,
+nemo_drag_drag_data_get (G_GNUC_UNUSED GtkWidget *widget,
+			G_GNUC_UNUSED GdkDragContext *context,
 			GtkSelectionData *selection_data,
 			guint info,
-			guint32 time,
+			G_GNUC_UNUSED guint32 time,
 			gpointer container_context,
 			NemoDragEachSelectedItemIterator each_selected_item_iterator)
 {
@@ -922,7 +938,7 @@ typedef struct
 } DropActionMenuData;
 
 static void
-menu_deactivate_callback (GtkWidget *menu,
+menu_deactivate_callback (G_GNUC_UNUSED GtkWidget *menu,
 			  gpointer   data)
 {
 	DropActionMenuData *damd;
@@ -970,6 +986,52 @@ append_drop_action_menu_item (GtkWidget          *menu,
 			  damd);
 
 	gtk_widget_show (menu_item);
+}
+
+#ifdef G_OS_WIN32
+#define ASKED_KEY "nemo-drag-asked"
+#endif
+
+void
+nemo_drag_status (GdkDragContext *context,
+		  GdkDragAction   action,
+		  guint32         time)
+{
+#ifdef G_OS_WIN32
+	/* The toolkit on Windows turns an ask into no drop at all, so Windows
+	 * never makes the drop and the menu never comes up. It is told copy, which
+	 * nearly every drag allows, and the ask is kept on the drag. */
+	g_object_set_data (G_OBJECT (context), ASKED_KEY,
+			   GINT_TO_POINTER (action == GDK_ACTION_ASK));
+	if (action == GDK_ACTION_ASK) {
+		action = GDK_ACTION_COPY;
+	}
+#endif
+	gdk_drag_status (context, action, time);
+}
+
+GdkDragAction
+nemo_drag_selected_action (GdkDragContext *context)
+{
+#ifdef G_OS_WIN32
+	if (g_object_get_data (G_OBJECT (context), ASKED_KEY) != NULL) {
+		return GDK_ACTION_ASK;
+	}
+#endif
+	return gdk_drag_context_get_selected_action (context);
+}
+
+GdkDragAction
+nemo_drag_offered_actions (GdkDragContext *context)
+{
+#ifdef G_OS_WIN32
+	/* What the toolkit says there is fixed, and leaves out link. What the
+	 * program the drag came from allows is kept as it comes in. */
+	(void) context;
+	return nemo_drop_win32_offered_actions ();
+#else
+	return gdk_drag_context_get_actions (context);
+#endif
 }
 
 /* Pops up a menu of actions to perform on dropped files */

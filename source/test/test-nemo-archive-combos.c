@@ -9,13 +9,22 @@
  * the originals went only where the archive checked out, with a warning
  * where they were kept.
  *
- * After the crossed rows, per format: a link that leads nowhere, and names
- * with * or ? that 7z or rar could read as patterns.
+ * The link choices and the 2 filesystem options are crossed too. Made-up
+ * mounts put sub on a nested filesystem and the linked folder on another
+ * one. Every writer goes by them, so on Windows a rar row can follow
+ * symlinks while it keeps junctions.
+ *
+ * After the crossed rows, per format: a link that leads nowhere, each link
+ * choice in the library's formats, and names with * or ? that 7z or rar
+ * could read as patterns. Last, some of those again with the 7-Zip and rar
+ * lines edited in the settings.
  */
 
 #include "test.h"
 
 #include <libnemo-private/nemo-archive.h>
+#include <libnemo-private/nemo-archive-commands.h>
+#include <libnemo-private/nemo-config.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-link-copy.h>
 #include <libnemo-private/nemo-progress-info-manager.h>
@@ -34,6 +43,10 @@
 #define SPLIT_BYTES         65536
 #define PASSWORD            "secret"
 
+/* JOB_TIMEOUT_SECONDS times how slow the box is. One xz case at the top
+   level takes half a minute on an emulated arm64 box with nothing beside it. */
+static guint job_timeout;
+
 typedef enum {
 	P_LEVEL,
 	P_PASSWORD,
@@ -41,10 +54,12 @@ typedef enum {
 	P_SPLIT,
 	P_SOLID,
 	P_DEDUPE,
-	P_LINKS,
+	P_SYMLINKS,
 	P_RECOVERY,
 	P_LOCK,
-	P_FOLLOW,
+	P_NESTED,
+	P_OTHER,
+	P_JUNCTIONS,
 	P_DELETE,
 	P_EACH,
 	N_PARAMS
@@ -53,9 +68,24 @@ typedef enum {
 #define MAX_VALUES 3
 
 static const char * const param_names[N_PARAMS] = {
-	"level", "password", "names", "split", "solid", "dedupe", "links",
-	"recovery", "lock", "follow", "delete", "each"
+	"level", "password", "names", "split", "solid", "dedupe", "symlinks",
+	"recovery", "lock", "nested", "other", "junctions", "delete", "each"
 };
+
+/* Store is last, so a format that can't store has the first 2. */
+static const ArcLinkChoice link_choices[MAX_VALUES] = {
+	ARC_LINK_IGNORE, ARC_LINK_FOLLOW, ARC_LINK_STORE_SYMLINK
+};
+
+/* rar keeps a junction a junction, the library as a symlink. */
+static ArcLinkChoice
+junction_choice (NemoArchiveFormat format, int value)
+{
+	if (value == 2) {
+		return format == NEMO_ARCHIVE_FORMAT_RAR ? ARC_LINK_STORE_JUNCTION : ARC_LINK_STORE_SYMLINK;
+	}
+	return link_choices[value];
+}
 
 static const int levels[MAX_VALUES] = {
 	NEMO_ARCHIVE_LEVEL_STORE, NEMO_ARCHIVE_LEVEL_DEFAULT, NEMO_ARCHIVE_LEVEL_MAX
@@ -68,10 +98,18 @@ typedef struct {
 static gboolean job_finished;
 static gboolean job_succeeded;
 static gboolean with_links;
+static gboolean with_junctions;
+
+/* Where the made-up mounts are: the scratch folder in a pool, the linked
+   folder on a disk of its own, and in a crossed row its sub nested in the
+   pool. Windows has no nested kind, so there sub is a volume of its own. */
+static char *mount_scratch;
+static char *mount_linked;
+static char *mount_sub;
 static GHashTable *contents;	/* archive path -> GBytes, what each file holds */
 
 static void
-archive_done (GFile *result, gboolean success, gpointer data)
+archive_done (G_GNUC_UNUSED GFile *result, gboolean success, G_GNUC_UNUSED gpointer data)
 {
 	job_succeeded = success;
 	job_finished = TRUE;
@@ -79,7 +117,7 @@ archive_done (GFile *result, gboolean success, gpointer data)
 }
 
 static gboolean
-give_up (gpointer data)
+give_up (G_GNUC_UNUSED gpointer data)
 {
 	gtk_main_quit ();
 	return G_SOURCE_REMOVE;
@@ -98,10 +136,18 @@ value_counts (NemoArchiveFormat format, int counts[N_PARAMS])
 	counts[P_SPLIT] = (caps & NEMO_ARCHIVE_CAP_SPLIT) ? 2 : 1;
 	counts[P_SOLID] = (caps & NEMO_ARCHIVE_CAP_SOLID) ? 2 : 1;
 	counts[P_DEDUPE] = (caps & NEMO_ARCHIVE_CAP_DEDUPE) ? 2 : 1;
-	counts[P_LINKS] = (caps & NEMO_ARCHIVE_CAP_STORE_LINKS) ? 2 : 1;
+	counts[P_SYMLINKS] = !with_links ? 1 : (caps & NEMO_ARCHIVE_CAP_STORE_LINKS) ? 3 : 2;
 	counts[P_RECOVERY] = (caps & NEMO_ARCHIVE_CAP_RECOVERY) ? 2 : 1;
 	counts[P_LOCK] = (caps & NEMO_ARCHIVE_CAP_LOCK) ? 2 : 1;
-	counts[P_FOLLOW] = with_links ? 2 : 1;
+#ifdef G_OS_WIN32
+	counts[P_NESTED] = 1;
+#else
+	counts[P_NESTED] = 2;
+#endif
+	counts[P_OTHER] = 2;
+	counts[P_JUNCTIONS] = !with_junctions ? 1
+		: (nemo_archive_format_link_stores (format) &
+		   (ARC_STORES_JUNCTIONS | ARC_STORES_JUNCTIONS_AS_SYMLINKS)) ? 3 : 2;
 	counts[P_DELETE] = 2;
 	counts[P_EACH] = 2;
 }
@@ -244,10 +290,14 @@ options_from_row (NemoArchiveFormat format, const Row *row, NemoArchiveOptions *
 	options->split_size = row->v[P_SPLIT] ? SPLIT_BYTES : 0;
 	options->solid = row->v[P_SOLID];
 	options->dedupe = row->v[P_DEDUPE];
-	options->store_links = row->v[P_LINKS];
+	options->links.symlinks = link_choices[row->v[P_SYMLINKS]];
+	if (with_junctions) {
+		arc_link_options_set_junctions (&options->links, junction_choice (format, row->v[P_JUNCTIONS]));
+	}
+	options->links.follow_nested = row->v[P_NESTED];
+	options->links.follow_other = row->v[P_OTHER];
 	options->recovery_record = row->v[P_RECOVERY];
 	options->lock = row->v[P_LOCK];
-	options->follow_link_dirs = row->v[P_FOLLOW];
 	options->delete_sources = row->v[P_DELETE];
 }
 
@@ -277,7 +327,7 @@ noise (guint32 seed, gsize length)
 }
 
 static const char * const item_names[] = {
-	"a.txt", "sub", "twin1.bin", "twin2.bin", "big.bin", "file-link", "dir-link", NULL
+	"a.txt", "sub", "twin1.bin", "twin2.bin", "big.bin", "file-link", "dir-link", "jlink", NULL
 };
 
 static void
@@ -304,6 +354,7 @@ make_items (const char *items, const char *outside)
 		know ("big.bin", big, 200 * 1024);
 		know ("file-link", "target", 6);
 		know ("dir-link/c.txt", "charlie", 7);
+		know ("jlink/d.txt", "delta", 5);
 	}
 	GList *sources = NULL;
 	int i;
@@ -316,8 +367,11 @@ make_items (const char *items, const char *outside)
 	write_bytes (items, "big.bin", big, 200 * 1024);
 
 	if (with_links) {
-		char *target = g_build_filename (outside, "target.txt", NULL);
-		char *linked = g_build_filename (outside, "linked", NULL);
+		/* Relative, so a long temp folder makes no long target. rar keeps
+		   a target in the entry's header, and libarchive 3.8.9 and older
+		   misreads one of 128 bytes or more, see check_long_target. */
+		char *target = g_build_filename ("..", "..", "outside", "target.txt", NULL);
+		char *linked = g_build_filename ("..", "..", "outside", "linked", NULL);
 		char *file_link = g_build_filename (items, "file-link", NULL);
 		char *dir_link = g_build_filename (items, "dir-link", NULL);
 
@@ -327,6 +381,14 @@ make_items (const char *items, const char *outside)
 		g_free (file_link);
 		g_free (linked);
 		g_free (target);
+	}
+	if (with_junctions) {
+		char *jdir = g_build_filename (outside, "jdir", NULL);
+		char *jlink = g_build_filename (items, "jlink", NULL);
+
+		check (nemo_link_create (jdir, jlink, NULL, NEMO_LINK_JUNCTION, NULL));
+		g_free (jlink);
+		g_free (jdir);
 	}
 
 	for (i = 0; item_names[i] != NULL; i++) {
@@ -344,31 +406,153 @@ make_items (const char *items, const char *outside)
 	return sources;
 }
 
+/* What the writer does with the options. */
+typedef struct {
+	gboolean      library;
+	gboolean      keeps;	/* the writer can keep links at all */
+	gboolean      split;
+	ArcLinkChoice symlinks;
+	ArcLinkChoice junctions;
+	gboolean      nested;
+	gboolean      other;
+	/* libarchive reads a 7z link's target from its data, so where that's
+	   locked by a password the listing ends at the first link, and the
+	   delete check can't see the rest. */
+	gboolean      links_unlisted;
+	/* rar kept jlink, and libarchive can't list it, see check_long_target. */
+	gboolean      jlink_unlisted;
+} Rules;
+
+/* libarchive 3.8.9 and older reads a rar link's target length as one byte,
+   so it lists nothing from a target of 128 bytes on. Fixed upstream after
+   3.8.9. */
+static gboolean
+long_targets_unlisted (void)
+{
+	return archive_version_number () < 3008010;
+}
+
+static void
+rules_for (NemoArchiveFormat format, NemoArchiveBackend backend,
+	   const NemoArchiveOptions *options, Rules *rules)
+{
+	guint stores = nemo_archive_backend_link_stores (format, backend);
+
+	rules->library = backend == NEMO_ARCHIVE_BACKEND_LIBARCHIVE;
+	rules->keeps = (nemo_archive_backend_caps (format, backend) & NEMO_ARCHIVE_CAP_STORE_LINKS) != 0;
+	rules->split = options->split_size > 0;
+	rules->symlinks = arc_link_options_symlinks (&options->links, stores);
+	rules->junctions = arc_link_options_junctions (&options->links, stores);
+	rules->nested = options->links.follow_nested;
+	rules->other = options->links.follow_other;
+	rules->links_unlisted = format == NEMO_ARCHIVE_FORMAT_7Z && options->password != NULL &&
+				rules->symlinks == ARC_LINK_STORE_SYMLINK;
+	rules->jlink_unlisted = FALSE;
+}
+
+static gboolean
+sub_goes_in (const Rules *rules)
+{
+#ifdef G_OS_WIN32
+	return rules->other;
+#else
+	return rules->nested;
+#endif
+}
+
+static gboolean
+in_archive (const char *only, const char *item)
+{
+	return only == NULL || strcmp (only, item) == 0;
+}
+
+/* 7z and rar keep links all or none, so links kept beside links followed take
+   a run of their own first, which a split set can't be added to. There the
+   kept ones are left out. only is the one item in the archive, or NULL. */
+static gboolean
+links_lost (const Rules *rules, const char *only)
+{
+	gboolean stored, followed;
+
+	if (rules->library || !rules->split) {
+		return FALSE;
+	}
+	stored = with_links && rules->symlinks == ARC_LINK_STORE_SYMLINK &&
+		 (in_archive (only, "file-link") || in_archive (only, "dir-link"));
+	stored = stored || (with_junctions && in_archive (only, "jlink") &&
+			    (rules->junctions == ARC_LINK_STORE_SYMLINK ||
+			     rules->junctions == ARC_LINK_STORE_JUNCTION));
+	followed = with_links && rules->symlinks == ARC_LINK_FOLLOW &&
+		   (in_archive (only, "file-link") || (in_archive (only, "dir-link") && rules->other));
+	followed = followed || (with_junctions && in_archive (only, "jlink") &&
+				rules->junctions == ARC_LINK_FOLLOW);
+	return stored && followed;
+}
+
+/* Whether all of a selected item goes in and checks out, so it may be
+   deleted. each is one archive per item. */
+static gboolean
+item_whole (const Rules *rules, const char *item, gboolean each)
+{
+	gboolean lost = links_lost (rules, each ? item : NULL);
+
+	if (strcmp (item, "sub") == 0) {
+		return sub_goes_in (rules);
+	}
+	if (strcmp (item, "file-link") == 0) {
+		return rules->symlinks == ARC_LINK_FOLLOW ||
+		       (rules->symlinks == ARC_LINK_STORE_SYMLINK && !rules->links_unlisted && !lost);
+	}
+	if (strcmp (item, "dir-link") == 0) {
+		return (rules->symlinks == ARC_LINK_STORE_SYMLINK && !rules->links_unlisted && !lost) ||
+		       (rules->symlinks == ARC_LINK_FOLLOW && rules->other);
+	}
+	if (strcmp (item, "jlink") == 0) {
+		return rules->junctions == ARC_LINK_FOLLOW ||
+		       (rules->junctions != ARC_LINK_IGNORE && !lost && !rules->jlink_unlisted);
+	}
+	return TRUE;
+}
+
 /* Every file and link a reader should find, and whether each is a link.
-   Folders are left out, since some writers store them and some do not. */
+   Folders are left out, since some writers store them and some do not, and
+   libarchive reads a junction rar kept as an empty folder. */
 static GHashTable *
-expected_entries (gboolean links_stored, gboolean follow, const char *only)
+expected_entries (const Rules *rules, const char *only)
 {
 	GHashTable *want = g_hash_table_new (g_str_hash, g_str_equal);
+	gboolean lost = links_lost (rules, only);
+	gboolean stored = rules->symlinks == ARC_LINK_STORE_SYMLINK;
+	gboolean follow = rules->symlinks == ARC_LINK_FOLLOW;
 
 #define WANT(item, name, is_link) \
 	if (only == NULL || g_strcmp0 (only, item) == 0) \
 		g_hash_table_insert (want, (gpointer) (name), GINT_TO_POINTER (is_link))
 
 	WANT ("a.txt", "a.txt", FALSE);
-	WANT ("sub", "sub/b.txt", FALSE);
+	if (sub_goes_in (rules)) {
+		WANT ("sub", "sub/b.txt", FALSE);
+	}
 	WANT ("twin1.bin", "twin1.bin", FALSE);
 	WANT ("twin2.bin", "twin2.bin", FALSE);
 	WANT ("big.bin", "big.bin", FALSE);
 	if (with_links) {
-		if (links_stored) {
+		if (stored && !lost) {
 			WANT ("file-link", "file-link", TRUE);
 			WANT ("dir-link", "dir-link", TRUE);
-		} else {
+		} else if (follow) {
 			WANT ("file-link", "file-link", FALSE);
-			if (follow) {
+			/* The linked folder is on another filesystem. */
+			if (rules->other) {
 				WANT ("dir-link", "dir-link/c.txt", FALSE);
 			}
+		}
+	}
+	if (with_junctions) {
+		if (rules->junctions == ARC_LINK_STORE_SYMLINK && !lost) {
+			WANT ("jlink", "jlink", TRUE);
+		} else if (rules->junctions == ARC_LINK_FOLLOW) {
+			WANT ("jlink", "jlink/d.txt", FALSE);
 		}
 	}
 #undef WANT
@@ -416,7 +600,11 @@ read_back (const char *path, GHashTable *found)
 			continue;
 		}
 
-		name = g_strdup (archive_entry_pathname (entry));
+		/* The plain name is in the locale's code page, which on Windows
+		   is not UTF-8. */
+		name = g_strdup (archive_entry_pathname_utf8 (entry) != NULL
+				 ? archive_entry_pathname_utf8 (entry)
+				 : archive_entry_pathname (entry));
 		length = strlen (name);
 		if (length > 0 && name[length - 1] == '/') {
 			name[length - 1] = '\0';
@@ -525,7 +713,7 @@ static int questions_answered;
    runs from a timeout. The only one expected is the trash asking to go
    ahead, answered yes with the last button. */
 static gboolean
-answer_questions (gpointer data)
+answer_questions (G_GNUC_UNUSED gpointer data)
 {
 	GList *windows = gtk_window_list_toplevels ();
 	GList *l;
@@ -566,14 +754,14 @@ answer_questions (gpointer data)
 static int
 wait_for_jobs (NemoProgressInfoManager *manager)
 {
-	gint64 give_up_at = g_get_monotonic_time () + JOB_TIMEOUT_SECONDS * G_USEC_PER_SEC;
+	gint64 give_up_at = g_get_monotonic_time () + (gint64) job_timeout * G_USEC_PER_SEC;
 	guint answer_id = g_timeout_add (20, answer_questions, NULL);
 
 	questions_answered = 0;
 	while (nemo_progress_info_manager_get_all_infos (manager) != NULL) {
 		if (g_get_monotonic_time () > give_up_at) {
-			g_printerr ("FAIL: a job did not finish within %d seconds\n",
-				    JOB_TIMEOUT_SECONDS);
+			g_printerr ("FAIL: a job did not finish within %u seconds\n",
+				    job_timeout);
 			failures++;
 			break;
 		}
@@ -654,8 +842,9 @@ run_row (const char *tmp, const char *outside, int number,
 	char *out = g_build_filename (root, "out", NULL);
 	NemoArchiveOptions options;
 	NemoArchiveBackend backend;
+	Rules rules;
 	gboolean each = row->v[P_EACH];
-	gboolean stored, verifiable, walk_whole, hidden_names, has_password;
+	gboolean verifiable, walk_whole, hidden_names, has_password, lost;
 	GList *sources, *l;
 	int before = failures;
 	int warnings, errors, asked;
@@ -664,21 +853,43 @@ run_row (const char *tmp, const char *outside, int number,
 
 	g_mkdir_with_parents (items, 0700);
 	g_mkdir_with_parents (out, 0700);
-	sources = make_items (items, outside);
 	options_from_row (format, row, &options);
 
 	backend = nemo_archive_pick_backend (format, &options);
 	check (backend != NEMO_ARCHIVE_BACKEND_NONE);
+	sources = make_items (items, outside);
+	g_free (mount_sub);
+	mount_sub = g_build_filename (items, "sub", NULL);
 
 	/* What should come out, worked out the way the dialog's promise reads:
-	   links kept as links where the writer can, a linked folder left out
-	   unless followed, and a delete only where the archive checks out. */
-	stored = options.store_links &&
-		 (nemo_archive_backend_caps (format, backend) & NEMO_ARCHIVE_CAP_STORE_LINKS) != 0;
-	walk_whole = !with_links || stored || options.follow_link_dirs;
+	   each link by its choice where the writer can, what's on a filesystem
+	   not followed left out, and a delete only where the archive checks
+	   out. */
+	rules_for (format, backend, &options, &rules);
+	rules.links_unlisted = rules.links_unlisted && with_links;
+	if (with_junctions && format == NEMO_ARCHIVE_FORMAT_RAR &&
+	    (rules.junctions == ARC_LINK_STORE_JUNCTION || rules.junctions == ARC_LINK_STORE_SYMLINK)) {
+		char *jdir = g_build_filename (outside, "jdir", NULL);
+
+		/* rar keeps a junction's target as \??\C:\... */
+		rules.jlink_unlisted = long_targets_unlisted () && strlen (jdir) + 4 >= 128;
+		g_free (jdir);
+	}
+	walk_whole = TRUE;
+	lost = !each && links_lost (&rules, NULL);
+	for (l = sources; l != NULL; l = l->next) {
+		char *item = g_file_get_basename (G_FILE (l->data));
+
+		walk_whole = walk_whole && item_whole (&rules, item, each);
+		lost = lost || (each && links_lost (&rules, item));
+		g_free (item);
+	}
 	has_password = options.password != NULL;
 	hidden_names = has_password && options.encrypt_names;
-	verifiable = nemo_archive_can_verify (&options);
+	/* The job checks each archive for what went in. A 7z that keeps links
+	   under a password is links_unlisted, and the dialog grays the box for
+	   it up front. */
+	verifiable = !options.split_size && !hidden_names;
 
 	job_finished = FALSE;
 	job_succeeded = FALSE;
@@ -699,13 +910,13 @@ run_row (const char *tmp, const char *outside, int number,
 		g_free (path);
 		g_free (base);
 	}
-	timeout_id = g_timeout_add_seconds (JOB_TIMEOUT_SECONDS, give_up, NULL);
+	timeout_id = g_timeout_add_seconds (job_timeout, give_up, NULL);
 	gtk_main ();
 	if (job_finished) {
 		g_source_remove (timeout_id);
 	} else {
-		g_printerr ("FAIL: compressing did not finish within %d seconds\n",
-			    JOB_TIMEOUT_SECONDS);
+		g_printerr ("FAIL: compressing did not finish within %u seconds\n",
+			    job_timeout);
 		failures++;
 	}
 	asked = wait_for_jobs (manager);
@@ -733,15 +944,17 @@ run_row (const char *tmp, const char *outside, int number,
 			}
 			archive_path = g_build_filename (out, archive_name, NULL);
 
-			want = expected_entries (stored, options.follow_link_dirs, each ? item : NULL);
+			want = expected_entries (&rules, each ? item : NULL);
 			found = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 			result = read_back (archive_path, found);
 
 			if (g_hash_table_size (want) == 0) {
-				/* A linked folder alone, not followed: nothing went in, and
-				   the archive may or may not have been written. */
+				/* A link or a mounted folder alone, left out: nothing went
+				   in, and the archive may or may not have been written. */
 			} else if (hidden_names) {
 				check (result == READ_NO_NAMES);
+			} else if (rules.links_unlisted) {
+				check (result != READ_OK);
 			} else {
 				check (same_entries (want, found));
 				check (result == (has_password && holds_data (want) ? READ_NO_DATA : READ_OK));
@@ -770,36 +983,63 @@ run_row (const char *tmp, const char *outside, int number,
 	/* The originals go only where every one of them checked out, and the
 	   warning says so where they stay. */
 	if (!options.delete_sources) {
+		/* Links a split set couldn't keep are named. */
 		check (exists (items, "a.txt"));
-		check (warnings == 0);
+		check (warnings == (lost ? 1 : 0));
 		check (asked == 0);
 	} else if (!verifiable) {
 		check (exists (items, "a.txt") && exists (items, "sub"));
 		check (warnings == 1);
 		check (asked == 0);
 	} else if (each) {
+		/* Each item that went in whole goes, and the rest stay with one
+		   warning. */
 		check (asked == 1);
-		check (!exists (items, "a.txt") && !exists (items, "sub") && !exists (items, "big.bin"));
-		if (with_links) {
-			check (!exists (items, "file-link"));
-			check (exists (items, "dir-link") == !walk_whole);
+		for (l = sources; l != NULL; l = l->next) {
+			char *item = g_file_get_basename (G_FILE (l->data));
+
+			if (exists (items, item) == item_whole (&rules, item, TRUE)) {
+				g_printerr ("FAIL: %s %s\n", item, item_whole (&rules, item, TRUE) ? "kept" : "deleted");
+				failures++;
+			}
+			g_free (item);
 		}
 		check (warnings == (walk_whole ? 0 : 1));
+		/* Only the first reason is shown. */
+		for (l = sources; l != NULL; l = l->next) {
+			char *item = g_file_get_basename (G_FILE (l->data));
+			gboolean kept = !item_whole (&rules, item, TRUE);
+
+			if (kept && rules.jlink_unlisted && strcmp (item, "jlink") == 0) {
+				check (strstr (said->str, "too long to read back") != NULL);
+			}
+			g_free (item);
+			if (kept) {
+				break;
+			}
+		}
 	} else {
+		check (!rules.jlink_unlisted || strstr (said->str, "too long to read back") != NULL);
 		check (exists (items, "a.txt") == !walk_whole);
 		check (exists (items, "sub") == !walk_whole);
 		check (warnings == (walk_whole ? 0 : 1));
 		check (asked == (walk_whole ? 1 : 0));
+		/* Said up front, not as a link missing. */
+		check (!rules.links_unlisted || strstr (said->str, "keeps links as links") != NULL);
 	}
 
 	/* A delete takes the links, never what they point at. */
 	{
 		char *linked = g_build_filename (outside, "linked", NULL);
+		char *jdir = g_build_filename (outside, "jdir", NULL);
 
 		check (exists (outside, "target.txt"));
 		check (exists (linked, "c.txt"));
+		check (exists (jdir, "d.txt"));
+		g_free (jdir);
 		g_free (linked);
 	}
+	g_clear_pointer (&mount_sub, g_free);
 
 	if (failures > before) {
 		describe (format, row);
@@ -830,13 +1070,13 @@ run_single (GList *sources, const char *dest_path, const NemoArchiveOptions *opt
 	nemo_archive_create (sources, dest, options, GTK_WINDOW (window), archive_done, NULL);
 	g_object_unref (dest);
 
-	timeout_id = g_timeout_add_seconds (JOB_TIMEOUT_SECONDS, give_up, NULL);
+	timeout_id = g_timeout_add_seconds (job_timeout, give_up, NULL);
 	gtk_main ();
 	if (job_finished) {
 		g_source_remove (timeout_id);
 	} else {
-		g_printerr ("FAIL: compressing did not finish within %d seconds\n",
-			    JOB_TIMEOUT_SECONDS);
+		g_printerr ("FAIL: compressing did not finish within %u seconds\n",
+			    job_timeout);
 		failures++;
 	}
 	*asked = wait_for_jobs (manager);
@@ -852,16 +1092,18 @@ options_for (NemoArchiveFormat format, NemoArchiveOptions *options)
 	nemo_archive_options_init (options);
 	options->format = format;
 	options->recovery_record = FALSE;
-	options->store_links = FALSE;
-	options->follow_link_dirs = FALSE;
 	options->solid = format == NEMO_ARCHIVE_FORMAT_7Z;
 }
 
-/* Whether a link that leads nowhere goes in as a link. The library writes one
-   in every format it has. 7z and rar keep links only all or none, so theirs go
-   in by a run of their own, which a split set cannot be added to. There 7-Zip
-   will not go through a linked folder, and rar has no way to take * or ? in a
-   name literally. */
+/* "g", o with diaeresis, "n", a with macron. */
+#define WIDE_NAME "g\xc3\xb6n\xc4\x81"
+
+/* Whether a link that leads nowhere goes in as a link under Follow, beside
+   links followed. The library writes one in every format it has. 7z and rar
+   keep links only all or none, so theirs go in by a run of their own, which
+   a split set cannot be added to. There 7-Zip will not go through a linked
+   folder, and rar has no way to take * or ? in a name literally. Ignore
+   leaves it out everywhere, see check_link_choice. */
 static gboolean
 dangling_kept (NemoArchiveFormat format, NemoArchiveBackend backend,
 	       const NemoArchiveOptions *options, const char *name, gboolean through_link)
@@ -879,12 +1121,12 @@ dangling_kept (NemoArchiveFormat format, NemoArchiveBackend backend,
 	return strpbrk (name, "*?") == NULL;
 }
 
-/* A link that leads nowhere goes in as a link wherever the writer can, even
-   with links otherwise followed, and the good link beside it is still
-   followed. Where it cannot, it is passed over with a warning that names it,
-   and the rest of the archive stands. 7z and rar end such a run with a
-   warning status, which is not a failed archive. library picks the library's
-   7z writer, by leaving solid off. */
+/* A link that leads nowhere goes in as a link wherever the writer can, under
+   Follow or a store, and under Follow the good link beside it is followed.
+   Where it cannot, it is passed over with a warning that names it, and the
+   rest of the archive stands. 7z and rar end such a run with a warning
+   status, which is not a failed archive. library picks the library's 7z
+   writer, with 7-Zip hidden. */
 static void
 check_dangling (const char *tmp, NemoArchiveFormat format, gboolean store, gboolean delete_sources,
 		gboolean split, gboolean library, GtkWidget *window, NemoProgressInfoManager *manager)
@@ -910,7 +1152,15 @@ check_dangling (const char *tmp, NemoArchiveFormat format, gboolean store, gbool
 	write_bytes (held, "a.txt", "alpha", 5);
 	write_bytes (root, "target.txt", "target", 6);
 	check (nemo_link_create ("nowhere", gone, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
-	check (nemo_link_create ("../target.txt", good, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
+	/* Windows does not follow a link spelled with / at all. */
+	check (nemo_link_create (".." G_DIR_SEPARATOR_S "target.txt", good, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
+	{
+		/* On Windows a folder link reads as a folder, wherever it leads. */
+		char *gone_dir = g_build_filename (held, "gonedir", NULL);
+
+		check (nemo_link_create ("nowhere", gone_dir, NULL, NEMO_LINK_DIR_SYMLINK, NULL));
+		g_free (gone_dir);
+	}
 #ifndef G_OS_WIN32
 	{
 		/* rar would read this name as a pattern, so it stays out there. */
@@ -919,14 +1169,24 @@ check_dangling (const char *tmp, NemoArchiveFormat format, gboolean store, gbool
 		check (nemo_link_create ("nowhere", odd, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
 		g_free (odd);
 	}
+#else
+	{
+		/* Both tools print names in the console code page unless told
+		   otherwise, and that one has no a with a macron. */
+		char *wide = g_build_filename (held, WIDE_NAME, NULL);
+
+		check (nemo_link_create ("nowhere", wide, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
+		g_free (wide);
+	}
 #endif
 	sources = g_list_append (NULL, g_file_new_for_path (held));
 
 	options_for (format, &options);
-	options.store_links = store;
+	options.links.symlinks = store ? ARC_LINK_STORE_SYMLINK : ARC_LINK_FOLLOW;
 	options.delete_sources = delete_sources;
 	if (library) {
 		options.solid = FALSE;
+		nemo_archive_hide_backend (NEMO_ARCHIVE_BACKEND_7Z, TRUE);
 	}
 	/* One volume, renamed back to the name asked for, so it reads back. */
 	options.split_size = split ? SPLIT_BYTES : 0;
@@ -935,14 +1195,15 @@ check_dangling (const char *tmp, NemoArchiveFormat format, gboolean store, gbool
 		check (backend == NEMO_ARCHIVE_BACKEND_LIBARCHIVE);
 	}
 	stored = store && (nemo_archive_backend_caps (format, backend) & NEMO_ARCHIVE_CAP_STORE_LINKS) != 0;
-	kept = stored || dangling_kept (format, backend, &options, "held/gone", FALSE);
+	kept = stored || (!store && dangling_kept (format, backend, &options, "held/gone", FALSE));
 #ifndef G_OS_WIN32
-	odd_kept = stored || dangling_kept (format, backend, &options, "held/g?ne", FALSE);
+	odd_kept = stored || (!store && dangling_kept (format, backend, &options, "held/g?ne", FALSE));
 #else
 	odd_kept = TRUE;
 #endif
 
 	ok = run_single (sources, dest, &options, window, manager, &warnings, &errors, &asked, said);
+	nemo_archive_hide_backend (NEMO_ARCHIVE_BACKEND_7Z, FALSE);
 	check (ok);
 	check (errors == 0);
 
@@ -956,10 +1217,19 @@ check_dangling (const char *tmp, NemoArchiveFormat format, gboolean store, gbool
 	if (kept) {
 		check (GPOINTER_TO_INT (g_hash_table_lookup (found, "held/gone")));
 	}
+	check (g_hash_table_contains (found, "held/gonedir") == kept);
+	if (kept) {
+		check (GPOINTER_TO_INT (g_hash_table_lookup (found, "held/gonedir")));
+	}
 #ifndef G_OS_WIN32
 	check (g_hash_table_contains (found, "held/g?ne") == odd_kept);
 	if (odd_kept) {
 		check (GPOINTER_TO_INT (g_hash_table_lookup (found, "held/g?ne")));
+	}
+#else
+	check (g_hash_table_contains (found, "held/" WIDE_NAME) == kept);
+	if (kept) {
+		check (GPOINTER_TO_INT (g_hash_table_lookup (found, "held/" WIDE_NAME)));
 	}
 #endif
 	g_hash_table_destroy (found);
@@ -972,7 +1242,11 @@ check_dangling (const char *tmp, NemoArchiveFormat format, gboolean store, gbool
 		/* One warning either way, and the originals stay. */
 		check (warnings == 1);
 		check (kept || strstr (said->str, "gone") != NULL);
+		check (kept || strstr (said->str, "gonedir") != NULL);
 		check (odd_kept || strstr (said->str, "g?ne") != NULL);
+#ifdef G_OS_WIN32
+		check (kept || strstr (said->str, WIDE_NAME) != NULL);
+#endif
 		check (asked == 0);
 		check (exists (held, "a.txt"));
 	}
@@ -988,6 +1262,142 @@ check_dangling (const char *tmp, NemoArchiveFormat format, gboolean store, gbool
 	g_free (base);
 	g_free (good);
 	g_free (gone);
+	g_free (held);
+	g_free (root);
+	g_free (label);
+}
+
+/* Each Symlinks choice, for every writer: a link to a file, one to a folder,
+   and 2 that lead nowhere. Ignore leaves every link out, and so the
+   originals stay. Follow puts in what the first 2 lead to, under their own
+   names, and the 2 that lead nowhere as links where the writer can keep one.
+   Store puts all 4 in as links, and falls back to Ignore where the writer
+   can't. A delete takes the selection, never what a followed link led to.
+   alone picks just a link that leads nowhere, which under Ignore leaves
+   nothing to write. */
+static void
+check_link_choice (const char *tmp, NemoArchiveFormat format, ArcLinkChoice choice,
+		   gboolean delete_sources, gboolean alone,
+		   GtkWidget *window, NemoProgressInfoManager *manager)
+{
+	/* The second go at 7z, with 7-Zip hidden, has labels of its own. */
+	char *label = g_strdup_printf ("choice-%s%s-%d%d%d", nemo_archive_format_id (format),
+				       nemo_archive_backend_present (NEMO_ARCHIVE_BACKEND_7Z) ? "" : "-lib",
+				       choice, delete_sources, alone);
+	char *root = g_build_filename (tmp, label, NULL);
+	char *held = g_build_filename (root, "held", NULL);
+	char *outer = g_build_filename (root, "outer", NULL);
+	char *base = g_strconcat ("held", nemo_archive_format_extension (format), NULL);
+	char *dest = g_build_filename (root, base, NULL);
+	static const char * const names[] = { "good", "gone", "gonedir", "linkdir", NULL };
+	NemoArchiveOptions options;
+	NemoArchiveBackend backend;
+	ArcLinkChoice choice_done;
+	GHashTable *found;
+	GString *said = g_string_new (NULL);
+	GList *sources;
+	gboolean ok, stored, followed, keeps, whole;
+	int warnings, errors, asked;
+	int before = failures;
+	int i;
+
+	g_mkdir_with_parents (held, 0700);
+	g_mkdir_with_parents (outer, 0700);
+	write_bytes (held, "a.txt", "alpha", 5);
+	write_bytes (root, "target.txt", "target", 6);
+	write_bytes (outer, "c.txt", "charlie", 7);
+	for (i = 0; names[i] != NULL; i++) {
+		char *path = g_build_filename (held, names[i], NULL);
+		const char *target = i == 0 ? ".." G_DIR_SEPARATOR_S "target.txt"
+			: i == 3 ? ".." G_DIR_SEPARATOR_S "outer" : "nowhere";
+
+		check (nemo_link_create (target, path, NULL,
+					 i == 0 || i == 1 ? NEMO_LINK_FILE_SYMLINK : NEMO_LINK_DIR_SYMLINK,
+					 NULL));
+		g_free (path);
+	}
+	know ("held/a.txt", "alpha", 5);
+	know ("held/good", "target", 6);
+	know ("held/linkdir/c.txt", "charlie", 7);
+
+	if (alone) {
+		char *gone = g_build_filename (held, "gone", NULL);
+
+		sources = g_list_append (NULL, g_file_new_for_path (gone));
+		g_free (gone);
+	} else {
+		sources = g_list_append (NULL, g_file_new_for_path (held));
+	}
+
+	options_for (format, &options);
+	options.solid = FALSE;
+	options.links.symlinks = choice;
+	options.delete_sources = delete_sources;
+	backend = nemo_archive_pick_backend (format, &options);
+	choice_done = arc_link_options_symlinks (&options.links,
+						 nemo_archive_backend_link_stores (format, backend));
+	keeps = (nemo_archive_backend_caps (format, backend) & NEMO_ARCHIVE_CAP_STORE_LINKS) != 0;
+	stored = choice_done == ARC_LINK_STORE_SYMLINK;
+	followed = choice_done == ARC_LINK_FOLLOW;
+	whole = stored || (followed && keeps);
+
+	ok = run_single (sources, dest, &options, window, manager, &warnings, &errors, &asked, said);
+
+	found = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+	if (alone) {
+		check (ok == whole);
+		check (errors == (ok ? 0 : 1));
+		check (warnings == 0);
+		if (ok) {
+			check (read_back (dest, found) == READ_OK);
+			check (g_hash_table_size (found) == 1);
+			check (GPOINTER_TO_INT (g_hash_table_lookup (found, "gone")));
+		} else {
+			check (!g_file_test (dest, G_FILE_TEST_EXISTS));
+		}
+		check (asked == (ok && delete_sources ? 1 : 0));
+		check (exists (held, "gone") == !(ok && delete_sources));
+		check (exists (held, "a.txt"));
+	} else {
+		check (ok);
+		check (errors == 0);
+		check (read_back (dest, found) == READ_OK);
+		check (g_hash_table_contains (found, "held/a.txt"));
+		if (choice_done == ARC_LINK_IGNORE) {
+			check (g_hash_table_size (found) == 1);
+		} else {
+			check (g_hash_table_contains (found, "held/good"));
+			check (GPOINTER_TO_INT (g_hash_table_lookup (found, "held/good")) == stored);
+			check (g_hash_table_contains (found, "held/gone") == whole);
+			check (!whole || GPOINTER_TO_INT (g_hash_table_lookup (found, "held/gone")));
+			check (g_hash_table_contains (found, "held/gonedir") == whole);
+			check (!whole || GPOINTER_TO_INT (g_hash_table_lookup (found, "held/gonedir")));
+			check (g_hash_table_contains (found, "held/linkdir") == stored);
+			check (g_hash_table_contains (found, "held/linkdir/c.txt") == followed);
+			check (g_hash_table_size (found) == (whole ? 5 : 3));
+		}
+		/* Links left out by choice are no warning; the originals kept
+		   for them are, and so are links a writer couldn't keep. */
+		check (warnings == ((delete_sources && !whole) || (!delete_sources && followed && !whole) ? 1 : 0));
+		check (asked == (delete_sources && whole ? 1 : 0));
+		check (exists (root, "held") == !(delete_sources && whole));
+	}
+	/* What a followed link led to was never selected. */
+	check (exists (root, "target.txt"));
+	check (exists (outer, "c.txt"));
+
+	if (failures > before) {
+		dump_entries (label, found);
+		g_printerr ("  in %s\n%s", label, said->str);
+	}
+
+	g_hash_table_destroy (found);
+	g_string_free (said, TRUE);
+	nemo_archive_options_clear (&options);
+	g_list_free_full (sources, g_object_unref);
+	g_free (dest);
+	g_free (base);
+	g_free (outer);
 	g_free (held);
 	g_free (root);
 	g_free (label);
@@ -1018,6 +1428,7 @@ check_dangling_alone (const char *tmp, NemoArchiveFormat format,
 	sources = g_list_append (NULL, g_file_new_for_path (gone));
 
 	options_for (format, &options);
+	options.links.symlinks = ARC_LINK_FOLLOW;
 	backend = nemo_archive_pick_backend (format, &options);
 	kept = dangling_kept (format, backend, &options, "gone", FALSE);
 
@@ -1050,6 +1461,190 @@ check_dangling_alone (const char *tmp, NemoArchiveFormat format,
 	g_free (label);
 }
 
+/* A 7z with a password and Store chosen, of plain files and a folder with
+   no link in it: there's no link to lock, so it checks out and the
+   originals go. */
+static void
+check_locked_plain (const char *tmp, GtkWidget *window, NemoProgressInfoManager *manager)
+{
+	char *root = g_build_filename (tmp, "locked-plain", NULL);
+	char *held = g_build_filename (root, "held", NULL);
+	char *plain = g_build_filename (root, "a.txt", NULL);
+	char *dest = g_build_filename (root, "out.7z", NULL);
+	NemoArchiveOptions options;
+	GString *said = g_string_new (NULL);
+	GList *sources = NULL;
+	int warnings, errors, asked;
+	int before = failures;
+
+	g_mkdir_with_parents (held, 0700);
+	write_bytes (root, "a.txt", "alpha", 5);
+	write_bytes (held, "b.txt", "bravo", 5);
+	sources = g_list_append (sources, g_file_new_for_path (plain));
+	sources = g_list_append (sources, g_file_new_for_path (held));
+
+	options_for (NEMO_ARCHIVE_FORMAT_7Z, &options);
+	options.password = g_strdup (PASSWORD);
+	options.links.symlinks = ARC_LINK_STORE_SYMLINK;
+	options.delete_sources = TRUE;
+	check (nemo_archive_pick_backend (NEMO_ARCHIVE_FORMAT_7Z, &options) == NEMO_ARCHIVE_BACKEND_7Z);
+
+	check (run_single (sources, dest, &options, window, manager, &warnings, &errors, &asked, said));
+	check (errors == 0);
+	check (warnings == 0);
+	check (asked == 1);
+	check (!exists (root, "a.txt"));
+	check (!exists (root, "held"));
+
+	if (failures > before) {
+		g_printerr ("  in locked-plain\n%s", said->str);
+	}
+
+	g_string_free (said, TRUE);
+	nemo_archive_options_clear (&options);
+	g_list_free_full (sources, g_object_unref);
+	g_free (dest);
+	g_free (plain);
+	g_free (held);
+	g_free (root);
+}
+
+/* A followed link back up to a folder already in. The job's list stops
+   there, and a program walking for itself is told to leave it out, or it
+   would walk the loop. The check counts it as no miss. */
+static void
+check_loop (const char *tmp, NemoArchiveFormat format,
+	    GtkWidget *window, NemoProgressInfoManager *manager)
+{
+	char *label = g_strdup_printf ("loop-%s%s", nemo_archive_format_id (format),
+				       nemo_archive_backend_present (NEMO_ARCHIVE_BACKEND_7Z) ? "" : "-lib");
+	char *root = g_build_filename (tmp, label, NULL);
+	char *held = g_build_filename (root, "held", NULL);
+	char *sub = g_build_filename (held, "sub", NULL);
+	char *back = g_build_filename (sub, "back", NULL);
+	char *base = g_strconcat ("out", nemo_archive_format_extension (format), NULL);
+	char *dest = g_build_filename (root, base, NULL);
+	NemoArchiveOptions options;
+	GHashTable *found;
+	GString *said = g_string_new (NULL);
+	GList *sources;
+	int warnings, errors, asked;
+	int before = failures;
+
+	g_mkdir_with_parents (sub, 0700);
+	write_bytes (held, "a.txt", "alpha", 5);
+	write_bytes (sub, "b.txt", "bravo", 5);
+	check (nemo_link_create ("..", back, NULL, NEMO_LINK_DIR_SYMLINK, NULL));
+	sources = g_list_append (NULL, g_file_new_for_path (held));
+
+	options_for (format, &options);
+	options.links.symlinks = ARC_LINK_FOLLOW;
+	options.delete_sources = TRUE;
+
+	check (run_single (sources, dest, &options, window, manager, &warnings, &errors, &asked, said));
+	check (errors == 0);
+	check (warnings == 0);
+
+	found = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+	read_back (dest, found);
+	check (g_hash_table_contains (found, "held/a.txt"));
+	check (g_hash_table_contains (found, "held/sub/b.txt"));
+	check (g_hash_table_size (found) == 2);
+	check (asked == 1);
+	check (!exists (root, "held"));
+
+	if (failures > before) {
+		dump_entries (label, found);
+		g_printerr ("  in %s\n%s", label, said->str);
+	}
+
+	g_hash_table_destroy (found);
+	g_string_free (said, TRUE);
+	nemo_archive_options_clear (&options);
+	g_list_free_full (sources, g_object_unref);
+	g_free (dest);
+	g_free (base);
+	g_free (back);
+	g_free (sub);
+	g_free (held);
+	g_free (root);
+	g_free (label);
+}
+
+/* rar keeps a link's target in the entry's header, and libarchive 3.8.9 and
+   older misreads one of 128 bytes or more and ends the listing there. What
+   the check can't list is a miss, so the originals stay, and the warning
+   says why. With junction, the link is a junction to a folder with a long
+   path, which rar keeps as \??\ and the whole path. */
+static void
+check_long_target (const char *tmp, gboolean junction, GtkWidget *window,
+		   NemoProgressInfoManager *manager)
+{
+	char *root = g_build_filename (tmp, junction ? "long-junction" : "long-target", NULL);
+	char *held = g_build_filename (root, "held", NULL);
+	char *longer = g_build_filename (held, "far", NULL);
+	char *dest = g_build_filename (root, "held.rar", NULL);
+	char *target;
+	NemoArchiveOptions options;
+	GString *said = g_string_new (NULL);
+	GList *sources;
+	gboolean unlisted = long_targets_unlisted ();
+	int warnings, errors, asked;
+	int before = failures;
+
+	g_mkdir_with_parents (held, 0700);
+	write_bytes (held, "a.txt", "alpha", 5);
+	options_for (NEMO_ARCHIVE_FORMAT_RAR, &options);
+	options.delete_sources = TRUE;
+	if (junction) {
+		gsize room = strlen (root) + 1;
+		char *pad = g_strnfill (room < 120 ? 128 - room : 8, 'x');
+
+		target = g_build_filename (root, pad, NULL);
+		g_mkdir_with_parents (target, 0700);
+		write_bytes (target, "d.txt", "delta", 5);
+		check (nemo_link_create (target, longer, NULL, NEMO_LINK_JUNCTION, NULL));
+		arc_link_options_set_junctions (&options.links, ARC_LINK_STORE_JUNCTION);
+		g_free (pad);
+	} else {
+		target = g_strnfill (140, 'x');
+		check (nemo_link_create (target, longer, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
+		options.links.symlinks = ARC_LINK_STORE_SYMLINK;
+	}
+	sources = g_list_append (NULL, g_file_new_for_path (held));
+
+	check (run_single (sources, dest, &options, window, manager, &warnings, &errors, &asked, said));
+	check (errors == 0);
+
+	if (unlisted) {
+		check (asked == 0);
+		check (warnings == 1);
+		check (strstr (said->str, "too long to read back") != NULL);
+		check (exists (held, "a.txt"));
+		check (exists (held, "far"));
+	} else {
+		check (asked == 1);
+		check (!exists (root, "held"));
+	}
+	if (junction) {
+		check (exists (target, "d.txt"));
+	}
+
+	if (failures > before) {
+		g_printerr ("  in %s (%s)\n%s", junction ? "long-junction" : "long-target",
+			    archive_version_string (), said->str);
+	}
+
+	g_string_free (said, TRUE);
+	nemo_archive_options_clear (&options);
+	g_list_free_full (sources, g_object_unref);
+	g_free (target);
+	g_free (dest);
+	g_free (longer);
+	g_free (held);
+	g_free (root);
+}
+
 /* A link that leads nowhere inside a linked folder that is followed. 7-Zip
    will not keep a link on a path through a linked folder, so under 7z it is
    left out and named, and the link beside the folder still goes in. */
@@ -1080,11 +1675,11 @@ check_dangling_deep (const char *tmp, NemoArchiveFormat format,
 	write_bytes (held, "a.txt", "alpha", 5);
 	check (nemo_link_create ("nowhere", gone, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
 	check (nemo_link_create ("nowhere", deep, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
-	check (nemo_link_create ("../outer", linked, NULL, NEMO_LINK_DIR_SYMLINK, NULL));
+	check (nemo_link_create (".." G_DIR_SEPARATOR_S "outer", linked, NULL, NEMO_LINK_DIR_SYMLINK, NULL));
 	sources = g_list_append (NULL, g_file_new_for_path (held));
 
 	options_for (format, &options);
-	options.follow_link_dirs = TRUE;
+	options.links.symlinks = ARC_LINK_FOLLOW;
 	backend = nemo_archive_pick_backend (format, &options);
 	kept = dangling_kept (format, backend, &options, "held/gone", FALSE);
 	deep_kept = dangling_kept (format, backend, &options, "held/linked/deep", TRUE);
@@ -1120,6 +1715,174 @@ check_dangling_deep (const char *tmp, NemoArchiveFormat format,
 	g_free (deep);
 	g_free (outer);
 	g_free (held);
+	g_free (root);
+	g_free (label);
+}
+
+/* Selected names that start with @, which rar reads as a list file. The
+   linked folder is on another filesystem, so it stays out, and the link that
+   leads nowhere goes in as a link where it can. */
+static void
+check_at_names (const char *tmp, const char *outside, NemoArchiveFormat format,
+		GtkWidget *window, NemoProgressInfoManager *manager)
+{
+	char *label = g_strdup_printf ("at-%s", nemo_archive_format_id (format));
+	char *root = g_build_filename (tmp, label, NULL);
+	char *at_dir = g_build_filename (root, "@x", NULL);
+	char *at_gone = g_build_filename (root, "@gone", NULL);
+	char *plain = g_build_filename (root, "a.txt", NULL);
+	char *linked = g_build_filename (outside, "linked", NULL);
+	char *base = g_strconcat ("at", nemo_archive_format_extension (format), NULL);
+	char *dest = g_build_filename (root, base, NULL);
+	NemoArchiveOptions options;
+	NemoArchiveBackend backend;
+	GHashTable *found;
+	GString *said = g_string_new (NULL);
+	GList *sources = NULL;
+	gboolean kept, ok;
+	int warnings, errors, asked;
+	int before = failures;
+
+	g_mkdir_with_parents (root, 0700);
+	write_bytes (root, "a.txt", "alpha", 5);
+	check (nemo_link_create (linked, at_dir, NULL, NEMO_LINK_DIR_SYMLINK, NULL));
+	sources = g_list_append (sources, g_file_new_for_path (plain));
+	sources = g_list_append (sources, g_file_new_for_path (at_dir));
+
+	options_for (format, &options);
+	options.links.symlinks = ARC_LINK_FOLLOW;
+	backend = nemo_archive_pick_backend (format, &options);
+	kept = dangling_kept (format, backend, &options, "@gone", FALSE);
+
+	/* The linked folder on its own first. */
+	ok = run_single (sources, dest, &options, window, manager, &warnings, &errors, &asked, said);
+	check (ok);
+	check (errors == 0);
+	check (warnings == 0);
+
+	found = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+	read_back (dest, found);
+	check (g_hash_table_contains (found, "a.txt"));
+	check (!g_hash_table_contains (found, "@x/c.txt"));
+	g_hash_table_destroy (found);
+	g_unlink (dest);
+	if (failures > before) {
+		g_printerr ("  in %s, the folder alone (backend %d)\n%s", label, backend, said->str);
+		before = failures;
+	}
+	g_string_truncate (said, 0);
+
+	/* Made only now, since rar with -r, as on a line edited in the
+	   settings, tries every name beside the selection, picked or not. */
+	check (nemo_link_create ("nowhere", at_gone, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
+	sources = g_list_append (sources, g_file_new_for_path (at_gone));
+	ok = run_single (sources, dest, &options, window, manager, &warnings, &errors, &asked, said);
+	check (ok);
+	check (errors == 0);
+
+	found = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+	read_back (dest, found);
+	check (g_hash_table_contains (found, "a.txt"));
+	check (!g_hash_table_contains (found, "@x/c.txt"));
+	check (g_hash_table_contains (found, "@gone") == kept);
+	check (!kept || GPOINTER_TO_INT (g_hash_table_lookup (found, "@gone")));
+	g_hash_table_destroy (found);
+
+	check (warnings == (kept ? 0 : 1));
+	check (kept || strstr (said->str, "@gone") != NULL);
+
+	if (failures > before) {
+		g_printerr ("  in %s (backend %d)\n%s", label, backend, said->str);
+	}
+
+	g_string_free (said, TRUE);
+	nemo_archive_options_clear (&options);
+	g_list_free_full (sources, g_object_unref);
+	g_free (dest);
+	g_free (base);
+	g_free (linked);
+	g_free (plain);
+	g_free (at_gone);
+	g_free (at_dir);
+	g_free (root);
+	g_free (label);
+}
+
+/* What is beside the selection or below it plays no part: a file picked by
+   name does not bring the same name from a folder below, and a link that
+   leads nowhere, not picked, is not looked at. */
+static void
+check_beside (const char *tmp, NemoArchiveFormat format,
+	      GtkWidget *window, NemoProgressInfoManager *manager)
+{
+	char *label = g_strdup_printf ("beside-%s", nemo_archive_format_id (format));
+	char *root = g_build_filename (tmp, label, NULL);
+	char *plain = g_build_filename (root, "a.txt", NULL);
+	char *held = g_build_filename (root, "held", NULL);
+	char *sub = g_build_filename (root, "sub", NULL);
+	char *below = g_build_filename (sub, "held", NULL);
+	char *gone = g_build_filename (root, "gone", NULL);
+	char *base = g_strconcat ("beside", nemo_archive_format_extension (format), NULL);
+	char *dest = g_build_filename (root, base, NULL);
+	NemoArchiveOptions options;
+	NemoArchiveBackend backend;
+	GHashTable *found;
+	GString *said = g_string_new (NULL);
+	GList *sources = NULL;
+	gboolean ok;
+	int warnings, errors, asked;
+	int before = failures;
+	int pass;
+
+	g_mkdir_with_parents (held, 0700);
+	g_mkdir_with_parents (below, 0700);
+	write_bytes (root, "a.txt", "alpha", 5);
+	write_bytes (held, "b.txt", "bravo", 5);
+	write_bytes (sub, "a.txt", "under", 5);
+	write_bytes (below, "b.txt", "under", 5);
+	sources = g_list_append (sources, g_file_new_for_path (plain));
+	sources = g_list_append (sources, g_file_new_for_path (held));
+
+	options_for (format, &options);
+	backend = nemo_archive_pick_backend (format, &options);
+
+	/* Then again with the link beside it, made only now so each half fails
+	   on its own. */
+	for (pass = 0; pass < (with_links ? 2 : 1); pass++) {
+		if (pass == 1) {
+			g_unlink (dest);
+			check (nemo_link_create ("nowhere", gone, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
+		}
+		ok = run_single (sources, dest, &options, window, manager,
+				 &warnings, &errors, &asked, said);
+		check (ok);
+		check (errors == 0);
+		check (warnings == 0);
+
+		found = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+		read_back (dest, found);
+		check (g_hash_table_contains (found, "a.txt"));
+		check (g_hash_table_contains (found, "held/b.txt"));
+		check (g_hash_table_size (found) == 2);
+		if (failures > before) {
+			dump_entries (label, found);
+			g_printerr ("  in %s, pass %d (backend %d)\n%s", label, pass, backend, said->str);
+			before = failures;
+		}
+		g_hash_table_destroy (found);
+		g_string_truncate (said, 0);
+	}
+
+	g_string_free (said, TRUE);
+	nemo_archive_options_clear (&options);
+	g_list_free_full (sources, g_object_unref);
+	g_free (dest);
+	g_free (base);
+	g_free (gone);
+	g_free (below);
+	g_free (sub);
+	g_free (held);
+	g_free (plain);
 	g_free (root);
 	g_free (label);
 }
@@ -1229,6 +1992,50 @@ check_patterns (const char *tmp, const char *outside, NemoArchiveFormat format,
 }
 #endif
 
+/* The same cases with the lines in the settings edited the way that once let
+   a pattern through: 7-Zip without -spd, and rar with -r. The app adds what
+   the line needs at run time. */
+static int
+check_edited_lines (const char *tmp, const char *outside,
+		    GtkWidget *window, NemoProgressInfoManager *manager)
+{
+	NemoConfigGroup *group = nemo_config_get_group (NEMO_ARCHIVE_COMMANDS_GROUP);
+	char *edited = g_build_filename (tmp, "edited", NULL);
+	int runs = 0;
+
+	g_mkdir_with_parents (edited, 0700);
+	nemo_config_set_string (group, NEMO_ARCHIVE_COMMAND_KEY_7Z,
+				"{{PROGRAM}} a {{FORMAT}} {{LEVEL}} {{THREADS}} -y -bsp1 -sccUTF-8 "
+				"{{PASSWORD}} {{SPLIT}} {{SOLID}} {{LINKS}} -- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}");
+	nemo_config_set_string (group, NEMO_ARCHIVE_COMMAND_KEY_RAR,
+				"{{PROGRAM}} a -r {{LEVEL}} {{THREADS}} -y -scfr {{PASSWORD}} {{SPLIT}} "
+				"{{SOLID}} {{DEDUPE}} {{RECOVERY}} {{LOCK}} {{LINKS}} -- "
+				"{{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}");
+
+#ifndef G_OS_WIN32
+	if (with_links && nemo_archive_backend_present (NEMO_ARCHIVE_BACKEND_7Z)) {
+		check_patterns (edited, outside, NEMO_ARCHIVE_FORMAT_7Z, window, manager);
+		runs += 2;
+	} else {
+		g_printerr ("note: no 7z command or no links here, edited 7-Zip line not checked\n");
+	}
+#else
+	(void) outside;
+#endif
+	if (nemo_archive_format_available (NEMO_ARCHIVE_FORMAT_RAR)) {
+		check_beside (edited, NEMO_ARCHIVE_FORMAT_RAR, window, manager);
+		runs++;
+	} else {
+		g_printerr ("note: no rar command here, edited rar line not checked\n");
+	}
+
+	nemo_config_reset (group, NEMO_ARCHIVE_COMMAND_KEY_7Z);
+	nemo_config_reset (group, NEMO_ARCHIVE_COMMAND_KEY_RAR);
+	g_free (edited);
+
+	return runs;
+}
+
 /* On Windows the delete goes to the real Recycle Bin, not the scratch trash, and
    every run used to leave some hundreds of items there. Take back out whatever
    came from under this run's home. */
@@ -1288,16 +2095,153 @@ purge_recycled (const char *home)
 #endif
 }
 
+/* Every row for one format, then the rows for links. again is a second go
+   at a format with 7-Zip hidden, which takes only what the library does
+   differently: the crossed rows and each link choice. Answers the next case
+   number. */
+static int
+run_format (const char *tmp, const char *outside, NemoArchiveFormat format, gboolean again,
+	    int number, GtkWidget *window, NemoProgressInfoManager *manager)
+{
+	NemoArchiveOptions options;
+	int counts[N_PARAMS];
+	gboolean by_library;
+	GArray *rows;
+	guint k;
+
+	options_for (format, &options);
+	by_library = nemo_archive_pick_backend (format, &options) == NEMO_ARCHIVE_BACKEND_LIBARCHIVE;
+	nemo_archive_options_clear (&options);
+
+	value_counts (format, counts);
+	rows = plan_rows (counts);
+	for (k = 0; k < rows->len; k++) {
+		run_row (tmp, outside, number++, format,
+			 &g_array_index (rows, Row, k), window, manager);
+	}
+	g_print ("%s: %u combinations\n", nemo_archive_format_id (format), rows->len);
+	g_array_free (rows, TRUE);
+
+	if (again) {
+		int del, choice;
+
+		if (with_links) {
+			check_loop (tmp, format, window, manager);
+			number++;
+		}
+		for (choice = ARC_LINK_IGNORE; with_links && choice <= ARC_LINK_STORE_SYMLINK; choice++) {
+			for (del = 0; del < 2; del++) {
+				check_link_choice (tmp, format, (ArcLinkChoice) choice, del, FALSE,
+						   window, manager);
+				check_link_choice (tmp, format, (ArcLinkChoice) choice, del, TRUE,
+						   window, manager);
+				number += 2;
+			}
+		}
+		return number;
+	}
+
+	if (with_links) {
+		int store, del, choice;
+
+		/* Links not stored are followed here: under Ignore a link that
+		   leads nowhere is left out like any other, see check_link_choice. */
+		for (store = 0; store < 2; store++) {
+			for (del = 0; del < 2; del++) {
+				check_dangling (tmp, format, store, del, FALSE, FALSE,
+						window, manager);
+				number++;
+			}
+		}
+		if (nemo_archive_format_caps (format) & NEMO_ARCHIVE_CAP_SPLIT) {
+			check_dangling (tmp, format, FALSE, FALSE, TRUE, FALSE, window, manager);
+			number++;
+		}
+		check_loop (tmp, format, window, manager);
+		number++;
+		if (format == NEMO_ARCHIVE_FORMAT_RAR) {
+			check_long_target (tmp, FALSE, window, manager);
+			number++;
+		}
+		if (format == NEMO_ARCHIVE_FORMAT_7Z && !by_library) {
+			check_locked_plain (tmp, window, manager);
+			number++;
+			for (del = 0; del < 2; del++) {
+				check_dangling (tmp, format, FALSE, del, FALSE, TRUE,
+						window, manager);
+				number++;
+			}
+			check_dangling (tmp, format, TRUE, FALSE, FALSE, TRUE, window, manager);
+			number++;
+		}
+		for (choice = ARC_LINK_IGNORE; choice <= ARC_LINK_STORE_SYMLINK; choice++) {
+			for (del = 0; del < 2; del++) {
+				check_link_choice (tmp, format, (ArcLinkChoice) choice, del, FALSE,
+						   window, manager);
+				check_link_choice (tmp, format, (ArcLinkChoice) choice, del, TRUE,
+						   window, manager);
+				number += 2;
+			}
+		}
+		if (!by_library) {
+			/* A link that leads nowhere picked alone, and @gone beside an @
+			   folder, both about how a name is handed to a program. */
+			check_dangling_alone (tmp, format, window, manager);
+			check_at_names (tmp, outside, format, window, manager);
+			number += 2;
+		}
+		check_dangling_deep (tmp, format, window, manager);
+		number++;
+#ifndef G_OS_WIN32
+		check_patterns (tmp, outside, format, window, manager);
+		number += 2;
+#endif
+	}
+	if (with_junctions && format == NEMO_ARCHIVE_FORMAT_RAR) {
+		check_long_target (tmp, TRUE, window, manager);
+		number++;
+	}
+	check_beside (tmp, format, window, manager);
+	number++;
+
+	return number;
+}
+
+/* Returns: (transfer full): free with arc_mount_table_free */
+static ArcMountTable *
+made_up_mounts (void)
+{
+#ifdef G_OS_WIN32
+	ArcMountEntry entries[] = {
+		{ mount_scratch, "\\\\?\\Volume{aaaa}\\", NULL },
+		{ mount_linked, "\\\\?\\Volume{bbbb}\\", NULL },
+		{ mount_sub, "\\\\?\\Volume{cccc}\\", NULL },
+	};
+	gboolean windows = TRUE;
+#else
+	ArcMountEntry entries[] = {
+		{ mount_scratch, "tank/combos", "zfs" },
+		{ mount_linked, "/dev/sdz9", "ext4" },
+		{ mount_sub, "tank/combos/sub", "zfs" },
+	};
+	gboolean windows = FALSE;
+#endif
+
+	return arc_mount_table_new (entries, mount_sub != NULL ? 3 : 2, windows);
+}
+
 int
 main (int argc, char *argv[])
 {
 	NemoProgressInfoManager *manager;
 	GtkWidget *window;
-	char *home, *data_home, *tmp, *outside, *linked;
+	char *home, *data_home, *tmp, *outside, *linked, *jdir;
 	int format;
 	int number = 0;
 
-	home = test_scratch_config_home ("nemo-archive-combos-home-XXXXXX");
+	/* Short, since a junction's target can only be the whole path. */
+	home = test_scratch_config_home ("ac-home-XXXXXX");
+	job_timeout = (guint) (JOB_TIMEOUT_SECONDS * test_slowness ());
 	/* The trash the delete uses. */
 	data_home = g_build_filename (home, "data", NULL);
 	g_setenv ("XDG_DATA_HOME", data_home, TRUE);
@@ -1310,7 +2254,19 @@ main (int argc, char *argv[])
 	g_setenv ("NEMO_TESTGUARD_ALL_DELETES", "0", TRUE);
 
 	/* Beside home, so the trash is on the same file system. */
-	tmp = test_scratch_dir_in (home, "nemo-archive-combos-XXXXXX", NULL);
+	tmp = test_scratch_dir_in (home, "ac-XXXXXX", NULL);
+#ifndef G_OS_WIN32
+	{
+		/* The job's walk goes by real paths, and the made-up mounts have
+		   to match. */
+		char *real = realpath (tmp, NULL);
+
+		check (real != NULL);
+		g_free (tmp);
+		tmp = g_strdup (real);
+		free (real);
+	}
+#endif
 	with_links = (nemo_link_kinds_supported (tmp) & NEMO_LINK_FILE_SYMLINK) &&
 		     (nemo_link_kinds_supported (tmp) & NEMO_LINK_DIR_SYMLINK);
 	if (!with_links) {
@@ -1319,68 +2275,59 @@ main (int argc, char *argv[])
 
 	outside = g_build_filename (tmp, "outside", NULL);
 	linked = g_build_filename (outside, "linked", NULL);
+	jdir = g_build_filename (outside, "jdir", NULL);
 	g_mkdir_with_parents (linked, 0700);
+	g_mkdir_with_parents (jdir, 0700);
 	write_bytes (outside, "target.txt", "target", 6);
 	write_bytes (linked, "c.txt", "charlie", 7);
+	write_bytes (jdir, "d.txt", "delta", 5);
+	{
+		/* wine says yes to a junction and makes nothing. */
+		char *probe = g_build_filename (tmp, "junction-probe", NULL);
+		GFile *made = g_file_new_for_path (probe);
+
+		with_junctions = (nemo_link_kinds_supported (tmp) & NEMO_LINK_JUNCTION) &&
+				 nemo_link_create (jdir, probe, NULL, NEMO_LINK_JUNCTION, NULL) &&
+				 g_file_query_file_type (made, G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS,
+							 NULL) != G_FILE_TYPE_UNKNOWN;
+		if (with_junctions) {
+			check (g_file_delete (made, NULL, NULL));
+		}
+		g_object_unref (made);
+		g_free (probe);
+	}
+	mount_scratch = g_strdup (tmp);
+	mount_linked = g_strdup (linked);
+	nemo_archive_set_mounts_for_test (made_up_mounts);
 
 	window = test_window_new ("archive combinations test", 5);
 	gtk_widget_show (window);
 
 	for (format = 0; format < NEMO_ARCHIVE_N_FORMATS; format++) {
-		int counts[N_PARAMS];
-		GArray *rows;
-		guint k;
-
 		if (!nemo_archive_format_available (format)) {
 			g_printerr ("note: nothing here writes %s, skipped\n",
 				    nemo_archive_format_id (format));
 			continue;
 		}
-
-		value_counts (format, counts);
-		rows = plan_rows (counts);
-		for (k = 0; k < rows->len; k++) {
-			run_row (tmp, outside, number++, format,
-				 &g_array_index (rows, Row, k), window, manager);
-		}
-		g_print ("%s: %u combinations\n", nemo_archive_format_id (format), rows->len);
-		g_array_free (rows, TRUE);
-
-		if (with_links) {
-			int store, del;
-
-			for (store = 0; store < 2; store++) {
-				for (del = 0; del < 2; del++) {
-					check_dangling (tmp, format, store, del, FALSE, FALSE,
-							window, manager);
-					number++;
-				}
-			}
-			if (nemo_archive_format_caps (format) & NEMO_ARCHIVE_CAP_SPLIT) {
-				check_dangling (tmp, format, FALSE, FALSE, TRUE, FALSE, window, manager);
-				number++;
-			}
-			if (format == NEMO_ARCHIVE_FORMAT_7Z) {
-				for (del = 0; del < 2; del++) {
-					check_dangling (tmp, format, FALSE, del, FALSE, TRUE,
-							window, manager);
-					number++;
-				}
-			}
-			check_dangling_alone (tmp, format, window, manager);
-			check_dangling_deep (tmp, format, window, manager);
-			number += 2;
-#ifndef G_OS_WIN32
-			check_patterns (tmp, outside, format, window, manager);
-			number += 2;
-#endif
-		}
+		number = run_format (tmp, outside, format, FALSE, number, window, manager);
 	}
+	/* The library's own 7z writer, which 7-Zip gets ahead of. */
+	if (nemo_archive_backend_present (NEMO_ARCHIVE_BACKEND_7Z)) {
+		g_print ("7z with 7-Zip hidden:\n");
+		nemo_archive_hide_backend (NEMO_ARCHIVE_BACKEND_7Z, TRUE);
+		number = run_format (tmp, outside, NEMO_ARCHIVE_FORMAT_7Z, TRUE, number, window, manager);
+		nemo_archive_hide_backend (NEMO_ARCHIVE_BACKEND_7Z, FALSE);
+	}
+	number += check_edited_lines (tmp, outside, window, manager);
 
 	purge_recycled (home);
 
+	nemo_archive_set_mounts_for_test (NULL);
+	g_free (mount_linked);
+	g_free (mount_scratch);
 	g_object_unref (manager);
 	g_clear_pointer (&contents, g_hash_table_destroy);
+	g_free (jdir);
 	g_free (linked);
 	g_free (outside);
 	g_free (tmp);

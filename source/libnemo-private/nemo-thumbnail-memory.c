@@ -69,7 +69,7 @@ update_full (void)
 }
 
 static void
-budget_changed (NemoConfigGroup *group, const char *key, gpointer data)
+budget_changed (G_GNUC_UNUSED NemoConfigGroup *group, G_GNUC_UNUSED const char *key, G_GNUC_UNUSED gpointer data)
 {
 	update_full ();
 }

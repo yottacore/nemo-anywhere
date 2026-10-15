@@ -24,6 +24,7 @@
 
 #include <eel/eel-vfs-extensions.h>
 #include <libnemo-private/nemo-file.h>
+#include <libnemo-private/nemo-program-choosing.h>
 
 #include "nemo-application.h"
 #include "nemo-main-application.h"
@@ -56,7 +57,9 @@ static const char tabs_xml[] =
 	"  </interface>"
 	"</node>";
 
-/* Somewhere a tab can go. bus_name is NULL for a window in this process. */
+/* Somewhere a tab can go. bus_name names the other copy, as
+   nemo_instances_list_others gives it, and is NULL for a window in this
+   process. */
 typedef struct {
 	char *bus_name;
 	guint32 id;
@@ -87,6 +90,13 @@ slot_can_move (NemoWindowSlot *slot)
 	g_free (uri);
 
 	return movable;
+}
+
+gboolean
+nemo_tab_move_is_only_tab (NemoWindowSlot *slot)
+{
+	return g_list_length (slot->pane->slots) == 1 &&
+	       !nemo_window_split_view_showing (nemo_window_slot_get_window (slot));
 }
 
 static NemoTabState *
@@ -196,15 +206,11 @@ uri_has_scheme (const char *uri)
 	return has;
 }
 
-static void
-tabs_method_call (GDBusConnection       *connection,
-                  const char            *sender,
-                  const char            *object_path,
-                  const char            *interface_name,
-                  const char            *method_name,
-                  GVariant              *parameters,
-                  GDBusMethodInvocation *invocation,
-                  gpointer               user_data)
+static GVariant *
+tabs_method_call (const char  *method_name,
+                  GVariant    *parameters,
+                  G_GNUC_UNUSED gpointer     user_data,
+                  GError     **error)
 {
 	if (g_strcmp0 (method_name, "ListWindows") == 0) {
 		GVariantBuilder windows;
@@ -224,12 +230,11 @@ tabs_method_call (GDBusConnection       *connection,
 			                       nemo_window_native_handle (GTK_WINDOW (l->data)),
 			                       title != NULL ? title : "");
 		}
-		g_dbus_method_invocation_return_value (invocation, g_variant_new ("(a(uts))", &windows));
-		return;
+		return g_variant_new ("(a(uts))", &windows);
 	}
 
 	if (g_strcmp0 (method_name, "TakeTab") == 0) {
-		NemoTabState state = { NULL };
+		NemoTabState state = { 0 };
 		NemoWindow *window;
 		guint32 id, event_time;
 
@@ -238,44 +243,24 @@ tabs_method_call (GDBusConnection       *connection,
 
 		window = window_by_id (id);
 		if (window == NULL || !window_listed (window)) {
-			g_dbus_method_invocation_return_error (invocation, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
-			                                       "No window %u here", id);
+			g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND, "No window %u here", id);
 		} else if (!uri_has_scheme (state.uri)) {
-			g_dbus_method_invocation_return_error (invocation, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
-			                                       "Not a URI");
+			g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT, "Not a URI");
 		} else {
 			nemo_window_take_tab (window, &state, event_time);
-			g_dbus_method_invocation_return_value (invocation, NULL);
 		}
 		g_strfreev (state.selected);
-		return;
+		return NULL;
 	}
 
-	g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR, G_DBUS_ERROR_UNKNOWN_METHOD,
-	                                       "No method %s", method_name);
+	g_set_error (error, G_DBUS_ERROR, G_DBUS_ERROR_UNKNOWN_METHOD, "No method %s", method_name);
+	return NULL;
 }
 
-guint
-nemo_tab_move_export (GDBusConnection *connection,
-                      const char      *object_path)
+void
+nemo_tab_move_serve (void)
 {
-	static const GDBusInterfaceVTable vtable = { tabs_method_call, NULL, NULL, { NULL } };
-	GDBusNodeInfo *info;
-	GError *error = NULL;
-	guint id;
-
-	info = g_dbus_node_info_new_for_xml (tabs_xml, &error);
-	g_assert_no_error (error);
-
-	id = g_dbus_connection_register_object (connection, object_path, info->interfaces[0],
-	                                        &vtable, NULL, NULL, &error);
-	if (id == 0) {
-		g_warning ("Could not offer tab moves to other windows: %s", error->message);
-		g_clear_error (&error);
-	}
-	g_dbus_node_info_unref (info);
-
-	return id;
+	nemo_instances_serve (tabs_xml, tabs_method_call, NULL);
 }
 
 static void
@@ -295,7 +280,6 @@ list_targets (NemoWindow *here)
 {
 	GPtrArray *targets = g_ptr_array_new_with_free_func (target_free);
 	GApplication *app = g_application_get_default ();
-	GDBusConnection *connection;
 	GStrv others;
 	GList *l;
 	int i;
@@ -313,20 +297,16 @@ list_targets (NemoWindow *here)
 		g_ptr_array_add (targets, target);
 	}
 
-	connection = g_application_get_dbus_connection (app);
 	others = nemo_main_application_other_instances ();
-	for (i = 0; connection != NULL && others != NULL && others[i] != NULL; i++) {
+	for (i = 0; others != NULL && others[i] != NULL; i++) {
 		GVariant *reply, *windows;
 		GVariantIter iter;
 		guint32 id;
 		guint64 handle;
 		const char *title;
 
-		reply = g_dbus_connection_call_sync (connection, others[i], NEMO_INSTANCE_OBJECT_PATH,
-		                                     TABS_INTERFACE, "ListWindows", NULL,
-		                                     G_VARIANT_TYPE ("(a(uts))"),
-		                                     G_DBUS_CALL_FLAGS_NO_AUTO_START,
-		                                     LIST_TIMEOUT_MS, NULL, NULL);
+		reply = nemo_instances_call (others[i], TABS_INTERFACE, "ListWindows", NULL,
+		                             G_VARIANT_TYPE ("(a(uts))"), LIST_TIMEOUT_MS, NULL);
 		if (reply == NULL) {
 			continue;
 		}
@@ -388,22 +368,18 @@ move_to_target (NemoWindowSlot *slot,
 			moved = FALSE;
 		}
 	} else {
-		GDBusConnection *connection;
 		GVariant *reply;
 		GError *error = NULL;
 
-		connection = g_application_get_dbus_connection (g_application_get_default ());
-		nemo_window_allow_others_to_raise ();
-		reply = g_dbus_connection_call_sync (connection, target->bus_name, NEMO_INSTANCE_OBJECT_PATH,
-		                                     TABS_INTERFACE, "TakeTab",
-		                                     g_variant_new ("(uss^asu)", target->id, state->uri,
-		                                                    state->view_id != NULL ? state->view_id : "",
-		                                                    state->selected, event_time),
-		                                     NULL, G_DBUS_CALL_FLAGS_NO_AUTO_START,
-		                                     TAKE_TIMEOUT_MS, NULL, &error);
+		nemo_window_allow_to_raise (target->handle);
+		reply = nemo_instances_call (target->bus_name, TABS_INTERFACE, "TakeTab",
+		                             g_variant_new ("(uss^asu)", target->id, state->uri,
+		                                            state->view_id != NULL ? state->view_id : "",
+		                                            state->selected, event_time),
+		                             NULL, TAKE_TIMEOUT_MS, &error);
 		if (reply == NULL) {
 			/* The tab stays where it is, so nothing is lost. */
-			g_warning ("Could not move the tab to %s: %s", target->title, error->message);
+			g_warning ("Couldn't move the tab to %s: %s", target->title, error->message);
 			g_clear_error (&error);
 			moved = FALSE;
 		} else {
@@ -438,8 +414,8 @@ move_to_new_window (NemoWindowSlot *slot,
 			nemo_tab_state_free (state);
 			return;
 		}
-		g_warning ("Could not start a new process for the window, opening it here: %s",
-		           error->message);
+		/* Said, so a start that is broken is seen, and the tab still moves. */
+		nemo_show_start_error (GTK_WINDOW (gtk_widget_get_toplevel (GTK_WIDGET (slot))), error);
 		g_error_free (error);
 	}
 
@@ -453,7 +429,7 @@ move_to_new_window (NemoWindowSlot *slot,
 
 static void
 menu_move_to_window_cb (GtkMenuItem *item,
-                        gpointer     user_data)
+                        G_GNUC_UNUSED gpointer     user_data)
 {
 	NemoWindowSlot *slot = g_object_get_data (G_OBJECT (item), "slot");
 	Target *target = g_object_get_data (G_OBJECT (item), "target");
@@ -463,20 +439,20 @@ menu_move_to_window_cb (GtkMenuItem *item,
 
 static void
 menu_move_to_new_window_cb (GtkMenuItem *item,
-                            gpointer     user_data)
+                            G_GNUC_UNUSED gpointer     user_data)
 {
 	NemoWindowSlot *slot = g_object_get_data (G_OBJECT (item), "slot");
 
 	move_to_new_window (slot, gtk_get_current_event_time ());
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_tab_move_menu_item_new (NemoWindowSlot *slot)
 {
 	NemoWindow *window = nemo_window_slot_get_window (slot);
 	GtkWidget *item, *submenu, *child;
 	GPtrArray *targets;
-	gboolean alone;
 	guint i;
 
 	item = gtk_menu_item_new_with_mnemonic (_("Move tab _to"));
@@ -501,6 +477,7 @@ nemo_tab_move_menu_item_new (NemoWindowSlot *slot)
 		gtk_menu_shell_append (GTK_MENU_SHELL (submenu), gtk_separator_menu_item_new ());
 	}
 	/* The items own the targets now. */
+	/* cppcheck-suppress nullPointer ; a NULL free func is allowed, and is the point */
 	g_ptr_array_set_free_func (targets, NULL);
 	g_ptr_array_unref (targets);
 
@@ -511,8 +488,7 @@ nemo_tab_move_menu_item_new (NemoWindowSlot *slot)
 
 	/* The only tab going to a window of its own would just be this window
 	   again, somewhere else. */
-	alone = g_list_length (slot->pane->slots) == 1 && !nemo_window_split_view_showing (window);
-	gtk_widget_set_sensitive (child, !alone);
+	gtk_widget_set_sensitive (child, !nemo_tab_move_is_only_tab (slot));
 
 	gtk_menu_item_set_submenu (GTK_MENU_ITEM (item), submenu);
 
@@ -524,6 +500,7 @@ nemo_tab_move_tear_off (NemoWindowSlot *slot)
 {
 	GPtrArray *targets;
 	guint64 *handles;
+	gboolean moved;
 	int found;
 	guint i;
 
@@ -539,8 +516,9 @@ nemo_tab_move_tear_off (NemoWindowSlot *slot)
 
 	found = nemo_window_at_pointer (gtk_widget_get_display (GTK_WIDGET (slot)),
 	                                handles, (int) targets->len);
-	if (found < 0 ||
-	    !move_to_target (slot, g_ptr_array_index (targets, found), gtk_get_current_event_time ())) {
+	moved = found >= 0 &&
+	        move_to_target (slot, g_ptr_array_index (targets, found), gtk_get_current_event_time ());
+	if (!moved && !nemo_tab_move_is_only_tab (slot)) {
 		move_to_new_window (slot, gtk_get_current_event_time ());
 	}
 

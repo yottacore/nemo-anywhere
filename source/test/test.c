@@ -22,13 +22,14 @@ test_quit (int exit_code)
 }
 
 void
-test_delete_event (GtkWidget *widget,
-		   GdkEvent *event,
-		   gpointer callback_data)
+test_delete_event (G_GNUC_UNUSED GtkWidget *widget,
+		   G_GNUC_UNUSED GdkEvent *event,
+		   G_GNUC_UNUSED gpointer callback_data)
 {
 	test_quit (0);
 }
 
+/* Returns: (transfer none): a toplevel; destroy with gtk_widget_destroy */
 GtkWidget *
 test_window_new (const char *title, guint border_width)
 {
@@ -48,6 +49,7 @@ test_window_new (const char *title, guint border_width)
 	return window;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GdkPixbuf *
 test_pixbuf_new_named (const char *name, float scale)
 {
@@ -86,10 +88,11 @@ test_pixbuf_new_named (const char *name, float scale)
 	return pixbuf;
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 test_label_new (const char *text,
-		gboolean with_background,
-		int num_sizes_larger)
+		G_GNUC_UNUSED gboolean with_background,
+		G_GNUC_UNUSED int num_sizes_larger)
 {
 	GtkWidget *label;
 

@@ -48,7 +48,7 @@ struct _NemoProgressInfo
 	GObject parent_instance;
 	
 	GCancellable *cancellable;
-    GCond *cond;
+    GCond cond;
     GMutex info_lock;
     GTimer *time;
 
@@ -57,6 +57,10 @@ struct _NemoProgressInfo
     char *initial_details;
 	double progress;
 	gboolean activity_mode;
+	/* A walk before the work itself, which has no total. */
+	gint64 prescan_since;	/* monotonic, 0 when none runs */
+	guint prescan_files;
+	guint64 prescan_bytes;
 	gboolean started;
 	gboolean finished;
 	gboolean paused;
@@ -91,6 +95,8 @@ nemo_progress_info_finalize (GObject *object)
     g_free (info->initial_details);
 	g_object_unref (info->cancellable);
     g_timer_destroy (info->time);
+    g_cond_clear (&info->cond);
+    g_mutex_clear (&info->info_lock);
 	
 	if (G_OBJECT_CLASS (nemo_progress_info_parent_class)->finalize) {
 		(*G_OBJECT_CLASS (nemo_progress_info_parent_class)->finalize) (object);
@@ -178,7 +184,7 @@ nemo_progress_info_init (NemoProgressInfo *info)
 	NemoProgressInfoManager *manager;
 
 	info->cancellable = g_cancellable_new ();
-    info->cond = g_cond_new ();
+    g_cond_init (&info->cond);
     info->time = g_timer_new ();
     g_mutex_init (&info->info_lock);
 
@@ -187,6 +193,7 @@ nemo_progress_info_init (NemoProgressInfo *info)
 	g_object_unref (manager);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoProgressInfo *
 nemo_progress_info_new (void)
 {
@@ -197,6 +204,7 @@ nemo_progress_info_new (void)
 	return info;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_progress_info_get_status (NemoProgressInfo *info)
 {
@@ -215,6 +223,7 @@ nemo_progress_info_get_status (NemoProgressInfo *info)
 	return res;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_progress_info_get_details (NemoProgressInfo *info)
 {
@@ -233,6 +242,7 @@ nemo_progress_info_get_details (NemoProgressInfo *info)
 	return res;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_progress_info_get_initial_details (NemoProgressInfo *info)
 {
@@ -298,11 +308,12 @@ nemo_progress_info_cancel (NemoProgressInfo *info)
 	g_cancellable_cancel (info->cancellable);
 
     info->paused = FALSE;
-    g_cond_signal (info->cond);
+    g_cond_signal (&info->cond);
 
 	g_mutex_unlock (&info->info_lock);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GCancellable *
 nemo_progress_info_get_cancellable (NemoProgressInfo *info)
 {
@@ -482,17 +493,22 @@ nemo_progress_info_queue (NemoProgressInfo *info)
     g_mutex_unlock (&info->info_lock);
 }
 
-void
+gboolean
 nemo_progress_info_pause (NemoProgressInfo *info)
 {
+	gboolean paused_here = FALSE;
+
 	g_mutex_lock (&info->info_lock);
 
 	if (!info->paused) {
 		info->paused = TRUE;
+		paused_here = TRUE;
         g_timer_stop (info->time);
 	}
 
 	g_mutex_unlock (&info->info_lock);
+
+	return paused_here;
 }
 
 void
@@ -507,7 +523,7 @@ nemo_progress_info_resume (NemoProgressInfo *info)
         }
 	}
 
-    g_cond_signal (info->cond);
+    g_cond_signal (&info->cond);
 
 	g_mutex_unlock (&info->info_lock);
 }
@@ -648,10 +664,85 @@ nemo_progress_info_pulse_progress (NemoProgressInfo *info)
 	
 
     while (info->paused) {
-        g_cond_wait (info->cond, &info->info_lock);
+        g_cond_wait (&info->cond, &info->info_lock);
     }
 
 	g_mutex_unlock (&info->info_lock);
+}
+
+void
+nemo_progress_info_start_prescan (NemoProgressInfo *info)
+{
+	g_mutex_lock (&info->info_lock);
+
+	info->prescan_since = g_get_monotonic_time ();
+	info->prescan_files = 0;
+	info->prescan_bytes = 0;
+	info->changed_at_idle = TRUE;
+	queue_idle (info, FALSE);
+
+	g_mutex_unlock (&info->info_lock);
+}
+
+void
+nemo_progress_info_set_prescan_found (NemoProgressInfo *info,
+				      guint             files,
+				      guint64           bytes)
+{
+	g_mutex_lock (&info->info_lock);
+
+	if (info->prescan_since != 0) {
+		info->prescan_files = files;
+		info->prescan_bytes = bytes;
+		info->progress_at_idle = TRUE;
+		queue_idle (info, FALSE);
+	}
+
+	while (info->paused) {
+		g_cond_wait (&info->cond, &info->info_lock);
+	}
+
+	g_mutex_unlock (&info->info_lock);
+}
+
+void
+nemo_progress_info_end_prescan (NemoProgressInfo *info)
+{
+	g_mutex_lock (&info->info_lock);
+
+	if (info->prescan_since != 0) {
+		info->prescan_since = 0;
+		info->changed_at_idle = TRUE;
+		queue_idle (info, FALSE);
+	}
+
+	g_mutex_unlock (&info->info_lock);
+}
+
+gboolean
+nemo_progress_info_get_prescan (NemoProgressInfo *info,
+				gint64           *since,
+				guint            *files,
+				guint64          *bytes)
+{
+	gboolean running;
+
+	g_mutex_lock (&info->info_lock);
+
+	running = info->prescan_since != 0;
+	if (since != NULL) {
+		*since = info->prescan_since;
+	}
+	if (files != NULL) {
+		*files = info->prescan_files;
+	}
+	if (bytes != NULL) {
+		*bytes = info->prescan_bytes;
+	}
+
+	g_mutex_unlock (&info->info_lock);
+
+	return running;
 }
 
 void
@@ -687,7 +778,7 @@ nemo_progress_info_set_progress (NemoProgressInfo *info,
 	}
 
     while (info->paused) {
-        g_cond_wait (info->cond, &info->info_lock);
+        g_cond_wait (&info->cond, &info->info_lock);
     }
 
 	g_mutex_unlock (&info->info_lock);

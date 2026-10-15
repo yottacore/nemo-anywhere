@@ -1,4 +1,4 @@
-﻿##	Purpose:
+##	Purpose:
 ##		- Pack the staged native Windows runtime bundle (cicd/artifacts/win-run)
 ##		  into ONE self-contained exe via Enigma Virtual Box: every dll, schema,
 ##		  icon, and theme rides inside the exe in an in-memory virtual file
@@ -10,20 +10,23 @@
 ##		      relative to their own dll, so this layout needs no env wiring at
 ##		      all - the flat tree double-click-runs as-is, and is also the layout
 ##		      the release .zip contract in project/design.md expects.
-##		   2. Generate an .evb project over that tree and run enigmavbconsole.
-##		      Virtual exes stay runnable (nemo spawns its helper exes) and the
-##		      virtual system is shared with child processes.
+##		   2. Refuse any program in that tree but the app, then generate an .evb
+##		      project over it and run enigmavbconsole.
 ##		- Output: <out-dir>\nemo-anywhere.exe, then a --version smoke with a
 ##		  bare System32-only PATH proves it truly self-contained.
 ##		- -FlattenOnly stops after step 1, which is what the sandbox wants: it
 ##		  runs the flat tree directly, so the pack is a few minutes wasted.
+##		- -ProjectFrom <flat dir> only writes and checks the .evb project for a
+##		  tree that is already flat, into -OutDir. No packer needed, so the
+##		  lint stage runs it on any box (test-evb-project.ps1).
 ##		- Syntax:
-##		  pwsh cicd/win/pack-portable.ps1 [-StageDir <dir>] [-OutDir <dir>] [-FlattenOnly]
+##		  pwsh cicd/win/pack-portable.ps1 [-StageDir <dir>] [-OutDir <dir>] [-FlattenOnly | -ProjectFrom <dir>]
 ##	History:
+##		- 2026-10-10: sharing with started programs off; -ProjectFrom.
 ##		- 2026-09-03: -FlattenOnly.
 ##		- 2026-08-02: Created (backlog: ultra-portable single-exe Windows).
 
-##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
+##	Copyright (c) 2026 t00mietum
 ##	Licensed under The MIT License (MIT). Full text at:
 ##		https://mit-license.org/
 ##	SPDX-License-Identifier: MIT
@@ -33,6 +36,7 @@ param(
 	[string]$StageDir = "",
 	[string]$OutDir = "",
 	[switch]$FlattenOnly,
+	[string]$ProjectFrom = "",
 	[switch]$Help
 )
 
@@ -45,6 +49,7 @@ $ExeName = "nemo-anywhere"
 if (-not $StageDir) { $StageDir = Join-Path $Root "cicd\artifacts\win-run" }
 if (-not $OutDir)   { $OutDir   = Join-Path $Root "cicd\artifacts\win-portable" }
 $FlatDir = Join-Path $Root "cicd\artifacts\win-flat"
+if ($ProjectFrom) { $FlatDir = (Resolve-Path -LiteralPath $ProjectFrom).Path }
 
 $script:WasLastEchoBlank = $false
 function fEcho_Clean {
@@ -147,7 +152,11 @@ function fWriteProject {
 	[void]$sb.AppendLine('<Enabled>false</Enabled>')
 	[void]$sb.AppendLine('</Packaging>')
 	[void]$sb.AppendLine('<Options>')
-	[void]$sb.AppendLine('<ShareVirtualSystem>true</ShareVirtualSystem>')
+	## Off: with it on, every program the app starts gets the packer's hooks,
+	## which break Chromium-based programs and 32-bit ones. Nothing packed is a
+	## program or a file a started one needs (2026100917220603).
+	## test-evb-project.ps1 refuses it on.
+	[void]$sb.AppendLine('<ShareVirtualSystem>false</ShareVirtualSystem>')
 	[void]$sb.AppendLine('<MapExecutableWithTemporaryFile>true</MapExecutableWithTemporaryFile>')
 	[void]$sb.AppendLine('<TemporaryFileMask/>')
 	[void]$sb.AppendLine('<AllowRunningOfVirtualExeFiles>true</AllowRunningOfVirtualExeFiles>')
@@ -165,7 +174,21 @@ function fWriteProject {
 	[IO.File]::WriteAllText($ProjPath, $sb.ToString(), [Text.Encoding]::GetEncoding(1252))
 }
 
+function fCheckProject {
+	param([string]$ProjPath)
+	& pwsh -NoProfile -File (Join-Path $Root "cicd/utility/test-evb-project.ps1") -Path $ProjPath
+	if ($LASTEXITCODE -ne 0) { fDie "the .evb project has an option set wrong: $ProjPath" }
+}
+
 function fMain {
+	if ($ProjectFrom) {
+		New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
+		$projEvb = Join-Path $OutDir "$ExeName.evb"
+		fWriteProject -ProjPath $projEvb -InExe (Join-Path $FlatDir "$ExeName.exe") -OutExe (Join-Path $OutDir "$ExeName.exe")
+		fCheckProject $projEvb
+		fEcho "OK: project only: $projEvb"
+		return
+	}
 	if ($FlattenOnly) {
 		fFlatten
 		fEcho "OK: flat tree: $FlatDir"
@@ -177,6 +200,13 @@ function fMain {
 
 	fFlatten
 
+	## Nothing packed may be a program but the app: one started from inside
+	## the exe can't load its libraries under hooking tools like MacType.
+	& pwsh -NoProfile -File (Join-Path $Root "cicd\utility\test-bundle-exes.ps1") -Path $FlatDir
+	if ($LASTEXITCODE -ne 0) { fDie "the flat tree has a program besides the app" }
+	& pwsh -NoProfile -File (Join-Path $Root "cicd\utility\test-bundle-settings.ps1") -Path $FlatDir
+	if ($LASTEXITCODE -ne 0) { fDie "the flat tree is missing the GTK settings or font config" }
+
 	New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
 	$inExe   = Join-Path $FlatDir "$ExeName.exe"
 	$outExe  = Join-Path $OutDir "$ExeName.exe"
@@ -186,6 +216,7 @@ function fMain {
 	$nFiles = (Get-ChildItem -LiteralPath $FlatDir -Recurse -File).Count
 	fEcho "Writing EVB project ($nFiles files) -> $projEvb"
 	fWriteProject -ProjPath $projEvb -InExe $inExe -OutExe $outExe
+	fCheckProject $projEvb
 
 	fEcho "Packing (this can take a few minutes)..."
 	## enigmavbconsole writes the output exe at the very end, but on some headless

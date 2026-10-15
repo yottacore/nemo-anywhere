@@ -8,6 +8,12 @@ SHCL config engine, single-header C binding, **MIT** - compiled into nemo, so un
 
 - `shcl/shcl.h` <- https://github.com/yottacore/shcl @ `f2a8ad2aed34e6b78f812a6c5ef375288a6e5494` (`dev`, before the `v3.0.0-beta.1` tag)
 
+The two SHCL releases settings were written with before format 3 are kept in `shcl-old/`, for a test only. A test program built against each writes a settings file the way the app did then, and the app has to read it the same way. Never linked into nemo. Same MIT license, kept in `shcl-old/LICENSE.md`. Leave these as they are.
+
+- `shcl-old/1.2.0/shcl.h` <- https://github.com/yottacore/shcl @ `192d206e7eeb196598d4bfc385dd9527e698ed8a` (tag `v1.2.0`), used by v1.0.0-beta2
+
+- `shcl-old/2.0.0/shcl.h` <- https://github.com/yottacore/shcl @ `fd1068a629701068f07a197de45212d267c20f46` (tag `v2.0.0`)
+
 blake3 hash, C implementation, dual **CC0-1.0** and **Apache-2.0** - compiled into nemo, and keeps its `LICENSE` (the CC0 one, which is the simpler of the two to carry under GPL-2.0-only). Update by copying the named files out of `c/` at a newer tag and re-pinning here.
 
 - `blake3/` <- https://github.com/BLAKE3-team/BLAKE3 @ `df610ddc3b93841ffc59a87e3da659a15910eb46` (tag `1.8.2`)

@@ -83,7 +83,7 @@ G_DEFINE_TYPE (NemoSelectionCanvasItem, nemo_selection_canvas_item, EEL_TYPE_CAN
 static void
 nemo_selection_canvas_item_draw (EelCanvasItem *item,
 				     cairo_t *cr,
-				     cairo_region_t *region)
+				     G_GNUC_UNUSED cairo_region_t *region)
 {
 	NemoSelectionCanvasItem *self;
 	double x1, y1, x2, y2;
@@ -160,8 +160,8 @@ static double
 nemo_selection_canvas_item_point (EelCanvasItem *item,
 				      double x,
 				      double y,
-				      int cx,
-				      int cy,
+				      G_GNUC_UNUSED int cx,
+				      G_GNUC_UNUSED int cy,
 				      EelCanvasItem **actual_item)
 {
 	NemoSelectionCanvasItem *self;

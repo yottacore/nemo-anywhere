@@ -70,7 +70,7 @@ check_fit (guint count, const gint *const *widths, const guint *form_counts, gui
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	{
 		const char *want[] = {

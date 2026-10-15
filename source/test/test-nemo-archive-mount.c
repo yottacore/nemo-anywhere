@@ -49,7 +49,7 @@ check_round_trip (const char *path)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	g_autoptr (GFile) plain = g_file_new_for_path ("/tmp/t.zip");
 	g_autoptr (GFile) mount = nemo_archive_mount_location (plain);

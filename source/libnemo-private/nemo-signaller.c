@@ -48,6 +48,7 @@ static GType nemo_signaller_get_type (void);
 
 G_DEFINE_TYPE (NemoSignaller, nemo_signaller, G_TYPE_OBJECT);
 
+/* Returns: (transfer none): kept for the life of the process */
 GObject *
 nemo_signaller_get_current (void)
 {
@@ -61,7 +62,7 @@ nemo_signaller_get_current (void)
 }
 
 static void
-nemo_signaller_init (NemoSignaller *signaller)
+nemo_signaller_init (G_GNUC_UNUSED NemoSignaller *signaller)
 {
 }
 

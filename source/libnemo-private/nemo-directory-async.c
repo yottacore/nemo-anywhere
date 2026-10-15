@@ -61,14 +61,6 @@
  * folder load (see more_files_callback). Just a paranoia cap - the enumerator
  * advances past each bad entry, so it terminates at end-of-dir on its own. */
 #define DIRECTORY_LOAD_MAX_SKIP 256
-
-/* Following a reparse point means stat'ing whatever it points at, and a link to
- * a share that is not answering costs twenty seconds per entry, with the whole
- * listing stuck behind it. Windows puts the directory bit on the link itself,
- * so the type still comes out right without the trip. */
-#define FILE_INFO_FLAGS G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS
-#else
-#define FILE_INFO_FLAGS G_FILE_QUERY_INFO_NONE
 #endif
 
 /* Keep async. jobs down to this number for all directories. */
@@ -260,7 +252,7 @@ istr_set_insert (GHashTable *table, const char *istr)
 }
 
 static void
-add_istr_to_list (gpointer key, gpointer value, gpointer callback_data)
+add_istr_to_list (gpointer key, G_GNUC_UNUSED gpointer value, gpointer callback_data)
 {
 	GList **list;
 
@@ -358,7 +350,7 @@ nemo_directory_verify_request_counts (NemoDirectory *directory)
  */
 static gboolean
 async_job_start (NemoDirectory *directory,
-		 const char *job)
+		 G_GNUC_UNUSED const char *job)
 {
 #ifdef DEBUG_ASYNC_JOBS
 	char *key;
@@ -406,8 +398,8 @@ async_job_start (NemoDirectory *directory,
 
 /* End a job. */
 static void
-async_job_end (NemoDirectory *directory,
-	       const char *job)
+async_job_end (G_GNUC_UNUSED NemoDirectory *directory,
+	       G_GNUC_UNUSED const char *job)
 {
 #ifdef DEBUG_ASYNC_JOBS
 	char *key;
@@ -443,7 +435,7 @@ async_job_end (NemoDirectory *directory,
 
 /* Helper to get one value from a hash table. */
 static void
-get_one_value_callback (gpointer key, gpointer value, gpointer callback_data)
+get_one_value_callback (G_GNUC_UNUSED gpointer key, gpointer value, gpointer callback_data)
 {
 	gpointer *returned_value;
 
@@ -733,7 +725,7 @@ nemo_directory_set_up_request (NemoFileAttributes file_attributes)
 }
 
 static void
-mime_db_changed_callback (GObject *ignore, NemoDirectory *dir)
+mime_db_changed_callback (G_GNUC_UNUSED GObject *ignore, NemoDirectory *dir)
 {
 	NemoFileAttributes attrs;
 
@@ -838,13 +830,13 @@ set_file_unconfirmed (NemoFile *file, gboolean unconfirmed)
 static gboolean show_hidden_files = TRUE;
 
 static void
-show_hidden_files_changed_callback (gpointer callback_data)
+show_hidden_files_changed_callback (G_GNUC_UNUSED gpointer callback_data)
 {
 	show_hidden_files = nemo_config_get_boolean (nemo_preferences, NEMO_PREFERENCES_SHOW_HIDDEN_FILES);
 }
 
 static gboolean
-should_skip_file (NemoDirectory *directory, GFileInfo *info)
+should_skip_file (G_GNUC_UNUSED NemoDirectory *directory, GFileInfo *info)
 {
 	static gboolean show_hidden_files_changed_callback_installed = FALSE;
     gboolean is_hidden;
@@ -1175,6 +1167,7 @@ nemo_directory_monitor_remove_internal (NemoDirectory *directory,
 	nemo_directory_async_state_changed (directory);
 }
 
+/* Returns: (transfer full): hand it back to nemo_directory_add_file_monitors, which takes it */
 FileMonitors *
 nemo_directory_remove_file_monitors (NemoDirectory *directory,
 					 NemoFile *file)
@@ -1508,7 +1501,7 @@ new_files_callback (GObject *source_object,
 	directory = nemo_directory_ref (state->directory);
 	
 	/* Queue up the new file. */
-	info = g_file_query_info_finish (G_FILE (source_object), res, NULL);
+	info = nemo_query_listing_info_finish (G_FILE (source_object), res, NULL);
 	if (info != NULL) {
 		directory_load_one (directory, info);
 		g_object_unref (info);
@@ -1541,12 +1534,12 @@ nemo_directory_get_info_for_new_files (NemoDirectory *directory,
 		
 		state->count++;
 		
-		g_file_query_info_async (location,
-					 NEMO_FILE_DEFAULT_ATTRIBUTES,
-					 FILE_INFO_FLAGS,
-					 G_PRIORITY_DEFAULT,
-					 state->cancellable,
-					 new_files_callback, state);
+		nemo_query_listing_info_async (location,
+					       NEMO_FILE_DEFAULT_ATTRIBUTES,
+					       FALSE,
+					       G_PRIORITY_DEFAULT,
+					       state->cancellable,
+					       new_files_callback, state);
 	}
 	
 	directory->details->new_files_in_progress
@@ -2029,7 +2022,7 @@ directory_load_state_free (DirectoryLoadState *state)
 }
 
 static void
-more_files_callback (GObject *source_object,
+more_files_callback (G_GNUC_UNUSED GObject *source_object,
 		     GAsyncResult *res,
 		     gpointer user_data)
 {
@@ -2189,13 +2182,12 @@ start_monitoring_file_list (NemoDirectory *directory)
 	
 	directory->details->directory_load_in_progress = state;
 	
-	nemo_enumerate_children_async (directory->details->location,
-					 NEMO_FILE_DEFAULT_ATTRIBUTES,
-					 FILE_INFO_FLAGS,
-					 G_PRIORITY_DEFAULT, /* prio */
-					 state->cancellable,
-					 enumerate_children_callback,
-					 state);
+	nemo_enumerate_listing_async (directory->details->location,
+				      NEMO_FILE_DEFAULT_ATTRIBUTES,
+				      G_PRIORITY_DEFAULT, /* prio */
+				      state->cancellable,
+				      enumerate_children_callback,
+				      state);
 }
 
 /* Stop monitoring the file list if it is being monitored. */
@@ -2442,7 +2434,7 @@ directory_count_state_free (DirectoryCountState *state)
 }
 
 static void
-count_more_files_callback (GObject *source_object,
+count_more_files_callback (G_GNUC_UNUSED GObject *source_object,
 			   GAsyncResult *res,
 			   gpointer user_data)
 {
@@ -2747,7 +2739,7 @@ deep_count_next_dir (DeepCountState *state)
 }
 
 static void
-deep_count_more_files_callback (GObject *source_object,
+deep_count_more_files_callback (G_GNUC_UNUSED GObject *source_object,
 				GAsyncResult *res,
 				gpointer user_data)
 {
@@ -3059,7 +3051,7 @@ mime_list_one (MimeListState *state,
 }
 
 static void
-mime_list_callback (GObject *source_object,
+mime_list_callback (G_GNUC_UNUSED GObject *source_object,
 		    GAsyncResult *res,
 		    gpointer user_data)
 {
@@ -3343,7 +3335,7 @@ query_info_callback (GObject *source_object,
 	nemo_file_ref (get_info_file);
 
 	error = NULL;
-	info = g_file_query_info_finish (G_FILE (source_object), res, &error);
+	info = nemo_query_listing_info_finish (G_FILE (source_object), res, &error);
 
 #ifdef G_OS_WIN32
 	/* Under wine, GLib's win32 stat fails with G_IO_ERROR_FAILED on paths
@@ -3437,11 +3429,11 @@ file_info_start (NemoDirectory *directory,
 	directory->details->get_info_in_progress = state;
 	
 	location = nemo_file_get_location (file);
-	g_file_query_info_async (location,
-				 NEMO_FILE_DEFAULT_ATTRIBUTES,
-				 FILE_INFO_FLAGS,
-				 G_PRIORITY_DEFAULT,
-				 state->cancellable, query_info_callback, state);
+	nemo_query_listing_info_async (location,
+				       NEMO_FILE_DEFAULT_ATTRIBUTES,
+				       file->details->link_look_wanted,
+				       G_PRIORITY_DEFAULT,
+				       state->cancellable, query_info_callback, state);
 	g_object_unref (location);
 }
 
@@ -3847,7 +3839,7 @@ extern int cached_thumbnail_size;
 
 static void
 thumbnail_load_thread (GTask        *task,
-		       gpointer      source,
+		       G_GNUC_UNUSED gpointer      source,
 		       gpointer      task_data,
 		       GCancellable *cancellable)
 {
@@ -3862,9 +3854,9 @@ thumbnail_load_thread (GTask        *task,
 }
 
 static void
-thumbnail_load_done (GObject      *source,
+thumbnail_load_done (G_GNUC_UNUSED GObject      *source,
 		     GAsyncResult *res,
-		     gpointer      user_data)
+		     G_GNUC_UNUSED gpointer      user_data)
 {
 	ThumbnailState *state = g_task_get_task_data (G_TASK (res));
 	NemoDirectory *directory;
@@ -4041,7 +4033,7 @@ get_mount_at (GFile *target)
 	GMount *found;
 	
 	monitor = g_volume_monitor_get ();
-	mounts = g_volume_monitor_get_mounts (monitor);
+	mounts = nemo_get_mounts (monitor);
 
 	found = NULL;
 	for (l = mounts; l != NULL; l = l->next) {

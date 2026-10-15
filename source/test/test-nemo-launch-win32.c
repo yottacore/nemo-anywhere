@@ -6,6 +6,7 @@
 
 #include <glib.h>
 #include <glib/gstdio.h>
+#include <windows.h>
 #include <libnemo-private/nemo-launch-win32.h>
 
 #include "test-scratch.h"
@@ -118,7 +119,13 @@ test_brokers (void)
 	char *marker = g_build_filename (dir, "started.txt", NULL);
 	char *line = g_strdup_printf ("cmd.exe /c echo ok> \"%s\"", marker);
 
-	check (marker_appears (marker, via_shell_line, line), "the desktop shell starts it");
+	/* With no desktop here, as over ssh, the shell is never asked. */
+	if (GetShellWindow () != NULL) {
+		check (marker_appears (marker, via_shell_line, line), "the desktop shell starts it");
+	} else {
+		check (!via_shell_line (line, NULL), "no desktop of this session's, so the shell is not asked");
+		g_print ("SKIP: the desktop shell start, this session has no desktop\n");
+	}
 	check (marker_appears (marker, nemo_launch_win32_via_service, line), "the management service starts it");
 
 	g_remove (marker);
@@ -129,7 +136,7 @@ test_brokers (void)
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	test_split ();
 	test_missing_is_refused ();

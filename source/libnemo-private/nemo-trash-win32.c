@@ -26,6 +26,7 @@
 #include "nemo-delete-guard.h"
 #include "nemo-delete-testguard.h"
 #include "nemo-dir-enum.h"
+#include "nemo-drives-win32.h"
 
 #ifdef G_OS_WIN32
 
@@ -362,36 +363,55 @@ refresh_items_locked (void)
 	}
 }
 
-static guint64
-query_bin_count (void)
-{
-	SHQUERYRBINFO info;
-
-	memset (&info, 0, sizeof (info));
-	info.cbSize = sizeof (info);
-	if (SHQueryRecycleBinW (NULL, &info) != S_OK) {
-		return 0;
-	}
-	return (guint64) info.i64NumItems;
-}
-
-/* Count alone misses a change that keeps it the same - one item deleted and
+/* Each local drive's bin in turn. Asking for every bin at once (a NULL root)
+ * takes in mapped drives too, and one that is not answering would hold the
+ * caller, the window's poll included, for the network timeout. A removable
+ * drive keeps a bin only under the RecycleBinDrives policy, and is asked only
+ * with a disk in it. Wine answers for the whole bin whatever root it is
+ * given, so the sum runs high there; nothing reads more than empty or not
+ * and whether it changed.
+ *
+ * Count alone misses a change that keeps it the same - one item deleted and
  * another recycled between two polls, or an item replaced by a bigger one.
  * Total size moves in those cases; both together are a usable fingerprint. */
 static void
 query_bin_state (guint64 *count, guint64 *size)
 {
-	SHQUERYRBINFO info;
+	DWORD drives = GetLogicalDrives ();
+	int bit;
 
-	memset (&info, 0, sizeof (info));
-	info.cbSize = sizeof (info);
-	if (SHQueryRecycleBinW (NULL, &info) != S_OK) {
-		*count = 0;
-		*size = 0;
-		return;
+	*count = 0;
+	*size = 0;
+	for (bit = 0; bit < 26; bit++) {
+		wchar_t root[4] = { (wchar_t) (L'A' + bit), L':', L'\\', L'\0' };
+		SHQUERYRBINFO info;
+		DWORD old_mode = 0;
+		HRESULT asked;
+
+		if (!(drives & (1u << bit)) || !nemo_drive_win32_bin_askable ((char) ('A' + bit))) {
+			continue;
+		}
+
+		memset (&info, 0, sizeof (info));
+		info.cbSize = sizeof (info);
+		/* A card pulled since the check above. */
+		SetThreadErrorMode (SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX, &old_mode);
+		asked = SHQueryRecycleBinW (root, &info);
+		SetThreadErrorMode (old_mode, NULL);
+		if (asked == S_OK) {
+			*count += (guint64) info.i64NumItems;
+			*size += (guint64) info.i64Size;
+		}
 	}
-	*count = (guint64) info.i64NumItems;
-	*size = (guint64) info.i64Size;
+}
+
+static guint64
+query_bin_count (void)
+{
+	guint64 count, size;
+
+	query_bin_state (&count, &size);
+	return count;
 }
 
 /* remove the metadata sibling after the backing file leaves the bin:
@@ -553,7 +573,7 @@ uri_to_verified_real_path (const char *uri, GError **error)
 
 	if (!ok) {
 		g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
-			     "'%s' is not in the recycle bin", real_path);
+			     "'%s' isn't in the recycle bin", real_path);
 		g_free (real_path);
 		return NULL;
 	}
@@ -743,19 +763,19 @@ trash_file_equal (GFile *a, GFile *b)
 }
 
 static gboolean
-trash_file_is_native (GFile *file)
+trash_file_is_native (G_GNUC_UNUSED GFile *file)
 {
 	return FALSE;
 }
 
 static gboolean
-trash_file_has_uri_scheme (GFile *file, const char *scheme)
+trash_file_has_uri_scheme (G_GNUC_UNUSED GFile *file, const char *scheme)
 {
 	return g_ascii_strcasecmp (scheme, "trash") == 0;
 }
 
 static char *
-trash_file_get_uri_scheme (GFile *file)
+trash_file_get_uri_scheme (G_GNUC_UNUSED GFile *file)
 {
 	return g_strdup ("trash");
 }
@@ -772,7 +792,7 @@ trash_file_get_basename (GFile *file)
 }
 
 static char *
-trash_file_get_path (GFile *file)
+trash_file_get_path (G_GNUC_UNUSED GFile *file)
 {
 	return NULL;
 }
@@ -875,14 +895,14 @@ trash_file_resolve_relative_path (GFile *file, const char *relative_path)
 
 static GFile *
 trash_file_get_child_for_display_name (GFile *file, const char *display_name,
-				       GError **error)
+				       G_GNUC_UNUSED GError **error)
 {
 	return trash_file_resolve_relative_path (file, display_name);
 }
 
 static GFileInfo *
-trash_file_query_info (GFile *file, const char *attributes,
-		       GFileQueryInfoFlags flags, GCancellable *cancellable,
+trash_file_query_info (GFile *file, G_GNUC_UNUSED const char *attributes,
+		       G_GNUC_UNUSED GFileQueryInfoFlags flags, G_GNUC_UNUSED GCancellable *cancellable,
 		       GError **error)
 {
 	NemoTrashWin32File *self = NEMO_TRASH_WIN32_FILE (file);
@@ -933,8 +953,8 @@ trash_file_query_info (GFile *file, const char *attributes,
 }
 
 static GFileInfo *
-trash_file_query_filesystem_info (GFile *file, const char *attributes,
-				  GCancellable *cancellable, GError **error)
+trash_file_query_filesystem_info (G_GNUC_UNUSED GFile *file, G_GNUC_UNUSED const char *attributes,
+				  G_GNUC_UNUSED GCancellable *cancellable, G_GNUC_UNUSED GError **error)
 {
 	GFileInfo *info;
 
@@ -966,7 +986,7 @@ G_DEFINE_TYPE (NemoTrashWin32Enumerator, nemo_trash_win32_enumerator,
 
 static GFileInfo *
 trash_enumerator_next_file (GFileEnumerator *enumerator,
-			    GCancellable *cancellable, GError **error)
+			    G_GNUC_UNUSED GCancellable *cancellable, G_GNUC_UNUSED GError **error)
 {
 	NemoTrashWin32Enumerator *self = NEMO_TRASH_WIN32_ENUMERATOR (enumerator);
 	GFileInfo *info;
@@ -981,8 +1001,8 @@ trash_enumerator_next_file (GFileEnumerator *enumerator,
 }
 
 static gboolean
-trash_enumerator_close (GFileEnumerator *enumerator,
-			GCancellable *cancellable, GError **error)
+trash_enumerator_close (G_GNUC_UNUSED GFileEnumerator *enumerator,
+			G_GNUC_UNUSED GCancellable *cancellable, G_GNUC_UNUSED GError **error)
 {
 	return TRUE;
 }
@@ -998,7 +1018,7 @@ trash_enumerator_finalize (GObject *object)
 }
 
 static void
-nemo_trash_win32_enumerator_init (NemoTrashWin32Enumerator *self)
+nemo_trash_win32_enumerator_init (G_GNUC_UNUSED NemoTrashWin32Enumerator *self)
 {
 }
 
@@ -1011,8 +1031,8 @@ nemo_trash_win32_enumerator_class_init (NemoTrashWin32EnumeratorClass *klass)
 }
 
 static GFileEnumerator *
-trash_file_enumerate_children (GFile *file, const char *attributes,
-			       GFileQueryInfoFlags flags,
+trash_file_enumerate_children (GFile *file, G_GNUC_UNUSED const char *attributes,
+			       G_GNUC_UNUSED GFileQueryInfoFlags flags,
 			       GCancellable *cancellable, GError **error)
 {
 	NemoTrashWin32File *self = NEMO_TRASH_WIN32_FILE (file);
@@ -1183,7 +1203,7 @@ trash_file_delete (GFile *file, GCancellable *cancellable, GError **error)
 
 	if (uri_is_root (self->uri)) {
 		g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-			     "Cannot delete the trash root");
+			     "Can't delete the trash root");
 		return FALSE;
 	}
 
@@ -1224,7 +1244,7 @@ trash_file_move (GFile *source, GFile *destination, GFileCopyFlags flags,
 
 	if (uri_is_root (self->uri)) {
 		g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-			     "Cannot move the trash root");
+			     "Can't move the trash root");
 		return FALSE;
 	}
 
@@ -1330,7 +1350,7 @@ monitor_poll (gpointer user_data)
 }
 
 static gboolean
-emit_changed_idle (gpointer user_data)
+emit_changed_idle (G_GNUC_UNUSED gpointer user_data)
 {
 	GList *snapshot = NULL, *l;
 
@@ -1379,7 +1399,7 @@ trash_win32_monitor_cancel (GFileMonitor *file_monitor)
 }
 
 static void
-nemo_trash_win32_monitor_init (NemoTrashWin32Monitor *monitor)
+nemo_trash_win32_monitor_init (G_GNUC_UNUSED NemoTrashWin32Monitor *monitor)
 {
 }
 
@@ -1390,8 +1410,8 @@ nemo_trash_win32_monitor_class_init (NemoTrashWin32MonitorClass *klass)
 }
 
 static GFileMonitor *
-trash_file_monitor (GFile *file, GFileMonitorFlags flags,
-		    GCancellable *cancellable, GError **error)
+trash_file_monitor (G_GNUC_UNUSED GFile *file, G_GNUC_UNUSED GFileMonitorFlags flags,
+		    G_GNUC_UNUSED GCancellable *cancellable, G_GNUC_UNUSED GError **error)
 {
 	NemoTrashWin32Monitor *monitor;
 
@@ -1419,7 +1439,7 @@ trash_file_finalize (GObject *object)
 }
 
 static void
-nemo_trash_win32_file_init (NemoTrashWin32File *self)
+nemo_trash_win32_file_init (G_GNUC_UNUSED NemoTrashWin32File *self)
 {
 }
 
@@ -1468,7 +1488,7 @@ trash_file_new_for_uri (const char *uri)
 }
 
 static GFile *
-trash_vfs_lookup (GVfs *vfs, const char *identifier, gpointer user_data)
+trash_vfs_lookup (G_GNUC_UNUSED GVfs *vfs, const char *identifier, G_GNUC_UNUSED gpointer user_data)
 {
 	if (g_str_has_prefix (identifier, "trash:")) {
 		return trash_file_new_for_uri (identifier);
@@ -1501,7 +1521,7 @@ nemo_trash_win32_recycle (GFile *file, GError **error)
 	wide = (wchar_t *) g_utf8_to_utf16 (path, -1, NULL, &len, NULL);
 	if (wide == NULL) {
 		g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME,
-			     _("\"%s\" is not a name Windows can use."), path);
+			     _("\"%s\" isn't a name Windows can use."), path);
 		g_free (path);
 		return FALSE;
 	}

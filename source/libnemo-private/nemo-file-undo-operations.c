@@ -28,6 +28,7 @@
 #include <config.h>
 
 #include "nemo-file-undo-operations.h"
+#include <eel/eel-glib-extensions.h>
 
 #include <stdlib.h>
 #include <glib/gi18n.h>
@@ -122,22 +123,22 @@ nemo_file_undo_info_set_property (GObject *object,
 
 static void
 nemo_file_redo_info_warn_redo (NemoFileUndoInfo *self,
-				   GtkWindow *parent_window)
+				   G_GNUC_UNUSED GtkWindow *parent_window)
 {
-	g_critical ("Object %p of type %s does not implement redo_func!!", 
+	g_critical ("Object %p of type %s doesn't implement redo_func!!", 
 		    self, G_OBJECT_TYPE_NAME (self));
 }
 
 static void
 nemo_file_undo_info_warn_undo (NemoFileUndoInfo *self,
-				   GtkWindow *parent_window)
+				   G_GNUC_UNUSED GtkWindow *parent_window)
 {
-	g_critical ("Object %p of type %s does not implement undo_func!!", 
+	g_critical ("Object %p of type %s doesn't implement undo_func!!", 
 		    self, G_OBJECT_TYPE_NAME (self));
 }
 
 static void
-nemo_file_undo_info_strings_func (NemoFileUndoInfo *self,
+nemo_file_undo_info_strings_func (G_GNUC_UNUSED NemoFileUndoInfo *self,
 				      gchar **undo_label,
 				      gchar **undo_description,
 				      gchar **redo_label,
@@ -245,7 +246,7 @@ file_undo_info_op_res_free (gpointer data)
 }
 
 gboolean
-nemo_file_undo_info_apply_finish (NemoFileUndoInfo *self,
+nemo_file_undo_info_apply_finish (G_GNUC_UNUSED NemoFileUndoInfo *self,
 				      GAsyncResult *res,
 				      gboolean *user_cancel,
 				      GError **error)
@@ -293,7 +294,7 @@ file_undo_info_complete_apply (NemoFileUndoInfo *self,
 }
 
 static void
-file_undo_info_transfer_callback (GHashTable * debuting_uris,
+file_undo_info_transfer_callback (G_GNUC_UNUSED GHashTable * debuting_uris,
 				  gboolean success,
                                   gpointer user_data)
 {
@@ -306,8 +307,8 @@ file_undo_info_transfer_callback (GHashTable * debuting_uris,
 }
 
 static void
-file_undo_info_operation_callback (NemoFile * file,
-				   GFile * result_location,
+file_undo_info_operation_callback (G_GNUC_UNUSED NemoFile * file,
+				   G_GNUC_UNUSED GFile * result_location,
 				   GError * error,
 				   gpointer user_data)
 {
@@ -318,7 +319,7 @@ file_undo_info_operation_callback (NemoFile * file,
 }
 
 static void
-file_undo_info_delete_callback (GHashTable *debuting_uris,
+file_undo_info_delete_callback (G_GNUC_UNUSED GHashTable *debuting_uris,
                                 gboolean user_cancel,
                                 gpointer user_data)
 {
@@ -636,6 +637,7 @@ nemo_file_undo_info_ext_class_init (NemoFileUndoInfoExtClass *klass)
 	g_type_class_add_private (klass, sizeof (NemoFileUndoInfoExtDetails));
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoFileUndoInfo *
 nemo_file_undo_info_ext_new (NemoFileUndoOp op_type,
 				 gint item_count,
@@ -685,6 +687,7 @@ struct _NemoFileUndoInfoCreateDetails {
 	char *template;
 	GFile *target_file;
 	gint length;
+	GList *made;		/* a folder named with a path, top first */
 };
 
 static void
@@ -725,7 +728,7 @@ create_strings_func (NemoFileUndoInfo *info,
 }
 
 static void
-create_callback (GFile * new_file,
+create_callback (G_GNUC_UNUSED GFile * new_file,
 		 gboolean success,
 		 gpointer callback_data)
 {
@@ -734,7 +737,7 @@ create_callback (GFile * new_file,
 
 static void
 create_from_template_redo_func (NemoFileUndoInfoCreate *self,
-				GtkWindow *parent_window)
+				G_GNUC_UNUSED GtkWindow *parent_window)
 {
 	GFile *parent;
 	gchar *parent_uri, *new_name;
@@ -754,7 +757,7 @@ create_from_template_redo_func (NemoFileUndoInfoCreate *self,
 
 static void
 create_folder_redo_func (NemoFileUndoInfoCreate *self,
-			 GtkWindow *parent_window)
+			 G_GNUC_UNUSED GtkWindow *parent_window)
 {
 	GFile *parent;
 	gchar *parent_uri;
@@ -770,7 +773,7 @@ create_folder_redo_func (NemoFileUndoInfoCreate *self,
 
 static void
 create_empty_redo_func (NemoFileUndoInfoCreate *self,
-			GtkWindow *parent_window)
+			G_GNUC_UNUSED GtkWindow *parent_window)
 
 {
 	GFile *parent;
@@ -792,13 +795,25 @@ create_empty_redo_func (NemoFileUndoInfoCreate *self,
 }
 
 static void
+nest_callback (G_GNUC_UNUSED GFile *top,
+	       GError *error,
+	       gpointer callback_data)
+{
+	file_undo_info_complete_apply (NEMO_FILE_UNDO_INFO (callback_data), error == NULL,
+				       g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED));
+}
+
+static void
 create_redo_func (NemoFileUndoInfo *info,
 		  GtkWindow *parent_window)
 {
 	NemoFileUndoInfoCreate *self = NEMO_FILE_UNDO_INFO_CREATE (info);
 	NemoFileUndoOp op_type = nemo_file_undo_info_get_op_type (info);
 
-	if (op_type == NEMO_FILE_UNDO_OP_CREATE_EMPTY_FILE) {
+	if (self->priv->made != NULL) {
+		nemo_file_operations_nest_make_again (self->priv->made, parent_window,
+						      nest_callback, self);
+	} else if (op_type == NEMO_FILE_UNDO_OP_CREATE_EMPTY_FILE) {
 		create_empty_redo_func (self, parent_window);
 	} else if (op_type == NEMO_FILE_UNDO_OP_CREATE_FOLDER) {
 		create_folder_redo_func (self, parent_window);
@@ -815,6 +830,12 @@ create_undo_func (NemoFileUndoInfo *info,
 {
 	NemoFileUndoInfoCreate *self = NEMO_FILE_UNDO_INFO_CREATE (info);
 	GList *files = NULL;
+
+	if (self->priv->made != NULL) {
+		nemo_file_operations_nest_unmake (self->priv->made, parent_window,
+						  nest_callback, self);
+		return;
+	}
 
 	files = g_list_append (files, g_object_ref (self->priv->target_file));
 	nemo_file_operations_delete (files, parent_window,
@@ -836,6 +857,7 @@ nemo_file_undo_info_create_finalize (GObject *obj)
 	NemoFileUndoInfoCreate *self = NEMO_FILE_UNDO_INFO_CREATE (obj);
 	g_clear_object (&self->priv->target_file);
 	g_free (self->priv->template);	
+	g_list_free_full (self->priv->made, g_object_unref);
 
 	G_OBJECT_CLASS (nemo_file_undo_info_create_parent_class)->finalize (obj);
 }
@@ -855,6 +877,7 @@ nemo_file_undo_info_create_class_init (NemoFileUndoInfoCreateClass *klass)
 	g_type_class_add_private (klass, sizeof (NemoFileUndoInfoCreateDetails));
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoFileUndoInfo *
 nemo_file_undo_info_create_new (NemoFileUndoOp op_type)
 {
@@ -873,6 +896,18 @@ nemo_file_undo_info_create_set_data (NemoFileUndoInfoCreate *self,
 	self->priv->target_file = g_object_ref (file);
 	self->priv->template = g_strdup (template);
 	self->priv->length = length;
+}
+
+void
+nemo_file_undo_info_create_set_folders (NemoFileUndoInfoCreate *self,
+					GList                  *made)
+{
+	g_return_if_fail (made != NULL);
+
+	g_list_free_full (self->priv->made, g_object_unref);
+	self->priv->made = eel_g_object_list_copy (made);
+	g_clear_object (&self->priv->target_file);
+	self->priv->target_file = g_object_ref (g_list_last (made)->data);
 }
 
 /* rename */
@@ -910,7 +945,7 @@ rename_strings_func (NemoFileUndoInfo *info,
 
 static void
 rename_redo_func (NemoFileUndoInfo *info,
-		  GtkWindow *parent_window)
+		  G_GNUC_UNUSED GtkWindow *parent_window)
 {
 	NemoFileUndoInfoRename *self = NEMO_FILE_UNDO_INFO_RENAME (info);
 	NemoFile *file;
@@ -924,7 +959,7 @@ rename_redo_func (NemoFileUndoInfo *info,
 
 static void
 rename_undo_func (NemoFileUndoInfo *info,
-		  GtkWindow *parent_window)
+		  G_GNUC_UNUSED GtkWindow *parent_window)
 {
 	NemoFileUndoInfoRename *self = NEMO_FILE_UNDO_INFO_RENAME (info);
 	NemoFile *file;
@@ -970,6 +1005,7 @@ nemo_file_undo_info_rename_class_init (NemoFileUndoInfoRenameClass *klass)
 	g_type_class_add_private (klass, sizeof (NemoFileUndoInfoRenameDetails));
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoFileUndoInfo *
 nemo_file_undo_info_rename_new (void)
 {
@@ -1101,7 +1137,7 @@ trash_redo_func (NemoFileUndoInfo *info,
 }
 
 static GHashTable *
-trash_retrieve_files_to_restore_finish (NemoFileUndoInfoTrash *self,
+trash_retrieve_files_to_restore_finish (G_GNUC_UNUSED NemoFileUndoInfoTrash *self,
 					GAsyncResult *res,
 					GError **error)
 {
@@ -1117,7 +1153,7 @@ trash_retrieve_files_to_restore_finish (NemoFileUndoInfoTrash *self,
 static void
 trash_retrieve_files_to_restore_thread (GSimpleAsyncResult *res,
 					GObject *object,
-					GCancellable *cancellable)
+					G_GNUC_UNUSED GCancellable *cancellable)
 {
 	NemoFileUndoInfoTrash *self = NEMO_FILE_UNDO_INFO_TRASH (object);
 	GFileEnumerator *enumerator;
@@ -1205,7 +1241,7 @@ trash_retrieve_files_to_restore_async (NemoFileUndoInfoTrash *self,
 static void
 trash_retrieve_files_ready (GObject *source,
 			    GAsyncResult *res,
-			    gpointer user_data)
+			    G_GNUC_UNUSED gpointer user_data)
 {
 	NemoFileUndoInfoTrash *self = NEMO_FILE_UNDO_INFO_TRASH (source);
 	GHashTable *files_to_restore;
@@ -1244,7 +1280,7 @@ trash_retrieve_files_ready (GObject *source,
 
 static void
 trash_undo_func (NemoFileUndoInfo *info,
-		 GtkWindow *parent_window)
+		 G_GNUC_UNUSED GtkWindow *parent_window)
 {
 	NemoFileUndoInfoTrash *self = NEMO_FILE_UNDO_INFO_TRASH (info);
 
@@ -1288,6 +1324,7 @@ nemo_file_undo_info_trash_class_init (NemoFileUndoInfoTrashClass *klass)
 	g_type_class_add_private (klass, sizeof (NemoFileUndoInfoTrashDetails));
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoFileUndoInfo *
 nemo_file_undo_info_trash_new (gint item_count)
 {
@@ -1352,7 +1389,7 @@ rec_permissions_callback (gboolean success,
 
 static void
 rec_permissions_redo_func (NemoFileUndoInfo *info,
-			   GtkWindow *parent_window)
+			   G_GNUC_UNUSED GtkWindow *parent_window)
 {
 	NemoFileUndoInfoRecPermissions *self = NEMO_FILE_UNDO_INFO_REC_PERMISSIONS (info);
 	gchar *parent_uri;
@@ -1369,7 +1406,7 @@ rec_permissions_redo_func (NemoFileUndoInfo *info,
 
 static void
 rec_permissions_undo_func (NemoFileUndoInfo *info,
-			   GtkWindow *parent_window)
+			   G_GNUC_UNUSED GtkWindow *parent_window)
 {
 	NemoFileUndoInfoRecPermissions *self = NEMO_FILE_UNDO_INFO_REC_PERMISSIONS (info);
 
@@ -1437,6 +1474,7 @@ nemo_file_undo_info_rec_permissions_class_init (NemoFileUndoInfoRecPermissionsCl
 	g_type_class_add_private (klass, sizeof (NemoFileUndoInfoRecPermissionsDetails));
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoFileUndoInfo *
 nemo_file_undo_info_rec_permissions_new (GFile   *dest,
 					     guint32 file_permissions,
@@ -1513,7 +1551,7 @@ permissions_real_func (NemoFileUndoInfoPermissions *self,
 
 static void
 permissions_redo_func (NemoFileUndoInfo *info, 
-		       GtkWindow *parent_window)
+		       G_GNUC_UNUSED GtkWindow *parent_window)
 {
 	NemoFileUndoInfoPermissions *self = NEMO_FILE_UNDO_INFO_PERMISSIONS (info);
 	permissions_real_func (self, self->priv->new_permissions);
@@ -1521,7 +1559,7 @@ permissions_redo_func (NemoFileUndoInfo *info,
 
 static void
 permissions_undo_func (NemoFileUndoInfo *info, 
-		       GtkWindow *parent_window)
+		       G_GNUC_UNUSED GtkWindow *parent_window)
 {
 	NemoFileUndoInfoPermissions *self = NEMO_FILE_UNDO_INFO_PERMISSIONS (info);
 	permissions_real_func (self, self->priv->current_permissions);
@@ -1558,6 +1596,7 @@ nemo_file_undo_info_permissions_class_init (NemoFileUndoInfoPermissionsClass *kl
 	g_type_class_add_private (klass, sizeof (NemoFileUndoInfoPermissionsDetails));
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoFileUndoInfo *
 nemo_file_undo_info_permissions_new (GFile   *file,
 					 guint32  current_permissions,
@@ -1644,7 +1683,7 @@ ownership_real_func (NemoFileUndoInfoOwnership *self,
 
 static void
 ownership_redo_func (NemoFileUndoInfo *info,
-		     GtkWindow *parent_window)
+		     G_GNUC_UNUSED GtkWindow *parent_window)
 {
 	NemoFileUndoInfoOwnership *self = NEMO_FILE_UNDO_INFO_OWNERSHIP (info);
 	ownership_real_func (self, self->priv->new_ownership);
@@ -1652,7 +1691,7 @@ ownership_redo_func (NemoFileUndoInfo *info,
 
 static void
 ownership_undo_func (NemoFileUndoInfo *info,
-		     GtkWindow *parent_window)
+		     G_GNUC_UNUSED GtkWindow *parent_window)
 {
 	NemoFileUndoInfoOwnership *self = NEMO_FILE_UNDO_INFO_OWNERSHIP (info);
 	ownership_real_func (self, self->priv->original_ownership);
@@ -1692,6 +1731,7 @@ nemo_file_undo_info_ownership_class_init (NemoFileUndoInfoOwnershipClass *klass)
 	g_type_class_add_private (klass, sizeof (NemoFileUndoInfoOwnershipDetails));
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoFileUndoInfo *
 nemo_file_undo_info_ownership_new (NemoFileUndoOp  op_type,
 				       GFile              *file,

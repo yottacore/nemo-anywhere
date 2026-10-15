@@ -28,13 +28,14 @@
 #include <string.h>
 
 #include "eel-editable-label.h"
-#include "eel-accessibility.h"
 #include "eel-gtk-extensions.h"
 #include <libgail-util/gailmisc.h>
+#include <libgail-util/gailtextutil.h>
 
 #include <glib/gi18n-lib.h>
 #include <pango/pango.h>
 #include <gtk/gtk.h>
+#include <gtk/gtk-a11y.h>
 #include <gdk/gdkkeysyms.h>
 
 
@@ -104,7 +105,7 @@ static gint     eel_editable_label_focus_in                (GtkWidget           
 							    GdkEventFocus         *event);
 static gint     eel_editable_label_focus_out               (GtkWidget             *widget,
 							    GdkEventFocus         *event);
-static AtkObject *eel_editable_label_get_accessible        (GtkWidget             *widget);
+static GType     eel_editable_label_accessible_get_type     (void);
 static void     eel_editable_label_commit_cb               (GtkIMContext          *context,
 							    const gchar           *str,
 							    EelEditableLabel      *label);
@@ -242,7 +243,7 @@ eel_editable_label_class_init (EelEditableLabelClass *class)
   widget_class->key_release_event = eel_editable_label_key_release;
   widget_class->focus_in_event = eel_editable_label_focus_in;
   widget_class->focus_out_event = eel_editable_label_focus_out;
-  widget_class->get_accessible = eel_editable_label_get_accessible;
+  gtk_widget_class_set_accessible_type (widget_class, eel_editable_label_accessible_get_type ());
 
   class->move_cursor = eel_editable_label_move_cursor;
   class->delete_from_cursor = eel_editable_label_delete_from_cursor;
@@ -599,6 +600,17 @@ eel_editable_label_get_property (GObject     *object,
     }
 }
 
+/* GTK re-asks a widget for its size after a new width request only while it
+   is visible. Wrapped text is as wide as that request, and the icon view sets
+   it on a hidden field, so the field kept its old size. */
+static void
+eel_editable_label_width_request_changed (GObject    *object,
+                                          GParamSpec *pspec G_GNUC_UNUSED,
+                                          gpointer    data G_GNUC_UNUSED)
+{
+  gtk_widget_queue_resize (GTK_WIDGET (object));
+}
+
 static void
 eel_editable_label_init (EelEditableLabel *label)
 {
@@ -629,6 +641,9 @@ eel_editable_label_init (EelEditableLabel *label)
 		    G_CALLBACK (eel_editable_label_retrieve_surrounding_cb), label);
   g_signal_connect (G_OBJECT (label->im_context), "delete_surrounding",
 		    G_CALLBACK (eel_editable_label_delete_surrounding_cb), label);
+
+  g_signal_connect (label, "notify::width-request",
+		    G_CALLBACK (eel_editable_label_width_request_changed), NULL);
 }
 
 /**
@@ -638,7 +653,7 @@ eel_editable_label_init (EelEditableLabel *label)
  * Creates a new label with the given text inside it. You can
  * pass %NULL to get an empty label widget.
  *
- * Return value: the new #EelEditableLabel
+ * Return value: (transfer floating): the new #EelEditableLabel
  **/
 GtkWidget*
 eel_editable_label_new (const gchar *str)
@@ -690,7 +705,7 @@ eel_editable_label_set_text (EelEditableLabel *label,
  * screen. This does not include any embedded underlines
  * indicating mnemonics or Pango markup. (See eel_editable_label_get_label())
  * 
- * Return value: the text in the label widget. This is the internal
+ * Return value: (transfer none): the text in the label widget. This is the internal
  *   string used by the label, and must not be modified.
  **/
 const gchar *
@@ -823,6 +838,7 @@ eel_editable_label_get_line_wrap (EelEditableLabel *label)
   return label->wrap;
 }
 
+/* Returns: (transfer full): free with pango_font_description_free */
 PangoFontDescription *
 eel_editable_label_get_font_description (EelEditableLabel *label)
 {
@@ -845,6 +861,7 @@ eel_editable_label_set_font_description (EelEditableLabel *label,
     label->font_desc = NULL;
 
   eel_editable_label_clear_layout (label);
+  gtk_widget_queue_resize (GTK_WIDGET (label));
 }
 
 static void
@@ -1190,8 +1207,11 @@ eel_editable_label_size_allocate (GtkWidget     *widget,
 
   (* GTK_WIDGET_CLASS (eel_editable_label_parent_class)->size_allocate) (widget, allocation);
 
-  gdk_window_move_resize (label->text_area, allocation->x, allocation->y,
-                          allocation->width, allocation->height);
+  /* A window is sized before it is realized. Realize makes text_area
+     from the allocation, so there is nothing to move until then. */
+  if (gtk_widget_get_realized (widget))
+    gdk_window_move_resize (label->text_area, allocation->x, allocation->y,
+                            allocation->width, allocation->height);
 }
 
 static void
@@ -1657,6 +1677,7 @@ eel_editable_label_realize (GtkWidget *widget)
                             GDK_POINTER_MOTION_MASK |
                             GDK_ENTER_NOTIFY_MASK |
                             GDK_LEAVE_NOTIFY_MASK);
+  /* x, y, width and height are still the allocation from above. */
   attributes_mask = GDK_WA_X | GDK_WA_Y | GDK_WA_CURSOR;
 
   label->text_area = gdk_window_new (gtk_widget_get_parent_window (widget),
@@ -1875,7 +1896,7 @@ eel_editable_label_button_press (GtkWidget      *widget,
 }
 
 static gint
-eel_editable_label_button_release (GtkWidget      *widget,
+eel_editable_label_button_release (G_GNUC_UNUSED GtkWidget      *widget,
 				   GdkEventButton *event)
 
 {
@@ -1916,9 +1937,9 @@ eel_editable_label_motion (GtkWidget      *widget,
 }
 
 static void
-get_text_callback (GtkClipboard     *clipboard,
+get_text_callback (G_GNUC_UNUSED GtkClipboard     *clipboard,
                    GtkSelectionData *selection_data,
-                   guint             info,
+                   G_GNUC_UNUSED guint             info,
                    gpointer          user_data_or_owner)
 {
   EelEditableLabel *label;
@@ -1951,7 +1972,7 @@ get_text_callback (GtkClipboard     *clipboard,
 }
 
 static void
-clear_text_callback (GtkClipboard     *clipboard,
+clear_text_callback (G_GNUC_UNUSED GtkClipboard     *clipboard,
                      gpointer          user_data_or_owner)
 {
   EelEditableLabel *label;
@@ -2117,7 +2138,7 @@ eel_editable_label_get_selection_bounds (EelEditableLabel  *label,
  * The returned layout is owned by the label so need not be
  * freed by the caller.
  * 
- * Return value: the #PangoLayout for this label
+ * Return value: (transfer none): the #PangoLayout for this label
  **/
 PangoLayout*
 eel_editable_label_get_layout (EelEditableLabel *label)
@@ -2156,13 +2177,13 @@ eel_editable_label_get_layout_offsets (EelEditableLabel *label,
 }
 
 static void
-eel_editable_label_pend_cursor_blink (EelEditableLabel *label)
+eel_editable_label_pend_cursor_blink (G_GNUC_UNUSED EelEditableLabel *label)
 {
   /* TODO */
 }
 
 static void
-eel_editable_label_check_cursor_blink (EelEditableLabel *label)
+eel_editable_label_check_cursor_blink (G_GNUC_UNUSED EelEditableLabel *label)
 {
   /* TODO */
 }
@@ -2206,7 +2227,7 @@ eel_editable_label_key_release (GtkWidget   *widget,
 }
 
 static void
-eel_editable_label_keymap_direction_changed (GdkKeymap *keymap,
+eel_editable_label_keymap_direction_changed (G_GNUC_UNUSED GdkKeymap *keymap,
 					     EelEditableLabel  *label)
 {
   gtk_widget_queue_draw (GTK_WIDGET (label));
@@ -2214,7 +2235,7 @@ eel_editable_label_keymap_direction_changed (GdkKeymap *keymap,
 
 static gint
 eel_editable_label_focus_in (GtkWidget     *widget,
-			     GdkEventFocus *event)
+			     G_GNUC_UNUSED GdkEventFocus *event)
 {
   EelEditableLabel *label = EEL_EDITABLE_LABEL (widget);
   
@@ -2234,7 +2255,7 @@ eel_editable_label_focus_in (GtkWidget     *widget,
 
 static gint
 eel_editable_label_focus_out (GtkWidget     *widget,
-			      GdkEventFocus *event)
+			      G_GNUC_UNUSED GdkEventFocus *event)
 {
   EelEditableLabel *label = EEL_EDITABLE_LABEL (widget);
   
@@ -2375,7 +2396,7 @@ eel_editable_label_enter_text (EelEditableLabel *label,
  */
 
 static void
-eel_editable_label_commit_cb (GtkIMContext *context,
+eel_editable_label_commit_cb (G_GNUC_UNUSED GtkIMContext *context,
 			      const gchar  *str,
 			      EelEditableLabel  *label)
 {
@@ -2383,7 +2404,7 @@ eel_editable_label_commit_cb (GtkIMContext *context,
 }
 
 static void 
-eel_editable_label_preedit_changed_cb (GtkIMContext *context,
+eel_editable_label_preedit_changed_cb (G_GNUC_UNUSED GtkIMContext *context,
 				       EelEditableLabel  *label)
 {
   gchar *preedit_string;
@@ -2414,7 +2435,7 @@ eel_editable_label_retrieve_surrounding_cb (GtkIMContext *context,
 }
 
 static gboolean
-eel_editable_label_delete_surrounding_cb (GtkIMContext *slave,
+eel_editable_label_delete_surrounding_cb (G_GNUC_UNUSED GtkIMContext *slave,
 					  gint          offset,
 					  gint          n_chars,
 					  EelEditableLabel  *label)
@@ -2430,8 +2451,8 @@ eel_editable_label_delete_surrounding_cb (GtkIMContext *slave,
 }
 
 static gboolean
-eel_editable_label_focus (GtkWidget         *widget,
-			  GtkDirectionType   direction)
+eel_editable_label_focus (G_GNUC_UNUSED GtkWidget         *widget,
+			  G_GNUC_UNUSED GtkDirectionType   direction)
 {
   /* We never want to be in the tab chain */
   return FALSE;
@@ -2444,7 +2465,7 @@ eel_editable_label_focus (GtkWidget         *widget,
  */
 static void
 get_better_cursor (EelEditableLabel *label,
-		   gint      index,
+		   G_GNUC_UNUSED gint      index,
 		   gint      *x,
 		   gint      *y)
 {
@@ -2943,7 +2964,7 @@ eel_editable_label_cut_clipboard (EelEditableLabel *label)
 }
 
 static void
-paste_received (GtkClipboard *clipboard,
+paste_received (G_GNUC_UNUSED GtkClipboard *clipboard,
 		const gchar  *text,
 		gpointer      data)
 {
@@ -3018,7 +3039,7 @@ append_action_signal (EelEditableLabel     *label,
 
 static void
 popup_menu_detach (GtkWidget *attach_widget,
-		   GtkMenu   *menu)
+		   G_GNUC_UNUSED GtkMenu   *menu)
 {
   EelEditableLabel *label;
   label = EEL_EDITABLE_LABEL (attach_widget);
@@ -3027,10 +3048,10 @@ popup_menu_detach (GtkWidget *attach_widget,
 }
 
 static void
-popup_position_func (GtkMenu   *menu,
+popup_position_func (G_GNUC_UNUSED GtkMenu   *menu,
                      gint      *x,
                      gint      *y,
-                     gboolean  *push_in,
+                     G_GNUC_UNUSED gboolean  *push_in,
                      gpointer	user_data)
 {
   EelEditableLabel *label;
@@ -3070,7 +3091,7 @@ typedef struct
 } PopupInfo;
 
 static void
-popup_targets_received (GtkClipboard     *clipboard,
+popup_targets_received (G_GNUC_UNUSED GtkClipboard     *clipboard,
 			GtkSelectionData *data,
 			gpointer          user_data)
 {
@@ -3376,8 +3397,6 @@ editable_get_position (GtkEditable *editable)
   return g_utf8_pointer_to_offset (label->text, label->text + label->selection_anchor);
 }
 
-
-static AtkObjectClass *a11y_parent_class = NULL;
 
 static const char* eel_editable_label_accessible_data = "eel-editable-label-accessible-data";
 
@@ -3969,7 +3988,7 @@ eel_editable_label_accessible_delete_text (AtkEditableText *text,
 }
 
 static void
-eel_editable_label_accessible_paste_received (GtkClipboard *clipboard,
+eel_editable_label_accessible_paste_received (G_GNUC_UNUSED GtkClipboard *clipboard,
 					      const gchar  *text,
 					      gpointer     data)
 {
@@ -4025,6 +4044,22 @@ atk_editable_text_interface_init (AtkEditableTextIface *iface)
   iface->paste_text = eel_editable_label_accessible_paste_text;
 }
 
+typedef struct {
+  GtkWidgetAccessible parent;
+} EelEditableLabelAccessible;
+
+typedef struct {
+  GtkWidgetAccessibleClass parent_class;
+} EelEditableLabelAccessibleClass;
+
+/* Built on the widget accessible, so the text calls can find the field and
+   it has a place on screen. It used to be derived at run time from what the
+   registry gave for this widget type, which under GTK 3 is the no-op object. */
+G_DEFINE_TYPE_WITH_CODE (EelEditableLabelAccessible, eel_editable_label_accessible,
+                         GTK_TYPE_WIDGET_ACCESSIBLE,
+                         G_IMPLEMENT_INTERFACE (ATK_TYPE_EDITABLE_TEXT, atk_editable_text_interface_init)
+                         G_IMPLEMENT_INTERFACE (ATK_TYPE_TEXT, atk_text_interface_init))
+
 static void
 eel_editable_label_accessible_notify_insert (AtkObject *accessible)
 {
@@ -4053,7 +4088,7 @@ eel_editable_label_accessible_idle_notify_insert (gpointer data)
  */
 static void 
 eel_editable_label_accessible_insert_text_cb (EelEditableLabel *label, 
-                                              gchar            *arg1, 
+                                              G_GNUC_UNUSED gchar            *arg1, 
                                               gint             arg2,
                                               gpointer         arg3)
 {
@@ -4182,7 +4217,7 @@ eel_editable_label_accessible_initialize (AtkObject *accessible,
   EelEditableLabelAccessiblePrivate *priv;
   EelEditableLabel *label;
 
-  a11y_parent_class->initialize (accessible, widget);
+  ATK_OBJECT_CLASS (eel_editable_label_accessible_parent_class)->initialize (accessible, widget);
 
   label = EEL_EDITABLE_LABEL (widget);
   priv = g_new0 (EelEditableLabelAccessiblePrivate, 1);
@@ -4230,7 +4265,7 @@ eel_editable_label_accessible_ref_state_set (AtkObject *accessible)
   AtkStateSet *state_set;
   GtkWidget *widget;
 
-  state_set = a11y_parent_class->ref_state_set (accessible);
+  state_set = ATK_OBJECT_CLASS (eel_editable_label_accessible_parent_class)->ref_state_set (accessible);
   widget = gtk_accessible_get_widget (GTK_ACCESSIBLE (accessible));
  
   if (widget == NULL)
@@ -4249,58 +4284,22 @@ eel_editable_label_accessible_finalize (GObject *object)
   priv = g_object_get_data (object, eel_editable_label_accessible_data);
   g_object_unref (priv->textutil);
   g_free (priv);
-  G_OBJECT_CLASS (a11y_parent_class)->finalize (object);
+  G_OBJECT_CLASS (eel_editable_label_accessible_parent_class)->finalize (object);
 }
 
 static void
-eel_editable_label_accessible_class_init (AtkObjectClass *klass)
+eel_editable_label_accessible_class_init (EelEditableLabelAccessibleClass *klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
+  AtkObjectClass *atk_class = ATK_OBJECT_CLASS (klass);
 
-  a11y_parent_class = g_type_class_peek_parent (klass);
-
-  klass->initialize = eel_editable_label_accessible_initialize;
-  klass->get_name = eel_editable_label_accessible_get_name;
-  klass->ref_state_set = eel_editable_label_accessible_ref_state_set;
+  atk_class->initialize = eel_editable_label_accessible_initialize;
+  atk_class->get_name = eel_editable_label_accessible_get_name;
+  atk_class->ref_state_set = eel_editable_label_accessible_ref_state_set;
   gobject_class->finalize = eel_editable_label_accessible_finalize;
 }
 
-static AtkObject *
-eel_editable_label_get_accessible (GtkWidget *widget)
+static void
+eel_editable_label_accessible_init (G_GNUC_UNUSED EelEditableLabelAccessible *accessible)
 {
-  static GType type = 0;
-  AtkObject *accessible;
-
-  if ((accessible = eel_accessibility_get_atk_object (widget)))
-    return accessible;
-
-  if (!type)
-    {
-      const GInterfaceInfo atk_editable_text_info = 
-      {
-        (GInterfaceInitFunc) atk_editable_text_interface_init,
-        (GInterfaceFinalizeFunc) NULL,
-        NULL
-      };
-      const GInterfaceInfo atk_text_info =
-      {
-        (GInterfaceInitFunc) atk_text_interface_init,
-        (GInterfaceFinalizeFunc) NULL,
-        NULL
-      };
-
-      type = eel_accessibility_create_derived_type ("EelEditableLabelAccessible",
-		       G_TYPE_FROM_INSTANCE (widget),
-		       eel_editable_label_accessible_class_init);
-
-      if (!type)
-        return NULL;
-
-      g_type_add_interface_static (type, ATK_TYPE_EDITABLE_TEXT, &atk_editable_text_info);
-      g_type_add_interface_static (type, ATK_TYPE_TEXT, &atk_text_info);
-    }
-
-  accessible = g_object_new (type, NULL);
-
-  return eel_accessibility_set_atk_object_return (widget, accessible);
 }

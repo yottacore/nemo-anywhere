@@ -6,6 +6,7 @@
 #   - a baked-in MSYS2 GTK3 sysroot at /opt/win-sysroot (see fetch-sysroot.bash)
 #   - make, which nothing here builds with: gcc's lto-wrapper shells out to it
 #     to run the LTRANS jobs in parallel, and without it every link is serial
+#   - nsis, for the setup exe (pack-setup.bash)
 # Source tree is mounted at /src (like nemo-build); builds go to /build-win.
 
 FROM debian:trixie
@@ -18,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 		libglib2.0-dev-bin libglib2.0-bin gettext intltool desktop-file-utils python3 \
 		curl ca-certificates gawk tar zstd xz-utils \
 		wine wine64 \
-		xvfb x11-utils x11-apps imagemagick \
+		xvfb x11-utils x11-apps imagemagick nsis \
 	&& rm -rf /var/lib/apt/lists/*
 
 COPY fetch-sysroot.bash /opt/fetch-sysroot.bash

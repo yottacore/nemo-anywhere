@@ -222,8 +222,8 @@ idle_notify (NemoBookmarkList *bookmarks)
 }
 
 static void
-bookmark_in_list_notify (GObject *object,
-			 GParamSpec *pspec,
+bookmark_in_list_notify (G_GNUC_UNUSED GObject *object,
+			 G_GNUC_UNUSED GParamSpec *pspec,
 			 NemoBookmarkList *bookmarks)
 {
 	/* emit the changed signal without saving, as only appearance properties changed */
@@ -237,13 +237,13 @@ bookmark_in_list_notify (GObject *object,
 }
 
 static gboolean
-bookmark_location_mounted_callback (NemoBookmark *bookmark,
+bookmark_location_mounted_callback (G_GNUC_UNUSED NemoBookmark *bookmark,
                                     GFile *location,
                                     NemoBookmarkList *bookmarks)
 {
     gboolean ret = FALSE;
 
-    GList *volumes = g_volume_monitor_get_mounts (bookmarks->volume_monitor);
+    GList *volumes = nemo_get_mounts (bookmarks->volume_monitor);
     GList *iter = volumes;
 
     while (iter != NULL) {
@@ -369,9 +369,9 @@ nemo_bookmark_list_class_init (NemoBookmarkListClass *class)
 }
 
 static void
-bookmark_monitor_changed_cb (GFileMonitor      *monitor,
-			     GFile             *child,
-			     GFile             *other_file,
+bookmark_monitor_changed_cb (G_GNUC_UNUSED GFileMonitor      *monitor,
+			     G_GNUC_UNUSED GFile             *child,
+			     G_GNUC_UNUSED GFile             *other_file,
 			     GFileMonitorEvent  eflags,
 			     gpointer           user_data)
 {
@@ -385,7 +385,7 @@ bookmark_monitor_changed_cb (GFileMonitor      *monitor,
 }
 
 static void
-volume_monitor_activity_cb (GVolumeMonitor *monitor, GMount *mount, gpointer user_data)
+volume_monitor_activity_cb (G_GNUC_UNUSED GVolumeMonitor *monitor, G_GNUC_UNUSED GMount *mount, gpointer user_data)
 {
     NemoBookmarkList *bookmarks = NEMO_BOOKMARK_LIST (user_data);
 
@@ -631,12 +631,12 @@ nemo_bookmark_list_delete_items_with_uri (NemoBookmarkList *bookmarks,
  * Get a string representing the bookmark_list's window's geometry.
  * This is the value set earlier by nemo_bookmark_list_set_window_geometry.
  * @bookmarks: the list of bookmarks associated with the window.
- * Return value: string representation of window's geometry, suitable for
+ * Return value: (transfer none): string representation of window's geometry, suitable for
  * passing to gnome_parse_geometry(), or NULL if
  * no window geometry has yet been saved for this bookmark list.
  **/
 const char *
-nemo_bookmark_list_get_window_geometry (NemoBookmarkList *bookmarks)
+nemo_bookmark_list_get_window_geometry (G_GNUC_UNUSED NemoBookmarkList *bookmarks)
 {
 	return window_geometry;
 }
@@ -664,6 +664,7 @@ nemo_bookmark_list_insert_item (NemoBookmarkList *bookmarks,
 	nemo_bookmark_list_save_file (bookmarks);
 }
 
+/* Returns: (transfer container): free with g_list_free; the bookmarks stay @bookmarks' */
 GList *
 nemo_bookmark_list_get_for_uri (NemoBookmarkList   *bookmarks,
                                       const char   *uri)
@@ -693,7 +694,7 @@ nemo_bookmark_list_get_for_uri (NemoBookmarkList   *bookmarks,
  * @bookmarks: the list of bookmarks.
  * @index: index, must be less than length of list.
  * 
- * Return value: the bookmark at position @index in @bookmarks.
+ * Return value: (transfer none): the bookmark at position @index in @bookmarks.
  **/
 NemoBookmark *
 nemo_bookmark_list_item_at (NemoBookmarkList *bookmarks, guint index)
@@ -720,6 +721,22 @@ nemo_bookmark_list_length (NemoBookmarkList *bookmarks)
 	return g_list_length (bookmarks->list);
 }
 
+gint
+nemo_bookmark_list_get_breakpoint (NemoBookmarkList *bookmarks)
+{
+	gint breakpoint;
+
+	g_return_val_if_fail (NEMO_IS_BOOKMARK_LIST (bookmarks), 0);
+
+	/* -1 is the default, so a hand edit that drops the key brings it back.
+	   Taken as an index it showed an empty Bookmarks heading in Places. */
+	breakpoint = nemo_config_get_int (nemo_window_state, NEMO_PREFERENCES_SIDEBAR_BOOKMARK_BREAKPOINT);
+	if (breakpoint < 0)
+		breakpoint = (gint) nemo_bookmark_list_length (bookmarks);
+
+	return breakpoint;
+}
+
 static gchar *
 bookmark_metadata_path (void)
 {
@@ -730,7 +747,7 @@ bookmark_metadata_path (void)
 }
 
 static GList *
-load_bookmark_metadata_file (NemoBookmarkList *list)
+load_bookmark_metadata_file (G_GNUC_UNUSED NemoBookmarkList *list)
 {   /* Part of load_files thread */
     GError *error = NULL;
     GKeyFile *kfile = g_key_file_new ();
@@ -760,8 +777,10 @@ load_bookmark_metadata_file (NemoBookmarkList *list)
         }
 
         g_strfreev (items);
-    } else if (!g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_NOENT)) {
-        g_warning ("Could not load bookmark metadata file: %s\n", error->message);
+    } else {
+        if (!g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_NOENT)) {
+            g_warning ("Couldn't load bookmark metadata file: %s\n", error->message);
+        }
         g_error_free (error);
     }
 
@@ -773,7 +792,7 @@ load_bookmark_metadata_file (NemoBookmarkList *list)
 
 static void
 load_files_finish (NemoBookmarkList *bookmarks,
-                   GObject          *source,
+                   G_GNUC_UNUSED GObject          *source,
                    GAsyncResult     *res)
 {
     GError *error = NULL;
@@ -781,10 +800,11 @@ load_files_finish (NemoBookmarkList *bookmarks,
     GList *new_list = g_task_propagate_pointer (G_TASK (res), &error);
 
     if (error != NULL && !g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND)) {
-        g_warning ("Could not load bookmarks: %s\n", error->message);
+        g_warning ("Couldn't load bookmarks: %s\n", error->message);
         g_error_free (error);
         return;
     }
+    g_clear_error (&error);
 
     GList *old_list = bookmarks->list;
     bookmarks->list = new_list;
@@ -805,7 +825,7 @@ find_meta_func (gconstpointer a,
 static void
 load_files_thread (GTask        *task,
                    gpointer      source_object,
-                   gpointer      task_data,
+                   G_GNUC_UNUSED gpointer      task_data,
                    GCancellable *cancellable)
 {
     NemoBookmarkList *list = NEMO_BOOKMARK_LIST (source_object);
@@ -939,7 +959,7 @@ save_bookmark_metadata_file (NemoBookmarkList *list)
                                  &error)) {
         ensure_proper_file_permissions (file);
     } else {
-        g_warning ("Could not save bookmark metadata file: %s\n", error->message);
+        g_warning ("Couldn't save bookmark metadata file: %s\n", error->message);
         g_error_free (error);
     }
 
@@ -950,7 +970,7 @@ save_bookmark_metadata_file (NemoBookmarkList *list)
 
 static void
 save_files_finish (NemoBookmarkList *bookmarks,
-                   GObject          *source,
+                   G_GNUC_UNUSED GObject          *source,
                    GAsyncResult     *res)
 {
     GError *error = NULL;
@@ -978,8 +998,8 @@ save_files_finish (NemoBookmarkList *bookmarks,
 static void
 save_files_thread (GTask        *task,
                    gpointer      source_object,
-                   gpointer      task_data,
-                   GCancellable *cancellable)
+                   G_GNUC_UNUSED gpointer      task_data,
+                   G_GNUC_UNUSED GCancellable *cancellable)
 {
     NemoBookmarkList *bookmarks = NEMO_BOOKMARK_LIST (source_object);
 
@@ -1138,7 +1158,7 @@ static NemoBookmarkList *list = NULL;
  * 
  * Retrieves the bookmark list singleton, with contents read from disk.
  * 
- * Return value: A pointer to the object
+ * Return value: (transfer none): A pointer to the object
  **/
 NemoBookmarkList *
 nemo_bookmark_list_get_default (void)

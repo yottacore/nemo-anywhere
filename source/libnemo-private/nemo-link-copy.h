@@ -133,13 +133,12 @@ typedef struct {
 	NemoMakeLink folder_kind;
 	NemoMakeLink file_kind;
 	gboolean     relative;    /* for a symlink */
-	guint        lnk_parts;   /* for a shortcut, NemoLnkParts */
 } NemoLinkOptions;
 
 /* Where the dialog starts, every time: a junction for folders where the
    destination allows one, else a symlink, else a shortcut; a symlink for files,
-   else a shortcut; an absolute path for a symlink; and every part a shortcut
-   can carry. supported is a NemoLinkKind mask. */
+   else a shortcut; and an absolute path for a symlink. A shortcut always
+   carries every path it can. supported is a NemoLinkKind mask. */
 void     nemo_link_options_initial (guint                  supported,
                                     NemoLinkOptions       *options);
 

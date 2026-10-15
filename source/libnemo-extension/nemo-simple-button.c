@@ -22,7 +22,7 @@ G_DEFINE_TYPE (NemoSimpleButton, nemo_simple_button, GTK_TYPE_BUTTON)
 
 static gboolean
 nemo_simple_button_button_release (GtkWidget      *widget,
-                                   GdkEventButton *event)
+                                   G_GNUC_UNUSED GdkEventButton *event)
 {
   g_signal_emit_by_name (GTK_BUTTON (widget), "released");
 
@@ -45,12 +45,14 @@ nemo_simple_button_init (NemoSimpleButton *self)
   gtk_style_context_remove_class (context, GTK_STYLE_CLASS_BUTTON);
 }
 
+/* Returns: (transfer floating) */
 NemoSimpleButton *
 nemo_simple_button_new (void)
 {
   return g_object_new (NEMO_TYPE_SIMPLE_BUTTON, NULL);
 }
 
+/* Returns: (transfer floating) */
 NemoSimpleButton *
 nemo_simple_button_new_from_icon_name (const gchar *icon_name, int icon_size)
 {
@@ -64,6 +66,7 @@ nemo_simple_button_new_from_icon_name (const gchar *icon_name, int icon_size)
   return NEMO_SIMPLE_BUTTON (w);
 }
 
+/* Returns: (transfer floating) */
 NemoSimpleButton *
 nemo_simple_button_new_from_stock (const gchar *stock_id, int icon_size)
 {
@@ -77,6 +80,7 @@ nemo_simple_button_new_from_stock (const gchar *stock_id, int icon_size)
   return NEMO_SIMPLE_BUTTON (w);
 }
 
+/* Returns: (transfer floating) */
 NemoSimpleButton *
 nemo_simple_button_new_from_file (const gchar *path, int icon_size)
 {

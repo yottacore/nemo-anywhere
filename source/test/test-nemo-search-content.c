@@ -22,16 +22,17 @@ static gboolean done;
 static GList *found;
 
 static void
-hits_added_cb (NemoSearchEngine *engine, GList *hits, gpointer data)
+hits_added_cb (G_GNUC_UNUSED NemoSearchEngine *engine, GList *hits, G_GNUC_UNUSED gpointer data)
 {
 	for (GList *l = hits; l != NULL; l = l->next) {
 		FileSearchResult *result = l->data;
 		found = g_list_prepend (found, g_path_get_basename (result->uri));
+		file_search_result_free (result);
 	}
 }
 
 static void
-finished_cb (NemoSearchEngine *engine, gpointer data)
+finished_cb (G_GNUC_UNUSED NemoSearchEngine *engine, G_GNUC_UNUSED gpointer data)
 {
 	done = TRUE;
 }
@@ -47,6 +48,9 @@ write_file (const char *dir, const char *name, const char *contents, gssize len)
 
 	g_free (path);
 }
+
+/* Binary literals carry NULs, so the length comes from the literal itself. */
+#define WRITE_LITERAL(dir, name, lit) write_file ((dir), (name), (lit), sizeof (lit) - 1)
 
 #ifndef G_OS_WIN32
 static void
@@ -124,11 +128,11 @@ main (int argc, char *argv[])
 	write_file (dir, "readme", "no extension, needle all the same\n", -1);
 	write_file (dir, "other.txt", "nothing of interest\n", -1);
 	/* A PNG header, then the word - binary, so it must not be read as text. */
-	write_file (dir, "image.png", "\x89PNG\r\n\x1a\n\x00\x00\x00\x0dneedle", 21);
+	WRITE_LITERAL (dir, "image.png", "\x89PNG\r\n\x1a\n\x00\x00\x00\x0dneedle");
 #ifndef G_OS_WIN32
 	/* Neither holds the word; only a helper's output can. */
-	write_file (dir, "picture.gif", "GIF89a\x01\x00\x01\x00\x00\x00\x00;", 13);
-	write_file (dir, "picture.bmp", "BM\x3a\x00\x00\x00\x00\x00\x00\x00\x36\x00\x00\x00", 14);
+	WRITE_LITERAL (dir, "picture.gif", "GIF89a\x01\x00\x01\x00\x00\x00\x00;");
+	WRITE_LITERAL (dir, "picture.bmp", "BM\x3a\x00\x00\x00\x00\x00\x00\x00\x36\x00\x00\x00");
 #endif
 
 	engine = nemo_search_engine_advanced_new ();

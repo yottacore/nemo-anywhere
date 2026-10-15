@@ -142,7 +142,7 @@ time_verify (GFile                    *archive,
 }
 
 int
-main (int argc, char *argv[])
+main (void)
 {
 	char *tmp = test_scratch_dir ("nemo-verify-cost-XXXXXX", NULL);
 	char *top = g_build_filename (tmp, "top", NULL);

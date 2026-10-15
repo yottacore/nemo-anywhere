@@ -44,7 +44,8 @@ esac
 ## A fresh clone has none yet, so it is made from cicd/win/Dockerfile on first
 ## use, the same way nemo-build is. --init reaps orphans (wine leaves plenty);
 ## --ulimit core=0 keeps crash dumps out of the mounted tree.
-if ! docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx "$CONTAINER"; then
+names="$(docker ps -a --format '{{.Names}}' 2>/dev/null || true)"
+if ! grep -qx "$CONTAINER" <<<"$names"; then
 	if ! docker image inspect nemo-winbuild-deps:latest >/dev/null 2>&1; then
 		fEcho "building image nemo-winbuild-deps (first run only, takes a while)"
 		docker build -t nemo-winbuild-deps:latest "${ROOT}/cicd/win/" >/dev/null || fDie "could not build image nemo-winbuild-deps"
@@ -77,8 +78,8 @@ fBuild(){
 
 	if ! docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" "$CONTAINER" sh -c "
 		set -e
-		if [ -f ${BUILD}/build.ninja ]; then reconf=--reconfigure; else reconf=; fi
-		meson setup \$reconf --cross-file ${CROSS} --buildtype=release -Dstrip=true -Db_lto=true -Db_lto_threads=4 -Dxmp=false ${BUILD} /src/source >/dev/null
+		bash /src/cicd/utility/meson-setup.bash ${BUILD} /src/source --cross-file ${CROSS} --buildtype=release -Dstrip=true -Db_lto=true -Db_lto_threads=4 -Dxmp=false -Dwerror=true >/dev/null
+		bash /src/cicd/utility/check-werror.bash ${BUILD}
 		ninja -C ${BUILD} -j ${jobs}" >"$log" 2>&1
 	then
 		tail -40 "$log" >&2
@@ -115,7 +116,7 @@ fStamp(){ fPeTimestamp <(docker exec "$CONTAINER" head -c 4096 "${BUILD}/src/nem
 ## clock, which is what the whole stamp exists to avoid.
 fStrip(){
 	docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" "$CONTAINER" \
-		sh -c "x86_64-w64-mingw32-strip --strip-debug ${BUILD}/src/*.exe ${BUILD}/search-helpers/*.exe" \
+		sh -c "x86_64-w64-mingw32-strip --strip-debug ${BUILD}/src/*.exe" \
 		|| fDie "could not strip the cross-built exes"
 }
 

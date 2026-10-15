@@ -91,7 +91,7 @@ nemo_notebook_class_init (NemoNotebookClass *klass)
 
 /* FIXME remove when gtknotebook's func for this becomes public, bug #.... */
 static NemoNotebook *
-find_notebook_at_pointer (gint abs_x, gint abs_y)
+find_notebook_at_pointer (G_GNUC_UNUSED gint abs_x, G_GNUC_UNUSED gint abs_y)
 {
 	GdkDeviceManager *manager;
 	GdkDevice *pointer;
@@ -223,7 +223,7 @@ control_key_checker_cb(NemoNotebook *notebook, GdkEventKey *event, gpointer user
 
 /* Losing the keyboard means the release will never arrive here. */
 static gboolean
-focus_out_clears_ctrl_cb (NemoNotebook *notebook, GdkEventFocus *event, gpointer user_data)
+focus_out_clears_ctrl_cb (NemoNotebook *notebook, G_GNUC_UNUSED GdkEventFocus *event, G_GNUC_UNUSED gpointer user_data)
 {
 	g_object_set_data (G_OBJECT (notebook), CTRL_DOWN_KEY, GINT_TO_POINTER (FALSE));
 
@@ -434,7 +434,7 @@ refit_tabs (GtkNotebook *gnotebook, int active)
 }
 
 static void
-notebook_size_allocate_cb (GtkWidget *widget, GtkAllocation *allocation, gpointer user_data)
+notebook_size_allocate_cb (GtkWidget *widget, GtkAllocation *allocation, G_GNUC_UNUSED gpointer user_data)
 {
 	/* A resize queued from inside size-allocate can be dropped, which left a
 	   tab showing its new text in its old width. The pass this queues changes
@@ -452,14 +452,14 @@ notebook_size_allocate_cb (GtkWidget *widget, GtkAllocation *allocation, gpointe
    row has to be laid out again. page_num is used rather than asking, since the
    notebook has not finished switching yet. */
 static void
-notebook_switch_page_cb (GtkNotebook *gnotebook, GtkWidget *page, guint page_num,
-			 gpointer user_data)
+notebook_switch_page_cb (GtkNotebook *gnotebook, G_GNUC_UNUSED GtkWidget *page, guint page_num,
+			 G_GNUC_UNUSED gpointer user_data)
 {
 	refit_tabs (gnotebook, (int) page_num);
 }
 
 static void
-tab_prefs_changed_cb (NemoConfigGroup *group, const char *key, gpointer user_data)
+tab_prefs_changed_cb (G_GNUC_UNUSED NemoConfigGroup *group, G_GNUC_UNUSED const char *key, gpointer user_data)
 {
 	GtkNotebook *gnotebook = GTK_NOTEBOOK (user_data);
 
@@ -586,7 +586,7 @@ nemo_notebook_sync_tab_label (NemoNotebook *notebook,
 }
 
 static void
-close_button_clicked_cb (GtkWidget *widget,
+close_button_clicked_cb (G_GNUC_UNUSED GtkWidget *widget,
 			 NemoWindowSlot *slot)
 {
 	GtkWidget *notebook;
@@ -598,7 +598,7 @@ close_button_clicked_cb (GtkWidget *widget,
 }
 
 static GtkWidget *
-build_tab_label (NemoNotebook *nb, NemoWindowSlot *slot)
+build_tab_label (G_GNUC_UNUSED NemoNotebook *nb, NemoWindowSlot *slot)
 {
 	GtkWidget *hbox, *label, *close_button, *image, *spinner, *icon;
 

@@ -24,7 +24,7 @@ check_is (gint64 seconds, const char *expected)
 }
 
 int
-main (int argc, char **argv)
+main (void)
 {
 	check_is (0, "less than a minute");
 	check_is (59, "less than a minute");

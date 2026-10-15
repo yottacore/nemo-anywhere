@@ -9,8 +9,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <gio/gio.h>
+#include <glib/gstdio.h>
 
 #include <libnemo-private/nemo-archive.h>
+#include <libnemo-private/nemo-archive-commands.h>
+#include <libnemo-private/nemo-command-template.h>
+#include <libnemo-private/nemo-config.h>
+#include <libnemo-private/nemo-extract.h>
 #include <libnemo-private/nemo-global-preferences.h>
 
 #include "test-scratch.h"
@@ -195,6 +200,159 @@ check_sizes (void)
 	}
 }
 
+/* Each volume size says what it's for, and still reads as its size. */
+static void
+check_volume_presets (void)
+{
+	static const struct {
+		const char *label;
+		guint64     bytes;
+	} wanted[] = {
+		{ "25 MiB (email)",             25ULL * 1024 * 1024 },
+		{ "100 MiB (upload limits)",    100ULL * 1024 * 1024 },
+		{ "700 MiB (CD)",               700ULL * 1024 * 1024 },
+		{ "2 GiB (old 32-bit tools)",   2ULL * 1024 * 1024 * 1024 },
+		{ "4,095 MiB (max FAT32 size)", 4095ULL * 1024 * 1024 },
+		{ "4,480 MiB (DVD)",            4480ULL * 1024 * 1024 },
+		{ "8,140 MiB (dual-layer DVD)", 8140ULL * 1024 * 1024 },
+		{ "23 GiB (Blu-ray)",           23ULL * 1024 * 1024 * 1024 },
+	};
+	const char *label;
+	const char *size;
+	guint64 bytes;
+	guint i;
+
+	for (i = 0; i < G_N_ELEMENTS (wanted); i++) {
+		label = nemo_archive_volume_preset (i, &size);
+		check (g_strcmp0 (label, wanted[i].label) == 0);
+
+		bytes = 0;
+		check (nemo_archive_parse_size (label, &bytes) && bytes == wanted[i].bytes);
+		bytes = 0;
+		check (nemo_archive_parse_size (size, &bytes) && bytes == wanted[i].bytes);
+
+		check (nemo_archive_volume_preset_find (label) == (int) i);
+		check (nemo_archive_volume_preset_find (size) == (int) i);
+	}
+	check (nemo_archive_volume_preset (G_N_ELEMENTS (wanted), &size) == NULL);
+
+	/* Spaces around a preset are no different. */
+	check (nemo_archive_parse_size ("  4,095 MiB (max FAT32 size) ", &bytes) &&
+	       bytes == 4095ULL * 1024 * 1024);
+	check (nemo_archive_volume_preset_find ("2 GiB") == 3);
+
+	/* Typed sizes read as they always have. */
+	check (nemo_archive_volume_preset_find ("1 GiB") == -1);
+	check (nemo_archive_volume_preset_find (NULL) == -1);
+	check (nemo_archive_parse_size ("1 GiB", &bytes) && bytes == 1024ULL * 1024 * 1024);
+	/* Commented out: a typed size takes the grouping comma the presets show
+	   since 2026101308213019, checked in check_typed_sizes. */
+	/* check (!nemo_archive_parse_size ("4,095 MiB", &bytes)); */
+	check (!nemo_archive_parse_size ("4,095 MiB (max FAT32", &bytes));
+	check (!nemo_archive_parse_size ("4095 MiB (CD)", &bytes));
+}
+
+/* A typed size that can't be read has to be refused, since the dialog can only
+   keep Compress grayed for a size the parser turns down. One that comes out
+   under a byte would mean no volumes at all. */
+static void
+check_typed_sizes (void)
+{
+	guint64 bytes;
+
+	/* Grouped as the presets are written. */
+	bytes = 0;
+	check (nemo_archive_parse_size ("4,000 MiB", &bytes) && bytes == 4000ULL * 1024 * 1024);
+	bytes = 0;
+	check (nemo_archive_parse_size ("4,095 MiB", &bytes) && bytes == 4095ULL * 1024 * 1024);
+	bytes = 0;
+	check (nemo_archive_parse_size ("1,048,576", &bytes) && bytes == 1048576);
+	bytes = 0;
+	check (nemo_archive_parse_size ("1,000.5 KiB", &bytes) && bytes == 1024512);
+
+	/* A comma anywhere else is no grouping, and "1,5" may mean 1.5. */
+	check (!nemo_archive_parse_size ("1,5 GiB", &bytes));
+	check (!nemo_archive_parse_size ("4,0000 MiB", &bytes));
+	check (!nemo_archive_parse_size ("40,00 MiB", &bytes));
+	check (!nemo_archive_parse_size (",400 MiB", &bytes));
+	check (!nemo_archive_parse_size ("400, MiB", &bytes));
+	check (!nemo_archive_parse_size ("1,,000 MiB", &bytes));
+	check (!nemo_archive_parse_size ("1.000,5 MiB", &bytes));
+
+	/* Numbers strtod takes that aren't sizes. */
+	check (!nemo_archive_parse_size ("lots", &bytes));
+	check (!nemo_archive_parse_size ("nan", &bytes));
+	check (!nemo_archive_parse_size ("inf GiB", &bytes));
+	check (!nemo_archive_parse_size ("0x10 MiB", &bytes));
+	check (!nemo_archive_parse_size ("1e3 MiB", &bytes));
+	check (!nemo_archive_parse_size ("+5 MiB", &bytes));
+	check (!nemo_archive_parse_size ("0.0001 KiB", &bytes));
+	check (!nemo_archive_parse_size ("99999999999 TiB", &bytes));
+	bytes = 0;
+	check (nemo_archive_parse_size (".5 KiB", &bytes) && bytes == 512);
+}
+
+/* The store choices the Compress dialog offers: what the writers that can do
+   the password and volumes asked for can keep. */
+static void
+check_link_stores (void)
+{
+	NemoArchiveOptions options;
+	gboolean seven = nemo_archive_backend_present (NEMO_ARCHIVE_BACKEND_7Z);
+	gboolean rar = nemo_archive_backend_present (NEMO_ARCHIVE_BACKEND_RAR);
+	guint library = ARC_STORES_SYMLINKS | ARC_STORES_JUNCTIONS_AS_SYMLINKS;
+
+	if (!seven || !rar) {
+		g_printerr ("note: 7z %s, rar %s here\n", seven ? "found" : "missing",
+			    rar ? "found" : "missing");
+	}
+
+	nemo_archive_options_init (&options);
+	check (nemo_archive_options_link_stores (NEMO_ARCHIVE_FORMAT_TAR, &options) == library);
+	check (nemo_archive_options_link_stores (NEMO_ARCHIVE_FORMAT_ZIP, &options) == library);
+	check (!nemo_archive_links_cost_threads (NEMO_ARCHIVE_FORMAT_ZIP, &options));
+
+	/* 7-Zip as it is on Windows, where it keeps no links. */
+	nemo_archive_set_7z_keeps_links (FALSE);
+	check (nemo_archive_options_link_stores (NEMO_ARCHIVE_FORMAT_7Z, &options) == library);
+	check (nemo_archive_links_cost_threads (NEMO_ARCHIVE_FORMAT_7Z, &options) == seven);
+
+	/* A password or volumes need 7-Zip, so nothing is left to store with. */
+	options.password = g_strdup ("secret");
+	check (nemo_archive_options_link_stores (NEMO_ARCHIVE_FORMAT_7Z, &options) == 0);
+	check (!nemo_archive_links_cost_threads (NEMO_ARCHIVE_FORMAT_7Z, &options));
+	/* A zip with one is the library's own, which keeps them. */
+	check (nemo_archive_options_link_stores (NEMO_ARCHIVE_FORMAT_ZIP, &options) == library);
+	g_clear_pointer (&options.password, g_free);
+	options.split_size = 100ULL * 1024 * 1024;
+	check (nemo_archive_options_link_stores (NEMO_ARCHIVE_FORMAT_7Z, &options) == 0);
+	check (nemo_archive_options_link_stores (NEMO_ARCHIVE_FORMAT_ZIP, &options) == 0);
+	if (rar) {
+		check (nemo_archive_options_link_stores (NEMO_ARCHIVE_FORMAT_RAR, &options) ==
+		       (ARC_STORES_SYMLINKS | ARC_STORES_JUNCTIONS));
+	}
+
+	/* 7-Zip elsewhere keeps them, and does it on every thread. */
+	nemo_archive_set_7z_keeps_links (TRUE);
+	check (nemo_archive_options_link_stores (NEMO_ARCHIVE_FORMAT_7Z, &options) ==
+	       (seven ? ARC_STORES_SYMLINKS : 0));
+	options.split_size = 0;
+	check (!nemo_archive_links_cost_threads (NEMO_ARCHIVE_FORMAT_7Z, &options));
+
+	/* With 7-Zip hidden the library writes the 7z either way. */
+	nemo_archive_set_7z_keeps_links (FALSE);
+	nemo_archive_hide_backend (NEMO_ARCHIVE_BACKEND_7Z, TRUE);
+	check (!nemo_archive_links_cost_threads (NEMO_ARCHIVE_FORMAT_7Z, &options));
+	nemo_archive_hide_backend (NEMO_ARCHIVE_BACKEND_7Z, FALSE);
+
+#ifdef G_OS_WIN32
+	nemo_archive_set_7z_keeps_links (FALSE);
+#else
+	nemo_archive_set_7z_keeps_links (TRUE);
+#endif
+	nemo_archive_options_clear (&options);
+}
+
 static void
 check_volume_names (void)
 {
@@ -288,6 +446,55 @@ check_volume_collapse (const char *scratch)
 	}
 }
 
+/* 7-Zip first for 7z, since the library's writer runs on one thread. The
+   library still gets it where 7-Zip is missing, and on Windows for a job
+   that keeps links, which 7-Zip leaves out there. */
+static void
+check_7z_writer (void)
+{
+	NemoArchiveOptions options;
+	gboolean seven = nemo_archive_backend_present (NEMO_ARCHIVE_BACKEND_7Z);
+	NemoArchiveBackend plain = seven ? NEMO_ARCHIVE_BACKEND_7Z : NEMO_ARCHIVE_BACKEND_LIBARCHIVE;
+
+	if (!seven) {
+		g_printerr ("note: no 7z command here, 7-Zip first not checked\n");
+	}
+
+	nemo_archive_options_init (&options);
+	options.links.symlinks = ARC_LINK_IGNORE;
+	check (nemo_archive_pick_backend (NEMO_ARCHIVE_FORMAT_7Z, &options) == plain);
+
+	/* Solid as well, which only 7-Zip has, so links win over it. */
+	options.links.symlinks = ARC_LINK_STORE_SYMLINK;
+	options.solid = TRUE;
+#ifdef G_OS_WIN32
+	check (nemo_archive_pick_backend (NEMO_ARCHIVE_FORMAT_7Z, &options) ==
+	       NEMO_ARCHIVE_BACKEND_LIBARCHIVE);
+#else
+	check (nemo_archive_pick_backend (NEMO_ARCHIVE_FORMAT_7Z, &options) == plain);
+#endif
+
+	/* A password still needs 7-Zip, links or not. */
+	options.password = g_strdup ("secret");
+	check (nemo_archive_pick_backend (NEMO_ARCHIVE_FORMAT_7Z, &options) ==
+	       (seven ? NEMO_ARCHIVE_BACKEND_7Z : NEMO_ARCHIVE_BACKEND_NONE));
+	nemo_archive_options_clear (&options);
+
+	/* Other formats keep the library first. */
+	nemo_archive_options_init (&options);
+	check (nemo_archive_pick_backend (NEMO_ARCHIVE_FORMAT_ZIP, &options) ==
+	       NEMO_ARCHIVE_BACKEND_LIBARCHIVE);
+
+	nemo_archive_hide_backend (NEMO_ARCHIVE_BACKEND_7Z, TRUE);
+	check (!nemo_archive_backend_present (NEMO_ARCHIVE_BACKEND_7Z));
+	options.links.symlinks = ARC_LINK_IGNORE;
+	check (nemo_archive_pick_backend (NEMO_ARCHIVE_FORMAT_7Z, &options) ==
+	       NEMO_ARCHIVE_BACKEND_LIBARCHIVE);
+	nemo_archive_hide_backend (NEMO_ARCHIVE_BACKEND_7Z, FALSE);
+	check (nemo_archive_backend_present (NEMO_ARCHIVE_BACKEND_7Z) == seven);
+	nemo_archive_options_clear (&options);
+}
+
 static void
 check_backends (void)
 {
@@ -341,7 +548,7 @@ check_backends (void)
 	/* Storing links, a solid archive and a recovery record are preferences,
 	   not requirements: a plain tar still gets written even with all three
 	   asked for, and by libarchive, which can honor none of them. */
-	options.store_links = TRUE;
+	options.links.symlinks = ARC_LINK_STORE_SYMLINK;
 	options.solid = TRUE;
 	options.recovery_record = TRUE;
 	check (nemo_archive_pick_backend (NEMO_ARCHIVE_FORMAT_TAR, &options) ==
@@ -363,6 +570,12 @@ check_backends (void)
 	check ((nemo_archive_backend_caps (NEMO_ARCHIVE_FORMAT_7Z, NEMO_ARCHIVE_BACKEND_7Z) &
 		NEMO_ARCHIVE_CAP_STORE_LINKS) != 0);
 #endif
+	/* The library's 7z writer keeps links, which is what it is still used
+	   for on Windows. */
+	check ((nemo_archive_backend_caps (NEMO_ARCHIVE_FORMAT_7Z, NEMO_ARCHIVE_BACKEND_LIBARCHIVE) &
+		NEMO_ARCHIVE_CAP_STORE_LINKS) != 0);
+
+	check_7z_writer ();
 }
 
 static int
@@ -390,7 +603,7 @@ check_links_command (void)
 
 	nemo_archive_options_init (&options);
 	options.format = NEMO_ARCHIVE_FORMAT_RAR;
-	options.store_links = FALSE;
+	options.links.symlinks = ARC_LINK_IGNORE;
 	options.password = g_strdup ("secret");
 	options.encrypt_names = TRUE;
 	options.recovery_record = TRUE;
@@ -401,7 +614,8 @@ check_links_command (void)
 	check (argv != NULL);
 	check (!has_unexpanded (argv));
 	check (has_arg (argv, "-ol"));
-	/* -r would take every "gone" under held; the last one said wins. */
+	/* -r, on a line edited in the settings, would take every "gone" under
+	   held; the last one said wins. */
 	check (arg_index (argv, "-r-") > arg_index (argv, "-r"));
 	check (has_arg (argv, "-hpsecret"));
 	check (!has_arg (argv, "-k"));
@@ -409,18 +623,40 @@ check_links_command (void)
 	check (has_arg (argv, "held/gone"));
 	g_strfreev (argv);
 
+	/* A selected link that leads nowhere named @gone: rar would load a
+	   list file called gone. 7z takes the name as it is. */
+	{
+		GList *at = g_list_append (NULL, (gpointer) "@gone");
+
+		argv = nemo_archive_build_links_command (NEMO_ARCHIVE_BACKEND_RAR, options.format,
+							 &options, "rar", "/tmp/out.rar", at);
+		check (has_arg (argv, "./@gone"));
+		check (!has_arg (argv, "@gone"));
+		g_strfreev (argv);
+		argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_7Z, NEMO_ARCHIVE_FORMAT_7Z,
+						   &options, "7z", "/tmp/out.7z", at, NULL);
+		check (has_arg (argv, "@gone"));
+		g_strfreev (argv);
+		g_list_free (at);
+	}
+
 	/* The real run still follows. */
 	argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_RAR, options.format, &options,
 					   "rar", "/tmp/out.rar", names, NULL);
 	check (!has_arg (argv, "-ol"));
 	check (!has_arg (argv, "-r-"));
+	/* A named folder goes in whole without -r, and with it a picked a.txt
+	   brings every a.txt below. */
+	check (!has_arg (argv, "-r"));
 	check (has_arg (argv, "-k"));
+	/* The names it prints have to match ours. */
+	check (has_arg (argv, "-scfr"));
 	g_strfreev (argv);
 	nemo_archive_options_clear (&options);
 
 	nemo_archive_options_init (&options);
 	options.format = NEMO_ARCHIVE_FORMAT_7Z;
-	options.store_links = FALSE;
+	options.links.symlinks = ARC_LINK_IGNORE;
 	options.password = g_strdup ("secret");
 	options.encrypt_names = TRUE;
 
@@ -523,39 +759,44 @@ check_commands (void)
 	{
 		GList *skip = g_list_append (NULL, (gpointer) "a folder/linked");
 
+		/* rar would read -x@x as a list file named x. */
+		skip = g_list_append (skip, (gpointer) "@x");
+
 		nemo_archive_options_init (&options);
 		options.format = NEMO_ARCHIVE_FORMAT_RAR;
-		options.store_links = TRUE;
+		options.links.symlinks = ARC_LINK_STORE_SYMLINK;
 		argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_RAR, options.format, &options,
 						   "rar", "/tmp/out.rar", names, NULL);
 		check (has_arg (argv, "-ol"));
 		check (!has_arg (argv, "-ola") && !has_arg (argv, "-ol-"));
 		g_strfreev (argv);
 
-		options.store_links = FALSE;
-		options.follow_link_dirs = TRUE;
+		options.links.symlinks = ARC_LINK_FOLLOW;
 		argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_RAR, options.format, &options,
 						   "rar", "/tmp/out.rar", names, NULL);
 		check (!has_prefix_arg (argv, "-ol"));
 		g_strfreev (argv);
 
-		options.follow_link_dirs = FALSE;
+		options.links.symlinks = ARC_LINK_IGNORE;
 		argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_RAR, options.format, &options,
 						   "rar", "/tmp/out.rar", names, skip);
 		check (!has_prefix_arg (argv, "-ol"));
 		check (has_arg (argv, "-xa folder/linked"));
+		check (has_arg (argv, "-x./@x"));
+		check (!has_arg (argv, "-x@x"));
 		g_strfreev (argv);
 
 		options.format = NEMO_ARCHIVE_FORMAT_7Z;
 		argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_7Z, options.format, &options,
 						   "7z", "/tmp/out.7z", names, skip);
 		check (has_arg (argv, "-x!a folder/linked"));
+		check (has_arg (argv, "-x!@x"));
 		check (!has_arg (argv, "-snl"));
 		g_strfreev (argv);
 
 		/* Kept only where 7z claims it can keep them, which it does not
 		   on Windows. */
-		options.store_links = TRUE;
+		options.links.symlinks = ARC_LINK_STORE_SYMLINK;
 		argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_7Z, options.format, &options,
 						   "7z", "/tmp/out.7z", names, NULL);
 #ifdef G_OS_WIN32
@@ -588,6 +829,7 @@ check_commands (void)
 	check (has_arg (argv, "-ms=on"));
 	/* Names are names. Without -spd a left-out "a*" also leaves out "abc". */
 	check (has_arg (argv, "-spd"));
+	check (has_arg (argv, "-sccUTF-8"));
 	g_strfreev (argv);
 	nemo_archive_options_clear (&options);
 
@@ -625,6 +867,183 @@ check_commands (void)
 	g_list_free (names);
 
 	check_links_command ();
+}
+
+/* Split on spaces, for lines with none inside an argument. */
+static char **
+words (const char *line)
+{
+	return g_strsplit (line, " ", -1);
+}
+
+/* What a line from the settings gets at run time, whatever was typed. */
+static void
+check_run_switches (void)
+{
+	char **argv;
+
+	/* 7-Zip by any of its names, before the "--". */
+	argv = nemo_archive_add_run_switches (words ("7z a -y -- o.7z a*"), TRUE);
+	check (arg_index (argv, "-spd") == 3);
+	check (arg_index (argv, "--") == 4);
+	check (g_strv_length (argv) == 7);
+	g_strfreev (argv);
+
+	argv = nemo_archive_add_run_switches (words ("/opt/7zip/7zz x -- a?.7z"), FALSE);
+	check (arg_index (argv, "-spd") == 2);
+	g_strfreev (argv);
+
+	argv = nemo_archive_add_run_switches (words ("7Za.EXE a o.7z a*"), TRUE);
+	check (arg_index (argv, "-spd") == 4);
+	g_strfreev (argv);
+
+	/* Once is enough, however it was typed. */
+	argv = nemo_archive_add_run_switches (words ("7z a -SPD -- o.7z -spd"), TRUE);
+	check (!has_arg (argv, "-spd") || arg_index (argv, "-spd") == 5);
+	check (g_strv_length (argv) == 6);
+	g_strfreev (argv);
+
+	/* rar: -r0 last, so an -r typed into the line is undone. Compress only,
+	   since the unpack lines never had -r. */
+	argv = nemo_archive_add_run_switches (words ("rar a -r -y -- o.rar a.txt"), TRUE);
+	check (arg_index (argv, "-r0") == 4);
+	check (arg_index (argv, "--") == 5);
+	check (!has_arg (argv, "-spd"));
+	g_strfreev (argv);
+
+	argv = nemo_archive_add_run_switches (words ("/usr/bin/rar x -y -- o.rar dest/"), FALSE);
+	check (!has_arg (argv, "-r0"));
+	check (g_strv_length (argv) == 6);
+	g_strfreev (argv);
+
+#ifdef G_OS_WIN32
+	/* PATH finds a wrapper like rar.cmd ahead of the exe, and it runs the
+	   same program. */
+	argv = nemo_archive_add_run_switches (words ("C:\\Tools\\rar.cmd a -r -y -- o.rar a.txt"), TRUE);
+	check (arg_index (argv, "-r0") == 4);
+	g_strfreev (argv);
+
+	argv = nemo_archive_add_run_switches (words ("7Z.Bat a -- o.7z a*"), TRUE);
+	check (arg_index (argv, "-spd") == 2);
+	g_strfreev (argv);
+
+	argv = nemo_archive_add_run_switches (words ("rar.txt a -r -- o.rar a.txt"), TRUE);
+	check (!has_arg (argv, "-r0"));
+	g_strfreev (argv);
+#endif
+
+	/* Another program is left alone, even one that runs 7-Zip itself. */
+	argv = nemo_archive_add_run_switches (words ("nice 7z a -- o.7z a*"), TRUE);
+	check (!has_arg (argv, "-spd"));
+	check (g_strv_length (argv) == 6);
+	g_strfreev (argv);
+
+	argv = nemo_archive_add_run_switches (words ("unrar x -- o.rar"), TRUE);
+	check (!has_arg (argv, "-r0"));
+	g_strfreev (argv);
+
+	check (nemo_archive_add_run_switches (NULL, TRUE) == NULL);
+}
+
+/* The same through the four lines in the settings, edited the way that once
+   let a wildcard or a recursion through. The saved lines stay as typed. */
+static void
+check_edited_lines (void)
+{
+	NemoConfigGroup *group = nemo_config_get_group (NEMO_ARCHIVE_COMMANDS_GROUP);
+	const char *no_spd =
+		"{{PROGRAM}} a {{FORMAT}} {{LEVEL}} {{THREADS}} -y -bsp1 -sccUTF-8 "
+		"{{PASSWORD}} {{SPLIT}} {{SOLID}} {{LINKS}} -- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}";
+	const char *with_r =
+		"{{PROGRAM}} a -r {{LEVEL}} {{THREADS}} -y -scfr {{PASSWORD}} {{SPLIT}} {{SOLID}} "
+		"{{DEDUPE}} {{RECOVERY}} {{LOCK}} {{LINKS}} -- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}";
+	const char *unpack_no_spd = "{{PROGRAM}} x -y -bsp1 {{PASSWORD}} -o{{TARGET_FOLDER}} -- {{SOURCE_ARCHIVE}}";
+	NemoArchiveOptions options;
+	GList *names = g_list_append (NULL, (gpointer) "a*");
+	char **argv;
+	char *text;
+
+	nemo_config_set_string (group, NEMO_ARCHIVE_COMMAND_KEY_7Z, no_spd);
+	nemo_config_set_string (group, NEMO_ARCHIVE_COMMAND_KEY_RAR, with_r);
+	nemo_config_set_string (group, NEMO_EXTRACT_COMMAND_KEY_7Z, unpack_no_spd);
+
+	nemo_archive_options_init (&options);
+	options.format = NEMO_ARCHIVE_FORMAT_7Z;
+	argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_7Z, options.format, &options,
+					   "/usr/bin/7z", "/tmp/out.7z", names, names);
+	check (argv != NULL);
+	check (has_arg (argv, "-spd"));
+	check (arg_index (argv, "-spd") < arg_index (argv, "--"));
+	check (has_arg (argv, "-x!a*"));
+	g_strfreev (argv);
+
+	argv = nemo_archive_build_links_command (NEMO_ARCHIVE_BACKEND_7Z, options.format, &options,
+						 "/usr/bin/7z", "/tmp/out.7z", names);
+	check (has_arg (argv, "-spd"));
+	g_strfreev (argv);
+	nemo_archive_options_clear (&options);
+
+	nemo_archive_options_init (&options);
+	options.format = NEMO_ARCHIVE_FORMAT_RAR;
+	argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_RAR, options.format, &options,
+					   "/usr/bin/rar", "/tmp/out.rar", names, NULL);
+	check (argv != NULL);
+	check (arg_index (argv, "-r0") > arg_index (argv, "-r"));
+	check (arg_index (argv, "-r0") < arg_index (argv, "--"));
+	g_strfreev (argv);
+	nemo_archive_options_clear (&options);
+
+	argv = nemo_extract_build_command (NEMO_EXTRACT_BACKEND_7Z, "/usr/bin/7z", "/tmp/a?.7z",
+					   "/tmp/out", NULL);
+	check (argv != NULL);
+	check (arg_index (argv, "-spd") >= 0 && arg_index (argv, "-spd") < arg_index (argv, "--"));
+	g_strfreev (argv);
+
+	/* The rar unpack line never had -r, and rar's -spd is no such thing. */
+	argv = nemo_extract_build_command (NEMO_EXTRACT_BACKEND_RAR, "/usr/bin/unrar", "/tmp/a.rar",
+					   "/tmp/out", NULL);
+	check (!has_arg (argv, "-r0"));
+	check (!has_arg (argv, "-spd"));
+	g_strfreev (argv);
+
+	text = nemo_command_template_from_config (NEMO_ARCHIVE_COMMANDS_GROUP,
+						  NEMO_ARCHIVE_COMMAND_KEY_7Z,
+						  NEMO_ARCHIVE_COMMAND_7Z_DEFAULT);
+	check (g_strcmp0 (text, no_spd) == 0);
+	g_free (text);
+	text = nemo_command_template_from_config (NEMO_ARCHIVE_COMMANDS_GROUP,
+						  NEMO_ARCHIVE_COMMAND_KEY_RAR,
+						  NEMO_ARCHIVE_COMMAND_RAR_DEFAULT);
+	check (g_strcmp0 (text, with_r) == 0);
+	g_free (text);
+	text = nemo_command_template_from_config (NEMO_ARCHIVE_COMMANDS_GROUP,
+						  NEMO_EXTRACT_COMMAND_KEY_7Z,
+						  NEMO_EXTRACT_COMMAND_7Z_DEFAULT);
+	check (g_strcmp0 (text, unpack_no_spd) == 0);
+	g_free (text);
+
+	/* The built-in lines already have -spd, and get it only once. */
+	nemo_config_reset (group, NEMO_ARCHIVE_COMMAND_KEY_7Z);
+	nemo_config_reset (group, NEMO_ARCHIVE_COMMAND_KEY_RAR);
+	nemo_config_reset (group, NEMO_EXTRACT_COMMAND_KEY_7Z);
+
+	nemo_archive_options_init (&options);
+	options.format = NEMO_ARCHIVE_FORMAT_7Z;
+	argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_7Z, options.format, &options,
+					   "/usr/bin/7z", "/tmp/out.7z", names, NULL);
+	{
+		int seen = 0;
+		int i;
+
+		for (i = 0; argv != NULL && argv[i] != NULL; i++) {
+			seen += g_strcmp0 (argv[i], "-spd") == 0;
+		}
+		check (seen == 1);
+	}
+	g_strfreev (argv);
+	nemo_archive_options_clear (&options);
+
+	g_list_free (names);
 }
 
 /* What the two tools print when they pass over a link that leads nowhere,
@@ -715,6 +1134,55 @@ check_skipped_links (void)
 		g_list_free (colon);
 	}
 
+	/* rar says a name starting with @ as it was handed over, with ./ in
+	   front, and again without it for what -r finds on an edited line. */
+	{
+		GList *at = g_list_append (NULL, (gpointer) "@gone");
+
+		check (nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_RAR, 6,
+							"Cannot open @gone\nNo such file or directory\n"
+							"Cannot open ./@gone\nNo such file or directory\n"
+							"Adding    a.txt     OK \nDone\n", at));
+		check (!nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_RAR, 6,
+							 "Cannot open ./@gone\nNo such file or directory\n"
+							 "Cannot open ./@other\nNo such file or directory\n", at));
+		g_list_free (at);
+	}
+
+	/* On Windows both end on a count, 7-Zip names each one twice, and what
+	   rar names comes after the rest. */
+	{
+		static const char seven_counted[] =
+			"Scan WARNINGS for files and folders:\n\n"
+			"sel/dang : The system cannot find the file specified.\n"
+			"----------------\nScan WARNINGS: 1\n\n"
+			"WARNINGS for files:\n\n"
+			"sel/dang : The system cannot find the file specified.\n"
+			"----------------\nWARNING: Cannot open 1 file\n\n"
+			"WARNING: The system cannot find the file specified.\nsel/dang\n";
+		static const char rar_counted[] =
+			"Creating archive x.rar\n\n"
+			"Adding    sel/f                                                  OK \n"
+			"WARNING: Cannot open 2 files\nDone\n"
+			"Cannot open sel/dang\nThe system cannot find the file specified.\n"
+			"Cannot open sel/sub/dang2\nThe system cannot find the file specified.\n";
+		static const char rar_short[] =
+			"WARNING: Cannot open 3 files\nDone\n"
+			"Cannot open sel/dang\nThe system cannot find the file specified.\n"
+			"Cannot open sel/sub/dang2\nThe system cannot find the file specified.\n";
+
+		check (nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_7Z, 1, seven_counted, one));
+		check (nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_RAR, 6, rar_counted, both));
+		/* One it could not open went unnamed. */
+		check (!nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_RAR, 6, rar_short, both));
+		check (!nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_RAR, 6, rar_counted, one));
+		/* A count is only a count. */
+		check (!nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_RAR, 6,
+							 "WARNING: Cannot open 1 file\nDone\n", both));
+		check (!nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_RAR, 6,
+							 "WARNING: Cannot open some files\nCannot open sel/dang\n", both));
+	}
+
 #ifdef G_OS_WIN32
 	/* The same, with the separators Windows prints. */
 	check (nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_7Z, 1,
@@ -745,22 +1213,118 @@ check_cpu_share (void)
 	check (threads == MAX (1, (cores * 50 + 99) / 100));
 }
 
+#ifdef G_OS_WIN32
+static void
+touch (const char *dir, const char *name)
+{
+	char *path = g_build_filename (dir, name, NULL);
+
+	g_mkdir_with_parents (dir, 0700);
+	check (g_file_set_contents (path, "", 0, NULL));
+	g_free (path);
+}
+
+static gboolean
+found_in (const char *dir, const char *name)
+{
+	static const char * const names[] = { "rar", NULL };
+	char *want = g_build_filename (dir, name, NULL);
+	char *found = nemo_archive_find_command (names, "WinRAR");
+	gboolean same = found != NULL && g_ascii_strcasecmp (found, want) == 0;
+
+	if (!same) {
+		g_printerr ("found %s, wanted %s\n", found != NULL ? found : "nothing", want);
+	}
+	g_free (found);
+	g_free (want);
+	return same;
+}
+
+/* The program itself before a script of the same name, since cmd ends a .cmd
+   on its own last line's status, which loses rar's: on PATH, then where its
+   installer puts it, then a script on PATH. */
+static void
+check_find_command (const char *scratch)
+{
+	static const char * const roots[] = { "ProgramW6432", "ProgramFiles", "ProgramFiles(x86)" };
+	char *scripts = g_build_filename (scratch, "scripts", NULL);
+	char *exes = g_build_filename (scratch, "exes", NULL);
+	char *programs = g_build_filename (scratch, "programs", NULL);
+	char *installed = g_build_filename (programs, "WinRAR", NULL);
+	char *saved_path = g_strdup (g_getenv ("PATH"));
+	char *saved[G_N_ELEMENTS (roots)];
+	char *path, *gone;
+	guint i;
+
+	touch (scripts, "rar.cmd");
+	touch (exes, "rar.exe");
+	touch (installed, "rar.exe");
+	for (i = 0; i < G_N_ELEMENTS (roots); i++) {
+		saved[i] = g_strdup (g_getenv (roots[i]));
+		g_unsetenv (roots[i]);
+	}
+	g_setenv ("ProgramW6432", programs, TRUE);
+
+	path = g_strconcat (scripts, ";", exes, NULL);
+	g_setenv ("PATH", path, TRUE);
+	check (found_in (exes, "rar.exe"));
+	g_free (path);
+
+	g_setenv ("PATH", scripts, TRUE);
+	check (found_in (installed, "rar.exe"));
+
+	gone = g_build_filename (installed, "rar.exe", NULL);
+	check (g_unlink (gone) == 0);
+	check (found_in (scripts, "rar.cmd"));
+	g_free (gone);
+
+	g_setenv ("PATH", saved_path, TRUE);
+	for (i = 0; i < G_N_ELEMENTS (roots); i++) {
+		if (saved[i] != NULL) {
+			g_setenv (roots[i], saved[i], TRUE);
+		} else {
+			g_unsetenv (roots[i]);
+		}
+		g_free (saved[i]);
+	}
+	g_free (saved_path);
+	g_free (installed);
+	g_free (programs);
+	g_free (exes);
+	g_free (scripts);
+}
+#endif
+
 int
-main (int argc, char *argv[])
+main (void)
 {
 	char *scratch = test_scratch_dir ("nemo-archive-XXXXXX", NULL);
+	char *config_home;
 
 	check_extensions ();
 	check_names ();
 	check_each_names ();
 	check_sizes ();
+	check_volume_presets ();
+	check_typed_sizes ();
 	check_volume_names ();
 	check_volume_collapse (scratch);
 	check_backends ();
+	check_link_stores ();
 	check_commands ();
 	check_skipped_links ();
 	check_cpu_share ();
+	check_run_switches ();
+#ifdef G_OS_WIN32
+	check_find_command (scratch);
+#endif
 
+	config_home = test_scratch_config_home ("nemo-archive-config-XXXXXX");
+	nemo_config_init ();
+	check_edited_lines ();
+	nemo_config_shutdown ();
+
+	g_free (config_home);
 	g_free (scratch);
 
 	if (failures > 0) {

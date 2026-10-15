@@ -281,6 +281,7 @@ probe_sql (const gchar *folder)
 	return g_string_free (sql, FALSE);
 }
 
+/* Returns: (transfer full): free with g_free */
 gchar *
 nemo_search_win32_build_sql (const gchar *folder,
 			     gboolean     recurse,
@@ -352,8 +353,8 @@ nemo_search_win32_build_sql (const gchar *folder,
 }
 
 static gboolean
-note_any_row (const wchar_t *path,
-	      guint32        attrs,
+note_any_row (G_GNUC_UNUSED const wchar_t *path,
+	      G_GNUC_UNUSED guint32        attrs,
 	      gpointer       user_data)
 {
 	*(gboolean *) user_data = TRUE;
@@ -750,6 +751,7 @@ nemo_search_engine_win32_init (NemoSearchEngineWin32 *engine)
 	engine->details->fallback = fallback;
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoSearchEngine *
 nemo_search_engine_win32_new (void)
 {

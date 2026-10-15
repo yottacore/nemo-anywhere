@@ -28,11 +28,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Search results can be grouped under the folder that holds them instead of shown as one flat list, with a toggle next to the one for recursing into subfolders. Grouped results drop the Location column and switching either way happens without running the search again.
 
-- A drop that moves files asks first, naming the files and the folder they are headed for. Two settings under Behavior: moves ask by default, copies do not. The Trash keeps its own separate question rather than asking twice.
+- A drop that moves files asks first, naming the files and the folder they are headed for. Two settings under Behavior: moves ask by default, copies don't. The Trash keeps its own separate question rather than asking twice.
 
 - Content search ("Containing:") reads Word, Excel and PowerPoint documents in both their old and new formats, OpenDocument files and EPUB books, on every platform. The converters are built in, so nothing else needs installing.
 
-- Windows `.lnk` shortcuts work on Linux. One to a folder changes to that folder, and one to a file opens the file, started in the shortcut's "Start in" folder or else the file's own. Each shows its target's icon. The Windows path is matched to a drive by its volume serial, or to a share by server and name, whether the kernel or gvfs mounted it. A share that is not mounted opens as `smb://` where gvfs can. When nothing matches, a message names the path instead of a guess.
+- Windows `.lnk` shortcuts work on Linux. One to a folder changes to that folder, and one to a file opens the file, started in the shortcut's "Start in" folder or else the file's own. Each shows its target's icon. The Windows path is matched to a drive by its volume serial, or to a share by server and name, whether the kernel or gvfs mounted it. A share that isn't mounted opens as `smb://` where gvfs can. When nothing matches, a message names the path instead of a guess.
 
 - On Windows, a shortcut is drawn with the icon the shell would give it, its target's, at every view size, and without Explorer having to be running.
 
@@ -40,21 +40,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - On Windows, "Set as default" in Open With works. The choice is kept in the settings file, as a command line with `%1` for the file, and is used ahead of the registry; the registry itself is only ever read, the way Explorer reads it. Reset takes the choice away again.
 
-- On Windows, a switch in Preferences answers searches from the Windows Search index for folders it covers. Off by default. Folders outside the index, and content searches by pattern or by case, are still searched directly.
+- On Windows, a switch in Settings answers searches from the Windows Search index for folders it covers. Off by default. Folders outside the index, and content searches by pattern or by case, are still searched directly.
 
-- A `--reset` flag that clears the settings and the bookmarks and puts everything back to defaults. It will not run while the app is open.
+- A `--reset` flag that clears the settings and the bookmarks and puts everything back to defaults. It won't run while the app is open.
 
 - On Windows, a first start fills the bookmark list with the drive, Desktop, Documents, Downloads, Pictures, Videos and AppData. Anything left behind by a config copied from a Linux machine is dropped at the same time.
 
 - Typed locations understand `~` for the home folder and environment variables, written either `%NAME%` or `$NAME`, on any platform. A folder whose name really contains one of those characters still opens as itself.
 
-- An Appearance page in Preferences: Light, Dark, or follow the system, plus a style and an icon theme to draw with. Both lists only offer themes drawn for the mode you are in, and picking one half of a light/dark pair follows the pair when the mode changes.
+- An Appearance page in Settings: Light, Dark, or follow the system, plus a style and an icon theme to draw with. Both lists only offer themes drawn for the mode you are in, and picking one half of a light/dark pair follows the pair when the mode changes.
 
 - The Windows build carries a set of themes so the app looks like something out of the box: Windows 11, Windows 10, Windows 7, Windows XP and macOS window styles, and twenty-four icon sets, including Windows XP, 7, 10 and 11 sets drawn for this project. Linux keeps using whatever the desktop provides.
 
 - Themes can be dropped in on any platform. Put a GTK theme folder in `themes`, or an icon theme in `icons`, beside the settings file and it shows up in the lists.
 
-- A small panel while Windows starts the app, saying what it is doing, so a launch that takes a moment does not look like nothing happened. It goes away the instant the real window has drawn.
+- A small panel while Windows starts the app, saying what it is doing, so a launch that takes a moment doesn't look like nothing happened. It goes away the instant the real window has drawn.
 
 - Two more owner columns for the list view: Owner name, the owner's display name, and Owner - name, which shows both. On Windows the name is the local account's full name; a domain account has none.
 
@@ -66,7 +66,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - "Edit link..." changes where a symlink or junction points, and its name. On a Windows shortcut it shows the absolute, relative and portable paths, any of which can be changed or left empty to drop it. The shortcut's arguments, Start in folder and icon are kept. Only shown when one link is selected.
 
+- A new folder's first name can be a path, such as `photos/2026/june`, and each folder in it is made, nested. Folders already there along the way are used as they are. `/` works everywhere, and `\` on Windows too. On Windows `/` only counts while "Accept a forward slash as a separator in typed locations" is on. Undo takes away the folders it made, deepest first, as long as each is still empty.
+
 ### Changed
+
+- Keyboard shortcuts are saved in `accels` beside the settings file. They used to go to upstream Nemo's `~/.gnome2/accels/nemo`, and only where that folder was already there, so never on Windows. Custom shortcuts in that file are read once on the first start, and it is no longer written. `--reset` clears them too.
 
 - The row under the pointer, in the list and both sidebars, is tinted with a faint wash of the theme's selection color instead of gray, so it no longer looks like a shaded row. It is kept fainter than a shaded row and well short of a selected one, light or dark. A theme whose selection is gray gets a soft blue. `row-hover-color` in the settings file, or a `nemo_row_hover` color in the theme, overrides it; `transparent` turns it off.
 
@@ -80,7 +84,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - The settings file is read with SHCL 3. A backslash in an unquoted value is now just a backslash, so a Windows path can be typed as it is, and escapes only work inside double quotes. A settings file from an earlier beta that holds a network path may read it wrong; delete it and start again. The file now ends with a short block naming its format, so a later version knows what it is reading.
 
-- The settings file now ends with a commented list of everything you have not set, each line carrying the value used instead and, where the name is not obvious, a short note. Uncomment a line to change it. Sizes, positions and other things the app remembers for itself are left off the list.
+- The settings file now ends with a commented list of everything you haven't set, each line carrying the value used instead and, where the name isn't obvious, a short note. Uncomment a line to change it. Sizes, positions and other things the app remembers for itself are left off the list.
 
 - The thumbnail cache is cleaned up every few hours, at a quiet moment, rather than growing forever: a thumbnail whose file is gone goes first, then anything not drawn for longer than the age allowed, then the least recently drawn until the rest fit in the size allowed. Both limits are on the Preview page and either can be turned off. The shared freedesktop thumbnail folder is no longer touched.
 
@@ -90,7 +94,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - The list view no longer shrinks a column past what it shows. Name keeps the width that shows all but the widest tenth of the names in the folder (a setting under list-view), a type or owner column the width that shows most of its distinct values, and a date or a size is never cut at all. Type gives a little further, down to twice the Ext column, and past that the view scrolls sideways.
 
-- Search results give the Name and Location columns only the width their contents need, leaving the rest of the row empty. Where the two do not both fit they shrink in proportion to what each asked for, and neither ends more than twice the width of the other. Dragging either column still pins a split of the whole row.
+- Search results give the Name and Location columns only the width their contents need, leaving the rest of the row empty. Where the two don't both fit they shrink in proportion to what each asked for, and neither ends more than twice the width of the other. Dragging either column still pins a split of the whole row.
 
 - `--existing-window` opens the URIs as tabs in one new window. There is no window of ours left to join, since every launch is its own process.
 
@@ -110,9 +114,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - The Owner column shows the user name alone. The name with the display name after it moved to the new Owner - name column.
 
+- Preferences is called Settings now, in the Edit menu and on its window.
+
 - The window title puts the folder first and the program name after it, as `Documents - Nemo Anywhere`. A name or path with a space in it is put in double quotes.
 
+- Tabs never take the keyboard focus, in Settings, Properties, About or the keyboard shortcuts window. Tab goes past them, and Ctrl+Page Up and Ctrl+Page Down, or Ctrl+Tab and Ctrl+Shift+Tab, step through the pages from anywhere in the window.
+
 ### Fixed
+
+- On Windows, a file dragged in from a program other than Explorer was often refused, since only Explorer's own kind of file drag was read. A drag that only allows a copy was refused too, wherever a move would have been picked. Both drop now.
 
 - An owner whose account has an empty display name showed as the user name followed by a stray " - ".
 
@@ -130,7 +140,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Notes
 
-- Settings do not carry over from beta1. Configuration moved out of GSettings, and nothing can read the old store once its schema is gone, so the first run after upgrading starts from defaults.
+- Settings don't carry over from beta1. Configuration moved out of GSettings, and nothing can read the old store once its schema is gone, so the first run after upgrading starts from defaults.
 
 ### Added
 

@@ -61,7 +61,7 @@ def new_hash():
 
 
 def read_text(path):
-    """A whole file as text, or None when it is not there."""
+    """A whole file as text, or None when it isn't there."""
     try:
         return Path(path).read_text(encoding="utf-8", errors="replace")
     except OSError:
@@ -159,7 +159,7 @@ class IconChooserDialog(Gtk.Dialog):
 class DisabledActions:
     """Which actions are switched off, read out of the app's own config file.
     Read-only on purpose: the app owns that file, and turning an action on or off
-    belongs on its Preferences page, which is where a change here is seen live."""
+    belongs on its Settings page, which is where a change here is seen live."""
 
     KEY = "plugins.disabled-actions"
 
@@ -176,7 +176,7 @@ class DisabledActions:
         return values if values is not None else self.from_schema()
 
     def from_settings(self):
-        """The list as set in the config file, or None when it is not set there."""
+        """The list as set in the config file, or None when it isn't set there."""
         text = read_text(CONFIG_FILE)
         if text is None:
             return None
@@ -378,7 +378,7 @@ class NemoActionsOrganizer(Gtk.Box):
         self.down_button.connect("clicked", self.down_button_clicked)
 
         self.nemo_plugin_settings = DisabledActions()
-        # Actions are switched on and off in the app's preferences, so follow it.
+        # Actions are switched on and off in the app's settings, so follow it.
         self.nemo_plugin_settings.connect("changed", self.on_disabled_settings_list_changed)
 
         # Icon MenuButton
@@ -512,7 +512,7 @@ class NemoActionsOrganizer(Gtk.Box):
                                              Gio.ResourceLookupFlags.NONE)
             root = ElementTree.fromstring(data.get_data().decode("utf-8"))
         except (GLib.Error, ElementTree.ParseError, UnicodeDecodeError) as e:
-            print("Could not read the shortcut list, so collisions with a built-in one will not be spotted: %s" % e)
+            print("Couldn't read the shortcut list, so collisions with a built-in one won't be spotted: %s" % e)
             return
 
         for obj in root.iter("object"):
@@ -542,7 +542,7 @@ class NemoActionsOrganizer(Gtk.Box):
                     try:
                         self.data = json.load(file)
                     except json.decoder.JSONDecodeError as e:
-                        print("Could not process json file: %s" % e)
+                        print("Couldn't process json file: %s" % e)
                         raise
 
                     try:
@@ -1077,7 +1077,7 @@ class NemoActionsOrganizer(Gtk.Box):
                     modal=True,
                     message_type=Gtk.MessageType.ERROR,
                     buttons=Gtk.ButtonsType.OK,
-                    text=_("This key combination is already in use by Nemo (%s). It cannot be changed.") % label,
+                    text=_("This key combination is already in use by Nemo (%s). It can't be changed.") % label,
                     use_markup=True
                 )
                 dialog.run()
@@ -1588,7 +1588,7 @@ class NemoActionsOrganizer(Gtk.Box):
             row = model.get_value(foreach_iter, ROW_OBJ)
 
             if row is None:
-                print("During prune/paste, could not find row for %s with hash %s" % (row_uuid, row_hash))
+                print("During prune/paste, couldn't find row for %s with hash %s" % (row_uuid, row_hash))
                 continue
             inserted_iter = self.model.insert(new_iter, -1, [
                 new_hash(),

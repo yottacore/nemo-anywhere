@@ -1,4 +1,4 @@
-﻿##	Purpose:
+##	Purpose:
 ##		- Drive a throwaway Windows Sandbox for GUI testing and demo work,
 ##		  without touching the live desktop session. The sandbox is built from
 ##		  the host's own Windows image (no second license), keeps no state,
@@ -27,7 +27,7 @@
 ##		- 2026-08-31: -NoNetwork.
 ##		- 2026-08-30: Created (backlog: GUI testing without touching the live session).
 
-##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
+##	Copyright (c) 2026 t00mietum
 ##	Licensed under The MIT License (MIT). Full text at:
 ##		https://mit-license.org/
 ##	SPDX-License-Identifier: MIT

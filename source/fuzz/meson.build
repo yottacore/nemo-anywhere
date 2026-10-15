@@ -65,6 +65,22 @@ fuzzPsd = executable('fuzz-psd',
   link_args: fuzzLinkArgs,
 )
 
+fuzzOffice = executable('fuzz-office',
+  [ 'fuzz-office.c' ] + fuzzDriver,
+  include_directories: [ rootInclude, ],
+  dependencies: [ gtk, nemo_private ],
+  c_args:    fuzzCArgs,
+  link_args: fuzzLinkArgs,
+)
+
+fuzzOle2 = executable('fuzz-ole2',
+  [ 'fuzz-ole2.c' ] + fuzzDriver,
+  include_directories: [ rootInclude, ],
+  dependencies: [ gtk, nemo_private ],
+  c_args:    fuzzCArgs,
+  link_args: fuzzLinkArgs,
+)
+
 fuzzRaw = executable('fuzz-raw',
   [ 'fuzz-raw.c' ] + fuzzDriver,
   include_directories: [ rootInclude, ],
@@ -82,30 +98,40 @@ if not is_windows
     c_args:    fuzzCArgs,
     link_args: fuzzLinkArgs,
   )
+
+  # Edit link reads the old shortcut again to keep what it does not change.
+  # The target writes each input to a scratch file, removed at exit.
+  fuzzLnkEdit = executable('fuzz-lnk-edit',
+    [ 'fuzz-lnk-edit.c' ] + fuzzDriver,
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+    c_args:    fuzzCArgs,
+    link_args: fuzzLinkArgs,
+  )
 endif
 
-# The three binary Office parsers. Each helper is a program of its own, so the
-# target includes its source whole and renames the main out of the way rather
-# than turning the parser into a library nothing else would use. The zip-of-xml
-# helper is left out: libgsf does the parsing there, and fuzzing it would be
-# fuzzing libgsf.
+# The three old binary Office parsers in the app, each on one stream.
+# fuzz-ole2 reaches them through the compound file as well.
 fuzzXls = executable('fuzz-xls',
   [ 'fuzz-xls.c' ] + fuzzDriver,
-  dependencies: [ libgsf, gio, glib ],
+  include_directories: [ rootInclude, ],
+  dependencies: [ gtk, nemo_private ],
   c_args:    fuzzCArgs,
   link_args: fuzzLinkArgs,
 )
 
 fuzzPpt = executable('fuzz-ppt',
   [ 'fuzz-ppt.c' ] + fuzzDriver,
-  dependencies: [ libgsf, gio, glib ],
+  include_directories: [ rootInclude, ],
+  dependencies: [ gtk, nemo_private ],
   c_args:    fuzzCArgs,
   link_args: fuzzLinkArgs,
 )
 
 fuzzDoc = executable('fuzz-doc',
   [ 'fuzz-doc.c' ] + fuzzDriver,
-  dependencies: [ libgsf, gio, glib ],
+  include_directories: [ rootInclude, ],
+  dependencies: [ gtk, nemo_private ],
   c_args:    fuzzCArgs,
   link_args: fuzzLinkArgs,
 )
@@ -168,6 +194,37 @@ fuzzRawCorpus = files(
   'corpus/raw/olympus-loop',
 )
 
+fuzzOfficeCorpus = files(
+  'corpus/office/empty',
+  'corpus/office/docx-text',
+  'corpus/office/docx-thumb',
+  'corpus/office/odt-text',
+  'corpus/office/odt-thumb',
+  'corpus/office/epub3-cover',
+  'corpus/office/epub2-cover',
+  'corpus/office/rels-climb',
+  'corpus/office/truncated',
+  'corpus/office/huge-jpeg',
+  'corpus/office/huge-png',
+)
+
+fuzzOle2Corpus = files(
+  'corpus/ole2/empty',
+  'corpus/ole2/doc-text',
+  'corpus/ole2/doc-thumb',
+  'corpus/ole2/doc95-v4',
+  'corpus/ole2/ppt-text',
+  'corpus/ole2/ppt-thumb',
+  'corpus/ole2/wmf-thumb',
+  'corpus/ole2/bare-xls',
+  'corpus/ole2/xls-text',
+  'corpus/ole2/word-pieces',
+  'corpus/ole2/word-utf16',
+  'corpus/ole2/biff-numbers',
+  'corpus/ole2/ppt-deep',
+  'corpus/ole2/summary-dib',
+)
+
 fuzzXlsCorpus = files(
   'corpus/xls/empty',
   'corpus/xls/bof-eof',
@@ -210,6 +267,20 @@ fuzzLnkCorpus = files(
   'corpus/lnk/bad-info-size',
 )
 
+fuzzLnkEditCorpus = files(
+  'corpus/lnk-edit/empty',
+  'corpus/lnk-edit/local',
+  'corpus/lnk-edit/network',
+  'corpus/lnk-edit/relative-only',
+  'corpus/lnk-edit/truncated',
+  'corpus/lnk-edit/all-strings',
+  'corpus/lnk-edit/ansi-strings',
+  'corpus/lnk-edit/network-args',
+  'corpus/lnk-edit/block-too-big',
+  'corpus/lnk-edit/no-link-info',
+  'corpus/lnk-edit/lone-surrogate',
+)
+
 # Under -Dfuzzing there is no main to hand a file list to; the targets are
 # driven by fuzz.bash instead.
 #
@@ -226,10 +297,13 @@ if not get_option('fuzzing')
   test('rh0808ba Command template fuzz corpus test', fuzzCommandTemplate, args: fuzzCommandTemplateCorpus, env: fuzzTestEnv)
   test('rhe0xz30 Photoshop fuzz corpus test',        fuzzPsd,             args: fuzzPsdCorpus,             env: fuzzTestEnv)
   test('rhqmm0ar Camera raw fuzz corpus test',       fuzzRaw,             args: fuzzRawCorpus,             env: fuzzTestEnv)
+  test('rjvb97bb Office zip fuzz corpus test',       fuzzOffice,          args: fuzzOfficeCorpus,          env: fuzzTestEnv)
+  test('rjvtghmd Old office fuzz corpus test',       fuzzOle2,            args: fuzzOle2Corpus,            env: fuzzTestEnv)
   test('rhatwe0r Workbook fuzz corpus test',         fuzzXls,             args: fuzzXlsCorpus,             env: fuzzTestEnv)
   test('rhatwe0s Presentation fuzz corpus test',     fuzzPpt,             args: fuzzPptCorpus,             env: fuzzTestEnv)
   test('rhatwe0t Word document fuzz corpus test',    fuzzDoc,             args: fuzzDocCorpus,             env: fuzzTestEnv)
   if not is_windows
     test('rhmxm5ag Windows shortcut fuzz corpus test', fuzzLnk,           args: fuzzLnkCorpus,             env: fuzzTestEnv)
+    test('rjfa5fmh Shortcut edit fuzz corpus test',    fuzzLnkEdit,       args: fuzzLnkEditCorpus,         env: fuzzTestEnv)
   endif
 endif

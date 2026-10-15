@@ -6,7 +6,8 @@
 # 2000-01-01 00:00 UTC, in lower-case Crockford base 32, zero-padded to 8
 # digits. A meson test has it at the front of its name, so a failure in the log
 # already names it. A lint-c check and a test script carry it on a "Test ID:"
-# comment line, and read it back from there to print it when they run. A fuzz
+# comment line, and read it back from there to print it when they run. So does
+# a tool's self-test that the lint stage runs, on a line in the tool. A fuzz
 # target has it at the front of its entry in fuzz.bash.
 #
 # With no option, prints the ID for right now, for a new test.
@@ -74,6 +75,25 @@ def found_ids(root):
     for script in sorted(scripts):
         m = re.search(r'(?m)^##\s+(?:- )?Test ID: (\S+)$', script.read_text(encoding='utf-8-sig'))
         yield (m.group(1) if m else None), str(script.relative_to(root))
+
+    # A tool's own self-test, found where the lint stage runs it, so a new one
+    # cannot go in unseen. Its ID is in the tool, on a "Test ID:" line. This
+    # script's --check is the gate itself, not a test.
+    tools = {}
+    for driver in ('cicd/utility/lint.bash', 'cicd/utility/lint-c.bash'):
+        path = root / driver
+        for num, line in enumerate(path.read_text(encoding='utf-8').splitlines(), 1):
+            m = re.search(r'([\w.-]+\.(?:bash|py))"?\s+(--self-test|--check)\b', line)
+            if not m or line.lstrip().startswith('#') or m.group(1) == 'test-id.py':
+                continue
+            tools.setdefault(m.group(1) + ' ' + m.group(2), f'{driver}:{num}')
+    for run, where in tools.items():
+        name = run.split(' ')[0]
+        tool = next((p for p in (root / 'cicd').rglob(name) if p.is_file()), None)
+        if tool in scripts:
+            continue
+        m = tool and re.search(r'(?m)^(?:#+\s+(?:- )?)?Test ID: (\S+)$', tool.read_text(encoding='utf-8'))
+        yield (m.group(1) if m else None), f'{where}: {run}'
 
     fuzz = root / 'cicd/linux/fuzz.bash'
     for num, line in enumerate(fuzz.read_text(encoding='utf-8').splitlines(), 1):

@@ -32,7 +32,7 @@
 G_DEFINE_TYPE (NemoVFSDirectory, nemo_vfs_directory, NEMO_TYPE_DIRECTORY);
 
 static void
-nemo_vfs_directory_init (NemoVFSDirectory *directory)
+nemo_vfs_directory_init (G_GNUC_UNUSED NemoVFSDirectory *directory)
 {
 
 }

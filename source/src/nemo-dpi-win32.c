@@ -31,6 +31,7 @@
 
 #include <gtk/gtk.h>
 #include <gdk/gdkwin32.h>
+#include <libnemo-private/nemo-ui-scale.h>
 
 #include <windows.h>
 
@@ -199,7 +200,7 @@ apply_now (void)
 }
 
 static gboolean
-recompute_cb (gpointer data)
+recompute_cb (G_GNUC_UNUSED gpointer data)
 {
 	recompute_id = 0;
 	apply_now ();
@@ -218,8 +219,8 @@ recompute_soon (void)
 
 static GdkFilterReturn
 message_filter (GdkXEvent *xevent,
-		GdkEvent  *event,
-		gpointer   data)
+		G_GNUC_UNUSED GdkEvent  *event,
+		G_GNUC_UNUSED gpointer   data)
 {
 	MSG *msg = (MSG *) xevent;
 
@@ -233,8 +234,8 @@ message_filter (GdkXEvent *xevent,
 }
 
 static void
-monitors_changed_cb (GdkScreen *screen,
-		     gpointer   data)
+monitors_changed_cb (G_GNUC_UNUSED GdkScreen *screen,
+		     G_GNUC_UNUSED gpointer   data)
 {
 	recompute_soon ();
 }
@@ -251,6 +252,9 @@ nemo_dpi_win32_init (void)
 	started = TRUE;
 
 	gdk_window_add_filter (NULL, message_filter, NULL);
+
+	/* Icons take the fraction the font DPI carries over the whole step. */
+	nemo_ui_scale_install ();
 
 	screen = gdk_screen_get_default ();
 	if (screen != NULL) {

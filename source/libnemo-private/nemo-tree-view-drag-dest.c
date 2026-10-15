@@ -187,7 +187,7 @@ remove_expand_timeout (NemoTreeViewDragDest *dest)
 static gboolean
 highlight_draw (GtkWidget *widget,
 		cairo_t   *cr,
-                gpointer data)
+                G_GNUC_UNUSED gpointer data)
 {
 	GdkWindow *bin_window;
 	int width;
@@ -568,15 +568,15 @@ drag_motion_callback (GtkWidget *widget,
 				       dest->details->tree_view);
 	}
 
-	gdk_drag_status (context, action, time);
+	nemo_drag_status (context, action, time);
 
 	return TRUE;
 }
 
 static void
-drag_leave_callback (GtkWidget *widget,
-		     GdkDragContext *context,
-		     guint32 time,
+drag_leave_callback (G_GNUC_UNUSED GtkWidget *widget,
+		     G_GNUC_UNUSED GdkDragContext *context,
+		     G_GNUC_UNUSED guint32 time,
 		     gpointer data)
 {
 	NemoTreeViewDragDest *dest;
@@ -629,7 +629,7 @@ receive_uris (NemoTreeViewDragDest *dest,
 	drop_target = get_drop_target_uri_at_pos (dest, x, y);
 	g_assert (drop_target != NULL);
 
-	real_action = gdk_drag_context_get_selected_action (context);
+	real_action = nemo_drag_selected_action (context);
 
 	if (real_action == GDK_ACTION_ASK) {
 		if (nemo_drag_selection_includes_special_link (dest->details->drag_list)) {
@@ -711,7 +711,7 @@ receive_dropped_uri_list (NemoTreeViewDragDest *dest,
 	g_signal_emit (dest, signals[HANDLE_URI_LIST], 0,
 		       (char*) gtk_selection_data_get_data (dest->details->drag_data),
 		       drop_target,
-		       gdk_drag_context_get_selected_action (context),
+		       nemo_drag_selected_action (context),
 		       x, y);
 
 	g_free (drop_target);
@@ -735,7 +735,7 @@ receive_dropped_text (NemoTreeViewDragDest *dest,
 	text = gtk_selection_data_get_text (dest->details->drag_data);
 	g_signal_emit (dest, signals[HANDLE_TEXT], 0,
 		       (char *) text, drop_target,
-		       gdk_drag_context_get_selected_action (context),
+		       nemo_drag_selected_action (context),
 		       x, y);
 
 	g_free (text);
@@ -760,7 +760,7 @@ receive_dropped_raw (NemoTreeViewDragDest *dest,
 	g_signal_emit (dest, signals[HANDLE_RAW], 0,
 		       raw_data, length, drop_target,
 		       dest->details->direct_save_uri,
-		       gdk_drag_context_get_selected_action (context),
+		       nemo_drag_selected_action (context),
 		       x, y);
 
 	g_free (drop_target);
@@ -783,7 +783,7 @@ receive_dropped_netscape_url (NemoTreeViewDragDest *dest,
 	g_signal_emit (dest, signals[HANDLE_NETSCAPE_URL], 0,
 		       (char*) gtk_selection_data_get_data (dest->details->drag_data),
 		       drop_target,
-		       gdk_drag_context_get_selected_action (context),
+		       nemo_drag_selected_action (context),
 		       x, y);
 
 	g_free (drop_target);
@@ -794,7 +794,7 @@ receive_xds (NemoTreeViewDragDest *dest,
 	     GtkWidget *widget,
 	     guint32 time,
 	     GdkDragContext *context,
-	     int x, int y)
+	     G_GNUC_UNUSED int x, G_GNUC_UNUSED int y)
 {
 	GFile *location;
 	const guchar *selection_data;
@@ -969,14 +969,14 @@ set_direct_save_uri (NemoTreeViewDragDest *dest,
 			DEBUG ("Invalid filename provided by XDS drag site");
 		}
 	} else {
-		DEBUG ("Could not retrieve XDS drop destination");
+		DEBUG ("Couldn't retrieve XDS drop destination");
 	}
 
 	return uri != NULL;
 }
 
 static gboolean
-drag_drop_callback (GtkWidget *widget,
+drag_drop_callback (G_GNUC_UNUSED GtkWidget *widget,
 		    GdkDragContext *context,
 		    int x,
 		    int y,
@@ -1020,7 +1020,7 @@ drag_drop_callback (GtkWidget *widget,
 
 static void
 tree_view_weak_notify (gpointer user_data,
-		       GObject *object)
+		       G_GNUC_UNUSED GObject *object)
 {
 	NemoTreeViewDragDest *dest;
 
@@ -1177,6 +1177,7 @@ nemo_tree_view_drag_dest_class_init (NemoTreeViewDragDestClass *class)
 
 
 
+/* Returns: (transfer full): unref with g_object_unref */
 NemoTreeViewDragDest *
 nemo_tree_view_drag_dest_new (GtkTreeView *tree_view, gboolean strict_drop)
 {

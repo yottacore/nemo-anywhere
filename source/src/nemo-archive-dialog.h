@@ -26,13 +26,28 @@
 #include <gtk/gtk.h>
 #include <gio/gio.h>
 
+#include "arc-mounts.h"
+
 /* files are GFile *; default_dir is where the archive is offered to be put,
    normally the folder being viewed. whole_folder says the files are everything
    the folder is showing, which is what lets a multiple selection borrow the
-   folder's name. Runs the job itself when accepted. */
+   folder's name. links_or_folders says some of them are links or folders, so
+   the link choices apply. Runs the job itself when accepted. */
 void nemo_archive_dialog_show (GtkWindow *parent_window,
 			       GList     *files,
 			       GFile     *default_dir,
-			       gboolean   whole_folder);
+			       gboolean   whole_folder,
+			       gboolean   links_or_folders);
+
+/* How tall the Compress dialog's options may grow before they scroll: what
+   the work area leaves under the closed dialog (frame included), and never
+   less than a strip that still shows a few rows. */
+int  nemo_archive_options_room (int work_height,
+				int closed_height);
+
+/* For tests: where each size scan gets its mount table, NULL for the
+   system's, and how many scans are running. */
+void  nemo_archive_dialog_set_mounts_for_test (ArcMountTable *(*mounts) (void));
+guint nemo_archive_dialog_scans_for_test      (void);
 
 #endif /* NEMO_ARCHIVE_DIALOG_H */

@@ -785,7 +785,7 @@ has_invalid_xml_char (char *str)
 
 
 static char *
-custom_full_name_to_string (char *format, va_list va)
+custom_full_name_to_string (G_GNUC_UNUSED char *format, va_list va)
 {
 	GFile *file;
 
@@ -801,7 +801,7 @@ custom_full_name_skip (va_list *va)
 }
 
 static char *
-custom_basename_to_string (char *format, va_list va)
+custom_basename_to_string (G_GNUC_UNUSED char *format, va_list va)
 {
 	GFile *file;
 	GFileInfo *info;
@@ -864,7 +864,7 @@ custom_basename_skip (va_list *va)
 
 
 static char *
-custom_size_to_string (char *format, va_list va)
+custom_size_to_string (G_GNUC_UNUSED char *format, va_list va)
 {
 	goffset size;
 
@@ -883,7 +883,7 @@ custom_size_skip (va_list *va)
 }
 
 static char *
-custom_time_to_string (char *format, va_list va)
+custom_time_to_string (G_GNUC_UNUSED char *format, va_list va)
 {
 	int secs;
 
@@ -898,7 +898,7 @@ custom_time_skip (va_list *va)
 }
 
 static char *
-custom_mount_to_string (char *format, va_list va)
+custom_mount_to_string (G_GNUC_UNUSED char *format, va_list va)
 {
 	GMount *mount;
 
@@ -984,7 +984,7 @@ get_parent_name (GFile *file, gchar **name)
 /* adapted from gio/glocalfile.c */
 static gboolean
 _g_local_file_delete (GFile         *file,
-                     GCancellable  *cancellable,
+                     G_GNUC_UNUSED GCancellable  *cancellable,
                      GError       **error)
 {
     gchar *path;
@@ -1376,8 +1376,9 @@ run_simple_dialog_va (CommonJob *job,
 	int res;
 	const char *button_title;
 	GPtrArray *ptr_array;
+	gboolean paused_here;
 
-    nemo_progress_info_pause (job->progress);
+	paused_here = nemo_progress_info_pause (job->progress);
 
 	data = g_new0 (RunSimpleDialogData, 1);
 	data->parent_window = &job->parent_window;
@@ -1404,7 +1405,9 @@ run_simple_dialog_va (CommonJob *job,
 	g_free (data->button_titles);
 	g_free (data);
 
-    nemo_progress_info_resume (job->progress);
+	if (paused_here) {
+		nemo_progress_info_resume (job->progress);
+	}
 
 	g_free (primary_text);
 	g_free (secondary_text);
@@ -1499,6 +1502,7 @@ ask_about_links (CopyMoveJob          *copy_job,
 	const char *dest_path;
 	const char *forced;
 	guint supported;
+	gboolean paused_here;
 
 	copy_job->link_choice_set = FALSE;
 
@@ -1528,9 +1532,11 @@ ask_about_links (CopyMoveJob          *copy_job,
 	data.supported = supported;
 	data.is_move = copy_job->is_move;
 
-	nemo_progress_info_pause (job->progress);
+	paused_here = nemo_progress_info_pause (job->progress);
 	g_io_scheduler_job_send_to_mainloop (job->io_job, do_run_link_dialog, &data, NULL);
-	nemo_progress_info_resume (job->progress);
+	if (paused_here) {
+		nemo_progress_info_resume (job->progress);
+	}
 
 	if (!data.accepted) {
 		return FALSE;
@@ -1745,7 +1751,7 @@ static char *
 unattended_note (CommonJob *job, const char *secondary)
 {
 	if (((DeleteJob *) job)->unattended) {
-		return f (_("This did not come from a trash or delete command. It came from undo, a drop or another command in a window. %s"), secondary);
+		return f (_("This didn't come from a trash or delete command. It came from undo, a drop or another command in a window. %s"), secondary);
 	}
 
 	return f ("%s", secondary);
@@ -1761,7 +1767,7 @@ should_confirm_move_to_trash (void)
 	return confirm_move_to_trash;
 }
 
-static gboolean G_GNUC_UNUSED
+static gboolean
 confirm_move_to_trash (CommonJob *job,
 			   GList *files)
 {
@@ -1831,7 +1837,7 @@ nemo_file_operations_delete_from_trash_asks (gboolean by_user, guint count)
 					      nemo_config_get_int (nemo_preferences, NEMO_PREFERENCES_CONFIRM_MANY_ITEMS));
 }
 
-static gboolean G_GNUC_UNUSED
+static gboolean
 confirm_delete_from_trash (CommonJob *job,
 			   GList *files)
 {
@@ -1871,7 +1877,7 @@ confirm_delete_from_trash (CommonJob *job,
 	return (response == 1);
 }
 
-static gboolean G_GNUC_UNUSED
+static gboolean
 confirm_empty_trash (CommonJob *job)
 {
 	char *prompt;
@@ -1894,7 +1900,7 @@ confirm_empty_trash (CommonJob *job)
 	return (response == 1);
 }
 
-static gboolean G_GNUC_UNUSED
+static gboolean
 confirm_delete_directly (CommonJob *job,
 			 GList *files)
 {
@@ -2052,7 +2058,7 @@ delete_dir (CommonJob *job, GFile *dir,
 	    gboolean *skipped_file,
 	    SourceInfo *source_info,
 	    TransferInfo *transfer_info,
-	    gboolean toplevel)
+	    G_GNUC_UNUSED gboolean toplevel)
 {
 	GFileInfo *info;
 	GError *error;
@@ -2100,7 +2106,7 @@ delete_dir (CommonJob *job, GFile *dir,
 			details = NULL;
 
 			if (IS_IO_ERROR (error, PERMISSION_DENIED)) {
-				secondary = f (_("Files in the folder \"%B\" cannot be deleted because you do "
+				secondary = f (_("Files in the folder \"%B\" can't be deleted because you do "
 						 "not have permissions to see them."), dir);
 			} else {
 				secondary = f (_("There was an error getting information about the files in the folder \"%B\"."), dir);
@@ -2133,7 +2139,7 @@ delete_dir (CommonJob *job, GFile *dir,
 		primary = f (_("Error while deleting."));
 		details = NULL;
 		if (IS_IO_ERROR (error, PERMISSION_DENIED)) {
-			secondary = f (_("The folder \"%B\" cannot be deleted because you do not have "
+			secondary = f (_("The folder \"%B\" can't be deleted because you don't have "
 					 "permissions to read it."), dir);
 		} else {
 			secondary = f (_("There was an error reading the folder \"%B\"."), dir);
@@ -2177,7 +2183,7 @@ delete_dir (CommonJob *job, GFile *dir,
 				goto skip;
 			}
 			primary = f (_("Error while deleting."));
-			secondary = f (_("Could not remove the folder %B."), dir);
+			secondary = f (_("Couldn't remove the folder %B."), dir);
 			details = error->message;
 
 			response = run_warning (job,
@@ -2369,7 +2375,7 @@ report_trash_progress (CommonJob *job,
    the delete was asked about twice, the second time from behind the progress
    window. */
 static gboolean
-trash_one_file (GFile *file, GCancellable *cancellable, GError **error)
+trash_one_file (GFile *file, G_GNUC_UNUSED GCancellable *cancellable, GError **error)
 {
 	if (!nemo_delete_guard_check (file, error)) {
 		return FALSE;
@@ -2427,8 +2433,8 @@ trash_files (CommonJob *job, GList *files, guint *files_skipped)
 				goto skip;
 			}
 
-			primary = f (_("Cannot move file to trash, do you want to delete immediately?"));
-			secondary = f (_("The file \"%B\" cannot be moved to the trash."), file);
+			primary = f (_("Can't move file to trash, do you want to delete immediately?"));
+			secondary = f (_("The file \"%B\" can't be moved to the trash."), file);
 			details = NULL;
 			if (!IS_IO_ERROR (error, NOT_SUPPORTED)) {
 				details = error->message;
@@ -2575,7 +2581,7 @@ refuse_job (DeleteJob *job)
 
 static gboolean
 delete_job (GIOSchedulerJob *io_job,
-	    GCancellable *cancellable,
+	    G_GNUC_UNUSED GCancellable *cancellable,
 	    gpointer user_data)
 {
 	DeleteJob *job = user_data;
@@ -2995,7 +3001,7 @@ prompt_empty_trash (GtkWindow *parent_window)
 }
 
 static void
-empty_trash_for_unmount_done (gboolean success,
+empty_trash_for_unmount_done (G_GNUC_UNUSED gboolean success,
 			      gpointer user_data)
 {
 	UnmountData *data = user_data;
@@ -3071,7 +3077,7 @@ nemo_file_operations_unmount_mount (GtkWindow                      *parent_windo
 
 static void
 mount_callback_data_notify (gpointer data,
-			    GObject *object)
+			    G_GNUC_UNUSED GObject *object)
 {
 	GMountOperation *mount_op;
 
@@ -3343,7 +3349,7 @@ scan_dir (GFile *dir,
 			details = NULL;
 
 			if (IS_IO_ERROR (error, PERMISSION_DENIED)) {
-				secondary = f (_("Files in the folder \"%B\" cannot be handled because you do "
+				secondary = f (_("Files in the folder \"%B\" can't be handled because you do "
 						 "not have permissions to see them."), dir);
 			} else {
 				secondary = f (_("There was an error getting information about the files in the folder \"%B\"."), dir);
@@ -3382,7 +3388,7 @@ scan_dir (GFile *dir,
 		details = NULL;
 
 		if (IS_IO_ERROR (error, PERMISSION_DENIED)) {
-			secondary = f (_("The folder \"%B\" cannot be handled because you do not have "
+			secondary = f (_("The folder \"%B\" can't be handled because you don't have "
 					 "permissions to read it."), dir);
 		} else {
 			secondary = f (_("There was an error reading the folder \"%B\"."), dir);
@@ -3464,7 +3470,7 @@ scan_file (GFile *file,
 		details = NULL;
 
 		if (IS_IO_ERROR (error, PERMISSION_DENIED)) {
-			secondary = f (_("The file \"%B\" cannot be handled because you do not have "
+			secondary = f (_("The file \"%B\" can't be handled because you don't have "
 					 "permissions to read it."), file);
 		} else {
 			secondary = f (_("There was an error getting information about \"%B\"."), file);
@@ -3504,8 +3510,7 @@ scan_file (GFile *file,
 	}
 
 	/* Free all from queue if we exited early */
-	g_queue_foreach (dirs, (GFunc)g_object_unref, NULL);
-	g_queue_free (dirs);
+	g_queue_free_full (dirs, g_object_unref);
 }
 
 static void
@@ -3572,7 +3577,7 @@ verify_destination (CommonJob *job,
 		details = NULL;
 
 		if (IS_IO_ERROR (error, PERMISSION_DENIED)) {
-			secondary = f (_("You do not have permissions to access the destination folder."));
+			secondary = f (_("You don't have permissions to access the destination folder."));
 		} else {
 			secondary = f (_("There was an error getting information about the destination."));
 			details = error->message;
@@ -3611,7 +3616,7 @@ verify_destination (CommonJob *job,
 
 	if (file_type != G_FILE_TYPE_DIRECTORY) {
 		primary = f (_("Error while copying to \"%B\"."), dest);
-		secondary = f (_("The destination is not a folder."));
+		secondary = f (_("The destination isn't a folder."));
 
 		response = run_error (job,
 				      primary,
@@ -3642,10 +3647,10 @@ verify_destination (CommonJob *job,
 		free_size = g_file_info_get_attribute_uint64 (fsinfo,
 							      G_FILE_ATTRIBUTE_FILESYSTEM_FREE);
 
-		if (free_size < required_size) {
+		if (free_size < (guint64) required_size) {
 			size_difference = required_size - free_size;
 			primary = f (_("Error while copying to \"%B\"."), dest);
-			secondary = f (_("There is not enough space on the destination. Try to remove files to make space."));
+			secondary = f (_("There isn't enough space on the destination. Try to remove files to make space."));
 
 			details = f (_("%S more space is required to copy to the destination."), size_difference);
 
@@ -3872,8 +3877,6 @@ get_max_name_length (GFile *file_dir)
 	return max_length;
 }
 
-#define FAT_FORBIDDEN_CHARACTERS "/:*?\"<>\\|"
-
 static gboolean
 str_replace (char *str,
 	     char replacement)
@@ -3883,7 +3886,7 @@ str_replace (char *str,
 
 	success = FALSE;
 	for (i = 0; str[i] != '\0'; i++) {
-		if (strchr (FAT_FORBIDDEN_CHARACTERS, str[i]) ||
+		if (strchr (NEMO_WINDOWS_NAME_BAD_CHARS, str[i]) ||
 			str[i] < 32) {
 			success = TRUE;
 			str[i] = replacement;
@@ -3933,7 +3936,7 @@ make_file_name_valid_for_dest_fs (char *filename,
 static GFile *
 get_unique_target_file (GFile *src,
 			GFile *dest_dir,
-			gboolean same_fs,
+			G_GNUC_UNUSED gboolean same_fs,
 			const char *dest_fs_type,
 			int count)
 {
@@ -4262,7 +4265,7 @@ create_dest_dir (CommonJob *job,
 		details = NULL;
 
 		if (IS_IO_ERROR (error, PERMISSION_DENIED)) {
-			secondary = f (_("The folder \"%B\" cannot be copied because you do not have "
+			secondary = f (_("The folder \"%B\" can't be copied because you don't have "
 					 "permissions to create it in the destination."), src);
 		} else {
 			secondary = f (_("There was an error creating the folder \"%B\"."), src);
@@ -4395,7 +4398,7 @@ copy_move_directory (CopyMoveJob *copy_job,
 			details = NULL;
 
 			if (IS_IO_ERROR (error, PERMISSION_DENIED)) {
-				secondary = f (_("Files in the folder \"%B\" cannot be copied because you do "
+				secondary = f (_("Files in the folder \"%B\" can't be copied because you do "
 						 "not have permissions to see them."), src);
 			} else {
 				secondary = f (_("There was an error getting information about the files in the folder \"%B\"."), src);
@@ -4440,7 +4443,7 @@ copy_move_directory (CopyMoveJob *copy_job,
 		details = NULL;
 
 		if (IS_IO_ERROR (error, PERMISSION_DENIED)) {
-			secondary = f (_("The folder \"%B\" cannot be copied because you do not have "
+			secondary = f (_("The folder \"%B\" can't be copied because you don't have "
 					 "permissions to read it."), src);
 		} else {
 			secondary = f (_("There was an error reading the folder \"%B\"."), src);
@@ -4487,7 +4490,7 @@ copy_move_directory (CopyMoveJob *copy_job,
 				goto skip;
 			}
 			primary = f (_("Error while moving \"%B\"."), src);
-			secondary = f (_("Could not remove the source folder."));
+			secondary = f (_("Couldn't remove the source folder."));
 			details = error->message;
 
 			response = run_warning (job,
@@ -4583,7 +4586,7 @@ remove_target_recursively (CommonJob *job,
 		}
 
 		primary = f (_("Error while copying \"%B\"."), src);
-		secondary = f (_("Could not remove files from the already existing folder %F."), file);
+		secondary = f (_("Couldn't remove files from the already existing folder %F."), file);
 		details = error->message;
 
 		/* set show_all to TRUE here, as we don't know how many
@@ -4624,7 +4627,7 @@ remove_target_recursively (CommonJob *job,
 			goto skip2;
 		}
 		primary = f (_("Error while copying \"%B\"."), src);
-		secondary = f (_("Could not remove the already existing file %F."), file);
+		secondary = f (_("Couldn't remove the already existing file %F."), file);
 		details = error->message;
 
 		/* set show_all to TRUE here, as we don't know how many
@@ -4668,7 +4671,7 @@ typedef struct {
 
 static void
 copy_file_progress_callback (goffset current_num_bytes,
-			     goffset total_num_bytes,
+			     G_GNUC_UNUSED goffset total_num_bytes,
 			     gpointer user_data)
 {
 	ProgressData *pdata;
@@ -4834,8 +4837,9 @@ run_conflict_dialog (CommonJob *job,
 {
 	ConflictDialogData *data;
 	ConflictResponseData *resp_data;
+	gboolean paused_here;
 
-    nemo_progress_info_pause (job->progress);
+	paused_here = nemo_progress_info_pause (job->progress);
 
 	data = g_new0 (ConflictDialogData, 1);
 	data->parent = job->parent_window;
@@ -4854,7 +4858,9 @@ run_conflict_dialog (CommonJob *job,
 
 	g_free (data);
 
-    nemo_progress_info_resume (job->progress);
+	if (paused_here) {
+		nemo_progress_info_resume (job->progress);
+	}
 
 	return resp_data;
 }
@@ -5092,8 +5098,8 @@ copy_move_file (CopyMoveJob *copy_job,
 		}
 
 		/*  the run_warning() frees all strings passed in automatically  */
-		primary = copy_job->is_move ? g_strdup (_("You cannot move a folder into itself."))
-					    : g_strdup (_("You cannot copy a folder into itself."));
+		primary = copy_job->is_move ? g_strdup (_("You can't move a folder into itself."))
+					    : g_strdup (_("You can't copy a folder into itself."));
 		secondary = g_strdup (_("The destination folder is inside the source folder."));
 
 		response = run_warning (job,
@@ -5125,8 +5131,8 @@ copy_move_file (CopyMoveJob *copy_job,
 		}
 
 		/*  the run_warning() frees all strings passed in automatically  */
-		primary = copy_job->is_move ? g_strdup (_("You cannot move a file over itself."))
-					    : g_strdup (_("You cannot copy a file over itself."));
+		primary = copy_job->is_move ? g_strdup (_("You can't move a file over itself."))
+					    : g_strdup (_("You can't copy a file over itself."));
 		secondary = g_strdup (_("The source file would be overwritten by the destination."));
 
 		response = run_warning (job,
@@ -5161,7 +5167,7 @@ copy_move_file (CopyMoveJob *copy_job,
 		if (!job->skip_all_error) {
 			response = run_warning (job,
 						f (_("Error while moving \"%B\"."), src),
-						f (_("A link is only ever moved as a link, and this one could not be read. It was left where it is.")),
+						f (_("A link is only ever moved as a link, and this one couldn't be read. It was left where it is.")),
 						NULL,
 						(source_info->num_files - transfer_info->num_files) > 1,
 						GTK_STOCK_CANCEL, SKIP_ALL, SKIP,
@@ -5414,7 +5420,7 @@ copy_move_file (CopyMoveJob *copy_job,
 				} else {
 					primary = f (_("Error while copying \"%B\"."), src);
 				}
-				secondary = f (_("Could not remove the already existing file with the same name in %F."), dest_dir);
+				secondary = f (_("Couldn't remove the already existing file with the same name in %F."), dest_dir);
 				details = error->message;
 
 				/* setting TRUE on show_all here, as we could have
@@ -5637,7 +5643,7 @@ copy_job_done (gpointer user_data)
 
 static gboolean
 copy_job (GIOSchedulerJob *io_job,
-	  GCancellable *cancellable,
+	  G_GNUC_UNUSED GCancellable *cancellable,
 	  gpointer user_data)
 {
 	CopyMoveJob *job;
@@ -5782,7 +5788,7 @@ nemo_file_operations_copy (GList *files,
 }
 
 static void
-report_move_progress (CopyMoveJob *move_job, int total, int left)
+report_move_progress (CopyMoveJob *move_job, G_GNUC_UNUSED int total, int left)
 {
 	CommonJob *job;
 
@@ -5908,8 +5914,8 @@ move_file_prepare (CopyMoveJob *move_job,
 		}
 
 		/*  the run_warning() frees all strings passed in automatically  */
-		primary = move_job->is_move ? g_strdup (_("You cannot move a folder into itself."))
-					    : g_strdup (_("You cannot copy a folder into itself."));
+		primary = move_job->is_move ? g_strdup (_("You can't move a folder into itself."))
+					    : g_strdup (_("You can't copy a folder into itself."));
 		secondary = g_strdup (_("The destination folder is inside the source folder."));
 
 		response = run_warning (job,
@@ -5981,7 +5987,7 @@ move_file_prepare (CopyMoveJob *move_job,
 									    src, dest);
 		}
 
-		return;
+		goto out;
 	}
 
 	if (IS_IO_ERROR (error, INVALID_FILENAME) &&
@@ -6236,6 +6242,7 @@ move_job_done (gpointer user_data)
 
 	g_list_free_full (job->files, g_object_unref);
 	g_object_unref (job->destination);
+	g_clear_object (&job->desktop_location);
 	g_hash_table_unref (job->debuting_files);
 	g_free (job->icon_positions);
 
@@ -6247,7 +6254,7 @@ move_job_done (gpointer user_data)
 
 static gboolean
 move_job (GIOSchedulerJob *io_job,
-	  GCancellable *cancellable,
+	  G_GNUC_UNUSED GCancellable *cancellable,
 	  gpointer user_data)
 {
 	CopyMoveJob *job;
@@ -6445,10 +6452,11 @@ get_abs_path_for_symlink (GFile *file)
 
 
 /* A .lnk shortcut. Rewrite *dest to carry the required .lnk extension, then
- * save the shortcut pointing at target_path, carrying the NemoLnkParts asked
- * for. On success *dest owns the .lnk GFile. */
+ * save the shortcut pointing at target_path, with the absolute and relative
+ * paths, and the portable one too if asked. On success *dest owns the .lnk
+ * GFile. */
 static gboolean
-create_lnk (GFile **dest, const char *target_path, guint parts, GError **error)
+create_lnk (GFile **dest, const char *target_path, gboolean with_portable, GError **error)
 {
 	GFile *dir, *lnk;
 	char *base, *lnk_base, *lnk_path;
@@ -6477,9 +6485,9 @@ create_lnk (GFile **dest, const char *target_path, guint parts, GError **error)
 		ok = FALSE;
 	} else {
 #ifdef G_OS_WIN32
-		ok = nemo_shortcut_win32_create_parts (target_path, lnk_path, parts, error);
+		ok = nemo_shortcut_win32_create_paths (target_path, lnk_path, with_portable, error);
 #else
-		ok = nemo_lnk_write (lnk_path, target_path, parts, error);
+		ok = nemo_lnk_write (lnk_path, target_path, with_portable, error);
 #endif
 	}
 	g_free (lnk_path);
@@ -6541,7 +6549,7 @@ make_chosen_link (CopyMoveJob *job, GFile *src, GFile **dest, GFile *dest_dir,
 					     _("Shortcuts can only point at a local file or folder."));
 			ok = FALSE;
 		} else {
-			ok = create_lnk (dest, src_path, options->lnk_parts, error);
+			ok = create_lnk (dest, src_path, TRUE, error);
 		}
 	} else if (!is_dir && kind == NEMO_MAKE_HARDLINK) {
 		if (src_path == NULL || dest_path == NULL) {
@@ -6640,7 +6648,7 @@ link_file (CopyMoveJob *job,
 		    * bookkeeping below records that file instead. */
 		   (job->want_symlink
 		    ? win_create_symlink (dest, path, &error)
-		    : create_lnk (&dest, path, NEMO_LNK_ABSOLUTE | NEMO_LNK_RELATIVE, &error))
+		    : create_lnk (&dest, path, FALSE, &error))
 #else
 		   g_file_make_symbolic_link (dest,
 					      path,
@@ -6777,7 +6785,7 @@ link_job_done (gpointer user_data)
 
 static gboolean
 link_job (GIOSchedulerJob *io_job,
-	  GCancellable *cancellable,
+	  G_GNUC_UNUSED GCancellable *cancellable,
 	  gpointer user_data)
 {
 	CopyMoveJob *job;
@@ -7052,7 +7060,7 @@ set_permissions_file (SetPermissionsJob *job,
 
 static gboolean
 set_permissions_job (GIOSchedulerJob *io_job,
-		     GCancellable *cancellable,
+		     G_GNUC_UNUSED GCancellable *cancellable,
 		     gpointer user_data)
 {
 	SetPermissionsJob *job = user_data;
@@ -7352,7 +7360,7 @@ create_job_done (gpointer user_data)
 
 static gboolean
 create_job (GIOSchedulerJob *io_job,
-	    GCancellable *cancellable,
+	    G_GNUC_UNUSED GCancellable *cancellable,
 	    gpointer user_data)
 {
 	CreateJob *job;
@@ -7543,7 +7551,7 @@ create_job (GIOSchedulerJob *io_job,
 				filename2 = g_strdup_printf ("%s %d%s", filename_base, count, suffix);
 
 				new_filename = NULL;
-				if (max_length > 0 && strlen (filename2) > abs(max_length)) {
+				if (max_length > 0 && strlen (filename2) > (size_t) max_length) {
 					new_filename = shorten_utf8_string (filename2, strlen (filename2) - max_length);
 				}
 
@@ -7579,7 +7587,7 @@ create_job (GIOSchedulerJob *io_job,
 
 			filename2 = g_strdup_printf ("%s %d%s", filename_base, ++count, suffix);
 
-			if (max_length > 0 && strlen (filename2) > abs(max_length)) {
+			if (max_length > 0 && strlen (filename2) > (size_t) max_length) {
 				new_filename = shorten_utf8_string (filename2, strlen (filename2) - max_length);
 				if (new_filename != NULL) {
 					g_free (filename2);
@@ -7754,6 +7762,318 @@ nemo_file_operations_new_file (GtkWidget *parent_view,
     add_job_to_job_queue (create_job, job, job->common.cancellable, job->common.progress, OP_KIND_CREATE);
 }
 
+typedef enum {
+	NEST_FROM_FRESH,
+	NEST_MAKE_AGAIN,
+	NEST_UNMAKE,
+} NestMode;
+
+typedef struct {
+	CommonJob common;
+	NestMode mode;
+	GFile *fresh;
+	GFile *parent;
+	char **parts;
+	GList *made;		/* top first */
+	GFile *top;
+	GError *error;
+	NemoNestCallback done_callback;
+	gpointer done_callback_data;
+} NestJob;
+
+static GFile *
+nest_child (GFile *dir, const char *name)
+{
+	GFile *child = NULL;
+
+	if (g_utf8_validate (name, -1, NULL)) {
+		child = g_file_get_child_for_display_name (dir, name, NULL);
+	}
+	return child != NULL ? child : g_file_get_child (dir, name);
+}
+
+static gboolean
+nest_job_done (gpointer user_data)
+{
+	NestJob *job = user_data;
+
+	/* Before the callback, so the fresh folder is already at its new place
+	   when the view looks for the top of the path. */
+	nemo_file_changes_consume_changes (TRUE);
+
+	if (job->done_callback != NULL) {
+		job->done_callback (job->top, job->error, job->done_callback_data);
+	}
+
+	if (job->common.undo_info != NULL) {
+		if (job->made != NULL) {
+			nemo_file_undo_info_create_set_folders (NEMO_FILE_UNDO_INFO_CREATE (job->common.undo_info),
+								job->made);
+		} else {
+			g_clear_object (&job->common.undo_info);
+		}
+	}
+
+	g_clear_object (&job->fresh);
+	g_clear_object (&job->parent);
+	g_clear_object (&job->top);
+	g_strfreev (job->parts);
+	g_list_free_full (job->made, g_object_unref);
+	g_clear_error (&job->error);
+
+	finalize_common ((CommonJob *) job);
+	return FALSE;
+}
+
+/* The fresh folder becomes the first folder of the path that is not there yet,
+   so nothing is removed on the way and the folder it was keeps its place in the
+   list. Folders already there are gone through, and only the last one being
+   there is an error. */
+static void
+nest_from_fresh (NestJob *job)
+{
+	GCancellable *cancellable = job->common.cancellable;
+	GFile *at = g_object_ref (job->parent);
+	GFile *first_missing = NULL;
+	gboolean fresh_kept = FALSE;
+	guint n = g_strv_length (job->parts);
+	guint i, missing = n;
+
+	for (i = 0; i < n; i++) {
+		GFile *next = nest_child (at, job->parts[i]);
+		GFileType type;
+
+		g_object_unref (at);
+		at = next;
+		if (i == 0) {
+			job->top = g_object_ref (at);
+		}
+
+		/* The fresh folder itself, typed as the first part. */
+		if (i == 0 && g_file_equal (at, job->fresh)) {
+			job->made = g_list_append (job->made, g_object_ref (at));
+			fresh_kept = TRUE;
+			continue;
+		}
+
+		type = g_file_query_file_type (at, G_FILE_QUERY_INFO_NONE, cancellable);
+		if (type == G_FILE_TYPE_UNKNOWN) {
+			missing = i;
+			first_missing = g_object_ref (at);
+			break;
+		}
+		if (i == n - 1) {
+			g_set_error (&job->error, G_IO_ERROR, G_IO_ERROR_EXISTS,
+				     _("\"%s\" is already there."), job->parts[i]);
+			goto out;
+		}
+		if (type != G_FILE_TYPE_DIRECTORY) {
+			g_set_error (&job->error, G_IO_ERROR, G_IO_ERROR_NOT_DIRECTORY,
+				     _("\"%s\" is a file, not a folder."), job->parts[i]);
+			goto out;
+		}
+	}
+
+	if (first_missing != NULL) {
+		GError *error = NULL;
+
+		if (fresh_kept) {
+			if (!g_file_make_directory (first_missing, cancellable, &job->error)) {
+				goto out;
+			}
+			job->made = g_list_append (job->made, g_object_ref (first_missing));
+			nemo_file_changes_queue_file_added (first_missing);
+		} else if (!g_file_move (job->fresh, first_missing, G_FILE_COPY_NOFOLLOW_SYMLINKS,
+					 cancellable, NULL, NULL, &error)) {
+			/* Another filesystem mounted along the path: make it there and
+			   let the fresh one go, which is still empty. */
+			if (!IS_IO_ERROR (error, WOULD_RECURSE) && !IS_IO_ERROR (error, NOT_SUPPORTED)) {
+				g_propagate_error (&job->error, error);
+				goto out;
+			}
+			g_clear_error (&error);
+			if (!g_file_make_directory (first_missing, cancellable, &job->error)) {
+				goto out;
+			}
+			job->made = g_list_append (job->made, g_object_ref (first_missing));
+			nemo_file_changes_queue_file_added (first_missing);
+			if (file_delete_wrapper (job->fresh, cancellable, NULL)) {
+				nemo_file_changes_queue_file_removed (job->fresh);
+			}
+		} else {
+			job->made = g_list_append (job->made, g_object_ref (first_missing));
+			nemo_file_changes_queue_file_moved (job->fresh, first_missing);
+		}
+
+		for (i = missing + 1; i < n; i++) {
+			GFile *next = nest_child (at, job->parts[i]);
+
+			g_object_unref (at);
+			at = next;
+			if (!g_file_make_directory (at, cancellable, &job->error)) {
+				goto out;
+			}
+			job->made = g_list_append (job->made, g_object_ref (at));
+			nemo_file_changes_queue_file_added (at);
+		}
+	}
+
+ out:
+	g_clear_object (&first_missing);
+	g_object_unref (at);
+}
+
+static void
+nest_make_again (NestJob *job)
+{
+	GList *l;
+
+	for (l = job->made; l != NULL; l = l->next) {
+		GError *error = NULL;
+
+		if (g_file_make_directory (l->data, job->common.cancellable, &error)) {
+			nemo_file_changes_queue_file_added (l->data);
+		} else if (!IS_IO_ERROR (error, EXISTS)) {
+			g_propagate_error (&job->error, error);
+			return;
+		} else {
+			g_clear_error (&error);
+		}
+	}
+}
+
+/* Deepest first, and a folder that is no longer empty stays, with everything
+   above it. */
+static void
+nest_unmake (NestJob *job)
+{
+	GList *l;
+
+	if (!nemo_delete_testguard_ask ("Delete", job->made)) {
+		g_set_error_literal (&job->error, G_IO_ERROR, G_IO_ERROR_CANCELLED,
+				     "called off at the delete test guard");
+		return;
+	}
+
+	nemo_delete_testguard_begin ();
+	for (l = g_list_last (job->made); l != NULL; l = l->prev) {
+		GError *error = NULL;
+
+		if (!file_delete_wrapper (l->data, job->common.cancellable, &error)) {
+			if (!IS_IO_ERROR (error, NOT_FOUND)) {
+				g_clear_error (&error);
+				break;
+			}
+			g_clear_error (&error);
+			continue;
+		}
+		nemo_file_changes_queue_file_removed (l->data);
+	}
+	nemo_delete_testguard_end ();
+}
+
+static gboolean
+nest_job (GIOSchedulerJob *io_job,
+	  G_GNUC_UNUSED GCancellable *cancellable,
+	  gpointer user_data)
+{
+	NestJob *job = user_data;
+
+	job->common.io_job = io_job;
+	nemo_progress_info_start (job->common.progress);
+
+	switch (job->mode) {
+	case NEST_FROM_FRESH:
+		nest_from_fresh (job);
+		break;
+	case NEST_MAKE_AGAIN:
+		nest_make_again (job);
+		break;
+	case NEST_UNMAKE:
+		nest_unmake (job);
+		break;
+	}
+
+	g_io_scheduler_job_send_to_mainloop_async (io_job, nest_job_done, job, NULL);
+	return FALSE;
+}
+
+static NestJob *
+nest_job_new (GtkWindow *parent_window, NestMode mode,
+	      NemoNestCallback done_callback, gpointer done_callback_data)
+{
+	NestJob *job = op_job_new (NestJob, parent_window);
+
+	job->mode = mode;
+	job->done_callback = done_callback;
+	job->done_callback_data = done_callback_data;
+	return job;
+}
+
+void
+nemo_file_operations_nest_new_folder (GtkWidget *parent_view,
+				      GFile *fresh_folder,
+				      const char * const *parts,
+				      NemoNestCallback done_callback,
+				      gpointer done_callback_data)
+{
+	GtkWindow *parent_window = NULL;
+	NestJob *job;
+
+	g_return_if_fail (G_IS_FILE (fresh_folder));
+	g_return_if_fail (parts != NULL && parts[0] != NULL);
+
+	if (parent_view != NULL) {
+		parent_window = (GtkWindow *) gtk_widget_get_ancestor (parent_view, GTK_TYPE_WINDOW);
+	}
+
+	job = nest_job_new (parent_window, NEST_FROM_FRESH, done_callback, done_callback_data);
+	job->fresh = g_object_ref (fresh_folder);
+	job->parent = g_file_get_parent (fresh_folder);
+	job->parts = g_strdupv ((char **) parts);
+
+	if (!nemo_file_undo_manager_pop_flag ()) {
+		job->common.undo_info = nemo_file_undo_info_create_new (NEMO_FILE_UNDO_OP_CREATE_FOLDER);
+	}
+
+	add_job_to_job_queue (nest_job, job, job->common.cancellable, job->common.progress, OP_KIND_CREATE);
+}
+
+static void
+nest_again_or_undo (GList *made, GtkWindow *parent_window, NestMode mode,
+		    NemoNestCallback done_callback, gpointer done_callback_data)
+{
+	NestJob *job;
+
+	nemo_file_undo_manager_pop_flag ();
+
+	job = nest_job_new (parent_window, mode, done_callback, done_callback_data);
+	job->made = eel_g_object_list_copy (made);
+	if (made != NULL) {
+		job->top = g_object_ref (made->data);
+	}
+
+	add_job_to_job_queue (nest_job, job, job->common.cancellable, job->common.progress, OP_KIND_CREATE);
+}
+
+void
+nemo_file_operations_nest_make_again (GList *made,
+				      GtkWindow *parent_window,
+				      NemoNestCallback done_callback,
+				      gpointer done_callback_data)
+{
+	nest_again_or_undo (made, parent_window, NEST_MAKE_AGAIN, done_callback, done_callback_data);
+}
+
+void
+nemo_file_operations_nest_unmake (GList *made,
+				  GtkWindow *parent_window,
+				  NemoNestCallback done_callback,
+				  gpointer done_callback_data)
+{
+	nest_again_or_undo (made, parent_window, NEST_UNMAKE, done_callback, done_callback_data);
+}
+
 static void
 delete_trash_file (CommonJob *job,
 		   GFile *file,
@@ -7833,7 +8153,7 @@ empty_trash_job_done (gpointer user_data)
 
 static gboolean
 empty_trash_job (GIOSchedulerJob *io_job,
-		 GCancellable *cancellable,
+		 G_GNUC_UNUSED GCancellable *cancellable,
 		 gpointer user_data)
 {
 	EmptyTrashJob *job = user_data;

@@ -123,31 +123,17 @@ show_menu (NemoNavigationAction *self,
 	GtkWidget *menu;
 
 	window = self->priv->window;
-	
-	menu = gtk_menu_new ();
 
-	switch (self->priv->direction) {
-	case NEMO_NAVIGATION_DIRECTION_FORWARD:
-		fill_menu (window, menu, FALSE);
-		break;
-	case NEMO_NAVIGATION_DIRECTION_BACK:
-		fill_menu (window, menu, TRUE);
-		break;
- 	case NEMO_NAVIGATION_DIRECTION_UP:
- 		return;
- 	case NEMO_NAVIGATION_DIRECTION_RELOAD:
- 		return;
- 	case NEMO_NAVIGATION_DIRECTION_HOME:
- 		return;
- 	case NEMO_NAVIGATION_DIRECTION_COMPUTER:
- 		return;
- 	case NEMO_NAVIGATION_DIRECTION_EDIT:
- 		return;
-	default:
-		g_assert_not_reached ();
-		break;
+	/* Only history has a menu. */
+	if (self->priv->direction != NEMO_NAVIGATION_DIRECTION_FORWARD &&
+	    self->priv->direction != NEMO_NAVIGATION_DIRECTION_BACK) {
+		return;
 	}
 
+	menu = gtk_menu_new ();
+	fill_menu (window, menu, self->priv->direction == NEMO_NAVIGATION_DIRECTION_BACK);
+
+        eel_gtk_menu_destroy_on_close (GTK_MENU (menu));
         gtk_menu_popup (GTK_MENU (menu), NULL, NULL, NULL, NULL,
                         button, event_time);
 }
@@ -235,7 +221,7 @@ is_new_tab_event(GdkEventButton *event) {
 }
 
 static gboolean
-tool_button_press_cb (GtkButton *button,
+tool_button_press_cb (G_GNUC_UNUSED GtkButton *button,
                       GdkEventButton *event,
                       gpointer user_data)
 {
@@ -260,8 +246,8 @@ tool_button_press_cb (GtkButton *button,
 }
 
 static gboolean
-tool_button_release_cb (GtkButton *button,
-                        GdkEventButton *event,
+tool_button_release_cb (G_GNUC_UNUSED GtkButton *button,
+                        G_GNUC_UNUSED GdkEventButton *event,
                         gpointer user_data)
 {
         NemoNavigationAction *self = user_data;
@@ -319,7 +305,7 @@ static void
 nemo_navigation_action_set_property (GObject *object,
 					 guint prop_id,
 					 const GValue *value,
-					 GParamSpec *pspec)
+					 G_GNUC_UNUSED GParamSpec *pspec)
 {
 	NemoNavigationAction *nav;
 
@@ -346,7 +332,7 @@ static void
 nemo_navigation_action_get_property (GObject *object,
 					 guint prop_id,
 					 GValue *value,
-					 GParamSpec *pspec)
+					 G_GNUC_UNUSED GParamSpec *pspec)
 {
 	NemoNavigationAction *nav;
 

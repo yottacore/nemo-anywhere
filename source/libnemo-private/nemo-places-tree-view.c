@@ -84,6 +84,7 @@ nemo_places_tree_view_class_init (NemoPlacesTreeViewClass *klass)
 
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_places_tree_view_new (void)
 {

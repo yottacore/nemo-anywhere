@@ -11,8 +11,12 @@
 #include "nemo-global-preferences.h"
 #include <libnemo-private/nemo-file-utilities.h>
 #include <libnemo-private/nemo-file-operations.h>
+#include <libnemo-private/nemo-program-choosing.h>
 
 #include <glib.h>
+#ifdef G_OS_WIN32
+#include <libnemo-private/nemo-launch-win32.h>
+#endif
 
 G_DEFINE_TYPE (NemoTemplateConfigWidget, nemo_template_config_widget, NEMO_TYPE_CONFIG_BASE_WIDGET);
 
@@ -67,10 +71,10 @@ cancel_file_monitors (NemoTemplateConfigWidget *widget)
 }
 
 static void
-on_dir_changed (GFileMonitor     *monitor,
-                GFile            *file,
-                GFile            *other_file,
-                GFileMonitorEvent event_type,
+on_dir_changed (G_GNUC_UNUSED GFileMonitor     *monitor,
+                G_GNUC_UNUSED GFile            *file,
+                G_GNUC_UNUSED GFile            *other_file,
+                G_GNUC_UNUSED GFileMonitorEvent event_type,
                 gpointer          user_data)
 {
     NemoTemplateConfigWidget *widget = NEMO_TEMPLATE_CONFIG_WIDGET (user_data);
@@ -94,7 +98,7 @@ monitor_path (NemoTemplateConfigWidget *widget, const gchar *path)
 }
 
 static void
-on_row_selected (GtkWidget *box,
+on_row_selected (G_GNUC_UNUSED GtkWidget *box,
                   GtkWidget *row,
                   gpointer   user_data)
 {
@@ -106,7 +110,7 @@ on_row_selected (GtkWidget *box,
 }
 
 static void
-on_row_activated (GtkWidget *box,
+on_row_activated (G_GNUC_UNUSED GtkWidget *box,
                   GtkWidget *row,
                   gpointer   user_data)
 {
@@ -290,7 +294,7 @@ refresh_widget (NemoTemplateConfigWidget *widget)
 }
 
 static void
-on_remove_row_clicked (GtkWidget *button, gpointer user_data)
+on_remove_row_clicked (G_GNUC_UNUSED GtkWidget *button, gpointer user_data)
 {
     NemoTemplateConfigWidget *widget = NEMO_TEMPLATE_CONFIG_WIDGET (user_data);
     GtkListBoxRow *row = gtk_list_box_get_selected_row (GTK_LIST_BOX (NEMO_CONFIG_BASE_WIDGET (widget)->listbox));
@@ -317,9 +321,12 @@ on_rename_entry_changed (GtkEditable *editable, gpointer user_data)
     GtkDialog *dialog = GTK_DIALOG (user_data);
     GtkEntry *entry = GTK_ENTRY (editable);
     gchar *text = g_strdup (gtk_entry_get_text (entry));
+    gboolean name_ok = nemo_name_hint_update (g_object_get_data (G_OBJECT (dialog), "name-hint"),
+                                              gtk_entry_get_text (entry));
 
     g_strstrip (text); 
-    gtk_widget_set_sensitive (gtk_dialog_get_widget_for_response (dialog, GTK_RESPONSE_ACCEPT), *text != '\0');
+    gtk_widget_set_sensitive (gtk_dialog_get_widget_for_response (dialog, GTK_RESPONSE_ACCEPT),
+                              *text != '\0' && name_ok);
     g_free (text);
 }
 
@@ -344,6 +351,9 @@ start_renaming_selected_row (NemoTemplateConfigWidget *widget, GtkWidget *row)
     GtkWidget *entry = gtk_entry_new ();
     gtk_entry_set_activates_default (GTK_ENTRY (entry), TRUE);
     gtk_box_pack_start (GTK_BOX (content), entry, FALSE, FALSE, 0);
+    GtkWidget *hint = nemo_name_hint_new ();
+    gtk_box_pack_start (GTK_BOX (content), hint, FALSE, FALSE, 0);
+    g_object_set_data (G_OBJECT (rename_dialog), "name-hint", hint);
     gtk_entry_set_text (GTK_ENTRY (entry), info->name);
     g_signal_connect (GTK_EDITABLE (entry), "changed", G_CALLBACK (on_rename_entry_changed), rename_dialog);
 
@@ -414,7 +424,7 @@ import_template (NemoTemplateConfigWidget *widget,
 }
 
 static gboolean
-file_has_valid_app_association (const GtkFileFilterInfo *filter_info, gpointer data)
+file_has_valid_app_association (const GtkFileFilterInfo *filter_info, G_GNUC_UNUSED gpointer data)
 {
     g_autofree gchar *content_type = g_content_type_from_mime_type (filter_info->mime_type);
     g_autoptr(GAppInfo) app_info = g_app_info_get_default_for_type (content_type, FALSE);
@@ -423,7 +433,7 @@ file_has_valid_app_association (const GtkFileFilterInfo *filter_info, gpointer d
 }
 
 static void
-on_new_template_clicked (GtkWidget *button, gpointer user_data)
+on_new_template_clicked (G_GNUC_UNUSED GtkWidget *button, gpointer user_data)
 {
     NemoTemplateConfigWidget *widget = NEMO_TEMPLATE_CONFIG_WIDGET (user_data);
     GtkWidget *dialog;
@@ -461,7 +471,7 @@ on_new_template_clicked (GtkWidget *button, gpointer user_data)
 }
 
 static void
-on_rename_row_clicked (GtkWidget *button, gpointer user_data)
+on_rename_row_clicked (G_GNUC_UNUSED GtkWidget *button, gpointer user_data)
 {
     NemoTemplateConfigWidget *widget = NEMO_TEMPLATE_CONFIG_WIDGET (user_data);
     GtkWidget *row = GTK_WIDGET (gtk_list_box_get_selected_row (GTK_LIST_BOX (NEMO_CONFIG_BASE_WIDGET (widget)->listbox)));
@@ -474,7 +484,7 @@ on_rename_row_clicked (GtkWidget *button, gpointer user_data)
 }
 
 static void
-on_edit_template_clicked (GtkWidget *button, gpointer user_data)
+on_edit_template_clicked (G_GNUC_UNUSED GtkWidget *button, gpointer user_data)
 {
     NemoTemplateConfigWidget *widget = NEMO_TEMPLATE_CONFIG_WIDGET (user_data);
     GtkWidget *row = GTK_WIDGET (gtk_list_box_get_selected_row (GTK_LIST_BOX (NEMO_CONFIG_BASE_WIDGET (widget)->listbox)));
@@ -484,20 +494,32 @@ on_edit_template_clicked (GtkWidget *button, gpointer user_data)
     }
 
     TemplateInfo *info = g_object_get_data (G_OBJECT (row), "template-info");
+
+#ifdef G_OS_WIN32
+    GError *error = NULL;
+
+    if (!nemo_launch_win32_open_path (info->path, NULL, &error)) {
+        nemo_show_start_error (GTK_WINDOW (gtk_widget_get_toplevel (row)), error);
+        g_clear_error (&error);
+    }
+#else
     GFile *file = g_file_new_for_path (info->path);
     gchar *uri = g_file_get_uri (file);
     g_object_unref (file);
 
     GAppLaunchContext *context = G_APP_LAUNCH_CONTEXT (gdk_display_get_app_launch_context (gdk_display_get_default ()));
 
+    nemo_launch_context_use_user_environ (context);
+
     g_app_info_launch_default_for_uri_async (uri, context, NULL, NULL, NULL);
     g_object_unref (context);
 
     g_free (uri);
+#endif
 }
 
 static void
-on_open_folder_clicked (GtkWidget *button, NemoTemplateConfigWidget *widget)
+on_open_folder_clicked (G_GNUC_UNUSED GtkWidget *button, G_GNUC_UNUSED NemoTemplateConfigWidget *widget)
 {
     gchar *path = NULL;
     nemo_ensure_valid_templates_directory ();
@@ -514,9 +536,9 @@ on_open_folder_clicked (GtkWidget *button, NemoTemplateConfigWidget *widget)
 }
 
 static void
-on_drag_data_received(GtkWidget *widget,
+on_drag_data_received(G_GNUC_UNUSED GtkWidget *widget,
                       GdkDragContext *context,
-                      gint x, gint y,
+                      G_GNUC_UNUSED gint x, G_GNUC_UNUSED gint y,
                       GtkSelectionData *data,
                       guint target_type,
                       guint time,
@@ -551,9 +573,9 @@ on_drag_data_received(GtkWidget *widget,
 static gboolean
 on_drag_motion (GtkWidget *widget,
                 GdkDragContext *context,
-                gint x, gint y,
+                G_GNUC_UNUSED gint x, G_GNUC_UNUSED gint y,
                 guint time,
-                gpointer user_data)
+                G_GNUC_UNUSED gpointer user_data)
 {
     GdkAtom target = gtk_drag_dest_find_target(widget, context, NULL);
 
@@ -679,6 +701,7 @@ nemo_template_config_widget_init (NemoTemplateConfigWidget *self)
     on_row_selected (NEMO_CONFIG_BASE_WIDGET (self)->listbox, NULL, self);
 }
 
+/* Returns: (transfer floating) */
 GtkWidget *
 nemo_template_config_widget_new (void)
 {

@@ -96,7 +96,7 @@ nemo_module_finalize (GObject *object)
 }
 
 static void
-nemo_module_init (NemoModule *module)
+nemo_module_init (G_GNUC_UNUSED NemoModule *module)
 {
 }
 
@@ -109,7 +109,7 @@ nemo_module_class_init (NemoModuleClass *class)
 }
 
 static void
-module_object_weak_notify (gpointer user_data, GObject *object)
+module_object_weak_notify (G_GNUC_UNUSED gpointer user_data, GObject *object)
 {
 	module_objects = g_list_remove (module_objects, object);
 }
@@ -227,6 +227,7 @@ nemo_module_setup (void)
 	}
 }
 
+/* Returns: (transfer full): free with nemo_module_extension_list_free */
 GList *
 nemo_module_get_extensions_for_type (GType type)
 {

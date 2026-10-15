@@ -54,6 +54,10 @@ test_coder (void)
 	check (nemo_magick_coder ("/a/b") == NULL);
 	check (nemo_magick_coder (NULL) == NULL);
 
+	/* Handed over only while gdk-pixbuf has no loader of its own. */
+	check ((nemo_magick_coder ("/a/b.bmp") == NULL) == test_pixbuf_reads ("bmp"));
+	check ((nemo_magick_coder ("/a/b.xpm") == NULL) == test_pixbuf_reads ("xpm"));
+
 	check (!nemo_magick_type_ok ("sftp://host/a/b.jp2"));
 	check (!nemo_magick_type_ok ("file:///a/b.svg"));
 	check (!nemo_magick_type_ok (NULL));
@@ -90,7 +94,7 @@ load (const char *path, int size)
 {
 	g_autofree char *uri = g_filename_to_uri (path, NULL, NULL);
 
-	return nemo_magick_load_uri (uri, size);
+	return nemo_magick_load_uri (uri, size, NULL);
 }
 
 static gboolean
@@ -195,14 +199,14 @@ test_factory (const char *dir)
 	factory = nemo_desktop_thumbnail_factory_new (NEMO_DESKTOP_THUMBNAIL_SIZE_LARGE);
 	check (nemo_desktop_thumbnail_factory_can_make (factory, uri, "image/jp2"));
 
-	pixbuf = nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (factory, uri, "image/jp2", 128);
+	pixbuf = nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (factory, uri, "image/jp2", 128, NULL);
 	check (color_is (pixbuf, 30, 40, 200));
 
 	g_object_unref (factory);
 }
 
 int
-main (int argc, char **argv)
+main (void)
 {
 	g_autofree char *home = test_scratch_config_home ("nemo-magick-XXXXXX");
 	g_autofree char *plain = g_build_filename (home, "plain.jp2", NULL);

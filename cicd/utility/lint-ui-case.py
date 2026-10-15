@@ -10,7 +10,14 @@
 ##	- A word is left alone when it starts a sentence, is a name (NAMES below),
 ##	  is an acronym, or carries a capital of its own past the first letter.
 ##	  Whole strings that the rule reads wrong are listed in KEEP, each with why.
+##	- Words the interface no longer uses are reported too (RETIRED below). The
+##	  settings window was Preferences upstream, and a label copied from there
+##	  brings the old name back.
+##	- --self-test runs both checks over made-up files, so a change that blinds
+##	  them shows up there rather than as a clean run over the tree.
+##	  Test ID: rk54j8k7
 ##	- Exit 1 on any finding, so it gates. Syntax: lint-ui-case.py <source-root>
+##	  or lint-ui-case.py --self-test
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under the GNU General Public License, version 2 only.
@@ -20,11 +27,12 @@ import io
 import os
 import re
 import sys
+import tempfile
 
 # Names that keep their capital wherever they stand.
 NAMES = set("""
 Windows Linux BSD FreeBSD OpenBSD NetBSD macOS Mac OS Unix POSIX Unicode ASCII
-GNOME Cinnamon Expo GTK GLib GIO GVfs Adwaita Segoe GNU
+GNOME Cinnamon Expo GTK GLib GIO GVfs Adwaita Segoe GNU Btrfs
 Nemo Nemo's Anywhere Nautilus Explorer
 Trash Home Desktop Documents Downloads Music Pictures Videos Public
 Network Recent Favorites Favourites
@@ -52,6 +60,8 @@ KEEP = set([
     # Default and Current are the names of the two tabs on Views.
     "Copy settings to Current",
     "Copy settings to Default",
+    # 7-Zip is the program's name.
+    "Install 7-Zip or RAR to unpack all of it.",
     # Windows Search is the indexer's name.
     "Use the Windows Search index for folders it covers",
     # Disc formats are named things.
@@ -62,6 +72,7 @@ KEEP = set([
     "These files are on a Video DVD.",
     "These files are on an Audio CD.",
     "These files are on an Audio DVD.",
+    "23 GiB (Blu-ray)",
     # Sentences that name a menu item, a tab or a sidebar, which keeps its own
     # capital the same way a proper noun does.
     "Move or copy files previously selected by a Cut or Copy command",
@@ -102,6 +113,11 @@ KEEP = set([
     # A window title: the file's name, then what the window is.
     "%s - File browser",
 ])
+
+# Words the interface no longer says, each with what it says instead.
+RETIRED = {
+    "preferences": "Settings",
+}
 
 # A mnemonic underscore sits inside the word it marks, so it is part of the
 # token and the letter after it does not start a word of its own.
@@ -199,9 +215,19 @@ def strings_in(path):
             yield line, body
 
 
-def main():
-    root = sys.argv[1] if len(sys.argv) > 1 else "source"
-    findings = 0
+def retired_words(text):
+    """Retired words in the string, each with its replacement."""
+    found = []
+    for m in WORD_RE.finditer(text):
+        bare = m.group(0).replace("_", "").lower()
+        if bare in RETIRED:
+            found.append("%s -> %s" % (m.group(0), RETIRED[bare]))
+    return found
+
+
+def run(root):
+    """Every finding under root, one line each."""
+    findings = []
 
     for base, _dirs, files in os.walk(root):
         if os.sep + "vendor" in base:
@@ -211,23 +237,75 @@ def main():
                           ".nemo_action", ".nemo_action.in")):
                 continue
             path = os.path.join(base, name)
+            shown = path.replace(os.sep, "/")
             for line, body in strings_in(path):
-                if not body.strip() or body.replace("_", "") in KEEP:
+                if not body.strip():
+                    continue
+                old = retired_words(body)
+                if old:
+                    findings.append("%s:%d: retired word (%s): %s"
+                                    % (shown, line, ", ".join(old), body))
+                if body.replace("_", "") in KEEP:
                     continue
                 bad = offenders(body)
-                if not bad:
-                    continue
-                findings += 1
-                sys.stderr.write("%s:%d: not sentence case (%s): %s\n"
-                         % (path.replace(os.sep, "/"), line,
-                            ", ".join(bad), body))
+                if bad:
+                    findings.append("%s:%d: not sentence case (%s): %s"
+                                    % (shown, line, ", ".join(bad), body))
+
+    return findings
+
+
+SELF_TEST_C = """\
+{ "Preferences", NULL, N_("Prefere_nces"), "<Primary>comma", N_("Edit Nemo preferences") },
+{ "Settings", NULL, N_("_Settings"), NULL, N_("Edit Nemo settings") },
+g_print (_("Copy Paths"));
+g_print (_("Copy paths"));
+"""
+SELF_TEST_UI = """\
+<property name="title" translatable="yes">File management preferences</property>
+<property name="title" translatable="yes">File management settings</property>
+<property name="title">Preferences, not translatable</property>
+"""
+SELF_TEST_EXPECTED = [
+    "thing.c:1: retired word (Prefere_nces -> Settings)",
+    "thing.c:1: retired word (preferences -> Settings)",
+    "thing.c:3: not sentence case (Paths)",
+    "thing.ui:1: retired word (preferences -> Settings)",
+]
+
+
+def self_test():
+    own = io.open(__file__, encoding="utf-8").read()
+    print("[ Test %s lint-ui-case.py --self-test ]"
+          % re.search(r"(?m)^##\t  Test ID: (\S+)$", own).group(1))
+    with tempfile.TemporaryDirectory() as tmp:
+        io.open(os.path.join(tmp, "thing.c"), "w", encoding="utf-8").write(SELF_TEST_C)
+        io.open(os.path.join(tmp, "thing.ui"), "w", encoding="utf-8").write(SELF_TEST_UI)
+        got = [f.split(": ")[0].replace(tmp.replace(os.sep, "/") + "/", "")
+               + ": " + f.split(": ")[1] for f in run(tmp)]
+    if got != SELF_TEST_EXPECTED:
+        sys.stderr.write("[ FAILED: UI case self-test: reported %s, expected %s ]\n"
+                         % (got, SELF_TEST_EXPECTED))
+        return 1
+    print("[ OK: UI case self-test ]")
+    return 0
+
+
+def main():
+    if sys.argv[1:] == ["--self-test"]:
+        return self_test()
+
+    root = sys.argv[1] if len(sys.argv) > 1 else "source"
+    findings = run(root)
+
+    for finding in findings:
+        sys.stderr.write(finding + "\n")
 
     if findings:
-        sys.stderr.write("[ FAILED: UI case: %d string(s) not in sentence case ]\n"
-                 % findings)
+        sys.stderr.write("[ FAILED: UI case: %d finding(s) ]\n" % len(findings))
         return 1
 
-    print("[ OK: UI case: every translatable string is sentence case ]")
+    print("[ OK: UI case: every translatable string is sentence case, with no retired words ]")
 
     return 0
 

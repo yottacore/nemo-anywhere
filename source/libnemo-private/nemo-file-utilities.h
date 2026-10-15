@@ -102,6 +102,32 @@ const char * const * nemo_get_system_data_dirs   (void);
 char *       nemo_get_exe_path                   (void);
 /* Point the runtime at our own prefix. Must be the first thing main does. */
 void         nemo_setup_runtime_environment      (void);
+/* Sets @var for this process only. A program of the user's, or a new copy of
+ * ours, starts with what was there before. */
+void         nemo_setenv_own                     (const char *var,
+                                                  const char *value,
+                                                  gboolean    overwrite);
+/* This process's environment with every nemo_setenv_own undone, for a program
+ * of the user's or a new copy of ours.
+ * Returns: (transfer full): free with g_strfreev */
+char       **nemo_get_user_environ               (void);
+/* The same for a program started through @context. */
+void         nemo_launch_context_use_user_environ (GAppLaunchContext *context);
+#ifndef G_OS_WIN32
+/* g_spawn_async with nemo_get_user_environ, for a program of the user's.
+ * G_SPAWN_SEARCH_PATH searches the user's PATH. */
+gboolean     nemo_spawn_for_user                 (const char  *workdir,
+                                                  char       **argv,
+                                                  GSpawnFlags  flags,
+                                                  GPid        *child_pid,
+                                                  GError     **error);
+#endif
+/* Undoes nemo_setenv_own in this process for a moment, for a call that starts
+ * a program and takes no environment. Hand the result back to
+ * nemo_restore_own_environ, which frees it.
+ * Returns: (transfer full): free with nemo_restore_own_environ */
+char       **nemo_swap_in_user_environ           (void);
+void         nemo_restore_own_environ            (char **saved);
 
 char *   nemo_get_data_file_path                 (const char *partial_path);
 
@@ -126,6 +152,7 @@ GFile *
 nemo_find_file_insensitive (GFile *parent, const gchar *name);
 
 char * nemo_get_accel_map_file (void);
+char * nemo_get_legacy_accel_map_file (void);
 
 char * nemo_get_scripts_directory_path (void);
 
@@ -143,6 +170,13 @@ void nemo_get_x_content_types_for_mount_async (GMount *mount,
 						   gpointer user_data);
 
 gchar *nemo_get_mount_icon_name (GMount *mount);
+
+/* g_volume_monitor_get_mounts, except on Windows, where GLib's list asks the
+   shell about every drive letter and so waits on any mapped to a share that
+   is not answering (nemo-drives-win32.h). Every list of mounts goes through
+   here.
+   Returns: (transfer full): free with g_list_free_full and g_object_unref */
+GList *nemo_get_mounts (GVolumeMonitor *monitor);
 gchar *nemo_get_volume_icon_name (GVolume *volume);
 gchar *nemo_get_drive_icon_name (GDrive *drive);
 
@@ -196,6 +230,38 @@ void     nemo_path_apply_display_separator (gchar *path);
 gchar   *nemo_location_get_display_name (GFile *location);
 gboolean nemo_path_input_is_allowed (const gchar *text);
 
+/* What Windows refuses in a name, besides control characters. FAT takes the
+   same set on any platform. */
+#define NEMO_WINDOWS_NAME_BAD_CHARS "/:*?\"<>\\|"
+
+/* The first character of a typed name that a file name can't have here, or
+   NULL: "/" on POSIX, the set above and control characters on Windows. GLib
+   on Windows turns most of these into a plain I/O error, so a name is checked
+   before it goes to disk. The message says which character, and is NULL for
+   a good name; free it with g_free. */
+const gchar *nemo_file_name_find_bad_char (const gchar *name);
+gchar       *nemo_file_name_bad_char_message (const gchar *name);
+gboolean     nemo_file_name_check_chars (const gchar *name, GError **error);
+/* For a name made from text no one typed as a name, such as a page title:
+   each of those characters becomes "_", in place. */
+void         nemo_file_name_make_valid (gchar *name);
+
+/* A line to put under a name entry, saying why the name won't do. Hidden while
+   it will. update answers whether the name is good. */
+GtkWidget *nemo_name_hint_new (void);
+gboolean   nemo_name_hint_update (GtkWidget *hint, const gchar *name);
+
+/* A new folder named with separators in it makes each folder of the path,
+   nested. "/" counts everywhere and "\\" on Windows too, since neither can be
+   in a name there. On Windows "/" counts only while typed locations take it.
+   With that off, has_separator answers FALSE for a name with "/" in it, so the
+   plain rename refuses it. The split drops trailing separators and refuses a
+   leading one, an empty part, a "/" that isn't a separator, any other character
+   a name can't have, "." and "..". NULL with error set on a refusal.
+   Returns: (transfer full): free with g_strfreev */
+gboolean nemo_new_folder_name_has_separator (const gchar *text);
+gchar  **nemo_new_folder_path_split (const gchar *text, GError **error);
+
 /* What a rename selects before anything is typed, in characters: the whole
    name when whole is TRUE or rename-selects-whole-name is on, otherwise the
    name without its extension. An end of -1 is the end of the name. */
@@ -211,8 +277,26 @@ gboolean nemo_archive_mount_supported (void);
 GFile   *nemo_archive_mount_location (GFile *archive);
 
 /* g_content_type_is_a, but also right on Windows for a mime pattern such as
-   "image/" plus a star. A content type there is a file extension, which never
-   matches one.
+   "image/" plus a star, and for the types nemo_content_type_get_mime_type
+   knows when nothing has registered them, such as a .desktop link file. A
+   content type there is a file extension, which never matches one.
    Safe from any thread. */
 gboolean nemo_content_type_is_a (const char *content_type, const char *mime_type);
+
+/* g_content_type_equals, with the same Windows mapping as above. NULL is equal
+   to nothing.
+   Safe from any thread. */
+gboolean nemo_content_type_equals (const char *content_type, const char *mime_type);
+
+/* The MIME type of a content type, which on Windows is a file extension. The
+   formats a search converter or a thumbnailer ships for are known there even
+   when nothing installed has registered them.
+   Safe from any thread.
+   Returns: (transfer full): free with g_free */
+char *nemo_content_type_get_mime_type (const char *content_type);
+
+/* TRUE when Windows runs a file by this name as a program: its extension is on
+   @pathext, a PATHEXT list, in any case. NULL means cmd's own list when
+   PATHEXT is unset. */
+gboolean nemo_name_is_on_pathext (const char *name, const char *pathext);
 #endif /* NEMO_FILE_UTILITIES_H */

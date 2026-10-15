@@ -10,6 +10,8 @@
 ##	  lib is folded into the exe); GSETTINGS_SCHEMA_DIR -> a dir holding nemo's schema merged
 ##	  with the sysroot GTK schemas, compiled here (glib-compile-schemas output is
 ##	  arch-independent, so the Linux tool's result works for the wine build).
+##	- The display is the first free one from GUI_SMOKE_DISPLAY (default :120) up,
+##	  proven ours before use (include/xvfb.bash). A taken number is stepped over.
 ##	- Test ID: rcdybfj0
 
 set -euo pipefail
@@ -25,7 +27,10 @@ SHOT="${1:-/tmp/shot.png}"
 DWELL="${2:-16}"
 URI="${3:-}"
 SCHEMAS="/tmp/nemo-schemas"
-DISP=":99"
+dispFirst="${GUI_SMOKE_DISPLAY:-:120}"
+
+# shellcheck source=../utility/include/xvfb.bash
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../utility/include" && pwd)/xvfb.bash"
 
 fEcho(){ echo "[ $* ]"; }
 
@@ -38,15 +43,18 @@ glib-compile-schemas "$SCHEMAS"
 export WINEDEBUG=-all
 ## A crash would otherwise put a modal box on a display nobody is watching.
 export NEMO_NO_CRASH_DIALOG=1
-export DISPLAY="$DISP"
 export WINEPATH="Z:\\opt\\win-sysroot\\mingw64\\bin"
 export GSETTINGS_SCHEMA_DIR="Z:\\tmp\\nemo-schemas"
 
-fEcho "Starting Xvfb $DISP"
-Xvfb "$DISP" -screen 0 1280x900x24 >/tmp/xvfb.log 2>&1 &
-xpid=$!
-trap 'kill $xpid 2>/dev/null || true' EXIT
-sleep 2
+XVFB_PID=""
+trap '[[ -n $XVFB_PID ]] && kill "$XVFB_PID" 2>/dev/null || true' EXIT
+if ! fXvfbStart "$dispFirst" 1280x900x24 /tmp/xvfb.log; then
+	fEcho "FAILED: no free display from ${dispFirst} - see /tmp/xvfb.log"
+	exit 1
+fi
+DISP="$XVFB_DISPLAY"
+fEcho "Started Xvfb $DISP"
+export DISPLAY="$DISP"
 
 fEcho "Launching nemo-anywhere.exe under wine"
 if [[ -n $URI ]]; then
@@ -57,8 +65,11 @@ fi
 wpid=$!
 sleep "$DWELL"
 
+## grep -q quits at its first match, and under pipefail the list writer's
+## SIGPIPE would read as no window, so the list is read in full first.
+windows="$(xwininfo -root -tree 2>/dev/null || true)"
 rc=0
-if xwininfo -root -tree 2>/dev/null | grep -qiE '0x[0-9a-f]+ "(Home|File System|Trash|Network|nemo)'; then
+if grep -qiE '0x[0-9a-f]+ "(Home|File System|Trash|Network|nemo)' <<<"$windows"; then
 	fEcho "Main window present"
 	import -window root "$SHOT" 2>/dev/null && fEcho "Screenshot -> $SHOT"
 else

@@ -30,6 +30,7 @@
 #include <libnemo-private/nemo-folder-settings.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-metadata.h>
+#include <libnemo-private/nemo-tab-list.h>
 
 #include "nemo-window.h"
 #include "nemo-window-slot.h"
@@ -94,7 +95,7 @@ static const struct {
 
 typedef struct {
 	GtkWidget      *dialog;
-	GtkWidget      *notebook;
+	GtkWidget      *views_stack;
 	GtkWidget      *current_page;
 	GtkWidget      *current_tab_label;
 	GtkWidget      *path_label;
@@ -335,10 +336,11 @@ refresh (CurrentTab *tab)
 		gtk_label_set_text (GTK_LABEL (tab->path_label), "");
 	}
 
-	if (!remembering ()) {
-		gtk_notebook_set_current_page (GTK_NOTEBOOK (tab->notebook), 0);
+	/* The tab still opens with remembering off, so the controls show what is
+	   turned off rather than a blank pane. */
+	if (tab->current_tab_label != NULL) {
+		gtk_widget_set_sensitive (tab->current_tab_label, remembering ());
 	}
-	gtk_widget_set_sensitive (tab->current_tab_label, remembering ());
 	gtk_widget_set_sensitive (tab->current_page, remembering () && tab->folder != NULL);
 
 	tab->syncing = TRUE;
@@ -465,7 +467,7 @@ current_field_changed (GtkWidget *widget, CurrentTab *tab)
 
 /* the Default widgets are bound to the preferences, so writing them is enough */
 static void
-copy_to_default_clicked (GtkButton *button, CurrentTab *tab)
+copy_to_default_clicked (G_GNUC_UNUSED GtkButton *button, CurrentTab *tab)
 {
 	int field;
 
@@ -475,7 +477,7 @@ copy_to_default_clicked (GtkButton *button, CurrentTab *tab)
 }
 
 static void
-copy_to_current_clicked (GtkButton *button, CurrentTab *tab)
+copy_to_current_clicked (G_GNUC_UNUSED GtkButton *button, CurrentTab *tab)
 {
 	int field;
 
@@ -490,7 +492,7 @@ copy_to_current_clicked (GtkButton *button, CurrentTab *tab)
 }
 
 static void
-forget_clicked (GtkButton *button, CurrentTab *tab)
+forget_clicked (G_GNUC_UNUSED GtkButton *button, CurrentTab *tab)
 {
 	nemo_folder_settings_forget (tab->folder);
 	apply_to_window (tab);
@@ -508,7 +510,7 @@ set_folder_uri (CurrentTab *tab, const char *uri)
 }
 
 static void
-loading_uri (NemoWindow *window, const char *uri, CurrentTab *tab)
+loading_uri (G_GNUC_UNUSED NemoWindow *window, const char *uri, CurrentTab *tab)
 {
 	set_folder_uri (tab, uri);
 }
@@ -546,7 +548,7 @@ follow_window (CurrentTab *tab, NemoWindow *window)
 }
 
 static void
-active_window_changed (GtkApplication *app, GParamSpec *pspec, CurrentTab *tab)
+active_window_changed (GtkApplication *app, G_GNUC_UNUSED GParamSpec *pspec, CurrentTab *tab)
 {
 	GtkWindow *window = gtk_application_get_active_window (app);
 
@@ -555,25 +557,15 @@ active_window_changed (GtkApplication *app, GParamSpec *pspec, CurrentTab *tab)
 	}
 }
 
-/* An insensitive page still switches on a click, so the tab has to refuse it here. */
 static void
-page_switching (GtkNotebook *notebook, GtkWidget *page, guint page_num, CurrentTab *tab)
-{
-	if (page == tab->current_page && !remembering ()) {
-		g_signal_stop_emission_by_name (notebook, "switch-page");
-	}
-}
-
-/* connected after, so the new page is already the current one */
-static void
-page_switched_after (GtkNotebook *notebook, GtkWidget *page, guint page_num, CurrentTab *tab)
+page_switched (G_GNUC_UNUSED GObject *stack, G_GNUC_UNUSED GParamSpec *pspec, CurrentTab *tab)
 {
 	refresh (tab);
 }
 
 /* The folder's settings can change behind the dialog, from the view itself. */
 static void
-dialog_activated (GtkWindow *dialog, GParamSpec *pspec, CurrentTab *tab)
+dialog_activated (GtkWindow *dialog, G_GNUC_UNUSED GParamSpec *pspec, CurrentTab *tab)
 {
 	if (gtk_window_is_active (dialog)) {
 		refresh (tab);
@@ -587,7 +579,7 @@ preference_changed (CurrentTab *tab)
 }
 
 static void
-dialog_destroyed (GtkWidget *dialog, CurrentTab *tab)
+dialog_destroyed (G_GNUC_UNUSED GtkWidget *dialog, CurrentTab *tab)
 {
 	follow_window (tab, NULL);
 	if (tab->app != NULL) {
@@ -595,6 +587,8 @@ dialog_destroyed (GtkWidget *dialog, CurrentTab *tab)
 		g_object_unref (tab->app);
 	}
 	g_signal_handlers_disconnect_by_data (nemo_preferences, tab);
+	/* The stack picks another page as its pages go, after this. */
+	g_signal_handlers_disconnect_by_data (tab->views_stack, tab);
 	g_clear_pointer (&tab->folder, nemo_file_unref);
 	g_free (tab);
 }
@@ -609,9 +603,10 @@ nemo_prefs_current_folder_setup (GtkBuilder *builder,
 
 	tab = g_new0 (CurrentTab, 1);
 	tab->dialog = dialog;
-	tab->notebook = GTK_WIDGET (gtk_builder_get_object (builder, "views_notebook"));
+	tab->views_stack = GTK_WIDGET (gtk_builder_get_object (builder, "views_stack"));
 	tab->current_page = GTK_WIDGET (gtk_builder_get_object (builder, "views_current_page"));
-	tab->current_tab_label = GTK_WIDGET (gtk_builder_get_object (builder, "views_current_tab"));
+	tab->current_tab_label = nemo_tab_list_get_label (NEMO_TAB_LIST (gtk_builder_get_object (builder, "page_sidebar")),
+							  tab->current_page);
 	tab->path_label = GTK_WIDGET (gtk_builder_get_object (builder, "current_folder_path_label"));
 	tab->copy_to_current_button = GTK_WIDGET (gtk_builder_get_object (builder, "copy_to_current_button"));
 	tab->copy_to_default_button = GTK_WIDGET (gtk_builder_get_object (builder, "copy_to_default_button"));
@@ -635,8 +630,7 @@ nemo_prefs_current_folder_setup (GtkBuilder *builder,
 	g_signal_connect (tab->copy_to_current_button, "clicked", G_CALLBACK (copy_to_current_clicked), tab);
 	g_signal_connect (tab->copy_to_default_button, "clicked", G_CALLBACK (copy_to_default_clicked), tab);
 	g_signal_connect (tab->forget_button, "clicked", G_CALLBACK (forget_clicked), tab);
-	g_signal_connect (tab->notebook, "switch-page", G_CALLBACK (page_switching), tab);
-	g_signal_connect_after (tab->notebook, "switch-page", G_CALLBACK (page_switched_after), tab);
+	g_signal_connect (tab->views_stack, "notify::visible-child", G_CALLBACK (page_switched), tab);
 	g_signal_connect (dialog, "notify::is-active", G_CALLBACK (dialog_activated), tab);
 	g_signal_connect (dialog, "destroy", G_CALLBACK (dialog_destroyed), tab);
 

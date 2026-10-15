@@ -203,7 +203,7 @@ count_one (GFile *folder, GCancellable *cancellable, guint *images, guint *other
 }
 
 static void
-look_ahead_thread (GTask *task, gpointer source, gpointer task_data, GCancellable *cancellable)
+look_ahead_thread (GTask *task, G_GNUC_UNUSED gpointer source, gpointer task_data, GCancellable *cancellable)
 {
 	LookAhead *job = task_data;
 	guint i;
@@ -229,7 +229,7 @@ look_ahead_thread (GTask *task, gpointer source, gpointer task_data, GCancellabl
 }
 
 static void
-look_ahead_done (GObject *source, GAsyncResult *res, gpointer user_data)
+look_ahead_done (G_GNUC_UNUSED GObject *source, GAsyncResult *res, G_GNUC_UNUSED gpointer user_data)
 {
 	GTask *task = G_TASK (res);
 	LookAhead *job = g_task_get_task_data (task);

@@ -78,6 +78,9 @@ void                    nemo_bookmark_list_insert_item         (NemoBookmarkList
 GList *                 nemo_bookmark_list_get_for_uri         (NemoBookmarkList   *bookmarks,
                                                                 const char *uri);
 guint                   nemo_bookmark_list_length              (NemoBookmarkList   *bookmarks);
+/* Index where the sidebar's own Bookmarks section starts. Never set, or
+   unset, means after the last bookmark. */
+gint                    nemo_bookmark_list_get_breakpoint      (NemoBookmarkList   *bookmarks);
 NemoBookmark *      nemo_bookmark_list_item_at             (NemoBookmarkList   *bookmarks,
 								    guint                   index);
 void                    nemo_bookmark_list_move_item           (NemoBookmarkList *bookmarks,

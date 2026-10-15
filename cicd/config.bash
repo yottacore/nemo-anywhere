@@ -78,9 +78,9 @@ TOOL_PINS=(
 ## against.
 ## -j is not optional: left alone ninja takes cores+2, and the engine's whole
 ## point in computing CICD_MAX_JOBS is that a pipeline run leaves the box usable.
+## Warnings are errors in every pipeline build; linux/run-tests.bash says why.
 DEBUG_BUILD_CMD=(bash "${DOCKER_RUN}" "debug build" "
-	if [ -f /build/build.ninja ]; then meson setup --reconfigure /build /src/source
-	else meson setup /build /src/source; fi && ninja -C /build -j ${CICD_MAX_JOBS:-2}
+	bash /src/cicd/utility/meson-setup.bash /build /src/source -Dwerror=true && bash /src/cicd/utility/check-werror.bash /build && ninja -C /build -j ${CICD_MAX_JOBS:-2}
 ")
 
 ## Stage 3: regression tests - READY. The meson suite, then a headless launch and
@@ -116,6 +116,13 @@ FUZZ_SECS=60
 FUZZ_PROBE=(bash "${DOCKER_RUN}" "fuzz probe" "bash /src/cicd/linux/fuzz.bash --probe")
 FUZZ_CMD=(bash "${DOCKER_RUN}" "fuzz" "FUZZ_SECS=${FUZZ_SECS} NEMO_TEST_JOBS=${CICD_MAX_JOBS:-2} bash /src/cicd/linux/fuzz.bash")
 
+## Stage 3 (after fuzzing): the suite again, built with the address and undefined
+## behavior sanitizers, leak checks on - READY. It builds into a directory of its
+## own, so /build is left alone. About a minute cold at 16 jobs and half that
+## warm, which is still too long for --quick or the gate; --no-sanitize skips it too. Leaks in the
+## libraries under GTK are listed in linux/sanitizers.supp.
+SANITIZE_CMD=(bash "${DOCKER_RUN}" "sanitizers" "NEMO_TEST_JOBS=${CICD_MAX_JOBS:-2} bash /src/cicd/linux/test-sanitizers.bash")
+
 ## Stage 3 (after lints): dependency policy (licenses/advisories). NOT READY - unset.
 ## NEEDS: a C-world equivalent if wanted (there is no Cargo.lock to police); likely
 ## not applicable until there are vendored deps.
@@ -136,7 +143,7 @@ FUZZ_CMD=(bash "${DOCKER_RUN}" "fuzz" "FUZZ_SECS=${FUZZ_SECS} NEMO_TEST_JOBS=${C
 ## release.bash owns the whole lane: it builds in nemo-build-jammy so the glibc floor
 ## stays at 2.35, stages the relocatable prefix, writes the versioned tarball and the
 ## sums file, and leaves the staged tree at cicd/artifacts/dogfood/ for stage 7 and
-## the launcher. Incremental, so only the first run after a clone is slow.
+## the launcher. Every run builds from an empty dir, about a minute here.
 ## RELEASE_NATIVE_BIN is the wrapper inside that tree - the engine only checks it
 ## exists, and stage 7 installs the tree around it rather than the file itself.
 RELEASE_ENABLE=1
@@ -152,9 +159,15 @@ RELEASE_NATIVE_OSARCH="linux-x86_64"
 ## the cross build dir lives only in the container.
 ## Then the exe is opened under wine and its main window looked for, about twenty
 ## seconds, since nothing else here ever starts the Windows build's GUI.
+## Linux arm64 is built on an arm64 box over ssh, not cross-compiled, and takes
+## about an hour on the emulated one, so the engine leaves it out unless the run
+## has --include-arm. Its tarball name has the version in it; the engine fills
+## in @VER@. The lane also reads the arm64 .deb's dependencies on that box, for
+## the arm64 packages in stage 6.
 BUILD_CROSS=1
 CROSS_TARGETS=(
 	"Windows x86_64 (mingw)|windows-x86_64|cicd/artifacts/cross/nemo-anywhere.exe|rm -f cicd/artifacts/cross/nemo-anywhere.exe && bash cicd/win/build-cross.bash && mkdir -p cicd/artifacts/cross && docker cp nemo-winbuild:/build-win/src/nemo-anywhere.exe cicd/artifacts/cross/nemo-anywhere.exe && docker exec nemo-winbuild bash /src/cicd/win/gui-smoke.bash"
+	"Linux arm64 (arm64 box)|linux-arm64|cicd/artifacts/release/${EXE_NAME}-@VER@-linux-arm64.tar.gz|bash cicd/linux/release-arm64.bash"
 )
 #	Rust-era original (reference only - cargo/zig cross, not applicable to meson):
 #	CROSS_TARGETS=(
@@ -162,6 +175,14 @@ CROSS_TARGETS=(
 #		"Linux ARM64 (zig)|linux-arm64|target/aarch64-unknown-linux-gnu/release/${EXE_NAME}|cargo zigbuild --release --target aarch64-unknown-linux-gnu"
 #		"Windows ARM64 (zig)|windows-arm64|target/aarch64-pc-windows-gnullvm/release/${EXE_NAME}.exe|cargo zigbuild --release --target aarch64-pc-windows-gnullvm"
 #	)
+
+## FreeBSD, on the FreeBSD box, behind --include-bsd: it needs that box and its
+## host lock, and adds a build and the suite there plus a release build. The
+## test command runs in stage 3 after the sanitizer suite. The release command
+## runs in stage 5 after the cross targets and brings back the -bsd- tarball and
+## the pkg file; the sums from stage 6 on cover both. See bsd/lane.bash.
+BSD_TEST_CMD=(bash cicd/bsd/lane.bash --tests)
+BSD_RELEASE_CMD=(bash cicd/bsd/lane.bash --release)
 
 ## Stage 5 (after builds): collect versioned artifacts + sha256sums.
 ## The artifacts themselves come from the per-platform release lanes, not from this
@@ -174,6 +195,13 @@ CROSS_TARGETS=(
 ## would throw away the tarball release.bash just wrote.
 RELEASE_ARTIFACT_DIR="cicd/artifacts/release"
 RELEASE_COLLECT=0
+## Hosted builds started by the release tag. utility/release.bash --publish waits
+## for each, downloads its release-files artifact and makes the release with those
+## files and its own in one go. A hosted build never makes or edits a release.
+RELEASE_WORKFLOWS=(release-win.yml)
+## The account releases are published as. --publish refuses to run when gh is
+## signed in as anyone else. Empty skips the check.
+RELEASE_GH_LOGIN="t00mietum"
 VERSION_MANIFEST="source/meson.build"
 #	Rust-era original (reference only):
 #	RELEASE_ARTIFACT_DIR="cicd/artifacts/release"
@@ -191,21 +219,45 @@ VERSION_MANIFEST="source/meson.build"
 ##     relocatable prefix under /opt plus a launcher, menu entry and icons. The
 ##     .deb's dependency versions are read in the Ubuntu release container so the
 ##     package claims the same floor the binary was built against.
+##   - The arm64 .deb and .rpm are made here the same way, from the tarball the
+##     arm64 lane brought back, with the dependency line it read in the release
+##     container on the arm64 box. The engine runs that step and its prefix
+##     check only when the arm64 build ran (entries with arm64 in them), so
+##     never on a stale one.
 ##   - The Windows .zip is flattened out of the cross-build - exe at the folder
 ##     root beside its DLLs, which is the layout install.ps1 expects.
+##   - The Windows setup exe is made from that zip with makensis, in the
+##     cross-build container, so it installs exactly what install.ps1 does.
 ##   - Both installers then install, reinstall and uninstall the Linux tarball in
 ##     a scratch home, offline.
 ##   - Every file the tarball, .deb and .rpm install has to carry the app's name,
 ##     and the action layout editor's launcher has to work from a moved prefix.
-## Deferred: BSD .pkg, macOS .pkg, AppImage, Flatpak - no toolchain here yet.
+##   - The FreeBSD pkg, made on that box by the FreeBSD lane, is checked
+##     against the tarball beside it when there is one for this version.
+##   - The setup exe is run under wine in the cross-build container: install,
+##     update, uninstall.
+##   - The zip has the GTK settings and font config the single exe has.
+##   - No bundle has libgsf, the gsf-office thumbnailer or the old search
+##     converters, and no package depends on libgsf. The prefix check runs
+##     that on the Linux files of its arch.
+## Deferred: macOS .pkg, AppImage, Flatpak - no toolchain here yet.
 PACKAGE_ENABLE=1
 PACKAGE_CMDS=(
 	"Linux .deb + .rpm|bash cicd/linux/package.bash"
+	"Linux arm64 .deb + .rpm|bash cicd/linux/package.bash --arch arm64"
 	"Windows .zip|bash cicd/win/pack-zip.bash"
+	"Windows setup exe|bash cicd/win/pack-setup.bash"
 )
 PACKAGE_CHECKS=(
 	"Installer check|bash cicd/linux/test-installers.bash"
 	"Prefix check|bash cicd/linux/test-prefix.bash"
+	"Prefix check (arm64)|bash cicd/linux/test-prefix.bash --arch arm64"
+	"FreeBSD package check|bash cicd/bsd/test-pkg.bash"
+	"Windows bundle check|bash cicd/utility/test-bundle-left-out.bash windows"
+	"Windows bundle exe check|(command -v pwsh >/dev/null 2>&1 || exit 77; pwsh -NoProfile -File cicd/utility/test-bundle-exes.ps1)"
+	"Windows bundle settings check|(command -v pwsh >/dev/null 2>&1 || exit 77; pwsh -NoProfile -File cicd/utility/test-bundle-settings.ps1)"
+	"FreeBSD bundle check|bash cicd/utility/test-bundle-left-out.bash bsd"
+	"Setup exe check|docker exec nemo-winbuild bash /src/cicd/win/test-setup.bash"
 )
 
 ## Stage 6, after the packages: builds that need another box's OS or signing

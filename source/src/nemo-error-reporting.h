@@ -28,6 +28,7 @@
 
 #include <gtk/gtk.h>
 #include <libnemo-private/nemo-file.h>
+#include <libnemo-private/nemo-file-operations.h>
 
 void nemo_report_error_loading_directory	 (NemoFile   *file,
 						  GError         *error,
@@ -51,5 +52,16 @@ void nemo_rename_file                      (NemoFile   *file,
 						const char     *new_name,
 						NemoFileOperationCallback callback,
 						gpointer callback_data);
+
+/* The first rename of a folder New folder just made, when the name has a
+   separator in it: makes the path instead, and says why if it can't. FALSE
+   when this is not that case, and the rename goes on as usual. When TRUE,
+   done is always called, with an error if the path was refused. It may be
+   NULL. */
+gboolean nemo_rename_new_folder_nested     (NemoFile         *file,
+					    const char       *new_name,
+					    GtkWindow        *parent_window,
+					    NemoNestCallback  done,
+					    gpointer          done_data);
 
 #endif /* NEMO_ERROR_REPORTING_H */

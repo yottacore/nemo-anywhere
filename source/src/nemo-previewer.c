@@ -79,6 +79,10 @@ nemo_previewer_init (NemoPreviewer *self)
   self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self, NEMO_TYPE_PREVIEWER,
                                             NemoPreviewerPriv);
 
+#ifdef G_OS_WIN32
+  /* No previewer there, and asking for the bus would start one. */
+  (void) error;
+#else
   self->priv->connection = g_bus_get_sync (G_BUS_TYPE_SESSION,
                                            NULL, &error);
 
@@ -87,6 +91,7 @@ nemo_previewer_init (NemoPreviewer *self)
     g_error_free (error);
     return;
   }
+#endif
 }
 
 static void
@@ -102,7 +107,7 @@ nemo_previewer_class_init (NemoPreviewerClass *klass)
 }
 
 static void
-previewer_show_file_ready_cb (GObject *source,
+previewer_show_file_ready_cb (G_GNUC_UNUSED GObject *source,
                               GAsyncResult *res,
                               gpointer user_data)
 {
@@ -122,7 +127,7 @@ previewer_show_file_ready_cb (GObject *source,
 }
 
 static void
-previewer_close_ready_cb (GObject *source,
+previewer_close_ready_cb (G_GNUC_UNUSED GObject *source,
                           GAsyncResult *res,
                           gpointer user_data)
 {
@@ -141,6 +146,7 @@ previewer_close_ready_cb (GObject *source,
   g_object_unref (self);
 }
 
+/* Returns: (transfer none): kept for the life of the process */
 NemoPreviewer *
 nemo_previewer_get_singleton (void)
 {
@@ -154,7 +160,9 @@ nemo_previewer_call_show_file (NemoPreviewer *self,
 				   gboolean close_if_already_visible)
 {
   if (self->priv->connection == NULL) {
+#ifndef G_OS_WIN32
     g_printerr ("No DBus connection available");
+#endif
     return;
   }
 
@@ -177,7 +185,9 @@ void
 nemo_previewer_call_close (NemoPreviewer *self)
 {
   if (self->priv->connection == NULL) {
+#ifndef G_OS_WIN32
     g_printerr ("No DBus connection available");
+#endif
     return;
   }
 

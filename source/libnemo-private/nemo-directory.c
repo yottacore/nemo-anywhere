@@ -120,6 +120,7 @@ nemo_directory_init (NemoDirectory *directory)
                                                                       NEMO_PREFERENCES_DEFERRED_ATTR_PRELOAD_LIMIT);
 }
 
+/* Returns: (transfer full): @directory with one more ref; drop it with nemo_directory_unref */
 NemoDirectory *
 nemo_directory_ref (NemoDirectory *directory)
 {
@@ -234,7 +235,7 @@ emit_change_signals_for_all_files (NemoDirectory *directory)
 }
 
 static void
-collect_all_directories (gpointer key, gpointer value, gpointer callback_data)
+collect_all_directories (G_GNUC_UNUSED gpointer key, gpointer value, gpointer callback_data)
 {
 	NemoDirectory *directory;
 	GList **dirs;
@@ -333,6 +334,8 @@ add_preferences_callbacks (void)
  * Creates the appropriate subclass given the uri mappings.
  * Returns a referenced object, not a floating one. Unref when finished.
  * If two windows are viewing the same uri, the directory object is shared.
+ *
+ * Returns: (transfer full): unref with nemo_directory_unref
  */
 NemoDirectory *
 nemo_directory_get_internal (GFile *location, gboolean create)
@@ -367,6 +370,7 @@ nemo_directory_get_internal (GFile *location, gboolean create)
 	return directory;
 }
 
+/* Returns: (transfer full): unref with nemo_directory_unref */
 NemoDirectory *
 nemo_directory_get (GFile *location)
 {
@@ -377,6 +381,7 @@ nemo_directory_get (GFile *location)
 	return nemo_directory_get_internal (location, TRUE);
 }
 
+/* Returns: (transfer full): NULL if not known yet; unref with nemo_directory_unref */
 NemoDirectory *
 nemo_directory_get_existing (GFile *location)
 {
@@ -388,6 +393,7 @@ nemo_directory_get_existing (GFile *location)
 }
 
 
+/* Returns: (transfer full): unref with nemo_directory_unref */
 NemoDirectory *
 nemo_directory_get_by_uri (const char *uri)
 {
@@ -405,6 +411,7 @@ nemo_directory_get_by_uri (const char *uri)
 	return directory;
 }
 
+/* Returns: (transfer full): unref with nemo_directory_unref */
 NemoDirectory *
 nemo_directory_get_for_file (NemoFile *file)
 {
@@ -420,6 +427,7 @@ nemo_directory_get_for_file (NemoFile *file)
 }
 
 /* Returns a reffed NemoFile object for this directory.
+ * Returns: (transfer full): unref with nemo_file_unref
  */
 NemoFile *
 nemo_directory_get_corresponding_file (NemoDirectory *directory)
@@ -439,6 +447,7 @@ nemo_directory_get_corresponding_file (NemoDirectory *directory)
 
 /* Returns a reffed NemoFile object for this directory, but only if the
  * NemoFile object has already been created.
+ * Returns: (transfer full): unref with nemo_file_unref
  */
 NemoFile *
 nemo_directory_get_existing_corresponding_file (NemoDirectory *directory)
@@ -463,6 +472,7 @@ nemo_directory_get_existing_corresponding_file (NemoDirectory *directory)
  * Get a name to display for the file representing this
  * directory. This is called only when there's no VFS
  * directory for this NemoDirectory.
+ * Returns: (transfer full): free with g_free
  */
 char *
 nemo_directory_get_name_for_self_as_new_file (NemoDirectory *directory)
@@ -483,6 +493,7 @@ nemo_directory_get_name_for_self_as_new_file (NemoDirectory *directory)
 	return name;
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_directory_get_uri (NemoDirectory *directory)
 {
@@ -491,6 +502,7 @@ nemo_directory_get_uri (NemoDirectory *directory)
 	return g_file_get_uri (directory->details->location);
 }
 
+/* Returns: (transfer full): unref with g_object_unref */
 GFile *
 nemo_directory_get_location (NemoDirectory  *directory)
 {
@@ -514,6 +526,10 @@ nemo_directory_new (GFile *location)
 	}
 
 	set_directory_location (directory, location);
+
+	if (NEMO_IS_SEARCH_DIRECTORY (directory)) {
+		nemo_search_directory_recall_query (NEMO_SEARCH_DIRECTORY (directory));
+	}
 
 	g_free (uri);
 	
@@ -704,6 +720,7 @@ nemo_directory_remove_file (NemoDirectory *directory, NemoFile *file)
 	}
 }
 
+/* Returns: (transfer full): the node, handed back to nemo_directory_end_file_name_change */
 GList *
 nemo_directory_begin_file_name_change (NemoDirectory *directory,
 					   NemoFile *file)
@@ -723,6 +740,7 @@ nemo_directory_end_file_name_change (NemoDirectory *directory,
 	}
 }
 
+/* Returns: (transfer none): owned by @directory */
 NemoFile *
 nemo_directory_find_file_by_name (NemoDirectory *directory,
 				      const char *name)
@@ -737,7 +755,8 @@ nemo_directory_find_file_by_name (NemoDirectory *directory,
 	return node == NULL ? NULL : NEMO_FILE (node->data);
 }
 
-/* "." for the directory-as-file, otherwise the filename */
+/* "." for the directory-as-file, otherwise the filename
+ * Returns: (transfer none): owned by @directory */
 NemoFile *
 nemo_directory_find_file_by_internal_filename (NemoDirectory *directory,
 						   const char *internal_filename)
@@ -916,8 +935,7 @@ call_get_file_info_free_list (gpointer key, gpointer value, gpointer user_data)
 	files = value;
 	
 	nemo_directory_get_info_for_new_files (directory, files);
-	g_list_foreach (files, (GFunc) g_object_unref, NULL);
-	g_list_free (files);
+	g_list_free_full (files, g_object_unref);
 }
 
 /* An entry coming or going changes the folder's own modified time as well as
@@ -1049,8 +1067,10 @@ nemo_directory_notify_files_added (GList *files)
 }
 
 static void
-g_file_pair_free (GFilePair *pair)
+g_file_pair_free (gpointer data)
 {
+	GFilePair *pair = data;
+
 	g_object_unref (pair->to);
 	g_object_unref (pair->from);
 	g_free (pair);
@@ -1488,8 +1508,7 @@ nemo_directory_notify_files_moved_by_uri (GList *uri_pairs)
 
 	file_pairs = uri_pairs_to_file_pairs (uri_pairs);
 	nemo_directory_notify_files_moved (file_pairs);
-	g_list_foreach (file_pairs, (GFunc)g_file_pair_free, NULL);
-	g_list_free (file_pairs);
+	g_list_free_full (file_pairs, g_file_pair_free);
 }
 
 void
@@ -1539,6 +1558,7 @@ nemo_directory_contains_file (NemoDirectory *directory,
 	return NEMO_DIRECTORY_CLASS (G_OBJECT_GET_CLASS (directory))->contains_file (directory, file);
 }
 
+/* Returns: (transfer full): free with g_free */
 char *
 nemo_directory_get_file_uri (NemoDirectory *directory,
 				 const char *file_name)
@@ -1645,6 +1665,7 @@ is_tentative (gpointer data, gpointer callback_data)
 	return !file->details->got_file_info || !file->details->is_added;
 }
 
+/* Returns: (transfer full): free with nemo_file_list_free */
 GList *
 nemo_directory_get_file_list (NemoDirectory *directory)
 {
@@ -1666,7 +1687,7 @@ real_get_file_list (NemoDirectory *directory)
 }
 
 static gboolean
-real_is_editable (NemoDirectory *directory)
+real_is_editable (G_GNUC_UNUSED NemoDirectory *directory)
 {
 	return TRUE;
 }
@@ -1677,6 +1698,7 @@ nemo_directory_is_editable (NemoDirectory *directory)
 	return NEMO_DIRECTORY_CLASS (G_OBJECT_GET_CLASS (directory))->is_editable (directory);
 }
 
+/* Returns: (transfer full): free with nemo_file_list_free */
 GList *
 nemo_directory_match_pattern (NemoDirectory *directory, const char *pattern)
 {
@@ -1750,16 +1772,32 @@ nemo_directory_is_mostly_images (NemoDirectory *directory)
 	return mostly;
 }
 
+static void
+directory_ref_one (gpointer data, G_GNUC_UNUSED gpointer user_data)
+{
+	nemo_directory_ref (data);
+}
+
+/* Not a for loop: an unref can take the item out of the list being walked,
+   and g_list_foreach reads the next link first. */
+static void
+directory_unref_one (gpointer data, G_GNUC_UNUSED gpointer user_data)
+{
+	nemo_directory_unref (data);
+}
+
 /**
  * nemo_directory_list_ref
  *
  * Ref all the directories in a list.
  * @list: GList of directories.
+ *
+ * Returns: (transfer none): @list itself; each directory has one more ref, dropped with nemo_directory_list_unref
  **/
 GList *
 nemo_directory_list_ref (GList *list)
 {
-	g_list_foreach (list, (GFunc) nemo_directory_ref, NULL);
+	g_list_foreach (list, directory_ref_one, NULL);
 	return list;
 }
 
@@ -1772,7 +1810,7 @@ nemo_directory_list_ref (GList *list)
 void
 nemo_directory_list_unref (GList *list)
 {
-	g_list_foreach (list, (GFunc) nemo_directory_unref, NULL);
+	g_list_foreach (list, directory_unref_one, NULL);
 }
 
 /**
@@ -1793,6 +1831,8 @@ nemo_directory_list_free (GList *list)
  *
  * Copy the list of directories, making a new ref of each,
  * @list: GList of directories.
+ *
+ * Returns: (transfer full): free with nemo_directory_list_free
  **/
 GList *
 nemo_directory_list_copy (GList *list)
@@ -1828,6 +1868,8 @@ compare_by_uri_cover (gconstpointer a, gconstpointer b)
  * 
  * Sort the list of directories by directory uri.
  * @list: GList of directories.
+ *
+ * Returns: (transfer full): @list sorted in place, owned as @list was
  **/
 GList *
 nemo_directory_list_sort_by_uri (GList *list)

@@ -35,6 +35,7 @@
 #include "nemo-pathbar.h"
 #include "nemo-window-private.h"
 #include "nemo-window-slot.h"
+#include "nemo-toolbar.h"
 #include "nemo-trash-bar.h"
 #include "nemo-view-factory.h"
 #include "nemo-x-content-bar.h"
@@ -62,6 +63,7 @@
 #include <libnemo-private/nemo-module.h>
 #include <libnemo-private/nemo-monitor.h>
 #include <libnemo-private/nemo-search-directory.h>
+#include <libnemo-private/nemo-share.h>
 
 #define DEBUG_FLAG NEMO_DEBUG_WINDOW
 #include <libnemo-private/nemo-debug.h>
@@ -437,7 +439,7 @@ nemo_window_slot_open_location_full (NemoWindowSlot *slot,
         NemoWindow *target_window;
         NemoWindowPane *pane;
         NemoWindowSlot *target_slot;
-	NemoWindowOpenFlags slot_flags;
+	NemoWindowOpenSlotFlags slot_flags;
 	GFile *old_location;
 	char *old_uri, *new_uri;
 	int new_slot_position;
@@ -589,6 +591,7 @@ nemo_window_slot_open_location_full (NemoWindowSlot *slot,
     g_clear_object (&old_location);
 }
 
+/* Returns: (transfer none): a static string */
 const char *
 nemo_window_slot_get_content_view_id (NemoWindowSlot *slot)
 {
@@ -606,6 +609,43 @@ nemo_window_slot_content_view_matches_iid (NemoWindowSlot *slot,
 		return FALSE;
 	}
 	return g_strcmp0 (nemo_view_get_view_id (slot->content_view), iid) == 0;
+}
+
+/* While the lookup or the mount behind a change is still out, the host it
+   waits on. NULL for anything on this machine, and once it has answered. */
+static char *
+pending_host (NemoWindowSlot *slot)
+{
+	if (slot->pending_location == NULL ||
+	    (slot->determine_view_file == NULL && slot->mount_cancellable == NULL)) {
+		return NULL;
+	}
+
+	return nemo_share_host_to_reach (slot->pending_location);
+}
+
+gboolean
+nemo_window_slot_is_connecting (NemoWindowSlot *slot)
+{
+	g_autofree char *host = pending_host (slot);
+
+	return host != NULL;
+}
+
+void
+nemo_window_slot_sync_connecting (NemoWindowSlot *slot)
+{
+	g_autofree char *host = NULL;
+
+	if (slot->pane == NULL || slot != slot->pane->active_slot) {
+		return;
+	}
+
+	if (NEMO_IS_TOOLBAR (slot->pane->tool_bar)) {
+		host = pending_host (slot);
+		nemo_toolbar_set_connecting (NEMO_TOOLBAR (slot->pane->tool_bar), host);
+	}
+	nemo_window_sync_pointer (nemo_window_slot_get_window (slot));
 }
 
 static gboolean
@@ -751,6 +791,9 @@ begin_location_change (NemoWindowSlot        *slot,
         slot->determine_view_file = nemo_file_get (location);
 	g_assert (slot->determine_view_file != NULL);
 
+	/* Going there is the visit, so a link onto a share is followed now. */
+	nemo_file_look_at_link (slot->determine_view_file);
+
 	/* if the currently viewed file is marked gone while loading the new location,
 	 * this ensures that the window isn't destroyed */
         cancel_viewed_file_changed_callback (slot);
@@ -760,6 +803,9 @@ begin_location_change (NemoWindowSlot        *slot,
 				       NEMO_FILE_ATTRIBUTE_MOUNT,
                                        got_file_info_for_view_selection_callback,
 				       slot);
+
+	/* Already answered, if the file was known. */
+	nemo_window_slot_sync_connecting (slot);
 }
 
 typedef struct {
@@ -809,6 +855,20 @@ mount_not_mounted_callback (GObject *source_object,
 	g_object_unref (cancellable);
 }
 
+/* Find results aren't a folder, so they keep their own view rather than the
+ * window's: the list view, wiht find mode's own columns, or whatever view was
+ * picked while they're up, kept through a new query. */
+static char *
+find_mode_view_id (NemoWindowSlot *slot, GFile *location)
+{
+	if (slot->content_view != NULL && slot->location != NULL &&
+	    g_file_equal (slot->location, location)) {
+		return g_strdup (nemo_view_get_view_id (slot->content_view));
+	}
+
+	return g_strdup (NEMO_LIST_VIEW_IID);
+}
+
 static void
 got_file_info_for_view_selection_callback (NemoFile *file,
 					   gpointer callback_data)
@@ -855,6 +915,7 @@ got_file_info_for_view_selection_callback (NemoFile *file,
 		g_object_unref (mount_op);
 
 		nemo_file_unref (file);
+		nemo_window_slot_sync_connecting (slot);
 
 		return;
 	}
@@ -888,6 +949,9 @@ got_file_info_for_view_selection_callback (NemoFile *file,
 	nemo_file_unref (parent_file);
 	location = slot->pending_location;
 
+	/* Reached or failed, either way nothing waits on the host now. */
+	nemo_window_slot_sync_connecting (slot);
+
 	view_id = NULL;
 	handed_view_id = g_steal_pointer (&slot->pending_view_id);
 
@@ -901,6 +965,8 @@ got_file_info_for_view_selection_callback (NemoFile *file,
 		if (handed_view_id != NULL) {
 			view_id = g_steal_pointer (&handed_view_id);
 			handed_view = TRUE;
+		} else if (g_file_has_uri_scheme (location, "x-nemo-search")) {
+			view_id = find_mode_view_id (slot, location);
 		} else if (!nemo_global_preferences_get_remember_folder_settings ()) {
 			view_id = g_strdup (nemo_window_get_ignore_meta_view_id (window));
 
@@ -1569,6 +1635,10 @@ update_for_new_location (NemoWindowSlot *slot)
 		nemo_window_pane_sync_location_widgets (slot->pane);
 
 		if (location_really_changed) {
+			if (slot->location_change_type == NEMO_LOCATION_CHANGE_BACK ||
+			    slot->location_change_type == NEMO_LOCATION_CHANGE_FORWARD) {
+				nemo_window_slot_recall_search_bar (slot);
+			}
 			nemo_window_pane_sync_search_widgets (slot->pane);
 		}
 	}
@@ -1594,8 +1664,10 @@ nemo_window_report_load_complete (NemoWindow *window,
 	g_assert (slot != NULL);
 
 	/* Only handle this if we're expecting it.
-	 * Don't handle it if its from an old view we've switched from */
-	if (view == slot->content_view) {
+	 * Don't handle it if its from an old view we've switched from.
+	 * Nor while another location is on its way in: that change has not
+	 * reported underway yet, and ending it here loses it (2026100611482306). */
+	if (view == slot->content_view && slot->pending_location == NULL) {
 		if (slot->pending_scroll_to != NULL) {
 			nemo_view_scroll_to_file (slot->content_view,
 						      slot->pending_scroll_to);
@@ -1637,6 +1709,7 @@ end_location_change (NemoWindowSlot *slot)
 	slot->pending_scroll_to = NULL;
 
 	free_location_change (slot);
+	nemo_window_slot_sync_connecting (slot);
 }
 
 static void
@@ -1704,7 +1777,7 @@ cancel_location_change (NemoWindowSlot *slot)
 }
 
 static void
-display_view_selection_failure (NemoWindow *window, NemoFile *file,
+display_view_selection_failure (G_GNUC_UNUSED NemoWindow *window, NemoFile *file,
 				GFile *location, GError *error)
 {
 	char *full_uri_for_display;
@@ -1728,22 +1801,22 @@ display_view_selection_failure (NemoWindow *window, NemoFile *file,
 	if (error == NULL) {
 		if (nemo_file_is_directory (file)) {
 			error_message = g_strdup_printf
-				(_("Could not display \"%s\"."),
+				(_("Couldn't display \"%s\"."),
 				 uri_for_display);
 			detail_message = g_strdup
 				(_("Nemo has no installed viewer capable of displaying the folder."));
 		} else {
 			error_message = g_strdup_printf
-				(_("Could not display \"%s\"."),
+				(_("Couldn't display \"%s\"."),
 				 uri_for_display);
 			detail_message = g_strdup
-				(_("The location is not a folder."));
+				(_("The location isn't a folder."));
 		}
 	} else if (error->domain == G_IO_ERROR) {
 		switch (error->code) {
 		case G_IO_ERROR_NOT_FOUND:
 			error_message = g_strdup_printf
-				(_("Could not find \"%s\"."),
+				(_("Couldn't find \"%s\"."),
 				 uri_for_display);
 			detail_message = g_strdup
 				(_("Please check the spelling and try again."));
@@ -1751,24 +1824,24 @@ display_view_selection_failure (NemoWindow *window, NemoFile *file,
 		case G_IO_ERROR_NOT_SUPPORTED:
 			scheme_string = g_file_get_uri_scheme (location);
 
-			error_message = g_strdup_printf (_("Could not display \"%s\"."),
+			error_message = g_strdup_printf (_("Couldn't display \"%s\"."),
 							 uri_for_display);
 			if (scheme_string != NULL) {
-				detail_message = g_strdup_printf (_("Nemo cannot handle \"%s\" locations."),
+				detail_message = g_strdup_printf (_("Nemo can't handle \"%s\" locations."),
 								  scheme_string);
 			} else {
-				detail_message = g_strdup (_("Nemo cannot handle this kind of location."));
+				detail_message = g_strdup (_("Nemo can't handle this kind of location."));
 			}
 			g_free (scheme_string);
 			break;
 		case G_IO_ERROR_NOT_MOUNTED:
-			error_message = g_strdup_printf (_("Could not display \"%s\"."),
+			error_message = g_strdup_printf (_("Couldn't display \"%s\"."),
 							 uri_for_display);
 			detail_message = g_strdup (_("Unable to mount the location."));
 			break;
 
 		case G_IO_ERROR_PERMISSION_DENIED:
-			error_message = g_strdup_printf (_("Could not display \"%s\"."),
+			error_message = g_strdup_printf (_("Couldn't display \"%s\"."),
 							 uri_for_display);
 			detail_message = g_strdup (_("Access was denied."));
 			break;
@@ -1779,7 +1852,7 @@ display_view_selection_failure (NemoWindow *window, NemoFile *file,
 			 * But this case is also hit for legitimate web addresses when
 			 * the proxy is set up wrong.
 			 */
-			error_message = g_strdup_printf (_("Could not display \"%s\", because the host could not be found."),
+			error_message = g_strdup_printf (_("Couldn't display \"%s\", because the host couldn't be found."),
 							 uri_for_display);
 			detail_message = g_strdup (_("Check that the spelling is correct and that your proxy settings are correct."));
 			break;
@@ -1794,7 +1867,7 @@ display_view_selection_failure (NemoWindow *window, NemoFile *file,
 	}
 
 	if (error_message == NULL) {
-		error_message = g_strdup_printf (_("Could not display \"%s\"."),
+		error_message = g_strdup_printf (_("Couldn't display \"%s\"."),
 						 uri_for_display);
 		detail_message = g_strdup_printf (_("Error: %s\nPlease select another viewer and try again."), error->message);
 	}
@@ -1814,7 +1887,10 @@ nemo_window_slot_stop_loading (NemoWindowSlot *slot)
 
 	window = nemo_window_slot_get_window (slot);
 
-	nemo_view_stop_loading (slot->content_view);
+	/* A window opened straight onto a share has no view until it answers. */
+	if (slot->content_view != NULL) {
+		nemo_view_stop_loading (slot->content_view);
+	}
 
 	if (slot->new_content_view != NULL) {
 		window->details->temporarily_ignore_view_signals = TRUE;
@@ -1869,6 +1945,12 @@ switch_content_view (NemoWindowSlot *slot,
 
 	file = nemo_file_get (slot->location);
 
+    /* A view picked in find mode lasts as long as the search, and is never the
+     * folder's. */
+    if (g_file_has_uri_scheme (slot->location, "x-nemo-search")) {
+        save = hold = FALSE;
+    }
+
     if (!nemo_global_preferences_get_remember_folder_settings ()) {
         if (hold) {
             nemo_window_set_ignore_meta_view_id (nemo_window_slot_get_window (slot), id);
@@ -1893,6 +1975,7 @@ switch_content_view (NemoWindowSlot *slot,
     if (nemo_view_get_selection_count (slot->content_view) == 0) {
             /* If there is no selection, queue a scroll to the same icon that
              * is currently visible */
+            g_free (slot->pending_scroll_to);
             slot->pending_scroll_to = nemo_view_get_first_visible_file (slot->content_view);
     }
 	slot->location_change_type = NEMO_LOCATION_CHANGE_RELOAD;
@@ -1916,6 +1999,19 @@ nemo_window_slot_follow_default_view (NemoWindowSlot *slot,
 	NemoFile *file;
 	char *saved_id;
 
+	if (slot->location == NULL) {
+		return;
+	}
+
+	/* Find results keep their own view. The folders behind them still take
+	   the new default. */
+	if (g_file_has_uri_scheme (slot->location, "x-nemo-search")) {
+		if (!nemo_global_preferences_get_remember_folder_settings ()) {
+			nemo_window_set_ignore_meta_view_id (nemo_window_slot_get_window (slot), default_id);
+		}
+		return;
+	}
+
 	file = nemo_file_get (slot->location);
 	saved_id = nemo_global_preferences_get_remember_folder_settings () ?
 		nemo_folder_settings_get (file, NEMO_METADATA_KEY_DEFAULT_VIEW, NULL) : NULL;
@@ -1936,7 +2032,9 @@ nemo_window_slot_check_image_view (NemoWindowSlot *slot)
 	NemoFile *file;
 	char *saved_id;
 
-	if (slot->location == NULL || slot->content_view == NULL ||
+	/* A load that ends while another location is on its way in is the old
+	 * folder's, and a switch now would lose the new one (2026100611482306). */
+	if (slot->location == NULL || slot->content_view == NULL || slot->pending_location != NULL ||
 	    (slot->image_view_checked != NULL &&
 	     g_file_equal (slot->image_view_checked, slot->location))) {
 		return;

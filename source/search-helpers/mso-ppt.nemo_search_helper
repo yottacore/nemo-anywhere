@@ -1,5 +1,0 @@
-[Nemo Search Helper]
-TryExec=nemo-anywhere-ppt-to-txt;
-Exec=nemo-anywhere-ppt-to-txt %s
-MimeType=application/vnd.ms-powerpoint;
-Priority=100
