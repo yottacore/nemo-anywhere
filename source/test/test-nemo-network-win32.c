@@ -12,6 +12,7 @@
 
 #include <windows.h>
 
+#include <eel/eel-vfs-extensions.h>
 #include <libnemo-private/nemo-network-win32.h>
 #include "test-check.h"
 
@@ -263,6 +264,102 @@ test_live_shares (void)
 	g_object_unref (root);
 }
 
+/* Where an smb:// address goes, however it arrives. want is a UNC path for a
+ * share or a folder in one, or a network:/// uri for a server or no server.
+ * Before, every one of these became a file GLib can't open, and the window
+ * said it can't handle "smb" locations. */
+static void
+check_smb_one (const char *how, GFile *file, const char *address, const char *want)
+{
+	char *got;
+
+	if (file == NULL) {
+		g_printerr ("FAIL %s %s: no file\n", how, address);
+		failures++;
+		return;
+	}
+
+	if (g_str_has_prefix (want, "\\\\")) {
+		got = g_file_get_path (file);
+		check (g_file_is_native (file));
+	} else {
+		got = g_file_get_uri (file);
+	}
+
+	if (g_strcmp0 (got, want) != 0) {
+		g_printerr ("FAIL %s %s: got %s, want %s\n", how, address, got != NULL ? got : "(null)", want);
+		failures++;
+	}
+	g_free (got);
+}
+
+static void
+check_smb (const char *address, const char *want)
+{
+	GFile *file;
+
+	file = nemo_network_win32_file_for_smb_uri (address);
+	check_smb_one ("mapped", file, address, want);
+	g_clear_object (&file);
+
+	file = g_file_parse_name (address);
+	check_smb_one ("parsed", file, address, want);
+	g_clear_object (&file);
+
+	file = eel_g_file_new_for_user_input (address);
+	check_smb_one ("typed", file, address, want);
+	g_clear_object (&file);
+
+	/* A bare space isn't a uri, so only the typed forms above take it. GLib
+	 * matches a uri's scheme by case, so SMB:// is only caught when typed. */
+	if (strchr (address, ' ') == NULL && strncmp (address, "smb:", 4) == 0) {
+		file = g_file_new_for_uri (address);
+		check_smb_one ("uri", file, address, want);
+		g_clear_object (&file);
+
+		file = g_file_new_for_commandline_arg (address);
+		check_smb_one ("argument", file, address, want);
+		g_clear_object (&file);
+	}
+}
+
+static void
+test_smb_addresses (void)
+{
+	GFile *file;
+
+	check_smb ("smb://FILESRV/public", "\\\\FILESRV\\public");
+	check_smb ("smb://FILESRV/public/", "\\\\FILESRV\\public");
+	check_smb ("smb://FILESRV/public/sub/deeper", "\\\\FILESRV\\public\\sub\\deeper");
+	check_smb ("smb://FILESRV/public/two%20words", "\\\\FILESRV\\public\\two words");
+	check_smb ("smb://FILESRV/public/two words", "\\\\FILESRV\\public\\two words");
+	check_smb ("smb://FILESRV/public/100% done", "\\\\FILESRV\\public\\100% done");
+	check_smb ("SMB://FILESRV/public", "\\\\FILESRV\\public");
+	check_smb ("smb://someone@FILESRV/public", "\\\\FILESRV\\public");
+	check_smb ("smb://DOMAIN;someone:secret@FILESRV:445/public", "\\\\FILESRV\\public");
+	check_smb ("smb://192.168.1.10/public", "\\\\192.168.1.10\\public");
+	check_smb ("smb://[fe80::1%254]/public", "\\\\fe80--1s4.ipv6-literal.net\\public");
+	check_smb ("smb://localhost/c$", "\\\\localhost\\c$");
+
+	check_smb ("smb://FILESRV", "network:///FILESRV");
+	check_smb ("smb://FILESRV/", "network:///FILESRV");
+	check_smb ("smb:///", "network:///");
+	check_smb ("smb://", "network:///");
+
+	/* not an smb address: left to GLib */
+	file = nemo_network_win32_file_for_smb_uri ("network:///FILESRV");
+	check (file == NULL);
+	g_clear_object (&file);
+	file = nemo_network_win32_file_for_smb_uri ("C:\\smb\\x");
+	check (file == NULL);
+	g_clear_object (&file);
+
+	/* the UNC form was already taken, and still is */
+	file = eel_g_file_new_for_user_input ("\\\\FILESRV\\public");
+	check_smb_one ("typed", file, "\\\\FILESRV\\public", "\\\\FILESRV\\public");
+	g_clear_object (&file);
+}
+
 int
 main (void)
 {
@@ -307,6 +404,7 @@ main (void)
 	g_object_unref (server);
 	g_object_unref (root);
 
+	test_smb_addresses ();
 	test_error_wording ();
 	test_missing_server ();
 	test_root_against_the_machine ();

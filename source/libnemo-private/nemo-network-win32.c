@@ -794,6 +794,131 @@ network_vfs_lookup (G_GNUC_UNUSED GVfs *vfs, const char *identifier, G_GNUC_UNUS
 	return NULL;
 }
 
+/* Returns: (transfer full) (nullable): NULL when s holds a bad escape */
+static char *
+smb_unescape (const char *s)
+{
+	return strchr (s, '%') != NULL ? g_uri_unescape_string (s, NULL) : g_strdup (s);
+}
+
+/* The server part of an smb:// address as a UNC path names it. Who, which
+   domain and which port are dropped, since Windows connects as the session
+   does. An IPv6 address takes the spelling Windows reads in a UNC path.
+   Returns: (transfer full) (nullable) */
+static char *
+smb_host_for_unc (const char *authority, gsize len)
+{
+	const char *end = authority + len;
+	const char *host = authority;
+	const char *p;
+	char *raw;
+	char *unc;
+
+	for (p = authority; p < end; p++) {
+		if (*p == '@') {
+			host = p + 1;
+		}
+	}
+
+	if (host < end && *host == '[') {
+		const char *close = memchr (host, ']', (gsize) (end - host));
+
+		if (close == NULL) {
+			return NULL;
+		}
+		raw = g_strndup (host + 1, (gsize) (close - host - 1));
+		unc = smb_unescape (raw);
+		g_free (raw);
+		if (unc != NULL) {
+			char *literal;
+
+			g_strdelimit (unc, ":", '-');
+			g_strdelimit (unc, "%", 's');
+			literal = g_strconcat (unc, ".ipv6-literal.net", NULL);
+			g_free (unc);
+			unc = literal;
+		}
+		return unc;
+	}
+
+	p = memchr (host, ':', (gsize) (end - host));
+	raw = g_strndup (host, (gsize) ((p != NULL ? p : end) - host));
+	unc = smb_unescape (raw);
+	g_free (raw);
+	return unc;
+}
+
+/* Returns: (transfer full) (nullable): unref with g_object_unref */
+GFile *
+nemo_network_win32_file_for_smb_uri (const char *uri)
+{
+	const char *rest;
+	const char *slash;
+	char *host;
+	char *path;
+	GFile *file;
+
+	if (uri == NULL || g_ascii_strncasecmp (uri, "smb:", 4) != 0) {
+		return NULL;
+	}
+
+	rest = uri + 4;
+	if (*rest == '\0') {
+		return network_file_new_for_uri (ROOT_URI);
+	}
+	if (strncmp (rest, "//", 2) != 0) {
+		return NULL;
+	}
+	rest += 2;
+
+	slash = strchr (rest, '/');
+	host = smb_host_for_unc (rest, slash != NULL ? (gsize) (slash - rest) : strlen (rest));
+	if (host == NULL) {
+		return NULL;
+	}
+
+	if (*host == '\0') {
+		g_free (host);
+		return network_file_new_for_uri (ROOT_URI);
+	}
+
+	/* A typed address may hold a bare space or a stray %, so an escape that
+	   doesn't decode is taken as it was written. */
+	path = smb_unescape (slash != NULL ? slash : "");
+	if (path == NULL) {
+		path = g_strdup (slash);
+	}
+	g_strdelimit (path, "/", '\\');
+	g_strstrip (path);
+	while (path[0] != '\0' && path[strlen (path) - 1] == '\\') {
+		path[strlen (path) - 1] = '\0';
+	}
+
+	if (path[0] == '\0') {
+		char *escaped = g_uri_escape_string (host, NULL, TRUE);
+		char *server_uri = g_strconcat (ROOT_URI, escaped, NULL);
+
+		file = network_file_new_for_uri (server_uri);
+		g_free (server_uri);
+		g_free (escaped);
+	} else {
+		char *unc = g_strconcat ("\\\\", host, path, NULL);
+
+		file = g_file_new_for_path (unc);
+		g_free (unc);
+	}
+
+	g_free (path);
+	g_free (host);
+	return file;
+}
+
+static GFile *
+smb_vfs_lookup (G_GNUC_UNUSED GVfs *vfs, const char *identifier, G_GNUC_UNUSED gpointer user_data)
+{
+	return nemo_network_win32_file_for_smb_uri (identifier);
+}
+
 void
 nemo_network_win32_register (void)
 {
@@ -806,6 +931,9 @@ nemo_network_win32_register (void)
 		g_vfs_register_uri_scheme (vfs, "network",
 					   network_vfs_lookup, NULL, NULL,
 					   network_vfs_lookup, NULL, NULL);
+		g_vfs_register_uri_scheme (vfs, "smb",
+					   smb_vfs_lookup, NULL, NULL,
+					   smb_vfs_lookup, NULL, NULL);
 
 		g_once_init_leave (&once_init_value, 1);
 	}

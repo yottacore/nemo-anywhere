@@ -587,6 +587,8 @@ On Windows the gaps are filled natively rather than by porting gvfs:
 
 - Network browsing enumerates the Windows network neighborhood. UNC paths are ordinary paths and need nothing special.
 
+- An `smb://` address goes where its UNC path goes, since Windows has no smb scheme of its own. `smb://host/share/folder` opens `\\host\share\folder`, and `smb://host` lists that server's shares. A user name or port in it is left out, as Windows connects to a share as the session does, so Connect to Server asks only for the server and share there.
+
 - Fixed drives are first-class sidebar roots with a disk-usage bar each, replacing the single Unix filesystem root, which means nothing there. Removable, optical and network drives stay on the normal devices path, since that path carries eject and unmount.
 
 - Per-type file icons are derived from the file's content type, because the platform's file layer reports one generic icon for nearly every file.
@@ -634,6 +636,7 @@ Measured on 2026-09-20 with the Linux release build on a desktop machine. Each i
 	- On Windows a share is a UNC path or a drive letter mapped to one. On Linux and the BSDs it is a mount of a network file system, read from the mount table rather than asked. A link counts when it leads onto a share other than the one it sits on. The share holding the home folder counts as local, since the program works there from its first window on.
 	- A folder on a share counts as one too, wherever it was reached from, so item counts and thumbnails there are off by default, as "Local files only" says.
 	- On Linux and the BSDs a folder is listed by following each link in it, to show what it points at. A link onto a share is the exception. It is listed as the link itself, a plain link that sorts with the files, until someone opens it. Windows lists every link that way already and still gets its type.
+	- A folder gvfs serves, such as an smb or sftp one, is listed by gvfs, which follows its links on the server. While gvfsd-fuse runs such a folder has a local path too, under `/run/user/<uid>/gvfs`, but that doesn't make it local.
 	- On Windows the side pane names and draws a mapped drive from its letter and what Windows keeps for it locally, and the trash state asks only the local drives' bins.
 
 - On Windows the packed exe took 3.4 s to start on 2026-08-19, down from 14.2 s. See [Startup time](design_docs/20260930-145641_windows_exe_packing.md#startup-time).

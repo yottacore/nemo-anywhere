@@ -30,6 +30,7 @@
 #define NEMO_NETWORK_WIN32_H
 
 #include <glib.h>
+#include <gio/gio.h>
 
 void nemo_network_win32_register (void);
 
@@ -44,6 +45,12 @@ void nemo_network_win32_set_error (GError      **error,
 /* Whether this machine has a network at all. The enumeration cannot say: it
  * succeeds with an empty list either way. */
 gboolean nemo_network_win32_is_available (void);
+
+/* Windows has no smb scheme of its own, so an smb:// address goes where the
+ * same place goes here: a share, or a folder in one, is its UNC path, a server
+ * is its list of shares under network:///, and no server is network:/// itself.
+ * Registered for both uris and typed names. NULL when uri isn't an smb address. */
+GFile *nemo_network_win32_file_for_smb_uri (const char *uri);
 #endif
 
 #endif /* NEMO_NETWORK_WIN32_H */
