@@ -1421,7 +1421,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Notes:
 		- The name may have to change if the Cinnamon team won't allow it, so a rename should be a one-line edit plus a rebuild.
 		- Today there are about 60 C strings with "Nemo" in them, about 20 of them "Nemo Anywhere", plus .ui, .py and data files.
-		- The slug `nemo-anywhere`, the app id `org.NemoAnywhere` and file paths are a bigger rename. Options: give each its own constant now, or leave them for if it happens.
+		- The slug `nemo-anywhere`, the app id `org.NemoAnywhere` and file paths are a bigger rename, split out as 2026101512210893.
 	- Test case: the new lint check, plus the existing UI case check for the strings it touches.
 
 - rjvdch2z fails now and then in the full suite on a loaded box.
@@ -1511,6 +1511,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- A drop that offers file contents in place of a path (`FileGroupDescriptorW` and `FileContents`) writes the files into the folder dropped on.
 	- Test case: TBD
+
+- The slug, app id and file paths that carry the program's name are typed out in many places. Give each one constant.
+	- ID: 2026101512210893
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261015-122108
+	- Opened by: t00mietum
+	- Related IDs: 2026101512190015
+	- Requirements:
+		- After the next cut.
+		- One place each for the slug `nemo-anywhere`, the app id `org.NemoAnywhere` and the names in file paths, such as the config folder, the data folder and the installed files.
+		- A rename should take an edit to those constants, a rebuild, and nothing else in the code.
+	- Notes:
+		- Only matters if the name has to change. The display name comes first, in 2026101512190015.
+		- A renamed config folder would need its old settings moved across.
+	- Test case: a lint check that refuses each one typed out anywhere but its constant.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
