@@ -26,6 +26,9 @@
 # "changed::" handler and for a read or write through nemo_config_*. A handler
 # on a group that does not have its key is never called, and nothing says so.
 #
+# And every key in the table has to be named somewhere outside it and the
+# tests, or it's a setting that does nothing.
+#
 # --self-test runs the checks over made-up files, wrong and right, so a change
 # that blinds them to a group or a spelling shows up here rather than as a
 # clean run over a tree that is not clean.
@@ -97,6 +100,42 @@ def key_context(root):
         for name, value in string_defines(header.read_text(errors="replace")).items():
             macros[name] = value if macros.get(name, value) == value else None
     return {"keys": keys, "names": names, "macros": macros}
+
+
+# A key no code names does nothing, yet it's in the schema and the starter
+# list, so a user can set it. Twelve desktop keys sat like that after the
+# desktop shell went. Tests don't count as readers. A key in a comment or an
+# unrelated string still counts, so this misses some but never cries wolf.
+COMMENT_OR_STRING = re.compile(r'/\*.*?\*/|//[^\n]*|"(?:\\.|[^"\\\n])*"', re.DOTALL)
+QUOTED = re.compile(r'"((?:\\.|[^"\\\n])*)"')
+WORD = re.compile(r"\b\w+\b")
+DEFINE_LINE = re.compile(r"^[ \t]*#[ \t]*define\b")
+
+
+def unread_keys(root):
+    table = root / KEYS_TABLE
+    text = table.read_text(errors="replace") if table.is_file() else ""
+    rows = [(line_of(text, m.start()), m.group(1), m.group(2)) for m in TABLE_ROW.finditer(text)]
+
+    quoted, words, macros = set(), set(), {}
+    for path in sorted(root.rglob("*")):
+        if path.suffix not in (".c", ".h", ".py") or not path.is_file() or path == table:
+            continue
+        if "test" in path.relative_to(root).parts:
+            continue
+        code = path.read_text(errors="replace")
+        for name, value in string_defines(code).items():
+            if value:
+                macros.setdefault(value, set()).add(name)
+        if path.suffix != ".py":
+            code = COMMENT_OR_STRING.sub(lambda m: m.group(0) if m.group(0)[0] == '"' else " ", code)
+        for line in code.splitlines():
+            if not DEFINE_LINE.match(line):
+                quoted.update(QUOTED.findall(line))
+                words.update(WORD.findall(line))
+
+    return [(line, group, key) for line, group, key in rows
+            if key not in quoted and not macros.get(key, set()) & words]
 
 
 
@@ -651,6 +690,36 @@ SELF_TEST_CASES = [
 ]
 
 
+# Read by a literal, read through a macro, and three that only look read.
+SELF_TEST_UNREAD = {
+    KEYS_TABLE: """\
+static const NemoConfigKey nemo_config_keys[] = {
+\t{ "preferences", "by-literal", NEMO_CONFIG_BOOL, "true", NULL, NULL, NULL },
+\t{ "preferences", "by-macro", NEMO_CONFIG_BOOL, "true", NULL, NULL, NULL },
+\t{ "preferences", "in-a-comment", NEMO_CONFIG_BOOL, "true", NULL, NULL, NULL },
+\t{ "preferences", "in-a-test", NEMO_CONFIG_BOOL, "true", NULL, NULL, NULL },
+\t{ "window-state", "only-defined", NEMO_CONFIG_BOOL, "true", NULL, NULL, NULL },
+\t{ NULL }
+};
+""",
+    "libnemo-private/prefs.h": """\
+#define PREF_BY_MACRO "by-macro"
+#define PREF_ONLY_DEFINED "only-defined"
+""",
+    "src/view.c": """\
+/* "in-a-comment" isn't a read */
+static void
+view_init (void)
+{
+\tnemo_config_get_boolean (nemo_preferences, "by-literal");
+\tnemo_config_get_boolean (nemo_preferences, PREF_BY_MACRO); // "in-a-comment"
+}
+""",
+    "test/test-view.c": 'int main (void) { return nemo_config_get_boolean (p, "in-a-test"); }\n',
+}
+SELF_TEST_UNREAD_WANT = ["in-a-comment", "in-a-test", "only-defined"]
+
+
 def self_test():
     own = Path(__file__).read_text(encoding="utf-8")
     print("[ Test %s lint-pref-handlers.py --self-test ]" % re.search(r"(?m)^# Test ID: (\S+)$", own).group(1))
@@ -679,6 +748,16 @@ def self_test():
                 print(f"[ FAIL: self-test: {name}: reported what is right: {left} ]")
                 failed = True
 
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        for rel, text in SELF_TEST_UNREAD.items():
+            (root / rel).parent.mkdir(parents=True, exist_ok=True)
+            (root / rel).write_text(text)
+        unread = sorted(key for _, _, key in unread_keys(root))
+        if unread != SELF_TEST_UNREAD_WANT:
+            print(f"[ FAIL: self-test: unread keys: got {unread}, want {SELF_TEST_UNREAD_WANT} ]")
+            failed = True
+
     if failed:
         return 1
     print("[ OK: settings handlers self-test ]")
@@ -703,11 +782,14 @@ def main():
             rel = path.relative_to(root.parent)
             print(f"[ FAIL: {rel}:{line}: {message} ]")
             failures += 1
+    for line, group, key in unread_keys(root):
+        print(f"[ FAIL: source/{KEYS_TABLE}:{line}: {group}.{key} is read by nothing - wire it up or take it out ]")
+        failures += 1
 
     if failures:
         print(f"[ FAILED: settings handlers: {failures} problem(s) ]")
         return 1
-    print("[ OK: settings handlers: every disconnect matches its connect, every handler fits a row, and every key is on its group ]")
+    print("[ OK: settings handlers: every disconnect matches its connect, every handler fits a row, every key is on its group and has a reader ]")
     return 0
 
 

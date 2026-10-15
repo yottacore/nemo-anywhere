@@ -949,11 +949,6 @@ field: window-state.sidebar-width
 	default: 240
 	desc: Width of the places pane
 
-field: window-state.start-with-location-bar
-	type: bool
-	default: true
-	desc: Show the location bar in new windows
-
 field: window-state.start-with-menu-bar
 	type: bool
 	default: true

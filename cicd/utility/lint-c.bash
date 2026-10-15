@@ -1267,6 +1267,23 @@ fCheckUiDomain(){
 }
 fRun fCheckUiDomain
 
+## xsi- icons are Mint's own set. Anywhere else they're missing, so menus and
+## toolbars came up blank until every one was mapped to a freedesktop name.
+## Test ID: rkaw04qg
+fCheckMintIcons(){
+	local bad
+
+	bad="$(grep -rn -E '["'"'"'>]xsi-[a-z0-9-]+' source --include='*.c' --include='*.h' --include='*.ui' \
+		--include='*.glade' --include='*.xml' --include='*.py' --include='*.json' --include='*.in' \
+		--exclude-dir=vendor --exclude-dir=cut-n-paste-code || true)"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: an icon name from Mint's xsi- set; use the freedesktop name"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fRun fCheckMintIcons
+
 ## A click or scroll takes the primary modifier (eel_gtk_primary_mask), which
 ## is Cmd on macOS. Plain Control in a button or scroll handler is a click that
 ## missed that change; the list view's add-to-selection on Ctrl+click did.

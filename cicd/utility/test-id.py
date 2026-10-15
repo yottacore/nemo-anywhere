@@ -70,7 +70,17 @@ def found_ids(root):
             above -= 1
         yield tag, f'{lint.relative_to(root)}:{num}'
 
-    scripts = [p for p in (root / 'cicd').rglob('*') if p.is_file() and p.suffix in ('.bash', '.ps1')
+    # The other lint scripts aren't split into functions, so a check there has
+    # no ID to miss, but one it has still must be well formed and not reused.
+    for other in sorted((root / 'cicd/utility').glob('lint-*.bash')):
+        if other == lint:
+            continue
+        for num, line in enumerate(other.read_text(encoding='utf-8').splitlines(), 1):
+            m = re.match(r'##\s+Test ID: (\S+)$', line)
+            if m:
+                yield m.group(1), f'{other.relative_to(root)}:{num}'
+
+    scripts =[p for p in (root / 'cicd').rglob('*') if p.is_file() and p.suffix in ('.bash', '.ps1')
         and (p.name.startswith('test-') or 'smoke' in p.name or p.name == 'check-win-build-flags.bash')]
     for script in sorted(scripts):
         m = re.search(r'(?m)^##\s+(?:- )?Test ID: (\S+)$', script.read_text(encoding='utf-8-sig'))

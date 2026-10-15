@@ -122,6 +122,9 @@ test_defaults (NemoConfigGroup *prefs, NemoConfigGroup *list_view)
  * table that quietly puts one back is caught. Media handling all starts off;
  * a new install opens in list view with ISO dates, asks before a move to the
  * trash, and shows owner, group and permissions where the platform has them.
+ * Location stays out of the list, Ext sits between Size and Type, folders
+ * expand in place, sizes count in 1024s, thumbnails follow the parent folder,
+ * and a folder of images gets 320 pixel icons (500 per cent of 64).
  * Reads the effective value on a root with nothing stored. */
 static void
 test_product_defaults (void)
@@ -147,7 +150,24 @@ test_product_defaults (void)
 	check (g_strv_contains ((const char *const *) cols, "group"));
 	check (g_strv_contains ((const char *const *) cols, "permissions"));
 #endif
+	check (!g_strv_contains ((const char *const *) cols, "where"));
 	g_strfreev (cols);
+
+	cols = nemo_config_get_strv (list_view, NEMO_PREFERENCES_LIST_VIEW_DEFAULT_COLUMN_ORDER);
+	for (guint i = 0; cols[i] != NULL; i++) {
+		if (g_strcmp0 (cols[i], "extension") == 0) {
+			check (i > 0 && g_strcmp0 (cols[i - 1], "size") == 0);
+			check (g_strcmp0 (cols[i + 1], "type") == 0);
+		}
+	}
+	check (g_strv_contains ((const char *const *) cols, "extension"));
+	g_strfreev (cols);
+
+	check (nemo_config_get_boolean (list_view, NEMO_PREFERENCES_LIST_VIEW_ENABLE_EXPANSION) == TRUE);
+	check (nemo_config_get_enum (prefs, NEMO_PREFERENCES_SIZE_PREFIXES) == 2);	/* base-2 */
+	check (nemo_config_get_boolean (prefs, NEMO_PREFERENCES_INHERIT_SHOW_THUMBNAILS) == TRUE);
+	check (nemo_config_get_int (nemo_config_get_group ("icon-view"),
+	                            NEMO_PREFERENCES_ICON_VIEW_DEFAULT_IMAGE_ICON_SIZE) == 500);
 }
 
 static void
