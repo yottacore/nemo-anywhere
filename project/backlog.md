@@ -36,7 +36,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - SMB and SFTP networking is broken.
 	- ID: 2026101417352260
 	- Type: Bug
-	- Status: Done
+	- Status: Waiting on signoff
 		- smb is fixed, and sftp is fixed.
 		- `ssh://hostname` also works.
 		- `sftp://hostname/folder` works.
@@ -79,9 +79,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: on Windows the shares in an `smb://host` listing show as "Binary" with no date, the same as when reached through Network. Left alone.
 	- Branch: netfix, sshalias
 	- Commit: 7dc462d, 9ec294b
-	- Closed: 20261015-132736
 	- Test case: rk95h61s, Share folder with a local path lists test. A folder that isn't on this machine but has a path, whose listing refuses that call the way gvfs's does, lists all 3 entries with its link followed, and one file there is looked at once, following links. renz2428, Network win32 test, test_smb_addresses: smb addresses taken as typed, parsed, as a uri and as an argument go to the UNC path, the server's share list or the network, with spaces, escapes, a user, domain and port, an IPv6 address, and upper case where typed. rkb69y1a, Connect to Server address scheme test: ssh and sftp addresses in any case lose the scheme with SSH chosen, other schemes and plain names are kept, and every alias gvfs's mount files declare is checked where gvfs is installed.
-	- Acceptance signoff: Self-closed: ssh is taken as sftp in Connect to Server, the one place it wasn't, and rkb69y1a fails before and passes after. It was left at signoff before for Connect to Server on Windows asking only for the server and share; the notes under Status say smb and sftp work.
+	- Acceptance signoff: Left at signoff for the `ssh://hostname/folder` error, which wasn't seen from the path bar or the command line, and for Connect to Server on Windows asking only for the server and share.
 
 - In the single exe on Windows, a new window or a tab moved to its own window starts through GLib's spawn helper, a program packed inside the exe.
 	- ID: 2026100914514406
@@ -935,6 +934,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: one question.
 	- Reproduced: No. From reading the code.
 	- Test case: TBD
+
+- rj750n43 fails now and then in the full suite on a loaded box.
+	- ID: 2026101513290717
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261015-132907
+	- Opened by: 2026101417352260
+	- Related IDs: 2026101419352490
+	- Target OS: All
+	- Steps to reproduce: run the full Linux suite while a Windows cross build loads the cores.
+	- Incorrect behavior: rj750n43, file cache at quit, failed once waiting on the app to quit. It passed 3 of 3 alone.
+	- Expected behavior: it passes under load.
+	- Reproduced: 20261015 on Linux, once, in a worktree's full suite run.
+	- Possible cause: a wait there isn't scaled for a slow box.
+	- Test case: rj750n43 itself.
 
 - On Windows, a file that isn't on disk yet, such as a mail attachment, can't be dropped onto the window.
 	- ID: 2026101416534066
