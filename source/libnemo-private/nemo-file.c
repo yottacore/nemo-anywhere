@@ -1958,6 +1958,7 @@ nemo_file_operation_free (NemoFileOperation *op)
 
 	if (op->undo_info != NULL) {
 		nemo_file_undo_manager_set_action (op->undo_info);
+		g_object_unref (op->undo_info);
 	}
 
 	g_free (op);
@@ -2083,6 +2084,7 @@ rename_callback (GObject *source_object,
 					 G_PRIORITY_DEFAULT,
 					 op->cancellable,
 					 rename_get_info_callback, op);
+		g_object_unref (new_file);
 	} else {
 		nemo_file_operation_complete (op, NULL, error);
 		g_error_free (error);
@@ -6691,6 +6693,7 @@ nemo_file_set_permissions (NemoFile *file,
 								     new_permissions);
         g_object_unref (location);
 		nemo_file_undo_manager_set_action (undo_info);
+		g_object_unref (undo_info);
 	}
 
 	info = g_file_info_new ();
@@ -7009,6 +7012,7 @@ nemo_file_set_owner (NemoFile *file,
 								   current_owner,
 								   user_name_or_id);
 		nemo_file_undo_manager_set_action (undo_info);
+		g_object_unref (undo_info);
         g_object_unref (location);
 		g_free (current_owner);
 	}
@@ -7293,6 +7297,7 @@ nemo_file_set_group (NemoFile *file,
 								   current_group,
 								   group_name_or_id);
 		nemo_file_undo_manager_set_action (undo_info);
+		g_object_unref (undo_info);
         g_object_unref (location);
 		g_free (current_group);
 	}

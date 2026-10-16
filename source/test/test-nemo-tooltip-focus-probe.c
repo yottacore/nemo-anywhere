@@ -42,6 +42,8 @@
 
 /* Long enough for the first tooltip's delay, with room to spare. */
 #define HOVER_TICKS 15
+/* A tip that should show gets this long on a loaded box, hovered again each HOVER_TICKS. */
+#define SHOW_TICKS  (HOVER_TICKS * 6)
 
 typedef enum {
 	TIP_BUTTON,
@@ -260,6 +262,34 @@ check_tip (Tip tip, gboolean focused)
 	g_free (line);
 }
 
+/* Showing, or out of time. Hovers again now and then in case a re-layout moved the thing. */
+static gboolean
+shown_yet (Tip tip, int since)
+{
+	if (since < HOVER_TICKS) {
+		return FALSE;
+	}
+	if (tooltip_showing () || since >= SHOW_TICKS) {
+		return TRUE;
+	}
+	if (since % HOVER_TICKS == 0) {
+		hover (tip);
+	}
+	return FALSE;
+}
+
+static gboolean
+list_has_rows (void)
+{
+	GtkWidget *tree = find_in (view_child (), "GtkTreeView", FALSE);
+	int x, y;
+
+	if (tree == NULL && is_a (view_child (), "GtkTreeView")) {
+		tree = view_child ();
+	}
+	return tree != NULL && tree_row_point (GTK_TREE_VIEW (tree), "0", &x, &y);
+}
+
 static void
 stop_thief (void)
 {
@@ -318,7 +348,7 @@ next_step (void)
 	step_at = waited;
 }
 
-/* Up to a minute in all. */
+/* Up to 80 seconds in all. */
 static gboolean
 tick (G_GNUC_UNUSED gpointer data)
 {
@@ -327,7 +357,7 @@ tick (G_GNUC_UNUSED gpointer data)
 	int since = waited - step_at;
 	GtkWidget *pane;
 
-	if (++waited > 600) {
+	if (++waited > 800) {
 		report (FALSE, "the steps finished in time");
 		finish ();
 		return G_SOURCE_REMOVE;
@@ -372,7 +402,7 @@ tick (G_GNUC_UNUSED gpointer data)
 	case FOCUSED_BUTTON:
 	case FOCUSED_PLACE:
 	case FOCUSED_ICON:
-		if (since < HOVER_TICKS) {
+		if (!shown_yet (TIP_BUTTON + (step - FOCUSED_BUTTON), since)) {
 			return G_SOURCE_CONTINUE;
 		}
 		check_tip (TIP_BUTTON + (step - FOCUSED_BUTTON), TRUE);
@@ -385,14 +415,15 @@ tick (G_GNUC_UNUSED gpointer data)
 		if (since == 1) {
 			gtk_accel_groups_activate (G_OBJECT (window), GDK_KEY_2, GDK_CONTROL_MASK);
 		}
-		if (since < 20) {
+		/* The list can take a while to fill when the box is busy. */
+		if (since < 20 || (!list_has_rows () && since < 150)) {
 			return G_SOURCE_CONTINUE;
 		}
 		hover (TIP_ROW);
 		next_step ();
 		break;
 	case FOCUSED_ROW:
-		if (since < HOVER_TICKS) {
+		if (!shown_yet (TIP_ROW, since)) {
 			return G_SOURCE_CONTINUE;
 		}
 		check_tip (TIP_ROW, TRUE);

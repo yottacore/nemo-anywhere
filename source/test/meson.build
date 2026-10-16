@@ -402,6 +402,18 @@ test('rk8tkp4h Bad name characters test',
   args: []
 )
 
+# Owner and group are POSIX ids.
+if not is_windows
+  test('rkdsb9d9 Undo record refs test',
+    executable('test-nemo-undo-refs',
+      [ 'test-nemo-undo-refs.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+    ),
+    args: []
+  )
+endif
+
 test('rcgzq4qg User input parse test',
   executable('test-eel-user-input',
     [ 'test-eel-user-input.c' ],

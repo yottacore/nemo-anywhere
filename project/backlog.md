@@ -533,6 +533,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Before the next cut.
 	- Test case: none yet.
 
+- rk96k9va fails in the sanitizer lane on a loaded box.
+	- ID: 2026101613310525
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261016-133105
+	- Opened by: 2026101613053692
+	- Related IDs: 2026101613310524, 2026101419352490
+	- Target OS: Linux
+	- Steps to reproduce: run the sanitizer suite while a full build runs.
+	- Incorrect behavior: the quickest folder took 349 ms to show all its rows, against a 180 ms bar. Alone it's about 100 ms, 3 of 3.
+	- Expected behavior: it passes under load.
+	- Reproduced: 20261016 on Linux, once.
+	- Possible cause: `BAR_MS` isn't scaled by `test_slowness`.
+	- Test case: rk96k9va itself.
+
 - rjvdch2z fails now and then in the full suite on a loaded box.
 	- ID: 2026101419352490
 	- Type: Bug
@@ -653,20 +669,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the pictures' rows don't wait on a sub-folder count.
 	- Reproduced: 20261015 on Linux, only with a listing held back on purpose.
 	- Test case: TBD
-
-- rk8tkp4h leaks in the sanitizer lane.
-	- ID: 2026101613053692
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261016-130536
-	- Opened by: pipeline run 20261016-124714
-	- Related IDs: 2026101416533917, 2026101319265113
-	- Target OS: Linux
-	- Incorrect behavior: the test passes all its checks, then LeakSanitizer finds 314 bytes in 7 allocations and the test fails. The stacks stop at `g_malloc` and `g_malloc0`.
-	- Expected behavior: no leak.
-	- Reproduced: 20261016, once, in the full pipeline's sanitizer stage.
-	- Test case: rk8tkp4h itself, in the sanitizer lane.
 
 - On Windows, a file that isn't on disk yet, such as a mail attachment, can't be dropped onto the window.
 	- ID: 2026101416534066
@@ -2918,6 +2920,47 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rewygsbg, Archive job test, check_reasons: a file, a folder, and both missing; a file, and a folder with a file, in the archive and not selected; both ways at once; the sizes when the counts match; no size when a count is off; 2 files of other sizes with the same total; an ignored link. rhtmbdmj, Compress dialog height test, probe_locked_links: the box's label.
 	- Acceptance signoff: Self-closed: rewygsbg checks each sentence. Counts say more than naming the first file missed.
 	- Closed: 20261016-130621
+
+- rk8tkp4h leaks in the sanitizer lane.
+	- ID: 2026101613053692
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261016-130536
+	- Opened by: pipeline run 20261016-124714
+	- Related IDs: 2026101416533917, 2026101319265113
+	- Target OS: Linux
+	- Incorrect behavior: the test passes all its checks, then LeakSanitizer finds 314 bytes in 7 allocations and the test fails. The stacks stop at `g_malloc` and `g_malloc0`.
+	- Expected behavior: no leak.
+	- Reproduced: 20261016, once, in the full pipeline's sanitizer stage. Every time when run alone from the sanitizer build.
+	- Actual cause: every rename leaked its undo record and the renamed file's new GFile. The undo manager takes its own ref on a record, and the rename never dropped the one it made. Setting permissions, owner or group leaked a record the same way. Copies, moves and the rest in `nemo-file-operations.c` were already right.
+	- Actual fix: drop the op's own ref once the manager has the record, in all 4 places, and free the rename's new GFile.
+	- Branch: sanfix
+	- Test case: rk8tkp4h in the sanitizer lane, and new rkdsb9d9, Undo record refs test, POSIX only. After a rename, and after each of the other 3, the undo manager has the only ref on the record. Owner runs only as root, and group only for a user in a second group.
+	- Verified: rkdsb9d9 failed before the fix, on rename and group, and passes after. rk8tkp4h passes in the sanitizer build with no leak. Full Linux suite 215 of 215. The sanitizer suite passed but for rk96k9va, see 2026101613310525.
+	- Acceptance signoff: Self-closed: a leak with nothing to see, and rk8tkp4h and rkdsb9d9 pin it.
+	- Closed: 20261016-133800
+
+- rk52yvz0 fails now and then in the sanitizer lane on a loaded box.
+	- ID: 2026101613310524
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261016-133105
+	- Opened by: pipeline run 20261016-124714
+	- Related IDs: 2026101419352490, 2026101613310525
+	- Target OS: Linux
+	- Steps to reproduce: run 16 copies of rk52yvz0 at once from the sanitizer build, with the cores loaded.
+	- Incorrect behavior: "a list row shows its tooltip with the window focused" fails. Every other check passes.
+	- Expected behavior: it passes under load.
+	- Reproduced: 20261016 on Linux, once in the pipeline and 11 of 16 under load.
+	- Actual cause: the test switched to list view, waited a fixed 2 seconds, hovered the first row once, and looked for the tooltip once. On a busy box the list wasn't filled yet, or the row moved after the hover.
+	- Actual fix: it waits for the list's first row, and a tooltip that should show gets up to 9 seconds, hovered again every 1.5. The checks that want no tooltip keep their fixed wait.
+	- Branch: sanfix
+	- Test case: rk52yvz0 itself.
+	- Verified: 16 of 16 passed under the same load, and the focused row check still fails when no tooltip can show.
+	- Acceptance signoff: Self-closed: a test-only fix.
+	- Closed: 20261016-133800
 
 - `window-state.start-with-location-bar` does nothing.
 	- ID: 2026101510233435
