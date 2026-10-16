@@ -60,7 +60,7 @@ Otherwise, open an issue and say what problem the feature solves rather than wha
 
 - Branch off `dev`, not `main`. `main` is release-only.
 
-- Build and run the tests before sending. [project/design.md](project/design.md) has the package list and the build steps.
+- Build and run the tests before sending. [building.md](building.md) gets a dev setup going, and [project/design.md](project/design.md) has the package list and the build steps.
 
 - A fix comes with a test that fails without it.
 
