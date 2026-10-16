@@ -82,184 +82,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rk95h61s, Share folder with a local path lists test. A folder that isn't on this machine but has a path, whose listing refuses that call the way gvfs's does, lists all 3 entries with its link followed, and one file there is looked at once, following links. renz2428, Network win32 test, test_smb_addresses: smb addresses taken as typed, parsed, as a uri and as an argument go to the UNC path, the server's share list or the network, with spaces, escapes, a user, domain and port, an IPv6 address, and upper case where typed. rkb69y1a, Connect to Server address scheme test: ssh and sftp addresses in any case lose the scheme with SSH chosen, other schemes and plain names are kept, and every alias gvfs's mount files declare is checked where gvfs is installed.
 	- Acceptance signoff: Left at signoff for the `ssh://hostname/folder` error, which wasn't seen from the path bar or the command line, and for Connect to Server on Windows asking only for the server and share.
 
-- In the single exe on Windows, a new window or a tab moved to its own window starts through GLib's spawn helper, a program packed inside the exe.
-	- ID: 2026100914514406
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
-	- Needs external testing:
-		- rjw1ks5h and rjvzdd4w in the native suite on vm925w. Failed 20261009, see Progress log. Done 20261009 after the test fix, passed.
-		- Done 20261009 on vm925w, passed. It was: the single exe built from this branch, in the desktop session on vm925w with MacType running. Open a folder in a new window, open an item in a new window, and move a tab to a new window. Each window opens, no "Cannot load library" box shows, and no `gspawn-win64-helper` process turns up. Then the About box's 2 links open in the browser, and Help shows its error, with no box either way. If a box shows, README's MacType note comes back.
-	- Priority|Severity: Avg
-	- Opened: 20261009-145144
-	- Opened by: 2026100909260549
-	- Related IDs: 2026100617051745, 2026100909260549, 2026100912374782
-	- Target OS: Windows
-	- Steps to reproduce: in the single exe, in the desktop session on vm925w with MacType running, open a folder in a new window, or move a tab to a new window.
-	- Incorrect behavior: not seen. `nemo-new-process.c` starts the new copy with `g_spawn_async`, not through `nemo-launch-win32.c`. On Windows GLib does that through `gspawn-win64-helper.exe` unless the call asks for nothing the helper is needed for, and this one does: no inherited input and no left-open handles. That helper is packed in the single exe, so under MacType it likely can't load its libraries, as in 2026100617051745.
-	- Expected behavior: the new window opens, and the single exe starts no packed program.
-	- Reproduced: 20261009, in part. The new copy's parent is GLib's spawn helper, not the app, under wine with rjw1ks5h. Not tried under MacType.
-	- Actual cause: as in Incorrect behavior. The helper loads GLib, a library packed in the single exe. The About box's links went the same way, through GTK, to the browser.
-	- Actual effort: Avg
-	- Progress log:
-		- 20261009: done, waiting on a native run and on MacType. Whether the single exe now starts no packed program: as far as can be read and checked here, yes. The only programs packed in it are the app and GLib's 2 spawn helpers, and nothing left in the app reaches the helpers on Windows. So README's MacType note is gone, and design doc "Windows exe packing" says why. Not tried under MacType.
-		- 20261009: Options for later: leave the 2 helpers out of the Windows bundles, as `gdbus.exe` was. Then anything that still reached them would fail for everyone, not only under MacType. Left in for now.
-		- 20261009: left at signoff for the README change, once the tests pass.
-		- 20261009: back to Queued. rjw1ks5h fails natively on vm925w, 3 runs out of 3, at line 386: the link through a scheme registered for the user never reports back. Its 3 new copy cases pass. The copy the shell starts is the test program itself, which can't find its DLLs outside the build's PATH and stops at Windows' "libarchive-13.dll was not found" box. Same cause as the 2 failing rows of rjvzdd4w in 2026100912374782. The single exe check under MacType passed, so README's MacType note stays out.
-		- 20261009: the test was at fault, not the app. Explorer starts a scheme's program with its own PATH, which has none of the build's libraries, so the test program exited at once with "DLL not found" (0xC0000135). The link case now starts test-env-dump, a small program that needs none. Left at signoff for the README change.
-	- Actual fix: on Windows the new copy is started from `nemo-launch-win32.c`, directly. It is the single exe started as itself, which MacType doesn't stop. It gets the user's environment, as in 2026100912374782, and makes its own settings again. Links from Help and the About box go through the launcher too: to the shell when the registry has a handler for the scheme, otherwise an error. Renaming a user folder no longer calls a program on Windows. README's MacType note is gone.
-	- Note: a few other `g_spawn` calls are built on Windows too, such as the one for an extension's settings program and the one that renames a user folder. Actions and the action layout editor have their own Windows route. Each needs the same look. README's MacType note stays until none is left.
-	- Swept: every call that starts a program through GLib or GTK in the app, from lint rjm8a6xr's list.
-		- Through the launcher now: the new window and the tab moved out, the 2 help links, and the About box's links.
-		- Through the launcher already: tools, ImageMagick, thumbnailers, actions and their conditions, templates, and Open with. A store app under Open with is started by the shell's own activation, with no spawn.
-		- Not built on Windows: open as root, the terminal, the layout editor, the extension list and restart, desktop files, and command lines. Now also the user folder rename.
-		- Never reached on Windows: an extension's settings program, since there are no extensions and so no link; the thumbnail cache bar, which never shows with no passwd entry; and eel's terminal, whose one caller isn't built.
-		- GTK's own: the file chooser's "Open With File Manager" asks GLib for a folder's handler, and GLib on Windows finds none, so nothing starts. Checked on vm925w and under wine. The help: scheme has no handler on vm925w either.
-		- The lint list now also covers an About box and a link button, since a click on either calls GTK's show-uri. Test programs are left out, since they aren't in the exe.
-	- Verified: rjw1ks5h fails on dev's `nemo-new-process.c` under wine: each of the 3 copies is started by something other than the app. It passes after, 7 runs. It also fails with the user's environment not put in place for the copy, and with the scheme check taken out. rjvzdd4w, rjvks1yf, rjpatrck, rjm4ctwh, rjp4ch0y, rffkjp10 and rg3wt7d8 pass under wine. rjnzpkk7 and rjmb3j8p fail only their known console window checks, as before. Full Linux suite 188 of 188, and the Windows cross build clean, both with warnings as errors. C lint clean, and rjm8a6xr fails with the About box, the link button or `nemo_show_uri` left off its list.
-	- Verified: 20261009 on vm925w, read only: GLib finds Firefox for https:, and nothing for help: or for a folder.
-	- Verified: 20261009 on vm925w at dev 186065a. Native suite 164 OK, 3 FAIL, 11 skipped. rjw1ks5h fails as in Progress log, elevated and not. The single exe from the same commit, in the desktop session with MacType running and loaded into the app: a folder in a new window, Home from Places in a new window, a new window, and a tab moved to a new window each opened as a copy started by the app itself. Both About box links opened in Firefox, and Help showed its own error. No "Cannot load library" box, and no spawn helper or other packed program ran at any point.
-	- Verified: 20261009 on vm925w, the branch winlaunch. rjw1ks5h passes 3 of 3, elevated and at medium integrity in the desktop session. Before the fix, the test program run with only the system folders on PATH exited 0xC0000135, and the copy Explorer started from the old test sat in the desktop session and never wrote its report.
-	- Branch: newwin, winlaunch
-	- Commit: bbf8c15, 205074b
-	- Test case: rjw1ks5h, New window start win32 test. The test stands in for the new copy. For a new window, one with a selection, and a tab moved out, the copy must be started by the app itself, with the user's environment, and no spawn helper may be running. It also opens a link of a scheme it sets up for the user, and one nothing handles, which must fail. rjvzdd4w's new copy case now starts the same way.
-
-- With Split into volumes ticked and a volume size that can't be read, Compress writes one archive with no volumes.
-	- ID: 2026101308213019
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
-	- Priority|Severity: Avg
-	- Opened: 20261013-082130
-	- Opened by: 2026100516274609
-	- Related IDs: 2026100516274609, 2026100516274646
-	- Target OS: Linux, Windows
-	- Steps to reproduce: Compress, Options, tick Split into volumes, type "4,000 MiB" or "lots" as the volume size, then Compress.
-	- Incorrect behavior: the Compress dialog drops a size it can't read, so the job is asked for no volumes and writes one file. Nothing says so.
-	- Expected behavior: Compress is grayed, or the size is marked, until it reads. Splitting is a requirement, per the design's standing rules.
-	- Reproduced: 20261013, Linux. With "lots" Compress stayed lit, the dialog closed on Compress and remembered Split as ticked. "4,000 MiB" and "0.0001 KiB" were refused or read as 0, and "nan", "inf" and "1e3" were taken.
-	- Actual cause: the dialog reads the size only when it builds the job, and drops it when it doesn't read. The size reader also took anything strtod takes, and a size that came out under a byte as 0, which means no volumes.
-	- Actual fix: with Split into volumes ticked, a size that doesn't read is marked in red with a tip, and Compress is grayed until it reads. A response that gets past the grayed button puts the dialog back. The size reader takes plain digits only, and refuses a size under a byte or too big to hold.
-	- Progress log:
-		- 20261013-084544: fixed. Left at signoff for the look of the marked size, and for one call: a typed size takes the comma the presets show, between groups of 3 digits only, so "4,000 MiB" reads and "1,5 GiB" is marked, since it could mean 1.5. 2026100516274609 had it that a typed comma isn't taken. A "." between groups, as some languages write it, still reads as a decimal point.
-	- Swept: every typed field in Compress and Extract, for a requirement dropped with nothing said.
-		- The name: an empty one already grays Compress.
-		- The password: a format that can't take one grays the field. It now also shows as empty there, 2026100516274646, so it no longer looks set.
-		- The password typed again before a delete: a mismatch says so and asks again.
-		- The compression level: a slider, so nothing to misread. A preference, not a requirement.
-		- The command lines in the settings: a 7-Zip or rar line edited with no {{PASSWORD}} or {{SPLIT}} wrote a readable archive, or one file, while a password or volumes were asked for, with only a log line. Fixed here: the job is refused and its error says which marker is missing. A line missing any other marker still runs, with the log line, since those are preferences.
-		- Extract: the password asked for while extracting is handed to the program, and a line edited with no {{PASSWORD}} makes the extract fail. Nothing is written wrong, so not this kind. Read in the code, not run.
-	- Verified: 20261013, the new size checks in rhtmbdmj and the reader checks in rev86z08 failed before the fix and pass after. rexkeyng and rewygsbg failed with the marker check taken out, where the job wrote the archive with no password, and pass with it. rev86z08, rhae85g0, rexkeyng, rewygsbg and rhtmbdmj pass under wine, which has no 7-Zip, so the size and edited line rows are skipped there. Full Linux suite 196 of 196, the Windows cross build, lint clean apart from rj3ytv0b.
-	- Branch: optreset
-	- Commit: c0a7ede
-	- Test case: rhtmbdmj, Compress dialog height test: "lots" marks the size and grays Compress, "4,000 MiB" reads, unticking Split or a format that can't split clears it, and a response past the grayed button keeps the dialog up. rev86z08, Archive options test, check_typed_sizes: grouped sizes read, a misplaced comma, a sign, an exponent, hex, nan, inf, a size under a byte and one too big are refused. rexkeyng, Command template test: a line with no {{PASSWORD}} or {{SPLIT}} is refused while one is asked for and runs while it isn't. rewygsbg, Archive job test: a 7z with a password and such a line fails, writes nothing and names the marker.
-
-- On Windows, rhr6ggmt keeps a junction it should delete in 2 rar rows of one archive per item.
-	- ID: 2026101313374036
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Priority|Severity: Avg
-	- Opened: 20261013-133740
-	- Opened by: native run for 2026100516274683
-	- Related IDs: 2026100516274683
-	- Target OS: Windows
-	- Test environment: b29w, the cross-built test run natively, at dev 7d3021a.
-	- Steps to reproduce:
-		- Run rhr6ggmt, Archive option combinations, natively on b29w.
-	- Incorrect behavior: 2 rar rows with junctions stored, one archive per item and delete on fail. In both, `jlink` is still there after the delete. One says "The original files were kept." and that `sub` has no archive. The other says 1 selected file isn't in the archive, and also gets the wrong number of warnings.
-	- Expected behavior: `jlink` goes to the trash once its archive checks out, as on Linux.
-	- Reproduced: 20261013 on b29w, the same 2 rows on dev and on the arcmove branch. The last native run before this, at arcprog, passed every row.
-		- 20261013 on b29w, the test started outside the ssh session: dev, scanbar's merge and arcprog's merge each fail the same 2 rows with a long temp folder, and pass every row with a short one. So scanbar didn't bring it in. Only the reason differs: arcprog's says "jlink" isn't in the archive.
-	- Actual cause: libarchive 3.8.9 and older can't list a rar link whose target is 128 bytes or more, the same bug as 2026101310525452. rar keeps a junction's target as the whole path with `\??\` in front, and the test's temp folder decides that path's length. Under a temp folder of 72 characters it's 114 bytes and passes, under one of 138 it's 180 and fails. The check is right to keep `jlink`, since it can't see it. Its reason is wrong: it says a selected file isn't in the archive.
-	- Actual fix: when a link the archive should keep as a link isn't listed, the rar is read by libarchive 3.8.9 or older, and the link's target is 128 bytes or more, the warning says the link's target is too long to read back from a rar, so the archive can't be checked. The originals still stay. The test expects `jlink` to stay with that reason when its target is that long, and to go otherwise.
-	- Decisions:
-		- The check keeps what it can't list, as 2026101310525452 decided. Only the reason changed, so nothing the check refused before passes now.
-	- Swept: the delete check is the one place that reads an archive back before a delete. Extract and the other rar readers are 2026101312094706. The check reads a link's target for symlinks and junctions on both platforms, kept as a link or leading nowhere.
-	- Verified: 20261013 on b29w, started outside the ssh session: this branch's rhr6ggmt passed all 318 runs with a long and a short temp folder. With dev's check it fails the new long-target cases both ways, and the `jlink` row with a long one. rewygsbg, rjq9mv0w, rjqef159 and rj4jewn6 pass there. On Linux rhr6ggmt fails its long-target case with dev's check and passes with this one. The cross build with warnings as errors passes. The full Linux suite passed, 196 of 196.
-	- Branch: rarjct
-	- Commit: 45af09a
-	- Test case: rhr6ggmt, Archive option combinations. In the crossed rows, a rar keeping `jlink` as a junction with Delete originals keeps it, with the long-target reason, when its target is 128 bytes or more. check_long_target: a rar keeping a link with a 140-byte target, and on Windows a junction to a folder with a path of 128 or more, keeps the originals and says why, or deletes them where libarchive is newer than 3.8.9.
-	- Acceptance signoff: Left at signoff for the warning's wording.
-
-- On Windows, reserved names like `CON` and `nul.txt`, and names ending in a dot or space, are taken with no error.
-	- ID: 2026101416533917
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 208 of 208.
-	- Needs external testing: by hand on the Windows desktop. Type `CON`, `nul.txt` and `a.` as a rename, and in the paste conflict's name box, and read the message and the line under the box. Not tried.
-	- Priority|Severity: Avg
-	- Opened: 20261014-165341
-	- Opened by: 2026101319265113
-	- Related IDs: 2026101319265113, 2026101419104655
-	- Target OS: Windows
-	- Steps to reproduce: rename a file to `CON`, `nul.txt`, `a.` or `a ` on Windows.
-	- Incorrect behavior: GLib takes all 4 with no error, on b29w.
-	- Expected behavior: the rename is refused with a message that says why, the same as for `*` and the other bad characters.
-	- Reproduced: 20261014, the GLib calls on b29w. What the app does after, and what happens to the data on a copy or move to such a name, is not tried. Check for data loss first.
-		- 20261014 on b29w, Windows 11 build 26200, through GLib and through the app's copy and move. `CON`, `nul.txt`, `aux.tar.gz`, `COM1.txt`, `LPT1`, `con .txt` and `COM¹` each make a plain file of that name. `NUL` and `nul.` are the device: a copy, a new file or a new folder says it worked and nothing is written, a rename fails with "Bad address" and a move with "File exists". `a.`, `a..` and `a ` all become `a`. With `a` already there, the conflict dialog asks about `a.` and shows `a`.
-		- Data loss: none of the user's own files. A paste with the new name `NUL` reports success and the copy is gone, while the source stays. A file called `NUL` or `CON` on a share can't be read, so a copy or move of it stops with an error and keeps it. `nul.txt` copies and moves as a plain file. So the severity stays Avg.
-	- Actual cause: nothing checked these names. Windows 11 makes most device names plain files, but `NUL` still swallows what is written, and older Windows and many programs treat all of them as devices.
-	- Decisions:
-		- On Windows a typed name is refused in the same place, and the same kind of sentence, as a bad character. That covers a device name alone or before an extension, any case, with spaces before the dot: `CON`, `PRN`, `AUX`, `NUL`, `COM0` to `COM9`, `LPT0` to `LPT9`, and `COM` and `LPT` with superscript 1 to 3. And a name ending in a dot or a space. `.` and `..` keep the messages they had.
-		- The messages: "The name "nul.txt" isn't valid because "nul" is a device name on Windows. Please use a different name." and "... because it ends in a dot." or "... ends in a space."
-		- A name nobody typed is fixed the way 7-Zip does it: each trailing dot or space becomes `_`, then a device name gets `_` in front. That's extracted entries and a dropped link's page title.
-		- Renaming a file to the name it already has is still no rename, so a file called `CON` from elsewhere doesn't get an error on F2 and Enter.
-		- A copied or moved file keeps its own name. See Swept.
-	- Actual fix: the check from 2026101319265113 also refuses device names and a trailing dot or space on Windows, so every place it runs gives the reason. The unchanged rename returns before the check now. The archive core and the dropped link title fix such names as above.
-	- Swept: the same places as 2026101319265113, which all go through the one check: rename from the icon view, the list view, Properties and undo, a new folder's typed path part by part, Edit link, Compress's name, and the line under the name box in the paste and extract conflicts and a template's rename. Extract: entry names. Drop: a link's page title. Copy, move, duplicate and make link take the source's name and were left alone: on Windows 11 a source called `NUL` or `CON` can't be read, and the rest are plain files. Not tried: Windows 10, where `nul.txt` and the rest are devices too, and a share served by Samba.
-	- Verified: 20261014, rk8tkp4h, reww9h2r and reww9h2s fail with the new rules taken out and pass with them, under wine and natively on b29w. rk8tkp4h's unchanged rename of a real `nul.txt` fails with the check before the unchanged case and passes after, on b29w. On Linux they pass with `CON` and `nul.txt` still taken. The full Linux suite passed, 208 of 208, and lint is clean but for rj3ytv0b, which fails in any worktree.
-	- Branch: winnames
-	- Commit: 08191a8
-	- Test case: rk8tkp4h, Bad name characters test: the device list, the messages and the name fix, a rename, an unchanged rename, a new folder path, and Rename graying out in both conflict dialogs. reww9h2r, Extract naming test: entry names fixed, and the archive core fixing a name the way the app does. reww9h2s, Extract job test: an archive with `NUL` and `trail.` unpacks as `_NUL` and `trail_` on Windows.
-	- Acceptance signoff: Left at signoff for the wording, and for `_` on extracted names.
-
-- Going into a folder shows its rows about 200 ms after it's listed.
-	- ID: 2026101419191454
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 215 of 215.
-	- Needs external testing: none for the fix. Going into a folder on Windows and on a share wasn't timed.
-	- Priority|Severity: Avg
-	- Opened: 20261014-191914
-	- Opened by: 2026101417352261
-	- Related IDs: 2026101417352261
-	- Target OS: All
-	- Steps to reproduce: from the list view, go into a folder of 10 files.
-	- Incorrect behavior: it's listed in about 10 ms and its rows show at about 210 ms.
-	- Expected behavior: a small folder shows at once.
-	- Reproduced: 20261014 on Linux, b23.
-	- Possible cause: the view holds a folder's rows for its 200 ms batch timer, and once the folder is all in it waits that long again on purpose, to give the sub-folders' item counts a chance to come in first. 2026101417352261 fixed the same wait for a folder opened by its expander.
-	- Note: this changes how every folder opens, and design.md's speed table with it.
-	- Actual cause: the timer, as above. Thumbnail lookups and item counts cost little of it.
-	- Progress log:
-		- 20261015: where the time went, before the fix, going into a folder from the list view on b23, optimized build, medians of 5 runs, 3 at 10,000. Folders of varied names, sizes and dates, one in 7 a picture and one in 20 a sub-folder.
-			- From the click to the folder being asked for: 1 ms.
-			- Listing: 7 ms for 10, 63 for 1,000, 1.2 s for 10,000.
-			- Thumbnail lookups of the pictures among the first 150: a few ms after the listing at 10, done within it at 1,000. The first lookup in a session opens the thumbnail store, a few tens of ms more.
-			- The timer: 200 ms after the folder is all in, or after the first rows at 10,000.
-			- Adding rows: 2 ms for 10, 90 for 1,000.
-			- Drawing: one frame, 10 to 20 ms after the rows.
-			- Item counts of the sub-folders: most came in during the wait and went in with the rows. The rest came on the update timer after.
-		- 20261015: so the thumbnail wait isn't what costs the 200 ms, and the view's own folder still waits for its first 150, per 2026101417352261's decision.
-		- 20261015: the same after the fix. Milliseconds from the click, before -> after.
-			| Entries                     | Listed         | First row | All rows       | Drawn          | Last item count | Longest stall
-			| :---                        | :---           | :---      | :---           | :---           | :---            | :---
-			| 10, text only               | 7              | 207 -> 7  | 208 -> 8       | 224 -> 18      | none            | 8 -> 10
-			| 10, a picture and a folder  | 7 -> 8         | 207 -> 17 | 212 -> 22      | 226 -> 35      | 212 -> 223      | 10 -> 9
-			| 1,000                       | 63 -> 117      | 265 -> 36 | 354 -> 161     | 372 -> 173     | 865 -> 667      | 100 -> 63
-			| 10,000                      | 1,228 -> 1,286 | 219 -> 52 | 1,648 -> 1,481 | 1,681 -> 1,503 | 1,662 -> 2,002  | 341 -> 333
-		- 20261015: a big folder still comes in batches. The longest the window stopped answering is the last batch at 10,000, the same before and after. At 1,000 the listing now shares the main thread with the first rows, so it ends later, as with the expander fix.
-		- 20261015: the item counts of sub-folders fill in about 200 ms after the rows now, on the update timer like any other change. That's about when the rows used to show. At 10,000 the last count is in about 0.3 s later than before.
-		- 20261015: the icon view goes the same way: a folder of 1,000 showed its first rows at 33 ms, down from 274, after a switch from the list view.
-		- 20261015: left at signoff for the item counts coming in after the rows, and for the dated note under design.md's speed table.
-		- Note: 20261015, not changed here. A folder's thumbnail lookups queue behind its sub-folders' item counts, so a sub-folder that counts slowly holds back the rows of the pictures listed after it, among the first 150. Seen with a held listing only.
-	- Actual fix: the view's own folder shows its first rows as soon as they're listed and its last ones as soon as it's all read. A big one still comes in batches in between. Either waits while a picture among the first files is still having its thumbnail looked up, and goes in once that's done. The 200 ms timer still shows what's ready if a lookup hangs.
-	- Swept: one place decides this for every view, so the list, icon and compact views and search results all change. The expander's own path from 2026101417352261 is kept. An empty folder finishes at once. A folder that's already all read, such as one open in another window, shows its rows at once too, read but not run. The tree pane has no timer.
-	- Verified: rkbdyne7 fails before the fix, every kind at 210 to 245 ms. It also fails with each of the 3 parts of the fix taken out alone. It passes after, 3 runs and 3 more with every core loaded, best times there 57 to 140 ms to all rows and 16 to 82 to the first. rk96k9va, rhb624a0 and rj4jkr22 pass. Full Linux suite 215 of 215 and the Windows cross build clean, both with warnings as errors. C lint clean, and the test ID check passes.
-	- Branch: openfast
-	- Commit: 50d942ba
-	- Test case: rkbdyne7, Folder open time test. Goes into 9 folders of 120 from the list view, and back up after each. 4 are varied files with pictures and a sub-folder, 3 are text only, and 2 more are listed a second per batch, one with pictures and one without. The quickest of each fast kind must show all rows in under 180 ms, and each slow one its first row. Each folder's item count, and each sub-folder's, must show right. The old wait can't come in under 200.
-
 - On Windows, every bundle has only the app's own exe, so no form of the app starts a program from inside its bundle.
 	- ID: 2026100917220603
 	- Type: Enhancement
@@ -290,6 +112,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261010: done. The packer's sharing with started programs is off. Nothing left in the single exe is needed by a program it starts, and a new copy is the single exe started from its own file, which loads the same as a double-click. A check refuses a pack project with sharing on.
 		- 20261010: all 3 forms passed under MacType. Still left at signoff for the new error dialogs.
 		- 20261010: Options for later: the launcher's comments and its lint check's comment still give the packer's hooks as the reason for the brokers. The brokers have other reasons too, like the window in front and the error report, so whether they stay is its own call.
+		- 20261016: still at signoff. The doubled quotes around the command line in the start error look like a bug. Options: drop the outer pair.
 	- Decisions:
 		- 20261010: try turning off the packer's sharing with started programs, now that nothing in the single exe is needed by a program it starts.
 	- Note: the start error shows the command line inside a second pair of quotes, as in `Could not start ""C:\...\no-such-program.exe" C:\...\notes.txt"`.
@@ -328,135 +151,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: c5eb2000
 	- Test case: none new, docs only. The lint stage passes, and its prose check now reads install.md and building.md.
 
-- A 7z with a password and links stored can't be checked, so Delete originals always keeps the originals.
-	- ID: 2026101310525352
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
-	- Needs external testing: no. rhr6ggmt, rewygsbg and rev86z08 passed natively on b29w.
-	- Priority|Severity: Low
-	- Opened: 20261013-105253
-	- Opened by: 2026100516274423
-	- Related IDs: 2026100516274460
-	- Target OS: Linux, Windows
-	- Steps to reproduce:
-		- With 7-Zip installed, compress a folder holding a symlink as 7z, with a password, Store as symlinks, and Delete originals.
-	- Incorrect behavior: "The original files were kept", and the link is named as not in the archive. The archive is fine, and 7-Zip lists the link.
-	- Expected behavior: the check reads the whole archive, or says up front that it can't check this one, as with hidden names.
-	- Reproduced: yes, 20261013, Linux.
-	- Possible cause: 7-Zip keeps a link's target in its data, which the password locks, and the library stops listing at the first one it can't read.
-	- Actual cause: as guessed. 7-Zip keeps a link's target as the entry's data, which the password locks. libarchive can't unlock a 7z, and at the first link it says the content is encrypted and stops for good, so nothing after it lists.
-	- Progress log:
-		- 20261013-121000: fixed. Left at signoff for these calls:
-			- The check says up front it can't check this one. Reading through 7-Zip's own listing was left out, since the design rejects checking with the program that wrote the archive.
-			- The delete box is grayed for a 7z with a password and Store as symlinks, where the selection has a link or a folder. A folder with no link in it loses the box too. Plain files keep it.
-			- New message: "A 7z with a password cannot be checked when it keeps links as links."
-	- Actual fix: the delete check gives that message when it expects a link kept as a link in a 7z with a password, before it reads anything. The Compress dialog grays the box for that case, as it does for hidden names. A selection with no link in it is checked as before, and its originals can go. Where 7-Zip keeps no links, on Windows, nothing changes.
-	- Swept: the 2 places a link is expected kept in the check, Store and a followed link that leads nowhere. The dialog's one call that decides the box. zip with a password reads its links, and rar keeps a link's target outside the locked data, so neither is affected.
-	- Verified: 20261013, the tests below on Linux and under ASan and UBSan, and rhr6ggmt and rewygsbg natively on b29w. Each new check failed with the dialog's rule taken out or with the check's flag held off.
-	- Branch: arcprog
-	- Commit: 6436ac6
-	- Test case: rhr6ggmt, Archive option combinations: the rows with a 7z, a password and links kept say why the originals stay, and check_locked_plain archives plain files and a folder with no link under the same options and deletes them. rewygsbg, Archive job test, check_predicate: the rule for 7z, zip, Store and Follow. rhtmbdmj, Compress dialog height test, probe_locked_links: the box grays with a link or folder selected and stays with plain files.
-
-- Extracting a rar whose link has a target of 128 bytes or more stops at that link.
-	- ID: 2026101312094706
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: No. The full Linux suite passed on the branch, 198 of 198.
-	- Needs external testing: None. The new test writes its rars with POSIX links, so it runs on Linux and the BSDs only. The same code runs on Windows, and the extract tests there still pass.
-	- Priority|Severity: Low
-	- Opened: 20261013-120947
-	- Opened by: 2026101310525452
-	- Related IDs: 2026101313374036, 2026100516275399
-	- Target OS: Linux, Windows
-	- Steps to reproduce:
-		- With rar, keep a link whose target is 128 bytes or more, then a file after it, and extract that archive in the app.
-	- Incorrect behavior: libarchive 3.8.9 and older misreads the link's header. With 3.7.4, bsdtar lists nothing for an archive holding only that link, and stops with "Header CRC error" when a file follows it. With 3.8.9 it says "unsupported structure of file header extra data".
-	- Expected behavior: every entry comes out, or the app hands the archive to rar or 7-Zip.
-	- Reproduced: with bsdtar 3.7.4 on Linux and 3.8.9 on b29w, 20261013. Not tried through the app's Extract yet.
-		- 20261013, through the app's Extract on Linux with libarchive 3.7.4. A rar of a file, the link and a file: the first file comes out, and the job fails with "The archive could not be read." and no reason, even with rar and 7-Zip installed. The same with the link last: the job reports success, and the link is missing.
-	- Possible cause: libarchive takes the target's length as one byte when it's 2. Fixed upstream after 3.8.9 (libarchive `bb42a8c`).
-	- Actual cause: as in Possible cause. The library stops at the link, with an error when something follows it and as if at the end when nothing does. Extracting took a stop after the first file was written as a failed archive, and the end as the end. rar and 7-Zip were tried only while nothing was written.
-	- Decisions:
-		- Decided: when the library stops at such a link and rar, unrar or 7-Zip is installed, that program extracts the whole archive, and only what the library never got to is placed from it. So nothing is asked about twice, and what was already answered stays answered. Without one, the archive fails with a message that says the link's target is too long for the built-in reader, where it stopped and after how many files, and to install 7-Zip or RAR. Easy to undo: the fallback is one branch in the extract job.
-		- The stop is told from any other by what the library left in the entry it stopped at: a link in a rar with a target of 128 bytes or more. That goes with the version check the delete check uses, from one helper, so both change together if 3.8.10 turns out not to be the first fixed release.
-		- The names a program extracts get the same cleaning as an entry the library reads, so both routes name things the same way and stay inside the folder picked.
-	- Actual fix: as in Decisions. Programs are looked up as before, on Windows the `.exe` first. A test can hide them as for compressing.
-	- Swept: the other place that reads a rar back is the check before a delete, 2026101313374036, which now goes by the same helper. The library's stop shows up at the end of a listing too, which extracting now checks as well as an error. Hard links in a rar keep their target the same way, so the check covers them too, though no test has one. A junction made on Windows isn't: the library keeps no target for one, so a stop there reads as any other read error, as before.
-	- Verified: 20261013. rk65m3m4 fails on dev's extract code and passes on the branch. It also fails with the "already placed" skip off (a question about a file the job had written), with the file count off, and with the stop at the end not checked. reww9h2r, reww9h2s and rjbpmcxy pass, also under the address and undefined behavior checks. The cross build with warnings as errors passes.
-	- Branch: xmove
-	- Commit: 509ff56
-	- Test case: rk65m3m4, Extract rar long link test. Rars with a 140-byte link target: a file, the link and a file; a file and the link last; the link first. With rar there, with only 7-Zip, and with neither. With a program every entry comes out, the link with its target, and nothing is asked. With neither the job fails, nothing past the link comes out, and the message names the reason, where it stopped and after how many files, and what to install.
-	- Acceptance signoff: Left at signoff for the message wording.
-
-- On Windows, rjvzdd4w's open row fails: a `.bat` opened through its file type never runs.
-	- ID: 2026101317434154
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no, only Windows files changed. The native suite on b29w passed, 170 OK, 0 fail, 14 skipped.
-	- Needs external testing: done 20261014. It was: rjvzdd4w on b29w over ssh with another user at the console, and on vm925w in that user's desktop session.
-	- Priority|Severity: Low
-	- Opened: 20261013-174342
-	- Opened by: native suite on b29w at dev 5ca50b7
-	- Related IDs: 2026100912374782, 2026100916102200
-	- Target OS: Windows
-	- Test environment: b29w, the native suite over ssh, so in session 0 with no desktop.
-	- Steps to reproduce: run rjvzdd4w, Launch environment win32 test, natively on b29w.
-	- Incorrect behavior: `nemo_launch_win32_open_path` on a `.bat` fails at line 232, and "the program never wrote what it saw". The spawn, run, Open With and copy rows pass. Same when run alone.
-	- Expected behavior: passes, or exits 77 where opening by file type can't work.
-	- Reproduced: 20261013 on b29w, twice. Not tried on dev before this round, or in a desktop session.
-		- 20261014 on b29w: a `.bat` opened from the user's own desktop session never ran either, so it isn't session 0.
-		- 20261014 on b29w, with wintest at the console: rjvzdd4w hung at the "run" row, and wintest's screen got a box about a path under collierjr's profile for each start.
-	- Actual cause: 2 things, both on the box, not in the launch code.
-		- On b29w, collierjr's own "open" for `.bat` and `.cmd` names a SilkTerm install that is an empty file. So Windows hands a `.bat` to its Open With picker, which can't show in session 0 and never runs the file anywhere. The test took the box's `.bat` handler on trust.
-		- From session 0 there is no desktop of the app's own, but the shell route still finds one: the console's. With wintest logged on there, wintest's Explorer got the start, couldn't read the program under collierjr's profile, and put up a box the call then waited on.
-	- Decisions:
-		- 20261014: the open row uses a file type of the test's own, set for the user during the run, in place of `.bat`. A user's own choice for a type can't break it.
-		- 20261014: the shell route only uses the desktop of the app's own session. With none, as in session 0, the service and the direct start take over, as they already did when the shell wasn't there.
-	- Actual fix: `nemo-launch-win32.c` checks that the desktop it found is this session's shell window before asking it. rjvzdd4w opens a file of its own type that opens with its dumper, under the user's classes on Windows and the machine's under wine. The broker probe in the launch test skips the shell start when the session has no desktop.
-	- Swept: the desktop lookup is the only place the app reaches Explorer, and the run, command, open and link starts all go through it. Of the other tests, only rjw1ks5h's link start goes through the shell. It adn the rest of the native suite passed on b29w with wintest at the console.
-	- Note: not tried: a copy run as a different user inside someone else's session. The desktop found there is that session's, so the shell route still starts the program as the desktop's user.
-	- Branch: wintests3
-	- Commit: 1694aeb, bef81c9
-	- Test case: rjvzdd4w, Launch environment win32 test. The open row now uses its own file type.
-	- Verified: 20261014 on b29w over ssh, with wintest at the console: rjvzdd4w hung at the run row with the launch code as on dev, and passes 3 of 3 after. The native gate passed, suite 170 OK, 0 fail, 14 skipped. No box was left on wintest's screen and no test type was left in the registry.
-	- Verified: 20261014 on vm925w: rjvzdd4w 3 of 3 in wintest's desktop session, where the run and open rows go through Explorer, and 2 of 2 over ssh. The launch probe starts through the desktop shell in the desktop session and skips it over ssh. Under wine, 3 of 3.
-	- Acceptance signoff: Left at signoff for the shell route change, which the item didn't ask for.
-
-- On Windows, a name with a character Windows doesn't allow is refused with "Input/output error".
-	- ID: 2026101319265113
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: yes, the full Linux suite. The 22 tests nearest the change passed on Linux.
-	- Needs external testing: by hand on the Windows desktop. Rename to `a*b` and read the error, then the line under the name box in the paste and extract conflict dialogs and in a template's rename. Not tried.
-	- Priority|Severity: Low
-	- Opened: 20261013-192651
-	- Opened by: t00mietum
-	- Related IDs: 2026101009150766
-	- Target OS: Windows
-	- Steps to reproduce: rename a file or folder to `a*b`, or `a?b`, `a<b`, `a|b`, `a"b`.
-	- Incorrect behavior: GLib answers with a plain failure, "Error renaming file <full path>: Input/output error", so the rename error falls to its catch-all: "Sorry, could not rename ..." with that text, and a warning in the log. `a:b` fails the same way, naming the old path.
-	- Expected behavior: the rename error says which character can't be in a name, as it does for `/`.
-	- Reproduced: 20261013, the GLib answer, natively on b29w and under wine. The dialog text is from reading the code.
-	- Possible cause: GLib maps the Windows error for a bad name to EIO, so nothing tells it from a real disk error.
-	- Actual cause: as above for a rename or move. A new file or folder gets GLib's "Invalid filename", which doesn't say which character. On NTFS, `:` names a hidden stream of the file before it, so making or copying to `a:b` works and leaves an empty file `a`, checked on b29w. Nothing checked a typed name first.
-	- Progress log:
-		- 20261014: done. Left at signoff for the wording, the new line under 3 name boxes, and `_` in extracted names.
-		- 20261014: a plain rename with `/` keeps its old text, "Slashes aren't allowed in filenames", so `...0766` doesn't change. Options: give it the same sentence as the rest.
-		- 20261014: reserved names such as `CON` or `NUL`, and a trailing dot or space, aren't covered. Options: an item of their own.
-	- Decisions:
-		- One list of what a name can't have: `/` on Linux and the BSDs, and `\ / : * ? " < > |` plus control characters on Windows. A typed name is checked before it goes to disk, so a real disk error still gets its own message.
-		- A refused name says which character, in the sentence `/` already had: "The name "a*b" isn't valid because it contains the character "*". Please use a different name."
-		- Where a dialog has a name box, Rename grays out and a line under the box says why: the paste and extract conflicts, and a template's rename.
-		- A name nobody typed is fixed rather than refused. On Windows an archive entry or a dropped link's page title gets `_` for each such character, as 7-Zip does. Before, one such entry stopped the whole extract.
-	- Actual fix: the check goes before rename, a new folder named with a path, Edit link, Compress, and the 3 name boxes. Extract and dropped links replace instead.
-	- Swept: rename from the icon view, the list view, Properties, and undo all go through one call. New folder and new file are a rename of what was made, and a typed path is checked part by part. Paste: the conflict's new name. Drop: a link's page title; text and data drops have fixed or source names. Extract: entry names and the conflict's new name. Make link has no name box, and Edit link's name is checked. Compress: the archive name. Templates: the rename. Left alone: Connect to server's link name, a Linux desktop thing, and copying a file that already has such a name, which wasn't tried.
-	- Verified: rk8tkp4h and the new checks in reww9h2r and reww9h2s fail before the change and pass after, under wine and natively on b29w. On Linux they pass, with `*` and `:` still allowed in a name. rk56fsaw and rj46pkw3 pass on Linux, under wine and natively on b29w, and rhqxx81r on Linux. Compress, the template rename and dropped links are from reading only.
-	- Branch: badchar
-	- Commit: 1f580d2
-	- Test case: rk8tkp4h, Bad name characters test: the list, the message, a rename, a new folder path, Edit link, and Rename graying out with the line under the box in both conflict dialogs. reww9h2r: extracted names on Windows, and the archive core's list matching the app's. reww9h2s: an archive with `*`, `?` and `:` in names unpacks on Windows.
-	- Acceptance signoff: Left at signoff for the wording, the line under the name boxes, and `_` in extracted names.
-
 - Compression reset: Options opens by itself, gets a reset button, and unticks what the writer can't do.
 	- ID: 2026100516274646
 	- Type: Enhancement
@@ -484,145 +178,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- A password the format can't take shows as none rather than as dots in a grayed field.
 			- Follow nested and other filesystems show off as well as grayed when nothing selected has a folder or link. rhtmbdmj's check that nested stays ticked there is commented out with the reason.
 			- The compression level is a slider, so a format with no levels leaves it where it was, grayed.
+		- 20261016: still at signoff for the look. The Reset button sitting a few pixels below the Options label needs an eye on a real desktop.
 	- Done: the dialog keeps the choices under Options as chosen, and every box shows what the format can do of them, the same way a grayed store choice from 2026100516274386 shows as Ignore. A box the format can't do is unticked and grayed, and comes back with a format that can. What's remembered is what was chosen, so a forced off doesn't overwrite it. Options opens by itself when what's remembered isn't the defaults, a forced off one included. Reset puts everything under Options back, drops the remembered ones from the settings file, and closes Options; it's grayed while everything is at its default. Compress each item separately, grayed for one item, no longer overwrites what was remembered for it either.
 	- Swept: every control under Options goes through the one kept-and-shown path: the 7 boxes, the password, the level, the volume size, the 2 radio groups, the 2 filesystem boxes and the delete box. The dialog's two callers, the view and the test. Saving and loading moved into `nemo-archive-host.c` beside the link choices, which were the only other place the keys were read or written. Reset drops the 2 retired link keys too.
 	- Verified: 20261013, rhtmbdmj and rhae85g0 went red with each of: no opening by itself, the lock left out of the default check, Symlinks left out of the reset, a forced off box left ticked, a forced off written back over the choice, Options left open after Reset, Reset always lit, the password not counted, and a preset saved with its note. Both pass on Linux and under wine. Full Linux suite 196 of 196, the Windows cross build, lint clean apart from rj3ytv0b.
 	- Branch: optreset
 	- Commit: c0a7ede
 	- Test case: rhtmbdmj, Compress dialog height test: closed with Reset grayed at the defaults, Reset lit by a change and by a password alone, Reset clearing them and closing Options, opening by itself for remembered choices with the buttons on screen, Reset dropping them from the settings file, and a remembered lock the format can't do opening Options, shown off and grayed, and back on with rar. rhae85g0, Archive settings test, test_choices: the defaults match the settings table, each choice off its default counts, a forced off shows off and leaves the choice, saving keeps it with a preset as its size, and the reset drops every key under Options and nothing else.
-
-- Compression reset: the job follows the new link and filesystem choices.
-	- ID: 2026100516274423
-	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
-	- Needs external testing: no. rhr6ggmt and rewygsbg ran natively on b29w, with symlinks and junctions. rhr6ggmt's rar rows that store links failed there, and dev's test fails the same rows run the same way, see 2026101310525452.
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Prereq IDs: 2026100516274163, 2026100516274275
-	- Related IDs: 2026092813381404
-	- Target OS: Linux, Windows
-	- Design: [After OK](design_docs/20260929-101432_compression.md#after-ok) and [Link options](design_docs/20260929-101432_compression.md#link-options).
-	- Requirements:
-		- After OK the job runs its own pre-scan through the core scan, and works from that list. It never reuses the dialog's scan.
-		- The library writer writes from the list, for every format it writes.
-		- A link that leads nowhere: Ignore leaves it out, Follow and Store keep it as a link. This replaces the rule from 2026092813381404, so its test rows that expect the old rule are commented out with the reason.
-		- The delete check compares against what was meant to go in, followed content included.
-		- Compress each goes through the same code.
-	- Estimated effort: High
-	- Actual effort: High
-	- Progress log:
-		- 20261013-105254: built. Left at signoff for these calls:
-			- Ignore leaves out a link to a file too. Before, the library followed it when links weren't stored. So a selection with a link in it keeps its originals under Ignore, since the link isn't in the archive.
-			- The delete check still walks on its own, not from the job's list. It doesn't read past a link or a mounted folder the archive doesn't have.
-			- An item of Compress each that the options leave out gets no archive and stays, as a linked folder not followed did. Its note now says it's a link or a mounted folder the options leave out.
-			- The library writer refuses a selection with no path on this computer. It wrote one through GIO before; 7z and rar never could.
-			- No second progress bar, which is 2026100516274535. The one bar pulses while the list is made.
-			- A 7z with a password and links stored can't be checked, so its originals stay. That was so before, and is filed as 2026101310525352.
-	- Done: after OK the library's job walks the selection again through the archive core's scan, by the choices as its writer can do them, and writes from that list in every format it has. A link that leads nowhere goes in as a link under Follow and Store, and is left out under Ignore. Junctions, Follow nested and Follow other filesystems reach the job, and it follows a link onto a share. The delete check holds what a followed link led to, under the link's name. What goes to the trash is still only what was selected. Compress each walks once per item through the same code. 7z and rar still take only Symlinks, as the 2 boxes, until 2026100516274460.
-	- Swept: every place that set or read the 2 boxes in the options: the dialog, the program command lines, the writer choice, the one-thread flyover, both checks, and 5 tests. Both job paths, one archive and one per item. The 7z and rar walk and check keep the 2-box rules behind one pair of helpers, for 2026100516274460 to drop.
-	- Verified: 20261013, full Linux suite 196 of 196, the archive tests under ASan and UBSan, the Windows cross build, the archive tests under wine, and lint clean apart from rj3ytv0b. rhr6ggmt, rewygsbg, rjqef159 and rjq9mv0w natively on b29w; rhr6ggmt failed only the rar rows that store links, as dev's does there. Each new check went red against a fault put in the code: the job's walk ignoring the filesystem options, the dialog passing Symlinks alone, the check counting an ignored link as in, the check not following, ignored links kept as links, a link back into the selection counted as a miss, and followed content handed to the trash.
-	- Branch: arcfollow
-	- Commit: 870bf41
-	- Test case: rhr6ggmt, Archive option combinations: the crossed rows take each Symlinks choice, Follow nested and other filesystems, and on Windows each Junctions choice, with sub on a nested filesystem and the linked folder on another one. Each Symlinks choice in the library's formats with and without a delete, on a link to a file, one to a folder and 2 that lead nowhere, and one picked alone. The library rows for the old rule are commented out with the reason. rewygsbg, Archive job test: the delete check with followed content changed, added and missing, the links ignored, a link back into the selection, and a followed folder on another filesystem with the option off and on; the old rule's row commented out with the reason. rjqef159, Archive scan test, check_list: the job's list for each choice. rhtmbdmj, Compress dialog height test: the filesystem options as set reach the job.
-
-- Compression reset: 7z and rar programs work from the job's list.
-	- ID: 2026100516274460
-	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
-	- Needs external testing: no. rhr6ggmt, rewygsbg, rjqef159, rjq9mv0w, rev86z08 and reww9h2s passed natively on b29w, with symlinks and junctions.
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Prereq IDs: 2026100516274423
-	- Target OS: Linux, Windows
-	- Design: [After OK](design_docs/20260929-101432_compression.md#after-ok).
-	- Requirements:
-		- 7-Zip and rar are told what goes in from the pre-scan list, so mixed choices work, such as following symlinks while storing junctions.
-		- The 7z leave-out list of today becomes part of this. The first run for links that lead nowhere keeps working.
-		- Names stay names: `-spd` for 7-Zip, and rar keeps refusing `*` and `?`.
-		- Open: a list past the command line limit on some OS. The design leaves it to testing.
-	- Estimated effort: High
-	- Actual effort: High
-	- Progress log:
-		- 20261013-121000: built. Left at signoff for these calls:
-			- Both programs are handed the list's top names and told by name what to leave out, and walk the rest themselves. What they leave out is what the list left out, what it couldn't read, and a folder it had walked already, as through a link loop.
-			- The names go in list files, so there's no command line limit to hit. A name with a space at either end or a line break goes on the line, since 7-Zip trims list lines at both ends and rar at the end.
-			- Links kept beside links followed take 2 runs, the kept ones first. A split set can't do that, so there the kept ones are left out and named. So are links 7-Zip would reach through a linked folder, and links on Windows, where 7-Zip keeps none.
-			- rar is refused for `*` or `?` in any name it would be handed, which now includes what it's told to leave out. A link that leads nowhere with one is passed over, as before.
-			- The note for links left out now reads "It can't go in as a link with these options:" for any of them, not only those that lead nowhere.
-	- Done: 7z and rar write from the job's own list, the same pre-scan the library uses, by every link and filesystem choice. On Windows a rar can follow symlinks while it keeps junctions. The delete check walks the same way for every writer. The 2-box rules and the 7z leave-out list are gone.
-	- Swept: one archive and Compress each, both runs, the 2 public line builders the tests use, the delete check, and both places that took the 2 boxes. The rule for a link that leads nowhere and the warnings both programs give for one.
-	- Verified: 20261013, the full Linux suite (196 of 196), the archive tests under ASan and UBSan, the Windows cross build, and lint clean apart from rj3ytv0b. On b29w natively, rhr6ggmt passed all 317 runs started outside the ssh session, with the other archive tests. On Linux both programs read list files with spaces, non-ASCII, a leading dash, `@`, `#` and `;` in names. On b29w both read them, rar with a non-ASCII name and names starting with `@`. Each new check failed with a fault in the code: no names left out, a folder walked again not left out, no run ahead for kept links.
-	- Branch: arcprog
-	- Commit: 6436ac6
-	- Test case: rhr6ggmt, Archive option combinations: the crossed rows for 7z and rar go by every Symlinks choice, both filesystem options, and on Windows each Junctions choice, so rar rows mix following symlinks with keeping junctions. check_link_choice and check_dangling now run for every writer, check_loop has a followed link back up, and check_dangling_deep and check_at_names run under Follow. rjqef159, Archive scan test: a folder walked again is named, and a link that leads nowhere is marked.
-
-- Compression reset: a pre-scan progress bar after OK.
-	- ID: 2026100516274535
-	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
-	- Needs external testing: no.
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Prereq IDs: 2026100516274423
-	- Target OS: Linux, Windows
-	- Design: [After OK](design_docs/20260929-101432_compression.md#after-ok).
-	- Requirements:
-		- While the job's pre-scan runs, the progress dialog shows a second bar for it above the regular one.
-		- Driven by the core's progress callback.
-		- Open: when a job needs no pre-scan, such as a selection of plain files.
-	- Estimated effort: Avg
-	- Actual effort: Avg
-	- Progress log:
-		- 20261013-121500: Decided: the pre-scan still runs for plain files, since the writer works from its list. The bar shows only when the pre-scan is still going after half a second, so plain files never flash one.
-		- 20261013-124800: built. Left at signoff for these calls:
-			- The scan has no total up front, so its bar pulses, with "Found 150 files, 1.2 kB" under it. The job's own bar waits empty below it, where it pulsed before.
-			- Compress each pre-scans each archive, so each can show the bar, and the job's bar goes back to empty for each.
-			- 7z and rar with links kept beside links followed: the links run now pulses the job's bar, so the bar fills once, for the rest. Before, it filled for the links and then went back to empty.
-	- Done: while the job's pre-scan runs past half a second, the progress window shows a second bar above the job's own, with a running count of the files and bytes found. The core's scan hands the count to the job as it walks. Every writer and both ways of compressing go through the same pre-scan.
-	- Swept: both callers of the core's list walk, the job and the scan test. Every writer, through the one pre-scan. The progress window is the only place that draws a job's progress.
-	- Verified: 20261013, full Linux suite 196 of 196, the archive tests under ASan and UBSan, the Windows cross build, and rewygsbg, rhtmbdmj, rjqef159, rjq9mv0w and rev86z08 under wine. Lint clean apart from rj3ytv0b. The new checks failed with the pre-scan not marked as started, with the core's reports not passed on, and with no delay before the bar.
-	- Branch: scanbar
-	- Commit: cc3c0b0
-	- Test case: rewygsbg, Archive job test. check_prescan_reports: the pre-scan reports at its start, midway through the core's walk, and at its end with the full count and size, all before the archive exists, for zip and for rar where it's installed, and is over once the job is. check_prescan_bar: a pre-scan over within half a second never shows the bar, one still going shows it with the count found, never sooner than half a second, and the bar goes when it ends.
-
-- Compression reset: rename the delete box, and say why a delete check failed.
-	- ID: 2026100516274572
-	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
-	- Needs external testing: no.
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Prereq IDs: 2026100516274423
-	- Target OS: Linux, Windows
-	- Design: [Delete originals after verification](design_docs/20260929-101432_compression.md#delete-originals-after-verification).
-	- Requirements:
-		- The box reads "Delete originals after verification".
-		- A failed check says why: how many selected folders and files aren't in the archive, and how many in it weren't selected. When the counts match, the selected size against the archive's.
-		- The size is left out when the counts don't match.
-	- Estimated effort: Avg
-	- Actual effort: Avg
-	- Progress log:
-		- 20261013-124800: built. Left at signoff for these calls:
-			- New wording, as whole sentences like the 7z one: "1 folder and 2 files that were selected are not in the archive.", "1 file in the archive was not selected.", "The selection is 29 bytes, but the archive holds 15 bytes." Sizes past a kilobyte also give the bytes.
-			- The counts replace naming the first file missed.
-			- Something the options leave out counts as selected and not in the archive: an ignored link as a file, and a link or mounted folder left out for its filesystem by what it leads to. Before, those said "Something in the selection could not go into an archive". That message stays for what couldn't be read, and for a socket or device.
-			- In the archive and not selected is new as a reason to keep the originals. It counts only what's under the selected names, since the job writes a new archive.
-			- When the totals match but some files differ in size, it says how many.
-			- The password prompt still says "once the archive checks out".
-	- Done: the box reads "Delete originals after verification". A failed check says how many selected folders and files aren't in the archive, and how many in it weren't selected. When the counts match, it gives the selection's size against the archive's. The 7z with a password message and the box graying for it are as they were. The delete itself and its guard are unchanged.
-	- Swept: every message the check gives, and the one place the box is made. No test read the old messages that named a file.
-	- Verified: 20261013, as 2026100516274535. rj4jewn6 still passes with 40,000 entries beside the selection. The new checks failed with the extra entries not counted, with the size given when a count is off, with an ignored link back to the old message, and with the old label.
-	- Branch: scanbar
-	- Commit: cc3c0b0
-	- Test case: rewygsbg, Archive job test, check_reasons: a file, a folder, and both missing; a file, and a folder with a file, in the archive and not selected; both ways at once; the sizes when the counts match; no size when a count is off; 2 files of other sizes with the same total; an ignored link. rhtmbdmj, Compress dialog height test, probe_locked_links: the box's label.
 
 - In a move to another drive, a new name typed in the conflict dialog is lost, and Replace then overwrites the file with the old name.
 	- ID: 2026101419104655
@@ -852,6 +414,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: 20261007, not ruled out: the Menu key made no menu at all once, on a loaded box. GTK 3 doesn't show a menu whose pointer grab fails, and the probe presses the key only once. Nothing points at that, and pressing again would hide it rather than explain it.
 	- Test case: rjefm41d itself.
 
+- Sort attribute is not remembered when switching to thumbnail view.
+	- ID: 2026101613053691
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261016-130536
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+	- Test case: none yet.
+
 - Settings: sub-tabs don't list on the left until the parent tab is activated.
 	- ID: 2026101417352262
 	- Type: Enhancement
@@ -899,6 +472,66 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Today there are about 60 C strings with "Nemo" in them, about 20 of them "Nemo Anywhere", plus .ui, .py and data files.
 		- The slug `nemo-anywhere`, the app id `org.NemoAnywhere` and file paths are a bigger rename, split out as 2026101512210893.
 	- Test case: the new lint check, plus the existing UI case check for the strings it touches.
+
+- When moving a bookmark with the mouse, it should give some kind of indication of where it's going to go *between*.
+	- ID: 2026101613053686
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261016-130536
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+	- Test case: none yet.
+
+- Need ability to enter variables in the path bar. E.g. `$TMP9`.
+	- ID: 2026101613053687
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261016-130536
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+		- Can enter common standard cross-platform variables, e.g.:
+			- `$TMP/misc`, `${HOME}/.config`, or `~/.cache` on Windows.
+			- `%USERPROFILE%\Pictures` on mac and Linux
+			- `$DEVELOPER_DIR` on Windows and Linux
+	- Test case: none yet.
+
+- The dual progress bars in thumbnail view aren't needed, because they always progress at (almost) the same rate.
+	- ID: 2026101613053688
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261016-130536
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+		- Just show one.
+	- Test case: none yet.
+
+- Shift+del = bypass trash
+	- ID: 2026101613053689
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261016-130536
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+	- Test case: none yet.
+
+- After deleting objects, automatically select the one immediately prior. (Or after if there isn't one. Or none if no more objects.)
+	- ID: 2026101613053690
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261016-130536
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+	- Test case: none yet.
 
 - rjvdch2z fails now and then in the full suite on a loaded box.
 	- ID: 2026101419352490
@@ -1020,6 +653,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the pictures' rows don't wait on a sub-folder count.
 	- Reproduced: 20261015 on Linux, only with a listing held back on purpose.
 	- Test case: TBD
+
+- rk8tkp4h leaks in the sanitizer lane.
+	- ID: 2026101613053692
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261016-130536
+	- Opened by: pipeline run 20261016-124714
+	- Related IDs: 2026101416533917, 2026101319265113
+	- Target OS: Linux
+	- Incorrect behavior: the test passes all its checks, then LeakSanitizer finds 314 bytes in 7 allocations and the test fails. The stacks stop at `g_malloc` and `g_malloc0`.
+	- Expected behavior: no leak.
+	- Reproduced: 20261016, once, in the full pipeline's sanitizer stage.
+	- Test case: rk8tkp4h itself, in the sanitizer lane.
 
 - On Windows, a file that isn't on disk yet, such as a mail attachment, can't be dropped onto the window.
 	- ID: 2026101416534066
@@ -2207,6 +1854,192 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: psdrows
 	- Commit: 24d99cd
 
+- In the single exe on Windows, a new window or a tab moved to its own window starts through GLib's spawn helper, a program packed inside the exe.
+	- ID: 2026100914514406
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 188 of 188.
+	- Needs external testing:
+		- rjw1ks5h and rjvzdd4w in the native suite on vm925w. Failed 20261009, see Progress log. Done 20261009 after the test fix, passed.
+		- Done 20261009 on vm925w, passed. It was: the single exe built from this branch, in the desktop session on vm925w with MacType running. Open a folder in a new window, open an item in a new window, and move a tab to a new window. Each window opens, no "Cannot load library" box shows, and no `gspawn-win64-helper` process turns up. Then the About box's 2 links open in the browser, and Help shows its error, with no box either way. If a box shows, README's MacType note comes back.
+	- Priority|Severity: Avg
+	- Opened: 20261009-145144
+	- Opened by: 2026100909260549
+	- Related IDs: 2026100617051745, 2026100909260549, 2026100912374782
+	- Target OS: Windows
+	- Steps to reproduce: in the single exe, in the desktop session on vm925w with MacType running, open a folder in a new window, or move a tab to a new window.
+	- Incorrect behavior: not seen. `nemo-new-process.c` starts the new copy with `g_spawn_async`, not through `nemo-launch-win32.c`. On Windows GLib does that through `gspawn-win64-helper.exe` unless the call asks for nothing the helper is needed for, and this one does: no inherited input and no left-open handles. That helper is packed in the single exe, so under MacType it likely can't load its libraries, as in 2026100617051745.
+	- Expected behavior: the new window opens, and the single exe starts no packed program.
+	- Reproduced: 20261009, in part. The new copy's parent is GLib's spawn helper, not the app, under wine with rjw1ks5h. Not tried under MacType.
+	- Actual cause: as in Incorrect behavior. The helper loads GLib, a library packed in the single exe. The About box's links went the same way, through GTK, to the browser.
+	- Actual effort: Avg
+	- Progress log:
+		- 20261009: done, waiting on a native run and on MacType. Whether the single exe now starts no packed program: as far as can be read and checked here, yes. The only programs packed in it are the app and GLib's 2 spawn helpers, and nothing left in the app reaches the helpers on Windows. So README's MacType note is gone, and design doc "Windows exe packing" says why. Not tried under MacType.
+		- 20261009: Options for later: leave the 2 helpers out of the Windows bundles, as `gdbus.exe` was. Then anything that still reached them would fail for everyone, not only under MacType. Left in for now.
+		- 20261009: left at signoff for the README change, once the tests pass.
+		- 20261009: back to Queued. rjw1ks5h fails natively on vm925w, 3 runs out of 3, at line 386: the link through a scheme registered for the user never reports back. Its 3 new copy cases pass. The copy the shell starts is the test program itself, which can't find its DLLs outside the build's PATH and stops at Windows' "libarchive-13.dll was not found" box. Same cause as the 2 failing rows of rjvzdd4w in 2026100912374782. The single exe check under MacType passed, so README's MacType note stays out.
+		- 20261009: the test was at fault, not the app. Explorer starts a scheme's program with its own PATH, which has none of the build's libraries, so the test program exited at once with "DLL not found" (0xC0000135). The link case now starts test-env-dump, a small program that needs none. Left at signoff for the README change.
+	- Actual fix: on Windows the new copy is started from `nemo-launch-win32.c`, directly. It is the single exe started as itself, which MacType doesn't stop. It gets the user's environment, as in 2026100912374782, and makes its own settings again. Links from Help and the About box go through the launcher too: to the shell when the registry has a handler for the scheme, otherwise an error. Renaming a user folder no longer calls a program on Windows. README's MacType note is gone.
+	- Note: a few other `g_spawn` calls are built on Windows too, such as the one for an extension's settings program and the one that renames a user folder. Actions and the action layout editor have their own Windows route. Each needs the same look. README's MacType note stays until none is left.
+	- Swept: every call that starts a program through GLib or GTK in the app, from lint rjm8a6xr's list.
+		- Through the launcher now: the new window and the tab moved out, the 2 help links, and the About box's links.
+		- Through the launcher already: tools, ImageMagick, thumbnailers, actions and their conditions, templates, and Open with. A store app under Open with is started by the shell's own activation, with no spawn.
+		- Not built on Windows: open as root, the terminal, the layout editor, the extension list and restart, desktop files, and command lines. Now also the user folder rename.
+		- Never reached on Windows: an extension's settings program, since there are no extensions and so no link; the thumbnail cache bar, which never shows with no passwd entry; and eel's terminal, whose one caller isn't built.
+		- GTK's own: the file chooser's "Open With File Manager" asks GLib for a folder's handler, and GLib on Windows finds none, so nothing starts. Checked on vm925w and under wine. The help: scheme has no handler on vm925w either.
+		- The lint list now also covers an About box and a link button, since a click on either calls GTK's show-uri. Test programs are left out, since they aren't in the exe.
+	- Verified: rjw1ks5h fails on dev's `nemo-new-process.c` under wine: each of the 3 copies is started by something other than the app. It passes after, 7 runs. It also fails with the user's environment not put in place for the copy, and with the scheme check taken out. rjvzdd4w, rjvks1yf, rjpatrck, rjm4ctwh, rjp4ch0y, rffkjp10 and rg3wt7d8 pass under wine. rjnzpkk7 and rjmb3j8p fail only their known console window checks, as before. Full Linux suite 188 of 188, and the Windows cross build clean, both with warnings as errors. C lint clean, and rjm8a6xr fails with the About box, the link button or `nemo_show_uri` left off its list.
+	- Verified: 20261009 on vm925w, read only: GLib finds Firefox for https:, and nothing for help: or for a folder.
+	- Verified: 20261009 on vm925w at dev 186065a. Native suite 164 OK, 3 FAIL, 11 skipped. rjw1ks5h fails as in Progress log, elevated and not. The single exe from the same commit, in the desktop session with MacType running and loaded into the app: a folder in a new window, Home from Places in a new window, a new window, and a tab moved to a new window each opened as a copy started by the app itself. Both About box links opened in Firefox, and Help showed its own error. No "Cannot load library" box, and no spawn helper or other packed program ran at any point.
+	- Verified: 20261009 on vm925w, the branch winlaunch. rjw1ks5h passes 3 of 3, elevated and at medium integrity in the desktop session. Before the fix, the test program run with only the system folders on PATH exited 0xC0000135, and the copy Explorer started from the old test sat in the desktop session and never wrote its report.
+	- Branch: newwin, winlaunch
+	- Commit: bbf8c15, 205074b
+	- Test case: rjw1ks5h, New window start win32 test. The test stands in for the new copy. For a new window, one with a selection, and a tab moved out, the copy must be started by the app itself, with the user's environment, and no spawn helper may be running. It also opens a link of a scheme it sets up for the user, and one nothing handles, which must fail. rjvzdd4w's new copy case now starts the same way.
+	- Acceptance signoff: Self-closed: rjw1ks5h passes natively on vm925w, and the single exe check under MacType passed, so README's MacType note stays out.
+	- Closed: 20261016-130621
+
+- With Split into volumes ticked and a volume size that can't be read, Compress writes one archive with no volumes.
+	- ID: 2026101308213019
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
+	- Priority|Severity: Avg
+	- Opened: 20261013-082130
+	- Opened by: 2026100516274609
+	- Related IDs: 2026100516274609, 2026100516274646
+	- Target OS: Linux, Windows
+	- Steps to reproduce: Compress, Options, tick Split into volumes, type "4,000 MiB" or "lots" as the volume size, then Compress.
+	- Incorrect behavior: the Compress dialog drops a size it can't read, so the job is asked for no volumes and writes one file. Nothing says so.
+	- Expected behavior: Compress is grayed, or the size is marked, until it reads. Splitting is a requirement, per the design's standing rules.
+	- Reproduced: 20261013, Linux. With "lots" Compress stayed lit, the dialog closed on Compress and remembered Split as ticked. "4,000 MiB" and "0.0001 KiB" were refused or read as 0, and "nan", "inf" and "1e3" were taken.
+	- Actual cause: the dialog reads the size only when it builds the job, and drops it when it doesn't read. The size reader also took anything strtod takes, and a size that came out under a byte as 0, which means no volumes.
+	- Actual fix: with Split into volumes ticked, a size that doesn't read is marked in red with a tip, and Compress is grayed until it reads. A response that gets past the grayed button puts the dialog back. The size reader takes plain digits only, and refuses a size under a byte or too big to hold.
+	- Progress log:
+		- 20261013-084544: fixed. Left at signoff for the look of the marked size, and for one call: a typed size takes the comma the presets show, between groups of 3 digits only, so "4,000 MiB" reads and "1,5 GiB" is marked, since it could mean 1.5. 2026100516274609 had it that a typed comma isn't taken. A "." between groups, as some languages write it, still reads as a decimal point.
+	- Swept: every typed field in Compress and Extract, for a requirement dropped with nothing said.
+		- The name: an empty one already grays Compress.
+		- The password: a format that can't take one grays the field. It now also shows as empty there, 2026100516274646, so it no longer looks set.
+		- The password typed again before a delete: a mismatch says so and asks again.
+		- The compression level: a slider, so nothing to misread. A preference, not a requirement.
+		- The command lines in the settings: a 7-Zip or rar line edited with no {{PASSWORD}} or {{SPLIT}} wrote a readable archive, or one file, while a password or volumes were asked for, with only a log line. Fixed here: the job is refused and its error says which marker is missing. A line missing any other marker still runs, with the log line, since those are preferences.
+		- Extract: the password asked for while extracting is handed to the program, and a line edited with no {{PASSWORD}} makes the extract fail. Nothing is written wrong, so not this kind. Read in the code, not run.
+	- Verified: 20261013, the new size checks in rhtmbdmj and the reader checks in rev86z08 failed before the fix and pass after. rexkeyng and rewygsbg failed with the marker check taken out, where the job wrote the archive with no password, and pass with it. rev86z08, rhae85g0, rexkeyng, rewygsbg and rhtmbdmj pass under wine, which has no 7-Zip, so the size and edited line rows are skipped there. Full Linux suite 196 of 196, the Windows cross build, lint clean apart from rj3ytv0b.
+	- Branch: optreset
+	- Commit: c0a7ede
+	- Test case: rhtmbdmj, Compress dialog height test: "lots" marks the size and grays Compress, "4,000 MiB" reads, unticking Split or a format that can't split clears it, and a response past the grayed button keeps the dialog up. rev86z08, Archive options test, check_typed_sizes: grouped sizes read, a misplaced comma, a sign, an exponent, hex, nan, inf, a size under a byte and one too big are refused. rexkeyng, Command template test: a line with no {{PASSWORD}} or {{SPLIT}} is refused while one is asked for and runs while it isn't. rewygsbg, Archive job test: a 7z with a password and such a line fails, writes nothing and names the marker.
+	- Acceptance signoff: Self-closed: rhtmbdmj and rev86z08 cover it. Taking the comma the presets show is least surprise, and "1,5 GiB" is still marked.
+	- Closed: 20261016-130621
+
+- On Windows, rhr6ggmt keeps a junction it should delete in 2 rar rows of one archive per item.
+	- ID: 2026101313374036
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261013-133740
+	- Opened by: native run for 2026100516274683
+	- Related IDs: 2026100516274683
+	- Target OS: Windows
+	- Test environment: b29w, the cross-built test run natively, at dev 7d3021a.
+	- Steps to reproduce:
+		- Run rhr6ggmt, Archive option combinations, natively on b29w.
+	- Incorrect behavior: 2 rar rows with junctions stored, one archive per item and delete on fail. In both, `jlink` is still there after the delete. One says "The original files were kept." and that `sub` has no archive. The other says 1 selected file isn't in the archive, and also gets the wrong number of warnings.
+	- Expected behavior: `jlink` goes to the trash once its archive checks out, as on Linux.
+	- Reproduced: 20261013 on b29w, the same 2 rows on dev and on the arcmove branch. The last native run before this, at arcprog, passed every row.
+		- 20261013 on b29w, the test started outside the ssh session: dev, scanbar's merge and arcprog's merge each fail the same 2 rows with a long temp folder, and pass every row with a short one. So scanbar didn't bring it in. Only the reason differs: arcprog's says "jlink" isn't in the archive.
+	- Actual cause: libarchive 3.8.9 and older can't list a rar link whose target is 128 bytes or more, the same bug as 2026101310525452. rar keeps a junction's target as the whole path with `\??\` in front, and the test's temp folder decides that path's length. Under a temp folder of 72 characters it's 114 bytes and passes, under one of 138 it's 180 and fails. The check is right to keep `jlink`, since it can't see it. Its reason is wrong: it says a selected file isn't in the archive.
+	- Actual fix: when a link the archive should keep as a link isn't listed, the rar is read by libarchive 3.8.9 or older, and the link's target is 128 bytes or more, the warning says the link's target is too long to read back from a rar, so the archive can't be checked. The originals still stay. The test expects `jlink` to stay with that reason when its target is that long, and to go otherwise.
+	- Decisions:
+		- The check keeps what it can't list, as 2026101310525452 decided. Only the reason changed, so nothing the check refused before passes now.
+	- Swept: the delete check is the one place that reads an archive back before a delete. Extract and the other rar readers are 2026101312094706. The check reads a link's target for symlinks and junctions on both platforms, kept as a link or leading nowhere.
+	- Verified: 20261013 on b29w, started outside the ssh session: this branch's rhr6ggmt passed all 318 runs with a long and a short temp folder. With dev's check it fails the new long-target cases both ways, and the `jlink` row with a long one. rewygsbg, rjq9mv0w, rjqef159 and rj4jewn6 pass there. On Linux rhr6ggmt fails its long-target case with dev's check and passes with this one. The cross build with warnings as errors passes. The full Linux suite passed, 196 of 196.
+	- Branch: rarjct
+	- Commit: 45af09a
+	- Test case: rhr6ggmt, Archive option combinations. In the crossed rows, a rar keeping `jlink` as a junction with Delete originals keeps it, with the long-target reason, when its target is 128 bytes or more. check_long_target: a rar keeping a link with a 140-byte target, and on Windows a junction to a folder with a path of 128 or more, keeps the originals and says why, or deletes them where libarchive is newer than 3.8.9.
+	- Acceptance signoff: Self-closed: only the reason changed, and rhr6ggmt passed 318 runs on b29w. The wording goes with the extract message for the same rar bug.
+	- Closed: 20261016-130621
+
+- On Windows, reserved names like `CON` and `nul.txt`, and names ending in a dot or space, are taken with no error.
+	- ID: 2026101416533917
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 208 of 208.
+	- Needs external testing: by hand on the Windows desktop. Type `CON`, `nul.txt` and `a.` as a rename, and in the paste conflict's name box, and read the message and the line under the box. Not tried.
+	- Priority|Severity: Avg
+	- Opened: 20261014-165341
+	- Opened by: 2026101319265113
+	- Related IDs: 2026101319265113, 2026101419104655
+	- Target OS: Windows
+	- Steps to reproduce: rename a file to `CON`, `nul.txt`, `a.` or `a ` on Windows.
+	- Incorrect behavior: GLib takes all 4 with no error, on b29w.
+	- Expected behavior: the rename is refused with a message that says why, the same as for `*` and the other bad characters.
+	- Reproduced: 20261014, the GLib calls on b29w. What the app does after, and what happens to the data on a copy or move to such a name, is not tried. Check for data loss first.
+		- 20261014 on b29w, Windows 11 build 26200, through GLib and through the app's copy and move. `CON`, `nul.txt`, `aux.tar.gz`, `COM1.txt`, `LPT1`, `con .txt` and `COM¹` each make a plain file of that name. `NUL` and `nul.` are the device: a copy, a new file or a new folder says it worked and nothing is written, a rename fails with "Bad address" and a move with "File exists". `a.`, `a..` and `a ` all become `a`. With `a` already there, the conflict dialog asks about `a.` and shows `a`.
+		- Data loss: none of the user's own files. A paste with the new name `NUL` reports success and the copy is gone, while the source stays. A file called `NUL` or `CON` on a share can't be read, so a copy or move of it stops with an error and keeps it. `nul.txt` copies and moves as a plain file. So the severity stays Avg.
+	- Actual cause: nothing checked these names. Windows 11 makes most device names plain files, but `NUL` still swallows what is written, and older Windows and many programs treat all of them as devices.
+	- Decisions:
+		- On Windows a typed name is refused in the same place, and the same kind of sentence, as a bad character. That covers a device name alone or before an extension, any case, with spaces before the dot: `CON`, `PRN`, `AUX`, `NUL`, `COM0` to `COM9`, `LPT0` to `LPT9`, and `COM` and `LPT` with superscript 1 to 3. And a name ending in a dot or a space. `.` and `..` keep the messages they had.
+		- The messages: "The name "nul.txt" isn't valid because "nul" is a device name on Windows. Please use a different name." and "... because it ends in a dot." or "... ends in a space."
+		- A name nobody typed is fixed the way 7-Zip does it: each trailing dot or space becomes `_`, then a device name gets `_` in front. That's extracted entries and a dropped link's page title.
+		- Renaming a file to the name it already has is still no rename, so a file called `CON` from elsewhere doesn't get an error on F2 and Enter.
+		- A copied or moved file keeps its own name. See Swept.
+	- Actual fix: the check from 2026101319265113 also refuses device names and a trailing dot or space on Windows, so every place it runs gives the reason. The unchanged rename returns before the check now. The archive core and the dropped link title fix such names as above.
+	- Swept: the same places as 2026101319265113, which all go through the one check: rename from the icon view, the list view, Properties and undo, a new folder's typed path part by part, Edit link, Compress's name, and the line under the name box in the paste and extract conflicts and a template's rename. Extract: entry names. Drop: a link's page title. Copy, move, duplicate and make link take the source's name and were left alone: on Windows 11 a source called `NUL` or `CON` can't be read, and the rest are plain files. Not tried: Windows 10, where `nul.txt` and the rest are devices too, and a share served by Samba.
+	- Verified: 20261014, rk8tkp4h, reww9h2r and reww9h2s fail with the new rules taken out and pass with them, under wine and natively on b29w. rk8tkp4h's unchanged rename of a real `nul.txt` fails with the check before the unchanged case and passes after, on b29w. On Linux they pass with `CON` and `nul.txt` still taken. The full Linux suite passed, 208 of 208, and lint is clean but for rj3ytv0b, which fails in any worktree.
+	- Branch: winnames
+	- Commit: 08191a8
+	- Test case: rk8tkp4h, Bad name characters test: the device list, the messages and the name fix, a rename, an unchanged rename, a new folder path, and Rename graying out in both conflict dialogs. reww9h2r, Extract naming test: entry names fixed, and the archive core fixing a name the way the app does. reww9h2s, Extract job test: an archive with `NUL` and `trail.` unpacks as `_NUL` and `trail_` on Windows.
+	- Acceptance signoff: Self-closed: rk8tkp4h, reww9h2r and reww9h2s cover it. The messages use the sentence `*` already had, and the `_` fix is what 7-Zip does. The leak rk8tkp4h shows in the sanitizer lane is its own item.
+	- Closed: 20261016-130621
+
+- Going into a folder shows its rows about 200 ms after it's listed.
+	- ID: 2026101419191454
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 215 of 215.
+	- Needs external testing: none for the fix. Going into a folder on Windows and on a share wasn't timed.
+	- Priority|Severity: Avg
+	- Opened: 20261014-191914
+	- Opened by: 2026101417352261
+	- Related IDs: 2026101417352261
+	- Target OS: All
+	- Steps to reproduce: from the list view, go into a folder of 10 files.
+	- Incorrect behavior: it's listed in about 10 ms and its rows show at about 210 ms.
+	- Expected behavior: a small folder shows at once.
+	- Reproduced: 20261014 on Linux, b23.
+	- Possible cause: the view holds a folder's rows for its 200 ms batch timer, and once the folder is all in it waits that long again on purpose, to give the sub-folders' item counts a chance to come in first. 2026101417352261 fixed the same wait for a folder opened by its expander.
+	- Note: this changes how every folder opens, and design.md's speed table with it.
+	- Actual cause: the timer, as above. Thumbnail lookups and item counts cost little of it.
+	- Progress log:
+		- 20261015: where the time went, before the fix, going into a folder from the list view on b23, optimized build, medians of 5 runs, 3 at 10,000. Folders of varied names, sizes and dates, one in 7 a picture and one in 20 a sub-folder.
+			- From the click to the folder being asked for: 1 ms.
+			- Listing: 7 ms for 10, 63 for 1,000, 1.2 s for 10,000.
+			- Thumbnail lookups of the pictures among the first 150: a few ms after the listing at 10, done within it at 1,000. The first lookup in a session opens the thumbnail store, a few tens of ms more.
+			- The timer: 200 ms after the folder is all in, or after the first rows at 10,000.
+			- Adding rows: 2 ms for 10, 90 for 1,000.
+			- Drawing: one frame, 10 to 20 ms after the rows.
+			- Item counts of the sub-folders: most came in during the wait and went in with the rows. The rest came on the update timer after.
+		- 20261015: so the thumbnail wait isn't what costs the 200 ms, and the view's own folder still waits for its first 150, per 2026101417352261's decision.
+		- 20261015: the same after the fix. Milliseconds from the click, before -> after.
+			| Entries                     | Listed         | First row | All rows       | Drawn          | Last item count | Longest stall
+			| :---                        | :---           | :---      | :---           | :---           | :---            | :---
+			| 10, text only               | 7              | 207 -> 7  | 208 -> 8       | 224 -> 18      | none            | 8 -> 10
+			| 10, a picture and a folder  | 7 -> 8         | 207 -> 17 | 212 -> 22      | 226 -> 35      | 212 -> 223      | 10 -> 9
+			| 1,000                       | 63 -> 117      | 265 -> 36 | 354 -> 161     | 372 -> 173     | 865 -> 667      | 100 -> 63
+			| 10,000                      | 1,228 -> 1,286 | 219 -> 52 | 1,648 -> 1,481 | 1,681 -> 1,503 | 1,662 -> 2,002  | 341 -> 333
+		- 20261015: a big folder still comes in batches. The longest the window stopped answering is the last batch at 10,000, the same before and after. At 1,000 the listing now shares the main thread with the first rows, so it ends later, as with the expander fix.
+		- 20261015: the item counts of sub-folders fill in about 200 ms after the rows now, on the update timer like any other change. That's about when the rows used to show. At 10,000 the last count is in about 0.3 s later than before.
+		- 20261015: the icon view goes the same way: a folder of 1,000 showed its first rows at 33 ms, down from 274, after a switch from the list view.
+		- 20261015: left at signoff for the item counts coming in after the rows, and for the dated note under design.md's speed table.
+		- Note: 20261015, not changed here. A folder's thumbnail lookups queue behind its sub-folders' item counts, so a sub-folder that counts slowly holds back the rows of the pictures listed after it, among the first 150. Seen with a held listing only.
+	- Actual fix: the view's own folder shows its first rows as soon as they're listed and its last ones as soon as it's all read. A big one still comes in batches in between. Either waits while a picture among the first files is still having its thumbnail looked up, and goes in once that's done. The 200 ms timer still shows what's ready if a lookup hangs.
+	- Swept: one place decides this for every view, so the list, icon and compact views and search results all change. The expander's own path from 2026101417352261 is kept. An empty folder finishes at once. A folder that's already all read, such as one open in another window, shows its rows at once too, read but not run. The tree pane has no timer.
+	- Verified: rkbdyne7 fails before the fix, every kind at 210 to 245 ms. It also fails with each of the 3 parts of the fix taken out alone. It passes after, 3 runs and 3 more with every core loaded, best times there 57 to 140 ms to all rows and 16 to 82 to the first. rk96k9va, rhb624a0 and rj4jkr22 pass. Full Linux suite 215 of 215 and the Windows cross build clean, both with warnings as errors. C lint clean, and the test ID check passes.
+	- Branch: openfast
+	- Commit: 50d942ba
+	- Test case: rkbdyne7, Folder open time test. Goes into 9 folders of 120 from the list view, and back up after each. 4 are varied files with pictures and a sub-folder, 3 are text only, and 2 more are listed a second per batch, one with pictures and one without. The quickest of each fast kind must show all rows in under 180 ms, and each slow one its first row. Each folder's item count, and each sub-folder's, must show right. The old wait can't come in under 200.
+	- Acceptance signoff: Self-closed: rkbdyne7 covers it. The rows show 200 ms sooner, and item counts filling in a moment after them is what other file managers do too.
+	- Closed: 20261016-130621
+
 - Settings: Views|Current needs to look more clearly disabled when it's disabled.
 	- ID: 2026101009150768
 	- Type: Enhancement
@@ -2944,6 +2777,147 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- Compression reset: the job follows the new link and filesystem choices.
+	- ID: 2026100516274423
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
+	- Needs external testing: no. rhr6ggmt and rewygsbg ran natively on b29w, with symlinks and junctions. rhr6ggmt's rar rows that store links failed there, and dev's test fails the same rows run the same way, see 2026101310525452.
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274163, 2026100516274275
+	- Related IDs: 2026092813381404
+	- Target OS: Linux, Windows
+	- Design: [After OK](design_docs/20260929-101432_compression.md#after-ok) and [Link options](design_docs/20260929-101432_compression.md#link-options).
+	- Requirements:
+		- After OK the job runs its own pre-scan through the core scan, and works from that list. It never reuses the dialog's scan.
+		- The library writer writes from the list, for every format it writes.
+		- A link that leads nowhere: Ignore leaves it out, Follow and Store keep it as a link. This replaces the rule from 2026092813381404, so its test rows that expect the old rule are commented out with the reason.
+		- The delete check compares against what was meant to go in, followed content included.
+		- Compress each goes through the same code.
+	- Estimated effort: High
+	- Actual effort: High
+	- Progress log:
+		- 20261013-105254: built. Left at signoff for these calls:
+			- Ignore leaves out a link to a file too. Before, the library followed it when links weren't stored. So a selection with a link in it keeps its originals under Ignore, since the link isn't in the archive.
+			- The delete check still walks on its own, not from the job's list. It doesn't read past a link or a mounted folder the archive doesn't have.
+			- An item of Compress each that the options leave out gets no archive and stays, as a linked folder not followed did. Its note now says it's a link or a mounted folder the options leave out.
+			- The library writer refuses a selection with no path on this computer. It wrote one through GIO before; 7z and rar never could.
+			- No second progress bar, which is 2026100516274535. The one bar pulses while the list is made.
+			- A 7z with a password and links stored can't be checked, so its originals stay. That was so before, and is filed as 2026101310525352.
+	- Done: after OK the library's job walks the selection again through the archive core's scan, by the choices as its writer can do them, and writes from that list in every format it has. A link that leads nowhere goes in as a link under Follow and Store, and is left out under Ignore. Junctions, Follow nested and Follow other filesystems reach the job, and it follows a link onto a share. The delete check holds what a followed link led to, under the link's name. What goes to the trash is still only what was selected. Compress each walks once per item through the same code. 7z and rar still take only Symlinks, as the 2 boxes, until 2026100516274460.
+	- Swept: every place that set or read the 2 boxes in the options: the dialog, the program command lines, the writer choice, the one-thread flyover, both checks, and 5 tests. Both job paths, one archive and one per item. The 7z and rar walk and check keep the 2-box rules behind one pair of helpers, for 2026100516274460 to drop.
+	- Verified: 20261013, full Linux suite 196 of 196, the archive tests under ASan and UBSan, the Windows cross build, the archive tests under wine, and lint clean apart from rj3ytv0b. rhr6ggmt, rewygsbg, rjqef159 and rjq9mv0w natively on b29w; rhr6ggmt failed only the rar rows that store links, as dev's does there. Each new check went red against a fault put in the code: the job's walk ignoring the filesystem options, the dialog passing Symlinks alone, the check counting an ignored link as in, the check not following, ignored links kept as links, a link back into the selection counted as a miss, and followed content handed to the trash.
+	- Branch: arcfollow
+	- Commit: 870bf41
+	- Test case: rhr6ggmt, Archive option combinations: the crossed rows take each Symlinks choice, Follow nested and other filesystems, and on Windows each Junctions choice, with sub on a nested filesystem and the linked folder on another one. Each Symlinks choice in the library's formats with and without a delete, on a link to a file, one to a folder and 2 that lead nowhere, and one picked alone. The library rows for the old rule are commented out with the reason. rewygsbg, Archive job test: the delete check with followed content changed, added and missing, the links ignored, a link back into the selection, and a followed folder on another filesystem with the option off and on; the old rule's row commented out with the reason. rjqef159, Archive scan test, check_list: the job's list for each choice. rhtmbdmj, Compress dialog height test: the filesystem options as set reach the job.
+	- Acceptance signoff: Self-closed: each call follows the compression design doc. rhr6ggmt, rewygsbg and rjqef159 cover it, on Linux and natively on b29w.
+	- Closed: 20261016-130621
+
+- Compression reset: 7z and rar programs work from the job's list.
+	- ID: 2026100516274460
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
+	- Needs external testing: no. rhr6ggmt, rewygsbg, rjqef159, rjq9mv0w, rev86z08 and reww9h2s passed natively on b29w, with symlinks and junctions.
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274423
+	- Target OS: Linux, Windows
+	- Design: [After OK](design_docs/20260929-101432_compression.md#after-ok).
+	- Requirements:
+		- 7-Zip and rar are told what goes in from the pre-scan list, so mixed choices work, such as following symlinks while storing junctions.
+		- The 7z leave-out list of today becomes part of this. The first run for links that lead nowhere keeps working.
+		- Names stay names: `-spd` for 7-Zip, and rar keeps refusing `*` and `?`.
+		- Open: a list past the command line limit on some OS. The design leaves it to testing.
+	- Estimated effort: High
+	- Actual effort: High
+	- Progress log:
+		- 20261013-121000: built. Left at signoff for these calls:
+			- Both programs are handed the list's top names and told by name what to leave out, and walk the rest themselves. What they leave out is what the list left out, what it couldn't read, and a folder it had walked already, as through a link loop.
+			- The names go in list files, so there's no command line limit to hit. A name with a space at either end or a line break goes on the line, since 7-Zip trims list lines at both ends and rar at the end.
+			- Links kept beside links followed take 2 runs, the kept ones first. A split set can't do that, so there the kept ones are left out and named. So are links 7-Zip would reach through a linked folder, and links on Windows, where 7-Zip keeps none.
+			- rar is refused for `*` or `?` in any name it would be handed, which now includes what it's told to leave out. A link that leads nowhere with one is passed over, as before.
+			- The note for links left out now reads "It can't go in as a link with these options:" for any of them, not only those that lead nowhere.
+	- Done: 7z and rar write from the job's own list, the same pre-scan the library uses, by every link and filesystem choice. On Windows a rar can follow symlinks while it keeps junctions. The delete check walks the same way for every writer. The 2-box rules and the 7z leave-out list are gone.
+	- Swept: one archive and Compress each, both runs, the 2 public line builders the tests use, the delete check, and both places that took the 2 boxes. The rule for a link that leads nowhere and the warnings both programs give for one.
+	- Verified: 20261013, the full Linux suite (196 of 196), the archive tests under ASan and UBSan, the Windows cross build, and lint clean apart from rj3ytv0b. On b29w natively, rhr6ggmt passed all 317 runs started outside the ssh session, with the other archive tests. On Linux both programs read list files with spaces, non-ASCII, a leading dash, `@`, `#` and `;` in names. On b29w both read them, rar with a non-ASCII name and names starting with `@`. Each new check failed with a fault in the code: no names left out, a folder walked again not left out, no run ahead for kept links.
+	- Branch: arcprog
+	- Commit: 6436ac6
+	- Test case: rhr6ggmt, Archive option combinations: the crossed rows for 7z and rar go by every Symlinks choice, both filesystem options, and on Windows each Junctions choice, so rar rows mix following symlinks with keeping junctions. check_link_choice and check_dangling now run for every writer, check_loop has a followed link back up, and check_dangling_deep and check_at_names run under Follow. rjqef159, Archive scan test: a folder walked again is named, and a link that leads nowhere is marked.
+	- Acceptance signoff: Self-closed: rhr6ggmt and rjqef159 pass on Linux and natively on b29w. List files take away the command line limit the design left open.
+	- Closed: 20261016-130621
+
+- Compression reset: a pre-scan progress bar after OK.
+	- ID: 2026100516274535
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
+	- Needs external testing: no.
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274423
+	- Target OS: Linux, Windows
+	- Design: [After OK](design_docs/20260929-101432_compression.md#after-ok).
+	- Requirements:
+		- While the job's pre-scan runs, the progress dialog shows a second bar for it above the regular one.
+		- Driven by the core's progress callback.
+		- Open: when a job needs no pre-scan, such as a selection of plain files.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Progress log:
+		- 20261013-121500: Decided: the pre-scan still runs for plain files, since the writer works from its list. The bar shows only when the pre-scan is still going after half a second, so plain files never flash one.
+		- 20261013-124800: built. Left at signoff for these calls:
+			- The scan has no total up front, so its bar pulses, with "Found 150 files, 1.2 kB" under it. The job's own bar waits empty below it, where it pulsed before.
+			- Compress each pre-scans each archive, so each can show the bar, and the job's bar goes back to empty for each.
+			- 7z and rar with links kept beside links followed: the links run now pulses the job's bar, so the bar fills once, for the rest. Before, it filled for the links and then went back to empty.
+	- Done: while the job's pre-scan runs past half a second, the progress window shows a second bar above the job's own, with a running count of the files and bytes found. The core's scan hands the count to the job as it walks. Every writer and both ways of compressing go through the same pre-scan.
+	- Swept: both callers of the core's list walk, the job and the scan test. Every writer, through the one pre-scan. The progress window is the only place that draws a job's progress.
+	- Verified: 20261013, full Linux suite 196 of 196, the archive tests under ASan and UBSan, the Windows cross build, and rewygsbg, rhtmbdmj, rjqef159, rjq9mv0w and rev86z08 under wine. Lint clean apart from rj3ytv0b. The new checks failed with the pre-scan not marked as started, with the core's reports not passed on, and with no delay before the bar.
+	- Branch: scanbar
+	- Commit: cc3c0b0
+	- Test case: rewygsbg, Archive job test. check_prescan_reports: the pre-scan reports at its start, midway through the core's walk, and at its end with the full count and size, all before the archive exists, for zip and for rar where it's installed, and is over once the job is. check_prescan_bar: a pre-scan over within half a second never shows the bar, one still going shows it with the count found, never sooner than half a second, and the bar goes when it ends.
+	- Acceptance signoff: Self-closed: rewygsbg covers when the bar shows and what it counts. A pulsing bar is the usual thing when there's no total yet.
+	- Closed: 20261016-130621
+
+- Compression reset: rename the delete box, and say why a delete check failed.
+	- ID: 2026100516274572
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
+	- Needs external testing: no.
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274423
+	- Target OS: Linux, Windows
+	- Design: [Delete originals after verification](design_docs/20260929-101432_compression.md#delete-originals-after-verification).
+	- Requirements:
+		- The box reads "Delete originals after verification".
+		- A failed check says why: how many selected folders and files aren't in the archive, and how many in it weren't selected. When the counts match, the selected size against the archive's.
+		- The size is left out when the counts don't match.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Progress log:
+		- 20261013-124800: built. Left at signoff for these calls:
+			- New wording, as whole sentences like the 7z one: "1 folder and 2 files that were selected are not in the archive.", "1 file in the archive was not selected.", "The selection is 29 bytes, but the archive holds 15 bytes." Sizes past a kilobyte also give the bytes.
+			- The counts replace naming the first file missed.
+			- Something the options leave out counts as selected and not in the archive: an ignored link as a file, and a link or mounted folder left out for its filesystem by what it leads to. Before, those said "Something in the selection could not go into an archive". That message stays for what couldn't be read, and for a socket or device.
+			- In the archive and not selected is new as a reason to keep the originals. It counts only what's under the selected names, since the job writes a new archive.
+			- When the totals match but some files differ in size, it says how many.
+			- The password prompt still says "once the archive checks out".
+	- Done: the box reads "Delete originals after verification". A failed check says how many selected folders and files aren't in the archive, and how many in it weren't selected. When the counts match, it gives the selection's size against the archive's. The 7z with a password message and the box graying for it are as they were. The delete itself and its guard are unchanged.
+	- Swept: every message the check gives, and the one place the box is made. No test read the old messages that named a file.
+	- Verified: 20261013, as 2026100516274535. rj4jewn6 still passes with 40,000 entries beside the selection. The new checks failed with the extra entries not counted, with the size given when a count is off, with an ignored link back to the old message, and with the old label.
+	- Branch: scanbar
+	- Commit: cc3c0b0
+	- Test case: rewygsbg, Archive job test, check_reasons: a file, a folder, and both missing; a file, and a folder with a file, in the archive and not selected; both ways at once; the sizes when the counts match; no size when a count is off; 2 files of other sizes with the same total; an ignored link. rhtmbdmj, Compress dialog height test, probe_locked_links: the box's label.
+	- Acceptance signoff: Self-closed: rewygsbg checks each sentence. Counts say more than naming the first file missed.
+	- Closed: 20261016-130621
 
 - `window-state.start-with-location-bar` does nothing.
 	- ID: 2026101510233435
@@ -4980,6 +4954,140 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjf2v5d5 (`test-release-notes.bash`, lint stage).
 	- Acceptance signoff: Self-closed: reproduced, red without the check and green with it, and nothing on screen.
 	- Closed: 20261005-075207
+
+- A 7z with a password and links stored can't be checked, so Delete originals always keeps the originals.
+	- ID: 2026101310525352
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
+	- Needs external testing: no. rhr6ggmt, rewygsbg and rev86z08 passed natively on b29w.
+	- Priority|Severity: Low
+	- Opened: 20261013-105253
+	- Opened by: 2026100516274423
+	- Related IDs: 2026100516274460
+	- Target OS: Linux, Windows
+	- Steps to reproduce:
+		- With 7-Zip installed, compress a folder holding a symlink as 7z, with a password, Store as symlinks, and Delete originals.
+	- Incorrect behavior: "The original files were kept", and the link is named as not in the archive. The archive is fine, and 7-Zip lists the link.
+	- Expected behavior: the check reads the whole archive, or says up front that it can't check this one, as with hidden names.
+	- Reproduced: yes, 20261013, Linux.
+	- Possible cause: 7-Zip keeps a link's target in its data, which the password locks, and the library stops listing at the first one it can't read.
+	- Actual cause: as guessed. 7-Zip keeps a link's target as the entry's data, which the password locks. libarchive can't unlock a 7z, and at the first link it says the content is encrypted and stops for good, so nothing after it lists.
+	- Progress log:
+		- 20261013-121000: fixed. Left at signoff for these calls:
+			- The check says up front it can't check this one. Reading through 7-Zip's own listing was left out, since the design rejects checking with the program that wrote the archive.
+			- The delete box is grayed for a 7z with a password and Store as symlinks, where the selection has a link or a folder. A folder with no link in it loses the box too. Plain files keep it.
+			- New message: "A 7z with a password cannot be checked when it keeps links as links."
+	- Actual fix: the delete check gives that message when it expects a link kept as a link in a 7z with a password, before it reads anything. The Compress dialog grays the box for that case, as it does for hidden names. A selection with no link in it is checked as before, and its originals can go. Where 7-Zip keeps no links, on Windows, nothing changes.
+	- Swept: the 2 places a link is expected kept in the check, Store and a followed link that leads nowhere. The dialog's one call that decides the box. zip with a password reads its links, and rar keeps a link's target outside the locked data, so neither is affected.
+	- Verified: 20261013, the tests below on Linux and under ASan and UBSan, and rhr6ggmt and rewygsbg natively on b29w. Each new check failed with the dialog's rule taken out or with the check's flag held off.
+	- Branch: arcprog
+	- Commit: 6436ac6
+	- Test case: rhr6ggmt, Archive option combinations: the rows with a 7z, a password and links kept say why the originals stay, and check_locked_plain archives plain files and a folder with no link under the same options and deletes them. rewygsbg, Archive job test, check_predicate: the rule for 7z, zip, Store and Follow. rhtmbdmj, Compress dialog height test, probe_locked_links: the box grays with a link or folder selected and stays with plain files.
+	- Acceptance signoff: Self-closed: the design rejects checking with the program that wrote the archive, so saying so up front is the way left. rhr6ggmt, rewygsbg and rhtmbdmj cover it.
+	- Closed: 20261016-130621
+
+- Extracting a rar whose link has a target of 128 bytes or more stops at that link.
+	- ID: 2026101312094706
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: No. The full Linux suite passed on the branch, 198 of 198.
+	- Needs external testing: None. The new test writes its rars with POSIX links, so it runs on Linux and the BSDs only. The same code runs on Windows, and the extract tests there still pass.
+	- Priority|Severity: Low
+	- Opened: 20261013-120947
+	- Opened by: 2026101310525452
+	- Related IDs: 2026101313374036, 2026100516275399
+	- Target OS: Linux, Windows
+	- Steps to reproduce:
+		- With rar, keep a link whose target is 128 bytes or more, then a file after it, and extract that archive in the app.
+	- Incorrect behavior: libarchive 3.8.9 and older misreads the link's header. With 3.7.4, bsdtar lists nothing for an archive holding only that link, and stops with "Header CRC error" when a file follows it. With 3.8.9 it says "unsupported structure of file header extra data".
+	- Expected behavior: every entry comes out, or the app hands the archive to rar or 7-Zip.
+	- Reproduced: with bsdtar 3.7.4 on Linux and 3.8.9 on b29w, 20261013. Not tried through the app's Extract yet.
+		- 20261013, through the app's Extract on Linux with libarchive 3.7.4. A rar of a file, the link and a file: the first file comes out, and the job fails with "The archive could not be read." and no reason, even with rar and 7-Zip installed. The same with the link last: the job reports success, and the link is missing.
+	- Possible cause: libarchive takes the target's length as one byte when it's 2. Fixed upstream after 3.8.9 (libarchive `bb42a8c`).
+	- Actual cause: as in Possible cause. The library stops at the link, with an error when something follows it and as if at the end when nothing does. Extracting took a stop after the first file was written as a failed archive, and the end as the end. rar and 7-Zip were tried only while nothing was written.
+	- Decisions:
+		- Decided: when the library stops at such a link and rar, unrar or 7-Zip is installed, that program extracts the whole archive, and only what the library never got to is placed from it. So nothing is asked about twice, and what was already answered stays answered. Without one, the archive fails with a message that says the link's target is too long for the built-in reader, where it stopped and after how many files, and to install 7-Zip or RAR. Easy to undo: the fallback is one branch in the extract job.
+		- The stop is told from any other by what the library left in the entry it stopped at: a link in a rar with a target of 128 bytes or more. That goes with the version check the delete check uses, from one helper, so both change together if 3.8.10 turns out not to be the first fixed release.
+		- The names a program extracts get the same cleaning as an entry the library reads, so both routes name things the same way and stay inside the folder picked.
+	- Actual fix: as in Decisions. Programs are looked up as before, on Windows the `.exe` first. A test can hide them as for compressing.
+	- Swept: the other place that reads a rar back is the check before a delete, 2026101313374036, which now goes by the same helper. The library's stop shows up at the end of a listing too, which extracting now checks as well as an error. Hard links in a rar keep their target the same way, so the check covers them too, though no test has one. A junction made on Windows isn't: the library keeps no target for one, so a stop there reads as any other read error, as before.
+	- Verified: 20261013. rk65m3m4 fails on dev's extract code and passes on the branch. It also fails with the "already placed" skip off (a question about a file the job had written), with the file count off, and with the stop at the end not checked. reww9h2r, reww9h2s and rjbpmcxy pass, also under the address and undefined behavior checks. The cross build with warnings as errors passes.
+	- Branch: xmove
+	- Commit: 509ff56
+	- Test case: rk65m3m4, Extract rar long link test. Rars with a 140-byte link target: a file, the link and a file; a file and the link last; the link first. With rar there, with only 7-Zip, and with neither. With a program every entry comes out, the link with its target, and nothing is asked. With neither the job fails, nothing past the link comes out, and the message names the reason, where it stopped and after how many files, and what to install.
+	- Acceptance signoff: Self-closed: rk65m3m4 covers every route, with rar, with only 7-Zip, and with neither, and the message says what to install.
+	- Closed: 20261016-130621
+
+- On Windows, rjvzdd4w's open row fails: a `.bat` opened through its file type never runs.
+	- ID: 2026101317434154
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no, only Windows files changed. The native suite on b29w passed, 170 OK, 0 fail, 14 skipped.
+	- Needs external testing: done 20261014. It was: rjvzdd4w on b29w over ssh with another user at the console, and on vm925w in that user's desktop session.
+	- Priority|Severity: Low
+	- Opened: 20261013-174342
+	- Opened by: native suite on b29w at dev 5ca50b7
+	- Related IDs: 2026100912374782, 2026100916102200
+	- Target OS: Windows
+	- Test environment: b29w, the native suite over ssh, so in session 0 with no desktop.
+	- Steps to reproduce: run rjvzdd4w, Launch environment win32 test, natively on b29w.
+	- Incorrect behavior: `nemo_launch_win32_open_path` on a `.bat` fails at line 232, and "the program never wrote what it saw". The spawn, run, Open With and copy rows pass. Same when run alone.
+	- Expected behavior: passes, or exits 77 where opening by file type can't work.
+	- Reproduced: 20261013 on b29w, twice. Not tried on dev before this round, or in a desktop session.
+		- 20261014 on b29w: a `.bat` opened from the user's own desktop session never ran either, so it isn't session 0.
+		- 20261014 on b29w, with wintest at the console: rjvzdd4w hung at the "run" row, and wintest's screen got a box about a path under collierjr's profile for each start.
+	- Actual cause: 2 things, both on the box, not in the launch code.
+		- On b29w, collierjr's own "open" for `.bat` and `.cmd` names a SilkTerm install that is an empty file. So Windows hands a `.bat` to its Open With picker, which can't show in session 0 and never runs the file anywhere. The test took the box's `.bat` handler on trust.
+		- From session 0 there is no desktop of the app's own, but the shell route still finds one: the console's. With wintest logged on there, wintest's Explorer got the start, couldn't read the program under collierjr's profile, and put up a box the call then waited on.
+	- Decisions:
+		- 20261014: the open row uses a file type of the test's own, set for the user during the run, in place of `.bat`. A user's own choice for a type can't break it.
+		- 20261014: the shell route only uses the desktop of the app's own session. With none, as in session 0, the service and the direct start take over, as they already did when the shell wasn't there.
+	- Actual fix: `nemo-launch-win32.c` checks that the desktop it found is this session's shell window before asking it. rjvzdd4w opens a file of its own type that opens with its dumper, under the user's classes on Windows and the machine's under wine. The broker probe in the launch test skips the shell start when the session has no desktop.
+	- Swept: the desktop lookup is the only place the app reaches Explorer, and the run, command, open and link starts all go through it. Of the other tests, only rjw1ks5h's link start goes through the shell. It adn the rest of the native suite passed on b29w with wintest at the console.
+	- Note: not tried: a copy run as a different user inside someone else's session. The desktop found there is that session's, so the shell route still starts the program as the desktop's user.
+	- Branch: wintests3
+	- Commit: 1694aeb, bef81c9
+	- Test case: rjvzdd4w, Launch environment win32 test. The open row now uses its own file type.
+	- Verified: 20261014 on b29w over ssh, with wintest at the console: rjvzdd4w hung at the run row with the launch code as on dev, and passes 3 of 3 after. The native gate passed, suite 170 OK, 0 fail, 14 skipped. No box was left on wintest's screen and no test type was left in the registry.
+	- Verified: 20261014 on vm925w: rjvzdd4w 3 of 3 in wintest's desktop session, where the run and open rows go through Explorer, and 2 of 2 over ssh. The launch probe starts through the desktop shell in the desktop session and skips it over ssh. Under wine, 3 of 3.
+	- Acceptance signoff: Self-closed: rjvzdd4w passes on b29w and vm925w. Asking only this session's desktop fixed a hang, and a start from a normal desktop goes the same way as before.
+	- Closed: 20261016-130621
+
+- On Windows, a name with a character Windows doesn't allow is refused with "Input/output error".
+	- ID: 2026101319265113
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: yes, the full Linux suite. The 22 tests nearest the change passed on Linux.
+	- Needs external testing: by hand on the Windows desktop. Rename to `a*b` and read the error, then the line under the name box in the paste and extract conflict dialogs and in a template's rename. Not tried.
+	- Priority|Severity: Low
+	- Opened: 20261013-192651
+	- Opened by: t00mietum
+	- Related IDs: 2026101009150766
+	- Target OS: Windows
+	- Steps to reproduce: rename a file or folder to `a*b`, or `a?b`, `a<b`, `a|b`, `a"b`.
+	- Incorrect behavior: GLib answers with a plain failure, "Error renaming file <full path>: Input/output error", so the rename error falls to its catch-all: "Sorry, could not rename ..." with that text, and a warning in the log. `a:b` fails the same way, naming the old path.
+	- Expected behavior: the rename error says which character can't be in a name, as it does for `/`.
+	- Reproduced: 20261013, the GLib answer, natively on b29w and under wine. The dialog text is from reading the code.
+	- Possible cause: GLib maps the Windows error for a bad name to EIO, so nothing tells it from a real disk error.
+	- Actual cause: as above for a rename or move. A new file or folder gets GLib's "Invalid filename", which doesn't say which character. On NTFS, `:` names a hidden stream of the file before it, so making or copying to `a:b` works and leaves an empty file `a`, checked on b29w. Nothing checked a typed name first.
+	- Progress log:
+		- 20261014: done. Left at signoff for the wording, the new line under 3 name boxes, and `_` in extracted names.
+		- 20261014: a plain rename with `/` keeps its old text, "Slashes aren't allowed in filenames", so `...0766` doesn't change. Options: give it the same sentence as the rest.
+		- 20261014: reserved names such as `CON` or `NUL`, and a trailing dot or space, aren't covered. Options: an item of their own.
+	- Decisions:
+		- One list of what a name can't have: `/` on Linux and the BSDs, and `\ / : * ? " < > |` plus control characters on Windows. A typed name is checked before it goes to disk, so a real disk error still gets its own message.
+		- A refused name says which character, in the sentence `/` already had: "The name "a*b" isn't valid because it contains the character "*". Please use a different name."
+		- Where a dialog has a name box, Rename grays out and a line under the box says why: the paste and extract conflicts, and a template's rename.
+		- A name nobody typed is fixed rather than refused. On Windows an archive entry or a dropped link's page title gets `_` for each such character, as 7-Zip does. Before, one such entry stopped the whole extract.
+	- Actual fix: the check goes before rename, a new folder named with a path, Edit link, Compress, and the 3 name boxes. Extract and dropped links replace instead.
+	- Swept: rename from the icon view, the list view, Properties, and undo all go through one call. New folder and new file are a rename of what was made, and a typed path is checked part by part. Paste: the conflict's new name. Drop: a link's page title; text and data drops have fixed or source names. Extract: entry names and the conflict's new name. Make link has no name box, and Edit link's name is checked. Compress: the archive name. Templates: the rename. Left alone: Connect to server's link name, a Linux desktop thing, and copying a file that already has such a name, which wasn't tried.
+	- Verified: rk8tkp4h and the new checks in reww9h2r and reww9h2s fail before the change and pass after, under wine and natively on b29w. On Linux they pass, with `*` and `:` still allowed in a name. rk56fsaw and rj46pkw3 pass on Linux, under wine and natively on b29w, and rhqxx81r on Linux. Compress, the template rename and dropped links are from reading only.
+	- Branch: badchar
+	- Commit: 1f580d2
+	- Test case: rk8tkp4h, Bad name characters test: the list, the message, a rename, a new folder path, Edit link, and Rename graying out with the line under the box in both conflict dialogs. reww9h2r: extracted names on Windows, and the archive core's list matching the app's. reww9h2s: an archive with `*`, `?` and `:` in names unpacks on Windows.
+	- Acceptance signoff: Self-closed: rk8tkp4h covers the list, the message and the line under the box, and reww9h2s the extract. `_` in extracted names is what 7-Zip does. `/` keeping its old text is fine for now.
+	- Closed: 20261016-130621
 
 - Rename Preferences to Settings.
 	- ID: 2026100816170996
