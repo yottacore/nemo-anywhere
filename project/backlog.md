@@ -395,6 +395,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- About 125 findings expected from the 2 analyzers on today's tree. Many will be GLib ref-count false positives.
 	- Test case: each new stage is its own test, with a planted fault it has to catch.
 
+- Whenever testing, always work in a sandboxed environment where no real files could be harmed even if you tried.
+	- ID: 2026101715030680
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261017-150306
+	- Opened by: t00mietum
+	- Test case: none yet.
+
 - Sort attribute is not remembered when switching to thumbnail view.
 	- ID: 2026101613053691
 	- Type: Bug
@@ -512,6 +521,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Requirements:
 		- Before the next cut.
+	- Test case: none yet.
+
+- Zoom in with Ctrl+ (or Ctrl=), and out with Ctrl-, changes the window size too.
+	- ID: 2026101715030685
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261017-150306
+	- Opened by: t00mietum
+	- Requirements:
+		- Cmd in place of Ctrl on macOS.
+		- Change the size of the window too, to remain approximately proportional.
+			- This should be an option, enabled by default: "On contents zoom, change window size too".
 	- Test case: none yet.
 
 - rk96k9va fails in the sanitizer lane on a loaded box.
