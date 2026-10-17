@@ -404,6 +404,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- With `-Werror`, analyzer findings print as `error: ... [-Werror=analyzer-*]`, not `warning:`. A parser that only looks for warnings counts 0.
 			- heaptrack and ASan can't share a build. The soak test uses a plain build.
 			- ASan's allocator hides the heap from glibc's own stats, such as `mallinfo2`. A test that reads them should exit as skipped under ASan, not pass.
+		- 20261017: `vendor/shcl-old/` is only built into a test, never into the app, so the vendored code above doesn't take it in. The gaps found in the existing checks on vendored and third-party code are 2026101715252255 to 2026101715252260.
 	- Test case: each new stage is its own test, with a planted fault it has to catch.
 
 - Whenever testing, always work in a sandboxed environment where no real files could be harmed even if you tried.
@@ -414,6 +415,97 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261017-150306
 	- Opened by: t00mietum
 	- Test case: none yet.
+
+- cppcheck leaves out the vendored C the app is built from.
+	- ID: 2026101715252255
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261017-152522
+	- Opened by: t00mietum
+	- Related IDs: 2026101619020505, 2026101715252256
+	- Target OS: All
+	- Incorrect behavior: `lint-c.bash` skips `vendor/` and `source/cut-n-paste-code/`. So blake3, SHCL and libegg never get the C lint, though all 3 are compiled into the app.
+		- SHCL isn't read through `nemo-config.c` either. cppcheck gets no include paths and `missingInclude` is suppressed, so its implementation is never checked.
+		- The sign-bit shift check, rj9v86cj, skips `source/cut-n-paste-code/`. It greps only `source/`, so it never reaches `vendor/`.
+	- Expected behavior: the correctness checks cover all vendored code that's built into the app. Style checks stay off it, since its style isn't ours to fix.
+		- `vendor/shcl-old/` stays out. It's only built into a test.
+		- A finding in vendored code is suppressed in `.cppcheck-suppressions` with a one-line reason, and a real bug goes to its upstream.
+	- Test case: `lint-c.bash --list-files` on dev names the blake3 and libegg files, and SHCL is checked through `nemo-config.c`. A planted fault in a vendored file fails the gate.
+
+- Vendored C builds with fewer warnings, and never with -Werror.
+	- ID: 2026101715252256
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261017-152522
+	- Opened by: t00mietum
+	- Related IDs: 2026101715252255
+	- Target OS: All
+	- Incorrect behavior: blake3 and libegg build with `vendorWarnings` in `source/meson.build`, which is `warning_level=1` and `werror=false`. The -Werror lane never sees a warning in either.
+	- Expected behavior: both build at the project's warning level, -Werror included. A warning that's only about upstream's style is turned off for that library alone in meson, with a one-line reason.
+	- Note: SHCL already builds at the full level, since it's compiled inside `nemo-config.c`.
+	- Test case: `check-werror.bash` also fails when a vendored library in `build.ninja` lacks -Werror.
+
+- Two of blake3's code paths are never tested.
+	- ID: 2026101715252257
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261017-152522
+	- Opened by: t00mietum
+	- Target OS: Linux, Windows
+	- Incorrect behavior: blake3 picks plain C, SSE2, SSE4.1 or AVX2 at run time, from what the processor reports. rhd1v448, File checksum test, checks the known answers only through the one the test box picks. That's AVX2 on b23. The arm64 build has plain C only, so that one runs wherever the arm64 suite does. SSE2 and SSE4.1 never run in any test, and an end user on an older x86 processor gets one of them.
+	- Expected behavior: every path in the build gives the known answers, whatever processor the test runs on. A path the processor can't run is skipped, and the test says so.
+	- Possible fix: call each `blake3_hash_many_*` from `blake3_impl.h` directly against the plain C one, or build the test once per path with the others turned off by the `BLAKE3_NO_*` defines.
+	- Test case: rhd1v448, or a new one beside it.
+
+- The sanitizer lane hides third-party leaks that end users can hit.
+	- ID: 2026101715252258
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261017-152522
+	- Opened by: t00mietum
+	- Related IDs: 2026101619020505
+	- Target OS: Linux
+	- Incorrect behavior:
+		- `sanitizers.supp` drops every leak in `libfontconfig.so.1`, by library. The Windows bundle has fontconfig in it, and a leak there that grows with use would never show.
+		- `test-sanitizers.bash` turns GTK's animations off for the whole suite, to get past one GTK leak in `gtk_css_value_calc_multiply`. End users have animations on. So nothing on GTK's animated path is leak-checked, and the vendored widget themes' transitions never run in the lane.
+		- rffvm2bg, Search content test, sets `ASAN_OPTIONS=detect_leaks=0` in `source/test/meson.build`, because GTK's own leaks would drown it. In the sanitizer lane that replaces the lane's own setting, so the test runs with no leak check. There's no backlog ID beside it, which the rule at the top of `sanitizers.supp` asks for.
+	- Expected behavior: a suppression names the function that leaks, not the library, with a one-line reason. It only covers something kept for the life of the process, such as a cache.
+		- The GTK leak is suppressed by its function and reported upstream, and animations stay on.
+		- rffvm2bg runs with leak checks on, or its opt-out gets its own backlog item.
+		- Mesa can stay suppressed by library. It isn't in any package, it's the user's own driver.
+	- Note: the lane keeps its stacks short on purpose. Check that a match by function name still works with them before relying on it.
+	- Test case: the sanitizer lane itself, with a planted leak in fontconfig's path and in an animated widget that it has to catch.
+
+- The heap growth tests don't repeat what the vendored code does.
+	- ID: 2026101715252259
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261017-152522
+	- Opened by: t00mietum
+	- Related IDs: 2026101715252260
+	- Target OS: Linux
+	- Incorrect behavior: the leak tests in `test-nemo-leaks.c` repeat jobs, the clipboard, bookmarks, search and archives. None repeats a settings save and live reload through SHCL, a checksum through blake3, or a multi-row drag through libegg. LeakSanitizer only sees what's still held at exit, so something in any of the 3 that grows with use isn't caught.
+	- Expected behavior: a leak test for each. Change a setting and reload the file, checksum a file, and start and cancel a multi-row drag.
+	- Test case: new cases in `test-nemo-leaks.c`.
+
+- No leak check runs on Windows.
+	- ID: 2026101715252260
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261017-152522
+	- Opened by: t00mietum
+	- Related IDs: 2026101715252259, 2026101619020505
+	- Target OS: Windows
+	- Incorrect behavior: the heap growth tests read glibc's heap and exit 77 anywhere else, and the sanitizer lane is Linux only. The Windows bundle runs its own builds of GTK, GLib, fontconfig, libarchive, the pixbuf loaders and the rest of the DLLs `stage-native.bash` copies in. None of that is leak-checked, and neither is any `*-win32.c` file.
+	- Expected behavior: the heap growth tests read the heap on Windows too, through the Win32 heap calls, and run in the native Windows suite.
+	- Estimated effort: High
+	- Test case: `test-nemo-leaks.c` runs on Windows, and its self-check, rjcth67d, sees its planted leak there.
 
 - Sort attribute is not remembered when switching to thumbnail view.
 	- ID: 2026101613053691
