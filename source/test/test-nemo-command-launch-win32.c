@@ -252,12 +252,17 @@ main (int argc, char *argv[])
 	{
 		g_autofree char *missing = g_build_filename (dir, "not here.exe", NULL);
 		g_autofree char *said = NULL;
+		g_autofree char *named = NULL;
 
 		g_free (take_messages ());
 		quoted = nemo_user_text_quote (missing);
 		nemo_launch_application_from_command_array (screen, quoted, FALSE, names);
 		said = take_messages ();
 		check (strstr (said, "not here.exe") != NULL);
+		/* The line already has its quotes. It was shown inside a second
+		   pair, as ""C:\...\not here.exe" ...". */
+		named = g_strdup_printf ("start \"%s\" ", missing);
+		check (strstr (said, named) != NULL);
 		g_clear_pointer (&quoted, g_free);
 	}
 
