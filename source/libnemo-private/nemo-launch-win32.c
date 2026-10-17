@@ -371,6 +371,18 @@ set_failed (GError      **error,
 	g_free (reason);
 }
 
+/* A command line has its own quotes already. */
+static void
+set_failed_line (GError      **error,
+		 const gchar  *line)
+{
+	gchar *reason = g_win32_error_message (GetLastError ());
+
+	g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+		     _("Couldn't start %s: %s"), line, reason);
+	g_free (reason);
+}
+
 static GMutex                    failed_lock;
 static GHashTable               *failed_programs;
 static NemoLaunchWin32FailedFunc failed_func;
@@ -594,7 +606,7 @@ nemo_launch_win32_run (const gchar  *exe,
 	nemo_launch_win32_user_environ_leave ();
 
 	if (!started) {
-		set_failed (error, line);
+		set_failed_line (error, line);
 	}
 
 	g_free (line);
@@ -628,7 +640,7 @@ nemo_launch_win32_run_command (const gchar  *command_line,
 	nemo_launch_win32_user_environ_leave ();
 
 	if (!started) {
-		set_failed (error, command_line);
+		set_failed_line (error, command_line);
 	}
 
 	return started;
