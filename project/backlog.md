@@ -414,6 +414,31 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: 20261007, not ruled out: the Menu key made no menu at all once, on a loaded box. GTK 3 doesn't show a menu whose pointer grab fails, and the probe presses the key only once. Nothing points at that, and pressing again would hide it rather than explain it.
 	- Test case: rjefm41d itself.
 
+- Static analyzers and a heap growth check in the pipeline.
+	- ID: 2026101619020505
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261016-190205
+	- Opened by: t00mietum
+	- Target OS: Linux
+	- Requirements:
+		- The sanitizer stage stays as it is. ASan, LSan and UBSan already run the whole suite on every full run.
+		- Every full run also runs gcc's `-fanalyzer` and the clang static analyzer over every first-party .c file. `vendor/` and `source/cut-n-paste-code/` are left out.
+			- Every existing finding is fixed, or suppressed at the line with a one-line reason, before the gate goes live. No baseline file.
+			- They move behind a flag only if a full run shows they're too slow.
+		- A new `--leakcheck` flag on `cicd.bash` adds the slow checks:
+			- CodeQL, from a pinned CLI run locally. No hosted service.
+			- The clang analyzer in cross-file mode, so it follows calls into other .c files.
+			- A heap growth soak test. A headless session opens and closes folders, tabs and thumbnails in a loop under heaptrack. It fails if the heap at round 2N is larger than at round N by more than a set margin. The report is kept with the run's artifacts.
+		- Every tool is pinned and runs in the containers, never on the host.
+		- Each new gate fails on a planted fault before it's trusted: a leak, a null dereference, and a loop that grows the heap.
+		- Coverity Scan and Infer aren't used.
+	- Estimated effort: High
+	- Notes:
+		- About 125 findings expected from the 2 analyzers on today's tree. Many will be GLib ref-count false positives.
+	- Test case: each new stage is its own test, with a planted fault it has to catch.
+
 - Sort attribute is not remembered when switching to thumbnail view.
 	- ID: 2026101613053691
 	- Type: Bug
