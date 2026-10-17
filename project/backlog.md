@@ -376,23 +376,34 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Target OS: Linux
 	- Requirements:
 		- The sanitizer stage stays as it is. ASan, LSan and UBSan already run the whole suite on every full run.
+			- Any report fails the test that made it.
+			- Any leak is fixed. If the fix has to wait, it gets a backlog item, and the test that shows it turns leak detection off with that item's ID beside it.
+			- For a full leak stack, rerun the test with `ASAN_OPTIONS=fast_unwind_on_malloc=0`.
+			- Every test in it runs with `G_SLICE=always-malloc` and `G_DEBUG=gc-friendly`, or GLib hides blocks from the leak check.
 		- Every full run also runs gcc's `-fanalyzer` and the clang static analyzer over all C code in the repo, with no exclusions. That's the code inherited from upstream Nemo, our own, the tests, and the vendored code in `vendor/` and `source/cut-n-paste-code/`.
 			- Windows-only files are checked through the Windows cross build, since the Linux build doesn't compile them. Today that's 61 of the 517 .c files.
 			- A check fails the stage if any tracked .c file is in neither build's compile list, so no file drops out unnoticed.
 			- Vendored SHCL is a single header. It's checked through the file that compiles its implementation. No vendored include folder is marked as a system one, since compilers hide warnings from those.
-			- Vendored code stays as it came. A finding there is suppressed in a list outside the file, with a one-line reason, and a real bug goes to its upstream.
+			- Vendored code stays as it came. Only the leak, memory and correctness checks run on it, never style lints, since its style isn't ours to fix. A finding there is suppressed in a list outside the file, with a one-line reason, and a real bug goes to its upstream.
 			- Every existing finding is fixed, or suppressed at the line with a one-line reason, before the gate goes live. No baseline file.
 			- They move behind a flag only if a full run shows they're too slow.
 		- A new `--leakcheck` flag on `cicd.bash` adds the slow checks, over the same files:
-			- CodeQL, from a pinned CLI run locally. No hosted service.
+			- CodeQL, from a pinned CLI run locally. No hosted service. It covers the Python too.
+				- CodeQL reports only on source inside its database's root. `vendor/` and `source/cut-n-paste-code/` are already in the tree. Linked system libraries such as GLib and GTK aren't, so they aren't checked.
 			- The clang analyzer in cross-file mode, so it follows calls into other .c files.
 			- A heap growth soak test. A headless session opens and closes folders, tabs and thumbnails in a loop under heaptrack. It fails if the heap at round 2N is larger than at round N by more than a set margin. The report is kept with the run's artifacts.
+		- No known-advisory scan. There's no Rust or Go, and the Python has no dependency list. Its only outside package is numpy, in the demo video script.
 		- Every tool is pinned and runs in the containers, never on the host.
 		- Each new gate fails on a planted fault before it's trusted: a leak, a null dereference, and a loop that grows the heap.
-		- Coverity Scan and Infer aren't used.
+		- Coverity Scan and Infer aren't used. Coverity uploads the build to a third party.
 	- Estimated effort: High
 	- Notes:
 		- About 125 findings expected from the 2 analyzers on today's tree. Many will be GLib ref-count false positives.
+		- Traps:
+			- `-fanalyzer` does nothing under `-fsyntax-only`. Compile with `-c -o /dev/null`.
+			- With `-Werror`, analyzer findings print as `error: ... [-Werror=analyzer-*]`, not `warning:`. A parser that only looks for warnings counts 0.
+			- heaptrack and ASan can't share a build. The soak test uses a plain build.
+			- ASan's allocator hides the heap from glibc's own stats, such as `mallinfo2`. A test that reads them should exit as skipped under ASan, not pass.
 	- Test case: each new stage is its own test, with a planted fault it has to catch.
 
 - Whenever testing, always work in a sandboxed environment where no real files could be harmed even if you tried.
