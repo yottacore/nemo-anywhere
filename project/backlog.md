@@ -424,10 +424,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Target OS: Linux
 	- Requirements:
 		- The sanitizer stage stays as it is. ASan, LSan and UBSan already run the whole suite on every full run.
-		- Every full run also runs gcc's `-fanalyzer` and the clang static analyzer over every first-party .c file. `vendor/` and `source/cut-n-paste-code/` are left out.
+		- Every full run also runs gcc's `-fanalyzer` and the clang static analyzer over every .c file in the build. That's the code inherited from upstream Nemo, our own, and the vendored code in `vendor/` and `source/cut-n-paste-code/`.
+			- Vendored code stays as it came. A finding there is suppressed in a list outside the file, with a one-line reason, and a real bug goes to its upstream.
 			- Every existing finding is fixed, or suppressed at the line with a one-line reason, before the gate goes live. No baseline file.
 			- They move behind a flag only if a full run shows they're too slow.
-		- A new `--leakcheck` flag on `cicd.bash` adds the slow checks:
+		- A new `--leakcheck` flag on `cicd.bash` adds the slow checks, over the same files:
 			- CodeQL, from a pinned CLI run locally. No hosted service.
 			- The clang analyzer in cross-file mode, so it follows calls into other .c files.
 			- A heap growth soak test. A headless session opens and closes folders, tabs and thumbnails in a loop under heaptrack. It fails if the heap at round 2N is larger than at round N by more than a set margin. The report is kept with the run's artifacts.
