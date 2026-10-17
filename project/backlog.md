@@ -424,7 +424,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Target OS: Linux
 	- Requirements:
 		- The sanitizer stage stays as it is. ASan, LSan and UBSan already run the whole suite on every full run.
-		- Every full run also runs gcc's `-fanalyzer` and the clang static analyzer over every .c file in the build. That's the code inherited from upstream Nemo, our own, and the vendored code in `vendor/` and `source/cut-n-paste-code/`.
+		- Every full run also runs gcc's `-fanalyzer` and the clang static analyzer over all C code in the repo, with no exclusions. That's the code inherited from upstream Nemo, our own, the tests, and the vendored code in `vendor/` and `source/cut-n-paste-code/`.
+			- Windows-only files are checked through the Windows cross build, since the Linux build doesn't compile them. Today that's 61 of the 517 .c files.
+			- A check fails the stage if any tracked .c file is in neither build's compile list, so no file drops out unnoticed.
+			- Vendored SHCL is a single header. It's checked through the file that compiles its implementation. No vendored include folder is marked as a system one, since compilers hide warnings from those.
 			- Vendored code stays as it came. A finding there is suppressed in a list outside the file, with a one-line reason, and a real bug goes to its upstream.
 			- Every existing finding is fixed, or suppressed at the line with a one-line reason, before the gate goes live. No baseline file.
 			- They move behind a flag only if a full run shows they're too slow.
