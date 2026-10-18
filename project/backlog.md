@@ -33,6 +33,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Copying or moving files when a folder is selected:
+	- ID: 2026101816495200
+	- Type: Enhancement
+	- Status: Waiting for answers
+	- Priority|Severity: Avg
+	- Opened: 20261018-164952
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+	- Note: the rest of the item wasn't written down yet.
+	- Test case: none yet.
+
 - SMB and SFTP networking is broken.
 	- ID: 2026101417352260
 	- Type: Bug
@@ -366,6 +378,25 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: 20261007, not ruled out: the Menu key made no menu at all once, on a loaded box. GTK 3 doesn't show a menu whose pointer grab fails, and the probe presses the key only once. Nothing points at that, and pressing again would hide it rather than explain it.
 	- Test case: rjefm41d itself.
 
+- Updates to CICD script flags.
+	- ID: 2026101816495201
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261018-164952
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut. Do next.
+		- `--ci`: Rename to `--gate`.
+		- `--quick`:
+			- Should run whatever linting, validation, and testing steps are very quick.
+			- Cross-compile whatever is fast; e.g. maybe skip slow arm64.
+			- Skip anything requiring an external host.
+		- No flags by default should do everything.
+		- The other existing flags can stay.
+	- Note: `cicd.bash` already has `--gate` and no `--ci`. Today `--quick` drops every cross build but still runs the full test suite.
+	- Test case: none yet.
+
 - Static analyzers and a heap growth check in the pipeline.
 	- ID: 2026101619020505
 	- Type: Enhancement
@@ -518,6 +549,43 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Before the next cut.
 	- Test case: none yet.
 
+- Linux/BSD need to pick up new icon theme when set. (If that's possible without bringing back a lot of cruft dependencies.)
+	- ID: 2026101816495202
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261018-164952
+	- Opened by: t00mietum
+	- Target OS: Linux, BSD
+	- Requirements:
+		- Before the next cut.
+	- Test case: none yet.
+
+- Have to press "delete" twice after properties dialog.
+	- ID: 2026101816495203
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261018-164952
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+	- Expected behavior: Only press once.
+	- Test case: none yet.
+
+- Windows: Network locations not recognized (either Windows `\\...` or *nix `smb://` form).
+	- ID: 2026101816495204
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261018-164952
+	- Opened by: t00mietum
+	- Related IDs: 2026101417352260
+	- Target OS: Windows
+	- Requirements:
+		- Before the next cut.
+	- Test case: none yet.
+
 - Settings: sub-tabs don't list on the left until the parent tab is activated.
 	- ID: 2026101417352262
 	- Type: Enhancement
@@ -637,6 +705,62 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Cmd in place of Ctrl on macOS.
 		- Change the size of the window too, to remain approximately proportional.
 			- This should be an option, enabled by default: "On contents zoom, change window size too".
+	- Test case: none yet.
+
+- Settings|Views: Draw a line underneath the "Remember per-folder settings" section.
+	- ID: 2026101816495205
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261018-164952
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+	- Test case: none yet.
+
+- Compression: "Options" -> "Advanced".
+	- ID: 2026101816495206
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261018-164952
+	- Opened by: t00mietum
+	- Related IDs: 2026100516274646
+	- Requirements:
+		- Before the next cut.
+	- Test case: none yet.
+
+- All dialogs - Default to "OK" button, with it visibly selected.
+	- ID: 2026101816495207
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261018-164952
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+	- Test case: none yet.
+
+- The separate highlight and selection is causing too many problems. Need to rethink how to multi-select with keyboard without the "selection", or do without it.
+	- ID: 2026101816495208
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261018-164952
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+	- Test case: none yet.
+
+- When deleting, make it clear that links aren't followed, only deleted.
+	- ID: 2026101816495209
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261018-164952
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
 	- Test case: none yet.
 
 - rk96k9va fails in the sanitizer lane on a loaded box.
