@@ -48,6 +48,15 @@ printf 'build a.o: c_COMPILER a.c\n ARGS = -Wall -Winvalid-pch -Wextra -std=c17 
 printf 'build a.c.obj: c_COMPILER ../a.c\n ARGS = "-I." "-fdiagnostics-color=always" "-Wall" "-Winvalid-pch" "-Wextra" "-Werror" "-std=c17"\n' > "${scratch}/winon/build.ninja"
 printf 'build a.c.obj: c_COMPILER ../a.c\n ARGS = "-I." "-Wall" "-Wextra" "-std=c17" "-Werror=address"\n' > "${scratch}/winoff/build.ninja"
 printf 'build a.c.obj: c_COMPILER ../a.c\n ARGS = "-I." "-Wall" "-Werror -std=c17"\n' > "${scratch}/winhalf/build.ninja"
+## One library that turns werror off for itself, as the vendored ones once did,
+## among compiles that have it.
+mkdir -p "${scratch}/onelib" "${scratch}/winonelib"
+printf '%s\n' 'build a.o: c_COMPILER a.c' ' DEPFILE = a.o.d' ' ARGS = -Wall -Wextra -Werror' \
+	'build libv.a.p/v.c.o: c_COMPILER ../vendor/v.c' ' DEPFILE = libv.a.p/v.c.o.d' ' ARGS = -Wall -std=c17' \
+	'build libv.a: STATIC_LINKER libv.a.p/v.c.o' ' LINK_ARGS = csrDT' \
+	'build b.o: c_COMPILER b.c' ' ARGS = -Wall -Wextra -Werror' > "${scratch}/onelib/build.ninja"
+printf '%s\n' 'build a.c.obj: c_COMPILER ../a.c' ' ARGS = "-Wall" "-Werror"' \
+	'build libv.a.p/v.c.obj: c_COMPILER ../vendor/v.c' ' ARGS = "-Wall" "-Werror=address"' > "${scratch}/winonelib/build.ninja"
 
 bash "$checker" "${scratch}/on" 2>/dev/null || fFail "check-werror.bash refused a dir with -Werror"
 if bash "$checker" "${scratch}/off" 2>/dev/null; then fFail "check-werror.bash passed a dir with only -Werror=address"; fi
@@ -55,6 +64,10 @@ bash "$checker" "${scratch}/winon" 2>/dev/null || fFail "check-werror.bash refus
 if bash "$checker" "${scratch}/winoff" 2>/dev/null; then fFail "check-werror.bash passed a Windows dir with only \"-Werror=address\""; fi
 if bash "$checker" "${scratch}/winhalf" 2>/dev/null; then fFail "check-werror.bash passed -Werror inside a quoted argument"; fi
 if bash "$checker" "${scratch}/empty" 2>/dev/null; then fFail "check-werror.bash passed a dir with no build.ninja"; fi
+if bash "$checker" "${scratch}/onelib" 2>/dev/null; then fFail "check-werror.bash passed a library built without -Werror"; fi
+if bash "$checker" "${scratch}/winonelib" 2>/dev/null; then fFail "check-werror.bash passed a Windows library built without \"-Werror\""; fi
+said="$(bash "$checker" "${scratch}/onelib" 2>&1 || true)"
+[[ "$said" == *"../vendor/v.c"* && "$said" != *" a.c"* ]] || fFail "check-werror.bash did not name just the library built without -Werror"
 
 if ((failures)); then fEcho "FAILED: werror check, ${failures} problem(s)"; exit 1; fi
 fEcho "OK: warnings are fatal in every pipeline build"

@@ -55,3 +55,11 @@ invalidPrintfArgType_sint:*nemo-properties-window.c
 # whole-program run, never when the file is linted on its own.
 invalidPrintfArgType_sint:*nemo-window-bookmarks.c
 memleak:*nemo-file-undo-operations.c
+
+# Vendored code, which stays as it came. Each one is checked against the
+# source first, and a real bug goes to its upstream rather than in here.
+
+# blake3: the chunk and parent pointer arrays are passed with a count of 0
+# when the loop that fills them never runs, and nothing is read then.
+uninitvar:*vendor/blake3/blake3.c:190
+uninitvar:*vendor/blake3/blake3.c:233

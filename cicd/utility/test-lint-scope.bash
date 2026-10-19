@@ -3,8 +3,9 @@
 ##	- Purpose: Check which C files the C lint covers. A feature branch gets what
 ##	  it changed since dev. dev, main and a named base get the whole tree, so
 ##	  the release merge the pre-push gate checks on main is linted too. Vendored
-##	  code is left out everywhere, and uncommitted files count everywhere. Runs
-##	  lint-c.bash --list-files in a throwaway repo.
+##	  code is in it like our own, apart from vendor/shcl-old/, which only a test
+##	  builds. Uncommitted files count everywhere. Runs lint-c.bash --list-files
+##	  in a throwaway repo.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-lint-scope.bash
 ##	- Test ID: rj3ytty2
@@ -52,21 +53,21 @@ fExpect(){
 fCommit base source/a.c source/a.h source/cut-n-paste-code/egg.c
 g checkout -q -b dev
 g checkout -q -b feat
-fCommit feature source/b.c vendor/v.c source/cut-n-paste-code/egg.h notes.md
-fExpect "feature branch" "source/b.c"
+fCommit feature source/b.c vendor/v.c source/cut-n-paste-code/egg.h vendor/shcl-old/1.2.0/shcl.h notes.md
+fExpect "feature branch" "source/b.c source/cut-n-paste-code/egg.h vendor/v.c"
 g checkout -q dev
 g merge -q --no-ff feat -m "Merge feat"
-fExpect "dev after the merge" "source/a.c source/a.h source/b.c"
+fExpect "dev after the merge" "source/a.c source/a.h source/b.c source/cut-n-paste-code/egg.c source/cut-n-paste-code/egg.h vendor/v.c"
 fCommit publish notes.md
-fExpect "dev after a later commit" "source/a.c source/a.h source/b.c"
+fExpect "dev after a later commit" "source/a.c source/a.h source/b.c source/cut-n-paste-code/egg.c source/cut-n-paste-code/egg.h vendor/v.c"
 g checkout -q main
 g merge -q --no-ff dev -m "Merge dev"
-fExpect "main after the release merge" "source/a.c source/a.h source/b.c"
-fExpect "main, base named" "source/a.c source/a.h source/b.c" dev
+fExpect "main after the release merge" "source/a.c source/a.h source/b.c source/cut-n-paste-code/egg.c source/cut-n-paste-code/egg.h vendor/v.c"
+fExpect "main, base named" "source/a.c source/a.h source/b.c source/cut-n-paste-code/egg.c source/cut-n-paste-code/egg.h vendor/v.c" dev
 ## Untracked counts everywhere, and a file deleted in the tree is not listed.
 echo "int y;" > "${repo}/source/new.c"
 mv "${repo}/source/a.c" "${scratch}/a.c"
-fExpect "main with untracked and deleted files" "source/a.h source/b.c source/new.c"
+fExpect "main with untracked and deleted files" "source/a.h source/b.c source/cut-n-paste-code/egg.c source/cut-n-paste-code/egg.h source/new.c vendor/v.c"
 mv "${scratch}/a.c" "${repo}/source/a.c"
 mv "${repo}/source/new.c" "${scratch}/new.c"
 g checkout -q -b docs dev
@@ -76,7 +77,7 @@ echo "int y;" >> "${repo}/source/a.h"
 fExpect "feature branch with an uncommitted edit" "source/a.h"
 g checkout -q source/a.h
 g checkout -q -b rel dev
-fExpect "a feature branch named as the base" "source/a.c source/a.h source/b.c" rel
+fExpect "a feature branch named as the base" "source/a.c source/a.h source/b.c source/cut-n-paste-code/egg.c source/cut-n-paste-code/egg.h vendor/v.c" rel
 
 if ((failures)); then
 	fEcho "FAILED: C lint scope, ${failures} problem(s)"

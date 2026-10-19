@@ -5,8 +5,9 @@
 ##	  merge base with the integration branch (dev, else main), plus anything
 ##	  uncommitted (tracked, staged, untracked). On dev, main or the named base,
 ##	  which only take merges, it covers every first-party .c/.h in the tree,
-##	  plus untracked ones. Vendored code (vendor/, source/cut-n-paste-code/) is
-##	  left out either way.
+##	  plus untracked ones. Vendored code built into the app is in it too, since
+##	  a bug there is the app's bug. Only vendor/shcl-old/ is left out, which
+##	  only a test builds.
 ##	- cppcheck findings (error/warning/portability) fail the gate. A missing
 ##	  cppcheck skips with a warning so an unprovisioned box can't hard-block a
 ##	  push; CPPCHECK_STRICT=1 turns that miss into a hard failure.
@@ -1326,13 +1327,14 @@ fRun fCheckClickPrimary
 
 ## Shifting into the sign bit of an int is undefined, though gcc does what was
 ## meant today. The metadata list mask was 1<<31; a top bit is 1u << 31.
+## Vendored code is read too, since it is undefined there as well.
 ## Test ID: rj9v86cj
 fCheckSignShift(){
 	local bad
 
 	bad="$(grep -rn -E '(^|[^0-9A-Za-z_.])1[[:space:]]*<<[[:space:]]*31([^0-9]|$)|\(int\)[^;]*<<[[:space:]]*24([^0-9]|$)' \
-		source --include='*.c' --include='*.h' \
-		| grep -v -E '^source/(vendor|cut-n-paste-code)/' || true)"
+		source vendor --include='*.c' --include='*.h' \
+		| grep -v -E '^vendor/shcl-old/' || true)"
 	if [[ -n "$bad" ]]; then
 		fEcho "FAIL: a shift into the sign bit of an int; shift an unsigned value"
 		printf '%s\n' "$bad"
@@ -1576,12 +1578,15 @@ else
 fi
 candidates+="$("${GIT[@]}" ls-files --others --exclude-standard)"
 
-## Keep C sources that still exist, dedup. Vendored code is upstream's to
-## fix, so bumping it must not light up our gate.
+## Keep C sources that still exist, dedup. Vendored code is checked like our
+## own, and a finding there goes in .cppcheck-suppressions with its reason,
+## since the the file stays as it came. shcl-old is only built into a test.
+## SHCL is a header with its implementation behind SHCL_IMPLEMENTATION, which
+## is one of the configurations cppcheck tries on it by itself.
 files=()
 while IFS= read -r f; do
 	[[ "$f" == *.c || "$f" == *.h ]] || continue
-	[[ "$f" == vendor/* || "$f" == source/cut-n-paste-code/* ]] && continue
+	[[ "$f" == vendor/shcl-old/* ]] && continue
 	[[ -f "$f" ]] && files+=("$f")
 done < <(printf '%s\n' "$candidates" | LC_ALL=C sort -u)
 
