@@ -287,10 +287,14 @@ fuzzLnkEditCorpus = files(
 # No colons in these names: meson reads "a:b" as suite:test, so a name carrying
 # one cannot be picked out on the command line.
 #
-# GLib and GTK hold allocations for the life of the process by design, so leak
-# checking is off - these targets are looking for a bad access, not a leak.
+# These look for a bad access, so a plain build has leak checks off: GLib and
+# GTK hold allocations for the life of the process by design. The sanitizer
+# lane has suppressions for those, and there the lane's own options stand.
 if not get_option('fuzzing')
-  fuzzTestEnv = [ 'ASAN_OPTIONS=detect_leaks=0' ]
+  fuzzTestEnv = []
+  if not get_option('b_sanitize').contains('address')
+    fuzzTestEnv = [ 'ASAN_OPTIONS=detect_leaks=0' ]
+  endif
 
   test('rh0808b8 Settings parser fuzz corpus test',  fuzzShcl,            args: fuzzShclCorpus,            env: fuzzTestEnv)
   test('rh0808b9 Drag payload fuzz corpus test',     fuzzDnd,             args: fuzzDndCorpus,             env: fuzzTestEnv)

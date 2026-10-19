@@ -26,6 +26,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 		p7zip-full sqlite3 \
 	&& rm -rf /var/lib/apt/lists/*
 
+# The sanitizer lane's suppressions name functions inside fontconfig and GTK,
+# and a leak report only has those names with the debug symbols. Each dbgsym
+# package wants the exact version installed above.
+RUN printf '%s\n' 'Types: deb' 'URIs: http://deb.debian.org/debian-debug' \
+		'Suites: trixie-debug trixie-proposed-updates-debug' 'Components: main' \
+		'Signed-By: /usr/share/keyrings/debian-archive-keyring.pgp' \
+		> /etc/apt/sources.list.d/debian-debug.sources \
+	&& apt-get update && apt-get install -y --no-install-recommends \
+		libfontconfig1-dbgsym libgtk-3-0t64-dbgsym \
+	&& rm -rf /var/lib/apt/lists/*
+
 # p7zip is here so the 7-Zip backend can be exercised rather than only the
 # libarchive one - without it the Compress dialog offers 7z with none of the
 # options that backend brings. rar is not packaged for Debian, so the rar
