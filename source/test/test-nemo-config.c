@@ -19,7 +19,6 @@
 #include "test-scratch.h"
 #include "test-check.h"
 
-
 static char *
 read_file (void)
 {
