@@ -415,12 +415,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Decisions:
 		- "Very quick" is a step that takes about 2 minutes or less here and needs no other box, timed from the last full run.
 		- `--quick` now also runs the sanitizer suite, the profiler and the Windows cross build. It still skips fuzzing, which takes 12 min, and packages, about 3. It skips every step that needs another box: arm64, the FreeBSD lane, the private runner and the Windows dogfood refresh.
+		- Packages stay out of `--quick`. About 3 min is past the cut, and every full run makes them.
 		- `--include-arm` brings arm64 back under `--quick`, the same as `--include-bsd` does for FreeBSD.
 		- `--ci` was never in the tree, and `--gate` already does that job, so nothing was renamed.
 	- Done: the `--quick` selection and its help text, the comments in the pipeline config, and the pipeline notes in design.md. With no options a run still does every step.
 	- Swept: every doc that lists the flags. `cicd.bash --help`, `config.bash`, design.md and the `cicd-win.ps1` help were updated. building.md names only `--gate`. `-Quick` on Windows is still a no-op.
 	- Verified: 20261019, rkmqprx6 passes and fails on the old `--quick`. rj9v18rx and rjph39cv pass. Lint is clean apart from rj3ytv0b, which always fails outside the main checkout.
-	- Branch: flags
+	- Branch: flags, merged into dev at 92fa7847.
 	- Commit: f275bc90
 	- Test case: rkmqprx6, `test-cicd-quick.bash`, checks which steps run with no options, with `--quick`, `--quick --include-arm`, `--quick --include-bsd`, and `--gate`. rj9v18rx checks the help names what `--quick` skips.
 
