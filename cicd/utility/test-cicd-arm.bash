@@ -157,12 +157,11 @@ fBsd "no bsd" "FreeBSD .............: (skipped --no-bsd)"   --include-bsd --no-b
 fBsd "no bsd" "FreeBSD .............: (skipped --quick)"    --quick
 fBsd bsd      ""                                       --quick --include-bsd
 
-## --quick leaves arm64 out with the other cross targets, asked for or not.
-for extra in "" --include-arm; do
-	rm -rf "${scratch}/out"
-	out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync --quick ${extra:+"$extra"} 2>&1 </dev/null)" || fFail "--quick ${extra} failed"
-	[[ ! -e "${scratch}/out/app-${ver}-linux-arm64.tar.gz" && ! -e "${scratch}/out/pkg-arm64" ]] || fFail "--quick ${extra} built arm64"
-done
+## --quick leaves arm64 out. Since 2026-10-19 --include-arm brings it back under
+## --quick, the way --include-bsd does, so that case moved to test-cicd-quick.bash.
+rm -rf "${scratch}/out"
+out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync --quick 2>&1 </dev/null)" || fFail "--quick failed"
+[[ ! -e "${scratch}/out/app-${ver}-linux-arm64.tar.gz" && ! -e "${scratch}/out/pkg-arm64" ]] || fFail "--quick built arm64"
 
 help="$(bash "${root}/cicd/cicd.bash" --help)"
 for opt in --include-arm --no-arm --include-bsd --no-bsd; do

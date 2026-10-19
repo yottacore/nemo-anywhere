@@ -48,6 +48,7 @@
 
 #define RESULTS 12
 
+#if defined (__linux__) || defined (__FreeBSD__)
 static gboolean
 alive (GPid pid)
 {
@@ -129,11 +130,14 @@ make_files (const char *folder)
 		g_free (path);
 	}
 }
+#endif
 
 int
 main (int argc, char *argv[])
 {
 #if !defined (__linux__) && !defined (__FreeBSD__)
+	(void) argc;
+	(void) argv;
 	g_print ("SKIP: drives the program through LD_PRELOAD, which is Linux and FreeBSD only here\n");
 	return 77;
 #else

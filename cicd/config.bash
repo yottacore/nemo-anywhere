@@ -119,7 +119,7 @@ FUZZ_CMD=(bash "${DOCKER_RUN}" "fuzz" "FUZZ_SECS=${FUZZ_SECS} NEMO_TEST_JOBS=${C
 ## Stage 3 (after fuzzing): the suite again, built with the address and undefined
 ## behavior sanitizers, leak checks on - READY. It builds into a directory of its
 ## own, so /build is left alone. About a minute cold at 16 jobs and half that
-## warm, which is still too long for --quick or the gate; --no-sanitize skips it too. Leaks in the
+## warm. --quick keeps it and the gate leaves it out; --no-sanitize skips it. Leaks in the
 ## libraries under GTK are listed in linux/sanitizers.supp.
 SANITIZE_CMD=(bash "${DOCKER_RUN}" "sanitizers" "NEMO_TEST_JOBS=${CICD_MAX_JOBS:-2} bash /src/cicd/linux/test-sanitizers.bash")
 
@@ -153,7 +153,7 @@ RELEASE_NATIVE_OSARCH="linux-x86_64"
 
 ## Stage 5: cross-release targets. On, so the Windows .zip in stage 6 packs an exe
 ## built from the commit being run rather than whatever was cross-built by hand last.
-## --quick and --no-cross leave it out. The Windows box still builds and dogfoods its
+## --no-cross leaves it out; --quick keeps it, since it takes under 2 minutes. The Windows box still builds and dogfoods its
 ## own packed exe through cicd-win.ps1; this only keeps the zip current.
 ## The exe is copied out because the engine checks for the artifact on the host, and
 ## the cross build dir lives only in the container.
@@ -161,7 +161,7 @@ RELEASE_NATIVE_OSARCH="linux-x86_64"
 ## seconds, since nothing else here ever starts the Windows build's GUI.
 ## Linux arm64 is built on an arm64 box over ssh, not cross-compiled, and takes
 ## about an hour on the emulated one. It runs on every full run and --quick
-## leaves it out. Its tarball name has the version in it; the engine fills
+## leaves it out unless --include-arm is given. Its tarball name has the version in it; the engine fills
 ## in @VER@. The lane also reads the arm64 .deb's dependencies on that box, for
 ## the arm64 packages in stage 6.
 BUILD_CROSS=1

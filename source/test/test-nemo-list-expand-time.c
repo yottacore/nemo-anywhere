@@ -68,6 +68,7 @@
  * and 10 to 35 to the first. */
 #define BAR_MS  180.0
 
+#if defined (__linux__) || defined (__FreeBSD__)
 static gboolean
 alive (GPid pid)
 {
@@ -145,11 +146,14 @@ make_folder (const char *root, const char *kind, int number)
 	g_free (folder);
 	g_free (name);
 }
+#endif
 
 int
 main (int argc, char *argv[])
 {
 #if !defined (__linux__) && !defined (__FreeBSD__)
+	(void) argc;
+	(void) argv;
 	g_print ("SKIP: drives the program through LD_PRELOAD, which is Linux and FreeBSD only here\n");
 	return 77;
 #else

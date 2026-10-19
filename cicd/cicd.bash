@@ -28,10 +28,10 @@
 ##	   --no-sync           skip the remote sync stage
 ##	   --no-fmt            skip the formatter stage
 ##	   --no-cross          skip cross-target release builds, arm64 included
-##	   --include-arm       the arm64 release build and its packages (on by
+##	   --include-arm       run the arm64 release build even with --quick (on by
 ##	                       default). It runs on another box and takes about an
-##	                       hour. It's a cross target, so --quick and --no-cross
-##	                       leave it out even with this
+##	                       hour. --no-cross still leaves it out, and its
+##	                       packages come only when the packages stage runs
 ##	   --no-arm            leave the arm64 build and its packages out, even
 ##	                       with --include-arm
 ##	   --no-package        skip the packages stage (.deb/.rpm/installer)
@@ -49,11 +49,14 @@
 ##	                       default): the build and suite on the FreeBSD box in
 ##	                       stage 3, the tarball and pkg in stage 5
 ##	   --no-bsd            leave the FreeBSD lane out, even with --include-bsd
-##	   --quick             skip the slow stages: cross builds (arm64 included),
-##	                       the FreeBSD lane, packages, private runner, profiler,
-##	                       fuzzing, sanitizers, scroll harness, screenshots,
-##	                       demo video, remote dogfood. The native build, the
-##	                       full test suite and local dogfood still run.
+##	   --quick             run only the quick steps on this box: the build, the
+##	                       full test suite, lints, the sanitizer suite, the
+##	                       profiler, the native and Windows release builds and
+##	                       local dogfood. Skips what is slow or needs another
+##	                       box: fuzzing, packages, arm64, the FreeBSD lane, the
+##	                       private runner, remote dogfood, scroll harness,
+##	                       screenshots, demo video. arm64 and FreeBSD come back
+##	                       with --include-arm and --include-bsd
 ##	   --gate              merge gate only: format-check + lints + tests, then exit
 ##	                       (fast local stand-in for hosted CI; the pre-push hook runs it)
 ## - Reuse: copy the cicd/ directory into another project and edit config.bash.
@@ -150,15 +153,15 @@ while (($#)); do case "$1" in
 	--demo)                   DEMO_ENABLE=1; shift ;;
 	--include-bsd)            include_bsd=1; shift ;;
 	--no-bsd)                 no_bsd=1; shift ;;                ## wins over --include-bsd
-	--quick)                  quick=1; BUILD_CROSS=0; PROFILE_ENABLE=0; PACKAGE_ENABLE=0; shift ;;   ## skip the slow stages
+	--quick)                  quick=1; PACKAGE_ENABLE=0; shift ;;   ## the quick local steps only
 	--message=*|--msg=*|-m=*) cli_message="${1#*=}"; shift ;;
 	-m|--message|--msg)       cli_message="${2-}"; shift; (($#)) && shift ;;
 	-h|--help)                sed -n '/^##	- Purpose:/,/^##	History:/p' "${BASH_SOURCE[0]}" | sed '$d; s/^##	\{0,1\}//'; exit 0 ;;
 	*) echo "unknown option: $1 (try --help)" >&2; exit 2 ;;
 esac; done
 
-## arm64 and FreeBSD run unless --quick, and naming one beats --quick. arm64 is
-## a cross target though, so --quick's BUILD_CROSS=0 still leaves it out.
+## arm64 and FreeBSD run unless --quick, and naming one beats --quick. Both need
+## another box, and arm64 takes about an hour.
 [[ -n "$include_arm" ]] || include_arm=$((! quick))
 [[ -n "$include_bsd" ]] || include_bsd=$((! quick))
 ((! no_bsd)) || include_bsd=0
@@ -173,7 +176,8 @@ if ((! include_arm || no_arm)) && declare -p CROSS_TARGETS &>/dev/null; then
 	kept=()
 	for t in "${CROSS_TARGETS[@]}"; do case "$t" in *arm64*|*aarch64*) arm_note=" (no arm64)" ;; *) kept+=("$t") ;; esac; done
 	CROSS_TARGETS=("${kept[@]}")
-	if ((no_arm)) && [[ -n "$arm_note" ]]; then arm_note=" (no arm64, --no-arm)"; fi
+	if ((no_arm)) && [[ -n "$arm_note" ]]; then arm_note=" (no arm64, --no-arm)"
+	elif ((quick)) && [[ -n "$arm_note" ]]; then arm_note=" (no arm64, --quick)"; fi
 fi
 ## arm64 packages and their checks are made from this run's arm64 build, so they
 ## go wherever it goes.
@@ -417,9 +421,7 @@ fEcho_Clean "CPU cap .............: $( [[ -n "${CICD_CPU_CAPPED:-}" ]] && echo "
 fEcho_Clean "Format ..............: ${FMT_CMD[*]:-(skipped)}"
 fEcho_Clean "Debug build .........: ${DEBUG_BUILD_CMD[*]}"
 fEcho_Clean "Tests ...............: ${TEST_CMD[*]}"
-if ((quick)); then
-	fEcho_Clean "Sanitizers ..........: (skipped --quick)"
-elif [[ -n "${SANITIZE_CMD+x}" ]] && ((${#SANITIZE_CMD[@]})); then
+if [[ -n "${SANITIZE_CMD+x}" ]] && ((${#SANITIZE_CMD[@]})); then
 	fEcho_Clean "Sanitizers ..........: ${SANITIZE_CMD[*]}"
 else
 	fEcho_Clean "Sanitizers ..........: (skipped)"
@@ -573,13 +575,11 @@ elif ((quick)); then
 	fEcho_Clean "fuzz skipped (--quick)"
 fi
 ## The suite again on a build with the address and undefined behavior
-## sanitizers. It has a build of its own, about a minute cold, so like fuzzing it
-## is left out of --quick and the gate.
-if ((! quick)) && [[ -n "${SANITIZE_CMD+x}" ]] && ((${#SANITIZE_CMD[@]})); then
+## sanitizers. It has a build of its own, so the gate leaves it out. --quick
+## keeps it, since a warm run takes about as long as the plain suite.
+if [[ -n "${SANITIZE_CMD+x}" ]] && ((${#SANITIZE_CMD[@]})); then
 	"${SANITIZE_CMD[@]}"
 	fEcho "OK: sanitizer suite clean"
-elif ((quick)); then
-	fEcho_Clean "sanitizers skipped (--quick)"
 fi
 ## The same build and suite on the FreeBSD box.
 if ((include_bsd)) && ((${#BSD_TEST_CMD[@]})); then
@@ -1015,3 +1015,5 @@ fEcho_Clean
 ##	History:
 ##		- 2026-06-05 JC: Created.
 ##		- 2026-10-15: arm64 and FreeBSD on by default, off under --quick; --no-bsd.
+##		- 2026-10-19: --quick keeps the sanitizers, profiler and Windows cross
+##		  build; --include-arm works under --quick.
