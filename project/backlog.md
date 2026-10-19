@@ -948,6 +948,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: rjbn328w runs on Windows and passes every time.
 	- Test case: rjbn328w on Windows, which answers 77 there until this is fixed.
 
+- rk65m3m4 fails now and then in the sanitizer lane on a loaded box.
+	- ID: 2026101916300276
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261019-163002
+	- Opened by: t00mietum
+	- Related IDs: 2026101913111713, 2026101715030680
+	- Target OS: Linux
+	- Steps to reproduce: run the sanitizer lane, jailed, at load 40 with the host short on memory.
+	- Incorrect behavior: on 20261019, `z.txt` wasn't unpacked from the long, head and 7z archives, and with no program to help, the long link came out with no message. It passed alone right after.
+	- Expected behavior: it passes under load.
+	- Reproduced: 20261019 on Linux, once, the first lane run with each test in its own jail.
+	- Possible cause: the archives `rar` writes come out different under load, or a cell's tmpfs ran short with 30 GB of the host in swap. Not looked into.
+	- Test case: rk65m3m4 itself.
+
 - rhr6ggmt can lose both links from a rar archive on Linux.
 	- ID: 2026101913111713
 	- Type: Bug
