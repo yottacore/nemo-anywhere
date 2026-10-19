@@ -552,6 +552,8 @@ Two settings decide how the app looks: a light or dark mode, and the widget and 
 
 - Targets unlikely to have GTK themes installed carry their own set: Windows and macOS. Linux and the BSDs use what the desktop provides. Each bundled icon theme is trimmed to the roughly 180 icon names a file manager actually asks for, which is what keeps one to a few hundred KB instead of tens of MB, and anything missing falls through the standard `Inherits` chain to Adwaita and then hicolor. A gap is a mismatched glyph, never a missing one.
 
+- With no theme picked in the app, a theme change on the desktop shows up while the app runs, the same as in any GTK app. The desktop's settings daemon announces it, through XSETTINGS on X11, and GTK follows. A theme picked in the settings file wins over the desktop until it's cleared, and clearing it goes back to what the desktop says at that point. A desktop with no settings daemon has nothing to announce, so its change shows at the next launch.
+
 - The four Windows icon sets are the project's own artwork. No cleanly-licensed set of any Windows generation exists, and what circulates is Microsoft's shell art extracted and repackaged, which this project won't ship - and draws blue folders besides, which Windows has never had. Every other bundled theme is an upstream open-source theme, unmodified apart from the trim, keeping its own license file and a pinned source commit.
 
 - Themes can be dropped in on any platform by putting an ordinary GTK theme folder in `themes` or an icon theme in `icons` beside the settings file. Drop-ins are searched before the bundled set, so a same-named theme shadows it.
