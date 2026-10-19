@@ -948,18 +948,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: rjbn328w runs on Windows and passes every time.
 	- Test case: rjbn328w on Windows, which answers 77 there until this is fixed.
 
-- rkneye2c, Multi-row drag leak test, fails on a fresh container from the build image.
-	- ID: 2026101914184878
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261019-141848
-	- Opened by: t00mietum
-	- Related IDs: 2026101715252259
-	- Target OS: Linux
-	- Incorrect behavior: on 20261019, in a container made fresh from `nemo-build-deps:init`, the drag case failed 14 of 17 runs, on dev's tree and on a branch alike, with the heap growing 10 KB to 490 KB over its 64 rounds. The box was loaded.
-	- Test case: rkneye2c itself.
-
 - rhr6ggmt can lose both links from a rar archive on Linux.
 	- ID: 2026101913111713
 	- Type: Bug
@@ -971,6 +959,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: in one full suite run on 20261019, rhr6ggmt failed one rar row with a password and links kept: `all.rar` listed `twin1.bin twin2.bin a.txt big.bin`, without `dir-link` and `file-link`. It passed alone right after. The box was loaded.
 	- Possible cause: the same libarchive limit as 2026101310525452, on a link target of 128 bytes or more, if a target there is still a whole path. Not looked into.
 	- Test case: rhr6ggmt.
+
+- GTK keeps the X11 drag window after every drag.
+	- ID: 2026101916044103
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261019-160441
+	- Opened by: t00mietum
+	- Related IDs: 2026101914184878
+	- Target OS: Linux, BSD
+	- Incorrect behavior: every drag out of a view keeps its GDK drag window, about 1.5 KB, for the life of the app. `gtk_drag_set_icon_widget_internal` hands GDK's drag window to the icon window with `gtk_window_set_hardcoded_window`, which takes a ref, and `gtk_window_unrealize` sets the pointer to NULL without dropping it. Still there on GTK's `gtk-3-24` branch.
+	- Expected behavior: nothing kept after a drag. Upstream: GNOME's GTK issue tracker, `gtk-3-24` branch.
+	- Reproduced: 20261019, rkneye2c under heaptrack, 4 sites under `create_drag_window` at 128 calls each, 1 per counted round.
+	- Options: drop the stray ref in the views' own drag-end handlers, the way rkneye2c does, only while the window is still alive.
+	- Test case: rkneye2c, with its own drop of the ref taken out.
 
 - GTK leaks a string each time the app hands a theme setting back to the platform.
 	- ID: 2026101913054900
@@ -3367,6 +3370,26 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- rkneye2c, Multi-row drag leak test, fails on a fresh container from the build image.
+	- ID: 2026101914184878
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261019-141848
+	- Opened by: t00mietum
+	- Related IDs: 2026101715252259
+	- Target OS: Linux
+	- Incorrect behavior: on 20261019, in a container made fresh from `nemo-build-deps:init`, the drag case failed 14 of 17 runs, on dev's tree and on a branch alike, with the heap growing 10 KB to 490 KB over its 64 rounds. The box was loaded.
+	- Actual cause: 2 things.
+		- GDK keeps a stopped drag's context, and its windows, until the icon's snap-back is over, some way past drag-end. Each reading caught however many were still going, from -560 KB to +870 KB.
+		- Under that noise, GTK keeps one drag window per drag, about 1.5 KB. That's 2026101916044103.
+	- Actual fix: each round waits for the drag's context to be freed and syncs with the X server, then drops GTK's stray ref on the drag window while it's still alive. The test's timeout is 180 s, since a round now takes about half a second.
+	- Verified: 20261019, 6 of 6 runs side by side at load 48 grew 736 to 752 bytes, under the 1024 limit. A 64-byte leak planted in libegg's drag data call still fails it, at 5888. The full jailed suite passed, 224 OK.
+	- Branch: dragleak
+	- Test case: rkneye2c itself.
+	- Acceptance signoff: Self-closed: the case fails on a planted libegg leak and passes 6 of 6 under load.
+	- Closed: 20261019
 
 - rk8tkp4h leaks in the sanitizer lane.
 	- ID: 2026101613053692

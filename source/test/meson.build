@@ -252,7 +252,8 @@ test('rjbw0rkq Stopped 7z leak test', leaks, args: [ '7z-cancel' ])
 test('rjcth67d Leak test self-check', leaks, args: [ 'self-check' ])
 test('rkneydx6 Settings save and reload leak test', leaks, args: [ 'settings' ])
 test('rkneydzr File checksum leak test', leaks, args: [ 'checksum' ])
-test('rkneye2c Multi-row drag leak test', leaks, args: [ 'drag' ])
+test('rkneye2c Multi-row drag leak test', leaks, args: [ 'drag' ],
+  timeout: 180)       # every round waits out GDK's snap-back, about half a second
 
 if not is_windows
   # The sanitizer lane's suppressions, held to what they name. Whole stacks,
