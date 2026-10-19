@@ -621,6 +621,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Left at signoff for that call.
 	- Swept: every entry in `sanitizers.supp`, and every `ASAN_OPTIONS` in meson. Twin found: the 12 fuzz corpus tests in `source/fuzz/meson.build` had the same override as rffvm2bg. rge1srj8 adds its options to the lane's, so it was left alone.
 	- Branch: leakfix
+	- Commit: 00795c30
 	- Test case: rkneye51, the lane's own check. With animations on it has to come back clean, then find a pattern dropped on fontconfig's path and strings dropped by an animated widget's frame callback. rjfgk2mp stops when the debug symbols are missing.
 	- Verified: 20261019, the whole lane passed in a container with the debug symbols, 208 OK, 0 failed, 15 skipped. rkneye51 failed with the old library entry for fontconfig, with a library entry for GTK, and with no GTK entry, each at the check meant to catch it. The lane stopped with its message when fontconfig's debug file was moved away.
 	- Verified: 20261019, rffvm2bg and the fuzz corpus tests pass in the lane with its leak checks on.
@@ -642,6 +643,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Drag: 3 list rows dragged, the files asked for once through libegg's interface on the list model, then the drag stopped as with Escape. The list view's drag handlers are static, so the test's own do the same steps.
 		- Only GLib, GTK and our own calls, so the Windows heap work in 2026101715252260 can take them as they are. The drag asks for the files the way a drop target in the same program would.
 	- Branch: leakfix
+	- Commit: 00795c30
 	- Test case: rkneydx6 (settings), rkneydzr (checksum), rkneye2c (drag).
 	- Verified: 20261019, all 3 pass in the plain build. Each failed with a block leaked per call planted in the vendored code: in SHCL's parser, in blake3's finalize, and in libegg's data call.
 	- Acceptance signoff: Self-closed: the item asked for these 3 cases, and each fails on a planted leak in its vendored code.
