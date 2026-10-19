@@ -251,6 +251,8 @@ main (int argc, char *argv[])
 	hicolor = g_build_filename (system_data, "icons", "hicolor", "index.theme", NULL);
 	write_file (hicolor, "[Icon Theme]\nName=Hicolor\nDirectories=\n", -1);
 	g_setenv ("XDG_DATA_DIRS", system_data, TRUE);
+	g_free (hicolor);
+	g_free (system_data);
 
 	make_icon_theme ("ZzDeskOne");
 	make_icon_theme ("ZzDeskTwo");
@@ -295,8 +297,6 @@ main (int argc, char *argv[])
 	check (settle_on ("ZzDeskOne", "ZzWidgetTwo"));
 
 	XCloseDisplay (mgr_display);
-	g_free (hicolor);
-	g_free (system_data);
 	g_free (data_home);
 	g_free (tmp);
 
