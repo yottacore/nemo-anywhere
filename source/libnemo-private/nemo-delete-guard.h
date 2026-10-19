@@ -63,6 +63,12 @@ gboolean nemo_delete_guard_must_ask     (gboolean      by_user,
 
 gboolean nemo_delete_guard_in_grace     (gint64        focused_at,
 					 gint64        now);
+/* TRUE when the focus a window just took came from another of the program's
+   own windows, such as a dialog closing. */
+gboolean nemo_delete_guard_handed_back  (gint64        left_at,
+					 gconstpointer left_from,
+					 gconstpointer window,
+					 gint64        now);
 void     nemo_delete_guard_watch_window (GtkWindow    *window);
 gboolean nemo_delete_guard_key_too_soon (GtkWidget    *widget);
 

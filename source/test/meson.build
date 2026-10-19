@@ -1503,6 +1503,21 @@ if not is_windows
     timeout: 120
   )
 
+  # Preloaded too; it closes Properties and presses Shift+Delete from inside.
+  delete_after_dialog_probe = shared_module('test-nemo-delete-after-dialog-probe',
+    [ 'test-nemo-delete-after-dialog-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('rkmsgs9m Delete key after Properties test',
+    executable('test-nemo-delete-after-dialog',
+      [ 'test-nemo-delete-after-dialog.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, delete_after_dialog_probe ],
+    timeout: 120
+  )
+
   # Preloaded too; it hovers and checks from inside the program.
   tooltip_focus_probe = shared_module('test-nemo-tooltip-focus-probe',
     [ 'test-nemo-tooltip-focus-probe.c' ],
