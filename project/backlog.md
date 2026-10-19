@@ -661,7 +661,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - cppcheck gives up on 34 C files at a GLib macro it can't expand, and says nothing.
 	- ID: 2026101912561238
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs external testing: the native Windows lint over the whole tree, the first run there with `.cppcheck-macros.h`.
 	- Priority|Severity: Avg
 	- Opened: 20261019-125612
 	- Opened by: t00mietum
@@ -670,7 +671,25 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: cppcheck gets no include paths, so a macro such as `G_GINT64_FORMAT` or `G_FILE_ATTRIBUTE_STANDARD_TYPE` inside a string is unknown to it. It stops on that file with `unknownMacro` and checks nothing else in it. `.cppcheck-suppressions` turns `unknownMacro` off for the whole tree, so the gate passes. 34 first-party files are skipped that way, `nemo-config.c` among them, and 20 of them are tests.
 	- Expected behavior: every C file is checked all the way through, and `unknownMacro` is left on, so a new one fails the gate.
 	- Possible fix: give the missing macros values in `.cppcheck-defines.cfg`. A first try with 13 of them still left 6 files stopped on others, and turned up 17 findings in the rest, most of them leaks in tests.
-	- Test case: none yet.
+	- Actual cause: it was 40 files, counted one at a time. cppcheck prints a repeated message once, which hid 6 more. Those stopped at the self-check prototype macro in `nemo-lib-self-check-functions.h`, which it couldn't reach through `<eel/...>`.
+	- Decisions:
+		- 20261019: the macros go in `.cppcheck-macros.h`, which every file is checked with, not in a cfg. cppcheck 2.21's own GTK config defines most of the GLib ones, and on 2.21 a cfg that defines one again won't load, so the Windows lint would stop. Each one is behind `#ifndef`, so whichever comes first wins. `.cppcheck-defines.cfg` is gone, and its 2 macros moved there.
+		- 20261019: only the GLib macros this tree uses are in it, with GLib's values for 64-bit Linux. A new one fails the gate by name.
+		- 20261019: `varFuncNullUB`, a bare NULL ending a variadic call, is off tree-wide with its reason, the same as `assertWithSideEffect`. It fired about 40 times, on our own dialog and singleton calls, and every compiler here defines NULL as a pointer.
+	- Actual fix: `lint-c.bash` checks every file with `.cppcheck-macros.h` and no longer suppresses `unknownMacro`. The self-check header includes the EEL header by a relative path. What turned up was fixed, or suppressed at the line where it's false:
+		- Leaks in `test-nemo-launch-env.c` on its early returns. A `%s` there could get NULL.
+		- A link with no folder to go in crashed in the job. It now makes nothing and says so.
+		- A link that failed without an error message read a NULL one.
+		- `test-arc-scan.c` checked its list for NULL, then read it anyway.
+		- A format that printed an unsigned size with `%d`.
+		- 4 writes whose result was never read, which cppcheck 2.21 reports.
+		- 9 false leaks, each suppressed at its line with the reason.
+	- Note: whole-tree cppcheck takes the same time as before, about 51 to 59 s on a loaded b23, since `shcl.h` alone sets it. The new check adds well under a second.
+	- Swept: every C file in the tree checked one at a time under cppcheck 2.17.1 and 2.21, with no `unknownMacro` left. Every unchecked `g_file_set_contents` in the tree, 4 in all.
+	- Test case: rknjb8dk, a check in `lint-c.bash`. A leak written after the macros in `.cppcheck-macros.h` has to be found, and a macro nobody defines has to fail. rhtq57n1 also drops a link with no folder.
+	- Verified: 20261019, Linux: the whole tree has no findings under cppcheck 2.17.1 and 2.21. A leak added after the first macro in `nemo-cache-db-prune.c` passes with dev's settings and fails now. rknjb8dk fails with `unknownMacro` suppressed again, and with 2 macros taken out of the header, on both versions. rhtq57n1 crashes without the link fix and passes with it. The suite passed 222 of 224 with `-Werror`, 1 skipped. rkneye2c failed, and fails the same on dev; that's 2026101914184878.
+	- Branch: lintmacro
+	- Commit: 2c560fb1
 
 - No leak check runs on Windows.
 	- ID: 2026101715252260
@@ -894,6 +913,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Both are in `--help`.
 	- Estimated effort: Low
 	- Test case: a pipeline option test that checks each flag, and both together in either order.
+
+- rkneye2c, Multi-row drag leak test, fails on a fresh container from the build image.
+	- ID: 2026101914184878
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261019-141848
+	- Opened by: t00mietum
+	- Related IDs: 2026101715252259
+	- Target OS: Linux
+	- Incorrect behavior: on 20261019, in a container made fresh from `nemo-build-deps:init`, the drag case failed 14 of 17 runs, on dev's tree and on a branch alike, with the heap growing 10 KB to 490 KB over its 64 rounds. The box was loaded.
+	- Test case: rkneye2c itself.
 
 - rhr6ggmt can lose both links from a rar archive on Linux.
 	- ID: 2026101913111713
