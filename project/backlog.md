@@ -587,7 +587,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The sanitizer lane hides third-party leaks that end users can hit.
 	- ID: 2026101715252258
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on signoff
+	- Needs external testing: the pipeline's sanitizer stage, once `nemo-build` has the 2 debug symbol packages `Dockerfile.dev` now installs. Until then the lane stops at its first step and says which is missing.
 	- Priority|Severity: Avg
 	- Opened: 20261017-152522
 	- Opened by: t00mietum
@@ -602,12 +603,32 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- rffvm2bg runs with leak checks on, or its opt-out gets its own backlog item.
 		- Mesa can stay suppressed by library. It isn't in any package, it's the user's own driver.
 	- Note: the lane keeps its stacks short on purpose. Check that a match by function name still works with them before relying on it.
-	- Test case: the sanitizer lane itself, with a planted leak in fontconfig's path and in an animated widget that it has to catch.
+	- Reproduced: 20261019. With the fontconfig entry taken out, 38 tests failed on fontconfig blocks. With animations on, the GTK leak showed in 3 tests, and its stack stopped at `g_malloc`.
+	- Actual cause:
+		- fontconfig points from a pattern to its entries by an offset, not a pointer. So the leak check takes the entries of every live pattern as lost, and the entry for the whole library hid that.
+		- A match by function needs the function's name. Debian's fontconfig and GTK have no symbols for their inner functions, and GLib and GTK have no frame pointers, so a short stack ends at `g_malloc`.
+		- GTK 3.24 drops a CSS value each time a transition starts from a value still on its way: `gtk_css_calc_array_add` writes over an entry without dropping its ref. Still there on GTK's `gtk-3-24` branch.
+		- rffvm2bg and the 12 fuzz corpus tests set their own `ASAN_OPTIONS` in meson, which replaced the lane's.
+	- Actual fix:
+		- fontconfig is matched by `FcPatternObjectInsertElt`, which makes the entries. A pattern that is really lost still shows, from `FcPatternCreate`.
+		- `Dockerfile.dev` installs the debug symbols for fontconfig and GTK. The lane stops first when they're missing.
+		- The GTK leak is matched by `gtk_css_value_calc_multiply`. The one-line upstream note is in `sanitizers.supp`.
+		- rffvm2bg and the fuzz corpus tests turn leak checks off only in a build without ASan everywhere, so in the lane they run with its leak checks.
+		- Mesa stays matched by library.
+	- Decisions:
+		- Animations stay off in the lane apart from rkneye51. GTK's function only shows on a whole stack, and with whole stacks across the suite 3 timed tests failed on time (rk96k9va, rkbdyne7, rg3wt7d9) and the run took about 3 times as long. rkneye51 runs with animations on and whole stacks, through GTK's theme and the 8 vendored ones, and there the GTK leak shows and is matched.
+		- Options for animations on in the whole lane: rerun a test that failed only on a leak with whole stacks, which lets a leak that comes and goes pass on the rerun, or whole stacks with longer limits on the timed tests.
+		- Left at signoff for that call.
+	- Swept: every entry in `sanitizers.supp`, and every `ASAN_OPTIONS` in meson. Twin found: the 12 fuzz corpus tests in `source/fuzz/meson.build` had the same override as rffvm2bg. rge1srj8 adds its options to the lane's, so it was left alone.
+	- Branch: leakfix
+	- Test case: rkneye51, the lane's own check. With animations on it has to come back clean, then find a pattern dropped on fontconfig's path and strings dropped by an animated widget's frame callback. rjfgk2mp stops when the debug symbols are missing.
+	- Verified: 20261019, the whole lane passed in a container with the debug symbols, 208 OK, 0 failed, 15 skipped. rkneye51 failed with the old library entry for fontconfig, with a library entry for GTK, and with no GTK entry, each at the check meant to catch it. The lane stopped with its message when fontconfig's debug file was moved away.
+	- Verified: 20261019, rffvm2bg and the fuzz corpus tests pass in the lane with its leak checks on.
 
 - The heap growth tests don't repeat what the vendored code does.
 	- ID: 2026101715252259
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261017-152522
 	- Opened by: t00mietum
@@ -615,7 +636,32 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Target OS: Linux
 	- Incorrect behavior: the leak tests in `test-nemo-leaks.c` repeat jobs, the clipboard, bookmarks, search and archives. None repeats a settings save and live reload through SHCL, a checksum through blake3, or a multi-row drag through libegg. LeakSanitizer only sees what's still held at exit, so something in any of the 3 that grows with use isn't caught.
 	- Expected behavior: a leak test for each. Change a setting and reload the file, checksum a file, and start and cancel a multi-row drag.
-	- Test case: new cases in `test-nemo-leaks.c`.
+	- Actual fix: 3 new cases in `test-nemo-leaks.c`.
+		- Settings: a value changed in the app and saved, then the file edited by hand and read back while it runs.
+		- Checksum: a file of a meg and a bit, checksummed as a thumbnail read does, and checked against the checksum of the same bytes in memory.
+		- Drag: 3 list rows dragged, the files asked for once through libegg's interface on the list model, then the drag stopped as with Escape. The list view's drag handlers are static, so the test's own do the same steps.
+		- Only GLib, GTK and our own calls, so the Windows heap work in 2026101715252260 can take them as they are. The drag asks for the files the way a drop target in the same program would.
+	- Branch: leakfix
+	- Test case: rkneydx6 (settings), rkneydzr (checksum), rkneye2c (drag).
+	- Verified: 20261019, all 3 pass in the plain build. Each failed with a block leaked per call planted in the vendored code: in SHCL's parser, in blake3's finalize, and in libegg's data call.
+	- Acceptance signoff: Self-closed: the item asked for these 3 cases, and each fails on a planted leak in its vendored code.
+	- Closed: 20261019-132554
+
+- GTK leaks a string each time the app hands a theme setting back to the platform.
+	- ID: 2026101913054900
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261019-130549
+	- Opened by: t00mietum
+	- Related IDs: 2026101715252258
+	- Target OS: All
+	- Incorrect behavior: `gtk_settings_reset_property` in GTK 3.24 never frees the value it reads back, when a settings.ini named that setting. `platform_theme_name` in `nemo-appearance.c` calls it when the theme setting goes back to following the platform. The Windows bundle's settings.ini names its theme, so it should leak a theme name there on each such change. Not tried on Windows. Still there on GTK's `gtk-3-24` branch.
+	- Expected behavior: no leak on a reset, or no reset. Upstream: GNOME's GTK issue tracker, `gtk-3-24` branch.
+	- Reproduced: 20261019, repkeg1g in the sanitizer lane, 11 bytes from `_gtk_settings_parse_convert` under `gtk_settings_reset_property`.
+	- Decisions:
+		- repkeg1g runs with leak checks off in the lane until this is fixed, with this ID beside it in meson.
+	- Test case: repkeg1g in the sanitizer lane, with its leak checks back on.
 
 - No leak check runs on Windows.
 	- ID: 2026101715252260

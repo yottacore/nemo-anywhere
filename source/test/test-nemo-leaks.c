@@ -35,16 +35,21 @@
 #include <glib/gstdio.h>
 #include <gtk/gtk.h>
 
+#include <libegg/eggtreemultidnd.h>
 #include <libnemo-private/nemo-archive.h>
 #include <libnemo-private/nemo-clipboard.h>
+#include <libnemo-private/nemo-config.h>
+#include <libnemo-private/nemo-directory.h>
 #include <libnemo-private/nemo-extract.h>
 #include <libnemo-private/nemo-file.h>
+#include <libnemo-private/nemo-file-digest.h>
 #include <libnemo-private/nemo-file-operations.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-progress-info.h>
 #include <libnemo-private/nemo-progress-info-manager.h>
 #include <libnemo-private/nemo-query.h>
 
+#include "nemo-list-model.h"
 #include "nemo-query-editor.h"
 
 /* Taken in whole, since a load of the file is only started from inside it:
@@ -505,6 +510,373 @@ bookmarks_round (gpointer data)
 	wait_for_bookmark_ops (bookmarks);
 }
 
+/* Spins until *flag is set, or gives up and fails. */
+static void
+wait_for_flag (const gboolean *flag, const char *what)
+{
+	gint64 give_up_at = g_get_monotonic_time () + JOB_TIMEOUT_SECONDS * G_USEC_PER_SEC;
+
+	while (!*flag) {
+		if (g_get_monotonic_time () > give_up_at) {
+			g_printerr ("FAIL: %s did not happen within %d seconds\n",
+				    what, JOB_TIMEOUT_SECONDS);
+			failures++;
+			return;
+		}
+		if (!g_main_context_iteration (NULL, FALSE)) {
+			g_usleep (1000);
+		}
+	}
+}
+
+typedef struct {
+	NemoConfigGroup *group;
+	char *path;
+	guint round;
+	gboolean changed;
+} SettingsCase;
+
+static void
+settings_changed (NemoConfigGroup *group, const char *key, gpointer data)
+{
+	SettingsCase *settings = data;
+
+	(void) group;
+	(void) key;
+	settings->changed = TRUE;
+}
+
+/* A setting changed in the app and saved, then the file edited by hand and
+   read back while the app runs. The values are all one length, so each round
+   asks for the same sizes. */
+static void
+settings_round (gpointer data)
+{
+	SettingsCase *settings = data;
+	const char *ours = settings->round % 2 == 0 ? "640x480+10+10" : "640x480+20+20";
+	const char *theirs = settings->round % 2 == 0 ? "640x480+30+30" : "640x480+40+40";
+	char *text = NULL;
+	char *at = NULL;
+	char *now;
+
+	settings->round++;
+	nemo_config_set_string (settings->group, "geometry", ours);
+	nemo_config_flush ();
+
+	check (g_file_get_contents (settings->path, &text, NULL, NULL));
+	if (text != NULL) {
+		at = strstr (text, ours);
+	}
+	check (at != NULL);
+	if (at == NULL) {
+		g_free (text);
+		return;
+	}
+	memcpy (at, theirs, strlen (theirs));
+
+	settings->changed = FALSE;
+	check (g_file_set_contents (settings->path, text, -1, NULL));
+	g_free (text);
+	wait_for_flag (&settings->changed, "a reload of the hand edit");
+
+	now = nemo_config_get_string (settings->group, "geometry");
+	check (g_strcmp0 (now, theirs) == 0);
+	g_free (now);
+	drain_main_loop ();
+}
+
+static void
+setup_settings (SettingsCase *settings)
+{
+	settings->group = nemo_config_get_group ("window-state");
+	settings->path = nemo_config_get_path ();
+	g_signal_connect (settings->group, "changed::geometry",
+			  G_CALLBACK (settings_changed), settings);
+}
+
+static void
+teardown_settings (SettingsCase *settings)
+{
+	g_signal_handlers_disconnect_by_data (settings->group, settings);
+	g_free (settings->path);
+}
+
+typedef struct {
+	GFile *file;
+	guint8 digest[NEMO_CACHE_DIGEST_LEN];
+} ChecksumCase;
+
+/* The checksum a thumbnail takes of every file it reads. */
+static void
+checksum_round (gpointer data)
+{
+	ChecksumCase *sum = data;
+	guint8 digest[NEMO_CACHE_DIGEST_LEN] = { 0 };
+
+	check (nemo_file_digest_file (sum->file, digest, NULL, NULL));
+	check (memcmp (digest, sum->digest, sizeof (digest)) == 0);
+}
+
+/* A meg and a bit, so blake3 gets whole batches and a short tail. */
+#define CHECKSUM_BYTES (1024 * 1024 + 4099)
+
+static void
+setup_checksum (ChecksumCase *sum, const char *tmp)
+{
+	char *path = g_build_filename (tmp, "summed.bin", NULL);
+	GRand *rand = g_rand_new_with_seed (11);
+	guint8 *bytes = g_malloc (CHECKSUM_BYTES);
+	gsize i;
+
+	for (i = 0; i < CHECKSUM_BYTES; i++) {
+		bytes[i] = (guint8) g_rand_int_range (rand, 0, 256);
+	}
+	check (g_file_set_contents (path, (const char *) bytes, CHECKSUM_BYTES, NULL));
+	nemo_file_digest_bytes (bytes, CHECKSUM_BYTES, sum->digest);
+	sum->file = g_file_new_for_path (path);
+
+	g_free (bytes);
+	g_rand_free (rand);
+	g_free (path);
+}
+
+typedef struct {
+	GtkWidget *window;
+	GtkWidget *tree;
+	GtkWidget *receiver;
+	NemoListModel *model;
+	NemoColumn *column;
+	NemoDirectory *directory;
+	GList *files;
+	GtkTargetList *targets;
+	gboolean received;
+	gboolean ended;
+	int client;
+} DragCase;
+
+/* The list view's own drag handlers are static, so these do what they do:
+   the selected rows are kept on the drag, its icon is the first row's, and
+   the data is asked for through libegg's interface on the model. */
+static void
+drag_case_rows_free (GList *rows)
+{
+	g_list_free_full (rows, (GDestroyNotify) gtk_tree_row_reference_free);
+}
+
+static void
+drag_case_begin (GtkWidget *widget, GdkDragContext *context, gpointer data)
+{
+	DragCase *drag = data;
+	GtkTreeSelection *selection = gtk_tree_view_get_selection (GTK_TREE_VIEW (widget));
+	GtkTreeModel *model = GTK_TREE_MODEL (drag->model);
+	GList *paths = gtk_tree_selection_get_selected_rows (selection, NULL);
+	GList *rows = NULL;
+	GList *l;
+
+	for (l = paths; l != NULL; l = l->next) {
+		rows = g_list_prepend (rows, gtk_tree_row_reference_new (model, l->data));
+	}
+	g_object_set_data_full (G_OBJECT (context), "drag-info", g_list_reverse (rows),
+				(GDestroyNotify) drag_case_rows_free);
+
+	if (paths != NULL) {
+		GtkTreeIter iter;
+		cairo_surface_t *icon = NULL;
+
+		if (gtk_tree_model_get_iter (model, &iter, paths->data)) {
+			gtk_tree_model_get (model, &iter, NEMO_LIST_MODEL_SMALL_ICON_COLUMN, &icon, -1);
+		}
+		if (icon != NULL) {
+			gtk_drag_set_icon_surface (context, icon);
+			cairo_surface_destroy (icon);
+		} else {
+			gtk_drag_set_icon_default (context);
+		}
+	}
+	g_list_free_full (paths, (GDestroyNotify) gtk_tree_path_free);
+}
+
+static gint
+drag_case_icon_scale (NemoListModel *model, gpointer data)
+{
+	DragCase *drag = data;
+
+	(void) model;
+	return gtk_widget_get_scale_factor (drag->tree);
+}
+
+static void
+drag_case_data_get (GtkWidget *widget, GdkDragContext *context, GtkSelectionData *selection,
+		    guint info, guint time, gpointer data)
+{
+	DragCase *drag = data;
+	GList *rows = g_object_get_data (G_OBJECT (context), "drag-info");
+
+	(void) widget;
+	(void) info;
+	(void) time;
+	if (rows != NULL) {
+		egg_tree_multi_drag_source_drag_data_get (EGG_TREE_MULTI_DRAG_SOURCE (drag->model),
+							  rows, selection);
+	}
+}
+
+static void
+drag_case_end (GtkWidget *widget, GdkDragContext *context, gpointer data)
+{
+	DragCase *drag = data;
+
+	(void) widget;
+	(void) context;
+	drag->ended = TRUE;
+}
+
+/* What a drop target hears back when it asks for the files. */
+static void
+drag_case_received (GtkWidget *widget, GtkSelectionData *selection, guint time, gpointer data)
+{
+	DragCase *drag = data;
+	const char *text = (const char *) gtk_selection_data_get_data (selection);
+	GList *l;
+
+	(void) widget;
+	(void) time;
+	check (text != NULL && gtk_selection_data_get_length (selection) > 0);
+	for (l = drag->files; text != NULL && l != NULL; l = l->next) {
+		char *name = nemo_file_get_name (l->data);
+
+		check (strstr (text, name) != NULL);
+		g_free (name);
+	}
+	drag->received = TRUE;
+}
+
+/* Rows dragged, the files asked for once, then the drag stopped short, as
+   with Escape. */
+static void
+drag_round (gpointer data)
+{
+	DragCase *drag = data;
+	GdkDragContext *context;
+
+	drag->received = FALSE;
+	drag->ended = FALSE;
+	context = gtk_drag_begin_with_coordinates (drag->tree, drag->targets,
+						   GDK_ACTION_MOVE | GDK_ACTION_COPY | GDK_ACTION_LINK | GDK_ACTION_ASK,
+						   1, NULL, 4, 4);
+	check (context != NULL);
+	if (context == NULL) {
+		return;
+	}
+
+	gtk_selection_convert (drag->receiver, gdk_drag_get_selection (context),
+			       gdk_atom_intern_static_string ("text/uri-list"), GDK_CURRENT_TIME);
+	wait_for_flag (&drag->received, "the dragged files' answer");
+
+	gtk_drag_cancel (context);
+	wait_for_flag (&drag->ended, "the end of a stopped drag");
+	drain_main_loop ();
+}
+
+static gboolean
+drag_case_loaded (NemoDirectory *directory)
+{
+	gint64 give_up_at = g_get_monotonic_time () + JOB_TIMEOUT_SECONDS * G_USEC_PER_SEC;
+
+	while (!nemo_directory_are_all_files_seen (directory)) {
+		if (g_get_monotonic_time () > give_up_at) {
+			return FALSE;
+		}
+		if (!g_main_context_iteration (NULL, FALSE)) {
+			g_usleep (1000);
+		}
+	}
+
+	return TRUE;
+}
+
+static void
+setup_drag (DragCase *drag, const char *tmp)
+{
+	const char *names[] = { "one.txt", "two.txt", "three.txt" };
+	char *dir = g_build_filename (tmp, "rows", NULL);
+	char *uri;
+	GtkWidget *scrolled;
+	guint i;
+
+	check (g_mkdir_with_parents (dir, 0700) == 0);
+	for (i = 0; i < G_N_ELEMENTS (names); i++) {
+		g_free (make_file_uri (dir, names[i]));
+	}
+
+	uri = g_filename_to_uri (dir, NULL, NULL);
+	drag->directory = nemo_directory_get_by_uri (uri);
+	nemo_directory_file_monitor_add (drag->directory, &drag->client, TRUE,
+					 NEMO_FILE_ATTRIBUTE_INFO, NULL, NULL);
+	check (drag_case_loaded (drag->directory));
+
+	drag->model = g_object_new (NEMO_TYPE_LIST_MODEL, NULL);
+	/* The model borrows its columns. */
+	drag->column = nemo_column_new ("name", "name", "Name", "");
+	nemo_list_model_add_column (drag->model, drag->column);
+	for (i = 0; i < G_N_ELEMENTS (names); i++) {
+		char *path = g_build_filename (dir, names[i], NULL);
+		char *file_uri = g_filename_to_uri (path, NULL, NULL);
+		NemoFile *file = nemo_file_get_by_uri (file_uri);
+
+		check (nemo_list_model_add_file (drag->model, file, drag->directory));
+		drag->files = g_list_append (drag->files, file);
+		g_free (file_uri);
+		g_free (path);
+	}
+
+	drag->window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
+	gtk_window_set_default_size (GTK_WINDOW (drag->window), 300, 200);
+	scrolled = gtk_scrolled_window_new (NULL, NULL);
+	drag->tree = gtk_tree_view_new_with_model (GTK_TREE_MODEL (drag->model));
+	gtk_tree_view_insert_column_with_attributes (GTK_TREE_VIEW (drag->tree), -1, "Name",
+						     gtk_cell_renderer_text_new (), NULL);
+	gtk_container_add (GTK_CONTAINER (scrolled), drag->tree);
+	gtk_container_add (GTK_CONTAINER (drag->window), scrolled);
+	nemo_list_model_set_drag_view (drag->model, GTK_TREE_VIEW (drag->tree), 4, 4);
+	gtk_tree_selection_set_mode (gtk_tree_view_get_selection (GTK_TREE_VIEW (drag->tree)),
+				     GTK_SELECTION_MULTIPLE);
+	gtk_tree_selection_select_all (gtk_tree_view_get_selection (GTK_TREE_VIEW (drag->tree)));
+	drag->targets = nemo_list_model_get_drag_target_list ();
+
+	g_signal_connect (drag->model, "get-icon-scale", G_CALLBACK (drag_case_icon_scale), drag);
+	g_signal_connect (drag->tree, "drag-begin", G_CALLBACK (drag_case_begin), drag);
+	g_signal_connect (drag->tree, "drag-data-get", G_CALLBACK (drag_case_data_get), drag);
+	g_signal_connect (drag->tree, "drag-end", G_CALLBACK (drag_case_end), drag);
+
+	drag->receiver = gtk_invisible_new ();
+	gtk_widget_realize (drag->receiver);
+	g_signal_connect (drag->receiver, "selection-received", G_CALLBACK (drag_case_received), drag);
+
+	/* A drag grabs the pointer, which takes a window on screen. */
+	gtk_widget_show_all (drag->window);
+	while (!gtk_widget_get_mapped (drag->window) && g_main_context_iteration (NULL, TRUE)) {
+	}
+	drain_main_loop ();
+
+	g_free (uri);
+	g_free (dir);
+}
+
+static void
+teardown_drag (DragCase *drag)
+{
+	gtk_widget_destroy (drag->receiver);
+	gtk_widget_destroy (drag->window);
+	gtk_target_list_unref (drag->targets);
+	nemo_list_model_clear (drag->model);
+	g_object_unref (drag->model);
+	g_object_unref (drag->column);
+	nemo_file_list_free (drag->files);
+	nemo_directory_file_monitor_remove (drag->directory, &drag->client);
+	nemo_directory_unref (drag->directory);
+}
+
 /* With what the thread itself takes, a little under what a leak of one block
    a round adds up to over the counted rounds. */
 #define WORKER_HOLDS 768
@@ -667,8 +1039,8 @@ main (int argc, char *argv[])
 	which = argc > 1 ? argv[1] : "progress";
 
 	/* The clipboard is one per display, and the clipboard test beside this
-	   one in the suite owns it too. */
-	if (strcmp (which, "clipboard") == 0) {
+	   one in the suite owns it too. A drag grabs the pointer. */
+	if (strcmp (which, "clipboard") == 0 || strcmp (which, "drag") == 0) {
 		test_own_display (argc, argv, NULL);
 	}
 	tmp = test_scratch_config_home ("nemo-leaks-XXXXXX");
@@ -764,6 +1136,24 @@ main (int argc, char *argv[])
 			check (nemo_bookmark_list_length (bookmarks) == 1);
 		}
 		skipped = run_case (which, bookmarks_round, bookmarks, ANY_LEAK);
+	} else if (strcmp (which, "settings") == 0) {
+		SettingsCase settings = { 0 };
+
+		setup_settings (&settings);
+		skipped = run_case (which, settings_round, &settings, ANY_LEAK);
+		teardown_settings (&settings);
+	} else if (strcmp (which, "checksum") == 0) {
+		ChecksumCase sum = { 0 };
+
+		setup_checksum (&sum, tmp);
+		skipped = run_case (which, checksum_round, &sum, ANY_LEAK);
+		g_object_unref (sum.file);
+	} else if (strcmp (which, "drag") == 0) {
+		DragCase drag = { 0 };
+
+		setup_drag (&drag, tmp);
+		skipped = run_case (which, drag_round, &drag, ANY_LEAK);
+		teardown_drag (&drag);
 	} else if (strcmp (which, "self-check") == 0) {
 		SelfCheck self = { 0 };
 

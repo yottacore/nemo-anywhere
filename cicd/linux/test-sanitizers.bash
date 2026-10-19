@@ -6,8 +6,10 @@
 ##	- Builds into a directory of its own, so /build is left alone. The build and
 ##	  the run go through run-tests.bash, the same as the ordinary suite.
 ##	- Any report fails the test that made it: undefined behavior halts as a memory
-##	  error does. Leaks in the libraries under GTK are listed in sanitizers.supp;
-##	  a leak of ours is never put there.
+##	  error does. Leaks in the libraries under GTK are listed in sanitizers.supp
+##	  by the function that leaks; a leak of ours is never put there. Those names
+##	  need fontconfig's and GTK's debug symbols, so the lane stops first when
+##	  they're missing (Dockerfile.dev installs them).
 ##	- Stacks are short, since a full one on every allocation slows the GUI tests
 ##	  past their own time limits. For the whole stack of a leak, rerun the test
 ##	  with ASAN_OPTIONS=fast_unwind_on_malloc=0, which is added to the lane's own.
@@ -41,14 +43,31 @@ if [[ -f "${build}/build.ninja" ]] && ! grep -qF -- '-fsanitize=address' "${buil
 	exit 1
 fi
 
+## Without these the suppressions match nothing, and every test fails on a
+## leak report that doesn't say why.
+fHasDebugSymbols(){
+	local lib="$1" path id
+	path="$(ldconfig -p | awk -v lib="${lib}" '$1 == lib { print $NF; exit }')"
+	[[ -n "${path}" ]] || return 1
+	id="$(readelf -n "${path}" 2>/dev/null | sed -n 's/^[[:space:]]*Build ID: //p')"
+	[[ -n "${id}" && -f "/usr/lib/debug/.build-id/${id:0:2}/${id:2}.debug" ]]
+}
+for lib in libfontconfig.so.1 libgtk-3.so.0; do
+	if ! fHasDebugSymbols "${lib}"; then
+		echo "[ FAILED: no debug symbols for ${lib}, which sanitizers.supp needs; see Dockerfile.dev ]" >&2
+		exit 1
+	fi
+done
+
 ## lundef off, since the extension library is a shared object and only the
 ## executables carry the sanitizer runtime.
 export BUILD_DIR="${build}"
 export SETUP_ARGS="-Db_sanitize=address,undefined -Db_lundef=false"
 
-## GTK's CSS transitions leak a value each (gtk_css_value_calc_multiply in
-## 3.24.49), and only GTK's own code is on that path. Its settings are read from
-## the system config dirs as well, which the tests leave alone.
+## GTK's CSS transitions leak a value each (sanitizers.supp), and its function
+## only shows on a whole stack, which makes the timed tests too slow. rkneye51
+## turns them back on with whole stacks. GTK reads settings.ini from the system
+## config dirs as well, which the tests leave alone.
 mkdir -p "${build}/xdg-config/gtk-3.0"
 printf '[Settings]\ngtk-enable-animations=false\n' > "${build}/xdg-config/gtk-3.0/settings.ini"
 export XDG_CONFIG_DIRS="${build}/xdg-config:${XDG_CONFIG_DIRS:-/etc/xdg}"

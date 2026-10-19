@@ -221,9 +221,9 @@ endif
 # The heap is read through glibc, so elsewhere these skip.
 if not is_windows
   leaks = executable('test-nemo-leaks',
-    [ 'test-nemo-leaks.c', '../src/nemo-query-editor.c' ] + gresources,
+    [ 'test-nemo-leaks.c', '../src/nemo-query-editor.c', '../src/nemo-list-model.c' ] + gresources,
     include_directories: [ rootInclude, include_directories('../src') ],
-    dependencies: [ gtk, nemo_private, test_scratch, test_heap ],
+    dependencies: [ gtk, nemo_private, egg, test_scratch, test_heap ],
     c_args: nemo_definitions,
   )
 
@@ -238,6 +238,24 @@ if not is_windows
   test('rjbqagjf Stopped tar.gz leak test', leaks, args: [ 'tar.gz-cancel' ])
   test('rjbw0rkq Stopped 7z leak test', leaks, args: [ '7z-cancel' ])
   test('rjcth67d Leak test self-check', leaks, args: [ 'self-check' ])
+  test('rkneydx6 Settings save and reload leak test', leaks, args: [ 'settings' ])
+  test('rkneydzr File checksum leak test', leaks, args: [ 'checksum' ])
+  test('rkneye2c Multi-row drag leak test', leaks, args: [ 'drag' ])
+
+  # The sanitizer lane's suppressions, held to what they name. Whole stacks,
+  # added to the lane's own options.
+  sanitizerLeaksEnv = environment()
+  sanitizerLeaksEnv.append('ASAN_OPTIONS', 'fast_unwind_on_malloc=0', separator: ':')
+  test('rkneye51 Sanitizer leak suppressions test',
+    executable('test-sanitizer-leaks',
+      [ 'test-sanitizer-leaks.c' ] + gresources + themeGresources,
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch, dependency('fontconfig') ],
+      c_args: [ '-DVENDOR_THEMES_DIR="@0@"'.format(meson.project_source_root() / '..' / 'vendor' / 'themes') ],
+    ),
+    env: sanitizerLeaksEnv,
+    timeout: 120,
+  )
 endif
 
 test('rhtq57n1 Cancelled drop leaves the files test',
@@ -592,10 +610,16 @@ test('rgeahzbr Entry context menu test',
 
 # Its binary files are written from literals with NULs inside, and a wrong
 # length reads past one with nothing to say so. ASan on this one executable
-# sees that; leaks are left to other tests, since GTK's own would drown it.
+# sees that. Its leaks are left to the sanitizer lane, which has the
+# suppressions for GTK's own; there the whole build has ASan and the lane's
+# options stand, leak checks included.
 testSan = []
+searchContentEnv = []
 if not is_windows and cc.has_link_argument('-fsanitize=address')
   testSan = [ '-fsanitize=address', '-fno-omit-frame-pointer' ]
+endif
+if not get_option('b_sanitize').contains('address')
+  searchContentEnv = [ 'ASAN_OPTIONS=detect_leaks=0' ]
 endif
 
 test('rffvm2bg Search content test',
@@ -606,7 +630,7 @@ test('rffvm2bg Search content test',
     c_args: nemo_definitions + testSan,
     link_args: testSan,
   ),
-  env: [ 'ASAN_OPTIONS=detect_leaks=0' ],
+  env: searchContentEnv,
   args: []
 )
 
@@ -1033,6 +1057,11 @@ if is_windows
   )
 endif
 
+# GTK leaks a string on each gtk_settings_reset_property of a setting that a
+# settings.ini named, which this test does. Leak checks off until
+# 2026101913054900; added to the sanitizer lane's options.
+appearanceEnv = environment()
+appearanceEnv.append('ASAN_OPTIONS', 'detect_leaks=0', separator: ':')
 test('repkeg1g Appearance themes test',
   # The theme resource is linked into the app, not into libnemo-private, so a
   # test that checks it has to carry its own copy.
@@ -1041,6 +1070,7 @@ test('repkeg1g Appearance themes test',
     include_directories: [ rootInclude, ],
     dependencies: [ gtk, nemo_private, test_scratch ],
   ),
+  env: appearanceEnv,
   args: []
 )
 
