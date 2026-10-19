@@ -56,6 +56,7 @@
 #include <libnemo-private/nemo-link.h>
 #include <libnemo-private/nemo-metadata.h>
 #include <libnemo-private/nemo-folder-settings.h>
+#include <libnemo-private/nemo-column-utilities.h>
 #include <libnemo-private/nemo-clipboard.h>
 #include <libnemo-private/nemo-desktop-utils.h>
 #include <libnemo-private/nemo-thumbnail-memory.h>
@@ -263,14 +264,16 @@ real_set_sort_criterion (NemoIconView *icon_view,
 	file = nemo_view_get_directory_as_file (NEMO_VIEW (icon_view));
 
 	if (clear) {
-		nemo_file_set_metadata (file,
-                                NEMO_METADATA_KEY_ICON_VIEW_SORT_BY,
-                                NULL,
-                                NULL);
-		nemo_file_set_metadata (file,
-                                NEMO_METADATA_KEY_ICON_VIEW_SORT_REVERSED,
-                                NULL,
-                                NULL);
+        if (nemo_file_is_in_search (file)) {
+            nemo_search_sort_forget ();
+        } else if (!nemo_global_preferences_get_remember_folder_settings ()) {
+            NemoWindow *window = nemo_view_get_nemo_window (NEMO_VIEW (icon_view));
+
+            nemo_window_set_ignore_meta_sort_column (window, NULL);
+            nemo_window_set_ignore_meta_sort_direction (window, SORT_NULL);
+        } else {
+            nemo_folder_settings_forget_sort (file);
+        }
         icon_view->details->sort =
             get_sort_criterion_by_sort_type (get_default_sort_order (file, &icon_view->details->sort_reversed));
     } else if (set_metadata) {
@@ -602,12 +605,74 @@ update_layout_menus (NemoIconView *view)
 }
 
 
+/* The list and icon views share one sort, kept as a list column. Find results
+   keep their own. A window not remembering per folder holds one for every
+   folder in it. Otherwise it's the folder's.
+   Returns: (transfer full) (nullable): NULL for the default, else free with g_free */
+static char *
+saved_sort_column (NemoIconView *icon_view, NemoFile *file, gboolean *reversed)
+{
+	char *column = NULL;
+	gboolean ignored;
+	gint direction;
+
+	if (reversed == NULL) {
+		reversed = &ignored;
+	}
+	get_default_sort_order (file, reversed);
+
+	if (nemo_file_is_in_search (file)) {
+		nemo_search_sort_get (&column, reversed);
+	} else if (!nemo_global_preferences_get_remember_folder_settings ()) {
+		NemoWindow *window = nemo_view_get_nemo_window (NEMO_VIEW (icon_view));
+
+		column = g_strdup (nemo_window_get_ignore_meta_sort_column (window));
+		direction = nemo_window_get_ignore_meta_sort_direction (window);
+		if (direction > SORT_NULL) {
+			*reversed = direction == SORT_DESCENDING;
+		}
+	} else {
+		column = nemo_folder_settings_get_sort_column (file);
+		*reversed = nemo_folder_settings_get_sort_reversed (file, *reversed);
+	}
+
+	return column;
+}
+
+static void
+save_sort (NemoIconView *icon_view, NemoFile *file, const char *sort_by, gboolean reversed)
+{
+	const char *column, *default_column;
+	gboolean default_reversed;
+
+	/* One the list view has no column for leaves the shared sort alone. */
+	column = nemo_folder_settings_column_for_icon_sort (sort_by);
+	if (column == NULL) {
+		return;
+	}
+
+	if (nemo_file_is_in_search (file)) {
+		default_column = nemo_folder_settings_default_sort_column (file, &default_reversed);
+		nemo_search_sort_save (column, reversed, default_column, default_reversed);
+	} else if (!nemo_global_preferences_get_remember_folder_settings ()) {
+		NemoWindow *window = nemo_view_get_nemo_window (NEMO_VIEW (icon_view));
+
+		nemo_window_set_ignore_meta_sort_column (window, column);
+		nemo_window_set_ignore_meta_sort_direction (window, reversed ? SORT_DESCENDING : SORT_ASCENDING);
+	} else {
+		nemo_folder_settings_set_sort_column (file, column);
+		nemo_folder_settings_set_sort_reversed (file, reversed);
+	}
+}
+
 /* Returns: (transfer full): free with g_free */
 gchar *
 nemo_icon_view_get_directory_sort_by (NemoIconView *icon_view,
 					  NemoFile *file)
 {
 	const SortCriterion *default_sort_criterion;
+	const char *sort_by;
+	char *column;
 
 	if (!nemo_icon_view_supports_auto_layout (icon_view)) {
 		return g_strdup ("name");
@@ -616,9 +681,12 @@ nemo_icon_view_get_directory_sort_by (NemoIconView *icon_view,
 	default_sort_criterion = get_sort_criterion_by_sort_type (get_default_sort_order (file, NULL));
 	g_return_val_if_fail (default_sort_criterion != NULL, NULL);
 
-    return nemo_folder_settings_get (file,
-                                     NEMO_METADATA_KEY_ICON_VIEW_SORT_BY,
-                                     default_sort_criterion->metadata_text);
+	/* A column the icon view can't sort by, such as owner, shows the default. */
+	column = saved_sort_column (icon_view, file, NULL);
+	sort_by = nemo_folder_settings_icon_sort_for_column (column);
+	g_free (column);
+
+	return g_strdup (sort_by != NULL ? sort_by : default_sort_criterion->metadata_text);
 }
 
 static NemoFileSortType
@@ -652,19 +720,11 @@ nemo_icon_view_set_directory_sort_by (NemoIconView *icon_view,
 					  NemoFile *file,
 					  const char *sort_by)
 {
-	const SortCriterion *default_sort_criterion;
-
 	if (!nemo_icon_view_supports_auto_layout (icon_view)) {
 		return;
 	}
 
-	default_sort_criterion = get_sort_criterion_by_sort_type (get_default_sort_order (file, NULL));
-	g_return_if_fail (default_sort_criterion != NULL);
-
-    nemo_folder_settings_set (file,
-                              NEMO_METADATA_KEY_ICON_VIEW_SORT_BY,
-                              default_sort_criterion->metadata_text,
-                              sort_by);
+	save_sort (icon_view, file, sort_by, icon_view->details->sort_reversed);
 }
 
 gboolean
@@ -677,11 +737,9 @@ nemo_icon_view_get_directory_sort_reversed (NemoIconView *icon_view,
 		return FALSE;
 	}
 
-	get_default_sort_order (file, &reversed);
+	g_free (saved_sort_column (icon_view, file, &reversed));
 
-    return nemo_folder_settings_get_boolean (file,
-                                             NEMO_METADATA_KEY_ICON_VIEW_SORT_REVERSED,
-                                             reversed);
+	return reversed;
 }
 
 static void
@@ -689,18 +747,14 @@ nemo_icon_view_set_directory_sort_reversed (NemoIconView *icon_view,
 						NemoFile *file,
 						gboolean sort_reversed)
 {
-	gboolean reversed;
-
-	if (!nemo_icon_view_supports_auto_layout (icon_view)) {
+	/* Icons placed by hand have no order, and their direction isn't the
+	   list's to take. */
+	if (!nemo_icon_view_supports_auto_layout (icon_view) || icon_view->details->sort == NULL ||
+	    !nemo_icon_view_using_auto_layout (icon_view)) {
 		return;
 	}
 
-	get_default_sort_order (file, &reversed);
-
-    nemo_folder_settings_set_boolean (file,
-                                      NEMO_METADATA_KEY_ICON_VIEW_SORT_REVERSED,
-                                      reversed,
-                                      sort_reversed);
+	save_sort (icon_view, file, icon_view->details->sort->metadata_text, sort_reversed);
 }
 
 static gboolean

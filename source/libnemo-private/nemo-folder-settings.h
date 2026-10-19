@@ -78,4 +78,25 @@ void      nemo_folder_settings_adopt          (NemoFile   *folder);
 /* drop the folder's own set */
 void      nemo_folder_settings_forget         (NemoFile   *folder);
 
+/* A folder has one sort for every view, kept as a list column and its
+ * direction. The icon view sorts by fewer things, under names of its own. An
+ * icon view sort saved before this still counts where there is no column. */
+const char *nemo_folder_settings_icon_sort_for_column (const char *column);
+const char *nemo_folder_settings_column_for_icon_sort (const char *sort_by);
+
+/* the column a folder sorts by with nothing saved, and which way */
+const char *nemo_folder_settings_default_sort_column (NemoFile *folder,
+						      gboolean *reversed);
+
+/* NULL when the folder has none saved; free with g_free */
+char     *nemo_folder_settings_get_sort_column      (NemoFile   *folder);
+gboolean  nemo_folder_settings_get_sort_reversed    (NemoFile   *folder,
+						     gboolean    default_value);
+void      nemo_folder_settings_set_sort_column      (NemoFile   *folder,
+						     const char *column);
+void      nemo_folder_settings_set_sort_reversed    (NemoFile   *folder,
+						     gboolean    reversed);
+/* back to the default sort, whatever the views saved it as */
+void      nemo_folder_settings_forget_sort          (NemoFile   *folder);
+
 #endif /* NEMO_FOLDER_SETTINGS_H */

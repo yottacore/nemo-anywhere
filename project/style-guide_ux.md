@@ -98,6 +98,7 @@ The file list is where the keyboard belongs. Anything that leaves the focus some
 - A menu opened from the keyboard, with the menu key or with Ctrl+F10 for the folder itself, opens against whatever has the focus, not at the mouse pointer, which could be on another monitor.
 
 - A trash or delete key within a second of a window appearing or taking the focus is ignored. That key was meant for whatever window had the focus a moment ago.
+	- Focus coming back from one of the program's own windows, such as Properties closing, doesn't count. The key was meant for this program.
 
 - One keystroke should do the obvious whole job. Ctrl+H shows both kinds of hidden file on Windows at once, and Settings can still set the two apart.
 

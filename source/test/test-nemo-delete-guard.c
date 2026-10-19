@@ -152,6 +152,13 @@ main (void)
 	check (!nemo_delete_guard_in_grace (now - G_USEC_PER_SEC * 5, now));
 	check (!nemo_delete_guard_in_grace (0, now));
 
+	/* Focus back from another of our windows starts no grace, from the same
+	   window or long after it does. */
+	check (nemo_delete_guard_handed_back (now - G_USEC_PER_SEC / 10, &now, &link, now));
+	check (!nemo_delete_guard_handed_back (now - G_USEC_PER_SEC / 10, &link, &link, now));
+	check (!nemo_delete_guard_handed_back (now - G_USEC_PER_SEC * 5, &now, &link, now));
+	check (!nemo_delete_guard_handed_back (0, NULL, &link, now));
+
 	g_free (link);
 	g_free (inner);
 	g_free (tree);

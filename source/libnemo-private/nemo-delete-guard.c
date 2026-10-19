@@ -457,14 +457,54 @@ nemo_delete_guard_in_grace (gint64 focused_at, gint64 now)
 	return focused_at > 0 && now >= focused_at && now - focused_at < SETTLE_USEC;
 }
 
+gboolean
+nemo_delete_guard_handed_back (gint64 left_at, gconstpointer left_from, gconstpointer window, gint64 now)
+{
+	return left_from != NULL && left_from != window && nemo_delete_guard_in_grace (left_at, now);
+}
+
+/* When the focus last left one of the program's own windows, and which. Only
+   compared, never followed, so a window gone since is fine. */
+static gint64 own_focus_left_at;
+static gconstpointer own_focus_left_from;
+static guint unmap_signal;
+
+/* A window closed while it has the focus gets no focus-out, so a toplevel
+   unmapped with the focus counts too. */
 static gboolean
-note_focus (GtkWidget *widget, G_GNUC_UNUSED GdkEvent *event, G_GNUC_UNUSED gpointer user_data)
+note_focus_left (GSignalInvocationHint *hint, G_GNUC_UNUSED guint n_values,
+		 const GValue *values, G_GNUC_UNUSED gpointer user_data)
+{
+	GObject *object = g_value_get_object (&values[0]);
+
+	if (GTK_IS_WINDOW (object) && gtk_widget_is_toplevel (GTK_WIDGET (object)) &&
+	    (hint->signal_id != unmap_signal || gtk_window_has_toplevel_focus (GTK_WINDOW (object)))) {
+		own_focus_left_at = g_get_monotonic_time ();
+		own_focus_left_from = object;
+	}
+
+	return TRUE;
+}
+
+static gboolean
+note_focus (GtkWidget *widget, GdkEvent *event, G_GNUC_UNUSED gpointer user_data)
 {
 	gint64 *focused_at = g_object_get_data (G_OBJECT (widget), FOCUSED_AT_KEY);
+	gint64 now = g_get_monotonic_time ();
 
-	if (focused_at != NULL) {
-		*focused_at = g_get_monotonic_time ();
+	if (focused_at == NULL) {
+		return GDK_EVENT_PROPAGATE;
 	}
+
+	/* Keys typed into our own dialog were meant for us, so focus coming back
+	   from one starts no grace. Same window doesn't count: that is focus
+	   going out to another program and back. */
+	if (gdk_event_get_event_type (event) == GDK_FOCUS_CHANGE &&
+	    nemo_delete_guard_handed_back (own_focus_left_at, own_focus_left_from, widget, now)) {
+		return GDK_EVENT_PROPAGATE;
+	}
+
+	*focused_at = now;
 
 	return GDK_EVENT_PROPAGATE;
 }
@@ -472,6 +512,13 @@ note_focus (GtkWidget *widget, G_GNUC_UNUSED GdkEvent *event, G_GNUC_UNUSED gpoi
 void
 nemo_delete_guard_watch_window (GtkWindow *window)
 {
+	if (unmap_signal == 0) {
+		unmap_signal = g_signal_lookup ("unmap", GTK_TYPE_WIDGET);
+		g_signal_add_emission_hook (unmap_signal, 0, note_focus_left, NULL, NULL);
+		g_signal_add_emission_hook (g_signal_lookup ("focus-out-event", GTK_TYPE_WIDGET), 0,
+					    note_focus_left, NULL, NULL);
+	}
+
 	g_object_set_data_full (G_OBJECT (window), FOCUSED_AT_KEY, g_new0 (gint64, 1), g_free);
 	g_signal_connect (window, "map-event", G_CALLBACK (note_focus), NULL);
 	g_signal_connect (window, "focus-in-event", G_CALLBACK (note_focus), NULL);
