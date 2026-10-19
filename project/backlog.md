@@ -116,6 +116,48 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rk95h61s, Share folder with a local path lists test. A folder that isn't on this machine but has a path, whose listing refuses that call the way gvfs's does, lists all 3 entries with its link followed, and one file there is looked at once, following links. renz2428, Network win32 test, test_smb_addresses: smb addresses taken as typed, parsed, as a uri and as an argument go to the UNC path, the server's share list or the network, with spaces, escapes, a user, domain and port, an IPv6 address, and upper case where typed. rkb69y1a, Connect to Server address scheme test: ssh and sftp addresses in any case lose the scheme with SSH chosen, other schemes and plain names are kept, and every alias gvfs's mount files declare is checked where gvfs is installed.
 	- Acceptance signoff: Left at signoff for the `ssh://hostname/folder` error, which wasn't seen from the path bar or the command line, and for Connect to Server on Windows asking only for the server and share.
 
+- The sanitizer lane hides third-party leaks that end users can hit.
+	- ID: 2026101715252258
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Needs external testing: the pipeline's sanitizer stage, once `nemo-build` has the 2 debug symbol packages `Dockerfile.dev` now installs. Until then the lane stops at its first step and says which is missing.
+	- Priority|Severity: Avg
+	- Opened: 20261017-152522
+	- Opened by: t00mietum
+	- Related IDs: 2026101619020505
+	- Target OS: Linux
+	- Incorrect behavior:
+		- `sanitizers.supp` drops every leak in `libfontconfig.so.1`, by library. The Windows bundle has fontconfig in it, and a leak there that grows with use would never show.
+		- `test-sanitizers.bash` turns GTK's animations off for the whole suite, to get past one GTK leak in `gtk_css_value_calc_multiply`. End users have animations on. So nothing on GTK's animated path is leak-checked, and the vendored widget themes' transitions never run in the lane.
+		- rffvm2bg, Search content test, sets `ASAN_OPTIONS=detect_leaks=0` in `source/test/meson.build`, because GTK's own leaks would drown it. In the sanitizer lane that replaces the lane's own setting, so the test runs with no leak check. There's no backlog ID beside it, which the rule at the top of `sanitizers.supp` asks for.
+	- Expected behavior: a suppression names the function that leaks, not the library, with a one-line reason. It only covers something kept for the life of the process, such as a cache.
+		- The GTK leak is suppressed by its function and reported upstream, and animations stay on.
+		- rffvm2bg runs with leak checks on, or its opt-out gets its own backlog item.
+		- Mesa can stay suppressed by library. It isn't in any package, it's the user's own driver.
+	- Note: the lane keeps its stacks short on purpose. Check that a match by function name still works with them before relying on it.
+	- Reproduced: 20261019. With the fontconfig entry taken out, 38 tests failed on fontconfig blocks. With animations on, the GTK leak showed in 3 tests, and its stack stopped at `g_malloc`.
+	- Actual cause:
+		- fontconfig points from a pattern to its entries by an offset, not a pointer. So the leak check takes the entries of every live pattern as lost, and the entry for the whole library hid that.
+		- A match by function needs the function's name. Debian's fontconfig and GTK have no symbols for their inner functions, and GLib and GTK have no frame pointers, so a short stack ends at `g_malloc`.
+		- GTK 3.24 drops a CSS value each time a transition starts from a value still on its way: `gtk_css_calc_array_add` writes over an entry without dropping its ref. Still there on GTK's `gtk-3-24` branch.
+		- rffvm2bg and the 12 fuzz corpus tests set their own `ASAN_OPTIONS` in meson, which replaced the lane's.
+	- Actual fix:
+		- fontconfig is matched by `FcPatternObjectInsertElt`, which makes the entries. A pattern that is really lost still shows, from `FcPatternCreate`.
+		- `Dockerfile.dev` installs the debug symbols for fontconfig and GTK. The lane stops first when they're missing.
+		- The GTK leak is matched by `gtk_css_value_calc_multiply`. The one-line upstream note is in `sanitizers.supp`.
+		- rffvm2bg and the fuzz corpus tests turn leak checks off only in a build without ASan everywhere, so in the lane they run with its leak checks.
+		- Mesa stays matched by library.
+	- Decisions:
+		- Animations stay off in the lane apart from rkneye51. GTK's function only shows on a whole stack, and with whole stacks across the suite 3 timed tests failed on time (rk96k9va, rkbdyne7, rg3wt7d9) and the run took about 3 times as long. rkneye51 runs with animations on and whole stacks, through GTK's theme and the 8 vendored ones, and there the GTK leak shows and is matched.
+		- Options for animations on in the whole lane: rerun a test that failed only on a leak with whole stacks, which lets a leak that comes and goes pass on the rerun, or whole stacks with longer limits on the timed tests.
+		- Left at signoff for that call.
+	- Swept: every entry in `sanitizers.supp`, and every `ASAN_OPTIONS` in meson. Twin found: the 12 fuzz corpus tests in `source/fuzz/meson.build` had the same override as rffvm2bg. rge1srj8 adds its options to the lane's, so it was left alone.
+	- Branch: leakfix
+	- Commit: 00795c30
+	- Test case: rkneye51, the lane's own check. With animations on it has to come back clean, then find a pattern dropped on fontconfig's path and strings dropped by an animated widget's frame callback. rjfgk2mp stops when the debug symbols are missing.
+	- Verified: 20261019, the whole lane passed in a container with the debug symbols, 208 OK, 0 failed, 15 skipped. rkneye51 failed with the old library entry for fontconfig, with a library entry for GTK, and with no GTK entry, each at the check meant to catch it. The lane stopped with its message when fontconfig's debug file was moved away.
+	- Verified: 20261019, rffvm2bg and the fuzz corpus tests pass in the lane with its leak checks on.
+
 - README.md: move installation instructions, including development, to one or more .mds, and link to it/them.
 	- ID: 2026101417352264
 	- Type: Task
@@ -424,6 +466,82 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: rkmve05x failed before the fix, on all 3 desktop changes, and passes after. The repkeg1g case fails with the hand-back left out and passes with it. Both pass in the Linux build. repkeg1g passes in the Windows cross build with the bundled themes. The settings dialog tests rhtmbdmd, rf2w8yxr, rk5b84ef, rhtmbdmf and rjvdch2z pass.
 	- Note: closes without signoff once these tests pass. It's GTK's standard behavior with nothing picked, rkmve05x pins it, and the explicit pick works as before.
 
+- cppcheck leaves out the vendored C the app is built from.
+	- ID: 2026101715252255
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs external testing: Windows. The lint stage under MSYS2 runs its own cppcheck, a newer one, over blake3, libegg and SHCL for the first time.
+	- Priority|Severity: Avg
+	- Opened: 20261017-152522
+	- Opened by: t00mietum
+	- Related IDs: 2026101619020505, 2026101715252256
+	- Target OS: All
+	- Incorrect behavior: `lint-c.bash` skips `vendor/` and `source/cut-n-paste-code/`. So blake3, SHCL and libegg never get the C lint, though all 3 are compiled into the app.
+		- SHCL isn't read through `nemo-config.c` either. cppcheck gets no include paths and `missingInclude` is suppressed, so its implementation is never checked.
+		- The sign-bit shift check, rj9v86cj, skips `source/cut-n-paste-code/`. It greps only `source/`, so it never reaches `vendor/`.
+	- Expected behavior: the correctness checks cover all vendored code that's built into the app. Style checks stay off it, since its style isn't ours to fix.
+		- `vendor/shcl-old/` stays out. It's only built into a test.
+		- A finding in vendored code is suppressed in `.cppcheck-suppressions` with a one-line reason, and a real bug goes to its upstream.
+	- Test case: `lint-c.bash --list-files` on dev names the blake3 and libegg files, and SHCL is checked through `nemo-config.c`. A planted fault in a vendored file fails the gate.
+		- 20261019: rj3ytty2, C lint scope, now expects vendored files on a feature branch, on dev and on main, and no `vendor/shcl-old/`. rj9v86cj, the sign-bit shift check, reads `vendor/`.
+	- Against: 2026092813381407's fix, which kept vendored code out of the whole-tree run.
+	- Decisions:
+		- 20261019: SHCL is checked as `vendor/shcl/shcl.h` on its own, not through `nemo-config.c`. cppcheck tries the `SHCL_IMPLEMENTATION` configuration on it by itself, with and without `_WIN32`. Through `nemo-config.c` it would check nothing, since cppcheck gives up on that file at a GLib macro it can't expand. That's 2026101912561238.
+		- 20261019: everything under `vendor/` and `source/cut-n-paste-code/` is in, apart from `vendor/shcl-old/`. So a new vendored library is checked unless it's left out by name.
+		- 20261019: vendored files go through the same cppcheck run as ours, with `warning` and `portability`. No style check runs on any C here.
+	- Actual fix: `lint-c.bash` hands vendored files to cppcheck, and the sign-bit shift check reads `vendor/` too. blake3 had 2 findings, both false: an array passed on with a count of 0 is never read. They're suppressed by line in `.cppcheck-suppressions`. libegg and SHCL had none. The public style guide says vendored code is checked.
+	- Note: the whole-tree run on dev and main takes about 40 s more, nearly all of it SHCL.
+	- Swept: the other 2 `vendor` exclusions in `lint-c.bash`, `fCheckMintIcons` and `fCheckClickPrimary`, check our own house rules and stay. Every `vendor` mention in the public docs and the cicd scripts.
+	- Verified: 20261019, Linux: a fault in `blake3_portable.c`, `eggtreemultidnd.c` and `shcl.h` each fails the C lint, and passes with dev's `lint-c.bash`. A `1 << 31` in blake3 fails rj9v86cj, and one in `vendor/shcl-old/` doesn't. rj3ytty2 fails with dev's `lint-c.bash` and passes after. The whole-tree run on this branch has no findings. The lint stage passes, apart from rj3ytv0b, which can't pass outside the main clone.
+	- Branch: vendlint
+	- Commit: 3ae52a5
+
+- Vendored C builds with fewer warnings, and never with -Werror.
+	- ID: 2026101715252256
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs external testing: the native Windows gate, where MSYS2's gcc builds blake3 and libegg with `-Werror` for the first time. It was gcc 16.1 on 20261005, newer than anything here. The arm64 lane, which builds blake3's plain C path alone, and the FreeBSD lane.
+	- Priority|Severity: Avg
+	- Opened: 20261017-152522
+	- Opened by: t00mietum
+	- Related IDs: 2026101715252255
+	- Target OS: All
+	- Incorrect behavior: blake3 and libegg build with `vendorWarnings` in `source/meson.build`, which is `warning_level=1` and `werror=false`. The -Werror lane never sees a warning in either.
+	- Expected behavior: both build at the project's warning level, -Werror included. A warning that's only about upstream's style is turned off for that library alone in meson, with a one-line reason.
+	- Note: SHCL already builds at the full level, since it's compiled inside `nemo-config.c`.
+	- Test case: `check-werror.bash` also fails when a vendored library in `build.ninja` lacks -Werror.
+		- 20261019: rjh7qnxw, werror check. A `build.ninja` with one library built without `-Werror` among compiles that have it fails, in Linux and Windows quoting, and the message names just that library.
+	- Against: 2026092813381434's decisions of 20261005 that vendored code builds at `-Wall` and its warnings are never fatal. This item reverses both.
+	- Actual fix: `vendorWarnings` is gone from `source/meson.build`. blake3 builds clean at the project's level with nothing turned off. libegg's `meson.build` turns off 3 warnings, each with its reason: unused parameters in GTK callbacks, a `GTypeInfo` filled in by position, and a cast of `gtk_tree_row_reference_free` to `GFunc`. `check-werror.bash` now fails on any C compile in `build.ninja` that lacks `-Werror`, and names it.
+	- Note: the cast is the only one of libegg's 9 warnings that isn't style. It passes the function an argument it ignores, which every ABI built here allows. Our own code fixed the same kind of cast with wrappers. libegg stays as it came.
+	- Swept: every `override_options`, `-Wno-` and `werror` in the meson files. The only other override is `warning_level=0` on the old SHCL writers, which are test-only and keep `-Werror`. The public style guide's line on vendored warnings.
+	- Verified: 20261019: the full Linux build with `-Werror` has no warnings, and the suite passed 219 of 220. The one failure was rhr6ggmt in a rar row, which passed alone; that's 2026101913111713. The Windows cross build with `-Werror`, 691 steps, and `check-werror.bash` passes on both. blake3 and libegg also build clean with `-Werror` under clang 19 and jammy's gcc 11, and blake3 under gcc 15. rjh7qnxw fails with dev's `check-werror.bash` and passes after.
+	- Branch: vendlint
+	- Commit: 3ae52a5
+
+- Two of blake3's code paths are never tested.
+	- ID: 2026101715252257
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs external testing: rkne1y8a natively on Windows, and in the arm64 lane, where only plain C is built.
+	- Priority|Severity: Avg
+	- Opened: 20261017-152522
+	- Opened by: t00mietum
+	- Target OS: Linux, Windows
+	- Incorrect behavior: blake3 picks plain C, SSE2, SSE4.1 or AVX2 at run time, from what the processor reports. rhd1v448, File checksum test, checks the known answers only through the one the test box picks. That's AVX2 on b23. The arm64 build has plain C only, so that one runs wherever the arm64 suite does. SSE2 and SSE4.1 never run in any test, and an end user on an older x86 processor gets one of them.
+	- Expected behavior: every path in the build gives the known answers, whatever processor the test runs on. A path the processor can't run is skipped, and the test says so.
+	- Possible fix: call each `blake3_hash_many_*` from `blake3_impl.h` directly against the plain C one, or build the test once per path with the others turned off by the `BLAKE3_NO_*` defines.
+	- Test case: rhd1v448, or a new one beside it.
+		- 20261019: rkne1y8a, blake3 routines test.
+	- Decisions:
+		- 20261019: the whole hasher runs through blake3's own dispatcher, told the processor has less than it does, one routine at a time. That reaches the single-block routines and the longer output as well as `blake3_hash_many_*`, and checks them against the published answers rather than against each other.
+		- 20261019: the test reaches the dispatcher by including `blake3_dispatch.c` from a test file, so the vendored file stays as it came. The routine libraries are the app's own. The dispatcher and `blake3.c` are built a second time, with the same flags.
+		- 20261019: a routine that's skipped doesn't skip the test. Plain C always runs, so the test always checks something.
+	- Actual fix: new test rkne1y8a. Each routine the build has, and the processor can run, hashes 16 of blake3's published inputs, 0 to 102400 bytes, in all 3 modes, with 131 bytes of output for the plain hash, and once more fed in 4099-byte pieces. It checks the routine count the dispatcher reports, so a limit that didn't take fails. The rest are named as skipped.
+	- Verified: 20261019: rkne1y8a passes on Linux with all 4 routines on b23, under ASan and UBSan, and under wine from the cross build. A fault in any one routine fails that routine's row. One in SSE4.1 fails AVX2's too, since AVX2 hands its leftover chunks to SSE4.1. rhd1v448 still passes with a fault in SSE2.
+	- Branch: vendlint
+	- Commit: 3ae52a5
+
 - On Windows, the trash icon leaves out removable drives.
 	- ID: 2026100708294146
 	- Type: Bug
@@ -540,82 +658,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A jail per test. On Linux each test runs under bubblewrap inside the container, with the repo and system read-only and a fresh HOME and scratch folder as the only places it can write. The other boxes run tests as their throwaway test user with a fake HOME, and the test library refuses a delete outside the test's scratch folder.
 	- Test case: none yet.
 
-- cppcheck leaves out the vendored C the app is built from.
-	- ID: 2026101715252255
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: Windows. The lint stage under MSYS2 runs its own cppcheck, a newer one, over blake3, libegg and SHCL for the first time.
-	- Priority|Severity: Avg
-	- Opened: 20261017-152522
-	- Opened by: t00mietum
-	- Related IDs: 2026101619020505, 2026101715252256
-	- Target OS: All
-	- Incorrect behavior: `lint-c.bash` skips `vendor/` and `source/cut-n-paste-code/`. So blake3, SHCL and libegg never get the C lint, though all 3 are compiled into the app.
-		- SHCL isn't read through `nemo-config.c` either. cppcheck gets no include paths and `missingInclude` is suppressed, so its implementation is never checked.
-		- The sign-bit shift check, rj9v86cj, skips `source/cut-n-paste-code/`. It greps only `source/`, so it never reaches `vendor/`.
-	- Expected behavior: the correctness checks cover all vendored code that's built into the app. Style checks stay off it, since its style isn't ours to fix.
-		- `vendor/shcl-old/` stays out. It's only built into a test.
-		- A finding in vendored code is suppressed in `.cppcheck-suppressions` with a one-line reason, and a real bug goes to its upstream.
-	- Test case: `lint-c.bash --list-files` on dev names the blake3 and libegg files, and SHCL is checked through `nemo-config.c`. A planted fault in a vendored file fails the gate.
-		- 20261019: rj3ytty2, C lint scope, now expects vendored files on a feature branch, on dev and on main, and no `vendor/shcl-old/`. rj9v86cj, the sign-bit shift check, reads `vendor/`.
-	- Against: 2026092813381407's fix, which kept vendored code out of the whole-tree run.
-	- Decisions:
-		- 20261019: SHCL is checked as `vendor/shcl/shcl.h` on its own, not through `nemo-config.c`. cppcheck tries the `SHCL_IMPLEMENTATION` configuration on it by itself, with and without `_WIN32`. Through `nemo-config.c` it would check nothing, since cppcheck gives up on that file at a GLib macro it can't expand. That's 2026101912561238.
-		- 20261019: everything under `vendor/` and `source/cut-n-paste-code/` is in, apart from `vendor/shcl-old/`. So a new vendored library is checked unless it's left out by name.
-		- 20261019: vendored files go through the same cppcheck run as ours, with `warning` and `portability`. No style check runs on any C here.
-	- Actual fix: `lint-c.bash` hands vendored files to cppcheck, and the sign-bit shift check reads `vendor/` too. blake3 had 2 findings, both false: an array passed on with a count of 0 is never read. They're suppressed by line in `.cppcheck-suppressions`. libegg and SHCL had none. The public style guide says vendored code is checked.
-	- Note: the whole-tree run on dev and main takes about 40 s more, nearly all of it SHCL.
-	- Swept: the other 2 `vendor` exclusions in `lint-c.bash`, `fCheckMintIcons` and `fCheckClickPrimary`, check our own house rules and stay. Every `vendor` mention in the public docs and the cicd scripts.
-	- Verified: 20261019, Linux: a fault in `blake3_portable.c`, `eggtreemultidnd.c` and `shcl.h` each fails the C lint, and passes with dev's `lint-c.bash`. A `1 << 31` in blake3 fails rj9v86cj, and one in `vendor/shcl-old/` doesn't. rj3ytty2 fails with dev's `lint-c.bash` and passes after. The whole-tree run on this branch has no findings. The lint stage passes, apart from rj3ytv0b, which can't pass outside the main clone.
-	- Branch: vendlint
-	- Commit: 3ae52a5
-
-- Vendored C builds with fewer warnings, and never with -Werror.
-	- ID: 2026101715252256
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: the native Windows gate, where MSYS2's gcc builds blake3 and libegg with `-Werror` for the first time. It was gcc 16.1 on 20261005, newer than anything here. The arm64 lane, which builds blake3's plain C path alone, and the FreeBSD lane.
-	- Priority|Severity: Avg
-	- Opened: 20261017-152522
-	- Opened by: t00mietum
-	- Related IDs: 2026101715252255
-	- Target OS: All
-	- Incorrect behavior: blake3 and libegg build with `vendorWarnings` in `source/meson.build`, which is `warning_level=1` and `werror=false`. The -Werror lane never sees a warning in either.
-	- Expected behavior: both build at the project's warning level, -Werror included. A warning that's only about upstream's style is turned off for that library alone in meson, with a one-line reason.
-	- Note: SHCL already builds at the full level, since it's compiled inside `nemo-config.c`.
-	- Test case: `check-werror.bash` also fails when a vendored library in `build.ninja` lacks -Werror.
-		- 20261019: rjh7qnxw, werror check. A `build.ninja` with one library built without `-Werror` among compiles that have it fails, in Linux and Windows quoting, and the message names just that library.
-	- Against: 2026092813381434's decisions of 20261005 that vendored code builds at `-Wall` and its warnings are never fatal. This item reverses both.
-	- Actual fix: `vendorWarnings` is gone from `source/meson.build`. blake3 builds clean at the project's level with nothing turned off. libegg's `meson.build` turns off 3 warnings, each with its reason: unused parameters in GTK callbacks, a `GTypeInfo` filled in by position, and a cast of `gtk_tree_row_reference_free` to `GFunc`. `check-werror.bash` now fails on any C compile in `build.ninja` that lacks `-Werror`, and names it.
-	- Note: the cast is the only one of libegg's 9 warnings that isn't style. It passes the function an argument it ignores, which every ABI built here allows. Our own code fixed the same kind of cast with wrappers. libegg stays as it came.
-	- Swept: every `override_options`, `-Wno-` and `werror` in the meson files. The only other override is `warning_level=0` on the old SHCL writers, which are test-only and keep `-Werror`. The public style guide's line on vendored warnings.
-	- Verified: 20261019: the full Linux build with `-Werror` has no warnings, and the suite passed 219 of 220. The one failure was rhr6ggmt in a rar row, which passed alone; that's 2026101913111713. The Windows cross build with `-Werror`, 691 steps, and `check-werror.bash` passes on both. blake3 and libegg also build clean with `-Werror` under clang 19 and jammy's gcc 11, and blake3 under gcc 15. rjh7qnxw fails with dev's `check-werror.bash` and passes after.
-	- Branch: vendlint
-	- Commit: 3ae52a5
-
-- Two of blake3's code paths are never tested.
-	- ID: 2026101715252257
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: rkne1y8a natively on Windows, and in the arm64 lane, where only plain C is built.
-	- Priority|Severity: Avg
-	- Opened: 20261017-152522
-	- Opened by: t00mietum
-	- Target OS: Linux, Windows
-	- Incorrect behavior: blake3 picks plain C, SSE2, SSE4.1 or AVX2 at run time, from what the processor reports. rhd1v448, File checksum test, checks the known answers only through the one the test box picks. That's AVX2 on b23. The arm64 build has plain C only, so that one runs wherever the arm64 suite does. SSE2 and SSE4.1 never run in any test, and an end user on an older x86 processor gets one of them.
-	- Expected behavior: every path in the build gives the known answers, whatever processor the test runs on. A path the processor can't run is skipped, and the test says so.
-	- Possible fix: call each `blake3_hash_many_*` from `blake3_impl.h` directly against the plain C one, or build the test once per path with the others turned off by the `BLAKE3_NO_*` defines.
-	- Test case: rhd1v448, or a new one beside it.
-		- 20261019: rkne1y8a, blake3 routines test.
-	- Decisions:
-		- 20261019: the whole hasher runs through blake3's own dispatcher, told the processor has less than it does, one routine at a time. That reaches the single-block routines and the longer output as well as `blake3_hash_many_*`, and checks them against the published answers rather than against each other.
-		- 20261019: the test reaches the dispatcher by including `blake3_dispatch.c` from a test file, so the vendored file stays as it came. The routine libraries are the app's own. The dispatcher and `blake3.c` are built a second time, with the same flags.
-		- 20261019: a routine that's skipped doesn't skip the test. Plain C always runs, so the test always checks something.
-	- Actual fix: new test rkne1y8a. Each routine the build has, and the processor can run, hashes 16 of blake3's published inputs, 0 to 102400 bytes, in all 3 modes, with 131 bytes of output for the plain hash, and once more fed in 4099-byte pieces. It checks the routine count the dispatcher reports, so a limit that didn't take fails. The rest are named as skipped.
-	- Verified: 20261019: rkne1y8a passes on Linux with all 4 routines on b23, under ASan and UBSan, and under wine from the cross build. A fault in any one routine fails that routine's row. One in SSE4.1 fails AVX2's too, since AVX2 hands its leftover chunks to SSE4.1. rhd1v448 still passes with a fault in SSE2.
-	- Branch: vendlint
-	- Commit: 3ae52a5
-
 - cppcheck gives up on 34 C files at a GLib macro it can't expand, and says nothing.
 	- ID: 2026101912561238
 	- Type: Bug
@@ -629,99 +671,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: every C file is checked all the way through, and `unknownMacro` is left on, so a new one fails the gate.
 	- Possible fix: give the missing macros values in `.cppcheck-defines.cfg`. A first try with 13 of them still left 6 files stopped on others, and turned up 17 findings in the rest, most of them leaks in tests.
 	- Test case: none yet.
-
-- rhr6ggmt can lose both links from a rar archive on Linux.
-	- ID: 2026101913111713
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261019-131117
-	- Opened by: t00mietum
-	- Target OS: Linux
-	- Incorrect behavior: in one full suite run on 20261019, rhr6ggmt failed one rar row with a password and links kept: `all.rar` listed `twin1.bin twin2.bin a.txt big.bin`, without `dir-link` and `file-link`. It passed alone right after. The box was loaded.
-	- Possible cause: the same libarchive limit as 2026101310525452, on a link target of 128 bytes or more, if a target there is still a whole path. Not looked into.
-	- Test case: rhr6ggmt.
-
-- The sanitizer lane hides third-party leaks that end users can hit.
-	- ID: 2026101715252258
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs external testing: the pipeline's sanitizer stage, once `nemo-build` has the 2 debug symbol packages `Dockerfile.dev` now installs. Until then the lane stops at its first step and says which is missing.
-	- Priority|Severity: Avg
-	- Opened: 20261017-152522
-	- Opened by: t00mietum
-	- Related IDs: 2026101619020505
-	- Target OS: Linux
-	- Incorrect behavior:
-		- `sanitizers.supp` drops every leak in `libfontconfig.so.1`, by library. The Windows bundle has fontconfig in it, and a leak there that grows with use would never show.
-		- `test-sanitizers.bash` turns GTK's animations off for the whole suite, to get past one GTK leak in `gtk_css_value_calc_multiply`. End users have animations on. So nothing on GTK's animated path is leak-checked, and the vendored widget themes' transitions never run in the lane.
-		- rffvm2bg, Search content test, sets `ASAN_OPTIONS=detect_leaks=0` in `source/test/meson.build`, because GTK's own leaks would drown it. In the sanitizer lane that replaces the lane's own setting, so the test runs with no leak check. There's no backlog ID beside it, which the rule at the top of `sanitizers.supp` asks for.
-	- Expected behavior: a suppression names the function that leaks, not the library, with a one-line reason. It only covers something kept for the life of the process, such as a cache.
-		- The GTK leak is suppressed by its function and reported upstream, and animations stay on.
-		- rffvm2bg runs with leak checks on, or its opt-out gets its own backlog item.
-		- Mesa can stay suppressed by library. It isn't in any package, it's the user's own driver.
-	- Note: the lane keeps its stacks short on purpose. Check that a match by function name still works with them before relying on it.
-	- Reproduced: 20261019. With the fontconfig entry taken out, 38 tests failed on fontconfig blocks. With animations on, the GTK leak showed in 3 tests, and its stack stopped at `g_malloc`.
-	- Actual cause:
-		- fontconfig points from a pattern to its entries by an offset, not a pointer. So the leak check takes the entries of every live pattern as lost, and the entry for the whole library hid that.
-		- A match by function needs the function's name. Debian's fontconfig and GTK have no symbols for their inner functions, and GLib and GTK have no frame pointers, so a short stack ends at `g_malloc`.
-		- GTK 3.24 drops a CSS value each time a transition starts from a value still on its way: `gtk_css_calc_array_add` writes over an entry without dropping its ref. Still there on GTK's `gtk-3-24` branch.
-		- rffvm2bg and the 12 fuzz corpus tests set their own `ASAN_OPTIONS` in meson, which replaced the lane's.
-	- Actual fix:
-		- fontconfig is matched by `FcPatternObjectInsertElt`, which makes the entries. A pattern that is really lost still shows, from `FcPatternCreate`.
-		- `Dockerfile.dev` installs the debug symbols for fontconfig and GTK. The lane stops first when they're missing.
-		- The GTK leak is matched by `gtk_css_value_calc_multiply`. The one-line upstream note is in `sanitizers.supp`.
-		- rffvm2bg and the fuzz corpus tests turn leak checks off only in a build without ASan everywhere, so in the lane they run with its leak checks.
-		- Mesa stays matched by library.
-	- Decisions:
-		- Animations stay off in the lane apart from rkneye51. GTK's function only shows on a whole stack, and with whole stacks across the suite 3 timed tests failed on time (rk96k9va, rkbdyne7, rg3wt7d9) and the run took about 3 times as long. rkneye51 runs with animations on and whole stacks, through GTK's theme and the 8 vendored ones, and there the GTK leak shows and is matched.
-		- Options for animations on in the whole lane: rerun a test that failed only on a leak with whole stacks, which lets a leak that comes and goes pass on the rerun, or whole stacks with longer limits on the timed tests.
-		- Left at signoff for that call.
-	- Swept: every entry in `sanitizers.supp`, and every `ASAN_OPTIONS` in meson. Twin found: the 12 fuzz corpus tests in `source/fuzz/meson.build` had the same override as rffvm2bg. rge1srj8 adds its options to the lane's, so it was left alone.
-	- Branch: leakfix
-	- Commit: 00795c30
-	- Test case: rkneye51, the lane's own check. With animations on it has to come back clean, then find a pattern dropped on fontconfig's path and strings dropped by an animated widget's frame callback. rjfgk2mp stops when the debug symbols are missing.
-	- Verified: 20261019, the whole lane passed in a container with the debug symbols, 208 OK, 0 failed, 15 skipped. rkneye51 failed with the old library entry for fontconfig, with a library entry for GTK, and with no GTK entry, each at the check meant to catch it. The lane stopped with its message when fontconfig's debug file was moved away.
-	- Verified: 20261019, rffvm2bg and the fuzz corpus tests pass in the lane with its leak checks on.
-
-- The heap growth tests don't repeat what the vendored code does.
-	- ID: 2026101715252259
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261017-152522
-	- Opened by: t00mietum
-	- Related IDs: 2026101715252260
-	- Target OS: Linux
-	- Incorrect behavior: the leak tests in `test-nemo-leaks.c` repeat jobs, the clipboard, bookmarks, search and archives. None repeats a settings save and live reload through SHCL, a checksum through blake3, or a multi-row drag through libegg. LeakSanitizer only sees what's still held at exit, so something in any of the 3 that grows with use isn't caught.
-	- Expected behavior: a leak test for each. Change a setting and reload the file, checksum a file, and start and cancel a multi-row drag.
-	- Actual fix: 3 new cases in `test-nemo-leaks.c`.
-		- Settings: a value changed in the app and saved, then the file edited by hand and read back while it runs.
-		- Checksum: a file of a meg and a bit, checksummed as a thumbnail read does, and checked against the checksum of the same bytes in memory.
-		- Drag: 3 list rows dragged, the files asked for once through libegg's interface on the list model, then the drag stopped as with Escape. The list view's drag handlers are static, so the test's own do the same steps.
-		- Only GLib, GTK and our own calls, so the Windows heap work in 2026101715252260 can take them as they are. The drag asks for the files the way a drop target in the same program would.
-	- Branch: leakfix
-	- Commit: 00795c30
-	- Test case: rkneydx6 (settings), rkneydzr (checksum), rkneye2c (drag).
-	- Verified: 20261019, all 3 pass in the plain build. Each failed with a block leaked per call planted in the vendored code: in SHCL's parser, in blake3's finalize, and in libegg's data call.
-	- Acceptance signoff: Self-closed: the item asked for these 3 cases, and each fails on a planted leak in its vendored code.
-	- Closed: 20261019-132554
-
-- GTK leaks a string each time the app hands a theme setting back to the platform.
-	- ID: 2026101913054900
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261019-130549
-	- Opened by: t00mietum
-	- Related IDs: 2026101715252258
-	- Target OS: All
-	- Incorrect behavior: `gtk_settings_reset_property` in GTK 3.24 never frees the value it reads back, when a settings.ini named that setting. `platform_theme_name` in `nemo-appearance.c` calls it when the theme setting goes back to following the platform. The Windows bundle's settings.ini names its theme, so it should leak a theme name there on each such change. Not tried on Windows. Still there on GTK's `gtk-3-24` branch.
-	- Expected behavior: no leak on a reset, or no reset. Upstream: GNOME's GTK issue tracker, `gtk-3-24` branch.
-	- Reproduced: 20261019, repkeg1g in the sanitizer lane, 11 bytes from `_gtk_settings_parse_convert` under `gtk_settings_reset_property`.
-	- Decisions:
-		- repkeg1g runs with leak checks off in the lane until this is fixed, with this ID beside it in meson.
-	- Test case: repkeg1g in the sanitizer lane, with its leak checks back on.
 
 - No leak check runs on Windows.
 	- ID: 2026101715252260
@@ -945,6 +894,34 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Both are in `--help`.
 	- Estimated effort: Low
 	- Test case: a pipeline option test that checks each flag, and both together in either order.
+
+- rhr6ggmt can lose both links from a rar archive on Linux.
+	- ID: 2026101913111713
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261019-131117
+	- Opened by: t00mietum
+	- Target OS: Linux
+	- Incorrect behavior: in one full suite run on 20261019, rhr6ggmt failed one rar row with a password and links kept: `all.rar` listed `twin1.bin twin2.bin a.txt big.bin`, without `dir-link` and `file-link`. It passed alone right after. The box was loaded.
+	- Possible cause: the same libarchive limit as 2026101310525452, on a link target of 128 bytes or more, if a target there is still a whole path. Not looked into.
+	- Test case: rhr6ggmt.
+
+- GTK leaks a string each time the app hands a theme setting back to the platform.
+	- ID: 2026101913054900
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261019-130549
+	- Opened by: t00mietum
+	- Related IDs: 2026101715252258
+	- Target OS: All
+	- Incorrect behavior: `gtk_settings_reset_property` in GTK 3.24 never frees the value it reads back, when a settings.ini named that setting. `platform_theme_name` in `nemo-appearance.c` calls it when the theme setting goes back to following the platform. The Windows bundle's settings.ini names its theme, so it should leak a theme name there on each such change. Not tried on Windows. Still there on GTK's `gtk-3-24` branch.
+	- Expected behavior: no leak on a reset, or no reset. Upstream: GNOME's GTK issue tracker, `gtk-3-24` branch.
+	- Reproduced: 20261019, repkeg1g in the sanitizer lane, 11 bytes from `_gtk_settings_parse_convert` under `gtk_settings_reset_property`.
+	- Decisions:
+		- repkeg1g runs with leak checks off in the lane until this is fixed, with this ID beside it in meson.
+	- Test case: repkeg1g in the sanitizer lane, with its leak checks back on.
 
 - rk96k9va fails in the sanitizer lane on a loaded box.
 	- ID: 2026101613310525
@@ -1217,6 +1194,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. rj043mnp covers it.
 	- Closed: 20261003-112426
+
+- The heap growth tests don't repeat what the vendored code does.
+	- ID: 2026101715252259
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261017-152522
+	- Opened by: t00mietum
+	- Related IDs: 2026101715252260
+	- Target OS: Linux
+	- Incorrect behavior: the leak tests in `test-nemo-leaks.c` repeat jobs, the clipboard, bookmarks, search and archives. None repeats a settings save and live reload through SHCL, a checksum through blake3, or a multi-row drag through libegg. LeakSanitizer only sees what's still held at exit, so something in any of the 3 that grows with use isn't caught.
+	- Expected behavior: a leak test for each. Change a setting and reload the file, checksum a file, and start and cancel a multi-row drag.
+	- Actual fix: 3 new cases in `test-nemo-leaks.c`.
+		- Settings: a value changed in the app and saved, then the file edited by hand and read back while it runs.
+		- Checksum: a file of a meg and a bit, checksummed as a thumbnail read does, and checked against the checksum of the same bytes in memory.
+		- Drag: 3 list rows dragged, the files asked for once through libegg's interface on the list model, then the drag stopped as with Escape. The list view's drag handlers are static, so the test's own do the same steps.
+		- Only GLib, GTK and our own calls, so the Windows heap work in 2026101715252260 can take them as they are. The drag asks for the files the way a drop target in the same program would.
+	- Branch: leakfix
+	- Commit: 00795c30
+	- Test case: rkneydx6 (settings), rkneydzr (checksum), rkneye2c (drag).
+	- Verified: 20261019, all 3 pass in the plain build. Each failed with a block leaked per call planted in the vendored code: in SHCL's parser, in blake3's finalize, and in libegg's data call.
+	- Acceptance signoff: Self-closed: the item asked for these 3 cases, and each fails on a planted leak in its vendored code.
+	- Closed: 20261019-132554
 
 - Sort attribute is not remembered when switching to thumbnail view.
 	- ID: 2026101613053691
