@@ -50,7 +50,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The separate highlight and selection is causing too many problems. Need to rethink how to multi-select with keyboard without the "selection", or do without it.
 	- ID: 2026101816495208
 	- Type: Enhancement
-	- Status: Waiting for answers
+	- Status: Answered
+		- Let's test three models. Possibly options in a radio switch in settings:
+			- The current model.
+			- The Explorer model.
+			- The "checkbox" model, where clicking on a file with the mouse, places a gray checkmark next to it.
+				- But not just moving over it with the keyboard.
+				- Pressing Space on a selected line, checks or unchecks it.
+				- With multiple files selected, pressing Space selects or unselects all (which action depends on which in the selection has the most: checked or unchecked. On a 50/50 split, uncheck them.
 	- Priority|Severity: Avg
 	- Opened: 20261018-164952
 	- Opened by: t00mietum
@@ -637,6 +644,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Before the next cut.
 	- Test case: none yet.
 
+- Builds clean up stale artifacts and side-effects.
+	- ID: 2026101910075400
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261019-100754
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+		- Verify or ensure that builds clean up stale artifacts and side-effects when done: caches, container cruft, tmp files, etc.
+	- Test case: none yet.
+
 - Settings: sub-tabs don't list on the left until the parent tab is activated.
 	- ID: 2026101417352262
 	- Type: Enhancement
@@ -804,6 +823,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- Before the next cut.
 	- Test case: none yet.
+
+- cicd.bash gets `--leakcheck` and `--no-leakcheck`.
+	- ID: 2026101911105600
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261019-111056
+	- Opened by: t00mietum
+	- Parent ID: 2026101619020505
+	- Requirements:
+		- `--leakcheck` turns the slow checks on. It's the way to add them back under `--quick`.
+		- `--no-leakcheck` turns them off. It's the way to leave them out of a default run, or one with `--quiet`.
+		- The last one on the command line wins.
+		- Both are in `--help`.
+	- Estimated effort: Low
+	- Test case: a pipeline option test that checks each flag, and both together in either order.
 
 - rk96k9va fails in the sanitizer lane on a loaded box.
 	- ID: 2026101613310525
