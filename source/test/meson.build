@@ -1549,6 +1549,21 @@ if not is_windows
     timeout: 180
   )
 
+  # Preloaded too; it sorts and moves between views from inside the program.
+  sort_views_probe = shared_module('test-nemo-sort-views-probe',
+    [ 'test-nemo-sort-views-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('rkmsgtfz List and icon views share a sort test',
+    executable('test-nemo-sort-views',
+      [ 'test-nemo-sort-views.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, sort_views_probe ],
+    timeout: 180
+  )
+
   # Preloaded too; it searches, picks a view and leaves from inside the program.
   find_view_probe = shared_module('test-nemo-find-view-probe',
     [ 'test-nemo-find-view-probe.c' ],

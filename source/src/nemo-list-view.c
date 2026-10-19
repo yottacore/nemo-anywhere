@@ -469,34 +469,7 @@ string_array_from_string_glist (GList *list)
 static const gchar*
 get_default_sort_order (NemoFile *file, gboolean *reversed)
 {
-	NemoFileSortType default_sort_order;
-	gboolean default_sort_reversed;
-	const gchar *retval;
-	const char *attributes[] = {
-		"name", /* is really "manually" which doesn't apply to lists */
-		"name",
-		"size",
-		"type",
-		"detailed_type",
-		"date_modified",
-		"date_accessed",
-		"trashed_on",
-		NULL
-	};
-
-	retval = nemo_file_get_default_sort_attribute (file, reversed);
-
-	if (retval == NULL) {
-		default_sort_order = nemo_config_get_enum (nemo_preferences,
-							  NEMO_PREFERENCES_DEFAULT_SORT_ORDER);
-		default_sort_reversed = nemo_config_get_boolean (nemo_preferences,
-								NEMO_PREFERENCES_DEFAULT_SORT_IN_REVERSE_ORDER);
-
-		retval = attributes[default_sort_order];
-		*reversed = default_sort_reversed;
-	}
-
-	return retval;
+	return nemo_folder_settings_default_sort_column (file, reversed);
 }
 
 static void
@@ -2414,7 +2387,6 @@ sort_column_changed_callback (GtkTreeSortable *sortable,
 	gint sort_column_id, default_sort_column_id;
 	GtkSortType reversed;
 	GQuark sort_attr, default_sort_attr;
-	char *reversed_attr, *default_reversed_attr;
 	gboolean default_sort_reversed;
 
 	file = nemo_view_get_directory_as_file (NEMO_VIEW (view));
@@ -2434,12 +2406,9 @@ sort_column_changed_callback (GtkTreeSortable *sortable,
                 nemo_window_set_ignore_meta_sort_column (nemo_view_get_nemo_window (NEMO_VIEW (view)),
                                                          g_quark_to_string (sort_attr));
             } else {
-                nemo_folder_settings_set (file, NEMO_METADATA_KEY_LIST_VIEW_SORT_COLUMN,
-                                          g_quark_to_string (default_sort_attr), g_quark_to_string (sort_attr));
+                nemo_folder_settings_set_sort_column (file, g_quark_to_string (sort_attr));
             }
         }
-
-	default_reversed_attr = (default_sort_reversed ? (char *)"true" : (char *)"false");
 
 	if (view->details->last_sort_attr != sort_attr &&
 	    sort_criterion_changes_due_to_user (view->details->tree_view)) {
@@ -2470,9 +2439,7 @@ sort_column_changed_callback (GtkTreeSortable *sortable,
         nemo_window_set_ignore_meta_sort_direction (nemo_view_get_nemo_window (NEMO_VIEW (view)),
                                                     reversed ? SORT_DESCENDING : SORT_ASCENDING);
     } else {
-        reversed_attr = (reversed ? (char *)"true" : (char *)"false");
-        nemo_folder_settings_set (file, NEMO_METADATA_KEY_LIST_VIEW_SORT_REVERSED,
-                                  default_reversed_attr, reversed_attr);
+        nemo_folder_settings_set_sort_reversed (file, reversed == GTK_SORT_DESCENDING);
     }
 
 	/* Make sure selected item(s) is visible after sort */
@@ -4844,12 +4811,8 @@ set_sort_order_from_metadata_and_preferences (NemoListView *list_view)
             sort_attribute = g_strdup (nemo_window_get_ignore_meta_sort_column (nemo_view_get_nemo_window (NEMO_VIEW (list_view))));
             sort_reversed = dir > SORT_NULL ? dir == SORT_DESCENDING : default_sort_reversed;
         } else {
-            sort_attribute = nemo_folder_settings_get (file,
-                                                       NEMO_METADATA_KEY_LIST_VIEW_SORT_COLUMN,
-                                                       NULL);
-            sort_reversed = nemo_folder_settings_get_boolean (file,
-                                                              NEMO_METADATA_KEY_LIST_VIEW_SORT_REVERSED,
-                                                              default_sort_reversed);
+            sort_attribute = nemo_folder_settings_get_sort_column (file);
+            sort_reversed = nemo_folder_settings_get_sort_reversed (file, default_sort_reversed);
         }
 	sort_column_id = nemo_list_model_get_sort_column_id_from_attribute (list_view->details->model,
 									  g_quark_from_string (sort_attribute));

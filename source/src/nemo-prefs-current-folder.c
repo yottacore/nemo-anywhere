@@ -77,20 +77,19 @@ static const char * const view_iids[] = {
 	NEMO_COMPACT_VIEW_IID,
 };
 
-/* One row of "Arrange items" in each of the forms it is stored in. Icon view
- * has no sort by access time. */
+/* One row of "Arrange items" as the setting names it and as a folder keeps
+ * it, which is a list column whatever the view. */
 static const struct {
 	const char *preference;
-	const char *icon_view;
 	const char *list_view;
 } arrange_rows[] = {
-	{ "name", "name", "name" },
-	{ "size", "size", "size" },
-	{ "type", "type", "type" },
-	{ "detailed_type", "detailed_type", "detailed_type" },
-	{ "mtime", "modification date", "date_modified" },
-	{ "atime", NULL, "date_accessed" },
-	{ "trash-time", "trashed", "trashed_on" },
+	{ "name", "name" },
+	{ "size", "size" },
+	{ "type", "type" },
+	{ "detailed_type", "detailed_type" },
+	{ "mtime", "date_modified" },
+	{ "atime", "date_accessed" },
+	{ "trash-time", "trashed_on" },
 };
 
 typedef struct {
@@ -249,14 +248,6 @@ set_widget_value (GtkWidget *widget, int value)
 	}
 }
 
-/* "Arrange items" and "Reverse sort" are stored once per view type, so show
- * the pair the folder's own view type uses. */
-static gboolean
-folder_uses_list_view (CurrentTab *tab)
-{
-	return widget_value (tab->current[FIELD_VIEW]) == view_index (NEMO_LIST_VIEW_IID, -1);
-}
-
 static int
 folder_value (CurrentTab *tab, int field)
 {
@@ -274,29 +265,17 @@ folder_value (CurrentTab *tab, int field)
 
 	case FIELD_ARRANGE:
 		result = fallback;
-		if (folder_uses_list_view (tab)) {
-			value = nemo_folder_settings_get (tab->folder, NEMO_METADATA_KEY_LIST_VIEW_SORT_COLUMN, NULL);
-			for (i = 0; value != NULL && i < G_N_ELEMENTS (arrange_rows); i++) {
-				if (g_strcmp0 (arrange_rows[i].list_view, value) == 0) {
-					result = i;
-				}
-			}
-		} else {
-			value = nemo_folder_settings_get (tab->folder, NEMO_METADATA_KEY_ICON_VIEW_SORT_BY, NULL);
-			for (i = 0; value != NULL && i < G_N_ELEMENTS (arrange_rows); i++) {
-				if (g_strcmp0 (arrange_rows[i].icon_view, value) == 0) {
-					result = i;
-				}
+		value = nemo_folder_settings_get_sort_column (tab->folder);
+		for (i = 0; value != NULL && i < G_N_ELEMENTS (arrange_rows); i++) {
+			if (g_strcmp0 (arrange_rows[i].list_view, value) == 0) {
+				result = i;
 			}
 		}
 		g_free (value);
 		return result;
 
 	case FIELD_REVERSE:
-		return nemo_folder_settings_get_boolean (tab->folder,
-							 folder_uses_list_view (tab) ? NEMO_METADATA_KEY_LIST_VIEW_SORT_REVERSED
-										     : NEMO_METADATA_KEY_ICON_VIEW_SORT_REVERSED,
-							 fallback);
+		return nemo_folder_settings_get_sort_reversed (tab->folder, fallback);
 
 	case FIELD_ICON_ZOOM:
 	case FIELD_ICON_IMAGE_ZOOM:
@@ -344,7 +323,6 @@ refresh (CurrentTab *tab)
 	gtk_widget_set_sensitive (tab->current_page, remembering () && tab->folder != NULL);
 
 	tab->syncing = TRUE;
-	/* the view comes first, since the sort fields read it back */
 	for (field = 0; field < N_FIELDS; field++) {
 		set_widget_value (tab->current[field], folder_value (tab, field));
 	}
@@ -408,21 +386,11 @@ save_fields (CurrentTab *tab, guint fields)
 			break;
 
 		case FIELD_ARRANGE:
-			if (arrange_rows[value].icon_view != NULL) {
-				nemo_folder_settings_set (tab->folder, NEMO_METADATA_KEY_ICON_VIEW_SORT_BY,
-							  arrange_rows[fallback].icon_view,
-							  arrange_rows[value].icon_view);
-			}
-			nemo_folder_settings_set (tab->folder, NEMO_METADATA_KEY_LIST_VIEW_SORT_COLUMN,
-						  arrange_rows[fallback].list_view,
-						  arrange_rows[value].list_view);
+			nemo_folder_settings_set_sort_column (tab->folder, arrange_rows[value].list_view);
 			break;
 
 		case FIELD_REVERSE:
-			nemo_folder_settings_set_boolean (tab->folder, NEMO_METADATA_KEY_ICON_VIEW_SORT_REVERSED,
-							  fallback, value);
-			nemo_folder_settings_set_boolean (tab->folder, NEMO_METADATA_KEY_LIST_VIEW_SORT_REVERSED,
-							  fallback, value);
+			nemo_folder_settings_set_sort_reversed (tab->folder, value);
 			break;
 
 		case FIELD_ICON_ZOOM:
@@ -457,11 +425,6 @@ current_field_changed (GtkWidget *widget, CurrentTab *tab)
 		if (tab->current[field] == widget) {
 			save_fields (tab, 1u << field);
 		}
-	}
-
-	/* the sort pair on show depends on the view type */
-	if (widget == tab->current[FIELD_VIEW]) {
-		refresh (tab);
 	}
 }
 

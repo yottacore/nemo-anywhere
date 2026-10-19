@@ -282,6 +282,60 @@ main (int argc, char *argv[])
 		g_free (gallery_path);
 	}
 
+	/* One sort for every view, kept as a list column. An icon view sort saved
+	 * before that still reads, and the first change moves it over, so it
+	 * can't come back from under a new one that is the default. */
+	{
+		char *sorted_path = make_dir (dir, "sorted");
+		char *child_path = make_dir (dir, "sorted/child");
+		NemoFile *sorted = folder_for (sorted_path);
+		NemoFile *child = folder_for (child_path);
+		char *column, *uri;
+
+		check (g_strcmp0 (nemo_folder_settings_icon_sort_for_column ("date_modified"), "modification date") == 0);
+		check (g_strcmp0 (nemo_folder_settings_column_for_icon_sort ("trashed"), "trashed_on") == 0);
+		check (nemo_folder_settings_icon_sort_for_column ("owner") == NULL);
+		check (g_strcmp0 (nemo_folder_settings_default_sort_column (sorted, NULL), "name") == 0);
+
+		uri = nemo_file_get_uri (sorted);
+		nemo_metadata_store_set_string (uri, NEMO_METADATA_KEY_ICON_VIEW_SORT_BY, "size");
+		nemo_metadata_store_set_string (uri, NEMO_METADATA_KEY_ICON_VIEW_SORT_REVERSED, "true");
+		column = nemo_folder_settings_get_sort_column (child);
+		check (g_strcmp0 (column, "size") == 0);
+		g_free (column);
+		check (nemo_folder_settings_get_sort_reversed (child, FALSE));
+
+		/* Loading writes back what is in use, which saves nothing. */
+		nemo_folder_settings_set_sort_column (child, "size");
+		nemo_folder_settings_set_sort_reversed (child, TRUE);
+		check (!nemo_folder_settings_has_own (child));
+
+		nemo_folder_settings_set_sort_column (sorted, "name");
+		column = nemo_folder_settings_get_sort_column (child);
+		check (column == NULL);
+		g_free (column);
+		check (nemo_folder_settings_get_sort_reversed (child, FALSE));
+		column = nemo_metadata_store_get_string (uri, NEMO_METADATA_KEY_ICON_VIEW_SORT_BY);
+		check (column == NULL);
+		g_free (column);
+
+		nemo_folder_settings_set_sort_column (child, "date_modified");
+		check (nemo_folder_settings_has_own (child));
+		column = nemo_folder_settings_get_sort_column (sorted);
+		check (column == NULL);
+		g_free (column);
+
+		nemo_folder_settings_forget_sort (child);
+		check (nemo_folder_settings_get_sort_column (child) == NULL);
+		check (!nemo_folder_settings_get_sort_reversed (child, FALSE));
+
+		g_free (uri);
+		nemo_file_unref (sorted);
+		nemo_file_unref (child);
+		g_free (sorted_path);
+		g_free (child_path);
+	}
+
 	/* A set saved before the marker existed still counts. */
 	{
 		char *uri = nemo_file_get_uri (other);

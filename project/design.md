@@ -345,6 +345,8 @@ Per-folder view state - view mode, zoom, sort column, column layout - is app-own
 
 - A folder's settings are kept as one set: view type, sort and reverse, folders and favorites first, the zoom of each view, text beside icons, same-width columns, folder expanders and the list columns. With inheriting on, a folder with no set of its own uses the nearest parent's, else the defaults. A change in such a folder copies the set it was using first, so the rest doesn't jump back to the defaults. A small marker is saved with the set, so a set whose values all match the defaults still counts.
 
+- The list and icon views share one sort, kept as a list column and its direction, so switching views or opening a picture folder that turns to icons keeps it. The icon view sorts by fewer things. A list sorted by a column it lacks, such as owner, shows icons by name and keeps the column for the list. With remembering off the window holds the one sort for every folder in it, and find results keep their own.
+
 - Opening a folder saves nothing. The views write their settings back as a folder loads, and a write that matches what the folder already uses is dropped.
 
 - The Current tab on the Views page shows the set for the folder in the last focused window, applies a change to that window at once, and can forget the set. The Default tab edits the defaults. Each has a button that copies to the other.

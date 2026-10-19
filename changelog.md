@@ -76,6 +76,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - A Windows shortcut to a folder sorts with the folders when folders come first.
 
+- The list and icon views share one sort. A list sorted by size shows its icons by size too, and so does a picture folder opened from it, which turns to icons by itself.
+
 - Ctrl+Shift+T opens a new tab when no folder is selected. With folders selected it opens them in new tabs, as before, and a selected file no longer opens in its program.
 
 - "Make symlink" is now "Make link...", and asks what to make. Folders get a junction or a symlink on Windows, files a symlink or a hardlink, and either can be a Windows `.lnk` shortcut, called a Shortcut there. A symlink's path can be relative or absolute. A hardlink asks once more first, saying what can go wrong with one. Every open starts from the defaults: a junction for folders on Windows, else a symlink, and an absolute path. On Windows without the symlink privilege the item stays on, since a junction, a hardlink and a shortcut need none. A shortcut can hold an absolute path, a relative one and a portable one with a Windows variable such as `%USERPROFILE%` in it, all three to start with, and is followed by the first that works. Windows follows a shortcut made on another platform through its portable path, and a target on a Windows share keeps its `\\server\share` path there. Nemo Anywhere follows any of them, on any platform. A drop that makes links opens the same dialog, in place of the drop question. A link made beside its original is named for its kind, such as "photo - symlink.jpg" or "photo.jpg - shortcut.lnk", and one made in another folder keeps the original's name.
