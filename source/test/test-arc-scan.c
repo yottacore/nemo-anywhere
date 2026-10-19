@@ -938,6 +938,11 @@ list_of (ArcLinkChoice symlinks,
 	fake_reset (NULL);
 	list = arc_scan_list (&fake_host, root, paths, &links, stores, made_up_mounts (), NULL, NULL, NULL);
 	g_free (sel);
+	/* NULL only when cancelled, and nothing can cancel this. Every check
+	   after it reads the list. */
+	if (list == NULL) {
+		g_error ("arc_scan_list gave no list");
+	}
 	return list;
 }
 
@@ -962,7 +967,6 @@ check_list (void)
 	gsize i;
 
 	list = list_of (ARC_LINK_IGNORE, FALSE, library);
-	check (list != NULL);
 	check (item_named (list, "sel/a.bin") != NULL && item_named (list, "sel/a.bin")->kind == ARC_ITEM_FILE);
 	check (item_named (list, "sel/sub/deeper/c.bin") != NULL);
 	check (item_named (list, "sel/shortcut.lnk") != NULL);
@@ -982,7 +986,6 @@ check_list (void)
 	arc_scan_list_free (list);
 
 	list = list_of (ARC_LINK_STORE_SYMLINK, TRUE, library);
-	check (list != NULL);
 	for (i = 0; i < G_N_ELEMENTS (symlinks); i++) {
 		char *name = g_strconcat ("sel/", symlinks[i], NULL);
 
@@ -1008,7 +1011,6 @@ check_list (void)
 	arc_scan_list_free (list);
 
 	list = list_of (ARC_LINK_FOLLOW, TRUE, library);
-	check (list != NULL);
 	if (link_made ("flink")) {
 		char *real = at ("outside/f.bin");
 

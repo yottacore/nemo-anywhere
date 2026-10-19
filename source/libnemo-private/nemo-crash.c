@@ -255,7 +255,8 @@ sweep_old_reports (void)
 	if (g_strcmp0 (seen, newest) != 0) {
 		g_message ("An earlier run stopped unexpectedly. Its report is in %s",
 			   report_dir);
-		g_file_set_contents (marker, newest, -1, NULL);
+		/* Not written means it's said once more next start. */
+		(void) g_file_set_contents (marker, newest, -1, NULL);
 	}
 
 	for (i = 0; reports->len - i > CRASH_KEEP_REPORTS; i++) {

@@ -1332,6 +1332,7 @@ take_outgoing_locked (void)
 
 		g_variant_builder_add (&changes, "(sxb@aay)", path, key_stamps[key_index (k)].when,
 		                       v->present,
+		                       /* cppcheck-suppress leakNoVarFunctionCall ; the builder sinks the floating array */
 		                       g_variant_new_bytestring_array ((const char *const *) v->values,
 		                                                       v->present ? -1 : 0));
 		g_free (path);
@@ -1778,6 +1779,7 @@ emit_changed (const char *group, const char *key)
 		c->key   = g_strdup (key);
 		g_idle_add_full (G_PRIORITY_DEFAULT, emit_changed_idle, c,
 		                 emit_changed_idle_free);
+		/* cppcheck-suppress memleak ; the idle owns c, and emit_changed_idle_free frees it */
 	}
 }
 

@@ -1551,6 +1551,60 @@ if ((! listOnly)) && ! command -v cppcheck >/dev/null 2>&1; then
 	exit 0
 fi
 
+## The suppression list is in .cppcheck-suppressions at the repo root, with the
+## reason for each one written beside it. --inline-suppr stays for the handful
+## that belong to a single line rather than a whole file.
+## unix64 on every host: G_GINT64_FORMAT and friends are written as Linux has
+## them, so under MSYS2's own win64 every one of them read as a wrong printf
+## type. The compiler checks the real formats on Windows. .cppcheck-macros.h
+## has the macros it cannot see.
+cppcheckArgs=('--enable=warning,portability' --platform=unix64 --library=gtk --include=.cppcheck-macros.h
+	--inline-suppr --suppressions-list=.cppcheck-suppressions)
+if ((! listOnly)); then
+	mkdir -p cicd/artifacts
+	cacheDir="$(mktemp -d cicd/artifacts/cppcheck.XXXXXX)"
+fi
+
+## cppcheck gives up on a whole file at the first macro it doesn't know between
+## two strings, says unknownMacro, and checks nothing else in it. With that
+## suppressed, 40 files went unchecked past it until 20261019. So: a leak after
+## the macros we define has to be found, and a macro nobody defines has to fail.
+## Test ID: rknjb8dk
+fCheckMacroCanary(){
+	local dir="${cacheDir}/canary" got
+
+	mkdir -p "$dir"
+	cat > "${dir}/known.c" <<-'EOF'
+		#include <stdlib.h>
+		static const char *const names[] = {
+			"%" G_GINT64_FORMAT "\n", "%" G_GSIZE_FORMAT "\n", "a" G_DIR_SEPARATOR_S "b",
+			"standard::type," G_FILE_ATTRIBUTE_STANDARD_NAME ",", "a" NEMO_APP_SLUG ".desktop",
+			"Nemo Anywhere " NEMO_VERSION_STRING "\n",
+		};
+		char canary (void)
+		{
+			char *leaked = malloc (16);
+			return names[0][0];
+		}
+	EOF
+	cat > "${dir}/unknown.c" <<-'EOF'
+		static const char *const name = "a" NEMO_LINT_CANARY_NOWHERE "b";
+	EOF
+	got="$(cppcheck "${cppcheckArgs[@]}" --quiet --template='{id}' "${dir}/known.c" 2>&1 || true)"
+	if ! grep -qx 'memleak' <<<"$got"; then
+		fEcho "FAIL: cppcheck stops short of a leak after the macros in .cppcheck-macros.h"
+		printf '%s\n' "$got"
+		exit 2
+	fi
+	got="$(cppcheck "${cppcheckArgs[@]}" --quiet --template='{id}' "${dir}/unknown.c" 2>&1 || true)"
+	if ! grep -qx 'unknownMacro' <<<"$got"; then
+		fEcho "FAIL: cppcheck says nothing about a macro it can't expand; is unknownMacro suppressed?"
+		printf '%s\n' "$got"
+		exit 2
+	fi
+}
+fRun fCheckMacroCanary
+
 ## Integration branch: explicit arg wins, else dev if it exists, else main.
 if [[ -z "$base" ]]; then
 	if "${GIT[@]}" show-ref --verify --quiet refs/heads/dev; then base="dev"; else base="main"; fi
@@ -1607,21 +1661,12 @@ if ((${#files[@]} == 0)); then
 fi
 
 fEcho "C lint (cppcheck, check-only) over ${#files[@]} file(s) ${scope}..."
-## The suppression list is in .cppcheck-suppressions at the repo root, with the
-## reason for each one written beside it. --inline-suppr stays for the handful
-## that belong to a single line rather than a whole file.
 ## -j on its own drops the cross-file checks (the ctu* ones); a build dir keeps
 ## them, with the same findings as one process. Half the cores, since something
 ## else is usually running. The dir is relative so MSYS2 hands it over as is.
-## unix64 on every host: gtk.cfg writes G_GINT64_FORMAT and friends as Linux has
-## them, so under MSYS2's own win64 every one of them read as a wrong printf
-## type. The compiler checks the real formats on Windows. .cppcheck-defines.cfg
-## has the macros it cannot see.
 jobs=$(( $(nproc 2>/dev/null || echo 2) / 2 ))
 ((jobs >= 1)) || jobs=1
-mkdir -p cicd/artifacts
-cacheDir="$(mktemp -d cicd/artifacts/cppcheck.XXXXXX)"
-cppcheck --enable=warning,portability --platform=unix64 --library=gtk --library=.cppcheck-defines.cfg --inline-suppr \
-	--suppressions-list=.cppcheck-suppressions -j "$jobs" --cppcheck-build-dir="$cacheDir" \
+mkdir -p "${cacheDir}/build"
+cppcheck "${cppcheckArgs[@]}" -j "$jobs" --cppcheck-build-dir="${cacheDir}/build" \
 	--quiet --error-exitcode=2 "${files[@]}"
 fEcho "OK: C lint: no findings"

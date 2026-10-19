@@ -436,6 +436,7 @@ add_ancestors (GHashTable *folders,
 	const char *slash;
 
 	for (slash = strchr (name, '/'); slash != NULL; slash = strchr (slash + 1, '/')) {
+		/* cppcheck-suppress leakNoVarFunctionCall ; folders owns its keys and frees them */
 		g_hash_table_add (folders, g_strndup (name, slash - name));
 	}
 }

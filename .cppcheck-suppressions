@@ -22,9 +22,11 @@ ctunullpointerOutOfMemory
 # the gate on it alone.
 normalCheckLevelMaxBranches
 
-# cppcheck can't expand the EEL self-check X-macro prototype
-# (nemo-lib-self-check-functions.h), so it fires for any .c that includes it.
-unknownMacro
+# A bare NULL ending a variadic call is only undefined where NULL is a plain
+# 0. Every compiler here makes it ((void *) 0) in C, and GLib ends its own
+# lists the same way. It fires only on our variadics, whose bodies it can
+# see: about 40 dialog and singleton calls.
+varFuncNullUB
 
 # Everything below is inherited-legacy, each one confirmed present on dev - they
 # showed up only because a sweep touched those files.

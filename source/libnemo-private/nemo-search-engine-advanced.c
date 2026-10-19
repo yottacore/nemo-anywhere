@@ -612,6 +612,7 @@ search_thread_data_new (NemoSearchEngineAdvanced *engine,
         }
 
         DEBUG ("Skipping folder in search: '%s'", folders_array[i]);
+        /* cppcheck-suppress leakNoVarFunctionCall ; skip_folders owns its keys and frees them */
         g_hash_table_add (data->skip_folders, g_strdup (folders_array[i]));
     }
     g_strfreev (folders_array);

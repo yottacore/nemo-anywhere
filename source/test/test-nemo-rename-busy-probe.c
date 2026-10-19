@@ -338,7 +338,10 @@ probe_start (void)
 	}
 	/* Sorts last, so the pictures keep their places. */
 	noise_path = g_build_filename (folder, "zz noise.txt", NULL);
-	g_file_set_contents (noise_path, "x", 1, NULL);
+	/* No output then, which the test reads as a failure. */
+	if (!g_file_set_contents (noise_path, "x", 1, NULL)) {
+		return;
+	}
 	out = fopen (path, "w");
 	/* A thumbnailer the program starts loads this too, and would empty the
 	   file again. */

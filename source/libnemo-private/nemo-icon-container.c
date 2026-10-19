@@ -8596,7 +8596,7 @@ check_compute_stretch (int icon_x, int icon_y, int icon_size,
 
     compute_stretch (&start, &current);
 
-    return g_strdup_printf ("%d,%d:%d",
+    return g_strdup_printf ("%d,%d:%u",
                 current.icon_x,
                 current.icon_y,
                 current.icon_size);

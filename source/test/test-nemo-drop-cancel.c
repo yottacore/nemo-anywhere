@@ -24,8 +24,9 @@
  * armed, a move asks first, since the originals stop being where they were. A
  * link drop opens Make link, which is its own question. Cancel leaves both
  * sides as they were and says the drop did not happen; the go-ahead does the
- * drop, so the Cancel is known to be what stopped it. Needs a display; exits
- * 77 without. */
+ * drop, so the Cancel is known to be what stopped it. A link with no folder to
+ * go in makes nothing and says so, rather than starting a job with none. Needs
+ * a display; exits 77 without. */
 
 #include <config.h>
 
@@ -105,7 +106,8 @@ give_up (gpointer data)
 	return G_SOURCE_REMOVE;
 }
 
-/* What a drop of path onto folder does, with the question answered. */
+/* What a drop of path onto folder does, with the question answered. A NULL
+   folder is no target at all. */
 static Drop
 run_drop (const char *path, const char *folder, GdkDragAction action,
 	  const char *title, int reply)
@@ -117,7 +119,7 @@ run_drop (const char *path, const char *folder, GdkDragAction action,
 
 	drop.loop = g_main_loop_new (NULL, FALSE);
 	uri = g_filename_to_uri (path, NULL, NULL);
-	target = g_filename_to_uri (folder, NULL, NULL);
+	target = folder != NULL ? g_filename_to_uri (folder, NULL, NULL) : NULL;
 	uris = g_list_prepend (NULL, uri);
 
 	answer_id = g_timeout_add (50, answer, &drop);
@@ -224,6 +226,26 @@ check_link (const char *tmp)
 	g_free (from);
 }
 
+static void
+check_link_nowhere (const char *tmp)
+{
+	char *from = g_build_filename (tmp, "nowhere-from", NULL);
+	char *path = g_build_filename (from, "target.txt", NULL);
+	Drop drop;
+
+	g_mkdir_with_parents (from, 0700);
+	check (g_file_set_contents (path, "x", 1, NULL));
+
+	drop = run_drop (path, NULL, GDK_ACTION_LINK, LINK_TITLE, GTK_RESPONSE_OK);
+	check (!drop.asked);
+	check (drop.done);
+	check (!drop.success);
+	check (count_entries (from) == 1);
+
+	g_free (path);
+	g_free (from);
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -247,6 +269,7 @@ main (int argc, char *argv[])
 	check (nemo_delete_testguard_armed ());
 	check_move (tmp);
 	check_link (tmp);
+	check_link_nowhere (tmp);
 
 	g_object_unref (manager);
 	g_free (tmp);

@@ -6712,7 +6712,7 @@ link_file (CopyMoveJob *job,
 			details = NULL;
 		} else {
 			secondary = f (_("There was an error creating the symlink in %F."), dest_dir);
-			details = error->message;
+			details = error != NULL ? error->message : NULL;
 		}
 
 		response = run_warning (common,
@@ -7160,6 +7160,21 @@ nemo_file_operations_symlink (const GList *item_uris,
 	g_object_unref (dest);
 }
 
+/* For a link job that never starts, so whoever asked still hears back. */
+static void
+report_no_links (NemoCopyCallback done_callback,
+		 gpointer         done_callback_data)
+{
+	GHashTable *none;
+
+	if (done_callback == NULL) {
+		return;
+	}
+	none = g_hash_table_new (g_file_hash, (GEqualFunc) g_file_equal);
+	done_callback (none, FALSE, done_callback_data);
+	g_hash_table_unref (none);
+}
+
 /* A drop that makes links asks what kind, as the menu does. The dialog is the
    question, so the drop confirmation leaves links out. */
 static void
@@ -7198,11 +7213,8 @@ link_by_dialog (GList            *locations,
 	if (nemo_link_options_ask (parent_window, dest, n_folders, n_files, TRUE, &options)) {
 		start_link_job (locations, relative_item_points, dest, parent_window, TRUE, &options,
 				done_callback, done_callback_data);
-	} else if (done_callback != NULL) {
-		GHashTable *none = g_hash_table_new (g_file_hash, (GEqualFunc) g_file_equal);
-
-		done_callback (none, FALSE, done_callback_data);
-		g_hash_table_unref (none);
+	} else {
+		report_no_links (done_callback, done_callback_data);
 	}
 }
 
@@ -7298,12 +7310,8 @@ nemo_file_operations_copy_move (const GList *item_uris,
 		link_by_dialog (locations, relative_item_points, dest, parent_window,
 				done_callback, done_callback_data);
 	} else {
-		nemo_file_operations_link (locations,
-					       relative_item_points,
-					       dest,
-					       parent_window,
-					       FALSE, NULL,
-					       done_callback, done_callback_data);
+		/* No folder to make them in. The job would have started with none. */
+		report_no_links (done_callback, done_callback_data);
 	}
 
 	g_list_free_full (locations, g_object_unref);
