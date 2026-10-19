@@ -94,13 +94,9 @@ static gboolean         applying;
  * separately, refreshed only when the change came from outside. */
 static gboolean         desktop_dark;
 
-/* What the platform had chosen before we touched anything - the Windows bundle
- * names both in its settings.ini, a desktop names them in its own settings.
- * The "Nemo Anywhere" row in the picker means going back to exactly these,
- * without keeping them would leave the last explicit choice in place until the
- * next launch. */
-static char            *platform_gtk_theme;
-static char            *platform_icon_theme;
+/* Whether we set the name, which pins it over the platform's. */
+static gboolean         gtk_theme_pinned;
+static gboolean         icon_theme_pinned;
 
 /* Where the widget theme in force came from - installed, drop-in, or inside
  * the binary. Reported in the one debug line this box can check a launch by. */
@@ -977,6 +973,26 @@ nemo_appearance_is_dark (void)
 	}
 }
 
+/* What the platform names for @prop - the Windows bundle in its settings.ini,
+ * a desktop through XSETTINGS or its own store. Setting the property ourselves
+ * pins it above all of those, so GTK stops following the desktop. Resetting it
+ * hands it back, and the read that follows is the desktop's answer right now.
+ * Only when pinned, since a reset reloads the theme even for the same name.
+ * Returns: (transfer full): free with g_free */
+static char *
+platform_theme_name (GtkSettings *settings, const char *prop, gboolean *pinned)
+{
+	char *name = NULL;
+
+	if (*pinned) {
+		gtk_settings_reset_property (settings, prop);
+		*pinned = FALSE;
+	}
+	g_object_get (settings, prop, &name, NULL);
+
+	return name;
+}
+
 static void
 apply_appearance (void)
 {
@@ -984,6 +1000,7 @@ apply_appearance (void)
 	gboolean     dark;
 	char        *wanted;
 	char        *resolved;
+	gboolean     picked;
 
 	if (settings == NULL || applying) {
 		return;
@@ -1004,16 +1021,20 @@ apply_appearance (void)
 	 * first of them matches and nothing changes. */
 	wanted = nemo_config_get_string (nemo_appearance_preferences,
 					 NEMO_PREFERENCES_APPEARANCE_GTK_THEME);
-	resolved = (wanted != NULL && wanted[0] != '\0')
+	picked = wanted != NULL && wanted[0] != '\0';
+	resolved = picked
 		? nemo_appearance_theme_for_mode (NEMO_THEME_KIND_WIDGET, wanted)
-		: g_strdup (platform_gtk_theme);
+		: platform_theme_name (settings, "gtk-theme-name", &gtk_theme_pinned);
 
 	widget_theme_source = "none";
 	if (resolved == NULL || resolved[0] == '\0') {
 		clear_dropin_provider ();
 	} else if (gtk_knows_widget_theme (resolved)) {
 		clear_dropin_provider ();
-		g_object_set (settings, "gtk-theme-name", resolved, NULL);
+		if (picked) {
+			g_object_set (settings, "gtk-theme-name", resolved, NULL);
+			gtk_theme_pinned = TRUE;
+		}
 		widget_theme_source = "installed";
 	} else if (load_dropin_widget_theme (resolved, dark)) {
 		widget_theme_source = "drop-in";
@@ -1028,19 +1049,23 @@ apply_appearance (void)
 
 	if (strcmp (widget_theme_source, "installed") != 0) {
 		g_object_set (settings, "gtk-theme-name", BASE_WIDGET_THEME, NULL);
+		gtk_theme_pinned = TRUE;
 	}
 	g_free (resolved);
 	g_free (wanted);
 
 	wanted = nemo_config_get_string (nemo_appearance_preferences,
 					 NEMO_PREFERENCES_APPEARANCE_ICON_THEME);
-	resolved = (wanted != NULL && wanted[0] != '\0')
+	picked = wanted != NULL && wanted[0] != '\0';
+	resolved = picked
 		? nemo_appearance_theme_for_mode (NEMO_THEME_KIND_ICON, wanted)
-		: g_strdup (platform_icon_theme);
+		: platform_theme_name (settings, "gtk-icon-theme-name", &icon_theme_pinned);
 
+	/* Our folders are on the icon search path, so any name works unpinned. */
 	push_bundled_icon_paths (resolved);
-	if (resolved != NULL && resolved[0] != '\0') {
+	if (picked && resolved != NULL && resolved[0] != '\0') {
 		g_object_set (settings, "gtk-icon-theme-name", resolved, NULL);
+		icon_theme_pinned = TRUE;
 	}
 	g_free (resolved);
 	g_free (wanted);
@@ -1097,6 +1122,38 @@ prefer_dark_notify_cb (GObject *settings, G_GNUC_UNUSED GParamSpec *pspec, G_GNU
 	}
 }
 
+/* GTK follows a desktop theme change by itself while nothing is picked. Only
+ * a name it can't find on its own needs us: a widget theme from our folders or
+ * the binary, or the bundled icon paths for that name. */
+static void
+desktop_theme_notify_cb (GObject *settings, GParamSpec *pspec, G_GNUC_UNUSED gpointer user_data)
+{
+	gboolean  icons = strcmp (pspec->name, "gtk-icon-theme-name") == 0;
+	char     *wanted;
+	char     *name = NULL;
+
+	if (applying) {
+		return;
+	}
+
+	wanted = nemo_config_get_string (nemo_appearance_preferences,
+					 icons ? NEMO_PREFERENCES_APPEARANCE_ICON_THEME
+					       : NEMO_PREFERENCES_APPEARANCE_GTK_THEME);
+	if (wanted != NULL && wanted[0] != '\0') {
+		g_free (wanted);
+		return;
+	}
+	g_free (wanted);
+
+	g_object_get (settings, pspec->name, &name, NULL);
+	if (icons) {
+		push_bundled_icon_paths (name);
+	} else if (name != NULL && name[0] != '\0' && !gtk_knows_widget_theme (name)) {
+		apply_appearance ();
+	}
+	g_free (name);
+}
+
 #ifdef G_OS_WIN32
 static void
 system_dark_changed_cb (G_GNUC_UNUSED gboolean dark, G_GNUC_UNUSED gpointer user_data)
@@ -1121,12 +1178,14 @@ nemo_appearance_init (void)
 	/* Whatever the platform had already decided, before we write anything. */
 	g_object_get (gtk_settings_get_default (),
 		      "gtk-application-prefer-dark-theme", &desktop_dark,
-		      "gtk-theme-name", &platform_gtk_theme,
-		      "gtk-icon-theme-name", &platform_icon_theme,
 		      NULL);
 	g_signal_connect (gtk_settings_get_default (),
 			  "notify::gtk-application-prefer-dark-theme",
 			  G_CALLBACK (prefer_dark_notify_cb), NULL);
+	g_signal_connect (gtk_settings_get_default (), "notify::gtk-theme-name",
+			  G_CALLBACK (desktop_theme_notify_cb), NULL);
+	g_signal_connect (gtk_settings_get_default (), "notify::gtk-icon-theme-name",
+			  G_CALLBACK (desktop_theme_notify_cb), NULL);
 
 	/* Goes on once and stays under whatever the user picks: a later resource
 	 * path only wins for a name both carry, and every name here is nemo-*. */
@@ -1165,7 +1224,5 @@ nemo_appearance_shutdown (void)
 {
 	clear_dropin_provider ();
 	g_clear_pointer (&theme_roots, g_strfreev);
-	g_clear_pointer (&platform_gtk_theme, g_free);
-	g_clear_pointer (&platform_icon_theme, g_free);
 	initialized = FALSE;
 }

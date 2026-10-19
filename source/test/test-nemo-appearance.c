@@ -484,6 +484,38 @@ test_dropin_applied (void)
 	set_mode ("light");
 }
 
+static char *
+icon_theme_name (void)
+{
+	char *name = NULL;
+
+	g_object_get (gtk_settings_get_default (), "gtk-icon-theme-name", &name, NULL);
+	return name;
+}
+
+/* With nothing picked the icon theme is the one GTK was given before the app
+ * touched anything, here by settings.ini the way the Windows bundle names its
+ * own. Clearing a pick goes back to it. */
+static void
+test_platform_icons_come_back (void)
+{
+	char *name;
+
+	name = icon_theme_name ();
+	check (g_strcmp0 (name, "ZzTestLone") == 0);
+	g_free (name);
+
+	choose_icon_theme ("ZzTestPair");
+	name = icon_theme_name ();
+	check (g_strcmp0 (name, "ZzTestPair") == 0);
+	g_free (name);
+
+	choose_icon_theme ("");
+	name = icon_theme_name ();
+	check (g_strcmp0 (name, "ZzTestLone") == 0);
+	g_free (name);
+}
+
 /* Count of entries called @name in a list. */
 static int
 count_named (GList *themes, const char *name)
@@ -713,6 +745,14 @@ main (int argc, char *argv[])
 		g_free (data);
 	}
 
+	/* What the platform names before the app does. */
+	{
+		char *ini = g_build_filename (tmp, "gtk-3.0", "settings.ini", NULL);
+
+		write_file (ini, "[Settings]\ngtk-icon-theme-name = ZzTestLone\n");
+		g_free (ini);
+	}
+
 	if (!gtk_init_check (&argc, &argv)) {
 		g_print ("SKIP: no display\n");
 		g_free (tmp);
@@ -758,6 +798,7 @@ main (int argc, char *argv[])
 
 	/* From here on what is chosen reaches GTK. */
 	nemo_appearance_init ();
+	test_platform_icons_come_back ();
 	test_app_icons_resolve ();
 	test_dropin_applied ();
 	test_dropin_shadows_bundled ();

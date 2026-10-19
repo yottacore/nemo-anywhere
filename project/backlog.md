@@ -415,6 +415,35 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 0ebed80
 	- Test case: rkmsgs9m, Delete key after Properties test, Linux and FreeBSD only. New checks in rgv89eeg, Delete guard test.
 
+- Linux/BSD need to pick up new icon theme when set. (If that's possible without bringing back a lot of cruft dependencies.)
+	- ID: 2026101816495202
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes, the full suite.
+	- Needs external testing: FreeBSD, rkmve05x in the BSD lane on vmFreeBSD. Same code as Linux, so it's not expected to differ. Windows, the bundle still starts in its own themes, in the next full run's dogfood stage.
+	- Priority|Severity: Avg
+	- Opened: 20261018-164952
+	- Opened by: t00mietum
+	- Target OS: Linux, BSD
+	- Requirements:
+		- Before the next cut.
+	- Steps to reproduce: start the app with nothing set under `appearance` in the settings file, then change the icon theme on the desktop.
+	- Incorrect behavior: the window keeps the icon theme it started with until the next launch. The same goes for the widget theme. Clearing a theme picked in the settings file goes back to the desktop's theme from launch time, not the current one.
+	- Expected behavior: with nothing picked, a desktop theme change shows up while the app runs, as in any GTK app. A pick in the app wins until it's cleared.
+	- Reproduced: 20261019 on Linux at 69c77a3, with the desktop's icon theme changed through XSETTINGS. A theme set in the settings file did take effect at once, so that reading of the item isn't a bug. The Appearance page itself is only on Windows, per design.md.
+	- Actual cause: with nothing picked, the app still wrote the platform's theme names into GTK's settings at startup. GTK treats a name the app sets as overriding the desktop's, so it stopped following the desktop from then on.
+	- Actual fix: with nothing picked the app leaves both names to GTK, and hands them back if it had set one. GTK then follows the desktop by itself. The Windows bundle's own themes still come from its `settings.ini`, the same way. No new dependency.
+	- Decisions:
+		- No watch on the GNOME, Cinnamon, MATE or XFCE settings stores. On X11 each of those runs a settings daemon that sends the change over XSETTINGS, which GTK already reads.
+		- Options: a desktop with no settings daemon, such as LXQt by default or a bare window manager, only writes GTK's own `settings.ini`, which GTK reads once at start. So the change shows at the next launch, the same as in other GTK apps. Following it live would take a file watch on that file, which also means pinning the name again. Not done.
+	- Note: a desktop widget theme found only in the app's own theme folders still goes on at launch, but a later desktop change after it isn't followed, since the app has to pin the base theme under it.
+	- Swept: every place the app writes GTK settings. Only `nemo-appearance.c` writes a theme name. `gtk-application-prefer-dark-theme` is also written there, but GTK 3 has no XSETTINGS key for it, so it blocks nothing. The DPI setting is read only, and only on Windows.
+	- Branch: icontheme
+	- Commit: 3a5b67d
+	- Test case: rkmve05x, Desktop theme change test. Also a new case in repkeg1g: with nothing picked the icon theme is the one `settings.ini` named, and clearing a pick goes back to it.
+	- Verified: rkmve05x failed before the fix, on all 3 desktop changes, and passes after. The repkeg1g case fails with the hand-back left out and passes with it. Both pass in the Linux build. repkeg1g passes in the Windows cross build with the bundled themes. The settings dialog tests rhtmbdmd, rf2w8yxr, rk5b84ef, rhtmbdmf and rjvdch2z pass.
+	- Note: closes without signoff once these tests pass. It's GTK's standard behavior with nothing picked, rkmve05x pins it, and the explicit pick works as before.
+
 - On Windows, the trash icon leaves out removable drives.
 	- ID: 2026100708294146
 	- Type: Bug
@@ -621,18 +650,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the heap growth tests read the heap on Windows too, through the Win32 heap calls, and run in the native Windows suite.
 	- Estimated effort: High
 	- Test case: `test-nemo-leaks.c` runs on Windows, and its self-check, rjcth67d, sees its planted leak there.
-
-- Linux/BSD need to pick up new icon theme when set. (If that's possible without bringing back a lot of cruft dependencies.)
-	- ID: 2026101816495202
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261018-164952
-	- Opened by: t00mietum
-	- Target OS: Linux, BSD
-	- Requirements:
-		- Before the next cut.
-	- Test case: none yet.
 
 - Windows: Network locations not recognized (either Windows `\\...` or *nix `smb://` form).
 	- ID: 2026101816495204

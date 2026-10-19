@@ -1044,6 +1044,18 @@ test('repkeg1g Appearance themes test',
   args: []
 )
 
+# XSETTINGS is how an X desktop names its themes. Linux and the BSDs.
+if not is_windows and not is_macos
+  test('rkmve05x Desktop theme change test',
+    executable('test-nemo-appearance-desktop',
+      [ 'test-nemo-appearance-desktop.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, x11, test_scratch ],
+    ),
+    args: []
+  )
+endif
+
 test('rexta5a8 Column layout test',
   executable('test-nemo-column-layout',
     [ 'test-nemo-column-layout.c', '../src/nemo-column-layout.c' ],
