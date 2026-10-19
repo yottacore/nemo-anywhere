@@ -43,6 +43,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- Before the next cut.
 	- Note: the rest of the item wasn't written down yet.
+	- Progress log:
+		- 20261018: detail to be written later.
+	- Test case: none yet.
+
+- The separate highlight and selection is causing too many problems. Need to rethink how to multi-select with keyboard without the "selection", or do without it.
+	- ID: 2026101816495208
+	- Type: Enhancement
+	- Status: Waiting for answers
+	- Priority|Severity: Avg
+	- Opened: 20261018-164952
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+	- Progress log:
+		- 20261018: detail to be written later. Still before rc.1.
 	- Test case: none yet.
 
 - SMB and SFTP networking is broken.
@@ -445,6 +460,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: High
 	- Opened: 20261017-150306
 	- Opened by: t00mietum
+	- Decisions:
+		- A jail per test. On Linux each test runs under bubblewrap inside the container, with the repo and system read-only and a fresh HOME and scratch folder as the only places it can write. The other boxes run tests as their throwaway test user with a fake HOME, and the test library refuses a delete outside the test's scratch folder.
 	- Test case: none yet.
 
 - cppcheck leaves out the vendored C the app is built from.
@@ -739,17 +756,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Requirements:
 		- Before the next cut.
-	- Test case: none yet.
-
-- The separate highlight and selection is causing too many problems. Need to rethink how to multi-select with keyboard without the "selection", or do without it.
-	- ID: 2026101816495208
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261018-164952
-	- Opened by: t00mietum
-	- Requirements:
-		- Before the next cut.
+	- Decisions:
+		- OK is the default in every dialog, delete and replace included. The one exception is the paranoid mode dialog, which defaults to Cancel.
 	- Test case: none yet.
 
 - When deleting, make it clear that links aren't followed, only deleted.
