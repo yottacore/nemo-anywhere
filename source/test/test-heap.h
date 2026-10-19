@@ -1,5 +1,5 @@
 /* A leak shows as heap growth when the operation that leaks is repeated.
- * glibc only: elsewhere the heap cannot be read. */
+ * glibc and Windows only: elsewhere the heap cannot be read. */
 
 #ifndef TEST_HEAP_H
 #define TEST_HEAP_H
@@ -8,18 +8,28 @@
 
 G_BEGIN_DECLS
 
-/* glibc's smallest block. A leak of anything at all, once a round, grows the
+/* The smallest block. A leak of anything at all, once a round, grows the
    heap by at least this much a round. */
+#ifdef G_OS_WIN32
+#define TEST_HEAP_SMALLEST_BLOCK 16
+#else
 #define TEST_HEAP_SMALLEST_BLOCK 32
+#endif
 
 /* Runs this program again with glibc's per-thread caches off and one arena
    for every thread, so the heap's in-use count is exact. Call it first thing
-   in main(). Returns only where there is nothing to do or the relaunch failed. */
+   in main(). Returns only where there is nothing to do, as on Windows, or the
+   relaunch failed. */
 void   test_heap_init   (int argc, char **argv);
+
+/* Bytes in use on the heap, or -1 where it can't be read. Under a sanitizer
+   it reads, but doesn't move. */
+gint64 test_heap_in_use (void);
 
 typedef enum {
 	TEST_HEAP_READ,
-	/* Such as under a sanitizer, which keeps a heap of its own. */
+	/* Such as under a sanitizer, which keeps a heap of its own, or under
+	   wine, whose heap walk can miss small blocks. */
 	TEST_HEAP_UNREADABLE,
 	/* A thread started or ended during every reading. */
 	TEST_HEAP_UNSETTLED,

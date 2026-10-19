@@ -15,12 +15,9 @@
 #include <libnemo-private/nemo-config-keys.h>
 #include <libnemo-private/nemo-global-preferences.h>
 
+#include "test-heap.h"
 #include "test-scratch.h"
 #include "test-check.h"
-
-#ifdef __GLIBC__
-#include <malloc.h>
-#endif
 
 static char *
 read_file (void)
@@ -814,13 +811,11 @@ test_many_reloads (NemoConfigGroup *window_state)
 	}
 	check (wrong == 0);
 
-#ifdef __GLIBC__
 	{
 		NemoConfigGroup  *list_view = nemo_config_get_group ("list-view");
 		const char       *names[101];
 		char            **owned = g_new0 (char *, 101);
-		struct mallinfo2  before, after;
-		size_t            used_before, used_after;
+		gint64            used_before, used_after;
 
 		/* A list read is where SHCL 3 still hands out arena memory. */
 		for (i = 0; i < 100; i++) {
@@ -830,16 +825,14 @@ test_many_reloads (NemoConfigGroup *window_state)
 		names[100] = NULL;
 		nemo_config_set_strv (list_view, "default-visible-columns", names);
 
-		before = mallinfo2 ();
+		used_before = test_heap_in_use ();
 		for (i = 0; i < 20000; i++)
 			g_strfreev (nemo_config_get_strv (list_view, "default-visible-columns"));
-		after = mallinfo2 ();
+		used_after = test_heap_in_use ();
 
 		/* 20000 reads of 100 entries is about 32 MB if nothing is given back. */
-		used_before = before.uordblks + before.hblkhd;
-		used_after = after.uordblks + after.hblkhd;
-		if (used_after > used_before && used_after - used_before > 4 * 1024 * 1024) {
-			g_printerr ("FAIL %s:%d: 20000 list reads grew the heap by %zu bytes\n",
+		if (used_before >= 0 && used_after - used_before > 4 * 1024 * 1024) {
+			g_printerr ("FAIL %s:%d: 20000 list reads grew the heap by %" G_GINT64_FORMAT " bytes\n",
 			            __FILE__, __LINE__, used_after - used_before);
 			failures++;
 		}
@@ -847,7 +840,6 @@ test_many_reloads (NemoConfigGroup *window_state)
 		g_strfreev (owned);
 		nemo_config_reset (list_view, "default-visible-columns");
 	}
-#endif
 
 	nemo_config_reset (window_state, "geometry");
 	nemo_config_flush ();

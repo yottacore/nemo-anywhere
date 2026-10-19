@@ -11,6 +11,11 @@
 #include <unistd.h>
 #endif
 
+#ifdef G_OS_WIN32
+#include <windows.h>
+#include <tlhelp32.h>
+#endif
+
 #include "test-heap.h"
 
 /* A freed block that sits in a thread's cache still counts as in use, and a
@@ -63,6 +68,43 @@ test_heap_init (int argc, char **argv)
 #endif
 }
 
+#ifdef G_OS_WIN32
+/* GLib and the other mingw DLLs take from msvcrt's heap, which is not the
+   process heap. Rust code such as librsvg and Windows' own DLLs take from the
+   process heap. So every heap is read, and a block's overhead counts, as
+   glibc's chunk sizes do. */
+static gint64
+heap_in_use (void)
+{
+	static HANDLE heaps[256];
+	DWORD count = GetProcessHeaps (G_N_ELEMENTS (heaps), heaps);
+	gint64 in_use = 0;
+	DWORD i;
+
+	if (count == 0) {
+		return -1;
+	}
+	if (count > G_N_ELEMENTS (heaps)) {
+		g_error ("%lu heaps, more than can be read", (unsigned long) count);
+	}
+	for (i = 0; i < count; i++) {
+		PROCESS_HEAP_ENTRY entry = { 0 };
+
+		/* Fails only where the heap was destroyed since it was listed. */
+		if (!HeapLock (heaps[i])) {
+			continue;
+		}
+		while (HeapWalk (heaps[i], &entry)) {
+			if ((entry.wFlags & PROCESS_HEAP_ENTRY_BUSY) != 0) {
+				in_use += (gint64) entry.cbData + entry.cbOverhead;
+			}
+		}
+		HeapUnlock (heaps[i]);
+	}
+
+	return in_use;
+}
+#else
 static gint64
 heap_in_use (void)
 {
@@ -74,38 +116,125 @@ heap_in_use (void)
 	return -1;
 #endif
 }
+#endif
 
-/* A sanitizer answers mallinfo2 with numbers that do not move. */
+gint64
+test_heap_in_use (void)
+{
+	return heap_in_use ();
+}
+
+#define PROBE_BIG (64 * 1024)
+#define PROBE_SMALL 24
+
+/* A sanitizer answers mallinfo2 with numbers that do not move. Wine's heap
+   walk can see a big block and miss a small one. */
 static gboolean
 heap_readable (void)
 {
-	const gsize probe_size = 64 * 1024;
-	gint64 before, after;
-	char *probe;
+	gpointer small[64];
+	gint64 before, between, after;
+	char *big;
+	guint i;
 
 	before = heap_in_use ();
 	if (before < 0) {
 		return FALSE;
 	}
-	probe = malloc (probe_size);
-	if (probe == NULL) {
-		return FALSE;
+	big = g_malloc (PROBE_BIG);
+	memset (big, 1, PROBE_BIG);
+	between = heap_in_use ();
+	for (i = 0; i < G_N_ELEMENTS (small); i++) {
+		small[i] = g_malloc0 (PROBE_SMALL);
 	}
-	memset (probe, 1, probe_size);
 	after = heap_in_use ();
-	free (probe);
+	for (i = 0; i < G_N_ELEMENTS (small); i++) {
+		g_free (small[i]);
+	}
+	g_free (big);
 
-	return after - before >= (gint64) probe_size;
+	return between - before >= PROBE_BIG &&
+	       after - between >= (gint64) (G_N_ELEMENTS (small) * PROBE_SMALL);
 }
+
+/* Windows gives a thread id out again soon after, so there a thread is told
+   apart by when it started too. */
+typedef struct {
+	gint64 id;
+	gint64 started;
+} ThreadMark;
 
 static gint
 compare_ids (gconstpointer a, gconstpointer b)
 {
-	gint64 left = *(const gint64 *) a;
-	gint64 right = *(const gint64 *) b;
+	const ThreadMark *left = a;
+	const ThreadMark *right = b;
 
-	return (left > right) - (left < right);
+	if (left->id != right->id) {
+		return (left->id > right->id) - (left->id < right->id);
+	}
+	return (left->started > right->started) - (left->started < right->started);
 }
+
+#ifdef G_OS_WIN32
+/* FALSE where it has ended, or cannot be looked at. */
+static gboolean
+thread_running (DWORD id, gint64 *started)
+{
+	HANDLE thread = OpenThread (THREAD_QUERY_LIMITED_INFORMATION, FALSE, id);
+	FILETIME created, exited, kernel, user;
+	DWORD code = 0;
+	gboolean running;
+
+	if (thread == NULL) {
+		return FALSE;
+	}
+	running = GetExitCodeThread (thread, &code) && code == STILL_ACTIVE &&
+		  GetThreadTimes (thread, &created, &exited, &kernel, &user);
+	CloseHandle (thread);
+	if (running) {
+		*started = ((gint64) created.dwHighDateTime << 32) | created.dwLowDateTime;
+	}
+
+	return running;
+}
+
+/* NULL where the threads cannot be listed. */
+static GArray *
+thread_ids (void)
+{
+	HANDLE snapshot = CreateToolhelp32Snapshot (TH32CS_SNAPTHREAD, 0);
+	DWORD self = GetCurrentProcessId ();
+	THREADENTRY32 entry = { 0 };
+	GArray *ids;
+
+	if (snapshot == INVALID_HANDLE_VALUE) {
+		return NULL;
+	}
+	ids = g_array_new (FALSE, FALSE, sizeof (ThreadMark));
+	entry.dwSize = sizeof (entry);
+	if (Thread32First (snapshot, &entry)) {
+		do {
+			ThreadMark mark = { entry.th32ThreadID, 0 };
+
+			if (entry.th32OwnerProcessID == self &&
+			    thread_running (entry.th32ThreadID, &mark.started)) {
+				g_array_append_val (ids, mark);
+			}
+		} while (Thread32Next (snapshot, &entry));
+	}
+	CloseHandle (snapshot);
+
+	/* This thread at least. */
+	if (ids->len == 0) {
+		g_array_unref (ids);
+		return NULL;
+	}
+	g_array_sort (ids, compare_ids);
+
+	return ids;
+}
+#else
 
 /* The kernel's PF_EXITING. A thread that has been joined can stay listed for
    a moment after, with this set. */
@@ -150,12 +279,12 @@ thread_ids (void)
 	if (dir == NULL) {
 		return NULL;
 	}
-	ids = g_array_new (FALSE, FALSE, sizeof (gint64));
+	ids = g_array_new (FALSE, FALSE, sizeof (ThreadMark));
 	while ((name = g_dir_read_name (dir)) != NULL) {
-		gint64 id = g_ascii_strtoll (name, NULL, 10);
+		ThreadMark mark = { g_ascii_strtoll (name, NULL, 10), 0 };
 
 		if (!thread_exiting (name)) {
-			g_array_append_val (ids, id);
+			g_array_append_val (ids, mark);
 		}
 	}
 	g_dir_close (dir);
@@ -169,13 +298,54 @@ thread_ids (void)
 
 	return ids;
 }
+#endif
 
 static gboolean
 same_threads (GArray *before, GArray *after)
 {
 	return before != NULL && after != NULL && before->len == after->len &&
-	       memcmp (before->data, after->data, before->len * sizeof (gint64)) == 0;
+	       memcmp (before->data, after->data, before->len * sizeof (ThreadMark)) == 0;
 }
+
+#ifdef G_OS_WIN32
+/* For a second or so after start, Windows and GTK take and give back memory
+   in threads that were already there, so no thread list shows it. And GTK
+   keeps what it used to ask the clipboard for until a 1 second timer goes off,
+   since the answer comes from outside the process there. So the heap has to
+   sit still for longer than that, with the main loop running. */
+#define QUIET_POLLS 25
+#define QUIET_POLL_MS 50
+#define QUIET_GIVE_UP_MS 20000
+
+static void
+wait_for_quiet_heap (void)
+{
+	gint64 give_up_at = g_get_monotonic_time () + QUIET_GIVE_UP_MS * 1000;
+	gint64 last = heap_in_use ();
+	guint still = 0;
+
+	while (still < QUIET_POLLS) {
+		gint64 now;
+
+		while (g_main_context_iteration (NULL, FALSE)) {
+		}
+		g_usleep (QUIET_POLL_MS * 1000);
+		now = heap_in_use ();
+		still = now == last ? still + 1 : 0;
+		last = now;
+		if (g_get_monotonic_time () > give_up_at) {
+			g_print ("the heap was still moving after %d seconds\n",
+				 QUIET_GIVE_UP_MS / 1000);
+			return;
+		}
+	}
+}
+#else
+static void
+wait_for_quiet_heap (void)
+{
+}
+#endif
 
 /* GLib's pools stop a thread that has sat idle a while, half a second in some
    cases, so under load nearly every reading would see one go. Kept instead,
@@ -193,16 +363,19 @@ static gboolean
 settled_reading (void (*op) (gpointer data), gpointer data, guint rounds,
 		 gint64 *growth)
 {
-	/* Listed outside the heap readings, so the lists cost nothing. */
-	GArray *threads_before = thread_ids ();
-	GArray *threads_after;
-	gint64 before = heap_in_use ();
+	GArray *threads_before, *threads_after;
+	gint64 before;
 	gboolean settled;
 	guint i;
 
+	/* Listed outside the heap readings, so the lists cost nothing. */
+	wait_for_quiet_heap ();
+	threads_before = thread_ids ();
+	before = heap_in_use ();
 	for (i = 0; i < rounds; i++) {
 		op (data);
 	}
+	wait_for_quiet_heap ();
 	*growth = heap_in_use () - before;
 	threads_after = thread_ids ();
 
@@ -227,6 +400,7 @@ test_heap_growth (void (*op) (gpointer data), gpointer data,
 	guint i;
 
 	*growth = 0;
+	wait_for_quiet_heap ();
 	if (!heap_readable ()) {
 		return TEST_HEAP_UNREADABLE;
 	}

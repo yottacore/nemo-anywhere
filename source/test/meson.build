@@ -18,7 +18,7 @@ test_ole2 = declare_dependency(
   ),
 )
 
-# Heap growth over repeated operations, for the leak tests.
+# The heap in use and its growth over repeated operations, for the leak tests.
 test_heap = declare_dependency(
   link_with: static_library('test-heap',
     [ 'test-heap.c' ],
@@ -107,7 +107,7 @@ test('rdjjz89r Config store test',
   executable('test-nemo-config',
     [ 'test-nemo-config.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private, test_scratch ],
+    dependencies: [ gtk, nemo_private, test_scratch, test_heap ],
   ),
   args: [],
   timeout: 90         # a hundred external rewrites, each waiting on the file monitor
@@ -218,30 +218,31 @@ if not is_windows
   )
 endif
 
-# The heap is read through glibc, so elsewhere these skip.
+# The heap is read through glibc or the Windows heap walk, so elsewhere these
+# skip.
+leaks = executable('test-nemo-leaks',
+  [ 'test-nemo-leaks.c', '../src/nemo-query-editor.c', '../src/nemo-list-model.c' ] + gresources,
+  include_directories: [ rootInclude, include_directories('../src') ],
+  dependencies: [ gtk, nemo_private, egg, test_scratch, test_heap ],
+  c_args: nemo_definitions,
+)
+
+test('rjbkzvdv Job progress leak test', leaks, args: [ 'progress' ])
+test('rjbkzwe7 Move job leak test', leaks, args: [ 'move' ])
+test('rjbmdd0s Clipboard drag check leak test', leaks, args: [ 'clipboard' ])
+test('rjbmh7g1 Stopped zip leak test', leaks, args: [ 'zip-cancel' ])
+test('rjbn18rq Search query leak test', leaks, args: [ 'query-editor' ])
+test('rjbn19rn Bookmarks load leak test', leaks, args: [ 'bookmarks' ])
+test('rjbn328w Bookmarks file load leak test', leaks, args: [ 'bookmarks-file' ])
+test('rjbpmcxy Extract job leak test', leaks, args: [ 'extract' ])
+test('rjbqagjf Stopped tar.gz leak test', leaks, args: [ 'tar.gz-cancel' ])
+test('rjbw0rkq Stopped 7z leak test', leaks, args: [ '7z-cancel' ])
+test('rjcth67d Leak test self-check', leaks, args: [ 'self-check' ])
+test('rkneydx6 Settings save and reload leak test', leaks, args: [ 'settings' ])
+test('rkneydzr File checksum leak test', leaks, args: [ 'checksum' ])
+test('rkneye2c Multi-row drag leak test', leaks, args: [ 'drag' ])
+
 if not is_windows
-  leaks = executable('test-nemo-leaks',
-    [ 'test-nemo-leaks.c', '../src/nemo-query-editor.c', '../src/nemo-list-model.c' ] + gresources,
-    include_directories: [ rootInclude, include_directories('../src') ],
-    dependencies: [ gtk, nemo_private, egg, test_scratch, test_heap ],
-    c_args: nemo_definitions,
-  )
-
-  test('rjbkzvdv Job progress leak test', leaks, args: [ 'progress' ])
-  test('rjbkzwe7 Move job leak test', leaks, args: [ 'move' ])
-  test('rjbmdd0s Clipboard drag check leak test', leaks, args: [ 'clipboard' ])
-  test('rjbmh7g1 Stopped zip leak test', leaks, args: [ 'zip-cancel' ])
-  test('rjbn18rq Search query leak test', leaks, args: [ 'query-editor' ])
-  test('rjbn19rn Bookmarks load leak test', leaks, args: [ 'bookmarks' ])
-  test('rjbn328w Bookmarks file load leak test', leaks, args: [ 'bookmarks-file' ])
-  test('rjbpmcxy Extract job leak test', leaks, args: [ 'extract' ])
-  test('rjbqagjf Stopped tar.gz leak test', leaks, args: [ 'tar.gz-cancel' ])
-  test('rjbw0rkq Stopped 7z leak test', leaks, args: [ '7z-cancel' ])
-  test('rjcth67d Leak test self-check', leaks, args: [ 'self-check' ])
-  test('rkneydx6 Settings save and reload leak test', leaks, args: [ 'settings' ])
-  test('rkneydzr File checksum leak test', leaks, args: [ 'checksum' ])
-  test('rkneye2c Multi-row drag leak test', leaks, args: [ 'drag' ])
-
   # The sanitizer lane's suppressions, held to what they name. Whole stacks,
   # added to the lane's own options.
   sanitizerLeaksEnv = environment()
