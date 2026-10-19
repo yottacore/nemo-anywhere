@@ -677,6 +677,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the Linux suite in the jail, 224 passed, 1 skipped. On other runs rkneye2c failed, which it does the same on dev (2026101914184878). The sanitizer lane in the jail, 209 passed, 15 skipped, 1 failed (rk96k9va, a time limit that passed alone). rknjd2qn in the Windows build too.
 	- Swept: every `meson test` call under `cicd/`. `fuzz.bash` runs its targets outside meson, and `profile-run.bash` runs the app, so neither is a test run. Every test executable in `source/test/meson.build` links the fence; the fakes, `test-env-dump` and the old-format writers are programs a test starts.
 	- Branch: jail
+	- Commit: 71bb7a65
 
 - cppcheck gives up on 34 C files at a GLib macro it can't expand, and says nothing.
 	- ID: 2026101912561238
