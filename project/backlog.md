@@ -421,7 +421,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: every doc that lists the flags. `cicd.bash --help`, `config.bash`, design.md and the `cicd-win.ps1` help were updated. building.md names only `--gate`. `-Quick` on Windows is still a no-op.
 	- Verified: 20261019, rkmqprx6 passes and fails on the old `--quick`. rj9v18rx and rjph39cv pass. Lint is clean apart from rj3ytv0b, which always fails outside the main checkout.
 	- Branch: flags
-	- Commit: 
+	- Commit: f275bc90
 	- Test case: rkmqprx6, `test-cicd-quick.bash`, checks which steps run with no options, with `--quick`, `--quick --include-arm`, `--quick --include-bsd`, and `--gate`. rj9v18rx checks the help names what `--quick` skips.
 
 - Static analyzers and a heap growth check in the pipeline.
