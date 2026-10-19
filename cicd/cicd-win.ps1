@@ -37,8 +37,9 @@
 ##		  Options:
 ##		   -Yes            run unattended (no confirm / message prompt)
 ##		   -Quiet          quiet + unattended (implies -Yes); publish runs quiet too
-##		   -Quick          skip the slow stages (reserved: none run here yet, so the
-##		                   build, tests, pack and dogfood all still run)
+##		   -Quick          skip the slow steps and any that need another box
+##		                   (reserved: none run here yet, so the build, tests,
+##		                   pack and dogfood all still run)
 ##		   -Gate           merge gate only: lint + build + tests + smokes, then exit (no stage/publish)
 ##		   -NoSync         skip the remote sync check (stage 0)
 ##		   -NoFmt          skip the lint stage
