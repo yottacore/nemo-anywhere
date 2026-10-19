@@ -109,33 +109,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rk95h61s, Share folder with a local path lists test. A folder that isn't on this machine but has a path, whose listing refuses that call the way gvfs's does, lists all 3 entries with its link followed, and one file there is looked at once, following links. renz2428, Network win32 test, test_smb_addresses: smb addresses taken as typed, parsed, as a uri and as an argument go to the UNC path, the server's share list or the network, with spaces, escapes, a user, domain and port, an IPv6 address, and upper case where typed. rkb69y1a, Connect to Server address scheme test: ssh and sftp addresses in any case lose the scheme with SSH chosen, other schemes and plain names are kept, and every alias gvfs's mount files declare is checked where gvfs is installed.
 	- Acceptance signoff: Left at signoff for the `ssh://hostname/folder` error, which wasn't seen from the path bar or the command line, and for Connect to Server on Windows asking only for the server and share.
 
-- Sort attribute is not remembered when switching to thumbnail view.
-	- ID: 2026101613053691
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 218 of 218.
-	- Priority|Severity: Avg
-	- Opened: 20261016-130536
-	- Opened by: t00mietum
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-	- Steps to reproduce: in the list view, sort a folder by Size, largest first. Then open a picture folder inside it, which turns to icons by itself, or switch the folder to icons.
-	- Incorrect behavior: the icons are sorted by name, smallest first.
-	- Expected behavior: the icons keep the sort and its direction.
-	- Reproduced: 20261019, Linux, with per-folder settings off and on.
-	- Actual cause: the list and icon views each kept a sort of their own, saved under separate keys. With per-folder settings off, the window held only the list's sort, and a sort picked in icons lasted only for that folder.
-	- Actual fix: one sort for every view, kept as a list column and its direction. It lives in the window with per-folder settings off, in the folder's set with them on, and in find mode's own place for find results. The icon view maps it to its own sorts. A column it can't sort by, such as owner, shows icons by name and stays for the list. An icon sort saved before still reads, and moves over on the first change. The Current tab in Settings reads and writes the same one. design.md "Per-folder view state" and the changelog say so.
-	- Decisions:
-		- design.md "Per-folder view state" lists sort and reverse once in a folder's set, and the Current tab already showed one, so the views share it.
-	- Swept: every place a view reads, saves or resets a sort. The list view's header click, load, find mode and Reset view. The icon and compact views' load, menu pick, reversed order, Reset view and a new default sort. The Current tab. Icons placed by hand don't save a direction. The image viewer that is told the sort reads the view's own order and was left alone. No other code reads the sort keys.
-	- Verified: rkmsgtfz fails on dev's code, with per-folder settings off and on. The picture folder showed icons by name, and a sort picked in icons didn't carry back to the list. It passes after. rh2nkbar passes with new checks for an old icon sort and for the write-back while loading, on Linux and under wine. rjnzamsq and rhtmbdmf still pass. Windows cross build clean. Lint clean but rj3ytv0b, which needs the main clone. The Current tab's sort row wasn't tried on screen.
-	- Progress log:
-		- 20261019: fixed. Left at signoff, since it changes what is saved per folder and how the views behave together.
-	- Branch: viewfix
-	- Commit: 423455c
-	- Test case: rkmsgtfz, List and icon views share a sort test, Linux and FreeBSD only. New checks in rh2nkbar, Folder settings test.
-
 - README.md: move installation instructions, including development, to one or more .mds, and link to it/them.
 	- ID: 2026101417352264
 	- Type: Task
@@ -1103,6 +1076,35 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. rj043mnp covers it.
 	- Closed: 20261003-112426
+
+- Sort attribute is not remembered when switching to thumbnail view.
+	- ID: 2026101613053691
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 218 of 218.
+	- Priority|Severity: Avg
+	- Opened: 20261016-130536
+	- Opened by: t00mietum
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+	- Steps to reproduce: in the list view, sort a folder by Size, largest first. Then open a picture folder inside it, which turns to icons by itself, or switch the folder to icons.
+	- Incorrect behavior: the icons are sorted by name, smallest first.
+	- Expected behavior: the icons keep the sort and its direction.
+	- Reproduced: 20261019, Linux, with per-folder settings off and on.
+	- Actual cause: the list and icon views each kept a sort of their own, saved under separate keys. With per-folder settings off, the window held only the list's sort, and a sort picked in icons lasted only for that folder.
+	- Actual fix: one sort for every view, kept as a list column and its direction. It lives in the window with per-folder settings off, in the folder's set with them on, and in find mode's own place for find results. The icon view maps it to its own sorts. A column it can't sort by, such as owner, shows icons by name and stays for the list. An icon sort saved before still reads, and moves over on the first change. The Current tab in Settings reads and writes the same one. design.md "Per-folder view state" and the changelog say so.
+	- Decisions:
+		- design.md "Per-folder view state" lists sort and reverse once in a folder's set, and the Current tab already showed one, so the views share it.
+	- Swept: every place a view reads, saves or resets a sort. The list view's header click, load, find mode and Reset view. The icon and compact views' load, menu pick, reversed order, Reset view and a new default sort. The Current tab. Icons placed by hand don't save a direction. The image viewer that is told the sort reads the view's own order and was left alone. No other code reads the sort keys.
+	- Verified: rkmsgtfz fails on dev's code, with per-folder settings off and on. The picture folder showed icons by name, and a sort picked in icons didn't carry back to the list. It passes after. rh2nkbar passes with new checks for an old icon sort and for the write-back while loading, on Linux and under wine. rjnzamsq and rhtmbdmf still pass. Windows cross build clean. Lint clean but rj3ytv0b, which needs the main clone. The Current tab's sort row wasn't tried on screen.
+	- Progress log:
+		- 20261019: fixed. Left at signoff, since it changes what is saved per folder and how the views behave together.
+	- Branch: viewfix
+	- Commit: 423455c
+	- Test case: rkmsgtfz, List and icon views share a sort test, Linux and FreeBSD only. New checks in rh2nkbar, Folder settings test.
+	- Acceptance signoff: 20261019, one sort shared by the views.
+	- Closed: 20261019-094746
 
 - After an `smb://` address is typed, nothing shows that the app is working on it.
 	- ID: 2026100816170921
