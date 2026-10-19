@@ -29,7 +29,7 @@ gint64 test_heap_in_use (void);
 typedef enum {
 	TEST_HEAP_READ,
 	/* Such as under a sanitizer, which keeps a heap of its own, or under
-	   wine, whose heap walk leaves out small blocks. */
+	   wine, whose heap walk can miss small blocks. */
 	TEST_HEAP_UNREADABLE,
 	/* A thread started or ended during every reading. */
 	TEST_HEAP_UNSETTLED,

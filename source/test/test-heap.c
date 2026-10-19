@@ -128,7 +128,7 @@ test_heap_in_use (void)
 #define PROBE_SMALL 24
 
 /* A sanitizer answers mallinfo2 with numbers that do not move. Wine's heap
-   walk sees a big block but not a small one. */
+   walk can see a big block and miss a small one. */
 static gboolean
 heap_readable (void)
 {

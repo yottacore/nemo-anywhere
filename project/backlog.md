@@ -687,7 +687,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Decisions:
 		- Every heap in the process is read, not just the C runtime's. GLib, GTK and the other mingw DLLs take from msvcrt's own heap. Windows' own DLLs and Rust code such as librsvg take from the process heap.
 		- On Windows each reading waits until the heap sits still for a bit over a second, with the main loop running. Start-up work goes on for about a second in threads that are already there, and GTK keeps what it used to ask the clipboard for until a 1 second timer goes off.
-		- Under wine the heap walk misses small blocks, so the cases answer 77 there.
+		- Under wine the heap walk can miss small blocks, and a case that finds it so answers 77. Wine isn't where these are meant to run.
 		- The drag case answers 77 where there's no monitor, as in the session the Windows suite runs in over ssh.
 		- The settings case answers 77 on Windows until 2026101913541100 is fixed, and the bookmarks file case until 2026101913541101 is.
 	- Actual fix: `test-heap.c` reads the Windows heaps and thread list, and the leak tests build on every platform. The config store test's heap check uses the same reader, so it runs on Windows too.
