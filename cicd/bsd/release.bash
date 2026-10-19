@@ -99,8 +99,9 @@ smoke="$("${BUILD}/src/${SLUG}" --version)"
 ## Prefix match: the build number moves on every reconfigure.
 [[ "$smoke" == "${SLUG} v${ver} build "* ]] || fDie "smoke test said '${smoke}', expected '${SLUG} v${ver} build <n>'"
 fEcho_Clean "$smoke"
-meson test -C "$BUILD" --no-rebuild "rh5f9h18 Extension load test" >/dev/null \
-	|| fDie "extension load test failed; see ${BUILD}/meson-logs/testlog.txt"
+## A fake HOME and the delete fence; there's no jail on FreeBSD.
+meson test -C "$BUILD" --no-rebuild --wrapper "bash ${ROOT}/cicd/linux/jail.bash" "rh5f9h18 Extension load test" >/dev/null \
+	|| fDie "extension load test failed; see ${BUILD}/meson-logs/testlog-bash.txt"
 kill "${XVFB_PID}" 2>/dev/null || true
 XVFB_PID=""
 
@@ -213,3 +214,4 @@ fEcho_Clean ""
 
 ##	History:
 ##		- 2026-10-07: Created.
+##		- 2026-10-19: The extension load test runs in a cell of its own.

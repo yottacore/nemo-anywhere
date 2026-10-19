@@ -16,6 +16,9 @@
 ##	  gets a warning, not a failed build.
 ##	- The source is the tree this script sits in. Where there is no xvfb-run, as
 ##	  on FreeBSD, the run starts an X server of its own for both steps.
+##	- Each test runs in a cell of its own through jail.bash: on Linux a
+##	  bubblewrap jail where only a fresh HOME and temp dir can be written. A
+##	  Linux box where the jail can't start stops the run before any test.
 ##	- Syntax: run-tests.bash [meson test arguments]
 
 ##	Copyright (c) 2026 Bubbles
@@ -50,6 +53,11 @@ if ! ninja -C "${build}" -j "${jobs}"; then
 	exit 1
 fi
 
+## One clear line now, rather than every test failing on the same missing piece,
+## then proof the jail holds.
+bash "${here}/jail.bash" --check || exit 1
+bash "${here}/test-jail.bash" "${build}" || exit 1
+
 ## About a third of the suite fails on "cannot open display" with no server, and
 ## several of those read like real assertion failures. The bus is disabled so a
 ## test that sends --quit cannot reach a copy someone is actually using.
@@ -79,13 +87,19 @@ else
 	fUnderX(){ "$@"; }
 fi
 
-fUnderX meson test -C "${build}" --no-rebuild --num-processes "${jobs}" --print-errorlogs "$@"
+fUnderX meson test -C "${build}" --no-rebuild --num-processes "${jobs}" --print-errorlogs \
+	--wrapper "bash ${here}/jail.bash" "$@"
 
-## ls, since BSD find has no -printf.
+## ls, since BSD find has no -printf. A cell is named after its test, and
+## jail.bash keeps one only when the test left something in its temp dir. In
+## the Linux jail the files went with the cell, and a list of them stays.
 leftover="$(ls -A "${TMPDIR}" || true)"
 if [[ -n "${leftover}" ]]; then
 	echo "[ tests left these behind in ${TMPDIR} ]" >&2
-	echo "${leftover}" >&2
+	ls -AR "${TMPDIR}" >&2 || true
+	for list in "${TMPDIR}"/*/left; do
+		[[ -f "${list}" ]] && { echo "${list%/left}:"; cat "${list}"; } >&2
+	done
 	exit 1
 fi
 

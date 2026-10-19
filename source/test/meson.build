@@ -1,4 +1,15 @@
 
+# Refuses a delete or a move outside the test's own folders, from before main
+# on. Linked whole, since nothing calls into it by name; every test executable
+# has it, through test_scratch or on its own.
+test_fence = declare_dependency(
+  link_whole: static_library('test-fence',
+    [ 'test-fence.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ cc.find_library('dl', required: false), dependency('threads') ],
+  ),
+)
+
 # Scratch directories made through this are removed when the test exits.
 test_scratch = declare_dependency(
   link_with: static_library('test-scratch',
@@ -6,6 +17,7 @@ test_scratch = declare_dependency(
     include_directories: [ rootInclude, ],
     dependencies: [ gtk, nemo_private ],
   ),
+  dependencies: [ test_fence ],
 )
 
 # The compound file the old Word, Excel and PowerPoint files are kept in,
@@ -310,7 +322,7 @@ test('rkne1y8a blake3 routines test',
   executable('test-blake3-paths',
     [ 'test-blake3-paths.c' ],
     include_directories: [ rootInclude, blake3Include, ],
-    dependencies: [ glib ],
+    dependencies: [ glib, test_fence ],
     link_with: static_library('test-blake3-dispatch',
       [ 'test-blake3-dispatch.c',
         files('../../vendor/blake3/blake3.c', '../../vendor/blake3/blake3_portable.c') ],
@@ -416,7 +428,7 @@ test('rj46m24q EEL string check test',
   executable('test-eel-string',
     [ 'test-eel-string.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
   ),
   args: []
 )
@@ -499,6 +511,15 @@ if not is_windows
   )
 endif
 
+test('rknjd2qn Delete fence test',
+  executable('test-nemo-fence',
+    [ 'test-nemo-fence.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
 test('rek3gd31 Search invalid regex test',
   executable('test-nemo-search-regex',
     [ 'test-nemo-search-regex.c' ],
@@ -523,7 +544,7 @@ test('rffw4xdg Treeview hit test',
   executable('test-eel-treeview-hit',
     [ 'test-eel-treeview-hit.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
   ),
   args: []
 )
@@ -532,7 +553,7 @@ test('rhtmbdm9 Clipped cell text test',
   executable('test-eel-clipped-cell',
     [ 'test-eel-clipped-cell.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
   ),
   args: []
 )
@@ -559,7 +580,7 @@ test('rjew8g59 Rename field sized before shown test',
   executable('test-eel-editable-label-size',
     [ 'test-eel-editable-label-size.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
   ),
   args: []
 )
@@ -568,7 +589,7 @@ test('rk520jh7 Rename field takes a new width while hidden test',
   executable('test-eel-editable-label-rewidth',
     [ 'test-eel-editable-label-rewidth.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
   ),
   args: []
 )
@@ -577,7 +598,7 @@ test('rhtmbdmb Escape forgets the cursor test',
   executable('test-eel-forget-cursor',
     [ 'test-eel-forget-cursor.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
   ),
   args: []
 )
@@ -586,7 +607,7 @@ test('rgxy149r Focus guard test',
   executable('test-eel-focus-guard',
     [ 'test-eel-focus-guard.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
   ),
   args: []
 )
@@ -595,7 +616,7 @@ test('rk6narsh Tabs take no focus helper test',
   executable('test-eel-tab-keys',
     [ 'test-eel-tab-keys.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
   ),
   args: []
 )
@@ -613,7 +634,7 @@ test('rhgba078 Primary mask test',
   executable('test-eel-primary-mask',
     [ 'test-eel-primary-mask.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
   ),
   args: []
 )
@@ -667,7 +688,7 @@ if not is_windows
     executable('test-nemo-dnd',
       [ 'test-nemo-dnd.c' ],
       include_directories: [ rootInclude, ],
-      dependencies: [ gtk, nemo_private ],
+      dependencies: [ gtk, nemo_private, test_fence ],
     ),
     args: []
   )
@@ -686,7 +707,7 @@ test('rhtjdp1h Message dialog text test',
   executable('test-eel-stock-dialogs',
     [ 'test-eel-stock-dialogs.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
   ),
   args: []
 )
@@ -704,7 +725,7 @@ test('rek3gd34 Extension column test',
   executable('test-nemo-column',
     [ 'test-nemo-column.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_extension ],
+    dependencies: [ gtk, nemo_extension, test_fence ],
   ),
   args: []
 )
@@ -719,7 +740,7 @@ if is_windows
     executable('test-nemo-trash-win32',
       [ 'test-nemo-trash-win32.c' ],
       include_directories: [ rootInclude, ],
-      dependencies: [ gtk, nemo_private ],
+      dependencies: [ gtk, nemo_private, test_fence ],
     ),
     args: [],
     timeout: 600,
@@ -855,7 +876,7 @@ test('rgak6kmg App resources test',
   executable('test-nemo-app-resources',
     [ 'test-nemo-app-resources.c' ] + gresources,
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
   ),
   args: []
 )
@@ -866,7 +887,7 @@ test('rf2w8yxr Settings widgets test',
   executable('test-nemo-prefs-widgets',
     [ 'test-nemo-prefs-widgets.c' ] + gresources,
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
   ),
   args: []
 )
@@ -895,7 +916,7 @@ test('rk5b84ef Settings tab list test',
   executable('test-nemo-tab-list',
     [ 'test-nemo-tab-list.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
   ),
   args: []
 )
@@ -975,7 +996,7 @@ if is_windows
     executable('test-nemo-view-win32',
       [ 'test-nemo-view-win32.c', '../src/nemo-view-win32.c' ],
       include_directories: [ rootInclude, ],
-      dependencies: [ gtk, nemo_private ],
+      dependencies: [ gtk, nemo_private, test_fence ],
       c_args: nemo_definitions,
     ),
     args: []
@@ -987,7 +1008,7 @@ test('rjpbjt68 Icon display scale test',
   executable('test-nemo-ui-scale',
     [ 'test-nemo-ui-scale.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
     c_args: nemo_definitions,
   ),
   args: []
@@ -998,7 +1019,7 @@ if is_windows
     executable('test-nemo-dpi-win32',
       [ 'test-nemo-dpi-win32.c', '../src/nemo-dpi-win32.c' ],
       include_directories: [ rootInclude, ],
-      dependencies: [ gtk, nemo_private ],
+      dependencies: [ gtk, nemo_private, test_fence ],
       c_args: nemo_definitions,
     ),
     args: []
@@ -1011,7 +1032,7 @@ if is_windows
     executable('test-nemo-raise-win32',
       [ 'test-nemo-raise-win32.c', '../src/nemo-window-at-point-win32.c' ],
       include_directories: [ rootInclude, include_directories('../src') ],
-      dependencies: [ gtk ],
+      dependencies: [ gtk, test_fence ],
     ),
     args: []
   )
@@ -1022,7 +1043,7 @@ if is_windows
     executable('test-nemo-network-win32',
       [ 'test-nemo-network-win32.c' ],
       include_directories: [ rootInclude, ],
-      dependencies: [ gtk, nemo_private ],
+      dependencies: [ gtk, nemo_private, test_fence ],
     ),
     args: []
   )
@@ -1109,7 +1130,7 @@ test('rexta5a8 Column layout test',
   executable('test-nemo-column-layout',
     [ 'test-nemo-column-layout.c', '../src/nemo-column-layout.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
     c_args: nemo_definitions,
   ),
   args: []
@@ -1129,7 +1150,7 @@ test('rh0ktwj0 Pane layout test',
   executable('test-nemo-pane-layout',
     [ 'test-nemo-pane-layout.c', '../src/nemo-pane-layout.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
     c_args: nemo_definitions,
   ),
   args: []
@@ -1139,7 +1160,7 @@ test('rh0ms87r Proportional paned test',
   executable('test-nemo-proportional-paned',
     [ 'test-nemo-proportional-paned.c', '../src/nemo-proportional-paned.c', '../src/nemo-pane-layout.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
     c_args: nemo_definitions,
   ),
   args: []
@@ -1159,7 +1180,7 @@ test('rhbcgvhg Icon size test',
   executable('test-nemo-icon-size',
     [ 'test-nemo-icon-size.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
     c_args: nemo_definitions,
   ),
   args: []
@@ -1208,7 +1229,7 @@ test('rg3wt7d8 New process argv test',
   executable('test-nemo-new-process',
     [ 'test-nemo-new-process.c', '../src/nemo-new-process.c' ],
     include_directories: [ rootInclude, include_directories('../src') ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
     c_args: nemo_definitions,
   ),
   args: []
@@ -1272,7 +1293,7 @@ if not is_windows
     executable('test-nemo-extensions-list',
       [ 'test-nemo-extensions-list.c' ],
       include_directories: [ rootInclude, ],
-      dependencies: [ gtk, nemo_private ],
+      dependencies: [ gtk, nemo_private, test_fence ],
     ),
     args: [ nemo ],
   )
@@ -1281,7 +1302,7 @@ endif
 cli_version = executable('test-nemo-cli-version',
   [ 'test-nemo-cli-version.c' ],
   include_directories: [ rootInclude, ],
-  dependencies: [ glib ],
+  dependencies: [ glib, test_fence ],
 )
 
 if is_windows
@@ -1803,7 +1824,7 @@ test('rezjn4m8 Filename extension test',
   executable('test-nemo-filename-extension',
     [ 'test-nemo-filename-extension.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
   ),
   args: []
 )
@@ -1821,7 +1842,7 @@ test('rhtjdp1m Uri under another test',
   executable('test-nemo-uri-under',
     [ 'test-nemo-uri-under.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
   ),
   args: []
 )
@@ -1830,7 +1851,7 @@ test('rh648pjg Path forms test',
   executable('test-nemo-path-forms',
     [ 'test-nemo-path-forms.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
   ),
   args: []
 )
@@ -1848,7 +1869,7 @@ test('rhdg25n0 Uptime test',
   executable('test-nemo-uptime',
     [ 'test-nemo-uptime.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
   ),
   args: []
 )
@@ -1960,7 +1981,7 @@ test('reww9h2r Extract naming test',
   executable('test-nemo-extract',
     [ 'test-nemo-extract.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
   ),
   args: []
 )
@@ -1969,7 +1990,7 @@ test('rh62t0e0 Archive mount address test',
   executable('test-nemo-archive-mount',
     [ 'test-nemo-archive-mount.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
   ),
   args: []
 )
@@ -2003,7 +2024,7 @@ endif
 test('rjq9mv0w Archive core test',
   executable('test-arc-core',
     [ 'test-arc-core.c' ],
-    dependencies: [ arc_core ],
+    dependencies: [ arc_core, test_fence ],
   ),
   env: [ 'DISPLAY=', 'WAYLAND_DISPLAY=' ],
   args: []
@@ -2035,7 +2056,7 @@ test('rg40vg48 Data dirs test',
   executable('test-nemo-data-dirs',
     [ 'test-nemo-data-dirs.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
   ),
   args: []
 )
@@ -2044,7 +2065,7 @@ test('ret6zctg Path list text test',
   executable('test-nemo-path-list',
     [ 'test-nemo-path-list.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
   ),
   args: []
 )
@@ -2221,7 +2242,7 @@ test('rhdfp7t8 Menu paths test',
   executable('test-nemo-menu-paths',
     [ 'test-nemo-menu-paths.c' ] + gresources,
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
   ),
   args: []
 )
@@ -2259,7 +2280,7 @@ if is_windows
     executable('test-nemo-drives-win32',
       [ 'test-nemo-drives-win32.c' ],
       include_directories: [ rootInclude, ],
-      dependencies: [ gtk, nemo_private ],
+      dependencies: [ gtk, nemo_private, test_fence ],
     ),
     args: [],
     is_parallel: false,
@@ -2349,7 +2370,7 @@ if not is_windows
     executable('test-nemo-extension-load',
       [ 'test-nemo-extension-load.c' ],
       include_directories: [ rootInclude, ],
-      dependencies: [ gtk, gmodule, nemo_extension ],
+      dependencies: [ gtk, gmodule, nemo_extension, test_fence ],
     ),
     args: [ test_extension_module ]
   )
@@ -2380,7 +2401,7 @@ test('rkb69y1a Connect to Server address scheme test',
   executable('test-nemo-skip-scheme',
     [ 'test-nemo-skip-scheme.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private ],
+    dependencies: [ gtk, nemo_private, test_fence ],
   ),
   args: []
 )
@@ -2588,7 +2609,7 @@ if is_windows
     executable('test-nemo-drop-keys-win32',
       [ 'test-nemo-drop-keys-win32.c' ],
       include_directories: [ rootInclude, ],
-      dependencies: [ gtk, nemo_private ],
+      dependencies: [ gtk, nemo_private, test_fence ],
     ),
     args: []
   )

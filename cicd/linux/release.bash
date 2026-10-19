@@ -74,9 +74,14 @@ if ! docker exec "$CONTAINER" true 2>/dev/null; then
 	fEcho_Clean "starting container ${CONTAINER}"
 	docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 	## --init reaps orphans; --ulimit core=0 keeps crash dumps out of the mounted tree.
+	## The --security-opt pair lets the test's jail start (jail.bash).
 	docker run -d --init --ulimit core=0 --name "$CONTAINER" --shm-size=2g \
+		--security-opt seccomp=unconfined --security-opt apparmor=unconfined \
 		-v "${ROOT}:/src" "$IMAGE" sleep infinity >/dev/null
 fi
+## Before the build, since on the arm64 box that's an hour.
+docker exec "$CONTAINER" bash /src/cicd/linux/jail.bash --check >/dev/null \
+	|| fDie "the test jail can't start in ${CONTAINER}. Rebuild ${IMAGE} from cicd/linux/Dockerfile if it has no bwrap, then remove ${CONTAINER} so this makes it again"
 ## -j alone does not hold the build to that many cores: every LTO link runs 4
 ## jobs of its own, and ninja runs several links at once. Same cap the engine
 ## puts on its containers.
@@ -106,8 +111,8 @@ smoke="$(docker exec "$CONTAINER" xvfb-run -a "${BUILD}/src/${SLUG}" --version)"
 fEcho_Clean "$smoke"
 ## The extension API lives in the exe in this build, and nothing else in the
 ## lane would notice if an extension could no longer reach it.
-docker exec "$CONTAINER" meson test -C "$BUILD" --no-rebuild "rh5f9h18 Extension load test" >/dev/null \
-	|| fDie "extension load test failed; see ${BUILD}/meson-logs/testlog.txt in ${CONTAINER}"
+docker exec "$CONTAINER" meson test -C "$BUILD" --no-rebuild --wrapper "bash /src/cicd/linux/jail.bash" "rh5f9h18 Extension load test" >/dev/null \
+	|| fDie "extension load test failed; see ${BUILD}/meson-logs/testlog-bash.txt in ${CONTAINER}"
 
 fEcho_Clean ""
 fEcho "Staging prefix"
@@ -157,3 +162,4 @@ fEcho_Clean ""
 ##		- 2026-08-04 JC: Created (Linux half of the v1.0.0-beta1 release assets).
 ##		- 2026-10-03: Always a clean build dir.
 ##		- 2026-10-05: Runs on an arm64 box too, for release-arm64.bash.
+##		- 2026-10-19: The extension load test runs in the test jail.

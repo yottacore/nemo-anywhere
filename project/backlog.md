@@ -650,13 +650,34 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Whenever testing, always work in a sandboxed environment where no real files could be harmed even if you tried.
 	- ID: 2026101715030680
 	- Type: Task
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs local test suite run?: A full pipeline run once `nemo-build` and `nemo-build-jammy` are made again as below.
+		- `nemo-build`: `docker exec nemo-build sh -c 'apt-get update && apt-get install -y --no-install-recommends bubblewrap'`, then `docker commit nemo-build nemo-build-deps:init`, `docker rm -f nemo-build`, and `docker run -d --init --ulimit core=0 --shm-size=2g --security-opt seccomp=unconfined --security-opt apparmor=unconfined --name nemo-build -v <project>/repo:/src nemo-build-deps:init sleep infinity`.
+		- `nemo-build-jammy`: the same with `nemo-build-jammy` and `nemo-build-jammy:init`, plus `docker tag nemo-build-jammy:init nemo-build-jammy:latest`, since release.bash makes the container from `:latest` when it isn't running.
+		- A worker's own build box takes the same two `--security-opt`.
+	- Needs external testing:
+		- The FreeBSD lane and its release test as `bsdtest`: `cicd/bsd/lane.bash` and `cicd/bsd/release.bash`.
+		- The arm64 release build as `tester`, after `docker rmi nemo-build-jammy:latest` on vmDebARM64 so release.bash builds the image again with bubblewrap.
+		- The native Windows suite, `cicd/cicd-win.ps1 -Gate`, on vm925w and b29w, and as `wintest`. rknjd2qn is the one to watch.
 	- Priority|Severity: High
 	- Opened: 20261017-150306
 	- Opened by: t00mietum
 	- Decisions:
 		- A jail per test. On Linux each test runs under bubblewrap inside the container, with the repo and system read-only and a fresh HOME and scratch folder as the only places it can write. The other boxes run tests as their throwaway test user with a fake HOME, and the test library refuses a delete outside the test's scratch folder.
-	- Test case: none yet.
+		- `cicd/linux/jail.bash` is meson's `--wrapper` for every suite run: the gate, stage 3, the sanitizer lane, both release lanes, the FreeBSD lane and the Windows suite. Off Linux it gives the fresh HOME and temp folder only.
+		- The containers that run tests take `--security-opt seccomp=unconfined --security-opt apparmor=unconfined`, since docker's default profiles refuse bubblewrap's namespaces even to root. Without them the run stops before the first test and says what's missing. It never runs unjailed.
+		- Each Linux cell is a tmpfs of its own, capped at 4 GiB. The biggest cell in a suite run reached about 120 MB.
+		- No pid namespace in the jail. With the container's /proc in it, dbus-daemon names peers by the container's pid and 2 tests broke, and a fresh /proc would take a third docker option.
+		- The fence ends the test on a refused call rather than returning an error, which could be swallowed. It covers unlink, rmdir, remove, rename and their at forms on POSIX, and the same calls in every module's import table on Windows. A program a test starts is fenced only when it's a test binary too.
+	- Progress log:
+		- 20261019: A cell bound in from the container's disk failed New folder 5 times in 6. GLib answers "read-only?" once per device while something watches the mount table, so the cell took the read-only root's answer. A tmpfs cell is a device of its own, and passed 8 of 8.
+		- 20261019: Run by hand, the fence stopped 2 tests that wrote the real home. The GIO file ops probe trashed into it, and the archive job test pointed its config at scratch only after GLib had kept the real one. Both fixed, and `test_scratch_point_config_at` points the data and state dirs too.
+		- 20261019: Cost is about 10 ms a test. Whole suite at 4 jobs, two runs each: 168 s and 158 s without the jail, 164 s and 164 s with it.
+	- Test case: rknjd2qn (planted deletes and moves outside the test's folders are refused, the same calls inside go through), rknkav2r (the jail refuses writes to the source tree, the build dir and the real home), rknkbqe9 (every test executable has the fence).
+	- Verified: the Linux suite in the jail, 224 passed, 1 skipped. On other runs rkneye2c failed, which it does the same on dev (2026101914184878). The sanitizer lane in the jail, 209 passed, 15 skipped, 1 failed (rk96k9va, a time limit that passed alone). rknjd2qn in the Windows build too.
+	- Swept: every `meson test` call under `cicd/`. `fuzz.bash` runs its targets outside meson, and `profile-run.bash` runs the app, so neither is a test run. Every test executable in `source/test/meson.build` links the fence; the fakes, `test-env-dump` and the old-format writers are programs a test starts.
+	- Branch: jail
+	- Commit: 71bb7a65
 
 - cppcheck gives up on 34 C files at a GLib macro it can't expand, and says nothing.
 	- ID: 2026101912561238

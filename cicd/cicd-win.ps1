@@ -309,10 +309,20 @@ function fTests {
 	## test that looks for an installed program, ImageMagick say, never found it.
 	$savedPathType = $env:MSYS2_PATH_TYPE
 	$env:MSYS2_PATH_TYPE = "inherit"
+	## Each test gets a HOME and temp dir of its own under a temp dir for the
+	## run, and the test library refuses a delete outside them (jail.bash). A
+	## test that leaves something behind is named here.
+	$runDir = Join-Path ([IO.Path]::GetTempPath()) ("nemo-suite-" + [IO.Path]::GetRandomFileName())
+	New-Item -ItemType Directory -Path $runDir -Force | Out-Null
+	$runDirU = fToMsysPath $runDir
+	$jail = "$(fToMsysPath $Root)/cicd/linux/jail.bash"
 	try {
-		fMingw "NEMO_NO_CRASH_DIALOG=1 meson test -C $BuildRel --no-rebuild --num-processes $jobs --print-errorlogs"
+		fMingw "NEMO_NO_CRASH_DIALOG=1 TMPDIR='$runDirU' meson test -C $BuildRel --no-rebuild --num-processes $jobs --print-errorlogs --wrapper 'bash $jail'"
 	} finally { $env:MSYS2_PATH_TYPE = $savedPathType }
-	if ($script:MingwRc -ne 0) { fDie "test suite failed (exit $($script:MingwRc))" }
+	if ($script:MingwRc -ne 0) { fDie "test suite failed (exit $($script:MingwRc)); anything a test left is in $runDir" }
+	$left = @(Get-ChildItem -LiteralPath $runDir -Force -ErrorAction SilentlyContinue)
+	if ($left.Count -gt 0) { fDie "tests left these behind in ${runDir}: $(($left | ForEach-Object Name) -join ', ')" }
+	Remove-Item -LiteralPath $runDir -Force
 	fEcho "OK: test suite"
 	## The installer's in-use check needs a real process to find, so it runs
 	## here rather than beside the other script tests in lint.
@@ -762,6 +772,8 @@ try {
 
 
 ##	History:
+##		- 2026-10-19: Each test runs with a HOME and temp dir of its own, behind
+##		  the test library's delete fence.
 ##		- 2026-09-26: Stage 3 and the gate also run the installer's in-use check and
 ##		  a GUI launch smoke of the built exe.
 ##		- 2026-09-15: The gate runs the meson suite too, between build and smoke.

@@ -41,7 +41,7 @@ RUN sed -i -E 's#http://((archive|security)\.ubuntu\.com/ubuntu|ports\.ubuntu\.c
 		libsqlite3-dev \
 		libx11-dev libxext-dev libxrender-dev \
 		desktop-file-utils tar xz-utils \
-		xvfb \
+		xvfb bubblewrap \
 	&& rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src

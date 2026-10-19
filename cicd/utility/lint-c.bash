@@ -1151,6 +1151,41 @@ fCheckWinTests(){
 }
 fRun fCheckWinTests
 
+## Every test executable has the delete fence (test-fence.c), through
+## test_scratch or on its own. One without it can delete anywhere on a box with
+## no jail. The fakes, the env dump and the old-format writers are programs a
+## test starts, not tests, and link nothing of the build's on purpose.
+## Test ID: rknkbqe9
+fCheckTestFence(){
+	local build='source/test/meson.build'
+	local bad
+
+	[[ -f "$build" ]] || return 0
+
+	bad="$(awk '
+		function count(s, c,   n, i) { n = 0; for (i = 1; i <= length(s); i++) if (substr(s, i, 1) == c) n++; return n }
+		/^[[:space:]]*#/ { next }
+		!inside && match($0, /executable\(.[^'\'']*/) {
+			inside = 1; depth = 0; fenced = 0; start = FNR
+			name = substr($0, RSTART + 12, RLENGTH - 12)
+		}
+		inside {
+			if ($0 ~ /test_(scratch|fence)/) fenced = 1
+			depth += count($0, "(") - count($0, ")")
+			if (depth <= 0) {
+				inside = 0
+				if (!fenced && name !~ /^(shcl-old-writer|test-fake-|test-env-dump)/) print start ": " name
+			}
+		}
+	' "$build")"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: ${build}: a test executable without test_fence or test_scratch"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fRun fCheckTestFence
+
 ## Taking the focus off the path entry puts the buttons back, not only Escape.
 ## Switching to another program does not, so a half-typed path survives it.
 ## Test ID: rhtg2yem

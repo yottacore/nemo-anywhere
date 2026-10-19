@@ -191,6 +191,8 @@ A test that reads real user configuration is a test that fails on somebody else'
 
 The suite needs a display. `cicd/linux/run-tests.bash` starts one of its own, so run the suite through it rather than a bare `meson test`. Without a display, a good part of it fails in ways that read like real assertion failures.
 
+Through `run-tests.bash` each test also gets a home and temp folder of its own, in a jail on Linux (`cicd/linux/jail.bash`). Every test binary links `test-fence.c`, which ends a test that deletes or moves anything outside its own folders. Run by hand, a test's own folders are the temp dir and what `test_scratch_dir` made, so one that writes the real home stops there too.
+
 ## Other languages in the tree
 
 - Bash files are named `*.bash` and must pass shellcheck. No formatter. Tabs.

@@ -735,6 +735,8 @@ Tests are ordinary executables run by meson, and the bar for adding one is a def
 
 - The suite runs headless, on a virtual display where GTK needs one, and forms part of the Linux pre-push gate along with the build, the lints and a launch smoke test. A test that can't run on the current platform reports a skip, never a pass.
 
+- No test can reach real files. On Linux each test runs in a bubblewrap jail inside the build container: the repo and the system are read-only, and a fresh home and temp folder of its own are the only places it can write. The FreeBSD and Windows suites run as a throwaway test user and give each test the same fresh home and temp folder, without the jail. On every platform the test library refuses a delete or a move outside the test's own folders, and the test ends there, naming the path. The jail costs about 10 ms a test, which is lost in the noise of a whole suite run.
+
 - Anything needing a real desktop - clicking a menu, driving a drag - runs on a private virtual display with a window manager in the Linux build container, and on Windows in a throwaway Windows Sandbox built from the host's own image, which has its own desktop and keeps no state. A window can also be photographed without disturbing anything, since it renders off-screen even when covered.
 
 - Interactive behavior that no assertion reaches is verified by hand against a build kept on the desktop for daily use.
@@ -747,7 +749,7 @@ The reference Linux builds happen in containers rather than on a development mac
 
 Stock Debian 13 is the known-good baseline, in `cicd/linux/Dockerfile.dev` (image `nemo-build-deps`, container `nemo-build`). That file is the authoritative dependency list; the packages below are the same set spelled out for anyone building on their own machine.
 
-- The pipeline makes that container on first use if there is none: it builds the image, then runs it with the repo mounted at `/src`, `--shm-size=2g` so parallel gcc has room, `--init` to reap stray processes, and `--ulimit core=0` so a crash leaves no core file in the tree. The release and cross-build containers are made the same way by their own scripts.
+- The pipeline makes that container on first use if there is none: it builds the image, then runs it with the repo mounted at `/src`, `--shm-size=2g` so parallel gcc has room, `--init` to reap stray processes, `--ulimit core=0` so a crash leaves no core file in the tree, and `--security-opt seccomp=unconfined --security-opt apparmor=unconfined` so the test jail can start, since docker's default profiles refuse its namespaces. The release and cross-build containers are made the same way by their own scripts.
 
 - Toolchain and development libraries: `meson ninja-build gcc pkg-config gobject-introspection intltool itstool python3-gi`, `libgtk-3-dev libglib2.0-dev libpango1.0-dev libatk1.0-dev libgail-3-dev`, `libjson-glib-dev libgirepository1.0-dev libexempi-dev libexif-dev`, `libarchive-dev libsqlite3-dev`, `libx11-dev libxext-dev libxrender-dev`.
 

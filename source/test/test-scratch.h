@@ -22,8 +22,9 @@ char *test_scratch_dir_in  (const char  *base,
    nothing is removed and it answers FALSE. */
 gboolean test_scratch_remove_tree (const char *path);
 
-/* Points HOME, APPDATA, LOCALAPPDATA and the two XDG vars at dir, so a test
-   that reads a preference or writes a cache cannot reach the real one. */
+/* Points HOME, APPDATA, LOCALAPPDATA and the XDG config, cache, data and
+   state vars at dir, so a test that reads a preference or writes a cache, the
+   trash or the recent list cannot reach the real one. */
 void  test_scratch_point_config_at (const char *dir);
 
 /* Makes a scratch directory and points the config root at it. Call it before
