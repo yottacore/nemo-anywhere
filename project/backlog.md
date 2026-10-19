@@ -571,13 +571,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Sort attribute is not remembered when switching to thumbnail view.
 	- ID: 2026101613053691
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 218 of 218.
 	- Priority|Severity: Avg
 	- Opened: 20261016-130536
 	- Opened by: t00mietum
+	- Target OS: All
 	- Requirements:
 		- Before the next cut.
-	- Test case: none yet.
+	- Steps to reproduce: in the list view, sort a folder by Size, largest first. Then open a picture folder inside it, which turns to icons by itself, or switch the folder to icons.
+	- Incorrect behavior: the icons are sorted by name, smallest first.
+	- Expected behavior: the icons keep the sort and its direction.
+	- Reproduced: 20261019, Linux, with per-folder settings off and on.
+	- Actual cause: the list and icon views each kept a sort of their own, saved under separate keys. With per-folder settings off, the window held only the list's sort, and a sort picked in icons lasted only for that folder.
+	- Actual fix: one sort for every view, kept as a list column and its direction. It lives in the window with per-folder settings off, in the folder's set with them on, and in find mode's own place for find results. The icon view maps it to its own sorts. A column it can't sort by, such as owner, shows icons by name and stays for the list. An icon sort saved before still reads, and moves over on the first change. The Current tab in Settings reads and writes the same one. design.md "Per-folder view state" and the changelog say so.
+	- Decisions:
+		- design.md "Per-folder view state" lists sort and reverse once in a folder's set, and the Current tab already showed one, so the views share it.
+	- Swept: every place a view reads, saves or resets a sort. The list view's header click, load, find mode and Reset view. The icon and compact views' load, menu pick, reversed order, Reset view and a new default sort. The Current tab. Icons placed by hand don't save a direction. The image viewer that is told the sort reads the view's own order and was left alone. No other code reads the sort keys.
+	- Verified: rkmsgtfz fails on dev's code, with per-folder settings off and on. The picture folder showed icons by name, and a sort picked in icons didn't carry back to the list. It passes after. rh2nkbar passes with new checks for an old icon sort and for the write-back while loading, on Linux and under wine. rjnzamsq and rhtmbdmf still pass. Windows cross build clean. Lint clean but rj3ytv0b, which needs the main clone. The Current tab's sort row wasn't tried on screen.
+	- Progress log:
+		- 20261019: fixed. Left at signoff, since it changes what is saved per folder and how the views behave together.
+	- Branch: viewfix
+	- Commit: 423455c
+	- Test case: rkmsgtfz, List and icon views share a sort test, Linux and FreeBSD only. New checks in rh2nkbar, Folder settings test.
 
 - Linux/BSD need to pick up new icon theme when set. (If that's possible without bringing back a lot of cruft dependencies.)
 	- ID: 2026101816495202
@@ -594,14 +610,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Have to press "delete" twice after properties dialog.
 	- ID: 2026101816495203
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 218 of 218.
+	- Needs external testing: Windows, on vm925w in the desktop session. Select a file, open Properties, close it with Escape, and press Delete at once. The first press should bring up the delete question. Again closing Properties with the title bar's close button. Then switch to another program and back, and press Delete at once. That one should still be ignored.
 	- Priority|Severity: Avg
 	- Opened: 20261018-164952
 	- Opened by: t00mietum
+	- Related IDs: 2026101319204761
+	- Target OS: All
 	- Requirements:
 		- Before the next cut.
+	- Steps to reproduce: select a file, open Properties, close it, and press Delete within a second.
+	- Incorrect behavior: the first press is ignored, and only the second goes through.
 	- Expected behavior: Only press once.
-	- Test case: none yet.
+	- Reproduced: 20261019, Linux. The first press was ignored as typing meant for another window. A press more than a second later went through.
+	- Actual cause: the delete guard ignores a trash or delete key for a second after a window takes the focus, in case the key was meant for another program. Closing Properties hands the focus back to the window, which started that second. The test guard's own question wasn't involved, and neither was the tab focus change in Properties.
+	- Actual fix: focus that comes back from another of the program's own windows, such as a dialog closing, starts no such second. Focus from another program still does, and so does a window just opened. The delete guard design doc and the UX style guide say so.
+	- Swept: the check is on the window's focus, so every dialog of the program is covered the same way, the delete question itself included. The trash and delete keys are the only callers. Properties' tab focus handling is unchanged, and rk6naqsk still passes.
+	- Verified: rkmsgs9m fails on dev's code, where the first Shift+Delete after closing Properties never asked, and passes after. Closing Properties with Escape and with the window manager's close both left the next Delete working at once. A Delete right after coming back from another program was still ignored. rgv89eeg passes with new checks. Windows cross build clean. Lint clean but rj3ytv0b, which needs the main clone.
+	- Progress log:
+		- 20261019: fixed on Linux. Waiting for the Windows check above, since the focus events there come in differently. Then signoff, since it loosens a delete guard rule.
+	- Branch: viewfix
+	- Commit: 0ebed80
+	- Test case: rkmsgs9m, Delete key after Properties test, Linux and FreeBSD only. New checks in rgv89eeg, Delete guard test.
 
 - Windows: Network locations not recognized (either Windows `\\...` or *nix `smb://` form).
 	- ID: 2026101816495204
