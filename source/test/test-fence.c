@@ -194,7 +194,7 @@ dir_of_fd (int dirfd, char out[PATH_MAX])
 #endif
 }
 
-/* Where a delete of path lands: the folder it sits in with every link
+/* Where a delete of path ends up: the folder it sits in with every link
    resolved, plus its last name as it stands, since a delete takes the link and
    not what it points at. 1 when found. 0 when the folder isn't there to
    resolve, so the real call fails on its own. -1 when the folder of an open

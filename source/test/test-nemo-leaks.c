@@ -668,6 +668,8 @@ typedef struct {
 	GtkTargetList *targets;
 	gboolean received;
 	gboolean ended;
+	gboolean context_gone;
+	GdkWindow *drag_window;
 	int client;
 } DragCase;
 
@@ -768,6 +770,15 @@ drag_case_received (GtkWidget *widget, GtkSelectionData *selection, guint time, 
 	drag->received = TRUE;
 }
 
+static void
+drag_case_context_gone (gpointer data, GObject *where_it_was)
+{
+	DragCase *drag = data;
+
+	(void) where_it_was;
+	drag->context_gone = TRUE;
+}
+
 /* Rows dragged, the files asked for once, then the drag stopped short, as
    with Escape. */
 static void
@@ -786,13 +797,37 @@ drag_round (gpointer data)
 		return;
 	}
 
+	drag->drag_window = gdk_drag_context_get_drag_window (context);
+	if (drag->drag_window != NULL) {
+		g_object_add_weak_pointer (G_OBJECT (drag->drag_window), (gpointer *) &drag->drag_window);
+	}
+
 	gtk_selection_convert (drag->receiver, gdk_drag_get_selection (context),
 			       gdk_atom_intern_static_string ("text/uri-list"), GDK_CURRENT_TIME);
 	wait_for_flag (&drag->received, "the dragged files' answer");
 
+	drag->context_gone = FALSE;
+	g_object_weak_ref (G_OBJECT (context), drag_case_context_gone, drag);
 	gtk_drag_cancel (context);
 	wait_for_flag (&drag->ended, "the end of a stopped drag");
+	/* GDK keeps the context, and the icon window with it, until the icon's
+	   snap-back is over, some way past drag-end. Unwaited, a reading counts
+	   however many are still flying, and on a loaded box that's a lot. */
+	wait_for_flag (&drag->context_gone, "the stopped drag's context to go");
+	/* Its drag window is let go on the server's DestroyNotify. */
+	gdk_display_sync (gtk_widget_get_display (drag->tree));
 	drain_main_loop ();
+
+	/* 2026101916044103: GTK's icon window refs the drag window and never
+	   lets go, so one is kept per drag. Dropped here, and only while it's
+	   still alive, so the rounds count what's ours and libegg's. */
+	if (drag->drag_window != NULL) {
+		GdkWindow *kept = drag->drag_window;
+
+		g_object_remove_weak_pointer (G_OBJECT (kept), (gpointer *) &drag->drag_window);
+		drag->drag_window = NULL;
+		g_object_unref (kept);
+	}
 }
 
 static gboolean

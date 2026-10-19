@@ -117,7 +117,7 @@ check_refusals (void)
 	g_autofree char *folder = g_build_filename (outside, "folder", NULL);
 	g_autofree char *empty = g_build_filename (outside, "empty", NULL);
 	g_autofree char *mine = plant (allowed, "mine.txt");
-	g_autofree char *landing = g_build_filename (allowed, "landing.txt", NULL);
+	g_autofree char *moved_to = g_build_filename (allowed, "moved-here.txt", NULL);
 	g_autofree char *sneaky = g_build_filename (allowed, "..", "outside", "target.txt", NULL);
 	g_autofree char *up = g_build_filename ("..", "outside", "target.txt", NULL);
 
@@ -129,7 +129,7 @@ check_refusals (void)
 	check (try_it (TRUE, "remove", target, NULL));
 	check (try_it (TRUE, "rmdir", empty, NULL));
 	check (try_it (TRUE, "gio", target, NULL));
-	check (try_it (TRUE, "rename", target, landing));
+	check (try_it (TRUE, "rename", target, moved_to));
 	check (try_it (TRUE, "rename", mine, target));
 	check (try_it (TRUE, "unlink", sneaky, NULL));
 	check (try_it (TRUE, "relative", allowed, up));
@@ -143,7 +143,7 @@ check_refusals (void)
 	check (g_file_test (folder, G_FILE_TEST_IS_DIR));
 	check (g_file_test (empty, G_FILE_TEST_IS_DIR));
 	check (g_file_test (mine, G_FILE_TEST_IS_REGULAR));
-	check (!g_file_test (landing, G_FILE_TEST_EXISTS));
+	check (!g_file_test (moved_to, G_FILE_TEST_EXISTS));
 }
 
 #ifndef G_OS_WIN32
