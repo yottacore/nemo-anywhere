@@ -269,6 +269,38 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: f275bc90
 	- Test case: rkmqprx6, `test-cicd-quick.bash`, checks which steps run with no options, with `--quick`, `--quick --include-arm`, `--quick --include-bsd`, and `--gate`. rj9v18rx checks the help names what `--quick` skips.
 
+- Whenever testing, always work in a sandboxed environment where no real files could be harmed even if you tried.
+	- ID: 2026101715030680
+	- Type: Task
+	- Status: Waiting for testing
+	- Needs local test suite run?: A full pipeline run once `nemo-build` and `nemo-build-jammy` are made again as below.
+		- `nemo-build`: `docker exec nemo-build sh -c 'apt-get update && apt-get install -y --no-install-recommends bubblewrap'`, then `docker commit nemo-build nemo-build-deps:init`, `docker rm -f nemo-build`, and `docker run -d --init --ulimit core=0 --shm-size=2g --security-opt seccomp=unconfined --security-opt apparmor=unconfined --name nemo-build -v <project>/repo:/src nemo-build-deps:init sleep infinity`.
+		- `nemo-build-jammy`: the same with `nemo-build-jammy` and `nemo-build-jammy:init`, plus `docker tag nemo-build-jammy:init nemo-build-jammy:latest`, since release.bash makes the container from `:latest` when it isn't running.
+		- A worker's own build box takes the same two `--security-opt`.
+	- Needs external testing:
+		- The FreeBSD lane and its release test as `bsdtest`: `cicd/bsd/lane.bash` and `cicd/bsd/release.bash`.
+		- The arm64 release build as `tester`, after `docker rmi nemo-build-jammy:latest` on vmDebARM64 so release.bash builds the image again with bubblewrap.
+		- The native Windows suite, `cicd/cicd-win.ps1 -Gate`, on vm925w and b29w, and as `wintest`. rknjd2qn is the one to watch.
+	- Priority|Severity: High
+	- Opened: 20261017-150306
+	- Opened by: t00mietum
+	- Decisions:
+		- A jail per test. On Linux each test runs under bubblewrap inside the container, with the repo and system read-only and a fresh HOME and scratch folder as the only places it can write. The other boxes run tests as their throwaway test user with a fake HOME, and the test library refuses a delete outside the test's scratch folder.
+		- `cicd/linux/jail.bash` is meson's `--wrapper` for every suite run: the gate, stage 3, the sanitizer lane, both release lanes, the FreeBSD lane and the Windows suite. Off Linux it gives the fresh HOME and temp folder only.
+		- The containers that run tests take `--security-opt seccomp=unconfined --security-opt apparmor=unconfined`, since docker's default profiles refuse bubblewrap's namespaces even to root. Without them the run stops before the first test and says what's missing. It never runs unjailed.
+		- Each Linux cell is a tmpfs of its own, capped at 4 GiB. The biggest cell in a suite run reached about 120 MB.
+		- No pid namespace in the jail. With the container's /proc in it, dbus-daemon names peers by the container's pid and 2 tests broke, and a fresh /proc would take a third docker option.
+		- The fence ends the test on a refused call rather than returning an error, which could be swallowed. It covers unlink, rmdir, remove, rename and their at forms on POSIX, and the same calls in every module's import table on Windows. A program a test starts is fenced only when it's a test binary too.
+	- Progress log:
+		- 20261019: A cell bound in from the container's disk failed New folder 5 times in 6. GLib answers "read-only?" once per device while something watches the mount table, so the cell took the read-only root's answer. A tmpfs cell is a device of its own, and passed 8 of 8.
+		- 20261019: Run by hand, the fence stopped 2 tests that wrote the real home. The GIO file ops probe trashed into it, and the archive job test pointed its config at scratch only after GLib had kept the real one. Both fixed, and `test_scratch_point_config_at` points the data and state dirs too.
+		- 20261019: Cost is about 10 ms a test. Whole suite at 4 jobs, two runs each: 168 s and 158 s without the jail, 164 s and 164 s with it.
+	- Test case: rknjd2qn (planted deletes and moves outside the test's folders are refused, the same calls inside go through), rknkav2r (the jail refuses writes to the source tree, the build dir and the real home), rknkbqe9 (every test executable has the fence).
+	- Verified: the Linux suite in the jail, 224 passed, 1 skipped. On other runs rkneye2c failed, which it does the same on dev (2026101914184878). The sanitizer lane in the jail, 209 passed, 15 skipped, 1 failed (rk96k9va, a time limit that passed alone). rknjd2qn in the Windows build too.
+	- Swept: every `meson test` call under `cicd/`. `fuzz.bash` runs its targets outside meson, and `profile-run.bash` runs the app, so neither is a test run. Every test executable in `source/test/meson.build` links the fence; the fakes, `test-env-dump` and the old-format writers are programs a test starts.
+	- Branch: jail
+	- Commit: 71bb7a65
+
 - F2 renaming in photo icon view doesn't work.
 	- ID: 2026101009150764
 	- Type: Bug
@@ -542,6 +574,39 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: vendlint
 	- Commit: 3ae52a5
 
+- cppcheck gives up on 34 C files at a GLib macro it can't expand, and says nothing.
+	- ID: 2026101912561238
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs external testing: the native Windows lint over the whole tree, the first run there with `.cppcheck-macros.h`.
+	- Priority|Severity: Avg
+	- Opened: 20261019-125612
+	- Opened by: t00mietum
+	- Related IDs: 2026101715252255
+	- Target OS: All
+	- Incorrect behavior: cppcheck gets no include paths, so a macro such as `G_GINT64_FORMAT` or `G_FILE_ATTRIBUTE_STANDARD_TYPE` inside a string is unknown to it. It stops on that file with `unknownMacro` and checks nothing else in it. `.cppcheck-suppressions` turns `unknownMacro` off for the whole tree, so the gate passes. 34 first-party files are skipped that way, `nemo-config.c` among them, and 20 of them are tests.
+	- Expected behavior: every C file is checked all the way through, and `unknownMacro` is left on, so a new one fails the gate.
+	- Possible fix: give the missing macros values in `.cppcheck-defines.cfg`. A first try with 13 of them still left 6 files stopped on others, and turned up 17 findings in the rest, most of them leaks in tests.
+	- Actual cause: it was 40 files, counted one at a time. cppcheck prints a repeated message once, which hid 6 more. Those stopped at the self-check prototype macro in `nemo-lib-self-check-functions.h`, which it couldn't reach through `<eel/...>`.
+	- Decisions:
+		- 20261019: the macros go in `.cppcheck-macros.h`, which every file is checked with, not in a cfg. cppcheck 2.21's own GTK config defines most of the GLib ones, and on 2.21 a cfg that defines one again won't load, so the Windows lint would stop. Each one is behind `#ifndef`, so whichever comes first wins. `.cppcheck-defines.cfg` is gone, and its 2 macros moved there.
+		- 20261019: only the GLib macros this tree uses are in it, with GLib's values for 64-bit Linux. A new one fails the gate by name.
+		- 20261019: `varFuncNullUB`, a bare NULL ending a variadic call, is off tree-wide with its reason, the same as `assertWithSideEffect`. It fired about 40 times, on our own dialog and singleton calls, and every compiler here defines NULL as a pointer.
+	- Actual fix: `lint-c.bash` checks every file with `.cppcheck-macros.h` and no longer suppresses `unknownMacro`. The self-check header includes the EEL header by a relative path. What turned up was fixed, or suppressed at the line where it's false:
+		- Leaks in `test-nemo-launch-env.c` on its early returns. A `%s` there could get NULL.
+		- A link with no folder to go in crashed in the job. It now makes nothing and says so.
+		- A link that failed without an error message read a NULL one.
+		- `test-arc-scan.c` checked its list for NULL, then read it anyway.
+		- A format that printed an unsigned size with `%d`.
+		- 4 writes whose result was never read, which cppcheck 2.21 reports.
+		- 9 false leaks, each suppressed at its line with the reason.
+	- Note: whole-tree cppcheck takes the same time as before, about 51 to 59 s on a loaded b23, since `shcl.h` alone sets it. The new check adds well under a second.
+	- Swept: every C file in the tree checked one at a time under cppcheck 2.17.1 and 2.21, with no `unknownMacro` left. Every unchecked `g_file_set_contents` in the tree, 4 in all.
+	- Test case: rknjb8dk, a check in `lint-c.bash`. A leak written after the macros in `.cppcheck-macros.h` has to be found, and a macro nobody defines has to fail. rhtq57n1 also drops a link with no folder.
+	- Verified: 20261019, Linux: the whole tree has no findings under cppcheck 2.17.1 and 2.21. A leak added after the first macro in `nemo-cache-db-prune.c` passes with dev's settings and fails now. rknjb8dk fails with `unknownMacro` suppressed again, and with 2 macros taken out of the header, on both versions. rhtq57n1 crashes without the link fix and passes with it. The suite passed 222 of 224 with `-Werror`, 1 skipped. rkneye2c failed, and fails the same on dev; that's 2026101914184878.
+	- Branch: lintmacro
+	- Commit: 2c560fb1
+
 - On Windows, the trash icon leaves out removable drives.
 	- ID: 2026100708294146
 	- Type: Bug
@@ -646,125 +711,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- ASan's allocator hides the heap from glibc's own stats, such as `mallinfo2`. A test that reads them should exit as skipped under ASan, not pass.
 		- 20261017: `vendor/shcl-old/` is only built into a test, never into the app, so the vendored code above doesn't take it in. The gaps found in the existing checks on vendored and third-party code are 2026101715252255 to 2026101715252260.
 	- Test case: each new stage is its own test, with a planted fault it has to catch.
-
-- Whenever testing, always work in a sandboxed environment where no real files could be harmed even if you tried.
-	- ID: 2026101715030680
-	- Type: Task
-	- Status: Waiting for testing
-	- Needs local test suite run?: A full pipeline run once `nemo-build` and `nemo-build-jammy` are made again as below.
-		- `nemo-build`: `docker exec nemo-build sh -c 'apt-get update && apt-get install -y --no-install-recommends bubblewrap'`, then `docker commit nemo-build nemo-build-deps:init`, `docker rm -f nemo-build`, and `docker run -d --init --ulimit core=0 --shm-size=2g --security-opt seccomp=unconfined --security-opt apparmor=unconfined --name nemo-build -v <project>/repo:/src nemo-build-deps:init sleep infinity`.
-		- `nemo-build-jammy`: the same with `nemo-build-jammy` and `nemo-build-jammy:init`, plus `docker tag nemo-build-jammy:init nemo-build-jammy:latest`, since release.bash makes the container from `:latest` when it isn't running.
-		- A worker's own build box takes the same two `--security-opt`.
-	- Needs external testing:
-		- The FreeBSD lane and its release test as `bsdtest`: `cicd/bsd/lane.bash` and `cicd/bsd/release.bash`.
-		- The arm64 release build as `tester`, after `docker rmi nemo-build-jammy:latest` on vmDebARM64 so release.bash builds the image again with bubblewrap.
-		- The native Windows suite, `cicd/cicd-win.ps1 -Gate`, on vm925w and b29w, and as `wintest`. rknjd2qn is the one to watch.
-	- Priority|Severity: High
-	- Opened: 20261017-150306
-	- Opened by: t00mietum
-	- Decisions:
-		- A jail per test. On Linux each test runs under bubblewrap inside the container, with the repo and system read-only and a fresh HOME and scratch folder as the only places it can write. The other boxes run tests as their throwaway test user with a fake HOME, and the test library refuses a delete outside the test's scratch folder.
-		- `cicd/linux/jail.bash` is meson's `--wrapper` for every suite run: the gate, stage 3, the sanitizer lane, both release lanes, the FreeBSD lane and the Windows suite. Off Linux it gives the fresh HOME and temp folder only.
-		- The containers that run tests take `--security-opt seccomp=unconfined --security-opt apparmor=unconfined`, since docker's default profiles refuse bubblewrap's namespaces even to root. Without them the run stops before the first test and says what's missing. It never runs unjailed.
-		- Each Linux cell is a tmpfs of its own, capped at 4 GiB. The biggest cell in a suite run reached about 120 MB.
-		- No pid namespace in the jail. With the container's /proc in it, dbus-daemon names peers by the container's pid and 2 tests broke, and a fresh /proc would take a third docker option.
-		- The fence ends the test on a refused call rather than returning an error, which could be swallowed. It covers unlink, rmdir, remove, rename and their at forms on POSIX, and the same calls in every module's import table on Windows. A program a test starts is fenced only when it's a test binary too.
-	- Progress log:
-		- 20261019: A cell bound in from the container's disk failed New folder 5 times in 6. GLib answers "read-only?" once per device while something watches the mount table, so the cell took the read-only root's answer. A tmpfs cell is a device of its own, and passed 8 of 8.
-		- 20261019: Run by hand, the fence stopped 2 tests that wrote the real home. The GIO file ops probe trashed into it, and the archive job test pointed its config at scratch only after GLib had kept the real one. Both fixed, and `test_scratch_point_config_at` points the data and state dirs too.
-		- 20261019: Cost is about 10 ms a test. Whole suite at 4 jobs, two runs each: 168 s and 158 s without the jail, 164 s and 164 s with it.
-	- Test case: rknjd2qn (planted deletes and moves outside the test's folders are refused, the same calls inside go through), rknkav2r (the jail refuses writes to the source tree, the build dir and the real home), rknkbqe9 (every test executable has the fence).
-	- Verified: the Linux suite in the jail, 224 passed, 1 skipped. On other runs rkneye2c failed, which it does the same on dev (2026101914184878). The sanitizer lane in the jail, 209 passed, 15 skipped, 1 failed (rk96k9va, a time limit that passed alone). rknjd2qn in the Windows build too.
-	- Swept: every `meson test` call under `cicd/`. `fuzz.bash` runs its targets outside meson, and `profile-run.bash` runs the app, so neither is a test run. Every test executable in `source/test/meson.build` links the fence; the fakes, `test-env-dump` and the old-format writers are programs a test starts.
-	- Branch: jail
-	- Commit: 71bb7a65
-
-- cppcheck gives up on 34 C files at a GLib macro it can't expand, and says nothing.
-	- ID: 2026101912561238
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: the native Windows lint over the whole tree, the first run there with `.cppcheck-macros.h`.
-	- Priority|Severity: Avg
-	- Opened: 20261019-125612
-	- Opened by: t00mietum
-	- Related IDs: 2026101715252255
-	- Target OS: All
-	- Incorrect behavior: cppcheck gets no include paths, so a macro such as `G_GINT64_FORMAT` or `G_FILE_ATTRIBUTE_STANDARD_TYPE` inside a string is unknown to it. It stops on that file with `unknownMacro` and checks nothing else in it. `.cppcheck-suppressions` turns `unknownMacro` off for the whole tree, so the gate passes. 34 first-party files are skipped that way, `nemo-config.c` among them, and 20 of them are tests.
-	- Expected behavior: every C file is checked all the way through, and `unknownMacro` is left on, so a new one fails the gate.
-	- Possible fix: give the missing macros values in `.cppcheck-defines.cfg`. A first try with 13 of them still left 6 files stopped on others, and turned up 17 findings in the rest, most of them leaks in tests.
-	- Actual cause: it was 40 files, counted one at a time. cppcheck prints a repeated message once, which hid 6 more. Those stopped at the self-check prototype macro in `nemo-lib-self-check-functions.h`, which it couldn't reach through `<eel/...>`.
-	- Decisions:
-		- 20261019: the macros go in `.cppcheck-macros.h`, which every file is checked with, not in a cfg. cppcheck 2.21's own GTK config defines most of the GLib ones, and on 2.21 a cfg that defines one again won't load, so the Windows lint would stop. Each one is behind `#ifndef`, so whichever comes first wins. `.cppcheck-defines.cfg` is gone, and its 2 macros moved there.
-		- 20261019: only the GLib macros this tree uses are in it, with GLib's values for 64-bit Linux. A new one fails the gate by name.
-		- 20261019: `varFuncNullUB`, a bare NULL ending a variadic call, is off tree-wide with its reason, the same as `assertWithSideEffect`. It fired about 40 times, on our own dialog and singleton calls, and every compiler here defines NULL as a pointer.
-	- Actual fix: `lint-c.bash` checks every file with `.cppcheck-macros.h` and no longer suppresses `unknownMacro`. The self-check header includes the EEL header by a relative path. What turned up was fixed, or suppressed at the line where it's false:
-		- Leaks in `test-nemo-launch-env.c` on its early returns. A `%s` there could get NULL.
-		- A link with no folder to go in crashed in the job. It now makes nothing and says so.
-		- A link that failed without an error message read a NULL one.
-		- `test-arc-scan.c` checked its list for NULL, then read it anyway.
-		- A format that printed an unsigned size with `%d`.
-		- 4 writes whose result was never read, which cppcheck 2.21 reports.
-		- 9 false leaks, each suppressed at its line with the reason.
-	- Note: whole-tree cppcheck takes the same time as before, about 51 to 59 s on a loaded b23, since `shcl.h` alone sets it. The new check adds well under a second.
-	- Swept: every C file in the tree checked one at a time under cppcheck 2.17.1 and 2.21, with no `unknownMacro` left. Every unchecked `g_file_set_contents` in the tree, 4 in all.
-	- Test case: rknjb8dk, a check in `lint-c.bash`. A leak written after the macros in `.cppcheck-macros.h` has to be found, and a macro nobody defines has to fail. rhtq57n1 also drops a link with no folder.
-	- Verified: 20261019, Linux: the whole tree has no findings under cppcheck 2.17.1 and 2.21. A leak added after the first macro in `nemo-cache-db-prune.c` passes with dev's settings and fails now. rknjb8dk fails with `unknownMacro` suppressed again, and with 2 macros taken out of the header, on both versions. rhtq57n1 crashes without the link fix and passes with it. The suite passed 222 of 224 with `-Werror`, 1 skipped. rkneye2c failed, and fails the same on dev; that's 2026101914184878.
-	- Branch: lintmacro
-	- Commit: 2c560fb1
-
-- No leak check runs on Windows.
-	- ID: 2026101715252260
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261017-152522
-	- Opened by: t00mietum
-	- Related IDs: 2026101715252259, 2026101619020505, 2026101913541100, 2026101913541101
-	- Target OS: Windows
-	- Incorrect behavior: the heap growth tests read glibc's heap and exit 77 anywhere else, and the sanitizer lane is Linux only. The Windows bundle runs its own builds of GTK, GLib, fontconfig, libarchive, the pixbuf loaders and the rest of the DLLs `stage-native.bash` copies in. None of that is leak-checked, and neither is any `*-win32.c` file.
-	- Expected behavior: the heap growth tests read the heap on Windows too, through the Win32 heap calls, and run in the native Windows suite.
-	- Estimated effort: High
-	- Decisions:
-		- Every heap in the process is read, not just the C runtime's. GLib, GTK and the other mingw DLLs take from msvcrt's own heap. Windows' own DLLs and Rust code such as librsvg take from the process heap.
-		- On Windows each reading waits until the heap sits still for a bit over a second, with the main loop running. Start-up work goes on for about a second in threads that are already there, and GTK keeps what it used to ask the clipboard for until a 1 second timer goes off.
-		- Under wine the heap walk can miss small blocks, and a case that finds it so answers 77. Wine isn't where these are meant to run.
-		- The drag case answers 77 where there's no monitor, as in the session the Windows suite runs in over ssh.
-		- The settings case answers 77 on Windows until 2026101913541100 is fixed, and the bookmarks file case until 2026101913541101 is.
-	- Actual fix: `test-heap.c` reads the Windows heaps and thread list, and the leak tests build on every platform. The config store test's heap check uses the same reader, so it runs on Windows too.
-	- Swept: `mallinfo2` had 2 readers, `test-heap.c` and the list read check in `test-nemo-config.c`. Both read through `test-heap.c` now.
-	- Branch: winleak
-	- Commit: 631be89a, ec819c2a
-	- Test case: `test-nemo-leaks.c` runs on Windows, and its self-check, rjcth67d, sees its planted leak there.
-	- Verified: 20261019, the native gate on b29w passed: 184 tests pass, none fail, 19 skip. Of the 14 leak cases 11 pass, the self-check among them, and the 3 above answer 77. A 24 byte block leaked per call, planted in the checksum, failed rkneydzr there both ways: through `g_malloc` and through the process heap. On Linux all 14 pass, and all 14 answer 77 in the sanitizer build. The config test's check failed on Linux with a planted leak in list reads. It answers 77 natively over ssh, where there's no monitor, so it hasn't run on Windows yet.
-	- Acceptance signoff: Self-closed: the leak cases run in the native suite, and a planted leak on either heap fails there.
-	- Closed: 20261019-143015
-
-- On Windows, GLib leaks the new name of every rename in a watched folder.
-	- ID: 2026101913541100
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261019-135411
-	- Opened by: t00mietum
-	- Related IDs: 2026101715252260
-	- Target OS: Windows
-	- Incorrect behavior: GLib's Windows file monitor copies the new name of a rename and never frees it. A settings save is 2 renames, so each save loses a few dozen bytes. Still so in GLib 2.88.3 and on its main branch.
-	- Expected behavior: a save leaves the heap where it was.
-	- Possible fix: free the copy after the event is handed on, since the handler copies it. Report it upstream with that patch. Nothing in the app can work around it.
-	- Test case: rkneydx6 on Windows, which answers 77 there until GLib has the fix.
-
-- On Windows, the bookmarks file leak case can't tell a leak from what COM does on its own.
-	- ID: 2026101913541101
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261019-135411
-	- Opened by: t00mietum
-	- Related IDs: 2026101715252260
-	- Target OS: Windows
-	- Incorrect behavior: while a bookmark loads, the process heap moves by a few 4 KB COM buffers either way. Over a reading that is more than a leak of a block a round would add, so rjbn328w fails now and then with no leak. The buffers name an app package, so something asks Windows about apps or folders, but what makes the call wasn't found.
-	- Expected behavior: rjbn328w runs on Windows and passes every time.
-	- Test case: rjbn328w on Windows, which answers 77 there until this is fixed.
 
 - Windows: Network locations not recognized (either Windows `\\...` or *nix `smb://` form).
 	- ID: 2026101816495204
@@ -974,6 +920,33 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Both are in `--help`.
 	- Estimated effort: Low
 	- Test case: a pipeline option test that checks each flag, and both together in either order.
+
+- On Windows, GLib leaks the new name of every rename in a watched folder.
+	- ID: 2026101913541100
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261019-135411
+	- Opened by: t00mietum
+	- Related IDs: 2026101715252260
+	- Target OS: Windows
+	- Incorrect behavior: GLib's Windows file monitor copies the new name of a rename and never frees it. A settings save is 2 renames, so each save loses a few dozen bytes. Still so in GLib 2.88.3 and on its main branch.
+	- Expected behavior: a save leaves the heap where it was.
+	- Possible fix: free the copy after the event is handed on, since the handler copies it. Report it upstream with that patch. Nothing in the app can work around it.
+	- Test case: rkneydx6 on Windows, which answers 77 there until GLib has the fix.
+
+- On Windows, the bookmarks file leak case can't tell a leak from what COM does on its own.
+	- ID: 2026101913541101
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261019-135411
+	- Opened by: t00mietum
+	- Related IDs: 2026101715252260
+	- Target OS: Windows
+	- Incorrect behavior: while a bookmark loads, the process heap moves by a few 4 KB COM buffers either way. Over a reading that is more than a leak of a block a round would add, so rjbn328w fails now and then with no leak. The buffers name an app package, so something asks Windows about apps or folders, but what makes the call wasn't found.
+	- Expected behavior: rjbn328w runs on Windows and passes every time.
+	- Test case: rjbn328w on Windows, which answers 77 there until this is fixed.
 
 - rkneye2c, Multi-row drag leak test, fails on a fresh container from the build image.
 	- ID: 2026101914184878
@@ -1286,6 +1259,33 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. rj043mnp covers it.
 	- Closed: 20261003-112426
+
+- No leak check runs on Windows.
+	- ID: 2026101715252260
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261017-152522
+	- Opened by: t00mietum
+	- Related IDs: 2026101715252259, 2026101619020505, 2026101913541100, 2026101913541101
+	- Target OS: Windows
+	- Incorrect behavior: the heap growth tests read glibc's heap and exit 77 anywhere else, and the sanitizer lane is Linux only. The Windows bundle runs its own builds of GTK, GLib, fontconfig, libarchive, the pixbuf loaders and the rest of the DLLs `stage-native.bash` copies in. None of that is leak-checked, and neither is any `*-win32.c` file.
+	- Expected behavior: the heap growth tests read the heap on Windows too, through the Win32 heap calls, and run in the native Windows suite.
+	- Estimated effort: High
+	- Decisions:
+		- Every heap in the process is read, not just the C runtime's. GLib, GTK and the other mingw DLLs take from msvcrt's own heap. Windows' own DLLs and Rust code such as librsvg take from the process heap.
+		- On Windows each reading waits until the heap sits still for a bit over a second, with the main loop running. Start-up work goes on for about a second in threads that are already there, and GTK keeps what it used to ask the clipboard for until a 1 second timer goes off.
+		- Under wine the heap walk can miss small blocks, and a case that finds it so answers 77. Wine isn't where these are meant to run.
+		- The drag case answers 77 where there's no monitor, as in the session the Windows suite runs in over ssh.
+		- The settings case answers 77 on Windows until 2026101913541100 is fixed, and the bookmarks file case until 2026101913541101 is.
+	- Actual fix: `test-heap.c` reads the Windows heaps and thread list, and the leak tests build on every platform. The config store test's heap check uses the same reader, so it runs on Windows too.
+	- Swept: `mallinfo2` had 2 readers, `test-heap.c` and the list read check in `test-nemo-config.c`. Both read through `test-heap.c` now.
+	- Branch: winleak
+	- Commit: 631be89a, ec819c2a
+	- Test case: `test-nemo-leaks.c` runs on Windows, and its self-check, rjcth67d, sees its planted leak there.
+	- Verified: 20261019, the native gate on b29w passed: 184 tests pass, none fail, 19 skip. Of the 14 leak cases 11 pass, the self-check among them, and the 3 above answer 77. A 24 byte block leaked per call, planted in the checksum, failed rkneydzr there both ways: through `g_malloc` and through the process heap. On Linux all 14 pass, and all 14 answer 77 in the sanitizer build. The config test's check failed on Linux with a planted leak in list reads. It answers 77 natively over ssh, where there's no monitor, so it hasn't run on Windows yet.
+	- Acceptance signoff: Self-closed: the leak cases run in the native suite, and a planted leak on either heap fails there.
+	- Closed: 20261019-143015
 
 - The heap growth tests don't repeat what the vendored code does.
 	- ID: 2026101715252259
