@@ -1012,7 +1012,6 @@ check_edited_line (const char *tmp,
 	GFile *destination = g_file_new_for_path (path);
 	GList *sources = sources_in (source_dir, names);
 	NemoArchiveOptions options;
-	char *config_home;
 	char **parts;
 	char *line;
 
@@ -1025,7 +1024,6 @@ check_edited_line (const char *tmp,
 		goto out;
 	}
 
-	config_home = test_scratch_config_home ("nemo-archive-test-config-XXXXXX");
 	nemo_config_init ();
 	parts = g_strsplit (NEMO_ARCHIVE_COMMAND_7Z_DEFAULT, "{{PASSWORD}}", -1);
 	line = g_strjoinv ("", parts);
@@ -1049,7 +1047,6 @@ check_edited_line (const char *tmp,
 	nemo_config_shutdown ();
 	g_strfreev (parts);
 	g_free (line);
-	g_free (config_home);
  out:
 	nemo_archive_options_clear (&options);
 	g_list_free_full (sources, g_object_unref);
@@ -1493,8 +1490,12 @@ main (int argc, char *argv[])
 	char *sub_dir;
 	char *one_dir;
 	char *each_dir;
+	char *config_home;
 	guint handler;
 
+	/* Before anything reads the config root, which GLib keeps from its first
+	   answer. Made later, it was the real one that got written. */
+	config_home = test_scratch_config_home ("nemo-archive-test-config-XXXXXX");
 	test_init (&argc, &argv);
 
 	tmp = test_scratch_dir ("nemo-archive-test-XXXXXX", NULL);
@@ -1540,6 +1541,7 @@ main (int argc, char *argv[])
 	g_free (sub_dir);
 	g_free (source_dir);
 	g_free (tmp);
+	g_free (config_home);
 
 	if (failures == 0) {
 		g_print ("archive: all checks passed\n");

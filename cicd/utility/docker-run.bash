@@ -66,6 +66,8 @@ fi
 ## from the same Dockerfile and with the same flags as by hand. Any other name is
 ## someone's own box, and a missing one is still an env miss.
 ## --init reaps orphans; --ulimit core=0 keeps crash dumps out of the mounted tree.
+## The two --security-opt let bubblewrap make the namespaces each test's jail
+## needs (linux/jail.bash); docker's default profiles refuse them even to root.
 names="$(docker ps -a --format '{{.Names}}' 2>/dev/null || true)"
 if ! grep -qx "$container" <<<"$names"; then
 	[[ "$container" == "nemo-build" ]] || skip_or_die "build container '${container}' not found"
@@ -77,6 +79,7 @@ if ! grep -qx "$container" <<<"$names"; then
 	fi
 	fEcho "creating container ${container}"
 	docker run -d --init --ulimit core=0 --shm-size=2g --cpus "$(( $(nproc) / 2 ))" --name "$container" \
+		--security-opt seccomp=unconfined --security-opt apparmor=unconfined \
 		-v "${repo}:/src" nemo-build-deps:latest sleep infinity >/dev/null \
 		|| skip_or_die "could not create container '${container}'"
 fi

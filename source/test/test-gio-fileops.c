@@ -78,6 +78,8 @@ main (void)
 	GFileInfo *info;
 	gboolean ok;
 
+	/* The trash below goes to the home's trash, the real one unless this. */
+	g_free (test_scratch_config_home ("nemo-fileops-home-XXXXXX"));
 	base_path = test_scratch_dir ("nemo-fileops-XXXXXX", &error);
 	if (base_path == NULL) {
 		g_printerr ("cannot create temp dir: %s\n", error->message);

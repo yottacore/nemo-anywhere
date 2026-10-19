@@ -8,6 +8,8 @@
 # Source tree is mounted at /src; builds go to /build.
 #
 # Run it with --shm-size=2g or parallel gcc ICEs on the default 64M /dev/shm.
+# Each test runs in a bubblewrap jail (jail.bash), which needs
+# --security-opt seccomp=unconfined --security-opt apparmor=unconfined too.
 
 FROM debian:trixie
 
@@ -23,7 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 		libsqlite3-dev \
 		libx11-dev libxext-dev libxrender-dev \
 		xvfb xauth x11-utils xdotool openbox imagemagick dbus \
-		p7zip-full sqlite3 \
+		p7zip-full sqlite3 bubblewrap \
 	&& rm -rf /var/lib/apt/lists/*
 
 # The sanitizer lane's suppressions name functions inside fontconfig and GTK,

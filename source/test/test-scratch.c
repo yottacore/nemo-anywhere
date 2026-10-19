@@ -25,6 +25,7 @@
 
 #include <libnemo-private/nemo-dir-enum.h>
 
+#include "test-fence.h"
 #include "test-scratch.h"
 
 #define WALK_ATTRIBUTES \
@@ -252,6 +253,7 @@ make_in (const char *base, const char *tmpl, GError **error)
 	}
 	g_ptr_array_add (made, g_canonicalize_filename (path, NULL));
 	g_ptr_array_add (made_in, g_canonicalize_filename (base, NULL));
+	test_fence_allow (path);
 
 	if (!registered) {
 #ifndef G_OS_WIN32
@@ -290,6 +292,11 @@ test_scratch_point_config_at (const char *dir)
 	 * the real cache dir. */
 	g_setenv ("LOCALAPPDATA", dir, TRUE);
 	g_setenv ("XDG_CACHE_HOME", dir, TRUE);
+
+	/* The trash and the recent files list sit under the data dir. Windows
+	   reads its real one from the shell unless this is set. */
+	g_setenv ("XDG_DATA_HOME", dir, TRUE);
+	g_setenv ("XDG_STATE_HOME", dir, TRUE);
 }
 
 /* Returns: (transfer full): free with g_free */
