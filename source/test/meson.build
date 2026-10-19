@@ -285,6 +285,24 @@ test('rhd1v448 File checksum test',
   args: []
 )
 
+# Links the app's own blake3 routines, with the dispatcher built again around
+# them, so it can't link nemo_private, which has the first copy.
+test('rkne1y8a blake3 routines test',
+  executable('test-blake3-paths',
+    [ 'test-blake3-paths.c' ],
+    include_directories: [ rootInclude, blake3Include, ],
+    dependencies: [ glib ],
+    link_with: static_library('test-blake3-dispatch',
+      [ 'test-blake3-dispatch.c',
+        files('../../vendor/blake3/blake3.c', '../../vendor/blake3/blake3_portable.c') ],
+      c_args: blake3Defines,
+      include_directories: blake3Include,
+      link_with: blake3Simd,
+    ),
+  ),
+  args: []
+)
+
 test('rhd29h28 File checksum attribute test',
   executable('test-nemo-file-xattr',
     [ 'test-nemo-file-xattr.c' ],

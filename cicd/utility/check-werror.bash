@@ -6,6 +6,8 @@
 ##	  the build rather than letting a warning through.
 ##	- Reads build.ninja, which is what the compiler is handed, rather than what
 ##	  meson says it recorded.
+##	- Every C compile in it has to have the flag, so a target that turns it off
+##	  for itself, the way the vendored libraries once did, fails too.
 ##	- Syntax: check-werror.bash <build-dir>
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
@@ -30,5 +32,20 @@ fi
 ## double-quotes every argument in build.ninja.
 if ! grep -q -E -- '(^|[[:space:]])(-Werror|"-Werror")([[:space:]]|$)' "${build}/build.ninja"; then
 	echo "check-werror: ${build} does not build with -Werror. Run its meson setup again with -Dwerror=true" >&2
+	exit 1
+fi
+
+## A compile is a "build ...: c_COMPILER" line followed by its own ARGS line.
+lacking=()
+while IFS= read -r src; do lacking+=("$src"); done < <(awk '
+	/^build .*: c_COMPILER[A-Za-z_]* / { src = $4; next }
+	/^build / { src = "" }
+	src != "" && /^ ARGS = / {
+		if ($0 !~ /[[:space:]](-Werror|"-Werror")([[:space:]]|$)/) print src
+		src = ""
+	}' "${build}/build.ninja")
+if ((${#lacking[@]})); then
+	echo "check-werror: ${build} compiles these without -Werror. Nothing may turn it off for itself:" >&2
+	printf '  %s\n' "${lacking[@]}" >&2
 	exit 1
 fi

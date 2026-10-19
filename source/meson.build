@@ -137,11 +137,6 @@ archive = dependency('libarchive',                  version: '>=3.2.0')
 # file says where it is.
 sqlite  = dependency('sqlite3',                     version: '>=3.20', static: true)
 
-# Vendored code stays as it came, so it builds at -Wall rather than -Wextra, and
-# a warning in it is never fatal. A newer compiler can find one there that only
-# an edit to the vendored file would fix.
-vendorWarnings = [ 'warning_level=1', 'werror=false' ]
-
 # blake3, vendored under ../vendor. Checksums have to be cheap enough to compute
 # while a folder is being listed, and this is the only option that both hits a
 # few GB/s and fits in 100 KB of source - see vendor/README.md for the other two
@@ -162,7 +157,6 @@ if host_machine.cpu_family() in [ 'x86', 'x86_64' ]
       files('../vendor/blake3/blake3_' + set[0] + '.c'),
       c_args: blake3Defines + [ set[1] ],
       include_directories: blake3Include,
-      override_options: vendorWarnings,
     )
   endforeach
 else
@@ -181,7 +175,6 @@ blake3 = declare_dependency(
     c_args: blake3Defines,
     include_directories: blake3Include,
     link_with: blake3Simd,
-    override_options: vendorWarnings,
   ),
   include_directories: blake3Include,
 )

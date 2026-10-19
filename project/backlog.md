@@ -543,7 +543,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - cppcheck leaves out the vendored C the app is built from.
 	- ID: 2026101715252255
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs external testing: Windows. The lint stage under MSYS2 runs its own cppcheck, a newer one, over blake3, libegg and SHCL for the first time.
 	- Priority|Severity: Avg
 	- Opened: 20261017-152522
 	- Opened by: t00mietum
@@ -556,11 +557,24 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- `vendor/shcl-old/` stays out. It's only built into a test.
 		- A finding in vendored code is suppressed in `.cppcheck-suppressions` with a one-line reason, and a real bug goes to its upstream.
 	- Test case: `lint-c.bash --list-files` on dev names the blake3 and libegg files, and SHCL is checked through `nemo-config.c`. A planted fault in a vendored file fails the gate.
+		- 20261019: rj3ytty2, C lint scope, now expects vendored files on a feature branch, on dev and on main, and no `vendor/shcl-old/`. rj9v86cj, the sign-bit shift check, reads `vendor/`.
+	- Against: 2026092813381407's fix, which kept vendored code out of the whole-tree run.
+	- Decisions:
+		- 20261019: SHCL is checked as `vendor/shcl/shcl.h` on its own, not through `nemo-config.c`. cppcheck tries the `SHCL_IMPLEMENTATION` configuration on it by itself, with and without `_WIN32`. Through `nemo-config.c` it would check nothing, since cppcheck gives up on that file at a GLib macro it can't expand. That's 2026101912561238.
+		- 20261019: everything under `vendor/` and `source/cut-n-paste-code/` is in, apart from `vendor/shcl-old/`. So a new vendored library is checked unless it's left out by name.
+		- 20261019: vendored files go through the same cppcheck run as ours, with `warning` and `portability`. No style check runs on any C here.
+	- Actual fix: `lint-c.bash` hands vendored files to cppcheck, and the sign-bit shift check reads `vendor/` too. blake3 had 2 findings, both false: an array passed on with a count of 0 is never read. They're suppressed by line in `.cppcheck-suppressions`. libegg and SHCL had none. The public style guide says vendored code is checked.
+	- Note: the whole-tree run on dev and main takes about 40 s more, nearly all of it SHCL.
+	- Swept: the other 2 `vendor` exclusions in `lint-c.bash`, `fCheckMintIcons` and `fCheckClickPrimary`, check our own house rules and stay. Every `vendor` mention in the public docs and the cicd scripts.
+	- Verified: 20261019, Linux: a fault in `blake3_portable.c`, `eggtreemultidnd.c` and `shcl.h` each fails the C lint, and passes with dev's `lint-c.bash`. A `1 << 31` in blake3 fails rj9v86cj, and one in `vendor/shcl-old/` doesn't. rj3ytty2 fails with dev's `lint-c.bash` and passes after. The whole-tree run on this branch has no findings. The lint stage passes, apart from rj3ytv0b, which can't pass outside the main clone.
+	- Branch: vendlint
+	- Commit: 3ae52a5
 
 - Vendored C builds with fewer warnings, and never with -Werror.
 	- ID: 2026101715252256
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs external testing: the native Windows gate, where MSYS2's gcc builds blake3 and libegg with `-Werror` for the first time. It was gcc 16.1 on 20261005, newer than anything here. The arm64 lane, which builds blake3's plain C path alone, and the FreeBSD lane.
 	- Priority|Severity: Avg
 	- Opened: 20261017-152522
 	- Opened by: t00mietum
@@ -570,11 +584,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: both build at the project's warning level, -Werror included. A warning that's only about upstream's style is turned off for that library alone in meson, with a one-line reason.
 	- Note: SHCL already builds at the full level, since it's compiled inside `nemo-config.c`.
 	- Test case: `check-werror.bash` also fails when a vendored library in `build.ninja` lacks -Werror.
+		- 20261019: rjh7qnxw, werror check. A `build.ninja` with one library built without `-Werror` among compiles that have it fails, in Linux and Windows quoting, and the message names just that library.
+	- Against: 2026092813381434's decisions of 20261005 that vendored code builds at `-Wall` and its warnings are never fatal. This item reverses both.
+	- Actual fix: `vendorWarnings` is gone from `source/meson.build`. blake3 builds clean at the project's level with nothing turned off. libegg's `meson.build` turns off 3 warnings, each with its reason: unused parameters in GTK callbacks, a `GTypeInfo` filled in by position, and a cast of `gtk_tree_row_reference_free` to `GFunc`. `check-werror.bash` now fails on any C compile in `build.ninja` that lacks `-Werror`, and names it.
+	- Note: the cast is the only one of libegg's 9 warnings that isn't style. It passes the function an argument it ignores, which every ABI built here allows. Our own code fixed the same kind of cast with wrappers. libegg stays as it came.
+	- Swept: every `override_options`, `-Wno-` and `werror` in the meson files. The only other override is `warning_level=0` on the old SHCL writers, which are test-only and keep `-Werror`. The public style guide's line on vendored warnings.
+	- Verified: 20261019: the full Linux build with `-Werror` has no warnings, and the suite passed 219 of 220. The one failure was rhr6ggmt in a rar row, which passed alone; that's 2026101913111713. The Windows cross build with `-Werror`, 691 steps, and `check-werror.bash` passes on both. blake3 and libegg also build clean with `-Werror` under clang 19 and jammy's gcc 11, and blake3 under gcc 15. rjh7qnxw fails with dev's `check-werror.bash` and passes after.
+	- Branch: vendlint
+	- Commit: 3ae52a5
 
 - Two of blake3's code paths are never tested.
 	- ID: 2026101715252257
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs external testing: rkne1y8a natively on Windows, and in the arm64 lane, where only plain C is built.
 	- Priority|Severity: Avg
 	- Opened: 20261017-152522
 	- Opened by: t00mietum
@@ -583,6 +606,41 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: every path in the build gives the known answers, whatever processor the test runs on. A path the processor can't run is skipped, and the test says so.
 	- Possible fix: call each `blake3_hash_many_*` from `blake3_impl.h` directly against the plain C one, or build the test once per path with the others turned off by the `BLAKE3_NO_*` defines.
 	- Test case: rhd1v448, or a new one beside it.
+		- 20261019: rkne1y8a, blake3 routines test.
+	- Decisions:
+		- 20261019: the whole hasher runs through blake3's own dispatcher, told the processor has less than it does, one routine at a time. That reaches the single-block routines and the longer output as well as `blake3_hash_many_*`, and checks them against the published answers rather than against each other.
+		- 20261019: the test reaches the dispatcher by including `blake3_dispatch.c` from a test file, so the vendored file stays as it came. The routine libraries are the app's own. The dispatcher and `blake3.c` are built a second time, with the same flags.
+		- 20261019: a routine that's skipped doesn't skip the test. Plain C always runs, so the test always checks something.
+	- Actual fix: new test rkne1y8a. Each routine the build has, and the processor can run, hashes 16 of blake3's published inputs, 0 to 102400 bytes, in all 3 modes, with 131 bytes of output for the plain hash, and once more fed in 4099-byte pieces. It checks the routine count the dispatcher reports, so a limit that didn't take fails. The rest are named as skipped.
+	- Verified: 20261019: rkne1y8a passes on Linux with all 4 routines on b23, under ASan and UBSan, and under wine from the cross build. A fault in any one routine fails that routine's row. One in SSE4.1 fails AVX2's too, since AVX2 hands its leftover chunks to SSE4.1. rhd1v448 still passes with a fault in SSE2.
+	- Branch: vendlint
+	- Commit: 3ae52a5
+
+- cppcheck gives up on 34 C files at a GLib macro it can't expand, and says nothing.
+	- ID: 2026101912561238
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261019-125612
+	- Opened by: t00mietum
+	- Related IDs: 2026101715252255
+	- Target OS: All
+	- Incorrect behavior: cppcheck gets no include paths, so a macro such as `G_GINT64_FORMAT` or `G_FILE_ATTRIBUTE_STANDARD_TYPE` inside a string is unknown to it. It stops on that file with `unknownMacro` and checks nothing else in it. `.cppcheck-suppressions` turns `unknownMacro` off for the whole tree, so the gate passes. 34 first-party files are skipped that way, `nemo-config.c` among them, and 20 of them are tests.
+	- Expected behavior: every C file is checked all the way through, and `unknownMacro` is left on, so a new one fails the gate.
+	- Possible fix: give the missing macros values in `.cppcheck-defines.cfg`. A first try with 13 of them still left 6 files stopped on others, and turned up 17 findings in the rest, most of them leaks in tests.
+	- Test case: none yet.
+
+- rhr6ggmt can lose both links from a rar archive on Linux.
+	- ID: 2026101913111713
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261019-131117
+	- Opened by: t00mietum
+	- Target OS: Linux
+	- Incorrect behavior: in one full suite run on 20261019, rhr6ggmt failed one rar row with a password and links kept: `all.rar` listed `twin1.bin twin2.bin a.txt big.bin`, without `dir-link` and `file-link`. It passed alone right after. The box was loaded.
+	- Possible cause: the same libarchive limit as 2026101310525452, on a link target of 128 bytes or more, if a target there is still a whole path. Not looked into.
+	- Test case: rhr6ggmt.
 
 - The sanitizer lane hides third-party leaks that end users can hit.
 	- ID: 2026101715252258
