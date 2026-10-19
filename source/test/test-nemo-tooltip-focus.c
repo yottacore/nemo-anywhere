@@ -114,6 +114,7 @@ run_thief (int argc, char *argv[])
 	g_timeout_add (100, keep_focus, thief_window);
 	g_timeout_add_seconds (60, give_up, NULL);
 	gtk_main ();
+	gtk_widget_destroy (thief_window);
 	return EXIT_SUCCESS;
 }
 

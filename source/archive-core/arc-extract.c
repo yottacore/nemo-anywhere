@@ -767,6 +767,7 @@ extract_with_libarchive (ExtractJob *job,
 
 		filetype = archive_entry_filetype (entry);
 		if (filetype != AE_IFDIR) {
+			/* cppcheck-suppress leakNoVarFunctionCall ; handled owns its keys and frees them */
 			g_hash_table_add (job->handled, g_strdup (rel));
 		}
 		mtime = archive_entry_mtime_is_set (entry) ? (gint64) archive_entry_mtime (entry) : 0;

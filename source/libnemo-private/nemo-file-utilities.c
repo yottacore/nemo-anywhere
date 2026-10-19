@@ -605,6 +605,7 @@ parse_xdg_dirs (const char *config_file)
 
   g_free (config_file_free);
 
+  /* cppcheck-suppress memleak ; g_array_append_val copied dir, so the array has its strings */
   return (XdgDirEntry *)g_array_free (array, FALSE);
 }
 

@@ -120,7 +120,7 @@ main (int argc, char *argv[])
 	out = g_build_filename (root, "deldlg.txt", NULL);
 
 	g_mkdir_with_parents (folder, 0700);
-	g_file_set_contents (victim, "alpha\n", -1, NULL);
+	check (g_file_set_contents (victim, "alpha\n", -1, NULL));
 	path = g_build_filename (root, "config", "nemo-anywhere", NULL);
 	g_mkdir_with_parents (path, 0700);
 	g_free (path);

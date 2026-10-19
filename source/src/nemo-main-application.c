@@ -149,6 +149,7 @@ refresh_dbus_service_file (G_GNUC_UNUSED NemoMainApplication *self)
 	gboolean same;
 
 	/* No connection means no session bus, so nothing would read it. */
+	/* cppcheck-suppress leakReturnValNotUsed ; the connection is owned by the app, not returned to the caller */
 	if (g_application_get_dbus_connection (G_APPLICATION (self)) == NULL) {
 		return;
 	}
@@ -1046,7 +1047,8 @@ nemo_main_application_local_command_line (GApplication *application,
 			/* Emptied rather than removed, since a missing file is what
 			 * sends the next start to upstream Nemo's shortcuts. */
 			shortcuts = nemo_get_accel_map_file ();
-			g_file_set_contents (shortcuts, "", 0, NULL);
+			/* Like the unlink above: no folder, nothing to clear. */
+			(void) g_file_set_contents (shortcuts, "", 0, NULL);
 			g_free (shortcuts);
 
 			nemo_bookmark_list_reset_files ();

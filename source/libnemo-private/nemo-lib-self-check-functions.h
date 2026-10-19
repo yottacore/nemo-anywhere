@@ -23,7 +23,9 @@
    Author: Darin Adler <darin@bentspoon.com>
 */
 
-#include <eel/eel-self-checks.h>
+/* Relative, so cppcheck finds the prototype macro used below without any
+   include paths. Otherwise it gives up on every file that includes this. */
+#include "../eel/eel-self-checks.h"
 
 void nemo_run_lib_self_checks (void);
 

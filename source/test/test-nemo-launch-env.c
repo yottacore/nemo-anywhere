@@ -136,6 +136,14 @@ value_in (const char *text, const char *var)
 	return found;
 }
 
+/* A variable the program didn't have prints as unset, since %s of NULL is
+   undefined. */
+static const char *
+shown (const char *value)
+{
+	return value != NULL ? value : "(unset)";
+}
+
 static void
 check_user (const char *out, const char *name, const char *user_path)
 {
@@ -152,7 +160,7 @@ check_user (const char *out, const char *name, const char *user_path)
 	schemas = value_in (text, "GSETTINGS_SCHEMA_DIR");
 	if (g_strcmp0 (dirs, USER_DATA_DIRS) != 0 || g_strcmp0 (path, user_path) != 0 || schemas != NULL) {
 		g_printerr ("FAIL %s: XDG_DATA_DIRS=%s PATH=%s GSETTINGS_SCHEMA_DIR=%s\n",
-			    name, dirs, path, schemas);
+			    name, shown (dirs), shown (path), shown (schemas));
 		failures++;
 	}
 	g_free (schemas);
@@ -175,7 +183,7 @@ check_ours (const char *out, const char *name, const char *prefix)
 	    path == NULL || !g_str_has_prefix (path, bin) ||
 	    schemas == NULL || !g_str_has_prefix (schemas, share)) {
 		g_printerr ("FAIL %s: XDG_DATA_DIRS=%s PATH=%s GSETTINGS_SCHEMA_DIR=%s\n",
-			    name, dirs, path, schemas);
+			    name, shown (dirs), shown (path), shown (schemas));
 		failures++;
 	}
 	g_free (bin);
@@ -199,16 +207,18 @@ routes (const char *prefix, const char *home, int argc, char **argv)
 	GdkScreen *screen;
 	GtkWidget *window;
 	GError *error = NULL;
+	int rc = 1;
 
 	nemo_setup_runtime_environment ();
 	/* Otherwise nothing below tests anything. */
 	if (!g_str_has_prefix (g_getenv ("XDG_DATA_DIRS"), share) ||
 	    g_getenv ("GSETTINGS_SCHEMA_DIR") == NULL) {
 		g_printerr ("FAIL the copy did not set up its own prefix\n");
-		return 1;
+		goto out;
 	}
 	if (!gtk_init_check (&argc, &argv)) {
-		return 77;
+		rc = 77;
+		goto out;
 	}
 	screen = gdk_screen_get_default ();
 	window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
@@ -324,13 +334,16 @@ routes (const char *prefix, const char *home, int argc, char **argv)
 	check_ours (out, "helper", prefix);
 
 	gtk_widget_destroy (window);
+	rc = failures == 0 ? 0 : 1;
+
+ out:
 	g_free (share);
 	g_free (saved_path);
 	g_free (exe);
 	g_free (apps);
 	g_free (out);
 
-	return failures == 0 ? 0 : 1;
+	return rc;
 }
 
 int
@@ -339,6 +352,7 @@ main (int argc, char *argv[])
 	char *tmp, *bin, *schemas, *home, *userbin, *self, *exe, *user_path;
 	char *child_argv[5];
 	int status = 0;
+	int rc = 1;
 	GError *error = NULL;
 
 	if (argc > 2 && strcmp (argv[1], "--dump") == 0) {
@@ -435,7 +449,9 @@ main (int argc, char *argv[])
 	if (!g_spawn_sync (NULL, child_argv, NULL, G_SPAWN_CHILD_INHERITS_STDIN, NULL, NULL,
 			   NULL, NULL, &status, &error)) {
 		g_printerr ("spawn: %s\n", error->message);
-		return 1;
+		g_clear_error (&error);
+	} else if (WIFEXITED (status)) {
+		rc = WEXITSTATUS (status);
 	}
 
 	g_free (user_path);
@@ -447,8 +463,5 @@ main (int argc, char *argv[])
 	g_free (bin);
 	g_free (tmp);
 
-	if (WIFEXITED (status)) {
-		return WEXITSTATUS (status);
-	}
-	return 1;
+	return rc;
 }

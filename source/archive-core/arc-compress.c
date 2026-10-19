@@ -1311,6 +1311,7 @@ run_command (ArcCompress *job)
 	}
 
 	known = names_to_list (known, plan.skips);
+	/* cppcheck-suppress leakNoVarFunctionCall ; the copy is the head of the list concat returns */
 	known = g_list_concat (g_list_copy (job->passed), known);
 	ok = run_tool (job, program, base_path, archive_path, plan.roots, plan.skips,
 		       plan.keep, FALSE, known, output, &error);

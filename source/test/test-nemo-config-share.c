@@ -297,6 +297,7 @@ read_lines (gpointer data)
 		g_strchomp (line);
 		g_async_queue_push (peer->lines, line);
 	}
+	/* cppcheck-suppress leakNoVarFunctionCall ; the queue owns its lines and frees them */
 	g_async_queue_push (peer->lines, g_strdup ("eof"));
 	g_object_unref (out);
 	return NULL;
