@@ -22,6 +22,10 @@ G_BEGIN_DECLS
    relaunch failed. */
 void   test_heap_init   (int argc, char **argv);
 
+/* Bytes in use on the heap, or -1 where it can't be read. Under a sanitizer
+   it reads, but doesn't move. */
+gint64 test_heap_in_use (void);
+
 typedef enum {
 	TEST_HEAP_READ,
 	/* Such as under a sanitizer, which keeps a heap of its own, or under

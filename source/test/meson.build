@@ -18,7 +18,7 @@ test_ole2 = declare_dependency(
   ),
 )
 
-# Heap growth over repeated operations, for the leak tests.
+# The heap in use and its growth over repeated operations, for the leak tests.
 test_heap = declare_dependency(
   link_with: static_library('test-heap',
     [ 'test-heap.c' ],
@@ -107,7 +107,7 @@ test('rdjjz89r Config store test',
   executable('test-nemo-config',
     [ 'test-nemo-config.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private, test_scratch ],
+    dependencies: [ gtk, nemo_private, test_scratch, test_heap ],
   ),
   args: [],
   timeout: 90         # a hundred external rewrites, each waiting on the file monitor

@@ -118,6 +118,12 @@ heap_in_use (void)
 }
 #endif
 
+gint64
+test_heap_in_use (void)
+{
+	return heap_in_use ();
+}
+
 #define PROBE_BIG (64 * 1024)
 #define PROBE_SMALL 24
 
