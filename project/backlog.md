@@ -109,6 +109,33 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rk95h61s, Share folder with a local path lists test. A folder that isn't on this machine but has a path, whose listing refuses that call the way gvfs's does, lists all 3 entries with its link followed, and one file there is looked at once, following links. renz2428, Network win32 test, test_smb_addresses: smb addresses taken as typed, parsed, as a uri and as an argument go to the UNC path, the server's share list or the network, with spaces, escapes, a user, domain and port, an IPv6 address, and upper case where typed. rkb69y1a, Connect to Server address scheme test: ssh and sftp addresses in any case lose the scheme with SSH chosen, other schemes and plain names are kept, and every alias gvfs's mount files declare is checked where gvfs is installed.
 	- Acceptance signoff: Left at signoff for the `ssh://hostname/folder` error, which wasn't seen from the path bar or the command line, and for Connect to Server on Windows asking only for the server and share.
 
+- Sort attribute is not remembered when switching to thumbnail view.
+	- ID: 2026101613053691
+	- Type: Bug
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 218 of 218.
+	- Priority|Severity: Avg
+	- Opened: 20261016-130536
+	- Opened by: t00mietum
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+	- Steps to reproduce: in the list view, sort a folder by Size, largest first. Then open a picture folder inside it, which turns to icons by itself, or switch the folder to icons.
+	- Incorrect behavior: the icons are sorted by name, smallest first.
+	- Expected behavior: the icons keep the sort and its direction.
+	- Reproduced: 20261019, Linux, with per-folder settings off and on.
+	- Actual cause: the list and icon views each kept a sort of their own, saved under separate keys. With per-folder settings off, the window held only the list's sort, and a sort picked in icons lasted only for that folder.
+	- Actual fix: one sort for every view, kept as a list column and its direction. It lives in the window with per-folder settings off, in the folder's set with them on, and in find mode's own place for find results. The icon view maps it to its own sorts. A column it can't sort by, such as owner, shows icons by name and stays for the list. An icon sort saved before still reads, and moves over on the first change. The Current tab in Settings reads and writes the same one. design.md "Per-folder view state" and the changelog say so.
+	- Decisions:
+		- design.md "Per-folder view state" lists sort and reverse once in a folder's set, and the Current tab already showed one, so the views share it.
+	- Swept: every place a view reads, saves or resets a sort. The list view's header click, load, find mode and Reset view. The icon and compact views' load, menu pick, reversed order, Reset view and a new default sort. The Current tab. Icons placed by hand don't save a direction. The image viewer that is told the sort reads the view's own order and was left alone. No other code reads the sort keys.
+	- Verified: rkmsgtfz fails on dev's code, with per-folder settings off and on. The picture folder showed icons by name, and a sort picked in icons didn't carry back to the list. It passes after. rh2nkbar passes with new checks for an old icon sort and for the write-back while loading, on Linux and under wine. rjnzamsq and rhtmbdmf still pass. Windows cross build clean. Lint clean but rj3ytv0b, which needs the main clone. The Current tab's sort row wasn't tried on screen.
+	- Progress log:
+		- 20261019: fixed. Left at signoff, since it changes what is saved per folder and how the views behave together.
+	- Branch: viewfix
+	- Commit: 423455c
+	- Test case: rkmsgtfz, List and icon views share a sort test, Linux and FreeBSD only. New checks in rh2nkbar, Folder settings test.
+
 - README.md: move installation instructions, including development, to one or more .mds, and link to it/them.
 	- ID: 2026101417352264
 	- Type: Task
@@ -187,6 +214,38 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: xrename
 	- Commit: 83986e3d
 	- Test case: rkb48gsx, Move conflict answers test: Rename to a taken name then Replace, Rename to a free name, Skip, Replace, Replace all, Keep both, a renamed folder merge, and a renamed link, each as a move and a copy, across 2 file systems and on 1.
+
+- Updates to CICD script flags.
+	- ID: 2026101816495201
+	- Type: Enhancement
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes. A real `cicd/cicd.bash --quick` run, to see it still ends in under about 10 min with the sanitizer suite, the profiler and the Windows build in it. Then a plain full run.
+	- Needs external testing: no.
+	- Priority|Severity: High
+	- Opened: 20261018-164952
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut. Do next.
+		- `--ci`: Rename to `--gate`.
+		- `--quick`:
+			- Should run whatever linting, validation, and testing steps are very quick.
+			- Cross-compile whatever is fast; e.g. maybe skip slow arm64.
+			- Skip anything requiring an external host.
+		- No flags by default should do everything.
+		- The other existing flags can stay.
+	- Note: `cicd.bash` already has `--gate` and no `--ci`. Today `--quick` drops every cross build but still runs the full test suite.
+	- Decisions:
+		- "Very quick" is a step that takes about 2 minutes or less here and needs no other box, timed from the last full run.
+		- `--quick` now also runs the sanitizer suite, the profiler and the Windows cross build. It still skips fuzzing, which takes 12 min, and packages, about 3. It skips every step that needs another box: arm64, the FreeBSD lane, the private runner and the Windows dogfood refresh.
+		- Packages stay out of `--quick`. About 3 min is past the cut, and every full run makes them.
+		- `--include-arm` brings arm64 back under `--quick`, the same as `--include-bsd` does for FreeBSD.
+		- `--ci` was never in the tree, and `--gate` already does that job, so nothing was renamed.
+	- Done: the `--quick` selection and its help text, the comments in the pipeline config, and the pipeline notes in design.md. With no options a run still does every step.
+	- Swept: every doc that lists the flags. `cicd.bash --help`, `config.bash`, design.md and the `cicd-win.ps1` help were updated. building.md names only `--gate`. `-Quick` on Windows is still a no-op.
+	- Verified: 20261019, rkmqprx6 passes and fails on the old `--quick`. rj9v18rx and rjph39cv pass. Lint is clean apart from rj3ytv0b, which always fails outside the main checkout.
+	- Branch: flags, merged into dev at 92fa7847.
+	- Commit: f275bc90
+	- Test case: rkmqprx6, `test-cicd-quick.bash`, checks which steps run with no options, with `--quick`, `--quick --include-arm`, `--quick --include-bsd`, and `--gate`. rj9v18rx checks the help names what `--quick` skips.
 
 - F2 renaming in photo icon view doesn't work.
 	- ID: 2026101009150764
@@ -329,6 +388,33 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: f38660a to f8a6223
 	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session. (c) still needs its own: a thumbnail and the text from a small file of each type, on every platform, and a check that no program is started for them.
 
+- Have to press "delete" twice after properties dialog.
+	- ID: 2026101816495203
+	- Type: Bug
+	- Status: Waiting for testing
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 218 of 218.
+	- Needs external testing: Windows, on vm925w in the desktop session. Select a file, open Properties, close it with Escape, and press Delete at once. The first press should bring up the delete question. Again closing Properties with the title bar's close button. Then switch to another program and back, and press Delete at once. That one should still be ignored.
+	- Priority|Severity: Avg
+	- Opened: 20261018-164952
+	- Opened by: t00mietum
+	- Related IDs: 2026101319204761
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+	- Steps to reproduce: select a file, open Properties, close it, and press Delete within a second.
+	- Incorrect behavior: the first press is ignored, and only the second goes through.
+	- Expected behavior: Only press once.
+	- Reproduced: 20261019, Linux. The first press was ignored as typing meant for another window. A press more than a second later went through.
+	- Actual cause: the delete guard ignores a trash or delete key for a second after a window takes the focus, in case the key was meant for another program. Closing Properties hands the focus back to the window, which started that second. The test guard's own question wasn't involved, and neither was the tab focus change in Properties.
+	- Actual fix: focus that comes back from another of the program's own windows, such as a dialog closing, starts no such second. Focus from another program still does, and so does a window just opened. The delete guard design doc and the UX style guide say so.
+	- Swept: the check is on the window's focus, so every dialog of the program is covered the same way, the delete question itself included. The trash and delete keys are the only callers. Properties' tab focus handling is unchanged, and rk6naqsk still passes.
+	- Verified: rkmsgs9m fails on dev's code, where the first Shift+Delete after closing Properties never asked, and passes after. Closing Properties with Escape and with the window manager's close both left the next Delete working at once. A Delete right after coming back from another program was still ignored. rgv89eeg passes with new checks. Windows cross build clean. Lint clean but rj3ytv0b, which needs the main clone.
+	- Progress log:
+		- 20261019: fixed on Linux. Waiting for the Windows check above, since the focus events there come in differently. Then signoff, since it loosens a delete guard rule.
+	- Branch: viewfix
+	- Commit: 0ebed80
+	- Test case: rkmsgs9m, Delete key after Properties test, Linux and FreeBSD only. New checks in rgv89eeg, Delete guard test.
+
 - On Windows, the trash icon leaves out removable drives.
 	- ID: 2026100708294146
 	- Type: Bug
@@ -392,38 +478,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: 20261007, the probe and test were read. At step 5 the probe looks for a menu on screen every 100 ms for 10 s, so it does wait for the menu to show. The test runs on an X server of its own, not the suite's. Two tests that pick the same display number at once don't end up sharing it: the one whose server fails tries the next number. So the possible cause above doesn't apply.
 	- Note: 20261007, not ruled out: the Menu key made no menu at all once, on a loaded box. GTK 3 doesn't show a menu whose pointer grab fails, and the probe presses the key only once. Nothing points at that, and pressing again would hide it rather than explain it.
 	- Test case: rjefm41d itself.
-
-- Updates to CICD script flags.
-	- ID: 2026101816495201
-	- Type: Enhancement
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes. A real `cicd/cicd.bash --quick` run, to see it still ends in under about 10 min with the sanitizer suite, the profiler and the Windows build in it. Then a plain full run.
-	- Needs external testing: no.
-	- Priority|Severity: High
-	- Opened: 20261018-164952
-	- Opened by: t00mietum
-	- Requirements:
-		- Before the next cut. Do next.
-		- `--ci`: Rename to `--gate`.
-		- `--quick`:
-			- Should run whatever linting, validation, and testing steps are very quick.
-			- Cross-compile whatever is fast; e.g. maybe skip slow arm64.
-			- Skip anything requiring an external host.
-		- No flags by default should do everything.
-		- The other existing flags can stay.
-	- Note: `cicd.bash` already has `--gate` and no `--ci`. Today `--quick` drops every cross build but still runs the full test suite.
-	- Decisions:
-		- "Very quick" is a step that takes about 2 minutes or less here and needs no other box, timed from the last full run.
-		- `--quick` now also runs the sanitizer suite, the profiler and the Windows cross build. It still skips fuzzing, which takes 12 min, and packages, about 3. It skips every step that needs another box: arm64, the FreeBSD lane, the private runner and the Windows dogfood refresh.
-		- Packages stay out of `--quick`. About 3 min is past the cut, and every full run makes them.
-		- `--include-arm` brings arm64 back under `--quick`, the same as `--include-bsd` does for FreeBSD.
-		- `--ci` was never in the tree, and `--gate` already does that job, so nothing was renamed.
-	- Done: the `--quick` selection and its help text, the comments in the pipeline config, and the pipeline notes in design.md. With no options a run still does every step.
-	- Swept: every doc that lists the flags. `cicd.bash --help`, `config.bash`, design.md and the `cicd-win.ps1` help were updated. building.md names only `--gate`. `-Quick` on Windows is still a no-op.
-	- Verified: 20261019, rkmqprx6 passes and fails on the old `--quick`. rj9v18rx and rjph39cv pass. Lint is clean apart from rj3ytv0b, which always fails outside the main checkout.
-	- Branch: flags, merged into dev at 92fa7847.
-	- Commit: f275bc90
-	- Test case: rkmqprx6, `test-cicd-quick.bash`, checks which steps run with no options, with `--quick`, `--quick --include-arm`, `--quick --include-bsd`, and `--gate`. rj9v18rx checks the help names what `--quick` skips.
 
 - Static analyzers and a heap growth check in the pipeline.
 	- ID: 2026101619020505
@@ -568,33 +622,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Estimated effort: High
 	- Test case: `test-nemo-leaks.c` runs on Windows, and its self-check, rjcth67d, sees its planted leak there.
 
-- Sort attribute is not remembered when switching to thumbnail view.
-	- ID: 2026101613053691
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 218 of 218.
-	- Priority|Severity: Avg
-	- Opened: 20261016-130536
-	- Opened by: t00mietum
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-	- Steps to reproduce: in the list view, sort a folder by Size, largest first. Then open a picture folder inside it, which turns to icons by itself, or switch the folder to icons.
-	- Incorrect behavior: the icons are sorted by name, smallest first.
-	- Expected behavior: the icons keep the sort and its direction.
-	- Reproduced: 20261019, Linux, with per-folder settings off and on.
-	- Actual cause: the list and icon views each kept a sort of their own, saved under separate keys. With per-folder settings off, the window held only the list's sort, and a sort picked in icons lasted only for that folder.
-	- Actual fix: one sort for every view, kept as a list column and its direction. It lives in the window with per-folder settings off, in the folder's set with them on, and in find mode's own place for find results. The icon view maps it to its own sorts. A column it can't sort by, such as owner, shows icons by name and stays for the list. An icon sort saved before still reads, and moves over on the first change. The Current tab in Settings reads and writes the same one. design.md "Per-folder view state" and the changelog say so.
-	- Decisions:
-		- design.md "Per-folder view state" lists sort and reverse once in a folder's set, and the Current tab already showed one, so the views share it.
-	- Swept: every place a view reads, saves or resets a sort. The list view's header click, load, find mode and Reset view. The icon and compact views' load, menu pick, reversed order, Reset view and a new default sort. The Current tab. Icons placed by hand don't save a direction. The image viewer that is told the sort reads the view's own order and was left alone. No other code reads the sort keys.
-	- Verified: rkmsgtfz fails on dev's code, with per-folder settings off and on. The picture folder showed icons by name, and a sort picked in icons didn't carry back to the list. It passes after. rh2nkbar passes with new checks for an old icon sort and for the write-back while loading, on Linux and under wine. rjnzamsq and rhtmbdmf still pass. Windows cross build clean. Lint clean but rj3ytv0b, which needs the main clone. The Current tab's sort row wasn't tried on screen.
-	- Progress log:
-		- 20261019: fixed. Left at signoff, since it changes what is saved per folder and how the views behave together.
-	- Branch: viewfix
-	- Commit: 423455c
-	- Test case: rkmsgtfz, List and icon views share a sort test, Linux and FreeBSD only. New checks in rh2nkbar, Folder settings test.
-
 - Linux/BSD need to pick up new icon theme when set. (If that's possible without bringing back a lot of cruft dependencies.)
 	- ID: 2026101816495202
 	- Type: Bug
@@ -606,33 +633,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- Before the next cut.
 	- Test case: none yet.
-
-- Have to press "delete" twice after properties dialog.
-	- ID: 2026101816495203
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 218 of 218.
-	- Needs external testing: Windows, on vm925w in the desktop session. Select a file, open Properties, close it with Escape, and press Delete at once. The first press should bring up the delete question. Again closing Properties with the title bar's close button. Then switch to another program and back, and press Delete at once. That one should still be ignored.
-	- Priority|Severity: Avg
-	- Opened: 20261018-164952
-	- Opened by: t00mietum
-	- Related IDs: 2026101319204761
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-	- Steps to reproduce: select a file, open Properties, close it, and press Delete within a second.
-	- Incorrect behavior: the first press is ignored, and only the second goes through.
-	- Expected behavior: Only press once.
-	- Reproduced: 20261019, Linux. The first press was ignored as typing meant for another window. A press more than a second later went through.
-	- Actual cause: the delete guard ignores a trash or delete key for a second after a window takes the focus, in case the key was meant for another program. Closing Properties hands the focus back to the window, which started that second. The test guard's own question wasn't involved, and neither was the tab focus change in Properties.
-	- Actual fix: focus that comes back from another of the program's own windows, such as a dialog closing, starts no such second. Focus from another program still does, and so does a window just opened. The delete guard design doc and the UX style guide say so.
-	- Swept: the check is on the window's focus, so every dialog of the program is covered the same way, the delete question itself included. The trash and delete keys are the only callers. Properties' tab focus handling is unchanged, and rk6naqsk still passes.
-	- Verified: rkmsgs9m fails on dev's code, where the first Shift+Delete after closing Properties never asked, and passes after. Closing Properties with Escape and with the window manager's close both left the next Delete working at once. A Delete right after coming back from another program was still ignored. rgv89eeg passes with new checks. Windows cross build clean. Lint clean but rj3ytv0b, which needs the main clone.
-	- Progress log:
-		- 20261019: fixed on Linux. Waiting for the Windows check above, since the focus events there come in differently. Then signoff, since it loosens a delete guard rule.
-	- Branch: viewfix
-	- Commit: 0ebed80
-	- Test case: rkmsgs9m, Delete key after Properties test, Linux and FreeBSD only. New checks in rgv89eeg, Delete guard test.
 
 - Windows: Network locations not recognized (either Windows `\\...` or *nix `smb://` form).
 	- ID: 2026101816495204
@@ -3116,147 +3116,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
 
-- Compression reset: the job follows the new link and filesystem choices.
-	- ID: 2026100516274423
-	- Type: Enhancement
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
-	- Needs external testing: no. rhr6ggmt and rewygsbg ran natively on b29w, with symlinks and junctions. rhr6ggmt's rar rows that store links failed there, and dev's test fails the same rows run the same way, see 2026101310525452.
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Prereq IDs: 2026100516274163, 2026100516274275
-	- Related IDs: 2026092813381404
-	- Target OS: Linux, Windows
-	- Design: [After OK](design_docs/20260929-101432_compression.md#after-ok) and [Link options](design_docs/20260929-101432_compression.md#link-options).
-	- Requirements:
-		- After OK the job runs its own pre-scan through the core scan, and works from that list. It never reuses the dialog's scan.
-		- The library writer writes from the list, for every format it writes.
-		- A link that leads nowhere: Ignore leaves it out, Follow and Store keep it as a link. This replaces the rule from 2026092813381404, so its test rows that expect the old rule are commented out with the reason.
-		- The delete check compares against what was meant to go in, followed content included.
-		- Compress each goes through the same code.
-	- Estimated effort: High
-	- Actual effort: High
-	- Progress log:
-		- 20261013-105254: built. Left at signoff for these calls:
-			- Ignore leaves out a link to a file too. Before, the library followed it when links weren't stored. So a selection with a link in it keeps its originals under Ignore, since the link isn't in the archive.
-			- The delete check still walks on its own, not from the job's list. It doesn't read past a link or a mounted folder the archive doesn't have.
-			- An item of Compress each that the options leave out gets no archive and stays, as a linked folder not followed did. Its note now says it's a link or a mounted folder the options leave out.
-			- The library writer refuses a selection with no path on this computer. It wrote one through GIO before; 7z and rar never could.
-			- No second progress bar, which is 2026100516274535. The one bar pulses while the list is made.
-			- A 7z with a password and links stored can't be checked, so its originals stay. That was so before, and is filed as 2026101310525352.
-	- Done: after OK the library's job walks the selection again through the archive core's scan, by the choices as its writer can do them, and writes from that list in every format it has. A link that leads nowhere goes in as a link under Follow and Store, and is left out under Ignore. Junctions, Follow nested and Follow other filesystems reach the job, and it follows a link onto a share. The delete check holds what a followed link led to, under the link's name. What goes to the trash is still only what was selected. Compress each walks once per item through the same code. 7z and rar still take only Symlinks, as the 2 boxes, until 2026100516274460.
-	- Swept: every place that set or read the 2 boxes in the options: the dialog, the program command lines, the writer choice, the one-thread flyover, both checks, and 5 tests. Both job paths, one archive and one per item. The 7z and rar walk and check keep the 2-box rules behind one pair of helpers, for 2026100516274460 to drop.
-	- Verified: 20261013, full Linux suite 196 of 196, the archive tests under ASan and UBSan, the Windows cross build, the archive tests under wine, and lint clean apart from rj3ytv0b. rhr6ggmt, rewygsbg, rjqef159 and rjq9mv0w natively on b29w; rhr6ggmt failed only the rar rows that store links, as dev's does there. Each new check went red against a fault put in the code: the job's walk ignoring the filesystem options, the dialog passing Symlinks alone, the check counting an ignored link as in, the check not following, ignored links kept as links, a link back into the selection counted as a miss, and followed content handed to the trash.
-	- Branch: arcfollow
-	- Commit: 870bf41
-	- Test case: rhr6ggmt, Archive option combinations: the crossed rows take each Symlinks choice, Follow nested and other filesystems, and on Windows each Junctions choice, with sub on a nested filesystem and the linked folder on another one. Each Symlinks choice in the library's formats with and without a delete, on a link to a file, one to a folder and 2 that lead nowhere, and one picked alone. The library rows for the old rule are commented out with the reason. rewygsbg, Archive job test: the delete check with followed content changed, added and missing, the links ignored, a link back into the selection, and a followed folder on another filesystem with the option off and on; the old rule's row commented out with the reason. rjqef159, Archive scan test, check_list: the job's list for each choice. rhtmbdmj, Compress dialog height test: the filesystem options as set reach the job.
-	- Acceptance signoff: Self-closed: each call follows the compression design doc. rhr6ggmt, rewygsbg and rjqef159 cover it, on Linux and natively on b29w.
-	- Closed: 20261016-130621
-
-- Compression reset: 7z and rar programs work from the job's list.
-	- ID: 2026100516274460
-	- Type: Enhancement
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
-	- Needs external testing: no. rhr6ggmt, rewygsbg, rjqef159, rjq9mv0w, rev86z08 and reww9h2s passed natively on b29w, with symlinks and junctions.
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Prereq IDs: 2026100516274423
-	- Target OS: Linux, Windows
-	- Design: [After OK](design_docs/20260929-101432_compression.md#after-ok).
-	- Requirements:
-		- 7-Zip and rar are told what goes in from the pre-scan list, so mixed choices work, such as following symlinks while storing junctions.
-		- The 7z leave-out list of today becomes part of this. The first run for links that lead nowhere keeps working.
-		- Names stay names: `-spd` for 7-Zip, and rar keeps refusing `*` and `?`.
-		- Open: a list past the command line limit on some OS. The design leaves it to testing.
-	- Estimated effort: High
-	- Actual effort: High
-	- Progress log:
-		- 20261013-121000: built. Left at signoff for these calls:
-			- Both programs are handed the list's top names and told by name what to leave out, and walk the rest themselves. What they leave out is what the list left out, what it couldn't read, and a folder it had walked already, as through a link loop.
-			- The names go in list files, so there's no command line limit to hit. A name with a space at either end or a line break goes on the line, since 7-Zip trims list lines at both ends and rar at the end.
-			- Links kept beside links followed take 2 runs, the kept ones first. A split set can't do that, so there the kept ones are left out and named. So are links 7-Zip would reach through a linked folder, and links on Windows, where 7-Zip keeps none.
-			- rar is refused for `*` or `?` in any name it would be handed, which now includes what it's told to leave out. A link that leads nowhere with one is passed over, as before.
-			- The note for links left out now reads "It can't go in as a link with these options:" for any of them, not only those that lead nowhere.
-	- Done: 7z and rar write from the job's own list, the same pre-scan the library uses, by every link and filesystem choice. On Windows a rar can follow symlinks while it keeps junctions. The delete check walks the same way for every writer. The 2-box rules and the 7z leave-out list are gone.
-	- Swept: one archive and Compress each, both runs, the 2 public line builders the tests use, the delete check, and both places that took the 2 boxes. The rule for a link that leads nowhere and the warnings both programs give for one.
-	- Verified: 20261013, the full Linux suite (196 of 196), the archive tests under ASan and UBSan, the Windows cross build, and lint clean apart from rj3ytv0b. On b29w natively, rhr6ggmt passed all 317 runs started outside the ssh session, with the other archive tests. On Linux both programs read list files with spaces, non-ASCII, a leading dash, `@`, `#` and `;` in names. On b29w both read them, rar with a non-ASCII name and names starting with `@`. Each new check failed with a fault in the code: no names left out, a folder walked again not left out, no run ahead for kept links.
-	- Branch: arcprog
-	- Commit: 6436ac6
-	- Test case: rhr6ggmt, Archive option combinations: the crossed rows for 7z and rar go by every Symlinks choice, both filesystem options, and on Windows each Junctions choice, so rar rows mix following symlinks with keeping junctions. check_link_choice and check_dangling now run for every writer, check_loop has a followed link back up, and check_dangling_deep and check_at_names run under Follow. rjqef159, Archive scan test: a folder walked again is named, and a link that leads nowhere is marked.
-	- Acceptance signoff: Self-closed: rhr6ggmt and rjqef159 pass on Linux and natively on b29w. List files take away the command line limit the design left open.
-	- Closed: 20261016-130621
-
-- Compression reset: a pre-scan progress bar after OK.
-	- ID: 2026100516274535
-	- Type: Enhancement
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
-	- Needs external testing: no.
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Prereq IDs: 2026100516274423
-	- Target OS: Linux, Windows
-	- Design: [After OK](design_docs/20260929-101432_compression.md#after-ok).
-	- Requirements:
-		- While the job's pre-scan runs, the progress dialog shows a second bar for it above the regular one.
-		- Driven by the core's progress callback.
-		- Open: when a job needs no pre-scan, such as a selection of plain files.
-	- Estimated effort: Avg
-	- Actual effort: Avg
-	- Progress log:
-		- 20261013-121500: Decided: the pre-scan still runs for plain files, since the writer works from its list. The bar shows only when the pre-scan is still going after half a second, so plain files never flash one.
-		- 20261013-124800: built. Left at signoff for these calls:
-			- The scan has no total up front, so its bar pulses, with "Found 150 files, 1.2 kB" under it. The job's own bar waits empty below it, where it pulsed before.
-			- Compress each pre-scans each archive, so each can show the bar, and the job's bar goes back to empty for each.
-			- 7z and rar with links kept beside links followed: the links run now pulses the job's bar, so the bar fills once, for the rest. Before, it filled for the links and then went back to empty.
-	- Done: while the job's pre-scan runs past half a second, the progress window shows a second bar above the job's own, with a running count of the files and bytes found. The core's scan hands the count to the job as it walks. Every writer and both ways of compressing go through the same pre-scan.
-	- Swept: both callers of the core's list walk, the job and the scan test. Every writer, through the one pre-scan. The progress window is the only place that draws a job's progress.
-	- Verified: 20261013, full Linux suite 196 of 196, the archive tests under ASan and UBSan, the Windows cross build, and rewygsbg, rhtmbdmj, rjqef159, rjq9mv0w and rev86z08 under wine. Lint clean apart from rj3ytv0b. The new checks failed with the pre-scan not marked as started, with the core's reports not passed on, and with no delay before the bar.
-	- Branch: scanbar
-	- Commit: cc3c0b0
-	- Test case: rewygsbg, Archive job test. check_prescan_reports: the pre-scan reports at its start, midway through the core's walk, and at its end with the full count and size, all before the archive exists, for zip and for rar where it's installed, and is over once the job is. check_prescan_bar: a pre-scan over within half a second never shows the bar, one still going shows it with the count found, never sooner than half a second, and the bar goes when it ends.
-	- Acceptance signoff: Self-closed: rewygsbg covers when the bar shows and what it counts. A pulsing bar is the usual thing when there's no total yet.
-	- Closed: 20261016-130621
-
-- Compression reset: rename the delete box, and say why a delete check failed.
-	- ID: 2026100516274572
-	- Type: Enhancement
-	- Status: Done
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
-	- Needs external testing: no.
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Prereq IDs: 2026100516274423
-	- Target OS: Linux, Windows
-	- Design: [Delete originals after verification](design_docs/20260929-101432_compression.md#delete-originals-after-verification).
-	- Requirements:
-		- The box reads "Delete originals after verification".
-		- A failed check says why: how many selected folders and files aren't in the archive, and how many in it weren't selected. When the counts match, the selected size against the archive's.
-		- The size is left out when the counts don't match.
-	- Estimated effort: Avg
-	- Actual effort: Avg
-	- Progress log:
-		- 20261013-124800: built. Left at signoff for these calls:
-			- New wording, as whole sentences like the 7z one: "1 folder and 2 files that were selected are not in the archive.", "1 file in the archive was not selected.", "The selection is 29 bytes, but the archive holds 15 bytes." Sizes past a kilobyte also give the bytes.
-			- The counts replace naming the first file missed.
-			- Something the options leave out counts as selected and not in the archive: an ignored link as a file, and a link or mounted folder left out for its filesystem by what it leads to. Before, those said "Something in the selection could not go into an archive". That message stays for what couldn't be read, and for a socket or device.
-			- In the archive and not selected is new as a reason to keep the originals. It counts only what's under the selected names, since the job writes a new archive.
-			- When the totals match but some files differ in size, it says how many.
-			- The password prompt still says "once the archive checks out".
-	- Done: the box reads "Delete originals after verification". A failed check says how many selected folders and files aren't in the archive, and how many in it weren't selected. When the counts match, it gives the selection's size against the archive's. The 7z with a password message and the box graying for it are as they were. The delete itself and its guard are unchanged.
-	- Swept: every message the check gives, and the one place the box is made. No test read the old messages that named a file.
-	- Verified: 20261013, as 2026100516274535. rj4jewn6 still passes with 40,000 entries beside the selection. The new checks failed with the extra entries not counted, with the size given when a count is off, with an ignored link back to the old message, and with the old label.
-	- Branch: scanbar
-	- Commit: cc3c0b0
-	- Test case: rewygsbg, Archive job test, check_reasons: a file, a folder, and both missing; a file, and a folder with a file, in the archive and not selected; both ways at once; the sizes when the counts match; no size when a count is off; 2 files of other sizes with the same total; an ignored link. rhtmbdmj, Compress dialog height test, probe_locked_links: the box's label.
-	- Acceptance signoff: Self-closed: rewygsbg checks each sentence. Counts say more than naming the first file missed.
-	- Closed: 20261016-130621
-
 - rk8tkp4h leaks in the sanitizer lane.
 	- ID: 2026101613053692
 	- Type: Bug
@@ -5601,6 +5460,147 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: ef05a4f
 	- Test case: rjbpyy28 Archive stop time test now has a 7z case. A 4 GiB and a 16 GiB file are stopped at their first progress report. Before the fix, the 4 GiB one took 50 s and the 16 GiB one didn't end in 100 s. After, both take 0.01 s. rjbw0rkq Stopped 7z leak test, which fails at 82 bytes a round when the close is left out.
 	- Acceptance signoff: waiting. The archive writer's handling of a stop changed again, this time for the 7z.
+
+- Compression reset: the job follows the new link and filesystem choices.
+	- ID: 2026100516274423
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
+	- Needs external testing: no. rhr6ggmt and rewygsbg ran natively on b29w, with symlinks and junctions. rhr6ggmt's rar rows that store links failed there, and dev's test fails the same rows run the same way, see 2026101310525452.
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274163, 2026100516274275
+	- Related IDs: 2026092813381404
+	- Target OS: Linux, Windows
+	- Design: [After OK](design_docs/20260929-101432_compression.md#after-ok) and [Link options](design_docs/20260929-101432_compression.md#link-options).
+	- Requirements:
+		- After OK the job runs its own pre-scan through the core scan, and works from that list. It never reuses the dialog's scan.
+		- The library writer writes from the list, for every format it writes.
+		- A link that leads nowhere: Ignore leaves it out, Follow and Store keep it as a link. This replaces the rule from 2026092813381404, so its test rows that expect the old rule are commented out with the reason.
+		- The delete check compares against what was meant to go in, followed content included.
+		- Compress each goes through the same code.
+	- Estimated effort: High
+	- Actual effort: High
+	- Progress log:
+		- 20261013-105254: built. Left at signoff for these calls:
+			- Ignore leaves out a link to a file too. Before, the library followed it when links weren't stored. So a selection with a link in it keeps its originals under Ignore, since the link isn't in the archive.
+			- The delete check still walks on its own, not from the job's list. It doesn't read past a link or a mounted folder the archive doesn't have.
+			- An item of Compress each that the options leave out gets no archive and stays, as a linked folder not followed did. Its note now says it's a link or a mounted folder the options leave out.
+			- The library writer refuses a selection with no path on this computer. It wrote one through GIO before; 7z and rar never could.
+			- No second progress bar, which is 2026100516274535. The one bar pulses while the list is made.
+			- A 7z with a password and links stored can't be checked, so its originals stay. That was so before, and is filed as 2026101310525352.
+	- Done: after OK the library's job walks the selection again through the archive core's scan, by the choices as its writer can do them, and writes from that list in every format it has. A link that leads nowhere goes in as a link under Follow and Store, and is left out under Ignore. Junctions, Follow nested and Follow other filesystems reach the job, and it follows a link onto a share. The delete check holds what a followed link led to, under the link's name. What goes to the trash is still only what was selected. Compress each walks once per item through the same code. 7z and rar still take only Symlinks, as the 2 boxes, until 2026100516274460.
+	- Swept: every place that set or read the 2 boxes in the options: the dialog, the program command lines, the writer choice, the one-thread flyover, both checks, and 5 tests. Both job paths, one archive and one per item. The 7z and rar walk and check keep the 2-box rules behind one pair of helpers, for 2026100516274460 to drop.
+	- Verified: 20261013, full Linux suite 196 of 196, the archive tests under ASan and UBSan, the Windows cross build, the archive tests under wine, and lint clean apart from rj3ytv0b. rhr6ggmt, rewygsbg, rjqef159 and rjq9mv0w natively on b29w; rhr6ggmt failed only the rar rows that store links, as dev's does there. Each new check went red against a fault put in the code: the job's walk ignoring the filesystem options, the dialog passing Symlinks alone, the check counting an ignored link as in, the check not following, ignored links kept as links, a link back into the selection counted as a miss, and followed content handed to the trash.
+	- Branch: arcfollow
+	- Commit: 870bf41
+	- Test case: rhr6ggmt, Archive option combinations: the crossed rows take each Symlinks choice, Follow nested and other filesystems, and on Windows each Junctions choice, with sub on a nested filesystem and the linked folder on another one. Each Symlinks choice in the library's formats with and without a delete, on a link to a file, one to a folder and 2 that lead nowhere, and one picked alone. The library rows for the old rule are commented out with the reason. rewygsbg, Archive job test: the delete check with followed content changed, added and missing, the links ignored, a link back into the selection, and a followed folder on another filesystem with the option off and on; the old rule's row commented out with the reason. rjqef159, Archive scan test, check_list: the job's list for each choice. rhtmbdmj, Compress dialog height test: the filesystem options as set reach the job.
+	- Acceptance signoff: Self-closed: each call follows the compression design doc. rhr6ggmt, rewygsbg and rjqef159 cover it, on Linux and natively on b29w.
+	- Closed: 20261016-130621
+
+- Compression reset: 7z and rar programs work from the job's list.
+	- ID: 2026100516274460
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
+	- Needs external testing: no. rhr6ggmt, rewygsbg, rjqef159, rjq9mv0w, rev86z08 and reww9h2s passed natively on b29w, with symlinks and junctions.
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274423
+	- Target OS: Linux, Windows
+	- Design: [After OK](design_docs/20260929-101432_compression.md#after-ok).
+	- Requirements:
+		- 7-Zip and rar are told what goes in from the pre-scan list, so mixed choices work, such as following symlinks while storing junctions.
+		- The 7z leave-out list of today becomes part of this. The first run for links that lead nowhere keeps working.
+		- Names stay names: `-spd` for 7-Zip, and rar keeps refusing `*` and `?`.
+		- Open: a list past the command line limit on some OS. The design leaves it to testing.
+	- Estimated effort: High
+	- Actual effort: High
+	- Progress log:
+		- 20261013-121000: built. Left at signoff for these calls:
+			- Both programs are handed the list's top names and told by name what to leave out, and walk the rest themselves. What they leave out is what the list left out, what it couldn't read, and a folder it had walked already, as through a link loop.
+			- The names go in list files, so there's no command line limit to hit. A name with a space at either end or a line break goes on the line, since 7-Zip trims list lines at both ends and rar at the end.
+			- Links kept beside links followed take 2 runs, the kept ones first. A split set can't do that, so there the kept ones are left out and named. So are links 7-Zip would reach through a linked folder, and links on Windows, where 7-Zip keeps none.
+			- rar is refused for `*` or `?` in any name it would be handed, which now includes what it's told to leave out. A link that leads nowhere with one is passed over, as before.
+			- The note for links left out now reads "It can't go in as a link with these options:" for any of them, not only those that lead nowhere.
+	- Done: 7z and rar write from the job's own list, the same pre-scan the library uses, by every link and filesystem choice. On Windows a rar can follow symlinks while it keeps junctions. The delete check walks the same way for every writer. The 2-box rules and the 7z leave-out list are gone.
+	- Swept: one archive and Compress each, both runs, the 2 public line builders the tests use, the delete check, and both places that took the 2 boxes. The rule for a link that leads nowhere and the warnings both programs give for one.
+	- Verified: 20261013, the full Linux suite (196 of 196), the archive tests under ASan and UBSan, the Windows cross build, and lint clean apart from rj3ytv0b. On b29w natively, rhr6ggmt passed all 317 runs started outside the ssh session, with the other archive tests. On Linux both programs read list files with spaces, non-ASCII, a leading dash, `@`, `#` and `;` in names. On b29w both read them, rar with a non-ASCII name and names starting with `@`. Each new check failed with a fault in the code: no names left out, a folder walked again not left out, no run ahead for kept links.
+	- Branch: arcprog
+	- Commit: 6436ac6
+	- Test case: rhr6ggmt, Archive option combinations: the crossed rows for 7z and rar go by every Symlinks choice, both filesystem options, and on Windows each Junctions choice, so rar rows mix following symlinks with keeping junctions. check_link_choice and check_dangling now run for every writer, check_loop has a followed link back up, and check_dangling_deep and check_at_names run under Follow. rjqef159, Archive scan test: a folder walked again is named, and a link that leads nowhere is marked.
+	- Acceptance signoff: Self-closed: rhr6ggmt and rjqef159 pass on Linux and natively on b29w. List files take away the command line limit the design left open.
+	- Closed: 20261016-130621
+
+- Compression reset: a pre-scan progress bar after OK.
+	- ID: 2026100516274535
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
+	- Needs external testing: no.
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274423
+	- Target OS: Linux, Windows
+	- Design: [After OK](design_docs/20260929-101432_compression.md#after-ok).
+	- Requirements:
+		- While the job's pre-scan runs, the progress dialog shows a second bar for it above the regular one.
+		- Driven by the core's progress callback.
+		- Open: when a job needs no pre-scan, such as a selection of plain files.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Progress log:
+		- 20261013-121500: Decided: the pre-scan still runs for plain files, since the writer works from its list. The bar shows only when the pre-scan is still going after half a second, so plain files never flash one.
+		- 20261013-124800: built. Left at signoff for these calls:
+			- The scan has no total up front, so its bar pulses, with "Found 150 files, 1.2 kB" under it. The job's own bar waits empty below it, where it pulsed before.
+			- Compress each pre-scans each archive, so each can show the bar, and the job's bar goes back to empty for each.
+			- 7z and rar with links kept beside links followed: the links run now pulses the job's bar, so the bar fills once, for the rest. Before, it filled for the links and then went back to empty.
+	- Done: while the job's pre-scan runs past half a second, the progress window shows a second bar above the job's own, with a running count of the files and bytes found. The core's scan hands the count to the job as it walks. Every writer and both ways of compressing go through the same pre-scan.
+	- Swept: both callers of the core's list walk, the job and the scan test. Every writer, through the one pre-scan. The progress window is the only place that draws a job's progress.
+	- Verified: 20261013, full Linux suite 196 of 196, the archive tests under ASan and UBSan, the Windows cross build, and rewygsbg, rhtmbdmj, rjqef159, rjq9mv0w and rev86z08 under wine. Lint clean apart from rj3ytv0b. The new checks failed with the pre-scan not marked as started, with the core's reports not passed on, and with no delay before the bar.
+	- Branch: scanbar
+	- Commit: cc3c0b0
+	- Test case: rewygsbg, Archive job test. check_prescan_reports: the pre-scan reports at its start, midway through the core's walk, and at its end with the full count and size, all before the archive exists, for zip and for rar where it's installed, and is over once the job is. check_prescan_bar: a pre-scan over within half a second never shows the bar, one still going shows it with the count found, never sooner than half a second, and the bar goes when it ends.
+	- Acceptance signoff: Self-closed: rewygsbg covers when the bar shows and what it counts. A pulsing bar is the usual thing when there's no total yet.
+	- Closed: 20261016-130621
+
+- Compression reset: rename the delete box, and say why a delete check failed.
+	- ID: 2026100516274572
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
+	- Needs external testing: no.
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274423
+	- Target OS: Linux, Windows
+	- Design: [Delete originals after verification](design_docs/20260929-101432_compression.md#delete-originals-after-verification).
+	- Requirements:
+		- The box reads "Delete originals after verification".
+		- A failed check says why: how many selected folders and files aren't in the archive, and how many in it weren't selected. When the counts match, the selected size against the archive's.
+		- The size is left out when the counts don't match.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Progress log:
+		- 20261013-124800: built. Left at signoff for these calls:
+			- New wording, as whole sentences like the 7z one: "1 folder and 2 files that were selected are not in the archive.", "1 file in the archive was not selected.", "The selection is 29 bytes, but the archive holds 15 bytes." Sizes past a kilobyte also give the bytes.
+			- The counts replace naming the first file missed.
+			- Something the options leave out counts as selected and not in the archive: an ignored link as a file, and a link or mounted folder left out for its filesystem by what it leads to. Before, those said "Something in the selection could not go into an archive". That message stays for what couldn't be read, and for a socket or device.
+			- In the archive and not selected is new as a reason to keep the originals. It counts only what's under the selected names, since the job writes a new archive.
+			- When the totals match but some files differ in size, it says how many.
+			- The password prompt still says "once the archive checks out".
+	- Done: the box reads "Delete originals after verification". A failed check says how many selected folders and files aren't in the archive, and how many in it weren't selected. When the counts match, it gives the selection's size against the archive's. The 7z with a password message and the box graying for it are as they were. The delete itself and its guard are unchanged.
+	- Swept: every message the check gives, and the one place the box is made. No test read the old messages that named a file.
+	- Verified: 20261013, as 2026100516274535. rj4jewn6 still passes with 40,000 entries beside the selection. The new checks failed with the extra entries not counted, with the size given when a count is off, with an ignored link back to the old message, and with the old label.
+	- Branch: scanbar
+	- Commit: cc3c0b0
+	- Test case: rewygsbg, Archive job test, check_reasons: a file, a folder, and both missing; a file, and a folder with a file, in the archive and not selected; both ways at once; the sizes when the counts match; no size when a count is off; 2 files of other sizes with the same total; an ignored link. rhtmbdmj, Compress dialog height test, probe_locked_links: the box's label.
+	- Acceptance signoff: Self-closed: rewygsbg checks each sentence. Counts say more than naming the first file missed.
+	- Closed: 20261016-130621
 
 - Compression reset: link choices and filesystem options in the Compress dialog.
 	- ID: 2026100516274386
