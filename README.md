@@ -246,17 +246,13 @@ These are the features that make Nemo worth porting:
 
 Currently beta - for options tuning and visual polish. But the guts and stability are safe, solid, and ready for safe everyday use.
 
-Every build goes through static analysis, the full regression suite, and the exhaustive checks that guard against losing files. A full pipeline run adds fuzzing and a performance profile.
+Every build goes through exhaustive static and dynamic analysis for security and memory leaks (including fuzz-testing), a full regression test suite, and comprehensive checks that guard against losing files. Finally, every build performs performance profiling.
 
 Current limitations:
 
-- For now, every trash and delete asks first with a detailed dialog noting exactly what is about to go, where, and why - which is wired into all possible trash/delete/move code paths. It is an extra safety net for all prereleases whether needed or not.
-
-	- It can be safely turned off in Settings.
+- All prerelease builds, as a build rule, enable the option "Paranoid mode for move, overwrite, trash, and delete". It's wired into all possible trash/delete/move code paths (replacing the existing dialogs where possible), as an extra safety net for all prereleases - whether needed or not. It can be safely turned off in Settings.
 
 - The Windows exe isn't code-signed yet, so Windows may warn the first time it runs.
-
-- Settings from a pre-1.0 install don't carry over.
 
 - macOS and BSD aren't built yet.
 

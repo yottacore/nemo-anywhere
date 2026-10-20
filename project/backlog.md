@@ -33,10 +33,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- Copying or moving files when a folder is selected:
+- Need to come up with a consistent design for copying or moving files when a folder is selected:
 	- ID: 2026101816495200
-	- Type: Enhancement
-	- Status: Waiting for answers
+	- Type: Task
+	- Status: Open
 	- Priority|Severity: Avg
 	- Opened: 20261018-164952
 	- Opened by: t00mietum
@@ -46,6 +46,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261018: detail to be written later.
 	- Test case: none yet.
+	- Notes:
+		- Inherent contradictions:
+			- If a first level folder is randomly selected, it would be surprising if pasted contents went into that folder.
+			- If a folder is selected within an expaned tree, 
 
 - The separate highlight and selection is causing too many problems. Need to rethink how to multi-select with keyboard without the "selection", or do without it.
 	- ID: 2026101816495208
