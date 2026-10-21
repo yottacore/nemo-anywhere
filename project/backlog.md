@@ -777,22 +777,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Verify or ensure that builds clean up stale artifacts and side-effects when done: caches, container cruft, tmp files, etc.
 	- Test case: none yet.
 
-- Settings: sub-tabs don't list on the left until the parent tab is activated.
-	- ID: 2026101417352262
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261014-173522
-	- Opened by: t00mietum
-	- Related IDs: 2026101009150769
-	- Requirements:
-		- Before the next cut.
-		- Sub-tabs don't list on the left (indented from parent and first one selects by default), until the parent tab is activated.
-		- Then the expansion stays open until clicked again.
-	- Note: this changes 2026101009150769, where sub-tabs always show and a parent opens the sub-tab it showed last.
-	- Design: [Planned tabs](design_docs/20261020-121842_settings.md#planned-tabs). Open questions on the keys and the last sub-tab shown are there.
-	- Test case: none yet.
-
 - Settings: search.
 	- ID: 2026101417352263
 	- Type: Enhancement
@@ -803,7 +787,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- Before the next cut.
 		- Search bar in an unscrollable top area.
-	- Design: [Search](design_docs/20261020-121842_settings.md#search). Match order and how a match is shown are there.
+	- Design: [Search](design_docs/20261020-121842_settings.md#search). Match order, aliases, fuzzy matching, and how a match is shown are there.
 	- Test case: none yet.
 
 - The program's name is typed out in many places. Set it once and use that everywhere.
@@ -1060,6 +1044,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261020: layout moved to the settings design doc.
 		- 20261020: the Windows tab stays, after Advanced. Advanced's own page has Selection and Cache as sections. Icon size only on Icon view, and Text size on Compact and Detailed view. Buttons in Settings at the left. The doc's open questions are down to 5.
+		- 20261020: Windows tab before Advanced. Zoom in Compact and Detailed view changes Text size. Image thumbnail captions default the same as Icon captions. 1 open question left.
 	- Notes:
 		- The thin line under "Remember per-folder settings" is also 2026101816495205.
 	- Test case: none yet.
@@ -6926,6 +6911,24 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: none, a code review.
 	- Acceptance signoff: Self-closed: all 45 items under it are Done.
 	- Closed: 20261006-165500
+
+- Settings: sub-tabs don't list on the left until the parent tab is activated.
+	- ID: 2026101417352262
+	- Type: Enhancement
+	- Status: Canceled
+	- Priority|Severity: Avg
+	- Opened: 20261014-173522
+	- Opened by: t00mietum
+	- Related IDs: 2026101009150769
+	- Requirements:
+		- Before the next cut.
+		- Sub-tabs don't list on the left (indented from parent and first one selects by default), until the parent tab is activated.
+		- Then the expansion stays open until clicked again.
+	- Note: this changes 2026101009150769, where sub-tabs always show and a parent opens the sub-tab it showed last.
+	- Design: [Planned tabs](design_docs/20261020-121842_settings.md#planned-tabs).
+	- Progress log:
+		- 20261020: canceled. Every sub-tab stays listed, as today.
+	- Test case: none yet.
 
 - On Windows every launch leaves a small `gdbus-nonce-file-*` in the temp folder.
 	- ID: 2026100714014948
