@@ -45,6 +45,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: the rest of the item wasn't written down yet.
 	- Progress log:
 		- 20261018: detail to be written later.
+		- 20261021: Dolphin 25.04, details view with expandable folders: plain paste always goes into the viewed folder, whatever is selected or expanded. Its right-click "Paste" on a folder goes into that folder, with no key. Finder not checked yet.
 	- Test case: none yet.
 	- Notes:
 		- Inherent contradictions:
@@ -849,6 +850,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Before the next cut.
 		- Search bar in an unscrollable top area.
 	- Design: [Search](design_docs/20261020-121842_settings.md#search). Match order, aliases, fuzzy matching, and how a match is shown are there.
+	- Test case: none yet.
+
+- Paste into folder gets a key: Ctrl+Shift+V.
+	- ID: 2026102113540918
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261021-135409
+	- Opened by: t00mietum
+	- Related IDs: 2026101816495200
+	- Requirements:
+		- Before the next cut.
+		- Ctrl+Shift+V does what the right-click "Paste into folder" does, with the same rule for when it's offered: exactly one folder selected. Otherwise it does nothing.
+		- The menu entry and the keyboard shortcuts window show the key.
+		- Upstream has no key for it on purpose, so it doesn't inherit plain Paste's Ctrl+V. Ctrl+Shift+V isn't bound anywhere else.
 	- Test case: none yet.
 
 - The program's name is typed out in many places. Set it once and use that everywhere.
