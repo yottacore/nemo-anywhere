@@ -1256,7 +1256,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - rfwwdyvg fails its symlink support check under wine.
 	- ID: 2026102021081038
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs external testing: the link tests natively on vm925w or b29w (rfwwdyvg, rhqxx81r, the Link end and Shortcut tests), with symlinks allowed, so a real symlink still counts as made.
 	- Priority|Severity: Low
 	- Opened: 20261020-210810
 	- Opened by: 2026101416533991
@@ -1268,7 +1269,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the probe and a real create agree.
 	- Reproduced: 20261020 under wine. rfwwdyvg passes natively on vm925w and b29w.
 	- Possible cause: something in wine that differs between the two calls, such as the temp folder from `g_dir_make_tmp` or the probe running first. Not looked into yet.
+	- Actual cause: wine's `CreateSymbolicLinkW` returns success and makes nothing, for file and folder symlinks alike. The temp folder check said yes too. The no came from the volume flags, since wine leaves `FILE_SUPPORTS_REPARSE_POINTS` out, and that answer is right. So the create was the side that was wrong, and the app trusted it.
+	- Actual effort: Low
+	- Decisions:
+		- A symlink create counts only when the link is there afterwards as a reparse point. Otherwise it fails as not supported.
+		- The support check stays as it was: volume flags, plus one try in the temp folder for the privilege. Trying each destination folder for real was turned down, since it writes into the user's folder to answer a question the create already answers.
+	- Actual fix: `try_symlink` in `nemo-link-win32.c` checks the link's attributes after the call. The unprivileged-flag retry moved into one `make_symlink`, shared by `nemo_win32_link_create` and `nemo_win32_link_create_default`.
+	- Branch: round1021
 	- Test case: rfwwdyvg.
+	- Verified: under wine, rfwwdyvg failed at line 185 before the fix and passes after. rhqxx81r passes. The Link end test went from 26 failures to 4, all of them junctions, which wine refuses with error 50. The Shortcut test went from 26 to 22: its folder link now fails when it's made, instead of in the checks after it, since wine has no junctions either.
+	- Swept: junctions (wine refuses them with an error), hard links (wine makes them), folder symlinks (same call, covered), GLib's `g_file_make_symbolic_link` (refuses on win32). The direct `CreateSymbolicLinkW` helpers in the Link end and Metadata ready tests are left alone.
 
 - On Windows, a file that isn't on disk yet, such as a mail attachment, can't be dropped onto the window.
 	- ID: 2026101416534066
