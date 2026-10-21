@@ -4,7 +4,7 @@
 <!-- markdownlint-disable MD041 -- First line in a file should be a top-level heading -->
 
 <!-- TOC ignore:true -->
-# nemo-anywhere affirmative checkmark selection
+# nemo-anywhere selection model
 
 <!-- TOC ignore:true -->
 ## Table of contents
@@ -52,7 +52,7 @@ Problem: The content view shows where you are, or what is selected, 3 ways at on
 
 Multi-select from the keyboard fights with all of them. A stray click or arrow key throws a selection away, that the user may have spent time carefully planning.
 
-- This doc defines the "Affirmative checkmark" selection model. Selecting works as it does today. On top of it, a deliberate pick gets a lasting checkmark that a plain click or arrow key can't undo, and commands act on the checkmarked objects. When nothing is deliberately picked, the selection stands in, drawn with dim checkmarks, so a command always has something to act on and the view always shows what that is. The updated metaphor:
+- This doc defines the "Nemo Anywhere" selection model. Selecting works as it does today. On top of it, a deliberate pick gets a lasting checkmark that a plain click or arrow key can't undo, and commands act on the checkmarked objects. When nothing is deliberately picked, the selection stands in, drawn with dim checkmarks, so a command always has something to act on and the view always shows what that is. The updated metaphor:
 
 	- The "focus outline" goes away, except for the few Ctrl+arrow moves that take the focus off the selection.
 
@@ -66,7 +66,7 @@ Multi-select from the keyboard fights with all of them. A stray click or arrow k
 
 - The affirmative half is behind a switch, off by default, under [The affirmative switch](#the-affirmative-switch). With it off, the model is today's selection with dim checkmarks that follow it, the range-ends arrows, and the list view drag rule. The switch is opt-in until real users have tried it.
 
-- The name isn't final. "Affirmative checkmark" names only the half behind the switch, so the model needs a name that fits with the switch either way.
+- The model is named after the app, since with the switch off it is the house default and nothing about it says "checkmark". The switch is what adds the affirmative half.
 
 - Terms are defined first, since (for example) my notes this grew from used "selected" for 3 distinct different meanings, and needed to be carefully and painstakingly clarified.
 
@@ -114,7 +114,7 @@ Multi-select from the keyboard fights with all of them. A stray click or arrow k
 
 - The status bar and every file-operation dialog say which of the 2 lists the command acts on, and whether the other one differs.
 
-- The model is a setting on the Advanced tab, and the default is "Affirmative checkmark". Its affirmative half is behind a switch that's off by default, and with it off a command acts on the selection, full stop.
+- The model is a setting on the Advanced tab, and the default is "Nemo Anywhere". Its affirmative half is behind a switch that's off by default, and with it off a command acts on the selection, full stop.
 
 ## Goals
 
@@ -296,9 +296,9 @@ What it does depends on the selection and on what's already affirmatively checkm
 
 ### The setting
 
-- Advanced tab, labeled "File and folder selection model", a dropdown with 6 entries, in this order: Affirmative checkmark, Nemo Classic, Nemo Anywhere v1, Windows Explorer, macOS Finder, and Commander. The default is Affirmative checkmark. An entry whose model isn't built yet isn't shown.
+- Advanced tab, labeled "File and folder selection model", a dropdown with 6 entries, in this order: Nemo Anywhere, Nemo Classic, Nemo Anywhere v1, Windows Explorer, macOS Finder, and Commander. The default is Nemo Anywhere. An entry whose model isn't built yet isn't shown.
 
-- Nemo Anywhere v1 is exactly how the app behaves at the time of the carve-out, tree view and content view, behind conditionals on the setting. Nemo Classic is exactly upstream Nemo's behavior, re-implemented from upstream source behind the same conditionals, since our code has moved too far to pass for it. Both are built and verified by tests before any Affirmative checkmark code is written.
+- Nemo Anywhere v1 is exactly how the app behaves at the time of the carve-out, tree view and content view, behind conditionals on the setting. Nemo Classic is exactly upstream Nemo's behavior, re-implemented from upstream source behind the same conditionals, since our code has moved too far to pass for it. Both are built and verified by tests before any Nemo Anywhere model code is written.
 
 - Windows Explorer and macOS Finder follow that platform's conventions. Commander is the Norton and Total Commander way, where Insert marks an object and moves down, Space marks it, and the numeric pad's plus, minus, and star mark by pattern and invert. Each of the 3 gets a doc of its own before it's built.
 
@@ -399,7 +399,7 @@ Each of these goes against what every file manager, and most lists, have done fo
 
 - Carve out "Nemo Classic": upstream's behavior, from upstream source, behind the same conditionals.
 
-- Verify both with tests, every mouse and keyboard rule per view, before any Affirmative checkmark code is written. The ones that need a screen run on the Linux rig.
+- Verify both with tests, every mouse and keyboard rule per view, before any Nemo Anywhere model code is written. The ones that need a screen run on the Linux rig.
 
 - Apply these terms to the paste-target item, so that way the 2 are written the same.
 

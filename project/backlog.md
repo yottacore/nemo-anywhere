@@ -86,7 +86,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A "File and folder selection model" dropdown on the Advanced tab. Only the entries whose model is built are shown.
 		- Every selection and focus rule in the tree view and the content view, all 3 views, goes behind a conditional on the setting. Nothing changes in how the app behaves.
 		- Tests for every mouse and keyboard rule per view, so a later model can't change this one without a test going red.
-		- Must be done, and the tests green, before any Affirmative checkmark code starts.
+		- Must be done, and the tests green, before any Nemo Anywhere model code starts.
 	- Design: [20261020-103804_checkmarked-selection.md](design_docs/20261020-103804_checkmarked-selection.md), "The setting" and "Roadmap".
 	- Progress log:
 		- 20261020: opened.
@@ -107,7 +107,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Re-implemented from upstream source at the fork point, since our selection code has moved too far to pass for it.
 		- Behind the same conditionals as Nemo Anywhere v1, tree view and content view.
 		- Tests per rule and view, like the v1 ones, checked against upstream on the Linux rig.
-		- Must be done, and the tests green, before any Affirmative checkmark code starts.
+		- Must be done, and the tests green, before any Nemo Anywhere model code starts.
 	- Design: [20261020-103804_checkmarked-selection.md](design_docs/20261020-103804_checkmarked-selection.md), "The setting" and "Roadmap".
 	- Progress log:
 		- 20261020: opened.
