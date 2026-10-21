@@ -1041,11 +1041,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Numbers with units are right-justified, with the unit inside the text box.
 		- The tabs regrouped under 2 parent tabs, User interface and Advanced.
 		- The Default and Current sub-tabs use the same controls, text, and layout, so they can't get out of sync.
-	- Design: [Planned tabs](design_docs/20261020-121842_settings.md#planned-tabs) and [Default and Current](design_docs/20261020-121842_settings.md#default-and-current). The full layout and its open questions are there.
+	- Design: [Planned tabs](design_docs/20261020-121842_settings.md#planned-tabs) and [Default and Current](design_docs/20261020-121842_settings.md#default-and-current). The full layout is there.
 	- Progress log:
 		- 20261020: layout moved to the settings design doc.
 		- 20261020: the Windows tab stays, after Advanced. Advanced's own page has Selection and Cache as sections. Icon size only on Icon view, and Text size on Compact and Detailed view. Buttons in Settings at the left. The doc's open questions are down to 5.
 		- 20261020: Windows tab before Advanced. Zoom in Compact and Detailed view changes Text size. Image thumbnail captions can also show image and video metadata. 1 open question left.
+		- 20261020: "Settings text size" renamed "Dialog text size", for every dialog. No open questions left.
 	- Notes:
 		- The thin line under "Remember per-folder settings" is also 2026101816495205.
 	- Test case: none yet.
