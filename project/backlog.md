@@ -49,19 +49,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Notes:
 		- Inherent contradictions:
 			- If a first level folder is randomly selected, it would be surprising if pasted contents went into that folder.
-			- If a folder is selected within an expaned tree, 
+			- If a folder is selected within an expaned tree (or one or more files in that folder), it makes sense for pasted content to go in that selected folder (or the parent folder if files are selected).
 
 - The separate highlight and selection is causing too many problems. Need to rethink how to multi-select with keyboard without the "selection", or do without it.
 	- ID: 2026101816495208
 	- Type: Enhancement
-	- Status: Answered
-		- Let's test three models. Possibly options in a radio switch in settings:
-			- The current model.
-			- The Explorer model.
-			- The "checkbox" model, where clicking on a file with the mouse, places a gray checkmark next to it.
-				- But not just moving over it with the keyboard.
-				- Pressing Space on a selected line, checks or unchecks it.
-				- With multiple files selected, pressing Space selects or unselects all (which action depends on which in the selection has the most: checked or unchecked. On a 50/50 split, uncheck them.
+	- Status: Open
 	- Priority|Severity: Avg
 	- Opened: 20261018-164952
 	- Opened by: t00mietum
@@ -71,6 +64,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261018: detail to be written later. Still before rc.1.
 	- Test case: none yet.
+	- Design: [20261020-103804_checkmarked-selection.md](design_docs/20261020-103804_checkmarked-selection.md). The checkmark model, its terms, and the 3 other models behind the setting.
 
 - Carve out "Nemo Anywhere v1": the app's current selection and focus behavior, behind a selection model setting.
 	- ID: 2026102016594100
@@ -2814,7 +2808,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rf2w8yxr, Settings widgets test: the tip on the label and on the entry, word for word.
 	- Acceptance signoff: Left at signoff for the old tip's notes on arguments, quoting and the working folder, which went with it. Options: keep it as is, or add them back after the new sentence.
 
-- When clicking anywhere on a row in detailed list view, even when the program doesn't have focus, it should be immediately selected.
+- When clicking anywhere on a row in list view, even when the program doesn't have focus, it should be immediately selected.
 	- ID: 2026101405542891
 	- Type: Enhancement
 	- Status: Done
@@ -2834,7 +2828,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Shift+drag (reselect)
 			- Ctrl+drag (add to selection); Cmd+drag on macOS
 			- Right-click then drag before releasing button.
-			- Start a drag in the empty area below a listing, in detailed list view.
+			- Start a drag in the empty area below a listing, in list view.
 		- Remove the option to start a drag-select when clicking on a non-name column.
 	- Progress log:
 		- 20261014: done. A plain press anywhere on a row selects it at once, and a drag from there moves the selection, whatever column it started in. A band starts only below the rows, with Ctrl or Shift from a row that isn't selected, or with the right button. The list view draws its own band now, since GTK's started on any row not yet selected and only took the left button.
@@ -2911,7 +2905,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Target OS: All
 	- Requirements:
 		- Before the next cut.
-		- But those views also allow the new methods added for detailed list view.
+		- But those views also allow the new methods added for list view.
 	- Progress log:
 		- 20261014: done with 2026101405542891. A plain drag from the background bands at once, as before, and a plain drag from an icon moves files. New: Ctrl or Shift and a drag from an icon that isn't selected bands, and so does a right drag, whose menu now opens on the release.
 		- Options: a Ctrl band toggles every icon it crosses, as it did, or adds to the selection; went with adding, to match the list view. Shift on the background now replaces the selection, where it used to toggle like Ctrl.
