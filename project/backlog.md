@@ -1268,7 +1268,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The tree pane removes a timer that already ran, after a key moves its selection.
 	- ID: 2026102113191977
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261021-131919
 	- Opened by: 2026102016594100
@@ -1279,7 +1279,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: no warning.
 	- Reproduced: 20261021 on Linux, in rktkms8a's output.
 	- Possible cause: `selection_changed_timer_callback` in `nemo-tree-sidebar.c` returns FALSE and never clears `selection_changed_timer`, so the next selection change removes a source that's gone.
-	- Test case: none yet.
+	- Actual cause: as above. Every return in the callback ends the timeout, and the stored ID stayed set.
+	- Actual fix: the callback zeroes `selection_changed_timer` first. The mouse path calls it directly, after the ID is already 0, so that's unchanged.
+	- Swept: every `g_timeout_add*`, `g_idle_add*` and `gdk_threads_add_*` whose ID is stored, in `source/` outside `vendor/` and `cut-n-paste-code/` (126). One twin: `popup_menu_timeout_cb` in `nemo-navigation-action.c` (Back and Forward held down) returned FALSE with `popup_timeout_id` still set, and the next press, or finalize, removed it. Fixed the same way. The icon view's autoscroll callback always returns TRUE. The timed wait dialog in `eel-stock-dialogs.c` keeps its ID in a local and disconnects before it destroys. The tests' `give_up` timeouts only do it on a run that has already failed, so they were left.
+	- Test case: rktkms8a, which now fails on any GLib critical during its tree steps. rk7y2ch7 gained a step that holds Back down until its menu opens, then presses it again, and fails on any GLib critical.
+	- Verified: rktkms8a failed before the fix, with 3 criticals in each of the 3 views, and passes after. rk7y2ch7's new step failed before the Back fix, with 1 critical, and passes after.
+	- Acceptance signoff: Self-closed: a mechanical fix, and both tests pin it.
+	- Closed: 20261021-204700
 
 - rfwwdyvg fails its symlink support check under wine.
 	- ID: 2026102021081038

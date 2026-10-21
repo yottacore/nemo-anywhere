@@ -40,6 +40,8 @@ static int        waited;
 static int        steady;
 static guint      loads;
 static guint      loads_before;
+static guint      glib_handler;
+static int        glib_criticals;
 
 static void
 report (gboolean passed, const char *what)
@@ -261,9 +263,10 @@ find_button_cb (GtkWidget *widget, gpointer data)
 	}
 }
 
-/* A right click on the toolbar's Back button pops its history up. */
+/* A right click on the toolbar's Back button pops its history up, and so
+   does holding the left button down a while. */
 static void
-history_menu (void)
+press_back (guint button)
 {
 	ButtonSearch search = { "Back", NULL };
 	GdkEvent *event;
@@ -275,7 +278,7 @@ history_menu (void)
 	}
 	event = gdk_event_new (GDK_BUTTON_PRESS);
 	event->button.window = g_object_ref (gtk_widget_get_window (search.found));
-	event->button.button = 3;
+	event->button.button = button;
 	event->button.time = GDK_CURRENT_TIME;
 	gdk_event_set_device (event, gdk_seat_get_pointer (gdk_display_get_default_seat (gdk_display_get_default ())));
 	g_signal_emit_by_name (search.found, "button-press-event", event, &handled);
@@ -316,6 +319,14 @@ shown_menu_items (void)
 	g_list_free (toplevels);
 
 	return items;
+}
+
+static void
+count_glib_critical (const gchar *domain, GLogLevelFlags level, const gchar *message,
+		     gpointer data)
+{
+	glib_criticals++;
+	g_log_default_handler (domain, level, message, data);
 }
 
 static void
@@ -416,7 +427,7 @@ tick (G_GNUC_UNUSED gpointer data)
 			return G_SOURCE_CONTINUE;
 		}
 		check (shows_search ("pear", 1), "a new search looks in the folder");
-		history_menu ();
+		press_back (3);
 		break;
 	case 10: {
 		/* Back's history is the folder, the first search and the folder. */
@@ -443,8 +454,29 @@ tick (G_GNUC_UNUSED gpointer data)
 			return G_SOURCE_CONTINUE;
 		}
 		check (shows_folder (), "leaving that one shows the folder");
+		glib_handler = g_log_set_handler ("GLib", G_LOG_LEVEL_CRITICAL, count_glib_critical, NULL);
+		press_back (1);
+		break;
+	case 13: {
+		/* Its timer has run once the menu is up, so the next press must not
+		   remove it again (#2026102113191977). */
+		GList *items;
+
+		if (waited < 20) {
+			return G_SOURCE_CONTINUE;
+		}
+		items = shown_menu_items ();
+		if (items == NULL) {
+			return G_SOURCE_CONTINUE;
+		}
+		gtk_menu_shell_deactivate (GTK_MENU_SHELL (gtk_widget_get_parent (items->data)));
+		g_list_free (items);
+		press_back (1);
+		g_log_remove_handler ("GLib", glib_handler);
+		check (glib_criticals == 0, "holding Back down twice logs no GLib criticals");
 		finish ();
 		return G_SOURCE_REMOVE;
+	}
 	}
 
 	step++;

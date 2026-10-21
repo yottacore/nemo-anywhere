@@ -57,12 +57,23 @@ static char      *title_before;
 static int        tabs_before;
 static int        last_clicked = -1;
 static gint64     last_click_time;
+static guint      glib_handler;
+static int        glib_criticals;
 
 static void
 report (gboolean passed, const char *what)
 {
 	fprintf (out, "%s %s\n", passed ? "ok" : "FAIL", what);
 	fflush (out);
+}
+
+/* The tree's key delay once removed a timer that had already run (#2026102113191977). */
+static void
+count_glib_critical (const gchar *domain, GLogLevelFlags level, const gchar *message,
+		     gpointer data)
+{
+	glib_criticals++;
+	g_log_default_handler (domain, level, message, data);
 }
 
 static void
@@ -804,6 +815,7 @@ rules_tick (void)
 		want (items (1, -1), "and selects as usual");
 		break;
 	case 30:
+		glib_handler = g_log_set_handler ("GLib", G_LOG_LEVEL_CRITICAL, count_glib_critical, NULL);
 		note_title ();
 		click_tree_row (tree, "0", 0);
 		report (gtk_widget_has_focus (GTK_WIDGET (tree)), "a click in the tree takes the keyboard focus");
@@ -865,6 +877,8 @@ rules_tick (void)
 		want_tree (tree, "0", "nor Escape");
 		report (gtk_tree_view_row_expanded (tree, home), "and the row is still open");
 		gtk_tree_path_free (home);
+		g_log_remove_handler ("GLib", glib_handler);
+		report (glib_criticals == 0, "the tree steps log no GLib criticals");
 		break;
 	}
 

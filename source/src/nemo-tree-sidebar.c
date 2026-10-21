@@ -457,6 +457,9 @@ selection_changed_timer_callback(FMTreeView *view)
 	GtkTreeIter iter;
 	GtkTreeSelection *selection;
 
+	/* every return below ends the timeout */
+	view->details->selection_changed_timer = 0;
+
 	/* no activation if popup menu is open */
 	if (view->details->popup_file != NULL) {
 		return FALSE;

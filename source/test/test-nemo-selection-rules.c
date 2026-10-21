@@ -199,9 +199,9 @@ main (int argc, char *argv[])
 		return 77;
 	}
 
-	run_view (argv[1], argv[2], "list-view", 10, 64);
-	run_view (argv[1], argv[2], "icon-view", 24, 68);
-	run_view (argv[1], argv[2], "compact-view", 60, 68);
+	run_view (argv[1], argv[2], "list-view", 10, 65);
+	run_view (argv[1], argv[2], "icon-view", 24, 69);
+	run_view (argv[1], argv[2], "compact-view", 60, 69);
 
 	if (failures > 0) {
 		g_printerr ("%d failure(s)\n", failures);

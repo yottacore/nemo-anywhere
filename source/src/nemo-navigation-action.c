@@ -145,6 +145,7 @@ popup_menu_timeout_cb (gpointer data)
 {
         NemoNavigationAction *self = data;
 
+        self->priv->popup_timeout_id = 0;
         show_menu (self, 1, gtk_get_current_event_time ());
 
         return FALSE;
