@@ -49,4 +49,7 @@ NemoFile *     nemo_file_queue_head     (NemoFileQueue *queue);
 
 gboolean           nemo_file_queue_is_empty (NemoFileQueue *queue);
 
+/* The queue's own list, head first, to read and not to change. */
+GList *            nemo_file_queue_peek     (NemoFileQueue *queue);
+
 #endif /* NEMO_FILE_CHANGES_QUEUE_H */

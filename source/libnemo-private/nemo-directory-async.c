@@ -3930,6 +3930,30 @@ thumbnail_start (NemoDirectory *directory,
 	g_object_unref (task);
 }
 
+/* A file parked on a slow fetch of its own, such as a sub-folder's item count,
+   would hold back the thumbnail lookups of every file behind it, and the view
+   holds a picture's row until its lookup is done. Lookups have their own slot,
+   so the next file wanting one goes ahead, still one at a time and in the
+   folder's order. */
+static void
+thumbnail_start_ahead (NemoDirectory *directory)
+{
+	GList *node;
+	gboolean doing_io = FALSE;
+
+	if (directory->details->thumbnail_state != NULL ||
+	    (directory->details->call_when_ready_counters[REQUEST_THUMBNAIL] == 0 &&
+	     directory->details->monitor_counters[REQUEST_THUMBNAIL] == 0)) {
+		return;
+	}
+
+	/* The head was asked already. */
+	node = nemo_file_queue_peek (directory->details->low_priority_queue);
+	for (node = node != NULL ? node->next : NULL; node != NULL && !doing_io; node = node->next) {
+		thumbnail_start (directory, NEMO_FILE (node->data), &doing_io);
+	}
+}
+
 static void
 mount_stop (NemoDirectory *directory)
 {
@@ -4544,6 +4568,7 @@ start_or_stop_io (NemoDirectory *directory)
 
 		if (doing_io) {
 			note_parked_io (parked, file);
+			thumbnail_start_ahead (directory);
 			return;
 		}
 
