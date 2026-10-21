@@ -1486,6 +1486,22 @@ if not is_windows
     timeout: 240
   )
 
+  # Preloaded too; it clicks and types from inside the program.
+  selection_rules_probe = shared_module('test-nemo-selection-rules-probe',
+    [ 'test-nemo-selection-rules-probe.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk ],
+  )
+  test('rktkms8a Selection rules test',
+    executable('test-nemo-selection-rules',
+      [ 'test-nemo-selection-rules.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, selection_rules_probe ],
+    timeout: 300
+  )
+
   icon_atk_probe = shared_module('test-nemo-icon-atk-probe',
     [ 'test-nemo-icon-atk-probe.c' ],
     include_directories: [ rootInclude, ],

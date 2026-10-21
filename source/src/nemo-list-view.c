@@ -4267,6 +4267,66 @@ on_size_allocation_changed (G_GNUC_UNUSED GtkWidget    *widget,
     }
 }
 
+/* The list view's selection and focus rules, one set per selection model.
+   GtkTreeView's own key and click handling is part of each set, through what
+   these let pass. See design_docs/20261020-103804_checkmarked-selection.md,
+   "The setting". */
+typedef struct {
+	gboolean (*button_press) (GtkWidget *widget, GdkEventButton *event, gpointer callback_data);
+	gboolean (*button_release) (GtkWidget *widget, GdkEventButton *event, gpointer callback_data);
+	gboolean (*motion_notify) (GtkWidget *widget, GdkEventMotion *event, gpointer callback_data);
+	gboolean (*key_press) (GtkWidget *widget, GdkEventKey *event, gpointer callback_data);
+	gboolean (*focus_in) (GtkWidget *widget, GdkEventFocus *event, gpointer user_data);
+} ListViewRules;
+
+static const ListViewRules rules_anywhere_v1 = {
+	.button_press = button_press_callback,
+	.button_release = button_release_callback,
+	.motion_notify = motion_notify_callback,
+	.key_press = key_press_callback,
+	.focus_in = focus_in_event_callback,
+};
+
+static const ListViewRules *
+list_view_rules (void)
+{
+	switch (nemo_global_preferences_get_selection_model ()) {
+	case NEMO_SELECTION_MODEL_ANYWHERE_V1:
+		return &rules_anywhere_v1;
+	}
+	g_return_val_if_reached (&rules_anywhere_v1);
+}
+
+static gboolean
+model_button_press (GtkWidget *widget, GdkEventButton *event, gpointer callback_data)
+{
+	return list_view_rules ()->button_press (widget, event, callback_data);
+}
+
+static gboolean
+model_button_release (GtkWidget *widget, GdkEventButton *event, gpointer callback_data)
+{
+	return list_view_rules ()->button_release (widget, event, callback_data);
+}
+
+static gboolean
+model_motion_notify (GtkWidget *widget, GdkEventMotion *event, gpointer callback_data)
+{
+	return list_view_rules ()->motion_notify (widget, event, callback_data);
+}
+
+static gboolean
+model_key_press (GtkWidget *widget, GdkEventKey *event, gpointer callback_data)
+{
+	return list_view_rules ()->key_press (widget, event, callback_data);
+}
+
+static gboolean
+model_focus_in (GtkWidget *widget, GdkEventFocus *event, gpointer user_data)
+{
+	return list_view_rules ()->focus_in (widget, event, user_data);
+}
+
 static void
 create_and_set_up_tree_view (NemoListView *view)
 {
@@ -4374,7 +4434,7 @@ create_and_set_up_tree_view (NemoListView *view)
 	g_signal_connect_object (view->details->tree_view, "drag_data_get",
 				 G_CALLBACK (drag_data_get_callback), view, 0);
 	g_signal_connect_object (view->details->tree_view, "motion_notify_event",
-				 G_CALLBACK (motion_notify_callback), view, 0);
+				 G_CALLBACK (model_motion_notify), view, 0);
 	g_signal_connect_object (view->details->tree_view, "draw",
 				 G_CALLBACK (band_draw_callback), view, G_CONNECT_AFTER);
 	g_signal_connect_object (view->details->tree_view, "enter_notify_event",
@@ -4382,11 +4442,11 @@ create_and_set_up_tree_view (NemoListView *view)
 	g_signal_connect_object (view->details->tree_view, "leave_notify_event",
 				 G_CALLBACK (leave_notify_callback), view, 0);
 	g_signal_connect_object (view->details->tree_view, "button_press_event",
-				 G_CALLBACK (button_press_callback), view, 0);
+				 G_CALLBACK (model_button_press), view, 0);
 	g_signal_connect_object (view->details->tree_view, "button_release_event",
-				 G_CALLBACK (button_release_callback), view, 0);
+				 G_CALLBACK (model_button_release), view, 0);
 	g_signal_connect_object (view->details->tree_view, "key_press_event",
-				 G_CALLBACK (key_press_callback), view, 0);
+				 G_CALLBACK (model_key_press), view, 0);
 	g_signal_connect_object (view->details->tree_view, "popup_menu",
                                  G_CALLBACK (popup_menu_callback), view, 0);
 	g_signal_connect_object (view->details->tree_view, "row_expanded",
@@ -4399,7 +4459,7 @@ create_and_set_up_tree_view (NemoListView *view)
                                  G_CALLBACK (test_expand_row_callback), view, 0);
 
     	g_signal_connect_object (view->details->tree_view, "focus_in_event",
-				 G_CALLBACK(focus_in_event_callback), view, 0);
+				 G_CALLBACK(model_focus_in), view, 0);
 
     g_signal_connect (view->details->tree_view, "realize", G_CALLBACK (on_treeview_realized), view);
     g_signal_connect (view->details->tree_view, "size-allocate", G_CALLBACK (on_size_allocation_changed), view);

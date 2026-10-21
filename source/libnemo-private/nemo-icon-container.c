@@ -154,6 +154,13 @@ static gboolean handle_icon_slow_two_click (NemoIconContainer *container,
 
 static void schedule_align_icons (NemoIconContainer *container);
 
+static gboolean model_button_press_event (GtkWidget *widget, GdkEventButton *event);
+static gboolean model_button_release_event (GtkWidget *widget, GdkEventButton *event);
+static gboolean model_motion_notify_event (GtkWidget *widget, GdkEventMotion *event);
+static gboolean model_key_press_event (GtkWidget *widget, GdkEventKey *event);
+static gboolean model_search_key_press_event (GtkWidget *widget, GdkEventKey *event,
+					      NemoIconContainer *container);
+
 static gpointer accessible_parent_class;
 
 static GQuark accessible_private_data_quark = 0;
@@ -3919,7 +3926,7 @@ nemo_icon_container_search_button_press_event (GtkWidget *widget,
 	nemo_icon_container_search_dialog_hide (widget, container);
 
 	if (event->window == gtk_layout_get_bin_window (GTK_LAYOUT (container))) {
-		button_press_event (GTK_WIDGET (container), event);
+		model_button_press_event (GTK_WIDGET (container), event);
 	}
 
 	return TRUE;
@@ -4206,7 +4213,7 @@ nemo_icon_container_ensure_interactive_directory (NemoIconContainer *container)
 			  G_CALLBACK (nemo_icon_container_search_delete_event),
 			  container);
 	g_signal_connect (container->details->search_window, "key_press_event",
-			  G_CALLBACK (nemo_icon_container_search_key_press_event),
+			  G_CALLBACK (model_search_key_press_event),
 			  container);
 	g_signal_connect (container->details->search_window, "button_press_event",
 			  G_CALLBACK (nemo_icon_container_search_button_press_event),
@@ -5007,10 +5014,10 @@ nemo_icon_container_class_init (NemoIconContainerClass *class)
 	widget_class->get_preferred_height = get_prefered_height;
 	widget_class->realize = realize;
 	widget_class->unrealize = unrealize;
-	widget_class->button_press_event = button_press_event;
-	widget_class->button_release_event = button_release_event;
-	widget_class->motion_notify_event = motion_notify_event;
-	widget_class->key_press_event = key_press_event;
+	widget_class->button_press_event = model_button_press_event;
+	widget_class->button_release_event = model_button_release_event;
+	widget_class->motion_notify_event = model_motion_notify_event;
+	widget_class->key_press_event = model_key_press_event;
 	widget_class->popup_menu = popup_menu;
 	widget_class->get_accessible = get_accessible;
 	widget_class->style_updated = style_updated;
@@ -5375,6 +5382,74 @@ item_event_callback (EelCanvasItem *item,
 		}
     }
     return FALSE;
+}
+
+/* The selection and focus rules for icon and compact views, one set per
+   selection model. See design_docs/20261020-103804_checkmarked-selection.md,
+   "The setting". */
+typedef struct {
+	gboolean (*button_press) (GtkWidget *widget, GdkEventButton *event);
+	gboolean (*button_release) (GtkWidget *widget, GdkEventButton *event);
+	gboolean (*motion_notify) (GtkWidget *widget, GdkEventMotion *event);
+	gboolean (*key_press) (GtkWidget *widget, GdkEventKey *event);
+	gboolean (*search_key_press) (GtkWidget *widget, GdkEventKey *event,
+				      NemoIconContainer *container);
+	int (*item_event) (EelCanvasItem *item, GdkEvent *event, gpointer data);
+} ContainerRules;
+
+static const ContainerRules rules_anywhere_v1 = {
+	.button_press = button_press_event,
+	.button_release = button_release_event,
+	.motion_notify = motion_notify_event,
+	.key_press = key_press_event,
+	.search_key_press = nemo_icon_container_search_key_press_event,
+	.item_event = item_event_callback,
+};
+
+static const ContainerRules *
+container_rules (void)
+{
+	switch (nemo_global_preferences_get_selection_model ()) {
+	case NEMO_SELECTION_MODEL_ANYWHERE_V1:
+		return &rules_anywhere_v1;
+	}
+	g_return_val_if_reached (&rules_anywhere_v1);
+}
+
+static gboolean
+model_button_press_event (GtkWidget *widget, GdkEventButton *event)
+{
+	return container_rules ()->button_press (widget, event);
+}
+
+static gboolean
+model_button_release_event (GtkWidget *widget, GdkEventButton *event)
+{
+	return container_rules ()->button_release (widget, event);
+}
+
+static gboolean
+model_motion_notify_event (GtkWidget *widget, GdkEventMotion *event)
+{
+	return container_rules ()->motion_notify (widget, event);
+}
+
+static gboolean
+model_key_press_event (GtkWidget *widget, GdkEventKey *event)
+{
+	return container_rules ()->key_press (widget, event);
+}
+
+static gboolean
+model_search_key_press_event (GtkWidget *widget, GdkEventKey *event, NemoIconContainer *container)
+{
+	return container_rules ()->search_key_press (widget, event, container);
+}
+
+static int
+model_item_event (EelCanvasItem *item, GdkEvent *event, gpointer data)
+{
+	return container_rules ()->item_event (item, event, data);
 }
 
 /* Returns: (transfer floating) */
@@ -8473,7 +8548,7 @@ nemo_icon_container_finish_adding_icon (NemoIconContainer *container,
     eel_canvas_item_show (EEL_CANVAS_ITEM (icon->item));
 
     g_signal_connect_object (icon->item, "event",
-                 G_CALLBACK (item_event_callback), container, 0);
+                 G_CALLBACK (model_item_event), container, 0);
 
     g_signal_emit (container, signals[ICON_ADDED], 0, icon->data);
 }

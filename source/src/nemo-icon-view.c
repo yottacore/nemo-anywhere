@@ -2580,6 +2580,49 @@ button_press_callback (G_GNUC_UNUSED GtkWidget *widget, GdkEventFocus *event, gp
     return GDK_EVENT_PROPAGATE;
 }
 
+/* The view's own selection and focus rules, on top of the container's, one
+   set per selection model. See
+   design_docs/20261020-103804_checkmarked-selection.md, "The setting". */
+typedef struct {
+	gboolean (*button_press) (GtkWidget *widget, GdkEventFocus *event, gpointer user_data);
+	gboolean (*focus_in) (GtkWidget *widget, GdkEventFocus *event, gpointer user_data);
+	gboolean (*key_press) (GtkWidget *widget, GdkEventKey *event, gpointer user_data);
+} IconViewRules;
+
+static const IconViewRules rules_anywhere_v1 = {
+	.button_press = button_press_callback,
+	.focus_in = focus_in_event_callback,
+	.key_press = key_press_event_callback,
+};
+
+static const IconViewRules *
+icon_view_rules (void)
+{
+	switch (nemo_global_preferences_get_selection_model ()) {
+	case NEMO_SELECTION_MODEL_ANYWHERE_V1:
+		return &rules_anywhere_v1;
+	}
+	g_return_val_if_reached (&rules_anywhere_v1);
+}
+
+static gboolean
+model_button_press (GtkWidget *widget, GdkEventFocus *event, gpointer user_data)
+{
+	return icon_view_rules ()->button_press (widget, event, user_data);
+}
+
+static gboolean
+model_focus_in (GtkWidget *widget, GdkEventFocus *event, gpointer user_data)
+{
+	return icon_view_rules ()->focus_in (widget, event, user_data);
+}
+
+static gboolean
+model_key_press (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
+{
+	return icon_view_rules ()->key_press (widget, event, user_data);
+}
+
 static NemoIconContainer *
 create_icon_container (NemoIconView *icon_view)
 {
@@ -2600,11 +2643,11 @@ create_icon_container (NemoIconView *icon_view)
 	gtk_widget_set_can_focus (GTK_WIDGET (icon_container), TRUE);
 
     g_signal_connect_object (icon_container, "button_press_event",
-                 G_CALLBACK (button_press_callback), icon_view, 0);
+                 G_CALLBACK (model_button_press), icon_view, 0);
 	g_signal_connect_object (icon_container, "focus_in_event",
-				 G_CALLBACK (focus_in_event_callback), icon_view, 0);
+				 G_CALLBACK (model_focus_in), icon_view, 0);
 	g_signal_connect_object (icon_container, "key_press_event",
-				 G_CALLBACK (key_press_event_callback), icon_view, G_CONNECT_AFTER);
+				 G_CALLBACK (model_key_press), icon_view, G_CONNECT_AFTER);
 	g_signal_connect_object (icon_container, "activate",
 				 G_CALLBACK (icon_container_activate_callback), icon_view, 0);
 	g_signal_connect_object (icon_container, "activate_alternate",

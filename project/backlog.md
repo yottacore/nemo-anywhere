@@ -73,12 +73,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Carve out "Nemo Anywhere v1": the app's current selection and focus behavior, behind a selection model setting.
 	- ID: 2026102016594100
 	- Type: Task
-	- Status: Queued
-	- Needs local test suite run?: Yes
+	- Status: Waiting for testing
+	- Needs local test suite run?: yes, the full Linux suite. rktkms8a is new, and rhtmbdmd and rf2w8yxr check the new page.
+	- Needs external testing: rktkms8a in the FreeBSD lane.
 	- Priority|Severity: High
 	- Opened: 20261020-165941
 	- Opened by: t00mietum
-	- Related IDs: 2026101816495208, 2026102019174440, 2026102016594200
+	- Related IDs: 2026101816495208, 2026102019174440, 2026102016594200, 2026102113191977
 	- Target OS: All
 	- Requirements:
 		- A "File and folder selection model" dropdown on the Advanced tab. Only the entries whose model is built are shown.
@@ -88,7 +89,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Design: [20261020-103804_checkmarked-selection.md](design_docs/20261020-103804_checkmarked-selection.md), "The setting" and "Roadmap".
 	- Progress log:
 		- 20261020: opened.
-	- Test case: none yet.
+		- 20261021: `preferences.selection-model`, with `nemo-anywhere-v1` the only value. A new Advanced page, last in the list, with a Selection section and the dropdown. Each view's mouse, key and focus handlers now go through a small rules table per model, picked by one switch on the setting.
+		- 20261021: rules pinned per view (list, icon, compact) and in the folder tree: click, Ctrl+click on and off, Shift+click and its anchor, Ctrl+Shift+click, a click on empty space, a click on one item of a selection, right-click on a selected and an unselected item, Up, Down, Left, Right, Home, End, Page Down, Shift with arrows, Home and End, Ctrl with arrows, Home and End, Ctrl+Space on and off, Ctrl+Shift+Down, Ctrl+A, Ctrl+Shift+I, Escape, type-ahead, and a click moving the keyboard focus between the tree and the view. In the tree: click, Down, Up and Shift+Down, each opening its folder, and Ctrl+click on the selected row. Drags and bands stay in rk7yvgse.
+		- Not pinned yet: a double-click that opens, Enter and Shift+Enter, Space and Shift+Space, Page Up, Shift+Left and Shift+Right, the middle button, Tab, and in the tree Left, Right, Escape and type-ahead. The menu key has its own tests (rjefm41d, rj04ta3n).
+	- Decisions:
+		- The default is `nemo-anywhere-v1` until the Nemo Anywhere model is built. The doc's default applies from then.
+		- The switch sits at the entry points, the press, release, motion, key and focus handlers, plus Select all and Invert selection. The rules inside them stay where they were, so Nemo Classic adds a table, not a branch at each rule.
+		- Advanced goes last for now. Moving Behavior, Plugins and Document templates under it is the settings regroup item's.
+		- Pinned as found: in the list view, a click on one row of a selection selects it alone but leaves the keyboard cursor where it was, so the next Down counts from there. The icon views count from the clicked item.
+	- Swept: the input handlers of the icon container (icon and compact views), the icon view, the list view and the tree pane, the search popup's keys and its forwarded press, the canvas item events, and the Select all and Invert selection actions. Places is not part of this.
+	- Branch: round1021
+	- Test case: rktkms8a, Selection rules test, plus the dropdown checks in rhtmbdmd and rf2w8yxr.
+	- Verified: 20261021, rktkms8a passes in all 3 views. The 26 tests that drive the app, the settings and config tests, and the build with warnings as errors all pass. The Windows cross build is clean.
 
 - Carve out "Nemo Classic": upstream Nemo's exact selection and focus behavior, behind the selection model setting.
 	- ID: 2026102016594200
@@ -1252,6 +1264,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: 20261021 under wine, GTK 3.24.52, 4 drags in a row. Not on native Windows yet.
 	- Possible cause: GDK's OLE drag source keeps the context's drag window past the context, or wine's `DoDragDrop` never returns for a drag stopped from GTK's side.
 	- Test case: none yet. rkneye2c runs GTK's own protocol, not OLE.
+
+- The tree pane removes a timer that already ran, after a key moves its selection.
+	- ID: 2026102113191977
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261021-131919
+	- Opened by: 2026102016594100
+	- Related IDs: 2026102016594100
+	- Target OS: All
+	- Steps to reproduce: in the folder tree, press Down, wait a second, then press Up.
+	- Incorrect behavior: `GLib-CRITICAL: Source ID <n> was not found when attempting to remove it`, once per keyboard move after the first.
+	- Expected behavior: no warning.
+	- Reproduced: 20261021 on Linux, in rktkms8a's output.
+	- Possible cause: `selection_changed_timer_callback` in `nemo-tree-sidebar.c` returns FALSE and never clears `selection_changed_timer`, so the next selection change removes a source that's gone.
+	- Test case: none yet.
 
 - rfwwdyvg fails its symlink support check under wine.
 	- ID: 2026102021081038

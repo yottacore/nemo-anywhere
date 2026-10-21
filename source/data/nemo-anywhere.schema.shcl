@@ -485,6 +485,12 @@ field: preferences.quick-renames-with-pause-in-between
 	default: false
 	desc: Two slow clicks on a name start a rename
 
+field: preferences.selection-model
+	type: string
+	allowed: nemo-anywhere-v1
+	default: nemo-anywhere-v1
+	desc: How clicks and keys select and focus files and folders
+
 field: preferences.show-advanced-permissions
 	type: bool
 	default: false
