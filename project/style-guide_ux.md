@@ -135,6 +135,7 @@ How theme lookup works is in [design.md, Appearance and themes](design.md#appear
 - 12 pixels between a label and its field. A field stops at the same right-hand margin as the rest of the section, and fields in a group start at the same point as each other. The command fields on the Behavior page are the pattern.
 
 - A button that acts on a tab's content sits at the top right of that content, not in the tab header. Each tab has its own buttons, and they don't come and go as tabs change.
+	- The Settings window is the exception. There a button sits at the left, on a line of its own at the top of its section, since top right looked out of place beside the nested tab list and made the window wider.
 
 - In a dialog with its tabs in a list down the left, a page with sub-tabs lists them in that same list, indented under it, so they can be seen without opening the page. The page and the sub-tab showing are both lit. A dialog with its tabs on top keeps sub-tabs on the page, as tabs on top of their own. A page too long to fit is split into sub-tabs of related settings rather than left to scroll.
 
