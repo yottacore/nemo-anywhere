@@ -107,7 +107,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026102016594200
 	- Type: Task
 	- Status: Waiting for answers
-		- Waits on the Tab question: upstream's Tab leaves the focus in the view, and Classic's doesn't.
+		- Waits on the Tab question: upstream's Tab leaves the focus in the view, and Classic's moves it on.
 	- Needs local test suite run?: yes, the full Linux suite. rktqpp37 is new, and rktkms8a, rhtmbdmd and rk7yvgse cover changed code.
 	- Needs external testing: rktqpp37 in the FreeBSD lane, and the Windows cross build.
 	- Priority|Severity: High
@@ -133,7 +133,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Select all and Invert are the same in both.
 		- 20261021: rktkms8a's checks run again as rktqpp37 under Classic. New in both: Ctrl+click and Shift+click on empty space, and whether the menu opens on the press or the release, per view and in the tree.
 		- 20261021: rktqpp37's results were seen in upstream 6.6.4 built from its tag, all but these.
-			- Tab: upstream leaves the focus in the view, and Classic moves it on, as v1 does. The views' handlers don't touch Tab, so the cause is in the window around them.
+			- Tab: upstream leaves the focus in the view, and Classic moves it on, as v1 does. Upstream's tab notebook takes every focus move in its Ctrl+Tab handler. Ours has let Tab through since 3c354fa5, in every model.
 			- Upstream's tree logs a GLib critical, the stale timer ID fixed in 2026102113191977. Classic keeps the fix.
 			- Two open checks name the wrong folder upstream, only because it makes a Desktop folder in home. The folder that opened was the selected one.
 		- 20261021: derived from upstream source and not seen: the split view click, the list view's band, the icon views' mouse band, drags that start with Ctrl or Shift, and Escape not leaving find mode. Not pinned yet: a folder selected in an expanded nest in the list view (the Problem on 2026101816495208).

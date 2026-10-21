@@ -809,8 +809,9 @@ rules_tick (void)
 		click (2, 0);
 		key (GDK_KEY_Tab, 0);
 		want (items (2, -1), "Tab leaves the selection alone");
-		/* Upstream's Tab leaves the focus in the view. Nemo Classic doesn't
-		   copy that, since the views' rules don't move it (#2026102016594200). */
+		/* Upstream's Tab leaves the focus in the view, since its tab
+		   notebook's Ctrl+Tab handler takes every focus move. Ours lets it
+		   through in every model (#2026102016594200). */
 		report (!gtk_widget_has_focus (pane), "and takes the keyboard focus out of the view");
 		gtk_widget_grab_focus (pane);
 		if (!list_mode) {
