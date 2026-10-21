@@ -1188,37 +1188,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261020: not the long target, since the test's links have short relative targets now. The listing is what the job writes when its first `rar` run, for the links alone, fails: it leaves the links out on purpose and logs "Links couldn't be kept", with what `rar` said. That line wasn't kept from the failed run, so the next one will say why. Same day and load as 2026101916300276, where `rar` also seems to have written an archive short.
 	- Test case: rhr6ggmt.
 
-- GTK keeps the X11 drag window after every drag.
-	- ID: 2026101916044103
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261019-160441
-	- Opened by: t00mietum
-	- Related IDs: 2026101914184878
-	- Target OS: Linux, BSD
-	- Incorrect behavior: every drag out of a view keeps its GDK drag window, about 1.5 KB, for the life of the app. `gtk_drag_set_icon_widget_internal` hands GDK's drag window to the icon window with `gtk_window_set_hardcoded_window`, which takes a ref, and `gtk_window_unrealize` sets the pointer to NULL without dropping it. Still there on GTK's `gtk-3-24` branch.
-	- Expected behavior: nothing kept after a drag. Upstream: GNOME's GTK issue tracker, `gtk-3-24` branch.
-	- Reproduced: 20261019, rkneye2c under heaptrack, 4 sites under `create_drag_window` at 128 calls each, 1 per counted round.
-	- Options: drop the stray ref in the views' own drag-end handlers, the way rkneye2c does, only while the window is still alive.
-	- Test case: rkneye2c, with its own drop of the ref taken out.
-
-- GTK leaks a string each time the app hands a theme setting back to the platform.
-	- ID: 2026101913054900
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261019-130549
-	- Opened by: t00mietum
-	- Related IDs: 2026101715252258
-	- Target OS: All
-	- Incorrect behavior: `gtk_settings_reset_property` in GTK 3.24 never frees the value it reads back, when a settings.ini named that setting. `platform_theme_name` in `nemo-appearance.c` calls it when the theme setting goes back to following the platform. The Windows bundle's settings.ini names its theme, so it should leak a theme name there on each such change. Not tried on Windows. Still there on GTK's `gtk-3-24` branch.
-	- Expected behavior: no leak on a reset, or no reset. Upstream: GNOME's GTK issue tracker, `gtk-3-24` branch.
-	- Reproduced: 20261019, repkeg1g in the sanitizer lane, 11 bytes from `_gtk_settings_parse_convert` under `gtk_settings_reset_property`.
-	- Decisions:
-		- repkeg1g runs with leak checks off in the lane until this is fixed, with this ID beside it in meson.
-	- Test case: repkeg1g in the sanitizer lane, with its leak checks back on.
-
 - rhqxx81r exits 3 under wine with 0 failures.
 	- ID: 2026101416533991
 	- Type: Bug
@@ -1248,6 +1217,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the pictures' rows don't wait on a sub-folder count.
 	- Reproduced: 20261015 on Linux, only with a listing held back on purpose.
 	- Test case: TBD
+
+- GTK may keep a drag window per drag off X11 too.
+	- ID: 2026102020234500
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261020-202345
+	- Opened by: t00mietum
+	- Related IDs: 2026101916044103
+	- Target OS: Windows, Linux (Wayland)
+	- Incorrect behavior: not seen. GTK's icon window takes the same stray ref on the drag window whatever the backend, so Windows and Wayland probably keep one per drag as well. The app drops it only on X11, since the check that GDK's done with the window reads GDK's X11 table.
+	- Expected behavior: nothing kept after a drag on any backend.
+	- Possible cause: as in 2026101916044103. On Windows GDK keeps its own ref in its HWND table until the window's destroy message.
+	- Test case: rkneye2c on Windows, which still drops the ref itself off X11.
 
 - On Windows, a file that isn't on disk yet, such as a mail attachment, can't be dropped onto the window.
 	- ID: 2026101416534066
@@ -3474,6 +3457,50 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- GTK leaks a string each time the app hands a theme setting back to the platform.
+	- ID: 2026101913054900
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261019-130549
+	- Opened by: t00mietum
+	- Related IDs: 2026101715252258
+	- Target OS: All
+	- Incorrect behavior: `gtk_settings_reset_property` in GTK 3.24 never frees the value it reads back, when a settings.ini named that setting. `platform_theme_name` in `nemo-appearance.c` calls it when the theme setting goes back to following the platform. The Windows bundle's settings.ini names its theme, so it should leak a theme name there on each such change. Not tried on Windows. Still there on GTK's `gtk-3-24` branch.
+	- Expected behavior: no leak on a reset, or no reset. Upstream: GNOME's GTK issue tracker, `gtk-3-24` branch.
+	- Reproduced: 20261019, repkeg1g in the sanitizer lane, 11 bytes from `_gtk_settings_parse_convert` under `gtk_settings_reset_property`.
+	- Decisions:
+		- repkeg1g runs with leak checks off in the lane until this is fixed, with this ID beside it in meson.
+	- Actual cause: as above. GTK keeps a settings.ini value on the property's pspec as a GString, and the reset converts it to a fresh string it never frees.
+	- Actual fix: before the reset, the GString is swapped once for an interned string of the same text. GLib copies an interned string without allocating, so the reset comes out the same and leaks nothing.
+	- Branch: gtkleak
+	- Test case: repkeg1g in the sanitizer lane, with its leak checks back on.
+	- Verified: with the swap off, repkeg1g fails in the lane on the same 11 bytes. With it on, it passes there and in the plain suite.
+	- Acceptance signoff: Self-closed: the lane's leak check passes where it failed.
+	- Closed: 20261020-202345
+
+- GTK keeps the X11 drag window after every drag.
+	- ID: 2026101916044103
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261019-160441
+	- Opened by: t00mietum
+	- Related IDs: 2026101914184878
+	- Target OS: Linux, BSD
+	- Incorrect behavior: every drag out of a view keeps its GDK drag window, about 1.5 KB, for the life of the app. `gtk_drag_set_icon_widget_internal` hands GDK's drag window to the icon window with `gtk_window_set_hardcoded_window`, which takes a ref, and `gtk_window_unrealize` sets the pointer to NULL without dropping it. Still there on GTK's `gtk-3-24` branch.
+	- Expected behavior: nothing kept after a drag. Upstream: GNOME's GTK issue tracker, `gtk-3-24` branch.
+	- Reproduced: 20261019, rkneye2c under heaptrack, 4 sites under `create_drag_window` at 128 calls each, 1 per counted round.
+	- Options: drop the stray ref in the views' own drag-end handlers, the way rkneye2c does, only while the window is still alive.
+	- Actual cause: as above. At drag-end the drag window still has 6 refs, so it can't be dropped there. GTK's is the only one left once the drag's context is gone and GDK has handled the window's DestroyNotify.
+	- Actual fix: a drag-end hook for every widget, set up once at start, keeps each drag's window on a list and drops GTK's ref at a later drag's end. Only once the window is destroyed, gone from GDK's XID table, and down to 1 ref. A GTK that's fixed frees the window first, which takes it off the list, so it's never dropped twice. One window is kept until the next drag. X11 only; the rest is 2026102020234500.
+	- Swept: the hook covers every drag source at once: both views, the sidebar, the path bar, the location bar, tabs, and GTK's own text drags.
+	- Branch: gtkleak
+	- Test case: rkneye2c, with its own drop of the ref taken out on X11. Round 0's window also gets a ref of the test's, as a fixed GTK might keep one, and has to come through the next drag with both.
+	- Verified: rkneye2c failed with the hook off, 94272 bytes over 64 rounds and the window checks, and passes with it, 704 bytes. With the ref count check taken out, the round 0 check fails.
+	- Acceptance signoff: Self-closed: a leak fix with a test that fails without it.
+	- Closed: 20261020-202345
 
 - With the delete test guard on, a Replace in a move to another drive may ask the guard twice.
 	- ID: 2026101512522482
