@@ -1213,16 +1213,45 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - GTK may keep a drag window per drag off X11 too.
 	- ID: 2026102020234500
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs external testing: native Windows, in vm925w's desktop session: rkneye2c, and a few tab or text drags in the app with its OLE drag on, to see whether the drag window is freed after each.
 	- Priority|Severity: Low
 	- Opened: 20261020-202345
 	- Opened by: t00mietum
-	- Related IDs: 2026101916044103
+	- Related IDs: 2026101916044103, 2026102112223038
 	- Target OS: Windows, Linux (Wayland)
 	- Incorrect behavior: not seen. GTK's icon window takes the same stray ref on the drag window whatever the backend, so Windows and Wayland probably keep one per drag as well. The app drops it only on X11, since the check that GDK's done with the window reads GDK's X11 table.
 	- Expected behavior: nothing kept after a drag on any backend.
+	- Reproduced: 20261021. Wayland (sway, GTK 3.24.49): a window GDK makes and then destroys keeps 1 ref and is never freed. The same window on X11 is freed. Windows under wine (GTK 3.24.52): with GTK's own drag protocol each drag's window is freed within 100 ms of its context going, with the hook or without it. With OLE drag on, as the app runs, see 2026102112223038.
 	- Possible cause: as in 2026101916044103. On Windows GDK keeps its own ref in its HWND table until the window's destroy message.
-	- Test case: rkneye2c on Windows, which still drops the ref itself off X11.
+	- Actual cause:
+		- Wayland: `_gdk_wayland_display_create_window_impl` takes a ref that only `gdk_wayland_window_destroy_notify` drops, and nothing in the Wayland backend calls it. So GDK keeps every window it makes, drag windows among them, and dropping GTK's ref there frees nothing. Upstream; close to GNOME GTK issue 1214.
+		- Windows: GDK drops its HWND table ref on `WM_NCDESTROY`, which comes inside `DestroyWindow`, and the drag window was freed with no help. So GTK's stray ref isn't left over there the way it is on X11. Why X11 differs isn't traced.
+	- Decisions:
+		- The hook stays X11 only, with a comment in `eel-gtk-extensions.c` saying why. A Windows version that checks GDK's HWND table builds, but with nothing stray to drop it could only ever drop a ref someone else still holds. It's on `wip/round1021-2026102020234500` in case the native run shows a stray after all.
+	- Actual fix: none for the hook. Comment only.
+	- Branch: round1021
+	- Test case: rkneye2c, unchanged. Off X11 it still drops a ref itself after the drag's context goes, if the window's still alive. On Windows that may be GDK's ref rather than GTK's, so the native run should watch for a critical there.
+	- Verified: rkneye2c on X11 passes, 720 bytes over 64 rounds. Linux and Windows cross builds pass with -Werror.
+
+- With OLE drag on, a GTK drag on Windows may keep its whole drag window.
+	- ID: 2026102112223038
+	- Type: Bug
+	- Status: Queued
+	- Needs external testing: native Windows, and the reason is because it's only been seen under wine.
+	- Priority|Severity: Low
+	- Opened: 20261021-122230
+	- Opened by: t00mietum
+	- Related IDs: 2026102020234500, 2026101916044103
+	- Target OS: Windows
+	- Steps to reproduce:
+		- Turn on GDK's OLE drag, as `nemo_dnd_win32_prepare` does.
+		- Start a GTK drag, such as a tab or a text drag, and stop it.
+	- Incorrect behavior: the drag window is never destroyed, and keeps 4 refs after the drag's context is gone. One per drag, for the life of the app. The app's own file drags don't use it, but GTK's own drag sources do.
+	- Expected behavior: the drag window is destroyed and freed with its context, as it is with GTK's own drag protocol.
+	- Reproduced: 20261021 under wine, GTK 3.24.52, 4 drags in a row. Not on native Windows yet.
+	- Possible cause: GDK's OLE drag source keeps the context's drag window past the context, or wine's `DoDragDrop` never returns for a drag stopped from GTK's side.
+	- Test case: none yet. rkneye2c runs GTK's own protocol, not OLE.
 
 - rfwwdyvg fails its symlink support check under wine.
 	- ID: 2026102021081038
