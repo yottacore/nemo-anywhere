@@ -1347,6 +1347,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: uncfix
 	- Test case: renz2428, Network win32 test. Each server form typed, parsed and as a command-line argument, and as a `file:////host` uri, must come out as the server's share list, and a share, a folder in one and the device forms must stay paths. The neighborhood, the box's own server and each of its shares must say whether they're links.
 	- Verified: 20261020 on vm925w. renz2428 failed before the fix, on every server form and on the link attribute, and passes after. Before the fix the app started on `\\localhost` or `//localhost/` closed with no window. After it, those and `file:////localhost` open the window `smb://localhost` gives, with no criticals.
+	- Verified: 20261020 on Linux. Full suite 228 passed, 1 skipped. Lint clean. Windows cross build with warnings as errors clean.
 	- Acceptance signoff: Self-closed: renz2428 covers each form, and the app opens them on the box.
 	- Closed: 20261020-213500
 
