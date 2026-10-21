@@ -65,10 +65,52 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: Avg
 	- Opened: 20261018-164952
 	- Opened by: t00mietum
+	- Prereq IDs: 2026102016594100, 2026102016594200
 	- Requirements:
 		- Before the next cut.
 	- Progress log:
 		- 20261018: detail to be written later. Still before rc.1.
+	- Test case: none yet.
+
+- Carve out "Nemo Anywhere v1": the app's current selection and focus behavior, behind a selection model setting.
+	- ID: 2026102016594100
+	- Type: Task
+	- Status: Queued
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261020-165941
+	- Opened by: t00mietum
+	- Related IDs: 2026101816495208, 2026102016594200
+	- Target OS: All
+	- Requirements:
+		- A "File and folder selection model" dropdown on the Advanced tab. Only the entries whose model is built are shown.
+		- Every selection and focus rule in the tree view and the content view, all 3 views, goes behind a conditional on the setting. Nothing changes in how the app behaves.
+		- Tests for every mouse and keyboard rule per view, so a later model can't change this one without a test going red.
+		- Must be done, and the tests green, before any Affirmative checkmark code starts.
+	- Design: [20261020-103804_checkmarked-selection.md](design_docs/20261020-103804_checkmarked-selection.md), "The setting" and "Roadmap".
+	- Progress log:
+		- 20261020: opened.
+	- Test case: none yet.
+
+- Carve out "Nemo Classic": upstream Nemo's exact selection and focus behavior, behind the selection model setting.
+	- ID: 2026102016594200
+	- Type: Task
+	- Status: Queued
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261020-165941
+	- Opened by: t00mietum
+	- Prereq IDs: 2026102016594100
+	- Related IDs: 2026101816495208
+	- Target OS: All
+	- Requirements:
+		- Re-implemented from upstream source at the fork point, since our selection code has moved too far to pass for it.
+		- Behind the same conditionals as Nemo Anywhere v1, tree view and content view.
+		- Tests per rule and view, like the v1 ones, checked against upstream on the Linux rig.
+		- Must be done, and the tests green, before any Affirmative checkmark code starts.
+	- Design: [20261020-103804_checkmarked-selection.md](design_docs/20261020-103804_checkmarked-selection.md), "The setting" and "Roadmap".
+	- Progress log:
+		- 20261020: opened.
 	- Test case: none yet.
 
 - SMB and SFTP networking is broken.
