@@ -58,11 +58,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: Avg
 	- Opened: 20261018-164952
 	- Opened by: t00mietum
-	- Prereq IDs: 2026102016594100, 2026102016594200
+	- Prereq IDs: 2026102016594100, 2026102016594200, 2026102019174440, 2026102019174477
+	- Related IDs: 2026102019174514
 	- Requirements:
 		- Before the next cut.
 	- Progress log:
 		- 20261018: detail to be written later. Still before rc.1.
+	- Decisions:
+		- The order: Nemo Anywhere v1 carved out first (2026102016594100), then Nemo Classic (2026102016594200), then the Nemo Anywhere model with the affirmative switch off (2026102019174440), then the switch and the places it plugs into, with nothing behind them (2026102019174477).
+		- The affirmative checkmarks themselves aren't built for now (2026102019174514).
 	- Test case: none yet.
 	- Design: [20261020-103804_checkmarked-selection.md](design_docs/20261020-103804_checkmarked-selection.md). The checkmark model, its terms, and the 3 other models behind the setting.
 
@@ -74,7 +78,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: High
 	- Opened: 20261020-165941
 	- Opened by: t00mietum
-	- Related IDs: 2026101816495208, 2026102016594200
+	- Related IDs: 2026101816495208, 2026102019174440, 2026102016594200
 	- Target OS: All
 	- Requirements:
 		- A "File and folder selection model" dropdown on the Advanced tab. Only the entries whose model is built are shown.
@@ -95,7 +99,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261020-165941
 	- Opened by: t00mietum
 	- Prereq IDs: 2026102016594100
-	- Related IDs: 2026101816495208
+	- Related IDs: 2026101816495208, 2026102019174440
 	- Target OS: All
 	- Requirements:
 		- Re-implemented from upstream source at the fork point, since our selection code has moved too far to pass for it.
@@ -103,6 +107,64 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Tests per rule and view, like the v1 ones, checked against upstream on the Linux rig.
 		- Must be done, and the tests green, before any Nemo Anywhere model code starts.
 	- Design: [20261020-103804_checkmarked-selection.md](design_docs/20261020-103804_checkmarked-selection.md), "The setting" and "Roadmap".
+	- Progress log:
+		- 20261020: opened.
+	- Test case: none yet.
+
+- Build the "Nemo Anywhere" selection model with the affirmative switch off.
+	- ID: 2026102019174440
+	- Type: Enhancement
+	- Status: Queued
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261020-191745
+	- Opened by: t00mietum
+	- Parent ID: 2026101816495208
+	- Prereq IDs: 2026102016594100, 2026102016594200
+	- Related IDs: 2026102019174477, 2026102019174514
+	- Target OS: All
+	- Requirements:
+		- Its own entry in the selection model dropdown, in the same conditionals as Nemo Anywhere v1 and Nemo Classic, tree view and content view.
+		- Only what the design doc keeps with the switch off:
+			- The dim checkmarks, which follow the selection exactly.
+			- The list view drag rule.
+			- Every selection rule, the range-ends arrows and the partial Explorer keys included.
+			- The tree view rules, less the affirmative parts.
+		- A command acts on the selection, full stop.
+		- Wording is the "Switch off" column of the wording table.
+		- Tests per rule and view, like the v1 and Classic ones.
+		- Not started until both carve-outs are done and their tests are green.
+	- Design: [20261020-103804_checkmarked-selection.md](design_docs/20261020-103804_checkmarked-selection.md), "The affirmative switch".
+	- Progress log:
+		- 20261020: opened.
+	- Test case: none yet.
+
+- Affirmative checkmarks: the switch and the places it will plug into, with no affirmative behavior yet.
+	- ID: 2026102019174477
+	- Type: Task
+	- Status: Queued
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261020-191745
+	- Opened by: t00mietum
+	- Parent ID: 2026101816495208
+	- Prereq IDs: 2026102019174440
+	- Related IDs: 2026102019174514
+	- Target OS: All
+	- Requirements:
+		- The code-level tunable for the affirmative switch, which the setting reads. It's off, and nothing turns it on yet. The checkbox under the dropdown isn't shown.
+		- A conditional on the tunable at each place the design doc's "Off removes" list names:
+			- The space key's checkmark rules.
+			- The checkmark halves of Ctrl+A and Ctrl+I.
+			- The checkmark menu entries.
+			- The checkmark column drag override.
+			- Each place a command picks the checked group over the selected one.
+			- The dialog alert and the status bar note about the 2 lists differing.
+			- The drag punt.
+		- Each on side does what the switch-off model does for now, so nothing changes in how the app behaves.
+		- The wording table's labels come from one place keyed on the tunable, with only the "Switch off" column filled in.
+		- A test that the tunable is off and that each of those places goes the off way.
+	- Design: [20261020-103804_checkmarked-selection.md](design_docs/20261020-103804_checkmarked-selection.md), "The affirmative switch".
 	- Progress log:
 		- 20261020: opened.
 	- Test case: none yet.
@@ -6990,6 +7052,28 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 257a39c, 48b567b
 	- Test case: rjprdfjb, Session bus cleanup win32 test, Windows only. Starts the given bus exe the way GLib does, with TEMP pointed at a scratch folder. 2 clients queue on the app's name, the first leaves and the second gets the name. Once the bus ends nothing may be left in TEMP. Then a bus is killed, and the next one has to clear what it left. Commented out since 20261009, with the stand-in gone. rjvks1yf checks no bus starts at all.
 	- Closed: 20261009-122647
+
+- The affirmative half of the "Nemo Anywhere" selection model.
+	- ID: 2026102019174514
+	- Type: Enhancement
+	- Status: Deferred
+	- Priority|Severity: Avg
+	- Opened: 20261020-191745
+	- Opened by: t00mietum
+	- Parent ID: 2026101816495208
+	- Prereq IDs: 2026102019174477
+	- Related IDs: 2026102019174440
+	- Target OS: All
+	- Requirements:
+		- Everything under "Off removes" in the design doc, behind the switch, with its own tests.
+		- The checkbox under the dropdown, shown only while Nemo Anywhere is picked. Off by default.
+		- The "Switch on" column of the wording table.
+	- Design: [20261020-103804_checkmarked-selection.md](design_docs/20261020-103804_checkmarked-selection.md), "The affirmative switch".
+	- Decisions:
+		- Punted for now. Only its switch and the places it plugs into go in, under 2026102019174477.
+	- Progress log:
+		- 20261020: opened.
+	- Test case: none yet.
 
 ## Old format
 
