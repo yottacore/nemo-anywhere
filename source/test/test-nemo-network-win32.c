@@ -189,6 +189,15 @@ test_live_shares (void)
 	root = g_file_new_for_uri ("network:///");
 	server = g_file_get_child (root, host);
 
+	/* The folder view reads this of every file, and GIO logs a critical
+	 * when it was never set. */
+	info = g_file_query_info (server, "standard::*", 0, NULL, NULL);
+	check (info != NULL && g_file_info_has_attribute (info, G_FILE_ATTRIBUTE_STANDARD_IS_SYMLINK));
+	g_clear_object (&info);
+	info = g_file_query_info (root, "standard::*", 0, NULL, NULL);
+	check (info != NULL && g_file_info_has_attribute (info, G_FILE_ATTRIBUTE_STANDARD_IS_SYMLINK));
+	g_clear_object (&info);
+
 	enumerator = g_file_enumerate_children (server, "standard::*", 0, NULL, &error);
 	if (enumerator == NULL) {
 		g_printerr ("SKIP live shares: cannot browse \\\\%s: %s\n",
@@ -207,6 +216,7 @@ test_live_shares (void)
 		/* A share is a link to its UNC path - that is what makes opening
 		 * one work through the activation nemo already had. */
 		check (g_file_info_get_file_type (info) == G_FILE_TYPE_SHORTCUT);
+		check (g_file_info_has_attribute (info, G_FILE_ATTRIBUTE_STANDARD_IS_SYMLINK));
 
 		target_uri = g_file_info_get_attribute_string (
 			info, G_FILE_ATTRIBUTE_STANDARD_TARGET_URI);
@@ -360,6 +370,83 @@ test_smb_addresses (void)
 	g_clear_object (&file);
 }
 
+/* A server and no share, as Explorer takes it: its list of shares. Before, each
+ * of these was a native file Windows can't open, and the window said
+ * "Input/output error". want NULL means the text names something else. */
+static void
+check_unc_server (const char *text, const char *want)
+{
+	GFile *file;
+	GFile *server;
+	const char *ways[] = { "parsed", "typed", "argument" };
+	int i;
+
+	for (i = 0; i < 3; i++) {
+		char *uri = NULL;
+
+		file = i == 0 ? g_file_parse_name (text) :
+		       i == 1 ? eel_g_file_new_for_user_input (text) :
+				g_file_new_for_commandline_arg (text);
+		/* the slot's own check, for what arrives as a path */
+		server = nemo_network_win32_file_for_unc_server (file);
+		if (server != NULL) {
+			g_object_unref (file);
+			file = server;
+		}
+		if (!g_file_is_native (file)) {
+			uri = g_file_get_uri (file);
+		}
+		if (g_strcmp0 (uri, want) != 0) {
+			g_printerr ("FAIL %s %s: got %s, want %s\n", ways[i], text,
+				    uri != NULL ? uri : "(a path)", want != NULL ? want : "(a path)");
+			failures++;
+		}
+		g_free (uri);
+		g_object_unref (file);
+	}
+
+	/* parsed alone, with no help from the slot */
+	file = g_file_parse_name (text);
+	if (want != NULL && g_file_is_native (file)) {
+		g_printerr ("FAIL parsed alone %s: still a path\n", text);
+		failures++;
+	}
+	g_object_unref (file);
+}
+
+static void
+test_unc_servers (void)
+{
+	GFile *file;
+	GFile *server;
+
+	check_unc_server ("\\\\FILESRV", "network:///FILESRV");
+	check_unc_server ("\\\\FILESRV\\", "network:///FILESRV");
+	check_unc_server ("\\\\FILESRV\\\\", "network:///FILESRV");
+	check_unc_server ("//FILESRV", "network:///FILESRV");
+	check_unc_server ("//FILESRV/", "network:///FILESRV");
+	check_unc_server ("\\\\192.168.1.10", "network:///192.168.1.10");
+
+	/* a share, a folder in one, and the device namespaces stay paths */
+	check_unc_server ("\\\\FILESRV\\public", NULL);
+	check_unc_server ("//FILESRV/public", NULL);
+	check_unc_server ("\\\\FILESRV\\public\\sub", NULL);
+	check_unc_server ("\\\\?\\UNC\\FILESRV\\public", NULL);
+	check_unc_server ("\\\\?\\C:\\Windows", NULL);
+	check_unc_server ("\\\\.\\pipe", NULL);
+	check_unc_server ("C:\\", NULL);
+
+	/* a bookmark or a link's target */
+	file = g_file_new_for_uri ("file:////FILESRV");
+	server = nemo_network_win32_file_for_unc_server (file);
+	check (server != NULL && g_file_has_uri_scheme (server, "network"));
+	g_clear_object (&server);
+	g_object_unref (file);
+
+	server = nemo_network_win32_file_for_unc_server (NULL);
+	check (server == NULL);
+}
+
 int
 main (void)
 {
@@ -405,6 +492,7 @@ main (void)
 	g_object_unref (root);
 
 	test_smb_addresses ();
+	test_unc_servers ();
 	test_error_wording ();
 	test_missing_server ();
 	test_root_against_the_machine ();
