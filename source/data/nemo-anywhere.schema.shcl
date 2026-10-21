@@ -487,7 +487,7 @@ field: preferences.quick-renames-with-pause-in-between
 
 field: preferences.selection-model
 	type: string
-	allowed: nemo-anywhere-v1
+	allowed: nemo-anywhere-v1, nemo-classic
 	default: nemo-anywhere-v1
 	desc: How clicks and keys select and focus files and folders
 

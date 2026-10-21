@@ -228,6 +228,7 @@ static const char * const executable_text_values[] = {
 /* Only the models that are built, in the order design_docs/20261020-103804_checkmarked-selection.md
    lists them. Labels match by index. */
 static const char * const selection_model_values[] = {
+	"nemo-classic",
 	"nemo-anywhere-v1",
 	NULL
 };
@@ -1577,6 +1578,8 @@ nemo_file_management_properties_dialog_setup (GtkBuilder  *builder,
 			   NEMO_FILE_MANAGEMENT_PROPERTIES_SIZE_PREFIXES_WIDGET,
 			   NEMO_PREFERENCES_SIZE_PREFIXES,
 			   (const char **) size_prefixes_values);
+	gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (gtk_builder_get_object (builder, "selection_model_combobox")),
+					_("Nemo Classic"));
 	gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (gtk_builder_get_object (builder, "selection_model_combobox")),
 					_("Nemo Anywhere v1"));
 	bind_builder_enum (builder, nemo_preferences,

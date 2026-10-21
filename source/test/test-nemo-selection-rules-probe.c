@@ -25,9 +25,8 @@
 /* Preloaded into the real program by test-nemo-selection-rules. Once the
  * window shows $NEMO_SEL_FOLDER, it clicks and types in the folder view named
  * by $NEMO_SEL_VIEW through GTK's own event path, then in the folder tree,
- * then opens folders from home, and checks each rule of the "Nemo Anywhere
- * v1" selection model. Where the
- * next item over depends on the layout, the icon views work it out from where
+ * then opens folders from home, and checks each rule of the selection model
+ * in $NEMO_SEL_MODEL. Where the next item over depends on the layout, the icon views work it out from where
  * the icons are. One "ok" or "FAIL" line per check goes to $NEMO_SEL_OUT, and
  * "done" at the end. Drags are left to test-nemo-drag-select. */
 
@@ -46,6 +45,7 @@ static FILE      *out;
 static const char *folder_name;
 static gboolean   list_mode;
 static gboolean   compact_mode;
+static gboolean   classic;
 static GtkWidget *window;
 static GtkWidget *pane;
 static GdkWindow *bin;
@@ -56,6 +56,7 @@ static gboolean   finished;
 static char      *title_before;
 static int        tabs_before;
 static int        last_clicked = -1;
+static gboolean   menu_on_press;
 static gint64     last_click_time;
 static guint      glib_handler;
 static int        glib_criticals;
@@ -458,7 +459,7 @@ icon_blank (double near_x, double near_y, double *x, double *y)
 }
 
 static gboolean
-click_blank (void)
+click_blank (guint modifiers)
 {
 	double x, y;
 
@@ -482,7 +483,7 @@ click_blank (void)
 		}
 	}
 	stamp += 1000;
-	press_release (bin, 1, x, y, 0);
+	press_release (bin, 1, x, y, modifiers);
 	return TRUE;
 }
 
@@ -625,11 +626,27 @@ rules_tick (void)
 		want (items (2, 3, 4, 6, -1), "Ctrl+Shift+click adds the run from the last Ctrl+click");
 		break;
 	case 7:
-		if (!click_blank ()) {
+		if (!click_blank (0)) {
 			report (FALSE, "there is a spot clear of the items");
 			break;
 		}
 		want (g_strdup (""), "a click on empty space clears the selection");
+		/* Upstream's list clears it even with Ctrl, and its icon views keep
+		   it with Shift too. */
+		click (1, 0);
+		click_blank (GDK_CONTROL_MASK);
+		if (list_mode && classic) {
+			want (g_strdup (""), "and so does a Ctrl+click there");
+		} else {
+			want (items (1, -1), "a Ctrl+click there keeps it");
+		}
+		click (1, 0);
+		click_blank (GDK_SHIFT_MASK);
+		if (!list_mode && classic) {
+			want (items (1, -1), "a Shift+click there keeps it");
+		} else {
+			want (g_strdup (""), "a Shift+click there clears it");
+		}
 		break;
 	case 8:
 		close_menu ();
@@ -638,6 +655,7 @@ rules_tick (void)
 		item_point (2, &x, &y);
 		stamp += 1000;
 		press (bin, 3, x, y, 0);
+		menu_on_press = shown_menu () != NULL;
 		send (bin, GDK_BUTTON_RELEASE, 3, x, y, GDK_BUTTON3_MASK);
 		break;
 	case 9:
@@ -645,6 +663,7 @@ rules_tick (void)
 			return FALSE;
 		}
 		report (TRUE, "a right-click on a selected item opens the menu");
+		report (menu_on_press == classic, classic ? "on the press" : "on the release");
 		want (items (1, 2, -1), "and keeps the selection");
 		close_menu ();
 		break;
@@ -736,7 +755,11 @@ rules_tick (void)
 		break;
 	case 26:
 		key (GDK_KEY_Escape, 0);
-		want (g_strdup (""), "Escape clears the selection");
+		if (classic) {
+			want (run_of (0, last, 2), "Escape leaves the selection alone");
+		} else {
+			want (g_strdup (""), "Escape clears the selection");
+		}
 		click (0, 0);
 		key (GDK_KEY_End, GDK_SHIFT_MASK);
 		want (run_of (0, last, -1), "Shift+End selects the run to the last item");
@@ -749,9 +772,17 @@ rules_tick (void)
 		want (items (3, last, -1), "and Ctrl+Space then adds the last item");
 		click (1, 0);
 		key (GDK_KEY_Down, GDK_CONTROL_MASK | GDK_SHIFT_MASK);
-		want (items (1, list_mode ? -1 : next_item (1, 0, 1), -1),
-		      list_mode ? "Ctrl+Shift+Down leaves the list's selection alone" :
-				  "Ctrl+Shift+Down adds the next item down");
+		/* Upstream's keyboard band flips what it crosses against what
+		   was selected when the last mouse band began, item 1 here
+		   (step 7). */
+		if (list_mode) {
+			want (items (1, -1), "Ctrl+Shift+Down leaves the list's selection alone");
+		} else if (classic) {
+			want (items (next_item (1, 0, 1), -1),
+			      "Ctrl+Shift+Down flips the clicked item out and the next one down in");
+		} else {
+			want (items (1, next_item (1, 0, 1), -1), "Ctrl+Shift+Down adds the next item down");
+		}
 		click (0, 0);
 		key (GDK_KEY_Page_Down, 0);
 		/* Every row is in sight, and the icon views don't take the key. */
@@ -778,6 +809,8 @@ rules_tick (void)
 		click (2, 0);
 		key (GDK_KEY_Tab, 0);
 		want (items (2, -1), "Tab leaves the selection alone");
+		/* Upstream's Tab leaves the focus in the view. Nemo Classic doesn't
+		   copy that, since the views' rules don't move it (#2026102016594200). */
 		report (!gtk_widget_has_focus (pane), "and takes the keyboard focus out of the view");
 		gtk_widget_grab_focus (pane);
 		if (!list_mode) {
@@ -877,7 +910,25 @@ rules_tick (void)
 		want_tree (tree, "0", "nor Escape");
 		report (gtk_tree_view_row_expanded (tree, home), "and the row is still open");
 		gtk_tree_path_free (home);
+		{
+			GtkTreePath *row = gtk_tree_path_new_from_string ("0");
+			GdkWindow *tree_bin = gtk_tree_view_get_bin_window (tree);
+			GdkRectangle area;
+
+			gtk_tree_view_get_cell_area (tree, row, gtk_tree_view_get_column (tree, 0), &area);
+			gtk_tree_path_free (row);
+			stamp += 1000;
+			press (tree_bin, 3, area.x + 30, area.y + area.height / 2, 0);
+			menu_on_press = shown_menu () != NULL;
+			send (tree_bin, GDK_BUTTON_RELEASE, 3, area.x + 30, area.y + area.height / 2,
+			      GDK_BUTTON3_MASK);
+			report (shown_menu () != NULL, "a right-click in the tree opens its menu");
+			report (menu_on_press == classic, classic ? "on the press" : "on the release");
+			close_menu ();
+			want_tree (tree, "0", "and leaves the row selected");
+		}
 		g_log_remove_handler ("GLib", glib_handler);
+		/* Upstream's do, the timer bug Nemo Classic doesn't keep. */
 		report (glib_criticals == 0, "the tree steps log no GLib criticals");
 		break;
 	}
@@ -1033,6 +1084,7 @@ probe_start (void)
 	}
 	list_mode = g_strcmp0 (view, "list-view") == 0;
 	compact_mode = g_strcmp0 (view, "compact-view") == 0;
+	classic = g_strcmp0 (g_getenv ("NEMO_SEL_MODEL"), "nemo-classic") == 0;
 	out = fopen (path, "w");
 	if (out == NULL) {
 		return;

@@ -106,13 +106,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Carve out "Nemo Classic": upstream Nemo's exact selection and focus behavior, behind the selection model setting.
 	- ID: 2026102016594200
 	- Type: Task
-	- Status: Queued
-	- Needs local test suite run?: Yes
+	- Status: Waiting for answers
+		- Waits on the Tab question: upstream's Tab leaves the focus in the view, and Classic's doesn't.
+	- Needs local test suite run?: yes, the full Linux suite. rktqpp37 is new, and rktkms8a, rhtmbdmd and rk7yvgse cover changed code.
+	- Needs external testing: rktqpp37 in the FreeBSD lane, and the Windows cross build.
 	- Priority|Severity: High
 	- Opened: 20261020-165941
 	- Opened by: t00mietum
 	- Prereq IDs: 2026102016594100
-	- Related IDs: 2026101816495208, 2026102019174440
+	- Related IDs: 2026101816495208, 2026102019174440, 2026102113191977
 	- Target OS: All
 	- Requirements:
 		- Re-implemented from upstream source at the fork point, since our selection code has moved too far to pass for it.
@@ -122,7 +124,26 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Design: [20261020-103804_checkmarked-selection.md](design_docs/20261020-103804_checkmarked-selection.md), "The setting" and "Roadmap".
 	- Progress log:
 		- 20261020: opened.
-	- Test case: none yet.
+		- 20261021: `nemo-classic` added to `preferences.selection-model`, and "Nemo Classic" to the dropdown, ahead of Nemo Anywhere v1 as the design doc orders them. Each rules table has a Classic set, taken from upstream 6.6.4's handlers.
+			- The menu opens on the press, in all 3 views and the tree. No long press and no right band.
+			- Escape leaves the selection alone.
+			- Icon views: Ctrl or Shift on empty space keeps the selection, and the band flips what it crosses, the keyboard band too. Ctrl or Shift on an icon picks it at once, then drags.
+			- List view: a click below the rows clears the selection even with Ctrl, a right-click on the blank part of a row not selected clears it, and GtkTreeView does the band.
+			- A click in the other pane of a split view only wakes it while it has a selection, and goes no further.
+			- Select all and Invert are the same in both.
+		- 20261021: rktkms8a's checks run again as rktqpp37 under Classic. New in both: Ctrl+click and Shift+click on empty space, and whether the menu opens on the press or the release, per view and in the tree.
+		- 20261021: rktqpp37's results were seen in upstream 6.6.4 built from its tag, all but these.
+			- Tab: upstream leaves the focus in the view, and Classic moves it on, as v1 does. The views' handlers don't touch Tab, so the cause is in the window around them.
+			- Upstream's tree logs a GLib critical, the stale timer ID fixed in 2026102113191977. Classic keeps the fix.
+			- Two open checks name the wrong folder upstream, only because it makes a Desktop folder in home. The folder that opened was the selected one.
+		- 20261021: derived from upstream source and not seen: the split view click, the list view's band, the icon views' mouse band, drags that start with Ctrl or Shift, and Escape not leaving find mode. Not pinned yet: a folder selected in an expanded nest in the list view (the Problem on 2026101816495208).
+	- Decisions:
+		- Whether the band flips is a field of the icon rules table, not state, so the keyboard band follows the model too. Upstream's keyboard band flips against what the last mouse band started from, and Classic keeps that.
+		- Platform plumbing stays ours under Classic: the primary key for Ctrl, and the Windows drag path. The upstream tree's timer bug isn't kept.
+	- Swept: the rules tables in the icon container, the icon view, the list view, the tree pane and the view's Select all and Invert, the search popup's forwarded press, and the canvas item events. `rubberband_select` is the one shared rule that reads the model.
+	- Branch: round1021
+	- Test case: rktqpp37, Selection rules test, Nemo Classic. rktkms8a and rhtmbdmd got the new checks too.
+	- Verified: 20261021, rktqpp37 and rktkms8a pass in all 3 views. rhtmbdmd, rf2w8yxr, rfazc870, rg6a49ar and rk7yvgse pass. The build has no warnings, and the UI case and test ID checks pass.
 
 - Build the "Nemo Anywhere" selection model with the affirmative switch off.
 	- ID: 2026102019174440

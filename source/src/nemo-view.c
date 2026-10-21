@@ -1782,12 +1782,20 @@ static const ViewSelectRules rules_anywhere_v1 = {
 	.invert_selection = action_invert_selection_callback,
 };
 
+/* Upstream 6.6.4's two are the same as ours. */
+static const ViewSelectRules rules_classic = {
+	.select_all = action_select_all_callback,
+	.invert_selection = action_invert_selection_callback,
+};
+
 static const ViewSelectRules *
 view_select_rules (void)
 {
 	switch (nemo_global_preferences_get_selection_model ()) {
 	case NEMO_SELECTION_MODEL_ANYWHERE_V1:
 		return &rules_anywhere_v1;
+	case NEMO_SELECTION_MODEL_CLASSIC:
+		return &rules_classic;
 	}
 	g_return_val_if_reached (&rules_anywhere_v1);
 }

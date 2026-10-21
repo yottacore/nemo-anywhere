@@ -1492,13 +1492,19 @@ if not is_windows
     include_directories: [ rootInclude, ],
     dependencies: [ gtk ],
   )
+  selection_rules = executable('test-nemo-selection-rules',
+    [ 'test-nemo-selection-rules.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ glib, gio, test_scratch ],
+  )
   test('rktkms8a Selection rules test',
-    executable('test-nemo-selection-rules',
-      [ 'test-nemo-selection-rules.c' ],
-      include_directories: [ rootInclude, ],
-      dependencies: [ glib, gio, test_scratch ],
-    ),
+    selection_rules,
     args: [ nemo, selection_rules_probe ],
+    timeout: 300
+  )
+  test('rktqpp37 Selection rules test, Nemo Classic',
+    selection_rules,
+    args: [ nemo, selection_rules_probe, 'nemo-classic' ],
     timeout: 300
   )
 

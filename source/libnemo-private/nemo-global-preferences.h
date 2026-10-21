@@ -282,7 +282,8 @@ typedef enum
 
 typedef enum
 {
-	NEMO_SELECTION_MODEL_ANYWHERE_V1
+	NEMO_SELECTION_MODEL_ANYWHERE_V1,
+	NEMO_SELECTION_MODEL_CLASSIC
 } NemoSelectionModel;
 
 /* media handling */

@@ -2595,12 +2595,43 @@ static const IconViewRules rules_anywhere_v1 = {
 	.key_press = key_press_event_callback,
 };
 
+/* Upstream 6.6.4: a click in the other pane of a split view only wakes it
+   while it has a selection, and the click goes no further. */
+static gboolean
+classic_button_press_callback (GtkWidget *widget, GdkEventFocus *event, gpointer user_data)
+{
+	NemoView *view = NEMO_VIEW (user_data);
+
+	if (!nemo_view_get_active (view) && nemo_view_get_selection_count (view) > 0) {
+		nemo_window_slot_make_hosting_pane_active (nemo_view_get_nemo_window_slot (view));
+		return GDK_EVENT_STOP;
+	}
+	return button_press_callback (widget, event, user_data);
+}
+
+/* Upstream has no key handler of its own here, so Escape keeps the selection. */
+static gboolean
+classic_key_press_event_callback (G_GNUC_UNUSED GtkWidget *widget,
+				  G_GNUC_UNUSED GdkEventKey *event,
+				  G_GNUC_UNUSED gpointer user_data)
+{
+	return FALSE;
+}
+
+static const IconViewRules rules_classic = {
+	.button_press = classic_button_press_callback,
+	.focus_in = focus_in_event_callback,
+	.key_press = classic_key_press_event_callback,
+};
+
 static const IconViewRules *
 icon_view_rules (void)
 {
 	switch (nemo_global_preferences_get_selection_model ()) {
 	case NEMO_SELECTION_MODEL_ANYWHERE_V1:
 		return &rules_anywhere_v1;
+	case NEMO_SELECTION_MODEL_CLASSIC:
+		return &rules_classic;
 	}
 	g_return_val_if_reached (&rules_anywhere_v1);
 }

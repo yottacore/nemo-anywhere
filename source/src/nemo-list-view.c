@@ -109,6 +109,8 @@ struct NemoListViewDetails {
 	gboolean drag_started;
 	gboolean ignore_button_release;
 	gboolean row_selected_on_button_down;
+	/* GtkTreeView's own band is under way, in Nemo Classic. */
+	gboolean gtk_banding;
 	gboolean menus_ready;
 	gboolean active;
 
@@ -4267,6 +4269,333 @@ on_size_allocation_changed (G_GNUC_UNUSED GtkWidget    *widget,
     }
 }
 
+/* Nemo Classic's press, release, motion and keys, from upstream 6.6.4. There
+   the menu opens on the press, a right-click on the blank part of a row not
+   selected clears the selection, a click below the rows clears it even with
+   Ctrl, GtkTreeView bands, and Escape leaves the selection alone. */
+static gboolean
+classic_button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callback_data)
+{
+	NemoListView *view;
+	GtkTreeView *tree_view;
+	GtkTreePath *path;
+	gboolean call_parent;
+	GtkTreeSelection *selection;
+	GtkWidgetClass *tree_view_class;
+	GdkModifierType primary;
+
+	int expander_size, horizontal_separator;
+	gboolean on_expander;
+	gboolean blank_click;
+
+	view = NEMO_LIST_VIEW (callback_data);
+	tree_view = GTK_TREE_VIEW (widget);
+	tree_view_class = GTK_WIDGET_GET_CLASS (tree_view);
+	selection = gtk_tree_view_get_selection (tree_view);
+	primary = eel_gtk_primary_mask (event->window);
+	blank_click = FALSE;
+
+	/* Don't handle extra mouse buttons here */
+	if (event->button > 5) {
+		return GDK_EVENT_PROPAGATE;
+	}
+
+	if (event->type == GDK_2BUTTON_PRESS || event->type == GDK_3BUTTON_PRESS) {
+		if (nemo_config_get_boolean (nemo_preferences, NEMO_PREFERENCES_CLICK_DOUBLE_PARENT_FOLDER) &&
+		    (event->button == 1)) {
+			/* double left click on blank will go to parent folder */
+			if (!gtk_tree_view_get_path_at_pos (tree_view, event->x, event->y,
+							    NULL, NULL, NULL, NULL)) {
+				nemo_window_slot_go_up (nemo_view_get_nemo_window_slot (NEMO_VIEW (view)), 0);
+			}
+		}
+
+		return GDK_EVENT_STOP;
+	}
+
+	if (event->window != gtk_tree_view_get_bin_window (tree_view)) {
+		return GDK_EVENT_PROPAGATE;
+	}
+
+	if (!nemo_view_get_active (NEMO_VIEW (view)) && gtk_tree_selection_count_selected_rows (selection) > 0) {
+		nemo_window_slot_make_hosting_pane_active (nemo_view_get_nemo_window_slot (NEMO_VIEW (view)));
+		return GDK_EVENT_STOP;
+	}
+
+	nemo_list_model_set_drag_view
+		(NEMO_LIST_MODEL (gtk_tree_view_get_model (tree_view)),
+		 tree_view,
+		 event->x, event->y);
+
+	view->details->ignore_button_release = FALSE;
+
+	call_parent = TRUE;
+	if (gtk_tree_view_get_path_at_pos (tree_view, event->x, event->y,
+					   &path, NULL, NULL, NULL)) {
+		if (expanders_enabled (view)) {
+			gtk_widget_style_get (widget,
+					      "expander-size", &expander_size,
+					      "horizontal-separator", &horizontal_separator,
+					      NULL);
+			/* GtkTreeView's EXPANDER_EXTRA_PADDING. */
+			expander_size += 4;
+			on_expander = (event->x <= horizontal_separator / 2 +
+				       gtk_tree_path_get_depth (path) * expander_size);
+		} else {
+			on_expander = FALSE;
+		}
+		/* Keep track of path of last click so double clicks only happen
+		 * on the same item */
+		if ((event->button == 1 || event->button == 2)  &&
+		    event->type == GDK_BUTTON_PRESS) {
+			if (view->details->double_click_path[1]) {
+				gtk_tree_path_free (view->details->double_click_path[1]);
+			}
+			view->details->double_click_path[1] = view->details->double_click_path[0];
+			view->details->double_click_path[0] = gtk_tree_path_copy (path);
+		}
+
+		if (handle_icon_double_click (view, path, event, on_expander)) {
+			/* Double clicking does not trigger a D&D action. */
+			view->details->drag_button = 0;
+		} else {
+			/* The rename waits for the release, so a single item can still drag. */
+			view->details->rename_on_release = handle_icon_slow_two_click (view, path, event);
+
+			/* Some cases can't go to GtkTreeView, which would unselect
+			 * all but one row, where the menu or the click is meant for
+			 * the whole selection. */
+			if (event->button == 3) {
+				blank_click =
+					(!gtk_tree_selection_path_is_selected (selection, path) &&
+					 gtk_tree_view_is_blank_at_pos (tree_view, event->x, event->y, NULL, NULL, NULL, NULL));
+			}
+
+			if (event->button == 3 &&
+			    (blank_click || gtk_tree_selection_path_is_selected (selection, path))) {
+				call_parent = FALSE;
+			}
+
+			if ((event->button == 1 || event->button == 2) &&
+			    ((event->state & primary) != 0 ||
+			     (event->state & GDK_SHIFT_MASK) == 0)) {
+				view->details->row_selected_on_button_down = gtk_tree_selection_path_is_selected (selection, path);
+				if (view->details->row_selected_on_button_down) {
+					call_parent = on_expander;
+					view->details->ignore_button_release = call_parent;
+				} else if ((event->state & primary) != 0) {
+					GList *selected_rows;
+					GList *l;
+
+					call_parent = FALSE;
+					if ((event->state & GDK_SHIFT_MASK) != 0) {
+						GtkTreePath *cursor;
+						gtk_tree_view_get_cursor (tree_view, &cursor, NULL);
+						if (cursor != NULL) {
+							gtk_tree_selection_select_range (selection, cursor, path);
+							gtk_tree_path_free (cursor);
+						} else {
+							gtk_tree_selection_select_path (selection, path);
+						}
+					} else {
+						gtk_tree_selection_select_path (selection, path);
+					}
+					selected_rows = gtk_tree_selection_get_selected_rows (selection, NULL);
+
+					/* This unselects everything */
+					gtk_tree_view_set_cursor (tree_view, path, NULL, FALSE);
+
+					/* So select it again */
+					l = selected_rows;
+					while (l != NULL) {
+						GtkTreePath *p = l->data;
+						l = l->next;
+						gtk_tree_selection_select_path (selection, p);
+						gtk_tree_path_free (p);
+					}
+					g_list_free (selected_rows);
+				} else {
+					view->details->ignore_button_release = on_expander;
+				}
+			}
+
+			if (call_parent) {
+				g_signal_handlers_block_by_func (tree_view,
+								 row_activated_callback,
+								 view);
+
+				tree_view_class->button_press_event (widget, event);
+
+				g_signal_handlers_unblock_by_func (tree_view,
+								   row_activated_callback,
+								   view);
+			} else if (gtk_tree_selection_path_is_selected (selection, path)) {
+				gtk_widget_grab_focus (widget);
+			}
+
+			if ((event->button == 1 || event->button == 2) &&
+			    event->type == GDK_BUTTON_PRESS) {
+				view->details->drag_started = FALSE;
+				view->details->drag_button = event->button;
+				view->details->drag_x = event->x;
+				view->details->drag_y = event->y;
+			}
+
+			if (event->button == 3) {
+				if (blank_click) {
+					gtk_tree_selection_unselect_all (selection);
+				}
+				do_popup_menu (widget, view, event);
+			}
+		}
+
+		gtk_tree_path_free (path);
+	} else {
+		if ((event->button == 1 || event->button == 2)  &&
+		    event->type == GDK_BUTTON_PRESS) {
+			if (view->details->double_click_path[1]) {
+				gtk_tree_path_free (view->details->double_click_path[1]);
+			}
+			view->details->double_click_path[1] = view->details->double_click_path[0];
+			view->details->double_click_path[0] = NULL;
+		}
+		/* Deselect if people click outside any row. It's OK to
+		   let default code run; it won't reselect anything. */
+		gtk_tree_selection_unselect_all (gtk_tree_view_get_selection (tree_view));
+		tree_view_class->button_press_event (widget, event);
+
+		if (event->button == 3) {
+			do_popup_menu (widget, view, event);
+		}
+	}
+
+	/* We chained to the default handler in this method, so never
+	 * let the default handler run */
+	return GDK_EVENT_STOP;
+}
+
+static gboolean
+classic_button_release_callback (G_GNUC_UNUSED GtkWidget *widget,
+				  GdkEventButton *event,
+				  gpointer callback_data)
+{
+	NemoListView *view = NEMO_LIST_VIEW (callback_data);
+
+	view->details->gtk_banding = FALSE;
+
+	if (event->button == view->details->drag_button) {
+		stop_drag_check (view);
+		if (!view->details->drag_started &&
+		    !view->details->ignore_button_release) {
+			nemo_list_view_did_not_drag (view, event);
+		}
+	}
+	return FALSE;
+}
+
+static gboolean
+classic_motion_notify_callback (GtkWidget *widget,
+				GdkEventMotion *event,
+				gpointer callback_data)
+{
+	NemoListView *view = NEMO_LIST_VIEW (callback_data);
+	GtkTreePath *path = NULL;
+	GtkTreeSelection *selection;
+	gboolean is_new_self_selection;
+
+	if (event->window != gtk_tree_view_get_bin_window (GTK_TREE_VIEW (widget))) {
+		return GDK_EVENT_PROPAGATE;
+	}
+
+	if (click_policy == NEMO_CLICK_POLICY_SINGLE) {
+		GtkTreePath *old_hover_path;
+
+		old_hover_path = view->details->hover_path;
+		gtk_tree_view_get_path_at_pos (GTK_TREE_VIEW (widget),
+					       event->x, event->y,
+					       &view->details->hover_path,
+					       NULL, NULL, NULL);
+
+		if ((old_hover_path != NULL) != (view->details->hover_path != NULL)) {
+			if (view->details->hover_path != NULL) {
+				gdk_window_set_cursor (gtk_widget_get_window (widget), hand_cursor);
+			} else {
+				gdk_window_set_cursor (gtk_widget_get_window (widget), NULL);
+			}
+		}
+
+		if (old_hover_path != NULL) {
+			gtk_tree_path_free (old_hover_path);
+		}
+	}
+
+	/* A band under way is GtkTreeView's to carry on. */
+	if (view->details->drag_button == 0 || view->details->gtk_banding) {
+		return GDK_EVENT_PROPAGATE;
+	}
+
+	selection = gtk_tree_view_get_selection (GTK_TREE_VIEW (widget));
+
+	gtk_tree_view_get_path_at_pos (GTK_TREE_VIEW (widget),
+				       view->details->drag_x,
+				       view->details->drag_y,
+				       &path,
+				       NULL, NULL, NULL);
+
+	/* A band may start only from the one row selected, on the press that
+	   selected it, and from the blank part of it. Anything else drags. */
+	is_new_self_selection = path != NULL &&
+				gtk_tree_selection_count_selected_rows (selection) == 1 &&
+				gtk_tree_selection_path_is_selected (selection, path) &&
+				(!view->details->double_click_path[1] ||
+				 gtk_tree_path_compare (view->details->double_click_path[0],
+							view->details->double_click_path[1]) != 0);
+
+	gtk_tree_path_free (path);
+
+	if (is_new_self_selection && gtk_tree_view_is_blank_at_pos (GTK_TREE_VIEW (widget),
+								    view->details->drag_x,
+								    view->details->drag_y,
+								    NULL, NULL, NULL, NULL)) {
+		view->details->gtk_banding = TRUE;
+		return GDK_EVENT_PROPAGATE;
+	}
+
+	if (!source_target_list) {
+		source_target_list = nemo_list_model_get_drag_target_list ();
+	}
+
+	if (gtk_drag_check_threshold (widget,
+				      view->details->drag_x,
+				      view->details->drag_y,
+				      event->x,
+				      event->y)) {
+#ifdef G_OS_WIN32
+		if (win32_drag (view, widget)) {
+			return GDK_EVENT_STOP;
+		}
+#endif
+		gtk_drag_begin (widget,
+				source_target_list,
+				GDK_ACTION_MOVE | GDK_ACTION_COPY | GDK_ACTION_LINK | GDK_ACTION_ASK,
+				view->details->drag_button,
+				(GdkEvent*) event);
+	}
+
+	/* The event is handled by the DnD begin, don't propagate further */
+	return GDK_EVENT_STOP;
+}
+
+/* The rest of upstream's keys are ours. */
+static gboolean
+classic_key_press_callback (GtkWidget *widget, GdkEventKey *event, gpointer callback_data)
+{
+	if (event->keyval == GDK_KEY_Escape) {
+		return GDK_EVENT_PROPAGATE;
+	}
+	return key_press_callback (widget, event, callback_data);
+}
+
 /* The list view's selection and focus rules, one set per selection model.
    GtkTreeView's own key and click handling is part of each set, through what
    these let pass. See design_docs/20261020-103804_checkmarked-selection.md,
@@ -4277,6 +4606,7 @@ typedef struct {
 	gboolean (*motion_notify) (GtkWidget *widget, GdkEventMotion *event, gpointer callback_data);
 	gboolean (*key_press) (GtkWidget *widget, GdkEventKey *event, gpointer callback_data);
 	gboolean (*focus_in) (GtkWidget *widget, GdkEventFocus *event, gpointer user_data);
+	gboolean gtk_bands;
 } ListViewRules;
 
 static const ListViewRules rules_anywhere_v1 = {
@@ -4285,6 +4615,16 @@ static const ListViewRules rules_anywhere_v1 = {
 	.motion_notify = motion_notify_callback,
 	.key_press = key_press_callback,
 	.focus_in = focus_in_event_callback,
+	.gtk_bands = FALSE,
+};
+
+static const ListViewRules rules_classic = {
+	.button_press = classic_button_press_callback,
+	.button_release = classic_button_release_callback,
+	.motion_notify = classic_motion_notify_callback,
+	.key_press = classic_key_press_callback,
+	.focus_in = focus_in_event_callback,
+	.gtk_bands = TRUE,
 };
 
 static const ListViewRules *
@@ -4293,6 +4633,8 @@ list_view_rules (void)
 	switch (nemo_global_preferences_get_selection_model ()) {
 	case NEMO_SELECTION_MODEL_ANYWHERE_V1:
 		return &rules_anywhere_v1;
+	case NEMO_SELECTION_MODEL_CLASSIC:
+		return &rules_classic;
 	}
 	g_return_val_if_reached (&rules_anywhere_v1);
 }
@@ -4300,7 +4642,11 @@ list_view_rules (void)
 static gboolean
 model_button_press (GtkWidget *widget, GdkEventButton *event, gpointer callback_data)
 {
-	return list_view_rules ()->button_press (widget, event, callback_data);
+	const ListViewRules *rules = list_view_rules ();
+
+	/* GtkTreeView starts its band from the press, so it's set here. */
+	gtk_tree_view_set_rubber_banding (GTK_TREE_VIEW (widget), rules->gtk_bands);
+	return rules->button_press (widget, event, callback_data);
 }
 
 static gboolean

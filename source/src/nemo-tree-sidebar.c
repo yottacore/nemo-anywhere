@@ -1547,12 +1547,46 @@ static const TreeRules rules_anywhere_v1 = {
 	.key_press = key_press_callback,
 };
 
+/* Upstream 6.6.4: the menu opens on the press, and a long press is a press. */
+static gboolean
+classic_button_pressed_callback (GtkTreeView *treeview, GdkEventButton *event, FMTreeView *view)
+{
+	g_return_val_if_fail (FM_IS_TREE_VIEW (view), GDK_EVENT_PROPAGATE);
+
+	if (event->button == 3) {
+		popup_menu (view, event);
+		return GDK_EVENT_STOP;
+	}
+	/* The middle click is the same in both. */
+	if (event->button == 2) {
+		return button_pressed_callback (treeview, event, view);
+	}
+	return GDK_EVENT_PROPAGATE;
+}
+
+static gboolean
+classic_button_released_callback (G_GNUC_UNUSED GtkTreeView *treeview,
+				  G_GNUC_UNUSED GdkEventButton *event,
+				  G_GNUC_UNUSED FMTreeView *view)
+{
+	return GDK_EVENT_PROPAGATE;
+}
+
+static const TreeRules rules_classic = {
+	.selection_changed = selection_changed_callback,
+	.button_press = classic_button_pressed_callback,
+	.button_release = classic_button_released_callback,
+	.key_press = key_press_callback,
+};
+
 static const TreeRules *
 tree_rules (void)
 {
 	switch (nemo_global_preferences_get_selection_model ()) {
 	case NEMO_SELECTION_MODEL_ANYWHERE_V1:
 		return &rules_anywhere_v1;
+	case NEMO_SELECTION_MODEL_CLASSIC:
+		return &rules_classic;
 	}
 	g_return_val_if_reached (&rules_anywhere_v1);
 }

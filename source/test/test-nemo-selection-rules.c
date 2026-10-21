@@ -21,11 +21,14 @@
    Boston, MA 02110-1335, USA.
 */
 
-/* Pins the "Nemo Anywhere v1" selection model: what each click and key does
- * to the selection and the focus, in the list, icon and compact views and in
- * the folder tree beside them. Another model must not change these. The
- * built program runs once per view, with test-nemo-selection-rules-probe
- * preloaded to click, type and check. Drags are test-nemo-drag-select's.
+/* Pins a selection model, "Nemo Anywhere v1" unless argv[3] names another:
+ * what each click and key does to the selection and the focus, in the list,
+ * icon and compact views and in the folder tree beside them. Another model
+ * must not change these. The built program runs once per view, with
+ * test-nemo-selection-rules-probe preloaded to click, type and check. Drags
+ * are test-nemo-drag-select's. The "nemo-classic" results are upstream
+ * 6.6.4's own, seen there, but for the ones the probe marks
+ * (#2026102016594200).
  *
  * Needs the built program (argv[1]), the probe (argv[2]) and a display. Runs
  * on an X server of its own, since menus take the pointer. Linux and FreeBSD
@@ -75,7 +78,8 @@ stop (GPid pid)
 }
 
 static void
-run_view (const char *exe, const char *probe, const char *view, int files, int expected)
+run_view (const char *exe, const char *probe, const char *model, const char *view, int files,
+	  int expected)
 {
 	char *root = test_scratch_dir ("nemo-sel-rules-XXXXXX", NULL);
 	char *folder = g_build_filename (root, "selrules", NULL);
@@ -100,9 +104,9 @@ run_view (const char *exe, const char *probe, const char *view, int files, int e
 	}
 	g_mkdir_with_parents (config, 0700);
 	body = g_strdup_printf ("preferences.default-folder-viewer: %s\n"
-				"preferences.selection-model: nemo-anywhere-v1\n"
+				"preferences.selection-model: %s\n"
 				"window-state.start-with-tree: true\n"
-				"window-state.sidebar-tree-width: 260\n", view);
+				"window-state.sidebar-tree-width: 260\n", view, model);
 	check (g_file_set_contents (settings, body, -1, NULL));
 	g_free (body);
 
@@ -121,6 +125,7 @@ run_view (const char *exe, const char *probe, const char *view, int files, int e
 	envp = g_environ_setenv (envp, "LD_PRELOAD", probe, TRUE);
 	envp = g_environ_setenv (envp, "NEMO_SEL_OUT", out, TRUE);
 	envp = g_environ_setenv (envp, "NEMO_SEL_VIEW", view, TRUE);
+	envp = g_environ_setenv (envp, "NEMO_SEL_MODEL", model, TRUE);
 	envp = g_environ_setenv (envp, "NEMO_SEL_FOLDER", "selrules", TRUE);
 
 	spawn_argv[0] = (char *) exe;
@@ -187,8 +192,10 @@ main (int argc, char *argv[])
 	g_print ("SKIP: drives the program through LD_PRELOAD, which is Linux and FreeBSD only here\n");
 	return 77;
 #else
+	const char *model = argc > 3 ? argv[3] : "nemo-anywhere-v1";
+
 	if (argc < 3) {
-		g_printerr ("usage: %s <nemo-anywhere> <probe module>\n", argv[0]);
+		g_printerr ("usage: %s <nemo-anywhere> <probe module> [selection model]\n", argv[0]);
 		return 77;
 	}
 
@@ -199,9 +206,9 @@ main (int argc, char *argv[])
 		return 77;
 	}
 
-	run_view (argv[1], argv[2], "list-view", 10, 65);
-	run_view (argv[1], argv[2], "icon-view", 24, 69);
-	run_view (argv[1], argv[2], "compact-view", 60, 69);
+	run_view (argv[1], argv[2], model, "list-view", 10, 71);
+	run_view (argv[1], argv[2], model, "icon-view", 24, 75);
+	run_view (argv[1], argv[2], model, "compact-view", 60, 75);
 
 	if (failures > 0) {
 		g_printerr ("%d failure(s)\n", failures);
