@@ -54,6 +54,7 @@ cat > "${scratch}/cicd/config.bash" <<-EOF
 	FUZZ_PROBE=(true)
 	FUZZ_CMD=(bash -c '$(mark fuzz)')
 	SANITIZE_CMD=(bash -c '$(mark sanitize)')
+	ANALYZE_CMD=(bash -c '$(mark analyze)')
 	SCROLL_HARNESS=(scroll.bash)
 	BSD_TEST_CMD=(bash -c '$(mark bsd-tests)')
 	BSD_RELEASE_CMD=(bash -c '$(mark bsd-release)')
@@ -100,7 +101,7 @@ git -C "$scratch" init -q
 git -C "$scratch" add -A
 git -C "$scratch" -c user.name=check -c user.email=check@example.invalid -c commit.gpgsign=false commit -q -m init
 
-allSteps=(build tests lint fuzz sanitize scroll bsd-tests profile native windows arm64 bsd-release packages package-check private dogfood dogfood-hook remote-dogfood publish)
+allSteps=(build tests lint fuzz sanitize scroll bsd-tests profile native windows arm64 bsd-release analyze packages package-check private dogfood dogfood-hook remote-dogfood publish)
 
 ## $1 the steps that must run, space separated, rest the options. Every other
 ## step must not.

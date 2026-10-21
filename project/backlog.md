@@ -206,6 +206,35 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261020: opened.
 	- Test case: none yet.
 
+- Static analyzers: the stage, report only, with the compile list check.
+	- ID: 2026102114400584
+	- Type: Enhancement
+	- Status: Waiting for answers
+		- Waits on the question about the 5 .c files that neither build compiles.
+	- Needs local test suite run?: yes, one full `cicd.bash` run, to see the stage in place and its time there.
+	- Priority|Severity: High
+	- Opened: 20261021-144005
+	- Opened by: t00mietum
+	- Parent ID: 2026101619020505
+	- Target OS: Linux
+	- Requirements:
+		- The parent's first half, without the gate: every full run runs gcc's `-fanalyzer` and the clang analyzer over both compile lists, `nemo-build`'s `/build` and `nemo-winbuild`'s `/build-win`.
+		- Findings are counted per area (vendored, inherited, ours, tests) and kept with the run's artifacts. They don't fail the run yet.
+		- The stage fails on a tracked .c in neither list, and when an analyzer in either container misses a planted leak or null dereference.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Progress log:
+		- 20261021: `cicd/utility/analyze.bash` runs in stage 5, after the cross build, so the Windows list is current. Not under `--quick`, nor the gate. `analyze.py` runs each analyzer in its container, checks the lists and counts. Counts and logs go to `cicd/artifacts/analyze/`.
+		- 5 tracked .c files are in neither list. They're on `cicd/utility/analyze-unbuilt.txt`, each with a reason, until the question is answered.
+		- `nemo-winbuild` has no clang, so clang over the Windows list shows as not run. Its image needs clang 19, pinned.
+		- Times on the Linux box: clang over the Linux list 2m14s at 8 jobs, gcc over the Windows list 3m22s at 12. gcc over the Linux list hit the 900 s per-file cap on 3 files at `-O0`: `nemo-config.c`, which compiles SHCL, and blake3's AVX2 and SSE4.1 files. At the Windows build's `-O3` the same files took about 2 min. So the stage takes about 15 min today, nearly all of it that tail. `ANALYZE_TU_TIMEOUT` sets the cap.
+		- Verified: rktsh374, rktsh3gd, rkmqprx6 and rj9v18rx pass.
+	- Decisions:
+		- A finding counts toward the area of the line it's on, not of the file compiled, so one in a vendored header counts as vendored. Inherited means the file was in the 6.6.4 baseline. A finding that 2 files reach counts once.
+		- `-Werror` is dropped from the analyzer runs. The other lanes already gate plain warnings, and the analyzer's own count is what this stage is for.
+	- Branch: round1021
+	- Test case: rktsh3gd (`analyze.bash --self-test`, the planted faults in both containers) and rktsh374 (`analyze.py --self-test`, run by lint). rkmqprx6 and rj9v18rx cover the stage's place in the run.
+
 - SMB and SFTP networking is broken.
 	- ID: 2026101417352260
 	- Type: Bug
@@ -813,7 +842,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Static analyzers and a heap growth check in the pipeline.
 	- ID: 2026101619020505
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Started
 	- Priority|Severity: High
 	- Opened: 20261016-190205
 	- Opened by: t00mietum
@@ -849,7 +878,117 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- heaptrack and ASan can't share a build. The soak test uses a plain build.
 			- ASan's allocator hides the heap from glibc's own stats, such as `mallinfo2`. A test that reads them should exit as skipped under ASan, not pass.
 		- 20261017: `vendor/shcl-old/` is only built into a test, never into the app, so the vendored code above doesn't take it in. The gaps found in the existing checks on vendored and third-party code are 2026101715252255 to 2026101715252260.
+	- Progress log:
+		- 20261021: Split into children: `2026102114400584` (the stage, report only), `...586` vendored, `...587` inherited, `...588` ours, `...589` tests, `...591` (the gate goes live), `...592` (CodeQL and cross-file clang), `...593` (heap soak), and `2026101911105600` (the flag).
+		- 20261021 counts, unique findings by where they are (vendored, inherited, ours, tests, system headers): gcc on the Linux list 2, 12, 0, 7, 1, total 22, with 3 files not analyzed; gcc on the Windows list 3, 21, 6, 7, 3, total 40; clang on the Linux list 3, 34, 15, 17, 0, total 69; clang on the Windows list not run, since `nemo-winbuild` has no clang. 120 unique across the 3. The 5 in system headers are GLib macros, and count toward their callers.
 	- Test case: each new stage is its own test, with a planted fault it has to catch.
+
+- Static analyzers: vendored findings go in a suppression list outside the files.
+	- ID: 2026102114400586
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261021-144005
+	- Opened by: t00mietum
+	- Parent ID: 2026101619020505
+	- Prereq IDs: 2026102114400584
+	- Requirements:
+		- Every finding in `vendor/` and `source/cut-n-paste-code/` gets a line in the list, with a one-line reason, per the parent. The files stay as they came.
+		- A real bug goes to its upstream, with the link beside its line.
+	- Estimated effort: Avg
+	- Test case: the gate in 2026102114400591, once live.
+
+- Static analyzers: fix or suppress the findings in inherited upstream code.
+	- ID: 2026102114400587
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261021-144005
+	- Opened by: t00mietum
+	- Parent ID: 2026101619020505
+	- Prereq IDs: 2026102114400584
+	- Requirements:
+		- Each finding in a file that came with the 6.6.4 baseline is fixed, or suppressed at the line with a one-line reason, per the parent.
+		- Many are expected to be GLib ref-count false positives. Split this item by folder if it runs long.
+	- Estimated effort: High
+	- Test case: the gate in 2026102114400591, once live. A real bug fixed here gets its own test.
+
+- Static analyzers: fix or suppress the findings in our own code.
+	- ID: 2026102114400588
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261021-144005
+	- Opened by: t00mietum
+	- Parent ID: 2026101619020505
+	- Prereq IDs: 2026102114400584
+	- Requirements:
+		- Each finding in a file added since the baseline, tests aside, is fixed, or suppressed at the line with a one-line reason, per the parent.
+	- Estimated effort: Avg
+	- Test case: the gate in 2026102114400591, once live. A real bug fixed here gets its own test.
+
+- Static analyzers: fix or suppress the findings in the tests and fuzz targets.
+	- ID: 2026102114400589
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261021-144005
+	- Opened by: t00mietum
+	- Parent ID: 2026101619020505
+	- Prereq IDs: 2026102114400584
+	- Requirements:
+		- Each finding under `source/test/` and `source/fuzz/` is fixed, or suppressed at the line with a one-line reason, per the parent.
+	- Estimated effort: Avg
+	- Test case: the gate in 2026102114400591, once live.
+
+- Static analyzers: the gate goes live.
+	- ID: 2026102114400591
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261021-144005
+	- Opened by: t00mietum
+	- Parent ID: 2026101619020505
+	- Prereq IDs: 2026102114400584, 2026102114400586, 2026102114400587, 2026102114400588, 2026102114400589
+	- Requirements:
+		- Any finding that isn't suppressed fails the stage, per the parent. No baseline file.
+		- A suppression that no longer matches a finding fails too, so the list can't go stale.
+		- clang runs over the Windows list too. `nemo-winbuild`'s image gets clang 19, pinned.
+		- gcc analyzes every file on the Linux list inside the cap. 3 hit the 900 s cap at `-O0` (see `...584`).
+		- It moves behind a flag only if a full run shows it's too slow.
+	- Estimated effort: Low
+	- Test case: rktsh38m, a planted finding with no suppression fails the stage.
+
+- Static analyzers: CodeQL and the clang analyzer in cross-file mode under `--leakcheck`.
+	- ID: 2026102114400592
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261021-144005
+	- Opened by: t00mietum
+	- Parent ID: 2026101619020505
+	- Prereq IDs: 2026101911105600
+	- Requirements:
+		- The parent's CodeQL and cross-file clang requirements, over the same 2 compile lists.
+		- Each is pinned, in a container, and fails on a planted leak and null dereference first.
+	- Estimated effort: High
+	- Test case: rktsh3a3 (CodeQL) and rktsh3br (cross-file clang), each with a planted fault.
+
+- Heap growth soak test under `--leakcheck`.
+	- ID: 2026102114400593
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261021-144005
+	- Opened by: t00mietum
+	- Parent ID: 2026101619020505
+	- Prereq IDs: 2026101911105600
+	- Requirements:
+		- The parent's heaptrack soak test, on a plain build, with its report kept with the run's artifacts.
+		- heaptrack goes in the image, pinned. It isn't in `nemo-build` since that container was remade.
+		- It fails on a planted loop that grows the heap first.
+	- Estimated effort: Avg
+	- Test case: rktsh3da, with a planted heap growth.
 
 - Builds clean up stale artifacts and side-effects.
 	- ID: 2026101910075400
