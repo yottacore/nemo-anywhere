@@ -34,7 +34,11 @@
 #include <string.h>
 #include <glib/gstdio.h>
 #include <gtk/gtk.h>
+#ifdef GDK_WINDOWING_X11
+#include <gdk/gdkx.h>
+#endif
 
+#include <eel/eel-gtk-extensions.h>
 #include <libegg/eggtreemultidnd.h>
 #include <libnemo-private/nemo-archive.h>
 #include <libnemo-private/nemo-clipboard.h>
@@ -670,6 +674,10 @@ typedef struct {
 	gboolean ended;
 	gboolean context_gone;
 	GdkWindow *drag_window;
+	GdkWindow *last_drag_window;
+	GdkWindow *first_drag_window;
+	gboolean app_lets_go;
+	guint round;
 	int client;
 } DragCase;
 
@@ -789,6 +797,16 @@ drag_round (gpointer data)
 
 	drag->received = FALSE;
 	drag->ended = FALSE;
+	if (drag->last_drag_window != NULL) {
+		g_object_remove_weak_pointer (G_OBJECT (drag->last_drag_window), (gpointer *) &drag->last_drag_window);
+		drag->last_drag_window = NULL;
+	}
+	if (drag->drag_window != NULL) {
+		g_object_remove_weak_pointer (G_OBJECT (drag->drag_window), (gpointer *) &drag->drag_window);
+		drag->last_drag_window = drag->drag_window;
+		g_object_add_weak_pointer (G_OBJECT (drag->last_drag_window), (gpointer *) &drag->last_drag_window);
+		drag->drag_window = NULL;
+	}
 	context = gtk_drag_begin_with_coordinates (drag->tree, drag->targets,
 						   GDK_ACTION_MOVE | GDK_ACTION_COPY | GDK_ACTION_LINK | GDK_ACTION_ASK,
 						   1, NULL, 4, 4);
@@ -810,6 +828,19 @@ drag_round (gpointer data)
 	g_object_weak_ref (G_OBJECT (context), drag_case_context_gone, drag);
 	gtk_drag_cancel (context);
 	wait_for_flag (&drag->ended, "the end of a stopped drag");
+	/* 2026101916044103: GTK's stray ref on the last drag's window is gone by
+	   this drag's end. Round 0's has a ref of the test's too, as a fixed GTK
+	   might keep one of its own, and that one has to be left. */
+	if (drag->app_lets_go && drag->round == 1) {
+		check (drag->last_drag_window != NULL &&
+		       G_OBJECT (drag->last_drag_window)->ref_count == 2);
+		if (drag->last_drag_window != NULL) {
+			g_object_unref (drag->last_drag_window);
+		}
+	} else if (drag->app_lets_go && drag->round > 1) {
+		check (drag->last_drag_window == NULL);
+		check (drag->first_drag_window == NULL);
+	}
 	/* GDK keeps the context, and the icon window with it, until the icon's
 	   snap-back is over, some way past drag-end. Unwaited, a reading counts
 	   however many are still flying, and on a loaded box that's a lot. */
@@ -818,16 +849,22 @@ drag_round (gpointer data)
 	gdk_display_sync (gtk_widget_get_display (drag->tree));
 	drain_main_loop ();
 
-	/* 2026101916044103: GTK's icon window refs the drag window and never
-	   lets go, so one is kept per drag. Dropped here, and only while it's
-	   still alive, so the rounds count what's ours and libegg's. */
-	if (drag->drag_window != NULL) {
+	if (drag->app_lets_go) {
+		if (drag->round == 0 && drag->drag_window != NULL) {
+			drag->first_drag_window = g_object_ref (drag->drag_window);
+			g_object_add_weak_pointer (G_OBJECT (drag->first_drag_window),
+						   (gpointer *) &drag->first_drag_window);
+		}
+	} else if (drag->drag_window != NULL) {
+		/* Off X11 the app leaves GTK's ref be, so it's dropped here, and
+		   only while the window's still alive. */
 		GdkWindow *kept = drag->drag_window;
 
 		g_object_remove_weak_pointer (G_OBJECT (kept), (gpointer *) &drag->drag_window);
 		drag->drag_window = NULL;
 		g_object_unref (kept);
 	}
+	drag->round++;
 }
 
 static gboolean
@@ -895,6 +932,10 @@ setup_drag (DragCase *drag, const char *tmp)
 				     GTK_SELECTION_MULTIPLE);
 	gtk_tree_selection_select_all (gtk_tree_view_get_selection (GTK_TREE_VIEW (drag->tree)));
 	drag->targets = nemo_list_model_get_drag_target_list ();
+	eel_gtk_drag_windows_let_go ();
+#ifdef GDK_WINDOWING_X11
+	drag->app_lets_go = GDK_IS_X11_DISPLAY (gtk_widget_get_display (drag->tree));
+#endif
 
 	g_signal_connect (drag->model, "get-icon-scale", G_CALLBACK (drag_case_icon_scale), drag);
 	g_signal_connect (drag->tree, "drag-begin", G_CALLBACK (drag_case_begin), drag);
@@ -916,8 +957,20 @@ setup_drag (DragCase *drag, const char *tmp)
 }
 
 static void
+forget_window (GdkWindow **window)
+{
+	if (*window != NULL) {
+		g_object_remove_weak_pointer (G_OBJECT (*window), (gpointer *) window);
+		*window = NULL;
+	}
+}
+
+static void
 teardown_drag (DragCase *drag)
 {
+	forget_window (&drag->drag_window);
+	forget_window (&drag->last_drag_window);
+	forget_window (&drag->first_drag_window);
 	gtk_widget_destroy (drag->receiver);
 	gtk_widget_destroy (drag->window);
 	gtk_target_list_unref (drag->targets);

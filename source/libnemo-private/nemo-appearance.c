@@ -973,6 +973,37 @@ nemo_appearance_is_dark (void)
 	}
 }
 
+static void
+ini_value_free (gpointer value)
+{
+	g_value_unset (value);
+	g_free (value);
+}
+
+/* 2026101913054900: GTK 3.24's reset never frees its copy of the value a
+ * settings.ini gave @prop, which it keeps on the pspec as a GString. Its copy
+ * of an interned string takes nothing, so the GString is swapped for one,
+ * once. Same name back, nothing leaked. */
+static void
+reset_without_leak (GtkSettings *settings, const char *prop)
+{
+	GParamSpec *pspec = g_object_class_find_property (G_OBJECT_GET_CLASS (settings), prop);
+	GQuark      quark = g_quark_from_string (prop);
+	GValue     *ini;
+
+	ini = pspec != NULL ? g_param_spec_get_qdata (pspec, quark) : NULL;
+	if (ini != NULL && G_VALUE_HOLDS (ini, G_TYPE_GSTRING) &&
+	    G_PARAM_SPEC_VALUE_TYPE (pspec) == G_TYPE_STRING) {
+		GString *text = g_value_get_boxed (ini);
+		GValue  *interned = g_new0 (GValue, 1);
+
+		g_value_init (interned, G_TYPE_STRING);
+		g_value_set_interned_string (interned, text != NULL ? g_intern_string (text->str) : NULL);
+		g_param_spec_set_qdata_full (pspec, quark, interned, ini_value_free);
+	}
+	gtk_settings_reset_property (settings, prop);
+}
+
 /* What the platform names for @prop - the Windows bundle in its settings.ini,
  * a desktop through XSETTINGS or its own store. Setting the property ourselves
  * pins it above all of those, so GTK stops following the desktop. Resetting it
@@ -985,7 +1016,7 @@ platform_theme_name (GtkSettings *settings, const char *prop, gboolean *pinned)
 	char *name = NULL;
 
 	if (*pinned) {
-		gtk_settings_reset_property (settings, prop);
+		reset_without_leak (settings, prop);
 		*pinned = FALSE;
 	}
 	g_object_get (settings, prop, &name, NULL);

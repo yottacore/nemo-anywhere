@@ -1114,11 +1114,6 @@ if is_windows
   )
 endif
 
-# GTK leaks a string on each gtk_settings_reset_property of a setting that a
-# settings.ini named, which this test does. Leak checks off until
-# 2026101913054900; added to the sanitizer lane's options.
-appearanceEnv = environment()
-appearanceEnv.append('ASAN_OPTIONS', 'detect_leaks=0', separator: ':')
 test('repkeg1g Appearance themes test',
   # The theme resource is linked into the app, not into libnemo-private, so a
   # test that checks it has to carry its own copy.
@@ -1127,7 +1122,6 @@ test('repkeg1g Appearance themes test',
     include_directories: [ rootInclude, ],
     dependencies: [ gtk, nemo_private, test_scratch ],
   ),
-  env: appearanceEnv,
   args: []
 )
 
