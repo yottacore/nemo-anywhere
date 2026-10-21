@@ -644,6 +644,7 @@ nemo_application_startup (GApplication *app)
 
 	/* No tooltip while another program has the focus. */
 	eel_gtk_tooltips_need_focus ();
+	eel_gtk_drag_windows_let_go ();
 
 	/* create an undo manager */
 	self->undo_manager = nemo_undo_manager_new ();

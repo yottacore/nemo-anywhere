@@ -1371,3 +1371,79 @@ eel_gtk_tooltips_need_focus (void)
     done = TRUE;
     g_signal_override_class_handler ("show", GTK_TYPE_WINDOW, G_CALLBACK (window_show));
 }
+
+#ifdef GDK_WINDOWING_X11
+// 2026101916044103: GTK 3.24's drag icon window takes a ref on the drag
+// window and never drops it, so each drag kept one for good. Dropped at a
+// later drag's end, once GDK is done with it. A GTK that's fixed frees it
+// first, which takes it off the list, so nothing's dropped twice.
+static GSList *ended_drag_windows;
+
+static void
+ended_drag_window_gone (G_GNUC_UNUSED gpointer data, GObject *where_it_was)
+{
+    ended_drag_windows = g_slist_remove (ended_drag_windows, where_it_was);
+}
+
+// Destroyed and out of GDK's XID table, its DestroyNotify handled, so the
+// one ref left is GTK's stray one.
+static gboolean
+only_gtk_keeps (GdkWindow *window)
+{
+    return gdk_window_is_destroyed (window)
+        && gdk_x11_window_lookup_for_display (gdk_window_get_display (window),
+                                              gdk_x11_window_get_xid (window)) != window
+        && g_atomic_int_get ((gint *) &G_OBJECT (window)->ref_count) == 1;
+}
+
+static gboolean
+let_go_of_drag_windows (G_GNUC_UNUSED GSignalInvocationHint *hint,
+                        guint                                n_params,
+                        const GValue                        *params,
+                        G_GNUC_UNUSED gpointer               data)
+{
+    GdkDragContext *context;
+    GdkWindow *window;
+    GSList *l, *next;
+
+    for (l = ended_drag_windows; l != NULL; l = next) {
+        next = l->next;
+        window = l->data;
+        if (only_gtk_keeps (window)) {
+            ended_drag_windows = g_slist_delete_link (ended_drag_windows, l);
+            g_object_weak_unref (G_OBJECT (window), ended_drag_window_gone, NULL);
+            g_object_unref (window);
+        }
+    }
+
+    context = n_params > 1 ? g_value_get_object (&params[1]) : NULL;
+    window = context != NULL ? gdk_drag_context_get_drag_window (context) : NULL;
+    if (window != NULL && GDK_IS_X11_WINDOW (window)
+        && g_slist_find (ended_drag_windows, window) == NULL) {
+        g_object_weak_ref (G_OBJECT (window), ended_drag_window_gone, NULL);
+        ended_drag_windows = g_slist_prepend (ended_drag_windows, window);
+    }
+
+    return TRUE;
+}
+#endif
+
+// Once, after gtk_init. Every drag source, ours and GTK's own.
+void
+eel_gtk_drag_windows_let_go (void)
+{
+#ifdef GDK_WINDOWING_X11
+    static gboolean done;
+    gpointer widget_class;
+
+    if (done || !GDK_IS_X11_DISPLAY (gdk_display_get_default ())) {
+        return;
+    }
+    done = TRUE;
+    // drag-end isn't there to look up until the class is.
+    widget_class = g_type_class_ref (GTK_TYPE_WIDGET);
+    g_signal_add_emission_hook (g_signal_lookup ("drag-end", GTK_TYPE_WIDGET), 0,
+                                let_go_of_drag_windows, NULL, NULL);
+    g_type_class_unref (widget_class);
+#endif
+}

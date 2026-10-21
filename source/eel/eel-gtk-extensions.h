@@ -82,6 +82,7 @@ void                  eel_gtk_tabs_keep_focus_off                     (GtkWidget
 void                  eel_gtk_tabs_keep_focus_off_within              (GtkWidget *container);
 gboolean              eel_gtk_focus_is_within                         (GtkWidget *container);
 void                  eel_gtk_tooltips_need_focus                     (void);
+void                  eel_gtk_drag_windows_let_go                     (void);
 
 /* Cmd on macOS, Control elsewhere */
 GdkModifierType       eel_gtk_primary_mask                            (GdkWindow *window);
