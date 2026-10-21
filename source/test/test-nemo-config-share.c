@@ -189,6 +189,8 @@ run_command (gpointer data)
 	} else if (n == 2 && strcmp (words[0], "hold") == 0) {
 		/* Busy, so what the other copy sends waits behind it. */
 		g_usleep (g_ascii_strtoull (words[1], NULL, 10) * 1000);
+	} else if (n == 1 && strcmp (words[0], "stamp") == 0) {
+		say ("stamp %" G_GINT64_FORMAT, g_get_monotonic_time ());
 	} else if (n == 1 && strcmp (words[0], "flush") == 0) {
 		nemo_config_flush ();
 	} else if (n == 3 && strcmp (words[0], "until") == 0) {
@@ -600,17 +602,31 @@ test_same_key_at_once (Peer *a, Peer *b)
 
 	for (int round = 0; round < 6; round++) {
 		gint64 when = g_get_monotonic_time () + 300 * 1000;
-		gint64 end;
+		gint64 end, set_at = when;
+		char *stamp;
 
 		/* Each holds on after its set, so both are set before either takes
 		   the other's. */
-		tell (a, "at %" G_GINT64_FORMAT ";set " STRING_KEY " a%d;hold 200", when, round);
-		tell (b, "at %" G_GINT64_FORMAT ";set " STRING_KEY " b%d;hold 200", when, round);
+		tell (a, "at %" G_GINT64_FORMAT ";set " STRING_KEY " a%d;stamp;hold 200", when, round);
+		tell (b, "at %" G_GINT64_FORMAT ";set " STRING_KEY " b%d;stamp;hold 200", when, round);
 		g_usleep (700 * 1000);
+
+		/* On a loaded box a copy can get to its set late, and its save
+		   counts from there (2026101419352490). */
+		for (int i = 0; i < 2; i++) {
+			stamp = wait_for (i == 0 ? a : b, "stamp ");
+			if (stamp != NULL) {
+				set_at = MAX (set_at, g_ascii_strtoll (stamp + 6, NULL, 10));
+			}
+			g_free (stamp);
+		}
+		if (set_at - when > 100 * 1000) {
+			g_print ("round %d: set %" G_GINT64_FORMAT " ms late\n", round, (set_at - when) / 1000);
+		}
 
 		/* Before either saves: through the file they would agree in the end
 		   anyway, after flipping. */
-		end = when + (SAVE_DELAY_MS - 500) * 1000;
+		end = set_at + (SAVE_DELAY_MS - 500) * 1000;
 		for (;;) {
 			g_free (va);
 			g_free (vb);

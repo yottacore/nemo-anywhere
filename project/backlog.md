@@ -1112,22 +1112,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: rjbn328w runs on Windows and passes every time.
 	- Test case: rjbn328w on Windows, which answers 77 there until this is fixed.
 
-- rk65m3m4 fails now and then in the sanitizer lane on a loaded box.
-	- ID: 2026101916300276
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261019-163002
-	- Opened by: t00mietum
-	- Related IDs: 2026101913111713, 2026101715030680
-	- Target OS: Linux
-	- Steps to reproduce: run the sanitizer lane, jailed, at load 40 with the host short on memory.
-	- Incorrect behavior: on 20261019, `z.txt` wasn't unpacked from the long, head and 7z archives, and with no program to help, the long link came out with no message. It passed alone right after.
-	- Expected behavior: it passes under load.
-	- Reproduced: 20261019 on Linux, once, the first lane run with each test in its own jail.
-	- Possible cause: the archives `rar` writes come out different under load, or a cell's tmpfs ran short with 30 GB of the host in swap. Not looked into.
-	- Test case: rk65m3m4 itself.
-
 - rhr6ggmt can lose both links from a rar archive on Linux.
 	- ID: 2026101913111713
 	- Type: Bug
@@ -1138,6 +1122,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Target OS: Linux
 	- Incorrect behavior: in one full suite run on 20261019, rhr6ggmt failed one rar row with a password and links kept: `all.rar` listed `twin1.bin twin2.bin a.txt big.bin`, without `dir-link` and `file-link`. It passed alone right after. The box was loaded.
 	- Possible cause: the same libarchive limit as 2026101310525452, on a link target of 128 bytes or more, if a target there is still a whole path. Not looked into.
+	- Progress log:
+		- 20261020: not the long target, since the test's links have short relative targets now. The listing is what the job writes when its first `rar` run, for the links alone, fails: it leaves the links out on purpose and logs "Links couldn't be kept", with what `rar` said. That line wasn't kept from the failed run, so the next one will say why. Same day and load as 2026101916300276, where `rar` also seems to have written an archive short.
 	- Test case: rhr6ggmt.
 
 - GTK keeps the X11 drag window after every drag.
@@ -1170,38 +1156,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Decisions:
 		- repkeg1g runs with leak checks off in the lane until this is fixed, with this ID beside it in meson.
 	- Test case: repkeg1g in the sanitizer lane, with its leak checks back on.
-
-- rk96k9va fails in the sanitizer lane on a loaded box.
-	- ID: 2026101613310525
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261016-133105
-	- Opened by: 2026101613053692
-	- Related IDs: 2026101613310524, 2026101419352490
-	- Target OS: Linux
-	- Steps to reproduce: run the sanitizer suite while a full build runs.
-	- Incorrect behavior: the quickest folder took 349 ms to show all its rows, against a 180 ms bar. Alone it's about 100 ms, 3 of 3.
-	- Expected behavior: it passes under load.
-	- Reproduced: 20261016 on Linux, once.
-	- Possible cause: `BAR_MS` isn't scaled by `test_slowness`.
-	- Test case: rk96k9va itself.
-
-- rjvdch2z fails now and then in the full suite on a loaded box.
-	- ID: 2026101419352490
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261014-193524
-	- Opened by: 2026101417352260
-	- Related IDs: 2026100915055910
-	- Target OS: All
-	- Steps to reproduce: run the full Linux suite while other builds load the cores.
-	- Incorrect behavior: rjvdch2z, settings shared between copies, failed once at `test-nemo-config-share.c:623`. It passed 3 of 3 alone.
-	- Expected behavior: it passes under load.
-	- Reproduced: 20261014 on Linux, once, in a worktree's full suite run.
-	- Possible cause: a wait there isn't scaled for a slow box.
-	- Test case: rjvdch2z itself.
 
 - A picture dated in the future is thumbnailed again every 2 seconds for as long as it's shown.
 	- ID: 2026101419191455
@@ -1276,22 +1230,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: one question.
 	- Reproduced: No. From reading the code.
 	- Test case: TBD
-
-- rj750n43 fails now and then in the full suite on a loaded box.
-	- ID: 2026101513290717
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261015-132907
-	- Opened by: 2026101417352260
-	- Related IDs: 2026101419352490
-	- Target OS: All
-	- Steps to reproduce: run the full Linux suite while a Windows cross build loads the cores.
-	- Incorrect behavior: rj750n43, file cache at quit, failed once waiting on the app to quit. It passed 3 of 3 alone.
-	- Expected behavior: it passes under load.
-	- Reproduced: 20261015 on Linux, once, in a worktree's full suite run.
-	- Possible cause: a wait there isn't scaled for a slow box.
-	- Test case: rj750n43 itself.
 
 - A slow sub-folder count holds back the rows of pictures listed after it.
 	- ID: 2026101516055252
@@ -3533,6 +3471,94 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- rj750n43 fails now and then in the full suite on a loaded box.
+	- ID: 2026101513290717
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261015-132907
+	- Opened by: 2026101417352260
+	- Related IDs: 2026101419352490
+	- Target OS: All
+	- Steps to reproduce: run the full Linux suite while a Windows cross build loads the cores.
+	- Incorrect behavior: rj750n43, file cache at quit, failed once waiting on the app to quit. It passed 3 of 3 alone.
+	- Expected behavior: it passes under load.
+	- Reproduced: 20261015 on Linux, once, in a worktree's full suite run.
+	- Possible cause: a wait there isn't scaled for a slow box.
+	- Actual cause: not confirmed. Each wait for the program to exit was 20 s, unscaled. A quit folds the journal back into the cache file, which takes longer while a cross build has the disk.
+	- Actual fix: the waits for an exit are 60 s, scaled for a slow box, and the test's own limit is 300 s. The test doesn't time the quit, so nothing is lost.
+	- Branch: loadflake
+	- Test case: rj750n43 itself.
+	- Verified: 2 of 2 in the plain suite at load 21.
+	- Acceptance signoff: Self-closed: a fix to a test.
+	- Closed: 20261020-191637
+
+- rjvdch2z fails now and then in the full suite on a loaded box.
+	- ID: 2026101419352490
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261014-193524
+	- Opened by: 2026101417352260
+	- Related IDs: 2026100915055910
+	- Target OS: All
+	- Steps to reproduce: run the full Linux suite while other builds load the cores.
+	- Incorrect behavior: rjvdch2z, settings shared between copies, failed once at `test-nemo-config-share.c:623`. It passed 3 of 3 alone.
+	- Expected behavior: it passes under load.
+	- Reproduced: 20261014 on Linux, once, in a worktree's full suite run.
+	- Possible cause: a wait there isn't scaled for a slow box.
+	- Actual cause: not confirmed, since it didn't fail again. Line 623 was the check that 2 copies setting one key at once agree before either saves. They had 1.5 s from the moment they were told to set it, and a copy that got to its set late had less than that before its own save.
+	- Actual fix: each copy says when it made the change, and the 1.5 s count from the later one, the way each save does. A set more than 100 ms late is printed.
+	- Branch: loadflake
+	- Test case: rjvdch2z itself.
+	- Verified: 4 of 4 in the sanitizer lane and 2 of 2 in the plain suite at load 21.
+	- Acceptance signoff: Self-closed: a fix to a test, checked under load here. If it comes back, its log says how late each set was.
+	- Closed: 20261020-191637
+
+- rk96k9va fails in the sanitizer lane on a loaded box.
+	- ID: 2026101613310525
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261016-133105
+	- Opened by: 2026101613053692
+	- Related IDs: 2026101613310524, 2026101419352490
+	- Target OS: Linux
+	- Steps to reproduce: run the sanitizer suite while a full build runs.
+	- Incorrect behavior: the quickest folder took 349 ms to show all its rows, against a 180 ms bar. Alone it's about 100 ms, 3 of 3.
+	- Expected behavior: it passes under load.
+	- Reproduced: 20261016 on Linux, once.
+	- Possible cause: `BAR_MS` isn't scaled by `test_slowness`.
+	- Actual cause: one run over the bar on a busy box was a failure. The bar can't be scaled, since the old timer it catches came in at about 200 ms, close to it.
+	- Actual fix: when only the times miss the bar, the program is started again, up to 3 runs in all. Each run gets a home of its own, so none finds the thumbnails an earlier one made. The old timer still misses on every run.
+	- Branch: loadflake
+	- Test case: rk96k9va itself.
+	- Verified: 4 of 4 in the sanitizer lane and 2 of 2 in the plain suite at load 21, none needing a second run.
+	- Acceptance signoff: Self-closed: a fix to a test, checked under load here.
+	- Closed: 20261020-191637
+
+- rk65m3m4 fails now and then in the sanitizer lane on a loaded box.
+	- ID: 2026101916300276
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261019-163002
+	- Opened by: t00mietum
+	- Related IDs: 2026101913111713, 2026101715030680
+	- Target OS: Linux
+	- Steps to reproduce: run the sanitizer lane, jailed, at load 40 with the host short on memory.
+	- Incorrect behavior: on 20261019, `z.txt` wasn't unpacked from the long, head and 7z archives, and with no program to help, the long link came out with no message. It passed alone right after.
+	- Expected behavior: it passes under load.
+	- Reproduced: 20261019 on Linux, once, the first lane run with each test in its own jail.
+	- Possible cause: the archives `rar` writes come out different under load, or a cell's tmpfs ran short with 30 GB of the host in swap. Not looked into.
+	- Actual cause: not found. Every archive that should have had `z.txt` came out without it, and the built-in reader met no error after the long link, which it only does when nothing follows. So `rar` most likely wrote the archives short. It isn't a file the test failed to write, since `rar` exits 10 for a missing one. 300 archives written at load 20 all came out whole.
+	- Actual fix: the test lists each archive after writing it. One that's missing a name is written again, and a second miss fails with a line that says `rar` wrote it wrong, before any unpacking is checked.
+	- Branch: loadflake
+	- Test case: rk65m3m4 itself.
+	- Verified: 4 of 4 in the sanitizer lane and 2 of 2 in the plain suite at load 21.
+	- Acceptance signoff: Self-closed: a fix to a test. If `rar` does it again, the log says so.
+	- Closed: 20261020-191637
 
 - rkneye2c, Multi-row drag leak test, fails on a fresh container from the build image.
 	- ID: 2026101914184878

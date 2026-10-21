@@ -64,6 +64,10 @@
  * thumbnails to come back from the store and be drawn. */
 #define DRAW_WAIT_SECS 4
 
+/* A quit isn't timed here, and a loaded box folding the journal back in has
+   gone past 20 s (2026101513290717). */
+#define EXIT_SECS 60
+
 static gboolean
 alive (GPid pid)
 {
@@ -77,8 +81,9 @@ static gboolean
 wait_exit (GPid pid, int seconds)
 {
 	int i, status = 0;
+	int tenths = (int) (seconds * 10 * test_slowness ());
 
-	for (i = 0; i < seconds * 10; i++) {
+	for (i = 0; i < tenths; i++) {
 		pid_t got = waitpid (pid, &status, WNOHANG);
 
 		if (got == pid) {
@@ -453,7 +458,7 @@ main (int argc, char *argv[])
 	check (wait_any_stored (db, busy_uris, 60));
 	check (!all_stored (db, busy_uris));
 	check (close_window (display, pid));
-	check (wait_exit (pid, 30));
+	check (wait_exit (pid, EXIT_SECS));
 	pid = 0;
 	check (journal_empty (db_path));
 
@@ -465,7 +470,7 @@ main (int argc, char *argv[])
 	check (wait_stored (db, uris, 60));
 
 	check (close_window (display, pid));
-	check (wait_exit (pid, 20));
+	check (wait_exit (pid, EXIT_SECS));
 	pid = 0;
 	check (journal_empty (db_path));
 	read_counts (db, uris, made);
@@ -478,7 +483,7 @@ main (int argc, char *argv[])
 	g_usleep (DRAW_WAIT_SECS * G_USEC_PER_SEC);
 
 	check (close_window (display, pid));
-	check (wait_exit (pid, 20));
+	check (wait_exit (pid, EXIT_SECS));
 	pid = 0;
 	check (journal_empty (db_path));
 	read_counts (db, uris, drawn);
@@ -499,9 +504,9 @@ main (int argc, char *argv[])
 		GPid quitter = launch (exe, "--quit");
 
 		check (quitter > 0);
-		check (wait_exit (quitter, 20));
+		check (wait_exit (quitter, EXIT_SECS));
 	}
-	check (wait_exit (pid, 20));
+	check (wait_exit (pid, EXIT_SECS));
 	pid = 0;
 	check (journal_empty (db_path));
 	read_counts (db, uris, quit);
