@@ -51,6 +51,11 @@ gboolean nemo_network_win32_is_available (void);
  * is its list of shares under network:///, and no server is network:/// itself.
  * Registered for both uris and typed names. NULL when uri isn't an smb address. */
 GFile *nemo_network_win32_file_for_smb_uri (const char *uri);
+
+/* A UNC path naming only a server, \\host, as that server's list of shares,
+ * the way Explorer opens it. Typed names are mapped as they're parsed; this is
+ * for a location that arrives as a path. NULL for anything else. */
+GFile *nemo_network_win32_file_for_unc_server (GFile *location);
 #endif
 
 #endif /* NEMO_NETWORK_WIN32_H */

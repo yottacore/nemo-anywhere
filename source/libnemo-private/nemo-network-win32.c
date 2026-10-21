@@ -331,6 +331,7 @@ make_server_info (NetItem *item)
 	info = g_file_info_new ();
 	g_file_info_set_file_type (info, G_FILE_TYPE_DIRECTORY);
 	g_file_info_set_content_type (info, "inode/directory");
+	g_file_info_set_is_symlink (info, FALSE);
 
 	escaped = g_uri_escape_string (item->name, NULL, TRUE);
 	g_file_info_set_name (info, escaped);
@@ -359,6 +360,7 @@ make_share_info (NetItem *item)
 
 	info = g_file_info_new ();
 	g_file_info_set_file_type (info, G_FILE_TYPE_SHORTCUT);
+	g_file_info_set_is_symlink (info, FALSE);
 
 	escaped = g_uri_escape_string (item->name, NULL, TRUE);
 	g_file_info_set_name (info, escaped);
@@ -530,6 +532,8 @@ network_file_query_info (GFile *file, G_GNUC_UNUSED const char *attributes,
 	info = g_file_info_new ();
 	g_file_info_set_file_type (info, G_FILE_TYPE_DIRECTORY);
 	g_file_info_set_content_type (info, "inode/directory");
+	/* GIO logs a critical when this is read and was never set. */
+	g_file_info_set_is_symlink (info, FALSE);
 	g_file_info_set_attribute_boolean (info, G_FILE_ATTRIBUTE_ACCESS_CAN_READ, TRUE);
 	g_file_info_set_attribute_boolean (info, G_FILE_ATTRIBUTE_ACCESS_CAN_WRITE, FALSE);
 	g_file_info_set_attribute_boolean (info, G_FILE_ATTRIBUTE_ACCESS_CAN_DELETE, FALSE);
@@ -913,10 +917,65 @@ nemo_network_win32_file_for_smb_uri (const char *uri)
 	return file;
 }
 
+/* The server's list of shares for a path naming a server and no share,
+   \\host or //host. Windows can't open one as a folder, so GLib's native
+   file for it only fails. The \\?\ and \\.\ prefixes are devices.
+   Returns: (transfer full) (nullable) */
+static GFile *
+unc_server_file (const char *path)
+{
+	const char *host;
+	gsize len;
+	char *name;
+	char *escaped;
+	char *uri;
+	GFile *file;
+
+	if (path == NULL || !G_IS_DIR_SEPARATOR (path[0]) || !G_IS_DIR_SEPARATOR (path[1])) {
+		return NULL;
+	}
+	host = path + 2;
+	len = strcspn (host, "\\/");
+	if (len == 0 || (len == 1 && (host[0] == '?' || host[0] == '.'))) {
+		return NULL;
+	}
+	if (strspn (host + len, "\\/") != strlen (host + len)) {
+		return NULL;
+	}
+
+	name = g_strndup (host, len);
+	escaped = g_uri_escape_string (name, NULL, TRUE);
+	uri = g_strconcat (ROOT_URI, escaped, NULL);
+	file = network_file_new_for_uri (uri);
+	g_free (uri);
+	g_free (escaped);
+	g_free (name);
+	return file;
+}
+
+/* Returns: (transfer full) (nullable): unref with g_object_unref */
+GFile *
+nemo_network_win32_file_for_unc_server (GFile *location)
+{
+	if (location == NULL || !g_file_is_native (location)) {
+		return NULL;
+	}
+	return unc_server_file (g_file_peek_path (location));
+}
+
 static GFile *
 smb_vfs_lookup (G_GNUC_UNUSED GVfs *vfs, const char *identifier, G_GNUC_UNUSED gpointer user_data)
 {
 	return nemo_network_win32_file_for_smb_uri (identifier);
+}
+
+/* Every typed name comes through here, whatever its scheme. */
+static GFile *
+smb_vfs_parse_name (G_GNUC_UNUSED GVfs *vfs, const char *identifier, G_GNUC_UNUSED gpointer user_data)
+{
+	GFile *file = nemo_network_win32_file_for_smb_uri (identifier);
+
+	return file != NULL ? file : unc_server_file (identifier);
 }
 
 void
@@ -933,7 +992,7 @@ nemo_network_win32_register (void)
 					   network_vfs_lookup, NULL, NULL);
 		g_vfs_register_uri_scheme (vfs, "smb",
 					   smb_vfs_lookup, NULL, NULL,
-					   smb_vfs_lookup, NULL, NULL);
+					   smb_vfs_parse_name, NULL, NULL);
 
 		g_once_init_leave (&once_init_value, 1);
 	}

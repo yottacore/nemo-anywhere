@@ -62,6 +62,7 @@
 #include <libnemo-private/nemo-image-folders.h>
 #include <libnemo-private/nemo-module.h>
 #include <libnemo-private/nemo-monitor.h>
+#include <libnemo-private/nemo-network-win32.h>
 #include <libnemo-private/nemo-search-directory.h>
 #include <libnemo-private/nemo-share.h>
 
@@ -446,6 +447,14 @@ nemo_window_slot_open_location_full (NemoWindowSlot *slot,
 	GList *l;
 	gboolean use_same;
 	NemoApplication *app;
+#ifdef G_OS_WIN32
+	/* A command line, a link or a bookmark hands \\host over as a path. */
+	g_autoptr (GFile) server = nemo_network_win32_file_for_unc_server (location);
+
+	if (server != NULL) {
+		location = server;
+	}
+#endif
 
 	window = nemo_window_slot_get_window (slot);
 

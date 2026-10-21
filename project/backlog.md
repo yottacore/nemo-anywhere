@@ -814,19 +814,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261017: `vendor/shcl-old/` is only built into a test, never into the app, so the vendored code above doesn't take it in. The gaps found in the existing checks on vendored and third-party code are 2026101715252255 to 2026101715252260.
 	- Test case: each new stage is its own test, with a planted fault it has to catch.
 
-- Windows: Network locations not recognized (either Windows `\\...` or *nix `smb://` form).
-	- ID: 2026101816495204
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261018-164952
-	- Opened by: t00mietum
-	- Related IDs: 2026101417352260
-	- Target OS: Windows
-	- Requirements:
-		- Before the next cut.
-	- Test case: none yet.
-
 - Builds clean up stale artifacts and side-effects.
 	- ID: 2026101910075400
 	- Type: Enhancement
@@ -1336,6 +1323,32 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. rj043mnp covers it.
 	- Closed: 20261003-112426
+
+- Windows: Network locations not recognized (either Windows `\\...` or *nix `smb://` form).
+	- ID: 2026101816495204
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261018-164952
+	- Opened by: t00mietum
+	- Related IDs: 2026101417352260
+	- Target OS: Windows
+	- Requirements:
+		- Before the next cut.
+	- Incorrect behavior: a server with no share, `\\host`, `\\host\` or `//host`, failed with "Input/output error" from the path bar, and the app started on one closed with no window. The dogfood exe on vm925w, from 20261005, predates 2026101417352260, so no `smb://` address was taken there at all.
+	- Reproduced: 20261020 on vm925w with a current build, against a share made for the test and removed after. `\\localhost`, `\\localhost\` and `//localhost` became a native file Windows can't open, typed, on the command line and as `file:////localhost`. `\\localhost\nftest` with and without a trailing backslash, a folder in it, `//localhost/nftest`, `\\?\UNC\localhost\nftest`, `\\127.0.0.1\nftest`, `smb://localhost/nftest` and `smb://localhost` all opened.
+	- Actual cause:
+		- A UNC path naming only a server isn't a folder to Windows. Explorer lists the server's shares there. Nothing mapped it to that list, as 2026101417352260 did for `smb://host`, so GLib's native file for it went to the view and failed.
+		- The network places (the neighborhood, a server, each share) never said whether they're links. GIO logged a critical each time the view read that, on every `smb://host` or Network visit.
+	- Actual fix:
+		- `\\host`, `\\host\` and `//host` open the server's list of shares, `network:///host`, as `smb://host` does. A typed name is mapped as it's parsed, beside the smb mapping. A path that arrives any other way, such as the command line, a link or a bookmark, is mapped when a window opens it. A share, a folder in one and the `\\?\` and `\\.\` forms stay as they were.
+		- The network places say they aren't links.
+	- Swept: the path bar, the command line, bookmarks and links all open a folder through the one call that now maps it. The share check already counts every UNC form as a share, `\\?\UNC\` included.
+	- Branch: uncfix
+	- Test case: renz2428, Network win32 test. Each server form typed, parsed and as a command-line argument, and as a `file:////host` uri, must come out as the server's share list, and a share, a folder in one and the device forms must stay paths. The neighborhood, the box's own server and each of its shares must say whether they're links.
+	- Verified: 20261020 on vm925w. renz2428 failed before the fix, on every server form and on the link attribute, and passes after. Before the fix the app started on `\\localhost` or `//localhost/` closed with no window. After it, those and `file:////localhost` open the window `smb://localhost` gives, with no criticals.
+	- Acceptance signoff: Self-closed: renz2428 covers each form, and the app opens them on the box.
+	- Closed: 20261020-213500
 
 - No leak check runs on Windows.
 	- ID: 2026101715252260
@@ -3509,6 +3522,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: gtkleak
 	- Test case: repkeg1g in the sanitizer lane, with its leak checks back on.
 	- Verified: with the swap off, repkeg1g fails in the lane on the same 11 bytes. With it on, it passes there and in the plain suite.
+	- Verified: 20261020 on vm925w, a native build with the bundle's settings.ini. Following the platform gave the bundled widget theme and Mica icons. Switching to Adwaita and back, twice, gave the bundled theme and Mica again each time, with no criticals.
 	- Acceptance signoff: Self-closed: the lane's leak check passes where it failed.
 	- Closed: 20261020-202345
 
