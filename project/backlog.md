@@ -40,13 +40,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: Avg
 	- Opened: 20261018-164952
 	- Opened by: t00mietum
+	- Related IDs: 2026101816495208, 2026102113540918
 	- Requirements:
 		- Before the next cut.
-	- Note: the rest of the item wasn't written down yet.
+		- A "Where pasted and new items go" dropdown on the Advanced tab, under the selection model one: Nemo Anywhere (the default), Nemo Classic, and macOS/Dolphin.
+		- Nemo Anywhere: a selected expanded folder takes the paste, otherwise the lowest common parent of the selection. Nemo Classic: today's rule. macOS/Dolphin: always the viewed folder.
+		- Paste, New folder, New file, and Open in terminal go to that folder. Create link, Compress, and Extract here go next to their objects, except under Nemo Classic.
+		- Nemo Classic carved out first, with a test per case, then the other 2.
+		- No Explorer model, since Explorer can't nest folders in its content pane.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md#where-pasted-and-new-items-go), "Where pasted and new items go".
 	- Progress log:
 		- 20261018: detail to be written later.
 		- 20261021: Dolphin 25.04, details view with expandable folders: plain paste always goes into the viewed folder, whatever is selected or expanded. Its right-click "Paste" on a folder goes into that folder, with no key. macOS 15 Finder, list view: the same, plain paste always into the viewed folder, for every selection and expand state. Finder has no paste-into-folder at all.
-	- Test case: none yet.
+		- 20261021: written up as 3 target models in the design doc, which the selection doc was renamed to and merged into.
+	- Test case: none yet. One per case in the design doc's table, per model, once built.
 	- Notes:
 		- Inherent contradictions:
 			- If a first level folder is randomly selected, it would be surprising if pasted contents went into that folder.
@@ -69,7 +76,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The order: Nemo Anywhere v1 carved out first (2026102016594100), then Nemo Classic (2026102016594200), then the Nemo Anywhere model with the affirmative switch off (2026102019174440), then the switch and the places it plugs into, with nothing behind them (2026102019174477).
 		- The affirmative checkmarks themselves aren't built for now (2026102019174514).
 	- Test case: none yet.
-	- Design: [20261020-103804_checkmarked-selection.md](design_docs/20261020-103804_checkmarked-selection.md). The checkmark model, its terms, and the 3 other models behind the setting.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md). The checkmark model, its terms, and the 3 other models behind the setting.
 
 - Carve out "Nemo Anywhere v1": the app's current selection and focus behavior, behind a selection model setting.
 	- ID: 2026102016594100
@@ -87,7 +94,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Every selection and focus rule in the tree view and the content view, all 3 views, goes behind a conditional on the setting. Nothing changes in how the app behaves.
 		- Tests for every mouse and keyboard rule per view, so a later model can't change this one without a test going red.
 		- Must be done, and the tests green, before any Nemo Anywhere model code starts.
-	- Design: [20261020-103804_checkmarked-selection.md](design_docs/20261020-103804_checkmarked-selection.md), "The setting" and "Roadmap".
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "The setting" and "Roadmap".
 	- Progress log:
 		- 20261020: opened.
 		- 20261021: `preferences.selection-model`, with `nemo-anywhere-v1` the only value. A new Advanced page, last in the list, with a Selection section and the dropdown. Each view's mouse, key and focus handlers now go through a small rules table per model, picked by one switch on the setting.
@@ -121,7 +128,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Behind the same conditionals as Nemo Anywhere v1, tree view and content view.
 		- Tests per rule and view, like the v1 ones, checked against upstream on the Linux rig.
 		- Must be done, and the tests green, before any Nemo Anywhere model code starts.
-	- Design: [20261020-103804_checkmarked-selection.md](design_docs/20261020-103804_checkmarked-selection.md), "The setting" and "Roadmap".
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "The setting" and "Roadmap".
 	- Progress log:
 		- 20261020: opened.
 		- 20261021: `nemo-classic` added to `preferences.selection-model`, and "Nemo Classic" to the dropdown, ahead of Nemo Anywhere v1 as the design doc orders them. Each rules table has a Classic set, taken from upstream 6.6.4's handlers.
@@ -171,7 +178,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Wording is the "Switch off" column of the wording table.
 		- Tests per rule and view, like the v1 and Classic ones.
 		- Not started until both carve-outs are done and their tests are green.
-	- Design: [20261020-103804_checkmarked-selection.md](design_docs/20261020-103804_checkmarked-selection.md), "The affirmative switch".
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "The affirmative switch".
 	- Progress log:
 		- 20261020: opened.
 	- Test case: none yet.
@@ -201,7 +208,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Each on side does what the switch-off model does for now, so nothing changes in how the app behaves.
 		- The wording table's labels come from one place keyed on the tunable, with only the "Switch off" column filled in.
 		- A test that the tunable is off and that each of those places goes the off way.
-	- Design: [20261020-103804_checkmarked-selection.md](design_docs/20261020-103804_checkmarked-selection.md), "The affirmative switch".
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "The affirmative switch".
 	- Progress log:
 		- 20261020: opened.
 	- Test case: none yet.
@@ -1015,7 +1022,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Design: [Search](design_docs/20261020-121842_settings.md#search). Match order, aliases, fuzzy matching, and how a match is shown are there.
 	- Test case: none yet.
 
-- Paste into folder gets a key: Ctrl+Shift+V.
+- Ctrl+Shift+V as a second paste key, per target model.
 	- ID: 2026102113540918
 	- Type: Enhancement
 	- Status: Queued
@@ -1025,9 +1032,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026101816495200
 	- Requirements:
 		- Before the next cut.
-		- Ctrl+Shift+V does what the right-click "Paste into folder" does, with the same rule for when it's offered: exactly one folder selected. Otherwise it does nothing.
-		- The menu entry and the keyboard shortcuts window show the key.
-		- Upstream has no key for it on purpose, so it doesn't inherit plain Paste's Ctrl+V. Ctrl+Shift+V isn't bound anywhere else.
+		- What it does depends on the target model (2026101816495200). Nemo Anywhere: paste into the viewed folder, whatever is selected. macOS/Dolphin: what the right-click "Paste into folder" does, offered when exactly one folder is selected, and otherwise nothing. Nemo Classic: no key.
+		- The menu entry and the keyboard shortcuts window show what the key does under the model in use.
+		- Upstream has no key for Paste into folder on purpose, so it doesn't inherit plain Paste's Ctrl+V. Ctrl+Shift+V isn't bound anywhere else.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md#ctrlshiftv), "Ctrl+Shift+V".
 	- Test case: none yet.
 
 - The program's name is typed out in many places. Set it once and use that everywhere.
@@ -1240,7 +1248,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- When in "Checkmark selection" mode:
 			- Objects in the tree view follow the same rules for object selection at the folder level as the content view.
 			- Full edit capability, the same as dealing with folders in the content view.
-	- Design: [20261020-103804_checkmarked-selection.md](design_docs/20261020-103804_checkmarked-selection.md).
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md).
 	- Test case: none yet.
 
 - Rearrange the order of views, and add a fourth first-class view, Image thumbnail view.
@@ -7466,7 +7474,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Everything under "Off removes" in the design doc, behind the switch, with its own tests.
 		- The checkbox under the dropdown, shown only while Nemo Anywhere is picked. Off by default.
 		- The "Switch on" column of the wording table.
-	- Design: [20261020-103804_checkmarked-selection.md](design_docs/20261020-103804_checkmarked-selection.md), "The affirmative switch".
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "The affirmative switch".
 	- Decisions:
 		- Punted for now. Only its switch and the places it plugs into go in, under 2026102019174477.
 	- Progress log:
