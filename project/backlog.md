@@ -1022,6 +1022,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Notes:
 		- Today a folder that's mostly images opens in icon view at 500%. It isn't a view of its own.
 		- Its settings are in the new "Image thumbnails" section and "Image thumbnail captions" in 2026102018234905.
+		- Image thumbnail captions can also show image and video metadata. Which fields isn't settled yet.
 	- Design: its settings are under [Default and Current](design_docs/20261020-121842_settings.md#default-and-current) and [Planned tabs](design_docs/20261020-121842_settings.md#planned-tabs).
 	- Test case: none yet.
 
@@ -1044,7 +1045,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261020: layout moved to the settings design doc.
 		- 20261020: the Windows tab stays, after Advanced. Advanced's own page has Selection and Cache as sections. Icon size only on Icon view, and Text size on Compact and Detailed view. Buttons in Settings at the left. The doc's open questions are down to 5.
-		- 20261020: Windows tab before Advanced. Zoom in Compact and Detailed view changes Text size. Image thumbnail captions default the same as Icon captions. 1 open question left.
+		- 20261020: Windows tab before Advanced. Zoom in Compact and Detailed view changes Text size. Image thumbnail captions can also show image and video metadata. 1 open question left.
 	- Notes:
 		- The thin line under "Remember per-folder settings" is also 2026101816495205.
 	- Test case: none yet.
