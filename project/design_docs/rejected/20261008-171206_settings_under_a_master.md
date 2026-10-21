@@ -254,7 +254,7 @@ Clearing every flag on a hand change of the master stops that. It's the only tim
 
 ## Related backlog issues
 
-- A setting with an automatic value can be changed on its own, with no master switch to find first (2026100816170959). Queued.
+None.
 
 ## Copyright and license
 

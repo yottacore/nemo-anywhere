@@ -299,35 +299,9 @@ Four stores, each with its own lifetime.
 
 #### Application settings
 
-Application settings live in `settings.shcl`, in whichever directory the platform keeps per-user configuration in: `~/.config` on Linux and BSD, `%APPDATA%` on Windows, `~/Library/Application Support` on macOS. A folder left by an older build is moved on first run.
+Application settings live in `settings.shcl`, in whichever directory the platform keeps per-user configuration in. The file holds only what was chosen, lists everything else commented out at the end, and is picked up again whenever it's edited. A change made in one running copy shows in every other copy at once.
 
-- The file holds only what was actually chosen. A value equal to its default is dropped, so the file stays short and a later change to a default still reaches the user.
-
-- Because of that the file alone would say nothing about what else there is, so everything unset is listed at the end, commented out, with the value in use and a one-line note wherever the name doesn't already explain itself. Uncommenting a line is the same as changing the setting in the dialog. Keys the app writes back itself - window size, sidebar width, the last state of a search toggle - are left off that list, since setting one by hand only gets it overwritten.
-
-- Edits made while the app is running are picked up straight away, so hand-editing behaves like using the dialog.
-	- A save reads the file first. A hand edit the app hasn't picked up yet is taken in, and a setting changed both ways keeps the change made in the app, the same as when the edit is picked up first. A file removed by hand goes back to defaults, apart from changes made in the app and not yet saved.
-
-- A change made in one copy shows in every other running copy at once. It goes to them the way a tab move does, not through the file, so nobody waits for the save and the file watch.
-	- The copy that made a change saves it. The others hold it in memory until the file has it, so a change is one write, not one per copy. A copy that saves for a change of its own writes waht it holds as well, which is what the others would write.
-	- Each change carries the time it was made. 2 copies that change one setting at the same moment both keep the later one. If the copy that lost had already saved its own, the one that won saves again.
-	- Going back to the default goes over as a removed line, the same as in the file.
-	- A copy that is still starting, and not yet in the list of copies, gets the change from the file after the save. A copy that quits tells the others what it hasn't sent yet, then saves. One that crashes before its save leaves the change in the others' memory only, and the next of them to save a change of its own writes it.
-	- The file watch stays, for hand edits. A change that already came over isn't taken again when the file catches up, so its handlers run once.
-
-- The file ends with SHCL's info block, which names the format it was written in. A file in an older format is copied beside it as `settings_backup_<YYYYmmDD-HHMMSS>_format-v<N>.shcl`, and a new `settings.shcl` is written with the settings this release knows, converted by SHCL. A file with no format line is read as 2.x at startup, since every file a 2.x release wrote has none, and it is rewritten when today's rules would read it differently. The cost is a hand-written file the app never saved, which has no info block either: an unquoted backslash in it, as in `C:\temp`, is read the 2.x way, and the file as written is in the backup. A file with no format line that turns up while the app is running is a hand edit and is read by today's rules, unless the 2.x file from startup couldn't be saved over yet. A file in a newer format is used but never saved over, so running an older build doesn't undo a newer one's settings.
-
-- Types, defaults and allowed values live in one table in the code, and a matching schema sits beside the app so `shcl check --schema` can catch a typo in a hand-edited file. Keeping defaults central is deliberately against the config library's own per-call-site advice: with nearly two hundred settings, many read from several places, two call sites disagreeing about what a setting means when absent is a silent bug.
-
-- A handful of settings are the desktop's to decide rather than ours: which terminal to open, whether the session remembers recent files, 12h or 24h clocks. Where a desktop publishes them we read its answer, and everywhere else our own value stands in. That is the only remaining use of the desktop settings database, it is read-only, and it never touches a schema of ours.
-
-- A few settings are file-only, with nothing in Settings.
-
-- Keyboard shortcuts are kept beside the settings in `accels`, in GTK's own format. Upstream Nemo keeps its shortcuts in `~/.gnome2/accels/nemo`. The first start with no `accels` reads that file, so custom shortcuts carry over, and writes `accels` straight away. That `accels` exists is what marks the old file as read, so it is read once and never written. `--reset` empties `accels` rather than removing it, for the same reason.
-
-- What a rename starts out with selected is a checkbox under Behavior. The default selects the whole name, extension included, since a person pressing F2 usually means to replace the name outright and a re-typed extension is cheaper than one silently kept. Turned off, only the part before the extension is selected.
-
-- Where a setting is a command line for another program, the parts we fill in are written `{{LIKE_THIS}}` - capitals between double braces. Braces because nothing expands them: the same line pasted into a shell or a command prompt to try it out comes back unchanged, where `%NAME%` would vanish on Windows and `${NAME}` would on Linux. Only the markers a setting declares are replaced, so anything else in braces passes through as itself and there is nothing to escape.
+- The file, its formats and backups, keyboard shortcuts, the Settings window and its tabs, and the planned changes to them are in [20261020-121842_settings.md](design_docs/20261020-121842_settings.md).
 
 #### Bookmarks
 
@@ -349,7 +323,7 @@ Per-folder view state - view mode, zoom, sort column, column layout - is app-own
 
 - Opening a folder saves nothing. The views write their settings back as a folder loads, and a write that matches what the folder already uses is dropped.
 
-- The Current tab on the Views page shows the set for the folder in the last focused window, applies a change to that window at once, and can forget the set. The Default tab edits the defaults. Each has a button that copies to the other.
+- The Default and Current sub-tabs in Settings edit the defaults and a folder's own set. See [Default and Current](design_docs/20261020-121842_settings.md#default-and-current).
 
 - Window size, position and maximized state are shared by every window and live with the application settings. They are written shortly after a move or resize settles rather than at close, so an abnormal exit doesn't discard them. With nothing saved yet a window opens at 1280x720 including its frame, with the side pane at about a fifth of the width.
 
@@ -437,7 +411,7 @@ The window is a menu and toolbar, the side panes, a path bar and a view, and the
 
 - The named steps survive as stops: 24, 32, 48, 64, 96, 128, 256, 320, 448 and 640 pixels. They are what the slider marks and what Zoom In and Zoom Out move between. The slider reaches everything in between, so the keyboard stays coarse while dragging is fine. Adding a size is a row in one table.
 
-- Both the settings file and the settings window say it as a percent of the standard 64 pixels, so 100% is 64 and 1000% is 640. The settings window shows each one as a spin box, since the range no longer fits a short list.
+- Both the settings file and the Settings window say it as a percent of the standard 64 pixels, so 100% is 64 and 1000% is 640.
 
 - There are two defaults for the icon view. An ordinary folder opens at 100%. A folder that is mostly images opens at 500%, which is 320 pixels, so pictures are shown at a size worth looking at without anyone reaching for the slider.
 
@@ -450,8 +424,6 @@ The window is a menu and toolbar, the side panes, a path bar and a view, and the
 - A folder therefore remembers two icon sizes, not one: what it should look like full of pictures, and what it should look like otherwise. Zooming decides which of the two is being set by what is in the folder at the time, so zooming a gallery never moves the size its plain sibling opens at. With per-folder settings off, the window holds the same pair for as long as it is open, so a zoom in a gallery doesn't follow into the next list either.
 
 - Both sizes inherit. A child with nothing of its own takes the pair from the nearest parent that has one and then picks between them by what is in the child. So one setting on a photo library gives every album under it the big size, while a folder of notes filed in the same tree still opens small. Where a parent only ever had one of the two set, the other falls back to its default.
-
-- The Current tab in Settings shows both, since the pair is what children inherit. A size there that the folder itself will never use is still worth setting.
 
 - The slider runs along the stops rather than over pixels. The range is nearly thirty times as wide at one end as the other, so spacing the marks evenly is the only way the low end stays usable.
 
@@ -519,9 +491,7 @@ This rule has been rewritten several times and will probably move again, so the 
 
 - Properties is the platform's own on Windows, with ours under Ctrl+Enter for what the shell sheet has no room for. The other platforms use our window throughout. See [20260930-150859_properties_dialog.md](design_docs/20260930-150859_properties_dialog.md).
 
-- A settings window opens the size of its longest page. The settings dialog measures every page it holds and opens tall and wide enough for the largest, up to nine tenths of the screen, so no page starts out behind a scrollbar. A page too long for that is split into sub-tabs, as Behavior is, which the page list shows indented under it. Its floor is written for a 96dpi screen and scaled by the display's font scaling, so it means the same thing at 150% as at 100%.
-
-- Settings that only exist on Windows sit on a page of their own, and in a `windows` group in the file rather than scattered through the others. The page carries the separator choice, the hidden-file switches, the search index and the theme controls, and it isn't built into the other platforms' dialogs at all. The keys still take effect if hand-edited anywhere - it is the page that is Windows-only, not the settings.
+- The Settings window opens big enough for its largest tab, lists sub-tabs under their parent tab, and has a Windows tab that only Windows builds include. See [The window](design_docs/20261020-121842_settings.md#the-window).
 
 #### Hidden files and shortcuts
 
