@@ -749,6 +749,23 @@ rules_tick (void)
 			key (GDK_KEY_space, GDK_CONTROL_MASK);
 			want (items (2, next_item (2, 1, 0), -1), "and Ctrl+Space then adds the next item over");
 		}
+		click (last, 0);
+		key (GDK_KEY_Page_Up, 0);
+		want (items (list_mode ? 0 : last, -1),
+		      list_mode ? "Page Up selects the first row in sight alone" :
+				  "Page Up leaves the selection alone");
+		click (2, 0);
+		key (GDK_KEY_Tab, 0);
+		want (items (2, -1), "Tab leaves the selection alone");
+		report (!gtk_widget_has_focus (pane), "and takes the keyboard focus out of the view");
+		gtk_widget_grab_focus (pane);
+		if (!list_mode) {
+			click (2, 0);
+			key (GDK_KEY_Right, GDK_SHIFT_MASK);
+			want (run_of (2, next_item (2, 1, 0), -1), "Shift+Right selects the run to the next item over");
+			key (GDK_KEY_Left, GDK_SHIFT_MASK);
+			want (items (2, -1), "and Shift+Left takes it back");
+		}
 		break;
 	case 27:
 		click (0, 0);
@@ -816,8 +833,31 @@ rules_tick (void)
 		report (TRUE, "and opens its folder");
 		click_tree_row (tree, "0:0", GDK_CONTROL_MASK);
 		want_tree (tree, "", "Ctrl+click on the selected tree row unselects it");
+		break;
+	case 35:
+		note_title ();
+		click_tree_row (tree, "0", 0);
+		break;
+	case 36: {
+		/* The tree has one column, so Left and Right have nowhere to go. */
+		GtkTreePath *home = gtk_tree_path_new_from_string ("0");
+
+		if (!title_changed ()) {
+			gtk_tree_path_free (home);
+			return FALSE;
+		}
+		key (GDK_KEY_Left, 0);
+		want_tree (tree, "0", "Left in the tree changes nothing");
+		report (gtk_tree_view_row_expanded (tree, home), "and leaves the row open");
+		key (GDK_KEY_Right, 0);
+		want_tree (tree, "0", "nor does Right");
+		key (GDK_KEY_Escape, 0);
+		want_tree (tree, "0", "nor Escape");
+		report (gtk_tree_view_row_expanded (tree, home), "and the row is still open");
+		gtk_tree_path_free (home);
 		finish ();
 		return TRUE;
+	}
 	}
 
 	return TRUE;
