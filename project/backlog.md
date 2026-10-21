@@ -1219,36 +1219,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- repkeg1g runs with leak checks off in the lane until this is fixed, with this ID beside it in meson.
 	- Test case: repkeg1g in the sanitizer lane, with its leak checks back on.
 
-- A picture dated in the future is thumbnailed again every 2 seconds for as long as it's shown.
-	- ID: 2026101419191455
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261014-191914
-	- Opened by: 2026101417352261
-	- Related IDs: 2026101417352261
-	- Target OS: All
-	- Steps to reproduce: open a folder with a PNG whose modified date is next year.
-	- Incorrect behavior: its row changes every 2 seconds, without end, and no thumbnail is made.
-	- Expected behavior: it gets a thumbnail like any other picture.
-	- Reproduced: 20261014 on Linux, b23, a PNG dated January 2027.
-	- Possible cause: a file changed in the last 2 seconds isn't thumbnailed yet, and is looked at again 2 seconds later. A date in the future always reads as just changed.
-	- Test case: none yet.
-
-- Renaming a template in Settings drops a disk error with no message.
-	- ID: 2026101416533954
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261014-165341
-	- Opened by: 2026101319265113
-	- Target OS: All
-	- Steps to reproduce: rename a template in Settings where the rename fails on disk, such as a read-only templates folder.
-	- Incorrect behavior: from reading the code, nothing is shown, since `nemo-template-config-widget.c` renames with no callback.
-	- Expected behavior: the usual rename error.
-	- Reproduced: No. From reading the code.
-	- Test case: TBD
-
 - rhqxx81r exits 3 under wine with 0 failures.
 	- ID: 2026101416533991
 	- Type: Bug
@@ -1263,35 +1233,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: exit 0.
 	- Reproduced: 20261014 under wine. Not seen natively.
 	- Test case: rhqxx81r itself.
-
-- reww9h2s logs that `never-queue-file-ops` was read before the config store was opened.
-	- ID: 2026101416534029
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261014-165341
-	- Opened by: 2026101319265113
-	- Target OS: All
-	- Steps to reproduce: run reww9h2s.
-	- Incorrect behavior: "'never-queue-file-ops' read before the config store was opened" in its log. The test passes.
-	- Expected behavior: no such line. Either the test opens the store first, or the code path reads the setting too early.
-	- Reproduced: 20261014 on Linux, on dev before 2026101319265113's fix and after.
-	- Test case: reww9h2s itself.
-
-- With the delete test guard on, a Replace in a move to another drive may ask the guard twice.
-	- ID: 2026101512522482
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261015-125224
-	- Opened by: 2026101419104655
-	- Related IDs: 2026101419104655
-	- Target OS: All
-	- Steps to reproduce: with the delete test guard on, move `a.txt` to a folder on another drive that has an `a.txt`, and pick Replace.
-	- Incorrect behavior: from reading the code, the guard is asked once before the rename is tried and again before the copy.
-	- Expected behavior: one question.
-	- Reproduced: No. From reading the code.
-	- Test case: TBD
 
 - A slow sub-folder count holds back the rows of pictures listed after it.
 	- ID: 2026101516055252
@@ -3533,6 +3474,91 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- With the delete test guard on, a Replace in a move to another drive may ask the guard twice.
+	- ID: 2026101512522482
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261015-125224
+	- Opened by: 2026101419104655
+	- Related IDs: 2026101419104655
+	- Target OS: All
+	- Steps to reproduce: with the delete test guard on, move `a.txt` to a folder on another drive that has an `a.txt`, and pick Replace.
+	- Incorrect behavior: from reading the code, the guard is asked once before the rename is tried and again before the copy.
+	- Expected behavior: one question.
+	- Reproduced: No. From reading the code.
+	- Actual cause: as above. The rename and the copy it falls back to each kept their own note of having asked.
+	- Actual fix: a job keeps the targets the guard let it overwrite, and doesn't ask about one again.
+	- Branch: smallfix
+	- Test case: rkrqwvsq, Move Replace asks the guard once test. rkb48gsx's Replace case run with the guard on, as a move across 2 file systems and on 1, counts the overwrite questions.
+	- Verified: rkrqwvsq failed before the fix, with 2 questions across 2 file systems, and passes after.
+	- Acceptance signoff: Self-closed: the test counts the questions, which needs 2 drives and the guard on to see by hand.
+	- Closed: 20261020-193706
+
+- reww9h2s logs that `never-queue-file-ops` was read before the config store was opened.
+	- ID: 2026101416534029
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261014-165341
+	- Opened by: 2026101319265113
+	- Target OS: All
+	- Steps to reproduce: run reww9h2s.
+	- Incorrect behavior: "'never-queue-file-ops' read before the config store was opened" in its log. The test passes.
+	- Expected behavior: no such line. Either the test opens the store first, or the code path reads the setting too early.
+	- Reproduced: 20261014 on Linux, on dev before 2026101319265113's fix and after.
+	- Actual cause: the test opened the config store but never set up `nemo_preferences`, which the job queue watches from when it's made. The app always sets it up first, so only tests were hit. rewygsbg, rk65m3m4 and the copy test 78k3mysg did the same, and rewygsbg opened the store only for its last check.
+	- Actual fix: the 4 tests set up the preferences before their first job, the way the app does. A new lint check fails any test that starts a file job without it.
+	- Swept: every test that starts a copy, move, delete, archive or extract job.
+	- Branch: smallfix
+	- Test case: rkrqqdxc in `lint-c.bash`. reww9h2s and the other 3 log no criticals now.
+	- Verified: rkrqqdxc failed on test-copy before its fix, and passes after.
+	- Acceptance signoff: Self-closed: a fix to tests, with a lint check.
+	- Closed: 20261020-193706
+
+- Renaming a template in Settings drops a disk error with no message.
+	- ID: 2026101416533954
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261014-165341
+	- Opened by: 2026101319265113
+	- Target OS: All
+	- Steps to reproduce: rename a template in Settings where the rename fails on disk, such as a read-only templates folder.
+	- Incorrect behavior: from reading the code, nothing is shown, since `nemo-template-config-widget.c` renames with no callback.
+	- Expected behavior: the usual rename error.
+	- Reproduced: No. From reading the code.
+	- Actual cause: as above. Adding a template dropped its copy error the same way, and opening one to edit it on Linux dropped a start error.
+	- Actual fix: the rename shows the usual rename error, adding one says "The template couldn't be added." with the reason, and a failed open shows the usual start error. The list is refreshed once the copy is done, not before it.
+	- Swept: every async call in the templates widget. Those 3 were all of them. The other settings widgets make no async calls of their own.
+	- Branch: smallfix
+	- Test case: rkrqg9mg, Template rename and add errors test. A rename onto a taken name and an add of a missing file each put up their error, and a rename and an add that work say nothing. The add cases are Linux and BSD only, since on Windows the templates folder is the real one.
+	- Verified: rkrqg9mg failed before the fix on both errors, and passes after.
+	- Acceptance signoff: Self-closed: hard to make a template rename fail by hand, and the dialogs are the app's usual ones.
+	- Closed: 20261020-193706
+
+- A picture dated in the future is thumbnailed again every 2 seconds for as long as it's shown.
+	- ID: 2026101419191455
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261014-191914
+	- Opened by: 2026101417352261
+	- Related IDs: 2026101417352261
+	- Target OS: All
+	- Steps to reproduce: open a folder with a PNG whose modified date is next year.
+	- Incorrect behavior: its row changes every 2 seconds, without end, and no thumbnail is made.
+	- Expected behavior: it gets a thumbnail like any other picture.
+	- Reproduced: 20261014 on Linux, b23, a PNG dated January 2027.
+	- Possible cause: a file changed in the last 2 seconds isn't thumbnailed yet, and is looked at again 2 seconds later. A date in the future always reads as just changed.
+	- Actual cause: as above. The check was the clock being under the file's time plus 2 seconds, which a date ahead of the clock always is. Inherited from upstream.
+	- Actual fix: only a time within 2 seconds of the clock, either side, counts as just changed. Up to 2 seconds ahead still waits, for a share whose clock runs a little fast. Anything further ahead gets its thumbnail.
+	- Branch: smallfix
+	- Test case: rkrq87a3, Thumbnail of a picture dated ahead test. A picture dated next year is stored, and one saved this second still waits.
+	- Verified: rkrq87a3 failed before the fix and passes after. Full Linux suite 227 of 227 at load 24.
+	- Acceptance signoff: Self-closed: a one-line fix with a test, and nothing a person would see except the thumbnail showing up.
+	- Closed: 20261020-193706
 
 - rj750n43 fails now and then in the full suite on a loaded box.
 	- ID: 2026101513290717

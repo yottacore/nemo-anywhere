@@ -11,6 +11,10 @@
  *
  * Every case runs across 2 file systems, where there are 2, and on one, as a
  * move and as a copy. A merge falls back to the copy even on one file system.
+ *
+ * With "guard" as its argument, the delete test guard is on and only Replace
+ * runs, as a move. The rename and the copy it falls back to each asked the
+ * guard about the overwrite (2026101512522482), and once is right.
  */
 
 #include "test.h"
@@ -46,6 +50,8 @@ static const Answer *script;
 static int answered;
 static const char *case_name;
 static gboolean job_finished;
+static gboolean guard_mode;
+static int overwrite_asks;
 
 static void
 job_done (G_GNUC_UNUSED GHashTable *debuting_uris,
@@ -146,6 +152,20 @@ answer_dialogs (G_GNUC_UNUSED gpointer data)
 
 		if (NEMO_IS_FILE_CONFLICT_DIALOG (dialog)) {
 			answer_conflict (dialog);
+		} else if (guard_mode &&
+			   g_strcmp0 (gtk_window_get_title (GTK_WINDOW (dialog)), "Delete/overwrite test guard") == 0) {
+			GList *found = NULL;
+			gboolean overwrite = FALSE;
+
+			find_widgets (dialog, &found);
+			for (GList *w = found; w != NULL; w = w->next) {
+				overwrite = overwrite || (GTK_IS_LABEL (w->data) &&
+							  strstr (gtk_label_get_text (w->data), "Overwrite") != NULL);
+			}
+			g_list_free (found);
+			overwrite_asks += overwrite;
+			g_object_set_data (G_OBJECT (dialog), "answered", GINT_TO_POINTER (1));
+			gtk_dialog_response (GTK_DIALOG (dialog), GTK_RESPONSE_OK);
 		} else {
 			char *text = NULL;
 
@@ -602,9 +622,11 @@ main (int argc, char *argv[])
 	g_autofree char *config = NULL, *tmp = NULL, *base = NULL, *other = NULL;
 	Run run = { 0 };
 
+	guard_mode = argc > 1 && strcmp (argv[argc - 1], "guard") == 0;
+
 	/* The guard would ask before each move and overwrite. Read once, so
 	   before anything asks. */
-	g_setenv ("NEMO_TESTGUARD_ALL_DELETES", "0", TRUE);
+	g_setenv ("NEMO_TESTGUARD_ALL_DELETES", guard_mode ? "1" : "0", TRUE);
 	g_setenv ("NEMO_LINK_COPY", "file=keep", TRUE);
 
 	config = test_scratch_config_home ("nemo-move-conflict-home-XXXXXX");
@@ -624,6 +646,26 @@ main (int argc, char *argv[])
 	run.window = test_window_new ("move conflict test", 5);
 	gtk_widget_show (run.window);
 
+	if (guard_mode) {
+		run.is_move = TRUE;
+		for (int i = 0; i < 2; i++) {
+			if (i == 0 && other == NULL) {
+				continue;
+			}
+			run.from_base = tmp;
+			run.to_base = i == 0 ? other : tmp;
+			run.where = i == 0 ? "2 drives" : "1 drive";
+			overwrite_asks = 0;
+			case_replace (&run);
+			if (overwrite_asks != 1) {
+				g_printerr ("FAIL replace, %s: the guard was asked about the overwrite %d times\n",
+					    run.where, overwrite_asks);
+				failures++;
+			}
+		}
+		goto done;
+	}
+
 	if (other != NULL) {
 		run.from_base = tmp;
 		run.to_base = other;
@@ -636,6 +678,7 @@ main (int argc, char *argv[])
 	run.where = "1 drive";
 	run_all (&run);
 
+ done:
 	g_object_unref (manager);
 
 	if (failures > 0) {

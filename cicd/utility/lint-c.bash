@@ -736,6 +736,25 @@ fCheckTestScratchDirs(){
 }
 fRun fCheckTestScratchDirs
 
+## A test that starts a file job opens nemo_preferences first. The job queue
+## watches a setting there from when it's made, and 4 tests made it with none
+## open, which only logged a critical (2026101416534029).
+## Test ID: rkrqqdxc
+fCheckTestJobPrefs(){
+	local f bad=""
+
+	for f in source/test/*.c; do
+		grep -qE '(nemo_file_operations_[a-z_]+|nemo_archive_create[a-z_]*|nemo_extract_files)[[:space:]]*\(' "$f" || continue
+		grep -q 'nemo_global_preferences_init' "$f" || bad+="$f"$'\n'
+	done
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: a test starts a file job without nemo_global_preferences_init"
+		printf '%s' "$bad"
+		exit 2
+	fi
+}
+fRun fCheckTestJobPrefs
+
 ## Only a trash or delete command in a window counts as asked for, which gets
 ## the lighter confirmation. The guard used to read GTK's current event
 ## instead, so a delete started from inside any unrelated handler was taken

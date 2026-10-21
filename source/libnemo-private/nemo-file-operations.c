@@ -141,6 +141,9 @@ typedef struct {
 	gboolean link_options_set;
 	NemoCopyCallback  done_callback;
 	gpointer done_callback_data;
+	/* Targets the delete test guard already let be overwritten, so a move
+	   that falls back to a copy doesn't ask again. NULL until one is. */
+	GHashTable *overwrite_allowed;
 } CopyMoveJob;
 
 typedef struct {
@@ -4951,29 +4954,43 @@ make_link_copy (GFile         *src,
    there is nothing of ours to hook, so the ask goes in front of the flag.
    Sits at the retry label rather than at each place that sets overwrite, so a
    new path that sets it cannot slip past. `asked` keeps a file that retries
-   for some other reason from asking twice. */
+   for some other reason from asking twice, and the job's list one whose move
+   went on as a copy (2026101512522482). */
 static gboolean
-testguard_allows_overwrite_at (GFile      *src,
-			       GFile      *dest,
-			       gboolean   *asked,
-			       const char *func,
-			       const char *source_file,
-			       int         line)
+testguard_allows_overwrite_at (CopyMoveJob *copy_job,
+			       GFile       *src,
+			       GFile       *dest,
+			       gboolean    *asked,
+			       const char  *func,
+			       const char  *source_file,
+			       int          line)
 {
 	if (*asked || !nemo_delete_testguard_armed ()) {
 		return TRUE;
 	}
 
 	*asked = TRUE;
+	if (copy_job->overwrite_allowed != NULL &&
+	    g_hash_table_contains (copy_job->overwrite_allowed, dest)) {
+		return TRUE;
+	}
+	if (!nemo_delete_testguard_ask_overwrite_at ("Overwrite", src, dest,
+						     func, source_file, line)) {
+		return FALSE;
+	}
+	if (copy_job->overwrite_allowed == NULL) {
+		copy_job->overwrite_allowed = g_hash_table_new_full (g_file_hash, (GEqualFunc) g_file_equal,
+								     g_object_unref, NULL);
+	}
+	g_hash_table_add (copy_job->overwrite_allowed, g_object_ref (dest));
 
-	return nemo_delete_testguard_ask_overwrite_at ("Overwrite", src, dest,
-						       func, source_file, line);
+	return TRUE;
 }
 
 /* Passes the caller's location through, or every dialog would name this helper
    instead of the loop the overwrite is happening in. */
-#define testguard_allows_overwrite(src, dest, asked) \
-	testguard_allows_overwrite_at ((src), (dest), (asked), G_STRFUNC, __FILE__, __LINE__)
+#define testguard_allows_overwrite(copy_job, src, dest, asked) \
+	testguard_allows_overwrite_at ((copy_job), (src), (dest), (asked), G_STRFUNC, __FILE__, __LINE__)
 
 static void
 copy_move_file (CopyMoveJob *copy_job,
@@ -5152,7 +5169,7 @@ copy_move_file (CopyMoveJob *copy_job,
 
 	/* Cancel here means stop, not skip: half a copy is worse than none, and a
 	   dialog nobody answered times out as Cancel. */
-	if (overwrite && !testguard_allows_overwrite (src, dest, &asked_overwrite)) {
+	if (overwrite && !testguard_allows_overwrite (copy_job, src, dest, &asked_overwrite)) {
 		abort_job (job);
 		goto out;
 	}
@@ -5597,6 +5614,7 @@ copy_job_done (gpointer user_data)
 		g_object_unref (job->desktop_location);
 	}
 	g_hash_table_unref (job->debuting_files);
+	g_clear_pointer (&job->overwrite_allowed, g_hash_table_unref);
 	g_free (job->icon_positions);
 	g_free (job->target_name);
 
@@ -5924,7 +5942,7 @@ move_file_prepare (CopyMoveJob *move_job,
  retry:
 
 	/* Cancel here means stop, not skip - same as the copy side. */
-	if (overwrite && !testguard_allows_overwrite (src, dest, &asked_overwrite)) {
+	if (overwrite && !testguard_allows_overwrite (move_job, src, dest, &asked_overwrite)) {
 		abort_job (job);
 		goto out;
 	}
@@ -6226,6 +6244,7 @@ move_job_done (gpointer user_data)
 	g_object_unref (job->destination);
 	g_clear_object (&job->desktop_location);
 	g_hash_table_unref (job->debuting_files);
+	g_clear_pointer (&job->overwrite_allowed, g_hash_table_unref);
 	g_free (job->icon_positions);
 
 	finalize_common ((CommonJob *)job);
@@ -6757,6 +6776,7 @@ link_job_done (gpointer user_data)
 	g_list_free_full (job->files, g_object_unref);
 	g_object_unref (job->destination);
 	g_hash_table_unref (job->debuting_files);
+	g_clear_pointer (&job->overwrite_allowed, g_hash_table_unref);
 	g_free (job->icon_positions);
 
 	finalize_common ((CommonJob *)job);

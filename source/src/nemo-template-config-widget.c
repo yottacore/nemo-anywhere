@@ -12,6 +12,8 @@
 #include <libnemo-private/nemo-file-utilities.h>
 #include <libnemo-private/nemo-file-operations.h>
 #include <libnemo-private/nemo-program-choosing.h>
+#include "nemo-error-reporting.h"
+#include <eel/eel-stock-dialogs.h>
 
 #include <glib.h>
 #ifdef G_OS_WIN32
@@ -46,6 +48,15 @@ static GtkTargetEntry drop_targets[] = {
 static void refresh_widget (NemoTemplateConfigWidget *widget);
 static void start_renaming_selected_row (NemoTemplateConfigWidget *widget, GtkWidget *row);
 static void template_info_free (TemplateInfo *info);
+/* NULL once the settings dialog is gone. */
+static GtkWindow *
+widget_window (gpointer widget)
+{
+    GtkWidget *top = gtk_widget_get_toplevel (GTK_WIDGET (widget));
+
+    return GTK_IS_WINDOW (top) ? GTK_WINDOW (top) : NULL;
+}
+
 static void
 template_info_free (TemplateInfo *info)
 {
@@ -330,6 +341,47 @@ on_rename_entry_changed (GtkEditable *editable, gpointer user_data)
     g_free (text);
 }
 
+typedef struct {
+    NemoTemplateConfigWidget *widget;
+    gchar *new_name;
+} TemplateRename;
+
+static void
+template_renamed (GObject *source, GAsyncResult *res, gpointer user_data)
+{
+    TemplateRename *rename = user_data;
+    GError *error = NULL;
+    GFile *renamed = g_file_set_display_name_finish (G_FILE (source), res, &error);
+
+    if (renamed != NULL) {
+        g_object_unref (renamed);
+    } else {
+        NemoFile *file = nemo_file_get (G_FILE (source));
+
+        nemo_report_error_renaming_file (file, rename->new_name, error, widget_window (rename->widget));
+        nemo_file_unref (file);
+        g_error_free (error);
+    }
+
+    g_object_unref (rename->widget);
+    g_free (rename->new_name);
+    g_free (rename);
+}
+
+void
+nemo_template_config_widget_rename (NemoTemplateConfigWidget *widget,
+                                    const gchar              *path,
+                                    const gchar              *new_name)
+{
+    GFile *file = g_file_new_for_path (path);
+    TemplateRename *rename = g_new0 (TemplateRename, 1);
+
+    rename->widget = g_object_ref (widget);
+    rename->new_name = g_strdup (new_name);
+    g_file_set_display_name_async (file, new_name, G_PRIORITY_DEFAULT, NULL, template_renamed, rename);
+    g_object_unref (file);
+}
+
 static void
 start_renaming_selected_row (NemoTemplateConfigWidget *widget, GtkWidget *row)
 {
@@ -360,7 +412,6 @@ start_renaming_selected_row (NemoTemplateConfigWidget *widget, GtkWidget *row)
     gtk_widget_show_all (rename_dialog);
     response = gtk_dialog_run (GTK_DIALOG (rename_dialog));
     if (response == GTK_RESPONSE_ACCEPT) {
-        GFile *file = g_file_new_for_path (info->path);
         gchar **basename_tuple = get_filename_tuple (info->path);
         gchar *new_name = NULL;
 
@@ -372,8 +423,7 @@ start_renaming_selected_row (NemoTemplateConfigWidget *widget, GtkWidget *row)
 
         g_strfreev (basename_tuple);
 
-        g_file_set_display_name_async (file, new_name, G_PRIORITY_DEFAULT, NULL, NULL, NULL);
-        g_object_unref (file);
+        nemo_template_config_widget_rename (widget, info->path, new_name);
         g_free (new_name);
     }
 
@@ -381,8 +431,25 @@ start_renaming_selected_row (NemoTemplateConfigWidget *widget, GtkWidget *row)
 }
 
 static void
-import_template (NemoTemplateConfigWidget *widget,
-                 const gchar              *filename)
+template_copied (GObject *source, GAsyncResult *res, gpointer user_data)
+{
+    NemoTemplateConfigWidget *widget = user_data;
+    GError *error = NULL;
+
+    if (!g_file_copy_finish (G_FILE (source), res, &error)) {
+        eel_show_error_dialog (_("The template couldn't be added."), error->message, widget_window (widget));
+        g_error_free (error);
+    } else if (g_list_length (widget->dir_monitors) == 0 && widget_window (widget) != NULL) {
+        /* Nothing watching to list it. */
+        refresh_widget (widget);
+    }
+
+    g_object_unref (widget);
+}
+
+void
+nemo_template_config_widget_import (NemoTemplateConfigWidget *widget,
+                                    const gchar              *filename)
 {
     GFile *source, *dest;
     gchar *basename, *template_dir, *dest_path;
@@ -410,17 +477,14 @@ import_template (NemoTemplateConfigWidget *widget,
     dest_path = g_build_filename (template_dir, basename, NULL);
     dest = g_file_new_for_path (dest_path);
 
-    g_file_copy_async (source, dest, G_FILE_COPY_OVERWRITE, G_PRIORITY_DEFAULT, NULL, NULL, NULL, NULL, NULL);
+    g_file_copy_async (source, dest, G_FILE_COPY_OVERWRITE, G_PRIORITY_DEFAULT, NULL, NULL, NULL,
+                       template_copied, g_object_ref (widget));
 
     g_free (basename);
     g_free (template_dir);
     g_free (dest_path);
     g_object_unref (source);
     g_object_unref (dest);
-
-    if (g_list_length (widget->dir_monitors) == 0) {
-        refresh_widget (widget);
-    }
 }
 
 static gboolean
@@ -461,7 +525,7 @@ on_new_template_clicked (G_GNUC_UNUSED GtkWidget *button, gpointer user_data)
         gchar *selected_filename = gtk_file_chooser_get_filename (file_chooser);
 
         if (selected_filename != NULL) {
-            import_template (widget, selected_filename);
+            nemo_template_config_widget_import (widget, selected_filename);
         }
 
         g_free (selected_filename);
@@ -469,6 +533,20 @@ on_new_template_clicked (G_GNUC_UNUSED GtkWidget *button, gpointer user_data)
 
     gtk_widget_destroy (dialog);
 }
+
+#ifndef G_OS_WIN32
+static void
+template_opened (G_GNUC_UNUSED GObject *source, GAsyncResult *res, gpointer user_data)
+{
+    GError *error = NULL;
+
+    if (!g_app_info_launch_default_for_uri_finish (res, &error)) {
+        nemo_show_start_error (widget_window (user_data), error);
+        g_error_free (error);
+    }
+    g_object_unref (user_data);
+}
+#endif
 
 static void
 on_rename_row_clicked (G_GNUC_UNUSED GtkWidget *button, gpointer user_data)
@@ -511,7 +589,7 @@ on_edit_template_clicked (G_GNUC_UNUSED GtkWidget *button, gpointer user_data)
 
     nemo_launch_context_use_user_environ (context);
 
-    g_app_info_launch_default_for_uri_async (uri, context, NULL, NULL, NULL);
+    g_app_info_launch_default_for_uri_async (uri, context, NULL, template_opened, g_object_ref (widget));
     g_object_unref (context);
 
     g_free (uri);
@@ -555,14 +633,14 @@ on_drag_data_received(G_GNUC_UNUSED GtkWidget *widget,
 
             if (uris != NULL && uris[0] != NULL) {
                 for (int i = 0; uris[i] != NULL; i++) {
-                    import_template (self, uris[i]);
+                    nemo_template_config_widget_import (self, uris[i]);
                 }
 
                 g_strfreev(uris);
                 success = TRUE;
             }
         } else if (target_type == TARGET_TEXT_PLAIN) {
-            import_template (self, (const gchar *) raw_data);
+            nemo_template_config_widget_import (self, (const gchar *) raw_data);
             success = TRUE;
         }
     }

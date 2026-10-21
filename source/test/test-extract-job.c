@@ -15,6 +15,7 @@
 
 #include <libnemo-private/nemo-archive-commands.h>
 #include <libnemo-private/nemo-config.h>
+#include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-dir-enum.h>
 #include <libnemo-private/nemo-extract.h>
 
@@ -681,7 +682,8 @@ main (int argc, char *argv[])
 
 	/* For the edited command line. */
 	config_home = test_scratch_config_home ("nemo-extract-test-home-XXXXXX");
-	nemo_config_init ();
+	/* Opens the store and nemo_preferences, which the job queue watches. */
+	nemo_global_preferences_init ();
 
 	tmp = test_scratch_dir ("nemo-extract-test-XXXXXX", NULL);
 	archive_path = g_build_filename (tmp, "photos.zip", NULL);

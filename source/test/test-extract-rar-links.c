@@ -33,6 +33,7 @@
 
 #include <libnemo-private/nemo-archive.h>
 #include <libnemo-private/nemo-config.h>
+#include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-extract.h>
 
 #include <stdlib.h>
@@ -315,7 +316,8 @@ main (int argc, char *argv[])
 
 	test_init (&argc, &argv);
 	config_home = test_scratch_config_home ("nemo-rar-links-home-XXXXXX");
-	nemo_config_init ();
+	/* Opens the store and nemo_preferences, which the job queue watches. */
+	nemo_global_preferences_init ();
 
 	tmp = test_scratch_dir ("nemo-rar-links-XXXXXX", NULL);
 	work = g_build_filename (tmp, "work", NULL);
