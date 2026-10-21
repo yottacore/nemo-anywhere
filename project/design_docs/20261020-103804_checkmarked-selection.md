@@ -29,6 +29,9 @@
 	- [The affirmative switch](#the-affirmative-switch)
 	- [Where this breaks habits](#where-this-breaks-habits)
 	- [Open questions](#open-questions)
+- [Criticism](#criticism)
+	- [Inconsistencies](#inconsistencies)
+	- [Things users won't like](#things-users-wont-like)
 - [Alternative ideas](#alternative-ideas)
 	- [Unconsidered](#unconsidered)
 	- [Rejected](#rejected)
@@ -350,6 +353,108 @@ Each of these goes against what every file manager, and most lists, have done fo
 - The checkmark color in each bundled theme. Each one needs its own, and the fallback green may clash with some. The checkmark does the same job as the text color for anyone who can't tell the color apart.
 
 - Ctrl+Up and Ctrl+Down as a jump between folders at the same level in the tree column lost its key to the Explorer focus move. It needs another key, or goes.
+
+## Criticism
+
+An adversarial read of this doc, 2026-10-20. None of it is fixed yet.
+
+### Inconsistencies
+
+- Ctrl+I opens Properties today, and Invert selection is Ctrl+Shift+I. The doc moves Invert to Ctrl+I but never says what becomes of Ctrl+Shift+I. With the switch off Ctrl+I is removed, so it's unclear whether Ctrl+I goes back to Properties, becomes Invert selection, or does nothing.
+
+- The checkmark column drag contradicts itself. [Mouse](#mouse) and [The affirmative switch](#the-affirmative-switch) say a band starts from the checkmark column. The override under [Mouse](#mouse) says a drag there does what the same drag does anywhere else, and on a row that's a file drag.
+
+- With the switch off, a list view band starts "from the checkmark column or the empty space below the rows, and nowhere else". [Mouse](#mouse) says Ctrl, Shift, and right drags band from any column.
+
+- [Keyboard](#keyboard) calls Uncheck all the one command that changes checkmarks without touching the selection. Space with several objects selected does too, as do Add selection to checkmarks, Remove selection from checkmarks, and a paste that clears another tab's checkmarks.
+
+- [Terms](#terms) lists Ctrl+A as a way to set an affirmative checkmark. The list under [Superseded](#superseded) leaves it out.
+
+- A double-click opens the object under the pointer, and a file opening "changes nothing". But open is also a command that acts on the affirmative checkmarks and then clears them. With 3 files checked, a double-click on a fourth could go either way.
+
+- The focus outline shows only after a Ctrl+arrow move. Ctrl+click and Ctrl+Space can also leave the focus on an object that isn't selected. It's not said whether that draws the outline, or where Up and Down count from next.
+
+- [Specification](#specification) says selecting works as it does today. The range-ends arrows, the missing focus outline, the list view band rule, and the lost tree-column jump all change it.
+
+- [Summary](#summary) says that with the switch off nothing about the model says "checkmark". It still draws dim checkmarks in a checkmark column.
+
+- Hiding is handled 2 ways. Collapsing a folder over a checked child clears every checkmark in the tab, while the hidden-files toggle drops only the hidden objects' checkmarks.
+
+- A view change clears checkmarks "in that tab". Everywhere else checkmarks belong to one content view, and a split tab has 2.
+
+- There's one tree view per window, and a window can have several content views. Which one the tree mirrors isn't said, or which side loses its checkmarks when the other changes.
+
+- The tree's selected folder is nearly always the viewed folder. So by [Tree view](#tree-view), every time the tree gets the focus, everything in the content view gets a dim checkmark. The same section says a tree pick means the folder itself, and by implication its contents. Delete can't mean both.
+
+- [Tree view](#tree-view) talks about content view checkmarks that come from "one or more folders" checked in the tree. Only the viewed folder mirrors, so other checked folders in the tree never reach the content view.
+
+- The tree's checkmarks go in an "invisible column" that still shows a mark. Whether the checkmark column band rule applies there isn't said.
+
+- Ctrl+I counts temporary marks as checked. It's not said if that holds while affirmative checkmarks exist, when the temporary marks aren't drawn.
+
+- The status bar's third line has no size. No line covers nothing checked and nothing selected. On the second line, Y could be the whole selection or only the part outside the checked set.
+
+- Menu names don't match. [Menus](#menus) has "Select all" where the wording table has "Checkmark all", and "Uncheck all" where the table has "Checkmark none". The UI says "checked" and the doc says "checkmarked".
+
+- A paste that fails leaves the checkmarks, but a dropped drag clears them, even when the copy then fails or the drop does nothing. F2 bulk rename isn't listed either way.
+
+- The drag cases under [Mouse](#mouse) are for a plain left drag only. Ctrl, Shift, and right drags from an unchecked object while other objects are checked aren't covered.
+
+- A drag from an unchecked object refuses, since "there's no safe answer to invent". A right-click on the same object does invent one, and the menu acts on the checked objects.
+
+- With the switch off the space key is removed. Whether Space then does what it does today, or nothing, isn't said.
+
+- The switch is "one code-level tunable", and also a checkbox on the Advanced tab. It could be a build flag or a setting with a schema key.
+
+- Sorting on the checkmark column reverts "when the last checkmark goes". A temporary mark goes on every click in empty space.
+
+- [Summary](#summary) faults the view for showing 3 signs at once. The new model shows the selection, the checkmark, the mouseover tint, and bold colored text, plus the focus outline now and then.
+
+- design.md's [List view column widths](../design.md#list-view-column-widths) is the column sizing rule over every other, and its minimum width is the header text. The thin checkmark column, which can be sorted on, doesn't say what its header is.
+
+- design.md's summary of this doc still describes an earlier draft, where the focused object stands in when nothing is picked and the current model is one choice.
+
+- The second half of the fifth [Roadmap](#roadmap) step has no verb. [Terms](#terms) says "either of" before 3 cases.
+
+### Things users won't like
+
+- Ctrl+A, then Ctrl+click to leave a few out, then Delete, deletes everything. Ctrl+click only changes the selection, and Ctrl+A checked every object. It's about the most common bulk-pick habit there is.
+
+- A right-click Delete on one file deletes 3 others. The menu came from that file, and Open with, Rename, and Delete all act on checked objects that may be scrolled out of sight.
+
+- Trash asks nothing. Delete with checked objects off screen trashes them with no dialog, so the dialog alert never shows for the command used most.
+
+- Making a new folder clears the checkmarks, and so does any undo. The usual flow is check 10 files, make a folder, and move them in. It breaks at the second step.
+
+- One Escape clears everything. It's pressed to close menus, popups, type-ahead, and rename, and a stray one loses every pick. A first Escape for the selection and a second for the checkmarks would be safer.
+
+- A stray double-click on a folder, or the mouse's back button, is a view change and clears the checkmarks.
+
+- A sloppy click in the checkmark column that moves a few pixels is a plain drag, and a plain drag there replaces the checkmarks. That's the same stray click risk the real checkbox was turned down for.
+
+- The mark looks clickable, most of all on an icon view thumbnail. Photo apps, Explorer's check box option, and phones all toggle on a click. Icon and compact views have no mouse way to check anything.
+
+- The default doesn't fix the problem in [Summary](#summary). With the switch off a stray click still throws the selection away, and the fix is a checkbox under a dropdown on the Advanced tab.
+
+- Upgraders get a new default without asking: range-ends arrows, no focus outline, a new list view band rule, and a column that can't be hidden.
+
+- With the switch off, the column and the dim marks on every selected row add nothing the highlight doesn't already show.
+
+- Ctrl+I for Properties is a Nautilus and Nemo habit, and it goes. If Ctrl+Shift+I goes too, that's another key lost.
+
+- The anchor can't be seen. After a few Ctrl+clicks there's no telling where a Shift+click will range from.
+
+- Bold text changes label widths, so list columns and icon labels reflow as objects get checked.
+
+- Space during type-ahead clashes with names that have spaces in them.
+
+- Open clears the checkmarks. Opening 5 checked images to look at them and then copying them means checking them all again. Enter on 50 checked files opens 50 windows.
+
+- One stray Space in the content view drops every pick in the tree.
+
+- Sorted on the checkmark column, rows move while Space is being pressed, and the focus jumps with them.
+
+- [Where this breaks habits](#where-this-breaks-habits) misses several of these: the Ctrl+A trap, the right-click one, the new folder, the upgrade default, and Ctrl+I.
 
 ## Alternative ideas
 
