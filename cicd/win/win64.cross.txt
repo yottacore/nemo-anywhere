@@ -14,7 +14,11 @@ nm         = 'x86_64-w64-mingw32-gcc-nm'
 strip      = 'x86_64-w64-mingw32-strip'
 windres    = 'x86_64-w64-mingw32-windres'
 pkg-config = 'pkg-config'
-exe_wrapper = 'wine'
+# With no console, wine's GetConsoleOutputCP fails with ERROR_INVALID_ACCESS
+# where Windows gives ERROR_INVALID_HANDLE, so GLib warns on its first errno
+# message and g_test_init makes that fatal (exit 3). A charset in LANG is read
+# first and skips the query. Wine's own locale is en-US either way.
+exe_wrapper = ['env', 'LANG=C.UTF-8', 'wine']
 
 [properties]
 # Sysroot dir that contains mingw64/ - .pc files keep prefix=/mingw64, so pkg-config
