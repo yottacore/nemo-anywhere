@@ -108,8 +108,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Type: Task
 	- Status: Waiting for answers
 		- Waits on the Tab question: upstream's Tab leaves the focus in the view, and Classic's moves it on.
-	- Needs local test suite run?: yes, the full Linux suite. rktqpp37 is new, and rktkms8a, rhtmbdmd and rk7yvgse cover changed code.
-	- Needs external testing: rktqpp37 in the FreeBSD lane, and the Windows cross build.
+	- Needs local test suite run?: yes, the full Linux suite. rktqpp37 and rkts3far are new, and rktkms8a, rhtmbdmd and rk7yvgse cover changed code.
+	- Needs external testing: rktqpp37 and rkts3far in the FreeBSD lane.
 	- Priority|Severity: High
 	- Opened: 20261020-165941
 	- Opened by: t00mietum
@@ -136,14 +136,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Tab: upstream leaves the focus in the view, and Classic moves it on, as v1 does. Upstream's tab notebook takes every focus move in its Ctrl+Tab handler. Ours has let Tab through since 3c354fa5, in every model.
 			- Upstream's tree logs a GLib critical, the stale timer ID fixed in 2026102113191977. Classic keeps the fix.
 			- Two open checks name the wrong folder upstream, only because it makes a Desktop folder in home. The folder that opened was the selected one.
-		- 20261021: derived from upstream source and not seen: the split view click, the list view's band, the icon views' mouse band, drags that start with Ctrl or Shift, and Escape not leaving find mode. Not pinned yet: a folder selected in an expanded nest in the list view (the Problem on 2026101816495208).
+		- 20261021: rk7yvgse's drags and bands run again as rkts3far under Classic, and those results were seen in upstream too: Ctrl or Shift and a drag from an item not selected picks it at once and drags files, a right drag opens the menu and doesn't band, and a drag in the pane that wasn't active only wakes it. Two places differ from upstream:
+			- Places opens its menu on the release in every model, since it isn't part of the selection model. Upstream opens it on the press.
+			- Upstream's Size column had text at the spot the list view's plain drag starts from, so the GtkTreeView band from the blank part of a row is derived from source, not seen.
+		- 20261021: also derived from source and not seen: Escape not leaving find mode. Not pinned yet: a folder selected in an expanded nest in the list view (the Problem on 2026101816495208).
 	- Decisions:
 		- Whether the band flips is a field of the icon rules table, not state, so the keyboard band follows the model too. Upstream's keyboard band flips against what the last mouse band started from, and Classic keeps that.
 		- Platform plumbing stays ours under Classic: the primary key for Ctrl, and the Windows drag path. The upstream tree's timer bug isn't kept.
 	- Swept: the rules tables in the icon container, the icon view, the list view, the tree pane and the view's Select all and Invert, the search popup's forwarded press, and the canvas item events. `rubberband_select` is the one shared rule that reads the model.
 	- Branch: round1021
-	- Test case: rktqpp37, Selection rules test, Nemo Classic. rktkms8a and rhtmbdmd got the new checks too.
-	- Verified: 20261021, rktqpp37 and rktkms8a pass in all 3 views. rhtmbdmd, rf2w8yxr, rfazc870, rg6a49ar and rk7yvgse pass. The build has no warnings, and the UI case and test ID checks pass.
+	- Test case: rktqpp37, Selection rules test, Nemo Classic, and rkts3far, Drag select test, Nemo Classic. rktkms8a and rhtmbdmd got the new checks too.
+	- Verified: 20261021, rktqpp37, rkts3far, rktkms8a and rk7yvgse pass in all 3 views. rhtmbdmd, rf2w8yxr, rfazc870 and rg6a49ar pass. The build has no warnings, the Windows cross build with warnings as errors is clean, and the UI case and test ID checks pass.
 
 - Build the "Nemo Anywhere" selection model with the affirmative switch off.
 	- ID: 2026102019174440

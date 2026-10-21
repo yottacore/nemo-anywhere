@@ -1476,13 +1476,19 @@ if not is_windows
     include_directories: [ rootInclude, ],
     dependencies: [ gtk ],
   )
+  drag_select = executable('test-nemo-drag-select',
+    [ 'test-nemo-drag-select.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ glib, gio, test_scratch ],
+  )
   test('rk7yvgse Drag select test',
-    executable('test-nemo-drag-select',
-      [ 'test-nemo-drag-select.c' ],
-      include_directories: [ rootInclude, ],
-      dependencies: [ glib, gio, test_scratch ],
-    ),
+    drag_select,
     args: [ nemo, drag_select_probe ],
+    timeout: 240
+  )
+  test('rkts3far Drag select test, Nemo Classic',
+    drag_select,
+    args: [ nemo, drag_select_probe, 'nemo-classic' ],
     timeout: 240
   )
 

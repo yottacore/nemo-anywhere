@@ -41,6 +41,7 @@
 static FILE           *out;
 static const char     *folder_name;
 static gboolean        list_mode;
+static gboolean        classic;
 static GtkWidget      *window;
 static GtkWidget      *pane;
 static GdkWindow      *bin;
@@ -500,8 +501,16 @@ list_tick (void)
 			"the spot pressed in the Size column is blank");
 		press_and_move (bin, 1, 0, blank_x (), row_y (2), blank_x (), row_y (4));
 		release (bin, 1, 0, blank_x (), row_y (4));
-		report (drags == 1, "a plain drag from a blank spot on a row drags files");
-		check_selection ("2", "and the row pressed is selected at once");
+		if (classic) {
+			/* From upstream's source: the blank part of the one row the
+			   press selected lets GtkTreeView band. Not seen there, as its
+			   Size column wasn't blank at this spot. */
+			report (drags == 0, "a plain drag from a blank spot on a row not selected bands");
+			check_selection ("2,3,4", "from the row pressed");
+		} else {
+			report (drags == 1, "a plain drag from a blank spot on a row drags files");
+			check_selection ("2", "and the row pressed is selected at once");
+		}
 		break;
 	case 2:
 		select_items (second_to_fourth);
@@ -514,15 +523,25 @@ list_tick (void)
 		select_items (first);
 		press_and_move (bin, 1, GDK_SHIFT_MASK, blank_x (), row_y (3), blank_x (), row_y (5));
 		release (bin, 1, GDK_SHIFT_MASK, blank_x (), row_y (5));
-		report (drags == 0, "Shift and a drag from a row not selected drags no files");
-		check_selection ("3,4,5", "and bands, in place of the selection");
+		if (classic) {
+			report (drags == 1, "Shift and a drag from a row not selected drags files");
+			check_selection ("0,1,2,3", "after picking the run from the cursor at once");
+		} else {
+			report (drags == 0, "Shift and a drag from a row not selected drags no files");
+			check_selection ("3,4,5", "and bands, in place of the selection");
+		}
 		break;
 	case 4:
 		select_items (first);
 		press_and_move (bin, 1, GDK_CONTROL_MASK, 40, row_y (4), 40, row_y (6));
 		release (bin, 1, GDK_CONTROL_MASK, 40, row_y (6));
-		report (drags == 0, "Ctrl and a drag from a row not selected drags no files");
-		check_selection ("0,4,5,6", "and bands, adding to the selection");
+		if (classic) {
+			report (drags == 1, "Ctrl and a drag from a row not selected drags files");
+			check_selection ("0,4", "after adding the row at once");
+		} else {
+			report (drags == 0, "Ctrl and a drag from a row not selected drags no files");
+			check_selection ("0,4,5,6", "and bands, adding to the selection");
+		}
 		break;
 	case 5:
 		select_items (first_and_fourth);
@@ -558,7 +577,9 @@ list_tick (void)
 		press (bin, 3, 40, row_y (4), 0);
 		break;
 	case 8:
-		report (shown_menu () == NULL, "a right press opens no menu while the button is down");
+		report ((shown_menu () != NULL) == classic,
+			classic ? "a right press opens the menu at once" :
+				  "a right press opens no menu while the button is down");
 		check_selection ("4", "and selects the row it is on");
 		send (bin, GDK_BUTTON_RELEASE, 3, 40, row_y (4), GDK_BUTTON3_MASK);
 		break;
@@ -566,7 +587,8 @@ list_tick (void)
 		if (shown_menu () == NULL) {
 			return FALSE;
 		}
-		report (TRUE, "the menu opens when the button comes up");
+		report (TRUE, classic ? "and it stays open when the button comes up" :
+				       "the menu opens when the button comes up");
 		close_menu ();
 		break;
 	case 10:
@@ -575,8 +597,13 @@ list_tick (void)
 		release (bin, 3, 0, 40, row_y (3));
 		break;
 	case 11:
-		report (shown_menu () == NULL && drags == 0, "a right drag opens no menu and drags no files");
-		check_selection ("1,2,3", "and bands");
+		if (classic) {
+			report (shown_menu () != NULL && drags == 0, "a right drag opens the menu and drags no files");
+			check_selection ("1", "and selects the row pressed alone");
+		} else {
+			report (shown_menu () == NULL && drags == 0, "a right drag opens no menu and drags no files");
+			check_selection ("1,2,3", "and bands");
+		}
 		close_menu ();
 		break;
 	case 12:
@@ -591,6 +618,8 @@ list_tick (void)
 		press (gtk_tree_view_get_bin_window (tree), 3, 30, area.y + area.height / 2, 0);
 		break;
 	case 13:
+		/* Upstream opens it on the press. Places isn't part of the
+		   selection model, so it waits for the release in every one. */
 		report (shown_menu () == NULL, "a right press in Places opens no menu while the button is down");
 		path = gtk_tree_path_new_from_indices (0, 0, -1);
 		gtk_tree_view_get_background_area (tree, path, NULL, &area);
@@ -638,8 +667,13 @@ list_tick (void)
 		report (!pane_is_active (pane), "the pane pressed in next is not the active one");
 		press_and_move (bin, 1, 0, blank_x (), row_y (5), blank_x (), row_y (7));
 		release (bin, 1, 0, blank_x (), row_y (7));
-		report (drags == 1, "a drag in the pane that wasn't active drags files at once");
-		check_selection ("5", "and the row pressed is selected");
+		if (classic) {
+			report (drags == 0, "a drag in the pane that wasn't active only wakes it");
+			check_selection ("1", "and leaves its selection alone");
+		} else {
+			report (drags == 1, "a drag in the pane that wasn't active drags files at once");
+			check_selection ("5", "and the row pressed is selected");
+		}
 		report (pane_is_active (pane), "and that pane is the active one now");
 		finish ();
 		return TRUE;
@@ -675,9 +709,14 @@ icon_tick (void)
 	case 3:
 		/* The band follows the pointer on a timer, so it gets a tick. */
 		release (bin, 1, GDK_SHIFT_MASK, x1, y1);
-		report (drags == 0 && bands == 1, "Shift and a drag from an icon not selected bands");
-		report (is_selected (3) && is_selected (5) && !is_selected (0),
-			"and the band replaces the selection");
+		if (classic) {
+			report (drags == 1 && bands == 0, "Shift and a drag from an icon not selected drags files");
+			check_selection ("0,1,2,3", "after picking the run at once");
+		} else {
+			report (drags == 0 && bands == 1, "Shift and a drag from an icon not selected bands");
+			report (is_selected (3) && is_selected (5) && !is_selected (0),
+				"and the band replaces the selection");
+		}
 		break;
 	case 4:
 		select_items (first);
@@ -687,9 +726,14 @@ icon_tick (void)
 		break;
 	case 5:
 		release (bin, 1, GDK_CONTROL_MASK, x1, y1);
-		report (drags == 0 && bands == 1, "Ctrl and a drag from an icon not selected bands");
-		report (is_selected (0) && is_selected (4) && is_selected (6),
-			"and the band adds to the selection");
+		if (classic) {
+			report (drags == 1 && bands == 0, "Ctrl and a drag from an icon not selected drags files");
+			check_selection ("0,4", "after adding the icon at once");
+		} else {
+			report (drags == 0 && bands == 1, "Ctrl and a drag from an icon not selected bands");
+			report (is_selected (0) && is_selected (4) && is_selected (6),
+				"and the band adds to the selection");
+		}
 		break;
 	case 6:
 		select_items (first_and_fourth);
@@ -707,7 +751,9 @@ icon_tick (void)
 		press (bin, 3, x0, y0, 0);
 		break;
 	case 8:
-		report (shown_menu () == NULL, "a right press opens no menu while the button is down");
+		report ((shown_menu () != NULL) == classic,
+			classic ? "a right press opens the menu at once" :
+				  "a right press opens no menu while the button is down");
 		check_selection ("6", "and selects the icon it is on");
 		send (bin, GDK_BUTTON_RELEASE, 3, x0, y0, GDK_BUTTON3_MASK);
 		break;
@@ -715,7 +761,8 @@ icon_tick (void)
 		if (shown_menu () == NULL) {
 			return FALSE;
 		}
-		report (TRUE, "the menu opens when the button comes up");
+		report (TRUE, classic ? "and it stays open when the button comes up" :
+				       "the menu opens when the button comes up");
 		close_menu ();
 		break;
 	case 10:
@@ -731,9 +778,15 @@ icon_tick (void)
 		release (bin, 3, 0, x1, y1);
 		break;
 	case 12:
-		report (shown_menu () == NULL && drags == 0 && bands == 1,
-			"a right drag from the background bands and opens no menu");
-		report (is_selected (7) && !is_selected (0), "and the band replaces the selection");
+		if (classic) {
+			report (shown_menu () != NULL && drags == 0 && bands == 0,
+				"a right drag from the background opens the menu and doesn't band");
+			check_selection ("", "and clears the selection");
+		} else {
+			report (shown_menu () == NULL && drags == 0 && bands == 1,
+				"a right drag from the background bands and opens no menu");
+			report (is_selected (7) && !is_selected (0), "and the band replaces the selection");
+		}
 		close_menu ();
 		break;
 	case 13:
@@ -748,7 +801,9 @@ icon_tick (void)
 		press (gtk_tree_view_get_bin_window (tree), 3, 30, area.y + area.height / 2, 0);
 		break;
 	case 14:
-		report (shown_menu () == NULL, "a right press in the tree opens no menu while the button is down");
+		report ((shown_menu () != NULL) == classic,
+			classic ? "a right press in the tree opens its menu at once" :
+				  "a right press in the tree opens no menu while the button is down");
 		path = gtk_tree_path_new_from_indices (0, -1);
 		gtk_tree_view_get_background_area (tree, path, NULL, &area);
 		gtk_tree_path_free (path);
@@ -826,6 +881,7 @@ probe_start (void)
 	const char *path = g_getenv ("NEMO_DRAG_OUT");
 	const char *view = g_getenv ("NEMO_DRAG_VIEW");
 
+	classic = g_strcmp0 (g_getenv ("NEMO_DRAG_MODEL"), "nemo-classic") == 0;
 	folder_name = g_getenv ("NEMO_DRAG_FOLDER");
 	if (path == NULL || view == NULL || folder_name == NULL) {
 		return;
