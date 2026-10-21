@@ -38,6 +38,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <glib/gstdio.h>
+
 #include "test-scratch.h"
 #include "test-check.h"
 
@@ -161,6 +163,50 @@ run_in (const char *dir, char **argv)
 	}
 	g_free (out);
 	g_free (err);
+
+	return ok;
+}
+
+/* Writes an archive with rar, then lists it back. On 20261019 a loaded box
+   got archives with no z.txt in them and nothing said, which read as an
+   unpacking fault (2026101916300276). One that comes up short is written
+   again, and a second miss is put down to rar. */
+static gboolean
+write_rar (const char *dir, char **argv)
+{
+	const char *archive = argv[3];
+	char *path = g_build_filename (dir, archive, NULL);
+	gboolean ok = FALSE;
+
+	for (int tries = 0; tries < 2 && !ok; tries++) {
+		char *list_argv[] = { argv[0], (char *) "lb", (char *) archive, NULL };
+		char *listed = NULL;
+		char **names;
+
+		g_unlink (path);
+		if (!run_in (dir, argv) ||
+		    !g_spawn_sync (dir, list_argv, NULL, G_SPAWN_STDERR_TO_DEV_NULL, NULL, NULL,
+				   &listed, NULL, NULL, NULL)) {
+			break;
+		}
+		names = g_strsplit (listed, "\n", -1);
+		ok = TRUE;
+		for (int i = 4; argv[i] != NULL; i++) {
+			if (!g_strv_contains ((const char *const *) names, argv[i])) {
+				char *flat = g_strstrip (g_strjoinv (" ", names));
+
+				g_printerr ("%s: rar left %s out, it listed: %s\n", archive, argv[i], flat);
+				g_free (flat);
+				ok = FALSE;
+			}
+		}
+		g_strfreev (names);
+		g_free (listed);
+	}
+	if (!ok) {
+		g_printerr ("FAIL: rar didn't write %s right, so nothing past here is about unpacking\n", archive);
+	}
+	g_free (path);
 
 	return ok;
 }
@@ -295,9 +341,9 @@ main (int argc, char *argv[])
 
 		check (g_file_set_contents (a, "first", -1, NULL));
 		check (g_file_set_contents (z, "last", -1, NULL));
-		check (run_in (work, with_after));
-		check (run_in (work, link_last));
-		check (run_in (work, link_first));
+		check (write_rar (work, with_after));
+		check (write_rar (work, link_last));
+		check (write_rar (work, link_first));
 		g_free (z);
 		g_free (a);
 	}

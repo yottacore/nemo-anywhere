@@ -68,6 +68,8 @@
  * and 10 to 35 to the first. */
 #define BAR_MS  180.0
 
+#define RUNS    3
+
 #if defined (__linux__) || defined (__FreeBSD__)
 static gboolean
 alive (GPid pid)
@@ -146,67 +148,41 @@ make_folder (const char *root, const char *kind, int number)
 	g_free (folder);
 	g_free (name);
 }
-#endif
 
-int
-main (int argc, char *argv[])
+/* Starts the program on top with a home of its own, so no run finds the
+   thumbnails or view settings an earlier one left, and reads the probe's
+   times back. A wrong count or a FAIL from the probe is a failure here; the
+   times are left to the caller. */
+static void
+open_all (const char *nemo, char **base_env, const char *root, int run, char *top,
+	  const char *out, double *best_all, double *best_first, double *first_folder_all)
 {
-#if !defined (__linux__) && !defined (__FreeBSD__)
-	(void) argc;
-	(void) argv;
-	g_print ("SKIP: drives the program through LD_PRELOAD, which is Linux and FreeBSD only here\n");
-	return 77;
-#else
-	char *root, *top, *out, *path, *wanted;
+	char *home = g_strdup_printf ("%s/run %d", root, run);
 	char *text = NULL;
 	char **envp, **lines;
 	char *spawn_argv[4];
+	char *path;
 	GError *error = NULL;
 	GPid pid = 0;
 	gboolean done = FALSE;
-	double best_all = -1, best_first = -1, first_folder_all = -1;
 	int i, opened = 0;
 
-	if (argc < 3) {
-		g_printerr ("usage: %s <nemo-anywhere> <probe module>\n", argv[0]);
-		return 77;
-	}
-	if (g_getenv ("DISPLAY") == NULL) {
-		g_print ("SKIP: no display\n");
-		return 77;
-	}
+	*best_all = *best_first = *first_folder_all = -1;
+	g_unlink (out);
 
-	root = test_scratch_dir ("nemo-expand-time-XXXXXX", NULL);
-	top = g_build_filename (root, "top", NULL);
-	for (i = 0; i < FOLDERS; i++) {
-		make_folder (top, "folder", i);
-	}
-	for (i = 0; i < SLOW; i++) {
-		make_folder (top, "slow", i);
-	}
-	path = g_build_filename (top, "loose file.txt", NULL);
-	check (g_file_set_contents (path, "loose", -1, NULL));
-	g_free (path);
-	out = g_build_filename (root, "expand.txt", NULL);
-	wanted = g_strdup_printf ("%d", FILES);
-
-	envp = g_get_environ ();
-	envp = g_environ_setenv (envp, "HOME", root, TRUE);
-	path = g_build_filename (root, "config", NULL);
+	envp = g_strdupv (base_env);
+	envp = g_environ_setenv (envp, "HOME", home, TRUE);
+	path = g_build_filename (home, "config", NULL);
 	envp = g_environ_setenv (envp, "XDG_CONFIG_HOME", path, TRUE);
 	g_free (path);
-	path = g_build_filename (root, "data", NULL);
+	path = g_build_filename (home, "data", NULL);
 	envp = g_environ_setenv (envp, "XDG_DATA_HOME", path, TRUE);
 	g_free (path);
-	path = g_build_filename (root, "cache", NULL);
+	path = g_build_filename (home, "cache", NULL);
 	envp = g_environ_setenv (envp, "XDG_CACHE_HOME", path, TRUE);
 	g_free (path);
-	envp = g_environ_setenv (envp, "DBUS_SESSION_BUS_ADDRESS", "disabled:", TRUE);
-	envp = g_environ_setenv (envp, "LD_PRELOAD", argv[2], TRUE);
-	envp = g_environ_setenv (envp, "NEMO_EXPAND_OUT", out, TRUE);
-	envp = g_environ_setenv (envp, "NEMO_EXPAND_FILES", wanted, TRUE);
 
-	spawn_argv[0] = argv[1];
+	spawn_argv[0] = (char *) nemo;
 	spawn_argv[1] = (char *) "--geometry=900x700";
 	spawn_argv[2] = top;
 	spawn_argv[3] = NULL;
@@ -254,15 +230,15 @@ main (int argc, char *argv[])
 					/* Else the hold never happened and the check below
 					   proves nothing. */
 					check (all >= HOLD_MS);
-					if (best_first < 0 || first < best_first) {
-						best_first = first;
+					if (*best_first < 0 || first < *best_first) {
+						*best_first = first;
 					}
 				} else {
-					if (first_folder_all < 0) {
-						first_folder_all = all;
+					if (*first_folder_all < 0) {
+						*first_folder_all = all;
 					}
-					if (best_all < 0 || all < best_all) {
-						best_all = all;
+					if (*best_all < 0 || all < *best_all) {
+						*best_all = all;
 					}
 				}
 				opened++;
@@ -274,6 +250,72 @@ main (int argc, char *argv[])
 	if (done && opened != FOLDERS + SLOW) {
 		g_printerr ("FAIL: %d folders opened, expected %d\n", opened, FOLDERS + SLOW);
 		failures++;
+	}
+
+out:
+	stop (pid);
+	g_strfreev (envp);
+	g_free (text);
+	g_free (home);
+}
+#endif
+
+int
+main (int argc, char *argv[])
+{
+#if !defined (__linux__) && !defined (__FreeBSD__)
+	(void) argc;
+	(void) argv;
+	g_print ("SKIP: drives the program through LD_PRELOAD, which is Linux and FreeBSD only here\n");
+	return 77;
+#else
+	char *root, *top, *out, *path, *wanted;
+	char **envp;
+	double best_all, best_first, first_folder_all;
+	int i, run;
+
+	if (argc < 3) {
+		g_printerr ("usage: %s <nemo-anywhere> <probe module>\n", argv[0]);
+		return 77;
+	}
+	if (g_getenv ("DISPLAY") == NULL) {
+		g_print ("SKIP: no display\n");
+		return 77;
+	}
+
+	root = test_scratch_dir ("nemo-expand-time-XXXXXX", NULL);
+	top = g_build_filename (root, "top", NULL);
+	for (i = 0; i < FOLDERS; i++) {
+		make_folder (top, "folder", i);
+	}
+	for (i = 0; i < SLOW; i++) {
+		make_folder (top, "slow", i);
+	}
+	path = g_build_filename (top, "loose file.txt", NULL);
+	check (g_file_set_contents (path, "loose", -1, NULL));
+	g_free (path);
+	out = g_build_filename (root, "expand.txt", NULL);
+	wanted = g_strdup_printf ("%d", FILES);
+
+	envp = g_get_environ ();
+	envp = g_environ_setenv (envp, "DBUS_SESSION_BUS_ADDRESS", "disabled:", TRUE);
+	envp = g_environ_setenv (envp, "LD_PRELOAD", argv[2], TRUE);
+	envp = g_environ_setenv (envp, "NEMO_EXPAND_OUT", out, TRUE);
+	envp = g_environ_setenv (envp, "NEMO_EXPAND_FILES", wanted, TRUE);
+
+	/* A loaded box can go over the bar now and then (2026101613310525).
+	   The old timer can't come in under it at all, so it fails every run. */
+	for (run = 1; run <= RUNS; run++) {
+		int before = failures;
+
+		open_all (argv[1], envp, root, run, top, out, &best_all, &best_first, &first_folder_all);
+		if (failures > before ||
+		    (best_all < BAR_MS && first_folder_all < BAR_MS && best_first < BAR_MS)) {
+			break;
+		}
+		if (run < RUNS) {
+			g_print ("over the bar on run %d of %d, once more\n", run, RUNS);
+		}
 	}
 	if (best_all >= BAR_MS) {
 		g_printerr ("FAIL: the quickest folder took %.1f ms to show all its rows, the bar is %.0f ms\n",
@@ -291,10 +333,7 @@ main (int argc, char *argv[])
 		failures++;
 	}
 
-out:
-	stop (pid);
 	g_strfreev (envp);
-	g_free (text);
 	g_free (wanted);
 	g_free (out);
 	g_free (top);

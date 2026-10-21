@@ -504,7 +504,7 @@ An adversarial read of this doc, 2026-10-20. None of it is fixed yet.
 
 - Pick the checkmark color for each bundled theme, and check the rules above against Explorer and Finder on a real desktop.
 
-- Build the model behind the setting with the affirmative switch off, with the same tests per rule and view. Then the affirmative half behind the switch, with its own tests, and the wording table.
+- Build the model behind the setting with the affirmative switch off, with the same tests per rule and view. Then the switch itself and the places its half plugs into, with nothing behind them yet. The affirmative half, with its own tests and the wording table's other column, waits until later.
 
 - Then the Explorer, Finder, and Commander models, each with its own doc first.
 
@@ -517,6 +517,12 @@ An adversarial read of this doc, 2026-10-20. None of it is fixed yet.
 - 2026102016594100: carve out Nemo Anywhere v1 behind the selection model setting. Queued. First step above.
 
 - 2026102016594200: carve out Nemo Classic behind the selection model setting. Queued. Second step above.
+
+- 2026102019174440: build the Nemo Anywhere model with the affirmative switch off. Queued. After both carve-outs.
+
+- 2026102019174477: the affirmative switch and the places it plugs into, with no affirmative behavior. Queued.
+
+- 2026102019174514: the affirmative half itself. Deferred.
 
 - 2026101816495200: a consistent design for copying or moving files when a folder is selected. Open.
 

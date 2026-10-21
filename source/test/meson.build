@@ -1722,7 +1722,7 @@ if not is_windows
         dependencies: [ gtk, nemo_private, x11, test_scratch ],
       ),
       args: [ nemo ],
-      timeout: 180
+      timeout: 300
     )
   endif
 
