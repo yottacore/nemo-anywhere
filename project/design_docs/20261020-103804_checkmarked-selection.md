@@ -209,7 +209,7 @@ Multi-select from the keyboard fights with all of them. A stray click or arrow k
 
 - Ctrl+Home and Ctrl+End: the same as the key alone. Ctrl+Page Up and Ctrl+Page Down switch tabs, and keep doing that.
 
-- Space: see [The space key](#the-space-key).
+- Space: previews, as now, with the affirmative switch off. With it on, see [The space key](#the-space-key).
 
 - Ctrl+A: affirmatively checkmarks and selects every object.
 
@@ -223,7 +223,7 @@ Multi-select from the keyboard fights with all of them. A stray click or arrow k
 
 ### The space key
 
-What it does depends on the selection and on what's already affirmatively checkmarked. Checkmarks outside the selection never change.
+With the [affirmative switch](#the-affirmative-switch) off, Space does what it does today. With it on, Space checkmarks instead of previewing, by the rules below. What it does then depends on the selection and on what's already affirmatively checkmarked. Checkmarks outside the selection never change.
 
 - One object is selected: toggle its checkmark. A temporary one becomes affirmative. An affirmative one goes back to temporary, that is, it's unchecked, and its dim mark shows again only once the view has no affirmative checkmark left.
 
@@ -235,9 +235,9 @@ What it does depends on the selection and on what's already affirmatively checkm
 
 - An app-made selection is a selection like any other, so the rules above apply to it.
 
-- While type-ahead is open, Space goes into the search text, as now.
+- With the switch on or off, Space goes into type-ahead only after a non-space character has been typed there. It never starts type-ahead by itself.
 
-- Space opens the quick preview today. While the switch is on, preview has no key until hotkeys can be assigned in Settings. With the switch off, Space previews as now. Shift+Space opens the alternate way in both, like Shift+Enter.
+- With the switch on, preview has no key. Users can give it one once hotkeys can be assigned in Settings. Shift+Space opens the alternate way with the switch on or off, like Shift+Enter.
 
 ### Tree view
 
@@ -436,7 +436,7 @@ An adversarial read of this doc, 2026-10-20. None of it is fixed yet.
 
 - Ctrl+I for Properties is a Nautilus and Nemo habit, and it goes, even with the switch off.
 
-- With the switch on, quick preview loses Space and gets no key at all for now.
+- With the switch on, quick preview loses Space and has no key until one is assigned in Settings.
 
 - The anchor can't be seen. After a few Ctrl+clicks there's no telling where a Shift+click will range from.
 
