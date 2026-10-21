@@ -84,7 +84,7 @@ Multi-select from the keyboard fights with all of them. A stray click or arrow k
 - Selection: the highlighted objects. One object, a run of them, or scattered ones. It's made the way it is today, by click, drag, and keyboard, and the app makes one on its own after a paste, an undo, a new folder, or for the object named by `--select`. Those are an app-made selection. Selecting never affirmatively checkmarks anything.
 
 - Checkmarked: a state an object is in, in one of 2 ways. Selected and checkmarked are 2 different things that work independently. Commands act on checkmarks.
-	- Affirmatively checkmarked: the user did something that leaves no doubt they meant to pick the object. Only a few things count: the space key, Ctrl+I, the checkmark menu entries, and a drag from the checkmark column. The rules under [Design](#design) say exactly how.
+	- Affirmatively checkmarked: the user did something that leaves no doubt they meant to pick the object. Only a few things count: the space key, Ctrl+A, Ctrl+I, the checkmark menu entries, and a drag from the checkmark column. The rules under [Design](#design) say exactly how.
 	- Temporarily checkmarked: the stand-in. Every selected object is temporarily checkmarked, so if anything is selected, something is checkmarked. The marks are drawn only while nothing in the view is affirmatively checkmarked, and they follow the selection.
 
 - Command: anything that acts on objects. Cut, copy, trash, delete, open, rename, compress, properties, a drag, and the right-click menu.
@@ -166,7 +166,11 @@ Multi-select from the keyboard fights with all of them. A stray click or arrow k
 
 - Right-click on empty space: the folder's own menu, as now.
 
-- Plain left drag from an object: a file drag. It takes the affirmative checkmarks when the object is one of them, else the selection when the object is in it, else that object alone. Checkmarks don't change.
+- Plain left drag from an object, by what the view holds. Checkmarks don't change in any case.
+	- No affirmative checkmarks, and the object isn't selected: as now, the object becomes the selection on its own, and the drag takes it.
+	- No affirmative checkmarks, and the object is selected: as now, the drag takes the whole selection.
+	- The object is affirmatively checkmarked: the drag takes every affirmatively checkmarked object, and ignores the selection. The status bar says that only checked items are going, for as long as the drag lasts plus 3 seconds, or 5 seconds, whichever is longer.
+	- Affirmative checkmarks exist, and the object isn't one of them, selected or not: nothing is dragged. There's no safe answer to invent here, so the pointer turns to the nearest "not allowed" cursor, and the status bar says why, for as long as the drag attempt lasts plus 3 seconds, or 5 seconds, whichever is longer.
 
 - Plain left drag from empty space: a band that replaces the selection, as now.
 	- Icon and compact views: from anywhere between the icons.
@@ -181,7 +185,7 @@ Multi-select from the keyboard fights with all of them. A stray click or arrow k
 - Right drag: from empty space, or from an object that isn't selected, a band that replaces. List view included. From a selected object it's a file drag, and ends with a drop menu, if possible depending on what is dragged to, and the OS. A right-click that doesn't move, opens the menu on release as usual.
 
 - A band moves the focus and anchor to the last object it touched. Checkmarks don't change, with one override:
-	- A left or right drag, with or without modifiers, that starts in list view's checkmark column does what the same drag does from anywhere else, and also affirmatively checkmarks every object the band touched. The affirmative checkmarks get the same treatment as the selection: kept when the drag adds (Ctrl, Ctrl+Shift), dropped when it replaces (plain, Shift, right). This is the only mouse gesture that sets affirmative checkmarks.
+	- A left or right drag, with or without modifiers, that starts in list view's checkmark column does what the same drag does from anywhere else, and also affirmatively checkmarks every object the band touched. The affirmative checkmarks get the same treatment as the selection: kept when the drag adds (Ctrl, Ctrl+Shift), dropped when it replaces (plain, Shift, right). This is the only mouse gesture that sets affirmative checkmarks. Icon and compact views have no column, so there a band from the background is a plain band with no checkmarks.
 
 ### Keyboard
 
@@ -201,11 +205,11 @@ Multi-select from the keyboard fights with all of them. A stray click or arrow k
 
 - Space: see [The space key](#the-space-key).
 
-- Ctrl+A: selects every object, as now. Checkmarks don't change.
+- Ctrl+A: affirmatively checkmarks and selects every object.
 
-- Ctrl+I: inverts the affirmative checkmarks. (Currently it opens properties. That changes to just Alt+Enter, an existing alias.) The temporary marks count as checked, so with 2 objects selected and nothing affirmative, the result is everything but those 2.
+- Ctrl+I: inverts the affirmative checkmarks, and the selection then matches the new checkmarks. If none are left, the selection goes too. The temporary marks count as checked, so with 2 objects selected and nothing affirmative, the result is everything but those 2. (Currently Ctrl+I opens properties. That changes to just Alt+Enter, an existing alias.)
 
-- Ctrl+D: unchecks every object. The selection stays. (Currently it adds a bookmark, see [Open questions](#open-questions).)
+- Ctrl+D: unchecks every object. The selection, and so the temporary marks, stay as they were. This is the one key that changes checkmarks without touching the selection. (Currently it adds a bookmark, see [Open questions](#open-questions).)
 
 - Escape: clears every affirmative checkmark, the selection, and the focus. The range ends and the anchor are null. A second Escape does nothing, and the next arrow key starts at the first object.
 
@@ -249,7 +253,7 @@ What it does depends on the selection and on what's already affirmatively checkm
 
 - The Edit menu gets the same 4, plus Uncheck all (Ctrl+D).
 
-- Edit > Select all (Ctrl+A), Edit > Invert selection (Ctrl+Shift+I), and Select items matching work on the selection, as now. None of them touches a checkmark.
+- Edit > Select all (Ctrl+A) checkmarks and selects every object. Edit > Invert selection becomes Invert checkmarks (Ctrl+I), as under [Keyboard](#keyboard). Select items matching works on the selection, as now, and touches no checkmark.
 
 ### Status bar and dialogs
 
@@ -269,6 +273,8 @@ What it does depends on the selection and on what's already affirmatively checkm
 
 - Messages about file operations say "checked items", not "selected items", when the operation acts on affirmative checkmarks. When the 2 lists are the same, "checked items" is enough.
 
+- The 2 drag messages under [Mouse](#mouse), that only checked items are going, and that an unchecked object can't be dragged while others are checked, show on the status bar for the drag plus 3 seconds, or 5 seconds, whichever is longer.
+
 ### What a command acts on
 
 - The affirmative checkmarks when the view has any, else the selection. Always and only one of the 2. They can differ, and the status bar and dialogs say when they do.
@@ -279,7 +285,7 @@ What it does depends on the selection and on what's already affirmatively checkm
 
 - A selection the app makes on its own, after a paste, an undo, a new folder, or for `--select`, clears the affirmative checkmarks and selects the new objects, which are then temporarily checkmarked.
 
-- A drag is the one exception, under [Mouse](#mouse): it takes what's under the pointer when that isn't affirmatively checkmarked.
+- A drag follows the same rule, under [Mouse](#mouse): checked objects go when there are any, and a drag from an unchecked object while others are checked goes nowhere.
 
 - Where a paste goes when the selection is a folder is its own backlog item, and it should be written in these terms.
 
@@ -303,19 +309,13 @@ Each of these goes against what every file manager, and most lists, have done fo
 
 - Up and Down after a multi-selection count from the selection's ends, as Finder and text editors do. Explorer and GTK count from the focused object.
 
+- A drag from an unchecked object goes nowhere while anything is checked. Everywhere else it would drag that object.
+
 ### Open questions
 
 - The checkmark color in each bundled theme. Each one needs its own, and the fallback green may clash with some. The checkmark does the same job as the text color for anyone who can't tell the color apart.
 
 - Ctrl+D is Add bookmark today. Either Uncheck all takes another key, or the bookmark one moves.
-
-- Up and Down after a Ctrl+arrow move has split the focus from the selection: written above as counting from the focus, Explorer's way. The other choice is always from the range ends.
-
-- A plain drag from an object that isn't affirmatively checkmarked while others are: written above as dragging what's under the pointer, the one exception to "commands act on checkmarks". The other choice is to drag the checkmarks whatever the pointer is on.
-
-- A drag from the checkmark column that replaces the selection: written above as also replacing the affirmative checkmarks. The other choice is that it always adds to them.
-
-- Icon and compact views have no checkmark column, so the column drag override is list view only. Whether a drag that starts on the mark itself should do the same there.
 
 - Ctrl+Up and Ctrl+Down as a jump between folders at the same level in the tree column lost its key to the Explorer focus move. It needs another key, or goes.
 
