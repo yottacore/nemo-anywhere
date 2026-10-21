@@ -26,6 +26,7 @@
 	- [Status bar and dialogs](#status-bar-and-dialogs)
 	- [What a command acts on](#what-a-command-acts-on)
 	- [The setting](#the-setting)
+	- [The affirmative switch](#the-affirmative-switch)
 	- [Where this breaks habits](#where-this-breaks-habits)
 	- [Open questions](#open-questions)
 - [Alternative ideas](#alternative-ideas)
@@ -63,7 +64,9 @@ Multi-select from the keyboard fights with all of them. A stray click or arrow k
 
 - It's one of 6 models behind the "File and folder selection model" setting, and the default. The other 5 are "Nemo Classic", "Nemo Anywhere v1", "Windows Explorer", "macOS Finder", and "Commander". Nemo Anywhere v1 and Nemo Classic are carve-outs of code that exists or existed, and both come before this one. (Our focus and selection code is already too modified to pass for "Classic", so that one is a re-implementation from upstream source.) The other 3 are named here only.
 
-- The name isn't final. "Affirmative checkmark" says what it is, and a friendlier name may replace it.
+- The affirmative half is behind a switch, off by default, under [The affirmative switch](#the-affirmative-switch). With it off, the model is today's selection with dim checkmarks that follow it, the range-ends arrows, and the list view drag rule. The switch is opt-in until real users have tried it.
+
+- The name isn't final. "Affirmative checkmark" names only the half behind the switch, so the model needs a name that fits with the switch either way.
 
 - Terms are defined first, since (for example) my notes this grew from used "selected" for 3 distinct different meanings, and needed to be carefully and painstakingly clarified.
 
@@ -111,7 +114,7 @@ Multi-select from the keyboard fights with all of them. A stray click or arrow k
 
 - The status bar and every file-operation dialog say which of the 2 lists the command acts on, and whether the other one differs.
 
-- The model is a setting on the Advanced tab, and the default is "Affirmative checkmark".
+- The model is a setting on the Advanced tab, and the default is "Affirmative checkmark". Its affirmative half is behind a switch that's off by default, and with it off a command acts on the selection, full stop.
 
 ## Goals
 
@@ -209,7 +212,7 @@ Multi-select from the keyboard fights with all of them. A stray click or arrow k
 
 - Ctrl+I: inverts the affirmative checkmarks, and the selection then matches the new checkmarks. If none are left, the selection goes too. The temporary marks count as checked, so with 2 objects selected and nothing affirmative, the result is everything but those 2. (Currently Ctrl+I opens properties. That changes to just Alt+Enter, an existing alias.)
 
-- Ctrl+D: unchecks every object. The selection, and so the temporary marks, stay as they were. This is the one key that changes checkmarks without touching the selection. (Currently it adds a bookmark, see [Open questions](#open-questions).)
+- Uncheck all has no key, since Ctrl+D is Add bookmark. It's a menu entry, and gets a key once hotkeys can be assigned in Settings. It unchecks every object, and the selection, and so the temporary marks, stay as they were. It's the one command that changes checkmarks without touching the selection.
 
 - Escape: clears every affirmative checkmark, the selection, and the focus. The range ends and the anchor are null. A second Escape does nothing, and the next arrow key starts at the first object.
 
@@ -251,9 +254,11 @@ What it does depends on the selection and on what's already affirmatively checkm
 	- Add selection to checkmarks.
 	- Remove selection from checkmarks.
 
-- The Edit menu gets the same 4, plus Uncheck all (Ctrl+D).
+- The Edit menu gets the same 4, plus Uncheck all, with no key for now.
 
 - Edit > Select all (Ctrl+A) checkmarks and selects every object. Edit > Invert selection becomes Invert checkmarks (Ctrl+I), as under [Keyboard](#keyboard). Select items matching works on the selection, as now, and touches no checkmark.
+
+- With the affirmative switch off, the entries are worded for selection: "Select all", "Select none", "Invert selection", and the 4 checkmark entries aren't shown. The wording table is under [The affirmative switch](#the-affirmative-switch).
 
 ### Status bar and dialogs
 
@@ -297,6 +302,35 @@ What it does depends on the selection and on what's already affirmatively checkm
 
 - Windows Explorer and macOS Finder follow that platform's conventions. Commander is the Norton and Total Commander way, where Insert marks an object and moves down, Space marks it, and the numeric pad's plus, minus, and star mark by pattern and invert. Each of the 3 gets a doc of its own before it's built.
 
+- Under the dropdown, shown only while this model is picked, a checkbox for the affirmative switch below. Off by default.
+
+### The affirmative switch
+
+- One code-level tunable turns the affirmative half of the model off, and the setting above reads the same tunable. Off is the default, since the 2-list behavior is more to learn and possibly confusing, and it has to earn its place with real users as an opt-in.
+
+- Off removes:
+	- Every way to set an affirmative checkmark: the space key, Ctrl+A's checkmark half, Ctrl+I, the checkmark menu entries, and the checkmark column drag override.
+	- Every place that treats the checkmarked group and the selected group differently. A command acts on the selection, full stop.
+	- The dialog alert and the status bar note about the 2 lists differing. The status bar shows only its third line, the selected count.
+	- The drag punt: a drag from an unselected object reselects it and goes, as now, and the not-allowed cursor and its message never show.
+
+- Off keeps:
+	- The dim checkmarks, which follow the selection exactly.
+	- The list view drag rule: a band starts from the checkmark column or the empty space below the rows, and nowhere else.
+	- Every selection rule in this doc, the range-ends arrows and the partial Explorer keys included.
+	- The tree view rules, less the affirmative parts.
+
+- Wording changes with the switch. An incomplete list:
+
+	| Switch off       | Switch on          |
+	| :--------------- | :----------------- |
+	| Select all       | Checkmark all      |
+	| Select none      | Checkmark none     |
+	| Invert selection | Invert checkmarks  |
+	| selected items   | checked items      |
+
+	- "Select none" with the switch off is Uncheck all's slot, and clears the selection. With the switch on, "Checkmark none" is Uncheck all as under [Menus](#menus).
+
 ### Where this breaks habits
 
 Each of these goes against what every file manager, and most lists, have done for decades. They're the point of the model, but a first-time user will trip on some.
@@ -314,8 +348,6 @@ Each of these goes against what every file manager, and most lists, have done fo
 ### Open questions
 
 - The checkmark color in each bundled theme. Each one needs its own, and the fallback green may clash with some. The checkmark does the same job as the text color for anyone who can't tell the color apart.
-
-- Ctrl+D is Add bookmark today. Either Uncheck all takes another key, or the bookmark one moves.
 
 - Ctrl+Up and Ctrl+Down as a jump between folders at the same level in the tree column lost its key to the Explorer focus move. It needs another key, or goes.
 
@@ -373,7 +405,7 @@ Each of these goes against what every file manager, and most lists, have done fo
 
 - Pick the checkmark color for each bundled theme, and the rules above against Explorer and Finder on a real desktop.
 
-- Build the Affirmative checkmark model behind the setting, with the same tests per rule and view.
+- Build the model behind the setting with the affirmative switch off, with the same tests per rule and view. Then the affirmative half behind the switch, with its own tests, and the wording table.
 
 - Then the Explorer, Finder, and Commander models, each with its own doc first.
 
