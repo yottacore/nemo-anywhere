@@ -25,7 +25,8 @@
 /* Preloaded into the real program by test-nemo-selection-rules. Once the
  * window shows $NEMO_SEL_FOLDER, it clicks and types in the folder view named
  * by $NEMO_SEL_VIEW through GTK's own event path, then in the folder tree,
- * and checks each rule of the "Nemo Anywhere v1" selection model. Where the
+ * then opens folders from home, and checks each rule of the "Nemo Anywhere
+ * v1" selection model. Where the
  * next item over depends on the layout, the icon views work it out from where
  * the icons are. One "ok" or "FAIL" line per check goes to $NEMO_SEL_OUT, and
  * "done" at the end. Drags are left to test-nemo-drag-select. */
@@ -53,6 +54,7 @@ static int        waited;
 static guint32    stamp;
 static gboolean   finished;
 static char      *title_before;
+static int        tabs_before;
 static int        last_clicked = -1;
 static gint64     last_click_time;
 
@@ -539,6 +541,14 @@ click_tree_row (GtkTreeView *tree, const char *row, guint modifiers)
 
 /* The title can change more than once on the way to a folder, and a key in
    the tree opens its row a moment later, so it has to sit still a while. */
+static int
+tab_count (void)
+{
+	GtkWidget *notebook = find_widget (window, "GtkNotebook");
+
+	return notebook != NULL ? gtk_notebook_get_n_pages (GTK_NOTEBOOK (notebook)) : -1;
+}
+
 static gboolean
 title_changed (void)
 {
@@ -887,13 +897,53 @@ rules_tick (void)
 		if (!find_pane () || item_count () < 5) {
 			return FALSE;
 		}
+		if (!is_selected (2) && waited < 30) {
+			return FALSE;
+		}
+		want (items (2, -1), "coming back selects the folder just left");
+		tabs_before = tab_count ();
+		item_point (2, &x, &y);
+		stamp += 1000;
+		press_release (bin, 2, x, y, 0);
+		break;
+	case 40:
+		/* Nothing may come, so give it time to. */
+		if (waited < 15) {
+			return FALSE;
+		}
+		report (tab_count () == tabs_before + (list_mode ? 0 : 1),
+			list_mode ? "a middle click on a folder opens no tab, that takes two" :
+				    "a middle click on a folder opens it in a new tab");
+		want (items (2, -1), "and leaves it selected");
+		click (1, 0);
+		tabs_before = tab_count ();
+		key (GDK_KEY_Return, GDK_SHIFT_MASK);
+		break;
+	case 41:
+		if (tab_count () != tabs_before + 1) {
+			return FALSE;
+		}
+		report (TRUE, "Shift+Enter opens the selected folder in a new tab");
+		click (0, 0);
+		key (GDK_KEY_space, 0);
+		want (items (0, -1), "Space leaves the selection alone");
+		tabs_before = tab_count ();
+		key (GDK_KEY_space, GDK_SHIFT_MASK);
+		break;
+	case 42:
+		if (tab_count () != tabs_before + 1) {
+			return FALSE;
+		}
+		report (TRUE, "Shift+Space opens it in a new tab too");
+		report (g_str_has_prefix (gtk_window_get_title (GTK_WINDOW (window)), "Home"),
+			"and new tabs open behind this one");
 		note_title ();
 		item_point (3, &x, &y);
 		stamp += 1000;
 		press_release (bin, 1, x, y, 0);
 		press_release (bin, 1, x, y, 0);
 		break;
-	case 40:
+	case 43:
 		if (!title_changed ()) {
 			return FALSE;
 		}
@@ -947,6 +997,7 @@ tick (G_GNUC_UNUSED gpointer data)
 	} else if (!rules_tick ()) {
 		return G_SOURCE_CONTINUE;
 	}
+
 
 	if (finished) {
 		return G_SOURCE_REMOVE;
