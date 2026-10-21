@@ -790,6 +790,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Sub-tabs don't list on the left (indented from parent and first one selects by default), until the parent tab is activated.
 		- Then the expansion stays open until clicked again.
 	- Note: this changes 2026101009150769, where sub-tabs always show and a parent opens the sub-tab it showed last.
+	- Design: [Planned tabs](design_docs/20261020-121842_settings.md#planned-tabs). Open questions on the keys and the last sub-tab shown are there.
 	- Test case: none yet.
 
 - Settings: search.
@@ -802,8 +803,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- Before the next cut.
 		- Search bar in an unscrollable top area.
-		- Shows literal label matches first, aliases second, fuzzy matches third.
-		- Matches listed like `<tab title> ⏵[ sub tab title ⏵[ etc. ⏵]] setting`, with matched portion in bold, larger, and different theme-aware color.
+	- Design: [Search](design_docs/20261020-121842_settings.md#search). Match order and how a match is shown are there.
 	- Test case: none yet.
 
 - The program's name is typed out in many places. Set it once and use that everywhere.
@@ -822,7 +822,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Notes:
 		- The name may have to change if the Cinnamon team won't allow it, so a rename should be a one-line edit plus a rebuild.
 		- Today there are about 60 C strings with "Nemo" in them, about 20 of them "Nemo Anywhere", plus .ui, .py and data files.
-		- The slug `nemo-anywhere`, the app id `org.NemoAnywhere` and file paths are a bigger rename, split out as 2026101512210893.
+		- The slug `nemo-anywhere`, the app id `org.NemoAnywhere` and file paths are a bigger rename, left for later.
 	- Test case: the new lint check, plus the existing UI case check for the strings it touches.
 
 - When moving a bookmark with the mouse, it should give some kind of indication of where it's going to go *between*.
@@ -907,6 +907,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Requirements:
 		- Before the next cut.
+	- Design: [Planned tabs](design_docs/20261020-121842_settings.md#planned-tabs).
 	- Test case: none yet.
 
 - Compression: "Options" -> "Advanced".
@@ -1037,6 +1038,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Notes:
 		- Today a folder that's mostly images opens in icon view at 500%. It isn't a view of its own.
 		- Its settings are in the new "Image thumbnails" section and "Image thumbnail captions" in 2026102018234905.
+	- Design: its settings are under [Default and Current](design_docs/20261020-121842_settings.md#default-and-current) and [Planned tabs](design_docs/20261020-121842_settings.md#planned-tabs).
 	- Test case: none yet.
 
 - Settings: new tab layout, and tidying across the dialog.
@@ -1050,78 +1052,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- Before the next cut.
 		- Window title: "Settings - Nemo Anywhere".
-		- More vertical space between main sections.
-		- For all numeric settings with units, such as %:
-			- Right-justify the numbers.
-			- Put the units in the text boxes, as uneditable text with appropriate spacing to the right of the numbers, and remove them from the labels.
-		- Now that the settings dialog doesn't need to be as wide as it is: narrow the right content section.
-		- Tabs and new arrangements:
-			- User interface
-				- General. It's what is currently just "Display".
-					- Icon captions:
-						- Move the intro text explaining it to flyover tip text.
-						- Don't assume "Filename" is the first line.
-						- Four boxes instead of three. Defaults:
-							- Name
-							- Size
-							- Date modified
-							- [nothing]
-						- Selection of "None" -> "[nothing]".
-						- Anything with "[nothing]" gets no vertical space in listings.
-					- New section, to the right of "Icon captions", titled "Image thumbnail captions".
-						- Similar four list boxes, but stored separately.
-					- Shortcuts:
-						- Add `[ ] Show the .lnk extension in a link's name`.
-					- Merge the "Date" and "File size" sections.
-						- Name: "Formats".
-						- Show the "Date: " and "Filesize: " dropdowns on the same line.
-				- Content view
-					- Its current name is just "Views", and it's the first top-level tab.
-					- Sub-tabs:
-						- Default
-							- Add a thin horizontal line between the "Remember per-folder settings" and Default/Current sections.
-							- Rearrange the first section on both sub-tabs:
-								- "Default" tab:
-									- `[Copy settings to Current]`, left-aligned.
-								- "Current" tab:
-									- `Current folder: "<folder name>"`
-									- `[Copy settings to Default]  [Forget]`, left-aligned.
-							- New section, to the right of Icon view: "Image thumbnails".
-								- `[ ] Enabled automatic switching`, with flyover tip text.
-								- `Images threshold [   %  -+]`. Default 50%, with flyover tip text.
-								- `Thumbnail size [   %  -+]`. Default 500%, with the '%' in the text box.
-							- "Compact view":
-								- Rename to "Compact view".
-								- `Text size: [   %  -+]`. Default 100%, based on system UI font size.
-								- `[ ] All columns have the same width`
-							- "List view":
-								- Rename to "Detailed view".
-								- Move it to the right of "Compact view", horizontally aligned with "Images view" above.
-								- `Text size: [   %  -+]`. Default 100%, based on system UI font size.
-						- Current:
-							- Update code so that the "Default" and "Current" tabs use the same controls, text, and layout, with only different back-end values and whether enabled or not, so they can't get out of sync.
-				- Misc sizes
-					- `Places text size:      [   %  -+]`. Default 80%, based on system UI font size.
-					- `Tree view text size:   [   %  -+]`. Default 100%, based on system UI font size.
-					- `Settings text size:    [   %  -+]`. Default 100%, based on system UI font size.
-				- Toolbar
-				- List columns
-				- Context menus
-				- Previews:
-					- Tooltips:
-						- Move the text in italics to tooltip text that shows over all the related items.
-			- Advanced
-				- Cache
-					- Formerly just the "Thumbnail cache" section in the "Preview" tab.
-					- Thumbnail cache:
-						- Cache buttons:
-							- Move to the left, on their own line.
-							- Details in italics, under the buttons.
-					- Blake3 checksum: 2026102018234907.
-				- Keyboard: 2026102018234906.
-				- Behavior
-				- Plugins
-				- Document templates
+		- More vertical space between main sections, and a narrower right content section.
+		- Numbers with units are right-justified, with the unit inside the text box.
+		- The tabs regrouped under 2 parent tabs, User interface and Advanced.
+		- The Default and Current sub-tabs use the same controls, text, and layout, so they can't get out of sync.
+	- Design: [Planned tabs](design_docs/20261020-121842_settings.md#planned-tabs) and [Default and Current](design_docs/20261020-121842_settings.md#default-and-current). The full layout and its open questions are there.
+	- Progress log:
+		- 20261020: layout moved to the settings design doc.
 	- Notes:
 		- The thin line under "Remember per-folder settings" is also 2026101816495205.
 	- Test case: none yet.
@@ -1138,6 +1075,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Before the next cut.
 		- Under Advanced, after Cache.
 		- Keyboard shortcuts, displayed and edited (and resettable) like SilkTerm's.
+	- Design: [Keyboard tab](design_docs/20261020-121842_settings.md#keyboard-tab).
 	- Test case: none yet.
 
 - Settings: Blake3 checksum cache options, with persistence across hosts through xattrs.
@@ -1152,16 +1090,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Before the next cut.
 		- A "Blake3 checksum" section under Advanced, Cache, after "Thumbnail cache".
 		- `[ ] Cache whenever files require a full-read anyway.`
-			- Tooltip: "Highly recommended. Note: Always enabled for thumbnail cache operations, unless that feature is turned off."
-		- `[ ] Persist across hosts via xattrs.`
-			- The control is disabled if the previous checkbox is off.
-			- Tooltip:
-				- Pros:
-					- It's a cheap cross-platform, cross-host persistent way to identify unique and/or changed content.
-				- Cons:
-					- Not all file utilities and/or filesystems honor xattrs.
-					- It can throw off some (rare) file utilities that rely on ctime. (Most use mtime, which this doesn't change.)
-					- Some filesystems limit total per-file xattr size.
+		- `[ ] Persist across hosts via xattrs.`, disabled while the one above is off.
+	- Design: [Blake3 checksum section](design_docs/20261020-121842_settings.md#blake3-checksum-section). The tooltips and an open question are there.
+	- Progress log:
+		- 20261020: tooltips moved to the settings design doc.
 	- Test case: none yet.
 
 - On Windows, GLib leaks the new name of every rename in a watched folder.
@@ -1399,23 +1331,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- A drop that offers file contents in place of a path (`FileGroupDescriptorW` and `FileContents`) writes the files into the folder dropped on.
 	- Test case: TBD
-
-- The slug, app id and file paths that carry the program's name are typed out in many places. Give each one constant.
-	- ID: 2026101512210893
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261015-122108
-	- Opened by: t00mietum
-	- Related IDs: 2026101512190015
-	- Requirements:
-		- After the next cut.
-		- One place each for the slug `nemo-anywhere`, the app id `org.NemoAnywhere` and the names in file paths, such as the config folder, the data folder and the installed files.
-		- A rename should take an edit to those constants, a rebuild, and nothing else in the code.
-	- Notes:
-		- Only matters if the name has to change. The display name comes first, in 2026101512190015.
-		- A renamed config folder would need its old settings moved across.
-	- Test case: a lint check that refuses each one typed out anywhere but its constant.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
@@ -3470,7 +3385,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: Avg
 	- Opened: 20261009-073907
 	- Opened by: t00mietum
-	- Related IDs: 2026100815215479, 2026100816170959
+	- Related IDs: 2026100815215479
 	- Target OS: All
 	- Requirements:
 		- A change made in one copy applies to every other running copy right away, with no wait for the settings file to be saved and noticed.
@@ -3485,7 +3400,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- 2 copies changing one setting at once both end with the later change, and so does the file. If the copy that lost had saved first, the one that won saves again.
 			- A copy still starting gets the change from the file after the save. A copy that quits sends what it hasn't sent yet, then saves. If the sender crashes before its save, the others keep the change in memory and write it with their next change.
 			- The file watch seeing the same change again takes nothing and runs no handlers. A hand edit read before the sender's save keeps the change.
-			- A setting going back to its default goes over as a removed line, ready for 2026100816170959.
+			- A setting going back to its default goes over as a removed line.
 			- Random wallpaper: not applicable yet, since that feature isn't built.
 	- Verified: rjvdch2z passes on Linux, also with the CPUs loaded, and under wine. It fails with the copies not sharing (the change only shows 2 to 2.6 s later, once the file has it), with the newer-change check taken out, with the receiving copy saving, with taken values dropped on a reload, and with the stale save left in the file. Full Linux suite, quit and tab move included, and the Windows cross build pass with warnings as errors. Lint clean.
 	- Verified: 20261009, Windows, on vm925w. rjvks1yf, which checks a settings change going across, passes in the native suite at 398c999 and again at 49a54f8. With 3 copies from the release zip at 398c999 in the desktop session, the statusbar turned off in one was gone from the other 2 within 0.7 s, while the settings file still had its old time. The save came about 2.5 s after the change.
@@ -7009,84 +6924,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: none, a code review.
 	- Acceptance signoff: Self-closed: all 45 items under it are Done.
 	- Closed: 20261006-165500
-
-- A setting with an automatic value can be changed on its own, with no master switch to find first.
-	- ID: 2026100816170959
-	- Type: Enhancement
-	- Status: Deferred
-	- Priority|Severity: Avg
-	- Opened: 20261008-161710
-	- Opened by: t00mietum
-	- Target OS: All
-	- Requirements:
-		- A setting the program can work out by itself is automatic when nothing is stored for it. It shows and uses what its rule or preset gives right now.
-		- Changing it stores the new value, for that setting only. Nothing else changes.
-		- Every such setting has its own way back to automatic:
-			- A list choice gets `Automatic` as its first entry.
-			- On or off becomes a 3-entry dropdown: `Automatic`, `On`, `Off`.
-			- A number, text, color or file gets a small clear icon while set by hand. While automatic the field shows the rule's value in a lighter style, and can still be typed in.
-		- Nothing is grayed or disabled for being automatic. A small mark says it is.
-		- A group's switch or presets dropdown is never stored. It is worked out from the settings under it every time it's drawn.
-			- A switch is on when all are automatic, off when none are, and mixed when some are.
-			- A presets dropdown shows the preset they all match, else Custom. Custom can't be picked.
-		- Using the group control changes every setting under it at once:
-			- Switch on, or a mixed switch clicked: all go automatic.
-			- Switch off: each stores the value it shows now, so nothing on screen moves.
-			- A preset picked: each stores that preset's value.
-		- A hand edit to the settings file works the same. A line sets a value, no line means automatic.
-		- The flyover tip of every input control, and of its label, has:
-			- The setting's description, if it has one.
-			- A blank line, when anything follows it.
-			- For an automatic-capable setting, whether it's automatic or set by hand, and what automatic would give.
-			- "Current value" and "Default value" lines, only when they differ.
-	- Note: the problem this solves. In this app now, and in many others, a setting that can't be edited first means hunting down which master switch is stopping it, then changing that. Changing it also brings back every stored value under it, when maybe only the one was wanted.
-	- Progress log:
-		- 20261008: "own value when the override is set or the master is off" would un-gray every setting under a master once one edit turns the master off. Settled on the rule in Decisions instead, which is what was meant.
-		- 20261008: 2 ways to store it:
-			- (a) Only the override flags. The master shows on when no setting under it overrides, and setting it by hand sets or clears every flag under it. Master off by hand writes one line per setting under it.
-			- (b) The master keeps its own value, plus a second setting: `overridesAll`, `overridesNone` or `overridesSome`. All means every setting under it uses its own value, None means every one is gray and automatic, Some means only those with their override flag set use their own value. Setting the master by hand writes 2 lines, whatever the number of settings under it.
-			- The catch with (b): old flags left from an earlier Some would come back the next time it goes to Some. So setting the master by hand also drops every flag under it, which in a file that keeps only non-default values means deleting lines, not writing them.
-		- 20261008: went with (b).
-		- 20261008: changed my mind on all of the above. No grays, and nothing stored for a group. A setting is automatic by storing nothing, and the switch or dropdown is read from the settings under it. Old design moved to [rejected](design_docs/rejected/20261008-171206_settings_under_a_master.md).
-	- Decisions:
-		- 20261008: one table lists every automatic-capable setting, its rule, and its group. One function gives the value in use and whether it's automatic. Nothing reads such a setting around it, and a lint check refuses code that does.
-		- 20261008: going back to automatic throws the hand-set value away. Going manual starts from what is showing.
-		- 20261008: settings that only count while a feature is on, like the choices under "Show tooltips", aren't part of this. They stay as they are.
-		- 20261010: changed my mind. How the settings dialog works stays as it is for now, and the design doc for this is gone. If this comes back, start from silkterm's version of that doc, read only.
-	- Test case: still needs one.
-
-- Update the existing multilanguage translation files to cover only existing and new content.
-	- ID: 2026101405543113
-	- Type: Feature
-	- Status: Deferred
-	- Opened: 20261014-055431
-	- Opened by: t00mietum
-	- Related IDs: 2026101405543151
-	- Target OS: All
-	- Requirements:
-		- After the next cut.
-	- Test case: none, deferred.
-
-- Localization.
-	- ID: 2026101405543151
-	- Type: Feature
-	- Status: Deferred
-	- Opened: 20261014-055431
-	- Opened by: t00mietum
-	- Related IDs: 2026101405543113
-	- Target OS: All
-	- Requirements:
-		- After the next cut.
-		- Chinese, Simplified
-		- Japanese
-		- Portuguese
-		- Spanish, Latin American
-		- Korean
-		- Ukrainian
-		- French
-		- German
-		- Chinese, Traditional
-	- Test case: none, deferred.
 
 - On Windows every launch leaves a small `gdbus-nonce-file-*` in the temp folder.
 	- ID: 2026100714014948
@@ -11295,14 +11132,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: none, repo housekeeping.
 
 ### Deferred
-
-- ✋ Make regular delete/recycle/overwrite confirmation dialogs default to OK.
-	- Opened: 20260917-125804
-	- Design: [20260930-150859_delete_guard.md](design_docs/20260930-150859_delete_guard.md).
-	- This reverses the earlier design intended to guard against an apparent spontaneous deletion bug.
-	- Don't alter the code that optionally provides ultra-protection by showing what will be deleted, how it was invoked, what files, etc.
-	- Only do this once nemo-anywhere has been in reliable use for many days or weeks, including archiving.
-	- Test case: none, deferred.
 
 - ✋ Code review 20260815.
 	- Opened: 20260815-154746
