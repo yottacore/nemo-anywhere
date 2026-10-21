@@ -129,7 +129,7 @@ move_proportionally (const NemoColumnLayoutItem *items,
 
 ## Platform-specific code
 
-Both conventions are in the tree, and which one wins in general is still an open question in [design.md](design.md). What is settled for new code: anything more than a few lines of Windows-only work gets its own file, named `*-win32.c`, with a header that declares a small portable-looking API. `nemo-clipboard-win32.c` and `nemo-trash-win32.c` are the pattern.
+Both conventions are in the tree, and which one wins in general still needs more thought, in [design.md](design.md#needs-more-thought). What is settled for new code: anything more than a few lines of Windows-only work gets its own file, named `*-win32.c`, with a header that declares a small portable-looking API. `nemo-clipboard-win32.c` and `nemo-trash-win32.c` are the pattern.
 
 Short branches stay inline under `#ifdef G_OS_WIN32`. A branch that grows past a screen is a sign it wants its own file.
 

@@ -18,7 +18,7 @@
 - [Design](#design)
 	- [Which window opens](#which-window-opens)
 	- [Counting today](#counting-today)
-	- [Open questions](#open-questions)
+	- [Needs more thought](#needs-more-thought)
 - [Alternative ideas](#alternative-ideas)
 	- [Unconsidered](#unconsidered)
 	- [Rejected](#rejected)
@@ -76,7 +76,7 @@ The Properties window shows what a file or folder is, and lets a few things abou
 
 - There's no Help button. It opened GNOME help pages, which this project doesn't have.
 
-### Open questions
+### Needs more thought
 
 None.
 

@@ -69,7 +69,7 @@ Status: kept current as decisions change, rather than written once. Last read th
 	- [Release artifacts and packaging](#release-artifacts-and-packaging)
 	- [Installing](#installing)
 	- [Dogfooding](#dogfooding)
-- [Open questions](#open-questions)
+- [Needs more thought](#needs-more-thought)
 
 <!-- /TOC -->
 
@@ -901,6 +901,6 @@ Each platform's pipeline publishes one build to a shared drop folder for that pl
 
 - A build already held is settled on its bytes, not its date. The sync layer restamps what it carries, so a date test on its own re-fetched the same build every run.
 
-## Open questions
+## Needs more thought
 
 - How far to push a clean internal platform-abstraction boundary, against per-target `#ifdef`s in the shared files. Both conventions are in the tree today.

@@ -28,7 +28,7 @@
 	- [The setting](#the-setting)
 	- [The affirmative switch](#the-affirmative-switch)
 	- [Where this breaks habits](#where-this-breaks-habits)
-	- [Open questions](#open-questions)
+	- [Needs more thought](#needs-more-thought)
 - [Criticism](#criticism)
 	- [Inconsistencies](#inconsistencies)
 	- [Things users won't like](#things-users-wont-like)
@@ -356,7 +356,7 @@ Each of these goes against what every file manager, and most lists, have done fo
 
 - Ctrl+I inverts. In Nautilus and Nemo it opens Properties.
 
-### Open questions
+### Needs more thought
 
 - The checkmark color in each bundled theme. Each one needs its own, and the fallback green may clash with some. The checkmark does the same job as the text color for anyone who can't tell the color apart.
 

@@ -22,7 +22,7 @@
 	- [Making links](#making-links)
 	- [Shortcuts](#shortcuts)
 	- [Editing links](#editing-links)
-	- [Open questions](#open-questions)
+	- [Needs more thought](#needs-more-thought)
 - [Alternative ideas](#alternative-ideas)
 	- [Unconsidered](#unconsidered)
 	- [Rejected](#rejected)
@@ -162,7 +162,7 @@ Edit link changes an existing link's name and where it points. It is offered onl
 
 - The old link is removed through the delete guard, which removes a link and nothing else.
 
-### Open questions
+### Needs more thought
 
 - A relative symlink between two shares of one server doesn't resolve (2026092813381418).
 

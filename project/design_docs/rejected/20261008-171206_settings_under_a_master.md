@@ -26,7 +26,7 @@
 	- [The settings file](#the-settings-file)
 	- [The settings dialog](#the-settings-dialog)
 	- [Tests](#tests)
-	- [Open questions](#open-questions)
+	- [Needs more thought](#needs-more-thought)
 - [Alternative ideas](#alternative-ideas)
 	- [Unconsidered](#unconsidered)
 	- [Rejected](#rejected)
@@ -216,7 +216,7 @@ Clearing every flag on a hand change of the master stops that. It's the only tim
 
 - The table: every child named in it exists, has one master, and no master is a child.
 
-### Open questions
+### Needs more thought
 
 - None right now.
 
