@@ -1056,6 +1056,17 @@ if is_windows
 endif
 
 if is_windows
+  test('rkrwz70y Console charset win32 test',
+    executable('test-nemo-console-charset-win32',
+      [ 'test-nemo-console-charset-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, test_fence ],
+    ),
+    args: []
+  )
+endif
+
+if is_windows
   test('renz2428 Network win32 test',
     executable('test-nemo-network-win32',
       [ 'test-nemo-network-win32.c' ],

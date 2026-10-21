@@ -1188,21 +1188,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261020: not the long target, since the test's links have short relative targets now. The listing is what the job writes when its first `rar` run, for the links alone, fails: it leaves the links out on purpose and logs "Links couldn't be kept", with what `rar` said. That line wasn't kept from the failed run, so the next one will say why. Same day and load as 2026101916300276, where `rar` also seems to have written an archive short.
 	- Test case: rhr6ggmt.
 
-- rhqxx81r exits 3 under wine with 0 failures.
-	- ID: 2026101416533991
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261014-165341
-	- Opened by: 2026101319265113
-	- Target OS: Windows
-	- Test environment: wine, in `nemo-winbuild`.
-	- Steps to reproduce: run rhqxx81r under wine.
-	- Incorrect behavior: it reports 0 failures and exits 3, after a GLib warning about the console code page.
-	- Expected behavior: exit 0.
-	- Reproduced: 20261014 under wine. Not seen natively.
-	- Test case: rhqxx81r itself.
-
 - GTK may keep a drag window per drag off X11 too.
 	- ID: 2026102020234500
 	- Type: Bug
@@ -1216,6 +1201,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: nothing kept after a drag on any backend.
 	- Possible cause: as in 2026101916044103. On Windows GDK keeps its own ref in its HWND table until the window's destroy message.
 	- Test case: rkneye2c on Windows, which still drops the ref itself off X11.
+
+- rfwwdyvg fails its symlink support check under wine.
+	- ID: 2026102021081038
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261020-210810
+	- Opened by: 2026101416533991
+	- Related IDs: 2026101416533991
+	- Target OS: Windows
+	- Test environment: wine, in `nemo-winbuild`.
+	- Steps to reproduce: run rfwwdyvg under wine.
+	- Incorrect behavior: `test-nemo-link-copy.c:185` fails. `nemo_link_kinds_supported` leaves out file symlinks, since `nemo_win32_link_symlinks_allowed` couldn't make one in its own temp folder, but `nemo_link_create` then makes one in the test's folder. rhqxx81r says symlinks aren't permitted on the same run. The code page bail-out in 2026101416533991 used to hide this.
+	- Expected behavior: the probe and a real create agree.
+	- Reproduced: 20261020 under wine. rfwwdyvg passes natively on vm925w and b29w.
+	- Possible cause: something in wine that differs between the two calls, such as the temp folder from `g_dir_make_tmp` or the probe running first. Not looked into yet.
+	- Test case: rfwwdyvg.
 
 - On Windows, a file that isn't on disk yet, such as a mail attachment, can't be dropped onto the window.
 	- ID: 2026101416534066
@@ -3442,6 +3444,28 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- rhqxx81r exits 3 under wine with 0 failures.
+	- ID: 2026101416533991
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261014-165341
+	- Opened by: 2026101319265113
+	- Related IDs: 2026102021081038
+	- Target OS: Windows
+	- Test environment: wine, in `nemo-winbuild`.
+	- Steps to reproduce: run rhqxx81r under wine.
+	- Incorrect behavior: it reports 0 failures and exits 3, after a GLib warning about the console code page.
+	- Expected behavior: exit 0.
+	- Reproduced: 20261014 under wine. Not seen natively. Again 20261020: rfwwdyvg bails out the same way.
+	- Actual cause: a wine difference, not a fault in the app or the test. With no console, wine-10.0's `GetConsoleOutputCP` fails with `ERROR_INVALID_ACCESS`. Windows gives `ERROR_INVALID_HANDLE`, the one error GLib 2.88 takes quietly. GLib looks up the console code page the first time `g_strerror` sees an errno, and whenever the default log writer formats a line, so it warns there unless `LANG` names a charset. `g_test_init` makes every warning fatal, so the test aborts with exit 3 after its last line. The wine suite logged the warning 253 times, and it was fatal in rhqxx81r and rfwwdyvg.
+	- Actual fix: the cross file's exe wrapper runs wine with `LANG=C.UTF-8`, so GLib reads the charset from `LANG` and never asks the console. Wine's Windows locale stays en-US with code pages 1252 and 437, the same as with `LANG` unset. A test exe run by hand under wine needs the same `LANG`.
+	- Branch: wine3
+	- Test case: rkrwz70y, Console charset win32 test. It asks GLib for the console charset and an errno message and fails on any GLib warning.
+	- Verified: rkrwz70y failed under wine before the fix and passes after. rhqxx81r passes under wine. The wine suite fails the same tests as before, less rhqxx81r, and logs no code page warning. Only the 2 timeouts moved, under 8 jobs; both tests pass alone. rfwwdyvg now fails 1 real check instead of bailing out (2026102021081038).
+	- Acceptance signoff: Self-closed: the cause is shown under wine with a probe, the fix only touches how wine runs tests, and rkrwz70y keeps it from coming back.
+	- Closed: 20261020-210810
 
 - A slow sub-folder count holds back the rows of pictures listed after it.
 	- ID: 2026101516055252
