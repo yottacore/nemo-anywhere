@@ -457,6 +457,9 @@ selection_changed_timer_callback(FMTreeView *view)
 	GtkTreeIter iter;
 	GtkTreeSelection *selection;
 
+	/* every return below ends the timeout */
+	view->details->selection_changed_timer = 0;
+
 	/* no activation if popup menu is open */
 	if (view->details->popup_file != NULL) {
 		return FALSE;
@@ -1526,6 +1529,92 @@ icon_data_func (G_GNUC_UNUSED GtkTreeViewColumn *tree_column,
                   NULL);
 }
 
+/* The tree pane's selection and focus rules, one set per selection model.
+   GtkTreeView's own key and click handling is part of each set, through what
+   these let pass. See design_docs/20261020-103804_checkmarked-selection.md,
+   "The setting". */
+typedef struct {
+	void (*selection_changed) (GtkTreeSelection *selection, FMTreeView *view);
+	gboolean (*button_press) (GtkTreeView *treeview, GdkEventButton *event, FMTreeView *view);
+	gboolean (*button_release) (GtkTreeView *treeview, GdkEventButton *event, FMTreeView *view);
+	gboolean (*key_press) (GtkWidget *widget, GdkEventKey *event, gpointer user_data);
+} TreeRules;
+
+static const TreeRules rules_anywhere_v1 = {
+	.selection_changed = selection_changed_callback,
+	.button_press = button_pressed_callback,
+	.button_release = button_released_callback,
+	.key_press = key_press_callback,
+};
+
+/* Upstream 6.6.4: the menu opens on the press, and a long press is a press. */
+static gboolean
+classic_button_pressed_callback (GtkTreeView *treeview, GdkEventButton *event, FMTreeView *view)
+{
+	g_return_val_if_fail (FM_IS_TREE_VIEW (view), GDK_EVENT_PROPAGATE);
+
+	if (event->button == 3) {
+		popup_menu (view, event);
+		return GDK_EVENT_STOP;
+	}
+	/* The middle click is the same in both. */
+	if (event->button == 2) {
+		return button_pressed_callback (treeview, event, view);
+	}
+	return GDK_EVENT_PROPAGATE;
+}
+
+static gboolean
+classic_button_released_callback (G_GNUC_UNUSED GtkTreeView *treeview,
+				  G_GNUC_UNUSED GdkEventButton *event,
+				  G_GNUC_UNUSED FMTreeView *view)
+{
+	return GDK_EVENT_PROPAGATE;
+}
+
+static const TreeRules rules_classic = {
+	.selection_changed = selection_changed_callback,
+	.button_press = classic_button_pressed_callback,
+	.button_release = classic_button_released_callback,
+	.key_press = key_press_callback,
+};
+
+static const TreeRules *
+tree_rules (void)
+{
+	switch (nemo_global_preferences_get_selection_model ()) {
+	case NEMO_SELECTION_MODEL_ANYWHERE_V1:
+		return &rules_anywhere_v1;
+	case NEMO_SELECTION_MODEL_CLASSIC:
+		return &rules_classic;
+	}
+	g_return_val_if_reached (&rules_anywhere_v1);
+}
+
+static void
+model_selection_changed (GtkTreeSelection *selection, FMTreeView *view)
+{
+	tree_rules ()->selection_changed (selection, view);
+}
+
+static gboolean
+model_button_press (GtkTreeView *treeview, GdkEventButton *event, FMTreeView *view)
+{
+	return tree_rules ()->button_press (treeview, event, view);
+}
+
+static gboolean
+model_button_release (GtkTreeView *treeview, GdkEventButton *event, FMTreeView *view)
+{
+	return tree_rules ()->button_release (treeview, event, view);
+}
+
+static gboolean
+model_key_press (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
+{
+	return tree_rules ()->key_press (widget, event, user_data);
+}
+
 static void
 create_tree (FMTreeView *view)
 {
@@ -1649,21 +1738,21 @@ create_tree (FMTreeView *view)
 			   GTK_WIDGET (view->details->tree_widget));
 
 	g_signal_connect_object (gtk_tree_view_get_selection (GTK_TREE_VIEW (view->details->tree_widget)), "changed",
-				 G_CALLBACK (selection_changed_callback), view, 0);
+				 G_CALLBACK (model_selection_changed), view, 0);
 
 	g_signal_connect (G_OBJECT (view->details->tree_widget), 
 			  "row-activated", G_CALLBACK (row_activated_callback),
 			  view);
 
 	g_signal_connect (G_OBJECT (view->details->tree_widget), 
-			  "button_press_event", G_CALLBACK (button_pressed_callback),
+			  "button_press_event", G_CALLBACK (model_button_press),
 			  view);
 	g_signal_connect (G_OBJECT (view->details->tree_widget),
-			  "button-release-event", G_CALLBACK (button_released_callback),
+			  "button-release-event", G_CALLBACK (model_button_release),
 			  view);
 
     g_signal_connect (G_OBJECT (view->details->tree_widget), 
-              "key-press-event", G_CALLBACK (key_press_callback),
+              "key-press-event", G_CALLBACK (model_key_press),
               view);
 
 	slot = nemo_window_get_active_slot (view->details->window);

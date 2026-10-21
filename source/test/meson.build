@@ -1476,14 +1476,42 @@ if not is_windows
     include_directories: [ rootInclude, ],
     dependencies: [ gtk ],
   )
+  drag_select = executable('test-nemo-drag-select',
+    [ 'test-nemo-drag-select.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ glib, gio, test_scratch ],
+  )
   test('rk7yvgse Drag select test',
-    executable('test-nemo-drag-select',
-      [ 'test-nemo-drag-select.c' ],
-      include_directories: [ rootInclude, ],
-      dependencies: [ glib, gio, test_scratch ],
-    ),
+    drag_select,
     args: [ nemo, drag_select_probe ],
     timeout: 240
+  )
+  test('rkts3far Drag select test, Nemo Classic',
+    drag_select,
+    args: [ nemo, drag_select_probe, 'nemo-classic' ],
+    timeout: 240
+  )
+
+  # Preloaded too; it clicks and types from inside the program.
+  selection_rules_probe = shared_module('test-nemo-selection-rules-probe',
+    [ 'test-nemo-selection-rules-probe.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk ],
+  )
+  selection_rules = executable('test-nemo-selection-rules',
+    [ 'test-nemo-selection-rules.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ glib, gio, test_scratch ],
+  )
+  test('rktkms8a Selection rules test',
+    selection_rules,
+    args: [ nemo, selection_rules_probe ],
+    timeout: 300
+  )
+  test('rktqpp37 Selection rules test, Nemo Classic',
+    selection_rules,
+    args: [ nemo, selection_rules_probe, 'nemo-classic' ],
+    timeout: 300
   )
 
   icon_atk_probe = shared_module('test-nemo-icon-atk-probe',
@@ -2318,17 +2346,18 @@ if is_windows
   test('rhtwm2c8 Share check does no I/O', share_win32, args: [ 'share' ])
   test('rhtwm2c9 Junction to a missing folder lists', share_win32, args: [ 'dangling' ])
 
+  drives_win32 = executable('test-nemo-drives-win32',
+    [ 'test-nemo-drives-win32.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_fence ],
+  )
   # Maps a free drive letter for the run, so it waits for nothing else that
   # lists the drives.
-  test('rjhvmm6f Mapped drive not asked',
-    executable('test-nemo-drives-win32',
-      [ 'test-nemo-drives-win32.c' ],
-      include_directories: [ rootInclude, ],
-      dependencies: [ gtk, nemo_private, test_fence ],
-    ),
+  test('rjhvmm6f Mapped drive not asked', drives_win32,
     args: [],
     is_parallel: false,
   )
+  test('rktexj0a Drive names asked for only when shown', drives_win32, args: [ 'names' ])
 
   test('rhtwm2ca Permissions source test',
     executable('test-nemo-perm-source-win32',

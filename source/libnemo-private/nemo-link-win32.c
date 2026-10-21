@@ -366,10 +366,37 @@ try_symlink (const char *target_path,
 	ok = CreateSymbolicLinkW ((LPCWSTR) w_link, (LPCWSTR) w_target, flags) != 0;
 	*win_error = ok ? 0 : GetLastError ();
 
+	/* Wine answers yes and makes nothing, so only a link that is there counts. */
+	if (ok) {
+		DWORD attributes = GetFileAttributesW ((LPCWSTR) w_link);
+
+		if (attributes == INVALID_FILE_ATTRIBUTES || !(attributes & FILE_ATTRIBUTE_REPARSE_POINT)) {
+			ok = FALSE;
+			*win_error = ERROR_NOT_SUPPORTED;
+		}
+	}
+
 	g_free (w_target);
 	g_free (w_link);
 
 	return ok;
+}
+
+static gboolean
+make_symlink (const char *target_path,
+              const char *link_path,
+              gboolean    target_is_dir,
+              DWORD      *win_error)
+{
+	if (try_symlink (target_path, link_path, target_is_dir,
+			 SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE, win_error)) {
+		return TRUE;
+	}
+
+	/* Windows before 1703 refuses the unprivileged flag itself rather than
+	   the call, so a second attempt without it covers those. */
+	return *win_error == ERROR_INVALID_PARAMETER &&
+	       try_symlink (target_path, link_path, target_is_dir, 0, win_error);
 }
 
 static void
@@ -703,15 +730,7 @@ nemo_win32_link_create (const char         *target,
 	if (kind == NEMO_LINK_JUNCTION) {
 		ok = try_junction (resolved, link_path, &win_error);
 	} else {
-		gboolean want_dir = (kind == NEMO_LINK_DIR_SYMLINK);
-
-		ok = try_symlink (resolved, link_path, want_dir,
-				  SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE, &win_error);
-		/* Windows before 1703 refuses the unprivileged flag itself rather than
-		   the call, so a second attempt without it covers those. */
-		if (!ok && win_error == ERROR_INVALID_PARAMETER) {
-			ok = try_symlink (resolved, link_path, want_dir, 0, &win_error);
-		}
+		ok = make_symlink (resolved, link_path, kind == NEMO_LINK_DIR_SYMLINK, &win_error);
 	}
 
 	g_free (resolved);
@@ -826,13 +845,7 @@ nemo_win32_link_create_default (const char  *target_path,
 		}
 	}
 
-	if (try_symlink (target_path, link_path, target_is_dir,
-			 SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE, &win_error)) {
-		return TRUE;
-	}
-
-	if (win_error == ERROR_INVALID_PARAMETER &&
-	    try_symlink (target_path, link_path, target_is_dir, 0, &win_error)) {
+	if (make_symlink (target_path, link_path, target_is_dir, &win_error)) {
 		return TRUE;
 	}
 

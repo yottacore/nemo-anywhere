@@ -819,6 +819,28 @@ exists (const char *dir, const char *name)
 	return there;
 }
 
+/* What rar itself finds in an archive the library listed short, so a miss
+   says which of the two is wrong (2026101913111713). */
+static void
+rar_lists (const char *archive_path, const char *password)
+{
+	char *rar = g_find_program_in_path ("rar");
+	char *pass = g_strconcat ("-p", password != NULL ? password : "-", NULL);
+	const char *argv[] = { rar, "lb", pass, "--", archive_path, NULL };
+	char *out = NULL;
+	int status = -1;
+
+	if (rar != NULL &&
+	    g_spawn_sync (NULL, (char **) argv, NULL, G_SPAWN_STDERR_TO_DEV_NULL, NULL, NULL,
+			  &out, NULL, &status, NULL)) {
+		g_strdelimit (out, "\n", ' ');
+		g_printerr ("  rar lists (status %d): %s\n", status, out);
+	}
+	g_free (out);
+	g_free (pass);
+	g_free (rar);
+}
+
 static void
 describe (NemoArchiveFormat format, const Row *row)
 {
@@ -962,6 +984,9 @@ run_row (const char *tmp, const char *outside, int number,
 					g_printerr ("  in %s\n", archive_name);
 					dump_entries ("wanted", want);
 					dump_entries ("found", found);
+					if (backend == NEMO_ARCHIVE_BACKEND_RAR) {
+						rar_lists (archive_path, options.password);
+					}
 				}
 			}
 
@@ -1992,6 +2017,83 @@ check_patterns (const char *tmp, const char *outside, NemoArchiveFormat format,
 }
 #endif
 
+#ifndef G_OS_WIN32
+/* rar failing the run that puts the links in first fails the job, with what
+   it said. It used to drop the links as if the options couldn't keep them
+   (2026101913111713). A script ahead of rar on the line fails that run only. */
+static int
+check_links_run_fails (const char *tmp, GtkWidget *window, NemoProgressInfoManager *manager)
+{
+	NemoConfigGroup *group = nemo_config_get_group (NEMO_ARCHIVE_COMMANDS_GROUP);
+	char *root = g_build_filename (tmp, "links-run-fails", NULL);
+	char *held = g_build_filename (root, "held", NULL);
+	char *good = g_build_filename (held, "good", NULL);
+	char *gone = g_build_filename (held, "gone", NULL);
+	char *dest = g_build_filename (root, "held.rar", NULL);
+	char *script = g_build_filename (root, "balk.sh", NULL);
+	char *quoted = g_shell_quote (script);
+	char *edited = g_strconcat (quoted, " ", NEMO_ARCHIVE_COMMAND_RAR_DEFAULT, NULL);
+	static const char balk[] =
+		"#!/bin/sh\n"
+		"echo \"$@\" >> \"$0.log\"\n"
+		"for a in \"$@\"; do [ \"$a\" = \"-r-\" ] && { echo 'balked at the links' >&2; exit 2; }; done\n"
+		"exec \"$@\"\n";
+	NemoArchiveOptions options;
+	GString *said = g_string_new (NULL);
+	GList *sources;
+	gboolean ok;
+	int warnings, errors, asked;
+	int before = failures;
+
+	g_mkdir_with_parents (held, 0700);
+	write_bytes (held, "a.txt", "alpha", 5);
+	write_bytes (root, "balk.sh", balk, sizeof (balk) - 1);
+	check (g_chmod (script, 0700) == 0);
+	write_bytes (root, "target.txt", "target", 6);
+	check (nemo_link_create (".." G_DIR_SEPARATOR_S "target.txt", good, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
+	check (nemo_link_create ("nowhere", gone, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
+	nemo_config_set_string (group, NEMO_ARCHIVE_COMMAND_KEY_RAR, edited);
+
+	/* Under Follow, the link that leads nowhere goes in first, as a link,
+	   and good is followed by the real run. */
+	options_for (NEMO_ARCHIVE_FORMAT_RAR, &options);
+	options.links.symlinks = ARC_LINK_FOLLOW;
+	sources = g_list_append (NULL, g_file_new_for_path (held));
+	ok = run_single (sources, dest, &options, window, manager, &warnings, &errors, &asked, said);
+
+	check (!ok);
+	check (errors == 1);
+	check (warnings == 0);
+	check (strstr (said->str, "balked at the links") != NULL);
+	check (!g_file_test (dest, G_FILE_TEST_EXISTS));
+	check (exists (held, "gone"));
+	if (failures > before) {
+		char *log_path = g_strconcat (script, ".log", NULL);
+		char *ran = NULL;
+
+		g_file_get_contents (log_path, &ran, NULL, NULL);
+		g_printerr ("  in links-run-fails\n%s  ran: %s\n", said->str, ran != NULL ? ran : "nothing");
+		g_free (ran);
+		g_free (log_path);
+	}
+
+	nemo_config_reset (group, NEMO_ARCHIVE_COMMAND_KEY_RAR);
+	nemo_archive_options_clear (&options);
+	g_list_free_full (sources, g_object_unref);
+	g_string_free (said, TRUE);
+	g_free (edited);
+	g_free (quoted);
+	g_free (script);
+	g_free (dest);
+	g_free (gone);
+	g_free (good);
+	g_free (held);
+	g_free (root);
+
+	return 1;
+}
+#endif
+
 /* The same cases with the lines in the settings edited the way that once let
    a pattern through: 7-Zip without -spd, and rar with -r. The app adds what
    the line needs at run time. */
@@ -2319,6 +2421,11 @@ main (int argc, char *argv[])
 		nemo_archive_hide_backend (NEMO_ARCHIVE_BACKEND_7Z, FALSE);
 	}
 	number += check_edited_lines (tmp, outside, window, manager);
+#ifndef G_OS_WIN32
+	if (with_links && nemo_archive_format_available (NEMO_ARCHIVE_FORMAT_RAR)) {
+		number += check_links_run_fails (tmp, window, manager);
+	}
+#endif
 
 	purge_recycled (home);
 

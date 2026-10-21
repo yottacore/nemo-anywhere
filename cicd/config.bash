@@ -123,6 +123,12 @@ FUZZ_CMD=(bash "${DOCKER_RUN}" "fuzz" "FUZZ_SECS=${FUZZ_SECS} NEMO_TEST_JOBS=${C
 ## libraries under GTK are listed in linux/sanitizers.supp.
 SANITIZE_CMD=(bash "${DOCKER_RUN}" "sanitizers" "NEMO_TEST_JOBS=${CICD_MAX_JOBS:-2} bash /src/cicd/linux/test-sanitizers.bash")
 
+## Stage 5 (after the cross build): gcc's -fanalyzer and the clang analyzer over
+## both compile lists - READY, report only for now. Fails on a tracked .c that
+## neither build compiles, or a missed planted fault. Left out of --quick and the
+## gate. Backlog 2026101619020505.
+ANALYZE_CMD=(bash cicd/utility/analyze.bash)
+
 ## Stage 3 (after lints): dependency policy (licenses/advisories). NOT READY - unset.
 ## NEEDS: a C-world equivalent if wanted (there is no Cargo.lock to police); likely
 ## not applicable until there are vendored deps.

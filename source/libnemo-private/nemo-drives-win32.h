@@ -58,7 +58,8 @@ char *nemo_drive_win32_remote_path (char letter);
    GLib asks the shell for each one's name as the list is made, and for its
    icon when drawn, so a letter mapped to a share that is not answering held
    the side pane for the network timeout. A mapped drive here is named and
-   drawn from its letter and its entry instead.
+   drawn from its letter and its entry instead. A name is made only when it is
+   first asked for.
    Returns: (transfer full): free with g_list_free_full and g_object_unref. */
 GList *nemo_drives_win32_get_mounts (void);
 

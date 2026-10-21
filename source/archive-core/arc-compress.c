@@ -1217,6 +1217,19 @@ names_to_list (GList *list, GPtrArray *names)
 	return list;
 }
 
+/* rar can end with nothing but blank lines, which says nothing. */
+static void
+fail_run (ArcCompress  *job,
+	  GString      *output,
+	  const GError *error)
+{
+	char *said = output_tail (output);
+
+	job_fail (job, _("The archive couldn't be created."),
+		  said[0] != '\0' ? said : (error != NULL ? error->message : NULL));
+	g_free (said);
+}
+
 static gboolean
 run_command (ArcCompress *job)
 {
@@ -1276,22 +1289,18 @@ run_command (ArcCompress *job)
 		/* Its 0 to 100 would only go back to 0 for the rest. */
 		job->bar_pulses = plan.roots->len > 0;
 		any = run_tool (job, program, base_path, archive_path, plan.links, none,
-				TRUE, TRUE, NULL, output, NULL);
+				TRUE, TRUE, NULL, output, &error);
 		job->bar_pulses = FALSE;
 		g_ptr_array_unref (none);
-		/* Left out after all, and named. */
+		/* The plan already left out every link the tool can't keep, so
+		   this is the tool failing, not the options. 2026101913111713 */
 		if (!any && !job_aborted (job)) {
-			char *said = output_tail (output);
-			guint i;
-
-			g_warning ("Links couldn't be kept, so they are left out: %s", said);
-			g_free (said);
-			arc_remove_own (&job->host, job->destination);
-			for (i = 0; i < plan.links->len; i++) {
-				job->passed = g_list_prepend (job->passed,
-							      g_strdup (g_ptr_array_index (plan.links, i)));
-			}
+			fail_run (job, output, error);
+			g_clear_error (&error);
+			g_string_free (output, TRUE);
+			goto out;
 		}
+		g_clear_error (&error);
 		g_string_truncate (output, 0);
 	}
 	if (job_aborted (job)) {
@@ -1316,12 +1325,7 @@ run_command (ArcCompress *job)
 	ok = run_tool (job, program, base_path, archive_path, plan.roots, plan.skips,
 		       plan.keep, FALSE, known, output, &error);
 	if (!ok && !job_aborted (job)) {
-		char *said = output_tail (output);
-
-		/* rar can end with nothing but blank lines, which says nothing. */
-		job_fail (job, _("The archive couldn't be created."),
-			  said[0] != '\0' ? said : (error != NULL ? error->message : NULL));
-		g_free (said);
+		fail_run (job, output, error);
 	}
 	g_clear_error (&error);
 	g_string_free (output, TRUE);

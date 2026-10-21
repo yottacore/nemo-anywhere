@@ -1,0 +1,320 @@
+#!/usr/bin/env python3
+
+# Static analyzers over the C build: gcc's -fanalyzer and the clang analyzer.
+# cicd/utility/analyze.bash drives it; see there for the stage itself.
+#
+#   run      Inside a build container. Runs one analyzer over every C file in a
+#            compile_commands.json and prints each file's diagnostics, paths
+#            made relative to the repo.
+#   cover    Fails when a tracked .c is in neither compile list, or when a line
+#            of the unbuilt list no longer applies.
+#   count    Counts unique findings per area from run's logs.
+#   planted  Inside a build container. Runs one analyzer over a planted leak and
+#            null dereference, and fails unless it reports both.
+#
+# --self-test runs cover and count over made-up input, the -Werror form of a
+# gcc finding included, since a parser that only knows "warning:" counts 0.
+# Test ID: rktsh374
+#
+# Syntax: analyze.py run --tool gcc|clang --db <compile_commands.json> [--jobs N]
+#         analyze.py cover <repo root> <unbuilt list> <db>...
+#         analyze.py count <repo root> <log>...
+#         analyze.py planted --tool gcc|clang --cc <compiler>
+#         analyze.py --self-test
+
+# Copyright (c) 2026 t00mietum
+# Licensed under The MIT License (MIT). Full text at:
+#     https://mit-license.org/
+# SPDX-License-Identifier: MIT
+
+import concurrent.futures
+import json
+import os
+import re
+import shlex
+import shutil
+import signal
+import subprocess
+import sys
+import tempfile
+
+SRC = "/src/"
+TU_TIMEOUT = int(os.environ.get("ANALYZE_TU_TIMEOUT", "900"))
+VENDORED = ("vendor/", "source/cut-n-paste-code/")
+TESTS = ("source/test/", "source/fuzz/")
+AREAS = ("vendored", "inherited", "ours", "tests", "system")
+
+# gcc: "f.c:1:2: warning: ... [-Wanalyzer-x]", or "error: ... [-Werror=analyzer-x]".
+GCC_RE = re.compile(r"^(\S[^:]*):(\d+):(\d+): (?:warning|error): .*\[-W(?:error=)?(analyzer-[a-z0-9-]+)\]$")
+# clang: checker names are dotted, such as core.NullDereference or unix.Malloc.
+CLANG_RE = re.compile(r"^(\S[^:]*):(\d+):(\d+): warning: .*\[((?:alpha|apiModeling|core|cplusplus|deadcode|nullability|optin|security|unix|valist)\.[A-Za-z0-9_.]+)\]$")
+DIAG_RE = re.compile(r"^(\S[^:]*):(\d+):(\d+): ")
+DROP_WITH_ARG = {"-o", "-MF", "-MQ", "-MT"}
+DROP = {"-MD", "-MMD", "-Werror", "-pipe"}
+
+
+def load_db(path):
+    with open(path) as f:
+        entries = json.load(f)
+    seen = {}
+    for e in entries:
+        full = os.path.normpath(os.path.join(e["directory"], e["file"]))
+        seen.setdefault(full, e)
+    return seen
+
+
+def analyzer_argv(entry, tool, clang):
+    argv = entry.get("arguments") or shlex.split(entry["command"])
+    out = []
+    skip = False
+    for a in argv[1:]:
+        if skip:
+            skip = False
+            continue
+        if a in DROP_WITH_ARG:
+            skip = True
+            continue
+        if a in DROP or a.startswith("-flto") or a.startswith("-fdiagnostics-color"):
+            continue
+        out.append(a)
+    if tool == "gcc":
+        return [argv[0]] + out + ["-fanalyzer", "-fdiagnostics-plain-output", "-o", "/dev/null"]
+    # The mingw driver name tells clang the target; it reads the same headers.
+    target = ["--target=x86_64-w64-mingw32"] if "mingw32" in os.path.basename(argv[0]) else []
+    out = [a for a in out if a != "-c"]
+    return [clang] + target + out + ["--analyze", "--analyzer-output", "text", "-fno-color-diagnostics",
+                                     "-Wno-unknown-warning-option", "-Wno-unused-command-line-argument", "-o", "/dev/null"]
+
+
+def rel(directory, path):
+    full = os.path.normpath(os.path.join(directory, path))
+    return full[len(SRC):] if full.startswith(SRC) else full
+
+
+def run_one(full, entry, tool, clang):
+    argv = analyzer_argv(entry, tool, clang)
+    # Its own group, so a timeout takes cc1 down too, not just the driver.
+    p = subprocess.Popen(argv, cwd=entry["directory"], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                         stderr=subprocess.STDOUT, text=True, errors="replace", start_new_session=True)
+    try:
+        text = p.communicate(timeout=TU_TIMEOUT)[0]
+        rc = p.returncode
+    except subprocess.TimeoutExpired:
+        os.killpg(p.pid, signal.SIGKILL)
+        p.communicate()
+        rc, text = 124, "timed out after %d s\n" % TU_TIMEOUT
+    lines = []
+    for line in text.splitlines():
+        m = DIAG_RE.match(line)
+        if m:
+            line = rel(entry["directory"], m.group(1)) + line[len(m.group(1)):]
+        lines.append(line)
+    return "### %s rc=%d\n%s" % (rel("/", full), rc, "\n".join(lines) + ("\n" if lines else ""))
+
+
+def cmd_run(args):
+    tool = args[args.index("--tool") + 1]
+    db = args[args.index("--db") + 1]
+    jobs = int(args[args.index("--jobs") + 1]) if "--jobs" in args else max(1, (os.cpu_count() or 2) // 2)
+    clang = None
+    if tool == "clang":
+        clang = shutil.which("clang") or shutil.which("clang-19")
+        if not clang:
+            print("### SKIP no clang in this container")
+            return 77
+    entries = sorted((f, e) for f, e in load_db(db).items() if f.startswith(SRC) and f.endswith(".c"))
+    with concurrent.futures.ThreadPoolExecutor(jobs) as pool:
+        for block in pool.map(lambda fe: run_one(fe[0], fe[1], tool, clang), entries):
+            sys.stdout.write(block)
+            sys.stdout.flush()
+    return 0
+
+
+PLANTED = """#include <stdlib.h>
+int planted_leak(int n) { int *p = malloc(4 * sizeof *p); if (!p) return -1; p[0] = n; return p[0]; }
+int planted_null(int n) { int *q = 0; if (n > 1) return 0; return *q; }
+"""
+
+
+def cmd_planted(args):
+    tool = args[args.index("--tool") + 1]
+    cc = args[args.index("--cc") + 1]
+    clang = None
+    if tool == "clang":
+        clang = shutil.which("clang") or shutil.which("clang-19")
+        if not clang:
+            print("### SKIP no clang in this container")
+            return 77
+    with tempfile.TemporaryDirectory() as tmp:
+        with open(os.path.join(tmp, "planted.c"), "w") as f:
+            f.write(PLANTED)
+        block = run_one(os.path.join(tmp, "planted.c"),
+                        {"directory": tmp, "file": "planted.c", "arguments": [cc, "-Wall", "-c", "planted.c", "-o", "planted.o"]},
+                        tool, clang)
+    sys.stdout.write(block)
+    found = {m.group(4) for m in (GCC_RE.match(x) or CLANG_RE.match(x) for x in block.splitlines()) if m}
+    want = {"gcc": {"analyzer-malloc-leak", "analyzer-null-dereference"}, "clang": {"unix.Malloc", "core.NullDereference"}}[tool]
+    missing = want - found
+    print("[ %s: planted faults %s ]" % (tool, "missed: " + ", ".join(sorted(missing)) if missing else "found"))
+    return 1 if missing else 0
+
+
+def read_unbuilt(path):
+    unbuilt = {}
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                name, _, reason = line.partition(" ")
+                unbuilt[name] = reason.strip()
+    return unbuilt
+
+
+def check_cover(tracked, built, unbuilt):
+    problems = []
+    for f in sorted(tracked):
+        if f not in built and f not in unbuilt:
+            problems.append("in neither compile list: %s" % f)
+    for f, reason in sorted(unbuilt.items()):
+        if not reason:
+            problems.append("unbuilt list line has no reason: %s" % f)
+        if f not in tracked:
+            problems.append("unbuilt list names an untracked file: %s" % f)
+        elif f in built:
+            problems.append("unbuilt list names a built file: %s" % f)
+    return problems
+
+
+def cmd_cover(args):
+    root, unbuilt_path, dbs = args[0], args[1], args[2:]
+    tracked = set(subprocess.run(["git", "-C", root, "ls-files", "*.c"], check=True,
+                                 capture_output=True, text=True).stdout.split())
+    built = set()
+    for db in dbs:
+        built |= {f[len(SRC):] for f in load_db(db) if f.startswith(SRC)}
+    problems = check_cover(tracked, built, read_unbuilt(unbuilt_path))
+    for p in problems:
+        print("[ FAILED: %s ]" % p)
+    print("[ %d tracked .c, %d in a compile list, %d on the unbuilt list ]"
+          % (len(tracked), len(tracked & built), len(read_unbuilt(unbuilt_path))))
+    return 1 if problems else 0
+
+
+def area_of(path, inherited):
+    if path.startswith("/"):
+        return "system"
+    if path.startswith(VENDORED):
+        return "vendored"
+    if path.startswith(TESTS):
+        return "tests"
+    return "inherited" if path in inherited else "ours"
+
+
+def parse_log(text):
+    findings, failed, skipped = set(), [], False
+    tu, rc, seen_error = None, 0, False
+    for line in text.splitlines() + ["### end rc=0"]:
+        if line.startswith("### SKIP"):
+            skipped = True
+            continue
+        if line.startswith("### "):
+            # A file that didn't compile was never analyzed, which isn't a clean result.
+            if tu and rc not in (0,) and seen_error:
+                failed.append(tu)
+            tu, _, rcs = line[4:].rpartition(" rc=")
+            rc, seen_error = int(rcs), False
+            continue
+        m = GCC_RE.match(line) or CLANG_RE.match(line)
+        if m:
+            findings.add((m.group(1), int(m.group(2)), int(m.group(3)), m.group(4)))
+        elif ": error: " in line or ": fatal error: " in line or line.startswith("timed out"):
+            seen_error = True
+    return findings, failed, skipped
+
+
+def count(logs, inherited):
+    table, failed = {}, {}
+    for name, text in logs.items():
+        findings, bad, skipped = parse_log(text)
+        row = dict.fromkeys(AREAS, 0)
+        for f in findings:
+            row[area_of(f[0], inherited)] += 1
+        table[name] = None if skipped else row
+        failed[name] = bad
+    return table, failed
+
+
+def cmd_count(args):
+    root, paths = args[0], args[1:]
+    base = subprocess.run(["git", "-C", root, "rev-list", "--max-parents=0", "HEAD"], check=True,
+                          capture_output=True, text=True).stdout.split()[-1]
+    # The baseline commit holds upstream 6.6.4 under original/, moved to source/ right after.
+    inherited = {re.sub(r"^original/", "source/", f) for f in subprocess.run(
+        ["git", "-C", root, "ls-tree", "-r", "--name-only", base], check=True, capture_output=True, text=True).stdout.split()}
+    logs = {}
+    for p in paths:
+        with open(p, errors="replace") as f:
+            logs[os.path.basename(p).rsplit(".", 1)[0]] = f.read()
+    table, failed = count(logs, inherited)
+    print("%-14s %s %7s %9s" % ("log", " ".join("%9s" % a for a in AREAS), "total", "failed"))
+    for name, row in table.items():
+        if row is None:
+            print("%-14s not run (analyzer missing in its container)" % name)
+            continue
+        print("%-14s %s %7d %9d" % (name, " ".join("%9d" % row[a] for a in AREAS), sum(row.values()), len(failed[name])))
+    for name, bad in failed.items():
+        for tu in bad:
+            print("not analyzed (%s): %s" % (name, tu))
+    return 0
+
+
+def self_test():
+    own = open(__file__).read()
+    print("[ Test %s analyze.py --self-test ]" % re.search(r"(?m)^# Test ID: (\S+)$", own).group(1))
+    bad = []
+    log = "\n".join([
+        "### source/src/a.c rc=1",
+        "source/src/a.c:3:5: error: dereference of NULL 'p' [CWE-476] [-Werror=analyzer-null-dereference]",
+        "source/test/t.c:9:1: warning: leak of 'q' [CWE-401] [-Wanalyzer-malloc-leak]",
+        "vendor/x/y.c:2:2: warning: Potential leak of memory pointed to by 'r' [unix.Malloc]",
+        "source/libnemo-private/old.c:4:4: warning: Value stored to 'x' is never read [deadcode.DeadStores]",
+        "/usr/include/glib-2.0/glib/gmacros.h:1:1: warning: Null pointer passed [core.NonNullParamChecker]",
+        "source/src/a.c:7:1: warning: unused variable 'z' [-Wunused-variable]",
+        "### source/src/b.c rc=1",
+        "source/src/b.c:1:10: fatal error: missing.h: No such file or directory",
+        "### source/src/c.c rc=0",
+    ])
+    table, failed = count({"gcc-linux": log}, {"source/libnemo-private/old.c"})
+    want = {"vendored": 1, "inherited": 1, "ours": 1, "tests": 1, "system": 1}
+    if table["gcc-linux"] != want:
+        bad.append("counts %r, want %r" % (table["gcc-linux"], want))
+    if failed["gcc-linux"] != ["source/src/b.c"]:
+        bad.append("not analyzed %r, want b.c only" % failed["gcc-linux"])
+    if count({"x": "### SKIP no clang"}, set())[0]["x"] is not None:
+        bad.append("a skipped log counted as clean")
+    tracked = {"a.c", "b.c", "c.c", "d.c"}
+    got = check_cover(tracked, {"a.c", "b.c"}, {"c.c": "off by option", "e.c": "gone", "a.c": "x", "d.c": ""})
+    want_p = ["unbuilt list names a built file: a.c", "unbuilt list line has no reason: d.c",
+              "unbuilt list names an untracked file: e.c"]
+    if sorted(got) != sorted(want_p):
+        bad.append("cover %r" % got)
+    if check_cover({"a.c", "z.c"}, {"a.c"}, {}) != ["in neither compile list: z.c"]:
+        bad.append("cover missed a file in neither list")
+    for b in bad:
+        print("[ FAILED: %s ]" % b)
+    print("[ %s ]" % ("FAILED" if bad else "OK: analyze.py self-test"))
+    return 1 if bad else 0
+
+
+def main():
+    args = sys.argv[1:]
+    if not args or args[0] in ("-h", "--help"):
+        print(open(__file__).read().split("\n\n")[1].replace("# ", "").replace("#", ""))
+        return 0
+    if args[0] == "--self-test":
+        return self_test()
+    return {"run": cmd_run, "cover": cmd_cover, "count": cmd_count, "planted": cmd_planted}[args[0]](args[1:])
+
+
+if __name__ == "__main__":
+    sys.exit(main())

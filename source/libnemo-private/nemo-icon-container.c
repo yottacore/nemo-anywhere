@@ -154,6 +154,14 @@ static gboolean handle_icon_slow_two_click (NemoIconContainer *container,
 
 static void schedule_align_icons (NemoIconContainer *container);
 
+static gboolean model_button_press_event (GtkWidget *widget, GdkEventButton *event);
+static gboolean model_button_release_event (GtkWidget *widget, GdkEventButton *event);
+static gboolean model_motion_notify_event (GtkWidget *widget, GdkEventMotion *event);
+static gboolean model_key_press_event (GtkWidget *widget, GdkEventKey *event);
+static gboolean model_search_key_press_event (GtkWidget *widget, GdkEventKey *event,
+					      NemoIconContainer *container);
+static gboolean bands_flip (void);
+
 static gpointer accessible_parent_class;
 
 static GQuark accessible_private_data_quark = 0;
@@ -1292,6 +1300,8 @@ rubberband_select (NemoIconContainer *container,
 		/* Anything else cleared the selection before the band started. */
 		selection_changed |= icon_set_selected
 			(container, icon,
+			 bands_flip () ?
+			 is_in ^ icon->was_selected_before_rubberband :
 			 is_in || icon->was_selected_before_rubberband);
 	}
 
@@ -3919,7 +3929,7 @@ nemo_icon_container_search_button_press_event (GtkWidget *widget,
 	nemo_icon_container_search_dialog_hide (widget, container);
 
 	if (event->window == gtk_layout_get_bin_window (GTK_LAYOUT (container))) {
-		button_press_event (GTK_WIDGET (container), event);
+		model_button_press_event (GTK_WIDGET (container), event);
 	}
 
 	return TRUE;
@@ -4206,7 +4216,7 @@ nemo_icon_container_ensure_interactive_directory (NemoIconContainer *container)
 			  G_CALLBACK (nemo_icon_container_search_delete_event),
 			  container);
 	g_signal_connect (container->details->search_window, "key_press_event",
-			  G_CALLBACK (nemo_icon_container_search_key_press_event),
+			  G_CALLBACK (model_search_key_press_event),
 			  container);
 	g_signal_connect (container->details->search_window, "button_press_event",
 			  G_CALLBACK (nemo_icon_container_search_button_press_event),
@@ -5007,10 +5017,10 @@ nemo_icon_container_class_init (NemoIconContainerClass *class)
 	widget_class->get_preferred_height = get_prefered_height;
 	widget_class->realize = realize;
 	widget_class->unrealize = unrealize;
-	widget_class->button_press_event = button_press_event;
-	widget_class->button_release_event = button_release_event;
-	widget_class->motion_notify_event = motion_notify_event;
-	widget_class->key_press_event = key_press_event;
+	widget_class->button_press_event = model_button_press_event;
+	widget_class->button_release_event = model_button_release_event;
+	widget_class->motion_notify_event = model_motion_notify_event;
+	widget_class->key_press_event = model_key_press_event;
 	widget_class->popup_menu = popup_menu;
 	widget_class->get_accessible = get_accessible;
 	widget_class->style_updated = style_updated;
@@ -5375,6 +5385,317 @@ item_event_callback (EelCanvasItem *item,
 		}
     }
     return FALSE;
+}
+
+/* Nemo Classic's press and item press, from upstream 6.6.4. There the menu
+   opens on the press, Ctrl or Shift on empty space keeps the selection for
+   the band, which flips what it crosses, and Ctrl or Shift on an icon picks
+   at once, then drags. There is no long press and no right band. */
+static gboolean
+classic_handle_icon_button_press (NemoIconContainer *container,
+				  NemoIcon *icon,
+				  GdkEventButton *event)
+{
+	NemoIconContainerDetails *details;
+	GList *sel;
+
+	details = container->details;
+
+	details->skip_rename_on_release = FALSE;
+
+	if (event->type == GDK_2BUTTON_PRESS || event->type == GDK_3BUTTON_PRESS) {
+		return TRUE;
+	}
+
+	if (event->button != DRAG_BUTTON
+	    && event->button != CONTEXTUAL_MENU_BUTTON
+	    && event->button != DRAG_MENU_BUTTON) {
+		return TRUE;
+	}
+
+	if ((event->button == DRAG_BUTTON) &&
+	    event->type == GDK_BUTTON_PRESS) {
+		/* The next double click has to be on this icon */
+		details->double_click_icon[1] = details->double_click_icon[0];
+		details->double_click_icon[0] = icon;
+
+		details->double_click_button[1] = details->double_click_button[0];
+		details->double_click_button[0] = event->button;
+	}
+
+	if (handle_icon_double_click (container, icon, event)) {
+		/* Double clicking does not trigger a D&D action. */
+		details->drag_button = 0;
+		details->drag_icon = NULL;
+		return TRUE;
+	}
+
+	if (event->button == DRAG_BUTTON
+	    || event->button == DRAG_MENU_BUTTON) {
+		details->drag_button = event->button;
+		details->drag_icon = icon;
+		details->drag_x = event->x;
+		details->drag_y = event->y;
+		details->drag_state = DRAG_STATE_MOVE_OR_COPY;
+		details->drag_started = FALSE;
+
+		if (icon == container->details->stretch_icon) {
+			if (start_stretching (container)) {
+				return TRUE;
+			}
+		}
+	}
+
+	details->icon_selected_on_button_down = icon->is_selected;
+
+	sel = nemo_icon_container_get_selected_icons (container);
+	details->skip_rename_on_release = g_list_length (sel) > 1;
+	g_list_free (sel);
+
+	if ((event->button == DRAG_BUTTON || event->button == MIDDLE_BUTTON) &&
+	    (event->state & GDK_SHIFT_MASK) != 0) {
+		NemoIcon *start_icon;
+
+		start_icon = details->range_selection_base_icon;
+		if (start_icon == NULL || !start_icon->is_selected) {
+			start_icon = icon;
+			details->range_selection_base_icon = icon;
+		}
+		if (select_range (container, start_icon, icon,
+				  (event->state & eel_gtk_primary_mask (event->window)) == 0)) {
+			g_signal_emit (container,
+				       signals[SELECTION_CHANGED], 0);
+		}
+	} else if (!details->icon_selected_on_button_down) {
+		details->range_selection_base_icon = icon;
+		if (button_event_modifies_selection (event)) {
+			icon_toggle_selected (container, icon);
+			g_signal_emit (container,
+				       signals[SELECTION_CHANGED], 0);
+		} else {
+			select_one_unselect_others (container, icon);
+			g_signal_emit (container,
+				       signals[SELECTION_CHANGED], 0);
+		}
+	}
+
+	if (event->button == CONTEXTUAL_MENU_BUTTON) {
+		clear_drag_state (container);
+
+		g_signal_emit (container,
+			       signals[CONTEXT_CLICK_SELECTION], 0,
+			       event);
+	}
+
+	return TRUE;
+}
+
+static int
+classic_item_event_callback (EelCanvasItem *item,
+			     GdkEvent *event,
+			     gpointer data)
+{
+	NemoIconContainer *container;
+	NemoIcon *icon;
+
+	container = NEMO_ICON_CONTAINER (data);
+
+	icon = NEMO_ICON_CANVAS_ITEM (item)->user_data;
+	g_assert (icon != NULL);
+
+	/* Returning TRUE stops it going further. */
+	return event->type == GDK_BUTTON_PRESS &&
+	       classic_handle_icon_button_press (container, icon, &event->button);
+}
+
+static gboolean
+classic_button_press_event (GtkWidget *widget,
+			    GdkEventButton *event)
+{
+	NemoIconContainer *container;
+	gboolean selection_changed;
+	gboolean return_value;
+	gboolean clicked_on_item;
+
+	container = NEMO_ICON_CONTAINER (widget);
+	container->details->button_down_time = event->time;
+
+	/* Forget about the old keyboard selection now that we've started mousing. */
+	clear_keyboard_focus (container);
+	clear_keyboard_rubberband_start (container);
+
+	if (event->type == GDK_BUTTON_PRESS && container->details->search_window) {
+		remove_search_entry_timeout (container);
+		gtk_widget_hide (container->details->search_window);
+		gtk_entry_set_text (GTK_ENTRY (container->details->search_entry), "");
+	}
+
+	if (event->type == GDK_2BUTTON_PRESS || event->type == GDK_3BUTTON_PRESS) {
+		/* We use our own double-click detection. */
+		return TRUE;
+	}
+
+	/* Invoke the canvas event handler and see if an item picks up the event. */
+	clicked_on_item = GTK_WIDGET_CLASS (nemo_icon_container_parent_class)->button_press_event (widget, event);
+
+	if (!gtk_widget_has_focus (widget) && !(is_renaming (container) || is_renaming_pending (container))) {
+		gtk_widget_grab_focus (widget);
+	}
+
+	if (clicked_on_item) {
+		NemoIcon *icon = get_first_selected_icon (container);
+
+		/* A click on the image of the icon being renamed ends the rename. */
+		if (clicked_on_icon (container, icon, event) &&
+		    icon == nemo_icon_container_get_icon_being_renamed (container)) {
+			nemo_icon_container_end_renaming_mode (container, TRUE);
+		}
+
+		return TRUE;
+	}
+
+	if (event->button == DRAG_BUTTON &&
+	    event->type == GDK_BUTTON_PRESS) {
+		/* Clear the last click icon for double click */
+		container->details->double_click_icon[1] = container->details->double_click_icon[0];
+		container->details->double_click_icon[0] = NULL;
+	}
+
+	if (event->button == RUBBERBAND_BUTTON) {
+		if (!button_event_modifies_selection (event)) {
+			selection_changed = unselect_all (container);
+			if (selection_changed) {
+				g_signal_emit (container,
+					       signals[SELECTION_CHANGED], 0);
+			}
+		}
+
+		start_rubberbanding (container, event->x, event->y, event->button, event->time);
+		return TRUE;
+	}
+
+	/* Prevent multi-button weirdness such as bug 6181 */
+	if (container->details->rubberband_info.active) {
+		return TRUE;
+	}
+
+	/* Button 2 may be passed to the window manager. */
+	if (event->button == MIDDLE_BUTTON) {
+		selection_changed = unselect_all (container);
+		if (selection_changed) {
+			g_signal_emit (container, signals[SELECTION_CHANGED], 0);
+		}
+		g_signal_emit (widget, signals[MIDDLE_CLICK], 0, event);
+		return TRUE;
+	}
+
+	if (event->button == CONTEXTUAL_MENU_BUTTON) {
+		nemo_icon_container_end_renaming_mode (container, TRUE);
+		selection_changed = unselect_all (container);
+		if (selection_changed) {
+			g_signal_emit (container, signals[SELECTION_CHANGED], 0);
+		}
+		g_signal_emit (widget, signals[CONTEXT_CLICK_BACKGROUND], 0, event);
+		return TRUE;
+	}
+
+	/* Otherwise, we emit a button_press message. */
+	g_signal_emit (widget,
+		       signals[BUTTON_PRESS], 0, event,
+		       &return_value);
+	return return_value;
+}
+
+/* The selection and focus rules for icon and compact views, one set per
+   selection model. See design_docs/20261020-103804_checkmarked-selection.md,
+   "The setting". */
+typedef struct {
+	gboolean (*button_press) (GtkWidget *widget, GdkEventButton *event);
+	gboolean (*button_release) (GtkWidget *widget, GdkEventButton *event);
+	gboolean (*motion_notify) (GtkWidget *widget, GdkEventMotion *event);
+	gboolean (*key_press) (GtkWidget *widget, GdkEventKey *event);
+	gboolean (*search_key_press) (GtkWidget *widget, GdkEventKey *event,
+				      NemoIconContainer *container);
+	int (*item_event) (EelCanvasItem *item, GdkEvent *event, gpointer data);
+	/* A band, the mouse's or the keyboard's, flips what it crosses rather
+	   than adding it. */
+	gboolean band_flips;
+} ContainerRules;
+
+static const ContainerRules rules_anywhere_v1 = {
+	.button_press = button_press_event,
+	.button_release = button_release_event,
+	.motion_notify = motion_notify_event,
+	.key_press = key_press_event,
+	.search_key_press = nemo_icon_container_search_key_press_event,
+	.item_event = item_event_callback,
+	.band_flips = FALSE,
+};
+
+/* Upstream's release and motion are ours less the long press and the
+   pending band, and Classic's press starts neither. Its keys are ours. */
+static const ContainerRules rules_classic = {
+	.button_press = classic_button_press_event,
+	.button_release = button_release_event,
+	.motion_notify = motion_notify_event,
+	.key_press = key_press_event,
+	.search_key_press = nemo_icon_container_search_key_press_event,
+	.item_event = classic_item_event_callback,
+	.band_flips = TRUE,
+};
+
+static const ContainerRules *
+container_rules (void)
+{
+	switch (nemo_global_preferences_get_selection_model ()) {
+	case NEMO_SELECTION_MODEL_ANYWHERE_V1:
+		return &rules_anywhere_v1;
+	case NEMO_SELECTION_MODEL_CLASSIC:
+		return &rules_classic;
+	}
+	g_return_val_if_reached (&rules_anywhere_v1);
+}
+
+static gboolean
+bands_flip (void)
+{
+	return container_rules ()->band_flips;
+}
+
+static gboolean
+model_button_press_event (GtkWidget *widget, GdkEventButton *event)
+{
+	return container_rules ()->button_press (widget, event);
+}
+
+static gboolean
+model_button_release_event (GtkWidget *widget, GdkEventButton *event)
+{
+	return container_rules ()->button_release (widget, event);
+}
+
+static gboolean
+model_motion_notify_event (GtkWidget *widget, GdkEventMotion *event)
+{
+	return container_rules ()->motion_notify (widget, event);
+}
+
+static gboolean
+model_key_press_event (GtkWidget *widget, GdkEventKey *event)
+{
+	return container_rules ()->key_press (widget, event);
+}
+
+static gboolean
+model_search_key_press_event (GtkWidget *widget, GdkEventKey *event, NemoIconContainer *container)
+{
+	return container_rules ()->search_key_press (widget, event, container);
+}
+
+static int
+model_item_event (EelCanvasItem *item, GdkEvent *event, gpointer data)
+{
+	return container_rules ()->item_event (item, event, data);
 }
 
 /* Returns: (transfer floating) */
@@ -8473,7 +8794,7 @@ nemo_icon_container_finish_adding_icon (NemoIconContainer *container,
     eel_canvas_item_show (EEL_CANVAS_ITEM (icon->item));
 
     g_signal_connect_object (icon->item, "event",
-                 G_CALLBACK (item_event_callback), container, 0);
+                 G_CALLBACK (model_item_event), container, 0);
 
     g_signal_emit (container, signals[ICON_ADDED], 0, icon->data);
 }

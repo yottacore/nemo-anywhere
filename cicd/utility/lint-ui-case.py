@@ -112,6 +112,8 @@ KEEP = set([
     "The Recycle Bin refused it (error %d).",
     # A window title: the file's name, then what the window is.
     "%s - File browser",
+    # A selection model named after upstream, which behaves as it does.
+    "Nemo Classic",
 ])
 
 # Words the interface no longer says, each with what it says instead.

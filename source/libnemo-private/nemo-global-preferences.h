@@ -276,6 +276,16 @@ typedef enum
 /* File size unit prefix */
 #define NEMO_PREFERENCES_SIZE_PREFIXES			"size-prefixes"
 
+/* Which rules clicks and keys select and focus by. Only built models are
+   listed. See design_docs/20261020-103804_checkmarked-selection.md. */
+#define NEMO_PREFERENCES_SELECTION_MODEL		"selection-model"
+
+typedef enum
+{
+	NEMO_SELECTION_MODEL_ANYWHERE_V1,
+	NEMO_SELECTION_MODEL_CLASSIC
+} NemoSelectionModel;
+
 /* media handling */
 
 #define GNOME_DESKTOP_MEDIA_HANDLING_AUTOMOUNT            "automount"
@@ -334,6 +344,7 @@ gboolean nemo_global_preferences_get_inherit_view_settings (void);
 gboolean nemo_global_preferences_get_inherit_show_thumbnails_preference (void);
 gboolean nemo_global_preferences_get_remember_folder_settings (void);
 int nemo_global_preferences_get_size_prefix_preference (void);
+NemoSelectionModel nemo_global_preferences_get_selection_model (void);
 int nemo_global_preferences_get_cpu_thread_count (void);
 char *nemo_global_preferences_get_desktop_iid (void);
 gint nemo_global_preferences_get_tooltip_flags (void);

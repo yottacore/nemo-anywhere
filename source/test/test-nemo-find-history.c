@@ -45,7 +45,7 @@
 #include "test-scratch.h"
 #include "test-check.h"
 
-#define CHECKS 9
+#define CHECKS 10
 
 static gboolean
 alive (GPid pid)

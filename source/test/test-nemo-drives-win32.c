@@ -30,6 +30,9 @@
  * Run with "glib" to put GLib's own mount list through the same checks. With a
  * dead share that is the one that waits.
  *
+ * Run with "names" to see that listing the drives asks the shell nothing until
+ * a name is wanted.
+ *
  * The trash state reads a removable drive's bin only with a disk in it. */
 
 #include <config.h>
@@ -46,6 +49,7 @@
 #include "test-check.h"
 
 #include <windows.h>
+#include <shlobj.h>
 
 static wchar_t mapped[3] = { 0, L':', 0 };
 static wchar_t *target;
@@ -91,6 +95,102 @@ icon_has (GIcon *icon, const char *name)
 	}
 	names = g_themed_icon_get_names (G_THEMED_ICON (icon));
 	return names != NULL && g_strv_contains (names, name);
+}
+
+typedef HRESULT (WINAPI *DesktopFolderFn) (IShellFolder **);
+
+static DesktopFolderFn real_desktop_folder;
+static guint shell_asks;
+
+static HRESULT WINAPI
+counted_desktop_folder (IShellFolder **folder)
+{
+	shell_asks++;
+	return real_desktop_folder (folder);
+}
+
+/* Points this program's own import of SHGetDesktopFolder, the way into the
+   shell's namespace, at a counter. The app's code is linked in, so its calls
+   go through here. */
+static gboolean
+count_shell_asks (void)
+{
+	BYTE *base = (BYTE *) GetModuleHandleW (NULL);
+	IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *) (base + ((IMAGE_DOS_HEADER *) base)->e_lfanew);
+	IMAGE_DATA_DIRECTORY *dir = &nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+	IMAGE_IMPORT_DESCRIPTOR *import;
+	FARPROC real = GetProcAddress (GetModuleHandleW (L"shell32.dll"), "SHGetDesktopFolder");
+	gboolean hooked = FALSE;
+
+	if (real == NULL || dir->VirtualAddress == 0) {
+		return FALSE;
+	}
+	real_desktop_folder = (DesktopFolderFn) (void *) real;
+	for (import = (IMAGE_IMPORT_DESCRIPTOR *) (base + dir->VirtualAddress); import->Name != 0; import++) {
+		IMAGE_THUNK_DATA *thunk;
+
+		for (thunk = (IMAGE_THUNK_DATA *) (base + import->FirstThunk); thunk->u1.Function != 0; thunk++) {
+			DWORD was;
+
+			if (thunk->u1.Function != (ULONG_PTR) real ||
+			    !VirtualProtect (&thunk->u1.Function, sizeof thunk->u1.Function, PAGE_READWRITE, &was)) {
+				continue;
+			}
+			thunk->u1.Function = (ULONG_PTR) counted_desktop_folder;
+			VirtualProtect (&thunk->u1.Function, sizeof thunk->u1.Function, was, &was);
+			hooked = TRUE;
+		}
+	}
+	return hooked;
+}
+
+/* 2026101913541101: a bookmark's exists check lists the drives for each one
+   it asks about, and only wants their roots. Naming a local drive goes through
+   the shell, and that only when the name is asked for. */
+static int
+check_names_on_ask (void)
+{
+	g_autoptr (GFile) temp = g_file_new_for_path (g_get_tmp_dir ());
+	GVolumeMonitor *monitor = g_volume_monitor_get ();
+	char letter = g_ascii_toupper (g_get_tmp_dir ()[0]);
+	GList *mounts, *l;
+	GMount *found = NULL;
+
+	if (!count_shell_asks ()) {
+		g_print ("SKIP: the shell's namespace call can't be counted here\n");
+		g_object_unref (monitor);
+		return 77;
+	}
+
+	mounts = nemo_get_mounts (monitor);
+	g_print ("  listing the drives asked the shell %u time(s)\n", shell_asks);
+	check (shell_asks == 0);
+
+	check (!nemo_location_is_network_safe (temp));
+	g_print ("  the network check on %s asked it %u time(s)\n", g_get_tmp_dir (), shell_asks);
+	check (shell_asks == 0);
+
+	for (l = mounts; l != NULL; l = l->next) {
+		g_autoptr (GFile) root = g_mount_get_root (l->data);
+		g_autofree char *path = g_file_get_path (root);
+
+		if (path != NULL && g_ascii_toupper (path[0]) == letter) {
+			found = l->data;
+		}
+	}
+	check (found != NULL);
+	if (found != NULL && nemo_drive_win32_kind (letter) != NEMO_DRIVE_WIN32_REMOTE) {
+		g_autofree char *name = g_mount_get_name (found);
+		g_autofree char *again = g_mount_get_name (found);
+
+		g_print ("  %c: is named '%s', after %u ask(s)\n", letter, name, shell_asks);
+		check (shell_asks == 1);
+		check (g_strcmp0 (name, again) == 0 && shell_asks == 1);
+	}
+
+	g_list_free_full (mounts, g_object_unref);
+	g_object_unref (monitor);
+	return 0;
 }
 
 static void
@@ -224,6 +324,19 @@ main (int argc, char *argv[])
 
 	gtk_init_check (&argc, &argv);
 	nemo_trash_win32_register ();
+
+	if (argc > 1 && strcmp (argv[1], "names") == 0) {
+		int skipped = check_names_on_ask ();
+
+		if (failures > 0) {
+			g_printerr ("%d check(s) failed\n", failures);
+			return EXIT_FAILURE;
+		}
+		if (skipped == 0) {
+			g_print ("OK\n");
+		}
+		return skipped;
+	}
 
 	if (!map_free_letter (share)) {
 		g_print ("SKIP: no free drive letter to map\n");

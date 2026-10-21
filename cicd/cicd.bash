@@ -53,10 +53,11 @@
 ##	                       full test suite, lints, the sanitizer suite, the
 ##	                       profiler, the native and Windows release builds and
 ##	                       local dogfood. Skips what is slow or needs another
-##	                       box: fuzzing, packages, arm64, the FreeBSD lane, the
-##	                       private runner, remote dogfood, scroll harness,
-##	                       screenshots, demo video. arm64 and FreeBSD come back
-##	                       with --include-arm and --include-bsd
+##	                       box: fuzzing, the static analyzers, packages, arm64,
+##	                       the FreeBSD lane, the private runner, remote dogfood,
+##	                       scroll harness, screenshots, demo video. arm64 and
+##	                       FreeBSD come back with --include-arm and
+##	                       --include-bsd
 ##	   --gate              merge gate only: format-check + lints + tests, then exit
 ##	                       (fast local stand-in for hosted CI; the pre-push hook runs it)
 ## - Reuse: copy the cicd/ directory into another project and edit config.bash.
@@ -426,6 +427,11 @@ if [[ -n "${SANITIZE_CMD+x}" ]] && ((${#SANITIZE_CMD[@]})); then
 else
 	fEcho_Clean "Sanitizers ..........: (skipped)"
 fi
+if ((quick)); then
+	fEcho_Clean "Static analyzers ....: (skipped --quick)"
+elif [[ -n "${ANALYZE_CMD+x}" ]] && ((${#ANALYZE_CMD[@]})); then
+	fEcho_Clean "Static analyzers ....: ${ANALYZE_CMD[*]}"
+fi
 if ((include_bsd)); then
 	fEcho_Clean "FreeBSD .............: ${BSD_TEST_CMD[*]:-(no tests)}, then ${BSD_RELEASE_CMD[*]:-(no release)}"
 elif ((no_bsd)); then
@@ -717,6 +723,15 @@ if [[ -n "${RELEASE_ARTIFACT_DIR:-}" ]] && ((${RELEASE_COLLECT:-1})); then
 fi
 else
 	fEcho_Clean "release build disabled (RELEASE_ENABLE=0)"
+fi
+
+## After the cross build, so the Windows compile list is current. Slow, so not
+## under --quick.
+if ((quick)); then
+	fEcho_Clean "static analyzers skipped (--quick)"
+elif [[ -n "${ANALYZE_CMD+x}" ]] && ((${#ANALYZE_CMD[@]})); then
+	fSection "5/8  Static analyzers"
+	"${ANALYZE_CMD[@]}"
 fi
 
 ## Stage 6: packages. Distributables built from what stage 5 produced, never
@@ -1017,3 +1032,4 @@ fEcho_Clean
 ##		- 2026-10-15: arm64 and FreeBSD on by default, off under --quick; --no-bsd.
 ##		- 2026-10-19: --quick keeps the sanitizers, profiler and Windows cross
 ##		  build; --include-arm works under --quick.
+##		- 2026-10-21: static analyzer stage after the cross build, report only.

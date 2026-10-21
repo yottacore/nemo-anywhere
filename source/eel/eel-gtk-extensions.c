@@ -1377,6 +1377,9 @@ eel_gtk_tooltips_need_focus (void)
 // window and never drops it, so each drag kept one for good. Dropped at a
 // later drag's end, once GDK is done with it. A GTK that's fixed frees it
 // first, which takes it off the list, so nothing's dropped twice.
+// X11 only (2026102020234500). Wayland's GDK never drops its own ref on any
+// window it makes, so this would free nothing, and win32's local drag frees
+// it unhelped.
 static GSList *ended_drag_windows;
 
 static void

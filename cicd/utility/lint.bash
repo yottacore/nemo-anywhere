@@ -72,6 +72,7 @@ for cand in python3 python; do
 done
 if [[ -n "$py" ]]; then
 	"$py" "${here}/svg-min.py" --self-test
+	"$py" "${here}/analyze.py" --self-test
 	"$py" "${here}/test-id.py" --check
 else
 	echo "[ svg-min self-test and test ID check skipped: no python ]"

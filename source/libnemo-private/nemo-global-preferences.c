@@ -64,6 +64,7 @@ static gboolean remember_folder_settings = FALSE;
 static gboolean inherit_view_settings = TRUE;
 static gboolean inherit_show_thumbnails_preference = FALSE;
 static int      size_prefixes_preference = 0;
+static int      selection_model_preference = NEMO_SELECTION_MODEL_ANYWHERE_V1;
 
 static gchar **file_roller_mimetypes = NULL;
 
@@ -121,6 +122,13 @@ gboolean
 nemo_global_preferences_get_inherit_show_thumbnails_preference (void)
 {
     return inherit_show_thumbnails_preference;
+}
+
+/* Read on every press, key and motion, so it's cached. */
+NemoSelectionModel
+nemo_global_preferences_get_selection_model (void)
+{
+    return (NemoSelectionModel) selection_model_preference;
 }
 
 int
@@ -256,6 +264,12 @@ setup_cached_pref_keys (void)
                       G_CALLBACK (enum_changed_cb), &size_prefixes_preference);
 
     enum_changed_cb (nemo_preferences, NEMO_PREFERENCES_SIZE_PREFIXES, &size_prefixes_preference);
+
+    g_signal_connect (nemo_preferences,
+                      "changed::" NEMO_PREFERENCES_SELECTION_MODEL,
+                      G_CALLBACK (enum_changed_cb), &selection_model_preference);
+
+    enum_changed_cb (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL, &selection_model_preference);
 }
 
 

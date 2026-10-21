@@ -305,7 +305,7 @@ test_tabs_take_no_focus (GtkWidget *dialog)
 	send_key (dialog, GDK_KEY_Page_Up, GDK_CONTROL_MASK);
 	check (g_strcmp0 (gtk_stack_get_visible_child_name (GTK_STACK (stack)), "views") == 0);
 	send_key (dialog, GDK_KEY_Page_Up, GDK_CONTROL_MASK);
-	check (g_strcmp0 (gtk_stack_get_visible_child_name (GTK_STACK (stack)), "plugins") == 0);
+	check (g_strcmp0 (gtk_stack_get_visible_child_name (GTK_STACK (stack)), "advanced") == 0);
 	send_key (dialog, GDK_KEY_Page_Down, GDK_CONTROL_MASK);
 	check (g_strcmp0 (gtk_stack_get_visible_child_name (GTK_STACK (stack)), "views") == 0);
 
@@ -589,6 +589,42 @@ out:
 	g_free (found);
 }
 
+/* The selection model dropdown is on Advanced and lists only the models that
+   are built, Nemo Classic and Nemo Anywhere v1 so far, in the design doc's
+   order. */
+static void
+test_selection_model (GtkWidget *dialog)
+{
+	GtkWidget *combo = find_named (dialog, "selection_model_combobox");
+	GtkWidget *page = find_named (dialog, "advanced_scrolledwindow");
+	char *text;
+
+	check (combo != NULL && page != NULL);
+	if (combo == NULL || page == NULL) {
+		return;
+	}
+	check (gtk_widget_is_ancestor (combo, page));
+	check (gtk_tree_model_iter_n_children (gtk_combo_box_get_model (GTK_COMBO_BOX (combo)), NULL) == 2);
+	check (gtk_combo_box_get_active (GTK_COMBO_BOX (combo)) == 1);
+	text = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT (combo));
+	check (g_strcmp0 (text, "Nemo Anywhere v1") == 0);
+	g_free (text);
+	check (!nemo_config_is_set (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL));
+	check (nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE_V1);
+
+	gtk_combo_box_set_active (GTK_COMBO_BOX (combo), 0);
+	text = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT (combo));
+	check (g_strcmp0 (text, "Nemo Classic") == 0);
+	g_free (text);
+	text = nemo_config_get_string (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL);
+	check (g_strcmp0 (text, "nemo-classic") == 0);
+	g_free (text);
+	check (nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_CLASSIC);
+	nemo_config_reset (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL);
+	check (gtk_combo_box_get_active (GTK_COMBO_BOX (combo)) == 1);
+	check (nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE_V1);
+}
+
 static void
 test_escape_closes (GtkWidget *dialog)
 {
@@ -679,6 +715,7 @@ main (int argc, char *argv[])
 		test_tabs_take_no_focus (dialog);
 		test_sub_tabs (dialog);
 		test_bulk_rename (dialog);
+		test_selection_model (dialog);
 		test_escape_closes (dialog);
 	}
 

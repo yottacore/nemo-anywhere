@@ -61,6 +61,8 @@ static const char * const widget_ids[] = {
 	"file_cache_empty_button",
 	/* The delete test guard's own switch, grayed when the build forces it. */
 	"testguard_all_deletes_checkbutton",
+	/* The selection model, on Advanced. */
+	"selection_model_combobox",
 	"close_bar",
 	"close_button",
 	NULL
@@ -82,6 +84,7 @@ static const char * const page_ids[] = {
 	"scrolledwindow8",
 	"templates_scrolledwindow",
 	"scrolledwindow7",
+	"advanced_scrolledwindow",
 	NULL
 };
 

@@ -1770,6 +1770,48 @@ action_invert_selection_callback (G_GNUC_UNUSED GtkAction *action,
 	nemo_view_invert_selection (callback_data);
 }
 
+/* Select all and Invert selection, one pair per selection model. See
+   design_docs/20261020-103804_checkmarked-selection.md, "The setting". */
+typedef struct {
+	void (*select_all) (GtkAction *action, gpointer callback_data);
+	void (*invert_selection) (GtkAction *action, gpointer callback_data);
+} ViewSelectRules;
+
+static const ViewSelectRules rules_anywhere_v1 = {
+	.select_all = action_select_all_callback,
+	.invert_selection = action_invert_selection_callback,
+};
+
+/* Upstream 6.6.4's two are the same as ours. */
+static const ViewSelectRules rules_classic = {
+	.select_all = action_select_all_callback,
+	.invert_selection = action_invert_selection_callback,
+};
+
+static const ViewSelectRules *
+view_select_rules (void)
+{
+	switch (nemo_global_preferences_get_selection_model ()) {
+	case NEMO_SELECTION_MODEL_ANYWHERE_V1:
+		return &rules_anywhere_v1;
+	case NEMO_SELECTION_MODEL_CLASSIC:
+		return &rules_classic;
+	}
+	g_return_val_if_reached (&rules_anywhere_v1);
+}
+
+static void
+model_select_all (GtkAction *action, gpointer callback_data)
+{
+	view_select_rules ()->select_all (action, callback_data);
+}
+
+static void
+model_invert_selection (GtkAction *action, gpointer callback_data)
+{
+	view_select_rules ()->invert_selection (action, callback_data);
+}
+
 static void
 pattern_select_response_cb (GtkWidget *dialog, int response, gpointer user_data)
 {
@@ -9401,7 +9443,7 @@ static const GtkActionEntry directory_view_entries[] = {
   /* name, stock id */         { "Select All", NULL,
   /* label, accelerator */       N_("Select _all"), "<Primary>A",
   /* tooltip */                  N_("Select all items in this window"),
-				 G_CALLBACK (action_select_all_callback) },
+				 G_CALLBACK (model_select_all) },
   /* name, stock id */         { "Select Pattern", NULL,
   /* label, accelerator */       N_("Select i_tems matching..."), "<Primary>S",
   /* tooltip */                  N_("Select items in this window matching a given pattern"),
@@ -9409,7 +9451,7 @@ static const GtkActionEntry directory_view_entries[] = {
   /* name, stock id */         { "Invert Selection", NULL,
   /* label, accelerator */       N_("_Invert selection"), "<Primary><shift>I",
   /* tooltip */                  N_("Select all and only the items that aren't currently selected"),
-				 G_CALLBACK (action_invert_selection_callback) },
+				 G_CALLBACK (model_invert_selection) },
   /* name, stock id */         { "Duplicate", NULL,
   /* label, accelerator */       N_("D_uplicate"), NULL,
   /* tooltip */                  N_("Duplicate each selected item"),

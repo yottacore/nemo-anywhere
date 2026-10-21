@@ -28,7 +28,10 @@
  * as before, and take the same new ways. Places and the tree pane open their
  * menus on the release too. The first press in the pane that isn't active
  * counts, where it used to only wake the pane. The built program runs once per view, with
- * test-nemo-drag-select-probe preloaded to press, drag and check.
+ * test-nemo-drag-select-probe preloaded to press, drag and check. That is the
+ * "Nemo Anywhere v1" selection model; argv[3] can name another. The
+ * "nemo-classic" results are upstream 6.6.4's own, seen there, but for the
+ * ones the probe marks (#2026102016594200).
  *
  * Needs the built program (argv[1]), the probe (argv[2]) and a display. Runs
  * on an X server of its own, since drags and menus take the pointer. Linux
@@ -78,7 +81,7 @@ stop (GPid pid)
 }
 
 static void
-run_view (const char *exe, const char *probe, const char *view, int expected)
+run_view (const char *exe, const char *probe, const char *model, const char *view, int expected)
 {
 	char *root = test_scratch_dir ("nemo-drag-select-XXXXXX", NULL);
 	char *folder = g_build_filename (root, "dragsel", NULL);
@@ -103,8 +106,9 @@ run_view (const char *exe, const char *probe, const char *view, int expected)
 	g_mkdir_with_parents (config, 0700);
 	/* Places beside the list view, the folder tree beside the others. */
 	body = g_strdup_printf ("preferences.default-folder-viewer: %s\n"
+				"preferences.selection-model: %s\n"
 				"preferences.show-toggle-extra-pane-toolbar: true\n"
-				"window-state.start-with-tree: %s\n", view,
+				"window-state.start-with-tree: %s\n", view, model,
 				g_strcmp0 (view, "list-view") == 0 ? "false" : "true");
 	check (g_file_set_contents (settings, body, -1, NULL));
 	g_free (body);
@@ -124,6 +128,7 @@ run_view (const char *exe, const char *probe, const char *view, int expected)
 	envp = g_environ_setenv (envp, "LD_PRELOAD", probe, TRUE);
 	envp = g_environ_setenv (envp, "NEMO_DRAG_OUT", out, TRUE);
 	envp = g_environ_setenv (envp, "NEMO_DRAG_VIEW", view, TRUE);
+	envp = g_environ_setenv (envp, "NEMO_DRAG_MODEL", model, TRUE);
 	envp = g_environ_setenv (envp, "NEMO_DRAG_FOLDER", "dragsel", TRUE);
 
 	spawn_argv[0] = (char *) exe;
@@ -189,8 +194,10 @@ main (int argc, char *argv[])
 	g_print ("SKIP: drives the program through LD_PRELOAD, which is Linux and FreeBSD only here\n");
 	return 77;
 #else
+	const char *model = argc > 3 ? argv[3] : "nemo-anywhere-v1";
+
 	if (argc < 3) {
-		g_printerr ("usage: %s <nemo-anywhere> <probe module>\n", argv[0]);
+		g_printerr ("usage: %s <nemo-anywhere> <probe module> [selection model]\n", argv[0]);
 		return 77;
 	}
 
@@ -201,9 +208,9 @@ main (int argc, char *argv[])
 		return 77;
 	}
 
-	run_view (argv[1], argv[2], "list-view", 24);
-	run_view (argv[1], argv[2], "icon-view", 15);
-	run_view (argv[1], argv[2], "compact-view", 15);
+	run_view (argv[1], argv[2], model, "list-view", 24);
+	run_view (argv[1], argv[2], model, "icon-view", 15);
+	run_view (argv[1], argv[2], model, "compact-view", 15);
 
 	if (failures > 0) {
 		g_printerr ("%d failure(s)\n", failures);

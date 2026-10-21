@@ -67,6 +67,13 @@ static const NemoConfigEnumValue enum_PathSeparator[] = {
 	{ NULL, 0 }
 };
 
+/* Only the models that are built. See design_docs/20261020-103804_checkmarked-selection.md. */
+static const NemoConfigEnumValue enum_SelectionModel[] = {
+	{ "nemo-anywhere-v1", 0 },
+	{ "nemo-classic", 1 },
+	{ NULL, 0 }
+};
+
 static const NemoConfigEnumValue enum_SizePrefixes[] = {
 	{ "base-10", 0 },
 	{ "base-10-full", 1 },
@@ -237,6 +244,7 @@ static const NemoConfigKey nemo_config_keys[] = {
 	{ "preferences", "remember-folder-settings", NEMO_CONFIG_BOOL, "false", NULL, NULL, "Each folder keeps its own view, zoom, sort and columns", NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "rename-selects-whole-name", NEMO_CONFIG_BOOL, "true", NULL, NULL, "Renaming selects the whole name, extension included", NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "quick-renames-with-pause-in-between", NEMO_CONFIG_BOOL, "false", NULL, NULL, "Two slow clicks on a name start a rename", NEMO_CONFIG_KEY_NONE },
+	{ "preferences", "selection-model", NEMO_CONFIG_ENUM, "nemo-anywhere-v1", NULL, enum_SelectionModel, "How clicks and keys select and focus files and folders", NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "show-advanced-permissions", NEMO_CONFIG_BOOL, "false", NULL, NULL, NULL, NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "show-bookmarks-in-to-menus", NEMO_CONFIG_BOOL, "true", NULL, NULL, "List bookmarks in the Move To and Copy To menus", NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "show-compact-view-icon-toolbar", NEMO_CONFIG_BOOL, "true", NULL, NULL, NULL, NEMO_CONFIG_KEY_NONE },
