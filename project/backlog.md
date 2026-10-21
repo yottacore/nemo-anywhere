@@ -1137,7 +1137,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, GLib leaks the new name of every rename in a watched folder.
 	- ID: 2026101913541100
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for answers
+		- Waits on the question whether to file it upstream.
+	- Needs external testing: rkneydx6 natively on b29w. It should print the rename growth and answer 77 on GLib 2.88.3, and run the settings case on a GLib with the fix.
 	- Priority|Severity: Low
 	- Opened: 20261019-135411
 	- Opened by: t00mietum
@@ -1146,12 +1148,25 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: GLib's Windows file monitor copies the new name of a rename and never frees it. A settings save is 2 renames, so each save loses a few dozen bytes. Still so in GLib 2.88.3 and on its main branch.
 	- Expected behavior: a save leaves the heap where it was.
 	- Possible fix: free the copy after the event is handed on, since the handler copies it. Report it upstream with that patch. Nothing in the app can work around it.
+	- Actual cause: `g_win32_fs_monitor_handle_event` in `gio/win32/gwin32fsmonitorutils.c` converts the new name for `FILE_ACTION_RENAMED_OLD_NAME` and never frees it. Same in 2.88.2, the sysroot's, and on main 20261021. The handler takes the name as const and copies what it keeps.
+		- A settings save goes through `ReplaceFileW` in SHCL, which moves `settings.shcl` to its backup name, so the backup name leaks. The case's own hand edit through `g_file_set_contents` leaks `settings.shcl`, since its temp name `settings.shcl.XXXXXX` passes GLib's name check, which compares only the watched name's length.
+	- Decisions:
+		- No app-side way out. Every folder view watches with the same code, so a rename in any open folder leaks too. Watching the folder instead of the file goes through the same call. A save that writes in place gives up the atomic replace, and a poll monitor or one of our own would be a second monitor to keep for a few dozen bytes a save.
+		- The case doesn't subtract a known loss. An allowance would hide an app leak of the same size, and go stale once GLib is fixed.
+		- Instead the case asks the GLib that is loaded: it renames a watched file away and back 64 times and reads the heap. It answers 77 only while that grows, so it runs again by itself once the box has the fix. Linux skips the check.
+	- Progress log:
+		- 20261021: upstream patch and issue text written, not filed.
+		- 20261021: rkneydx6 under wine: the watched renames grew the heap 16720 bytes over 64 rounds and the case answered 77. With the monitor canceled and no wait for its events, 0 bytes. On Linux the case passes as before.
+	- Swept: the other `g_file_monitor_*` users in the app reach the same win32 code, which is why there's no app-side fix. `nemo-config.c` is the only one with a leak case.
+	- Branch: round1021
+	- Commit: 2da98315
 	- Test case: rkneydx6 on Windows, which answers 77 there until GLib has the fix.
 
 - On Windows, the bookmarks file leak case can't tell a leak from what COM does on its own.
 	- ID: 2026101913541101
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs external testing: rjbn328w natively on b29w, several runs, to see it pass every time. rktexj0a natively too. If rjbn328w still moves by 4 KB blocks, something else in the load reaches COM.
 	- Priority|Severity: Low
 	- Opened: 20261019-135411
 	- Opened by: t00mietum
@@ -1159,7 +1174,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Target OS: Windows
 	- Incorrect behavior: while a bookmark loads, the process heap moves by a few 4 KB COM buffers either way. Over a reading that is more than a leak of a block a round would add, so rjbn328w fails now and then with no leak. The buffers name an app package, so something asks Windows about apps or folders, but what makes the call wasn't found.
 	- Expected behavior: rjbn328w runs on Windows and passes every time.
-	- Test case: rjbn328w on Windows, which answers 77 there until this is fixed.
+	- Actual cause: each bookmark's exists check calls `nemo_location_is_network_safe`, which lists the mounts to find the one the bookmark is on. The Windows drive list named every drive as it was made, and naming a local drive goes through the shell's namespace (`SHGetDesktopFolder`, `ParseDisplayName`). That consults the shell's namespace extensions, the WSL one among them, which is a packaged app. Likely the COM traffic seen, not confirmed natively.
+		- The same check runs for every bookmark on each rebuild of the side pane, so that paid one shell trip per drive per bookmark too.
+	- Actual fix: a drive's name is made the first time it is asked for. A list for its roots alone no longer asks the shell anything.
+	- Progress log:
+		- 20261021: rjbn328w no longer answers 77 on Windows. Under wine it still answers 77, since the heap can't be read there.
+		- 20261021: rktexj0a counts the shell calls. It fails before the fix, 2 calls for the list and 4 by the end of the network check, and passes after with 0, then 1 for the name. rjhvmm6f still passes. The leak cases pass on Linux.
+	- Swept: the other `nemo_get_mounts` callers. The side pane, path bar and tree want names, and still get them. The view's mount check and `get_mount_at` in `nemo-directory-async.c` want only locations, and gain as well. GLib's own `g_file_find_enclosing_mount` still names its mount through the shell, but the bookmark load doesn't ask for a mount.
+	- Branch: round1021
+	- Commit: 2da98315
+	- Test case: rjbn328w on Windows, and rktexj0a, which checks that listing the drives asks the shell nothing until a name is wanted.
 
 - rhr6ggmt can lose both links from a rar archive on Linux.
 	- ID: 2026101913111713
