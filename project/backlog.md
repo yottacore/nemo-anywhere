@@ -45,7 +45,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: the rest of the item wasn't written down yet.
 	- Progress log:
 		- 20261018: detail to be written later.
-		- 20261021: Dolphin 25.04, details view with expandable folders: plain paste always goes into the viewed folder, whatever is selected or expanded. Its right-click "Paste" on a folder goes into that folder, with no key. Finder not checked yet.
+		- 20261021: Dolphin 25.04, details view with expandable folders: plain paste always goes into the viewed folder, whatever is selected or expanded. Its right-click "Paste" on a folder goes into that folder, with no key. macOS 15 Finder, list view: the same, plain paste always into the viewed folder, for every selection and expand state. Finder has no paste-into-folder at all.
 	- Test case: none yet.
 	- Notes:
 		- Inherent contradictions:
