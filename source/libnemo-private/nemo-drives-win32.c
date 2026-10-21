@@ -249,10 +249,18 @@ drive_mount_get_root (GMount *mount)
 	return g_file_new_for_path (NEMO_DRIVE_MOUNT (mount)->root);
 }
 
+/* Named on first ask. Most callers want only the roots, and naming a local
+   drive is a trip through the shell's namespace, which a bookmark's exists
+   check made for every drive on every load (2026101913541101). */
 static char *
 drive_mount_get_name (GMount *mount)
 {
-	return g_strdup (NEMO_DRIVE_MOUNT (mount)->name);
+	NemoDriveMount *self = NEMO_DRIVE_MOUNT (mount);
+
+	if (self->name == NULL) {
+		self->name = self->kind == NEMO_DRIVE_WIN32_REMOTE ? remote_name (self->root[0]) : local_name (self->root[0]);
+	}
+	return g_strdup (self->name);
 }
 
 static GIcon *
@@ -405,7 +413,6 @@ nemo_drives_win32_get_mounts (void)
 		mount->root[2] = '\\';
 		mount->root[3] = '\0';
 		mount->kind = nemo_drive_win32_kind (letter);
-		mount->name = mount->kind == NEMO_DRIVE_WIN32_REMOTE ? remote_name (letter) : local_name (letter);
 		mounts = g_list_prepend (mounts, mount);
 	}
 

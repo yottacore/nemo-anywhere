@@ -68,6 +68,9 @@
 #define COUNTED_ROUNDS 64
 #define JOB_TIMEOUT_SECONDS 30
 
+/* The smallest leak there is, once a round, is twice this. */
+#define ANY_LEAK (TEST_HEAP_SMALLEST_BLOCK / 2)
+
 static void
 drain_main_loop (void)
 {
@@ -533,21 +536,88 @@ wait_for_flag (const gboolean *flag, const char *what)
 	}
 }
 
-/* 2026101913541100: GLib's file monitor on Windows leaks the new name of
-   every rename it sees, and each round has three. */
 #ifdef G_OS_WIN32
-#define MONITOR_LEAKS_RENAMES TRUE
-#else
-#define MONITOR_LEAKS_RENAMES FALSE
-#endif
+/* 2026101913541100: GLib's file monitor on Windows leaks the new name of a
+   rename it reports, and a settings round has two. Asked of the GLib that is
+   loaded, by renaming a watched file away and back, so the settings case runs
+   again once it has the fix. */
+typedef struct {
+	char *here;
+	char *away;
+	guint events;
+} RenameProbe;
 
-/* 2026101913541101: on Windows, loading a bookmark makes the process heap move
-   by a few 4 KB COM buffers either way, which is more than a leak of a block a
-   round adds up to. */
-#ifdef G_OS_WIN32
-#define BOOKMARK_LOAD_NOISY TRUE
+static void
+rename_probe_changed (GFileMonitor *monitor, GFile *file, GFile *other,
+		      GFileMonitorEvent event, gpointer data)
+{
+	RenameProbe *probe = data;
+
+	(void) monitor;
+	(void) file;
+	(void) other;
+	(void) event;
+	probe->events++;
+}
+
+static void
+rename_probe_round (gpointer data)
+{
+	RenameProbe *probe = data;
+	gint64 give_up_at = g_get_monotonic_time () + 5 * G_USEC_PER_SEC;
+	guint before = probe->events;
+
+	check (g_rename (probe->here, probe->away) == 0);
+	check (g_rename (probe->away, probe->here) == 0);
+	while (probe->events == before && g_get_monotonic_time () < give_up_at) {
+		if (!g_main_context_iteration (NULL, FALSE)) {
+			g_usleep (1000);
+		}
+	}
+	drain_main_loop ();
+}
+
+static gboolean
+glib_leaks_renames (const char *tmp)
+{
+	RenameProbe probe = { 0 };
+	GFileMonitor *monitor;
+	GFile *file;
+	gint64 growth = 0;
+	gboolean leaks = FALSE;
+
+	probe.here = g_build_filename (tmp, "rename-probe", NULL);
+	probe.away = g_build_filename (tmp, "rename-probe.away", NULL);
+	check (g_file_set_contents (probe.here, "x", 1, NULL));
+	file = g_file_new_for_path (probe.here);
+	monitor = g_file_monitor_file (file, G_FILE_MONITOR_NONE, NULL, NULL);
+	g_signal_connect (monitor, "changed", G_CALLBACK (rename_probe_changed), &probe);
+
+	/* A monitor that reports no rename can't leak on one either. */
+	rename_probe_round (&probe);
+	if (probe.events > 0 &&
+	    test_heap_growth (rename_probe_round, &probe, WARMUP_ROUNDS, COUNTED_ROUNDS,
+			      (gint64) COUNTED_ROUNDS * ANY_LEAK, &growth) == TEST_HEAP_READ) {
+		g_print ("the monitor grew the heap %" G_GINT64_FORMAT " bytes over %d rounds of 2 renames\n",
+			 growth, COUNTED_ROUNDS);
+		leaks = growth >= (gint64) COUNTED_ROUNDS * ANY_LEAK;
+	}
+
+	g_file_monitor_cancel (monitor);
+	g_object_unref (monitor);
+	g_object_unref (file);
+	g_free (probe.here);
+	g_free (probe.away);
+
+	return leaks;
+}
 #else
-#define BOOKMARK_LOAD_NOISY FALSE
+static gboolean
+glib_leaks_renames (const char *tmp)
+{
+	(void) tmp;
+	return FALSE;
+}
 #endif
 
 typedef struct {
@@ -1088,8 +1158,6 @@ teardown_self_check (SelfCheck *self)
 	}
 }
 
-/* The smallest leak there is, once a round, is twice this. */
-#define ANY_LEAK (TEST_HEAP_SMALLEST_BLOCK / 2)
 
 static int
 run_case_expecting (const char *name, void (*op) (gpointer), gpointer data,
@@ -1212,9 +1280,6 @@ main (int argc, char *argv[])
 		setup_query (&search, tmp);
 		skipped = run_case (which, query_round, &search, ANY_LEAK);
 		teardown_query (&search);
-	} else if (strcmp (which, "bookmarks-file") == 0 && BOOKMARK_LOAD_NOISY) {
-		g_print ("SKIP: the heap moves on its own here while a bookmark loads\n");
-		skipped = 77;
 	} else if (strcmp (which, "bookmarks") == 0 || strcmp (which, "bookmarks-file") == 0) {
 		NemoBookmarkList *bookmarks;
 
@@ -1247,7 +1312,7 @@ main (int argc, char *argv[])
 	} else if (strcmp (which, "settings") == 0) {
 		SettingsCase settings = { 0 };
 
-		if (MONITOR_LEAKS_RENAMES) {
+		if (glib_leaks_renames (tmp)) {
 			g_print ("SKIP: GLib leaks a name on every rename seen here\n");
 			skipped = 77;
 		} else {
