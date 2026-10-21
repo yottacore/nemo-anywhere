@@ -90,8 +90,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261020: opened.
 		- 20261021: `preferences.selection-model`, with `nemo-anywhere-v1` the only value. A new Advanced page, last in the list, with a Selection section and the dropdown. Each view's mouse, key and focus handlers now go through a small rules table per model, picked by one switch on the setting.
-		- 20261021: rules pinned per view (list, icon, compact) and in the folder tree: click, Ctrl+click on and off, Shift+click and its anchor, Ctrl+Shift+click, a click on empty space, a click on one item of a selection, right-click on a selected and an unselected item, Up, Down, Left, Right, Home, End, Page Up, Page Down, Shift with arrows, Home and End, Ctrl with arrows, Home and End, Ctrl+Space on and off, Ctrl+Shift+Down, Ctrl+A, Ctrl+Shift+I, Escape, Tab, type-ahead, and a click moving the keyboard focus between the tree and the view. In the tree: click, Down, Up and Shift+Down, each opening its folder, Ctrl+click on the selected row, and Left, Right and Escape, which do nothing. Drags and bands stay in rk7yvgse.
-		- Not pinned yet, since each opens a file, a tab or a preview: a double-click, Enter and Shift+Enter, Space and Shift+Space, and the middle button. Also type-ahead in the tree. The menu key has its own tests (rjefm41d, rj04ta3n).
+		- 20261021: rules pinned per view (list, icon, compact) and in the folder tree: click, Ctrl+click on and off, Shift+click and its anchor, Ctrl+Shift+click, a click on empty space, a click on one item of a selection, right-click on a selected and an unselected item, Up, Down, Left, Right, Home, End, Page Up, Page Down, Shift with arrows, Home and End, Ctrl with arrows, Home and End, Ctrl+Space on and off, Ctrl+Shift+Down, Ctrl+A, Ctrl+Shift+I, Escape, Tab, type-ahead, and a click moving the keyboard focus between the tree and the view. In the tree: click, Down, Up and Shift+Down, each opening its folder, Ctrl+click on the selected row, and Left, Right and Escape, which do nothing. Enter and a double-click on a folder open it. Drags and bands stay in rk7yvgse.
+		- Not pinned yet, since each opens a program, a tab or a preview: Enter or a double-click on a file, Shift+Enter, Space and Shift+Space, and the middle button. Also type-ahead in the tree. The menu key has its own tests (rjefm41d, rj04ta3n).
 	- Decisions:
 		- The default is `nemo-anywhere-v1` until the Nemo Anywhere model is built. The doc's default applies from then.
 		- The switch sits at the entry points, the press, release, motion, key and focus handlers, plus Select all and Invert selection. The rules inside them stay where they were, so Nemo Classic adds a table, not a branch at each rule.
@@ -7255,6 +7255,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjprdfjb, Session bus cleanup win32 test, Windows only. Starts the given bus exe the way GLib does, with TEMP pointed at a scratch folder. 2 clients queue on the app's name, the first leaves and the second gets the name. Once the bus ends nothing may be left in TEMP. Then a bus is killed, and the next one has to clear what it left. Commented out since 20261009, with the stand-in gone. rjvks1yf checks no bus starts at all.
 	- Closed: 20261009-122647
 
+- **Stop here (in new format) for a next release**.
+
 - The affirmative half of the "Nemo Anywhere" selection model.
 	- ID: 2026102019174514
 	- Type: Enhancement
@@ -7320,7 +7322,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note 20261006: left here are signing and the UAC prompt, which need a release tag with secrets and a person at the screen.
 	- Test case: the Windows gate runs the suite natively, plus `cicd/win/gui-launch-smoke.ps1`; signing and the UAC prompt have none.
 
-- **Stop here for a next release**.
+- **Stop here (in old format) for a next release**.
 
 - 🔘 Cut 1.0.0-rc.1.
 	- Opened: 20260925-122815
@@ -7369,8 +7371,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: the desktop itself went long ago, but the icon view still has a desktop mode, desktop orphans and desktop sort order, and `--no-desktop` is still accepted and ignored. None of it runs and none of it deletes anything.
 	- Note: removing it touches about twenty files, mostly the icon view, so it wants its own pass and a look on screen after.
 	- Test case: none yet, not started.
-
-- 🔘 RC1
 
 ### Done
 

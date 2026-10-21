@@ -855,9 +855,52 @@ rules_tick (void)
 		want_tree (tree, "0", "nor Escape");
 		report (gtk_tree_view_row_expanded (tree, home), "and the row is still open");
 		gtk_tree_path_free (home);
+		break;
+	}
+
+	/* Opening, in the home folder: cache, config, data and selrules, then
+	   the probe's own output file. A new folder can mean a new view. */
+	case 37:
+		pane = NULL;
+		if (!find_pane () || item_count () < 5) {
+			return FALSE;
+		}
+		note_title ();
+		click (2, 0);
+		gtk_widget_grab_focus (pane);
+		key (GDK_KEY_Return, 0);
+		break;
+	case 38:
+		if (!title_changed ()) {
+			return FALSE;
+		}
+		report (g_str_has_prefix (gtk_window_get_title (GTK_WINDOW (window)), "data"),
+			"Enter opens the selected folder");
+		note_title ();
+		click_tree_row (tree, "0", 0);
+		break;
+	case 39:
+		if (!title_changed ()) {
+			return FALSE;
+		}
+		pane = NULL;
+		if (!find_pane () || item_count () < 5) {
+			return FALSE;
+		}
+		note_title ();
+		item_point (3, &x, &y);
+		stamp += 1000;
+		press_release (bin, 1, x, y, 0);
+		press_release (bin, 1, x, y, 0);
+		break;
+	case 40:
+		if (!title_changed ()) {
+			return FALSE;
+		}
+		report (g_str_has_prefix (gtk_window_get_title (GTK_WINDOW (window)), folder_name),
+			"a double-click opens the folder");
 		finish ();
 		return TRUE;
-	}
 	}
 
 	return TRUE;

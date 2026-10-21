@@ -135,7 +135,7 @@ run_view (const char *exe, const char *probe, const char *view, int files, int e
 		goto out;
 	}
 
-	/* A run takes about ten seconds. The probe gives up on a step after ten,
+	/* A run takes about fifteen seconds. The probe gives up on a step after ten,
 	   and three views at this cap still fit the test's timeout. */
 	for (i = 0; i < 900 && alive (pid) && !done; i++) {
 		g_usleep (100 * 1000);
@@ -199,9 +199,9 @@ main (int argc, char *argv[])
 		return 77;
 	}
 
-	run_view (argv[1], argv[2], "list-view", 10, 55);
-	run_view (argv[1], argv[2], "icon-view", 24, 59);
-	run_view (argv[1], argv[2], "compact-view", 60, 59);
+	run_view (argv[1], argv[2], "list-view", 10, 57);
+	run_view (argv[1], argv[2], "icon-view", 24, 61);
+	run_view (argv[1], argv[2], "compact-view", 60, 61);
 
 	if (failures > 0) {
 		g_printerr ("%d failure(s)\n", failures);
