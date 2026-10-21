@@ -95,7 +95,7 @@ Multi-select from the keyboard fights with all of them. A stray click or arrow k
 
 - Command: anything that acts on objects. Cut, copy, trash, delete, open, rename, compress, properties, a drag, and the right-click menu.
 
-- View change, either of:
+- View change, any of:
 	- The path in the path bar changes. Going into a folder, back, up, or to a bookmark. A reload isn't one.
 	- A folder is collapsed in list view's tree by the user, and at least one affirmatively checkmarked object goes out of sight with it.
 	- The same in the tree view: a folder collapsed by the user over an affirmatively checkmarked child is a view change for the tree.
@@ -191,7 +191,7 @@ Multi-select from the keyboard fights with all of them. A stray click or arrow k
 - Right drag: from empty space, or from an object that isn't selected, a band that replaces. List view included. From a selected object it's a file drag, and ends with a drop menu, if possible depending on what is dragged to, and the OS. A right-click that doesn't move, opens the menu on release as usual.
 
 - A band moves the focus and anchor to the last object it touched. Checkmarks don't change, with one override:
-	- A left or right drag, with or without modifiers, that starts in list view's checkmark column does what the same drag does from anywhere else, and also affirmatively checkmarks every object the band touched. The affirmative checkmarks get the same treatment as the selection: kept when the drag adds (Ctrl, Ctrl+Shift), dropped when it replaces (plain, Shift, right). This is the only mouse gesture that sets affirmative checkmarks. Icon and compact views have no column, so there a band from the background is a plain band with no checkmarks.
+	- A left or right drag, with or without modifiers, that starts in list view's checkmark column is always a band, even on a selected row. It does what the same band does from empty space, and also affirmatively checkmarks every object the band touched. The affirmative checkmarks get the same treatment as the selection: kept when the drag adds (Ctrl, Ctrl+Shift), dropped when it replaces (plain, Shift, right). This is the only mouse gesture that sets affirmative checkmarks. Icon and compact views have no column, so there a band from the background is a plain band with no checkmarks.
 
 ### Keyboard
 
@@ -213,11 +213,11 @@ Multi-select from the keyboard fights with all of them. A stray click or arrow k
 
 - Ctrl+A: affirmatively checkmarks and selects every object.
 
-- Ctrl+I: inverts the affirmative checkmarks, and the selection then matches the new checkmarks. If none are left, the selection goes too. The temporary marks count as checked, so with 2 objects selected and nothing affirmative, the result is everything but those 2. (Currently Ctrl+I opens properties. That changes to just Alt+Enter, an existing alias.)
+- Ctrl+I: inverts the affirmative checkmarks, and the selection then matches the new checkmarks. If none are left, the selection goes too. The temporary marks count as checked, so with 2 objects selected and nothing affirmative, the result is everything but those 2. (Currently Ctrl+I opens properties. That changes to just Alt+Enter, an existing alias.) Ctrl+Shift+I, today's invert key, does the same as Ctrl+I. With the switch off, both keys invert the selection.
 
-- Uncheck all has no key, since Ctrl+D is Add bookmark. It's a menu entry, and gets a key once hotkeys can be assigned in Settings. It unchecks every object, and the selection, and so the temporary marks, stay as they were. It's the one command that changes checkmarks without touching the selection.
+- Uncheck all has no key, since Ctrl+D is Add bookmark. It's a menu entry, and gets a key once hotkeys can be assigned in Settings. It unchecks every object, and the selection, and so the temporary marks, stay as they were.
 
-- Escape: clears every affirmative checkmark, the selection, and the focus. The range ends and the anchor are null. A second Escape does nothing, and the next arrow key starts at the first object.
+- Escape: clears every affirmative checkmark, the selection, and the focus. The range ends and the anchor are null. A second Escape does nothing, and the next arrow key starts at the first object. An Escape that cancels something else first, such as a rename, type-ahead, an icon stretch, or a drag, does only that.
 
 - Enter, F2, Delete, Ctrl+X, Ctrl+C, and the rest act per [What a command acts on](#what-a-command-acts-on): on the affirmative checkmarks when there are any, else on the selection. F2 on several is the bulk rename.
 
@@ -234,6 +234,10 @@ What it does depends on the selection and on what's already affirmatively checkm
 - Nothing is selected: nothing happens.
 
 - An app-made selection is a selection like any other, so the rules above apply to it.
+
+- While type-ahead is open, Space goes into the search text, as now.
+
+- Space opens the quick preview today. While the switch is on, preview has no key until hotkeys can be assigned in Settings. With the switch off, Space previews as now. Shift+Space opens the alternate way in both, like Shift+Enter.
 
 ### Tree view
 
@@ -259,7 +263,7 @@ What it does depends on the selection and on what's already affirmatively checkm
 
 - The Edit menu gets the same 4, plus Uncheck all, with no key for now.
 
-- Edit > Select all (Ctrl+A) checkmarks and selects every object. Edit > Invert selection becomes Invert checkmarks (Ctrl+I), as under [Keyboard](#keyboard). Select items matching works on the selection, as now, and touches no checkmark.
+- Edit > Select all becomes Checkmark all (Ctrl+A), which checkmarks and selects every object. Edit > Invert selection becomes Invert checkmarks (Ctrl+I, or Ctrl+Shift+I as before), as under [Keyboard](#keyboard). Select items matching works on the selection, as now, and touches no checkmark.
 
 - With the affirmative switch off, the entries are worded for selection: "Select all", "Select none", "Invert selection", and the 4 checkmark entries aren't shown. The wording table is under [The affirmative switch](#the-affirmative-switch).
 
@@ -312,14 +316,14 @@ What it does depends on the selection and on what's already affirmatively checkm
 - One code-level tunable turns the affirmative half of the model off, and the setting above reads the same tunable. Off is the default, since the 2-list behavior is more to learn and possibly confusing, and it has to earn its place with real users as an opt-in.
 
 - Off removes:
-	- Every way to set an affirmative checkmark: the space key, Ctrl+A's checkmark half, Ctrl+I, the checkmark menu entries, and the checkmark column drag override.
+	- Every way to set an affirmative checkmark: the space key's checkmark rules, the checkmark halves of Ctrl+A and Ctrl+I, the checkmark menu entries, and the checkmark column drag override.
 	- Every place that treats the checkmarked group and the selected group differently. A command acts on the selection, full stop.
 	- The dialog alert and the status bar note about the 2 lists differing. The status bar shows only its third line, the selected count.
 	- The drag punt: a drag from an unselected object reselects it and goes, as now, and the not-allowed cursor and its message never show.
 
 - Off keeps:
 	- The dim checkmarks, which follow the selection exactly.
-	- The list view drag rule: a band starts from the checkmark column or the empty space below the rows, and nowhere else.
+	- The list view drag rule: a plain drag bands only from the checkmark column or the empty space below the rows. Ctrl, Shift, and right drags band as under [Mouse](#mouse).
 	- Every selection rule in this doc, the range-ends arrows and the partial Explorer keys included.
 	- The tree view rules, less the affirmative parts.
 
@@ -328,11 +332,11 @@ What it does depends on the selection and on what's already affirmatively checkm
 	| Switch off       | Switch on          |
 	| :--------------- | :----------------- |
 	| Select all       | Checkmark all      |
-	| Select none      | Checkmark none     |
+	| Select none      | Uncheck all        |
 	| Invert selection | Invert checkmarks  |
 	| selected items   | checked items      |
 
-	- "Select none" with the switch off is Uncheck all's slot, and clears the selection. With the switch on, "Checkmark none" is Uncheck all as under [Menus](#menus).
+	- "Select none" with the switch off is Uncheck all's slot, and clears the selection. With the switch on the slot is Uncheck all, as under [Menus](#menus).
 
 ### Where this breaks habits
 
@@ -348,6 +352,10 @@ Each of these goes against what every file manager, and most lists, have done fo
 
 - A drag from an unchecked object goes nowhere while anything is checked. Everywhere else it would drag that object.
 
+- Space checkmarks while the switch is on, where it used to preview.
+
+- Ctrl+I inverts. In Nautilus and Nemo it opens Properties.
+
 ### Open questions
 
 - The checkmark color in each bundled theme. Each one needs its own, and the fallback green may clash with some. The checkmark does the same job as the text color for anyone who can't tell the color apart.
@@ -359,16 +367,6 @@ Each of these goes against what every file manager, and most lists, have done fo
 An adversarial read of this doc, 2026-10-20. None of it is fixed yet.
 
 ### Inconsistencies
-
-- Ctrl+I opens Properties today, and Invert selection is Ctrl+Shift+I. The doc moves Invert to Ctrl+I but never says what becomes of Ctrl+Shift+I. With the switch off Ctrl+I is removed, so it's unclear whether Ctrl+I goes back to Properties, becomes Invert selection, or does nothing.
-
-- The checkmark column drag contradicts itself. [Mouse](#mouse) and [The affirmative switch](#the-affirmative-switch) say a band starts from the checkmark column. The override under [Mouse](#mouse) says a drag there does what the same drag does anywhere else, and on a row that's a file drag.
-
-- With the switch off, a list view band starts "from the checkmark column or the empty space below the rows, and nowhere else". [Mouse](#mouse) says Ctrl, Shift, and right drags band from any column.
-
-- [Keyboard](#keyboard) calls Uncheck all the one command that changes checkmarks without touching the selection. Space with several objects selected does too, as do Add selection to checkmarks, Remove selection from checkmarks, and a paste that clears another tab's checkmarks.
-
-- [Terms](#terms) lists Ctrl+A as a way to set an affirmative checkmark. The list under [Superseded](#superseded) leaves it out.
 
 - A double-click opens the object under the pointer, and a file opening "changes nothing". But open is also a command that acts on the affirmative checkmarks and then clears them. With 3 files checked, a double-click on a fourth could go either way.
 
@@ -394,15 +392,13 @@ An adversarial read of this doc, 2026-10-20. None of it is fixed yet.
 
 - The status bar's third line has no size. No line covers nothing checked and nothing selected. On the second line, Y could be the whole selection or only the part outside the checked set.
 
-- Menu names don't match. [Menus](#menus) has "Select all" where the wording table has "Checkmark all", and "Uncheck all" where the table has "Checkmark none". The UI says "checked" and the doc says "checkmarked".
+- The UI says "checked" and the doc says "checkmarked".
 
 - A paste that fails leaves the checkmarks, but a dropped drag clears them, even when the copy then fails or the drop does nothing. F2 bulk rename isn't listed either way.
 
 - The drag cases under [Mouse](#mouse) are for a plain left drag only. Ctrl, Shift, and right drags from an unchecked object while other objects are checked aren't covered.
 
 - A drag from an unchecked object refuses, since "there's no safe answer to invent". A right-click on the same object does invent one, and the menu acts on the checked objects.
-
-- With the switch off the space key is removed. Whether Space then does what it does today, or nothing, isn't said.
 
 - The switch is "one code-level tunable", and also a checkbox on the Advanced tab. It could be a build flag or a setting with a schema key.
 
@@ -414,8 +410,6 @@ An adversarial read of this doc, 2026-10-20. None of it is fixed yet.
 
 - design.md's summary of this doc still describes an earlier draft, where the focused object stands in when nothing is picked and the current model is one choice.
 
-- The second half of the fifth [Roadmap](#roadmap) step has no verb. [Terms](#terms) says "either of" before 3 cases.
-
 ### Things users won't like
 
 - Ctrl+A, then Ctrl+click to leave a few out, then Delete, deletes everything. Ctrl+click only changes the selection, and Ctrl+A checked every object. It's about the most common bulk-pick habit there is.
@@ -426,7 +420,7 @@ An adversarial read of this doc, 2026-10-20. None of it is fixed yet.
 
 - Making a new folder clears the checkmarks, and so does any undo. The usual flow is check 10 files, make a folder, and move them in. It breaks at the second step.
 
-- One Escape clears everything. It's pressed to close menus, popups, type-ahead, and rename, and a stray one loses every pick. A first Escape for the selection and a second for the checkmarks would be safer.
+- One stray Escape clears everything. A first Escape for the selection and a second for the checkmarks would be safer.
 
 - A stray double-click on a folder, or the mouse's back button, is a view change and clears the checkmarks.
 
@@ -440,13 +434,13 @@ An adversarial read of this doc, 2026-10-20. None of it is fixed yet.
 
 - With the switch off, the column and the dim marks on every selected row add nothing the highlight doesn't already show.
 
-- Ctrl+I for Properties is a Nautilus and Nemo habit, and it goes. If Ctrl+Shift+I goes too, that's another key lost.
+- Ctrl+I for Properties is a Nautilus and Nemo habit, and it goes, even with the switch off.
+
+- With the switch on, quick preview loses Space and gets no key at all for now.
 
 - The anchor can't be seen. After a few Ctrl+clicks there's no telling where a Shift+click will range from.
 
 - Bold text changes label widths, so list columns and icon labels reflow as objects get checked.
-
-- Space during type-ahead clashes with names that have spaces in them.
 
 - Open clears the checkmarks. Opening 5 checked images to look at them and then copying them means checking them all again. Enter on 50 checked files opens 50 windows.
 
@@ -454,7 +448,7 @@ An adversarial read of this doc, 2026-10-20. None of it is fixed yet.
 
 - Sorted on the checkmark column, rows move while Space is being pressed, and the focus jumps with them.
 
-- [Where this breaks habits](#where-this-breaks-habits) misses several of these: the Ctrl+A trap, the right-click one, the new folder, the upgrade default, and Ctrl+I.
+- [Where this breaks habits](#where-this-breaks-habits) misses several of these: the Ctrl+A trap, the right-click one, the new folder, and the upgrade default.
 
 ## Alternative ideas
 
@@ -472,7 +466,7 @@ An adversarial read of this doc, 2026-10-20. None of it is fixed yet.
 
 ### Superseded
 
-- Selection and checkmarks as one list, where a Ctrl+click, a Shift+click, or a band checkmarked affirmatively (an earlier draft of this doc). Now selecting works as before, and only the space key, Ctrl+I, the menu entries, and a drag from the checkmark column set affirmative checkmarks.
+- Selection and checkmarks as one list, where a Ctrl+click, a Shift+click, or a band checkmarked affirmatively (an earlier draft of this doc). Now selecting works as before, and only the space key, Ctrl+A, Ctrl+I, the menu entries, and a drag from the checkmark column set affirmative checkmarks.
 
 - One temporary checkmark, on the focused object only (an earlier draft). Now every selected object has one, drawn while nothing is affirmative.
 
@@ -508,7 +502,7 @@ An adversarial read of this doc, 2026-10-20. None of it is fixed yet.
 
 - Apply these terms to the paste-target item, so that way the 2 are written the same.
 
-- Pick the checkmark color for each bundled theme, and the rules above against Explorer and Finder on a real desktop.
+- Pick the checkmark color for each bundled theme, and check the rules above against Explorer and Finder on a real desktop.
 
 - Build the model behind the setting with the affirmative switch off, with the same tests per rule and view. Then the affirmative half behind the switch, with its own tests, and the wording table.
 
