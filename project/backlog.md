@@ -961,6 +961,209 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Estimated effort: Low
 	- Test case: a pipeline option test that checks each flag, and both together in either order.
 
+- Tree view: Right and Left arrow expand and collapse the folder, the way they do in the content view.
+	- ID: 2026102018234900
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261020-182349
+	- Opened by: t00mietum
+	- Related IDs: 2026102018234901, 2026102018234902, 2026102018234903
+	- Requirements:
+		- Before the next cut.
+		- Right and left arrow should work like they do in content view: expand and collapse the folder.
+	- Test case: none yet.
+
+- Tree view: changing to a different folder clears the selection in the content view.
+	- ID: 2026102018234901
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261020-182349
+	- Opened by: t00mietum
+	- Related IDs: 2026102018234900
+	- Requirements:
+		- Before the next cut.
+		- Changing to a different folder in tree view clears the selection in the content view.
+	- Test case: none yet.
+
+- Tree view: the horizontal scroll keeps the selected folders and their first-level children in view.
+	- ID: 2026102018234902
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261020-182349
+	- Opened by: t00mietum
+	- Related IDs: 2026102018234900
+	- Requirements:
+		- Before the next cut.
+		- The horizontal scroll keeps the selected folder(s) and first-level children in view automatically, without being cut off.
+		- Scroll content left if necessary.
+	- Test case: none yet.
+
+- Tree view: in "Checkmark selection" mode, folders follow the content view's selection rules and can be fully edited.
+	- ID: 2026102018234903
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261020-182349
+	- Opened by: t00mietum
+	- Prereq IDs: 2026101816495208
+	- Related IDs: 2026102018234900
+	- Requirements:
+		- Before the next cut.
+		- When in "Checkmark selection" mode:
+			- Objects in the tree view follow the same rules for object selection at the folder level as the content view.
+			- Full edit capability, the same as dealing with folders in the content view.
+	- Design: [20261020-103804_checkmarked-selection.md](design_docs/20261020-103804_checkmarked-selection.md).
+	- Test case: none yet.
+
+- Rearrange the order of views, and add a fourth first-class view, Image thumbnail view.
+	- ID: 2026102018234904
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261020-182349
+	- Opened by: t00mietum
+	- Related IDs: 2026102018234905, 2026101009150764
+	- Requirements:
+		- Before the next cut.
+		- The new view is first-class in menus and settings.
+		- New order and keys:
+			- Ctrl+1: Detailed view
+			- Ctrl+2: Compact view
+			- Ctrl+3: Icon view
+			- Ctrl+4: Image thumbnail view
+	- Notes:
+		- Today a folder that's mostly images opens in icon view at 500%. It isn't a view of its own.
+		- Its settings are in the new "Image thumbnails" section and "Image thumbnail captions" in 2026102018234905.
+	- Test case: none yet.
+
+- Settings: new tab layout, and tidying across the dialog.
+	- ID: 2026102018234905
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261020-182349
+	- Opened by: t00mietum
+	- Related IDs: 2026102018234904, 2026102018234906, 2026102018234907, 2026101816495205, 2026101417352262
+	- Requirements:
+		- Before the next cut.
+		- Window title: "Settings - Nemo Anywhere".
+		- More vertical space between main sections.
+		- For all numeric settings with units, such as %:
+			- Right-justify the numbers.
+			- Put the units in the text boxes, as uneditable text with appropriate spacing to the right of the numbers, and remove them from the labels.
+		- Now that the settings dialog doesn't need to be as wide as it is: narrow the right content section.
+		- Tabs and new arrangements:
+			- User interface
+				- General. It's what is currently just "Display".
+					- Icon captions:
+						- Move the intro text explaining it to flyover tip text.
+						- Don't assume "Filename" is the first line.
+						- Four boxes instead of three. Defaults:
+							- Name
+							- Size
+							- Date modified
+							- [nothing]
+						- Selection of "None" -> "[nothing]".
+						- Anything with "[nothing]" gets no vertical space in listings.
+					- New section, to the right of "Icon captions", titled "Image thumbnail captions".
+						- Similar four list boxes, but stored separately.
+					- Shortcuts:
+						- Add `[ ] Show the .lnk extension in a link's name`.
+					- Merge the "Date" and "File size" sections.
+						- Name: "Formats".
+						- Show the "Date: " and "Filesize: " dropdowns on the same line.
+				- Content view
+					- Its current name is just "Views", and it's the first top-level tab.
+					- Sub-tabs:
+						- Default
+							- Add a thin horizontal line between the "Remember per-folder settings" and Default/Current sections.
+							- Rearrange the first section on both sub-tabs:
+								- "Default" tab:
+									- `[Copy settings to Current]`, left-aligned.
+								- "Current" tab:
+									- `Current folder: "<folder name>"`
+									- `[Copy settings to Default]  [Forget]`, left-aligned.
+							- New section, to the right of Icon view: "Image thumbnails".
+								- `[ ] Enabled automatic switching`, with flyover tip text.
+								- `Images threshold [   %  -+]`. Default 50%, with flyover tip text.
+								- `Thumbnail size [   %  -+]`. Default 500%, with the '%' in the text box.
+							- "Compact view":
+								- Rename to "Compact view".
+								- `Text size: [   %  -+]`. Default 100%, based on system UI font size.
+								- `[ ] All columns have the same width`
+							- "List view":
+								- Rename to "Detailed view".
+								- Move it to the right of "Compact view", horizontally aligned with "Images view" above.
+								- `Text size: [   %  -+]`. Default 100%, based on system UI font size.
+						- Current:
+							- Update code so that the "Default" and "Current" tabs use the same controls, text, and layout, with only different back-end values and whether enabled or not, so they can't get out of sync.
+				- Misc sizes
+					- `Places text size:      [   %  -+]`. Default 80%, based on system UI font size.
+					- `Tree view text size:   [   %  -+]`. Default 100%, based on system UI font size.
+					- `Settings text size:    [   %  -+]`. Default 100%, based on system UI font size.
+				- Toolbar
+				- List columns
+				- Context menus
+				- Previews:
+					- Tooltips:
+						- Move the text in italics to tooltip text that shows over all the related items.
+			- Advanced
+				- Cache
+					- Formerly just the "Thumbnail cache" section in the "Preview" tab.
+					- Thumbnail cache:
+						- Cache buttons:
+							- Move to the left, on their own line.
+							- Details in italics, under the buttons.
+					- Blake3 checksum: 2026102018234907.
+				- Keyboard: 2026102018234906.
+				- Behavior
+				- Plugins
+				- Document templates
+	- Notes:
+		- The thin line under "Remember per-folder settings" is also 2026101816495205.
+	- Test case: none yet.
+
+- Settings: a Keyboard tab where shortcuts are shown, edited, and reset, like SilkTerm's.
+	- ID: 2026102018234906
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261020-182349
+	- Opened by: t00mietum
+	- Parent ID: 2026102018234905
+	- Requirements:
+		- Before the next cut.
+		- Under Advanced, after Cache.
+		- Keyboard shortcuts, displayed and edited (and resettable) like SilkTerm's.
+	- Test case: none yet.
+
+- Settings: Blake3 checksum cache options, with persistence across hosts through xattrs.
+	- ID: 2026102018234907
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261020-182349
+	- Opened by: t00mietum
+	- Parent ID: 2026102018234905
+	- Requirements:
+		- Before the next cut.
+		- A "Blake3 checksum" section under Advanced, Cache, after "Thumbnail cache".
+		- `[ ] Cache whenever files require a full-read anyway.`
+			- Tooltip: "Highly recommended. Note: Always enabled for thumbnail cache operations, unless that feature is turned off."
+		- `[ ] Persist across hosts via xattrs.`
+			- The control is disabled if the previous checkbox is off.
+			- Tooltip:
+				- Pros:
+					- It's a cheap cross-platform, cross-host persistent way to identify unique and/or changed content.
+				- Cons:
+					- Not all file utilities and/or filesystems honor xattrs.
+					- It can throw off some (rare) file utilities that rely on ctime. (Most use mtime, which this doesn't change.)
+					- Some filesystems limit total per-file xattr size.
+	- Test case: none yet.
+
 - On Windows, GLib leaks the new name of every rename in a watched folder.
 	- ID: 2026101913541100
 	- Type: Bug
