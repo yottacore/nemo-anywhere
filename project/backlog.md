@@ -1188,16 +1188,27 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - rhr6ggmt can lose both links from a rar archive on Linux.
 	- ID: 2026101913111713
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for testing
+	- Needs local test suite run?: Yes, the full suite, for the job change. If the row fails again, its log now has what `rar` itself lists.
 	- Priority|Severity: Low
 	- Opened: 20261019-131117
 	- Opened by: t00mietum
+	- Related IDs: 2026101916300276, 2026101310525452
 	- Target OS: Linux
 	- Incorrect behavior: in one full suite run on 20261019, rhr6ggmt failed one rar row with a password and links kept: `all.rar` listed `twin1.bin twin2.bin a.txt big.bin`, without `dir-link` and `file-link`. It passed alone right after. The box was loaded.
+	- Reproduced: No. 16 runs of rhr6ggmt at once at load 35, with each archive `rar` wrote listed again by `rar`, found none short. 780 passworded archives of the same files all listed whole, so the random salt isn't it.
 	- Possible cause: the same libarchive limit as 2026101310525452, on a link target of 128 bytes or more, if a target there is still a whole path. Not looked into.
 	- Progress log:
 		- 20261020: not the long target, since the test's links have short relative targets now. The listing is what the job writes when its first `rar` run, for the links alone, fails: it leaves the links out on purpose and logs "Links couldn't be kept", with what `rar` said. That line wasn't kept from the failed run, so the next one will say why. Same day and load as 2026101916300276, where `rar` also seems to have written an archive short.
-	- Test case: rhr6ggmt.
+		- 20261021: the 20261020 reading was wrong. A crossed row that keeps links has no links-first run: nothing is followed, so one `rar` run keeps them all. Only the dangling and link-choice rows take 2 runs. So "Links couldn't be kept" can't explain the listing.
+		- `rar` puts the 2 links last, after the files. Missing both is what a short write looks like, the same tail loss as 2026101916300276. Not the long target, not a crash (no `rar` core dump or kernel line on 20261019), and not the jail, which came in after this run.
+		- Found on the way: a links-first run that failed for any reason dropped the links and said "It can't go in as a link with these options". That isn't true when the program itself failed.
+	- Actual cause: not found.
+	- Decisions:
+		- A failed links-first run fails the job with what `rar` or 7-Zip said, the same as the real run, and the originals stay. The plan already leaves out, with a warning, every link the options can't keep, so anything else is the program failing. Design doc updated.
+	- Actual fix: the job change above, in `arc-compress.c`. None yet for the flake itself. When a rar row's listing comes up short, the test now also prints what `rar` lists, so the next one says whether `rar` wrote it short or the library read it short.
+	- Test case: rhr6ggmt, its links-run-fails case, where `rar` fails only the links run. It fails on the old code, which finishes with the options warning, and passes with the fix.
+	- Verified: the 15 archive tests pass in the jailed runner, rhr6ggmt with 316 runs.
 
 - GTK may keep a drag window per drag off X11 too.
 	- ID: 2026102020234500
