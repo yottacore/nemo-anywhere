@@ -2236,6 +2236,19 @@ test('rkrq87a3 Thumbnail of a picture dated ahead test',
   args: []
 )
 
+# It holds a listing by standing in for a GIO call, which only works where
+# the loader looks in the program first.
+if not is_windows
+  test('rkrvj8g4 Thumbnail lookup behind a slow count test',
+    executable('test-nemo-thumbnail-count-wait',
+      [ 'test-nemo-thumbnail-count-wait.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch, cc.find_library('dl', required: false) ],
+    ),
+    args: []
+  )
+endif
+
 # Its stand-in thumbnailer is matched on image/png, and Windows types a file
 # by its extension instead.
 if not is_windows

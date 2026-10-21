@@ -1203,21 +1203,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: 20261014 under wine. Not seen natively.
 	- Test case: rhqxx81r itself.
 
-- A slow sub-folder count holds back the rows of pictures listed after it.
-	- ID: 2026101516055252
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261015-160552
-	- Opened by: 2026101419191454
-	- Related IDs: 2026101419191454
-	- Target OS: All
-	- Steps to reproduce: go into a folder whose first 150 entries have a sub-folder that's slow to count, then pictures.
-	- Incorrect behavior: a folder's thumbnail lookups queue behind its sub-folders' item counts, so the pictures' rows wait on the slow count.
-	- Expected behavior: the pictures' rows don't wait on a sub-folder count.
-	- Reproduced: 20261015 on Linux, only with a listing held back on purpose.
-	- Test case: TBD
-
 - GTK may keep a drag window per drag off X11 too.
 	- ID: 2026102020234500
 	- Type: Bug
@@ -3457,6 +3442,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- A slow sub-folder count holds back the rows of pictures listed after it.
+	- ID: 2026101516055252
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 228 of 228 with 1 skipped.
+	- Priority|Severity: Low
+	- Opened: 20261015-160552
+	- Opened by: 2026101419191454
+	- Related IDs: 2026101419191454
+	- Target OS: All
+	- Steps to reproduce: go into a folder whose first 150 entries have a sub-folder that's slow to count, then pictures.
+	- Incorrect behavior: a folder's thumbnail lookups queue behind its sub-folders' item counts, so the pictures' rows wait on the slow count.
+	- Expected behavior: the pictures' rows don't wait on a sub-folder count.
+	- Reproduced: 20261015 on Linux, only with a listing held back on purpose.
+	- Actual cause: a folder's work queue takes its files one at a time, and stops at the first one with a fetch still out. A sub-folder being counted held every file behind it, so no picture there had its thumbnail looked up until the count was in, and the view holds a picture's row for that.
+	- Actual fix: when the queue stops at a file, the next file that wants a thumbnail lookup gets one, if the folder's one lookup slot is free. Lookups still go one at a time per folder and in the folder's order, under the same cap on jobs at once, so no more threads run than before. They're asked of the same files as before, so nothing on a share is read that wasn't.
+	- Swept: the lookups go ahead whatever the queue stopped at, a mount lookup or a deep count as well as an item count. The other fetches still wait their turn, and the view holds no rows for them. A file still having its info read holds everything behind it, as before, since that's asked of every new file first and the row needs it anyway.
+	- Verified: 20261020, rkrvj8g4 fails before the fix, with none of the 4 pictures looked up in 10 s, and passes after, also in the sanitizer lane. rhf905br, rkbdyne7, rk96k9va and rj4jkr22 pass. Full Linux suite 228 of 228 with 1 skipped, lint clean, and the Windows cross build clean.
+	- Branch: countwait
+	- Test case: rkrvj8g4, Thumbnail lookup behind a slow count test. A folder with a sub-folder and 4 pictures. The sub-folder's count is asked first and its listing held, then each picture's thumbnail. Every picture must be looked up while the count is still held, and the count must still come in, right, once the listing goes on.
+	- Acceptance signoff: Self-closed: rkrvj8g4 covers it. The rows follow, since the view waits on the lookup and not on the count.
+	- Closed: 20261020-204730
 
 - GTK leaks a string each time the app hands a theme setting back to the platform.
 	- ID: 2026101913054900

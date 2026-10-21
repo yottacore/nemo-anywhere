@@ -126,3 +126,10 @@ nemo_file_queue_is_empty (NemoFileQueue *queue)
 {
 	return (queue->head == NULL);
 }
+
+/* Returns: (transfer none): owned by @queue */
+GList *
+nemo_file_queue_peek (NemoFileQueue *queue)
+{
+	return queue->head;
+}

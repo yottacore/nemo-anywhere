@@ -119,8 +119,8 @@ g_file_enumerator_next_files_async (GFileEnumerator *enumerator, int num_files, 
 		real = (NextFilesFunc) dlsym (RTLD_NEXT, "g_file_enumerator_next_files_async");
 	}
 	name = g_file_get_basename (g_file_enumerator_get_container (enumerator));
-	/* Only the listing of the folder being gone into. A held item count
-	   would park the thumbnail lookups queued behind it. */
+	/* Only the listing of the folder being gone into. Its sub-folders'
+	   item counts are read, not timed. */
 	hold_back = out != NULL && stage == OPENING && g_strcmp0 (name, steps[step]) == 0;
 	g_free (name);
 	if (hold_back && g_object_get_data (G_OBJECT (enumerator), "open-time-asked") != NULL) {
