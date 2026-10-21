@@ -1265,8 +1265,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038
 	- Type: Bug
-	- Status: Queued
-	- Needs external testing: native Windows, and the reason is because it's only been seen under wine.
+	- Status: Waiting for testing
+	- Needs external testing: native Windows, and the reason is because it's only been seen under wine. With OLE drag on, a GTK drag stopped in the same main loop turn it began should keep its context and drag window, and one stopped after it's under way should free both.
 	- Priority|Severity: Low
 	- Opened: 20261021-122230
 	- Opened by: t00mietum
@@ -1277,9 +1277,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Start a GTK drag, such as a tab or a text drag, and stop it.
 	- Incorrect behavior: the drag window is never destroyed, and keeps 4 refs after the drag's context is gone. One per drag, for the life of the app. The app's own file drags don't use it, but GTK's own drag sources do.
 	- Expected behavior: the drag window is destroyed and freed with its context, as it is with GTK's own drag protocol.
-	- Reproduced: 20261021 under wine, GTK 3.24.52, 4 drags in a row. Not on native Windows yet.
+	- Reproduced: 20261021 under wine, GTK 3.24.52, 4 drags in a row. Not on native Windows yet. Again 20261021 under wine: only when the drag stops before GDK handles another event. One stopped 300 ms in is freed, OLE on or off.
 	- Possible cause: GDK's OLE drag source keeps the context's drag window past the context, or wine's `DoDragDrop` never returns for a drag stopped from GTK's side.
-	- Test case: none yet. rkneye2c runs GTK's own protocol, not OLE.
+	- Actual cause: GDK, not wine.
+		- With OLE on, `gdk_drag_begin` leaves a pending OLE drag source that holds a ref on the context. Only the code after `DoDragDrop` lets it go, and `DoDragDrop` starts on the next event GDK handles. GDK's drag abort just sets the state to none, so a drag stopped before then never runs `DoDragDrop`, and the source is never released.
+		- So the context isn't gone. It stays at 1 ref, is never finalized, and never destroys its drag window. The window's 4 refs are what any drag window has until its context's finalize. Dropping the context's last ref by hand destroys and frees the window at once.
+		- The first source left this way also stays GDK's current drag source, so later drops inside the app take their source window from it.
+	- Decisions:
+		- Upstream only. The ref belongs to GDK's pending drag source, which the app can't reach. Dropping it from the app leaves GDK's pointer to the context dangling, and GDK reads it on the next drop into the app.
+		- Drags in the app start from an event, so `DoDragDrop` runs right after and the context is freed. The app never cancels a drag itself. So it stays Low.
+		- An upstream patch is drafted, not filed: GDK's drag abort releases the pending source when `DoDragDrop` hasn't started.
+	- Actual fix: none in the app.
+	- Test case: none. The fix is upstream, and nothing in the app hits it.
+	- Verified: under wine, GTK 3.24.52, OLE on: begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. Cancel 300 ms in frees both, as does OLE off either way. The patched GDK file compiles; the patch hasn't run.
+	- Swept: the app's own OLE drag source in `nemo-dnd-win32.c` calls `DoDragDrop` and releases in one call, with no pending state. GDK's drag drop has the same hole before `DoDragDrop`, noted with the patch.
 
 - The tree pane removes a timer that already ran, after a key moves its selection.
 	- ID: 2026102113191977
