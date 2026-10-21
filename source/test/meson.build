@@ -852,14 +852,19 @@ test('rh5nme6g Link delete leaves the target', link_delete_job, args: [ 'delete'
 test('rhtq57n2 Link delete, asked by the job', link_delete_job, args: [ 'delete-asked' ])
 test('rh5nme6h Link move leaves the target', link_delete_job, args: [ 'move' ])
 
+move_conflict = executable('test-nemo-move-conflict',
+  [ 'test-nemo-move-conflict.c', 'test.c' ],
+  include_directories: [ rootInclude, ],
+  dependencies: [ gtk, nemo_private, test_scratch ],
+  c_args: nemo_definitions,
+)
 test('rkb48gsx Move conflict answers test',
-  executable('test-nemo-move-conflict',
-    [ 'test-nemo-move-conflict.c', 'test.c' ],
-    include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private, test_scratch ],
-    c_args: nemo_definitions,
-  ),
+  move_conflict,
   timeout: 120,
+)
+test('rkrqwvsq Move Replace asks the guard once test',
+  move_conflict,
+  args: [ 'guard' ],
 )
 
 # Carries the resource for the emblem art, as the next test does.
@@ -889,6 +894,17 @@ test('rf2w8yxr Settings widgets test',
     [ 'test-nemo-prefs-widgets.c' ] + gresources,
     include_directories: [ rootInclude, ],
     dependencies: [ gtk, nemo_private, test_fence ],
+  ),
+  args: []
+)
+
+test('rkrqg9mg Template rename and add errors test',
+  executable('test-nemo-template-errors',
+    [ 'test-nemo-template-errors.c', '../src/nemo-template-config-widget.c',
+      '../src/nemo-config-base-widget.c', '../src/nemo-error-reporting.c' ] + gresources,
+    include_directories: [ rootInclude, include_directories('../src') ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+    c_args: nemo_definitions,
   ),
   args: []
 )
@@ -2211,6 +2227,15 @@ test('rhf905br Thumbnail order test',
 test('rj40hkdr Thumbnail of an edited file test',
   executable('test-nemo-thumbnail-edited',
     [ 'test-nemo-thumbnail-edited.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
+test('rkrq87a3 Thumbnail of a picture dated ahead test',
+  executable('test-nemo-thumbnail-future',
+    [ 'test-nemo-thumbnail-future.c' ],
     include_directories: [ rootInclude, ],
     dependencies: [ gtk, nemo_private, test_scratch ],
   ),

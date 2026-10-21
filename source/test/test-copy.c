@@ -1,6 +1,7 @@
 #include "test.h"
 
 #include <libnemo-private/nemo-file-operations.h>
+#include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-progress-info.h>
 #include <libnemo-private/nemo-progress-info-manager.h>
 
@@ -56,9 +57,12 @@ main (int argc, char* argv[])
 	GList *sources = NULL;
 	GFile *dest;
 	char *tmp, *src_dir, *dst_dir, *src_file, *dest_file, *contents = NULL;
+	char *config_home;
 	guint timeout_id;
 
+	config_home = test_scratch_config_home ("nemo-copy-test-home-XXXXXX");
 	test_init (&argc, &argv);
+	nemo_global_preferences_init ();
 
 	tmp = test_scratch_dir ("nemo-copy-test-XXXXXX", NULL);
 	src_dir = g_build_filename (tmp, "from", NULL);
@@ -113,6 +117,8 @@ main (int argc, char* argv[])
 	g_free (tmp);
 	g_list_free_full (sources, g_object_unref);
 	g_object_unref (dest);
+	nemo_config_shutdown ();
+	g_free (config_home);
 
 	if (failures == 0) {
 		g_print ("copy: all checks passed\n");

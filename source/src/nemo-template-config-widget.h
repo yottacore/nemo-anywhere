@@ -47,6 +47,14 @@ GType nemo_template_config_widget_get_type (void);
 
 GtkWidget  *nemo_template_config_widget_new                   (void);
 
+/* What the Rename and New buttons do once their dialogs are answered. Each
+   reports a failure itself. */
+void        nemo_template_config_widget_rename                (NemoTemplateConfigWidget *widget,
+                                                               const gchar              *path,
+                                                               const gchar              *new_name);
+void        nemo_template_config_widget_import                (NemoTemplateConfigWidget *widget,
+                                                               const gchar              *filename);
+
 G_END_DECLS
 
 #endif /* __NEMO_TEMPLATE_CONFIG_WIDGET_H__ */

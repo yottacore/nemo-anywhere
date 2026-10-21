@@ -709,8 +709,11 @@ thumbnail_thread (gpointer data,
     time (&current_time);
 
     /* Don't try to create a thumbnail if the file was modified recently.
-       This prevents constant re-thumbnailing of changing files. */ 
-    if (current_time < info->original_file_mtime + RECENT_MTIME_COOLDOWN) {
+       This prevents constant re-thumbnailing of changing files. A little
+       ahead of the clock counts, as from a share whose clock runs fast; any
+       further ahead would read as just changed forever (2026101419191455). */
+    if (info->original_file_mtime > current_time - RECENT_MTIME_COOLDOWN &&
+        info->original_file_mtime < current_time + RECENT_MTIME_COOLDOWN) {
         DEBUG ("(Thumbnail Thread) Skipping for %d seconds: %s",
                RECENT_MTIME_COOLDOWN, info->image_uri);
 

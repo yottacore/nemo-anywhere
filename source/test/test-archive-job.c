@@ -11,6 +11,7 @@
 #include <libnemo-private/nemo-archive.h>
 #include <libnemo-private/nemo-archive-commands.h>
 #include <libnemo-private/nemo-config.h>
+#include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-dir-enum.h>
 #include <libnemo-private/nemo-link-copy.h>
 #include <libnemo-private/nemo-progress-info.h>
@@ -1024,7 +1025,6 @@ check_edited_line (const char *tmp,
 		goto out;
 	}
 
-	nemo_config_init ();
 	parts = g_strsplit (NEMO_ARCHIVE_COMMAND_7Z_DEFAULT, "{{PASSWORD}}", -1);
 	line = g_strjoinv ("", parts);
 	nemo_config_set_string (nemo_config_get_group (NEMO_ARCHIVE_COMMANDS_GROUP),
@@ -1044,7 +1044,6 @@ check_edited_line (const char *tmp,
 
 	nemo_config_reset (nemo_config_get_group (NEMO_ARCHIVE_COMMANDS_GROUP),
 			   NEMO_ARCHIVE_COMMAND_KEY_7Z);
-	nemo_config_shutdown ();
 	g_strfreev (parts);
 	g_free (line);
  out:
@@ -1497,6 +1496,9 @@ main (int argc, char *argv[])
 	   answer. Made later, it was the real one that got written. */
 	config_home = test_scratch_config_home ("nemo-archive-test-config-XXXXXX");
 	test_init (&argc, &argv);
+	/* Before the first job, since the job queue watches nemo_preferences
+	   from when it's made (2026101416534029). */
+	nemo_global_preferences_init ();
 
 	tmp = test_scratch_dir ("nemo-archive-test-XXXXXX", NULL);
 	source_dir = g_build_filename (tmp, "items", NULL);
@@ -1536,6 +1538,7 @@ main (int argc, char *argv[])
 #endif
 	check_edited_line (tmp, window);
 
+	nemo_config_shutdown ();
 	g_free (each_dir);
 	g_free (one_dir);
 	g_free (sub_dir);
