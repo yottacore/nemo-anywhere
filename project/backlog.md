@@ -1044,9 +1044,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Design: [Planned tabs](design_docs/20261020-121842_settings.md#planned-tabs) and [Default and Current](design_docs/20261020-121842_settings.md#default-and-current). The full layout is there.
 	- Progress log:
 		- 20261020: layout moved to the settings design doc.
-		- 20261020: the Windows tab stays, after Advanced. Advanced's own page has Selection and Cache as sections. Icon size only on Icon view, and Text size on Compact and Detailed view. Buttons in Settings at the left. The doc's open questions are down to 5.
-		- 20261020: Windows tab before Advanced. Zoom in Compact and Detailed view changes Text size. Image thumbnail captions can also show image and video metadata. 1 open question left.
-		- 20261020: "Settings text size" renamed "Dialog text size", for every dialog. No open questions left.
+		- 20261020: the Windows tab stays, after Advanced. Advanced's own page has Selection and Cache as sections. Icon size only on Icon view, and Text size on Compact and Detailed view. Buttons in Settings at the left. 5 points in the doc still need more thought.
+		- 20261020: Windows tab before Advanced. Zoom in Compact and Detailed view changes Text size. Image thumbnail captions can also show image and video metadata. 1 point still needs more thought.
+		- 20261020: "Settings text size" renamed "Dialog text size", for every dialog. Nothing left that needs more thought.
 	- Notes:
 		- The thin line under "Remember per-folder settings" is also 2026101816495205.
 	- Test case: none yet.
@@ -1079,7 +1079,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A "Blake3 checksum" section under Advanced, Cache, after "Thumbnail cache".
 		- `[ ] Cache whenever files require a full-read anyway.`
 		- `[ ] Persist across hosts via xattrs.`, disabled while the one above is off.
-	- Design: [Blake3 checksum section](design_docs/20261020-121842_settings.md#blake3-checksum-section). The tooltips and an open question are there.
+	- Design: [Blake3 checksum section](design_docs/20261020-121842_settings.md#blake3-checksum-section). The tooltips are there.
 	- Progress log:
 		- 20261020: tooltips moved to the settings design doc.
 		- 20261020: the xattrs checkbox is today's "Save checksums onto the files", moved and relabeled.
@@ -1329,7 +1329,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026092813381404, 2026092813381416
 	- Target OS: Linux, Windows
-	- Design: [20260929-101432_compression.md](design_docs/20260929-101432_compression.md). The requirements, decisions and open questions are there.
+	- Design: [20260929-101432_compression.md](design_docs/20260929-101432_compression.md). The requirements, decisions, and what needs more thought are there.
 	- Requirements:
 		- Deselect and disable options the archiver can't do.
 		- Symlinks and Junctions as radio groups, plus nested and other filesystems options, each with a live size change. A total size beside Cancel and OK.
@@ -10836,7 +10836,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260724-140849
 	- Closed: 20260826-103001
 	- Covers: trash, network browsing, single-instance, default-app setting, the Windows half of the installer, elevated relaunch (UAC prompt), keyboard shortcuts.
-	- Note: moving a file to the trash raises a Windows confirmation dialog of its own on this box, on top of ours. Open question: should ours stand down there? The test that hit it now skips that step unless asked for it.
+	- Note: moving a file to the trash raises a Windows confirmation dialog of its own on this box, on top of ours. Needs more thought: should ours stand down there? The test that hit it now skips that step unless asked for it.
 	- Done on real Windows: the recycle bin end to end, network browsing against this box's own shares, single instance and location forwarding, the installer's install/reinstall/uninstall round trip, and elevated relaunch. Each of the code-review items was re-checked here.
 	- Found doing it, and fixed: the whole compiled-resource bundle was missing from the Windows build, so there was no menu bar at all; a drive root was named three different ways; "Set as default" failed silently forever; the installer read a prerelease version as the release it precedes.
 	- Test case: `test-nemo-drive-root-name`, `test-nemo-trash-win32`, `test-nemo-associations-win32` (Windows only), and `cicd/utility/check-win-build-flags.bash` for the resource bundle in the exe.
