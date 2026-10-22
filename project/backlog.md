@@ -1339,7 +1339,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026101913541100
 	- Type: Bug
 	- Status: Waiting for answers
-		- Waits on a last read of the upstream draft, then it's filed.
+		- Filed upstream as GLib MR [!5427](https://gitlab.gnome.org/GNOME/glib/-/merge_requests/5427). Waits on a GLib release with it.
 	- Needs external testing: rkneydx6 natively on b29w. It should print the rename growth and answer 77 on GLib 2.88.3, and run the settings case on a GLib with the fix.
 	- Priority|Severity: Low
 	- Opened: 20261019-135411
@@ -1358,6 +1358,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261021: upstream patch and issue text written, not filed.
 		- 20261021: it goes upstream as an issue plus MR, from t00mietum. The patch still applies to GLib main.
+		- 20261022: filed as GLib MR [!5427](https://gitlab.gnome.org/GNOME/glib/-/merge_requests/5427), with no separate issue, since GLib takes a tested fix as an MR alone.
 		- 20261021: rkneydx6 under wine: the watched renames grew the heap 16720 bytes over 64 rounds and the case answered 77. With the monitor canceled and no wait for its events, 0 bytes. On Linux the case passes as before.
 	- Swept: the other `g_file_monitor_*` users in the app reach the same win32 code, which is why there's no app-side fix. `nemo-config.c` is the only one with a leak case.
 	- Branch: round1021
@@ -1439,7 +1440,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038
 	- Type: Bug
-	- Status: Waiting for testing
+	- Status: Waiting for answers
+		- Filed upstream as GTK issue [#8497](https://gitlab.gnome.org/GNOME/gtk/-/work_items/8497) and MR [!10551](https://gitlab.gnome.org/GNOME/gtk/-/merge_requests/10551). Waits on a GTK 3.24 release with it.
 	- Needs external testing: none. Seen on native Windows 20261022.
 	- Priority|Severity: Low
 	- Opened: 20261021-122230
@@ -1462,9 +1464,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Drags in the app start from an event, so `DoDragDrop` runs right after and the context is freed. The app never cancels a drag itself. So it stays Low.
 		- An upstream patch is drafted, not filed: GDK's drag abort releases the pending source when `DoDragDrop` hasn't started.
 		- 20261021: it goes upstream as an issue plus MR, with the GLib one, after a last read. The patch still applies to `gtk-3-24`.
+		- 20261022: filed as GTK issue 8497, with MR 10551 against `gtk-3-24`.
 	- Actual fix: none in the app.
 	- Test case: none. The fix is upstream, and nothing in the app hits it.
-	- Verified: under wine, GTK 3.24.52, OLE on: begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. Cancel 300 ms in frees both, as does OLE off either way. The same on Windows 11, 20261022. The patched GDK file compiles; the patch hasn't run.
+	- Verified: under wine, GTK 3.24.52, OLE on: begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. Cancel 300 ms in frees both, as does OLE off either way. The same on Windows 11, 20261022. With the patch, on Windows 11 20261022: a cancel in the same turn releases the source, and the context and window are freed every round. The timed cancel and GTK's own protocol are unchanged.
 	- Swept: the app's own OLE drag source in `nemo-dnd-win32.c` calls `DoDragDrop` and releases in one call, with no pending state. GDK's drag drop has the same hole before `DoDragDrop`, noted with the patch.
 
 - The tree pane removes a timer that already ran, after a key moves its selection.
