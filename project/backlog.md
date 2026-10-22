@@ -113,8 +113,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Carve out "Nemo Classic": upstream Nemo's exact selection and focus behavior, behind the selection model setting.
 	- ID: 2026102016594200
 	- Type: Task
-	- Status: Waiting for answers
-		- Waits on the Tab question: upstream's Tab leaves the focus in the view, and Classic's moves it on.
+	- Status: Waiting for testing
+		- The full Linux suite and the FreeBSD lane.
 	- Needs local test suite run?: yes, the full Linux suite. rktqpp37 and rkts3far are new, and rktkms8a, rhtmbdmd and rk7yvgse cover changed code.
 	- Needs external testing: rktqpp37 and rkts3far in the FreeBSD lane.
 	- Priority|Severity: High
@@ -147,7 +147,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Places opens its menu on the release in every model, since it isn't part of the selection model. Upstream opens it on the press.
 			- Upstream's Size column had text at the spot the list view's plain drag starts from, so the GtkTreeView band from the blank part of a row is derived from source, not seen.
 		- 20261021: also derived from source and not seen: Escape not leaving find mode. Not pinned yet: a folder selected in an expanded nest in the list view (the Problem on 2026101816495208).
+		- 20261021: Tab stays as it is. Classic moves the focus on, like every other model.
 	- Decisions:
+		- Upstream's dead Tab is a bug, like the tree's stale timer, so Classic doesn't keep it.
 		- Whether the band flips is a field of the icon rules table, not state, so the keyboard band follows the model too. Upstream's keyboard band flips against what the last mouse band started from, and Classic keeps that.
 		- Platform plumbing stays ours under Classic: the primary key for Ctrl, and the Windows drag path. The upstream tree's timer bug isn't kept.
 	- Swept: the rules tables in the icon container, the icon view, the list view, the tree pane and the view's Select all and Invert, the search popup's forwarded press, and the canvas item events. `rubberband_select` is the one shared rule that reads the model.
@@ -1337,7 +1339,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026101913541100
 	- Type: Bug
 	- Status: Waiting for answers
-		- Waits on the question whether to file it upstream.
+		- Waits on a last read of the upstream draft, then it's filed.
 	- Needs external testing: rkneydx6 natively on b29w. It should print the rename growth and answer 77 on GLib 2.88.3, and run the settings case on a GLib with the fix.
 	- Priority|Severity: Low
 	- Opened: 20261019-135411
@@ -1355,6 +1357,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Instead the case asks the GLib that is loaded: it renames a watched file away and back 64 times and reads the heap. It answers 77 only while that grows, so it runs again by itself once the box has the fix. Linux skips the check.
 	- Progress log:
 		- 20261021: upstream patch and issue text written, not filed.
+		- 20261021: it goes upstream as an issue plus MR, from t00mietum. The patch still applies to GLib main.
 		- 20261021: rkneydx6 under wine: the watched renames grew the heap 16720 bytes over 64 rounds and the case answered 77. With the monitor canceled and no wait for its events, 0 bytes. On Linux the case passes as before.
 	- Swept: the other `g_file_monitor_*` users in the app reach the same win32 code, which is why there's no app-side fix. `nemo-config.c` is the only one with a leak case.
 	- Branch: round1021
@@ -1458,6 +1461,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Upstream only. The ref belongs to GDK's pending drag source, which the app can't reach. Dropping it from the app leaves GDK's pointer to the context dangling, and GDK reads it on the next drop into the app.
 		- Drags in the app start from an event, so `DoDragDrop` runs right after and the context is freed. The app never cancels a drag itself. So it stays Low.
 		- An upstream patch is drafted, not filed: GDK's drag abort releases the pending source when `DoDragDrop` hasn't started.
+		- 20261021: it goes upstream as an issue plus MR, with the GLib one, after a last read. The patch still applies to `gtk-3-24`.
 	- Actual fix: none in the app.
 	- Test case: none. The fix is upstream, and nothing in the app hits it.
 	- Verified: under wine, GTK 3.24.52, OLE on: begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. Cancel 300 ms in frees both, as does OLE off either way. The patched GDK file compiles; the patch hasn't run.
