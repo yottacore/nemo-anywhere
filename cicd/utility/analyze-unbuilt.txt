@@ -1,8 +1,0 @@
-# Tracked .c files that neither compile list has, one per line: path, then why.
-# analyze.bash fails on any other such file, and on a line here that no longer
-# applies. Backlog 2026102114400584.
-source/libnemo-private/nemo-search-engine-tracker.c built only with -Dtracker, which no lane turns on
-source/src/nemo-empty-view.c built only with -Dempty_view, which no lane turns on
-source/test/test-nemo-dbus-manager.c test is commented out in source/test/meson.build
-source/test/test-nemo-session-bus-win32.c test is commented out in source/test/meson.build
-source/test/test-nemo-thumbnail-prune.c test is commented out in source/test/meson.build

@@ -90,10 +90,6 @@ nemoWindow_headers = [
   'nemo-main-application.h',
 ]
 
-if enableEmptyView
-  nemoCommon_sources += 'nemo-empty-view.c'
-endif
-
 # The extension lister runs as its own process on purpose: it instantiates every
 # installed extension to read its name, and there is no way to unload them again.
 # It is a flag on our own exe rather than a second binary.

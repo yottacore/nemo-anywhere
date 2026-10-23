@@ -27,11 +27,6 @@
 
 #include "nemo-main-application.h"
 
-#if ENABLE_EMPTY_VIEW
-#include "nemo-bookmark-list.h"
-#include "nemo-empty-view.h"
-#endif /* ENABLE_EMPTY_VIEW */
-
 #include "nemo-freedesktop-dbus.h"
 #include "nemo-icon-view.h"
 #include "nemo-image-properties-page.h"
@@ -1191,9 +1186,6 @@ nemo_main_application_continue_startup (NemoApplication *app)
 	nemo_icon_view_register ();
 	nemo_list_view_register ();
 	nemo_icon_view_compact_register ();
-#if defined(ENABLE_EMPTY_VIEW) && ENABLE_EMPTY_VIEW
-	nemo_empty_view_register ();
-#endif
 
 	/* Watch for unmounts so we can close open windows */
 	/* TODO-gio: This should be using the UNMOUNTED feature of GFileMonitor instead */

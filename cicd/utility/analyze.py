@@ -6,8 +6,8 @@
 #   run      Inside a build container. Runs one analyzer over every C file in a
 #            compile_commands.json and prints each file's diagnostics, paths
 #            made relative to the repo.
-#   cover    Fails when a tracked .c is in neither compile list, or when a line
-#            of the unbuilt list no longer applies.
+#   cover    Fails when a tracked .c is in neither compile list, or when one
+#            under source/unused/, which nothing should build, is in one.
 #   count    Counts unique findings per area from run's logs.
 #   planted  Inside a build container. Runs one analyzer over a planted leak and
 #            null dereference, and fails unless it reports both.
@@ -17,7 +17,7 @@
 # Test ID: rktsh374
 #
 # Syntax: analyze.py run --tool gcc|clang --db <compile_commands.json> [--jobs N]
-#         analyze.py cover <repo root> <unbuilt list> <db>...
+#         analyze.py cover <repo root> <db>...
 #         analyze.py count <repo root> <log>...
 #         analyze.py planted --tool gcc|clang --cc <compiler>
 #         analyze.py --self-test
@@ -159,44 +159,33 @@ def cmd_planted(args):
     return 1 if missing else 0
 
 
-def read_unbuilt(path):
-    unbuilt = {}
-    with open(path) as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#"):
-                name, _, reason = line.partition(" ")
-                unbuilt[name] = reason.strip()
-    return unbuilt
+UNUSED = "source/unused/"
 
 
-def check_cover(tracked, built, unbuilt):
+def check_cover(tracked, built):
     problems = []
     for f in sorted(tracked):
-        if f not in built and f not in unbuilt:
+        if f.startswith(UNUSED):
+            if f in built:
+                problems.append("built from %s: %s" % (UNUSED, f))
+        elif f not in built:
             problems.append("in neither compile list: %s" % f)
-    for f, reason in sorted(unbuilt.items()):
-        if not reason:
-            problems.append("unbuilt list line has no reason: %s" % f)
-        if f not in tracked:
-            problems.append("unbuilt list names an untracked file: %s" % f)
-        elif f in built:
-            problems.append("unbuilt list names a built file: %s" % f)
     return problems
 
 
 def cmd_cover(args):
-    root, unbuilt_path, dbs = args[0], args[1], args[2:]
+    root, dbs = args[0], args[1:]
     tracked = set(subprocess.run(["git", "-C", root, "ls-files", "*.c"], check=True,
                                  capture_output=True, text=True).stdout.split())
     built = set()
     for db in dbs:
         built |= {f[len(SRC):] for f in load_db(db) if f.startswith(SRC)}
-    problems = check_cover(tracked, built, read_unbuilt(unbuilt_path))
+    problems = check_cover(tracked, built)
     for p in problems:
         print("[ FAILED: %s ]" % p)
-    print("[ %d tracked .c, %d in a compile list, %d on the unbuilt list ]"
-          % (len(tracked), len(tracked & built), len(read_unbuilt(unbuilt_path))))
+    unused = {f for f in tracked if f.startswith(UNUSED)}
+    print("[ %d tracked .c, %d in a compile list, %d under %s ]"
+          % (len(tracked), len(tracked & built), len(unused), UNUSED))
     return 1 if problems else 0
 
 
@@ -292,14 +281,11 @@ def self_test():
         bad.append("not analyzed %r, want b.c only" % failed["gcc-linux"])
     if count({"x": "### SKIP no clang"}, set())[0]["x"] is not None:
         bad.append("a skipped log counted as clean")
-    tracked = {"a.c", "b.c", "c.c", "d.c"}
-    got = check_cover(tracked, {"a.c", "b.c"}, {"c.c": "off by option", "e.c": "gone", "a.c": "x", "d.c": ""})
-    want_p = ["unbuilt list names a built file: a.c", "unbuilt list line has no reason: d.c",
-              "unbuilt list names an untracked file: e.c"]
+    tracked = {"a.c", "b.c", "c.c", UNUSED + "d.c", UNUSED + "e.c"}
+    got = check_cover(tracked, {"a.c", "b.c", UNUSED + "e.c"})
+    want_p = ["in neither compile list: c.c", "built from %s: %se.c" % (UNUSED, UNUSED)]
     if sorted(got) != sorted(want_p):
         bad.append("cover %r" % got)
-    if check_cover({"a.c", "z.c"}, {"a.c"}, {}) != ["in neither compile list: z.c"]:
-        bad.append("cover missed a file in neither list")
     for b in bad:
         print("[ FAILED: %s ]" % b)
     print("[ %s ]" % ("FAILED" if bad else "OK: analyze.py self-test"))

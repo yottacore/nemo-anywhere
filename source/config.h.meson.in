@@ -10,7 +10,6 @@
 // ***** Enable features
 
 // define to enable the empty view that is used for performance measurement
-#mesondefine ENABLE_EMPTY_VIEW
 // Define to enable xmp support
 #mesondefine HAVE_EXEMPI
 // Define to enable EXIF support
@@ -60,4 +59,3 @@
 // Define to 1 if GIO has GDesktopAppInfo, the freedesktop app launcher.
 #mesondefine HAVE_DESKTOP_APP_INFO
 
-#mesondefine ENABLE_TRACKER

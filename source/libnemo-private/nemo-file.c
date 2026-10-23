@@ -10266,9 +10266,7 @@ nemo_file_add_search_result_data (NemoFile         *file,
                                search_dir,
                                result)) {
 
-#ifndef ENABLE_TRACKER // this is abnormal only in -advanced search.
         g_warning ("Search hits directory already existed - %s", nemo_file_peek_name (file));
-#endif
         return FALSE;
     }
 

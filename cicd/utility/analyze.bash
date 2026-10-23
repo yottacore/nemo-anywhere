@@ -5,9 +5,10 @@
 ##	  nemo-winbuild's /build-win, which has the Windows-only files. Run on the
 ##	  host, after the cross build, so both lists are current.
 ##	- Report only for now (backlog 2026102114400584): findings are counted per
-##	  area and kept, and don't fail the run. The stage fails when a tracked .c is
-##	  in neither list and not on analyze-unbuilt.txt, when an analyzer misses the
-##	  planted leak or null dereference, or when a run itself fails.
+##	  area and kept, and don't fail the run. The stage fails when a tracked .c
+##	  outside source/unused/ is in neither list, when one under it is in either,
+##	  when an analyzer misses the planted leak or null dereference, or when a run
+##	  itself fails.
 ##	- The last run's logs are in cicd/artifacts/analyze/last/. Each run also keeps
 ##	  counts_<stamp>.txt and findings_<stamp>.tgz there, GFS-rotated.
 ##	- An analyzer missing from its container shows as "not run" in the counts.
@@ -79,7 +80,7 @@ for l in "${lanes[@]}"; do
 	IFS='|' read -r lane container db cc <<< "${l}"
 	docker exec "${container}" cat "${db}" > "${last}/compile-${lane}.json" || fDie "no compile list in ${container}: ${db}"
 done
-python3 "${root}/cicd/utility/analyze.py" cover "${root}" "${here}/analyze-unbuilt.txt" "${last}/compile-linux.json" "${last}/compile-win.json" || failed=1
+python3 "${root}/cicd/utility/analyze.py" cover "${root}" "${last}/compile-linux.json" "${last}/compile-win.json" || failed=1
 
 ## All 4 at once, a quarter of the jobs each. A few files take gcc many minutes
 ## alone, so the rest overlap that tail.

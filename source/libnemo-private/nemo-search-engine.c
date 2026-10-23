@@ -26,10 +26,6 @@
 #include "nemo-search-engine.h"
 #include "nemo-search-engine-advanced.h"
 
-#ifdef ENABLE_TRACKER
-#include "nemo-search-engine-tracker.h"
-#endif
-
 #ifdef G_OS_WIN32
 #include "nemo-search-engine-win32.h"
 #endif
@@ -102,13 +98,6 @@ nemo_search_engine_new (void)
 {
 	NemoSearchEngine *engine;
 	
-#ifdef ENABLE_TRACKER
-	engine = nemo_search_engine_tracker_new ();
-	if (engine) {
-		return engine;
-	}
-#endif
-
 #ifdef G_OS_WIN32
 	/* Asks the Windows Search index where it can, walks otherwise. */
 	engine = nemo_search_engine_win32_new ();
@@ -259,11 +248,7 @@ nemo_search_engine_check_filename_pattern (NemoQuery   *query,
 {
     g_return_val_if_fail (NEMO_IS_QUERY (query), FALSE);
 
-#ifdef ENABLE_TRACKER
-    return TRUE;
-#else
     return nemo_search_engine_advanced_check_filename_pattern (query, error);
-#endif
 }
 
 gboolean
@@ -272,9 +257,5 @@ nemo_search_engine_check_content_pattern (NemoQuery   *query,
 {
     g_return_val_if_fail (NEMO_IS_QUERY (query), FALSE);
 
-#ifdef ENABLE_TRACKER
-    return TRUE;
-#else
     return nemo_search_engine_advanced_check_content_pattern (query, error);
-#endif
 }

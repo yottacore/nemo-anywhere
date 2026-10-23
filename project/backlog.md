@@ -180,8 +180,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: Compress dialog height test ended in a segfault, exit 0xb00, after its last line of output, "frame 787 px tall at 0, work area 0 to 1392". The jail said it left files in its tmp folder.
 	- Expected behavior: passes, as it did in the earlier native run that day.
 	- Reproduced: once in 1 suite run, 20261022. Run alone through the same wrapper right after, it passed 5 of 5.
+		- 20261023, the next native suite run, on the `unused` branch: rjnzpkk7 (Command launch win32) ended the same way, exit 0xb00, right after its "a program that is not there" case. Alone it passed 8 of 8. So it's 1 test in each full native run so far, a different one each time.
 	- Possible cause: not known. Every test module has the fence, and the fence changed in 2026102219444112, so it isn't ruled out. So isn't load from the parallel suite.
-	- Test case: rhtmbdmj.
+	- Test case: rhtmbdmj, rjnzpkk7.
 
 - Build the "Nemo Anywhere" selection model with the affirmative switch off.
 	- ID: 2026102019174440
@@ -244,8 +245,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Static analyzers: the stage, report only, with the compile list check.
 	- ID: 2026102114400584
 	- Type: Enhancement
-	- Status: Waiting for answers
-		- Waits on the question about the 5 .c files that neither build compiles.
+	- Status: Waiting on a full CICD run
 	- Needs local test suite run?: yes, one full `cicd.bash` run, to see the stage in place and its time there.
 	- Priority|Severity: High
 	- Opened: 20261021-144005
@@ -264,10 +264,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- `nemo-winbuild` has no clang, so clang over the Windows list shows as not run. Its image needs clang 19, pinned.
 		- Times on the Linux box: clang over the Linux list 2m14s at 8 jobs, gcc over the Windows list 3m22s at 12. gcc over the Linux list hit the 900 s per-file cap on 3 files at `-O0`: `nemo-config.c`, which compiles SHCL, and blake3's AVX2 and SSE4.1 files. At the Windows build's `-O3` the same files took about 2 min. So the stage takes about 15 min today, nearly all of it that tail. `ANALYZE_TU_TIMEOUT` sets the cap.
 		- Verified: rktsh374, rktsh3gd, rkmqprx6 and rj9v18rx pass.
+		- 20261023: the 5 files moved to `source/unused/`, at their old paths below it, with a README saying what each was. The analyzers and the C lint skip that folder, and the stage fails if a build compiles a file from it. `-Dtracker` and `-Dempty_view` went with them, and `analyze-unbuilt.txt` is gone.
+		- Verified: 20261023, the gate passed (231 OK) and the Windows cross build is clean. Every tracked .c outside `source/unused/` is in one of the 2 compile lists. The native gate on vm925w: 201 OK, 7 skipped, and 2 failures seen before, rhtmbdmh (2026102219444662) and a one-off crash of rjnzpkk7 (2026102221362030).
 	- Decisions:
+		- Code nothing builds goes in `source/unused/`, left out by folder, rather than being deleted or listed file by file.
 		- A finding counts toward the area of the line it's on, not of the file compiled, so one in a vendored header counts as vendored. Inherited means the file was in the 6.6.4 baseline. A finding that 2 files reach counts once.
 		- `-Werror` is dropped from the analyzer runs. The other lanes already gate plain warnings, and the analyzer's own count is what this stage is for.
-	- Branch: round1021
+	- Branch: round1021, unused
 	- Test case: rktsh3gd (`analyze.bash --self-test`, the planted faults in both containers) and rktsh374 (`analyze.py --self-test`, run by lint). rkmqprx6 and rj9v18rx cover the stage's place in the run.
 
 - SMB and SFTP networking is broken.
@@ -420,9 +423,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - In a move to another drive, a new name typed in the conflict dialog is lost, and Replace then overwrites the file with the old name.
 	- ID: 2026101419104655
 	- Type: Bug
-	- Status: Waiting on a partial CICD run
+	- Status: Done
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 211 of 211.
-	- Needs external testing: the steps above by hand, from a share to a local folder, on b29w or on vm925w from a mapped share. b29w was off the network on 20261022. Not tried anywhere: a name typed in the conflict dialog that a FAT drive refuses, such as `a:b` on Linux, which should keep the typed name with `_` for the bad character.
+	- Needs external testing: done 20261023 on vm925w, from a local folder to a share. Not tried anywhere: a name typed in the conflict dialog that a FAT drive refuses, such as `a:b` on Linux, which should keep the typed name with `_` for the bad character.
 	- Priority|Severity: High
 	- Opened: 20261014-191046
 	- Opened by: 2026101416533917
@@ -440,6 +443,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 83986e3d
 	- Test case: rkb48gsx, Move conflict answers test: Rename to a taken name then Replace, Rename to a free name, Skip, Replace, Replace all, Keep both, a renamed folder merge, and a renamed link, each as a move and a copy, across 2 file systems and on 1.
 	- Verified: 20261022, rkb48gsx passes natively on vm925w, in the desktop session and with symlinks allowed: every case on 2 drives (C: and K:) and on 1, as a move and a copy, the renamed link case included.
+	- Verified: 20261023, rkb48gsx passes natively on vm925w as wintest with `NEMO_TEST_OTHER_VOLUME` set to a share, `\\localhost\C\...\Temp\`: every case to the share as a move and a copy. A plain rename to that share is refused as another device, so the moves there take the copy fallback. The link case didn't run, since wintest can't make symlinks; it passed on C: and K: 20261022.
+	- Acceptance signoff: Self-closed: rkb48gsx covers every answer across 2 drives and onto a share, natively and on Linux. The FAT name case is from reading only.
+	- Closed: 20261023-071500
 
 - Updates to CICD script flags.
 	- ID: 2026101816495201
@@ -480,7 +486,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Type: Task
 	- Status: Waiting on a full CICD run
 	- Needs local test suite run?: a full pipeline run, once 2026102219444112 is in. `nemo-build` and `nemo-build-jammy` were made again 20261019.
-	- Needs external testing: the native Windows gate, `cicd/cicd-win.ps1 -Gate`, on b29w. vm925w, the arm64 release build and the FreeBSD lane passed 20261022.
+	- Needs external testing: done. b29w is off the network, and vm925w's native gate stands in for it.
 	- Priority|Severity: High
 	- Opened: 20261017-150306
 	- Opened by: t00mietum
@@ -1394,8 +1400,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, the bookmarks file leak case can't tell a leak from what COM does on its own.
 	- ID: 2026101913541101
 	- Type: Bug
-	- Status: Waiting on a partial CICD run
-	- Needs external testing: rjbn328w natively on b29w, several runs. b29w was off the network on 20261022. If it still moves by 4 KB blocks there, something else in the load reaches COM.
+	- Status: Queued
+	- Needs external testing: rjbn328w natively, several runs, on vm925w or b29w.
 	- Priority|Severity: Low
 	- Opened: 20261019-135411
 	- Opened by: t00mietum
@@ -1414,6 +1420,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 2da98315
 	- Test case: rjbn328w on Windows, and rktexj0a, which checks that listing the drives asks the shell nothing until a name is wanted.
 	- Verified: 20261022, on vm925w: rjbn328w passes 7 runs of 7, 0 bytes over 64 rounds each, once after a 640-byte reading was taken again. rktexj0a passes natively over ssh and in the desktop session: no shell call for the list or the network check, 1 for the name.
+	- Verified: 20261023, on vm925w in the desktop session: rjbn328w failed 1 run of 6, with the heap 4368 bytes up over 64 rounds after the reading was taken again. So something else in the load still reaches COM now and then, and the fix above wasn't all of it.
 
 - rhr6ggmt can lose both links from a rar archive on Linux.
 	- ID: 2026101913111713

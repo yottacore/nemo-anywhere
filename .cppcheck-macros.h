@@ -18,11 +18,6 @@
    stops on the #if that uses it. */
 #define __has_feature(x) 0
 
-/* Only Tracker 3 is built against. */
-#ifndef TRACKER_CHECK_VERSION
-#define TRACKER_CHECK_VERSION(major, minor, micro) 1
-#endif
-
 /* From the build: nemo-build-number.h and the -D flags in source/meson.build. */
 #ifndef NEMO_APP_SLUG
 #define NEMO_APP_SLUG "nemo-anywhere"

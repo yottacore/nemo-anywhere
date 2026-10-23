@@ -756,7 +756,7 @@ A cross-compile lane also exists, for checking a Windows build from the Linux bo
 
 - `cicd/win/Dockerfile` builds the `nemo-winbuild` container: the mingw toolchain, the native GLib code generators that have to run on the build host, wine, and the baked sysroot. `cicd/win/win64.cross.txt` is the meson cross file, with wine as the exe wrapper.
 
-Deliberately off for Windows either way: XMP and exempi, which aren't packaged for mingw, and the Unix-only pieces (`gio-unix`, `x11`, SELinux, Tracker), which are guarded in meson by `host_machine.system()` and in the affected C files by `#ifdef`.
+Deliberately off for Windows either way: XMP and exempi, which aren't packaged for mingw, and the Unix-only pieces (`gio-unix`, `x11`, SELinux), which are guarded in meson by `host_machine.system()` and in the affected C files by `#ifdef`.
 
 ### Building on FreeBSD
 

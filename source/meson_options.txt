@@ -8,10 +8,6 @@ option('gtk_doc', type : 'boolean', value : false,
        description: 'Generate API reference (requires GTK-Doc)')
 option('selinux', type : 'boolean', value : false,
        description: 'SELinux support')
-option('empty_view', type : 'boolean', value : false,
-       description: 'Enable empty view')
-option('tracker',type : 'combo', choices : ['true', 'false', 'auto'], value : 'false',
-       description: 'Tracker support')
 option('bundled_themes', type : 'combo', choices : ['true', 'false', 'auto'], value : 'auto',
        description: 'Install the bundled widget and icon themes (auto: on for Windows and macOS)')
 option('fuzzing', type : 'boolean', value : false,

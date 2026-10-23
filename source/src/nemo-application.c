@@ -34,11 +34,6 @@
 #endif
 #include "nemo-splash.h"
 
-#if (defined(ENABLE_EMPTY_VIEW) && ENABLE_EMPTY_VIEW)
-#include "nemo-bookmark-list.h"
-#include "nemo-empty-view.h"
-#endif /* ENABLE_EMPTY_VIEW */
-
 #include "nemo-freedesktop-dbus.h"
 #include "nemo-icon-view.h"
 #include "nemo-image-properties-page.h"
