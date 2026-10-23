@@ -1338,6 +1338,32 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261020: the xattrs checkbox is today's "Save checksums onto the files", moved and relabeled.
 	- Test case: none yet.
 
+- Current F2 functionality (rename the whole thing) moves to Shift+F2.
+	- ID: 2026102218380001
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261022-183800
+	- Opened by: t00mietum
+	- Related IDs: 2026102218380002
+	- Requirements:
+		- Before the next cut.
+		- Shift+F2 renames the whole name, as F2 does today.
+	- Test case: none yet.
+
+- New F2 functionality: back to upstream, where the automatic text selection doesn't include the file extension.
+	- ID: 2026102218380002
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261022-183800
+	- Opened by: t00mietum
+	- Related IDs: 2026102218380001
+	- Requirements:
+		- Before the next cut.
+		- F2 selects the name without the extension, as upstream does.
+	- Test case: none yet.
+
 - On Windows, GLib leaks the new name of every rename in a watched folder.
 	- ID: 2026101913541100
 	- Type: Bug
@@ -1534,6 +1560,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- A drop that offers file contents in place of a path (`FileGroupDescriptorW` and `FileContents`) writes the files into the folder dropped on.
 	- Test case: TBD
+
+- Change the accelerator key for the "Copy path(s)" menu item to y.
+	- ID: 2026102218380003
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261022-183800
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+	- Test case: none yet.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
@@ -11783,10 +11820,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 	- The ID is the local time to the hundredth of a second. Opened is when it was written down, which may differ. (Use a keyboard macro and possibly something like project 'zuid' to generate.)
 
-	- Status values meaning: Testing means the fix is in and checks are running or still to run. Waiting on signoff means automated testing passed. Moot means something else changed that made it irrelevant. Canceled means it still applies but was decided against. Waiting for testing means the fix is in and waits on a long CI run or an outside test host. Can't reproduce means a real attempt to reproduce it failed.
+	- Status values meaning: Testing means the fix is in and checks are running or still to run. Waiting on signoff means automated testing passed. Moot means something else changed that made it irrelevant. Canceled means it still applies but was decided against. Waiting for testing is split four ways, and items still carrying it get one of the four when next touched. Waiting on automated testing means a test is written or running and no person is needed. Waiting on a full CICD run means the fix is in and waits on the whole pipeline, started by a person or by a round. Waiting on a partial CICD run means it waits on one stage or box, such as native Windows or the FreeBSD lane, started by a person or by a round. Waiting on UAT means only a person can check it. Can't reproduce means a real attempt to reproduce it failed.
 
 	- As issues are worked, and statuses change, place them in correct sorting order within the list:
-		- First by status: Waiting for answers, Waiting on signoff, Testing, Waiting for testing, Can't reproduce, Stalled, Started, Queued, Done, Deferred, Canceled, Moot
+		- First by status: Waiting for answers, Waiting on signoff, Testing, Waiting on UAT, Waiting on a full CICD run, Waiting on a partial CICD run, Waiting on automated testing, Waiting for testing (old), Can't reproduce, Stalled, Started, Queued, Done, Deferred, Canceled, Moot
 		- Then by severity|priority: Critical, High, Avg, Low
 		- Then by type: Bugs, [not bugs together]
 
@@ -11797,7 +11834,7 @@ Template:
 - Title
 	- ID: YYYYmmDDHHMMSSNN
 	- Type: [Bug|Feature|Enhancement|Task]
-	- Status: [Queued|Waiting for answers|Waiting on signoff|Waiting for testing|Started|Testing|Stalled|Can't reproduce|Moot|Canceled|Deferred|Done]
+	- Status: [Queued|Waiting for answers|Waiting on signoff|Waiting on automated testing|Waiting on a full CICD run|Waiting on a partial CICD run|Waiting on UAT|Waiting for testing|Started|Testing|Stalled|Can't reproduce|Moot|Canceled|Deferred|Done]
 	- Needs local test suite run?:
 	- Needs external testing:
 	- Priority [Feature|Enhancement] | Severity [Bug]: [Critical|High|Avg|Low]
