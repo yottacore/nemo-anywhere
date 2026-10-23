@@ -208,6 +208,27 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: blake3's 3 files under gcc 11 and gcc 14 on x86_64 with every SIMD path off, and gcc 11 on aarch64: no other warning. The other vendored C, libegg, has no CPU-specific paths.
 	- Test case: the arm64 lane.
 
+- On Windows, a picture with an upper-case extension such as `.JPG` gets no thumbnail.
+	- ID: 2026102219444442
+	- Type: Bug
+	- Status: Waiting on a partial CICD run
+	- Needs external testing: the native Windows gate on vm925w, which runs rky0srmt, and a folder of `.JPG` photos opened in the single exe there.
+	- Priority|Severity: High
+	- Opened: 20261022-194444
+	- Opened by: 2026101009150764
+	- Related IDs: 2026101009150764, 2026102220565281
+	- Target OS: Windows
+	- Steps to reproduce: open a folder of `IMG_1001.JPG` style files, as cameras name them.
+	- Incorrect behavior: plain picture icons, still no thumbnail after 40 seconds. The same file named `.jpg` gets its thumbnail in a second or two. EXIF has nothing to do with it.
+	- Expected behavior: thumbnails whatever the case of the extension.
+	- Reproduced: 20261022 on vm925w, with the single exe and with the unpacked tree. Also under wine, with no thumbnailer descriptors on the data dirs, as in the bundle: `.JPG`, `.Jpg`, `.JPEG`, `.PNG` and even a lower-case `.jpeg` got nothing.
+	- Possible cause: not looked into.
+	- Actual cause: on Windows a file's type is its extension as written. The table of types gdk-pixbuf reads was keyed by MIME type plus the one extension the registry gives back for it, `.jpg` for image/jpeg, compared case-sensitively. So only that exact spelling matched. In a build tree or an MSYS2 install the gdk-pixbuf thumbnailer descriptor answers by MIME type and hid it; the bundle has none.
+	- Actual fix: on Windows `mimetype_supported_by_gdk_pixbuf` in `nemo-desktop-thumbnail.c` keys the table by MIME type alone and looks up the file's type through `nemo_content_type_get_mime_type`, as the thumbnailer and disabled-type lookups beside it already do. Linux and the BSDs are unchanged.
+	- Swept: the other thumbnail checks (`lookup_thumbnailer`, the disabled types, the loader's MIME type, `nemo_can_thumbnail_internally`, the PSD, raw, office and ImageMagick checks) all go through the MIME type or compare without case. GLib's own `g_content_type_equals` and `is_a` ignore case there. The file cache keys by path, not type. Name suffix compares: `.lnk` in `create_lnk` is case-sensitive, filed as 2026102220565281. `.desktop` in rename, `crash-*.txt` and eel's `.gz`-style rename split were left, since none is a Windows type check.
+	- Test case: rky0srmt, Thumbnail upper-case extension win32 test.
+	- Verified: 20261022, cross-built and run under wine: rky0srmt fails on 5 names without the fix and passes with it. rep167r8, rjmc40ex and the PSD, raw and office tests pass under wine. On Linux redrqe60, rhd4gy78, rhfdeb5g and rhg8y5f0 pass. The C lint and test ID check pass.
+
 - On Windows, the first Delete after closing Windows properties is still ignored.
 	- ID: 2026102219444332
 	- Type: Bug
@@ -222,22 +243,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the first press does, as it now does after the app's own Properties (Ctrl+Enter).
 	- Reproduced: 20261022 on vm925w with the single exe, 2 of 2 with Escape and 1 of 1 with the close button.
 	- Possible cause: 2026101816495203 starts no wait when the focus comes back from another of the program's own windows. The shell's property sheet runs in the app's process but isn't a GTK window, so its closing likely reads as another program.
-	- Test case: none yet.
-
-- On Windows, a picture with an upper-case extension such as `.JPG` gets no thumbnail.
-	- ID: 2026102219444442
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261022-194444
-	- Opened by: 2026101009150764
-	- Related IDs: 2026101009150764
-	- Target OS: Windows
-	- Steps to reproduce: open a folder of `IMG_1001.JPG` style files, as cameras name them.
-	- Incorrect behavior: plain picture icons, still no thumbnail after 40 seconds. The same file named `.jpg` gets its thumbnail in a second or two. EXIF has nothing to do with it.
-	- Expected behavior: thumbnails whatever the case of the extension.
-	- Reproduced: 20261022 on vm925w, with the single exe and with the unpacked tree.
-	- Possible cause: not looked into.
 	- Test case: none yet.
 
 - cppcheck 2.21 finds an unread result in `test-nemo-archive-combos.c`.
@@ -1692,6 +1697,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261022, on vm925w with symlinks allowed: rfwwdyvg, rhqxx81r, the Link end test (rjehwjw7), the Shortcut test (rdcvb368), rhmye3d0, rhmye3d1, rfmxrdpg and rhr6ggmr pass natively, and rkb48gsx's link case runs. As a user without the privilege, rfwwdyvg skips its symlink checks and passes, and the Link end test skips.
 	- Self-closed: the native link tests above.
 	- Closed: 20261022-195427
+
+- On Windows a shortcut named `x.LNK` is saved as `x.LNK.lnk`.
+	- ID: 2026102220565281
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261022-205652
+	- Opened by: 2026102219444442
+	- Related IDs: 2026102219444442
+	- Target OS: Windows
+	- Steps to reproduce: make a shortcut and give it a name ending in `.LNK`, upper case.
+	- Incorrect behavior: `create_lnk` in `nemo-file-operations.c` checks for `.lnk` case-sensitively, so another `.lnk` goes on the end.
+	- Expected behavior: a name already ending in `.lnk` in any case is kept.
+	- Reproduced: No, read from the code.
+	- Test case: none yet.
 
 - On Windows, a file that isn't on disk yet, such as a mail attachment, can't be dropped onto the window.
 	- ID: 2026101416534066
