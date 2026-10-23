@@ -184,6 +184,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Possible cause: not known. Every test module has the fence, and the fence changed in 2026102219444112, so it isn't ruled out. So isn't load from the parallel suite.
 	- Test case: rhtmbdmj, rjnzpkk7.
 
+- rk65m3m4 fails in the full Linux suite with "Header CRC error".
+	- ID: 2026102307150011
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261023-071500
+	- Opened by: t00mietum
+	- Related IDs: 2026101916300276
+	- Target OS: Linux
+	- Steps to reproduce: `cicd/cicd.bash -y --no-sync --no-dogfood --no-publish` on dev `4b5a9b75`, load about 8, 20 GB of swap in use.
+	- Incorrect behavior: the long, head and 7z archives couldn't be read, "Header CRC error", so `z.txt` wasn't unpacked from any of them. The check added in 2026101916300276 for an archive written short didn't fire.
+	- Expected behavior: passes in the suite, as it does alone.
+	- Reproduced: once, 20261023. Alone in the same container right after, it passed 6 of 6.
+	- Possible cause: not known. The archives were whole enough to list but not to unpack, so it's not the short write seen before.
+	- Test case: rk65m3m4.
+
 - Build the "Nemo Anywhere" selection model with the affirmative switch off.
 	- ID: 2026102019174440
 	- Type: Enhancement
