@@ -41,6 +41,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261018-164952
 	- Opened by: t00mietum
 	- Related IDs: 2026101816495208, 2026102113540918
+	- Problem:
+		- The stock Nemo behavior is inconsistent, when a folder is selected in an expanded nest of folders
+  in the content view.
 	- Requirements:
 		- Before the next cut.
 		- A "Where pasted and new items go" dropdown on the Advanced tab, under the selection model one: Nemo Anywhere (the default), Nemo Classic, and macOS/Dolphin.
@@ -7466,6 +7469,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjprdfjb, Session bus cleanup win32 test, Windows only. Starts the given bus exe the way GLib does, with TEMP pointed at a scratch folder. 2 clients queue on the app's name, the first leaves and the second gets the name. Once the bus ends nothing may be left in TEMP. Then a bus is killed, and the next one has to clear what it left. Commented out since 20261009, with the stand-in gone. rjvks1yf checks no bus starts at all.
 	- Closed: 20261009-122647
 
+- **Stop here (in new format) for a next release**.
+
 - The affirmative half of the "Nemo Anywhere" selection model.
 	- ID: 2026102019174514
 	- Type: Enhancement
@@ -7531,7 +7536,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note 20261006: left here are signing and the UAC prompt, which need a release tag with secrets and a person at the screen.
 	- Test case: the Windows gate runs the suite natively, plus `cicd/win/gui-launch-smoke.ps1`; signing and the UAC prompt have none.
 
-- **Stop here for a next release**.
+- **Stop here (in old format) for a next release**.
 
 - 🔘 Cut 1.0.0-rc.1.
 	- Opened: 20260925-122815
@@ -7580,8 +7585,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: the desktop itself went long ago, but the icon view still has a desktop mode, desktop orphans and desktop sort order, and `--no-desktop` is still accepted and ignored. None of it runs and none of it deletes anything.
 	- Note: removing it touches about twenty files, mostly the icon view, so it wants its own pass and a look on screen after.
 	- Test case: none yet, not started.
-
-- 🔘 RC1
 
 ### Done
 
