@@ -859,10 +859,9 @@ fCheckWinLaunch(){
 	allowed+='nemo-view-win32.c:explorer_select_by_command_line '	# names explorer.exe, but starts it through the broker
 	allowed+='test-nemo-raise-win32.c:start_copy '					# a test starting copies of itself detached from its console
 	allowed+='test-nemo-helper-end-win32.c:start_app '				# a test starting a copy of itself to play the app
-	allowed+='test-nemo-session-bus-win32.c:start_bus '				# a test starting the bus the way GLib does
 	local bad
 
-	bad="$(find source \( -name '*.c' -o -name '*.h' \) -exec awk -v allowed="$allowed" '
+	bad="$(find source -path source/unused -prune -o \( -name '*.c' -o -name '*.h' \) -exec awk -v allowed="$allowed" '
 		FNR == 1 { fn = ""; base = FILENAME; sub(/.*\//, "", base) }
 		base == "nemo-launch-win32.c" { next }
 		/^[a-zA-Z_][a-zA-Z0-9_]* *\(/ { fn = $1; sub(/\(.*/, "", fn) }
@@ -980,13 +979,12 @@ fCheckSessionBus(){
 	allowed+='nemo-file-utilities.c:get_dbus_connection '			# not on Windows
 	allowed+='nemo-previewer.c:nemo_previewer_init '				# same
 	allowed+='nemo-freedesktop-dbus.c:nemo_freedesktop_dbus_init '	# never made on Windows
-	allowed+='nemo-search-engine-tracker.c:nemo_search_engine_tracker_new '	# not built on Windows
 	local bad
 
 	bad="$(find source/src source/libnemo-private source/libnemo-extension source/eel source/archive-core \( -name '*.c' -o -name '*.h' \) -exec awk -v allowed="$allowed" '
 		FNR == 1 { fn = ""; base = FILENAME; sub(/.*\//, "", base) }
 		/^[a-zA-Z_][a-zA-Z0-9_]* *\(/ { fn = $1; sub(/\(.*/, "", fn) }
-		/(^|[^A-Za-z0-9_])(g_bus_(get|get_sync|own_name|own_name_with_closures|watch_name|watch_name_with_closures)|g_dbus_address_get_for_bus_sync|g_dbus_proxy_new_for_bus(_sync)?|g_dbus_object_manager_client_new_for_bus(_sync)?|[a-z0-9_]+_proxy_new_for_bus(_sync)?|tracker_sparql_connection_bus_new) *\(/ {
+		/(^|[^A-Za-z0-9_])(g_bus_(get|get_sync|own_name|own_name_with_closures|watch_name|watch_name_with_closures)|g_dbus_address_get_for_bus_sync|g_dbus_proxy_new_for_bus(_sync)?|g_dbus_object_manager_client_new_for_bus(_sync)?|[a-z0-9_]+_proxy_new_for_bus(_sync)?) *\(/ {
 			if (index(allowed, " " base ":" fn " ") == 0) print FILENAME ":" FNR ": " $0
 		}
 	' {} +)"
@@ -1688,13 +1686,14 @@ candidates+="$("${GIT[@]}" ls-files --others --exclude-standard)"
 
 ## Keep C sources that still exist, dedup. Vendored code is checked like our
 ## own, and a finding there goes in .cppcheck-suppressions with its reason,
-## since the the file stays as it came. shcl-old is only built into a test.
+## since the the file stays as it came. shcl-old is only built into a test, and
+## source/unused is upstream code nothing builds.
 ## SHCL is a header with its implementation behind SHCL_IMPLEMENTATION, which
 ## is one of the configurations cppcheck tries on it by itself.
 files=()
 while IFS= read -r f; do
 	[[ "$f" == *.c || "$f" == *.h ]] || continue
-	[[ "$f" == vendor/shcl-old/* ]] && continue
+	[[ "$f" == vendor/shcl-old/* || "$f" == source/unused/* ]] && continue
 	[[ -f "$f" ]] && files+=("$f")
 done < <(printf '%s\n' "$candidates" | LC_ALL=C sort -u)
 

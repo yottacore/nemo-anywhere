@@ -206,30 +206,6 @@ endif
 
 # Facultative dependencies
 
-trackerChoice = get_option('tracker')
-tracker_enabled = false
-if trackerChoice != 'false'
-  trackerRequired = (trackerChoice == 'true')
-  # Check all the possible versions
-    tracker_sparql = dependency('tracker-sparql-3.0',  required: false)
-  if not tracker_sparql.found()
-    tracker_sparql = dependency('tracker-sparql-2.0',  required: false)
-  endif
-  if not tracker_sparql.found()
-    tracker_sparql = dependency('tracker-sparql-1.0',  required: false)
-  endif
-  if not tracker_sparql.found()
-    tracker_sparql = dependency('tracker-sparql-0.18', required: false)
-  endif
-  if not tracker_sparql.found()
-    tracker_sparql = dependency('tracker-sparql-0.16', required: trackerRequired)
-  endif
-
-  tracker_enabled = trackerRequired or tracker_sparql.found()
-endif
-conf.set('ENABLE_TRACKER', tracker_enabled)
-
-
 gtkdoc_enabled = get_option('gtk_doc')
 if gtkdoc_enabled
   find_program('gtkdoc-scan', required: true)
@@ -263,9 +239,6 @@ if new_pango.found()
 else
   message('................using pango @0@ instead'.format(new_pango.version()))
 endif
-
-enableEmptyView = get_option('empty_view')
-conf.set10('ENABLE_EMPTY_VIEW', enableEmptyView)
 
 conf.set_quoted('GETTEXT_PACKAGE', appSlug)
 conf.set_quoted('LOCALE_DIR',  join_paths(get_option('prefix'), get_option('localedir')))
@@ -346,7 +319,6 @@ message('\n'.join(['',
 '    compiler:               @0@'.format(cc.get_id()),
 '    libexif support:        @0@'.format(libexif_enabled),
 '    exempi  support:        @0@'.format(exempi_enabled),
-'    Tracker support:        @0@'.format(tracker_enabled),
 '    Wayland support:        @0@'.format(cc.has_header('gdk/gdkwayland.h', dependencies: gtk)),
 '',
 '    nemo-extension documentation: @0@'.format(gtkdoc_enabled),

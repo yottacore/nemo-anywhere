@@ -124,11 +124,6 @@ if libexif_enabled
   nemo_private_deps += libexif
 endif
 
-if tracker_enabled
-  nemo_private_sources += 'nemo-search-engine-tracker.c'
-  nemo_private_deps += tracker_sparql
-endif
-
 if is_windows
   nemo_private_sources += 'nemo-delete-guard-win32.c'
   nemo_private_sources += 'nemo-xattr-win32.c'

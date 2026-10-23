@@ -244,8 +244,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Static analyzers: the stage, report only, with the compile list check.
 	- ID: 2026102114400584
 	- Type: Enhancement
-	- Status: Waiting for answers
-		- Waits on the question about the 5 .c files that neither build compiles.
+	- Status: Waiting on a full CICD run
 	- Needs local test suite run?: yes, one full `cicd.bash` run, to see the stage in place and its time there.
 	- Priority|Severity: High
 	- Opened: 20261021-144005
@@ -264,10 +263,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- `nemo-winbuild` has no clang, so clang over the Windows list shows as not run. Its image needs clang 19, pinned.
 		- Times on the Linux box: clang over the Linux list 2m14s at 8 jobs, gcc over the Windows list 3m22s at 12. gcc over the Linux list hit the 900 s per-file cap on 3 files at `-O0`: `nemo-config.c`, which compiles SHCL, and blake3's AVX2 and SSE4.1 files. At the Windows build's `-O3` the same files took about 2 min. So the stage takes about 15 min today, nearly all of it that tail. `ANALYZE_TU_TIMEOUT` sets the cap.
 		- Verified: rktsh374, rktsh3gd, rkmqprx6 and rj9v18rx pass.
+		- 20261023: the 5 files moved to `source/unused/`, at their old paths below it, with a README saying what each was. The analyzers and the C lint skip that folder, and the stage fails if a build compiles a file from it. `-Dtracker` and `-Dempty_view` went with them, and `analyze-unbuilt.txt` is gone.
+		- Verified: 20261023, the gate passed (231 OK) and the Windows cross build is clean. Every tracked .c outside `source/unused/` is in one of the 2 compile lists.
 	- Decisions:
+		- Code nothing builds goes in `source/unused/`, left out by folder, rather than being deleted or listed file by file.
 		- A finding counts toward the area of the line it's on, not of the file compiled, so one in a vendored header counts as vendored. Inherited means the file was in the 6.6.4 baseline. A finding that 2 files reach counts once.
 		- `-Werror` is dropped from the analyzer runs. The other lanes already gate plain warnings, and the analyzer's own count is what this stage is for.
-	- Branch: round1021
+	- Branch: round1021, unused
 	- Test case: rktsh3gd (`analyze.bash --self-test`, the planted faults in both containers) and rktsh374 (`analyze.py --self-test`, run by lint). rkmqprx6 and rj9v18rx cover the stage's place in the run.
 
 - SMB and SFTP networking is broken.

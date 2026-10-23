@@ -382,19 +382,6 @@ test('rhd4gy78 Thumbnail store test',
   args: []
 )
 
-# Off since the sweep of the shared freedesktop thumbnail cache was retired:
-# nothing writes there any more, and the file cache prunes itself (see
-# test-nemo-cache-prune.c). test-nemo-thumbnail-prune.c needs
-# nemo-thumbnail-prune.h, which went with it.
-# test('Thumbnail prune test',
-#   executable('test-nemo-thumbnail-prune',
-#     [ 'test-nemo-thumbnail-prune.c' ],
-#     include_directories: [ rootInclude, ],
-#     dependencies: [ gtk, nemo_private, test_scratch ],
-#   ),
-#   args: []
-# )
-
 test('redrqe60 Thumbnail factory test',
   executable('test-nemo-thumbnail',
     [ 'test-nemo-thumbnail.c' ],
@@ -778,18 +765,6 @@ test('rch2h9g0 GIO fileops probe',
   ),
   args: []
 )
-
-# Off since the file operations interface it exported was removed: nothing but a
-# window may start a trash, delete or move. test-nemo-dbus-manager.c needs
-# nemo-dbus-manager.h, which went with it.
-# test('DBus manager no-bus test',
-#   executable('test-nemo-dbus-manager',
-#     [ 'test-nemo-dbus-manager.c' ],
-#     include_directories: [ rootInclude, ],
-#     dependencies: [ gtk, nemo_private ],
-#   ),
-#   args: []
-# )
 
 test('78k3mysg Copy test',
   executable('test-nemo-copy',
@@ -2585,18 +2560,6 @@ if is_windows
     args: [ fake_tool ],
     timeout: 120
   )
-
-  # Commented out: nothing starts a session bus on Windows now, so the
-  # gdbus.exe stand-in it tests is gone (2026100815215479).
-  # test('rjprdfjb Session bus cleanup win32 test',
-  #   executable('test-nemo-session-bus-win32',
-  #     [ 'test-nemo-session-bus-win32.c' ],
-  #     include_directories: [ rootInclude, ],
-  #     dependencies: [ gio, glib, test_scratch ],
-  #   ),
-  #   args: [ session_bus_exe ],
-  #   timeout: 120
-  # )
 
   test('rjvks1yf Copies reach each other with no bus win32 test',
     executable('test-nemo-copies-win32',
