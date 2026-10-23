@@ -185,23 +185,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: every `--wrapper` and bare `bash` start in `cicd/` and the meson files. The others run inside MSYS2's shell, where PATH finds its own bash, or on Linux and FreeBSD.
 	- Test case: the native gate itself. It fails every test without the fix.
 
-- The test fence refuses deletes made by code other than the test.
-	- ID: 2026102219444112
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261022-194441
-	- Opened by: 2026101715030680
-	- Related IDs: 2026101715030680
-	- Target OS: All
-	- Incorrect behavior: 3 cases, all 20261022.
-		- Windows: a move into the Recycle Bin (`C:\$Recycle.Bin\<sid>\$R...`) is refused, so rcgzbyar (Trash win32 test) and rhr6ggmt fail natively.
-		- Full run, fuzz stage: fuzz-lnk-edit has the fence in it, and the fence ended it when libFuzzer replaced a file in its own corpus folder (`/build-fuzz/work/lnk-edit/`). It counts as a crash finding, so the run stops there, before the static analyzers, arm64, packages and the rest.
-		- FreeBSD lane: rjprhm52 fails 4 ways, with fontconfig deleting `/usr/local/share/fonts/.uuid`.
-	- Expected behavior: the fence stops a test's own stray deletes. The Recycle Bin moves the trash tests make on purpose, a fuzzer's corpus and a library's cache upkeep go through.
-	- Possible cause: the fence allows only the test's folders, and it is in every module of the process. The fuzz targets link it though `fuzz.bash` runs them outside meson. The FreeBSD case may also be a stale font cache on the box.
-	- Test case: none yet. rcgzbyar, rhr6ggmt and rjprhm52 show it, and the full run's fuzz stage.
-
 - The arm64 release build fails on `blake3_dispatch.c` with -Werror.
 	- ID: 2026102219444222
 	- Type: Bug
@@ -1761,6 +1744,39 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
 		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
+
+- The test fence refuses deletes made by code other than the test.
+	- ID: 2026102219444112
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261022-194441
+	- Opened by: 2026101715030680
+	- Related IDs: 2026101715030680
+	- Target OS: All
+	- Incorrect behavior: 3 cases, all 20261022.
+		- Windows: a move into the Recycle Bin (`C:\$Recycle.Bin\<sid>\$R...`) is refused, so rcgzbyar (Trash win32 test) and rhr6ggmt fail natively.
+		- Full run, fuzz stage: fuzz-lnk-edit has the fence in it, and the fence ended it when libFuzzer replaced a file in its own corpus folder (`/build-fuzz/work/lnk-edit/`). It counts as a crash finding, so the run stops there, before the static analyzers, arm64, packages and the rest.
+		- FreeBSD lane: rjprhm52 fails 4 ways, with fontconfig deleting `/usr/local/share/fonts/.uuid`.
+	- Expected behavior: the fence stops a test's own stray deletes. The Recycle Bin moves the trash tests make on purpose, a fuzzer's corpus and a library's cache upkeep go through.
+	- Possible cause: the fence allows only the test's folders, and it is in every module of the process. The fuzz targets link it though `fuzz.bash` runs them outside meson. The FreeBSD case may also be a stale font cache on the box.
+	- Actual cause: 3 different ones.
+		- Windows: the shell recycles by moving the item to a new `$R` name in the user's bin folder. That folder is outside the test's own.
+		- Fuzz: libFuzzer swaps inputs in and out of its corpus copy, and `fuzz.bash` named no folder as the run's own, so only the temp dir counted.
+		- FreeBSD: not a stale cache. rjprhm52 makes fontconfig scan every font folder on purpose, and fontconfig 2.17 then unlinks `<folder>/.uuid` in each, whether it's there or not. None is there on vmFreeBSD.
+	- Decisions:
+		- A delete of something that isn't there goes through, on every platform. It harms nothing and fails on its own. A present `.uuid` outside the test's folders is still refused, so library upkeep goes through only where there's nothing to remove.
+		- On Windows a move of the test's own item onto a new `$R` name in this user's bin is let through, and that item and its `$I` twin are the test's own from then on, to restore or clear. Anything else in the bin is still refused, as is another user's bin or an existing name.
+		- The fuzz build keeps the fence, since fuzz-lnk-edit writes and replaces files and a stray delete there should be a finding. `fuzz.bash` names each target's corpus copy as its own through `NEMO_TEST_SCRATCH`.
+	- Actual fix: `source/test/test-fence.c` (both rules), `cicd/linux/fuzz.bash` (the corpus copy).
+	- Test case: rknjd2qn, extended: a delete of a missing file and folder outside goes through, and on Windows a child's own recycled item can be cleared from the bin while another process's can't be deleted or moved. The bin cases skip under wine, which keeps its trash elsewhere.
+	- Verified: 20261022. rknjd2qn's new cases fail without the fix on Linux and natively on Windows, as do rjprhm52 on FreeBSD and the lone fuzz-lnk-edit run. All pass with it.
+		- Linux, `nemo-build`: rknjd2qn, rjprhm52, rhr6ggmt, and the jail check rknkav2r. The lint stage passed, rknkbqe9 included. The Windows cross build, and rknjd2qn under wine.
+		- Fuzz: `fuzz.bash` at 12 s a target, all 12 clean. fuzz-lnk-edit alone the same way: without the scratch folder it stops on the fence, with it 419 corpus swaps and no find.
+		- vm925w, native as wintest from a bundle of round1022 with the fix: rknjd2qn, rcgzbyar and rhr6ggmt pass in the desktop session. Over ssh rhr6ggmt fails its junction rows, which Windows blocks as an untrusted mount point there; not the fence. The Recycle Bin was left empty.
+		- vmFreeBSD as bsdtest: rjprhm52 and rknjd2qn.
+	- Swept: every script under `cicd/` that runs a test or fuzz binary outside meson. Only `fuzz.bash` does, and fuzz-lnk-edit is the one fuzz target with the fence. On Windows the same 2 rules cover the A and W forms of every hooked call.
+	- Closed: 20261022-204142
 
 - On Windows the gate says the build isn't set up with `-Werror` when it is.
 	- ID: 2026100518100000
