@@ -7541,7 +7541,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 ### Features and enhancements
 
 - 🔘 Take SHCL 3.0.0-beta.1 from its published release, once there is one, and run the config tests against it.
+	- Status: Stalled
 	- Opened: 20260925-122815
+	- 20261022: still no 3.0.0-beta.1 tag, newest is v2.0.0.
 	- Note: the vendored header is from SHCL's `dev` branch, ahead of that tag.
 	- Done 20260925: moved to a newer `dev` copy, with the calls asked for here. Neither replaces the app's own code yet. Clearing a comment would also take a note written above a key, and the info block call misses a block that is no longer at the end of the file.
 	- Note: a later SHCL may back up and convert a file in an older format itself. Look for a call that does or helps with that before wiring in a new version. If it does the job, use it in place of ours in `nemo-config.c`. Never run both on the same file.
@@ -7552,6 +7554,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: none yet, not started.
 
 - 🛠️ Real-Windows validation: the paths still not exercised there.
+	- Status: Waiting on UAT
 	- Opened: 20260826-103001
 	- Done: the test suite now runs and passes on a Windows box, through the pipeline and the gate. The two paths below are still open.
 	- Note: the signing path only runs in the hosted release workflow on a tag. The repo has no secrets and no variables set at all, so the signing step is skipped and a release cut today publishes an unsigned exe. That is the documented fallback, but it should be known before a build is announced.
