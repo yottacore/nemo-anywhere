@@ -166,7 +166,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows the native gate runs every test under WSL's bash, so all of them fail.
 	- ID: 2026102219444002
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on a partial CICD run
+	- Needs external testing: the native Windows gate, `pwsh cicd/cicd-win.ps1 -Gate -Yes` on vm925w.
 	- Priority|Severity: High
 	- Opened: 20261022-194440
 	- Opened by: 2026101715030680
@@ -178,7 +179,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the suite runs inside the jail, as on Linux.
 	- Reproduced: 20261022 on vm925w, over ssh and in the desktop session.
 	- Possible cause: `fTests` hands meson `--wrapper 'bash <jail>'`. A Windows program start looks in System32 before PATH, so `bash` is the WSL launcher, not MSYS2's. With `C:/msys64/usr/bin/bash.exe` in its place the suite ran: 199 OK, 3 failed, 7 skipped. The 3 are 2026102219444112 and 2026102219444662.
-	- Test case: none yet. The native gate itself shows it.
+	- Actual cause: as above. meson starts the wrapper as a Windows program, so a bare `bash` is found in System32 first.
+	- Actual fix: `fTests` in `cicd/cicd-win.ps1` names MSYS2's bash by its full path (`$MsysBash`, as `C:/msys64/usr/bin/bash.exe`) in `--wrapper`. Linux and FreeBSD are unchanged: `run-tests.bash` and the FreeBSD release step still start `bash` from PATH.
+	- Verified: 20261022 on vm925w, a fresh clone of round1022 with the fix, as wintest in the desktop session: rknjd2qn, 5ethkhjr and rgep22n8 run through the new wrapper, 3 OK, nothing left in the run dir. The same 3 through the old `bash` wrapper fail at once. PSScriptAnalyzer is clean on `cicd-win.ps1`.
+	- Swept: every `--wrapper` and bare `bash` start in `cicd/` and the meson files. The others run inside MSYS2's shell, where PATH finds its own bash, or on Linux and FreeBSD.
+	- Test case: the native gate itself. It fails every test without the fix.
 
 - The test fence refuses deletes made by code other than the test.
 	- ID: 2026102219444112
@@ -200,7 +205,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The arm64 release build fails on `blake3_dispatch.c` with -Werror.
 	- ID: 2026102219444222
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on a partial CICD run
+	- Needs external testing: the arm64 lane, `bash cicd/linux/release-arm64.bash`.
 	- Priority|Severity: High
 	- Opened: 20261022-194442
 	- Opened by: 2026101715252256
@@ -211,6 +217,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the arm64 build is clean with -Werror.
 	- Reproduced: 20261022 on vmDebARM64.
 	- Possible cause: 2026101715252256 builds blake3 at the project's warning level with -Werror. With nothing to dispatch to, nothing calls `get_cpu_features`. That item's gcc 11 build was on x86_64.
+	- Actual cause: as above. In `blake3_dispatch.c` every call to `get_cpu_features` is under `IS_X86`, so off x86 it's a static function nothing calls. Upstream's current `blake3_dispatch.c` is the same.
+	- Decisions:
+		- Per 2026101715252256, the vendored file stays as it came and the warning is turned off in meson for that library alone. `-Wno-unused-function` goes on the blake3 library only, and only off x86, with a one-line reason. x86 builds keep the full set. The dispatcher test's copy calls the function, so it needs nothing.
+	- Actual fix: `source/meson.build` adds `blake3Warnings`, which is `-Wno-unused-function` in the non-x86 branch, to the blake3 library's `c_args`.
+	- Verified: 20261022: on vmDebARM64, jammy's gcc 11 on aarch64 with the release flags and -Werror, `blake3_dispatch.c` fails as reported without the flag and builds with it. A release setup there with -Werror puts the flag on blake3's 3 files only and builds `libblake3.a`, and the blake3 routines test, rkne1y8a, passes (plain C path). On x86_64 the build has no new flag, and the Linux build with -Werror is clean.
+	- Swept: blake3's 3 files under gcc 11 and gcc 14 on x86_64 with every SIMD path off, and gcc 11 on aarch64: no other warning. The other vendored C, libegg, has no CPU-specific paths.
 	- Test case: the arm64 lane.
 
 - On Windows, the first Delete after closing Windows properties is still ignored.
@@ -248,7 +260,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - cppcheck 2.21 finds an unread result in `test-nemo-archive-combos.c`.
 	- ID: 2026102219444552
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261022-194445
 	- Opened by: 2026101912561238
@@ -257,7 +269,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: `test-nemo-archive-combos.c:2074`, the return value of `g_file_get_contents` is not used (`ignoredReturnValue`). The whole-tree C lint fails on it with cppcheck 2.21, which the Windows lint uses. The Linux lint is pinned at 2.17.1, and a feature branch lints only the files it changed, so nothing here saw it. It came in with 2026101913111713's change.
 	- Expected behavior: the whole-tree lint is clean on both.
 	- Reproduced: 20261022 on vm925w, `lint-c.bash` over all 800 files.
+	- Actual fix: the log read in rhr6ggmt's failure report checks the result, and says "nothing" when the log can't be read.
+	- Verified: 20261022: cppcheck 2.21 with the lint's options finds `ignoredReturnValue` at line 2074 before the fix and nothing after, on vm925w. The Linux C lint, cppcheck 2.17.1, is clean on the file, and rhr6ggmt passes in `nemo-build`.
+	- Swept: other first-party calls that drop the result of `g_file_get_contents`, `g_file_set_contents` or `g_file_replace_contents`. 3 calls to `g_file_replace_contents` drop it, and cppcheck 2.21 doesn't flag that function. The vm925w whole-tree run named only this line.
 	- Test case: the whole-tree C lint.
+	- Closed: 20261022-201336
 
 - rhtmbdmh fails in vm925w's desktop session.
 	- ID: 2026102219444662
