@@ -261,7 +261,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Static analyzers: the stage, report only, with the compile list check.
 	- ID: 2026102114400584
 	- Type: Enhancement
-	- Status: Waiting on a full CICD run
+	- Status: Done
 	- Needs local test suite run?: yes, one full `cicd.bash` run, to see the stage in place and its time there.
 	- Priority|Severity: High
 	- Opened: 20261021-144005
@@ -288,6 +288,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- `-Werror` is dropped from the analyzer runs. The other lanes already gate plain warnings, and the analyzer's own count is what this stage is for.
 	- Branch: round1021, unused
 	- Test case: rktsh3gd (`analyze.bash --self-test`, the planted faults in both containers) and rktsh374 (`analyze.py --self-test`, run by lint). rkmqprx6 and rj9v18rx cover the stage's place in the run.
+	- Verified: 20261023, the full run of dev `e2dfe883`, `-y --no-sync --no-dogfood --no-publish`, 2 h 32 min: the stage ran after the cross build and took 21 min 36 s. 534 tracked .c, 529 in a compile list, 5 under `source/unused/`. Planted faults found by gcc in both containers and by clang on Linux. Findings: gcc-linux 22, gcc-win 40, clang-linux 69; clang-win not run. gcc-linux hit the per-file cap on `nemo-config.c` and blake3's AVX2 and SSE4.1 files, as before.
+	- Acceptance signoff: Self-closed: the stage does what the requirements ask in a full run, report only, and rktsh3gd and rktsh374 pin its checks.
+	- Closed: 20261023-100000
 
 - SMB and SFTP networking is broken.
 	- ID: 2026101417352260
@@ -466,7 +469,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Updates to CICD script flags.
 	- ID: 2026101816495201
 	- Type: Enhancement
-	- Status: Waiting on a full CICD run
+	- Status: Done
 	- Needs local test suite run?: yes. A plain full run end to end, once 2026102219444112 and 2026102219444222 are in.
 	- Needs external testing: no.
 	- Priority|Severity: High
@@ -496,11 +499,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: f275bc90
 	- Test case: rkmqprx6, `test-cicd-quick.bash`, checks which steps run with no options, with `--quick`, `--quick --include-arm`, `--quick --include-bsd`, and `--gate`. rj9v18rx checks the help names what `--quick` skips.
 	- Verified: 20261022: `cicd.bash -y --quick --no-sync --no-dogfood --no-publish` took 8 min 48 s, with the sanitizer suite, the profiler and the Windows cross build in it, from a warm build. The plain full run, `-y --no-sync --no-dogfood --no-publish`, listed every step and ran the build, lints and suite, then stopped in fuzzing on 2026102219444112, after 14 min 18 s. The steps after fuzzing, run one at a time: the static analyzers (20 min), the FreeBSD lane's release build, the packages and their checks passed. The FreeBSD suite had 1 failure, also 2026102219444112, and arm64 failed to build, 2026102219444222.
+	- Verified: 20261023, the full run of dev `e2dfe883`, `-y --no-sync --no-dogfood --no-publish`, 2 h 32 min, end to end: build, lints, suite (231 OK), fuzzing, sanitizer suite (217 OK), profiler, native and Windows release builds, arm64, the FreeBSD suite and release, the analyzers and packages. Only the private mac job failed, at its own meson configure on b26.
+	- Acceptance signoff: Self-closed: no options runs every step, `--quick` runs the quick ones, and rkmqprx6 pins both.
+	- Closed: 20261023-100000
 
 - Whenever testing, always work in a sandboxed environment where no real files could be harmed even if you tried.
 	- ID: 2026101715030680
 	- Type: Task
-	- Status: Waiting on a full CICD run
+	- Status: Done
 	- Needs local test suite run?: a full pipeline run, once 2026102219444112 is in. `nemo-build` and `nemo-build-jammy` were made again 20261019.
 	- Needs external testing: done. b29w is off the network, and vm925w's native gate stands in for it.
 	- Priority|Severity: High
@@ -525,6 +531,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 71bb7a65
 	- Verified: 20261022: the jail holds in the full Linux suite, 231 OK and 1 skipped, and the sanitizer suite, 217 OK and 15 skipped. FreeBSD lane as `bsdtest`: 211 OK and 20 skipped, with rjprhm52 failing on the fence (2026102219444112); its release build and pkg passed. Native Windows on vm925w as wintest, with the test wrapper pointed at MSYS2's bash: 199 OK, 7 skipped, and 3 failures, rcgzbyar and rhr6ggmt on the fence and rhtmbdmh (2026102219444662). rknjd2qn passes there. `test-install-holders.ps1` needs WMI, which wintest has in the desktop session, where it passed, but not over ssh.
 	- Verified: 20261022, round1022: native gate on vm925w as wintest in the desktop session, every test in the jail through MSYS2's bash, 201 OK, 7 skipped, 2 failed: rhtmbdmh (2026102219444662) and one crash of rhtmbdmj (2026102221362030). rcgzbyar, rhr6ggmt and rknjd2qn pass. FreeBSD lane 212 OK and 20 skipped, rjprhm52 included. The arm64 release build in the jail, with its extension load test.
+	- Verified: 20261023, the full run of dev `e2dfe883`, `-y --no-sync --no-dogfood --no-publish`, 2 h 32 min: every suite ran in the jail and passed, Linux 231 OK, sanitizer 217 OK, FreeBSD and arm64 included. rk65m3m4 failed in the first attempt of the run (2026102307150011) and passed in the second.
+	- Acceptance signoff: Self-closed: rknjd2qn, rknkav2r and rknkbqe9 pin the jail and the fence, and every lane now runs its tests inside them.
+	- Closed: 20261023-100000
 
 - F2 renaming in photo icon view doesn't work.
 	- ID: 2026101009150764
