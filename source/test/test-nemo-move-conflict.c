@@ -638,7 +638,11 @@ main (int argc, char *argv[])
 	manager = nemo_progress_info_manager_new ();
 
 	tmp = test_scratch_dir ("nemo-move-conflict-XXXXXX", NULL);
-	base = other_volume (tmp);
+	/* A share, say, in place of the second drive. */
+	base = g_strdup (g_getenv ("NEMO_TEST_OTHER_VOLUME"));
+	if (base == NULL) {
+		base = other_volume (tmp);
+	}
 	if (base != NULL) {
 		other = test_scratch_dir_in (base, "nemo-move-conflict-XXXXXX", NULL);
 	}
