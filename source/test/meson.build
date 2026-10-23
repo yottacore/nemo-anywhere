@@ -1123,6 +1123,16 @@ if is_windows
     ),
     args: []
   )
+
+  test('rky0srmt Thumbnail upper-case extension win32 test',
+    executable('test-nemo-thumbnail-case-win32',
+      [ 'test-nemo-thumbnail-case-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_scratch ],
+      c_args: nemo_definitions,
+    ),
+    args: []
+  )
 endif
 
 test('repkeg1g Appearance themes test',

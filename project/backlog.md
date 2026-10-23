@@ -84,9 +84,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Carve out "Nemo Anywhere v1": the app's current selection and focus behavior, behind a selection model setting.
 	- ID: 2026102016594100
 	- Type: Task
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes, the full Linux suite. rktkms8a is new, and rhtmbdmd and rf2w8yxr check the new page.
-	- Needs external testing: rktkms8a in the FreeBSD lane.
+	- Status: Done
+	- Needs local test suite run?: no. Passed 20261022.
+	- Needs external testing: no.
 	- Priority|Severity: High
 	- Opened: 20261020-165941
 	- Opened by: t00mietum
@@ -112,53 +112,76 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: round1021
 	- Test case: rktkms8a, Selection rules test, plus the dropdown checks in rhtmbdmd and rf2w8yxr.
 	- Verified: 20261021, rktkms8a passes in all 3 views. The 26 tests that drive the app, the settings and config tests, and the build with warnings as errors all pass. The Windows cross build is clean.
+	- Verified: 20261022: rktkms8a, rhtmbdmd and rf2w8yxr pass in the full Linux suite, 231 OK and 1 skipped, in the sanitizer suite, and in the FreeBSD lane. rhtmbdmd and rf2w8yxr pass natively on vm925w.
+	- Self-closed: rktkms8a, rhtmbdmd and rf2w8yxr on Linux and FreeBSD.
+	- Closed: 20261022-195427
 
-- Carve out "Nemo Classic": upstream Nemo's exact selection and focus behavior, behind the selection model setting.
-	- ID: 2026102016594200
-	- Type: Task
-	- Status: Waiting for testing
-		- The full Linux suite and the FreeBSD lane.
-	- Needs local test suite run?: yes, the full Linux suite. rktqpp37 and rkts3far are new, and rktkms8a, rhtmbdmd and rk7yvgse cover changed code.
-	- Needs external testing: rktqpp37 and rkts3far in the FreeBSD lane.
-	- Priority|Severity: High
-	- Opened: 20261020-165941
-	- Opened by: t00mietum
-	- Prereq IDs: 2026102016594100
-	- Related IDs: 2026101816495208, 2026102019174440, 2026102113191977
+- On Windows, the first Delete after closing Windows properties is still ignored.
+	- ID: 2026102219444332
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261022-194443
+	- Opened by: 2026101816495203
+	- Related IDs: 2026101816495203
+	- Target OS: Windows
+	- Steps to reproduce: select a file, press Alt+Enter for Windows properties, close it with Escape or the title bar's close button, and press Delete at once.
+	- Incorrect behavior: nothing happens. The second press brings up the delete question.
+	- Expected behavior: the first press does, as it now does after the app's own Properties (Ctrl+Enter).
+	- Reproduced: 20261022 on vm925w with the single exe, 2 of 2 with Escape and 1 of 1 with the close button.
+	- Possible cause: 2026101816495203 starts no wait when the focus comes back from another of the program's own windows. The shell's property sheet runs in the app's process but isn't a GTK window, so its closing likely reads as another program.
+	- Test case: none yet.
+
+- cppcheck 2.21 finds an unread result in `test-nemo-archive-combos.c`.
+	- ID: 2026102219444552
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261022-194445
+	- Opened by: 2026101912561238
+	- Related IDs: 2026101912561238, 2026101913111713
 	- Target OS: All
-	- Requirements:
-		- Re-implemented from upstream source at the fork point, since our selection code has moved too far to pass for it.
-		- Behind the same conditionals as Nemo Anywhere v1, tree view and content view.
-		- Tests per rule and view, like the v1 ones, checked against upstream on the Linux rig.
-		- Must be done, and the tests green, before any Nemo Anywhere model code starts.
-	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "The setting" and "Roadmap".
+	- Incorrect behavior: `test-nemo-archive-combos.c:2074`, the return value of `g_file_get_contents` is not used (`ignoredReturnValue`). The whole-tree C lint fails on it with cppcheck 2.21, which the Windows lint uses. The Linux lint is pinned at 2.17.1, and a feature branch lints only the files it changed, so nothing here saw it. It came in with 2026101913111713's change.
+	- Expected behavior: the whole-tree lint is clean on both.
+	- Reproduced: 20261022 on vm925w, `lint-c.bash` over all 800 files.
+	- Actual fix: the log read in rhr6ggmt's failure report checks the result, and says "nothing" when the log can't be read.
+	- Verified: 20261022: cppcheck 2.21 with the lint's options finds `ignoredReturnValue` at line 2074 before the fix and nothing after, on vm925w. The Linux C lint, cppcheck 2.17.1, is clean on the file, and rhr6ggmt passes in `nemo-build`.
+	- Swept: other first-party calls that drop the result of `g_file_get_contents`, `g_file_set_contents` or `g_file_replace_contents`. 3 calls to `g_file_replace_contents` drop it, and cppcheck 2.21 doesn't flag that function. The vm925w whole-tree run named only this line.
+	- Test case: the whole-tree C lint.
+	- Closed: 20261022-201336
+
+- rhtmbdmh fails in vm925w's desktop session.
+	- ID: 2026102219444662
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261022-194446
+	- Opened by: 2026101715030680
+	- Target OS: Windows
+	- Incorrect behavior: Tab strip test, `test-nemo-notebook.c` lines 210, 213 and 227: "strip 1200 px: min 120, max 300; tabs asked 120 120(108) 300 340". The medium tab isn't between the limits, and the long front tab isn't 30 percent.
+	- Expected behavior: passes in a desktop session as it does over ssh, where it passed the same day.
+	- Reproduced: 20261022 on vm925w, in the native suite run in wintest's desktop session.
+	- Possible cause: the session's display scale or font. Not looked into.
+	- Test case: rhtmbdmh.
 	- Progress log:
-		- 20261020: opened.
-		- 20261021: `nemo-classic` added to `preferences.selection-model`, and "Nemo Classic" to the dropdown, ahead of Nemo Anywhere v1 as the design doc orders them. Each rules table has a Classic set, taken from upstream 6.6.4's handlers.
-			- The menu opens on the press, in all 3 views and the tree. No long press and no right band.
-			- Escape leaves the selection alone.
-			- Icon views: Ctrl or Shift on empty space keeps the selection, and the band flips what it crosses, the keyboard band too. Ctrl or Shift on an icon picks it at once, then drags.
-			- List view: a click below the rows clears the selection even with Ctrl, a right-click on the blank part of a row not selected clears it, and GtkTreeView does the band.
-			- A click in the other pane of a split view only wakes it while it has a selection, and goes no further.
-			- Select all and Invert are the same in both.
-		- 20261021: rktkms8a's checks run again as rktqpp37 under Classic. New in both: Ctrl+click and Shift+click on empty space, and whether the menu opens on the press or the release, per view and in the tree.
-		- 20261021: rktqpp37's results were seen in upstream 6.6.4 built from its tag, all but these.
-			- Tab: upstream leaves the focus in the view, and Classic moves it on, as v1 does. Upstream's tab notebook takes every focus move in its Ctrl+Tab handler. Ours has let Tab through since 3c354fa5, in every model.
-			- Upstream's tree logs a GLib critical, the stale timer ID fixed in 2026102113191977. Classic keeps the fix.
-			- Two open checks name the wrong folder upstream, only because it makes a Desktop folder in home. The folder that opened was the selected one.
-		- 20261021: rk7yvgse's drags and bands run again as rkts3far under Classic, and those results were seen in upstream too: Ctrl or Shift and a drag from an item not selected picks it at once and drags files, a right drag opens the menu and doesn't band, and a drag in the pane that wasn't active only wakes it. Two places differ from upstream:
-			- Places opens its menu on the release in every model, since it isn't part of the selection model. Upstream opens it on the press.
-			- Upstream's Size column had text at the spot the list view's plain drag starts from, so the GtkTreeView band from the blank part of a row is derived from source, not seen.
-		- 20261021: also derived from source and not seen: Escape not leaving find mode. Not pinned yet: a folder selected in an expanded nest in the list view (the Problem on 2026101816495208).
-		- 20261021: Tab stays as it is. Classic moves the focus on, like every other model.
-	- Decisions:
-		- Upstream's dead Tab is a bug, like the tree's stale timer, so Classic doesn't keep it.
-		- Whether the band flips is a field of the icon rules table, not state, so the keyboard band follows the model too. Upstream's keyboard band flips against what the last mouse band started from, and Classic keeps that.
-		- Platform plumbing stays ours under Classic: the primary key for Ctrl, and the Windows drag path. The upstream tree's timer bug isn't kept.
-	- Swept: the rules tables in the icon container, the icon view, the list view, the tree pane and the view's Select all and Invert, the search popup's forwarded press, and the canvas item events. `rubberband_select` is the one shared rule that reads the model.
-	- Branch: round1021
-	- Test case: rktqpp37, Selection rules test, Nemo Classic, and rkts3far, Drag select test, Nemo Classic. rktkms8a and rhtmbdmd got the new checks too.
-	- Verified: 20261021, rktqpp37, rkts3far, rktkms8a and rk7yvgse pass in all 3 views. rhtmbdmd, rf2w8yxr, rfazc870 and rg6a49ar pass. The build has no warnings, the Windows cross build with warnings as errors is clean, and the UI case and test ID checks pass.
+		- 20261022: same 3 lines in the native gate on round1022 in the desktop session, and 5 of 5 alone there.
+
+- rhtmbdmj crashed once in the native Windows suite.
+	- ID: 2026102221362030
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261022-213620
+	- Opened by: t00mietum
+	- Related IDs: 2026102219444112, 2026101715030680
+	- Target OS: Windows
+	- Test environment: vm925w, a fresh clone of round1022, as wintest in the desktop session.
+	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
+	- Incorrect behavior: Compress dialog height test ended in a segfault, exit 0xb00, after its last line of output, "frame 787 px tall at 0, work area 0 to 1392". The jail said it left files in its tmp folder.
+	- Expected behavior: passes, as it did in the earlier native run that day.
+	- Reproduced: once in 1 suite run, 20261022. Run alone through the same wrapper right after, it passed 5 of 5.
+	- Possible cause: not known. Every test module has the fence, and the fence changed in 2026102219444112, so it isn't ruled out. So isn't load from the parallel suite.
+	- Test case: rhtmbdmj.
 
 - Build the "Nemo Anywhere" selection model with the affirmative switch off.
 	- ID: 2026102019174440
@@ -397,9 +420,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - In a move to another drive, a new name typed in the conflict dialog is lost, and Replace then overwrites the file with the old name.
 	- ID: 2026101419104655
 	- Type: Bug
-	- Status: Waiting for testing
+	- Status: Waiting on a partial CICD run
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 211 of 211.
-	- Needs external testing: rkb48gsx natively on b29w or vm925w. Its 2 drive half needs a second fixed drive and skips without one. Then the steps above by hand on b29w, from a share to a local folder. Not tried anywhere: a name typed in the conflict dialog that a FAT drive refuses, such as `a:b` on Linux, which should now keep the typed name with `_` for the bad character.
+	- Needs external testing: the steps above by hand, from a share to a local folder, on b29w or on vm925w from a mapped share. b29w was off the network on 20261022. Not tried anywhere: a name typed in the conflict dialog that a FAT drive refuses, such as `a:b` on Linux, which should keep the typed name with `_` for the bad character.
 	- Priority|Severity: High
 	- Opened: 20261014-191046
 	- Opened by: 2026101416533917
@@ -416,16 +439,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: xrename
 	- Commit: 83986e3d
 	- Test case: rkb48gsx, Move conflict answers test: Rename to a taken name then Replace, Rename to a free name, Skip, Replace, Replace all, Keep both, a renamed folder merge, and a renamed link, each as a move and a copy, across 2 file systems and on 1.
+	- Verified: 20261022, rkb48gsx passes natively on vm925w, in the desktop session and with symlinks allowed: every case on 2 drives (C: and K:) and on 1, as a move and a copy, the renamed link case included.
 
 - Updates to CICD script flags.
 	- ID: 2026101816495201
 	- Type: Enhancement
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes. A real `cicd/cicd.bash --quick` run, to see it still ends in under about 10 min with the sanitizer suite, the profiler and the Windows build in it. Then a plain full run.
+	- Status: Waiting on a full CICD run
+	- Needs local test suite run?: yes. A plain full run end to end, once 2026102219444112 and 2026102219444222 are in.
 	- Needs external testing: no.
 	- Priority|Severity: High
 	- Opened: 20261018-164952
 	- Opened by: t00mietum
+	- Prereq IDs: 2026102219444112, 2026102219444222
 	- Requirements:
 		- Before the next cut. Do next.
 		- `--ci`: Rename to `--gate`.
@@ -448,22 +473,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: flags, merged into dev at 92fa7847.
 	- Commit: f275bc90
 	- Test case: rkmqprx6, `test-cicd-quick.bash`, checks which steps run with no options, with `--quick`, `--quick --include-arm`, `--quick --include-bsd`, and `--gate`. rj9v18rx checks the help names what `--quick` skips.
+	- Verified: 20261022: `cicd.bash -y --quick --no-sync --no-dogfood --no-publish` took 8 min 48 s, with the sanitizer suite, the profiler and the Windows cross build in it, from a warm build. The plain full run, `-y --no-sync --no-dogfood --no-publish`, listed every step and ran the build, lints and suite, then stopped in fuzzing on 2026102219444112, after 14 min 18 s. The steps after fuzzing, run one at a time: the static analyzers (20 min), the FreeBSD lane's release build, the packages and their checks passed. The FreeBSD suite had 1 failure, also 2026102219444112, and arm64 failed to build, 2026102219444222.
 
 - Whenever testing, always work in a sandboxed environment where no real files could be harmed even if you tried.
 	- ID: 2026101715030680
 	- Type: Task
-	- Status: Waiting for testing
-	- Needs local test suite run?: A full pipeline run once `nemo-build` and `nemo-build-jammy` are made again as below.
-		- `nemo-build`: `docker exec nemo-build sh -c 'apt-get update && apt-get install -y --no-install-recommends bubblewrap'`, then `docker commit nemo-build nemo-build-deps:init`, `docker rm -f nemo-build`, and `docker run -d --init --ulimit core=0 --shm-size=2g --security-opt seccomp=unconfined --security-opt apparmor=unconfined --name nemo-build -v <project>/repo:/src nemo-build-deps:init sleep infinity`.
-		- `nemo-build-jammy`: the same with `nemo-build-jammy` and `nemo-build-jammy:init`, plus `docker tag nemo-build-jammy:init nemo-build-jammy:latest`, since release.bash makes the container from `:latest` when it isn't running.
-		- A worker's own build box takes the same two `--security-opt`.
-	- Needs external testing:
-		- The FreeBSD lane and its release test as `bsdtest`: `cicd/bsd/lane.bash` and `cicd/bsd/release.bash`.
-		- The arm64 release build as `tester`, after `docker rmi nemo-build-jammy:latest` on vmDebARM64 so release.bash builds the image again with bubblewrap.
-		- The native Windows suite, `cicd/cicd-win.ps1 -Gate`, on vm925w and b29w, and as `wintest`. rknjd2qn is the one to watch.
+	- Status: Waiting on a full CICD run
+	- Needs local test suite run?: a full pipeline run, once 2026102219444112 is in. `nemo-build` and `nemo-build-jammy` were made again 20261019.
+	- Needs external testing: the native Windows gate, `cicd/cicd-win.ps1 -Gate`, on b29w. vm925w, the arm64 release build and the FreeBSD lane passed 20261022.
 	- Priority|Severity: High
 	- Opened: 20261017-150306
 	- Opened by: t00mietum
+	- Prereq IDs: 2026102219444002, 2026102219444112, 2026102219444222
 	- Decisions:
 		- A jail per test. On Linux each test runs under bubblewrap inside the container, with the repo and system read-only and a fresh HOME and scratch folder as the only places it can write. The other boxes run tests as their throwaway test user with a fake HOME, and the test library refuses a delete outside the test's scratch folder.
 		- `cicd/linux/jail.bash` is meson's `--wrapper` for every suite run: the gate, stage 3, the sanitizer lane, both release lanes, the FreeBSD lane and the Windows suite. Off Linux it gives the fresh HOME and temp folder only.
@@ -480,14 +501,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: every `meson test` call under `cicd/`. `fuzz.bash` runs its targets outside meson, and `profile-run.bash` runs the app, so neither is a test run. Every test executable in `source/test/meson.build` links the fence; the fakes, `test-env-dump` and the old-format writers are programs a test starts.
 	- Branch: jail
 	- Commit: 71bb7a65
+	- Verified: 20261022: the jail holds in the full Linux suite, 231 OK and 1 skipped, and the sanitizer suite, 217 OK and 15 skipped. FreeBSD lane as `bsdtest`: 211 OK and 20 skipped, with rjprhm52 failing on the fence (2026102219444112); its release build and pkg passed. Native Windows on vm925w as wintest, with the test wrapper pointed at MSYS2's bash: 199 OK, 7 skipped, and 3 failures, rcgzbyar and rhr6ggmt on the fence and rhtmbdmh (2026102219444662). rknjd2qn passes there. `test-install-holders.ps1` needs WMI, which wintest has in the desktop session, where it passed, but not over ssh.
+	- Verified: 20261022, round1022: native gate on vm925w as wintest in the desktop session, every test in the jail through MSYS2's bash, 201 OK, 7 skipped, 2 failed: rhtmbdmh (2026102219444662) and one crash of rhtmbdmj (2026102221362030). rcgzbyar, rhr6ggmt and rknjd2qn pass. FreeBSD lane 212 OK and 20 skipped, rjprhm52 included. The arm64 release build in the jail, with its extension load test.
 
 - F2 renaming in photo icon view doesn't work.
 	- ID: 2026101009150764
 	- Type: Bug
-	- Status: Waiting for testing
+	- Status: Waiting on signoff
 		- Still doesn't work.
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 214 of 214.
-	- Needs external testing: on vm925w, in the desktop session with the single exe. Open a folder of a few hundred camera photos that has never been opened, click a photo while the thumbnails are still being made, and press F2. The name should open for editing every time. Then, with a rename open and part of a new name typed, let the thumbnails in its row come in. The box should stay under its photo, and nothing should be saved before Enter. Keys don't reach the app under wine, so F2 itself was only tried on Linux.
+	- Needs external testing: no. Left for a person: whether F2 now works where it was seen failing.
 	- Priority|Severity: Avg
 	- Opened: 20261010-091507
 	- Opened by: t00mietum
@@ -519,6 +542,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261015: ruled out on a first visit to real photos: the focus going elsewhere, another shortcut taking F2, and the selection changing as the view reloads. A click before the switch to icon view is lost, but on a local disk that's the first half second.
 		- 20261015: the size change at the end of loading still ends a rename open at the time, as a zoom does. On a local disk that's within the first second. Read only, not run: it saves the text in the box. Still in Options for later.
 		- 20261015: left at Waiting for testing for the Windows check, then signoff. The case seen still isn't known for sure. If it comes back, it helps to know the platform, the folder (about how many photos, local or on a share, opened before or not), and whether the box never shows or shows and then closes.
+		- 20261022: the Windows check passed, see Verified. Left at signoff, since the case seen still isn't known for sure. The test photos were named `.jpg`. Named `.JPG`, as cameras name them, photos get no thumbnail at all on Windows, which is 2026102219444442.
 	- Swept: the icon view's box is the only one of its kind, and the compact view uses it too. The list view, Places and the tree rename inside a tree cell, which GTK sizes when it shows it.
 		- 20261015: 14 other waits start over on each call. None holds back something a user acts on. Drags, hovers, sizes and the selection are fed by the user, and the look-ahead and the column resample wait for a quiet spell on purpose. The menu wait is shared by every view, so the list and compact views get the fix too. The list view makes no thumbnails at its size, and F2 there worked while a folder was busy.
 		- 20261015: a layout move ended a rename in the icon view and in the desktop grid's copy of the same code. Nothing uses the grid now, so it was left as is. Drags, stretches and arrow-key moves still end a rename, through the click or key that starts them.
@@ -527,14 +551,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rk520jh7, Rename field takes a new width while hidden test. The box in a layout, renamed at one width, hidden, then given a wider and a narrower width with the same name, takes each width and holds the name. rk526bz6, F2 in a folder of pictures test, Linux only. In a short window, F2 on a photo, zoom in twice, F2 on the same photo. Both times the box is as wide as it asked for and in sight. rkb84h93, F2 while the folder keeps changing test, Linux only. A file in a folder of pictures changes every 15 ms, in place of thumbnails coming in. With nothing selected first, a picture is selected and F2 pressed half a second later, 3 times. Each time F2 has to work and open the box. A first try with the folder still shows F2 works there at all. rkb9fjtc, Rename stays open when the icons move test, Linux only. With part of a new name typed, a wider window moves the picture. The box has to stay open under it with the text, nothing may be saved, and Escape keeps the old name.
 	- Verified: rk520jh7 failed before the fix, 4 checks, and passes after, on Linux and under wine. rk526bz6 failed before the fix, 3 of its 6 checks, and passes after. The full Linux suite passed, 191 of 191. The Windows cross build passes. Lint is clean apart from rj3ytv0b, which always fails in a worktree.
 	- Verified: 20261015. rkb84h93 failed 5 of 5 runs before the fix, 6 checks each, with the still try passing, and passes after. rkb9fjtc failed 3 of 3 before the fix, 5 checks, the half-typed name saved among them, and passes after. Both, with rk526bz6 and rk520jh7, passed 5 of 5 and again with the processor busy. On Linux, 90 photos of 24 MP opened for the first time with thumbnails coming in about 10 a second: click and F2 renamed 10 of 10, where 5 of 12 failed before. On the Windows build under wine, a rename opened from the Edit menu stays open while a narrower window moves its photo, and saves only on Enter. Before the fix the narrower window saved the half-typed name. rk520jh7 passes under wine. Full Linux suite 214 of 214, Windows cross build clean, lint clean apart from rj3ytv0b. The menu update ran 7 or 8 times during a whole thumbnail run, under 30 ms in all.
+	- Verified: 20261022, on vm925w in the desktop session with the single exe, in a folder of 300 never-opened 12 MP photos. A click on a photo while the thumbnails were still being made, then F2, opened the name for editing 4 times of 4, once before any thumbnail had come in. With part of a new name typed, the thumbnails in its row came in and the box stayed under its photo with the text. Nothing was saved before Enter, and Escape kept the old name.
 
 - On Windows, the zip and the copy `install.ps1` puts in place draw with GTK's default theme and font.
 	- ID: 2026101007562511
 	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing:
-		- vm925w, in the desktop session. Start the zip, the copy `install.ps1` puts in place and the single exe, all from one commit on this branch, and compare the look and font.
-		- Done 20261013 on b29w at dev 5ca50b7, passed. It was: a native stage and pack (`cicd-win.ps1`), since `stage-native.bash` changed. rk50ewvs passed on win-flat and on the installed folder in rj72n4xb, and both files match `cicd/win/bundle-etc/` byte for byte.
+	- Status: Waiting on signoff
+	- Needs external testing: no. Left for a person: theme and font now match, but the zip draws a bookmark's folder icon blue and a text file's icon plain, where the single exe draws them tan and lined.
 	- Priority|Severity: Avg
 	- Opened: 20261010-075625
 	- Opened by: 2026100917220603
@@ -552,14 +575,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: ziptheme
 	- Commit: cb3445f
 	- Test case: rk50ewvs (`test-bundle-settings.ps1`), run on the zip in the packages stage, on the flat tree before the single exe is packed, and on the `install.ps1` copy in rj72n4xb.
+	- Progress log:
+		- Done 20261013 on b29w at dev 5ca50b7, passed. It was: a native stage and pack (`cicd-win.ps1`), since `stage-native.bash` changed. rk50ewvs passed on win-flat and on the installed folder in rj72n4xb, and both files match `cicd/win/bundle-etc/` byte for byte.
+		- 20261022: left at signoff for the icon difference above.
+	- Verified: 20261022, on vm925w in the desktop session: the zip from the full run and the single exe built natively from the same commit draw with the same bundled dark theme and the same font, not GTK's default. rk50ewvs passes on the zip, and on the `install.ps1` copy in rj72n4xb, natively. The `install.ps1` copy itself wasn't started; it is the zip's tree.
 
 - On Windows, a file dragged onto the window from another program may not drop.
 	- ID: 2026101007562587
 	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing:
-		- Done 20261014 on vm925w, passed. It was: in the desktop session, drag a file from Explorer onto the folder view, the Places side bar and a tab.
-		- Still to do, in the desktop session on vm925w: rk8vn5kr with the native build, and a file dragged from a program other than Explorer onto the single exe, which was not tried. The test skips where there's no monitor, as over ssh.
+	- Status: Done
+	- Needs external testing: no. Explorer drags were done 20261014, the rest 20261022.
 	- Priority|Severity: Avg
 	- Opened: 20261010-075625
 	- Opened by: 2026100816170921
@@ -579,12 +604,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: xdrag
 	- Commit: 6db861b
 	- Test case: rk8vn5kr, Drop from another program win32 test. A drag with only the plain file list is handed to the window's drop target the way Windows would: it moves within one folder, copies when only copy is allowed, and plain text is still refused. It skips where there's no monitor.
+	- Verified: 20261022, on vm925w in the desktop session: rk8vn5kr passes natively. On the single exe, a drag from a program other than Explorer that offered only the plain file list and allowed a move moved the file into the folder view, and one that allowed only a copy copied it.
+	- Self-closed: rk8vn5kr natively in the desktop session, and the 2 drops onto the single exe above.
+	- Closed: 20261022-195427
 
 - In the single exe on Windows, a program packed inside it that needs libgsf can't start.
 	- ID: 2026100617051745
 	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: the single exe in the desktop session on vm925w with MacType running, office files in the icon view and a content search through them. No box, and thumbnails and matches as on Linux.
+	- Status: Done
+	- Needs external testing: no.
 	- Priority|Severity: Avg
 	- Opened: 20261006-170517
 	- Opened by: 2026100615255268
@@ -621,16 +649,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: thumbwin
 	- Commit: f38660a to f8a6223
 	- Test case: rjpatrck, Helper end win32 test, Windows only. A copy of the test plays the app and starts a fake tool that hangs, through the thumbnailer pipe and through a tool run, then quits or is killed; the tool has to end with it. A user's console program started for an action has to outlive it. The MacType half has no test, since it needs MacType in a desktop session. (c) still needs its own: a thumbnail and the text from a small file of each type, on every platform, and a check that no program is started for them.
+	- Verified: 20261022, on vm925w in the desktop session with MacType running and loaded in the single exe: 6 office files (doc, docx, odt, ods, xls, xlsx) in the icon view brought up no box, and the OpenDocument files got their thumbnails. A content search for a word in all 6 found all 6.
+	- Self-closed: the MacType run above.
+	- Closed: 20261022-195427
 
 - Have to press "delete" twice after properties dialog.
 	- ID: 2026101816495203
 	- Type: Bug
-	- Status: Waiting for testing
+	- Status: Waiting on a partial CICD run
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 218 of 218.
-	- Needs external testing: Windows, on vm925w in the desktop session. Select a file, open Properties, close it with Escape, and press Delete at once. The first press should bring up the delete question. Again closing Properties with the title bar's close button. Then switch to another program and back, and press Delete at once. That one should still be ignored.
+	- Needs external testing: Windows, on vm925w in the desktop session, once 2026102219444332 is in: Windows properties (Alt+Enter) closed with Escape, and with the title bar's close button, then Delete at once. Then signoff, since it loosens a delete guard rule.
 	- Priority|Severity: Avg
 	- Opened: 20261018-164952
 	- Opened by: t00mietum
+	- Prereq IDs: 2026102219444332
 	- Related IDs: 2026101319204761
 	- Target OS: All
 	- Requirements:
@@ -645,16 +677,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: rkmsgs9m fails on dev's code, where the first Shift+Delete after closing Properties never asked, and passes after. Closing Properties with Escape and with the window manager's close both left the next Delete working at once. A Delete right after coming back from another program was still ignored. rgv89eeg passes with new checks. Windows cross build clean. Lint clean but rj3ytv0b, which needs the main clone.
 	- Progress log:
 		- 20261019: fixed on Linux. Waiting for the Windows check above, since the focus events there come in differently. Then signoff, since it loosens a delete guard rule.
+		- 20261022: the app's own Properties passes on Windows. After Windows properties the first Delete is still ignored, which is 2026102219444332.
 	- Branch: viewfix
 	- Commit: 0ebed80
 	- Test case: rkmsgs9m, Delete key after Properties test, Linux and FreeBSD only. New checks in rgv89eeg, Delete guard test.
+	- Verified: 20261022, on vm925w in the desktop session with the single exe: after Properties (Ctrl+Enter) closed with Escape, and again with the title bar's close button, the first Delete brought up the delete question. After switching to another program and back, a Delete at once was ignored, and one 1.5 s later asked. rkmsgs9m passes in the FreeBSD lane.
 
 - Linux/BSD need to pick up new icon theme when set. (If that's possible without bringing back a lot of cruft dependencies.)
 	- ID: 2026101816495202
 	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: yes, the full suite.
-	- Needs external testing: FreeBSD, rkmve05x in the BSD lane on vmFreeBSD. Same code as Linux, so it's not expected to differ. Windows, the bundle still starts in its own themes, in the next full run's dogfood stage.
+	- Status: Done
+	- Needs local test suite run?: no. Passed 20261022.
+	- Needs external testing: no.
 	- Priority|Severity: Avg
 	- Opened: 20261018-164952
 	- Opened by: t00mietum
@@ -677,12 +711,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rkmve05x, Desktop theme change test. Also a new case in repkeg1g: with nothing picked the icon theme is the one `settings.ini` named, and clearing a pick goes back to it.
 	- Verified: rkmve05x failed before the fix, on all 3 desktop changes, and passes after. The repkeg1g case fails with the hand-back left out and passes with it. Both pass in the Linux build. repkeg1g passes in the Windows cross build with the bundled themes. The settings dialog tests rhtmbdmd, rf2w8yxr, rk5b84ef, rhtmbdmf and rjvdch2z pass.
 	- Note: closes without signoff once these tests pass. It's GTK's standard behavior with nothing picked, rkmve05x pins it, and the explicit pick works as before.
+	- Verified: 20261022: the full Linux suite, 231 OK and 1 skipped, and the sanitizer suite, 217 OK and 15 skipped. rkmve05x passes in the FreeBSD lane. repkeg1g passes natively on vm925w, and the single exe and the zip start in their bundled themes.
+	- Self-closed: rkmve05x in the FreeBSD lane and the full suite, per the note above.
+	- Closed: 20261022-195427
 
 - cppcheck leaves out the vendored C the app is built from.
 	- ID: 2026101715252255
 	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: Windows. The lint stage under MSYS2 runs its own cppcheck, a newer one, over blake3, libegg and SHCL for the first time.
+	- Status: Done
+	- Needs external testing: no.
 	- Priority|Severity: Avg
 	- Opened: 20261017-152522
 	- Opened by: t00mietum
@@ -707,58 +744,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261019, Linux: a fault in `blake3_portable.c`, `eggtreemultidnd.c` and `shcl.h` each fails the C lint, and passes with dev's `lint-c.bash`. A `1 << 31` in blake3 fails rj9v86cj, and one in `vendor/shcl-old/` doesn't. rj3ytty2 fails with dev's `lint-c.bash` and passes after. The whole-tree run on this branch has no findings. The lint stage passes, apart from rj3ytv0b, which can't pass outside the main clone.
 	- Branch: vendlint
 	- Commit: 3ae52a5
-
-- Vendored C builds with fewer warnings, and never with -Werror.
-	- ID: 2026101715252256
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: the native Windows gate, where MSYS2's gcc builds blake3 and libegg with `-Werror` for the first time. It was gcc 16.1 on 20261005, newer than anything here. The arm64 lane, which builds blake3's plain C path alone, and the FreeBSD lane.
-	- Priority|Severity: Avg
-	- Opened: 20261017-152522
-	- Opened by: t00mietum
-	- Related IDs: 2026101715252255
-	- Target OS: All
-	- Incorrect behavior: blake3 and libegg build with `vendorWarnings` in `source/meson.build`, which is `warning_level=1` and `werror=false`. The -Werror lane never sees a warning in either.
-	- Expected behavior: both build at the project's warning level, -Werror included. A warning that's only about upstream's style is turned off for that library alone in meson, with a one-line reason.
-	- Note: SHCL already builds at the full level, since it's compiled inside `nemo-config.c`.
-	- Test case: `check-werror.bash` also fails when a vendored library in `build.ninja` lacks -Werror.
-		- 20261019: rjh7qnxw, werror check. A `build.ninja` with one library built without `-Werror` among compiles that have it fails, in Linux and Windows quoting, and the message names just that library.
-	- Against: 2026092813381434's decisions of 20261005 that vendored code builds at `-Wall` and its warnings are never fatal. This item reverses both.
-	- Actual fix: `vendorWarnings` is gone from `source/meson.build`. blake3 builds clean at the project's level with nothing turned off. libegg's `meson.build` turns off 3 warnings, each with its reason: unused parameters in GTK callbacks, a `GTypeInfo` filled in by position, and a cast of `gtk_tree_row_reference_free` to `GFunc`. `check-werror.bash` now fails on any C compile in `build.ninja` that lacks `-Werror`, and names it.
-	- Note: the cast is the only one of libegg's 9 warnings that isn't style. It passes the function an argument it ignores, which every ABI built here allows. Our own code fixed the same kind of cast with wrappers. libegg stays as it came.
-	- Swept: every `override_options`, `-Wno-` and `werror` in the meson files. The only other override is `warning_level=0` on the old SHCL writers, which are test-only and keep `-Werror`. The public style guide's line on vendored warnings.
-	- Verified: 20261019: the full Linux build with `-Werror` has no warnings, and the suite passed 219 of 220. The one failure was rhr6ggmt in a rar row, which passed alone; that's 2026101913111713. The Windows cross build with `-Werror`, 691 steps, and `check-werror.bash` passes on both. blake3 and libegg also build clean with `-Werror` under clang 19 and jammy's gcc 11, and blake3 under gcc 15. rjh7qnxw fails with dev's `check-werror.bash` and passes after.
-	- Branch: vendlint
-	- Commit: 3ae52a5
-
-- Two of blake3's code paths are never tested.
-	- ID: 2026101715252257
-	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: rkne1y8a natively on Windows, and in the arm64 lane, where only plain C is built.
-	- Priority|Severity: Avg
-	- Opened: 20261017-152522
-	- Opened by: t00mietum
-	- Target OS: Linux, Windows
-	- Incorrect behavior: blake3 picks plain C, SSE2, SSE4.1 or AVX2 at run time, from what the processor reports. rhd1v448, File checksum test, checks the known answers only through the one the test box picks. That's AVX2 on b23. The arm64 build has plain C only, so that one runs wherever the arm64 suite does. SSE2 and SSE4.1 never run in any test, and an end user on an older x86 processor gets one of them.
-	- Expected behavior: every path in the build gives the known answers, whatever processor the test runs on. A path the processor can't run is skipped, and the test says so.
-	- Possible fix: call each `blake3_hash_many_*` from `blake3_impl.h` directly against the plain C one, or build the test once per path with the others turned off by the `BLAKE3_NO_*` defines.
-	- Test case: rhd1v448, or a new one beside it.
-		- 20261019: rkne1y8a, blake3 routines test.
-	- Decisions:
-		- 20261019: the whole hasher runs through blake3's own dispatcher, told the processor has less than it does, one routine at a time. That reaches the single-block routines and the longer output as well as `blake3_hash_many_*`, and checks them against the published answers rather than against each other.
-		- 20261019: the test reaches the dispatcher by including `blake3_dispatch.c` from a test file, so the vendored file stays as it came. The routine libraries are the app's own. The dispatcher and `blake3.c` are built a second time, with the same flags.
-		- 20261019: a routine that's skipped doesn't skip the test. Plain C always runs, so the test always checks something.
-	- Actual fix: new test rkne1y8a. Each routine the build has, and the processor can run, hashes 16 of blake3's published inputs, 0 to 102400 bytes, in all 3 modes, with 131 bytes of output for the plain hash, and once more fed in 4099-byte pieces. It checks the routine count the dispatcher reports, so a limit that didn't take fails. The rest are named as skipped.
-	- Verified: 20261019: rkne1y8a passes on Linux with all 4 routines on b23, under ASan and UBSan, and under wine from the cross build. A fault in any one routine fails that routine's row. One in SSE4.1 fails AVX2's too, since AVX2 hands its leftover chunks to SSE4.1. rhd1v448 still passes with a fault in SSE2.
-	- Branch: vendlint
-	- Commit: 3ae52a5
+	- Verified: 20261022, on vm925w: the whole-tree C lint under MSYS2, cppcheck 2.21.0, covers 800 files, blake3's 8, libegg's 2 and `vendor/shcl/shcl.h` among them, with no finding in vendored code. Its one finding is in a test, 2026102219444552.
+	- Self-closed: the native whole-tree C lint above.
+	- Closed: 20261022-195427
 
 - cppcheck gives up on 34 C files at a GLib macro it can't expand, and says nothing.
 	- ID: 2026101912561238
 	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: the native Windows lint over the whole tree, the first run there with `.cppcheck-macros.h`.
+	- Status: Done
+	- Needs external testing: no.
 	- Priority|Severity: Avg
 	- Opened: 20261019-125612
 	- Opened by: t00mietum
@@ -786,13 +780,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261019, Linux: the whole tree has no findings under cppcheck 2.17.1 and 2.21. A leak added after the first macro in `nemo-cache-db-prune.c` passes with dev's settings and fails now. rknjb8dk fails with `unknownMacro` suppressed again, and with 2 macros taken out of the header, on both versions. rhtq57n1 crashes without the link fix and passes with it. The suite passed 222 of 224 with `-Werror`, 1 skipped. rkneye2c failed, and fails the same on dev; that's 2026101914184878.
 	- Branch: lintmacro
 	- Commit: 2c560fb1
+	- Verified: 20261022, on vm925w: the whole-tree C lint under MSYS2 with cppcheck 2.21.0 loads `.cppcheck-macros.h`, checks all 800 files and reports no `unknownMacro`. Its one finding is 2026102219444552.
+	- Self-closed: the native whole-tree C lint above.
+	- Closed: 20261022-195427
 
 - On Windows, the trash icon leaves out removable drives.
 	- ID: 2026100708294146
 	- Type: Bug
-	- Status: Waiting for testing
+	- Status: Waiting on UAT
 	- Needs local test suite run?: no. Windows only. The full Linux suite passed on the branch, 174 of 174, before this change.
-	- Needs external testing: a real removable drive, on a box that has one. A USB stick under the `RecycleBinDrives` policy with an item in its bin: the trash icon shows full. An empty USB card reader that keeps its drive letter: no insert-disk prompt, and nothing waits.
+	- Needs external testing: a real removable drive, which neither box has. On 20261022 vm925w had C: and K: fixed and D: optical, and b29w was off the network. A USB stick under the `RecycleBinDrives` policy with an item in its bin: the trash icon shows full. An empty USB card reader that keeps its drive letter: no insert-disk prompt, and nothing waits.
 	- Priority|Severity: Low
 	- Opened: 20261007-082941
 	- Opened by: 2026100613231440
@@ -1397,8 +1394,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, the bookmarks file leak case can't tell a leak from what COM does on its own.
 	- ID: 2026101913541101
 	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: rjbn328w natively on b29w, several runs, to see it pass every time. rktexj0a natively too. If rjbn328w still moves by 4 KB blocks, something else in the load reaches COM.
+	- Status: Waiting on a partial CICD run
+	- Needs external testing: rjbn328w natively on b29w, several runs. b29w was off the network on 20261022. If it still moves by 4 KB blocks there, something else in the load reaches COM.
 	- Priority|Severity: Low
 	- Opened: 20261019-135411
 	- Opened by: t00mietum
@@ -1416,12 +1413,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: round1021
 	- Commit: 2da98315
 	- Test case: rjbn328w on Windows, and rktexj0a, which checks that listing the drives asks the shell nothing until a name is wanted.
+	- Verified: 20261022, on vm925w: rjbn328w passes 7 runs of 7, 0 bytes over 64 rounds each, once after a 640-byte reading was taken again. rktexj0a passes natively over ssh and in the desktop session: no shell call for the list or the network check, 1 for the name.
 
 - rhr6ggmt can lose both links from a rar archive on Linux.
 	- ID: 2026101913111713
 	- Type: Bug
-	- Status: Waiting for testing
-	- Needs local test suite run?: Yes, the full suite, for the job change. If the row fails again, its log now has what `rar` itself lists.
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: no. Passed 20261022. Left open until a rar row fails again, since its log will say whether `rar` or the library came up short.
 	- Priority|Severity: Low
 	- Opened: 20261019-131117
 	- Opened by: t00mietum
@@ -1441,12 +1439,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual fix: the job change above, in `arc-compress.c`. None yet for the flake itself. When a rar row's listing comes up short, the test now also prints what `rar` lists, so the next one says whether `rar` wrote it short or the library read it short.
 	- Test case: rhr6ggmt, its links-run-fails case, where `rar` fails only the links run. It fails on the old code, which finishes with the options warning, and passes with the fix.
 	- Verified: the 15 archive tests pass in the jailed runner, rhr6ggmt with 316 runs.
+	- Verified: 20261022: rhr6ggmt passes in the full Linux suite, the sanitizer suite and the FreeBSD lane.
 
 - GTK may keep a drag window per drag off X11 too.
 	- ID: 2026102020234500
 	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: native Windows, in vm925w's desktop session: rkneye2c, and a few tab or text drags in the app with its OLE drag on, to see whether the drag window is freed after each.
+	- Status: Done
+	- Needs external testing: no.
 	- Priority|Severity: Low
 	- Opened: 20261020-202345
 	- Opened by: t00mietum
@@ -1465,6 +1464,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: round1021
 	- Test case: rkneye2c, unchanged. Off X11 it still drops a ref itself after the drag's context goes, if the window's still alive. On Windows that may be GDK's ref rather than GTK's, so the native run should watch for a critical there.
 	- Verified: rkneye2c on X11 passes, 720 bytes over 64 rounds. Linux and Windows cross builds pass with -Werror.
+	- Verified: 20261022, on vm925w in the desktop session: rkneye2c passes natively, the heap 9184 bytes smaller over 64 rounds, with no critical. In the single exe, 4 tab drags and a file dragged onto a tab, with OLE drag on, logged no critical. Nothing stray, so the win32 hook on `wip/round1021-2026102020234500` isn't needed.
+	- Self-closed: rkneye2c natively in the desktop session, and the drags above.
+	- Closed: 20261022-195427
 
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038
@@ -1524,8 +1526,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - rfwwdyvg fails its symlink support check under wine.
 	- ID: 2026102021081038
 	- Type: Bug
-	- Status: Waiting for testing
-	- Needs external testing: the link tests natively on vm925w or b29w (rfwwdyvg, rhqxx81r, the Link end and Shortcut tests), with symlinks allowed, so a real symlink still counts as made.
+	- Status: Done
+	- Needs external testing: no.
 	- Priority|Severity: Low
 	- Opened: 20261020-210810
 	- Opened by: 2026101416533991
@@ -1547,6 +1549,24 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rfwwdyvg.
 	- Verified: under wine, rfwwdyvg failed at line 185 before the fix and passes after. rhqxx81r passes. The Link end test went from 26 failures to 4, all of them junctions, which wine refuses with error 50. The Shortcut test went from 26 to 22: its folder link now fails when it's made, instead of in the checks after it, since wine has no junctions either.
 	- Swept: junctions (wine refuses them with an error), hard links (wine makes them), folder symlinks (same call, covered), GLib's `g_file_make_symbolic_link` (refuses on win32). The direct `CreateSymbolicLinkW` helpers in the Link end and Metadata ready tests are left alone.
+	- Verified: 20261022, on vm925w with symlinks allowed: rfwwdyvg, rhqxx81r, the Link end test (rjehwjw7), the Shortcut test (rdcvb368), rhmye3d0, rhmye3d1, rfmxrdpg and rhr6ggmr pass natively, and rkb48gsx's link case runs. As a user without the privilege, rfwwdyvg skips its symlink checks and passes, and the Link end test skips.
+	- Self-closed: the native link tests above.
+	- Closed: 20261022-195427
+
+- On Windows a shortcut named `x.LNK` is saved as `x.LNK.lnk`.
+	- ID: 2026102220565281
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261022-205652
+	- Opened by: 2026102219444442
+	- Related IDs: 2026102219444442
+	- Target OS: Windows
+	- Steps to reproduce: make a shortcut and give it a name ending in `.LNK`, upper case.
+	- Incorrect behavior: `create_lnk` in `nemo-file-operations.c` checks for `.lnk` case-sensitively, so another `.lnk` goes on the end.
+	- Expected behavior: a name already ending in `.lnk` in any case is kept.
+	- Reproduced: No, read from the code.
+	- Test case: none yet.
 
 - On Windows, a file that isn't on disk yet, such as a mail attachment, can't be dropped onto the window.
 	- ID: 2026101416534066
@@ -1599,6 +1619,216 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
 		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
+
+- Carve out "Nemo Classic": upstream Nemo's exact selection and focus behavior, behind the selection model setting.
+	- ID: 2026102016594200
+	- Type: Task
+	- Status: Done
+	- Needs local test suite run?: no. Passed 20261022.
+	- Needs external testing: no. Passed 20261022.
+	- Priority|Severity: High
+	- Opened: 20261020-165941
+	- Opened by: t00mietum
+	- Prereq IDs: 2026102016594100
+	- Related IDs: 2026101816495208, 2026102019174440, 2026102113191977
+	- Target OS: All
+	- Requirements:
+		- Re-implemented from upstream source at the fork point, since our selection code has moved too far to pass for it.
+		- Behind the same conditionals as Nemo Anywhere v1, tree view and content view.
+		- Tests per rule and view, like the v1 ones, checked against upstream on the Linux rig.
+		- Must be done, and the tests green, before any Nemo Anywhere model code starts.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "The setting" and "Roadmap".
+	- Progress log:
+		- 20261020: opened.
+		- 20261021: `nemo-classic` added to `preferences.selection-model`, and "Nemo Classic" to the dropdown, ahead of Nemo Anywhere v1 as the design doc orders them. Each rules table has a Classic set, taken from upstream 6.6.4's handlers.
+			- The menu opens on the press, in all 3 views and the tree. No long press and no right band.
+			- Escape leaves the selection alone.
+			- Icon views: Ctrl or Shift on empty space keeps the selection, and the band flips what it crosses, the keyboard band too. Ctrl or Shift on an icon picks it at once, then drags.
+			- List view: a click below the rows clears the selection even with Ctrl, a right-click on the blank part of a row not selected clears it, and GtkTreeView does the band.
+			- A click in the other pane of a split view only wakes it while it has a selection, and goes no further.
+			- Select all and Invert are the same in both.
+		- 20261021: rktkms8a's checks run again as rktqpp37 under Classic. New in both: Ctrl+click and Shift+click on empty space, and whether the menu opens on the press or the release, per view and in the tree.
+		- 20261021: rktqpp37's results were seen in upstream 6.6.4 built from its tag, all but these.
+			- Tab: upstream leaves the focus in the view, and Classic moves it on, as v1 does. Upstream's tab notebook takes every focus move in its Ctrl+Tab handler. Ours has let Tab through since 3c354fa5, in every model.
+			- Upstream's tree logs a GLib critical, the stale timer ID fixed in 2026102113191977. Classic keeps the fix.
+			- Two open checks name the wrong folder upstream, only because it makes a Desktop folder in home. The folder that opened was the selected one.
+		- 20261021: rk7yvgse's drags and bands run again as rkts3far under Classic, and those results were seen in upstream too: Ctrl or Shift and a drag from an item not selected picks it at once and drags files, a right drag opens the menu and doesn't band, and a drag in the pane that wasn't active only wakes it. Two places differ from upstream:
+			- Places opens its menu on the release in every model, since it isn't part of the selection model. Upstream opens it on the press.
+			- Upstream's Size column had text at the spot the list view's plain drag starts from, so the GtkTreeView band from the blank part of a row is derived from source, not seen.
+		- 20261021: also derived from source and not seen: Escape not leaving find mode. Not pinned yet: a folder selected in an expanded nest in the list view (the Problem on 2026101816495208).
+		- 20261021: Tab stays as it is. Classic moves the focus on, like every other model.
+	- Decisions:
+		- Upstream's dead Tab is a bug, like the tree's stale timer, so Classic doesn't keep it.
+		- Whether the band flips is a field of the icon rules table, not state, so the keyboard band follows the model too. Upstream's keyboard band flips against what the last mouse band started from, and Classic keeps that.
+		- Platform plumbing stays ours under Classic: the primary key for Ctrl, and the Windows drag path. The upstream tree's timer bug isn't kept.
+	- Swept: the rules tables in the icon container, the icon view, the list view, the tree pane and the view's Select all and Invert, the search popup's forwarded press, and the canvas item events. `rubberband_select` is the one shared rule that reads the model.
+	- Branch: round1021
+	- Test case: rktqpp37, Selection rules test, Nemo Classic, and rkts3far, Drag select test, Nemo Classic. rktkms8a and rhtmbdmd got the new checks too.
+	- Verified: 20261022, round1022: the full Linux suite, 231 OK. FreeBSD lane as `bsdtest`, 212 OK and 20 skipped, rktqpp37, rkts3far, rktkms8a, rk7yvgse and rhtmbdmd among them.
+	- Closed: 20261022-214700
+	- Verified: 20261021, rktqpp37, rkts3far, rktkms8a and rk7yvgse pass in all 3 views. rhtmbdmd, rf2w8yxr, rfazc870 and rg6a49ar pass. The build has no warnings, the Windows cross build with warnings as errors is clean, and the UI case and test ID checks pass.
+
+- On Windows the native gate runs every test under WSL's bash, so all of them fail.
+	- ID: 2026102219444002
+	- Type: Bug
+	- Status: Done
+	- Needs external testing: no. Passed 20261022.
+	- Priority|Severity: High
+	- Opened: 20261022-194440
+	- Opened by: 2026101715030680
+	- Related IDs: 2026101715030680
+	- Target OS: Windows
+	- Test environment: vm925w, a fresh clone of round1022, as wintest.
+	- Steps to reproduce: run `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
+	- Incorrect behavior: every test fails at once with "Windows Subsystem for Linux has no installed distributions", 209 of 209. In the desktop session the run stopped after the first test, with no summary.
+	- Expected behavior: the suite runs inside the jail, as on Linux.
+	- Reproduced: 20261022 on vm925w, over ssh and in the desktop session.
+	- Possible cause: `fTests` hands meson `--wrapper 'bash <jail>'`. A Windows program start looks in System32 before PATH, so `bash` is the WSL launcher, not MSYS2's. With `C:/msys64/usr/bin/bash.exe` in its place the suite ran: 199 OK, 3 failed, 7 skipped. The 3 are 2026102219444112 and 2026102219444662.
+	- Actual cause: as above. meson starts the wrapper as a Windows program, so a bare `bash` is found in System32 first.
+	- Actual fix: `fTests` in `cicd/cicd-win.ps1` names MSYS2's bash by its full path (`$MsysBash`, as `C:/msys64/usr/bin/bash.exe`) in `--wrapper`. Linux and FreeBSD are unchanged: `run-tests.bash` and the FreeBSD release step still start `bash` from PATH.
+	- Verified: 20261022 on vm925w, a fresh clone of round1022 with the fix, as wintest in the desktop session: rknjd2qn, 5ethkhjr and rgep22n8 run through the new wrapper, 3 OK, nothing left in the run dir. The same 3 through the old `bash` wrapper fail at once. PSScriptAnalyzer is clean on `cicd-win.ps1`.
+	- Swept: every `--wrapper` and bare `bash` start in `cicd/` and the meson files. The others run inside MSYS2's shell, where PATH finds its own bash, or on Linux and FreeBSD.
+	- Test case: the native gate itself. It fails every test without the fix.
+	- Verified: 20261022, the native gate on vm925w, a fresh clone of round1022, as wintest in the desktop session: every test ran through MSYS2's bash, 201 OK, 7 skipped, 2 failed. The 2 are rhtmbdmh (2026102219444662) and one crash of rhtmbdmj (2026102221362030), neither from the wrapper. The lint and -Werror build passed.
+	- Closed: 20261022-214700
+
+- The arm64 release build fails on `blake3_dispatch.c` with -Werror.
+	- ID: 2026102219444222
+	- Type: Bug
+	- Status: Done
+	- Needs external testing: no. Passed 20261022.
+	- Priority|Severity: High
+	- Opened: 20261022-194442
+	- Opened by: 2026101715252256
+	- Related IDs: 2026101715252256, 2026101715252257
+	- Target OS: Linux arm64
+	- Steps to reproduce: `bash cicd/linux/release-arm64.bash`.
+	- Incorrect behavior: `blake3_dispatch.c:115: 'get_cpu_features' defined but not used [-Werror=unused-function]`, under jammy's gcc 11 on aarch64, with every x86 path and NEON turned off. The build stops on its second step, so there's no arm64 tarball and no arm64 packages.
+	- Expected behavior: the arm64 build is clean with -Werror.
+	- Reproduced: 20261022 on vmDebARM64.
+	- Possible cause: 2026101715252256 builds blake3 at the project's warning level with -Werror. With nothing to dispatch to, nothing calls `get_cpu_features`. That item's gcc 11 build was on x86_64.
+	- Actual cause: as above. In `blake3_dispatch.c` every call to `get_cpu_features` is under `IS_X86`, so off x86 it's a static function nothing calls. Upstream's current `blake3_dispatch.c` is the same.
+	- Decisions:
+		- Per 2026101715252256, the vendored file stays as it came and the warning is turned off in meson for that library alone. `-Wno-unused-function` goes on the blake3 library only, and only off x86, with a one-line reason. x86 builds keep the full set. The dispatcher test's copy calls the function, so it needs nothing.
+	- Actual fix: `source/meson.build` adds `blake3Warnings`, which is `-Wno-unused-function` in the non-x86 branch, to the blake3 library's `c_args`.
+	- Verified: 20261022: on vmDebARM64, jammy's gcc 11 on aarch64 with the release flags and -Werror, `blake3_dispatch.c` fails as reported without the flag and builds with it. A release setup there with -Werror puts the flag on blake3's 3 files only and builds `libblake3.a`, and the blake3 routines test, rkne1y8a, passes (plain C path). On x86_64 the build has no new flag, and the Linux build with -Werror is clean.
+	- Swept: blake3's 3 files under gcc 11 and gcc 14 on x86_64 with every SIMD path off, and gcc 11 on aarch64: no other warning. The other vendored C, libegg, has no CPU-specific paths.
+	- Test case: the arm64 lane.
+	- Verified: 20261022, round1022: `bash cicd/linux/release-arm64.bash` on vmDebARM64 builds all 779 steps with -Werror, blake3's dispatcher with `-Wno-unused-function`, passes its smoke and extension load checks, and brings back the arm64 tarball and the .deb dependency line. 76 min.
+	- Closed: 20261022-222300
+
+- On Windows, a picture with an upper-case extension such as `.JPG` gets no thumbnail.
+	- ID: 2026102219444442
+	- Type: Bug
+	- Status: Done
+	- Needs external testing: no. Passed 20261022.
+	- Priority|Severity: High
+	- Opened: 20261022-194444
+	- Opened by: 2026101009150764
+	- Related IDs: 2026101009150764, 2026102220565281
+	- Target OS: Windows
+	- Steps to reproduce: open a folder of `IMG_1001.JPG` style files, as cameras name them.
+	- Incorrect behavior: plain picture icons, still no thumbnail after 40 seconds. The same file named `.jpg` gets its thumbnail in a second or two. EXIF has nothing to do with it.
+	- Expected behavior: thumbnails whatever the case of the extension.
+	- Reproduced: 20261022 on vm925w, with the single exe and with the unpacked tree. Also under wine, with no thumbnailer descriptors on the data dirs, as in the bundle: `.JPG`, `.Jpg`, `.JPEG`, `.PNG` and even a lower-case `.jpeg` got nothing.
+	- Possible cause: not looked into.
+	- Actual cause: on Windows a file's type is its extension as written. The table of types gdk-pixbuf reads was keyed by MIME type plus the one extension the registry gives back for it, `.jpg` for image/jpeg, compared case-sensitively. So only that exact spelling matched. In a build tree or an MSYS2 install the gdk-pixbuf thumbnailer descriptor answers by MIME type and hid it; the bundle has none.
+	- Actual fix: on Windows `mimetype_supported_by_gdk_pixbuf` in `nemo-desktop-thumbnail.c` keys the table by MIME type alone and looks up the file's type through `nemo_content_type_get_mime_type`, as the thumbnailer and disabled-type lookups beside it already do. Linux and the BSDs are unchanged.
+	- Swept: the other thumbnail checks (`lookup_thumbnailer`, the disabled types, the loader's MIME type, `nemo_can_thumbnail_internally`, the PSD, raw, office and ImageMagick checks) all go through the MIME type or compare without case. GLib's own `g_content_type_equals` and `is_a` ignore case there. The file cache keys by path, not type. Name suffix compares: `.lnk` in `create_lnk` is case-sensitive, filed as 2026102220565281. `.desktop` in rename, `crash-*.txt` and eel's `.gz`-style rename split were left, since none is a Windows type check.
+	- Test case: rky0srmt, Thumbnail upper-case extension win32 test.
+	- Verified: 20261022, cross-built and run under wine: rky0srmt fails on 5 names without the fix and passes with it. rep167r8, rjmc40ex and the PSD, raw and office tests pass under wine. On Linux redrqe60, rhd4gy78, rhfdeb5g and rhg8y5f0 pass. The C lint and test ID check pass.
+	- Verified: 20261022 on vm925w, round1022: rky0srmt passes in the native gate. The single exe packed from that build, opened on a folder of `IMG_1001.JPG` style photos plus a `.JPEG` and a `.jpg`, shows a thumbnail for every one.
+	- Closed: 20261022-214700
+
+- Vendored C builds with fewer warnings, and never with -Werror.
+	- ID: 2026101715252256
+	- Type: Bug
+	- Status: Done
+	- Needs external testing: no. Passed 20261022.
+	- Priority|Severity: Avg
+	- Opened: 20261017-152522
+	- Opened by: t00mietum
+	- Prereq IDs: 2026102219444222
+	- Related IDs: 2026101715252255
+	- Target OS: All
+	- Incorrect behavior: blake3 and libegg build with `vendorWarnings` in `source/meson.build`, which is `warning_level=1` and `werror=false`. The -Werror lane never sees a warning in either.
+	- Expected behavior: both build at the project's warning level, -Werror included. A warning that's only about upstream's style is turned off for that library alone in meson, with a one-line reason.
+	- Note: SHCL already builds at the full level, since it's compiled inside `nemo-config.c`.
+	- Test case: `check-werror.bash` also fails when a vendored library in `build.ninja` lacks -Werror.
+		- 20261019: rjh7qnxw, werror check. A `build.ninja` with one library built without `-Werror` among compiles that have it fails, in Linux and Windows quoting, and the message names just that library.
+	- Against: 2026092813381434's decisions of 20261005 that vendored code builds at `-Wall` and its warnings are never fatal. This item reverses both.
+	- Actual fix: `vendorWarnings` is gone from `source/meson.build`. blake3 builds clean at the project's level with nothing turned off. libegg's `meson.build` turns off 3 warnings, each with its reason: unused parameters in GTK callbacks, a `GTypeInfo` filled in by position, and a cast of `gtk_tree_row_reference_free` to `GFunc`. `check-werror.bash` now fails on any C compile in `build.ninja` that lacks `-Werror`, and names it.
+	- Note: the cast is the only one of libegg's 9 warnings that isn't style. It passes the function an argument it ignores, which every ABI built here allows. Our own code fixed the same kind of cast with wrappers. libegg stays as it came.
+	- Swept: every `override_options`, `-Wno-` and `werror` in the meson files. The only other override is `warning_level=0` on the old SHCL writers, which are test-only and keep `-Werror`. The public style guide's line on vendored warnings.
+	- Verified: 20261019: the full Linux build with `-Werror` has no warnings, and the suite passed 219 of 220. The one failure was rhr6ggmt in a rar row, which passed alone; that's 2026101913111713. The Windows cross build with `-Werror`, 691 steps, and `check-werror.bash` passes on both. blake3 and libegg also build clean with `-Werror` under clang 19 and jammy's gcc 11, and blake3 under gcc 15. rjh7qnxw fails with dev's `check-werror.bash` and passes after.
+	- Branch: vendlint
+	- Commit: 3ae52a5
+	- Progress log:
+		- 20261022: the arm64 lane fails in `blake3_dispatch.c` with -Werror, which is 2026102219444222.
+	- Verified: 20261022: the native Windows build with MSYS2's gcc 16.1 and -Werror is clean, blake3 and libegg included. The FreeBSD lane's build and its release build, clang 19, are clean.
+	- Verified: 20261022, round1022: the arm64 release lane is clean with -Werror under jammy's gcc 11 on aarch64, blake3 and libegg included. The native Windows gate's -Werror build is clean again.
+	- Closed: 20261022-222300
+
+- Two of blake3's code paths are never tested.
+	- ID: 2026101715252257
+	- Type: Bug
+	- Status: Done
+	- Needs external testing: no. Passed 20261022.
+	- Priority|Severity: Avg
+	- Opened: 20261017-152522
+	- Opened by: t00mietum
+	- Prereq IDs: 2026102219444222
+	- Target OS: Linux, Windows
+	- Incorrect behavior: blake3 picks plain C, SSE2, SSE4.1 or AVX2 at run time, from what the processor reports. rhd1v448, File checksum test, checks the known answers only through the one the test box picks. That's AVX2 on b23. The arm64 build has plain C only, so that one runs wherever the arm64 suite does. SSE2 and SSE4.1 never run in any test, and an end user on an older x86 processor gets one of them.
+	- Expected behavior: every path in the build gives the known answers, whatever processor the test runs on. A path the processor can't run is skipped, and the test says so.
+	- Possible fix: call each `blake3_hash_many_*` from `blake3_impl.h` directly against the plain C one, or build the test once per path with the others turned off by the `BLAKE3_NO_*` defines.
+	- Test case: rhd1v448, or a new one beside it.
+		- 20261019: rkne1y8a, blake3 routines test.
+	- Decisions:
+		- 20261019: the whole hasher runs through blake3's own dispatcher, told the processor has less than it does, one routine at a time. That reaches the single-block routines and the longer output as well as `blake3_hash_many_*`, and checks them against the published answers rather than against each other.
+		- 20261019: the test reaches the dispatcher by including `blake3_dispatch.c` from a test file, so the vendored file stays as it came. The routine libraries are the app's own. The dispatcher and `blake3.c` are built a second time, with the same flags.
+		- 20261019: a routine that's skipped doesn't skip the test. Plain C always runs, so the test always checks something.
+	- Actual fix: new test rkne1y8a. Each routine the build has, and the processor can run, hashes 16 of blake3's published inputs, 0 to 102400 bytes, in all 3 modes, with 131 bytes of output for the plain hash, and once more fed in 4099-byte pieces. It checks the routine count the dispatcher reports, so a limit that didn't take fails. The rest are named as skipped.
+	- Verified: 20261019: rkne1y8a passes on Linux with all 4 routines on b23, under ASan and UBSan, and under wine from the cross build. A fault in any one routine fails that routine's row. One in SSE4.1 fails AVX2's too, since AVX2 hands its leftover chunks to SSE4.1. rhd1v448 still passes with a fault in SSE2.
+	- Branch: vendlint
+	- Commit: 3ae52a5
+	- Verified: 20261022: rkne1y8a passes natively on vm925w with all 4 routines (plain C, SSE2, SSE4.1, AVX2), in the full Linux suite, and in the FreeBSD lane.
+	- Verified: 20261022, round1022: rkne1y8a passes on vmDebARM64 in the arm64 release build, aarch64 under jammy's gcc 11 with -Werror, plain C path. Natively on vm925w and in the FreeBSD lane again.
+	- Closed: 20261022-221400
+
+- The test fence refuses deletes made by code other than the test.
+	- ID: 2026102219444112
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261022-194441
+	- Opened by: 2026101715030680
+	- Related IDs: 2026101715030680
+	- Target OS: All
+	- Incorrect behavior: 3 cases, all 20261022.
+		- Windows: a move into the Recycle Bin (`C:\$Recycle.Bin\<sid>\$R...`) is refused, so rcgzbyar (Trash win32 test) and rhr6ggmt fail natively.
+		- Full run, fuzz stage: fuzz-lnk-edit has the fence in it, and the fence ended it when libFuzzer replaced a file in its own corpus folder (`/build-fuzz/work/lnk-edit/`). It counts as a crash finding, so the run stops there, before the static analyzers, arm64, packages and the rest.
+		- FreeBSD lane: rjprhm52 fails 4 ways, with fontconfig deleting `/usr/local/share/fonts/.uuid`.
+	- Expected behavior: the fence stops a test's own stray deletes. The Recycle Bin moves the trash tests make on purpose, a fuzzer's corpus and a library's cache upkeep go through.
+	- Possible cause: the fence allows only the test's folders, and it is in every module of the process. The fuzz targets link it though `fuzz.bash` runs them outside meson. The FreeBSD case may also be a stale font cache on the box.
+	- Actual cause: 3 different ones.
+		- Windows: the shell recycles by moving the item to a new `$R` name in the user's bin folder. That folder is outside the test's own.
+		- Fuzz: libFuzzer swaps inputs in and out of its corpus copy, and `fuzz.bash` named no folder as the run's own, so only the temp dir counted.
+		- FreeBSD: not a stale cache. rjprhm52 makes fontconfig scan every font folder on purpose, and fontconfig 2.17 then unlinks `<folder>/.uuid` in each, whether it's there or not. None is there on vmFreeBSD.
+	- Decisions:
+		- A delete of something that isn't there goes through, on every platform. It harms nothing and fails on its own. A present `.uuid` outside the test's folders is still refused, so library upkeep goes through only where there's nothing to remove.
+		- On Windows a move of the test's own item onto a new `$R` name in this user's bin is let through, and that item and its `$I` twin are the test's own from then on, to restore or clear. Anything else in the bin is still refused, as is another user's bin or an existing name.
+		- The fuzz build keeps the fence, since fuzz-lnk-edit writes and replaces files and a stray delete there should be a finding. `fuzz.bash` names each target's corpus copy as its own through `NEMO_TEST_SCRATCH`.
+	- Actual fix: `source/test/test-fence.c` (both rules), `cicd/linux/fuzz.bash` (the corpus copy).
+	- Test case: rknjd2qn, extended: a delete of a missing file and folder outside goes through, and on Windows a child's own recycled item can be cleared from the bin while another process's can't be deleted or moved. The bin cases skip under wine, which keeps its trash elsewhere.
+	- Verified: 20261022. rknjd2qn's new cases fail without the fix on Linux and natively on Windows, as do rjprhm52 on FreeBSD and the lone fuzz-lnk-edit run. All pass with it.
+		- Linux, `nemo-build`: rknjd2qn, rjprhm52, rhr6ggmt, and the jail check rknkav2r. The lint stage passed, rknkbqe9 included. The Windows cross build, and rknjd2qn under wine.
+		- Fuzz: `fuzz.bash` at 12 s a target, all 12 clean. fuzz-lnk-edit alone the same way: without the scratch folder it stops on the fence, with it 419 corpus swaps and no find.
+		- vm925w, native as wintest from a bundle of round1022 with the fix: rknjd2qn, rcgzbyar and rhr6ggmt pass in the desktop session. Over ssh rhr6ggmt fails its junction rows, which Windows blocks as an untrusted mount point there; not the fence. The Recycle Bin was left empty.
+		- vmFreeBSD as bsdtest: rjprhm52 and rknjd2qn.
+	- Verified: 20261022, round1022, in the full native gate on vm925w as wintest in the desktop session: rknjd2qn, rcgzbyar and rhr6ggmt pass, and the Recycle Bin was empty after. FreeBSD lane: rjprhm52 and rknjd2qn pass in the full suite.
+	- Swept: every script under `cicd/` that runs a test or fuzz binary outside meson. Only `fuzz.bash` does, and fuzz-lnk-edit is the one fuzz target with the fence. On Windows the same 2 rules cover the A and W forms of every hooked call.
+	- Closed: 20261022-204142
 
 - On Windows the gate says the build isn't set up with `-Werror` when it is.
 	- ID: 2026100518100000
@@ -7541,7 +7771,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 ### Features and enhancements
 
 - 🔘 Take SHCL 3.0.0-beta.1 from its published release, once there is one, and run the config tests against it.
+	- Status: Stalled
 	- Opened: 20260925-122815
+	- 20261022: still no 3.0.0-beta.1 tag, newest is v2.0.0.
 	- Note: the vendored header is from SHCL's `dev` branch, ahead of that tag.
 	- Done 20260925: moved to a newer `dev` copy, with the calls asked for here. Neither replaces the app's own code yet. Clearing a comment would also take a note written above a key, and the info block call misses a block that is no longer at the end of the file.
 	- Note: a later SHCL may back up and convert a file in an older format itself. Look for a call that does or helps with that before wiring in a new version. If it does the job, use it in place of ours in `nemo-config.c`. Never run both on the same file.
@@ -7552,6 +7784,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: none yet, not started.
 
 - 🛠️ Real-Windows validation: the paths still not exercised there.
+	- Status: Waiting on UAT
 	- Opened: 20260826-103001
 	- Done: the test suite now runs and passes on a Windows box, through the pipeline and the gate. The two paths below are still open.
 	- Note: the signing path only runs in the hosted release workflow on a tag. The repo has no secrets and no variables set at all, so the signing step is skipped and a release cut today publishes an unsigned exe. That is the documented fallback, but it should be known before a build is announced.

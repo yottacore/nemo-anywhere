@@ -10,7 +10,14 @@
  *
  * On Linux the bubblewrap jail (cicd/linux/jail.bash) stands behind this. On
  * the other boxes it's the only wall. A program the test starts, such as the
- * app itself, is not fenced unless it is a test binary too. */
+ * app itself, is not fenced unless it is a test binary too.
+ *
+ * Two things outside go through all the same. A delete of something that
+ * isn't there harms nothing, and fontconfig tries one on every font folder it
+ * scans (2026102219444112). On Windows a move of the test's own item to a new
+ * name in the user's Recycle Bin is how the shell recycles it, and the item
+ * stays the test's own in there, to be put back or cleared. Anything else in
+ * the bin is still refused. */
 
 #define _GNU_SOURCE
 
@@ -24,11 +31,14 @@
 #define PSAPI_VERSION 2
 #include <windows.h>
 #include <psapi.h>
+#include <sddl.h>
 #else
 #include <dlfcn.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <pthread.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #ifdef __FreeBSD__
 #include <sys/types.h>
@@ -40,6 +50,20 @@
 
 /* Room for every scratch dir a test makes. A few make a dozen. */
 #define MAX_ROOTS 256
+
+typedef enum {
+	FENCE_DELETE,
+	FENCE_MOVE,
+	FENCE_ONTO,
+	FENCE_REPLACE,
+} FenceKind;
+
+static const char *const kind_name[] = {
+	[FENCE_DELETE]  = "delete",
+	[FENCE_MOVE]    = "move",
+	[FENCE_ONTO]    = "move onto",
+	[FENCE_REPLACE] = "replace",
+};
 
 #ifndef _WIN32
 
@@ -272,8 +296,19 @@ refuse (const char *what, const char *path, const char *canon)
 	abort ();
 }
 
+static int
+is_gone (int dirfd, const char *path)
+{
+	struct stat info;
+	int saved = errno;
+	int gone = fstatat (dirfd, path, &info, AT_SYMLINK_NOFOLLOW) != 0 && errno == ENOENT;
+
+	errno = saved;
+	return gone;
+}
+
 static void
-fence (const char *what, int dirfd, const char *path)
+fence (FenceKind kind, int dirfd, const char *path)
 {
 	char canon[PATH_MAX];
 	int found;
@@ -283,10 +318,10 @@ fence (const char *what, int dirfd, const char *path)
 		return;
 	}
 	found = resolve (dirfd, path, canon);
-	if (found == 0 || (found > 0 && inside (canon))) {
+	if (found == 0 || (found > 0 && inside (canon)) || (kind == FENCE_DELETE && is_gone (dirfd, path))) {
 		return;
 	}
-	refuse (what, path, found > 0 ? canon : NULL);
+	refuse (kind_name[kind], path, found > 0 ? canon : NULL);
 }
 
 void
@@ -308,44 +343,44 @@ test_fence_allows (const char *path)
 FENCE_EXPORT int
 unlink (const char *path)
 {
-	fence ("delete", AT_FDCWD, path);
+	fence (FENCE_DELETE, AT_FDCWD, path);
 	return real_unlink (path);
 }
 
 FENCE_EXPORT int
 rmdir (const char *path)
 {
-	fence ("delete", AT_FDCWD, path);
+	fence (FENCE_DELETE, AT_FDCWD, path);
 	return real_rmdir (path);
 }
 
 FENCE_EXPORT int
 remove (const char *path)
 {
-	fence ("delete", AT_FDCWD, path);
+	fence (FENCE_DELETE, AT_FDCWD, path);
 	return real_remove (path);
 }
 
 FENCE_EXPORT int
 unlinkat (int dirfd, const char *path, int flags)
 {
-	fence ("delete", dirfd, path);
+	fence (FENCE_DELETE, dirfd, path);
 	return real_unlinkat (dirfd, path, flags);
 }
 
 FENCE_EXPORT int
 rename (const char *from, const char *to)
 {
-	fence ("move", AT_FDCWD, from);
-	fence ("move onto", AT_FDCWD, to);
+	fence (FENCE_MOVE, AT_FDCWD, from);
+	fence (FENCE_ONTO, AT_FDCWD, to);
 	return real_rename (from, to);
 }
 
 FENCE_EXPORT int
 renameat (int from_dir, const char *from, int to_dir, const char *to)
 {
-	fence ("move", from_dir, from);
-	fence ("move onto", to_dir, to);
+	fence (FENCE_MOVE, from_dir, from);
+	fence (FENCE_ONTO, to_dir, to);
 	return real_renameat (from_dir, from, to_dir, to);
 }
 
@@ -353,8 +388,8 @@ renameat (int from_dir, const char *from, int to_dir, const char *to)
 FENCE_EXPORT int
 renameat2 (int from_dir, const char *from, int to_dir, const char *to, unsigned int flags)
 {
-	fence ("move", from_dir, from);
-	fence ("move onto", to_dir, to);
+	fence (FENCE_MOVE, from_dir, from);
+	fence (FENCE_ONTO, to_dir, to);
 	return real_renameat2 (from_dir, from, to_dir, to, flags);
 }
 #endif
@@ -371,6 +406,11 @@ static int n_roots;
 static SRWLOCK roots_lock = SRWLOCK_INIT;
 static INIT_ONCE once = INIT_ONCE_STATIC_INIT;
 static SRWLOCK patch_lock = SRWLOCK_INIT;
+static wchar_t *own_sid;
+/* What the test recycled, as the $R path each item got in the bin. A test can
+   recycle some hundreds. Under roots_lock. */
+static wchar_t **binned;
+static size_t n_binned, binned_room;
 
 static int
 final_path (const wchar_t *path, wchar_t *out, DWORD size)
@@ -473,16 +513,42 @@ resolve_w (const wchar_t *path, wchar_t out[FENCE_PATH])
 }
 
 static int
+under_w (const wchar_t *canon, const wchar_t *root)
+{
+	size_t len = wcslen (root);
+
+	return _wcsnicmp (canon, root, len) == 0 && (canon[len] == L'\\' || canon[len] == L'\0');
+}
+
+/* The item itself, anything in it, or the $I twin beside it. */
+static int
+in_binned (const wchar_t *canon)
+{
+	size_t i;
+
+	for (i = 0; i < n_binned; i++) {
+		size_t len = wcslen (binned[i]);
+		size_t mark = (size_t) (wcsrchr (binned[i], L'\\') - binned[i]) + 2;
+
+		if (under_w (canon, binned[i]) ||
+		    (wcslen (canon) == len && canon[mark] == L'I' && _wcsnicmp (canon, binned[i], mark) == 0 &&
+		     _wcsicmp (canon + mark + 1, binned[i] + mark + 1) == 0)) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static int
 inside_w (const wchar_t *canon)
 {
 	int i, found = 0;
 
 	AcquireSRWLockShared (&roots_lock);
 	for (i = 0; i < n_roots && !found; i++) {
-		size_t len = wcslen (roots[i]);
-
-		found = _wcsnicmp (canon, roots[i], len) == 0 && (canon[len] == L'\\' || canon[len] == L'\0');
+		found = under_w (canon, roots[i]);
 	}
+	found = found || in_binned (canon);
 	ReleaseSRWLockShared (&roots_lock);
 	return found;
 }
@@ -507,25 +573,80 @@ refuse_w (const char *what, const wchar_t *path, const wchar_t *canon)
 
 static void fence_init (void);
 
+static int
+is_gone_w (const wchar_t *path)
+{
+	DWORD saved = GetLastError ();
+	int gone = GetFileAttributesW (path) == INVALID_FILE_ATTRIBUTES &&
+		   (GetLastError () == ERROR_FILE_NOT_FOUND || GetLastError () == ERROR_PATH_NOT_FOUND);
+
+	SetLastError (saved);
+	return gone;
+}
+
+/* X:\$Recycle.Bin\<this user's sid>\$R<name>, not there yet. The shell
+   recycles that way, and its $I twin holds where the item came from. Both are
+   the test's own from then on. The source of the move was checked first. */
+static int
+recycled_w (const wchar_t *canon)
+{
+	static const wchar_t bin[] = L"$Recycle.Bin\\";
+	size_t bin_len = sizeof bin / sizeof bin[0] - 1;
+	size_t sid_len = own_sid != NULL ? wcslen (own_sid) : 0;
+	const wchar_t *name;
+	int ok = 0;
+
+	if (sid_len == 0 || wcslen (canon) < 3 || canon[1] != L':' || canon[2] != L'\\' ||
+	    _wcsnicmp (canon + 3, bin, bin_len) != 0) {
+		return 0;
+	}
+	name = canon + 3 + bin_len;
+	if (_wcsnicmp (name, own_sid, sid_len) != 0 || name[sid_len] != L'\\') {
+		return 0;
+	}
+	name += sid_len + 1;
+	if (wcsncmp (name, L"$R", 2) != 0 || wcschr (name, L'\\') != NULL || !is_gone_w (canon)) {
+		return 0;
+	}
+
+	AcquireSRWLockExclusive (&roots_lock);
+	if (n_binned == binned_room) {
+		size_t room = binned_room > 0 ? binned_room * 2 : 64;
+		wchar_t **grown = realloc (binned, room * sizeof *binned);
+
+		if (grown != NULL) {
+			binned = grown;
+			binned_room = room;
+		}
+	}
+	if (n_binned < binned_room && (binned[n_binned] = _wcsdup (canon)) != NULL) {
+		n_binned++;
+		ok = 1;
+	}
+	ReleaseSRWLockExclusive (&roots_lock);
+	return ok;
+}
+
 static void
-fence_w (const char *what, const wchar_t *path)
+fence_w (FenceKind kind, const wchar_t *path)
 {
 	wchar_t canon[FENCE_PATH];
 
 	fence_init ();
-	if (path == NULL || resolve_w (path, canon) == 0 || inside_w (canon)) {
+	if (path == NULL || resolve_w (path, canon) == 0 || inside_w (canon) ||
+	    (kind == FENCE_DELETE && is_gone_w (path)) || (kind == FENCE_ONTO && recycled_w (canon))) {
 		return;
 	}
-	refuse_w (what, path, canon);
+	refuse_w (kind_name[kind], path, canon);
 }
 
 static void
-fence_a (const char *what, const char *path)
+fence_a (FenceKind kind, const char *path)
 {
 	wchar_t wide[FENCE_PATH];
 
 	if (widen (CP_ACP, path, wide, FENCE_PATH)) {
-		fence_w (what, wide);
+		fence_w (kind, wide);
 	}
 }
 
@@ -603,44 +724,44 @@ typedef HMODULE (WINAPI *LoadExA) (LPCSTR, HANDLE, DWORD);
 static BOOL WINAPI
 hook_delete_w (LPCWSTR path)
 {
-	fence_w ("delete", path);
+	fence_w (FENCE_DELETE, path);
 	return REAL (H_DELETE_W, DeleteW) (path);
 }
 
 static BOOL WINAPI
 hook_delete_a (LPCSTR path)
 {
-	fence_a ("delete", path);
+	fence_a (FENCE_DELETE, path);
 	return REAL (H_DELETE_A, DeleteA) (path);
 }
 
 static BOOL WINAPI
 hook_rmdir_w (LPCWSTR path)
 {
-	fence_w ("delete", path);
+	fence_w (FENCE_DELETE, path);
 	return REAL (H_RMDIR_W, DeleteW) (path);
 }
 
 static BOOL WINAPI
 hook_rmdir_a (LPCSTR path)
 {
-	fence_a ("delete", path);
+	fence_a (FENCE_DELETE, path);
 	return REAL (H_RMDIR_A, DeleteA) (path);
 }
 
 static BOOL WINAPI
 hook_move_w (LPCWSTR from, LPCWSTR to)
 {
-	fence_w ("move", from);
-	fence_w ("move onto", to);
+	fence_w (FENCE_MOVE, from);
+	fence_w (FENCE_ONTO, to);
 	return REAL (H_MOVE_W, MoveW) (from, to);
 }
 
 static BOOL WINAPI
 hook_move_a (LPCSTR from, LPCSTR to)
 {
-	fence_a ("move", from);
-	fence_a ("move onto", to);
+	fence_a (FENCE_MOVE, from);
+	fence_a (FENCE_ONTO, to);
 	return REAL (H_MOVE_A, MoveA) (from, to);
 }
 
@@ -648,41 +769,41 @@ hook_move_a (LPCSTR from, LPCSTR to)
 static BOOL WINAPI
 hook_move_ex_w (LPCWSTR from, LPCWSTR to, DWORD flags)
 {
-	fence_w ("move", from);
-	fence_w ("move onto", to);
+	fence_w (FENCE_MOVE, from);
+	fence_w (FENCE_ONTO, to);
 	return REAL (H_MOVE_EX_W, MoveExW) (from, to, flags);
 }
 
 static BOOL WINAPI
 hook_move_ex_a (LPCSTR from, LPCSTR to, DWORD flags)
 {
-	fence_a ("move", from);
-	fence_a ("move onto", to);
+	fence_a (FENCE_MOVE, from);
+	fence_a (FENCE_ONTO, to);
 	return REAL (H_MOVE_EX_A, MoveExA) (from, to, flags);
 }
 
 static BOOL WINAPI
 hook_move_progress_w (LPCWSTR from, LPCWSTR to, LPPROGRESS_ROUTINE progress, LPVOID data, DWORD flags)
 {
-	fence_w ("move", from);
-	fence_w ("move onto", to);
+	fence_w (FENCE_MOVE, from);
+	fence_w (FENCE_ONTO, to);
 	return REAL (H_MOVE_PROGRESS_W, MoveProgW) (from, to, progress, data, flags);
 }
 
 static BOOL WINAPI
 hook_move_progress_a (LPCSTR from, LPCSTR to, LPPROGRESS_ROUTINE progress, LPVOID data, DWORD flags)
 {
-	fence_a ("move", from);
-	fence_a ("move onto", to);
+	fence_a (FENCE_MOVE, from);
+	fence_a (FENCE_ONTO, to);
 	return REAL (H_MOVE_PROGRESS_A, MoveProgA) (from, to, progress, data, flags);
 }
 
 static BOOL WINAPI
 hook_replace_w (LPCWSTR replaced, LPCWSTR replacement, LPCWSTR backup, DWORD flags, LPVOID exclude, LPVOID reserved)
 {
-	fence_w ("replace", replaced);
-	fence_w ("move", replacement);
-	fence_w ("move onto", backup);
+	fence_w (FENCE_REPLACE, replaced);
+	fence_w (FENCE_MOVE, replacement);
+	fence_w (FENCE_ONTO, backup);
 	return REAL (H_REPLACE_W, ReplaceW) (replaced, replacement, backup, flags, exclude, reserved);
 }
 
@@ -800,6 +921,29 @@ patch_all (void)
 	ReleaseSRWLockExclusive (&patch_lock);
 }
 
+/* LocalAlloc'd, kept for the life of the process. NULL leaves the bin closed. */
+static wchar_t *
+sid_of_process (void)
+{
+	union {
+		TOKEN_USER user;
+		BYTE       room[SECURITY_MAX_SID_SIZE + sizeof (TOKEN_USER)];
+	} info;
+	HANDLE token;
+	DWORD n = 0;
+	wchar_t *sid = NULL;
+
+	if (!OpenProcessToken (GetCurrentProcess (), TOKEN_QUERY, &token)) {
+		return NULL;
+	}
+	if (GetTokenInformation (token, TokenUser, &info, sizeof info, &n) &&
+	    !ConvertSidToStringSidW (info.user.User.Sid, &sid)) {
+		sid = NULL;
+	}
+	CloseHandle (token);
+	return sid;
+}
+
 static BOOL CALLBACK
 init_once (PINIT_ONCE unused_once, PVOID unused_param, PVOID *unused_context)
 {
@@ -820,6 +964,8 @@ init_once (PINIT_ONCE unused_once, PVOID unused_param, PVOID *unused_context)
 			hooks[i].real = hooks[i].also;
 		}
 	}
+
+	own_sid = sid_of_process ();
 
 	n = GetEnvironmentVariableW (L"NEMO_TEST_SCRATCH", cell, FENCE_PATH);
 	if (n > 0 && n < FENCE_PATH) {

@@ -15,12 +15,17 @@
 #include <glib/gstdio.h>
 #include <gio/gio.h>
 
-#ifndef G_OS_WIN32
+#ifdef G_OS_WIN32
+#include <windows.h>
+#else
 #include <fcntl.h>
 #include <unistd.h>
 #endif
 
 #include <libnemo-private/nemo-delete-guard.h>
+#ifdef G_OS_WIN32
+#include <libnemo-private/nemo-trash-win32.h>
+#endif
 
 #include "test-fence.h"
 #include "test-scratch.h"
@@ -29,6 +34,75 @@
 static const char *self;
 static char *allowed;
 static char *outside;
+
+#ifdef G_OS_WIN32
+/* The bin item on the same drive as path whose contents are marker, as its $R
+   path. NULL when there's none. */
+static char *
+bin_item (const char *path, const char *marker)
+{
+	g_autofree char *bin = g_strdup_printf ("%c:\\$Recycle.Bin", path[0]);
+	GDir *sids = g_dir_open (bin, 0, NULL);
+	const char *sid;
+	char *found = NULL;
+
+	while (sids != NULL && found == NULL && (sid = g_dir_read_name (sids)) != NULL) {
+		g_autofree char *sid_dir = g_build_filename (bin, sid, NULL);
+		GDir *items = g_dir_open (sid_dir, 0, NULL);
+		const char *name;
+
+		while (items != NULL && found == NULL && (name = g_dir_read_name (items)) != NULL) {
+			g_autofree char *item = g_build_filename (sid_dir, name, NULL);
+			g_autofree char *contents = NULL;
+
+			if (g_str_has_prefix (name, "$R") && g_file_get_contents (item, &contents, NULL, NULL) &&
+			    g_strcmp0 (contents, marker) == 0) {
+				found = g_steal_pointer (&item);
+			}
+		}
+		if (items != NULL) {
+			g_dir_close (items);
+		}
+	}
+	if (sids != NULL) {
+		g_dir_close (sids);
+	}
+	return found;
+}
+
+static char *
+twin_of (const char *item)
+{
+	char *twin = g_strdup (item);
+
+	strrchr (twin, '\\')[2] = 'I';
+	return twin;
+}
+
+/* Recycles path, whose contents are marker, and takes it out of the bin again,
+   $I twin and all. */
+static int
+recycle_and_clear (const char *path, const char *marker)
+{
+	g_autoptr (GFile) file = g_file_new_for_path (path);
+	g_autofree char *item = NULL;
+	g_autofree char *twin = NULL;
+
+	if (!nemo_trash_win32_recycle (file, NULL) || (item = bin_item (path, marker)) == NULL) {
+		return 3;
+	}
+	twin = twin_of (item);
+	return g_unlink (item) == 0 && g_unlink (twin) == 0 ? 0 : 4;
+}
+
+static gboolean
+under_wine (void)
+{
+	HMODULE ntdll = GetModuleHandleW (L"ntdll.dll");
+
+	return ntdll != NULL && GetProcAddress (ntdll, "wine_get_version") != NULL;
+}
+#endif
 
 /* The child's half. Exits 0 when the call came back, whatever it answered;
    the fence is the only thing here that may end it early. */
@@ -65,6 +139,9 @@ child (const char *what, const char *a, const char *b)
 		}
 		unlinkat (dir, b, 0);
 		close (dir);
+#else
+	} else if (g_strcmp0 (what, "recycle") == 0) {
+		return recycle_and_clear (a, b);
 #endif
 	} else {
 		return 2;
@@ -192,6 +269,65 @@ check_let_through (void)
 	check (!g_file_test (tree, G_FILE_TEST_EXISTS));
 }
 
+/* Outside, a delete of what isn't there goes through to fail on its own. It
+   harms nothing, and fontconfig tries one on every font folder it scans. */
+static void
+check_not_there (void)
+{
+	g_autofree char *file = g_build_filename (outside, "never-there.txt", NULL);
+	g_autofree char *folder = g_build_filename (outside, "never-there", NULL);
+
+	check (try_it (FALSE, "unlink", file, NULL));
+	check (try_it (FALSE, "rmdir", folder, NULL));
+	check (!g_file_test (file, G_FILE_TEST_EXISTS) && !g_file_test (folder, G_FILE_TEST_EXISTS));
+}
+
+#ifdef G_OS_WIN32
+/* What a test recycles is still its own in the bin, and nothing else in there
+   is: not even another process's item from the same folder. */
+static void
+check_recycle_bin (void)
+{
+	g_autofree char *marker = g_strdup_printf ("fence bin %lu %" G_GINT64_FORMAT,
+						   GetCurrentProcessId (), g_get_real_time ());
+	g_autofree char *other_marker = g_strconcat (marker, " other", NULL);
+	g_autofree char *mine = g_build_filename (allowed, "recycled.txt", NULL);
+	g_autofree char *other = g_build_filename (outside, "recycled.txt", NULL);
+	g_autoptr (GFile) other_file = g_file_new_for_path (other);
+	g_autofree char *item = NULL;
+	g_autofree char *twin = NULL;
+
+	if (under_wine ()) {
+		g_print ("skipped the Recycle Bin cases: wine keeps its trash elsewhere\n");
+		return;
+	}
+
+	check (g_file_set_contents (mine, marker, -1, NULL));
+	check (try_it (FALSE, "recycle", mine, marker));
+	check (!g_file_test (mine, G_FILE_TEST_EXISTS));
+	item = bin_item (mine, marker);
+	check (item == NULL);
+	g_clear_pointer (&item, g_free);
+
+	/* Recycled by this process, so a child doesn't own it. */
+	check (g_file_set_contents (other, other_marker, -1, NULL));
+	check (nemo_trash_win32_recycle (other_file, NULL));
+	item = bin_item (other, other_marker);
+	check (item != NULL);
+	if (item == NULL) {
+		return;
+	}
+	twin = twin_of (item);
+	check (try_it (TRUE, "unlink", item, NULL));
+	check (try_it (TRUE, "unlink", twin, NULL));
+	check (try_it (TRUE, "rename", item, mine));
+	check (g_file_test (item, G_FILE_TEST_IS_REGULAR) && g_file_test (twin, G_FILE_TEST_IS_REGULAR));
+
+	check (g_unlink (item) == 0);
+	check (g_unlink (twin) == 0);
+}
+#endif
+
 int
 main (int argc, char **argv)
 {
@@ -227,6 +363,10 @@ main (int argc, char **argv)
 	check_links ();
 #endif
 	check_let_through ();
+	check_not_there ();
+#ifdef G_OS_WIN32
+	check_recycle_bin ();
+#endif
 
 	g_free (allowed);
 	g_free (outside);

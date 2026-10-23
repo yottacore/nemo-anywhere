@@ -1157,19 +1157,15 @@ mimetype_supported_by_gdk_pixbuf (const char *mime_type)
 
             for (i = 0; mime_types[i] != NULL; i++)
               {
-                    /* the raw mime, plus its content type where one exists. On
-                       win32 an unmapped mime comes back as the wildcard "*" -
-                       keeping that would make EVERY unknown file type look
-                       thumbnailable, so drop it. */
                     g_hash_table_insert (hash,
                                          g_strdup (mime_types[i]),
                                          GUINT_TO_POINTER (1));
 
+#ifndef G_OS_WIN32
                     key = g_content_type_from_mime_type (mime_types[i]);
-                    if (g_strcmp0 (key, "*") != 0)
+                    if (key != NULL)
                         g_hash_table_insert (hash, key, GUINT_TO_POINTER (1));
-                    else
-                        g_free (key);
+#endif
               }
 
             g_strfreev (mime_types);
@@ -1183,8 +1179,15 @@ mimetype_supported_by_gdk_pixbuf (const char *mime_type)
 
     result = g_hash_table_lookup ((void*)formats_hash, mime_type) != NULL;
     if (!result) {
+#ifdef G_OS_WIN32
+        /* The type there is the extension as written, ".JPG" as much as
+           ".jpg", while image/jpeg maps back to ".jpg" alone. Only the mime
+           behind them is the same string. */
+        key = nemo_content_type_get_mime_type (mime_type);
+#else
         key = g_content_type_from_mime_type (mime_type);
-        if (g_strcmp0 (key, "*") != 0)
+#endif
+        if (key != NULL)
             result = g_hash_table_lookup ((void*)formats_hash, key) != NULL;
         g_free (key);
     }

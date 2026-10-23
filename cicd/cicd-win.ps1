@@ -316,8 +316,11 @@ function fTests {
 	New-Item -ItemType Directory -Path $runDir -Force | Out-Null
 	$runDirU = fToMsysPath $runDir
 	$jail = "$(fToMsysPath $Root)/cicd/linux/jail.bash"
+	## meson starts the wrapper as a Windows program, and that search tries
+	## System32 before PATH, so a bare bash is WSL's.
+	$wrapBash = $MsysBash -replace '\\', '/'
 	try {
-		fMingw "NEMO_NO_CRASH_DIALOG=1 TMPDIR='$runDirU' meson test -C $BuildRel --no-rebuild --num-processes $jobs --print-errorlogs --wrapper 'bash $jail'"
+		fMingw "NEMO_NO_CRASH_DIALOG=1 TMPDIR='$runDirU' meson test -C $BuildRel --no-rebuild --num-processes $jobs --print-errorlogs --wrapper '$wrapBash $jail'"
 	} finally { $env:MSYS2_PATH_TYPE = $savedPathType }
 	if ($script:MingwRc -ne 0) { fDie "test suite failed (exit $($script:MingwRc)); anything a test left is in $runDir" }
 	$left = @(Get-ChildItem -LiteralPath $runDir -Force -ErrorAction SilentlyContinue)
@@ -772,6 +775,7 @@ try {
 
 
 ##	History:
+##		- 2026-10-22: The test wrapper names MSYS2's bash by path, not WSL's.
 ##		- 2026-10-19: Each test runs with a HOME and temp dir of its own, behind
 ##		  the test library's delete fence.
 ##		- 2026-09-26: Stage 3 and the gate also run the installer's in-use check and

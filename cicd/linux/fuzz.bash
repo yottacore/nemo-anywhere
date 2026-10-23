@@ -152,9 +152,12 @@ for entry in "${targets[@]}"; do
 	## hang (70 otherwise), and ASan's exitcode a memory error (1 otherwise).
 	## Running out of memory is always 71 and has no setting, so a failed run
 	## that saved an input counts as a find too.
+	## A target that writes files has the test fence in it, which refuses a
+	## delete outside the folders NEMO_TEST_SCRATCH names. libFuzzer swaps
+	## inputs in and out of its corpus copy, so that's the run's own.
 	touch "${log}.start"
 	set +e
-	ASAN_OPTIONS="${ASAN_OPTIONS:+${ASAN_OPTIONS}:}exitcode=${FUZZ_FIND_CODE}" "${bin}" "${work}" \
+	NEMO_TEST_SCRATCH="${work}" ASAN_OPTIONS="${ASAN_OPTIONS:+${ASAN_OPTIONS}:}exitcode=${FUZZ_FIND_CODE}" "${bin}" "${work}" \
 		-max_total_time="${secs}" \
 		-timeout="${hangSecs}" \
 		-error_exitcode="${FUZZ_FIND_CODE}" \

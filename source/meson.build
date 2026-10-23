@@ -150,6 +150,7 @@ sqlite  = dependency('sqlite3',                     version: '>=3.20', static: t
 blake3Include = include_directories('../vendor/blake3')
 blake3Defines = [ '-DBLAKE3_NO_AVX512' ]
 blake3Simd = []
+blake3Warnings = []
 
 if host_machine.cpu_family() in [ 'x86', 'x86_64' ]
   foreach set : [ [ 'sse2', '-msse2' ], [ 'sse41', '-msse4.1' ], [ 'avx2', '-mavx2' ] ]
@@ -165,6 +166,8 @@ else
   # file that is not vendored.
   blake3Defines += [ '-DBLAKE3_NO_SSE2', '-DBLAKE3_NO_SSE41', '-DBLAKE3_NO_AVX2',
                      '-DBLAKE3_USE_NEON=0' ]
+  # Only the x86 paths call the dispatcher's cpuid probe.
+  blake3Warnings += [ '-Wno-unused-function' ]
 endif
 
 blake3 = declare_dependency(
@@ -172,7 +175,7 @@ blake3 = declare_dependency(
     files('../vendor/blake3/blake3.c',
           '../vendor/blake3/blake3_dispatch.c',
           '../vendor/blake3/blake3_portable.c'),
-    c_args: blake3Defines,
+    c_args: blake3Defines + blake3Warnings,
     include_directories: blake3Include,
     link_with: blake3Simd,
   ),

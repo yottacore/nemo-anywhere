@@ -2071,8 +2071,9 @@ check_links_run_fails (const char *tmp, GtkWidget *window, NemoProgressInfoManag
 		char *log_path = g_strconcat (script, ".log", NULL);
 		char *ran = NULL;
 
-		g_file_get_contents (log_path, &ran, NULL, NULL);
-		g_printerr ("  in links-run-fails\n%s  ran: %s\n", said->str, ran != NULL ? ran : "nothing");
+		if (!g_file_get_contents (log_path, &ran, NULL, NULL))
+			ran = g_strdup ("nothing");
+		g_printerr ("  in links-run-fails\n%s  ran: %s\n", said->str, ran);
 		g_free (ran);
 		g_free (log_path);
 	}
