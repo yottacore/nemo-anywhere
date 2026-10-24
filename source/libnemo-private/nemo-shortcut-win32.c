@@ -618,14 +618,6 @@ out:
 	return ok;
 }
 
-static gboolean
-is_lnk (const char *path)
-{
-	gsize len = path != NULL ? strlen (path) : 0;
-
-	return len > 4 && g_ascii_strcasecmp (path + len - 4, ".lnk") == 0;
-}
-
 NemoShortcutOpen
 nemo_shortcut_win32_open_action (const char  *path,
                                  char       **target_path)
@@ -640,7 +632,7 @@ nemo_shortcut_win32_open_action (const char  *path,
 	g_return_val_if_fail (target_path != NULL, NEMO_SHORTCUT_OPEN_NOT_A_SHORTCUT);
 	*target_path = NULL;
 
-	if (!is_lnk (path)) {
+	if (!nemo_lnk_has_extension (path)) {
 		return NEMO_SHORTCUT_OPEN_NOT_A_SHORTCUT;
 	}
 
@@ -652,7 +644,7 @@ nemo_shortcut_win32_open_action (const char  *path,
 		char *target = NULL;
 		gboolean hop_by_shell = TRUE;
 
-		if (!is_lnk (current)) {
+		if (!nemo_lnk_has_extension (current)) {
 			break;
 		}
 		if (g_hash_table_contains (seen, current)) {
@@ -678,7 +670,7 @@ nemo_shortcut_win32_open_action (const char  *path,
 	 * here again, and again. */
 	if (final != NULL &&
 	    (g_file_test (final, G_FILE_TEST_IS_DIR) ||
-	     (!by_shell && !is_lnk (final) && g_file_test (final, G_FILE_TEST_EXISTS)))) {
+	     (!by_shell && !nemo_lnk_has_extension (final) && g_file_test (final, G_FILE_TEST_EXISTS)))) {
 		*target_path = final;
 		return NEMO_SHORTCUT_OPEN_HERE;
 	}

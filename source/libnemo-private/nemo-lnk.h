@@ -49,6 +49,9 @@ gboolean nemo_lnk_parse (const guint8 *bytes, gsize length, NemoLnk *lnk);
 gboolean nemo_lnk_read  (const char *lnk_path, NemoLnk *lnk);
 void     nemo_lnk_clear (NemoLnk *lnk);
 
+/* Named like a shortcut. Any case, since the shell takes .LNK as well. */
+gboolean nemo_lnk_has_extension (const char *name);
+
 gboolean nemo_lnk_is_dir (const NemoLnk *lnk);
 
 /* The target as Windows would print it, for messages. Caller frees. */

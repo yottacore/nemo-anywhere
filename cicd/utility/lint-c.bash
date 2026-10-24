@@ -1503,6 +1503,22 @@ fCheckUserText(){
 }
 fRun fCheckUserText
 
+## Windows takes x.LNK as a shortcut too, and a case-sensitive compare once
+## saved one as x.LNK.lnk. Names go through nemo_lnk_has_extension.
+## Test ID: rm1p6hjv
+fCheckLnkCase(){
+	local bad
+
+	bad="$(grep -rn -E '(^|[^A-Za-z0-9_])(g_str_has_suffix|g_str_has_prefix|g_strcmp0|strn?cmp|g_str_equal|strr?str|g_strrstr|memcmp)[[:space:]]*\([^;]*"\.[lL][nN][kK]"' \
+		source/src source/libnemo-private source/eel --include='*.c' --include='*.h' || true)"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: a case-sensitive .lnk name check; use nemo_lnk_has_extension"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fRun fCheckLnkCase
+
 ## The archive core links nothing of the app, so it could leave for a project
 ## of its own, and it never deletes, walks a folder, starts a program or reads
 ## a command line by itself: it asks its host (arc-host.h), which is how the

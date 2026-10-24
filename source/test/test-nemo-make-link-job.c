@@ -5,8 +5,9 @@
  * "shortcut", "shortcut-portable" (the same, under home, where a variable
  * covers the files), "names" for what links made beside their originals
  * are called, "every" for every answer the dialog can give, made both beside
- * the originals and in another folder, or "redo" for links made again after
- * an undo.
+ * the originals and in another folder, "redo" for links made again after
+ * an undo, or "shortcut-upper" for shortcuts to shortcuts named .LNK and
+ * .Lnk, which keep their names.
  */
 
 #include "test.h"
@@ -205,6 +206,56 @@ check_names (const char *src_dir, const char *payload, const char *folder,
 
 	g_list_free_full (both, g_free);
 	g_list_free_full (file_only, g_free);
+}
+
+/* Made in another folder a shortcut keeps the whole name, and one already
+   ending in .lnk in any case gets no second one. */
+static void
+check_upper_lnk (const char *src_dir, const char *dst_dir, GtkWidget *window)
+{
+	NemoLinkOptions options = { NEMO_MAKE_SHORTCUT, NEMO_MAKE_SHORTCUT, TRUE };
+	const char *names[] = { "notes.LNK", "old.Lnk" };
+	GList *uris = NULL;
+	guint i;
+
+	for (i = 0; i < G_N_ELEMENTS (names); i++) {
+		char *path = g_build_filename (src_dir, names[i], NULL);
+
+		check (nemo_lnk_write (path, src_dir, FALSE, NULL));
+		uris = g_list_append (uris, uri_of (path));
+		g_free (path);
+	}
+
+	check (run_link_job (uris, dst_dir, &options, window));
+
+	for (i = 0; i < G_N_ELEMENTS (names); i++) {
+		char *made = g_build_filename (dst_dir, names[i], NULL);
+		char *doubled = g_strconcat (made, ".lnk", NULL);
+		char *original = g_build_filename (src_dir, names[i], NULL);
+
+		check_named (dst_dir, names[i]);
+		if (g_file_test (doubled, G_FILE_TEST_EXISTS)) {
+			g_printerr ("FAIL: \"%s\" got a second .lnk\n", names[i]);
+			failures++;
+		}
+#ifdef G_OS_WIN32
+		/* The shell may take a .lnk target its own way; the name is what
+		   this checks. */
+		{
+			char *target = NULL;
+
+			check (nemo_shortcut_win32_read (made, &target, NULL));
+			g_free (target);
+		}
+#else
+		check_shortcut (made, original, FALSE);
+#endif
+		g_free (original);
+		g_free (doubled);
+		g_free (made);
+	}
+
+	g_list_free_full (uris, g_free);
 }
 
 static const char *
@@ -570,6 +621,15 @@ main (int argc, char *argv[])
 		check_redo (tmp, supported, window);
 		if (failures == 0) {
 			g_print ("make link job (redo): all checks passed\n");
+		}
+		return failures > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+	}
+	if (g_strcmp0 (how, "shortcut-upper") == 0) {
+		window = test_window_new ("make link test", 5);
+		gtk_widget_show (window);
+		check_upper_lnk (src_dir, dst_dir, window);
+		if (failures == 0) {
+			g_print ("make link job (shortcut-upper): all checks passed\n");
 		}
 		return failures > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 	}

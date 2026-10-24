@@ -432,6 +432,28 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261023: passed in 1 native gate run from a clone of round1023-fix, whose changes don't touch it. Ruled out: another program's window up front when it starts, since alone in the desktop session with Notepad started just before, it passed 3 of 3 (whether Notepad held the front wasn't checked). The fence alone, since it's linked into the exe run alone too. GTK's "no trigger event" line comes in every passing run too, so it isn't the sign. Only the first 2 pop-ups have failed, the ones right after the window first shows, and the ones after them in the same run passed.
 		- 20261024: also ruled out, MSYS2's bash and the jail, and other test windows simply coming up beside it. Only a window that forces its way to the front breaks it.
 
+- On Windows a shortcut named `x.LNK` is saved as `x.LNK.lnk`.
+	- ID: 2026102220565281
+	- Type: Bug
+	- Status: Waiting on automated testing
+	- Needs external testing: rm1p3ner in the native gate on vm925w.
+	- Priority|Severity: Low
+	- Opened: 20261022-205652
+	- Opened by: 2026102219444442
+	- Related IDs: 2026102219444442, 2026102407113294
+	- Target OS: Windows
+	- Steps to reproduce: make a shortcut and give it a name ending in `.LNK`, upper case.
+	- Incorrect behavior: `create_lnk` in `nemo-file-operations.c` checks for `.lnk` case-sensitively, so another `.lnk` goes on the end.
+	- Expected behavior: a name already ending in `.lnk` in any case is kept.
+	- Reproduced: No, read from the code.
+	- Reproduced: 20261024, Make link to the shortcuts `notes.LNK` and `old.Lnk` in another folder made `notes.LNK.lnk` and `old.Lnk.lnk`. On Linux too, since Make link writes shortcuts on every platform.
+	- Actual cause: `create_lnk` compared the name with `.lnk` case-sensitively. Four other copies of the same check already ignored case.
+	- Actual fix: one shared check, `nemo_lnk_has_extension`, ignores case. `create_lnk` and the four copies all use it. A C lint check fails on a case-sensitive `.lnk` compare.
+	- Swept: every `.lnk` name check in `src`, `libnemo-private` and `eel`: following a shortcut, opening one, Edit link and its rename, the Shortcut properties page, the Windows open action. `nemo-file.c` goes through its own case-free extension check and was left. A shortcut made beside its original is `x.LNK - shortcut.lnk`, as before.
+	- Test case: rm1p3ner, Make link shortcut to an upper-case .LNK. Lint rm1p6hjv.
+	- Verified: 20261024, rm1p3ner fails before the fix and passes after, on Linux and under wine. rm1p6hjv fails on the old compare. The Windows cross build has no warnings. The merge gate passes, 232 of 233 with 1 skip.
+	- Branch: round1024
+
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440
 	- Type: Bug
@@ -1044,20 +1066,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- F2 selects the name without the extension, as upstream does.
 	- Test case: none yet.
 
-- On Windows a shortcut named `x.LNK` is saved as `x.LNK.lnk`.
-	- ID: 2026102220565281
+- Under wine, rdcvb368 and rhn5ewrg fail.
+	- ID: 2026102407113294
 	- Type: Bug
 	- Status: Queued
 	- Priority|Severity: Low
-	- Opened: 20261022-205652
-	- Opened by: 2026102219444442
-	- Related IDs: 2026102219444442
+	- Opened: 20261024-071132
+	- Opened by: 2026102220565281
+	- Related IDs: 2026102220565281
 	- Target OS: Windows
-	- Steps to reproduce: make a shortcut and give it a name ending in `.LNK`, upper case.
-	- Incorrect behavior: `create_lnk` in `nemo-file-operations.c` checks for `.lnk` case-sensitively, so another `.lnk` goes on the end.
-	- Expected behavior: a name already ending in `.lnk` in any case is kept.
-	- Reproduced: No, read from the code.
-	- Test case: none yet.
+	- Test environment: cross-built, run under wine in `nemo-winbuild`.
+	- Steps to reproduce: run rdcvb368 (Shortcut win32 test) and rhn5ewrg (Make link shortcut) under wine, one at a time.
+	- Incorrect behavior: rdcvb368 fails its by-shell, dead shortcut and relative path checks. rhn5ewrg's shortcuts lead to the wrong target and have no relative path.
+	- Expected behavior: both pass, or skip with 77 where wine's shell can't do what they check. Both pass natively on vm925w.
+	- Reproduced: 20261024, on round1024 with and without the 2026102220565281 fix.
+	- Test case: rdcvb368 and rhn5ewrg.
 
 - On Windows, a file that isn't on disk yet, such as a mail attachment, can't be dropped onto the window.
 	- ID: 2026101416534066

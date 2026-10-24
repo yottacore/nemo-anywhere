@@ -2430,11 +2430,8 @@ resolve_lnk_shortcuts (GtkWindow *parent_window,
 		char *uri, *target_path;
 		NemoFile *target;
 		NemoLnk lnk;
-		gsize len;
 
-		len = path != NULL ? strlen (path) : 0;
-		if (len <= 4 || g_ascii_strcasecmp (path + len - 4, ".lnk") != 0 ||
-		    !nemo_lnk_read (path, &lnk)) {
+		if (!nemo_lnk_has_extension (path) || !nemo_lnk_read (path, &lnk)) {
 			/* Named like one and not one: an ordinary file. */
 			remaining = g_list_prepend (remaining, nemo_file_ref (file));
 			g_free (path);

@@ -844,6 +844,7 @@ test('rhn5ewrg Make link shortcut', make_link_job, args: [ 'shortcut' ])
 # test('rhn92e10 Make link shortcut absolute', make_link_job, args: [ 'shortcut-absolute' ])
 test('rhnb1z7g Make link shortcut portable', make_link_job, args: [ 'shortcut-portable' ])
 test('rhnq7f38 Make link names', make_link_job, args: [ 'names' ])
+test('rm1p3ner Make link shortcut to an upper-case .LNK', make_link_job, args: [ 'shortcut-upper' ])
 test('rhr6ggms Make link, every answer', make_link_job, args: [ 'every' ])
 test('rj05egmb Make link redo', make_link_job, args: [ 'redo' ])
 if is_windows

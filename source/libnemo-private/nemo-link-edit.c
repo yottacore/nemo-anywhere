@@ -256,16 +256,6 @@ nemo_link_edit_symlink (const char  *link_path,
 	return ok;
 }
 
-static gboolean
-has_lnk (const char *name)
-{
-	char *lower = g_ascii_strdown (name, -1);
-	gboolean yes = g_str_has_suffix (lower, ".lnk");
-
-	g_free (lower);
-	return yes;
-}
-
 gboolean
 nemo_link_edit_is_shortcut (GFile *link)
 {
@@ -277,7 +267,7 @@ nemo_link_edit_is_shortcut (GFile *link)
 		return FALSE;
 	}
 	name = g_path_get_basename (path);
-	yes = has_lnk (name);
+	yes = nemo_lnk_has_extension (name);
 	g_free (name);
 
 	return yes;
@@ -307,7 +297,7 @@ nemo_link_edit_shortcut (const char  *lnk_path,
 		return FALSE;
 	}
 
-	full_name = new_name != NULL && new_name[0] != '\0' && !has_lnk (new_name)
+	full_name = new_name != NULL && new_name[0] != '\0' && !nemo_lnk_has_extension (new_name)
 		? g_strconcat (new_name, ".lnk", NULL) : g_strdup (new_name);
 	new_path = renamed_path (lnk_path, full_name, error);
 	g_free (full_name);

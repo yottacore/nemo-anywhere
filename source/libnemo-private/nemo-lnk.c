@@ -734,6 +734,14 @@ nemo_lnk_portable_path (const char *target_path)
 	return portable;
 }
 
+gboolean
+nemo_lnk_has_extension (const char *name)
+{
+	gsize length = name != NULL ? strlen (name) : 0;
+
+	return length > 4 && g_ascii_strcasecmp (name + length - 4, ".lnk") == 0;
+}
+
 /* Windows builds only the reading above. The rest places a target on this
    machine's mounts and drives, which Windows does for itself. */
 #ifndef G_OS_WIN32
@@ -1363,14 +1371,6 @@ share_for_path (const char *path, GPtrArray *mounts, char **unc, char **suffix)
 	return TRUE;
 }
 
-static gboolean
-path_is_lnk (const char *path)
-{
-	gsize length = strlen (path);
-
-	return length > 4 && g_ascii_strcasecmp (path + length - 4, ".lnk") == 0;
-}
-
 /* Returns: (transfer full): free with g_free */
 char *
 nemo_lnk_follow (const char *lnk_path, NemoLnk *lnk_out)
@@ -1407,7 +1407,7 @@ nemo_lnk_follow (const char *lnk_path, NemoLnk *lnk_out)
 		*lnk_out = lnk;
 
 		path = uri != NULL ? g_filename_from_uri (uri, NULL, NULL) : NULL;
-		if (path == NULL || !path_is_lnk (path)) {
+		if (!nemo_lnk_has_extension (path)) {
 			g_free (path);
 			break;
 		}
