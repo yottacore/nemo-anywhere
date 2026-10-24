@@ -227,7 +227,10 @@ shell_execute (const gchar *exe,
 		CoUninitialize ();
 	}
 
-	return SUCCEEDED (hr);
+	/* Only S_OK is a start. Wine's shell answers S_FALSE when its start
+	 * failed, and it fails a shortcut, since the empty verb goes on as a
+	 * verb named "". */
+	return hr == S_OK;
 }
 
 gboolean

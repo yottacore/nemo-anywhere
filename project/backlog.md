@@ -1069,7 +1069,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Under wine, rdcvb368 and rhn5ewrg fail.
 	- ID: 2026102407113294
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: no. On Linux only the Make link test changed, and its 4 shortcut modes pass.
+	- Needs external testing: rdcvb368, rhn5ewrg, rhnb1z7g, rhr6ggms and rfnmh050 natively on vm925w. The portable path now goes in only when the shell can follow it, and a start through Explorer counts only on S_OK.
 	- Priority|Severity: Low
 	- Opened: 20261024-071132
 	- Opened by: 2026102220565281
@@ -1080,7 +1082,24 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: rdcvb368 fails its by-shell, dead shortcut and relative path checks. rhn5ewrg's shortcuts lead to the wrong target and have no relative path.
 	- Expected behavior: both pass, or skip with 77 where wine's shell can't do what they check. Both pass natively on vm925w.
 	- Reproduced: 20261024, on round1024 with and without the 2026102220565281 fix.
-	- Test case: rdcvb368 and rhn5ewrg.
+	- Reproduced: 20261024, rhnb1z7g and rhr6ggms fail the same way under wine. rdcvb368 also fails its long path, shortcut launch and junction checks there.
+	- Actual cause: wine 10.0's shell does 6 things differently from Windows.
+		- A path with a variable in it, such as `%LOCALAPPDATA%\x`, is taken as a name in the working directory. So Make link's shortcuts led nowhere, and no variable is stored.
+		- The relative path is never flagged in the file, and holds the shortcut's own path.
+		- A shortcut with only a relative path is followed by the shell. When it leads nowhere, the shell hands back the relative path as the target.
+		- A target past 260 characters is taken, and the path kept is cut short.
+		- Explorer's ShellExecute passes the empty verb on as a verb named "", which fails for a shortcut, then answers S_FALSE. The app read S_FALSE as started.
+		- No junctions.
+	- Decisions:
+		- Where the app can still do the right thing under wine, it does. Where wine's shell can't write a part at all, the check skips under wine with a SKIP line. The check is for wine by name, so every check still runs on Windows.
+		- Neither test exits 77 under wine, since the rest of each still runs there.
+	- Actual fix: a portable path goes in only when the shell can follow it, and otherwise the absolute path alone. A target past 260 characters is refused before the shell is asked, in Edit link too. A relative path from the shell counts as no target. A start through Explorer counts only on S_OK, so a failed one falls back to the direct start.
+		- Tests: rdcvb368 skips the relative path, the variable, the "shell can't place it" answers and the junction under wine. The Make link test skips the relative and variable flags. A junction check reused an error left set by a failed create.
+	- Swept: every SetPath, GetPath and Explorer ShellExecute call. The Shortcut properties page shows the raw GetPath answer, and was left. rjnzpkk7 fails its 2 terminal checks under wine with or without this change.
+	- Note: wine patches are drafted, not filed: the relative path flag and its value, and the empty verb.
+	- Test case: rdcvb368, rhn5ewrg, rhnb1z7g, rhr6ggms.
+	- Verified: 20261024, under wine, rdcvb368, rhn5ewrg, rhnb1z7g, rhr6ggms, rm1p3ner, rj05egmb, rhnq7f38, rhqxx81r, rfnmh050 and rjp4ch0y pass, and rhr6ggmr skips. With the app half taken out, rdcvb368 fails its dead shortcut, portable target, long path and launch checks, and rhn5ewrg and rhnb1z7g their target check. The Windows cross build has no warnings, the C lint passes, and the Make link test passes on Linux.
+	- Branch: round1024
 
 - On Windows, a file that isn't on disk yet, such as a mail attachment, can't be dropped onto the window.
 	- ID: 2026101416534066

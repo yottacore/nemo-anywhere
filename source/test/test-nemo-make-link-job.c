@@ -28,6 +28,7 @@
 
 #include "test-scratch.h"
 #include "test-check.h"
+#include "test-wine.h"
 
 #define JOB_TIMEOUT_SECONDS 20
 
@@ -127,6 +128,16 @@ check_shortcut (const char *lnk_path, const char *want, gboolean check_env)
 	g_free (want_uri);
 #endif
 	check ((flags & HAS_LINK_INFO) != 0);
+	/* Wine's shell writes neither the relative path nor the variable. */
+	if (test_under_wine ()) {
+		static gboolean said;
+
+		if (!said) {
+			g_print ("SKIP relative and portable paths (wine's shell writes neither)\n");
+			said = TRUE;
+		}
+		return;
+	}
 	check ((flags & HAS_RELATIVE) != 0);
 	/* Only where a variable covers the target, which it does here for the
 	   portable run alone, so only that one is checked. */
