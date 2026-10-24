@@ -526,6 +526,17 @@ if is_windows
     ),
     args: []
   )
+
+  # Takes the focus, so alone.
+  test('rm0d1tdd Delete key after a window on another thread test',
+    executable('test-nemo-delete-focus-win32',
+      [ 'test-nemo-delete-focus-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_fence ],
+    ),
+    args: [],
+    is_parallel: false,
+  )
 endif
 
 test('rffw4xdg Treeview hit test',

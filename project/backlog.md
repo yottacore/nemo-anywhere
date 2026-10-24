@@ -118,22 +118,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Self-closed: rktkms8a, rhtmbdmd and rf2w8yxr on Linux and FreeBSD.
 	- Closed: 20261022-195427
 
-- On Windows, the first Delete after closing Windows properties is still ignored.
-	- ID: 2026102219444332
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261022-194443
-	- Opened by: 2026101816495203
-	- Related IDs: 2026101816495203
-	- Target OS: Windows
-	- Steps to reproduce: select a file, press Alt+Enter for Windows properties, close it with Escape or the title bar's close button, and press Delete at once.
-	- Incorrect behavior: nothing happens. The second press brings up the delete question.
-	- Expected behavior: the first press does, as it now does after the app's own Properties (Ctrl+Enter).
-	- Reproduced: 20261022 on vm925w with the single exe, 2 of 2 with Escape and 1 of 1 with the close button.
-	- Possible cause: 2026101816495203 starts no wait when the focus comes back from another of the program's own windows. The shell's property sheet runs in the app's process but isn't a GTK window, so its closing likely reads as another program.
-	- Test case: none yet.
-
 - cppcheck 2.21 finds an unread result in `test-nemo-archive-combos.c`.
 	- ID: 2026102219444552
 	- Type: Bug
@@ -685,6 +669,33 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261022, on vm925w in the desktop session with MacType running and loaded in the single exe: 6 office files (doc, docx, odt, ods, xls, xlsx) in the icon view brought up no box, and the OpenDocument files got their thumbnails. A content search for a word in all 6 found all 6.
 	- Self-closed: the MacType run above.
 	- Closed: 20261022-195427
+
+- On Windows, the first Delete after closing Windows properties is still ignored.
+	- ID: 2026102219444332
+	- Type: Bug
+	- Status: Waiting on a partial CICD run
+	- Needs local test suite run?: no. The change is Windows only, and rgv89eeg, rknjd2qn and rkmsgs9m pass on Linux.
+	- Needs external testing: Windows, on vm925w in the desktop session, with a single exe built from this branch: Windows properties (Alt+Enter) closed with Escape, and with the title bar's close button, then Delete at once. A Delete at once after switching to another program and back must still be ignored. 2026101816495203's check can run in the same batch. rm0d1tdd in the native gate.
+	- Priority|Severity: Avg
+	- Opened: 20261022-194443
+	- Opened by: 2026101816495203
+	- Related IDs: 2026101816495203
+	- Target OS: Windows
+	- Steps to reproduce: select a file, press Alt+Enter for Windows properties, close it with Escape or the title bar's close button, and press Delete at once.
+	- Incorrect behavior: nothing happens. The second press brings up the delete question.
+	- Expected behavior: the first press does, as it now does after the app's own Properties (Ctrl+Enter).
+	- Reproduced: 20261022 on vm925w with the single exe, 2 of 2 with Escape and 1 of 1 with the close button.
+	- Possible cause: 2026101816495203 starts no wait when the focus comes back from another of the program's own windows. The shell's property sheet runs in the app's process but isn't a GTK window, so its closing likely reads as another program.
+	- Actual cause: the sheet runs on a thread of its own inside the app, outside GTK. The guard knew only GTK windows as the program's own, so the focus coming back from the sheet looked like focus back from another program, and started the one-second wait.
+	- Actual fix: on Windows the guard also reads `WM_ACTIVATEAPP`, which names the thread the focus moves to or from. Focus back from a thread of the program's own starts no wait. Once the sheet's window is gone the message names no thread, so then it counts when the focus last went to one of ours. The delete guard design doc and the UX style guide say so.
+	- Decisions:
+		- Punted: focus that goes from the sheet to another program, which then closes and drops the focus back on the window, counts as coming from the sheet. Windows doesn't say where it came from there.
+	- Swept: the trash and delete keys are the only callers of the check. Every other window the app shows is a GTK window on the main thread, covered before. The shell's own question when a file is too big to recycle runs on a thread of ours too, and now counts the same way.
+	- Branch: round1023
+	- Test case: rm0d1tdd, Delete key after a window on another thread test, Windows only.
+	- Verified: 20261023, rm0d1tdd fails without the fix and passes with it, 2 of 2 each way on vm925w in the desktop session, and under wine. It also checks that a window just opened, and focus back from another program, still ignore the key. Linux build with warnings as errors, C lint and test IDs clean. Windows cross build clean.
+	- Progress log:
+		- 20261023: fixed. Left for the check above with the real sheet.
 
 - Have to press "delete" twice after properties dialog.
 	- ID: 2026101816495203
