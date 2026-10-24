@@ -1150,6 +1150,24 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261023: passed in 1 native gate run from a clone of round1023-fix, whose changes don't touch it. Ruled out: another program's window up front when it starts, since alone in the desktop session with Notepad started just before, it passed 3 of 3 (whether Notepad held the front wasn't checked). The fence alone, since it's linked into the exe run alone too. GTK's "no trigger event" line comes in every passing run too, so it isn't the sign. Only the first 2 pop-ups have failed, the ones right after the window first shows, and the ones after them in the same run passed.
 		- 20261024: also ruled out, MSYS2's bash and the jail, and other test windows simply coming up beside it. Only a window that forces its way to the front breaks it.
 		- 20261024: the fix didn't hold. In the native gate on vm925w from a bundle of round1024 (`6e3974d0`), rhtmbdma failed lines 243 and 246 again, the first pop-up: 204 OK, 7 skipped, 1 failed. The 4 tests that now run alone ran after it, each alone. Beside it were 6 eel tests that only show a plain window: rffw4xdg, rjes67yy, rhtmbdm9, rjew8g59, rhtmbdmb and rk520jh7. So a window forcing its way to the front isn't the whole cause. Not checked: whether its own window gets the front at all when another test's window came up just before it. Not rerun alone, since vm925w went off right after the run.
+			- Filed as 2026102409082700. Left for a later round.
+
+- The round1024 fix for rhtmbdma didn't hold in the native suite.
+	- ID: 2026102409082700
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261024-090827
+	- Opened by: 2026102322330406
+	- Related IDs: 2026102322330406
+	- Target OS: Windows
+	- Test environment: vm925w, a bundle of round1024 `6e3974d0`, as wintest in the desktop session.
+	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
+	- Incorrect behavior: rhtmbdma fails lines 243 and 246, the first pop-up, though the 4 tests that bring their window to the front now run alone. Only 6 eel tests that show a plain window ran beside it: rffw4xdg, rjes67yy, rhtmbdm9, rjew8g59, rhtmbdmb and rk520jh7.
+	- Expected behavior: rhtmbdma passes in the native suite.
+	- Tried: running rgxy149r, rk6narsh, rhtmbdmd and rjf8db1q alone on Windows, plus lint rm1n4v1b. That fixed the case it reproduced, a forced foreground window beside it, but not this one.
+	- Reproduced: 20261024, 1 of 1 native gate runs. Not rerun alone, since vm925w was off right after.
+	- Test case: rhtmbdma.
 
 - On Windows, a file that isn't on disk yet, such as a mail attachment, can't be dropped onto the window.
 	- ID: 2026101416534066
