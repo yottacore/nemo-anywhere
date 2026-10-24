@@ -87,6 +87,8 @@ nemo_x_content_bar_set_x_content_type (NemoXContentBar *bar, const char *x_conte
 	char *description;
 	GAppInfo *default_app;
 
+	g_return_if_fail (x_content_type != NULL);
+
 	g_free (bar->priv->x_content_type);
 	bar->priv->x_content_type = g_strdup (x_content_type);
 

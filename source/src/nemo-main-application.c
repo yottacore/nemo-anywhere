@@ -76,6 +76,7 @@
 #include <eel/eel-gtk-extensions.h>
 #include <eel/eel-vfs-extensions.h>
 #include <eel/eel-stock-dialogs.h>
+#include <eel/eel-analyzer.h>
 
 
 #include <libnemo-private/nemo-desktop-thumbnail.h>
@@ -1109,7 +1110,9 @@ nemo_main_application_local_command_line (GApplication *application,
 	}
 
 	for (idx = 0; idx < len; idx++) {
+		EEL_ANALYZER_SKIP ("null-dereference") // files holds len of them, from the array or the default above
 		g_object_unref (files[idx]);
+		EEL_ANALYZER_END
 	}
 	g_free (files);
 

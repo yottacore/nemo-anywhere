@@ -1203,13 +1203,16 @@ fCheckTestFence(){
 }
 fRun fCheckTestFence
 
-## A test that takes the foreground runs alone on Windows, where every test
-## shares one desktop. Taking it from a test beside it closes that test's menu
-## mid-check (rhtmbdma, 2026102322330406). Only a test's own .c files are read.
+## A test that takes the foreground, or holds a menu open, runs alone on Windows,
+## where every test shares one desktop. A menu closes when its window loses the
+## focus, and any test's window coming up beside it takes the focus, not only one
+## that forces its way to the front (rhtmbdma, 2026102322330406 and
+## 2026102409082700). Only a test's own .c files are read.
 ## Test ID: rm1n4v1b
 fCheckForegroundAlone(){
 	local build='source/test/meson.build'
 	local takes='gtk_window_present|gdk_window_focus|SetForegroundWindow|SwitchToThisWindow|BringWindowToTop'
+	takes+='|gtk_menu_popup|pop_up_context_menu|drag_drop_action_ask|gtk_popover_popup|gtk_combo_box_popup'
 	local line name files f bad=""
 
 	[[ -f "$build" ]] || return 0
@@ -1252,7 +1255,7 @@ fCheckForegroundAlone(){
 		}
 	' "$build")
 	if [[ -n "$bad" ]]; then
-		fEcho "FAIL: ${build}: a test that takes the foreground runs beside others on Windows; give it is_parallel: not is_windows"
+		fEcho "FAIL: ${build}: a test that takes the foreground or holds a menu open runs beside others on Windows; give it is_parallel: not is_windows"
 		printf '%s' "$bad"
 		exit 2
 	fi

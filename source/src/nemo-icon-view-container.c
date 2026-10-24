@@ -1696,7 +1696,6 @@ assign_icon_position (NemoIconContainer *container,
     NemoIconPosition position;
 
     /* Get the stored position. */
-    have_stored_position = FALSE;
     position.scale = 1.0;
 
     have_stored_position = get_stored_icon_position (container,
@@ -1986,7 +1985,6 @@ nemo_icon_view_container_get_additional_text_line_count (NemoIconContainer *cont
 
     attributes = nemo_icon_view_container_get_icon_text_attribute_names (container, &len);
 
-    i = 0;
     real_count = 0;
 
     for (i = 0; i < len; ++i) {
@@ -2072,7 +2070,7 @@ nemo_icon_view_container_construct (NemoIconViewContainer *icon_container,
                                     gboolean               is_desktop)
 {
 	AtkObject *atk_obj;
-    NemoViewLayoutConstants *constants = NEMO_ICON_CONTAINER (icon_container)->details->view_constants;
+    NemoViewLayoutConstants *constants;
 
 	g_return_val_if_fail (NEMO_IS_ICON_VIEW (view), NULL);
 

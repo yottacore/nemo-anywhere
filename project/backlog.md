@@ -377,6 +377,113 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 0dab690
 	- Test case: rjhvmm6f, Mapped drive not asked, new bin cases: a fixed drive's bin is asked, a removable one's only with a disk in it, an empty drive answers in under 2 s, and no share or optical drive is asked.
 
+- Nemo Anywhere dim checkmarks: the list view column.
+	- ID: 2026102411133409
+	- Type: Enhancement
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: a full run at 1ef8ee4f or later. The suite and the sanitizer suite passed at c7194950, but both full runs stopped at 196653ba.
+	- Needs external testing: no. rm1sbxgy and rm1sbwdq pass in the FreeBSD lane. Neither is built for Windows, since both preload a probe.
+	- Needs hand testing: how the dim mark looks on selected rows, in a light and a dark theme.
+	- Priority|Severity: High
+	- Opened: 20261024-111334
+	- Opened by: t00mietum
+	- Parent ID: 2026102407515571
+	- Target OS: All
+	- Requirements:
+		- Only under Nemo Anywhere. A dim checkmark on every selected row, and none on the rest. The text doesn't change.
+		- A thin new column left of Name, with nothing else in it. It can't be hidden or moved, and isn't in the column chooser.
+		- It comes and goes with the selection model setting, live.
+		- A test that the marks match the selection after a click, Ctrl+click, a band, Select all and Escape.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "What it looks like".
+	- Progress log:
+		- 20261024: opened.
+		- 20261024: a checkmark column, first in the list view under Nemo Anywhere, with a mark on each selected row. Under the other models it isn't in the tree view at all. It follows the setting live, can't be moved, and isn't in the column chooser. Name keeps the expanders.
+		- 20261024: rktkms8a, rktqpp37 and rm1sbxgy expect 72 list view results, up from 71, for the new check on the column.
+		- 20261024: rm1sbxgy and rm1sbwdq pass on vmFreeBSD at c7194950.
+	- Decisions:
+		- The mark is a checkmark glyph (U+2713) in the selected row's text color, drawn with the theme's insensitive look. The selection color itself would vanish on the selection background, so this departs from the note on the parent until the per-theme color step.
+		- Under the other models the column is out of the tree view, so their column numbers don't move.
+		- Its width is the glyph's, taken off the row before the other columns share it.
+	- Not covered by a test yet: the column coming and going when the setting changes while the window is open.
+	- Swept: every walk of the list view's columns (the column chooser and its toggle, the saved order, applying the column settings, layout, measuring, the width drag), and every `gtk_tree_view_get_column (..., 0)` in the app and the tests. The list model's drag geometry now takes the expander column, which is Name.
+	- Branch: round1024b
+	- Test case: rm1sbxgy and rm1sbwdq, where every list view check also checks the marks, the bands included. rktkms8a, rktqpp37 and rm1sbxgy check the column is there only under Nemo Anywhere, thin, and without the expanders.
+	- Verified: 20261024, rm1sbxgy, rm1sbwdq, rktkms8a, rk7yvgse, rktqpp37 and rkts3far pass. The full Linux suite, 234 OK and 1 skipped. The build and the Windows cross build with warnings as errors, the C lint, and the test ID check pass.
+	- Verified: 20261024, rm1sbxgy and rm1sbwdq pass in the FreeBSD lane at c7194950.
+
+- Nemo Anywhere focus outline and keys: the list view.
+	- ID: 2026102412041967
+	- Type: Enhancement
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: a full run at 9384cedd or later. The suite and the sanitizer suite passed at c7194950, but both full runs stopped at 196653ba. Nothing else is left.
+	- Needs external testing: no. rm1sbxgy passes in the FreeBSD lane.
+	- Priority|Severity: High
+	- Opened: 20261024-120419
+	- Opened by: t00mietum
+	- Parent ID: 2026102407515572
+	- Target OS: All
+	- Requirements:
+		- Only under Nemo Anywhere. No focus outline, except while a Ctrl+arrow move has put the focus on a row that isn't selected.
+		- Up, Down, Page Up and Page Down count from the range ends. After a Ctrl+arrow move they count from the focus.
+		- Ctrl+Up and Ctrl+Down move the focus alone. Ctrl+Space adds or removes the focused row. Ctrl+Shift+Up and Ctrl+Shift+Down add the run from the anchor. Ctrl+Home and Ctrl+End are the same as the key alone.
+		- Escape clears the selection, the focus and the anchor. A second Escape does nothing, and the next arrow starts at the first row. An Escape that cancels something else does only that.
+		- Space previews, and never starts type-ahead on its own.
+		- rm1sbxgy checks each key in the list view.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Keyboard" and "Terms".
+	- Progress log:
+		- 20261024: opened.
+		- 20261024: the list view has its own key and press handlers under Nemo Anywhere. Plain Up, Down, Page Up and Page Down move the cursor to the first or last selected row before the tree view moves it. Ctrl+Home and Ctrl+End drop the Ctrl. Ctrl+Shift+Up and Down run Shift's range and keep what was selected. The cursor outline is hidden by a style class, except after a Ctrl+Up or Ctrl+Down while the cursor is on a row not selected.
+		- 20261024: Escape, the second Escape, Ctrl+Space, Space and type-ahead were already right in v1's handlers, so they only got checks.
+		- 20261024: rm1sbxgy expects 87 list view results, up from 72. rktkms8a and rktqpp37 stay at 72.
+		- 20261024: rm1sbxgy passes on vmFreeBSD at c7194950.
+	- Decisions:
+		- One flag, set by Ctrl+Up and Ctrl+Down and cleared by a click, a plain key or Escape, decides both the outline and where the plain keys count from. The rest is read from the cursor and the selection.
+		- Ctrl+Shift+Home and Ctrl+Shift+End are Shift+Home and Shift+End, following the Ctrl+Home rule. Ctrl with Page Up or Page Down is left alone, since it switches tabs.
+		- A Down past the last row with several selected leaves the last one selected alone.
+	- Not covered by a test yet: Page Up and Page Down from the range ends, since every row is in sight in the test, and the outline as drawn on screen.
+	- Swept: every key the design doc's "Keyboard" names, in the list view's key handler and in the Escape, Ctrl+A and invert paths that change the selection without its signal. The icon container's key handler is the same rule's twin, in 2026102412041969.
+	- Branch: round1024b
+	- Test case: rm1sbxgy, Selection rules test, Nemo Anywhere: the list view's key checks, the outline among them.
+	- Verified: 20261024, rm1sbxgy fails 10 checks with the new handlers bypassed and passes with them. rktkms8a, rktqpp37, rk7yvgse and rm1sbwdq pass. The full Linux suite, 234 OK and 1 skipped. The build and the Windows cross build with warnings as errors, the C lint and the test ID check pass.
+	- Verified: 20261024, rm1sbxgy passes in the FreeBSD lane at c7194950.
+
+- rkbdyne7, rk96k9va and rj750n43 still fail in the sanitizer lane on a loaded box.
+	- ID: 2026102411433800
+	- Type: Bug
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: a full run's sanitizer stage on a loaded box, beside another pipeline, at ac5d30ac or later. Full run 1 stopped on these 3 at 196653ba, before the fix, and full run 2 left the stage out. If rj750n43 hangs at quit again, its log now has the stuck copy's threads and stacks.
+	- Priority|Severity: Low
+	- Opened: 20261024-114338
+	- Opened by: t00mietum
+	- Related IDs: 2026101613310525, 2026101513290717
+	- Target OS: Linux
+	- Steps to reproduce: a full run's sanitizer stage while other builds load the cores. On 20261024 the load was 23 to 35 on 32 cores.
+	- Incorrect behavior: all 3 failed in one sanitizer stage, which stopped the full run there. Each passed 3 of 3 alone right after, at load 10.
+		- rkbdyne7: the quickest varied folder took 327 ms to show all rows and the quickest plain one 490 ms, against a 180 ms bar.
+		- rk96k9va: the first folder took 340 ms and the quickest 181 ms, against 180 ms.
+		- rj750n43: the wait for the program to exit ran out at `test-nemo-cache-quit.c:461`, after 181 s, and the journal was still there at line 463.
+	- Expected behavior: they pass under load, or a slow box makes them skip or retry rather than fail the stage.
+	- Reproduced: 20261024 on Linux, once, in the full run of round1024b at 196653ba.
+	- Possible cause: the time bars and the exit wait were last tuned at load 21. The sanitizer build is about 3 times slower, and a full run beside another project's pipeline goes well past that load.
+	- Actual cause:
+		- rkbdyne7 and rk96k9va: a 180 ms bar is there to tell the old 200 ms timer from a fixed build, so it can't be scaled for a slow box (2026101613310525). A sanitizer build on a loaded box goes past it with the fix in.
+		- rj750n43: not found. The close of the busy folder took 0.5 to 2.9 s in 30 quits at load 21 to 30, against more than 156 s in the failed run. So it hung, and a longer wait isn't the fix.
+	- Progress log:
+		- 20261024: rkbdyne7, 4 at once at load about 22 in a sanitizer build: the quickest varied folder took 172 to 224 ms, so 3 of 4 were over the bar.
+		- 20261024: rj750n43, 6 at once at load 21 to 30, and in the whole sanitizer suite at 8 jobs: no hang.
+		- 20261024: in the sanitizer suite at c7194950 all 3 pass at load about 15, and again at load 50 to 60 beside a full run's arm64 step. rj750n43 ran 38 and 55 s in all there. The selection rules tests failed in those runs instead, filed as 2026102413432024, and rkrqg9mg once, filed as 2026102413432124.
+	- Decisions:
+		- The sanitizer lane runs both timed tests for the memory checks and the item counts, and leaves their time bars to the plain suite, which every gate runs.
+		- rk96k9va and rj750n43 were each closed once before for the same failure under load (2026101613310525, 2026101513290717). So rj750n43's wait isn't raised again until its cause is known.
+	- Actual fix:
+		- A sanitizer build doesn't hold the time bars of rkbdyne7 and rk96k9va (`TEST_TIME_BARS_HOLD` in `test-scratch.h`), and rk96k9va runs once there.
+		- rj750n43 prints how long each quit took. A copy that doesn't quit in time has its threads listed, with their stacks when gdb is there, and is killed, so it no longer runs on into the next run.
+	- Swept: every test with a fixed time bar; only these two have one. Every exit wait in rj750n43, the `--quit` copy's included, goes through the same report.
+	- Branch: round1024b
+	- Commit: ac5d30ac
+	- Test case: rkbdyne7, rk96k9va and rj750n43 themselves, in the sanitizer lane with the cores loaded.
+	- Verified: 20261024, the 3 tests pass in a sanitizer build, and so does the whole sanitizer suite, 220 OK and 15 skipped, at load about 15. rkbdyne7 passes 4 of 4 at once at load about 22, where 3 of 4 were over its bar. In a plain build the 3 pass with the bars held. A copy held past rj750n43's exit wait was listed with its threads and stacks and killed, and the test went on through its other runs. C lint clean, and the test ID check passes.
+
 - rhr6ggmt can lose both links from a rar archive on Linux.
 	- ID: 2026101913111713
 	- Type: Bug
@@ -518,7 +625,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Nemo Anywhere: dim checkmarks that follow the selection, in all 3 views.
 	- ID: 2026102407515571
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Started
 	- Needs local test suite run?: Yes
 	- Priority|Severity: High
 	- Opened: 20261024-075155
@@ -536,6 +643,49 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Notes:
 		- Sorting on the column belongs with the affirmative half, since with the switch off it sorts on the selection.
 		- The color per bundled theme is its own roadmap step. Until then the mark takes the theme's selection color, dimmed.
+	- Progress log:
+		- 20261024: opened.
+		- 20261024: split into children, one per view: 2026102411133409 (list view), ...414 (icon view), ...419 (compact view).
+	- Test case: one per child.
+
+- Nemo Anywhere dim checkmarks: the icon view.
+	- ID: 2026102411133414
+	- Type: Enhancement
+	- Status: Queued
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261024-111334
+	- Opened by: t00mietum
+	- Parent ID: 2026102407515571
+	- Prereq IDs: 2026102411133409
+	- Target OS: All
+	- Requirements:
+		- Only under Nemo Anywhere. A dim checkmark on every selected icon, and none on the rest. The text doesn't change.
+		- In the top-left corner of the icon, on a small scrim that reads on any thumbnail.
+		- A test that the marks match the selection after a click, Ctrl+click, a band, Select all and Escape.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "What it looks like".
+	- Progress log:
+		- 20261024: opened.
+	- Test case: none yet.
+
+- Nemo Anywhere dim checkmarks: the compact view.
+	- ID: 2026102411133419
+	- Type: Enhancement
+	- Status: Queued
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261024-111334
+	- Opened by: t00mietum
+	- Parent ID: 2026102407515571
+	- Prereq IDs: 2026102411133414
+	- Target OS: All
+	- Requirements:
+		- Only under Nemo Anywhere. A dim checkmark on every selected item, and none on the rest. The text doesn't change.
+		- Left of the name text.
+		- A test that the marks match the selection after a click, Ctrl+click, a band, Select all and Escape.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "What it looks like".
+	- Notes:
+		- Shares the icon container's drawing with the icon view, so it follows that child.
 	- Progress log:
 		- 20261024: opened.
 	- Test case: none yet.
@@ -559,6 +709,51 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Space previews, and never starts type-ahead on its own.
 		- rktkms8a's expectations under Nemo Anywhere change to match, with a check per key and view.
 	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Keyboard" and "Terms".
+	- Progress log:
+		- 20261024: opened.
+		- 20261024: split into children, one per view: 2026102412041967 (list view), ...969 (icon view), ...971 (compact view).
+	- Test case: one per child.
+
+- Nemo Anywhere focus outline and keys: the icon view.
+	- ID: 2026102412041969
+	- Type: Enhancement
+	- Status: Queued
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261024-120419
+	- Opened by: t00mietum
+	- Parent ID: 2026102407515572
+	- Prereq IDs: 2026102412041967
+	- Target OS: All
+	- Requirements:
+		- Only under Nemo Anywhere. No focus outline, except while a Ctrl+arrow move has put the focus on an icon that isn't selected.
+		- Up, Down, Left, Right, Page Up and Page Down count from the range ends. After a Ctrl+arrow move they count from the focus.
+		- Ctrl with an arrow moves the focus alone. Ctrl+Space adds or removes the focused icon. Ctrl+Shift with an arrow adds the run from the anchor. Ctrl+Home and Ctrl+End are the same as the key alone.
+		- Escape clears the selection, the focus and the anchor. A second Escape does nothing, and the next arrow starts at the first icon. An Escape that cancels something else does only that.
+		- Space previews, and never starts type-ahead on its own.
+		- rm1sbxgy checks each key in the icon view.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Keyboard" and "Terms".
+	- Progress log:
+		- 20261024: opened.
+	- Test case: none yet.
+
+- Nemo Anywhere focus outline and keys: the compact view.
+	- ID: 2026102412041971
+	- Type: Enhancement
+	- Status: Queued
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261024-120419
+	- Opened by: t00mietum
+	- Parent ID: 2026102407515572
+	- Prereq IDs: 2026102412041969
+	- Target OS: All
+	- Requirements:
+		- The icon view's rules, in the compact view's layout, where Up and Down run down a column and Left and Right go across.
+		- rm1sbxgy checks each key in the compact view.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Keyboard" and "Terms".
+	- Notes:
+		- Shares the icon container's key handling with the icon view, so it follows that child.
 	- Progress log:
 		- 20261024: opened.
 	- Test case: none yet.
@@ -664,20 +859,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261020: opened.
 	- Test case: none yet.
 
-- Static analyzers: fix or suppress the findings in inherited upstream code.
-	- ID: 2026102114400587
-	- Type: Task
+- The native gate on vm925w stops on scratch folders 7 tests leave behind.
+	- ID: 2026102413432225
+	- Type: Bug
 	- Status: Queued
 	- Priority|Severity: Avg
-	- Opened: 20261021-144005
-	- Opened by: t00mietum
-	- Parent ID: 2026101619020505
-	- Prereq IDs: 2026102114400584
-	- Requirements:
-		- Each finding in a file that came with the 6.6.4 baseline is fixed, or suppressed at the line with a one-line reason, per the parent.
-		- Many are expected to be GLib ref-count false positives. Split this item by folder if it runs long.
-	- Estimated effort: High
-	- Test case: the gate in 2026102114400591, once live. A real bug fixed here gets its own test.
+	- Opened: 20261024-134322
+	- Opened by: 2026102409082700
+	- Target OS: Windows
+	- Test environment: vm925w, as wintest in the desktop session.
+	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
+	- Incorrect behavior: every test passes, 205 OK and 7 skipped, then the gate fails with "tests left these behind" for test-nemo-command-launch-win32, test-nemo-helper-end-win32 and test-nemo-thumbnail-edited, -future, -hold, -order and -stop.
+		- The 5 thumbnail folders still hold the file cache, `files.db` with its `-wal` and `-shm`.
+		- helper-end leaves 2 `nemo-slowness-*` folders, each with a 64 KB `yardstick`. command-launch leaves one `nemo-command-launch-*` folder.
+	- Expected behavior: nothing left behind, and the gate passes.
+	- Reproduced: 20261024 at c7194950, 1 of 1. An earlier native run on 20261023 at 22:54 left the same 7, in a `nemo-suite-*` folder still in wintest's TEMP.
+	- Possible cause: a file still open when the test removes its folder, such as the cache database or a program the test started, which Windows won't delete. Not looked into.
+	- Test case: the gate's own leftover check in `cicd-win.ps1`.
 
 - Static analyzers: fix or suppress the findings in our own code.
 	- ID: 2026102114400588
@@ -1121,53 +1319,56 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- F2 selects the name without the extension, as upstream does.
 	- Test case: none yet.
 
-- rhtmbdma fails in the native suite in vm925w's desktop session, and passes alone.
-	- ID: 2026102322330406
+- rktkms8a, rktqpp37 and rm1sbxgy time out in the sanitizer lane on a loaded box.
+	- ID: 2026102413432024
 	- Type: Bug
 	- Status: Queued
-	- Needs external testing: the native gate on vm925w as wintest in the desktop session, once there's a new fix. rhtmbdma passes there.
 	- Priority|Severity: Low
-	- Opened: 20261023-223304
-	- Opened by: 2026102221362030
-	- Related IDs: 2026102219444662, 2026102219444332
-	- Target OS: Windows
-	- Test environment: vm925w, a fresh clone of round1023, as wintest in the desktop session.
-	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
-	- Incorrect behavior: Keyboard context menu test, `test-eel-context-menu.c` lines 243 and 246 in the first run, those and 251 and 254 in the second, and 251 and 254 in the third. `pop_up` gets no menu up, with "no trigger event for menu popup" from GTK.
-	- Expected behavior: passes, as it did in the round1022 native suite.
-	- Reproduced: 20261023, 3 of 3 native suite runs. The same build's exe run alone in the desktop session, outside the jail, passed 3 of 3.
-	- Possible cause: not known. New in round1023 are rm0d1tdd, which moves the focus between threads and other programs and runs near it in the suite, and the fence's load notice. Not looked into.
-	- Actual cause: another test taking the foreground while a menu is up. On Windows every test in the suite shares one desktop, and 4 of them bring their window to the front through GDK, which gets past Windows' foreground lock. The window losing the focus gets `WM_KILLFOCUS`, GDK breaks the keyboard grab, and GTK closes the menu, so `pop_up` finds none. rm0d1tdd runs alone, so the tests after it start together, and rgxy149r and rk6narsh come up in rhtmbdma's first second or two, when its first 2 pop-ups are.
-	- Actual fix: rgxy149r, rk6narsh, rhtmbdmd and rjf8db1q run alone on Windows. New C lint check rm1n4v1b fails when a test built for Windows calls `gtk_window_present`, `gdk_window_focus`, `SetForegroundWindow`, `SwitchToThisWindow` or `BringWindowToTop` in its own .c files and isn't alone there.
-	- Decisions:
-		- Alone on Windows only, where the tests share one desktop. Linux and FreeBSD still run them beside others, and no run there has failed this way.
-		- The native suite gets about 25 s longer, most of it rhtmbdmd's 21 s.
-	- Test case: rhtmbdma, and rm1n4v1b for the rule.
-	- Verified: 20261024 on vm925w as wintest in the desktop session: with rgxy149r and rk6narsh running over and over beside it, rhtmbdma failed lines 243, 246, 251 and 254, then 270 and 273, in the first of 4 runs. It passed 2 of 2 alone, 3 of 3 through MSYS2's bash and the jail, and 4 of 4 beside 3 copies of itself. rm1n4v1b fails on round1024's meson.build from before the change, naming the 4 tests, and passes after.
-	- Swept: every test built for Windows whose own .c files call one of those 5: the 4 above, and rm0d1tdd, already alone. The rest are in `if not is_windows` blocks.
-	- Branch: round1024
-	- Progress log:
-		- 20261023: passed in 1 native gate run from a clone of round1023-fix, whose changes don't touch it. Ruled out: another program's window up front when it starts, since alone in the desktop session with Notepad started just before, it passed 3 of 3 (whether Notepad held the front wasn't checked). The fence alone, since it's linked into the exe run alone too. GTK's "no trigger event" line comes in every passing run too, so it isn't the sign. Only the first 2 pop-ups have failed, the ones right after the window first shows, and the ones after them in the same run passed.
-		- 20261024: also ruled out, MSYS2's bash and the jail, and other test windows simply coming up beside it. Only a window that forces its way to the front breaks it.
-		- 20261024: the fix didn't hold. In the native gate on vm925w from a bundle of round1024 (`6e3974d0`), rhtmbdma failed lines 243 and 246 again, the first pop-up: 204 OK, 7 skipped, 1 failed. The 4 tests that now run alone ran after it, each alone. Beside it were 6 eel tests that only show a plain window: rffw4xdg, rjes67yy, rhtmbdm9, rjew8g59, rhtmbdmb and rk520jh7. So a window forcing its way to the front isn't the whole cause. Not checked: whether its own window gets the front at all when another test's window came up just before it. Not rerun alone, since vm925w went off right after the run.
-			- Filed as 2026102409082700. Left for a later round.
+	- Opened: 20261024-134320
+	- Opened by: 2026102411433800
+	- Related IDs: 2026102411433800
+	- Target OS: Linux
+	- Steps to reproduce: the sanitizer suite at 16 jobs while other work loads the cores.
+	- Incorrect behavior:
+		- At load about 15, at c7194950: rktqpp37 and rm1sbxgy each had "icon-view: FAIL timed out at step 38" and "icon-view: 67 results, expected 75". Step 38 waits for Enter to open the selected folder.
+		- At load 50 to 60, at c7194950: all 3 failed. rktqpp37 timed out at step 38 in the compact view, rm1sbxgy had 13 of 75 icon view results, and the list view had "Down selects the next item down alone (selected 2, want 3)", 64 of 72 and 79 of 87 results.
+	- Expected behavior: they pass under load, or a slow box makes them wait longer rather than fail.
+	- Reproduced: twice on 20261024, in the 2 runs above. Each passed 3 of 3 alone right after, at load about 8, and rktkms8a passed in the first run.
+	- Possible cause: a step gets 100 ticks of 100 ms, 10 s in all, which an ASan build on a loaded box can pass. Same class as 2026102411433800. Not looked into.
+	- Test case: rktkms8a, rktqpp37 and rm1sbxgy themselves, in the sanitizer lane with the cores loaded.
 
-- The round1024 fix for rhtmbdma didn't hold in the native suite.
-	- ID: 2026102409082700
+- rkrqg9mg leaked 48 bytes once in the sanitizer lane.
+	- ID: 2026102413432124
 	- Type: Bug
 	- Status: Queued
 	- Priority|Severity: Low
-	- Opened: 20261024-090827
-	- Opened by: 2026102322330406
-	- Related IDs: 2026102322330406
-	- Target OS: Windows
-	- Test environment: vm925w, a bundle of round1024 `6e3974d0`, as wintest in the desktop session.
-	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
-	- Incorrect behavior: rhtmbdma fails lines 243 and 246, the first pop-up, though the 4 tests that bring their window to the front now run alone. Only 6 eel tests that show a plain window ran beside it: rffw4xdg, rjes67yy, rhtmbdm9, rjew8g59, rhtmbdmb and rk520jh7.
-	- Expected behavior: rhtmbdma passes in the native suite.
-	- Tried: running rgxy149r, rk6narsh, rhtmbdmd and rjf8db1q alone on Windows, plus lint rm1n4v1b. That fixed the case it reproduced, a forced foreground window beside it, but not this one.
-	- Reproduced: 20261024, 1 of 1 native gate runs. Not rerun alone, since vm925w was off right after.
-	- Test case: rhtmbdma.
+	- Opened: 20261024-134321
+	- Opened by: 2026102411433800
+	- Related IDs: 2026102411433800
+	- Target OS: Linux
+	- Steps to reproduce: the sanitizer suite at 16 jobs at load about 15.
+	- Incorrect behavior: the test printed OK, then LeakSanitizer found a direct leak of 48 bytes in 1 object from `g_malloc0`. The lane's short stacks cut it at 2 frames, so the caller isn't known.
+	- Expected behavior: no leak.
+	- Reproduced: once on 20261024 at c7194950. It passed 3 of 3 alone right after, and in the other sanitizer runs that day.
+	- Possible cause: not known. A rerun with `ASAN_OPTIONS=fast_unwind_on_malloc=0` gives the whole stack.
+	- Test case: rkrqg9mg itself, in the sanitizer lane.
+
+- In the icon views, removing an icon never tells the accessibility tree.
+	- ID: 2026102412590587
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261024-125905
+	- Opened by: t00mietum
+	- Related IDs: 2026102412254361
+	- Steps to reproduce [Bug]:
+		- With a screen reader or an accessibility inspector on, delete or move a file out of a folder shown in an icon view.
+	- Incorrect behavior [Bug]: no `children_changed::remove` is sent for the icon.
+	- Expected behavior [Bug]: the accessible parent says which child went.
+	- Reproduced [Bug]: No. Read from the code only.
+	- Possible cause [Bug]: `nemo_icon_container_accessible_icon_removed_cb` looks the icon up in `icon_set`, but `icon_removed` is sent after `icon_destroy` has taken it out, so the lookup always misses. Until `...4361` the signal was also sent the icon in place of its data, the wrong key.
+	- Estimated effort: Low
+	- Test case: none yet.
 
 - On Windows, a file that isn't on disk yet, such as a mail attachment, can't be dropped onto the window.
 	- ID: 2026101416534066
@@ -3357,6 +3558,108 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: rkbdyne7 covers it. The rows show 200 ms sooner, and item counts filling in a moment after them is what other file managers do too.
 	- Closed: 20261016-130621
 
+- Static analyzers: fix or suppress the findings in inherited upstream code.
+	- ID: 2026102114400587
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261021-144005
+	- Opened by: t00mietum
+	- Parent ID: 2026101619020505
+	- Prereq IDs: 2026102114400584
+	- Requirements:
+		- Each finding in a file that came with the 6.6.4 baseline is fixed, or suppressed at the line with a one-line reason, per the parent.
+		- Many are expected to be GLib ref-count false positives. Split this item by folder if it runs long.
+	- Estimated effort: High
+	- Progress log:
+		- 20261024: 57 unique findings in the full run of 2026-10-24 08:43 (gcc-linux 12, gcc-win 21, clang-linux 34 by lane). None are ref counts; most are null dereferences and dead stores. Split by folder: `2026102412254358` (eel, 6), `...4361` (libnemo-private, 18), `...4363` (src, 33).
+		- 20261024: all 3 children done. 45 fixed and 12 suppressed with `EEL_ANALYZER_SKIP`, each with its reason on the line. 6 were real bugs. The 3 crashes have tests. The direct save leak, the freed icon sent with `icon_removed` and the canvas's unset return have none, since no test can reach them as they stand.
+		- Not covered yet: clang over the Windows list, which `...591` adds. Inherited lines inside `G_OS_WIN32` blocks get their first clang look then.
+	- Decisions:
+		- Some findings are fixed by an assert, not suppressed, where a suppression would only move the finding to the next line. See `...4363`.
+	- Test case: the gate in 2026102114400591, once live. A real bug fixed here gets its own test: rj46m24q, rhtq57n1 and rek3gd31.
+	- Verified: 20261024, each child's changed files analyzed in both lanes with no findings left, and the full Linux suite passes on the round branch with all 3 in.
+	- Acceptance signoff: Self-closed: per child.
+	- Closed: 20261024-130000
+
+- Static analyzers: inherited findings in `source/src/`.
+	- ID: 2026102412254363
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261024-122543
+	- Opened by: t00mietum
+	- Parent ID: 2026102114400587
+	- Prereq IDs: 2026102412254358
+	- Requirements:
+		- The parent's requirements, for `source/src/`.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Progress log:
+		- 20261024: 33 findings, 26 fixed and 7 suppressed. None was a crash anyone could reach.
+		- Fixed: 10 dead stores gone. `nemo-window.c` asserts the active slot where it needs one, and a view of no slot is skipped in `nemo_window_connect_content_view`. One more such slot, in `nemo_window_new_tab`, showed up once those were in, and got the same. The path bar asserts its search found a button, the query editor that it has itself, and the sorted image list that its head is still the caller's. A drop's empty title is tested as `title == NULL`, the theme combo compares with `g_strcmp0`, and the x-content bar won't take a NULL type.
+		- Suppressed: the empty-folder row's parent, `files` in the startup open, the paste menu's one-item selection, the error message when there's no error, and a child's parent while a tree node's children go.
+	- Decisions:
+		- An assert where code needs something that can't be missing, such as a window's active slot. Suppressing the one line leaves the rest of the path, and the next use gets reported instead, as the file self-check did.
+	- Swept: `nemo_window_disconnect_content_view` has the same slot test as connect but uses no slot, so it's left as it was. The other 15 `nemo_window_get_active_slot` calls in `nemo-window.c` aren't reported.
+	- Branch: round1024b
+	- Test case: none new, since nothing here changes what the app does. The gate in 2026102114400591 covers it, once live.
+	- Verified: 20261024, gcc and clang over the 17 changed files on the Linux list, and gcc over them on the Windows list: no findings. `nemo-main-application.c` with its old text gives its finding again on the Windows list. The full Linux suite passes (234, 1 skipped), the C lint passes, and the Windows release build is clean with `-Werror`.
+	- Acceptance signoff: Self-closed: the analyzer runs and the suite above.
+	- Closed: 20261024-125900
+
+- Static analyzers: inherited findings in `source/libnemo-private/`.
+	- ID: 2026102412254361
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261024-122543
+	- Opened by: t00mietum
+	- Parent ID: 2026102114400587
+	- Prereq IDs: 2026102412254358
+	- Requirements:
+		- The parent's requirements, for `source/libnemo-private/`.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Progress log:
+		- 20261024: 18 findings, 16 fixed and 2 suppressed.
+		- Fixed, real bugs: a drop with no files crashed `nemo_file_operations_copy_move` in every action (3 findings), and now reports back as a link drop with no folder does. A name that isn't UTF-8 crashed the name matcher in search. The tree's direct save leaked its file name and drop folder. `icon_removed` was sent with the freed icon, where its handlers take the icon's data.
+		- Fixed, the rest: 6 dead stores gone, one a full lookup per dragged icon. A one-item check and the action conditions test the list's head, not its length. `nemo_should_use_templates_directory` compares with `g_strcmp0`. The file self-check asserts it got a file.
+		- Suppressed: the use after free in `nemo_file_list_call_when_ready`, since the files still ahead keep the data alive, and a NULL MIME type on Windows, which can't happen.
+		- `.cppcheck-macros.h` has the 2 macros, for files that include the header as `<eel/...>`.
+	- Swept: every `g_list_length (selection) > 0` in `nemo-action.c` (7, all now `selection != NULL`). The icon view's direct save already frees both strings. Every caller of `get_drop_target_uri_at_pos` frees its result.
+	- Branch: round1024b
+	- Test case: rhtq57n1 (`test-nemo-drop-cancel`, an empty drop in each action) and rek3gd31 (`test-nemo-search-regex`, a name that isn't UTF-8 in both modes). The gate in 2026102114400591 covers the rest, once live.
+	- Verified: 20261024, gcc and clang over the 8 changed files on the Linux list, and gcc over them on the Windows list: no findings. rhtq57n1 and rek3gd31 crash with SIGSEGV without their fixes and pass with them. The C lint passes, and the build is clean with `-Werror`.
+	- Acceptance signoff: Self-closed: rhtq57n1, rek3gd31 and the analyzer runs above.
+	- Closed: 20261024-124700
+
+- Static analyzers: inherited findings in `source/eel/`.
+	- ID: 2026102412254358
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261024-122543
+	- Opened by: t00mietum
+	- Parent ID: 2026102114400587
+	- Requirements:
+		- The parent's requirements, for `source/eel/`, plus gcc's infinite-loop finding in GLib's `g_return_*` macro reached from `eel-canvas.c`.
+		- Sets the in-line suppression form the other children and `...588` and `...589` use.
+	- Estimated effort: Low
+	- Actual effort: Low
+	- Progress log:
+		- 20261024: `source/eel/eel-analyzer.h` has `EEL_ANALYZER_SKIP ("<gcc name>")` and `EEL_ANALYZER_END` around one statement, with the reason as a comment on the SKIP line. It's `[[clang::suppress]]` under the clang analyzer and a `GCC diagnostic` push, ignore and pop under gcc, and nothing in either compiler's plain build.
+		- Fixed: `eel_str_replace_substring` passed a NULL replacement to `memcpy` when the substring matched. `eel_canvas_get_item_at` could return `item` unset when the root has no point method.
+		- Suppressed: 2 in `put_item_after`, where list membership means the pointer is set, and gcc's infinite loop in `g_error`.
+	- Decisions:
+		- One macro pair for both analyzers, since 6 of the inherited findings are reported by both at the same line. A per-site `#pragma` would also warn in a clang build, and `[[clang::suppress]]` warns in a gcc one.
+	- Swept: every finding in `source/eel/` in the 3 lanes' logs. The other 2 `g_error` calls outside the tests aren't reported by either analyzer.
+	- Branch: round1024b
+	- Test case: rj46m24q (`test-eel-string`) checks a NULL replacement on a match. The gate in 2026102114400591 covers the rest, once live.
+	- Verified: 20261024, gcc and clang over `eel-canvas.c` and `eel-string.c` on the Linux list, and gcc over them on the Windows list: no findings. With the files as they were, the same runs gave all 7. rj46m24q fails in the sanitizer build without the `memcpy` guard and passes with it, and passes in the plain build. The C lint passes, and the build is clean with `-Werror`.
+	- Acceptance signoff: Self-closed: rj46m24q and the analyzer runs above.
+	- Closed: 20261024-123500
+
 - Static analyzers: vendored findings go in a suppression list outside the files.
 	- ID: 2026102114400586
 	- Type: Task
@@ -4227,6 +4530,73 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- rhtmbdma fails in the native suite in vm925w's desktop session, and passes alone.
+	- ID: 2026102322330406
+	- Type: Bug
+	- Status: Done
+	- Needs external testing: no. Passed 20261024.
+	- Priority|Severity: Low
+	- Opened: 20261023-223304
+	- Opened by: 2026102221362030
+	- Related IDs: 2026102219444662, 2026102219444332
+	- Target OS: Windows
+	- Test environment: vm925w, a fresh clone of round1023, as wintest in the desktop session.
+	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
+	- Incorrect behavior: Keyboard context menu test, `test-eel-context-menu.c` lines 243 and 246 in the first run, those and 251 and 254 in the second, and 251 and 254 in the third. `pop_up` gets no menu up, with "no trigger event for menu popup" from GTK.
+	- Expected behavior: passes, as it did in the round1022 native suite.
+	- Reproduced: 20261023, 3 of 3 native suite runs. The same build's exe run alone in the desktop session, outside the jail, passed 3 of 3.
+	- Possible cause: not known. New in round1023 are rm0d1tdd, which moves the focus between threads and other programs and runs near it in the suite, and the fence's load notice. Not looked into.
+	- Actual cause: another test taking the foreground while a menu is up. On Windows every test in the suite shares one desktop, and 4 of them bring their window to the front through GDK, which gets past Windows' foreground lock. The window losing the focus gets `WM_KILLFOCUS`, GDK breaks the keyboard grab, and GTK closes the menu, so `pop_up` finds none. rm0d1tdd runs alone, so the tests after it start together, and rgxy149r and rk6narsh come up in rhtmbdma's first second or two, when its first 2 pop-ups are.
+		- 20261024: only part of it. Any test's window coming up beside it takes the focus, see 2026102409082700.
+	- Actual fix: rgxy149r, rk6narsh, rhtmbdmd and rjf8db1q run alone on Windows. New C lint check rm1n4v1b fails when a test built for Windows calls `gtk_window_present`, `gdk_window_focus`, `SetForegroundWindow`, `SwitchToThisWindow` or `BringWindowToTop` in its own .c files and isn't alone there.
+	- Decisions:
+		- Alone on Windows only, where the tests share one desktop. Linux and FreeBSD still run them beside others, and no run there has failed this way.
+		- The native suite gets about 25 s longer, most of it rhtmbdmd's 21 s.
+	- Test case: rhtmbdma, and rm1n4v1b for the rule.
+	- Verified: 20261024 on vm925w as wintest in the desktop session: with rgxy149r and rk6narsh running over and over beside it, rhtmbdma failed lines 243, 246, 251 and 254, then 270 and 273, in the first of 4 runs. It passed 2 of 2 alone, 3 of 3 through MSYS2's bash and the jail, and 4 of 4 beside 3 copies of itself. rm1n4v1b fails on round1024's meson.build from before the change, naming the 4 tests, and passes after.
+	- Verified: 20261024, the native gate on vm925w as wintest in the desktop session, from a bundle of round1024b at c7194950: rhtmbdma passes, with 205 OK, 7 skipped and none failed. The gate then stopped on scratch folders 7 other tests left, filed as 2026102413432225.
+	- Swept: every test built for Windows whose own .c files call one of those 5: the 4 above, and rm0d1tdd, already alone. The rest are in `if not is_windows` blocks.
+	- Branch: round1024
+	- Progress log:
+		- 20261023: passed in 1 native gate run from a clone of round1023-fix, whose changes don't touch it. Ruled out: another program's window up front when it starts, since alone in the desktop session with Notepad started just before, it passed 3 of 3 (whether Notepad held the front wasn't checked). The fence alone, since it's linked into the exe run alone too. GTK's "no trigger event" line comes in every passing run too, so it isn't the sign. Only the first 2 pop-ups have failed, the ones right after the window first shows, and the ones after them in the same run passed.
+		- 20261024: also ruled out, MSYS2's bash and the jail, and other test windows simply coming up beside it. Only a window that forces its way to the front breaks it.
+		- 20261024: the fix didn't hold. In the native gate on vm925w from a bundle of round1024 (`6e3974d0`), rhtmbdma failed lines 243 and 246 again, the first pop-up: 204 OK, 7 skipped, 1 failed. The 4 tests that now run alone ran after it, each alone. Beside it were 6 eel tests that only show a plain window: rffw4xdg, rjes67yy, rhtmbdm9, rjew8g59, rhtmbdmb and rk520jh7. So a window forcing its way to the front isn't the whole cause. Not checked: whether its own window gets the front at all when another test's window came up just before it. Not rerun alone, since vm925w went off right after the run.
+			- Filed as 2026102409082700. Left for a later round.
+		- 20261024: second fix for the same failure, on 2026102409082700. The first rested on a cause seen only with windows that force their way to the front.
+	- Self-closed: 20261024, rhtmbdma in the native gate on vm925w.
+	- Closed: 20261024-134601
+
+- The round1024 fix for rhtmbdma didn't hold in the native suite.
+	- ID: 2026102409082700
+	- Type: Bug
+	- Status: Done
+	- Needs external testing: no. Passed 20261024.
+	- Priority|Severity: Low
+	- Opened: 20261024-090827
+	- Opened by: 2026102322330406
+	- Related IDs: 2026102322330406
+	- Target OS: Windows
+	- Test environment: vm925w, a bundle of round1024 `6e3974d0`, as wintest in the desktop session.
+	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
+	- Incorrect behavior: rhtmbdma fails lines 243 and 246, the first pop-up, though the 4 tests that bring their window to the front now run alone. Only 6 eel tests that show a plain window ran beside it: rffw4xdg, rjes67yy, rhtmbdm9, rjew8g59, rhtmbdmb and rk520jh7.
+	- Expected behavior: rhtmbdma passes in the native suite.
+	- Tried: running rgxy149r, rk6narsh, rhtmbdmd and rjf8db1q alone on Windows, plus lint rm1n4v1b. That fixed the case it reproduced, a forced foreground window beside it, but not this one.
+	- Reproduced: 20261024, 1 of 1 native gate runs. Not rerun alone, since vm925w was off right after.
+		- 20261024 on vm925w as wintest in the desktop session, with the 7 eel tests started in suite order 4 at a time after rm0d1tdd, as the native gate runs them: the first pop-up failed in 4 of 5 rounds. Started all 7 at once, it passed 3 rounds, likely since every window was up before its first pop-up.
+	- Actual cause: any test's window coming up on Windows takes the focus, not only one that forces its way to the front. The native gate runs 4 tests at a time, so after rm0d1tdd the last 3 of these eel tests start as earlier ones end, in rhtmbdma's first second or two, when its first pop-ups are. Losing the focus breaks the menu's keyboard grab, and GTK closes the menu. Each failed pop-up had its grab broken 3 or 4 times.
+	- Actual fix: rhtmbdma runs alone on Windows. rm1n4v1b now also fails for a test built for Windows whose own .c files pop up a menu (`gtk_menu_popup`, the eel pop-up helpers, the drop menu, a popover or a combo box) and isn't alone there. A pop-up that doesn't come up now prints whether the window had the focus, and how often the focus and the grab were lost.
+	- Decisions:
+		- Alone, not a retry in the test. A window from any test can take the focus again, and a menu that closes when its window loses the focus is right.
+		- Alone on Windows only, as for the round1024 four. Linux and FreeBSD still run it beside others, and no run there has failed this way.
+		- The native suite gets a few seconds longer. rhtmbdma takes about 4 s on Linux.
+	- Test case: rhtmbdma, and rm1n4v1b for the rule.
+	- Verified: 20261024 on vm925w as wintest in the desktop session: run alone ahead of the other 6, then those 4 at a time, rhtmbdma passed 9 of 9, and so did the 6. rm1n4v1b fails on round1024b's meson.build from before the change, naming rhtmbdma, and passes after. On Linux rhtmbdma passes in a build with warnings as errors, and the lint stage passes.
+	- Verified: 20261024, the native gate on vm925w as wintest in the desktop session, from a bundle of round1024b at c7194950: rhtmbdma passes, run alone, with 205 OK, 7 skipped and none failed. The gate then stopped on scratch folders 7 other tests left, filed as 2026102413432225.
+	- Swept: every test file in `source/test` that pops up a menu, a popover or a combo box: only `test-eel-context-menu.c`. A test that opens a menu through the app's own code isn't seen by the rule, as with the foreground calls.
+	- Branch: round1024b
+	- Self-closed: 20261024, rhtmbdma in the native gate on vm925w.
+	- Closed: 20261024-134601
 
 - On Windows a shortcut named `x.LNK` is saved as `x.LNK.lnk`.
 	- ID: 2026102220565281
@@ -8239,6 +8609,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: the Windows gate runs the suite natively, plus `cicd/win/gui-launch-smoke.ps1`; signing and the UAC prompt have none.
 
 - 🔘 Target: macOS
+	- Status: Stalled
+		- Held for the macOS port, which is planned and tracked elsewhere.
 	- Opened: 20260730-185314
 	- Test case: none yet, not started.
 

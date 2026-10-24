@@ -45,6 +45,16 @@ void  test_own_display (int argc, char **argv, const char *screen);
    failing on an emulated one that is slow at everything. */
 double test_slowness (void);
 
+/* A bar set to tell the old 200 ms view timer from a fixed build can't be
+   scaled, and a sanitizer build on a loaded box goes past it with the fix in
+   (2026102411433800). Such tests still run there for the memory checks and
+   leave their time bars to the plain suite. */
+#if defined (__SANITIZE_ADDRESS__)
+#define TEST_TIME_BARS_HOLD FALSE
+#else
+#define TEST_TIME_BARS_HOLD TRUE
+#endif
+
 /* Whether the gdk-pixbuf in use has a loader named name ("bmp", "xpm"),
    and whether that loader can save. */
 gboolean test_pixbuf_reads  (const char *name);

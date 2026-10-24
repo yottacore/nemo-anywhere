@@ -69,6 +69,7 @@
 #include <eel/eel-stock-dialogs.h>
 #include <eel/eel-string.h>
 #include <eel/eel-vfs-extensions.h>
+#include <eel/eel-analyzer.h>
 
 #include <libnemo-extension/nemo-menu-provider.h>
 #include <libnemo-private/nemo-bookmark.h>
@@ -10586,9 +10587,11 @@ real_update_paste_menu (NemoView *view,
 	gboolean is_read_only;
 	GtkAction *action;
 
+	EEL_ANALYZER_SKIP ("null-dereference") // selection_count is the length of selection
 	selection_is_read_only = selection_count == 1 &&
 		(!nemo_file_can_write (NEMO_FILE (selection->data)) &&
 		 !nemo_file_has_activation_uri (NEMO_FILE (selection->data)));
+	EEL_ANALYZER_END
 
 	is_read_only = nemo_view_is_read_only (view);
 

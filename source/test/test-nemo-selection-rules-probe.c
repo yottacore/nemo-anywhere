@@ -27,7 +27,8 @@
  * by $NEMO_SEL_VIEW through GTK's own event path, then in the folder tree,
  * then opens folders from home, and checks each rule of the selection model
  * in $NEMO_SEL_MODEL. Where the next item over depends on the layout, the icon views work it out from where
- * the icons are. One "ok" or "FAIL" line per check goes to $NEMO_SEL_OUT, and
+ * the icons are. Under Nemo Anywhere each list view check also looks at the
+ * checkmarks. One "ok" or "FAIL" line per check goes to $NEMO_SEL_OUT, and
  * "done" at the end. Drags are left to test-nemo-drag-select. */
 
 #include <stdarg.h>
@@ -46,6 +47,7 @@ static const char *folder_name;
 static gboolean   list_mode;
 static gboolean   compact_mode;
 static gboolean   classic;
+static gboolean   anywhere;
 static GtkWidget *window;
 static GtkWidget *pane;
 static GdkWindow *bin;
@@ -320,14 +322,59 @@ run_of (int lo, int hi, int skip)
 	return g_string_free (text, FALSE);
 }
 
+/* Nemo Anywhere's checkmarks are the list view's first column, the one with
+   no column-id. */
+static GtkTreeViewColumn *
+checkmark_column (void)
+{
+	GtkTreeViewColumn *first = gtk_tree_view_get_column (GTK_TREE_VIEW (pane), 0);
+
+	return first != NULL && g_object_get_data (G_OBJECT (first), "column-id") == NULL ? first : NULL;
+}
+
+/* The rows with a mark, as selected_list puts them. */
+static char *
+marked_list (void)
+{
+	GtkTreeViewColumn *column = checkmark_column ();
+	GtkTreeModel *model = gtk_tree_view_get_model (GTK_TREE_VIEW (pane));
+	GString *list = g_string_new (NULL);
+	GtkTreeIter iter;
+	GList *cells;
+	int row = 0;
+
+	if (column == NULL || model == NULL || !gtk_tree_model_get_iter_first (model, &iter)) {
+		return g_string_free (list, FALSE);
+	}
+	cells = gtk_cell_layout_get_cells (GTK_CELL_LAYOUT (column));
+	do {
+		char *text = NULL;
+
+		gtk_tree_view_column_cell_set_cell_data (column, model, &iter, FALSE, FALSE);
+		g_object_get (cells->data, "text", &text, NULL);
+		if (text != NULL && text[0] != '\0') {
+			g_string_append_printf (list, "%s%d", list->len > 0 ? "," : "", row);
+		}
+		g_free (text);
+		row++;
+	} while (gtk_tree_model_iter_next (model, &iter));
+	g_list_free (cells);
+	return g_string_free (list, FALSE);
+}
+
 static void
 want (char *wanted, const char *what)
 {
 	char *got = selected_list ();
-	char *line = g_strdup_printf ("%s (selected %s, want %s)", what, got, wanted);
+	/* Under Nemo Anywhere the marks are part of every list view check. */
+	char *marked = anywhere && list_mode ? marked_list () : g_strdup (got);
+	char *line = anywhere && list_mode ?
+		g_strdup_printf ("%s (selected %s, marked %s, want %s)", what, got, marked, wanted) :
+		g_strdup_printf ("%s (selected %s, want %s)", what, got, wanted);
 
-	report (strcmp (got, wanted) == 0, line);
+	report (strcmp (got, wanted) == 0 && strcmp (marked, got) == 0, line);
 	g_free (line);
+	g_free (marked);
 	g_free (got);
 	g_free (wanted);
 }
@@ -588,6 +635,71 @@ note_title (void)
 static const char *const typed = "file-07";
 
 /* Each step waits on what the one before set going, up to ten seconds. */
+/* The list hides its cursor's outline with these. */
+static gboolean
+outline_shown (void)
+{
+	GtkStyleContext *context = gtk_widget_get_style_context (pane);
+
+	return !gtk_style_context_has_class (context, "nemo-focus-quiet") &&
+	       !gtk_style_context_has_class (context, "nemo-cursor-forgotten");
+}
+
+static gboolean
+typeahead_shown (void)
+{
+	GtkEntry *entry = gtk_tree_view_get_search_entry (GTK_TREE_VIEW (pane));
+
+	return entry != NULL && gtk_widget_get_mapped (GTK_WIDGET (entry));
+}
+
+/* Nemo Anywhere's own list keys (#2026102412041967). */
+static void
+anywhere_list_keys (void)
+{
+	click (2, 0);
+	report (!outline_shown (), "a click shows no focus outline");
+	key (GDK_KEY_Down, GDK_SHIFT_MASK);
+	key (GDK_KEY_Down, GDK_SHIFT_MASK);
+	key (GDK_KEY_Up, 0);
+	want (items (1, -1), "Up counts from the first item of a run");
+	click (4, 0);
+	key (GDK_KEY_Up, GDK_SHIFT_MASK);
+	key (GDK_KEY_Up, GDK_SHIFT_MASK);
+	key (GDK_KEY_Down, 0);
+	want (items (5, -1), "and Down from the last");
+
+	click (2, 0);
+	key (GDK_KEY_Down, GDK_CONTROL_MASK);
+	key (GDK_KEY_Down, GDK_CONTROL_MASK);
+	want (items (2, -1), "Ctrl+Down twice leaves the selection alone");
+	report (outline_shown (), "and the focus outline shows on the row it went to");
+	key (GDK_KEY_Down, 0);
+	want (items (5, -1), "Down then counts from the focus");
+	report (!outline_shown (), "and the outline goes");
+
+	click (5, 0);
+	key (GDK_KEY_Down, GDK_CONTROL_MASK);
+	key (GDK_KEY_space, GDK_CONTROL_MASK);
+	report (!outline_shown (), "the outline goes once Ctrl+Space selects the focused row");
+	key (GDK_KEY_Down, GDK_CONTROL_MASK);
+	key (GDK_KEY_Down, GDK_CONTROL_MASK | GDK_SHIFT_MASK);
+	want (items (5, 6, 7, 8, -1), "Ctrl+Shift+Down adds the run from the Ctrl+Space row and keeps the rest");
+
+	key (GDK_KEY_Escape, 0);
+	want (g_strdup (""), "Escape clears the selection");
+	report (!outline_shown (), "and shows no focus outline");
+	key (GDK_KEY_Escape, 0);
+	want (g_strdup (""), "a second Escape changes nothing");
+	key (GDK_KEY_Down, 0);
+	want (items (0, -1), "and Down then starts at the first item");
+
+	click (3, 0);
+	key (GDK_KEY_space, 0);
+	want (items (3, -1), "Space leaves the selection alone");
+	report (!typeahead_shown (), "and starts no type-ahead");
+}
+
 static gboolean
 rules_tick (void)
 {
@@ -599,6 +711,20 @@ rules_tick (void)
 	switch (step) {
 	/* Mouse. */
 	case 1:
+		if (list_mode) {
+			GtkTreeViewColumn *marks = checkmark_column ();
+			int width = marks != NULL ? gtk_tree_view_column_get_width (marks) : 0;
+			char *line = g_strdup_printf ("%s (%d px)",
+				anywhere ? "the checkmark column is first and thin, with no expanders in it" :
+				"there is no checkmark column", width);
+
+			report ((marks != NULL) == anywhere &&
+				(marks == NULL ||
+				 (gtk_tree_view_get_expander_column (GTK_TREE_VIEW (pane)) != marks &&
+				  width > 0 && width < 40)),
+				line);
+			g_free (line);
+		}
 		click (1, 0);
 		want (items (1, -1), "a click selects the item alone");
 		break;
@@ -739,10 +865,11 @@ rules_tick (void)
 		click (1, 0);
 		want (items (1, -1), "a click on one item of a selection selects it alone");
 		key (GDK_KEY_Down, 0);
-		/* The list's keyboard cursor stays on the row Shift+Down reached. */
-		want (items (list_mode ? 4 : next_item (1, 0, 1), -1),
-		      list_mode ? "and Down then counts from where Shift+Down left the cursor" :
-				  "and Down then counts from the clicked item");
+		/* v1's list keeps its keyboard cursor on the row Shift+Down reached.
+		   Nemo Anywhere counts from the selection. */
+		want (items (list_mode && !anywhere ? 4 : next_item (1, 0, 1), -1),
+		      list_mode && !anywhere ? "and Down then counts from where Shift+Down left the cursor" :
+					       "and Down then counts from the clicked item");
 		break;
 	case 24:
 		key (GDK_KEY_a, GDK_CONTROL_MASK);
@@ -767,15 +894,21 @@ rules_tick (void)
 		want (items (0, -1), "and Shift+Home takes it back to the first");
 		click (3, 0);
 		key (GDK_KEY_End, GDK_CONTROL_MASK);
-		want (items (3, -1), "Ctrl+End leaves the selection alone");
-		key (GDK_KEY_space, GDK_CONTROL_MASK);
-		want (items (3, last, -1), "and Ctrl+Space then adds the last item");
+		if (anywhere && list_mode) {
+			want (items (last, -1), "Ctrl+End selects the last item alone, as End does");
+			key (GDK_KEY_space, GDK_CONTROL_MASK);
+			want (g_strdup (""), "and Ctrl+Space then takes it out");
+		} else {
+			want (items (3, -1), "Ctrl+End leaves the selection alone");
+			key (GDK_KEY_space, GDK_CONTROL_MASK);
+			want (items (3, last, -1), "and Ctrl+Space then adds the last item");
+		}
 		click (1, 0);
 		key (GDK_KEY_Down, GDK_CONTROL_MASK | GDK_SHIFT_MASK);
 		/* Upstream's keyboard band flips what it crosses against what
 		   was selected when the last mouse band began, item 1 here
 		   (step 7). */
-		if (list_mode) {
+		if (list_mode && !anywhere) {
 			want (items (1, -1), "Ctrl+Shift+Down leaves the list's selection alone");
 		} else if (classic) {
 			want (items (next_item (1, 0, 1), -1),
@@ -791,9 +924,15 @@ rules_tick (void)
 				  "Page Down leaves the selection alone");
 		click (3, 0);
 		key (GDK_KEY_Home, GDK_CONTROL_MASK);
-		want (items (3, -1), "Ctrl+Home leaves the selection alone");
-		key (GDK_KEY_space, GDK_CONTROL_MASK);
-		want (items (0, 3, -1), "and Ctrl+Space then adds the first item");
+		if (anywhere && list_mode) {
+			want (items (0, -1), "Ctrl+Home selects the first item alone, as Home does");
+			key (GDK_KEY_space, GDK_CONTROL_MASK);
+			want (g_strdup (""), "and Ctrl+Space then takes it out");
+		} else {
+			want (items (3, -1), "Ctrl+Home leaves the selection alone");
+			key (GDK_KEY_space, GDK_CONTROL_MASK);
+			want (items (0, 3, -1), "and Ctrl+Space then adds the first item");
+		}
 		if (!list_mode) {
 			click (2, 0);
 			key (GDK_KEY_Right, GDK_CONTROL_MASK);
@@ -820,6 +959,9 @@ rules_tick (void)
 			want (run_of (2, next_item (2, 1, 0), -1), "Shift+Right selects the run to the next item over");
 			key (GDK_KEY_Left, GDK_SHIFT_MASK);
 			want (items (2, -1), "and Shift+Left takes it back");
+		}
+		if (anywhere && list_mode) {
+			anywhere_list_keys ();
 		}
 		break;
 	case 27:
@@ -1086,6 +1228,7 @@ probe_start (void)
 	list_mode = g_strcmp0 (view, "list-view") == 0;
 	compact_mode = g_strcmp0 (view, "compact-view") == 0;
 	classic = g_strcmp0 (g_getenv ("NEMO_SEL_MODEL"), "nemo-classic") == 0;
+	anywhere = g_strcmp0 (g_getenv ("NEMO_SEL_MODEL"), "nemo-anywhere") == 0;
 	out = fopen (path, "w");
 	if (out == NULL) {
 		return;

@@ -956,6 +956,7 @@ set_direct_save_uri (NemoTreeViewDragDest *dest,
 
 			g_object_unref (base);
 			g_object_unref (child);
+			g_free (filename);
 
 			/* Change the property */
 			gdk_property_change (gdk_drag_context_get_source_window (context),
@@ -971,6 +972,7 @@ set_direct_save_uri (NemoTreeViewDragDest *dest,
 	} else {
 		DEBUG ("Couldn't retrieve XDS drop destination");
 	}
+	g_free (drop_uri);
 
 	return uri != NULL;
 }

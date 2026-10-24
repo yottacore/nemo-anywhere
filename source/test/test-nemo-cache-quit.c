@@ -76,10 +76,74 @@ alive (GPid pid)
 	return pid > 0 && waitpid (pid, &status, WNOHANG) == 0;
 }
 
-/* TRUE when it went away inside the time with a clean exit. */
+/* What a copy that won't quit is doing, so a failure says where it hangs
+   (2026102411433800): each thread's name, state and CPU time, then every
+   stack when gdb is there. */
+static void
+report_stuck (GPid pid)
+{
+#ifdef __linux__
+	char *tasks = g_strdup_printf ("/proc/%d/task", (int) pid);
+	GDir *dir = g_dir_open (tasks, 0, NULL);
+	const char *tid;
+	char *gdb, *timeout;
+
+	g_printerr ("pid %d still running; its threads, as name, state and CPU ticks:\n", (int) pid);
+	while (dir != NULL && (tid = g_dir_read_name (dir)) != NULL) {
+		char *path = g_build_filename (tasks, tid, "stat", NULL);
+		char *line = NULL;
+		char *close_paren;
+
+		/* comm is in parentheses and may hold spaces; state, then utime and
+		   stime as the 12th and 13th fields after it. */
+		if (g_file_get_contents (path, &line, NULL, NULL) &&
+		    (close_paren = strrchr (line, ')')) != NULL) {
+			char **fields = g_strsplit (close_paren + 2, " ", 14);
+			char *open_paren = strchr (line, '(');
+
+			*close_paren = '\0';
+			if (g_strv_length (fields) >= 13) {
+				g_printerr ("  %s %s %s %s+%s\n", tid, open_paren != NULL ? open_paren + 1 : "?",
+					    fields[0], fields[11], fields[12]);
+			}
+			g_strfreev (fields);
+		}
+		g_free (line);
+		g_free (path);
+	}
+	if (dir != NULL) {
+		g_dir_close (dir);
+	}
+	g_free (tasks);
+
+	gdb = g_find_program_in_path ("gdb");
+	timeout = g_find_program_in_path ("timeout");
+	if (gdb != NULL && timeout != NULL) {
+		char *pid_text = g_strdup_printf ("%d", (int) pid);
+		char *gdb_argv[] = { timeout, (char *) "120", gdb, (char *) "-p", pid_text, (char *) "-batch",
+				     (char *) "-nx", (char *) "-ex", (char *) "thread apply all bt 16", NULL };
+		char *out = NULL;
+
+		if (g_spawn_sync (NULL, gdb_argv, NULL, G_SPAWN_STDERR_TO_DEV_NULL, NULL, NULL, &out, NULL, NULL,
+				  NULL) && out != NULL) {
+			g_printerr ("%s", out);
+		}
+		g_free (out);
+		g_free (pid_text);
+	}
+	g_free (timeout);
+	g_free (gdb);
+#else
+	g_printerr ("pid %d still running\n", (int) pid);
+#endif
+}
+
+/* TRUE when it went away inside the time with a clean exit. One that didn't
+   is reported and killed, so it can't hold the store through the next run. */
 static gboolean
 wait_exit (GPid pid, int seconds)
 {
+	gint64 start = g_get_monotonic_time ();
 	int i, status = 0;
 	int tenths = (int) (seconds * 10 * test_slowness ());
 
@@ -87,6 +151,8 @@ wait_exit (GPid pid, int seconds)
 		pid_t got = waitpid (pid, &status, WNOHANG);
 
 		if (got == pid) {
+			g_print ("pid %d gone in %.1f s\n", (int) pid,
+				 (double) (g_get_monotonic_time () - start) / G_USEC_PER_SEC);
 			return WIFEXITED (status) && WEXITSTATUS (status) == 0;
 		}
 		if (got < 0) {
@@ -94,6 +160,10 @@ wait_exit (GPid pid, int seconds)
 		}
 		g_usleep (100 * 1000);
 	}
+
+	report_stuck (pid);
+	kill (pid, SIGKILL);
+	waitpid (pid, &status, 0);
 
 	return FALSE;
 }

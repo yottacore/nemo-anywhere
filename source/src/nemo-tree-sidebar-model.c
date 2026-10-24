@@ -31,6 +31,7 @@
 #include "nemo-tree-sidebar-model.h"
 
 #include <eel/eel-graphic-effects.h>
+#include <eel/eel-analyzer.h>
 
 #include <libnemo-private/nemo-dir-enum.h>
 #include <libnemo-private/nemo-directory.h>
@@ -795,7 +796,9 @@ static void
 destroy_children_without_reporting (FMTreeModel *model, TreeNode *parent)
 {
 	while (parent->first_child != NULL) {
+		EEL_ANALYZER_SKIP ("use-after-free") // a child's parent is this node, so unparenting it moves first_child on
 		destroy_node_without_reporting (model, parent->first_child);
+		EEL_ANALYZER_END
 	}
 }
 

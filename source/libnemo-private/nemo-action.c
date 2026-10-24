@@ -1340,7 +1340,7 @@ get_insertion_string (NemoAction *action,
             g_string_append_printf (str, "%lu", eel_gtk_get_window_xid (window));
             break;
         case TOKEN_PATH_LIST:
-            if (g_list_length (selection) > 0) {
+            if (selection != NULL) {
                 for (l = selection; l != NULL; l = l->next) {
                     if (!first)
                         str = insert_separator (action, str);
@@ -1357,7 +1357,7 @@ get_insertion_string (NemoAction *action,
             }
             break;
         case TOKEN_URI_LIST:
-            if (g_list_length (selection) > 0) {
+            if (selection != NULL) {
                 for (l = selection; l != NULL; l = l->next) {
                     if (!first)
                         str = insert_separator (action, str);
@@ -1399,7 +1399,7 @@ default_parent_path:
                 str = insert_quote (action, str);
                 g_free (path);
             } else {
-                if (g_list_length (selection) > 0 && nemo_file_is_in_recent (NEMO_FILE (selection->data))) {
+                if (selection != NULL && nemo_file_is_in_recent (NEMO_FILE (selection->data))) {
                     g_warning_once ("The recent:// location doesn't support parent path (%%P) action tokens.");
                 }
             }
@@ -1434,7 +1434,7 @@ default_parent_uri:
             }
             break;
         case TOKEN_FILE_DISPLAY_NAME:
-            if (g_list_length (selection) > 0) {
+            if (selection != NULL) {
                 gchar *file_display_name = nemo_file_get_display_name (NEMO_FILE (selection->data));
                 str = score_append (action, str, file_display_name);
                 g_free (file_display_name);
@@ -1461,7 +1461,7 @@ default_parent_display_name:
             }
             break;
         case TOKEN_DEVICE:
-            if (g_list_length (selection) > 0) {
+            if (selection != NULL) {
                 for (l = selection; l != NULL; l = l->next) {
                     if (!first)
                         str = insert_separator (action, str);
@@ -1478,7 +1478,7 @@ default_parent_display_name:
             }
             break;
         case TOKEN_FILE_DISPLAY_NAME_NO_EXT:
-            if (g_list_length (selection) > 0) {
+            if (selection != NULL) {
                 gchar *file_display_name = nemo_file_get_display_name (NEMO_FILE (selection->data));
                 str = score_append (action, str, eel_filename_strip_extension (file_display_name));
                 g_free (file_display_name);
@@ -2118,7 +2118,7 @@ get_visibility (NemoAction *action,
                 g_free (name);
             } else if (g_strcmp0 (condition, "removable") == 0) {
                 gboolean is_removable = FALSE;
-                if (g_list_length (selection) > 0) {
+                if (selection != NULL) {
                     NemoFile *file;
                     GMount *mount = NULL;
 

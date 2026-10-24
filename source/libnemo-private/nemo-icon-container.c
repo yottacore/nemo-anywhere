@@ -1558,7 +1558,7 @@ stop_rubberbanding (NemoIconContainer *container,
 	/* if only one item has been selected, use it as range
 	 * selection base (cf. handle_icon_button_press) */
 	icons = nemo_icon_container_get_selected_icons (container);
-	if (g_list_length (icons) == 1) {
+	if (icons != NULL && icons->next == NULL) {
 		container->details->range_selection_base_icon = icons->data;
 	}
 	g_list_free (icons);
@@ -6509,7 +6509,8 @@ nemo_icon_container_remove (NemoIconContainer *container,
 	icon_destroy (container, icon);
 	schedule_redo_layout (container);
 
-	g_signal_emit (container, signals[ICON_REMOVED], 0, icon);
+	/* The signal takes the data. icon is freed by now. */
+	g_signal_emit (container, signals[ICON_REMOVED], 0, data);
 
 	return TRUE;
 }

@@ -126,3 +126,8 @@ notebook > header.bottom > tabs > tab:not(:checked) + tab:not(:checked) {
 .nemo-cursor-forgotten {
 	outline-style: none;
 }
+
+/* Nemo Anywhere shows the list cursor only when it's off the selection. */
+.nemo-focus-quiet {
+	outline-style: none;
+}

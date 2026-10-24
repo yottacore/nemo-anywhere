@@ -1025,8 +1025,6 @@ file_delete_wrapper (GFile        *file,
     gboolean ret;
     gchar *uri;
 
-    ret = FALSE;
-
     if (!nemo_delete_guard_check (file, error)) {
         return FALSE;
     }
@@ -3621,13 +3619,13 @@ verify_destination (CommonJob *job,
 		primary = f (_("Error while copying to \"%B\"."), dest);
 		secondary = f (_("The destination isn't a folder."));
 
-		response = run_error (job,
-				      primary,
-				      secondary,
-				      NULL,
-				      FALSE,
-				      GTK_STOCK_CANCEL,
-				      NULL);
+		run_error (job,
+			   primary,
+			   secondary,
+			   NULL,
+			   FALSE,
+			   GTK_STOCK_CANCEL,
+			   NULL);
 
 		abort_job (job);
 		return;
@@ -3685,13 +3683,13 @@ verify_destination (CommonJob *job,
 		primary = f (_("Error while copying to \"%B\"."), dest);
 		secondary = f (_("The destination is read-only."));
 
-		response = run_error (job,
-				      primary,
-				      secondary,
-				      NULL,
-				      FALSE,
-				      GTK_STOCK_CANCEL,
-				      NULL);
+		run_error (job,
+			   primary,
+			   secondary,
+			   NULL,
+			   FALSE,
+			   GTK_STOCK_CANCEL,
+			   NULL);
 
 		/* The query above succeeded to get here, so there is no error to free. */
 		abort_job (job);
@@ -7180,7 +7178,8 @@ nemo_file_operations_symlink (const GList *item_uris,
 	g_object_unref (dest);
 }
 
-/* For a link job that never starts, so whoever asked still hears back. */
+/* For a link job, or an empty drop, that never starts, so whoever asked still
+   hears back. */
 static void
 report_no_links (NemoCopyCallback done_callback,
 		 gpointer         done_callback_data)
@@ -7266,6 +7265,12 @@ nemo_file_operations_copy_move (const GList *item_uris,
 	}
 
 	locations = location_list_from_uri_list (item_uris);
+	if (locations == NULL) {
+		/* Every branch below reads the first one. */
+		report_no_links (done_callback, done_callback_data);
+		g_clear_object (&dest);
+		return;
+	}
 
 	for (p = locations; p != NULL; p = p->next) {
 		if (!g_file_has_uri_scheme ((GFile* )p->data, "burn")) {

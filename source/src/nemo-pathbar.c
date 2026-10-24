@@ -1200,6 +1200,8 @@ nemo_path_bar_scroll_down (NemoPathBar *path_bar)
             break;
         }
     }
+    /* down_button->next is visible, so there's always one. */
+    g_assert (up_button != NULL);
 
     gtk_widget_get_allocation (BUTTON_DATA (down_button->data)->button, &down_button_allocation);
     gtk_widget_get_allocation (GTK_WIDGET (path_bar), &allocation);

@@ -308,8 +308,10 @@ eel_str_replace_substring (const char *string,
 		}
 		memcpy (result_position, p, substring_position - p);
 		result_position += substring_position - p;
-		memcpy (result_position, replacement, replacement_length);
-		result_position += replacement_length;
+		if (replacement_length > 0) {
+			memcpy (result_position, replacement, replacement_length);
+			result_position += replacement_length;
+		}
 	}
 	g_assert (result_position - result == result_length);
 	result_position[0] = '\0';
@@ -853,6 +855,7 @@ eel_self_check_string (void)
 	EEL_CHECK_STRING_RESULT (eel_str_replace_substring (NULL, "foo", NULL), NULL);
 	EEL_CHECK_STRING_RESULT (eel_str_replace_substring (NULL, "foo", "bar"), NULL);
 	EEL_CHECK_STRING_RESULT (eel_str_replace_substring ("bar", "foo", NULL), "bar");
+	EEL_CHECK_STRING_RESULT (eel_str_replace_substring ("afoob", "foo", NULL), "ab");
 	EEL_CHECK_STRING_RESULT (eel_str_replace_substring ("", "foo", ""), "");
 	EEL_CHECK_STRING_RESULT (eel_str_replace_substring ("", "foo", "bar"), "");
 	EEL_CHECK_STRING_RESULT (eel_str_replace_substring ("bar", "foo", ""), "bar");

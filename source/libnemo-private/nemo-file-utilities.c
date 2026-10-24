@@ -40,6 +40,7 @@
 #include <eel/eel-string.h>
 #include <eel/eel-vfs-extensions.h>
 #include <eel/eel-debug.h>
+#include <eel/eel-analyzer.h>
 #include <glib.h>
 #include <glib/gi18n.h>
 #include <glib/gstdio.h>
@@ -920,7 +921,7 @@ nemo_should_use_templates_directory (void)
 	gboolean res;
 
 	dir = nemo_get_xdg_dir ("TEMPLATES");
-	res = strcmp (dir, g_get_home_dir ()) != 0;
+	res = g_strcmp0 (dir, g_get_home_dir ()) != 0;
 	g_free (dir);
 	return res;
 }
@@ -3748,7 +3749,9 @@ nemo_content_type_is_a (const char *content_type, const char *mime_type)
 		gsize len = strlen (mime_type);
 
 		if (len >= 2 && g_str_has_suffix (mime_type, "/*")) {
+			EEL_ANALYZER_SKIP ("null-argument") // a copy of content_type at worst, which isn't NULL
 			return strncmp (mime, mime_type, len - 1) == 0;
+			EEL_ANALYZER_END
 		}
 
 		return g_ascii_strcasecmp (mime, mime_type) == 0;

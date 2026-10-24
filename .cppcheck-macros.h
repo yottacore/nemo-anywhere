@@ -18,6 +18,13 @@
    stops on the #if that uses it. */
 #define __has_feature(x) 0
 
+/* eel/eel-analyzer.h, which cppcheck finds only where it's included in quotes.
+   The same empty bodies, so a second definition there isn't a clash. */
+#ifndef EEL_ANALYZER_SKIP
+#define EEL_ANALYZER_SKIP(gcc_name)
+#define EEL_ANALYZER_END
+#endif
+
 /* From the build: nemo-build-number.h and the -D flags in source/meson.build. */
 #ifndef NEMO_APP_SLUG
 #define NEMO_APP_SLUG "nemo-anywhere"
