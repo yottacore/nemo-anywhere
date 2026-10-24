@@ -38,10 +38,14 @@ conf.set_quoted('VERSION', meson.project_version())
 # place in config.h, which everything includes: the number moves on every
 # reconfigure, and only a handful of files ever show it.
 py = import('python').find_installation()
+# A build that isn't for a release also shows its date, worked out when shown
+# (nemo-version.h), since it's the viewer's local day.
+buildStamp = run_command(py, files('build-number.py'), '--epoch', check: true).stdout().strip().split(' ')
 buildConf = configuration_data()
 buildConf.set_quoted('NEMO_VERSION_STRING',
-  'v' + meson.project_version() + ' build ' +
-  run_command(py, files('build-number.py'), check: true).stdout().strip())
+  'v' + meson.project_version() + ' build ' + buildStamp[0])
+buildConf.set('NEMO_BUILD_EPOCH', buildStamp[1] + 'LL')
+buildConf.set10('NEMO_RELEASE_BUILD', get_option('release'))
 configure_file(output: 'nemo-build-number.h', configuration: buildConf)
 
 check_headers = [
