@@ -8,7 +8,9 @@
 #            made relative to the repo.
 #   cover    Fails when a tracked .c is in neither compile list, or when one
 #            under source/unused/, which nothing should build, is in one.
-#   count    Counts unique findings per area from run's logs.
+#   count    Counts unique findings per area from run's logs. Vendored ones on
+#            analyze-vendored.txt count as suppressed instead, and an entry
+#            there that matches nothing is listed as stale.
 #   planted  Inside a build container. Runs one analyzer over a planted leak and
 #            null dereference, and fails unless it reports both.
 #
@@ -43,6 +45,7 @@ TU_TIMEOUT = int(os.environ.get("ANALYZE_TU_TIMEOUT", "900"))
 VENDORED = ("vendor/", "source/cut-n-paste-code/")
 TESTS = ("source/test/", "source/fuzz/")
 AREAS = ("vendored", "inherited", "ours", "tests", "system")
+SUPP_FILE = "cicd/utility/analyze-vendored.txt"
 
 # gcc: "f.c:1:2: warning: ... [-Wanalyzer-x]", or "error: ... [-Werror=analyzer-x]".
 GCC_RE = re.compile(r"^(\S[^:]*):(\d+):(\d+): (?:warning|error): .*\[-W(?:error=)?(analyzer-[a-z0-9-]+)\]$")
@@ -221,16 +224,47 @@ def parse_log(text):
     return findings, failed, skipped
 
 
-def count(logs, inherited):
-    table, failed = {}, {}
+SUPP_RE = re.compile(r"^(\S+):(\d+)\s+(\S+)\s+(\S.*)$")
+
+
+# (path, line, checker) -> reason, and a problem per bad line.
+def parse_supp(text):
+    supp, problems = {}, []
+    for n, line in enumerate(text.splitlines(), 1):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        m = SUPP_RE.match(line)
+        if not m:
+            problems.append("line %d: want <path>:<line> <checker> <reason>" % n)
+            continue
+        key = (m.group(1), int(m.group(2)), m.group(3))
+        # Ours and inherited code are suppressed at the line, not here.
+        if not key[0].startswith(VENDORED):
+            problems.append("line %d: not vendored: %s" % (n, key[0]))
+        elif key in supp:
+            problems.append("line %d: listed twice: %s:%d %s" % ((n,) + key))
+        else:
+            supp[key] = m.group(4)
+    return supp, problems
+
+
+def count(logs, inherited, supp=None):
+    supp = supp or {}
+    table, failed, used = {}, {}, set()
     for name, text in logs.items():
         findings, bad, skipped = parse_log(text)
-        row = dict.fromkeys(AREAS, 0)
+        row = dict.fromkeys(AREAS + ("suppressed",), 0)
         for f in findings:
-            row[area_of(f[0], inherited)] += 1
+            key = (f[0], f[1], f[3])
+            if key in supp:
+                used.add(key)
+                row["suppressed"] += 1
+            else:
+                row[area_of(f[0], inherited)] += 1
         table[name] = None if skipped else row
         failed[name] = bad
-    return table, failed
+    return table, failed, sorted(set(supp) - used)
 
 
 def cmd_count(args):
@@ -240,21 +274,28 @@ def cmd_count(args):
     # The baseline commit holds upstream 6.6.4 under original/, moved to source/ right after.
     inherited = {re.sub(r"^original/", "source/", f) for f in subprocess.run(
         ["git", "-C", root, "ls-tree", "-r", "--name-only", base], check=True, capture_output=True, text=True).stdout.split()}
+    with open(os.path.join(root, SUPP_FILE)) as f:
+        supp, problems = parse_supp(f.read())
+    for p in problems:
+        print("[ FAILED: %s: %s ]" % (SUPP_FILE, p))
     logs = {}
     for p in paths:
         with open(p, errors="replace") as f:
             logs[os.path.basename(p).rsplit(".", 1)[0]] = f.read()
-    table, failed = count(logs, inherited)
-    print("%-14s %s %7s %9s" % ("log", " ".join("%9s" % a for a in AREAS), "total", "failed"))
+    table, failed, stale = count(logs, inherited, supp)
+    print("%-14s %s %7s %10s %9s" % ("log", " ".join("%9s" % a for a in AREAS), "total", "suppressed", "failed"))
     for name, row in table.items():
         if row is None:
             print("%-14s not run (analyzer missing in its container)" % name)
             continue
-        print("%-14s %s %7d %9d" % (name, " ".join("%9d" % row[a] for a in AREAS), sum(row.values()), len(failed[name])))
+        print("%-14s %s %7d %10d %9d" % (name, " ".join("%9d" % row[a] for a in AREAS), sum(row[a] for a in AREAS),
+                                         row["suppressed"], len(failed[name])))
     for name, bad in failed.items():
         for tu in bad:
             print("not analyzed (%s): %s" % (name, tu))
-    return 0
+    for path, line, checker in stale:
+        print("stale suppression: %s:%d %s" % (path, line, checker))
+    return 1 if problems else 0
 
 
 def self_test():
@@ -265,7 +306,7 @@ def self_test():
         "### source/src/a.c rc=1",
         "source/src/a.c:3:5: error: dereference of NULL 'p' [CWE-476] [-Werror=analyzer-null-dereference]",
         "source/test/t.c:9:1: warning: leak of 'q' [CWE-401] [-Wanalyzer-malloc-leak]",
-        "vendor/x/y.c:2:2: warning: Potential leak of memory pointed to by 'r' [unix.Malloc]",
+        "vendor/x/y.c:2:9: warning: Potential leak of memory pointed to by 'r' [unix.Malloc]",
         "source/libnemo-private/old.c:4:4: warning: Value stored to 'x' is never read [deadcode.DeadStores]",
         "/usr/include/glib-2.0/glib/gmacros.h:1:1: warning: Null pointer passed [core.NonNullParamChecker]",
         "source/src/a.c:7:1: warning: unused variable 'z' [-Wunused-variable]",
@@ -273,14 +314,33 @@ def self_test():
         "source/src/b.c:1:10: fatal error: missing.h: No such file or directory",
         "### source/src/c.c rc=0",
     ])
-    table, failed = count({"gcc-linux": log}, {"source/libnemo-private/old.c"})
-    want = {"vendored": 1, "inherited": 1, "ours": 1, "tests": 1, "system": 1}
+    table, failed, _ = count({"gcc-linux": log}, {"source/libnemo-private/old.c"})
+    want = {"vendored": 1, "inherited": 1, "ours": 1, "tests": 1, "system": 1, "suppressed": 0}
     if table["gcc-linux"] != want:
         bad.append("counts %r, want %r" % (table["gcc-linux"], want))
     if failed["gcc-linux"] != ["source/src/b.c"]:
         bad.append("not analyzed %r, want b.c only" % failed["gcc-linux"])
     if count({"x": "### SKIP no clang"}, set())[0]["x"] is not None:
         bad.append("a skipped log counted as clean")
+    # The vendored finding is listed; a second entry matches nothing, by line and by checker.
+    supp, problems = parse_supp("\n".join([
+        "# comment",
+        "vendor/x/y.c:2 unix.Malloc freed by its owner",
+        "vendor/x/y.c:3 unix.Malloc gone after a bump",
+        "vendor/x/y.c:2 core.NullDereference other checker",
+    ]))
+    table, _, stale = count({"clang-linux": log}, {"source/libnemo-private/old.c"}, supp)
+    if problems or (table["clang-linux"]["vendored"], table["clang-linux"]["suppressed"]) != (0, 1):
+        bad.append("suppressed counts %r, problems %r" % (table["clang-linux"], problems))
+    if stale != [("vendor/x/y.c", 2, "core.NullDereference"), ("vendor/x/y.c", 3, "unix.Malloc")]:
+        bad.append("stale %r" % stale)
+    _, problems = parse_supp("vendor/x/y.c:2 unix.Malloc\nsource/src/a.c:3 analyzer-null-dereference ours\n"
+                             "vendor/x/y.c:4 unix.Malloc a\nvendor/x/y.c:4 unix.Malloc b\n")
+    if len(problems) != 3:
+        bad.append("bad list lines %r, want 3 (no reason, not vendored, twice)" % problems)
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", SUPP_FILE)) as f:
+        problems = parse_supp(f.read())[1]
+    bad += ["%s: %s" % (SUPP_FILE, p) for p in problems]
     tracked = {"a.c", "b.c", "c.c", UNUSED + "d.c", UNUSED + "e.c"}
     got = check_cover(tracked, {"a.c", "b.c", UNUSED + "e.c"})
     want_p = ["in neither compile list: c.c", "built from %s: %se.c" % (UNUSED, UNUSED)]

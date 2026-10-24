@@ -744,20 +744,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261020: opened.
 	- Test case: none yet.
 
-- Static analyzers: vendored findings go in a suppression list outside the files.
-	- ID: 2026102114400586
-	- Type: Task
+- The analyzer stage checks a file once, even when 2 targets build it with different headers.
+	- ID: 2026102408163141
+	- Type: Bug
 	- Status: Queued
 	- Priority|Severity: Avg
-	- Opened: 20261021-144005
+	- Opened: 20261024-081631
 	- Opened by: t00mietum
-	- Parent ID: 2026101619020505
-	- Prereq IDs: 2026102114400584
-	- Requirements:
-		- Every finding in `vendor/` and `source/cut-n-paste-code/` gets a line in the list, with a one-line reason, per the parent. The files stay as they came.
-		- A real bug goes to its upstream, with the link beside its line.
-	- Estimated effort: Avg
-	- Test case: the gate in 2026102114400591, once live.
+	- Related IDs: 2026101619020505, 2026102114400586, 2026102114400591
+	- Target OS: Linux
+	- Incorrect behavior: `load_db` in `cicd/utility/analyze.py` keeps the first compile entry per file. `shcl-old-writer.c` is built once per old SHCL release, against `vendor/shcl-old/1.2.0/` and `2.0.0/`, so 2.0.0 is never analyzed. 24 files are in the Linux list more than once and 29 in the Windows one, most of them app files also built into a test.
+	- Expected behavior: each compile entry with its own flags is analyzed. A finding 2 entries reach still counts once.
+	- Reproduced: 20261024. The 2.0.0 entry run alone had 2 findings the full run's logs lack.
+	- Notes: 2 entries in `analyze-vendored.txt` show as stale until this is fixed, so the gate in 2026102114400591 waits on it.
+	- Test case: none yet.
 
 - Static analyzers: fix or suppress the findings in inherited upstream code.
 	- ID: 2026102114400587
@@ -3377,6 +3377,35 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rkbdyne7, Folder open time test. Goes into 9 folders of 120 from the list view, and back up after each. 4 are varied files with pictures and a sub-folder, 3 are text only, and 2 more are listed a second per batch, one with pictures and one without. The quickest of each fast kind must show all rows in under 180 ms, and each slow one its first row. Each folder's item count, and each sub-folder's, must show right. The old wait can't come in under 200.
 	- Acceptance signoff: Self-closed: rkbdyne7 covers it. The rows show 200 ms sooner, and item counts filling in a moment after them is what other file managers do too.
 	- Closed: 20261016-130621
+
+- Static analyzers: vendored findings go in a suppression list outside the files.
+	- ID: 2026102114400586
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261021-144005
+	- Opened by: t00mietum
+	- Parent ID: 2026101619020505
+	- Prereq IDs: 2026102114400584
+	- Requirements:
+		- Every finding in `vendor/` and `source/cut-n-paste-code/` gets a line in the list, with a one-line reason, per the parent. The files stay as they came.
+		- A real bug goes to its upstream, with the link beside its line.
+	- Estimated effort: Avg
+	- Actual effort: Low
+	- Progress log:
+		- 20261024: the list is `cicd/utility/analyze-vendored.txt`, one finding per line by path, line and checker, with why it's safe. `analyze.py count` counts a listed finding as suppressed, not vendored, and names an entry that matches nothing as stale. It fails on a malformed entry or one outside the vendored folders. Stale entries are report only until the gate.
+		- 10 findings, all in SHCL: 6 in `vendor/shcl/` and 4 in `vendor/shcl-old/`. None is a real bug, so nothing went upstream. blake3 and `source/cut-n-paste-code/` had none.
+		- The 2 in `vendor/shcl-old/2.0.0/` never show in a full run, since the stage analyzes a file once even when 2 targets build it with different headers (2026102408163141). They came from that build's entry run alone, and show as stale until that's fixed.
+		- Not covered yet: clang over the Windows list, and gcc over blake3's AVX2 and SSE4.1 files and `nemo-config.c` on the Linux list, which hit the per-file cap. Anything those add shows unsuppressed once they run.
+	- Decisions:
+		- Matched by line, not by function or message. A vendor bump moves the lines, the old entries go stale, and the bump's findings get looked at again.
+		- clang's 2 at `shcl.h:764` and `:6222` are there only because `arena_panic` isn't marked noreturn. Options: `_Noreturn` on it in SHCL would drop both. Not a bug, so not drafted.
+	- Swept: every vendored finding in the 3 lanes' logs, and `vendor/shcl-old/2.0.0` run alone. The `sb_put` null-argument false positive is in both `vendor/shcl/` and 2.0.0; 1.2.0 has the same code and no finding. The only callers of `count` are `cmd_count` and the self-test, and nothing reads `counts_*.txt`.
+	- Branch: round1024
+	- Test case: rktsh374 (`analyze.py --self-test`) checks the match, stale entries, bad lines, and that the list itself parses. The gate in 2026102114400591, once live, fails on a vendored finding that isn't listed.
+	- Verified: 20261024, `analyze.py count` over the logs of the full run of dev `e2dfe883` plus the 2.0.0 entry: vendored 0 in every lane that ran, 10 suppressed, none stale. rktsh374 fails with the match keyed on column in place of line, with stale entries dropped, and with the listed-twice check off, and passes as committed. rktsh3gd passes. A non-vendored entry makes `count` exit 1.
+	- Acceptance signoff: Self-closed: rktsh374 and the counts above.
+	- Closed: 20261024-081711
 
 - Need to come up with a consistent design for copying or moving files when a folder is selected:
 	- ID: 2026101816495200

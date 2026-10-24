@@ -1,0 +1,22 @@
+# Analyzer findings in vendored code, which stays as it came, so they can't be
+# suppressed at the line. Ours and inherited code suppress at the line instead.
+# Read by cicd/utility/analyze.py count. Backlog 2026102114400586.
+#
+# One per line: <path>:<line> <checker> <why it's safe>. The checker is gcc's
+# analyzer-* name or clang's dotted one. A real bug gets its upstream link
+# beside it. Line numbers move on a vendor bump, which leaves an entry matching
+# nothing, so each bump gets its findings looked at again.
+
+# SHCL, built into the app.
+vendor/shcl/shcl.h:764 core.NullDereference arena_panic never returns (longjmp, SHCL_OOM, then abort); clang gave up inlining it this deep.
+vendor/shcl/shcl.h:792 analyzer-use-of-uninitialized-value A grow copies the builder's whole cap, of which only len bytes were written. memcpy of unwritten heap bytes is defined, and the rest is never read.
+vendor/shcl/shcl.h:886 analyzer-null-argument The sb_put.part.0 split loses n != 0, so an empty builder seems to skip the grow; it always grows first.
+vendor/shcl/shcl.h:4023 analyzer-malloc-leak doc is volatile for the setjmp, and the analyzer doesn't follow a pointer through a volatile local.
+vendor/shcl/shcl.h:4025 analyzer-malloc-leak Same as 4023, for owned.
+vendor/shcl/shcl.h:6222 core.NonNullParamChecker Needs realloc to fail and arena_panic to return, which it never does; see 764.
+
+# Old SHCL releases, built only into the settings upgrade test.
+vendor/shcl-old/1.2.0/shcl.h:381 analyzer-out-of-bounds value_key's nb holds a snprintf'd "%zu:", at most 21 chars plus its NUL, so strlen stays inside it.
+vendor/shcl-old/1.2.0/shcl.h:2924 deadcode.DeadStores The clamp of prec is never read after; dead, not wrong.
+vendor/shcl-old/2.0.0/shcl.h:515 analyzer-null-argument Same as shcl.h:886, in the old builder.
+vendor/shcl-old/2.0.0/shcl.h:3583 deadcode.DeadStores Same as 1.2.0's 2924.
