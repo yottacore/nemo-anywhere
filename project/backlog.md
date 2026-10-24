@@ -347,9 +347,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, the first Delete after closing Windows properties is still ignored.
 	- ID: 2026102219444332
 	- Type: Bug
-	- Status: Waiting on a partial CICD run
+	- Status: Done
 	- Needs local test suite run?: no. The change is Windows only, and rgv89eeg, rknjd2qn and rkmsgs9m pass on Linux.
-	- Needs external testing: Windows, on vm925w in the desktop session, with a single exe built from this branch: Windows properties (Alt+Enter) closed with Escape, and with the title bar's close button, then Delete at once. A Delete at once after switching to another program and back must still be ignored. 2026101816495203's check can run in the same batch. rm0d1tdd in the native gate.
+	- Needs external testing: done 20261023, see below.
 	- Priority|Severity: Avg
 	- Opened: 20261022-194443
 	- Opened by: 2026101816495203
@@ -370,13 +370,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261023, rm0d1tdd fails without the fix and passes with it, 2 of 2 each way on vm925w in the desktop session, and under wine. It also checks that a window just opened, and focus back from another program, still ignore the key. Linux build with warnings as errors, C lint and test IDs clean. Windows cross build clean.
 	- Progress log:
 		- 20261023: fixed. Left for the check above with the real sheet.
+	- Verified: 20261023 on vm925w as wintest in the desktop session, with the single exe packed from round1023: after Windows properties (Alt+Enter) closed with Escape, and again with the title bar's close button, a Delete about 0.3 s later brought up the delete question. After switching to another program and back with Alt+Tab, a Delete at once was ignored, and one 1.5 s later asked. rm0d1tdd passed in 3 of 3 native gate runs from a clone of round1023.
+	- Acceptance signoff: Self-closed: rm0d1tdd pins it in the native suite, and the real sheet behaves the same.
+	- Closed: 20261023-223500
 
 - Have to press "delete" twice after properties dialog.
 	- ID: 2026101816495203
 	- Type: Bug
-	- Status: Waiting on a partial CICD run
+	- Status: Waiting on signoff
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 218 of 218.
-	- Needs external testing: Windows, on vm925w in the desktop session, once 2026102219444332 is in: Windows properties (Alt+Enter) closed with Escape, and with the title bar's close button, then Delete at once. Then signoff, since it loosens a delete guard rule.
+	- Needs external testing: done 20261023, see below.
+	- Needs hand testing: signoff, since it loosens a delete guard rule.
 	- Priority|Severity: Avg
 	- Opened: 20261018-164952
 	- Opened by: t00mietum
@@ -396,16 +400,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261019: fixed on Linux. Waiting for the Windows check above, since the focus events there come in differently. Then signoff, since it loosens a delete guard rule.
 		- 20261022: the app's own Properties passes on Windows. After Windows properties the first Delete is still ignored, which is 2026102219444332.
+		- 20261023: Windows properties passes too, with 2026102219444332 in. Left at signoff for the looser delete guard rule.
 	- Branch: viewfix
 	- Commit: 0ebed80
 	- Test case: rkmsgs9m, Delete key after Properties test, Linux and FreeBSD only. New checks in rgv89eeg, Delete guard test.
 	- Verified: 20261022, on vm925w in the desktop session with the single exe: after Properties (Ctrl+Enter) closed with Escape, and again with the title bar's close button, the first Delete brought up the delete question. After switching to another program and back, a Delete at once was ignored, and one 1.5 s later asked. rkmsgs9m passes in the FreeBSD lane.
+	- Verified: 20261023, on vm925w in the desktop session with the single exe packed from round1023: after Windows properties (Alt+Enter) closed with Escape, and again with the title bar's close button, the first Delete brought up the delete question. After switching to another program and back, a Delete at once was ignored, and one 1.5 s later asked.
 
 - rk65m3m4 fails in the full Linux suite with "Header CRC error".
 	- ID: 2026102307150011
 	- Type: Bug
-	- Status: Waiting on a partial CICD run
-	- Needs external testing: rk65m3m4 in the FreeBSD lane. It skips there without rar. A rar that writes other bytes fails the pinned rar's own check, and then needs a time picked from that rar.
+	- Status: Queued
+	- Needs external testing: rk65m3m4 in the FreeBSD lane again, once its pinned rar check is fixed as in the progress log.
 	- Priority|Severity: Low
 	- Opened: 20261023-071500
 	- Opened by: t00mietum
@@ -422,13 +428,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: every libarchive reader. The check before a delete is fixed as above, and `nemo-office.c` reads zip only.
 	- Test case: rk65m3m4, with a fourth rar written from files with pinned times that rar 7.20 turns into this case, unpacked with rar, with only 7-Zip and with neither. It fails too if the affected reader stops handing back the link in that rar.
 	- Verified: 20261023: rk65m3m4 failed on the old extract code with the pinned rar, with the same rows and messages as in the suite, and passed 3 of 3 after. The pinned rar's check fails with the time 2 ns off. rhr6ggmt, rewygsbg, reww9h2s, reww9h2r, rjq9mv0w and rk6704r8 pass. The gate passed, 231 OK and 1 skipped.
+	- Progress log:
+		- 20261023: back to Queued. In the FreeBSD lane on round1023 (libarchive 3.8.7, rar 7.23) rk65m3m4 fails only its own pin check, "the reader no longer hands back the link in the pinned rar". Every unpack row passed. No time can fix that there: 3.8.7 never hands the link back. It stopped at the link in 300 of 300 rars written with other times, and the pinned rar written by rar 7.20, which 3.7.4 hands back, stops 3.8.7 at the link with "unsupported structure of file header extra data". So the check should ask for the hand-back only from a reader seen doing it, such as 3.7.x, and say it's left out elsewhere.
 	- Branch: round1023
 
 - rhtmbdmj crashed once in the native Windows suite.
 	- ID: 2026102221362030
 	- Type: Bug
-	- Status: Waiting on automated testing
-	- Needs external testing: the native gate on vm925w, `pwsh cicd/cicd-win.ps1 -Gate -Yes` as wintest in the desktop session, from a bundle of round1023. Each run so far had 1 crash, so 2 or 3 runs with none before closing.
+	- Status: Done
+	- Needs external testing: done 20261023, see below.
 	- Priority|Severity: Avg
 	- Opened: 20261022-213620
 	- Opened by: t00mietum
@@ -448,12 +456,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: every place the fence patches. The start walk and the load notice both go through `patch_module`, and the 11 hooked calls are the same as before, minus the 4 LoadLibrary ones it no longer needs.
 	- Progress log:
 		- 20261023: a delete right under a drive root is checked against the current folder instead, filed as 2026102320180998.
+	- Verified: 20261023, the native suite on vm925w as wintest in the desktop session, from a fresh clone of round1023, 3 runs: no crash and no 0xb00 in any. 201, 202 and 202 OK. rhtmbdmj, rjnzpkk7 and rknjd2qn passed in all 3. What did fail is on other items: rhtmbdmh in all 3 (2026102219444662), rhtmbdma in all 3 (2026102322330406), and rjbmh7g1 timed out once (2026101913541101).
+	- Acceptance signoff: Self-closed: 3 native suite runs with no crash, where every run before the fix had one, and rknjd2qn pins the load race.
+	- Closed: 20261023-223600
 
 - On Windows, the bookmarks file leak case can't tell a leak from what COM does on its own.
 	- ID: 2026101913541101
 	- Type: Bug
-	- Status: Waiting on automated testing
-	- Needs external testing: the native gate on vm925w, since every leak case there now reads again until growth shows 4 times.
+	- Status: Queued
+	- Needs external testing: the native gate on vm925w again, once the time limit below is settled.
 	- Priority|Severity: Low
 	- Opened: 20261019-135411
 	- Opened by: t00mietum
@@ -474,6 +485,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261021: rjbn328w no longer answers 77 on Windows. Under wine it still answers 77, since the heap can't be read there.
 		- 20261021: rktexj0a counts the shell calls. It fails before the fix, 2 calls for the list and 4 by the end of the network check, and passes after with 0, then 1 for the name. rjhvmm6f still passes. The leak cases pass on Linux.
 		- 20261023: back from Queued, after 1 failure in 6 runs on vm925w. Cause found, fix above.
+		- 20261023: back to Queued. In the first of those 3 runs rjbmh7g1 (Stopped zip leak test) timed out at 31.3 s, past meson's default 30 s. It took 15.0 and 15.1 s in the other 2. Likely the 4 showings: a case that sees the COM noise reads again, each reading waits for the heap to sit still, and the leak cases keep the default limit. Options: a longer limit for the leak cases on Windows, or fewer rounds there. Not looked into further.
 	- Swept: the other `nemo_get_mounts` callers. The side pane, path bar and tree want names, and still get them. The view's mount check and `get_mount_at` in `nemo-directory-async.c` want only locations, and gain as well. GLib's own `g_file_find_enclosing_mount` still names its mount through the shell, but the bookmark load doesn't ask for a mount.
 		- 20261023: `test_heap_growth` is the only place readings are taken, for every case in `test-nemo-leaks.c` and the list read check in `test-nemo-config.c`, so all of them get the 4 showings on Windows. No other count of showings in `source/test/`.
 	- Branch: round1021, round1023
@@ -482,6 +494,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261022, on vm925w: rjbn328w passes 7 runs of 7, 0 bytes over 64 rounds each, once after a 640-byte reading was taken again. rktexj0a passes natively over ssh and in the desktop session: no shell call for the list or the network check, 1 for the name.
 	- Verified: 20261023, on vm925w in the desktop session: rjbn328w failed 1 run of 6, with the heap 4368 bytes up over 64 rounds after the reading was taken again. So something else in the load still reaches COM now and then, and the fix above wasn't all of it.
 	- Verified: 20261023 evening, on vm925w in the desktop session: rjbn328w with 4 showings passed 6 runs of 6. In one, 2 readings in a row grew, 4912 and 4368 bytes, before one read 0, which the old rule fails. A batch of 6 the same evening with the old rule failed once, 8736 then 4368 bytes. rjcth67d still reads its planted 2048 bytes and passes. On Linux rjbn328w, rjbn19rn, rkneydzr and rjcth67d still pass, with 2 showings.
+	- Verified: 20261023, 3 native suite runs on vm925w as wintest in the desktop session, from a fresh clone of round1023: rjbn328w passed 3 of 3 (13.7, 10.8 and 20.8 s), and rjcth67d 3 of 3.
 
 - rhr6ggmt can lose both links from a rar archive on Linux.
 	- ID: 2026101913111713
@@ -649,6 +662,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261020: opened.
 	- Test case: none yet.
+
+- On Windows the native stage step fails: the stripped exe is over the size check's ceiling.
+	- ID: 2026102322240701
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261023-222407
+	- Opened by: 2026102221362030
+	- Target OS: Windows
+	- Test environment: vm925w, a fresh clone of round1023, native build from `cicd-win.ps1 -Gate`.
+	- Steps to reproduce: `bash cicd/win/stage-native.bash cicd/artifacts/build-win cicd/artifacts/win-run` in MSYS2's mingw64 shell after a native build, or a `cicd-win.ps1` run that gets to stage 4.
+	- Incorrect behavior: rh8vbs38 (`check-win-build-flags.bash --shipped`) fails, "12583016 bytes, over the 12582912 ceiling - this is a debug link", and staging stops. The bundle is all there, so `pack-portable.ps1` run on its own still packs it. A full native run, and the Windows dogfood stage, stop at stage 4.
+	- Expected behavior: a stripped native build stages and packs.
+	- Reproduced: 20261023 on vm925w, round1023 at `55d21116`. Over by 104 bytes.
+	- Possible cause: the stripped native exe grew past 12 MiB with this round's code. The ceiling is there to catch a debug link, and the native build is a debug build, stripped. The cross build's exe is checked against the same ceiling, and passes.
+	- Test case: rh8vbs38 itself, on the native stage.
 
 - Static analyzers: vendored findings go in a suppression list outside the files.
 	- ID: 2026102114400586
@@ -1120,6 +1149,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- For "Nemo Anywhere" only. "Nemo Anywhere v1" keeps the previous behavior.
 		- F2 selects the name without the extension, as upstream does.
 	- Test case: none yet.
+
+- rhtmbdma fails in the native suite in vm925w's desktop session, and passes alone.
+	- ID: 2026102322330406
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261023-223304
+	- Opened by: 2026102221362030
+	- Related IDs: 2026102219444662, 2026102219444332
+	- Target OS: Windows
+	- Test environment: vm925w, a fresh clone of round1023, as wintest in the desktop session.
+	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
+	- Incorrect behavior: Keyboard context menu test, `test-eel-context-menu.c` lines 243 and 246 in the first run, those and 251 and 254 in the second, and 251 and 254 in the third. `pop_up` gets no menu up, with "no trigger event for menu popup" from GTK.
+	- Expected behavior: passes, as it did in the round1022 native suite.
+	- Reproduced: 20261023, 3 of 3 native suite runs. The same build's exe run alone in the desktop session, outside the jail, passed 3 of 3.
+	- Possible cause: not known. New in round1023 are rm0d1tdd, which moves the focus between threads and other programs and runs near it in the suite, and the fence's load notice. Not looked into.
+	- Test case: rhtmbdma.
 
 - rhtmbdmh fails in vm925w's desktop session.
 	- ID: 2026102219444662
