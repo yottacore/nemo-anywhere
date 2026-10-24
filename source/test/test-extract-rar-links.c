@@ -27,7 +27,12 @@
  * file on disk before it stops. With rar or 7-Zip there, the rest comes out
  * through the program, and nothing is asked about twice. With neither, the
  * job fails and says how far it got. On a reader that isn't affected
- * everything comes out either way. Needs rar to write them. */
+ * everything comes out either way. Needs rar to write them.
+ *
+ * How the reader goes wrong rides on the bytes after the link. Now and then
+ * it hands the link back whole and fails on the next header instead
+ * (2026102307150011), so one more rar is written from files with pinned
+ * times that rar 7.20 turns into that case. */
 
 #include "test.h"
 
@@ -36,8 +41,12 @@
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-extract.h>
 
+#include <archive.h>
+#include <archive_entry.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include <glib/gstdio.h>
 
@@ -46,6 +55,9 @@
 
 #define EXTRACT_TIMEOUT_SECONDS 60
 #define TARGET_BYTES 140
+/* 2026-10-24 03:46:19.718703070 UTC */
+#define PINNED_SECONDS 1792813579
+#define PINNED_NSEC 718703070
 
 static gboolean job_finished;
 static gboolean job_succeeded;
@@ -212,6 +224,59 @@ write_rar (const char *dir, char **argv)
 	return ok;
 }
 
+/* a.txt, the long link and z.txt. With pinned, every byte rar keeps of
+   them is the same each run. */
+static void
+make_files (const char *dir,
+	    gboolean    pinned)
+{
+	static const char *const names[] = { "a.txt", "m-link", "z.txt" };
+	char *paths[G_N_ELEMENTS (names)];
+	GFile *link;
+
+	for (gsize i = 0; i < G_N_ELEMENTS (names); i++) {
+		paths[i] = g_build_filename (dir, names[i], NULL);
+	}
+	g_mkdir_with_parents (dir, 0700);
+	link = g_file_new_for_path (paths[1]);
+	check (g_file_make_symbolic_link (link, long_target, NULL, NULL));
+	g_object_unref (link);
+	check (g_file_set_contents (paths[0], "first", -1, NULL));
+	check (g_file_set_contents (paths[2], "last", -1, NULL));
+
+	for (gsize i = 0; pinned && i < G_N_ELEMENTS (names); i++) {
+		const struct timespec when[2] = { { PINNED_SECONDS, PINNED_NSEC },
+						  { PINNED_SECONDS, PINNED_NSEC } };
+
+		if (i != 1) {
+			check (g_chmod (paths[i], 0644) == 0);
+		}
+		check (utimensat (AT_FDCWD, paths[i], when, AT_SYMLINK_NOFOLLOW) == 0);
+	}
+	for (gsize i = 0; i < G_N_ELEMENTS (names); i++) {
+		g_free (paths[i]);
+	}
+}
+
+/* Whether the reader hands the long link back as an entry of its own. */
+static gboolean
+link_handed_back (const char *archive_path)
+{
+	struct archive *a = archive_read_new ();
+	struct archive_entry *entry;
+	gboolean handed = FALSE;
+
+	archive_read_support_format_all (a);
+	if (archive_read_open_filename (a, archive_path, 10240) == ARCHIVE_OK) {
+		while (!handed && archive_read_next_header (a, &entry) == ARCHIVE_OK) {
+			handed = archive_entry_symlink (entry) != NULL;
+		}
+	}
+	archive_read_free (a);
+
+	return handed;
+}
+
 static void
 check_contents (const char *dir,
 		const char *name,
@@ -303,7 +368,7 @@ main (int argc, char *argv[])
 	char *rar = g_find_program_in_path ("rar");
 	char *seven = NULL;
 	GtkWidget *window;
-	char *tmp, *work, *link, *config_home, *long_rar, *tail_rar, *head_rar;
+	char *tmp, *work, *pinned_work, *config_home, *long_rar, *tail_rar, *head_rar, *pinned_rar;
 
 	if (rar == NULL) {
 		g_print ("SKIP: no rar here to write the archives\n");
@@ -321,19 +386,12 @@ main (int argc, char *argv[])
 
 	tmp = test_scratch_dir ("nemo-rar-links-XXXXXX", NULL);
 	work = g_build_filename (tmp, "work", NULL);
-	g_mkdir_with_parents (work, 0700);
+	pinned_work = g_build_filename (tmp, "pinned", NULL);
 
 	long_target = g_strnfill (TARGET_BYTES, 'x');
-	link = g_build_filename (work, "m-link", NULL);
+	make_files (work, FALSE);
+	make_files (pinned_work, TRUE);
 	{
-		GFile *made = g_file_new_for_path (link);
-
-		check (g_file_make_symbolic_link (made, long_target, NULL, NULL));
-		g_object_unref (made);
-	}
-	{
-		char *a = g_build_filename (work, "a.txt", NULL);
-		char *z = g_build_filename (work, "z.txt", NULL);
 		char *with_after[] = { rar, (char *) "a", (char *) "-ol", (char *) "long.rar",
 				       (char *) "a.txt", (char *) "m-link", (char *) "z.txt", NULL };
 		char *link_last[] = { rar, (char *) "a", (char *) "-ol", (char *) "tail.rar",
@@ -341,17 +399,22 @@ main (int argc, char *argv[])
 		char *link_first[] = { rar, (char *) "a", (char *) "-ol", (char *) "head.rar",
 				       (char *) "m-link", (char *) "z.txt", NULL };
 
-		check (g_file_set_contents (a, "first", -1, NULL));
-		check (g_file_set_contents (z, "last", -1, NULL));
 		check (write_rar (work, with_after));
 		check (write_rar (work, link_last));
 		check (write_rar (work, link_first));
-		g_free (z);
-		g_free (a);
+		check (write_rar (pinned_work, with_after));
 	}
 	long_rar = g_build_filename (work, "long.rar", NULL);
 	tail_rar = g_build_filename (work, "tail.rar", NULL);
 	head_rar = g_build_filename (work, "head.rar", NULL);
+	pinned_rar = g_build_filename (pinned_work, "long.rar", NULL);
+
+	/* Another rar may write other bytes, and then this case goes quietly
+	   untested. */
+	if (arc_rar_target_unreadable (TARGET_BYTES) && !link_handed_back (pinned_rar)) {
+		g_printerr ("FAIL: the reader no longer hands back the link in the pinned rar; pick another PINNED_NSEC\n");
+		failures++;
+	}
 
 	window = test_window_new ("rar links test", 5);
 	gtk_widget_show (window);
@@ -359,12 +422,14 @@ main (int argc, char *argv[])
 	check_archive (tmp, long_rar, "a.txt", "z.txt", "long-rar", TRUE, window);
 	check_archive (tmp, tail_rar, "a.txt", NULL, "tail-rar", TRUE, window);
 	check_archive (tmp, head_rar, NULL, "z.txt", "head-rar", TRUE, window);
+	check_archive (tmp, pinned_rar, "a.txt", "z.txt", "pinned-rar", TRUE, window);
 
 	/* 7-Zip reads rar too. */
 	nemo_archive_hide_backend (NEMO_ARCHIVE_BACKEND_RAR, TRUE);
 	seven = nemo_archive_find_command ((const char * const[]) { "7z", "7zz", "7za", NULL }, "7-Zip");
 	if (seven != NULL) {
 		check_archive (tmp, long_rar, "a.txt", "z.txt", "long-7z", TRUE, window);
+		check_archive (tmp, pinned_rar, "a.txt", "z.txt", "pinned-7z", TRUE, window);
 	} else {
 		g_print ("note: no 7z here, 7-Zip taking over not checked\n");
 	}
@@ -373,17 +438,19 @@ main (int argc, char *argv[])
 	check_archive (tmp, long_rar, "a.txt", "z.txt", "long-none", FALSE, window);
 	check_archive (tmp, tail_rar, "a.txt", NULL, "tail-none", FALSE, window);
 	check_archive (tmp, head_rar, NULL, "z.txt", "head-none", FALSE, window);
+	check_archive (tmp, pinned_rar, "a.txt", "z.txt", "pinned-none", FALSE, window);
 	nemo_archive_hide_backend (NEMO_ARCHIVE_BACKEND_7Z, FALSE);
 	nemo_archive_hide_backend (NEMO_ARCHIVE_BACKEND_RAR, FALSE);
 
 	gtk_widget_destroy (window);
 	nemo_config_shutdown ();
+	g_free (pinned_rar);
 	g_free (head_rar);
 	g_free (tail_rar);
 	g_free (long_rar);
-	g_free (link);
 	g_free (long_target);
 	g_free (seven);
+	g_free (pinned_work);
 	g_free (work);
 	g_free (tmp);
 	g_free (config_home);

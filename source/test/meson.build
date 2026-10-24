@@ -2055,13 +2055,13 @@ test('reww9h2s Extract job test',
 )
 
 # A rar with a link libarchive 3.8.9 and older can't read. Writes it with rar;
-# the links it holds are POSIX ones.
+# the links it holds are POSIX ones. Reads one back with libarchive too.
 if not is_windows
   test('rk65m3m4 Extract rar long link test',
     executable('test-extract-rar-links',
       [ 'test-extract-rar-links.c', 'test.c' ],
       include_directories: [ rootInclude, ],
-      dependencies: [ gtk, nemo_private, test_scratch ],
+      dependencies: [ archive, gtk, nemo_private, test_scratch ],
       c_args: nemo_definitions,
     ),
     args: []

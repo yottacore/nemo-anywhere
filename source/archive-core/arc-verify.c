@@ -758,7 +758,7 @@ arc_verify (const ArcHost    *host,
 		guint64 selected_bytes = 0;
 		guint64 archived_bytes = 0;
 		guint resized = 0;
-		guint unlisted = 0;	/* links with a target too long to list */
+		guint unlisted = 0;	/* links with a target too long to read back */
 
 		g_hash_table_iter_init (&iter, walk.expected);
 		while (g_hash_table_iter_next (&iter, &key, &value)) {
@@ -774,7 +774,8 @@ arc_verify (const ArcHost    *host,
 			}
 
 			stored = g_hash_table_lookup (listing, rel_path);
-			if (stored == NULL && item->long_target) {
+			/* Listed or not, the reader can't be trusted past it. */
+			if (item->long_target) {
 				unlisted++;
 			} else if (stored == NULL) {
 				missing_files++;

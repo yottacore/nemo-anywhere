@@ -181,18 +181,25 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - rk65m3m4 fails in the full Linux suite with "Header CRC error".
 	- ID: 2026102307150011
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on a partial CICD run
+	- Needs external testing: rk65m3m4 in the FreeBSD lane. It skips there without rar. A rar that writes other bytes fails the pinned rar's own check, and then needs a time picked from that rar.
 	- Priority|Severity: Low
 	- Opened: 20261023-071500
 	- Opened by: t00mietum
-	- Related IDs: 2026101916300276
+	- Related IDs: 2026101916300276, 2026101312094706
 	- Target OS: Linux
 	- Steps to reproduce: `cicd/cicd.bash -y --no-sync --no-dogfood --no-publish` on dev `4b5a9b75`, load about 8, 20 GB of swap in use.
 	- Incorrect behavior: the long, head and 7z archives couldn't be read, "Header CRC error", so `z.txt` wasn't unpacked from any of them. The check added in 2026101916300276 for an archive written short didn't fire.
 	- Expected behavior: passes in the suite, as it does alone.
 	- Reproduced: once, 20261023. Alone in the same container right after, it passed 6 of 6.
+		- 20261023: 2 of 400 writes of the same 3 files did it, with libarchive 3.7.4 and rar 7.20. Every write did it with the file times pinned to one of those 2.
 	- Possible cause: not known. The archives were whole enough to list but not to unpack, so it's not the short write seen before.
-	- Test case: rk65m3m4.
+	- Actual cause: not load. After a long rar link target, libarchive 3.8.9 and older reads on one byte off, and what it does next rides on the bytes after the link, which change with the file times. Mostly it stops at the link, which extracting catches. About 1 time in 200 it hands the link back whole and fails on the next header, with the link gone from the entry. That read as a plain read error, so neither rar nor 7-Zip got the archive. tail.rar never does it, since what follows its link is always the same.
+	- Actual fix: a long rar link handed back by an affected libarchive is a stop too. The link isn't placed, and rar or 7-Zip takes the archive over as for the usual stop. The check before a delete counts such a link as unreadable whether it was listed or not. It refused the delete before too, with a less clear reason.
+	- Swept: every libarchive reader. The check before a delete is fixed as above, and `nemo-office.c` reads zip only.
+	- Test case: rk65m3m4, with a fourth rar written from files with pinned times that rar 7.20 turns into this case, unpacked with rar, with only 7-Zip and with neither. It fails too if the affected reader stops handing back the link in that rar.
+	- Verified: 20261023: rk65m3m4 failed on the old extract code with the pinned rar, with the same rows and messages as in the suite, and passed 3 of 3 after. The pinned rar's check fails with the time 2 ns off. rhr6ggmt, rewygsbg, reww9h2s, reww9h2r, rjq9mv0w and rk6704r8 pass. The gate passed, 231 OK and 1 skipped.
+	- Branch: round1023
 
 - Build the "Nemo Anywhere" selection model with the affirmative switch off.
 	- ID: 2026102019174440
