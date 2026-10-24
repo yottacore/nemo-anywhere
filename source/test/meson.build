@@ -505,7 +505,9 @@ test('rknjd2qn Delete fence test',
     include_directories: [ rootInclude, ],
     dependencies: [ gtk, nemo_private, test_scratch ],
   ),
-  args: []
+  args: [],
+  # 10 s of loads racing the fence on Windows.
+  timeout: 60
 )
 
 test('rek3gd31 Search invalid regex test',

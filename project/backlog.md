@@ -151,11 +151,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rhtmbdmh.
 	- Progress log:
 		- 20261022: same 3 lines in the native gate on round1022 in the desktop session, and 5 of 5 alone there.
+		- 20261023: not reached; the time went to 2026102221362030.
 
 - rhtmbdmj crashed once in the native Windows suite.
 	- ID: 2026102221362030
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs external testing: the native gate on vm925w, `pwsh cicd/cicd-win.ps1 -Gate -Yes` as wintest in the desktop session, from a bundle of round1023. Each run so far had 1 crash, so 2 or 3 runs with none before closing.
 	- Priority|Severity: Avg
 	- Opened: 20261022-213620
 	- Opened by: t00mietum
@@ -168,7 +170,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: once in 1 suite run, 20261022. Run alone through the same wrapper right after, it passed 5 of 5.
 		- 20261023, the next native suite run, on the `unused` branch: rjnzpkk7 (Command launch win32) ended the same way, exit 0xb00, right after its "a program that is not there" case. Alone it passed 8 of 8. So it's 1 test in each full native run so far, a different one each time.
 	- Possible cause: not known. Every test module has the fence, and the fence changed in 2026102219444112, so it isn't ruled out. So isn't load from the parallel suite.
-	- Test case: rhtmbdmj, rjnzpkk7.
+	- Actual cause: the fence on Windows. After every LoadLibrary it patched every loaded module's import table again, from a list it took without the loader's lock. Another thread could unload a module in the middle of that, or be binding a new module's imports while the fence changed the same page's protection, and either is an access violation. 0xb00 is how MSYS2's bash reports a native program that died of one. Each GTK test loads and unloads system libraries on its own threads, so any test could hit it, about once in a suite. Inferred: no crash dump was taken from the 2 suite runs.
+	- Actual fix: `source/test/test-fence.c`. A library loaded later is patched from the loader's own load notice, which comes once its imports are bound, under the loader's lock, with no other load or unload running. The LoadLibrary hooks are gone. The one walk at start pins each module first. A page that runs code stays executable while its slot is written.
+	- Test case: rknjd2qn, new Windows case: 4 libraries loaded and unloaded on threads of their own for 10 s while the main thread's loads make the fence look again, then each one loaded late has its fenced imports patched. rknjd2qn's timeout went to 60 s for it. Also rhtmbdmj, rjnzpkk7.
+	- Verified: 20261023 on vm925w as wintest in the desktop session: rknjd2qn with the old fence crashed with 0xC0000005 3 runs of 3, and passed the new case 3 of 3 with the fix. rhtmbdmj passed 3 of 3 with the fix. Under wine rknjd2qn passes, and rjvzdd4w; rcgzbyar, rjnzpkk7 and rhtmbdmj fail the same way with the old fence and the new when run without the jail. Linux gate: 231 OK, and rktqpp37 timed out at load 65 and passed alone. Lint passed, and the Windows cross build is clean.
+	- Swept: every place the fence patches. The start walk and the load notice both go through `patch_module`, and the 11 hooked calls are the same as before, minus the 4 LoadLibrary ones it no longer needs.
+	- Progress log:
+		- 20261023: a delete right under a drive root is checked against the current folder instead, filed as 2026102320180998.
+
+- On Windows the fence checks a delete right under a drive root against the current folder.
+	- ID: 2026102320180998
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261023-201809
+	- Opened by: 2026102221362030
+	- Related IDs: 2026101715030680, 2026102219444112
+	- Target OS: Windows
+	- Steps to reproduce: run `test-nemo-fence.exe` natively from a folder inside `%TEMP%`, outside the jail.
+	- Incorrect behavior: `test_fence_allows ("\\")` says yes, so rknjd2qn fails at its check that the root is not the test's own. `resolve_w` takes `C:\x` apart into `C:` and `x`, and `C:` alone means the current folder on C:, not its root. So a delete of `C:\x` is checked as `<current folder>\x`, and let through when the current folder is the test's own.
+	- Expected behavior: `C:\x` is checked as `C:\x`, wherever the test runs from.
+	- Reproduced: 20261023 on vm925w as wintest, every run of rknjd2qn from `%TEMP%`. The suite runs it from the build folder, where it passes.
+	- Possible cause: the parent of an item right under a drive root should keep its backslash.
+	- Test case: rknjd2qn, once it runs a case from a current folder inside its own.
 
 - rk65m3m4 fails in the full Linux suite with "Header CRC error".
 	- ID: 2026102307150011
