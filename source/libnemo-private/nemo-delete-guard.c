@@ -486,6 +486,23 @@ note_focus_left (GSignalInvocationHint *hint, G_GNUC_UNUSED guint n_values,
 	return TRUE;
 }
 
+#ifdef G_OS_WIN32
+/* The shell's property sheet runs on a thread of ours but isn't a GTK window,
+   so its closing gets neither hook above. Windows says which thread the focus
+   came back from. */
+static GdkFilterReturn
+note_focus_from_thread (GdkXEvent *native, G_GNUC_UNUSED GdkEvent *event,
+			G_GNUC_UNUSED gpointer user_data)
+{
+	if (nemo_delete_guard_win32_back_from_own_thread (native)) {
+		own_focus_left_at = g_get_monotonic_time ();
+		own_focus_left_from = &own_focus_left_from;
+	}
+
+	return GDK_FILTER_CONTINUE;
+}
+#endif
+
 static gboolean
 note_focus (GtkWidget *widget, GdkEvent *event, G_GNUC_UNUSED gpointer user_data)
 {
@@ -517,6 +534,9 @@ nemo_delete_guard_watch_window (GtkWindow *window)
 		g_signal_add_emission_hook (unmap_signal, 0, note_focus_left, NULL, NULL);
 		g_signal_add_emission_hook (g_signal_lookup ("focus-out-event", GTK_TYPE_WIDGET), 0,
 					    note_focus_left, NULL, NULL);
+#ifdef G_OS_WIN32
+		gdk_window_add_filter (NULL, note_focus_from_thread, NULL);
+#endif
 	}
 
 	g_object_set_data_full (G_OBJECT (window), FOCUSED_AT_KEY, g_new0 (gint64, 1), g_free);

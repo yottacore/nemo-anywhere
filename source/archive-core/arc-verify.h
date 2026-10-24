@@ -62,9 +62,11 @@ gboolean arc_rar_target_unreadable      (gsize stored_length);
 struct archive;
 struct archive_entry;
 
-/* Whether a read that ended, on an error or as if at the end, stopped at
-   such a link: entry, as archive_read_next_header left it, is a link in a
-   rar with a target that long. */
+/* Whether the reader is at such a link: entry, as archive_read_next_header
+   left it, is a link in a rar with a target that long. Mostly the read ends
+   there, on an error or as if at the end. Now and then it hands the link
+   back and fails on the next header instead, depending on the bytes after
+   it, so a link handed back is a stop too. */
 gboolean arc_rar_stopped_at_long_target (struct archive       *a,
 					 struct archive_entry *entry);
 

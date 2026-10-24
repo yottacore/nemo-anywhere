@@ -239,19 +239,36 @@ leaks = executable('test-nemo-leaks',
   c_args: nemo_definitions,
 )
 
-test('rjbkzvdv Job progress leak test', leaks, args: [ 'progress' ])
-test('rjbkzwe7 Move job leak test', leaks, args: [ 'move' ])
-test('rjbmdd0s Clipboard drag check leak test', leaks, args: [ 'clipboard' ])
-test('rjbmh7g1 Stopped zip leak test', leaks, args: [ 'zip-cancel' ])
-test('rjbn18rq Search query leak test', leaks, args: [ 'query-editor' ])
-test('rjbn19rn Bookmarks load leak test', leaks, args: [ 'bookmarks' ])
-test('rjbn328w Bookmarks file load leak test', leaks, args: [ 'bookmarks-file' ])
-test('rjbpmcxy Extract job leak test', leaks, args: [ 'extract' ])
-test('rjbqagjf Stopped tar.gz leak test', leaks, args: [ 'tar.gz-cancel' ])
-test('rjbw0rkq Stopped 7z leak test', leaks, args: [ '7z-cancel' ])
-test('rjcth67d Leak test self-check', leaks, args: [ 'self-check' ])
-test('rkneydx6 Settings save and reload leak test', leaks, args: [ 'settings' ])
-test('rkneydzr File checksum leak test', leaks, args: [ 'checksum' ])
+# On Windows each reading waits for the heap to sit still, COM traffic from
+# outside can keep it moving, and growth has to show 4 times there, so a case
+# can take twice its usual 15 s (2026101913541101).
+leakTimeout = is_windows ? 90 : 30
+test('rjbkzvdv Job progress leak test', leaks, args: [ 'progress' ],
+  timeout: leakTimeout)
+test('rjbkzwe7 Move job leak test', leaks, args: [ 'move' ],
+  timeout: leakTimeout)
+test('rjbmdd0s Clipboard drag check leak test', leaks, args: [ 'clipboard' ],
+  timeout: leakTimeout)
+test('rjbmh7g1 Stopped zip leak test', leaks, args: [ 'zip-cancel' ],
+  timeout: leakTimeout)
+test('rjbn18rq Search query leak test', leaks, args: [ 'query-editor' ],
+  timeout: leakTimeout)
+test('rjbn19rn Bookmarks load leak test', leaks, args: [ 'bookmarks' ],
+  timeout: leakTimeout)
+test('rjbn328w Bookmarks file load leak test', leaks, args: [ 'bookmarks-file' ],
+  timeout: leakTimeout)
+test('rjbpmcxy Extract job leak test', leaks, args: [ 'extract' ],
+  timeout: leakTimeout)
+test('rjbqagjf Stopped tar.gz leak test', leaks, args: [ 'tar.gz-cancel' ],
+  timeout: leakTimeout)
+test('rjbw0rkq Stopped 7z leak test', leaks, args: [ '7z-cancel' ],
+  timeout: leakTimeout)
+test('rjcth67d Leak test self-check', leaks, args: [ 'self-check' ],
+  timeout: leakTimeout)
+test('rkneydx6 Settings save and reload leak test', leaks, args: [ 'settings' ],
+  timeout: leakTimeout)
+test('rkneydzr File checksum leak test', leaks, args: [ 'checksum' ],
+  timeout: leakTimeout)
 test('rkneye2c Multi-row drag leak test', leaks, args: [ 'drag' ],
   timeout: 180)       # every round waits out GDK's snap-back, about half a second
 
@@ -505,7 +522,9 @@ test('rknjd2qn Delete fence test',
     include_directories: [ rootInclude, ],
     dependencies: [ gtk, nemo_private, test_scratch ],
   ),
-  args: []
+  args: [],
+  # 10 s of loads racing the fence on Windows.
+  timeout: 60
 )
 
 test('rek3gd31 Search invalid regex test',
@@ -525,6 +544,17 @@ if is_windows
       dependencies: [ gtk, nemo_private, test_scratch ],
     ),
     args: []
+  )
+
+  # Takes the focus, so alone.
+  test('rm0d1tdd Delete key after a window on another thread test',
+    executable('test-nemo-delete-focus-win32',
+      [ 'test-nemo-delete-focus-win32.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_fence ],
+    ),
+    args: [],
+    is_parallel: false,
   )
 endif
 
@@ -2042,13 +2072,13 @@ test('reww9h2s Extract job test',
 )
 
 # A rar with a link libarchive 3.8.9 and older can't read. Writes it with rar;
-# the links it holds are POSIX ones.
+# the links it holds are POSIX ones. Reads one back with libarchive too.
 if not is_windows
   test('rk65m3m4 Extract rar long link test',
     executable('test-extract-rar-links',
       [ 'test-extract-rar-links.c', 'test.c' ],
       include_directories: [ rootInclude, ],
-      dependencies: [ gtk, nemo_private, test_scratch ],
+      dependencies: [ archive, gtk, nemo_private, test_scratch ],
       c_args: nemo_definitions,
     ),
     args: []

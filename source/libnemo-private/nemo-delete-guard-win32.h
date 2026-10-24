@@ -30,6 +30,11 @@ G_BEGIN_DECLS
 gboolean nemo_delete_guard_win32_is_home (const char *path,
 					  gboolean    or_above);
 
+/* Takes a MSG. TRUE for a WM_ACTIVATEAPP that brings the focus back from
+   another thread of this process, such as the one the shell runs its property
+   sheet on, which isn't a GTK window. */
+gboolean nemo_delete_guard_win32_back_from_own_thread (const void *native);
+
 G_END_DECLS
 
 #endif /* NEMO_DELETE_GUARD_WIN32_H */

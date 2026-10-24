@@ -32,6 +32,20 @@
    own memory, taken or given back, can hide a small leak or look like one. */
 #define HEAP_READINGS 8
 
+/* A leak grows the heap in every reading. What a thread takes the first time
+   it does some piece of work is taken once, and can come a reading or more
+   after the thread started, so growth has to show twice.
+   On Windows, GIO's start-up scan of the installed apps leaves Windows' own
+   file explorer code in the process, and from then on COM calls come and go
+   in it from outside, a 4 KB buffer at a time. They can grow two readings in
+   a row and then give it all back, which a leak never does, so there growth
+   has to show 4 times (2026101913541101). */
+#ifdef G_OS_WIN32
+#define HEAP_SHOWINGS 4
+#else
+#define HEAP_SHOWINGS 2
+#endif
+
 void
 test_heap_init (int argc, char **argv)
 {
@@ -410,10 +424,7 @@ test_heap_growth (void (*op) (gpointer data), gpointer data,
 		op (data);
 	}
 
-	/* A leak grows the heap in every reading. What a thread takes the first
-	   time it does some piece of work is taken once, and can come a reading
-	   or more after the thread started, so growth has to show twice. */
-	for (reading = 0; reading < HEAP_READINGS && settled < 2; reading++) {
+	for (reading = 0; reading < HEAP_READINGS && settled < HEAP_SHOWINGS; reading++) {
 		if (!settled_reading (op, data, rounds, &reading_growth)) {
 			g_print ("a thread started or ended, so the reading is taken again\n");
 			continue;
@@ -423,7 +434,7 @@ test_heap_growth (void (*op) (gpointer data), gpointer data,
 		if (*growth < limit) {
 			break;
 		}
-		if (settled < 2) {
+		if (settled < HEAP_SHOWINGS) {
 			g_print ("the heap grew %" G_GINT64_FORMAT " bytes, so it is read again\n",
 				 reading_growth);
 		}

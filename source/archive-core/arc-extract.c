@@ -726,8 +726,9 @@ extract_with_libarchive (ExtractJob *job,
 		}
 
 		next = archive_read_next_header (a, &entry);
-		if ((next == ARCHIVE_EOF || next < ARCHIVE_WARN) && !job->password_declined &&
-		    arc_rar_stopped_at_long_target (a, entry)) {
+		/* Also when the link comes back whole: the next header is
+		   then read from the wrong place (2026102307150011). */
+		if (!job->password_declined && arc_rar_stopped_at_long_target (a, entry)) {
 			result = stopped_at_long_link (job, entry);
 			break;
 		}

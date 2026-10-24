@@ -494,16 +494,20 @@ resolve_w (const wchar_t *path, wchar_t out[FENCE_PATH])
 		return 0;
 	}
 	len = wcslen (full);
-	while (len > 3 && (full[len - 1] == L'\\' || full[len - 1] == L'/')) {
+	while (len > 3 && (full[len - 1] == L'\\' || full[len - 1] == L'/') && full[len - 2] != L':') {
 		full[--len] = L'\0';
 	}
 	cut = wcsrchr (full, L'\\');
-	if (cut == NULL) {
+	if (cut == NULL || cut[1] == L'\0') {
 		return final_path (full, out, FENCE_PATH);
 	}
 	name = cut + 1;
-	*cut = L'\0';
-	if (!final_path (full, dir, FENCE_PATH)) {
+	/* C: alone is the current folder on C:, not its root, so the parent of
+	   C:\x keeps its backslash. out holds it until the answer goes there. */
+	len = (size_t) (cut - full) + (cut > full && cut[-1] == L':' ? 1 : 0);
+	memcpy (out, full, len * sizeof (wchar_t));
+	out[len] = L'\0';
+	if (!final_path (out, dir, FENCE_PATH)) {
 		return 0;
 	}
 	len = wcslen (dir);
@@ -664,7 +668,7 @@ typedef struct {
 
 enum {
 	H_DELETE_W, H_DELETE_A, H_RMDIR_W, H_RMDIR_A, H_MOVE_W, H_MOVE_A, H_MOVE_EX_W, H_MOVE_EX_A,
-	H_MOVE_PROGRESS_W, H_MOVE_PROGRESS_A, H_REPLACE_W, H_LOAD_W, H_LOAD_A, H_LOAD_EX_W, H_LOAD_EX_A,
+	H_MOVE_PROGRESS_W, H_MOVE_PROGRESS_A, H_REPLACE_W,
 	N_HOOKS
 };
 
@@ -680,10 +684,6 @@ static BOOL WINAPI hook_move_progress_w (LPCWSTR from, LPCWSTR to, LPPROGRESS_RO
 static BOOL WINAPI hook_move_progress_a (LPCSTR from, LPCSTR to, LPPROGRESS_ROUTINE progress, LPVOID data, DWORD flags);
 static BOOL WINAPI hook_replace_w       (LPCWSTR replaced, LPCWSTR replacement, LPCWSTR backup, DWORD flags,
 					 LPVOID exclude, LPVOID reserved);
-static HMODULE WINAPI hook_load_w       (LPCWSTR name);
-static HMODULE WINAPI hook_load_a       (LPCSTR name);
-static HMODULE WINAPI hook_load_ex_w    (LPCWSTR name, HANDLE file, DWORD flags);
-static HMODULE WINAPI hook_load_ex_a    (LPCSTR name, HANDLE file, DWORD flags);
 
 static Hook hooks[N_HOOKS] = {
 	[H_DELETE_W]        = { "DeleteFileW",           (void *) hook_delete_w,        NULL, NULL },
@@ -697,13 +697,7 @@ static Hook hooks[N_HOOKS] = {
 	[H_MOVE_PROGRESS_W] = { "MoveFileWithProgressW", (void *) hook_move_progress_w, NULL, NULL },
 	[H_MOVE_PROGRESS_A] = { "MoveFileWithProgressA", (void *) hook_move_progress_a, NULL, NULL },
 	[H_REPLACE_W]       = { "ReplaceFileW",          (void *) hook_replace_w,       NULL, NULL },
-	[H_LOAD_W]          = { "LoadLibraryW",          (void *) hook_load_w,          NULL, NULL },
-	[H_LOAD_A]          = { "LoadLibraryA",          (void *) hook_load_a,          NULL, NULL },
-	[H_LOAD_EX_W]       = { "LoadLibraryExW",        (void *) hook_load_ex_w,       NULL, NULL },
-	[H_LOAD_EX_A]       = { "LoadLibraryExA",        (void *) hook_load_ex_a,       NULL, NULL },
 };
-
-static void patch_all (void);
 
 #define REAL(index, type) ((type) hooks[index].real)
 
@@ -716,10 +710,6 @@ typedef BOOL (WINAPI *MoveExA)  (LPCSTR, LPCSTR, DWORD);
 typedef BOOL (WINAPI *MoveProgW) (LPCWSTR, LPCWSTR, LPPROGRESS_ROUTINE, LPVOID, DWORD);
 typedef BOOL (WINAPI *MoveProgA) (LPCSTR, LPCSTR, LPPROGRESS_ROUTINE, LPVOID, DWORD);
 typedef BOOL (WINAPI *ReplaceW) (LPCWSTR, LPCWSTR, LPCWSTR, DWORD, LPVOID, LPVOID);
-typedef HMODULE (WINAPI *LoadW)   (LPCWSTR);
-typedef HMODULE (WINAPI *LoadA)   (LPCSTR);
-typedef HMODULE (WINAPI *LoadExW) (LPCWSTR, HANDLE, DWORD);
-typedef HMODULE (WINAPI *LoadExA) (LPCSTR, HANDLE, DWORD);
 
 static BOOL WINAPI
 hook_delete_w (LPCWSTR path)
@@ -807,52 +797,6 @@ hook_replace_w (LPCWSTR replaced, LPCWSTR replacement, LPCWSTR backup, DWORD fla
 	return REAL (H_REPLACE_W, ReplaceW) (replaced, replacement, backup, flags, exclude, reserved);
 }
 
-/* A module loaded later has an import table of its own to patch. */
-static HMODULE WINAPI
-hook_load_w (LPCWSTR name)
-{
-	HMODULE module = REAL (H_LOAD_W, LoadW) (name);
-
-	if (module != NULL) {
-		patch_all ();
-	}
-	return module;
-}
-
-static HMODULE WINAPI
-hook_load_a (LPCSTR name)
-{
-	HMODULE module = REAL (H_LOAD_A, LoadA) (name);
-
-	if (module != NULL) {
-		patch_all ();
-	}
-	return module;
-}
-
-static HMODULE WINAPI
-hook_load_ex_w (LPCWSTR name, HANDLE file, DWORD flags)
-{
-	HMODULE module = REAL (H_LOAD_EX_W, LoadExW) (name, file, flags);
-
-	if (module != NULL) {
-		patch_all ();
-	}
-	return module;
-}
-
-static HMODULE WINAPI
-hook_load_ex_a (LPCSTR name, HANDLE file, DWORD flags)
-{
-	HMODULE module = REAL (H_LOAD_EX_A, LoadExA) (name, file, flags);
-
-	if (module != NULL) {
-		patch_all ();
-	}
-	return module;
-}
-
-
 static void
 patch_module (HMODULE module)
 {
@@ -882,12 +826,20 @@ patch_module (HMODULE module)
 			size_t i;
 
 			for (i = 0; i < N_HOOKS; i++) {
-				DWORD old;
+				MEMORY_BASIC_INFORMATION page;
+				DWORD writable, old;
 
 				if (hooks[i].real == NULL || (*slot != hooks[i].real && *slot != hooks[i].also)) {
 					continue;
 				}
-				if (VirtualProtect (slot, sizeof *slot, PAGE_READWRITE, &old)) {
+				/* Some modules keep the table in a page of code, which
+				   another thread may be running. */
+				if (VirtualQuery (slot, &page, sizeof page) == 0) {
+					break;
+				}
+				writable = page.Protect & (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE |
+							   PAGE_EXECUTE_WRITECOPY) ? PAGE_EXECUTE_READWRITE : PAGE_READWRITE;
+				if (VirtualProtect (slot, sizeof *slot, writable, &old)) {
 					*slot = hooks[i].hook;
 					VirtualProtect (slot, sizeof *slot, old, &old);
 				}
@@ -899,24 +851,71 @@ patch_module (HMODULE module)
 
 /* The modules the real calls live in are left as they are, for the reason
    above Hook. */
+static HMODULE real_homes[3];
+
+static int
+is_real_home (HMODULE module)
+{
+	return module == real_homes[0] || module == real_homes[1] || module == real_homes[2];
+}
+
+/* What the loader hands a load notification. Only the address is used. */
+typedef struct {
+	ULONG       flags;
+	const void *full_name;
+	const void *base_name;
+	void       *base;
+	ULONG       size;
+} LoadNote;
+
+typedef void (CALLBACK *LoadNoteFn) (ULONG reason, const LoadNote *note, void *context);
+typedef LONG (NTAPI *RegisterFn) (ULONG flags, LoadNoteFn fn, void *context, void **cookie);
+
+#define LOAD_NOTE_LOADED 1
+
+/* A module loaded later has an import table of its own to patch. The loader
+   says so once the module's imports are bound, holding its lock, and no other
+   thread loads or unloads anything until this returns. Patching every module
+   from LoadLibrary's return instead raced the loader: a module could be
+   unloaded in the middle of the walk, or have its table written meanwhile,
+   and a test died of an access violation now and then. */
+static void CALLBACK
+on_load (ULONG reason, const LoadNote *note, void *unused_context)
+{
+	(void) unused_context;
+
+	if (reason != LOAD_NOTE_LOADED || note == NULL || note->base == NULL || is_real_home (note->base)) {
+		return;
+	}
+	AcquireSRWLockExclusive (&patch_lock);
+	patch_module (note->base);
+	ReleaseSRWLockExclusive (&patch_lock);
+}
+
+/* The modules already there, once. Each is pinned first, so another thread
+   can't unload it mid-walk, and one that is already gone is skipped. They'd
+   stay loaded for the test's life anyway. */
 static void
 patch_all (void)
 {
-	HMODULE modules[1024];
-	HMODULE own[3];
-	DWORD needed = 0, i;
+	HMODULE modules[1024], pinned;
+	DWORD needed = 0, i, n, n_kept = 0;
 
-	own[0] = GetModuleHandleW (L"kernel32.dll");
-	own[1] = GetModuleHandleW (L"kernelbase.dll");
-	own[2] = GetModuleHandleW (L"ntdll.dll");
+	if (!K32EnumProcessModules (GetCurrentProcess (), modules, sizeof modules, &needed)) {
+		return;
+	}
+	n = needed / sizeof modules[0] < 1024 ? needed / sizeof modules[0] : 1024;
+	for (i = 0; i < n; i++) {
+		if (!is_real_home (modules[i]) &&
+		    GetModuleHandleExW (GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
+					(LPCWSTR) modules[i], &pinned)) {
+			modules[n_kept++] = pinned;
+		}
+	}
 
 	AcquireSRWLockExclusive (&patch_lock);
-	if (K32EnumProcessModules (GetCurrentProcess (), modules, sizeof modules, &needed)) {
-		for (i = 0; i < needed / sizeof modules[0] && i < 1024; i++) {
-			if (modules[i] != own[0] && modules[i] != own[1] && modules[i] != own[2]) {
-				patch_module (modules[i]);
-			}
-		}
+	for (i = 0; i < n_kept; i++) {
+		patch_module (modules[i]);
 	}
 	ReleaseSRWLockExclusive (&patch_lock);
 }
@@ -949,6 +948,9 @@ init_once (PINIT_ONCE unused_once, PVOID unused_param, PVOID *unused_context)
 {
 	HMODULE kernel32 = GetModuleHandleW (L"kernel32.dll");
 	HMODULE kernelbase = GetModuleHandleW (L"kernelbase.dll");
+	HMODULE ntdll = GetModuleHandleW (L"ntdll.dll");
+	RegisterFn register_note = NULL;
+	void *cookie = NULL;
 	wchar_t cell[FENCE_PATH];
 	DWORD n;
 	size_t i;
@@ -957,6 +959,9 @@ init_once (PINIT_ONCE unused_once, PVOID unused_param, PVOID *unused_context)
 	(void) unused_param;
 	(void) unused_context;
 
+	real_homes[0] = kernel32;
+	real_homes[1] = kernelbase;
+	real_homes[2] = ntdll;
 	for (i = 0; i < N_HOOKS; i++) {
 		hooks[i].real = kernelbase != NULL ? (void *) GetProcAddress (kernelbase, hooks[i].name) : NULL;
 		hooks[i].also = kernel32 != NULL ? (void *) GetProcAddress (kernel32, hooks[i].name) : NULL;
@@ -989,6 +994,15 @@ init_once (PINIT_ONCE unused_once, PVOID unused_param, PVOID *unused_context)
 		}
 	}
 
+	/* Before the walk, so a module loaded meanwhile is caught one way or the
+	   other. Patching one twice changes nothing. */
+	if (ntdll != NULL) {
+		register_note = (RegisterFn) (void *) GetProcAddress (ntdll, "LdrRegisterDllNotification");
+	}
+	if (register_note == NULL || register_note (0, on_load, NULL, &cookie) != 0) {
+		fprintf (stderr, "fence: no load notices here; a module loaded later is not fenced\n");
+		fflush (stderr);
+	}
 	patch_all ();
 	return TRUE;
 }

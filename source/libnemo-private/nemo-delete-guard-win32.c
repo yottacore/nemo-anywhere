@@ -237,4 +237,54 @@ nemo_delete_guard_win32_is_home (const char *path, gboolean or_above)
 	return found;
 }
 
+static gboolean
+thread_is_ours (DWORD thread)
+{
+	HANDLE handle;
+	DWORD process;
+
+	if (thread == 0) {
+		return FALSE;
+	}
+
+	handle = OpenThread (THREAD_QUERY_LIMITED_INFORMATION, FALSE, thread);
+	if (handle == NULL) {
+		return FALSE;
+	}
+
+	process = GetProcessIdOfThread (handle);
+	CloseHandle (handle);
+
+	return process == GetCurrentProcessId ();
+}
+
+/* Main thread only, from the window procedure. */
+static DWORD handed_to;
+
+gboolean
+nemo_delete_guard_win32_back_from_own_thread (const void *native)
+{
+	const MSG *msg = native;
+	DWORD thread;
+
+	if (msg == NULL || msg->message != WM_ACTIVATEAPP) {
+		return FALSE;
+	}
+
+	thread = (DWORD) msg->lParam;
+
+	if (!msg->wParam) {
+		handed_to = thread_is_ours (thread) ? thread : 0;
+		return FALSE;
+	}
+
+	/* No thread means the window that had the focus is gone, as a closed
+	   sheet is. And a sheet's thread can end before its close reaches us. */
+	if (thread == 0) {
+		return handed_to != 0;
+	}
+
+	return thread == handed_to || thread_is_ours (thread);
+}
+
 #endif /* G_OS_WIN32 */

@@ -38,8 +38,8 @@ typedef enum {
 /* Runs op warmup times, then rounds times more, and sets growth to how many
    bytes the heap grew over the rounds, which can be below zero. A reading
    where any thread started or ended is taken again, and so is one that grew
-   by limit or more, to see it twice. From the first call on, GLib's pools
-   keep every thread they start. */
+   by limit or more, to see it twice, or 4 times on Windows. From the first
+   call on, GLib's pools keep every thread they start. */
 TestHeapResult test_heap_growth (void (*op) (gpointer data), gpointer data,
 				 guint warmup, guint rounds, gint64 limit,
 				 gint64 *growth);

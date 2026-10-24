@@ -102,6 +102,122 @@ under_wine (void)
 
 	return ntdll != NULL && GetProcAddress (ntdll, "wine_get_version") != NULL;
 }
+
+static volatile LONG racing;
+
+static DWORD WINAPI
+load_and_free (LPVOID name)
+{
+	while (InterlockedCompareExchange (&racing, 1, 1) == 1) {
+		HMODULE module = LoadLibraryW (name);
+
+		if (module != NULL) {
+			FreeLibrary (module);
+		}
+	}
+	return 0;
+}
+
+/* How many of the module's imports of the fenced calls still go straight to
+   the system, and how many go to this program, where the fence is. */
+static void
+count_fenced (HMODULE module, int *open, int *fenced)
+{
+	static const char *const names[] = {
+		"DeleteFileW", "DeleteFileA", "RemoveDirectoryW", "RemoveDirectoryA", "MoveFileW", "MoveFileA",
+		"MoveFileExW", "MoveFileExA", "MoveFileWithProgressW", "MoveFileWithProgressA", "ReplaceFileW",
+	};
+	HMODULE homes[] = { GetModuleHandleW (L"kernelbase.dll"), GetModuleHandleW (L"kernel32.dll") };
+	BYTE *self_base = (BYTE *) GetModuleHandleW (NULL);
+	IMAGE_NT_HEADERS *self_nt = (IMAGE_NT_HEADERS *) (self_base + ((IMAGE_DOS_HEADER *) self_base)->e_lfanew);
+	BYTE *base = (BYTE *) module;
+	IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *) (base + ((IMAGE_DOS_HEADER *) base)->e_lfanew);
+	DWORD rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
+	IMAGE_IMPORT_DESCRIPTOR *import;
+
+	*open = *fenced = 0;
+	for (import = (IMAGE_IMPORT_DESCRIPTOR *) (base + rva); rva != 0 && import->Name != 0; import++) {
+		IMAGE_THUNK_DATA *thunk;
+
+		for (thunk = (IMAGE_THUNK_DATA *) (base + import->FirstThunk); thunk->u1.Function != 0; thunk++) {
+			BYTE *to = (BYTE *) (guintptr) thunk->u1.Function;
+			size_t h, n;
+
+			if (to >= self_base && to < self_base + self_nt->OptionalHeader.SizeOfImage) {
+				(*fenced)++;
+				continue;
+			}
+			for (h = 0; h < G_N_ELEMENTS (homes); h++) {
+				for (n = 0; homes[h] != NULL && n < G_N_ELEMENTS (names); n++) {
+					if ((void *) to == (void *) GetProcAddress (homes[h], names[n])) {
+						(*open)++;
+					}
+				}
+			}
+		}
+	}
+}
+
+/* Libraries this test hasn't loaded, each loaded and unloaded over and over
+   on a thread of its own while the fence patches what is loaded, for 10
+   seconds. Patching every module from LoadLibrary's return read modules that
+   were already gone and changed the protection of import tables the loader
+   was writing, and a test died of an access violation now and then. A library
+   loaded this late is still fenced. */
+static int
+race_loads (void)
+{
+	static const wchar_t *const names[] = { L"dbghelp.dll", L"imagehlp.dll", L"wininet.dll", L"cabinet.dll" };
+	HANDLE threads[G_N_ELEMENTS (names)];
+	ULONGLONG end;
+	size_t i, n = 0;
+	int checked = 0;
+
+	racing = 1;
+	for (i = 0; i < G_N_ELEMENTS (names); i++) {
+		if (GetModuleHandleW (names[i]) != NULL) {
+			continue;
+		}
+		threads[n] = CreateThread (NULL, 0, load_and_free, (LPVOID) names[i], 0, NULL);
+		n += threads[n] != NULL;
+	}
+	/* A library that is there already, so each load here only makes the
+	   fence look again. */
+	end = GetTickCount64 () + (n >= 2 ? 10000 : 0);
+	while (GetTickCount64 () < end) {
+		FreeLibrary (LoadLibraryW (L"kernel32.dll"));
+	}
+	InterlockedExchange (&racing, 0);
+	WaitForMultipleObjects ((DWORD) n, threads, TRUE, INFINITE);
+	for (i = 0; i < n; i++) {
+		CloseHandle (threads[i]);
+	}
+	if (n < 2) {
+		g_printerr ("only %zu of the libraries could be raced here\n", n);
+		return 5;
+	}
+
+	for (i = 0; i < G_N_ELEMENTS (names); i++) {
+		HMODULE module = LoadLibraryW (names[i]);
+		int open = 0, fenced = 0;
+
+		if (module == NULL) {
+			continue;
+		}
+		count_fenced (module, &open, &fenced);
+		FreeLibrary (module);
+		if (open > 0) {
+			g_printerr ("%ls calls %d fenced call(s) unfenced\n", names[i], open);
+			return 7;
+		}
+		checked += fenced > 0;
+	}
+	if (checked == 0) {
+		g_printerr ("none of the libraries imports a fenced call\n");
+		return 8;
+	}
+	return 0;
+}
 #endif
 
 /* The child's half. Exits 0 when the call came back, whatever it answered;
@@ -328,6 +444,30 @@ check_recycle_bin (void)
 }
 #endif
 
+/* A name right under the root is judged as that, not against the current
+   folder. On Windows C: alone is the current folder on C:, so a parent cut
+   down to it once let C:\x through from inside the test's own folder. */
+static void
+check_from_inside (void)
+{
+	g_autofree char *was = g_get_current_dir ();
+	g_autofree char *missing = NULL;
+	g_autofree char *drive = NULL;
+
+#ifdef G_OS_WIN32
+	drive = g_strdup_printf ("%c:\\", allowed[0]);
+#else
+	drive = g_strdup ("/");
+#endif
+	missing = g_build_filename (drive, "nemo-fence-not-there", NULL);
+	check (g_chdir (allowed) == 0);
+	check (!test_fence_allows (G_DIR_SEPARATOR_S));
+	check (!test_fence_allows (drive));
+	check (!test_fence_allows (missing));
+	check (test_fence_allows ("here.txt"));
+	check (g_chdir (was) == 0);
+}
+
 int
 main (int argc, char **argv)
 {
@@ -357,6 +497,7 @@ main (int argc, char **argv)
 	   system is not. */
 	check (test_fence_allows (allowed));
 	check (!test_fence_allows (G_DIR_SEPARATOR_S));
+	check_from_inside ();
 
 	check_refusals ();
 #ifndef G_OS_WIN32
@@ -366,6 +507,9 @@ main (int argc, char **argv)
 	check_not_there ();
 #ifdef G_OS_WIN32
 	check_recycle_bin ();
+	/* In this process, since a child started from here ran it clean
+	   with the old fence as often as not. A crash here is the fence's. */
+	check (race_loads () == 0);
 #endif
 
 	g_free (allowed);
